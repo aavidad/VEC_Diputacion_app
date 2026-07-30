@@ -13,16 +13,14 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Corte publicado usado como base: `cc6041e`.
-- Último commit técnico verificado: `e8c950c`.
-- Último cierre: CT-000047C2.1a, rol selector RRHH mínimo sin acceso
-  funcional, cerrado documentalmente en `808522d`, con doble `GO`
-  independiente, P0=P1=P2=0 y CI `30527303065` completamente verde.
-- Trabajo activo: C2.1b, fachada mínima de Identidad para ContextoActor, en
-  borrador `e8883df`, aún sin runner, revisión ni `GO`.
-- Dependencia ACL candidata: `agent/ct73-endurecimiento-tipos-public-20260730`,
-  commits `55fe00d`, `1327b12` y `aadfef5`; PostgreSQL 18.4 verde, pendiente
-  de revisión independiente e integración.
+- Corte publicado anterior: `85a115c`.
+- Último commit técnico verificado: `d768007`.
+- Último cierre: CT-000047C2.1b, fachada mínima de Identidad para
+  ContextoActor, integrada en `ea91b30`–`d768007`, con P0=P1=P2=0,
+  PostgreSQL 18.4, réplica física y recuperación.
+- Trabajo activo: C2.2-S0.1, retirada segura de la base ContextoActor sin
+  `CASCADE` ni pérdida de evidencia.
+- C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -97,7 +95,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R, M1.3/`000010` y M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 cierra la cápsula de identidad y C2.1a el rol selector mínimo. C2.1b conserva el borrador `e8883df` sin runner ni `GO`; después faltan selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular, cliente seguro, recuperación, proyecciones y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1/M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 la cápsula; C2.1a el rol selector; y C2.1b la fachada mínima de Identidad en `ea91b30`–`d768007`, con P0=P1=P2=0 y réplica física. Después faltan C2.2, selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -271,16 +269,18 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Cerrar C2.1b: fachada mínima de Identidad, arnés PostgreSQL 18.4 y doble
-   revisión independiente.
-2. Implementar selección y registro corporativos en una sola transacción
-   `SERIALIZABLE`, sin usar el PDP como selector.
-3. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
+1. Cerrar S0.1 y S0.2: retiradas seguras de las migraciones base y de
+   generación de ContextoActor.
+2. Implementar C2.2-A y C2.2-B: organización y vínculo corporativo
+   versionados, sin seleccionar candidatos.
+3. Implementar publicación, selección y registro corporativos en una sola
+   transacción `SERIALIZABLE`, sin usar el PDP como selector.
+4. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
    CT-000046, sin caída a presentación.
-4. Implementar el adaptador independiente de publicaciones visuales
+5. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+6. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+7. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -623,24 +623,24 @@ acceso funcional. Tres ciclos de revisión cerraron la autoridad implícita de
 `PUBLIC` sobre tipos y la distinción exacta por catálogo entre arrays
 automáticos y tipos base reales.
 
-C2.1b es el frente activo según la
+C2.1b quedó integrada en `ea91b30`–`d768007` según la
 [decisión de contexto corporativo](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md).
-Su coordinación limita la frontera de Identidad a cuenta, método, garantía y
-caducidad observados. El commit `e8883df` preserva un borrador sin runner,
-revisión ni `GO`; no se considera integrado ni cerrado.
+Su frontera se limita a cuenta, método, garantía y caducidad observados. La
+[revisión final](revisiones/o4_05_revision_fachada_identidad_ct_000047c21b_2026-07-30.md)
+acredita P0=P1=P2=0, PostgreSQL 18.4 y recuperación física.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
 cuadro/detalle con P0=P1=P2=0. Esto no autoriza aún la ruta web productiva:
-faltan C2.1b, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y el
+faltan C2.2, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y el
 E2E de O4-05. Los dobles de presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-C2.1b: fachada mínima de Identidad
-→ selección y registro corporativos
+C2.2: retirada segura, organización y vínculo corporativo
+→ publicación, selección y registro corporativos
 → PDP productivo
 → composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva

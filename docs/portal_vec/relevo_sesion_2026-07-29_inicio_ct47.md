@@ -277,14 +277,12 @@ funcional. Tres ciclos de revisión corrigieron la autoridad implícita de
 inversa exacta del catálogo para arrays automáticos. La ejecución GitHub
 `30527303065` terminó completamente verde.
 
-El siguiente corte es C2.1b, fachada mínima de Identidad para ContextoActor.
-Su contrato recibe exclusivamente las referencias de autenticación y sesión,
-y devuelve cuenta, método, garantía y caducidad observados; no acepta ni
-devuelve perfil, organización o candidatos. El borrador `e8883df` está
-preservado en su rama aislada, todavía sin runner, `GO` ni integración. La
-dependencia ACL probada está en
-`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión
-independiente. El corte estable usado como base es `cc6041e`.
+C2.1b quedó integrada en `ea91b30`–`d768007`. Su contrato recibe
+exclusivamente las referencias de autenticación y sesión y devuelve cuenta,
+método, garantía y caducidad observados; no acepta ni devuelve perfil,
+organización o candidatos. La revisión final obtuvo P0=P1=P2=0 después de
+cerrar cobertura adversarial, réplica física y una prueba no tautológica del
+retorno. El siguiente corte es C2.2-S0.1.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
@@ -348,17 +346,9 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo C2.1b:
-
-```text
-.worktrees/ct71-c21b-fachada-identidad-20260730
-agent/ct71-c21b-fachada-identidad-20260730
-```
-
-Su base es `808522d`; los cambios locales aún no son una entrega y no deben
-integrarse antes de la matriz PostgreSQL 18.4 y el doble `GO`. No se programa
-en el directorio raíz histórico ni se modifica el Word de RRHH sin
-seguimiento.
+Trabajo activo: C2.2-S0.1 en un worktree aislado. C2.1b ya no es trabajo
+local pendiente. No se programa en el directorio raíz histórico ni se
+modifica el Word de RRHH sin seguimiento.
 
 ## Optimización probatoria CT88
 

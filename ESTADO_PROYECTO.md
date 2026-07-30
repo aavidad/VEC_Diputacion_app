@@ -6,14 +6,12 @@
 de Contratación temporal solicitada por RRHH.
 
 **Frente técnico activo:** integración O4-05 de Contratación temporal. M1/M2,
-los manejadores HTTP, la cápsula de identidad C1 y el rol selector mínimo
-C2.1a ya están cerrados y revisados. C2.1b implementa ahora la fachada mínima
-de Identidad para ContextoActor. Su borrador está preservado en `e8883df`,
-pero aún carece de runner, revisión y `GO`. La dependencia de ACL de tipos
-compuestos está corregida y probada en la rama candidata
-`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión
-independiente. Después siguen selección y registro corporativos, PDP y
-composición E2E. Solo se usan datos sintéticos hasta cerrar las puertas de
+los manejadores HTTP, la cápsula C1, el rol selector C2.1a y la fachada de
+Identidad C2.1b ya están cerrados y revisados. C2.1b está integrada en
+`ea91b30`–`d768007`, con P0=P1=P2=0, PostgreSQL 18.4 y réplica física. El
+frente activo pasa a C2.2: retirada segura, organización y vínculo
+corporativo; después siguen publicación, selección, PDP y composición E2E.
+Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.
 
 **Objetivo actual:** cerrar el primer recorrido productivo de Contratación
@@ -60,7 +58,7 @@ productivo.
 | --- | ---: | --- |
 | Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
 | Primera vertical de contratación | **5 de 10 tareas (50 %)** | O2-06 permanece aparcada hasta terminar O4-05. |
-| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000047A, M1/M2, C1 y C2.1a están cerrados aisladamente; C2.1b sigue en desarrollo sin contabilizar. Después faltan selección/registro corporativos, PDP, composición, TLS/mTLS y E2E. |
+| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000047A, M1/M2, C1, C2.1a y C2.1b están cerrados aisladamente. C2.1b no se contabiliza por ser una frontera interna; faltan C2.2, PDP, composición, TLS/mTLS y E2E. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta

@@ -51,6 +51,8 @@ llamamientos.
 - [Decisión de contexto corporativo RRHH C2](docs/portal_vec/decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md)
 - [Revisión del rol selector RRHH C2.1a](docs/portal_vec/revisiones/o4_05_revision_rol_selector_contexto_rrhh_ct_000047c21a_2026-07-30.md)
 - [Coordinación de la fachada de Identidad C2.1b](docs/portal_vec/coordinacion_ct_000047c21b_fachada_identidad_contexto_rrhh_2026-07-30.md)
+- [Revisión final de la fachada de Identidad C2.1b](docs/portal_vec/revisiones/o4_05_revision_fachada_identidad_ct_000047c21b_2026-07-30.md)
+- [Decisión de organización y vínculo corporativo C2.2](docs/portal_vec/decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -109,14 +111,13 @@ y errores opacos revisados. M2.3 acredita el conjunto sobre PostgreSQL 18.4
 real, incluidas retiradas concurrentes, derivas, reinicio y sesión hostil.
 C1 cierra la cápsula de identidad de una sola petición. C2.1a cierra el rol
 selector RRHH mínimo en `e8c950c`, con evidencia publicada en `808522d` y la
-ejecución CI `30527303065` completamente verde. El corte publicado usado como
-base de esta documentación es `cc6041e`. C2.1b, fachada mínima de Identidad,
-conserva un borrador explícitamente no validado en `e8883df`; todavía necesita
-runner, revisión y `GO`, por lo que no aumenta las métricas. La corrección
-probada de ACL de tipos compuestos está en la rama candidata
-`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión e
-integración. Después siguen selección y registro corporativos, PDP,
-composición raíz, TLS/mTLS, web conectada y E2E. Producción conserva `NO-GO`.
+ejecución CI `30527303065` completamente verde. C2.1b queda integrada en
+`ea91b30`–`d768007` con revisión final P0=P1=P2=0, matriz PostgreSQL 18.4,
+réplica física y recuperación. No aumenta las métricas porque sigue siendo una
+frontera interna. C2.2 está dividida en retirada segura, organización y
+vínculo corporativo; después siguen publicación, selección y registro,
+PDP, composición raíz, TLS/mTLS, web conectada y E2E. Producción conserva
+`NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
