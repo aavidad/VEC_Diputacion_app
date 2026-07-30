@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 29 de julio de 2026.
+Última actualización: 30 de julio de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -107,10 +107,13 @@ la vía elegida y conservar las fuentes utilizadas.
 Estado: O4-01 a O4-04 están cerrados. O4-05 conserva tres de cinco hitos:
 contratos HTTP/web, proyecciones protegidas, autorización, registro durable,
 cursores, prueba durable, motor privado CT-000044 y fachadas nominales
-CT-000045, junto con el adaptador CT-000046, están integrados y revisados. Dos
-inventarios posteriores confirmaron que antes de la raíz faltan los manejadores
-HTTP de cuadro/detalle y los puentes productivos de autoridad/PDP. Después
-siguen composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
+CT-000045, junto con el adaptador CT-000046, están integrados y revisados.
+CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
+las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
+cápsula de identidad y C2.1a el rol selector mínimo. C2.1b, fachada mínima de
+Identidad para ContextoActor, está en desarrollo local sin commit ni `GO`.
+Después siguen selección y registro corporativos, PDP, composición raíz,
+TLS/mTLS viva, la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -170,17 +173,20 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Implementar los dos manejadores HTTP protegidos de consultas RRHH:
+Cerrar C2.1b, la fachada mínima de Identidad para ContextoActor:
 
-- rutas `POST` exactas de cuadro y detalle;
-- JSON cerrado con intención mínima, sin actor, perfil, organización ni
-  capacidad aportados por el cliente;
-- límites, tipos y cabeceras en lista positiva;
-- rechazo de cookies, credenciales y cabeceras de identidad libres;
-- `no-store`, cero `Set-Cookie` y errores opacos localizables;
-- pruebas de contrato, límites, cancelación y no oráculo.
+- recibe solo referencias de autenticación y sesión ya obtenidas de C1;
+- devuelve únicamente cuenta, método, garantía y caducidad observados;
+- no acepta ni selecciona perfil, organización o candidatos;
+- exige transacción `SERIALIZABLE READ WRITE`, primario, rol nominal y
+  topología exacta;
+- conserva la separación propietaria: solo ContextoActor puede ejecutar la
+  fachada desde su función `SECURITY DEFINER`;
+- prueba PostgreSQL 18.4, ACL, catálogo, carreras, reentrada y retirada segura.
 
-El corte se limita al adaptador HTTP y no cambia dominio, aplicación, puertos,
-SQL, raíz ni web. Después se implementan los puentes productivos de autoridad
-y PDP y solo entonces se compone la raíz. Un revisor distinto debe emitir
-`GO` antes de integrar.
+La coordinación exacta está en
+[CT-000047C2.1b](coordinacion_ct_000047c21b_fachada_identidad_contexto_rrhh_2026-07-30.md).
+El trabajo local no se considera cerrado hasta disponer de commit, matriz
+reproducible, doble revisión independiente y publicación verde. Después se
+implementan selección y registro corporativos, PDP y solo entonces la
+composición raíz.

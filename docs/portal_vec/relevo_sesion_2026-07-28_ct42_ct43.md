@@ -5,8 +5,9 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 ## Actualización vigente de dirección — 30 de julio de 2026
 
 La rama y el worktree siguen siendo los indicados, pero el corte vigente ya no
-es CT-000043. CT-000047C1 y CT-000047C2.1a están integradas. El último `HEAD`
-técnico verificado es `e8c950c`.
+es CT-000043. CT-000047C1 y CT-000047C2.1a están integradas. El último commit
+técnico verificado es `e8c950c`, el cierre documental de C2.1a es `808522d` y
+el corte publicado usado como base es `cc6041e`.
 
 C2.1a obtuvo `GO` funcional y de seguridad final, `P0=P1=P2=0`, después de
 cerrar la autoridad implícita de `PUBLIC` sobre tipos y distinguir por catálogo
@@ -17,9 +18,11 @@ métricas oficiales no cambian todavía porque no se ha cerrado una capacidad
 funcional completa: Contratación `24/46` (52 %), primera vertical `5/10`
 (50 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y producción `NO-GO`.
 
-La ejecución GitHub `30523168662`, correspondiente al corte documental C2.1b
-anterior a C2.1a técnico, terminó completamente verde. El corte C2.1a debe
-publicarse y concluir su CI antes de comenzar a integrar C2.1b.
+La ejecución GitHub `30527303065`, correspondiente al cierre publicado de
+C2.1a, terminó completamente verde. C2.1b está en desarrollo local, todavía
+sin commit, `GO` ni integración. El cuerpo que sigue conserva el estado
+histórico del 28 de julio y no debe usarse como orden vigente; prevalecen el
+relevo del 29 de julio y el mapa actual.
 
 ## Resumen ejecutivo
 

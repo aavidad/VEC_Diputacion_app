@@ -40,29 +40,6 @@ llamamientos.
 - [Decisión de autorización V3 para el alta de contratación temporal](docs/portal_vec/decision_autorizacion_v3_alta_contratacion_temporal_2026-07-23.md)
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
-- [Persistencia atómica del análisis de RRHH O3-04](docs/portal_vec/o3_04_persistencia_analisis_rrhh_2026-07-24.md)
-- [Revisión independiente final O3-04](docs/portal_vec/revisiones/o3_04_revision_independiente_final_2026-07-24.md)
-- [Diseño de propuesta y decisión de cobertura O4-03](docs/portal_vec/o4_03_diseno_propuesta_decision_cobertura_2026-07-24.md)
-- [Cierre de confirmación durable de cobertura O4-04E](docs/portal_vec/o4_04e_informe_cierre_confirmacion_durable_2026-07-26.md)
-- [Plan de integración web O4-05](docs/portal_vec/o4_05_plan_integracion_web_2026-07-26.md)
-- [Cierre del contrato HTTP O4-05](docs/portal_vec/o4_05_cierre_contrato_http_2026-07-26.md)
-- [Registro seguro de rutas y composición O4-05](docs/portal_vec/o4_05_registro_rutas_y_composicion_2026-07-26.md)
-- [Cliente web HTTP seguro O4-05](docs/portal_vec/o4_05_cliente_web_http_seguro_2026-07-26.md)
-- [Recuperación protegida del resultado de cobertura O4-05](docs/portal_vec/o4_05_consulta_resultado_cobertura_2026-07-26.md)
-- [Migración de la capacidad de consulta RRHH a VEC-AD-3](docs/portal_vec/o4_05_migracion_capacidad_consulta_rrhh_v3_2026-07-26.md)
-- [Diseño del consumidor PostgreSQL de consultas RRHH V3](docs/portal_vec/o4_05_diseno_consumidor_postgresql_consultas_rrhh_v3_2026-07-26.md)
-- [Plan de ejecución C2-D2 de consultas RRHH](docs/portal_vec/o4_05_c2_d2_plan_ejecucion_2026-07-26.md)
-- [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
-- [Revisión de raíz, pool y proyecciones O4-05](docs/portal_vec/revisiones/o4_05_revision_raiz_pool_y_proyecciones_2026-07-26.md)
-- [Revisión del consumo y registro de accesos RRHH O4-05](docs/portal_vec/revisiones/o4_05_revision_consumo_y_registro_accesos_rrhh_2026-07-26.md)
-- [Revisión de la infraestructura de cursores RRHH O4-05](docs/portal_vec/revisiones/o4_05_revision_cursores_rrhh_postgresql_2026-07-26.md)
-- [Revisión de las fronteras finales C2-D2](docs/portal_vec/revisiones/o4_05_revision_fronteras_finales_c2_d2_2026-07-26.md)
-- [Relevo del candidato CT 000039](docs/portal_vec/relevo_ct_000039_2026-07-26.md)
-- [Mapa de cableado productivo O4-05](docs/portal_vec/o4_05_mapa_cableado_productivo_2026-07-26.md)
-- [Revisión de las fachadas nominales CT-000045](docs/portal_vec/revisiones/o4_05_revision_fachadas_ct_000045_2026-07-29.md)
-- [Relevo del cierre CT-000045](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct45.md)
-- [Revisión del adaptador PostgreSQL CT-000046](docs/portal_vec/revisiones/o4_05_revision_adaptador_consultas_rrhh_ct_000046_2026-07-29.md)
-- [Relevo del cierre CT-000046](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct46.md)
 - [Relevo del inicio CT-000047 y orden corregido](docs/portal_vec/relevo_sesion_2026-07-29_inicio_ct47.md)
 - [Revisión del rol resolutor aislado M1.R](docs/portal_vec/revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md)
 - [Revisión de la resolución nominal de motivos M1.3](docs/portal_vec/revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md)
@@ -70,6 +47,10 @@ llamamientos.
 - [Revisión del pool nominal de motivos M2.1](docs/portal_vec/revisiones/o4_05_revision_pool_motivos_ct_000047m21_2026-07-30.md)
 - [Revisión del adaptador nominal de motivos M2.2](docs/portal_vec/revisiones/o4_05_revision_adaptador_motivos_ct_000047m22_2026-07-30.md)
 - [Prueba PostgreSQL real del adaptador de motivos M2.3](docs/portal_vec/revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md)
+- [Revisión de la cápsula de identidad C1](docs/portal_vec/revisiones/o4_05_revision_capsula_identidad_ct_000047c1_2026-07-30.md)
+- [Decisión de contexto corporativo RRHH C2](docs/portal_vec/decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md)
+- [Revisión del rol selector RRHH C2.1a](docs/portal_vec/revisiones/o4_05_revision_rol_selector_contexto_rrhh_ct_000047c21a_2026-07-30.md)
+- [Coordinación de la fachada de Identidad C2.1b](docs/portal_vec/coordinacion_ct_000047c21b_fachada_identidad_contexto_rrhh_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -119,16 +100,20 @@ observable y sin permiso—, pero aún no recorre HTTP ni la composición raíz.
 CT-000039 a CT-000046 cierran además el registro minimizado, contrato tipado,
 recibo, vocabulario de estados, prueba durable, motor privado, dos fachadas
 nominales y su adaptador PostgreSQL Go. CT-000046 queda en `6c57644` con
-revisión independiente. Dos inventarios posteriores detectaron que antes de
-la raíz faltan HTTP cuadro/detalle y autoridad/PDP productivos; después siguen
-TLS/mTLS, web conectada y E2E. M1.1–M1.3 y M1.R cierran ya el gobierno,
+revisión independiente. CT-000047A cierra después HTTP de cuadro/detalle con
+P0=P1=P2=0. M1.1–M1.3 y M1.R cierran ya el gobierno,
 publicación y resolución nominal de los motivos de cuadro y detalle. M2.1
 cierra el pool PostgreSQL exclusivo y su acreditación; M2.2 cierra los dos
 métodos nominales de resolución, con transacción, reacreditación, cardinalidad
 y errores opacos revisados. M2.3 acredita el conjunto sobre PostgreSQL 18.4
 real, incluidas retiradas concurrentes, derivas, reinicio y sesión hostil.
-El siguiente corte es autoridad/PDP y composición raíz. Producción conserva
-`NO-GO`.
+C1 cierra la cápsula de identidad de una sola petición. C2.1a cierra el rol
+selector RRHH mínimo en `e8c950c`, con evidencia publicada en `808522d` y la
+ejecución CI `30527303065` completamente verde. El corte publicado usado como
+base de esta documentación es `cc6041e`. C2.1b, fachada mínima de Identidad,
+está en desarrollo local y todavía no tiene commit ni `GO`; no aumenta las
+métricas. Después siguen selección y registro corporativos, PDP, composición
+raíz, TLS/mTLS, web conectada y E2E. Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
@@ -335,8 +320,11 @@ Pendiente productivo:
 ### Manuales
 
 - [Manual de usuario del Portal del Empleado · Bolsas](docs/manual_usuario/manual_portal_bolsas.md):
-  recorrido completo por pantallas con capturas; disponible tambien en
-  [PDF](docs/manual_usuario/manual_portal_bolsas.pdf).
+  recorrido histórico por pantallas con capturas; disponible también en
+  [PDF](docs/manual_usuario/manual_portal_bolsas.pdf). Las imágenes son
+  anteriores a los cambios actuales de la web y no se consideran evidencia
+  del corte vigente; su sustitución controlada está en el
+  [inventario de capturas pendientes](docs/portal_vec/inventario_capturas_pendientes_cierre_web_2026-07-30.md).
 
 ### Manual del programador
 

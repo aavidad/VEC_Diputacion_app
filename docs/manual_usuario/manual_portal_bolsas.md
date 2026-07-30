@@ -29,6 +29,13 @@ sintéticos. La franja superior amarilla identifica este alcance. En la
 operación real esa franja no existe y la información procede de las API
 autorizadas.
 
+> **Vigencia visual:** las capturas corresponden al corte del 17 de julio de
+> 2026. La web ha cambiado desde entonces y las imágenes se conservan como
+> referencia histórica, no como evidencia del corte vigente. Se regenerarán
+> desde la composición real, sin datos personales, cuando se cierre la web,
+> conforme al
+> [inventario de capturas pendientes](../portal_vec/inventario_capturas_pendientes_cierre_web_2026-07-30.md).
+
 ## 2. Acceso y estructura de la pantalla
 
 El portal se abre desde el navegador corporativo, en la dirección interna

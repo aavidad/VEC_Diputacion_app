@@ -13,10 +13,13 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit técnico verificado: `4471e3a`.
-- Último cierre: CT-000047C1, cápsula opaca de identidad ligada una sola vez
-  al canal y petición, con revalidación viva, matriz adversarial, doble `GO`
-  independiente y P0=P1=P2=0.
+- Corte publicado usado como base: `cc6041e`.
+- Último commit técnico verificado: `e8c950c`.
+- Último cierre: CT-000047C2.1a, rol selector RRHH mínimo sin acceso
+  funcional, cerrado documentalmente en `808522d`, con doble `GO`
+  independiente, P0=P1=P2=0 y CI `30527303065` completamente verde.
+- Trabajo activo: C2.1b, fachada mínima de Identidad para ContextoActor, en
+  desarrollo local sin commit ni `GO`.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -91,7 +94,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R, M1.3/`000010` y M2 cierran motivos y su adaptador PostgreSQL. C1 cierra la cápsula de identidad de petición. Faltan C2 corporativo, PDP, raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R, M1.3/`000010` y M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 cierra la cápsula de identidad y C2.1a el rol selector mínimo. C2.1b sigue en desarrollo sin commit ni `GO`; después faltan selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -265,13 +268,16 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar los puentes productivos de autoridad corporativa y PDP.
-2. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
-   caída a presentación.
-3. Implementar el adaptador independiente de publicaciones visuales
+1. Cerrar C2.1b: fachada mínima de Identidad, arnés PostgreSQL 18.4 y doble
+   revisión independiente.
+2. Implementar selección y registro corporativos en una sola transacción
+   `SERIALIZABLE`, sin usar el PDP como selector.
+3. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
+   CT-000046, sin caída a presentación.
+4. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-4. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-5. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -598,28 +604,41 @@ superaron doble GO y tres ejecuciones limpias sobre PostgreSQL 18.4, incluidas
 retiradas concurrentes, ACL/DML, homónimo temporal, sesión hostil, derivas,
 reconexión y reinicio. La
 [revisión final M2.3](revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md)
-conserva la evidencia. El frente activo pasa a autoridad/PDP y composición
-raíz.
+conserva la evidencia.
 
 CT-000047C1 quedó integrada en `4471e3a` tras dos revisiones independientes,
 P0=P1=P2=0. La cápsula solo puede vincularse una vez, incluso con 64
 contendientes; el canal se comprueba en la vinculación y sesión, cuenta,
 política, revocación y caducidad se revalidan al extraerla desde la clave
 privada de `context.Context`. JSON, texto, binario, Gob, XML, CBOR y YAML
-quedan cerrados. C2.1 es el siguiente corte según la
+quedan cerrados.
+
+CT-000047C2.1a quedó integrada técnicamente en `e8c950c` y cerrada
+documentalmente en `808522d`, con doble GO, P0=P1=P2=0 y la ejecución CI
+`30527303065` verde. El rol `NOLOGIN` nace con una única ACL `CONNECT` y sin
+acceso funcional. Tres ciclos de revisión cerraron la autoridad implícita de
+`PUBLIC` sobre tipos y la distinción exacta por catálogo entre arrays
+automáticos y tipos base reales.
+
+C2.1b es el frente activo según la
 [decisión de contexto corporativo](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md).
+Su coordinación limita la frontera de Identidad a cuenta, método, garantía y
+caducidad observados. Está en desarrollo local sin commit ni `GO`; no se
+considera integrada ni cerrada.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
 cuadro/detalle con P0=P1=P2=0. Esto no autoriza aún la ruta web productiva:
-faltan autoridad/PDP, raíz, TLS/mTLS viva y el E2E de O4-05. Los dobles de
-presentación continúan aislados y no se
+faltan C2.1b, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y el
+E2E de O4-05. Los dobles de presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-autoridad y PDP productivos
+C2.1b: fachada mínima de Identidad
+→ selección y registro corporativos
+→ PDP productivo
 → composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva
 → misma web definitiva sin adaptadores DEMO

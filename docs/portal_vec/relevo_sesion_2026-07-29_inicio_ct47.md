@@ -268,16 +268,21 @@ La
 prohíbe usar el PDP como selector y obliga a resolver perfil y organización
 junto con el registro ContextoActor en una única transacción `SERIALIZABLE`.
 
-CT-000047C2.1a quedó integrada técnicamente en `e8c950c` tras
+CT-000047C2.1a quedó integrada técnicamente en `e8c950c` y cerrada
+documentalmente en `808522d` tras
 [doble GO independiente](revisiones/o4_05_revision_rol_selector_contexto_rrhh_ct_000047c21a_2026-07-30.md)
 y P0=P1=P2=0. Crea el rol selector `NOLOGIN` con solo `CONNECT` y sin acceso
 funcional. Tres ciclos de revisión corrigieron la autoridad implícita de
 `PUBLIC` sobre tipos y sustituyeron una heurística evadible por la relación
-inversa exacta del catálogo para arrays automáticos.
+inversa exacta del catálogo para arrays automáticos. La ejecución GitHub
+`30527303065` terminó completamente verde.
 
 El siguiente corte es C2.1b, fachada mínima de Identidad para ContextoActor.
-Su contrato recibe exclusivamente cuenta, método, garantía y caducidad de la
-identidad; no acepta ni devuelve perfil, organización o candidatos.
+Su contrato recibe exclusivamente las referencias de autenticación y sesión,
+y devuelve cuenta, método, garantía y caducidad observados; no acepta ni
+devuelve perfil, organización o candidatos. Está en desarrollo local en su
+worktree aislado, todavía sin commit, `GO` ni integración. El corte publicado
+usado como base es `cc6041e`.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
@@ -341,12 +346,14 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Candidato CT-000047A:
+Trabajo activo C2.1b:
 
 ```text
-.worktrees/ct47-http-consultas-20260729
-agent/ct47-http-consultas-20260729
+.worktrees/ct71-c21b-fachada-identidad-20260730
+agent/ct71-c21b-fachada-identidad-20260730
 ```
 
-No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
-sin seguimiento.
+Su base es `808522d`; los cambios locales aún no son una entrega y no deben
+integrarse antes de la matriz PostgreSQL 18.4 y el doble `GO`. No se programa
+en el directorio raíz histórico ni se modifica el Word de RRHH sin
+seguimiento.

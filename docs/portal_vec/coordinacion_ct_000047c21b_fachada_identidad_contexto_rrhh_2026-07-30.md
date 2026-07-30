@@ -4,6 +4,13 @@ Fecha: 30 de julio de 2026.
 
 Estado: **en implementación; C2.1a integrada y verificada**.
 
+Corte publicado usado como base: `cc6041e`. C2.1a quedó integrada técnicamente en
+`e8c950c`, cerrada documentalmente en `808522d` y validada por la ejecución CI
+`30527303065`. El trabajo C2.1b vive en
+`.worktrees/ct71-c21b-fachada-identidad-20260730`, rama
+`agent/ct71-c21b-fachada-identidad-20260730`, y todavía no tiene commit,
+`GO` ni integración. Este documento no contabiliza ese trabajo local.
+
 ## Responsabilidad única
 
 Crear una fachada nominal de Identidad que revalide una autenticación y una
