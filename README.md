@@ -67,6 +67,7 @@ llamamientos.
 - [Revisión del rol resolutor aislado M1.R](docs/portal_vec/revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md)
 - [Revisión de la resolución nominal de motivos M1.3](docs/portal_vec/revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md)
 - [Coordinación del adaptador nominal de motivos M2](docs/portal_vec/coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md)
+- [Revisión del pool nominal de motivos M2.1](docs/portal_vec/revisiones/o4_05_revision_pool_motivos_ct_000047m21_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -119,9 +120,9 @@ nominales y su adaptador PostgreSQL Go. CT-000046 queda en `6c57644` con
 revisión independiente. Dos inventarios posteriores detectaron que antes de
 la raíz faltan HTTP cuadro/detalle y autoridad/PDP productivos; después siguen
 TLS/mTLS, web conectada y E2E. M1.1–M1.3 y M1.R cierran ya el gobierno,
-publicación y resolución nominal de los motivos de cuadro y detalle; M2
-implementa ahora su pool y adaptador Go exclusivos. Producción conserva
-`NO-GO`.
+publicación y resolución nominal de los motivos de cuadro y detalle. M2.1
+cierra el pool PostgreSQL exclusivo y su acreditación; M2.2 implementa ahora
+los dos métodos nominales de resolución. Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

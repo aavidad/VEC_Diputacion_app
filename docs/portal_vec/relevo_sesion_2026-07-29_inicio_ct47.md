@@ -230,6 +230,15 @@ detectó una cobertura RLS ausente en el primer runner; se corrigió y repitió
 la matriz antes del commit. El frente activo pasa a M2.1, pool y acreditación
 exclusivos.
 
+M2.1 quedó integrada hasta `b385f5c` tras
+[doble revisión independiente](revisiones/o4_05_revision_pool_motivos_ct_000047m21_2026-07-30.md),
+con P0=P1=0. El pool PostgreSQL es exclusivo, no expone `pgxpool`, sella pool,
+conexión y transacción, conserva los OID de ambas fachadas y reacredita en cada
+operación identidad, TLS, topología, ACL global, `PUBLIC`, autoridad efectiva,
+dependencias y manifiestos. PostgreSQL 18.4 rechazó estados hostiles de tablas,
+tipos, esquemas, ACL predeterminadas, políticas y catálogos de tipos. M2.2,
+adaptador de las dos resoluciones nominales, queda desbloqueada.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
