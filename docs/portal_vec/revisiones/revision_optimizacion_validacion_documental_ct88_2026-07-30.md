@@ -50,3 +50,28 @@ El productor, el revisor y dirección acreditaron, según su alcance:
 
 Dirección repitió las puertas focales después de integrar. El cambio no cierra
 una capacidad funcional, no altera porcentajes y no autoriza producción.
+
+## Incidencia de integración y cierre CT104/CT108
+
+La ejecución GitHub `30564710316` detectó después de integrar CT88 una
+violación real de la barrera C4: el dominio había pasado a importar
+`internal/vec/canonico/documental`, por lo que el proceso interno arrastraba
+una dependencia no aprobada. Las pruebas Go eran verdes, pero el corte
+publicado no lo era.
+
+CT104 eliminó esa dependencia sin ampliar la lista permitida ni recuperar
+expresiones regulares o decodificación hexadecimal. La primera revisión
+independiente obtuvo `NO-GO` con P0=0, P1=0 y P2=1 porque el nuevo escáner
+duplicaba la primitiva `esSHA256` ya existente en el dominio.
+
+CT108 cerró el hallazgo: `esSHA256` conserva el recorrido ASCII indexado como
+autoridad única y la validación documental delega en ella. La revisión final
+CT109 obtuvo `GO` con P0=P1=P2=0. Dirección reprodujo sobre la rama estable:
+
+- pruebas sin caché de `domain`, `canonico/documental` y `ports`;
+- barrera C4 limitada a nueve paquetes y su autoprueba negativa;
+- `go vet`, control de tamaños y `git diff --check`;
+- Gitleaks sobre los dos commits, con 2,74 KiB analizados y cero fugas.
+
+El paquete `internal/vec/ports` completó en 25,27 segundos, por lo que la
+mejora de CT88 permanece. Los commits integrados son `7760de1` y `71ac897`.

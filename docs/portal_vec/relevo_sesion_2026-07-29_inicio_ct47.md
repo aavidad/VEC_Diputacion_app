@@ -350,6 +350,18 @@ Trabajo activo: C2.2-S0.1 en un worktree aislado. C2.1b ya no es trabajo
 local pendiente. No se programa en el directorio raíz histórico ni se
 modifica el Word de RRHH sin seguimiento.
 
+El candidato inicial de C2.2-S0.1 (`240568d`) recibió `NO-GO` independiente
+porque no detectaba ACL y propiedades de columna, disparadores internos,
+publicaciones ni todos los atributos relevantes de los roles. La corrección
+`26b7d61` permanece aislada y pendiente de revisión independiente; no debe
+integrarse ni publicarse antes del `GO`.
+
+C2.2-S0.2 dispone de inventario, pero el primer intento se detuvo sin commit:
+el contrato completo superaba los límites de tamaño de un único `down` y un
+único runner. El siguiente paso es aprobar una división ejecutable por el
+migrador real antes de retomar la implementación; no se deben comprimir ni
+omitir garantías para encajarla.
+
 ## Optimización probatoria CT88
 
 El corte `f662302` optimiza dos validadores documentales sin cambiar su
@@ -359,3 +371,8 @@ normales, la carrera focal y `go vet` sobre la rama estable. La
 [evidencia reproducible](revisiones/revision_optimizacion_validacion_documental_ct88_2026-07-30.md)
 queda separada del camino funcional: no aumenta métricas ni habilita
 producción.
+
+GitHub detectó después una dependencia C4 no aprobada introducida por el
+refactor. CT104/CT108 la eliminaron sin relajar la barrera y unificaron la
+primitiva SHA-256 del dominio. CT109 dio `GO`, P0=P1=P2=0; los commits estables
+son `7760de1` y `71ac897`.
