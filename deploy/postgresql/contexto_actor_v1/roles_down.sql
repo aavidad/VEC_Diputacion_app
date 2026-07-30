@@ -58,6 +58,7 @@ DECLARE
         'vec_contexto_actor_v1_migrador'::regrole,
         'vec_contexto_actor_v1_runtime'::regrole
     ];
+    autoridad_bootstrap name;
 BEGIN
     IF (
         SELECT count(*) <> 3
@@ -90,12 +91,28 @@ BEGIN
         SELECT 1 FROM pg_catalog.pg_auth_members AS m
          WHERE m.roleid = 'vec_contexto_actor_v1_propietario'::regrole
            AND m.member = 'vec_contexto_actor_v1_migrador'::regrole
-           AND m.grantor = current_user::regrole
            AND NOT m.admin_option AND NOT m.inherit_option
            AND m.set_option
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'retirada de roles rechazada: membresias no acreditadas';
+    END IF;
+
+    SELECT pg_catalog.pg_get_userbyid(m.grantor)
+      INTO STRICT autoridad_bootstrap
+      FROM pg_catalog.pg_auth_members AS m
+     WHERE m.roleid = 'vec_contexto_actor_v1_propietario'::regrole
+       AND m.member = 'vec_contexto_actor_v1_migrador'::regrole;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles AS r
+         WHERE r.rolname = autoridad_bootstrap
+           AND r.rolsuper
+           AND r.oid <> ALL (roles)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'retirada de roles rechazada: autoridad bootstrap no acreditada';
     END IF;
 
     IF (
@@ -110,7 +127,8 @@ BEGIN
          WHERE (a.grantee = ANY (roles) OR a.grantor = ANY (roles))
            AND (b.datname <> current_database()
                 OR a.grantee <> ALL (roles)
-                OR a.grantor <> current_user::regrole
+                OR pg_catalog.pg_get_userbyid(a.grantor) <>
+                   autoridad_bootstrap
                 OR a.privilege_type <> 'CONNECT' OR a.is_grantable)
     ) OR (
         SELECT count(*) <> 3 FROM pg_catalog.pg_shdepend AS d
@@ -134,16 +152,31 @@ BEGIN
 END
 $estado_inicial$;
 
-DO $base$
+DO $retirada_concedida$
+DECLARE
+    base name := pg_catalog.current_database();
+    autoridad_bootstrap name;
 BEGIN
-    EXECUTE format(
-        'REVOKE ALL PRIVILEGES ON DATABASE %I FROM vec_contexto_actor_v1_runtime, vec_contexto_actor_v1_migrador, vec_contexto_actor_v1_propietario',
-        current_database()
+    SELECT pg_catalog.pg_get_userbyid(m.grantor)
+      INTO STRICT autoridad_bootstrap
+      FROM pg_catalog.pg_auth_members AS m
+     WHERE m.roleid = 'vec_contexto_actor_v1_propietario'::regrole
+       AND m.member = 'vec_contexto_actor_v1_migrador'::regrole;
+
+    EXECUTE pg_catalog.format(
+        'SET LOCAL SESSION AUTHORIZATION %I',
+        autoridad_bootstrap
+    );
+    EXECUTE pg_catalog.format(
+        'REVOKE CONNECT ON DATABASE %I FROM vec_contexto_actor_v1_runtime, vec_contexto_actor_v1_migrador, vec_contexto_actor_v1_propietario GRANTED BY %I RESTRICT',
+        base, autoridad_bootstrap
+    );
+    EXECUTE pg_catalog.format(
+        'REVOKE vec_contexto_actor_v1_propietario FROM vec_contexto_actor_v1_migrador GRANTED BY %I RESTRICT',
+        autoridad_bootstrap
     );
 END
-$base$;
-REVOKE vec_contexto_actor_v1_propietario
-    FROM vec_contexto_actor_v1_migrador;
+$retirada_concedida$;
 
 DO $estado_final$
 DECLARE

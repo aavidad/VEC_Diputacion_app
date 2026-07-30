@@ -256,3 +256,13 @@ reconexión, carrera observable y
 deploy/postgresql/contexto_actor_v1/\
 probar_retirada_segura_contexto_actor_v1_pg18_4.sh
 ```
+
+La retirada de roles deriva la autoridad del otorgante histórico de la
+membresía canónica, exige el mismo otorgante en las tres ACL `CONNECT` y no
+depende del superusuario que ejecute el alta o la retirada. Su ciclo focal,
+incluidos otorgantes divergentes, se reproduce con:
+
+```sh
+deploy/postgresql/contexto_actor_v1/\
+probar_otorgantes_roles_contexto_actor_v1_pg18_4.sh
+```
