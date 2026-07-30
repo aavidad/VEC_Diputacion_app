@@ -12,6 +12,10 @@ base: f791ca5
 
 Veredicto: **NO-GO**.
 
+Este veredicto es histórico. La cadena corregida hasta `de4653e` obtuvo
+después doble `GO` y se integró en `4471e3a`; véase la
+[revisión final](o4_05_revision_capsula_identidad_ct_000047c1_2026-07-30.md).
+
 | Severidad | Hallazgos |
 | --- | ---: |
 | P0 | 0 |

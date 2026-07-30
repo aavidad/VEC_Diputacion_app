@@ -13,10 +13,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit técnico verificado: `bd22d05`.
-- Último cierre: CT-000047B M2, pool y adaptador de las dos resoluciones
-  nominales de motivos RRHH, con PostgreSQL 18.4, doble `GO` independiente y
-  P0=P1=P2=0.
+- Último commit técnico verificado: `4471e3a`.
+- Último cierre: CT-000047C1, cápsula opaca de identidad ligada una sola vez
+  al canal y petición, con revalidación viva, matriz adversarial, doble `GO`
+  independiente y P0=P1=P2=0.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -91,7 +91,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R y M1.3/`000010` cierran el fundamento, la publicación/retirada, el rol y las resoluciones nominales. Faltan M2, la raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R, M1.3/`000010` y M2 cierran motivos y su adaptador PostgreSQL. C1 cierra la cápsula de identidad de petición. Faltan C2 corporativo, PDP, raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -600,6 +600,14 @@ reconexión y reinicio. La
 [revisión final M2.3](revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md)
 conserva la evidencia. El frente activo pasa a autoridad/PDP y composición
 raíz.
+
+CT-000047C1 quedó integrada en `4471e3a` tras dos revisiones independientes,
+P0=P1=P2=0. La cápsula solo puede vincularse una vez, incluso con 64
+contendientes; el canal se comprueba en la vinculación y sesión, cuenta,
+política, revocación y caducidad se revalidan al extraerla desde la clave
+privada de `context.Context`. JSON, texto, binario, Gob, XML, CBOR y YAML
+quedan cerrados. C2.1 es el siguiente corte según la
+[decisión de contexto corporativo](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md).
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de

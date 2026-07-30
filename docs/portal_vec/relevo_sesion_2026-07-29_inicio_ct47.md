@@ -254,6 +254,20 @@ hostil, derivas, reconexión y reinicio del mismo pool. M2 queda cerrado; el
 frente activo pasa a las autoridades corporativas/PDP necesarias para la
 composición raíz.
 
+CT-000047C1 quedó integrada en `4471e3a` tras
+[doble GO independiente](revisiones/o4_05_revision_capsula_identidad_ct_000047c1_2026-07-30.md)
+y P0=P1=P2=0. Dos NO-GO previos evitaron integrar una cápsula cruzable,
+reutilizable entre peticiones o incompletamente cerrada frente a
+serializadores. El corte final liga una sola petición mediante estado atómico,
+revalida la sesión y el canal al consumir y conserva una API basada solo en
+`context.Context`.
+
+La
+[decisión C2](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md)
+prohíbe usar el PDP como selector y obliga a resolver perfil y organización
+junto con el registro ContextoActor en una única transacción `SERIALIZABLE`.
+El siguiente corte es C2.1, fachada nominal de Identidad para ContextoActor.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
