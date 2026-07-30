@@ -7,7 +7,13 @@ probar_venenos_acl_topologia() {
   local consumidor=$4
   local autenticacion=$5
   local sesion=$6
+  local contenedor=$7
+  local base=$8
+  local clave=$9
+  local salidas=${10}
   local rol=
+  local resultado_inherit=
+  local fifo_inherit pid_inherit fd_inherit
   local roles_acl=(
     PUBLIC
     "$login"
@@ -100,12 +106,51 @@ WITH ADMIN FALSE,INHERIT TRUE,SET TRUE" >/dev/null
   psql_valor "GRANT $selector TO $login
 WITH ADMIN FALSE,INHERIT TRUE,SET FALSE" >/dev/null
 
+  fifo_inherit="$salidas/fifo_inherit_directo"
+  mkfifo "$fifo_inherit"
+  docker exec -i --env PGPASSWORD="$clave" "$contenedor" psql -XAtq \
+    -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -h 127.0.0.1 \
+    -U "$login" -d "$base" <"$fifo_inherit" \
+    >"$salidas/inherit_directo" 2>&1 &
+  pid_inherit=$!
+  exec {fd_inherit}>"$fifo_inherit"
+  printf "SET application_name='c21b_inherit_preparado';\n" >&"$fd_inherit"
+  esperar_estado "SELECT count(*) FROM pg_stat_activity
+WHERE application_name='c21b_inherit_preparado'
+AND state='idle'" 1 'LOGIN conectado antes del cambio de membresia'
   psql_valor "GRANT $selector TO $login
 WITH ADMIN FALSE,INHERIT FALSE,SET FALSE" >/dev/null
-  esperar_fallo_actor \
-    "SELECT count(*) FROM vec_contexto_actor_v1.c21b_proxy_identidad(
-'$autenticacion','$sesion')" 'membresia sin INHERIT'
+  psql_valor "GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO $login;
+GRANT EXECUTE ON FUNCTION
+vec_contexto_actor_v1.c21b_proxy_identidad(text,text) TO $login" \
+    >/dev/null
+  printf "BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SELECT count(*) FROM vec_contexto_actor_v1.c21b_proxy_identidad(
+'%s','%s'); COMMIT;
+SET application_name='c21b_inherit_completado';\n" \
+    "$autenticacion" "$sesion" >&"$fd_inherit"
+  esperar_estado "SELECT count(*) FROM pg_stat_activity
+WHERE application_name='c21b_inherit_completado'
+AND state='idle'" 1 'llamada interior con INHERIT falso'
+  psql_valor "REVOKE EXECUTE ON FUNCTION
+vec_contexto_actor_v1.c21b_proxy_identidad(text,text) FROM $login;
+REVOKE USAGE ON SCHEMA vec_contexto_actor_v1 FROM $login" >/dev/null
+  [[ $(psql_valor "SELECT (NOT EXISTS(
+SELECT 1 FROM pg_namespace n
+CROSS JOIN LATERAL aclexplode(n.nspacl) a
+WHERE n.oid='vec_contexto_actor_v1'::regnamespace
+AND a.grantee='$login'::regrole
+UNION ALL
+SELECT 1 FROM pg_proc p
+CROSS JOIN LATERAL aclexplode(p.proacl) a
+WHERE p.oid='vec_contexto_actor_v1.c21b_proxy_identidad(text,text)'::regprocedure
+AND a.grantee='$login'::regrole))::text") == true ]]
   psql_valor "GRANT $selector TO $login
 WITH ADMIN FALSE,INHERIT TRUE,SET FALSE" >/dev/null
+  exec {fd_inherit}>&-
+  wait "$pid_inherit"
+  resultado_inherit=$(<"$salidas/inherit_directo")
+  ! grep -Fq '42501' <<<"$resultado_inherit"
+  [[ $(grep -E '^[0-9]+$' <<<"$resultado_inherit" | tail -1) == 0 ]]
   exigir_uno "$autenticacion" "$sesion" 'opciones de membresia restauradas'
 }
