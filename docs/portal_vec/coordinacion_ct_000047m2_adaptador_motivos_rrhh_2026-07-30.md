@@ -2,8 +2,8 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: diseñado y bloqueado hasta integrar M1.3/`000010` con PostgreSQL 18.4
-verde y revisión independiente P0=0/P1=0.
+Estado: activo. M1.3/`000010` quedó integrado en `281f52b` con PostgreSQL 18.4
+verde y revisión independiente P0=P1=P2=0. La minitarea vigente es M2.1.
 
 ## Resultado
 

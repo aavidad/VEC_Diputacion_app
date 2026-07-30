@@ -1,8 +1,9 @@
 # PostgreSQL del nucleo de autorizacion
 
-Estado: adaptadores durables V1/V2, proyeccion de motivos y registro nominal de
-concesiones ligadas a solicitud V2 implementados y probados, **no habilitados
-en la composicion productiva**. Fecha de corte: 17 de julio de 2026.
+Estado: adaptadores durables V1/V2, proyección de motivos, registro nominal de
+concesiones ligadas a solicitud V2 y resolución nominal de motivos RRHH
+implementados y probados, **no habilitados en la composición productiva**.
+Fecha de corte: 30 de julio de 2026.
 
 Implementa `ports.FuenteAutorizacion`,
 `ports.RegistroDecisionesAutorizacion`,
@@ -38,6 +39,13 @@ migraciones al arrancar.
   V2 separado de V1, documentos semanticos cerrados de decision y motivo, CAS
   de identidad, rol, politicas y motivo actual, RLS, ACL runtime cerrada y
   conservacion obligatoria del historico.
+- `migraciones/000008_*` a `migraciones/000010_*`: fundamento de solo adición,
+  publicación/retirada y dos resoluciones nominales de motivos para cuadro y
+  detalle RRHH. `000010` solo concede ejecución al rol resolutor exclusivo y
+  no admite selectores libres.
+- `probar_resolucion_vinculaciones_motivo_consultas_rrhh_000010_pg18_4.sh`:
+  matriz PostgreSQL 18.4 de instalación, reversión, RLS/ACL, identidad,
+  vigencia, retiradas, carreras causales y `down` seguro.
 - `roles_down.sql`: retirada final gobernada de grupos V1; inventaria roles y
   los tres campos OID de cada membresia antes de mutar, y falla ante cualquier
   relacion, atributo o dependencia inesperados.

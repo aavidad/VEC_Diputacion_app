@@ -5,9 +5,9 @@
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
 de Contratación temporal solicitada por RRHH.
 
-**Frente técnico activo:** integración O4-05 de Contratación temporal. M1.R,
-el rol resolutor aislado, ya está cerrado; M1.3 implementa ahora las dos
-resoluciones nominales antes del adaptador PostgreSQL, la autoridad/PDP y la
+**Frente técnico activo:** integración O4-05 de Contratación temporal. M1.R y
+M1.3 ya cierran el rol y las dos resoluciones nominales; M2 implementa ahora
+el pool y el adaptador PostgreSQL exclusivos antes de la autoridad/PDP y la
 composición E2E. Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.
 
@@ -53,7 +53,7 @@ productivo.
 | Ámbito | Avance oficial | Trabajo activo todavía no computado |
 | --- | ---: | --- |
 | Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
-| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000046 y M1.1, M1.2 y M1.R están cerrados aisladamente; M1.3 está en ejecución. |
+| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000046 y M1.1–M1.3/M1.R están cerrados aisladamente; M2 está en ejecución. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta

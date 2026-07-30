@@ -45,7 +45,7 @@ distintos. No se presupone que puedan compartir una entrada.
 | M1.1 | `000008` | Fundamento privado: historial append-only, checkpoint, referencias, RLS, ACL e inmutabilidad. |
 | M1.2 | `000009` | Publicación y retirada atómicas de las dos vinculaciones, con replay idempotente. |
 | M1.R | Roles DBA | Cerrado: rol NOLOGIN exclusivo para resolver motivos RRHH sin heredar la fachada V2 genérica. |
-| M1.3 | `000010` | Dos resoluciones nominales, ACL mínima y pruebas de vigencia/retirada. |
+| M1.3 | `000010` | Cerrado en `281f52b`: dos resoluciones nominales, ACL mínima y pruebas de vigencia/retirada. |
 | M2 | Adaptador Go | Implementación de los dos métodos M0 con consultas fijas y pool exclusivo, dividida en [cuatro minitareas coordinadas](coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md). |
 
 Cada migración será completa, reversible de forma segura y probada en
@@ -83,7 +83,7 @@ activación real continúa bloqueada por:
 
 ## Consecuencia
 
-M1.R ya está cerrado; el orden restante es `M1.3 → M2`. A5 ya está cerrado.
-El cierre técnico
+M1.R y M1.3 ya están cerrados; el orden restante comienza en `M2`. A5 también
+está cerrado. El cierre técnico
 de esta cadena no autoriza producción ni sustituye las conformidades
 organizativas.

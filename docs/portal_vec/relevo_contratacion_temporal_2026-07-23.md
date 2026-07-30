@@ -13,9 +13,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit técnico verificado: `231648b`.
-- Último cierre: CT-000047B M1.R, rol NOLOGIN exclusivo para resolver motivos
-  RRHH, con `GO` independiente y P0=P1=P2=0.
+- Último commit técnico verificado: `281f52b`.
+- Último cierre: CT-000047B M1.3, dos resoluciones nominales de motivos RRHH,
+  con PostgreSQL 18.4, doble `GO` independiente y P0=P1=P2=0.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -90,7 +90,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009` y M1.R cierran el fundamento, la publicación/retirada y el rol resolutor aislado. Faltan M1.3, M2, la raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008`, M1.2/`000009`, M1.R y M1.3/`000010` cierran el fundamento, la publicación/retirada, el rol y las resoluciones nominales. Faltan M2, la raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -264,17 +264,16 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar M1.3/`000010`: dos resoluciones nominales de motivos.
-2. Implementar
+1. Implementar
    [M2](coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md):
    adaptador PostgreSQL con pool resolutor exclusivo, en cuatro minitareas.
-3. Implementar los puentes productivos de autoridad corporativa y PDP.
-4. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
+2. Implementar los puentes productivos de autoridad corporativa y PDP.
+3. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
    caída a presentación.
-5. Implementar el adaptador independiente de publicaciones visuales
+4. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-6. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-7. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -587,6 +586,14 @@ reversión semántica `RESTRICT`. La
 [evidencia reproducible](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md)
 documenta el estado histórico de ese corte. CT-000040 a CT-000046 están ahora
 cerrados; permanecen abiertos la raíz productiva, TLS viva y el E2E HTTP/web.
+
+M1.3 quedó integrado en `281f52b` tras tres ejecuciones del productor, tres
+del primer revisor y una reproducción de dirección sobre PostgreSQL 18.4. Las
+dos fachadas nominales, la vigencia, las retiradas, RLS/ACL, las carreras y el
+`down` seguro obtuvieron doble GO con P0=P1=P2=0. La
+[revisión final](revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md)
+documenta además la brecha probatoria RLS detectada y corregida antes del
+commit. M2 queda desbloqueada y es el frente activo.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de

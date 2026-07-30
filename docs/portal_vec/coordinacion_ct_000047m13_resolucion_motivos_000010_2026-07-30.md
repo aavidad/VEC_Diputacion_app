@@ -2,6 +2,9 @@
 
 Fecha: 30 de julio de 2026.
 
+Estado: cerrado en `281f52b`, con PostgreSQL 18.4 verde y
+[GO técnico independiente](revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md).
+
 ## Condición de inicio
 
 M1.2/`000009` está integrada en `0a564e2` con doble `GO` independiente.
@@ -146,5 +149,5 @@ Gitleaks
 revisión independiente: P0=0 y P1=0
 ```
 
-M2 queda desbloqueada únicamente después de integrar M1.3 con esas puertas
-verdes.
+M2 quedó desbloqueada tras integrar M1.3 con esas puertas verdes. Este cierre
+no habilita por sí solo la composición productiva.

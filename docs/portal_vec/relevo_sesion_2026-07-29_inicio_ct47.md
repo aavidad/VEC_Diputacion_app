@@ -220,6 +220,16 @@ P0=P1=P2=0 y reproducciones reales sobre PostgreSQL 18.4. El rol nace sin
 acceso funcional y con una única ACL `CONNECT`; M1.3 se reanuda sobre esta
 base y será la única pieza que conceda las dos fachadas nominales.
 
+M1.3 quedó integrada en `281f52b` tras
+[doble GO independiente](revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md),
+P0=P1=P2=0 y siete ejecuciones completas acumuladas sobre PostgreSQL 18.4
+entre productor, revisor y dirección. `000010` expone solo las dos fachadas
+nominales, valida la topología del resolutor, la vigencia y las retiradas,
+retiene los bloqueos causales y posee `down` seguro. Una contrarrevisión
+detectó una cobertura RLS ausente en el primer runner; se corrigió y repitió
+la matriz antes del commit. El frente activo pasa a M2.1, pool y acreditación
+exclusivos.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
@@ -264,8 +274,9 @@ independiente y P0=P1=P2=0. Véase la
 | Producción | `NO-GO` |
 
 El inventario no reduce el avance funcional: hace visible una dependencia de
-integración que ya estaba abierta. CT-000047 solo aumentará la métrica cuando
-su candidato esté publicado, revisado y con CI verde.
+integración que ya estaba abierta. M1.3 está confirmada y revisada, pero no
+aumenta la métrica oficial por ser una pieza interna: CT-000047 solo contará
+cuando cierre su recorrido funcional y el CI publicado quede verde.
 
 ## Autoridad de trabajo
 
