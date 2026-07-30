@@ -14,7 +14,8 @@ limpiar() { docker rm -f "$contenedor" >/dev/null 2>&1 || true; }
 trap limpiar EXIT INT TERM
 
 docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
-  --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" "$imagen" >/dev/null
+  --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
+  --env POSTGRES_INITDB_ARGS="${VEC_POSTGRES_INITDB_ARGS:-}" "$imagen" >/dev/null
 for _ in $(seq 1 60); do
   docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null 2>&1 && break
   sleep 1
@@ -63,6 +64,13 @@ retirar_acreditacion_contexto_actor_v2() {
     "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql"
+}
+rechazar_retirada_acreditacion() {
+  local descripcion=$1
+  if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
+    echo "down 000002 aceptó $descripcion" >&2
+    exit 1
+  fi
 }
 
 # La base dedicada llega preendurecida. El bootstrap del modulo valida este
@@ -642,8 +650,11 @@ acreditada=$(consulta_runtime 'SELECT acreditada FROM vec_contexto_actor_v1.acre
 # una concesion nominal sobre la funcion.
 if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
   VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
+    go test -race ./internal/vec/adapters/contextoactor/postgres \
+      -run '^TestRetiradaAcreditacionUsoV2(Cancela|Destruye)' -count=1
+  VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
     go test ./internal/vec/adapters/contextoactor/postgres \
-      -run '^TestRetiradaAcreditacionUsoV2EjecutaDocumentoSQLIntegro$' -count=1
+      -run '^TestRetiradaAcreditacionUsoV2Ejecuta' -count=1
   psql_archivo \
     deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql
 fi
@@ -666,10 +677,7 @@ GRANT EXECUTE ON FUNCTION
     text,text,timestamptz,timestamptz
   ) TO PUBLIC;
 SQL
-if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
-  echo 'down 000002 ignoro EXECUTE concedido a PUBLIC' >&2
-  exit 1
-fi
+rechazar_retirada_acreditacion 'EXECUTE concedido a PUBLIC'
 psql_admin <<'SQL'
 REVOKE EXECUTE ON FUNCTION
   vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
@@ -686,10 +694,7 @@ GRANT USAGE ON TYPE
   vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
   TO vec_consumidor_acreditacion_prueba;
 SQL
-if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
-  echo 'down 000002 retiro tipo compuesto con concesion externa' >&2
-  exit 1
-fi
+rechazar_retirada_acreditacion 'tipo compuesto con concesión externa'
 psql_admin <<'SQL'
 REVOKE USAGE ON TYPE
   vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
@@ -700,10 +705,7 @@ GRANT EXECUTE ON FUNCTION
     text,text,timestamptz,timestamptz
   ) TO vec_consumidor_acreditacion_prueba;
 SQL
-if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
-  echo 'down 000002 retiro funcion con concesion externa' >&2
-  exit 1
-fi
+rechazar_retirada_acreditacion 'función con concesión externa'
 psql_admin <<'SQL'
 REVOKE EXECUTE ON FUNCTION
   vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
@@ -714,7 +716,44 @@ REVOKE USAGE ON SCHEMA vec_contexto_actor_v1
   FROM vec_consumidor_acreditacion_prueba;
 DROP ROLE vec_consumidor_acreditacion_prueba;
 SQL
+
+# Propiedades de columna y comentarios de trigger forman parte del canon.
+psql_admin <<'SQL'
+ALTER TABLE vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  ALTER COLUMN generacion SET STATISTICS 777;
+SQL
+rechazar_retirada_acreditacion 'estadística de columna derivada'
+[[ $(docker exec "$contenedor" psql -XAt --username postgres --dbname "$base" \
+  --command "SELECT attstattarget FROM pg_catalog.pg_attribute
+    WHERE attrelid='vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass
+      AND attname='generacion'") == 777 ]]
+psql_admin <<'SQL'
+ALTER TABLE vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  ALTER COLUMN generacion SET STATISTICS -1;
+COMMENT ON TRIGGER avanzar_generacion_punteros_actuales_v2
+  ON vec_contexto_actor_v1.proyeccion_cuenta_actual
+  IS 'ct118 comentario hostil sintético';
+SQL
+rechazar_retirada_acreditacion 'comentario hostil de trigger'
+psql_admin <<'SQL'
+COMMENT ON TRIGGER avanzar_generacion_punteros_actuales_v2
+  ON vec_contexto_actor_v1.proyeccion_cuenta_actual IS NULL;
+CREATE SCHEMA ct118_homonimo AUTHORIZATION postgres;
+CREATE FUNCTION ct118_homonimo.rechazar() RETURNS trigger
+  LANGUAGE plpgsql AS 'BEGIN RETURN NULL; END';
+CREATE TABLE ct118_homonimo.puntero (id integer);
+CREATE TRIGGER puntero_actual_no_truncable_v2 BEFORE TRUNCATE
+  ON ct118_homonimo.puntero FOR EACH STATEMENT
+  EXECUTE FUNCTION ct118_homonimo.rechazar();
+SQL
 retirar_acreditacion_contexto_actor_v2
+[[ $(docker exec "$contenedor" psql -XAt --username postgres --dbname "$base" \
+  --command "SELECT count(*) FROM pg_catalog.pg_trigger
+    WHERE tgrelid='ct118_homonimo.puntero'::regclass
+      AND tgname='puntero_actual_no_truncable_v2'") == 1 ]]
+psql_admin <<'SQL'
+DROP SCHEMA ct118_homonimo CASCADE;
+SQL
 
 set +e
 psql_archivo deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.down.sql \

@@ -217,8 +217,8 @@ La confirmación explícita no autoriza a borrar evidencia. La secuencia
 operativa, únicamente para una instalación vacía acreditada, es:
 
 ```sh
+PGOPTIONS="-c vec.confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2" \
 psql -X -v ON_ERROR_STOP=1 \
-  -v confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
   -f deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql
 psql -X -v ON_ERROR_STOP=1 \
   -v confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
@@ -227,6 +227,13 @@ psql -X -v ON_ERROR_STOP=1 \
   -v confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
   -f deploy/postgresql/contexto_actor_v1/roles_down.sql
 ```
+
+La retirada de `000002` es una ventana de mantenimiento exclusiva. Después
+de inmovilizar la tabla de control y los cinco punteros, conserva bloqueos
+`SHARE` sobre los catálogos que podrían cambiar funciones, tipos, ACL,
+comentarios, dependencias, publicaciones o suscripciones hasta el `COMMIT`.
+Debe ejecutarse sin tráfico de migración; los límites de bloqueo y sentencia
+hacen que cualquier contención falle cerrada.
 
 Debe retirarse antes la membresía del LOGIN de aplicación; `DROP ROLE` falla
 cerrado si aún existen dependencias o membresías. `roles_down.sql` es

@@ -44,6 +44,27 @@ LOCK TABLE
     vec_contexto_actor_v1.vinculo_referencia_actual
 IN ACCESS EXCLUSIVE MODE;
 
+-- Ventana de mantenimiento cerrada: después de inmovilizar las seis
+-- relaciones, estos catálogos permanecen en SHARE hasta el COMMIT. Así una
+-- ACL, comentario, dependencia, publicación o metadato de función/tipo no
+-- puede cambiar entre el inventario acreditado y los DROP con RESTRICT.
+LOCK TABLE
+    pg_catalog.pg_class,
+    pg_catalog.pg_namespace,
+    pg_catalog.pg_proc,
+    pg_catalog.pg_type,
+    pg_catalog.pg_default_acl,
+    pg_catalog.pg_description,
+    pg_catalog.pg_seclabel,
+    pg_catalog.pg_init_privs,
+    pg_catalog.pg_depend,
+    pg_catalog.pg_shdepend,
+    pg_catalog.pg_publication,
+    pg_catalog.pg_publication_namespace,
+    pg_catalog.pg_publication_rel,
+    pg_catalog.pg_subscription_rel
+IN SHARE MODE;
+
 DO $inventario$
 DECLARE
     propietario constant oid :=
@@ -70,10 +91,11 @@ DECLARE
     funciones oid[];
     observado text;
     esperado constant text :=
-        '860f743862b27fd6bacaed4e4dae3e7b7ed75e12c44bc39f28d79bafb9c50f0d';
+        '93be424f0ed31a8f54335475f354e5e6df028713b2ca4217de88b27316b5dc2d';
 BEGIN
     funciones := ARRAY[acreditar, avanzar, serializar];
-    IF pg_catalog.current_setting('server_version_num')::integer / 10000 <> 18
+    IF pg_catalog.current_setting('server_version_num')::integer < 180004
+       OR pg_catalog.current_setting('server_version_num')::integer >= 190000
        OR serializar IS NULL OR avanzar IS NULL OR acreditar IS NULL
        OR (
            SELECT pg_catalog.count(*)
@@ -244,11 +266,15 @@ BEGIN
          WHERE c.relnamespace = esquema
         UNION ALL
         SELECT pg_catalog.format(
-            'a|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+            'a|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
             c.relname, a.attnum, a.attname,
             pg_catalog.format_type(a.atttypid, a.atttypmod),
             a.attnotnull, a.attidentity, a.attgenerated, a.attisdropped,
             a.attstorage, a.attcompression,
+            a.attstattarget, a.atthasmissing,
+            coalesce(a.attmissingval::text, ''),
+            coalesce(a.attoptions::text, ''),
+            coalesce(a.attfdwoptions::text, ''),
             coalesce(a.attcollation::regcollation::text, ''),
             coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid, false), ''),
             coalesce(pg_catalog.col_description(a.attrelid, a.attnum), ''),
@@ -290,7 +316,7 @@ BEGIN
         ) FROM pg_catalog.pg_constraint AS c WHERE c.connamespace = esquema
         UNION ALL
         SELECT pg_catalog.format(
-            'g|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+            'g|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
             t.tgrelid::regclass::text,
             CASE WHEN t.tgisinternal THEN coalesce(c.conname, '<interno>')
                  ELSE t.tgname END,
@@ -300,7 +326,8 @@ BEGIN
             t.tgattr::text,
             coalesce(pg_catalog.pg_get_expr(t.tgqual, t.tgrelid, false), ''),
             coalesce(t.tgoldtable, ''), coalesce(t.tgnewtable, ''),
-            t.tgparentid = 0, t.tgconstrrelid = 0, t.tgconstrindid = 0
+            t.tgparentid = 0, t.tgconstrrelid = 0, t.tgconstrindid = 0,
+            coalesce(pg_catalog.obj_description(t.oid, 'pg_trigger'), '')
         ) FROM pg_catalog.pg_trigger AS t
           JOIN pg_catalog.pg_class AS r ON r.oid = t.tgrelid
           LEFT JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint
@@ -381,10 +408,54 @@ BEGIN
          WHERE c.relnamespace = esquema
         UNION ALL
         SELECT pg_catalog.format(
-            'd|%s|%s|%s', d.defaclobjtype,
-            d.defaclrole::regrole::text, d.defaclacl::text
+            'd|%s|%s|%s|%s', d.defaclobjtype,
+            d.defaclrole::regrole::text,
+            coalesce(d.defaclnamespace::regnamespace::text, ''),
+            d.defaclacl::text
         ) FROM pg_catalog.pg_default_acl AS d
          WHERE d.defaclrole = propietario
+        UNION ALL
+        SELECT pg_catalog.format(
+            's|%s|%s|%s|%s|%s', s.classoid::regclass::text,
+            s.objoid, s.objsubid, s.provider, s.label
+        ) FROM pg_catalog.pg_seclabel AS s
+         WHERE (s.classoid = 'pg_catalog.pg_namespace'::regclass
+                AND s.objoid = esquema)
+            OR (s.classoid = 'pg_catalog.pg_class'::regclass
+                AND s.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_class
+                     WHERE relnamespace = esquema
+                ))
+            OR (s.classoid = 'pg_catalog.pg_proc'::regclass
+                AND s.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_proc
+                     WHERE pronamespace = esquema
+                ))
+            OR (s.classoid = 'pg_catalog.pg_type'::regclass
+                AND s.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_type
+                     WHERE typnamespace = esquema
+                ))
+        UNION ALL
+        SELECT pg_catalog.format(
+            'x|%s|%s|%s|%s|%s', i.classoid::regclass::text,
+            i.objoid, i.objsubid, i.privtype, i.initprivs::text
+        ) FROM pg_catalog.pg_init_privs AS i
+         WHERE (i.classoid = 'pg_catalog.pg_class'::regclass
+                AND i.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_class
+                     WHERE relnamespace = esquema
+                ))
+            OR (i.classoid = 'pg_catalog.pg_proc'::regclass
+                AND i.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_proc
+                     WHERE pronamespace = esquema
+                ))
+            OR (i.classoid = 'pg_catalog.pg_type'::regclass
+                AND i.objoid IN (
+                    SELECT oid FROM pg_catalog.pg_type
+                     WHERE typnamespace = esquema
+                ))
     )
     SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
                pg_catalog.string_agg(elemento, E'\n' ORDER BY elemento),
@@ -456,7 +527,13 @@ BEGIN
                 ('pg_catalog.pg_class'::regclass, control),
                 ('pg_catalog.pg_proc'::regclass, acreditar),
                 ('pg_catalog.pg_proc'::regclass, avanzar),
-                ('pg_catalog.pg_proc'::regclass, serializar)
+                ('pg_catalog.pg_proc'::regclass, serializar),
+                ('pg_catalog.pg_type'::regclass,
+                 (SELECT reltype FROM pg_catalog.pg_class
+                   WHERE oid = control)),
+                ('pg_catalog.pg_type'::regclass,
+                 (SELECT typarray FROM pg_catalog.pg_type
+                   WHERE typrelid = control))
             )
        )
        OR EXISTS (
@@ -465,7 +542,13 @@ BEGIN
                 ('pg_catalog.pg_class'::regclass, control),
                 ('pg_catalog.pg_proc'::regclass, acreditar),
                 ('pg_catalog.pg_proc'::regclass, avanzar),
-                ('pg_catalog.pg_proc'::regclass, serializar)
+                ('pg_catalog.pg_proc'::regclass, serializar),
+                ('pg_catalog.pg_type'::regclass,
+                 (SELECT reltype FROM pg_catalog.pg_class
+                   WHERE oid = control)),
+                ('pg_catalog.pg_type'::regclass,
+                 (SELECT typarray FROM pg_catalog.pg_type
+                   WHERE typrelid = control))
             )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
@@ -481,12 +564,20 @@ SET LOCAL search_path = pg_catalog;
 DO $retirar_trios$
 DECLARE
     tabla regclass;
+    punteros constant oid[] := ARRAY[
+        'vec_contexto_actor_v1.proyeccion_cuenta_actual'::regclass,
+        'vec_contexto_actor_v1.persona_actual'::regclass,
+        'vec_contexto_actor_v1.perfil_actual'::regclass,
+        'vec_contexto_actor_v1.vinculo_contexto_actual'::regclass,
+        'vec_contexto_actor_v1.vinculo_referencia_actual'::regclass
+    ]::oid[];
 BEGIN
     FOR tabla IN
         SELECT t.tgrelid::regclass
           FROM pg_catalog.pg_trigger AS t
          WHERE t.tgname = 'puntero_actual_no_truncable_v2'
            AND NOT t.tgisinternal
+           AND t.tgrelid = ANY(punteros)
          ORDER BY t.tgrelid::regclass::text COLLATE "C"
     LOOP
         EXECUTE pg_catalog.format(
@@ -521,6 +612,14 @@ DROP TABLE
     RESTRICT;
 
 DO $postcondiciones$
+DECLARE
+    punteros constant oid[] := ARRAY[
+        'vec_contexto_actor_v1.proyeccion_cuenta_actual'::regclass,
+        'vec_contexto_actor_v1.persona_actual'::regclass,
+        'vec_contexto_actor_v1.perfil_actual'::regclass,
+        'vec_contexto_actor_v1.vinculo_contexto_actual'::regclass,
+        'vec_contexto_actor_v1.vinculo_referencia_actual'::regclass
+    ]::oid[];
 BEGIN
     IF pg_catalog.to_regclass(
            'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'
@@ -537,6 +636,7 @@ BEGIN
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_trigger
             WHERE NOT tgisinternal
+              AND tgrelid = ANY(punteros)
               AND tgname IN (
                   'puntero_actual_no_truncable_v2',
                   'serializar_mutacion_punteros_actuales_v2',
