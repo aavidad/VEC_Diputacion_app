@@ -348,9 +348,11 @@ SELECT
     SELECT 1 FROM pg_catalog.pg_type t
     JOIN esquemas_aplicativos e ON e.oid=t.typnamespace
     CROSS JOIN LATERAL pg_catalog.aclexplode(CASE
-      WHEN t.typelem=0 THEN COALESCE(
-        t.typacl,pg_catalog.acldefault('T',t.typowner))
-      ELSE NULLIF(t.typacl,'{}'::aclitem[])
+      WHEN EXISTS (
+        SELECT 1 FROM pg_catalog.pg_type elemento
+        WHERE elemento.oid=t.typelem AND elemento.typarray=t.oid
+      ) THEN NULLIF(t.typacl,'{}'::aclitem[])
+      ELSE COALESCE(t.typacl,pg_catalog.acldefault('T',t.typowner))
     END) a
     WHERE a.grantee=0
     UNION ALL
@@ -432,7 +434,12 @@ SELECT
       AND NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_type t
         JOIN esquemas_aplicativos ea ON ea.oid=t.typnamespace
-        WHERE (t.typelem=0 OR t.typacl IS NOT NULL)
+        WHERE (
+          t.typacl IS NOT NULL OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_type elemento
+            WHERE elemento.oid=t.typelem AND elemento.typarray=t.oid
+          )
+        )
           AND pg_catalog.has_type_privilege(l.oid,t.oid,'USAGE')
       )
     FROM login l CROSS JOIN base_actual b CROSS JOIN esquema e

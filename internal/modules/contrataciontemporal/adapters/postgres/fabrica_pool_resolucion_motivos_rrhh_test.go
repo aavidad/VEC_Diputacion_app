@@ -285,6 +285,7 @@ func TestAcreditacionResolucionMotivosRRHHExigeIdentidadOIDYConsultaCompleta(
 		"pg_shdepend",
 		"esquemas_aplicativos",
 		"has_type_privilege",
+		"elemento.typarray=t.oid",
 		"0=ANY(p.polroles)",
 		"SELECT d.dbid,d.classid",
 		"d92704658d0af8acea83cd765e02976561c787a95906b9a10ee8a43ac0be16ef",
