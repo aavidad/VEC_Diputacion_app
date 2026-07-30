@@ -141,6 +141,7 @@ COALESCE((SELECT proacl::text FROM pg_proc WHERE oid=
 source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/readiness_pg18_4.sh
 source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/estados_carreras_cardinalidad.sh
 source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/venenos_acl_topologia.sh
+source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/venenos_fachada_viva.sh
 source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/safe_down_consumidores_efectivos.sh
 
 paso "arranque aislado con $imagen"
@@ -411,7 +412,10 @@ exigir_uno "$autenticacion" "$sesion" 'topología restaurada'
 
 probar_venenos_acl_topologia \
   "$fachada" "$login" "$selector" "$consumidor" \
-  "$autenticacion" "$sesion"
+  "$autenticacion" "$sesion" "$contenedor" "$base" "$clave" "$salidas"
+probar_venenos_fachada_viva \
+  "$up" "$down" "$fachada" "$consumidor" "$autenticacion" "$sesion" \
+  "$salidas"
 
 paso 'timeout, cancelación e interbloqueo no capturados'
 fifo_lock="$salidas/fifo_lock"
