@@ -79,6 +79,104 @@ func TestRetiradaAcreditacionUsoV2EjecutaDocumentoSQLIntegro(t *testing.T) {
 	}
 }
 
+func TestRetiradaAcreditacionUsoV2CancelaEsperaSinDeriva(t *testing.T) {
+	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("requiere PostgreSQL 18 efímero de contexto actor")
+	}
+	documento := leerDocumentoRetiradaAcreditacionUsoV2(t)
+	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelar()
+
+	bloqueador, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("abrir conexión bloqueadora: %v", err)
+	}
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, bloqueador)
+	if _, err = bloqueador.Exec(ctx, `
+		BEGIN;
+		LOCK TABLE vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+		IN ACCESS EXCLUSIVE MODE
+	`); err != nil {
+		t.Fatalf("bloquear tabla de control: %v", err)
+	}
+
+	conexion, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("abrir conexión dedicada de retirada: %v", err)
+	}
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, conexion)
+	configurarOptInRetiradaUsoV2(t, ctx, conexion, optInRetiradaAcreditacionUsoV2)
+
+	ctxCancelado, cancelarEspera := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancelarEspera()
+	if _, err = conexion.Exec(ctxCancelado, string(documento)); err == nil {
+		t.Fatal("la retirada bloqueada ignoró la cancelación")
+	}
+	if err = sanearConexionRetiradaAcreditacionUsoV2(conexion); err != nil {
+		t.Fatalf("sanear conexión tras cancelación: %v", err)
+	}
+	if _, err = bloqueador.Exec(ctx, "ROLLBACK"); err != nil {
+		t.Fatalf("liberar tabla de control: %v", err)
+	}
+
+	var intacta bool
+	if err = bloqueador.QueryRow(ctx, `
+		SELECT pg_catalog.to_regclass(
+		  'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'
+		) IS NOT NULL
+		AND pg_catalog.to_regprocedure(
+		  'vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz)'
+		) IS NOT NULL
+	`).Scan(&intacta); err != nil {
+		t.Fatalf("comprobar rollback tras cancelación: %v", err)
+	}
+	if !intacta {
+		t.Fatal("la cancelación dejó una retirada parcial")
+	}
+}
+
+func TestRetiradaAcreditacionUsoV2DestruyeConexionQueNoPuedeSanear(t *testing.T) {
+	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("requiere PostgreSQL 18 efímero de contexto actor")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelar()
+	conexion, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("abrir conexión destinada a descarte: %v", err)
+	}
+	supervisor, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		_ = conexion.Close(ctx)
+		t.Fatalf("abrir conexión supervisora: %v", err)
+	}
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, supervisor)
+
+	if _, err = conexion.Exec(ctx, "BEGIN"); err != nil {
+		t.Fatalf("abrir transacción destinada a descarte: %v", err)
+	}
+	var pid int32
+	if err = conexion.QueryRow(ctx, "SELECT pg_catalog.pg_backend_pid()").Scan(&pid); err != nil {
+		t.Fatalf("obtener pid destinado a descarte: %v", err)
+	}
+	var terminada bool
+	if err = supervisor.QueryRow(
+		ctx,
+		"SELECT pg_catalog.pg_terminate_backend($1)",
+		pid,
+	).Scan(&terminada); err != nil || !terminada {
+		t.Fatalf("terminar backend sintético: terminada=%t error=%v", terminada, err)
+	}
+	if err = sanearConexionRetiradaAcreditacionUsoV2(conexion); err == nil {
+		t.Fatal("el saneado aparentó éxito sobre un backend terminado")
+	}
+	if !conexion.IsClosed() {
+		t.Fatal("la conexión no saneable no fue destruida")
+	}
+}
+
 func leerDocumentoRetiradaAcreditacionUsoV2(t *testing.T) []byte {
 	t.Helper()
 	_, archivoPrueba, _, ok := runtime.Caller(0)
@@ -181,17 +279,34 @@ func resetearOptInRetiradaUsoV2(
 
 func cerrarConexionRetiradaAcreditacionUsoV2(t *testing.T, conexion *pgx.Conn) {
 	t.Helper()
+	if err := sanearConexionRetiradaAcreditacionUsoV2(conexion); err != nil {
+		t.Errorf("sanear conexión dedicada: %v", err)
+	}
+	if conexion.IsClosed() {
+		return
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelar()
+	if err := conexion.Close(ctx); err != nil {
+		t.Errorf("cerrar conexión dedicada: %v", err)
+	}
+}
+
+func sanearConexionRetiradaAcreditacionUsoV2(conexion *pgx.Conn) error {
+	if conexion.IsClosed() {
+		return nil
+	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelar()
 	if conexion.PgConn().TxStatus() != 'I' {
 		if _, err := conexion.Exec(ctx, "ROLLBACK"); err != nil {
-			t.Errorf("rollback final de conexión dedicada: %v", err)
+			_ = conexion.Close(ctx)
+			return err
 		}
 	}
 	if _, err := conexion.Exec(ctx, consultaResetOptInRetiradaUsoV2); err != nil {
-		t.Errorf("reset final del opt-in: %v", err)
+		_ = conexion.Close(ctx)
+		return err
 	}
-	if err := conexion.Close(ctx); err != nil {
-		t.Errorf("cerrar conexión dedicada: %v", err)
-	}
+	return nil
 }
