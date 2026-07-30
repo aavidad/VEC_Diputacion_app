@@ -16,18 +16,27 @@ trap limpiar EXIT INT TERM
 docker run --detach --rm --name "$contenedor" \
   --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
   "$imagen" >/dev/null
-for _ in $(seq 1 200); do
-  version=$(docker exec "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
-    --username postgres --dbname "$base" --command \
-    "SELECT current_setting('server_version_num') || '|' || pg_is_in_recovery()" \
-    2>/dev/null || true)
-  [[ $version == '180004|false' ]] && break
-  sleep 0.05
-done
-[[ ${version:-} == '180004|false' ]] || {
-  echo 'se requiere PostgreSQL 18.4 primario' >&2
-  exit 1
+esperar_postgres() {
+  local consecutivas=0 respuesta
+  for _ in $(seq 1 200); do
+    if respuesta=$(docker exec "$contenedor" psql -XAt \
+      --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+      --command \
+      "SELECT current_setting('server_version_num') || '|' ||
+              pg_catalog.pg_is_in_recovery()" 2>/dev/null) &&
+      [[ $respuesta == '180004|false' ]]; then
+      consecutivas=$((consecutivas + 1))
+      [[ $consecutivas -eq 3 ]] && return 0
+    else
+      consecutivas=0
+    fi
+    sleep 0.05
+  done
+  docker logs "$contenedor" >&2 || true
+  echo "PostgreSQL 18.4 primario no quedó estable; última lectura: ${respuesta:-<sin respuesta>}" >&2
+  return 1
 }
+esperar_postgres
 
 psql_archivo() {
   local usuario=$1 archivo=$2
