@@ -90,12 +90,16 @@ func ReferenciasEjecucionV3Distintas(valores ...string) bool {
 // SHA256HexadecimalValido acepta exclusivamente 32 bytes expresados como 64
 // caracteres hexadecimales minusculos.
 func SHA256HexadecimalValido(valor string) bool {
-	if len(valor) != sha256.Size*2 || valor != strings.TrimSpace(valor) ||
-		valor != strings.ToLower(valor) {
+	if len(valor) != sha256.Size*2 {
 		return false
 	}
-	decodificado, err := hex.DecodeString(valor)
-	return err == nil && len(decodificado) == sha256.Size
+	for indice := 0; indice < len(valor); indice++ {
+		octeto := valor[indice]
+		if (octeto < '0' || octeto > '9') && (octeto < 'a' || octeto > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // HuellasSHA256Distintas exige forma hexadecimal canonica y ausencia de

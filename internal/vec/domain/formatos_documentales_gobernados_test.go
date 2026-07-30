@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -201,6 +202,40 @@ func TestPerfilDocumentalRechazaSintaxisAmbiguaYCapacidadesAbiertas(t *testing.T
 		); !errors.Is(err, ErrPerfilFormatoDocumentalInvalido) {
 			t.Fatalf("extension ambigua aceptada: %q, %v", extension, err)
 		}
+	}
+}
+
+func TestReferenciaGobernadaValidaEquivaleAlContratoHistorico(t *testing.T) {
+	t.Parallel()
+
+	referencia := regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,255}$`)
+	comprobar := func(valor string) {
+		t.Helper()
+		if obtenido, esperado := referenciaGobernadaValida(valor), referencia.MatchString(valor); obtenido != esperado {
+			t.Fatalf("validacion de referencia no equivalente: %q obtenido=%v esperado=%v",
+				valor, obtenido, esperado)
+		}
+	}
+
+	for _, longitud := range []int{0, 1, 2, 255, 256, 257} {
+		base := strings.Repeat("a", longitud)
+		comprobar(base)
+		if longitud == 0 {
+			continue
+		}
+		for _, posicion := range []int{0, longitud / 2, longitud - 1} {
+			for octeto := 0; octeto <= 255; octeto++ {
+				candidato := []byte(base)
+				candidato[posicion] = byte(octeto)
+				comprobar(string(candidato))
+			}
+		}
+	}
+	for _, valor := range []string{
+		"A", "aB", "1a", "a/b", "a b", "a\n", "á", "aá",
+		"Ａ", "aİ", "aK", string([]byte{0xff}), "a" + string([]byte{0xff}),
+	} {
+		comprobar(valor)
 	}
 }
 
