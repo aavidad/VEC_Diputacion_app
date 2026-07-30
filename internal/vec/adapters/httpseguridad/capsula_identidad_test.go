@@ -67,7 +67,9 @@ func TestCapsulaIdentidadPeticionRevalidaCanalYServicio(t *testing.T) {
 		t.Fatal(err)
 	}
 	capsula, err := servicio.ProyectarCapsulaIdentidadPeticion(context.Background(), identidad, canal)
-	cuenta, auditoria, errDatos := capsula.datos(context.Background(), servicio, canal)
+	cuenta, auditoria, errDatos := capsula.datos(
+		context.Background(), servicio, canal.ReferenciaVinculacion(),
+	)
 	if err != nil || errDatos != nil || cuenta.Validar() != nil || auditoria.CanalVinculadoRef() != canal.ReferenciaVinculacion() {
 		t.Fatal("cápsula válida rechazada")
 	}
@@ -75,7 +77,7 @@ func TestCapsulaIdentidadPeticionRevalidaCanalYServicio(t *testing.T) {
 	if err != nil {
 		t.Fatal("vincular cápsula")
 	}
-	if _, _, err = servicio.ExtraerCapsulaIdentidadPeticion(vinculado, canal); err != nil {
+	if _, _, err = servicio.ExtraerCapsulaIdentidadPeticion(vinculado); err != nil {
 		t.Fatal("extraer cápsula")
 	}
 	canal.evidenciaRef = "tls-exportador:sha256:cruzado"
@@ -115,10 +117,10 @@ func TestCapsulaIdentidadPeticionCierraCancelacionYConcurrencia(t *testing.T) {
 
 func TestCapsulaIdentidadPeticionCierraCeroContextoYCancelacion(t *testing.T) {
 	var cero CapsulaIdentidadPeticion
-	if _, _, err := cero.datos(context.Background(), nil, CanalProxyAutenticado{}); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := cero.datos(context.Background(), nil, ""); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatal("cero admitido")
 	}
-	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(context.Background(), CanalProxyAutenticado{}); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(context.Background()); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatal("ausencia admitida")
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
@@ -126,7 +128,7 @@ func TestCapsulaIdentidadPeticionCierraCeroContextoYCancelacion(t *testing.T) {
 	if _, err := (*ServicioIdentidad)(nil).VincularCapsulaIdentidadPeticion(ctx, cero, CanalProxyAutenticado{}); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancelación de vinculación perdida")
 	}
-	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(ctx, CanalProxyAutenticado{}); !errors.Is(err, context.Canceled) {
+	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancelación de extracción perdida")
 	}
 }
@@ -148,10 +150,17 @@ func TestCapsulaIdentidadPeticionRechazaCrucesYAdulteraciones(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vincular cápsula válida: %v", err)
 	}
+	contextoAlterado := context.WithValue(
+		context.Background(),
+		claveCapsulaIdentidad{},
+		capsulaIdentidadVinculada{
+			capsula: entorno.capsula, canalVinculadoRef: canalCruzado.ReferenciaVinculacion(),
+		},
+	)
 	if _, _, err = entorno.servicio.ExtraerCapsulaIdentidadPeticion(
-		vinculado, canalCruzado,
+		contextoAlterado,
 	); !errors.Is(err, ErrSesionNoValida) {
-		t.Fatalf("extracción con canal cruzado admitida: %v", err)
+		t.Fatalf("vínculo de canal alterado admitido: %v", err)
 	}
 	if _, err = otro.servicio.VincularCapsulaIdentidadPeticion(
 		context.Background(), entorno.capsula, otro.canal,
@@ -159,7 +168,7 @@ func TestCapsulaIdentidadPeticionRechazaCrucesYAdulteraciones(t *testing.T) {
 		t.Fatalf("servicio cruzado admitido: %v", err)
 	}
 	if _, _, err = otro.servicio.ExtraerCapsulaIdentidadPeticion(
-		vinculado, otro.canal,
+		vinculado,
 	); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("extracción por otro servicio admitida: %v", err)
 	}
@@ -217,7 +226,7 @@ func TestCapsulaIdentidadPeticionRevalidaRevocacionYCaducidad(t *testing.T) {
 		}
 		entorno.registro.revocar("sesion-001")
 		if _, _, err = entorno.servicio.ExtraerCapsulaIdentidadPeticion(
-			vinculado, entorno.canal,
+			vinculado,
 		); !errors.Is(err, ErrSesionNoValida) {
 			t.Fatalf("sesión revocada admitida al extraer: %v", err)
 		}
@@ -241,7 +250,7 @@ func TestCapsulaIdentidadPeticionRevalidaRevocacionYCaducidad(t *testing.T) {
 		}
 		entorno.reloj.fijar(entorno.reloj.Ahora().Add(2 * time.Minute))
 		if _, _, err = entorno.servicio.ExtraerCapsulaIdentidadPeticion(
-			vinculado, entorno.canal,
+			vinculado,
 		); !errors.Is(err, ErrSesionNoValida) {
 			t.Fatalf("sesión caducada admitida al extraer: %v", err)
 		}
@@ -282,7 +291,7 @@ func TestCapsulaIdentidadPeticionCierraSustitucionYContextosTerminados(t *testin
 				t.Fatalf("vinculación perdió error de contexto: %v", err)
 			}
 			if _, _, err := entorno.servicio.ExtraerCapsulaIdentidadPeticion(
-				caso.ctx, entorno.canal,
+				caso.ctx,
 			); !errors.Is(err, caso.espera) {
 				t.Fatalf("extracción perdió error de contexto: %v", err)
 			}
@@ -293,9 +302,25 @@ func TestCapsulaIdentidadPeticionCierraSustitucionYContextosTerminados(t *testin
 func TestCapsulaIdentidadPeticionNoFiltraNiSeReconstruye(t *testing.T) {
 	entorno := nuevoEntornoCapsulaIdentidad(t)
 	capsula := entorno.capsula
+	contextoVinculado, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
+		context.Background(), capsula, entorno.canal,
+	)
+	if err != nil {
+		t.Fatalf("vincular: %v", err)
+	}
+	vinculada, ok := contextoVinculado.Value(
+		claveCapsulaIdentidad{},
+	).(capsulaIdentidadVinculada)
+	if !ok {
+		t.Fatal("transporte privado ausente")
+	}
 	var registro bytes.Buffer
 	slog.New(slog.NewTextHandler(&registro, nil)).Info(
 		"cápsula", "valor", capsula,
+	)
+	var registroVinculada bytes.Buffer
+	slog.New(slog.NewTextHandler(&registroVinculada, nil)).Info(
+		"cápsula vinculada", "valor", vinculada,
 	)
 	representaciones := []string{
 		fmt.Sprintf("%s %v %#v %+v", capsula, capsula, capsula, capsula),
@@ -303,6 +328,11 @@ func TestCapsulaIdentidadPeticionNoFiltraNiSeReconstruye(t *testing.T) {
 		capsula.GoString(),
 		capsula.LogValue().String(),
 		registro.String(),
+		fmt.Sprintf("%s %v %#v %+v", vinculada, vinculada, vinculada, vinculada),
+		vinculada.String(),
+		vinculada.GoString(),
+		vinculada.LogValue().String(),
+		registroVinculada.String(),
 	}
 	prohibidos := []string{
 		capsula.identidad.confirmacion.AutenticacionRef,
@@ -364,7 +394,7 @@ func TestCapsulaIdentidadPeticionPermiteLecturaConcurrenteRevalidada(t *testing.
 		go func() {
 			defer grupo.Done()
 			cuenta, auditoria, err := entorno.servicio.ExtraerCapsulaIdentidadPeticion(
-				vinculado, entorno.canal,
+				vinculado,
 			)
 			if err != nil || cuenta.Validar() != nil ||
 				auditoria.CanalVinculadoRef() != entorno.canal.ReferenciaVinculacion() {
