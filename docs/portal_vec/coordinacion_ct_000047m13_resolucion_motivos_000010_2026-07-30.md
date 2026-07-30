@@ -5,8 +5,9 @@ Fecha: 30 de julio de 2026.
 ## Condición de inicio
 
 M1.2/`000009` está integrada en `0a564e2` con doble `GO` independiente.
-M1.3 puede comenzar desde ese commit, pero no habilita producción ni catálogos
-reales.
+M1.3 solo puede comenzar después de integrar
+[M1.R](coordinacion_ct_000047m1r_rol_resolutor_motivos_rrhh_2026-07-30.md).
+No habilita producción ni catálogos reales.
 
 ## Resultado único
 
@@ -37,8 +38,10 @@ Cada función:
 
 1. rechaza instante nulo, infinito, no canónico o futuro;
 2. deriva el actor únicamente de `session_user`;
-3. exige una identidad `LOGIN` segura y miembro exacto del rol evaluador;
-4. adquiere bloqueos compartidos en orden `000008 → 000009 → 000010`;
+3. exige una identidad `LOGIN` segura y miembro directo exacto de
+   `vec_autorizacion_motivos_rrhh_resolutor`;
+4. adquiere el advisory compartido M1.R y después los bloqueos
+   `000008 → 000009 → 000010`;
 5. bloquea con `FOR SHARE` solo el checkpoint de su clase;
 6. resuelve la publicación exacta apuntada por ese checkpoint;
 7. exige que no exista retirada local;
@@ -56,8 +59,9 @@ autorización.
 Las dos funciones son `SECURITY DEFINER`, con propietario
 `vec_autorizacion_propietario`, `search_path=pg_catalog` y sin sobrecargas.
 
-Solo `vec_autorizacion_motivos_evaluador` obtiene `EXECUTE`. `PUBLIC`, fuente,
-registro y proyector no reciben ejecución ni lectura directa de tablas.
+Solo `vec_autorizacion_motivos_rrhh_resolutor` obtiene `EXECUTE`. El evaluador
+V2 histórico, `PUBLIC`, fuente, registro y proyector no reciben ejecución ni
+lectura directa de tablas.
 
 La instalación:
 
@@ -99,9 +103,9 @@ El runner debe cubrir:
 - motivos distintos publicados para cuadro y detalle;
 - ausencia, instante anterior o futuro, nulo, infinito o no canónico;
 - retirada local, retirada V2 y entrada fuera de vigencia;
-- ejecución positiva solo por evaluador;
+- ejecución positiva solo por resolutor RRHH;
 - denegación a `PUBLIC`, fuente, registro, proyector y `LOGIN` no miembro;
-- ausencia de lectura y DML directo para el evaluador;
+- ausencia de lectura y DML directo para el resolutor RRHH;
 - `search_path` hostil y objetos temporales homónimos;
 - carrera causal: la retirada espera a una resolución que retiene `FOR SHARE`;
 - dependencia SQL real que impide el `down` y conserva ambas fachadas.

@@ -90,7 +90,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008` y M1.2/`000009` cierran el fundamento y la publicación/retirada de motivos. Faltan M1.3, M2, la raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008` y M1.2/`000009` cierran el fundamento y la publicación/retirada de motivos. Faltan M1.R, M1.3, M2, la raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -264,15 +264,16 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar M1.3/`000010`: dos resoluciones nominales de motivos.
-2. Implementar M2: adaptador PostgreSQL con pool evaluador exclusivo.
-3. Implementar los puentes productivos de autoridad corporativa y PDP.
-4. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
+1. Implementar M1.R: rol NOLOGIN exclusivo de resolución de motivos RRHH.
+2. Implementar M1.3/`000010`: dos resoluciones nominales de motivos.
+3. Implementar M2: adaptador PostgreSQL con pool resolutor exclusivo.
+4. Implementar los puentes productivos de autoridad corporativa y PDP.
+5. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
    caída a presentación.
-5. Implementar el adaptador independiente de publicaciones visuales
+6. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-6. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-7. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+7. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+8. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado

@@ -44,6 +44,7 @@ distintos. No se presupone que puedan compartir una entrada.
 | --- | --- | --- |
 | M1.1 | `000008` | Fundamento privado: historial append-only, checkpoint, referencias, RLS, ACL e inmutabilidad. |
 | M1.2 | `000009` | Publicación y retirada atómicas de las dos vinculaciones, con replay idempotente. |
+| M1.R | Roles DBA | Rol NOLOGIN exclusivo para resolver motivos RRHH sin heredar la fachada V2 genérica. |
 | M1.3 | `000010` | Dos resoluciones nominales, ACL mínima y pruebas de vigencia/retirada. |
 | M2 | Adaptador Go | Implementación de los dos métodos M0 con consultas fijas y pool exclusivo. |
 
@@ -53,9 +54,10 @@ migración rota.
 
 ## Separación de autoridades
 
-El adaptador M2 usará un pool nominal exclusivo de evaluación de motivos. No
-reutilizará `PoolConsultasRRHHPostgreSQL`, porque esa conexión posee autoridad
-sobre las proyecciones de Contratación temporal y no sobre el gobierno VEC.
+El adaptador M2 usará un pool nominal exclusivo, miembro únicamente de
+`vec_autorizacion_motivos_rrhh_resolutor`. No reutilizará el evaluador V2 ni
+`PoolConsultasRRHHPostgreSQL`: ambas conexiones poseen autoridades más amplias
+o distintas de las dos resoluciones RRHH.
 
 Los métodos serán exactamente:
 
@@ -81,6 +83,6 @@ activación real continúa bloqueada por:
 
 ## Consecuencia
 
-M1 y M2 pueden avanzar en paralelo con A5 porque sus write-sets no se cruzan.
-Su cierre técnico no autoriza producción ni sustituye las conformidades
+El orden actual es `M1.R → M1.3 → M2`. A5 ya está cerrado. El cierre técnico
+de esta cadena no autoriza producción ni sustituye las conformidades
 organizativas.

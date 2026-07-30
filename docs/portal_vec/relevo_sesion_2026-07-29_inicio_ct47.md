@@ -205,11 +205,14 @@ detalle, historia de solo adición, replay, cronología, exclusión temporal,
 actor derivado del `session_user`, ACL/RLS cerradas y safe-down semántico. Las
 revisiones corrigieron una FK fundamental alterable con `ON DELETE CASCADE` y
 un orden de locks no garantizado por una lista `SELECT`; ambos casos forman
-parte del arnés PostgreSQL 18.4. M1.3/`000010` queda desbloqueada para resolver
+parte del arnés PostgreSQL 18.4. M1.3/`000010` queda diseñada para resolver
 las dos referencias sin selector libre. Su
 [coordinación acotada](coordinacion_ct_000047m13_resolucion_motivos_000010_2026-07-30.md)
 fija tres ficheros, dos fachadas, matriz PostgreSQL 18.4 y revisión
-independiente.
+independiente. Una revisión preventiva detectó que el evaluador V2 conserva
+una función histórica con selectores libres. M1.3 no lo reutilizará: antes se
+integra el
+[rol exclusivo M1.R](coordinacion_ct_000047m1r_rol_resolutor_motivos_rrhh_2026-07-30.md).
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
