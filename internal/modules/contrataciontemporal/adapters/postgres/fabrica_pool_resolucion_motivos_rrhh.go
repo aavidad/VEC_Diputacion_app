@@ -29,8 +29,18 @@ type conexionPoolResolucionMotivosRRHH interface {
 	Configuracion() *pgx.ConnConfig
 	Sello() *selloPoolResolucionMotivosRRHH
 	QueryRow(context.Context, string, ...any) pgx.Row
-	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+	BeginTx(
+		context.Context,
+		pgx.TxOptions,
+	) (transaccionPoolResolucionMotivosRRHH, error)
 	Liberar()
+}
+
+type transaccionPoolResolucionMotivosRRHH interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Commit(context.Context) error
+	Rollback(context.Context) error
+	Sello() *selloPoolResolucionMotivosRRHH
 }
 
 type origenPoolResolucionMotivosRRHHPostgreSQL struct {
@@ -41,6 +51,11 @@ type origenPoolResolucionMotivosRRHHPostgreSQL struct {
 type conexionPoolResolucionMotivosRRHHPostgreSQL struct {
 	conexion *pgxpool.Conn
 	sello    *selloPoolResolucionMotivosRRHH
+}
+
+type transaccionPoolResolucionMotivosRRHHPostgreSQL struct {
+	pgx.Tx
+	sello *selloPoolResolucionMotivosRRHH
 }
 
 type creadorOrigenPoolResolucionMotivosRRHH func(
@@ -253,8 +268,21 @@ func (c *conexionPoolResolucionMotivosRRHHPostgreSQL) QueryRow(
 func (c *conexionPoolResolucionMotivosRRHHPostgreSQL) BeginTx(
 	ctx context.Context,
 	opciones pgx.TxOptions,
-) (pgx.Tx, error) {
-	return c.conexion.BeginTx(ctx, opciones)
+) (transaccionPoolResolucionMotivosRRHH, error) {
+	tx, err := c.conexion.BeginTx(ctx, opciones)
+	if err != nil || tx == nil {
+		return nil, err
+	}
+	return &transaccionPoolResolucionMotivosRRHHPostgreSQL{
+		Tx: tx, sello: c.sello,
+	}, nil
+}
+
+func (t *transaccionPoolResolucionMotivosRRHHPostgreSQL) Sello() *selloPoolResolucionMotivosRRHH {
+	if t == nil {
+		return nil
+	}
+	return t.sello
 }
 
 func (c *conexionPoolResolucionMotivosRRHHPostgreSQL) Liberar() {

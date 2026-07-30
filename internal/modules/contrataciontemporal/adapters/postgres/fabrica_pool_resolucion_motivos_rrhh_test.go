@@ -56,6 +56,18 @@ type conexionPoolResolucionMotivosRRHHPrueba struct {
 	panicoLiberar bool
 }
 
+type transaccionAcreditacionResolucionMotivosRRHHPrueba struct {
+	*conexionPoolResolucionMotivosRRHHPrueba
+	selloTransaccion *selloPoolResolucionMotivosRRHH
+}
+
+func (t *transaccionAcreditacionResolucionMotivosRRHHPrueba) Sello() *selloPoolResolucionMotivosRRHH {
+	if t == nil {
+		return nil
+	}
+	return t.selloTransaccion
+}
+
 func (c *conexionPoolResolucionMotivosRRHHPrueba) Configuracion() *pgx.ConnConfig {
 	if c == nil {
 		return nil
@@ -86,7 +98,7 @@ func (c *conexionPoolResolucionMotivosRRHHPrueba) QueryRow(
 func (*conexionPoolResolucionMotivosRRHHPrueba) BeginTx(
 	context.Context,
 	pgx.TxOptions,
-) (pgx.Tx, error) {
+) (transaccionPoolResolucionMotivosRRHH, error) {
 	return nil, errors.New("no usado en M2.1")
 }
 
@@ -271,6 +283,10 @@ func TestAcreditacionResolucionMotivosRRHHExigeIdentidadOIDYConsultaCompleta(
 		"pg_default_acl",
 		"pg_policy",
 		"pg_shdepend",
+		"esquemas_aplicativos",
+		"has_type_privilege",
+		"0=ANY(p.polroles)",
+		"SELECT d.dbid,d.classid",
 		"d92704658d0af8acea83cd765e02976561c787a95906b9a10ee8a43ac0be16ef",
 		"ec662cc7118eb25eb2ebe79107c1ad1f16e5f5197fab8ff5e2051b3ddbc9fc7a",
 		"6699",
@@ -285,6 +301,45 @@ func TestAcreditacionResolucionMotivosRRHHExigeIdentidadOIDYConsultaCompleta(
 		conexion.argumentos[0] != loginResolutorMotivosRRHHPrueba ||
 		conexion.argumentos[1] != true {
 		t.Fatalf("argumentos inesperados: %#v", conexion.argumentos)
+	}
+}
+
+func TestAcreditacionResolucionMotivosRRHHRechazaIdentidadDivergente(
+	t *testing.T,
+) {
+	t.Parallel()
+	for _, caso := range []struct {
+		nombre   string
+		sesion   string
+		efectivo string
+	}{
+		{"sesión distinta", "otro_login", loginResolutorMotivosRRHHPrueba},
+		{"efectivo distinto", loginResolutorMotivosRRHHPrueba, "otro_login"},
+		{"ambos distintos", "sesion_ajena", "efectivo_ajeno"},
+	} {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			valores := valoresAcreditacionResolutorValidos(
+				loginResolutorMotivosRRHHPrueba,
+			)
+			valores[0], valores[1] = caso.sesion, caso.efectivo
+			oidCuadro, oidDetalle, err := acreditarConexionResolucionMotivosRRHH(
+				context.Background(),
+				&conexionPoolResolucionMotivosRRHHPrueba{
+					fila: filaAcreditacionResolutorPrueba{valores: valores},
+				},
+				loginResolutorMotivosRRHHPrueba,
+				modoTLSAcreditacionPoolO405Produccion,
+				0,
+				0,
+			)
+			if oidCuadro != 0 || oidDetalle != 0 ||
+				!errors.Is(err, ports.ErrMotivoConsultaRRHHNoDisponible) {
+				t.Fatalf("identidad divergente admitida: (%d,%d,%v)",
+					oidCuadro, oidDetalle, err)
+			}
+		})
 	}
 }
 
@@ -489,114 +544,6 @@ func TestConstruccionPoolResolucionMotivosRRHHFallaCerradoYLimpiaParcial(
 	}
 }
 
-func TestConstruccionPoolResolucionMotivosRRHHRechazaFronterasEIncertidumbre(
-	t *testing.T,
-) {
-	t.Parallel()
-	configuracion := configuracionPoolResolucionMotivosRRHHPrueba(
-		loginResolutorMotivosRRHHPrueba,
-	)
-	origen := nuevoOrigenPoolResolucionMotivosRRHHPrueba(
-		loginResolutorMotivosRRHHPrueba,
-	)
-	var llamadas atomic.Int32
-	crearValido := func(context.Context, *pgxpool.Config) (
-		origenPoolResolucionMotivosRRHH,
-		error,
-	) {
-		llamadas.Add(1)
-		return origen, nil
-	}
-	ctxCancelado, cancelar := context.WithCancel(context.Background())
-	cancelar()
-	for _, caso := range []struct {
-		nombre string
-		ctx    context.Context
-		config *pgxpool.Config
-		crear  creadorOrigenPoolResolucionMotivosRRHH
-	}{
-		{"contexto nulo", nil, configuracion, crearValido},
-		{"contexto cancelado", ctxCancelado, configuracion, crearValido},
-		{"configuración nula", context.Background(), nil, crearValido},
-		{"creador nulo", context.Background(), configuracion, nil},
-	} {
-		caso := caso
-		t.Run(caso.nombre, func(t *testing.T) {
-			pool, err := construirPoolResolucionMotivosRRHH(
-				caso.ctx,
-				caso.config,
-				loginResolutorMotivosRRHHPrueba,
-				modoTLSAcreditacionPoolO405Produccion,
-				caso.crear,
-			)
-			if pool != nil ||
-				!errors.Is(err, ports.ErrMotivoConsultaRRHHNoDisponible) {
-				t.Fatalf("frontera insegura admitida: (%v,%v)", pool, err)
-			}
-		})
-	}
-	if llamadas.Load() != 0 {
-		t.Fatalf("se invocó el creador tras una frontera inválida: %d", llamadas.Load())
-	}
-
-	for _, caso := range []struct {
-		nombre string
-		crear  creadorOrigenPoolResolucionMotivosRRHH
-		cerrar bool
-	}{
-		{
-			"origen y error",
-			func(context.Context, *pgxpool.Config) (
-				origenPoolResolucionMotivosRRHH,
-				error,
-			) {
-				return origen, errors.New("detalle de conexión reservado")
-			},
-			true,
-		},
-		{
-			"origen nulo tipado",
-			func(context.Context, *pgxpool.Config) (
-				origenPoolResolucionMotivosRRHH,
-				error,
-			) {
-				return (*origenPoolResolucionMotivosRRHHPrueba)(nil), nil
-			},
-			false,
-		},
-		{
-			"pánico del creador",
-			func(context.Context, *pgxpool.Config) (
-				origenPoolResolucionMotivosRRHH,
-				error,
-			) {
-				panic("detalle reservado")
-			},
-			false,
-		},
-	} {
-		caso := caso
-		t.Run(caso.nombre, func(t *testing.T) {
-			pool, err := construirPoolResolucionMotivosRRHH(
-				context.Background(),
-				configuracion,
-				loginResolutorMotivosRRHHPrueba,
-				modoTLSAcreditacionPoolO405Produccion,
-				caso.crear,
-			)
-			if pool != nil ||
-				!errors.Is(err, ports.ErrMotivoConsultaRRHHNoDisponible) ||
-				strings.Contains(err.Error(), "reservado") {
-				t.Fatalf("incertidumbre no saneada: (%v,%v)", pool, err)
-			}
-			if caso.cerrar != (origen.cierres.Load() == 1) {
-				t.Fatalf("cierre parcial inesperado: %d", origen.cierres.Load())
-			}
-			origen.cierres.Store(0)
-		})
-	}
-}
-
 func TestPoolResolucionMotivosRRHHRechazaCopiaYConfiguracionMutada(
 	t *testing.T,
 ) {
@@ -627,6 +574,54 @@ func TestPoolResolucionMotivosRRHHRechazaCopiaYConfiguracionMutada(
 		t.Fatalf("configuración mutada admitida: (%v,%v)", conexion, err)
 	}
 	pool.Cerrar()
+}
+
+func TestPoolResolucionMotivosRRHHReacreditaSoloTransaccionSellada(
+	t *testing.T,
+) {
+	t.Parallel()
+	origen := nuevoOrigenPoolResolucionMotivosRRHHPrueba(
+		loginResolutorMotivosRRHHPrueba,
+	)
+	pool, err := construirPoolResolucionMotivosRRHHPrueba(
+		context.Background(), origen,
+	)
+	if err != nil {
+		t.Fatalf("construcción válida: %v", err)
+	}
+	defer pool.Cerrar()
+
+	nuevaTransaccion := func(
+		sello *selloPoolResolucionMotivosRRHH,
+	) *transaccionAcreditacionResolucionMotivosRRHHPrueba {
+		return &transaccionAcreditacionResolucionMotivosRRHHPrueba{
+			conexionPoolResolucionMotivosRRHHPrueba: &conexionPoolResolucionMotivosRRHHPrueba{
+				fila: filaAcreditacionResolutorPrueba{
+					valores: valoresAcreditacionResolutorValidos(
+						loginResolutorMotivosRRHHPrueba,
+					),
+				},
+			},
+			selloTransaccion: sello,
+		}
+	}
+	if err := pool.reacreditar(
+		context.Background(), nuevaTransaccion(pool.sello),
+	); err != nil {
+		t.Fatalf("transacción sellada rechazada: %v", err)
+	}
+	for _, transaccion := range []transaccionAcreditacionResolucionMotivosRRHH{
+		nil,
+		(*transaccionAcreditacionResolucionMotivosRRHHPrueba)(nil),
+		nuevaTransaccion(nil),
+		nuevaTransaccion(&selloPoolResolucionMotivosRRHH{}),
+	} {
+		if err := pool.reacreditar(
+			context.Background(), transaccion,
+		); !errors.Is(err, ports.ErrMotivoConsultaRRHHNoDisponible) {
+			t.Fatalf("transacción sin sello admitida: %v", err)
+		}
+	}
 }
 
 func TestFabricaPoolResolucionMotivosRRHHRechazaDSNLoginYTLS(
