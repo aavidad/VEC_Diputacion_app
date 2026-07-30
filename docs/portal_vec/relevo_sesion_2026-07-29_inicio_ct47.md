@@ -360,9 +360,16 @@ otorgantes, la integración PostgreSQL 18.4, ShellCheck, tamaños y Gitleaks.
 
 C2.2-S0.2 está dividida en un `down` SQL autónomo y portable, prueba literal
 `pgx`, runner estructural/ACL/consumidores y runner de
-concurrencia/preservación. S0.2a dispone de un corrector local y permanece en
-revisión independiente; no debe integrarse antes del `GO`. S0.2b y S0.2c
-podrán producirse en paralelo después de ese cierre.
+concurrencia/preservación. S0.2a dispone del candidato local limpio
+`03b4842` + `5a3531d` en
+`agent/ct107-safe-down-000002-20260730`. No está integrado ni publicado.
+CT122 alcanzó antes del cierre de sesión integración normal e ICU `es-ES`
+verdes, rechazo correcto de estadísticas, comentarios, trigger homónimo y
+`defaclnamespace`, además de cancelación y descarte `pgx`; quedó interrumpida
+durante la reproducción final de la carrera `GRANT` y la composición exacta
+contra `8f383e8`. El siguiente agente debe reanudar esa revisión de solo
+lectura y exigir `GO` P0=P1=P2=0 antes de integrar. S0.2b y S0.2c podrán
+producirse en paralelo después de ese cierre.
 
 ## Optimización probatoria CT88
 
