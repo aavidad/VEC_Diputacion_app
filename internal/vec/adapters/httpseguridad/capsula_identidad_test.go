@@ -66,3 +66,21 @@ func TestCapsulaIdentidadPeticionCierraCancelacionYConcurrencia(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestCapsulaIdentidadPeticionCierraCeroContextoYCancellation(t *testing.T) {
+	var cero CapsulaIdentidadPeticion
+	if _, _, err := cero.datos(context.Background(), nil, CanalProxyAutenticado{}); !errors.Is(err, ErrSesionNoValida) {
+		t.Fatal("cero admitido")
+	}
+	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(context.Background(), CanalProxyAutenticado{}); !errors.Is(err, ErrSesionNoValida) {
+		t.Fatal("ausencia admitida")
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := (*ServicioIdentidad)(nil).VincularCapsulaIdentidadPeticion(ctx, cero, CanalProxyAutenticado{}); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelación de vinculación perdida")
+	}
+	if _, _, err := (*ServicioIdentidad)(nil).ExtraerCapsulaIdentidadPeticion(ctx, CanalProxyAutenticado{}); !errors.Is(err, context.Canceled) {
+		t.Fatal("cancelación de extracción perdida")
+	}
+}
