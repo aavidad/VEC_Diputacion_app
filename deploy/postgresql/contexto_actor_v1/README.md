@@ -202,10 +202,13 @@ usa una referencia PostgreSQL 18 fijada por digest.
 La retirada base está denegada por defecto. `000001_contexto_actor_v1.down.sql`
 solo acepta una instalación exacta de `000001`, completamente vacía y sin
 consumidores. Reacredita propietario, roles, membresías, ACL, objetos,
-columnas, índices, funciones, restricciones, triggers, tipos y privilegios
-predeterminados mediante un manifiesto PostgreSQL 18.4. Cualquier fila,
-`000002`, migración posterior, objeto desconocido, deriva o dependencia
-externa aborta la transacción y conserva íntegro el esquema.
+propiedades y ACL de columna, índices, funciones, restricciones, todos los
+triggers —incluidos los internos—, tipos, publicaciones, herencias,
+suscripciones y privilegios predeterminados mediante un manifiesto PostgreSQL
+18.4. El contrato de roles incluye límite de conexiones, caducidad y solo el
+estado ausente/presente de la credencial, nunca su valor. Cualquier fila,
+`000002`, migración posterior, objeto desconocido, deriva o dependencia externa
+aborta la transacción y conserva íntegro el esquema.
 
 La confirmación explícita no autoriza a borrar evidencia. La secuencia
 operativa, únicamente para una instalación vacía acreditada, es:
