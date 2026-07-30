@@ -724,13 +724,17 @@ esquema=$(docker exec "$contenedor" psql -X --no-align --tuples-only --set ON_ER
   --username postgres --dbname "$base" --command \
   "SELECT pg_catalog.to_regnamespace('vec_contexto_actor_v1') IS NOT NULL")
 [[ $esquema == t ]] || { echo 'down sin opt-in destruyo el esquema' >&2; exit 1; }
-docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
   --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
   --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.down.sql"
-docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
-  --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/roles_down.sql"
+  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.down.sql" \
+  >/dev/null 2>&1; then
+  echo 'down 000001 elimino historia durable con confirmacion' >&2
+  exit 1
+fi
+filas_conservadas=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
+  --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
+  "SELECT count(*) FROM vec_contexto_actor_v1.registros_contexto")
+[[ $filas_conservadas -gt 0 ]] || { echo 'down 000001 altero evidencia tras rechazo' >&2; exit 1; }
 
 echo 'contexto actor durable V2: integracion PostgreSQL 18 superada'
