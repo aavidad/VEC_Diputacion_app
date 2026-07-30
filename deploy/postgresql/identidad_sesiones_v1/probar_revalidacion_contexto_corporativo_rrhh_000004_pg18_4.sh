@@ -139,6 +139,9 @@ COALESCE((SELECT proacl::text FROM pg_proc WHERE oid=
 }
 
 source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/readiness_pg18_4.sh
+source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/estados_carreras_cardinalidad.sh
+source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/venenos_acl_topologia.sh
+source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/safe_down_consumidores_efectivos.sh
 
 paso "arranque aislado con $imagen"
 docker run --detach --name "$contenedor" \
@@ -323,6 +326,9 @@ clock_timestamp()-interval '1 second',clock_timestamp()+interval '4 minutes',
 [[ -n $cuenta_priv && $priv == *'|'* ]]
 exigir_cero "${priv%%|*}" "${priv#*|}" 'cuenta privilegiada/distinta'
 
+probar_estados_carreras_cardinalidad \
+  "$contenedor" "$base" "$clave" "$login" "$proxy" "$salidas"
+
 paso 'ACL efectiva hostil: PUBLIC, herencia, tipos, secuencias y defaults'
 psql_valor "GRANT EXECUTE ON FUNCTION
 vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)
@@ -402,6 +408,10 @@ psql_valor "ALTER ROLE $login SET application_name='hostil'" >/dev/null
 exigir_cero "$autenticacion" "$sesion" 'ajuste del LOGIN'
 psql_valor "ALTER ROLE $login RESET application_name" >/dev/null
 exigir_uno "$autenticacion" "$sesion" 'topología restaurada'
+
+probar_venenos_acl_topologia \
+  "$fachada" "$login" "$selector" "$consumidor" \
+  "$autenticacion" "$sesion"
 
 paso 'timeout, cancelación e interbloqueo no capturados'
 fifo_lock="$salidas/fifo_lock"
@@ -686,31 +696,8 @@ printf '%s\n' "$definicion" | psql_admin >/dev/null
 esperar_fallo_archivo "$down" 'dependencia proxy RESTRICT'
 eliminar_proxy
 
-paso 'down conserva USAGE para otro consumidor efectivo'
-psql_admin <<SQL
-SET ROLE vec_identidad_sesiones_v1_propietario;
-CREATE FUNCTION vec_identidad_sesiones_v1.c21b_otro_consumidor()
-RETURNS boolean LANGUAGE sql AS 'SELECT true';
-REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.c21b_otro_consumidor()
-FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_identidad_sesiones_v1.c21b_otro_consumidor()
-TO $consumidor;
-SQL
-psql_archivo "$down" >/dev/null
-[[ $(psql_valor "SELECT has_schema_privilege('$consumidor',
-'vec_identidad_sesiones_v1','USAGE')::text") == true ]]
-[[ $(psql_valor "SELECT (to_regprocedure('$fachada(text,text)')
-IS NULL)::text") == true ]]
-psql_admin <<SQL
-SET ROLE vec_identidad_sesiones_v1_propietario;
-REVOKE EXECUTE ON FUNCTION vec_identidad_sesiones_v1.c21b_otro_consumidor()
-FROM $consumidor;
-DROP FUNCTION vec_identidad_sesiones_v1.c21b_otro_consumidor();
-REVOKE USAGE ON SCHEMA vec_identidad_sesiones_v1 FROM $consumidor;
-SQL
-psql_archivo "$up" >/dev/null
-oid_final=$(psql_valor "SELECT '$fachada(text,text)'::regprocedure::oid")
-[[ $oid_final != "$oid_inicial" ]]
+probar_safe_down_consumidores_efectivos \
+  "$up" "$down" "$fachada" "$consumidor" "$oid_inicial"
 [[ $(huella_base) == "$huella_base_inicial" ]]
 [[ $(psql_valor "SELECT 'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)'::regprocedure::oid") == "$base_oid" ]]
 crear_proxy
