@@ -265,7 +265,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 ## Siguiente corte exacto
 
 1. Implementar M1.3/`000010`: dos resoluciones nominales de motivos.
-2. Implementar M2: adaptador PostgreSQL con pool resolutor exclusivo.
+2. Implementar
+   [M2](coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md):
+   adaptador PostgreSQL con pool resolutor exclusivo, en cuatro minitareas.
 3. Implementar los puentes productivos de autoridad corporativa y PDP.
 4. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
    caída a presentación.

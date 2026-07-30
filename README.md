@@ -65,6 +65,7 @@ llamamientos.
 - [Relevo del cierre CT-000046](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct46.md)
 - [Relevo del inicio CT-000047 y orden corregido](docs/portal_vec/relevo_sesion_2026-07-29_inicio_ct47.md)
 - [Revisión del rol resolutor aislado M1.R](docs/portal_vec/revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md)
+- [Coordinación del adaptador nominal de motivos M2](docs/portal_vec/coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)

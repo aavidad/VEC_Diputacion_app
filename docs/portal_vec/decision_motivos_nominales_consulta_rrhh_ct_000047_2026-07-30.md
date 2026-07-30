@@ -46,7 +46,7 @@ distintos. No se presupone que puedan compartir una entrada.
 | M1.2 | `000009` | Publicación y retirada atómicas de las dos vinculaciones, con replay idempotente. |
 | M1.R | Roles DBA | Cerrado: rol NOLOGIN exclusivo para resolver motivos RRHH sin heredar la fachada V2 genérica. |
 | M1.3 | `000010` | Dos resoluciones nominales, ACL mínima y pruebas de vigencia/retirada. |
-| M2 | Adaptador Go | Implementación de los dos métodos M0 con consultas fijas y pool exclusivo. |
+| M2 | Adaptador Go | Implementación de los dos métodos M0 con consultas fijas y pool exclusivo, dividida en [cuatro minitareas coordinadas](coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md). |
 
 Cada migración será completa, reversible de forma segura y probada en
 PostgreSQL 18.4 real. No se confirmarán componentes intermedios que dejen una
