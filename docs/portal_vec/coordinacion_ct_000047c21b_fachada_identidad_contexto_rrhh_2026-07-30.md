@@ -2,7 +2,7 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: **diseño cerrado; bloqueada hasta integrar C2.1a**.
+Estado: **en implementación; C2.1a integrada y verificada**.
 
 ## Responsabilidad única
 
@@ -79,6 +79,28 @@ La función:
 
 El cuerpo `BEGIN ATOMIC` crea una dependencia catalogada real con el
 revalidador base. `000003 down` debe fallar mientras exista `000004`.
+
+## Precisiones de implementación
+
+La migración puede instalarse antes de que C2.7 cree el LOGIN y el pool. Hasta
+que exista exactamente un LOGIN miembro con las opciones exigidas, toda
+llamada falla cerrada. La función no exige en ejecución la ACL literal inicial
+de C2.1a: C2.5 y C2.8 añadirán autoridad funcional a ContextoActor. Sí exige
+los atributos y la marca del selector, su topología nominal y que ni el
+selector ni el LOGIN tengan acceso directo a Identidad.
+
+Una función sustituida por su propietario no puede autenticar su propio cuerpo
+desde ese mismo cuerpo. Por ello, la definición y la huella exactas se
+acreditan en alta, postcondición, reentrada y retirada. Durante una llamada se
+reacreditan propietario, ejecutor, configuración, ACL y dependencia con el
+revalidador base; el arnés no atribuye a la autoinspección una garantía
+imposible.
+
+El aislamiento, escritura, primario y `role=none` se comprueban antes de
+entregar referencias reales al revalidador. Un contexto inválido no puede
+provocar una consulta con esas referencias. La prueba de dependencia dura de
+`000003 down` se ejecuta en una instalación sin historia, para no confundir el
+bloqueo por `pg_depend` con el bloqueo previo por cuentas o sesiones.
 
 ## Identidad técnica nominal
 

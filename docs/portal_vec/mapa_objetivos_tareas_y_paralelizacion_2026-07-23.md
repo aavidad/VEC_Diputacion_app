@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último commit técnico verificado | `e8c950c` — C2.1a, rol selector RRHH mínimo con doble GO y P0=P1=P2=0 |
-| Trabajo local en revisión | Ninguno; siguiente minitarea: C2.1b, fachada mínima de Identidad para ContextoActor. |
+| Trabajo local en revisión | C2.1b, fachada mínima de Identidad para ContextoActor: producción y dos revisiones preventivas en paralelo. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
