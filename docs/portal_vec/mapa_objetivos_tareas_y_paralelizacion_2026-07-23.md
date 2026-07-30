@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `4471e3a` — C1, cápsula de identidad de petición con doble GO y P0=P1=P2=0 |
-| Trabajo local en revisión | Ninguno; siguiente minitarea: C2.1, rol nominal y fachada de Identidad para ContextoActor. |
+| Último commit técnico verificado | `e8c950c` — C2.1a, rol selector RRHH mínimo con doble GO y P0=P1=P2=0 |
+| Trabajo local en revisión | Ninguno; siguiente minitarea: C2.1b, fachada mínima de Identidad para ContextoActor. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -219,7 +219,8 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   000041, cánones SQL 000042, prueba durable 000043, corrector 000043A, motor
   privado 000044, fachadas nominales 000045 y adaptador Go 000046 están
   verdes; HTTP cuadro/detalle también está cerrado y revisado, pero
-  autoridad/PDP, raíz, TLS y E2E siguen abiertos
+  C1 y el rol mínimo C2.1a también están cerrados y revisados; la fachada de
+  Identidad C2.1b, selección corporativa, PDP, raíz, TLS y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

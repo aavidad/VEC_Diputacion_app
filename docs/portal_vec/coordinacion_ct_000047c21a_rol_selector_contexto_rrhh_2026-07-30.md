@@ -2,7 +2,10 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: **lista para producción acotada; no concede acceso funcional**.
+Estado: **integrada con doble GO; no concede acceso funcional**.
+
+Evidencia:
+[revisión final CT-000047C2.1a](revisiones/o4_05_revision_rol_selector_contexto_rrhh_ct_000047c21a_2026-07-30.md).
 
 ## Responsabilidad única
 

@@ -5,19 +5,21 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 ## Actualización vigente de dirección — 30 de julio de 2026
 
 La rama y el worktree siguen siendo los indicados, pero el corte vigente ya no
-es CT-000043. M1.3 y M2.1–M2.4 de la resolución nominal de motivos RRHH están
-integradas. El `HEAD` técnico local al cerrar M2.3 es `bd22d05`.
+es CT-000043. CT-000047C1 y CT-000047C2.1a están integradas. El último `HEAD`
+técnico verificado es `e8c950c`.
 
-M2.2 y M2.3 obtuvieron `GO` funcional y de seguridad final,
-`P0=P1=P2=0`. El siguiente trabajo es autoridad/PDP y composición raíz;
-después quedan TLS/mTLS y el E2E completo. Las
+C2.1a obtuvo `GO` funcional y de seguridad final, `P0=P1=P2=0`, después de
+cerrar la autoridad implícita de `PUBLIC` sobre tipos y distinguir por catálogo
+los arrays automáticos de los tipos base reales. El siguiente trabajo es
+C2.1b, fachada mínima de Identidad; después siguen la selección/registro
+corporativos, PDP y composición raíz, TLS/mTLS y el E2E completo. Las
 métricas oficiales no cambian todavía porque no se ha cerrado una capacidad
 funcional completa: Contratación `24/46` (52 %), primera vertical `5/10`
 (50 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y producción `NO-GO`.
 
-La ejecución GitHub de M2.1, `30515908260`, terminó completamente verde. La
-ejecución `30518851708` corresponde al corte M2.2 y debe comprobarse antes de
-publicar M2.3.
+La ejecución GitHub `30523168662`, correspondiente al corte documental C2.1b
+anterior a C2.1a técnico, terminó completamente verde. El corte C2.1a debe
+publicarse y concluir su CI antes de comenzar a integrar C2.1b.
 
 ## Resumen ejecutivo
 

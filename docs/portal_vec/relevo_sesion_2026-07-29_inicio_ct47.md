@@ -254,7 +254,8 @@ hostil, derivas, reconexión y reinicio del mismo pool. M2 queda cerrado; el
 frente activo pasa a las autoridades corporativas/PDP necesarias para la
 composición raíz.
 
-CT-000047C1 quedó integrada en `4471e3a` tras
+CT-000047C1 quedó integrada técnicamente en `4471e3a` y cerrada
+documentalmente en `c7b587c` tras
 [doble GO independiente](revisiones/o4_05_revision_capsula_identidad_ct_000047c1_2026-07-30.md)
 y P0=P1=P2=0. Dos NO-GO previos evitaron integrar una cápsula cruzable,
 reutilizable entre peticiones o incompletamente cerrada frente a
@@ -266,7 +267,17 @@ La
 [decisión C2](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md)
 prohíbe usar el PDP como selector y obliga a resolver perfil y organización
 junto con el registro ContextoActor en una única transacción `SERIALIZABLE`.
-El siguiente corte es C2.1, fachada nominal de Identidad para ContextoActor.
+
+CT-000047C2.1a quedó integrada técnicamente en `e8c950c` tras
+[doble GO independiente](revisiones/o4_05_revision_rol_selector_contexto_rrhh_ct_000047c21a_2026-07-30.md)
+y P0=P1=P2=0. Crea el rol selector `NOLOGIN` con solo `CONNECT` y sin acceso
+funcional. Tres ciclos de revisión corrigieron la autoridad implícita de
+`PUBLIC` sobre tipos y sustituyeron una heurística evadible por la relación
+inversa exacta del catálogo para arrays automáticos.
+
+El siguiente corte es C2.1b, fachada mínima de Identidad para ContextoActor.
+Su contrato recibe exclusivamente cuenta, método, garantía y caducidad de la
+identidad; no acepta ni devuelve perfil, organización o candidatos.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
