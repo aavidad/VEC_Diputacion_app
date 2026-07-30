@@ -337,9 +337,19 @@ func cerrarOrigenResolucionMotivosRRHH(origen origenPoolResolucionMotivosRRHH) {
 	}
 }
 
-func errorPoolResolucionMotivosRRHH(ctx context.Context) error {
-	if ctx != nil && ctx.Err() != nil {
-		return errors.Join(ctx.Err(), ports.ErrMotivoConsultaRRHHNoDisponible)
+func errorPoolResolucionMotivosRRHH(
+	ctx context.Context,
+) (resultado error) {
+	resultado = ports.ErrMotivoConsultaRRHHNoDisponible
+	defer func() {
+		if recover() != nil {
+			resultado = ports.ErrMotivoConsultaRRHHNoDisponible
+		}
+	}()
+	if !dependenciaNula(ctx) {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(err, resultado)
+		}
 	}
-	return ports.ErrMotivoConsultaRRHHNoDisponible
+	return resultado
 }
