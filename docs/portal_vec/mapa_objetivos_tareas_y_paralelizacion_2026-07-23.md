@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | M1.3 → M2 → autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `047e52c` — M1.1/`000008` cerrado con P0=P1=P2=0 |
-| Trabajo local en revisión | M1.2 implementará únicamente publicación/retirada nominal en `000009`; aún no iniciado. |
+| Último commit verificado | `0a564e2` — M1.2/`000009` cerrado con doble GO, P0=0 y P1=0 |
+| Trabajo local en revisión | M1.3 implementará únicamente las dos resoluciones nominales en `000010`; diseño acotado, aún sin código. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

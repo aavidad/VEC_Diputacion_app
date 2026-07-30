@@ -198,6 +198,19 @@ una retirada que no verificaba todas sus marcas. Esos casos forman ahora parte
 del arnés PostgreSQL 18.4. `000008` queda cerrado; el siguiente tramo es M1.2,
 reservado exclusivamente para `000009`.
 
+M1.2 quedó integrado hasta `0a564e2` con
+[doble GO independiente](revisiones/o4_05_revision_publicacion_retirada_motivos_ct_000047m12_2026-07-30.md),
+P0=0 y P1=0. `000009` aporta publicación y retirada nominal de cuadro y
+detalle, historia de solo adición, replay, cronología, exclusión temporal,
+actor derivado del `session_user`, ACL/RLS cerradas y safe-down semántico. Las
+revisiones corrigieron una FK fundamental alterable con `ON DELETE CASCADE` y
+un orden de locks no garantizado por una lista `SELECT`; ambos casos forman
+parte del arnés PostgreSQL 18.4. M1.3/`000010` queda desbloqueada para resolver
+las dos referencias sin selector libre. Su
+[coordinación acotada](coordinacion_ct_000047m13_resolucion_motivos_000010_2026-07-30.md)
+fija tres ficheros, dos fachadas, matriz PostgreSQL 18.4 y revisión
+independiente.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.

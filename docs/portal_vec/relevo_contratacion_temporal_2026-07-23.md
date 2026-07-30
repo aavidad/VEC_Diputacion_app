@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 29/07/2026
+# Relevo del frente de contratación temporal — actualizado el 30/07/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -13,9 +13,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit funcional verificado: `6c57644`.
-- Último cierre: CT-000046, adaptador PostgreSQL de consultas RRHH, `GO`
-  independiente con P0=0, P1=0 y P2=0.
+- Último commit técnico verificado: `0a564e2`.
+- Último cierre: CT-000047B M1.2/`000009`, publicación y retirada nominal de
+  motivos RRHH, con doble `GO` independiente, P0=0 y P1=0.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -90,7 +90,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. Faltan la raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1.1/`000008` y M1.2/`000009` cierran el fundamento y la publicación/retirada de motivos. Faltan M1.3, M2, la raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -236,6 +236,13 @@ ajenas.
   durables. Los decodificadores rechazan esquemas desconocidos, cargas no
   canónicas y estados parciales; el consumidor vuelve a comprobar vigencia
   dentro de la transacción. No existe lectura directa de tablas de Bolsa.
+- M1.2/`000009` quedó integrada hasta `0a564e2` con
+  [doble GO independiente](revisiones/o4_05_revision_publicacion_retirada_motivos_ct_000047m12_2026-07-30.md).
+  Publicación y retirada de cuadro y detalle son cuatro capacidades nominales,
+  con historia append-only, replay, actor confiable, cronología, ACL/RLS y
+  safe-down. El arnés PostgreSQL 18.4 conserva las regresiones de FK hostil
+  `ON DELETE CASCADE` y de orden contractual `000008 → 000009`. El cierre es
+  técnico: no suma una puerta funcional ni habilita datos reales.
 
 Estos contratos no dependen de HTTP, cookies ni almacenamiento de navegador.
 Los consumirán por igual web, escritorio, CLI y MCP a través de los casos de
@@ -257,14 +264,15 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar los manejadores HTTP protegidos de cuadro y detalle.
-2. Implementar los puentes productivos de autoridad corporativa y PDP.
-3. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
+1. Implementar M1.3/`000010`: dos resoluciones nominales de motivos.
+2. Implementar M2: adaptador PostgreSQL con pool evaluador exclusivo.
+3. Implementar los puentes productivos de autoridad corporativa y PDP.
+4. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
    caída a presentación.
-4. Implementar el adaptador independiente de publicaciones visuales
+5. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+6. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+7. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
