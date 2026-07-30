@@ -423,6 +423,18 @@ psql_valor "ALTER ROLE $rol IN DATABASE $base SET application_name='hostil'" >/d
 exigir_fallo_down 'ajuste por base'
 psql_valor "ALTER ROLE $rol IN DATABASE $base RESET application_name" >/dev/null
 
+# Un DOMAIN posterior al alta conserva typacl NULL, aunque PUBLIC recibe USAGE
+# por defecto. El down debe detectar esa autoridad efectiva y no tocar el rol.
+psql_valor "CREATE DOMAIN public.c21a_tipo_publico AS text" >/dev/null
+[[ $(psql_valor "SELECT (t.typacl IS NULL AND has_type_privilege('$rol',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='c21a_tipo_publico'") == true ]]
+exigir_fallo_down 'USAGE implícito de PUBLIC en DOMAIN con typacl NULL'
+exigir_rol
+[[ $(psql_valor "SELECT (count(*)=1 AND bool_and(d.datname=current_database() AND a.grantor=d.datdba AND a.privilege_type='CONNECT' AND NOT a.is_grantable))::text FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE a.grantee='$rol'::regrole OR a.grantor='$rol'::regrole") == true ]]
+[[ $(psql_valor "SELECT (t.typacl IS NULL AND has_type_privilege('$rol',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='c21a_tipo_publico'") == true ]]
+psql_valor "REVOKE ALL ON TYPE public.c21a_tipo_publico FROM PUBLIC" >/dev/null
+[[ $(psql_valor "SELECT (t.typacl IS NOT NULL AND NOT has_type_privilege('$rol',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='c21a_tipo_publico'") == true ]]
+psql_valor "DROP DOMAIN public.c21a_tipo_publico" >/dev/null
+
 # ACL de todas las clases en la base actual.
 psql_sql <<'SQL'
 CREATE TABLE public.c21a_objeto(id integer, dato text);

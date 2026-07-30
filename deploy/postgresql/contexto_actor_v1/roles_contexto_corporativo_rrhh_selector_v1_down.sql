@@ -204,9 +204,15 @@ BEGIN
           FROM pg_catalog.pg_type AS tipo
           JOIN pg_catalog.pg_namespace AS espacio
             ON espacio.oid = tipo.typnamespace
-          CROSS JOIN LATERAL pg_catalog.aclexplode(tipo.typacl) AS acl
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              coalesce(
+                  tipo.typacl,
+                  pg_catalog.acldefault('T', tipo.typowner)
+              )
+          ) AS acl
          WHERE espacio.nspname !~ '^pg_'
            AND espacio.nspname <> 'information_schema'
+           AND tipo.typtype IN ('c', 'd', 'e', 'm', 'r')
            AND acl.grantee = 0
     ) OR EXISTS (
         SELECT 1
@@ -226,7 +232,12 @@ BEGIN
     ) OR EXISTS (
         SELECT 1
           FROM pg_catalog.pg_language AS lenguaje
-          CROSS JOIN LATERAL pg_catalog.aclexplode(lenguaje.lanacl) AS acl
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              coalesce(
+                  lenguaje.lanacl,
+                  pg_catalog.acldefault('l', lenguaje.lanowner)
+              )
+          ) AS acl
          WHERE lenguaje.oid >= 16384
            AND acl.grantee = 0
     ) OR EXISTS (
