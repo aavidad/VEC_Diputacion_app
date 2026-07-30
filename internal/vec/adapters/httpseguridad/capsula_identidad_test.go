@@ -21,15 +21,15 @@ func TestCapsulaIdentidadPeticionRevalidaCanalYServicio(t *testing.T) {
 		t.Fatal(err)
 	}
 	capsula, err := servicio.ProyectarCapsulaIdentidadPeticion(context.Background(), identidad, canal)
-	cuenta, auditoria, errDatos := capsula.Datos(servicio, canal)
+	cuenta, auditoria, errDatos := capsula.Datos()
 	if err != nil || errDatos != nil || cuenta.Validar() != nil || auditoria.CanalVinculadoRef() != canal.ReferenciaVinculacion() {
 		t.Fatal("cápsula válida rechazada")
 	}
-	vinculado, err := VincularCapsulaIdentidadPeticion(context.Background(), capsula, servicio, canal)
+	vinculado, err := VincularCapsulaIdentidadPeticion(context.Background(), capsula)
 	if err != nil {
 		t.Fatal("vincular cápsula")
 	}
-	if _, _, err = ExtraerCapsulaIdentidadPeticion(vinculado, servicio, canal); err != nil {
+	if _, _, err = ExtraerCapsulaIdentidadPeticion(vinculado); err != nil {
 		t.Fatal("extraer cápsula")
 	}
 	canal.evidenciaRef = "tls-exportador:sha256:cruzado"
