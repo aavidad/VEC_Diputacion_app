@@ -190,6 +190,14 @@ homónimos degradados y una FK ausente; el `down` tampoco distinguía la
 procedencia de una restricción en una tabla anterior. M1.1a corrige la
 adopción exacta y añade esos estados envenenados a PostgreSQL 18.4.
 
+La cadena M1.1 quedó finalmente integrada hasta `047e52c` con
+[GO técnico independiente](revisiones/o4_05_revision_fundamento_motivos_ct_000047m11_go_2026-07-30.md)
+y P0=P1=P2=0. Los NO-GO posteriores detectaron tablas no permanentes,
+disparadores propios e internos degradados, ACL, reglas, colaciones, índices y
+una retirada que no verificaba todas sus marcas. Esos casos forman ahora parte
+del arnés PostgreSQL 18.4. `000008` queda cerrado; el siguiente tramo es M1.2,
+reservado exclusivamente para `000009`.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
