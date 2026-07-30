@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"regexp"
 	"strings"
@@ -234,6 +236,56 @@ func TestReferenciaGobernadaValidaEquivaleAlContratoHistorico(t *testing.T) {
 	for _, valor := range []string{
 		"A", "aB", "1a", "a/b", "a b", "a\n", "á", "aá",
 		"Ａ", "aİ", "aK", string([]byte{0xff}), "a" + string([]byte{0xff}),
+	} {
+		comprobar(valor)
+	}
+}
+
+func TestHuellaSHA256DocumentalGobernadaEquivaleAlContratoHistorico(t *testing.T) {
+	t.Parallel()
+
+	referencia := func(valor string) bool {
+		if len(valor) != sha256.Size*2 || valor != strings.ToLower(valor) ||
+			valor != strings.TrimSpace(valor) {
+			return false
+		}
+		decodificada, err := hex.DecodeString(valor)
+		return err == nil && len(decodificada) == sha256.Size
+	}
+	comprobar := func(valor string) {
+		t.Helper()
+		if obtenido, esperado := esHuellaSHA256DocumentalGobernada(valor), referencia(valor); obtenido != esperado {
+			t.Fatalf("validacion SHA-256 no equivalente: %q obtenido=%v esperado=%v",
+				valor, obtenido, esperado)
+		}
+	}
+
+	for longitud := 0; longitud <= sha256.Size*2+2; longitud++ {
+		comprobar(strings.Repeat("a", longitud))
+	}
+	for _, base := range []string{
+		strings.Repeat("0", sha256.Size*2),
+		strings.Repeat("9", sha256.Size*2),
+		strings.Repeat("a", sha256.Size*2),
+		strings.Repeat("f", sha256.Size*2),
+	} {
+		for posicion := range len(base) {
+			for octeto := 0; octeto <= 255; octeto++ {
+				candidato := []byte(base)
+				candidato[posicion] = byte(octeto)
+				comprobar(string(candidato))
+			}
+		}
+	}
+	for _, valor := range []string{
+		strings.Repeat("A", sha256.Size*2),
+		strings.Repeat("F", sha256.Size*2),
+		" " + strings.Repeat("a", sha256.Size*2-1),
+		strings.Repeat("a", sha256.Size*2-1) + "\n",
+		"á" + strings.Repeat("a", sha256.Size*2-2),
+		"Ａ" + strings.Repeat("a", sha256.Size*2-3),
+		"İ" + strings.Repeat("a", sha256.Size*2-2),
+		string([]byte{0xff}) + strings.Repeat("a", sha256.Size*2-1),
 	} {
 		comprobar(valor)
 	}

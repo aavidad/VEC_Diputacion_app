@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 )
 
 var (
@@ -659,11 +657,31 @@ func huellaCanonicaDocumentalGobernada(valores []string) string {
 }
 
 func esHuellaSHA256DocumentalGobernada(valor string) bool {
-	return documentalcanonico.SHA256HexadecimalValido(valor)
+	if len(valor) != sha256.Size*2 {
+		return false
+	}
+	for indice := 0; indice < len(valor); indice++ {
+		octeto := valor[indice]
+		if (octeto < '0' || octeto > '9') && (octeto < 'a' || octeto > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func referenciaGobernadaValida(valor string) bool {
-	return documentalcanonico.ReferenciaASCIIBasicaValida(valor)
+	if len(valor) == 0 || len(valor) > 256 || valor[0] < 'a' || valor[0] > 'z' {
+		return false
+	}
+	for indice := 1; indice < len(valor); indice++ {
+		caracter := valor[indice]
+		if (caracter >= 'a' && caracter <= 'z') || (caracter >= '0' && caracter <= '9') ||
+			caracter == '.' || caracter == '_' || caracter == ':' || caracter == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func extensionFormatoDocumentalValida(valor string) bool {
