@@ -610,6 +610,13 @@ CREATE TRIGGER decision_exige_vinculo_actual_v1
 
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_autorizacion FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_autorizacion FROM PUBLIC;
+-- PostgreSQL no aplica ALTER DEFAULT PRIVILEGES ON TYPES a los tipos
+-- compuestos implícitos creados junto con una tabla.
+REVOKE ALL ON TYPE vec_autorizacion.sesion_autenticacion_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.control_sesion_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.control_sesion_actual_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.contexto_actor_v1 FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.contexto_actor_actual_v1 FROM PUBLIC;
 REVOKE ALL ON FUNCTION
     vec_autorizacion.revalidar_vinculo_autenticacion_actor_actual_v1(
         jsonb, text, text, text, timestamptz, timestamptz, timestamptz

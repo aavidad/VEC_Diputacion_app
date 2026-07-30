@@ -8,6 +8,7 @@ DO $privilegios$
 DECLARE
     oid_propietario oid;
     oid_esquema oid;
+    oid_esquema_autorizacion oid;
 BEGIN
     SELECT oid INTO oid_propietario
       FROM pg_catalog.pg_roles
@@ -15,8 +16,33 @@ BEGIN
     SELECT oid INTO oid_esquema
       FROM pg_catalog.pg_namespace
      WHERE nspname = 'vec_ejecucion_documental_v4';
-    IF oid_propietario IS NULL OR oid_esquema IS NULL THEN
-        RAISE EXCEPTION 'faltan propietario o esquema V4';
+    SELECT oid INTO oid_esquema_autorizacion
+      FROM pg_catalog.pg_namespace
+     WHERE nspname = 'vec_autorizacion';
+    IF oid_propietario IS NULL
+       OR oid_esquema IS NULL
+       OR oid_esquema_autorizacion IS NULL THEN
+        RAISE EXCEPTION 'faltan propietario o esquemas de la integración V4';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_type AS tipo
+         WHERE tipo.typnamespace = oid_esquema_autorizacion
+           AND tipo.typtype = 'c'
+           AND tipo.typname IN (
+               'sesion_autenticacion_v1',
+               'control_sesion_v1',
+               'control_sesion_actual_v1',
+               'contexto_actor_v1',
+               'contexto_actor_actual_v1'
+           )
+           AND pg_catalog.has_type_privilege(
+               'public', tipo.oid, 'USAGE'
+           )
+    ) THEN
+        RAISE EXCEPTION
+            'PUBLIC conserva tipos del vínculo autenticación-actor';
     END IF;
 
     IF pg_catalog.to_regprocedure(
