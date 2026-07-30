@@ -85,7 +85,7 @@ huella_esquema() {
     sha256sum | cut -d' ' -f1
 }
 
-crear_base() {
+preparar_base() {
   local base=$1
   docker exec "$contenedor" createdb -U postgres "$base"
   psql_admin "$base" <<'SQL'
@@ -103,6 +103,11 @@ END
 $base$;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 SQL
+}
+
+crear_base() {
+  local base=$1
+  preparar_base "$base"
   psql_archivo "$base" "$up"
 }
 
@@ -158,9 +163,35 @@ $base$;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 SQL
 psql_archivo "$base_control" deploy/postgresql/contexto_actor_v1/roles_up.sql
+psql_admin "$base_control" <<'SQL'
+DO $base$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'REVOKE ALL PRIVILEGES ON DATABASE %I FROM vec_contexto_actor_v1_propietario, vec_contexto_actor_v1_migrador, vec_contexto_actor_v1_runtime',
+    pg_catalog.current_database()
+  );
+END
+$base$;
+SQL
 
 base_exacta=ct95_exacta
-crear_base "$base_exacta"
+preparar_base "$base_exacta"
+psql_admin "$base_exacta" <<'SQL'
+CREATE PUBLICATION ct113_global_previa
+  FOR ALL TABLES
+  WITH (publish = 'insert, truncate', publish_via_partition_root = true);
+SQL
+psql_archivo "$base_exacta" "$up"
+esperar_fallo_sin_cambio "$base_exacta" \
+  'publicación global anterior al módulo'
+[[ $(consulta "$base_exacta" \
+  "SELECT puballtables AND pubinsert AND pubtruncate
+          AND pubviaroot AND NOT pubupdate AND NOT pubdelete
+     FROM pg_catalog.pg_publication
+    WHERE pubname='ct113_global_previa'") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+DROP PUBLICATION ct113_global_previa;
+SQL
 esperar_fallo_sin_cambio "$base_exacta" \
   'confirmación ausente' ausente
 esperar_fallo_sin_cambio "$base_exacta" \
@@ -297,6 +328,19 @@ esperar_fallo_sin_cambio "$base_exacta" 'publicación externa'
       AND pr.prrelid='vec_contexto_actor_v1.procedencias'::regclass") == 1 ]]
 psql_admin "$base_exacta" <<'SQL'
 DROP PUBLICATION ct105_publicacion_externa;
+CREATE PUBLICATION ct113_global_posterior
+  FOR ALL TABLES
+  WITH (publish = 'update, delete', publish_via_partition_root = false);
+SQL
+esperar_fallo_sin_cambio "$base_exacta" \
+  'publicación global posterior al módulo'
+[[ $(consulta "$base_exacta" \
+  "SELECT puballtables AND pubupdate AND pubdelete
+          AND NOT pubinsert AND NOT pubtruncate AND NOT pubviaroot
+     FROM pg_catalog.pg_publication
+    WHERE pubname='ct113_global_posterior'") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+DROP PUBLICATION ct113_global_posterior;
 ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT 7;
 SQL
 esperar_fallo_sin_cambio "$base_exacta" 'límite de conexiones hostil'
@@ -306,7 +350,72 @@ esperar_fallo_sin_cambio "$base_exacta" 'límite de conexiones hostil'
     WHERE rolname='vec_contexto_actor_v1_runtime'") == 7 ]]
 psql_admin "$base_exacta" <<'SQL'
 ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT -1;
+ALTER ROLE vec_contexto_actor_v1_runtime
+  IN DATABASE ct95_exacta SET application_name = 'ct113_sintetica';
 SQL
+esperar_fallo_sin_cambio "$base_exacta" \
+  'ajuste del rol específico para la base'
+[[ $(consulta "$base_exacta" \
+  "SELECT setconfig @> ARRAY['application_name=ct113_sintetica']
+     FROM pg_catalog.pg_db_role_setting
+    WHERE setrole='vec_contexto_actor_v1_runtime'::regrole
+      AND setdatabase=(
+          SELECT oid FROM pg_catalog.pg_database WHERE datname='ct95_exacta'
+      )") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+ALTER ROLE vec_contexto_actor_v1_runtime
+  IN DATABASE ct95_exacta RESET application_name;
+ALTER ROLE ALL IN DATABASE ct95_exacta
+  SET statement_timeout = '7s';
+SQL
+esperar_fallo_sin_cambio "$base_exacta" \
+  'ajuste de todos los roles para la base'
+[[ $(consulta "$base_exacta" \
+  "SELECT setconfig @> ARRAY['statement_timeout=7s']
+     FROM pg_catalog.pg_db_role_setting
+    WHERE setrole=0
+      AND setdatabase=(
+          SELECT oid FROM pg_catalog.pg_database WHERE datname='ct95_exacta'
+      )") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+ALTER ROLE ALL IN DATABASE ct95_exacta RESET statement_timeout;
+SQL
+
+# La huella de dependencias compartidas rechaza propiedad y ACL ajenas antes
+# del primer DROP, incluso si viven en otra base del clúster.
+psql_admin "$base_exacta" <<'SQL'
+CREATE SCHEMA ct113_externo AUTHORIZATION postgres;
+CREATE TABLE ct113_externo.recurso (id integer);
+GRANT SELECT ON ct113_externo.recurso
+  TO vec_contexto_actor_v1_runtime;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'ACL sobre objeto externo'
+[[ $(consulta "$base_exacta" \
+  "SELECT pg_catalog.has_table_privilege(
+      'vec_contexto_actor_v1_runtime',
+      'ct113_externo.recurso','SELECT')") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+REVOKE SELECT ON ct113_externo.recurso
+  FROM vec_contexto_actor_v1_runtime;
+DROP TABLE ct113_externo.recurso;
+DROP SCHEMA ct113_externo RESTRICT;
+SQL
+
+base_externa=ct113_externa
+docker exec "$contenedor" createdb -U postgres "$base_externa"
+psql_admin "$base_externa" <<'SQL'
+CREATE SCHEMA ct113_propiedad_externa
+  AUTHORIZATION vec_contexto_actor_v1_runtime;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" \
+  'propiedad del rol en otra base'
+[[ $(consulta "$base_externa" \
+  "SELECT pg_catalog.pg_get_userbyid(nspowner)
+     FROM pg_catalog.pg_namespace
+    WHERE nspname='ct113_propiedad_externa'") == \
+  vec_contexto_actor_v1_runtime ]]
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_externa"
 
 # Un consumidor exterior no aparece en el esquema, pero RESTRICT conserva la
 # dependencia y PostgreSQL revierte también los DROP anteriores.
@@ -349,6 +458,8 @@ oid_despues=$(consulta "$base_exacta" \
   echo 'up -> down -> up conservó el OID del esquema' >&2
   exit 1
 }
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_exacta"
 
 # Cualquier evidencia bloquea la retirada aun con el literal correcto.
 base_datos=ct95_datos
@@ -364,6 +475,8 @@ SQL
 esperar_fallo_sin_cambio "$base_datos" 'evidencia base'
 [[ $(consulta "$base_datos" \
   'SELECT count(*) FROM vec_contexto_actor_v1.procedencias') == 1 ]]
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_datos"
 
 # 000002 aporta objetos y su fila de generación: debe retirarse primero por su
 # propio down seguro, nunca arrastrarse desde la base.
@@ -375,6 +488,8 @@ psql_archivo "$base_000002" "$down_000002" \
   --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2
 psql_archivo "$base_000002" "$down" \
   --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_000002"
 
 # Un propietario alterado se rechaza y no se repara dentro del down.
 base_propietario=ct95_propietario
@@ -385,6 +500,8 @@ ALTER FUNCTION vec_contexto_actor_v1.instante_valido(timestamptz)
   OWNER TO ct95_propietario_hostil;
 SQL
 esperar_fallo_sin_cambio "$base_propietario" 'propietario hostil'
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_propietario"
 
 # Carrera determinista: se observa el advisory no concedido antes de liberar
 # al bloqueador. pg_sleep solo estaciona la sesión; no acredita el resultado.
@@ -438,24 +555,172 @@ wait "$proceso_bloqueador" 2>/dev/null || true
 wait "$proceso_retirada"
 [[ $(consulta "$base_carrera" \
   "SELECT pg_catalog.to_regnamespace('vec_contexto_actor_v1') IS NULL") == t ]]
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_carrera"
 
 # El down de roles solo puede retirar los tres nombres exactos. Se borran las
 # bases efímeras para liberar sus dependencias y se conserva un rol derivado
 # deliberadamente parecido.
-for base_prueba in \
-  "$base_exacta" "$base_datos" "$base_000002" \
-  "$base_propietario" "$base_carrera"; do
-  docker exec "$contenedor" dropdb --force \
-    --username postgres "$base_prueba"
-done
 psql_admin "$base_control" <<'SQL'
+DO $base$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'GRANT CONNECT ON DATABASE %I TO vec_contexto_actor_v1_propietario, vec_contexto_actor_v1_migrador, vec_contexto_actor_v1_runtime',
+    pg_catalog.current_database()
+  );
+END
+$base$;
 CREATE ROLE vec_contexto_actor_v1_runtime_derivado NOLOGIN
   NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
   NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 7;
 SQL
+
+# La invocación desnuda debe terminar con estado no cero sin abrir una
+# transacción destructiva.
+set +e
+psql_archivo "$base_control" \
+  deploy/postgresql/contexto_actor_v1/roles_down.sql >/dev/null 2>&1
+estado_roles=$?
+set -e
+[[ $estado_roles -ne 0 ]]
+[[ $(consulta "$base_control" \
+  "SELECT count(*) FROM pg_catalog.pg_roles
+    WHERE rolname LIKE 'vec_contexto_actor_v1_%'
+      AND rolname <> 'vec_contexto_actor_v1_runtime_derivado'") == 3 ]]
+
+# Los ajustes por base y los atributos hostiles se revalidan dentro de la
+# misma transacción que ejecutaría DROP ROLE.
+psql_admin "$base_control" <<'SQL'
+ALTER ROLE ALL IN DATABASE ct95_control
+  SET statement_timeout = '11s';
+SQL
+set +e
 psql_archivo "$base_control" \
   deploy/postgresql/contexto_actor_v1/roles_down.sql \
-  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1
+  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
+  >/dev/null 2>&1
+estado_roles=$?
+set -e
+[[ $estado_roles -ne 0 ]]
+[[ $(consulta "$base_control" \
+  "SELECT setconfig @> ARRAY['statement_timeout=11s']
+     FROM pg_catalog.pg_db_role_setting
+    WHERE setrole=0
+      AND setdatabase=(
+          SELECT oid FROM pg_catalog.pg_database
+           WHERE datname=current_database()
+      )") == t ]]
+psql_admin "$base_control" <<'SQL'
+ALTER ROLE ALL IN DATABASE ct95_control RESET statement_timeout;
+ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT 13;
+SQL
+set +e
+psql_archivo "$base_control" \
+  deploy/postgresql/contexto_actor_v1/roles_down.sql \
+  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
+  >/dev/null 2>&1
+estado_roles=$?
+set -e
+[[ $estado_roles -ne 0 ]]
+[[ $(consulta "$base_control" \
+  "SELECT rolconnlimit=13 FROM pg_catalog.pg_roles
+    WHERE rolname='vec_contexto_actor_v1_runtime'") == t ]]
+psql_admin "$base_control" <<'SQL'
+ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT -1;
+SQL
+
+# Simula una dependencia nacida entre el down de base y el de roles. La
+# revalidación autónoma la conserva y no revoca siquiera el CONNECT esperado.
+base_roles_externa=ct113_roles_externa
+docker exec "$contenedor" createdb -U postgres "$base_roles_externa"
+psql_admin "$base_roles_externa" <<'SQL'
+CREATE SCHEMA ct113_roles_propiedad
+  AUTHORIZATION vec_contexto_actor_v1_runtime;
+SQL
+set +e
+psql_archivo "$base_control" \
+  deploy/postgresql/contexto_actor_v1/roles_down.sql \
+  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
+  >/dev/null 2>&1
+estado_roles=$?
+set -e
+[[ $estado_roles -ne 0 ]]
+[[ $(consulta "$base_roles_externa" \
+  "SELECT pg_catalog.pg_get_userbyid(nspowner)
+     FROM pg_catalog.pg_namespace
+    WHERE nspname='ct113_roles_propiedad'") == \
+  vec_contexto_actor_v1_runtime ]]
+[[ $(consulta "$base_control" \
+  "SELECT pg_catalog.has_database_privilege(
+      'vec_contexto_actor_v1_runtime',
+      current_database(),'CONNECT')") == t ]]
+docker exec "$contenedor" dropdb --force \
+  --username postgres "$base_roles_externa"
+
+# Carrera final: roles_down adquiere primero pg_authid y queda detenido al
+# pedir pg_shseclabel. Un ALTER ROLE posterior debe esperar sus bloqueos y no
+# puede colarse entre la revalidación y DROP ROLE.
+docker exec --env PGAPPNAME=ct113_bloqueo_catalogo "$contenedor" \
+  psql -Xq --set ON_ERROR_STOP=1 --username postgres \
+  --dbname "$base_control" --command \
+  "BEGIN;
+   LOCK TABLE pg_catalog.pg_shseclabel IN ACCESS EXCLUSIVE MODE;
+   SELECT pg_catalog.pg_sleep(300);
+   COMMIT" >/dev/null 2>&1 &
+proceso_bloqueo_catalogo=$!
+for _ in $(seq 1 200); do
+  pid_bloqueo_catalogo=$(consulta "$base_control" \
+    "SELECT pid FROM pg_catalog.pg_stat_activity
+      WHERE application_name='ct113_bloqueo_catalogo'
+        AND state='active' AND query LIKE '%pg_sleep(300)%'
+      LIMIT 1")
+  [[ -n $pid_bloqueo_catalogo ]] && break
+  sleep 0.02
+done
+[[ -n ${pid_bloqueo_catalogo:-} ]]
+
+docker exec --env PGAPPNAME=ct113_retirada_roles \
+  --interactive "$contenedor" psql -Xq --set ON_ERROR_STOP=1 \
+  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
+  --username postgres --dbname "$base_control" \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/roles_down.sql" \
+  >/dev/null 2>&1 &
+proceso_retirada_roles=$!
+for _ in $(seq 1 200); do
+  espera_roles=$(consulta "$base_control" \
+    "SELECT count(*) FROM pg_catalog.pg_stat_activity
+      WHERE application_name='ct113_retirada_roles'
+        AND wait_event_type='Lock'")
+  [[ $espera_roles == 1 ]] && break
+  sleep 0.02
+done
+[[ ${espera_roles:-0} == 1 ]]
+
+docker exec --env PGAPPNAME=ct113_mutador_roles "$contenedor" \
+  psql -Xq --set ON_ERROR_STOP=1 --username postgres \
+  --dbname "$base_control" --command \
+  'ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT 17' \
+  >/dev/null 2>&1 &
+proceso_mutador_roles=$!
+for _ in $(seq 1 200); do
+  espera_mutador=$(consulta "$base_control" \
+    "SELECT count(*) FROM pg_catalog.pg_stat_activity
+      WHERE application_name='ct113_mutador_roles'
+        AND wait_event_type='Lock'")
+  [[ $espera_mutador == 1 ]] && break
+  sleep 0.02
+done
+[[ ${espera_mutador:-0} == 1 ]]
+[[ $(consulta "$base_control" \
+  "SELECT pg_catalog.pg_terminate_backend($pid_bloqueo_catalogo)") == t ]]
+wait "$proceso_bloqueo_catalogo" 2>/dev/null || true
+wait "$proceso_retirada_roles"
+set +e
+wait "$proceso_mutador_roles"
+estado_mutador=$?
+set -e
+[[ $estado_mutador -ne 0 ]]
+
 [[ $(consulta "$base_control" \
   "SELECT count(*) FROM pg_catalog.pg_roles
     WHERE rolname IN (

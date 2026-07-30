@@ -205,10 +205,13 @@ consumidores. Reacredita propietario, roles, membresías, ACL, objetos,
 propiedades y ACL de columna, índices, funciones, restricciones, todos los
 triggers —incluidos los internos—, tipos, publicaciones, herencias,
 suscripciones y privilegios predeterminados mediante un manifiesto PostgreSQL
-18.4. El contrato de roles incluye límite de conexiones, caducidad y solo el
-estado ausente/presente de la credencial, nunca su valor. Cualquier fila,
-`000002`, migración posterior, objeto desconocido, deriva o dependencia externa
-aborta la transacción y conserva íntegro el esquema.
+18.4. También deniega publicaciones `FOR ALL TABLES`, ajustes de los roles o
+de todos los roles por base e inventaría `pg_shdepend` con direcciones
+semánticas, incluida la base por nombre y sin fijar OID. El contrato de roles
+incluye límite de conexiones, caducidad y solo el estado ausente/presente de
+la credencial, nunca su valor. Cualquier fila, `000002`, migración posterior,
+objeto desconocido, deriva o dependencia externa aborta la transacción y
+conserva íntegro el esquema.
 
 La confirmación explícita no autoriza a borrar evidencia. La secuencia
 operativa, únicamente para una instalación vacía acreditada, es:
@@ -226,19 +229,27 @@ psql -X -v ON_ERROR_STOP=1 \
 ```
 
 Debe retirarse antes la membresía del LOGIN de aplicación; `DROP ROLE` falla
-cerrado si aún existen dependencias o membresías. El down solo elimina objetos
-y grants enumerados del módulo con `RESTRICT`; nunca usa `CASCADE` ni
-`DROP OWNED`. Restaura únicamente los valores nativos de las dos ACL
-predeterminadas que creó `000001`, para que `roles_down.sql` pueda retirar el
-propietario; no altera las ACL globales de base y `public` que eran
-precondición del despliegue. La guarda
+cerrado si aún existen dependencias o membresías. `roles_down.sql` es
+autónomo, transaccional y denegado por defecto: vuelve a comprobar atributos,
+credencial sin leer su valor, comentarios, etiquetas, ajustes globales y por
+base, membresías, propietarios, ACL y dependencias. Mantiene bloqueados los
+catálogos compartidos desde esa comprobación hasta los `DROP ROLE`; así una
+deriva nacida después del down de base no abre una carrera destructiva.
+
+El down solo elimina objetos y grants enumerados del módulo con `RESTRICT`;
+nunca usa `CASCADE` ni `DROP OWNED`. Restaura únicamente los valores nativos
+de las dos ACL predeterminadas que creó `000001`, para que `roles_down.sql`
+pueda retirar el propietario; no altera las ACL globales de base y `public`
+que eran precondición del despliegue. La guarda
 `vec_contexto_actor_v1:migracion:base:v1` queda reservada para que las
 migraciones posteriores la tomen en modo compartido mientras crean o retiran
 consumidores.
 
 La matriz focal de retirada prueba confirmaciones, evidencia, `000002`,
-objetos y ACL hostiles, dependencia exterior, propietario, manifiesto,
-reentrada, reinicio, reconexión, carrera observable y
+objetos y ACL hostiles, publicaciones globales anteriores y posteriores,
+ajustes por base, dependencias de rol dentro y fuera de la base, invocación
+desnuda de `roles_down.sql`, propietario, manifiesto, reentrada, reinicio,
+reconexión, carrera observable y
 `up → down seguro → up` con OID nuevo:
 
 ```sh
