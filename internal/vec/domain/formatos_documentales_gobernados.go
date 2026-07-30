@@ -657,16 +657,7 @@ func huellaCanonicaDocumentalGobernada(valores []string) string {
 }
 
 func esHuellaSHA256DocumentalGobernada(valor string) bool {
-	if len(valor) != sha256.Size*2 {
-		return false
-	}
-	for indice := 0; indice < len(valor); indice++ {
-		octeto := valor[indice]
-		if (octeto < '0' || octeto > '9') && (octeto < 'a' || octeto > 'f') {
-			return false
-		}
-	}
-	return true
+	return esSHA256(valor)
 }
 
 func referenciaGobernadaValida(valor string) bool {

@@ -254,9 +254,12 @@ func TestHuellaSHA256DocumentalGobernadaEquivaleAlContratoHistorico(t *testing.T
 	}
 	comprobar := func(valor string) {
 		t.Helper()
-		if obtenido, esperado := esHuellaSHA256DocumentalGobernada(valor), referencia(valor); obtenido != esperado {
-			t.Fatalf("validacion SHA-256 no equivalente: %q obtenido=%v esperado=%v",
-				valor, obtenido, esperado)
+		obtenido := esHuellaSHA256DocumentalGobernada(valor)
+		canonico := esSHA256(valor)
+		esperado := referencia(valor)
+		if obtenido != canonico || canonico != esperado {
+			t.Fatalf("validacion SHA-256 no equivalente: %q documental=%v canonica=%v esperada=%v",
+				valor, obtenido, canonico, esperado)
 		}
 	}
 
