@@ -92,6 +92,10 @@ El diseño SQL exacto se cerrará antes de reservar migraciones. Debe reutilizar
 las autoridades de ContextoActor y PDP sin convertir las asignaciones de
 permisos en una fuente de identidad.
 
+La decisión exacta, incluida la atomicidad selección–registro y su grafo de
+minitareas, queda fijada en
+[`decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md`](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md).
+
 ### C3 — autoridad de contexto RRHH
 
 Responsabilidad:
