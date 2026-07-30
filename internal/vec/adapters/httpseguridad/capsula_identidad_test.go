@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -192,13 +194,17 @@ func TestCapsulaIdentidadPeticionRechazaCrucesYAdulteraciones(t *testing.T) {
 		"canal identidad": func(c *CapsulaIdentidadPeticion) {
 			c.identidad.estado.canalVinculadoRef = "tls-exportador:sha256:alterado"
 		},
+		"estado de vinculación": func(c *CapsulaIdentidadPeticion) {
+			c.estado = nil
+		},
 	}
 	for nombre, adulterar := range casos {
 		t.Run(nombre, func(t *testing.T) {
 			capsula := entorno.capsula
 			adulterar(&capsula)
-			if _, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
-				context.Background(), capsula, entorno.canal,
+			if _, _, err := capsula.datos(
+				context.Background(), entorno.servicio,
+				entorno.canal.ReferenciaVinculacion(),
 			); !errors.Is(err, ErrSesionNoValida) {
 				t.Fatalf("cápsula adulterada admitida: %v", err)
 			}
@@ -266,9 +272,15 @@ func TestCapsulaIdentidadPeticionCierraSustitucionYContextosTerminados(t *testin
 		t.Fatalf("vincular: %v", err)
 	}
 	if _, err = entorno.servicio.VincularCapsulaIdentidadPeticion(
-		vinculado, entorno.capsula, entorno.canal,
+		context.Background(), entorno.capsula, entorno.canal,
 	); !errors.Is(err, ErrSesionNoValida) {
-		t.Fatalf("sustitución de cápsula admitida: %v", err)
+		t.Fatalf("segunda vinculación en otro contexto admitida: %v", err)
+	}
+	otro := nuevoEntornoCapsulaIdentidad(t)
+	if _, err = otro.servicio.VincularCapsulaIdentidadPeticion(
+		vinculado, otro.capsula, otro.canal,
+	); !errors.Is(err, ErrSesionNoValida) {
+		t.Fatalf("sustitución dentro del contexto admitida: %v", err)
 	}
 
 	ctxCancelado, cancelar := context.WithCancel(context.Background())
@@ -361,6 +373,17 @@ func TestCapsulaIdentidadPeticionNoFiltraNiSeReconstruye(t *testing.T) {
 	if _, err := capsula.GobEncode(); !errors.Is(err, ErrIdentidadNoSerializable) {
 		t.Fatalf("Gob admitido: %v", err)
 	}
+	if _, err := capsula.MarshalCBOR(); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("CBOR admitido: %v", err)
+	}
+	if _, err := capsula.MarshalYAML(); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("YAML admitido: %v", err)
+	}
+	if err := capsula.MarshalXML(
+		xml.NewEncoder(&bytes.Buffer{}), xml.StartElement{},
+	); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("XML admitido: %v", err)
+	}
 	var serializacionGob bytes.Buffer
 	if err := gob.NewEncoder(&serializacionGob).Encode(capsula); !errors.Is(err, ErrIdentidadNoSerializable) {
 		t.Fatalf("codificador Gob admitió cápsula: %v", err)
@@ -377,6 +400,51 @@ func TestCapsulaIdentidadPeticionNoFiltraNiSeReconstruye(t *testing.T) {
 	}
 	if err := reconstruida.GobDecode([]byte("dato")); !errors.Is(err, ErrIdentidadNoSerializable) {
 		t.Fatalf("Gob reconstruyó cápsula: %v", err)
+	}
+	if err := reconstruida.UnmarshalCBOR([]byte{0xa0}); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("CBOR reconstruyó cápsula: %v", err)
+	}
+	if err := reconstruida.UnmarshalYAML(
+		func(any) error { return nil },
+	); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("YAML reconstruyó cápsula: %v", err)
+	}
+	if err := reconstruida.UnmarshalXML(
+		xml.NewDecoder(bytes.NewReader(nil)), xml.StartElement{},
+	); !errors.Is(err, ErrIdentidadNoSerializable) {
+		t.Fatalf("XML reconstruyó cápsula: %v", err)
+	}
+}
+
+func TestCapsulaIdentidadPeticionSoloSeVinculaUnaVezConCarrera(t *testing.T) {
+	entorno := nuevoEntornoCapsulaIdentidad(t)
+	const intentos = 64
+	var grupo sync.WaitGroup
+	var exitos atomic.Int64
+	var rechazos atomic.Int64
+	for range intentos {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			_, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
+				context.Background(), entorno.capsula, entorno.canal,
+			)
+			switch {
+			case err == nil:
+				exitos.Add(1)
+			case errors.Is(err, ErrSesionNoValida):
+				rechazos.Add(1)
+			default:
+				t.Errorf("error inesperado: %v", err)
+			}
+		}()
+	}
+	grupo.Wait()
+	if exitos.Load() != 1 || rechazos.Load() != intentos-1 {
+		t.Fatalf(
+			"vinculación no exclusiva: éxitos=%d rechazos=%d",
+			exitos.Load(), rechazos.Load(),
+		)
 	}
 }
 
