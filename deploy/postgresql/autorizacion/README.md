@@ -19,6 +19,11 @@ migraciones al arrancar.
   grupos `NOLOGIN` de proyeccion y evaluacion historica. No los hace miembros
   del propietario y no modifica los roles V1; la retirada inventaria sus
   atributos, ajustes, ACL y los tres campos de todas las membresias.
+- `roles_motivos_rrhh_resolutor_v1_up.sql` y
+  `roles_motivos_rrhh_resolutor_v1_down.sql`: rol `NOLOGIN` exclusivo de las
+  futuras resoluciones nominales RRHH. Nace sin acceso funcional y con una
+  única ACL `CONNECT`; su retirada falla cerrada ante cualquier dependencia
+  no prevista.
 - `migraciones/000001_autorizacion.up.sql`: esquema, invariantes, RLS,
   funciones cerradas y privilegios.
 - `migraciones/000001_autorizacion.down.sql`: reversion destructiva del
@@ -90,7 +95,10 @@ omite limpiamente si no esta completo su propio grupo de variables.
 
 Se presupone una base dedicada. Un DBA ejecuta primero `roles_up.sql` y, antes
 de aplicar `000003`, `roles_v2_up.sql`. Las migraciones se aplican por orden
-`000001`, `000002`, `000003` y `000004`. Cada bootstrap toma un bloqueo
+numérico. Después de `000009` y antes de `000010`, se ejecuta
+`roles_motivos_rrhh_resolutor_v1_up.sql`. La reversión sigue el orden inverso:
+`000010`, rol resolutor, `000009` hasta `000003` y finalmente roles V2.
+Cada bootstrap toma un bloqueo
 transaccional para serializar ejecuciones concurrentes y, antes de cualquier
 mutacion, aborta si ya existe uno solo de sus nombres reservados. No adopta ni
 corrige roles homonimos aunque sus atributos

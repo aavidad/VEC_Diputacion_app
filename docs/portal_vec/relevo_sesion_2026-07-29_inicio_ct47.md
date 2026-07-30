@@ -214,6 +214,12 @@ una función histórica con selectores libres. M1.3 no lo reutilizará: antes se
 integra el
 [rol exclusivo M1.R](coordinacion_ct_000047m1r_rol_resolutor_motivos_rrhh_2026-07-30.md).
 
+M1.R quedó integrado en `231648b` tras
+[GO independiente](revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md),
+P0=P1=P2=0 y reproducciones reales sobre PostgreSQL 18.4. El rol nace sin
+acceso funcional y con una única ACL `CONNECT`; M1.3 se reanuda sobre esta
+base y será la única pieza que conceda las dos fachadas nominales.
+
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.

@@ -1,19 +1,20 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 26 de julio de 2026
+**Última actualización:** 30 de julio de 2026
 
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
 de Contratación temporal solicitada por RRHH.
 
-**Frentes paralelos actuales:** composición productiva del importador Convoca,
-extensión del registro durable T13 a los wrappers de cada vertical e
-integración O4-05 de Contratación temporal. Solo se usan datos sintéticos hasta
-cerrar las puertas de autorización, trazabilidad y protección de datos.
+**Frente técnico activo:** integración O4-05 de Contratación temporal. M1.R,
+el rol resolutor aislado, ya está cerrado; M1.3 implementa ahora las dos
+resoluciones nominales antes del adaptador PostgreSQL, la autoridad/PDP y la
+composición E2E. Solo se usan datos sintéticos hasta cerrar las puertas de
+autorización, trazabilidad y protección de datos.
 
-**Objetivo actual:** cerrar los primeros recorridos productivos de Bolsa y
-Contratación temporal. En Bolsa: crear, guardar y recuperar un borrador de
-convocatoria con recibo auditable. En Contratación: conectar las proyecciones y
-la recuperación protegidas al cliente HTTP ya verificado.
+**Objetivo actual:** cerrar el primer recorrido productivo de Contratación
+temporal sin falsos adaptadores: HTTP protegido → autoridad/PDP → servicios
+nominales → PostgreSQL → recibo. Bolsa conserva su prioridad funcional y su
+trabajo ya verificado, pero no se infla su avance con contratos aislados.
 
 Este es el tablero de seguimiento para dirección. Se actualiza antes del commit
 que cierre una capacidad o siempre que cambie el frente principal. Los códigos
@@ -42,7 +43,7 @@ Los agentes adicionales deben seguir
 ocupadas, trabajos libres, dependencias, límites de archivos y formato de
 entrega.
 
-### Corte operativo verificable del 26 de julio
+### Corte operativo verificable del 30 de julio
 
 Los porcentajes oficiales no incorporan código local, contratos aislados ni
 pruebas parciales. Un corte solo aumenta el avance cuando supera PostgreSQL 18,
@@ -52,7 +53,7 @@ productivo.
 | Ámbito | Avance oficial | Trabajo activo todavía no computado |
 | --- | ---: | --- |
 | Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
-| Contratación temporal | **19 de 46 tareas (41 %)** | O4-04E cerrado. O4-05 lleva 3/5 hitos internos: contrato HTTP, registro modular y cliente web seguro; todavía no computa como tarea productiva. |
+| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000046 y M1.1, M1.2 y M1.R están cerrados aisladamente; M1.3 está en ejecución. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta

@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **29 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **30 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -64,6 +64,7 @@ llamamientos.
 - [Revisión del adaptador PostgreSQL CT-000046](docs/portal_vec/revisiones/o4_05_revision_adaptador_consultas_rrhh_ct_000046_2026-07-29.md)
 - [Relevo del cierre CT-000046](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct46.md)
 - [Relevo del inicio CT-000047 y orden corregido](docs/portal_vec/relevo_sesion_2026-07-29_inicio_ct47.md)
+- [Revisión del rol resolutor aislado M1.R](docs/portal_vec/revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)

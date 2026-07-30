@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | M1.R → M1.3 → M2 → autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | M1.3 → M2 → autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `0a564e2` — M1.2/`000009` cerrado con doble GO, P0=0 y P1=0 |
-| Trabajo local en revisión | M1.R crea el rol NOLOGIN exclusivo; M1.3 permanece pausada y limpia hasta integrarlo. |
+| Último commit verificado | `231648b` — M1.R cerrado con GO independiente, P0=0, P1=0 y P2=0 |
+| Trabajo local en revisión | M1.3/`000010`: resolución nominal de cuadro y detalle sobre el rol exclusivo ya integrado. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

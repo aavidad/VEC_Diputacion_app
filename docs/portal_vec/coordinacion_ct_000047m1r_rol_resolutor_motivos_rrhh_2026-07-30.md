@@ -2,6 +2,10 @@
 
 Fecha: 30 de julio de 2026.
 
+Estado: cerrado en `231648b`, con
+[GO técnico independiente](revisiones/o4_05_revision_rol_resolutor_motivos_ct_000047m1r_2026-07-30.md)
+y P0=P1=P2=0.
+
 ## Motivo
 
 El rol histórico `vec_autorizacion_motivos_evaluador` conserva por diseño
