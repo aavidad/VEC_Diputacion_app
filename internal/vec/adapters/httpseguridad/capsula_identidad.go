@@ -2,8 +2,10 @@ package httpseguridad
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
+	"log/slog"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -13,7 +15,7 @@ type CapsulaIdentidadPeticion struct {
 	auditoria ContextoAuditoriaAutenticada
 	servicio  *ServicioIdentidad
 	instancia [32]byte
-	canal     string
+	canal     [32]byte
 }
 
 func (CapsulaIdentidadPeticion) String() string               { return "[CÁPSULA DE IDENTIDAD CONFIDENCIAL]" }
@@ -23,7 +25,14 @@ func (CapsulaIdentidadPeticion) MarshalText() ([]byte, error) { return nil, ErrI
 func (CapsulaIdentidadPeticion) MarshalBinary() ([]byte, error) {
 	return nil, ErrIdentidadNoSerializable
 }
-func (CapsulaIdentidadPeticion) GobEncode() ([]byte, error) { return nil, ErrIdentidadNoSerializable }
+func (CapsulaIdentidadPeticion) GobEncode() ([]byte, error)    { return nil, ErrIdentidadNoSerializable }
+func (*CapsulaIdentidadPeticion) UnmarshalJSON([]byte) error   { return ErrIdentidadNoSerializable }
+func (*CapsulaIdentidadPeticion) UnmarshalText([]byte) error   { return ErrIdentidadNoSerializable }
+func (*CapsulaIdentidadPeticion) UnmarshalBinary([]byte) error { return ErrIdentidadNoSerializable }
+func (*CapsulaIdentidadPeticion) GobDecode([]byte) error       { return ErrIdentidadNoSerializable }
+func (CapsulaIdentidadPeticion) LogValue() slog.Value {
+	return slog.StringValue("[CÁPSULA DE IDENTIDAD CONFIDENCIAL]")
+}
 func (CapsulaIdentidadPeticion) Format(s fmt.State, _ rune) {
 	_, _ = s.Write([]byte("[CÁPSULA DE IDENTIDAD CONFIDENCIAL]"))
 }
@@ -38,10 +47,15 @@ func (s *ServicioIdentidad) ProyectarCapsulaIdentidadPeticion(ctx context.Contex
 	if subtle.ConstantTimeCompare([]byte(auditoria.CanalVinculadoRef()), []byte(canal.ReferenciaVinculacion())) != 1 {
 		return CapsulaIdentidadPeticion{}, ErrSesionNoValida
 	}
-	return CapsulaIdentidadPeticion{cuenta, auditoria, s, s.instanciaRef, canal.ReferenciaVinculacion()}, nil
+	huella := sha256.Sum256([]byte(canal.ReferenciaVinculacion()))
+	return CapsulaIdentidadPeticion{cuenta, auditoria, s, s.instanciaRef, huella}, nil
 }
-func (c CapsulaIdentidadPeticion) Datos(s *ServicioIdentidad, canal CanalProxyAutenticado) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
-	if s == nil || c.servicio != s || c.instancia != s.instanciaRef || canal.validar(s) != nil || subtle.ConstantTimeCompare([]byte(c.canal), []byte(canal.ReferenciaVinculacion())) != 1 {
+func (c CapsulaIdentidadPeticion) Datos() (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
+	if c.servicio == nil || c.instancia != c.servicio.instanciaRef || c.cuenta.Validar() != nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	}
+	huella := sha256.Sum256([]byte(c.auditoria.CanalVinculadoRef()))
+	if subtle.ConstantTimeCompare(c.canal[:], huella[:]) != 1 {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	return c.cuenta, c.auditoria, nil
@@ -49,16 +63,16 @@ func (c CapsulaIdentidadPeticion) Datos(s *ServicioIdentidad, canal CanalProxyAu
 
 type claveCapsulaIdentidad struct{}
 
-func VincularCapsulaIdentidadPeticion(ctx context.Context, c CapsulaIdentidadPeticion, s *ServicioIdentidad, canal CanalProxyAutenticado) (context.Context, error) {
+func VincularCapsulaIdentidadPeticion(ctx context.Context, c CapsulaIdentidadPeticion) (context.Context, error) {
 	if ctx == nil || ctx.Err() != nil {
 		return nil, ErrSesionNoValida
 	}
-	if _, _, err := c.Datos(s, canal); err != nil {
+	if _, _, err := c.Datos(); err != nil {
 		return nil, err
 	}
 	return context.WithValue(ctx, claveCapsulaIdentidad{}, c), nil
 }
-func ExtraerCapsulaIdentidadPeticion(ctx context.Context, s *ServicioIdentidad, canal CanalProxyAutenticado) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
+func ExtraerCapsulaIdentidadPeticion(ctx context.Context) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
 	if ctx == nil || ctx.Err() != nil {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
@@ -66,5 +80,5 @@ func ExtraerCapsulaIdentidadPeticion(ctx context.Context, s *ServicioIdentidad, 
 	if !ok {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
-	return c.Datos(s, canal)
+	return c.Datos()
 }
