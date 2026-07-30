@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 30 de julio de 2026.
+Última actualización: 31 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -14,10 +14,10 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Corte publicado anterior | `85a115c` en `integracion/ct-o4-04e-20260726` |
-| Último commit técnico verificado | `d768007` — C2.1b, fachada de Identidad y recuperación física con P0=P1=P2=0 |
+| Corte estable local | `4cae636` en `integracion/ct-o4-04e-20260726`; pendiente del `push` conjunto de S0.1 y su documentación |
+| Último commit técnico verificado | `4cae636` — S0.1, retirada segura de ContextoActor con P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b está cerrada e integrada, pero no suma una puerta funcional. C2.2 queda dividida en D0, S0.1, S0.2, A y B; S0.1 es el frente activo. |
+| Trabajo no contabilizado | C2.1b y S0.1 están cerradas e integradas, pero no suman una puerta funcional. C2.2 queda dividida en D0, S0.1, S0.2, A y B; S0.2 es el frente activo. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

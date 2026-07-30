@@ -1,6 +1,6 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 30 de julio de 2026
+**Última actualización:** 31 de julio de 2026
 
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
 de Contratación temporal solicitada por RRHH.
@@ -9,8 +9,9 @@ de Contratación temporal solicitada por RRHH.
 los manejadores HTTP, la cápsula C1, el rol selector C2.1a y la fachada de
 Identidad C2.1b ya están cerrados y revisados. C2.1b está integrada en
 `ea91b30`–`d768007`, con P0=P1=P2=0, PostgreSQL 18.4 y réplica física. El
-frente activo pasa a C2.2: retirada segura, organización y vínculo
-corporativo; después siguen publicación, selección, PDP y composición E2E.
+frente activo pasa a C2.2. La retirada segura S0.1 está cerrada e integrada
+con `GO` independiente; S0.2 es el corte activo antes de organización y
+vínculo corporativo. Después siguen publicación, selección, PDP y composición E2E.
 Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.
 

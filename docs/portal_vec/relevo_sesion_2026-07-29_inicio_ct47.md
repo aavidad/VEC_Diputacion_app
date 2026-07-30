@@ -346,21 +346,23 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.2-S0.1 en un worktree aislado. C2.1b ya no es trabajo
-local pendiente. No se programa en el directorio raíz histórico ni se
-modifica el Word de RRHH sin seguimiento.
+Trabajo activo: C2.2-S0.2. C2.1b y S0.1 ya no son trabajo local pendiente. No
+se programa en el directorio raíz histórico ni se modifica el Word de RRHH
+sin seguimiento.
 
-El candidato inicial de C2.2-S0.1 (`240568d`) recibió `NO-GO` independiente
-porque no detectaba ACL y propiedades de columna, disparadores internos,
-publicaciones ni todos los atributos relevantes de los roles. La corrección
-`26b7d61` permanece aislada y pendiente de revisión independiente; no debe
-integrarse ni publicarse antes del `GO`.
+C2.2-S0.1 quedó integrada en `79a6055`–`4cae636` después de cinco ciclos
+productor/revisor. CT121 dio `GO`, P0=P1=P2=0. La retirada base solo acepta una
+instalación vacía y exacta, inventaría catálogos, ACL, publicaciones,
+dependencias y roles, usa `RESTRICT`, conserva evidencia ante cualquier
+rechazo y permite que un superusuario distinto del bootstrap ejecute
+`roles_down`. Dirección reprodujo el runner principal, el runner de
+otorgantes, la integración PostgreSQL 18.4, ShellCheck, tamaños y Gitleaks.
 
-C2.2-S0.2 dispone de inventario, pero el primer intento se detuvo sin commit:
-el contrato completo superaba los límites de tamaño de un único `down` y un
-único runner. El siguiente paso es aprobar una división ejecutable por el
-migrador real antes de retomar la implementación; no se deben comprimir ni
-omitir garantías para encajarla.
+C2.2-S0.2 está dividida en un `down` SQL autónomo y portable, prueba literal
+`pgx`, runner estructural/ACL/consumidores y runner de
+concurrencia/preservación. S0.2a dispone de un corrector local y permanece en
+revisión independiente; no debe integrarse antes del `GO`. S0.2b y S0.2c
+podrán producirse en paralelo después de ese cierre.
 
 ## Optimización probatoria CT88
 
