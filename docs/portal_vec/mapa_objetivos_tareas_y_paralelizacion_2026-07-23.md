@@ -17,7 +17,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Corte publicado usado como base | `cc6041e` en `integracion/ct-o4-04e-20260726` |
 | Último commit técnico verificado | `e8c950c` — C2.1a, rol selector RRHH mínimo con doble GO y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo local en desarrollo | C2.1b, fachada mínima de Identidad para ContextoActor, en el worktree `ct71-c21b-fachada-identidad-20260730`; todavía no tiene commit, `GO` ni efecto sobre las métricas. |
+| Trabajo no contabilizado | C2.1b conserva el borrador `e8883df`, sin runner, revisión ni `GO`. La dependencia ACL está probada en `agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión e integración. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

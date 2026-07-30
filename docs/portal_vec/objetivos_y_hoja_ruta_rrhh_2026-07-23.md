@@ -111,9 +111,10 @@ CT-000045, junto con el adaptador CT-000046, están integrados y revisados.
 CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
 las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
 cápsula de identidad y C2.1a el rol selector mínimo. C2.1b, fachada mínima de
-Identidad para ContextoActor, está en desarrollo local sin commit ni `GO`.
-Después siguen selección y registro corporativos, PDP, composición raíz,
-TLS/mTLS viva, la misma web definitiva y el E2E.
+Identidad para ContextoActor, conserva el borrador `e8883df` sin runner,
+revisión ni `GO`. Su dependencia de ACL está probada en una rama candidata,
+todavía no integrada. Después siguen selección y registro corporativos, PDP,
+composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 

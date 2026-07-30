@@ -8,10 +8,13 @@ de Contratación temporal solicitada por RRHH.
 **Frente técnico activo:** integración O4-05 de Contratación temporal. M1/M2,
 los manejadores HTTP, la cápsula de identidad C1 y el rol selector mínimo
 C2.1a ya están cerrados y revisados. C2.1b implementa ahora la fachada mínima
-de Identidad para ContextoActor; todavía no tiene commit ni `GO`. Después
-siguen selección y registro corporativos, PDP y composición E2E. Solo se usan
-datos sintéticos hasta cerrar las puertas de autorización, trazabilidad y
-protección de datos.
+de Identidad para ContextoActor. Su borrador está preservado en `e8883df`,
+pero aún carece de runner, revisión y `GO`. La dependencia de ACL de tipos
+compuestos está corregida y probada en la rama candidata
+`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión
+independiente. Después siguen selección y registro corporativos, PDP y
+composición E2E. Solo se usan datos sintéticos hasta cerrar las puertas de
+autorización, trazabilidad y protección de datos.
 
 **Objetivo actual:** cerrar el primer recorrido productivo de Contratación
 temporal sin falsos adaptadores: HTTP protegido → C1/C2 corporativo → PDP →

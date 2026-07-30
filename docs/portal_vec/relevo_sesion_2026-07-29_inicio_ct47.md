@@ -280,9 +280,11 @@ inversa exacta del catálogo para arrays automáticos. La ejecución GitHub
 El siguiente corte es C2.1b, fachada mínima de Identidad para ContextoActor.
 Su contrato recibe exclusivamente las referencias de autenticación y sesión,
 y devuelve cuenta, método, garantía y caducidad observados; no acepta ni
-devuelve perfil, organización o candidatos. Está en desarrollo local en su
-worktree aislado, todavía sin commit, `GO` ni integración. El corte publicado
-usado como base es `cc6041e`.
+devuelve perfil, organización o candidatos. El borrador `e8883df` está
+preservado en su rama aislada, todavía sin runner, `GO` ni integración. La
+dependencia ACL probada está en
+`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión
+independiente. El corte estable usado como base es `cc6041e`.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE

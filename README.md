@@ -111,9 +111,12 @@ C1 cierra la cápsula de identidad de una sola petición. C2.1a cierra el rol
 selector RRHH mínimo en `e8c950c`, con evidencia publicada en `808522d` y la
 ejecución CI `30527303065` completamente verde. El corte publicado usado como
 base de esta documentación es `cc6041e`. C2.1b, fachada mínima de Identidad,
-está en desarrollo local y todavía no tiene commit ni `GO`; no aumenta las
-métricas. Después siguen selección y registro corporativos, PDP, composición
-raíz, TLS/mTLS, web conectada y E2E. Producción conserva `NO-GO`.
+conserva un borrador explícitamente no validado en `e8883df`; todavía necesita
+runner, revisión y `GO`, por lo que no aumenta las métricas. La corrección
+probada de ACL de tipos compuestos está en la rama candidata
+`agent/ct73-endurecimiento-tipos-public-20260730`, pendiente de revisión e
+integración. Después siguen selección y registro corporativos, PDP,
+composición raíz, TLS/mTLS, web conectada y E2E. Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

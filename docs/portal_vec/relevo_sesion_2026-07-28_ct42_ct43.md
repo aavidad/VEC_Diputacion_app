@@ -19,8 +19,9 @@ funcional completa: Contratación `24/46` (52 %), primera vertical `5/10`
 (50 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y producción `NO-GO`.
 
 La ejecución GitHub `30527303065`, correspondiente al cierre publicado de
-C2.1a, terminó completamente verde. C2.1b está en desarrollo local, todavía
-sin commit, `GO` ni integración. El cuerpo que sigue conserva el estado
+C2.1a, terminó completamente verde. C2.1b conserva el borrador `e8883df`,
+todavía sin runner, `GO` ni integración; su dependencia ACL está en una rama
+candidata pendiente de revisión. El cuerpo que sigue conserva el estado
 histórico del 28 de julio y no debe usarse como orden vigente; prevalecen el
 relevo del 29 de julio y el mapa actual.
 

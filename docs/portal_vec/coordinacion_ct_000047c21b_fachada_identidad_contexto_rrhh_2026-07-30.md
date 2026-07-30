@@ -8,8 +8,14 @@ Corte publicado usado como base: `cc6041e`. C2.1a quedó integrada técnicamente
 `e8c950c`, cerrada documentalmente en `808522d` y validada por la ejecución CI
 `30527303065`. El trabajo C2.1b vive en
 `.worktrees/ct71-c21b-fachada-identidad-20260730`, rama
-`agent/ct71-c21b-fachada-identidad-20260730`, y todavía no tiene commit,
-`GO` ni integración. Este documento no contabiliza ese trabajo local.
+`agent/ct71-c21b-fachada-identidad-20260730`. El commit `e8883df` preserva
+solo el borrador de las migraciones: aún faltan runner, revisión, `GO` e
+integración. Este documento no contabiliza ese trabajo.
+
+La dependencia previa de ACL sobre tipos compuestos está corregida en
+`agent/ct73-endurecimiento-tipos-public-20260730` mediante `55fe00d`,
+`1327b12` y `aadfef5`. Las tres integraciones PostgreSQL 18.4 están verdes,
+pero la rama necesita revisión independiente antes de integrarse.
 
 ## Responsabilidad única
 
