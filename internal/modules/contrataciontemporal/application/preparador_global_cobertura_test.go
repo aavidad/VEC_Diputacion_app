@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,30 +20,24 @@ func TestPreparadorGlobalCoberturaEsDeterministaConFinalizacionInvertida(
 	t *testing.T,
 ) {
 	vias := viasPreparacionGlobalPrueba(3, 2)
+	ordenCanonico := clavesPreparacionGlobalPrueba(vias)
+	if len(ordenCanonico) != 6 {
+		t.Fatalf("fixture con %d comprobaciones; se esperaban 6", len(ordenCanonico))
+	}
+	ordenInvertido := []domain.ClaveCatalogo{
+		ordenCanonico[3],
+		ordenCanonico[2],
+		ordenCanonico[1],
+		ordenCanonico[0],
+		ordenCanonico[5],
+		ordenCanonico[4],
+	}
 	invertido := nuevoEscenarioPreparacionGlobalPrueba(
 		t, vias, 4, time.Second,
 	)
-	var mu sync.Mutex
-	finalizaciones := make([]domain.ClaveCatalogo, 0, 6)
-	invertido.antes = func(
-		ctx context.Context,
-		solicitud ports.SolicitudConsultarCobertura,
-	) error {
-		demora := time.Duration(7-int(solicitud.Comprobacion.Orden)) *
-			5 * time.Millisecond
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(demora):
-		}
-		mu.Lock()
-		finalizaciones = append(
-			finalizaciones,
-			solicitud.Comprobacion.Clave,
-		)
-		mu.Unlock()
-		return nil
-	}
+	antesInvertido, finalizacionesInvertidas :=
+		coordinarFinalizacionesPreparacionGlobalPrueba(t, ordenInvertido)
+	invertido.antes = antesInvertido
 	primera, err := invertido.preparador.Preparar(
 		context.Background(),
 		invertido.datos,
@@ -54,20 +49,9 @@ func TestPreparadorGlobalCoberturaEsDeterministaConFinalizacionInvertida(
 	directo := nuevoEscenarioPreparacionGlobalPrueba(
 		t, vias, 4, time.Second,
 	)
-	directo.antes = func(
-		ctx context.Context,
-		solicitud ports.SolicitudConsultarCobertura,
-	) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(
-			time.Duration(solicitud.Comprobacion.Orden) *
-				5 * time.Millisecond,
-		):
-			return nil
-		}
-	}
+	antesDirecto, finalizacionesDirectas :=
+		coordinarFinalizacionesPreparacionGlobalPrueba(t, ordenCanonico)
+	directo.antes = antesDirecto
 	segunda, err := directo.preparador.Preparar(
 		context.Background(),
 		directo.datos,
@@ -83,9 +67,17 @@ func TestPreparadorGlobalCoberturaEsDeterministaConFinalizacionInvertida(
 		huellaPrimera != huellaSegunda {
 		t.Fatal("la preparación depende del orden de finalización")
 	}
-	if len(finalizaciones) != 6 ||
-		finalizaciones[0] == vias[0].Comprobaciones[0].Clave {
-		t.Fatalf("la finalización no quedó invertida: %#v", finalizaciones)
+	if obtenidas := finalizacionesInvertidas(); !slices.Equal(
+		obtenidas,
+		ordenInvertido,
+	) {
+		t.Fatalf("la finalización no quedó invertida: %#v", obtenidas)
+	}
+	if obtenidas := finalizacionesDirectas(); !slices.Equal(
+		obtenidas,
+		ordenCanonico,
+	) {
+		t.Fatalf("la finalización no quedó canónica: %#v", obtenidas)
 	}
 	ordenes, err := primera.OrdenesPendientesEn(
 		invertido.entorno.reloj.Ahora(),
@@ -106,6 +98,80 @@ func TestPreparadorGlobalCoberturaEsDeterministaConFinalizacionInvertida(
 	}
 	exigirCeroConsumoPreparacionGlobal(t, invertido)
 	exigirCeroConsumoPreparacionGlobal(t, directo)
+}
+
+func clavesPreparacionGlobalPrueba(
+	vias []domain.DefinicionViaCobertura,
+) []domain.ClaveCatalogo {
+	total := 0
+	for _, via := range vias {
+		total += len(via.Comprobaciones)
+	}
+	claves := make([]domain.ClaveCatalogo, 0, total)
+	for _, via := range vias {
+		for _, comprobacion := range via.Comprobaciones {
+			claves = append(claves, comprobacion.Clave)
+		}
+	}
+	return claves
+}
+
+func coordinarFinalizacionesPreparacionGlobalPrueba(
+	t *testing.T,
+	orden []domain.ClaveCatalogo,
+) (
+	func(context.Context, ports.SolicitudConsultarCobertura) error,
+	func() []domain.ClaveCatalogo,
+) {
+	t.Helper()
+	if len(orden) == 0 {
+		t.Fatal("el orden de finalización está vacío")
+	}
+	compuertas := make(map[domain.ClaveCatalogo]chan struct{}, len(orden))
+	siguientes := make(map[domain.ClaveCatalogo]domain.ClaveCatalogo, len(orden)-1)
+	for indice, clave := range orden {
+		if clave == "" {
+			t.Fatal("el orden contiene una clave vacía")
+		}
+		if _, duplicada := compuertas[clave]; duplicada {
+			t.Fatalf("el orden repite la clave %q", clave)
+		}
+		compuertas[clave] = make(chan struct{})
+		if indice > 0 {
+			siguientes[orden[indice-1]] = clave
+		}
+	}
+	close(compuertas[orden[0]])
+
+	var mu sync.Mutex
+	finalizaciones := make([]domain.ClaveCatalogo, 0, len(orden))
+	antes := func(
+		ctx context.Context,
+		solicitud ports.SolicitudConsultarCobertura,
+	) error {
+		compuerta, existe := compuertas[solicitud.Comprobacion.Clave]
+		if !existe {
+			return errors.New("comprobación fuera del orden esperado")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-compuerta:
+		}
+		mu.Lock()
+		finalizaciones = append(finalizaciones, solicitud.Comprobacion.Clave)
+		mu.Unlock()
+		if siguiente, existe := siguientes[solicitud.Comprobacion.Clave]; existe {
+			close(compuertas[siguiente])
+		}
+		return nil
+	}
+	obtener := func() []domain.ClaveCatalogo {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(finalizaciones)
+	}
+	return antes, obtener
 }
 
 func TestPreparadorGlobalCoberturaAcotaParalelismo(t *testing.T) {
