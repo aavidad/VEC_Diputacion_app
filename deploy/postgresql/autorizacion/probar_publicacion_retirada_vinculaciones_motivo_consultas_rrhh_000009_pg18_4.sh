@@ -78,6 +78,13 @@ exigir_colision_opaca() {
     exit 1
   fi
 }
+numero_funciones_000009() {
+  psql_valor "SELECT count(*) FROM pg_proc WHERE pronamespace='vec_autorizacion'::regnamespace AND proname=ANY(ARRAY['bloquear_mutacion_vinculacion_motivo_rrhh_evento_v1','validar_insercion_vinculacion_motivo_rrhh_evento_v1','registrar_publicacion_vinculacion_motivo_consulta_rrhh_v1','registrar_retirada_vinculacion_motivo_consulta_rrhh_v1','publicar_vinculacion_motivo_cuadro_rrhh_v1','publicar_vinculacion_motivo_detalle_rrhh_v1','retirar_vinculacion_motivo_cuadro_rrhh_v1','retirar_vinculacion_motivo_detalle_rrhh_v1']::name[])"
+}
+exigir_ausencia_000009() {
+  [[ $(psql_valor "SELECT (to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1') IS NULL)::text") == true ]]
+  [[ $(numero_funciones_000009) == 0 ]]
+}
 huella_fundamentos() {
   docker exec "$contenedor" pg_dump -U postgres -d "$base" --schema-only \
     -t vec_autorizacion.motivo_v2_evento_origen \
@@ -90,9 +97,11 @@ huella_fundamentos() {
     sed '/^\\restrict /d;/^\\unrestrict /d' | sha256sum | cut -d' ' -f1
 }
 huella_000009() {
-  docker exec "$contenedor" pg_dump -U postgres -d "$base" --schema-only \
-    -t vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 |
-    sed '/^\\restrict /d;/^\\unrestrict /d' | sha256sum | cut -d' ' -f1
+  {
+    docker exec "$contenedor" pg_dump -U postgres -d "$base" --schema-only \
+      -t vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1
+    psql_valor "SELECT p.oid::regprocedure::text,pg_get_functiondef(p.oid),COALESCE(p.proacl::text,'<NULL>') FROM pg_proc AS p WHERE p.pronamespace='vec_autorizacion'::regnamespace AND p.proname=ANY(ARRAY['bloquear_mutacion_vinculacion_motivo_rrhh_evento_v1','validar_insercion_vinculacion_motivo_rrhh_evento_v1','registrar_publicacion_vinculacion_motivo_consulta_rrhh_v1','registrar_retirada_vinculacion_motivo_consulta_rrhh_v1','publicar_vinculacion_motivo_cuadro_rrhh_v1','publicar_vinculacion_motivo_detalle_rrhh_v1','retirar_vinculacion_motivo_cuadro_rrhh_v1','retirar_vinculacion_motivo_detalle_rrhh_v1']::name[]) ORDER BY p.oid::regprocedure::text"
+  } | sed '/^\\restrict /d;/^\\unrestrict /d' | sha256sum | cut -d' ' -f1
 }
 
 docker exec --interactive "$contenedor" psql -Xq \
@@ -128,24 +137,38 @@ docker exec --interactive "$contenedor" psql -Xq \
 CREATE ROLE vec_motivos_rrhh_acl_hostil NOLOGIN BYPASSRLS;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
   IN SCHEMA vec_autorizacion
-  GRANT SELECT, INSERT ON TABLES TO vec_motivos_rrhh_acl_hostil;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
-  IN SCHEMA vec_autorizacion
-  GRANT EXECUTE ON FUNCTIONS TO vec_motivos_rrhh_acl_hostil;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
-  IN SCHEMA vec_autorizacion
-  GRANT USAGE ON TYPES TO vec_motivos_rrhh_acl_hostil;
+  GRANT SELECT ON TABLES TO vec_motivos_rrhh_acl_hostil;
 SQL
-exigir_fallo_up 'default privileges de tabla, función y tipo'
-[[ $(psql_valor "SELECT (to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1') IS NULL)::text") == true ]]
+exigir_fallo_up 'default privileges de tabla'
+exigir_ausencia_000009
 docker exec --interactive "$contenedor" psql -Xq \
   --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
   IN SCHEMA vec_autorizacion
-  REVOKE SELECT, INSERT ON TABLES FROM vec_motivos_rrhh_acl_hostil;
+  REVOKE SELECT ON TABLES FROM vec_motivos_rrhh_acl_hostil;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
+  IN SCHEMA vec_autorizacion
+  GRANT EXECUTE ON FUNCTIONS TO vec_motivos_rrhh_acl_hostil;
+SQL
+exigir_fallo_up 'default privileges de función'
+exigir_ausencia_000009
+docker exec --interactive "$contenedor" psql -Xq \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
   IN SCHEMA vec_autorizacion
   REVOKE EXECUTE ON FUNCTIONS FROM vec_motivos_rrhh_acl_hostil;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
+  IN SCHEMA vec_autorizacion
+  GRANT USAGE ON TYPES TO vec_motivos_rrhh_acl_hostil;
+SQL
+# PostgreSQL no aplica este default al tipo fila implícito de CREATE TABLE.
+psql_archivo "$up" >/dev/null
+[[ $(numero_funciones_000009) == 8 ]]
+[[ $(psql_valor "SELECT (count(*)=1 AND bool_and(a.grantee=t.typowner AND a.privilege_type='USAGE' AND NOT a.is_grantable) AND bool_and(v.typacl IS NULL))::text FROM pg_type AS t JOIN pg_type AS v ON v.oid=t.typarray CROSS JOIN LATERAL aclexplode(t.typacl) AS a WHERE t.typrelid='vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1'::regclass") == true ]]
+psql_archivo "$down" >/dev/null
+exigir_ausencia_000009
+docker exec --interactive "$contenedor" psql -Xq \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
   IN SCHEMA vec_autorizacion
   REVOKE USAGE ON TYPES FROM vec_motivos_rrhh_acl_hostil;
@@ -164,7 +187,7 @@ ALTER TABLE vec_autorizacion.motivo_v2_entrada
     catalogo_id,catalogo_version) ON DELETE CASCADE;
 SQL
 exigir_fallo_up 'FK V2 recompuesta con ON DELETE CASCADE'
-[[ $(psql_valor "SELECT (to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1') IS NULL)::text") == true ]]
+exigir_ausencia_000009
 fk_entrada=$(psql_valor "SELECT pg_get_constraintdef(oid,true) FROM pg_constraint WHERE conrelid='vec_autorizacion.motivo_v2_entrada'::regclass AND conname='motivo_v2_entrada_catalogo_fk'")
 [[ $fk_entrada == *'ON DELETE CASCADE' ]]
 docker exec --interactive "$contenedor" psql -Xq \
@@ -203,6 +226,23 @@ psql_valor "SET ROLE vec_autorizacion_propietario; CREATE INDEX evento_indice_ho
 exigir_fallo_down 'índice ordinario adicional'
 psql_valor "SET ROLE vec_autorizacion_propietario; DROP INDEX vec_autorizacion.evento_indice_hostil" >/dev/null
 
+# Cada familia ACL se altera y restaura de forma aislada.
+psql_valor "SET ROLE vec_autorizacion_propietario; GRANT SELECT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 TO vec_autorizacion_fuente" >/dev/null
+exigir_fallo_down 'ACL de tabla'
+psql_valor "SET ROLE vec_autorizacion_propietario; REVOKE SELECT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 FROM vec_autorizacion_fuente" >/dev/null
+
+psql_valor "SET ROLE vec_autorizacion_propietario; GRANT SELECT(actor_tecnico_ref) ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 TO vec_autorizacion_fuente" >/dev/null
+exigir_fallo_down 'ACL de columna'
+psql_valor "SET ROLE vec_autorizacion_propietario; REVOKE SELECT(actor_tecnico_ref) ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 FROM vec_autorizacion_fuente" >/dev/null
+
+psql_valor "SET ROLE vec_autorizacion_propietario; GRANT EXECUTE ON FUNCTION vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_evento_v1() TO vec_autorizacion_fuente" >/dev/null
+exigir_fallo_down 'ACL de función'
+psql_valor "SET ROLE vec_autorizacion_propietario; REVOKE EXECUTE ON FUNCTION vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_evento_v1() FROM vec_autorizacion_fuente" >/dev/null
+
+psql_valor "SET ROLE vec_autorizacion_propietario; GRANT USAGE ON TYPE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 TO vec_autorizacion_fuente" >/dev/null
+exigir_fallo_down 'ACL de tipo compuesto'
+psql_valor "SET ROLE vec_autorizacion_propietario; REVOKE USAGE ON TYPE vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1 FROM vec_autorizacion_fuente" >/dev/null
+
 docker exec --interactive "$contenedor" psql -Xq \
   --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 SET ROLE vec_autorizacion_propietario;
@@ -231,9 +271,18 @@ psql_valor "SET ROLE vec_autorizacion_propietario; COMMENT ON FUNCTION vec_autor
 exigir_fallo_down 'marca de fachada'
 psql_valor "SET ROLE vec_autorizacion_propietario; COMMENT ON FUNCTION vec_autorizacion.publicar_vinculacion_motivo_cuadro_rrhh_v1(text,text,bigint,text,text,text,integer,text,text,timestamptz) IS 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:publicar-cuadro-v1:000009'" >/dev/null
 
-psql_valor "SET ROLE vec_autorizacion_propietario; CREATE FUNCTION vec_autorizacion.resolver_motivo_cuadro_rrhh_v1() RETURNS boolean LANGUAGE sql AS 'SELECT true'" >/dev/null
-exigir_fallo_down 'dependencia M1.3'
-psql_valor "SET ROLE vec_autorizacion_propietario; DROP FUNCTION vec_autorizacion.resolver_motivo_cuadro_rrhh_v1()" >/dev/null
+psql_valor "SET ROLE vec_autorizacion_propietario; CREATE VIEW vec_autorizacion.vinculacion_motivo_rrhh_dependencia_prueba AS SELECT clase_consulta,operacion FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1" >/dev/null
+if docker exec --interactive "$contenedor" psql -Xq --set ON_ERROR_STOP=1 \
+    --set VERBOSITY=verbose -U postgres -d "$base" \
+    <"$raiz/$down" >"$salidas/down_restrict" 2>&1; then
+  echo 'safe-down ignoró dependencia real de tabla' >&2
+  exit 1
+fi
+grep -Fq '2BP01' "$salidas/down_restrict"
+grep -Fq 'vinculacion_motivo_consulta_rrhh_evento_v1' "$salidas/down_restrict"
+[[ $(numero_funciones_000009) == 8 ]]
+[[ $(psql_valor "SELECT (to_regclass('vec_autorizacion.vinculacion_motivo_rrhh_dependencia_prueba') IS NOT NULL)::text") == true ]]
+psql_valor "SET ROLE vec_autorizacion_propietario; DROP VIEW vec_autorizacion.vinculacion_motivo_rrhh_dependencia_prueba" >/dev/null
 
 psql_archivo "$down" >/dev/null
 [[ $(huella_fundamentos) == "$huella_base" ]]
@@ -273,10 +322,15 @@ SELECT pg_sleep(4);
 COMMIT;
 SQL
 pid_bloqueo=$!
+barrera_lista=false
 for _ in $(seq 1 40); do
-  [[ $(psql_valor "SELECT count(*) FROM pg_stat_activity AS a WHERE a.application_name='ct51_bloqueo_nominal' AND EXISTS (SELECT 1 FROM pg_locks AS l WHERE l.pid=a.pid AND l.relation='vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass AND l.mode='RowShareLock' AND l.granted)") == 1 ]] && break
+  if [[ $(psql_valor "SELECT count(*) FROM pg_stat_activity WHERE application_name='ct51_bloqueo_nominal' AND wait_event='PgSleep'") == 1 ]]; then
+    barrera_lista=true
+    break
+  fi
   sleep 0.1
 done
+[[ $barrera_lista == true ]]
 (actor_valor "$actor_b" "SET application_name='ct51_orden_v2_nominal'; $pub_d" \
   >"$salidas/orden" 2>"$salidas/orden.err") &
 pid_orden=$!
