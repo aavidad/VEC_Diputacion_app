@@ -41,7 +41,8 @@ El alta:
 
 1. exige superusuario, PostgreSQL 18 o posterior, UTF-8 y base dedicada sin
    privilegios de `PUBLIC`;
-2. toma un advisory lock nominal;
+2. toma en modo exclusivo el advisory lock
+   `vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1`;
 3. rechaza cualquier homónimo, incluso si parece correcto;
 4. reacredita la topología, atributos, membresías, ajustes y ACL esenciales de
    los roles base y del esquema `vec_contexto_actor_v1`;
@@ -49,25 +50,51 @@ El alta:
    NOREPLICATION NOBYPASSRLS`, sin contraseña, caducidad ni ajustes;
 6. fija una marca de propiedad inequívoca con `COMMENT ON ROLE`;
 7. concede solo `CONNECT` en la base actual, sin opción de concesión;
-8. postvalida atributos, marca, ausencia de membresías y la ACL exacta.
+8. postvalida atributos, marca, ausencia de membresías, grantor y la ACL
+   directa y efectiva exactas.
 
 La reentrada falla cerrada y no adopta ni altera objetos preexistentes.
+
+El manifiesto exacto exige además `rolconnlimit = -1`, contraseña y caducidad
+nulas, ausencia completa de `pg_db_role_setting`, comentario exacto y cero
+apariciones del rol como `roleid`, `member` o `grantor`. Tampoco admite
+etiquetas de seguridad en `pg_shseclabel`; si la imagen dispone de proveedor,
+el arnés demuestra que una etiqueta ajena bloquea la retirada segura.
+
+No basta con inspeccionar ACL cuyo `grantee` sea el rol: el alta y la
+postvalidación deben rechazar cualquier privilegio efectivo heredado de
+`PUBLIC` sobre objetos definidos por usuario. El único privilegio efectivo
+permitido es `CONNECT` sobre la base actual. Se revisan base, esquemas, tablas,
+columnas, secuencias, funciones, tipos, objetos grandes, FDW, servidores,
+lenguajes, tablespaces, políticas, privilegios predeterminados y parámetros.
 
 ## Contrato de retirada
 
 El `down`:
 
-1. exige superusuario y toma el mismo advisory lock;
-2. bloquea los catálogos necesarios para impedir carreras con `GRANT`;
+1. exige superusuario y toma en modo exclusivo el mismo advisory lock;
+2. bloquea, en este orden, `pg_authid`, `pg_auth_members` y `pg_database` en
+   `ACCESS EXCLUSIVE` para impedir carreras con `GRANT`;
 3. reacredita atributos, marca, membresías, ajustes y ACL exacta;
-4. rechaza cualquier función nominal C2 que ya dependa del rol, incluida
-   cualquier sobrecarga con el mismo nombre;
-5. rechaza dependencias, propiedades o ACL adicionales en cualquier base;
+4. rechaza cualquier sobrecarga existente de estas fachadas C2:
+   - `vec_identidad_sesiones_v1.revalidar_contexto_corporativo_rrhh_v1`;
+   - `vec_contexto_actor_v1.resolver_y_registrar_contexto_corporativo_rrhh_v1`;
+   - `vec_contexto_actor_v1.reconciliar_contexto_corporativo_rrhh_v1`;
+   - `vec_contexto_actor_v1.acreditar_uso_registro_contexto_corporativo_rrhh_v1`;
+5. exige mediante `pg_shdepend` que la única dependencia compartida sea el
+   `CONNECT` esperado sobre la base actual; cualquier ACL, propiedad,
+   parámetro o dependencia adicional, también en otra base, deniega;
 6. revoca exclusivamente el `CONNECT` creado por el alta;
-7. elimina el rol sin `CASCADE` y comprueba que no quedan referencias.
+7. comprueba que el inventario compartido ha quedado vacío;
+8. elimina el rol sin `CASCADE` y comprueba que no quedan referencias.
 
 No se añade un parámetro de «forzar» que permita borrar evidencia o
 dependencias.
+
+C2.1b, C2.5, C2.8 y sus retiradas deberán tomar el mismo advisory lock en modo
+compartido mientras crean o eliminan cualquiera de las fachadas anteriores.
+El arnés simula esas carreras sin esperas temporales: el `down` no puede
+intercalarse entre la comprobación y una migración futura que mencione el rol.
 
 ## Matriz PostgreSQL 18.4
 
@@ -78,15 +105,22 @@ El arnés usa la imagen fijada por digest ya adoptada en el proyecto y acredita:
 - dos altas concurrentes: un único éxito y un único rol;
 - atributos, contraseña, caducidad, comentario y ajustes alterados;
 - ACL adicional en base actual/ajena, esquema, tabla, columna, secuencia,
-  función o tipo;
+  función o tipo, incluidas ACL sobre objetos de otra base;
+- privilegios efectivos hostiles de `PUBLIC`;
+- privilegios predeterminados como propietario, beneficiario u otorgante,
+  políticas, objetos grandes, FDW, servidores, lenguajes, tablespaces y
+  parámetros, así como etiquetas de seguridad compartidas;
 - rol como grupo, miembro u otorgante, incluidas opciones `ADMIN`, `INHERIT`
   y `SET`;
 - propiedad y dependencias SQL reales;
 - funciones C2 nominales y sobrecargas que bloquean el `down`;
-- carrera `down` contra `GRANT` sin residuo ni sustitución;
+- carreras `down` contra `GRANT`, `COMMENT ON ROLE`, `ALTER ROLE ... SET`
+  global y por base, privilegios de parámetros, ACL interbase, privilegios
+  predeterminados, políticas, C2.1b y C2.5 sin residuo ni sustitución;
 - `up → down → up`, OID nuevo, huella exacta y aislamiento funcional;
 - cero lectura/escritura de tablas, ejecución de funciones, `CREATE`, `TEMP`,
   `MAINTAIN`, parámetros o `SET ROLE`;
+- denegación real de `SET ROLE` desde un LOGIN no superusuario;
 - ausencia de alteración en los roles y objetos base;
 - limpieza del contenedor y de temporales incluso ante fallo.
 
