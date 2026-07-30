@@ -57,6 +57,13 @@ psql_admin() {
   docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base"
 }
+retirar_acreditacion_contexto_actor_v2() {
+  docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2" \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql"
+}
 
 # La base dedicada llega preendurecida. El bootstrap del modulo valida este
 # estado, pero no muta ACL globales que el down no podria reconstruir.
@@ -184,6 +191,7 @@ SQL
 puerto=$(docker port "$contenedor" 5432/tcp | head -n1); puerto=${puerto##*:}
 dsn="postgres://vec_contexto_actor_runtime_prueba:${clave_runtime}@127.0.0.1:${puerto}/${base}?sslmode=disable"
 dsn_acreditador="postgres://vec_contexto_actor_acreditador_prueba:${clave_acreditador}@127.0.0.1:${puerto}/${base}?sslmode=disable"
+dsn_migracion="postgres://postgres:${clave_admin}@127.0.0.1:${puerto}/${base}?sslmode=disable"
 if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
   go test ./internal/vec/application \
     -run '^TestServicioContextoActorProductivoRechazaAutoridadNoAutoritativa$' -count=1
@@ -632,6 +640,13 @@ acreditada=$(consulta_runtime 'SELECT acreditada FROM vec_contexto_actor_v1.acre
 
 # La retirada aditiva exige opt-in y falla si una composicion futura conserva
 # una concesion nominal sobre la funcion.
+if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
+  VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
+    go test ./internal/vec/adapters/contextoactor/postgres \
+      -run '^TestRetiradaAcreditacionUsoV2EjecutaDocumentoSQLIntegro$' -count=1
+  psql_archivo \
+    deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql
+fi
 set +e
 psql_archivo \
   deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql \
@@ -651,11 +666,7 @@ GRANT EXECUTE ON FUNCTION
     text,text,timestamptz,timestamptz
   ) TO PUBLIC;
 SQL
-if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
-  --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
-  >/dev/null 2>&1; then
+if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
   echo 'down 000002 ignoro EXECUTE concedido a PUBLIC' >&2
   exit 1
 fi
@@ -675,11 +686,7 @@ GRANT USAGE ON TYPE
   vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
   TO vec_consumidor_acreditacion_prueba;
 SQL
-if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
-  --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
-  >/dev/null 2>&1; then
+if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
   echo 'down 000002 retiro tipo compuesto con concesion externa' >&2
   exit 1
 fi
@@ -693,11 +700,7 @@ GRANT EXECUTE ON FUNCTION
     text,text,timestamptz,timestamptz
   ) TO vec_consumidor_acreditacion_prueba;
 SQL
-if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
-  --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
-  >/dev/null 2>&1; then
+if retirar_acreditacion_contexto_actor_v2 >/dev/null 2>&1; then
   echo 'down 000002 retiro funcion con concesion externa' >&2
   exit 1
 fi
@@ -711,10 +714,7 @@ REVOKE USAGE ON SCHEMA vec_contexto_actor_v1
   FROM vec_consumidor_acreditacion_prueba;
 DROP ROLE vec_consumidor_acreditacion_prueba;
 SQL
-docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
-  --username postgres --dbname "$base" \
-  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql"
+retirar_acreditacion_contexto_actor_v2
 
 set +e
 psql_archivo deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.down.sql \
