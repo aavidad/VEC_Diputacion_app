@@ -5,6 +5,30 @@ DECLARE
     propietario oid := 'vec_autorizacion_propietario'::regrole;
     proyector oid := 'vec_autorizacion_motivos_proyector'::regrole;
     evaluador oid := 'vec_autorizacion_motivos_evaluador'::regrole;
+    tipos_compuestos_esperados text[] := ARRAY[
+        'asignacion_perfil',
+        'asignacion_perfil_actual',
+        'contexto_actor_actual_v1',
+        'contexto_actor_v1',
+        'control_catalogo_politicas',
+        'control_sesion_actual_v1',
+        'control_sesion_v1',
+        'control_vigencia_version_rol',
+        'control_vigencia_version_rol_actual',
+        'decision_autorizacion',
+        'motivo_v2_catalogo_publicado',
+        'motivo_v2_checkpoint_origen',
+        'motivo_v2_entrada',
+        'motivo_v2_evento_origen',
+        'motivo_v2_retirada',
+        'politica_restrictiva',
+        'politica_restrictiva_actual',
+        'sesion_autenticacion_v1',
+        'version_rol'
+    ];
+    tipos_compuestos_reales text[];
+    rol_runtime text;
+    tipo_compuesto record;
     tabla record;
     funciones_definidoras integer;
 BEGIN
@@ -33,30 +57,63 @@ BEGIN
         RAISE EXCEPTION 'un rol V2 hereda al propietario';
     END IF;
 
-    IF EXISTS (
-        SELECT 1
-         FROM pg_catalog.pg_type AS tipo
+    SELECT array_agg(
+               catalogo_tipo.typname::text
+               ORDER BY catalogo_tipo.typname::text COLLATE "C"
+           )
+      INTO tipos_compuestos_reales
+      FROM pg_catalog.pg_type AS catalogo_tipo
+      JOIN pg_catalog.pg_namespace AS espacio
+        ON espacio.oid = catalogo_tipo.typnamespace
+     WHERE espacio.nspname = 'vec_autorizacion'
+       AND catalogo_tipo.typtype = 'c'
+       AND catalogo_tipo.typelem = 0;
+    IF tipos_compuestos_reales IS DISTINCT FROM tipos_compuestos_esperados THEN
+        RAISE EXCEPTION 'inventario de tipos compuestos inesperado: %',
+            tipos_compuestos_reales;
+    END IF;
+
+    FOR tipo_compuesto IN
+        SELECT catalogo_tipo.oid, catalogo_tipo.typname,
+               catalogo_tipo.typowner
+          FROM pg_catalog.pg_type AS catalogo_tipo
           JOIN pg_catalog.pg_namespace AS espacio
-            ON espacio.oid = tipo.typnamespace
+            ON espacio.oid = catalogo_tipo.typnamespace
          WHERE espacio.nspname = 'vec_autorizacion'
-           AND tipo.typtype = 'c'
-           AND tipo.typname IN (
-               'version_rol',
-               'control_vigencia_version_rol',
-               'control_vigencia_version_rol_actual',
-               'asignacion_perfil',
-               'asignacion_perfil_actual',
-               'politica_restrictiva',
-               'politica_restrictiva_actual',
-               'control_catalogo_politicas',
-               'decision_autorizacion'
-           )
-           AND pg_catalog.has_type_privilege(
-               'public', tipo.oid, 'USAGE'
-           )
-    ) THEN
-        RAISE EXCEPTION
-            'PUBLIC conserva USAGE en un tipo compuesto de autorizacion';
+           AND catalogo_tipo.typtype = 'c'
+           AND catalogo_tipo.typelem = 0
+    LOOP
+        IF tipo_compuesto.typowner <> propietario
+           OR NOT pg_catalog.has_type_privilege(
+               'vec_autorizacion_propietario', tipo_compuesto.oid, 'USAGE'
+           ) THEN
+            RAISE EXCEPTION
+                'propietario o USAGE del propietario inesperado en tipo %',
+                tipo_compuesto.typname;
+        END IF;
+        IF pg_catalog.has_type_privilege(
+            'public', tipo_compuesto.oid, 'USAGE'
+        ) THEN
+            RAISE EXCEPTION 'PUBLIC conserva USAGE en tipo %',
+                tipo_compuesto.typname;
+        END IF;
+        FOREACH rol_runtime IN ARRAY ARRAY[
+            'vec_autorizacion_fuente',
+            'vec_autorizacion_registro',
+            'vec_autorizacion_motivos_proyector',
+            'vec_autorizacion_motivos_evaluador'
+        ] LOOP
+            IF pg_catalog.has_type_privilege(
+                rol_runtime, tipo_compuesto.oid, 'USAGE'
+            ) THEN
+                RAISE EXCEPTION 'rol runtime % conserva USAGE en tipo %',
+                    rol_runtime, tipo_compuesto.typname;
+            END IF;
+        END LOOP;
+    END LOOP;
+
+    IF cardinality(tipos_compuestos_reales) <> 19 THEN
+        RAISE EXCEPTION 'cardinalidad de tipos compuestos inesperada';
     END IF;
 
     IF NOT has_schema_privilege(
