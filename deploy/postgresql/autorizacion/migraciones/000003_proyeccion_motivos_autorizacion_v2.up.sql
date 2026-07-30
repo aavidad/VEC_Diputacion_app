@@ -797,14 +797,14 @@ BEGIN
 END
 $rls$;
 
-REVOKE ALL ON TABLE vec_autorizacion.motivo_v2_evento_origen FROM PUBLIC;
-REVOKE ALL ON TABLE vec_autorizacion.motivo_v2_catalogo_publicado FROM PUBLIC;
-REVOKE ALL ON TABLE vec_autorizacion.motivo_v2_entrada FROM PUBLIC;
-REVOKE ALL ON TABLE vec_autorizacion.motivo_v2_retirada FROM PUBLIC;
-REVOKE ALL ON TABLE vec_autorizacion.motivo_v2_checkpoint_origen FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_autorizacion
-    FROM vec_autorizacion_motivos_proyector,
+    FROM PUBLIC, vec_autorizacion_motivos_proyector,
          vec_autorizacion_motivos_evaluador;
+-- Los tipos de fila implícitos requieren una revocación propia.
+REVOKE ALL ON TYPE
+    vec_autorizacion.motivo_v2_evento_origen, vec_autorizacion.motivo_v2_catalogo_publicado,
+    vec_autorizacion.motivo_v2_entrada, vec_autorizacion.motivo_v2_retirada,
+    vec_autorizacion.motivo_v2_checkpoint_origen FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION vec_autorizacion.motivo_v2_bloquear_mutacion_inmutable()
     FROM PUBLIC;
