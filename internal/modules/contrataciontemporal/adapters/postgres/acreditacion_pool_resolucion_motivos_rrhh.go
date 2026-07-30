@@ -43,6 +43,10 @@ esquema AS MATERIALIZED (
   SELECT oid,nspname,nspacl,nspowner FROM pg_catalog.pg_namespace
   WHERE nspname='vec_autorizacion'
 ),
+esquemas_aplicativos AS MATERIALIZED (
+  SELECT oid,nspname,nspacl,nspowner FROM pg_catalog.pg_namespace
+  WHERE nspname<>'information_schema' AND nspname!~'^pg_'
+),
 esperado(nombre,objeto,identidad,cuerpo,longitud,comentario) AS (VALUES
  ('resolver_motivo_cuadro_rrhh_v1',
   'vec_autorizacion.resolver_motivo_cuadro_rrhh_v1(timestamp with time zone)',
@@ -135,18 +139,21 @@ acl_actual AS MATERIALIZED (
   WHERE p.oid NOT IN (SELECT oid FROM funciones)
     AND (a.grantee=g.oid OR a.grantor=g.oid)
 ),
-dependencias_esperadas(classid,objid,objsubid,deptype) AS (
-  SELECT 'pg_catalog.pg_database'::pg_catalog.regclass,b.oid,0,'a'::"char"
+dependencias_esperadas(dbid,classid,objid,objsubid,deptype) AS (
+  SELECT 0::oid,'pg_catalog.pg_database'::pg_catalog.regclass,
+    b.oid,0,'a'::"char"
   FROM base_actual b
   UNION ALL
-  SELECT 'pg_catalog.pg_namespace'::pg_catalog.regclass,e.oid,0,'a'::"char"
-  FROM esquema e
+  SELECT b.oid,'pg_catalog.pg_namespace'::pg_catalog.regclass,
+    e.oid,0,'a'::"char"
+  FROM base_actual b CROSS JOIN esquema e
   UNION ALL
-  SELECT 'pg_catalog.pg_proc'::pg_catalog.regclass,f.oid,0,'a'::"char"
-  FROM funciones f
+  SELECT b.oid,'pg_catalog.pg_proc'::pg_catalog.regclass,
+    f.oid,0,'a'::"char"
+  FROM base_actual b CROSS JOIN funciones f
 ),
 dependencias_actuales AS MATERIALIZED (
-  SELECT d.classid,d.objid,d.objsubid,d.deptype
+  SELECT d.dbid,d.classid,d.objid,d.objsubid,d.deptype
   FROM pg_catalog.pg_shdepend d CROSS JOIN grupo g
   WHERE d.refclassid='pg_catalog.pg_authid'::pg_catalog.regclass
     AND d.refobjid=g.oid
@@ -312,29 +319,50 @@ SELECT
       b.datacl,pg_catalog.acldefault('d',b.datdba))) a
     WHERE a.grantee=0
     UNION ALL
-    SELECT 1 FROM esquema e
+    SELECT 1 FROM esquemas_aplicativos e
     CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(
       e.nspacl,pg_catalog.acldefault('n',e.nspowner))) a
     WHERE a.grantee=0
     UNION ALL
-    SELECT 1 FROM pg_catalog.pg_class c CROSS JOIN esquema e
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN esquemas_aplicativos e ON e.oid=c.relnamespace
     CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(
       c.relacl,pg_catalog.acldefault(
         CASE WHEN c.relkind='S' THEN 's'::"char" ELSE 'r'::"char" END,
         c.relowner))) a
-    WHERE c.relnamespace=e.oid AND a.grantee=0
+    WHERE a.grantee=0
     UNION ALL
     SELECT 1 FROM pg_catalog.pg_attribute at
     JOIN pg_catalog.pg_class c ON c.oid=at.attrelid
-    CROSS JOIN esquema e
+    JOIN esquemas_aplicativos e ON e.oid=c.relnamespace
     CROSS JOIN LATERAL pg_catalog.aclexplode(NULLIF(
       at.attacl,'{}'::aclitem[])) a
-    WHERE c.relnamespace=e.oid AND a.grantee=0
+    WHERE a.grantee=0
     UNION ALL
-    SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN esquema e
+    SELECT 1 FROM pg_catalog.pg_proc p
+    JOIN esquemas_aplicativos e ON e.oid=p.pronamespace
     CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(
       p.proacl,pg_catalog.acldefault('f',p.proowner))) a
-    WHERE p.pronamespace=e.oid AND a.grantee=0
+    WHERE a.grantee=0
+    UNION ALL
+    SELECT 1 FROM pg_catalog.pg_type t
+    JOIN esquemas_aplicativos e ON e.oid=t.typnamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(CASE
+      WHEN t.typelem=0 THEN COALESCE(
+        t.typacl,pg_catalog.acldefault('T',t.typowner))
+      ELSE NULLIF(t.typacl,'{}'::aclitem[])
+    END) a
+    WHERE a.grantee=0
+    UNION ALL
+    SELECT 1 FROM pg_catalog.pg_default_acl d
+    CROSS JOIN LATERAL pg_catalog.aclexplode(NULLIF(
+      d.defaclacl,'{}'::aclitem[])) a
+    WHERE a.grantee=0
+    UNION ALL
+    SELECT 1 FROM pg_catalog.pg_policy p
+    JOIN pg_catalog.pg_class c ON c.oid=p.polrelid
+    JOIN esquemas_aplicativos e ON e.oid=c.relnamespace
+    WHERE 0=ANY(p.polroles)
   )
   AND NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_class c
@@ -361,11 +389,17 @@ SELECT
       AND NOT pg_catalog.has_database_privilege(l.oid,b.oid,'TEMP')
       AND pg_catalog.has_schema_privilege(l.oid,e.oid,'USAGE')
       AND NOT pg_catalog.has_schema_privilege(l.oid,e.oid,'CREATE')
+      AND NOT EXISTS (
+        SELECT 1 FROM esquemas_aplicativos ea
+        WHERE ea.oid<>e.oid AND (
+          pg_catalog.has_schema_privilege(l.oid,ea.oid,'USAGE')
+          OR pg_catalog.has_schema_privilege(l.oid,ea.oid,'CREATE'))
+      )
       AND (
         SELECT pg_catalog.count(*)=2
         FROM pg_catalog.pg_proc p
-        WHERE p.pronamespace=e.oid
-          AND pg_catalog.has_function_privilege(l.oid,p.oid,'EXECUTE')
+        JOIN esquemas_aplicativos ea ON ea.oid=p.pronamespace
+        WHERE pg_catalog.has_function_privilege(l.oid,p.oid,'EXECUTE')
       )
       AND (
         SELECT pg_catalog.count(*)=2
@@ -374,8 +408,9 @@ SELECT
       )
       AND NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_class c
+        JOIN esquemas_aplicativos ea ON ea.oid=c.relnamespace
         WHERE CASE
-          WHEN c.relnamespace=e.oid AND c.relkind IN ('r','p','v','m','f')
+          WHEN c.relkind IN ('r','p','v','m','f')
           THEN
             pg_catalog.has_table_privilege(l.oid,c.oid,
               'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
@@ -386,12 +421,19 @@ SELECT
       )
       AND NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_class c
+        JOIN esquemas_aplicativos ea ON ea.oid=c.relnamespace
         WHERE CASE
-          WHEN c.relnamespace=e.oid AND c.relkind='S'
+          WHEN c.relkind='S'
           THEN pg_catalog.has_sequence_privilege(
             l.oid,c.oid,'USAGE,SELECT,UPDATE')
           ELSE false
         END
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_type t
+        JOIN esquemas_aplicativos ea ON ea.oid=t.typnamespace
+        WHERE (t.typelem=0 OR t.typacl IS NOT NULL)
+          AND pg_catalog.has_type_privilege(l.oid,t.oid,'USAGE')
       )
     FROM login l CROSS JOIN base_actual b CROSS JOIN esquema e
   ),false),
@@ -419,6 +461,11 @@ type conexionAcreditacionResolucionMotivosRRHH interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
+type transaccionAcreditacionResolucionMotivosRRHH interface {
+	conexionAcreditacionResolucionMotivosRRHH
+	Sello() *selloPoolResolucionMotivosRRHH
+}
+
 func (p *PoolResolucionMotivosRRHHPostgreSQL) acreditarInicial(
 	ctx context.Context,
 ) (
@@ -443,14 +490,15 @@ func (p *PoolResolucionMotivosRRHHPostgreSQL) acreditarInicial(
 
 func (p *PoolResolucionMotivosRRHHPostgreSQL) reacreditar(
 	ctx context.Context,
-	conexion conexionAcreditacionResolucionMotivosRRHH,
+	transaccion transaccionAcreditacionResolucionMotivosRRHH,
 ) error {
 	if p == nil ||
-		!selloPoolResolucionMotivosRRHHValido(p.sello, p, true) {
+		!selloPoolResolucionMotivosRRHHValido(p.sello, p, true) ||
+		dependenciaNula(transaccion) || transaccion.Sello() != p.sello {
 		return errorPoolResolucionMotivosRRHH(ctx)
 	}
 	_, _, err := acreditarConexionResolucionMotivosRRHH(
-		ctx, conexion, p.login, p.modoTLS, p.oidCuadro, p.oidDetalle,
+		ctx, transaccion, p.login, p.modoTLS, p.oidCuadro, p.oidDetalle,
 	)
 	return err
 }
