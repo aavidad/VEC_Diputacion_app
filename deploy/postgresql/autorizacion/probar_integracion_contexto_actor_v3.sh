@@ -255,6 +255,7 @@ COMMIT;
 SQL
 holder=$!
 esperar_actividad vec-v3-holder-deadlock 1
+registradores=()
 for sufijo in a b; do
   docker exec --interactive --env PGAPPNAME="vec-v3-deadlock-$sufijo" "$contenedor" \
     psql -X --set ON_ERROR_STOP=1 -U postgres -d "$base" >/dev/null <<SQL &
@@ -272,12 +273,13 @@ DO \$b\$ DECLARE filas integer; BEGIN
 END \$b\$;
 COMMIT;
 SQL
-  eval "registrador_$sufijo=$!"
+  registradores+=("$!")
 done
 esperar_actividad vec-v3-deadlock- 2 espera
 wait "$holder"
-wait "$registrador_a"
-wait "$registrador_b"
+for registrador in "${registradores[@]}"; do
+  wait "$registrador"
+done
 for sufijo in a b; do
   if [[ $(psql_valor "SELECT count(*) FROM vec_autorizacion.decision_concedida_contexto_actor_v3 WHERE decision_ref='decision:registro-v3:deadlock-$sufijo'") == 0 ]]; then
     [[ $(psql_valor "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_registro_contexto_actor_v3('decision:registro-v3:deadlock-$sufijo'); COMMIT") == $'BEGIN\n1\nCOMMIT' ]]
