@@ -414,8 +414,7 @@ probar_venenos_acl_topologia \
   "$fachada" "$login" "$selector" "$consumidor" \
   "$autenticacion" "$sesion" "$contenedor" "$base" "$clave" "$salidas"
 probar_venenos_fachada_viva \
-  "$up" "$down" "$fachada" "$consumidor" "$autenticacion" "$sesion" \
-  "$salidas"
+  "$down" "$fachada" "$consumidor" "$autenticacion" "$sesion" "$salidas"
 
 paso 'timeout, cancelación e interbloqueo no capturados'
 fifo_lock="$salidas/fifo_lock"
