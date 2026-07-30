@@ -199,7 +199,16 @@ también todas las pruebas Go existentes.
 La imagen puede sustituirse mediante `VEC_POSTGRES_TEST_IMAGE`; por defecto se
 usa una referencia PostgreSQL 18 fijada por digest.
 
-El down es destructivo y exige:
+La retirada base está denegada por defecto. `000001_contexto_actor_v1.down.sql`
+solo acepta una instalación exacta de `000001`, completamente vacía y sin
+consumidores. Reacredita propietario, roles, membresías, ACL, objetos,
+columnas, índices, funciones, restricciones, triggers, tipos y privilegios
+predeterminados mediante un manifiesto PostgreSQL 18.4. Cualquier fila,
+`000002`, migración posterior, objeto desconocido, deriva o dependencia
+externa aborta la transacción y conserva íntegro el esquema.
+
+La confirmación explícita no autoriza a borrar evidencia. La secuencia
+operativa, únicamente para una instalación vacía acreditada, es:
 
 ```sh
 psql -X -v ON_ERROR_STOP=1 \
@@ -215,5 +224,21 @@ psql -X -v ON_ERROR_STOP=1 \
 
 Debe retirarse antes la membresía del LOGIN de aplicación; `DROP ROLE` falla
 cerrado si aún existen dependencias o membresías. El down solo elimina objetos
-y grants del módulo: no intenta restaurar las ACL globales que eran
-precondición del despliegue.
+y grants enumerados del módulo con `RESTRICT`; nunca usa `CASCADE` ni
+`DROP OWNED`. Restaura únicamente los valores nativos de las dos ACL
+predeterminadas que creó `000001`, para que `roles_down.sql` pueda retirar el
+propietario; no altera las ACL globales de base y `public` que eran
+precondición del despliegue. La guarda
+`vec_contexto_actor_v1:migracion:base:v1` queda reservada para que las
+migraciones posteriores la tomen en modo compartido mientras crean o retiran
+consumidores.
+
+La matriz focal de retirada prueba confirmaciones, evidencia, `000002`,
+objetos y ACL hostiles, dependencia exterior, propietario, manifiesto,
+reentrada, reinicio, reconexión, carrera observable y
+`up → down seguro → up` con OID nuevo:
+
+```sh
+deploy/postgresql/contexto_actor_v1/\
+probar_retirada_segura_contexto_actor_v1_pg18_4.sh
+```
