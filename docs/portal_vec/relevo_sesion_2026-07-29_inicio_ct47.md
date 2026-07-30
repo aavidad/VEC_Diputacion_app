@@ -359,3 +359,13 @@ Su base es `808522d`; los cambios locales aún no son una entrega y no deben
 integrarse antes de la matriz PostgreSQL 18.4 y el doble `GO`. No se programa
 en el directorio raíz histórico ni se modifica el Word de RRHH sin
 seguimiento.
+
+## Optimización probatoria CT88
+
+El corte `f662302` optimiza dos validadores documentales sin cambiar su
+contrato. Una revisión independiente obtuvo P0=P1=P2=0 y reprodujo mejoras
+del 37,5 % al 53,0 % en las pruebas afectadas. Dirección repitió las pruebas
+normales, la carrera focal y `go vet` sobre la rama estable. La
+[evidencia reproducible](revisiones/revision_optimizacion_validacion_documental_ct88_2026-07-30.md)
+queda separada del camino funcional: no aumenta métricas ni habilita
+producción.
