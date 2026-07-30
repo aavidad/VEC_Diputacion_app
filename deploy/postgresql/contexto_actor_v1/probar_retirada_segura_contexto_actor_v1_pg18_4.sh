@@ -197,7 +197,41 @@ ALTER DEFAULT PRIVILEGES FOR ROLE vec_contexto_actor_v1_propietario
   REVOKE SELECT ON TABLES FROM PUBLIC;
 SQL
 
-# Una deriva del trigger forma parte del manifiesto, aunque no añada objetos.
+# Las ACL de columna y sus propiedades físicas forman parte del contrato; no
+# basta con acreditar la relación que las contiene.
+psql_admin "$base_exacta" <<'SQL'
+CREATE ROLE ct105_lector_columna NOLOGIN;
+GRANT SELECT (procedencia_ref)
+  ON vec_contexto_actor_v1.procedencias
+  TO ct105_lector_columna;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'ACL de columna hostil'
+[[ $(consulta "$base_exacta" \
+  "SELECT pg_catalog.has_column_privilege(
+     'ct105_lector_columna',
+     'vec_contexto_actor_v1.procedencias',
+     'procedencia_ref','SELECT')") == t ]]
+psql_admin "$base_exacta" <<'SQL'
+REVOKE SELECT (procedencia_ref)
+  ON vec_contexto_actor_v1.procedencias
+  FROM ct105_lector_columna;
+DROP ROLE ct105_lector_columna;
+ALTER TABLE vec_contexto_actor_v1.procedencias
+  ALTER COLUMN procedencia_ref SET STATISTICS 777;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'estadística de columna hostil'
+[[ $(consulta "$base_exacta" \
+  "SELECT attstattarget
+     FROM pg_catalog.pg_attribute
+    WHERE attrelid='vec_contexto_actor_v1.procedencias'::regclass
+      AND attname='procedencia_ref'") == 777 ]]
+psql_admin "$base_exacta" <<'SQL'
+ALTER TABLE vec_contexto_actor_v1.procedencias
+  ALTER COLUMN procedencia_ref SET STATISTICS -1;
+SQL
+
+# Tanto los triggers propios como los internos de las FK se acreditan por su
+# definición semántica y estado exactos, sin depender del OID de su nombre.
 psql_admin "$base_exacta" <<'SQL'
 ALTER TABLE vec_contexto_actor_v1.procedencias
   DISABLE TRIGGER procedencia_monotona;
@@ -206,6 +240,72 @@ esperar_fallo_sin_cambio "$base_exacta" 'trigger deshabilitado'
 psql_admin "$base_exacta" <<'SQL'
 ALTER TABLE vec_contexto_actor_v1.procedencias
   ENABLE TRIGGER procedencia_monotona;
+DO $deshabilitar_fk$
+DECLARE nombre text;
+BEGIN
+  SELECT t.tgname INTO STRICT nombre
+    FROM pg_catalog.pg_trigger AS t
+   WHERE t.tgisinternal
+     AND t.tgrelid='vec_contexto_actor_v1.perfil_actual'::regclass
+   ORDER BY t.oid
+   LIMIT 1;
+  EXECUTE pg_catalog.format(
+    'ALTER TABLE vec_contexto_actor_v1.perfil_actual DISABLE TRIGGER %I',
+    nombre
+  );
+END
+$deshabilitar_fk$;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'trigger FK interno deshabilitado'
+[[ $(consulta "$base_exacta" \
+  "SELECT count(*)
+     FROM pg_catalog.pg_trigger
+    WHERE tgisinternal
+      AND tgrelid='vec_contexto_actor_v1.perfil_actual'::regclass
+      AND tgenabled='D'") == 1 ]]
+psql_admin "$base_exacta" <<'SQL'
+DO $habilitar_fk$
+DECLARE nombre text;
+BEGIN
+  SELECT t.tgname INTO STRICT nombre
+    FROM pg_catalog.pg_trigger AS t
+   WHERE t.tgisinternal
+     AND t.tgrelid='vec_contexto_actor_v1.perfil_actual'::regclass
+     AND t.tgenabled='D'
+   ORDER BY t.oid
+   LIMIT 1;
+  EXECUTE pg_catalog.format(
+    'ALTER TABLE vec_contexto_actor_v1.perfil_actual ENABLE TRIGGER %I',
+    nombre
+  );
+END
+$habilitar_fk$;
+SQL
+
+# DROP TABLE eliminaría silenciosamente una asociación de publicación. El
+# manifiesto debe detectarla antes de ejecutar un solo DROP.
+psql_admin "$base_exacta" <<'SQL'
+CREATE PUBLICATION ct105_publicacion_externa
+  FOR TABLE vec_contexto_actor_v1.procedencias;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'publicación externa'
+[[ $(consulta "$base_exacta" \
+  "SELECT count(*)
+     FROM pg_catalog.pg_publication_rel AS pr
+     JOIN pg_catalog.pg_publication AS p ON p.oid=pr.prpubid
+    WHERE p.pubname='ct105_publicacion_externa'
+      AND pr.prrelid='vec_contexto_actor_v1.procedencias'::regclass") == 1 ]]
+psql_admin "$base_exacta" <<'SQL'
+DROP PUBLICATION ct105_publicacion_externa;
+ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT 7;
+SQL
+esperar_fallo_sin_cambio "$base_exacta" 'límite de conexiones hostil'
+[[ $(consulta "$base_exacta" \
+  "SELECT rolconnlimit
+     FROM pg_catalog.pg_roles
+    WHERE rolname='vec_contexto_actor_v1_runtime'") == 7 ]]
+psql_admin "$base_exacta" <<'SQL'
+ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT -1;
 SQL
 
 # Un consumidor exterior no aparece en el esquema, pero RESTRICT conserva la
@@ -338,6 +438,39 @@ wait "$proceso_bloqueador" 2>/dev/null || true
 wait "$proceso_retirada"
 [[ $(consulta "$base_carrera" \
   "SELECT pg_catalog.to_regnamespace('vec_contexto_actor_v1') IS NULL") == t ]]
+
+# El down de roles solo puede retirar los tres nombres exactos. Se borran las
+# bases efímeras para liberar sus dependencias y se conserva un rol derivado
+# deliberadamente parecido.
+for base_prueba in \
+  "$base_exacta" "$base_datos" "$base_000002" \
+  "$base_propietario" "$base_carrera"; do
+  docker exec "$contenedor" dropdb --force \
+    --username postgres "$base_prueba"
+done
+psql_admin "$base_control" <<'SQL'
+CREATE ROLE vec_contexto_actor_v1_runtime_derivado NOLOGIN
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+  NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 7;
+SQL
+psql_archivo "$base_control" \
+  deploy/postgresql/contexto_actor_v1/roles_down.sql \
+  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1
+[[ $(consulta "$base_control" \
+  "SELECT count(*) FROM pg_catalog.pg_roles
+    WHERE rolname IN (
+      'vec_contexto_actor_v1_propietario',
+      'vec_contexto_actor_v1_migrador',
+      'vec_contexto_actor_v1_runtime'
+    )") == 0 ]]
+[[ $(consulta "$base_control" \
+  "SELECT count(*) FROM pg_catalog.pg_roles
+    WHERE rolname='vec_contexto_actor_v1_runtime_derivado'
+      AND rolconnlimit=7") == 1 ]]
+psql_admin "$base_control" <<'SQL'
+DROP ROLE vec_contexto_actor_v1_runtime_derivado;
+DROP ROLE ct95_propietario_hostil;
+SQL
 
 if rg -n --ignore-case \
   'drop[[:space:]]+owned|drop[[:space:]]+schema[^;]*cascade' "$down"; then

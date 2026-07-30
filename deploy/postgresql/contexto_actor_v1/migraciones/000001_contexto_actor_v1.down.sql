@@ -112,11 +112,11 @@ DO $manifiesto$
 DECLARE
     observado text;
     esperado constant text :=
-        'bf060a582104c3c70d7422b3a515ff94d42945e8a02b44b686a792f118cdee51';
+        '0184a061a46a5bcb379450ea9d5ab9e69393bc487684f7df0ab47c86f0fe4bef';
 BEGIN
     WITH elementos AS (
         SELECT format(
-                   'esquema|%s|%s|%s',
+                   'esquema|%s|%s|%s|%s',
                    n.nspname,
                    pg_catalog.pg_get_userbyid(n.nspowner),
                    coalesce((
@@ -138,16 +138,33 @@ BEGIN
                                  pg_catalog.acldefault('n', n.nspowner)
                              )
                          ) AS a
-                   ), '')
+                   ), ''),
+                   coalesce(
+                       pg_catalog.obj_description(
+                           n.oid, 'pg_catalog.pg_namespace'
+                       ),
+                       ''
+                   )
                ) AS elemento
           FROM pg_catalog.pg_namespace AS n
          WHERE n.nspname = 'vec_contexto_actor_v1'
         UNION ALL
         SELECT format(
-                   'rol|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+                   'rol|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    r.rolname, r.rolsuper, r.rolinherit, r.rolcreaterole,
                    r.rolcreatedb, r.rolcanlogin, r.rolreplication,
-                   r.rolbypassrls, coalesce(r.rolconfig::text, '')
+                   r.rolbypassrls, r.rolconnlimit,
+                   r.rolvaliduntil IS NULL,
+                   CASE WHEN r.rolpassword IS NULL
+                        THEN 'credencial_ausente'
+                        ELSE 'credencial_presente' END,
+                   coalesce(r.rolconfig::text, ''),
+                   coalesce(
+                       pg_catalog.shobj_description(
+                           r.oid, 'pg_catalog.pg_authid'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_roles AS r
          WHERE r.rolname IN (
@@ -194,7 +211,7 @@ BEGIN
            )
         UNION ALL
         SELECT format(
-                   'clase|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+                   'clase|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    c.relkind, c.relname,
                    pg_catalog.pg_get_userbyid(c.relowner),
                    c.relpersistence, c.relrowsecurity,
@@ -222,19 +239,56 @@ BEGIN
                                  )
                              )
                          ) AS a
-                   ), '')
+                   ), ''),
+                   coalesce(
+                       pg_catalog.obj_description(
+                           c.oid, 'pg_catalog.pg_class'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_class AS c
           JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
          WHERE n.nspname = 'vec_contexto_actor_v1'
         UNION ALL
         SELECT format(
-                   'columna|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+                   'columna|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    c.relname, a.attnum, a.attname,
                    pg_catalog.format_type(a.atttypid, a.atttypmod),
                    a.attnotnull, a.attidentity, a.attgenerated,
                    a.attstorage, a.attcompression,
-                   coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid), '')
+                   a.attstattarget, a.attndims, a.attinhcount, a.attislocal,
+                   a.attisdropped, a.atthasdef, a.atthasmissing,
+                   coalesce(a.attmissingval::text, ''),
+                   CASE WHEN a.attcollation = 0 THEN ''
+                        ELSE (
+                            SELECT format('%I.%I', nc.nspname, co.collname)
+                              FROM pg_catalog.pg_collation AS co
+                              JOIN pg_catalog.pg_namespace AS nc
+                                ON nc.oid = co.collnamespace
+                             WHERE co.oid = a.attcollation
+                        ) END,
+                   coalesce(a.attoptions::text, ''),
+                   coalesce(a.attfdwoptions::text, ''),
+                   coalesce((
+                       SELECT string_agg(
+                                  format(
+                                      '%s:%s:%s:%s',
+                                      CASE WHEN x.grantee = 0 THEN 'PUBLIC'
+                                           ELSE pg_catalog.pg_get_userbyid(x.grantee) END,
+                                      pg_catalog.pg_get_userbyid(x.grantor),
+                                      x.privilege_type, x.is_grantable
+                                  ),
+                                  ',' ORDER BY x.grantee, x.grantor,
+                                               x.privilege_type, x.is_grantable
+                              )
+                         FROM pg_catalog.aclexplode(a.attacl) AS x
+                   ), ''),
+                   coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid), ''),
+                   coalesce(
+                       pg_catalog.col_description(c.oid, a.attnum),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_attribute AS a
           JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
@@ -243,12 +297,14 @@ BEGIN
             ON d.adrelid = a.attrelid AND d.adnum = a.attnum
          WHERE n.nspname = 'vec_contexto_actor_v1'
            AND c.relkind IN ('r', 'p')
-           AND a.attnum > 0 AND NOT a.attisdropped
+           AND a.attnum > 0
         UNION ALL
         SELECT format(
-                   'indice|%s|%s|%s|%s|%s',
+                   'indice|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    c.relname, i.indisunique, i.indisprimary,
-                   i.indisvalid, pg_catalog.pg_get_indexdef(c.oid)
+                   i.indisvalid, i.indisready, i.indislive,
+                   i.indisexclusion, i.indimmediate, i.indisclustered,
+                   i.indisreplident, pg_catalog.pg_get_indexdef(c.oid)
                )
           FROM pg_catalog.pg_index AS i
           JOIN pg_catalog.pg_class AS c ON c.oid = i.indexrelid
@@ -256,35 +312,82 @@ BEGIN
          WHERE n.nspname = 'vec_contexto_actor_v1'
         UNION ALL
         SELECT format(
-                   'funcion|%s|%s|%s|%s|%s|%s|%s',
+                   'funcion|%s|%s|%s|%s|%s|%s|%s|%s',
                    p.prokind, p.proname,
                    pg_catalog.pg_get_function_identity_arguments(p.oid),
                    pg_catalog.pg_get_function_result(p.oid),
                    pg_catalog.pg_get_userbyid(p.proowner),
                    coalesce(p.proacl::text, ''),
-                   pg_catalog.pg_get_functiondef(p.oid)
+                   pg_catalog.pg_get_functiondef(p.oid),
+                   coalesce(
+                       pg_catalog.obj_description(
+                           p.oid, 'pg_catalog.pg_proc'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_proc AS p
           JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
          WHERE n.nspname = 'vec_contexto_actor_v1'
         UNION ALL
         SELECT format(
-                   'restriccion|%s|%s|%s|%s|%s|%s|%s',
+                   'restriccion|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    c.conrelid::regclass::text, c.contype, c.conname,
                    c.condeferrable, c.condeferred, c.convalidated,
-                   pg_catalog.pg_get_constraintdef(c.oid, false)
+                   c.conislocal, c.coninhcount, c.connoinherit,
+                   pg_catalog.pg_get_constraintdef(c.oid, false),
+                   coalesce(
+                       pg_catalog.obj_description(
+                           c.oid, 'pg_catalog.pg_constraint'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_constraint AS c
          WHERE c.connamespace = 'vec_contexto_actor_v1'::regnamespace
         UNION ALL
         SELECT format(
-                   'trigger|%s|%s|%s|%s|%s',
-                   t.tgrelid::regclass::text, t.tgname, t.tgenabled,
-                   t.tgtype, pg_catalog.pg_get_triggerdef(t.oid, false)
+                   'trigger|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+                   t.tgrelid::regclass::text,
+                   CASE WHEN t.tgisinternal
+                        THEN coalesce(c.conname, '<interno_sin_restriccion>')
+                        ELSE t.tgname END,
+                   t.tgenabled, t.tgisinternal, t.tgtype,
+                   t.tgdeferrable, t.tginitdeferred, t.tgnargs,
+                   t.tgattr::text,
+                   pg_catalog.encode(t.tgargs, 'hex'),
+                   coalesce(
+                       pg_catalog.pg_get_expr(
+                           t.tgqual, t.tgrelid, false
+                       ),
+                       ''
+                   ),
+                   coalesce(t.tgoldtable, ''),
+                   coalesce(t.tgnewtable, ''),
+                   CASE WHEN t.tgconstrrelid = 0 THEN ''
+                        ELSE t.tgconstrrelid::regclass::text END,
+                   coalesce(ci.relname, ''),
+                   t.tgparentid = 0,
+                   format(
+                       '%I.%I(%s)',
+                       nf.nspname, f.proname,
+                       pg_catalog.pg_get_function_identity_arguments(f.oid)
+                   ),
+                   coalesce(
+                       pg_catalog.obj_description(
+                           t.oid, 'pg_catalog.pg_trigger'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_trigger AS t
-         WHERE NOT t.tgisinternal
-           AND t.tgrelid IN (
+          JOIN pg_catalog.pg_proc AS f ON f.oid = t.tgfoid
+          JOIN pg_catalog.pg_namespace AS nf ON nf.oid = f.pronamespace
+          LEFT JOIN pg_catalog.pg_constraint AS c
+            ON c.oid = t.tgconstraint
+          LEFT JOIN pg_catalog.pg_class AS ci
+            ON ci.oid = t.tgconstrindid
+         WHERE t.tgrelid IN (
                SELECT c.oid
                  FROM pg_catalog.pg_class AS c
                 WHERE c.relnamespace =
@@ -292,12 +395,20 @@ BEGIN
            )
         UNION ALL
         SELECT format(
-                   'tipo|%s|%s|%s|%s|%s|%s',
+                   'tipo|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                    t.typtype, t.typname,
                    pg_catalog.pg_get_userbyid(t.typowner),
                    coalesce(t.typacl::text, ''),
                    coalesce(c.relname, ''),
-                   coalesce(e.typname, '')
+                   coalesce(e.typname, ''),
+                   t.typlen, t.typbyval, t.typalign, t.typcategory,
+                   t.typispreferred, t.typnotnull, t.typstorage,
+                   coalesce(
+                       pg_catalog.obj_description(
+                           t.oid, 'pg_catalog.pg_type'
+                       ),
+                       ''
+                   )
                )
           FROM pg_catalog.pg_type AS t
           JOIN pg_catalog.pg_namespace AS n ON n.oid = t.typnamespace
@@ -324,8 +435,63 @@ BEGIN
           FROM pg_catalog.pg_policy AS p
          WHERE p.polrelid IN (
              SELECT c.oid FROM pg_catalog.pg_class AS c
-              WHERE c.relnamespace = 'vec_contexto_actor_v1'::regnamespace
+             WHERE c.relnamespace = 'vec_contexto_actor_v1'::regnamespace
          )
+        UNION ALL
+        SELECT format(
+                   'herencia|%s|%s|%s',
+                   h.inhrelid::regclass::text,
+                   h.inhparent::regclass::text,
+                   h.inhseqno
+               )
+          FROM pg_catalog.pg_inherits AS h
+         WHERE h.inhrelid IN (
+                   SELECT c.oid FROM pg_catalog.pg_class AS c
+                    WHERE c.relnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+            OR h.inhparent IN (
+                   SELECT c.oid FROM pg_catalog.pg_class AS c
+                    WHERE c.relnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+        UNION ALL
+        SELECT format(
+                   'publicacion_rel|%s|%s|%s|%s|%s',
+                   p.pubname, n.nspname, c.relname,
+                   coalesce(pr.prattrs::text, ''),
+                   coalesce(
+                       pg_catalog.pg_get_expr(
+                           pr.prqual, pr.prrelid, false
+                       ),
+                       ''
+                   )
+               )
+          FROM pg_catalog.pg_publication_rel AS pr
+          JOIN pg_catalog.pg_publication AS p ON p.oid = pr.prpubid
+          JOIN pg_catalog.pg_class AS c ON c.oid = pr.prrelid
+          JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'vec_contexto_actor_v1'
+        UNION ALL
+        SELECT format(
+                   'publicacion_esquema|%s|%s',
+                   p.pubname, n.nspname
+               )
+          FROM pg_catalog.pg_publication_namespace AS pn
+          JOIN pg_catalog.pg_publication AS p ON p.oid = pn.pnpubid
+          JOIN pg_catalog.pg_namespace AS n ON n.oid = pn.pnnspid
+         WHERE n.nspname = 'vec_contexto_actor_v1'
+        UNION ALL
+        SELECT format(
+                   'suscripcion_rel|%s|%s|%s|%s|%s',
+                   s.subname, n.nspname, c.relname,
+                   sr.srsubstate, coalesce(sr.srsublsn::text, '')
+               )
+          FROM pg_catalog.pg_subscription_rel AS sr
+          JOIN pg_catalog.pg_subscription AS s ON s.oid = sr.srsubid
+          JOIN pg_catalog.pg_class AS c ON c.oid = sr.srrelid
+          JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'vec_contexto_actor_v1'
         UNION ALL
         SELECT format(
                    'acl_predeterminada|%s|%s|%s',
@@ -335,6 +501,73 @@ BEGIN
           FROM pg_catalog.pg_default_acl AS d
          WHERE d.defaclrole =
                'vec_contexto_actor_v1_propietario'::regrole
+        UNION ALL
+        SELECT 'etiqueta_seguridad|objeto_del_modulo'
+          FROM pg_catalog.pg_seclabel AS s
+         WHERE (
+                   s.classoid = 'pg_catalog.pg_namespace'::regclass
+               AND s.objoid = 'vec_contexto_actor_v1'::regnamespace
+               )
+            OR (
+                   s.classoid = 'pg_catalog.pg_class'::regclass
+               AND s.objoid IN (
+                   SELECT c.oid FROM pg_catalog.pg_class AS c
+                    WHERE c.relnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
+            OR (
+                   s.classoid = 'pg_catalog.pg_proc'::regclass
+               AND s.objoid IN (
+                   SELECT p.oid FROM pg_catalog.pg_proc AS p
+                    WHERE p.pronamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
+            OR (
+                   s.classoid = 'pg_catalog.pg_type'::regclass
+               AND s.objoid IN (
+                   SELECT t.oid FROM pg_catalog.pg_type AS t
+                    WHERE t.typnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
+        UNION ALL
+        SELECT 'etiqueta_seguridad|rol_del_modulo'
+          FROM pg_catalog.pg_shseclabel AS s
+         WHERE s.classoid = 'pg_catalog.pg_authid'::regclass
+           AND s.objoid IN (
+               'vec_contexto_actor_v1_propietario'::regrole,
+               'vec_contexto_actor_v1_migrador'::regrole,
+               'vec_contexto_actor_v1_runtime'::regrole
+           )
+        UNION ALL
+        SELECT 'privilegio_inicial_extension|objeto_del_modulo'
+          FROM pg_catalog.pg_init_privs AS i
+         WHERE (
+                   i.classoid = 'pg_catalog.pg_class'::regclass
+               AND i.objoid IN (
+                   SELECT c.oid FROM pg_catalog.pg_class AS c
+                    WHERE c.relnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
+            OR (
+                   i.classoid = 'pg_catalog.pg_proc'::regclass
+               AND i.objoid IN (
+                   SELECT p.oid FROM pg_catalog.pg_proc AS p
+                    WHERE p.pronamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
+            OR (
+                   i.classoid = 'pg_catalog.pg_type'::regclass
+               AND i.objoid IN (
+                   SELECT t.oid FROM pg_catalog.pg_type AS t
+                    WHERE t.typnamespace =
+                          'vec_contexto_actor_v1'::regnamespace
+               )
+               )
         UNION ALL
         SELECT format('objeto_nsp|collation|%s', c.collname)
           FROM pg_catalog.pg_collation AS c
