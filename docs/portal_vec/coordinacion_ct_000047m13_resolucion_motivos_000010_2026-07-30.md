@@ -36,7 +36,7 @@ traducirá una resolución vacía o cualquier fallo al error opaco
 
 Cada función:
 
-1. rechaza instante nulo, infinito, no canónico o futuro;
+1. rechaza instante nulo, infinito, fuera de los años 1..9999 o futuro;
 2. deriva el actor únicamente de `session_user`;
 3. exige una identidad `LOGIN` segura y miembro directo exacto de
    `vec_autorizacion_motivos_rrhh_resolutor`;
@@ -53,6 +53,12 @@ Cada función:
 La resolución no escribe auditoría ni una segunda fuente de verdad. El uso
 posterior queda registrado por el recorrido VEC que emite y consume la
 autorización.
+
+`timestamptz` ya no conserva la representación léxica aportada por el cliente.
+La migración valida su semántica y la precisión soportada por PostgreSQL, pero
+no afirma distinguir espacios, formato de zona ni decimales que el tipo haya
+normalizado. La canonicidad de transporte pertenece al adaptador Go y a su
+protocolo, antes de convertir el valor a `timestamptz`.
 
 ## Seguridad y ACL
 
