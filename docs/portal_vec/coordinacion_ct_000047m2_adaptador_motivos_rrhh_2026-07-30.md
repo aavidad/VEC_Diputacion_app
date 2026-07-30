@@ -42,7 +42,7 @@ El pool:
   mutable o identidad distinta entre `session_user` y `current_user`;
 - acredita un `LOGIN` seguro y una única membresía directa en
   `vec_autorizacion_motivos_rrhh_resolutor`, con
-  `ADMIN FALSE`, `INHERIT TRUE` y `SET FALSE`;
+  `ADMIN FALSE`, `INHERIT TRUE`, `SET FALSE` y otorgante bootstrap OID 10;
 - rechaza cualquier otra membresía, autoridad, privilegio directo o acceso a
   tablas y secuencias;
 - fija propietario, firma, configuración, comentarios y ACL de las dos
@@ -127,7 +127,8 @@ Unitarias del pool:
 - DSN inválida, usuario distinto y grupo `NOLOGIN`;
 - TLS inseguro, nombre de servidor incorrecto y configuración mutable;
 - identidad efectiva distinta, réplica o `LOGIN` elevado;
-- membresía ausente, adicional o con opciones incorrectas;
+- membresía ausente, adicional, delegada, con otorgante distinto o con
+  opciones incorrectas;
 - privilegio directo, función ausente, sobrecargada o degradada;
 - fallo parcial y cierre idempotente.
 
@@ -159,3 +160,8 @@ Cada minitarea exige pruebas focales, `go test -race`, `go vet`, formato,
 `git diff --check`, límite de 800 líneas y Gitleaks. M2.3 añade PostgreSQL
 18.4 tres veces. La integración requiere P0=0 y P1=0 de un revisor que no haya
 producido el código.
+
+La comprobación de `PASSWORD NULL` del grupo `NOLOGIN` pertenece al ciclo DBA
+M1.R, que puede consultar `pg_authid`. El adaptador M2 no eleva privilegios
+para eludir el enmascaramiento de `pg_roles`: vuelve a exigir `NOLOGIN` y todos
+los atributos visibles, y falla cerrado ante cualquier deriva observable.

@@ -76,6 +76,16 @@ Solo `vec_autorizacion_motivos_rrhh_resolutor` obtiene `EXECUTE`. El evaluador
 V2 histórico, `PUBLIC`, fuente, registro y proyector no reciben ejecución ni
 lectura directa de tablas.
 
+La ausencia de contraseña del rol `NOLOGIN` se atesta exclusivamente durante
+el ciclo DBA M1.R mediante `pg_authid`. M1.3 no afirma poder distinguirla desde
+la vista enmascarada `pg_roles`: conserva el privilegio mínimo del migrador y
+falla si el rol adquiere `LOGIN`, atributos, ajustes o topología no previstos.
+
+Cada `LOGIN` resolutor debe tener una sola membresía, directa en ese rol, con
+`ADMIN FALSE`, `INHERIT TRUE`, `SET FALSE` y otorgante bootstrap OID 10. No se
+admiten concesiones delegadas, puentes ni membresías adicionales. Esta es una
+invariante deliberada de aprovisionamiento que Sistemas debe conservar.
+
 La instalación:
 
 - exige PostgreSQL 18 y UTF-8;
