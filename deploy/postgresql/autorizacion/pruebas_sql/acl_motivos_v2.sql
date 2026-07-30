@@ -33,6 +33,32 @@ BEGIN
         RAISE EXCEPTION 'un rol V2 hereda al propietario';
     END IF;
 
+    IF EXISTS (
+        SELECT 1
+         FROM pg_catalog.pg_type AS tipo
+          JOIN pg_catalog.pg_namespace AS espacio
+            ON espacio.oid = tipo.typnamespace
+         WHERE espacio.nspname = 'vec_autorizacion'
+           AND tipo.typtype = 'c'
+           AND tipo.typname IN (
+               'version_rol',
+               'control_vigencia_version_rol',
+               'control_vigencia_version_rol_actual',
+               'asignacion_perfil',
+               'asignacion_perfil_actual',
+               'politica_restrictiva',
+               'politica_restrictiva_actual',
+               'control_catalogo_politicas',
+               'decision_autorizacion'
+           )
+           AND pg_catalog.has_type_privilege(
+               'public', tipo.oid, 'USAGE'
+           )
+    ) THEN
+        RAISE EXCEPTION
+            'PUBLIC conserva USAGE en un tipo compuesto de autorizacion';
+    END IF;
+
     IF NOT has_schema_privilege(
         'vec_autorizacion_motivos_proyector', 'vec_autorizacion', 'USAGE'
     ) OR NOT has_schema_privilege(

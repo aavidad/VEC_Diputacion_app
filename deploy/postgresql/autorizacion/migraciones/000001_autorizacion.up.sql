@@ -1009,6 +1009,17 @@ $funcion$;
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_autorizacion FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA vec_autorizacion FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_autorizacion FROM PUBLIC;
+-- Los tipos compuestos implícitos de las tablas nacen con USAGE para PUBLIC:
+-- ALTER DEFAULT PRIVILEGES ON TYPES no los cierra en PostgreSQL 18.
+REVOKE ALL ON TYPE vec_autorizacion.version_rol FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.control_vigencia_version_rol FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.control_vigencia_version_rol_actual FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.asignacion_perfil FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.asignacion_perfil_actual FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.politica_restrictiva FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.politica_restrictiva_actual FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.control_catalogo_politicas FROM PUBLIC;
+REVOKE ALL ON TYPE vec_autorizacion.decision_autorizacion FROM PUBLIC;
 
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_fuente;
 GRANT USAGE ON SCHEMA vec_autorizacion TO vec_autorizacion_registro;
