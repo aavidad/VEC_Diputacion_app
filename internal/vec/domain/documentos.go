@@ -488,11 +488,12 @@ func textoDocumentalValido(texto string) bool {
 }
 
 func esSHA256(valor string) bool {
-	if len(valor) != 64 {
+	if len(valor) != sha256.Size*2 {
 		return false
 	}
-	for _, caracter := range valor {
-		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+	for indice := 0; indice < len(valor); indice++ {
+		octeto := valor[indice]
+		if (octeto < '0' || octeto > '9') && (octeto < 'a' || octeto > 'f') {
 			return false
 		}
 	}
