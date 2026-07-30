@@ -11,8 +11,6 @@ import (
 )
 
 type CapsulaIdentidadPeticion struct {
-	cuenta    dominiovec.CuentaAutenticadaContextoActor
-	auditoria ContextoAuditoriaAutenticada
 	servicio  *ServicioIdentidad
 	instancia [32]byte
 	canal     [32]byte
@@ -41,7 +39,7 @@ func (s *ServicioIdentidad) ProyectarCapsulaIdentidadPeticion(ctx context.Contex
 	if s == nil || ctx == nil || canal.validar(s) != nil || identidad.servicio != s || subtle.ConstantTimeCompare([]byte(canal.ReferenciaVinculacion()), []byte(identidad.estado.canalVinculadoRef)) != 1 {
 		return CapsulaIdentidadPeticion{}, ErrSesionNoValida
 	}
-	cuenta, auditoria, err := s.ProyectarCuentaAutenticada(ctx, identidad)
+	_, auditoria, err := s.ProyectarCuentaAutenticada(ctx, identidad)
 	if err != nil {
 		return CapsulaIdentidadPeticion{}, err
 	}
@@ -49,24 +47,40 @@ func (s *ServicioIdentidad) ProyectarCapsulaIdentidadPeticion(ctx context.Contex
 		return CapsulaIdentidadPeticion{}, ErrSesionNoValida
 	}
 	huella := sha256.Sum256([]byte(canal.ReferenciaVinculacion()))
-	return CapsulaIdentidadPeticion{cuenta, auditoria, s, s.instanciaRef, huella, identidad}, nil
+	return CapsulaIdentidadPeticion{servicio: s, instancia: s.instanciaRef, canal: huella, identidad: identidad}, nil
 }
 func (c CapsulaIdentidadPeticion) datos(ctx context.Context, s *ServicioIdentidad, canal CanalProxyAutenticado) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
-	if ctx == nil || s == nil || c.servicio != s || c.instancia != s.instanciaRef || canal.validar(s) != nil || c.identidad.servicio != s {
+	if ctx == nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	}
+	if err := ctx.Err(); err != nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
+	}
+	if s == nil || c.servicio != s || c.instancia != s.instanciaRef || canal.validar(s) != nil || c.identidad.servicio != s {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	huella := sha256.Sum256([]byte(canal.ReferenciaVinculacion()))
 	if subtle.ConstantTimeCompare(c.canal[:], huella[:]) != 1 {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
-	return s.ProyectarCuentaAutenticada(ctx, c.identidad)
+	cuenta, auditoria, err := s.ProyectarCuentaAutenticada(ctx, c.identidad)
+	if err != nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
+	}
+	if subtle.ConstantTimeCompare([]byte(c.identidad.estado.canalVinculadoRef), []byte(canal.ReferenciaVinculacion())) != 1 || subtle.ConstantTimeCompare([]byte(auditoria.CanalVinculadoRef()), []byte(canal.ReferenciaVinculacion())) != 1 {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	}
+	return cuenta, auditoria, nil
 }
 
 type claveCapsulaIdentidad struct{}
 
 func (s *ServicioIdentidad) VincularCapsulaIdentidadPeticion(ctx context.Context, c CapsulaIdentidadPeticion, canal CanalProxyAutenticado) (context.Context, error) {
-	if ctx == nil || ctx.Err() != nil {
+	if ctx == nil {
 		return nil, ErrSesionNoValida
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if _, _, err := c.datos(ctx, s, canal); err != nil {
 		return nil, err
@@ -77,8 +91,11 @@ func (s *ServicioIdentidad) VincularCapsulaIdentidadPeticion(ctx context.Context
 	return context.WithValue(ctx, claveCapsulaIdentidad{}, c), nil
 }
 func (s *ServicioIdentidad) ExtraerCapsulaIdentidadPeticion(ctx context.Context, canal CanalProxyAutenticado) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
-	if ctx == nil || ctx.Err() != nil {
+	if ctx == nil {
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	}
+	if err := ctx.Err(); err != nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
 	}
 	c, ok := ctx.Value(claveCapsulaIdentidad{}).(CapsulaIdentidadPeticion)
 	if !ok {
