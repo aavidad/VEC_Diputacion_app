@@ -18,6 +18,16 @@ BEGIN
         ) THEN
             RAISE EXCEPTION 'RLS/FORCE ausente en %', tabla;
         END IF;
+        IF pg_catalog.has_type_privilege(
+            'public',
+            pg_catalog.to_regtype(
+                'vec_identidad_sesiones_v1.' || tabla
+            ),
+            'USAGE'
+        ) THEN
+            RAISE EXCEPTION
+                'PUBLIC conserva USAGE en el tipo compuesto %', tabla;
+        END IF;
         IF has_table_privilege(
             'vec_identidad_sesiones_v1_registrador',
             'vec_identidad_sesiones_v1.' || tabla,

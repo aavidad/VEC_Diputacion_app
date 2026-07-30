@@ -398,4 +398,11 @@ $rls$;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_identidad_sesiones_v1 FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_identidad_sesiones_v1 FROM PUBLIC;
+-- Los tipos compuestos implícitos de las tablas no heredan el cierre de
+-- ALTER DEFAULT PRIVILEGES ON TYPES en PostgreSQL 18.
+REVOKE ALL ON TYPE vec_identidad_sesiones_v1.cuenta FROM PUBLIC;
+REVOKE ALL ON TYPE vec_identidad_sesiones_v1.alias_hmac_cuenta FROM PUBLIC;
+REVOKE ALL ON TYPE vec_identidad_sesiones_v1.estado_cuenta FROM PUBLIC;
+REVOKE ALL ON TYPE vec_identidad_sesiones_v1.estado_cuenta_actual FROM PUBLIC;
+REVOKE ALL ON TYPE vec_identidad_sesiones_v1.consumo_asercion FROM PUBLIC;
 COMMIT;
