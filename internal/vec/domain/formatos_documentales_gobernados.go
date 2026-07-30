@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 )
 
 var (
@@ -31,7 +33,6 @@ var (
 	mimeFormatoGobernadoValido          = regexp.MustCompile(`^[a-z][a-z0-9!#$&^_.+-]{0,63}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$`)
 	extensionFormatoGobernadoValida     = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{0,30}[a-z0-9]$`)
 	charsetFormatoGobernadoValido       = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
-	referenciaGobernadaValida           = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,255}$`)
 	uuidDocumentoV4Valido               = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 )
 
@@ -74,7 +75,7 @@ func NuevaReferenciaPerfilDocumental(
 }
 
 func (r ReferenciaPerfilDocumental) Validar() error {
-	if !referenciaGobernadaValida.MatchString(r.identificador) || r.version == 0 ||
+	if !referenciaGobernadaValida(r.identificador) || r.version == 0 ||
 		strings.ContainsRune(r.identificador, '*') {
 		return ErrReferenciaPerfilDocumentalInvalida
 	}
@@ -120,13 +121,13 @@ func NuevaReferenciaConformidadDocumental(
 }
 
 func (r ReferenciaConformidadDocumental) Validar() error {
-	if !referenciaGobernadaValida.MatchString(r.identificador) || r.version == 0 ||
-		!referenciaGobernadaValida.MatchString(r.esquemaRef) ||
-		!referenciaGobernadaValida.MatchString(r.dialectoRef) ||
-		!referenciaGobernadaValida.MatchString(r.canonicalizacionRef) ||
-		!referenciaGobernadaValida.MatchString(r.reglasRef) ||
+	if !referenciaGobernadaValida(r.identificador) || r.version == 0 ||
+		!referenciaGobernadaValida(r.esquemaRef) ||
+		!referenciaGobernadaValida(r.dialectoRef) ||
+		!referenciaGobernadaValida(r.canonicalizacionRef) ||
+		!referenciaGobernadaValida(r.reglasRef) ||
 		!esHuellaSHA256DocumentalGobernada(r.huellaReglasSHA256) ||
-		!referenciaGobernadaValida.MatchString(r.politicaRef) ||
+		!referenciaGobernadaValida(r.politicaRef) ||
 		!esHuellaSHA256DocumentalGobernada(r.huellaPoliticaSHA256) ||
 		!esHuellaSHA256DocumentalGobernada(r.digest) || r.calcularDigest() != r.digest ||
 		contieneComodinFormatoGobernado(r.identificador, r.esquemaRef, r.dialectoRef,
@@ -355,7 +356,7 @@ func NuevaPublicacionPerfilFormatoDocumental(
 }
 
 func (p PublicacionPerfilFormatoDocumental) Validar() error {
-	if !referenciaGobernadaValida.MatchString(p.publicacionRef) ||
+	if !referenciaGobernadaValida(p.publicacionRef) ||
 		strings.ContainsRune(p.publicacionRef, '*') || p.perfilRef.Validar() != nil ||
 		!esHuellaSHA256DocumentalGobernada(p.digestPerfil) || p.revisionCatalogo.Validar() != nil ||
 		p.revisionOperativa == 0 || !p.estado.Valido() ||
@@ -517,8 +518,8 @@ func NuevaReferenciaComponenteDocumental(
 }
 
 func (r ReferenciaComponenteDocumental) Validar() error {
-	if !r.rol.Valido() || !referenciaGobernadaValida.MatchString(r.identificador) || r.version == 0 ||
-		!referenciaGobernadaValida.MatchString(r.homologacionRef) ||
+	if !r.rol.Valido() || !referenciaGobernadaValida(r.identificador) || r.version == 0 ||
+		!referenciaGobernadaValida(r.homologacionRef) ||
 		!esHuellaSHA256DocumentalGobernada(r.huellaHomologacionSHA256) ||
 		!esHuellaSHA256DocumentalGobernada(r.huellaArtefactoSHA256) ||
 		contieneComodinFormatoGobernado(r.identificador, r.homologacionRef) {
@@ -576,8 +577,8 @@ func NuevaReferenciaInstitucionalDocumento(
 }
 
 func (r ReferenciaInstitucionalDocumento) Validar() error {
-	if !referenciaGobernadaValida.MatchString(r.entidadRef) ||
-		!referenciaGobernadaValida.MatchString(r.organoRef) || r.entidadRef == r.organoRef ||
+	if !referenciaGobernadaValida(r.entidadRef) ||
+		!referenciaGobernadaValida(r.organoRef) || r.entidadRef == r.organoRef ||
 		contieneComodinFormatoGobernado(r.entidadRef, r.organoRef) {
 		return ErrMarcaInstitucionalDocumentoInvalida
 	}
@@ -617,7 +618,7 @@ func (m MarcaInstitucionalDocumento) Validar() error {
 	if m.institucion.Validar() != nil || !uuidDocumentoV4Valido.MatchString(m.documentoUUID) ||
 		m.documentoUUID == "00000000-0000-4000-8000-000000000000" || m.perfil.Validar() != nil ||
 		m.fecha.IsZero() || m.fecha.Location() != time.UTC || m.fecha.Nanosecond()%1_000 != 0 ||
-		!referenciaGobernadaValida.MatchString(m.manifiestoRef) ||
+		!referenciaGobernadaValida(m.manifiestoRef) ||
 		strings.ContainsRune(m.manifiestoRef, '*') ||
 		(m.uriPublica != "" && !uriPublicaDocumentoSintacticamenteValida(m.uriPublica, m.documentoUUID)) {
 		return ErrMarcaInstitucionalDocumentoInvalida
@@ -658,11 +659,11 @@ func huellaCanonicaDocumentalGobernada(valores []string) string {
 }
 
 func esHuellaSHA256DocumentalGobernada(valor string) bool {
-	if len(valor) != 64 || valor != strings.ToLower(valor) || valor != strings.TrimSpace(valor) {
-		return false
-	}
-	decodificada, err := hex.DecodeString(valor)
-	return err == nil && len(decodificada) == sha256.Size
+	return documentalcanonico.SHA256HexadecimalValido(valor)
+}
+
+func referenciaGobernadaValida(valor string) bool {
+	return documentalcanonico.ReferenciaASCIIBasicaValida(valor)
 }
 
 func extensionFormatoDocumentalValida(valor string) bool {

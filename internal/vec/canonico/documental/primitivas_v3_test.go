@@ -2,6 +2,8 @@ package documental
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +71,56 @@ func TestHuellasSHA256DistintasConservaFormaCardinalidadYFronteras(t *testing.T)
 		if HuellasSHA256Distintas(huellas...) {
 			t.Errorf("%s: se acepto una coleccion no canonica", nombre)
 		}
+	}
+}
+
+func TestSHA256HexadecimalValidoEquivaleAlContratoHistorico(t *testing.T) {
+	t.Parallel()
+
+	referencia := func(valor string) bool {
+		if len(valor) != sha256.Size*2 || valor != strings.TrimSpace(valor) ||
+			valor != strings.ToLower(valor) {
+			return false
+		}
+		decodificado, err := hex.DecodeString(valor)
+		return err == nil && len(decodificado) == sha256.Size
+	}
+	comprobar := func(valor string) {
+		t.Helper()
+		if obtenido, esperado := SHA256HexadecimalValido(valor), referencia(valor); obtenido != esperado {
+			t.Fatalf("validacion SHA-256 no equivalente: %q obtenido=%v esperado=%v",
+				valor, obtenido, esperado)
+		}
+	}
+
+	for longitud := 0; longitud <= sha256.Size*2+2; longitud++ {
+		comprobar(strings.Repeat("a", longitud))
+	}
+	for _, base := range []string{
+		strings.Repeat("0", sha256.Size*2),
+		strings.Repeat("9", sha256.Size*2),
+		strings.Repeat("a", sha256.Size*2),
+		strings.Repeat("f", sha256.Size*2),
+	} {
+		for posicion := range len(base) {
+			for octeto := 0; octeto <= 255; octeto++ {
+				candidato := []byte(base)
+				candidato[posicion] = byte(octeto)
+				comprobar(string(candidato))
+			}
+		}
+	}
+	for _, valor := range []string{
+		strings.Repeat("A", sha256.Size*2),
+		strings.Repeat("F", sha256.Size*2),
+		" " + strings.Repeat("a", sha256.Size*2-1),
+		strings.Repeat("a", sha256.Size*2-1) + "\n",
+		"á" + strings.Repeat("a", sha256.Size*2-2),
+		"Ａ" + strings.Repeat("a", sha256.Size*2-3),
+		"İ" + strings.Repeat("a", sha256.Size*2-2),
+		string([]byte{0xff}) + strings.Repeat("a", sha256.Size*2-1),
+	} {
+		comprobar(valor)
 	}
 }
 
