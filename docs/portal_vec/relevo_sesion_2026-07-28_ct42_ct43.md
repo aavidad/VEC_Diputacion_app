@@ -5,20 +5,19 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 ## Actualización vigente de dirección — 30 de julio de 2026
 
 La rama y el worktree siguen siendo los indicados, pero el corte vigente ya no
-es CT-000043. M1.3, M2.1 y M2.2 de la resolución nominal de motivos RRHH están
-integradas. El `HEAD` local al cerrar M2.2 es `45f985c`; falta confirmar esta
-actualización documental y publicarla.
+es CT-000043. M1.3 y M2.1–M2.4 de la resolución nominal de motivos RRHH están
+integradas. El `HEAD` técnico local al cerrar M2.3 es `bd22d05`.
 
-M2.2 obtuvo `GO` funcional y de seguridad final, `P0=P1=P2=0`. El siguiente
-trabajo es M2.3: prueba del adaptador contra PostgreSQL 18.4 real. Después
-quedan M2.4, composición raíz, identidad/PDP, TLS/mTLS y el E2E completo. Las
+M2.2 y M2.3 obtuvieron `GO` funcional y de seguridad final,
+`P0=P1=P2=0`. El siguiente trabajo es autoridad/PDP y composición raíz;
+después quedan TLS/mTLS y el E2E completo. Las
 métricas oficiales no cambian todavía porque no se ha cerrado una capacidad
 funcional completa: Contratación `24/46` (52 %), primera vertical `5/10`
 (50 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y producción `NO-GO`.
 
-La ejecución GitHub de M2.1 es `30515908260`. En el último control tenía
-cuatro puertas verdes y `puerta-calidad` en ejecución; debe comprobarse antes
-de publicar el corte siguiente.
+La ejecución GitHub de M2.1, `30515908260`, terminó completamente verde. La
+ejecución `30518851708` corresponde al corte M2.2 y debe comprobarse antes de
+publicar M2.3.
 
 ## Resumen ejecutivo
 

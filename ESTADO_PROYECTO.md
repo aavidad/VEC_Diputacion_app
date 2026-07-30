@@ -53,7 +53,7 @@ productivo.
 | Ámbito | Avance oficial | Trabajo activo todavía no computado |
 | --- | ---: | --- |
 | Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
-| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000046 y M1.1–M1.3/M1.R están cerrados aisladamente; M2 está en ejecución. |
+| Contratación temporal | **24 de 46 tareas (52 %)** | O4-05 lleva 3/5 hitos. CT-000039 a CT-000046, M1 y M2 están cerrados aisladamente; siguen autoridad/PDP, composición, TLS/mTLS y E2E. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta

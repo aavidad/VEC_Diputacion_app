@@ -230,7 +230,7 @@ detectó una cobertura RLS ausente en el primer runner; se corrigió y repitió
 la matriz antes del commit. El frente activo pasa a M2.1, pool y acreditación
 exclusivos.
 
-M2.1 quedó integrada hasta `b385f5c` tras
+M2.1 quedó integrada hasta `c6c0028` tras
 [doble revisión independiente](revisiones/o4_05_revision_pool_motivos_ct_000047m21_2026-07-30.md),
 con P0=P1=0. El pool PostgreSQL es exclusivo, no expone `pgxpool`, sella pool,
 conexión y transacción, conserva los OID de ambas fachadas y reacredita en cada
@@ -238,6 +238,21 @@ operación identidad, TLS, topología, ACL global, `PUBLIC`, autoridad efectiva,
 dependencias y manifiestos. PostgreSQL 18.4 rechazó estados hostiles de tablas,
 tipos, esquemas, ACL predeterminadas, políticas y catálogos de tipos. M2.2,
 adaptador de las dos resoluciones nominales, queda desbloqueada.
+
+M2.2 quedó integrada en `45f985c` y documentada en `9981012` tras doble
+[revisión independiente](revisiones/o4_05_revision_adaptador_motivos_ct_000047m22_2026-07-30.md),
+con P0=P1=P2=0. Implementa las dos consultas nominales literales, cardinalidad
+exacta, transacción serializable, reacreditación viva, reversión acotada y
+error opaco. La revisión corrigió antes del commit un contexto nulo tipado que
+podía provocar pánico durante la normalización del error.
+
+M2.3 quedó integrada en `bd22d05` tras doble
+[GO funcional y de seguridad](revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md),
+P0=P1=P2=0. PostgreSQL 18.4 real superó tres ejecuciones limpias con ausencia,
+referencias distintas, retiradas, caducidad, carrera causal, ACL/DML, sesión
+hostil, derivas, reconexión y reinicio del mismo pool. M2 queda cerrado; el
+frente activo pasa a las autoridades corporativas/PDP necesarias para la
+composición raíz.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE

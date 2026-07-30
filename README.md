@@ -69,6 +69,7 @@ llamamientos.
 - [Coordinación del adaptador nominal de motivos M2](docs/portal_vec/coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md)
 - [Revisión del pool nominal de motivos M2.1](docs/portal_vec/revisiones/o4_05_revision_pool_motivos_ct_000047m21_2026-07-30.md)
 - [Revisión del adaptador nominal de motivos M2.2](docs/portal_vec/revisiones/o4_05_revision_adaptador_motivos_ct_000047m22_2026-07-30.md)
+- [Prueba PostgreSQL real del adaptador de motivos M2.3](docs/portal_vec/revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -124,8 +125,10 @@ TLS/mTLS, web conectada y E2E. M1.1–M1.3 y M1.R cierran ya el gobierno,
 publicación y resolución nominal de los motivos de cuadro y detalle. M2.1
 cierra el pool PostgreSQL exclusivo y su acreditación; M2.2 cierra los dos
 métodos nominales de resolución, con transacción, reacreditación, cardinalidad
-y errores opacos revisados. M2.3 debe acreditarlos ahora sobre PostgreSQL 18.4
-real. Producción conserva `NO-GO`.
+y errores opacos revisados. M2.3 acredita el conjunto sobre PostgreSQL 18.4
+real, incluidas retiradas concurrentes, derivas, reinicio y sesión hostil.
+El siguiente corte es autoridad/PDP y composición raíz. Producción conserva
+`NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

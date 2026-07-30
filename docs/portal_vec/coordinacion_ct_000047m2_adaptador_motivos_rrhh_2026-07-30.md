@@ -2,10 +2,11 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: activo. M1.3/`000010` quedó integrado en `281f52b`. M2.1 quedó
+Estado: **cerrado**. M1.3/`000010` quedó integrado en `281f52b`. M2.1 quedó
 integrada hasta `c6c0028`, con PostgreSQL 18.4 real y doble revisión
 independiente P0=P1=0. M2.2 quedó integrada en `45f985c`, con revisión
-funcional y de seguridad final `P0=P1=P2=0`. La minitarea vigente es M2.3.
+funcional y de seguridad final `P0=P1=P2=0`. M2.3 quedó integrada en
+`bd22d05`, con PostgreSQL 18.4 real y doble `GO`, `P0=P1=P2=0`.
 
 ## Resultado
 
@@ -92,7 +93,8 @@ se garantiza mediante ACL, no mediante una opción incompatible.
 
 ### M2.3 — PostgreSQL real
 
-Estado: **siguiente minitarea**.
+Estado: **cerrada**. Véase la
+[revisión final](revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md).
 
 ```text
 internal/modules/contrataciontemporal/adapters/postgres/
@@ -108,9 +110,10 @@ No imprime ni conserva DSN, contraseña o certificados.
 
 ### M2.4 — integración
 
-Dirección obtiene revisión independiente, integra los commits pequeños,
-actualiza estado y abre después la composición raíz. M2 no modifica bootstrap,
-web ni dominio.
+Estado: **cerrada**. Dirección obtuvo revisión funcional y de seguridad,
+integró los commits pequeños y actualizó el estado. El siguiente corte es la
+composición raíz, precedida por las autoridades corporativas que todavía
+faltan. M2 no modifica bootstrap, web ni dominio.
 
 ## Salida y errores
 

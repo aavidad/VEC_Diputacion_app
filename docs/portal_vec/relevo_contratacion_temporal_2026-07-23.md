@@ -13,9 +13,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit técnico verificado: `281f52b`.
-- Último cierre: CT-000047B M1.3, dos resoluciones nominales de motivos RRHH,
-  con PostgreSQL 18.4, doble `GO` independiente y P0=P1=P2=0.
+- Último commit técnico verificado: `bd22d05`.
+- Último cierre: CT-000047B M2, pool y adaptador de las dos resoluciones
+  nominales de motivos RRHH, con PostgreSQL 18.4, doble `GO` independiente y
+  P0=P1=P2=0.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -264,16 +265,13 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar
-   [M2](coordinacion_ct_000047m2_adaptador_motivos_rrhh_2026-07-30.md):
-   adaptador PostgreSQL con pool resolutor exclusivo, en cuatro minitareas.
-2. Implementar los puentes productivos de autoridad corporativa y PDP.
-3. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
+1. Implementar los puentes productivos de autoridad corporativa y PDP.
+2. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
    caída a presentación.
-4. Implementar el adaptador independiente de publicaciones visuales
+3. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+4. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+5. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -593,7 +591,15 @@ dos fachadas nominales, la vigencia, las retiradas, RLS/ACL, las carreras y el
 `down` seguro obtuvieron doble GO con P0=P1=P2=0. La
 [revisión final](revisiones/o4_05_revision_resolucion_motivos_ct_000047m13_2026-07-30.md)
 documenta además la brecha probatoria RLS detectada y corregida antes del
-commit. M2 queda desbloqueada y es el frente activo.
+commit.
+
+M2 quedó cerrado en `bd22d05`. El pool exclusivo y el adaptador nominal
+superaron doble GO y tres ejecuciones limpias sobre PostgreSQL 18.4, incluidas
+retiradas concurrentes, ACL/DML, homónimo temporal, sesión hostil, derivas,
+reconexión y reinicio. La
+[revisión final M2.3](revisiones/o4_05_revision_adaptador_motivos_ct_000047m23_2026-07-30.md)
+conserva la evidencia. El frente activo pasa a autoridad/PDP y composición
+raíz.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
