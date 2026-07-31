@@ -106,25 +106,83 @@ aprobaciones de RRHH, Sistemas y DPD.
 3. asociación tipada operación–vínculo con FK completa a la historia de
    `000004`;
 4. buzón transaccional append-only, único por `evento_ref` y operación;
-5. historial append-only de intentos de entrega del buzón.
+5. historial append-only de intentos y arrendamientos de entrega;
+6. resultados append-only `ack` o `fallo`, únicos por intento.
 
 Una operación organizativa tiene exactamente su asociación de organización.
 Una operación de vínculo asocia su versión de vínculo y la versión de
 organización comprometida. No se admite una asociación genérica
 `tipo+referencia`, una FK parcial ni una cadena sin restricción durable.
 
-El registro conserva referencias opacas, versiones, efecto, procedencia,
-evento de origen, huellas, consumo V3 acreditado, instante autoritativo y
-resultado. No crea una segunda cadena de auditoría. El buzón proyecta el
-evento al servicio común con entrega al menos una vez e idempotencia por
-`evento_ref`; un fallo de transporte nunca pierde el evento ya confirmado.
+El registro conserva referencias opacas, huellas, instante autoritativo y
+resultado. Las filas de efecto añaden versiones, procedencia, evento de origen
+y consumo V3 acreditado. Sus tipos cerrados distinguen efecto corporativo de
+despacho operativo. Una fila de despacho referencia de forma durable su
+evento, intento o resultado y nunca concede autoridad corporativa.
 
-Historia, asociaciones y buzón rechazan `UPDATE`, `DELETE` y `TRUNCATE`. RLS
-forzada es defensa adicional. `PUBLIC`, runtime, logins técnicos y demás
-módulos no obtienen acceso directo a tablas, secuencias, tipos o funciones
-internas.
+No se crea una segunda cadena de auditoría. El buzón proyecta el evento al
+servicio común con entrega al menos una vez e idempotencia por `evento_ref`;
+un fallo de transporte nunca pierde el evento ya confirmado.
 
-## Cuatro fachadas nominales
+Historia, asociaciones, buzón, intentos y resultados rechazan `UPDATE`,
+`DELETE` y `TRUNCATE`. RLS forzada es defensa adicional. `PUBLIC`, runtime,
+logins técnicos y demás módulos no obtienen acceso directo a tablas,
+secuencias, tipos o funciones internas.
+
+## Despacho nominal M5
+
+`000005` expone exactamente dos fachadas operativas:
+
+```sql
+reclamar_entrega_proyeccion_corporativa_v1(p_operacion_ref)
+finalizar_entrega_proyeccion_corporativa_v1(
+    p_operacion_ref,
+    p_intento_ref,
+    p_resultado,
+    p_detalle_huella_sha256
+)
+```
+
+Ambas son `SECURITY DEFINER`, con propietario exacto de ContextoActor y
+`search_path=pg_catalog`. Solo el grupo despachador obtiene `EXECUTE`; se
+revoca de `PUBLIC`, runtime, publicador y revocador. Cada llamada reacredita el
+`session_user`, su membresía exclusiva, propietario, ACL y configuración, y
+exige una transacción exterior `SERIALIZABLE READ WRITE` comprobando
+`transaction_isolation` y `transaction_read_only=off`.
+
+Antes de llamar, el adaptador fija como máximo `lock_timeout=2s`,
+`statement_timeout=10s` y `transaction_timeout=15s`; la función deniega
+valores ausentes, cero o superiores. El adaptador abre y confirma la
+transacción; la función nunca lo intenta.
+
+Reclamar elige bajo lock un evento no entregado sin arrendamiento vivo, en
+orden `(creado_en,evento_ref)`, e inserta un intento con plazo finito. La
+duración V1 es exactamente 30 segundos, la fija `000005` y no la decide el
+llamante; cambiarla exige una migración posterior revisada. `FOR UPDATE SKIP
+LOCKED` reparte trabajo concurrente; no elige identidad, perfil ni autoridad.
+La fachada devuelve solo `evento_ref`, `intento_ref`, fin de arrendamiento y
+el payload minimizado e inmutable que debe entregarse; no expone consultas de
+tabla.
+
+Un intento sin resultado puede reclamarse de nuevo solo después de expirar su
+arrendamiento; se añade otro intento y nunca se modifica el anterior. Un
+`fallo` finalizado permite reclamación inmediata. Un `ack` único por evento
+lo deja entregado mediante un índice único parcial durable. Finalizar bloquea
+evento e intento y exige operación, evento, arrendamiento vivo, reclamante y
+último intento exactos; un intento o ack cruzado se rechaza. Solo acepta los
+literales `ack` y `fallo`.
+
+Ambas fachadas usan el registro global de `operacion_ref`. Replay exacto de
+reclamación o finalización devuelve el mismo intento o resultado; otra
+preimagen o fachada con la misma operación colisiona cerrada. Tras `COMMIT`
+incierto se reconcilia por operación y huella, igual que los efectos. Ninguna
+de las dos lee o escribe directamente la auditoría común.
+
+Toman A→B→C→D compartidas y locks de operación/evento deterministas. No toman
+E ni filas corporativas porque solo añaden prueba operativa del buzón. D
+exclusiva las drena antes de cualquier DDL.
+
+## Cuatro fachadas nominales de efecto
 
 M6 y M7 exponen solo:
 
@@ -139,11 +197,18 @@ Son `SECURITY DEFINER`, con propietario exacto y
 `search_path=pg_catalog`. Reciben escalares validados, no JSON libre, perfil
 elegido, organización de cabecera, cookie ni dato procedente del cliente web.
 
-Como máximo existen dos grupos técnicos `NOLOGIN`: publicador y revocador.
-Sus logins de servicio son exclusivos, sin `ADMIN/SET OPTION`, herencias,
-atributos administrativos, `CREATE`, `TEMP` ni acceso a tablas. El publicador
-ejecuta las dos altas; el revocador, las dos revocaciones. Ninguno puede
-conceder membresías, aprobar la fuente o cambiar raíces.
+R0 crea exactamente tres grupos técnicos `NOLOGIN`: publicador, revocador y
+despachador. Los `LOGIN` y sus credenciales se provisionan fuera del
+repositorio por Sistemas; cada uno usa `INHERIT` y una única membresía
+`WITH ADMIN FALSE, SET FALSE, INHERIT TRUE`. Así hereda exclusivamente el
+`EXECUTE` nominal, no puede cambiar de rol ni delegarlo. Los logins son
+`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION` y
+`NOBYPASSRLS`, sin `CREATE`, `TEMP` ni otras membresías.
+
+El publicador ejecuta solo las dos altas; el revocador, solo las dos
+revocaciones; el despachador, solo reclamar y finalizar. Publicador y
+revocador no despachan, y el despachador no publica ni revoca. Ninguno accede
+directamente a tablas, concede membresías, aprueba la fuente o cambia raíces.
 
 R0 posee sus scripts `roles_up/down`, otorgantes exactos, membresías y prueba
 de retirada. Toma el protocolo DDL de este documento. Su `down` deniega ante
@@ -165,10 +230,13 @@ las coordenadas corporativas pertinentes. Excluye secretos y su propia
 huella. Los vectores dorados SQL prueban límites, campos cruzados y
 reordenación.
 
-`operacion_ref` es única para las cuatro fachadas, no por tabla ni por efecto.
+`operacion_ref` es única para las seis fachadas, no por tabla ni por efecto.
 El protocolo es:
 
-- primera operación: consume capacidad, aplica efecto y registra prueba;
+- primera operación de efecto: consume capacidad, aplica efecto y registra
+  prueba;
+- primera operación de despacho: reserva la operación y añade el intento o
+  resultado, sin capacidad de fuente ni autoridad corporativa;
 - replay con la misma preimagen: devuelve el mismo resultado sin consumir de
   nuevo ni escribir otro evento;
 - misma operación con otro efecto, actor o preimagen: colisión cerrada;
@@ -235,7 +303,7 @@ retoma E de forma reentrante. Ningún camino toma una fila/puntero antes de E.
 ## Protocolo DDL sin ciclo
 
 `up`, `down` y cambios de roles toman A→B→C compartidas y D exclusiva. D
-exclusiva drena las cuatro fachadas. Después, **antes de E**, toman en orden
+exclusiva drena las seis fachadas. Después, **antes de E**, toman en orden
 canónico los locks de relaciones y catálogos:
 
 ```text
@@ -268,15 +336,17 @@ aplica un efecto tardío desde una cola.
 
 Las pruebas inyectan fallo después del consumo F0 y después de cada escritura.
 Cada caso debe dejar sin cambios capacidad, historia, puntero, generación,
-prueba, asociaciones y buzón. Tres ejecuciones limpias consecutivas deben
-producir las mismas huellas e inventario.
+prueba, asociaciones y buzón. El despacho prueba por separado rollback de
+reclamación/finalización y reconciliación de `COMMIT` incierto. Tres
+ejecuciones limpias consecutivas deben producir las mismas huellas e
+inventario.
 
 ## Retirada segura
 
 Cada `down` usa el protocolo DDL, inventario exacto, drops explícitos con
 `RESTRICT` y rollback total. No usa `CASCADE`. Deniega ante:
 
-- cualquier prueba, asociación, evento o intento de entrega;
+- cualquier prueba, asociación, evento, intento o resultado de entrega;
 - historia/puntero que dependa del componente retirado;
 - consumidores, objetos, propietarios, ACL u OID no inventariados;
 - migración posterior o función nominal todavía dependiente.
@@ -303,8 +373,8 @@ queda solo en la frontera autorizada.
 | Nodo | Escritura máxima | Prueba |
 | --- | --- | --- |
 | F0 | `autorizacion_atestada_v3/000007` up/down, README y prueba focal integrada | consumidor, replay, rollback y ACL |
-| R0 | `roles_proyeccion_corporativa_v1_up/down.sql`, README, runner 1 y composición | otorgantes, membresías, ACL y retirada |
-| M5 | `contexto_actor_v1/000005` up/down, README y ampliación del runner 1 | persistencia, FKs, buzón y retirada |
+| R0 | `roles_proyeccion_corporativa_v1_up/down.sql`, README, runner 1 y composición | membresía exacta; herencia positiva; `SET ROLE` y cruces denegados; ACL y retirada |
+| M5 | `contexto_actor_v1/000005` up/down, README y ampliación del runner 1 | despacho positivo por herencia; owner/search_path/ACL/transacción/deriva; append-only; fallo→reclamo/reintento→éxito; replay, concurrencia, lease vencido y ack cruzado |
 | M6 | `contexto_actor_v1/000006` up/down, runner 2 y composición | cuatro carreras org, autoridad y DDL |
 | M7 | `contexto_actor_v1/000007` up/down, runner 3 y composición | vínculo, dependencias, carreras y DDL |
 
@@ -322,7 +392,8 @@ integración PostgreSQL 18.4, inventario ACL/catálogo y revisión P0/P1/P2. Un
 ## Criterio de cierre
 
 C2.3 solo queda técnicamente cerrada cuando F0, R0 y M5–M7 están confirmadas,
-revisadas y reproducidas tres veces en PostgreSQL 18.4; las cuatro fachadas
-acreditan autoridad, idempotencia, CAS, carreras, rollback, retirada y
-`COMMIT` incierto. Eso no autoriza producción: los bloqueos externos de
-fuente, confianza, HSM/KMS, ENS/EIPD y aprobación formal siguen vigentes.
+revisadas y reproducidas tres veces en PostgreSQL 18.4; las seis fachadas
+acreditan aislamiento de roles, autoridad o ausencia de ella, idempotencia,
+CAS, despacho, carreras, rollback, retirada y `COMMIT` incierto. Eso no
+autoriza producción: los bloqueos externos de fuente, confianza, HSM/KMS,
+ENS/EIPD y aprobación formal siguen vigentes.
