@@ -11,13 +11,13 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | C2.3 publicación/revocación → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | C2.3 F0 → R0 → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último corte publicado completamente verde | `51a4390` en `integracion/ct-o4-04e-20260726`; CI `30650778125` |
-| Últimos commits técnicos verificados | `de6e7df` — composición C2.2-B; revisión independiente B5 en `8c27c72`, GO y P0=P1=P2=0 |
+| Últimos commits técnicos verificados | `5fbf6a7`–`abfdc21` — contrato simplificado C2.3-D0; doble GO independiente y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A y C2.2-B están cerradas técnicamente, pero no suman una puerta funcional. C2.3 es el corte activo. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B y el contrato C2.3-D0 están cerrados técnicamente, pero no suman una puerta funcional. C2.3-F0 es el corte activo. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -223,8 +223,9 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   verdes; HTTP cuadro/detalle también está cerrado y revisado, pero
   C1, el rol mínimo C2.1a y la fachada C2.1b también están cerrados y
   revisados; S0.1, S0.2, organización y vínculo de C2.2 están cerrados e
-  integrados, mientras publicación/revocación C2.3, selección/recibo C2.4,
-  fachada/reconciliación C2.5, PDP, raíz, TLS y E2E siguen abiertos
+  integrados; el contrato C2.3-D0 está cerrado, mientras su implementación
+  F0/R0/M5–M7, selección/recibo C2.4, fachada/reconciliación C2.5, PDP, raíz,
+  TLS y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

@@ -7,8 +7,9 @@ Fecha: 29 de julio de 2026.
 C2.2-A y C2.2-B están cerradas técnicamente. B queda compuesta en `de6e7df`,
 con revisión independiente en `8c27c72`, P0=P1=P2=0 y PostgreSQL 18.4. B6
 queda publicada en `51a4390`, con CI `30650778125` completamente verde. El
-trabajo activo es C2.3, publicación y revocación
-corporativas. Las métricas permanecen en
+contrato simplificado C2.3-D0 queda integrado en `5fbf6a7`–`abfdc21`, con
+doble GO independiente y P0=P1=P2=0. El trabajo activo es C2.3-F0, consumidor
+nominal de fuente V3. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
@@ -292,7 +293,7 @@ exclusivamente las referencias de autenticación y sesión y devuelve cuenta,
 método, garantía y caducidad observados; no acepta ni devuelve perfil,
 organización o candidatos. La revisión final obtuvo P0=P1=P2=0 después de
 cerrar cobertura adversarial, réplica física y una prueba no tautológica del
-retorno. El siguiente corte es C2.2-S0.1.
+retorno. En aquel punto quedó desbloqueado C2.2-S0.1, cerrado posteriormente.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
@@ -356,8 +357,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.3, publicación y revocación corporativas. C2.1b, S0.1,
-S0.2, A y B están cerradas técnicamente.
+Trabajo activo: C2.3-F0, consumidor nominal de fuente V3. C2.1b, S0.1,
+S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 
@@ -424,6 +425,14 @@ revisores focales y dirección para PostgreSQL 18.4, concurrencia, preservación
 ejecución literal `pgx`, reversión y ausencia de residuos, y emitió GO con
 P0=P1=P2=0. B6 sincroniza y publica el estado sin aumentar métricas. Queda
 desbloqueada C2.3; no se anticipan selección, PDP ni composición raíz.
+
+C2.3-D0 queda integrado en `5fbf6a7`–`abfdc21` tras dos revisiones
+independientes finales GO, P0=P1=P2=0. El contrato descarta edición humana,
+autoinscripción y PDP selector; reutiliza V3 mediante F0, limita ContextoActor
+a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
+efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
+sobredimensionado no se integró. El siguiente corte exacto es F0 en
+`autorizacion_atestada_v3/000007`.
 
 ## Optimización probatoria CT88
 

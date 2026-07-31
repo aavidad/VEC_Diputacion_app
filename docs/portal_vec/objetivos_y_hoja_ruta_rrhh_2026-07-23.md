@@ -115,10 +115,11 @@ Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia y el
 puntero organizativos; y C2.2-B la historia y el puntero del vínculo
 corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
 `8c27c72`, GO y P0=P1=P2=0. B6 está publicada en `51a4390`, con CI
-`30650778125` completamente verde. C2.3, publicación y revocación, es el
-corte activo. Después siguen C2.4 selección y recibo, C2.5 fachada y
-reconciliación, PDP, composición raíz, TLS/mTLS viva, la misma web definitiva
-y el E2E.
+`30650778125` completamente verde. C2.3-D0 queda integrado en `5fbf6a7`–
+`abfdc21` con doble GO y sin aumentar métricas. C2.3-F0, consumidor nominal de
+fuente V3, es el corte activo. Después siguen R0/M5–M7, C2.4 selección y
+recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
+la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -178,9 +179,9 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Definir y ejecutar C2.3, publicación y revocación corporativas, sobre la
-historia y los punteros cerrados en C2.2, mediante la migración reservada
-`000005`. Debe conservar denegación por defecto, transacción atómica,
-procedencia y evidencia, sin seleccionar candidatos ni asumir funciones del
-PDP. C2.2-A y C2.2-B quedan como dependencias cerradas, no como trabajo
-pendiente.
+Implementar C2.3-F0 en `autorizacion_atestada_v3/000007`: consumidor nominal
+de la capacidad breve de fuente, ejecutable dentro de la misma transacción
+`SERIALIZABLE READ WRITE` que el efecto y con rollback total. Después se
+implementan R0 y las tres migraciones ContextoActor M5–M7 ya fijadas por D0,
+sin seleccionar candidatos ni asumir funciones del PDP. C2.2-A, C2.2-B y el
+contrato C2.3-D0 son dependencias cerradas, no trabajo pendiente.

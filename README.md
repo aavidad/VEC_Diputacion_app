@@ -121,11 +121,14 @@ con revisión final `P0=P1=P2=0` y CI `30633248293` completamente verde.
 C2.2-B, historia y puntero del vínculo corporativo, queda cerrada técnicamente
 en `de6e7df`, con evidencia independiente en `8c27c72`, `P0=P1=P2=0` y la
 matriz PostgreSQL 18.4 compuesta. B6 queda publicada en `51a4390`, con CI
-`30650778125` completamente verde. El corte activo pasa a
-C2.3, publicación y revocación corporativas; después siguen C2.4 selección y
-recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS, web
-conectada y E2E. Este cierre preparatorio no modifica las métricas oficiales.
-Producción conserva `NO-GO`.
+`30650778125` completamente verde. C2.3-D0 queda integrado en `5fbf6a7`–
+`abfdc21` con doble revisión independiente `P0=P1=P2=0`: fija una proyección
+automática desde fuente aprobada, tres migraciones ContextoActor, consumo V3
+atómico y despacho transaccional mínimo. No implementa todavía las fachadas.
+El corte activo es F0, consumidor nominal de fuente V3; después siguen R0,
+M5–M7, C2.4 selección y recibo, C2.5 fachada y reconciliación, PDP,
+composición raíz, TLS/mTLS, web conectada y E2E. Este cierre contractual no
+modifica las métricas oficiales. Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
