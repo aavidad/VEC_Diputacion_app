@@ -132,7 +132,8 @@ BEGIN
            'vec_contexto_actor_v1.organizacion_versiones'::regclass,
            'vec_contexto_actor_v1.organizacion_actual'::regclass,
            'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass
-         ) AND relkind='r' AND relpersistence='p' AND relowner=propietario) <> 8
+         ) AND relkind='r' AND relpersistence='p' AND relowner=propietario
+           AND relreplident='d') <> 8
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc
             WHERE oid IN (
               'vec_contexto_actor_v1.referencia_valida(text,text)'::regprocedure,
@@ -276,10 +277,13 @@ BEGIN
                coalesce(pg_catalog.obj_description(c.oid,'pg_constraint'),''))
         FROM pg_catalog.pg_constraint c WHERE c.connamespace=esquema
       UNION ALL
-      SELECT pg_catalog.format('idx|%s|%s|%s|%s|%s|%s|%s|%s',
+      SELECT pg_catalog.format('idx|%s|%s|%s|%s|%s|%s|%s|%s|%s',
                t.relname,i.relname,pg_catalog.pg_get_userbyid(i.relowner),
                am.amname,coalesce(s.spcname,''),coalesce(i.reloptions::text,''),
                coalesce(pg_catalog.obj_description(i.oid,'pg_class'),''),
+               ROW(x.indisunique,x.indnullsnotdistinct,x.indisprimary,
+                 x.indisexclusion,x.indimmediate,x.indisclustered,x.indisvalid,
+                 x.indcheckxmin,x.indisready,x.indislive,x.indisreplident)::text,
                pg_catalog.pg_get_indexdef(i.oid))
         FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid=x.indrelid
         JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid
@@ -309,7 +313,13 @@ BEGIN
       UNION ALL
       SELECT pg_catalog.format('pol|%s|%s|%s|%s|%s|%s|%s|%s',
                p.polrelid::regclass::text,p.polname,p.polcmd,p.polpermissive,
-               p.polroles::text,coalesce(pg_catalog.pg_get_expr(
+               coalesce((SELECT pg_catalog.string_agg(
+                 CASE WHEN r.rol=0 THEN 'PUBLIC'
+                      ELSE pg_catalog.pg_get_userbyid(r.rol) END,',' ORDER BY
+                 CASE WHEN r.rol=0 THEN 'PUBLIC'
+                      ELSE pg_catalog.pg_get_userbyid(r.rol) END)
+                 FROM pg_catalog.unnest(p.polroles) r(rol)),''),
+               coalesce(pg_catalog.pg_get_expr(
                  p.polqual,p.polrelid,false),''),coalesce(pg_catalog.pg_get_expr(
                  p.polwithcheck,p.polrelid,false),''),
                coalesce(pg_catalog.obj_description(p.oid,'pg_policy'),''))
@@ -319,8 +329,36 @@ BEGIN
       SELECT pg_catalog.format('typ|%s|%s|%s|%s|%s|%s',t.typname,t.typtype,
                pg_catalog.pg_get_userbyid(t.typowner),t.typcategory,
                coalesce(e.typname,''),coalesce(t.typacl::text,''))
-        FROM pg_catalog.pg_type t LEFT JOIN pg_catalog.pg_type e ON e.oid=t.typelem
+       FROM pg_catalog.pg_type t LEFT JOIN pg_catalog.pg_type e ON e.oid=t.typelem
        WHERE t.typnamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format('toast|%s|%s|%s|%s|%s|%s|%s|%s',p.relname,
+               pg_catalog.pg_get_userbyid(t.relowner),tam.amname,
+               coalesce(ts.spcname,''),coalesce(t.relacl::text,''),
+               coalesce(t.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(t.oid,'pg_class'),''),
+               t.relreplident)
+             || pg_catalog.format('|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+               pg_catalog.pg_get_userbyid(x.relowner),xam.amname,
+               coalesce(xs.spcname,''),coalesce(x.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(x.oid,'pg_class'),''),
+               i.indkey::text,i.indnkeyatts,i.indnatts,
+               coalesce((SELECT pg_catalog.string_agg(
+                 pg_catalog.pg_get_indexdef(x.oid,posicion,false),','
+                 ORDER BY posicion)
+                 FROM pg_catalog.generate_series(1,i.indnatts) posicion),''),
+               ROW(i.indisunique,i.indnullsnotdistinct,i.indisprimary,
+                 i.indisexclusion,i.indimmediate,i.indisclustered,i.indisvalid,
+                 i.indcheckxmin,i.indisready,i.indislive,i.indisreplident)::text) e
+        FROM pg_catalog.pg_class p
+        JOIN pg_catalog.pg_class t ON t.oid=p.reltoastrelid
+        JOIN pg_catalog.pg_am tam ON tam.oid=t.relam
+        JOIN pg_catalog.pg_index i ON i.indrelid=t.oid
+        JOIN pg_catalog.pg_class x ON x.oid=i.indexrelid
+        JOIN pg_catalog.pg_am xam ON xam.oid=x.relam
+        LEFT JOIN pg_catalog.pg_tablespace ts ON ts.oid=t.reltablespace
+        LEFT JOIN pg_catalog.pg_tablespace xs ON xs.oid=x.reltablespace
+       WHERE p.relnamespace=esquema
       UNION ALL
       SELECT pg_catalog.format('defacl|%s|%s|%s|%s',
                pg_catalog.pg_get_userbyid(d.defaclrole),coalesce(n.nspname,''),
@@ -332,7 +370,7 @@ BEGIN
     SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
       pg_catalog.string_agg(e,E'\n' ORDER BY e),'UTF8')),'hex') INTO observado
       FROM objetos;
-    IF observado IS DISTINCT FROM '1edb9a68b63bbde416d5ab8c30a507d4a4087e3449d5e6abb05240124900b9c7' THEN
+    IF observado IS DISTINCT FROM 'bddc55742ae4d509cb884bbf464ac4f90c23c6b680d338943160ea1ee3b1742c' THEN
       RAISE EXCEPTION USING ERRCODE='55000',
         MESSAGE='manifiesto simbolico del predecesor no acreditado',
         DETAIL='huella observada '||coalesce(observado,'<ausente>');

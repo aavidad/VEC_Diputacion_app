@@ -168,7 +168,7 @@ BEGIN
     IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class
          WHERE oid IN (versiones,actual) AND relkind='r' AND relpersistence='p'
            AND relowner=propietario AND relrowsecurity AND relforcerowsecurity
-           AND reloptions IS NULL) <> 2
+           AND relreplident='d' AND reloptions IS NULL) <> 2
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
             WHERE polrelid IN (versiones,actual)
               AND polname='acceso_propietario_exacto' AND polcmd='*'
@@ -205,7 +205,18 @@ BEGIN
                 'vinculo_corporativo_actual_pk','perfil_versiones_persona_uq',
                 'vinculo_contexto_versiones_actor_uq')
               AND x.relowner=propietario AND x.reltablespace=0
-              AND x.reloptions IS NULL AND am.amname='btree') <> 5
+              AND x.reloptions IS NULL AND am.amname='btree'
+              AND i.indisunique AND NOT i.indnullsnotdistinct
+              AND NOT i.indisexclusion AND i.indimmediate
+              AND NOT i.indisclustered AND i.indisvalid
+              AND NOT i.indcheckxmin AND i.indisready AND i.indislive
+              AND NOT i.indisreplident) <> 5
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_index i
+            JOIN pg_catalog.pg_class x ON x.oid=i.indexrelid
+            WHERE i.indrelid IN (versiones,actual)
+              AND x.relname IN ('vinculo_corporativo_versiones_pk',
+                                'vinculo_corporativo_actual_pk')
+              AND i.indisprimary) <> 2
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
             WHERE a.attrelid IN (versiones,actual) AND a.attnum>0
               AND NOT a.attisdropped AND (a.attacl IS NOT NULL OR a.atthasdef
@@ -237,7 +248,7 @@ BEGIN
             JOIN pg_catalog.pg_am am ON am.oid=t.relam
             WHERE p.oid IN (versiones,actual) AND t.relkind='t'
               AND t.relowner=propietario AND t.reltablespace=0
-              AND t.reloptions IS NULL AND am.amname='heap'
+              AND t.relreplident='n' AND t.reloptions IS NULL AND am.amname='heap'
               AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(
                 coalesce(t.relacl,pg_catalog.acldefault('r',t.relowner))) a
                 WHERE a.grantee<>propietario)) <> 2
@@ -248,6 +259,9 @@ BEGIN
             WHERE t.oid IN ((SELECT reltoastrelid FROM pg_catalog.pg_class WHERE oid=versiones),
                             (SELECT reltoastrelid FROM pg_catalog.pg_class WHERE oid=actual))
               AND i.indisunique AND i.indisprimary AND i.indisvalid AND i.indisready
+              AND NOT i.indnullsnotdistinct AND NOT i.indisexclusion
+              AND i.indimmediate AND NOT i.indisclustered
+              AND NOT i.indcheckxmin AND i.indislive AND NOT i.indisreplident
               AND x.relowner=propietario AND x.reltablespace=0
               AND x.reloptions IS NULL AND am.amname='btree') <> 2
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c,
@@ -285,10 +299,10 @@ BEGIN
                coalesce(pg_catalog.obj_description(n.oid,'pg_namespace'),'')) e
         FROM pg_catalog.pg_namespace n WHERE n.oid=esquema
       UNION ALL
-      SELECT pg_catalog.format('rel|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',c.relname,c.relkind,
+      SELECT pg_catalog.format('rel|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',c.relname,c.relkind,
                c.relpersistence,
                pg_catalog.pg_get_userbyid(c.relowner),c.relrowsecurity,
-               c.relforcerowsecurity,coalesce(c.relacl::text,''),
+               c.relforcerowsecurity,c.relreplident,coalesce(c.relacl::text,''),
                coalesce(am.amname,''),coalesce(s.spcname,''),
                coalesce(c.reloptions::text,''),
                coalesce(pg_catalog.obj_description(c.oid,'pg_class'),'')) AS e
@@ -315,10 +329,13 @@ BEGIN
                coalesce(pg_catalog.obj_description(c.oid,'pg_constraint'),''))
         FROM pg_catalog.pg_constraint c WHERE c.connamespace=esquema
       UNION ALL
-      SELECT pg_catalog.format('idx|%s|%s|%s|%s|%s|%s|%s|%s',t.relname,i.relname,
+      SELECT pg_catalog.format('idx|%s|%s|%s|%s|%s|%s|%s|%s|%s',t.relname,i.relname,
                pg_catalog.pg_get_userbyid(i.relowner),am.amname,
                coalesce(s.spcname,''),coalesce(i.reloptions::text,''),
                coalesce(pg_catalog.obj_description(i.oid,'pg_class'),''),
+               ROW(x.indisunique,x.indnullsnotdistinct,x.indisprimary,
+                 x.indisexclusion,x.indimmediate,x.indisclustered,x.indisvalid,
+                 x.indcheckxmin,x.indisready,x.indislive,x.indisreplident)::text,
                pg_catalog.pg_get_indexdef(i.oid))
         FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid=x.indrelid
         JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid
@@ -351,19 +368,40 @@ BEGIN
        WHERE d.defaclnamespace=esquema OR d.defaclrole=propietario
       UNION ALL
       SELECT pg_catalog.format('toast|%s|%s|%s|%s|%s|%s|%s|%s',p.relname,
-               pg_catalog.pg_get_userbyid(t.relowner),tam.amname,coalesce(ts.spcname,''),
-               coalesce(t.relacl::text,''),pg_catalog.pg_get_userbyid(x.relowner),
-               xam.amname,i.indkey::text)
+               pg_catalog.pg_get_userbyid(t.relowner),tam.amname,
+               coalesce(ts.spcname,''),coalesce(t.relacl::text,''),
+               coalesce(t.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(t.oid,'pg_class'),''),
+               t.relreplident)
+             || pg_catalog.format('|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+               pg_catalog.pg_get_userbyid(x.relowner),xam.amname,
+               coalesce(xs.spcname,''),coalesce(x.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(x.oid,'pg_class'),''),
+               i.indkey::text,i.indnkeyatts,i.indnatts,
+               coalesce((SELECT pg_catalog.string_agg(
+                 pg_catalog.pg_get_indexdef(x.oid,posicion,false),','
+                 ORDER BY posicion)
+                 FROM pg_catalog.generate_series(1,i.indnatts) posicion),''),
+               ROW(i.indisunique,i.indnullsnotdistinct,i.indisprimary,
+                 i.indisexclusion,i.indimmediate,i.indisclustered,i.indisvalid,
+                 i.indcheckxmin,i.indisready,i.indislive,i.indisreplident)::text)
         FROM pg_catalog.pg_class p JOIN pg_catalog.pg_class t ON t.oid=p.reltoastrelid
         JOIN pg_catalog.pg_am tam ON tam.oid=t.relam
         JOIN pg_catalog.pg_index i ON i.indrelid=t.oid
         JOIN pg_catalog.pg_class x ON x.oid=i.indexrelid
         JOIN pg_catalog.pg_am xam ON xam.oid=x.relam
         LEFT JOIN pg_catalog.pg_tablespace ts ON ts.oid=t.reltablespace
+        LEFT JOIN pg_catalog.pg_tablespace xs ON xs.oid=x.reltablespace
        WHERE p.relnamespace=esquema
       UNION ALL
       SELECT pg_catalog.format('pol|%s|%s|%s|%s|%s|%s|%s|%s',p.polrelid::regclass::text,
-               p.polname,p.polcmd,p.polpermissive,p.polroles::text,
+               p.polname,p.polcmd,p.polpermissive,
+               coalesce((SELECT pg_catalog.string_agg(
+                 CASE WHEN r.rol=0 THEN 'PUBLIC'
+                      ELSE pg_catalog.pg_get_userbyid(r.rol) END,',' ORDER BY
+                 CASE WHEN r.rol=0 THEN 'PUBLIC'
+                      ELSE pg_catalog.pg_get_userbyid(r.rol) END)
+                 FROM pg_catalog.unnest(p.polroles) r(rol)),''),
                pg_catalog.pg_get_expr(p.polqual,p.polrelid),
                pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid),
                coalesce(pg_catalog.obj_description(p.oid,'pg_policy'),''))
@@ -385,7 +423,7 @@ BEGIN
     SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
              pg_catalog.string_agg(e,E'\n' ORDER BY e),'UTF8')),'hex')
       INTO observado FROM elementos;
-    IF observado IS DISTINCT FROM 'b4ea9332a2ac5cf86359abfb7c698fbb224b807874c06a0c0e3acc4e8a423e1d' THEN
+    IF observado IS DISTINCT FROM '9b9bea06215f1619fa2f39275b40b07b1ae31b9a4d22444cf7e408efe8629916' THEN
         RAISE EXCEPTION USING ERRCODE='55000',
           MESSAGE='retirada rechazada: manifiesto simbolico no acreditado',
           DETAIL='huella observada '||coalesce(observado,'<ausente>');

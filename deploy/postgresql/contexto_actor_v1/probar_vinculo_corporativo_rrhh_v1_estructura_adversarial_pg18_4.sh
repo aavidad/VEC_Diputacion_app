@@ -125,6 +125,15 @@ huella_filas_base() {
     sed -E '/^\\(un)?restrict /d' | sha256sum | cut -d' ' -f1
 }
 
+# Limita la comparación al esquema gobernado A; las funciones externas de
+# public son deliberadamente ajenas y se acreditan por una huella separada.
+huella_catalogal_a() {
+  docker exec --env PGPASSWORD="$clave" "$contenedor" pg_dump \
+    -h 127.0.0.1 -U postgres -d "$base" --schema-only \
+    --schema=vec_contexto_actor_v1 |
+    sed -E '/^\\(un)?restrict /d' | sha256sum | cut -d' ' -f1
+}
+
 huella_funciones_externas() {
   consulta "SELECT encode(sha256(convert_to(string_agg(format(
     '%s|%s|%s',p.oid::regprocedure::text,pg_get_userbyid(p.proowner),
@@ -164,8 +173,34 @@ END
 $base$;
 REVOKE ALL ON DATABASE postgres FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
+CREATE ROLE c22b_desplazamiento_oid_01 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_02 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_03 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_04 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_05 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_06 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_07 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE c22b_desplazamiento_oid_08 NOLOGIN NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 SQL
 psql_archivo "$roles"
+[[ $(consulta "SELECT count(*)=8 AND bool_and(oid < (
+  SELECT oid FROM pg_catalog.pg_authid
+   WHERE rolname='vec_contexto_actor_v1_propietario'))
+ FROM pg_catalog.pg_authid
+ WHERE rolname=ANY(ARRAY[
+  'c22b_desplazamiento_oid_01','c22b_desplazamiento_oid_02',
+  'c22b_desplazamiento_oid_03','c22b_desplazamiento_oid_04',
+  'c22b_desplazamiento_oid_05','c22b_desplazamiento_oid_06',
+  'c22b_desplazamiento_oid_07','c22b_desplazamiento_oid_08'])") == t ]] ||
+  fallar 'la regresion no desplazo los OID de los roles gobernados'
 psql_archivo "$up_1"
 psql_archivo "$up_2"
 psql_archivo "$roles_selector"
@@ -185,8 +220,9 @@ REVOKE ALL ON FUNCTION public.c22b_externa_inocua(integer)
   FROM PUBLIC, vec_contexto_actor_v1_runtime;
 SQL
 huella_a=$(huella)
+huella_catalogal_a_inicial=$(huella_catalogal_a)
 
-# Casos 1-3: atomicidad, instalacion literal y reentrada cerrada.
+# B1, caso 1: atomicidad, instalacion literal y reentrada cerrada.
 psql_sql <<'SQL'
 SET ROLE vec_contexto_actor_v1_propietario;
 ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text) VOLATILE;
@@ -196,6 +232,15 @@ exigir_fallo_intacto 'funcion predecesora hostil' up_reentrada
 psql_sql <<'SQL'
 SET ROLE vec_contexto_actor_v1_propietario;
 ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text) IMMUTABLE;
+ALTER TABLE vec_contexto_actor_v1.organizacion_versiones
+  SET (toast.autovacuum_enabled=false);
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'opcion TOAST predecesora hostil' up_reentrada
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.organizacion_versiones
+  RESET (toast.autovacuum_enabled);
 ALTER TABLE vec_contexto_actor_v1.perfil_versiones
   ALTER COLUMN persona_ref SET STORAGE MAIN;
 RESET ROLE;
@@ -308,17 +353,17 @@ REVOKE ALL ON FUNCTION public.c22b_externa_posterior(text)
 SQL
 huella_externas=$(huella_funciones_externas)
 
-# Casos 4-5: forma catalogal y relaciones/datos adversariales focales.
+# B1, casos 2-7: forma, relaciones, integridad, inmutabilidad y acceso.
 psql_archivo "$estructura"
 psql_archivo "$integridad"
 
-# Casos 6-8: orden de migraciones y doble confirmacion de retirada.
+# B1, casos 8-9: orden de migraciones y confirmacion de retirada.
 exigir_fallo_intacto 'retirada 000002 con C2.2-B presente' retirar_000002
 exigir_fallo_intacto 'retirada 000003 con C2.2-B presente' retirar_000003
 exigir_fallo_intacto 'retirada B sin confirmacion' down_sin_confirmacion
 exigir_fallo_intacto 'retirada B con confirmacion incorrecta' retirar_mal
 
-# Casos 9-10: deriva catalogal hostil se rechaza y puede restaurarse.
+# B1, caso 9: toda deriva o dependencia hostil impide la retirada.
 psql_sql <<'SQL'
 GRANT vec_contexto_actor_corporativo_rrhh_selector TO c22b_login
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
@@ -332,6 +377,15 @@ exigir_fallo_intacto 'retirada con ajuste persistente hostil de LOGIN' retirar
 psql_sql <<'SQL'
 ALTER ROLE c22b_login RESET ALL;
 SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_actual
+  REPLICA IDENTITY USING INDEX vinculo_corporativo_actual_pk;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'retirada con identidad de replica hostil' retirar
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_actual
+  REPLICA IDENTITY DEFAULT;
 ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text)
   SECURITY DEFINER;
 RESET ROLE;
@@ -474,7 +528,7 @@ DROP TABLE vec_contexto_actor_v1.c22b_000005_sintetica;
 RESET ROLE;
 SQL
 
-# Caso 11: cualquier evidencia de B impide retirarla y no altera el estado.
+# B1, caso 9: cualquier evidencia de B impide retirarla sin alterar estado.
 restaurar_generacion=$(consulta "SELECT format(
  'UPDATE vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 SET generacion=%s, actualizada_en=%L',
  generacion,actualizada_en) FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2")
@@ -507,6 +561,8 @@ psql_archivo "$fixtures_base"
 huella_base_poblada=$(huella_filas_base)
 generacion_base_poblada=$(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2')
 retirar
+[[ $(huella_catalogal_a) == "$huella_catalogal_a_inicial" ]] ||
+  fallar 'la primera retirada altero el catalogo focal de A'
 [[ $(huella_filas_base) == "$huella_base_poblada" ]] ||
   fallar 'la retirada altero filas de A pobladas'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_base_poblada" ]] ||
@@ -514,10 +570,12 @@ retirar
 [[ $(huella_funciones_externas) == "$huella_externas" ]] ||
   fallar 'la retirada altero funciones externas inocuas'
 
-# Casos 12-13: reinstalacion desde A y segunda retirada exacta.
+# B1, caso 10: reinstalacion y preservacion; caso 13: limpieza por trap.
 psql_archivo "$up"
 psql_archivo "$estructura"
 retirar
+[[ $(huella_catalogal_a) == "$huella_catalogal_a_inicial" ]] ||
+  fallar 'el segundo ciclo altero el catalogo focal de A'
 [[ $(huella_filas_base) == "$huella_base_poblada" ]] ||
   fallar 'el segundo ciclo altero filas de A pobladas'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_base_poblada" ]] ||
