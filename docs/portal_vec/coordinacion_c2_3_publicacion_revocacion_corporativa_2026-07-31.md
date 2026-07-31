@@ -2,16 +2,15 @@
 
 Fecha: 31 de julio de 2026.
 
-Estado: **diseño técnico cerrado; implementación pendiente; producción
+Estado: **diseño corregido tras NO-GO; implementación pendiente; producción
 NO-GO**.
 
 Base inventariada: `51a4390066ab19031fbe4e6ac9696372f3c801b0` de
 `integracion/ct-o4-04e-20260726`.
 
-## Resultado único
+## Resultado y límites
 
-C2.3 aportará cuatro actos nominales, separados y gobernados, para avanzar las
-historias de organización y vínculo corporativo creadas por C2.2:
+C2.3 aportará cuatro actos exteriores, separados y gobernados:
 
 ```text
 publicar organización
@@ -20,730 +19,764 @@ publicar vínculo corporativo RRHH
 revocar vínculo corporativo RRHH
 ```
 
-Cada acto realizará en una sola transacción `SERIALIZABLE READ WRITE` la
-reacreditación del login técnico, el consumo del recibo de fuente, el control
-optimista de versión, la inserción histórica, el avance del puntero, la
-evidencia de operación, la auditoría y el outbox. La repetición exacta
-devolverá el mismo resultado confirmado; una colisión o un resultado incierto
-no se convertirán en éxito.
+Cada acto confirmará en una transacción `SERIALIZABLE READ WRITE` la
+acreditación durable del actor, el control optimista, la historia, el puntero,
+la operación, la auditoría y el outbox. Replay exacto devuelve el mismo
+resultado; colisión, indisponibilidad o `COMMIT` incierto nunca equivalen a
+éxito.
 
-C2.3 no selecciona perfiles u organizaciones, no crea el recibo corporativo
-de consulta, no consulta el PDP y no expone HTTP, web, CLI o MCP. Es una
-capacidad de gobierno interna de `vec_contexto_actor_v1`, no una nueva fuente
-maestra.
+C2.3 no selecciona candidatos, no crea el recibo corporativo 1:1, no consulta
+el PDP y no expone HTTP, web, CLI o MCP. ContextoActor materializa una fuente
+gobernada; no se convierte en fuente maestra.
 
-## Inventario y dependencias acreditadas
-
-La implementación parte de piezas cerradas y no las duplica:
-
-- `000001` posee procedencias, cuenta, persona, perfil, vínculo base y sus
-  punteros;
-- `000002` posee la generación y la serialización comunes de punteros;
-- `000003` posee `organizacion_versiones` y `organizacion_actual`;
-- `000004` posee `vinculo_corporativo_versiones` y
-  `vinculo_corporativo_actual`;
-- C2.2-A y C2.2-B fijan historia de solo adición, RLS forzada, ACL cerrada,
-  procedencias completas y punteros que pueden apuntar a una versión
-  revocada;
-- el rol `vec_contexto_actor_corporativo_rrhh_selector` conserva solo
-  `CONNECT` y no se reutiliza para escribir;
-- no existe todavía `000005`, rol publicador, rol revocador, función de estos
-  actos, adaptador Go ni composición productiva.
-
-Fuentes de esta coordinación:
+Fuentes vinculantes:
 
 - [decisión de contexto corporativo](decision_contexto_corporativo_rrhh_ct_000047c2_2026-07-30.md);
 - [decisión C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md);
-- [coordinación de organización](coordinacion_c2_2_a_organizacion_corporativa_2026-07-31.md);
-- [coordinación de vínculo](coordinacion_c2_2_b_vinculo_corporativo_2026-07-31.md);
+- [coordinación C2.2-A](coordinacion_c2_2_a_organizacion_corporativa_2026-07-31.md);
+- [coordinación C2.2-B](coordinacion_c2_2_b_vinculo_corporativo_2026-07-31.md);
 - [revisión final C2.2-B](revisiones/revision_c2_2_b_vinculo_corporativo_2026-07-31.md);
-- [matriz normativa de contratación temporal](matriz_normativa_contratacion_temporal_2026-07-23.md).
+- [matriz normativa](matriz_normativa_contratacion_temporal_2026-07-23.md).
 
-La reserva permanece:
+La base cerrada se reutiliza: `000001` posee procedencias y actores; `000002`,
+la generación y serialización comunes; `000003`, organización; `000004`,
+vínculo corporativo. El selector conserva solo `CONNECT` y nunca escribe.
+
+## Numeración corregida
+
+La reserva anterior de un único `000005` no permite aislar persistencia,
+acreditación y cuatro fachadas bajo el límite de 800 líneas. Se sustituye,
+antes de programar, por esta reserva formal:
 
 ```text
-000005  publicación y revocación C2.3
-000006  selección y recibo privado C2.4
-000007  fachada y reconciliación corporativa C2.5
-000008  acreditación nominal C2.8
+000005  presentación fuerte del actor C2.3
+000006  publicación de aprobación durable C2.3
+000007  revocación de aprobación durable C2.3
+000008  diario de operaciones C2.3
+000009  auditoría C2.3
+000010  outbox C2.3
+000011  publicación de acreditación C2.3
+000012  revocación de acreditación C2.3
+000013  publicación de organización C2.3
+000014  revocación de organización C2.3
+000015  publicación de vínculo C2.3
+000016  revocación de vínculo C2.3
+000017..000024  reserva cerrada para subdivisión C2.3; no reutilizable
+000025  selección y recibo privado C2.4
+000026  fachada y reconciliación corporativa C2.5
+000027  acreditación nominal de uso C2.8
 ```
 
-No se consume ni se renumera `000006..000008`. Si los documentos autónomos de
-`000005` no pueden respetar el tope duro de 800 líneas, la tarea SQL se detiene
-y dirección divide formalmente la reserva antes de escribir código. No se
-ocultan componentes mediante `\ir`, concatenación, SQL generado o un
-empaquetador no existente.
+`000008..000010` son puertos internos completos, cada uno con fachada privada
+nominal que constituye su consumidor, retirada y runner propios; ningún rol
+exterior puede ejecutarla. `000011` compone los tres sin exponerlos. No se usan
+`\ir`, SQL generado,
+concatenación ni un empaquetador oculto. Cada `up/down` es autónomo, literal,
+transaccional y menor de 800 líneas. Cada `down` rechaza si permanece cualquiera
+de sus consumidores posteriores; el orden de retirada es estrictamente
+`000016→…→000005`.
 
-## Autoridad y separación de funciones
+## Roles y raíz de autoridad
 
-Se crean dos grupos técnicos distintos:
+Se crean cuatro grupos `NOLOGIN`, sin atributos administrativos, contraseña,
+caducidad, ajustes ni membresías entre ellos:
 
 ```text
+vec_contexto_actor_gobierno_corporativo_acreditador
+vec_contexto_actor_gobierno_corporativo_aprobador
 vec_contexto_actor_corporativo_rrhh_publicador
 vec_contexto_actor_corporativo_rrhh_revocador
 ```
 
-Ambos son `NOLOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`,
-`NOREPLICATION`, `NOBYPASSRLS`, `NOINHERIT`, sin contraseña, caducidad,
-parámetros, membresías o atributos administrativos. Al nacer reciben solo
-`CONNECT` a la base actual y ninguna capacidad funcional.
+Al nacer reciben solo `CONNECT`. `000005` concede a los cuatro grupos solo la
+presentación de su propia prueba. `000006/000007` conceden al aprobador una
+fachada nominal cada una. `000011/000012` hacen lo mismo con el acreditador.
+`000013/000015` conceden al publicador una publicación y `000014/000016`, al
+revocador cada retirada. Ninguno obtiene tablas,
+columnas, secuencias, funciones privadas, `CREATE`, `TEMPORARY`, `MAINTAIN`,
+`TRUNCATE`, DML directo o `SET ROLE`.
 
-`000005` concede después:
+Un consumidor debe ser `LOGIN INHERIT`, no administrativo, miembro directo de
+un solo grupo mediante `ADMIN=false, INHERIT=true, SET=false`. Se rechazan
+membresías directas o transitivas adicionales, incluso selector, propietario,
+migrador o runtime. Publicador, revocador, aprobador y acreditador usan identidades y
+pools físicos distintos.
 
-| Grupo | Únicos actos ejecutables |
-| --- | --- |
-| publicador | publicar organización; publicar vínculo |
-| revocador | revocar organización; revocar vínculo |
+La acreditación técnica se comprueba antes de esperar y después de todos los
+locks, justo antes del reloj y del efecto. La identidad se deriva solo de
+`session_user`; no llega por argumento, JSON, cookie, cabecera o configuración.
 
-La concesión exacta comprende solo `USAGE` del esquema y `EXECUTE` de esas dos
-fachadas. No concede lectura de tablas o columnas, secuencias, funciones
-privadas, tipos ajenos a la firma, `CREATE`, `TEMPORARY`, `MAINTAIN`,
-`TRUNCATE`, escritura directa ni `SET ROLE`.
+Los `LOGIN` y secretos los crea Sistemas fuera de Git. Cualquier cambio de
+rol/membresía debe respetar las barreras de este documento. Sin procedimiento
+operativo compatible, producción queda cerrada.
 
-Los grupos publicador, revocador y selector son disjuntos. Una función exige
-que `session_user` sea un `LOGIN INHERIT` no administrativo, miembro directo
-de un solo grupo funcional mediante `ADMIN OPTION = false`,
-`INHERIT OPTION = true` y `SET OPTION = false`. Rechaza membresía directa o
-transitiva en el grupo contrario, selector, propietario, migrador, runtime u
-otro grupo de ContextoActor. La identidad del actor nunca llega por parámetro,
-JSON, cookie, cabecera o configuración libre.
+## Acreditación durable actor–autoridades
 
-La acreditación se ejecuta dos veces: antes de esperar cualquier bloqueo y de
-nuevo después de adquirir todas las barreras y locks, inmediatamente antes del
-reloj y del primer efecto. Un `GRANT`, `REVOKE`, `ALTER ROLE` o retirada que
-gane la carrera provoca denegación o rollback, nunca continuidad con una
-autoridad observada antes de la espera.
+Un rol funcional no basta: permitiría atribuir a otra fuente maestra un dato
+presentado por el mismo grupo. `000011` incorpora una acreditación de solo adición,
+versionada, revocable y única por `(actor_tecnico_oid, acto)`.
 
-Los `LOGIN` concretos, su autenticación, rotación y membresía se crean fuera
-de Git por Sistemas. Publicación y revocación deben usar identidades técnicas
-distintas. Una cuenta humana, compartida o con ambos grupos mantiene
-producción cerrada.
+Cada versión compromete:
 
-## Cuatro fachadas nominales
+- `acreditacion_ref`, versión y estado;
+- OID y nombre exactos del `LOGIN` objetivo;
+- quinteto de prueba fuerte: tipo, principal, referencia, versión y huella;
+- OID y nombre del grupo funcional permitido;
+- uno de los cuatro actos nominales;
+- cuarteto de procedencia permitido;
+- cuarteto del generador opaco, obligatorio solo al publicar organización;
+- cuarteto de autoridad del catálogo de motivos;
+- aprobación: referencia, versión y huella, mediante FK durable;
+- ventana `[vigente_desde,vigente_hasta)`;
+- `session_user` acreditador por OID/nombre, operación e instante.
 
-Las únicas funciones exteriores de `000005` serán:
+OID y nombre se cotejan juntos con `pg_authid`, atributos y membresía exacta.
+`000005` impone enrolamiento en dos tiempos: el futuro actor, desde su propio
+pool, llama a `presentar_prueba_actor_gobierno_v1`, sin argumentos de
+identidad. SQL deriva `session_user`, OID y prueba del backend y guarda una
+presentación versionada, de uso único y con caducidad. GSSAPI exige
+`pg_stat_gssapi` autenticada y cifrada; mTLS, `pg_stat_ssl` con DN, emisor y
+serie más `pg_hba.conf` acreditado con verificación completa. La historia es
+inmutable; el uso inserta un consumo único y avanza el puntero por CAS. Otro
+método falla.
+
+La firma exacta es
+`presentar_prueba_actor_gobierno_v1(p_operacion_ref text,
+p_caduca_en timestamptz,p_preimagen_huella_sha256 text)`. Retorna exactamente
+`TABLE(presentacion_ref text,version numeric,actor_oid oid,actor_nombre name,
+grupo_oid oid,grupo_nombre name,prueba_huella_sha256 text,presentada_en
+timestamptz,caduca_en timestamptz,generacion numeric)`. La referencia es
+`pra_` más hex completo de SHA-256 de
+`VEC-C2.3-ID-PRUEBA-V1\0||UTF8(p_operacion_ref)`; su preimagen usa
+`VEC-C2.3-PRESENTACION-V1\0` y ordena argumentos, identidad/prueba derivadas,
+grupo y reloj. Replay exacto devuelve la misma fila.
+
+Después, el acreditador aporta solo referencia, versión y huella de esa
+presentación. `000011` la bloquea, relee el backend objetivo persistido, exige
+que siga vigente/no consumida y la consume en el mismo `COMMIT` que la
+acreditación. Así el backend acreditador nunca pretende probar al actor futuro.
+Un rol borrado/recreado o renombrado deja de acreditar aunque conserve el
+texto. Tras restaurar una base, Sistemas debe reacreditar los actores dentro
+del procedimiento de recuperación; no se confía en coincidencias de OID.
+
+La acreditación no acepta fuente, generador, motivo, actor o acto elegidos por
+el futuro publicador. Los fija el acreditador nominal bajo una aprobación
+externa. La función de negocio exige coincidencia byte a byte con la versión
+actual, activa y vigente. Cero, varias, revocada, caducada o adelantada
+producen la misma denegación.
+Además vuelve a derivar la prueba del backend funcional y exige coincidencia
+con el quinteto acreditado; ningún campo de prueba llega en la llamada.
+
+El recibo de fuente aportado a una operación es solo evidencia de correlación:
+no concede autoridad y no se considera firma. La autoridad procede de
+`session_user` más la acreditación durable. Si RRHH/Sistemas exigen prueba
+criptográfica del recibo, se añadirá un verificador nominal y versión nueva;
+producción no puede activarse antes de decidirlo.
+
+`000006` crea `aprobacion_gobierno_corporativo_versiones/actual`; `000007`
+añade su revocación. Cada versión
+inmutable liga referencia, versión, estado, actor OID/nombre, actos, cuartetos
+de fuente/generador/motivos, ventana, autoridad aprobadora OID/nombre y huella
+canónica. Las fachadas nominales `publicar_aprobacion_gobierno_v1` y
+`revocar_aprobacion_gobierno_v1` derivan al aprobador y su prueba fuerte del
+backend vivo; no aceptan una autoridad textual. `000011/000012` exigen
+FK completa a la versión, puntero actual exacto, estado activo y vigencia
+post-lock. El modelo raíz de esa autoridad y su procedimiento de alta requieren
+aprobación de RRHH, Seguridad y DPD; hasta entonces producción sigue NO-GO.
+
+Sus firmas escalares exactas son:
 
 ```sql
-vec_contexto_actor_v1.publicar_organizacion_corporativa_v1(...)
-vec_contexto_actor_v1.revocar_organizacion_corporativa_v1(...)
-vec_contexto_actor_v1.publicar_vinculo_corporativo_rrhh_v1(...)
-vec_contexto_actor_v1.revocar_vinculo_corporativo_rrhh_v1(...)
+vec_contexto_actor_v1.publicar_aprobacion_gobierno_v1(
+  p_operacion_ref text, p_aprobacion_ref text, p_version_esperada numeric,
+  p_actor_oid oid, p_actor_nombre name, p_acto text,
+  p_procedencia_ref text, p_procedencia_version numeric,
+  p_procedencia_huella_sha256 text, p_procedencia_autoridad text,
+  p_generador_ref text, p_generador_version numeric,
+  p_generador_huella_sha256 text, p_generador_autoridad text,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_vigente_hasta timestamptz,
+  p_correlacion_ref text,
+  p_preimagen_huella_sha256 text)
+vec_contexto_actor_v1.revocar_aprobacion_gobierno_v1(
+  p_operacion_ref text, p_aprobacion_ref text, p_version_esperada numeric,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_correlacion_ref text,
+  p_preimagen_huella_sha256 text)
 ```
 
-No habrá una fachada genérica con `tipo_entidad`, `accion`, `estado` o nombre
-de función aportados por el llamante. Las cuatro firmas usarán argumentos
-escalares cerrados; no aceptarán un objeto JSON extensible. Cada una tendrá
-`SECURITY DEFINER`, propietario exacto, `search_path=pg_catalog`, ACL cerrada,
-límites finitos y mensaje público opaco. Antes de continuar comprueba que la
-transacción sea `SERIALIZABLE`, de lectura/escritura y no diferible; invocarla
-en autocommit con el aislamiento predeterminado o en solo lectura falla.
+Ambas retornan doce columnas con los mismos nombres/tipos del resultado de
+gobierno, pero proceden íntegramente de la fila de aprobación: sus referencias
+de operación/auditoría/evento y huellas están embebidas y restringidas allí.
+No leen ni referencian `000008..000010`; el aprobador y su prueba fuerte se
+derivan siempre del backend. Por ello `000006/000007` son verticales completas.
 
-Acción, finalidad y ámbito son compromisos técnicos exactos, no parámetros
-libres:
+Las fachadas administrativas de `000011/000012` son:
 
-| Acto | Acción V1 | Finalidad V1 | Ámbito V1 |
+```sql
+vec_contexto_actor_v1.publicar_acreditacion_gobierno_corporativo_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_version_esperada numeric, p_actor_tecnico_oid oid,
+  p_actor_tecnico_nombre name, p_prueba_actor_ref text,
+  p_prueba_actor_version numeric, p_prueba_actor_huella_sha256 text,
+  p_acto text,
+  p_procedencia_ref text, p_procedencia_version numeric,
+  p_procedencia_huella_sha256 text, p_procedencia_autoridad text,
+  p_generador_ref text, p_generador_version numeric,
+  p_generador_huella_sha256 text, p_generador_autoridad text,
+  p_prueba_generacion_ref text, p_prueba_generacion_huella_sha256 text,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_aprobacion_ref text, p_aprobacion_version numeric,
+  p_aprobacion_huella_sha256 text, p_vigente_hasta timestamptz,
+  p_motivo_gobierno_ref text, p_motivo_gobierno_version numeric,
+  p_motivo_gobierno_huella_sha256 text, p_correlacion_ref text,
+  p_preimagen_huella_sha256 text
+)
+
+vec_contexto_actor_v1.revocar_acreditacion_gobierno_corporativo_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_version_esperada numeric, p_aprobacion_ref text,
+  p_aprobacion_version numeric, p_aprobacion_huella_sha256 text,
+  p_motivo_gobierno_ref text, p_motivo_gobierno_version numeric,
+  p_motivo_gobierno_huella_sha256 text, p_correlacion_ref text,
+  p_preimagen_huella_sha256 text
+)
+```
+
+El grupo funcional se deriva de `p_acto`; no es argumento. Revocar copia el
+vínculo acreditado y crea la versión consecutiva `revocado`; nunca lo cambia.
+Ambas fachadas retornan la tabla exacta de doce columnas definida más abajo.
+
+## Persistencia exacta
+
+Todas las tablas son permanentes, del propietario ContextoActor, con RLS
+activada/forzada, política única del propietario, ACL de tabla/columna/tipo
+cerrada. Historias rechazan `UPDATE/DELETE/TRUNCATE`; punteros solo admiten CAS
+por fachada y los consumos son filas de solo adición. Versiones nuevas y
+generación son `numeric(20,0)` enteras en `1..2^64-1`; solo
+`version_esperada` admite `0..2^64-1`; huellas son 64
+hexadecimales minúsculos; instantes son `timestamptz(6)` UTC finitos.
+
+### Enrolamiento y aprobación — `000005..000007`
+
+`presentacion_prueba_actor_versiones` contiene exactamente `presentacion_ref`,
+`version`, `actor_oid`, `actor_nombre`, `grupo_oid`, `grupo_nombre`,
+`prueba_tipo`, `prueba_principal`, `prueba_ref`, `prueba_version`,
+`prueba_huella_sha256`, `estado`, `operacion_ref`, `preimagen_esquema`,
+`preimagen_canon`, `preimagen_huella_sha256`, `resultado_huella_sha256`,
+`generacion`, `presentada_en`, `caduca_en`, `consumida_operacion_ref` y
+`consumida_en`. La tabla
+`presentacion_prueba_actor_actual` contiene exactamente `actor_oid`,
+`grupo_oid`, `presentacion_ref`, `version`. Presentar crea versión 1 `presentada`;
+consumir inserta la versión 2 `consumida`, copiando la prueba, y avanza puntero
+por CAS. PK/FK, unicidades, ventana, estados y nulidad conjunta del consumo son
+nominales e inmediatos; historia nunca se actualiza. Tipos son los ya fijados;
+solo los dos campos de consumo son nulos en versión 1.
+
+`aprobacion_gobierno_corporativo_versiones` contiene exactamente
+`aprobacion_ref`, `version`, `estado`, `actor_oid`, `actor_nombre`, `acto`,
+los doce campos `procedencia_*`/`generador_*`/`motivos_*`,
+`vigente_desde`, `vigente_hasta`, `aprobador_oid`, `aprobador_nombre`,
+los cinco campos `aprobador_prueba_*`,
+`aprobacion_huella_sha256`, `operacion_ref`, `auditoria_ref`, `evento_ref`,
+`motivo_ref`, `motivo_version`, `motivo_huella_sha256`, `correlacion_ref`,
+`preimagen_esquema`, `preimagen_canon`, `preimagen_huella_sha256`,
+`recibo_efecto_ref`, `resultado_huella_sha256`, `auditoria_huella_sha256`,
+`evento_payload_canon`, `evento_huella_sha256`, `generacion`, `inscrita_en`.
+Su puntero es
+`(aprobacion_ref,version)`. PK, FK completas, estado, ventana, nulidad del
+generador y alcance son restricciones nominales no diferibles. Una revocación
+añade versión; nunca muta historia.
+Aplican los mismos tipos por sufijo y todos son `NOT NULL`, salvo el cuarteto
+generador cuando ningún acto aprobado publica organización.
+
+### `operacion_gobierno_corporativo_v1` — `000008`
+
+| Columnas exactas | Tipo/condición |
+| --- | --- |
+| `operacion_ref` | `text PK`, `opc_` + 22..128 ASCII seguros |
+| `acto`, `finalidad`, `ambito` | `text NOT NULL`, seis actos y literales exactos |
+| `entidad_ref` | `text NOT NULL`, gramática nominal según acto |
+| `actor_tecnico_oid`, `actor_tecnico_nombre` | `oid`, `name`, ambos `NOT NULL` |
+| `actor_prueba_tipo`, `actor_prueba_principal`, `actor_prueba_ref`, `actor_prueba_version`, `actor_prueba_huella_sha256` | `text,text,text,numeric(20,0),text`, derivado del backend y `NOT NULL` |
+| `acreditacion_ref`, `acreditacion_version` | `text`, `numeric(20,0)`, ambos `NOT NULL`; autorizante en negocio y objetivo en acreditación |
+| `version_esperada`, `version_nueva`, `estado_resultante` | dos `numeric(20,0)`, `text`; checks CAS/estado |
+| `procedencia_ref`, `procedencia_version`, `procedencia_huella_sha256`, `procedencia_autoridad` | `text,numeric(20,0),text,text`, `NOT NULL` en los seis actos |
+| `generador_ref`, `generador_version`, `generador_huella_sha256`, `generador_autoridad` | mismos tipos; obligatorio al publicar organización o acreditar ese acto |
+| `prueba_generacion_ref`, `prueba_generacion_huella_sha256` | `text`; mismo criterio de nulidad |
+| `motivos_ref`, `motivos_version`, `motivos_huella_sha256`, `motivos_autoridad` | `text,numeric(20,0),text,text`, `NOT NULL` en los seis actos |
+| `motivo_ref`, `motivo_version`, `motivo_huella_sha256` | `text,numeric(20,0),text`, exacto y `NOT NULL` en los seis actos |
+| `recibo_fuente_ref`, `recibo_fuente_huella_sha256`, `recibo_fuente_caduca_en` | `text UNIQUE,text,timestamptz(6)`; nulos solo en acreditación |
+| `correlacion_ref` | `text NOT NULL`, `cor_` + 22..128 |
+| `preimagen_esquema`, `preimagen_canon`, `preimagen_huella_sha256` | `text,bytea,text`; canon 1..32768 bytes |
+| `recibo_efecto_ref`, `resultado_huella_sha256` | `text UNIQUE,text NOT NULL` |
+| `auditoria_ref`, `evento_ref` | `text UNIQUE NOT NULL` |
+| `confirmada_en`, `generacion` | `timestamptz(6),numeric(20,0) NOT NULL` |
+
+`operacion_ref` y `recibo_fuente_ref` son únicos para los seis actos. Las
+restricciones `CHECK` cruzan nulidad, acto, estado, versiones, autoridad,
+prefijos, ventanas y huellas; no se delegan a la aplicación.
+
+### `auditoria_gobierno_corporativo_v1` — `000009`
+
+Columnas exactas: `auditoria_ref text PK`, `operacion_ref text UNIQUE FK`,
+`acto text`, `finalidad text`, `ambito text`, `entidad_ref text`,
+`actor_tecnico_oid oid`, `actor_tecnico_nombre name`, `acreditacion_ref text`,
+`acreditacion_version numeric(20,0)`, `version_anterior numeric(20,0)`,
+`version_nueva numeric(20,0)`, `huella_antes text`, `huella_despues text`,
+`motivo_ref text`, `motivo_version numeric(20,0)`, `motivo_huella_sha256 text`,
+`correlacion_ref text`, `ocurrida_en timestamptz(6)` y
+`entrada_huella_sha256 text`; todas `NOT NULL`, salvo `huella_antes` en alta.
+
+### `outbox_gobierno_corporativo_v1` — `000010`
+
+Columnas exactas: `evento_ref text PK`, `operacion_ref text UNIQUE FK`,
+`auditoria_ref text UNIQUE FK`, `tipo_evento text`, `acto text`,
+`finalidad text`, `ambito text`, `entidad_ref text`,
+`entidad_version numeric(20,0)`, `estado text`, `payload_canon bytea`,
+`payload_huella_sha256 text` y `creado_en timestamptz(6)`, todas `NOT NULL`.
+El payload mide 1..32768 bytes y solo contiene referencias opacas.
+
+No hay FK circular: `auditoria` posee unicidad
+`(operacion_ref,auditoria_ref)` y FK de `operacion_ref`; `outbox` posee FKs
+completas `(operacion_ref,auditoria_ref)` y `operacion_ref`. En la operación,
+`auditoria_ref`, `evento_ref` y `recibo_efecto_ref` tienen `CHECK` contra las
+derivaciones nominales del canon; auditoría y outbox repiten el check de su
+propia referencia. Por tanto una combinación cruzada no puede
+satisfacer simultáneamente checks, unicidades y FKs inmediatas `NO ACTION`.
+
+### Acreditación — `000011/000012`
+
+`acreditacion_gobierno_corporativo_versiones` contiene exactamente:
+`acreditacion_ref text`, `version numeric(20,0)`, `estado text`,
+`actor_tecnico_oid oid`, `actor_tecnico_nombre name`, `grupo_funcional_oid oid`,
+`grupo_funcional_nombre name`, `prueba_actor_tipo text`,
+`prueba_actor_principal text`, `prueba_actor_ref text`,
+`prueba_actor_version numeric(20,0)`, `prueba_actor_huella_sha256 text`,
+`presentacion_prueba_ref text`, `presentacion_prueba_version numeric(20,0)`,
+`presentacion_prueba_huella_sha256 text`,
+`acto text`, `procedencia_ref text`,
+`procedencia_version numeric(20,0)`, `procedencia_huella_sha256 text`,
+`procedencia_autoridad text`, `generador_ref text`,
+`generador_version numeric(20,0)`, `generador_huella_sha256 text`,
+`generador_autoridad text`, `prueba_generacion_ref text`,
+`prueba_generacion_huella_sha256 text`, `motivos_ref text`,
+`motivos_version numeric(20,0)`, `motivos_huella_sha256 text`,
+`motivos_autoridad text`, `aprobacion_ref text`,
+`aprobacion_version numeric(20,0)`, `aprobacion_huella_sha256 text`,
+`vigente_desde timestamptz(6)`, `vigente_hasta timestamptz(6)`,
+`acreditador_oid oid`, `acreditador_nombre name`, `operacion_ref text` e
+`inscrita_en timestamptz(6)`. Todos son `NOT NULL`, salvo el cuarteto generador
+y su prueba en los tres actos que no publican organización. PK
+`(acreditacion_ref,version)`, unicidad
+`(actor_tecnico_oid,acto,acreditacion_ref,version)`, FK de operación, FK
+completa de aprobación y, en el alta, FK a la presentación fuerte consumida.
+Los `CHECK` cierran estado, acto, grupo derivado, prueba fuerte, versión,
+ventana, referencias, huellas y la nulidad cruzada del generador.
+
+`acreditacion_gobierno_corporativo_actual` contiene exactamente
+`actor_tecnico_oid oid`, `acto text`, `acreditacion_ref text`,
+`version numeric(20,0)`; PK `(actor_tecnico_oid,acto)` y FK completa a la
+historia. Usa los tres triggers de generación de `000002`.
+
+No se usa `MAX(version)`, puntero implícito, borrado lógico mutable ni
+restricción diferible. El runner congelará orden, tipos, `attnotnull`, checks,
+FK, acciones `NO ACTION`, índices, triggers, ACL, políticas y comentarios.
+
+## Firmas exactas de los cuatro actos
+
+Las fachadas son `SECURITY DEFINER`, propietario exacto,
+`search_path=pg_catalog`, sin argumentos por defecto, variádicos, `OUT` ocultos
+ni sobre JSON. Exigen transacción `SERIALIZABLE`, escritura y no diferible.
+
+```sql
+vec_contexto_actor_v1.publicar_organizacion_corporativa_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_acreditacion_version numeric, p_organizacion_ref text,
+  p_version_esperada numeric, p_procedencia_ref text,
+  p_procedencia_version numeric, p_procedencia_huella_sha256 text,
+  p_procedencia_autoridad text, p_generador_ref text,
+  p_generador_version numeric, p_generador_huella_sha256 text,
+  p_generador_autoridad text, p_prueba_generacion_ref text,
+  p_prueba_generacion_huella_sha256 text, p_recibo_fuente_ref text,
+  p_recibo_fuente_huella_sha256 text, p_recibo_fuente_caduca_en timestamptz,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_correlacion_ref text,
+  p_vigente_hasta timestamptz, p_preimagen_huella_sha256 text
+)
+
+vec_contexto_actor_v1.revocar_organizacion_corporativa_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_acreditacion_version numeric, p_organizacion_ref text,
+  p_version_esperada numeric, p_procedencia_ref text,
+  p_procedencia_version numeric, p_procedencia_huella_sha256 text,
+  p_procedencia_autoridad text, p_recibo_fuente_ref text,
+  p_recibo_fuente_huella_sha256 text, p_recibo_fuente_caduca_en timestamptz,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_correlacion_ref text,
+  p_vigente_hasta timestamptz, p_preimagen_huella_sha256 text
+)
+
+vec_contexto_actor_v1.publicar_vinculo_corporativo_rrhh_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_acreditacion_version numeric, p_vinculo_corporativo_ref text,
+  p_version_esperada numeric, p_cuenta_ref text, p_cuenta_version numeric,
+  p_persona_ref text, p_persona_version numeric, p_perfil_ref text,
+  p_perfil_version numeric, p_vinculo_contexto_ref text,
+  p_vinculo_contexto_version numeric, p_organizacion_ref text,
+  p_organizacion_version numeric, p_procedencia_ref text,
+  p_procedencia_version numeric, p_procedencia_huella_sha256 text,
+  p_procedencia_autoridad text, p_recibo_fuente_ref text,
+  p_recibo_fuente_huella_sha256 text, p_recibo_fuente_caduca_en timestamptz,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_correlacion_ref text,
+  p_vigente_hasta timestamptz, p_preimagen_huella_sha256 text
+)
+
+vec_contexto_actor_v1.revocar_vinculo_corporativo_rrhh_v1(
+  p_operacion_ref text, p_acreditacion_ref text,
+  p_acreditacion_version numeric, p_vinculo_corporativo_ref text,
+  p_version_esperada numeric, p_procedencia_ref text,
+  p_procedencia_version numeric, p_procedencia_huella_sha256 text,
+  p_procedencia_autoridad text, p_recibo_fuente_ref text,
+  p_recibo_fuente_huella_sha256 text, p_recibo_fuente_caduca_en timestamptz,
+  p_motivos_ref text, p_motivos_version numeric,
+  p_motivos_huella_sha256 text, p_motivos_autoridad text,
+  p_motivo_ref text, p_motivo_version numeric,
+  p_motivo_huella_sha256 text, p_correlacion_ref text,
+  p_vigente_hasta timestamptz, p_preimagen_huella_sha256 text
+)
+```
+
+Todas retornan exactamente:
+
+```sql
+TABLE(
+  operacion_ref text, acto text, entidad_ref text,
+  version_anterior numeric, version_nueva numeric, estado text,
+  recibo_efecto_ref text, resultado_huella_sha256 text,
+  auditoria_ref text, evento_ref text,
+  confirmada_en timestamptz, generacion numeric
+)
+```
+
+Acción, finalidad y ámbito no son argumentos. Cada fachada deriva estos
+literales y los liga a acreditación, recibo, canon, auditoría y outbox:
+
+| Acto | Acción | Finalidad | Ámbito |
 | --- | --- | --- | --- |
 | publicar organización | `contexto_actor.organizacion.publicar.v1` | `gobierno_contexto_corporativo_rrhh` | `organizacion_corporativa_rrhh` |
-| revocar organización | `contexto_actor.organizacion.revocar.v1` | `gobierno_contexto_corporativo_rrhh` | `organizacion_corporativa_rrhh` |
-| publicar vínculo | `contexto_actor.vinculo_corporativo_rrhh.publicar.v1` | `gobierno_contexto_corporativo_rrhh` | `interna_corporativa:consulta_rrhh` |
-| revocar vínculo | `contexto_actor.vinculo_corporativo_rrhh.revocar.v1` | `gobierno_contexto_corporativo_rrhh` | `interna_corporativa:consulta_rrhh` |
+| revocar organización | `contexto_actor.organizacion.revocar.v1` | igual | igual |
+| publicar vínculo | `contexto_actor.vinculo_corporativo_rrhh.publicar.v1` | igual | `interna_corporativa:consulta_rrhh` |
+| revocar vínculo | `contexto_actor.vinculo_corporativo_rrhh.revocar.v1` | igual | igual |
 
-La fachada deriva su fila, la compromete en recibo de fuente, canon, evidencia,
-auditoría y outbox y rechaza cualquier cruce. Otra finalidad o ámbito requiere
-catálogo aprobado y una nueva versión nominal; no se acepta por texto libre.
+Los dos actos administrativos persistidos son
+`contexto_actor.acreditacion_gobierno.publicar.v1` y
+`contexto_actor.acreditacion_gobierno.revocar.v1`, con finalidad
+`gobierno_acreditacion_corporativa_rrhh` y ámbito
+`actor_tecnico:autoridades_corporativas`.
 
-Las cuatro devuelven el mismo sobre técnico mínimo:
+No existe fachada con selector de acto/entidad ni función de reconciliación
+genérica. El replay usa la misma fachada nominal.
 
-- referencia y tipo opacos de la entidad;
-- versión anterior y versión nueva;
-- estado resultante;
-- referencia opaca del recibo de efecto;
-- huella SHA-256 del resultado;
-- referencia de auditoría y referencia de evento outbox;
-- instante autoritativo de confirmación;
-- generación común resultante.
+## Canon binario Go–PostgreSQL
 
-No devuelven nombres, documentos, identificadores civiles, contenido de la
-fuente, candidatos, perfiles alternativos ni detalles internos del rechazo.
-
-## Fuente gobernada y recibo de entrada
-
-La procedencia exacta ya registrada en `procedencias` es el manifiesto de la
-fuente. C2.3 la consume por su cuarteto inseparable:
+JSON, concatenación textual y orden de mapas quedan prohibidos. Preimagen,
+resultado y payload empiezan respectivamente por
+`VEC-C2.3-PREIMAGEN-V1\0`, `VEC-C2.3-RESULTADO-V1\0` y
+`VEC-C2.3-EVENTO-V1\0`, y usan el marco binario V1:
 
 ```text
-procedencia_ref
-procedencia_version
-procedencia_huella_sha256
-procedencia_autoridad = autoridad_maestra_acreditada
+cabecera ASCII fija + 0x00
+por campo, en orden contractual:
+  0x00 si es nulo
+  0x01 + uint32 big-endian de longitud + bytes si está presente
 ```
 
-Cada orden añade un recibo opaco de la fuente, una huella SHA-256 de ese
-recibo, una correlación opaca y una caducidad. El contenido del recibo no se
-guarda en ContextoActor. El cuarteto, recibo y huella quedan comprometidos en
-la preimagen de operación y en la evidencia durable.
+La preimagen ordena: esquema, acción, finalidad, ámbito y, después, todos los
+argumentos de la firma en su orden salvo `p_preimagen_huella_sha256`. El
+resultado ordena las doce columnas retornadas y omite su propia huella. Cada
+tipo se representa así:
 
-La publicación de organización añade el cuarteto de versión del generador
-opaco y una prueba de generación ligada exactamente a `organizacion_ref`. La
-prueba compromete referencia, versión, huella y autoridad del generador,
-referencia y huella del acto de generación y la organización resultante. Una
-expresión que solo cumple `org_[a-z0-9]{16,80}` no basta: se rechazan prueba
-ausente, generador no aprobado, huella divergente o prueba para otra
-organización. No se intenta deducir opacidad mediante un clasificador
-lingüístico.
+El resultado de presentación usa la cabecera distinta
+`VEC-C2.3-RESULTADO-PRESENTACION-V1\0` y ordena exactamente sus diez columnas
+retornadas, de `presentacion_ref` a `generacion`. La aprobación embebida usa
+`VEC-C2.3-AUDITORIA-APROBACION-V1\0` y todas las columnas enumeradas en su
+persistencia, en ese orden, salvo `auditoria_huella_sha256` y los campos de
+payload/huella `evento_payload_canon` y `evento_huella_sha256`; su evento usa
+sin cambios la cabecera y el orden común del payload.
 
-El motivo se expresa mediante referencia, versión y huella de un catálogo
-gobernado; no mediante texto libre ni una lista compilada. Hasta aprobar dicho
-catálogo se usa únicamente una referencia sintética no autoritativa y no se
-habilita producción.
+`preimagen_esquema` vale exactamente
+`vec_contexto_actor_c2_3_preimagen_v1`. El payload ordena: `evento_ref`,
+`operacion_ref`, `auditoria_ref`, `acto`, `finalidad`, `ambito`, `entidad_ref`,
+`entidad_version`, `estado`, `recibo_efecto_ref`, `resultado_huella_sha256`,
+`creado_en`, `generacion`. Auditoría usa cabecera
+`VEC-C2.3-AUDITORIA-V1\0` y todas sus columnas en orden salvo
+`entrada_huella_sha256`. `huella_antes/despues` son SHA-256 del marco
+`VEC-C2.3-ENTIDAD-V1\0` seguido por las columnas exactas de la versión
+histórica anterior/nueva; en alta, la anterior es nula.
 
-En V1 la autoridad efectiva surge conjuntamente de:
-
-1. un `session_user` acreditado y segregado;
-2. una procedencia exacta ya registrada y marcada como maestra;
-3. un recibo vigente ligado a acto, entidad, versiones, referencias y ventana;
-4. la comprobación de todos esos datos dentro de la misma transacción.
-
-El recibo no concede acceso por sí solo ni se acepta desde un cliente final.
-En V1 representa la afirmación de la única fuente maestra aprobada porque la
-presenta su `LOGIN` técnico exclusivo; C2.3 no atribuye al recibo una prueba
-criptográfica independiente que todavía no existe. El conector de la fuente
-prepara la orden mediante un puerto intercambiable y el adaptador PostgreSQL
-la presenta por el pool nominal del publicador o del revocador. Web,
-escritorio, CLI y MCP, si se incorporan, solo podrán invocar un caso de uso
-posterior; no tendrán credenciales de estos pools.
-
-Hasta que RRHH y Sistemas aprueben la fuente, la relación entre su identidad
-técnica y `procedencia_ref`, y el formato/verificación del recibo, la matriz
-usa exclusivamente una autoridad y referencias sintéticas rotuladas como no
-reales. Un fixture no se puede promover ni transformar en configuración de
-producción.
-
-## Evidencia durable, auditoría y outbox
-
-`000005` añade historia inmutable propia de la operación, no una segunda
-historia de organización o vínculo. Cada operación confirmada conserva al
-menos:
-
-| Grupo | Compromiso mínimo |
+| Tipo | Bytes canónicos |
 | --- | --- |
-| identidad técnica | `session_user` y grupo nominal acreditado |
-| intención | operación, acción, finalidad, ámbito, entidad y correlación opacas |
-| concurrencia | versión esperada, versión nueva y generación observada |
-| fuente | cuarteto de procedencia, recibo, huella y caducidad |
-| generación de organización | versión/autoridad del generador y prueba opaca ligada, cuando aplique |
-| preimagen | versión de canon y huella SHA-256, sin contenido personal |
-| transición | estado anterior/nuevo y huellas anterior/posterior |
-| resultado | recibo, huella, instante, auditoría y outbox |
+| `text`/`name` | UTF-8 exacto; referencias y autoridades limitadas a ASCII |
+| `numeric(20,0)`/`oid` | decimal ASCII, sin signo `+`, escala o ceros iniciales |
+| `timestamptz(6)` | UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ` |
+| `bytea` | bytes sin conversión |
 
-La tabla de operación, la auditoría y el outbox son de solo adición, con RLS
-activada y forzada, propietario único y cero ACL de acceso directo. Rechazan
-`UPDATE`, `DELETE` y `TRUNCATE`. La auditoría encadena el antes y el después;
-el outbox contiene solo el sobre mínimo necesario para consumidores y una
-huella de su carga canónica.
+PostgreSQL usa `convert_to` para los valores ASCII, `int4send` solo para la
+longitud `uint32` y `encode(pg_catalog.sha256(...),'hex')`; Go usa `[]byte`,
+`encoding/binary.BigEndian` y `crypto/sha256`. Ambos limitan cada campo antes
+de copiar y el marco completo a 32 KiB. SQL reconstruye la preimagen desde los
+escalares, compara la huella aportada y persiste sus bytes. La huella no es un
+secreto; la seguridad procede de la acreditación nominal, no del tiempo de esa
+comparación.
 
-Tipos de evento iniciales:
+`recibo_efecto_ref`, `auditoria_ref` y `evento_ref` se derivan de
+`operacion_ref` como prefijo más hex minúsculo completo de
+`SHA-256(dominio || UTF8(operacion_ref))`. Los dominios exactos son
+`VEC-C2.3-ID-RECIBO-V1\0`, `VEC-C2.3-ID-AUDITORIA-V1\0` y
+`VEC-C2.3-ID-EVENTO-V1\0`; los prefijos son `rcp_`, `aud_` y `evc_`.
+No requieren otro contador ni aleatoriedad. La prueba fuerte usa
+`VEC-C2.3-PRUEBA-ACTOR-V1\0` y ordena tipo, principal, referencia, versión,
+OID/nombre/grupo y ventana. La aprobación usa
+`VEC-C2.3-APROBACION-V1\0` y el orden exacto de sus columnas, pero excluye su
+propia huella y `recibo_efecto_ref`, `resultado_huella_sha256`,
+`auditoria_ref`, `auditoria_huella_sha256`, `evento_ref`,
+`evento_payload_canon`, `evento_huella_sha256`. Incluye
+generación e instante ya fijados. El DAG calcula núcleo → resultado → auditoría
+→ evento; recibo y referencias se derivan antes solo de operación. Vectores
+dorados compartidos prueban vacío/nulo, máximos, Unicode rechazado, uint64
+máximo, microsegundos, los ocho actos y la presentación.
 
-```text
-contexto_actor.organizacion.publicada.v1
-contexto_actor.organizacion.revocada.v1
-contexto_actor.vinculo_corporativo_rrhh.publicado.v1
-contexto_actor.vinculo_corporativo_rrhh.revocado.v1
-```
+## CAS, vigencia y reglas funcionales
 
-No se copian nombre, DNI/NIE, correo, teléfono, categoría especial, documento,
-perfil visible ni contenido de la fuente a operación, auditoría, outbox, error
-o log. La entrega del outbox es posterior al `COMMIT`; su indisponibilidad no
-borra la fila ni autoriza a repetir el efecto con otra operación.
+- Alta: `version_esperada=0`, ausencia total de puntero/historia y versión 1.
+- Avance: puntero exacto, versión actual activa **y vigente** al reloj
+  post-lock, nueva versión `esperada+1` sin hueco ni desbordamiento.
+- Revocación: puntero exacto y estado activo; puede revocar aunque la ventana o
+  una dependencia haya caducado, porque reduce autoridad.
+- Reactivación V1: prohibida tras estado revocado o caducidad. Requiere futuro
+  acto nominal, catálogo y aprobación; no se disfraza de publicación.
+- El reloj se lee una vez después de locks. PostgreSQL fija
+  `vigente_desde=clock_timestamp()`; el argumento final y el recibo fijan un
+  `vigente_hasta` finito, posterior y dentro del límite aprobado.
+- Organización exige `^org_[a-z0-9]{16,80}$` y prueba de generación opaca
+  ligada a la referencia/acreditación. La gramática sola no acredita opacidad.
+- Vínculo fija `interna_corporativa`/`consulta_rrhh`; exige punteros, versiones,
+  estados, vigencias, procedencias y FKs compuestas exactos.
+- `vinculo_corporativo_ref` queda ligado históricamente a una sola
+  `(cuenta_ref,superficie,uso)` bajo lock por referencia.
+- Revocar copia coordenadas de la fila bloqueada; no acepta sustitutos.
+- Revocar organización no reescribe vínculos. C2.4/C2.8 deberán denegarlos al
+  reacreditar.
 
-Si el repositorio incorpora antes una autoridad común de auditoría/outbox que
-pueda participar en el mismo `COMMIT` sin acceso cruzado a tablas, C2.3 deberá
-usar sus fachadas nominales. No se adapta el contrato a una escritura remota o
-asíncrona que permita confirmar el estado sin evidencia.
+Cada uno de los cuatro actos exteriores consume un `recibo_fuente_ref` único.
+Replay exacto puede
+devolver el resultado tras caducidad posterior; otra operación/actor/preimagen
+con el mismo recibo falla.
 
-## Canon, referencias e idempotencia
+## Protocolos de bloqueo sin ciclo
 
-El canon V1 es determinista, versionado y de lista positiva. Incluye acto,
-entidad, referencias y versiones, procedencia y recibo, límite de vigencia,
-motivo catalogado, correlación, `session_user`, versión esperada y, para
-publicación organizativa, el compromiso completo del generador opaco. Acción,
-finalidad y ámbito se derivan de la fachada nominal y también forman parte del
-canon. No
-incluye texto libre ni el instante de base que todavía no existe al preparar
-la orden.
-
-Referencias de operación, recibo, auditoría y outbox son opacas, de alta
-entropía y generadas mediante el puerto criptográfico común. No contienen
-fechas, login, unidad, nombre ni secuencias de negocio. La base valida gramática
-y unicidad; no crea otro contador, reloj o generador.
-
-V1 reserva los prefijos `opc_` para operación, `rfc_` para recibo de fuente,
-`rcp_` para recibo de efecto, `aud_` para auditoría, `evc_` para outbox y
-`cor_` para correlación. Todos reutilizan la gramática técnica existente de
-22 a 128 caracteres ASCII `[A-Za-z0-9_-]` después del prefijo. Las huellas son
-64 caracteres hexadecimales minúsculos. El canon se rechaza si supera 32 KiB,
-antes de copiar, ordenar o calcular SHA-256.
-
-La referencia de operación es única para los cuatro actos:
-
-- si no existe, la función continúa;
-- si existe con el mismo canon, actor, acto y huella, devuelve exactamente el
-  resultado persistido sin ejecutar DML sobre ningún puntero;
-- si cambia cualquier componente, falla como colisión opaca;
-- otra operación que pretenda reutilizar una versión histórica ya ocupada
-  falla y no se convierte en replay.
-
-La referencia del recibo de fuente también es única para los cuatro actos. Un
-recibo ya consumido solo puede reaparecer como parte del replay exacto de su
-operación original; otra operación, actor, acto o preimagen lo rechaza.
-
-Un replay exacto devuelve la confirmación histórica aunque el recibo de fuente
-haya caducado después del `COMMIT`: primero acredita el login y la coincidencia
-íntegra de la operación confirmada y no crea un efecto nuevo. Una operación no
-confirmada sí debe superar de nuevo vigencia y todas las demás precondiciones.
-
-La comprobación de replay ocurre antes de cualquier `UPDATE`: un `UPDATE` de
-cero filas tampoco es inocuo porque los disparadores de puntero avanzan la
-generación común por sentencia.
-
-Tras `40001`, `40P01`, cancelación durante `COMMIT`, corte de transporte o
-respuesta perdida, el adaptador no afirma éxito ni repite ciegamente. Repite
-la misma fachada con idéntica operación y preimagen. Solo acepta el recibo
-persistido si coinciden todas las huellas, referencias y versiones; ausencia
-significa resultado no confirmado y divergencia significa conflicto. No se
-crea una quinta fachada genérica de reconciliación en C2.3.
-
-## CAS y reglas de versión
-
-Todas las versiones son `numeric(20,0)` enteras en `1..2^64-1`.
-
-Publicación inicial:
-
-- exige `version_esperada = 0` y ausencia de puntero e historia para la
-  entidad;
-- crea exclusivamente la versión `1` activa;
-- cualquier antecedente histórico, incluso sin puntero, deniega el alta.
-
-Publicación posterior:
-
-- bloquea el puntero y exige que su versión sea exactamente la esperada;
-- exige que la fila apuntada esté activa y vigente al reloj post-lock;
-- crea exclusivamente `version_esperada + 1`;
-- rechaza huecos, retroceso, misma versión, desbordamiento y referencia
-  histórica divergente.
-
-Revocación:
-
-- exige puntero existente, versión exacta y fila apuntada activa;
-- crea exclusivamente la versión consecutiva en estado `revocado`;
-- copia de la fila bloqueada las coordenadas de identidad que el acto no puede
-  sustituir;
-- un segundo revocado, una versión obsoleta o una entidad inexistente fallan
-  cerrados salvo replay exacto de la operación confirmada.
-
-El puntero se cambia mediante CAS y su clave foránea completa. Historia,
-operación, auditoría, outbox y puntero se confirman juntos. Un fallo en
-cualquier inserción, validación, disparador o CAS revierte todo, incluida la
-generación.
-
-## Vigencia y reactivación V1
-
-La fuente compromete el límite `vigente_hasta` y la ventana de validez de su
-recibo. V1 construye la ventana de la entidad sin permitir activación
-retroactiva ni futura. Después de tomar todos los bloqueos, la base obtiene un
-único `clock_timestamp()` UTC con precisión de microsegundo y exige:
-
-- recibo de fuente vigente en ese instante;
-- `vigente_desde` de la nueva versión igual al instante efectivo fijado por
-  la base, sin recibirlo como argumento;
-- `vigente_hasta` finito, posterior al instante efectivo y no posterior al
-  límite comprometido por el recibo;
-- estado inicial o actualizado exclusivamente `activo`.
-
-La aplicación no aporta el instante efectivo: puede comprometer la duración o
-el límite del recibo, pero PostgreSQL fija el inicio. La política funcional de
-duración máxima será un catálogo versionado aprobado; mientras no exista, no
-se habilitan datos reales y las pruebas usan ventanas sintéticas breves.
-
-Una revocación es inmediata. Su versión comienza en el instante de base y
-termina en el límite finito del recibo de revocación; el estado `revocado`
-deniega cualquier uso con independencia de esa ventana. Así puede revocarse
-un vínculo aunque una cuenta, persona, perfil, vínculo base u organización se
-hayan vuelto inválidos entre tanto.
-
-No hay reactivación en V1. Si el puntero actual está revocado o su versión
-activa ha caducado, ninguna función de publicación puede crear una versión
-activa de la misma referencia. Una reactivación futura exigirá decisión
-formal, motivo y capacidad nominal separados, catálogo versionado y nueva
-versión del contrato; no se simula mediante una publicación ordinaria. La
-decisión más restrictiva permite probar C2.3 con datos sintéticos sin anticipar
-una política de RRHH. Revocar continúa permitido sobre una versión de estado
-`activo` aunque su ventana haya caducado, pues reduce autoridad y preserva el
-hecho administrativo.
-
-## Reglas de publicación de organización
-
-`publicar_organizacion_corporativa_v1`:
-
-1. acredita publicador y recibo de fuente;
-2. valida `organizacion_ref` con la gramática `org_[a-z0-9]{16,80}`;
-3. acredita la prueba de generación opaca ligada a esa referencia;
-4. bloquea referencia, historia y puntero;
-5. exige el CAS inicial o consecutivo y procedencia maestra exacta;
-6. inserta la versión activa, evidencia, auditoría y outbox;
-7. inserta o avanza el puntero y devuelve el recibo confirmado.
-
-La referencia es estable y opaca. No acepta denominación, CIF, jerarquía,
-unidad, centro, RPT ni equivalencia legada.
-
-`revocar_organizacion_corporativa_v1` toma de la versión actual bloqueada la
-referencia y su antecedente, añade la procedencia y motivo de la revocación y
-crea una versión revocada consecutiva. No reescribe ni revoca en cascada los
-vínculos. C2.4 y C2.8 deberán denegar su uso al reacreditar la organización
-actual.
-
-## Reglas de publicación de vínculo
-
-`publicar_vinculo_corporativo_rrhh_v1` solo admite las constantes
-`interna_corporativa` y `consulta_rrhh`. Recibe referencias y versiones
-exactas, nunca candidatos o preferencias.
-
-Después de bloquear y releer exige conjuntamente:
-
-- punteros actuales exactos de cuenta, persona, perfil, vínculo base y
-  organización;
-- filas históricas comprometidas por esos punteros;
-- estado activo, vigencia actual y autoridad maestra de cada componente;
-- claves compuestas de C2.2-B que ligan cuenta, persona, perfil y vínculo;
-- organización y versión exactas;
-- ausencia de otra coordenada histórica para el mismo
-  `vinculo_corporativo_ref`.
-
-La última regla es obligatoria porque C2.2-B no creó una unicidad global sobre
-la referencia para no impedir el avance atómico del puntero. Se comprueba bajo
-bloqueo por referencia. La referencia nunca puede trasladarse a otra
-`(cuenta_ref, superficie, uso)`.
-
-Una versión posterior puede actualizar persona, perfil, vínculo base u
-organización únicamente si la fuente los compromete y todas las relaciones
-son exactas al confirmar. No permite cambiar la cuenta, superficie o uso de
-la referencia existente.
-
-`revocar_vinculo_corporativo_rrhh_v1` no vuelve a seleccionar ni exige que
-sus dependencias sigan activas: bloquea la versión actual, copia sus
-coordenadas y la revoca. Esto permite retirar una adscripción comprometida
-aunque otra autoridad se haya adelantado. Exige todavía versión esperada,
-estado actual activo, recibo de revocación y procedencia maestra.
-
-## Barreras y orden de bloqueo
-
-`000005 up`, `000005 down` y las cuatro operaciones comienzan con sentencias
-separadas en este orden:
+Barreras, siempre en sentencias separadas:
 
 ```text
-P SHARED = vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-publicador:v1
-R SHARED = vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-revocador:v1
-A SHARED = vec_contexto_actor_v1:migracion:acreditacion_uso:v2
-B SHARED = vec_contexto_actor_v1:organizacion-corporativa-rrhh:v1
-C SHARED = vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1
-D         = vec_contexto_actor_v1:publicacion-revocacion-corporativa:v1
-E EXCLUSIVE = vec_contexto_actor_v1:mutacion_punteros_actuales:v2
+O = rol-aprobador-corporativo:v1
+Q = rol-acreditador-corporativo:v1
+P = rol-publicador-corporativo:v1
+R = rol-revocador-corporativo:v1
+A = migracion:acreditacion_uso:v2
+B = organizacion-corporativa-rrhh:v1
+C = vinculo-corporativo-rrhh:v1
+D = gobierno-publicacion-revocacion-corporativa:v1
+E = mutacion_punteros_actuales:v2
 ```
 
-El orden global es siempre P→R→A→B→C→D→E. La instalación y retirada toman
-`D EXCLUSIVE`; las operaciones toman `D SHARED`. Las tres toman después
-`E EXCLUSIVE`, antes de cualquier lock de
-fila o acceso que pueda mutar un puntero. El trigger de `000002` volverá a
-tomar E de forma reentrante durante el CAS. Adelantarla evita el ciclo en el
-que un mutador base posee E y espera una fila ya retenida por C2.3, mientras
-C2.3 espera E al disparar el trigger. Nunca se agrupan advisory locks en una
-misma lista `SELECT`, pues PostgreSQL no garantiza su orden de evaluación.
+Las operaciones toman O→Q→P→R→A→B→C→D compartidas, advisory de operación y
+entidad, y **E exclusiva antes de cualquier lock de fila/puntero**. Luego
+bloquean procedencia, acreditación, punteros e historias en orden determinista,
+leen reloj, reacreditan y escriben. El trigger de `000002` retoma E de forma
+reentrante.
 
-Dentro de una operación, el orden adicional es:
+`up/down` usan otro tramo para evitar el ciclo
+`E → relación` frente a `RowExclusive → trigger → E`. Tras D exclusiva,
+adquieren **antes de E** esta matriz invariable; si una relación del componente
+aún no existe se omite y se acredita su ausencia:
 
-1. advisory lock global E, ya adquirido tras P→R→A→B→C→D;
-2. advisory lock de `operacion_ref`;
-3. advisory lock de entidad; para vínculo, primero cuenta/coordenada y después
-   `vinculo_corporativo_ref`, con espacios de nombres distintos;
-4. filas de procedencia y evidencia previa;
-5. punteros base necesarios, ordenados por tipo y referencia;
-6. puntero de organización;
-7. puntero corporativo;
-8. filas históricas exactas;
-9. reloj autoritativo y revalidación completa;
-10. inserciones de solo adición y CAS del puntero.
+```text
+O→Q→P→R→A→B→C compartidas → D exclusiva
+```
 
-Cada lock de fila usa una consulta inequívoca; no se confía en el orden de un
-plan, una unión o una lista de expresiones. Publicación de organización,
-publicación de vínculo y revocaciones respetan el mismo prefijo de orden para
-evitar interbloqueos.
+```text
+1  procedencias, proyeccion_cuenta_versiones, persona_versiones       SHARE
+2  perfil_versiones, vinculo_contexto_versiones                       SHARE
+3  organizacion_actual, organizacion_versiones                        SHARE
+4  vinculo_corporativo_actual, vinculo_corporativo_versiones          SHARE
+5  las nueve relaciones C2.3, en el orden exacto inferior             S/AX
+6  catálogo exacto heredado de C2.2-B, en su orden                    SHARE
+→ E exclusiva
+→ inventario/postcondición/DDL
+```
 
-Los timeouts de lock, sentencia, transacción inactiva y llamada son finitos.
-Timeout, cancelación, indisponibilidad o estado catalogal no acreditable
-fallan cerrados. La lectura de reloj ocurre después de todos los bloqueos y
-antes del primer efecto.
+El punto 5 ordena `presentacion_prueba_actor_actual`,
+`presentacion_prueba_actor_versiones`, `aprobacion_gobierno_corporativo_actual`,
+`aprobacion_gobierno_corporativo_versiones`,
+`operacion_gobierno_corporativo_v1`,
+`auditoria_gobierno_corporativo_v1`, `outbox_gobierno_corporativo_v1`,
+`acreditacion_gobierno_corporativo_actual` y
+`acreditacion_gobierno_corporativo_versiones`. Usa `SHARE`, salvo que el
+`down` retire esa relación: entonces toma directamente `ACCESS EXCLUSIVE` en
+su posición, sin ascenso. El punto 6 reutiliza sin omisiones la lista nominal
+de catálogos de [C2.2-B](coordinacion_c2_2_b_vinculo_corporativo_2026-07-31.md),
+desde `pg_authid` hasta `pg_statistic_ext`. D exclusiva serializa esta matriz.
 
-Los documentos de alta/retirada del rol publicador toman P exclusiva y R
-compartida; los del revocador toman P compartida y R exclusiva, siempre en ese
-orden. `000005` y las operaciones toman ambas compartidas. Cualquier gestión
-externa de membresía o atributos deberá usar el mismo protocolo dentro de una
-transacción y de una ventana operativa exclusiva; si la herramienta de
-Sistemas no puede hacerlo, producción permanece en NO-GO.
+D exclusiva drena las operaciones C2.3; una DML base que ya posee
+`RowExclusive` termina antes de que DDL obtenga la relación, y una posterior
+queda esperando la relación sin poseer E. Así DDL nunca posee E mientras
+espera una relación retenida por DML.
 
-## Alta, reentrada y retirada seguras
+Alta/down de aprobador toman O exclusiva y el resto compartidas; acreditador,
+O compartida→Q exclusiva→P/R compartidas; publicador, O/Q compartidas→P
+exclusiva→R compartida; revocador, O/Q/P compartidas→R exclusiva.
+Cambios externos de membresía usan el mismo orden y ventana. Las pruebas deben
+observar PID, lock, bloqueador y ausencia de interbloqueo; no basta una espera.
 
-`000005 up` es autónomo, literal y transaccional. Antes de crear nada:
+Timeouts de lock, sentencia, transacción inactiva y llamada son finitos. Un
+timeout, cancelación o deriva catalogal revierte todo.
 
-- acredita PostgreSQL 18, UTF-8, UTC, superusuario de migración y roles
-  predecesores exactos;
-- toma P, R, A, B, C, D y E, bloquea relaciones y catálogos necesarios;
-- acredita forma, propietario, ACL, RLS, políticas, restricciones, triggers,
-  dependencias, comentarios y ausencia nominal de sus objetos;
-- rechaza tablas temporales/no permanentes, homónimos, publicaciones,
-  herencias, reglas, estadísticas, ACL predeterminadas, etiquetas o
-  dependencias hostiles;
-- crea todo bajo `vec_contexto_actor_v1_propietario`, cierra `PUBLIC` y aplica
-  únicamente las concesiones nominales.
+## Atomicidad, replay y retirada
 
-La reentrada solo acepta la instalación exacta completa y no cambia datos,
-ACL, comentarios, generación u objetos. Una instalación parcial o degradada
-falla y conserva la huella previa.
+En los seis actos de `000008..000016`, con E y la fila común bloqueadas, la
+función conoce `generacion+1` e inserta operación, historia, auditoría y outbox
+antes del CAS. En `000005..000007`, presentación y aprobación persisten esos
+datos y sus huellas dentro de sus propias historias autocontenidas. Todo
+confirma o revierte junto; no hay estado «preparado» mutable.
 
-`000005 down` exige el GUC de sesión exacto
-`vec.confirmar_retirada_publicacion_revocacion_corporativa_v1` con valor
-`RETIRAR_PUBLICACION_REVOCACION_CORPORATIVA_V1`, confirmación no secreta,
-superusuario, orden P→R→A→B→C→D→E, catálogos inmovilizados, instalación exacta
-y `RESTRICT`. Solo
-puede retirar una instalación vacía: cero filas en evidencia, auditoría y
-outbox, y cero versiones de organización o vínculo creadas por las fachadas.
-Si alguna operación llegó a confirmarse, la evidencia y las historias se
-preservan y la retirada se deniega.
+Replay de los seis actos compara operación, canon, actor, acreditación, acto y
+huellas. Presentación/aprobación comparan los mismos campos durables de sus
+filas, incluida generación/resultado. Diferencia implica colisión. Tras `40001`,
+`40P01`, cancelación durante `COMMIT` o respuesta perdida, el adaptador repite
+la misma fachada/preimagen; solo el resultado íntegro persistido acredita
+éxito. La conexión incierta se sanea o destruye.
 
-También deniega ante ACL, membresías, parámetros, propietarios, comentarios,
-etiquetas, publicación lógica, estadística, herencia, trigger, regla, objeto,
-dependencia o consumidor gobernado no esperado. Los roles se retiran después
-de `000005 down`, con sus documentos propios y solo si no conservan membresías,
-ACL, ajustes o dependencias.
+Cada `down` exige superusuario, instalación exacta, `RESTRICT`, orden inverso y
+el GUC:
 
-`000004 down` debe continuar bloqueado mientras exista cualquier componente
-de `000005`. Los consumidores dinámicos externos no son enumerables de forma
-completa desde catálogos: antes de producción se exige un registro operativo
-de consumidores y una ventana de cambio exclusiva. Un consumidor no
-registrado mantiene retirada y producción en NO-GO.
+```text
+vec.confirmar_retirada_contexto_actor_c2_3_v1
+= RETIRAR_CONTEXTO_ACTOR_C2_3_V1
+```
 
-## Matriz de aceptación PostgreSQL 18.4
+Solo retira su componente vacío y sin consumidores posteriores. Cualquier
+operación, auditoría, evento, acreditación o historia conserva evidencia y
+deniega. No usa `CASCADE`. `000004 down` sigue bloqueado mientras exista
+`000005..000016`.
 
-La implementación no obtiene `GO` con pruebas en memoria. El arnés real debe
-superar tres ejecuciones limpias e independientes, reinicio y reconexión.
+Una prueba Go ejecuta **todos los bytes** de cada `down` mediante
+`pgx.Conn.Exec`, incluida cancelación, `ROLLBACK`, `RESET`, descarte de
+conexión insegura y comprobación de GUC vacío. Consumidores dinámicos externos
+requieren registro operativo y ventana exclusiva antes de producción.
 
-### Estructura y privilegios
+## Matriz PostgreSQL 18.4 dividida
 
-1. alta, reentrada exacta, instalación parcial y postcondición adulterada;
-2. propietarios, firmas, `prosecdef`, `proconfig`, ACL, RLS forzada, políticas,
-   triggers, restricciones, tipos, índices y dependencias exactos;
-3. roles publicador/revocador disjuntos, selector intacto y `LOGIN INHERIT`
-   con una sola membresía directa `ADMIN=false, INHERIT=true, SET=false`;
-4. denegación de `PUBLIC`, runtime, selector, grupo contrario y LOGIN ajeno;
-5. intentos de tabla, columna, función privada, función contraria, `SET ROLE`,
-   `CREATE`, `TEMP`, `MAINTAIN`, `UPDATE`, `DELETE` y `TRUNCATE`;
-6. rechazo de aislamiento distinto de `SERIALIZABLE`, transacción de solo
-   lectura, autocommit predeterminado y sesión con parámetros hostiles;
-7. retirada/alteración concurrente de roles y `GRANT`/`REVOKE` de membresía,
-   con barreras P→R y reacreditación posterior a los locks;
-8. estados hostiles de catálogo equivalentes a los acreditados por
-   `000003/000004`, incluidos publicación lógica y dependencia dinámica
-   gobernada.
+Cada runner usa contenedor/base/roles únicos, deja cero residuos y se ejecuta
+tres veces, con reinicio y reconexión. Ningún runner acumula toda la matriz.
 
-### Cuatro actos
+| Runner | Casos obligatorios |
+| --- | --- |
+| T5 estructura | alta/reentrada/venenos de `000005..000016`; forma, ACL, RLS, FK, funciones privadas, `PUBLIC`, DML directo |
+| T6 acreditación | presentación doble/caducada/consumida y DDL; aprobación revocada/cruzada y DDL; alta/replay/CAS; OID/nombre/rol recreado |
+| T7 organización funcional | cuatro límites de CAS; opacidad; acreditación exacta; vigencia/caducidad/reactivación; seis fallos atómicos |
+| T8 organización concurrente | publicar/publicar, publicar/revocar, revocar/revocar, caducidad durante espera, DML base y DDL `up/down` |
+| T9 vínculo funcional | cruces de cuenta/persona/perfil/vínculo/org; referencia en otra coordenada; dependencia caducada; replay/colisión |
+| T10 vínculo concurrente | tres carreras de acto, org revocada contra publicación, mutador base, generación y DDL `up/down` |
+| T11 canon/pgx/down | vectores Go↔SQL/resultados; bytes literales de los doce `down`; GUC, cancelación, limpieza, preservación |
+| T12 privilegios | grupo contrario/selector/runtime/LOGIN ajeno; `SET ROLE`; `GRANT/REVOKE/ALTER/DROP` concurrentes y reacreditación post-lock |
 
-9. publicación inicial y consecutiva de organización;
-10. revocación de organización y rechazo de segunda revocación/reactivación;
-11. publicación inicial y consecutiva de vínculo con todas las combinaciones
-   cruzadas de cuenta, persona, perfil, vínculo base y organización;
-12. rechazo de reutilizar `vinculo_corporativo_ref` bajo otra coordenada;
-13. revocación de vínculo aun con una dependencia ya revocada o caducada;
-14. actor derivado de `session_user`, procedencia no maestra, recibo ausente,
-    caducado, adulterado o para otro acto;
-15. generación de `organizacion_ref` ausente, adulterada, ligada a otra
-    organización o emitida por un generador no aprobado;
-16. acción, finalidad o ámbito cruzados, adulterados o no nominales;
-17. límites exactos de vigencia, caducidad ganada mientras espera, rechazo de
-    publicación posterior a un hueco, de cualquier inicio aportado fuera
-    de la base y fin no finito;
-18. CAS obsoleto, hueco, retroceso, desbordamiento, puntero ausente, historia
-    huérfana y FK compuesta adversarial;
-19. replay exacto, incluso tras caducidad posterior, sin DML ni aumento de
-    generación; colisión de preimagen, recibo reutilizado y versión ya usada
-    por otra operación;
-20. fallo inyectado en evidencia, historia, auditoría, outbox o puntero con
-    rollback total y generación idéntica.
-
-### Concurrencia y recuperación
-
-21. publicar/publicar, revocar/revocar y publicar/revocar sobre la misma
-    organización;
-22. las mismas tres carreras sobre el mismo vínculo;
-23. revocación organizativa concurrente con publicación de vínculo;
-24. dos referencias de vínculo intentando la misma coordenada y una referencia
-    intentando dos coordenadas;
-25. cada acto contra mutación/acreditación de punteros base y contra el trigger
-    de generación, acreditando el orden P→R→A→B→C→D→E;
-26. locks y bloqueadores exactos, espera acotada, cero interbloqueos y un solo
-    ganador observable;
-27. `000005 down` contra cada acto, DDL hostil contra `up/down` y preservación
-    byte a byte tras rechazo o cancelación;
-28. ejecución literal de todos los bytes de `000005 down` mediante
-    `pgx.Conn.Exec`, GUC exacto, cancelación, `ROLLBACK`, `RESET` y conexión
-    saneada o destruida sin residuo de confirmación;
-29. `40001`, `40P01`, timeout antes del efecto, cancelación durante `COMMIT`,
-    respuesta perdida y reconciliación por replay exacto;
-30. reinicio de PostgreSQL, nuevo pool, sesión hostil saneada y cero residuos
-    de contenedores, roles, bases o procesos al terminar.
-
-El runner debe demostrar no solo que una sesión espera: acredita PID, modo de
-lock, relación o clave advisory, bloqueador exacto y resultado final.
-
-## Frontera Go y neutralidad de cliente
-
-La frontera Go se divide conforme a arquitectura hexagonal:
-
-- `domain`: actos, referencias opacas, versiones, ventana, estados técnicos y
-  validación determinista; sin SQL, HTTP, roles ni proveedor;
-- `ports`: cuatro contratos nominales mínimos, generador criptográfico,
-  proveedor de recibo de fuente y transacción durable; sin orquestador
-  concreto;
-- `application`: cuatro casos de uso nominales, canon, límites, cancelación y
-  tratamiento de resultado incierto;
-- `adapters/postgres`: dos pools físicos exclusivos, sentencias literales,
-  reacreditación viva, mapeo estricto y replay reconciliador;
-- composición futura: fuente real, secretos y `LOGIN` externos; arranque
-  cerrado si falta cualquiera.
-
-El publicador y el revocador no compartirán `pgxpool`, conexión ni credencial.
-El adaptador no expone `pgxpool`, no acepta DSN por petición, no reintenta una
-mutación con otra operación y sanea o destruye una conexión cuyo estado sea
-incierto. Los errores públicos son tipados, localizables y opacos; los textos
-visibles futuros usarán i18n.
+Se inyecta fallo en operación, historia, auditoría, outbox y puntero; cada uno
+deja cero efecto y generación idéntica. Se prueban aislamiento no serializable,
+solo lectura, sesión hostil, límites antes de asignar, `COMMIT` incierto y
+replay tras reinicio.
 
 ## Grafo de minitareas y write-sets
 
 ```mermaid
 flowchart TD
-    D0["C2.3-D0 coordinación"]
-    R1["C2.3-R1 rol publicador"]
-    R2["C2.3-R2 rol revocador"]
-    G1["C2.3-G1 dominio y puertos"]
-    S1["C2.3-S1 migración 000005"]
-    T1["C2.3-T1 matriz estructural/funcional"]
-    T2["C2.3-T2 concurrencia y retirada"]
-    T3["C2.3-T3 retirada literal pgx"]
-    G2["C2.3-G2 aplicación"]
-    G3["C2.3-G3 adaptador PostgreSQL"]
-    I1["C2.3-I1 composición de pruebas"]
-    RV["C2.3-RV revisión independiente"]
-    D1["C2.3-D1 cierre de dirección"]
-
-    D0 --> R1
-    D0 --> R2
-    D0 --> G1
-    R1 --> S1
-    R2 --> S1
-    S1 --> T1
-    S1 --> T2
-    S1 --> T3
-    G1 --> G2
-    G2 --> G3
-    S1 --> G3
-    T1 --> I1
-    T2 --> I1
-    T3 --> I1
-    G3 --> I1
-    I1 --> RV
-    RV --> D1
+  D0 --> R["R0..R3 roles"] --> M5["000005 prueba"]
+  M5 --> M6["000006 aprobación +"] --> M7["000007 aprobación -"]
+  M7 --> M8["000008 operación"] --> M9["000009 auditoría"] --> M10["000010 outbox"]
+  M10 --> M11["000011 acreditación +"] --> M12["000012 acreditación -"]
+  M12 --> M13["000013 org +"] --> M14["000014 org -"]
+  M14 --> M15["000015 vínculo +"] --> M16["000016 vínculo -"]
+  D0 --> C["C0..C4 marcos canónicos"] --> A["A1..A4 casos de uso"]
+  M16 --> P["P1..P4 sentencias/pools"]
+  A --> P --> I["I1 composición"]
+  M16 --> T["T5a..T12c pruebas"] --> I --> RV["revisión"] --> D1["dirección"]
 ```
 
-| ID | Responsabilidad y criterio único | Write-set exclusivo |
+| ID | Responsabilidad única | Write-set |
 | --- | --- | --- |
-| D0 | esta coordinación aprobada | este documento |
-| R1 | alta/down y runner del rol publicador, sin función | `roles_*publicador*`, `probar_roles_*publicador*` |
-| R2 | alta/down y runner del rol revocador, sin función | `roles_*revocador*`, `probar_roles_*revocador*` |
-| G1 | cuatro órdenes/resultados y puertos neutrales con unitarias | nuevos ficheros C2.3 de `domain` y `ports` |
-| S1 | `000005 up/down`, cuatro fachadas y persistencia atómica | solo los dos artefactos `000005` |
-| T1 | estructura, ACL y casos funcionales 1–20 | runner PostgreSQL focal nuevo |
-| T2 | carreras, recuperación y casos 21–27, 29–30 | runner PostgreSQL focal distinto |
-| T3 | ejecución literal `pgx` de retirada y caso 28 | prueba Go de integración nueva, sin tocar S1/T1/T2 |
-| G2 | cuatro servicios nominales y pruebas de replay/cancelación | nuevos ficheros C2.3 de `application` |
-| G3 | pools/adaptadores nominales y prueba `pgx` real | nuevos ficheros C2.3 de `adapters/postgres` |
-| I1 | único lanzador de los runners y README local | `probar_integracion.sh` y README del despliegue |
-| RV | reproducción completa y veredicto P0/P1/P2 | documento nuevo en `revisiones/` |
-| D1 | estado, mapa, tablero, relevo y publicación | solo documentos transversales de dirección |
+| R0..R3 | un rol, retirada y prueba | ficheros de un rol nominal |
+| M5..M16 | una capacidad/fachada o puerto interno | un `up/down` literal y runner focal |
+| T5a..T12c | máximo seis casos homogéneos | un fichero de prueba, nunca migraciones |
+| C0..C4 | un marco: campo, preimagen, resultado, auditoría o evento | un fichero y vectores dorados |
+| A1..A4 | un caso de uso nominal | un fichero `application` |
+| P1..P4 | una sentencia/pool nominal | un fichero `adapters/postgres` |
+| I1 | lanzador, README y prueba conjunta | `probar_integracion.sh`, README |
+| RV | reproducir y emitir P0/P1/P2 | nuevo documento `revisiones/` |
+| D1 | integrar y sincronizar estado | solo documentación transversal |
 
-R1, R2 y G1 pueden ejecutarse en paralelo. T1, T2, T3 y G2 también pueden hacerlo
-cuando sus dependencias estén cerradas. S1 tiene un solo productor porque sus
-cuatro actos comparten transacción, tablas de evidencia y `down`; dividir el
-mismo SQL entre agentes produciría write-sets solapados. Productor, revisor e
-integrador serán personas o agentes distintos.
+Cada productor tiene revisor independiente antes del siguiente nodo. Una
+migración no supera 180 líneas productivas ni una fachada; M8/M9/M10 son
+puertos privados autocontenidos con consumidor nominal propio y contrato
+probado, no simples tablas huérfanas. Sus fachadas solo son ejecutables por el
+propietario y después se componen desde M11. Cada runner de la matriz se divide
+en sufijos `a/b/c`, máximo seis casos. Dos agentes nunca editan el mismo fichero;
+superar dos ficheros productivos, 180 líneas o una responsabilidad obliga a
+usar por orden `000017..000024`, reemitir este D0 y revisar el grafo antes de
+programar; nunca desplaza otra vez C2.4/C2.5/C2.8 ni ensancha el corte.
 
-Cada minitarea produce un commit autónomo, compilable y focalmente probado. Si
-supera tres ficheros productivos, unas doscientas líneas de producción o dos
-responsabilidades observables, se divide antes de programar sin dejar una API
-pública incompleta.
+## Seguridad, límites posteriores y bloqueos externos
 
-## Fuera de alcance C2.4 y posteriores
+Operación, auditoría y outbox solo conservan referencias opacas, huellas,
+versiones y actores técnicos; nunca nombre civil, DNI/NIE, correo, teléfono,
+documento o categoría especial. Errores/logs son opacos. No se usan datos
+reales hasta EIPD, RAT, ENS, riesgos y conservación aprobados.
 
-C2.3 no:
+C2.3 no enumera/selecciona, registra ContextoActor base, crea recibo 1:1,
+expone C2.5, contrato C2.6, pool selector C2.7, acreditación de uso C2.8, PDP,
+CT, HTTP o importadores. C2.4 y C2.8 releerán punteros: un recibo previo no
+neutraliza revocación.
 
-- enumera, ordena, prefiere o selecciona candidatos;
-- decide cardinalidad cero/uno/múltiples ni crea recibo corporativo 1:1;
-- registra ContextoActor base durante una selección;
-- expone `resolver_y_registrar_contexto_corporativo_rrhh_v1`;
-- crea la reconciliación pública C2.5 ni el contrato opaco Go C2.6;
-- concede el rol selector, construye su pool C2.7 o acredita uso C2.8;
-- integra PDP, Contratación temporal, HTTP, web, escritorio, CLI o MCP;
-- importa Active Directory, nómina, RPT, documentos o datos reales;
-- asigna responsables humanos ni define jerarquía o semántica organizativa.
+Producción requiere aprobación formal de:
 
-El outbox informa del hecho, pero ningún consumidor puede tratarlo como una
-selección o autorización. C2.4 deberá bloquear y releer los punteros y C2.8
-reacreditarlos; un recibo previo nunca neutraliza una revocación posterior.
-
-## Bloqueos externos y conducta restrictiva
-
-La implementación y las pruebas sintéticas no quedan bloqueadas. Producción y
-datos reales permanecen en **NO-GO** hasta contar, como mínimo, con:
-
-| Decisión externa | Responsable mínimo | Conducta mientras falta |
+| Decisión | Responsables mínimos | Mientras falta |
 | --- | --- | --- |
-| fuente maestra, generador opaco, formato y verificación de sus pruebas/recibos | RRHH + Sistemas | solo fixtures sintéticos no promovibles |
-| responsables y `LOGIN` separados de publicación/revocación | RRHH + Sistemas + Seguridad | ningún LOGIN productivo ni membresía |
-| motivos, vigencia, duración y eventual reactivación | RRHH + Jurídico + DPD | motivo opaco; ventana breve de prueba; reactivación prohibida |
-| finalidad, base jurídica, campos y conservación | responsable del tratamiento + DPD + Archivo | minimización y sin expurgo/borrado |
-| categorización, riesgos, claves, TLS y operación | Seguridad + Sistemas + DBA | hipótesis ENS alta y despliegue cerrado |
-| auditoría, outbox, monitorización y respuesta | Seguridad + Sistemas | sin consumidor productivo |
-| competencia y automatización del acto | Secretaría/Jurídico + RRHH | solo propuesta técnica, sin efecto jurídico |
+| fuente, generador opaco, motivos y prueba/recibo | RRHH, Sistemas | solo sintéticos no promovibles |
+| acreditador y `LOGIN` segregados | RRHH, Sistemas, Seguridad | ningún LOGIN productivo |
+| vigencia, reactivación, finalidad y competencia | RRHH, Jurídico, DPD | reactivación prohibida; sin efecto jurídico |
+| conservación/auditoría/outbox | Archivo, DPD, Seguridad | sin expurgo ni consumidor productivo |
+| TLS, secretos, recuperación y operación de roles | Sistemas, DBA, Seguridad | despliegue cerrado |
 
-Se requieren además CT-CUM-02 a CT-CUM-07 y CT-CUM-10, EIPD, registro de
-actividades, categorización/adecuación ENS, política de conservación y actas de
-aceptación. C2.3 no autocertifica RGPD, LOPDGDD, ENS, ENI ni procedimiento
-administrativo.
+Se exigen CT-CUM-02..07 y CT-CUM-10. La falta de decisión conserva la opción
+más restrictiva y solo configurable mediante catálogo/acreditación versionados;
+nunca constante productiva, cookie, cabecera, memoria o DEMO.
 
-Cuando falte una elección funcional, se conserva la opción técnica más
-restrictiva, configurable únicamente mediante fuente o catálogo versionado y
-sujeta a aprobación externa. Nunca se desbloquea con una constante de
-producción, una cabecera, una cookie, un doble en memoria o un dato DEMO.
+## Cierre
 
-## Criterio de cierre
+C2.3 solo obtiene cierre técnico con `000005..000016`, cuatro roles, ocho actos
+de gobierno —cuatro de negocio, dos de acreditación y dos de aprobación— más
+la presentación fuerte, canon cruzado, matriz
+real tres veces, retirada literal y revisión independiente `P0=P1=P2=0`.
+Después dirección integra, documenta y publica CI verde.
 
-C2.3 solo podrá declararse técnicamente cerrada cuando:
-
-1. los cuatro actos nominales y los dos roles disjuntos estén implementados;
-2. operación, historia, puntero, auditoría y outbox sean atómicos;
-3. las matrices Go y PostgreSQL 18.4 hayan pasado tres veces limpias;
-4. replay, incertidumbre de `COMMIT`, concurrencia y retirada segura estén
-   probados;
-5. no haya datos reales, secretos, cookies, autoridad de cliente ni residuos;
-6. un revisor independiente emita `GO` con P0=P1=P2=0;
-7. dirección integre, sincronice documentación y publique un CI verde.
-
-El cierre técnico no modifica por sí solo Contratación `24/46`, O4-05 `3/5`
-ni Bolsa productiva `1/14`, y no habilita producción. Solo desbloquea C2.4.
+No aumenta por sí solo Contratación `24/46`, O4-05 `3/5` ni Bolsa `1/14`; no
+habilita producción. Solo desbloquea C2.4 en `000025`.
