@@ -64,6 +64,13 @@ psql_archivo() {
     --set ON_ERROR_STOP=1 --username postgres --dbname "$base" "$@" \
     < "$raiz/$archivo"
 }
+retirar_acreditacion_contexto_actor_v2() {
+  local base=$1
+  docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2" \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" < "$raiz/$down_000002"
+}
 retirar_roles() {
   local base=$1 usuario=${2:-postgres}
   docker exec --interactive "$contenedor" psql -X --quiet \
@@ -500,8 +507,7 @@ base_000002=ct95_000002
 crear_base "$base_000002"
 psql_archivo "$base_000002" "$up_000002"
 esperar_fallo_sin_cambio "$base_000002" 'migración 000002 instalada'
-psql_archivo "$base_000002" "$down_000002" \
-  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2
+retirar_acreditacion_contexto_actor_v2 "$base_000002"
 psql_archivo "$base_000002" "$down" \
   --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1
 docker exec "$contenedor" dropdb --force \
