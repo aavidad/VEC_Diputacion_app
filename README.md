@@ -115,8 +115,9 @@ ejecución CI `30527303065` completamente verde. C2.1b queda integrada en
 `ea91b30`–`d768007` con revisión final P0=P1=P2=0, matriz PostgreSQL 18.4,
 réplica física y recuperación. No aumenta las métricas porque sigue siendo una
 frontera interna. C2.2 está dividida en retirada segura, organización y
-vínculo corporativo; S0.1 ya está cerrada con `GO` y S0.2 es el corte activo.
-Después siguen publicación, selección y registro,
+vínculo corporativo; S0.1 y S0.2 están cerradas con `GO` técnico y C2.2-A,
+historia y puntero de organización, es el corte activo. Después siguen
+C2.2-B, publicación, selección y registro,
 PDP, composición raíz, TLS/mTLS, web conectada y E2E. Producción conserva
 `NO-GO`.
 

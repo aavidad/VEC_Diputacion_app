@@ -346,10 +346,10 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.2-S0.2b y C2.2-S0.2c, que pueden producirse en paralelo con
-write-sets disjuntos y revisiones independientes. C2.1b, S0.1 y S0.2a ya no
-son trabajo local pendiente. No se programa en el directorio raíz histórico
-ni se modifica el Word de RRHH sin seguimiento.
+Trabajo activo: C2.2-A, historia y puntero de organización corporativa.
+C2.1b, S0.1 y S0.2 ya no son trabajo local pendiente. C2.2-B depende de A.
+No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
+sin seguimiento.
 
 C2.2-S0.1 quedó integrada en `79a6055`–`4cae636` después de cinco ciclos
 productor/revisor. CT121 dio `GO`, P0=P1=P2=0. La retirada base solo acepta una
@@ -389,10 +389,14 @@ terminó completamente verde. La
 [evidencia de S0.2a](revisiones/revision_c2_2_s0_2a_retirada_portable_2026-07-31.md)
 documenta los `NO-GO`, las correcciones y el cierre exacto.
 
-El siguiente paso exacto es producir S0.2b —estructura, ACL y consumidores— y
-S0.2c —concurrencia, preservación y ciclos— en paralelo y con write-sets
-disjuntos. Tras dos `GO` independientes, S0.2d compondrá ambos runners. S0.2
-completa, C2.2-A y C2.2-B siguen abiertas.
+La auditoría posterior de S0.1/S0.2a reprodujo carreras catalogales reales y
+quedó corregida en `d133680`–`25ea01e`. S0.2b se integró en
+`b146f10`–`e5e237a` después de un `NO-GO` de cobertura y su corrección; S0.2c
+quedó en `a721a5f`. La composición S0.2d `dcc2151` superó el runner principal
+completo y revisión independiente, con P0=P1=P2=0. La
+[evidencia completa](revisiones/revision_c2_2_s0_2_cierre_2026-07-31.md)
+documenta la frontera. El siguiente paso exacto es C2.2-A; C2.2-B continúa
+dependiendo de su cierre.
 
 ## Optimización probatoria CT88
 
