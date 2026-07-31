@@ -159,9 +159,9 @@ C2.2 no se implementará como una sola tarea:
 | C2.2-D0 | Esta decisión de organización, referencias y numeración | Ninguna | Cerrada |
 | C2.2-S0.1 | Retirada segura de la base ContextoActor sin `CASCADE` ni pérdida de evidencia | D0 | Cerrada e integrada |
 | C2.2-S0.2a | `down` portable de `000002` y ejecución literal mediante `pgx` | S0.1 | Cerrada e integrada |
-| C2.2-S0.2b | Runner PostgreSQL 18.4 de estructura, ACL y consumidores | S0.2a | Pendiente |
-| C2.2-S0.2c | Runner PostgreSQL 18.4 de concurrencia, preservación y ciclos | S0.2a | Pendiente |
-| C2.2-S0.2d | Composición de los dos runners focales | S0.2b + S0.2c | Pendiente |
+| C2.2-S0.2b | Runner PostgreSQL 18.4 de estructura, ACL y consumidores | S0.2a | Cerrada e integrada |
+| C2.2-S0.2c | Runner PostgreSQL 18.4 de concurrencia, preservación y ciclos | S0.2a | Cerrada e integrada |
+| C2.2-S0.2d | Composición de los runners focales | S0.2b + S0.2c | Cerrada e integrada |
 | C2.2-A | Historia y puntero de organización | C2.1b + S0.2 | Pendiente |
 | C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A | Pendiente |
 
@@ -235,15 +235,17 @@ La implementación de S0.2 se separa en cuatro commits verificables:
    cerrado e integrado como S0.2a en `9f96bcf`–`e654312`;
 2. runner PostgreSQL 18.4 de estructura, ACL y consumidores;
 3. runner PostgreSQL 18.4 de concurrencia, preservación y ciclos;
-4. composición de ambos runners desde `probar_integracion.sh`.
+4. composición de los runners focales desde `probar_integracion.sh`.
 
-S0.1 y S0.2a están cerradas. Este estado no cierra S0.2: sus subfases b, c y d
-siguen pendientes y C2.2-A no se abre hasta superarlas. La
-[revisión de S0.2a](revisiones/revision_c2_2_s0_2a_retirada_portable_2026-07-31.md)
-conserva los hallazgos, las pruebas y la frontera de amenaza.
+S0.1 y S0.2 están cerradas. Una auditoría posterior reabrió la integridad
+catalogal de S0.1/S0.2a, reprodujo carreras reales y las corrigió antes de
+cerrar b, c y d. La
+[revisión completa de S0.2](revisiones/revision_c2_2_s0_2_cierre_2026-07-31.md)
+conserva los `NO-GO`, las correcciones, las pruebas y la frontera de amenaza.
+C2.2-A queda desbloqueada.
 
-El write-set queda limitado al `down`, `probar_integracion.sh`, los dos runners
-nuevos y una prueba Go de integración del adaptador ContextoActor. Los runners
+El write-set queda limitado al `down`, `probar_integracion.sh`, los runners
+focales y una prueba Go de integración del adaptador ContextoActor. Los runners
 no se llaman entre sí; el script de integración es el único lanzador focal.
 El orden de bloqueo empieza por la barrera base compartida, continúa con la
 barrera de acreditación exclusiva y después toma `ACCESS EXCLUSIVE` sobre la
