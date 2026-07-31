@@ -86,6 +86,13 @@ func exigirRechazoConObjetoConservado(
 	consultaCausa string,
 ) {
 	t.Helper()
+	var causaPrevia bool
+	if err := conexion.QueryRow(ctx, consultaCausa).Scan(&causaPrevia); err != nil {
+		t.Fatalf("comprobar existencia previa de %s: %v", descripcion, err)
+	}
+	if !causaPrevia {
+		t.Fatalf("no se materializó %s antes de la retirada", descripcion)
+	}
 	configurarOptInRetiradaUsoV2(t, ctx, conexion, optInRetiradaAcreditacionUsoV2)
 	if _, err := conexion.Exec(ctx, string(down)); err == nil {
 		t.Fatalf("la retirada aceptó %s", descripcion)

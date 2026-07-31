@@ -58,6 +58,8 @@ IN ACCESS EXCLUSIVE MODE;
 -- puede cambiar entre el inventario acreditado y los DROP con RESTRICT.
 LOCK TABLE
     pg_catalog.pg_class,
+    pg_catalog.pg_attribute,
+    pg_catalog.pg_index,
     pg_catalog.pg_namespace,
     pg_catalog.pg_proc,
     pg_catalog.pg_type,
@@ -98,11 +100,13 @@ DECLARE
         'vec_contexto_actor_v1.vinculo_referencia_actual'::regclass
     ]::oid[];
     funciones oid[];
+    toast oid;
     observado text;
     esperado constant text :=
         'cf2895f6f30f25bca2310161ad900c241e382ebe3bb11f2dd7ff517700422bed';
 BEGIN
     funciones := ARRAY[acreditar, avanzar, serializar];
+    SELECT reltoastrelid INTO toast FROM pg_catalog.pg_class WHERE oid = control;
     IF pg_catalog.current_setting('server_version_num')::integer < 180004
        OR pg_catalog.current_setting('server_version_num')::integer >= 190000
        OR serializar IS NULL OR avanzar IS NULL OR acreditar IS NULL
@@ -516,25 +520,6 @@ BEGIN
              FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
        ) IS NOT TRUE
        OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_shdepend AS d
-            WHERE d.classid IN (
-                      'pg_catalog.pg_class'::regclass,
-                      'pg_catalog.pg_proc'::regclass,
-                      'pg_catalog.pg_type'::regclass
-                  )
-              AND d.dbid = (
-                  SELECT oid FROM pg_catalog.pg_database
-                   WHERE datname = pg_catalog.current_database()
-              )
-              AND d.objid = ANY(ARRAY[
-                  control, acreditar, avanzar, serializar,
-                  (SELECT reltype FROM pg_catalog.pg_class WHERE oid = control),
-                  (SELECT typarray FROM pg_catalog.pg_type
-                    WHERE typrelid = control)
-              ]::oid[])
-              AND d.deptype <> 'o'
-       )
-       OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_proc AS p
             WHERE p.oid <> ALL(funciones)
               AND (
@@ -567,77 +552,149 @@ BEGIN
             )
        )
        OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_statistic_ext AS s
-            WHERE s.stxnamespace = esquema
-               OR s.stxrelid IN (
-                   SELECT oid FROM pg_catalog.pg_class
-                    WHERE relnamespace = esquema
+           WITH RECURSIVE raices(classid, objid, objsubid) AS (
+               SELECT 'pg_catalog.pg_class'::regclass, control, 0
+               UNION ALL
+               SELECT 'pg_catalog.pg_proc'::regclass, f.oid, 0
+                 FROM pg_catalog.unnest(funciones) AS f(oid)
+               UNION ALL
+               SELECT 'pg_catalog.pg_trigger'::regclass, t.oid, 0
+                 FROM pg_catalog.pg_trigger AS t
+                WHERE t.tgrelid = ANY(punteros) AND NOT t.tgisinternal
+                  AND t.tgname IN (
+                      'puntero_actual_no_truncable_v2',
+                      'serializar_mutacion_punteros_actuales_v2',
+                      'avanzar_generacion_punteros_actuales_v2'
+                  )
+           ), retirables(classid, objid, objsubid) AS (
+               SELECT * FROM raices
+               UNION
+               SELECT d.classid, d.objid, d.objsubid
+                 FROM pg_catalog.pg_depend AS d
+                   JOIN retirables AS r
+                     ON d.refclassid = r.classid
+                    AND d.refobjid = r.objid
+                    AND (d.refobjsubid = r.objsubid OR r.objsubid = 0)
+                WHERE d.deptype IN ('a', 'i', 'P', 'S')
+           )
+           SELECT 1 FROM retirables AS r
+            WHERE (
+                   SELECT pg_catalog.jsonb_object_agg(classid::regclass::text, n)
+                     FROM (SELECT classid, pg_catalog.count(*) AS n
+                             FROM retirables GROUP BY classid) AS clases
+               ) <> '{"pg_attrdef":1,"pg_class":4,"pg_constraint":7,"pg_proc":3,"pg_trigger":15,"pg_type":2}'::jsonb
+               OR EXISTS (
+                   SELECT 1 FROM pg_catalog.pg_depend AS d
+                    WHERE (d.classid, d.objid) = (r.classid, r.objid)
+                      AND (d.objsubid = r.objsubid OR r.objsubid = 0)
+                      AND d.refclassid =
+                          'pg_catalog.pg_extension'::regclass
+                      AND d.deptype IN ('e', 'x')
                )
-       )
-       OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_depend AS d
-            WHERE d.refclassid = 'pg_catalog.pg_extension'::regclass
-              AND d.deptype IN ('e', 'x')
-              AND (
-                  (d.classid = 'pg_catalog.pg_namespace'::regclass
-                   AND d.objid = esquema)
-                  OR (d.classid = 'pg_catalog.pg_class'::regclass
-                      AND d.objid IN (
-                          SELECT oid FROM pg_catalog.pg_class
-                           WHERE relnamespace = esquema
-                      ))
-                  OR (d.classid = 'pg_catalog.pg_proc'::regclass
-                      AND d.objid IN (
-                          SELECT oid FROM pg_catalog.pg_proc
-                           WHERE pronamespace = esquema
-                      ))
-                  OR (d.classid = 'pg_catalog.pg_type'::regclass
-                      AND d.objid IN (
-                          SELECT oid FROM pg_catalog.pg_type
-                           WHERE typnamespace = esquema
-                      ))
-                  OR (d.classid = 'pg_catalog.pg_constraint'::regclass
-                      AND d.objid IN (
-                          SELECT oid FROM pg_catalog.pg_constraint
-                           WHERE connamespace = esquema
-                      ))
-                  OR (d.classid = 'pg_catalog.pg_trigger'::regclass
-                      AND d.objid IN (
-                          SELECT t.oid FROM pg_catalog.pg_trigger AS t
-                            JOIN pg_catalog.pg_class AS c ON c.oid = t.tgrelid
-                           WHERE c.relnamespace = esquema
-                      ))
-              )
-       )
-       OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_seclabel AS s
-            WHERE (s.classoid, s.objoid) IN (
-                ('pg_catalog.pg_class'::regclass, control),
-                ('pg_catalog.pg_proc'::regclass, acreditar),
-                ('pg_catalog.pg_proc'::regclass, avanzar),
-                ('pg_catalog.pg_proc'::regclass, serializar),
-                ('pg_catalog.pg_type'::regclass,
-                 (SELECT reltype FROM pg_catalog.pg_class
-                   WHERE oid = control)),
-                ('pg_catalog.pg_type'::regclass,
-                 (SELECT typarray FROM pg_catalog.pg_type
-                   WHERE typrelid = control))
-            )
-       )
-       OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_init_privs AS i
-            WHERE (i.classoid, i.objoid) IN (
-                ('pg_catalog.pg_class'::regclass, control),
-                ('pg_catalog.pg_proc'::regclass, acreditar),
-                ('pg_catalog.pg_proc'::regclass, avanzar),
-                ('pg_catalog.pg_proc'::regclass, serializar),
-                ('pg_catalog.pg_type'::regclass,
-                 (SELECT reltype FROM pg_catalog.pg_class
-                   WHERE oid = control)),
-                ('pg_catalog.pg_type'::regclass,
-                 (SELECT typarray FROM pg_catalog.pg_type
-                   WHERE typrelid = control))
-            )
+               OR EXISTS (
+                   SELECT 1 FROM pg_catalog.pg_shdepend AS d
+                    WHERE d.dbid = (
+                              SELECT oid FROM pg_catalog.pg_database
+                               WHERE datname = pg_catalog.current_database()
+                          )
+                      AND (d.classid, d.objid) = (r.classid, r.objid)
+                      AND (d.objsubid = r.objsubid OR r.objsubid = 0)
+                      AND d.deptype <> 'o'
+               )
+               OR EXISTS (
+                   SELECT 1 FROM pg_catalog.pg_statistic_ext AS s
+                    WHERE s.stxnamespace = esquema
+                       OR (r.classid = 'pg_catalog.pg_class'::regclass
+                           AND s.stxrelid = r.objid)
+               )
+               OR (
+                   r.classid = 'pg_catalog.pg_class'::regclass
+                   AND EXISTS (
+                       SELECT 1 FROM pg_catalog.pg_class AS c
+                         LEFT JOIN pg_catalog.pg_am AS am ON am.oid = c.relam
+                        WHERE c.oid = r.objid AND c.relnamespace <> esquema
+                          AND (
+                              c.relnamespace <> 'pg_toast'::regnamespace
+                              OR c.relowner <> propietario
+                              OR c.relpersistence <> 'p' OR c.reltablespace <> 0
+                              OR c.relacl IS NOT NULL OR c.reloptions IS NOT NULL
+                              OR c.relrowsecurity OR c.relforcerowsecurity
+                              OR c.relhasrules OR c.relhastriggers
+                              OR c.relhassubclass OR c.relispartition
+                              OR c.relreplident <> 'n'
+                              OR c.relname IS DISTINCT FROM CASE WHEN c.oid = toast
+                                  THEN pg_catalog.format('pg_toast_%s', control)
+                                  ELSE pg_catalog.format('pg_toast_%s_index', control) END
+                              OR (
+                                  c.oid = toast
+                                  AND (c.relkind <> 't'
+                                       OR am.amname IS DISTINCT FROM 'heap')
+                              )
+                              OR (
+                                  c.oid <> toast
+                                  AND (
+                                      c.relkind <> 'i'
+                                      OR am.amname IS DISTINCT FROM 'btree'
+                                      OR NOT EXISTS (
+                                          SELECT 1
+                                            FROM pg_catalog.pg_index AS i
+                                           WHERE i.indexrelid = c.oid
+                                             AND i.indrelid = toast
+                                             AND i.indisunique
+                                             AND i.indisprimary
+                                             AND NOT i.indisexclusion
+                                             AND i.indimmediate
+                                             AND i.indisvalid
+                                             AND i.indisready
+                                             AND i.indislive
+                                             AND NOT i.indisclustered
+                                             AND NOT i.indisreplident
+                                             AND NOT i.indcheckxmin
+                                             AND NOT i.indnullsnotdistinct
+                                             AND pg_catalog.pg_get_indexdef(c.oid, 0, false) =
+                                                 pg_catalog.format(
+                                                 'CREATE UNIQUE INDEX %I ON pg_toast.%I USING btree (chunk_id, chunk_seq)',
+                                                 c.relname,
+                                                 pg_catalog.format('pg_toast_%s', control))
+                                      )
+                                  )
+                              )
+                          )
+                   )
+               )
+               OR (
+                   r.classid = 'pg_catalog.pg_class'::regclass
+                   AND EXISTS (
+                       SELECT 1 FROM pg_catalog.pg_class AS c
+                         JOIN pg_catalog.pg_attribute AS a
+                           ON a.attrelid = c.oid AND a.attnum > 0
+                        WHERE c.oid = r.objid AND c.relnamespace <> esquema
+                          AND (
+                              coalesce(a.attstattarget, -1) <> -1
+                              OR a.attacl IS NOT NULL
+                              OR a.attoptions IS NOT NULL
+                              OR a.attfdwoptions IS NOT NULL
+                              OR a.attstorage <> 'p' OR a.attcompression <> ''
+                          )
+                   )
+               )
+               OR EXISTS (
+                   SELECT 1 FROM (
+                       SELECT classoid, objoid, objsubid
+                         FROM pg_catalog.pg_description
+                       UNION ALL
+                       SELECT classoid, objoid, objsubid
+                         FROM pg_catalog.pg_seclabel
+                       UNION ALL
+                       SELECT classoid, objoid, objsubid
+                         FROM pg_catalog.pg_init_privs
+                   ) AS m
+                     JOIN pg_catalog.pg_class AS c ON c.oid = r.objid
+                    WHERE r.classid = 'pg_catalog.pg_class'::regclass
+                      AND c.relnamespace <> esquema
+                      AND (m.classoid, m.objoid) = (r.classid, r.objid)
+                      AND (m.objsubid = r.objsubid OR r.objsubid = 0)
+               )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'retirada ContextoActor V2 rechazada: inventario no acreditado',
