@@ -385,6 +385,17 @@ y regresiones deterministas. No integrar `03b4842` ni `5a3531d` sin la
 corrección y un nuevo `GO` independiente P0=P1=P2=0. S0.2b y S0.2c solo
 podrán producirse en paralelo después de ese cierre.
 
+CT126 materializó esa primera corrección en `e073ae9`. Sus pruebas normales,
+ICU, `pgx`, carrera, clon de base, `CLUSTER`, dependencia `e/x` explícita y
+estadística extendida quedaron verdes, pero CT124 dio un nuevo `NO-GO`,
+P0=0/P1=1/P2=0: el índice TOAST implícito de la tabla de control queda en
+`pg_toast`, fuera del filtro por esquema. Una dependencia `x` añadida a ese
+índice no se detectaba y el `down` la eliminaba junto a la tabla. CT126 debe
+ampliar la guarda a la clausura de objetos automáticos e internos que los
+`DROP` retirarían —incluidos TOAST, índices y tipos implícitos— y someterla a
+otra revisión independiente. Tampoco integrar ni publicar `e073ae9` en su
+estado actual.
+
 ## Optimización probatoria CT88
 
 El corte `f662302` optimiza dos validadores documentales sin cambiar su
