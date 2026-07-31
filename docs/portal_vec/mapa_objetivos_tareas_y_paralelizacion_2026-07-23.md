@@ -14,10 +14,10 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Corte estable publicado | `8f383e8` en `integracion/ct-o4-04e-20260726`; incluye S0.1 y su cierre documental |
-| Último commit técnico verificado | `4cae636` — S0.1, retirada segura de ContextoActor con P0=P1=P2=0; `8f383e8` documenta el cierre |
+| Corte estable publicado | `e376a70` en `integracion/ct-o4-04e-20260726`; no se atribuye publicación ni CI al trabajo local posterior |
+| Último commit técnico verificado local | `5c9ef35` — composición corregida de S0.1/S0.2, con `GO` independiente y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b y S0.1 están cerradas e integradas, pero no suman una puerta funcional. C2.2 queda dividida en D0, S0.1, S0.2, A y B; S0.2 es el frente activo. |
+| Trabajo no contabilizado | C2.1b, S0.1 y S0.2a están cerradas e integradas, pero no suman una puerta funcional. S0.2b, S0.2c y S0.2d siguen pendientes; S0.2 completa no está cerrada. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -222,7 +222,9 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   privado 000044, fachadas nominales 000045 y adaptador Go 000046 están
   verdes; HTTP cuadro/detalle también está cerrado y revisado, pero
   C1, el rol mínimo C2.1a y la fachada C2.1b también están cerrados y
-  revisados; C2.2, selección corporativa, PDP, raíz, TLS y E2E siguen abiertos
+  revisados; S0.1 y S0.2a de C2.2 están cerrados e integrados, mientras
+  S0.2b/c/d, organización, vínculo, selección corporativa, PDP, raíz, TLS y
+  E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

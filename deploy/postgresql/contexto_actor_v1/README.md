@@ -236,6 +236,25 @@ suscripciones hasta el `COMMIT`.
 Debe ejecutarse sin tráfico de migración; los límites de bloqueo y sentencia
 hacen que cualquier contención falle cerrada.
 
+#### Frontera operativa de la retirada
+
+El contrato cubre el DDL, las ACL, los comentarios y las dependencias creados
+o modificados mediante las operaciones soportadas por PostgreSQL 18. La
+inmovilización de las trece relaciones y de los catálogos acreditados impide
+que esos cambios atraviesen la ventana situada entre el inventario y los
+`DROP`.
+
+Un DML directo de superusuario sobre `pg_catalog` equivale a un compromiso
+total de la base y queda fuera de este contrato. Existen defensas puntuales
+para estados hostiles reproducidos por las pruebas, pero el manifiesto no se
+presenta como un canon universal capaz de reconocer cualquier escritura
+arbitraria sobre catálogos internos.
+
+La contención de otro superusuario no abre una vía permisiva: si no se pueden
+obtener los bloqueos dentro de los límites operativos, la retirada aborta y
+PostgreSQL revierte la transacción completa. No se autoriza continuar, omitir
+un objeto ni aceptar una huella parcial.
+
 Debe retirarse antes la membresía del LOGIN de aplicación; `DROP ROLE` falla
 cerrado si aún existen dependencias o membresías. `roles_down.sql` es
 autónomo, transaccional y denegado por defecto: vuelve a comprobar atributos,

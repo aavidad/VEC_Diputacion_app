@@ -2,7 +2,7 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: **decisión cerrada; implementación pendiente**.
+Estado: **decisión cerrada; implementación en curso**.
 
 ## Problema
 
@@ -154,13 +154,16 @@ Historia y puntero de C2.2-B aplican las mismas garantías que C2.2-A:
 
 C2.2 no se implementará como una sola tarea:
 
-| Minitarea | Responsabilidad única | Dependencia |
-| --- | --- | --- |
-| C2.2-D0 | Esta decisión de organización, referencias y numeración | Ninguna |
-| C2.2-S0.1 | Retirada segura de la base ContextoActor sin `CASCADE` ni pérdida de evidencia | D0 |
-| C2.2-S0.2 | Retirada segura de la generación `000002` y descubrimiento dinámico de consumidores | S0.1 |
-| C2.2-A | Historia y puntero de organización | C2.1b + S0.2 |
-| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A |
+| Minitarea | Responsabilidad única | Dependencia | Estado |
+| --- | --- | --- | --- |
+| C2.2-D0 | Esta decisión de organización, referencias y numeración | Ninguna | Cerrada |
+| C2.2-S0.1 | Retirada segura de la base ContextoActor sin `CASCADE` ni pérdida de evidencia | D0 | Cerrada e integrada |
+| C2.2-S0.2a | `down` portable de `000002` y ejecución literal mediante `pgx` | S0.1 | Cerrada e integrada |
+| C2.2-S0.2b | Runner PostgreSQL 18.4 de estructura, ACL y consumidores | S0.2a | Pendiente |
+| C2.2-S0.2c | Runner PostgreSQL 18.4 de concurrencia, preservación y ciclos | S0.2a | Pendiente |
+| C2.2-S0.2d | Composición de los dos runners focales | S0.2b + S0.2c | Pendiente |
+| C2.2-A | Historia y puntero de organización | C2.1b + S0.2 | Pendiente |
+| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A | Pendiente |
 
 Cada productor y cada revisor serán distintos. A y B tendrán migración,
 reversión y runner PostgreSQL 18.4 propios.
@@ -228,17 +231,25 @@ propio documento vuelve a validar la confirmación dentro de su transacción.
 
 La implementación de S0.2 se separa en cuatro commits verificables:
 
-1. artefacto `down` portable y prueba de ejecución literal mediante `pgx`;
+1. artefacto `down` portable y prueba de ejecución literal mediante `pgx`,
+   cerrado e integrado como S0.2a en `9f96bcf`–`e654312`;
 2. runner PostgreSQL 18.4 de estructura, ACL y consumidores;
 3. runner PostgreSQL 18.4 de concurrencia, preservación y ciclos;
 4. composición de ambos runners desde `probar_integracion.sh`.
 
+S0.1 y S0.2a están cerradas. Este estado no cierra S0.2: sus subfases b, c y d
+siguen pendientes y C2.2-A no se abre hasta superarlas. La
+[revisión de S0.2a](revisiones/revision_c2_2_s0_2a_retirada_portable_2026-07-31.md)
+conserva los hallazgos, las pruebas y la frontera de amenaza.
+
 El write-set queda limitado al `down`, `probar_integracion.sh`, los dos runners
 nuevos y una prueba Go de integración del adaptador ContextoActor. Los runners
 no se llaman entre sí; el script de integración es el único lanzador focal.
-El orden de bloqueo empieza por base compartida, continúa con acreditación
-exclusiva y termina con `ACCESS EXCLUSIVE` sobre control y los cinco punteros.
-Cada rechazo debe conservar una huella idéntica de catálogo y datos.
+El orden de bloqueo empieza por la barrera base compartida, continúa con la
+barrera de acreditación exclusiva y después toma `ACCESS EXCLUSIVE` sobre la
+tabla de control de `000002` y las doce relaciones de `000001`. Los catálogos
+acreditados quedan a continuación en `SHARE` hasta el `COMMIT`. Cada rechazo
+debe conservar una huella idéntica de catálogo y datos.
 
 VEP continúa en `NO-GO`, no tiene una instalación productiva autorizada ni
 datos reales. Por eso se permite corregir ahora los artefactos `down` de

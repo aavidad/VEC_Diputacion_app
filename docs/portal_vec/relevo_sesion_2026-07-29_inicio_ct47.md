@@ -346,9 +346,10 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.2-S0.2. C2.1b y S0.1 ya no son trabajo local pendiente. No
-se programa en el directorio raíz histórico ni se modifica el Word de RRHH
-sin seguimiento.
+Trabajo activo: C2.2-S0.2b y C2.2-S0.2c, que pueden producirse en paralelo con
+write-sets disjuntos y revisiones independientes. C2.1b, S0.1 y S0.2a ya no
+son trabajo local pendiente. No se programa en el directorio raíz histórico
+ni se modifica el Word de RRHH sin seguimiento.
 
 C2.2-S0.1 quedó integrada en `79a6055`–`4cae636` después de cinco ciclos
 productor/revisor. CT121 dio `GO`, P0=P1=P2=0. La retirada base solo acepta una
@@ -358,43 +359,38 @@ rechazo y permite que un superusuario distinto del bootstrap ejecute
 `roles_down`. Dirección reprodujo el runner principal, el runner de
 otorgantes, la integración PostgreSQL 18.4, ShellCheck, tamaños y Gitleaks.
 
-C2.2-S0.2 está dividida en un `down` SQL autónomo y portable, prueba literal
-`pgx`, runner estructural/ACL/consumidores y runner de
-concurrencia/preservación. S0.2a dispone del candidato local limpio
-`03b4842` + `5a3531d` en
-`agent/ct107-safe-down-000002-20260730`. No está integrado ni publicado.
-CT122 alcanzó antes del cierre de sesión integración normal e ICU `es-ES`
-verdes, rechazo correcto de estadísticas, comentarios, trigger homónimo y
-`defaclnamespace`, además de cancelación y descarte `pgx`; quedó interrumpida
-durante la reproducción final de la carrera `GRANT` y la composición exacta
-contra `8f383e8`.
+C2.2-S0.2 está dividida en cuatro subfases. S0.2a queda cerrada e integrada
+localmente en `9f96bcf`, `8adb656`, `d4c0295` y `e654312`. Las revisiones
+técnicas independientes CT124, CT125 y CT129 dieron `GO` al alcance después de
+corregir todos los hallazgos abiertos.
 
-CT124 y CT125 reanudaron la revisión de solo lectura y dieron `NO-GO`,
-P0=0/P1=3/P2=1. Reprodujeron tres defectos materiales: una modificación
-concurrente de `attstattarget` posterior al inventario que el `down` aceptaba,
-la omisión de `pg_index.indisclustered` —un `CLUSTER` quedaba persistido— y
-un falso rechazo causado por una fila `pg_shdepend` de otra base con el mismo
-OID. CT127 confirmó además que una dependencia de extensión `e/x` y una
-estadística extendida podían escapar del canon y desaparecer de forma
-implícita durante el `DROP`. La perturbación limpia de OID, la retirada normal
-e ICU y las pruebas `pgx` sí quedaron verdes. CT126 corrige únicamente S0.2a
-sobre el mismo worktree: inmovilización completa de las doce relaciones de
-`000001` más la tabla de control, canon del índice, ámbito de base para
-`pg_shdepend`, guardias de dependencias de extensión y estadísticas extendidas
-y regresiones deterministas. No integrar `03b4842` ni `5a3531d` sin la
-corrección y un nuevo `GO` independiente P0=P1=P2=0. S0.2b y S0.2c solo
-podrán producirse en paralelo después de ese cierre.
+El cierre inmoviliza la tabla de control y las doce relaciones base antes del
+inventario, incluye `indisclustered`, limita `pg_shdepend` a la base correcta y
+guarda dependencias de extensión, estadísticas extendidas y la clausura
+implícita TOAST —tabla, índice, tipos y metadatos derivados—. Las regresiones
+abarcan retirada normal e ICU `es-ES`, ejecución literal `pgx`, carrera y
+cancelación, OID perturbados y coincidentes en una base clonada, `CLUSTER`,
+dependencias `e/x`, estadísticas extendidas y estados TOAST hostiles.
 
-CT126 materializó esa primera corrección en `e073ae9`. Sus pruebas normales,
-ICU, `pgx`, carrera, clon de base, `CLUSTER`, dependencia `e/x` explícita y
-estadística extendida quedaron verdes, pero CT124 dio un nuevo `NO-GO`,
-P0=0/P1=1/P2=0: el índice TOAST implícito de la tabla de control queda en
-`pg_toast`, fuera del filtro por esquema. Una dependencia `x` añadida a ese
-índice no se detectaba y el `down` la eliminaba junto a la tabla. CT126 debe
-ampliar la guarda a la clausura de objetos automáticos e internos que los
-`DROP` retirarían —incluidos TOAST, índices y tipos implícitos— y someterla a
-otra revisión independiente. Tampoco integrar ni publicar `e073ae9` en su
-estado actual.
+La frontera cubre operaciones PostgreSQL 18 soportadas de DDL, ACL, comentarios
+y dependencias. Un DML directo de superusuario sobre `pg_catalog` constituye
+compromiso total de la base y queda fuera del contrato; las defensas puntuales
+no se presentan como un canon universal. La ventana es exclusiva y cualquier
+contención que exceda sus límites aborta y revierte la transacción completa.
+
+`5c9ef35` corrige la composición S0.1/S0.2 para transportar el GUC real mediante
+`PGOPTIONS`, limitado al `docker exec` que ejecuta `000002.down.sql`. El token
+es una confirmación no secreta y la retirada continúa denegada sin el GUC. La
+revisión final independiente emitió `GO`, P0=P1=P2=0, tras reproducir
+denegación, rollback, runner S0.1, otorgantes, Bash, ShellCheck y tamaños. No se
+atribuye todavía publicación ni CI a `9f96bcf`–`5c9ef35`. La
+[evidencia de S0.2a](revisiones/revision_c2_2_s0_2a_retirada_portable_2026-07-31.md)
+documenta los `NO-GO`, las correcciones y el cierre exacto.
+
+El siguiente paso exacto es producir S0.2b —estructura, ACL y consumidores— y
+S0.2c —concurrencia, preservación y ciclos— en paralelo y con write-sets
+disjuntos. Tras dos `GO` independientes, S0.2d compondrá ambos runners. S0.2
+completa, C2.2-A y C2.2-B siguen abiertas.
 
 ## Optimización probatoria CT88
 
