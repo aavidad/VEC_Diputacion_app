@@ -13,13 +13,14 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `54a8cde`; CI `30633248293`.
-- Último commit técnico funcional verificado: `ce8959c`, composición A3.
+- Último corte publicado completamente verde: `6fc21c1`; CI `30646087599`.
+- Último cierre técnico verificado: `de6e7df`, composición C2.2-B; evidencia
+  independiente B5 en `8c27c72`, GO y P0=P1=P2=0.
 - C2.2-A está cerrada y publicada mediante A5 en `54a8cde`, con revisión
   final `6017606`, P0=P1=P2=0 y PostgreSQL 18.4 compuesto.
 - `4d7e07d` corrige la carrera del runner Bolsa que hizo fallar la puerta
   `30630988587`; la corrección obtuvo GO local y puerta TLS remota verde.
-- Trabajo activo: C2.2-B, historia y puntero del vínculo corporativo.
+- Trabajo activo: C2.3, publicación y revocación corporativas.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
@@ -27,6 +28,26 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 Las ramas `real/t17a-postgres-importador` y
 `real/t20-borradores-postgresql` siguen siendo trabajos separados e
 incompletos. No deben mezclarse sin auditoría y reconciliación explícitas.
+
+### Continuación desde otro equipo
+
+El punto de reanudación es siempre la rama integradora publicada, no una copia
+de un worktree local. En un clon nuevo:
+
+```bash
+git clone git@github.com:aavidad/VEC_Diputacion_app.git
+cd VEC_Diputacion_app
+git fetch --prune origin
+git worktree add --track -b integracion/ct-o4-04e-20260726 \
+  .worktrees/ct-stable-docs \
+  origin/integracion/ct-o4-04e-20260726
+cd .worktrees/ct-stable-docs
+git status --short --branch
+```
+
+Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
+y el tablero. La primera tarea disponible es C2.3; ninguna rama de agente ni
+los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos
 
@@ -95,7 +116,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular, cliente seguro, recuperación, proyecciones y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1/M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 la cápsula; C2.1a el rol selector; C2.1b la fachada mínima de Identidad; S0.1/S0.2 las retiradas ContextoActor; y C2.2-A la historia organizativa, con P0=P1=P2=0. A está publicada en `54a8cde`, con CI `30633248293` verde; después faltan C2.2-B, selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular, cliente seguro, recuperación, proyecciones y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1/M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 la cápsula; C2.1a el rol selector; C2.1b la fachada mínima de Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia organizativa; y C2.2-B la historia del vínculo corporativo, con P0=P1=P2=0. B queda cerrada técnicamente en `de6e7df`, con evidencia `8c27c72`; después faltan C2.3 publicación/revocación, C2.4 selección/recibo, C2.5 fachada/reconciliación, PDP, raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -269,10 +290,10 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar C2.2-B: vínculo corporativo versionado, sin seleccionar
-   candidatos.
-2. Implementar publicación, selección y registro corporativos en una sola
-   transacción `SERIALIZABLE`, sin usar el PDP como selector.
+1. Implementar C2.3: publicación y revocación corporativas, sin seleccionar
+   candidatos ni usar el PDP como selector.
+2. Implementar C2.4: selección y recibo privados en una transacción
+   `SERIALIZABLE` y C2.5: fachada y reconciliación del resultado incierto.
 3. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
    CT-000046, sin caída a presentación.
 4. Implementar el adaptador independiente de publicaciones visuales
@@ -630,15 +651,17 @@ acredita P0=P1=P2=0, PostgreSQL 18.4 y recuperación física.
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
 cuadro/detalle con P0=P1=P2=0. Esto no autoriza aún la ruta web productiva:
-faltan C2.2-B, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y
-el E2E de O4-05. Los dobles de presentación continúan aislados y no se
+faltan C2.3 publicación/revocación, C2.4 selección/recibo, C2.5
+fachada/reconciliación, PDP, raíz, TLS/mTLS viva y el E2E de O4-05. Los dobles
+de presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-C2.2-B: vínculo corporativo
-→ publicación, selección y registro corporativos
+C2.3: publicación y revocación corporativas
+→ C2.4: selección y recibo privados
+→ C2.5: fachada y reconciliación
 → PDP productivo
 → composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva

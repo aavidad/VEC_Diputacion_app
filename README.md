@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **30 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **31 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -118,8 +118,13 @@ frontera interna. C2.2 está dividida en retirada segura, organización y
 vínculo corporativo; S0.1 y S0.2 están cerradas con `GO` técnico. C2.2-A,
 historia y puntero de organización, está cerrada y publicada en `54a8cde`,
 con revisión final `P0=P1=P2=0` y CI `30633248293` completamente verde.
-El corte activo es C2.2-B, el vínculo corporativo. Después siguen publicación,
-selección y registro, PDP, composición raíz, TLS/mTLS, web conectada y E2E.
+C2.2-B, historia y puntero del vínculo corporativo, queda cerrada técnicamente
+en `de6e7df`, con evidencia independiente en `8c27c72`, `P0=P1=P2=0` y la
+matriz PostgreSQL 18.4 compuesta. El último corte remoto completamente verde
+antes de publicar B6 es `6fc21c1`, CI `30646087599`. El corte activo pasa a
+C2.3, publicación y revocación corporativas; después siguen C2.4 selección y
+recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS, web
+conectada y E2E. Este cierre preparatorio no modifica las métricas oficiales.
 Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,

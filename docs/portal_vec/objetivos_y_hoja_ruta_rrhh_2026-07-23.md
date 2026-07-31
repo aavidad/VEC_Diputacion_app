@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 30 de julio de 2026.
+Última actualización: 31 de julio de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -111,11 +111,14 @@ CT-000045, junto con el adaptador CT-000046, están integrados y revisados.
 CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
 las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
 cápsula de identidad; C2.1a el rol selector mínimo; C2.1b la fachada mínima de
-Identidad; S0.1/S0.2 las retiradas ContextoActor; y C2.2-A la historia y el
-puntero organizativos, con P0=P1=P2=0. A está publicada en `54a8cde`, con CI
-`30633248293` verde; C2.2-B es el corte activo. Después siguen selección y
-registro corporativos, PDP, composición raíz, TLS/mTLS viva, la misma web
-definitiva y el E2E.
+Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia y el
+puntero organizativos; y C2.2-B la historia y el puntero del vínculo
+corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
+`8c27c72`, GO y P0=P1=P2=0. El último corte remoto completamente verde antes
+de B6 es `6fc21c1`, CI `30646087599`. C2.3, publicación y revocación, es el
+corte activo. Después siguen C2.4 selección y recibo, C2.5 fachada y
+reconciliación, PDP, composición raíz, TLS/mTLS viva, la misma web definitiva
+y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -175,7 +178,9 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Implementar C2.2-B, historia y puntero del vínculo corporativo, con la
-autoridad, integridad relacional y numeración fijadas en la
-[decisión C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md).
-C2.2-A queda como dependencia publicada, no como trabajo pendiente.
+Definir y ejecutar C2.3, publicación y revocación corporativas, sobre la
+historia y los punteros cerrados en C2.2, mediante la migración reservada
+`000005`. Debe conservar denegación por defecto, transacción atómica,
+procedencia y evidencia, sin seleccionar candidatos ni asumir funciones del
+PDP. C2.2-A y C2.2-B quedan como dependencias cerradas, no como trabajo
+pendiente.

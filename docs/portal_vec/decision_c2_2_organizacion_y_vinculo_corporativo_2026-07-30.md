@@ -2,7 +2,7 @@
 
 Fecha: 30 de julio de 2026.
 
-Estado: **decisión cerrada; implementación en curso**.
+Estado: **decisión e implementación técnica cerradas; producción NO-GO**.
 
 ## Problema
 
@@ -163,7 +163,7 @@ C2.2 no se implementará como una sola tarea:
 | C2.2-S0.2c | Runner PostgreSQL 18.4 de concurrencia, preservación y ciclos | S0.2a | Cerrada e integrada |
 | C2.2-S0.2d | Composición de los runners focales | S0.2b + S0.2c | Cerrada e integrada |
 | C2.2-A | Historia y puntero de organización | C2.1b + S0.2 | Cerrada y publicada en `54a8cde`; CI `30633248293` verde |
-| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A publicada | Lista; siguiente corte |
+| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A publicada | Cerrada técnicamente en `de6e7df`; evidencia `8c27c72`, GO y P0=P1=P2=0 |
 
 Cada productor y cada revisor serán distintos. A y B tendrán migración,
 reversión y runner PostgreSQL 18.4 propios.
@@ -242,7 +242,9 @@ catalogal de S0.1/S0.2a, reprodujo carreras reales y las corrigió antes de
 cerrar b, c y d. La
 [revisión completa de S0.2](revisiones/revision_c2_2_s0_2_cierre_2026-07-31.md)
 conserva los `NO-GO`, las correcciones, las pruebas y la frontera de amenaza.
-C2.2-A queda desbloqueada.
+C2.2-A y C2.2-B quedan cerradas técnicamente. La siguiente responsabilidad
+reservada es C2.3, publicación y revocación; no se mezcla con selección,
+recibo, PDP ni composición raíz.
 
 El write-set queda limitado al `down`, `probar_integracion.sh`, los runners
 focales y una prueba Go de integración del adaptador ContextoActor. Los runners

@@ -4,9 +4,11 @@ Fecha: 29 de julio de 2026.
 
 ## Actualización vigente de dirección — 31 de julio de 2026
 
-C2.2-A está cerrada y publicada en `54a8cde`, con revisión final independiente
-P0=P1=P2=0, PostgreSQL 18.4 compuesto y CI `30633248293` completamente verde.
-El trabajo activo es C2.2-B, vínculo corporativo. Las métricas permanecen en
+C2.2-A y C2.2-B están cerradas técnicamente. B queda compuesta en `de6e7df`,
+con revisión independiente en `8c27c72`, P0=P1=P2=0 y PostgreSQL 18.4. El
+último corte remoto completamente verde antes de B6 es `6fc21c1`, CI
+`30646087599`. El trabajo activo es C2.3, publicación y revocación
+corporativas. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
@@ -354,8 +356,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.2-B, vínculo corporativo. C2.1b, S0.1, S0.2 y A están
-cerradas y publicadas.
+Trabajo activo: C2.3, publicación y revocación corporativas. C2.1b, S0.1,
+S0.2, A y B están cerradas técnicamente.
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 
@@ -413,6 +415,15 @@ en `6017606` emitió GO, P0=P1=P2=0. `4d7e07d` corrige además la carrera de
 arranque del runner Bolsa observada en CI, sin cambiar funcionalidad. A5
 publicó el conjunto en `54a8cde`; la ejecución `30633248293` terminó verde en
 sus cinco puertas. C2.2-B queda desbloqueada.
+
+C2.2-B quedó implementada y revisada mediante B-S0, B-S1 y B1–B5. B4 compone
+los tres runners en `de6e7df`; la
+[revisión final B5](revisiones/revision_c2_2_b_vinculo_corporativo_2026-07-31.md)
+en `8c27c72` revisó y consolidó la evidencia reproducida por productores,
+revisores focales y dirección para PostgreSQL 18.4, concurrencia, preservación,
+ejecución literal `pgx`, reversión y ausencia de residuos, y emitió GO con
+P0=P1=P2=0. B6 sincroniza y publica el estado sin aumentar métricas. Queda
+desbloqueada C2.3; no se anticipan selección, PDP ni composición raíz.
 
 ## Optimización probatoria CT88
 

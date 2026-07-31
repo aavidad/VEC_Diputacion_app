@@ -11,13 +11,13 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | C2.2-B → publicación/selección corporativa → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | C2.3 publicación/revocación → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `54a8cde` en `integracion/ct-o4-04e-20260726`; CI `30633248293` |
-| Últimos commits técnicos verificados | `ce8959c` — composición funcional C2.2-A3; `4d7e07d` — corrección del arnés Bolsa; revisión final A4 en `6017606`, P0=P1=P2=0 |
+| Último corte publicado completamente verde | `6fc21c1` en `integracion/ct-o4-04e-20260726`; CI `30646087599` |
+| Últimos commits técnicos verificados | `de6e7df` — composición C2.2-B; revisión independiente B5 en `8c27c72`, GO y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2 y C2.2-A están cerradas y publicadas, pero no suman una puerta funcional. C2.2-B es el corte activo. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A y C2.2-B están cerradas técnicamente, pero no suman una puerta funcional. C2.3 es el corte activo. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -222,9 +222,9 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   privado 000044, fachadas nominales 000045 y adaptador Go 000046 están
   verdes; HTTP cuadro/detalle también está cerrado y revisado, pero
   C1, el rol mínimo C2.1a y la fachada C2.1b también están cerrados y
-  revisados; S0.1 y S0.2 de C2.2 están cerrados e integrados, mientras
-  organización, vínculo, selección corporativa, PDP, raíz, TLS y E2E siguen
-  abiertos
+  revisados; S0.1, S0.2, organización y vínculo de C2.2 están cerrados e
+  integrados, mientras publicación/revocación C2.3, selección/recibo C2.4,
+  fachada/reconciliación C2.5, PDP, raíz, TLS y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

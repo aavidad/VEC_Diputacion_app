@@ -2,7 +2,7 @@
 
 Fecha: 31 de julio de 2026.
 
-Estado: **contrato de implementación; no acredita todavía la capacidad**.
+Estado: **cierre técnico acreditado; GO independiente, P0=P1=P2=0**.
 
 ## Resultado único
 
@@ -615,3 +615,21 @@ B es infraestructura preparatoria: su cierre no aumenta por sí solo las
 métricas funcionales vigentes de Contratación `24/46`, O4-05 `3/5` o Bolsa
 productiva `1/14`. No se declara una capacidad funcional, E2E o cumplimiento
 normativo por disponer de las tablas.
+
+## Cierre ejecutado
+
+B-S0, B-S1 y B1 quedaron publicados hasta `6fc21c1`. B2 y B3 cerraron las
+matrices separadas de concurrencia/preservación y ejecución literal `pgx`; B4
+las compuso en `de6e7df`. La
+[revisión B5](revisiones/revision_c2_2_b_vinculo_corporativo_2026-07-31.md)
+en `8c27c72` revisó y consolidó la evidencia de la matriz PostgreSQL 18.4
+reproducida por productores, revisores focales y dirección, y emitió GO con
+`P0=P1=P2=0`. B6 sincroniza el estado transversal y publica el corte, sin
+alterar las métricas ni el `NO-GO` de producción.
+
+Los `NO-GO` intermedios, incluida la carrera TOCTOU, permanecen en la evidencia
+y fueron corregidos antes de este cierre. No se instaló ni se utilizó SELinux
+o SE-PostgreSQL: las comprobaciones `pg_seclabel` sólo acreditan la ausencia de
+etiquetas inesperadas en los objetos gobernados. El superusuario comprometido
+queda fuera del contrato de base y debe cubrirse con controles ENS de
+operación, segregación y plataforma.
