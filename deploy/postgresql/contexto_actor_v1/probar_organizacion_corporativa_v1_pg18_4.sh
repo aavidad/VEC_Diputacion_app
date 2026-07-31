@@ -147,7 +147,7 @@ SELECT pg_catalog.count(*) FROM pg_catalog.pg_stat_activity
   fallar "no se observo $descripcion"
 }
 
-docker run --detach --rm --name "$contenedor" \
+docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
   --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
   "$imagen" >/dev/null
 esperar_postgres
@@ -723,6 +723,21 @@ pid_down_dml=$!
 esperar_sesion ct140_down_dml "wait_event_type='Lock'" 'down esperando DML'
 wait "$pid_dml"
 wait "$pid_down_dml" || fallar 'down no vencio tras rollback DML'
+
+# 12. El adaptador ejecuta los bytes completos mediante pgx y sanea siempre
+# la conexion dedicada; la puerta puede omitirse en validaciones solo SQL.
+psql_archivo "$up"
+if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
+  puerto=$(docker port "$contenedor" 5432/tcp | head -n1)
+  puerto=${puerto##*:}
+  dsn="postgres://postgres:${clave_admin}@127.0.0.1:${puerto}/${base}?sslmode=disable"
+  VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn" \
+    go test ./internal/vec/adapters/contextoactor/postgres \
+      -run '^TestRetiradaOrganizacionCorporativaV1' -count=1
+  VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn" \
+    go test -race ./internal/vec/adapters/contextoactor/postgres \
+      -run '^TestRetiradaOrganizacionCorporativaV1' -count=1
+fi
 
 # 13. El trap acredita la limpieza incluso ante INT/TERM; aqui se comprueba
 # ademas que no quedan sesiones de trabajo antes de retirar el contenedor.
