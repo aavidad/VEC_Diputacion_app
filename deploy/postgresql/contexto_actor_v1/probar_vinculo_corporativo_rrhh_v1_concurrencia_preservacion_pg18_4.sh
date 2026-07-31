@@ -18,6 +18,7 @@ up_3="$directorio/migraciones/000003_organizacion_corporativa_v1.up.sql"
 down_3="$directorio/migraciones/000003_organizacion_corporativa_v1.down.sql"
 up="$directorio/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
 down="$directorio/migraciones/000004_vinculo_corporativo_rrhh_v1.down.sql"
+estructura="$directorio/pruebas_sql/vinculo_corporativo_rrhh_v1_estructura_catalogal.sql"
 temporal=$(mktemp -d)
 procesos=()
 sesion_fd=
@@ -98,6 +99,36 @@ esperar_valor() {
   fallar "espera agotada: $descripcion; observado=${observado:-<ausente>}"
 }
 
+capturar_pid() {
+  local aplicacion=$1 pid
+  pid=$(consulta "SELECT pid FROM pg_stat_activity
+    WHERE application_name='$aplicacion'")
+  [[ $pid =~ ^[0-9]+$ ]] || fallar "PID no univoco para $aplicacion: ${pid:-ausente}"
+  printf '%s' "$pid"
+}
+
+sql_bloqueo_advisory() {
+  local aplicacion=$1 bloqueador=$2 clave_advisory=$3
+  printf '%s' "SELECT count(*)=1 AND bool_and(
+    pg_blocking_pids(a.pid)=ARRAY[$bloqueador]::integer[])
+   FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+   WHERE a.application_name='$aplicacion' AND l.locktype='advisory'
+     AND l.mode='ExclusiveLock' AND NOT l.granted AND l.objsubid=1
+     AND l.classid=((hashtextextended('$clave_advisory',0)>>32)
+       & 4294967295)::oid
+     AND l.objid=(hashtextextended('$clave_advisory',0)&4294967295)::oid"
+}
+
+sql_bloqueo_relacion() {
+  local aplicacion=$1 bloqueador=$2 relacion=$3
+  printf '%s' "SELECT count(*)=1 AND bool_and(
+    pg_blocking_pids(a.pid)=ARRAY[$bloqueador]::integer[])
+   FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+   WHERE a.application_name='$aplicacion' AND l.locktype='relation'
+     AND l.relation='$relacion'::regclass
+     AND l.mode='AccessExclusiveLock' AND NOT l.granted"
+}
+
 huella_total() {
   docker exec --env PGPASSWORD="$clave" "$contenedor" pg_dump \
     -h 127.0.0.1 -U postgres -d "$base" --format=plain |
@@ -157,8 +188,18 @@ confirmar_sesion() {
   sesion_fifo=
 }
 
+validar_error_registrado() {
+  local descripcion=$1 archivo=$2 sqlstate=$3 mensaje=$4
+  if rg -q 'ERROR:  (40P01|55P03|57014):' "$archivo"; then
+    fallar "$descripcion termino por deadlock, lock_timeout o cancelacion"
+  fi
+  rg -Fq "ERROR:  $sqlstate: $mensaje" "$archivo" ||
+    fallar "$descripcion no emitio el error contractual $sqlstate: $mensaje"
+}
+
 comprobar_un_exito() {
-  local descripcion=$1 pid_1=$2 pid_2=$3 estado_1 estado_2
+  local descripcion=$1 pid_1=$2 archivo_1=$3 pid_2=$4 archivo_2=$5
+  local sqlstate=$6 mensaje=$7 estado_1 estado_2 perdedor
   set +e
   wait "$pid_1"; estado_1=$?
   wait "$pid_2"; estado_2=$?
@@ -167,14 +208,17 @@ comprobar_un_exito() {
          [[ $estado_1 -ne 0 && $estado_2 -eq 0 ]]; }; then
     fallar "$descripcion no produjo exactamente un exito: $estado_1/$estado_2"
   fi
+  if [[ $estado_1 -ne 0 ]]; then perdedor=$archivo_1; else perdedor=$archivo_2; fi
+  validar_error_registrado "$descripcion" "$perdedor" "$sqlstate" "$mensaje"
 }
 
 esperar_fallo() {
-  local descripcion=$1 pid=$2 estado
+  local descripcion=$1 pid=$2 archivo=$3 sqlstate=$4 mensaje=$5 estado
   set +e
   wait "$pid"; estado=$?
   set -e
   [[ $estado -ne 0 ]] || fallar "se acepto: $descripcion"
+  validar_error_registrado "$descripcion" "$archivo" "$sqlstate" "$mensaje"
 }
 
 docker run -d --rm --name "$contenedor" --publish 127.0.0.1::5432 \
@@ -198,6 +242,9 @@ psql_archivo "$up_2"
 psql_archivo "$roles_selector"
 psql_archivo "$up_3"
 huella_a=$(huella_total)
+huella_esquema_a=$(huella_esquema)
+interbloqueos_iniciales=$(consulta "SELECT deadlocks FROM pg_stat_database
+ WHERE datname=current_database()")
 
 # Caso 11.1: dos altas compiten por la barrera B; solo una puede confirmar.
 iniciar_sesion c22b_barrera_up
@@ -209,25 +256,45 @@ SQL
 esperar_valor 'barrera exclusiva de alta' 1 "SELECT count(*) FROM pg_locks l
  JOIN pg_stat_activity a ON a.pid=l.pid WHERE a.application_name='c22b_barrera_up'
  AND l.locktype='advisory' AND l.granted"
+pid_bloqueador_up=$(capturar_pid c22b_barrera_up)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_up_1 "$contenedor" \
   psql -Xq -h 127.0.0.1 -U postgres -d "$base" -v ON_ERROR_STOP=1 \
+  -v VERBOSITY=verbose \
   < "$raiz/$up" > "$temporal/up_1.log" 2>&1 & pid_up_1=$!
 procesos+=("$pid_up_1")
+esperar_valor 'primera alta espera el advisory B exacto' t \
+  "$(sql_bloqueo_advisory c22b_up_1 "$pid_bloqueador_up" \
+    'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1')"
+pid_contendiente_up_1=$(capturar_pid c22b_up_1)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_up_2 "$contenedor" \
   psql -Xq -h 127.0.0.1 -U postgres -d "$base" -v ON_ERROR_STOP=1 \
+  -v VERBOSITY=verbose \
   < "$raiz/$up" > "$temporal/up_2.log" 2>&1 & pid_up_2=$!
 procesos+=("$pid_up_2")
-esperar_valor 'dos altas bloqueadas' 2 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name IN ('c22b_up_1','c22b_up_2')
- AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'dos altas bloqueadas por el conjunto exacto' t "SELECT count(*)=2
+ AND bool_and(ARRAY(SELECT x FROM unnest(pg_blocking_pids(a.pid)) x ORDER BY x)=
+   CASE a.application_name WHEN 'c22b_up_1' THEN ARRAY[$pid_bloqueador_up]
+   ELSE ARRAY(SELECT x FROM unnest(ARRAY[$pid_bloqueador_up,$pid_contendiente_up_1]) x
+              ORDER BY x) END)
+ FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+ WHERE a.application_name IN ('c22b_up_1','c22b_up_2')
+ AND l.locktype='advisory' AND l.mode='ExclusiveLock' AND NOT l.granted
+ AND l.objsubid=1 AND l.classid=((hashtextextended(
+   'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1',0)>>32)
+   & 4294967295)::oid
+ AND l.objid=(hashtextextended(
+   'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1',0)&4294967295)::oid"
 confirmar_sesion
-comprobar_un_exito 'carrera up/up' "$pid_up_1" "$pid_up_2"
+comprobar_un_exito 'carrera up/up' "$pid_up_1" "$temporal/up_1.log" \
+  "$pid_up_2" "$temporal/up_2.log" 55000 \
+  'manifiesto simbolico del predecesor no acreditado'
 [[ $(consulta "SELECT count(*) FROM pg_class WHERE oid IN (
  'vec_contexto_actor_v1.vinculo_corporativo_versiones'::regclass,
  'vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass)") == 2 ]] ||
   fallar 'la carrera up/up no dejo B instalado exactamente una vez'
+psql_archivo "$estructura"
 
 # Caso 11.2: dos retiradas compiten; una retira y la segunda falla cerrada.
 iniciar_sesion c22b_barrera_down
@@ -239,20 +306,41 @@ SQL
 esperar_valor 'barrera exclusiva de retirada' 1 "SELECT count(*) FROM pg_locks l
  JOIN pg_stat_activity a ON a.pid=l.pid WHERE a.application_name='c22b_barrera_down'
  AND l.locktype='advisory' AND l.granted"
+pid_bloqueador_down=$(capturar_pid c22b_barrera_down)
 for numero in 1 2; do
   docker exec --interactive --env PGPASSWORD="$clave" \
     --env PGAPPNAME="c22b_down_$numero" \
     --env PGOPTIONS='-c vec.confirmar_retirada_vinculo_corporativo_rrhh_v1=RETIRAR_VINCULO_CORPORATIVO_RRHH_V1' \
     "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-    -v ON_ERROR_STOP=1 < "$raiz/$down" > "$temporal/down_$numero.log" 2>&1 &
+    -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+    < "$raiz/$down" > "$temporal/down_$numero.log" 2>&1 &
   if [[ $numero -eq 1 ]]; then pid_down_1=$!; else pid_down_2=$!; fi
   procesos+=("$!")
+  if [[ $numero -eq 1 ]]; then
+    esperar_valor 'primera retirada espera el advisory B exacto' t \
+      "$(sql_bloqueo_advisory c22b_down_1 "$pid_bloqueador_down" \
+        'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1')"
+    pid_contendiente_down_1=$(capturar_pid c22b_down_1)
+  fi
 done
-esperar_valor 'dos retiradas bloqueadas' 2 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name IN ('c22b_down_1','c22b_down_2')
- AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'dos retiradas bloqueadas por el conjunto exacto' t \
+ "SELECT count(*)=2
+  AND bool_and(ARRAY(SELECT x FROM unnest(pg_blocking_pids(a.pid)) x ORDER BY x)=
+    CASE a.application_name WHEN 'c22b_down_1' THEN ARRAY[$pid_bloqueador_down]
+    ELSE ARRAY(SELECT x FROM unnest(ARRAY[$pid_bloqueador_down,$pid_contendiente_down_1]) x
+               ORDER BY x) END)
+  FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+  WHERE a.application_name IN ('c22b_down_1','c22b_down_2')
+  AND l.locktype='advisory' AND l.mode='ExclusiveLock' AND NOT l.granted
+  AND l.objsubid=1 AND l.classid=((hashtextextended(
+    'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1',0)>>32)
+    & 4294967295)::oid
+  AND l.objid=(hashtextextended(
+    'vec_contexto_actor_v1:vinculo-corporativo-rrhh:v1',0)&4294967295)::oid"
 confirmar_sesion
-comprobar_un_exito 'carrera down/down' "$pid_down_1" "$pid_down_2"
+comprobar_un_exito 'carrera down/down' "$pid_down_1" "$temporal/down_1.log" \
+  "$pid_down_2" "$temporal/down_2.log" 42P01 \
+  'relation "vec_contexto_actor_v1.vinculo_corporativo_actual" does not exist'
 [[ $(consulta "SELECT to_regclass('vec_contexto_actor_v1.vinculo_corporativo_versiones') IS NULL") == t ]] ||
   fallar 'la carrera down/down dejo B parcialmente instalado'
 [[ $(huella_total) == "$huella_a" ]] ||
@@ -274,17 +362,22 @@ esperar_valor 'DDL hostil inmoviliza historia' 1 "SELECT count(*) FROM pg_locks 
  JOIN pg_stat_activity a ON a.pid=l.pid
  WHERE a.application_name='c22b_ddl_hostil' AND l.locktype='relation'
  AND l.relation='vec_contexto_actor_v1.vinculo_corporativo_versiones'::regclass
- AND l.granted AND l.mode IN ('ShareRowExclusiveLock','AccessExclusiveLock')"
+ AND l.granted AND l.mode='AccessExclusiveLock'"
+pid_bloqueador_ddl=$(capturar_pid c22b_ddl_hostil)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_down_ddl \
   --env PGOPTIONS='-c vec.confirmar_retirada_vinculo_corporativo_rrhh_v1=RETIRAR_VINCULO_CORPORATIVO_RRHH_V1' \
   "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-  -v ON_ERROR_STOP=1 < "$raiz/$down" > "$temporal/down_ddl.log" 2>&1 &
+  -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+  < "$raiz/$down" > "$temporal/down_ddl.log" 2>&1 &
 pid_down_ddl=$!; procesos+=("$pid_down_ddl")
-esperar_valor 'down bloqueada por DDL' 1 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name='c22b_down_ddl' AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'down espera el lock exacto de la historia alterada' t \
+  "$(sql_bloqueo_relacion c22b_down_ddl "$pid_bloqueador_ddl" \
+    vec_contexto_actor_v1.vinculo_corporativo_versiones)"
 confirmar_sesion
-esperar_fallo 'retirada concurrente con DDL hostil' "$pid_down_ddl"
+esperar_fallo 'retirada concurrente con DDL hostil' "$pid_down_ddl" \
+  "$temporal/down_ddl.log" 55000 \
+  'retirada rechazada: forma de vinculo corporativo no exacta'
 [[ $(consulta "SELECT relreplident FROM pg_class WHERE oid=
  'vec_contexto_actor_v1.vinculo_corporativo_versiones'::regclass") == f ]] ||
   fallar 'el rechazo de down no preservo el DDL hostil confirmado'
@@ -310,24 +403,48 @@ esperar_valor 'barrera de predecesores' 1 "SELECT count(*) FROM pg_locks l
  JOIN pg_stat_activity a ON a.pid=l.pid
  WHERE a.application_name='c22b_barrera_predecesores'
  AND l.locktype='advisory' AND l.granted"
+pid_bloqueador_pre=$(capturar_pid c22b_barrera_predecesores)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_down_2_pre \
   --env PGOPTIONS='-c vec.confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2' \
   "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-  -v ON_ERROR_STOP=1 < "$raiz/$down_2" > "$temporal/down_2_pre.log" 2>&1 &
+  -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+  < "$raiz/$down_2" > "$temporal/down_2_pre.log" 2>&1 &
 pid_pre_2=$!; procesos+=("$pid_pre_2")
+esperar_valor '000002 espera el advisory A exacto' t \
+  "$(sql_bloqueo_advisory c22b_down_2_pre "$pid_bloqueador_pre" \
+    'vec_contexto_actor_v1:migracion:acreditacion_uso:v2')"
+pid_contendiente_pre_2=$(capturar_pid c22b_down_2_pre)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_down_3_pre \
   --env PGOPTIONS='-c vec.confirmar_retirada_organizacion_corporativa_v1=RETIRAR_ORGANIZACION_CORPORATIVA_V1' \
   "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-  -v ON_ERROR_STOP=1 < "$raiz/$down_3" > "$temporal/down_3_pre.log" 2>&1 &
+  -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+  < "$raiz/$down_3" > "$temporal/down_3_pre.log" 2>&1 &
 pid_pre_3=$!; procesos+=("$pid_pre_3")
-esperar_valor 'dos predecesores bloqueados' 2 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name IN ('c22b_down_2_pre','c22b_down_3_pre')
- AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'dos predecesores bloqueados por el conjunto exacto' t \
+ "SELECT count(*)=2
+  AND bool_and(ARRAY(SELECT x FROM unnest(pg_blocking_pids(a.pid)) x ORDER BY x)=
+    CASE a.application_name WHEN 'c22b_down_2_pre' THEN ARRAY[$pid_bloqueador_pre]
+    ELSE ARRAY(SELECT x FROM unnest(ARRAY[$pid_bloqueador_pre,$pid_contendiente_pre_2]) x
+               ORDER BY x) END)
+  FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid
+  WHERE a.application_name IN ('c22b_down_2_pre','c22b_down_3_pre')
+  AND l.locktype='advisory' AND NOT l.granted AND l.objsubid=1
+  AND l.mode=CASE a.application_name WHEN 'c22b_down_2_pre'
+    THEN 'ExclusiveLock' ELSE 'ShareLock' END
+  AND l.classid=((hashtextextended(
+    'vec_contexto_actor_v1:migracion:acreditacion_uso:v2',0)>>32)
+    & 4294967295)::oid
+  AND l.objid=(hashtextextended(
+    'vec_contexto_actor_v1:migracion:acreditacion_uso:v2',0)&4294967295)::oid"
 confirmar_sesion
-esperar_fallo 'retirada prematura 000002' "$pid_pre_2"
-esperar_fallo 'retirada prematura 000003' "$pid_pre_3"
+esperar_fallo 'retirada prematura 000002' "$pid_pre_2" \
+  "$temporal/down_2_pre.log" 55000 \
+  'retirada ContextoActor V2 rechazada: trios de punteros derivados'
+esperar_fallo 'retirada prematura 000003' "$pid_pre_3" \
+  "$temporal/down_3_pre.log" 55000 \
+  'retirada rechazada: triggers FK internos no exactos'
 [[ $(huella_total) == "$huella_b" ]] ||
   fallar 'la carrera de predecesores altero B o A'
 
@@ -359,6 +476,7 @@ INSERT INTO vec_contexto_actor_v1.organizacion_versiones VALUES
 COMMIT;
 SQL
 generacion_inicial=$(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2')
+huella_base_fixtures=$(huella_filas_base)
 
 # Caso 11.5: una inserción confirmada gana a down y permanece íntegra.
 iniciar_sesion c22b_insercion
@@ -379,19 +497,34 @@ esperar_valor 'insercion mantiene lock de historia' 1 "SELECT count(*) FROM pg_l
  AND l.locktype='relation' AND l.relation=
  'vec_contexto_actor_v1.vinculo_corporativo_versiones'::regclass
  AND l.mode='RowExclusiveLock' AND l.granted"
+pid_bloqueador_insercion=$(capturar_pid c22b_insercion)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_down_insercion \
   --env PGOPTIONS='-c vec.confirmar_retirada_vinculo_corporativo_rrhh_v1=RETIRAR_VINCULO_CORPORATIVO_RRHH_V1' \
   "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-  -v ON_ERROR_STOP=1 < "$raiz/$down" > "$temporal/down_insercion.log" 2>&1 &
+  -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+  < "$raiz/$down" > "$temporal/down_insercion.log" 2>&1 &
 pid_down_insercion=$!; procesos+=("$pid_down_insercion")
-esperar_valor 'down bloqueada por insercion' 1 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name='c22b_down_insercion'
- AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'down espera el lock exacto de la historia escrita' t \
+  "$(sql_bloqueo_relacion c22b_down_insercion "$pid_bloqueador_insercion" \
+    vec_contexto_actor_v1.vinculo_corporativo_versiones)"
 confirmar_sesion
-esperar_fallo 'retirada concurrente con insercion' "$pid_down_insercion"
-[[ $(consulta 'SELECT count(*) FROM vec_contexto_actor_v1.vinculo_corporativo_versiones') == 1 ]] ||
-  fallar 'el rechazo de down perdio la historia confirmada'
+esperar_fallo 'retirada concurrente con insercion' "$pid_down_insercion" \
+  "$temporal/down_insercion.log" 55000 \
+  'retirada de vinculo corporativo RRHH V1 rechazada por evidencia'
+[[ $(consulta "SELECT count(*)=1 AND bool_and(v=ROW(
+ 'vcr_corporativo_rrhh_000000000001',1,
+ 'cta_corporativa_rrhh_000000000001',1,'per_corporativa_rrhh_000000000001',1,
+ 'prf_corporativo_rrhh_000000000001',1,'vca_corporativo_rrhh_000000000001',1,
+ 'org_diputaciondemo0001',1,'prc_autoridad_corporativa_rrhh_0001',1,
+ repeat('a',64),'autoridad_maestra_acreditada','interna_corporativa','consulta_rrhh',
+ 'prc_vinculo_corporativo_rrhh_000001',1,repeat('b',64),
+ 'autoridad_maestra_acreditada','activo','2026-01-01','2027-01-01'
+ )::vec_contexto_actor_v1.vinculo_corporativo_versiones)
+ FROM vec_contexto_actor_v1.vinculo_corporativo_versiones v") == t ]] ||
+  fallar 'el rechazo de down no preservo la historia exacta'
+[[ $(huella_filas_base) == "$huella_base_fixtures" ]] ||
+  fallar 'la carrera de insercion altero filas base'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_inicial" ]] ||
   fallar 'la insercion de historia altero la generacion'
 [[ $(huella_esquema) == "$huella_esquema_b" ]] ||
@@ -411,19 +544,41 @@ esperar_valor 'puntero mantiene lock de escritura' 1 "SELECT count(*) FROM pg_lo
  AND l.locktype='relation' AND l.relation=
  'vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
  AND l.mode='RowExclusiveLock' AND l.granted"
+pid_bloqueador_puntero=$(capturar_pid c22b_puntero)
 docker exec --interactive --env PGPASSWORD="$clave" \
   --env PGAPPNAME=c22b_down_puntero \
   --env PGOPTIONS='-c vec.confirmar_retirada_vinculo_corporativo_rrhh_v1=RETIRAR_VINCULO_CORPORATIVO_RRHH_V1' \
   "$contenedor" psql -Xq -h 127.0.0.1 -U postgres -d "$base" \
-  -v ON_ERROR_STOP=1 < "$raiz/$down" > "$temporal/down_puntero.log" 2>&1 &
+  -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
+  < "$raiz/$down" > "$temporal/down_puntero.log" 2>&1 &
 pid_down_puntero=$!; procesos+=("$pid_down_puntero")
-esperar_valor 'down bloqueada por avance de puntero' 1 "SELECT count(*) FROM pg_stat_activity
- WHERE application_name='c22b_down_puntero'
- AND cardinality(pg_blocking_pids(pid))>0"
+esperar_valor 'down espera el lock exacto del puntero escrito' t \
+  "$(sql_bloqueo_relacion c22b_down_puntero "$pid_bloqueador_puntero" \
+    vec_contexto_actor_v1.vinculo_corporativo_actual)"
 confirmar_sesion
-esperar_fallo 'retirada concurrente con avance de puntero' "$pid_down_puntero"
-[[ $(consulta 'SELECT count(*) FROM vec_contexto_actor_v1.vinculo_corporativo_actual') == 1 ]] ||
-  fallar 'el rechazo de down perdio el puntero confirmado'
+huella_base_puntero_confirmado=$(huella_filas_base)
+esperar_fallo 'retirada concurrente con avance de puntero' "$pid_down_puntero" \
+  "$temporal/down_puntero.log" 55000 \
+  'retirada de vinculo corporativo RRHH V1 rechazada por evidencia'
+[[ $(consulta "SELECT count(*)=1 AND bool_and(v=ROW(
+ 'cta_corporativa_rrhh_000000000001','interna_corporativa','consulta_rrhh',
+ 'vcr_corporativo_rrhh_000000000001',1
+ )::vec_contexto_actor_v1.vinculo_corporativo_actual)
+ FROM vec_contexto_actor_v1.vinculo_corporativo_actual v") == t ]] ||
+  fallar 'el rechazo de down no preservo el puntero exacto'
+[[ $(consulta "SELECT count(*)=1 AND bool_and(v=ROW(
+ 'vcr_corporativo_rrhh_000000000001',1,
+ 'cta_corporativa_rrhh_000000000001',1,'per_corporativa_rrhh_000000000001',1,
+ 'prf_corporativo_rrhh_000000000001',1,'vca_corporativo_rrhh_000000000001',1,
+ 'org_diputaciondemo0001',1,'prc_autoridad_corporativa_rrhh_0001',1,
+ repeat('a',64),'autoridad_maestra_acreditada','interna_corporativa','consulta_rrhh',
+ 'prc_vinculo_corporativo_rrhh_000001',1,repeat('b',64),
+ 'autoridad_maestra_acreditada','activo','2026-01-01','2027-01-01'
+ )::vec_contexto_actor_v1.vinculo_corporativo_versiones)
+ FROM vec_contexto_actor_v1.vinculo_corporativo_versiones v") == t ]] ||
+  fallar 'la carrera de puntero altero la historia comprometida'
+[[ $(huella_filas_base) == "$huella_base_puntero_confirmado" ]] ||
+  fallar 'la carrera de puntero altero filas base'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$((generacion_inicial + 1))" ]] ||
   fallar 'el rechazo de down perdio el avance de generacion'
 [[ $(huella_esquema) == "$huella_esquema_b" ]] ||
@@ -448,6 +603,8 @@ docker exec --interactive --env PGPASSWORD="$clave" \
   fallar 'la retirada final de B altero filas de A'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_base_poblada" ]] ||
   fallar 'la retirada final de B altero la generacion'
+[[ $(huella_esquema) == "$huella_esquema_a" ]] ||
+  fallar 'la retirada final de B no recupero el esquema predecesor aislado'
 
 # La cadena ordenada queda utilizable después de retirar B y sus fixtures.
 psql_sql <<'SQL'
@@ -478,5 +635,8 @@ docker exec --interactive --env PGPASSWORD="$clave" \
 [[ $(consulta "SELECT to_regclass('vec_contexto_actor_v1.organizacion_versiones') IS NULL
  AND to_regclass('vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') IS NULL") == t ]] ||
   fallar 'la cadena ordenada de retirada no finalizo'
+[[ $(consulta "SELECT deadlocks FROM pg_stat_database
+ WHERE datname=current_database()") == "$interbloqueos_iniciales" ]] ||
+  fallar 'las carreras registraron un deadlock'
 
 echo 'OK: vinculo corporativo RRHH V1 supera concurrencia y preservacion PG 18.4'
