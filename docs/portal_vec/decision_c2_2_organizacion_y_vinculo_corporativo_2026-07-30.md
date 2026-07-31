@@ -2,6 +2,8 @@
 
 Fecha: 30 de julio de 2026.
 
+Actualización de reserva: 31 de julio de 2026.
+
 Estado: **decisión e implementación técnica cerradas; producción NO-GO**.
 
 ## Problema
@@ -41,6 +43,14 @@ Una organización revocada invalida todos sus usos sin reescribir sus vínculos.
 Un vínculo revocado no altera la historia de la organización. El futuro
 selector exige una única combinación activa y vigente; no elige la primera ni
 suma perfiles.
+
+C2.3 materializará estas entidades únicamente como proyección automática de
+una fuente corporativa aprobada. No habrá edición humana ni autoinscripción en
+su primera versión. Cada alta o revocación consumirá, en el mismo `COMMIT
+SERIALIZABLE`, una capacidad breve específica de fuente mediante una fachada
+nominal de `autorizacion_atestada_v3`; el PDP no actúa como selector ni como
+origen de autoridad. Una vía humana posterior deberá consumir VEC-AD-3 y no
+podrá crear hechos que no procedan de la fuente maestra.
 
 ## Identificador organizativo
 
@@ -175,15 +185,32 @@ La reserva queda:
 ```text
 contexto_actor_v1/migraciones/000003  organización corporativa
 contexto_actor_v1/migraciones/000004  vínculo corporativo RRHH
-contexto_actor_v1/migraciones/000005  publicación y revocación C2.3
-contexto_actor_v1/migraciones/000006  recibo y selección privada C2.4
-contexto_actor_v1/migraciones/000007  fachada y reconciliación C2.5
-contexto_actor_v1/migraciones/000008  acreditación nominal C2.8
+contexto_actor_v1/migraciones/000005  registro probatorio, outbox y asociaciones tipadas C2.3
+contexto_actor_v1/migraciones/000006  publicación y revocación de organización C2.3
+contexto_actor_v1/migraciones/000007  publicación y revocación de vínculo C2.3
+contexto_actor_v1/migraciones/000008  recibo y selección privada C2.4
+contexto_actor_v1/migraciones/000009  fachada y reconciliación C2.5
+contexto_actor_v1/migraciones/000010  acreditación nominal C2.8
+autorizacion_atestada_v3/migraciones/000007  consumidor nominal de fuente C2.3
 ```
 
 C2.6 y C2.7 son contratos y adaptadores Go y no consumen migración. C2.9 y
 C2.10 conservan sus reservas en Autorización y Contratación temporal. No se
 reutiliza un número ni se mezcla más de una responsabilidad.
+
+El inventario del 31 de julio de 2026 encuentra en
+`autorizacion_atestada_v3` solamente `000001` a `000006`. Su `000007` se
+implementará como minitarea independiente, después de repetir el inventario,
+y expondrá el consumo nominal de la capacidad de fuente sin duplicar raíces,
+confianza, COSE ni HMAC en ContextoActor. Si no puede consumirse atómicamente
+desde la fachada C2.3 en la misma transacción, queda bloqueada la publicación.
+
+Esta actualización sustituye únicamente la reserva C2.3 y posterior
+`000005`–`000008` que conservan la coordinación y la revisión históricas de
+C2.2-B; no altera su evidencia ni su cierre técnico. La nueva división
+`000005`–`000007` y el desplazamiento a `000008`–`000010` resuelven los NO-GO
+independientes CT141 y CT142 sobre autoridad de fuente, asociaciones durables
+y tamaño de las migraciones.
 
 ## Retirada segura S0
 
