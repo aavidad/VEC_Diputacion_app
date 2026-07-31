@@ -15,6 +15,7 @@ BEGIN
     IF (SELECT count(*) FROM pg_class
          WHERE oid IN (versiones,actual) AND relkind='r'
            AND relpersistence='p' AND relowner=propietario
+           AND relreplident='d'
            AND relrowsecurity AND relforcerowsecurity) <> 2 THEN
         RAISE EXCEPTION 'tablas, propiedad o RLS no exactos';
     END IF;
@@ -46,14 +47,34 @@ BEGIN
            AND NOT condeferrable AND NOT condeferred AND convalidated) <> 7
        OR (SELECT count(*) FROM pg_index
             WHERE indrelid IN (versiones,actual)) <> 3
-       OR (SELECT count(*) FROM pg_index
-            WHERE indrelid IN (
+       OR (SELECT count(*) FROM pg_index i
+            JOIN pg_class x ON x.oid=i.indexrelid
+            JOIN pg_am am ON am.oid=x.relam
+            JOIN (VALUES
+              ('vinculo_corporativo_versiones_pk',true,
+               'vinculo_corporativo_ref,version'),
+              ('vinculo_corporativo_versiones_actual_uq',false,
+               'cuenta_ref,superficie,uso,vinculo_corporativo_ref,version'),
+              ('vinculo_corporativo_actual_pk',true,'cuenta_ref,superficie,uso'),
+              ('perfil_versiones_persona_uq',false,
+               'perfil_ref,version,persona_ref'),
+              ('vinculo_contexto_versiones_actor_uq',false,
+               'vinculo_ref,version,cuenta_ref,perfil_ref,persona_ref')
+            ) e(nombre,primario,columnas) ON e.nombre=x.relname
+            WHERE i.indrelid IN (versiones,actual,
               'vec_contexto_actor_v1.perfil_versiones'::regclass,
               'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass)
-              AND indexrelid::regclass::text IN (
-                'vec_contexto_actor_v1.perfil_versiones_persona_uq',
-                'vec_contexto_actor_v1.vinculo_contexto_versiones_actor_uq'
-              )) <> 2
+              AND x.relowner=propietario AND x.reltablespace=0
+              AND x.relpersistence='p' AND x.relreplident='n'
+              AND x.reloptions IS NULL AND am.amname='btree'
+              AND i.indisunique AND NOT i.indnullsnotdistinct
+              AND i.indisprimary=e.primario AND NOT i.indisexclusion
+              AND i.indimmediate AND NOT i.indisclustered AND i.indisvalid
+              AND NOT i.indcheckxmin AND i.indisready AND i.indislive
+              AND NOT i.indisreplident AND i.indnkeyatts=i.indnatts
+              AND (SELECT string_agg(pg_get_indexdef(
+                    i.indexrelid,posicion,false),',' ORDER BY posicion)
+                     FROM generate_series(1,i.indnatts) posicion)=e.columnas) <> 5
        OR (SELECT count(*) FROM pg_trigger
             WHERE tgrelid IN (versiones,actual) AND NOT tgisinternal) <> 5
        OR (SELECT count(*) FROM pg_trigger
@@ -107,14 +128,24 @@ BEGIN
     IF (SELECT count(*) FROM pg_class t JOIN pg_class p ON p.reltoastrelid=t.oid
          JOIN pg_am am ON am.oid=t.relam WHERE p.oid IN (versiones,actual)
            AND t.relkind='t' AND t.relowner=propietario AND t.reltablespace=0
+           AND t.relpersistence='p' AND t.relreplident='n'
            AND t.reloptions IS NULL AND am.amname='heap') <> 2
        OR (SELECT count(*) FROM pg_index i JOIN pg_class t ON t.oid=i.indrelid
             JOIN pg_class x ON x.oid=i.indexrelid JOIN pg_am am ON am.oid=x.relam
             WHERE t.oid IN (
               (SELECT reltoastrelid FROM pg_class WHERE oid=versiones),
               (SELECT reltoastrelid FROM pg_class WHERE oid=actual))
-              AND i.indisunique AND i.indisprimary AND i.indisvalid AND i.indisready
+              AND i.indisunique AND NOT i.indnullsnotdistinct
+              AND i.indisprimary AND NOT i.indisexclusion AND i.indimmediate
+              AND NOT i.indisclustered AND i.indisvalid AND NOT i.indcheckxmin
+              AND i.indisready AND i.indislive AND NOT i.indisreplident
+              AND i.indnkeyatts=2 AND i.indnatts=2
+              AND (SELECT string_agg(pg_get_indexdef(
+                    i.indexrelid,posicion,false),',' ORDER BY posicion)
+                     FROM generate_series(1,i.indnatts) posicion)
+                  = 'chunk_id,chunk_seq'
               AND x.relowner=propietario AND x.reltablespace=0
+              AND x.relpersistence='p' AND x.relreplident='n'
               AND x.reloptions IS NULL AND am.amname='btree') <> 2 THEN
         RAISE EXCEPTION 'TOAST o sus indices no exactos';
     END IF;

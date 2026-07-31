@@ -133,6 +133,29 @@ BEGIN
           MESSAGE='retirada rechazada: roles o privilegios efectivos hostiles';
     END IF;
 
+    -- Sin proveedor MAC configurado, el contrato base exige cero etiquetas.
+    -- Un superusuario/DBA comprometido queda fuera: es frontera ENS/operativa.
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_seclabel s
+        WHERE (s.classoid='pg_namespace'::regclass AND s.objoid=esquema)
+           OR (s.classoid='pg_proc'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_proc p
+                 WHERE p.oid=s.objoid AND p.pronamespace=esquema))
+           OR (s.classoid='pg_type'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_type t
+                 WHERE t.oid=s.objoid AND t.typnamespace=esquema))
+           OR (s.classoid='pg_class'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_class c
+                 WHERE c.oid=s.objoid AND (c.relnamespace=esquema OR c.oid IN (
+                   SELECT p.reltoastrelid FROM pg_catalog.pg_class p
+                    WHERE p.relnamespace=esquema AND p.reltoastrelid<>0) OR c.oid IN (
+                   SELECT i.indexrelid FROM pg_catalog.pg_class p
+                   JOIN pg_catalog.pg_class t ON t.oid=p.reltoastrelid
+                   JOIN pg_catalog.pg_index i ON i.indrelid=t.oid
+                    WHERE p.relnamespace=esquema))))) THEN
+        RAISE EXCEPTION USING ERRCODE='55000',
+          MESSAGE='retirada rechazada: etiquetas de seguridad hostiles';
+    END IF;
+
     SELECT pg_catalog.array_agg(oid ORDER BY oid) INTO restricciones
       FROM pg_catalog.pg_constraint WHERE conrelid IN (versiones,actual)
         OR (connamespace=esquema AND conname IN
@@ -466,14 +489,6 @@ BEGIN
                    )) OR (d.classoid='pg_trigger'::regclass AND EXISTS (
                      SELECT 1 FROM pg_catalog.pg_trigger t WHERE t.oid=d.objoid
                        AND t.tgrelid IN (versiones,actual))))
-       OR EXISTS (SELECT 1 FROM pg_catalog.pg_seclabel s
-                   WHERE (s.classoid='pg_class'::regclass AND s.objoid IN
-                          (versiones,actual))
-                      OR (s.classoid='pg_type'::regclass AND s.objoid IN (
-                        (SELECT reltype FROM pg_catalog.pg_class WHERE oid=versiones),
-                        (SELECT reltype FROM pg_catalog.pg_class WHERE oid=actual),
-                        (SELECT typarray FROM pg_catalog.pg_type WHERE typrelid=versiones),
-                        (SELECT typarray FROM pg_catalog.pg_type WHERE typrelid=actual))))
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_init_privs p
                    WHERE (p.classoid='pg_class'::regclass AND p.objoid IN
                           (versiones,actual))

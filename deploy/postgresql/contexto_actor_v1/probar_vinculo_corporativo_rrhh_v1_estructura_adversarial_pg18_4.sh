@@ -160,7 +160,8 @@ up_reentrada() { psql_archivo "$up"; }
 down_sin_confirmacion() { psql_archivo "$down"; }
 
 docker run -d --rm --name "$contenedor" --publish 127.0.0.1::5432 \
-  -e POSTGRES_DB="$base" -e POSTGRES_PASSWORD="$clave" "$imagen" >/dev/null
+  -e POSTGRES_DB="$base" -e POSTGRES_PASSWORD="$clave" "$imagen" \
+  -c allow_system_table_mods=on >/dev/null
 esperar_postgres
 psql_sql <<'SQL'
 DO $base$
@@ -223,6 +224,21 @@ huella_a=$(huella)
 huella_catalogal_a_inicial=$(huella_catalogal_a)
 
 # B1, caso 1: atomicidad, instalacion literal y reentrada cerrada.
+psql_sql <<'SQL'
+INSERT INTO pg_catalog.pg_seclabel(objoid,classoid,objsubid,provider,label)
+VALUES ('vec_contexto_actor_v1'::regnamespace,
+        'pg_catalog.pg_namespace'::regclass,0,
+        'c22b_sintetico','etiqueta_esquema_hostil');
+SQL
+exigir_fallo_intacto 'etiqueta de seguridad hostil sobre esquema' up_reentrada
+psql_sql <<'SQL'
+DELETE FROM pg_catalog.pg_seclabel
+ WHERE objoid='vec_contexto_actor_v1'::regnamespace
+   AND classoid='pg_catalog.pg_namespace'::regclass
+   AND provider='c22b_sintetico';
+SQL
+[[ $(huella) == "$huella_a" ]] ||
+  fallar 'la sonda pg_seclabel de alta no restauro A'
 psql_sql <<'SQL'
 SET ROLE vec_contexto_actor_v1_propietario;
 ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text) VOLATILE;
@@ -343,6 +359,26 @@ DROP EVENT TRIGGER c22b_fallo_politica;
 DROP FUNCTION public.c22b_fallo_politica();
 SQL
 [[ $(huella) == "$huella_a" ]] || fallar 'el fallo tardio no restauro A'
+psql_sql <<'SQL'
+CREATE FUNCTION public.c22b_mutar_postcondicion() RETURNS event_trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF tg_tag='CREATE TABLE' AND
+     to_regclass('vec_contexto_actor_v1.vinculo_corporativo_versiones') IS NOT NULL THEN
+    ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones
+      REPLICA IDENTITY FULL;
+  END IF;
+END $$;
+CREATE EVENT TRIGGER c22b_mutar_postcondicion ON ddl_command_end
+  EXECUTE FUNCTION public.c22b_mutar_postcondicion();
+SQL
+exigir_fallo_intacto 'mutacion tardia de identidad de replica' up_reentrada
+psql_sql <<'SQL'
+DROP EVENT TRIGGER c22b_mutar_postcondicion;
+DROP FUNCTION public.c22b_mutar_postcondicion();
+SQL
+[[ $(huella) == "$huella_a" ]] ||
+  fallar 'la postcondicion hostil no produjo rollback integro'
 psql_archivo "$up"
 exigir_fallo_intacto 'reentrada de 000004 up' up_reentrada
 psql_sql <<'SQL'
@@ -365,6 +401,17 @@ exigir_fallo_intacto 'retirada B con confirmacion incorrecta' retirar_mal
 
 # B1, caso 9: toda deriva o dependencia hostil impide la retirada.
 psql_sql <<'SQL'
+INSERT INTO pg_catalog.pg_seclabel(objoid,classoid,objsubid,provider,label)
+VALUES ('vec_contexto_actor_v1.organizacion_ref_valida(text)'::regprocedure,
+        'pg_catalog.pg_proc'::regclass,0,
+        'c22b_sintetico','etiqueta_funcion_hostil');
+SQL
+exigir_fallo_intacto 'retirada con etiqueta de seguridad hostil en funcion' retirar
+psql_sql <<'SQL'
+DELETE FROM pg_catalog.pg_seclabel
+ WHERE objoid='vec_contexto_actor_v1.organizacion_ref_valida(text)'::regprocedure
+   AND classoid='pg_catalog.pg_proc'::regclass
+   AND provider='c22b_sintetico';
 GRANT vec_contexto_actor_corporativo_rrhh_selector TO c22b_login
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 SQL

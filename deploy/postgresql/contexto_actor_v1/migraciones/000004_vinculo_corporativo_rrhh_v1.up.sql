@@ -122,6 +122,29 @@ BEGIN
           MESSAGE='roles o privilegios efectivos predecesores no acreditados';
     END IF;
 
+    -- Sin proveedor MAC configurado, el contrato base exige cero etiquetas.
+    -- Un superusuario/DBA comprometido queda fuera: es frontera ENS/operativa.
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_seclabel s
+        WHERE (s.classoid='pg_namespace'::regclass AND s.objoid=esquema)
+           OR (s.classoid='pg_proc'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_proc p
+                 WHERE p.oid=s.objoid AND p.pronamespace=esquema))
+           OR (s.classoid='pg_type'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_type t
+                 WHERE t.oid=s.objoid AND t.typnamespace=esquema))
+           OR (s.classoid='pg_class'::regclass AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_class c
+                 WHERE c.oid=s.objoid AND (c.relnamespace=esquema OR c.oid IN (
+                   SELECT p.reltoastrelid FROM pg_catalog.pg_class p
+                    WHERE p.relnamespace=esquema AND p.reltoastrelid<>0) OR c.oid IN (
+                   SELECT i.indexrelid FROM pg_catalog.pg_class p
+                   JOIN pg_catalog.pg_class t ON t.oid=p.reltoastrelid
+                   JOIN pg_catalog.pg_index i ON i.indrelid=t.oid
+                    WHERE p.relnamespace=esquema))))) THEN
+        RAISE EXCEPTION USING ERRCODE='55000',
+          MESSAGE='etiquetas de seguridad predecesoras no acreditadas';
+    END IF;
+
     IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class
          WHERE oid IN (
            'vec_contexto_actor_v1.procedencias'::regclass,
@@ -585,6 +608,7 @@ DECLARE
 BEGIN
     IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class
          WHERE oid IN (versiones,actual) AND relkind='r' AND relowner=propietario
+           AND relpersistence='p' AND relreplident='d'
            AND relrowsecurity AND relforcerowsecurity) <> 2
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
             WHERE polrelid IN (versiones,actual)
@@ -605,16 +629,33 @@ BEGIN
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_index i
             JOIN pg_catalog.pg_class x ON x.oid=i.indexrelid
             JOIN pg_catalog.pg_am am ON am.oid=x.relam
+            JOIN (VALUES
+              ('vinculo_corporativo_versiones_pk',true,
+               'vinculo_corporativo_ref,version'),
+              ('vinculo_corporativo_versiones_actual_uq',false,
+               'cuenta_ref,superficie,uso,vinculo_corporativo_ref,version'),
+              ('vinculo_corporativo_actual_pk',true,
+               'cuenta_ref,superficie,uso'),
+              ('perfil_versiones_persona_uq',false,
+               'perfil_ref,version,persona_ref'),
+              ('vinculo_contexto_versiones_actor_uq',false,
+               'vinculo_ref,version,cuenta_ref,perfil_ref,persona_ref')
+            ) e(nombre,primario,columnas) ON e.nombre=x.relname
             WHERE i.indrelid IN (versiones,actual,
               'vec_contexto_actor_v1.perfil_versiones'::regclass,
               'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass)
-              AND x.relname IN (
-                'vinculo_corporativo_versiones_pk',
-                'vinculo_corporativo_versiones_actual_uq',
-                'vinculo_corporativo_actual_pk','perfil_versiones_persona_uq',
-                'vinculo_contexto_versiones_actor_uq')
               AND x.relowner=propietario AND x.reltablespace=0
-              AND x.reloptions IS NULL AND am.amname='btree') <> 5
+              AND x.relpersistence='p' AND x.relreplident='n'
+              AND x.reloptions IS NULL AND am.amname='btree'
+              AND i.indisunique AND NOT i.indnullsnotdistinct
+              AND i.indisprimary=e.primario AND NOT i.indisexclusion
+              AND i.indimmediate AND NOT i.indisclustered AND i.indisvalid
+              AND NOT i.indcheckxmin AND i.indisready AND i.indislive
+              AND NOT i.indisreplident AND i.indnkeyatts=i.indnatts
+              AND (SELECT pg_catalog.string_agg(pg_catalog.pg_get_indexdef(
+                    i.indexrelid,posicion,false),',' ORDER BY posicion)
+                     FROM pg_catalog.generate_series(1,i.indnatts) posicion)
+                  = e.columnas) <> 5
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger
             WHERE tgrelid IN (versiones,actual) AND NOT tgisinternal) <> 5
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute
@@ -648,7 +689,27 @@ BEGIN
             JOIN pg_catalog.pg_am am ON am.oid=t.relam
             WHERE p.oid IN (versiones,actual) AND t.relkind='t'
               AND t.relowner=propietario AND t.reltablespace=0
+              AND t.relpersistence='p' AND t.relreplident='n'
               AND t.reloptions IS NULL AND am.amname='heap') <> 2
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_index i
+            JOIN pg_catalog.pg_class t ON t.oid=i.indrelid
+            JOIN pg_catalog.pg_class x ON x.oid=i.indexrelid
+            JOIN pg_catalog.pg_am am ON am.oid=x.relam
+            WHERE t.oid IN (
+              (SELECT reltoastrelid FROM pg_catalog.pg_class WHERE oid=versiones),
+              (SELECT reltoastrelid FROM pg_catalog.pg_class WHERE oid=actual))
+              AND i.indisunique AND NOT i.indnullsnotdistinct
+              AND i.indisprimary AND NOT i.indisexclusion AND i.indimmediate
+              AND NOT i.indisclustered AND i.indisvalid AND NOT i.indcheckxmin
+              AND i.indisready AND i.indislive AND NOT i.indisreplident
+              AND i.indnkeyatts=2 AND i.indnatts=2
+              AND (SELECT pg_catalog.string_agg(pg_catalog.pg_get_indexdef(
+                    i.indexrelid,posicion,false),',' ORDER BY posicion)
+                     FROM pg_catalog.generate_series(1,i.indnatts) posicion)
+                  = 'chunk_id,chunk_seq'
+              AND x.relowner=propietario AND x.reltablespace=0
+              AND x.relpersistence='p' AND x.relreplident='n'
+              AND x.reloptions IS NULL AND am.amname='btree') <> 2
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c,
             LATERAL pg_catalog.aclexplode(coalesce(c.relacl,
               pg_catalog.acldefault('r',c.relowner))) a
