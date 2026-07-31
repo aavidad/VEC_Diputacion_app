@@ -130,6 +130,7 @@ func probarCancelacionRetiradaVinculoCorporativoRRHHV1(
 	`); err != nil {
 		t.Fatalf("bloquear puntero corporativo: %v", err)
 	}
+	pidBloqueador := consultarPIDRetiradaAcreditacionUsoV2(t, ctx, bloqueador)
 	configurarOptInRetiradaVinculoCorporativoRRHHV1(
 		t, ctx, retirada, optInRetiradaVinculoCorporativoRRHHV1,
 	)
@@ -149,7 +150,8 @@ func probarCancelacionRetiradaVinculoCorporativoRRHHV1(
 			       'vec_contexto_actor_v1.vinculo_corporativo_actual'::regclass
 			     AND mode='AccessExclusiveLock' AND NOT granted
 			)
-		`, pidRetirada,
+			AND pg_catalog.pg_blocking_pids($1)=ARRAY[$2]::integer[]
+		`, pidRetirada, pidBloqueador,
 	)
 	cancelarRetirada()
 	select {
@@ -249,9 +251,9 @@ func sanearConexionRetiradaVinculoCorporativoRRHHV1(conexion *pgx.Conn) error {
 		_ = conexion.Close(ctx)
 		return err
 	}
-	if observado == optInRetiradaVinculoCorporativoRRHHV1 {
+	if observado != "" {
 		_ = conexion.Close(ctx)
-		return fmt.Errorf("el opt-in sobrevivio al reset de sesion")
+		return fmt.Errorf("el GUC conservo un valor residual tras el reset: %q", observado)
 	}
 	return nil
 }
@@ -286,8 +288,8 @@ func comprobarOptInRetiradaVinculoCorporativoRRHHV1Limpio(
 	`, gucRetiradaVinculoCorporativoRRHHV1).Scan(&observado); err != nil {
 		t.Fatalf("comprobar reset del opt-in: %v", err)
 	}
-	if observado == optInRetiradaVinculoCorporativoRRHHV1 {
-		t.Fatal("el opt-in exacto sobrevivio al saneamiento")
+	if observado != "" {
+		t.Fatalf("el GUC conservo un valor residual tras el saneamiento: %q", observado)
 	}
 }
 
