@@ -407,18 +407,46 @@ a acreditar la fotografía, la retirada:
 - exige el manifiesto exacto de tablas, tipos, columnas, checks, FKs, claves,
   índices, RLS, políticas, cinco triggers y TOAST;
 - usa un manifiesto simbólico exacto y ajeno a OID para `000001..000004`, de
-  modo que cualquier `000005` u otro consumidor posterior —también código
-  dinámico sin una dependencia catalogal útil— cierre la retirada;
+  modo que cualquier `000005` u otro consumidor posterior gobernado dentro
+  del esquema cierre la retirada;
 - acredita también forma, propietario, ACL y dependencias exactas de las dos
   claves alternativas añadidas a las tablas base;
 - rechaza ACL, propietario, comentario, etiqueta, publicación, estadística,
-  objeto o dependencia hostil, y cualquier consumidor posterior, incluida
-  una `000005` sintética;
+  objeto o dependencia hostil, y cualquier consumidor posterior catalogado o
+  registrado, incluida una `000005` sintética;
 - elimina explícitamente, con `RESTRICT`, triggers, políticas y tablas de B;
 - sólo después elimina con `RESTRICT` las dos restricciones alternativas de
   las tablas base, cuyos índices de respaldo desaparecen con ellas;
 - deja filas, generación y catálogo de `000001..000003` equivalentes a su
   estado anterior a B.
+
+### Límite formal de los consumidores dinámicos externos
+
+La revisión de B1 corrige una afirmación demasiado amplia del contrato
+inicial: PostgreSQL no puede demostrar por catálogo que una función externa
+construye en tiempo de ejecución un nombre de tabla arbitrariamente ofuscado
+si esa función no registra ninguna dependencia. Buscar fragmentos en
+`pg_proc.prosrc` tampoco constituye una garantía y produciría falsos positivos.
+
+B no puede resolver ese problema prohibiendo todas las funciones ajenas al
+esquema, porque rompería el aislamiento y la composición con Bolsa,
+Contratación y los futuros módulos de VEP. Por tanto:
+
+- una función externa inocua debe poder existir antes o después de B y debe
+  conservar definición, propietario y ACL tras la retirada;
+- un consumidor con dependencia catalogal real se detecta y cierra la
+  retirada mediante inventario y `RESTRICT`;
+- una `000005` sintética dentro del esquema, incluso si usa SQL dinámico, se
+  detecta porque altera el manifiesto gobernado;
+- cualquier consumidor dinámico externo sin dependencia deberá inscribirse en
+  el registro explícito de consumidores antes de autorizar su despliegue;
+- hasta que ese registro y su puerta de despliegue tengan prueba productiva,
+  crear consumidores dinámicos externos de B queda prohibido y producción
+  permanece en **NO-GO**.
+
+Esta limitación es formal y no se presentará como una cobertura automática.
+El registro se diseñará como una primitiva compartida e intercambiable antes
+del primer consumidor dinámico externo, sin acoplar B a otros esquemas.
 
 La comprobación del GUC, ejecutor y versión anterior a los locks no decide
 sobre un catálogo mutable. GUC, filas y manifiesto se vuelven a comprobar con
@@ -514,7 +542,8 @@ matriz completa acredita trece casos numerados:
    Autorización, Contratación y Bolsa, incluso mediante columnas o tipos;
 8. rechazo sin deriva de `000002 down` y `000003 down` mientras B existe;
 9. rechazo de `000004 down` sin opt-in, con opt-in incorrecto, con filas, ACL,
-   objetos, dependencias o consumidores hostiles y ante `000005` sintética;
+   objetos, dependencias o consumidores hostiles gobernados y ante `000005`
+   sintética; aceptación y preservación de una función externa inocua;
 10. retirada con B vacío pero tablas base pobladas, seguida de
     `000004 down → 000004 up`, sin cambiar filas, generación o catálogo de
     `000001..000003`;
