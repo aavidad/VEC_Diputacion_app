@@ -112,9 +112,10 @@ CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
 las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
 cápsula de identidad; C2.1a el rol selector mínimo; C2.1b la fachada mínima de
 Identidad; S0.1/S0.2 las retiradas ContextoActor; y C2.2-A la historia y el
-puntero organizativos, con P0=P1=P2=0. A espera publicación A5 y C2.2-B
-continúa bloqueada hasta ese cierre. Después siguen selección y registro corporativos,
-PDP, composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
+puntero organizativos, con P0=P1=P2=0. A está publicada en `54a8cde`, con CI
+`30633248293` verde; C2.2-B es el corte activo. Después siguen selección y
+registro corporativos, PDP, composición raíz, TLS/mTLS viva, la misma web
+definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -174,11 +175,7 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Publicar C2.2-A y exigir un CI completamente verde. El corte técnico ya
-acredita historia de solo adición, puntero común, RLS/ACL cerradas,
-safe-down, PostgreSQL 18.4, concurrencia, ejecución literal mediante `pgx` y
-revisión final independiente.
-
-Después se abre C2.2-B, historia y puntero del vínculo corporativo, con la
-autoridad y numeración fijadas en la
+Implementar C2.2-B, historia y puntero del vínculo corporativo, con la
+autoridad, integridad relacional y numeración fijadas en la
 [decisión C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md).
+C2.2-A queda como dependencia publicada, no como trabajo pendiente.

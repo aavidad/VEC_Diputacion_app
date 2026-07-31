@@ -4,10 +4,9 @@ Fecha: 29 de julio de 2026.
 
 ## Actualización vigente de dirección — 31 de julio de 2026
 
-C2.2-A supera A0–A4 en `2b59884`–`6017606`, con revisión final independiente
-P0=P1=P2=0, PostgreSQL 18.4 compuesto y puerta global local verde. El trabajo
-activo es A5: sincronizar, publicar y exigir CI completamente verde. C2.2-B
-no comienza hasta cerrar esa publicación. Las métricas permanecen en
+C2.2-A está cerrada y publicada en `54a8cde`, con revisión final independiente
+P0=P1=P2=0, PostgreSQL 18.4 compuesto y CI `30633248293` completamente verde.
+El trabajo activo es C2.2-B, vínculo corporativo. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
@@ -355,8 +354,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: A5, publicación y CI de C2.2-A. C2.1b, S0.1, S0.2 y A ya no
-son implementación técnica pendiente. C2.2-B depende del cierre publicado.
+Trabajo activo: C2.2-B, vínculo corporativo. C2.1b, S0.1, S0.2 y A están
+cerradas y publicadas.
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 
@@ -411,8 +410,9 @@ aporta historia y puntero organizativos, retirada protegida, runner 1–13,
 ejecución literal `pgx` y composición principal. La
 [revisión final](revisiones/revision_c2_2_a_organizacion_corporativa_2026-07-31.md)
 en `6017606` emitió GO, P0=P1=P2=0. `4d7e07d` corrige además la carrera de
-arranque del runner Bolsa observada en CI, sin cambiar funcionalidad. A5 debe
-publicar el conjunto y obtener CI verde antes de abrir C2.2-B.
+arranque del runner Bolsa observada en CI, sin cambiar funcionalidad. A5
+publicó el conjunto en `54a8cde`; la ejecución `30633248293` terminó verde en
+sus cinco puertas. C2.2-B queda desbloqueada.
 
 ## Optimización probatoria CT88
 

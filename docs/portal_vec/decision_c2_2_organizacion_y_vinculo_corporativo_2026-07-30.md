@@ -162,8 +162,8 @@ C2.2 no se implementará como una sola tarea:
 | C2.2-S0.2b | Runner PostgreSQL 18.4 de estructura, ACL y consumidores | S0.2a | Cerrada e integrada |
 | C2.2-S0.2c | Runner PostgreSQL 18.4 de concurrencia, preservación y ciclos | S0.2a | Cerrada e integrada |
 | C2.2-S0.2d | Composición de los runners focales | S0.2b + S0.2c | Cerrada e integrada |
-| C2.2-A | Historia y puntero de organización | C2.1b + S0.2 | GO técnico A0–A4; publicación A5 pendiente |
-| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A publicada | Bloqueada hasta A5 |
+| C2.2-A | Historia y puntero de organización | C2.1b + S0.2 | Cerrada y publicada en `54a8cde`; CI `30633248293` verde |
+| C2.2-B | Historia y puntero del vínculo corporativo | C2.2-A publicada | Lista; siguiente corte |
 
 Cada productor y cada revisor serán distintos. A y B tendrán migración,
 reversión y runner PostgreSQL 18.4 propios.

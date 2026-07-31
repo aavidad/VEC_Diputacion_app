@@ -4,13 +4,12 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 
 ## Actualización vigente de dirección — 31 de julio de 2026
 
-El último corte publicado completamente verde es `fc923d9` en
-`integracion/ct-o4-04e-20260726`, con la ejecución GitHub `30626845298`.
-C2.1b, S0.1 y S0.2 están cerradas. C2.2-A superó A0–A4 y la revisión final
-en `6017606`, P0=P1=P2=0; A5 todavía debe publicarla y obtener CI verde.
-El trabajo activo es A5, publicación y CI;
-C2.2-B sigue bloqueada hasta ese cierre. Las métricas no se inflan por este
-trabajo compartido: Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa
+El último corte publicado completamente verde es `54a8cde` en
+`integracion/ct-o4-04e-20260726`, con la ejecución GitHub `30633248293`.
+C2.1b, S0.1, S0.2 y C2.2-A están cerradas. A superó la revisión final en
+`6017606`, P0=P1=P2=0, y A5 publicó el conjunto. El trabajo activo es C2.2-B.
+Las métricas no se inflan por este trabajo compartido: Contratación `24/46`
+(52 %), O4-05 `3/5`, Bolsa
 productiva `1/14` (7 %) y producción `NO-GO`.
 
 Esta actualización prevalece sobre los cortes históricos del resto del

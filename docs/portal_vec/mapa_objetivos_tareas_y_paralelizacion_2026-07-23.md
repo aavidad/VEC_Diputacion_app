@@ -11,13 +11,13 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | A5 publicación/CI → C2.2-B → publicación/selección corporativa → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | C2.2-B → publicación/selección corporativa → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `fc923d9` en `integracion/ct-o4-04e-20260726`; CI `30626845298` |
+| Último corte publicado completamente verde | `54a8cde` en `integracion/ct-o4-04e-20260726`; CI `30633248293` |
 | Últimos commits técnicos verificados | `ce8959c` — composición funcional C2.2-A3; `4d7e07d` — corrección del arnés Bolsa; revisión final A4 en `6017606`, P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1 y S0.2 están cerradas. C2.2-A tiene GO técnico A0–A4, pero A5 y su CI siguen pendientes; C2.2-B permanece bloqueada hasta ese cierre. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2 y C2.2-A están cerradas y publicadas, pero no suman una puerta funcional. C2.2-B es el corte activo. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

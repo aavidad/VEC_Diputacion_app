@@ -116,11 +116,11 @@ ejecución CI `30527303065` completamente verde. C2.1b queda integrada en
 réplica física y recuperación. No aumenta las métricas porque sigue siendo una
 frontera interna. C2.2 está dividida en retirada segura, organización y
 vínculo corporativo; S0.1 y S0.2 están cerradas con `GO` técnico. C2.2-A,
-historia y puntero de organización, ha superado A0–A4 con revisión final
-`P0=P1=P2=0`; A5 debe publicar el corte y obtener CI verde antes de abrir
-C2.2-B, el vínculo corporativo. Después siguen publicación, selección y registro,
-PDP, composición raíz, TLS/mTLS, web conectada y E2E. Producción conserva
-`NO-GO`.
+historia y puntero de organización, está cerrada y publicada en `54a8cde`,
+con revisión final `P0=P1=P2=0` y CI `30633248293` completamente verde.
+El corte activo es C2.2-B, el vínculo corporativo. Después siguen publicación,
+selección y registro, PDP, composición raíz, TLS/mTLS, web conectada y E2E.
+Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
