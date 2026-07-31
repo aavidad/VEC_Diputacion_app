@@ -125,6 +125,16 @@ huella_filas_base() {
     sed -E '/^\\(un)?restrict /d' | sha256sum | cut -d' ' -f1
 }
 
+huella_funciones_externas() {
+  consulta "SELECT encode(sha256(convert_to(string_agg(format(
+    '%s|%s|%s',p.oid::regprocedure::text,pg_get_userbyid(p.proowner),
+    coalesce(p.proacl::text,'')||pg_get_functiondef(p.oid)),E'\\n'
+    ORDER BY p.oid::regprocedure::text),'UTF8')),'hex')
+   FROM pg_proc p WHERE p.oid IN (
+    'public.c22b_externa_inocua(integer)'::regprocedure,
+    'public.c22b_externa_posterior(text)'::regprocedure)"
+}
+
 exigir_fallo_intacto() {
   local descripcion=$1 funcion=$2 antes despues estado
   antes=$(huella)
@@ -169,6 +179,10 @@ CREATE ROLE c22b_contratacion NOLOGIN;
 CREATE ROLE c22b_bolsa NOLOGIN;
 GRANT vec_contexto_actor_v1_runtime TO c22b_login
   WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+CREATE FUNCTION public.c22b_externa_inocua(integer) RETURNS integer
+  LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS 'SELECT $1 + 1';
+REVOKE ALL ON FUNCTION public.c22b_externa_inocua(integer)
+  FROM PUBLIC, vec_contexto_actor_v1_runtime;
 SQL
 huella_a=$(huella)
 
@@ -191,10 +205,72 @@ psql_sql <<'SQL'
 SET ROLE vec_contexto_actor_v1_propietario;
 ALTER TABLE vec_contexto_actor_v1.perfil_versiones
   ALTER COLUMN persona_ref SET STORAGE EXTENDED;
+ALTER TABLE vec_contexto_actor_v1.organizacion_versiones
+  DISABLE ROW LEVEL SECURITY;
 RESET ROLE;
+SQL
+exigir_fallo_intacto 'RLS predecesora hostil' up_reentrada
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.organizacion_versiones
+  ENABLE ROW LEVEL SECURITY;
+ALTER POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.organizacion_versiones TO PUBLIC;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'politica predecesora hostil' up_reentrada
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.organizacion_versiones
+  TO vec_contexto_actor_v1_propietario;
+ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text)
+  SECURITY DEFINER;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'funcion predecesora SECURITY DEFINER' up_reentrada
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text)
+  SECURITY INVOKER;
+RESET ROLE;
+GRANT vec_contexto_actor_v1_propietario TO vec_contexto_actor_v1_runtime
+  WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+SET SESSION AUTHORIZATION vec_contexto_actor_v1_runtime;
+SET ROLE vec_contexto_actor_v1_propietario;
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+SQL
+exigir_fallo_intacto 'membresia hostil runtime a propietario' up_reentrada
+psql_sql <<'SQL'
+REVOKE vec_contexto_actor_v1_propietario FROM vec_contexto_actor_v1_runtime;
+GRANT vec_contexto_actor_corporativo_rrhh_selector TO c22b_login
+  WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+SET SESSION AUTHORIZATION c22b_login;
+SET ROLE vec_contexto_actor_corporativo_rrhh_selector;
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+SQL
+exigir_fallo_intacto 'membresia hostil LOGIN a selector' up_reentrada
+psql_sql <<'SQL'
+REVOKE vec_contexto_actor_corporativo_rrhh_selector FROM c22b_login;
+ALTER ROLE c22b_login SET search_path=public;
+SQL
+exigir_fallo_intacto 'ajuste persistente hostil de LOGIN' up_reentrada
+psql_sql <<'SQL'
+ALTER ROLE c22b_login RESET ALL;
 SQL
 [[ $(huella) == "$huella_a" ]] || fallar 'las regresiones predecesoras no restauraron A'
 psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+CREATE TABLE vec_contexto_actor_v1.vinculo_corporativo_actual(id integer);
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'adopcion parcial de objeto nominal' up_reentrada
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+DROP TABLE vec_contexto_actor_v1.vinculo_corporativo_actual;
+RESET ROLE;
 CREATE FUNCTION public.c22b_fallo_tabla() RETURNS event_trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF tg_tag='CREATE TABLE' THEN RAISE EXCEPTION 'fallo atomico sintetico'; END IF;
@@ -208,8 +284,29 @@ DROP EVENT TRIGGER c22b_fallo_tabla;
 DROP FUNCTION public.c22b_fallo_tabla();
 SQL
 [[ $(huella) == "$huella_a" ]] || fallar 'la prueba atomica no restauro A'
+psql_sql <<'SQL'
+CREATE FUNCTION public.c22b_fallo_politica() RETURNS event_trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF tg_tag='CREATE POLICY' THEN RAISE EXCEPTION 'fallo tardio sintetico'; END IF;
+END $$;
+CREATE EVENT TRIGGER c22b_fallo_politica ON ddl_command_start
+  EXECUTE FUNCTION public.c22b_fallo_politica();
+SQL
+exigir_fallo_intacto 'fallo atomico tardio durante CREATE POLICY' up_reentrada
+psql_sql <<'SQL'
+DROP EVENT TRIGGER c22b_fallo_politica;
+DROP FUNCTION public.c22b_fallo_politica();
+SQL
+[[ $(huella) == "$huella_a" ]] || fallar 'el fallo tardio no restauro A'
 psql_archivo "$up"
 exigir_fallo_intacto 'reentrada de 000004 up' up_reentrada
+psql_sql <<'SQL'
+CREATE FUNCTION public.c22b_externa_posterior(text) RETURNS text
+  LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS 'SELECT upper($1)';
+REVOKE ALL ON FUNCTION public.c22b_externa_posterior(text)
+  FROM PUBLIC, vec_contexto_actor_v1_runtime;
+SQL
+huella_externas=$(huella_funciones_externas)
 
 # Casos 4-5: forma catalogal y relaciones/datos adversariales focales.
 psql_archivo "$estructura"
@@ -223,12 +320,63 @@ exigir_fallo_intacto 'retirada B con confirmacion incorrecta' retirar_mal
 
 # Casos 9-10: deriva catalogal hostil se rechaza y puede restaurarse.
 psql_sql <<'SQL'
+GRANT vec_contexto_actor_corporativo_rrhh_selector TO c22b_login
+  WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+SQL
+exigir_fallo_intacto 'retirada con membresia hostil de LOGIN' retirar
+psql_sql <<'SQL'
+REVOKE vec_contexto_actor_corporativo_rrhh_selector FROM c22b_login;
+ALTER ROLE c22b_login SET search_path=public;
+SQL
+exigir_fallo_intacto 'retirada con ajuste persistente hostil de LOGIN' retirar
+psql_sql <<'SQL'
+ALTER ROLE c22b_login RESET ALL;
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text)
+  SECURITY DEFINER;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'retirada con funcion predecesora SECURITY DEFINER' retirar
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER FUNCTION vec_contexto_actor_v1.organizacion_ref_valida(text)
+  SECURITY INVOKER;
+RESET ROLE;
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones
+  DISABLE ROW LEVEL SECURITY;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'retirada con RLS hostil' retirar
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones
+  ENABLE ROW LEVEL SECURITY;
+ALTER POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.vinculo_corporativo_versiones TO PUBLIC;
+RESET ROLE;
+SQL
+exigir_fallo_intacto 'retirada con politica hostil' retirar
+psql_sql <<'SQL'
+SET ROLE vec_contexto_actor_v1_propietario;
+ALTER POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.vinculo_corporativo_versiones
+  TO vec_contexto_actor_v1_propietario;
+RESET ROLE;
 COMMENT ON TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones
   IS 'metadato hostil sintetico';
 SQL
 exigir_fallo_intacto 'retirada con comentario hostil' retirar
 psql_sql <<'SQL'
 COMMENT ON TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones IS NULL;
+COMMENT ON POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.vinculo_corporativo_versiones
+  IS 'politica hostil sintetica';
+SQL
+exigir_fallo_intacto 'retirada con comentario hostil de politica' retirar
+psql_sql <<'SQL'
+COMMENT ON POLICY acceso_propietario_exacto
+  ON vec_contexto_actor_v1.vinculo_corporativo_versiones IS NULL;
 CREATE INDEX c22b_indice_hostil
  ON vec_contexto_actor_v1.vinculo_corporativo_versiones(estado);
 SQL
@@ -249,6 +397,11 @@ exigir_fallo_intacto 'retirada con ACL hostil de columna' retirar
 psql_sql <<'SQL'
 REVOKE SELECT (estado) ON vec_contexto_actor_v1.vinculo_corporativo_versiones
   FROM c22b_consumidor;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO c22b_consumidor;
+SQL
+exigir_fallo_intacto 'retirada con ACL hostil de namespace' retirar
+psql_sql <<'SQL'
+REVOKE USAGE ON SCHEMA vec_contexto_actor_v1 FROM c22b_consumidor;
 ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_versiones
   SET (toast.autovacuum_enabled=false);
 SQL
@@ -280,26 +433,25 @@ SQL
 exigir_fallo_intacto 'retirada con publicacion hostil' retirar
 psql_sql <<'SQL'
 DROP PUBLICATION c22b_publicacion_hostil;
-SET ROLE vec_contexto_actor_v1_propietario;
-CREATE VIEW vec_contexto_actor_v1.c22b_consumidor_hostil AS
+CREATE VIEW public.c22b_consumidor_hostil AS
  SELECT estado FROM vec_contexto_actor_v1.vinculo_corporativo_versiones;
-RESET ROLE;
 SQL
-exigir_fallo_intacto 'retirada con vista consumidora' retirar
+exigir_fallo_intacto 'retirada con dependencia externa consumidora' retirar
 psql_sql <<'SQL'
+DROP VIEW public.c22b_consumidor_hostil;
 SET ROLE vec_contexto_actor_v1_propietario;
-DROP VIEW vec_contexto_actor_v1.c22b_consumidor_hostil;
 CREATE FUNCTION vec_contexto_actor_v1.c22b_consumidor_dinamico()
 RETURNS bigint LANGUAGE plpgsql SET search_path=pg_catalog AS $$
 DECLARE resultado bigint;
 BEGIN
-  EXECUTE 'SELECT count(*) FROM vec_contexto_actor_v1.vinculo_corporativo_versiones'
+  EXECUTE 'SELECT count(*) FROM vec_contexto_actor_v1.'||
+          'vinculo_'||'corporativo_'||'versiones'
     INTO resultado;
   RETURN resultado;
 END $$;
 RESET ROLE;
 SQL
-exigir_fallo_intacto 'retirada con consumidor dinamico' retirar
+exigir_fallo_intacto 'retirada con consumidor dinamico gobernado ofuscado' retirar
 psql_sql <<'SQL'
 SET ROLE vec_contexto_actor_v1_propietario;
 DROP FUNCTION vec_contexto_actor_v1.c22b_consumidor_dinamico();
@@ -359,6 +511,8 @@ retirar
   fallar 'la retirada altero filas de A pobladas'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_base_poblada" ]] ||
   fallar 'la retirada altero la generacion comun'
+[[ $(huella_funciones_externas) == "$huella_externas" ]] ||
+  fallar 'la retirada altero funciones externas inocuas'
 
 # Casos 12-13: reinstalacion desde A y segunda retirada exacta.
 psql_archivo "$up"
@@ -368,5 +522,11 @@ retirar
   fallar 'el segundo ciclo altero filas de A pobladas'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$generacion_base_poblada" ]] ||
   fallar 'el segundo ciclo altero la generacion comun'
+[[ $(consulta 'SELECT public.c22b_externa_inocua(1)') == 2 ]] ||
+  fallar 'los ciclos alteraron la funcion externa inocua'
+[[ $(consulta "SELECT public.c22b_externa_posterior('demo')") == DEMO ]] ||
+  fallar 'los ciclos alteraron la funcion externa posterior'
+[[ $(huella_funciones_externas) == "$huella_externas" ]] ||
+  fallar 'el segundo ciclo altero definicion, owner o ACL externas'
 
 echo 'OK: vinculo corporativo RRHH V1 supera estructura, integridad y retirada PG 18.4'

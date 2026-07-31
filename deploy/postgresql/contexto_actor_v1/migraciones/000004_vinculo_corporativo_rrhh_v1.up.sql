@@ -37,6 +37,7 @@ LOCK TABLE vec_contexto_actor_v1.procedencias,
 LOCK TABLE vec_contexto_actor_v1.perfil_versiones,
     vec_contexto_actor_v1.vinculo_contexto_versiones IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE vec_contexto_actor_v1.organizacion_versiones,
+    vec_contexto_actor_v1.organizacion_actual,
     vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 IN SHARE MODE;
 LOCK TABLE pg_catalog.pg_authid, pg_catalog.pg_auth_members,
     pg_catalog.pg_db_role_setting, pg_catalog.pg_database,
@@ -55,6 +56,10 @@ LOCK TABLE pg_catalog.pg_authid, pg_catalog.pg_auth_members,
 DO $acreditar_base_y_ausencia$
 DECLARE
     propietario constant oid := 'vec_contexto_actor_v1_propietario'::regrole;
+    migrador constant oid := 'vec_contexto_actor_v1_migrador'::regrole;
+    runtime constant oid := 'vec_contexto_actor_v1_runtime'::regrole;
+    selector constant oid :=
+      'vec_contexto_actor_corporativo_rrhh_selector'::regrole;
     esquema constant oid := 'vec_contexto_actor_v1'::regnamespace;
     observado text;
 BEGIN
@@ -67,6 +72,56 @@ BEGIN
             MESSAGE='entorno de vinculo corporativo RRHH V1 no reacreditado';
     END IF;
 
+    IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_authid r
+         WHERE r.oid IN (propietario,migrador,runtime,selector)
+           AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolinherit
+           AND NOT r.rolcreatedb AND NOT r.rolcreaterole
+           AND NOT r.rolreplication AND NOT r.rolbypassrls
+           AND r.rolconnlimit=-1 AND r.rolpassword IS NULL
+           AND r.rolvaliduntil IS NULL) <> 4
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members m
+            WHERE m.roleid IN (propietario,migrador,selector)
+               OR m.member IN (propietario,migrador,runtime,selector)) <> 1
+       OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+            WHERE m.roleid=propietario AND m.member=migrador
+              AND NOT m.admin_option AND NOT m.inherit_option AND m.set_option)
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+            JOIN pg_catalog.pg_authid l ON l.oid=m.member
+            WHERE m.roleid=runtime AND (m.admin_option OR NOT m.inherit_option
+              OR m.set_option OR NOT l.rolcanlogin OR l.rolsuper
+              OR NOT l.rolinherit OR l.rolcreatedb OR l.rolcreaterole
+              OR l.rolreplication OR l.rolbypassrls
+              OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members x
+                   WHERE x.member=m.member)<>1
+              OR EXISTS (SELECT 1 FROM pg_catalog.pg_db_role_setting s
+                          WHERE s.setrole=m.member)
+              OR NOT vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(
+                m.member,(SELECT oid FROM pg_catalog.pg_database
+                           WHERE datname=pg_catalog.current_database()),esquema,
+                ARRAY[
+                  'vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()'::regprocedure,
+                  'vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'::regprocedure,
+                  'vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'::regprocedure
+                ])))
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_db_role_setting s
+                   WHERE s.setrole IN (propietario,migrador,runtime,selector))
+       OR pg_catalog.shobj_description(selector,'pg_authid') IS DISTINCT FROM
+          'vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1'
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_authid r
+                   WHERE r.oid IN (propietario,migrador,runtime)
+                     AND pg_catalog.shobj_description(r.oid,'pg_authid') IS NOT NULL)
+       OR NOT pg_catalog.has_database_privilege(selector,
+            (SELECT oid FROM pg_catalog.pg_database
+              WHERE datname=pg_catalog.current_database()),'CONNECT')
+       OR pg_catalog.has_database_privilege(selector,
+            (SELECT oid FROM pg_catalog.pg_database
+              WHERE datname=pg_catalog.current_database()),'CREATE,TEMPORARY')
+       OR pg_catalog.has_schema_privilege(selector,esquema,'USAGE')
+       OR pg_catalog.has_schema_privilege(selector,esquema,'CREATE') THEN
+        RAISE EXCEPTION USING ERRCODE='55000',
+          MESSAGE='roles o privilegios efectivos predecesores no acreditados';
+    END IF;
+
     IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class
          WHERE oid IN (
            'vec_contexto_actor_v1.procedencias'::regclass,
@@ -75,8 +130,9 @@ BEGIN
            'vec_contexto_actor_v1.perfil_versiones'::regclass,
            'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
            'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+           'vec_contexto_actor_v1.organizacion_actual'::regclass,
            'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass
-         ) AND relkind='r' AND relpersistence='p' AND relowner=propietario) <> 7
+         ) AND relkind='r' AND relpersistence='p' AND relowner=propietario) <> 8
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc
             WHERE oid IN (
               'vec_contexto_actor_v1.referencia_valida(text,text)'::regprocedure,
@@ -100,8 +156,9 @@ BEGIN
            'vec_contexto_actor_v1.perfil_versiones'::regclass,
            'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
            'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+           'vec_contexto_actor_v1.organizacion_actual'::regclass,
            'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass)
-           AND a.attnum>0 AND NOT a.attisdropped) <> 56
+           AND a.attnum>0 AND NOT a.attisdropped) <> 58
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c,
             LATERAL pg_catalog.aclexplode(coalesce(c.relacl,
               pg_catalog.acldefault('r',c.relowner))) a
@@ -112,6 +169,7 @@ BEGIN
               'vec_contexto_actor_v1.perfil_versiones'::regclass,
               'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
               'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+              'vec_contexto_actor_v1.organizacion_actual'::regclass,
               'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass)
               AND a.grantee<>propietario)
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a,
@@ -123,6 +181,7 @@ BEGIN
               'vec_contexto_actor_v1.perfil_versiones'::regclass,
               'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
               'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+              'vec_contexto_actor_v1.organizacion_actual'::regclass,
               'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass)
               AND a.attnum>0 AND NOT a.attisdropped AND x.grantee<>propietario)
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger t
@@ -132,8 +191,24 @@ BEGIN
               'vec_contexto_actor_v1.persona_versiones'::regclass,
               'vec_contexto_actor_v1.perfil_versiones'::regclass,
               'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
-              'vec_contexto_actor_v1.organizacion_versiones'::regclass)
-              AND NOT t.tgisinternal) <> 13
+              'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+              'vec_contexto_actor_v1.organizacion_actual'::regclass)
+              AND NOT t.tgisinternal) <> 16
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class c
+            WHERE c.oid IN (
+              'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+              'vec_contexto_actor_v1.organizacion_actual'::regclass)
+              AND c.relrowsecurity AND c.relforcerowsecurity) <> 2
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy p
+            WHERE p.polrelid IN (
+              'vec_contexto_actor_v1.organizacion_versiones'::regclass,
+              'vec_contexto_actor_v1.organizacion_actual'::regclass)
+              AND p.polname='acceso_propietario_exacto' AND p.polpermissive
+              AND p.polcmd='*' AND p.polroles=ARRAY[propietario]::oid[]
+              AND pg_catalog.pg_get_expr(p.polqual,p.polrelid)=
+                '(CURRENT_USER = ''vec_contexto_actor_v1_propietario''::name)'
+              AND pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid)=
+                '(CURRENT_USER = ''vec_contexto_actor_v1_propietario''::name)') <> 2
        OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c
             WHERE c.conrelid='vec_contexto_actor_v1.organizacion_versiones'::regclass
               AND c.conname='organizacion_versiones_procedencia_uq'
@@ -165,56 +240,99 @@ BEGIN
     END IF;
 
     WITH objetos AS (
-      SELECT pg_catalog.format('col|%s|%s|%s|%s|%s|%s|%s',c.relname,a.attnum,
+      SELECT pg_catalog.format('nsp|%s|%s|%s|%s',n.nspname,
+               pg_catalog.pg_get_userbyid(n.nspowner),coalesce(n.nspacl::text,''),
+               coalesce(pg_catalog.obj_description(n.oid,'pg_namespace'),'')) e
+        FROM pg_catalog.pg_namespace n WHERE n.oid=esquema
+      UNION ALL
+      SELECT pg_catalog.format('rel|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+               c.relname,c.relkind,c.relpersistence,
+               pg_catalog.pg_get_userbyid(c.relowner),c.relrowsecurity,
+               c.relforcerowsecurity,c.relreplident,coalesce(am.amname,''),
+               coalesce(s.spcname,''),coalesce(c.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(c.oid,'pg_class'),''),
+               coalesce(c.relacl::text,'')) e
+        FROM pg_catalog.pg_class c LEFT JOIN pg_catalog.pg_am am ON am.oid=c.relam
+        LEFT JOIN pg_catalog.pg_tablespace s ON s.oid=c.reltablespace
+       WHERE c.relnamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format(
+               'col|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',c.relname,a.attnum,
                a.attname,pg_catalog.format_type(a.atttypid,a.atttypmod),
-               a.attnotnull,a.attstorage,a.attcompression) e
+               a.attnotnull,a.attidentity,a.attgenerated,a.attstorage,
+               a.attcompression,a.attcollation::regcollation::text,
+               coalesce(a.attacl::text,''),
+               coalesce(pg_catalog.pg_get_expr(d.adbin,d.adrelid,false),''),
+               coalesce(pg_catalog.col_description(a.attrelid,a.attnum),''))
         FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
-       WHERE c.oid IN ('vec_contexto_actor_v1.procedencias'::regclass,
-         'vec_contexto_actor_v1.proyeccion_cuenta_versiones'::regclass,
-         'vec_contexto_actor_v1.persona_versiones'::regclass,
-         'vec_contexto_actor_v1.perfil_versiones'::regclass,
-         'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
-         'vec_contexto_actor_v1.organizacion_versiones'::regclass,
-         'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass)
+        LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid,d.adnum)=(a.attrelid,a.attnum)
+       WHERE c.relnamespace=esquema AND c.relkind IN ('r','p')
          AND a.attnum>0 AND NOT a.attisdropped
       UNION ALL
-      SELECT pg_catalog.format('con|%s|%s|%s|%s',c.conrelid::regclass::text,
-               c.conname,c.contype,pg_catalog.pg_get_constraintdef(c.oid,false))
-        FROM pg_catalog.pg_constraint c WHERE c.conrelid IN (
-         'vec_contexto_actor_v1.procedencias'::regclass,
-         'vec_contexto_actor_v1.proyeccion_cuenta_versiones'::regclass,
-         'vec_contexto_actor_v1.persona_versiones'::regclass,
-         'vec_contexto_actor_v1.perfil_versiones'::regclass,
-         'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
-         'vec_contexto_actor_v1.organizacion_versiones'::regclass,
-         'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass)
+      SELECT pg_catalog.format('con|%s|%s|%s|%s|%s|%s|%s|%s',
+               coalesce(c.conrelid::regclass::text,''),c.conname,c.contype,
+               c.condeferrable,c.condeferred,c.convalidated,
+               pg_catalog.pg_get_constraintdef(c.oid,false),
+               coalesce(pg_catalog.obj_description(c.oid,'pg_constraint'),''))
+        FROM pg_catalog.pg_constraint c WHERE c.connamespace=esquema
       UNION ALL
-      SELECT pg_catalog.format('trg|%s|%s|%s|%s',t.tgrelid::regclass::text,
-               t.tgname,t.tgtype,t.tgfoid::regprocedure::text)
-        FROM pg_catalog.pg_trigger t WHERE t.tgrelid IN (
-         'vec_contexto_actor_v1.procedencias'::regclass,
-         'vec_contexto_actor_v1.proyeccion_cuenta_versiones'::regclass,
-         'vec_contexto_actor_v1.persona_versiones'::regclass,
-         'vec_contexto_actor_v1.perfil_versiones'::regclass,
-         'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass,
-         'vec_contexto_actor_v1.organizacion_versiones'::regclass)
-         AND NOT t.tgisinternal
+      SELECT pg_catalog.format('idx|%s|%s|%s|%s|%s|%s|%s|%s',
+               t.relname,i.relname,pg_catalog.pg_get_userbyid(i.relowner),
+               am.amname,coalesce(s.spcname,''),coalesce(i.reloptions::text,''),
+               coalesce(pg_catalog.obj_description(i.oid,'pg_class'),''),
+               pg_catalog.pg_get_indexdef(i.oid))
+        FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class t ON t.oid=x.indrelid
+        JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid
+        JOIN pg_catalog.pg_am am ON am.oid=i.relam
+        LEFT JOIN pg_catalog.pg_tablespace s ON s.oid=i.reltablespace
+       WHERE t.relnamespace=esquema
       UNION ALL
-      SELECT pg_catalog.format('fun|%s|%s',p.oid::regprocedure::text,
-               pg_catalog.pg_get_functiondef(p.oid)) FROM pg_catalog.pg_proc p
-       WHERE p.oid IN ('vec_contexto_actor_v1.referencia_valida(text,text)'::regprocedure,
-         'vec_contexto_actor_v1.procedencia_valida(text,numeric,text,text)'::regprocedure,
-         'vec_contexto_actor_v1.organizacion_ref_valida(text)'::regprocedure,
-         'vec_contexto_actor_v1.instante_valido(timestamptz)'::regprocedure,
-         'vec_contexto_actor_v1.rechazar_mutacion_historia()'::regprocedure,
-         'vec_contexto_actor_v1.rechazar_truncado()'::regprocedure,
-         'vec_contexto_actor_v1.serializar_mutacion_punteros_actuales_v2()'::regprocedure,
-         'vec_contexto_actor_v1.avanzar_generacion_punteros_actuales_v2()'::regprocedure)
+      SELECT pg_catalog.format('trg|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+               t.tgrelid::regclass::text,
+               CASE WHEN t.tgisinternal THEN coalesce(k.conname,'<interno>')
+                    ELSE t.tgname END,t.tgtype,t.tgenabled,t.tgisinternal,
+               t.tgfoid::regprocedure::text,t.tgnargs,
+               pg_catalog.encode(t.tgargs,'hex'),t.tgattr::text,
+               coalesce(pg_catalog.pg_get_expr(t.tgqual,t.tgrelid,false),''),
+               coalesce(pg_catalog.obj_description(t.oid,'pg_trigger'),''))
+        FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid
+        LEFT JOIN pg_catalog.pg_constraint k ON k.oid=t.tgconstraint
+       WHERE c.relnamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format('fun|%s|%s|%s|%s|%s|%s|%s|%s|%s',p.proname,
+               pg_catalog.pg_get_function_identity_arguments(p.oid),l.lanname,
+               pg_catalog.pg_get_userbyid(p.proowner),p.provolatile,p.prosecdef,
+               coalesce(p.proacl::text,''),pg_catalog.pg_get_functiondef(p.oid),
+               coalesce(pg_catalog.obj_description(p.oid,'pg_proc'),''))
+        FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+       WHERE p.pronamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format('pol|%s|%s|%s|%s|%s|%s|%s|%s',
+               p.polrelid::regclass::text,p.polname,p.polcmd,p.polpermissive,
+               p.polroles::text,coalesce(pg_catalog.pg_get_expr(
+                 p.polqual,p.polrelid,false),''),coalesce(pg_catalog.pg_get_expr(
+                 p.polwithcheck,p.polrelid,false),''),
+               coalesce(pg_catalog.obj_description(p.oid,'pg_policy'),''))
+        FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid
+       WHERE c.relnamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format('typ|%s|%s|%s|%s|%s|%s',t.typname,t.typtype,
+               pg_catalog.pg_get_userbyid(t.typowner),t.typcategory,
+               coalesce(e.typname,''),coalesce(t.typacl::text,''))
+        FROM pg_catalog.pg_type t LEFT JOIN pg_catalog.pg_type e ON e.oid=t.typelem
+       WHERE t.typnamespace=esquema
+      UNION ALL
+      SELECT pg_catalog.format('defacl|%s|%s|%s|%s',
+               pg_catalog.pg_get_userbyid(d.defaclrole),coalesce(n.nspname,''),
+               d.defaclobjtype,d.defaclacl::text)
+        FROM pg_catalog.pg_default_acl d LEFT JOIN pg_catalog.pg_namespace n
+          ON n.oid=d.defaclnamespace
+       WHERE d.defaclnamespace=esquema OR d.defaclrole=propietario
     )
     SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
       pg_catalog.string_agg(e,E'\n' ORDER BY e),'UTF8')),'hex') INTO observado
       FROM objetos;
-    IF observado IS DISTINCT FROM '198579de9a73824c68c7b57a4dbf623c57f758beb8151b01ade2d73560973bd8' THEN
+    IF observado IS DISTINCT FROM '1edb9a68b63bbde416d5ab8c30a507d4a4087e3449d5e6abb05240124900b9c7' THEN
       RAISE EXCEPTION USING ERRCODE='55000',
         MESSAGE='manifiesto simbolico del predecesor no acreditado',
         DETAIL='huella observada '||coalesce(observado,'<ausente>');
