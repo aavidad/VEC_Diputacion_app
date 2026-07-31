@@ -120,8 +120,8 @@ historia y puntero de organización, está cerrada y publicada en `54a8cde`,
 con revisión final `P0=P1=P2=0` y CI `30633248293` completamente verde.
 C2.2-B, historia y puntero del vínculo corporativo, queda cerrada técnicamente
 en `de6e7df`, con evidencia independiente en `8c27c72`, `P0=P1=P2=0` y la
-matriz PostgreSQL 18.4 compuesta. El último corte remoto completamente verde
-antes de publicar B6 es `6fc21c1`, CI `30646087599`. El corte activo pasa a
+matriz PostgreSQL 18.4 compuesta. B6 queda publicada en `51a4390`, con CI
+`30650778125` completamente verde. El corte activo pasa a
 C2.3, publicación y revocación corporativas; después siguen C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS, web
 conectada y E2E. Este cierre preparatorio no modifica las métricas oficiales.

@@ -13,7 +13,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `6fc21c1`; CI `30646087599`.
+- Último corte publicado completamente verde: `51a4390`; CI `30650778125`.
 - Último cierre técnico verificado: `de6e7df`, composición C2.2-B; evidencia
   independiente B5 en `8c27c72`, GO y P0=P1=P2=0.
 - C2.2-A está cerrada y publicada mediante A5 en `54a8cde`, con revisión

@@ -5,9 +5,9 @@ Fecha: 29 de julio de 2026.
 ## Actualización vigente de dirección — 31 de julio de 2026
 
 C2.2-A y C2.2-B están cerradas técnicamente. B queda compuesta en `de6e7df`,
-con revisión independiente en `8c27c72`, P0=P1=P2=0 y PostgreSQL 18.4. El
-último corte remoto completamente verde antes de B6 es `6fc21c1`, CI
-`30646087599`. El trabajo activo es C2.3, publicación y revocación
+con revisión independiente en `8c27c72`, P0=P1=P2=0 y PostgreSQL 18.4. B6
+queda publicada en `51a4390`, con CI `30650778125` completamente verde. El
+trabajo activo es C2.3, publicación y revocación
 corporativas. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.

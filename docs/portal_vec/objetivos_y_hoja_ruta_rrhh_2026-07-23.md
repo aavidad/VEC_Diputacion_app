@@ -114,8 +114,8 @@ cápsula de identidad; C2.1a el rol selector mínimo; C2.1b la fachada mínima d
 Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia y el
 puntero organizativos; y C2.2-B la historia y el puntero del vínculo
 corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
-`8c27c72`, GO y P0=P1=P2=0. El último corte remoto completamente verde antes
-de B6 es `6fc21c1`, CI `30646087599`. C2.3, publicación y revocación, es el
+`8c27c72`, GO y P0=P1=P2=0. B6 está publicada en `51a4390`, con CI
+`30650778125` completamente verde. C2.3, publicación y revocación, es el
 corte activo. Después siguen C2.4 selección y recibo, C2.5 fachada y
 reconciliación, PDP, composición raíz, TLS/mTLS viva, la misma web definitiva
 y el E2E.
