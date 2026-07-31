@@ -108,12 +108,11 @@ WITH espacios AS (
 ), roles_objetivo AS (
   SELECT oid
     FROM pg_catalog.pg_roles
-   WHERE rolname IN (
+   WHERE rolname LIKE 'ct132\_%' ESCAPE '\'
+      OR rolname IN (
      'vec_contexto_actor_v1_propietario',
      'vec_contexto_actor_v1_migrador',
-     'vec_contexto_actor_v1_runtime',
-     'ct132_consumidor',
-     'ct132_login_runtime'
+     'vec_contexto_actor_v1_runtime'
    )
 ), objetos AS (
   SELECT 'pg_catalog.pg_class'::regclass AS clase, oid FROM clases
@@ -279,7 +278,9 @@ DO $linea_base$
 DECLARE
   esquema oid := 'vec_contexto_actor_v1'::regnamespace;
   propietario oid := 'vec_contexto_actor_v1_propietario'::regrole;
+  migrador oid := 'vec_contexto_actor_v1_migrador'::regrole;
   runtime oid := 'vec_contexto_actor_v1_runtime'::regrole;
+  roles_modulo oid[] := ARRAY[propietario, migrador, runtime];
   consumidor oid := 'ct132_consumidor'::regrole;
   control oid :=
     'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass;
@@ -293,15 +294,27 @@ DECLARE
 BEGIN
   IF (
     SELECT pg_catalog.count(*)
-      FROM pg_catalog.pg_roles
+      FROM pg_catalog.pg_authid
      WHERE rolname IN (
        'vec_contexto_actor_v1_propietario',
+       'vec_contexto_actor_v1_migrador',
        'vec_contexto_actor_v1_runtime'
      )
        AND NOT rolsuper AND NOT rolinherit AND NOT rolcreaterole
        AND NOT rolcreatedb AND NOT rolcanlogin AND NOT rolreplication
-       AND NOT rolbypassrls
-  ) <> 2
+       AND NOT rolbypassrls AND rolconnlimit = -1
+       AND rolvaliduntil IS NULL AND rolpassword IS NULL
+  ) <> 3
+  OR (
+    SELECT pg_catalog.count(*) <> 1
+       OR NOT pg_catalog.bool_and(
+         m.roleid = propietario AND m.member = migrador
+         AND NOT m.admin_option AND NOT m.inherit_option AND m.set_option
+       )
+      FROM pg_catalog.pg_auth_members AS m
+     WHERE m.member = ANY(roles_modulo) OR m.grantor = ANY(roles_modulo)
+        OR m.roleid IN (propietario, migrador)
+  )
   OR EXISTS (
     SELECT 1 FROM pg_catalog.pg_auth_members
      WHERE member = runtime OR grantor = runtime
@@ -582,6 +595,83 @@ probar_deriva 'runtime con search_path persistente en la base' \
   "ALTER ROLE vec_contexto_actor_v1_runtime
      IN DATABASE $base RESET search_path;"
 
+probar_deriva 'miembro runtime sin LOGIN' \
+  "CREATE ROLE ct132_miembro_nologin NOLOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_nologin
+     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;" \
+  "REVOKE vec_contexto_actor_v1_runtime FROM ct132_miembro_nologin;
+   DROP ROLE ct132_miembro_nologin;"
+
+probar_deriva 'miembro runtime con ADMIN' \
+  "CREATE ROLE ct132_miembro_admin LOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_admin
+     WITH ADMIN TRUE, INHERIT TRUE, SET FALSE;" \
+  "REVOKE vec_contexto_actor_v1_runtime FROM ct132_miembro_admin;
+   DROP ROLE ct132_miembro_admin;"
+
+probar_deriva 'miembro runtime sin INHERIT' \
+  "CREATE ROLE ct132_miembro_sin_inherit LOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_sin_inherit
+     WITH ADMIN FALSE, INHERIT FALSE, SET FALSE;" \
+  "REVOKE vec_contexto_actor_v1_runtime FROM ct132_miembro_sin_inherit;
+   DROP ROLE ct132_miembro_sin_inherit;"
+
+probar_deriva 'miembro runtime con SET' \
+  "CREATE ROLE ct132_miembro_set LOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_set
+     WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;" \
+  "REVOKE vec_contexto_actor_v1_runtime FROM ct132_miembro_set;
+   DROP ROLE ct132_miembro_set;"
+
+probar_deriva 'miembro runtime con membresía adicional' \
+  "CREATE ROLE ct132_miembro_adicional LOGIN;
+   CREATE ROLE ct132_rol_adicional NOLOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_adicional
+     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+   GRANT ct132_rol_adicional TO ct132_miembro_adicional;" \
+  "DROP ROLE ct132_miembro_adicional, ct132_rol_adicional;"
+
+probar_deriva 'miembro runtime con setting global' \
+  "CREATE ROLE ct132_miembro_setting_global LOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_setting_global
+     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+   ALTER ROLE ct132_miembro_setting_global SET search_path = 'public';" \
+  "DROP ROLE ct132_miembro_setting_global;"
+
+probar_deriva 'miembro runtime con setting de base' \
+  "CREATE ROLE ct132_miembro_setting_base LOGIN;
+   GRANT vec_contexto_actor_v1_runtime TO ct132_miembro_setting_base
+     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+   ALTER ROLE ct132_miembro_setting_base
+     IN DATABASE $base SET search_path = 'public';" \
+  "DROP ROLE ct132_miembro_setting_base;"
+
+probar_deriva 'miembro externo del propietario' \
+  "CREATE ROLE ct132_miembro_propietario LOGIN;
+   GRANT vec_contexto_actor_v1_propietario TO ct132_miembro_propietario;" \
+  "DROP ROLE ct132_miembro_propietario;"
+
+probar_deriva 'miembro externo del migrador' \
+  "CREATE ROLE ct132_miembro_migrador LOGIN;
+   GRANT vec_contexto_actor_v1_migrador TO ct132_miembro_migrador;" \
+  "DROP ROLE ct132_miembro_migrador;"
+
+probar_deriva 'rol del módulo usado como otorgante' \
+  "CREATE ROLE ct132_rol_otorgado NOLOGIN;
+   CREATE ROLE ct132_miembro_otorgado LOGIN;
+   GRANT ct132_rol_otorgado TO vec_contexto_actor_v1_runtime
+     WITH ADMIN TRUE, INHERIT FALSE, SET FALSE;
+   SET ROLE vec_contexto_actor_v1_runtime;
+   GRANT ct132_rol_otorgado TO ct132_miembro_otorgado
+     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+   RESET ROLE;
+   DO \$verificar\$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members
+       WHERE grantor='vec_contexto_actor_v1_runtime'::regrole)
+     THEN RAISE EXCEPTION 'no se materializó el otorgante runtime'; END IF;
+   END \$verificar\$;" \
+  "DROP ROLE ct132_miembro_otorgado, ct132_rol_otorgado;"
+
 # Un puntero posterior se descubre por su trío, sin añadir su nombre a una
 # lista del runner ni del down.
 probar_deriva 'puntero posterior con trío gestionado' \
@@ -655,6 +745,16 @@ resultado=$(consulta "
     AND pg_catalog.to_regclass(
       'vec_contexto_actor_v1.registros_contexto'
     ) IS NOT NULL
+    AND EXISTS (
+      SELECT 1
+        FROM pg_catalog.pg_auth_members AS m
+        JOIN pg_catalog.pg_roles AS r ON r.oid = m.member
+       WHERE m.roleid = 'vec_contexto_actor_v1_runtime'::regrole
+         AND r.rolname = 'ct132_login_runtime' AND r.rolcanlogin
+         AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+         AND r.rolinherit AND NOT r.rolreplication AND NOT r.rolbypassrls
+         AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option
+    )
     AND (
       SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger
        WHERE NOT tgisinternal
