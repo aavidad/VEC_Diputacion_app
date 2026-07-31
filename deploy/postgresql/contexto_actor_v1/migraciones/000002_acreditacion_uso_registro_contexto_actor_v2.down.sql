@@ -33,19 +33,27 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     )
 );
 
--- Los seis AccessExclusive cierran la inspección frente a DDL, DML y cambios
--- del trío de disparadores. La guarda advisory se tomó antes que las tablas.
+-- Las doce relaciones de 000001 y el control de 000002 permanecen inmóviles
+-- desde antes del inventario hasta el COMMIT. La guarda advisory se tomó antes
+-- que las tablas, en el mismo orden que la retirada base.
 LOCK TABLE
     vec_contexto_actor_v1.control_generacion_punteros_actuales_v2,
+    vec_contexto_actor_v1.procedencias,
+    vec_contexto_actor_v1.proyeccion_cuenta_versiones,
     vec_contexto_actor_v1.proyeccion_cuenta_actual,
+    vec_contexto_actor_v1.persona_versiones,
     vec_contexto_actor_v1.persona_actual,
+    vec_contexto_actor_v1.perfil_versiones,
     vec_contexto_actor_v1.perfil_actual,
+    vec_contexto_actor_v1.vinculo_contexto_versiones,
     vec_contexto_actor_v1.vinculo_contexto_actual,
-    vec_contexto_actor_v1.vinculo_referencia_actual
+    vec_contexto_actor_v1.vinculo_referencia_versiones,
+    vec_contexto_actor_v1.vinculo_referencia_actual,
+    vec_contexto_actor_v1.registros_contexto
 IN ACCESS EXCLUSIVE MODE;
 
--- Ventana de mantenimiento cerrada: después de inmovilizar las seis
--- relaciones, estos catálogos permanecen en SHARE hasta el COMMIT. Así una
+-- Ventana de mantenimiento cerrada: después de inmovilizar las relaciones,
+-- estos catálogos permanecen en SHARE hasta el COMMIT. Así una
 -- ACL, comentario, dependencia, publicación o metadato de función/tipo no
 -- puede cambiar entre el inventario acreditado y los DROP con RESTRICT.
 LOCK TABLE
@@ -62,7 +70,8 @@ LOCK TABLE
     pg_catalog.pg_publication,
     pg_catalog.pg_publication_namespace,
     pg_catalog.pg_publication_rel,
-    pg_catalog.pg_subscription_rel
+    pg_catalog.pg_subscription_rel,
+    pg_catalog.pg_statistic_ext
 IN SHARE MODE;
 
 DO $inventario$
@@ -91,7 +100,7 @@ DECLARE
     funciones oid[];
     observado text;
     esperado constant text :=
-        '93be424f0ed31a8f54335475f354e5e6df028713b2ca4217de88b27316b5dc2d';
+        'cf2895f6f30f25bca2310161ad900c241e382ebe3bb11f2dd7ff517700422bed';
 BEGIN
     funciones := ARRAY[acreditar, avanzar, serializar];
     IF pg_catalog.current_setting('server_version_num')::integer < 180004
@@ -213,8 +222,9 @@ BEGIN
             MESSAGE = 'retirada ContextoActor V2 rechazada: trios de punteros derivados';
     END IF;
 
-    -- Manifiesto simbólico completo de 000001+000002. No incluye OID ni datos
-    -- de negocio; sí forma, propietario, ACL, cuerpo, comentarios y catálogos.
+    -- Manifiesto simbólico del alcance estructural gestionado de 000001+000002.
+    -- No incluye OID ni datos de negocio; las dependencias y superficies
+    -- implícitas que no tienen forma canónica propia se rechazan después.
     WITH elementos AS (
         SELECT pg_catalog.format(
             'n|%s|%s|%s', n.nspname, n.nspowner::regrole::text,
@@ -296,11 +306,11 @@ BEGIN
          WHERE c.relnamespace = esquema AND a.attnum > 0
         UNION ALL
         SELECT pg_catalog.format(
-            'i|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+            'i|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
             i.indrelid::regclass::text, ci.relname, i.indisunique,
             i.indisprimary, i.indisexclusion, i.indimmediate,
-            i.indisvalid, i.indisready, i.indislive, i.indisreplident,
-            i.indcheckxmin, i.indnullsnotdistinct,
+            i.indisvalid, i.indisready, i.indisclustered, i.indislive,
+            i.indisreplident, i.indcheckxmin, i.indnullsnotdistinct,
             pg_catalog.pg_get_indexdef(i.indexrelid, 0, false)
         ) FROM pg_catalog.pg_index AS i
           JOIN pg_catalog.pg_class AS ci ON ci.oid = i.indexrelid
@@ -339,8 +349,23 @@ BEGIN
             pg_catalog.pg_get_function_result(p.oid), l.lanname,
             p.proowner::regrole::text, p.prokind, p.provolatile, p.proparallel,
             p.prosecdef, p.proleakproof, p.proisstrict, p.proretset,
-            p.pronargs, p.pronargdefaults, p.proargtypes::text,
-            coalesce(p.proallargtypes::text, ''),
+            p.pronargs, p.pronargdefaults,
+            coalesce((
+                SELECT pg_catalog.jsonb_agg(
+                    pg_catalog.format_type(a.tipo, NULL)
+                    ORDER BY a.posicion
+                )::text
+                  FROM pg_catalog.unnest(p.proargtypes::oid[])
+                       WITH ORDINALITY AS a(tipo, posicion)
+            ), '[]'),
+            coalesce((
+                SELECT pg_catalog.jsonb_agg(
+                    pg_catalog.format_type(a.tipo, NULL)
+                    ORDER BY a.posicion
+                )::text
+                  FROM pg_catalog.unnest(p.proallargtypes)
+                       WITH ORDINALITY AS a(tipo, posicion)
+            ), '[]'),
             coalesce(p.proargmodes::text, ''),
             coalesce(p.proargnames::text, ''),
             coalesce(p.proconfig::text, ''), p.procost, p.prorows,
@@ -391,7 +416,15 @@ BEGIN
         SELECT pg_catalog.format(
             'p|%s|%s|%s|%s|%s|%s|%s',
             p.polrelid::regclass::text, p.polname, p.polcmd,
-            p.polpermissive, p.polroles::text,
+            p.polpermissive, coalesce((
+                SELECT pg_catalog.jsonb_agg(
+                    CASE WHEN r.rol = 0 THEN 'PUBLIC'
+                         ELSE r.rol::regrole::text END
+                    ORDER BY r.posicion
+                )::text
+                  FROM pg_catalog.unnest(p.polroles)
+                       WITH ORDINALITY AS r(rol, posicion)
+            ), '[]'),
             coalesce(pg_catalog.pg_get_expr(p.polqual, p.polrelid, false), ''),
             coalesce(
                 pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid, false), ''
@@ -416,9 +449,13 @@ BEGIN
          WHERE d.defaclrole = propietario
         UNION ALL
         SELECT pg_catalog.format(
-            's|%s|%s|%s|%s|%s', s.classoid::regclass::text,
-            s.objoid, s.objsubid, s.provider, s.label
+            's|%s|%s|%s|%s|%s',
+            identidad.type, identidad.object_names::text,
+            identidad.object_args::text, s.provider, s.label
         ) FROM pg_catalog.pg_seclabel AS s
+          CROSS JOIN LATERAL pg_catalog.pg_identify_object_as_address(
+              s.classoid, s.objoid, s.objsubid
+          ) AS identidad
          WHERE (s.classoid = 'pg_catalog.pg_namespace'::regclass
                 AND s.objoid = esquema)
             OR (s.classoid = 'pg_catalog.pg_class'::regclass
@@ -438,9 +475,13 @@ BEGIN
                 ))
         UNION ALL
         SELECT pg_catalog.format(
-            'x|%s|%s|%s|%s|%s', i.classoid::regclass::text,
-            i.objoid, i.objsubid, i.privtype, i.initprivs::text
+            'x|%s|%s|%s|%s|%s',
+            identidad.type, identidad.object_names::text,
+            identidad.object_args::text, i.privtype, i.initprivs::text
         ) FROM pg_catalog.pg_init_privs AS i
+          CROSS JOIN LATERAL pg_catalog.pg_identify_object_as_address(
+              i.classoid, i.objoid, i.objsubid
+          ) AS identidad
          WHERE (i.classoid = 'pg_catalog.pg_class'::regclass
                 AND i.objoid IN (
                     SELECT oid FROM pg_catalog.pg_class
@@ -481,6 +522,10 @@ BEGIN
                       'pg_catalog.pg_proc'::regclass,
                       'pg_catalog.pg_type'::regclass
                   )
+              AND d.dbid = (
+                  SELECT oid FROM pg_catalog.pg_database
+                   WHERE datname = pg_catalog.current_database()
+              )
               AND d.objid = ANY(ARRAY[
                   control, acreditar, avanzar, serializar,
                   (SELECT reltype FROM pg_catalog.pg_class WHERE oid = control),
@@ -520,6 +565,49 @@ BEGIN
             WHERE s.srrelid IN (
                 SELECT oid FROM pg_catalog.pg_class WHERE relnamespace = esquema
             )
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_statistic_ext AS s
+            WHERE s.stxnamespace = esquema
+               OR s.stxrelid IN (
+                   SELECT oid FROM pg_catalog.pg_class
+                    WHERE relnamespace = esquema
+               )
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_depend AS d
+            WHERE d.refclassid = 'pg_catalog.pg_extension'::regclass
+              AND d.deptype IN ('e', 'x')
+              AND (
+                  (d.classid = 'pg_catalog.pg_namespace'::regclass
+                   AND d.objid = esquema)
+                  OR (d.classid = 'pg_catalog.pg_class'::regclass
+                      AND d.objid IN (
+                          SELECT oid FROM pg_catalog.pg_class
+                           WHERE relnamespace = esquema
+                      ))
+                  OR (d.classid = 'pg_catalog.pg_proc'::regclass
+                      AND d.objid IN (
+                          SELECT oid FROM pg_catalog.pg_proc
+                           WHERE pronamespace = esquema
+                      ))
+                  OR (d.classid = 'pg_catalog.pg_type'::regclass
+                      AND d.objid IN (
+                          SELECT oid FROM pg_catalog.pg_type
+                           WHERE typnamespace = esquema
+                      ))
+                  OR (d.classid = 'pg_catalog.pg_constraint'::regclass
+                      AND d.objid IN (
+                          SELECT oid FROM pg_catalog.pg_constraint
+                           WHERE connamespace = esquema
+                      ))
+                  OR (d.classid = 'pg_catalog.pg_trigger'::regclass
+                      AND d.objid IN (
+                          SELECT t.oid FROM pg_catalog.pg_trigger AS t
+                            JOIN pg_catalog.pg_class AS c ON c.oid = t.tgrelid
+                           WHERE c.relnamespace = esquema
+                      ))
+              )
        )
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_seclabel AS s

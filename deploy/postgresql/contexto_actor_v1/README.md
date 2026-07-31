@@ -229,9 +229,10 @@ psql -X -v ON_ERROR_STOP=1 \
 ```
 
 La retirada de `000002` es una ventana de mantenimiento exclusiva. Después
-de inmovilizar la tabla de control y los cinco punteros, conserva bloqueos
-`SHARE` sobre los catálogos que podrían cambiar funciones, tipos, ACL,
-comentarios, dependencias, publicaciones o suscripciones hasta el `COMMIT`.
+de inmovilizar la tabla de control y las doce relaciones base, conserva
+bloqueos `SHARE` sobre los catálogos que podrían cambiar funciones, tipos,
+ACL, comentarios, dependencias, estadísticas extendidas, publicaciones o
+suscripciones hasta el `COMMIT`.
 Debe ejecutarse sin tráfico de migración; los límites de bloqueo y sentencia
 hacen que cualquier contención falle cerrada.
 

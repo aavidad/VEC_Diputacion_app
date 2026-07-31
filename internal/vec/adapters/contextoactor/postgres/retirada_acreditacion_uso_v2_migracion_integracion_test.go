@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -136,6 +137,280 @@ func TestRetiradaAcreditacionUsoV2CancelaEsperaSinDeriva(t *testing.T) {
 	}
 }
 
+func TestRetiradaAcreditacionUsoV2BloqueaDDLBaseHastaCommit(t *testing.T) {
+	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("requiere PostgreSQL 18 efímero de contexto actor")
+	}
+	down := leerDocumentoRetiradaAcreditacionUsoV2(t)
+	up := leerDocumentoAltaAcreditacionUsoV2(t)
+	asegurarAcreditacionUsoV2InstaladaAlFinal(t, dsn, up)
+
+	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
+	bloqueador := abrirConexionRetiradaAcreditacionUsoV2(t, ctx, dsn, "catalogal")
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, bloqueador)
+	retirada := abrirConexionRetiradaAcreditacionUsoV2(t, ctx, dsn, "de retirada")
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, retirada)
+	mutador := abrirConexionRetiradaAcreditacionUsoV2(t, ctx, dsn, "de DDL")
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, mutador)
+	supervisor := abrirConexionRetiradaAcreditacionUsoV2(t, ctx, dsn, "supervisora")
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, supervisor)
+	resultadoRetirada := make(chan error, 1)
+	resultadoDDL := make(chan error, 1)
+	retiradaEnCurso, ddlEnCurso := false, false
+	defer func() {
+		cancelar()
+		if ddlEnCurso {
+			select {
+			case <-resultadoDDL:
+			case <-time.After(5 * time.Second):
+				t.Error("el DDL concurrente no terminó tras cancelar la prueba")
+			}
+		}
+		if retiradaEnCurso {
+			select {
+			case <-resultadoRetirada:
+			case <-time.After(5 * time.Second):
+				t.Error("la retirada no terminó tras cancelar la prueba")
+			}
+		}
+	}()
+
+	if _, err := bloqueador.Exec(ctx, `
+		BEGIN;
+		LOCK TABLE pg_catalog.pg_class IN ROW EXCLUSIVE MODE
+	`); err != nil {
+		t.Fatalf("retener catálogo: %v", err)
+	}
+	configurarOptInRetiradaUsoV2(t, ctx, retirada, optInRetiradaAcreditacionUsoV2)
+	pidRetirada := consultarPIDRetiradaAcreditacionUsoV2(t, ctx, retirada)
+	retiradaEnCurso = true
+	go func() {
+		_, err := retirada.Exec(ctx, string(down))
+		resultadoRetirada <- err
+	}()
+	esperarCondicionRetiradaAcreditacionUsoV2(
+		t, ctx, supervisor, "AEX base concedido y SHARE catalogal en espera", `
+			SELECT EXISTS (
+			  SELECT 1 FROM pg_catalog.pg_locks
+			   WHERE pid=$1
+			     AND relation='vec_contexto_actor_v1.procedencias'::regclass
+			     AND mode='AccessExclusiveLock' AND granted
+			) AND EXISTS (
+			  SELECT 1 FROM pg_catalog.pg_locks
+			   WHERE pid=$1 AND relation='pg_catalog.pg_class'::regclass
+			     AND mode='ShareLock' AND NOT granted
+			)
+		`, pidRetirada,
+	)
+
+	pidMutador := consultarPIDRetiradaAcreditacionUsoV2(t, ctx, mutador)
+	ctxDDL, cancelarDDL := context.WithCancel(ctx)
+	ddlEnCurso = true
+	go func() {
+		_, err := mutador.Exec(ctxDDL, `
+			ALTER TABLE vec_contexto_actor_v1.procedencias
+			ALTER COLUMN procedencia_ref SET STATISTICS 777
+		`)
+		resultadoDDL <- err
+	}()
+	esperarCondicionRetiradaAcreditacionUsoV2(
+		t, ctx, supervisor, "ALTER de procedencias en espera", `
+			SELECT EXISTS (
+			  SELECT 1 FROM pg_catalog.pg_locks
+			   WHERE pid=$1
+			     AND relation='vec_contexto_actor_v1.procedencias'::regclass
+			     AND NOT granted
+			)
+		`, pidMutador,
+	)
+	cancelarDDL()
+	errDDL := <-resultadoDDL
+	ddlEnCurso = false
+	if errDDL == nil {
+		t.Fatal("el ALTER concurrente atravesó el AEX de la retirada")
+	}
+	if err := sanearConexionRetiradaAcreditacionUsoV2(mutador); err != nil {
+		t.Fatalf("sanear conexión DDL cancelada: %v", err)
+	}
+	var estadistica int32
+	if err := supervisor.QueryRow(ctx, `
+		SELECT coalesce(attstattarget, -1)
+		  FROM pg_catalog.pg_attribute
+		 WHERE attrelid='vec_contexto_actor_v1.procedencias'::regclass
+		   AND attname='procedencia_ref'
+	`).Scan(&estadistica); err != nil {
+		t.Fatalf("consultar estadística tras cancelar DDL: %v", err)
+	}
+	if estadistica != -1 {
+		t.Fatalf("el DDL cancelado dejó attstattarget=%d", estadistica)
+	}
+
+	if _, err := bloqueador.Exec(ctx, "ROLLBACK"); err != nil {
+		t.Fatalf("liberar catálogo: %v", err)
+	}
+	errRetirada := <-resultadoRetirada
+	retiradaEnCurso = false
+	if errRetirada != nil {
+		t.Fatalf("finalizar retirada tras liberar catálogo: %v", errRetirada)
+	}
+	comprobarBaseTrasRetiradaAcreditacionUsoV2(t, ctx, supervisor)
+	if _, err := supervisor.Exec(ctx, string(up)); err != nil {
+		t.Fatalf("restaurar 000002 tras carrera: %v", err)
+	}
+}
+
+func TestRetiradaAcreditacionUsoV2RechazaIndiceClusterDerivado(t *testing.T) {
+	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("requiere PostgreSQL 18 efímero de contexto actor")
+	}
+	down := leerDocumentoRetiradaAcreditacionUsoV2(t)
+	up := leerDocumentoAltaAcreditacionUsoV2(t)
+	asegurarAcreditacionUsoV2InstaladaAlFinal(t, dsn, up)
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	conexion := abrirConexionRetiradaAcreditacionUsoV2(t, ctx, dsn, "de CLUSTER")
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, conexion)
+
+	if _, err := conexion.Exec(ctx, `
+		CLUSTER vec_contexto_actor_v1.procedencias
+		USING procedencias_pkey
+	`); err != nil {
+		t.Fatalf("derivar índice CLUSTER sintético: %v", err)
+	}
+	configurarOptInRetiradaUsoV2(t, ctx, conexion, optInRetiradaAcreditacionUsoV2)
+	if _, err := conexion.Exec(ctx, string(down)); err == nil {
+		t.Fatal("la retirada aceptó indisclustered derivado")
+	}
+	if err := sanearConexionRetiradaAcreditacionUsoV2(conexion); err != nil {
+		t.Fatalf("sanear rechazo de CLUSTER: %v", err)
+	}
+	if _, err := conexion.Exec(ctx, `
+		ALTER TABLE vec_contexto_actor_v1.procedencias SET WITHOUT CLUSTER
+	`); err != nil {
+		t.Fatalf("restaurar preferencia CLUSTER: %v", err)
+	}
+	configurarOptInRetiradaUsoV2(t, ctx, conexion, optInRetiradaAcreditacionUsoV2)
+	if _, err := conexion.Exec(ctx, string(down)); err != nil {
+		t.Fatalf("retirar tras restaurar CLUSTER: %v", err)
+	}
+	comprobarBaseTrasRetiradaAcreditacionUsoV2(t, ctx, conexion)
+	if _, err := conexion.Exec(ctx, string(up)); err != nil {
+		t.Fatalf("restaurar 000002 tras CLUSTER: %v", err)
+	}
+}
+
+func TestRetiradaAcreditacionUsoV2IgnoraDependenciaDeBaseClonada(t *testing.T) {
+	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("requiere PostgreSQL 18 efímero de contexto actor")
+	}
+	down := leerDocumentoRetiradaAcreditacionUsoV2(t)
+	up := leerDocumentoAltaAcreditacionUsoV2(t)
+	asegurarAcreditacionUsoV2InstaladaAlFinal(t, dsn, up)
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	configuracion, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		t.Fatalf("interpretar DSN de migración: %v", err)
+	}
+	baseOrigen := configuracion.Database
+	sufijo := fmt.Sprintf("%d", time.Now().UnixNano())
+	baseClon := "ct126_oid_" + sufijo
+	rolClon := "ct126_rol_" + sufijo
+	configuracion.Database = "postgres"
+	administrador, err := pgx.ConnectConfig(ctx, configuracion)
+	if err != nil {
+		t.Fatalf("abrir conexión administrativa: %v", err)
+	}
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, administrador)
+	t.Cleanup(func() {
+		ctxLimpieza, cancelarLimpieza := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelarLimpieza()
+		configuracionLimpieza := configuracion.Copy()
+		configuracionLimpieza.Database = "postgres"
+		conexionLimpieza, err := pgx.ConnectConfig(ctxLimpieza, configuracionLimpieza)
+		if err != nil {
+			t.Errorf("abrir conexión para limpiar clon: %v", err)
+			return
+		}
+		defer func() { _ = conexionLimpieza.Close(ctxLimpieza) }()
+		if _, err = conexionLimpieza.Exec(
+			ctxLimpieza,
+			"DROP DATABASE IF EXISTS "+pgx.Identifier{baseClon}.Sanitize()+" WITH (FORCE)",
+		); err != nil {
+			t.Errorf("eliminar base clonada: %v", err)
+			return
+		}
+		if _, err = conexionLimpieza.Exec(
+			ctxLimpieza,
+			"DROP ROLE IF EXISTS "+pgx.Identifier{rolClon}.Sanitize(),
+		); err != nil {
+			t.Errorf("eliminar rol de base clonada: %v", err)
+		}
+	})
+	if _, err = administrador.Exec(
+		ctx,
+		"CREATE ROLE "+pgx.Identifier{rolClon}.Sanitize()+" NOLOGIN",
+	); err != nil {
+		t.Fatalf("crear rol de dependencia clonada: %v", err)
+	}
+	if _, err = administrador.Exec(
+		ctx,
+		"CREATE DATABASE "+pgx.Identifier{baseClon}.Sanitize()+
+			" WITH TEMPLATE "+pgx.Identifier{baseOrigen}.Sanitize(),
+	); err != nil {
+		t.Fatalf("clonar base con OID coincidentes: %v", err)
+	}
+
+	configuracion.Database = baseClon
+	clon, err := pgx.ConnectConfig(ctx, configuracion)
+	if err != nil {
+		t.Fatalf("abrir base clonada: %v", err)
+	}
+	funcion := `vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+		text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+		text,text,timestamptz,timestamptz)`
+	if _, err = clon.Exec(
+		ctx,
+		"GRANT EXECUTE ON FUNCTION "+funcion+" TO "+pgx.Identifier{rolClon}.Sanitize(),
+	); err != nil {
+		_ = clon.Close(ctx)
+		t.Fatalf("crear dependencia en base clonada: %v", err)
+	}
+	var oidClon uint32
+	if err = clon.QueryRow(ctx, "SELECT $1::regprocedure::oid", funcion).Scan(&oidClon); err != nil {
+		_ = clon.Close(ctx)
+		t.Fatalf("consultar OID clonado: %v", err)
+	}
+	if err = clon.Close(ctx); err != nil {
+		t.Fatalf("cerrar base clonada: %v", err)
+	}
+
+	configuracion.Database = baseOrigen
+	origen, err := pgx.ConnectConfig(ctx, configuracion)
+	if err != nil {
+		t.Fatalf("abrir base origen: %v", err)
+	}
+	defer cerrarConexionRetiradaAcreditacionUsoV2(t, origen)
+	var oidOrigen uint32
+	if err = origen.QueryRow(ctx, "SELECT $1::regprocedure::oid", funcion).Scan(&oidOrigen); err != nil {
+		t.Fatalf("consultar OID origen: %v", err)
+	}
+	if oidOrigen != oidClon {
+		t.Fatalf("el clon no conservó OID: origen=%d clon=%d", oidOrigen, oidClon)
+	}
+	configurarOptInRetiradaUsoV2(t, ctx, origen, optInRetiradaAcreditacionUsoV2)
+	if _, err = origen.Exec(ctx, string(down)); err != nil {
+		t.Fatalf("la dependencia de otra base contaminó pg_shdepend: %v", err)
+	}
+	comprobarBaseTrasRetiradaAcreditacionUsoV2(t, ctx, origen)
+	if _, err = origen.Exec(ctx, string(up)); err != nil {
+		t.Fatalf("restaurar 000002 tras prueba multibase: %v", err)
+	}
+}
+
 func TestRetiradaAcreditacionUsoV2DestruyeConexionQueNoPuedeSanear(t *testing.T) {
 	dsn := os.Getenv("VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN")
 	if dsn == "" {
@@ -206,6 +481,148 @@ func leerDocumentoRetiradaAcreditacionUsoV2(t *testing.T) []byte {
 		t.Fatalf("leer bytes reales del documento desde cwd ajeno: %v", err)
 	}
 	return documento
+}
+
+func leerDocumentoAltaAcreditacionUsoV2(t *testing.T) []byte {
+	t.Helper()
+	_, archivoPrueba, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("no se pudo localizar el archivo de prueba")
+	}
+	ruta := filepath.Join(
+		filepath.Clean(filepath.Join(filepath.Dir(archivoPrueba), "../../../../..")),
+		"deploy/postgresql/contexto_actor_v1/migraciones",
+		"000002_acreditacion_uso_registro_contexto_actor_v2.up.sql",
+	)
+	documento, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatalf("leer documento de alta 000002: %v", err)
+	}
+	return documento
+}
+
+func abrirConexionRetiradaAcreditacionUsoV2(
+	t *testing.T,
+	ctx context.Context,
+	dsn string,
+	finalidad string,
+) *pgx.Conn {
+	t.Helper()
+	conexion, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatalf("abrir conexión %s: %v", finalidad, err)
+	}
+	return conexion
+}
+
+func consultarPIDRetiradaAcreditacionUsoV2(
+	t *testing.T,
+	ctx context.Context,
+	conexion *pgx.Conn,
+) int32 {
+	t.Helper()
+	var pid int32
+	if err := conexion.QueryRow(ctx, "SELECT pg_catalog.pg_backend_pid()").Scan(&pid); err != nil {
+		t.Fatalf("consultar PID PostgreSQL: %v", err)
+	}
+	return pid
+}
+
+func esperarCondicionRetiradaAcreditacionUsoV2(
+	t *testing.T,
+	ctx context.Context,
+	conexion *pgx.Conn,
+	descripcion string,
+	consulta string,
+	argumentos ...any,
+) {
+	t.Helper()
+	limite := time.NewTimer(5 * time.Second)
+	defer limite.Stop()
+	pulso := time.NewTicker(10 * time.Millisecond)
+	defer pulso.Stop()
+	for {
+		var cumplida bool
+		if err := conexion.QueryRow(ctx, consulta, argumentos...).Scan(&cumplida); err != nil {
+			t.Fatalf("observar %s: %v", descripcion, err)
+		}
+		if cumplida {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("esperar %s: %v", descripcion, ctx.Err())
+		case <-limite.C:
+			t.Fatalf("no se observó %s", descripcion)
+		case <-pulso.C:
+		}
+	}
+}
+
+func comprobarBaseTrasRetiradaAcreditacionUsoV2(
+	t *testing.T,
+	ctx context.Context,
+	conexion *pgx.Conn,
+) {
+	t.Helper()
+	var exacta bool
+	if err := conexion.QueryRow(ctx, `
+		SELECT
+		  pg_catalog.to_regclass(
+		    'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'
+		  ) IS NULL
+		  AND pg_catalog.to_regprocedure(
+		    'vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz)'
+		  ) IS NULL
+		  AND pg_catalog.to_regclass(
+		    'vec_contexto_actor_v1.registros_contexto'
+		  ) IS NOT NULL
+		  AND (
+		    SELECT coalesce(attstattarget, -1) = -1
+		      FROM pg_catalog.pg_attribute
+		     WHERE attrelid='vec_contexto_actor_v1.procedencias'::regclass
+		       AND attname='procedencia_ref'
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1 FROM pg_catalog.pg_index
+		     WHERE indrelid='vec_contexto_actor_v1.procedencias'::regclass
+		       AND indisclustered
+		  )
+	`).Scan(&exacta); err != nil {
+		t.Fatalf("comprobar estado base tras retirada: %v", err)
+	}
+	if !exacta {
+		t.Fatal("000001 no quedó exacta tras retirar 000002")
+	}
+}
+
+func asegurarAcreditacionUsoV2InstaladaAlFinal(t *testing.T, dsn string, up []byte) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelar()
+		conexion, err := pgx.Connect(ctx, dsn)
+		if err != nil {
+			t.Errorf("abrir conexión de restauración 000002: %v", err)
+			return
+		}
+		defer func() { _ = conexion.Close(ctx) }()
+		var instalada bool
+		if err = conexion.QueryRow(ctx, `
+			SELECT pg_catalog.to_regclass(
+			  'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'
+			) IS NOT NULL
+		`).Scan(&instalada); err != nil {
+			t.Errorf("comprobar restauración 000002: %v", err)
+			return
+		}
+		if instalada {
+			return
+		}
+		if _, err = conexion.Exec(ctx, string(up)); err != nil {
+			t.Errorf("restaurar 000002 al finalizar prueba: %v", err)
+		}
+	})
 }
 
 func probarRechazoDocumentoRetiradaUsoV2(

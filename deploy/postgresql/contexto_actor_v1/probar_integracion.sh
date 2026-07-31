@@ -650,8 +650,11 @@ acreditada=$(consulta_runtime 'SELECT acreditada FROM vec_contexto_actor_v1.acre
 # una concesion nominal sobre la funcion.
 if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
   VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
+    go test ./internal/vec/adapters/contextoactor/postgres \
+      -run '^TestRetiradaAcreditacionUsoV2(Cancela|Bloquea|Rechaza|Ignora|Destruye)' -count=1
+  VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
     go test -race ./internal/vec/adapters/contextoactor/postgres \
-      -run '^TestRetiradaAcreditacionUsoV2(Cancela|Destruye)' -count=1
+      -run '^TestRetiradaAcreditacionUsoV2(Cancela|Bloquea|Rechaza|Ignora|Destruye)' -count=1
   VEC_CONTEXTO_ACTOR_MIGRACION_POSTGRES_DSN="$dsn_migracion" \
     go test ./internal/vec/adapters/contextoactor/postgres \
       -run '^TestRetiradaAcreditacionUsoV2Ejecuta' -count=1
