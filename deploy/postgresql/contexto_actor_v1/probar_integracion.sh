@@ -779,4 +779,9 @@ filas_conservadas=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
   "SELECT count(*) FROM vec_contexto_actor_v1.registros_contexto")
 [[ $filas_conservadas -gt 0 ]] || { echo 'down 000001 altero evidencia tras rechazo' >&2; exit 1; }
 
+# S0.2d compone las matrices autónomas; ninguna delega en otra.
+"$raiz/deploy/postgresql/contexto_actor_v1/probar_retiradas_contexto_actor_catalogos_concurrentes_pg18_4.sh"
+"$raiz/deploy/postgresql/contexto_actor_v1/probar_retirada_acreditacion_estructura_acl_consumidores_v2_pg18_4.sh"
+"$raiz/deploy/postgresql/contexto_actor_v1/probar_retirada_acreditacion_contexto_actor_v2_concurrencia_preservacion_ciclos_pg18_4.sh"
+
 echo 'contexto actor durable V2: integracion PostgreSQL 18 superada'
