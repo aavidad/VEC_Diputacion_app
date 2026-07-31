@@ -69,6 +69,29 @@ LOCK TABLE
     vec_contexto_actor_v1.registros_contexto
 IN ACCESS EXCLUSIVE MODE;
 
+-- El manifiesto y los DROP comparten la misma fotografía catalogal. SHARE
+-- inmoviliza todo catálogo canonizado, incluidas identidades y ACL globales.
+LOCK TABLE
+    pg_catalog.pg_namespace, pg_catalog.pg_class,
+    pg_catalog.pg_attribute, pg_catalog.pg_attrdef, pg_catalog.pg_index,
+    pg_catalog.pg_proc, pg_catalog.pg_type, pg_catalog.pg_constraint,
+    pg_catalog.pg_trigger, pg_catalog.pg_language, pg_catalog.pg_rewrite,
+    pg_catalog.pg_policy, pg_catalog.pg_inherits,
+    pg_catalog.pg_default_acl, pg_catalog.pg_description,
+    pg_catalog.pg_seclabel, pg_catalog.pg_init_privs, pg_catalog.pg_depend,
+    pg_catalog.pg_publication, pg_catalog.pg_publication_rel,
+    pg_catalog.pg_publication_namespace, pg_catalog.pg_subscription,
+    pg_catalog.pg_subscription_rel, pg_catalog.pg_statistic_ext,
+    pg_catalog.pg_collation, pg_catalog.pg_conversion,
+    pg_catalog.pg_operator, pg_catalog.pg_opclass, pg_catalog.pg_opfamily,
+    pg_catalog.pg_ts_config, pg_catalog.pg_ts_dict,
+    pg_catalog.pg_ts_parser, pg_catalog.pg_ts_template,
+    pg_catalog.pg_authid, pg_catalog.pg_auth_members,
+    pg_catalog.pg_db_role_setting, pg_catalog.pg_shdepend,
+    pg_catalog.pg_shdescription, pg_catalog.pg_shseclabel,
+    pg_catalog.pg_database
+IN SHARE MODE;
+
 DO $sin_evidencia$
 BEGIN
     IF EXISTS (
