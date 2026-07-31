@@ -13,21 +13,33 @@ clave_acreditador=$(od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]')
 limpiar() { docker rm -f "$contenedor" >/dev/null 2>&1 || true; }
 trap limpiar EXIT INT TERM
 
+# La imagen oficial abre durante initdb un servidor temporal sólo por socket.
+# Se acredita tres veces el primario definitivo mediante TCP y contraseña.
+esperar_postgres() {
+  local consecutivas=0 respuesta
+  for _ in $(seq 1 240); do
+    if respuesta=$(docker exec --env PGPASSWORD="$clave_admin" "$contenedor" \
+      psql -XAt --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+      --username postgres --dbname "$base" --command \
+      "SELECT current_setting('server_version_num') || '|' ||
+              pg_catalog.pg_is_in_recovery()" 2>/dev/null) &&
+      [[ $respuesta == '180004|false' ]]; then
+      consecutivas=$((consecutivas + 1))
+      [[ $consecutivas -eq 3 ]] && return 0
+    else
+      consecutivas=0
+    fi
+    sleep 0.25
+  done
+  echo 'PostgreSQL 18.4 primario no quedó disponible por TCP dentro del plazo.' >&2
+  docker logs --tail 200 "$contenedor" >&2 || true
+  return 1
+}
+
 docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
   --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
   --env POSTGRES_INITDB_ARGS="${VEC_POSTGRES_INITDB_ARGS:-}" "$imagen" >/dev/null
-for _ in $(seq 1 60); do
-  docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null 2>&1 && break
-  sleep 1
-done
-docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null
-version_mayor=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
-  --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
-  "SELECT current_setting('server_version_num')::integer / 10000")
-[[ $version_mayor == 18 ]] || {
-  echo "se requiere PostgreSQL 18; la imagen inicio PostgreSQL $version_mayor" >&2
-  exit 1
-}
+esperar_postgres
 
 psql_archivo() {
   docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
