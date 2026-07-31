@@ -228,6 +228,33 @@ estructura, ACL, RLS, límites, historia, generación, retirada, carreras y la
 ejecución de los bytes completos del `down` mediante una conexión `pgx`
 dedicada, incluida su cancelación y saneamiento.
 
+### Vínculo corporativo RRHH versionado C2.2-B
+
+La migración `000004` incorpora la historia de solo adición y el puntero actual
+que vinculan versiones exactas de cuenta, persona, perfil, vínculo ContextoActor
+y organización para la superficie `interna_corporativa` y el uso
+`consulta_rrhh`. No publica ni revoca vínculos, no selecciona candidatos y no
+concede autoridad a Contratación temporal, PDP, runtime o clientes.
+
+La matriz se divide en tres runners autónomos para mantener una responsabilidad
+por fichero y se puede reproducir con:
+
+```sh
+deploy/postgresql/contexto_actor_v1/\
+probar_vinculo_corporativo_rrhh_v1_estructura_adversarial_pg18_4.sh
+deploy/postgresql/contexto_actor_v1/\
+probar_vinculo_corporativo_rrhh_v1_concurrencia_preservacion_pg18_4.sh
+deploy/postgresql/contexto_actor_v1/\
+probar_vinculo_corporativo_rrhh_v1_pgx_pg18_4.sh
+```
+
+`probar_integracion.sh` los invoca directa y exactamente una vez, en ese orden,
+después de la matriz de organización. En conjunto acreditan los trece casos del
+contrato C2.2-B: estructura e integridad relacional, ACL/RLS y retirada;
+concurrencia y preservación; ejecución literal mediante `pgx`, cancelación y
+saneamiento; y ausencia de residuos. Estas pruebas no acreditan todavía
+publicación, selección, PDP, composición productiva, TLS/mTLS ni E2E.
+
 La retirada base está denegada por defecto. `000001_contexto_actor_v1.down.sql`
 solo acepta una instalación exacta de `000001`, completamente vacía y sin
 consumidores. Reacredita propietario, roles, membresías, ACL, objetos,
