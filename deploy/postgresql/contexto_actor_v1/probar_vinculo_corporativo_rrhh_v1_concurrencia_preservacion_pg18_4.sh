@@ -151,6 +151,16 @@ huella_filas_base() {
     sed -E '/^\\(un)?restrict /d' | sha256sum | cut -d' ' -f1
 }
 
+huella_filas_base_estables() {
+  docker exec --env PGPASSWORD="$clave" "$contenedor" pg_dump \
+    -h 127.0.0.1 -U postgres -d "$base" --data-only \
+    --schema=vec_contexto_actor_v1 \
+    --exclude-table=vec_contexto_actor_v1.vinculo_corporativo_versiones \
+    --exclude-table=vec_contexto_actor_v1.vinculo_corporativo_actual \
+    --exclude-table=vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 |
+    sed -E '/^\\(un)?restrict /d' | sha256sum | cut -d' ' -f1
+}
+
 iniciar_sesion() {
   local aplicacion=$1
   sesion_fifo="$temporal/sesion.fifo"
@@ -477,6 +487,7 @@ COMMIT;
 SQL
 generacion_inicial=$(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2')
 huella_base_fixtures=$(huella_filas_base)
+huella_base_estable_fixtures=$(huella_filas_base_estables)
 
 # Caso 11.5: una inserción confirmada gana a down y permanece íntegra.
 iniciar_sesion c22b_insercion
@@ -556,7 +567,6 @@ esperar_valor 'down espera el lock exacto del puntero escrito' t \
   "$(sql_bloqueo_relacion c22b_down_puntero "$pid_bloqueador_puntero" \
     vec_contexto_actor_v1.vinculo_corporativo_actual)"
 confirmar_sesion
-huella_base_puntero_confirmado=$(huella_filas_base)
 esperar_fallo 'retirada concurrente con avance de puntero' "$pid_down_puntero" \
   "$temporal/down_puntero.log" 55000 \
   'retirada de vinculo corporativo RRHH V1 rechazada por evidencia'
@@ -577,8 +587,8 @@ esperar_fallo 'retirada concurrente con avance de puntero' "$pid_down_puntero" \
  )::vec_contexto_actor_v1.vinculo_corporativo_versiones)
  FROM vec_contexto_actor_v1.vinculo_corporativo_versiones v") == t ]] ||
   fallar 'la carrera de puntero altero la historia comprometida'
-[[ $(huella_filas_base) == "$huella_base_puntero_confirmado" ]] ||
-  fallar 'la carrera de puntero altero filas base'
+[[ $(huella_filas_base_estables) == "$huella_base_estable_fixtures" ]] ||
+  fallar 'la carrera de puntero altero filas base estables'
 [[ $(consulta 'SELECT generacion FROM vec_contexto_actor_v1.control_generacion_punteros_actuales_v2') == "$((generacion_inicial + 1))" ]] ||
   fallar 'el rechazo de down perdio el avance de generacion'
 [[ $(huella_esquema) == "$huella_esquema_b" ]] ||
