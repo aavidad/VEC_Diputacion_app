@@ -51,8 +51,9 @@ fallar() {
 esperar_postgres() {
   local consecutivas=0 respuesta
   for _ in $(seq 1 240); do
-    if respuesta=$(docker exec "$contenedor" psql -XAt \
-      --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    if respuesta=$(docker exec --env PGPASSWORD="$clave_admin" "$contenedor" \
+      psql -XAt --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+      --username postgres --dbname "$base" \
       --command \
       "SELECT current_setting('server_version_num') || '|' ||
               pg_catalog.pg_is_in_recovery()" 2>/dev/null) &&
@@ -62,9 +63,10 @@ esperar_postgres() {
     else
       consecutivas=0
     fi
-    sleep 0.05
+    sleep 0.25
   done
-  fallar 'PostgreSQL 18.4 primario no quedo disponible'
+  docker logs --tail 200 "$contenedor" >&2 || true
+  fallar 'PostgreSQL 18.4 primario no quedó disponible por TCP dentro del plazo'
 }
 
 psql_archivo() {
