@@ -2,6 +2,19 @@
 
 Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 
+## Actualización vigente de dirección — 31 de julio de 2026
+
+El corte estable publicado es `fc923d9` en
+`integracion/ct-o4-04e-20260726`. La ejecución GitHub `30626845298` terminó
+completamente verde. C2.1b y C2.2-S0.1/S0.2 están cerradas; el trabajo activo
+es C2.2-A, historia y puntero de organización corporativa. Las métricas no se
+inflan por este trabajo compartido: Contratación `24/46` (52 %), O4-05 `3/5`,
+Bolsa productiva `1/14` (7 %) y producción `NO-GO`.
+
+Esta actualización prevalece sobre los cortes históricos del resto del
+documento. La dirección detallada vigente está en el relevo de Contratación y
+en la decisión C2.2.
+
 ## Actualización vigente de dirección — 30 de julio de 2026
 
 La rama y el worktree siguen siendo los indicados, pero el corte vigente ya no

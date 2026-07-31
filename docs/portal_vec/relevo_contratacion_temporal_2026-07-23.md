@@ -13,7 +13,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Corte publicado anterior: `85a115c`.
+- Corte estable publicado: `fc923d9`; CI `30626845298` completamente verde.
 - Último commit técnico verificado: `dcc2151`.
 - Último cierre: C2.2-S0.2, retirada segura de la generación ContextoActor,
   integrada hasta `dcc2151`, con P0=P1=P2=0 y PostgreSQL 18.4 real.
