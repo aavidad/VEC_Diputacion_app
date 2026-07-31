@@ -76,6 +76,7 @@ Después, como superusuario:
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/roles_up.sql
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.up.sql
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql
+psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql
 ```
 
 ### Acreditación cerrada de uso del recibo V2
@@ -121,6 +122,21 @@ repetir la llamada después de tomarlos, usando el segundo instante para todas
 sus ventanas. La primera llamada conserva los locks de contexto hasta el final
 de la transacción; la segunda ya no espera y detecta una expiración ocurrida
 mientras se adquirían locks del consumidor.
+
+### Organización corporativa versionada C2.2-A
+
+La migración `000003` incorpora la historia de solo adición y el puntero
+actual de organizaciones opacas `org_`. Cada versión conserva procedencia,
+estado y vigencia; no contiene denominaciones, CIF, códigos visibles,
+jerarquías ni otros datos semánticos. El puntero expresa la última versión
+conocida y no concede permiso. Historia y puntero quedan bajo RLS forzada,
+sin acceso funcional para runtime, selector, PDP o Contratación temporal.
+
+El alta y la retirada toman primero la barrera compartida de acreditación y
+después la barrera organizativa exclusiva. `000003` no publica ni revoca
+organizaciones, no selecciona actores y no autoriza consultas RRHH. Su
+instalación aislada tampoco cierra C2.2-A ni la composición productiva: aún
+requiere el vínculo corporativo, selección, PDP, raíz, TLS viva y E2E.
 
 El despliegue crea tres roles `NOLOGIN`: propietario, migrador y runtime. El
 operador crea un `LOGIN` dedicado sin atributos administrativos y le concede
@@ -199,6 +215,19 @@ también todas las pruebas Go existentes.
 La imagen puede sustituirse mediante `VEC_POSTGRES_TEST_IMAGE`; por defecto se
 usa una referencia PostgreSQL 18 fijada por digest.
 
+La matriz autónoma de organización corporativa se puede reproducir con:
+
+```sh
+deploy/postgresql/contexto_actor_v1/\
+probar_organizacion_corporativa_v1_pg18_4.sh
+```
+
+`probar_integracion.sh` la invoca directa y exactamente una vez, como última
+matriz focal después de sus pruebas propias. El runner acredita la instalación,
+estructura, ACL, RLS, límites, historia, generación, retirada, carreras y la
+ejecución de los bytes completos del `down` mediante una conexión `pgx`
+dedicada, incluida su cancelación y saneamiento.
+
 La retirada base está denegada por defecto. `000001_contexto_actor_v1.down.sql`
 solo acepta una instalación exacta de `000001`, completamente vacía y sin
 consumidores. Reacredita propietario, roles, membresías, ACL, objetos,
@@ -217,6 +246,9 @@ La confirmación explícita no autoriza a borrar evidencia. La secuencia
 operativa, únicamente para una instalación vacía acreditada, es:
 
 ```sh
+PGOPTIONS="-c vec.confirmar_retirada_organizacion_corporativa_v1=RETIRAR_ORGANIZACION_CORPORATIVA_V1" \
+psql -X -v ON_ERROR_STOP=1 \
+  -f deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.down.sql
 PGOPTIONS="-c vec.confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2" \
 psql -X -v ON_ERROR_STOP=1 \
   -f deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql
