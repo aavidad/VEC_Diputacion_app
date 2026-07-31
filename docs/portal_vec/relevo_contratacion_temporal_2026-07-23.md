@@ -14,12 +14,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
 - Corte publicado anterior: `85a115c`.
-- Último commit técnico verificado: `d768007`.
-- Último cierre: CT-000047C2.1b, fachada mínima de Identidad para
-  ContextoActor, integrada en `ea91b30`–`d768007`, con P0=P1=P2=0,
-  PostgreSQL 18.4, réplica física y recuperación.
-- Trabajo activo: C2.2-S0.1, retirada segura de la base ContextoActor sin
-  `CASCADE` ni pérdida de evidencia.
+- Último commit técnico verificado: `dcc2151`.
+- Último cierre: C2.2-S0.2, retirada segura de la generación ContextoActor,
+  integrada hasta `dcc2151`, con P0=P1=P2=0 y PostgreSQL 18.4 real.
+- Trabajo activo: C2.2-A, historia y puntero de organización corporativa.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
@@ -95,7 +93,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular, cliente seguro, recuperación, proyecciones y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1/M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 la cápsula; C2.1a el rol selector; y C2.1b la fachada mínima de Identidad en `ea91b30`–`d768007`, con P0=P1=P2=0 y réplica física. Después faltan C2.2, selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular, cliente seguro, recuperación, proyecciones y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. M1/M2 cierran motivos y su adaptador PostgreSQL. CT-000047A cierra HTTP; C1 la cápsula; C2.1a el rol selector; C2.1b la fachada mínima de Identidad; y S0.1/S0.2 las retiradas ContextoActor, con P0=P1=P2=0. Después faltan C2.2-A/B, selección/registro corporativos, PDP, raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -269,10 +267,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Cerrar S0.1 y S0.2: retiradas seguras de las migraciones base y de
-   generación de ContextoActor.
-2. Implementar C2.2-A y C2.2-B: organización y vínculo corporativo
-   versionados, sin seleccionar candidatos.
+1. Implementar C2.2-A: historia y puntero de organización corporativa.
+2. Implementar C2.2-B: vínculo corporativo versionado, sin seleccionar
+   candidatos.
 3. Implementar publicación, selección y registro corporativos en una sola
    transacción `SERIALIZABLE`, sin usar el PDP como selector.
 4. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
@@ -632,14 +629,14 @@ acredita P0=P1=P2=0, PostgreSQL 18.4 y recuperación física.
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
 de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
 cuadro/detalle con P0=P1=P2=0. Esto no autoriza aún la ruta web productiva:
-faltan C2.2, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y el
-E2E de O4-05. Los dobles de presentación continúan aislados y no se
+faltan C2.2-A/B, selección/registro corporativos, PDP, raíz, TLS/mTLS viva y
+el E2E de O4-05. Los dobles de presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-C2.2: retirada segura, organización y vínculo corporativo
+C2.2-A/B: organización y vínculo corporativo
 → publicación, selección y registro corporativos
 → PDP productivo
 → composición raíz y propiedad de recursos

@@ -110,11 +110,10 @@ cursores, prueba durable, motor privado CT-000044 y fachadas nominales
 CT-000045, junto con el adaptador CT-000046, están integrados y revisados.
 CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
 las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
-cápsula de identidad y C2.1a el rol selector mínimo. C2.1b, fachada mínima de
-Identidad para ContextoActor, conserva el borrador `e8883df` sin runner,
-revisión ni `GO`. Su dependencia de ACL está probada en una rama candidata,
-todavía no integrada. Después siguen selección y registro corporativos, PDP,
-composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
+cápsula de identidad; C2.1a el rol selector mínimo; C2.1b la fachada mínima de
+Identidad; y S0.1/S0.2 las retiradas ContextoActor con P0=P1=P2=0. C2.2-A y
+C2.2-B continúan pendientes. Después siguen selección y registro corporativos,
+PDP, composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -174,20 +173,16 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Cerrar C2.1b, la fachada mínima de Identidad para ContextoActor:
+Cerrar C2.2-A, historia y puntero de organización corporativa:
 
-- recibe solo referencias de autenticación y sesión ya obtenidas de C1;
-- devuelve únicamente cuenta, método, garantía y caducidad observados;
-- no acepta ni selecciona perfil, organización o candidatos;
-- exige transacción `SERIALIZABLE READ WRITE`, primario, rol nominal y
-  topología exacta;
-- conserva la separación propietaria: solo ContextoActor puede ejecutar la
-  fachada desde su función `SECURITY DEFINER`;
-- prueba PostgreSQL 18.4, ACL, catálogo, carreras, reentrada y retirada segura.
+- publicación versionada e inmutable de organizaciones, sin seleccionar
+  candidatos de perfil;
+- historia de solo adición y puntero con los tres triggers de generación;
+- RLS forzada, ACL cerrada y cero acceso funcional para runtime o selector;
+- safe-down que preserve evidencia y falle ante consumidores posteriores;
+- PostgreSQL 18.4 real, concurrencia, reentrada, reversión y revisión
+  independiente.
 
-La coordinación exacta está en
-[CT-000047C2.1b](coordinacion_ct_000047c21b_fachada_identidad_contexto_rrhh_2026-07-30.md).
-El trabajo local no se considera cerrado hasta disponer de commit, matriz
-reproducible, doble revisión independiente y publicación verde. Después se
-implementan selección y registro corporativos, PDP y solo entonces la
-composición raíz.
+La autoridad exacta y la numeración están en la
+[decisión C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md).
+C2.2-B no empieza hasta que A tenga commit, matriz reproducible y `GO`.
