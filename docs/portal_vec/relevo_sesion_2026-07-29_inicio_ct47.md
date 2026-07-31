@@ -2,6 +2,15 @@
 
 Fecha: 29 de julio de 2026.
 
+## Actualización vigente de dirección — 31 de julio de 2026
+
+C2.2-A supera A0–A4 en `2b59884`–`6017606`, con revisión final independiente
+P0=P1=P2=0, PostgreSQL 18.4 compuesto y puerta global local verde. El trabajo
+activo es A5: sincronizar, publicar y exigir CI completamente verde. C2.2-B
+no comienza hasta cerrar esa publicación. Las métricas permanecen en
+Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
+producción `NO-GO`.
+
 ## Motivo
 
 Después de cerrar CT-000046, dos inventarios independientes contrastaron el
@@ -346,8 +355,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.2-A, historia y puntero de organización corporativa.
-C2.1b, S0.1 y S0.2 ya no son trabajo local pendiente. C2.2-B depende de A.
+Trabajo activo: A5, publicación y CI de C2.2-A. C2.1b, S0.1, S0.2 y A ya no
+son implementación técnica pendiente. C2.2-B depende del cierre publicado.
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 
@@ -395,8 +404,15 @@ quedó corregida en `d133680`–`25ea01e`. S0.2b se integró en
 quedó en `a721a5f`. La composición S0.2d `dcc2151` superó el runner principal
 completo y revisión independiente, con P0=P1=P2=0. La
 [evidencia completa](revisiones/revision_c2_2_s0_2_cierre_2026-07-31.md)
-documenta la frontera. El siguiente paso exacto es C2.2-A; C2.2-B continúa
-dependiendo de su cierre.
+documenta la frontera.
+
+C2.2-A quedó implementada en `1d13d4b`, `ae23242` y `ce8959c`. El corte
+aporta historia y puntero organizativos, retirada protegida, runner 1–13,
+ejecución literal `pgx` y composición principal. La
+[revisión final](revisiones/revision_c2_2_a_organizacion_corporativa_2026-07-31.md)
+en `6017606` emitió GO, P0=P1=P2=0. `4d7e07d` corrige además la carrera de
+arranque del runner Bolsa observada en CI, sin cambiar funcionalidad. A5 debe
+publicar el conjunto y obtener CI verde antes de abrir C2.2-B.
 
 ## Optimización probatoria CT88
 

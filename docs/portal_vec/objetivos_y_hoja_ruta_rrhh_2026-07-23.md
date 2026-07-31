@@ -111,8 +111,9 @@ CT-000045, junto con el adaptador CT-000046, están integrados y revisados.
 CT-000047A cierra los manejadores HTTP de cuadro y detalle; CT-000047B cierra
 las piezas nominales y el adaptador PostgreSQL de motivos; C1 cierra la
 cápsula de identidad; C2.1a el rol selector mínimo; C2.1b la fachada mínima de
-Identidad; y S0.1/S0.2 las retiradas ContextoActor con P0=P1=P2=0. C2.2-A y
-C2.2-B continúan pendientes. Después siguen selección y registro corporativos,
+Identidad; S0.1/S0.2 las retiradas ContextoActor; y C2.2-A la historia y el
+puntero organizativos, con P0=P1=P2=0. A espera publicación A5 y C2.2-B
+continúa bloqueada hasta ese cierre. Después siguen selección y registro corporativos,
 PDP, composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
@@ -173,16 +174,11 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Cerrar C2.2-A, historia y puntero de organización corporativa:
+Publicar C2.2-A y exigir un CI completamente verde. El corte técnico ya
+acredita historia de solo adición, puntero común, RLS/ACL cerradas,
+safe-down, PostgreSQL 18.4, concurrencia, ejecución literal mediante `pgx` y
+revisión final independiente.
 
-- publicación versionada e inmutable de organizaciones, sin seleccionar
-  candidatos de perfil;
-- historia de solo adición y puntero con los tres triggers de generación;
-- RLS forzada, ACL cerrada y cero acceso funcional para runtime o selector;
-- safe-down que preserve evidencia y falle ante consumidores posteriores;
-- PostgreSQL 18.4 real, concurrencia, reentrada, reversión y revisión
-  independiente.
-
-La autoridad exacta y la numeración están en la
+Después se abre C2.2-B, historia y puntero del vínculo corporativo, con la
+autoridad y numeración fijadas en la
 [decisión C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md).
-C2.2-B no empieza hasta que A tenga commit, matriz reproducible y `GO`.
