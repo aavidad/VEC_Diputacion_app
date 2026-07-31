@@ -3,7 +3,6 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-
 DO $precondiciones$
 BEGIN
     IF pg_catalog.current_setting(
@@ -20,7 +19,6 @@ BEGIN
     END IF;
 END
 $precondiciones$;
-
 -- El orden es común a la retirada base y a las ampliaciones corporativas.
 SELECT pg_catalog.pg_advisory_xact_lock_shared(
     pg_catalog.hashtextextended(
@@ -32,7 +30,6 @@ SELECT pg_catalog.pg_advisory_xact_lock(
         'vec_contexto_actor_v1:migracion:acreditacion_uso:v2', 0
     )
 );
-
 -- Las doce relaciones de 000001 y el control de 000002 permanecen inmóviles
 -- desde antes del inventario hasta el COMMIT. La guarda advisory se tomó antes
 -- que las tablas, en el mismo orden que la retirada base.
@@ -51,38 +48,28 @@ LOCK TABLE
     vec_contexto_actor_v1.vinculo_referencia_actual,
     vec_contexto_actor_v1.registros_contexto
 IN ACCESS EXCLUSIVE MODE;
-
--- Ventana de mantenimiento cerrada: después de inmovilizar las relaciones,
--- estos catálogos permanecen en SHARE hasta el COMMIT. Así una
--- ACL, comentario, dependencia, publicación o metadato de función/tipo no
--- puede cambiar entre el inventario acreditado y los DROP con RESTRICT.
+-- SHARE conserva la fotografía catalogal desde el inventario hasta el COMMIT:
+-- inmoviliza roles, ACL, comentarios, dependencias y metadatos canonizados.
 LOCK TABLE
-    pg_catalog.pg_class,
-    pg_catalog.pg_attribute,
-    pg_catalog.pg_index,
-    pg_catalog.pg_namespace,
-    pg_catalog.pg_proc,
-    pg_catalog.pg_type,
-    pg_catalog.pg_default_acl,
-    pg_catalog.pg_description,
-    pg_catalog.pg_seclabel,
-    pg_catalog.pg_init_privs,
-    pg_catalog.pg_depend,
-    pg_catalog.pg_shdepend,
-    pg_catalog.pg_publication,
-    pg_catalog.pg_publication_namespace,
-    pg_catalog.pg_publication_rel,
-    pg_catalog.pg_subscription_rel,
+    pg_catalog.pg_authid, pg_catalog.pg_auth_members,
+    pg_catalog.pg_db_role_setting, pg_catalog.pg_class,
+    pg_catalog.pg_attribute, pg_catalog.pg_index, pg_catalog.pg_namespace, pg_catalog.pg_language, pg_catalog.pg_collation,
+    pg_catalog.pg_proc, pg_catalog.pg_type, pg_catalog.pg_default_acl,
+    pg_catalog.pg_description, pg_catalog.pg_seclabel,
+    pg_catalog.pg_init_privs, pg_catalog.pg_depend, pg_catalog.pg_shdepend,
+    pg_catalog.pg_publication, pg_catalog.pg_publication_namespace,
+    pg_catalog.pg_publication_rel, pg_catalog.pg_subscription_rel,
     pg_catalog.pg_statistic_ext
 IN SHARE MODE;
-
 DO $inventario$
 DECLARE
-    propietario constant oid :=
-        'vec_contexto_actor_v1_propietario'::regrole;
+    propietario constant oid := 'vec_contexto_actor_v1_propietario'::regrole;
+    roles constant oid[] := ARRAY[
+        propietario, 'vec_contexto_actor_v1_migrador'::regrole,
+        'vec_contexto_actor_v1_runtime'::regrole
+    ]::oid[];
     esquema constant oid := 'vec_contexto_actor_v1'::regnamespace;
-    control constant oid :=
-        'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass;
+    control constant oid := 'vec_contexto_actor_v1.control_generacion_punteros_actuales_v2'::regclass;
     serializar constant oid := pg_catalog.to_regprocedure(
         'vec_contexto_actor_v1.serializar_mutacion_punteros_actuales_v2()'
     );
@@ -94,16 +81,14 @@ DECLARE
     );
     punteros constant oid[] := ARRAY[
         'vec_contexto_actor_v1.proyeccion_cuenta_actual'::regclass,
-        'vec_contexto_actor_v1.persona_actual'::regclass,
-        'vec_contexto_actor_v1.perfil_actual'::regclass,
+        'vec_contexto_actor_v1.persona_actual'::regclass, 'vec_contexto_actor_v1.perfil_actual'::regclass,
         'vec_contexto_actor_v1.vinculo_contexto_actual'::regclass,
         'vec_contexto_actor_v1.vinculo_referencia_actual'::regclass
     ]::oid[];
     funciones oid[];
     toast oid;
     observado text;
-    esperado constant text :=
-        'cf2895f6f30f25bca2310161ad900c241e382ebe3bb11f2dd7ff517700422bed';
+    esperado constant text := 'cf2895f6f30f25bca2310161ad900c241e382ebe3bb11f2dd7ff517700422bed';
 BEGIN
     funciones := ARRAY[acreditar, avanzar, serializar];
     SELECT reltoastrelid INTO toast FROM pg_catalog.pg_class WHERE oid = control;
@@ -119,11 +104,48 @@ BEGIN
                   'avanzar_generacion_punteros_actuales_v2',
                   'acreditar_uso_registro_contexto_actor_v2'
               )
-       ) <> 3 THEN
+           ) <> 3
+       OR (
+           SELECT pg_catalog.count(*) <> 3
+             FROM pg_catalog.pg_authid AS r
+            WHERE r.oid = ANY(roles)
+              AND NOT r.rolsuper AND NOT r.rolinherit
+              AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+              AND NOT r.rolcanlogin AND NOT r.rolreplication
+              AND NOT r.rolbypassrls AND r.rolconnlimit = -1
+              AND r.rolvaliduntil IS NULL AND r.rolpassword IS NULL
+       )
+       OR (
+           SELECT pg_catalog.count(*) <> 1
+                  OR NOT pg_catalog.bool_and(
+                      m.roleid = propietario AND m.member =
+                          'vec_contexto_actor_v1_migrador'::regrole
+                      AND NOT m.admin_option AND NOT m.inherit_option
+                      AND m.set_option
+                  )
+             FROM pg_catalog.pg_auth_members AS m
+            WHERE m.member = ANY(roles) OR m.grantor = ANY(roles)
+               OR m.roleid IN (propietario, 'vec_contexto_actor_v1_migrador'::regrole)
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_auth_members AS m
+           JOIN pg_catalog.pg_authid AS r ON r.oid = m.member
+          WHERE m.roleid = 'vec_contexto_actor_v1_runtime'::regrole
+            AND (m.admin_option OR NOT m.inherit_option OR m.set_option
+                 OR NOT r.rolcanlogin OR r.rolsuper OR NOT r.rolinherit
+                 OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+                 OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members AS x
+                      WHERE x.member = m.member) <> 1
+                 OR EXISTS (SELECT 1 FROM pg_catalog.pg_db_role_setting AS s WHERE s.setrole = m.member))
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_db_role_setting AS s
+            WHERE s.setrole = ANY(roles) OR (s.setrole = 0 AND s.setdatabase IN
+                  (0, (SELECT oid FROM pg_catalog.pg_database WHERE datname = pg_catalog.current_database())))
+       ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'retirada ContextoActor V2 rechazada: funciones incompletas';
+            MESSAGE = 'retirada ContextoActor V2 rechazada: funciones o roles incompletos';
     END IF;
-
     -- Descubrimiento por relación, no una cuenta fija de quince nombres.
     IF EXISTS (
         WITH candidatos AS (
@@ -225,7 +247,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'retirada ContextoActor V2 rechazada: trios de punteros derivados';
     END IF;
-
     -- Manifiesto simbólico del alcance estructural gestionado de 000001+000002.
     -- No incluye OID ni datos de negocio; las dependencias y superficies
     -- implícitas que no tienen forma canónica propia se rechazan después.
@@ -508,7 +529,6 @@ BEGIN
            )), 'hex')
       INTO observado
       FROM elementos;
-
     IF observado IS DISTINCT FROM esperado
        OR (
            SELECT pg_catalog.count(*) = 1
@@ -702,10 +722,8 @@ BEGIN
     END IF;
 END
 $inventario$;
-
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
 SET LOCAL search_path = pg_catalog;
-
 DO $retirar_trios$
 DECLARE
     tabla regclass;
@@ -725,43 +743,25 @@ BEGIN
            AND t.tgrelid = ANY(punteros)
          ORDER BY t.tgrelid::regclass::text COLLATE "C"
     LOOP
-        EXECUTE pg_catalog.format(
-            'DROP TRIGGER avanzar_generacion_punteros_actuales_v2 ON %s RESTRICT',
-            tabla
-        );
-        EXECUTE pg_catalog.format(
-            'DROP TRIGGER serializar_mutacion_punteros_actuales_v2 ON %s RESTRICT',
-            tabla
-        );
-        EXECUTE pg_catalog.format(
-            'DROP TRIGGER puntero_actual_no_truncable_v2 ON %s RESTRICT',
-            tabla
-        );
+        EXECUTE pg_catalog.format('DROP TRIGGER avanzar_generacion_punteros_actuales_v2 ON %s RESTRICT', tabla);
+        EXECUTE pg_catalog.format('DROP TRIGGER serializar_mutacion_punteros_actuales_v2 ON %s RESTRICT', tabla);
+        EXECUTE pg_catalog.format('DROP TRIGGER puntero_actual_no_truncable_v2 ON %s RESTRICT', tabla);
     END LOOP;
 END
 $retirar_trios$;
-
 DROP FUNCTION
     vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
         text, text, text, text, text, text, numeric, text, numeric,
         text, numeric, text, numeric, text, text, timestamptz, timestamptz
     ) RESTRICT;
-DROP FUNCTION
-    vec_contexto_actor_v1.avanzar_generacion_punteros_actuales_v2()
-    RESTRICT;
-DROP FUNCTION
-    vec_contexto_actor_v1.serializar_mutacion_punteros_actuales_v2()
-    RESTRICT;
-DROP TABLE
-    vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
-    RESTRICT;
-
+DROP FUNCTION vec_contexto_actor_v1.avanzar_generacion_punteros_actuales_v2() RESTRICT;
+DROP FUNCTION vec_contexto_actor_v1.serializar_mutacion_punteros_actuales_v2() RESTRICT;
+DROP TABLE vec_contexto_actor_v1.control_generacion_punteros_actuales_v2 RESTRICT;
 DO $postcondiciones$
 DECLARE
     punteros constant oid[] := ARRAY[
         'vec_contexto_actor_v1.proyeccion_cuenta_actual'::regclass,
-        'vec_contexto_actor_v1.persona_actual'::regclass,
-        'vec_contexto_actor_v1.perfil_actual'::regclass,
+        'vec_contexto_actor_v1.persona_actual'::regclass, 'vec_contexto_actor_v1.perfil_actual'::regclass,
         'vec_contexto_actor_v1.vinculo_contexto_actual'::regclass,
         'vec_contexto_actor_v1.vinculo_referencia_actual'::regclass
     ]::oid[];
