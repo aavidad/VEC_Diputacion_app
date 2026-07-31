@@ -374,13 +374,16 @@ P0=0/P1=3/P2=1. Reprodujeron tres defectos materiales: una modificación
 concurrente de `attstattarget` posterior al inventario que el `down` aceptaba,
 la omisión de `pg_index.indisclustered` —un `CLUSTER` quedaba persistido— y
 un falso rechazo causado por una fila `pg_shdepend` de otra base con el mismo
-OID. La perturbación limpia de OID, la retirada normal e ICU y las pruebas
-`pgx` sí quedaron verdes. CT126 corrige únicamente S0.2a sobre el mismo
-worktree: inmovilización completa de las doce relaciones de `000001` más la
-tabla de control, canon del índice, ámbito de base para `pg_shdepend` y
-regresiones deterministas. No integrar `03b4842` ni `5a3531d` sin la
-corrección y un nuevo `GO` independiente P0=P1=P2=0. S0.2b y S0.2c solo podrán
-producirse en paralelo después de ese cierre.
+OID. CT127 confirmó además que una dependencia de extensión `e/x` y una
+estadística extendida podían escapar del canon y desaparecer de forma
+implícita durante el `DROP`. La perturbación limpia de OID, la retirada normal
+e ICU y las pruebas `pgx` sí quedaron verdes. CT126 corrige únicamente S0.2a
+sobre el mismo worktree: inmovilización completa de las doce relaciones de
+`000001` más la tabla de control, canon del índice, ámbito de base para
+`pg_shdepend`, guardias de dependencias de extensión y estadísticas extendidas
+y regresiones deterministas. No integrar `03b4842` ni `5a3531d` sin la
+corrección y un nuevo `GO` independiente P0=P1=P2=0. S0.2b y S0.2c solo
+podrán producirse en paralelo después de ese cierre.
 
 ## Optimización probatoria CT88
 
