@@ -2,6 +2,8 @@
 
 Fecha: 30 de julio de 2026.
 
+Actualización de reserva: 31 de julio de 2026.
+
 Estado: **diseño cerrado; implementación pendiente y denegada por defecto**.
 
 ## Problema
@@ -74,7 +76,7 @@ ContextoActor añadirá:
    cuenta–superficie–uso–perfil–organización;
 2. puntero actual único por cuenta, superficie y uso;
 3. recibo corporativo 1:1 con `registros_contexto`;
-4. fachadas gobernadas de publicación y revocación;
+4. proyección automática gobernada de organizaciones y vínculos;
 5. acreditación nominal del uso del recibo.
 
 El recibo corporativo compromete, como mínimo:
@@ -92,6 +94,26 @@ Las versiones usan `numeric(20,0)` en el rango `uint64`, los estados son
 
 No se permite `UPDATE`, `DELETE` ni `TRUNCATE` de historia o recibos. Un
 `down` nunca elimina evidencia para facilitar una reversión.
+
+## Autoridad de publicación C2.3
+
+La primera versión de C2.3 es exclusivamente una proyección automática desde
+una fuente corporativa aprobada. No ofrece edición humana, formulario de
+alta, autoinscripción ni selección mediante el PDP. Dos identidades técnicas
+nominales, publicadora y revocadora, pueden aplicar respectivamente altas o
+revocaciones; ninguna puede aprobar su propia autoridad.
+
+Cada efecto consume una capacidad breve específica de la fuente mediante un
+consumidor nominal de `autorizacion_atestada_v3`. La capacidad compromete
+fuente, audiencia, acción, efecto, raíz y vigencia exactos, se consume dentro
+del mismo `COMMIT SERIALIZABLE` que la proyección y revierte si el efecto
+falla. ContextoActor no copia la verificación COSE/HMAC, no crea una segunda
+autoridad y no acepta un justificante que solo pruebe la identidad del
+backend.
+
+Una futura vía humana será otra minitarea y deberá consumir VEC-AD-3 mediante
+su fachada nominal. Esa vía no podrá crear autoridad corporativa, sustituir
+la fuente maestra ni desbloquear la proyección inicial.
 
 ## Operación atómica
 
@@ -174,7 +196,7 @@ total. Nunca selecciona una alternativa.
 | --- | --- | --- |
 | C2.1 | Rol nominal y fachada de Identidad para ContextoActor | C1 |
 | C2.2 | Retirada segura, organización y vínculo corporativo | C2.1b |
-| C2.3 | Publicación y revocación gobernadas | C2.2 |
+| C2.3 | Proyección automática y revocación gobernadas | C2.2 + consumidor nominal de fuente |
 | C2.4 | Recibo 1:1 y función privada selección+registro | C2.2 |
 | C2.5 | Fachada pública ContextoActor y reconciliación | C2.4 |
 | C2.6 | Contrato Go opaco del recibo corporativo | C2.5 |
@@ -189,16 +211,33 @@ generación común y retirada segura no caben en una sola minitarea. La
 [decisión específica C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md)
 la divide en D0, S0.1, S0.2, A y B, mantiene la organización como entidad
 versionada de primera clase y reserva `000003` y `000004` para sus dos
-migraciones. C2.3 comenzará en `000005`.
+migraciones. C2.3 ocupa tres migraciones focales: evidencia y asociaciones,
+organización, y vínculo.
 
 Reservas iniciales:
 
 ```text
 identidad_sesiones_v1/migraciones/000004
-contexto_actor_v1/migraciones/000003..000008
+contexto_actor_v1/migraciones/000003..000010
+autorizacion_atestada_v3/migraciones/000007
 autorizacion/migraciones/000011
 contratacion_temporal/migraciones/000046
 ```
+
+El inventario del 31 de julio de 2026 acredita que
+`autorizacion_atestada_v3` termina en `000006`; `000007` queda reservado para
+el consumidor nominal de la fuente corporativa. Se implementará en una
+minitarea separada y se repetirá el inventario antes de escribirla. Al estar
+en la misma base de datos, la fachada final C2.3 podrá consumirla en su misma
+transacción; si esa atomicidad dejara de ser demostrable, C2.3 permanecerá
+bloqueada y no se inventará una alternativa.
+
+Esta actualización sustituye únicamente la numeración C2.3 y posterior que
+los documentos históricos de coordinación y revisión C2.2-B reservaron como
+`000005`–`000008`. Conserva intactas sus pruebas y su cierre técnico. La
+división en `000005`–`000007` y el desplazamiento a `000008`–`000010`
+resuelven los NO-GO independientes CT141 y CT142: evidencia y asociaciones
+durables, autoridad de fuente y migraciones focales separadas.
 
 Cada migración se divide en componentes si se aproxima al límite de 800
 líneas. Los números PDP y CT se reconfirmarán contra el árbol estable justo
@@ -225,6 +264,8 @@ Debe acreditar, al menos:
 - procedencia no maestra, versión, huella o puntero alterados;
 - fallo del segundo `INSERT` con cero recibos;
 - publicación o revocación concurrente contra selección;
+- capacidad de fuente ausente, cruzada, caducada, consumida o anulada;
+- rollback total del consumo de capacidad cuando falla la proyección;
 - revocación entre PDP y efecto final;
 - replay exacto, colisión de preimagen y `COMMIT` incierto;
 - ausencia de enumeración o suma de perfiles en PDP;
