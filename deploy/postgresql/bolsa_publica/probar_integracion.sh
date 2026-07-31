@@ -18,6 +18,30 @@ limpiar() {
 }
 trap limpiar EXIT INT TERM
 
+# La imagen oficial abre primero un servidor temporal solo por socket. Esperamos
+# varias respuestas consecutivas del servidor primario definitivo a través de TCP.
+esperar_postgresql() {
+    local consecutivas=0 respuesta
+
+    for _ in $(seq 1 240); do
+        if respuesta=$(docker exec --env PGPASSWORD="$clave_admin" "$contenedor" \
+            psql -XAt --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+            --username postgres --dbname "$base" \
+            --command "SELECT current_setting('server_version_num') || '|' || pg_catalog.pg_is_in_recovery()" \
+            2>/dev/null) && [[ $respuesta == '180004|false' ]]; then
+            consecutivas=$((consecutivas + 1))
+            [[ $consecutivas -eq 3 ]] && return 0
+        else
+            consecutivas=0
+        fi
+        sleep 0.25
+    done
+
+    echo 'PostgreSQL 18.4 primario no quedó disponible por TCP dentro del plazo.' >&2
+    docker logs --tail 200 "$contenedor" >&2 || true
+    return 1
+}
+
 openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 1 \
     -subj '/CN=CA integracion VEC Bolsa publica' \
     -keyout "$directorio_tls/ca.key" -out "$directorio_tls/ca.crt" >/dev/null 2>&1
@@ -39,13 +63,7 @@ docker run --detach --rm \
     --env POSTGRES_PASSWORD="$clave_admin" \
     "$imagen" >/dev/null
 
-for _ in $(seq 1 60); do
-    if docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null 2>&1; then
-        break
-    fi
-    sleep 1
-done
-docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null
+esperar_postgresql
 
 fichero_configuracion=$(docker exec "$contenedor" psql -X --tuples-only --no-align \
     --username postgres --dbname "$base" --command 'SHOW config_file')
@@ -69,13 +87,7 @@ docker exec --user root --env VEC_CONFIGURACION_POSTGRESQL="$fichero_configuraci
       >> "$VEC_CONFIGURACION_POSTGRESQL"
 '
 docker restart "$contenedor" >/dev/null
-for _ in $(seq 1 60); do
-    if docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null 2>&1; then
-        break
-    fi
-    sleep 1
-done
-docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null
+esperar_postgresql
 
 # La base por defecto conserva CONNECT/TEMPORARY para PUBLIC. El bootstrap no
 # debe corregir esa ACL global de forma oportunista ni dejar roles parciales.
