@@ -383,7 +383,9 @@ contención que exceda sus límites aborta y revierte la transacción completa.
 es una confirmación no secreta y la retirada continúa denegada sin el GUC. La
 revisión final independiente emitió `GO`, P0=P1=P2=0, tras reproducir
 denegación, rollback, runner S0.1, otorgantes, Bash, ShellCheck y tamaños. No se
-atribuye todavía publicación ni CI a `9f96bcf`–`5c9ef35`. La
+atribuye producción ni el cierre de S0.2 a `9f96bcf`–`5c9ef35`. La serie y su
+documentación quedaron publicadas en `8f60560`; la ejecución CI `30601537140`
+terminó completamente verde. La
 [evidencia de S0.2a](revisiones/revision_c2_2_s0_2a_retirada_portable_2026-07-31.md)
 documenta los `NO-GO`, las correcciones y el cierre exacto.
 

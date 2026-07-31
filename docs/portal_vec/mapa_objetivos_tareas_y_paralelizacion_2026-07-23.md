@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Corte estable publicado | `e376a70` en `integracion/ct-o4-04e-20260726`; no se atribuye publicación ni CI al trabajo local posterior |
-| Último commit técnico verificado local | `5c9ef35` — composición corregida de S0.1/S0.2, con `GO` independiente y P0=P1=P2=0 |
+| Corte estable publicado | `8f60560` en `integracion/ct-o4-04e-20260726`; CI `30601537140` completamente verde |
+| Último commit técnico verificado | `5c9ef35` — composición corregida de S0.1/S0.2, con `GO` independiente y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
 | Trabajo no contabilizado | C2.1b, S0.1 y S0.2a están cerradas e integradas, pero no suman una puerta funcional. S0.2b, S0.2c y S0.2d siguen pendientes; S0.2 completa no está cerrada. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |

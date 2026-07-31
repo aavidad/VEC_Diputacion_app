@@ -26,7 +26,8 @@ El commit `5c9ef35` corrige después la composición entre S0.1 y S0.2. Limita
 confirmación no secreta y la retirada permanece denegada si falta el GUC. La
 revisión final independiente reprodujo la denegación y el rollback, los
 runners de S0.1 y otorgantes, Bash, ShellCheck y tamaños, y emitió `GO`,
-P0=P1=P2=0. No se atribuye publicación o CI a estos commits locales.
+P0=P1=P2=0. La serie y esta evidencia quedaron publicadas en `8f60560`; la
+ejecución CI `30601537140` terminó completamente verde.
 
 ## Hallazgos y correcciones
 
