@@ -14,10 +14,10 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | C2.3 F0 → R0 → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `a0d63df` en `integracion/ct-o4-04e-20260726`; CI `30706398093` |
-| Últimos commits técnicos verificados | `a0d63df` — H0 integrado con doble GO, P0=P1=P2=0, PostgreSQL 18.4 real y las cinco puertas CI verdes |
+| Último corte publicado completamente verde | `3608b16` en `integracion/ct-o4-04e-20260726`; CI `30707669447` |
+| Últimos commits técnicos verificados | `eb21fdd` — H0a integrada con doble GO, P0=P1=P2=0 y PostgreSQL 18.4 real; CI `30708210687` en curso |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0 y H0 están cerrados técnicamente, pero no suman una puerta funcional. H0a es la corrección activa del runner; A1 está congelada y bloqueada hasta integrarla. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0 y H0a están cerrados técnicamente, pero no suman una puerta funcional. A1 es la minitarea activa. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

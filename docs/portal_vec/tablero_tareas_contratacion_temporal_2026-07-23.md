@@ -80,9 +80,10 @@ H0 queda integrado en `a0d63df` con doble GO independiente,
 `P0=P1=P2=0`, PostgreSQL 18.4 real y
 [evidencia reproducible](revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md).
 La primera ejecución A1 descubrió que la autoprueba sintética H0 eliminaba su
-clausura real. H0a corrige únicamente esa guardia; A1 conserva sus dos
-componentes congelados sin GO ni commit hasta integrarla. Todavía no existe
-una migración `000007` instalable ni cambian los tres hitos de O4-05.
+clausura real. H0a corrige únicamente esa guardia en `eb21fdd`, con doble GO,
+`P0=P1=P2=0`, PostgreSQL 18.4 real y cero residuos. A1 vuelve a estar activa
+con sus dos componentes todavía sin GO ni commit. Todavía no existe una
+migración `000007` instalable ni cambian los tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
 

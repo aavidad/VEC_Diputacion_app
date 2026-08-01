@@ -1,7 +1,7 @@
 # Decisión F0-H0a: aislar la autoprueba sintética de H0
 
 Fecha: 1 de agosto de 2026.
-Estado: **decisión técnica; corrección y producción NO-GO**.
+Estado: **integrada en `eb21fdd`; CI técnica en curso y producción NO-GO**.
 
 ## Hallazgo
 
@@ -81,5 +81,8 @@ completa desde la rama estable corregida.
 ## Alcance
 
 H0a no añade SQL productivo, API, permiso, rol, tabla, autoridad ni dato. No
-cambia las métricas. Hasta cerrar H0a, A1 permanece bloqueada y producción
+cambia las métricas. Obtuvo dos revisiones independientes `GO`,
+`P0=P1=P2=0`, y queda documentada en la
+[evidencia reproducible](revisiones/revision_f0_h0a_guardia_autoprueba_2026-08-01.md).
+A1 está desbloqueada para repetir su matriz desde `eb21fdd`; producción
 continúa en `NO-GO`.

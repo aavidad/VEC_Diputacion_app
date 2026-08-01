@@ -122,9 +122,10 @@ concurrencia, retirada y grafo implementable, quedan en `a5ba276`–`cebc8bd`.
 Ambas obtuvieron doble GO. D2c queda integrada en `f57088c` y acreditada en
 `7014d1d`; D2d queda publicada en `4b3d01d`–`55f6001`; V0 queda integrado en
 `e68dbe0`, revisado y con CI verde. H0 queda integrado en `a0d63df` con doble
-GO independiente y PostgreSQL 18.4 real. H0a corrige la autoprueba sintética
-que el primer A1 demostró incompatible con una clausura real; A1 permanece
-congelada hasta cerrar esa corrección de F0/`000007`.
+GO independiente y PostgreSQL 18.4 real. H0a corrige en `eb21fdd` la
+autoprueba sintética que el primer A1 demostró incompatible con una clausura
+real; obtuvo doble GO, `P0=P1=P2=0`, y A1 vuelve a ser la minitarea activa de
+F0/`000007`.
 Después siguen los componentes A2–Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
@@ -187,12 +188,9 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Cerrar H0a mediante la guardia que limita a H0 la autoprueba sintética del
-runner, reproducir su matriz sobre PostgreSQL 18.4 y obtener dos revisiones
-independientes antes de integrarla. A continuación, reanudar A1 de C2.3-F0 en
-los dos ficheros `000007_componentes/010_validadores.sql`: validadores puros
-de UTF-8, identificadores, números, instantes y límites, probados tres veces
-mediante
+Completar A1 de C2.3-F0 en los dos ficheros
+`000007_componentes/010_validadores.sql`: validadores puros de UTF-8,
+identificadores, números, instantes y límites, probados tres veces mediante
 `probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh --etapa A1`. Después se
 continúa el DAG hasta el consumidor nominal de la capacidad breve de fuente,
 ejecutable dentro de la misma transacción `SERIALIZABLE READ WRITE` que el

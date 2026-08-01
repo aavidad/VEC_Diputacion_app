@@ -12,8 +12,9 @@ acreditada en `7014d1d` tras doble GO. D2d queda publicada en `4b3d01d` y
 doble revisión independiente, `P0=P1=P2=0`, PostgreSQL 18.4 real y cero
 residuos; la ejecución CI `30706398093` terminó completamente verde. A1 es
 el primer consumidor, pero su ejecución reveló que la autoprueba sintética H0
-eliminaba la clausura real antes de usarla. H0a es la corrección activa; A1
-queda congelada y sin GO hasta integrarla. Las métricas no cambian.
+eliminaba la clausura real antes de usarla. H0a queda integrada en `eb21fdd`
+tras doble GO, `P0=P1=P2=0`, PostgreSQL 18.4 y cero residuos; su CI técnica es
+`30708210687`. A1 vuelve a ser la minitarea activa. Las métricas no cambian.
 
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
