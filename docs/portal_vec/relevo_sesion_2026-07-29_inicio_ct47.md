@@ -2,7 +2,7 @@
 
 Fecha: 29 de julio de 2026.
 
-## Actualización vigente de dirección — 1 de agosto de 2026
+## Actualización vigente de dirección — 2 de agosto de 2026
 
 V0 queda integrado en `e68dbe0`, con tres vectores canónicos sintéticos,
 oráculo Go, revisión independiente GO, `P0=P1=P2=0` y CI `30696826628`
@@ -20,8 +20,10 @@ corregir un NO-GO catalogal, con doble GO final y PostgreSQL 18.4; su CI es
 vector V0 exacto y PostgreSQL 18.4. A3 queda integrado en `806691b` con doble
 GO, HMAC y comparación constante; su CI `30714074760` terminó verde. B1 y A4
 quedan integrados en `00ff427` y `4dd2ff9` con doble GO. B2 queda integrado en
-`7519063`, también con doble GO y CI `30719044843` verde. C1 corrige un `NO-GO` independiente de
-cronología y cobertura. Las métricas no cambian.
+`7519063`, también con doble GO y CI `30719044843` verde. C1 queda integrado
+en `e441400` tras corregir un `NO-GO` independiente de cronología y cobertura;
+su doble revisión final dio `P0=P1=P2=0` sobre PostgreSQL 18.4 real. La CI
+`30721617186` terminó completamente verde. Las métricas no cambian.
 
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
@@ -394,8 +396,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2.3-F0, consumidor nominal de fuente V3. C2.1b, S0.1,
-S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
+Trabajo activo: C2 de C2.3-F0, consumidor nominal privado de fuente V3. C1,
+C2.1b, S0.1, S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 

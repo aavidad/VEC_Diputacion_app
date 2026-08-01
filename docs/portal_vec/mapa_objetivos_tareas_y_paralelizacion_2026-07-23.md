@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 1 de agosto de 2026.
+Última actualización: 2 de agosto de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -14,10 +14,10 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | C2.3 F0 → R0 → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `79ebfab` en `integracion/ct-o4-04e-20260726`; CI `30719267013` |
-| Últimos commits técnicos verificados | `7519063` — B2, doble GO, P0=P1=P2=0 y PostgreSQL 18.4 real; CI `30719044843` completamente verde |
+| Último corte publicado completamente verde | `e441400` en `integracion/ct-o4-04e-20260726`; CI `30721617186` completamente verde |
+| Último commit técnico verificado | `e441400` — C1, doble GO, P0=P1=P2=0 y PostgreSQL 18.4 real; CI completamente verde |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1 y B2 están cerrados técnicamente, pero no suman una puerta funcional. C1 corrige un `NO-GO` independiente. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2 y C1 están cerrados técnicamente, pero no suman una puerta funcional. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

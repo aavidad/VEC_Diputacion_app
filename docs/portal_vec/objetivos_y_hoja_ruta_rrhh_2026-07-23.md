@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 1 de agosto de 2026.
+Última actualización: 2 de agosto de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -136,7 +136,10 @@ comparación constante acreditados. A4 queda integrado en `4dd2ff9` con
 [doble GO](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
 B2 queda integrado en `7519063`, con CI `30719044843` completamente verde y
 [doble GO](revisiones/revision_f0_b2_atestacion_consumo_2026-08-01.md). C1
-corrige un `NO-GO` independiente de cronología y cobertura. Después siguen los demás
+queda integrado en `e441400` tras corregir un `NO-GO` de cronología y
+cobertura; su
+[doble GO](revisiones/revision_f0_c1_acreditar_material_2026-08-02.md)
+acredita PostgreSQL 18.4, carreras reales y P0=P1=P2=0. Después siguen los demás
 componentes hasta Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
@@ -199,10 +202,10 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Completar, revisar e integrar C1 de C2.3-F0, limitado a su par de componentes.
-B2 ya crea las historias minimizadas de atestación y consumo; C1 debe cerrar
-el segundo cruce temporal y su matriz adversarial. Después se continúa con C2,
-que compone A4+B2+C1, y el resto del DAG
+Completar, revisar e integrar C2 de C2.3-F0, limitado a su par de componentes.
+B2 crea las historias minimizadas de atestación y consumo; C1 ya cierra el
+segundo cruce temporal y su matriz adversarial. C2 debe componer A4+B2+C1 sin
+publicar todavía una fachada exterior. Después continúa el resto del DAG
 hasta el consumidor nominal de la
 capacidad breve de fuente, ejecutable dentro de la misma transacción
 `SERIALIZABLE READ WRITE` que el

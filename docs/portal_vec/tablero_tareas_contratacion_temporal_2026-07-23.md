@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 1 de agosto de 2026.
+Última actualización: 2 de agosto de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -87,7 +87,10 @@ acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
 `0ac8fe4` con doble GO y vector V0 byte a byte. A3 queda integrado en
 `806691b` con doble GO, HMAC y comparación constante. A4 queda integrado en
 `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
-`7519063` con doble GO y CI `30719044843` verde; C1 corrige un `NO-GO` independiente. Todavía no existe
+`7519063` con doble GO y CI `30719044843` verde. C1 queda integrado en
+`e441400` con doble GO, PostgreSQL 18.4 y
+[evidencia reproducible](revisiones/revision_f0_c1_acreditar_material_2026-08-02.md).
+Todavía no existe
 una migración `000007` instalable ni cambian
 los tres hitos de O4-05.
 

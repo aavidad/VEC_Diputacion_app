@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 01/08/2026
+# Relevo del frente de contratación temporal — actualizado el 02/08/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -13,11 +13,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `79ebfab`; CI `30719267013`.
-- Última implementación técnica verificada: B2 en `7519063`; dos componentes,
+- Último corte publicado completamente verde: `e441400`; CI `30721617186`.
+- Última implementación técnica verificada: C1 en `e441400`; dos componentes,
   doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
-  CI técnica `30719044843` terminó completamente verde.
-  Evidencia: [B2](revisiones/revision_f0_b2_atestacion_consumo_2026-08-01.md).
+  CI técnica `30721617186` terminó completamente verde.
+  Evidencia: [C1](revisiones/revision_f0_c1_acreditar_material_2026-08-02.md).
 - A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.
   Evidencias: [A4](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md)
   y [B1](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
@@ -43,7 +43,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   A2 queda integrado en `0ac8fe4` con doble GO y vector V0 exacto. A3 queda
   integrado en `806691b` con doble GO, HMAC y comparación constante. A4 queda
   en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
-  `7519063` con doble GO. Trabajo activo: corrección y revisión de C1. Todavía
+  `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
+  carreras reales y cero residuos. Trabajo activo: C2. Todavía
   no existe una migración
   `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
@@ -315,8 +316,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar C2.3-F0: consumidor nominal de fuente en
-   `autorizacion_atestada_v3/000007`, con consumo atómico y rollback.
+1. Implementar C2 de C2.3-F0: consumidor nominal privado que compone
+   A4+B2+C1 en `autorizacion_atestada_v3/000007`, con replay exacto,
+   consumo atómico y rollback.
 2. Implementar C2.3-R0 y después M5–M7: tres grupos segregados, prueba local,
    buzón operable y las cuatro fachadas automáticas, sin edición humana ni PDP
    selector.
