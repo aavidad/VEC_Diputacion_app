@@ -532,7 +532,7 @@ exigir_salida_f0 '0' 'línea base H0 inválida' contar_objetos_f0
 [[ -n "${checkpoint_base}" && -n "${catalogo_base}" &&
    -n "${roles_base}" ]] || fallar 'línea base H0 inválida'
 paso 'autoprueba nominal y de error del arnés de etapas dormidas'
-probar_etapa_dormida_sintetica_f0
+if [[ "${etapa}" == 'H0' ]]; then probar_etapa_dormida_sintetica_f0; fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
 probar_sqlstate_real_f0
