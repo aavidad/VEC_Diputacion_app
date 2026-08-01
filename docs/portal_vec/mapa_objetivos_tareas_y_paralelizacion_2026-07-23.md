@@ -12,6 +12,7 @@ temporal. El detalle verificable de cada tarea está en el
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
 | Camino crítico | C2.3 F0 → R0 → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Desglose técnico F0 | 10 de 22 minitareas cerradas (45 %); C2 está en desarrollo. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último corte publicado completamente verde | `e441400` en `integracion/ct-o4-04e-20260726`; CI `30721617186` completamente verde |
@@ -21,9 +22,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
-La primera cifra mide las diez tareas de O2. La segunda mide las 46 tareas del
-procedimiento temporal completo; ninguna representa por sí sola el porcentaje
-de todo VEP.
+La primera vertical cuenta diez tareas O2. La cifra de 46 mide el procedimiento
+temporal completo; ninguna representa por sí sola el porcentaje de todo VEP.
+Las tareas históricas no tienen un peso homogéneo: `24/46` sirve para contar
+cierres aceptados, no para estimar esfuerzo ni tiempo restante. El desglose F0
+evita ocultar varios días de trabajo bajo una sola fila O4-05.
 
 O3-04 se contabiliza tras el corrector `2834783` y su
 [GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
@@ -209,10 +212,18 @@ Se publican dos métricas:
 
 Estado actual:
 
+| Medida | Avance | Qué significa |
+| --- | --- | --- |
+| Puertas funcionales O2 | `3/7` (43 %) | Recorrido funcional; unidades grandes. |
+| Hitos O4-05 | `3/5` (60 %) | Hitos de integración; no estima el esfuerzo interno. |
+| Minitareas técnicas F0 | `10/22` (45 %) | Desglose H0/H0a/V0/A1–I0; C2 es la siguiente. |
+| Tareas aceptadas de Contratación | `24/46` (52 %) | Conteo histórico de cierres, no porcentaje de esfuerzo. |
+| Bolsa productiva estricta | `1/14` (7 %) | Capacidades con E2E productivo completo. |
+
+Trabajo histórico aparcado: candidatos O2-06/O5-01. O4-05 conserva tres de
+cinco hitos oficiales. Su trabajo interno acreditado incluye:
+
 ```text
-O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 24/46 = 52 %
-Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
@@ -228,6 +239,12 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   TLS y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
+
+El contador técnico F0 contiene exactamente 22 minitareas: H0, H0a, V0, A1,
+A2, A3, A4, B1, B2, C1, C2, C3, R1, R2a, R2b, T1, T2, P0, Q1, Q2, Q3 e I0.
+Las diez primeras cerradas son H0, H0a, V0, A1, A2, A3, A4, B1, B2 y C1.
+Solo dirección incrementa este contador después de integrar una minitarea con
+revisión independiente.
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el
 tablero contenga su evidencia.
