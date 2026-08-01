@@ -379,6 +379,7 @@ deploy/postgresql/autorizacion_atestada_v3/
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   arnes_fuente_corporativa_contexto_actor_v1.sh
+  operaciones_runner_fuente_corporativa_contexto_actor_v1.sh
   capturar_snapshot_fuente_corporativa_contexto_actor_v1.go
   fuente_corporativa_contexto_actor_v1.sql
   000007_componentes/
@@ -434,7 +435,7 @@ La ruta indicada es el write-set completo de cada nodo.
 
 | Nodo | Write-set exacto | Dependencia | Criterio focal |
 |---|---|---|---|
-| H0 | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh` y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go` | D2c | PostgreSQL 18.4 por digest, `max_prepared_transactions=0`, `000001..000006`, línea base, snapshot exacto, limpieza, analizador positivo/negativo y clasificación SQLSTATE |
+| H0 | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh` y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go` | D2d | PostgreSQL 18.4 por digest, `max_prepared_transactions=0`, `000001..000006`, línea base, snapshot exacto, propiedad y limpieza de recursos, analizador positivo/negativo y clasificación SQLSTATE |
 | V0 | `internal/vec/adapters/seguridad/confianzaatestacion/capacidad_fuente_corporativa_v1_vector_test.go`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/manifiesto_fuente_corporativa_v1.json`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/capacidad_fuente_corporativa_v1.json` e `internal/vec/adapters/seguridad/confianzaatestacion/testdata/consumo_fuente_corporativa_v1.json` | D2b | `encoding/json`, igualdad byte a byte y cero código productivo |
 | A1 | `M/010_validadores.sql` y `T/010_validadores.sql` | H0 | UTF-8, identificadores, números, instantes y límites |
 | A2 | `M/020_canon_manifiesto.sql` y `T/020_canon_manifiesto.sql` | A1+V0 | 13 campos, adversariales y vector dorado |
@@ -460,7 +461,8 @@ El DAG cerrado es:
 
 ```text
 D2b -> V0, D2c
-D2c -> H0
+D2c -> D2d
+D2d -> H0
 H0 -> A1
 A1 + V0 -> A2, A3, A4
 A1 -> B1
@@ -476,12 +478,12 @@ P0 -> Q1, Q2, Q3
 Q1 + Q2 + Q3 -> I0
 ```
 
-H0 crea el runner base, su helper privado de pruebas y el capturador Go del
-snapshot. I0 es el único segundo
+H0 crea el runner base, sus dos auxiliares privados de pruebas y el capturador
+Go del snapshot. I0 es el único segundo
 escritor del runner: lo completa secuencialmente después de Q1–Q3 junto con el
-compositor y el README. Helper y capturador quedan inmutables después de H0;
-I0 no los modifica. Esos nodos no se ejecutan en paralelo ni existe otro
-write-set autorizado sobre los tres artefactos.
+compositor y el README. Ambos auxiliares y el capturador quedan inmutables
+después de H0; I0 no los modifica. Esos nodos no se ejecutan en paralelo ni
+existe otro write-set autorizado sobre los cuatro artefactos.
 
 ### Corrección D2c: arnés privado y snapshot exacto
 
@@ -495,7 +497,7 @@ del mismo runner de prueba.
 `arnes_fuente_corporativa_contexto_actor_v1.sh` es un helper privado y
 exclusivamente de pruebas. No tiene modo autónomo, no es ejecutable operativo,
 no abre contenedores ni sesiones y falla si se invoca en vez de cargarse. El
-runner conoce su única ruta fuente como literal no sustituible, la entrega al
+runner conoce su ruta fuente como literal no sustituible, la entrega al
 capturador y hace `source` exclusivamente de la copia privada acreditada;
 además contiene su SHA-256 esperado literal y exige que la copia lo iguale
 antes de cargarla. Nunca carga el helper desde el árbol vivo. El helper
@@ -503,13 +505,23 @@ contiene las funciones nominales de análisis léxico, clasificación SQLSTATE,
 clausuras y rutas literales de etapa, inventario, snapshot y huellas. No
 contiene credenciales, datos, Docker, reintentos ni decisiones de ejecución.
 
+#### Enmienda D2d: auxiliar operativo privado
+
+La revisión adversarial de H0 detectó una ventana de propiedad alrededor de
+`docker run`. La [decisión D2d](decision_f0_d2d_auxiliar_operativo_2026-08-01.md)
+la cierra mediante un auxiliar privado de ciclo de vida, token e intención
+previos, etiqueta, identificador y `cidfile` cruzados, y liberación solo tras
+acreditar ausencia. D2d no cambia el protocolo F0 ni añade una capacidad
+productiva.
+
 El runner H0 debe quedar como máximo en 550 líneas para reservar a I0 al menos
-249 líneas sin superar el límite estricto de 799. Helper y capturador también
-quedan cada uno por debajo de 800 y prima la legibilidad sobre la compactación
-artificial. H0 prueba los shells con ShellCheck, analiza la copia acreditada
+249 líneas sin superar el límite estricto de 799. El auxiliar operativo debe
+quedar por debajo de 200 líneas; el helper SQL y el capturador, por debajo de
+800. Prima la legibilidad sobre la compactación artificial. H0 prueba los tres
+shells con ShellCheck, analiza la copia acreditada
 del capturador con `go vet`, la compila con `go build -race` y ejecuta ese
-binario privado con `--autoprueba`; prueba además que ejecutar el helper
-directamente falla cerrado. I0 conserva en el runner el bootstrap, R0 e
+binario privado con `--autoprueba`; prueba además que ejecutar directamente
+cualquiera de los dos auxiliares falla cerrado. I0 conserva en el runner el bootstrap, R0 e
 identidades sintéticas,
 P0, los reintentos, Q1–Q3, el oráculo V0, las tres pasadas y el cierre
 operativo; por eso no puede gastar su reserva durante H0.
@@ -519,15 +531,18 @@ contiene como literal la ruta y el SHA-256 esperado e inmutable de su fuente;
 con `umask 077` la copia a un directorio privado `0700` y a un destino nuevo
 `0600` con exclusión, sin seguir enlaces, rechazando enlaces duros y
 contrastando tipo, dispositivo, inode, tamaño y tiempos antes y después.
-Solo si la copia privada iguala la huella literal la analiza y compila. La
+La lectura y copia de la fuente viva del capturador y de ambos auxiliares se
+limitan antes de recorrer, copiar, hashear o reservar; una mutación creciente
+solo puede consumir el máximo permitido más un byte de sonda. Solo si las
+copias privadas igualan sus huellas literales se analizan, compilan o cargan. La
 compilación usa exclusivamente el toolchain local y la biblioteca estándar,
 con `GOTOOLCHAIN=local`, módulos en solo lectura y red de módulos desactivada;
 nunca usa `go run` ni vuelve a leer la fuente viva. La autoprueba se ejecuta
 desde ese binario privado compilado con detector de carreras. I0 preserva sin
-cambios las dos huellas y ambos artefactos inmutables.
+cambios las tres huellas y los tres artefactos inmutables.
 
 No se copia el repositorio completo al contenedor. Para cada ejecución, el
-helper resuelve un inventario cerrado de ficheros base y, cuando proceda, la
+helper SQL resuelve un inventario cerrado de ficheros base y, cuando proceda, la
 clausura literal de la etapa. El runner entrega exclusivamente ese inventario
 al capturador Go; no usa `cp`, `tar`, glob ni descubrimiento dinámico sobre el
 árbol vivo.
@@ -556,12 +571,12 @@ Los componentes se analizan en ese snapshot, nunca en el árbol vivo. Se
 genera un manifiesto ordenado `ruta relativa + SHA-256`, se transfiere
 solamente el snapshot y se reconstruye el mismo manifiesto dentro del
 contenedor. Psql no arranca hasta acreditar igualdad byte a byte y ejecuta
-solo esos ficheros. El helper que cargará el runner se obtiene previamente
-mediante el mismo capturador y se carga desde el descriptor/snapshot ya
-acreditado, no desde su ruta original. El envoltorio efímero generado por el
-runner recibe la misma ligadura. Una ruta ausente, adicional, duplicada,
-enlazada, fuera de la raíz, mutada o con huella distinta falla antes de SQL y
-la limpieza sigue siendo obligatoria.
+solo esos ficheros. Los dos auxiliares que cargará el runner se obtienen
+previamente mediante el mismo capturador y se cargan desde el
+descriptor/snapshot ya acreditado, no desde sus rutas originales. El
+envoltorio efímero generado por el runner recibe la misma ligadura. Una ruta
+ausente, adicional, duplicada, enlazada, fuera de la raíz, mutada o con huella
+distinta falla antes de SQL y la limpieza sigue siendo obligatoria.
 
 El capturador incorpora una autoprueba determinista, sin temporizadores, que
 coordina mediante canales la sustitución antes y durante la lectura. Cubre
@@ -610,7 +625,9 @@ objetos temporales creados por el ensayo. Acredita además que
 transacción preparada. Cualquier residuo impide cerrar la minitarea.
 
 La función shell `validar_componentes_sql_f0` pertenece exclusivamente a H0 y
-se ejecuta antes de abrir psql. Usa un analizador léxico acotado y probado que
+se ejecuta antes de abrir psql. Acredita primero tipo y tamaño con una sonda
+acotada; rechaza el fichero vacío o mayor de un mebibyte antes de contar líneas
+o ejecutar `awk`. Usa después un analizador léxico acotado y probado que
 reconoce cadenas simples y `E''`, identificadores dobles, comentarios de línea,
 comentarios de bloque anidados y cuerpos con delimitador dólar. Rechaza todo
 metacomando psql al inicio lógico de línea y, solo en nivel SQL superior, las
