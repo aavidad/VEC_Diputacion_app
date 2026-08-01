@@ -116,8 +116,11 @@ puntero organizativos; y C2.2-B la historia y el puntero del vínculo
 corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
 `8c27c72`, GO y P0=P1=P2=0. B6 está publicada en `51a4390`, con CI
 `30650778125` completamente verde. C2.3-D0 queda integrado en `5fbf6a7`–
-`abfdc21` con doble GO y sin aumentar métricas. C2.3-F0, consumidor nominal de
-fuente V3, es el corte activo. Después siguen R0/M5–M7, C2.4 selección y
+`abfdc21` con doble GO y sin aumentar métricas. La decisión F0-D1 queda
+integrada en `c4fc55c`–`1236c0b`; D2/D2a/D2b, que cierran su paquete,
+concurrencia, retirada y grafo implementable, quedan en `a5ba276`–`cebc8bd`.
+Ambas obtuvieron doble GO. H0 y V0 de F0/`000007` son las minitareas activas.
+Después siguen los componentes A1–Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
 
@@ -184,4 +187,5 @@ de la capacidad breve de fuente, ejecutable dentro de la misma transacción
 `SERIALIZABLE READ WRITE` que el efecto y con rollback total. Después se
 implementan R0 y las tres migraciones ContextoActor M5–M7 ya fijadas por D0,
 sin seleccionar candidatos ni asumir funciones del PDP. C2.2-A, C2.2-B y el
-contrato C2.3-D0 son dependencias cerradas, no trabajo pendiente.
+contrato C2.3-D0, junto con F0-D1 y F0-D2, son dependencias cerradas, no
+trabajo pendiente.

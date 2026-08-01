@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 31 de julio de 2026.
+Última actualización: 1 de agosto de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -70,6 +70,12 @@ Estados:
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | ✅ `f5f5f5a`: orquestador nominal de proponer, decidir y rectificar; autorización específica, replay, reserva, motivo gobernado, confirmación única y reconciliación probados; `GO` independiente. No acredita persistencia productiva. |
 | O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | ✅ `faa5a5f`, `5954c29`: A/B/C/D/E cerrados; PostgreSQL 18.4, migraciones, roles, ACL/RLS, ambas ramas, C1, carreras, fallos, reinicio y reversión verdes; doble `GO` independiente. |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | 🚧 Tres de cinco hitos. HTTP, registro modular, cliente seguro, recuperación, ciclo de vida, proyecciones, autorización, recibos, acceso durable, cursores y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, cánones, prueba durable, motor privado, fachadas y adaptador Go; CT-000047A cierra los manejadores. CT-000047B cierra retención, recursos, motivos, guardianes, consumidores y M1/M2. C1 cierra la cápsula; C2.1a el rol selector; C2.1b la fachada mínima de Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia organizativa; y C2.2-B la historia del vínculo corporativo, todas con revisión independiente. B está cerrada técnicamente en `de6e7df`, con evidencia `8c27c72`, GO y P0=P1=P2=0; B6 está publicada en `51a4390`, con CI `30650778125` completamente verde. C2.3-D0 queda integrado en `5fbf6a7`–`abfdc21` con doble GO: reduce C2.3 a F0, R0 y tres migraciones M5–M7, sin edición humana ni PDP selector, y obliga a consumo V3 y despacho atómicos. Estas piezas internas no cambian la métrica. Producción conserva `NO-GO`: faltan implementar F0/R0/M5–M7, C2.4 selección/recibo, C2.5 fachada/reconciliación, PDP, composición raíz, TLS/mTLS viva y E2E completo. |
+
+F0-D1 queda integrado en `c4fc55c`–`1236c0b` y F0-D2/D2a/D2b en
+`a5ba276`–`cebc8bd`, ambos con doble GO y `P0=P1=P2=0`. Fijan el perfil de
+fuente, la retirada segura y un grafo implementable con concurrencia cerrada;
+no cambian los tres hitos ni cierran O4-05. H0 y V0 son las minitareas activas
+y todavía no existe una migración `000007` instalable.
 
 Desglose verificable del camino crítico `O4-04`:
 

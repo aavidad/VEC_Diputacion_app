@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 31 de julio de 2026.
+Última actualización: 1 de agosto de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -15,9 +15,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último corte publicado completamente verde | `51a4390` en `integracion/ct-o4-04e-20260726`; CI `30650778125` |
-| Últimos commits técnicos verificados | `5fbf6a7`–`abfdc21` — contrato simplificado C2.3-D0; doble GO independiente y P0=P1=P2=0 |
+| Últimos commits técnicos verificados | `c4fc55c`–`cebc8bd` — decisiones F0-D1 y F0-D2/D2a/D2b; doble GO independiente y P0=P1=P2=0 |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B y el contrato C2.3-D0 están cerrados técnicamente, pero no suman una puerta funcional. C2.3-F0 es el corte activo. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0 y las decisiones F0-D1/D2 están cerrados técnicamente, pero no suman una puerta funcional. H0 y V0 de F0/`000007` son las minitareas activas. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

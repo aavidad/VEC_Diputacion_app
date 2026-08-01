@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 31/07/2026
+# Relevo del frente de contratación temporal — actualizado el 01/08/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -17,12 +17,18 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 - Última implementación técnica verificada: `de6e7df`, composición C2.2-B; evidencia
   independiente B5 en `8c27c72`, GO y P0=P1=P2=0.
 - Contrato C2.3-D0 integrado en `5fbf6a7`–`abfdc21`, con doble revisión
-  independiente GO y P0=P1=P2=0. Implementación C2.3 todavía pendiente.
+  independiente GO y P0=P1=P2=0.
+- Decisión F0-D1 integrada en `c4fc55c`–`1236c0b`; F0-D2/D2a/D2b en
+  `a5ba276`–`cebc8bd`. Ambas tienen doble GO y P0=P1=P2=0. D1 por sí sola no
+  autorizaba SQL; D2 cierra el grafo, atomicidad, concurrencia y retirada que
+  permiten comenzar la implementación PostgreSQL `000007`.
 - C2.2-A está cerrada y publicada mediante A5 en `54a8cde`, con revisión
   final `6017606`, P0=P1=P2=0 y PostgreSQL 18.4 compuesto.
 - `4d7e07d` corrige la carrera del runner Bolsa que hizo fallar la puerta
   `30630988587`; la corrección obtuvo GO local y puerta TLS remota verde.
-- Trabajo activo: C2.3-F0, consumidor nominal de fuente en V3/`000007`.
+- Trabajo activo: H0, runner base PostgreSQL 18.4, y V0, oráculo de vectores,
+  como primeras minitareas paralelas de C2.3-F0/`000007`. Todavía no existe
+  una migración `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
