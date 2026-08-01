@@ -83,9 +83,10 @@ La primera ejecución A1 descubrió que la autoprueba sintética H0 eliminaba su
 clausura real. H0a corrige únicamente esa guardia en `eb21fdd`, con doble GO,
 `P0=P1=P2=0`, PostgreSQL 18.4 real y cero residuos. A1 queda integrado en
 `169a055` tras corregir un NO-GO catalogal y de nulidad; su doble GO final
-acredita PostgreSQL 18.4, rollback y cero residuos. A2, A3, A4 y B1 quedan
-listos en paralelo. Todavía no existe una migración `000007` instalable ni
-cambian los tres hitos de O4-05.
+acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
+`0ac8fe4` con doble GO y vector V0 byte a byte. B1 está en revisión; A3 y A4
+quedan listos. Todavía no existe una migración `000007` instalable ni cambian
+los tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
 
