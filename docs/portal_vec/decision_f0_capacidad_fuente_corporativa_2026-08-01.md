@@ -204,7 +204,7 @@ respuesta que enumere alternativas.
 
 ## Fachada y resultado
 
-La única función exterior F0 será:
+La firma final F0 será:
 
 ```sql
 vec_autorizacion_atestada_v3.
@@ -223,6 +223,10 @@ registrar_y_consumir_fuente_corporativa_contexto_actor_v1_atestada(
 )
 ```
 
+C2 la crea con ACL exclusivamente propietaria; C3 es el único corte que la
+expone a las fachadas finales. Su ABI, locks, replay y errores quedan fijados
+en la [decisión C2](decision_f0_c2_consumidor_nominal_2026-08-02.md).
+
 M6/M7 derivan únicamente audiencia, acción, tipo, operación, `efecto_ref` y
 huella de efecto esperados desde constantes y filas bloqueadas. F0 extrae
 fuente, versión, evento y huella de evento desde capacidad y manifiesto,
@@ -230,10 +234,9 @@ calcula las huellas de capacidad y manifiesto, cruza todo con el catálogo
 duradero y lo devuelve. Ningún login, DTO ni inbox previo aporta o escoge
 autoridad.
 
-Devuelve únicamente `capacidad_ref`, fuente y versión, evento, huellas del
-evento y manifiesto, operación, efecto y huella, `consumo_huella_sha256`,
-`consumida_en` y `consumo_nuevo`. `capacidad_ref` se deriva como `cfc_` más el
-SHA-256 de la capacidad; nunca llega del cliente.
+Devuelve las doce columnas allí enumeradas, sin instante del evento ni nonce.
+`capacidad_ref` se deriva como `cfc_` más el SHA-256 de la capacidad; nunca
+llega del cliente.
 
 El manifiesto ocupa 128..16.384 octetos; COSE, 128..65.536; evidencia,
 32..262.144; SPKI, exactamente 44; y capacidad, 512..32.768. La frontera de
@@ -292,11 +295,10 @@ cada campo, orden y límite.
 
 La función es `SECURITY DEFINER`, propietaria de
 `vec_autorizacion_atestada_v3_propietario`, con
-`search_path=pg_catalog` y `lock_timeout=2s`. Solo
-`vec_contexto_actor_v1_propietario` recibe `USAGE` de esquema y `EXECUTE` de
-esa firma para anidarla exclusivamente en las fachadas finales M6/M7. No
-recibe acceso a tablas, secuencias, tipos internos ni otras funciones V3; el
-inventario de dependencias rechaza cualquier consumidor adicional.
+`search_path=pg_catalog` y `lock_timeout=2s`. C2 la deja privada. Solo C3
+concede a `vec_contexto_actor_v1_propietario` `USAGE` de esquema y `EXECUTE`
+de esa firma para anidarla en M6/M7. No recibe tablas, secuencias, tipos ni
+otras funciones V3; el inventario rechaza cualquier consumidor adicional.
 
 R0 fijará estos grupos `NOLOGIN`:
 
@@ -325,27 +327,18 @@ F0 solo funciona dentro de la misma transacción exterior
 `idle_in_transaction_session_timeout` entre 1 y 15 segundos. Nunca abre ni
 confirma una transacción.
 
-La fachada C2.3 toma antes sus barreras A→B→C→D, advisory locks, E y filas en
-el orden ya decidido. F0 continúa así:
-
-1. bloquea `checkpoint_gobierno FOR UPDATE`;
-2. toma advisory locks de capacidad y operación en orden canónico;
-3. busca replay o colisión;
-4. bloquea `FOR SHARE` catálogo de fuente, clave/puntero, configuración y su
-   puntero, raíz y asociación configuración–raíz;
-5. lee el reloj, cruza todos los campos y revalida vigencias y revocaciones;
-6. verifica HMAC y ligaduras de manifiesto, COSE, evidencia y SPKI;
-7. vuelve a leer el reloj, revalida el estado bajo los mismos locks, inserta
-   atestación y consumo y devuelve la prueba.
+La [decisión C2](decision_f0_c2_consumidor_nominal_2026-08-02.md) fija los
+advisory exactos y el orden numérico. Tras checkpoint y advisory, C2 busca
+primero historia. El replay exacto devuelve la prueba persistida sin llamar a
+C1 ni revalidar el estado actual. Solo el camino nuevo ejecuta C1, A4 y B2.
 
 Las altas y revocaciones de fuente, clave, configuración o raíz bloquean
 primero el mismo checkpoint. Por ello no pueden ganar entre la revalidación y
 el `COMMIT`.
 
-El primer consumo devuelve `consumo_nuevo=true`. Un replay byte a byte exacto
-devuelve la misma prueba con `false`; reutilizar operación, capacidad, evento
-o nonce con otra preimagen colisiona cerrada. Las cuatro fachadas de efecto
-exigen `true` al crear un efecto nuevo.
+El primer consumo devuelve `consumo_nuevo=true`; el replay histórico exacto,
+`false`. Reutilizar operación, capacidad, evento o nonce con otra preimagen
+colisiona cerrada. Las cuatro fachadas exigen `true` al crear un efecto nuevo.
 
 Si falla cualquier escritura posterior de C2.3, PostgreSQL revierte también
 atestación y consumo. Tras `COMMIT` incierto se reconcilia primero la prueba
@@ -444,7 +437,7 @@ La ruta indicada es el write-set completo de cada nodo.
 | B1 | `M/050_catalogo_fuente_checkpoint.sql` y `T/050_catalogo_fuente_checkpoint.sql` | A1 | FK, revocación append-only, RLS, checkpoint y audiencias 3→7 |
 | B2 | `M/060_atestacion_consumo.sql` y `T/060_atestacion_consumo.sql` | B1 | dos historias, unicidades, inmutabilidad y minimización |
 | C1 | `M/070_acreditar_material_fuente.sql` y `T/070_acreditar_material_fuente.sql` | A2+A3+B1 | función privada, locks y cruces fuente–clave–configuración–raíz |
-| C2 | `M/080_consumidor_nominal.sql` y `T/080_consumidor_nominal.sql` | C1+A4+B2 | fachada aún privada, nuevo, replay, colisión y rollback |
+| C2 | `M/080_consumidor_nominal.sql` y `T/080_consumidor_nominal.sql` | C1+A4+B2 | [Contrato exacto][decision-c2] |
 | C3 | `M/090_acl_audiencias_centinela.sql` y `T/090_acl_audiencias_centinela.sql` | C2 | cruces, ACL, R0 y centinela sobre las siete audiencias ya acreditadas |
 | R1 | `M/810_acreditar_retirada.sql` y `T/810_acreditar_retirada.sql` | C3 | inventario, deriva, datos y dependencias |
 | R2a | `M/820_retirar_objetos.sql` y `T/820_retirar_objetos.sql` | R1 | retirada inversa con `RESTRICT` y centinela, todavía con siete audiencias |
@@ -456,6 +449,8 @@ La ruta indicada es el write-set completo de cada nodo.
 | Q2 | `T/910_retirada_dependencias_componentes.sh` | P0 | retirada, dependencias y componentes adversos |
 | Q3 | `T/920_regresion_consumidores_v3.sql` | P0 | regresión de consumidores V3 existentes |
 | I0 | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/fuente_corporativa_contexto_actor_v1.sql`, `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` y `deploy/postgresql/autorizacion_atestada_v3/README.md` | Q1+Q2+Q3 | composición final, tres pasadas limpias y documentación operativa |
+
+[decision-c2]: decision_f0_c2_consumidor_nominal_2026-08-02.md
 
 El DAG cerrado es:
 
