@@ -14,6 +14,10 @@ El commit productor es `b790c97` y su integración exacta en
 test(F0-H0): acreditar arnés PostgreSQL 18.4
 ```
 
+La ejecución CI `30706398093` terminó completamente verde en sus cinco
+puertas: calidad, secretos, artefactos productivos, PostgreSQL de Bolsa y
+PostgreSQL de ContextoActor V3.
+
 H0 aporta únicamente el arnés que permitirá probar los componentes dormidos
 de F0. No crea todavía la migración `000007`, una fachada productiva ni una
 autoridad nueva. Las métricas funcionales no cambian y producción continúa en

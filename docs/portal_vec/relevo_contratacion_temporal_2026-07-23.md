@@ -13,11 +13,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `55f6001`; CI `30703583050`.
+- Último corte publicado completamente verde: `a0d63df`; CI `30706398093`.
 - Última implementación técnica verificada: H0 en `a0d63df`; cuatro
-  artefactos congelados, doble revisión independiente, PostgreSQL 18.4 real y
-  P0=P1=P2=0. La ejecución CI `30706398093` estaba en curso al redactar este
-  corte.
+  artefactos congelados, doble revisión independiente, PostgreSQL 18.4 real,
+  P0=P1=P2=0 y las cinco puertas de CI completamente verdes en
+  `30706398093`.
 - Contrato C2.3-D0 integrado en `5fbf6a7`–`abfdc21`, con doble revisión
   independiente GO y P0=P1=P2=0.
 - Decisión F0-D1 integrada en `c4fc55c`–`1236c0b`; F0-D2/D2a/D2b en
