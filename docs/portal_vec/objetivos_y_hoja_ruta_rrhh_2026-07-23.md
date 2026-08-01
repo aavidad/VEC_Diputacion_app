@@ -130,7 +130,11 @@ A2 queda integrado en `0ac8fe4` tras
 [doble GO](revisiones/revision_f0_a2_canon_manifiesto_2026-08-01.md) y
 comparación byte a byte con V0. A3 queda integrado en `806691b` tras
 [doble GO](revisiones/revision_f0_a3_canon_capacidad_2026-08-01.md), HMAC y
-comparación constante acreditados. A4 y B1 siguen en revisión. Después siguen los demás
+comparación constante acreditados. A4 queda integrado en `4dd2ff9` con
+[doble GO](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md) y B1 en
+`00ff427` con
+[doble GO](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
+B2 y C1 están activos en paralelo. Después siguen los demás
 componentes hasta Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
@@ -193,10 +197,10 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Completar la revisión e integración de B1 y A4 de C2.3-F0, cada uno limitado
-a su par de componentes y revisado de forma independiente. A3 ya construye el
-canon y MAC de capacidad contra V0; A4 cierra el canon de consumo y B1 crea el
-catálogo, checkpoint y revocación append-only. Después se continúa el DAG
+Completar e integrar B2 y C1 de C2.3-F0, cada uno limitado a su par de
+componentes y revisado de forma independiente. B2 crea las historias
+minimizadas de atestación y consumo; C1 acredita el material y sus cruces bajo
+locks. Después se continúa con C2, que compone A4+B2+C1, y el resto del DAG
 hasta el consumidor nominal de la
 capacidad breve de fuente, ejecutable dentro de la misma transacción
 `SERIALIZABLE READ WRITE` que el

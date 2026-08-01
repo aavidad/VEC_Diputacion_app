@@ -85,8 +85,9 @@ clausura real. H0a corrige únicamente esa guardia en `eb21fdd`, con doble GO,
 `169a055` tras corregir un NO-GO catalogal y de nulidad; su doble GO final
 acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
 `0ac8fe4` con doble GO y vector V0 byte a byte. A3 queda integrado en
-`806691b` con doble GO, HMAC y comparación constante. B1 y A4 están en
-revisión. Todavía no existe una migración `000007` instalable ni cambian
+`806691b` con doble GO, HMAC y comparación constante. A4 queda integrado en
+`4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 y C1 están activos en
+paralelo. Todavía no existe una migración `000007` instalable ni cambian
 los tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
