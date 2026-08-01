@@ -13,10 +13,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `00ff427`; CI `30716722970`.
-- Última implementación técnica verificada: A4 en `4dd2ff9` y B1 en
-  `00ff427`; cuatro componentes, doble revisión independiente final,
-  PostgreSQL 18.4 real, P0=P1=P2=0 y CI `30716722970` verde.
+- Último corte publicado completamente verde: `7c95ae3`; CI `30717558827`.
+- Última implementación técnica verificada: B2 en `7519063`; dos componentes,
+  doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
+  CI técnica `30719044843` está en curso.
+  Evidencia: [B2](revisiones/revision_f0_b2_atestacion_consumo_2026-08-01.md).
+- A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.
   Evidencias: [A4](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md)
   y [B1](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
 - Contrato C2.3-D0 integrado en `5fbf6a7`–`abfdc21`, con doble revisión
@@ -40,8 +42,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `169a055` tras cerrar un NO-GO adversarial; doble GO final y cero residuos.
   A2 queda integrado en `0ac8fe4` con doble GO y vector V0 exacto. A3 queda
   integrado en `806691b` con doble GO, HMAC y comparación constante. A4 queda
-  en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. Trabajo activo: B2 y C1
-  en paralelo. Todavía no existe una migración
+  en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
+  `7519063` con doble GO. Trabajo activo: corrección y revisión de C1. Todavía
+  no existe una migración
   `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
