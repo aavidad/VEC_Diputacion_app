@@ -39,29 +39,33 @@ un efecto. `000007` añadirá una relación append-only
 La fila liga de manera inseparable:
 
 - fuente y versión;
+- acción y tipo de efecto del cruce nominal de su audiencia;
 - emisor, clave, versión, revisión y huella de gobierno;
 - configuración, secuencia y huella;
 - raíz, versión, huella SPKI, suite y audiencia de despliegue;
 - ventana `[valida_desde,valida_hasta)`, acto aprobatorio y fecha de registro.
 
-Las claves foráneas serán completas. `000007` añadirá, solo cuando su forma
-catalogal sea la esperada, claves alternativas exactas en:
+La fila es inmutable. Una `fuente_version` puede habilitar un subconjunto de
+las cuatro audiencias, pero cambia cuando cambia cualquier binding de una
+audiencia habilitada. Dos versiones de la misma fuente y audiencia solo pueden
+solaparse mediante ventanas finitas; la anterior pierde autoridad por fin de
+ventana o revocación append-only, nunca por selección implícita de la última.
+
+`000007` no añade claves alternativas. El catálogo referencia únicamente las
+claves ya existentes:
 
 ```text
-clave_capacidad_version
-  (clave_id, version, revision_gobierno, huella_gobierno_sha256,
-   emisor_id, audiencia_consumo)
-configuracion_confianza_version
-  (revision, secuencia, huella_configuracion_sha256)
-raiz_confianza_version
-  (clave_id, version, huella_spki_sha256, suite,
-   audiencia_despliegue)
+clave_capacidad_version(clave_id,version)
+configuracion_confianza_version(revision)
+raiz_confianza_version(clave_id,version)
+configuracion_raiz(configuracion_revision,raiz_clave_id,raiz_version)
 ```
 
-El catálogo también referencia la asociación existente
-`configuracion_raiz(configuracion_revision,raiz_clave_id,raiz_version)`.
-Así, una fuente no puede afirmar por sí misma emisor, clave, configuración o
-raíz.
+Tras bloquear esas filas, el consumidor deriva y cruza emisor, audiencia,
+revisión y huella de gobierno, secuencia y huella de configuración, y huella
+SPKI, suite y audiencia de despliegue. Esta ligadura transitiva sobre filas
+inmutables impide que una fuente afirme su propia confianza sin duplicar
+restricciones `UNIQUE`.
 
 `revocacion_fuente_corporativa_contexto_actor_v1` será append-only y tendrá
 como clave la misma terna. Conserva instante, motivo catalogado y acto. Alta y
@@ -76,8 +80,8 @@ bloqueo productivo de Sistemas, DBA, RRHH y DPD.
 
 ## Identificadores y límites comunes
 
-`fuente_ref` es opaca, no semántica y no contiene PII. Tiene entre 3 y 160
-octetos, usa UTF-8 bajo colación `C` y cumple:
+`fuente_ref` es opaca, no semántica y no contiene identificadores directos.
+Tiene entre 3 y 160 octetos, usa UTF-8 bajo colación `C` y cumple:
 
 ```text
 ^[A-Za-z0-9][A-Za-z0-9_.:/_-]{2,159}$
@@ -88,7 +92,8 @@ octetos, usa UTF-8 bajo colación `C` y cumple:
 `operacion_ref` cumple el contrato ContextoActor `oca_` más 24 a 128
 caracteres `[A-Za-z0-9_-]`. `evento_fuente_ref` y `efecto_ref` son opacas,
 ASCII técnicas y tienen entre 3 y 160 octetos con el mismo alfabeto de
-`fuente_ref`.
+`fuente_ref`. `efecto_ref` es la referencia opaca exacta del recurso/efecto
+C2.3; no se añade otro campo, alias o selector de recurso.
 
 Toda huella es SHA-256 hexadecimal minúscula, 64 caracteres y distinta de
 cero. Todo instante es UTC finito, `timestamptz(6)`, y su representación
@@ -99,8 +104,8 @@ visualmente equivalente.
 ## Manifiesto de evento de fuente
 
 El intermediario aprobado verifica el evento largo y produce un manifiesto
-minimizado. El manifiesto es un objeto JSON plano, sin PII ni payload maestro,
-con exactamente estos trece campos y este orden:
+minimizado. El manifiesto es un objeto JSON plano, sin identificadores directos
+ni payload maestro, con exactamente estos trece campos y este orden:
 
 ```text
 esquema, version, fuente_ref, fuente_version,
@@ -150,9 +155,12 @@ mac_sha256
 
 `esquema` es
 `vec.contexto-actor.fuente-corporativa.capacidad.v1`; `version` es el número
-JSON `1`. Versiones, revisión y secuencia son números JSON decimales. No se
-admiten campos desconocidos, repetidos, nulos, objetos anidados, arrays,
-fracciones, exponentes, BOM ni espacios fuera de cadenas.
+JSON `1`. Exactamente `version`, `fuente_version`, `clave_version`,
+`revision_gobierno`, `configuracion_secuencia` y `raiz_version` son números
+JSON decimales. `configuracion_revision` es la cadena que referencia
+`configuracion_confianza_version.revision` de `000001`; los demás campos son
+cadenas. No se admiten claves desconocidas o repetidas, nulos, objetos
+anidados, arrays, fracciones, exponentes, BOM ni espacios fuera de cadenas.
 
 Un ayudante nuevo y nominal reconstruye ambos cánones con `texto_json_go` y
 exige igualdad byte a byte con la entrada. No se generalizan ni alteran
@@ -193,10 +201,6 @@ La única función exterior F0 será:
 ```sql
 vec_autorizacion_atestada_v3.
 registrar_y_consumir_fuente_corporativa_contexto_actor_v1_atestada(
-    p_fuente_ref_esperada text,
-    p_fuente_version_esperada numeric,
-    p_evento_fuente_ref_esperada text,
-    p_huella_evento_fuente_sha256_esperada text,
     p_audiencia_consumo_esperada text,
     p_accion_esperada text,
     p_tipo_efecto_esperado text,
@@ -211,9 +215,12 @@ registrar_y_consumir_fuente_corporativa_contexto_actor_v1_atestada(
 )
 ```
 
-Sus valores esperados los derivan de filas bloqueadas y constantes las cuatro
-fachadas finales M6/M7 ya nombradas en C2.3; ningún login técnico ni DTO los
-aporta o escoge.
+M6/M7 derivan únicamente audiencia, acción, tipo, operación, `efecto_ref` y
+huella de efecto esperados desde constantes y filas bloqueadas. F0 extrae
+fuente, versión, evento y huella de evento desde capacidad y manifiesto,
+calcula las huellas de capacidad y manifiesto, cruza todo con el catálogo
+duradero y lo devuelve. Ningún login, DTO ni inbox previo aporta o escoge
+autoridad.
 
 Devuelve únicamente `capacidad_ref`, fuente y versión, evento, huellas del
 evento y manifiesto, operación, efecto y huella, `consumo_huella_sha256`,
@@ -229,23 +236,27 @@ los límites antes de cualquier conversión, copia, hash o reserva adicional.
 
 `000007` crea dos historias propias:
 
-1. `atestacion_fuente_corporativa_contexto_actor_v1`, única por
-   `capacidad_ref`, evento, huella de evento y nonce, conserva capacidad y
-   manifiesto canónicos, COSE, evidencia, SPKI y coordenadas extraídas;
-2. `consumo_fuente_corporativa_contexto_actor_v1`, única por capacidad,
-   nonce y `operacion_ref`, referencia la atestación completa y conserva
-   el canon, la huella y el instante de consumo.
+1. `atestacion_fuente_corporativa_contexto_actor_v1`, con PK
+   `capacidad_ref`, `huella_capacidad_sha256` única y unicidad exacta
+   `(fuente_ref,fuente_version,evento_fuente_ref)`, conserva los artefactos;
+2. `consumo_fuente_corporativa_contexto_actor_v1`, 1:1 por capacidad, con
+   `nonce` y `operacion_ref` únicos, conserva canon, huella e instante.
+
+Cualquier coincidencia de huella, capacidad, nonce u operación con artefactos
+o coordenadas no idénticos es una colisión cerrada, no un replay.
 
 El par forma la prueba local V3; no se añade una segunda cadena de auditoría.
 La prueba de efecto de ContextoActor pertenece a M5 y solo retiene las
 referencias y huellas devueltas, nunca capacidad, MAC, COSE, SPKI, evidencia o
 payload de fuente.
 
-Todas las relaciones son permanentes, append-only, RLS activada y forzada,
-con política exclusiva del propietario. Rechazan `UPDATE`, `DELETE` y
-`TRUNCATE`. No contienen nombres, DNI, correo, unidad visible, atributos de
-persona, secretos HMAC ni el payload maestro. Los logs solo reciben códigos y
-correlaciones opacas.
+Todas las relaciones son `PERMANENT`, append-only, con RLS activada y forzada,
+y rechazan `UPDATE`, `DELETE` y `TRUNCATE`. `PERMANENT` descarta tablas
+temporales o `UNLOGGED`; no impone conservación indefinida. No se guardan
+identificadores directos, secretos HMAC ni el payload maestro. Las referencias
+de evento y efecto de vínculo son datos personales seudonimizados: exigen
+cifrado de soporte, registro de acceso y conservación, bloqueo y expurgo
+gobernados. Los logs solo reciben códigos y correlaciones opacas.
 
 El canon de consumo es JSON UTF-8 estricto, reconstruido con `texto_json_go`,
 con este orden exacto:
@@ -264,8 +275,10 @@ consumida_en
 ```
 
 `esquema` es `vec.contexto-actor.fuente-corporativa.consumo.v1` y `version`
-es `1`. `consumo_huella_sha256` es SHA-256 de esos bytes. El canon y la huella
-se persisten; vectores dorados SQL/Go prueban cada campo, orden y límite.
+es `1`. Los seis campos numéricos son exactamente los mismos de la capacidad;
+`configuracion_revision` y los demás son cadenas. `consumo_huella_sha256` es
+SHA-256 de esos bytes. Canon y huella se persisten; vectores SQL/Go prueban
+cada campo, orden y límite.
 
 ## ACL y roles
 
@@ -341,10 +354,13 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/
   000007_fuente_corporativa_contexto_actor_v1.up.sql
   000007_fuente_corporativa_contexto_actor_v1.down.sql
 deploy/postgresql/autorizacion_atestada_v3/
+  README.md
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   fuente_corporativa_contexto_actor_v1.sql
 ```
+
+El README pertenece al write-set de implementación F0-C; D1 no lo modifica.
 
 Antes de escribir se vuelve a acreditar que `000007` está libre y que
 `000001..000006` tienen su forma exacta. `up` toma la barrera común nueva
@@ -374,7 +390,8 @@ para probar la futura llamada anidada. Debe cubrir:
 - clave, configuración, raíz, audiencia, manifiesto, COSE y efecto cruzados;
 - llamada directa denegada y llamada anidada por el rol exacto aceptada;
 - roles cruzados, adicionales, despachador, `PUBLIC`, DML y `SET ROLE`;
-- consumo nuevo, replay exacto y colisiones por nonce/operación/evento;
+- consumo nuevo, replay exacto, evento compuesto y colisiones por huella,
+  capacidad, nonce u operación;
 - rollback después del consumo y reconciliación de `COMMIT` incierto;
 - carreras consumo–revocación en ambos órdenes y checkpoint causal;
 - `up→down→up`, retirada bloqueada por historia y restauración del `CHECK`;
