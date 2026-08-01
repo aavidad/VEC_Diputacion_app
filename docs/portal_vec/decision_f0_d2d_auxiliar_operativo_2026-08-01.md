@@ -135,15 +135,23 @@ La limpieza consulta el daemon por nombre y etiqueta. El resultado admisible
 es cero o un contenedor; una cardinalidad mayor o una deriva falla sin eliminar
 nada. Cuando existe uno, inspecciona su identificador, nombre y etiqueta.
 
-El `cidfile`, si ya existe, debe ser un fichero regular `0600`, con un único
-enlace, una única línea hexadecimal de 64 caracteres y coincidencia con el
-identificador inspeccionado. Su lectura se limita a 65 bytes más un byte de
-sonda antes de interpretar el contenido. Si está corrupto, excede ese límite o
-no coincide, la ejecución conserva un resultado no cero, pero esa entrada no
-confiable no impide retirar el contenedor acreditado de forma independiente por
-nombre, etiqueta e identificador ni autoriza a retirar otro. Si el cliente
-Docker falló antes de escribirlo, nombre y etiqueta permiten recuperar y
-reacreditar el identificador sin convertir la ausencia del fichero en éxito.
+El `cidfile`, si ya existe, debe ser un fichero regular con un único enlace. El
+runner lo cambia inmediatamente a `0600`, antes de interpretar su contenido, y
+vuelve a acreditar tipo, modo y enlaces. El directorio padre `0700` protege la
+ventana entre la escritura del cliente Docker y ese cambio; una señal o fallo
+en la ventana conserva un resultado no cero y limpia por la propiedad
+independiente, sin confiar en el fichero.
+
+El contenido admisible ocupa exactamente 64 bytes hexadecimales o 65 bytes si
+añade un único salto de línea final; no admite otro espacio ni una segunda
+línea. Debe coincidir con el identificador inspeccionado. Su lectura se limita
+a 65 bytes más un byte de sonda antes de interpretar el contenido. Si está
+corrupto, excede ese límite o no coincide, la ejecución conserva un resultado
+no cero, pero esa entrada no confiable no impide retirar el contenedor
+acreditado de forma independiente por nombre, etiqueta e identificador ni
+autoriza a retirar otro. Si el cliente Docker falló antes de escribirlo, nombre
+y etiqueta permiten recuperar y reacreditar el identificador sin convertir la
+ausencia del fichero en éxito.
 
 Solo la coincidencia conjunta de nombre, etiqueta y identificador autoriza la
 retirada. Una coincidencia aislada por nombre, `cidfile`, etiqueta o
