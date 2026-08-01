@@ -246,6 +246,10 @@ Las diez primeras cerradas son H0, H0a, V0, A1, A2, A3, A4, B1, B2 y C1.
 Solo dirección incrementa este contador después de integrar una minitarea con
 revisión independiente.
 
+El experimento de catálogo operativo CONFIG-CAT-01 quedó
+[rechazado y aislado](revisiones/revision_config_cat_01_2026-08-02.md). No
+modifica estas métricas ni la rama estable.
+
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el
 tablero contenga su evidencia.
 
