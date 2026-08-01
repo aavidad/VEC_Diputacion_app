@@ -128,7 +128,9 @@ real y obtuvo doble GO, `P0=P1=P2=0`. A1 queda integrado después en `169a055`,
 con doble GO final y PostgreSQL 18.4; dejó listos A2, A3, A4 y B1.
 A2 queda integrado en `0ac8fe4` tras
 [doble GO](revisiones/revision_f0_a2_canon_manifiesto_2026-08-01.md) y
-comparación byte a byte con V0. A3 y A4 siguen listos; B1 está en revisión. Después siguen los demás
+comparación byte a byte con V0. A3 queda integrado en `806691b` tras
+[doble GO](revisiones/revision_f0_a3_canon_capacidad_2026-08-01.md), HMAC y
+comparación constante acreditados. A4 y B1 siguen en revisión. Después siguen los demás
 componentes hasta Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
@@ -191,9 +193,9 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Completar la revisión e integración de B1 y abrir A3 y A4 de C2.3-F0, cada
-uno limitado a su par de componentes y revisado de forma independiente. A3 y
-A4 construyen los cánones restantes contra los vectores V0; B1 crea el
+Completar la revisión e integración de B1 y A4 de C2.3-F0, cada uno limitado
+a su par de componentes y revisado de forma independiente. A3 ya construye el
+canon y MAC de capacidad contra V0; A4 cierra el canon de consumo y B1 crea el
 catálogo, checkpoint y revocación append-only. Después se continúa el DAG
 hasta el consumidor nominal de la
 capacidad breve de fuente, ejecutable dentro de la misma transacción
