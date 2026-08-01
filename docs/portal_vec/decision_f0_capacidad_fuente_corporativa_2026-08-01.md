@@ -355,28 +355,72 @@ mismos bytes. No se usa cola, compensación ni recibo tardío.
 
 ## Migración y retirada
 
-Los únicos artefactos previstos son:
+El paquete de implementación admite estos artefactos acotados:
 
 ```text
 deploy/postgresql/autorizacion_atestada_v3/migraciones/
   000007_fuente_corporativa_contexto_actor_v1.up.sql
   000007_fuente_corporativa_contexto_actor_v1.down.sql
+  000007_componentes/
+    ... componentes SQL de up y down
 deploy/postgresql/autorizacion_atestada_v3/
   README.md
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   fuente_corporativa_contexto_actor_v1.sql
+  000007_componentes/
+    ... componentes SQL de prueba
+internal/vec/adapters/seguridad/confianzaatestacion/
+  capacidad_fuente_corporativa_v1_vector_test.go
+internal/vec/adapters/seguridad/confianzaatestacion/testdata/
+  manifiesto_fuente_corporativa_v1.json
+  capacidad_fuente_corporativa_v1.json
+  consumo_fuente_corporativa_v1.json
 ```
 
 El README pertenece al write-set de implementación F0-C; D1 no lo modifica.
+Cada artefacto enumerado, incluidos componentes, envoltorios, runner, prueba
+focal y oráculo Go, queda por debajo de 800 líneas. Los componentes pueden
+confirmarse dormidos y probarse directamente en PostgreSQL 18.4, pero no son
+migraciones instalables ni los invoca ningún runner o migración anterior. El
+fichero Go termina en `_test.go`: es solo un oráculo independiente de vectores,
+sin API, autoridad ni ruta productiva.
 
-Antes de escribir se vuelve a acreditar que `000007` está libre y que
-`000001..000006` tienen su forma exacta. `up` toma la barrera común nueva
-`vec_autorizacion_atestada_v3:migraciones:v1`, después la barrera propia
-`...:migracion:000007`, y bloquea directamente en modo final las relaciones
-que altera; no asciende un lock. Migraciones futuras adoptarán la barrera
+Los tres JSON son fixtures canónicos compartidos y completamente sintéticos:
+no contienen datos personales, credenciales, claves ni secretos. El oráculo Go
+los decodifica a estructuras cerradas y los vuelve a serializar con
+`encoding/json`; la prueba SQL reconstruye sus cánones desde campos tipados.
+Ambos resultados deben igualar byte a byte los JSON y sus SHA-256, sin
+literales canónicos duplicados. El material HMAC sintético se inyecta o deriva
+solo en el runner y el oráculo y nunca se guarda en esos JSON.
+
+Los dos envoltorios `000007` son los únicos puntos instalables. No se publican
+ni integran en la cadena de migraciones hasta que `up`, `down`, todos sus
+componentes, el oráculo y el runner estén completos y hayan superado revisión
+independiente. Cada envoltorio abre una única transacción y carga sus
+componentes con `\ir`, por rutas relativas y en orden determinista; todo el SQL
+incluido se ejecuta dentro de esa transacción. El runner los aplica solo con
+`psql -X -v ON_ERROR_STOP=1 -f`. Si falta, cambia de forma adversa, se reordena
+o falla cualquier componente, se aborta la sesión y se revierte el paquete
+entero, sin instalación parcial. Ningún componente se considera migración
+instalable ni capacidad completa por separado.
+
+En `up` y `down`, tras abrir la transacción y fijar su configuración local, se
+toma la barrera común nueva
+`vec_autorizacion_atestada_v3:migraciones:v1` y después la barrera propia
+`...:migracion:000007`. A continuación, antes de cualquier inventario,
+acreditación, validación o manipulación del centinela, ambos envoltorios
+bloquean directamente en `ACCESS EXCLUSIVE` las tres tablas, exactamente en
+el orden de `000006`: `revocacion_clave_capacidad`,
+`revocacion_configuracion` y `revocacion_raiz`. No ascienden un lock ni toman
+otra relación entre ellas. Así se serializan con DML de revocación y con el
+`down` histórico: quien espere revalida el catálogo completo al adquirirlas y
+continúa solo si conserva la forma esperada. El orden único evita ciclos de
+espera e interbloqueos. Solo después de adquirir los tres locks se acredita
+que `000007` está libre y que `000001..000006` tienen su forma exacta; después
+puede comenzar cualquier escritura. Migraciones futuras adoptarán la barrera
 común. Las anteriores son precondiciones ya instaladas, no se ejecutan en
-paralelo con `000007`.
+paralelo con `000007` salvo las carreras adversas que el protocolo debe cerrar.
 
 `up` crea además en `revocacion_raiz` el trigger reservado
 `dependencia_f0_fuente_corporativa_v1`, dirigido por `tgfoid` a
@@ -415,11 +459,18 @@ para probar la futura llamada anidada. Debe cubrir:
 - rechazo de sobre multiefecto y aceptación de eventos atómicos separados;
 - rollback después del consumo y reconciliación de `COMMIT` incierto;
 - carreras consumo–revocación en ambos órdenes y checkpoint causal;
+- carreras de `up` y `down` de `000007` contra `000006.down` en ambos órdenes,
+  acreditando el bloqueo previo de las tres tablas, ausencia de interbloqueo,
+  revalidación tras la espera y cero residuo parcial;
 - `up→down→up`, retirada bloqueada por historia y restauración del `CHECK`;
 - `000006.down` con F0 falla y conserva todo; centinela habilitado, alterado o
   ausente falla cerrado; `000007.down` vacío y después `000006.down` funcionan;
 - catálogo acredita un único `pg_depend` normal; borrar un trigger normal y
   después la función con `RESTRICT` falla y el rollback restaura el trigger;
+- ejecución directa de cada componente dormido y de los envoltorios completos;
+  para cada componente se prueba ausencia, mutación adversa y orden incorrecto,
+  verificando rollback total y ausencia de objetos, filas, privilegios o locks
+  persistentes del intento fallido;
 - regresión íntegra de las tres audiencias y consumidores V3 existentes.
 
 Se exigen tres ejecuciones limpias, ShellCheck, `git diff --check`, límites de
