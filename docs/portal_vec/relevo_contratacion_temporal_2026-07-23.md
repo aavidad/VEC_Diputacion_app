@@ -13,10 +13,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `3608b16`; CI `30707669447`.
-- Última implementación técnica verificada: H0a en `eb21fdd`; un único runner
-  congelado, doble revisión independiente, PostgreSQL 18.4 real,
-  P0=P1=P2=0 y CI técnica `30708210687` en curso.
+- Último corte publicado completamente verde: `9622134`; CI `30708360586`.
+- Última implementación técnica verificada: A1 en `169a055`; dos componentes
+  congelados, doble revisión independiente final, PostgreSQL 18.4 real,
+  P0=P1=P2=0 y CI técnica `30709399752` en curso.
 - Contrato C2.3-D0 integrado en `5fbf6a7`–`abfdc21`, con doble revisión
   independiente GO y P0=P1=P2=0.
 - Decisión F0-D1 integrada en `c4fc55c`–`1236c0b`; F0-D2/D2a/D2b en
@@ -34,8 +34,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md`, con doble GO y
   cero residuos. La primera ejecución A1 reveló un defecto de composición: la
   autoprueba sintética eliminaba después la clausura real A1. H0a queda
-  integrada en `eb21fdd` con doble GO y cero residuos. Trabajo activo: los dos
-  componentes A1, todavía sin GO ni commit. Todavía no existe una migración
+  integrada en `eb21fdd` con doble GO y cero residuos. A1 queda integrado en
+  `169a055` tras cerrar un NO-GO adversarial; doble GO final y cero residuos.
+  Trabajo listo: A2, A3, A4 y B1 en paralelo. Todavía no existe una migración
   `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:

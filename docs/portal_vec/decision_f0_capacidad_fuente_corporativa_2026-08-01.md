@@ -489,6 +489,12 @@ compositor y el README. Ambos auxiliares y el capturador quedan inmutables
 después de H0; I0 no los modifica. Esos nodos no se ejecutan en paralelo ni
 existe otro write-set autorizado sobre los cuatro artefactos.
 
+A1 queda integrado en `169a055` tras corregir un `NO-GO` de cobertura
+catalogal y semántica nula. La
+[revisión final](revisiones/revision_f0_a1_validadores_2026-08-01.md) obtuvo
+doble `GO`, `P0=P1=P2=0`, y desbloquea A2, A3, A4 y B1 como write-sets
+disjuntos. Todavía no existe una composición `000007` instalable.
+
 ### Corrección D2c: arnés privado y snapshot exacto
 
 La primera implementación exploratoria demostró que concentrar parser,

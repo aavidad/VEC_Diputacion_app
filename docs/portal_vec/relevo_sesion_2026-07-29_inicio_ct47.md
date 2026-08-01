@@ -14,7 +14,9 @@ residuos; la ejecución CI `30706398093` terminó completamente verde. A1 es
 el primer consumidor, pero su ejecución reveló que la autoprueba sintética H0
 eliminaba la clausura real antes de usarla. H0a queda integrada en `eb21fdd`
 tras doble GO, `P0=P1=P2=0`, PostgreSQL 18.4 y cero residuos; su CI técnica es
-`30708210687`. A1 vuelve a ser la minitarea activa. Las métricas no cambian.
+`30708210687` y terminó verde. A1 queda integrado en `169a055` después de
+corregir un NO-GO catalogal, con doble GO final y PostgreSQL 18.4; su CI es
+`30709399752`. A2, A3, A4 y B1 quedan listos. Las métricas no cambian.
 
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
