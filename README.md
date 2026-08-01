@@ -504,6 +504,7 @@ Pendiente productivo:
   compilar con revisiones 1.25 anteriores que conservan vulnerabilidades
   conocidas aunque se fuerce `GOTOOLCHAIN=local`.
 - Docker y Docker Compose para arranque containerizado.
+- Python 3.9 o superior para validar y proyectar el catalogo operativo.
 - `curl` para smoke checks.
 - Git para la puerta completa `scripts/verificar_calidad.sh`; la primera
   ejecucion tambien necesita resolver los modulos Go y `govulncheck`.
@@ -530,25 +531,84 @@ secretos solo se inyectan desde el gestor autorizado en la sesión del proceso.
 Los alias y selectores heredados no se proyectan. La configuración inválida o
 incompleta debe mantener cerrada la superficie correspondiente.
 
+La configuracion general heredada conserva estos valores para desarrollo y
+compatibilidad. Su presencia en esta tabla no los autoriza en `vec-publico` ni
+en `vec-interno`; prevalece siempre el uso por superficie del catalogo.
+
+| Variable | Default | Uso general heredado |
+| --- | --- | --- |
+| `VEC_HTTP_ADDR` | `127.0.0.1:8080` | Escucha HTTP canonica en loopback. |
+| `BOLSA_HTTP_ADDR` | vacio | Alias legado de `VEC_HTTP_ADDR`. |
+| `VEC_AUTH_MODE` | `disabled` | `disabled` o `fake` local. |
+| `VEC_FAKE_CREDENTIALS_FILE` | vacio | Fichero local regular, `0600` o mas restrictivo. |
+| `VEC_HTTP_ALLOWED_CIDRS` | `127.0.0.1/32,::1/128` | Lista positiva de redes remotas. |
+| `VEC_BOLSA_STORAGE_MODE` | `memory` | `memory`, `file` o `local_durable`. |
+| `VEC_BOLSA_DATA_DIR` | `var/bolsa` | Directorio durable de Bolsa. |
+| `VEC_BOLSA_DATA_PATH` | `var/bolsa/bolsa_store.json` | Fichero durable heredado. |
+| `VEC_TRUSTED_PROXY_CIDRS` | `127.0.0.1/32,::1/128` | Compatibilidad; no aporta identidad. |
+| `VEC_OSRM_BASE_URL` | vacio | URL exacta del OSRM interno. |
+| `VEC_OSRM_SCOPE_NAME` | vacio | Ambito geografico autorizado. |
+| `VEC_OSRM_SCOPE_BOUNDS` | vacio | `lat_min,lon_min,lat_max,lon_max`. |
+| `VEC_OSRM_ALLOWED_CIDRS` | vacio | Destinos positivos; no se infieren. |
+
+La ruta raiz `GET /` sirve la UI estatica de la composicion heredada. El shell
+VEC vive en `/api/vec`; sus rutas privadas exigen identidad. La API Bolsa
+heredada bajo `/api` solo existe en `fake`. La consulta publica separada usa
+`/api/publico/bolsa` y no lee el almacen privado.
+
+El modo `fake` no tiene usuarios ni tokens incorporados. Ademas del fichero,
+exige `VEC_HTTP_ADDR` con IP loopback literal (por ejemplo,
+`127.0.0.1:8080`) y CIDR permitida exclusivamente local. El fichero debe
+guardar solo SHA-256 de tokens opacos. La preparacion y rotacion se describen en
+[Autenticacion fake local segura](docs/portal_vec/autenticacion_fake_local_segura.md).
+
+En `fake`, cada token resuelve un unico sujeto, rol VEC y perfil heredado. Un
+token ciudadano no sirve para tramitar y uno tecnico no puede actuar como el
+candidato. En altas de candidato, el `id` debe coincidir exactamente con el
+sujeto autenticado y `call_id` debe ser la convocatoria configurada
+`convocatoria-demostracion`: no hay valor predeterminado, comodin ni inferencia.
+El README no publica un token generico ni mezcla perfiles en un mismo ejemplo.
+
+### Red del perfil Compose
+
+Compose permite cambiar sus rangos antes de crear las redes:
+
+| Variable Compose | Default | Uso |
+| --- | --- | --- |
+| `VEC_HTTP_PUBLISHED_PORT` | `8080` | Proxy publicado solo en `127.0.0.1`. |
+| `VEC_DOCKER_SUBNET` | `192.168.255.240/29` | Red interna de API y proxy. |
+| `VEC_DOCKER_GATEWAY` | `192.168.255.241` | Pasarela interna. |
+| `VEC_PROXY_INTERNAL_ADDRESS` | `192.168.255.242` | IP fija del proxy. |
+| `VEC_API_INTERNAL_ADDRESS` | `192.168.255.243` | IP de API sin publicar. |
+| `VEC_DOCKER_EDGE_SUBNET` | `192.168.255.248/29` | Red de borde. |
+| `VEC_DOCKER_EDGE_GATEWAY` | `192.168.255.249` | Pasarela de borde. |
+
+Los rangos deben ser distintos y no solaparse con redes Docker, VPN o
+corporativas. Si Sistemas asigna otros, debe cambiar coordinadamente subred,
+pasarela e IP fijas; nunca se amplia `VEC_HTTP_ALLOWED_CIDRS` a toda la red.
+
 ## Arranque local con Go
 
-La superficie anónima aislada se arranca sin fichero global y con valores de
-sesión revisables:
+La superficie anonima productiva usa exclusivamente la proyeccion PostgreSQL.
+Su conjunto obligatorio de ocho variables se obtiene sin crear un `.env`:
 
 ```bash
-VEC_HTTP_ADDR=127.0.0.1:8080 \
-  VEC_AUTH_MODE=disabled \
-  VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32,::1/128 \
-  VEC_BOLSA_PUBLIC_SOURCE_PATH=data/demo/convocatorias_publicas.demo.json \
-  go run ./cmd/vec-publico
+python3 -B deploy/configuracion/verificar_catalogo_operativo.py --plantilla vec-publico
 ```
 
-Este proceso solo acepta `/livez`, `/readyz`, `/healthz`, `/bolsa/`, los recursos públicos
-enumerados y `/api/publico/`; `/`, `/api/vec`, `/api/demo` y el Portal del
-Empleado responden `404`. La fuente predeterminada combina metadatos públicos
-reales contrastados —títulos, categorías, fechas y CVE del BOP— con un
-envoltorio de demostración sin validez administrativa. No importa expedientes
-ni datos personales.
+Sistemas sustituye las asignaciones vacias por el DSN y las anclas gobernadas,
+las inyecta en la sesion exclusiva del proceso y ejecuta
+`go run ./cmd/vec-publico`. El perfil,
+la autenticacion y el identificador de catalogo aparecen fijados a valores
+seguros. El TLS HTTP publico es un grupo opcional 0-o-2: certificado y clave se
+omiten juntos o se configuran juntos. El procedimiento PostgreSQL, TLS del DSN
+y orden de instalacion estan en el
+[runbook de Bolsa publica](deploy/postgresql/bolsa_publica/README.md).
+
+Este proceso solo acepta `/livez`, `/readyz`, `/healthz`, `/bolsa/`, los
+recursos publicos enumerados y `/api/publico/`; `/`, `/api/vec`, `/api/demo` y
+el Portal del Empleado responden `404`. No importa expedientes ni datos
+personales, ni admite fuentes JSON, memoria o presentacion.
 
 ### Entregable del Portal del Empleado y Bolsa
 

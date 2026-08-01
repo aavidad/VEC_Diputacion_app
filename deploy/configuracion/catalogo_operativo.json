@@ -1,437 +1,320 @@
 {
-  "version": 1,
-  "origen": "Literales VEC_/BOLSA_ de Go productivo; no contiene valores operativos.",
+  "version": 2,
+  "origen": "Go productivo bajo cmd/, config/ e internal/; sin valores operativos ni secretos.",
   "variables": [
-    {
-      "nombre": "VEC_HTTP_ADDR", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "127.0.0.1:8080",
-      "tipo": "direccion", "secreto": false,
-      "descripcion": "Escucha HTTP pública."
+    {"nombre":"VEC_HTTP_ADDR","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"127.0.0.1:8080","tipo":"direccion","secreto":false,"ancla":false,
+      "descripcion":"Escucha HTTP pública."},
+    {"nombre":"BOLSA_HTTP_ADDR","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"direccion","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de VEC_HTTP_ADDR."},
+    {"nombre":"VEC_BOLSA_STORAGE_MODE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":"memory","tipo":"enumeracion","secreto":false,"ancla":false,
+      "descripcion":"Modo de almacenamiento heredado de Bolsa."},
+    {"nombre":"BOLSA_STORAGE_MODE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"enumeracion","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de almacenamiento."},
+    {"nombre":"VEC_BOLSA_DATA_DIR","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"var/bolsa","tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Directorio durable heredado de Bolsa."},
+    {"nombre":"BOLSA_DATA_DIR","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Alias legado del directorio Bolsa."},
+    {"nombre":"VEC_BOLSA_DATA_PATH","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"var/bolsa/bolsa_store.json","tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Fichero durable heredado de Bolsa."},
+    {"nombre":"BOLSA_DATA_PATH","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Alias legado del fichero Bolsa."},
+    {"nombre":"VEC_AUTH_MODE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"disabled","tipo":"enumeracion","secreto":false,"ancla":false,
+      "descripcion":"Modo de autenticación solicitado."},
+    {"nombre":"BOLSA_AUTH_MODE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"enumeracion","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de autenticación."},
+    {"nombre":"VEC_FAKE_CREDENTIALS_FILE","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"ruta_secreta","secreto":true,"ancla":false,
+      "descripcion":"Referencia al fichero local de credenciales fake."},
+    {"nombre":"VEC_TRUSTED_HEADER_SUBJECT","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"X-VEC-Subject","tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Nombre heredado de cabecera de sujeto."},
+    {"nombre":"BOLSA_TRUSTED_HEADER_SUBJECT","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de cabecera de sujeto."},
+    {"nombre":"VEC_TRUSTED_HEADER_ROLES","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"X-VEC-Roles","tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Nombre heredado de cabecera de roles."},
+    {"nombre":"BOLSA_TRUSTED_HEADER_ROLES","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de cabecera de roles."},
+    {"nombre":"VEC_TRUSTED_HEADER_MECHANISM","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"X-VEC-Auth-Mechanism","tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Nombre heredado de cabecera de mecanismo."},
+    {"nombre":"BOLSA_TRUSTED_HEADER_MECHANISM","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"cabecera","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de cabecera de mecanismo."},
+    {"nombre":"VEC_TRUSTED_PROXY_CIDRS","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"lista_cidr","secreto":false,"ancla":false,
+      "descripcion":"Redes heredadas sin autoridad de identidad."},
+    {"nombre":"BOLSA_TRUSTED_PROXY_CIDRS","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"lista_cidr","secreto":false,"ancla":false,
+      "descripcion":"Alias legado de redes confiadas."},
+    {"nombre":"VEC_HTTP_ALLOWED_CIDRS","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"127.0.0.1/32,::1/128","tipo":"lista_cidr","secreto":false,"ancla":false,
+      "descripcion":"Lista positiva de redes de acceso HTTP."},
+    {"nombre":"VEC_TLS_CERT_FILE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_certificado","secreto":false,"ancla":false,
+      "descripcion":"Referencia al certificado TLS público."},
+    {"nombre":"VEC_TLS_KEY_FILE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_clave","secreto":true,"ancla":false,
+      "descripcion":"Referencia a la clave privada TLS pública."},
+    {"nombre":"VEC_PERSONAL_CATALOG_PATH","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":"var/vec/personal_catalog.json","tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Catálogo heredado de personal."},
+    {"nombre":"VEC_BOLSA_PUBLIC_SOURCE_PATH","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"data/demo/convocatorias_publicas.demo.json","tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Selector JSON observado y prohibido por la raíz pública."},
+    {"nombre":"VEC_BOLSA_CATEGORIES_SOURCE_PATH","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"data/catalogos/categorias-profesionales/v1.demo.json","tipo":"ruta","secreto":false,"ancla":false,
+      "descripcion":"Selector JSON observado y prohibido por la raíz pública."},
+    {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_ID","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"categorias-profesionales","tipo":"identificador","secreto":false,"ancla":false,
+      "descripcion":"Identificador gobernado del catálogo público."},
+    {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_VERSION","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":1,"tipo":"entero_positivo","secreto":false,"ancla":false,
+      "descripcion":"Versión explícita del catálogo público."},
+    {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_SHA256","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233",
+      "tipo":"sha256","secreto":false,"ancla":true,"descripcion":"Huella gobernada del catálogo público."},
+    {"nombre":"VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"sha256","secreto":false,"ancla":true,
+      "descripcion":"Huella gobernada de la proyección pública."},
+    {"nombre":"VEC_OSRM_BASE_URL","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"url","secreto":false,"ancla":false,"descripcion":"URL del OSRM interno."},
+    {"nombre":"VEC_OSRM_SCOPE_NAME","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"texto","secreto":false,"ancla":false,"descripcion":"Ámbito geográfico OSRM."},
+    {"nombre":"VEC_OSRM_SCOPE_BOUNDS","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"limites_geograficos","secreto":false,"ancla":false,
+      "descripcion":"Límites canónicos de OSRM."},
+    {"nombre":"VEC_OSRM_ALLOWED_CIDRS","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"lista_cidr","secreto":false,"ancla":false,
+      "descripcion":"Destinos autorizados para OSRM."},
+    {"nombre":"VEC_OSRM_GRAPH_VERSION","definiciones":["config/config.go"],"lectores":["config/config.go"],
+      "valor_predeterminado":null,"tipo":"texto","secreto":false,"ancla":false,"descripcion":"Versión del grafo OSRM."},
+    {"nombre":"VEC_RRHH_PRESENTATION_ENABLED","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":false,"tipo":"booleano","secreto":false,"ancla":false,
+      "descripcion":"Selector de presentación observado y prohibido en raíces reales."},
+    {"nombre":"VEC_RRHH_PRESENTATION_GUARD_ONE","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"texto","secreto":false,"ancla":false,
+      "descripcion":"Guarda de presentación observada y prohibida en raíces reales."},
+    {"nombre":"VEC_RRHH_PRESENTATION_GUARD_TWO","definiciones":["config/config.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"texto","secreto":false,"ancla":false,
+      "descripcion":"Guarda de presentación observada y prohibida en raíces reales."},
+    {"nombre":"VEC_EXECUTION_PROFILE","definiciones":["config/desarrollo.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":"produccion","tipo":"enumeracion","secreto":false,"ancla":false,
+      "descripcion":"Perfil de ejecución explícito."},
+    {"nombre":"VEC_DEVELOPMENT_GUARD","definiciones":["config/desarrollo.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"reconocimiento","secreto":false,"ancla":false,
+      "descripcion":"Guarda de desarrollo observada y prohibida en raíces reales."},
+    {"nombre":"VEC_DEVELOPMENT_MATERIAL_DIR","definiciones":["config/desarrollo.go"],
+      "lectores":["config/config.go","internal/app/composicion/interna/configuracion.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_secreta","secreto":true,"ancla":false,
+      "descripcion":"Directorio de materiales observado y prohibido en raíces reales."},
+    {"nombre":"VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL","definiciones":["config/postgresql_borradores.go"],
+      "lectores":["config/config.go"],"valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,
+      "descripcion":"DSN segregado del ejecutor de borradores."},
+    {"nombre":"VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL","definiciones":["config/postgresql_borradores.go"],
+      "lectores":["config/config.go"],"valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,
+      "descripcion":"DSN segregado del proyector de borradores."},
+    {"nombre":"VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL","definiciones":["config/postgresql_borradores.go"],
+      "lectores":["config/config.go"],"valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,
+      "descripcion":"DSN segregado del verificador de recibos."},
+    {"nombre":"VEC_BOLSA_PUBLICA_DATABASE_URL","definiciones":["config/postgresql_publico.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,
+      "descripcion":"DSN exclusivo de proyección pública."},
+    {"nombre":"VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256","definiciones":["config/postgresql_publico.go"],
+      "lectores":["config/config.go","internal/app/composicion/publica/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"sha256","secreto":false,"ancla":true,
+      "descripcion":"Huella externa del manifiesto público."},
+    {"nombre":"VEC_INTERNO_HTTP_ADDR","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"direccion","secreto":false,"ancla":false,"descripcion":"Escucha interna."},
+    {"nombre":"VEC_INTERNO_HTTP_ALLOWED_CIDRS","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"lista_cidr","secreto":false,"ancla":false,"descripcion":"Redes internas permitidas."},
+    {"nombre":"VEC_INTERNO_TLS_CERT_FILE","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_certificado","secreto":false,"ancla":false,"descripcion":"Certificado TLS interno."},
+    {"nombre":"VEC_INTERNO_TLS_KEY_FILE","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_clave","secreto":true,"ancla":false,"descripcion":"Clave TLS interna."},
+    {"nombre":"VEC_INTERNO_TLS_CLIENT_CA_FILE","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"ruta_certificado","secreto":false,"ancla":false,"descripcion":"CA cliente mTLS."},
+    {"nombre":"VEC_INTERNO_TLS_SERVER_NAME","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"nombre_dns","secreto":false,"ancla":false,"descripcion":"Nombre TLS interno."},
+    {"nombre":"VEC_INTERNO_IDENTITY_AUDIENCE","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"identificador","secreto":false,"ancla":false,"descripcion":"Audiencia corporativa."},
+    {"nombre":"VEC_INTERNO_IDENTITY_ISSUER","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"identificador","secreto":false,"ancla":false,"descripcion":"Emisor corporativo."},
+    {"nombre":"VEC_INTERNO_PROXY_TLS_SHA256","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"lista_sha256","secreto":false,"ancla":true,"descripcion":"Huellas TLS del proxy."},
+    {"nombre":"VEC_INTERNO_PROXY_SAN_IDENTITIES","definiciones":["internal/app/composicion/interna/configuracion.go"],
+      "lectores":["internal/app/composicion/interna/configuracion.go"],
+      "valor_predeterminado":null,"tipo":"lista_identificadores","secreto":false,"ancla":false,"descripcion":"SAN autorizados del proxy."},
+    {"nombre":"VEC_V4_EMISOR_DATABASE_URL","definiciones":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "lectores":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,"descripcion":"DSN exclusivo del emisor V4."},
+    {"nombre":"VEC_V4_EMISOR_SOCKET","definiciones":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "lectores":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "valor_predeterminado":null,"tipo":"ruta_socket","secreto":false,"ancla":false,"descripcion":"Socket Unix del emisor V4."},
+    {"nombre":"VEC_V4_EJECUTOR_DATABASE_URL","definiciones":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "lectores":["cmd/vec-emisor-capacidad-v4/main.go"],
+      "valor_predeterminado":null,"tipo":"dsn_postgresql","secreto":true,"ancla":false,
+      "descripcion":"DSN del ejecutor observado y prohibido en el emisor."}
+  ],
+  "uso_por_superficie": {
+    "configuracion-general": {
+      "heredado": [
+        "VEC_HTTP_ADDR","VEC_BOLSA_STORAGE_MODE","VEC_BOLSA_DATA_DIR","VEC_BOLSA_DATA_PATH",
+        "VEC_AUTH_MODE","VEC_FAKE_CREDENTIALS_FILE","VEC_TRUSTED_HEADER_SUBJECT","VEC_TRUSTED_HEADER_ROLES",
+        "VEC_TRUSTED_HEADER_MECHANISM","VEC_TRUSTED_PROXY_CIDRS","VEC_HTTP_ALLOWED_CIDRS",
+        "VEC_TLS_CERT_FILE","VEC_TLS_KEY_FILE","VEC_PERSONAL_CATALOG_PATH","VEC_BOLSA_PUBLIC_SOURCE_PATH",
+        "VEC_BOLSA_CATEGORIES_SOURCE_PATH","VEC_BOLSA_CATEGORIES_CATALOG_ID",
+        "VEC_BOLSA_CATEGORIES_CATALOG_VERSION","VEC_BOLSA_CATEGORIES_CATALOG_SHA256",
+        "VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256","VEC_OSRM_BASE_URL","VEC_OSRM_SCOPE_NAME",
+        "VEC_OSRM_SCOPE_BOUNDS","VEC_OSRM_ALLOWED_CIDRS","VEC_OSRM_GRAPH_VERSION",
+        "VEC_RRHH_PRESENTATION_ENABLED","VEC_RRHH_PRESENTATION_GUARD_ONE","VEC_RRHH_PRESENTATION_GUARD_TWO",
+        "VEC_EXECUTION_PROFILE","VEC_DEVELOPMENT_GUARD","VEC_DEVELOPMENT_MATERIAL_DIR",
+        "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL",
+        "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL",
+        "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL","VEC_BOLSA_PUBLICA_DATABASE_URL",
+        "VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256"
+      ],
+      "alias": [
+        "BOLSA_HTTP_ADDR","BOLSA_STORAGE_MODE","BOLSA_DATA_DIR","BOLSA_DATA_PATH","BOLSA_AUTH_MODE",
+        "BOLSA_TRUSTED_HEADER_SUBJECT","BOLSA_TRUSTED_HEADER_ROLES","BOLSA_TRUSTED_HEADER_MECHANISM",
+        "BOLSA_TRUSTED_PROXY_CIDRS"
+      ]
     },
-    {
-      "nombre": "BOLSA_HTTP_ADDR", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "direccion", "secreto": false,
-      "descripcion": "Alias legado de VEC_HTTP_ADDR."
-    },
-    {
-      "nombre": "VEC_BOLSA_STORAGE_MODE", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "memory",
-      "tipo": "enumeracion", "secreto": false,
-      "descripcion": "Modo de almacenamiento heredado de Bolsa."
-    },
-    {
-      "nombre": "BOLSA_STORAGE_MODE", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "enumeracion", "secreto": false,
-      "descripcion": "Alias legado de almacenamiento."
-    },
-    {
-      "nombre": "VEC_BOLSA_DATA_DIR", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "var/bolsa",
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Directorio durable heredado de Bolsa."
-    },
-    {
-      "nombre": "BOLSA_DATA_DIR", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Alias legado del directorio Bolsa."
-    },
-    {
-      "nombre": "VEC_BOLSA_DATA_PATH", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "var/bolsa/bolsa_store.json",
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Fichero durable heredado de Bolsa."
-    },
-    {
-      "nombre": "BOLSA_DATA_PATH", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Alias legado del fichero Bolsa."
-    },
-    {
-      "nombre": "VEC_AUTH_MODE", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "disabled",
-      "tipo": "enumeracion", "secreto": false,
-      "descripcion": "Modo de autenticación solicitado; la superficie pública lo cierra."
-    },
-    {
-      "nombre": "BOLSA_AUTH_MODE", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "enumeracion", "secreto": false,
-      "descripcion": "Alias legado de autenticación."
-    },
-    {
-      "nombre": "VEC_FAKE_CREDENTIALS_FILE", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta", "secreto": true,
-      "descripcion": "Referencia al fichero local de credenciales fake."
-    },
-    {
-      "nombre": "VEC_TRUSTED_HEADER_SUBJECT", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "X-VEC-Subject",
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Nombre heredado de cabecera de sujeto."
-    },
-    {
-      "nombre": "BOLSA_TRUSTED_HEADER_SUBJECT", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Alias legado de cabecera de sujeto."
-    },
-    {
-      "nombre": "VEC_TRUSTED_HEADER_ROLES", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "X-VEC-Roles",
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Nombre heredado de cabecera de roles."
-    },
-    {
-      "nombre": "BOLSA_TRUSTED_HEADER_ROLES", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Alias legado de cabecera de roles."
-    },
-    {
-      "nombre": "VEC_TRUSTED_HEADER_MECHANISM", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "X-VEC-Auth-Mechanism",
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Nombre heredado de cabecera de mecanismo."
-    },
-    {
-      "nombre": "BOLSA_TRUSTED_HEADER_MECHANISM", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "cabecera", "secreto": false,
-      "descripcion": "Alias legado de cabecera de mecanismo."
-    },
-    {
-      "nombre": "VEC_TRUSTED_PROXY_CIDRS", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "lista_cidr", "secreto": false,
-      "descripcion": "Redes heredadas; no son origen de identidad en raíces integradas."
-    },
-    {
-      "nombre": "BOLSA_TRUSTED_PROXY_CIDRS", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "alias",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "lista_cidr", "secreto": false,
-      "descripcion": "Alias legado de redes confiadas."
-    },
-    {
-      "nombre": "VEC_HTTP_ALLOWED_CIDRS", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "127.0.0.1/32,::1/128",
-      "tipo": "lista_cidr", "secreto": false,
-      "descripcion": "Lista positiva de redes de acceso HTTP."
-    },
-    {
-      "nombre": "VEC_TLS_CERT_FILE", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta_certificado", "secreto": false,
-      "descripcion": "Referencia al certificado TLS público."
-    },
-    {
-      "nombre": "VEC_TLS_KEY_FILE", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta_clave", "secreto": true,
-      "descripcion": "Referencia a la clave privada TLS pública."
-    },
-    {
-      "nombre": "VEC_PERSONAL_CATALOG_PATH", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": "var/vec/personal_catalog.json",
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Catálogo heredado de personal."
-    },
-    {
-      "nombre": "VEC_BOLSA_PUBLIC_SOURCE_PATH", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "data/demo/convocatorias_publicas.demo.json",
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Fuente de convocatorias públicas."
-    },
-    {
-      "nombre": "VEC_BOLSA_CATEGORIES_SOURCE_PATH", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "data/catalogos/categorias-profesionales/v1.demo.json",
-      "tipo": "ruta", "secreto": false,
-      "descripcion": "Fuente de categorías públicas."
-    },
-    {
-      "nombre": "VEC_BOLSA_CATEGORIES_CATALOG_ID", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "categorias-profesionales",
-      "tipo": "identificador", "secreto": false,
-      "descripcion": "Identificador de catálogo público."
-    },
-    {
-      "nombre": "VEC_BOLSA_CATEGORIES_CATALOG_VERSION", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": 1,
-      "tipo": "entero_positivo", "secreto": false,
-      "descripcion": "Versión de catálogo público."
-    },
-    {
-      "nombre": "VEC_BOLSA_CATEGORIES_CATALOG_SHA256", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233",
-      "tipo": "sha256", "secreto": false,
-      "descripcion": "Huella del catálogo público."
-    },
-    {
-      "nombre": "VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "sha256", "secreto": false,
-      "descripcion": "Huella de la proyección pública."
-    },
-    {
-      "nombre": "VEC_OSRM_BASE_URL", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "url", "secreto": false,
-      "descripcion": "URL del OSRM interno."
-    },
-    {
-      "nombre": "VEC_OSRM_SCOPE_NAME", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "texto", "secreto": false,
-      "descripcion": "Ámbito geográfico autorizado de OSRM."
-    },
-    {
-      "nombre": "VEC_OSRM_SCOPE_BOUNDS", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "limites_geograficos", "secreto": false,
-      "descripcion": "Límites canónicos de OSRM."
-    },
-    {
-      "nombre": "VEC_OSRM_ALLOWED_CIDRS", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "lista_cidr", "secreto": false,
-      "descripcion": "Destinos de red autorizados para OSRM."
-    },
-    {
-      "nombre": "VEC_OSRM_GRAPH_VERSION", "lector": "config/config.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "texto", "secreto": false,
-      "descripcion": "Versión del grafo OSRM."
-    },
-    {
-      "nombre": "VEC_RRHH_PRESENTATION_ENABLED", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": false,
-      "tipo": "booleano", "secreto": false,
-      "descripcion": "Activa la presentación RRHH no autoritativa."
-    },
-    {
-      "nombre": "VEC_RRHH_PRESENTATION_GUARD_ONE", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "texto", "secreto": false,
-      "descripcion": "Primera guarda de presentación RRHH."
-    },
-    {
-      "nombre": "VEC_RRHH_PRESENTATION_GUARD_TWO", "lector": "config/config.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "texto", "secreto": false,
-      "descripcion": "Segunda guarda de presentación RRHH."
-    },
-    {
-      "nombre": "VEC_EXECUTION_PROFILE", "lector": "config/desarrollo.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": "produccion",
-      "tipo": "enumeracion", "secreto": false,
-      "descripcion": "Perfil de ejecución explícito."
-    },
-    {
-      "nombre": "VEC_DEVELOPMENT_GUARD", "lector": "config/desarrollo.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "reconocimiento", "secreto": false,
-      "descripcion": "Guarda explícita del perfil de desarrollo."
-    },
-    {
-      "nombre": "VEC_DEVELOPMENT_MATERIAL_DIR", "lector": "config/desarrollo.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "ruta", "secreto": true,
-      "descripcion": "Directorio de materiales no autoritativos."
-    },
-    {
-      "nombre": "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL", "lector": "config/postgresql_borradores.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN segregado del ejecutor de borradores."
-    },
-    {
-      "nombre": "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL", "lector": "config/postgresql_borradores.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN segregado del proyector de borradores."
-    },
-    {
-      "nombre": "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL", "lector": "config/postgresql_borradores.go",
-      "superficies": ["configuracion-general"], "estado": "heredado",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN segregado del verificador de recibos."
-    },
-    {
-      "nombre": "VEC_BOLSA_PUBLICA_DATABASE_URL", "lector": "config/postgresql_publico.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN exclusivo de proyección pública."
-    },
-    {
-      "nombre": "VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256", "lector": "config/postgresql_publico.go",
-      "superficies": ["configuracion-general", "vec-publico"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "sha256", "secreto": false,
-      "descripcion": "Huella externa del manifiesto público."
-    },
-    {
-      "nombre": "VEC_INTERNO_HTTP_ADDR", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "direccion", "secreto": false,
-      "descripcion": "Escucha del portal corporativo."
-    },
-    {
-      "nombre": "VEC_INTERNO_HTTP_ALLOWED_CIDRS", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "lista_cidr", "secreto": false,
-      "descripcion": "Redes permitidas de la superficie interna."
-    },
-    {
-      "nombre": "VEC_INTERNO_TLS_CERT_FILE", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "ruta_certificado", "secreto": false,
-      "descripcion": "Certificado TLS interno."
-    },
-    {
-      "nombre": "VEC_INTERNO_TLS_KEY_FILE", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "ruta_clave", "secreto": true,
-      "descripcion": "Clave privada TLS interna."
-    },
-    {
-      "nombre": "VEC_INTERNO_TLS_CLIENT_CA_FILE", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "ruta_certificado", "secreto": false,
-      "descripcion": "Autoridad de certificados cliente mTLS."
-    },
-    {
-      "nombre": "VEC_INTERNO_TLS_SERVER_NAME", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "nombre_dns", "secreto": false,
-      "descripcion": "Nombre TLS validado del servidor interno."
-    },
-    {
-      "nombre": "VEC_INTERNO_IDENTITY_AUDIENCE", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "identificador", "secreto": false,
-      "descripcion": "Audiencia corporativa esperada."
-    },
-    {
-      "nombre": "VEC_INTERNO_IDENTITY_ISSUER", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "identificador", "secreto": false,
-      "descripcion": "Emisor corporativo esperado."
-    },
-    {
-      "nombre": "VEC_INTERNO_PROXY_TLS_SHA256", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "lista_sha256", "secreto": false,
-      "descripcion": "Huellas TLS autorizadas del proxy."
-    },
-    {
-      "nombre": "VEC_INTERNO_PROXY_SAN_IDENTITIES", "lector": "internal/app/composicion/interna/configuracion.go",
-      "superficies": ["vec-interno"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "lista_identificadores", "secreto": false,
-      "descripcion": "Identidades SAN autorizadas del proxy."
-    },
-    {
-      "nombre": "VEC_V4_EMISOR_DATABASE_URL", "lector": "cmd/vec-emisor-capacidad-v4/main.go",
-      "superficies": ["vec-emisor-capacidad-v4"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN exclusivo del emisor V4."
-    },
-    {
-      "nombre": "VEC_V4_EMISOR_SOCKET", "lector": "cmd/vec-emisor-capacidad-v4/main.go",
-      "superficies": ["vec-emisor-capacidad-v4"], "estado": "activo",
-      "requerido": true, "valor_predeterminado": null,
-      "tipo": "ruta_socket", "secreto": false,
-      "descripcion": "Ruta del socket Unix exclusivo del emisor V4."
-    },
-    {
-      "nombre": "VEC_V4_EJECUTOR_DATABASE_URL", "lector": "cmd/vec-emisor-capacidad-v4/main.go",
-      "superficies": ["vec-emisor-capacidad-v4"], "estado": "prohibido",
-      "requerido": false, "valor_predeterminado": null,
-      "tipo": "dsn_postgresql", "secreto": true,
-      "descripcion": "DSN del ejecutor; el emisor lo rechaza si está presente."
-    }
+    "vec-publico": [
+      {"nombre":"VEC_EXECUTION_PROFILE","estado":"configurable","requerido":true,"plantilla":"fijo"},
+      {"nombre":"VEC_AUTH_MODE","estado":"configurable","requerido":true,"plantilla":"fijo"},
+      {"nombre":"VEC_BOLSA_PUBLICA_DATABASE_URL","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_ID","estado":"configurable","requerido":true,"plantilla":"fijo"},
+      {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_VERSION","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_BOLSA_CATEGORIES_CATALOG_SHA256","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_HTTP_ADDR","estado":"configurable","requerido":false,"plantilla":"omitir"},
+      {"nombre":"BOLSA_HTTP_ADDR","estado":"alias","requerido":false,"plantilla":"omitir"},
+      {"nombre":"BOLSA_AUTH_MODE","estado":"alias","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_HTTP_ALLOWED_CIDRS","estado":"configurable","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_TLS_CERT_FILE","estado":"configurable","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_TLS_KEY_FILE","estado":"configurable","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_DEVELOPMENT_GUARD","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_DEVELOPMENT_MATERIAL_DIR","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_BOLSA_PUBLIC_SOURCE_PATH","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_BOLSA_CATEGORIES_SOURCE_PATH","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_ENABLED","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_GUARD_ONE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_GUARD_TWO","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"}
+    ],
+    "vec-interno": [
+      {"nombre":"VEC_INTERNO_HTTP_ADDR","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_HTTP_ALLOWED_CIDRS","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_TLS_CERT_FILE","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_TLS_KEY_FILE","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_TLS_CLIENT_CA_FILE","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_TLS_SERVER_NAME","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_IDENTITY_AUDIENCE","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_IDENTITY_ISSUER","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_PROXY_TLS_SHA256","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_INTERNO_PROXY_SAN_IDENTITIES","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_EXECUTION_PROFILE","estado":"guardia","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_AUTH_MODE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"BOLSA_AUTH_MODE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_BOLSA_STORAGE_MODE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"BOLSA_STORAGE_MODE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_DEVELOPMENT_GUARD","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_DEVELOPMENT_MATERIAL_DIR","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_ENABLED","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_GUARD_ONE","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"},
+      {"nombre":"VEC_RRHH_PRESENTATION_GUARD_TWO","estado":"observado-prohibido","requerido":false,"plantilla":"omitir"}
+    ],
+    "vec-emisor-capacidad-v4": [
+      {"nombre":"VEC_V4_EMISOR_DATABASE_URL","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_V4_EMISOR_SOCKET","estado":"configurable","requerido":true,"plantilla":"vacio"},
+      {"nombre":"VEC_V4_EJECUTOR_DATABASE_URL","estado":"prohibido","requerido":false,"plantilla":"omitir"}
+    ]
+  },
+  "literales_entorno": [
+    {"ruta":"cmd/vec-emisor-capacidad-v4/main.go","cantidad":3},
+    {"ruta":"config/config.go","cantidad":37},
+    {"ruta":"config/desarrollo.go","cantidad":3},
+    {"ruta":"config/postgresql_borradores.go","cantidad":3},
+    {"ruta":"config/postgresql_publico.go","cantidad":2},
+    {"ruta":"internal/app/composicion/interna/configuracion.go","cantidad":10}
+  ],
+  "lectores_entorno": [
+    {"ruta":"cmd/vec-emisor-capacidad-v4/main.go","funcion":"Getenv","argumento":"literal","cantidad":3},
+    {"ruta":"config/config.go","funcion":"Getenv","argumento":"dinamico","cantidad":3},
+    {"ruta":"internal/app/composicion/interna/configuracion.go","funcion":"Getenv","argumento":"dinamico","cantidad":3},
+    {"ruta":"internal/app/composicion/publica/configuracion.go","funcion":"Getenv","argumento":"dinamico","cantidad":3}
+  ],
+  "grupos_configuracion": [
+    {"nombre":"tls-publico","superficie":"vec-publico","cardinalidad":"0-o-2","obligatorio":false,
+      "miembros":["VEC_TLS_CERT_FILE","VEC_TLS_KEY_FILE"],
+      "descripcion":"Certificado y clave TLS públicos se omiten juntos o se configuran juntos."}
   ],
   "infraestructura": {
-    "nota": "Variables de Compose, OSM y Ceph: no son variables runtime de los tres procesos anteriores.",
+    "nota": "Variables de infraestructura; no pertenecen al runtime de los tres procesos.",
     "compose": [
-      "VEC_HTTP_PUBLISHED_PORT", "VEC_DOCKER_SUBNET", "VEC_DOCKER_GATEWAY",
-      "VEC_PROXY_INTERNAL_ADDRESS", "VEC_API_INTERNAL_ADDRESS", "VEC_DOCKER_EDGE_SUBNET",
-      "VEC_DOCKER_EDGE_GATEWAY", "VEC_PRESENTACION_PUBLISHED_PORT", "VEC_PRESENTACION_REMOTE_IMAGE",
-      "VEC_PRESENTACION_REMOTE_BIND_ADDRESS", "VEC_PRESENTACION_REMOTE_PUBLISHED_PORT", "VEC_PRESENTACION_REMOTE_TLS_CERT_PATH",
-      "VEC_PRESENTACION_REMOTE_TLS_KEY_PATH", "VEC_PRESENTACION_REMOTE_SECRET_GID", "VEC_PRESENTACION_REMOTE_ACL_PATH",
+      "UID_GID","VEC_HTTP_PUBLISHED_PORT","VEC_DOCKER_SUBNET","VEC_DOCKER_GATEWAY",
+      "VEC_PROXY_INTERNAL_ADDRESS","VEC_API_INTERNAL_ADDRESS","VEC_DOCKER_EDGE_SUBNET",
+      "VEC_DOCKER_EDGE_GATEWAY","VEC_PRESENTACION_PUBLISHED_PORT","VEC_PRESENTACION_REMOTE_IMAGE",
+      "VEC_PRESENTACION_REMOTE_BIND_ADDRESS","VEC_PRESENTACION_REMOTE_PUBLISHED_PORT",
+      "VEC_PRESENTACION_REMOTE_TLS_CERT_PATH","VEC_PRESENTACION_REMOTE_TLS_KEY_PATH",
+      "VEC_PRESENTACION_REMOTE_SECRET_GID","VEC_PRESENTACION_REMOTE_ACL_PATH",
       "VEC_PRESENTACION_REMOTE_HTPASSWD_PATH"
     ],
     "osm": [
-      "OSRM_IMAGE", "OSRM_DATA_BASENAME", "OSM_TILES_PORT",
-      "OSM_TILES_MEMORY", "OSM_TILES_CPUS", "OSM_PROXY_MEMORY",
-      "OSM_PROXY_CPUS", "OSM_IMPORT_MEMORY", "OSM_IMPORT_CPUS",
-      "OSM_IMPORT_BBOX", "UID_GID"
+      "UID_GID","OSRM_IMAGE","OSRM_DATA_BASENAME","OSM_TILES_PORT","OSM_TILES_MEMORY",
+      "OSM_TILES_CPUS","OSM_PROXY_MEMORY","OSM_PROXY_CPUS","OSM_IMPORT_MEMORY",
+      "OSM_IMPORT_CPUS","OSM_IMPORT_BBOX"
     ],
     "ceph": [
-      "VEC_CEPH_INTEGRACION", "VEC_CEPH_ENDPOINT", "VEC_CEPH_REGION",
-      "VEC_CEPH_BUCKET_CUARENTENA", "VEC_CEPH_BUCKET_ADMITIDA", "VEC_CEPH_ACCESS_KEY_ID",
-      "VEC_CEPH_SECRET_ACCESS_KEY", "VEC_CEPH_SESSION_TOKEN", "VEC_CEPH_RUTA_CA",
-      "VEC_CEPH_REDES_PERMITIDAS", "VEC_CEPH_PATH_STYLE", "VEC_CEPH_TAMANO_MAXIMO_BYTES",
-      "VEC_CEPH_DURACION_CARGA_DIRECTA", "VEC_CEPH_RETENCION_MINIMA_ADMITIDA", "VEC_CEPH_CLAVE_DERIVACION_BASE64URL",
-      "VEC_CEPH_CIFRADO", "VEC_CEPH_CLAVE_KMS", "VEC_CEPH_USAR_BUCKET_KEY_KMS"
+      "VEC_CEPH_INTEGRACION","VEC_CEPH_ENDPOINT","VEC_CEPH_REGION","VEC_CEPH_BUCKET_CUARENTENA",
+      "VEC_CEPH_BUCKET_ADMITIDA","VEC_CEPH_ACCESS_KEY_ID","VEC_CEPH_SECRET_ACCESS_KEY",
+      "VEC_CEPH_SESSION_TOKEN","VEC_CEPH_RUTA_CA","VEC_CEPH_REDES_PERMITIDAS",
+      "VEC_CEPH_PATH_STYLE","VEC_CEPH_TAMANO_MAXIMO_BYTES","VEC_CEPH_DURACION_CARGA_DIRECTA",
+      "VEC_CEPH_RETENCION_MINIMA_ADMITIDA","VEC_CEPH_CLAVE_DERIVACION_BASE64URL",
+      "VEC_CEPH_CIFRADO","VEC_CEPH_CLAVE_KMS","VEC_CEPH_USAR_BUCKET_KEY_KMS"
     ]
   }
 }
