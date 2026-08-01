@@ -17,7 +17,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Último corte publicado completamente verde | `a0d63df` en `integracion/ct-o4-04e-20260726`; CI `30706398093` |
 | Últimos commits técnicos verificados | `a0d63df` — H0 integrado con doble GO, P0=P1=P2=0, PostgreSQL 18.4 real y las cinco puertas CI verdes |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0 y H0 están cerrados técnicamente, pero no suman una puerta funcional. A1 de F0/`000007` es la minitarea activa. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0 y H0 están cerrados técnicamente, pero no suman una puerta funcional. H0a es la corrección activa del runner; A1 está congelada y bloqueada hasta integrarla. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

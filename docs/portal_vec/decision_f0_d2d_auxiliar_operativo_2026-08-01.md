@@ -60,9 +60,11 @@ Límites obligatorios:
 - auxiliar SQL: menos de 800 líneas;
 - capturador Go: menos de 800 líneas.
 
-I0 es el único segundo escritor del runner. Después de H0, ambos auxiliares y
-el capturador quedan inmutables; I0 conserva sus tres SHA-256 literales y no
-los modifica.
+La [corrección H0a](decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md)
+es una corrección excepcional del primer escritor H0, descubierta al ejecutar
+su primer consumidor A1. Después de H0a, I0 es el único escritor posterior del
+runner. Ambos auxiliares y el capturador quedan inmutables; I0 conserva sus
+tres SHA-256 literales y no los modifica.
 
 ## Fronteras de responsabilidad
 

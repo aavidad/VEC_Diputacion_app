@@ -33,9 +33,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `30630988587`; la corrección obtuvo GO local y puerta TLS remota verde.
 - H0 queda integrado en `a0d63df` y documentado en
   `revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md`, con doble GO y
-  cero residuos. Trabajo activo: A1, exclusivamente los dos componentes
-  `010_validadores.sql` de C2.3-F0/`000007`. Todavía no existe una migración
-  `000007` instalable.
+  cero residuos. La primera ejecución A1 reveló un defecto de composición: la
+  autoprueba sintética eliminaba después la clausura real A1. Trabajo activo:
+  H0a, guardia mínima y exclusiva del runner. Los dos componentes A1 están
+  congelados sin GO ni commit hasta integrarla. Todavía no existe una
+  migración `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.

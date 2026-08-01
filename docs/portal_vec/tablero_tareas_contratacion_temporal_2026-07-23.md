@@ -79,8 +79,10 @@ y revisada en `7014d1d`; V0 queda integrado en `e68dbe0`, con GO y CI verde.
 H0 queda integrado en `a0d63df` con doble GO independiente,
 `P0=P1=P2=0`, PostgreSQL 18.4 real y
 [evidencia reproducible](revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md).
-A1 es la minitarea activa; todavía no existe una migración `000007`
-instalable ni cambian los tres hitos de O4-05.
+La primera ejecución A1 descubrió que la autoprueba sintética H0 eliminaba su
+clausura real. H0a corrige únicamente esa guardia; A1 conserva sus dos
+componentes congelados sin GO ni commit hasta integrarla. Todavía no existe
+una migración `000007` instalable ni cambian los tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
 

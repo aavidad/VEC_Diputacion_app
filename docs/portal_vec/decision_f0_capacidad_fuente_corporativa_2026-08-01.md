@@ -437,7 +437,7 @@ La ruta indicada es el write-set completo de cada nodo.
 |---|---|---|---|
 | H0 | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh` y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go` | D2d | PostgreSQL 18.4 por digest, `max_prepared_transactions=0`, `000001..000006`, línea base, snapshot exacto, propiedad y limpieza de recursos, analizador positivo/negativo y clasificación SQLSTATE |
 | V0 | `internal/vec/adapters/seguridad/confianzaatestacion/capacidad_fuente_corporativa_v1_vector_test.go`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/manifiesto_fuente_corporativa_v1.json`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/capacidad_fuente_corporativa_v1.json` e `internal/vec/adapters/seguridad/confianzaatestacion/testdata/consumo_fuente_corporativa_v1.json` | D2b | `encoding/json`, igualdad byte a byte y cero código productivo |
-| A1 | `M/010_validadores.sql` y `T/010_validadores.sql` | H0 | UTF-8, identificadores, números, instantes y límites |
+| A1 | `M/010_validadores.sql` y `T/010_validadores.sql` | H0a | UTF-8, identificadores, números, instantes y límites |
 | A2 | `M/020_canon_manifiesto.sql` y `T/020_canon_manifiesto.sql` | A1+V0 | 13 campos, adversariales y vector dorado |
 | A3 | `M/030_canon_capacidad_mac.sql` y `T/030_canon_capacidad_mac.sql` | A1+V0 | 33 campos, seis números, preimagen, HMAC y vector dorado |
 | A4 | `M/040_canon_consumo.sql` y `T/040_canon_consumo.sql` | A1+V0 | canon y huella sin aceptar canon del cliente |
@@ -463,7 +463,8 @@ El DAG cerrado es:
 D2b -> V0, D2c
 D2c -> D2d
 D2d -> H0
-H0 -> A1
+H0 -> H0a
+H0a -> A1
 A1 + V0 -> A2, A3, A4
 A1 -> B1
 B1 -> B2
@@ -479,8 +480,11 @@ Q1 + Q2 + Q3 -> I0
 ```
 
 H0 crea el runner base, sus dos auxiliares privados de pruebas y el capturador
-Go del snapshot. I0 es el único segundo
-escritor del runner: lo completa secuencialmente después de Q1–Q3 junto con el
+Go del snapshot. La
+[corrección H0a](decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md)
+limita la autoprueba sintética a H0 después de que el primer A1 descubriera que
+eliminaba su clausura real. I0 es el único escritor posterior del runner: lo
+completa secuencialmente después de Q1–Q3 junto con el
 compositor y el README. Ambos auxiliares y el capturador quedan inmutables
 después de H0; I0 no los modifica. Esos nodos no se ejecutan en paralelo ni
 existe otro write-set autorizado sobre los cuatro artefactos.
