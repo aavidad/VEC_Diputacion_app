@@ -7,23 +7,26 @@ Fecha: 29 de julio de 2026.
 V0 queda integrado en `e68dbe0`, con tres vectores canónicos sintéticos,
 oráculo Go, revisión independiente GO, `P0=P1=P2=0` y CI `30696826628`
 completamente verde. La corrección D2c queda integrada en `f57088c` y
-acreditada en `7014d1d` tras doble GO: separa runner, helper y capturador,
-autentica estos dos últimos por SHA-256 literal y cierra el snapshot exacto.
-H0 es ahora la única minitarea activa de F0. Las métricas no cambian.
+acreditada en `7014d1d` tras doble GO. D2d queda publicada en `4b3d01d` y
+`55f6001`, con CI `30703583050` verde. H0 queda integrado en `a0d63df` tras
+doble revisión independiente, `P0=P1=P2=0`, PostgreSQL 18.4 real y cero
+residuos. A1 es ahora la única minitarea activa de F0. Las métricas no cambian.
 
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
 `P0=P1=P2=0`. D1 fija el perfil de fuente, evento atómico estable entre
 rotaciones, consumo y retirada inversa segura sin modificar `000006`; D2
 cierra el paquete componible, los ensayos dormidos, el grafo, los locks y los
-reintentos. D1 sola no autorizaba SQL. Tras cerrar V0 y D2c, H0 es la
-minitarea activa de la implementación PostgreSQL `000007`. Las métricas permanecen en
+reintentos. D1 sola no autorizaba SQL. H0 cierra el arnés y desbloquea A1,
+primer componente SQL de la implementación PostgreSQL `000007`. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
 La [revisión F0-D1](revisiones/revision_f0_d1_capacidad_fuente_corporativa_2026-08-01.md)
 y la [revisión F0-D2](revisiones/revision_f0_d2_implementabilidad_2026-08-01.md)
-conservan los NO-GO corregidos y la evidencia exacta.
+conservan sus NO-GO corregidos. La
+[revisión H0](revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md)
+documenta la matriz reproducida, las huellas finales y el doble GO.
 
 ## Actualización vigente de dirección — 31 de julio de 2026
 

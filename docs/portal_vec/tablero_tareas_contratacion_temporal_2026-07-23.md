@@ -76,8 +76,11 @@ F0-D1 queda integrado en `c4fc55c`–`1236c0b` y F0-D2/D2a/D2b en
 fuente, la retirada segura y un grafo implementable con concurrencia cerrada;
 no cambian los tres hitos ni cierran O4-05. D2c queda integrada en `f57088c`
 y revisada en `7014d1d`; V0 queda integrado en `e68dbe0`, con GO y CI verde.
-H0 es la minitarea activa y todavía no existe una migración `000007`
-instalable.
+H0 queda integrado en `a0d63df` con doble GO independiente,
+`P0=P1=P2=0`, PostgreSQL 18.4 real y
+[evidencia reproducible](revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md).
+A1 es la minitarea activa; todavía no existe una migración `000007`
+instalable ni cambian los tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
 

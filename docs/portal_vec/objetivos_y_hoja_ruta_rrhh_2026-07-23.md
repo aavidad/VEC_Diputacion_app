@@ -120,9 +120,11 @@ corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
 integrada en `c4fc55c`–`1236c0b`; D2/D2a/D2b, que cierran su paquete,
 concurrencia, retirada y grafo implementable, quedan en `a5ba276`–`cebc8bd`.
 Ambas obtuvieron doble GO. D2c queda integrada en `f57088c` y acreditada en
-`7014d1d`; V0 queda integrado en `e68dbe0`, revisado y con CI verde. H0 es la
-minitarea activa de F0/`000007`.
-Después siguen los componentes A1–Q3, I0, R0/M5–M7, C2.4 selección y
+`7014d1d`; D2d queda publicada en `4b3d01d`–`55f6001`; V0 queda integrado en
+`e68dbe0`, revisado y con CI verde. H0 queda integrado en `a0d63df` con doble
+GO independiente y PostgreSQL 18.4 real. A1 es la minitarea activa de
+F0/`000007`.
+Después siguen los componentes A2–Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.
 
@@ -184,9 +186,13 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Implementar C2.3-F0 en `autorizacion_atestada_v3/000007`: consumidor nominal
-de la capacidad breve de fuente, ejecutable dentro de la misma transacción
-`SERIALIZABLE READ WRITE` que el efecto y con rollback total. Después se
+Implementar A1 de C2.3-F0 en los dos ficheros
+`000007_componentes/010_validadores.sql`: validadores puros de UTF-8,
+identificadores, números, instantes y límites, probados mediante
+`probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh --etapa A1`. Después se
+continúa el DAG hasta el consumidor nominal de la capacidad breve de fuente,
+ejecutable dentro de la misma transacción `SERIALIZABLE READ WRITE` que el
+efecto y con rollback total. A continuación se
 implementan R0 y las tres migraciones ContextoActor M5–M7 ya fijadas por D0,
 sin seleccionar candidatos ni asumir funciones del PDP. C2.2-A, C2.2-B y el
 contrato C2.3-D0, junto con F0-D1 y F0-D2, son dependencias cerradas, no

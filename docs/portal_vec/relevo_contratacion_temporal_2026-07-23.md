@@ -13,24 +13,29 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `e68dbe0`; CI `30696826628`.
-- Última implementación técnica verificada: V0 en `e68dbe0`; tres vectores
-  canónicos, revisión independiente GO y P0=P1=P2=0.
+- Último corte publicado completamente verde: `55f6001`; CI `30703583050`.
+- Última implementación técnica verificada: H0 en `a0d63df`; cuatro
+  artefactos congelados, doble revisión independiente, PostgreSQL 18.4 real y
+  P0=P1=P2=0. La ejecución CI `30706398093` estaba en curso al redactar este
+  corte.
 - Contrato C2.3-D0 integrado en `5fbf6a7`–`abfdc21`, con doble revisión
   independiente GO y P0=P1=P2=0.
 - Decisión F0-D1 integrada en `c4fc55c`–`1236c0b`; F0-D2/D2a/D2b en
   `a5ba276`–`cebc8bd`. Ambas tienen doble GO y P0=P1=P2=0. D1 por sí sola no
   autorizaba SQL; D2 cierra el grafo, atomicidad, concurrencia y retirada que
   permiten comenzar la implementación PostgreSQL `000007`.
-- D2c integrada en `f57088c` y acreditada en `7014d1d`, con doble GO. V0
-  integrado en `e68dbe0`, revisión independiente y CI `30696826628` verde.
+- D2c integrada en `f57088c` y acreditada en `7014d1d`, con doble GO. D2d
+  publicada en `4b3d01d`–`55f6001`, con CI `30703583050` verde. V0 integrado
+  en `e68dbe0`, revisión independiente y CI `30696826628` verde.
 - C2.2-A está cerrada y publicada mediante A5 en `54a8cde`, con revisión
   final `6017606`, P0=P1=P2=0 y PostgreSQL 18.4 compuesto.
 - `4d7e07d` corrige la carrera del runner Bolsa que hizo fallar la puerta
   `30630988587`; la corrección obtuvo GO local y puerta TLS remota verde.
-- Trabajo activo: H0, runner, helper y capturador base sobre PostgreSQL 18.4,
-  como siguiente minitarea de C2.3-F0/`000007`. Todavía no existe una
-  migración `000007` instalable.
+- H0 queda integrado en `a0d63df` y documentado en
+  `revisiones/revision_f0_h0_arnes_postgresql_2026-08-01.md`, con doble GO y
+  cero residuos. Trabajo activo: A1, exclusivamente los dos componentes
+  `010_validadores.sql` de C2.3-F0/`000007`. Todavía no existe una migración
+  `000007` instalable.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
