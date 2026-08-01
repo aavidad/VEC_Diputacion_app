@@ -362,14 +362,41 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/
   000007_fuente_corporativa_contexto_actor_v1.up.sql
   000007_fuente_corporativa_contexto_actor_v1.down.sql
   000007_componentes/
-    ... componentes SQL de up y down
+    010_validadores.sql
+    020_canon_manifiesto.sql
+    030_canon_capacidad_mac.sql
+    040_canon_consumo.sql
+    050_catalogo_fuente_checkpoint.sql
+    060_atestacion_consumo.sql
+    070_acreditar_material_fuente.sql
+    080_consumidor_nominal.sql
+    090_acl_audiencias_centinela.sql
+    810_acreditar_retirada.sql
+    820_retirar_objetos.sql
+    830_restaurar_audiencias.sql
 deploy/postgresql/autorizacion_atestada_v3/
   README.md
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   fuente_corporativa_contexto_actor_v1.sql
   000007_componentes/
-    ... componentes SQL de prueba
+    010_validadores.sql
+    020_canon_manifiesto.sql
+    030_canon_capacidad_mac.sql
+    040_canon_consumo.sql
+    050_catalogo_fuente_checkpoint.sql
+    060_atestacion_consumo.sql
+    070_acreditar_material_fuente.sql
+    080_consumidor_nominal.sql
+    090_acl_audiencias_centinela.sql
+    100_estructura_acl.sql
+    110_consumo_replay_rollback.sql
+    810_acreditar_retirada.sql
+    820_retirar_objetos.sql
+    830_restaurar_audiencias.sql
+    900_concurrencia_consumo_revocacion.sh
+    910_retirada_dependencias_componentes.sh
+    920_regresion_consumidores_v3.sql
 internal/vec/adapters/seguridad/confianzaatestacion/
   capacidad_fuente_corporativa_v1_vector_test.go
 internal/vec/adapters/seguridad/confianzaatestacion/testdata/
@@ -394,53 +421,173 @@ Ambos resultados deben igualar byte a byte los JSON y sus SHA-256, sin
 literales canónicos duplicados. El material HMAC sintético se inyecta o deriva
 solo en el runner y el oráculo y nunca se guarda en esos JSON.
 
+## Grafo cerrado de implementación
+
+No se admiten nodos, comodines ni rutas implícitas. En la tabla, `M` es
+`deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes` y
+`T` es
+`deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes`.
+La ruta indicada es el write-set completo de cada nodo.
+
+| Nodo | Write-set exacto | Dependencia | Criterio focal |
+|---|---|---|---|
+| H0 | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` | D2b | PostgreSQL 18.4 por digest, `max_prepared_transactions=0`, `000001..000006`, línea base, limpieza, analizador positivo/negativo y clasificación SQLSTATE |
+| V0 | `internal/vec/adapters/seguridad/confianzaatestacion/capacidad_fuente_corporativa_v1_vector_test.go`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/manifiesto_fuente_corporativa_v1.json`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/capacidad_fuente_corporativa_v1.json` e `internal/vec/adapters/seguridad/confianzaatestacion/testdata/consumo_fuente_corporativa_v1.json` | D2b | `encoding/json`, igualdad byte a byte y cero código productivo |
+| A1 | `M/010_validadores.sql` y `T/010_validadores.sql` | H0 | UTF-8, identificadores, números, instantes y límites |
+| A2 | `M/020_canon_manifiesto.sql` y `T/020_canon_manifiesto.sql` | A1+V0 | 13 campos, adversariales y vector dorado |
+| A3 | `M/030_canon_capacidad_mac.sql` y `T/030_canon_capacidad_mac.sql` | A1+V0 | 33 campos, seis números, preimagen, HMAC y vector dorado |
+| A4 | `M/040_canon_consumo.sql` y `T/040_canon_consumo.sql` | A1+V0 | canon y huella sin aceptar canon del cliente |
+| B1 | `M/050_catalogo_fuente_checkpoint.sql` y `T/050_catalogo_fuente_checkpoint.sql` | A1 | FK, revocación append-only, RLS, checkpoint y audiencias 3→7 |
+| B2 | `M/060_atestacion_consumo.sql` y `T/060_atestacion_consumo.sql` | B1 | dos historias, unicidades, inmutabilidad y minimización |
+| C1 | `M/070_acreditar_material_fuente.sql` y `T/070_acreditar_material_fuente.sql` | A2+A3+B1 | función privada, locks y cruces fuente–clave–configuración–raíz |
+| C2 | `M/080_consumidor_nominal.sql` y `T/080_consumidor_nominal.sql` | C1+A4+B2 | fachada aún privada, nuevo, replay, colisión y rollback |
+| C3 | `M/090_acl_audiencias_centinela.sql` y `T/090_acl_audiencias_centinela.sql` | C2 | cruces, ACL, R0 y centinela sobre las siete audiencias ya acreditadas |
+| R1 | `M/810_acreditar_retirada.sql` y `T/810_acreditar_retirada.sql` | C3 | inventario, deriva, datos y dependencias |
+| R2a | `M/820_retirar_objetos.sql` y `T/820_retirar_objetos.sql` | R1 | retirada inversa con `RESTRICT` y centinela, todavía con siete audiencias |
+| R2b | `M/830_restaurar_audiencias.sql` y `T/830_restaurar_audiencias.sql` | R2a | audiencias 7→3 y base exacta |
+| T1 | `T/100_estructura_acl.sql` | C3 | estructura y ACL completas |
+| T2 | `T/110_consumo_replay_rollback.sql` | C3 | consumo, replay y rollback completos |
+| P0 | `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.up.sql` y `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.down.sql` | H0+V0+A1+A2+A3+A4+B1+B2+C1+C2+C3+R1+R2a+R2b+T1+T2 | única composición instalable, transacción y txid únicos, orden cerrado y entrada solo por runner |
+| Q1 | `T/900_concurrencia_consumo_revocacion.sh` | P0 | carreras, modos reales de FK al crear/retirar, `pg_locks`, contención, cero upgrades por componente, clasificación, reintento completo, backoff y agotamiento |
+| Q2 | `T/910_retirada_dependencias_componentes.sh` | P0 | retirada, dependencias y componentes adversos |
+| Q3 | `T/920_regresion_consumidores_v3.sql` | P0 | regresión de consumidores V3 existentes |
+| I0 | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/fuente_corporativa_contexto_actor_v1.sql`, `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` y `deploy/postgresql/autorizacion_atestada_v3/README.md` | Q1+Q2+Q3 | composición final, tres pasadas limpias y documentación operativa |
+
+El DAG cerrado es:
+
+```text
+D2b -> H0, V0
+H0 -> A1
+A1 + V0 -> A2, A3, A4
+A1 -> B1
+B1 -> B2
+A2 + A3 + B1 -> C1
+C1 + A4 + B2 -> C2
+C2 -> C3
+C3 -> R1, T1, T2
+R1 -> R2a
+R2a -> R2b
+H0 + V0 + A1 + A2 + A3 + A4 + B1 + B2 + C1 + C2 + C3 + R1 + R2a + R2b + T1 + T2 -> P0
+P0 -> Q1, Q2, Q3
+Q1 + Q2 + Q3 -> I0
+```
+
+H0 crea el runner base. I0 es su único segundo escritor: lo completa
+secuencialmente después de Q1–Q3 junto con el compositor y el README. Esos dos
+nodos no se ejecutan en paralelo ni existe otro write-set autorizado sobre el
+runner.
+
 Los dos envoltorios `000007` son los únicos puntos instalables. No se publican
 ni integran en la cadena de migraciones hasta que `up`, `down`, todos sus
 componentes, el oráculo y el runner estén completos y hayan superado revisión
 independiente. Cada envoltorio abre una única transacción y carga sus
-componentes con `\ir`, por rutas relativas y en orden determinista; todo el SQL
-incluido se ejecuta dentro de esa transacción. El runner los aplica solo con
-`psql -X -v ON_ERROR_STOP=1 -f`. Si falta, cambia de forma adversa, se reordena
-o falla cualquier componente, se aborta la sesión y se revierte el paquete
-entero, sin instalación parcial. Ningún componente se considera migración
-instalable ni capacidad completa por separado.
+componentes con `\ir`, por rutas relativas y en orden determinista. En todo
+envoltorio instalable o de ensayo, la primera línea operativa es
+`\set ON_ERROR_STOP on`; después fija `\set VERBOSITY sqlstate`, deshabilita
+el autocommit con `\set AUTOCOMMIT off` y solo entonces ejecuta `BEGIN`. Antes
+y después de cada `\ir`, también en los envoltorios `up` y `down`, acredita el mismo
+`txid_current()`; todo el SQL incluido queda dentro de esa transacción. El
+runner H0/I0 es el único punto de entrada operativo y refuerza el contrato con
+`psql -X -v ON_ERROR_STOP=1 -f`; se prohíbe ejecutar directamente envoltorios
+o componentes. Si falta, cambia de forma adversa, se reordena o falla cualquier
+componente, psql detiene la lectura y se revierte el paquete entero, sin
+instalación parcial. Ningún componente se considera migración instalable ni
+capacidad completa por separado.
 
 Cada minitarea dormida tiene una regla de cierre obligatoria. Parte de una
 instancia PostgreSQL 18.4 efímera y nueva con `000001..000006` instaladas;
 registra como línea base el catálogo, las tres audiencias y todos los bytes de
 `checkpoint_gobierno`; abre un `BEGIN` exclusivo de ensayo; carga mediante
 `\ir` solo la clausura de componentes requerida hasta esa etapa; ejecuta sus
-aserciones focales; y termina siempre con `ROLLBACK`. El camino nominal exige
-el `ROLLBACK` explícito y el camino de error fuerza el rollback al cerrar la
-sesión; un cierre por desconexión no convierte el ensayo en aprobado. Después,
-desde una sesión de control independiente, acredita cero objetos F0, audiencia
-exactamente igual a sus tres valores iniciales, `checkpoint_gobierno`
-idéntico byte a byte y ausencia de roles, sesiones u objetos temporales creados
-por el ensayo. Cualquier residuo impide cerrar la minitarea.
+aserciones focales; y termina siempre con `ROLLBACK`. Inmediatamente antes de
+cada `\ir` guarda `txid_current()` y después acredita el mismo valor. El camino
+nominal exige el `ROLLBACK` explícito y el camino de error fuerza el rollback
+al cerrar la sesión; un cierre por desconexión no convierte el ensayo en
+aprobado. Después, desde una sesión de control independiente, acredita cero
+objetos F0, audiencia exactamente igual a sus tres valores iniciales,
+`checkpoint_gobierno` idéntico byte a byte y ausencia de roles, sesiones u
+objetos temporales creados por el ensayo. Acredita además que
+`pg_prepared_xacts` permanece vacío; H0 arranca PostgreSQL con
+`max_prepared_transactions=0`, por lo que ni una evasión puede dejar una
+transacción preparada. Cualquier residuo impide cerrar la minitarea.
 
-El runner deshabilita el autocommit antes del ensayo. Ningún componente puede
-contener control transaccional propio: una validación consciente de SQL
-rechaza sentencias de nivel superior `BEGIN`, `START TRANSACTION`, `COMMIT`,
-`END` transaccional, `ROLLBACK` y puntos de salvaguarda, sin confundir los
-bloques internos de una función PL/pgSQL. Solo el envoltorio de ensayo y, en el
-paquete completo, los envoltorios instalables son dueños de la transacción.
+La función shell `validar_componentes_sql_f0` pertenece exclusivamente a H0 y
+se ejecuta antes de abrir psql. Usa un analizador léxico acotado y probado que
+reconoce cadenas simples y `E''`, identificadores dobles, comentarios de línea,
+comentarios de bloque anidados y cuerpos con delimitador dólar. Rechaza todo
+metacomando psql al inicio lógico de línea y, solo en nivel SQL superior, las
+sentencias `BEGIN`, `START TRANSACTION`, `COMMIT`, `END` transaccional,
+`ROLLBACK`, `SAVEPOINT`, `RELEASE SAVEPOINT`, `PREPARE TRANSACTION`,
+`COMMIT PREPARED`, `ROLLBACK PREPARED` y `ABORT`. H0 incluye casos positivos y
+negativos del propio analizador: acepta esos textos dentro de cadenas,
+comentarios y cuerpos PL/pgSQL, y rechaza sus variantes ejecutables y evasiones
+por espacios o comentarios. Solo los envoltorios son dueños de la transacción.
+La comprobación de `txid_current()` impide que una evasión del validador pueda
+cerrar, sustituir o preparar la transacción sin ser detectada.
 
-En `up` y `down`, tras abrir la transacción y fijar su configuración local, se
-toma la barrera común nueva
-`vec_autorizacion_atestada_v3:migraciones:v1` y después la barrera propia
-`...:migracion:000007`. A continuación, antes de cualquier inventario,
-acreditación, validación o manipulación del centinela, ambos envoltorios
-bloquean directamente en `ACCESS EXCLUSIVE` las tres tablas, exactamente en
-el orden de `000006`: `revocacion_clave_capacidad`,
-`revocacion_configuracion` y `revocacion_raiz`. No ascienden un lock ni toman
-otra relación entre ellas. Así se serializan con DML de revocación y con el
-`down` histórico: quien espere revalida el catálogo completo al adquirirlas y
-continúa solo si conserva la forma esperada. El orden único evita ciclos de
-espera e interbloqueos. Solo después de adquirir los tres locks se acredita
-que `000007` está libre y que `000001..000006` tienen su forma exacta; después
-puede comenzar cualquier escritura. Migraciones futuras adoptarán la barrera
-común. Las anteriores son precondiciones ya instaladas, no se ejecutan en
-paralelo con `000007` salvo las carreras adversas que el protocolo debe cerrar.
+La clasificación de reintentos no interpreta mensajes humanos. El runner fija
+`LC_ALL=C`, captura por separado la salida de error con verbosidad `sqlstate` y
+la función shell `clasificar_sqlstate_psql_f0` solo acepta un fallo psql de
+script que contiene exactamente un SQLSTATE admitido y ningún segundo error.
+Emite un único registro `sqlstate=55P03`, `sqlstate=40P01` o
+`sqlstate=invalido`; la política de reintento consume solo ese registro. H0
+prueba positivos, negativos, salida vacía, múltiples SQLSTATE y salida
+truncada. Cualquier ambigüedad se trata como error semántico no reintentable.
+
+En `up` y `down`, tras abrir la transacción y fijar su configuración local, el
+catálogo de locks es cerrado, exhaustivo y no se descubre dinámicamente. Se
+intenta primero la barrera común
+`vec_autorizacion_atestada_v3:migraciones:v1` y después la propia
+`vec_autorizacion_atestada_v3:migracion:000007`, ambas sin espera mediante
+`pg_try_advisory_xact_lock`; un resultado falso produce `55P03`. Después se
+preadquieren, siempre con `NOWAIT`, sin inventario previo y en este orden
+exacto, los modos finales que conservarán hasta rollback o commit:
+
+1. `clave_capacidad_version` en `ACCESS EXCLUSIVE`;
+2. `puntero_clave_emision` en `SHARE`,
+   `configuracion_confianza_version`, `raiz_confianza_version` y
+   `configuracion_raiz` en `SHARE ROW EXCLUSIVE`, y
+   `puntero_configuracion_actual` en `SHARE`, en ese orden; los modos más
+   fuertes son los exigidos al crear las FK desde F0;
+3. `checkpoint_gobierno` en `SHARE`, sin lock de fila;
+4. solo en `down`, `fuente_corporativa_contexto_actor_v1`,
+   `revocacion_fuente_corporativa_contexto_actor_v1`,
+   `atestacion_fuente_corporativa_contexto_actor_v1` y
+   `consumo_fuente_corporativa_contexto_actor_v1`, en ese orden y en
+   `ACCESS EXCLUSIVE`;
+5. `revocacion_clave_capacidad`, `revocacion_configuracion` y
+   `revocacion_raiz` en `ACCESS EXCLUSIVE`, exactamente en el orden de
+   `000006` y como últimas relaciones del plan.
+
+No hay ascensos ni adquisición posterior de un modo más fuerte sobre
+relaciones preexistentes. Los locks automáticos posteriores solo pueden ser
+iguales o más débiles que el ya preadquirido y no amplían su matriz de
+conflictos; Q1 lo acredita por componente. No hay espera circular. Solo tras
+adquirir el plan completo se inventaría el catálogo, se acredita la
+forma exacta de `000001..000006` y la ausencia o presencia esperada de `000007`,
+y se manipula el centinela. `checkpoint_gobierno` nunca se toma `FOR UPDATE`
+durante el DDL: su `SHARE NOWAIT` es compatible con el `ROW SHARE` del
+consumidor y bloquea actualizaciones; sus bytes se leen únicamente después de
+cerrar con el plan completo todas las fuentes que pueden mutarlo. Esto corta el
+ciclo histórico checkpoint→clave→revocación del consumidor V3 y serializa con
+sus sesiones, con el DML revocación→checkpoint y con `000006.down`.
+
+El DDL aprobado no referencia por FK ninguna otra relación existente. Si el
+write-set cambia, D2b se reabre antes de implementar. Q1 acredita en PostgreSQL
+18.4, mediante `pg_locks` y sesiones de contención, que cada modo preadquirido
+es el final y que ningún componente ni el `CREATE`/`DROP` real de las FK provoca
+después un modo más fuerte. La reproducción previa en PostgreSQL 18.4 de
+`CREATE TABLE` hija con `REFERENCES` observó `AccessShareLock` y
+`ShareRowExclusiveLock` sobre la tabla padre; por eso las tres relaciones
+referenciadas se preadquieren directamente en `SHARE ROW EXCLUSIVE`, no en
+`SHARE`.
+
+El runner reintenta el envoltorio completo un máximo de tres intentos, en un
+proceso psql, sesión y transacción nuevos cada vez, con pausas acotadas de 100
+y 400 milisegundos. Solo `55P03` o `40P01` permiten reintento. Nunca se
+reintenta un componente aislado, un error semántico, una precondición fallida,
+un artefacto ausente o mutado ni otro SQLSTATE. El agotamiento deja el mismo
+estado byte a byte que la línea base y finaliza en fallo.
 
 `up` crea además en `revocacion_raiz` el trigger reservado
 `dependencia_f0_fuente_corporativa_v1`, dirigido por `tgfoid` a
@@ -457,8 +604,12 @@ exactos. El artefacto histórico `000006` permanece sin cambios.
 revocaciones de fuente, atestaciones, consumos, claves/punteros de cualquiera
 de las cuatro audiencias, dependencias C2.3, funciones posteriores, grants,
 propietarios, ACL, políticas, disparadores, OID u objetos no inventariados.
-Elimina primero el centinela con `RESTRICT`, después F0 en orden inverso y
-restaura el `CHECK` exacto de las tres audiencias anteriores. Nunca usa
+Elimina primero el centinela con `RESTRICT`; después retira, en este orden,
+`consumo_fuente_corporativa_contexto_actor_v1`,
+`atestacion_fuente_corporativa_contexto_actor_v1`,
+`revocacion_fuente_corporativa_contexto_actor_v1` y
+`fuente_corporativa_contexto_actor_v1`; por último restaura el `CHECK` exacto
+de las tres audiencias anteriores. Nunca usa
 `CASCADE`. Después, `000006.down.sql` puede acreditar y retirar su instalación
 vacía. Cualquier rechazo revierte la retirada completa y conserva evidencia.
 
@@ -479,18 +630,27 @@ para probar la futura llamada anidada. Debe cubrir:
 - rechazo de sobre multiefecto y aceptación de eventos atómicos separados;
 - rollback después del consumo y reconciliación de `COMMIT` incierto;
 - carreras consumo–revocación en ambos órdenes y checkpoint causal;
-- carreras de `up` y `down` de `000007` contra `000006.down` en ambos órdenes,
-  acreditando el bloqueo previo de las tres tablas, ausencia de interbloqueo,
-  revalidación tras la espera y cero residuo parcial;
+- carreras de `up` y `down` de `000007`, en ambos órdenes, contra un consumidor
+  humano V3, DML en cada revocación con avance de checkpoint y `000006.down`;
+  cada carrera termina en éxito serializado o `55P03` sin residuo, nunca en
+  espera circular; cualquier `40P01` hace fallar esta demostración;
+- inyección separada de `40P01` acredita su clasificación defensiva y el
+  reintento del envoltorio completo en sesión y transacción nuevas;
+- agotamiento de los tres intentos, backoff acotado, nueva sesión/transacción
+  por intento, ausencia de reintento semántico y línea base byte a byte intacta;
 - `up→down→up`, retirada bloqueada por historia y restauración del `CHECK`;
 - `000006.down` con F0 falla y conserva todo; centinela habilitado, alterado o
   ausente falla cerrado; `000007.down` vacío y después `000006.down` funcionan;
 - catálogo acredita un único `pg_depend` normal; borrar un trigger normal y
   después la función con `RESTRICT` falla y el rollback restaura el trigger;
-- ejecución directa de cada componente dormido y de los envoltorios completos;
-  para cada componente se prueba ausencia, mutación adversa y orden incorrecto,
-  verificando rollback total y ausencia de objetos, filas, privilegios o locks
-  persistentes del intento fallido;
+- ensayo aislado de cada componente dormido dentro de su envoltorio
+  transaccional efímero y ejecución de `up`/`down` exclusivamente mediante el
+  runner; para cada componente se prueba ausencia, mutación adversa y orden
+  incorrecto, verificando rollback total y ausencia de objetos, filas,
+  privilegios o locks persistentes del intento fallido;
+- control transaccional y metacomandos adversos son rechazados; incluso ante
+  evasión simulada, `max_prepared_transactions=0` y `pg_prepared_xacts` vacío
+  impiden conservar una transacción preparada;
 - regresión íntegra de las tres audiencias y consumidores V3 existentes.
 
 Se exigen tres ejecuciones limpias, ShellCheck, `git diff --check`, límites de
