@@ -4,13 +4,20 @@ Fecha: 29 de julio de 2026.
 
 ## Actualización vigente de dirección — 1 de agosto de 2026
 
+V0 queda integrado en `e68dbe0`, con tres vectores canónicos sintéticos,
+oráculo Go, revisión independiente GO, `P0=P1=P2=0` y CI `30696826628`
+completamente verde. La corrección D2c queda integrada en `f57088c` y
+acreditada en `7014d1d` tras doble GO: separa runner, helper y capturador,
+autentica estos dos últimos por SHA-256 literal y cierra el snapshot exacto.
+H0 es ahora la única minitarea activa de F0. Las métricas no cambian.
+
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
 `P0=P1=P2=0`. D1 fija el perfil de fuente, evento atómico estable entre
 rotaciones, consumo y retirada inversa segura sin modificar `000006`; D2
 cierra el paquete componible, los ensayos dormidos, el grafo, los locks y los
-reintentos. D1 sola no autorizaba SQL. H0 y V0 son ahora las minitareas activas
-de la implementación PostgreSQL `000007`. Las métricas permanecen en
+reintentos. D1 sola no autorizaba SQL. Tras cerrar V0 y D2c, H0 es la
+minitarea activa de la implementación PostgreSQL `000007`. Las métricas permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 

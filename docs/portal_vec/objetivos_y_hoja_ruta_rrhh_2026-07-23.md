@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 31 de julio de 2026.
+Última actualización: 1 de agosto de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -119,7 +119,9 @@ corporativo. B queda cerrada técnicamente en `de6e7df`, con revisión B5 en
 `abfdc21` con doble GO y sin aumentar métricas. La decisión F0-D1 queda
 integrada en `c4fc55c`–`1236c0b`; D2/D2a/D2b, que cierran su paquete,
 concurrencia, retirada y grafo implementable, quedan en `a5ba276`–`cebc8bd`.
-Ambas obtuvieron doble GO. H0 y V0 de F0/`000007` son las minitareas activas.
+Ambas obtuvieron doble GO. D2c queda integrada en `f57088c` y acreditada en
+`7014d1d`; V0 queda integrado en `e68dbe0`, revisado y con CI verde. H0 es la
+minitarea activa de F0/`000007`.
 Después siguen los componentes A1–Q3, I0, R0/M5–M7, C2.4 selección y
 recibo, C2.5 fachada y reconciliación, PDP, composición raíz, TLS/mTLS viva,
 la misma web definitiva y el E2E.

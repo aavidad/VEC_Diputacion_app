@@ -74,8 +74,10 @@ Estados:
 F0-D1 queda integrado en `c4fc55c`–`1236c0b` y F0-D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, ambos con doble GO y `P0=P1=P2=0`. Fijan el perfil de
 fuente, la retirada segura y un grafo implementable con concurrencia cerrada;
-no cambian los tres hitos ni cierran O4-05. H0 y V0 son las minitareas activas
-y todavía no existe una migración `000007` instalable.
+no cambian los tres hitos ni cierran O4-05. D2c queda integrada en `f57088c`
+y revisada en `7014d1d`; V0 queda integrado en `e68dbe0`, con GO y CI verde.
+H0 es la minitarea activa y todavía no existe una migración `000007`
+instalable.
 
 Desglose verificable del camino crítico `O4-04`:
 
