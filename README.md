@@ -510,63 +510,30 @@ Pendiente productivo:
 
 ## Configuracion
 
-| Variable | Default | Uso |
-| --- | --- | --- |
-| `VEC_HTTP_ADDR` | `127.0.0.1:8080` | Direccion de escucha HTTP canonica; parte cerrada en loopback. |
-| `BOLSA_HTTP_ADDR` | vacio | Alias legado, usado solo si `VEC_HTTP_ADDR` no existe. |
-| `VEC_AUTH_MODE` | `disabled` | `disabled` o `fake` local. `trusted_headers` hace fallar el arranque integrado; `cmd/vec-publico` lo ignora porque no compone autenticacion. |
-| `VEC_FAKE_CREDENTIALS_FILE` | vacio | Fichero JSON local obligatorio en `fake`; debe ser regular, `0600` o mas restrictivo y guardar solo SHA-256 de tokens opacos. |
-| `VEC_HTTP_ALLOWED_CIDRS` | `127.0.0.1/32,::1/128` | Lista positiva de redes remotas que pueden alcanzar el servidor HTTP. Una entrada invalida cierra el acceso. |
-| `VEC_BOLSA_STORAGE_MODE` | `memory` | `memory`, `file` o `local_durable` para datos Bolsa. |
-| `VEC_BOLSA_DATA_DIR` | `var/bolsa` | Directorio durable del modulo Bolsa. |
-| `VEC_BOLSA_DATA_PATH` | `var/bolsa/bolsa_store.json` | Fichero exacto del adaptador durable heredado; prevalece sobre el directorio. |
-| `VEC_BOLSA_PUBLIC_SOURCE_PATH` | `data/demo/convocatorias_publicas.demo.json` | Fuente de solo lectura de la consulta publica; el arranque falla si no existe o no es un fichero. |
-| `VEC_TRUSTED_PROXY_CIDRS` | `127.0.0.1/32,::1/128` | Parametro heredado conservado para compatibilidad de configuracion y pruebas aisladas; ninguna raiz integrada lo usa como origen de identidad. |
-| `VEC_OSRM_BASE_URL` | vacio | URL exacta del OSRM interno; vacio mantiene Dietas sin motor de rutas. |
-| `VEC_OSRM_SCOPE_NAME` | vacio | Nombre explicito del ambito geografico autorizado. |
-| `VEC_OSRM_SCOPE_BOUNDS` | vacio | Limites canonicos `lat_min,lon_min,lat_max,lon_max`. |
-| `VEC_OSRM_ALLOWED_CIDRS` | vacio | Redes de destino positivas del conector OSRM; no se infieren. |
+La fuente única de nombres, superficies, estados, requisitos y valores por
+defecto es el [catálogo operativo](deploy/configuracion/catalogo_operativo.json).
+Incluye en una sección separada las variables de infraestructura Compose, OSM y
+Ceph: no deben confundirse con la configuración runtime de VEC.
 
-La ruta raiz `GET /` sirve la UI estatica. El shell VEC vive en `/api/vec`; sus
-rutas privadas exigen identidad. La API Bolsa heredada bajo `/api` solo existe
-en `fake`. La consulta publica de Bolsa usa el prefijo separado
-`/api/publico/bolsa` y no lee el almacen privado.
+Sistemas valida el inventario y genera una plantilla mínima por proceso, sin
+crear ni compartir un `.env` global:
 
-El modo `fake` no tiene usuarios ni tokens incorporados. Ademas del fichero,
-exige `VEC_HTTP_ADDR` con IP loopback literal (por ejemplo,
-`127.0.0.1:8080`) y CIDR permitida exclusivamente local. La preparacion y
-rotacion se describen en
-[Autenticacion fake local segura](docs/portal_vec/autenticacion_fake_local_segura.md).
+```bash
+python3 deploy/configuracion/verificar_catalogo_operativo.py --validar
+python3 deploy/configuracion/verificar_catalogo_operativo.py --plantilla vec-publico
+python3 deploy/configuracion/verificar_catalogo_operativo.py --plantilla vec-interno
+python3 deploy/configuracion/verificar_catalogo_operativo.py --plantilla vec-emisor-capacidad-v4
+```
 
-En `fake`, cada token resuelve un unico sujeto, rol VEC y perfil heredado. Un
-token ciudadano no sirve para tramitar y uno tecnico no puede actuar como el
-candidato. En altas de candidato, el `id` debe coincidir exactamente con el
-sujeto autenticado y `call_id` debe ser la convocatoria configurada
-`convocatoria-demostracion`: no hay valor predeterminado, comodin ni inferencia.
-El README no publica un token generico ni mezcla perfiles en un mismo ejemplo.
-
-### Red del perfil Compose
-
-Compose permite cambiar sus rangos antes de crear las redes:
-
-| Variable Compose | Default | Uso |
-| --- | --- | --- |
-| `VEC_HTTP_PUBLISHED_PORT` | `8080` | Puerto del proxy publicado solo en `127.0.0.1`. |
-| `VEC_DOCKER_SUBNET` | `192.168.255.240/29` | Red interna de API y proxy. |
-| `VEC_DOCKER_GATEWAY` | `192.168.255.241` | Pasarela de la red interna. |
-| `VEC_PROXY_INTERNAL_ADDRESS` | `192.168.255.242` | IP fija del proxy y unico CIDR admitido por la API. |
-| `VEC_API_INTERNAL_ADDRESS` | `192.168.255.243` | IP fija de la API, sin publicacion al host. |
-| `VEC_DOCKER_EDGE_SUBNET` | `192.168.255.248/29` | Red de borde del proxy. |
-| `VEC_DOCKER_EDGE_GATEWAY` | `192.168.255.249` | Pasarela de la red de borde. |
-
-Los dos rangos deben ser distintos entre si y no solaparse con redes Docker,
-VPN o corporativas existentes. Si Sistemas asigna otros rangos, debe cambiar de
-forma coordinada subred, pasarela e IP fijas; no se debe ampliar
-`VEC_HTTP_ALLOWED_CIDRS` a toda la red interna.
+Las plantillas muestran asignaciones vacías para referencias requeridas; los
+secretos solo se inyectan desde el gestor autorizado en la sesión del proceso.
+Los alias y selectores heredados no se proyectan. La configuración inválida o
+incompleta debe mantener cerrada la superficie correspondiente.
 
 ## Arranque local con Go
 
-La superficie anónima aislada se arranca con:
+La superficie anónima aislada se arranca sin fichero global y con valores de
+sesión revisables:
 
 ```bash
 VEC_HTTP_ADDR=127.0.0.1:8080 \
