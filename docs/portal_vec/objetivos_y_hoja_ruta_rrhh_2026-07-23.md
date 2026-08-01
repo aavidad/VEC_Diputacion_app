@@ -134,7 +134,7 @@ comparación constante acreditados. A4 queda integrado en `4dd2ff9` con
 [doble GO](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md) y B1 en
 `00ff427` con
 [doble GO](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
-B2 queda integrado en `7519063` con
+B2 queda integrado en `7519063`, con CI `30719044843` completamente verde y
 [doble GO](revisiones/revision_f0_b2_atestacion_consumo_2026-08-01.md). C1
 corrige un `NO-GO` independiente de cronología y cobertura. Después siguen los demás
 componentes hasta Q3, I0, R0/M5–M7, C2.4 selección y

@@ -20,7 +20,7 @@ corregir un NO-GO catalogal, con doble GO final y PostgreSQL 18.4; su CI es
 vector V0 exacto y PostgreSQL 18.4. A3 queda integrado en `806691b` con doble
 GO, HMAC y comparación constante; su CI `30714074760` terminó verde. B1 y A4
 quedan integrados en `00ff427` y `4dd2ff9` con doble GO. B2 queda integrado en
-`7519063`, también con doble GO. C1 corrige un `NO-GO` independiente de
+`7519063`, también con doble GO y CI `30719044843` verde. C1 corrige un `NO-GO` independiente de
 cronología y cobertura. Las métricas no cambian.
 
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en

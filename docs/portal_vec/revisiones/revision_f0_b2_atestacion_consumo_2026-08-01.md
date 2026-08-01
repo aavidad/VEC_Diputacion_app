@@ -61,8 +61,9 @@ derivado. El test se reestructuró para conservar 799 líneas legibles, sin
 compactación artificial.
 
 `git diff --check`, límites y Gitleaks quedaron verdes. El rango publicado no
-contiene fugas. La ejecución CI `30719044843` está en curso sobre `7519063`;
-este informe no la declarará verde hasta que termine.
+contiene fugas. La ejecución CI `30719044843` terminó completamente verde
+sobre `7519063`; el cierre documental `79ebfab` quedó verde en
+`30719267013`.
 
 ## Continuación
 

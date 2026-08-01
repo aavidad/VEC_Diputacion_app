@@ -13,10 +13,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `7c95ae3`; CI `30717558827`.
+- Último corte publicado completamente verde: `79ebfab`; CI `30719267013`.
 - Última implementación técnica verificada: B2 en `7519063`; dos componentes,
   doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
-  CI técnica `30719044843` está en curso.
+  CI técnica `30719044843` terminó completamente verde.
   Evidencia: [B2](revisiones/revision_f0_b2_atestacion_consumo_2026-08-01.md).
 - A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.
   Evidencias: [A4](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md)

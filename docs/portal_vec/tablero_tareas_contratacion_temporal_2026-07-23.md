@@ -87,7 +87,7 @@ acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
 `0ac8fe4` con doble GO y vector V0 byte a byte. A3 queda integrado en
 `806691b` con doble GO, HMAC y comparación constante. A4 queda integrado en
 `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
-`7519063` con doble GO; C1 corrige un `NO-GO` independiente. Todavía no existe
+`7519063` con doble GO y CI `30719044843` verde; C1 corrige un `NO-GO` independiente. Todavía no existe
 una migración `000007` instalable ni cambian
 los tres hitos de O4-05.
 
