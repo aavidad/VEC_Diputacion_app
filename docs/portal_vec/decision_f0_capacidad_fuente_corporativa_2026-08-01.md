@@ -121,6 +121,12 @@ JSON `1`. `version` y `fuente_version` son números JSON decimales; los demás
 valores son cadenas. `evento_fuente_emitido_en` no puede ser posterior a la emisión
 de la capacidad. El manifiesto ocupa entre 128 y 16.384 octetos.
 
+`evento_fuente_ref` identifica una aserción atómica de exactamente una
+audiencia y un efecto. Un evento de negocio multiefecto se descompone en
+referencias atómicas distintas, firmadas y trazables en la fuente. Reutilizar
+el par `(fuente_ref,evento_fuente_ref)` con otro perfil, `fuente_version`,
+ligadura de confianza o efecto se rechaza; un sobre multiefecto nunca es replay.
+
 El sobre COSE Sign1 contiene exactamente esos bytes como payload. La mecánica
 estricta Ed25519/COSE puede reutilizar
 `internal/vec/adapters/seguridad/verificacioncose`; el intermediario no copia
@@ -178,6 +184,8 @@ de 64 hexadecimales no nula. Su vigencia es `[emitida_en,expira_en)`, positiva
 y de cinco segundos como máximo, contenida en la vigencia de clave,
 configuración, raíz y fuente. `suite` es
 `VEC-AD-3-COSE-EDDSA-1` y debe coincidir con la raíz catalogada.
+La suite solo fija la mecánica criptográfica: el aislamiento de fuente exige
+además audiencia de despliegue, raíz y fila de catálogo específicas.
 
 ## Cruce nominal exhaustivo
 
@@ -237,13 +245,13 @@ los límites antes de cualquier conversión, copia, hash o reserva adicional.
 `000007` crea dos historias propias:
 
 1. `atestacion_fuente_corporativa_contexto_actor_v1`, con PK
-   `capacidad_ref`, `huella_capacidad_sha256` única y unicidad exacta
-   `(fuente_ref,fuente_version,evento_fuente_ref)`, conserva los artefactos;
+   `capacidad_ref` —que ya incorpora SHA-256— y unicidad durable exacta
+   `(fuente_ref,evento_fuente_ref)`; conserva la `fuente_version` consumida;
 2. `consumo_fuente_corporativa_contexto_actor_v1`, 1:1 por capacidad, con
    `nonce` y `operacion_ref` únicos, conserva canon, huella e instante.
 
-Cualquier coincidencia de huella, capacidad, nonce u operación con artefactos
-o coordenadas no idénticos es una colisión cerrada, no un replay.
+Cualquier coincidencia de capacidad, evento estable, nonce u operación con
+artefactos o coordenadas no idénticos es una colisión cerrada, no un replay.
 
 El par forma la prueba local V3; no se añade una segunda cadena de auditoría.
 La prueba de efecto de ContextoActor pertenece a M5 y solo retiene las
@@ -370,13 +378,25 @@ que altera; no asciende un lock. Migraciones futuras adoptarán la barrera
 común. Las anteriores son precondiciones ya instaladas, no se ejecutan en
 paralelo con `000007`.
 
+`up` crea además en `revocacion_raiz` el trigger reservado
+`dependencia_f0_fuente_corporativa_v1`, dirigido por `tgfoid` a
+`serializar_revocacion_consultas_rrhh_v3()`, y lo deja con `tgenabled='D'`.
+Es un centinela catalogal real: nunca se ejecuta ni incrementa dos veces el
+checkpoint, pero crea exactamente un `pg_depend` normal (`deptype='n'`) a la
+función. `000006.down.sql` detecta esa dependencia extra en su prevalidación.
+Aunque se intentara borrar primero un trigger normal,
+`DROP FUNCTION ... RESTRICT` fallaría y el rollback lo conservaría. Consumidor
+y `down` exigen nombre, tabla, función, dependencia y estado deshabilitado
+exactos. El artefacto histórico `000006` permanece sin cambios.
+
 `down` solo retira una instalación vacía y exacta. Deniega ante catálogo o
 revocaciones de fuente, atestaciones, consumos, claves/punteros de cualquiera
 de las cuatro audiencias, dependencias C2.3, funciones posteriores, grants,
 propietarios, ACL, políticas, disparadores, OID u objetos no inventariados.
-Elimina en orden inverso con `RESTRICT`, nunca `CASCADE`, y restaura el
-`CHECK` exacto de las tres audiencias anteriores. Cualquier rechazo revierte
-la retirada completa y conserva evidencia.
+Elimina primero el centinela con `RESTRICT`, después F0 en orden inverso y
+restaura el `CHECK` exacto de las tres audiencias anteriores. Nunca usa
+`CASCADE`. Después, `000006.down.sql` puede acreditar y retirar su instalación
+vacía. Cualquier rechazo revierte la retirada completa y conserva evidencia.
 
 ## Prueba de cierre de implementación
 
@@ -390,11 +410,16 @@ para probar la futura llamada anidada. Debe cubrir:
 - clave, configuración, raíz, audiencia, manifiesto, COSE y efecto cruzados;
 - llamada directa denegada y llamada anidada por el rol exacto aceptada;
 - roles cruzados, adicionales, despachador, `PUBLIC`, DML y `SET ROLE`;
-- consumo nuevo, replay exacto, evento compuesto y colisiones por huella,
-  capacidad, nonce u operación;
+- consumo nuevo, replay exacto y colisiones por capacidad, evento estable,
+  nonce u operación;
+- rechazo de sobre multiefecto y aceptación de eventos atómicos separados;
 - rollback después del consumo y reconciliación de `COMMIT` incierto;
 - carreras consumo–revocación en ambos órdenes y checkpoint causal;
 - `up→down→up`, retirada bloqueada por historia y restauración del `CHECK`;
+- `000006.down` con F0 falla y conserva todo; centinela habilitado, alterado o
+  ausente falla cerrado; `000007.down` vacío y después `000006.down` funcionan;
+- catálogo acredita un único `pg_depend` normal; borrar un trigger normal y
+  después la función con `RESTRICT` falla y el rollback restaura el trigger;
 - regresión íntegra de las tres audiencias y consumidores V3 existentes.
 
 Se exigen tres ejecuciones limpias, ShellCheck, `git diff --check`, límites de
