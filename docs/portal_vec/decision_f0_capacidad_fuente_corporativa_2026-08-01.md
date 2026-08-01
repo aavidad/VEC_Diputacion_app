@@ -378,7 +378,7 @@ internal/vec/adapters/seguridad/confianzaatestacion/testdata/
   consumo_fuente_corporativa_v1.json
 ```
 
-El README pertenece al write-set de implementación F0-C; D1 no lo modifica.
+El README pertenece al corte final I0 de composición; D1 y D2 no lo modifican.
 Cada artefacto enumerado, incluidos componentes, envoltorios, runner, prueba
 focal y oráculo Go, queda por debajo de 800 líneas. Los componentes pueden
 confirmarse dormidos y probarse directamente en PostgreSQL 18.4, pero no son
@@ -404,6 +404,26 @@ incluido se ejecuta dentro de esa transacción. El runner los aplica solo con
 o falla cualquier componente, se aborta la sesión y se revierte el paquete
 entero, sin instalación parcial. Ningún componente se considera migración
 instalable ni capacidad completa por separado.
+
+Cada minitarea dormida tiene una regla de cierre obligatoria. Parte de una
+instancia PostgreSQL 18.4 efímera y nueva con `000001..000006` instaladas;
+registra como línea base el catálogo, las tres audiencias y todos los bytes de
+`checkpoint_gobierno`; abre un `BEGIN` exclusivo de ensayo; carga mediante
+`\ir` solo la clausura de componentes requerida hasta esa etapa; ejecuta sus
+aserciones focales; y termina siempre con `ROLLBACK`. El camino nominal exige
+el `ROLLBACK` explícito y el camino de error fuerza el rollback al cerrar la
+sesión; un cierre por desconexión no convierte el ensayo en aprobado. Después,
+desde una sesión de control independiente, acredita cero objetos F0, audiencia
+exactamente igual a sus tres valores iniciales, `checkpoint_gobierno`
+idéntico byte a byte y ausencia de roles, sesiones u objetos temporales creados
+por el ensayo. Cualquier residuo impide cerrar la minitarea.
+
+El runner deshabilita el autocommit antes del ensayo. Ningún componente puede
+contener control transaccional propio: una validación consciente de SQL
+rechaza sentencias de nivel superior `BEGIN`, `START TRANSACTION`, `COMMIT`,
+`END` transaccional, `ROLLBACK` y puntos de salvaguarda, sin confundir los
+bloques internos de una función PL/pgSQL. Solo el envoltorio de ensayo y, en el
+paquete completo, los envoltorios instalables son dueños de la transacción.
 
 En `up` y `down`, tras abrir la transacción y fijar su configuración local, se
 toma la barrera común nueva
