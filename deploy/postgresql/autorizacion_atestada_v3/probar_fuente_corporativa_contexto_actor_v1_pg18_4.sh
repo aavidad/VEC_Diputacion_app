@@ -11,8 +11,11 @@ readonly ruta_helper_sql='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly ruta_helper_h0b='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
+readonly destino_m080_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql'
+readonly destino_t080_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql'
+readonly destino_wrapper_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0b.sql'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
-readonly sha256_helper_h0b='c6f633f3ce121502f547802f2037bc38d723d01004de74d7bde618297ed1901c'
+readonly sha256_helper_h0b='c5baff1e9d8febfa489a5cfd5aaf2004bdbc2f12b1b12881442902be8bdf1319'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
@@ -21,11 +24,13 @@ temporales='' raiz_base='' clave_postgres='' propietario_contenedor=''
 intencion_contenedor='' cid_contenedor=''
 etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
+r0_posible='' finalizando_h0b='' wrapper_activo=''
 fallar() { printf '[F0 H0] ERROR: %s\n' "$1" >&2; exit 1; }
 paso() { printf '[F0 H0] %s\n' "$1"; }
 limpiar() {
     local estado=$?
     trap - EXIT INT TERM
+    if [[ "${r0_posible}" == '1' && -z "${finalizando_h0b}" ]]; then finalizar_h0b_f0 "${estado}" || estado=$?; fi
     if [[ "${intencion_contenedor}" == '1' ]] && ! retirar_contenedor_propio_f0; then
         printf '[F0 H0] ERROR: no se retiró el contenedor propio\n' >&2
         ((estado == 0)) && estado=1
@@ -37,8 +42,10 @@ limpiar() {
     exit "${estado}"
 }
 limpiar_estricto_f0() {
-    retirar_contenedor_propio_f0 || return 65
-    retirar_directorio_temporal_f0 || return 65
+    local estado=0
+    retirar_contenedor_propio_f0 || estado=65
+    retirar_directorio_temporal_f0 || estado=65
+    return "${estado}"
 }
 metadatos_ruta_f0() { stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "$1"; }
 capturar_salida_f0() {
@@ -307,19 +314,15 @@ ejecutar_etapa_dormida_f0() {
         printf 'ROLLBACK;\n'
     } >"${envoltorio}" || return 65
     destino='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0.sql'
-    etapa_necesita_r0_f0 "${etapa}" && { crear_r0_sintetico_f0 || return 65; }
+    wrapper_activo="${destino}"
     docker cp "${envoltorio}" "${contenedor}:${destino}" || return 65
     comparar_huellas_f0 "${envoltorio}" "${destino}" || return 65
     usuario='vec_f0_h0_migrador'
     etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
-    if docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
-        --username "${usuario}" --dbname postgres --file "${destino}"; then
-        estado=0
-    else
-        estado=$?
-    fi
+    docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
+        --username "${usuario}" --dbname postgres --file "${destino}" || estado=$?
     docker exec "${contenedor}" rm -- "${destino}" || return 65
-    etapa_necesita_r0_f0 "${etapa}" && { retirar_r0_sintetico_f0 || return 65; }
+    wrapper_activo=''
     return "${estado}"
 }
 
@@ -328,7 +331,78 @@ copiar_componente_sintetico_f0() {
     validar_componentes_sql_f0 "${origen}" "${temporales}" || return 65
     docker cp "${origen}" "${contenedor}:${destino}" || return 65
     comparar_huellas_f0 "${origen}" "${destino}" || return 65
-    return 0
+}
+
+preparar_integracion_h0b_f0() {
+    local modo="$1" directorio="${temporales}/integracion-h0b"
+    local migracion="${directorio}/integracion-h0b-m080.sql" prueba="${directorio}/integracion-h0b-t080.sql" wrapper="${directorio}/integracion-h0b-wrapper.sql"
+    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_t080_h0b%/*}" && materializar_integracion_c2_virtual_h0b_f0 "${directorio}" "${modo}" || return 65
+    copiar_componente_sintetico_f0 "${migracion}" "${destino_m080_h0b}" || return 65
+    [[ "${modo}" == 'sin-r0' ]] || copiar_componente_sintetico_f0 "${prueba}" "${destino_t080_h0b}" || return 65
+    wrapper_activo="${destino_wrapper_h0b}"
+    docker cp "${wrapper}" "${contenedor}:${wrapper_activo}" || return 65
+    comparar_huellas_f0 "${wrapper}" "${wrapper_activo}"
+}
+
+ejecutar_wrapper_h0b_f0() {
+    local modo="$1" usuario='postgres' estado=0 salida="${temporales}/integracion-h0b.out" error="${temporales}/integracion-h0b.err"
+    [[ "${modo}" != 'sin-r0' ]] || usuario='vec_f0_h0_migrador'
+    docker exec "${contenedor}" psql -XAtq --set ON_ERROR_STOP=1 \
+        --username "${usuario}" --dbname postgres --file "${wrapper_activo}" \
+        >"${salida}" 2>"${error}" || estado=$?
+    validar_resultado_wrapper_c2_virtual_h0b_f0 "${modo}" "${estado}" "${salida}" "${error}"
+}
+
+intentar_finalizacion_h0b_f0() {
+    local -n estado_acumulado="$1"; local mensaje="$2"; shift 2
+    if ! ("$@"); then
+        printf '[F0 H0] ERROR: %s\n' "${mensaje}" >&2
+        # shellcheck disable=SC2034
+        estado_acumulado=65
+    fi
+}
+
+finalizar_h0b_f0() {
+    local causal="$1" estado_finalizacion=0 accion
+    finalizando_h0b='1'
+    [[ "${r0_posible}" != '1' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró R0' retirar_r0_sintetico_f0
+    [[ -z "${wrapper_activo}" ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró el wrapper' docker exec "${contenedor}" rm -f -- "${wrapper_activo}"
+    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiraron M080/T080' docker exec "${contenedor}" rm -f -- "${destino_m080_h0b}" "${destino_t080_h0b}"
+    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró el directorio H0b' docker exec "${contenedor}" rmdir -- "${destino_t080_h0b%/*}" "${destino_t080_h0b%/*/*}"
+    intentar_finalizacion_h0b_f0 estado_finalizacion 'R0 quedó presente' acreditar_r0_ausente_f0
+    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'la raíz H0b no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" /repo_h0b
+    intentar_finalizacion_h0b_f0 estado_finalizacion 'la raíz base no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql_base}" /repo
+    for accion in audiencia checkpoint catalogo roles objetos preparadas temporales sesiones; do
+        intentar_finalizacion_h0b_f0 estado_finalizacion "no se acreditó ${accion}" acreditar_salida_base_h0b_f0 "${accion}" "${audiencia_base}" "${checkpoint_base}" "${catalogo_base}" "${roles_base}"
+    done
+    r0_posible=''; wrapper_activo=''; finalizando_h0b=''
+    ((estado_finalizacion == 0)) || return 65
+    return "${causal}"
+}
+
+probar_h0b_funcional_f0() {
+    local estado=0
+    mkdir --mode=0700 "${temporales}/autoprueba-h0b" "${temporales}/integracion-h0b" && probar_plantillas_c2_virtual_h0b_f0 "${temporales}/autoprueba-h0b" || return 65
+    paso 'autoprueba pura H0b acreditada'
+    preparar_integracion_h0b_f0 sin-r0 || estado=$?
+    ((estado != 0)) || ejecutar_wrapper_h0b_f0 sin-r0 || estado=$?
+    ((estado != 0)) || paso 'sin R0: SQLSTATE 42501 exacto acreditado'
+    finalizar_h0b_f0 "${estado}" || return $?
+    paso 'finalizador sin R0: rollback y línea base exacta acreditados'
+    r0_posible='1'
+    crear_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || paso 'R0 canónico acreditado'
+    ((estado != 0)) || preparar_integracion_h0b_f0 nominal || estado=$?
+    ((estado != 0)) || ejecutar_wrapper_h0b_f0 nominal || estado=$?
+    ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || paso 'integración virtual C2 nominal acreditada'
+    ((estado != 0)) || preparar_integracion_h0b_f0 error || estado=$?
+    ((estado != 0)) || ejecutar_wrapper_h0b_f0 error || estado=$?
+    ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || paso 'error posterior: SQLSTATE 22012 exacto acreditado'
+    finalizar_h0b_f0 "${estado}" || return $?
+    paso 'finalizador R0: ausencia y ambas raíces/base exactas acreditadas'
 }
 
 probar_etapa_dormida_sintetica_f0() {
@@ -535,10 +609,16 @@ if [[ "${etapa}" == 'H0' ]]; then
 fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
+[[ "${etapa}" != 'H0' ]] || probar_h0b_funcional_f0 || fallar 'falló el flujo funcional R0/H0b'
 probar_sqlstate_real_f0
 estado_etapa=0
 if [[ "${etapa}" != 'H0' ]]; then
-    if ejecutar_etapa_dormida_f0; then :; else estado_etapa=$?; fi
+    if etapa_necesita_r0_f0 "${etapa}"; then
+        r0_posible='1'
+        crear_r0_sintetico_f0 || estado_etapa=$?
+        ((estado_etapa != 0)) || ejecutar_etapa_dormida_f0 || estado_etapa=$?
+        finalizar_h0b_f0 "${estado_etapa}" || estado_etapa=$?
+    elif ejecutar_etapa_dormida_f0; then :; else estado_etapa=$?; fi
 fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
