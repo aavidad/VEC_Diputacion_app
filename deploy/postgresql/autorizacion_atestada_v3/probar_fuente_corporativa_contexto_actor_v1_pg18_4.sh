@@ -44,7 +44,7 @@ readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
-readonly sha256_adaptador_m38='884987654278eed4fa2abc38aef6f69ae431f278f931c36ff5fa664f91bd40c5'
+readonly sha256_adaptador_m38='d9b61a183e5a32c321a3eeb48483ce40c83551bc7a700354ccc88e8206d9ee1f'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
@@ -58,16 +58,16 @@ traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' secci
 fallar() { printf '[F0 H0] ERROR: %s\n' "$1" >&2; exit 1; }
 paso() { printf '[F0 H0] %s\n' "$1"; }
 gestionar_senal_m38_f0() {
-    if [[ -n "${identidad_activa_m38:-}" && -n "${seccion_critica_m38:-}" ]]; then
-        [[ -n "${senal_pendiente_m38:-}" ]] || senal_pendiente_m38="$1"
-        ((generacion_senal_m38 += 1))
-        return 0
+    if [[ -z "${identidad_activa_m38:-}" || ( -z "${seccion_critica_m38:-}" && -z "${senal_pendiente_m38:-}" ) ]]; then
+        exit "$1"
     fi
-    exit "$1"
+    [[ -n "${senal_pendiente_m38:-}" ]] || senal_pendiente_m38="$1"
+    generacion_senal_m38=$((generacion_senal_m38 + 1))
 }
 limpiar() {
     local estado=$?
     trap - EXIT INT TERM
+    senal_pendiente_m38=''
     if [[ "${r0_posible}" == '1' && -z "${finalizando_h0b}" ]]; then finalizar_h0b_f0 "${estado}" || estado=$?; fi
     if [[ "${modo_m38}" == hijo ]]; then exit "${estado}"; fi
     if declare -F retirar_recursos_m38_f0 >/dev/null && ! retirar_recursos_m38_f0; then estado=65; fi
