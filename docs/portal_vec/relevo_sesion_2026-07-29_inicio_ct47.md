@@ -40,6 +40,12 @@ R0/H0b sigue dormido y pendiente del commit funcional 2. La
 [evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
 no cierra H0b ni cambia las métricas.
 
+Tres análisis de capacidad de solo lectura concluyeron que el máximo histórico
+de 550 líneas fuerza minificación o rompe fronteras al activar los checkpoints
+3 y 4. La [enmienda de límite funcional](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
+fija objetivo 640 y máximo 650, sin nuevo auxiliar, pero requiere doble `GO`
+documental antes de reanudar código. H0b y las métricas siguen pendientes.
+
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
 `P0=P1=P2=0`. D1 fija el perfil de fuente, evento atómico estable entre

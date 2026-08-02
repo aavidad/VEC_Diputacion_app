@@ -5,6 +5,10 @@ Fecha: 2 de agosto de 2026.
 Estado: **estructura aislada integrada en `ad8b170`; flujo funcional
 R0/H0b pendiente del commit 2**.
 
+La [enmienda posterior de límite funcional](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
+prevalece para los checkpoints 3 y 4 y requiere doble `GO` documental antes
+de reanudar código.
+
 ## Motivo
 
 El candidato H0b `99491d3` demostró que los dos subensayos R0 son viables,
@@ -14,9 +18,10 @@ frontera D2c. Restaurar literalmente H0a sobre el mismo árbol tampoco es
 correcto: el snapshot H0b ya contiene M010...M070 y la autoprueba usa y retira
 deliberadamente M010/T010.
 
-No se relajan límites ni se minifica código de seguridad. Esta enmienda
-sustituye únicamente la composición probatoria de H0b; no cambia C2, R0
-productivo, una métrica funcional ni el `NO-GO` de producción.
+No se relajan fronteras ni controles y no se minifica código de seguridad. El
+único límite local se cambia expresamente en la enmienda posterior. Esta
+enmienda sustituye únicamente la composición probatoria de H0b; no cambia C2,
+R0 productivo, una métrica funcional ni el `NO-GO` de producción.
 
 ## Cierre estructural integrado
 
@@ -44,10 +49,11 @@ deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
 ```
 
 El tercer fichero es un auxiliar privado de prueba, no una migración, un
-fixture productivo ni una fachada. Debe quedar preferiblemente por debajo de
-400 líneas y siempre por debajo de 800. El runner conserva el máximo de 550;
-el auxiliar SQL y el capturador permanecen por debajo de 800 y el auxiliar
-operativo D2d, por debajo de 200.
+fixture productivo ni una fachada. Su objetivo pasa a 460 líneas o menos y su
+límite duro permanece por debajo de 800. El runner tiene umbral local de
+revisión de 640 y límite duro de 650 para el cierre funcional completo. El auxiliar SQL y el
+capturador permanecen por debajo de 800 y el auxiliar operativo D2d, por
+debajo de 200. No se minifica ni se elimina cobertura para alcanzar límites.
 
 ## Fronteras exactas
 

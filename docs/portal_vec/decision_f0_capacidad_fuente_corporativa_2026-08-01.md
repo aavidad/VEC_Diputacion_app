@@ -521,17 +521,17 @@ previos, etiqueta, identificador y `cidfile` cruzados, y liberación solo tras
 acreditar ausencia. D2d no cambia el protocolo F0 ni añade una capacidad
 productiva.
 
-El runner H0 debe quedar como máximo en 550 líneas para reservar a I0 al menos
-249 líneas sin superar el límite estricto de 799. El auxiliar operativo debe
-quedar por debajo de 200 líneas; el helper SQL, el auxiliar privado H0b y el
-capturador, por debajo de 800. Prima la legibilidad sobre la compactación
-artificial. H0 prueba los cuatro shells con ShellCheck y analiza la copia acreditada
-del capturador con `go vet`, la compila con `go build -race` y ejecuta ese
-binario privado con `--autoprueba`; prueba además que ejecutar directamente
-cualquiera de los tres auxiliares falla cerrado. I0 conserva en el runner el
-bootstrap, P0, los reintentos, Q1–Q3, el oráculo V0, las tres pasadas y el
-cierre operativo; conserva además byte a byte el auxiliar privado R0/H0b y su
-SHA literal. Por eso no puede gastar su reserva durante H0.
+La [enmienda de límite H0b](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
+fija para los checkpoints 3 y 4 un umbral local de revisión de 640 y tope 650 para el runner,
+sin sustituir el objetivo general 500 ni el tope global 800 de DEC-051; el auxiliar H0b tiene
+objetivo 460 y tope inferior a 800. No autoriza minificación, retirada de pruebas ni cambio de
+fronteras; D2c, D2d y el capturador quedan byte a byte inmutables. H0 prueba los cuatro shells
+con ShellCheck, analiza con `go vet` la copia acreditada del capturador, la compila con
+`go build -race`, ejecuta ese binario privado con `--autoprueba` y prueba que invocar cualquier
+auxiliar falla cerrado. Los checkpoints 3 y 4 completos se presupuestan dentro de 650; después
+quedan al menos 150 líneas hasta el tope global 800 para que I0 integre en el runner bootstrap,
+P0, reintentos, Q1–Q3, oráculo V0, tres pasadas y cierre operativo, y conserve byte a byte el
+auxiliar privado R0/H0b y su SHA literal. Cualquier necesidad posterior exige nueva decisión.
 
 La [enmienda H0b](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md) separa
 identidades, fixture y oráculos R0 en un tercer auxiliar shell, sin alterar

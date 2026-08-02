@@ -5,6 +5,10 @@ Fecha: 2 de agosto de 2026.
 Estado: **estructura aislada integrada en `ad8b170`; comportamiento funcional
 pendiente del commit 2**.
 
+La [enmienda de límite del runner funcional](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
+prevalece para los checkpoints pendientes. Su estado inicial exige doble
+`GO` documental antes de volver a editar código.
+
 ## Motivo
 
 C2 debe instalarse antes de R0 y denegar en ejecución mientras los grupos y
@@ -18,19 +22,18 @@ productivos y no cambia una métrica funcional.
 ## Write-set
 
 La [enmienda del auxiliar privado H0b](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md)
-prevalece tras el doble `NO-GO` del primer candidato. El write-set corregido
-es:
+prevalece tras el doble `NO-GO` del primer candidato. Para los checkpoints 3
+y 4, la enmienda de límite reduce el write-set a:
 
 ```text
 deploy/postgresql/autorizacion_atestada_v3/
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
-  arnes_fuente_corporativa_contexto_actor_v1.sh
   arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh
 ```
 
-Los cambios de huella de los auxiliares se actualizan en el runner dentro del
-mismo commit. No se modifica otro componente, migración o prueba SQL.
+El cambio de huella del auxiliar H0b se actualiza en el runner dentro del mismo
+commit. No se modifica otro componente, migración o prueba SQL.
 
 ## Estado de implementación
 
@@ -97,8 +100,11 @@ ajustes por rol, objetos, sesiones y temporales vuelven a la línea base exacta.
 ## Cierre
 
 H0b exige ShellCheck, autopruebas del analizador, snapshot y limpieza exactos,
-límites, Gitleaks y revisión independiente. El runner conserva como máximo
-550 líneas.
+límites, Gitleaks y revisión independiente. El runner tiene umbral local de
+revisión de 640 líneas y límite duro de 650; no sustituye el objetivo general
+de 500 de DEC-051. El auxiliar H0b tiene objetivo de 460 y límite duro inferior
+a 800. Estos límites incluyen el *seam* y la matriz del checkpoint 4, sin
+minificación ni retirada de pruebas.
 
 Antes de cerrar H0b se ejecutan dos integraciones virtuales de C2: una nominal
 y otra con error posterior a crear R0. Ambas prueban instalación previa sin

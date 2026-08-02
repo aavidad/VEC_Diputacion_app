@@ -59,6 +59,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `ca46ba9` cerró el hallazgo con doble `GO`, H0 ×3, A1, C1 y cero residuos.
   El *squash* `ad8b170` integra solo la estructura; el contador F0 sigue en
   `10/23`.
+- Un productor y dos revisores hicieron análisis de capacidad de solo lectura:
+  el runner de 550 líneas no admite los checkpoints funcionales 3 y 4 sin
+  minificar o quebrar fronteras. La
+  [enmienda de límite funcional](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
+  fija objetivo 640 y máximo 650, y exige doble `GO` documental antes de código.
 - El contrato final C2/C3/H0b/R0 obtuvo doble `GO` documental con
   `P0=P1=P2=0`. La [evidencia](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md)
   desbloquea H0b, pero no acredita su implementación.
