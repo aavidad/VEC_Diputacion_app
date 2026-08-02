@@ -250,6 +250,26 @@ END {
 ' "${ruta_error}"
 }
 
+es_sqlstate_exacto_f0() {
+    local estado_salida="${1:-}" ruta_error="${2:-}" esperado="${3:-}"
+    local bytes ultimo_byte
+    [[ "${estado_salida}" == '3' && "${esperado}" =~ ^[0-9A-Z]{5}$ &&
+       -f "${ruta_error}" && ! -L "${ruta_error}" ]] || return 1
+    bytes="$(wc -c <"${ruta_error}")" || return 1
+    ultimo_byte="$(tail -c 1 -- "${ruta_error}")" || return 1
+    [[ "${bytes}" =~ ^[0-9]+$ ]] && ((bytes > 0 && bytes <= 4096)) &&
+        [[ -z "${ultimo_byte}" ]] || return 1
+    awk -v esperado="${esperado}" '
+BEGIN { cantidad = 0; valido = 1 }
+{
+    if ($0 ~ "^ERROR:[[:space:]]+" esperado "$" ||
+        $0 ~ "^psql:[^[:cntrl:]]+:[0-9]+:[[:space:]]+ERROR:[[:space:]]+" esperado "$") cantidad++
+    else valido = 0
+}
+END { exit !(valido && cantidad == 1) }
+' "${ruta_error}"
+}
+
 ruta_componente_f0() {
     case "$1" in
         M010) printf 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql' ;; T010) printf 'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql' ;;
@@ -319,8 +339,11 @@ RUTAS
 inventario_etapa_f0() {
     local claves clave
     inventario_base_f0 || return 65
-    [[ "$1" == 'H0' ]] && return 0
-    claves="$(clausura_etapa_f0 "$1")" || return 64
+    if [[ "$1" == 'H0' ]]; then
+        claves='M010 M020 M030 M040 M050 M060 M070'
+    else
+        claves="$(clausura_etapa_f0 "$1")" || return 64
+    fi
     for clave in ${claves}; do
         ruta_componente_f0 "${clave}" || return 64
         printf '\n' || return 65
@@ -346,8 +369,11 @@ capturar_inventario_f0() {
 
 validar_componentes_snapshot_f0() {
     local snapshot="$1" claves clave ruta
-    [[ "${etapa}" == 'H0' ]] && return 0
-    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+    if [[ "${etapa}" == 'H0' ]]; then
+        claves='M010 M020 M030 M040 M050 M060 M070'
+    else
+        claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+    fi
     for clave in ${claves}; do
         ruta="$(ruta_componente_f0 "${clave}")" || return 64
         validar_componentes_sql_f0 "${snapshot}/${ruta}" "${temporales}" ||
@@ -355,8 +381,39 @@ validar_componentes_snapshot_f0() {
     done
 }
 
-etapa_necesita_r0_f0() {
-    [[ "$1" =~ ^(C3|R1|R2a|R2b|T1|T2)$ ]]
+# shellcheck disable=SC2154
+clausura_migraciones_etapa_f0() {
+    local claves clave
+    claves="$(clausura_etapa_f0 "$1")" || return 64
+    for clave in ${claves}; do [[ "${clave}" == M* ]] && printf '%s ' "${clave}"; done
+    return 0
+}
+
+derivar_manifiesto_base_h0_f0() {
+    local origen="${1:-}" destino="${2:-}" temporal ruta huella adicional
+    local retiradas=0
+    [[ -n "${destino}" && ! -e "${destino}" && ! -L "${destino}" ]] || return 65
+    validar_manifiesto_snapshot_f0 "${origen}" || return 65
+    temporal="$(mktemp "${destino}.XXXXXX")" || return 65
+    while IFS=$'\t' read -r ruta huella adicional; do
+        case "${ruta}" in
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/020_canon_manifiesto.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/030_canon_capacidad_mac.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/040_canon_consumo.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/050_catalogo_fuente_checkpoint.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/060_atestacion_consumo.sql|\
+            deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/070_acreditar_material_fuente.sql)
+                ((retiradas += 1)) ;;
+            *) printf '%s\t%s\n' "${ruta}" "${huella}" >>"${temporal}" || {
+                rm -f -- "${temporal}"; return 65;
+            } ;;
+        esac
+    done <"${origen}"
+    if ((retiradas != 7)) || ! validar_manifiesto_snapshot_f0 "${temporal}"; then
+        rm -f -- "${temporal}"; return 65
+    fi
+    mv -- "${temporal}" "${destino}" || { rm -f -- "${temporal}"; return 65; }
 }
 
 inventario_i0_f0() {
