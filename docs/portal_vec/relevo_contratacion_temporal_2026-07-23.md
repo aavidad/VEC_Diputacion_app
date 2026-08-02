@@ -13,12 +13,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte remoto completamente verde anterior al envío actual:
-  `4c6c7b6`; CI `30736150392`.
+- Último corte publicado completamente verde: `a1d2535`; CI
+  `30739622034`, cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO
-  independiente. El corte conjunto necesita una nueva CI completa.
+  independiente. La CI conjunta terminó completamente verde.
 - La enmienda `e55930c` divide C4b en tres minitareas secuenciales sobre los
   mismos dos ficheros. El siguiente corte exacto es C4b-1: régimen shell,
   restauración y señales diferidas. C4b–C4d, H0b, C2 y F0 siguen abiertos;

@@ -15,9 +15,9 @@ CI y reproducidas localmente, quedan corregidas sin tocar producción en
 `e55930c` divide obligatoriamente C4b en tres minitareas secuenciales:
 régimen shell/señales, hijo/grupo y Docker/epílogo. El siguiente corte exacto
 es C4b-1. Las métricas permanecen en F0 `10/23`, O4-05 `3/5`, Contratación
-temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`. El último
-corte remoto completamente verde anterior a este envío es `4c6c7b6`, CI
-`30736150392`; el corte actual requiere una nueva CI completa.
+temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`. El corte
+publicado `a1d2535` superó completamente las cinco puertas de la CI
+`30739622034`.
 
 ## Actualización vigente de dirección — 2 de agosto de 2026
 
