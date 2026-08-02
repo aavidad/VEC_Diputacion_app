@@ -31,29 +31,74 @@ estado_directorio_nominal_h0b=nunca_creado estado_directorio_error_h0b=nunca_cre
 estado_pruebas_t_h0b=nunca_creado estado_componentes_t_h0b=nunca_creado
 identidad_activa_m38='' ruta_caso_m38='' forma_caso_m38=''
 pid_hijo_m38='' pgid_hijo_m38='' hijo_esperado_m38=''
+regimen_shell_m38='' monitor_previo_m38='' shellopts_exportado_m38=''
+seccion_critica_m38='' senal_pendiente_m38='' generacion_senal_m38=0
 
+iniciar_regimen_shell_m38_f0() {
+    [[ -z "${regimen_shell_m38}" && -z "$(jobs -p)" ]] || return 65
+    monitor_previo_m38=''; [[ "$-" != *m* ]] || monitor_previo_m38=1
+    shellopts_exportado_m38=''; [[ "${SHELLOPTS@a}" != *x* ]] || shellopts_exportado_m38=1
+    regimen_shell_m38=1
+    set -m
+    export -n SHELLOPTS
+}
+restaurar_regimen_shell_m38_f0() {
+    [[ -n "${regimen_shell_m38}" ]] || return 0
+    [[ -z "$(jobs -p)" ]] || return 65
+    if [[ -n "${monitor_previo_m38}" ]]; then set -m; else set +m; fi
+    if [[ -n "${shellopts_exportado_m38}" ]]; then export SHELLOPTS; else export -n SHELLOPTS; fi
+    regimen_shell_m38=''
+}
+finalizar_seccion_critica_m38_f0() {
+    seccion_critica_m38=''
+    local estado="${senal_pendiente_m38}"
+    senal_pendiente_m38=''
+    [[ -z "${estado}" ]] || return "${estado}"
+}
+esperar_terminal_m38_f0() {
+    local pid="$1" generacion
+    while :; do
+        generacion="${generacion_senal_m38}"
+        wait -f "${pid}" 2>/dev/null || :
+        ((generacion != generacion_senal_m38)) || break
+    done
+}
 esperar_cliente_m38_f0() {
-    local plazo="$1" cliente reloj terminado estado=0; shift
+    local plazo="$1" cliente reloj terminado generacion estado=0 senal; shift
+    [[ -n "${regimen_shell_m38}" && "$-" == *m* && "${SHELLOPTS@a}" != *x* &&
+       -n "${identidad_activa_m38}" && -z "${seccion_critica_m38}" ]] || return 65
+    seccion_critica_m38=1
     "$@" & cliente=$!
     sleep "${plazo}" & reloj=$!
-    if wait -n -f -p terminado "${cliente}" "${reloj}"; then estado=0; else estado=$?; fi
-    if [[ "${terminado}" == "${cliente}" ]]; then
+    while :; do
+        terminado='' generacion="${generacion_senal_m38}"
+        if wait -n -f -p terminado "${cliente}" "${reloj}"; then estado=0; else estado=$?; fi
+        if ((generacion == generacion_senal_m38)) || [[ -n "${terminado:-}" ]]; then break; fi
+    done
+    if [[ "${terminado:-}" == "${cliente}" ]]; then
         kill -TERM -- "-${reloj}" 2>/dev/null || :
-        wait -f "${reloj}" 2>/dev/null || :
-        return "${estado}"
+        esperar_terminal_m38_f0 "${reloj}"
+    elif [[ "${terminado:-}" == "${reloj}" ]]; then
+        kill -TERM -- "-${cliente}" 2>/dev/null || :
+        sleep 2
+        kill -KILL -- "-${cliente}" 2>/dev/null || :
+        esperar_terminal_m38_f0 "${cliente}"
+        estado=65
+    else
+        kill -KILL -- "-${cliente}" "-${reloj}" 2>/dev/null || :
+        esperar_terminal_m38_f0 "${cliente}"
+        esperar_terminal_m38_f0 "${reloj}"
+        estado=65
     fi
-    kill -TERM -- "-${cliente}" 2>/dev/null || :
-    sleep 2
-    kill -KILL -- "-${cliente}" 2>/dev/null || :
-    wait -f "${cliente}" 2>/dev/null || :
-    return 65
+    if finalizar_seccion_critica_m38_f0; then :; else senal=$?; return "${senal}"; fi
+    return "${estado}"
 }
 
 preparar_recursos_m38_f0() {
     local -n identidad_salida="$1" forma_salida="$2" cid_salida="$3"
-    local hallado id intento
-    [[ -z "$(jobs -p)" ]] || return 65
-    set -m; export -n SHELLOPTS
+    local hallado id intento estado
+    [[ -n "${regimen_shell_m38}" && "$-" == *m* && "${SHELLOPTS@a}" != *x* &&
+       -z "$(jobs -p)" ]] || return 65
     identidad_activa_m38="$(openssl rand -hex 32)" || return 65
     [[ "${identidad_activa_m38}" =~ ^[0-9a-f]{64}$ && -d /tmp && ! -L /tmp ]] || return 65
     ruta_caso_m38="/tmp/vec-f0-h0-${identidad_activa_m38}"
@@ -69,18 +114,19 @@ preparar_recursos_m38_f0() {
         --label "es.dipgra.vep.f0.propietario=${propietario_contenedor}" --cidfile "${cid_contenedor}" \
         --env POSTGRES_PASSWORD="${clave_postgres}" --env POSTGRES_INITDB_ARGS=--auth-local=trust \
         --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=768m "${imagen}" \
-        -c max_prepared_transactions=0 >/dev/null || return 65
+        -c max_prepared_transactions=0 >/dev/null || return $?
     chmod 0600 "${cid_contenedor}" || return 65
     hallado="$(descubrir_contenedor_propio_f0)" || return 65
     id="$(acreditar_hallazgo_contenedor_f0 "${hallado}")" || return 65
     acreditar_cidfile_f0 "${id}" || return 65
     for intento in {1..10}; do
-        esperar_cliente_m38_f0 5 docker exec "${id}" pg_isready --quiet \
-            --username postgres --dbname postgres && break
+        if esperar_cliente_m38_f0 5 docker exec "${id}" pg_isready --quiet \
+            --username postgres --dbname postgres; then break; else estado=$?; fi
+        ((estado != 130 && estado != 143)) || return "${estado}"
         sleep 1
     done
     esperar_cliente_m38_f0 5 docker exec "${id}" pg_isready --quiet \
-        --username postgres --dbname postgres || return 65
+        --username postgres --dbname postgres || return $?
     identidad_salida="${identidad_activa_m38}"; forma_salida="${forma_caso_m38}"; cid_salida="${id}"
 }
 
@@ -125,7 +171,7 @@ retirar_recursos_m38_f0() {
     if [[ -n "${hallado}" ]]; then
         id="$(acreditar_hallazgo_contenedor_f0 "${hallado}")" || return 65
         acreditar_cidfile_f0 "${id}" || return 65
-        esperar_cliente_m38_f0 30 docker rm --force --volumes "${id}" >/dev/null || return 65
+        esperar_cliente_m38_f0 30 docker rm --force --volumes "${id}" >/dev/null || return $?
         [[ -z "$(descubrir_contenedor_propio_f0)" ]] || return 65
     fi
     actual="$(stat --printf='%d|%i|%u|%F|%a|%h' -- "${ruta_caso_m38}")" || return 65
