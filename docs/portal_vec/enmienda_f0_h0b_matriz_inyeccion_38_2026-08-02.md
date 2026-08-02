@@ -2,8 +2,8 @@
 
 Fecha: 2 de agosto de 2026.
 
-Estado: **propuesta documental; exige doble `GO` documental independiente
-antes de reanudar el checkpoint 4**.
+Estado: **aprobada por doble `GO` documental independiente**; véase la
+[evidencia de revisión](revisiones/revision_f0_h0b_matriz_inyeccion_38_2026-08-02.md).
 
 ## Motivo medido
 
