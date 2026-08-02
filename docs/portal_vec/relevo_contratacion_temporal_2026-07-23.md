@@ -23,6 +23,13 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   mismos dos ficheros. El siguiente corte exacto es C4b-1: régimen shell,
   restauración y señales diferidas. C4b–C4d, H0b, C2 y F0 siguen abiertos;
   las métricas no cambian.
+- La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
+  mantiene `db240a5`, `075610f` y `1524feb` en `NO-GO`: Bash solo puede
+  enclavar la primera señal entregada y observada al iniciar el manejador, no
+  acreditar que gane el primer `kill`. Una ráfaga anterior al marco admite
+  uno de `{130, 143}`, con una sola cancelación, cero trabajos o efectos
+  nuevos y limpieza convergente. La aceptación exige contrarrevisión
+  independiente.
 - Último árbol estructural anterior a C4a: H0b en `ad8b170`, con doble GO
   final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte publicado
   `11b237a`, cuya CI terminó completamente verde. La
