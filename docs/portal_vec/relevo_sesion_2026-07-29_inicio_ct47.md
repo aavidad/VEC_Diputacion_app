@@ -47,8 +47,9 @@ C2.2-A y C2.2-B están cerradas técnicamente. B queda compuesta en `de6e7df`,
 con revisión independiente en `8c27c72`, P0=P1=P2=0 y PostgreSQL 18.4. B6
 queda publicada en `51a4390`, con CI `30650778125` completamente verde. El
 contrato simplificado C2.3-D0 queda integrado en `5fbf6a7`–`abfdc21`, con
-doble GO independiente y P0=P1=P2=0. El trabajo activo es C2.3-F0, consumidor
-nominal de fuente V3. Las métricas permanecen en
+doble GO independiente y P0=P1=P2=0. El trabajo activo es H0b seguido de C2:
+el arnés debe preparar R0 sintético canónico antes de cerrar el consumidor
+nominal de fuente V3. Las métricas funcionales permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
@@ -396,8 +397,11 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C2 de C2.3-F0, consumidor nominal privado de fuente V3. C1,
-C2.1b, S0.1, S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
+Trabajo activo: H0b y después C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el
+contrato C2.3-D0 están cerrados técnicamente. El desglose F0 es `10/23`;
+H0b no altera ninguna métrica funcional.
+El contrato C2/C3/H0b/R0 obtuvo doble `GO` documental y queda trazado en la
+[revisión final](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md).
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
 sin seguimiento.
 

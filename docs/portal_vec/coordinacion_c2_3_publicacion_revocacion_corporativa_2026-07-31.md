@@ -50,11 +50,12 @@ revalidará inmediatamente antes de escribirlo; una colisión bloquea el nodo.
 ```text
 D0-A decisiones y reservas
   └─ D0-B este contrato
-       ├─ F0 autorizacion_atestada_v3/000007, consumidor nominal de fuente
-       └─ R0 roles técnicos y retirada
-             └─ M5 contexto_actor_v1/000005, prueba local y buzón
-                   └─ M6 /000006, organización +/−  ← F0
-                         └─ M7 /000007, vínculo +/− ← F0
+       └─ F0 autorizacion_atestada_v3/000007 completo hasta C3
+             └─ R0 roles técnicos y retirada
+                   └─ LOGIN y membresía provisionados por Sistemas
+                         └─ M5 contexto_actor_v1/000005, prueba local y buzón
+                               └─ M6 /000006, organización +/−  ← F0
+                                     └─ M7 /000007, vínculo +/− ← F0
 ```
 
 F0 y R0 son minitareas separadas. R0 no consume número de migración. M5, M6 y
@@ -197,23 +198,34 @@ Son `SECURITY DEFINER`, con propietario exacto y
 `search_path=pg_catalog`. Reciben escalares validados, no JSON libre, perfil
 elegido, organización de cabecera, cookie ni dato procedente del cliente web.
 
-R0 crea exactamente tres grupos técnicos `NOLOGIN`: publicador, revocador y
-despachador. Los `LOGIN` y sus credenciales se provisionan fuera del
-repositorio por Sistemas; cada uno usa `INHERIT` y una única membresía
-`WITH ADMIN FALSE, SET FALSE, INHERIT TRUE`. Así hereda exclusivamente el
-`EXECUTE` nominal, no puede cambiar de rol ni delegarlo. Los logins son
-`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION` y
-`NOBYPASSRLS`, sin `CREATE`, `TEMP` ni otras membresías.
+R0 se ejecuta después de F0/C3 y crea exactamente tres grupos técnicos
+`NOLOGIN NOINHERIT`: publicador, revocador y despachador. Son además
+`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION` y `NOBYPASSRLS`,
+sin ajustes, caducidad, contraseña, descripción, etiqueta, membresía superior
+ni uso como otorgante.
+
+Sistemas provisiona fuera del repositorio los `LOGIN`, sus credenciales y sus
+membresías productivas. Cada uno usa `INHERIT`, sin caducidad ni configuración,
+y una única membresía `WITH ADMIN FALSE, SET FALSE, INHERIT TRUE`. Su
+`pg_auth_members.grantor` es literalmente el `pg_database.datdba` de la base
+actual, que debe seguir siendo superusuario. Así hereda solo el `EXECUTE`
+nominal, no cambia de rol ni delega. Los `LOGIN` son mínimos, sin `CREATE`,
+`TEMP`, ajustes por base, ACL predeterminada ni otra membresía directa o
+transitiva. R0 y las fachadas acreditan esos privilegios; C2 reacredita
+atributos, ajustes y topología en cada llamada, y deniega mientras R0 o el
+`LOGIN` falten. F0 nunca crea ni corrige roles.
 
 El publicador ejecuta solo las dos altas; el revocador, solo las dos
 revocaciones; el despachador, solo reclamar y finalizar. Publicador y
 revocador no despachan, y el despachador no publica ni revoca. Ninguno accede
 directamente a tablas, concede membresías, aprueba la fuente o cambia raíces.
 
-R0 posee sus scripts `roles_up/down`, otorgantes exactos, membresías y prueba
-de retirada. Toma el protocolo DDL de este documento. Su `down` deniega ante
-miembros, grants, funciones o consumos dependientes y usa drops explícitos con
-`RESTRICT`. M6 y M7 solo conceden o retiran `EXECUTE` a grupos R0 ya
+R0 posee exclusivamente los grupos, sus scripts `roles_up/down` y la
+acreditación sintética. Sistemas posee los `LOGIN`, credenciales y membresías
+productivas. El `down` de R0 deniega ante miembros, grants, funciones o
+consumos dependientes y usa drops explícitos con `RESTRICT`. La retirada
+completa sigue M7→M6→M5→desaprovisionamiento de `LOGIN` y membresías por
+Sistemas→R0→F0. M6 y M7 solo conceden o retiran `EXECUTE` a grupos R0 ya
 acreditados; nunca crean roles implícitamente.
 
 ## Canon e idempotencia global
@@ -351,9 +363,9 @@ Cada `down` usa el protocolo DDL, inventario exacto, drops explícitos con
 - consumidores, objetos, propietarios, ACL u OID no inventariados;
 - migración posterior o función nominal todavía dependiente.
 
-La retirada sigue M7→M6→M5→R0. F0 no se retira mientras exista una fachada,
-prueba o consumo C2.3. La comodidad operativa nunca justifica borrar
-evidencia.
+La retirada sigue M7→M6→M5→desaprovisionamiento de `LOGIN` y membresías por
+Sistemas→R0→F0. F0 no se retira mientras exista una fachada, prueba o consumo
+C2.3. La comodidad operativa nunca justifica borrar evidencia.
 
 ## Privacidad y observabilidad
 

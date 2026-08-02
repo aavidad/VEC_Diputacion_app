@@ -81,6 +81,54 @@ Ordena los dos `bigint` de menor a mayor, elimina el duplicado si una colisión
 de hash los hace iguales y toma cada `pg_advisory_xact_lock` una sola vez. No
 se permite un orden capacidad→operación dependiente de la llamada.
 
+## Identidad técnica R0 en ejecución
+
+F0, incluidos C2 y C3, se instala antes de R0. Ningún componente F0 crea,
+altera, concede o retira roles. Hasta que R0 cree los tres grupos y Sistemas
+provisione un `LOGIN` canónico, toda llamada C2 falla cerrada; la instalación
+de F0 no falla por esa ausencia.
+
+Esta reacreditación ocurre antes de bloquear el checkpoint, tomar advisory,
+buscar replay, consultar la fuente o escribir historia.
+
+Los tres grupos son, literalmente:
+
+```text
+vec_contexto_actor_v1_publicador_corporativo
+vec_contexto_actor_v1_revocador_corporativo
+vec_contexto_actor_v1_despachador_corporativo
+```
+
+Cada grupo es `NOLOGIN`, `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
+`NOCREATEROLE`, `NOREPLICATION` y `NOBYPASSRLS`, con límite de conexión `-1`,
+sin caducidad, configuración, ajuste por base, membresía superior ni uso como
+otorgante.
+
+C2 reacredita `session_user`, no `current_user`, antes de replay o escritura.
+Debe ser un `LOGIN INHERIT`, sin superusuario, creación de base o rol,
+replicación ni `BYPASSRLS`; con `current_setting('role')='none'`; sin ajustes,
+caducidad, uso como grupo u otorgante.
+
+El `LOGIN` tiene exactamente una fila como miembro. El grupo esperado se
+deriva de la audiencia: las dos publicaciones exigen el publicador y las dos
+revocaciones el revocador. La arista usa `ADMIN FALSE`, `INHERIT TRUE`,
+`SET FALSE` y como otorgante al propietario superusuario de la base actual,
+distinto del `LOGIN` y de los tres grupos. No se admite otra membresía directa
+o transitiva, cruce publicador/revocador ni membresía despachadora.
+
+Catalogalmente, el otorgante debe ser literalmente
+`pg_auth_members.grantor = pg_database.datdba` para `current_database()`, y
+ese OID debe seguir correspondiendo a un rol superusuario. Otro superusuario
+no es equivalente al propietario de la base.
+
+C2 acredita la forma de los tres grupos y la topología del `LOGIN` mediante
+los catálogos; nunca corrige la deriva. Otros `LOGIN` pueden pertenecer al
+mismo grupo mediante sus propias aristas canónicas. Los cambios R0 se
+serializan con la barrera D exclusiva, mientras M6/M7 conservan D compartida.
+El control usa `pg_roles`, `pg_auth_members`, `pg_db_role_setting`,
+`pg_database` y `pg_has_role`; los privilegios de las fachadas pertenecen a
+R0/M5–M7 y no se duplican en C2.
+
 ## Replay histórico
 
 Con los locks ya tomados, C2 busca exhaustivamente las cuatro coordenadas
@@ -96,8 +144,9 @@ Solo existe replay cuando la historia reconstruida coincide exactamente en:
 
 En replay devuelve exclusivamente los valores persistidos y
 `consumo_nuevo=false`. No llama a C1, no lee de nuevo el reloj y no revalida
-vigencias, punteros, catálogo ni revocaciones actuales. Es una consulta de un
-hecho histórico confirmado, no una autorización para crear otro efecto.
+vigencias, punteros, catálogo de fuente ni revocaciones actuales. Sí
+reacredita la identidad técnica R0 en toda llamada. Es una consulta de un hecho
+histórico confirmado, no una autorización para crear otro efecto.
 
 Cualquier coincidencia parcial o reutilización con otra preimagen es una
 colisión cerrada. Las fachadas posteriores deben exigir `consumo_nuevo=true`
@@ -130,12 +179,16 @@ C3 es el único corte autorizado para conceder a
 `EXECUTE` sobre esta firma. No concede tablas, secuencias, tipos ni otras
 funciones V3. Así C2 no permite puentear R0 ni las fachadas M6/M7.
 
-## Criterio de cierre de T080
+## Criterio combinado H0b y T080
 
-T080 debe acreditar, como mínimo:
+El primer subensayo H0b acredita instalación M080 sin R0, denegación `42501`
+y ausencia de efectos. La clausura focal posterior con T080 y el fixture R0
+canónico debe acreditar, como mínimo:
 
 - ABI de once entradas y doce salidas, nombres, tipos y orden exactos;
 - volatilidad, no estrictez, paralelismo, propietario, `proconfig` y ACL;
+- forma de los tres grupos y del `LOGIN`, arista, otorgante y `role=none`;
+- casos ausente, cruzado, adicional, transitivo, despachador y `SET ROLE`;
 - ambos advisory, orden numérico y eliminación de duplicados;
 - primera inserción y replay exacto después de caducar, revocar o rotar;
 - ausencia de llamada C1 y de revalidación actual en replay;
@@ -147,3 +200,8 @@ T080 debe acreditar, como mínimo:
 Las carreras multisesión globales y el reintento con backoff pertenecen a Q1;
 C2 no los simula como éxito local. El corte permanece privado y no cambia las
 métricas funcionales ni el `NO-GO` de producción.
+
+El arnés H0 necesita antes el corte H0b. Primero debe instalar M080 sin R0 y
+acreditar la denegación `42501` sin efectos; después crea el R0 sintético
+canónico y ejecuta la matriz C2 completa. H0b no modifica M080/T080 ni crea
+autoridad productiva.

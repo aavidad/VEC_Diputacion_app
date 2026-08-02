@@ -54,9 +54,10 @@ H0 -> H0a -> A1
 ```
 
 H0a es una corrección del primer escritor H0 descubierta por su primer
-consumidor; no es un nuevo componente funcional. Después de H0a, I0 continúa
-siendo el único escritor posterior autorizado del runner y debe partir de la
-huella H0a integrada.
+consumidor; no es un nuevo componente funcional. La decisión posterior
+[H0b](decision_f0_h0b_r0_sintetico_c2_2026-08-02.md) sustituye la reserva de
+escritura: H0b puede modificar runner y arnés y debe partir de la huella H0a;
+después de H0b, I0 es el único escritor posterior autorizado del runner.
 
 ## Matriz obligatoria
 

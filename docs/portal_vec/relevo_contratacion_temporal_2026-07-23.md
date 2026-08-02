@@ -13,7 +13,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `e441400`; CI `30721617186`.
+- Último corte publicado completamente verde: `d8b4e77`; CI `30723419913`.
 - Última implementación técnica verificada: C1 en `e441400`; dos componentes,
   doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
   CI técnica `30721617186` terminó completamente verde.
@@ -44,9 +44,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   integrado en `806691b` con doble GO, HMAC y comparación constante. A4 queda
   en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
   `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
-  carreras reales y cero residuos. Trabajo activo: C2. Todavía
+  carreras reales y cero residuos. Trabajo activo: H0b y después C2. Todavía
   no existe una migración
   `000007` instalable.
+- El contrato final C2/C3/H0b/R0 obtuvo doble `GO` documental con
+  `P0=P1=P2=0`. La [evidencia](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md)
+  desbloquea H0b, pero no acredita su implementación.
 - C2.2 está dividida por decisión revisada en D0, S0.1, S0.2, A y B.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
@@ -316,12 +319,13 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar C2 de C2.3-F0: consumidor nominal privado que compone
-   A4+B2+C1 en `autorizacion_atestada_v3/000007`, con replay exacto,
-   consumo atómico y rollback.
-2. Implementar C2.3-R0 y después M5–M7: tres grupos segregados, prueba local,
-   buzón operable y las cuatro fachadas automáticas, sin edición humana ni PDP
-   selector.
+1. Implementar H0b en el arnés y después C2 de C2.3-F0: consumidor nominal
+   que reacredita R0 y compone A4+B2+C1 en
+   `autorizacion_atestada_v3/000007`, con replay exacto, consumo atómico y
+   rollback.
+2. Implementar C2.3-R0, provisionar por Sistemas los `LOGIN` y membresías
+   canónicos y después M5–M7: tres grupos segregados, prueba local, buzón
+   operable y cuatro fachadas automáticas, sin edición humana ni PDP selector.
 3. Implementar C2.4: selección y recibo privados en una transacción
    `SERIALIZABLE` y C2.5: fachada y reconciliación del resultado incierto.
 4. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
@@ -690,7 +694,9 @@ El orden vigente del camino crítico es:
 
 ```text
 C2.3-F0: consumidor nominal de fuente V3
-→ C2.3-R0/M5/M6/M7: roles, prueba, despacho y efectos corporativos
+→ C2.3-R0: grupos técnicos
+→ LOGIN y membresía provisionados por Sistemas
+→ C2.3-M5/M6/M7: prueba, despacho y efectos corporativos
 → C2.4: selección y recibo privados
 → C2.5: fachada y reconciliación
 → PDP productivo

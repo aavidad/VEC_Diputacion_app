@@ -62,9 +62,11 @@ Límites obligatorios:
 
 La [corrección H0a](decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md)
 es una corrección excepcional del primer escritor H0, descubierta al ejecutar
-su primer consumidor A1. Después de H0a, I0 es el único escritor posterior del
-runner. Ambos auxiliares y el capturador quedan inmutables; I0 conserva sus
-tres SHA-256 literales y no los modifica.
+su primer consumidor A1. La decisión posterior
+[H0b](decision_f0_h0b_r0_sintetico_c2_2026-08-02.md) sustituye esa reserva:
+puede modificar runner y arnés y actualiza la huella literal del segundo.
+Después de H0b, solo I0 modifica el runner; el auxiliar operativo y el
+capturador siguen inmutables.
 
 ## Fronteras de responsabilidad
 

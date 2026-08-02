@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | C2.3 F0 → R0 → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
-| Desglose técnico F0 | 10 de 22 minitareas cerradas (45 %); C2 está en desarrollo. Es un contador más granular del mismo DAG, no una estimación temporal. |
+| Camino crítico | C2.3 F0/C3 → R0 → `LOGIN` y membresía de Sistemas → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %); H0b está activo y bloquea C2. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `e441400` en `integracion/ct-o4-04e-20260726`; CI `30721617186` completamente verde |
+| Último corte publicado completamente verde | `d8b4e77` en `integracion/ct-o4-04e-20260726`; CI `30723419913` completamente verde |
 | Último commit técnico verificado | `e441400` — C1, doble GO, P0=P1=P2=0 y PostgreSQL 18.4 real; CI completamente verde |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
 | Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2 y C1 están cerrados técnicamente, pero no suman una puerta funcional. |
@@ -216,7 +216,7 @@ Estado actual:
 | --- | --- | --- |
 | Puertas funcionales O2 | `3/7` (43 %) | Recorrido funcional; unidades grandes. |
 | Hitos O4-05 | `3/5` (60 %) | Hitos de integración; no estima el esfuerzo interno. |
-| Minitareas técnicas F0 | `10/22` (45 %) | Desglose H0/H0a/V0/A1–I0; C2 es la siguiente. |
+| Minitareas técnicas F0 | `10/23` (43 %) | H0b corrige el arnés y desbloquea C2. |
 | Tareas aceptadas de Contratación | `24/46` (52 %) | Conteo histórico de cierres, no porcentaje de esfuerzo. |
 | Bolsa productiva estricta | `1/14` (7 %) | Capacidades con E2E productivo completo. |
 
@@ -240,8 +240,8 @@ cinco hitos oficiales. Su trabajo interno acreditado incluye:
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
-El contador técnico F0 contiene exactamente 22 minitareas: H0, H0a, V0, A1,
-A2, A3, A4, B1, B2, C1, C2, C3, R1, R2a, R2b, T1, T2, P0, Q1, Q2, Q3 e I0.
+El contador técnico F0 contiene exactamente 23 minitareas: H0, H0a, H0b, V0,
+A1, A2, A3, A4, B1, B2, C1, C2, C3, R1, R2a, R2b, T1, T2, P0, Q1, Q2, Q3 e I0.
 Las diez primeras cerradas son H0, H0a, V0, A1, A2, A3, A4, B1, B2 y C1.
 Solo dirección incrementa este contador después de integrar una minitarea con
 revisión independiente.

@@ -300,7 +300,7 @@ concede a `vec_contexto_actor_v1_propietario` `USAGE` de esquema y `EXECUTE`
 de esa firma para anidarla en M6/M7. No recibe tablas, secuencias, tipos ni
 otras funciones V3; el inventario rechaza cualquier consumidor adicional.
 
-R0 fijará estos grupos `NOLOGIN`:
+R0, después de F0/C3, creará estos grupos `NOLOGIN NOINHERIT`:
 
 ```text
 vec_contexto_actor_v1_publicador_corporativo
@@ -308,16 +308,16 @@ vec_contexto_actor_v1_revocador_corporativo
 vec_contexto_actor_v1_despachador_corporativo
 ```
 
-La función reacredita `session_user` aunque la invoque anidada la fachada
-propietaria de ContextoActor. Publicación exige solo membresía publicadora;
-revocación, solo revocadora. Membresía cruzada, adicional o despachadora
-deniega. La ausencia de R0 también deniega. Los LOGIN no obtienen `EXECUTE`
-directo y se provisionan fuera de Git.
+La [decisión C2](decision_f0_c2_consumidor_nominal_2026-08-02.md) fija la forma
+completa de los grupos, el `LOGIN` y su arista. C2 se instala sin R0, pero
+reacredita `session_user` en cada llamada y deniega hasta que R0 y Sistemas
+completen esa topología. Publicación exige solo el grupo publicador;
+revocación, solo el revocador. Cruce, membresía adicional o despachadora y
+`SET ROLE` deniegan.
 
-Se revoca de `PUBLIC`, migrador, emisor, consumidor y runtime V3, runtime de
-ContextoActor, los tres grupos R0 y cualquier login técnico. La función exige
-propietario y configuración exactos en cada llamada; `RLS` es solo defensa
-adicional.
+C2 queda privada y C3 concede solo al propietario ContextoActor. Los grupos y
+los `LOGIN` nunca obtienen `EXECUTE` directo sobre F0. Propietario,
+configuración y ACL se reacreditan; `RLS` es únicamente defensa adicional.
 
 ## Transacción, locks y replay
 
@@ -429,6 +429,8 @@ La ruta indicada es el write-set completo de cada nodo.
 | Nodo | Write-set exacto | Dependencia | Criterio focal |
 |---|---|---|---|
 | H0 | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh` y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go` | D2d | PostgreSQL 18.4 por digest, `max_prepared_transactions=0`, `000001..000006`, línea base, snapshot exacto, propiedad y limpieza de recursos, analizador positivo/negativo y clasificación SQLSTATE |
+| H0a | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` | H0 | [Contrato H0a][decision-h0a] |
+| H0b | `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh` | H0a | [Contrato H0b][decision-h0b] |
 | V0 | `internal/vec/adapters/seguridad/confianzaatestacion/capacidad_fuente_corporativa_v1_vector_test.go`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/manifiesto_fuente_corporativa_v1.json`, `internal/vec/adapters/seguridad/confianzaatestacion/testdata/capacidad_fuente_corporativa_v1.json` e `internal/vec/adapters/seguridad/confianzaatestacion/testdata/consumo_fuente_corporativa_v1.json` | D2b | `encoding/json`, igualdad byte a byte y cero código productivo |
 | A1 | `M/010_validadores.sql` y `T/010_validadores.sql` | H0a | UTF-8, identificadores, números, instantes y límites |
 | A2 | `M/020_canon_manifiesto.sql` y `T/020_canon_manifiesto.sql` | A1+V0 | 13 campos, adversariales y vector dorado |
@@ -437,20 +439,23 @@ La ruta indicada es el write-set completo de cada nodo.
 | B1 | `M/050_catalogo_fuente_checkpoint.sql` y `T/050_catalogo_fuente_checkpoint.sql` | A1 | FK, revocación append-only, RLS, checkpoint y audiencias 3→7 |
 | B2 | `M/060_atestacion_consumo.sql` y `T/060_atestacion_consumo.sql` | B1 | dos historias, unicidades, inmutabilidad y minimización |
 | C1 | `M/070_acreditar_material_fuente.sql` y `T/070_acreditar_material_fuente.sql` | A2+A3+B1 | función privada, locks y cruces fuente–clave–configuración–raíz |
-| C2 | `M/080_consumidor_nominal.sql` y `T/080_consumidor_nominal.sql` | C1+A4+B2 | [Contrato exacto][decision-c2] |
-| C3 | `M/090_acl_audiencias_centinela.sql` y `T/090_acl_audiencias_centinela.sql` | C2 | cruces, ACL, R0 y centinela sobre las siete audiencias ya acreditadas |
+| C2 | `M/080_consumidor_nominal.sql` y `T/080_consumidor_nominal.sql` | H0b+C1+A4+B2 | [Contrato exacto][decision-c2] |
+| C3 | `M/090_acl_audiencias_centinela.sql` y `T/090_acl_audiencias_centinela.sql` | C2 | [Contrato C3][decision-c3] |
 | R1 | `M/810_acreditar_retirada.sql` y `T/810_acreditar_retirada.sql` | C3 | inventario, deriva, datos y dependencias |
 | R2a | `M/820_retirar_objetos.sql` y `T/820_retirar_objetos.sql` | R1 | retirada inversa con `RESTRICT` y centinela, todavía con siete audiencias |
 | R2b | `M/830_restaurar_audiencias.sql` y `T/830_restaurar_audiencias.sql` | R2a | audiencias 7→3 y base exacta |
 | T1 | `T/100_estructura_acl.sql` | C3 | estructura y ACL completas |
 | T2 | `T/110_consumo_replay_rollback.sql` | C3 | consumo, replay y rollback completos |
-| P0 | `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.up.sql` y `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.down.sql` | H0+V0+A1+A2+A3+A4+B1+B2+C1+C2+C3+R1+R2a+R2b+T1+T2 | única composición instalable, transacción y txid únicos, orden cerrado y entrada solo por runner |
+| P0 | `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.up.sql` y `deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_fuente_corporativa_contexto_actor_v1.down.sql` | H0+H0a+H0b+V0+A1+A2+A3+A4+B1+B2+C1+C2+C3+R1+R2a+R2b+T1+T2 | única composición instalable, transacción y txid únicos, orden cerrado y entrada solo por runner |
 | Q1 | `T/900_concurrencia_consumo_revocacion.sh` | P0 | carreras, modos reales de FK al crear/retirar, `pg_locks`, contención, cero upgrades por componente, clasificación, reintento completo, backoff y agotamiento |
 | Q2 | `T/910_retirada_dependencias_componentes.sh` | P0 | retirada, dependencias y componentes adversos |
 | Q3 | `T/920_regresion_consumidores_v3.sql` | P0 | regresión de consumidores V3 existentes |
 | I0 | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/fuente_corporativa_contexto_actor_v1.sql`, `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh` y `deploy/postgresql/autorizacion_atestada_v3/README.md` | Q1+Q2+Q3 | composición final, tres pasadas limpias y documentación operativa |
 
+[decision-h0a]: decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md
+[decision-h0b]: decision_f0_h0b_r0_sintetico_c2_2026-08-02.md
 [decision-c2]: decision_f0_c2_consumidor_nominal_2026-08-02.md
+[decision-c3]: decision_f0_c3_acl_audiencias_centinela_2026-08-02.md
 
 El DAG cerrado es:
 
@@ -458,31 +463,27 @@ El DAG cerrado es:
 D2b -> V0, D2c
 D2c -> D2d
 D2d -> H0
-H0 -> H0a
+H0 -> H0a -> H0b
 H0a -> A1
 A1 + V0 -> A2, A3, A4
 A1 -> B1
 B1 -> B2
 A2 + A3 + B1 -> C1
-C1 + A4 + B2 -> C2
+H0b + C1 + A4 + B2 -> C2
 C2 -> C3
 C3 -> R1, T1, T2
 R1 -> R2a
 R2a -> R2b
-H0 + V0 + A1 + A2 + A3 + A4 + B1 + B2 + C1 + C2 + C3 + R1 + R2a + R2b + T1 + T2 -> P0
+H0 + H0a + H0b + V0 + A1 + A2 + A3 + A4 + B1 + B2 + C1 + C2 + C3 + R1 + R2a + R2b + T1 + T2 -> P0
 P0 -> Q1, Q2, Q3
 Q1 + Q2 + Q3 -> I0
 ```
 
-H0 crea el runner base, sus dos auxiliares privados de pruebas y el capturador
-Go del snapshot. La
-[corrección H0a](decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md)
-limita la autoprueba sintética a H0 después de que el primer A1 descubriera que
-eliminaba su clausura real. I0 es el único escritor posterior del runner: lo
-completa secuencialmente después de Q1–Q3 junto con el
-compositor y el README. Ambos auxiliares y el capturador quedan inmutables
-después de H0; I0 no los modifica. Esos nodos no se ejecutan en paralelo ni
-existe otro write-set autorizado sobre los cuatro artefactos.
+H0 crea el runner base, sus auxiliares privados y el capturador del snapshot.
+H0a y H0b son sus dos únicos escritores correctivos posteriores: H0a limita la
+autoprueba sintética y H0b añade los dos subensayos R0 y actualiza la huella
+literal del arnés. Después de H0b, solo I0 modifica el runner tras Q1–Q3; no
+modifica auxiliares ni capturador. No existe otro write-set autorizado.
 
 A1 queda integrado en `169a055` tras corregir un `NO-GO` de cobertura
 catalogal y semántica nula. La
@@ -761,8 +762,9 @@ para probar la futura llamada anidada. Debe cubrir:
 - `up→down→up`, retirada bloqueada por historia y restauración del `CHECK`;
 - `000006.down` con F0 falla y conserva todo; centinela habilitado, alterado o
   ausente falla cerrado; `000007.down` vacío y después `000006.down` funcionan;
-- catálogo acredita un único `pg_depend` normal; borrar un trigger normal y
-  después la función con `RESTRICT` falla y el rollback restaura el trigger;
+- catálogo acredita una única dependencia normal propia del centinela; tras
+  retirar los tres triggers históricos, `DROP FUNCTION ... RESTRICT` falla y
+  el rollback restaura los cuatro triggers;
 - ensayo aislado de cada componente dormido dentro de su envoltorio
   transaccional efímero y ejecución de `up`/`down` exclusivamente mediante el
   runner; para cada componente se prueba ausencia, mutación adversa y orden
