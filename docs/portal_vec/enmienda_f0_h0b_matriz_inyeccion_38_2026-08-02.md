@@ -5,6 +5,12 @@ Fecha: 2 de agosto de 2026.
 Estado: **aprobada por doble `GO` documental independiente**; véase la
 [evidencia de revisión](revisiones/revision_f0_h0b_matriz_inyeccion_38_2026-08-02.md).
 
+Nota de prevalencia: el presupuesto del runner y su protocolo de ejecución por
+descriptores quedan sustituidos por la
+[enmienda M38 de presupuesto y descriptores](enmienda_f0_h0b_matriz_limite_runner_775_2026-08-02.md)
+solo después de que esta obtenga doble `GO` documental. Hasta entonces la
+implementación del checkpoint 4 permanece detenida en `NO-GO`.
+
 ## Motivo medido
 
 El checkpoint 3 deja el runner funcional en 630 líneas y el auxiliar H0b en
