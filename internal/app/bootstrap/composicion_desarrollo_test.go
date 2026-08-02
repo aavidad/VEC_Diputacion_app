@@ -20,6 +20,53 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+func directorioTemporalFueraDeGitPrueba(t *testing.T) string {
+	t.Helper()
+	candidatos := []string{os.TempDir(), "/var/tmp", "/dev/shm", "/tmp"}
+	vistos := make(map[string]struct{}, len(candidatos))
+	motivos := make([]string, 0, len(candidatos))
+
+	for _, candidato := range candidatos {
+		base, err := filepath.Abs(candidato)
+		if err != nil {
+			motivos = append(motivos, candidato+": "+err.Error())
+			continue
+		}
+		base = filepath.Clean(base)
+		if _, repetido := vistos[base]; repetido {
+			continue
+		}
+		vistos[base] = struct{}{}
+		if dentroDeRepositorioGit(base) {
+			motivos = append(motivos, base+": pertenece a un árbol Git")
+			continue
+		}
+
+		directorio, err := os.MkdirTemp(base, "vec-bootstrap-prueba-")
+		if err != nil {
+			motivos = append(motivos, base+": "+err.Error())
+			continue
+		}
+		if dentroDeRepositorioGit(directorio) {
+			if err := os.RemoveAll(directorio); err != nil {
+				t.Fatalf("retirar temporal inadecuado %q: %v", directorio, err)
+			}
+			motivos = append(motivos, directorio+": pertenece a un árbol Git")
+			continue
+		}
+
+		t.Cleanup(func() {
+			if err := os.RemoveAll(directorio); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("retirar temporal de prueba %q: %v", directorio, err)
+			}
+		})
+		return directorio
+	}
+
+	t.Fatalf("no existe un directorio temporal ajeno a Git: %s", strings.Join(motivos, "; "))
+	return ""
+}
+
 func generarMaterialDesarrolloPrueba(t *testing.T) (config.Config, config.DevelopmentMaterialPaths) {
 	t.Helper()
 	raizRepositorio, err := filepath.Abs(filepath.Join("..", "..", ".."))
@@ -30,7 +77,7 @@ func generarMaterialDesarrolloPrueba(t *testing.T) (config.Config, config.Develo
 	if _, err := exec.LookPath("openssl"); err != nil {
 		t.Skip("openssl no disponible")
 	}
-	destino := filepath.Join(t.TempDir(), "credenciales")
+	destino := filepath.Join(directorioTemporalFueraDeGitPrueba(t), "credenciales")
 	orden := exec.Command(generador, destino)
 	if salida, err := orden.CombinedOutput(); err != nil {
 		t.Fatalf("generar material: %v\n%s", err, salida)
@@ -82,7 +129,7 @@ func TestServidorPublicoRechazaTLSYSelectoresRealesDeT21(t *testing.T) {
 }
 
 func TestMaterialDesarrolloDetectaRepositorioDesdeLaPropiaRuta(t *testing.T) {
-	repositorio := t.TempDir()
+	repositorio := directorioTemporalFueraDeGitPrueba(t)
 	if err := os.Mkdir(filepath.Join(repositorio, ".git"), 0o700); err != nil {
 		t.Fatalf("crear marca Git: %v", err)
 	}
@@ -90,7 +137,7 @@ func TestMaterialDesarrolloDetectaRepositorioDesdeLaPropiaRuta(t *testing.T) {
 	if !dentroDeRepositorioGit(ruta) {
 		t.Fatal("la deteccion dependio del directorio de trabajo y acepto una ruta dentro de Git")
 	}
-	if dentroDeRepositorioGit(t.TempDir()) {
+	if dentroDeRepositorioGit(directorioTemporalFueraDeGitPrueba(t)) {
 		t.Fatal("una ruta temporal ajena fue clasificada como repositorio")
 	}
 }
