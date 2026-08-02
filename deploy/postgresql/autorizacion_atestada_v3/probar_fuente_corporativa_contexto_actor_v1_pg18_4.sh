@@ -10,7 +10,7 @@ cd -- "${raiz}" || exit 65
 readonly ruta_helper_sql='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
-readonly sha256_helper_sql='34a5c7b29d4b20eebc9db97d2250a12b5e9f2549f9e6d5732e7db6cabbf42a3e'
+readonly sha256_helper_sql='027135aefe3f2c2d0623ba92c60aa00a9800718bc314f5a7441f6509dd175089'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
@@ -261,22 +261,6 @@ foto_checkpoint() {
 foto_catalogo() {
     docker exec "${contenedor}" pg_dump --schema-only --restrict-key=0000000000000000000000000000000000000000000000000000000000000000 --username postgres --dbname postgres | sha256sum | awk '{print $1}'
 }
-foto_roles() {
-    valor "WITH estado AS (
-      SELECT pg_catalog.concat_ws('|','r',rolname,rolsuper,rolinherit,
-        rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolconnlimit,
-        rolvaliduntil,rolbypassrls,rolconfig::text) AS objeto
-      FROM pg_catalog.pg_roles UNION ALL
-      SELECT pg_catalog.concat_ws('|','m',r.rolname,u.rolname,g.rolname,
-        m.admin_option,m.inherit_option,m.set_option)
-      FROM pg_catalog.pg_auth_members m
-      JOIN pg_catalog.pg_roles r ON r.oid=m.roleid
-      JOIN pg_catalog.pg_roles u ON u.oid=m.member
-      JOIN pg_catalog.pg_roles g ON g.oid=m.grantor)
-    SELECT pg_catalog.encode(public.digest(pg_catalog.convert_to(
-      pg_catalog.string_agg(objeto,E'\\n' ORDER BY objeto),'UTF8'),
-      'sha256'),'hex') FROM estado"
-}
 contar_objetos_f0() {
     valor "SELECT (
       (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class c
@@ -303,15 +287,11 @@ acreditar_limpieza() {
     exigir_salida_f0 0 'H0 dejó objetos temporales' valor "SELECT count(*)::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relpersistence='t' AND n.nspname LIKE 'pg_temp_%'"
     exigir_salida_f0 0 'H0 dejó sesiones cliente activas' valor "SELECT count(*)::text FROM pg_catalog.pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_catalog.pg_backend_pid()"
 }
-crear_r0_sintetico_f0() {
-    sql postgres "CREATE ROLE vec_contexto_actor_v1_publicador_corporativo NOLOGIN; CREATE ROLE vec_contexto_actor_v1_revocador_corporativo NOLOGIN; CREATE ROLE vec_contexto_actor_v1_despachador_corporativo NOLOGIN; CREATE ROLE vec_f0_h0_adicional NOLOGIN; CREATE ROLE vec_f0_h0_publicador LOGIN; CREATE ROLE vec_f0_h0_revocador LOGIN; CREATE ROLE vec_f0_h0_despachador LOGIN; CREATE ROLE vec_f0_h0_cruzado LOGIN; CREATE ROLE vec_f0_h0_extra LOGIN; CREATE ROLE vec_f0_h0_sin_rol LOGIN; GRANT vec_contexto_actor_v1_publicador_corporativo TO vec_f0_h0_publicador,vec_f0_h0_cruzado,vec_f0_h0_extra; GRANT vec_contexto_actor_v1_revocador_corporativo TO vec_f0_h0_revocador,vec_f0_h0_cruzado; GRANT vec_contexto_actor_v1_despachador_corporativo TO vec_f0_h0_despachador; GRANT vec_f0_h0_adicional TO vec_f0_h0_extra" >/dev/null
-}
-retirar_r0_sintetico_f0() {
-    sql postgres "DROP ROLE vec_f0_h0_publicador,vec_f0_h0_revocador,vec_f0_h0_despachador,vec_f0_h0_cruzado,vec_f0_h0_extra,vec_f0_h0_sin_rol; DROP ROLE vec_f0_h0_adicional,vec_contexto_actor_v1_publicador_corporativo,vec_contexto_actor_v1_revocador_corporativo,vec_contexto_actor_v1_despachador_corporativo" >/dev/null
-}
-ejecutar_etapa_dormida_f0() {
-    local claves clave ruta relativa envoltorio destino estado=0 usuario
-    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+ejecutar_subensayo_etapa_f0() {
+    local modo="$1" claves clave ruta relativa envoltorio destino estado=0 usuario ruta_error=''
+    if [[ "${modo}" == 'sin-r0' ]]; then
+        claves="$(clausura_migraciones_etapa_f0 "${etapa}")" || return 64
+    else claves="$(clausura_etapa_f0 "${etapa}")" || return 64; fi
     envoltorio="$(mktemp "${temporales}/ensayo-etapa.XXXXXX.sql")" || return 65
     {
         printf '\\set ON_ERROR_STOP on\n\\set VERBOSITY sqlstate\n'
@@ -329,56 +309,56 @@ ejecutar_etapa_dormida_f0() {
             printf '\\ir %s\n' "${relativa}"
             printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
         done
-        printf 'ROLLBACK;\n'
+        if [[ "${modo}" == 'sin-r0' ]]; then
+            printf '%s\n' "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea);"
+        else printf 'ROLLBACK;\n'; fi
     } >"${envoltorio}" || return 65
     destino='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0.sql'
-    etapa_necesita_r0_f0 "${etapa}" && { crear_r0_sintetico_f0 || return 65; }
     docker cp "${envoltorio}" "${contenedor}:${destino}" || return 65
-    comparar_huellas_f0 "${envoltorio}" "${destino}" || return 65
+    comparar_huellas_f0 "${envoltorio}" "${destino}" || {
+        docker exec "${contenedor}" rm -f -- "${destino}"; return 65;
+    }
     usuario='vec_f0_h0_migrador'
-    etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
-    if docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
-        --username "${usuario}" --dbname postgres --file "${destino}"; then
-        estado=0
-    else
-        estado=$?
-    fi
+    [[ "${modo}" == 'completo' ]] && etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
+    [[ "${modo}" == 'sin-r0' ]] && ruta_error="$(mktemp "${temporales}/sin-r0.XXXXXX.err")"
+    if [[ "${modo}" == 'sin-r0' ]]; then
+        if docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 --username "${usuario}" \
+            --dbname postgres --file "${destino}" >/dev/null 2>"${ruta_error}"; then estado=0; else estado=$?; fi
+    elif docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 --username "${usuario}" \
+        --dbname postgres --file "${destino}"; then estado=0
+    else estado=$?; fi
     docker exec "${contenedor}" rm -- "${destino}" || return 65
-    etapa_necesita_r0_f0 "${etapa}" && { retirar_r0_sintetico_f0 || return 65; }
+    if [[ "${modo}" == 'sin-r0' ]]; then
+        es_sqlstate_exacto_f0 "${estado}" "${ruta_error}" 42501 || {
+            command cat -- "${ruta_error}" >&2; return 65;
+        }
+        return 0
+    fi
     return "${estado}"
 }
-probar_etapa_dormida_sintetica_f0() {
-    local etapa_original="${etapa}" migracion prueba destino_m destino_t estado_error
-    migracion="${temporales}/010_validadores_m.sql"
-    prueba="${temporales}/010_validadores_t.sql"
-    destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
-    destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
-    docker exec "${contenedor}" mkdir --parents --mode=0700 \
-        "${destino_m%/*}" "${destino_t%/*}"
-    printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
-    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
-    docker cp "${migracion}" "${contenedor}:${destino_m}"
-    docker cp "${prueba}" "${contenedor}:${destino_t}"
-    comparar_huellas_f0 "${migracion}" "${destino_m}" ||
-        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
-    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
-        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
-    etapa='A1'
-    ejecutar_etapa_dormida_f0 >/dev/null ||
-        fallar 'el camino nominal de etapa dormida falló'
-    exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
-        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
-    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
-    docker cp "${prueba}" "${contenedor}:${destino_t}"
-    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
-        fallar 'la copia de error sintética no coincide byte a byte'
-    if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
-    ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
-    exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
-        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
-    etapa="${etapa_original}"
-    docker exec "${contenedor}" rm -- "${destino_m}" "${destino_t}"
-    docker exec "${contenedor}" rmdir -- "${destino_m%/*}" "${destino_t%/*}"
+ejecutar_etapa_dormida_f0() {
+    local estado=0 r0_creado=0
+    if etapa_exige_subensayo_sin_r0_f0 "${etapa}"; then
+        acreditar_r0_ausente_f0 || return 65
+        ejecutar_subensayo_etapa_f0 sin-r0 || return 65
+        acreditar_r0_ausente_f0 || return 65
+        acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
+            "${catalogo_base}" "${roles_base}" || return 65
+    fi
+    if etapa_necesita_r0_f0 "${etapa}"; then
+        crear_r0_sintetico_f0 || return 65
+        r0_creado=1
+        acreditar_r0_sintetico_f0 || estado=65
+    fi
+    if ((estado == 0)); then
+        if ejecutar_subensayo_etapa_f0 completo; then :; else estado=$?; fi
+    fi
+    if ((r0_creado == 1)); then
+        acreditar_r0_sintetico_f0 || estado=65
+        retirar_r0_sintetico_f0 || return 65
+        acreditar_r0_ausente_f0 || return 65
+    fi
+    return "${estado}"
 }
 if (($# == 2)) && [[ "$1" == '--etapa' ]]; then
     etapa="$2"
@@ -531,8 +511,10 @@ roles_base="$(foto_roles)" || fallar 'no se pudo capturar la topología de roles
 exigir_salida_f0 '0' 'línea base H0 inválida' contar_objetos_f0
 [[ -n "${checkpoint_base}" && -n "${catalogo_base}" &&
    -n "${roles_base}" ]] || fallar 'línea base H0 inválida'
-paso 'autoprueba nominal y de error del arnés de etapas dormidas'
-if [[ "${etapa}" == 'H0' ]]; then probar_etapa_dormida_sintetica_f0; fi
+if [[ "${etapa}" == 'H0' ]]; then
+    paso 'integraciones virtuales nominal y de error de C2'
+    probar_integracion_virtual_c2_f0
+fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
 probar_sqlstate_real_f0

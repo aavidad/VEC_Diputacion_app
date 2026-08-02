@@ -250,6 +250,26 @@ END {
 ' "${ruta_error}"
 }
 
+es_sqlstate_exacto_f0() {
+    local estado_salida="${1:-}" ruta_error="${2:-}" esperado="${3:-}"
+    local bytes ultimo_byte
+    [[ "${estado_salida}" == '3' && "${esperado}" =~ ^[0-9A-Z]{5}$ &&
+       -f "${ruta_error}" && ! -L "${ruta_error}" ]] || return 1
+    bytes="$(wc -c <"${ruta_error}")" || return 1
+    ultimo_byte="$(tail -c 1 -- "${ruta_error}")" || return 1
+    [[ "${bytes}" =~ ^[0-9]+$ ]] && ((bytes > 0 && bytes <= 4096)) &&
+        [[ -z "${ultimo_byte}" ]] || return 1
+    awk -v esperado="${esperado}" '
+BEGIN { cantidad = 0; valido = 1 }
+{
+    if ($0 ~ "^ERROR:[[:space:]]+" esperado "$" ||
+        $0 ~ "^psql:[^[:cntrl:]]+:[0-9]+:[[:space:]]+ERROR:[[:space:]]+" esperado "$") cantidad++
+    else valido = 0
+}
+END { exit !(valido && cantidad == 1) }
+' "${ruta_error}"
+}
+
 ruta_componente_f0() {
     case "$1" in
         M010) printf 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql' ;; T010) printf 'deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql' ;;
@@ -319,8 +339,11 @@ RUTAS
 inventario_etapa_f0() {
     local claves clave
     inventario_base_f0 || return 65
-    [[ "$1" == 'H0' ]] && return 0
-    claves="$(clausura_etapa_f0 "$1")" || return 64
+    if [[ "$1" == 'H0' ]]; then
+        claves='M010 M020 M030 M040 M050 M060 M070'
+    else
+        claves="$(clausura_etapa_f0 "$1")" || return 64
+    fi
     for clave in ${claves}; do
         ruta_componente_f0 "${clave}" || return 64
         printf '\n' || return 65
@@ -346,8 +369,11 @@ capturar_inventario_f0() {
 
 validar_componentes_snapshot_f0() {
     local snapshot="$1" claves clave ruta
-    [[ "${etapa}" == 'H0' ]] && return 0
-    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+    if [[ "${etapa}" == 'H0' ]]; then
+        claves='M010 M020 M030 M040 M050 M060 M070'
+    else
+        claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+    fi
     for clave in ${claves}; do
         ruta="$(ruta_componente_f0 "${clave}")" || return 64
         validar_componentes_sql_f0 "${snapshot}/${ruta}" "${temporales}" ||
@@ -355,8 +381,249 @@ validar_componentes_snapshot_f0() {
     done
 }
 
+# shellcheck disable=SC2154
+probar_integracion_virtual_c2_f0() {
+    local etapa_original="${etapa}" migracion prueba destino_m destino_t estado_error
+    migracion="${temporales}/080_consumidor_nominal_m.sql"
+    prueba="${temporales}/080_consumidor_nominal_t.sql"
+    destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql'
+    destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql'
+    command cat >"${migracion}" <<'SQL'
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(
+ p_audiencia_consumo_esperada text,p_accion_esperada text,p_tipo_efecto_esperado text,
+ p_operacion_ref_esperada text,p_efecto_ref_esperada text,p_huella_efecto_sha256_esperada text,
+ p_capacidad_canonica bytea,p_manifiesto_fuente_canonico bytea,p_sobre_cose_sign1 bytea,
+ p_evidencia_verificacion bytea,p_raiz_publica_spki bytea)
+RETURNS TABLE (capacidad_ref text,fuente_ref text,fuente_version numeric,
+ evento_fuente_ref text,huella_evento_fuente_sha256 text,huella_manifiesto_fuente_sha256 text,
+ operacion_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,
+ consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql VOLATILE CALLED ON NULL INPUT SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog SET lock_timeout='2s' AS $c2$
+BEGIN
+ IF pg_catalog.to_regrole('vec_contexto_actor_v1_publicador_corporativo') IS NULL
+    OR pg_catalog.to_regrole('vec_contexto_actor_v1_revocador_corporativo') IS NULL
+    OR pg_catalog.to_regrole('vec_contexto_actor_v1_despachador_corporativo') IS NULL
+    OR session_user <> 'vec_f0_h0_publicador'
+    OR pg_catalog.current_setting('role') <> 'none'
+    OR NOT pg_catalog.pg_has_role(session_user,
+       'vec_contexto_actor_v1_publicador_corporativo','USAGE') THEN
+  RAISE EXCEPTION USING ERRCODE='42501';
+ END IF;
+ RETURN;
+END
+$c2$;
+SQL
+    command cat >"${prueba}" <<'SQL'
+CREATE FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b()
+RETURNS bigint LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT count(*) FROM vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea)
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b() FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_f0_h0_publicador;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b() TO vec_f0_h0_publicador;
+RESET ROLE;
+SET LOCAL SESSION AUTHORIZATION vec_f0_h0_publicador;
+SELECT vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b()=0;
+RESET SESSION AUTHORIZATION;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SQL
+    validar_componentes_sql_f0 "${migracion}" "${temporales}" || return 65
+    validar_componentes_sql_f0 "${prueba}" "${temporales}" || return 65
+    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_t%/*}" || return 65
+    docker cp "${migracion}" "${contenedor}:${destino_m}" || return 65
+    docker cp "${prueba}" "${contenedor}:${destino_t}" || return 65
+    comparar_huellas_f0 "${migracion}" "${destino_m}" || return 65
+    comparar_huellas_f0 "${prueba}" "${destino_t}" || return 65
+    etapa='C2'
+    ejecutar_etapa_dormida_f0 ||
+        fallar 'la integración virtual nominal C2 falló'
+    acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
+        "${catalogo_base}" "${roles_base}"
+    command cat >"${prueba}" <<'SQL'
+CREATE FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b()
+RETURNS bigint LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT count(*) FROM vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea)
+$f$;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b() FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_f0_h0_publicador;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b() TO vec_f0_h0_publicador;
+RESET ROLE;
+SET LOCAL SESSION AUTHORIZATION vec_f0_h0_publicador;
+SELECT vec_autorizacion_atestada_v3.invocar_c2_virtual_h0b();
+RESET SESSION AUTHORIZATION;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SELECT 1/0;
+SQL
+    validar_componentes_sql_f0 "${prueba}" "${temporales}" || return 65
+    docker cp "${prueba}" "${contenedor}:${destino_t}" || return 65
+    comparar_huellas_f0 "${prueba}" "${destino_t}" || return 65
+    if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then
+        fallar 'la integración virtual C2 con error fue aceptada'
+    else estado_error=$?; fi
+    ((estado_error == 3)) || fallar 'el error virtual C2 no procedía de psql'
+    acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
+        "${catalogo_base}" "${roles_base}"
+    etapa="${etapa_original}"
+    docker exec "${contenedor}" rm -- "${destino_m}" "${destino_t}" || return 65
+    docker exec "${contenedor}" rmdir -- "${destino_t%/*}" "${destino_t%/*/*}" || return 65
+    acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" || return 65
+}
+
+foto_roles() {
+    valor "WITH estado AS (
+      SELECT pg_catalog.concat_ws('|','r',rolname,rolsuper,rolinherit,
+        rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolconnlimit,
+        rolpassword,rolvaliduntil,rolbypassrls,
+        (SELECT r.rolconfig::text FROM pg_catalog.pg_roles r
+          WHERE r.oid=pg_authid.oid)) AS objeto
+      FROM pg_catalog.pg_authid UNION ALL
+      SELECT pg_catalog.concat_ws('|','m',r.rolname,u.rolname,g.rolname,
+        m.admin_option,m.inherit_option,m.set_option)
+      FROM pg_catalog.pg_auth_members m
+      JOIN pg_catalog.pg_roles r ON r.oid=m.roleid
+      JOIN pg_catalog.pg_roles u ON u.oid=m.member
+      JOIN pg_catalog.pg_roles g ON g.oid=m.grantor UNION ALL
+      SELECT pg_catalog.concat_ws('|','s',coalesce(r.rolname,'0'),
+        coalesce(d.datname,'0'),s.setconfig::text)
+      FROM pg_catalog.pg_db_role_setting s
+      LEFT JOIN pg_catalog.pg_roles r ON r.oid=s.setrole
+      LEFT JOIN pg_catalog.pg_database d ON d.oid=s.setdatabase UNION ALL
+      SELECT pg_catalog.concat_ws('|','d',r.rolname,d.description)
+      FROM pg_catalog.pg_shdescription d JOIN pg_catalog.pg_roles r ON r.oid=d.objoid
+      WHERE d.classoid='pg_catalog.pg_authid'::pg_catalog.regclass UNION ALL
+      SELECT pg_catalog.concat_ws('|','l',r.rolname,l.provider,l.label)
+      FROM pg_catalog.pg_shseclabel l JOIN pg_catalog.pg_roles r ON r.oid=l.objoid
+      WHERE l.classoid='pg_catalog.pg_authid'::pg_catalog.regclass)
+    SELECT pg_catalog.encode(public.digest(pg_catalog.convert_to(
+      pg_catalog.string_agg(objeto,E'\\n' ORDER BY objeto),'UTF8'),
+      'sha256'),'hex') FROM estado"
+}
+
 etapa_necesita_r0_f0() {
-    [[ "$1" =~ ^(C3|R1|R2a|R2b|T1|T2)$ ]]
+    [[ "$1" =~ ^(C2|C3|R1|R2a|R2b|T1|T2)$ ]]
+}
+
+etapa_exige_subensayo_sin_r0_f0() {
+    [[ "$1" =~ ^(C2|C3)$ ]]
+}
+
+clausura_migraciones_etapa_f0() {
+    local claves clave
+    claves="$(clausura_etapa_f0 "$1")" || return 64
+    for clave in ${claves}; do [[ "${clave}" == M* ]] && printf '%s ' "${clave}"; done
+    return 0
+}
+
+nombres_r0_sintetico_f0() {
+    printf '%s\n' \
+        vec_contexto_actor_v1_publicador_corporativo \
+        vec_contexto_actor_v1_revocador_corporativo \
+        vec_contexto_actor_v1_despachador_corporativo \
+        vec_f0_h0_adicional vec_f0_h0_publicador vec_f0_h0_revocador \
+        vec_f0_h0_despachador vec_f0_h0_cruzado vec_f0_h0_extra \
+        vec_f0_h0_sin_rol
+}
+
+acreditar_r0_ausente_f0() {
+    local nombres
+    nombres="$(nombres_r0_sintetico_f0 | awk '{printf "%s%s", separador, "\047" $0 "\047"; separador=","}')" || return 65
+    [[ "$(valor "SELECT count(*)::text FROM pg_catalog.pg_roles WHERE rolname IN (${nombres})")" == '0' ]]
+}
+
+crear_r0_sintetico_f0() {
+    sql postgres "$(command cat <<'SQL'
+BEGIN;
+DO $r0$
+BEGIN
+  IF NOT EXISTS (
+      SELECT 1 FROM pg_catalog.pg_database d
+      JOIN pg_catalog.pg_roles r ON r.oid=d.datdba
+      WHERE d.datname=pg_catalog.current_database()
+        AND r.rolname='postgres' AND r.rolsuper
+  ) THEN RAISE EXCEPTION 'el propietario de la base no es postgres superusuario';
+  END IF;
+END
+$r0$;
+CREATE ROLE vec_contexto_actor_v1_publicador_corporativo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_contexto_actor_v1_revocador_corporativo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_contexto_actor_v1_despachador_corporativo NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_adicional NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_publicador LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_revocador LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_despachador LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_cruzado LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_extra LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+CREATE ROLE vec_f0_h0_sin_rol LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+GRANT vec_contexto_actor_v1_publicador_corporativo TO vec_f0_h0_publicador,vec_f0_h0_cruzado,vec_f0_h0_extra WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+GRANT vec_contexto_actor_v1_revocador_corporativo TO vec_f0_h0_revocador,vec_f0_h0_cruzado WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+GRANT vec_contexto_actor_v1_despachador_corporativo TO vec_f0_h0_despachador WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+GRANT vec_f0_h0_adicional TO vec_f0_h0_extra WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+COMMIT;
+SQL
+)" >/dev/null
+}
+
+acreditar_r0_sintetico_f0() {
+    local obtenido
+    obtenido="$(valor "$(command cat <<'SQL'
+WITH esperados(nombre,login,hereda) AS (VALUES
+ ('vec_contexto_actor_v1_publicador_corporativo',false,false),
+ ('vec_contexto_actor_v1_revocador_corporativo',false,false),
+ ('vec_contexto_actor_v1_despachador_corporativo',false,false),
+ ('vec_f0_h0_adicional',false,false),('vec_f0_h0_publicador',true,true),
+ ('vec_f0_h0_revocador',true,true),('vec_f0_h0_despachador',true,true),
+ ('vec_f0_h0_cruzado',true,true),('vec_f0_h0_extra',true,true),
+ ('vec_f0_h0_sin_rol',true,true)),
+aristas(grupo,miembro) AS (VALUES
+ ('vec_contexto_actor_v1_publicador_corporativo','vec_f0_h0_publicador'),
+ ('vec_contexto_actor_v1_publicador_corporativo','vec_f0_h0_cruzado'),
+ ('vec_contexto_actor_v1_publicador_corporativo','vec_f0_h0_extra'),
+ ('vec_contexto_actor_v1_revocador_corporativo','vec_f0_h0_revocador'),
+ ('vec_contexto_actor_v1_revocador_corporativo','vec_f0_h0_cruzado'),
+ ('vec_contexto_actor_v1_despachador_corporativo','vec_f0_h0_despachador'),
+ ('vec_f0_h0_adicional','vec_f0_h0_extra')),
+roles AS (SELECT r.* FROM pg_catalog.pg_roles r JOIN esperados e ON e.nombre=r.rolname),
+dba AS (SELECT d.datdba FROM pg_catalog.pg_database d WHERE d.datname=pg_catalog.current_database()),
+miembros AS (
+ SELECT gr.rolname grupo,mi.rolname miembro,m.grantor,m.admin_option,m.inherit_option,m.set_option
+ FROM pg_catalog.pg_auth_members m JOIN roles gr ON gr.oid=m.roleid
+ JOIN pg_catalog.pg_roles mi ON mi.oid=m.member
+ UNION ALL
+ SELECT gr.rolname,mi.rolname,m.grantor,m.admin_option,m.inherit_option,m.set_option
+ FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles gr ON gr.oid=m.roleid
+ JOIN roles mi ON mi.oid=m.member WHERE NOT EXISTS (SELECT 1 FROM roles x WHERE x.oid=m.roleid))
+SELECT
+ (SELECT count(*)=10 AND bool_and(r.rolcanlogin=e.login AND r.rolinherit=e.hereda
+    AND NOT r.rolsuper AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+    AND NOT r.rolreplication AND NOT r.rolbypassrls AND r.rolconnlimit=-1
+    AND r.rolvaliduntil IS NULL AND r.rolconfig IS NULL
+    AND (SELECT a.rolpassword IS NULL FROM pg_catalog.pg_authid a WHERE a.oid=r.oid))
+  FROM roles r JOIN esperados e ON e.nombre=r.rolname)
+ AND (SELECT count(*)=7 AND bool_and(a.grupo IS NOT NULL AND m.grantor=d.datdba
+    AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
+  FROM miembros m LEFT JOIN aristas a USING(grupo,miembro) CROSS JOIN dba d)
+ AND (SELECT bool_and(pg_catalog.pg_has_role(a.miembro,a.grupo,'MEMBER')
+    AND pg_catalog.pg_has_role(a.miembro,a.grupo,'USAGE')
+    AND NOT pg_catalog.pg_has_role(a.miembro,a.grupo,'SET')) FROM aristas a)
+ AND (SELECT r.rolsuper FROM dba d JOIN pg_catalog.pg_roles r ON r.oid=d.datdba)
+ AND NOT EXISTS (SELECT 1 FROM dba d JOIN roles r ON r.oid=d.datdba)
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m JOIN roles r ON r.oid=m.grantor)
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_db_role_setting s JOIN roles r ON r.oid=s.setrole)
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_shdescription x JOIN roles r ON r.oid=x.objoid
+                  WHERE x.classoid='pg_catalog.pg_authid'::pg_catalog.regclass)
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_shseclabel x JOIN roles r ON r.oid=x.objoid
+                  WHERE x.classoid='pg_catalog.pg_authid'::pg_catalog.regclass);
+SQL
+)")" || return 65
+    [[ "${obtenido}" == 't' ]] || {
+        printf 'el R0 sintético no coincide con el catálogo canónico\n' >&2
+        return 65
+    }
+}
+
+retirar_r0_sintetico_f0() {
+    sql postgres 'BEGIN; DROP ROLE vec_f0_h0_publicador,vec_f0_h0_revocador,vec_f0_h0_despachador,vec_f0_h0_cruzado,vec_f0_h0_extra,vec_f0_h0_sin_rol; DROP ROLE vec_f0_h0_adicional,vec_contexto_actor_v1_publicador_corporativo,vec_contexto_actor_v1_revocador_corporativo,vec_contexto_actor_v1_despachador_corporativo; COMMIT' >/dev/null
 }
 
 inventario_i0_f0() {
