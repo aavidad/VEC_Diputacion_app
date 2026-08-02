@@ -272,6 +272,38 @@ La implementación se reanuda en cortes pequeños sobre la rama funcional:
 4. **C4d — evidencia completa:** rechazos 64, 39 procesos, H0 tres veces, A1,
    C1, mutante A1, Gitleaks y dos revisiones independientes.
 
+### Descomposición obligatoria de C4b
+
+La inspección posterior a C4a confirma que C4b comparte estado entre runner y
+adaptador y no puede paralelizarse sin carreras de edición ni completarse como
+un único commit revisable. Se divide en tres minitareas secuenciales; ninguna
+se presenta por separado como cierre de C4b:
+
+1. **C4b-1 — régimen shell y señal diferida:** conservar y restaurar
+   `monitor` y el atributo de exportación de `SHELLOPTS`, exigir cero trabajos
+   iniciales, diferir `INT`/`TERM` durante la sección crítica y unificar la
+   espera terminal del cliente y del reloj;
+2. **C4b-2 — hijo directo y grupo:** armar el trabajo provisional antes del
+   fork, resolver la cardinalidad cero/uno, acreditar y revalidar PID, PGID,
+   PPID y tiempo de inicio, aplicar el plazo absoluto y demostrar la extinción
+   completa del grupo;
+3. **C4b-3 — Docker, temporal y epílogo único:** acotar `run`, readiness y
+   `rm`, reconciliar CID, nombre, etiqueta, imagen y estado, resolver las
+   terminaciones tardías y dejar un solo propietario idempotente de la
+   limpieza exterior.
+
+Cada minitarea modifica exclusivamente el runner y el adaptador, actualiza la
+huella literal del segundo y conserva byte a byte H0b, D2c, D2d y el
+capturador. El acta agregada se añade solo después del verde de las tres.
+
+Se fija un checkpoint anticipado de 540 líneas para el adaptador al cerrar
+C4b, de modo que C4c conserve cuarenta líneas hasta el límite 580. El runner
+debe quedar en 770 o menos al cerrar C4b y nunca superar 775. Si el adaptador
+proyecta más de 540 o no puede sostener una sola autoridad de limpieza, se
+detiene la implementación y se somete a revisión una nueva decisión de captura
+quinta que separe supervisor exterior y ciclo interior. No se comprime código
+ni se modifica D2d para evitar esa decisión.
+
 Un corte solo puede confirmarse si sus pruebas son verdes y no deja una ruta
 que la rama integradora pueda interpretar como cierre funcional. Ningún
 checkpoint intermedio aumenta métricas ni se publica como producción.
