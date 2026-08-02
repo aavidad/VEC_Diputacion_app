@@ -19,7 +19,7 @@ func TestSesionTCBCallbackInfractorNoBloqueaIndefinidamenteNiPublica(
 	porRetornar := make(chan struct{})
 	resultadoCallback := make(chan error, 1)
 	ejecutor := &ejecutorSesionTCBOperacionDecisionPrueba{
-		recibo:                 datosReciboSesionTCBPrueba(escenario.reciboConcedido),
+		recibo:                 datosReciboSesionTCBPrueba(escenario.reciboDenegado),
 		callbackAsincrono:      true,
 		retenerDespuesCallback: true,
 		bloquearEnSesion:       "confirmar",
@@ -42,7 +42,7 @@ func TestSesionTCBCallbackInfractorNoBloqueaIndefinidamenteNiPublica(
 		resultado, err := cobertura.ConfirmarOperacionDecisionCobertura(
 			context.Background(),
 			transaccion,
-			escenario.ordenConcedida,
+			escenario.ordenDenegada,
 		)
 		salidaOperacion <- salida{resultado: resultado, err: err}
 	}()
@@ -62,7 +62,7 @@ func TestSesionTCBCallbackInfractorNoBloqueaIndefinidamenteNiPublica(
 		t.Fatalf("el callback pendiente no quedó ambiguo: %v", salidaFinal.err)
 	}
 	if _, err = salidaFinal.resultado.ReciboPara(
-		escenario.ordenConcedida,
+		escenario.ordenDenegada,
 	); err == nil {
 		t.Fatal("el callback pendiente publicó un recibo")
 	}
