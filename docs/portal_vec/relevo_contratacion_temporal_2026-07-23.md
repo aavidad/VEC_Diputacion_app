@@ -20,16 +20,19 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO
   independiente. La CI conjunta terminó completamente verde.
 - La enmienda `e55930c` divide C4b en tres minitareas secuenciales sobre los
-  mismos dos ficheros. El siguiente corte exacto es C4b-1: régimen shell,
-  restauración y señales diferidas. C4b–C4d, H0b, C2 y F0 siguen abiertos;
-  las métricas no cambian.
+  mismos dos ficheros. El checkpoint C4b-1 queda integrado localmente hasta
+  `ffce19c`, con doble GO final, `P0=P1=P2=0`, H0 PostgreSQL 18.4 y
+  [evidencia propia](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md).
+  El siguiente corte exacto es C4b-2. C4b, C4c, C4d, H0b, C2 y F0 siguen
+  abiertos; las métricas no cambian.
 - La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
   mantiene `db240a5`, `075610f` y `1524feb` en `NO-GO`: Bash solo puede
   enclavar la primera señal entregada y observada al iniciar el manejador, no
   acreditar que gane el primer `kill`. Una ráfaga anterior al marco admite
   uno de `{130, 143}`, con una sola cancelación, cero trabajos o efectos
   nuevos y limpieza convergente. La aceptación exige contrarrevisión
-  independiente.
+  independiente. La cadena aceptada es `84de42f`–`ffce19c` sobre la decisión
+  `fb45b93`; no convierte aquellos SHAs de ramas previas en antepasados GO.
 - Último árbol estructural anterior a C4a: H0b en `ad8b170`, con doble GO
   final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte publicado
   `11b237a`, cuya CI terminó completamente verde. La
@@ -63,9 +66,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
-  `e130015`. Trabajo activo: C4b-1, seguido de C4b-2, C4b-3, C4c y C4d;
-  después se implementará C2. Todavía no existe una migración `000007`
-  instalable.
+  `e130015`. El checkpoint C4b-1 queda integrado localmente hasta `ffce19c`.
+  Trabajo activo: C4b-2, seguido de C4b-3, C4c y C4d; después se implementará
+  C2. Todavía no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
   [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
@@ -114,7 +117,7 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es C4b-1 dentro de C2.3-F0; ninguna
+y el tablero. La primera tarea disponible es C4b-2 dentro de C2.3-F0; ninguna
 rama de agente ni los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos
@@ -358,7 +361,7 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Cerrar secuencialmente C4b-1, C4b-2, C4b-3, C4c y C4d; ninguna pieza
+1. Cerrar secuencialmente C4b-2, C4b-3, C4c y C4d; ninguna pieza
    intermedia cuenta como cierre de H0b.
 2. Después implementar C2 de C2.3-F0: consumidor nominal que reacredita R0 y
    compone A4+B2+C1 en
