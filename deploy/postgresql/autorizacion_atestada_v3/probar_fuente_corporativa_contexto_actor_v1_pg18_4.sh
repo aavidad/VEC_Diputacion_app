@@ -44,7 +44,7 @@ readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
-readonly sha256_adaptador_m38='7cff227b5f97315fd5693a6901ee4bfc55640d93181d4a9f15fd99d2780646e8'
+readonly sha256_adaptador_m38='884987654278eed4fa2abc38aef6f69ae431f278f931c36ff5fa664f91bd40c5'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
@@ -54,15 +54,24 @@ intencion_contenedor='' cid_contenedor=''
 etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
 r0_posible='' finalizando_h0b='' wrapper_activo='' inyeccion_h0b_activa='' traza_m38_activa=''
-traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b=''
+traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' seccion_critica_m38='' senal_pendiente_m38='' generacion_senal_m38=0
 fallar() { printf '[F0 H0] ERROR: %s\n' "$1" >&2; exit 1; }
 paso() { printf '[F0 H0] %s\n' "$1"; }
+gestionar_senal_m38_f0() {
+    if [[ -n "${identidad_activa_m38:-}" && -n "${seccion_critica_m38:-}" ]]; then
+        [[ -n "${senal_pendiente_m38:-}" ]] || senal_pendiente_m38="$1"
+        ((generacion_senal_m38 += 1))
+        return 0
+    fi
+    exit "$1"
+}
 limpiar() {
     local estado=$?
     trap - EXIT INT TERM
     if [[ "${r0_posible}" == '1' && -z "${finalizando_h0b}" ]]; then finalizar_h0b_f0 "${estado}" || estado=$?; fi
     if [[ "${modo_m38}" == hijo ]]; then exit "${estado}"; fi
     if declare -F retirar_recursos_m38_f0 >/dev/null && ! retirar_recursos_m38_f0; then estado=65; fi
+    if declare -F restaurar_regimen_shell_m38_f0 >/dev/null && ! restaurar_regimen_shell_m38_f0; then estado=65; fi
     if [[ "${intencion_contenedor}" == '1' ]] && ! retirar_contenedor_propio_f0; then
         printf '[F0 H0] ERROR: no se retiró el contenedor propio\n' >&2
         estado=65
@@ -475,6 +484,7 @@ probar_rechazos_m38_f0() {
 ejecutar_matriz_m38_f0() {
     local casos='A01 A02 A03 N01 N02 N03 N04 N05 N06 N07 N08 N09 N10 E01 E02 E03 E04 E05 E06 E07 E08 E09 E10 F01 F02 F03 F04 F05 F06 F07 F08 F09 F10 F11 F12 F13 F14 F15'
     local original huella copia forma_runner forma_raiz catalogo='' caso identidad cid forma ticket salida error estado linea resultado cantidad esperado observado declarado traza recuperacion extra forma_restaurada
+    iniciar_regimen_shell_m38_f0 || return 65
     probar_oraculo_inyeccion_h0b_f0 || return 65
     huella="$(huella_local_f0 "${ruta_runner}")"; original="$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|${huella}" || return 65
     [[ "${original}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|regular\ file\|[0-7]{3,4}\|1\|[0-9]+\|[0-9a-f]{64}$ ]] || return 65
@@ -491,18 +501,18 @@ ejecutar_matriz_m38_f0() {
     validar_catalogo_inyecciones_h0b_f0 "${catalogo}" || return 65
     for caso in NOMINAL ${casos}; do
         acreditar_runner_m38_f0 "${forma_runner}" && [[ "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
-        preparar_recursos_m38_f0 identidad forma cid || return 65
+        preparar_recursos_m38_f0 identidad forma cid || return $?
         salida="${temporales}/${caso}.out"; error="${temporales}/${caso}.err"
         ticket="${BASHPID}|${caso}|${identidad}|${cid}|${forma}|${forma_runner}|${forma_raiz}"
         lanzar_hijo_m38_f0 "${caso}" "${ticket}" "${salida}" "${error}" estado || return 65
         resultado=''; cantidad=0; while IFS= read -r linea; do [[ "${linea}" != '[F0 M38] RESULTADO|'* ]] || { resultado="${linea#*RESULTADO|}"; cantidad=$((cantidad + 1)); }; done <"${salida}"
         IFS='|' read -r observado declarado traza recuperacion extra <<<"${resultado}"
-        retirar_recursos_m38_f0 || return 65
+        retirar_recursos_m38_f0 || return $?
         esperado="$(oraculo_inyeccion_h0b_f0 "${caso}")" || return 65
         ((cantidad == 1)) && [[ -z "${extra}" && "${estado}" == "${esperado%%|*}" ]] && validar_observacion_inyeccion_h0b_f0 "${caso}" "${observado}" "${declarado}" "${traza}" "${recuperacion}" || return 65
         acreditar_runner_m38_f0 "${forma_runner}" && [[ "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
     done
-    set +m
+    restaurar_regimen_shell_m38_f0 || return 65
     [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|$(huella_local_f0 "${ruta_runner}")" == "${original}" && "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
     exec 8<&- 7<&-
 }
@@ -566,8 +576,8 @@ else
     temporales="/tmp/vec-f0-h0-${aleatorio_temporales}"
 fi
 trap limpiar EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+trap 'gestionar_senal_m38_f0 130' INT
+trap 'gestionar_senal_m38_f0 143' TERM
 if [[ "${modo_m38}" != hijo ]]; then
     [[ ! -e "${temporales}" && ! -L "${temporales}" ]] || fallar 'la reserva temporal ya existe'
     temporal_preausente='1'; mkdir --mode=0700 -- "${temporales}" || estado_mkdir_temporal=$?
@@ -588,7 +598,11 @@ capturador="$(preparar_capturador_privado_f0)" ||
 capturar_auxiliares_privados_f0 "${capturador}" ||
     fallar 'no se pudieron acreditar y cargar los auxiliares privados'
 if [[ "${modo_m38}" == conductor ]]; then
-    ejecutar_matriz_m38_f0 || fallar 'la matriz funcional M38 no quedó acreditada'
+    ejecutar_matriz_m38_f0 || {
+        estado_matriz=$?
+        ((estado_matriz == 130 || estado_matriz == 143)) && exit "${estado_matriz}"
+        fallar 'la matriz funcional M38 no quedó acreditada'
+    }
     paso 'matriz funcional M38 acreditada en 39 procesos aislados'
     limpiar_estricto_f0 || fallar 'la matriz M38 dejó recursos propios'
     trap - EXIT INT TERM; exit 0
