@@ -19,6 +19,14 @@ temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`. El corte
 publicado `a1d2535` superó completamente las cinco puertas de la CI
 `30739622034`.
 
+La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
+mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
+señales estándar no permiten prometer «gana el primer `kill`»: C4b-1 debe
+enclavar la primera señal entregada y observada, y tratar una ráfaga anterior
+al manejador como un único resultado admisible de `{130, 143}`, sin nuevos
+efectos o trabajos y con limpieza convergente. C4b-2, C4b-3, producción y las
+métricas siguen abiertos.
+
 ## Actualización vigente de dirección — 2 de agosto de 2026
 
 V0 queda integrado en `e68dbe0`, con tres vectores canónicos sintéticos,

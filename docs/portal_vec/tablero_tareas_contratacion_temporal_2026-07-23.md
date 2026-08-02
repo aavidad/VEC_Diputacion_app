@@ -107,6 +107,13 @@ divide en tres minitareas secuenciales mediante `e55930c`; la siguiente es
 C4b-1. Todavía no existe una migración `000007` instalable ni cambian los
 tres hitos de O4-05.
 
+La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
+registra el `NO-GO` de `db240a5`, `075610f` y `1524feb`: las señales estándar
+no acreditan prioridad del primer `kill`. C4b-1 debe enclavar la primera señal
+entregada y observada, aceptar `{130, 143}` en ráfagas anteriores al marco y
+demostrar una sola cancelación, cero efectos/trabajos nuevos y limpieza
+convergente antes de revisión independiente. No cambia ninguna métrica.
+
 Desglose verificable del camino crítico `O4-04`:
 
 | Corte | Entregable | Estado y evidencia |

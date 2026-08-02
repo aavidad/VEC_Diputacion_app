@@ -220,6 +220,12 @@ idempotente. La implementación debe:
 9. conservar la identidad armada y devolver incidente 65 si el daemon impide
    conocer la postausencia, sin lanzar el caso siguiente.
 
+La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
+precisa el punto 2: se enclava la primera señal entregada y observada al
+iniciarse un manejador, no el primer `kill`. Una ráfaga anterior a ese marco
+admite exactamente uno de `{130, 143}`, con una sola cancelación, cero efectos
+o trabajos nuevos y limpieza convergente.
+
 Un cidfile ausente, malformado o sustituido no permite borrar por nombre ni
 desarmar la identidad. Una ruta temporal ya ausente o un contenedor ya retirado
 son éxito idempotente solo cuando el resto de evidencias concuerda.
