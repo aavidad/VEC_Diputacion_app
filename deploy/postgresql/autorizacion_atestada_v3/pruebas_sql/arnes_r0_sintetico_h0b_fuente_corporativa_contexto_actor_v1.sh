@@ -113,6 +113,27 @@ SQL
     fi
 }
 
+salida_wrapper_c2_virtual_h0b_f0() {
+    local modo="${1:-}" cantidad
+    case "${modo}" in
+        sin-r0) cantidad=16 ;;
+        nominal|error) cantidad=17 ;;
+        *) return 64 ;;
+    esac
+    while ((cantidad-- > 0)); do printf '1\n'; done
+    [[ "${modo}" == 'sin-r0' ]] || printf 't\n'
+    [[ "${modo}" != 'nominal' ]] || printf '1\n'
+}
+
+validar_resultado_wrapper_c2_virtual_h0b_f0() {
+    local modo="$1" estado="$2" salida="$3" error="$4" codigo=''
+    cmp --silent -- "${salida}" <(salida_wrapper_c2_virtual_h0b_f0 "${modo}") || return 65
+    [[ "${modo}" != 'sin-r0' ]] || codigo='42501'
+    [[ "${modo}" != 'error' ]] || codigo='22012'
+    [[ -z "${codigo}" ]] || { es_sqlstate_exacto_f0 "${estado}" "${error}" "${codigo}"; return; }
+    [[ "${estado}" == '0' && ! -s "${error}" ]]
+}
+
 validar_wrapper_c2_virtual_h0b_f0() {
     local ruta="${1:-}" modo="${2:-}" forma bytes lineas huella esperada
     local antes despues indice
@@ -142,7 +163,28 @@ validar_wrapper_c2_virtual_h0b_f0() {
     done
     despues="$(stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "${ruta}")" || return 65
     [[ "${despues}" == "${antes}" ]] || return 65
-    return 0
+}
+
+materializar_integracion_c2_virtual_h0b_f0() {
+    local temporales="${1:-}" modo="${2:-}" modo_wrapper='completo' migracion prueba wrapper
+    [[ "${modo}" == 'sin-r0' || "${modo}" == 'nominal' ||
+       "${modo}" == 'error' ]] || return 64
+    [[ -d "${temporales}" && ! -L "${temporales}" &&
+       "$(stat --printf='%a|%h' -- "${temporales}")" == '700|2' ]] || return 65
+    migracion="${temporales}/integracion-h0b-m080.sql"
+    prueba="${temporales}/integracion-h0b-t080.sql"
+    wrapper="${temporales}/integracion-h0b-wrapper.sql"
+    [[ "${modo}" == 'sin-r0' ]] && modo_wrapper='sin-r0'
+    plantilla_migracion_c2_virtual_h0b_f0 >"${migracion}" || return 65
+    plantilla_wrapper_c2_virtual_h0b_f0 "${modo_wrapper}" >"${wrapper}" || return 65
+    chmod 0600 -- "${migracion}" "${wrapper}" || return 65
+    validar_componentes_sql_f0 "${migracion}" "${temporales}" || return 65
+    validar_wrapper_c2_virtual_h0b_f0 "${wrapper}" "${modo_wrapper}" || return 65
+    if [[ "${modo}" != 'sin-r0' ]]; then
+        plantilla_prueba_c2_virtual_h0b_f0 "${modo}" >"${prueba}" || return 65
+        chmod 0600 -- "${prueba}" || return 65
+        validar_componentes_sql_f0 "${prueba}" "${temporales}" || return 65
+    fi
 }
 
 exigir_estado_c2_virtual_h0b_f0() {
@@ -271,6 +313,27 @@ contar_objetos_f0() {
     )::text"
 }
 
+acreditar_salida_base_h0b_f0() {
+    local clave="$1" audiencia="$2" checkpoint="$3" catalogo="$4" roles="$5" esperada funcion obtenida
+    case "${clave}" in
+        audiencia) esperada="${audiencia}"; funcion=definicion_audiencia ;;
+        checkpoint) esperada="${checkpoint}"; funcion=foto_checkpoint ;;
+        catalogo) esperada="${catalogo}"; funcion=foto_catalogo ;;
+        roles) esperada="${roles}"; funcion=foto_roles ;;
+        objetos) esperada=0; funcion=contar_objetos_f0 ;;
+        preparadas) esperada=0; funcion=contar_preparadas_h0b_f0 ;;
+        temporales) esperada=0; funcion=contar_temporales_h0b_f0 ;;
+        sesiones) esperada=0; funcion=contar_sesiones_h0b_f0 ;;
+        *) return 64 ;;
+    esac
+    obtenida="$("${funcion}")" || return 65
+    [[ "${obtenida}" == "${esperada}" ]]
+}
+
+contar_preparadas_h0b_f0() { valor 'SELECT count(*)::text FROM pg_catalog.pg_prepared_xacts'; }
+contar_temporales_h0b_f0() { valor "SELECT count(*)::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relpersistence='t' AND n.nspname LIKE 'pg_temp_%'"; }
+contar_sesiones_h0b_f0() { valor "SELECT count(*)::text FROM pg_catalog.pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_catalog.pg_backend_pid()"; }
+
 acreditar_limpieza() {
     local audiencia="$1" checkpoint="$2" catalogo="$3" roles="$4"
     exigir_salida_f0 "${audiencia}" 'la audiencia base cambió durante H0' definicion_audiencia
@@ -278,10 +341,9 @@ acreditar_limpieza() {
     exigir_salida_f0 "${catalogo}" 'la estructura completa cambió durante H0' foto_catalogo
     exigir_salida_f0 "${roles}" 'los roles o sus membresías cambiaron durante H0' foto_roles
     exigir_salida_f0 0 'H0 dejó objetos F0' contar_objetos_f0
-    exigir_salida_f0 0 'H0 dejó transacciones preparadas' valor \
-        'SELECT count(*)::text FROM pg_catalog.pg_prepared_xacts'
-    exigir_salida_f0 0 'H0 dejó objetos temporales' valor "SELECT count(*)::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relpersistence='t' AND n.nspname LIKE 'pg_temp_%'"
-    exigir_salida_f0 0 'H0 dejó sesiones cliente activas' valor "SELECT count(*)::text FROM pg_catalog.pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_catalog.pg_backend_pid()"
+    exigir_salida_f0 0 'H0 dejó transacciones preparadas' contar_preparadas_h0b_f0
+    exigir_salida_f0 0 'H0 dejó objetos temporales' contar_temporales_h0b_f0
+    exigir_salida_f0 0 'H0 dejó sesiones cliente activas' contar_sesiones_h0b_f0
 }
 
 nombres_r0_sintetico_f0() {
@@ -392,5 +454,7 @@ SQL
 }
 
 retirar_r0_sintetico_f0() {
+    acreditar_r0_ausente_f0 && return 0
+    acreditar_r0_sintetico_f0 || return 65
     sql postgres 'BEGIN; DROP ROLE vec_f0_h0_publicador,vec_f0_h0_revocador,vec_f0_h0_despachador,vec_f0_h0_cruzado,vec_f0_h0_extra,vec_f0_h0_sin_rol; DROP ROLE vec_f0_h0_adicional,vec_contexto_actor_v1_publicador_corporativo,vec_contexto_actor_v1_revocador_corporativo,vec_contexto_actor_v1_despachador_corporativo; COMMIT' >/dev/null
 }
