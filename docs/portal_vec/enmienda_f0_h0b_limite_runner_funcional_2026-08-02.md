@@ -5,6 +5,10 @@ Fecha: 2 de agosto de 2026.
 Estado: **aprobada por doble `GO` documental independiente**; véase la
 [evidencia de revisión](revisiones/revision_f0_h0b_limite_runner_funcional_2026-08-02.md).
 
+La [enmienda posterior de matriz de 38 casos](enmienda_f0_h0b_matriz_inyeccion_38_2026-08-02.md)
+prevalece para el checkpoint 4 en la matriz, el catálogo, el oráculo y los
+límites del runner y del auxiliar H0b; conserva sin cambios las fronteras.
+
 ## Motivo medido
 
 La estructura aislada H0b conserva un runner de 550 líneas. Antes de activar
