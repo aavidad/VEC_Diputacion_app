@@ -36,9 +36,9 @@ lo volvió a validar antes de la segunda copia. Dos revisiones finales dieron
 - cero contenedores y cero temporales residuales;
 - Gitleaks del commit de corrección: sin hallazgos.
 
-La base documental `7e850a5` tiene la ejecución CI `30726606152`
-completamente verde. El árbol `ad8b170` todavía no está publicado y no tiene
-ejecución CI; no se hereda el verde de su base como prueba del nuevo árbol.
+El árbol técnico `ad8b170` quedó publicado junto con esta evidencia en el
+corte `11b237a`. Su ejecución CI `30728047031` terminó completamente verde;
+no se hereda el verde de una base anterior como prueba del nuevo árbol.
 
 ## Alcance y estado
 

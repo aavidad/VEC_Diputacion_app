@@ -15,8 +15,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %); la [evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md) de `ad8b170` corrige el doble NO-GO de `2d27303`. El flujo funcional 2 sigue dormido y bloquea C2. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `7e850a5` en `integracion/ct-o4-04e-20260726`; CI `30726606152` completamente verde |
-| Último commit técnico verificado | `ad8b170` — estructura aislada H0b, doble GO, P0=P1=P2=0, PostgreSQL 18.4 y cero residuos; todavía sin publicación ni CI |
+| Último corte publicado completamente verde | `11b237a` en `integracion/ct-o4-04e-20260726`; CI `30728047031` completamente verde |
+| Último commit técnico verificado | `ad8b170` — estructura aislada H0b, doble GO, P0=P1=P2=0, PostgreSQL 18.4 y cero residuos; publicado dentro de `11b237a` y cubierto por su CI verde |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
 | Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1 y la estructura aislada H0b están cerrados técnicamente, pero no suman una puerta funcional. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |

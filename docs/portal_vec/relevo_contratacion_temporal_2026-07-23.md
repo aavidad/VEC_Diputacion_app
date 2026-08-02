@@ -13,10 +13,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `7e850a5`; CI `30726606152`.
+- Último corte publicado completamente verde: `11b237a`; CI `30728047031`.
 - Último árbol técnico integrado: estructura aislada H0b en `ad8b170`, con
-  doble GO final, PostgreSQL 18.4 y cero residuos. Todavía no está publicado y
-  su CI no se ha ejecutado. La
+  doble GO final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte
+  publicado `11b237a`, cuya CI terminó completamente verde. La
   [evidencia](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
   no acredita el flujo funcional R0/H0b.
 - A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.

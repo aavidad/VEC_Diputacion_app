@@ -31,8 +31,8 @@ verde. El candidato estructural `2d27303` obtuvo doble `NO-GO`,
 después de copiarse. `ca46ba9` añadió la validación SQL previa de M010, T010
 nominal y T010 de error y obtuvo doble `GO`, `P0=P1=P2=0`, tras H0 ×3, A1 y
 C1 sobre PostgreSQL 18.4 y cero residuos. El árbol final quedó integrado por
-*squash* limpio en `ad8b170`; el commit todavía no está publicado y su CI no
-se ha ejecutado.
+*squash* limpio en `ad8b170` y publicado dentro del corte documental
+`11b237a`; la CI `30728047031` terminó completamente verde.
 
 Quedan cerrados estructuralmente H0a, una captura viva del superset, los dos
 manifiestos y raíces aislados y el tercer auxiliar privado. El flujo exterior
