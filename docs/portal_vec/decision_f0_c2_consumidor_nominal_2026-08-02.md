@@ -24,7 +24,7 @@ La función es:
 
 ```sql
 vec_autorizacion_atestada_v3.
-registrar_y_consumir_fuente_corporativa_contexto_actor_v1_atestada(
+consumir_fuente_corporativa_contexto_actor_v1_atestada(
     p_audiencia_consumo_esperada text,
     p_accion_esperada text,
     p_tipo_efecto_esperado text,
@@ -52,6 +52,10 @@ RETURNS TABLE (
     consumo_nuevo boolean
 )
 ```
+
+El nombre tiene 54 bytes ASCII, por debajo del límite catalogal de 63 bytes de
+PostgreSQL. No se admite truncamiento implícito ni una comparación parcial del
+nombre en `pg_proc`.
 
 El orden y los nombres son ABI. No devuelve `evento_fuente_emitido_en`,
 `nonce`, COSE, evidencia, SPKI ni material HMAC.

@@ -208,7 +208,7 @@ La firma final F0 será:
 
 ```sql
 vec_autorizacion_atestada_v3.
-registrar_y_consumir_fuente_corporativa_contexto_actor_v1_atestada(
+consumir_fuente_corporativa_contexto_actor_v1_atestada(
     p_audiencia_consumo_esperada text,
     p_accion_esperada text,
     p_tipo_efecto_esperado text,
