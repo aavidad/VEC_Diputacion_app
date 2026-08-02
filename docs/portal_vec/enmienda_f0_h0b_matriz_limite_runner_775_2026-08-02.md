@@ -2,8 +2,8 @@
 
 Fecha: 2 de agosto de 2026.
 
-Estado: **propuesta pendiente de doble `GO` documental independiente**. Hasta
-obtenerlo no se reanuda el checkpoint 4 ni se confirma su código parcial.
+Estado: **aprobada por doble `GO` documental independiente**; véase la
+[evidencia de revisión](revisiones/revision_f0_h0b_matriz_limite_runner_775_2026-08-02.md).
 
 ## Motivo medido
 
