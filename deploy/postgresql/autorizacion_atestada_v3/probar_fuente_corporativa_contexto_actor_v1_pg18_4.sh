@@ -377,7 +377,8 @@ intentar_finalizacion_h0b_f0() {
         traza_finalizador_h0b+="${traza_finalizador_h0b:+,}${caso}"
     fi
     if [[ "${inyeccion_h0b_activa}" == 1 && "${selector_inyeccion_h0b}" == "${caso}" ]]; then
-        caso_observado_h0b="${caso}"; estado_acumulado=65
+        [[ -n "${caso_observado_h0b}" ]] || caso_observado_h0b="${caso}"
+        estado_acumulado=65
     elif ! "$@"; then
         printf '[F0 H0] ERROR: %s\n' "${mensaje}" >&2
         # shellcheck disable=SC2034 # asignación mediante nameref
@@ -411,10 +412,6 @@ finalizar_h0b_f0() {
 }
 probar_h0b_funcional_f0() {
     local estado=0 recuperacion=exterior
-    if [[ "${modo_m38}" == hijo ]]; then
-        traza_m38_activa=1
-        [[ "${selector_inyeccion_h0b}" == NOMINAL ]] || inyeccion_h0b_activa=1
-    fi
     mkdir --mode=0700 "${temporales}/autoprueba-h0b" &&
         probar_plantillas_c2_virtual_h0b_f0 "${temporales}/autoprueba-h0b" || return 65
     paso 'autoprueba pura H0b acreditada'
@@ -426,6 +423,11 @@ probar_h0b_funcional_f0() {
     ((estado != 0)) || paso 'sin R0: SQLSTATE 42501 exacto acreditado'
     finalizar_h0b_f0 "${estado}" || return $?
     reiniciar_ledger_h0b_f0 || return 65
+    if [[ "${modo_m38}" == hijo ]]; then
+        recuperacion_interna_h0b='' traza_finalizador_h0b='' caso_observado_h0b=''
+        traza_m38_activa=1
+        [[ "${selector_inyeccion_h0b}" == NOMINAL ]] || inyeccion_h0b_activa=1
+    fi
     paso 'finalizador sin R0: rollback y línea base exacta acreditados'
     mkdir --mode=0700 "${temporales}/integracion-h0b-nominal" \
         "${temporales}/integracion-h0b-error" || return 65
@@ -446,7 +448,6 @@ probar_h0b_funcional_f0() {
     ((estado != 0)) || inyectar_frontera_h0b_f0 A03 || estado=$?
     ((estado != 0)) || paso 'error posterior: SQLSTATE 22012 exacto acreditado'
     if finalizar_h0b_f0 "${estado}"; then estado=0; else estado=$?; fi
-    [[ "${selector_inyeccion_h0b}" != F* || "${estado}" == 0 ]] || caso_observado_h0b=INVALIDO
     if [[ "${modo_m38}" == hijo ]]; then
         [[ "${recuperacion_interna_h0b}" != 1 ]] || recuperacion=interna-exterior
         [[ "${selector_inyeccion_h0b}" != NOMINAL ]] || caso_observado_h0b=NOMINAL
