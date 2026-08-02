@@ -323,31 +323,31 @@ ejecutar_etapa_dormida_f0() {
     return "${estado}"
 }
 
+copiar_componente_h0a_f0() {
+    local origen="$1" destino="$2" etiqueta="$3"
+    validar_componentes_sql_f0 "${origen}" "${temporales}" || fallar "el componente sintético ${etiqueta} no superó la validación SQL previa"
+    docker cp "${origen}" "${contenedor}:${destino}" || fallar "no se pudo copiar el componente sintético ${etiqueta}"
+    comparar_huellas_f0 "${origen}" "${destino}" ||
+        fallar "el componente sintético ${etiqueta} no quedó ligado a sus bytes"
+}
+
 probar_etapa_dormida_sintetica_f0() {
-    local etapa_original="${etapa}" migracion prueba destino_m destino_t estado_error
-    migracion="${temporales}/010_validadores_m.sql"
-    prueba="${temporales}/010_validadores_t.sql"
-    destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
-    destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
-    docker exec "${contenedor}" mkdir --parents --mode=0700 \
-        "${destino_m%/*}" "${destino_t%/*}"
+    local etapa_original="${etapa}" estado_error
+    local migracion="${temporales}/010_validadores_m.sql" prueba="${temporales}/010_validadores_t.sql"
+    local destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
+    local destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
+    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_m%/*}" "${destino_t%/*}"
     printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
     printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
-    docker cp "${migracion}" "${contenedor}:${destino_m}"
-    docker cp "${prueba}" "${contenedor}:${destino_t}"
-    comparar_huellas_f0 "${migracion}" "${destino_m}" ||
-        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
-    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
-        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
+    copiar_componente_h0a_f0 "${migracion}" "${destino_m}" M010
+    copiar_componente_h0a_f0 "${prueba}" "${destino_t}" T010
     etapa='A1'
     ejecutar_etapa_dormida_f0 >/dev/null ||
         fallar 'el camino nominal de etapa dormida falló'
     exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
         "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
     printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
-    docker cp "${prueba}" "${contenedor}:${destino_t}"
-    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
-        fallar 'la copia de error sintética no coincide byte a byte'
+    copiar_componente_h0a_f0 "${prueba}" "${destino_t}" T010-error
     if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
     ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
     exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
