@@ -13,7 +13,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `11b237a`; CI `30728047031`.
+- Último corte publicado completamente verde: `6d904735`; CI `30730111840`.
 - Último árbol técnico integrado: estructura aislada H0b en `ad8b170`, con
   doble GO final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte
   publicado `11b237a`, cuya CI terminó completamente verde. La
@@ -63,7 +63,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   el runner de 550 líneas no admite los checkpoints funcionales 3 y 4 sin
   minificar o quebrar fronteras. La
   [enmienda de límite funcional](enmienda_f0_h0b_limite_runner_funcional_2026-08-02.md)
-  fija objetivo 640 y máximo 650, y exige doble `GO` documental antes de código.
+  quedó publicada en `6d904735` tras corregir dos `NO-GO` y obtuvo doble `GO`
+  final, `P0=P1=P2=0`. La
+  [evidencia](revisiones/revision_f0_h0b_limite_runner_funcional_2026-08-02.md)
+  acredita el umbral local 640 y máximo 650 sin sustituir DEC-051. H0b y las
+  métricas permanecen pendientes. La CI `30730111840` terminó completamente
+  verde en sus cinco puertas.
 - El contrato final C2/C3/H0b/R0 obtuvo doble `GO` documental con
   `P0=P1=P2=0`. La [evidencia](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md)
   desbloquea H0b, pero no acredita su implementación.

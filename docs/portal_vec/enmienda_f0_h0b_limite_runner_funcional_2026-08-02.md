@@ -2,8 +2,8 @@
 
 Fecha: 2 de agosto de 2026.
 
-Estado: **propuesta documental; exige doble `GO` documental independiente
-antes de reanudar código**.
+Estado: **aprobada por doble `GO` documental independiente**; véase la
+[evidencia de revisión](revisiones/revision_f0_h0b_limite_runner_funcional_2026-08-02.md).
 
 ## Motivo medido
 
