@@ -8,9 +8,11 @@ ruta_runner="${directorio_script}/${BASH_SOURCE[0]##*/}"
 raiz="$(cd -- "${directorio_script}/../../.." && pwd -P)" || exit 65
 cd -- "${raiz}" || exit 65
 readonly ruta_helper_sql='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh'
+readonly ruta_helper_h0b='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
-readonly sha256_helper_sql='027135aefe3f2c2d0623ba92c60aa00a9800718bc314f5a7441f6509dd175089'
+readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
+readonly sha256_helper_h0b='842f515b55733bef8ce3e8f4bd60204bce1fbf515eaa65758a3a415b5786c458'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
@@ -148,37 +150,44 @@ preparar_capturador_privado_f0() {
 capturar_auxiliares_privados_f0() {
     local binario="$1"
     local snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares"
-    local estado_directo
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
         --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" \
-        "${ruta_helper_operativo}" || return 65
+        "${ruta_helper_h0b}" "${ruta_helper_operativo}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 2 &&
+    [[ ${#lineas[@]} -eq 3 &&
        "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
-       "${lineas[1]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" ]] || return 65
+       "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
+       "${lineas[2]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" ]] || return 65
     if bash "${snapshot}/${ruta_helper_sql}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
     ((estado_directo == 64)) || return 65
     if bash "${snapshot}/${ruta_helper_operativo}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
     ((estado_directo == 64)) || return 65
+    if bash "${snapshot}/${ruta_helper_h0b}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+    ((estado_directo == 64)) || return 65
     shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" \
-        "${snapshot}/${ruta_helper_operativo}" || return 65
+        "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" || return 65
     export VEC_F0_CARGA_PRIVADA=1
     # shellcheck source=/dev/null
     source "${snapshot}/${ruta_helper_sql}"
     export VEC_F0_CARGA_PRIVADA=1
     # shellcheck source=/dev/null
     source "${snapshot}/${ruta_helper_operativo}"
+    export VEC_F0_CARGA_PRIVADA=1
+    # shellcheck source=/dev/null
+    source "${snapshot}/${ruta_helper_h0b}"
 }
 acreditar_snapshot_contenedor_f0() {
-    local manifiesto="$1" reconstruido="${temporales}/manifiesto-contenedor"
+    local manifiesto="$1" raiz_contenedor="${2:-/repo}" reconstruido
+    [[ "${raiz_contenedor}" == '/repo' || "${raiz_contenedor}" == '/repo_h0b' ]] || return 64
+    reconstruido="${temporales}/manifiesto-contenedor-${raiz_contenedor#/}"
     docker exec "${contenedor}" bash -ceu '
-export LC_ALL=C; set -o pipefail; modo=$(stat --printf=%a /repo) || exit 65; [[ ! -L /repo && -d /repo && $modo == 700 ]] || exit 65
+export LC_ALL=C; set -o pipefail; raiz=$1; modo=$(stat --printf=%a "$raiz") || exit 65; [[ ! -L $raiz && -d $raiz && $modo == 700 ]] || exit 65
 declare -a lineas=(); tab=$(printf "\t") || exit 65; salto=$(printf "\n_") || exit 65; salto=${salto%_}; lista=$(mktemp) || exit 65
-find /repo -mindepth 1 -print0 >"$lista" || exit 65
+find "$raiz" -mindepth 1 -print0 >"$lista" || exit 65
 while IFS= read -r -d "" nodo; do
-  relativa=${nodo#/repo/}
+  relativa=${nodo#"$raiz"/}
   [[ $relativa != *"$tab"* && $relativa != *"$salto"* ]] || exit 65
   if [[ -L $nodo ]]; then exit 65
   elif [[ -d $nodo ]]; then
@@ -190,30 +199,51 @@ while IFS= read -r -d "" nodo; do
   else exit 65; fi
 done <"$lista"
 ((${#lineas[@]} > 0)) || exit 65; printf "%s\n" "${lineas[@]}" | sort || exit 65
-' >"${reconstruido}" || return 65
+' -- "${raiz_contenedor}" >"${reconstruido}" || return 65
     cmp --silent -- "${manifiesto}" "${reconstruido}"
 }
-rechazar_snapshot_adverso_f0() { ! acreditar_snapshot_contenedor_f0 "$1" || fallar "$2"; }
+rechazar_snapshot_adverso_f0() { ! acreditar_snapshot_contenedor_f0 "$1" "$2" || fallar "$3"; }
 probar_snapshot_adverso_f0() {
-    local manifiesto="$1" fichero='/repo/deploy/postgresql/contexto_actor_v1/roles_up.sql'
-    local directorio='/repo/deploy/postgresql/contexto_actor_v1' nodo='/repo/__adverso_f0'
-    docker exec "${contenedor}" ln -s /repo "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" 'el snapshot admitió un enlace simbólico'
+    local manifiesto="$1" raiz_contenedor="${2:-/repo}" fichero directorio nodo
+    fichero="${raiz_contenedor}/deploy/postgresql/contexto_actor_v1/roles_up.sql"
+    directorio="${raiz_contenedor}/deploy/postgresql/contexto_actor_v1"
+    nodo="${raiz_contenedor}/__adverso_f0"
+    docker exec "${contenedor}" ln -s "${raiz_contenedor}" "${nodo}"
+    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un enlace simbólico'
     docker exec "${contenedor}" rm -- "${nodo}"
     docker exec "${contenedor}" ln "${fichero}" "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" 'el snapshot admitió un enlace duro'
+    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un enlace duro'
     docker exec "${contenedor}" rm -- "${nodo}"
     docker exec "${contenedor}" chmod 0644 "${fichero}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" 'el snapshot admitió modo de fichero inseguro'
+    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió modo de fichero inseguro'
     docker exec "${contenedor}" chmod 0600 "${fichero}"
     docker exec "${contenedor}" chmod 0755 "${directorio}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" 'el snapshot admitió modo de directorio inseguro'
+    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió modo de directorio inseguro'
     docker exec "${contenedor}" chmod 0700 "${directorio}"
     docker exec "${contenedor}" mkdir --mode=0700 "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" 'el snapshot admitió un directorio adicional'
+    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un directorio adicional'
     docker exec "${contenedor}" rmdir -- "${nodo}"
-    acreditar_snapshot_contenedor_f0 "${manifiesto}" || fallar 'el snapshot no se restauró'
+    acreditar_snapshot_contenedor_f0 "${manifiesto}" "${raiz_contenedor}" || fallar 'el snapshot no se restauró'
 }
+
+derivar_repo_base_h0_f0() {
+    docker exec "${contenedor}" bash -ceu '
+export LC_ALL=C
+directorio=/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes
+archivos=(010_validadores.sql 020_canon_manifiesto.sql 030_canon_capacidad_mac.sql
+  040_canon_consumo.sql 050_catalogo_fuente_checkpoint.sql 060_atestacion_consumo.sql
+  070_acreditar_material_fuente.sql)
+for archivo in "${archivos[@]}"; do
+  nodo=$directorio/$archivo
+  [[ -f $nodo && ! -L $nodo && $(stat --printf="%a|%h" -- "$nodo") == "600|1" ]] || exit 65
+  rm -- "$nodo" || exit 65
+done
+[[ -d $directorio && ! -L $directorio && $(stat --printf=%a -- "$directorio") == 700 ]] || exit 65
+[[ -z $(find "$directorio" -mindepth 1 -print -quit) ]] || exit 65
+rmdir -- "$directorio" || exit 65
+'
+}
+
 archivo() {
     docker exec "${contenedor}" psql -X --set ON_ERROR_STOP=1 --username "$1" --dbname postgres --file "/repo/$2"
 }
@@ -248,50 +278,15 @@ probar_sqlstate_real_f0() {
             fallar "SQLSTATE real mal clasificado: ${codigo}/${obtenido}"
     done
 }
-definicion_audiencia() {
-    valor "SELECT pg_catalog.regexp_replace(
-      pg_catalog.pg_get_constraintdef(c.oid,true),'\\s+',' ','g')
-      FROM pg_catalog.pg_constraint c
-     WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
-       AND c.conname='clave_capacidad_version_audiencia_consumo_check'"
-}
-foto_checkpoint() {
-    valor "SELECT pg_catalog.encode(pg_catalog.convert_to(pg_catalog.row_to_json(c)::text,'UTF8'),'hex') FROM vec_autorizacion_atestada_v3.checkpoint_gobierno c"
-}
 foto_catalogo() {
     docker exec "${contenedor}" pg_dump --schema-only --restrict-key=0000000000000000000000000000000000000000000000000000000000000000 --username postgres --dbname postgres | sha256sum | awk '{print $1}'
 }
-contar_objetos_f0() {
-    valor "SELECT (
-      (SELECT pg_catalog.count(*) FROM pg_catalog.pg_class c
-        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-       WHERE n.nspname='vec_autorizacion_atestada_v3'
-         AND c.relname LIKE '%fuente_corporativa%')+
-      (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
-        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-       WHERE n.nspname='vec_autorizacion_atestada_v3'
-         AND p.proname LIKE '%fuente_corporativa%')+
-      (SELECT pg_catalog.count(*) FROM pg_catalog.pg_roles
-       WHERE rolname LIKE 'vec_contexto_actor_v1_%corporativo')
-    )::text"
-}
-acreditar_limpieza() {
-    local audiencia="$1" checkpoint="$2" catalogo="$3" roles="$4"
-    exigir_salida_f0 "${audiencia}" 'la audiencia base cambió durante H0' definicion_audiencia
-    exigir_salida_f0 "${checkpoint}" 'checkpoint_gobierno cambió durante H0' foto_checkpoint
-    exigir_salida_f0 "${catalogo}" 'la estructura completa cambió durante H0' foto_catalogo
-    exigir_salida_f0 "${roles}" 'los roles o sus membresías cambiaron durante H0' foto_roles
-    exigir_salida_f0 0 'H0 dejó objetos F0' contar_objetos_f0
-    exigir_salida_f0 0 'H0 dejó transacciones preparadas' valor \
-        'SELECT count(*)::text FROM pg_catalog.pg_prepared_xacts'
-    exigir_salida_f0 0 'H0 dejó objetos temporales' valor "SELECT count(*)::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relpersistence='t' AND n.nspname LIKE 'pg_temp_%'"
-    exigir_salida_f0 0 'H0 dejó sesiones cliente activas' valor "SELECT count(*)::text FROM pg_catalog.pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_catalog.pg_backend_pid()"
-}
-ejecutar_subensayo_etapa_f0() {
-    local modo="$1" claves clave ruta relativa envoltorio destino estado=0 usuario ruta_error=''
-    if [[ "${modo}" == 'sin-r0' ]]; then
-        claves="$(clausura_migraciones_etapa_f0 "${etapa}")" || return 64
-    else claves="$(clausura_etapa_f0 "${etapa}")" || return 64; fi
+
+etapa_necesita_r0_f0() { [[ "$1" =~ ^(C2|C3|R1|R2a|R2b|T1|T2)$ ]]; }
+
+ejecutar_etapa_dormida_f0() {
+    local claves clave ruta relativa envoltorio destino estado=0 usuario
+    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
     envoltorio="$(mktemp "${temporales}/ensayo-etapa.XXXXXX.sql")" || return 65
     {
         printf '\\set ON_ERROR_STOP on\n\\set VERBOSITY sqlstate\n'
@@ -309,56 +304,58 @@ ejecutar_subensayo_etapa_f0() {
             printf '\\ir %s\n' "${relativa}"
             printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
         done
-        if [[ "${modo}" == 'sin-r0' ]]; then
-            printf '%s\n' "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea);"
-        else printf 'ROLLBACK;\n'; fi
+        printf 'ROLLBACK;\n'
     } >"${envoltorio}" || return 65
     destino='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0.sql'
+    etapa_necesita_r0_f0 "${etapa}" && { crear_r0_sintetico_f0 || return 65; }
     docker cp "${envoltorio}" "${contenedor}:${destino}" || return 65
-    comparar_huellas_f0 "${envoltorio}" "${destino}" || {
-        docker exec "${contenedor}" rm -f -- "${destino}"; return 65;
-    }
+    comparar_huellas_f0 "${envoltorio}" "${destino}" || return 65
     usuario='vec_f0_h0_migrador'
-    [[ "${modo}" == 'completo' ]] && etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
-    [[ "${modo}" == 'sin-r0' ]] && ruta_error="$(mktemp "${temporales}/sin-r0.XXXXXX.err")"
-    if [[ "${modo}" == 'sin-r0' ]]; then
-        if docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 --username "${usuario}" \
-            --dbname postgres --file "${destino}" >/dev/null 2>"${ruta_error}"; then estado=0; else estado=$?; fi
-    elif docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 --username "${usuario}" \
-        --dbname postgres --file "${destino}"; then estado=0
-    else estado=$?; fi
-    docker exec "${contenedor}" rm -- "${destino}" || return 65
-    if [[ "${modo}" == 'sin-r0' ]]; then
-        es_sqlstate_exacto_f0 "${estado}" "${ruta_error}" 42501 || {
-            command cat -- "${ruta_error}" >&2; return 65;
-        }
-        return 0
+    etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
+    if docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
+        --username "${usuario}" --dbname postgres --file "${destino}"; then
+        estado=0
+    else
+        estado=$?
     fi
+    docker exec "${contenedor}" rm -- "${destino}" || return 65
+    etapa_necesita_r0_f0 "${etapa}" && { retirar_r0_sintetico_f0 || return 65; }
     return "${estado}"
 }
-ejecutar_etapa_dormida_f0() {
-    local estado=0 r0_creado=0
-    if etapa_exige_subensayo_sin_r0_f0 "${etapa}"; then
-        acreditar_r0_ausente_f0 || return 65
-        ejecutar_subensayo_etapa_f0 sin-r0 || return 65
-        acreditar_r0_ausente_f0 || return 65
-        acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
-            "${catalogo_base}" "${roles_base}" || return 65
-    fi
-    if etapa_necesita_r0_f0 "${etapa}"; then
-        crear_r0_sintetico_f0 || return 65
-        r0_creado=1
-        acreditar_r0_sintetico_f0 || estado=65
-    fi
-    if ((estado == 0)); then
-        if ejecutar_subensayo_etapa_f0 completo; then :; else estado=$?; fi
-    fi
-    if ((r0_creado == 1)); then
-        acreditar_r0_sintetico_f0 || estado=65
-        retirar_r0_sintetico_f0 || return 65
-        acreditar_r0_ausente_f0 || return 65
-    fi
-    return "${estado}"
+
+probar_etapa_dormida_sintetica_f0() {
+    local etapa_original="${etapa}" migracion prueba destino_m destino_t estado_error
+    migracion="${temporales}/010_validadores_m.sql"
+    prueba="${temporales}/010_validadores_t.sql"
+    destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
+    destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
+    docker exec "${contenedor}" mkdir --parents --mode=0700 \
+        "${destino_m%/*}" "${destino_t%/*}"
+    printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
+    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
+    docker cp "${migracion}" "${contenedor}:${destino_m}"
+    docker cp "${prueba}" "${contenedor}:${destino_t}"
+    comparar_huellas_f0 "${migracion}" "${destino_m}" ||
+        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
+    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
+        fallar 'la autoprueba de etapa no quedó ligada a sus bytes'
+    etapa='A1'
+    ejecutar_etapa_dormida_f0 >/dev/null ||
+        fallar 'el camino nominal de etapa dormida falló'
+    exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
+        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
+    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
+    docker cp "${prueba}" "${contenedor}:${destino_t}"
+    comparar_huellas_f0 "${prueba}" "${destino_t}" ||
+        fallar 'la copia de error sintética no coincide byte a byte'
+    if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
+    ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
+    exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
+        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
+    etapa="${etapa_original}"
+    docker exec "${contenedor}" rm -- "${destino_m}" "${destino_t}"
+    docker exec "${contenedor}" rmdir -- "${destino_m%/*}" \
+        "${destino_t%/*}" "${destino_t%/*/*}"
 }
 if (($# == 2)) && [[ "$1" == '--etapa' ]]; then
     etapa="$2"
@@ -408,10 +405,17 @@ probar_analizador_f0 "${temporales}"
 probar_clasificador_f0 "${temporales}"
 snapshot_sql=''
 manifiesto_sql=''
+manifiesto_sql_base=''
 capturar_inventario_f0 "${capturador}" snapshot_sql manifiesto_sql ||
     fallar 'no se pudo capturar el inventario SQL exacto'
 validar_componentes_snapshot_f0 "${snapshot_sql}" ||
     fallar 'la clausura SQL de etapa no es segura'
+manifiesto_sql_base="${manifiesto_sql}"
+if [[ "${etapa}" == 'H0' ]]; then
+    manifiesto_sql_base="${temporales}/manifiesto-sql-base"
+    derivar_manifiesto_base_h0_f0 "${manifiesto_sql}" "${manifiesto_sql_base}" ||
+        fallar 'no se pudo derivar el manifiesto base H0'
+fi
 exigir_salida_f0 "${raiz_base}" 'la raíz física cambió durante el snapshot' metadatos_ruta_f0 .
 paso "arranque PostgreSQL efímero sin red: ${imagen}"
 capturar_salida_f0 clave_postgres openssl rand -hex 24 ||
@@ -441,9 +445,19 @@ done
 docker exec "${contenedor}" pg_isready --quiet --username postgres --dbname postgres
 docker exec "${contenedor}" mkdir --mode=0700 /repo
 docker cp "${snapshot_sql}/." "${contenedor}:/repo"
-acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" ||
-    fallar 'el snapshot del contenedor no coincide byte a byte'
-probar_snapshot_adverso_f0 "${manifiesto_sql}"
+if [[ "${etapa}" == 'H0' ]]; then
+    docker exec "${contenedor}" mkdir --mode=0700 /repo_h0b
+    docker cp "${snapshot_sql}/." "${contenedor}:/repo_h0b"
+    derivar_repo_base_h0_f0 || fallar 'no se pudo derivar la raíz base H0'
+fi
+acreditar_snapshot_contenedor_f0 "${manifiesto_sql_base}" /repo ||
+    fallar 'la raíz base no coincide byte a byte'
+probar_snapshot_adverso_f0 "${manifiesto_sql_base}" /repo
+if [[ "${etapa}" == 'H0' ]]; then
+    acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" /repo_h0b ||
+        fallar 'la raíz H0b no coincide byte a byte'
+    probar_snapshot_adverso_f0 "${manifiesto_sql}" /repo_h0b
+fi
 docker exec --interactive "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname postgres <<'SQL'
 REVOKE ALL PRIVILEGES ON DATABASE postgres FROM PUBLIC;
@@ -512,8 +526,12 @@ exigir_salida_f0 '0' 'línea base H0 inválida' contar_objetos_f0
 [[ -n "${checkpoint_base}" && -n "${catalogo_base}" &&
    -n "${roles_base}" ]] || fallar 'línea base H0 inválida'
 if [[ "${etapa}" == 'H0' ]]; then
-    paso 'integraciones virtuales nominal y de error de C2'
-    probar_integracion_virtual_c2_f0
+    paso 'autoprueba nominal y de error del arnés de etapas dormidas'
+    probar_etapa_dormida_sintetica_f0
+    acreditar_snapshot_contenedor_f0 "${manifiesto_sql_base}" /repo ||
+        fallar 'H0a dejó residuos en la raíz base'
+    acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" /repo_h0b ||
+        fallar 'H0a alteró la raíz H0b'
 fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
