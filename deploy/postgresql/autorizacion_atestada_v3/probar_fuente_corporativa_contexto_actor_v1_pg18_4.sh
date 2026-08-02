@@ -323,12 +323,12 @@ ejecutar_etapa_dormida_f0() {
     return "${estado}"
 }
 
-copiar_componente_h0a_f0() {
-    local origen="$1" destino="$2" etiqueta="$3"
-    validar_componentes_sql_f0 "${origen}" "${temporales}" || fallar "el componente sintético ${etiqueta} no superó la validación SQL previa"
-    docker cp "${origen}" "${contenedor}:${destino}" || fallar "no se pudo copiar el componente sintético ${etiqueta}"
-    comparar_huellas_f0 "${origen}" "${destino}" ||
-        fallar "el componente sintético ${etiqueta} no quedó ligado a sus bytes"
+copiar_componente_sintetico_f0() {
+    local origen="$1" destino="$2"
+    validar_componentes_sql_f0 "${origen}" "${temporales}" || return 65
+    docker cp "${origen}" "${contenedor}:${destino}" || return 65
+    comparar_huellas_f0 "${origen}" "${destino}" || return 65
+    return 0
 }
 
 probar_etapa_dormida_sintetica_f0() {
@@ -339,15 +339,15 @@ probar_etapa_dormida_sintetica_f0() {
     docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_m%/*}" "${destino_t%/*}"
     printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
     printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
-    copiar_componente_h0a_f0 "${migracion}" "${destino_m}" M010
-    copiar_componente_h0a_f0 "${prueba}" "${destino_t}" T010
+    copiar_componente_sintetico_f0 "${migracion}" "${destino_m}" || fallar 'falló M010 sintético: validación, copia o huella'
+    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético: validación, copia o huella'
     etapa='A1'
     ejecutar_etapa_dormida_f0 >/dev/null ||
         fallar 'el camino nominal de etapa dormida falló'
     exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
         "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
     printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
-    copiar_componente_h0a_f0 "${prueba}" "${destino_t}" T010-error
+    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético de error: validación, copia o huella'
     if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
     ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
     exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
