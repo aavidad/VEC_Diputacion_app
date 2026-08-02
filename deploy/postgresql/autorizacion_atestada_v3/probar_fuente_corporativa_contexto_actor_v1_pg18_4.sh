@@ -58,9 +58,8 @@ traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' secci
 fallar() { printf '[F0 H0] ERROR: %s\n' "$1" >&2; exit 1; }
 paso() { printf '[F0 H0] %s\n' "$1"; }
 gestionar_senal_m38_f0() {
-    if [[ -z "${identidad_activa_m38:-}" || ( -z "${seccion_critica_m38:-}" && -z "${senal_pendiente_m38:-}" ) ]]; then
-        exit "$1"
-    fi
+    [[ " ${FUNCNAME[*]:1} " != *" gestionar_senal_m38_f0 "* ]] || return 0
+    [[ -n "${identidad_activa_m38:-}" && ( -n "${seccion_critica_m38:-}" || -n "${senal_pendiente_m38:-}" ) ]] || exit "$1"
     [[ -n "${senal_pendiente_m38:-}" ]] || senal_pendiente_m38="$1"
     generacion_senal_m38=$((generacion_senal_m38 + 1))
 }
