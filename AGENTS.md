@@ -17,6 +17,33 @@ Bolsa, Personal, documentos o firma:
 No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
 instrucción de dirección.
 
+## Relevo operativo inmediato — 2 de agosto de 2026
+
+- Worktree obligatorio:
+  `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
+- Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
+  conserva la rama histórica y no se edita.
+- Último corte remoto cuya CI ya terminó completamente verde: `a4e9b29`,
+  ejecución `30740889225`, cinco de cinco puertas superadas.
+- C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
+  `fb45b93`, código `84de42f`–`ffce19c` y acta
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
+  Obtuvo doble `GO`, `P0=P1=P2=0`, 600 ráfagas reales, H0 PostgreSQL 18.4
+  y residuos cero. El commit posterior que modifica este `AGENTS.md` es solo
+  el relevo de cierre.
+- La primera tarea disponible es exclusivamente **C4b-2**: hijo/grupo,
+  trabajo provisional, PID/PGID/PPID, tiempo de inicio, plazo absoluto y
+  extinción completa. Se implementa después de confirmar que el corte de
+  cierre está publicado y con la CI observada.
+- Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
+  comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
+- Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
+  `24/46`, Bolsa productiva `1/14`; producción permanece en `NO-GO`.
+- No fusionar las ramas candidatas o de revisión de C4b-1: su contenido
+  aceptado ya está en la integradora. Los SHAs `db240a5`, `075610f` y
+  `1524feb` conservan su condición histórica `NO-GO`.
+- No se desplegó ni se tocó el servidor remoto en este corte.
+
 ## Lectura obligatoria
 
 Antes de editar:

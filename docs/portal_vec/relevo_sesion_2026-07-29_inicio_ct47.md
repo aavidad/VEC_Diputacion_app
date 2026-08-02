@@ -4,7 +4,7 @@ Fecha: 29 de julio de 2026.
 
 ## Corte técnico actual — 2 de agosto de 2026
 
-El checkpoint C4b-1 queda integrado localmente hasta `ffce19c` sobre la
+El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` sobre la
 decisión `fb45b93`, con dos revisiones independientes finales `GO`,
 `P0=P1=P2=0`, H0 nominal PostgreSQL 18.4 y cero residuos. La
 [evidencia](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md)
@@ -12,11 +12,11 @@ acredita régimen shell y señales diferidas; no cierra C4b, C4c, C4d, H0b, C2,
 F0 ni producción. C4a permanece integrado hasta `e130015`.
 
 `e55930c` divide obligatoriamente C4b en tres minitareas secuenciales:
-régimen shell/señales, hijo/grupo y Docker/epílogo. Integrado localmente el
+régimen shell/señales, hijo/grupo y Docker/epílogo. Integrado en la rama el
 checkpoint C4b-1, el siguiente corte exacto es C4b-2. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
-`1/14` y producción `NO-GO`. El corte publicado `a1d2535` superó
-completamente las cinco puertas de la CI `30739622034`.
+`1/14` y producción `NO-GO`. El corte publicado `a4e9b29` superó
+completamente las cinco puertas de la CI `30740889225`.
 
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
@@ -536,7 +536,7 @@ autoinscripción y PDP selector; reutiliza V3 mediante F0, limita ContextoActor
 a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
-checkpoint C4b-1 queda integrado localmente hasta `ffce19c`. El siguiente
+checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`. El siguiente
 corte exacto es C4b-2. La migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 

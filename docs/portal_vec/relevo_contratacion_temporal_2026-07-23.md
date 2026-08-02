@@ -13,14 +13,14 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `a1d2535`; CI
-  `30739622034`, cinco de cinco puertas superadas.
+- Último corte publicado completamente verde: `a4e9b29`; CI
+  `30740889225`, cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO
   independiente. La CI conjunta terminó completamente verde.
 - La enmienda `e55930c` divide C4b en tres minitareas secuenciales sobre los
-  mismos dos ficheros. El checkpoint C4b-1 queda integrado localmente hasta
+  mismos dos ficheros. El checkpoint C4b-1 queda integrado en la rama hasta
   `ffce19c`, con doble GO final, `P0=P1=P2=0`, H0 PostgreSQL 18.4 y
   [evidencia propia](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md).
   El siguiente corte exacto es C4b-2. C4b, C4c, C4d, H0b, C2 y F0 siguen
@@ -66,7 +66,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
-  `e130015`. El checkpoint C4b-1 queda integrado localmente hasta `ffce19c`.
+  `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
   Trabajo activo: C4b-2, seguido de C4b-3, C4c y C4d; después se implementará
   C2. Todavía no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:

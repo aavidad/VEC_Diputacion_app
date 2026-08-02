@@ -104,7 +104,7 @@ queda complementada por C4a: el flujo exterior R0/H0b está integrado hasta
 [evidencia reproducible](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md).
 H0b no se contabiliza todavía porque C4b, C4c y C4d siguen abiertos. C4b se
 divide en tres minitareas secuenciales mediante `e55930c`. El checkpoint
-C4b-1 queda integrado localmente hasta `ffce19c` sobre la
+C4b-1 queda integrado en la rama hasta `ffce19c` sobre la
 [decisión de señales](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md),
 con doble GO final, `P0=P1=P2=0`, H0 PostgreSQL 18.4 y
 [evidencia reproducible](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md).
