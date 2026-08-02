@@ -59,6 +59,133 @@ SQL
     [[ "${modo}" == 'nominal' ]] || printf 'SELECT 1/0;\n'
 }
 
+rutas_wrapper_c2_virtual_h0b_f0() {
+    local modo="${1:-}"
+    local base='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3'
+    [[ "${modo}" == 'sin-r0' || "${modo}" == 'completo' ]] || return 64
+    printf '%s\n' \
+        "${base}/migraciones/000007_componentes/010_validadores.sql" \
+        "${base}/migraciones/000007_componentes/020_canon_manifiesto.sql" \
+        "${base}/migraciones/000007_componentes/030_canon_capacidad_mac.sql" \
+        "${base}/migraciones/000007_componentes/040_canon_consumo.sql" \
+        "${base}/migraciones/000007_componentes/050_catalogo_fuente_checkpoint.sql" \
+        "${base}/migraciones/000007_componentes/060_atestacion_consumo.sql" \
+        "${base}/migraciones/000007_componentes/070_acreditar_material_fuente.sql" \
+        "${base}/migraciones/000007_componentes/080_consumidor_nominal.sql"
+    [[ "${modo}" == 'sin-r0' ]] || printf '%s\n' \
+        "${base}/pruebas_sql/000007_componentes/080_consumidor_nominal.sql"
+}
+
+plantilla_wrapper_c2_virtual_h0b_f0() {
+    local modo="${1:-}" ruta
+    [[ "${modo}" == 'sin-r0' || "${modo}" == 'completo' ]] || return 64
+    command cat <<'SQL'
+\set ON_ERROR_STOP on
+\set VERBOSITY sqlstate
+\set AUTOCOMMIT off
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL TimeZone='UTC';
+SET LOCAL lock_timeout='2s';
+SET LOCAL statement_timeout='10s';
+SET LOCAL transaction_timeout='15s';
+SET LOCAL idle_in_transaction_session_timeout='15s';
+SELECT pg_catalog.txid_current() AS txid_f0 \gset
+SQL
+    while IFS= read -r ruta; do
+        printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
+        printf '\\ir %s\n' "${ruta}"
+        printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
+    done < <(rutas_wrapper_c2_virtual_h0b_f0 "${modo}")
+    if [[ "${modo}" == 'sin-r0' ]]; then
+        printf '%s\n' 'SELECT count(*) FROM vec_autorizacion_atestada_v3.consumir_fuente_corporativa_contexto_actor_v1_atestada(NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::text,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea);'
+    else
+        printf 'ROLLBACK;\n'
+    fi
+}
+
+validar_wrapper_c2_virtual_h0b_f0() {
+    local ruta="${1:-}" modo="${2:-}" forma bytes lineas antes despues indice
+    local -a observadas=() permitidas=()
+    [[ "${modo}" == 'sin-r0' || "${modo}" == 'completo' ]] || return 64
+    if [[ -z "${ruta}" || ! -f "${ruta}" || ! -r "${ruta}" || -L "${ruta}" ]]; then
+        return 65
+    fi
+    forma="$(stat --printf='%a|%h' -- "${ruta}")" || return 65
+    bytes="$(stat --printf='%s' -- "${ruta}")" || return 65
+    [[ "${forma}" == '600|1' && "${bytes}" =~ ^[0-9]+$ ]] || return 65
+    ((bytes > 0 && bytes <= 1048576)) || return 65
+    lineas="$(awk 'END { print NR }' "${ruta}")" || return 65
+    [[ "${lineas}" =~ ^[0-9]+$ ]] && ((lineas > 0 && lineas < 800)) || return 65
+    antes="$(stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "${ruta}")" || return 65
+    dd if="${ruta}" of=/dev/null iflag=nofollow,fullblock,count_bytes \
+        count=1048577 status=none || return 65
+    cmp --silent -- "${ruta}" <(plantilla_wrapper_c2_virtual_h0b_f0 "${modo}") || return 65
+    mapfile -t observadas < <(awk '$1 == "\\ir" && NF == 2 { print $2 }' "${ruta}") || return 65
+    mapfile -t permitidas < <(rutas_wrapper_c2_virtual_h0b_f0 "${modo}") || return 65
+    ((${#observadas[@]} == ${#permitidas[@]})) || return 65
+    for indice in "${!permitidas[@]}"; do
+        [[ "${observadas[indice]}" == "${permitidas[indice]}" ]] || return 65
+    done
+    despues="$(stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "${ruta}")" || return 65
+    [[ "${despues}" == "${antes}" ]]
+}
+
+exigir_estado_c2_virtual_h0b_f0() {
+    local esperado="${1:-}" estado=0
+    shift || return 65
+    "$@" >/dev/null 2>&1 || estado=$?
+    [[ "${estado}" == "${esperado}" ]]
+}
+
+probar_plantillas_c2_virtual_h0b_f0() {
+    local temporales="${1:-}" migracion prueba_nominal prueba_error
+    local wrapper_sin wrapper_completo alterado ruta_invalida enlace
+    [[ -d "${temporales}" && ! -L "${temporales}" &&
+       "$(stat --printf='%a|%h' -- "${temporales}")" == '700|2' ]] || return 65
+    migracion="${temporales}/m080.sql"
+    prueba_nominal="${temporales}/t080-nominal.sql"
+    prueba_error="${temporales}/t080-error.sql"
+    wrapper_sin="${temporales}/wrapper-sin-r0.sql"
+    wrapper_completo="${temporales}/wrapper-completo.sql"
+    plantilla_migracion_c2_virtual_h0b_f0 >"${migracion}" || return 65
+    plantilla_prueba_c2_virtual_h0b_f0 nominal >"${prueba_nominal}" || return 65
+    plantilla_prueba_c2_virtual_h0b_f0 error >"${prueba_error}" || return 65
+    plantilla_wrapper_c2_virtual_h0b_f0 sin-r0 >"${wrapper_sin}" || return 65
+    plantilla_wrapper_c2_virtual_h0b_f0 completo >"${wrapper_completo}" || return 65
+    chmod 0600 -- "${migracion}" "${prueba_nominal}" "${prueba_error}" \
+        "${wrapper_sin}" "${wrapper_completo}" || return 65
+    validar_componentes_sql_f0 "${migracion}" "${temporales}" || return 65
+    validar_componentes_sql_f0 "${prueba_nominal}" "${temporales}" || return 65
+    validar_componentes_sql_f0 "${prueba_error}" "${temporales}" || return 65
+    cmp --silent -- "${migracion}" <(plantilla_migracion_c2_virtual_h0b_f0) || return 65
+    cmp --silent -- "${prueba_nominal}" <(plantilla_prueba_c2_virtual_h0b_f0 nominal) || return 65
+    cmp --silent -- "${prueba_error}" <(plantilla_prueba_c2_virtual_h0b_f0 error) || return 65
+    validar_wrapper_c2_virtual_h0b_f0 "${wrapper_sin}" sin-r0 || return 65
+    validar_wrapper_c2_virtual_h0b_f0 "${wrapper_completo}" completo || return 65
+    exigir_estado_c2_virtual_h0b_f0 64 plantilla_prueba_c2_virtual_h0b_f0 invalido || return 65
+    exigir_estado_c2_virtual_h0b_f0 64 plantilla_wrapper_c2_virtual_h0b_f0 invalido || return 65
+    exigir_estado_c2_virtual_h0b_f0 64 validar_wrapper_c2_virtual_h0b_f0 "${wrapper_sin}" invalido || return 65
+    alterado="${temporales}/wrapper-alterado.sql"
+    plantilla_wrapper_c2_virtual_h0b_f0 sin-r0 >"${alterado}" || return 65
+    printf ' ' >>"${alterado}" || return 65
+    chmod 0600 -- "${alterado}" || return 65
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${alterado}" sin-r0 || return 65
+    ruta_invalida="${temporales}/wrapper-ruta-invalida.sql"
+    plantilla_wrapper_c2_virtual_h0b_f0 completo |
+        awk '{ gsub("/repo_h0b/", "/repo_ajeno/"); print }' >"${ruta_invalida}" || return 65
+    chmod 0600 -- "${ruta_invalida}" || return 65
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${ruta_invalida}" completo || return 65
+    chmod 0644 -- "${wrapper_sin}" || return 65
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${wrapper_sin}" sin-r0 || return 65
+    chmod 0600 -- "${wrapper_sin}" || return 65
+    enlace="${temporales}/wrapper-enlace.sql"
+    ln -s -- "${wrapper_sin}" "${enlace}" || return 65
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${enlace}" sin-r0 || return 65
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${temporales}/ausente.sql" sin-r0
+}
+
 foto_roles() {
     valor "WITH estado AS (
       SELECT pg_catalog.concat_ws('|','r',rolname,rolsuper,rolinherit,
