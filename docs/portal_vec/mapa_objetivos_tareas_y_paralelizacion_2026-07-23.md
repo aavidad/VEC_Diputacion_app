@@ -12,13 +12,13 @@ temporal. El detalle verificable de cada tarea está en el
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
 | Camino crítico | C2.3 F0/C3 → R0 → `LOGIN` y membresía de Sistemas → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
-| Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %); la [evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md) de `ad8b170` corrige el doble NO-GO de `2d27303`. El flujo funcional 2 sigue dormido y bloquea C2. Es un contador más granular del mismo DAG, no una estimación temporal. |
+| Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %). C4a está integrado hasta `e130015`, con doble GO, H0 nominal PostgreSQL 18.4 y [evidencia propia](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md); no contabiliza H0b porque C4b–C4d siguen abiertos. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde | `11b237a` en `integracion/ct-o4-04e-20260726`; CI `30728047031` completamente verde |
-| Último commit técnico verificado | `ad8b170` — estructura aislada H0b, doble GO, P0=P1=P2=0, PostgreSQL 18.4 y cero residuos; publicado dentro de `11b237a` y cubierto por su CI verde |
+| Último corte publicado completamente verde | `4c6c7b6` en `integracion/ct-o4-04e-20260726`; CI `30736150392` completamente verde. El corte C4a integrado localmente requiere nueva CI. |
+| Último commit técnico verificado | `e130015` acredita el código C4a de `67e94bc`: doble GO, P0=P1=P2=0, PostgreSQL 18.4 y cero residuos. |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1 y la estructura aislada H0b están cerrados técnicamente, pero no suman una puerta funcional. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b y C4a están cerrados técnicamente, pero no suman una puerta funcional. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -216,7 +216,7 @@ Estado actual:
 | --- | --- | --- |
 | Puertas funcionales O2 | `3/7` (43 %) | Recorrido funcional; unidades grandes. |
 | Hitos O4-05 | `3/5` (60 %) | Hitos de integración; no estima el esfuerzo interno. |
-| Minitareas técnicas F0 | `10/23` (43 %) | La estructura H0b está integrada; el flujo funcional 2 sigue pendiente y bloquea C2. |
+| Minitareas técnicas F0 | `10/23` (43 %) | C4a activa el flujo exterior, pero H0b sigue abierto hasta completar C4b–C4d; C2 permanece bloqueado. |
 | Tareas aceptadas de Contratación | `24/46` (52 %) | Conteo histórico de cierres, no porcentaje de esfuerzo. |
 | Bolsa productiva estricta | `1/14` (7 %) | Capacidades con E2E productivo completo. |
 
@@ -243,9 +243,10 @@ Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 El contador técnico F0 contiene exactamente 23 minitareas: H0, H0a, H0b, V0,
 A1, A2, A3, A4, B1, B2, C1, C2, C3, R1, R2a, R2b, T1, T2, P0, Q1, Q2, Q3 e I0.
 Las diez primeras cerradas son H0, H0a, V0, A1, A2, A3, A4, B1, B2 y C1.
-La estructura aislada de H0b no añade una undécima: su flujo exterior sigue
-dormido. Solo dirección incrementa este contador después de integrar una
-minitarea funcional con revisión independiente.
+La estructura aislada de H0b y la activación C4a no añaden una undécima: el
+flujo exterior ya está activo, pero H0b sigue abierto hasta cerrar C4b–C4d.
+Solo dirección incrementa este contador después de integrar una minitarea
+funcional completa con revisión independiente.
 
 El experimento de catálogo operativo CONFIG-CAT-01 quedó
 [rechazado y aislado](revisiones/revision_config_cat_01_2026-08-02.md). No

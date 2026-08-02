@@ -13,10 +13,19 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `6d904735`; CI `30730111840`.
-- Último árbol técnico integrado: estructura aislada H0b en `ad8b170`, con
-  doble GO final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte
-  publicado `11b237a`, cuya CI terminó completamente verde. La
+- Último corte remoto completamente verde anterior al envío actual:
+  `4c6c7b6`; CI `30736150392`.
+- C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
+  nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
+  dos tests concurrentes intermitentes sin cambiar producción y tienen GO
+  independiente. El corte conjunto necesita una nueva CI completa.
+- La enmienda `e55930c` divide C4b en tres minitareas secuenciales sobre los
+  mismos dos ficheros. El siguiente corte exacto es C4b-1: régimen shell,
+  restauración y señales diferidas. C4b–C4d, H0b, C2 y F0 siguen abiertos;
+  las métricas no cambian.
+- Último árbol estructural anterior a C4a: H0b en `ad8b170`, con doble GO
+  final, PostgreSQL 18.4 y cero residuos. Está incluido en el corte publicado
+  `11b237a`, cuya CI terminó completamente verde. La
   [evidencia](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
   no acredita el flujo funcional R0/H0b.
 - A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.
@@ -46,9 +55,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
   `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
   carreras reales y cero residuos. La estructura H0b queda integrada en
-  `ad8b170`; el flujo exterior R0/H0b continúa dormido. Trabajo activo:
-  commit funcional 2 de H0b y después C2. Todavía no existe una migración
-  `000007` instalable.
+  `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
+  `e130015`. Trabajo activo: C4b-1, seguido de C4b-2, C4b-3, C4c y C4d;
+  después se implementará C2. Todavía no existe una migración `000007`
+  instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
   [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
@@ -97,8 +107,8 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es C2.3-F0; ninguna rama de agente ni
-los candidatos históricos se fusionan por conveniencia.
+y el tablero. La primera tarea disponible es C4b-1 dentro de C2.3-F0; ninguna
+rama de agente ni los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos
 
@@ -341,22 +351,23 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Activar en el commit funcional 2 el flujo exterior R0/H0b ya aislado y
-   después implementar C2 de C2.3-F0: consumidor nominal que reacredita R0 y
+1. Cerrar secuencialmente C4b-1, C4b-2, C4b-3, C4c y C4d; ninguna pieza
+   intermedia cuenta como cierre de H0b.
+2. Después implementar C2 de C2.3-F0: consumidor nominal que reacredita R0 y
    compone A4+B2+C1 en
    `autorizacion_atestada_v3/000007`, con replay exacto, consumo atómico y
    rollback.
-2. Implementar C2.3-R0, provisionar por Sistemas los `LOGIN` y membresías
+3. Implementar C2.3-R0, provisionar por Sistemas los `LOGIN` y membresías
    canónicos y después M5–M7: tres grupos segregados, prueba local, buzón
    operable y cuatro fachadas automáticas, sin edición humana ni PDP selector.
-3. Implementar C2.4: selección y recibo privados en una transacción
+4. Implementar C2.4: selección y recibo privados en una transacción
    `SERIALIZABLE` y C2.5: fachada y reconciliación del resultado incierto.
-4. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
+5. Cerrar PDP y componer la raíz interna con el pool nominal y el adaptador
    CT-000046, sin caída a presentación.
-5. Implementar el adaptador independiente de publicaciones visuales
+6. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-6. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-7. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+7. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+8. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado

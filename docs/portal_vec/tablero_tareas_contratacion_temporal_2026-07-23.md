@@ -99,10 +99,13 @@ el candidato estructural `2d27303` recibió después doble `NO-GO`,
 se integró por *squash* en `ad8b170` y cierra H0a, snapshot único, dos raíces y
 tercer auxiliar. La
 [evidencia](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
-mantiene dormido el flujo exterior R0/H0b; H0b no se contabiliza todavía.
-Todavía no existe
-una migración `000007` instalable ni cambian
-los tres hitos de O4-05.
+queda complementada por C4a: el flujo exterior R0/H0b está integrado hasta
+`e130015`, con doble GO, H0 nominal PostgreSQL 18.4 y
+[evidencia reproducible](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md).
+H0b no se contabiliza todavía porque C4b, C4c y C4d siguen abiertos. C4b se
+divide en tres minitareas secuenciales mediante `e55930c`; la siguiente es
+C4b-1. Todavía no existe una migración `000007` instalable ni cambian los
+tres hitos de O4-05.
 
 Desglose verificable del camino crítico `O4-04`:
 

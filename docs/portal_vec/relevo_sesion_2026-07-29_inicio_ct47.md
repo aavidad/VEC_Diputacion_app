@@ -2,6 +2,23 @@
 
 Fecha: 29 de julio de 2026.
 
+## Corte técnico actual — 2 de agosto de 2026
+
+C4a queda integrado hasta `e130015` con doble revisión independiente final,
+`P0=P1=P2=0`, H0 nominal sobre PostgreSQL 18.4 y cero residuos. El corte
+activa el flujo R0 exterior después del preámbulo, fija la frontera
+runner/adaptador y acredita la topología; no cierra C4b–C4d, H0b, C2, F0 ni
+producción. Dos carreras intermitentes de los propios tests, descubiertas por
+CI y reproducidas localmente, quedan corregidas sin tocar producción en
+`f4ca93d` y `dda4488`, ambas con `GO` independiente.
+
+`e55930c` divide obligatoriamente C4b en tres minitareas secuenciales:
+régimen shell/señales, hijo/grupo y Docker/epílogo. El siguiente corte exacto
+es C4b-1. Las métricas permanecen en F0 `10/23`, O4-05 `3/5`, Contratación
+temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`. El último
+corte remoto completamente verde anterior a este envío es `4c6c7b6`, CI
+`30736150392`; el corte actual requiere una nueva CI completa.
+
 ## Actualización vigente de dirección — 2 de agosto de 2026
 
 V0 queda integrado en `e68dbe0`, con tres vectores canónicos sintéticos,
@@ -35,8 +52,8 @@ C1 sobre PostgreSQL 18.4 y cero residuos. El árbol final quedó integrado por
 `11b237a`; la CI `30728047031` terminó completamente verde.
 
 Quedan cerrados estructuralmente H0a, una captura viva del superset, los dos
-manifiestos y raíces aislados y el tercer auxiliar privado. El flujo exterior
-R0/H0b sigue dormido y pendiente del commit funcional 2. La
+manifiestos y raíces aislados y el tercer auxiliar privado. Este era el corte
+previo a C4a; el flujo exterior R0/H0b queda activado después en `e130015`. La
 [evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
 no cierra H0b ni cambia las métricas.
 
@@ -430,11 +447,11 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: commit funcional 2 de H0b y después C2 de C2.3-F0. C1,
-C2.1b, S0.1, S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
-La estructura H0b está integrada en `ad8b170`, pero su flujo exterior sigue
-dormido. El desglose F0 permanece en `10/23`; H0b no altera todavía ninguna
-métrica funcional.
+Trabajo activo: C4b-1, seguido secuencialmente de C4b-2, C4b-3, C4c y C4d;
+después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
+C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
+`ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
+permanece en `10/23`; H0b no altera todavía ninguna métrica funcional.
 El contrato C2/C3/H0b/R0 obtuvo doble `GO` documental y queda trazado en la
 [revisión final](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md).
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
@@ -509,8 +526,9 @@ independientes finales GO, P0=P1=P2=0. El contrato descarta edición humana,
 autoinscripción y PDP selector; reutiliza V3 mediante F0, limita ContextoActor
 a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
-sobredimensionado no se integró. El siguiente corte exacto es F0 en
-`autorizacion_atestada_v3/000007`.
+sobredimensionado no se integró. Dentro de F0, C4a queda integrado y el
+siguiente corte exacto es C4b-1; la migración `000007` continúa bloqueada hasta
+cerrar C4b–C4d.
 
 ## Optimización probatoria CT88
 
