@@ -13,7 +13,7 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `d8b4e77`; CI `30723419913`.
+- Último corte publicado completamente verde: `9094abb`; CI `30725003007`.
 - Última implementación técnica verificada: C1 en `e441400`; dos componentes,
   doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
   CI técnica `30721617186` terminó completamente verde.
@@ -47,6 +47,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   carreras reales y cero residuos. Trabajo activo: H0b y después C2. Todavía
   no existe una migración
   `000007` instalable.
+- El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
+  sustituyó H0a y quebró la frontera D2c. La
+  [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
+  [enmienda](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md) fijan un
+  auxiliar privado y dos raíces aisladas de una captura. La enmienda obtuvo
+  doble `GO` documental y desbloquea el código; el contador F0 sigue en `10/23`.
 - El contrato final C2/C3/H0b/R0 obtuvo doble `GO` documental con
   `P0=P1=P2=0`. La [evidencia](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md)
   desbloquea H0b, pero no acredita su implementación.

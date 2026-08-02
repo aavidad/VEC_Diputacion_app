@@ -14,15 +14,20 @@ productivos y no cambia una métrica funcional.
 
 ## Write-set
 
+La [enmienda del auxiliar privado H0b](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md)
+prevalece tras el doble `NO-GO` del primer candidato. El write-set corregido
+es:
+
 ```text
 deploy/postgresql/autorizacion_atestada_v3/
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   arnes_fuente_corporativa_contexto_actor_v1.sh
+  arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh
 ```
 
-El cambio de huella del auxiliar se actualiza en el runner dentro del mismo
-commit. No se modifica otro componente, migración, prueba SQL o documento.
+Los cambios de huella de los auxiliares se actualizan en el runner dentro del
+mismo commit. No se modifica otro componente, migración o prueba SQL.
 
 ## Comportamiento exacto
 
@@ -86,3 +91,7 @@ rollback y retorno byte a byte a la línea base. La clausura temporal usada para
 estas integraciones no se versiona ni amplía el write-set de H0b. La etapa C2
 completa se ejecutará después, cuando M080/T080 incorporen la reacreditación
 R0.
+
+H0b conserva además la autoprueba H0a nominal/error en la raíz base. Las
+integraciones virtuales usan la segunda raíz de la captura coherente fijada en
+la enmienda, por lo que nunca sobrescriben ni retiran M010/T010 reales.

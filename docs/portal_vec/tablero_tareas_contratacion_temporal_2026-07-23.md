@@ -90,6 +90,10 @@ acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
 `7519063` con doble GO y CI `30719044843` verde. C1 queda integrado en
 `e441400` con doble GO, PostgreSQL 18.4 y
 [evidencia reproducible](revisiones/revision_f0_c1_acreditar_material_2026-08-02.md).
+El primer candidato H0b `99491d3` obtuvo doble `NO-GO` y permanece aislado.
+La [enmienda probatoria](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md)
+separa H0a y R0 en dos raíces de una captura y obtuvo doble `GO` documental;
+el código queda desbloqueado, pero H0b no se contabiliza todavía.
 Todavía no existe
 una migración `000007` instalable ni cambian
 los tres hitos de O4-05.

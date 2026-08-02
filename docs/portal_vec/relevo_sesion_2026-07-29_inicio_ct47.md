@@ -53,6 +53,14 @@ nominal de fuente V3. Las métricas funcionales permanecen en
 Contratación `24/46` (52 %), O4-05 `3/5`, Bolsa productiva `1/14` (7 %) y
 producción `NO-GO`.
 
+El primer candidato H0b `99491d3` recibió doble `NO-GO` y permanece aislado:
+retiró la autoprueba H0a y contaminó el auxiliar SQL D2c con ejecución. La
+[revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) conserva la
+evidencia. La corrección requiere la
+[enmienda de auxiliar privado y snapshot aislado](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md),
+que obtuvo doble `GO` documental y desbloquea la corrección de código. No cambian las
+métricas ni se hereda como cierre ninguna prueba del candidato rechazado.
+
 ## Motivo
 
 Después de cerrar CT-000046, dos inventarios independientes contrastaron el

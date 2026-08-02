@@ -42,13 +42,14 @@ sola responsabilidad y un límite de líneas verificable.
 
 ## Write-set y límites
 
-H0 posee exactamente estos cuatro artefactos:
+H0 posee, después de la enmienda H0b, exactamente estos cinco artefactos:
 
 ```text
 deploy/postgresql/autorizacion_atestada_v3/
   probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh
 deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
   arnes_fuente_corporativa_contexto_actor_v1.sh
+  arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh
   operaciones_runner_fuente_corporativa_contexto_actor_v1.sh
   capturar_snapshot_fuente_corporativa_contexto_actor_v1.go
 ```
@@ -58,21 +59,24 @@ Límites obligatorios:
 - runner H0: como máximo 550 líneas;
 - auxiliar operativo: menos de 200 líneas;
 - auxiliar SQL: menos de 800 líneas;
+- auxiliar privado R0/H0b: preferiblemente menos de 400 y siempre menos de 800 líneas;
 - capturador Go: menos de 800 líneas.
 
 La [corrección H0a](decision_f0_h0a_guardia_autoprueba_sintetica_2026-08-01.md)
 es una corrección excepcional del primer escritor H0, descubierta al ejecutar
 su primer consumidor A1. La decisión posterior
-[H0b](decision_f0_h0b_r0_sintetico_c2_2026-08-02.md) sustituye esa reserva:
-puede modificar runner y arnés y actualiza la huella literal del segundo.
+[H0b](decision_f0_h0b_r0_sintetico_c2_2026-08-02.md), con su
+[enmienda](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md), sustituye esa
+reserva: puede modificar runner y arnés SQL, añadir el auxiliar privado R0/H0b
+y actualizar sus huellas literales.
 Después de H0b, solo I0 modifica el runner; el auxiliar operativo y el
-capturador siguen inmutables.
+capturador siguen inmutables, y el nuevo auxiliar H0b queda congelado.
 
 ## Fronteras de responsabilidad
 
 El runner coordina etapas, crea el token efímero, instala las trampas antes de
 reservar recursos y decide cuándo invocar `docker run`. Conserva los SHA-256
-esperados como literales y carga ambos auxiliares solo desde una captura
+esperados como literales y carga los auxiliares solo desde una captura
 privada acreditada.
 
 El auxiliar operativo únicamente:
@@ -90,25 +94,30 @@ El auxiliar SQL conserva en exclusiva el analizador léxico, la clasificación
 SQLSTATE, las clausuras, las rutas literales de etapa y el inventario del
 snapshot SQL. No contiene Docker ni decisiones operativas.
 
+El auxiliar privado R0/H0b conserva exclusivamente las plantillas virtuales,
+identidades, fixture y oráculos sintéticos fijados por su enmienda. No posee el
+contenedor, credenciales, red, reintentos ni una ruta productiva.
+
 El capturador Go mantiene la captura segura por descriptor y no administra
 contenedores ni interpreta SQL.
 
-Los dos auxiliares carecen de modo autónomo y fallan con estado `64` si se
+Los tres auxiliares shell carecen de modo autónomo y fallan con estado `64` si se
 ejecutan directamente en vez de cargarse desde el runner.
 
 ## Cadena de confianza
 
-El runner fija como literales las rutas fuente y los tres SHA-256 esperados.
+El runner fija como literales las rutas fuente y los cuatro SHA-256 esperados.
 Con `umask 077`, crea un directorio privado `0700` y destinos nuevos `0600`,
 sin seguir enlaces y con exclusión.
 
 El arranque no es circular. El runner copia de forma acotada el fuente Go del
 capturador, contrasta tipo, enlaces, dispositivo, inode, tamaño y tiempos antes
 y después, verifica su SHA-256 literal y compila únicamente esa copia privada.
-Solo el binario ya acreditado captura después, por descriptor, los dos
-auxiliares y verifica sus SHA-256 literales antes de que el runner los cargue.
+Solo el binario ya acreditado captura después, por descriptor, los tres
+auxiliares shell y verifica sus SHA-256 literales antes de que el runner los
+cargue.
 
-Cada una de las tres fuentes tiene un máximo exacto de 1.048.576 bytes. La
+Cada una de las cuatro fuentes tiene un máximo exacto de 1.048.576 bytes. La
 lectura se limita antes de recorrer, copiar, calcular huellas o reservar
 memoria y consume como máximo 1.048.577 bytes, incluido el único byte de sonda
 de exceso. Un artefacto ausente, enlazado, mutado, sobredimensionado o con SHA
@@ -116,12 +125,12 @@ distinto falla antes de compilar, cargar o abrir PostgreSQL.
 
 El runner:
 
-- ejecuta ShellCheck sobre los tres shells;
+- ejecuta ShellCheck sobre los cuatro shells;
 - analiza la copia acreditada del capturador con `go vet`;
 - compila esa copia con `go build -race`, toolchain local, módulos de solo
   lectura y red de módulos desactivada;
 - ejecuta el binario privado con `--autoprueba`;
-- acredita el estado `64` de la invocación directa de ambos auxiliares.
+- acredita el estado `64` de la invocación directa de los tres auxiliares shell.
 
 Nunca usa `go run`, carga auxiliares desde el árbol vivo ni vuelve a abrir por
 nombre un artefacto ya capturado.
@@ -200,8 +209,8 @@ analizador léxico y el resto de comprobaciones fijadas por D2c.
 
 H0 solo puede confirmarse cuando:
 
-1. los cuatro artefactos respetan su write-set y sus límites;
-2. los tres SHA-256 literales coinciden con las capturas privadas;
+1. los cinco artefactos respetan su write-set y sus límites;
+2. los cuatro SHA-256 literales coinciden con las capturas privadas;
 3. todas las pruebas adversariales de propiedad, señales, tamaño y mutación
    pasan;
 4. el runner completo pasa tres veces sobre PostgreSQL 18.4 por digest;
