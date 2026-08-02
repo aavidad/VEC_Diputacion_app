@@ -235,8 +235,8 @@ func TestSondaLigeraNoPublicaVerdeSiIntegridadCambiaEnVuelo(t *testing.T) {
 
 func TestObservabilidadSoloEmiteTransicionesSaneadas(t *testing.T) {
 	f := nuevaFuenteDisponibilidadPrueba()
-	var estados []bool
-	f.observadorDisponibilidad = func(disponible bool) { estados = append(estados, disponible) }
+	estados := make(chan bool, 2)
+	f.observadorDisponibilidad = func(disponible bool) { estados <- disponible }
 	f.sondaDisponibilidadPrueba = func(context.Context) error { return nil }
 	if err := f.ComprobarDisponibilidad(context.Background()); err != nil {
 		t.Fatal(err)
@@ -250,8 +250,20 @@ func TestObservabilidadSoloEmiteTransicionesSaneadas(t *testing.T) {
 	if err := f.ComprobarDisponibilidad(context.Background()); err == nil {
 		t.Fatal("fallo de sonda aceptado")
 	}
-	if len(estados) != 2 || !estados[0] || estados[1] {
-		t.Fatalf("transiciones observadas = %v", estados)
+	for _, esperada := range []bool{true, false} {
+		select {
+		case observada := <-estados:
+			if observada != esperada {
+				t.Fatalf("transicion observada = %t; esperada = %t", observada, esperada)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("no se observo la transicion esperada = %t", esperada)
+		}
+	}
+	select {
+	case observada := <-estados:
+		t.Fatalf("transicion adicional observada = %t", observada)
+	default:
 	}
 }
 
