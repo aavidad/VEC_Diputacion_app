@@ -256,6 +256,126 @@ probar_plantillas_c2_virtual_h0b_f0() {
     return 0
 }
 
+catalogo_inyecciones_h0b_f0() {
+    command cat <<'CASOS'
+A01
+N01
+N02
+N03
+N04
+N05
+N06
+N07
+N08
+N09
+N10
+A02
+E01
+E02
+E03
+E04
+E05
+E06
+E07
+E08
+E09
+E10
+A03
+F01
+F02
+F03
+F04
+F05
+F06
+F07
+F08
+F09
+F10
+F11
+F12
+F13
+F14
+F15
+CASOS
+}
+
+oraculo_inyeccion_h0b_f0() {
+    case "${1:-}" in
+        A01) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N01) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N02) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N03) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N04) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N05) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N06) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N07) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N08) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N09) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        N10) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        A02) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E01) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E02) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E03) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E04) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E05) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E06) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E07) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E08) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E09) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        E10) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        A03) printf '%s' '79|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        F01) printf '%s' '65|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F02) printf '%s' '65|F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F03) printf '%s' '65|F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F04) printf '%s' '65|F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F05) printf '%s' '65|F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F06) printf '%s' '65|F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F07) printf '%s' '65|F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F08) printf '%s' '65|F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F09) printf '%s' '65|F09,F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F10) printf '%s' '65|F10,F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F11) printf '%s' '65|F11,F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F12) printf '%s' '65|F12,F13,F14,F15,TERMINAL|exterior' ;;
+        F13) printf '%s' '65|F13,F14,F15,TERMINAL|exterior' ;;
+        F14) printf '%s' '65|F14,F15,TERMINAL|exterior' ;;
+        F15) printf '%s' '65|F15,TERMINAL|exterior' ;;
+        NOMINAL) printf '%s' '0|F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL|interna-exterior' ;;
+        *) return 64 ;;
+    esac
+}
+
+validar_observacion_inyeccion_h0b_f0() {
+    local esperada
+    [[ "$1" == "$2" ]] || return 65
+    esperada="$(oraculo_inyeccion_h0b_f0 "$1")" || return 65
+    [[ "$3|$4|$5" == "${esperada}" ]]
+}
+
+validar_catalogo_inyecciones_h0b_f0() {
+    [[ "$1" == "$(catalogo_inyecciones_h0b_f0)" ]]
+}
+
+probar_oraculo_inyeccion_h0b_f0() {
+    local completo='F01,F02,F03,F04,F05,F06,F07,F08,F09,F10,F11,F12,F13,F14,F15,TERMINAL' catalogo
+    catalogo="$(catalogo_inyecciones_h0b_f0)" || return 65
+    [[ "$(printf '%s\n' "${catalogo}" | awk 'END {print NR}')" == 38 ]] || return 65
+    printf '%s\n' "${catalogo}" | awk '!vistos[$0]++ {unicos++} END {exit !(NR==38 && unicos==38)}' || return 65
+    while IFS= read -r caso; do oraculo_inyeccion_h0b_f0 "${caso}" >/dev/null || return 65; done <<<"${catalogo}"
+    validar_observacion_inyeccion_h0b_f0 NOMINAL NOMINAL 0 "${completo}" interna-exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 A01 A02 79 "${completo}" interna-exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 A01 A01 65 "${completo}" interna-exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 A01 A01 79 "${completo}" exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 F08 F08 65 'F08,F10,F11,F12,F13,F14,F15,TERMINAL' exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 F08 F08 65 'F08,F10,F09,F11,F12,F13,F14,F15,TERMINAL' exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 F08 F08 65 'F08,F09,F09,F10,F11,F12,F13,F14,F15,TERMINAL' exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 F08 F08 65 'F08,F99,F10,F11,F12,F13,F14,F15,TERMINAL' exterior || return 65
+    ! validar_observacion_inyeccion_h0b_f0 F15 F15 65 'TERMINAL,F15' exterior || return 65
+    validar_catalogo_inyecciones_h0b_f0 "${catalogo}" || return 65
+    ! validar_catalogo_inyecciones_h0b_f0 "${catalogo/$'A01\n'/}" || return 65
+    ! validar_catalogo_inyecciones_h0b_f0 "${catalogo/A01/$'A01\nA01'}" || return 65
+    ! validar_catalogo_inyecciones_h0b_f0 "${catalogo/A01/Z99}" || return 65
+}
+
 foto_roles() {
     valor "WITH estado AS (
       SELECT pg_catalog.concat_ws('|','r',rolname,rolsuper,rolinherit,

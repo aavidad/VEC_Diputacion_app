@@ -2,42 +2,74 @@
 set -Eeuo pipefail
 export LC_ALL=C
 umask 077
-directorio_entrada="$(dirname -- "${BASH_SOURCE[0]}")" || exit 65
-directorio_script="$(cd -- "${directorio_entrada}" && pwd -P)" || exit 65
-ruta_runner="${directorio_script}/${BASH_SOURCE[0]##*/}"
-raiz="$(cd -- "${directorio_script}/../../.." && pwd -P)" || exit 65
+unset BASH_ENV ENV
+modo_m38='' selector_inyeccion_h0b='' identidad_m38='' cid_esperado_m38=''
+forma_temporal_m38='' forma_runner_m38='' forma_raiz_m38=''
+if (($# > 0)) && [[ "$1" == '--caso-inyeccion-h0b' ]]; then
+    (($# == 2)) || exit 64
+    selector_inyeccion_h0b="$2"
+    IFS='|' read -r padre_m38 caso_m38 identidad_m38 cid_esperado_m38 td ti tu tt tm th rd ri ru rt rm rh rs rsha zd zi zu zt zm zh <&9 2>/dev/null || exit 64
+    if IFS= read -r _ <&9 2>/dev/null; then exit 64; fi
+    exec 9<&-
+    [[ -n "${zh}" && "${zh}" != *'|'* && "${padre_m38}" == "${PPID}" &&
+       "${caso_m38}" == "${selector_inyeccion_h0b}" &&
+       "${identidad_m38}" =~ ^[0-9a-f]{64}$ &&
+       "${cid_esperado_m38}" =~ ^[0-9a-f]{64}$ &&
+       "${td}|${ti}|${tu}|${tt}|${tm}|${th}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|directory\|700\|2$ &&
+       "${rd}|${ri}|${ru}|${rt}|${rm}|${rh}|${rs}|${rsha}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|regular\ file\|600\|0\|[0-9]+\|[0-9a-f]{64}$ &&
+       "${zd}|${zi}|${zu}|${zt}|${zm}|${zh}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|directory\|[0-7]{3,4}\|[0-9]+$ &&
+       "${selector_inyeccion_h0b}" =~ ^(A0[1-3]|[NE](0[1-9]|10)|F(0[1-9]|1[0-5])|NOMINAL)$ ]] || exit 64
+    forma_temporal_m38="${td}|${ti}|${tu}|${tt}|${tm}|${th}"
+    forma_runner_m38="${rd}|${ri}|${ru}|${rt}|${rm}|${rh}|${rs}|${rsha}"
+    forma_raiz_m38="${zd}|${zi}|${zu}|${zt}|${zm}|${zh}"
+    set +m
+    [[ "$-" != *m* ]] || exit 64
+    builtin kill -STOP "${BASHPID}"
+    modo_m38='hijo'; set -- --etapa H0
+fi
+if [[ "${modo_m38}" == hijo ]]; then
+    ruta_runner=/proc/self/fd/8; raiz=/proc/self/fd/7
+else
+    directorio_entrada="$(dirname -- "${BASH_SOURCE[0]}")" || exit 65
+    directorio_script="$(cd -- "${directorio_entrada}" && pwd -P)" || exit 65
+    ruta_runner="${directorio_script}/${BASH_SOURCE[0]##*/}"
+    raiz="$(cd -- "${directorio_script}/../../.." && pwd -P)" || exit 65
+fi
 cd -- "${raiz}" || exit 65
 readonly ruta_helper_sql='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_h0b='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
+readonly ruta_adaptador_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ciclo_recursos_m38_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
-readonly destino_m080_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql'
-readonly destino_t080_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql'
-readonly destino_wrapper_h0b='/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0b.sql'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
-readonly sha256_helper_h0b='c5baff1e9d8febfa489a5cfd5aaf2004bdbc2f12b1b12881442902be8bdf1319'
+readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
+readonly sha256_adaptador_m38='7cff227b5f97315fd5693a6901ee4bfc55640d93181d4a9f15fd99d2780646e8'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
-temporales='' raiz_base='' clave_postgres='' propietario_contenedor=''
+[[ -z "${identidad_m38}" ]] || contenedor="vec-f0-h0-${identidad_m38:0:32}"
+temporales='' raiz_base='' clave_postgres='' propietario_contenedor="${identidad_m38}"
 intencion_contenedor='' cid_contenedor=''
 etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
-r0_posible='' finalizando_h0b='' wrapper_activo=''
+r0_posible='' finalizando_h0b='' wrapper_activo='' inyeccion_h0b_activa='' traza_m38_activa=''
+traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b=''
 fallar() { printf '[F0 H0] ERROR: %s\n' "$1" >&2; exit 1; }
 paso() { printf '[F0 H0] %s\n' "$1"; }
 limpiar() {
     local estado=$?
     trap - EXIT INT TERM
     if [[ "${r0_posible}" == '1' && -z "${finalizando_h0b}" ]]; then finalizar_h0b_f0 "${estado}" || estado=$?; fi
+    if [[ "${modo_m38}" == hijo ]]; then exit "${estado}"; fi
+    if declare -F retirar_recursos_m38_f0 >/dev/null && ! retirar_recursos_m38_f0; then estado=65; fi
     if [[ "${intencion_contenedor}" == '1' ]] && ! retirar_contenedor_propio_f0; then
         printf '[F0 H0] ERROR: no se retiró el contenedor propio\n' >&2
-        ((estado == 0)) && estado=1
+        estado=65
     fi
     if ! retirar_directorio_temporal_f0; then
         printf '[F0 H0] ERROR: no se retiraron los temporales propios\n' >&2
-        ((estado == 0)) && estado=1
+        estado=65
     fi
     exit "${estado}"
 }
@@ -161,20 +193,25 @@ capturar_auxiliares_privados_f0() {
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
         --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" \
-        "${ruta_helper_h0b}" "${ruta_helper_operativo}" || return 65
+        "${ruta_helper_h0b}" "${ruta_adaptador_m38}" \
+        "${ruta_helper_operativo}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 3 &&
+    [[ ${#lineas[@]} -eq 4 &&
        "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
        "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
-       "${lineas[2]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" ]] || return 65
+       "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
+       "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" ]] || return 65
     if bash "${snapshot}/${ruta_helper_sql}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
     ((estado_directo == 64)) || return 65
     if bash "${snapshot}/${ruta_helper_operativo}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
     ((estado_directo == 64)) || return 65
     if bash "${snapshot}/${ruta_helper_h0b}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
     ((estado_directo == 64)) || return 65
+    if bash "${snapshot}/${ruta_adaptador_m38}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+    ((estado_directo == 64)) || return 65
     shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" \
-        "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" || return 65
+        "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" \
+        "${snapshot}/${ruta_adaptador_m38}" || return 65
     export VEC_F0_CARGA_PRIVADA=1
     # shellcheck source=/dev/null
     source "${snapshot}/${ruta_helper_sql}"
@@ -184,6 +221,9 @@ capturar_auxiliares_privados_f0() {
     export VEC_F0_CARGA_PRIVADA=1
     # shellcheck source=/dev/null
     source "${snapshot}/${ruta_helper_h0b}"
+    export VEC_F0_CARGA_PRIVADA=1
+    # shellcheck source=/dev/null
+    source "${snapshot}/${ruta_adaptador_m38}"
 }
 acreditar_snapshot_contenedor_f0() {
     local manifiesto="$1" raiz_contenedor="${2:-/repo}" reconstruido
@@ -288,9 +328,7 @@ probar_sqlstate_real_f0() {
 foto_catalogo() {
     docker exec "${contenedor}" pg_dump --schema-only --restrict-key=0000000000000000000000000000000000000000000000000000000000000000 --username postgres --dbname postgres | sha256sum | awk '{print $1}'
 }
-
 etapa_necesita_r0_f0() { [[ "$1" =~ ^(C2|C3|R1|R2a|R2b|T1|T2)$ ]]; }
-
 ejecutar_etapa_dormida_f0() {
     local claves clave ruta relativa envoltorio destino estado=0 usuario
     claves="$(clausura_etapa_f0 "${etapa}")" || return 64
@@ -325,86 +363,148 @@ ejecutar_etapa_dormida_f0() {
     wrapper_activo=''
     return "${estado}"
 }
-
-copiar_componente_sintetico_f0() {
-    local origen="$1" destino="$2"
-    validar_componentes_sql_f0 "${origen}" "${temporales}" || return 65
-    docker cp "${origen}" "${contenedor}:${destino}" || return 65
-    comparar_huellas_f0 "${origen}" "${destino}" || return 65
+inyectar_frontera_h0b_f0() {
+    [[ -n "${1:-}" && "${inyeccion_h0b_activa}" == 1 &&
+       "${selector_inyeccion_h0b}" == "$1" ]] || return 0
+    caso_observado_h0b="$1"
+    return 79
 }
-
-preparar_integracion_h0b_f0() {
-    local modo="$1" directorio="${temporales}/integracion-h0b"
-    local migracion="${directorio}/integracion-h0b-m080.sql" prueba="${directorio}/integracion-h0b-t080.sql" wrapper="${directorio}/integracion-h0b-wrapper.sql"
-    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_t080_h0b%/*}" && materializar_integracion_c2_virtual_h0b_f0 "${directorio}" "${modo}" || return 65
-    copiar_componente_sintetico_f0 "${migracion}" "${destino_m080_h0b}" || return 65
-    [[ "${modo}" == 'sin-r0' ]] || copiar_componente_sintetico_f0 "${prueba}" "${destino_t080_h0b}" || return 65
-    wrapper_activo="${destino_wrapper_h0b}"
-    docker cp "${wrapper}" "${contenedor}:${wrapper_activo}" || return 65
-    comparar_huellas_f0 "${wrapper}" "${wrapper_activo}"
-}
-
-ejecutar_wrapper_h0b_f0() {
-    local modo="$1" usuario='postgres' estado=0 salida="${temporales}/integracion-h0b.out" error="${temporales}/integracion-h0b.err"
-    [[ "${modo}" != 'sin-r0' ]] || usuario='vec_f0_h0_migrador'
-    docker exec "${contenedor}" psql -XAtq --set ON_ERROR_STOP=1 \
-        --username "${usuario}" --dbname postgres --file "${wrapper_activo}" \
-        >"${salida}" 2>"${error}" || estado=$?
-    validar_resultado_wrapper_c2_virtual_h0b_f0 "${modo}" "${estado}" "${salida}" "${error}"
-}
-
 intentar_finalizacion_h0b_f0() {
-    local -n estado_acumulado="$1"; local mensaje="$2"; shift 2
-    if ! ("$@"); then
+    local -n estado_acumulado="$1"; local caso="$2" mensaje="$3"; shift 3
+    if [[ "${traza_m38_activa}" == 1 &&
+          ( -n "${traza_finalizador_h0b}" || "${selector_inyeccion_h0b}" != F* ||
+            "${selector_inyeccion_h0b}" == "${caso}" ) ]]; then
+        traza_finalizador_h0b+="${traza_finalizador_h0b:+,}${caso}"
+    fi
+    if [[ "${inyeccion_h0b_activa}" == 1 && "${selector_inyeccion_h0b}" == "${caso}" ]]; then
+        caso_observado_h0b="${caso}"; estado_acumulado=65
+    elif ! "$@"; then
         printf '[F0 H0] ERROR: %s\n' "${mensaje}" >&2
-        # shellcheck disable=SC2034
+        # shellcheck disable=SC2034 # asignación mediante nameref
         estado_acumulado=65
+        [[ "${selector_inyeccion_h0b}" != F* || -n "${caso_observado_h0b}" ]] || caso_observado_h0b=INVALIDO
     fi
 }
-
 finalizar_h0b_f0() {
-    local causal="$1" estado_finalizacion=0 accion
-    finalizando_h0b='1'
-    [[ "${r0_posible}" != '1' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró R0' retirar_r0_sintetico_f0
-    [[ -z "${wrapper_activo}" ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró el wrapper' docker exec "${contenedor}" rm -f -- "${wrapper_activo}"
-    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiraron M080/T080' docker exec "${contenedor}" rm -f -- "${destino_m080_h0b}" "${destino_t080_h0b}"
-    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'no se retiró el directorio H0b' docker exec "${contenedor}" rmdir -- "${destino_t080_h0b%/*}" "${destino_t080_h0b%/*/*}"
-    intentar_finalizacion_h0b_f0 estado_finalizacion 'R0 quedó presente' acreditar_r0_ausente_f0
-    [[ "${etapa}" != 'H0' ]] || intentar_finalizacion_h0b_f0 estado_finalizacion 'la raíz H0b no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" /repo_h0b
-    intentar_finalizacion_h0b_f0 estado_finalizacion 'la raíz base no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql_base}" /repo
+    local causal="$1" estado_finalizacion=0 accion accion_f0=8
+    # shellcheck disable=SC2154 # constantes del adaptador privado
+    local -a wrappers=("${destino_wrapper_h0b}" "${destino_wrapper_nominal_h0b}" "${destino_wrapper_error_h0b}")
+    [[ "${etapa}" == H0 ]] || wrappers=("${wrapper_activo}")
+    finalizando_h0b=1
+    [[ "${r0_posible}" != 1 && "${inyeccion_h0b_activa}" != 1 ]] || intentar_finalizacion_h0b_f0 estado_finalizacion F01 'no se retiró R0' retirar_r0_sintetico_f0
+    [[ -z "${wrapper_activo}" && "${inyeccion_h0b_activa}" != 1 ]] || intentar_finalizacion_h0b_f0 estado_finalizacion F02 'no se retiró el wrapper' retirar_archivos_h0b_f0 "${wrappers[@]}"
+    # shellcheck disable=SC2154 # constantes del adaptador privado
+    [[ "${etapa}" != H0 ]] || intentar_finalizacion_h0b_f0 estado_finalizacion F03 'no se retiraron M080/T080' retirar_archivos_h0b_f0 "${destino_m080_h0b}" "${destino_t080_h0b}"
+    [[ "${etapa}" != H0 ]] || intentar_finalizacion_h0b_f0 estado_finalizacion F04 'no se retiró el directorio H0b' retirar_directorios_wrapper_h0b_f0
+    intentar_finalizacion_h0b_f0 estado_finalizacion F05 'R0 quedó presente' acreditar_r0_ausente_f0
+    [[ "${etapa}" != H0 ]] || intentar_finalizacion_h0b_f0 estado_finalizacion F06 'la raíz H0b no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql}" /repo_h0b
+    intentar_finalizacion_h0b_f0 estado_finalizacion F07 'la raíz base no volvió a base' acreditar_snapshot_contenedor_f0 "${manifiesto_sql_base}" /repo
     for accion in audiencia checkpoint catalogo roles objetos preparadas temporales sesiones; do
-        intentar_finalizacion_h0b_f0 estado_finalizacion "no se acreditó ${accion}" acreditar_salida_base_h0b_f0 "${accion}" "${audiencia_base}" "${checkpoint_base}" "${catalogo_base}" "${roles_base}"
+        intentar_finalizacion_h0b_f0 estado_finalizacion "F$(printf '%02d' "${accion_f0}")" "no se acreditó ${accion}" acreditar_salida_base_h0b_f0 "${accion}" "${audiencia_base}" "${checkpoint_base}" "${catalogo_base}" "${roles_base}"
+        accion_f0=$((accion_f0 + 1))
     done
-    r0_posible=''; wrapper_activo=''; finalizando_h0b=''
-    ((estado_finalizacion == 0)) || return 65
+    [[ "${traza_m38_activa}" != 1 ]] || traza_finalizador_h0b+="${traza_finalizador_h0b:+,}TERMINAL"
+    r0_posible='' wrapper_activo='' finalizando_h0b=''
+    ((estado_finalizacion == 0)) || { inyeccion_h0b_activa=''; return 65; }
+    recuperacion_interna_h0b=1; inyeccion_h0b_activa=''
     return "${causal}"
 }
-
 probar_h0b_funcional_f0() {
-    local estado=0
-    mkdir --mode=0700 "${temporales}/autoprueba-h0b" "${temporales}/integracion-h0b" && probar_plantillas_c2_virtual_h0b_f0 "${temporales}/autoprueba-h0b" || return 65
+    local estado=0 recuperacion=exterior
+    if [[ "${modo_m38}" == hijo ]]; then
+        traza_m38_activa=1
+        [[ "${selector_inyeccion_h0b}" == NOMINAL ]] || inyeccion_h0b_activa=1
+    fi
+    mkdir --mode=0700 "${temporales}/autoprueba-h0b" &&
+        probar_plantillas_c2_virtual_h0b_f0 "${temporales}/autoprueba-h0b" || return 65
     paso 'autoprueba pura H0b acreditada'
+    mkdir --mode=0700 "${temporales}/integracion-h0b-sin-r0" || return 65
+    # shellcheck disable=SC2154 # constante del adaptador privado
+    crear_directorio_wrapper_h0b_f0 "${directorio_wrapper_h0b}" || return 65
     preparar_integracion_h0b_f0 sin-r0 || estado=$?
     ((estado != 0)) || ejecutar_wrapper_h0b_f0 sin-r0 || estado=$?
     ((estado != 0)) || paso 'sin R0: SQLSTATE 42501 exacto acreditado'
     finalizar_h0b_f0 "${estado}" || return $?
+    reiniciar_ledger_h0b_f0 || return 65
     paso 'finalizador sin R0: rollback y línea base exacta acreditados'
-    r0_posible='1'
+    mkdir --mode=0700 "${temporales}/integracion-h0b-nominal" \
+        "${temporales}/integracion-h0b-error" || return 65
+    crear_directorio_wrapper_h0b_f0 "${directorio_wrapper_h0b}" || return 65
+    r0_posible=1
     crear_r0_sintetico_f0 || estado=$?
     ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || inyectar_frontera_h0b_f0 A01 || estado=$?
     ((estado != 0)) || paso 'R0 canónico acreditado'
     ((estado != 0)) || preparar_integracion_h0b_f0 nominal || estado=$?
     ((estado != 0)) || ejecutar_wrapper_h0b_f0 nominal || estado=$?
     ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || inyectar_frontera_h0b_f0 A02 || estado=$?
     ((estado != 0)) || paso 'integración virtual C2 nominal acreditada'
     ((estado != 0)) || preparar_integracion_h0b_f0 error || estado=$?
     ((estado != 0)) || ejecutar_wrapper_h0b_f0 error || estado=$?
     ((estado != 0)) || acreditar_r0_sintetico_f0 || estado=$?
+    ((estado != 0)) || inyectar_frontera_h0b_f0 A03 || estado=$?
     ((estado != 0)) || paso 'error posterior: SQLSTATE 22012 exacto acreditado'
-    finalizar_h0b_f0 "${estado}" || return $?
+    if finalizar_h0b_f0 "${estado}"; then estado=0; else estado=$?; fi
+    [[ "${selector_inyeccion_h0b}" != F* || "${estado}" == 0 ]] || caso_observado_h0b=INVALIDO
+    if [[ "${modo_m38}" == hijo ]]; then
+        [[ "${recuperacion_interna_h0b}" != 1 ]] || recuperacion=interna-exterior
+        [[ "${selector_inyeccion_h0b}" != NOMINAL ]] || caso_observado_h0b=NOMINAL
+        printf '[F0 M38] RESULTADO|%s|%s|%s|%s\n' "${caso_observado_h0b}" "${estado}" "${traza_finalizador_h0b}" "${recuperacion}"
+        return "${estado}"
+    fi
+    ((estado == 0)) || return "${estado}"
     paso 'finalizador R0: ausencia y ambas raíces/base exactas acreditadas'
 }
-
+acreditar_runner_m38_f0() { [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- /proc/self/fd/8)|$(huella_local_f0 /proc/self/fd/8)" == "$1" ]]; }
+probar_rechazos_m38_f0() {
+    local defecto caso ticket estado traza="${temporales}/rechazo-m38.trace"; local -a argumentos
+    for defecto in vacio desconocido repetido sin-ticket discrepante; do
+        caso=''; ticket=x; argumentos=(--caso-inyeccion-h0b "${caso}")
+        [[ "${defecto}" != desconocido ]] || argumentos[1]=Z99
+        [[ "${defecto}" != repetido ]] || argumentos+=(sobrante)
+        [[ "${defecto}" != discrepante ]] || { argumentos[1]=A01; ticket="${BASHPID}|A02|0000000000000000000000000000000000000000000000000000000000000000|0000000000000000000000000000000000000000000000000000000000000000|1|1|${EUID}|directory|700|2|1|1|${EUID}|regular file|600|0|1|0000000000000000000000000000000000000000000000000000000000000000|1|1|${EUID}|directory|700|2"; }
+        exec 6>"${traza}"
+        if [[ "${defecto}" == sin-ticket ]]; then PATH=/ruta-no-resoluble BASH_XTRACEFD=6 /usr/bin/bash -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<&- >/dev/null 2>&1 && estado=0 || estado=$?
+        else PATH=/ruta-no-resoluble BASH_XTRACEFD=6 /usr/bin/bash -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<<<"${ticket}" >/dev/null 2>&1 && estado=0 || estado=$?; fi
+        exec 6>&-
+        ((estado == 64)) && ! grep -Eqv '^\+ (set |export |LC_ALL=|umask |unset |modo_m38=|selector_inyeccion_h0b=|identidad_m38=|forma_(temporal|runner|raiz)_m38=|IFS=|read |exec |exit |\[\[ |\(\()' "${traza}" || return 65
+    done
+}
+ejecutar_matriz_m38_f0() {
+    local casos='A01 A02 A03 N01 N02 N03 N04 N05 N06 N07 N08 N09 N10 E01 E02 E03 E04 E05 E06 E07 E08 E09 E10 F01 F02 F03 F04 F05 F06 F07 F08 F09 F10 F11 F12 F13 F14 F15'
+    local original huella copia forma_runner forma_raiz catalogo='' caso identidad cid forma ticket salida error estado linea resultado cantidad esperado observado declarado traza recuperacion extra forma_restaurada
+    probar_oraculo_inyeccion_h0b_f0 || return 65
+    huella="$(huella_local_f0 "${ruta_runner}")"; original="$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|${huella}" || return 65
+    [[ "${original}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|regular\ file\|[0-7]{3,4}\|1\|[0-9]+\|[0-9a-f]{64}$ ]] || return 65
+    copia="${temporales}/runner-m38"; copiar_fuente_sin_enlaces_f0 "${ruta_runner}" "${copia}" "${huella}" || return 65
+    exec 8<"${copia}" 7<"${raiz}"; [[ "$(stat --printf='%u|%F|%a|%h' -- /proc/self/fd/8)" == "${EUID}|regular file|600|1" ]] || return 65; rm -- "${copia}" || return 65
+    forma_runner="$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- /proc/self/fd/8)|${huella}"; forma_raiz="$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)"
+    acreditar_runner_m38_f0 "${forma_runner}" || return 65
+    printf 'adverso\n' >"${copia}"; acreditar_runner_m38_f0 "${forma_runner}" && rm -- "${copia}" || return 65
+    copiar_fuente_sin_enlaces_f0 "${ruta_runner}" "${copia}" "${huella}" || return 65
+    forma_restaurada="$(stat --printf='%d|%i' -- "${copia}")"; [[ "${forma_runner}" != "${forma_restaurada}|"* ]] || return 65
+    rm -- "${copia}"; acreditar_runner_m38_f0 "${forma_runner}" || return 65
+    [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|$(huella_local_f0 "${ruta_runner}")" == "${original}" ]] && probar_rechazos_m38_f0 || return 65
+    for caso in ${casos}; do catalogo+="${catalogo:+$'\n'}${caso}"; done
+    validar_catalogo_inyecciones_h0b_f0 "${catalogo}" || return 65
+    for caso in NOMINAL ${casos}; do
+        acreditar_runner_m38_f0 "${forma_runner}" && [[ "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
+        preparar_recursos_m38_f0 identidad forma cid || return 65
+        salida="${temporales}/${caso}.out"; error="${temporales}/${caso}.err"
+        ticket="${BASHPID}|${caso}|${identidad}|${cid}|${forma}|${forma_runner}|${forma_raiz}"
+        lanzar_hijo_m38_f0 "${caso}" "${ticket}" "${salida}" "${error}" estado || return 65
+        resultado=''; cantidad=0; while IFS= read -r linea; do [[ "${linea}" != '[F0 M38] RESULTADO|'* ]] || { resultado="${linea#*RESULTADO|}"; cantidad=$((cantidad + 1)); }; done <"${salida}"
+        IFS='|' read -r observado declarado traza recuperacion extra <<<"${resultado}"
+        retirar_recursos_m38_f0 || return 65
+        esperado="$(oraculo_inyeccion_h0b_f0 "${caso}")" || return 65
+        ((cantidad == 1)) && [[ -z "${extra}" && "${estado}" == "${esperado%%|*}" ]] && validar_observacion_inyeccion_h0b_f0 "${caso}" "${observado}" "${declarado}" "${traza}" "${recuperacion}" || return 65
+        acreditar_runner_m38_f0 "${forma_runner}" && [[ "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
+    done
+    set +m
+    [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|$(huella_local_f0 "${ruta_runner}")" == "${original}" && "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
+    exec 8<&- 7<&-
+}
 probar_etapa_dormida_sintetica_f0() {
     local etapa_original="${etapa}" estado_error
     local migracion="${temporales}/010_validadores_m.sql" prueba="${temporales}/010_validadores_t.sql"
@@ -433,8 +533,10 @@ probar_etapa_dormida_sintetica_f0() {
 }
 if (($# == 2)) && [[ "$1" == '--etapa' ]]; then
     etapa="$2"
+elif (($# == 1)) && [[ "$1" == '--matriz-inyeccion-h0b' ]]; then
+    modo_m38=conductor; etapa=H0
 elif (($# != 0)); then
-    fallar 'uso: probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh [--etapa ETAPA]'
+    fallar 'uso: runner [--etapa ETAPA|--matriz-inyeccion-h0b]'
 fi
 case "${etapa}" in
     H0|A1|A2|A3|A4|B1|B2|C1|C2|C3|R1|R2a|R2b|T1|T2) ;;
@@ -445,21 +547,31 @@ for dependencia in bash chmod dd dirname docker env go ln mkdir mktemp mv openss
     command -v "${dependencia}" >/dev/null 2>&1 ||
         fallar "dependencia local ausente: ${dependencia}"
 done
+if [[ "${modo_m38}" == hijo ]]; then
+    [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- /proc/self/fd/8)|$(huella_local_f0 /proc/self/fd/8)" == "${forma_runner_m38}" &&
+       "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz_m38}" ]] || exit 65
+fi
 [[ "${imagen}" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]] ||
     fallar 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256'
 docker image inspect "${imagen}" >/dev/null 2>&1 ||
     fallar 'la imagen PostgreSQL fijada no está disponible localmente'
-capturar_salida_f0 aleatorio_temporales openssl rand -hex 32 || fallar 'no se pudo generar la reserva temporal'
-[[ "${aleatorio_temporales}" =~ ^[0-9a-f]{64}$ && -d /tmp && ! -L /tmp ]] ||
-    fallar 'reserva temporal inválida'
-temporales="/tmp/vec-f0-h0-${aleatorio_temporales}"
+if [[ "${modo_m38}" == hijo ]]; then
+    temporales="/tmp/vec-f0-h0-${identidad_m38}"
+    capturar_salida_f0 forma_temporales stat --printf='%d|%i|%u|%F|%a|%h' -- "${temporales}" || exit 65
+    [[ "${forma_temporales}" == "${forma_temporal_m38}" ]] || exit 65
+else
+    capturar_salida_f0 aleatorio_temporales openssl rand -hex 32 || fallar 'no se pudo generar la reserva temporal'
+    [[ "${aleatorio_temporales}" =~ ^[0-9a-f]{64}$ && -d /tmp && ! -L /tmp ]] || fallar 'reserva temporal inválida'
+    temporales="/tmp/vec-f0-h0-${aleatorio_temporales}"
+fi
 trap limpiar EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-[[ ! -e "${temporales}" && ! -L "${temporales}" ]] || fallar 'la reserva temporal ya existe'
-temporal_preausente='1'; estado_mkdir_temporal=0
-mkdir --mode=0700 -- "${temporales}" || estado_mkdir_temporal=$?
-capturar_salida_f0 forma_temporales stat --printf='%d|%i|%u|%F|%a|%h' -- "${temporales}" || fallar 'reserva temporal no acreditable'
+if [[ "${modo_m38}" != hijo ]]; then
+    [[ ! -e "${temporales}" && ! -L "${temporales}" ]] || fallar 'la reserva temporal ya existe'
+    temporal_preausente='1'; mkdir --mode=0700 -- "${temporales}" || estado_mkdir_temporal=$?
+    capturar_salida_f0 forma_temporales stat --printf='%d|%i|%u|%F|%a|%h' -- "${temporales}" || fallar 'reserva temporal no acreditable'
+fi
 [[ "${forma_temporales}" =~ ^[0-9]+\|[0-9]+\|${EUID}\|directory\|700\|2$ ]] || fallar 'reserva temporal inválida'
 identidad_temporales="${forma_temporales%|*}"; temporal_propio='1'
 ((estado_mkdir_temporal == 0)) || fallar 'mkdir falló después de reservar el temporal'
@@ -474,6 +586,12 @@ capturador="$(preparar_capturador_privado_f0)" ||
     fallar 'no se pudo acreditar y compilar el capturador privado'
 capturar_auxiliares_privados_f0 "${capturador}" ||
     fallar 'no se pudieron acreditar y cargar los auxiliares privados'
+if [[ "${modo_m38}" == conductor ]]; then
+    ejecutar_matriz_m38_f0 || fallar 'la matriz funcional M38 no quedó acreditada'
+    paso 'matriz funcional M38 acreditada en 39 procesos aislados'
+    limpiar_estricto_f0 || fallar 'la matriz M38 dejó recursos propios'
+    trap - EXIT INT TERM; exit 0
+fi
 paso 'autopruebas del analizador y clasificador'
 probar_analizador_f0 "${temporales}"
 probar_clasificador_f0 "${temporales}"
@@ -492,30 +610,34 @@ if [[ "${etapa}" == 'H0' ]]; then
 fi
 exigir_salida_f0 "${raiz_base}" 'la raíz física cambió durante el snapshot' metadatos_ruta_f0 .
 paso "arranque PostgreSQL efímero sin red: ${imagen}"
-capturar_salida_f0 clave_postgres openssl rand -hex 24 ||
+[[ "${modo_m38}" == hijo ]] || capturar_salida_f0 clave_postgres openssl rand -hex 24 ||
     fallar 'no se pudo generar la clave efímera de PostgreSQL'
-capturar_salida_f0 propietario_contenedor openssl rand -hex 32 ||
-    fallar 'no se pudo generar la marca efímera del contenedor'
+[[ -n "${propietario_contenedor}" ]] || capturar_salida_f0 propietario_contenedor openssl rand -hex 32 || fallar 'no se pudo generar la marca efímera del contenedor'
 [[ "${propietario_contenedor}" =~ ^[0-9a-f]{64}$ ]] || fallar 'marca efímera de contenedor inválida'
 cid_contenedor="${temporales}/contenedor.cid"
-[[ ! -e "${cid_contenedor}" && ! -L "${cid_contenedor}" ]] || fallar 'ruta cidfile no exclusiva'
 intencion_contenedor='1'
-docker run --detach --name "${contenedor}" --network none \
-    --label "es.dipgra.vep.f0.propietario=${propietario_contenedor}" \
-    --cidfile "${cid_contenedor}" \
-    --env POSTGRES_PASSWORD="${clave_postgres}" \
-    --env POSTGRES_INITDB_ARGS='--auth-local=trust' \
-    --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=768m \
-    "${imagen}" -c max_prepared_transactions=0 >/dev/null
-chmod 0600 "${cid_contenedor}" || fallar 'no se pudo proteger el cidfile'
+if [[ "${modo_m38}" != hijo ]]; then
+    [[ ! -e "${cid_contenedor}" && ! -L "${cid_contenedor}" ]] || fallar 'ruta cidfile no exclusiva'
+    docker run --detach --name "${contenedor}" --network none \
+        --label "es.dipgra.vep.f0.propietario=${propietario_contenedor}" \
+        --cidfile "${cid_contenedor}" --env POSTGRES_PASSWORD="${clave_postgres}" \
+        --env POSTGRES_INITDB_ARGS='--auth-local=trust' \
+        --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=768m \
+        "${imagen}" -c max_prepared_transactions=0 >/dev/null
+    chmod 0600 "${cid_contenedor}" || fallar 'no se pudo proteger el cidfile'
+fi
 hallado_cid="$(descubrir_contenedor_propio_f0)" || fallar 'contenedor propio no descubrible'
 id_contenedor="$(acreditar_hallazgo_contenedor_f0 "${hallado_cid}")" || fallar 'nombre, id y etiqueta del contenedor no coinciden'
 acreditar_cidfile_f0 "${id_contenedor}" || fallar 'cidfile no coincide con el contenedor acreditado'
-for _ in {1..60}; do
-    docker exec "${contenedor}" pg_isready --quiet \
-        --username postgres --dbname postgres && break
-    sleep 1
-done
+[[ "${modo_m38}" != hijo || "${id_contenedor}" == "${cid_esperado_m38}" ]] || fallar 'el hijo no adoptó el CID acreditado'
+[[ "$(docker inspect --format '{{.Config.Image}}|{{.State.Running}}' "${id_contenedor}")" == "${imagen}|true" ]] || fallar 'imagen o estado Docker discrepante'
+if [[ "${modo_m38}" != hijo ]]; then
+    for _ in {1..60}; do
+        docker exec "${contenedor}" pg_isready --quiet \
+            --username postgres --dbname postgres && break
+        sleep 1
+    done
+fi
 docker exec "${contenedor}" pg_isready --quiet --username postgres --dbname postgres
 docker exec "${contenedor}" mkdir --mode=0700 /repo
 docker cp "${snapshot_sql}/." "${contenedor}:/repo"
@@ -609,6 +731,9 @@ if [[ "${etapa}" == 'H0' ]]; then
 fi
 acreditar_limpieza "${audiencia_base}" "${checkpoint_base}" \
     "${catalogo_base}" "${roles_base}"
+if [[ "${etapa}" == H0 && "${modo_m38}" == hijo ]]; then
+    if probar_h0b_funcional_f0; then exit 0; else estado_hijo=$?; exit "${estado_hijo}"; fi
+fi
 [[ "${etapa}" != 'H0' ]] || probar_h0b_funcional_f0 || fallar 'falló el flujo funcional R0/H0b'
 probar_sqlstate_real_f0
 estado_etapa=0
