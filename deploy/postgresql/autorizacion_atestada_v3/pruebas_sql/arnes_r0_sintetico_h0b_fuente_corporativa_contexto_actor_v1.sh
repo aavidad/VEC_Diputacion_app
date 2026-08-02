@@ -76,6 +76,14 @@ rutas_wrapper_c2_virtual_h0b_f0() {
         "${base}/pruebas_sql/000007_componentes/080_consumidor_nominal.sql"
 }
 
+sha256_wrapper_c2_virtual_h0b_f0() {
+    case "${1:-}" in
+        sin-r0) printf '3752f1516ecfcbf58d830252899ae64c3ac40d40fbda3ceb940b010df7de5c79' ;;
+        completo) printf '290790e84e6a57397d6d8bdebf3346852a40805849500bd3cb9f915ab96097e6' ;;
+        *) return 64 ;;
+    esac
+}
+
 plantilla_wrapper_c2_virtual_h0b_f0() {
     local modo="${1:-}" ruta
     [[ "${modo}" == 'sin-r0' || "${modo}" == 'completo' ]] || return 64
@@ -106,7 +114,8 @@ SQL
 }
 
 validar_wrapper_c2_virtual_h0b_f0() {
-    local ruta="${1:-}" modo="${2:-}" forma bytes lineas antes despues indice
+    local ruta="${1:-}" modo="${2:-}" forma bytes lineas huella esperada
+    local antes despues indice
     local -a observadas=() permitidas=()
     [[ "${modo}" == 'sin-r0' || "${modo}" == 'completo' ]] || return 64
     if [[ -z "${ruta}" || ! -f "${ruta}" || ! -r "${ruta}" || -L "${ruta}" ]]; then
@@ -121,6 +130,9 @@ validar_wrapper_c2_virtual_h0b_f0() {
     antes="$(stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "${ruta}")" || return 65
     dd if="${ruta}" of=/dev/null iflag=nofollow,fullblock,count_bytes \
         count=1048577 status=none || return 65
+    huella="$(sha256sum -- "${ruta}" | awk '{print $1}')" || return 65
+    esperada="$(sha256_wrapper_c2_virtual_h0b_f0 "${modo}")" || return 65
+    [[ "${huella}" == "${esperada}" ]] || return 65
     cmp --silent -- "${ruta}" <(plantilla_wrapper_c2_virtual_h0b_f0 "${modo}") || return 65
     mapfile -t observadas < <(awk '$1 == "\\ir" && NF == 2 { print $2 }' "${ruta}") || return 65
     mapfile -t permitidas < <(rutas_wrapper_c2_virtual_h0b_f0 "${modo}") || return 65
@@ -129,7 +141,8 @@ validar_wrapper_c2_virtual_h0b_f0() {
         [[ "${observadas[indice]}" == "${permitidas[indice]}" ]] || return 65
     done
     despues="$(stat --printf='%d|%i|%f|%s|%y|%z|%h' -- "${ruta}")" || return 65
-    [[ "${despues}" == "${antes}" ]]
+    [[ "${despues}" == "${antes}" ]] || return 65
+    return 0
 }
 
 exigir_estado_c2_virtual_h0b_f0() {
@@ -141,7 +154,7 @@ exigir_estado_c2_virtual_h0b_f0() {
 
 probar_plantillas_c2_virtual_h0b_f0() {
     local temporales="${1:-}" migracion prueba_nominal prueba_error
-    local wrapper_sin wrapper_completo alterado ruta_invalida enlace
+    local wrapper_sin wrapper_completo alterado ruta_invalida enlace mutante inestable estado
     [[ -d "${temporales}" && ! -L "${temporales}" &&
        "$(stat --printf='%a|%h' -- "${temporales}")" == '700|2' ]] || return 65
     migracion="${temporales}/m080.sql"
@@ -183,7 +196,22 @@ probar_plantillas_c2_virtual_h0b_f0() {
     enlace="${temporales}/wrapper-enlace.sql"
     ln -s -- "${wrapper_sin}" "${enlace}" || return 65
     exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${enlace}" sin-r0 || return 65
-    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${temporales}/ausente.sql" sin-r0
+    exigir_estado_c2_virtual_h0b_f0 65 validar_wrapper_c2_virtual_h0b_f0 "${temporales}/ausente.sql" sin-r0 || return 65
+    mutante="${temporales}/wrapper-generador-mutante.sql"
+    if ( rutas_wrapper_c2_virtual_h0b_f0() {
+             printf '%s\n' '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_RUTA_EQUIVOCADA.sql';
+         }
+         plantilla_wrapper_c2_virtual_h0b_f0 sin-r0 >"${mutante}" &&
+         chmod 0600 -- "${mutante}" &&
+         validar_wrapper_c2_virtual_h0b_f0 "${mutante}" sin-r0 ); then return 65; else estado=$?; fi
+    ((estado == 65)) || return 65
+    inestable="${temporales}/wrapper-inestable.sql"
+    plantilla_wrapper_c2_virtual_h0b_f0 completo >"${inestable}" || return 65
+    chmod 0600 -- "${inestable}" || return 65
+    if ( cmp() { command cmp "$@" || return; chmod 0400 -- "${inestable}"; }
+         validar_wrapper_c2_virtual_h0b_f0 "${inestable}" completo ); then return 65; else estado=$?; fi
+    ((estado == 65)) || return 65
+    return 0
 }
 
 foto_roles() {
