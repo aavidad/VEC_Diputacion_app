@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -22,14 +23,25 @@ import (
 
 func directorioTemporalFueraDeGitPrueba(t *testing.T) string {
 	t.Helper()
-	candidatos := []string{os.TempDir(), "/var/tmp", "/dev/shm", "/tmp"}
+	candidatos := []string{os.TempDir()}
+	if cacheUsuario, err := os.UserCacheDir(); err == nil {
+		candidatos = append(candidatos, cacheUsuario)
+	}
+	if runtime.GOOS != "windows" {
+		candidatos = append(candidatos, "/var/tmp", "/dev/shm", "/tmp")
+	}
 	vistos := make(map[string]struct{}, len(candidatos))
 	motivos := make([]string, 0, len(candidatos))
 
 	for _, candidato := range candidatos {
-		base, err := filepath.Abs(candidato)
+		baseAbsoluta, err := filepath.Abs(candidato)
 		if err != nil {
 			motivos = append(motivos, candidato+": "+err.Error())
+			continue
+		}
+		base, err := filepath.EvalSymlinks(baseAbsoluta)
+		if err != nil {
+			motivos = append(motivos, baseAbsoluta+": resolver ruta física: "+err.Error())
 			continue
 		}
 		base = filepath.Clean(base)
@@ -65,6 +77,27 @@ func directorioTemporalFueraDeGitPrueba(t *testing.T) string {
 
 	t.Fatalf("no existe un directorio temporal ajeno a Git: %s", strings.Join(motivos, "; "))
 	return ""
+}
+
+func TestDirectorioTemporalFueraDeGitPruebaResuelveTMPDIREnlazado(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("TMPDIR no selecciona el directorio temporal en Windows")
+	}
+	raiz := directorioTemporalFueraDeGitPrueba(t)
+	destinoFisico := filepath.Join(raiz, "destino-fisico")
+	if err := os.Mkdir(destinoFisico, 0o700); err != nil {
+		t.Fatalf("crear destino físico: %v", err)
+	}
+	enlace := filepath.Join(raiz, "tmp-enlazado")
+	if err := os.Symlink(destinoFisico, enlace); err != nil {
+		t.Fatalf("crear TMPDIR enlazado: %v", err)
+	}
+	t.Setenv("TMPDIR", enlace)
+
+	directorio := directorioTemporalFueraDeGitPrueba(t)
+	if filepath.Dir(directorio) != destinoFisico {
+		t.Fatalf("el temporal no usa la ruta física de TMPDIR: obtenido=%q esperado=%q", directorio, destinoFisico)
+	}
 }
 
 func generarMaterialDesarrolloPrueba(t *testing.T) (config.Config, config.DevelopmentMaterialPaths) {
