@@ -51,9 +51,8 @@ restaurar_regimen_shell_m38_f0() {
 }
 finalizar_seccion_critica_m38_f0() {
     seccion_critica_m38=''
-    local estado="${senal_pendiente_m38}"
-    senal_pendiente_m38=''
-    [[ -z "${estado}" ]] || return "${estado}"
+    # La entrega al runner cierra C4b-1; el epílogo pertenece a C4b-3.
+    [[ -z "${senal_pendiente_m38}" ]] || return "${senal_pendiente_m38}"
 }
 esperar_terminal_m38_f0() {
     local pid="$1" generacion
@@ -66,7 +65,7 @@ esperar_terminal_m38_f0() {
 esperar_cliente_m38_f0() {
     local plazo="$1" cliente reloj terminado generacion estado=0 senal; shift
     [[ -n "${regimen_shell_m38}" && "$-" == *m* && "${SHELLOPTS@a}" != *x* &&
-       -n "${identidad_activa_m38}" && -z "${seccion_critica_m38}" ]] || return 65
+       -n "${identidad_activa_m38}" && -z "${seccion_critica_m38}${senal_pendiente_m38}" ]] || return 65
     seccion_critica_m38=1
     "$@" & cliente=$!
     sleep "${plazo}" & reloj=$!
