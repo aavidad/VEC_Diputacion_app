@@ -93,7 +93,13 @@ acredita PostgreSQL 18.4, rollback y cero residuos. A2 queda integrado en
 El primer candidato H0b `99491d3` obtuvo doble `NO-GO` y permanece aislado.
 La [enmienda probatoria](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md)
 separa H0a y R0 en dos raíces de una captura y obtuvo doble `GO` documental;
-el código queda desbloqueado, pero H0b no se contabiliza todavía.
+el candidato estructural `2d27303` recibió después doble `NO-GO`,
+`P0=0, P1=1, P2=0`, por no validar M010/T010 antes de copiarlos. La corrección
+`ca46ba9` obtuvo doble `GO` con H0 ×3, A1, C1 y cero residuos. El árbol final
+se integró por *squash* en `ad8b170` y cierra H0a, snapshot único, dos raíces y
+tercer auxiliar. La
+[evidencia](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
+mantiene dormido el flujo exterior R0/H0b; H0b no se contabiliza todavía.
 Todavía no existe
 una migración `000007` instalable ni cambian
 los tres hitos de O4-05.

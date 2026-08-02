@@ -13,11 +13,12 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `9094abb`; CI `30725003007`.
-- Última implementación técnica verificada: C1 en `e441400`; dos componentes,
-  doble revisión independiente final, PostgreSQL 18.4 real y P0=P1=P2=0. La
-  CI técnica `30721617186` terminó completamente verde.
-  Evidencia: [C1](revisiones/revision_f0_c1_acreditar_material_2026-08-02.md).
+- Último corte publicado completamente verde: `7e850a5`; CI `30726606152`.
+- Último árbol técnico integrado: estructura aislada H0b en `ad8b170`, con
+  doble GO final, PostgreSQL 18.4 y cero residuos. Todavía no está publicado y
+  su CI no se ha ejecutado. La
+  [evidencia](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
+  no acredita el flujo funcional R0/H0b.
 - A4 en `4dd2ff9` y B1 en `00ff427` conservan doble GO y CI verde.
   Evidencias: [A4](revisiones/revision_f0_a4_canon_consumo_2026-08-01.md)
   y [B1](revisiones/revision_f0_b1_catalogo_checkpoint_2026-08-01.md).
@@ -44,15 +45,20 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   integrado en `806691b` con doble GO, HMAC y comparación constante. A4 queda
   en `4dd2ff9` y B1 en `00ff427`, ambos con doble GO. B2 queda integrado en
   `7519063` con doble GO. C1 queda integrado en `e441400` con doble GO,
-  carreras reales y cero residuos. Trabajo activo: H0b y después C2. Todavía
-  no existe una migración
+  carreras reales y cero residuos. La estructura H0b queda integrada en
+  `ad8b170`; el flujo exterior R0/H0b continúa dormido. Trabajo activo:
+  commit funcional 2 de H0b y después C2. Todavía no existe una migración
   `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
   [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
   [enmienda](enmienda_f0_h0b_auxiliar_privado_r0_2026-08-02.md) fijan un
   auxiliar privado y dos raíces aisladas de una captura. La enmienda obtuvo
-  doble `GO` documental y desbloquea el código; el contador F0 sigue en `10/23`.
+  doble `GO` documental. El segundo candidato `2d27303` recibió doble
+  `NO-GO`, `P0=0, P1=1, P2=0`, por no validar M010/T010 antes de copiarlos;
+  `ca46ba9` cerró el hallazgo con doble `GO`, H0 ×3, A1, C1 y cero residuos.
+  El *squash* `ad8b170` integra solo la estructura; el contador F0 sigue en
+  `10/23`.
 - El contrato final C2/C3/H0b/R0 obtuvo doble `GO` documental con
   `P0=P1=P2=0`. La [evidencia](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md)
   desbloquea H0b, pero no acredita su implementación.
@@ -325,8 +331,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar H0b en el arnés y después C2 de C2.3-F0: consumidor nominal
-   que reacredita R0 y compone A4+B2+C1 en
+1. Activar en el commit funcional 2 el flujo exterior R0/H0b ya aislado y
+   después implementar C2 de C2.3-F0: consumidor nominal que reacredita R0 y
+   compone A4+B2+C1 en
    `autorizacion_atestada_v3/000007`, con replay exacto, consumo atómico y
    rollback.
 2. Implementar C2.3-R0, provisionar por Sistemas los `LOGIN` y membresías

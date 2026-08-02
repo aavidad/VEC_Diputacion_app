@@ -2,6 +2,9 @@
 
 Fecha: 2 de agosto de 2026.
 
+Estado: **estructura aislada integrada en `ad8b170`; comportamiento funcional
+pendiente del commit 2**.
+
 ## Motivo
 
 C2 debe instalarse antes de R0 y denegar en ejecución mientras los grupos y
@@ -28,6 +31,19 @@ deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/
 
 Los cambios de huella de los auxiliares se actualizan en el runner dentro del
 mismo commit. No se modifica otro componente, migración o prueba SQL.
+
+## Estado de implementación
+
+`2d27303` recibió doble `NO-GO`, `P0=0, P1=1, P2=0`, porque H0a solo
+contrastaba por SHA-256 sus M010/T010 sintéticos después de copiarlos. La
+corrección `ca46ba9` añadió validación SQL previa para M010, T010 nominal y
+T010 de error, y obtuvo doble `GO`, `P0=P1=P2=0`, con H0 ×3, A1, C1 y cero
+residuos sobre PostgreSQL 18.4.
+
+La estructura quedó integrada por *squash* en `ad8b170`: H0a, snapshot único,
+dos raíces y tercer auxiliar están cerrados. El flujo descrito a continuación
+permanece dormido hasta el commit funcional 2. Véase la
+[evidencia reproducible](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md).
 
 ## Comportamiento exacto
 
@@ -95,3 +111,7 @@ R0.
 H0b conserva además la autoprueba H0a nominal/error en la raíz base. Las
 integraciones virtuales usan la segunda raíz de la captura coherente fijada en
 la enmienda, por lo que nunca sobrescriben ni retiran M010/T010 reales.
+
+La integración estructural no incrementa métricas: F0 sigue en `10/23`,
+O4-05 en `3/5`, Contratación en `24/46`, Bolsa productiva en `1/14` y
+producción en `NO-GO`.

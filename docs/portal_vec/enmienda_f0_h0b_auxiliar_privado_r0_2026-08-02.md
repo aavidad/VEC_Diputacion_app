@@ -2,7 +2,8 @@
 
 Fecha: 2 de agosto de 2026.
 
-Estado: **doble `GO` documental, `P0=P1=P2=0`; implementación pendiente**.
+Estado: **estructura aislada integrada en `ad8b170`; flujo funcional
+R0/H0b pendiente del commit 2**.
 
 ## Motivo
 
@@ -16,6 +17,19 @@ deliberadamente M010/T010.
 No se relajan límites ni se minifica código de seguridad. Esta enmienda
 sustituye únicamente la composición probatoria de H0b; no cambia C2, R0
 productivo, una métrica funcional ni el `NO-GO` de producción.
+
+## Cierre estructural integrado
+
+El candidato estructural `2d27303` recibió doble `NO-GO`,
+`P0=0, P1=1, P2=0`: ligaba M010/T010 por SHA-256 después de copiarlos, pero
+no los sometía al analizador SQL antes de cada copia. `ca46ba9` añadió la
+validación separada de M010, T010 nominal y T010 de error y obtuvo doble `GO`,
+`P0=P1=P2=0`, tras H0 ×3, A1 y C1 sobre PostgreSQL 18.4 y cero residuos.
+
+El árbol corregido quedó integrado por *squash* limpio en `ad8b170`. La
+[evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
+acredita H0a, una captura coherente, dos raíces y el tercer auxiliar. No activa
+el orden exterior R0/H0b, que permanece pendiente del commit funcional 2.
 
 ## Write-set corregido
 
@@ -45,6 +59,9 @@ El runner sigue siendo dueño de:
   estados;
 - captura, acreditación y carga de todos los auxiliares privados;
 - la invocación exclusiva bajo `etapa=H0` de la autoprueba H0a nominal/error.
+
+El primer punto describe el contrato funcional final. `ad8b170` deja ese
+flujo dormido: solo cierra la estructura necesaria para activarlo sin colisión.
 
 El auxiliar SQL D2c vuelve a contener solo análisis, clasificación, rutas,
 clausuras, inventarios, snapshot y huellas. No contiene Docker, sesiones,
@@ -115,9 +132,9 @@ host-contenedor y solo entonces permite que `psql` los lea.
 Para A1--T2 solo existe el snapshot focal ordinario de su clausura. La doble
 raíz es una autoprueba exclusiva de H0 y no altera las etapas reales.
 
-## Matriz de cierre
+## Matriz de cierre funcional
 
-Antes de integrar H0b se exige sobre una huella congelada:
+Antes de cerrar H0b funcionalmente se exige sobre una huella congelada:
 
 1. `bash -n`, ShellCheck, `git diff --check`, límites y Gitleaks;
 2. rechazo autónomo de los tres auxiliares shell y autoprueba del capturador;

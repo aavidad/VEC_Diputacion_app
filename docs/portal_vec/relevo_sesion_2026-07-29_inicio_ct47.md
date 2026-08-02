@@ -25,6 +25,21 @@ en `e441400` tras corregir un `NO-GO` independiente de cronología y cobertura;
 su doble revisión final dio `P0=P1=P2=0` sobre PostgreSQL 18.4 real. La CI
 `30721617186` terminó completamente verde. Las métricas no cambian.
 
+La base documental H0b `7e850a5` tiene la CI `30726606152` completamente
+verde. El candidato estructural `2d27303` obtuvo doble `NO-GO`,
+`P0=0, P1=1, P2=0`, porque M010/T010 sintéticos solo se ligaban por SHA-256
+después de copiarse. `ca46ba9` añadió la validación SQL previa de M010, T010
+nominal y T010 de error y obtuvo doble `GO`, `P0=P1=P2=0`, tras H0 ×3, A1 y
+C1 sobre PostgreSQL 18.4 y cero residuos. El árbol final quedó integrado por
+*squash* limpio en `ad8b170`; el commit todavía no está publicado y su CI no
+se ha ejecutado.
+
+Quedan cerrados estructuralmente H0a, una captura viva del superset, los dos
+manifiestos y raíces aislados y el tercer auxiliar privado. El flujo exterior
+R0/H0b sigue dormido y pendiente del commit funcional 2. La
+[evidencia estructural](revisiones/revision_f0_h0b_estructura_aislada_2026-08-02.md)
+no cierra H0b ni cambia las métricas.
+
 La decisión F0-D1 queda integrada en `c4fc55c`–`1236c0b` y D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, tras dos revisiones independientes finales GO,
 `P0=P1=P2=0`. D1 fija el perfil de fuente, evento atómico estable entre
@@ -405,9 +420,11 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: H0b y después C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el
-contrato C2.3-D0 están cerrados técnicamente. El desglose F0 es `10/23`;
-H0b no altera ninguna métrica funcional.
+Trabajo activo: commit funcional 2 de H0b y después C2 de C2.3-F0. C1,
+C2.1b, S0.1, S0.2, A, B y el contrato C2.3-D0 están cerrados técnicamente.
+La estructura H0b está integrada en `ad8b170`, pero su flujo exterior sigue
+dormido. El desglose F0 permanece en `10/23`; H0b no altera todavía ninguna
+métrica funcional.
 El contrato C2/C3/H0b/R0 obtuvo doble `GO` documental y queda trazado en la
 [revisión final](revisiones/revision_f0_c2_c3_h0b_contrato_2026-08-02.md).
 No se programa en el directorio raíz histórico ni se modifica el Word de RRHH
