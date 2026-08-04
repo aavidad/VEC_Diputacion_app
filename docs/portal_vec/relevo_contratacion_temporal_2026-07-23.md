@@ -13,8 +13,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `a4e9b29`; CI
-  `30740889225`, cinco de cinco puertas superadas.
+- Último corte publicado completamente verde: `af829bb`; CI
+  `30742611847`, cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO

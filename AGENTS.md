@@ -17,14 +17,14 @@ Bolsa, Personal, documentos o firma:
 No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
 instrucción de dirección.
 
-## Relevo operativo inmediato — 2 de agosto de 2026
+## Relevo operativo inmediato — 4 de agosto de 2026
 
 - Worktree obligatorio:
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto cuya CI ya terminó completamente verde: `a4e9b29`,
-  ejecución `30740889225`, cinco de cinco puertas superadas.
+- Último corte remoto cuya CI ya terminó completamente verde: `af829bb`,
+  ejecución `30742611847`, cinco de cinco puertas superadas.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -33,8 +33,8 @@ instrucción de dirección.
   el relevo de cierre.
 - La primera tarea disponible es exclusivamente **C4b-2**: hijo/grupo,
   trabajo provisional, PID/PGID/PPID, tiempo de inicio, plazo absoluto y
-  extinción completa. Se implementa después de confirmar que el corte de
-  cierre está publicado y con la CI observada.
+  extinción completa. El corte anterior ya está publicado y su CI observada;
+  C4b-2 puede comenzar desde `af829bb`.
 - Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal

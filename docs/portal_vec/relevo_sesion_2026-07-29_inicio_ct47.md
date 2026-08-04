@@ -15,8 +15,8 @@ F0 ni producción. C4a permanece integrado hasta `e130015`.
 régimen shell/señales, hijo/grupo y Docker/epílogo. Integrado en la rama el
 checkpoint C4b-1, el siguiente corte exacto es C4b-2. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
-`1/14` y producción `NO-GO`. El corte publicado `a4e9b29` superó
-completamente las cinco puertas de la CI `30740889225`.
+`1/14` y producción `NO-GO`. El corte publicado `af829bb` superó
+completamente las cinco puertas de la CI `30742611847`.
 
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
