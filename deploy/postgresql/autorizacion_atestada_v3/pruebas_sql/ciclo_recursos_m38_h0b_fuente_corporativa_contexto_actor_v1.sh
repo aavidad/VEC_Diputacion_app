@@ -133,7 +133,7 @@ lanzar_hijo_m38_f0() {
     local caso="$1" ticket="$2" salida="$3" error="$4" estado_ref="$5"
     local -n estado_salida="${estado_ref}"; local estado_proc intento
     [[ -z "$(jobs -p)" ]] || return 65
-    /usr/bin/bash /proc/self/fd/8 --caso-inyeccion-h0b "${caso}" \
+    /usr/bin/bash -p /proc/self/fd/8 --caso-inyeccion-h0b "${caso}" \
         8<&8 7<&7 9<<<"${ticket}" >"${salida}" 2>"${error}" &
     pid_hijo_m38=$!; hijo_esperado_m38=1
     for intento in {1..100}; do

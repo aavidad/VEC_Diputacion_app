@@ -1,5 +1,23 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -p
 set -Eeuo pipefail
+[[ "$-" == *p* ]] || exit 65
+for ruta_sistema_f0 in /usr/bin/bash /usr/bin/env /usr/bin/grep; do
+    [[ -f "${ruta_sistema_f0}" && -x "${ruta_sistema_f0}" && ! -w "${ruta_sistema_f0}" ]] || exit 65
+done
+unset ruta_sistema_f0
+estados_entorno=()
+if /usr/bin/env -0 |
+    /usr/bin/grep -zE '^(BASH_FUNC_|LD_)' >/dev/null
+then
+    estados_entorno=("${PIPESTATUS[@]}")
+    exit 65
+else
+    estados_entorno=("${PIPESTATUS[@]}")
+fi
+((${#estados_entorno[@]} == 2)) || exit 65
+[[ "${estados_entorno[0]}" == 0 &&
+   "${estados_entorno[1]}" == 1 ]] || exit 65
+unset estados_entorno
 export LC_ALL=C
 umask 077
 unset BASH_ENV ENV
@@ -45,7 +63,7 @@ readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502'
-readonly sha256_adaptador_m38='d9b61a183e5a32c321a3eeb48483ce40c83551bc7a700354ccc88e8206d9ee1f'
+readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
 readonly sha256_supervisor_m38='c18622edb1ad5168752918ab6f9062b7cf06fbda490f68d1da2ff1ff90032a1e'
 readonly sha256_binario_supervisor_m38='eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
@@ -54,7 +72,8 @@ contenedor="vec-f0-h0-${PPID}-${RANDOM}"
 [[ -z "${identidad_m38}" ]] || contenedor="vec-f0-h0-${identidad_m38:0:32}"
 temporales='' raiz_base='' clave_postgres='' propietario_contenedor="${identidad_m38}"
 intencion_contenedor='' cid_contenedor=''
-etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales='' supervisor_m38=''
+etapa='H0' sustituto_autoprueba_bootstrap='' go_f0=''
+aleatorio_temporales='' supervisor_m38=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
 r0_posible='' finalizando_h0b='' wrapper_activo='' inyeccion_h0b_activa='' traza_m38_activa=''
 traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' seccion_critica_m38='' senal_pendiente_m38='' generacion_senal_m38=0
@@ -97,8 +116,11 @@ capturar_salida_f0() {
     salida_f0="$("$@")" || return 65
 }
 entorno_go_aislado_f0() {
-    [[ -z "${GOAMD64:-}" && "$(type -t env)" != function ]] || return 65
-    /usr/bin/env -i HOME="${temporales}" TMPDIR="${temporales}" GOCACHE="${temporales}/cache-go" PATH=/usr/local/go/bin:/usr/bin:/bin LC_ALL=C GOENV=off GOAMD64=v1 GOTELEMETRY=off GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "$@"
+    [[ -z "${GOAMD64:-}" ]] || return 65
+    /usr/bin/env -i HOME="${temporales}" TMPDIR="${temporales}" GOCACHE="${temporales}/cache-go" \
+        PATH=/usr/local/go/bin:/usr/bin:/bin LC_ALL=C GOENV=off GOAMD64=v1 GOTELEMETRY=off \
+        GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' \
+        GOFLAGS=-mod=readonly "$@"
 }
 retirar_directorio_temporal_f0() {
     local actual forma
@@ -191,25 +213,40 @@ preparar_capturador_privado_f0() {
     local binario="${temporales}/capturador"
     copiar_fuente_sin_enlaces_f0 "${ruta_capturador}" "${destino}" \
         "${sha256_capturador}" || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 "${go_f0}" vet "${destino}" || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 "${go_f0}" build -race -trimpath -o "${binario}" "${destino}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
+        "${go_f0}" vet "${destino}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
+        "${go_f0}" build -race -trimpath -o "${binario}" "${destino}" || return 65
     chmod 0700 "${binario}" || return 65
     "${binario}" --autoprueba >&2 || return 65
     printf '%s' "${binario}"
 }
 capturar_auxiliares_privados_f0() {
-    local binario="$1" snapshot="${temporales}/snapshot-auxiliares" manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go forma_binario huella_binario huella_fuente_post
+    local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go forma_binario huella_binario huella_fuente_post
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
-        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" "${ruta_adaptador_m38}" "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
+        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
+        "${ruta_adaptador_m38}" \
+        "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 5 && "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" && "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
-       "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" && "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
+    [[ ${#lineas[@]} -eq 5 &&
+       "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
+       "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
+       "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
+       "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
        "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" ]] || return 65
-    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
-    [[ ! -v destino_m080_h0b && ! -v destino_t080_h0b && ! -v directorio_wrapper_h0b && ! -v destino_wrapper_h0b && ! -v destino_wrapper_nominal_h0b && ! -v destino_wrapper_error_h0b ]] || return 65
+    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" \
+        "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
+    [[ ! -v destino_m080_h0b && ! -v destino_t080_h0b && ! -v directorio_wrapper_h0b &&
+       ! -v destino_wrapper_h0b &&
+       ! -v destino_wrapper_nominal_h0b && ! -v destino_wrapper_error_h0b ]] || return 65
     for fuente in "${ruta_helper_sql}" "${ruta_helper_operativo}" "${ruta_helper_h0b}" "${ruta_adaptador_m38}"; do
-        if bash "${snapshot}/${fuente}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+        if bash "${snapshot}/${fuente}" >/dev/null 2>&1; then
+            return 65
+        else
+            estado_directo=$?
+        fi
         ((estado_directo == 64)) || return 65
         [[ ! -v VEC_F0_CARGA_PRIVADA ]] || return 65
         export VEC_F0_CARGA_PRIVADA=1
@@ -217,24 +254,37 @@ capturar_auxiliares_privados_f0() {
         source "${snapshot}/${fuente}" || return 65
         [[ ! -v VEC_F0_CARGA_PRIVADA ]] || return 65
     done
-    [[ -v destino_m080_h0b && -v destino_t080_h0b && -v directorio_wrapper_h0b && -v destino_wrapper_h0b && -v destino_wrapper_nominal_h0b && -v destino_wrapper_error_h0b && "${destino_m080_h0b@a}${destino_t080_h0b@a}${directorio_wrapper_h0b@a}${destino_wrapper_h0b@a}${destino_wrapper_nominal_h0b@a}${destino_wrapper_error_h0b@a}" == rrrrrr &&
+    [[ -v destino_m080_h0b && -v destino_t080_h0b && -v directorio_wrapper_h0b &&
+       -v destino_wrapper_h0b &&
+       -v destino_wrapper_nominal_h0b && -v destino_wrapper_error_h0b ]] || return 65
+    [[ "${destino_m080_h0b@a}${destino_t080_h0b@a}${directorio_wrapper_h0b@a}${destino_wrapper_h0b@a}${destino_wrapper_nominal_h0b@a}${destino_wrapper_error_h0b@a}" == rrrrrr ]] || return 65
+    [[
        "${destino_m080_h0b}|${destino_t080_h0b}|${directorio_wrapper_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b' &&
-       "${destino_wrapper_h0b}|${destino_wrapper_nominal_h0b}|${destino_wrapper_error_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/sin-r0.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/nominal/ensayo.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/error/ensayo.sql' ]] || return 65
+       "${destino_wrapper_h0b}|${destino_wrapper_nominal_h0b}|${destino_wrapper_error_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/sin-r0.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/nominal/ensayo.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/error/ensayo.sql'
+    ]] || return 65
     fuente_go="${snapshot}/${ruta_supervisor_m38}"
     supervisor_m38="${temporales}/supervisor-m38"
     [[ -f "${fuente_go}" && ! -L "${fuente_go}" &&
        "$(stat --printf='%a|%u|%F|%h' -- "${fuente_go}")" == "600|${EUID}|regular file|1" &&
        "$(huella_local_f0 "${fuente_go}")" == "${sha256_supervisor_m38}" ]] || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 "${go_f0}" vet "${fuente_go}" || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+        "${go_f0}" vet "${fuente_go}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+        "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
     chmod 0700 "${supervisor_m38}" || return 65
     forma_binario="$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")" || return 65
     huella_fuente_post="$(/usr/bin/sha256sum -- "${fuente_go}")" || return 65
     huella_binario="$(/usr/bin/sha256sum -- "${supervisor_m38}")" || return 65
-    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_go}" && ! -L "${supervisor_m38}" && "${forma_binario}" == "700|${EUID}|regular file|1" && "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}" ]] || return 65
+    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_go}" ]] || return 65
+    [[ ! -L "${supervisor_m38}" ]] || return 65
+    [[ "${forma_binario}" == "700|${EUID}|regular file|1" ]] || return 65
+    [[ "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}" ]] || return 65
     "${supervisor_m38}" --autoprueba >&2 || return 65
-    "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1 && return 65
-    estado_directo=$?
+    if "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1; then
+        return 65
+    else
+        estado_directo=$?
+    fi
     ((estado_directo == 64)) || return 65
 }
 derivar_repo_base_h0_f0() {
@@ -423,17 +473,31 @@ probar_h0b_funcional_f0() {
 }
 acreditar_runner_m38_f0() { [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- /proc/self/fd/8)|$(huella_local_f0 /proc/self/fd/8)" == "$1" ]]; }
 probar_rechazos_m38_f0() {
-    local defecto caso ticket estado traza="${temporales}/rechazo-m38.trace"; local -a argumentos
+    local defecto caso ticket estado traza="${temporales}/rechazo-m38.trace"
+    local -a argumentos
     for defecto in vacio desconocido repetido sin-ticket discrepante; do
         caso=''; ticket=x; argumentos=(--caso-inyeccion-h0b "${caso}")
         [[ "${defecto}" != desconocido ]] || argumentos[1]=Z99
         [[ "${defecto}" != repetido ]] || argumentos+=(sobrante)
         [[ "${defecto}" != discrepante ]] || { argumentos[1]=A01; ticket="${BASHPID}|A02|0000000000000000000000000000000000000000000000000000000000000000|0000000000000000000000000000000000000000000000000000000000000000|1|1|${EUID}|directory|700|2|1|1|${EUID}|regular file|600|0|1|0000000000000000000000000000000000000000000000000000000000000000|1|1|${EUID}|directory|700|2"; }
         exec 6>"${traza}"
-        if [[ "${defecto}" == sin-ticket ]]; then PATH=/ruta-no-resoluble BASH_XTRACEFD=6 /usr/bin/bash -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<&- >/dev/null 2>&1 && estado=0 || estado=$?
-        else PATH=/ruta-no-resoluble BASH_XTRACEFD=6 /usr/bin/bash -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<<<"${ticket}" >/dev/null 2>&1 && estado=0 || estado=$?; fi
+        if [[ "${defecto}" == sin-ticket ]]; then
+            if /usr/bin/env -i PATH=/ruta-no-resoluble LC_ALL=C BASH_XTRACEFD=6 \
+                /usr/bin/bash -p -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<&- >/dev/null 2>&1; then
+                estado=0
+            else
+                estado=$?
+            fi
+        else
+            if /usr/bin/env -i PATH=/ruta-no-resoluble LC_ALL=C BASH_XTRACEFD=6 \
+                /usr/bin/bash -p -x /proc/self/fd/8 "${argumentos[@]}" 8<&8 7<&7 9<<<"${ticket}" >/dev/null 2>&1; then
+                estado=0
+            else
+                estado=$?
+            fi
+        fi
         exec 6>&-
-        ((estado == 64)) && ! grep -Eqv '^\+ (set |export |LC_ALL=|umask |unset |modo_m38=|selector_inyeccion_h0b=|identidad_m38=|forma_(temporal|runner|raiz)_m38=|IFS=|read |exec |exit |\[\[ |\(\()' "${traza}" || return 65
+        ((estado == 64)) && ! grep -Eqv '^\+ (set |for ruta_sistema_f0 in |/usr/bin/env -0$|/usr/bin/grep -zE '\''\^\(BASH_FUNC_\|LD_\)'\''$|estados_entorno=|export |LC_ALL=|umask |unset |modo_m38=|selector_inyeccion_h0b=|(identidad|cid_esperado)_m38=|forma_(temporal|runner|raiz)_m38=|IFS=|read |exec |exit |\[\[ |\(\()' "${traza}" || return 65
     done
 }
 ejecutar_matriz_m38_f0() {

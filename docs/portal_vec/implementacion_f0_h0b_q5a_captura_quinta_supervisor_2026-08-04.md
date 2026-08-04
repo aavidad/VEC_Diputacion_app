@@ -2,10 +2,11 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: primer commit autorizado de la enmienda Q5a, limitado al refactor
-estructural del snapshot de contenedor. El arranque protegido y el reflujo
-legible pertenecen al segundo commit y continúan pendientes. Este corte no
-cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
+Estado: candidato final de productor con los dos commits autorizados por la
+enmienda Q5a: refactor estructural del snapshot y corrección del arranque. El
+conjunto queda pendiente de los dictámenes independientes de seguridad y
+capacidad. Este corte no cierra Q5a, C4b-2, H0b, C2, F0 ni habilita
+producción.
 
 ## Alcance aplicado
 
@@ -53,6 +54,41 @@ del primer uso de las funciones trasladadas. Su nueva huella literal es
 `db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502`.
 D2c, H0b, adaptador, capturador y supervisor Go permanecen byte a byte
 invariantes en este commit.
+
+## Segundo commit: arranque protegido y formato auditable
+
+El runner entra por `#!/usr/bin/bash -p`, comprueba inmediatamente la bandera
+`p` y acredita mediante primitivas de Bash que `/usr/bin/bash`,
+`/usr/bin/env` y `/usr/bin/grep` son ficheros regulares ejecutables y no
+escribibles por el usuario efectivo. Antes de exportar, borrar variables o
+seleccionar herramientas, la tubería física `/usr/bin/env -0 |
+/usr/bin/grep -zE '^(BASH_FUNC_|LD_)'` conserva los dos elementos de
+`PIPESTATUS`. Solo la pareja `(0 1)` puede avanzar; una coincidencia, un fallo
+de productor o consumidor, otra cardinalidad u otra pareja terminan en 65.
+
+La puerta no resuelve programas por `PATH`, no usa `grep -q` y no consulta
+`$?` antes de copiar `PIPESTATUS`. El cuerpo de cualquier función exportada se
+descarta en `/dev/null` y no se importa por el modo protegido. La frontera Go
+mantiene además `/usr/bin/env -i` y el rechazo independiente de un `GOAMD64`
+heredado.
+
+La garantía empieza en el launcher administrado, su EUID, el cargador y los
+binarios del sistema. El runner rechaza `LD_*`, pero no afirma deshacer una
+biblioteca que un proceso padre comprometido hubiera cargado antes de entrar
+en Bash. Las pruebas nominales partieron de un launcher sin el
+`LD_LIBRARY_PATH` presente en el entorno interactivo del host.
+
+Las dos sondas adversas por descriptor arrancan la copia mediante un entorno
+vacío, `PATH=/ruta-no-resoluble`, `LC_ALL=C`, `BASH_XTRACEFD=6` y
+`/usr/bin/bash -p -x`. Su lista de traza admite únicamente las instrucciones
+de arranque previstas y conserva el prefijo literal `+ `. El adaptador privado
+abre igualmente cada hijo con `/usr/bin/bash -p`; su nueva huella literal es
+`98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7`.
+
+Se restauraron saltos legibles en la frontera Go, los dos builds, el
+manifiesto, las cuatro cargas, las seis postcondiciones, las comprobaciones de
+forma y huella y el rechazo del modo desconocido. No se unieron controles para
+simular el presupuesto físico.
 
 ## Build y autoprueba cerrados
 
@@ -122,26 +158,33 @@ Resultados:
   autopruebas del capturador y supervisor verdes, residuos 0;
 - mutante que sustituye la copia Go después del manifiesto y antes del build:
   65, sin binario de supervisor y residuos 0;
-- función `env` heredada y `GOAMD64=v3` heredado: 65 y 65, residuos 0;
+- shebang y `/usr/bin/bash -p`: puerta aceptada; Bash sin `-p`: 65;
+- entorno limpio: `PIPESTATUS=(0 1)`; productor, consumidor, cardinalidad y
+  pareja mutados: 65;
+- funciones `env`, `type` y ambas exportadas: 65 sin ejecutar sus cuerpos ni
+  publicar su definición;
+- `LD_Q5A_ADVERSO=1` y `GOAMD64=v3`: 65 y 65;
+- `BASH_ENV` y `ENV` adversos bajo `-p`: marcadores ausentes;
+- `PS4`, `SHELLOPTS` y `BASHOPTS` adversos en las sondas: marcador ausente y
+  prefijo de traza literal `+ `;
 - binario privado sustituido después del build: 65, sin autoprueba y residuos 0;
 - marca de carga y destino superior del adaptador preexistentes como
   `readonly`: 65 y 65, residuos 0;
 - SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
-- nueva huella D2d fijada en el runner y hashes de D2c, H0b, adaptador,
-  capturador y supervisor Go invariantes;
+- huellas D2d `db462039…4502` y adaptador `98d22a30…8cb7` fijadas en el
+  runner; hashes de D2c, H0b, capturador y supervisor Go invariantes;
 - `git diff --check`: limpio.
 
 Límites físicos `wc -l`:
 
 | Fichero o bloque | Líneas |
 | --- | ---: |
-| Runner | 725 |
+| Runner | 789 |
 | D2d | 145 |
 | Adaptador | 527 |
-| `capturar_auxiliares_privados_f0` | 40 |
+| `capturar_auxiliares_privados_f0` | 66 |
 | Supervisor Go Q5a | 131 |
 
-No se modificaron el adaptador, D2c, H0b, capturador ni supervisor Go. El
-segundo commit autorizado debe incorporar el arranque protegido, actualizar la
-huella del adaptador y restaurar el formato auditable antes de someter el SHA
-final conjunto a revisión independiente.
+Los dos commits autorizados modifican runner, D2d y adaptador. D2c, H0b,
+capturador y supervisor Go permanecen byte a byte invariantes. El SHA final
+conjunto debe obtener los dictámenes independientes antes de integrarse.
