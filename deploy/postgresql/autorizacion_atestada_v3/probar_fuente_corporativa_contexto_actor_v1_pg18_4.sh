@@ -44,7 +44,7 @@ readonly ruta_supervisor_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
-readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
+readonly sha256_helper_operativo='db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502'
 readonly sha256_adaptador_m38='d9b61a183e5a32c321a3eeb48483ce40c83551bc7a700354ccc88e8206d9ee1f'
 readonly sha256_supervisor_m38='c18622edb1ad5168752918ab6f9062b7cf06fbda490f68d1da2ff1ff90032a1e'
 readonly sha256_binario_supervisor_m38='eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86'
@@ -237,54 +237,6 @@ capturar_auxiliares_privados_f0() {
     estado_directo=$?
     ((estado_directo == 64)) || return 65
 }
-acreditar_snapshot_contenedor_f0() {
-    local manifiesto="$1" raiz_contenedor="${2:-/repo}" reconstruido
-    [[ "${raiz_contenedor}" == '/repo' || "${raiz_contenedor}" == '/repo_h0b' ]] || return 64
-    reconstruido="${temporales}/manifiesto-contenedor-${raiz_contenedor#/}"
-    docker exec "${contenedor}" bash -ceu '
-export LC_ALL=C; set -o pipefail; raiz=$1; modo=$(stat --printf=%a "$raiz") || exit 65; [[ ! -L $raiz && -d $raiz && $modo == 700 ]] || exit 65
-declare -a lineas=(); tab=$(printf "\t") || exit 65; salto=$(printf "\n_") || exit 65; salto=${salto%_}; lista=$(mktemp) || exit 65
-find "$raiz" -mindepth 1 -print0 >"$lista" || exit 65
-while IFS= read -r -d "" nodo; do
-  relativa=${nodo#"$raiz"/}
-  [[ $relativa != *"$tab"* && $relativa != *"$salto"* ]] || exit 65
-  if [[ -L $nodo ]]; then exit 65
-  elif [[ -d $nodo ]]; then
-    modo=$(stat --printf=%a -- "$nodo") || exit 65; contiene=$(find "$nodo" -mindepth 1 -type f -print -quit) || exit 65
-    [[ $modo == 700 && -n $contiene ]] || exit 65
-  elif [[ -f $nodo ]]; then
-    metadatos=$(stat --printf="%a|%h" -- "$nodo") || exit 65; [[ $metadatos == "600|1" ]] || exit 65
-    huella=$(sha256sum -- "$nodo" | awk "{print \$1}") || exit 65; lineas+=("$relativa$tab$huella")
-  else exit 65; fi
-done <"$lista"
-((${#lineas[@]} > 0)) || exit 65; printf "%s\n" "${lineas[@]}" | sort || exit 65
-' -- "${raiz_contenedor}" >"${reconstruido}" || return 65
-    cmp --silent -- "${manifiesto}" "${reconstruido}"
-}
-rechazar_snapshot_adverso_f0() { ! acreditar_snapshot_contenedor_f0 "$1" "$2" || fallar "$3"; }
-probar_snapshot_adverso_f0() {
-    local manifiesto="$1" raiz_contenedor="${2:-/repo}" fichero directorio nodo
-    fichero="${raiz_contenedor}/deploy/postgresql/contexto_actor_v1/roles_up.sql"
-    directorio="${raiz_contenedor}/deploy/postgresql/contexto_actor_v1"
-    nodo="${raiz_contenedor}/__adverso_f0"
-    docker exec "${contenedor}" ln -s "${raiz_contenedor}" "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un enlace simbólico'
-    docker exec "${contenedor}" rm -- "${nodo}"
-    docker exec "${contenedor}" ln "${fichero}" "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un enlace duro'
-    docker exec "${contenedor}" rm -- "${nodo}"
-    docker exec "${contenedor}" chmod 0644 "${fichero}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió modo de fichero inseguro'
-    docker exec "${contenedor}" chmod 0600 "${fichero}"
-    docker exec "${contenedor}" chmod 0755 "${directorio}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió modo de directorio inseguro'
-    docker exec "${contenedor}" chmod 0700 "${directorio}"
-    docker exec "${contenedor}" mkdir --mode=0700 "${nodo}"
-    rechazar_snapshot_adverso_f0 "${manifiesto}" "${raiz_contenedor}" 'el snapshot admitió un directorio adicional'
-    docker exec "${contenedor}" rmdir -- "${nodo}"
-    acreditar_snapshot_contenedor_f0 "${manifiesto}" "${raiz_contenedor}" || fallar 'el snapshot no se restauró'
-}
-
 derivar_repo_base_h0_f0() {
     docker exec "${contenedor}" bash -ceu '
 export LC_ALL=C

@@ -2,9 +2,10 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: candidato productor Q5a corregido tras dos dictámenes `NO-GO P1` sobre
-`4f36a9a`. No cierra C4b-2, H0b, C2, F0 ni habilita producción. Requiere una
-nueva revisión independiente antes de integrarse.
+Estado: primer commit autorizado de la enmienda Q5a, limitado al refactor
+estructural del snapshot de contenedor. El arranque protegido y el reflujo
+legible pertenecen al segundo commit y continúan pendientes. Este corte no
+cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
 
 ## Alcance aplicado
 
@@ -35,6 +36,23 @@ no simbólico, modo 0600, propietario efectivo, un solo enlace y SHA-256
 literal. Después del build se recalcula su huella con `/usr/bin/sha256sum`.
 Estas puertas rechazan una sustitución de la copia privada ocurrida después de
 publicar el manifiesto, durante el build o antes de ejecutar el binario.
+
+## Corte intermedio de refactorización
+
+Las funciones `acreditar_snapshot_contenedor_f0`,
+`rechazar_snapshot_adverso_f0` y `probar_snapshot_adverso_f0` se trasladaron
+sin cambio semántico del runner a D2d, después de las funciones propietarias
+del contenedor y antes de `comparar_huellas_f0`. El cuerpo trasladado coincide
+byte a byte con las 47 líneas funcionales de origen. El separador retirado y
+añadido, más una anotación local no ejecutable para que ShellCheck reconozca
+`temporales` como dependencia inyectada, dejan un diff físico de 48 líneas
+retiradas y 49 añadidas.
+
+La captura continúa conteniendo exactamente cinco fuentes y carga D2d antes
+del primer uso de las funciones trasladadas. Su nueva huella literal es
+`db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502`.
+D2c, H0b, adaptador, capturador y supervisor Go permanecen byte a byte
+invariantes en este commit.
 
 ## Build y autoprueba cerrados
 
@@ -109,17 +127,21 @@ Resultados:
 - marca de carga y destino superior del adaptador preexistentes como
   `readonly`: 65 y 65, residuos 0;
 - SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
-- hashes de D2c, D2d, H0b, adaptador y capturador: invariantes;
+- nueva huella D2d fijada en el runner y hashes de D2c, H0b, adaptador,
+  capturador y supervisor Go invariantes;
 - `git diff --check`: limpio.
 
 Límites físicos `wc -l`:
 
 | Fichero o bloque | Líneas |
 | --- | ---: |
-| Runner | 773 |
+| Runner | 725 |
+| D2d | 145 |
+| Adaptador | 527 |
 | `capturar_auxiliares_privados_f0` | 40 |
 | Supervisor Go Q5a | 131 |
 
-No se modificaron el adaptador, D2c, D2d, H0b ni el capturador. La revisión
-independiente debe reproducir estas puertas y decidir `GO` o `NO-GO` antes de
-autorizar C4b-2 operativo.
+No se modificaron el adaptador, D2c, H0b, capturador ni supervisor Go. El
+segundo commit autorizado debe incorporar el arranque protegido, actualizar la
+huella del adaptador y restaurar el formato auditable antes de someter el SHA
+final conjunto a revisión independiente.
