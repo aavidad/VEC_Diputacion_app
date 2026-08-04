@@ -2,10 +2,10 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: segunda corrección de dirección, posterior a los `NO-GO` documentales
-de `f7ca3a9` y `a92ee4b`; pendiente de dos contrarrevisiones independientes
-con `P0=0`, `P1=0` y `P2=0`. Mientras no obtenga ambos `GO`, no autoriza
-cambios de código ni modifica C4b-2, H0b, C2, F0 o producción.
+Estado: tercera corrección de dirección, posterior a los `NO-GO` documentales
+de `f7ca3a9`, `a92ee4b` y `51860cb`; pendiente de dos contrarrevisiones
+independientes con `P0=0`, `P1=0` y `P2=0`. Mientras no obtenga ambos `GO`,
+no autoriza cambios de código ni modifica C4b-2, H0b, C2, F0 o producción.
 
 ## Historial vinculante de la decisión
 
@@ -25,8 +25,14 @@ código porque:
 - `Pdeathsig`, espera, cierre de pidfd y presupuesto no formaban un protocolo
   único reproducible.
 
-Esta corrección conserva lo aprobado y sustituye por completo la topología
+La segunda corrección conservó lo aprobado y sustituyó por completo la topología
 lateral. No se ha escrito código de Q5a o C4b-2 durante la decisión.
+
+La revisión de `51860cb` aceptó la topología padre, pidfd de grupo, subreaper,
+mapa de FD y presupuesto general, pero detuvo de nuevo el código porque no
+cerraba `fork -> $!` del propio supervisor, no fijaba el `exec.Cmd`, relegaba
+parte de los canales a C4b-3 y admitía reserva cero del runner. Esta tercera
+corrección incorpora los cuatro hallazgos.
 
 ## Prevalencia exacta
 
@@ -194,19 +200,33 @@ decisión de detener la matriz. Tras el handoff:
 
 ### Adaptador privado
 
-Conserva régimen Shell, temporal, canales, Docker, transporte por FD, material
+Conserva régimen Shell, canales anónimos, temporal, Docker, transporte por FD, material
 H0b y el único `retirar_recursos_m38_f0`. Ya no crea, señaliza o espera Bash,
-ni guarda su `$!` o PGID. Lanza como orden simple al supervisor, registra su
-`$!` como único trabajo esperado, difiere señales durante `fork -> $!`, envía
-una cancelación idempotente por FD y repite `wait -f` hasta obtener el estado
-terminal real del supervisor.
+ni guarda su `$!` o PGID. Antes de lanzar el supervisor acredita `jobs` vacío,
+arma `supervisor_provisional` y mantiene la sección crítica C4b-1. Lanza como
+orden simple al supervisor y copia `$!` inmediatamente.
+
+Una señal o fallo durante `fork -> $!` solo enclava C4b-1: no inicia epílogo,
+Bash de caso ni otro trabajo. Al reanudar, el adaptador recupera por cardinalidad
+exacta. Cero acredita que no existe supervisor; uno se registra como candidato;
+más de uno es incidente 65 y no se escoge PID. El candidato solo se convierte
+en `supervisor_capturado` cuando su trabajo directo, forma de ejecutable privado
+y ACK con identidad/nonce coinciden. El PID obtenido de la tabla sirve para
+`wait -f` y evidencia de hijo directo, nunca para señalizar.
+
+El `coproc` crea los dos pipes anónimos antes de su fork interno. El Go valida
+su arranque, emite `ACK_LISTO` y espera una orden. Solo entonces el adaptador drena la señal
+pendiente: envía exactamente uno de `INICIAR` o `CANCELAR`. Por ello una señal
+anterior al ACK no permite crear al Bash. Después repite `wait -f` hasta el
+estado terminal real del único supervisor y valida su recibo.
 
 En caminos controlados, el epílogo exige supervisor recolectado y recibo
 coherente antes de declarar postausencia. Si falta el recibo por una frontera
-externa, registra incidente y retira de todos modos contenedor y temporal cuya
-identidad independiente siga acreditada, pero no desarma ni declara limpia la
-identidad de proceso dudosa. D2d permanece inmutable y subordinado: solo el
-adaptador invoca `retirar_contenedor_propio_f0`.
+externa, registra incidente, preserva temporal y raíz como cuarentena y no
+desarma ni declara limpia la identidad de proceso dudosa. Puede inspeccionar o
+retirar el contenedor solo por su identidad independiente exacta, pero el
+worker sigue prohibido hasta reprovisión. D2d permanece inmutable y
+subordinado: solo el adaptador invoca `retirar_contenedor_propio_f0`.
 
 ### Supervisor Go
 
@@ -218,9 +238,12 @@ Es el único propietario de:
 - señalización de grupo ligada, espera única y drenaje de adoptados;
 - recibo mecánico final.
 
-Instala el receptor Go de SIGTERM antes de `PR_SET_PDEATHSIG`, ejecuta el
-`prctl`, vuelve a comprobar el PPID autenticado y traduce canal o muerte del
-runner a una única cancelación. Nunca inicia una segunda cancelación.
+Fija el hilo al entrar, instala el receptor Go de SIGTERM, ejecuta literalmente
+`prctl(PR_SET_PDEATHSIG, SIGTERM)`, vuelve a comprobar el PPID recibido por FD
+confiable y comprueba tanto señal ya encolada como EOF de control antes de
+crear al Bash. Así cierra la carrera en la que el runner muere antes del
+`prctl`. Canal, EOF o muerte del runner se traducen a una única cancelación;
+nunca inicia una segunda.
 
 ## Mapa cerrado de descriptores
 
@@ -232,19 +255,66 @@ El adaptador entrega al supervisor solo descriptores ya abiertos:
 | 4 | copia privada del runner que el Bash recibirá como FD 8 |
 | 5 | salida del caso |
 | 6 | error del caso |
-| 7 | canal de control privado, solo lectura en Go |
-| 8 | canal de recibo privado, solo escritura en Go |
-| 9 | sobre inicial opaco sin PPID |
+| 7 | pipe de control de `coproc`, solo lectura en Go |
+| 8 | pipe de recibo de `coproc`, solo escritura en Go |
+| 9 | sobre inicial opaco para Go; no es el FD 9 posterior del Bash |
 
 Para el Bash, `exec.Cmd.ExtraFiles` asigna desde FD 3. El supervisor rellena
 3..6 con descriptores de `/dev/null`, entrega raíz en 7, runner en 8 y un pipe
-anónimo con `PID_supervisor|sobre` en 9. `Stdout` y `Stderr` usan los FD 5 y 6.
-No abre una ruta viva del repositorio.
+anónimo todavía vacío en 9. El Bash queda bloqueado al leer ese FD antes de
+STOP y antes de cualquier efecto. Solo después de validar y duplicar el pidfd,
+Go escribe `PID_supervisor|sobre`; si cierra el pipe, Bash recibe EOF y sale
+sin STOP, descendientes ni efectos. `Stdout` y `Stderr` usan los FD 5 y 6. Go
+no abre una ruta viva del repositorio.
 
-Los canales se crean con preausencia, modo privado e identidad física bajo
-`ruta_caso_m38`. El adaptador abre los extremos sin bloqueo, los pasa por FD,
-acredita el ACK y retira sus nombres; después solo existen los descriptores. El
-protocolo limita versión, dirección, longitud, cardinalidad y salto final.
+El adaptador usa un `coproc` nombrado cuyo cuerpo hace `exec` del binario
+privado: no crea FIFO, socket con nombre, keeper ni proceso auxiliar estable.
+Los dos pipes anónimos son unidireccionales; el adaptador conserva escritura de
+control y lectura de recibo, mientras Go recibe únicamente los extremos
+opuestos. EOF/HUP conserva significado. Las redirecciones copian raíz/runner a
+3/4 y control/recibo a 7/8 antes de cerrar los originales heredados. Una puerta
+acredita que el cuerpo fue reemplazado por el ejecutable Go y que ningún FD de
+control del adaptador llega al Bash. El protocolo limita versión, dirección,
+longitud, cardinalidad y salto final.
+
+## Comando exacto del Bash
+
+El supervisor no usa `LookPath`, `PATH` para resolver el ejecutable ni una ruta
+recibida. Tras acreditar físicamente `/usr/bin/bash`, construye exactamente:
+
+```text
+Cmd.Path = /usr/bin/bash
+Cmd.Args = [/usr/bin/bash, /proc/self/fd/8,
+            --caso-inyeccion-h0b, SELECTOR_LITERAL]
+```
+
+El entorno del Bash se construye mediante lista permitida, no se hereda en
+bloque. Contiene `LC_ALL=C`, un `PATH` literal de herramientas del sistema y,
+solo si fue validado, el digest `VEC_POSTGRES_TEST_IMAGE`. Ninguna variable
+puede introducir `BASH_ENV`, `ENV`, opción Shell, ruta del repositorio o
+configuración Go. FD 3, 4 y 9 del supervisor son las únicas raíz, fuente runner
+y envoltorio admitidos; el Bash recibe únicamente sus duplicados 7, 8 y 9.
+
+## Máquina Shell del supervisor directo
+
+La máquina exterior precede a la máquina Go:
+
+```text
+ninguno -> supervisor_provisional -> cardinal_0 | candidato_unico | incidente
+candidato_unico -> ACK_LISTO -> INICIAR | CANCELAR -> esperado -> recolectado
+```
+
+- `supervisor_provisional` se arma antes del fork y exige tabla vacía;
+- entre fork y `$!` no hay retorno ni efecto distinto del latch de señal;
+- cardinalidad cero cierra los extremos `coproc` y acredita ausencia;
+- cardinalidad uno conserva el hijo directo hasta `wait -f` aunque ya hubiera
+  terminado; el estado cacheado del trabajo no se confunde con reciclado de PID;
+- cardinalidad mayor que uno no elige ni señaliza por número, cierra el
+  protocolo, devuelve 65 y espera/recolecta la tabla completa sin iniciar Bash;
+  un trabajo ajeno que no termina convierte el caso en incidente operativo, no
+  habilita un borrado o señalización ambiguos ni permite el caso siguiente;
+- el canal acepta cancelación antes de `INICIAR`, pero Go no crea al Bash hasta
+  haber emitido ACK y recibido literalmente `INICIAR`.
 
 ## Máquina de estados del proceso
 
@@ -256,21 +326,31 @@ ninguno -> provisional -> capturado -> acreditado -> ejecutando
          -> terminando -> recolectado -> postausente -> recibido
 ```
 
-1. Ejecuta `runtime.LockOSThread()` antes de construir `exec.Cmd` y no libera
+1. Ejecuta `runtime.LockOSThread()` al entrar y antes de construir `exec.Cmd`; no libera
    el hilo hasta haber esperado Bash/adoptados, cerrado pidfd y emitido recibo.
 2. Arma `provisional` antes de `cmd.Start()` con `Setpgid: true`, `Pgid: 0`,
    `PidFD: &fd` y `Pdeathsig: SIGKILL`.
-3. Error de `Start` significa que no existe hijo. Éxito exige `fd >= 0` y
-   transfiere atómicamente a `capturado`.
-4. Revalida por evidencia `PID|T|PPID|PGID=PID|SID|starttime`, además de señal
+3. Error de `Start` significa que no existe hijo. En éxito, el Bash permanece
+   bloqueado por el pipe de ticket. Go exige `fd >= 0` y crea inmediatamente
+   `fd_reserva = fcntl(fd, F_DUPFD_CLOEXEC, ...)`.
+4. Si falta el pidfd o su duplicado, cierra el pipe: Bash sale por EOF antes de
+   STOP y Go acredita terminación con plazo bootstrap antes de llamar a
+   `cmd.Wait`. Solo dos referencias válidas permiten escribir el ticket y
+   transferir atómicamente a `capturado`.
+5. Revalida por evidencia `PID|T|PPID|PGID=PID|SID|starttime`, además de señal
    cero de grupo por pidfd. `/proc` no autoriza ninguna señal.
-5. Fija `fin_caso = time.Now().Add(180*time.Second)` antes del primer CONT; el
+6. Fija `fin_caso = time.Now().Add(180*time.Second)` antes del primer CONT; el
    valor conserva su componente monotónico y nunca se reinicia.
-6. Un único bucle de eventos observa control, pidfd y tiempo. No existe un
+7. Un único bucle de eventos observa control, pidfd y tiempo. No existe un
    `cmd.Wait()` concurrente.
-7. Todo error controlado posterior a `Start` entra en `terminando`; un `defer`
+8. Todo error controlado posterior a `Start` entra en `terminando`; un `defer`
    de último recurso repite esa convergencia y nunca devuelve dejando una vía
    controlada sin `Wait`.
+
+`fd` y `fd_reserva` representan el mismo objeto kernel. Un `EBADF` del primario
+permite una única promoción del duplicado; no abre pidfd por PID. Un fallo
+persistente de ambas referencias o del syscall de grupo es frontera externa
+65 y activa cuarentena, nunca fallback numérico.
 
 `Pdeathsig` del Bash no se usa para timeout, cancelación o error normal. Solo
 reduce el daño de una muerte abrupta del supervisor. Fijar el hilo evita que
@@ -287,20 +367,29 @@ secuencia de extinción que cancelación o plazo.
 Para cancelar o extinguir:
 
 1. enclava una causa única y conserva el deadline original;
-2. envía STOP al grupo mediante el pidfd y acredita inventario estable detenido;
-3. si la parada no estabiliza en un límite corto incluido en el plazo, pasa a
-   KILL sin ampliar el tiempo;
-4. fija una vez `fin_gracia = ahora_monotónico + 2 s`;
+2. fija `fin_parada = ahora_monotónico + 1 s`, envía STOP al grupo mediante el
+   pidfd y acredita inventario estable detenido;
+3. si la parada no estabiliza antes de `fin_parada`, pasa a KILL;
+4. fija una vez `fin_gracia = fin_parada_real + 2 s`;
 5. envía TERM al grupo detenido y seguidamente CONT, ambos por el mismo pidfd,
    para que procesos cooperativos ejecuten sus manejadores;
 6. observa hasta `fin_gracia` sin llamar concurrentemente a `Wait`;
-7. vuelve a detener y estabilizar; si persiste cualquier miembro, envía KILL
-   al grupo por el mismo pidfd;
-8. recoge el Bash una vez con `cmd.Wait`, drena todos los descendientes
-   adoptados hasta `ECHILD` y conserva el `WaitStatus` real;
-9. exige que señal cero de grupo por pidfd devuelva `ESRCH`, que no haya hijo
+7. fija `fin_parada_final = fin_gracia + 1 s`, vuelve a detener y estabilizar;
+   si persiste cualquier miembro, envía KILL al grupo por el mismo pidfd;
+8. fija `fin_drenaje = fin_parada_final + 5 s` y espera terminalidad mediante
+   `poll(pidfd)` o `waitid(P_PIDFD, WNOHANG|WNOWAIT)`, sin recoger todavía;
+9. solo con terminalidad acreditada ejecuta `cmd.Wait` una vez y drena con
+   `wait4(..., WNOHANG)` los adoptados hasta `ECHILD`, siempre antes de
+   `fin_drenaje`;
+10. exige que señal cero de grupo por pidfd devuelva `ESRCH`, que no haya hijo
    adoptado ni miembro del PGID y solo entonces cierra pidfd;
-10. escribe exactamente un recibo, cierra canales y libera el hilo.
+11. escribe exactamente un recibo, cierra canales y libera el hilo.
+
+El plazo funcional continúa siendo 180 segundos desde CONT. La limpieza puede
+añadir como máximo nueve segundos monotónicos: una parada inicial, dos de
+gracia, una parada final y cinco de drenaje. Ningún subplazo se reinicia. Si
+vence `fin_drenaje`, no se llama a `cmd.Wait`: se declara frontera externa 65,
+se emite recibo de incidente si aún es posible y se activa cuarentena.
 
 El pidfd permanece abierto hasta la última señal y postcondición, incluso si
 el líder es zombi o ya fue recogido. `EBADF`, `EINVAL` o `EPERM` son incidente
@@ -342,7 +431,9 @@ administrador Docker quedan fuera de la garantía en proceso. En esos casos:
 - el runner devuelve incidente 65 si sigue vivo;
 - `Pdeathsig` extingue al líder, pero no se presenta falsamente como garantía
   de extinción de todo el grupo;
-- la evidencia y recuperación pertenecen al procedimiento operativo.
+- temporal y raíz se preservan como cuarentena;
+- evidencia y recuperación siguen obligatoriamente el
+  [procedimiento de supervisor irrecuperable](procedimiento_operativo_f0_h0b_supervisor_irrecuperable_2026-08-04.md).
 
 Esta excepción no cubre muerte o migración normal del hilo Go: queda impedida
 por `LockOSThread`. Tampoco se usa para debilitar ningún mutante controlado.
@@ -369,13 +460,23 @@ Ledger conservador:
 | --- | ---: | ---: | ---: |
 | Base `91cb804` | 769 | 527 | 0 |
 | Q5a: reemplazar función de captura de 39 por 39..40 y añadir 3 literales | 772..773 | 527 exactas | 130..190 |
-| C4b-2: sustituciones sin crecimiento material; `527-32+(34..44)` | 772..774 | 529..539 | 300..420 |
-| C4b-3: cierre de recibo/Docker; `anterior+(8..14)` | 772..775 | 537..553 | 335..480 |
-| Reserva hasta límites C4b/C4c | 0..3 hasta 775 | 27..43 hasta 580 | 20..165 hasta 500 |
+| C4b-2: sustituciones sin crecimiento material; `527-32+(34..44)` | 772..773 | 529..539 | 300..420 |
+| C4b-3: solo Docker/epílogo; `anterior+(8..14)` | 772..774 | 537..553 | 335..480 |
+| Reserva hasta límites C4b/C4c | 1..3 hasta 775 | 27..43 hasta 580 | 20..165 hasta 500 |
+
+Las 34..44 líneas nuevas de C4b-2 se presupuestan de forma explícita:
+
+| Puente definitivo C4b-2 | Mínimo | Máximo |
+| --- | ---: | ---: |
+| `coproc`, redirecciones y extremos anónimos cerrados | 8 | 10 |
+| provisional, lanzamiento y recuperación cardinal | 10 | 13 |
+| ACK, orden única, espera interrumpible y recibo | 12 | 15 |
+| cierre/postcondiciones comunes | 4 | 6 |
+| **Total añadido** | **34** | **44** |
 
 Q5a se detiene si runner supera 773, cambia el adaptador o Go supera 190.
-C4b-2 se detiene si runner supera 774, adaptador supera 539 o Go supera 420.
-C4b-3 se detiene si runner supera 775, adaptador supera 553 o Go supera 480.
+C4b-2 se detiene si runner supera 773, adaptador supera 539 o Go supera 420.
+C4b-3 se detiene si runner supera 774, adaptador supera 553 o Go supera 480.
 C4c no toca Go y conserva al menos 27 líneas del adaptador. Un candidato que
 exceda un checkpoint requiere otra decisión; no puede comprimir sentencias,
 retirar controles o contar el límite como reserva.
@@ -391,6 +492,9 @@ retirar controles o contar el límite como reserva.
 
 Q5a no retira todavía las funciones de proceso del adaptador; esa retirada
 pertenece a C4b-2. Productor y revisor son distintos y no comparten edición.
+C4b-2 entrega desde el primer candidato los canales definitivos completos:
+`coproc`, extremos anónimos, FD, ACK, orden, recibo y cierres. C4b-3 no contiene
+un canal provisional ni cambia ese protocolo.
 
 ## Autopruebas y mutantes obligatorios
 
@@ -407,27 +511,39 @@ pertenece a C4b-2. Productor y revisor son distintos y no comparten edición.
 
 La misma fuente crea y limpia, sin Docker ni SQL:
 
-1. grupo cooperativo de líder y miembro: señal cero, STOP realmente observado,
+1. cada líder y ayudante nace con `PidFD` obtenido por su mismo `Start`; la
+   autoprueba conserva además cada pidfd individual para rollback sintético;
+2. grupo cooperativo de líder y miembro: señal cero, STOP realmente observado,
    CONT y TERM con ambas terminaciones;
-2. grupo con miembro que ignora TERM: STOP, TERM, CONT, gracia y KILL;
-3. líder que termina antes, se recoge, descendiente vivo y actuación de grupo
+3. grupo con miembro que ignora TERM: STOP, TERM, CONT, gracia y KILL;
+4. líder que termina antes, se recoge, descendiente vivo y actuación de grupo
    mediante el pidfd original;
-4. señuelo en otro grupo que permanece intacto;
-5. `ESRCH` terminal, pidfd cerrado/`EBADF`, flag adverso/`EINVAL` y cero hijos,
+5. señuelo en otro grupo que permanece intacto;
+6. `ESRCH` terminal, pidfd cerrado/`EBADF`, flag adverso/`EINVAL` y cero hijos,
    grupos o descriptores al salir, incluso si una comprobación falla.
 
 La autoprueba acredita conducta, no solo versión o cabecera. Si seccomp, kernel
 o permisos impiden cualquier paso, devuelve 65 antes de identidad de caso,
-Docker o SQL.
+Docker o SQL. El rollback puede usar los pidfds individuales solo sobre sus
+procesos sintéticos conocidos; esa vía no existe ni se permite en el caso
+operativo.
 
 ### Proceso operativo
 
+- señal/fallo antes del fork del supervisor, durante `fork -> $!`, después de
+  `$!`, cardinalidad 0/1/>1, candidato distinto y supervisor ya terminado;
+- señal antes/después de ACK, `INICIAR` omitido, cancelación antes de iniciar y
+  comprobación de que no nació Bash ni se lanzó el caso siguiente;
 - error `Start` sin hijo y éxito con pidfd negativo prohibido;
+- cierre del pipe-ticket con EOF antes de STOP, fallo de `F_DUPFD_CLOEXEC`,
+  `EBADF` primario con promoción única y fallo persistente de ambas referencias;
 - presión y replanificación del runtime con hilo fijado, sin `Pdeathsig` espurio;
 - Bash que no alcanza STOP, tupla truncada/adversa y grupo con miembro nuevo;
 - cancelación antes/después de ACK, duplicada y simultánea con muerte paterna;
 - fin en el borde de 180 s, reloj civil alterado y cien interrupciones Shell;
 - TERM cooperativo, TERM ignorado, líder muerto durante gracia y KILL;
+- proceso KILL-pendiente, `fin_drenaje` agotado y prueba de que no se invocó
+  `cmd.Wait` bloqueante ni se reutilizó el worker;
 - salida normal con descendiente, líder zombi y líder ya recogido;
 - `wait -f` del supervisor interrumpido; estado real 0/64/65/79/130/143;
 - recibo ausente, duplicado, truncado, de versión o identidad adversa;
@@ -460,13 +576,13 @@ PostgreSQL 18.4 y C4b-1, se exige:
 
 ## Secuencia autorizable
 
-1. Dos contrarrevisiones documentales de esta segunda corrección.
+1. Dos contrarrevisiones documentales de esta tercera corrección.
 2. Q5a: quinta captura, build cerrado y autoprueba ABI sin recursos de caso.
 3. Revisión independiente de Q5a.
 4. C4b-2: supervisor padre, CLONE_PIDFD, grupo, plazo, espera y mutantes sin
    modificar todavía la reconciliación Docker de C4b-3.
 5. Doble revisión independiente de C4b-2.
-6. C4b-3: canales definitivos, Docker y epílogo exterior único.
+6. C4b-3: reconciliación Docker y epílogo exterior único; no rediseña canales.
 7. C4c y C4d según el DAG vigente.
 
 Ningún checkpoint intermedio aumenta F0 `10/23`, O4-05 `3/5`, Contratación
