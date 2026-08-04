@@ -40,11 +40,13 @@ readonly ruta_helper_sql='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly ruta_helper_h0b='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_adaptador_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ciclo_recursos_m38_h0b_fuente_corporativa_contexto_actor_v1.sh'
+readonly ruta_supervisor_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
 readonly sha256_adaptador_m38='d9b61a183e5a32c321a3eeb48483ce40c83551bc7a700354ccc88e8206d9ee1f'
+readonly sha256_supervisor_m38='c18622edb1ad5168752918ab6f9062b7cf06fbda490f68d1da2ff1ff90032a1e'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
@@ -52,6 +54,7 @@ contenedor="vec-f0-h0-${PPID}-${RANDOM}"
 temporales='' raiz_base='' clave_postgres='' propietario_contenedor="${identidad_m38}"
 intencion_contenedor='' cid_contenedor=''
 etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales=''
+supervisor_m38=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
 r0_posible='' finalizando_h0b='' wrapper_activo='' inyeccion_h0b_activa='' traza_m38_activa=''
 traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' seccion_critica_m38='' senal_pendiente_m38='' generacion_senal_m38=0
@@ -195,43 +198,44 @@ preparar_capturador_privado_f0() {
     printf '%s' "${binario}"
 }
 capturar_auxiliares_privados_f0() {
-    local binario="$1"
-    local snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo
+    local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
-        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" \
-        "${ruta_helper_h0b}" "${ruta_adaptador_m38}" \
-        "${ruta_helper_operativo}" || return 65
+        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
+        "${ruta_adaptador_m38}" "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 4 &&
+    [[ ${#lineas[@]} -eq 5 &&
        "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
        "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
        "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
-       "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" ]] || return 65
-    if bash "${snapshot}/${ruta_helper_sql}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+       "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
+       "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" ]] || return 65
+    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" \
+        "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
+    for fuente in "${ruta_helper_sql}" "${ruta_helper_operativo}" "${ruta_helper_h0b}" "${ruta_adaptador_m38}"; do
+        if bash "${snapshot}/${fuente}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+        ((estado_directo == 64)) || return 65
+        export VEC_F0_CARGA_PRIVADA=1
+        # shellcheck source=/dev/null
+        source "${snapshot}/${fuente}" || return 65
+    done
+    fuente_go="${snapshot}/${ruta_supervisor_m38}"
+    supervisor_m38="${temporales}/supervisor-m38"
+    [[ -f "${fuente_go}" && ! -L "${fuente_go}" &&
+       "$(stat --printf='%a|%u|%F|%h' -- "${fuente_go}")" == "600|${EUID}|regular file|1" &&
+       "$(huella_local_f0 "${fuente_go}")" == "${sha256_supervisor_m38}" ]] || return 65
+    env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" vet "${fuente_go}" || return 65
+    env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
+    chmod 0700 "${supervisor_m38}" || return 65
+    [[ "$(stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")" == "700|${EUID}|regular file|1" ]] || return 65
+    "${supervisor_m38}" --autoprueba >&2 || return 65
+    if "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1; then
+        return 65
+    else
+        estado_directo=$?
+    fi
     ((estado_directo == 64)) || return 65
-    if bash "${snapshot}/${ruta_helper_operativo}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
-    ((estado_directo == 64)) || return 65
-    if bash "${snapshot}/${ruta_helper_h0b}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
-    ((estado_directo == 64)) || return 65
-    if bash "${snapshot}/${ruta_adaptador_m38}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
-    ((estado_directo == 64)) || return 65
-    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" \
-        "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" \
-        "${snapshot}/${ruta_adaptador_m38}" || return 65
-    export VEC_F0_CARGA_PRIVADA=1
-    # shellcheck source=/dev/null
-    source "${snapshot}/${ruta_helper_sql}"
-    export VEC_F0_CARGA_PRIVADA=1
-    # shellcheck source=/dev/null
-    source "${snapshot}/${ruta_helper_operativo}"
-    export VEC_F0_CARGA_PRIVADA=1
-    # shellcheck source=/dev/null
-    source "${snapshot}/${ruta_helper_h0b}"
-    export VEC_F0_CARGA_PRIVADA=1
-    # shellcheck source=/dev/null
-    source "${snapshot}/${ruta_adaptador_m38}"
 }
 acreditar_snapshot_contenedor_f0() {
     local manifiesto="$1" raiz_contenedor="${2:-/repo}" reconstruido
