@@ -2,8 +2,9 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: candidato productor Q5a. No cierra C4b-2, H0b, C2, F0 ni habilita
-producción. Requiere revisión independiente antes de integrarse.
+Estado: candidato productor Q5a corregido tras dos dictámenes `NO-GO P1` sobre
+`4f36a9a`. No cierra C4b-2, H0b, C2, F0 ni habilita producción. Requiere una
+nueva revisión independiente antes de integrarse.
 
 ## Alcance aplicado
 
@@ -20,21 +21,35 @@ El capturador ordena canónicamente el manifiesto por ruta. El runner lo compara
 con cinco pares literales ruta/SHA-256. Este orden canónico no cambia el orden
 de carga: las cuatro fuentes Shell se validan y cargan como
 D2c → D2d → H0b → adaptador, cada una con una marca nueva
-`VEC_F0_CARGA_PRIVADA=1`. Las cuatro conservan el rechazo directo 64.
+`VEC_F0_CARGA_PRIVADA=1`. El runner exige la ausencia de la marca antes de
+crearla y después de cada carga; el `source` debe consumirla. Las cuatro
+fuentes conservan el rechazo directo 64.
+
+Tras cargar el adaptador se acreditan directamente la presencia, el atributo
+`readonly` y el valor literal de sus seis destinos superiores: M080, T080,
+directorio de wrappers y wrappers sin R0, nominal y de error. Una marca o un
+destino preexistente y `readonly` cierra con 65 antes de una asignación fatal.
 
 La fuente Go se reacredita justo antes de `vet` y compilación: fichero regular,
 no simbólico, modo 0600, propietario efectivo, un solo enlace y SHA-256
-literal. Esta puerta rechaza una sustitución de la copia privada ocurrida
-después de publicar el manifiesto y antes del build.
+literal. Después del build se recalcula su huella con `/usr/bin/sha256sum`.
+Estas puertas rechazan una sustitución de la copia privada ocurrida después de
+publicar el manifiesto, durante el build o antes de ejecutar el binario.
 
 ## Build y autoprueba cerrados
 
-Solo el supervisor se valida y compila con:
+Toda la frontera Go —selección, versión, GOROOT, `vet` y build del capturador y
+del supervisor— pasa por `/usr/bin/env -i`. El entorno permitido común es:
 
 ```text
-GOOS=linux
-GOARCH=amd64
-CGO_ENABLED=0
+HOME=<temporal privado>
+TMPDIR=<temporal privado>
+GOCACHE=<temporal privado>/cache-go
+PATH=/usr/local/go/bin:/usr/bin:/bin
+LC_ALL=C
+GOENV=off
+GOAMD64=v1
+GOTELEMETRY=off
 GOTOOLCHAIN=local
 GOWORK=off
 GOPROXY=off
@@ -44,10 +59,17 @@ GOFLAGS=-mod=readonly
 go build -trimpath
 ```
 
-El capturador conserva sin cambios su build `-race`. El binario del supervisor
-queda como fichero privado 0700, del usuario efectivo y con un solo enlace. El
-runner ejecuta su `--autoprueba` y exige además que un modo desconocido termine
-con 64.
+El capturador añade explícitamente `GOOS=linux`, `GOARCH=amd64` y
+`CGO_ENABLED=1`, y conserva `-race`. El supervisor usa esos GOOS/GOARCH con
+`CGO_ENABLED=0`. Una función heredada llamada `env` o un `GOAMD64` heredado se
+rechazan antes de invocar Go.
+
+El binario del supervisor queda como fichero privado 0700, del usuario
+efectivo, con un solo enlace y sin enlace simbólico. `/usr/bin/stat` y
+`/usr/bin/sha256sum` acreditan su forma y su SHA-256 determinista literal
+`eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`
+antes de ejecutarlo. El runner ejecuta su `--autoprueba` y exige además que un
+modo desconocido termine con 64.
 
 La fuente nueva tiene build constraint `linux && amd64`, no usa dependencias
 externas y no crea hijos, canales, SQL, Docker ni recursos de caso. La
@@ -82,6 +104,11 @@ Resultados:
   autopruebas del capturador y supervisor verdes, residuos 0;
 - mutante que sustituye la copia Go después del manifiesto y antes del build:
   65, sin binario de supervisor y residuos 0;
+- función `env` heredada y `GOAMD64=v3` heredado: 65 y 65, residuos 0;
+- binario privado sustituido después del build: 65, sin autoprueba y residuos 0;
+- marca de carga y destino superior del adaptador preexistentes como
+  `readonly`: 65 y 65, residuos 0;
+- SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
 - hashes de D2c, D2d, H0b, adaptador y capturador: invariantes;
 - `git diff --check`: limpio.
 

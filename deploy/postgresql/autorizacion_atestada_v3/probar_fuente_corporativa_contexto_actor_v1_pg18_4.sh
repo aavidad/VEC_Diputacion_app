@@ -47,14 +47,14 @@ readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443
 readonly sha256_helper_operativo='8281ac2fe10a2c4609bfb7a87f68f69a1e71189d0d7a3ed946af231b866e2075'
 readonly sha256_adaptador_m38='d9b61a183e5a32c321a3eeb48483ce40c83551bc7a700354ccc88e8206d9ee1f'
 readonly sha256_supervisor_m38='c18622edb1ad5168752918ab6f9062b7cf06fbda490f68d1da2ff1ff90032a1e'
+readonly sha256_binario_supervisor_m38='eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
 [[ -z "${identidad_m38}" ]] || contenedor="vec-f0-h0-${identidad_m38:0:32}"
 temporales='' raiz_base='' clave_postgres='' propietario_contenedor="${identidad_m38}"
 intencion_contenedor='' cid_contenedor=''
-etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales=''
-supervisor_m38=''
+etapa='H0' sustituto_autoprueba_bootstrap='' go_f0='' aleatorio_temporales='' supervisor_m38=''
 temporal_preausente='' temporal_propio='' identidad_temporales='' forma_temporales='' estado_mkdir_temporal=0
 r0_posible='' finalizando_h0b='' wrapper_activo='' inyeccion_h0b_activa='' traza_m38_activa=''
 traza_finalizador_h0b='' caso_observado_h0b='' recuperacion_interna_h0b='' seccion_critica_m38='' senal_pendiente_m38='' generacion_senal_m38=0
@@ -95,6 +95,10 @@ capturar_salida_f0() {
     local -n salida_f0="$1"; shift
     # shellcheck disable=SC2034
     salida_f0="$("$@")" || return 65
+}
+entorno_go_aislado_f0() {
+    [[ -z "${GOAMD64:-}" && "$(type -t env)" != function ]] || return 65
+    /usr/bin/env -i HOME="${temporales}" TMPDIR="${temporales}" GOCACHE="${temporales}/cache-go" PATH=/usr/local/go/bin:/usr/bin:/bin LC_ALL=C GOENV=off GOAMD64=v1 GOTELEMETRY=off GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "$@"
 }
 retirar_directorio_temporal_f0() {
     local actual forma
@@ -167,19 +171,18 @@ probar_nofollow_bootstrap_f0() {
     [[ ! -e "${marca}" && ! -e "${destino}" ]] || return 65
 }
 seleccionar_toolchain_go_f0() {
-    local go_base modulo_cache sistema arquitectura candidato goroot enlaces version
-    go_base="$(command -v go)" || return 65
-    modulo_cache="$(GOTOOLCHAIN=local "${go_base}" env GOMODCACHE)" || return 65
-    sistema="$(GOTOOLCHAIN=local "${go_base}" env GOOS)" || return 65
-    arquitectura="$(GOTOOLCHAIN=local "${go_base}" env GOARCH)" || return 65
-    [[ "${sistema}/${arquitectura}" == 'linux/amd64' ]] || return 65
+    local go_base=go modulo_cache sistema_arquitectura candidato goroot enlaces version home_sistema
+    home_sistema="$(/usr/bin/awk -F: -v uid="${EUID}" '$3 == uid {print $6}' /etc/passwd)" || return 65
+    modulo_cache="$(entorno_go_aislado_f0 GOMODCACHE="${home_sistema}/go/pkg/mod" "${go_base}" env GOMODCACHE)" || return 65
+    sistema_arquitectura="$(entorno_go_aislado_f0 "${go_base}" env GOOS GOARCH)" || return 65
+    [[ "${sistema_arquitectura}" == $'linux\namd64' ]] || return 65
     candidato="${modulo_cache}/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/bin/go"
     [[ -f "${candidato}" && ! -L "${candidato}" ]] || return 65
     capturar_salida_f0 enlaces stat --printf='%h' -- "${candidato}" || return 65
     [[ "${enlaces}" == '1' ]] || return 65
-    capturar_salida_f0 version env GOTOOLCHAIN=local "${candidato}" version || return 65
+    capturar_salida_f0 version entorno_go_aislado_f0 "${candidato}" version || return 65
     [[ "${version}" == 'go version go1.26.5 linux/amd64' ]] || return 65
-    goroot="$(GOTOOLCHAIN=local "${candidato}" env GOROOT)" || return 65
+    goroot="$(entorno_go_aislado_f0 "${candidato}" env GOROOT)" || return 65
     [[ "${goroot}/bin/go" -ef "${candidato}" ]] || return 65
     printf '%s' "${candidato}"
 }
@@ -188,53 +191,50 @@ preparar_capturador_privado_f0() {
     local binario="${temporales}/capturador"
     copiar_fuente_sin_enlaces_f0 "${ruta_capturador}" "${destino}" \
         "${sha256_capturador}" || return 65
-    env GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off \
-        GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" vet "${destino}" || return 65
-    env GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off \
-        GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" build -race -trimpath \
-        -o "${binario}" "${destino}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 "${go_f0}" vet "${destino}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 "${go_f0}" build -race -trimpath -o "${binario}" "${destino}" || return 65
     chmod 0700 "${binario}" || return 65
     "${binario}" --autoprueba >&2 || return 65
     printf '%s' "${binario}"
 }
 capturar_auxiliares_privados_f0() {
-    local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go
+    local binario="$1" snapshot="${temporales}/snapshot-auxiliares" manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go forma_binario huella_binario huella_fuente_post
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
-        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
-        "${ruta_adaptador_m38}" "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
+        --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" "${ruta_adaptador_m38}" "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 5 &&
-       "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
-       "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
-       "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
-       "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
+    [[ ${#lineas[@]} -eq 5 && "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" && "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
+       "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" && "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
        "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" ]] || return 65
-    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" \
-        "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
+    shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
+    [[ ! -v destino_m080_h0b && ! -v destino_t080_h0b && ! -v directorio_wrapper_h0b && ! -v destino_wrapper_h0b && ! -v destino_wrapper_nominal_h0b && ! -v destino_wrapper_error_h0b ]] || return 65
     for fuente in "${ruta_helper_sql}" "${ruta_helper_operativo}" "${ruta_helper_h0b}" "${ruta_adaptador_m38}"; do
         if bash "${snapshot}/${fuente}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
         ((estado_directo == 64)) || return 65
+        [[ ! -v VEC_F0_CARGA_PRIVADA ]] || return 65
         export VEC_F0_CARGA_PRIVADA=1
         # shellcheck source=/dev/null
         source "${snapshot}/${fuente}" || return 65
+        [[ ! -v VEC_F0_CARGA_PRIVADA ]] || return 65
     done
+    [[ -v destino_m080_h0b && -v destino_t080_h0b && -v directorio_wrapper_h0b && -v destino_wrapper_h0b && -v destino_wrapper_nominal_h0b && -v destino_wrapper_error_h0b && "${destino_m080_h0b@a}${destino_t080_h0b@a}${directorio_wrapper_h0b@a}${destino_wrapper_h0b@a}${destino_wrapper_nominal_h0b@a}${destino_wrapper_error_h0b@a}" == rrrrrr &&
+       "${destino_m080_h0b}|${destino_t080_h0b}|${directorio_wrapper_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b' &&
+       "${destino_wrapper_h0b}|${destino_wrapper_nominal_h0b}|${destino_wrapper_error_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/sin-r0.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/nominal/ensayo.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/error/ensayo.sql' ]] || return 65
     fuente_go="${snapshot}/${ruta_supervisor_m38}"
     supervisor_m38="${temporales}/supervisor-m38"
     [[ -f "${fuente_go}" && ! -L "${fuente_go}" &&
        "$(stat --printf='%a|%u|%F|%h' -- "${fuente_go}")" == "600|${EUID}|regular file|1" &&
        "$(huella_local_f0 "${fuente_go}")" == "${sha256_supervisor_m38}" ]] || return 65
-    env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" vet "${fuente_go}" || return 65
-    env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' GOFLAGS=-mod=readonly "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 "${go_f0}" vet "${fuente_go}" || return 65
+    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
     chmod 0700 "${supervisor_m38}" || return 65
-    [[ "$(stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")" == "700|${EUID}|regular file|1" ]] || return 65
+    forma_binario="$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")" || return 65
+    huella_fuente_post="$(/usr/bin/sha256sum -- "${fuente_go}")" || return 65
+    huella_binario="$(/usr/bin/sha256sum -- "${supervisor_m38}")" || return 65
+    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_go}" && ! -L "${supervisor_m38}" && "${forma_binario}" == "700|${EUID}|regular file|1" && "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}" ]] || return 65
     "${supervisor_m38}" --autoprueba >&2 || return 65
-    if "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1; then
-        return 65
-    else
-        estado_directo=$?
-    fi
+    "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1 && return 65
+    estado_directo=$?
     ((estado_directo == 64)) || return 65
 }
 acreditar_snapshot_contenedor_f0() {
