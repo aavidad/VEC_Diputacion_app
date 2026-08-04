@@ -28,17 +28,25 @@ pueda reprovisionarse desde una imagen conocida. El sistema de CI conserva por
 identificador de trabajo el log completo y el commit probado. Una ejecución
 local sin log persistido sirve para diagnóstico, pero no cierra la puerta H0.
 
-El arnés emite a stderr una línea canónica `INCIDENTE_F0_H0B_V1` con datos no
-personales: commit, caso, identidad aleatoria, instante UTC, kernel, Go,
-contenedor/digest acreditados, última transición, estado de ambos pidfd,
-deadline y presencia o ausencia de ACK/recibo. El invocador debe conservar ese
-log fuera de `/tmp` y del worker antes de reprovisionarlo.
+Si el arnés sigue vivo, emite a stderr una línea canónica
+`INCIDENTE_F0_H0B_V1` con datos no personales: commit, caso, identidad
+aleatoria, instante UTC, kernel, Go, contenedor/digest acreditados, última
+transición, estado de ambos pidfd, deadline y presencia o ausencia de
+ACK/recibo. El invocador conserva ese log fuera de `/tmp` y del worker antes de
+reprovisionarlo.
+
+Si la caída total del host impide al arnés emitirla, el orquestador de CI crea
+fuera del worker la misma línea con `origen=orquestador` y `desconocido` en todo
+campo no observable. La ausencia de datos no reduce la respuesta: el worker se
+cuarentena y reprovisiona igualmente, y H0 se repite completo.
 
 ## Respuesta automática
 
-1. Enclavar incidente 65 y prohibir el caso siguiente.
+1. El arnés, si vive, enclava incidente 65; en caída total el orquestador marca
+   el job como incidente. Ninguna rama permite el caso siguiente.
 2. No emitir recibo verde, no afirmar residuos cero y no desarmar la identidad.
-3. Escribir y vaciar la línea canónica en el log del job.
+3. El arnés o, en su defecto, el orquestador escribe y vacía la línea canónica
+   en el log externo del job.
 4. Preservar `ruta_caso_m38` y la raíz global como cuarentena hasta que el
    sistema de CI haya recogido la evidencia; no borrar una ruta dudosa.
 5. Si la identidad Docker continúa acreditada, registrar su inspección. Su

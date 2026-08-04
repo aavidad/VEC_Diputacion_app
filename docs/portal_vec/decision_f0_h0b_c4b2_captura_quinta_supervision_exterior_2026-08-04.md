@@ -2,10 +2,11 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: tercera corrección de dirección, posterior a los `NO-GO` documentales
-de `f7ca3a9`, `a92ee4b` y `51860cb`; pendiente de dos contrarrevisiones
-independientes con `P0=0`, `P1=0` y `P2=0`. Mientras no obtenga ambos `GO`,
-no autoriza cambios de código ni modifica C4b-2, H0b, C2, F0 o producción.
+Estado: cuarta corrección de dirección, posterior a los `NO-GO` documentales
+de `f7ca3a9`, `a92ee4b`, `51860cb` y `31c9169`; pendiente de dos
+contrarrevisiones independientes con `P0=0`, `P1=0` y `P2=0`. Mientras no
+obtenga ambos `GO`, no autoriza cambios de código ni modifica C4b-2, H0b, C2,
+F0 o producción.
 
 ## Historial vinculante de la decisión
 
@@ -34,6 +35,13 @@ cerraba `fork -> $!` del propio supervisor, no fijaba el `exec.Cmd`, relegaba
 parte de los canales a C4b-3 y admitía reserva cero del runner. Esta tercera
 corrección incorpora los cuatro hallazgos.
 
+La revisión de `31c9169` confirmó con sondas Bash que los FDs publicados por
+un `coproc` pueden quedar cerrados y sus variables desasignadas al terminar el
+coproceso incluso antes de `wait`. También detectó deadlines incompletos de
+bootstrap, una rama STOP sin convergencia definida, el flag `WEXITED` ausente y
+el caso de caída total del host en el runbook. Esta cuarta corrección resuelve
+los cinco hallazgos; el código continúa intacto.
+
 ## Prevalencia exacta
 
 Esta decisión desarrolla la cláusula de parada de la
@@ -52,6 +60,10 @@ y sustituye únicamente estos extremos de las enmiendas M38 anteriores:
    usa solo `pidfd_send_signal(..., PIDFD_SIGNAL_PROCESS_GROUP)`;
 7. los write-sets y presupuestos de Q5a, C4b-2, C4b-3 y C4c son los fijados en
    este documento.
+
+El límite local del adaptador para C4c pasa de 580 a 600 líneas: las veinte
+líneas adicionales se asignan exclusivamente a duplicados estables y deadlines
+del protocolo `coproc`, no a alcance funcional. DEC-051 permanece en 800.
 
 Permanecen vigentes la semántica C4b-1 de primera señal observada, oráculo,
 causales `0/64/65/79`, topología H0b, D2c, D2d, capturador, propiedad exacta de
@@ -200,8 +212,8 @@ decisión de detener la matriz. Tras el handoff:
 
 ### Adaptador privado
 
-Conserva régimen Shell, canales anónimos, temporal, Docker, transporte por FD, material
-H0b y el único `retirar_recursos_m38_f0`. Ya no crea, señaliza o espera Bash,
+Conserva régimen Shell, canales anónimos, temporal, Docker, transporte por FD,
+material H0b y el único `retirar_recursos_m38_f0`. Ya no crea, señaliza o espera Bash,
 ni guarda su `$!` o PGID. Antes de lanzar el supervisor acredita `jobs` vacío,
 arma `supervisor_provisional` y mantiene la sección crítica C4b-1. Lanza como
 orden simple al supervisor y copia `$!` inmediatamente.
@@ -209,16 +221,43 @@ orden simple al supervisor y copia `$!` inmediatamente.
 Una señal o fallo durante `fork -> $!` solo enclava C4b-1: no inicia epílogo,
 Bash de caso ni otro trabajo. Al reanudar, el adaptador recupera por cardinalidad
 exacta. Cero acredita que no existe supervisor; uno se registra como candidato;
-más de uno es incidente 65 y no se escoge PID. El candidato solo se convierte
-en `supervisor_capturado` cuando su trabajo directo, forma de ejecutable privado
-y ACK con identidad/nonce coinciden. El PID obtenido de la tabla sirve para
+más de uno es incidente 65 y no se escoge PID. El PID del candidato sirve para
 `wait -f` y evidencia de hijo directo, nunca para señalizar.
 
-El `coproc` crea los dos pipes anónimos antes de su fork interno. El Go valida
-su arranque, emite `ACK_LISTO` y espera una orden. Solo entonces el adaptador drena la señal
-pendiente: envía exactamente uno de `INICIAR` o `CANCELAR`. Por ello una señal
-anterior al ACK no permite crear al Bash. Después repite `wait -f` hasta el
-estado terminal real del único supervisor y valida su recibo.
+El `coproc` crea los dos pipes anónimos antes de su fork interno. La primera
+acción controlada del Go operativo es esperar `ARMAR`; antes de recibirlo no
+valida el caso, crea Bash ni termina por un error controlado. Inmediatamente
+después de recuperar el candidato, el adaptador duplica los dos FDs publicados
+por `coproc` a FDs ordinarios mediante `exec {control_estable}>&...` y
+`exec {recibo_estable}<&...`, acredita dirección/identidad y cierra los
+originales. Desde entonces no vuelve a consultar el array ni el PID variable
+del `coproc`.
+
+Solo con ambos duplicados estables envía `ARMAR`. Go responde `ACK_LISTO` o un
+recibo de error y ya puede terminar. El candidato se convierte en
+`supervisor_capturado` únicamente si su trabajo directo, ejecutable privado,
+nonce y ACK coinciden. Entonces el adaptador drena la señal pendiente y envía
+exactamente uno de `INICIAR` o `CANCELAR`. En `INICIAR`, Go debe emitir además
+`ACK_CASO` después de pidfd doble, barrera FD 9, STOP, deadline y CONT. Toda
+lectura posterior, incluido el recibo terminal anterior al `wait` acreditado,
+usa exclusivamente `recibo_estable`.
+
+El padre fija con reloj monotónico antes del `coproc` cuatro límites absolutos
+no reiniciables: `fin_armado = t0+2 s`, `fin_ack = t0+4 s`,
+`fin_orden = t0+6 s` y `fin_bootstrap = fin_orden`. Lee ACK/recibos con espera
+Shell acotada contra `/proc/uptime`, no con un `read` indefinido. Go fija al
+entrar su propio `fin_bootstrap_go = ahora+6 s`; autoexpira sin Bash si no
+recibe a tiempo ARMAR y después INICIAR/CANCELAR, y debe emitir `ACK_CASO`
+antes de ese límite. Si el padre agota un límite, cierra control; solo llama
+`wait -f` si acredita antes que el trabajo ya es terminal. Un supervisor vivo
+o inerte activa incidente externo y cuarentena sin espera bloqueante.
+
+Tras `ACK_CASO`, el padre fija `fin_supervision = ahora_monotónico + 190 s`
+(180 de caso, nueve de limpieza y uno de salida). El recibo terminal se lee por
+el FD estable con ese límite. Después del recibo concede como máximo un segundo
+para acreditar terminalidad del trabajo y solo entonces ejecuta `wait -f`. Un
+recibo ausente, un Go vivo tras el límite o un Go que escribe y no termina son
+frontera externa: no se espera de forma bloqueante ni se reutiliza el worker.
 
 En caminos controlados, el epílogo exige supervisor recolectado y recibo
 coherente antes de declarar postausencia. Si falta el recibo por una frontera
@@ -238,7 +277,7 @@ Es el único propietario de:
 - señalización de grupo ligada, espera única y drenaje de adoptados;
 - recibo mecánico final.
 
-Fija el hilo al entrar, instala el receptor Go de SIGTERM, ejecuta literalmente
+Tras ARMAR fija el hilo, instala el receptor Go de SIGTERM, ejecuta literalmente
 `prctl(PR_SET_PDEATHSIG, SIGTERM)`, vuelve a comprobar el PPID recibido por FD
 confiable y comprueba tanto señal ya encolada como EOF de control antes de
 crear al Bash. Así cierra la carrera en la que el runner muere antes del
@@ -270,8 +309,10 @@ no abre una ruta viva del repositorio.
 El adaptador usa un `coproc` nombrado cuyo cuerpo hace `exec` del binario
 privado: no crea FIFO, socket con nombre, keeper ni proceso auxiliar estable.
 Los dos pipes anónimos son unidireccionales; el adaptador conserva escritura de
-control y lectura de recibo, mientras Go recibe únicamente los extremos
-opuestos. EOF/HUP conserva significado. Las redirecciones copian raíz/runner a
+control y lectura de recibo mediante duplicados ordinarios estables, mientras
+Go recibe únicamente los extremos opuestos. Los FDs del array `coproc` pueden
+ser desasignados por Bash y nunca se guardan solo como números para usarlos
+después. EOF/HUP conserva significado. Las redirecciones copian raíz/runner a
 3/4 y control/recibo a 7/8 antes de cerrar los originales heredados. Una puerta
 acredita que el cuerpo fue reemplazado por el ejecutable Go y que ningún FD de
 control del adaptador llega al Bash. El protocolo limita versión, dirección,
@@ -301,7 +342,9 @@ La máquina exterior precede a la máquina Go:
 
 ```text
 ninguno -> supervisor_provisional -> cardinal_0 | candidato_unico | incidente
-candidato_unico -> ACK_LISTO -> INICIAR | CANCELAR -> esperado -> recolectado
+candidato_unico -> FD_estables -> ARMAR -> ACK_LISTO
+ACK_LISTO -> INICIAR -> ACK_CASO -> esperado -> recolectado
+          -> CANCELAR -> recibido_sin_Bash -> recolectado
 ```
 
 - `supervisor_provisional` se arma antes del fork y exige tabla vacía;
@@ -313,8 +356,12 @@ candidato_unico -> ACK_LISTO -> INICIAR | CANCELAR -> esperado -> recolectado
   protocolo, devuelve 65 y espera/recolecta la tabla completa sin iniciar Bash;
   un trabajo ajeno que no termina convierte el caso en incidente operativo, no
   habilita un borrado o señalización ambiguos ni permite el caso siguiente;
-- el canal acepta cancelación antes de `INICIAR`, pero Go no crea al Bash hasta
-  haber emitido ACK y recibido literalmente `INICIAR`.
+- los duplicados estables preceden a ARMAR y sobreviven a que Bash desasigne el
+  array del coproceso;
+- Go no puede salir por un error controlado antes de ARMAR, ni crear al Bash
+  antes de ACK_LISTO e INICIAR;
+- cada transición se completa antes de su deadline; ACK omitido o proceso
+  colgado nunca lleva a `read` o `wait -f` indefinidos.
 
 ## Máquina de estados del proceso
 
@@ -322,28 +369,35 @@ Una sola goroutine, fijada a un solo hilo de sistema, es dueña de `Start`,
 pidfd, señalización terminal, `Wait`, cierre y recibo:
 
 ```text
+arranque -> esperando_ARMAR -> listo -> esperando_orden
 ninguno -> provisional -> capturado -> acreditado -> ejecutando
          -> terminando -> recolectado -> postausente -> recibido
 ```
 
-1. Ejecuta `runtime.LockOSThread()` al entrar y antes de construir `exec.Cmd`; no libera
+1. Tras reconocer el modo operativo fijo, arma `fin_bootstrap_go`, espera
+   `ARMAR` y no ejecuta otra transición controlada. EOF o timeout termina sin Bash.
+2. Ejecuta `runtime.LockOSThread()` al aceptar ARMAR y antes de construir
+   `exec.Cmd`; no libera
    el hilo hasta haber esperado Bash/adoptados, cerrado pidfd y emitido recibo.
-2. Arma `provisional` antes de `cmd.Start()` con `Setpgid: true`, `Pgid: 0`,
+3. Instala señal/prctl, valida PPID/FD/nonce, emite ACK_LISTO y espera una única
+   orden antes de `fin_bootstrap_go`; CANCELAR termina sin Bash.
+4. Arma `provisional` antes de `cmd.Start()` con `Setpgid: true`, `Pgid: 0`,
    `PidFD: &fd` y `Pdeathsig: SIGKILL`.
-3. Error de `Start` significa que no existe hijo. En éxito, el Bash permanece
+5. Error de `Start` significa que no existe hijo. En éxito, el Bash permanece
    bloqueado por el pipe de ticket. Go exige `fd >= 0` y crea inmediatamente
    `fd_reserva = fcntl(fd, F_DUPFD_CLOEXEC, ...)`.
-4. Si falta el pidfd o su duplicado, cierra el pipe: Bash sale por EOF antes de
+6. Si falta el pidfd o su duplicado, cierra el pipe: Bash sale por EOF antes de
    STOP y Go acredita terminación con plazo bootstrap antes de llamar a
    `cmd.Wait`. Solo dos referencias válidas permiten escribir el ticket y
    transferir atómicamente a `capturado`.
-5. Revalida por evidencia `PID|T|PPID|PGID=PID|SID|starttime`, además de señal
+7. Revalida por evidencia `PID|T|PPID|PGID=PID|SID|starttime`, además de señal
    cero de grupo por pidfd. `/proc` no autoriza ninguna señal.
-6. Fija `fin_caso = time.Now().Add(180*time.Second)` antes del primer CONT; el
+8. Fija `fin_caso = time.Now().Add(180*time.Second)` antes del primer CONT; el
    valor conserva su componente monotónico y nunca se reinicia.
-7. Un único bucle de eventos observa control, pidfd y tiempo. No existe un
+9. Emite ACK_CASO y un único bucle de eventos observa control, pidfd y tiempo.
+   No existe un
    `cmd.Wait()` concurrente.
-8. Todo error controlado posterior a `Start` entra en `terminando`; un `defer`
+10. Todo error controlado posterior a `Start` entra en `terminando`; un `defer`
    de último recurso repite esa convergencia y nunca devuelve dejando una vía
    controlada sin `Wait`.
 
@@ -369,25 +423,28 @@ Para cancelar o extinguir:
 1. enclava una causa única y conserva el deadline original;
 2. fija `fin_parada = ahora_monotónico + 1 s`, envía STOP al grupo mediante el
    pidfd y acredita inventario estable detenido;
-3. si la parada no estabiliza antes de `fin_parada`, pasa a KILL;
-4. fija una vez `fin_gracia = fin_parada_real + 2 s`;
-5. envía TERM al grupo detenido y seguidamente CONT, ambos por el mismo pidfd,
-   para que procesos cooperativos ejecuten sus manejadores;
-6. observa hasta `fin_gracia` sin llamar concurrentemente a `Wait`;
-7. fija `fin_parada_final = fin_gracia + 1 s`, vuelve a detener y estabilizar;
-   si persiste cualquier miembro, envía KILL al grupo por el mismo pidfd;
-8. fija `fin_drenaje = fin_parada_final + 5 s` y espera terminalidad mediante
-   `poll(pidfd)` o `waitid(P_PIDFD, WNOHANG|WNOWAIT)`, sin recoger todavía;
-9. solo con terminalidad acreditada ejecuta `cmd.Wait` una vez y drena con
+3. si STOP queda estable, fija `fin_gracia = ahora_monotónico + 2 s`, envía
+   TERM y seguidamente CONT por el mismo pidfd y observa sin `Wait`;
+4. al vencer la gracia fija `fin_parada_final = ahora_monotónico + 1 s`, vuelve
+   a detener/estabilizar y envía KILL si persiste cualquier miembro;
+5. esa rama fija `fin_drenaje = fin_parada_final + 5 s`;
+6. si el primer STOP no estabiliza antes de `fin_parada`, omite por completo
+   TERM, CONT, gracia y parada final: envía KILL inmediato y fija
+   `fin_drenaje = fin_parada + 5 s`;
+7. ambas ramas convergen en un `fin_drenaje` ya inicializado y esperan
+   terminalidad mediante `poll(pidfd)` o
+   `waitid(P_PIDFD, WEXITED|WNOHANG|WNOWAIT)`, sin recoger todavía;
+8. solo con terminalidad acreditada ejecuta `cmd.Wait` una vez y drena con
    `wait4(..., WNOHANG)` los adoptados hasta `ECHILD`, siempre antes de
    `fin_drenaje`;
-10. exige que señal cero de grupo por pidfd devuelva `ESRCH`, que no haya hijo
+9. exige que señal cero de grupo por pidfd devuelva `ESRCH`, que no haya hijo
    adoptado ni miembro del PGID y solo entonces cierra pidfd;
-11. escribe exactamente un recibo, cierra canales y libera el hilo.
+10. escribe exactamente un recibo, cierra canales y libera el hilo.
 
-El plazo funcional continúa siendo 180 segundos desde CONT. La limpieza puede
-añadir como máximo nueve segundos monotónicos: una parada inicial, dos de
-gracia, una parada final y cinco de drenaje. Ningún subplazo se reinicia. Si
+El plazo funcional continúa siendo 180 segundos desde CONT. La rama cooperativa
+puede añadir como máximo nueve segundos monotónicos: una parada inicial, dos de
+gracia, una parada final y cinco de drenaje. La rama STOP fallida añade como
+máximo seis. Ningún subplazo se reinicia. Si
 vence `fin_drenaje`, no se llama a `cmd.Wait`: se declara frontera externa 65,
 se emite recibo de incidente si aún es posible y se activa cuarentena.
 
@@ -460,24 +517,24 @@ Ledger conservador:
 | --- | ---: | ---: | ---: |
 | Base `91cb804` | 769 | 527 | 0 |
 | Q5a: reemplazar función de captura de 39 por 39..40 y añadir 3 literales | 772..773 | 527 exactas | 130..190 |
-| C4b-2: sustituciones sin crecimiento material; `527-32+(34..44)` | 772..773 | 529..539 | 300..420 |
-| C4b-3: solo Docker/epílogo; `anterior+(8..14)` | 772..774 | 537..553 | 335..480 |
-| Reserva hasta límites C4b/C4c | 1..3 hasta 775 | 27..43 hasta 580 | 20..165 hasta 500 |
+| C4b-2: sustituciones sin crecimiento material; `527-32+(48..60)` | 772..773 | 543..555 | 330..450 |
+| C4b-3: solo Docker/epílogo; `anterior+(8..14)` | 772..774 | 551..569 | 365..490 |
+| Reserva hasta límites C4b/C4c | 1..3 hasta 775 | 31..49 hasta 600 | 10..135 hasta 500 |
 
-Las 34..44 líneas nuevas de C4b-2 se presupuestan de forma explícita:
+Las 48..60 líneas nuevas de C4b-2 se presupuestan de forma explícita:
 
 | Puente definitivo C4b-2 | Mínimo | Máximo |
 | --- | ---: | ---: |
-| `coproc`, redirecciones y extremos anónimos cerrados | 8 | 10 |
+| `coproc`, redirecciones, duplicados estables y validación | 12 | 16 |
 | provisional, lanzamiento y recuperación cardinal | 10 | 13 |
-| ACK, orden única, espera interrumpible y recibo | 12 | 15 |
-| cierre/postcondiciones comunes | 4 | 6 |
-| **Total añadido** | **34** | **44** |
+| reloj monotónico, ACK, órdenes, espera y recibo | 18 | 22 |
+| cierre/postcondiciones comunes | 8 | 9 |
+| **Total añadido** | **48** | **60** |
 
 Q5a se detiene si runner supera 773, cambia el adaptador o Go supera 190.
-C4b-2 se detiene si runner supera 773, adaptador supera 539 o Go supera 420.
-C4b-3 se detiene si runner supera 774, adaptador supera 553 o Go supera 480.
-C4c no toca Go y conserva al menos 27 líneas del adaptador. Un candidato que
+C4b-2 se detiene si runner supera 773, adaptador supera 555 o Go supera 450.
+C4b-3 se detiene si runner supera 774, adaptador supera 569 o Go supera 490.
+C4c no toca Go y conserva al menos 31 líneas del adaptador. Un candidato que
 exceda un checkpoint requiere otra decisión; no puede comprimir sentencias,
 retirar controles o contar el límite como reserva.
 
@@ -532,6 +589,10 @@ operativo.
 
 - señal/fallo antes del fork del supervisor, durante `fork -> $!`, después de
   `$!`, cardinalidad 0/1/>1, candidato distinto y supervisor ya terminado;
+- coproceso que intenta terminar antes de ARMAR, variables `coproc` desasignadas
+  antes de `wait` y recibo aún legible por el duplicado estable después de él;
+- ARMAR omitido/colgado, ACK_LISTO omitido/colgado, orden omitida/colgada y
+  ACK_CASO omitido/colgado, agotando cada deadline sin espera bloqueante;
 - señal antes/después de ACK, `INICIAR` omitido, cancelación antes de iniciar y
   comprobación de que no nació Bash ni se lanzó el caso siguiente;
 - error `Start` sin hijo y éxito con pidfd negativo prohibido;
@@ -542,11 +603,16 @@ operativo.
 - cancelación antes/después de ACK, duplicada y simultánea con muerte paterna;
 - fin en el borde de 180 s, reloj civil alterado y cien interrupciones Shell;
 - TERM cooperativo, TERM ignorado, líder muerto durante gracia y KILL;
+- STOP inicial estable y STOP inicial no estabilizable; ambas ramas crean su
+  `fin_drenaje` exacto y no leen una variable de la otra;
 - proceso KILL-pendiente, `fin_drenaje` agotado y prueba de que no se invocó
   `cmd.Wait` bloqueante ni se reutilizó el worker;
+- `waitid` sin `WEXITED` debe fallar la puerta; la llamada admitida combina
+  exactamente `WEXITED|WNOHANG|WNOWAIT` antes del único `cmd.Wait`;
 - salida normal con descendiente, líder zombi y líder ya recogido;
 - `wait -f` del supervisor interrumpido; estado real 0/64/65/79/130/143;
-- recibo ausente, duplicado, truncado, de versión o identidad adversa;
+- recibo ausente, duplicado, truncado, de versión o identidad adversa, y Go
+  que escribe el recibo pero no termina antes de `fin_supervision`;
 - intento de `setsid`, `setpgid`, daemonizar o salir del grupo/sesión;
 - fallo transitorio de señal con reintento acotado y fallo permanente como
   incidente sin falso verde ni caso siguiente;
@@ -576,7 +642,7 @@ PostgreSQL 18.4 y C4b-1, se exige:
 
 ## Secuencia autorizable
 
-1. Dos contrarrevisiones documentales de esta tercera corrección.
+1. Dos contrarrevisiones documentales de esta cuarta corrección.
 2. Q5a: quinta captura, build cerrado y autoprueba ABI sin recursos de caso.
 3. Revisión independiente de Q5a.
 4. C4b-2: supervisor padre, CLONE_PIDFD, grupo, plazo, espera y mutantes sin
