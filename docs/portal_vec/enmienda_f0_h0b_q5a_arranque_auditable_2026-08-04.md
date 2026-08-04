@@ -2,11 +2,12 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: segunda propuesta de dirección pendiente de contrarrevisión
-documental. La primera, `935bb28`, recibió `GO` de capacidad y dos `NO-GO P1`
-por el entorno de las sondas con traza y por no distinguir el estado completo
-de la tubería. No autoriza código hasta obtener nuevos `GO` independientes. No
-cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
+Estado: segunda propuesta de dirección **aceptada** sobre `4c0f3b1` tras dos
+contrarrevisiones independientes con `P0=0`, `P1=0` y `P2=0`. La primera,
+`935bb28`, recibió `GO` de capacidad y dos `NO-GO P1` por el entorno de las
+sondas con traza y por no distinguir el estado completo de la tubería. Autoriza
+solo los dos commits Q5a definidos en este documento. No cierra Q5a, C4b-2,
+H0b, C2, F0 ni habilita producción.
 
 ## Motivo
 
