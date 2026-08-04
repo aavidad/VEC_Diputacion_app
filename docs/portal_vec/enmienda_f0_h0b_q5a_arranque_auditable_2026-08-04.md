@@ -2,9 +2,11 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: propuesta de dirección pendiente de contrarrevisión documental. No
-autoriza código hasta obtener `GO` independiente. No cierra Q5a, C4b-2, H0b,
-C2, F0 ni habilita producción.
+Estado: segunda propuesta de dirección pendiente de contrarrevisión
+documental. La primera, `935bb28`, recibió `GO` de capacidad y dos `NO-GO P1`
+por el entorno de las sondas con traza y por no distinguir el estado completo
+de la tubería. No autoriza código hasta obtener nuevos `GO` independientes. No
+cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
 
 ## Motivo
 
@@ -46,19 +48,32 @@ antes de la lógica del runner.
 
 Después de comprobar el modo protegido y antes de exportar, borrar variables,
 crear temporales o seleccionar herramientas, el runner inspecciona el entorno
-crudo con `/usr/bin/env -0` y `/usr/bin/grep -z`. Se rechaza cualquier entrada
-que empiece por `BASH_FUNC_`, no solo `env` o `type`:
+crudo con `/usr/bin/env -0` y `/usr/bin/grep -zE`. La salida de `grep` se dirige
+a `/dev/null`: un cuerpo de función nunca llega a stdout, stderr o log. El
+patrón anclado `^(BASH_FUNC_|LD_)` rechaza cualquier función exportada, no solo
+`env` o `type`, y cualquier variable del cargador dinámico.
 
-- resultado 0 de `grep`: existe al menos una función exportada, estado 65;
-- resultado 1: no existe ninguna, se puede continuar;
-- cualquier otro resultado: fallo de la puerta, estado 65.
+La puerta conserva inmediatamente los dos elementos de `PIPESTATUS`. La única
+pareja de éxito es `env=0, grep=1`, que significa productor correcto y ausencia
+de coincidencias:
+
+- `0,0`: existe al menos una función exportada, estado 65;
+- `0,1`: no existe ninguna, se puede continuar;
+- cualquier otra pareja, cardinalidad o valor: fallo de la puerta, estado 65.
+
+La comprobación se expresa como una tubería usada directamente por `if`, para
+que `errexit` no cierre antes de guardar `PIPESTATUS`. En la rama de
+coincidencia termina en 65. En la rama sin coincidencia copia primero el array
+y exige cardinalidad dos y valores `0,1`; no reduce la pareja a `$?` ni al
+estado de `grep`. Así, un productor fallido seguido de `grep=1` tampoco avanza.
 
 No se usa `grep -q`, porque con `pipefail` su cierre anticipado podría convertir
 una coincidencia en un falso error de tubería. No se invocan `type`, `command`,
 `which`, una función heredada ni una ruta resuelta por `PATH` para esta puerta.
-Las rutas físicas `/usr/bin/bash`, `/usr/bin/env` y `/usr/bin/grep` deben ser
-ficheros regulares del sistema no escribibles por el usuario efectivo; una
-instalación que no cumpla esa precondición es incompatible y falla cerrada.
+Las rutas físicas `/usr/bin/bash`, `/usr/bin/env` y `/usr/bin/grep`, siguiendo
+enlaces de una instalación `usr-merge`, deben resolver a ficheros regulares del
+sistema no escribibles por el usuario efectivo. Una instalación que no cumpla
+esa precondición es incompatible y falla cerrada.
 
 El entorno crudo puede conservar las cadenas `BASH_FUNC_*` aunque Bash `-p` no
 las importe. Precisamente por eso la detección se hace sobre `/usr/bin/env -0`
@@ -69,12 +84,34 @@ La frontera Go conserva `/usr/bin/env -i` y su lista permitida. También sigue
 rechazando `GOAMD64` heredado. El modo protegido no reemplaza el entorno vacío:
 son defensas distintas y acumulativas.
 
+La frontera confiable empieza antes de cargar el ejecutable: identidad/EUID,
+kernel, cargador dinámico y binarios del sistema pertenecen al launcher
+administrado. Bash `-p` no puede neutralizar una biblioteca ya ejecutada por
+`LD_PRELOAD`, ni defenderse de `ptrace` o de un actor que controle el mismo
+EUID. El launcher de CI debe entregar un entorno de cargador permitido, sin
+`LD_*`; el runner rechaza su presencia, pero no afirma revertir un efecto
+anterior a su primera instrucción. Esta limitación no debilita la puerta contra
+funciones o configuración Go heredadas: evita presentar una garantía imposible
+frente a un proceso padre o anfitrión ya comprometido.
+
 ## Invocaciones coherentes
 
 Q5a puede modificar una sola línea del adaptador privado para que el Bash de
 caso provisional se abra con `/usr/bin/bash -p`. Las dos pruebas adversas que
-abren el runner por FD usan `/usr/bin/bash -p -x`. No cambian sus tickets,
-descriptores, estados ni semántica.
+abren el runner por FD usan este launcher cerrado:
+
+```text
+/usr/bin/env -i
+  PATH=/ruta-no-resoluble
+  LC_ALL=C
+  BASH_XTRACEFD=6
+  /usr/bin/bash -p -x /proc/self/fd/8 ...
+```
+
+El entorno vacío evita que `PS4`, `SHELLOPTS`, `BASHOPTS`, `BASH_ENV`, `ENV`,
+`CDPATH`, `GLOBIGNORE` o una función lleguen al Bash con traza. Solo esas dos
+sondas necesitan `-x`; el FD 6 ya acreditado sigue siendo su único destino. No
+cambian sus tickets, descriptores, estados ni semántica.
 
 La forma exacta futura de C4b-2 queda corregida a:
 
@@ -160,17 +197,21 @@ Además de las puertas Q5a ya aprobadas técnicamente, el candidato debe probar:
 
 1. entrada ejecutable y `/usr/bin/bash -p`: aceptadas;
 2. Bash sin `-p`: 65 antes de la lógica del runner;
-3. `BASH_ENV` adverso bajo `-p`: no se procesa;
+3. `BASH_ENV` y `ENV` adversos bajo `-p`: ninguno se procesa y sus marcadores
+   permanecen ausentes;
 4. funciones exportadas `env`, `type` y ambas combinadas: 65, sin ejecutar sus
    cuerpos;
-5. ausencia de funciones exportadas: la puerta devuelve exactamente 1 y el
-   flujo continúa;
-6. fallo de `env` o `grep`: 65, nunca ausencia falsa;
-7. `GOAMD64=v3`, binario sustituido, marca previa y destino `readonly`: 65;
-8. cinco fuentes, cuatro cargas, seis postcondiciones y ambas huellas: exactas;
-9. funciones trasladadas disponibles solo después de cargar D2d y equivalencia
+5. ausencia de funciones exportadas: `PIPESTATUS=(0 1)` y el flujo continúa;
+6. productor o `grep` fallidos, otra cardinalidad o cualquier otra pareja: 65,
+   nunca ausencia falsa;
+7. sondas `-x` bajo `PS4`, `SHELLOPTS` y `BASHOPTS` adversos: el cuerpo de `PS4`
+   no se ejecuta y la traza usa el prefijo literal predeterminado;
+8. `GOAMD64=v3`, cualquier `LD_*`, binario sustituido, marca previa y destino
+   `readonly`: 65;
+9. cinco fuentes, cuatro cargas, seis postcondiciones y ambas huellas: exactas;
+10. funciones trasladadas disponibles solo después de cargar D2d y equivalencia
    de sus mutantes de snapshot;
-10. `bash -n`, ShellCheck sin supresiones nuevas, `gofmt`, `go vet`, build
+11. `bash -n`, ShellCheck sin supresiones nuevas, `gofmt`, `go vet`, build
     reproducible, autoprueba ABI, `git diff --check` y residuos cero.
 
 Q5a no ejecuta Docker, PostgreSQL, red ni el runner E2E. Esas pruebas pertenecen
