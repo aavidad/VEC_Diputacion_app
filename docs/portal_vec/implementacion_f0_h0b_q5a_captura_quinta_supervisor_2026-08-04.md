@@ -2,11 +2,11 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: candidato final de productor con los dos commits autorizados por la
-enmienda Q5a: refactor estructural del snapshot y corrección del arranque. El
-conjunto queda pendiente de los dictámenes independientes de seguridad y
-capacidad. Este corte no cierra Q5a, C4b-2, H0b, C2, F0 ni habilita
-producción.
+Estado: candidato corregido tras el `NO-GO` de seguridad y ABI sobre
+`2bd0311`. Conserva los dos commits autorizados por la enmienda Q5a y añade un
+tercer commit mínimo para cerrar la allowlist y una supresión nueva de
+ShellCheck. El conjunto requiere nuevos dictámenes independientes. Este corte
+no cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
 
 ## Alcance aplicado
 
@@ -50,10 +50,10 @@ añadido, más una anotación local no ejecutable para que ShellCheck reconozca
 retiradas y 49 añadidas.
 
 La captura continúa conteniendo exactamente cinco fuentes y carga D2d antes
-del primer uso de las funciones trasladadas. Su nueva huella literal es
-`db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502`.
-D2c, H0b, adaptador, capturador y supervisor Go permanecen byte a byte
-invariantes en este commit.
+del primer uso de las funciones trasladadas. Su huella en ese corte intermedio
+fue `db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502`.
+D2c, H0b, adaptador, capturador y supervisor Go permanecieron byte a byte
+invariantes en aquel commit.
 
 ## Segundo commit: arranque protegido y formato auditable
 
@@ -89,6 +89,23 @@ Se restauraron saltos legibles en la frontera Go, los dos builds, el
 manifiesto, las cuatro cargas, las seis postcondiciones, las comprobaciones de
 forma y huella y el rechazo del modo desconocido. No se unieron controles para
 simular el presupuesto físico.
+
+## Corrección tras la contrarrevisión
+
+Las revisiones independientes de `2bd0311` emitieron `NO-GO` con un P1 y un
+P2. Bash 5.3 representa `exec 9<&-` en xtrace como `+ exec`, sin espacio, y la
+allowlist admitía solo `exec `. La alternativa quedó limitada a
+`exec( |$)`: acepta únicamente `exec` terminal o seguido de argumento. Los
+cinco defectos `vacio`, `desconocido`, `repetido`, `sin-ticket` y
+`discrepante` conservan hijo 64 y ahora hacen que la prueba agregada termine en
+0, sin ampliar otra orden.
+
+El traslado a D2d había añadido una supresión `SC2154`, contraria a la puerta
+aceptada. Se sustituyó por `declare -g temporales` inmediatamente después de
+consumir la marca privada. La declaración explicita la dependencia inyectada,
+conserva el valor y atributos existentes y deja ShellCheck limpio sin una
+supresión nueva. D2d mantiene 145 líneas y su huella final es
+`9b137f1302c5672e9fd5c0c8df169810cbc7e57a11fa2129bf79a777e92c5e81`.
 
 ## Build y autoprueba cerrados
 
@@ -171,7 +188,7 @@ Resultados:
 - marca de carga y destino superior del adaptador preexistentes como
   `readonly`: 65 y 65, residuos 0;
 - SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
-- huellas D2d `db462039…4502` y adaptador `98d22a30…8cb7` fijadas en el
+- huellas D2d `9b137f13…5e81` y adaptador `98d22a30…8cb7` fijadas en el
   runner; hashes de D2c, H0b, capturador y supervisor Go invariantes;
 - `git diff --check`: limpio.
 
@@ -185,6 +202,7 @@ Límites físicos `wc -l`:
 | `capturar_auxiliares_privados_f0` | 66 |
 | Supervisor Go Q5a | 131 |
 
-Los dos commits autorizados modifican runner, D2d y adaptador. D2c, H0b,
-capturador y supervisor Go permanecen byte a byte invariantes. El SHA final
-conjunto debe obtener los dictámenes independientes antes de integrarse.
+Los dos commits autorizados y su corrección posterior modifican runner, D2d y
+adaptador. D2c, H0b, capturador y supervisor Go permanecen byte a byte
+invariantes. El SHA final conjunto debe obtener nuevos dictámenes
+independientes antes de integrarse.

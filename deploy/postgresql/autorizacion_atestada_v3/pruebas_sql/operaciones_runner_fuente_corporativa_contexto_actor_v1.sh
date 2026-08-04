@@ -9,6 +9,7 @@ if [[ "${VEC_F0_CARGA_PRIVADA:-}" != '1' ]]; then
     return 64
 fi
 unset VEC_F0_CARGA_PRIVADA
+declare -g temporales
 
 huella_contenedor_f0() {
     # shellcheck disable=SC2154
@@ -81,7 +82,6 @@ retirar_contenedor_propio_f0() {
     ((estado_cid == 0)) || return 65
 }
 
-# shellcheck disable=SC2154
 acreditar_snapshot_contenedor_f0() {
     local manifiesto="$1" raiz_contenedor="${2:-/repo}" reconstruido
     [[ "${raiz_contenedor}" == '/repo' || "${raiz_contenedor}" == '/repo_h0b' ]] || return 64

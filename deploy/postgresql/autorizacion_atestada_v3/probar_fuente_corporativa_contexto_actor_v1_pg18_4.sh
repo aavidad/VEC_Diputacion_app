@@ -62,7 +62,7 @@ readonly ruta_supervisor_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
-readonly sha256_helper_operativo='db462039da649c6e7e370ce2a3131eeca45ab513dd220099ff2a8d92d5d34502'
+readonly sha256_helper_operativo='9b137f1302c5672e9fd5c0c8df169810cbc7e57a11fa2129bf79a777e92c5e81'
 readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
 readonly sha256_supervisor_m38='c18622edb1ad5168752918ab6f9062b7cf06fbda490f68d1da2ff1ff90032a1e'
 readonly sha256_binario_supervisor_m38='eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86'
@@ -497,7 +497,7 @@ probar_rechazos_m38_f0() {
             fi
         fi
         exec 6>&-
-        ((estado == 64)) && ! grep -Eqv '^\+ (set |for ruta_sistema_f0 in |/usr/bin/env -0$|/usr/bin/grep -zE '\''\^\(BASH_FUNC_\|LD_\)'\''$|estados_entorno=|export |LC_ALL=|umask |unset |modo_m38=|selector_inyeccion_h0b=|(identidad|cid_esperado)_m38=|forma_(temporal|runner|raiz)_m38=|IFS=|read |exec |exit |\[\[ |\(\()' "${traza}" || return 65
+        ((estado == 64)) && ! grep -Eqv '^\+ (set |for ruta_sistema_f0 in |/usr/bin/env -0$|/usr/bin/grep -zE '\''\^\(BASH_FUNC_\|LD_\)'\''$|estados_entorno=|export |LC_ALL=|umask |unset |modo_m38=|selector_inyeccion_h0b=|(identidad|cid_esperado)_m38=|forma_(temporal|runner|raiz)_m38=|IFS=|read |exec( |$)|exit |\[\[ |\(\()' "${traza}" || return 65
     done
 }
 ejecutar_matriz_m38_f0() {
