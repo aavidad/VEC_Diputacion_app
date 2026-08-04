@@ -2,10 +2,11 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: cuarta corrección de dirección, posterior a los `NO-GO` documentales
-de `f7ca3a9`, `a92ee4b`, `51860cb` y `31c9169`; pendiente de dos
-contrarrevisiones independientes con `P0=0`, `P1=0` y `P2=0`. Mientras no
-obtenga ambos `GO`, no autoriza cambios de código ni modifica C4b-2, H0b, C2,
+Estado: cuarta corrección de dirección **aceptada** sobre `dd6d619`, posterior
+a los `NO-GO` documentales de `f7ca3a9`, `a92ee4b`, `51860cb` y `31c9169`.
+El 4 de agosto de 2026 obtuvo tres contrarrevisiones independientes con
+`P0=0`, `P1=0` y `P2=0`; autoriza únicamente la implementación incremental
+descrita en la secuencia autorizable y no modifica por sí misma C4b-2, H0b, C2,
 F0 o producción.
 
 ## Historial vinculante de la decisión
