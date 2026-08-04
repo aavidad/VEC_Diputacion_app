@@ -2,11 +2,12 @@
 
 Fecha: 4 de agosto de 2026.
 
-Estado: candidato corregido tras el `NO-GO` de seguridad y ABI sobre
-`2bd0311`. Conserva los dos commits autorizados por la enmienda Q5a y añade un
-tercer commit mínimo para cerrar la allowlist y una supresión nueva de
-ShellCheck. El conjunto requiere nuevos dictámenes independientes. Este corte
-no cierra Q5a, C4b-2, H0b, C2, F0 ni habilita producción.
+Estado: implementación Q5a **aceptada** sobre `649ee46` tras tres dictámenes
+independientes con `P0=0`, `P1=0` y `P2=0`. Conserva los dos commits
+autorizados por la enmienda y añade un tercer commit mínimo para cerrar la
+allowlist y una supresión nueva de ShellCheck. Cierra solo Q5a; no cierra
+C4b-2, H0b, C2, F0 ni habilita producción. La evidencia consolidada está en
+[`revision_f0_h0b_q5a_captura_supervisor_2026-08-05.md`](revisiones/revision_f0_h0b_q5a_captura_supervisor_2026-08-05.md).
 
 ## Alcance aplicado
 
@@ -204,5 +205,5 @@ Límites físicos `wc -l`:
 
 Los dos commits autorizados y su corrección posterior modifican runner, D2d y
 adaptador. D2c, H0b, capturador y supervisor Go permanecen byte a byte
-invariantes. El SHA final conjunto debe obtener nuevos dictámenes
-independientes antes de integrarse.
+invariantes. Los tres dictámenes finales autorizan su integración como base de
+C4b-2 operativo.
