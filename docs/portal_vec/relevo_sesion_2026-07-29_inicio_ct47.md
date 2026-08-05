@@ -17,13 +17,12 @@ localmente en `f3d928d`–`d28d37d`, con doble `GO`, `P0=P1=P2=0`, 100/100
 autopruebas de dirección y la puerta completa verde. G1 acredita primitivas
 pidfd y rollback sintético, no el protocolo operativo. G2-S queda integrado en
 `452f4f0`–`5808e18`, con doble `GO`, `P0=P1=P2=0`, runner 800, G1 683, G2
-91 y puertas globales verdes. O1a está integrada y O1b tiene semántica
-aceptada; su primer candidato quedó detenido en 678 líneas. El ledger
-correctivo 790 quedó aceptado en `e5e69e8`–`fb9e966` con doble GO final. El
-candidato `56c0ac0` llegó a 788 líneas, pero recibió NO-GO funcional por tres
-mutantes supervivientes. La corrección final quedó aceptada en
-`878d724`–`a6db818` con doble GO. El siguiente corte exacto es corregir y
-revisar G2 hasta la parada 800; O2 permanece cerrado. Las métricas permanecen
+91 y puertas globales verdes. O1a y O1b están integradas. O1b quedó cerrada
+en `eb2bba0`–`98b753e`: runner 800, G1 686, G2 798, cuatro mutantes muertos,
+dos builds reproducibles y doble GO final. La puerta global terminó verde
+sobre la candidata y el árbol integrado. El siguiente corte exacto es definir
+y revisar el contrato y ledger de O2, limitado al bootstrap sin crear Bash;
+su implementación permanece cerrada hasta ese GO. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
@@ -557,10 +556,9 @@ a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
-`f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a está
-integrada y el candidato O1b `56c0ac0` queda en NO-GO funcional. Su corrección
-final está autorizada hasta `a6db818`; el siguiente corte exacto es aplicarla
-y revisarla. La
+`f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a y O1b
+están integradas, esta última en `eb2bba0`–`98b753e` con doble GO y puertas
+globales verdes. El siguiente corte exacto es el contrato y ledger de O2. La
 migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 

@@ -114,10 +114,14 @@ Los candidatos `db240a5`, `075610f` y `1524feb` permanecen registrados como
 sintético acreditados, 100/100 autopruebas de dirección y puerta completa
 verde. G2-S queda integrado en `452f4f0`–`5808e18`, con doble `GO`, runner
 800, G1 683, G2 91, builds privados reproducibles y puerta global verde. G2-O
-se divide en O0–O6; O1a está integrada y O1b tiene contrato y ledger
-correctivo 790 aceptados hasta `fb9e966`. El candidato `56c0ac0` está en
-NO-GO funcional; su corrección hasta 800 está autorizada en `a6db818` y espera
-implementación y doble revisión. Todavía no existe una migración `000007`
+se divide en O0–O6; O1a y O1b están integradas. O1b quedó cerrada en
+`eb2bba0`–`98b753e`, con G2 798, runner 800, cuatro mutantes muertos, dos
+builds privados reproducibles, doble GO `P0=P1=P2=0` y puertas globales verdes
+antes y después de integrar. Su
+[evidencia final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
+no abre ninguna superficie operativa. El siguiente corte es el contrato y
+ledger de O2, limitado a `ARMAR/ACK_LISTO/CANCELAR/EOF` sin crear Bash.
+Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.
 
 Desglose verificable del camino crítico `O4-04`:

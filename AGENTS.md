@@ -23,10 +23,10 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde: `fac31c9`, ejecución
-  `30994407821`, cinco de cinco puertas superadas. Incluye la autorización
-  documental inicial de O1b; el candidato posterior quedó detenido sin commit
-  y no forma parte de ese corte.
+- Último corte remoto completamente verde anterior a O1b: `6c5527f`, ejecución
+  `30998790086`, cinco de cinco puertas superadas. O1b está integrado
+  localmente hasta `98b753e` y espera únicamente publicación y acreditación de
+  su nueva CI.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -59,18 +59,21 @@ instrucción de dirección.
   G2 400, dos builds privados reproducibles, modo `--supervisar-m38` cerrado
   en 64 y puertas globales/carrera/calidad verdes. No abre FD, proceso, Bash
   operativo, Docker, PostgreSQL, SQL o red.
-- La semántica O1b quedó aceptada en `6f4a118`–`4b765eb`, pero su primer árbol
-  material está detenido sin commit: solo G2 cambió, pasó de 400 a 678 líneas
-  y delta +278 superó el ledger +265. Runner, G1 y demás componentes siguen
-  invariantes. Dos revisiones dieron `NO-GO` por presupuesto, enganche de
-  autoprueba y matriz incompleta. La propuesta y corrección
+- La semántica O1b quedó aceptada en `6f4a118`–`4b765eb`. Su primer árbol
+  material se detuvo sin commit al superar el ledger. La propuesta y corrección
   `docs/portal_vec/enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md`
   quedaron en `e5e69e8`–`fb9e966`: un NO-GO aritmético fue corregido y dos
   revisores dieron GO final, `P0=P1=P2=0`. El candidato `56c0ac0` llegó a 788
   líneas y superó reproducibilidad, pero recibió NO-GO funcional porque tres
-  mutantes seguían verdes y faltaban estados/precedencias. No está integrado.
+  mutantes seguían verdes y faltaban estados/precedencias.
   La corrección final `878d724`–`a6db818` obtuvo doble GO documental final,
-  `P0=P1=P2=0`; autoriza corregir solo G2 hasta 800, sin tocar G1.
+  `P0=P1=P2=0`. El código final quedó integrado en `eb2bba0`–`98b753e`:
+  G2 798, runner 800, G1 686, cuatro mutantes muertos, dos builds privados
+  reproducibles y doble GO final `P0=P1=P2=0`. La puerta global terminó verde
+  tanto en la candidata como en el árbol conjunto. La
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`
+  conserva la evidencia. O1b no abre FD, procesos, Bash, Docker, PostgreSQL,
+  SQL o red.
 - La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
   documental: no demostraba el presupuesto del runner y dejaba incompletos
   delimitación de tramas, `ACK_CASO` y causa/estado. Se sustituyó sin programar
@@ -79,14 +82,16 @@ instrucción de dirección.
   y la
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
-  G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0 y O1a ya están
-  cerrados. El siguiente trabajo es **corregir y revisar `56c0ac0` bajo la
-  parada 800**. O2 y fases posteriores siguen cerradas. Las evidencias
+  G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0, O1a y O1b ya
+  están cerrados. El siguiente trabajo es **definir el contrato y ledger de
+  G2-O2 para `ARMAR/ACK_LISTO/CANCELAR/EOF`, sin crear Bash**, y obtener su
+  revisión independiente antes de programar. O2 y fases posteriores siguen
+  cerradas. Las evidencias
   están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`
-  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_contrato_2026-08-05.md`.
-- Después de G2-O1–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
+  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`.
+- Después de G2-O2–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
   `24/46`, Bolsa productiva `1/14`; producción permanece en `NO-GO`.
