@@ -20,7 +20,7 @@ fi
 unset estados_entorno
 export LC_ALL=C
 umask 077
-unset BASH_ENV ENV
+unset BASH_ENV ENV home_go_f0 tmp_go_f0 cache_go_f0
 modo_m38='' selector_inyeccion_h0b='' identidad_m38='' cid_esperado_m38=''
 forma_temporal_m38='' forma_runner_m38='' forma_raiz_m38=''
 if (($# > 0)) && [[ "$1" == '--caso-inyeccion-h0b' ]]; then
@@ -119,7 +119,7 @@ capturar_salida_f0() {
 }
 entorno_go_aislado_f0() {
     [[ -z "${GOAMD64:-}" ]] || return 65
-    /usr/bin/env -i HOME="${temporales}" TMPDIR="${temporales}" GOCACHE="${temporales}/cache-go" \
+    /usr/bin/env -i HOME="${home_go_f0:-${temporales}}" TMPDIR="${tmp_go_f0:-${temporales}}" GOCACHE="${cache_go_f0:-${temporales}/cache-go}" \
         PATH=/usr/local/go/bin:/usr/bin:/bin LC_ALL=C GOENV=off GOAMD64=v1 GOTELEMETRY=off \
         GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off GONOSUMDB='*' \
         GOFLAGS=-mod=readonly "$@"
@@ -225,7 +225,7 @@ preparar_capturador_privado_f0() {
 }
 capturar_auxiliares_privados_f0() {
     local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_g1 fuente_g2 forma_binario huella_binario huella_fuente_post segundo par esperada fase
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_g1 fuente_g2 segundo par esperada fase destino_binario raiz_go
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
         --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
@@ -267,7 +267,8 @@ capturar_auxiliares_privados_f0() {
     ]] || return 65
     fuente_g1="${snapshot}/${ruta_supervisor_m38}"
     fuente_g2="${snapshot}/${ruta_supervisor_m38_operativo}"
-    supervisor_m38="${temporales}/supervisor-m38"; segundo="${temporales}/supervisor-m38-segundo"
+    supervisor_m38="${temporales}/supervisor-m38"
+    segundo="${temporales}/supervisor-m38-segundo"
     for fase in antes despues; do
         for par in "${fuente_g1}|${sha256_supervisor_m38}" "${fuente_g2}|${sha256_supervisor_m38_operativo}"; do
             IFS='|' read -r fuente esperada <<<"${par}"
@@ -275,25 +276,25 @@ capturar_auxiliares_privados_f0() {
                "$(stat --printf='%a|%u|%F|%h' -- "${fuente}")" == "600|${EUID}|regular file|1" &&
                "$(huella_local_f0 "${fuente}")" == "${esperada}" ]] || return 65
         done
-        if [[ "${fase}" == despues ]]; then break; fi
+        [[ "${fase}" == antes ]] || continue
         entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
             "${go_f0}" vet "${fuente_g1}" "${fuente_g2}" || return 65
-        entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-            "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_g1}" "${fuente_g2}" || return 65
-        entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-            "${go_f0}" build -trimpath -o "${segundo}" "${fuente_g1}" "${fuente_g2}" || return 65
+        for destino_binario in "${supervisor_m38}" "${segundo}"; do
+            raiz_go="$(mktemp -d "${temporales}/go-supervisor.XXXXXX")" || return 65
+            mkdir --mode=0700 -- "${raiz_go}/home" "${raiz_go}/tmp" "${raiz_go}/cache" || return 65
+            [[ -d "${raiz_go}" && ! -L "${raiz_go}" && "$(/usr/bin/stat --printf='%a|%u|%F|%h\n' -- "${raiz_go}" "${raiz_go}/home" "${raiz_go}/tmp" "${raiz_go}/cache")" == $'700|'"${EUID}"$'|directory|5\n700|'"${EUID}"$'|directory|2\n700|'"${EUID}"$'|directory|2\n700|'"${EUID}"$'|directory|2' ]] || return 65
+            home_go_f0="${raiz_go}/home" tmp_go_f0="${raiz_go}/tmp" cache_go_f0="${raiz_go}/cache" entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+                "${go_f0}" build -a -trimpath -o "${destino_binario}" "${fuente_g1}" "${fuente_g2}" || return 65
+        done
         chmod 0700 "${supervisor_m38}" "${segundo}" || return 65
     done
-    forma_binario="$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")|$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${segundo}")" || return 65
-    huella_fuente_post="$(/usr/bin/sha256sum -- "${fuente_g1}" "${fuente_g2}")" || return 65
-    huella_binario="$(/usr/bin/sha256sum -- "${supervisor_m38}" "${segundo}")" || return 65
-    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_g1}"$'\n'"${sha256_supervisor_m38_operativo}  ${fuente_g2}" ]] || return 65
     [[ ! -L "${supervisor_m38}" && ! -L "${segundo}" ]] || return 65
-    [[ "${forma_binario}" == "700|${EUID}|regular file|1|700|${EUID}|regular file|1" ]] || return 65
-    [[ "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}"$'\n'"${sha256_binario_supervisor_m38}  ${segundo}" ]] || return 65
+    [[ "$(/usr/bin/stat --printf='%a|%u|%F|%h|' -- "${supervisor_m38}" "${segundo}")" == "700|${EUID}|regular file|1|700|${EUID}|regular file|1|" ]] || return 65
+    [[ "$(/usr/bin/sha256sum -- "${supervisor_m38}" "${segundo}")" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}"$'\n'"${sha256_binario_supervisor_m38}  ${segundo}" ]] || return 65
     "${supervisor_m38}" --autoprueba >&2 || return 65
     for fuente in --supervisar-m38 --modo-desconocido; do
-        if "${supervisor_m38}" "${fuente}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+        estado_directo=0
+        "${supervisor_m38}" "${fuente}" >/dev/null 2>&1 || estado_directo=$?
         ((estado_directo == 64)) || return 65
     done
 }
