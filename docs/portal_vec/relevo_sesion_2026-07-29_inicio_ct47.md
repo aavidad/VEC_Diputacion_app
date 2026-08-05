@@ -26,8 +26,9 @@ verdes. El análisis posterior detuvo O2a antes de código: runner 800/800 y G2
 mediante un traslado estructural sin cambio funcional. La tarea y su enmienda
 local de ShellCheck obtuvieron doble GO documental; el candidato `df9a422`
 obtuvo después doble GO de código y quedó integrado localmente como `48a46a3`:
-runner 783, D2d 164, H0 real, residuos cero y puerta global verdes. El siguiente
-trabajo es publicar, acreditar la CI y después redactar y revisar O2a/S0/G3. No
+runner 783, D2d 164, H0 real, residuos cero y puerta global verdes. Quedó
+publicado en `ef027cf` y la CI `31007941124` terminó con cinco puertas verdes.
+El siguiente trabajo es redactar y revisar O2a/S0/G3. No
 autoriza G3 ni S0. O2b permanece cerrado y no hay ACK vivos. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
@@ -565,9 +566,9 @@ checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
 `f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a y O1b
 están integradas, esta última en `eb2bba0`–`98b753e` con doble GO, puertas
 globales y CI `31002229666` verdes. O2a-P0 obtuvo doble GO documental y de
-código; está integrada localmente como `48a46a3`, con H0 y puerta global
-verdes. El siguiente corte es publicarla, acreditar su CI y después definir el
-contrato O2a/S0/G3. La migración `000007` continúa bloqueada hasta cerrar
+código; está integrada como `48a46a3` y publicada en `ef027cf`, con H0, puerta
+global y CI `31007941124` completamente verdes. El siguiente corte es definir
+y revisar el contrato O2a/S0/G3. La migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
 ## Optimización probatoria CT88

@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **GO integrado localmente; publicación y CI pendientes**.
+Estado: **GO integrado, publicado y con CI verde**.
 
 ## Alcance
 
@@ -116,11 +116,18 @@ conservó las huellas exactas. Después reprodujo:
    vulnerabilidades y tamaños;
 4. Gitleaks sobre el commit integrado: un commit y 944 bytes, cero secretos.
 
+## Publicación
+
+El cierre se publicó en `ef027cf2f94955cdf6de9c091c531a85d05c2e04`. La
+ejecución GitHub `31007941124` terminó con cinco de cinco puertas verdes:
+secretos, artefactos productivos, ContextoActor/PDP V3 en PostgreSQL 18, Bolsa
+pública en PostgreSQL 18 con TLS y calidad global.
+
 ## Límites y continuación
 
 O2a-P0 no cambia F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`,
 Bolsa productiva `1/14` ni el `NO-GO` de producción.
 
-Tras publicar y obtener la CI verde, el siguiente trabajo será redactar y
-revisar el contrato funcional y ledger real de O2a/S0/G3. No se autoriza crear
+El siguiente trabajo es redactar y revisar el contrato funcional y ledger real
+de O2a/S0/G3. No se autoriza crear
 un cascarón G3 ni programar O2a antes de ese cierre documental.

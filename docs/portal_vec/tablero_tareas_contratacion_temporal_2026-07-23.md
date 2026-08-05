@@ -125,8 +125,9 @@ capacidad: runner 800/800 y G2 798/800. El siguiente corte es la
 aceptada con doble GO documental para trasladar una función sin cambio de
 conducta. Su enmienda local de ShellCheck también obtuvo doble GO. El candidato
 `df9a422` obtuvo doble GO de código y quedó integrado localmente como
-`48a46a3`, runner 783/D2d 164, con H0 y puerta global verdes. Publicación y CI
-siguen pendientes. No autoriza G3 ni O2a. O2b conserva «ARMAR y cancelación sin Bash»;
+`48a46a3`, runner 783/D2d 164, con H0 y puerta global verdes. Quedó publicado
+en `ef027cf` y la CI `31007941124` terminó con cinco puertas verdes. El
+siguiente corte es definir y revisar O2a/S0/G3; todavía no autoriza código. O2b conserva «ARMAR y cancelación sin Bash»;
 los ACK vivos ya no pertenecen al protocolo.
 Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.

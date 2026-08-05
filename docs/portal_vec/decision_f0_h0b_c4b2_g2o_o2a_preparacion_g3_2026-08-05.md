@@ -2,10 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **integrada localmente; publicación y CI pendientes**. La autorización
-original y la enmienda de ShellCheck obtuvieron, cada una, dos revisiones
-documentales independientes con `P0=P1=P2=0`; el código posterior obtuvo otros
-dos GO independientes.
+Estado: **integrada, publicada y con CI verde**. La autorización original y la
+enmienda de ShellCheck obtuvieron, cada una, dos revisiones documentales
+independientes con `P0=P1=P2=0`; el código posterior obtuvo otros dos GO
+independientes y la ejecución `31007941124` superó cinco de cinco puertas.
 
 Acta:
 [revisión O2a-P0](revisiones/revision_f0_h0b_c4b2_g2o_o2a_p0_preparacion_g3_2026-08-05.md).
@@ -195,6 +195,6 @@ Bolsa productiva `1/14` ni el `NO-GO` de producción.
 ## Resultado material
 
 El candidato `df9a422` obtuvo doble GO independiente de código,
-`P0=P1=P2=0`, y quedó integrado localmente como `48a46a3`. Dirección reprodujo
-H0 PostgreSQL 18.4, residuos cero, huellas, Gitleaks y la puerta global. La
-publicación y su CI permanecen pendientes en este corte documental.
+`P0=P1=P2=0`, y quedó integrado como `48a46a3`. Dirección reprodujo H0
+PostgreSQL 18.4, residuos cero, huellas, Gitleaks y la puerta global. El cierre
+se publicó en `ef027cf` y la CI `31007941124` terminó completamente verde.

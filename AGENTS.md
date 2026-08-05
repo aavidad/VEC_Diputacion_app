@@ -23,8 +23,9 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde: `5581821`, ejecución
-  `31002229666`, cinco de cinco puertas superadas. Incluye O1b y su acta final.
+- Último corte remoto completamente verde: `ef027cf`, ejecución
+  `31007941124`, cinco de cinco puertas superadas. Incluye O2a-P0 y su acta
+  final; las métricas funcionales no cambian.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -86,9 +87,10 @@ instrucción de dirección.
   admiten código nuevo. O2a-P0 y su enmienda local de ShellCheck obtuvieron
   doble GO documental. El candidato `df9a422` obtuvo después doble GO de
   código, `P0=P1=P2=0`, y quedó integrado localmente como `48a46a3`: runner
-  783, D2d 164, H0 PostgreSQL 18.4, residuos cero y puerta global verdes. Su
-  publicación y CI están pendientes. No crea G3 ni cambia conducta. El trabajo
-  posterior es definir y revisar el contrato real O2a/S0/G3 antes de programar.
+  783, D2d 164, H0 PostgreSQL 18.4, residuos cero y puerta global verdes. Está
+  publicado en `ef027cf` y la CI `31007941124` terminó con cinco puertas
+  verdes. No crea G3 ni cambia conducta. El siguiente trabajo es definir y
+  revisar el contrato real O2a/S0/G3 antes de programar.
   O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos fueron eliminados
   por la corrección O1a. O2 y fases posteriores siguen cerradas. Las evidencias
   están en
