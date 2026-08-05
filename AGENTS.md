@@ -82,10 +82,13 @@ instrucción de dirección.
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0, O1a y O1b ya
-  están cerrados. El siguiente trabajo es **definir el contrato y ledger de
-  G2-O2a para el sobre monoframa de S0, sin usar el ticket ni crear Bash**, y
-  obtener su revisión independiente antes de programar. O2b conserva
-  `ARMAR/ACK_LISTO/CANCELAR/EOF`; O2 y fases posteriores siguen cerradas. Las evidencias
+  están cerrados. El análisis O2a acreditó que G2 798/800 y runner 800/800 no
+  admiten código nuevo. O2a-P0 obtuvo doble GO documental, `P0=P1=P2=0`. El
+  siguiente trabajo es **implementar exclusivamente O2a-P0 sobre `ec53009`**:
+  mover byte a byte `derivar_repo_base_h0_f0` a D2d, dejar runner 783 y D2d
+  163, sin crear G3 ni cambiar conducta. Requiere doble revisión de código.
+  O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos fueron eliminados
+  por la corrección O1a. O2 y fases posteriores siguen cerradas. Las evidencias
   están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`

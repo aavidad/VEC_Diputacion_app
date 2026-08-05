@@ -99,8 +99,9 @@ y calidad global.
 ## Decisión
 
 O1b queda técnicamente aceptada, integrada y publicada. Las métricas funcionales no se
-incrementan porque H0b continúa abierto. La siguiente minitarea es definir y
-revisar el contrato y ledger de G2-O2a, limitado a leer, validar y retener el
-sobre monoframa de S0 sin usar el ticket ni crear Bash. O2b conserva
-`ARMAR/ACK_LISTO/CANCELAR/EOF`; ambas permanecen cerradas hasta que O2a
-obtenga revisión independiente.
+incrementan porque H0b continúa abierto. El análisis físico posterior detuvo
+O2a antes de código: runner y G2 ocupan 800/800 y 798/800. La siguiente
+minitarea es revisar O2a-P0, que traslada una operación Docker existente a D2d
+sin cambiar conducta para preparar una futura G3. O2b conserva «ARMAR y
+cancelación sin Bash»; no existen `ACK_LISTO` ni `ACK_CASO`. O2a y O2b
+permanecen cerradas.

@@ -21,10 +21,12 @@ un cuarto mutante L4→L0. `61af56b` lo eliminó sin superar la parada: G2 queda
 en 798. El conjunto obtuvo doble GO final, builds reproducibles y puertas
 globales verdes, y se integró como `eb2bba0`–`98b753e`. La
 [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
-registra la trazabilidad completa. El siguiente trabajo es definir y revisar
-el contrato y ledger de O2a para el sobre monoframa de S0; O2b conserva
-`ARMAR/ACK_LISTO/CANCELAR/EOF`. La implementación permanece cerrada hasta el
-GO de O2a.
+registra la trazabilidad completa. El análisis posterior detuvo O2a antes de
+código porque runner y G2 ocupan 800/800 y 798/800. El siguiente trabajo es
+implementar O2a-P0, ya aceptada con doble GO documental: un traslado
+estructural byte a byte sin cambio funcional que prepara capacidad para G3.
+No autoriza G3 ni S0. O2b conserva «ARMAR y cancelación sin Bash»; los ACK
+vivos ya no existen.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,

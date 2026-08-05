@@ -119,9 +119,12 @@ se divide en O0–O6; O1a y O1b están integradas. O1b quedó cerrada en
 builds privados reproducibles, doble GO `P0=P1=P2=0` y puertas globales verdes
 antes y después de integrar y CI `31002229666` completamente verde. Su
 [evidencia final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
-no abre ninguna superficie operativa. El siguiente corte es el contrato y
-ledger de O2a, limitado al sobre monoframa de S0 sin usar el ticket ni crear
-Bash. O2b conserva `ARMAR/ACK_LISTO/CANCELAR/EOF`.
+no abre ninguna superficie operativa. El análisis posterior detuvo O2a por
+capacidad: runner 800/800 y G2 798/800. El siguiente corte es la
+[decisión O2a-P0](decision_f0_h0b_c4b2_g2o_o2a_preparacion_g3_2026-08-05.md),
+aceptada con doble GO documental para trasladar una función sin cambio de
+conducta. No autoriza G3 ni O2a. O2b conserva «ARMAR y cancelación sin Bash»;
+los ACK vivos ya no pertenecen al protocolo.
 Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.
 
