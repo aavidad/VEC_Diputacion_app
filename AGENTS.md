@@ -23,12 +23,11 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto cuya CI terminó completamente verde antes de Q5a:
-  `f09ce68`, ejecución `30951957936`, cinco de cinco puertas superadas. Q5a se
-  publicó en `c16422b`; su ejecución `30961258790` dejó verdes cuatro puertas
-  y rechazó calidad por dos ejecutables `main` en el mismo paquete Go.
-  La reparación está aceptada localmente hasta `6a95b07`, pero debe publicarse
-  y obtener cinco puertas verdes antes de comenzar código C4b-2.
+- Corte remoto Q5a vigente: `8750849`, ejecución `30962422762`, cinco de cinco
+  puertas superadas. Sustituye a la ejecución rechazada `30961258790` de
+  `c16422b`, que detectó dos ejecutables `main` en el mismo paquete Go. La
+  reparación fue revisada, publicada y observada completamente verde; C4b-2
+  operativo queda desbloqueado.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -44,8 +43,8 @@ instrucción de dirección.
   `docs/portal_vec/correccion_f0_h0b_q5a_paquete_go_2026-08-05.md`; recibió
   doble `GO`, `P0=P1=P2=0`, sobre `6a95b07`. No se ejecutaron Docker,
   PostgreSQL ni E2E.
-- La primera tarea disponible después de publicar y observar ese corte es
-  exclusivamente **C4b-2 operativo**: supervisor padre, hijo/grupo, trabajo
+- La tarea disponible es exclusivamente **C4b-2 operativo**: supervisor padre,
+  hijo/grupo, trabajo
   provisional, PID/PGID/PPID, inicio, plazo absoluto, espera y extinción
   completa. Parte del HEAD que integra Q5a, no de `af829bb`.
 - Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque

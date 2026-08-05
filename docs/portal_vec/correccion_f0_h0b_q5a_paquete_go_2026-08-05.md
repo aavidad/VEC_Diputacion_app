@@ -63,5 +63,6 @@ recibieron dos dictámenes independientes finales `GO`, con
 autoprueba ABI, el modo 64, `go list`, las pruebas ordinarias y con detector de
 carreras de todo el árbol, `go vet ./...`, ShellCheck, límites y diferencias.
 
-Hasta obtener cinco puertas CI verdes tras publicar este corte, C4b-2
-operativo permanece cerrado a cambios de código.
+La publicación `8750849` obtuvo cinco puertas verdes en la ejecución
+`30962422762`; calidad terminó en 14 minutos y 20 segundos. La corrección queda
+cerrada y C4b-2 operativo se desbloquea sobre este corte.
