@@ -63,7 +63,7 @@ readonly ruta_supervisor_m38_operativo='deploy/postgresql/autorizacion_atestada_
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
-readonly sha256_helper_operativo='9b137f1302c5672e9fd5c0c8df169810cbc7e57a11fa2129bf79a777e92c5e81'
+readonly sha256_helper_operativo='039b75dd15a2888798c7f257c46fdbb97587cbdd4a6519e11cb043cce0e72e5e'
 readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
 readonly sha256_supervisor_m38='9fab2cae4edd0b5cf8cd5d67fd7a1f9643b81085c815b0c10cb477f67a7e1afe'
 readonly sha256_supervisor_m38_operativo='01acb818e9abefcbfe4c279bb0dd5e3317bf03f082f1ed3fba4f257c5642866b'
@@ -297,23 +297,6 @@ capturar_auxiliares_privados_f0() {
         "${supervisor_m38}" "${fuente}" >/dev/null 2>&1 || estado_directo=$?
         ((estado_directo == 64)) || return 65
     done
-}
-derivar_repo_base_h0_f0() {
-    docker exec "${contenedor}" bash -ceu '
-export LC_ALL=C
-directorio=/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes
-archivos=(010_validadores.sql 020_canon_manifiesto.sql 030_canon_capacidad_mac.sql
-  040_canon_consumo.sql 050_catalogo_fuente_checkpoint.sql 060_atestacion_consumo.sql
-  070_acreditar_material_fuente.sql)
-for archivo in "${archivos[@]}"; do
-  nodo=$directorio/$archivo
-  [[ -f $nodo && ! -L $nodo && $(stat --printf="%a|%h" -- "$nodo") == "600|1" ]] || exit 65
-  rm -- "$nodo" || exit 65
-done
-[[ -d $directorio && ! -L $directorio && $(stat --printf=%a -- "$directorio") == 700 ]] || exit 65
-[[ -z $(find "$directorio" -mindepth 1 -print -quit) ]] || exit 65
-rmdir -- "$directorio" || exit 65
-'
 }
 
 archivo() {
