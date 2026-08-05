@@ -27,13 +27,14 @@ type tramaM38 struct {
 }
 
 func limiteTramaM38(clase string) int {
-	switch clase {
-	case "SOBRE":
+	if clase == "SOBRE" {
 		return 4096
-	case "CONTROL", "TERMINAL", "VALIDADA":
-		return 1024
-	case "TICKET":
+	}
+	if clase == "TICKET" {
 		return 2060
+	}
+	if clase == "CONTROL" || clase == "TERMINAL" || clase == "VALIDADA" {
+		return 1024
 	}
 	return 0
 }
@@ -77,35 +78,71 @@ func selectorM38(valor string) bool {
 }
 
 func causaEstadoM38(causa, estado string, terminal bool) bool {
-	if !terminal {
-		return (causa == "CANCELADO" || causa == "PROTOCOLO") && estado == "65" || causa == "SENAL_INT" && estado == "130" || causa == "SENAL_TERM" && estado == "143"
-	}
-	if causa == "SALIDA" {
-		return estado == "0" || estado == "64" || estado == "65" || estado == "79"
-	}
-	if causa == "CANCELADO" || causa == "PLAZO" || causa == "PROTOCOLO" || causa == "INCIDENTE" {
+	switch causa {
+	case "SALIDA":
+		return terminal && (estado == "0" || estado == "64" || estado == "65" || estado == "79")
+	case "CANCELADO", "PROTOCOLO":
 		return estado == "65"
+	case "PLAZO", "INCIDENTE":
+		return terminal && estado == "65"
+	case "SENAL_INT":
+		return estado == "130"
+	case "SENAL_TERM":
+		return estado == "143"
 	}
-	return causa == "SENAL_INT" && estado == "130" || causa == "SENAL_TERM" && estado == "143"
+	return false
+}
+
+func prevalidarCodificacionM38(t tramaM38) error {
+	limite := limiteTramaM38(t.clase)
+	if len(t.ticket) > limite {
+		return errors.New("trama demasiado grande")
+	}
+	base, separadores, cardinalidadValida := 1, len(t.campos)-1, false
+	switch t.clase {
+	case "SOBRE":
+		cardinalidadValida = len(t.campos) == 5
+		base += len("V1|SOBRE|") + len(t.ticket)
+		separadores++
+	case "TICKET":
+		cardinalidadValida = len(t.campos) == 1
+		base += len(t.ticket)
+		separadores++
+	case "CONTROL":
+		if len(t.campos) > 0 {
+			esperada := map[string]int{"ARMAR": 3, "INICIAR": 2, "CANCELAR": 4}[t.campos[0]]
+			cardinalidadValida = esperada > 0 && len(t.campos) == esperada
+		}
+		base += len("V1|CONTROL|")
+	case "TERMINAL":
+		cardinalidadValida = len(t.campos) == 14
+		base += len("V1|TERMINAL|")
+	}
+	if !cardinalidadValida || limite == 0 || separadores < 0 {
+		return errors.New("cardinalidad de trama inválida")
+	}
+	restante := limite - base - separadores
+	for _, campo := range t.campos {
+		if len(campo) > restante {
+			return errors.New("trama demasiado grande")
+		}
+		restante -= len(campo)
+	}
+	return nil
 }
 
 func codificarTramaM38(t tramaM38) ([]byte, error) {
+	if err := prevalidarCodificacionM38(t); err != nil {
+		return nil, err
+	}
 	var texto string
 	switch t.clase {
 	case "SOBRE":
-		if len(t.campos) != 5 {
-			return nil, errors.New("sobre incompleto")
-		}
 		texto = "V1|SOBRE|" + strings.Join(t.campos, "|") + "|" + t.ticket
 	case "TICKET":
-		if len(t.campos) != 1 {
-			return nil, errors.New("ticket incompleto")
-		}
 		texto = t.campos[0] + "|" + t.ticket
 	case "CONTROL", "TERMINAL":
 		texto = "V1|" + t.clase + "|" + strings.Join(t.campos, "|")
-	default:
-		return nil, errors.New("clase de trama desconocida")
 	}
 	b := append([]byte(texto), '\n')
 	_, err := decodificarTramaM38(t.clase, b)
@@ -132,17 +169,17 @@ func decodificarTramaM38(clase string, entrada []byte) (tramaM38, error) {
 	if len(partes) < 2 || partes[0] != "V1" || partes[1] != clase {
 		return tramaM38{}, errors.New("versión o clase inválida")
 	}
+	var err error
 	switch clase {
 	case "CONTROL":
-		if err := controlM38(partes); err != nil {
-			return tramaM38{}, err
-		}
+		err = controlM38(partes)
 	case "TERMINAL":
-		if err := terminalM38(partes); err != nil {
-			return tramaM38{}, err
-		}
+		err = terminalM38(partes)
 	default:
 		return tramaM38{}, errors.New("clase no decodificable")
+	}
+	if err != nil {
+		return tramaM38{}, err
 	}
 	return tramaM38{clase: clase, campos: partes[2:]}, nil
 }
@@ -186,7 +223,7 @@ func terminalM38(p []string) error {
 	}
 	sinBash := p[7] == "-" && p[8] == "-" && p[9] == "-" && p[10] == "-" && p[11] == "-" && p[12] == "0" && p[13] == "0" && p[14] == "0" && p[15] == "1"
 	conBash := decimalM38(p[7], 1, 2147483647) && decimalM38(p[8], 1, 2147483647) && decimalM38(p[9], 1, 2147483647) && decimalM38(p[10], 1, 2147483647) && decimalM38(p[11], 1, 18446744073709551615) && p[12] == "1" && p[13] == "1" && p[14] == "0" && p[15] == "1"
-	if !(sinBash || conBash) || p[6] == "SALIDA" && (!conBash || (p[4] != "S3" && p[4] != "S4")) || conBash && p[4] != "S3" && p[4] != "S4" || sinBash && p[4] == "S1" && (p[6] == "SENAL_INT" || p[6] == "SENAL_TERM") {
+	if !(sinBash || conBash) || p[6] == "SALIDA" && (!conBash || (p[4] != "S3" && p[4] != "S4")) || conBash && p[4] != "S3" && p[4] != "S4" || sinBash && p[4] == "S4" || sinBash && p[4] == "S1" && (p[6] == "SENAL_INT" || p[6] == "SENAL_TERM") {
 		return errors.New("coherencia terminal inválida")
 	}
 	return nil
@@ -194,9 +231,40 @@ func terminalM38(p []string) error {
 
 func autoprobarTramasM38() error {
 	h := strings.Repeat("a", 64)
-	sobre := "V1|SOBRE|" + h + "|12|A01|" + h + "|5|x|y|z\n"
-	terminal := "V1|TERMINAL|" + h + "|12|S3|0|SALIDA|13|12|12|12|7|1|1|0|1\n"
-	validas := []struct{ clase, texto string }{{"SOBRE", sobre}, {"CONTROL", "V1|CONTROL|ARMAR|" + h + "|12\n"}, {"CONTROL", "V1|CONTROL|INICIAR|" + h + "\n"}, {"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|SENAL_INT|130\n"}, {"TERMINAL", terminal}, {"TICKET", "12|x|y\n"}}
+	conBash := "13|12|12|12|7|1|1|0|1"
+	sinBash := "-|-|-|-|-|0|0|0|1"
+	sobre := func(selector, longitud, ticket string) string {
+		return "V1|SOBRE|" + h + "|2147483647|" + selector + "|" + h + "|" + longitud + "|" + ticket + "\n"
+	}
+	terminal := func(fase, estado, causa, bloque string) string {
+		return "V1|TERMINAL|" + h + "|2147483647|" + fase + "|" + estado + "|" + causa + "|" + bloque + "\n"
+	}
+	maximoInicio := "13|12|12|12|18446744073709551615|1|1|0|1"
+	validas := []struct{ clase, texto string }{
+		{"SOBRE", sobre("NOMINAL", "5", "x|y|z")}, {"SOBRE", sobre("Z99", "1", "x")},
+		{"SOBRE", sobre("A00", "2048", strings.Repeat("x", 2048))},
+		{"CONTROL", "V1|CONTROL|ARMAR|" + h + "|2147483647\n"}, {"CONTROL", "V1|CONTROL|INICIAR|" + h + "\n"},
+		{"TICKET", "2147483647|" + strings.Repeat("x", 2048) + "\n"},
+		{"TERMINAL", terminal("S3", "0", "SALIDA", maximoInicio)},
+	}
+	terminales := [][2]string{{"SALIDA", "0"}, {"SALIDA", "64"}, {"SALIDA", "65"}, {"SALIDA", "79"}, {"CANCELADO", "65"}, {"PLAZO", "65"}, {"PROTOCOLO", "65"}, {"INCIDENTE", "65"}, {"SENAL_INT", "130"}, {"SENAL_TERM", "143"}}
+	for _, par := range terminales {
+		for _, fase := range []string{"S3", "S4"} {
+			validas = append(validas, struct{ clase, texto string }{"TERMINAL", terminal(fase, par[1], par[0], conBash)})
+		}
+		if par[0] == "SALIDA" {
+			continue
+		}
+		for _, fase := range []string{"S2", "S3"} {
+			validas = append(validas, struct{ clase, texto string }{"TERMINAL", terminal(fase, par[1], par[0], sinBash)})
+		}
+		if par[0] != "SENAL_INT" && par[0] != "SENAL_TERM" {
+			validas = append(validas, struct{ clase, texto string }{"TERMINAL", terminal("S1", par[1], par[0], sinBash)})
+		}
+	}
+	for _, par := range [][2]string{{"CANCELADO", "65"}, {"PROTOCOLO", "65"}, {"SENAL_INT", "130"}, {"SENAL_TERM", "143"}} {
+		validas = append(validas, struct{ clase, texto string }{"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|" + par[0] + "|" + par[1] + "\n"})
+	}
 	for _, prueba := range validas {
 		t, err := decodificarTramaM38(prueba.clase, []byte(prueba.texto))
 		if err != nil {
@@ -207,19 +275,46 @@ func autoprobarTramasM38() error {
 			return errors.New("ida y vuelta no canónica")
 		}
 	}
-	invalidas := []struct{ clase, texto string }{{"SOBRE", strings.Replace(sobre, "|5|", "|4|", 1)}, {"SOBRE", strings.Replace(sobre, "a", "A", 1)}, {"SOBRE", strings.Replace(sobre, "\n", "\r\n", 1)}, {"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|SALIDA|0\n"}, {"CONTROL", "V1|CONTROL|ARMAR|" + h + "|01\n"}, {"TERMINAL", strings.Replace(terminal, "|S3|0|SALIDA|", "|S1|0|SALIDA|", 1)}, {"TERMINAL", strings.Replace(terminal, "|13|12|12|12|7|1|1|0|1", "|-|-|-|-|-|1|1|0|1", 1)}, {"TICKET", "0|x\n"}, {"TICKET", "12|x\x00\n"}, {"TICKET", "12|x"}}
+	invalidas := []struct{ clase, texto string }{
+		{"SOBRE", sobre("A00", "2048", strings.Repeat("x", 2049))}, {"SOBRE", sobre("A0", "1", "x")},
+		{"SOBRE", sobre("a01", "1", "x")}, {"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, strings.ToUpper(h), 1)},
+		{"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, strings.Repeat("a", 63), 1)}, {"SOBRE", sobre("A00", "0", "")},
+		{"CONTROL", "V2|CONTROL|INICIAR|" + h + "\n"}, {"CONTROL", "V1|TERMINAL|INICIAR|" + h + "\n"},
+		{"CONTROL", "V1|CONTROL|ARMAR|" + h + "\n"}, {"CONTROL", "V1|CONTROL|INICIAR|" + h + "|extra\n"},
+		{"CONTROL", "V1|CONTROL|ARMAR|" + h + "|01\n"}, {"CONTROL", "V1|CONTROL|ARMAR|" + h + "|2147483648\n"},
+		{"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|SALIDA|0\n"}, {"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|PLAZO|65\n"},
+		{"TERMINAL", terminal("S4", "65", "CANCELADO", sinBash)}, {"TERMINAL", terminal("S3", "0", "SALIDA", sinBash)},
+		{"TERMINAL", terminal("S1", "65", "INCIDENTE", conBash)}, {"TERMINAL", terminal("S2", "65", "PROTOCOLO", conBash)},
+		{"TERMINAL", terminal("S1", "130", "SENAL_INT", sinBash)}, {"TERMINAL", terminal("S1", "143", "SENAL_TERM", sinBash)},
+		{"TERMINAL", terminal("S3", "65", "SALIDA", "13|-|-|-|-|1|1|0|1")}, {"TERMINAL", terminal("S3", "65", "INCIDENTE", "13|12|12|12|7|1|0|0|1")},
+		{"TERMINAL", terminal("S3", "0", "SALIDA", "13|12|12|12|18446744073709551616|1|1|0|1")}, {"TERMINAL", terminal("S3", "0", "SALIDA", "13|12|12|12|7|1|1|2147483648|1")},
+		{"TERMINAL", terminal("S3", "130", "SENAL_TERM", conBash)}, {"TERMINAL", terminal("S5", "65", "INCIDENTE", conBash)},
+		{"TICKET", "2147483647|" + strings.Repeat("x", 2049) + "\n"}, {"TICKET", "0|x\n"}, {"TICKET", "12|\n"},
+		{"TICKET", "12|x\t\n"}, {"TICKET", "12|x\r\n"}, {"TICKET", "12|x\x00\n"}, {"TICKET", "12|x\xc3\n"}, {"TICKET", "12|x\nresto"}, {"TICKET", "12|x"},
+	}
 	for _, prueba := range invalidas {
 		if _, err := decodificarTramaM38(prueba.clase, []byte(prueba.texto)); err == nil {
 			return errors.New("mutante de trama aceptado")
 		}
 	}
-	for _, clase := range []string{"SOBRE", "CONTROL", "TERMINAL", "TICKET"} {
-		limite := limiteTramaM38(clase)
-		for _, longitud := range []int{limite - 1, limite, limite + 1} {
-			entrada := append([]byte(strings.Repeat("x", longitud-1)), '\n')
-			if _, err := decodificarTramaM38(clase, entrada); err == nil {
-				return errors.New("frontera de longitud aceptada")
-			}
+	t, err := decodificarTramaM38("SOBRE", []byte(sobre("A00", "1", "x")))
+	if err != nil {
+		return err
+	}
+	t.ticket = strings.Repeat("x", limiteTramaM38("SOBRE"))
+	if _, err = codificarTramaM38(t); err == nil {
+		return errors.New("encoder reservó una trama sobredimensionada")
+	}
+	if _, err = codificarTramaM38(tramaM38{clase: "CONTROL"}); err == nil {
+		return errors.New("encoder aceptó un control vacío")
+	}
+	for _, prueba := range []struct {
+		clase   string
+		entrada []byte
+	}{{"SOBRE", make([]byte, 4097)}, {"CONTROL", make([]byte, 1025)}, {"TERMINAL", make([]byte, 1025)}, {"TICKET", make([]byte, 2061)}} {
+		prueba.entrada[len(prueba.entrada)-1] = '\n'
+		if _, err := decodificarTramaM38(prueba.clase, prueba.entrada); err == nil {
+			return errors.New("límite físico excedido")
 		}
 	}
 	return nil
