@@ -26,15 +26,17 @@ type tramaM38 struct {
 	ticket string
 }
 
+var errPrevalidacionM38 = errors.New("prevalidación de salida M38")
+var errLimiteFisicoM38 = errors.New("límite físico de entrada M38")
+
 func limiteTramaM38(clase string) int {
-	if clase == "SOBRE" {
+	switch clase {
+	case "SOBRE":
 		return 4096
-	}
-	if clase == "TICKET" {
-		return 2060
-	}
-	if clase == "CONTROL" || clase == "TERMINAL" || clase == "VALIDADA" {
+	case "CONTROL", "TERMINAL":
 		return 1024
+	case "TICKET":
+		return 2060
 	}
 	return 0
 }
@@ -68,8 +70,6 @@ func seguroM38(valor string) bool {
 	return true
 }
 
-func indicadorM38(valor string) bool { return valor == "0" || valor == "1" }
-
 func selectorM38(valor string) bool {
 	if valor == "NOMINAL" {
 		return true
@@ -96,7 +96,7 @@ func causaEstadoM38(causa, estado string, terminal bool) bool {
 func prevalidarCodificacionM38(t tramaM38) error {
 	limite := limiteTramaM38(t.clase)
 	if len(t.ticket) > limite {
-		return errors.New("trama demasiado grande")
+		return errPrevalidacionM38
 	}
 	base, separadores, cardinalidadValida := 1, len(t.campos)-1, false
 	switch t.clase {
@@ -110,8 +110,7 @@ func prevalidarCodificacionM38(t tramaM38) error {
 		separadores++
 	case "CONTROL":
 		if len(t.campos) > 0 {
-			esperada := map[string]int{"ARMAR": 3, "INICIAR": 2, "CANCELAR": 4}[t.campos[0]]
-			cardinalidadValida = esperada > 0 && len(t.campos) == esperada
+			cardinalidadValida = len(t.campos) == map[string]int{"ARMAR": 3, "INICIAR": 2, "CANCELAR": 4}[t.campos[0]]
 		}
 		base += len("V1|CONTROL|")
 	case "TERMINAL":
@@ -124,7 +123,7 @@ func prevalidarCodificacionM38(t tramaM38) error {
 	restante := limite - base - separadores
 	for _, campo := range t.campos {
 		if len(campo) > restante {
-			return errors.New("trama demasiado grande")
+			return errPrevalidacionM38
 		}
 		restante -= len(campo)
 	}
@@ -150,7 +149,11 @@ func codificarTramaM38(t tramaM38) ([]byte, error) {
 }
 
 func decodificarTramaM38(clase string, entrada []byte) (tramaM38, error) {
-	if limite := limiteTramaM38(clase); limite == 0 || len(entrada) == 0 || len(entrada) > limite || entrada[len(entrada)-1] != '\n' {
+	limite := limiteTramaM38(clase)
+	if limite > 0 && len(entrada) > limite {
+		return tramaM38{}, errLimiteFisicoM38
+	}
+	if limite == 0 || len(entrada) == 0 || entrada[len(entrada)-1] != '\n' {
 		return tramaM38{}, errors.New("longitud o terminador de trama inválido")
 	}
 	for _, b := range entrada[:len(entrada)-1] {
@@ -218,7 +221,7 @@ func controlM38(p []string) error {
 }
 
 func terminalM38(p []string) error {
-	if len(p) != 16 || !hexM38(p[2]) || !decimalM38(p[3], 1, 2147483647) || (p[4] != "S1" && p[4] != "S2" && p[4] != "S3" && p[4] != "S4") || !causaEstadoM38(p[6], p[5], true) || !indicadorM38(p[12]) || !indicadorM38(p[13]) || !decimalM38(p[14], 0, 2147483647) || !indicadorM38(p[15]) {
+	if len(p) != 16 || !hexM38(p[2]) || !decimalM38(p[3], 1, 2147483647) || (p[4] != "S1" && p[4] != "S2" && p[4] != "S3" && p[4] != "S4") || !causaEstadoM38(p[6], p[5], true) || !decimalM38(p[12], 0, 1) || !decimalM38(p[13], 0, 1) || !decimalM38(p[14], 0, 2147483647) || !decimalM38(p[15], 0, 1) {
 		return errors.New("terminal inválido")
 	}
 	sinBash := p[7] == "-" && p[8] == "-" && p[9] == "-" && p[10] == "-" && p[11] == "-" && p[12] == "0" && p[13] == "0" && p[14] == "0" && p[15] == "1"
@@ -302,19 +305,22 @@ func autoprobarTramasM38() error {
 		return err
 	}
 	t.ticket = strings.Repeat("x", limiteTramaM38("SOBRE"))
-	if _, err = codificarTramaM38(t); err == nil {
+	if _, err = codificarTramaM38(t); !errors.Is(err, errPrevalidacionM38) {
 		return errors.New("encoder reservó una trama sobredimensionada")
 	}
 	if _, err = codificarTramaM38(tramaM38{clase: "CONTROL"}); err == nil {
 		return errors.New("encoder aceptó un control vacío")
 	}
-	for _, prueba := range []struct {
-		clase   string
-		entrada []byte
-	}{{"SOBRE", make([]byte, 4097)}, {"CONTROL", make([]byte, 1025)}, {"TERMINAL", make([]byte, 1025)}, {"TICKET", make([]byte, 2061)}} {
-		prueba.entrada[len(prueba.entrada)-1] = '\n'
-		if _, err := decodificarTramaM38(prueba.clase, prueba.entrada); err == nil {
-			return errors.New("límite físico excedido")
+	for clase, limite := range map[string]int{"SOBRE": 4096, "CONTROL": 1024, "TERMINAL": 1024, "TICKET": 2060} {
+		for _, delta := range []int{-1, 0, 1} {
+			entrada := []byte(strings.Repeat("x", limite+delta-1) + "\n")
+			_, err := decodificarTramaM38(clase, entrada)
+			if delta == 1 && !errors.Is(err, errLimiteFisicoM38) {
+				return errors.New("exceso sin centinela de límite")
+			}
+			if delta < 1 && (err == nil || errors.Is(err, errLimiteFisicoM38)) {
+				return errors.New("frontera gramatical confundida con límite")
+			}
 		}
 	}
 	return nil
