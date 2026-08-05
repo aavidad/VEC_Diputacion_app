@@ -1,10 +1,12 @@
-# Enmienda G2-O/O1a: ledger correctivo G2 hasta 400 líneas
+# Enmienda G2-O/O1a: ledger correctivo G2 hasta 420 líneas
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para corregir exclusivamente O1a**. La primera propuesta
-obtuvo dos GO y un NO-GO por mezclar bases; la corrección `3b6c513` obtuvo tres
-GO independientes con `P0=P1=P2=0`. No autoriza O1b ni integra el candidato.
+Estado: **tercera propuesta pendiente de doble revisión independiente**. La
+parada 400 fue aceptada documentalmente, pero la corrección real, legible y
+completa midió 391 líneas y superó su delta previsto. El productor se detuvo
+sin commit. Esta corrección eleva solo la parada a 420; no autoriza código hasta
+un nuevo doble GO y nunca autoriza O1b.
 
 ## Motivo único
 
@@ -23,7 +25,7 @@ manifiesto, captura y hashes en un runner que ya ocupa 800 líneas, aumentando
 la superficie crítica solo para repartir tests.
 
 Se adopta conservar implementación y autoprueba cohesionadas en G2 y elevar su
-parada a 400. Sigue muy por debajo del límite DEC-051 de 800 y conserva una
+parada a 420. Sigue muy por debajo del límite DEC-051 de 800 y conserva una
 reserva positiva sin minificación.
 
 ## Base y ledger
@@ -37,7 +39,7 @@ su línea documental; `4e3bc6d` y `b250d38` son ramas hermanas nacidas de
 | --- | ---: | ---: | ---: | ---: |
 | Runner R | 800 | 0 líneas; SHA de G2 y binario sustituidos | 800 | 800 |
 | G1 | 686 | 0 | 686 | 690 |
-| G2 | 299 | +60..+80 | 359..379 | 400 |
+| G2 | 299 | +90..+101 | 389..400 | 420 |
 | Capturador | 799 | 0 | 799 | 799 |
 | Adaptador M38 | 527 | 0 | 527 | 527 |
 | D2d | 145 | 0 | 145 | 145 |
@@ -48,12 +50,13 @@ Desglose G2:
 
 | Corrección | Delta conservador |
 | --- | ---: |
-| Prevalidar encoder antes de concatenar | +10..+15 |
-| Rechazar sin Bash/S4 y cruces asociados | +5..+8 |
-| Sustituir matriz insuficiente por cobertura contractual | +45..+57 |
-| **Total** | **+60..+80** |
+| Prevalidar encoder antes de concatenar, incluido control vacío | +20..+28 |
+| Rechazar sin Bash/S4 y cruces asociados | +1..+4 |
+| Sustituir matriz insuficiente por cobertura contractual | +69..+69 |
+| **Total** | **+90..+101** |
 
-La reserva final mínima es 21 líneas. No se transfiere a otra fase.
+La medición real conservada sin commit es G2=391, dentro del rango. La reserva
+final mínima es 20 líneas. No se transfiere a otra fase.
 
 ## Write-set y parada
 
@@ -67,7 +70,7 @@ La corrección puede tocar únicamente:
 G1 y todo componente restante deben quedar byte a byte invariantes respecto de
 `b250d38`. Se detiene si:
 
-- G2 supera 400 o la corrección supera +80;
+- G2 supera 420 o la corrección supera +101;
 - cambia G1 o una ruta no autorizada;
 - el runner deja de tener 800 líneas o cambia algo distinto de SHA literales;
 - se minifican sentencias, fusionan controles o eliminan pruebas;
