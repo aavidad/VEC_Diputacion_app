@@ -5,16 +5,22 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 ## Actualización vigente de dirección — 5 de agosto de 2026
 
 La rama integradora continúa siendo `integracion/ct-o4-04e-20260726` en el
-worktree `.worktrees/ct-stable-docs`. El corte técnico local vigente es
-`52c8852`: C4b-2/G2-O/O1a está integrado con triple GO final, runner 800, G1
-686 y G2 400. `go test ./...`, `go test -race ./...`, `go vet ./...` y
-`scripts/verificar_calidad.sh` terminaron verdes.
+worktree `.worktrees/ct-stable-docs`. El corte remoto verde vigente es
+`67331c6`, ejecución GitHub `30975491534`, con sus cinco puertas superadas.
+C4b-2/G2-O/O1a está integrado con triple GO final, runner 800, G1 686 y G2
+400. `go test ./...`, `go test -race ./...`, `go vet ./...` y
+`scripts/verificar_calidad.sh` terminaron verdes; la puerta remota global duró
+13m54s.
 
 O1a implementa exclusivamente el codec de trama completa y su autoprueba. El
 modo `--supervisar-m38` permanece cerrado en 64; no se abrieron FD, procesos de
-caso, Docker, PostgreSQL, SQL o red. El siguiente trabajo es **O1b**, lector
-incremental con fragmentación, coalescencia y sobrante. No se programa hasta
-aprobar su ledger y contrato acotados. O2 y fases posteriores siguen cerradas.
+caso, Docker, PostgreSQL, SQL o red.
+
+O1b dispone ya de contrato y ledger aceptados localmente en
+`6f4a118`–`4b765eb`, con triple GO final y `P0=P1=P2=0`. El siguiente trabajo
+es implementarlo solo en G2 más los dos literales SHA autorizados del runner,
+con G2 detenido si supera 680 líneas. G1 y el resto son invariantes;
+`--supervisar-m38` continúa en 64. O2 y fases posteriores siguen cerradas.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,
