@@ -123,8 +123,10 @@ no abre ninguna superficie operativa. El análisis posterior detuvo O2a por
 capacidad: runner 800/800 y G2 798/800. El siguiente corte es la
 [decisión O2a-P0](decision_f0_h0b_c4b2_g2o_o2a_preparacion_g3_2026-08-05.md),
 aceptada con doble GO documental para trasladar una función sin cambio de
-conducta. Su enmienda local de ShellCheck también obtuvo doble GO y fija runner
-783/D2d 164. No autoriza G3 ni O2a. O2b conserva «ARMAR y cancelación sin Bash»;
+conducta. Su enmienda local de ShellCheck también obtuvo doble GO. El candidato
+`df9a422` obtuvo doble GO de código y quedó integrado localmente como
+`48a46a3`, runner 783/D2d 164, con H0 y puerta global verdes. Publicación y CI
+siguen pendientes. No autoriza G3 ni O2a. O2b conserva «ARMAR y cancelación sin Bash»;
 los ACK vivos ya no pertenecen al protocolo.
 Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.

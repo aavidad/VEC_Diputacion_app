@@ -2,12 +2,16 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para implementar únicamente O2a-P0 con su enmienda local**.
-La autorización original y la enmienda de ShellCheck obtuvieron, cada una, dos
-revisiones documentales independientes con `P0=P1=P2=0`.
+Estado: **integrada localmente; publicación y CI pendientes**. La autorización
+original y la enmienda de ShellCheck obtuvieron, cada una, dos revisiones
+documentales independientes con `P0=P1=P2=0`; el código posterior obtuvo otros
+dos GO independientes.
 
 Acta:
 [revisión O2a-P0](revisiones/revision_f0_h0b_c4b2_g2o_o2a_p0_preparacion_g3_2026-08-05.md).
+
+Resultado de código:
+[revisión final O2a-P0](revisiones/revision_f0_h0b_c4b2_g2o_o2a_p0_codigo_final_2026-08-05.md).
 
 Base exacta de implementación:
 `ec530091e6f157baa54ff50e9c70f21c7a014e94`. No se crea el candidato desde
@@ -187,3 +191,10 @@ autorización de código en este corte.
 
 O2a-P0 no cambia F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`,
 Bolsa productiva `1/14` ni el `NO-GO` de producción.
+
+## Resultado material
+
+El candidato `df9a422` obtuvo doble GO independiente de código,
+`P0=P1=P2=0`, y quedó integrado localmente como `48a46a3`. Dirección reprodujo
+H0 PostgreSQL 18.4, residuos cero, huellas, Gitleaks y la puerta global. La
+publicación y su CI permanecen pendientes en este corte documental.

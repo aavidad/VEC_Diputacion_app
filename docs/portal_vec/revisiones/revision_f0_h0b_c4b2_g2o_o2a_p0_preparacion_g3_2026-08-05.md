@@ -81,3 +81,6 @@ el orden `contenedor` → captura/carga privada → llamada. También reprodujer
 La enmienda queda autorizada. El candidato puede reanudarse únicamente para
 añadir esa directiva y actualizar la huella; todavía necesita dos revisiones
 independientes de código y todas las puertas antes de integrarse.
+
+El resultado posterior está acreditado en la
+[revisión final de código O2a-P0](revision_f0_h0b_c4b2_g2o_o2a_p0_codigo_final_2026-08-05.md).

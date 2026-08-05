@@ -22,10 +22,12 @@ en `eb2bba0`–`98b753e`: runner 800, G1 686, G2 798, cuatro mutantes muertos,
 dos builds reproducibles y doble GO final. La puerta global terminó verde
 sobre la candidata y el árbol integrado, y la CI `31002229666` obtuvo cinco
 verdes. El análisis posterior detuvo O2a antes de código: runner 800/800 y G2
-798/800 no admiten la máquina y su autoprueba. El siguiente corte exacto es la
-implementación acotada O2a-P0, aceptada con doble GO documental, para mover una
-función byte a byte y preparar capacidad para G3 sin cambiar conducta. La
-enmienda local de ShellCheck obtuvo otros dos GO: runner 783 y D2d 164. No
+798/800 no admitían la máquina y su autoprueba. O2a-P0 resolvió esa preparación
+mediante un traslado estructural sin cambio funcional. La tarea y su enmienda
+local de ShellCheck obtuvieron doble GO documental; el candidato `df9a422`
+obtuvo después doble GO de código y quedó integrado localmente como `48a46a3`:
+runner 783, D2d 164, H0 real, residuos cero y puerta global verdes. El siguiente
+trabajo es publicar, acreditar la CI y después redactar y revisar O2a/S0/G3. No
 autoriza G3 ni S0. O2b permanece cerrado y no hay ACK vivos. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
@@ -562,9 +564,10 @@ sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
 `f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a y O1b
 están integradas, esta última en `eb2bba0`–`98b753e` con doble GO, puertas
-globales y CI `31002229666` verdes. O2a-P0 obtuvo doble GO documental; el
-siguiente corte exacto es su traslado estructural con la enmienda local también
-revisada, seguido de doble revisión de código. La migración `000007` continúa bloqueada hasta cerrar
+globales y CI `31002229666` verdes. O2a-P0 obtuvo doble GO documental y de
+código; está integrada localmente como `48a46a3`, con H0 y puerta global
+verdes. El siguiente corte es publicarla, acreditar su CI y después definir el
+contrato O2a/S0/G3. La migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
 ## Optimización probatoria CT88

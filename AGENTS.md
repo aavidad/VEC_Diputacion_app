@@ -84,11 +84,11 @@ instrucción de dirección.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0, O1a y O1b ya
   están cerrados. El análisis O2a acreditó que G2 798/800 y runner 800/800 no
   admiten código nuevo. O2a-P0 y su enmienda local de ShellCheck obtuvieron
-  doble GO documental, `P0=P1=P2=0`. El
-  siguiente trabajo es **implementar exclusivamente O2a-P0 sobre `ec53009`**:
-  mover byte a byte `derivar_repo_base_h0_f0` a D2d, dejar runner 783 y D2d
-  164, incluida la única directiva local autorizada, sin crear G3 ni cambiar
-  conducta. Requiere doble revisión de código.
+  doble GO documental. El candidato `df9a422` obtuvo después doble GO de
+  código, `P0=P1=P2=0`, y quedó integrado localmente como `48a46a3`: runner
+  783, D2d 164, H0 PostgreSQL 18.4, residuos cero y puerta global verdes. Su
+  publicación y CI están pendientes. No crea G3 ni cambia conducta. El trabajo
+  posterior es definir y revisar el contrato real O2a/S0/G3 antes de programar.
   O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos fueron eliminados
   por la corrección O1a. O2 y fases posteriores siguen cerradas. Las evidencias
   están en

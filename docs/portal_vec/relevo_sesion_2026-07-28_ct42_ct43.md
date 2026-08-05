@@ -22,12 +22,14 @@ en 798. El conjunto obtuvo doble GO final, builds reproducibles y puertas
 globales verdes, y se integró como `eb2bba0`–`98b753e`. La
 [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
 registra la trazabilidad completa. El análisis posterior detuvo O2a antes de
-código porque runner y G2 ocupan 800/800 y 798/800. El siguiente trabajo es
-implementar O2a-P0, ya aceptada con doble GO documental: un traslado
-estructural byte a byte sin cambio funcional que prepara capacidad para G3.
-Su enmienda local de ShellCheck también obtuvo doble GO: runner 783 y D2d 164,
-sin declarar la variable externa ni ampliar la exclusión. No autoriza G3 ni S0.
-O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos ya no existen.
+código porque runner y G2 ocupaban 800/800 y 798/800. O2a-P0 resolvió esa
+preparación mediante un traslado estructural sin cambio funcional. La tarea y
+su enmienda local de ShellCheck obtuvieron doble GO documental; el candidato
+`df9a422` recibió después doble GO de código y quedó integrado localmente como
+`48a46a3`: runner 783, D2d 164, H0 PostgreSQL 18.4, residuos cero y puerta
+global verdes. El siguiente trabajo es publicar, acreditar la CI y después
+redactar y revisar O2a/S0/G3. No autoriza G3 ni S0. O2b conserva «ARMAR y
+cancelación sin Bash»; los ACK vivos ya no existen.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,
