@@ -2,8 +2,9 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **propuesta pendiente de doble revisión independiente**. No autoriza
-código hasta obtener `P0=P1=P2=0` de dos revisores.
+Estado: **segunda propuesta pendiente de doble revisión independiente**. La
+primera obtuvo dos GO y un NO-GO por mezclar la base candidata con la rama
+integradora. No autoriza código hasta obtener `P0=P1=P2=0` de dos revisores.
 
 ## Motivo único
 
@@ -27,12 +28,14 @@ reserva positiva sin minificación.
 
 ## Base y ledger
 
-Base candidata no integrable: `b250d38aadd165aa80471dbbf1200d56bd4165bb`.
-Base integradora sin código O1a: `ef565cd`.
+El candidato correctivo será hijo directo de la base candidata no integrable
+`b250d38aadd165aa80471dbbf1200d56bd4165bb`. La rama integradora permanece en
+su línea documental; `4e3bc6d` y `b250d38` son ramas hermanas nacidas de
+`ef565cd`, no una secuencia de código.
 
 | Unidad | Base candidata | Corrección prevista | Total previsto | Parada |
 | --- | ---: | ---: | ---: | ---: |
-| Runner R | 800 | 0 líneas; tres SHA sustituidos | 800 | 800 |
+| Runner R | 800 | 0 líneas; SHA de G2 y binario sustituidos | 800 | 800 |
 | G1 | 686 | 0 | 686 | 690 |
 | G2 | 299 | +60..+80 | 359..379 | 400 |
 | Capturador | 799 | 0 | 799 | 799 |
@@ -58,7 +61,8 @@ La corrección puede tocar únicamente:
 
 1. G2 para los tres hallazgos y sus mutantes;
 2. runner para sustituir SHA de G2 y del binario; el SHA G1 solo cambia si G1
-   cambia, lo cual esta enmienda no autoriza.
+   cambia, lo cual esta enmienda no autoriza. Por tanto, fuente G1 y su literal
+   SHA quedan byte a byte invariantes respecto de `b250d38`.
 
 G1 y todo componente restante deben quedar byte a byte invariantes respecto de
 `b250d38`. Se detiene si:
