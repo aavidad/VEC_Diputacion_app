@@ -41,9 +41,10 @@ El constructor solo admite esas cuatro clases y obtiene el límite de
 conversiones numéricas de O1a.
 
 `SOBRE`, `TERMINAL` y `TICKET` son clases monoframa. Una trama monoframa
-decodificada se retiene como candidata y no se entrega como válida hasta
-observar EOF limpio. Cualquier byte posterior, incluso si llegó en el mismo
-fragmento, invalida el lector antes de que exista un resultado utilizable.
+completa se retiene todavía como bytes crudos y no se entrega al codec O1a
+hasta observar EOF limpio. Cualquier byte posterior, incluso si llegó en el
+mismo fragmento, invalida el lector antes de decodificar o producir un
+resultado utilizable.
 
 `CONTROL` es multitrama. Una trama válida se entrega al alcanzar su LF. El
 lector no examina el sobrante en esa transición: el llamador debe volver a
@@ -57,13 +58,38 @@ La llamada recibe un fragmento `[]byte`, un indicador de EOF aplicable al final
 de ese fragmento y devuelve, además del resultado, el número de bytes
 consumidos.
 
+Las firmas canónicas son:
+
+```go
+type resultadoLecturaM38 uint8
+
+const (
+	lecturaNecesitaDatosM38 resultadoLecturaM38 = iota
+	lecturaTramaM38
+	lecturaTramaFinalM38
+	lecturaEOFLimpioM38
+)
+
+func nuevoLectorTramaM38(clase string) (*lectorTramaM38, error)
+func (l *lectorTramaM38) consumir(fragmento []byte, fin bool) (
+	tramaM38, int, resultadoLecturaM38, error,
+)
+```
+
+Un constructor fallido devuelve lector nulo y un error cuya identidad incluye
+el centinela de clase inválida. El valor cero del resultado es
+`lecturaNecesitaDatosM38`. Cuando no se entrega una trama, la trama devuelta es
+`tramaM38{}`. En cualquier error, los retornos son trama cero, contador cero,
+resultado cero y el error tipado.
+
 - Con éxito, `fragmento[consumidos:]` es el sobrante exacto y continúa bajo
   propiedad del llamador.
 - El contador solo es significativo si el error es nulo.
 - El lector nunca conserva el fragmento completo ni el sobrante.
 - Solo copia los bytes que formen una trama parcial.
 - La trama parcial usa almacenamiento fijo de 4096 bytes; su longitud nunca
-  supera `limite-1`.
+  supera `limite-1`. Una monoframa completa pendiente de EOF puede ocupar su
+  límite exacto, incluido LF, dentro de ese mismo almacenamiento fijo.
 - No se usa `append(buffer, fragmento...)`, `bufio.Scanner`, división global
   del fragmento ni reserva proporcional al tamaño aportado.
 - Un fragmento arbitrariamente grande con LF temprano solo recorre el prefijo
@@ -71,8 +97,10 @@ consumidos.
   adicional.
 - Modificar el fragmento original después de una transición no puede alterar
   la parcial retenida ni una trama ya producida.
-- Los bytes internos procesados o fallidos se ponen a cero antes de abandonar
-  el estado que los poseía.
+- El buffer fijo interno se pone a cero tras entregar, cerrar o fallar. Las
+  cadenas inmutables de una `tramaM38` ya entregada pertenecen al llamador y
+  Go no permite prometer su borrado físico; O1b no conserva una segunda
+  referencia propia.
 
 No se fija un máximo artificial al tamaño del fragmento: el contador de
 consumo y el almacenamiento fijo hacen el coste independiente de su cola. El
@@ -88,7 +116,7 @@ de error.
 | `NECESITA_DATOS` | no | no | no hay LF y la parcial sigue dentro del límite |
 | `TRAMA` | sí | no | una trama `CONTROL` válida; puede quedar sobrante |
 | `TRAMA_FINAL` | sí | sí | una monoframa válida confirmada por EOF limpio |
-| `EOF_LIMPIO` | no | sí | fin en frontera de un flujo `CONTROL` |
+| `EOF_LIMPIO` | no | sí | fin ya confirmado sin entregar otra trama |
 
 Estados internos:
 
@@ -104,7 +132,8 @@ Invariantes:
 
 - L0 tiene longitud parcial cero;
 - L1 tiene `1..limite-1` bytes y ninguno es LF;
-- L2 no retiene bytes crudos y conserva una única trama O1a válida;
+- L2 retiene una única monoframa cruda completa, incluido LF, todavía sin
+  decodificar;
 - L3 y L4 son absorbentes y no producen otra trama;
 - EOF repetido sin datos en L3 vuelve a informar `EOF_LIMPIO` sin cambiar
   estado;
@@ -120,9 +149,49 @@ declara EOF, el lector pasa a L2 y devuelve `NECESITA_DATOS`; la trama solo se
 entrega en una llamada posterior vacía con EOF.
 
 En `CONTROL`, incluso si el fragmento termina en EOF justo después de una
-trama, primero se devuelve `TRAMA`. El llamador vuelve a invocar con el
-sobrante vacío y EOF para obtener `EOF_LIMPIO`. Esto garantiza una sola trama
-por transición.
+trama, primero se devuelve `TRAMA`, pero L3 queda enclavado atómicamente antes
+del retorno. El llamador vuelve a invocar con el sobrante vacío y EOF para
+obtener `EOF_LIMPIO`; no puede retractar ese fin aportando después más datos o
+una llamada sin EOF. Esto garantiza una sola trama por transición.
+
+Si una trama `CONTROL` se entrega antes del final de un fragmento coalescido,
+el llamador debe invocar de nuevo con `fragmento[consumidos:]` y propagar el
+mismo valor de `fin`, que continúa referido al final del sufijo original. El
+lector solo enclava L3 cuando consume realmente el último byte de un fragmento
+marcado con EOF.
+
+El contador mide exclusivamente bytes del fragmento de la llamada actual:
+
+| Resultado | Valor de `consumidos` |
+| --- | ---: |
+| `NECESITA_DATOS` | `len(fragmento)` |
+| `TRAMA` | desde el inicio del fragmento hasta el primer LF, incluido |
+| `TRAMA_FINAL` | `len(fragmento)`; puede ser cero al confirmar L2 |
+| `EOF_LIMPIO` | cero; exige fragmento vacío |
+| error | cero; el contador carece de valor parcial |
+
+## Tabla exhaustiva de transición exterior
+
+| Estado | Entrada | Resultado y siguiente estado |
+| --- | --- | --- |
+| L0 | vacío, sin EOF | `NECESITA_DATOS(0)`, L0 |
+| L0 | vacío, EOF, `CONTROL` | `EOF_LIMPIO(0)`, L3 |
+| L0 | vacío, EOF, monoframa | error `EOF_SIN_MONOTRAMA`, L4 |
+| L0/L1 | bytes sin LF, sin EOF y dentro del límite | `NECESITA_DATOS(len)`, L1 |
+| L0/L1 | bytes sin LF y EOF | error de EOF parcial, L4 |
+| L1 | vacío y EOF | error de EOF parcial, L4 |
+| L0/L1 | byte inválido o exceso | error tipado correspondiente, L4 |
+| L0/L1 | `CONTROL` válido hasta LF | `TRAMA(hasta LF)`; L3 solo si LF es el último byte y `fin=true`, si no L0 |
+| L0/L1 | `CONTROL` completo rechazado por O1a | error de trama, L4 |
+| L0/L1 | monoframa completa, sin cola y sin EOF | `NECESITA_DATOS(len)`, L2 |
+| L0/L1 | monoframa completa, sin cola y con EOF | decodifica; `TRAMA_FINAL(len)`, L3, o error O1a, L4 |
+| L0/L1 | monoframa completa con cualquier cola | error de datos posteriores, L4 |
+| L2 | vacío, sin EOF | `NECESITA_DATOS(0)`, L2 |
+| L2 | vacío, EOF | decodifica; `TRAMA_FINAL(0)`, L3, o error O1a, L4 |
+| L2 | cualquier byte | error de datos posteriores, L4 |
+| L3 | vacío, EOF | `EOF_LIMPIO(0)`, L3 |
+| L3 | cualquier otra llamada | error de uso posterior a EOF, L4 |
+| L4 | cualquier llamada | mismo error terminal, L4 |
 
 ## Errores tipados y precedencia
 
@@ -133,8 +202,9 @@ O1b define centinelas internos diferenciados para:
 3. exceso físico sin LF;
 4. trama completa rechazada por O1a;
 5. EOF con trama parcial;
-6. datos posteriores a una monoframa;
-7. uso posterior a EOF.
+6. EOF sin la trama obligatoria de una clase monoframa;
+7. datos posteriores a una monoframa;
+8. uso posterior a EOF.
 
 El error concreto de O1a puede envolverse conservando su identidad, pero
 ninguna decisión depende de su texto. Todo error en consumo lleva a L4 y es
@@ -144,13 +214,15 @@ Precedencia dentro de una transición:
 
 1. L4 devuelve su error previo sin inspeccionar la entrada;
 2. L3 solo admite una repetición vacía de EOF;
-3. L2 confirma con EOF vacío y rechaza cualquier byte posterior;
+3. L2 rechaza cualquier byte posterior; con EOF vacío entrega su contenido al
+   codec O1a y confirma solo si este lo acepta;
 4. para cada byte no LF se valida primero que pertenezca a `0x20..0x7e`;
    NUL, CR, TAB, controles, DEL y no ASCII son inválidos;
 5. después se comprueba la capacidad y solo entonces se copia;
 6. si ya existen `limite-1` bytes, cualquier byte no LF es exceso y no se
    copia;
-7. LF completa una trama dentro del máximo y se entrega al codec O1a;
+7. LF completa una trama dentro del máximo: `CONTROL` se entrega al codec O1a
+   en ese momento; una monoframa sin EOF se conserva cruda en L2;
 8. un fallo del codec prevalece sobre el EOF declarado al final del fragmento;
 9. agotado el fragmento, EOF con parcial es EOF parcial; EOF sin parcial es
    limpio; sin EOF se informa `NECESITA_DATOS`.
@@ -180,19 +252,28 @@ La autoprueba O1b se integra en `autoprobarTramasM38`, sin tocar G1, y cubre:
 - monoframa completa con EOF en la misma llamada;
 - dos monoframas, monoframa más byte, más NUL y más LF;
 - ausencia de resultado utilizable antes de EOF;
+- EOF inicial sin trama, por separado para `SOBRE`, `TERMINAL` y `TICKET`;
 - `CONTROL` vacío más EOF;
 - EOF después de una o varias tramas `CONTROL`;
 - EOF con parcial de uno y varios fragmentos;
 - EOF parcial clasificado de forma distinta al EOF limpio;
-- EOF limpio repetido y datos posteriores rechazados;
+- EOF limpio repetido, llamada sin EOF y datos posteriores rechazados;
+- trama `CONTROL` que termina junto a EOF con L3 ya enclavado antes de
+  devolverla;
+- propagación obligatoria del mismo EOF al sobrante de un fragmento
+  coalescido;
 - error pegajoso que no se recupera con una trama válida posterior.
 
 ### Límites y bytes hostiles
 
-- `limite-1` bytes de cuerpo más LF: dentro del límite físico, aunque el codec
-  rechace su gramática;
+- `limite-1` bytes imprimibles más LF: dentro del límite físico y entregados a
+  O1a; si la gramática no puede ocupar ese tamaño, falla sin el centinela de
+  exceso;
 - `limite-1` bytes de parcial más otro byte no LF: exceso sin ampliar;
-- frontera exacta válida de cada clase, incluida `SOBRE` 4096 y `TICKET` 2060;
+- máximo canónico válido real por clase: `SOBRE` 2212, `CONTROL` 100,
+  `TERMINAL` 179 y `TICKET` 2060 bytes incluidos LF;
+- frontera física exacta independiente: 4096, 1024, 1024 y 2060 bytes; solo
+  `TICKET` puede ser a la vez canónica y físicamente máxima;
 - un byte por encima de cada límite;
 - fragmento enorme con LF temprano y fragmento enorme sin LF;
 - NUL, CR, TAB, `0x1f`, `0x7f` y `0x80`, también separados entre fragmentos;
