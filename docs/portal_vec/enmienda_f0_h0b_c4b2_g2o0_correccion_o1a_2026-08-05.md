@@ -2,10 +2,12 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **tercera propuesta de dirección pendiente de doble revisión
-independiente**. Corrige los cinco P1 documentados sobre `bc2e583` en la
+Estado: **cuarta propuesta de dirección pendiente de doble revisión
+independiente**. Sobre `a0a7604`, dos revisiones obtuvieron GO, pero una tercera
+detectó dos P1 canónicos; por tanto no se autorizó código. Corrige esos P1 y los
+cinco anteriores documentados en la
 [revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
-No autoriza código hasta obtener dos `GO` con `P0=P1=P2=0`.
+No autoriza O1a, O1b ni ninguna fase posterior hasta nueva doble revisión.
 
 Base de código exacta: `3e36ecae23e0608bc1e7b9ce374e8fb35d13b4a2`.
 Antecedente documental: `bdfec1f`, que conserva el primer G2-O0 como NO-GO y
@@ -164,7 +166,7 @@ V1|CONTROL|ARMAR|NONCE|PID_RUNNER\n
 V1|CONTROL|INICIAR|NONCE\n
 V1|CONTROL|CANCELAR|NONCE|CAUSA|ESTADO\n
 
-V1|TERMINAL|NONCE|PID_SUPERVISOR|FASE_MAX|ESTADO|CAUSA|PID_BASH|PPID|PGID|SID|INICIO|BASH_CREADO|BASH_ESPERADO|ADOPTADOS_PENDIENTES|GRUPO_AUSENTE\n
+V1|TERMINAL|NONCE|PID_SUPERVISOR|FASE_ORIGEN|ESTADO|CAUSA|PID_BASH|PPID|PGID|SID|INICIO|BASH_CREADO|BASH_ESPERADO|ADOPTADOS_PENDIENTES|GRUPO_AUSENTE\n
 
 PID_SUPERVISOR|TICKET\n
 ```
@@ -182,7 +184,7 @@ cardinalidad exacta y ningún campo contiene separadores.
 | `INICIO` | decimal mínimo `1..18446744073709551615` |
 | `LONGITUD_TICKET` | decimal mínimo `1..2048`, igual a los bytes del ticket |
 | `SELECTOR` | `NOMINAL` o una mayúscula ASCII seguida de dos dígitos |
-| `FASE_MAX` | uno de `S0`, `S1`, `S2`, `S3`, `S4`, `S5` |
+| `FASE_ORIGEN` | uno de `S1`, `S2`, `S3`, `S4` |
 | Indicadores | un byte `0` o `1` |
 | `ADOPTADOS_PENDIENTES` | decimal mínimo `0..2147483647` |
 | Estado | `0`, `64`, `65`, `79`, `130` o `143` |
@@ -215,6 +217,10 @@ El terminal acepta exclusivamente:
 Una terminación Bash distinta de `0/64/65/79`, incluida muerte por señal sin
 causa enclavada, es `INCIDENTE|65`, nunca `SALIDA`.
 
+`FASE_ORIGEN` es el estado activo cuando se enclavó `CAUSA_PRIMARIA`, justo
+antes de entrar en S5. Nunca representa S5/S6. S0 tampoco aparece: sin sobre y
+nonce confiables no se emite terminal normal.
+
 Los cinco campos de proceso son un bloque:
 
 - sin Bash: `PID_BASH|PPID|PGID|SID|INICIO` es `-|-|-|-|-` y la postcondición
@@ -223,6 +229,17 @@ Los cinco campos de proceso son un bloque:
 - con Bash: los cinco son decimales canónicos medidos y el único terminal
   normal exige `1|1|0|1`;
 - no se admite mezcla, campo desconocido ni cero fabricado.
+
+Coherencia cruzada obligatoria:
+
+| Bloque | Fase de origen | Causa admisible |
+| --- | --- | --- |
+| Sin Bash `-|-|-|-|-` y `0|0|0|1` | S1, S2 o S3 | cualquiera salvo `SALIDA` |
+| Con Bash medido y `1|1|0|1` | S3 o S4 | cualquiera de la tabla terminal |
+
+`SALIDA` exige siempre Bash medido, `1|1|0|1` y fase S3/S4. Cualquier bloque
+con Bash exige S3/S4. Un bloque sin Bash nunca admite `SALIDA`. El codec O1a
+rechaza las combinaciones cruzadas, no las pospone a la máquina operativa.
 
 ## Máquina y precedencia para fases futuras
 
@@ -351,6 +368,8 @@ Sin FD ni hijos, cubre:
 - selector sintáctico válido/adverso sin replicar catálogo;
 - ticket con `|`, longitud falsa, vacío, LF, CR, TAB, NUL y no ASCII;
 - causas, estados, parejas, fase, indicadores y bloques de proceso adversos;
+- `SALIDA` sin Bash o en S1/S2, Bash en S1/S2, bloque sin Bash con `SALIDA` y
+  cualquier mezcla entre identificadores y postcondición;
 - bytes posteriores al LF y ausencia de LF;
 - modo `--supervisar-m38` todavía 64 sin variar FD o hijos.
 

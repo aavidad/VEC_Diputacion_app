@@ -47,3 +47,24 @@ La siguiente propuesta debe añadir los cuatro predicados de seguridad,
 autorizar exactamente los tres reemplazos SHA del runner, incorporar D2c/H0b
 y descomponer el delta G2 entre codec y autoprueba. Después requiere otra doble
 revisión independiente antes de programar.
+
+## Resultado de la corrección `a0a7604`
+
+La corrección `a0a760406d6c5968ee6a878439d62bec1b024a24` obtuvo después dos
+revisiones independientes finales:
+
+| Revisión | P0 | P1 | P2 | Veredicto |
+| --- | ---: | ---: | ---: | --- |
+| Seguridad y topología | 0 | 0 | 0 | GO |
+| Ledger y write-set | 0 | 0 | 0 | GO |
+| Máquina y coherencia del codec | 0 | 2 | 0 | NO-GO |
+
+Quedan acreditados el predicado sin ACK, EOF no bloqueante, aperturas
+independientes del FD 8, reacreditación triple del binario, los tres SHA del
+runner, invariantes D2c/H0b y el desglose codec/autoprueba. Sin embargo, el
+tercer revisor detectó que `FASE_MAX` representaba siempre S5 y que faltaban
+cruces causa/fase/bloque de proceso. Un solo NO-GO mantiene detenido O1a.
+
+La cuarta propuesta debe convertir el campo en fase de origen previa a S5 y
+rechazar `SALIDA` sin Bash, Bash en S1/S2 y cualquier bloque incoherente. Solo
+otra doble revisión completamente verde podrá autorizar código.
