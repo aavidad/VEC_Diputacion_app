@@ -164,9 +164,11 @@ decide dependencias. Las cuatro fuentes Shell directas devuelven 64. Cada
 
 La fuente Go contiene `//go:build ignore && linux && amd64`: el tag convencional
 `ignore` impide que el ejecutable probatorio colisione con el `main` del
-capturador durante `go test ./...`, mientras la compilación por nombre de
-fichero ignora la restricción y conserva la frontera cerrada del runner. Fija
-el número ABI amd64 de `pidfd_send_signal` y
+capturador durante las compilaciones ordinarias, mientras la compilación por
+nombre de fichero ignora la restricción y conserva la frontera cerrada del
+runner. `-tags=ignore` no forma parte de ninguna puerta admitida y falla
+cerrado si se fuerza sobre el paquete compartido. La fuente fija el número ABI
+amd64 de `pidfd_send_signal` y
 `PIDFD_SIGNAL_PROCESS_GROUP = 1 << 2`. Se valida desde la copia privada con
 `go vet` y se compila por fichero con `GOOS=linux`, `GOARCH=amd64`,
 `CGO_ENABLED=0`, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOPROXY=off`,

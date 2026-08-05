@@ -9,6 +9,11 @@ allowlist y una supresión nueva de ShellCheck. Cierra solo Q5a; no cierra
 C4b-2, H0b, C2, F0 ni habilita producción. La evidencia consolidada está en
 [`revision_f0_h0b_q5a_captura_supervisor_2026-08-05.md`](revisiones/revision_f0_h0b_q5a_captura_supervisor_2026-08-05.md).
 
+Nota posterior: este documento conserva la evidencia histórica exacta de
+`649ee46`. La corrección de empaquetado detectada por su primera CI, incluidas
+las nuevas huellas y la línea adicional del supervisor, se registra aparte en
+[`correccion_f0_h0b_q5a_paquete_go_2026-08-05.md`](correccion_f0_h0b_q5a_paquete_go_2026-08-05.md).
+
 ## Alcance aplicado
 
 El runner captura ahora en una sola operación privada exactamente estas cinco
@@ -139,14 +144,13 @@ rechazan antes de invocar Go.
 El binario del supervisor queda como fichero privado 0700, del usuario
 efectivo, con un solo enlace y sin enlace simbólico. `/usr/bin/stat` y
 `/usr/bin/sha256sum` acreditan su forma y su SHA-256 determinista literal
-`4bd9e83093a345528b690197eec129fbe22cb029dc5f0ace40e82dd0333079a8`
+`eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`
 antes de ejecutarlo. El runner ejecuta su `--autoprueba` y exige además que un
 modo desconocido termine con 64.
 
-La fuente nueva tiene build constraint `ignore && linux && amd64`: queda fuera
-de las compilaciones ordinarias del paquete compartido con el capturador y el
-runner la valida y compila por nombre de fichero. No usa dependencias externas
-y no crea hijos, canales, SQL, Docker ni recursos de caso. La autoprueba:
+La fuente nueva tiene build constraint `linux && amd64`, no usa dependencias
+externas y no crea hijos, canales, SQL, Docker ni recursos de caso. La
+autoprueba:
 
 - convierte el proceso en líder de su propio grupo y comprueba PID/PGID;
 - ejecuta `pidfd_open(self)` mediante el ABI Linux/amd64;
@@ -189,7 +193,7 @@ Resultados:
 - binario privado sustituido después del build: 65, sin autoprueba y residuos 0;
 - marca de carga y destino superior del adaptador preexistentes como
   `readonly`: 65 y 65, residuos 0;
-- SHA-256 determinista del binario limpio: `4bd9e83093a345528b690197eec129fbe22cb029dc5f0ace40e82dd0333079a8`;
+- SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
 - huellas D2d `9b137f13…5e81` y adaptador `98d22a30…8cb7` fijadas en el
   runner; hashes de D2c, H0b, capturador y supervisor Go invariantes;
 - `git diff --check`: limpio.

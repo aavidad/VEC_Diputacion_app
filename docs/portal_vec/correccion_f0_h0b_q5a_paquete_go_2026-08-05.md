@@ -21,8 +21,11 @@ lista explícita de ficheros, la herramienta Go forma un paquete sintético e
 ignora sus build constraints. Por tanto se mantienen Linux/amd64, la
 autoprueba ABI y el modelo de captura privada de quinta fuente.
 
-No se modifica el capturador, D2c, D2d, H0b ni el adaptador M38. Tampoco se
-añade una etiqueta activable a la CI ni una segunda ruta de compilación.
+No se modifica el capturador, D2c, D2d, H0b ni el adaptador M38. Ninguna puerta
+ni comando admitido usa `-tags=ignore`. Si se fuerza esa etiqueta sobre el
+paquete compartido, Go vuelve a incluir el supervisor y falla cerrado por la
+colisión de los dos `main`; esa ruta explícita no está soportada y nunca se
+interpreta como una compilación válida. No existe una segunda ruta autorizada.
 
 ## Huellas posteriores
 
