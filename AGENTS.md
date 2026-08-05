@@ -23,8 +23,8 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Corte remoto Q5a vigente: `26fefda`, ejecución `30963212221`, cinco de cinco
-  puertas superadas. Sustituye a la ejecución rechazada `30961258790` de
+- Último corte remoto completamente verde antes de G2-S: `0a6de82`, ejecución
+  `30967899595`, cinco de cinco puertas superadas. Sustituye a la ejecución rechazada `30961258790` de
   `c16422b`, que detectó dos ejecutables `main` en el mismo paquete Go.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
@@ -47,12 +47,11 @@ instrucción de dirección.
   `scripts/verificar_calidad.sh` terminaron verdes. El supervisor ocupa 754
   líneas y acredita primitivas pidfd y rollback sintético, pero no el protocolo
   operativo, Docker, PostgreSQL ni E2E.
-- La tarea disponible es **C4b-2/G2**. Antes de añadir la máquina operativa se
-  debe aprobar una separación explícita de la autoprueba y el supervisor que
-  conserve captura/build privados cerrados y el tope duro de 800 líneas. G2
-  incorpora después `ARMAR/ACK_LISTO/INICIAR|CANCELAR/ACK_CASO/recibo`,
-  `/usr/bin/bash -p`, FD 3..9, plazo monotónico, único `Wait` y extinción
-  completa. No se minifican controles para hacerla caber.
+- C4b-2/G2-S queda integrado localmente en `452f4f0`–`5808e18`, con ledger
+  aceptado en `2409620`–`0e179e1`, doble `GO`, `P0=P1=P2=0`, G1 100/100,
+  dos builds privados reproducibles y puertas globales verdes. El runner ocupa
+  exactamente 800 líneas, G1 683 y G2 91. G2 sigue cerrado en estado 64; este
+  corte no implementa el protocolo operativo ni cierra C4b-2.
 - La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
   documental: no demostraba el presupuesto del runner y dejaba incompletos
   framing, `ACK_CASO` y causa/estado. Se sustituyó sin programar por dos
@@ -60,11 +59,14 @@ instrucción de dirección.
   `docs/portal_vec/enmienda_f0_h0b_c4b2_g2s_separacion_capturada_2026-08-05.md`
   y la
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
-  G2-S obtuvo doble `GO` documental, `P0=P1=P2=0`, y queda autorizada como
-  única minitarea de código. G2-O permanece pendiente de revisión y no se
-  programa todavía. La evidencia está en
-  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_separacion_capturada_2026-08-05.md`.
-- Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
+  G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
+  G2-O recibió doble `NO-GO` documental: contradice cancelación/framing y no
+  cabe como una sola minitarea. El siguiente trabajo es **G2-O0**, únicamente
+  contrato, precedencias, dominios, write-set y ledger; después siguen O1–O6.
+  No se programa G2-O hasta el doble `GO` de O0. Las evidencias están en
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`
+  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
+- Después de G2-O1–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
   `24/46`, Bolsa productiva `1/14`; producción permanece en `NO-GO`.

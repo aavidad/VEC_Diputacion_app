@@ -2,8 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: segunda propuesta de dirección, pendiente de revisión independiente.
-Solo puede implementarse después del `GO` e integración de G2-S.
+Estado: **NO-GO documental**. La doble revisión detectó contradicciones de
+estado, framing y presupuesto; no se programa esta propuesta. Debe sustituirse
+por el desglose O0–O6 fijado en la
+[revisión independiente](revisiones/revision_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md).
 
 ## Alcance
 

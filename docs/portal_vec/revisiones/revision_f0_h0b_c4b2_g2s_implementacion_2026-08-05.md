@@ -57,8 +57,9 @@ aumentar el fichero.
   `git diff --check` verdes.
 
 La revisión no ejecutó Docker, PostgreSQL, red, SQL ni E2E porque G2-S solo
-prepara la separación capturada. Dirección ejecutará las puertas globales
-sobre el árbol integrado antes de publicar.
+prepara la separación capturada. Sobre el árbol integrado, dirección ejecutó
+con resultado verde `go test ./...`, `go test -race ./...`, `go vet ./...` y
+`scripts/verificar_calidad.sh`.
 
 ## Alcance
 

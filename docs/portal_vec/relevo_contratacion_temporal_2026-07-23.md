@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 02/08/2026
+# Relevo del frente de contratación temporal — actualizado el 05/08/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -13,8 +13,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último corte publicado completamente verde: `af829bb`; CI
-  `30742611847`, cinco de cinco puertas superadas.
+- Último corte publicado completamente verde antes de G2-S: `0a6de82`; CI
+  `30967899595`, cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO
@@ -24,8 +24,10 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `ffce19c`, con doble GO final, `P0=P1=P2=0`, H0 PostgreSQL 18.4 y
   [evidencia propia](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md).
   C4b-2/G1 queda integrado localmente en `f3d928d`–`d28d37d`, con doble `GO`,
-  `P0=P1=P2=0`, 100/100 autopruebas de dirección y puerta completa verde. El
-  siguiente corte exacto es la separación estructural previa a C4b-2/G2.
+  `P0=P1=P2=0`, 100/100 autopruebas de dirección y puerta completa verde.
+  C4b-2/G2-S queda integrado en `452f4f0`–`5808e18`, con doble `GO`, runner
+  800, G1 683, G2 91, 100/100 y puertas globales verdes. G2-O recibió doble
+  `NO-GO` documental y se divide en O0–O6; solo G2-O0 queda disponible.
   C4b-2, C4c, C4d, H0b, C2 y F0 siguen abiertos; las métricas no cambian.
 - La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
   mantiene `db240a5`, `075610f` y `1524feb` en `NO-GO`: Bash solo puede
@@ -69,8 +71,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
   `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
-  Trabajo activo: decisión de separación y C4b-2/G2, seguido de C4b-3, C4c y
-  C4d; después se implementará C2. Todavía no existe una migración `000007`
+  Trabajo activo: G2-O0, contrato y ledger, seguido por G2-O1–O6, C4b-3, C4c
+  y C4d; después se implementará C2. Todavía no existe una migración `000007`
   instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
@@ -120,8 +122,8 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es la decisión de separación previa
-a C4b-2/G2 dentro de C2.3-F0; ninguna
+y el tablero. La primera tarea disponible es G2-O0 dentro de C2.3-F0: corregir
+contrato, precedencias, dominios, write-set y ledger sin programar; ninguna
 rama de agente ni los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos

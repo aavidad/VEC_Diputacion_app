@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 2 de agosto de 2026.
+Última actualización: 5 de agosto de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -112,9 +112,11 @@ Los candidatos `db240a5`, `075610f` y `1524feb` permanecen registrados como
 `NO-GO` de ramas previas. C4b-2/G1 queda integrado localmente en
 `f3d928d`–`d28d37d`: doble `GO`, `P0=P1=P2=0`, primitivas pidfd y rollback
 sintético acreditados, 100/100 autopruebas de dirección y puerta completa
-verde. El siguiente corte exacto es la separación estructural previa a
-C4b-2/G2; todavía no existe una migración `000007` instalable ni cambian los
-tres hitos de O4-05 o las métricas.
+verde. G2-S queda integrado en `452f4f0`–`5808e18`, con doble `GO`, runner
+800, G1 683, G2 91, builds privados reproducibles y puerta global verde. G2-O
+recibió `NO-GO` documental y se divide en O0–O6; el siguiente corte exacto es
+G2-O0, solo contrato y ledger. Todavía no existe una migración `000007`
+instalable ni cambian los tres hitos de O4-05 o las métricas.
 
 Desglose verificable del camino crítico `O4-04`:
 

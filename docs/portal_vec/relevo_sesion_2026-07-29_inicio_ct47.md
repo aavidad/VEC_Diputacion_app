@@ -2,7 +2,7 @@
 
 Fecha: 29 de julio de 2026.
 
-## Corte técnico actual — 2 de agosto de 2026
+## Corte técnico actual — 5 de agosto de 2026
 
 El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` sobre la
 decisión `fb45b93`, con dos revisiones independientes finales `GO`,
@@ -15,8 +15,10 @@ F0 ni producción. C4a permanece integrado hasta `e130015`.
 régimen shell/señales, hijo/grupo y Docker/epílogo. C4b-2/G1 queda integrado
 localmente en `f3d928d`–`d28d37d`, con doble `GO`, `P0=P1=P2=0`, 100/100
 autopruebas de dirección y la puerta completa verde. G1 acredita primitivas
-pidfd y rollback sintético, no el protocolo operativo. El siguiente corte
-exacto es la decisión de separación previa a C4b-2/G2. Las métricas permanecen
+pidfd y rollback sintético, no el protocolo operativo. G2-S queda integrado en
+`452f4f0`–`5808e18`, con doble `GO`, `P0=P1=P2=0`, runner 800, G1 683, G2
+91 y puertas globales verdes. El siguiente corte exacto es G2-O0, corrección
+documental del contrato y ledger; no se programa protocolo todavía. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
@@ -24,9 +26,10 @@ completamente las cinco puertas de la CI `30963212221`.
 La primera propuesta conjunta G2 recibió `NO-GO` documental antes de código
 por presupuesto del runner no demostrado y protocolo incompleto. Se dividió en
 G2-S, separación capturada de seis fuentes, y G2-O, protocolo operativo. Las
-segundas propuestas fechadas el 5 de agosto. G2-S obtuvo doble `GO` documental,
-`P0=P1=P2=0`, y queda autorizada como única minitarea de código. G2-O sigue
-pendiente de revisión y no está autorizada.
+segundas propuestas fechadas el 5 de agosto. G2-S obtuvo doble `GO` documental
+y doble `GO` de implementación. G2-O recibió doble `NO-GO` documental por
+contradicciones de máquina, framing y presupuesto; se divide en O0–O6 y solo
+O0 queda disponible.
 
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
@@ -466,8 +469,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: decisión de separación y C4b-2/G2, seguido secuencialmente de
-C4b-3, C4c y C4d;
+Trabajo activo: G2-O0, contrato y ledger del protocolo operativo, seguido por
+las minitareas G2-O1–O6 y después, secuencialmente, C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
 `ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
@@ -548,8 +551,9 @@ a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
-`f3d928d`–`d28d37d`. El siguiente corte exacto es la separación previa a G2.
-La migración `000007` continúa bloqueada hasta cerrar
+`f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; la
+propuesta G2-O recibió `NO-GO` y el siguiente corte exacto es G2-O0. La
+migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
 ## Optimización probatoria CT88
