@@ -42,8 +42,8 @@ EOF y pueda recogerse sin señalización numérica.
 
 | Artefacto | SHA-256 |
 | --- | --- |
-| Fuente Go, 674 líneas físicas | `736adf31dcafd6314fbd937aae9f906e636b5a0c8fa7d7dd68bc5fb0c03bc08a` |
-| Binario Go 1.26.5, `CGO_ENABLED=0`, `GOAMD64=v1`, `-trimpath` | `fff235c390bf179e80e8a21101dd801e143fd5018c9871e6f64d9883a5cab3fb` |
+| Fuente Go, 754 líneas físicas | `c024ab13362bc6953028e185ab25a5c50f3a158efa444e9f407727e57d720b2f` |
+| Binario Go 1.26.5, `CGO_ENABLED=0`, `GOAMD64=v1`, `-trimpath` | `2b28a395956775aeebcbb5807cb89f00d3c9451db533304216077308a6e2c99b` |
 
 Dos compilaciones aisladas consecutivas produjeron la misma huella binaria.
 El runner fija ambas huellas antes de ejecutar la autoprueba.
@@ -51,7 +51,7 @@ El runner fija ambas huellas antes de ejecutar la autoprueba.
 ## Presupuesto
 
 Dirección autorizó priorizar claridad y controles sobre el objetivo local de
-300 líneas. El fichero queda en 674 líneas, por debajo del tope duro de 800 de
+300 líneas. El fichero queda en 754 líneas, por debajo del tope duro de 800 de
 DEC-051. Esta excepción no autoriza minificación ni crecimiento automático en
 G2: antes de G2 debe fijarse una separación compatible con la captura privada
 si la proyección amenaza el tope de 800.
@@ -66,6 +66,14 @@ si la proyección amenaza el tope de 800.
 - `bash -n` y ShellCheck del runner: verdes;
 - `git diff --check`: verde;
 - procesos residuales tras el estrés: cero.
+
+La primera revisión independiente de `4fdeddb` emitió `NO-GO`, con
+`P0=0`, `P1=1` y `P2=0`: un fallo de recepción `SCM_RIGHTS` podía matar solo
+al líder antes de registrar el pidfd del descendiente. La corrección marca los
+líderes tras `Start`, extingue el grupo completo por el pidfd del líder,
+conserva esa autoridad hasta `ECHILD` y `ESRCH`, y añade un mutante truncado
+determinista que ejerce exactamente la ruta anterior. El cierre sigue sujeto a
+una nueva doble revisión independiente del estado corregido.
 
 Faltan todavía la revisión funcional y la revisión de seguridad independientes,
 las puertas globales, el commit de aceptación y la integración. Este documento

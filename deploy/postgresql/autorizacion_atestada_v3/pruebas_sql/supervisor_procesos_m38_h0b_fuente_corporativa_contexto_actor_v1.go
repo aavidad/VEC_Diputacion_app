@@ -30,6 +30,7 @@ const (
 type proceso struct {
 	cmd      *exec.Cmd
 	pidfd    int
+	grupo    bool
 	esperado bool
 }
 
@@ -90,6 +91,9 @@ func autoprobar() (err error) {
 	if err = probarRollbackPosteriorAStart(); err != nil {
 		return err
 	}
+	if err = probarRollbackHandoffFallido(); err != nil {
+		return err
+	}
 	if err = probarLiderRecogido(r); err != nil {
 		return err
 	}
@@ -138,6 +142,56 @@ func probarRollbackPosteriorAStart() (err error) {
 	}
 	if err == nil && !sinHijos() {
 		err = errors.New("el rollback posterior a Start dejó hijos")
+	}
+	return err
+}
+
+func probarRollbackHandoffFallido() (err error) {
+	r := &recursos{}
+	defer func() {
+		if e := r.limpiar(); err == nil && e != nil {
+			err = e
+		}
+	}()
+	lider, canal, err := r.iniciar("lider-descendiente", 0, true)
+	if err != nil {
+		return err
+	}
+	canalAbierto := true
+	defer func() {
+		if canalAbierto {
+			_ = syscall.Close(canal)
+		}
+	}()
+	reserva, err := duplicarPidfd(lider.pidfd)
+	if err != nil {
+		return err
+	}
+	reservaAbierta := true
+	defer func() {
+		if reservaAbierta {
+			_ = syscall.Close(reserva)
+		}
+	}()
+	if recibido, fallo := recibirPidfd(canal, true); fallo == nil {
+		_ = syscall.Close(recibido)
+		return errors.New("el handoff truncado fue aceptado")
+	}
+	if err = r.limpiar(); err == nil {
+		err = exigirESRCH(reserva)
+	}
+	if errCierre := syscall.Close(canal); errCierre == nil {
+		canalAbierto = false
+	} else if err == nil {
+		err = errCierre
+	}
+	if errCierre := syscall.Close(reserva); errCierre == nil {
+		reservaAbierta = false
+	} else if err == nil {
+		err = errCierre
+	}
+	if err == nil && !sinHijos() {
+		err = errors.New("el rollback del handoff dejó hijos")
 	}
 	return err
 }
@@ -250,7 +304,7 @@ func probarLiderRecogido(r *recursos) error {
 			_ = syscall.Close(canal)
 		}
 	}()
-	fdDesc, err := recibirPidfd(canal)
+	fdDesc, err := recibirPidfd(canal, false)
 	if err != nil {
 		return err
 	}
@@ -324,7 +378,7 @@ func (r *recursos) iniciar(modo string, pgid int, conservarCanal bool) (*proceso
 		}
 		return nil, -1, errInicio
 	}
-	p := &proceso{cmd: cmd, pidfd: pidfd}
+	p := &proceso{cmd: cmd, pidfd: pidfd, grupo: pgid == 0}
 	r.procesos = append(r.procesos, p)
 	if errArchivo != nil {
 		_ = syscall.Close(par[0])
@@ -421,8 +475,12 @@ func servirAyudante(modo string, fd int) error {
 	return syscall.Close(fd)
 }
 
-func recibirPidfd(fd int) (int, error) {
-	datos := make([]byte, 32)
+func recibirPidfd(fd int, forzarTruncado bool) (int, error) {
+	tamanoDatos := 32
+	if forzarTruncado {
+		tamanoDatos = 1
+	}
+	datos := make([]byte, tamanoDatos)
 	control := make([]byte, syscall.CmsgSpace(4))
 	n, nc, flags, _, err := syscall.Recvmsg(fd, datos, control, syscall.MSG_CMSG_CLOEXEC)
 	mensajes, errorControl := syscall.ParseSocketControlMessage(control[:nc])
@@ -542,12 +600,40 @@ func (r *recursos) limpiar() error {
 		if !p.esperado {
 			var err error
 			if p.pidfd >= 0 {
-				_ = enviar(p.pidfd, syscall.SIGKILL, 0)
+				banderas := uintptr(0)
+				if p.grupo {
+					banderas = pidfdSignalProcessGroup
+				}
+				if errSenal := enviar(p.pidfd, syscall.SIGKILL, banderas); errSenal != nil &&
+					!errors.Is(errSenal, syscall.ESRCH) && primero == nil {
+					primero = errSenal
+				}
 				err = esperarProceso(p)
 			} else {
 				err = esperarProceso(p)
 			}
 			if primero == nil && err != nil {
+				primero = err
+			}
+		}
+	}
+	for _, fd := range r.adoptados {
+		if fd >= 0 {
+			if err := enviar(fd, syscall.SIGKILL, 0); err != nil &&
+				!errors.Is(err, syscall.ESRCH) && primero == nil {
+				primero = err
+			}
+			if err := esperarTerminal(fd); primero == nil && err != nil {
+				primero = err
+			}
+		}
+	}
+	if err := drenarHijos(); primero == nil && err != nil {
+		primero = err
+	}
+	for _, p := range r.procesos {
+		if p.grupo && p.pidfd >= 0 {
+			if err := exigirESRCH(p.pidfd); primero == nil && err != nil {
 				primero = err
 			}
 		}
@@ -558,19 +644,13 @@ func (r *recursos) limpiar() error {
 			p.pidfd = -1
 		}
 	}
-	for _, fd := range r.adoptados {
+	for i, fd := range r.adoptados {
 		if fd >= 0 {
-			_ = enviar(fd, syscall.SIGKILL, 0)
-			if err := esperarTerminal(fd); primero == nil && err != nil {
-				primero = err
-			}
 			if err := syscall.Close(fd); primero == nil && err != nil {
 				primero = err
 			}
+			r.adoptados[i] = -1
 		}
-	}
-	if err := drenarHijos(); primero == nil && err != nil {
-		primero = err
 	}
 	r.procesos = nil
 	r.adoptados = nil
