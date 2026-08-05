@@ -510,7 +510,7 @@ func exigirErrorLectorM38(lector *lectorTramaM38, fragmento []byte, fin bool, ob
 		return fmt.Errorf("tupla de error del lector discrepante: %w", objetivo)
 	}
 	trama, consumidos, resultado, repetido := lector.consumir([]byte("V1|CONTROL|INICIAR|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), true)
-	if repetido != err || consumidos != 0 || resultado != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) {
+	if repetido != err || consumidos != 0 || resultado != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) || lector.estado != lectorErrorTerminalM38 {
 		return fmt.Errorf("error del lector no pegajoso: %w", objetivo)
 	}
 	return nil
