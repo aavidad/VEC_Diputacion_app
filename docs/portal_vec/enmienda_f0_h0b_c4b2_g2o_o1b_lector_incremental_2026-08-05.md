@@ -86,7 +86,8 @@ resultado cero y el error tipado.
   propiedad del llamador.
 - El contador solo es significativo si el error es nulo.
 - El lector nunca conserva el fragmento completo ni el sobrante.
-- Solo copia los bytes que formen una trama parcial.
+- Solo copia los bytes que formen una trama parcial o una monoframa completa
+  pendiente de EOF.
 - La trama parcial usa almacenamiento fijo de 4096 bytes; su longitud nunca
   supera `limite-1`. Una monoframa completa pendiente de EOF puede ocupar su
   límite exacto, incluido LF, dentro de ese mismo almacenamiento fijo.
@@ -96,7 +97,7 @@ resultado cero y el error tipado.
   hasta ese LF. Sin LF, se detiene al alcanzar el límite, sin reservar memoria
   adicional.
 - Modificar el fragmento original después de una transición no puede alterar
-  la parcial retenida ni una trama ya producida.
+  la parcial retenida, la monoframa cruda de L2 ni una trama ya producida.
 - El buffer fijo interno se pone a cero tras entregar, cerrar o fallar. Las
   cadenas inmutables de una `tramaM38` ya entregada pertenecen al llamador y
   Go no permite prometer su borrado físico; O1b no conserva una segunda
@@ -177,6 +178,7 @@ El contador mide exclusivamente bytes del fragmento de la llamada actual:
 | L0 | vacío, sin EOF | `NECESITA_DATOS(0)`, L0 |
 | L0 | vacío, EOF, `CONTROL` | `EOF_LIMPIO(0)`, L3 |
 | L0 | vacío, EOF, monoframa | error `EOF_SIN_MONOTRAMA`, L4 |
+| L1 | vacío, sin EOF | `NECESITA_DATOS(0)`, L1 y parcial intacta |
 | L0/L1 | bytes sin LF, sin EOF y dentro del límite | `NECESITA_DATOS(len)`, L1 |
 | L0/L1 | bytes sin LF y EOF | error de EOF parcial, L4 |
 | L1 | vacío y EOF | error de EOF parcial, L4 |
@@ -224,8 +226,9 @@ Precedencia dentro de una transición:
 7. LF completa una trama dentro del máximo: `CONTROL` se entrega al codec O1a
    en ese momento; una monoframa sin EOF se conserva cruda en L2;
 8. un fallo del codec prevalece sobre el EOF declarado al final del fragmento;
-9. agotado el fragmento, EOF con parcial es EOF parcial; EOF sin parcial es
-   limpio; sin EOF se informa `NECESITA_DATOS`.
+9. agotado el fragmento, EOF con parcial es EOF parcial; en L0, EOF sin
+   parcial es limpio solo para `CONTROL` y es `EOF_SIN_MONOTRAMA` para las
+   otras clases; sin EOF se informa `NECESITA_DATOS` conservando el estado.
 
 En el mismo byte, el alfabeto inválido prevalece sobre el exceso físico porque
 se comprueba antes de la capacidad. Ambos resultados siguen siendo fallo
