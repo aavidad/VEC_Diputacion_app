@@ -2,11 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **tercera propuesta pendiente de doble revisión independiente**. La
-parada 400 fue aceptada documentalmente, pero la corrección real, legible y
-completa midió 391 líneas y superó su delta previsto. El productor se detuvo
-sin commit. Esta corrección eleva solo la parada a 420; no autoriza código hasta
-un nuevo doble GO y nunca autoriza O1b.
+Estado: **aceptada para finalizar exclusivamente la corrección O1a**. La parada
+400 fue insuficiente; la evidencia real midió G2=391. La corrección `6e0b985`
+obtuvo tres GO independientes con `P0=P1=P2=0` y eleva solo la parada a 420.
+Nunca autoriza O1b ni integra por sí misma el candidato.
 
 ## Motivo único
 
