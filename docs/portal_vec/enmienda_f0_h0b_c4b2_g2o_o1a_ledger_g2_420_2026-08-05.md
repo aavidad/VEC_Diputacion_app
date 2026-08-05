@@ -13,7 +13,7 @@ un nuevo doble GO y nunca autoriza O1b.
 El candidato O1a `b250d38` quedó en NO-GO por dos defectos funcionales, una
 matriz de mutantes insuficiente y una reserva previa a validación. G2 ocupa 299
 líneas y su parada aprobada era 320. Corregir con legibilidad y pruebas reales
-requiere 60..80 líneas adicionales.
+requiere 90..101 líneas adicionales; la medición detenida fue +92, G2=391.
 
 Esta enmienda cambia solo el presupuesto de G2 para corregir O1a. No modifica
 gramática, topología, autoridad, framing, O1b ni operación real.
