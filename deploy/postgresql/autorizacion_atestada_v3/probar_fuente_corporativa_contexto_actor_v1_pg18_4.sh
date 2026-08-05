@@ -274,7 +274,7 @@ capturar_auxiliares_privados_f0() {
             IFS='|' read -r fuente esperada <<<"${par}"
             [[ -f "${fuente}" && ! -L "${fuente}" &&
                "$(stat --printf='%a|%u|%F|%h' -- "${fuente}")" == "600|${EUID}|regular file|1" &&
-               "$(huella_local_f0 "${fuente}")" == "${esperada}" ]] || return 65
+               "$(/usr/bin/sha256sum -- "${fuente}")" == "${esperada}  ${fuente}" ]] || return 65
         done
         [[ "${fase}" == antes ]] || continue
         entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
