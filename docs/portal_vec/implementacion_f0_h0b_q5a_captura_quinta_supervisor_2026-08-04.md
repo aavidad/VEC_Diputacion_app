@@ -139,13 +139,14 @@ rechazan antes de invocar Go.
 El binario del supervisor queda como fichero privado 0700, del usuario
 efectivo, con un solo enlace y sin enlace simbólico. `/usr/bin/stat` y
 `/usr/bin/sha256sum` acreditan su forma y su SHA-256 determinista literal
-`eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`
+`4bd9e83093a345528b690197eec129fbe22cb029dc5f0ace40e82dd0333079a8`
 antes de ejecutarlo. El runner ejecuta su `--autoprueba` y exige además que un
 modo desconocido termine con 64.
 
-La fuente nueva tiene build constraint `linux && amd64`, no usa dependencias
-externas y no crea hijos, canales, SQL, Docker ni recursos de caso. La
-autoprueba:
+La fuente nueva tiene build constraint `ignore && linux && amd64`: queda fuera
+de las compilaciones ordinarias del paquete compartido con el capturador y el
+runner la valida y compila por nombre de fichero. No usa dependencias externas
+y no crea hijos, canales, SQL, Docker ni recursos de caso. La autoprueba:
 
 - convierte el proceso en líder de su propio grupo y comprueba PID/PGID;
 - ejecuta `pidfd_open(self)` mediante el ABI Linux/amd64;
@@ -188,7 +189,7 @@ Resultados:
 - binario privado sustituido después del build: 65, sin autoprueba y residuos 0;
 - marca de carga y destino superior del adaptador preexistentes como
   `readonly`: 65 y 65, residuos 0;
-- SHA-256 determinista del binario limpio: `eb0764c58c7eb2d954abdecc65769a10cfb1f1b4080e5f8c23e417af2df78d86`;
+- SHA-256 determinista del binario limpio: `4bd9e83093a345528b690197eec129fbe22cb029dc5f0ace40e82dd0333079a8`;
 - huellas D2d `9b137f13…5e81` y adaptador `98d22a30…8cb7` fijadas en el
   runner; hashes de D2c, H0b, capturador y supervisor Go invariantes;
 - `git diff --check`: limpio.

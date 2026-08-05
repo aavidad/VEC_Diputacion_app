@@ -1,6 +1,7 @@
-//go:build linux && amd64
+//go:build ignore && linux && amd64
 
 // Supervisor probatorio M38; no forma parte del producto.
+// El runner lo compila por fichero para no incorporarlo al paquete del capturador.
 package main
 
 import (
