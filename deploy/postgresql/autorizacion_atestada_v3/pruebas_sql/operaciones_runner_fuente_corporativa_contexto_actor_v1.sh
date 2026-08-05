@@ -11,6 +11,25 @@ fi
 unset VEC_F0_CARGA_PRIVADA
 declare -g temporales
 
+# shellcheck disable=SC2154  # Aportado por el runner acreditado.
+derivar_repo_base_h0_f0() {
+    docker exec "${contenedor}" bash -ceu '
+export LC_ALL=C
+directorio=/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes
+archivos=(010_validadores.sql 020_canon_manifiesto.sql 030_canon_capacidad_mac.sql
+  040_canon_consumo.sql 050_catalogo_fuente_checkpoint.sql 060_atestacion_consumo.sql
+  070_acreditar_material_fuente.sql)
+for archivo in "${archivos[@]}"; do
+  nodo=$directorio/$archivo
+  [[ -f $nodo && ! -L $nodo && $(stat --printf="%a|%h" -- "$nodo") == "600|1" ]] || exit 65
+  rm -- "$nodo" || exit 65
+done
+[[ -d $directorio && ! -L $directorio && $(stat --printf=%a -- "$directorio") == 700 ]] || exit 65
+[[ -z $(find "$directorio" -mindepth 1 -print -quit) ]] || exit 65
+rmdir -- "$directorio" || exit 65
+'
+}
+
 huella_contenedor_f0() {
     # shellcheck disable=SC2154
     docker exec "${contenedor}" sha256sum "$1" | awk '{print $1}'
