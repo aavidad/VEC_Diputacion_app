@@ -22,8 +22,10 @@ superó el máximo +265. Runner, G1 y el resto continúan invariantes y
 `NO-GO` por presupuesto, enganche incorrecto de la autoprueba y matriz
 incompleta. El ledger correctivo quedó documentado en `e5e69e8`, corregido en
 `fb9e966` tras un NO-GO aritmético y aceptado con doble GO final,
-`P0=P1=P2=0`. El siguiente trabajo es corregir el mismo candidato bajo la
-parada 790 y obtener doble revisión de código; O2 permanece cerrado.
+`P0=P1=P2=0`. El candidato `56c0ac0` quedó después en 788 líneas y obtuvo GO
+de reproducibilidad, pero NO-GO funcional por mutantes de constructor,
+contenido y estado. El siguiente trabajo es revisar la enmienda de corrección
+hasta 800; no se edita código antes del GO y O2 permanece cerrado.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,
