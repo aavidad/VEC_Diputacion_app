@@ -2,9 +2,9 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **segunda propuesta pendiente de doble revisión independiente**. La
-primera obtuvo dos GO y un NO-GO por mezclar la base candidata con la rama
-integradora. No autoriza código hasta obtener `P0=P1=P2=0` de dos revisores.
+Estado: **aceptada para corregir exclusivamente O1a**. La primera propuesta
+obtuvo dos GO y un NO-GO por mezclar bases; la corrección `3b6c513` obtuvo tres
+GO independientes con `P0=P1=P2=0`. No autoriza O1b ni integra el candidato.
 
 ## Motivo único
 
