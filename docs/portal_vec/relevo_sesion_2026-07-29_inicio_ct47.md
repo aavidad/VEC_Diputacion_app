@@ -21,6 +21,13 @@ en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
 
+La primera propuesta conjunta G2 recibió `NO-GO` documental antes de código
+por presupuesto del runner no demostrado y protocolo incompleto. Se dividió en
+G2-S, separación capturada de seis fuentes, y G2-O, protocolo operativo. Las
+segundas propuestas fechadas el 5 de agosto permanecen pendientes de nueva
+revisión independiente; la siguiente sesión no programa hasta obtener el
+doble `GO` de G2-S.
+
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
 señales estándar no permiten prometer «gana el primer `kill`»: C4b-1 debe

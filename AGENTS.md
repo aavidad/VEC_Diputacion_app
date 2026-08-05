@@ -53,6 +53,15 @@ instrucción de dirección.
   incorpora después `ARMAR/ACK_LISTO/INICIAR|CANCELAR/ACK_CASO/recibo`,
   `/usr/bin/bash -p`, FD 3..9, plazo monotónico, único `Wait` y extinción
   completa. No se minifican controles para hacerla caber.
+- La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
+  documental: no demostraba el presupuesto del runner y dejaba incompletos
+  framing, `ACK_CASO` y causa/estado. Se sustituyó sin programar por dos
+  documentos acotados: la
+  `docs/portal_vec/enmienda_f0_h0b_c4b2_g2s_separacion_capturada_2026-08-05.md`
+  y la
+  `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
+  Ambos están **pendientes de nueva revisión independiente**. La siguiente
+  sesión revisa primero G2-S; ningún código G2 está autorizado todavía.
 - Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
