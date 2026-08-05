@@ -2,7 +2,13 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **propuesta para revisión independiente; NO-GO para editar código**.
+Estado: **aceptada para corregir exclusivamente O1b**. `878d724` recibió
+NO-GO documental con dos P1; `a6db818` cerró ambos y obtuvo doble GO final,
+`P0=P1=P2=0`. `56c0ac0` continúa en NO-GO para integrar hasta completar la
+corrección, puertas y doble revisión de código.
+
+Acta:
+[revisión de la corrección final O1b](revisiones/revision_f0_h0b_c4b2_g2o_o1b_correccion_final_800_2026-08-05.md).
 
 Base candidata: `56c0ac079419b187f851de8183d5f87b5b367b71`.
 

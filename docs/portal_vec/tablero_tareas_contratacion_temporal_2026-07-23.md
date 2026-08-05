@@ -116,7 +116,8 @@ verde. G2-S queda integrado en `452f4f0`–`5808e18`, con doble `GO`, runner
 800, G1 683, G2 91, builds privados reproducibles y puerta global verde. G2-O
 se divide en O0–O6; O1a está integrada y O1b tiene contrato y ledger
 correctivo 790 aceptados hasta `fb9e966`. El candidato `56c0ac0` está en
-NO-GO funcional y su corrección hasta 800 espera revisión documental. Todavía no existe una migración `000007`
+NO-GO funcional; su corrección hasta 800 está autorizada en `a6db818` y espera
+implementación y doble revisión. Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.
 
 Desglose verificable del camino crítico `O4-04`:

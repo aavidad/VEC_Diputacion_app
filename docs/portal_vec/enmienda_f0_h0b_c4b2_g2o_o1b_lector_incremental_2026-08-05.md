@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **candidato O1b en NO-GO; nueva corrección documental pendiente**. La semántica
+Estado: **corrección final O1b autorizada; candidato todavía NO-GO**. La semántica
 obtuvo triple GO en `4b765eb`, pero el primer árbol material alcanzó G2=678 y
 delta +278, por encima del ledger +265. No se confirmó ni integró. La
 [enmienda correctiva 790](enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md)
@@ -10,7 +10,8 @@ obtuvo doble GO final en `fb9e966` y sustituyó exclusivamente las tablas de
 delta/totales y los umbrales `+265/680` de este documento. El candidato
 `56c0ac0` alcanzó 788 líneas y recibió NO-GO funcional. La
 [corrección final 800](enmienda_f0_h0b_c4b2_g2o_o1b_correccion_final_800_2026-08-05.md)
-requiere revisión antes de editar; no acepta el candidato ni abre O2.
+obtuvo doble GO en `a6db818`; autoriza corregir G2, pero no acepta el
+candidato ni abre O2.
 
 Base exacta: `67331c695d217adeca9efd7142c612c3bc6652e6`.
 

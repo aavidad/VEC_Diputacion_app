@@ -21,8 +21,9 @@ pidfd y rollback sintético, no el protocolo operativo. G2-S queda integrado en
 aceptada; su primer candidato quedó detenido en 678 líneas. El ledger
 correctivo 790 quedó aceptado en `e5e69e8`–`fb9e966` con doble GO final. El
 candidato `56c0ac0` llegó a 788 líneas, pero recibió NO-GO funcional por tres
-mutantes supervivientes. El siguiente corte exacto es revisar la enmienda de
-corrección hasta 800; O2 permanece cerrado. Las métricas permanecen
+mutantes supervivientes. La corrección final quedó aceptada en
+`878d724`–`a6db818` con doble GO. El siguiente corte exacto es corregir y
+revisar G2 hasta la parada 800; O2 permanece cerrado. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
@@ -473,8 +474,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: revisión de la corrección G2-O/O1b hasta la parada 800; solo
-tras el GO se corrige `56c0ac0`. Después siguen G2-O2–O6 y, secuencialmente,
+Trabajo activo: corrección y doble revisión de `56c0ac0` bajo la parada 800.
+Después siguen G2-O2–O6 y, secuencialmente,
 C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
@@ -557,8 +558,9 @@ efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
 `f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a está
-integrada y el candidato O1b `56c0ac0` queda en NO-GO funcional. El siguiente
-corte exacto es revisar su enmienda de corrección hasta 800. La
+integrada y el candidato O1b `56c0ac0` queda en NO-GO funcional. Su corrección
+final está autorizada hasta `a6db818`; el siguiente corte exacto es aplicarla
+y revisarla. La
 migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
