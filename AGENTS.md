@@ -23,9 +23,10 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde: `67331c6`, ejecución
-  `30975491534`, cinco de cinco puertas superadas. Incluye el cierre O1a; la
-  puerta de calidad global terminó correctamente en 13m54s.
+- Último corte remoto completamente verde: `fac31c9`, ejecución
+  `30994407821`, cinco de cinco puertas superadas. Incluye la autorización
+  documental inicial de O1b; el candidato posterior quedó detenido sin commit
+  y no forma parte de ese corte.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -58,11 +59,13 @@ instrucción de dirección.
   G2 400, dos builds privados reproducibles, modo `--supervisar-m38` cerrado
   en 64 y puertas globales/carrera/calidad verdes. No abre FD, proceso, Bash
   operativo, Docker, PostgreSQL, SQL o red.
-- El contrato y ledger de O1b están aceptados localmente en
-  `6f4a118`–`4b765eb` después de dos rondas `NO-GO` y triple GO final,
-  `P0=P1=P2=0`. Autoriza solo el lector incremental puro en G2 y dos literales
-  SHA del runner: G2 parte de 400 líneas, prevé 585..665 y se detiene en 680;
-  G1 y los demás componentes son invariantes. Todavía no existe código O1b.
+- La semántica O1b quedó aceptada en `6f4a118`–`4b765eb`, pero su primer árbol
+  material está detenido sin commit: solo G2 cambió, pasó de 400 a 678 líneas
+  y delta +278 superó el ledger +265. Runner, G1 y demás componentes siguen
+  invariantes. Dos revisiones dieron `NO-GO` por presupuesto, enganche de
+  autoprueba y matriz incompleta. La propuesta
+  `docs/portal_vec/enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md`
+  requiere revisión antes de reanudar código.
 - La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
   documental: no demostraba el presupuesto del runner y dejaba incompletos
   delimitación de tramas, `ACK_CASO` y causa/estado. Se sustituyó sin programar
@@ -72,8 +75,9 @@ instrucción de dirección.
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0 y O1a ya están
-  cerrados. El siguiente trabajo es **implementar O1b** exactamente según su
-  contrato aceptado; O2 y fases posteriores siguen cerradas. Las evidencias
+  cerrados. El siguiente trabajo es **revisar el ledger correctivo O1b**; no se
+  reanuda su implementación antes del GO. O2 y fases posteriores siguen
+  cerradas. Las evidencias
   están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`

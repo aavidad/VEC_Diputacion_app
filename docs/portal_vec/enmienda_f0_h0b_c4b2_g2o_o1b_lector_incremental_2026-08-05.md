@@ -2,8 +2,11 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para implementar exclusivamente O1b**. La corrección final
-`4b765eb` obtuvo triple GO independiente con `P0=P1=P2=0`.
+Estado: **implementación O1b detenida; NO-GO para reanudar**. La semántica
+obtuvo triple GO en `4b765eb`, pero el primer árbol material alcanzó G2=678 y
+delta +278, por encima del ledger +265. No se confirmó ni integró. El ledger
+de este documento queda suspendido a la espera de revisar la
+[enmienda correctiva 790](enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md).
 
 Base exacta: `67331c695d217adeca9efd7142c612c3bc6652e6`.
 
@@ -12,6 +15,9 @@ autoriza O2, no activa `--supervisar-m38` y no modifica métricas.
 
 Acta:
 [revisión independiente del contrato O1b](revisiones/revision_f0_h0b_c4b2_g2o_o1b_contrato_2026-08-05.md).
+
+Parada material:
+[revisión del primer candidato detenido](revisiones/revision_f0_h0b_c4b2_g2o_o1b_candidato_detenido_2026-08-05.md).
 
 ## Responsabilidad única
 
