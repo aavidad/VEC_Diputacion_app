@@ -2,11 +2,13 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **implementación O1b detenida; NO-GO para reanudar**. La semántica
+Estado: **corrección O1b autorizada; candidato todavía NO-GO**. La semántica
 obtuvo triple GO en `4b765eb`, pero el primer árbol material alcanzó G2=678 y
-delta +278, por encima del ledger +265. No se confirmó ni integró. El ledger
-de este documento queda suspendido a la espera de revisar la
-[enmienda correctiva 790](enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md).
+delta +278, por encima del ledger +265. No se confirmó ni integró. La
+[enmienda correctiva 790](enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md)
+obtuvo doble GO final en `fb9e966` y sustituye exclusivamente las tablas de
+delta/totales y los umbrales `+265/680` de este documento. Autoriza corregir
+el mismo árbol hasta la parada 790; no lo acepta ni abre O2.
 
 Base exacta: `67331c695d217adeca9efd7142c612c3bc6652e6`.
 

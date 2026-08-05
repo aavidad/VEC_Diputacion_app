@@ -2,7 +2,14 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **propuesta para revisión independiente; NO-GO para reanudar código**.
+Estado: **aceptada para corregir exclusivamente O1b**. La propuesta
+`e5e69e8` recibió un NO-GO aritmético y un GO; `fb9e966` eliminó la
+ambigüedad y obtuvo doble GO final, `P0=P1=P2=0`. El árbol detenido no queda
+aceptado por ello: debe corregirse, superar sus puertas y recibir doble
+revisión independiente de código.
+
+Acta:
+[revisión del ledger correctivo O1b](revisiones/revision_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md).
 
 Base integrada: `fac31c939c30715d30bd5273a9ab578c27fb4e16`.
 
@@ -31,7 +38,7 @@ Esta enmienda cambia únicamente el presupuesto y enumera la corrección
 obligatoria. No modifica firma, estados, resultados, errores, gramática,
 propiedad, límites, régimen mono/multitrama, write-set o prohibición de O2.
 
-Cuando obtenga el GO documental, sustituirá exclusivamente las tablas de
+Desde el GO documental, sustituye exclusivamente las tablas de
 delta y totales y los umbrales de parada `+265/680` del apartado «Ledger
 físico de O1b» del contrato original. Permanecen vigentes sin modificación la
 firma, los estados, resultados, errores, precedencias, matriz funcional,

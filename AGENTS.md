@@ -63,9 +63,11 @@ instrucción de dirección.
   material está detenido sin commit: solo G2 cambió, pasó de 400 a 678 líneas
   y delta +278 superó el ledger +265. Runner, G1 y demás componentes siguen
   invariantes. Dos revisiones dieron `NO-GO` por presupuesto, enganche de
-  autoprueba y matriz incompleta. La propuesta
+  autoprueba y matriz incompleta. La propuesta y corrección
   `docs/portal_vec/enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md`
-  requiere revisión antes de reanudar código.
+  quedaron en `e5e69e8`–`fb9e966`: un NO-GO aritmético fue corregido y dos
+  revisores dieron GO final, `P0=P1=P2=0`. Ya se autoriza corregir el mismo
+  candidato hasta la parada 790; todavía no se autoriza integrarlo.
 - La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
   documental: no demostraba el presupuesto del runner y dejaba incompletos
   delimitación de tramas, `ACK_CASO` y causa/estado. Se sustituyó sin programar
@@ -75,9 +77,9 @@ instrucción de dirección.
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0 y O1a ya están
-  cerrados. El siguiente trabajo es **revisar el ledger correctivo O1b**; no se
-  reanuda su implementación antes del GO. O2 y fases posteriores siguen
-  cerradas. Las evidencias
+  cerrados. El siguiente trabajo es **corregir y probar O1b bajo el ledger
+  790**, seguido de doble revisión independiente. O2 y fases posteriores
+  siguen cerradas. Las evidencias
   están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`

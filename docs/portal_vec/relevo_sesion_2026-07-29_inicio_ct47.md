@@ -17,8 +17,11 @@ localmente en `f3d928d`–`d28d37d`, con doble `GO`, `P0=P1=P2=0`, 100/100
 autopruebas de dirección y la puerta completa verde. G1 acredita primitivas
 pidfd y rollback sintético, no el protocolo operativo. G2-S queda integrado en
 `452f4f0`–`5808e18`, con doble `GO`, `P0=P1=P2=0`, runner 800, G1 683, G2
-91 y puertas globales verdes. El siguiente corte exacto es G2-O0, corrección
-documental del contrato y ledger; no se programa protocolo todavía. Las métricas permanecen
+91 y puertas globales verdes. O1a está integrada y O1b tiene semántica
+aceptada; su primer candidato quedó detenido en 678 líneas. El ledger
+correctivo 790 quedó aceptado en `e5e69e8`–`fb9e966` con doble GO final. El
+siguiente corte exacto es corregir y revisar ese candidato O1b; O2 permanece
+cerrado. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
@@ -469,8 +472,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: G2-O0, contrato y ledger del protocolo operativo, seguido por
-las minitareas G2-O1–O6 y después, secuencialmente, C4b-3, C4c y C4d;
+Trabajo activo: corrección y doble revisión de G2-O/O1b bajo la parada 790,
+seguido por las minitareas G2-O2–O6 y después, secuencialmente, C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
 `ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
@@ -551,8 +554,9 @@ a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
-`f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; la
-propuesta G2-O recibió `NO-GO` y el siguiente corte exacto es G2-O0. La
+`f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a está
+integrada y el ledger correctivo de O1b queda aceptado hasta `fb9e966`. El
+siguiente corte exacto es corregir y revisar O1b. La
 migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 

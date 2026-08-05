@@ -44,12 +44,13 @@ Los hallazgos materiales son:
 `go vet`, build privado, reproducibilidad, autoprueba mediante runner, Docker,
 PostgreSQL, red, E2E o puertas globales para este estado.
 
-## Continuación autorizable
+## Continuación autorizada, sin aceptación del candidato
 
-No se corrige el árbol hasta aprobar la
-[enmienda de ledger 790](../enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md).
-Después debe mantenerse el mismo worktree sin commit, corregir primero el
-enganche, completar la matriz, actualizar al final solo dos huellas del runner
-y obtener doble revisión independiente.
+La
+[enmienda de ledger 790](../enmienda_f0_h0b_c4b2_g2o_o1b_ledger_correctivo_790_2026-08-05.md)
+obtuvo doble GO final en `fb9e966`. Debe mantenerse el mismo worktree sin
+commit, corregir primero el enganche, completar la matriz, actualizar al final
+solo dos huellas del runner y obtener doble revisión independiente. El estado
+material descrito por esta acta continúa en NO-GO hasta superar esas puertas.
 
 El NO-GO no modifica métricas ni abre O2.

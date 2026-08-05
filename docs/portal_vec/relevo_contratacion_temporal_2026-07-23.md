@@ -27,7 +27,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `P0=P1=P2=0`, 100/100 autopruebas de dirección y puerta completa verde.
   C4b-2/G2-S queda integrado en `452f4f0`–`5808e18`, con doble `GO`, runner
   800, G1 683, G2 91, 100/100 y puertas globales verdes. G2-O recibió doble
-  `NO-GO` documental y se divide en O0–O6; solo G2-O0 queda disponible.
+  `NO-GO` documental y se divide en O0–O6. O1a está integrada; la semántica
+  O1b y su ledger correctivo 790 están aceptados hasta `fb9e966`. El candidato
+  O1b sigue sin commit y debe corregirse y revisarse antes de integrar.
   C4b-2, C4c, C4d, H0b, C2 y F0 siguen abiertos; las métricas no cambian.
 - La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
   mantiene `db240a5`, `075610f` y `1524feb` en `NO-GO`: Bash solo puede
@@ -71,9 +73,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
   `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
-  Trabajo activo: G2-O0, contrato y ledger, seguido por G2-O1–O6, C4b-3, C4c
-  y C4d; después se implementará C2. Todavía no existe una migración `000007`
-  instalable.
+  Trabajo activo: corrección y doble revisión de O1b bajo la parada 790,
+  seguida por G2-O2–O6, C4b-3, C4c y C4d; después se implementará C2. Todavía
+  no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
   [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
@@ -122,8 +124,8 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es G2-O0 dentro de C2.3-F0: corregir
-contrato, precedencias, dominios, write-set y ledger sin programar; ninguna
+y el tablero. La primera tarea disponible es corregir el candidato O1b ya
+detenido, exclusivamente bajo el contrato y ledger 790 aceptados; ninguna
 rama de agente ni los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos
