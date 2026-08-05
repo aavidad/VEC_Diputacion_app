@@ -25,8 +25,9 @@ registra la trazabilidad completa. El análisis posterior detuvo O2a antes de
 código porque runner y G2 ocupan 800/800 y 798/800. El siguiente trabajo es
 implementar O2a-P0, ya aceptada con doble GO documental: un traslado
 estructural byte a byte sin cambio funcional que prepara capacidad para G3.
-No autoriza G3 ni S0. O2b conserva «ARMAR y cancelación sin Bash»; los ACK
-vivos ya no existen.
+Su enmienda local de ShellCheck también obtuvo doble GO: runner 783 y D2d 164,
+sin declarar la variable externa ni ampliar la exclusión. No autoriza G3 ni S0.
+O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos ya no existen.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,

@@ -83,10 +83,12 @@ instrucción de dirección.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0, O1a y O1b ya
   están cerrados. El análisis O2a acreditó que G2 798/800 y runner 800/800 no
-  admiten código nuevo. O2a-P0 obtuvo doble GO documental, `P0=P1=P2=0`. El
+  admiten código nuevo. O2a-P0 y su enmienda local de ShellCheck obtuvieron
+  doble GO documental, `P0=P1=P2=0`. El
   siguiente trabajo es **implementar exclusivamente O2a-P0 sobre `ec53009`**:
   mover byte a byte `derivar_repo_base_h0_f0` a D2d, dejar runner 783 y D2d
-  163, sin crear G3 ni cambiar conducta. Requiere doble revisión de código.
+  164, incluida la única directiva local autorizada, sin crear G3 ni cambiar
+  conducta. Requiere doble revisión de código.
   O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos fueron eliminados
   por la corrección O1a. O2 y fases posteriores siguen cerradas. Las evidencias
   están en

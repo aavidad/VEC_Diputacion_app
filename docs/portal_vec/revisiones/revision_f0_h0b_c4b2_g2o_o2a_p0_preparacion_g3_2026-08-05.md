@@ -45,3 +45,39 @@ O2a-P0 queda autorizada exclusivamente sobre la base fijada y dentro de su
 write-set. No autoriza crear G3, implementar S0, O2a u O2b ni cambiar métricas.
 El candidato necesita dos revisiones independientes nuevas y todas las puertas
 definidas antes de integrarse.
+
+## Hallazgo material posterior
+
+El primer intento de código se detuvo sin commit: el traslado literal conservó
+el bloque y las líneas previstas, pero ShellCheck no puede inferir desde D2d
+que `contenedor` ya fue aportado por el runner acreditado y emitió `SC2154`.
+
+La decisión propone una enmienda acotada: una sola directiva local de
+ShellCheck antes de la definición, sin declarar la variable, sin exclusión
+global y sin cambiar el cuerpo de 17 líneas. El ledger corregido deja D2d en
+164 líneas.
+
+## Dictámenes de la enmienda
+
+| Revisión | P0 | P1 | P2 | Veredicto |
+| --- | ---: | ---: | ---: | --- |
+| Alcance funcional, orden y fallo cerrado | 0 | 0 | 0 | GO |
+| Ledger, huellas y análisis estático | 0 | 0 | 0 | GO |
+
+Ambas revisiones reprodujeron el único `SC2154`, comprobaron en memoria que la
+directiva exacta lo elimina sin ocultar otros usos no declarados y acreditaron
+el orden `contenedor` → captura/carga privada → llamada. También reprodujeron:
+
+- runner 783 y D2d 164;
+- bloque de 17 líneas con SHA-256
+  `aae98945ae26e7b4f2637e662157bdaf26a414d3100b046d2c91c4cf1fa59d74`;
+- D2d virtual corregido con SHA-256
+  `039b75dd15a2888798c7f257c46fdbb97587cbdd4a6519e11cb043cce0e72e5e`;
+- runner virtual corregido con SHA-256
+  `da6871ca174890c85eb93ee4cfac15f32ecd1ac046d84d24fa68170ac34c52e9`;
+- `bash -n`, ShellCheck y ejecución directa en 64;
+- seis fuentes, sin G3, S0, O2a, O2b ni ACK vivos.
+
+La enmienda queda autorizada. El candidato puede reanudarse únicamente para
+añadir esa directiva y actualizar la huella; todavía necesita dos revisiones
+independientes de código y todas las puertas antes de integrarse.

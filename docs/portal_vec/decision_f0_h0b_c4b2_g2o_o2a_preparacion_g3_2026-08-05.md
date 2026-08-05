@@ -2,8 +2,9 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para implementar únicamente O2a-P0**, tras doble revisión
-documental final con `P0=P1=P2=0`.
+Estado: **aceptada para implementar únicamente O2a-P0 con su enmienda local**.
+La autorización original y la enmienda de ShellCheck obtuvieron, cada una, dos
+revisiones documentales independientes con `P0=P1=P2=0`.
 
 Acta:
 [revisión O2a-P0](revisiones/revision_f0_h0b_c4b2_g2o_o2a_p0_preparacion_g3_2026-08-05.md).
@@ -38,6 +39,41 @@ séptima sin preparar antes espacio legible.
 
 Esta decisión crea una minitarea estructural real, O2a-P0, previa al contrato
 funcional y a la fuente G3. No crea un fichero vacío ni implementa O2a.
+
+## Hallazgo del primer intento material
+
+El primer intento partió de la base exacta fijada y se detuvo sin commit tras
+realizar el traslado literal. El runner quedó en 783 líneas, D2d en 163 y el
+bloque conservó su huella, pero ShellCheck rechazó D2d de forma aislada con
+`SC2154`: la función trasladada usa `contenedor`, que el runner inicializa
+antes de capturar y cargar D2d, aunque el análisis estático del auxiliar no
+puede observar ese contrato externo.
+
+No se acepta declarar o inicializar `contenedor` en D2d porque modificaría el
+entorno de ejecución para satisfacer una herramienta. Tampoco se acepta una
+exclusión global que pudiera ocultar futuros usos sin contrato.
+
+La corrección propuesta añade inmediatamente antes de la definición trasladada
+una única directiva local, documental y sin efecto en ejecución:
+
+```bash
+# shellcheck disable=SC2154  # Aportado por el runner acreditado.
+derivar_repo_base_h0_f0() {
+```
+
+La directiva no forma parte del cuerpo de 17 líneas y no cambia su huella. El
+runner ya asigna `contenedor` antes de `capturar_auxiliares_privados_f0`; D2d
+se carga dentro de esa operación y su ejecución directa sale en 64 antes de
+alcanzar la directiva. Con la corrección, D2d debe ocupar 164 líneas. Sus dos
+dictámenes documentales independientes dieron `GO`, `P0=P1=P2=0`; el candidato
+puede reanudarse dentro del mismo write-set.
+
+La materialización exacta de la directiva sobre el árbol detenido debe producir
+estas huellas antes de cualquier otra prueba:
+
+- D2d: `039b75dd15a2888798c7f257c46fdbb97587cbdd4a6519e11cb043cce0e72e5e`;
+- runner, tras acreditar esa huella:
+  `da6871ca174890c85eb93ee4cfac15f32ecd1ac046d84d24fa68170ac34c52e9`.
 
 ## Prevalencia y corrección de trazabilidad
 
@@ -86,13 +122,14 @@ Se conservan literalmente:
 
 1. runner, retirando las 17 líneas de la función y actualizando el literal SHA
    de D2d;
-2. D2d, incorporando esas 17 líneas y una separación visual legible;
+2. D2d, incorporando esas 17 líneas, una separación visual legible y la única
+   directiva local de ShellCheck fijada por la enmienda;
 3. documentación y evidencia de la propia minitarea.
 
 | Unidad | Base | Previsión | Parada |
 | --- | ---: | ---: | ---: |
 | Runner | 800 | 783 | 783 |
-| D2d | 145 | 163 | 163 |
+| D2d | 145 | 164 | 164 |
 | G1 | 686 | 686 | 686 |
 | G2 | 798 | 798 | 798 |
 | Manifiesto | 6 fuentes | 6 | 6 |
@@ -103,7 +140,9 @@ FD, modo, dependencia o entrada de manifiesto.
 
 Se detiene sin commit si:
 
-- el runner no queda exactamente en 783 líneas o D2d en 163;
+- el runner no queda exactamente en 783 líneas o D2d en 164;
+- se declara o inicializa `contenedor` en D2d, o se desactiva `SC2154` fuera de
+  la única definición trasladada;
 - la función cambia semántica o posición relativa de ejecución;
 - cambia cualquier unidad invariante o el binario Go;
 - el manifiesto deja de contener las mismas seis fuentes;
