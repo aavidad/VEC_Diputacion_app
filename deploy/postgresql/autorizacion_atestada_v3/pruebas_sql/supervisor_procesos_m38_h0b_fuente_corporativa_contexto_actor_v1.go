@@ -76,6 +76,9 @@ func autoprobar() (err error) {
 	if err = autoprobarABI(); err != nil {
 		return err
 	}
+	if err = autoprobarTramasM38(); err != nil {
+		return err
+	}
 	if err = activarSubreaper(); err != nil {
 		return err
 	}
