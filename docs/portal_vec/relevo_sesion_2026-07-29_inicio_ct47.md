@@ -12,11 +12,14 @@ acredita régimen shell y señales diferidas; no cierra C4b, C4c, C4d, H0b, C2,
 F0 ni producción. C4a permanece integrado hasta `e130015`.
 
 `e55930c` divide obligatoriamente C4b en tres minitareas secuenciales:
-régimen shell/señales, hijo/grupo y Docker/epílogo. Integrado en la rama el
-checkpoint C4b-1, el siguiente corte exacto es C4b-2. Las métricas permanecen
+régimen shell/señales, hijo/grupo y Docker/epílogo. C4b-2/G1 queda integrado
+localmente en `f3d928d`–`d28d37d`, con doble `GO`, `P0=P1=P2=0`, 100/100
+autopruebas de dirección y la puerta completa verde. G1 acredita primitivas
+pidfd y rollback sintético, no el protocolo operativo. El siguiente corte
+exacto es la decisión de separación previa a C4b-2/G2. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
-`1/14` y producción `NO-GO`. El corte publicado `af829bb` superó
-completamente las cinco puertas de la CI `30742611847`.
+`1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
+completamente las cinco puertas de la CI `30963212221`.
 
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las
@@ -456,7 +459,8 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: C4b-2, seguido secuencialmente de C4b-3, C4c y C4d;
+Trabajo activo: decisión de separación y C4b-2/G2, seguido secuencialmente de
+C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
 `ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
@@ -536,8 +540,9 @@ autoinscripción y PDP selector; reutiliza V3 mediante F0, limita ContextoActor
 a tres migraciones M5–M7, segrega publicar/revocar/despachar y exige consumo,
 efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
-checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`. El siguiente
-corte exacto es C4b-2. La migración `000007` continúa bloqueada hasta cerrar
+checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
+`f3d928d`–`d28d37d`. El siguiente corte exacto es la separación previa a G2.
+La migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
 ## Optimización probatoria CT88

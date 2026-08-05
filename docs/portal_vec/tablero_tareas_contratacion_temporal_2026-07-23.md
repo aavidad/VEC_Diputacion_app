@@ -109,9 +109,12 @@ C4b-1 queda integrado en la rama hasta `ffce19c` sobre la
 con doble GO final, `P0=P1=P2=0`, H0 PostgreSQL 18.4 y
 [evidencia reproducible](revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md).
 Los candidatos `db240a5`, `075610f` y `1524feb` permanecen registrados como
-`NO-GO` de ramas previas. El siguiente corte exacto es C4b-2; todavía no
-existe una migración `000007` instalable ni cambian los tres hitos de O4-05 o
-las métricas.
+`NO-GO` de ramas previas. C4b-2/G1 queda integrado localmente en
+`f3d928d`–`d28d37d`: doble `GO`, `P0=P1=P2=0`, primitivas pidfd y rollback
+sintético acreditados, 100/100 autopruebas de dirección y puerta completa
+verde. El siguiente corte exacto es la separación estructural previa a
+C4b-2/G2; todavía no existe una migración `000007` instalable ni cambian los
+tres hitos de O4-05 o las métricas.
 
 Desglose verificable del camino crítico `O4-04`:
 

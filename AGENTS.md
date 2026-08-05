@@ -23,11 +23,9 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Corte remoto Q5a vigente: `8750849`, ejecución `30962422762`, cinco de cinco
+- Corte remoto Q5a vigente: `26fefda`, ejecución `30963212221`, cinco de cinco
   puertas superadas. Sustituye a la ejecución rechazada `30961258790` de
-  `c16422b`, que detectó dos ejecutables `main` en el mismo paquete Go. La
-  reparación fue revisada, publicada y observada completamente verde; C4b-2
-  operativo queda desbloqueado.
+  `c16422b`, que detectó dos ejecutables `main` en el mismo paquete Go.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -43,10 +41,18 @@ instrucción de dirección.
   `docs/portal_vec/correccion_f0_h0b_q5a_paquete_go_2026-08-05.md`; recibió
   doble `GO`, `P0=P1=P2=0`, sobre `6a95b07`. No se ejecutaron Docker,
   PostgreSQL ni E2E.
-- La tarea disponible es exclusivamente **C4b-2 operativo**: supervisor padre,
-  hijo/grupo, trabajo
-  provisional, PID/PGID/PPID, inicio, plazo absoluto, espera y extinción
-  completa. Parte del HEAD que integra Q5a, no de `af829bb`.
+- C4b-2/G1 queda integrado localmente en `f3d928d`–`d28d37d`. Dos revisores
+  independientes dieron `GO`, `P0=P1=P2=0`; dirección reprodujo 100/100
+  autopruebas, y las pruebas globales, carrera, `go vet` y
+  `scripts/verificar_calidad.sh` terminaron verdes. El supervisor ocupa 754
+  líneas y acredita primitivas pidfd y rollback sintético, pero no el protocolo
+  operativo, Docker, PostgreSQL ni E2E.
+- La tarea disponible es **C4b-2/G2**. Antes de añadir la máquina operativa se
+  debe aprobar una separación explícita de la autoprueba y el supervisor que
+  conserve captura/build privados cerrados y el tope duro de 800 líneas. G2
+  incorpora después `ARMAR/ACK_LISTO/INICIAR|CANCELAR/ACK_CASO/recibo`,
+  `/usr/bin/bash -p`, FD 3..9, plazo monotónico, único `Wait` y extinción
+  completa. No se minifican controles para hacerla caber.
 - Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
