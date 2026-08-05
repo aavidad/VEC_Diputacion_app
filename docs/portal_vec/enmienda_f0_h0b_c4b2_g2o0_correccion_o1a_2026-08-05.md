@@ -2,9 +2,9 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **segunda propuesta de dirección pendiente de doble revisión
-independiente**. No autoriza código hasta obtener dos `GO` con
-`P0=0`, `P1=0` y `P2=0`.
+Estado: **NO-GO documental sobre `bc2e583`**. Las revisiones de seguridad y
+ledger encontraron cinco P1; no autoriza código. La evidencia está en la
+[revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
 
 Base de código exacta: `3e36ecae23e0608bc1e7b9ce374e8fb35d13b4a2`.
 Antecedente documental: `bdfec1f`, que conserva el primer G2-O0 como NO-GO y
