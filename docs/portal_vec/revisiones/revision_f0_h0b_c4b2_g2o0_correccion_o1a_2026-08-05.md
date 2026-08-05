@@ -68,3 +68,17 @@ cruces causa/fase/bloque de proceso. Un solo NO-GO mantiene detenido O1a.
 La cuarta propuesta debe convertir el campo en fase de origen previa a S5 y
 rechazar `SALIDA` sin Bash, Bash en S1/S2 y cualquier bloque incoherente. Solo
 otra doble revisión completamente verde podrá autorizar código.
+
+## Resultado de la corrección `6a27aab`
+
+| Revisión | P0 | P1 | P2 | Veredicto |
+| --- | ---: | ---: | ---: | --- |
+| Máquina y coherencia del codec | 0 | 0 | 0 | GO |
+| Ledger y write-set | 0 | 0 | 0 | GO |
+| Seguridad y topología | 0 | 1 | 0 | NO-GO |
+
+La fase de origen y los cruces anteriores quedaron corregidos. El tercer
+revisor detectó, sin embargo, que S1 admitía todavía `SENAL_INT/SENAL_TERM` pese
+a que antes de `ARMAR` un `CANCELAR` es secuencia inválida. Un solo NO-GO
+mantiene detenido O1a. La quinta propuesta separa causas S1 de S2/S3 y añade
+los dos mutantes explícitos; requiere nueva revisión verde.

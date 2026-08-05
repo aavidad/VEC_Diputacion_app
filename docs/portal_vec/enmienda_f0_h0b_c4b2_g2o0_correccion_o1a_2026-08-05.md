@@ -2,10 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **cuarta propuesta de dirección pendiente de doble revisión
-independiente**. Sobre `a0a7604`, dos revisiones obtuvieron GO, pero una tercera
-detectó dos P1 canónicos; por tanto no se autorizó código. Corrige esos P1 y los
-cinco anteriores documentados en la
+Estado: **quinta propuesta de dirección pendiente de doble revisión
+independiente**. Sobre `6a27aab`, dos revisiones obtuvieron GO, pero una tercera
+detectó un P1 de señal funcional en S1; por tanto no se autorizó código. Corrige
+ese P1 y los anteriores documentados en la
 [revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
 No autoriza O1a, O1b ni ninguna fase posterior hasta nueva doble revisión.
 
@@ -234,7 +234,8 @@ Coherencia cruzada obligatoria:
 
 | Bloque | Fase de origen | Causa admisible |
 | --- | --- | --- |
-| Sin Bash `-|-|-|-|-` y `0|0|0|1` | S1, S2 o S3 | cualquiera salvo `SALIDA` |
+| Sin Bash `-|-|-|-|-` y `0|0|0|1` | S1 | `CANCELADO`, `PLAZO`, `PROTOCOLO` o `INCIDENTE` |
+| Sin Bash `-|-|-|-|-` y `0|0|0|1` | S2 o S3 | cualquiera salvo `SALIDA` |
 | Con Bash medido y `1|1|0|1` | S3 o S4 | cualquiera de la tabla terminal |
 
 `SALIDA` exige siempre Bash medido, `1|1|0|1` y fase S3/S4. Cualquier bloque
@@ -370,6 +371,8 @@ Sin FD ni hijos, cubre:
 - causas, estados, parejas, fase, indicadores y bloques de proceso adversos;
 - `SALIDA` sin Bash o en S1/S2, Bash en S1/S2, bloque sin Bash con `SALIDA` y
   cualquier mezcla entre identificadores y postcondición;
+- `S1|SENAL_INT|130` y `S1|SENAL_TERM|143`, porque antes de `ARMAR` una trama
+  `CANCELAR` es secuencia inválida y solo puede terminar como `PROTOCOLO|65`;
 - bytes posteriores al LF y ausencia de LF;
 - modo `--supervisar-m38` todavía 64 sin variar FD o hijos.
 
