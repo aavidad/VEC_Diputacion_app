@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **propuesta de dirección pendiente de doble revisión independiente**.
+Estado: **aceptada** tras doble revisión independiente con `P0=P1=P2=0`.
 
 ## Motivo
 
