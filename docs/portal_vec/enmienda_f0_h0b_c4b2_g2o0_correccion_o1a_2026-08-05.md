@@ -2,9 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **NO-GO documental sobre `bc2e583`**. Las revisiones de seguridad y
-ledger encontraron cinco P1; no autoriza código. La evidencia está en la
+Estado: **tercera propuesta de dirección pendiente de doble revisión
+independiente**. Corrige los cinco P1 documentados sobre `bc2e583` en la
 [revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
+No autoriza código hasta obtener dos `GO` con `P0=P1=P2=0`.
 
 Base de código exacta: `3e36ecae23e0608bc1e7b9ce374e8fb35d13b4a2`.
 Antecedente documental: `bdfec1f`, que conserva el primer G2-O0 como NO-GO y
@@ -82,19 +83,39 @@ esperado: solo valida sintaxis y reserializa una trama canónica.
 El futuro puente operativo usará:
 
 - control Shell → Go mediante pipe anónimo;
-- stdout del `coproc` solo como canal de vida, sin datos y sin herencia al Bash;
+- antes de `INICIAR`, captura Shell acreditada por la conjunción: hijo directo
+  único, ejecutable privado acreditado, duplicados estables de control y vida,
+  FD 8/9 ligados a sus objetos acreditados y ausencia de otro trabajo. El nonce
+  se valida dentro de Go antes de aceptar `INICIAR` y se reconcilia en el
+  terminal final. Este predicado sustituye expresamente al anterior basado en
+  `ACK_LISTO`;
+- stdout del `coproc` solo como canal de vida, sin datos y sin herencia al Bash.
+  Go no escribe, duplica ni cierra explícitamente su escritor; solo el cierre
+  automático del kernel al terminar el supervisor puede producir EOF;
 - FD 8 como fichero regular `0600`, un enlace, dentro del temporal `0700`,
-  abierto antes del supervisor; el runner conserva un FD lector ligado al
-  mismo inode y no reabre la ruta;
+  creado con exclusión. El runner abre por separado un descriptor lector con
+  offset cero y otro escritor: nunca son `dup` de la misma descripción abierta;
+  solo Go hereda el escritor y el runner lo cierra inmediatamente tras el fork.
+  El Bash no hereda ninguno: Go marca su escritor `CLOEXEC` antes de `Start`.
+  El validador recibe únicamente el lector retenido y no reabre la ruta;
 - FD 9 como sobre monoframa preabierto;
-- al recibir EOF del canal de vida, `wait -f` una vez sobre el supervisor;
-  si vence el límite absoluto y el canal sigue abierto, no se espera de forma
-  bloqueante: hay frontera externa, evidencia, cuarentena y reprovisión;
+- al recibir EOF del canal de vida se exige además que la tabla de trabajos
+  marque al supervisor terminal e inmediatamente recolectable. Solo entonces
+  se ejecuta `wait -f` una vez. Cierre anticipado, proceso aún vivo al vencer
+  el subplazo o canal abierto al límite absoluto son frontera externa: nunca
+  llevan a espera bloqueante y exigen evidencia, cuarentena y reprovisión;
 - solo tras recoger al supervisor, invocación por ruta privada exacta de
   `--validar-recibo-m38`, con entorno `LC_ALL=C`, FD mínimos, sin red ni
-  secretos y espera síncrona única;
+  secretos. El runner mide el plazo contra `/proc/uptime`, observa salida y
+  terminalidad sin un proceso reloj, y solo espera de forma síncrona cuando el
+  trabajo es inmediatamente recolectable;
 - salida del validador limitada a una reserialización ASCII canónica; el runner
-  compara después nonce, PID, causa/estado y política.
+  compara después nonce, PID, causa/estado y política. El modo devuelve 0 solo
+  por trama válida, 64 por uso y 65 por entrada inválida o incidente;
+- antes de ambas ejecuciones se reacreditan el mismo inode, SHA-256, EUID, modo
+  `0700`, tipo regular y enlace único del binario privado; tras el validador se
+  repite la acreditación. Cualquier cambio invalida su salida, fija incidente
+  65, cuarentena y ningún caso siguiente.
 
 Propietarios de espera:
 
@@ -286,12 +307,15 @@ Medición exacta:
 | C | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go` | 799 | `4a967fd1…902` |
 | A | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ciclo_recursos_m38_h0b_fuente_corporativa_contexto_actor_v1.sh` | 527 | `98d22a30…8cb7` |
 | D2d | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh` | 145 | `9b137f13…5e81` |
+| D2c | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_fuente_corporativa_contexto_actor_v1.sh` | 588 | `a07057fb…dde5` |
+| H0b | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/arnes_r0_sintetico_h0b_fuente_corporativa_contexto_actor_v1.sh` | 580 | `02a00f2f…ded` |
 
 Write-set O1a:
 
 1. G2: tipos, encoder/decoder de trama completa, dominios y autopruebas;
 2. G1: una llamada agregadora desde `autoprobar` y su error;
-3. R: solo reemplazar SHA literales G1/G2, sin cambiar 800 líneas.
+3. R: solo reemplazar los tres literales SHA de G1, G2 y binario supervisor,
+   sin cambiar sus 800 líneas.
 
 C, A, D2d, D2c y H0b quedan byte a byte invariantes. No se crea fichero.
 
@@ -303,6 +327,13 @@ C, A, D2d, D2c y H0b quedan byte a byte invariantes. No se crea fichero.
 | C | 799 | 0 | 799 | 799 |
 | A | 527 | 0 | 527 | 527 |
 | D2d | 145 | 0 | 145 | 145 |
+| D2c | 588 | 0 | 588 | 588 |
+| H0b | 580 | 0 | 580 | 580 |
+
+El delta G2 se descompone en `+80..+120` para codec productivo y
+`+60..+100` para su autoprueba capturada. Permanecen en O1a porque comparten la
+misma gramática/tipos y ningún codec queda admitido sin sus mutantes en el mismo
+candidato; la suma conservadora continúa siendo `+140..+220` y la parada 320.
 
 Antes de editar se registra `wc -l`, SHA y `git diff --numstat`. Se detiene si
 hace falta otra ruta, minificar, encadenar controles, retirar pruebas o superar
