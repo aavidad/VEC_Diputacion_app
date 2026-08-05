@@ -38,6 +38,11 @@ El binario se reprodujo dos veces desde temporales distintos, con entorno
 aislado, `GOOS=linux`, `GOARCH=amd64`, `GOAMD64=v1`, `CGO_ENABLED=0`, red de
 módulos desactivada y `-trimpath`; ambas compilaciones dieron la misma huella.
 
+El supervisor reparado ocupa 132 líneas: una más que las 131 de la evidencia
+histórica `649ee46` y dentro de su límite local de 190. Es el único artefacto
+antes declarado inmutable que cambia en esta reparación; D2c, D2d, H0b, el
+adaptador y el capturador conservan exactamente sus huellas anteriores.
+
 ## Criterio de cierre
 
 La corrección solo puede aceptarse después de acreditar:
