@@ -29,6 +29,143 @@ type tramaM38 struct {
 var errPrevalidacionM38 = errors.New("prevalidación de salida M38")
 var errLimiteFisicoM38 = errors.New("límite físico de entrada M38")
 
+type resultadoLecturaM38 uint8
+
+const (
+	lecturaNecesitaDatosM38 resultadoLecturaM38 = iota
+	lecturaTramaM38
+	lecturaTramaFinalM38
+	lecturaEOFLimpioM38
+)
+
+type estadoLectorM38 uint8
+
+const (
+	lectorAbiertoVacioM38 estadoLectorM38 = iota
+	lectorAbiertoParcialM38
+	lectorMonotramaEsperandoEOFM38
+	lectorEOFLimpioM38
+	lectorErrorTerminalM38
+)
+
+var (
+	errClaseLectorM38      = errors.New("clase del lector M38 inválida")
+	errByteFlujoM38        = errors.New("byte de flujo M38 inválido")
+	errExcesoFlujoM38      = errors.New("exceso físico del flujo M38")
+	errTramaFlujoM38       = errors.New("trama del flujo M38 inválida")
+	errEOFParcialM38       = errors.New("EOF con trama M38 parcial")
+	errEOFSinMonotramaM38  = errors.New("EOF sin monotrama M38")
+	errDatosPosterioresM38 = errors.New("datos posteriores a monotrama M38")
+	errUsoPosteriorEOFM38  = errors.New("uso posterior a EOF M38")
+)
+
+type lectorTramaM38 struct {
+	clase    string
+	limite   int
+	estado   estadoLectorM38
+	longitud int
+	buffer   [4096]byte
+	err      error
+}
+
+func nuevoLectorTramaM38(clase string) (*lectorTramaM38, error) {
+	limite := limiteTramaM38(clase)
+	if limite == 0 {
+		return nil, errClaseLectorM38
+	}
+	return &lectorTramaM38{clase: clase, limite: limite}, nil
+}
+
+func (l *lectorTramaM38) limpiarBuffer() {
+	clear(l.buffer[:])
+	l.longitud = 0
+}
+
+func (l *lectorTramaM38) fallar(err error) (tramaM38, int, resultadoLecturaM38, error) {
+	l.limpiarBuffer()
+	l.estado, l.err = lectorErrorTerminalM38, err
+	return tramaM38{}, 0, lecturaNecesitaDatosM38, err
+}
+
+func (l *lectorTramaM38) consumir(fragmento []byte, fin bool) (tramaM38, int, resultadoLecturaM38, error) {
+	if l.estado == lectorErrorTerminalM38 {
+		return tramaM38{}, 0, lecturaNecesitaDatosM38, l.err
+	}
+	if l.estado == lectorEOFLimpioM38 {
+		if len(fragmento) == 0 && fin {
+			return tramaM38{}, 0, lecturaEOFLimpioM38, nil
+		}
+		return l.fallar(errUsoPosteriorEOFM38)
+	}
+	if l.estado == lectorMonotramaEsperandoEOFM38 {
+		if len(fragmento) != 0 {
+			return l.fallar(errDatosPosterioresM38)
+		}
+		if !fin {
+			return tramaM38{}, 0, lecturaNecesitaDatosM38, nil
+		}
+		return l.entregarMonotrama(0)
+	}
+	for i, b := range fragmento {
+		if b != '\n' {
+			if b < 0x20 || b > 0x7e {
+				return l.fallar(errByteFlujoM38)
+			}
+			if l.longitud == l.limite-1 {
+				return l.fallar(errExcesoFlujoM38)
+			}
+			l.buffer[l.longitud], l.longitud = b, l.longitud+1
+			continue
+		}
+		l.buffer[l.longitud], l.longitud = b, l.longitud+1
+		consumidos := i + 1
+		if l.clase != "CONTROL" {
+			if consumidos != len(fragmento) {
+				return l.fallar(errDatosPosterioresM38)
+			}
+			if fin {
+				return l.entregarMonotrama(consumidos)
+			}
+			l.estado = lectorMonotramaEsperandoEOFM38
+			return tramaM38{}, consumidos, lecturaNecesitaDatosM38, nil
+		}
+		trama, err := decodificarTramaM38(l.clase, l.buffer[:l.longitud])
+		if err != nil {
+			return l.fallar(fmt.Errorf("%w: %w", errTramaFlujoM38, err))
+		}
+		l.limpiarBuffer()
+		l.estado = lectorAbiertoVacioM38
+		if fin && consumidos == len(fragmento) {
+			l.estado = lectorEOFLimpioM38
+		}
+		return trama, consumidos, lecturaTramaM38, nil
+	}
+	if fin {
+		if l.longitud != 0 {
+			return l.fallar(errEOFParcialM38)
+		}
+		if l.clase != "CONTROL" {
+			return l.fallar(errEOFSinMonotramaM38)
+		}
+		l.estado = lectorEOFLimpioM38
+		return tramaM38{}, 0, lecturaEOFLimpioM38, nil
+	}
+	if l.longitud != 0 {
+		l.estado = lectorAbiertoParcialM38
+	}
+	return tramaM38{}, len(fragmento), lecturaNecesitaDatosM38, nil
+}
+
+func (l *lectorTramaM38) entregarMonotrama(consumidos int) (tramaM38, int, resultadoLecturaM38, error) {
+	trama, err := decodificarTramaM38(l.clase, l.buffer[:l.longitud])
+	if err != nil {
+		return l.fallar(fmt.Errorf("%w: %w", errTramaFlujoM38, err))
+	}
+	l.limpiarBuffer()
+	l.estado = lectorEOFLimpioM38
+	return trama, consumidos, lecturaTramaFinalM38, nil
+}
+
 func limiteTramaM38(clase string) int {
 	switch clase {
 	case "SOBRE":
@@ -128,6 +265,257 @@ func prevalidarCodificacionM38(t tramaM38) error {
 		restante -= len(campo)
 	}
 	return nil
+}
+
+func autoprobarLectorTramaM38() error {
+	h := strings.Repeat("a", 64)
+	type muestra struct {
+		clase, texto string
+		maximo       int
+	}
+	muestras := []muestra{
+		{"SOBRE", "V1|SOBRE|" + h + "|2147483647|NOMINAL|" + h + "|2048|" + strings.Repeat("x", 2048) + "\n", 2212},
+		{"CONTROL", "V1|CONTROL|CANCELAR|" + h + "|SENAL_TERM|143\n", 100},
+		{"TERMINAL", "V1|TERMINAL|" + h + "|2147483647|S3|143|SENAL_TERM|2147483647|2147483647|2147483647|2147483647|18446744073709551615|1|1|0|1\n", 179},
+		{"TICKET", "2147483647|" + strings.Repeat("x", 2048) + "\n", 2060},
+	}
+	fresco := func(m muestra) *lectorTramaM38 {
+		return &lectorTramaM38{clase: m.clase, limite: limiteTramaM38(m.clase)}
+	}
+	for _, m := range muestras {
+		lector, err := nuevoLectorTramaM38(m.clase)
+		if err != nil || lector == nil || lector.limite != limiteTramaM38(m.clase) || len(m.texto) != m.maximo {
+			return errors.New("construcción o máximo canónico discrepante")
+		}
+	}
+	if lector, err := nuevoLectorTramaM38("DESCONOCIDA"); lector != nil || !errors.Is(err, errClaseLectorM38) {
+		return errors.New("constructor aceptó una clase inválida")
+	}
+	for _, m := range muestras {
+		clase, texto := m.clase, m.texto
+		for corte := 0; corte <= len(texto); corte++ {
+			lector := fresco(m)
+			prefijo := []byte(texto[:corte])
+			trama, consumidos, resultado, err := lector.consumir(prefijo, false)
+			esTrama := clase == "CONTROL" && corte == len(texto)
+			esperado := lecturaNecesitaDatosM38
+			if esTrama {
+				esperado = lecturaTramaM38
+			}
+			if err != nil || consumidos != corte || resultado != esperado || esTrama != (trama.clase == clase) || !esTrama && !tramaCeroM38(trama) {
+				return errors.New("corte inicial de trama discrepante")
+			}
+			if corte > 0 && corte < len(texto) {
+				prefijo[0] ^= 1
+			}
+			trama, consumidos, resultado, err = lector.consumir([]byte(texto[corte:]), true)
+			esperado = lecturaTramaFinalM38
+			if clase == "CONTROL" {
+				esperado = lecturaTramaM38
+				if esTrama {
+					esperado = lecturaEOFLimpioM38
+				}
+			}
+			if err != nil || consumidos != len(texto)-corte || resultado != esperado || esperado == lecturaEOFLimpioM38 && !tramaCeroM38(trama) || esperado != lecturaEOFLimpioM38 && trama.clase != clase || !lectorLimpioM38(lector) {
+				return errors.New("reensamblado de trama discrepante")
+			}
+		}
+		lector := fresco(m)
+		for i := range len(texto) {
+			trama, consumidos, resultado, err := lector.consumir([]byte{texto[i]}, i == len(texto)-1)
+			final := clase == "CONTROL" && resultado == lecturaTramaM38 || clase != "CONTROL" && resultado == lecturaTramaFinalM38
+			if err != nil || consumidos != 1 || i < len(texto)-1 && (resultado != lecturaNecesitaDatosM38 || !tramaCeroM38(trama)) || i == len(texto)-1 && (!final || trama.clase != clase) {
+				return errors.New("fragmentación byte a byte discrepante")
+			}
+		}
+	}
+	controlA := "V1|CONTROL|INICIAR|" + h + "\n"
+	controlB := "V1|CONTROL|CANCELAR|" + h + "|PROTOCOLO|65\n"
+	controlC := muestras[1].texto
+	lector := fresco(muestras[1])
+	sobrante := []byte(controlA + controlB + controlC)
+	for _, esperado := range []string{controlA, controlB, controlC} {
+		_, consumidos, resultado, err := lector.consumir(sobrante, true)
+		if err != nil || resultado != lecturaTramaM38 || consumidos != len(esperado) || string(sobrante[:consumidos]) != esperado {
+			return errors.New("coalescencia de controles discrepante")
+		}
+		sobrante = sobrante[consumidos:]
+	}
+	if _, n, r, err := lector.consumir(nil, true); err != nil || n != 0 || r != lecturaEOFLimpioM38 {
+		return errors.New("EOF coalescido no enclavado")
+	}
+	lector = fresco(muestras[1])
+	if _, n, r, err := lector.consumir([]byte(controlA+controlB[:8]), false); err != nil || n != len(controlA) || r != lecturaTramaM38 {
+		return errors.New("control completo más parcial discrepante")
+	}
+	if _, n, r, err := lector.consumir([]byte(controlB[:8]), false); err != nil || n != 8 || r != lecturaNecesitaDatosM38 {
+		return errors.New("parcial de control no conservada")
+	}
+	if _, n, r, err := lector.consumir([]byte(controlB[8:]+controlC), false); err != nil || n != len(controlB)-8 || r != lecturaTramaM38 {
+		return errors.New("parcial más controles coalescidos discrepante")
+	}
+	if _, n, r, err := lector.consumir([]byte(controlC), false); err != nil || n != len(controlC) || r != lecturaTramaM38 {
+		return errors.New("segundo control coalescido no consumido")
+	}
+	for _, m := range []muestra{muestras[0], muestras[2], muestras[3]} {
+		for _, cola := range [][]byte{[]byte(m.texto), {'x'}, {0}, {'\n'}} {
+			for _, fin := range []bool{false, true} {
+				lector = fresco(m)
+				if err := exigirErrorLectorM38(lector, append([]byte(m.texto), cola...), fin, errDatosPosterioresM38); err != nil {
+					return err
+				}
+			}
+		}
+		lector = fresco(m)
+		if err := exigirErrorLectorM38(lector, nil, true, errEOFSinMonotramaM38); err != nil {
+			return err
+		}
+		lector = fresco(m)
+		original := []byte(m.texto)
+		if trama, n, r, err := lector.consumir(original, false); err != nil || n != len(original) || r != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) {
+			return errors.New("monotrama expuesta antes de EOF")
+		}
+		original[0] ^= 1
+		if trama, n, r, err := lector.consumir(nil, false); err != nil || n != 0 || r != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) {
+			return errors.New("L2 vacío sin EOF discrepante")
+		}
+		lectorConCola := *lector
+		if err := exigirErrorLectorM38(&lectorConCola, []byte{'x'}, false, errDatosPosterioresM38); err != nil {
+			return err
+		}
+		if trama, n, r, err := lector.consumir(nil, true); err != nil || n != 0 || r != lecturaTramaFinalM38 || trama.clase != m.clase || !lectorLimpioM38(lector) {
+			return errors.New("copia defensiva L2 discrepante")
+		}
+	}
+	lector = fresco(muestras[1])
+	if trama, n, r, err := lector.consumir(nil, false); err != nil || n != 0 || r != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) || lector.estado != lectorAbiertoVacioM38 {
+		return errors.New("L0 vacío sin EOF discrepante")
+	}
+	if _, _, _, err := lector.consumir([]byte("V"), false); err != nil {
+		return err
+	}
+	if trama, n, r, err := lector.consumir(nil, false); err != nil || n != 0 || r != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) || lector.longitud != 1 || lector.buffer[0] != 'V' {
+		return errors.New("L1 vacío alteró la parcial")
+	}
+	if _, _, _, err := lector.consumir([]byte("1"), false); err != nil {
+		return err
+	}
+	if err := exigirErrorLectorM38(lector, nil, true, errEOFParcialM38); err != nil {
+		return err
+	}
+	lector = fresco(muestras[1])
+	if err := exigirErrorLectorM38(lector, []byte("V1"), true, errEOFParcialM38); err != nil {
+		return err
+	}
+	for _, m := range muestras {
+		limite := limiteTramaM38(m.clase)
+		lector = fresco(m)
+		if err := exigirErrorLectorM38(lector, []byte(strings.Repeat("x", limite-1)+"\n"), true, errTramaFlujoM38); err != nil || errors.Is(lector.err, errExcesoFlujoM38) {
+			return errors.New("frontera física no alcanzó O1a")
+		}
+		lector = fresco(m)
+		if err := exigirErrorLectorM38(lector, []byte(strings.Repeat("x", limite)), false, errExcesoFlujoM38); err != nil {
+			return err
+		}
+		lector = fresco(m)
+		if _, _, _, err := lector.consumir([]byte(strings.Repeat("x", limite-1)), false); err != nil {
+			return err
+		}
+		if err := exigirErrorLectorM38(lector, []byte{'x'}, false, errExcesoFlujoM38); err != nil {
+			return err
+		}
+		lector = fresco(m)
+		if _, _, _, err := lector.consumir([]byte(strings.Repeat("x", limite-1)), false); err != nil {
+			return err
+		}
+		if err := exigirErrorLectorM38(lector, []byte{0}, false, errByteFlujoM38); err != nil {
+			return errors.New("byte inválido no prevaleció sobre exceso")
+		}
+	}
+	for _, hostil := range []byte{0, '\r', '\t', 0x1f, 0x7f, 0x80} {
+		for _, prefijo := range [][]byte{nil, []byte("V1")} {
+			lector = fresco(muestras[1])
+			if _, _, _, err := lector.consumir(prefijo, false); err != nil {
+				return err
+			}
+			if err := exigirErrorLectorM38(lector, []byte{hostil}, false, errByteFlujoM38); err != nil {
+				return err
+			}
+		}
+	}
+	for _, adversa := range []string{"\n", "V2|CONTROL|INICIAR|" + h + "\n", "V1|TERMINAL|INICIAR|" + h + "\n", "V1|CONTROL|ARMAR|" + h + "\n", "V1|CONTROL|CANCELAR|" + h + "|SALIDA|0\n"} {
+		lector = fresco(muestras[1])
+		if err := exigirErrorLectorM38(lector, []byte(adversa), true, errTramaFlujoM38); err != nil {
+			return err
+		}
+	}
+	grande := []byte(controlA + strings.Repeat("x", 1<<20))
+	lector = fresco(muestras[1])
+	trama, n, r, err := lector.consumir(grande, false)
+	if err != nil || n != len(controlA) || r != lecturaTramaM38 || trama.campos[0] != "INICIAR" || len(grande[n:]) != 1<<20 || !lectorLimpioM38(lector) {
+		return errors.New("fragmento enorme con LF temprano discrepante")
+	}
+	grande = []byte(strings.Repeat("x", 1<<20))
+	lector = fresco(muestras[1])
+	if err := exigirErrorLectorM38(lector, grande, false, errExcesoFlujoM38); err != nil {
+		return err
+	}
+	entrada := []byte(controlA)
+	lector = fresco(muestras[1])
+	trama, n, r, err = lector.consumir(entrada, false)
+	entrada[0] ^= 1
+	if err != nil || n != len(entrada) || r != lecturaTramaM38 || trama.campos[0] != "INICIAR" || !lectorLimpioM38(lector) {
+		return errors.New("trama entregada dependía del fragmento")
+	}
+	return autoprobarTerminalidadLectorM38(controlA)
+}
+
+func autoprobarTerminalidadLectorM38(control string) error {
+	lector := &lectorTramaM38{clase: "CONTROL", limite: limiteTramaM38("CONTROL")}
+	if _, n, r, err := lector.consumir(nil, true); err != nil || n != 0 || r != lecturaEOFLimpioM38 {
+		return errors.New("EOF limpio inicial rechazado")
+	}
+	if _, n, r, err := lector.consumir(nil, true); err != nil || n != 0 || r != lecturaEOFLimpioM38 {
+		return errors.New("EOF limpio repetido rechazado")
+	}
+	if !lectorLimpioM38(lector) {
+		return errors.New("EOF limpio no borró el buffer")
+	}
+	if err := exigirErrorLectorM38(lector, []byte(control), true, errUsoPosteriorEOFM38); err != nil {
+		return err
+	}
+	lector = &lectorTramaM38{clase: "CONTROL", limite: limiteTramaM38("CONTROL")}
+	if trama, n, r, err := lector.consumir([]byte(control), true); err != nil || n != len(control) || r != lecturaTramaM38 || trama.clase != "CONTROL" || lector.estado != lectorEOFLimpioM38 {
+		return errors.New("CONTROL con EOF no enclavó L3")
+	}
+	if err := exigirErrorLectorM38(lector, []byte{'x'}, false, errUsoPosteriorEOFM38); err != nil {
+		return err
+	}
+	lector = &lectorTramaM38{clase: "CONTROL", limite: limiteTramaM38("CONTROL")}
+	if _, _, _, err := lector.consumir([]byte(control), true); err != nil {
+		return err
+	}
+	return exigirErrorLectorM38(lector, nil, false, errUsoPosteriorEOFM38)
+}
+
+func exigirErrorLectorM38(lector *lectorTramaM38, fragmento []byte, fin bool, objetivo error) error {
+	trama, consumidos, resultado, err := lector.consumir(fragmento, fin)
+	if !errors.Is(err, objetivo) || consumidos != 0 || resultado != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) || !lectorLimpioM38(lector) {
+		return fmt.Errorf("tupla de error del lector discrepante: %w", objetivo)
+	}
+	trama, consumidos, resultado, repetido := lector.consumir([]byte("V1|CONTROL|INICIAR|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"), true)
+	if repetido != err || consumidos != 0 || resultado != lecturaNecesitaDatosM38 || !tramaCeroM38(trama) {
+		return fmt.Errorf("error del lector no pegajoso: %w", objetivo)
+	}
+	return nil
+}
+
+func tramaCeroM38(trama tramaM38) bool {
+	return trama.clase == "" && trama.campos == nil && trama.ticket == ""
+}
+
+func lectorLimpioM38(lector *lectorTramaM38) bool {
+	return lector.longitud == 0 && lector.buffer == [4096]byte{}
 }
 
 func codificarTramaM38(t tramaM38) ([]byte, error) {
@@ -323,7 +711,7 @@ func autoprobarTramasM38() error {
 			}
 		}
 	}
-	return nil
+	return autoprobarLectorTramaM38()
 }
 
 func duplicarPidfd(pidfd int) (int, error) {
