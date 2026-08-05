@@ -11,14 +11,14 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | C2.3 F0/C3 → R0 → `LOGIN` y membresía de Sistemas → M5 → M6 → M7 → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | F0/C4b-2/G2-O: O2b → O6 → C4b-3 → C4c → C4d → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %). C4a está integrado hasta `e130015`, con doble GO, H0 nominal PostgreSQL 18.4 y [evidencia propia](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md); no contabiliza H0b porque C4b–C4d siguen abiertos. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte publicado completamente verde antes de G2-S | `0a6de82` en `integracion/ct-o4-04e-20260726`; CI `30967899595`, cinco de cinco puertas verdes. |
-| Último commit técnico verificado | `5808e18` completa G2-S: doble GO, P0=P1=P2=0, runner 800, G1 683, G2 91, 100/100 y puertas globales verdes. G2-O sigue abierto y su propuesta recibió NO-GO. |
+| Último corte remoto completamente verde | `d148d76` en `integracion/ct-o4-04e-20260726`; CI `31011501522`, cinco de cinco puertas verdes. |
+| Último commit técnico verificado | `0caa140` integra O2a/S0/G3 tras doble GO: runner 794, G1 689, G2 798, G3 431, binario reproducible, AST, 27 mutantes muertos, H0 PostgreSQL 18.4 y puerta global verdes. Publicación pendiente. |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b, C4a, C4b-2/G1 y G2-S están cerrados técnicamente, pero no suman una puerta funcional. |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b, C4a, C4b-2/G1, G2-S y G2-O/O1a/O1b/O2a están cerrados técnicamente, pero no suman una puerta funcional. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

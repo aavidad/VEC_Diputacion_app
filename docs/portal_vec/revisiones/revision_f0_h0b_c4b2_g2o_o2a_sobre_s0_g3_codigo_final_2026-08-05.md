@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **GO para integrar; P0=0, P1=0 y P2=0**.
+Estado: **GO integrado localmente; P0=0, P1=0 y P2=0; publicación pendiente**.
 
 ## Alcance exacto
 
@@ -32,6 +32,8 @@ sobre `ARMAR` y la cancelación.
 | Contrato autorizado | `d148d7625ffa14a435b5ffdfa3315cd3984dd52f` |
 | Primer candidato rechazado | `2ec9886cc0a669bf62a29e4cb2660ec8647bc03e` |
 | Candidato corregido | `50aec513c535980d80bee28ca10321ed4ed7e04f` |
+| Evidencia previa | `6a8c1ee` |
+| Integración | `0caa140` |
 
 El primer candidato se rechazó antes de integrar porque un fallo interno podía
 dejar material sensible en el lector y porque el analizador AST y el mutador no
@@ -155,12 +157,20 @@ mutantes_o2a=ok conductuales=17 estructurales=10
 - Bash, ShellCheck, `git diff --check` y Gitleaks: verde;
 - contenedores y temporales residuales: cero.
 
+Dirección reprodujo esas puertas después de integrar. La primera llamada H0
+mediante `bash` fue rechazada en 65 antes de reservar recursos porque no
+respetaba el régimen acreditado del ejecutable. La ejecución material directa,
+con `LD_LIBRARY_PATH` retirado, completó PostgreSQL 18.4, snapshot, arnés
+transaccional y clasificación de errores reales. Después,
+`scripts/verificar_calidad.sh` terminó verde, incluida la carrera global, los
+grafos y manifiestos aislados, TLS como proceso no privilegiado, auditoría de
+vulnerabilidades y tamaños. No quedaron contenedores ni temporales F0.
+
 ## Métrica y continuación
 
 Este cierre interno no modifica Contratación temporal `24/46` ni Bolsa
 productiva `1/14`. Producción permanece en `NO-GO`.
 
-Tras integrar y volver a ejecutar las puertas sobre el árbol conjunto se
-actualizará este acta con el commit de integración y el resultado publicado.
-La siguiente minitarea es O2b: `ARMAR` y cancelación sin Bash, mediante un
-contrato nuevo y acotado; O2a no autoriza esa conducta.
+La publicación y su CI todavía no están acreditadas en este corte. La siguiente
+minitarea es O2b: `ARMAR` y cancelación sin Bash, mediante un contrato nuevo y
+acotado; O2a no autoriza esa conducta.

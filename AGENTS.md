@@ -23,9 +23,10 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde: `ef027cf`, ejecución
-  `31007941124`, cinco de cinco puertas superadas. Incluye O2a-P0 y su acta
-  final; las métricas funcionales no cambian.
+- Último corte remoto completamente verde: `d148d76`, ejecución
+  `31011501522`, cinco de cinco puertas superadas. Incluye O2a-P0, su
+  publicación y el contrato autorizado de O2a/S0/G3; las métricas funcionales
+  no cambian.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -89,14 +90,21 @@ instrucción de dirección.
   código, `P0=P1=P2=0`, y quedó integrado localmente como `48a46a3`: runner
   783, D2d 164, H0 PostgreSQL 18.4, residuos cero y puerta global verdes. Está
   publicado en `ef027cf` y la CI `31007941124` terminó con cinco puertas
-  verdes. No crea G3 ni cambia conducta. El siguiente trabajo es definir y
-  revisar el contrato real O2a/S0/G3 antes de programar.
-  O2b conserva «ARMAR y cancelación sin Bash»; los ACK vivos fueron eliminados
-  por la corrección O1a. O2 y fases posteriores siguen cerradas. Las evidencias
-  están en
+  verdes. No crea G3 ni cambia conducta. El contrato O2a/S0/G3 quedó autorizado
+  en `d148d76`. El primer candidato se rechazó por limpieza sensible y evidencia
+  no durable; el corregido `50aec51` obtuvo doble GO final. La evidencia
+  portable quedó confirmada en `6a8c1ee` y el código integrado localmente en
+  `0caa140`: runner 794, G1 689, G2 798, G3 431, binario reproducible, AST,
+  17 mutantes conductuales y 10 estructurales, H0 PostgreSQL 18.4 y puerta
+  global verdes, con residuos cero. Su publicación está pendiente.
+  El siguiente trabajo es contratar O2b, que conserva «ARMAR y cancelación sin
+  Bash»; los ACK vivos fueron eliminados por la corrección O1a. O2 y fases
+  posteriores siguen cerradas. Las evidencias están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
-  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`
-  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`.
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`,
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`
+  y
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2a_sobre_s0_g3_codigo_final_2026-08-05.md`.
 - Después de G2-O2–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal

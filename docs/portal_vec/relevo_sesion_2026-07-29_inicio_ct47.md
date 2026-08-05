@@ -28,11 +28,16 @@ local de ShellCheck obtuvieron doble GO documental; el candidato `df9a422`
 obtuvo después doble GO de código y quedó integrado localmente como `48a46a3`:
 runner 783, D2d 164, H0 real, residuos cero y puerta global verdes. Quedó
 publicado en `ef027cf` y la CI `31007941124` terminó con cinco puertas verdes.
-El siguiente trabajo es redactar y revisar O2a/S0/G3. No
-autoriza G3 ni S0. O2b permanece cerrado y no hay ACK vivos. Las métricas permanecen
-en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
-`1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
-completamente las cinco puertas de la CI `30963212221`.
+El contrato O2a/S0/G3 quedó autorizado en `d148d76`; su CI `31011501522`
+terminó con cinco puertas verdes. El primer candidato de código se rechazó por
+limpieza sensible y evidencia no durable. El candidato corregido `50aec51`
+obtuvo doble GO final; su evidencia portable quedó confirmada en `6a8c1ee` y
+el código integrado localmente en `0caa140`. Dirección reprodujo el binario,
+AST, 17 mutantes conductuales, 10 estructurales, H0 PostgreSQL 18.4 y la puerta
+global, todo verde y sin residuos. La publicación de este corte está pendiente.
+El siguiente trabajo es el contrato acotado de O2b; O2b permanece cerrado y no
+hay ACK vivos. Las métricas permanecen en F0 `10/23`, O4-05 `3/5`,
+Contratación temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`.
 
 La primera propuesta conjunta G2 recibió `NO-GO` documental antes de código
 por presupuesto del runner no demostrado y protocolo incompleto. Se dividió en

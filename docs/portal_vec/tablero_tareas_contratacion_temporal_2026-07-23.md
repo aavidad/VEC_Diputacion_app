@@ -120,14 +120,22 @@ builds privados reproducibles, doble GO `P0=P1=P2=0` y puertas globales verdes
 antes y después de integrar y CI `31002229666` completamente verde. Su
 [evidencia final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
 no abre ninguna superficie operativa. El análisis posterior detuvo O2a por
-capacidad: runner 800/800 y G2 798/800. El siguiente corte es la
-[decisión O2a-P0](decision_f0_h0b_c4b2_g2o_o2a_preparacion_g3_2026-08-05.md),
-aceptada con doble GO documental para trasladar una función sin cambio de
+capacidad: runner 800/800 y G2 798/800. La
+[decisión O2a-P0](decision_f0_h0b_c4b2_g2o_o2a_preparacion_g3_2026-08-05.md)
+quedó aceptada con doble GO documental para trasladar una función sin cambio de
 conducta. Su enmienda local de ShellCheck también obtuvo doble GO. El candidato
 `df9a422` obtuvo doble GO de código y quedó integrado localmente como
 `48a46a3`, runner 783/D2d 164, con H0 y puerta global verdes. Quedó publicado
 en `ef027cf` y la CI `31007941124` terminó con cinco puertas verdes. El
-siguiente corte es definir y revisar O2a/S0/G3; todavía no autoriza código. O2b conserva «ARMAR y cancelación sin Bash»;
+[contrato O2a/S0/G3](enmienda_f0_h0b_c4b2_g2o_o2a_sobre_s0_g3_2026-08-05.md)
+quedó autorizado en `d148d76`. El candidato corregido `50aec51` obtuvo doble
+GO después de rechazar un primer árbol por limpieza sensible y evidencia no
+durable. La
+[evidencia final](revisiones/revision_f0_h0b_c4b2_g2o_o2a_sobre_s0_g3_codigo_final_2026-08-05.md)
+quedó confirmada en `6a8c1ee` y el código integrado localmente en `0caa140`,
+con binario reproducible, AST, 27 mutantes muertos, H0 PostgreSQL 18.4 y puerta
+global verdes. Falta publicar y acreditar la CI. O2b es el siguiente contrato
+acotado y conserva «ARMAR y cancelación sin Bash»;
 los ACK vivos ya no pertenecen al protocolo.
 Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.
