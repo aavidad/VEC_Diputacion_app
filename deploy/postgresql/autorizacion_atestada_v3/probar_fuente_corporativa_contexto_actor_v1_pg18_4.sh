@@ -59,13 +59,15 @@ readonly ruta_helper_h0b='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/operaciones_runner_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_adaptador_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ciclo_recursos_m38_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_supervisor_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go'
+readonly ruta_supervisor_m38_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='9b137f1302c5672e9fd5c0c8df169810cbc7e57a11fa2129bf79a777e92c5e81'
 readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
-readonly sha256_supervisor_m38='c024ab13362bc6953028e185ab25a5c50f3a158efa444e9f407727e57d720b2f'
-readonly sha256_binario_supervisor_m38='2b28a395956775aeebcbb5807cb89f00d3c9451db533304216077308a6e2c99b'
+readonly sha256_supervisor_m38='0a14142dda40ec42d2838900402cc70ad3aa667dd2fa9936d74b541d95aefd3e'
+readonly sha256_supervisor_m38_operativo='b9890888c32a7bc84fe919785901c8bea6f64c851ed968b00ae2c95f19ce521c'
+readonly sha256_binario_supervisor_m38='8b265176f7acb8f1e3210776a81e541070613505ce12ba957d6fc4279b6e4740'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
@@ -223,19 +225,20 @@ preparar_capturador_privado_f0() {
 }
 capturar_auxiliares_privados_f0() {
     local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_go forma_binario huella_binario huella_fuente_post
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_g1 fuente_g2 forma_binario huella_binario huella_fuente_post segundo par esperada fase
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
         --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
         "${ruta_adaptador_m38}" \
-        "${ruta_helper_operativo}" "${ruta_supervisor_m38}" || return 65
+        "${ruta_helper_operativo}" "${ruta_supervisor_m38}" "${ruta_supervisor_m38_operativo}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 5 &&
+    [[ ${#lineas[@]} -eq 6 &&
        "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
        "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
        "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
        "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
-       "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" ]] || return 65
+       "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" &&
+       "${lineas[5]}" == "${ruta_supervisor_m38_operativo}"$'\t'"${sha256_supervisor_m38_operativo}" ]] || return 65
     shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" \
         "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
     [[ ! -v destino_m080_h0b && ! -v destino_t080_h0b && ! -v directorio_wrapper_h0b &&
@@ -262,30 +265,37 @@ capturar_auxiliares_privados_f0() {
        "${destino_m080_h0b}|${destino_t080_h0b}|${directorio_wrapper_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/080_consumidor_nominal.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b' &&
        "${destino_wrapper_h0b}|${destino_wrapper_nominal_h0b}|${destino_wrapper_error_h0b}" == '/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/sin-r0.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/nominal/ensayo.sql|/repo_h0b/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/__h0b/error/ensayo.sql'
     ]] || return 65
-    fuente_go="${snapshot}/${ruta_supervisor_m38}"
-    supervisor_m38="${temporales}/supervisor-m38"
-    [[ -f "${fuente_go}" && ! -L "${fuente_go}" &&
-       "$(stat --printf='%a|%u|%F|%h' -- "${fuente_go}")" == "600|${EUID}|regular file|1" &&
-       "$(huella_local_f0 "${fuente_go}")" == "${sha256_supervisor_m38}" ]] || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-        "${go_f0}" vet "${fuente_go}" || return 65
-    entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-        "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_go}" || return 65
-    chmod 0700 "${supervisor_m38}" || return 65
-    forma_binario="$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")" || return 65
-    huella_fuente_post="$(/usr/bin/sha256sum -- "${fuente_go}")" || return 65
-    huella_binario="$(/usr/bin/sha256sum -- "${supervisor_m38}")" || return 65
-    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_go}" ]] || return 65
-    [[ ! -L "${supervisor_m38}" ]] || return 65
-    [[ "${forma_binario}" == "700|${EUID}|regular file|1" ]] || return 65
-    [[ "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}" ]] || return 65
+    fuente_g1="${snapshot}/${ruta_supervisor_m38}"
+    fuente_g2="${snapshot}/${ruta_supervisor_m38_operativo}"
+    supervisor_m38="${temporales}/supervisor-m38"; segundo="${temporales}/supervisor-m38-segundo"
+    for fase in antes despues; do
+        for par in "${fuente_g1}|${sha256_supervisor_m38}" "${fuente_g2}|${sha256_supervisor_m38_operativo}"; do
+            IFS='|' read -r fuente esperada <<<"${par}"
+            [[ -f "${fuente}" && ! -L "${fuente}" &&
+               "$(stat --printf='%a|%u|%F|%h' -- "${fuente}")" == "600|${EUID}|regular file|1" &&
+               "$(huella_local_f0 "${fuente}")" == "${esperada}" ]] || return 65
+        done
+        if [[ "${fase}" == despues ]]; then break; fi
+        entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+            "${go_f0}" vet "${fuente_g1}" "${fuente_g2}" || return 65
+        entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+            "${go_f0}" build -trimpath -o "${supervisor_m38}" "${fuente_g1}" "${fuente_g2}" || return 65
+        entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+            "${go_f0}" build -trimpath -o "${segundo}" "${fuente_g1}" "${fuente_g2}" || return 65
+        chmod 0700 "${supervisor_m38}" "${segundo}" || return 65
+    done
+    forma_binario="$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${supervisor_m38}")|$(/usr/bin/stat --printf='%a|%u|%F|%h' -- "${segundo}")" || return 65
+    huella_fuente_post="$(/usr/bin/sha256sum -- "${fuente_g1}" "${fuente_g2}")" || return 65
+    huella_binario="$(/usr/bin/sha256sum -- "${supervisor_m38}" "${segundo}")" || return 65
+    [[ "${huella_fuente_post}" == "${sha256_supervisor_m38}  ${fuente_g1}"$'\n'"${sha256_supervisor_m38_operativo}  ${fuente_g2}" ]] || return 65
+    [[ ! -L "${supervisor_m38}" && ! -L "${segundo}" ]] || return 65
+    [[ "${forma_binario}" == "700|${EUID}|regular file|1|700|${EUID}|regular file|1" ]] || return 65
+    [[ "${huella_binario}" == "${sha256_binario_supervisor_m38}  ${supervisor_m38}"$'\n'"${sha256_binario_supervisor_m38}  ${segundo}" ]] || return 65
     "${supervisor_m38}" --autoprueba >&2 || return 65
-    if "${supervisor_m38}" --modo-desconocido >/dev/null 2>&1; then
-        return 65
-    else
-        estado_directo=$?
-    fi
-    ((estado_directo == 64)) || return 65
+    for fuente in --supervisar-m38 --modo-desconocido; do
+        if "${supervisor_m38}" "${fuente}" >/dev/null 2>&1; then return 65; else estado_directo=$?; fi
+        ((estado_directo == 64)) || return 65
+    done
 }
 derivar_repo_base_h0_f0() {
     docker exec "${contenedor}" bash -ceu '
