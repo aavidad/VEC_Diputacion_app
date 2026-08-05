@@ -98,6 +98,12 @@ añadiría 65..95 líneas; una corrección con los solapamientos anteriores pued
 cerrar en 798..800. Se autoriza únicamente el segundo diseño como experimento
 acotado; la parada decide, no la estimación.
 
+Desde su GO documental, esta enmienda sustituye exclusivamente la previsión
+713..783, la parada 790 y el delta máximo +390 del ledger correctivo anterior
+por la previsión 798..800, la parada 800 y el delta máximo +400. El resto del
+contrato, matriz, write-set, invariantes, puertas y prohibiciones permanece
+vigente sin modificación.
+
 | Unidad | Base O1b | Candidato | Total previsto | Parada |
 | --- | ---: | ---: | ---: | ---: |
 | Runner | 800 | 800 | 800 | 800 |
@@ -140,8 +146,9 @@ Se detiene sin commit si:
 
 Después de estabilizar G2 se repiten dos builds privados disjuntos, huellas,
 autoprueba y mutantes focales, modos 64, FD/hijos, Bash, ShellCheck, Gitleaks y
-doble revisión independiente. Las puertas globales solo se ejecutan después
-de integrar un candidato con doble GO. Docker, PostgreSQL, red y E2E siguen
-fuera de O1b.
+doble revisión independiente. Con doble GO focal se ejecutan las puertas
+globales sobre el candidato antes de integrar. Tras la integración se repiten
+proporcionalmente sobre el árbol conjunto antes de publicar. Docker,
+PostgreSQL, red y E2E siguen fuera de O1b.
 
 Esta enmienda no cambia métricas ni acepta `56c0ac0`.
