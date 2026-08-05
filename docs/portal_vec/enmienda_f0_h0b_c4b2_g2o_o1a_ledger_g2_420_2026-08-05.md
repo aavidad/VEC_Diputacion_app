@@ -2,10 +2,10 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para finalizar exclusivamente la corrección O1a**. La parada
+Estado: **consumida y cerrada por O1a integrada hasta `52c8852`**. La parada
 400 fue insuficiente; la evidencia real midió G2=391. La corrección `6e0b985`
-obtuvo tres GO independientes con `P0=P1=P2=0` y eleva solo la parada a 420.
-Nunca autoriza O1b ni integra por sí misma el candidato.
+obtuvo tres GO independientes y el resultado final quedó en G2=400, dentro de
+la parada 420, también con triple GO. Nunca autoriza O1b.
 
 ## Motivo único
 

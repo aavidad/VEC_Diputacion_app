@@ -2,6 +2,24 @@
 
 Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 
+## Actualización vigente de dirección — 5 de agosto de 2026
+
+La rama integradora continúa siendo `integracion/ct-o4-04e-20260726` en el
+worktree `.worktrees/ct-stable-docs`. El corte técnico local vigente es
+`52c8852`: C4b-2/G2-O/O1a está integrado con triple GO final, runner 800, G1
+686 y G2 400. `go test ./...`, `go test -race ./...`, `go vet ./...` y
+`scripts/verificar_calidad.sh` terminaron verdes.
+
+O1a implementa exclusivamente el codec de trama completa y su autoprueba. El
+modo `--supervisar-m38` permanece cerrado en 64; no se abrieron FD, procesos de
+caso, Docker, PostgreSQL, SQL o red. El siguiente trabajo es **O1b**, lector
+incremental con fragmentación, coalescencia y sobrante. No se programa hasta
+aprobar su ledger y contrato acotados. O2 y fases posteriores siguen cerradas.
+
+Esta actualización prevalece sobre todas las actualizaciones históricas del
+resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,
+Contratación temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`.
+
 ## Actualización vigente de dirección — 31 de julio de 2026
 
 El último corte publicado completamente verde es `54a8cde` en

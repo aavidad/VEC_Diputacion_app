@@ -2,11 +2,15 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **aceptada para implementar exclusivamente O1a**. Sobre `1d727c1`, tres
-revisiones independientes obtuvieron `P0=P1=P2=0`. Corrige el P1 de señal
-funcional en S1 y los anteriores documentados en la
+Estado: **O1a implementada e integrada localmente hasta `52c8852`**. El
+contrato obtuvo triple GO documental y el código triple GO final con
+`P0=P1=P2=0`. Corrige el P1 de señal funcional en S1 y los anteriores
+documentados en la
 [revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
 No autoriza O1b ni ninguna fase posterior.
+
+Acta final:
+[revisión de código O1a](revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md).
 
 Base de código exacta: `3e36ecae23e0608bc1e7b9ce374e8fb35d13b4a2`.
 Antecedente documental: `bdfec1f`, que conserva el primer G2-O0 como NO-GO y

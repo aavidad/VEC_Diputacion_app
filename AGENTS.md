@@ -23,9 +23,9 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde antes de G2-S: `0a6de82`, ejecución
-  `30967899595`, cinco de cinco puertas superadas. Sustituye a la ejecución rechazada `30961258790` de
-  `c16422b`, que detectó dos ejecutables `main` en el mismo paquete Go.
+- Último corte remoto completamente verde antes de O1a: `3e36eca`, ejecución
+  `30970829740`, cinco de cinco puertas superadas. El cierre O1a está integrado
+  localmente hasta `52c8852` y pendiente únicamente de publicación/CI remoto.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -52,6 +52,12 @@ instrucción de dirección.
   dos builds privados reproducibles y puertas globales verdes. El runner ocupa
   exactamente 800 líneas, G1 683 y G2 91. G2 sigue cerrado en estado 64; este
   corte no implementa el protocolo operativo ni cierra C4b-2.
+- C4b-2/G2-O0/O1a queda integrado localmente en `dd029ad`–`52c8852`, después
+  de contrato canónico, ledger basado en evidencia y triple `GO` final. O1a
+  aporta únicamente codec de trama completa y autoprueba: runner 800, G1 686,
+  G2 400, dos builds privados reproducibles, modo `--supervisar-m38` cerrado
+  en 64 y puertas globales/carrera/calidad verdes. No abre FD, proceso, Bash
+  operativo, Docker, PostgreSQL, SQL o red.
 - La primera propuesta conjunta de separación/protocolo recibió `NO-GO`
   documental: no demostraba el presupuesto del runner y dejaba incompletos
   framing, `ACK_CASO` y causa/estado. Se sustituyó sin programar por dos
@@ -60,12 +66,12 @@ instrucción de dirección.
   y la
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
-  G2-O recibió doble `NO-GO` documental: contradice cancelación/framing y no
-  cabe como una sola minitarea. El siguiente trabajo es **G2-O0**, únicamente
-  contrato, precedencias, dominios, write-set y ledger; después siguen O1–O6.
-  No se programa G2-O hasta el doble `GO` de O0. Las evidencias están en
+  G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0 y O1a ya están
+  cerrados. El siguiente trabajo es **O1b**, exclusivamente lector incremental,
+  fragmentación, coalescencia y sobrante; exige ledger y doble GO propios antes
+  de código. O2 y fases posteriores siguen cerradas. Las evidencias están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`
-  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
+  y `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`.
 - Después de G2-O1–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
