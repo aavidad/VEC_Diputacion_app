@@ -5,12 +5,11 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 ## Actualización vigente de dirección — 5 de agosto de 2026
 
 La rama integradora continúa siendo `integracion/ct-o4-04e-20260726` en el
-worktree `.worktrees/ct-stable-docs`. El corte remoto verde anterior a O1b es
-`6c5527f`, ejecución GitHub `30998790086`, con sus cinco puertas superadas.
-O1b está integrado localmente en `eb2bba0`–`98b753e`: runner 800, G1 686 y G2
+worktree `.worktrees/ct-stable-docs`. El corte remoto verde vigente es
+`5581821`, ejecución GitHub `31002229666`, con sus cinco puertas superadas.
+O1b está integrado y publicado en `eb2bba0`–`98b753e`: runner 800, G1 686 y G2
 798, cuatro mutantes muertos y doble GO final `P0=P1=P2=0`. Las puertas
-globales terminaron verdes antes y después de integrar; falta publicar y
-acreditar la nueva CI.
+globales terminaron verdes antes y después de integrar.
 
 O1a implementa exclusivamente el codec de trama completa y su autoprueba. El
 modo `--supervisar-m38` permanece cerrado en 64; no se abrieron FD, procesos de
@@ -23,7 +22,9 @@ en 798. El conjunto obtuvo doble GO final, builds reproducibles y puertas
 globales verdes, y se integró como `eb2bba0`–`98b753e`. La
 [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md)
 registra la trazabilidad completa. El siguiente trabajo es definir y revisar
-el contrato y ledger de O2; la implementación permanece cerrada hasta ese GO.
+el contrato y ledger de O2a para el sobre monoframa de S0; O2b conserva
+`ARMAR/ACK_LISTO/CANCELAR/EOF`. La implementación permanece cerrada hasta el
+GO de O2a.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,

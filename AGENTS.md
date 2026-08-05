@@ -23,10 +23,8 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde anterior a O1b: `6c5527f`, ejecución
-  `30998790086`, cinco de cinco puertas superadas. O1b está integrado
-  localmente hasta `98b753e` y espera únicamente publicación y acreditación de
-  su nueva CI.
+- Último corte remoto completamente verde: `5581821`, ejecución
+  `31002229666`, cinco de cinco puertas superadas. Incluye O1b y su acta final.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -70,7 +68,8 @@ instrucción de dirección.
   `P0=P1=P2=0`. El código final quedó integrado en `eb2bba0`–`98b753e`:
   G2 798, runner 800, G1 686, cuatro mutantes muertos, dos builds privados
   reproducibles y doble GO final `P0=P1=P2=0`. La puerta global terminó verde
-  tanto en la candidata como en el árbol conjunto. La
+  tanto en la candidata como en el árbol conjunto; la CI `31002229666`
+  terminó después con sus cinco puertas verdes. La
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`
   conserva la evidencia. O1b no abre FD, procesos, Bash, Docker, PostgreSQL,
   SQL o red.
@@ -84,9 +83,9 @@ instrucción de dirección.
   G2-S obtuvo primero `GO` documental y después doble `GO` de implementación.
   G2-O recibió doble `NO-GO` documental y fue dividido. G2-O0, O1a y O1b ya
   están cerrados. El siguiente trabajo es **definir el contrato y ledger de
-  G2-O2 para `ARMAR/ACK_LISTO/CANCELAR/EOF`, sin crear Bash**, y obtener su
-  revisión independiente antes de programar. O2 y fases posteriores siguen
-  cerradas. Las evidencias
+  G2-O2a para el sobre monoframa de S0, sin usar el ticket ni crear Bash**, y
+  obtener su revisión independiente antes de programar. O2b conserva
+  `ARMAR/ACK_LISTO/CANCELAR/EOF`; O2 y fases posteriores siguen cerradas. Las evidencias
   están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`

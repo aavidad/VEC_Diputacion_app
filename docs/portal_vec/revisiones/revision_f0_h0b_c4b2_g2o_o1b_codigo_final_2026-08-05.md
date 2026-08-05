@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **GO integrado pendiente únicamente de acreditar la CI remota**.
+Estado: **GO integrado y publicado**.
 
 ## Alcance cerrado
 
@@ -91,10 +91,16 @@ estático, compilación, aislamiento de dependencias y manifiestos público e
 interno, carga TLS no privilegiada, PDF, `govulncheck`, tamaños y diferencias.
 No se encontraron vulnerabilidades conocidas ni fugas de secretos.
 
+El corte publicado `5581821` superó después las cinco puertas remotas de la
+ejecución GitHub `31002229666`: secretos, artefactos productivos,
+ContextoActor/PDP V3 en PostgreSQL 18, Bolsa pública en PostgreSQL 18 con TLS
+y calidad global.
+
 ## Decisión
 
-O1b queda técnicamente aceptada e integrada. Las métricas funcionales no se
+O1b queda técnicamente aceptada, integrada y publicada. Las métricas funcionales no se
 incrementan porque H0b continúa abierto. La siguiente minitarea es definir y
-revisar el contrato y ledger de G2-O2, limitado al bootstrap
-`ARMAR/ACK_LISTO/CANCELAR/EOF` sin crear Bash. O2 permanece cerrado hasta que
-ese contrato obtenga revisión independiente.
+revisar el contrato y ledger de G2-O2a, limitado a leer, validar y retener el
+sobre monoframa de S0 sin usar el ticket ni crear Bash. O2b conserva
+`ARMAR/ACK_LISTO/CANCELAR/EOF`; ambas permanecen cerradas hasta que O2a
+obtenga revisión independiente.

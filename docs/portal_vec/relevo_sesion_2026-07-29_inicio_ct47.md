@@ -20,9 +20,10 @@ pidfd y rollback sintético, no el protocolo operativo. G2-S queda integrado en
 91 y puertas globales verdes. O1a y O1b están integradas. O1b quedó cerrada
 en `eb2bba0`–`98b753e`: runner 800, G1 686, G2 798, cuatro mutantes muertos,
 dos builds reproducibles y doble GO final. La puerta global terminó verde
-sobre la candidata y el árbol integrado. El siguiente corte exacto es definir
-y revisar el contrato y ledger de O2, limitado al bootstrap sin crear Bash;
-su implementación permanece cerrada hasta ese GO. Las métricas permanecen
+sobre la candidata y el árbol integrado, y la CI `31002229666` obtuvo cinco
+verdes. El siguiente corte exacto es definir y revisar el contrato y ledger de
+O2a, limitado al sobre monoframa S0 sin usar el ticket ni crear Bash. O2b
+conserva el resto del bootstrap y permanece cerrado. Las métricas permanecen
 en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva
 `1/14` y producción `NO-GO`. El corte publicado `26fefda` superó
 completamente las cinco puertas de la CI `30963212221`.
@@ -557,8 +558,9 @@ efecto, prueba y buzón en transacciones autoritativas. El candidato histórico
 sobredimensionado no se integró. Dentro de F0, C4a queda integrado; el
 checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
 `f3d928d`–`d28d37d`. G2-S queda integrado en `452f4f0`–`5808e18`; O1a y O1b
-están integradas, esta última en `eb2bba0`–`98b753e` con doble GO y puertas
-globales verdes. El siguiente corte exacto es el contrato y ledger de O2. La
+están integradas, esta última en `eb2bba0`–`98b753e` con doble GO, puertas
+globales y CI `31002229666` verdes. El siguiente corte exacto es el contrato y
+ledger de O2a para el sobre S0. La
 migración `000007` continúa bloqueada hasta cerrar
 C4b–C4d.
 
