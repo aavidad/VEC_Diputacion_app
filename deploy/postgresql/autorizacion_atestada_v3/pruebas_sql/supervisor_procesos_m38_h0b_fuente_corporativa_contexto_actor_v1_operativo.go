@@ -280,7 +280,7 @@ func autoprobarTramasM38() error {
 	}
 	invalidas := []struct{ clase, texto string }{
 		{"SOBRE", sobre("A00", "2048", strings.Repeat("x", 2049))}, {"SOBRE", sobre("A0", "1", "x")},
-		{"SOBRE", sobre("a01", "1", "x")}, {"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, strings.ToUpper(h), 1)},
+		{"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, "g"+h[1:], 1)}, {"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, strings.ToUpper(h), 1)},
 		{"SOBRE", strings.Replace(sobre("A00", "1", "x"), h, strings.Repeat("a", 63), 1)}, {"SOBRE", sobre("A00", "0", "")},
 		{"CONTROL", "V2|CONTROL|INICIAR|" + h + "\n"}, {"CONTROL", "V1|TERMINAL|INICIAR|" + h + "\n"},
 		{"CONTROL", "V1|CONTROL|ARMAR|" + h + "\n"}, {"CONTROL", "V1|CONTROL|INICIAR|" + h + "|extra\n"},
