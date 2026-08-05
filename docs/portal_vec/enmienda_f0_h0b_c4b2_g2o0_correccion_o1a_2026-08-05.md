@@ -2,12 +2,11 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **quinta propuesta de dirección pendiente de doble revisión
-independiente**. Sobre `6a27aab`, dos revisiones obtuvieron GO, pero una tercera
-detectó un P1 de señal funcional en S1; por tanto no se autorizó código. Corrige
-ese P1 y los anteriores documentados en la
+Estado: **aceptada para implementar exclusivamente O1a**. Sobre `1d727c1`, tres
+revisiones independientes obtuvieron `P0=P1=P2=0`. Corrige el P1 de señal
+funcional en S1 y los anteriores documentados en la
 [revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_correccion_o1a_2026-08-05.md).
-No autoriza O1a, O1b ni ninguna fase posterior hasta nueva doble revisión.
+No autoriza O1b ni ninguna fase posterior.
 
 Base de código exacta: `3e36ecae23e0608bc1e7b9ce374e8fb35d13b4a2`.
 Antecedente documental: `bdfec1f`, que conserva el primer G2-O0 como NO-GO y

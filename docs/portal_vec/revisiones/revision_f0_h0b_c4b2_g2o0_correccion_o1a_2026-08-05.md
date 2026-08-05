@@ -82,3 +82,16 @@ revisor detectó, sin embargo, que S1 admitía todavía `SENAL_INT/SENAL_TERM` p
 a que antes de `ARMAR` un `CANCELAR` es secuencia inválida. Un solo NO-GO
 mantiene detenido O1a. La quinta propuesta separa causas S1 de S2/S3 y añade
 los dos mutantes explícitos; requiere nueva revisión verde.
+
+## Aceptación final `1d727c1`
+
+| Revisión | P0 | P1 | P2 | Veredicto |
+| --- | ---: | ---: | ---: | --- |
+| Seguridad y topología | 0 | 0 | 0 | GO |
+| Máquina y coherencia | 0 | 0 | 0 | GO |
+| Ledger y write-set | 0 | 0 | 0 | GO |
+
+S1 queda limitado a causas sin señal funcional; S2/S3 conservan las señales
+transportadas y los mutantes negativos son obligatorios. No queda bloqueo
+documental para el candidato O1a dentro del write-set y topes aprobados. O1b y
+las fases operativas siguen cerradas.
