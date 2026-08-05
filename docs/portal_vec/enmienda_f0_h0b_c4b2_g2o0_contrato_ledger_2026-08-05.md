@@ -2,7 +2,11 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **propuesta de dirección pendiente de doble revisión independiente**.
+Estado: **NO-GO documental**. Tres revisiones independientes sobre `c71cab9`
+obtuvieron `P0=0`, pero detectaron contratos incompletos de framing,
+precedencia, topología binaria y ledger. No autoriza código. Su evidencia y
+corrección exigida están en la
+[revisión consolidada](revisiones/revision_f0_h0b_c4b2_g2o0_contrato_ledger_2026-08-05.md).
 
 ## Alcance único
 
