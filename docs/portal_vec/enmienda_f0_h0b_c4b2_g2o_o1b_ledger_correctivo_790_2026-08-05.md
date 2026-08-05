@@ -31,6 +31,12 @@ Esta enmienda cambia únicamente el presupuesto y enumera la corrección
 obligatoria. No modifica firma, estados, resultados, errores, gramática,
 propiedad, límites, régimen mono/multitrama, write-set o prohibición de O2.
 
+Cuando obtenga el GO documental, sustituirá exclusivamente las tablas de
+delta y totales y los umbrales de parada `+265/680` del apartado «Ledger
+físico de O1b» del contrato original. Permanecen vigentes sin modificación la
+firma, los estados, resultados, errores, precedencias, matriz funcional,
+write-set, invariantes, puertas y prohibiciones de aquel contrato.
+
 ## Resultado de las revisiones del árbol detenido
 
 Dos revisiones independientes mantienen el candidato en NO-GO:
@@ -86,13 +92,16 @@ O1a y un byte superior es exceso. No basta con observar cualquier error.
 ## Ledger correctivo
 
 Las dos estimaciones independientes del trabajo restante fueron +35..+55 y
-+70..+105 líneas. Se adopta el rango envolvente, sin tratarlo como objetivo:
++70..+105 líneas. Se adopta el rango envolvente global, sin tratarlo como
+objetivo. Los rangos observados por subparte están correlacionados y no se
+suman de forma independiente; el único presupuesto vinculante es el global:
 
-| Parte G2 | Estado detenido | Corrección restante | Total desde base |
-| --- | ---: | ---: | ---: |
-| Lector, estados y errores | +136..+137 | 0..+5 | +136..+142 |
-| Pruebas y enganche | +141..+142 | +35..+105 | +176..+247 |
-| **Delta G2** | **+278** | **+35..+105** | **+313..+383** |
+| Magnitud global G2 | Delta desde base | Líneas de G2 |
+| --- | ---: | ---: |
+| Candidato detenido | +278 | 678 |
+| Corrección total restante | +35..+105 | — |
+| **Final previsto** | **+313..+383** | **713..783** |
+| **Parada de revisión** | **+390** | **790** |
 
 | Unidad | Base | Candidato detenido | Total previsto | Parada O1b |
 | --- | ---: | ---: | ---: | ---: |
