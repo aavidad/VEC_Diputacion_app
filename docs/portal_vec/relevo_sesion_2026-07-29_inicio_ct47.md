@@ -24,9 +24,9 @@ completamente las cinco puertas de la CI `30963212221`.
 La primera propuesta conjunta G2 recibió `NO-GO` documental antes de código
 por presupuesto del runner no demostrado y protocolo incompleto. Se dividió en
 G2-S, separación capturada de seis fuentes, y G2-O, protocolo operativo. Las
-segundas propuestas fechadas el 5 de agosto permanecen pendientes de nueva
-revisión independiente; la siguiente sesión no programa hasta obtener el
-doble `GO` de G2-S.
+segundas propuestas fechadas el 5 de agosto. G2-S obtuvo doble `GO` documental,
+`P0=P1=P2=0`, y queda autorizada como única minitarea de código. G2-O sigue
+pendiente de revisión y no está autorizada.
 
 La [decisión de semántica INT/TERM de C4b-1](decision_f0_h0b_c4b1_semantica_senales_2026-08-02.md)
 mantiene en `NO-GO` los candidatos `db240a5`, `075610f` y `1524feb`. Las

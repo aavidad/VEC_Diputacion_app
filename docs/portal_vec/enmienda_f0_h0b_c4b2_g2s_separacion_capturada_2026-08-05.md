@@ -2,8 +2,8 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: segunda propuesta de dirección, pendiente de doble revisión
-independiente. No autoriza código, no cierra C4b-2 ni modifica métricas.
+Estado: **aceptada** tras doble revisión independiente con `P0=P1=P2=0`.
+Autoriza únicamente G2-S; no cierra C4b-2 ni modifica métricas.
 
 ## Motivo y alcance único
 

@@ -60,8 +60,10 @@ instrucción de dirección.
   `docs/portal_vec/enmienda_f0_h0b_c4b2_g2s_separacion_capturada_2026-08-05.md`
   y la
   `docs/portal_vec/especificacion_f0_h0b_c4b2_g2o_protocolo_operativo_2026-08-05.md`.
-  Ambos están **pendientes de nueva revisión independiente**. La siguiente
-  sesión revisa primero G2-S; ningún código G2 está autorizado todavía.
+  G2-S obtuvo doble `GO` documental, `P0=P1=P2=0`, y queda autorizada como
+  única minitarea de código. G2-O permanece pendiente de revisión y no se
+  programa todavía. La evidencia está en
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_separacion_capturada_2026-08-05.md`.
 - Después siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
