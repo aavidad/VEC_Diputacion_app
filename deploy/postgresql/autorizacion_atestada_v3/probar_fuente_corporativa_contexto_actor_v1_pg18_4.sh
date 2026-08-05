@@ -60,14 +60,16 @@ readonly ruta_helper_operativo='deploy/postgresql/autorizacion_atestada_v3/prueb
 readonly ruta_adaptador_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ciclo_recursos_m38_h0b_fuente_corporativa_contexto_actor_v1.sh'
 readonly ruta_supervisor_m38='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go'
 readonly ruta_supervisor_m38_operativo='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go'
+readonly ruta_supervisor_m38_sobre='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_sobre_s0.go'
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='039b75dd15a2888798c7f257c46fdbb97587cbdd4a6519e11cb043cce0e72e5e'
 readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
-readonly sha256_supervisor_m38='9fab2cae4edd0b5cf8cd5d67fd7a1f9643b81085c815b0c10cb477f67a7e1afe'
+readonly sha256_supervisor_m38='f9ab7b20accac9af56cfcb5e42c25c62b087d7e0ee81a2fea09250a35fc0c58f'
 readonly sha256_supervisor_m38_operativo='01acb818e9abefcbfe4c279bb0dd5e3317bf03f082f1ed3fba4f257c5642866b'
-readonly sha256_binario_supervisor_m38='4ae175f326145be4f9cc81908bc3fa381abedc21576aaab1ade1ca8551284419'
+readonly sha256_supervisor_m38_sobre='d608868ecb2cb753876f488b522975e05af06c013c82222959be5d85100c3633'
+readonly sha256_binario_supervisor_m38='46d247156316b56ca5f30082c4964aaaefdc2442eb8fb8685f595aeb230dde30'
 readonly sha256_capturador='4a967fd13bac213ea7ebf7316af98dcc9a9dfb39b9b3b28f68e0c91958878902'
 readonly imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-f0-h0-${PPID}-${RANDOM}"
@@ -225,20 +227,23 @@ preparar_capturador_privado_f0() {
 }
 capturar_auxiliares_privados_f0() {
     local binario="$1" snapshot="${temporales}/snapshot-auxiliares"
-    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_g1 fuente_g2 segundo par esperada fase destino_binario raiz_go
+    local manifiesto="${temporales}/manifiesto-auxiliares" estado_directo fuente fuente_g1 fuente_g2
+    local fuente_g3 segundo par esperada fase destino_binario raiz_go
     local -a lineas=()
     "${binario}" --raiz . --destino "${snapshot}" \
         --manifiesto "${manifiesto}" -- "${ruta_helper_sql}" "${ruta_helper_h0b}" \
         "${ruta_adaptador_m38}" \
-        "${ruta_helper_operativo}" "${ruta_supervisor_m38}" "${ruta_supervisor_m38_operativo}" || return 65
+        "${ruta_helper_operativo}" "${ruta_supervisor_m38}" "${ruta_supervisor_m38_operativo}" \
+        "${ruta_supervisor_m38_sobre}" || return 65
     mapfile -t lineas <"${manifiesto}" || return 65
-    [[ ${#lineas[@]} -eq 6 &&
+    [[ ${#lineas[@]} -eq 7 &&
        "${lineas[0]}" == "${ruta_helper_sql}"$'\t'"${sha256_helper_sql}" &&
        "${lineas[1]}" == "${ruta_helper_h0b}"$'\t'"${sha256_helper_h0b}" &&
        "${lineas[2]}" == "${ruta_adaptador_m38}"$'\t'"${sha256_adaptador_m38}" &&
        "${lineas[3]}" == "${ruta_helper_operativo}"$'\t'"${sha256_helper_operativo}" &&
        "${lineas[4]}" == "${ruta_supervisor_m38}"$'\t'"${sha256_supervisor_m38}" &&
-       "${lineas[5]}" == "${ruta_supervisor_m38_operativo}"$'\t'"${sha256_supervisor_m38_operativo}" ]] || return 65
+       "${lineas[5]}" == "${ruta_supervisor_m38_operativo}"$'\t'"${sha256_supervisor_m38_operativo}" &&
+       "${lineas[6]}" == "${ruta_supervisor_m38_sobre}"$'\t'"${sha256_supervisor_m38_sobre}" ]] || return 65
     shellcheck -x "${ruta_runner}" "${snapshot}/${ruta_helper_sql}" "${snapshot}/${ruta_helper_h0b}" \
         "${snapshot}/${ruta_helper_operativo}" "${snapshot}/${ruta_adaptador_m38}" || return 65
     [[ ! -v destino_m080_h0b && ! -v destino_t080_h0b && ! -v directorio_wrapper_h0b &&
@@ -267,10 +272,14 @@ capturar_auxiliares_privados_f0() {
     ]] || return 65
     fuente_g1="${snapshot}/${ruta_supervisor_m38}"
     fuente_g2="${snapshot}/${ruta_supervisor_m38_operativo}"
+    fuente_g3="${snapshot}/${ruta_supervisor_m38_sobre}"
     supervisor_m38="${temporales}/supervisor-m38"
     segundo="${temporales}/supervisor-m38-segundo"
     for fase in antes despues; do
-        for par in "${fuente_g1}|${sha256_supervisor_m38}" "${fuente_g2}|${sha256_supervisor_m38_operativo}"; do
+        for par in \
+            "${fuente_g1}|${sha256_supervisor_m38}" \
+            "${fuente_g2}|${sha256_supervisor_m38_operativo}" \
+            "${fuente_g3}|${sha256_supervisor_m38_sobre}"; do
             IFS='|' read -r fuente esperada <<<"${par}"
             [[ -f "${fuente}" && ! -L "${fuente}" &&
                "$(stat --printf='%a|%u|%F|%h' -- "${fuente}")" == "600|${EUID}|regular file|1" &&
@@ -278,13 +287,15 @@ capturar_auxiliares_privados_f0() {
         done
         [[ "${fase}" == antes ]] || continue
         entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-            "${go_f0}" vet "${fuente_g1}" "${fuente_g2}" || return 65
+            "${go_f0}" vet "${fuente_g1}" "${fuente_g2}" \
+            "${fuente_g3}" || return 65
         for destino_binario in "${supervisor_m38}" "${segundo}"; do
             raiz_go="$(mktemp -d "${temporales}/go-supervisor.XXXXXX")" || return 65
             mkdir --mode=0700 -- "${raiz_go}/home" "${raiz_go}/tmp" "${raiz_go}/cache" || return 65
             [[ -d "${raiz_go}" && ! -L "${raiz_go}" && "$(/usr/bin/stat --printf='%a|%u|%F|%h\n' -- "${raiz_go}" "${raiz_go}/home" "${raiz_go}/tmp" "${raiz_go}/cache")" == $'700|'"${EUID}"$'|directory|5\n700|'"${EUID}"$'|directory|2\n700|'"${EUID}"$'|directory|2\n700|'"${EUID}"$'|directory|2' ]] || return 65
             home_go_f0="${raiz_go}/home" tmp_go_f0="${raiz_go}/tmp" cache_go_f0="${raiz_go}/cache" entorno_go_aislado_f0 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-                "${go_f0}" build -a -trimpath -o "${destino_binario}" "${fuente_g1}" "${fuente_g2}" || return 65
+                "${go_f0}" build -a -trimpath -o "${destino_binario}" "${fuente_g1}" "${fuente_g2}" \
+                "${fuente_g3}" || return 65
         done
         chmod 0700 "${supervisor_m38}" "${segundo}" || return 65
     done
