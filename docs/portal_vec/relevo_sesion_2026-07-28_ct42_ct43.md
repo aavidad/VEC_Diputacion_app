@@ -6,7 +6,7 @@ Fecha de corte: 28 de julio de 2026, zona horaria Europe/Madrid.
 
 La rama integradora continúa siendo `integracion/ct-o4-04e-20260726` en el
 worktree `.worktrees/ct-stable-docs`. El corte remoto verde vigente es
-`d148d76`, ejecución GitHub `31011501522`, con sus cinco puertas superadas.
+`ef1f08b`, ejecución GitHub `31021785711`, con sus cinco puertas superadas.
 O1b está integrado y publicado en `eb2bba0`–`98b753e`: runner 800, G1 686 y G2
 798, cuatro mutantes muertos y doble GO final `P0=P1=P2=0`. Las puertas
 globales terminaron verdes antes y después de integrar.
@@ -33,8 +33,9 @@ candidato corregido `50aec51` obtuvo doble GO después de rechazar el primero
 por limpieza sensible y evidencia no durable. La evidencia portable quedó
 confirmada en `6a8c1ee` y el código integrado localmente en `0caa140`; binario,
 AST, 27 mutantes, H0 PostgreSQL 18.4 y puerta global quedaron verdes, sin
-residuos. La publicación está pendiente. El siguiente trabajo es contratar
-O2b: «ARMAR y cancelación sin Bash»; los ACK vivos ya no existen.
+residuos. Quedó publicado dentro de `ef1f08b` y la CI `31021785711` terminó
+con cinco puertas verdes. El siguiente trabajo es contratar O2b: «ARMAR y
+cancelación sin Bash»; los ACK vivos ya no existen.
 
 Esta actualización prevalece sobre todas las actualizaciones históricas del
 resto del documento. Las métricas permanecen F0 `10/23`, O4-05 `3/5`,

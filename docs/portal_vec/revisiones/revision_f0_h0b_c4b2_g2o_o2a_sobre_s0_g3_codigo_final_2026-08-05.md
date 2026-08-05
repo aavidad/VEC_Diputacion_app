@@ -2,7 +2,7 @@
 
 Fecha: 5 de agosto de 2026.
 
-Estado: **GO integrado localmente; P0=0, P1=0 y P2=0; publicación pendiente**.
+Estado: **GO integrado, publicado y con CI verde; P0=0, P1=0 y P2=0**.
 
 ## Alcance exacto
 
@@ -34,6 +34,8 @@ sobre `ARMAR` y la cancelación.
 | Candidato corregido | `50aec513c535980d80bee28ca10321ed4ed7e04f` |
 | Evidencia previa | `6a8c1ee` |
 | Integración | `0caa140` |
+| Publicación y relevo | `ef1f08b` |
+| CI | `31021785711`, cinco de cinco puertas verdes |
 
 El primer candidato se rechazó antes de integrar porque un fallo interno podía
 dejar material sensible en el lector y porque el analizador AST y el mutador no
@@ -171,6 +173,5 @@ vulnerabilidades y tamaños. No quedaron contenedores ni temporales F0.
 Este cierre interno no modifica Contratación temporal `24/46` ni Bolsa
 productiva `1/14`. Producción permanece en `NO-GO`.
 
-La publicación y su CI todavía no están acreditadas en este corte. La siguiente
-minitarea es O2b: `ARMAR` y cancelación sin Bash, mediante un contrato nuevo y
-acotado; O2a no autoriza esa conducta.
+La siguiente minitarea es O2b: `ARMAR` y cancelación sin Bash, mediante un
+contrato nuevo y acotado; O2a no autoriza esa conducta.

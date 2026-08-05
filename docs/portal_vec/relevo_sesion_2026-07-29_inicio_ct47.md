@@ -26,7 +26,7 @@ verdes. El análisis posterior detuvo O2a antes de código: runner 800/800 y G2
 mediante un traslado estructural sin cambio funcional. La tarea y su enmienda
 local de ShellCheck obtuvieron doble GO documental; el candidato `df9a422`
 obtuvo después doble GO de código y quedó integrado localmente como `48a46a3`:
-runner 783, D2d 164, H0 real, residuos cero y puerta global verdes. Quedó
+runner 783, D2d 164, H0 real, residuos cero y puerta global verde. Quedó
 publicado en `ef027cf` y la CI `31007941124` terminó con cinco puertas verdes.
 El contrato O2a/S0/G3 quedó autorizado en `d148d76`; su CI `31011501522`
 terminó con cinco puertas verdes. El primer candidato de código se rechazó por
@@ -34,10 +34,14 @@ limpieza sensible y evidencia no durable. El candidato corregido `50aec51`
 obtuvo doble GO final; su evidencia portable quedó confirmada en `6a8c1ee` y
 el código integrado localmente en `0caa140`. Dirección reprodujo el binario,
 AST, 17 mutantes conductuales, 10 estructurales, H0 PostgreSQL 18.4 y la puerta
-global, todo verde y sin residuos. La publicación de este corte está pendiente.
-El siguiente trabajo es el contrato acotado de O2b; O2b permanece cerrado y no
-hay ACK vivos. Las métricas permanecen en F0 `10/23`, O4-05 `3/5`,
-Contratación temporal `24/46`, Bolsa productiva `1/14` y producción `NO-GO`.
+global, todo verde y sin residuos. Quedó publicado dentro de `ef1f08b` y la CI
+`31021785711` terminó con cinco puertas verdes. El siguiente trabajo es el
+contrato acotado de O2b; O2b permanece cerrado y no hay ACK vivos. Las métricas
+permanecen en F0 `10/23`, O4-05 `3/5`, Contratación temporal `24/46`, Bolsa
+productiva `1/14` y producción `NO-GO`.
+
+Este corte técnico prevalece sobre cualquier instrucción histórica del resto
+del documento que nombre O1b, O2a-P0 u O2a/S0/G3 como trabajo activo.
 
 La primera propuesta conjunta G2 recibió `NO-GO` documental antes de código
 por presupuesto del runner no demostrado y protocolo incompleto. Se dividió en
@@ -485,8 +489,9 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: corrección y doble revisión de `56c0ac0` bajo la parada 800.
-Después siguen G2-O2–O6 y, secuencialmente,
+Trabajo activo: contrato acotado O2b, «ARMAR y cancelación sin Bash». O2a/S0/G3
+está integrado y publicado dentro de `ef1f08b`, con CI `31021785711` verde.
+Después siguen O3a–O6c y, secuencialmente,
 C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
@@ -572,9 +577,10 @@ checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` y C4b-2/G1 en
 están integradas, esta última en `eb2bba0`–`98b753e` con doble GO, puertas
 globales y CI `31002229666` verdes. O2a-P0 obtuvo doble GO documental y de
 código; está integrada como `48a46a3` y publicada en `ef027cf`, con H0, puerta
-global y CI `31007941124` completamente verdes. El siguiente corte es definir
-y revisar el contrato O2a/S0/G3. La migración `000007` continúa bloqueada hasta cerrar
-C4b–C4d.
+global y CI `31007941124` completamente verdes. O2a/S0/G3 está integrado en
+`0caa140` y publicado dentro de `ef1f08b`, con CI `31021785711` completamente
+verde. El siguiente corte es el contrato O2b. La migración `000007` continúa
+bloqueada hasta cerrar C4b–C4d.
 
 ## Optimización probatoria CT88
 
