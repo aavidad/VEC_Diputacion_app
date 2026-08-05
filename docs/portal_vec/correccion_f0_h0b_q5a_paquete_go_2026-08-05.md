@@ -55,5 +55,13 @@ La corrección solo puede aceptarse después de acreditar:
 - revisión independiente del nuevo corte;
 - cinco puertas CI verdes tras publicar la reparación.
 
-Hasta entonces Q5a sigue integrada pero no publicada con una CI aceptable, y
-C4b-2 operativo permanece cerrado a cambios de código.
+## Revisión previa a integración
+
+La implementación `e98a800` y sus correcciones documentales hasta `6a95b07`
+recibieron dos dictámenes independientes finales `GO`, con
+`P0=0`, `P1=0` y `P2=0`. Se reprodujeron las huellas, dos builds idénticos, la
+autoprueba ABI, el modo 64, `go list`, las pruebas ordinarias y con detector de
+carreras de todo el árbol, `go vet ./...`, ShellCheck, límites y diferencias.
+
+Hasta obtener cinco puertas CI verdes tras publicar este corte, C4b-2
+operativo permanece cerrado a cambios de código.

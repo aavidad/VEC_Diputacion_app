@@ -23,21 +23,27 @@ instrucción de dirección.
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto cuya CI ya terminó completamente verde antes de Q5a:
-  `f09ce68`, ejecución `30951957936`, cinco de cinco puertas superadas. El
-  corte Q5a aceptado debe publicarse y observar su propia CI antes de comenzar
-  código C4b-2.
+- Último corte remoto cuya CI terminó completamente verde antes de Q5a:
+  `f09ce68`, ejecución `30951957936`, cinco de cinco puertas superadas. Q5a se
+  publicó en `c16422b`; su ejecución `30961258790` dejó verdes cuatro puertas
+  y rechazó calidad por dos ejecutables `main` en el mismo paquete Go.
+  La reparación está aceptada localmente hasta `6a95b07`, pero debe publicarse
+  y obtener cinco puertas verdes antes de comenzar código C4b-2.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
   Obtuvo doble `GO`, `P0=P1=P2=0`, 600 ráfagas reales, H0 PostgreSQL 18.4
   y residuos cero. El commit posterior que modifica este `AGENTS.md` es solo
   el relevo de cierre.
-- Q5a queda aceptada sobre `649ee46` y su
+- La evidencia histórica Q5a queda aceptada sobre `649ee46` y su
   `docs/portal_vec/revisiones/revision_f0_h0b_q5a_captura_supervisor_2026-08-05.md`:
   tres `GO` independientes, `P0=P1=P2=0`, captura privada exacta de cinco,
   build Go cerrado, autoprueba ABI pidfd real, runner 789, D2d 145, adaptador
-  527, Go 131 y residuos cero. No se ejecutaron Docker, PostgreSQL ni E2E.
+  527, Go 131 y residuos cero. La corrección posterior de empaquetado ocupa
+  132 líneas y queda documentada en
+  `docs/portal_vec/correccion_f0_h0b_q5a_paquete_go_2026-08-05.md`; recibió
+  doble `GO`, `P0=P1=P2=0`, sobre `6a95b07`. No se ejecutaron Docker,
+  PostgreSQL ni E2E.
 - La primera tarea disponible después de publicar y observar ese corte es
   exclusivamente **C4b-2 operativo**: supervisor padre, hijo/grupo, trabajo
   provisional, PID/PGID/PPID, inicio, plazo absoluto, espera y extinción
