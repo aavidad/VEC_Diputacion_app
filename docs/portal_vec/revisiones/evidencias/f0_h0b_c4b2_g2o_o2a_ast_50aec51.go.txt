@@ -1,0 +1,187 @@
+package main
+
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"strconv"
+	"strings"
+)
+
+func nombreFuncion(decl *ast.FuncDecl) string {
+	if decl.Recv == nil {
+		return decl.Name.Name
+	}
+	return "metodo." + decl.Name.Name
+}
+
+func main() {
+	argumento := 1
+	if len(os.Args) == 3 && os.Args[1] == "--" {
+		argumento = 2
+	}
+	if len(os.Args) != argumento+1 {
+		panic("ruta requerida")
+	}
+	f, err := parser.ParseFile(token.NewFileSet(), os.Args[argumento], nil, parser.AllErrors)
+	if err != nil {
+		panic(err)
+	}
+	esperados := []string{"errors", "fmt", "strings"}
+	if len(f.Imports) != len(esperados) {
+		panic("imports discrepantes")
+	}
+	for i, imp := range f.Imports {
+		valor, err := strconv.Unquote(imp.Path.Value)
+		if err != nil || valor != esperados[i] {
+			panic("lista positiva de imports incumplida")
+		}
+	}
+	funciones := map[string]*ast.FuncDecl{}
+	for _, decl := range f.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok {
+			funciones[nombreFuncion(fn)] = fn
+			if fn.Recv != nil && fn.Name.Name != "consumir" {
+				panic("método adicional")
+			}
+			if strings.HasPrefix(strings.ToLower(fn.Name.Name), "obtener") || strings.HasPrefix(strings.ToLower(fn.Name.Name), "get") {
+				panic("getter adicional")
+			}
+		}
+	}
+	prohibidos := map[string]bool{"os": true, "log": true, "net": true, "http": true, "exec": true, "syscall": true, "time": true, "sync": true, "json": true, "xml": true, "gob": true, "io": true}
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.GoStmt, *ast.SendStmt, *ast.ChanType:
+			panic("concurrencia prohibida")
+		case *ast.CallExpr:
+			if id, ok := x.Fun.(*ast.Ident); ok && (id.Name == "print" || id.Name == "println") {
+				panic("salida prohibida")
+			}
+			if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
+				if id, ok := sel.X.(*ast.Ident); ok && prohibidos[id.Name] {
+					panic("API prohibida")
+				}
+				if sel.Sel.Name == "Clone" || sel.Sel.Name == "MarshalJSON" || sel.Sel.Name == "String" {
+					panic("exposición o copia prohibida")
+				}
+			}
+		}
+		return true
+	})
+	alcanzables := map[string]bool{}
+	cola := []string{"nuevoReceptorSobreS0M38", "metodo.consumir"}
+	for len(cola) > 0 {
+		nombre := cola[0]
+		cola = cola[1:]
+		if alcanzables[nombre] {
+			continue
+		}
+		fn := funciones[nombre]
+		if fn == nil {
+			panic("raíz ausente")
+		}
+		alcanzables[nombre] = true
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			llamada, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			if id, ok := llamada.Fun.(*ast.Ident); ok {
+				if _, local := funciones[id.Name]; local {
+					cola = append(cola, id.Name)
+				}
+			}
+			return true
+		})
+	}
+	construcciones := 0
+	retenciones := 0
+	fasesS1 := 0
+	asignacionesAtomicas := 0
+	for nombre := range alcanzables {
+		if strings.HasPrefix(nombre, "autoprobar") || strings.HasPrefix(nombre, "probar") || strings.HasPrefix(nombre, "exigir") || strings.HasPrefix(nombre, "texto") || strings.HasPrefix(nombre, "tramaCruda") || strings.HasPrefix(nombre, "receptorNuevo") || strings.HasPrefix(nombre, "sobreRetenidoExacto") {
+			panic("prueba alcanzable desde producción")
+		}
+		ast.Inspect(funciones[nombre].Body, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.CompositeLit:
+				if id, ok := x.Type.(*ast.Ident); ok && id.Name == "sobreRetenidoM38" {
+					construcciones++
+					if len(x.Elts) != 6 {
+						panic("retención no canónica")
+					}
+				}
+			case *ast.CallExpr:
+				if id, ok := x.Fun.(*ast.Ident); ok && (id.Name == "string" || id.Name == "append" || id.Name == "new" || id.Name == "make") {
+					panic("copia o reserva en grafo productivo")
+				}
+				if _, ok := x.Fun.(*ast.ArrayType); ok {
+					panic("conversión a slice en grafo productivo")
+				}
+				if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
+					if id, ok := sel.X.(*ast.Ident); ok && (id.Name == "fmt" || id.Name == "strings") {
+						panic("paquete de prueba alcanzable desde producción")
+					}
+					if sel.Sel.Name == "Clone" {
+						panic("clon en grafo productivo")
+					}
+				}
+			case *ast.BasicLit:
+				if x.Kind == token.STRING {
+					valor, _ := strconv.Unquote(x.Value)
+					if valor == "NOMINAL" || valor == "ARMAR" || valor == "INICIAR" || valor == "CANCELAR" || strings.HasPrefix(valor, "ACK_") {
+						panic("catálogo o fase incorporados a producción")
+					}
+				}
+			case *ast.AssignStmt:
+				if len(x.Lhs) == 2 && len(x.Rhs) == 2 {
+					sobre, sobreOK := x.Lhs[0].(*ast.SelectorExpr)
+					fase, faseOK := x.Lhs[1].(*ast.SelectorExpr)
+					receptorSobre, receptorSobreOK := sobre.X.(*ast.Ident)
+					receptorFase, receptorFaseOK := fase.X.(*ast.Ident)
+					retenido, retenidoOK := x.Rhs[0].(*ast.Ident)
+					s1, s1OK := x.Rhs[1].(*ast.Ident)
+					if sobreOK && faseOK && receptorSobreOK && receptorFaseOK && retenidoOK && s1OK &&
+						receptorSobre.Name == "r" && sobre.Sel.Name == "sobre" && retenido.Name == "retenido" &&
+						receptorFase.Name == "r" && fase.Sel.Name == "fase" && s1.Name == "recepcionSobreS1M38" {
+						asignacionesAtomicas++
+					}
+				}
+				for i, lado := range x.Lhs {
+					if i >= len(x.Rhs) {
+						continue
+					}
+					sel, ok := lado.(*ast.SelectorExpr)
+					if !ok {
+						continue
+					}
+					id, ok := sel.X.(*ast.Ident)
+					if !ok || id.Name != "r" {
+						continue
+					}
+					derecha, ok := x.Rhs[i].(*ast.Ident)
+					if !ok {
+						continue
+					}
+					if sel.Sel.Name == "sobre" && derecha.Name == "retenido" {
+						retenciones++
+					}
+					if sel.Sel.Name == "fase" && derecha.Name == "recepcionSobreS1M38" {
+						fasesS1++
+					}
+				}
+			}
+			return true
+		})
+	}
+	if construcciones != 1 {
+		panic(fmt.Sprintf("construcciones retenidas=%d", construcciones))
+	}
+	if retenciones != 1 || fasesS1 != 1 || asignacionesAtomicas != 1 {
+		panic("retención y transición S1 no son una única asignación canónica")
+	}
+	fmt.Println("ast_o2a=ok imports=3 construcciones=1 pruebas_inalcanzables=ok")
+}

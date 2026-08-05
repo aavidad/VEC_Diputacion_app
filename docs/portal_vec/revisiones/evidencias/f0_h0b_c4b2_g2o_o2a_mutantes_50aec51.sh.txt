@@ -1,0 +1,182 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+if (($# != 2)); then
+    printf 'uso: %s RAIZ_REPOSITORIO ANALIZADOR_AST\n' "$0" >&2
+    exit 64
+fi
+raiz=$1
+ast=$2
+go126=${VEP_GO_BIN:-$(command -v go)}
+[[ -n "${go126}" && -x "${go126}" && -f "${ast}" && ! -L "${ast}" ]] || exit 65
+[[ "$(env GOENV=off GOTOOLCHAIN=go1.26.5 "${go126}" version)" == \
+    'go version go1.26.5 linux/amd64' ]] || exit 65
+ruta=deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
+g1_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go
+g2_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go
+g3_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_sobre_s0.go
+temporal=$(mktemp -d)
+
+limpiar() {
+    find "${temporal}" -type f -exec unlink -- {} \;
+    find "${temporal}" -depth -type d -exec rmdir -- {} \;
+}
+trap limpiar EXIT
+
+preparar() {
+    cp -- "${g1_origen}" "${temporal}/g1.go"
+    cp -- "${g2_origen}" "${temporal}/g2.go"
+    cp -- "${g3_origen}" "${temporal}/g3.go"
+    if [[ -e "${temporal}/supervisor" ]]; then
+        unlink -- "${temporal}/supervisor"
+    fi
+}
+
+construir_y_matar() {
+    local nombre=$1
+    local huella
+    huella=$(sha256sum "${temporal}/g1.go" "${temporal}/g2.go" "${temporal}/g3.go" | awk '{print $1}' | sha256sum | awk '{print $1}')
+    if env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+        "${go126}" build -a -trimpath \
+        -o "${temporal}/supervisor" "${temporal}/g1.go" "${temporal}/g2.go" "${temporal}/g3.go" >/dev/null 2>&1 &&
+        "${temporal}/supervisor" --autoprueba >/dev/null 2>&1; then
+        printf 'mutante=%s huella=%s resultado=SOBREVIVE\n' "${nombre}" "${huella}"
+        return 1
+    fi
+    printf 'mutante=%s huella=%s resultado=MUERTO\n' "${nombre}" "${huella}"
+}
+
+comprobar_cambio() {
+    local mutado=$1 origen=$2
+    if cmp -s -- "${mutado}" "${origen}"; then
+        printf 'transformación sin efecto: %s\n' "${mutado}" >&2
+        return 1
+    fi
+}
+
+matar_ast() {
+    local nombre=$1
+    local huella
+    huella=$(sha256sum "${temporal}/g1.go" "${temporal}/g2.go" "${temporal}/g3.go" | awk '{print $1}' | sha256sum | awk '{print $1}')
+    if env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+        "${go126}" run \
+        "${ast}" -- "${temporal}/g3.go" >/dev/null 2>&1; then
+        printf 'mutante=%s huella=%s resultado=SOBREVIVE_AST\n' "${nombre}" "${huella}"
+        return 1
+    fi
+    printf 'mutante=%s huella=%s resultado=MUERTO_AST\n' "${nombre}" "${huella}"
+}
+
+preparar
+sed -i 's/nuevoLectorTramaM38("SOBRE")/nuevoLectorTramaM38("CONTROL")/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 01_constructor_clase
+
+preparar
+perl -0pi -e 's/compatible := r\.lector\.estado == lectorAbiertoVacioM38/if r.lector.estado == lectorMonotramaEsperandoEOFM38 { r.fase = recepcionSobreS1M38 }\n\t\tcompatible := r.lector.estado == lectorAbiertoVacioM38/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+gofmt -w "${temporal}/g3.go"
+construir_y_matar 02_s1_antes_eof
+
+preparar
+perl -0pi -e 's/if err != nil \{\n\t\treturn fallarRecepcionSobreS0M38\(r, err\)/if err != nil \&\& !errors.Is(err, errEOFSinMonotramaM38) {\n\t\treturn fallarRecepcionSobreS0M38(r, err)/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 03_eof_inicial
+
+preparar
+perl -0pi -e 's/if err != nil \{\n\t\treturn fallarRecepcionSobreS0M38\(r, err\)/if err != nil \&\& !errors.Is(err, errEOFParcialM38) {\n\t\treturn fallarRecepcionSobreS0M38(r, err)/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 04_eof_parcial
+
+preparar
+sed -i 's/if consumidos != len(fragmento) {/if false {/' "${temporal}/g2.go"
+comprobar_cambio "${temporal}/g2.go" "${g2_origen}"
+construir_y_matar 05_cola_ignorada
+
+preparar
+perl -0pi -e 's/default:\n\t\treturn fallarRecepcionSobreS0M38\(r, errInvarianteRecepcionSobreM38\)/default:\n\t\tr.fase = recepcionSobreS1M38\n\t\treturn consumidos, recepcionSobreConfirmadaM38, nil/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 06_resultado_imposible_aceptado
+
+preparar
+perl -0pi -e 's/\tif len\(p\) != 8 .*?\n\t\treturn tramaM38\{\}, errors\.New\("sobre inválido"\)\n\t\}\n/\n/s' "${temporal}/g2.go"
+comprobar_cambio "${temporal}/g2.go" "${g2_origen}"
+construir_y_matar 07_codec_omitido
+
+preparar
+perl -0pi -e 's/\t\tr\.sobre, r\.fase = retenido, recepcionSobreS1M38/\t\tr.fase = recepcionSobreS1M38\n\t\tr.sobre = retenido/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+matar_ast 08_fase_antes_retencion
+
+preparar
+sed -i 's/pidRunner:      trama.campos\[1\]/pidRunner:      trama.campos[2]/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 09_campos_intercambiados
+
+preparar
+sed -i 's/nonce:          trama.campos\[0\]/nonce:          ""/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 10_retencion_incompleta
+
+preparar
+perl -0pi -e 's/(\t\tr\.sobre, r\.fase = retenido, recepcionSobreS1M38)/$1\n\t\tr.sobre.ticket = string(fragmento)/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+matar_ast 11_copia_mutable
+
+preparar
+perl -0pi -e 's/if r\.fallo != nil \{\n\t\treturn 0, 0, r\.fallo\n\t\}/if r.fallo != nil {\n\t\treturn 0, 0, errInvarianteRecepcionSobreM38\n\t}/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 12_error_pegajoso_sustituido
+
+preparar
+perl -0pi -e 's/return fallarRecepcionSobreS0M38\(r, err\)/r.fallo = err\n\t\treturn consumidos, recepcionSobreConfirmadaM38, r.fallo/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 13_error_con_resultado_util
+
+preparar
+perl -0pi -e 's/if r\.fase == recepcionSobreS1M38 \{\n\t\treturn 0, 0, errUsoPosteriorSobreM38\n\t\}/if r.fase == recepcionSobreS1M38 {\n\t\tr.fase = recepcionSobreS0M38\n\t\tlimpiarSobreS0M38(\&r.sobre)\n\t}/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+construir_y_matar 14_segunda_recepcion
+
+preparar
+perl -0pi -e 's/(\t\tr\.sobre, r\.fase = retenido, recepcionSobreS1M38)/\t\tif retenido.selector == "NOMINAL" { retenido.selector = "A00" }\n$1/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+gofmt -w "${temporal}/g3.go"
+matar_ast 15_catalogo_local
+
+preparar
+perl -0pi -e 's/(\t\tr\.sobre, r\.fase = retenido, recepcionSobreS1M38)/\t\tif trama.clase == "ARMAR" { retenido.ticket = "" }\n$1/' "${temporal}/g3.go"
+comprobar_cambio "${temporal}/g3.go" "${g3_origen}"
+gofmt -w "${temporal}/g3.go"
+matar_ast 16_fase_incorporada
+
+preparar
+perl -0pi -e 's/func supervisarM38\(\) int \{\n\treturn estadoUso\n\}/func supervisarM38() int {\n\treturn 0\n}/' "${temporal}/g2.go"
+comprobar_cambio "${temporal}/g2.go" "${g2_origen}"
+env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+    "${go126}" build -a -trimpath \
+    -o "${temporal}/supervisor" "${temporal}/g1.go" "${temporal}/g2.go" "${temporal}/g3.go"
+estado=0
+"${temporal}/supervisor" --supervisar-m38 >/dev/null 2>&1 || estado=$?
+huella_modo=$(sha256sum "${temporal}/g1.go" "${temporal}/g2.go" "${temporal}/g3.go" | awk '{print $1}' | sha256sum | awk '{print $1}')
+if ((estado == 64)); then
+    printf 'mutante=17_modo_operativo huella=%s resultado=SOBREVIVE\n' "${huella_modo}"
+    exit 1
+fi
+printf 'mutante=17_modo_operativo huella=%s resultado=MUERTO estado=%d\n' "${huella_modo}" "${estado}"
+
+preparar
+perl -0pi -e 's/(\t\tr\.sobre, r\.fase = retenido, recepcionSobreS1M38)/$1\n\t\tr.sobre.ticket = string(trama.ticket)/' "${temporal}/g3.go"
+matar_ast estructural_segunda_copia
+
+preparar
+perl -0pi -e 's/\z/\nfunc obtenerSobreS0M38(r *receptorSobreS0M38) sobreRetenidoM38 { return r.sobre }\n/' "${temporal}/g3.go"
+matar_ast estructural_getter
+
+for importacion in log os net/http time sync encoding/json os/exec syscall; do
+    preparar
+    perl -0pi -e 's#import \(\n#import (\n\t"'"${importacion}"'"\n#' "${temporal}/g3.go"
+    matar_ast "estructural_import_${importacion//\//_}"
+done
+
+printf 'mutantes_o2a=ok conductuales=17 estructurales=10\n'
