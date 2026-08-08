@@ -82,6 +82,9 @@ func autoprobar() (err error) {
 	if err = autoprobarSobreS0M38(); err != nil {
 		return err
 	}
+	if err = autoprobarControlPreinicioM38(); err != nil {
+		return err
+	}
 	if err = activarSubreaper(); err != nil {
 		return err
 	}
