@@ -73,6 +73,19 @@ jobs:
               sed -n '1,400p' "$ruta"
             fi
           done
+          if [[ $estado -ne 0 ]]; then
+            grep -hE 'NO-GO|resultado=NO-GO' \
+              "$RUNNER_TEMP/evidencia-o3a-v5/resumen.txt" \
+              "$RUNNER_TEMP/evidencia-o3a-v5/manifiesto.tsv" \
+              "$RUNNER_TEMP/evidencia-o3a-v5"/*.tsv 2>/dev/null |
+              head -20 |
+              while IFS= read -r diagnostico; do
+                diagnostico=${diagnostico//'%'/'%25'}
+                diagnostico=${diagnostico//$'\r'/'%0D'}
+                diagnostico=${diagnostico//$'\n'/'%0A'}
+                printf '::error title=Conductor O3a V5::%s\n' "$diagnostico"
+              done || true
+          fi
           exit "$estado"
 
   puerta-artefactos-productivos:
