@@ -45,10 +45,35 @@ jobs:
         run: scripts/verificar_calidad.sh
       - name: Probar el conductor durable O3a V5 sin R
         working-directory: tools/o3a_v5_conductor
-        run: >-
-          ./conductor.sh
-          "$GITHUB_WORKSPACE"
-          "$RUNNER_TEMP/evidencia-o3a-v5"
+        run: |
+          set +e
+          ./conductor.sh \
+            "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/evidencia-o3a-v5"
+          estado=$?
+          set -e
+          for evidencia in \
+            resumen.txt manifiesto.tsv residuos.txt \
+            c01_c07_normal.tsv c02_interleavings_normal.tsv \
+            c08_c11_c14_normal.tsv c10_c13_normal.tsv \
+            c15_c21_normal.tsv c19_normal.tsv c20_normal.tsv \
+            c01_c07_normal.log c02_interleavings_normal.log \
+            c08_c11_c14_normal.log c10_c13_normal.log \
+            c15_c21_normal.log c19_normal.log c20_normal.log \
+            c01_c07_race.tsv c02_interleavings_race.tsv \
+            c08_c11_c14_race.tsv c10_c13_race.tsv \
+            c15_c21_race.tsv c19_race.tsv c20_race.tsv \
+            c01_c07_race.log c02_interleavings_race.log \
+            c08_c11_c14_race.log c10_c13_race.log \
+            c15_c21_race.log c19_race.log c20_race.log
+          do
+            ruta="$RUNNER_TEMP/evidencia-o3a-v5/$evidencia"
+            if [[ -f "$ruta" ]]; then
+              printf '\n===== %s =====\n' "$evidencia"
+              sed -n '1,400p' "$ruta"
+            fi
+          done
+          exit "$estado"
 
   puerta-artefactos-productivos:
     runs-on: ubuntu-24.04

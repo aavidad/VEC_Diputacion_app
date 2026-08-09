@@ -10,7 +10,7 @@ El contrato original asignaba a R la captura de cinco fuentes nuevas y la
 ampliación de su manifiesto de nueve a catorce entradas. La instrucción vigente
 «No uses R» obliga a mantener R byte a byte: 702 líneas y SHA-256
 `7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487`.
-La proyección V13 ya dispone de un conductor durable versionado que posee un
+La proyección V19 ya dispone de un conductor durable versionado que posee un
 ledger exacto de diez fuentes y ejecuta los catorce bloques C01..C21 en modo
 normal y `-race` real. Esta enmienda cambia el propietario de esa verificación,
 no reduce sus oráculos.
@@ -37,24 +37,31 @@ FD inicial/final iguales y residuos cero. Cualquier divergencia termina no
 cero y hace fallar `puerta-calidad`. No usa Docker, PostgreSQL, red ni el modo
 operativo de Orquesta.
 
+Resumen, manifiesto, TSV y logs de los catorce bloques se vuelcan al log CI sin
+ocultar el estado de salida. La espera test-only de terminalidad nominal usa
+diez segundos; `duracionRetiradaO3aM38 = 3 s` productivo permanece intacto.
+C21 cuenta con `F_GETFD` los descriptores que siguen vivos: solo descarta una
+entrada obsoleta de `/proc/self/fd` cuando devuelve `EBADF` y falla ante cualquier
+otro error o descriptor vivo adicional.
+
 ## Write-set material posterior
 
 La materialización autorizable pasa a ser:
 
-1. G1 y G6a--c/G7a--b: seis ficheros Go exactos del ledger V13;
-2. `tools/o3a_v5_ast/**`: analizador, catálogos y evidencia V17 autorizada;
+1. G1 y G6a--c/G7a--b: seis ficheros Go exactos del ledger V19;
+2. `tools/o3a_v5_ast/**`: analizador, catálogos y evidencia V19 autorizada;
 3. `tools/o3a_v5_conductor/**`: conductor, ledger y evidencia r3;
 4. `.github/workflows/ci.yml`: una invocación fail-closed en la puerta existente;
 5. contrato, acta y esta enmienda.
 
 R, D, G2--G5, capturador, adaptador, SQL, migraciones y producción quedan
-byte a byte. No se mezcla contenido de los ledgers V16 revocados ni del
-checkpoint portable.
+byte a byte. No se mezcla contenido de V18 ni de ledgers anteriores revocados,
+ni del checkpoint portable.
 
 ## Evidencia requerida
 
-- V13 técnico: doble `GO`, `P0=P1=P2=0`.
-- V15 documental: doble `GO`, `P0=P1=P2=0`.
+- V19 técnico: conductor 14/14 y 74 casos, C21 estable normal/race, mutantes
+  195/195 y SEC 4/4; todo ello sujeto al doble `GO` del corte vigente.
 - Revisión funcional y de seguridad completa de esta enmienda y del delta CI.
 - Reproducción local del comando CI sobre el commit candidato.
 - Push sin force y CI posterior 5/5, donde `puerta-calidad` incluya el conductor.
