@@ -10,6 +10,106 @@ if [[ "${VEC_F0_CARGA_PRIVADA:-}" != '1' ]]; then
 fi
 unset VEC_F0_CARGA_PRIVADA
 declare -g temporales
+# shellcheck disable=SC2154  # Variable aportada por el runner acreditado.
+archivo() {
+    docker exec "${contenedor}" psql -X --set ON_ERROR_STOP=1 --username "$1" --dbname postgres --file "/repo/$2"
+}
+sql() {
+    docker exec "${contenedor}" psql -X --set ON_ERROR_STOP=1 --username "$1" --dbname postgres --command "$2"
+}
+valor() {
+    docker exec "${contenedor}" psql -XAtq --set ON_ERROR_STOP=1 --username postgres --dbname postgres --command "$1"
+}
+probar_sqlstate_real_f0() {
+    local codigo esperado ruta_error estado_salida obtenido
+    paso 'clasificador contra errores reales de PostgreSQL 18.4'
+    for codigo in 55P03 40P01 23505; do
+        esperado='sqlstate=invalido'
+        [[ "${codigo}" == '55P03' || "${codigo}" == '40P01' ]] &&
+            esperado="sqlstate=${codigo}"
+        ruta_error="$(mktemp "${temporales}/sqlstate-real.XXXXXX.err")" || fallar 'no se pudo reservar la captura SQLSTATE'
+        if {
+            printf '\\set VERBOSITY sqlstate\n'
+            printf "DO \$bloque\$ BEGIN RAISE SQLSTATE '%s'; END \$bloque\$;\n" \
+                "${codigo}"
+        } | docker exec --env LC_ALL=C --interactive "${contenedor}" \
+            psql -X --set ON_ERROR_STOP=1 --username postgres \
+            --dbname postgres >/dev/null 2>"${ruta_error}"; then
+            estado_salida=0
+        else
+            estado_salida=$?
+        fi
+        capturar_salida_f0 obtenido clasificar_sqlstate_psql_f0 \
+            "${estado_salida}" "${ruta_error}" || fallar 'falló el clasificador SQLSTATE'
+        [[ "${obtenido}" == "${esperado}" ]] ||
+            fallar "SQLSTATE real mal clasificado: ${codigo}/${obtenido}"
+    done
+}
+foto_catalogo() {
+    docker exec "${contenedor}" pg_dump --schema-only --restrict-key=0000000000000000000000000000000000000000000000000000000000000000 --username postgres --dbname postgres | sha256sum | awk '{print $1}'
+}
+etapa_necesita_r0_f0() { [[ "$1" =~ ^(C2|C3|R1|R2a|R2b|T1|T2)$ ]]; }
+ejecutar_etapa_dormida_f0() {
+    local claves clave ruta relativa envoltorio destino estado=0 usuario
+    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
+    envoltorio="$(mktemp "${temporales}/ensayo-etapa.XXXXXX.sql")" || return 65
+    {
+        printf '\\set ON_ERROR_STOP on\n\\set VERBOSITY sqlstate\n'
+        printf '\\set AUTOCOMMIT off\nBEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE;\n'
+        printf "SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;\nSET LOCAL search_path=pg_catalog;\nSET LOCAL TimeZone='UTC';\nSET LOCAL lock_timeout='2s';\nSET LOCAL statement_timeout='10s';\nSET LOCAL transaction_timeout='15s';\nSET LOCAL idle_in_transaction_session_timeout='15s';\n"
+        printf 'SELECT pg_catalog.txid_current() AS txid_f0 \\gset\n'
+        for clave in ${claves}; do
+            ruta="$(ruta_componente_f0 "${clave}")" || return 65
+            if [[ "${clave}" == M* ]]; then
+                relativa="../../migraciones/000007_componentes/${ruta##*/}"
+            else
+                relativa="./${ruta##*/}"
+            fi
+            printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
+            printf '\\ir %s\n' "${relativa}"
+            printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
+        done
+        printf 'ROLLBACK;\n'
+    } >"${envoltorio}" || return 65
+    destino='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0.sql'
+    wrapper_activo="${destino}"
+    docker cp "${envoltorio}" "${contenedor}:${destino}" || return 65
+    comparar_huellas_f0 "${envoltorio}" "${destino}" || return 65
+    usuario='vec_f0_h0_migrador'
+    etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
+    docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
+        --username "${usuario}" --dbname postgres --file "${destino}" || estado=$?
+    docker exec "${contenedor}" rm -- "${destino}" || return 65
+# shellcheck disable=SC2034  # Variable consumida por el runner acreditado.
+    wrapper_activo=''
+    return "${estado}"
+}
+probar_etapa_dormida_sintetica_f0() {
+    local etapa_original="${etapa}" estado_error
+    local migracion="${temporales}/010_validadores_m.sql" prueba="${temporales}/010_validadores_t.sql"
+    local destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
+    local destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
+    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_m%/*}" "${destino_t%/*}"
+    printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
+    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
+    copiar_componente_sintetico_f0 "${migracion}" "${destino_m}" || fallar 'falló M010 sintético: validación, copia o huella'
+    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético: validación, copia o huella'
+    etapa='A1'
+    ejecutar_etapa_dormida_f0 >/dev/null ||
+        fallar 'el camino nominal de etapa dormida falló'
+    exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
+        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
+    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
+    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético de error: validación, copia o huella'
+    if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
+    ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
+    exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
+        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
+    etapa="${etapa_original}"
+    docker exec "${contenedor}" rm -- "${destino_m}" "${destino_t}"
+    docker exec "${contenedor}" rmdir -- "${destino_m%/*}" \
+        "${destino_t%/*}" "${destino_t%/*/*}"
+}
 
 # shellcheck disable=SC2154  # Aportado por el runner acreditado.
 derivar_repo_base_h0_f0() {

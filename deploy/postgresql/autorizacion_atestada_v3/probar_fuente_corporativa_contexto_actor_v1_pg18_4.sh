@@ -66,7 +66,7 @@ readonly ruta_supervisor_m38_sobre='deploy/postgresql/autorizacion_atestada_v3/p
 readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/capturar_snapshot_fuente_corporativa_contexto_actor_v1.go'
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
-readonly sha256_helper_operativo='039b75dd15a2888798c7f257c46fdbb97587cbdd4a6519e11cb043cce0e72e5e'
+readonly sha256_helper_operativo='681efbbd7f856eb539d1656cffed87c26f48609e65d6d6adf8265c350ae69442'
 readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
 readonly sha256_supervisor_m38='6b7f93b8b43c1040cc4ae2b6322c4e99e914eee415475e3fd50bf294b5a17afb'
 readonly sha256_supervisor_m38_control_preinicio='2befe2a4c16fc7a57aacd421ea6c8419ab49160bb2ae0d0eb6f03786194aa744'
@@ -316,78 +316,6 @@ capturar_auxiliares_privados_f0() {
     done
 }
 
-archivo() {
-    docker exec "${contenedor}" psql -X --set ON_ERROR_STOP=1 --username "$1" --dbname postgres --file "/repo/$2"
-}
-sql() {
-    docker exec "${contenedor}" psql -X --set ON_ERROR_STOP=1 --username "$1" --dbname postgres --command "$2"
-}
-valor() {
-    docker exec "${contenedor}" psql -XAtq --set ON_ERROR_STOP=1 --username postgres --dbname postgres --command "$1"
-}
-probar_sqlstate_real_f0() {
-    local codigo esperado ruta_error estado_salida obtenido
-    paso 'clasificador contra errores reales de PostgreSQL 18.4'
-    for codigo in 55P03 40P01 23505; do
-        esperado='sqlstate=invalido'
-        [[ "${codigo}" == '55P03' || "${codigo}" == '40P01' ]] &&
-            esperado="sqlstate=${codigo}"
-        ruta_error="$(mktemp "${temporales}/sqlstate-real.XXXXXX.err")" || fallar 'no se pudo reservar la captura SQLSTATE'
-        if {
-            printf '\\set VERBOSITY sqlstate\n'
-            printf "DO \$bloque\$ BEGIN RAISE SQLSTATE '%s'; END \$bloque\$;\n" \
-                "${codigo}"
-        } | docker exec --env LC_ALL=C --interactive "${contenedor}" \
-            psql -X --set ON_ERROR_STOP=1 --username postgres \
-            --dbname postgres >/dev/null 2>"${ruta_error}"; then
-            estado_salida=0
-        else
-            estado_salida=$?
-        fi
-        capturar_salida_f0 obtenido clasificar_sqlstate_psql_f0 \
-            "${estado_salida}" "${ruta_error}" || fallar 'falló el clasificador SQLSTATE'
-        [[ "${obtenido}" == "${esperado}" ]] ||
-            fallar "SQLSTATE real mal clasificado: ${codigo}/${obtenido}"
-    done
-}
-foto_catalogo() {
-    docker exec "${contenedor}" pg_dump --schema-only --restrict-key=0000000000000000000000000000000000000000000000000000000000000000 --username postgres --dbname postgres | sha256sum | awk '{print $1}'
-}
-etapa_necesita_r0_f0() { [[ "$1" =~ ^(C2|C3|R1|R2a|R2b|T1|T2)$ ]]; }
-ejecutar_etapa_dormida_f0() {
-    local claves clave ruta relativa envoltorio destino estado=0 usuario
-    claves="$(clausura_etapa_f0 "${etapa}")" || return 64
-    envoltorio="$(mktemp "${temporales}/ensayo-etapa.XXXXXX.sql")" || return 65
-    {
-        printf '\\set ON_ERROR_STOP on\n\\set VERBOSITY sqlstate\n'
-        printf '\\set AUTOCOMMIT off\nBEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE;\n'
-        printf "SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;\nSET LOCAL search_path=pg_catalog;\nSET LOCAL TimeZone='UTC';\nSET LOCAL lock_timeout='2s';\nSET LOCAL statement_timeout='10s';\nSET LOCAL transaction_timeout='15s';\nSET LOCAL idle_in_transaction_session_timeout='15s';\n"
-        printf 'SELECT pg_catalog.txid_current() AS txid_f0 \\gset\n'
-        for clave in ${claves}; do
-            ruta="$(ruta_componente_f0 "${clave}")" || return 65
-            if [[ "${clave}" == M* ]]; then
-                relativa="../../migraciones/000007_componentes/${ruta##*/}"
-            else
-                relativa="./${ruta##*/}"
-            fi
-            printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
-            printf '\\ir %s\n' "${relativa}"
-            printf 'SELECT 1/(pg_catalog.txid_current()=:txid_f0)::integer;\n'
-        done
-        printf 'ROLLBACK;\n'
-    } >"${envoltorio}" || return 65
-    destino='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/__ensayo_h0.sql'
-    wrapper_activo="${destino}"
-    docker cp "${envoltorio}" "${contenedor}:${destino}" || return 65
-    comparar_huellas_f0 "${envoltorio}" "${destino}" || return 65
-    usuario='vec_f0_h0_migrador'
-    etapa_necesita_r0_f0 "${etapa}" && usuario='postgres'
-    docker exec "${contenedor}" psql -X -v ON_ERROR_STOP=1 \
-        --username "${usuario}" --dbname postgres --file "${destino}" || estado=$?
-    docker exec "${contenedor}" rm -- "${destino}" || return 65
-    wrapper_activo=''
-    return "${estado}"
-}
 inyectar_frontera_h0b_f0() {
     [[ -n "${1:-}" && "${inyeccion_h0b_activa}" == 1 &&
        "${selector_inyeccion_h0b}" == "$1" ]] || return 0
@@ -545,32 +473,6 @@ ejecutar_matriz_m38_f0() {
     restaurar_regimen_shell_m38_f0 || return 65
     [[ "$(stat --printf='%d|%i|%u|%F|%a|%h|%s' -- "${ruta_runner}")|$(huella_local_f0 "${ruta_runner}")" == "${original}" && "$(stat --printf='%d|%i|%u|%F|%a|%h' -- /proc/self/fd/7)" == "${forma_raiz}" ]] || return 65
     exec 8<&- 7<&-
-}
-probar_etapa_dormida_sintetica_f0() {
-    local etapa_original="${etapa}" estado_error
-    local migracion="${temporales}/010_validadores_m.sql" prueba="${temporales}/010_validadores_t.sql"
-    local destino_m='/repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000007_componentes/010_validadores.sql'
-    local destino_t='/repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/000007_componentes/010_validadores.sql'
-    docker exec "${contenedor}" mkdir --parents --mode=0700 "${destino_m%/*}" "${destino_t%/*}"
-    printf '%s\n' 'CREATE TABLE vec_autorizacion_atestada_v3.autoprueba_etapa_h0(id integer);' >"${migracion}"
-    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1);' >"${prueba}"
-    copiar_componente_sintetico_f0 "${migracion}" "${destino_m}" || fallar 'falló M010 sintético: validación, copia o huella'
-    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético: validación, copia o huella'
-    etapa='A1'
-    ejecutar_etapa_dormida_f0 >/dev/null ||
-        fallar 'el camino nominal de etapa dormida falló'
-    exigir_salida_f0 t 'el ROLLBACK nominal de etapa dejó residuos' valor \
-        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
-    printf '%s\n' 'INSERT INTO vec_autorizacion_atestada_v3.autoprueba_etapa_h0 VALUES (1); SELECT 1/0;' >"${prueba}"
-    copiar_componente_sintetico_f0 "${prueba}" "${destino_t}" || fallar 'falló T010 sintético de error: validación, copia o huella'
-    if ejecutar_etapa_dormida_f0 >/dev/null 2>&1; then fallar 'la etapa sintética con error fue aceptada'; else estado_error=$?; fi
-    ((estado_error == 3)) || fallar 'el error sintético no procedía de psql'
-    exigir_salida_f0 t 'el cierre de sesión tras error dejó residuos' valor \
-        "SELECT pg_catalog.to_regclass('vec_autorizacion_atestada_v3.autoprueba_etapa_h0') IS NULL"
-    etapa="${etapa_original}"
-    docker exec "${contenedor}" rm -- "${destino_m}" "${destino_t}"
-    docker exec "${contenedor}" rmdir -- "${destino_m%/*}" \
-        "${destino_t%/*}" "${destino_t%/*/*}"
 }
 if (($# == 2)) && [[ "$1" == '--etapa' ]]; then
     etapa="$2"
