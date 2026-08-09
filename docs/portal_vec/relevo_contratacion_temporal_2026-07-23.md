@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 05/08/2026
+# Relevo del frente de contratación temporal — actualizado el 09/08/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -13,6 +13,13 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
+- O2b queda integrado localmente en `d86aea8`–`4b39265`. Dos revisiones
+  independientes dieron `GO`, `P0=P1=P2=0`; dirección reprodujo 31/31
+  mutantes, dos builds Go 1.26.5, H0 PostgreSQL 18.4, puerta global, Gitleaks y
+  cero residuos. La
+  [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
+  acredita el cierre técnico sin Bash ni modo operativo. Las métricas no
+  cambian. El siguiente trabajo es contratar O3a, `Start` y mapa FD.
 - Último corte publicado completamente verde antes de G2-S: `0a6de82`; CI
   `30967899595`, cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
@@ -74,8 +81,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
   `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
-  Trabajo activo: corrección y doble revisión de `56c0ac0` hasta 800. Después
-  siguen G2-O2–O6, C4b-3, C4c y
+  O2b está cerrado técnicamente en `d86aea8`–`4b39265`. El trabajo activo es
+  contratar O3a, `Start` y mapa FD. Después siguen O3b–O6c, C4b-3, C4c y
   C4d y se implementará C2. Todavía no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
@@ -125,9 +132,9 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es corregir y revisar `56c0ac0`
-bajo la enmienda final 800 aceptada. Ninguna rama de agente ni los candidatos
-históricos se fusionan por conveniencia.
+y el tablero. La primera tarea disponible es redactar y revisar el contrato
+acotado de O3a, `Start` y mapa FD, sobre `4b39265`. Ninguna rama de agente ni
+los candidatos históricos se fusionan por conveniencia.
 
 ## Fuente de requisitos
 

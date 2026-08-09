@@ -1,17 +1,15 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 31 de julio de 2026
+**Última actualización:** 9 de agosto de 2026
 
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
 de Contratación temporal solicitada por RRHH.
 
-**Frente técnico activo:** integración O4-05 de Contratación temporal. M1/M2,
-los manejadores HTTP, la cápsula C1, el rol selector C2.1a y la fachada de
-Identidad C2.1b ya están cerrados y revisados. C2.1b está integrada en
-`ea91b30`–`d768007`, con P0=P1=P2=0, PostgreSQL 18.4 y réplica física. El
-frente activo pasa a C2.2. La retirada segura S0.1 está cerrada e integrada
-con `GO` independiente; S0.2 es el corte activo antes de organización y
-vínculo corporativo. Después siguen publicación, selección, PDP y composición E2E.
+**Frente técnico activo:** integración O4-05 de Contratación temporal. El
+checkpoint interno O2b queda cerrado en `d86aea8`–`4b39265`, con doble `GO`,
+`P0=P1=P2=0`, 31/31 mutantes, H0 PostgreSQL 18.4 y puerta global verdes. No
+abre Bash ni modo operativo y no suma una capacidad funcional. El siguiente
+corte es O3a, `Start` y mapa FD, después de aprobar su contrato acotado.
 Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.
 

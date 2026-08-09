@@ -94,7 +94,10 @@ runner. No incluyen rutas privadas. El mutador recibe la raíz del repositorio
 y el analizador materializado, acepta opcionalmente `VEP_GO_BIN` y exige de
 forma uniforme Go 1.26.5 para `version`, `build` y `run`.
 
-Reproducción desde el árbol que contenga el candidato o su integración:
+Reproducción histórica: crear un worktree limpio separado y situarlo
+exactamente en `0caa140`. El analizador y el mutador están ligados a las
+huellas de O2a y no deben ejecutarse como si fueran validadores genéricos sobre
+un descendiente con O2b u otras fases:
 
 ```bash
 raiz=$(git rev-parse --show-toplevel)

@@ -2,6 +2,22 @@
 
 Fecha: 29 de julio de 2026.
 
+## Corte técnico actual — 9 de agosto de 2026
+
+O2b, control previo de `ARMAR` y cancelación sin Bash, queda integrado
+localmente en `d86aea8`–`4b39265`. Dos revisiones independientes emitieron
+`GO`, `P0=P1=P2=0`. Dirección reprodujo 31/31 mutantes, dos builds Go 1.26.5
+byte a byte idénticos, H0 PostgreSQL 18.4, la puerta global, Gitleaks y cero
+residuos. El [acta final](revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
+fija el ledger y sus límites.
+
+Este checkpoint no abre Bash, FD operativos ni el modo
+`--supervisar-m38`, no acredita E2E y no cambia las métricas: F0 `10/23`,
+O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva `1/14` y
+producción `NO-GO`. La siguiente minitarea es contratar O3a, `Start` y mapa
+FD. Esta actualización prevalece sobre cualquier instrucción histórica que
+nombre O2b como trabajo pendiente.
+
 ## Corte técnico actual — 5 de agosto de 2026
 
 El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c` sobre la

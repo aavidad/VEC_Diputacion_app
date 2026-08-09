@@ -11,9 +11,16 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **31 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **9 de agosto de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
+
+El corte técnico local vigente integra O2b en `d86aea8`–`4b39265`: control
+previo de `ARMAR` y cancelación sin Bash, doble revisión independiente,
+31/31 mutantes, H0 PostgreSQL 18.4 y puerta global verdes. No es una capacidad
+E2E ni cambia los porcentajes oficiales. La siguiente minitarea acotada es
+O3a, `Start` y mapa FD, que requiere contrato previo. Véase la
+[revisión final O2b](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md).
 
 ## Seguimiento sencillo
 

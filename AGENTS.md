@@ -17,16 +17,22 @@ Bolsa, Personal, documentos o firma:
 No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
 instrucción de dirección.
 
-## Relevo operativo inmediato — 5 de agosto de 2026
+## Relevo operativo inmediato — 9 de agosto de 2026
 
 - Worktree obligatorio:
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
 - Rama integradora: `integracion/ct-o4-04e-20260726`. El directorio raíz
   conserva la rama histórica y no se edita.
-- Último corte remoto completamente verde: `ef1f08b`, ejecución
-  `31021785711`, cinco de cinco puertas superadas. Incluye la evidencia, el
-  código y el relevo integrado de O2a/S0/G3; las métricas funcionales no
-  cambian.
+- O2b queda integrado localmente en el par exacto `d86aea8`–`4b39265`.
+  Código y evidencia recibieron doble `GO`, `P0=P1=P2=0`: 31/31 mutantes,
+  analizador AST tipado, dos builds Go 1.26.5 reproducibles, H0 PostgreSQL
+  18.4, puerta global y Gitleaks verdes, con cero residuos. La
+  [revisión final](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
+  conserva el ledger y los límites. No abre Bash ni el modo operativo.
+- El último corte remoto verde anterior a publicar este relevo es `5dff807`,
+  ejecución `31283725650`, cinco de cinco puertas superadas. El siguiente
+  trabajo es contratar **O3a, `Start` y mapa FD**; no se programa O3a sin su
+  contrato y revisión documental.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -98,14 +104,16 @@ instrucción de dirección.
   17 mutantes conductuales y 10 estructurales, H0 PostgreSQL 18.4 y puerta
   global verdes, con residuos cero. Quedó publicado en `ef1f08b` y la CI
   `31021785711` terminó con cinco puertas verdes.
-  El siguiente trabajo es contratar O2b, que conserva «ARMAR y cancelación sin
-  Bash»; los ACK vivos fueron eliminados por la corrección O1a. O2 y fases
-  posteriores siguen cerradas. Las evidencias están en
+  O2b, «ARMAR y cancelación sin Bash», queda cerrado técnicamente en
+  `d86aea8`–`4b39265`, con doble GO y evidencia durable. La siguiente tarea es
+  contratar O3a, `Start` y mapa FD; O3 y fases posteriores siguen cerradas.
+  Las evidencias están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1b_codigo_final_2026-08-05.md`
   y
-  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2a_sobre_s0_g3_codigo_final_2026-08-05.md`.
+  `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2a_sobre_s0_g3_codigo_final_2026-08-05.md`,
+  además de la revisión final O2b enlazada arriba.
 - Después de G2-O2–O6 siguen, en secuencia, C4b-3, C4c y C4d. No se paralelizan porque
   comparten runner y adaptador. C4b-1 no cierra C4b, H0b, C2 ni F0.
 - Métricas sin incremento: F0 `10/23`, O4-05 `3/5`, Contratación temporal
