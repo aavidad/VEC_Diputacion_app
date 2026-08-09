@@ -36,7 +36,7 @@ var archivo = map[string]string{
 var idValido = regexp.MustCompile(`^M[0-9]{3}$`)
 var familiaValida = regexp.MustCompile(`^M(?:0[1-9]|[1-5][0-9]|6[0-6])$`)
 
-const baseAutorizada = "5d99728165117297fef0f90d4418ff6593434701def1c374ca8f942b9e2ed30f"
+const baseAutorizada = "60def025db7355b81d3036998996e8e6643da1d8713a0510c218259d2921ba75"
 const recetaAutorizada = "57f4dfb0bd1c5a6602c311a04a8999a35b1cef2ca77147fe1b4ecdf01ec7c706"
 const goAutorizado = "8da5fd321795754b994c64e3eb8a5a14ff47bd285559a7e876f3c79abafc67f9"
 const versionGoAutorizada = "11b4fb14680701f98ca60fd8464a836ca4374f17896a125f4510ab6ae8cecc9b"
