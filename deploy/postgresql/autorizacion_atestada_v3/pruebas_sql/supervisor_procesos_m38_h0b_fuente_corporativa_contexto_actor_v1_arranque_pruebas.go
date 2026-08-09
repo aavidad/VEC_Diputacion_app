@@ -33,6 +33,22 @@ type fixtureO3aM38 struct {
 	senalParada       chan struct{}
 }
 
+type falloPreparacionExternaO3aM38 struct {
+	estado int
+	causa  error
+}
+
+func (f *falloPreparacionExternaO3aM38) Error() string { return f.causa.Error() }
+func (f *falloPreparacionExternaO3aM38) Unwrap() error { return f.causa }
+
+func estadoPreparacionExternaO3aM38(err error) int {
+	var fallo *falloPreparacionExternaO3aM38
+	if errors.As(err, &fallo) {
+		return fallo.estado
+	}
+	return estadoErrorExternoO3aM38
+}
+
 func contarFDVivosPruebaO3aM38() (int, error) {
 	entradas, err := os.ReadDir("/proc/self/fd")
 	if err != nil {
@@ -358,15 +374,18 @@ func avanzarFixtureO3aM38(f *fixtureO3aM38) error {
 
 func prepararCasoExternoO3aM38() (*fixtureO3aM38, error) {
 	if err := prepararNetpoll(); err != nil {
-		return nil, err
+		return nil, &falloPreparacionExternaO3aM38{estado: estadoNetpollExternoO3aM38, causa: err}
 	}
 	runtime.LockOSThread()
 	if err := activarSubreaper(); err != nil {
-		return nil, err
+		return nil, &falloPreparacionExternaO3aM38{estado: estadoSubreaperExternoO3aM38, causa: err}
 	}
 	f, err := crearFixtureO3aM38("NOMINAL")
 	if err == nil {
 		err = prepararFixtureO3aM38(f)
+	}
+	if err != nil {
+		err = &falloPreparacionExternaO3aM38{estado: estadoFixtureExternoO3aM38, causa: err}
 	}
 	return f, err
 }
@@ -374,7 +393,7 @@ func prepararCasoExternoO3aM38() (*fixtureO3aM38, error) {
 func ejecutarDegradacionPidfdExternaO3aM38(caso string) int {
 	f, err := prepararCasoExternoO3aM38()
 	if err != nil {
-		return estadoErrorExternoO3aM38
+		return estadoPreparacionExternaO3aM38(err)
 	}
 	c := f.preparado.custodia
 	resultado := avanzarArranqueO3aM38(f.preparado, c.reloj.emitir())
@@ -393,8 +412,11 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 	}
 	inicial, err := contarFDVivosPruebaO3aM38()
 	f, errPreparacion := prepararCasoExternoO3aM38()
-	if err != nil || errPreparacion != nil {
+	if err != nil {
 		return estadoErrorExternoO3aM38
+	}
+	if errPreparacion != nil {
+		return estadoPreparacionExternaO3aM38(errPreparacion)
 	}
 	c := f.preparado.custodia
 	resultado := avanzarArranqueO3aM38(f.preparado, c.reloj.emitir())
@@ -422,7 +444,7 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 func ejecutarTuplaBExternaO3aM38() int {
 	f, err := prepararCasoExternoO3aM38()
 	if err != nil {
-		return estadoErrorExternoO3aM38
+		return estadoPreparacionExternaO3aM38(err)
 	}
 	c := f.preparado.custodia
 	avanzarArranqueO3aM38(f.preparado, c.reloj.emitir())
@@ -432,7 +454,7 @@ func ejecutarTuplaBExternaO3aM38() int {
 func ejecutarRetiradaPostStartExternaO3aM38(caso string) int {
 	f, err := prepararCasoExternoO3aM38()
 	if err != nil {
-		return estadoErrorExternoO3aM38
+		return estadoPreparacionExternaO3aM38(err)
 	}
 	c := f.preparado.custodia
 	resultado := avanzarArranqueO3aM38(f.preparado, c.reloj.emitir())
@@ -443,56 +465,81 @@ func ejecutarRetiradaPostStartExternaO3aM38(caso string) int {
 	}
 	precedenciaValida := caso != "C12_CANCELAR_TERMINAL" && caso != "C12_EOF_TERMINAL" ||
 		resultado.retirada != nil && resultado.retirada.causa.causa == "CANCELADO" && resultado.retirada.causa.estado == "65"
-	if resultado.clase != resultadoRetiradoO3aM38 || resultado.retirada == nil ||
-		resultado.retirada.origen != retiradaConHijoO3aM38 || c.cmd == nil || c.cmd.ProcessState == nil ||
-		!precedenciaValida || limpiarFixtureO3aM38(f) != nil || !sinHijos() {
-		return estadoErrorExternoO3aM38
+	if resultado.clase != resultadoRetiradoO3aM38 || resultado.retirada == nil {
+		return estadoClaseRetiradaExternaO3aM38
+	}
+	if resultado.retirada.origen != retiradaConHijoO3aM38 {
+		return estadoOrigenRetiradaExternaO3aM38
+	}
+	if c.cmd == nil || c.cmd.ProcessState == nil {
+		return estadoWaitExternoO3aM38
+	}
+	if !precedenciaValida {
+		return estadoPrecedenciaExternaO3aM38
+	}
+	if limpiarFixtureO3aM38(f) != nil {
+		return estadoLimpiezaExternaO3aM38
+	}
+	if !sinHijos() {
+		return estadoHijosExternosO3aM38
 	}
 	return estadoRetiradaConHijoExternaO3aM38
 }
 
 func ejecutarLowHoleExternoO3aM38() int {
 	if prepararNetpoll() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoNetpollExternoO3aM38
 	}
 	runtime.LockOSThread()
 	if activarSubreaper() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoSubreaperExternoO3aM38
 	}
 	for fd := 3; fd <= 9; fd++ {
 		if _, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_GETFD, 0); errno != 0 {
-			return estadoErrorExternoO3aM38
+			return estadoVentanaFDExternaO3aM38
 		}
 	}
 	f, err := crearFixtureO3aM38("NOMINAL")
 	if err != nil {
-		return estadoErrorExternoO3aM38
+		return estadoFixtureExternoO3aM38
 	}
 	for _, archivo := range []*os.File{f.entrada.raiz, f.entrada.runner, f.entrada.salida, f.entrada.errorCaso, f.entrada.controlFD, f.entrada.terminal, f.entrada.sobre} {
 		if archivo == nil || archivo.Fd() < 10 {
-			return estadoErrorExternoO3aM38
+			return estadoMapaFixtureExternoO3aM38
 		}
 	}
 	for fd := 3; fd <= 9; fd++ {
 		if syscall.Close(fd) != nil {
-			return estadoErrorExternoO3aM38
+			return estadoCierreHuecoExternoO3aM38
 		}
 	}
 	f.entrada.baseline, err = snapshotActualO3aM38()
-	if err != nil || prepararFixtureO3aM38(f) != nil || avanzarFixtureO3aM38(f) != nil || f.agregado == nil {
-		return estadoErrorExternoO3aM38
+	if err != nil {
+		return estadoSnapshotExternoO3aM38
+	}
+	if prepararFixtureO3aM38(f) != nil {
+		return estadoFixtureExternoO3aM38
+	}
+	if avanzarFixtureO3aM38(f) != nil || f.agregado == nil {
+		return estadoAvanceExternoO3aM38
 	}
 	c := f.agregado.custodia
 	formas := make([]identidadFDO3aM38, 0, 3)
 	for _, fd := range []int{c.pidfdPrimario, c.pidfdReserva, c.pidfdOpaco} {
 		forma, fallo := identidadPidfdO3aM38(fd)
 		if fallo != nil || forma.fdflags&syscall.FD_CLOEXEC == 0 {
-			return estadoErrorExternoO3aM38
+			return estadoIdentidadExternaO3aM38
 		}
 		formas = append(formas, forma)
 	}
-	if !identidadFisicaO3aM38(formas[0], formas[1]) || !identidadFisicaO3aM38(formas[0], formas[2]) || limpiarFixtureO3aM38(f) != nil || !sinHijos() {
-		return estadoErrorExternoO3aM38
+	if !identidadFisicaO3aM38(formas[0], formas[1]) || !identidadFisicaO3aM38(formas[0], formas[2]) {
+		return estadoIdentidadExternaO3aM38
+	}
+	if limpiarFixtureO3aM38(f) != nil {
+		return estadoLimpiezaExternaO3aM38
+	}
+	if !sinHijos() {
+		return estadoHijosExternosO3aM38
 	}
 	return 0
 }
@@ -557,7 +604,7 @@ func ejecutarPdeathsigExternoO3aM38(caso string) int {
 		}()
 		r := <-canal
 		if r.fallo != nil || r.fixture == nil || r.fixture.agregado == nil {
-			return estadoErrorExternoO3aM38
+			return estadoPreparacionExternaO3aM38(r.fallo)
 		}
 		pidfd := r.fixture.agregado.custodia.pidfdPrimario
 		fin := time.Now().Add(time.Second)
@@ -570,7 +617,10 @@ func ejecutarPdeathsigExternoO3aM38(caso string) int {
 		return estadoPdeathAusenteExternoO3aM38
 	}
 	f, err := prepararCasoExternoO3aM38()
-	if err != nil || avanzarFixtureO3aM38(f) != nil || f.agregado == nil {
+	if err != nil {
+		return estadoPreparacionExternaO3aM38(err)
+	}
+	if avanzarFixtureO3aM38(f) != nil || f.agregado == nil {
 		return estadoErrorExternoO3aM38
 	}
 	terminado := make(chan struct{})
@@ -601,11 +651,11 @@ func ejecutarCasosBaseExternosO3aM38(caso string) int {
 		return ejecutarLowHoleExternoO3aM38()
 	}
 	if prepararNetpoll() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoNetpollExternoO3aM38
 	}
 	runtime.LockOSThread()
 	if activarSubreaper() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoSubreaperExternoO3aM38
 	}
 	var err error
 	switch caso {
@@ -641,8 +691,11 @@ func ejecutarCasosBaseExternosO3aM38(caso string) int {
 	default:
 		err = errEntradaO3aM38
 	}
-	if err != nil || !sinHijos() {
-		return estadoErrorExternoO3aM38
+	if err != nil {
+		return estadoCasoBaseExternoO3aM38
+	}
+	if !sinHijos() {
+		return estadoHijosExternosO3aM38
 	}
 	return 0
 }

@@ -20,6 +20,22 @@ const (
 	estadoPdeathCreadorExternoO3aM38   = 74
 	estadoPdeathOtroExternoO3aM38      = 75
 	estadoPdeathAusenteExternoO3aM38   = 76
+	estadoNetpollExternoO3aM38         = 77
+	estadoSubreaperExternoO3aM38       = 78
+	estadoFixtureExternoO3aM38         = 79
+	estadoVentanaFDExternaO3aM38       = 80
+	estadoMapaFixtureExternoO3aM38     = 81
+	estadoCierreHuecoExternoO3aM38     = 82
+	estadoSnapshotExternoO3aM38        = 83
+	estadoAvanceExternoO3aM38          = 84
+	estadoIdentidadExternaO3aM38       = 85
+	estadoLimpiezaExternaO3aM38        = 86
+	estadoClaseRetiradaExternaO3aM38   = 87
+	estadoOrigenRetiradaExternaO3aM38  = 88
+	estadoWaitExternoO3aM38            = 89
+	estadoPrecedenciaExternaO3aM38     = 90
+	estadoHijosExternosO3aM38          = 91
+	estadoCasoBaseExternoO3aM38        = 92
 )
 
 func cerrarRetiradaPruebaO3aM38(r **retiradaO3aM38) error {
@@ -587,11 +603,11 @@ func ejecutarCasoExternoO3aM38(caso string) int {
 
 func ejecutarCasosLinealesExternosO3aM38(caso string) int {
 	if prepararNetpoll() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoNetpollExternoO3aM38
 	}
 	runtime.LockOSThread()
 	if activarSubreaper() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoSubreaperExternoO3aM38
 	}
 	var err error
 	switch caso {

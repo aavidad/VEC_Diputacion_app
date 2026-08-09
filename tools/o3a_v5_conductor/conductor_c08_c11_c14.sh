@@ -51,7 +51,7 @@ registrar low_hole LOW_HOLE 0 low || fallos=1
 copiar barrido
 transformar "$raiz/barrido/${prefijo}_arranque_preparacion.go" "$barrido" '\tfor fd := minFDDuplicadoM38; fd < int(limite.Cur); fd++ {'
 construir barrido
-registrar barrido C08_BARRIDO 66 low || fallos=1
+registrar barrido C08_BARRIDO 79 low || fallos=1
 
 copiar cuarta
 transformar "$raiz/cuarta/${prefijo}_arranque_inicio.go" "$snapshot" '\tif _, _, fallo := syscall.Syscall(syscall.SYS_FCNTL, uintptr(pidfdPrimario), syscall.F_DUPFD_CLOEXEC, minFDDuplicadoM38); fallo != 0 { fatalO3aM38() }\n\tconPidfd, errInventario := snapshotActualO3aM38()'
