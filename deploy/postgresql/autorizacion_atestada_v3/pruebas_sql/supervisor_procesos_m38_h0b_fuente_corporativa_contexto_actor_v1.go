@@ -39,6 +39,9 @@ type recursos struct {
 }
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "--autoprueba-o3a-caso" {
+		os.Exit(ejecutarCasoExternoO3aM38(os.Args[2]))
+	}
 	if len(os.Args) == 2 && os.Args[1] == "--autoprueba" {
 		if err := autoprobar(); err != nil {
 			fmt.Fprintf(os.Stderr, "autoprueba del supervisor: %v\n", err)
@@ -86,6 +89,9 @@ func autoprobar() (err error) {
 		return err
 	}
 	if err = activarSubreaper(); err != nil {
+		return err
+	}
+	if err = autoprobarArranqueO3aM38(); err != nil {
 		return err
 	}
 	r := &recursos{}
