@@ -9,13 +9,14 @@ de Contratación temporal solicitada por RRHH.
 checkpoint interno O2b queda cerrado en `d86aea8`–`4b39265`, con doble `GO`,
 `P0=P1=P2=0`, 31/31 mutantes, H0 PostgreSQL 18.4 y puerta global verdes. No
 abre Bash ni modo operativo y no suma una capacidad funcional; está publicado
-en `c1ca5aa`, CI `31287803830` 5/5. O3a-P1 queda cerrado técnicamente en
-`758e66f` → `a1aeab7` → `f3a1e96`: contrato publicado con CI `31293958163`
-5/5, material R-only de 702 líneas/SHA `7ad65a66…` y seis evidencias durables.
+en `c1ca5aa`, CI `31287803830` 5/5. O3a-P1 queda publicado en la cadena
+`758e66f` → `a1aeab7` → `f3a1e96` → `ce0848e`; la CI `31298943127`
+terminó 5/5. Conserva material R-only de 702 líneas/SHA `7ad65a66…` y seis
+evidencias durables.
 La doble revisión final dio `GO`, `P0=P1=P2=0`, con matriz
 100/600 + 10/10 + 1, H0 PostgreSQL 18.4, calidad global, Gitleaks y residuos
-cero. Falta publicar material/evidencia y obtener CI 5/5. El siguiente único
-trabajo es corregir y revisar el contrato O3a completo sobre `f3a1e96`; O3a,
+cero. El siguiente único trabajo es corregir y revisar el contrato O3a
+completo sobre `ce0848e`; O3a,
 `Start` y mapa FD siguen bloqueados hasta doble GO, publicación y CI 5/5 del
 contrato.
 

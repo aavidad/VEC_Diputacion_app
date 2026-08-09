@@ -2,12 +2,12 @@
 
 Fecha: 9 de agosto de 2026.
 
-Estado: **GO técnico integrado localmente; P0=0, P1=0 y P2=0**.
+Estado: **GO técnico publicado; P0=0, P1=0 y P2=0**.
 
 O3a-P1 adelanta la barrera física del ticket sin implementar O3a. No autoriza
 `Start`, mapa FD, modo operativo, despliegue, datos reales ni producción. El
-cierre material y su evidencia permanecen pendientes de publicación y de CI
-`5/5` sobre el SHA remoto exacto.
+cierre material y su evidencia están publicados dentro de `ce0848e`; la CI
+`31298943127` terminó `5/5` sobre ese SHA remoto exacto.
 
 ## Genealogía inmutable
 
@@ -16,6 +16,7 @@ cierre material y su evidencia permanecen pendientes de publicación y de CI
 | Contrato y acta documentales | `758e66f9a283337dd542de0f1c898c581e202f47` | base publicada anterior | Publicado; CI `31293958163` 5/5 |
 | Material R-only | `a1aeab7ed2a884d0fb10c265bd11982d3519ce49` | `758e66f9a283337dd542de0f1c898c581e202f47` | Doble GO local |
 | Evidencia durable | `f3a1e961849018e8cf8bb0aa38d3d43006b1fd44` | `a1aeab7ed2a884d0fb10c265bd11982d3519ce49` | Doble GO local |
+| Cierre publicado | `ce0848ed4332c746d6a908673f3b3cad9cd90c1b` | `f3a1e961849018e8cf8bb0aa38d3d43006b1fd44` | Publicado; CI `31298943127` 5/5 |
 
 La cadena exacta es:
 
@@ -23,9 +24,11 @@ La cadena exacta es:
 758e66f9a283337dd542de0f1c898c581e202f47
   -> a1aeab7ed2a884d0fb10c265bd11982d3519ce49
   -> f3a1e961849018e8cf8bb0aa38d3d43006b1fd44
+  -> ce0848ed4332c746d6a908673f3b3cad9cd90c1b
 ```
 
-No se atribuye CI remota al material ni a la evidencia antes de publicarlos.
+La CI remota se atribuye al cierre `ce0848e`, que contiene sin reescritura el
+material y la evidencia revisados.
 
 ## Alcance material y ledger
 
@@ -114,7 +117,7 @@ u O4-05. Las métricas permanecen:
 - Bolsa productiva `1/14`;
 - producción `NO-GO`.
 
-Queda pendiente publicar `f3a1e96` y obtener CI `5/5`. El siguiente y único
-trabajo de desarrollo es corregir y revisar el **contrato O3a completo sobre
-`f3a1e96`**. El código O3a, `Start` y mapa FD continúan bloqueados hasta que
-ese contrato reciba doble `GO`, se publique y su CI termine 5/5.
+El siguiente y único trabajo de desarrollo es corregir y revisar el
+**contrato O3a completo sobre `ce0848e`**. El código O3a, `Start` y mapa FD
+continúan bloqueados hasta que ese contrato reciba doble `GO`, se publique y
+su CI termine 5/5.

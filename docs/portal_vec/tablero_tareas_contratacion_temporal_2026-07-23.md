@@ -5,12 +5,12 @@
 O2b queda cerrado técnicamente en `d86aea8`–`4b39265`, con doble `GO`,
 31/31 mutantes, H0 PostgreSQL 18.4, puerta global y CI `31287803830` verdes;
 su cierre está publicado en `c1ca5aa`. No suma una tarea funcional ni abre el
-modo operativo. O3a-P1 queda cerrado en la cadena local `758e66f` → `a1aeab7`
-→ `f3a1e96`: documentación publicada con CI `31293958163` 5/5, runner
+modo operativo. O3a-P1 queda publicado en `ce0848e`, sobre la cadena
+`758e66f` → `a1aeab7` → `f3a1e96`; la CI `31298943127` terminó 5/5. Runner
 702/SHA `7ad65a66…`, seis evidencias, matriz 100/600 + 10/10 + 1, H0
 PostgreSQL 18.4, calidad, Gitleaks y residuos cero; ambos revisores dieron GO.
-Falta publicar material/evidencia y obtener CI. Después solo se corrige y
-revisa el contrato O3a completo sobre `f3a1e96`. O3a, `Start` y mapa FD
+Después solo se corrige y revisa el contrato O3a completo sobre `ce0848e`.
+O3a, `Start` y mapa FD
 permanecen cerrados hasta doble GO, publicación y CI 5/5 del contrato.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
@@ -148,10 +148,10 @@ con binario reproducible, AST, 27 mutantes muertos, H0 PostgreSQL 18.4 y puerta
 global verdes. Quedó publicado dentro de `ef1f08b` y la CI `31021785711`
 terminó con cinco puertas verdes. O2b, «ARMAR y cancelación sin Bash», queda
 cerrado técnicamente en `d86aea8`–`4b39265`, con doble GO, 31/31 mutantes,
-H0 PostgreSQL 18.4 y puerta global verdes. O3a-P1 queda cerrado localmente en
-`a1aeab7`–`f3a1e96`, con doble GO y puertas completas; falta publicarlo y
-obtener CI antes de corregir/revisar el contrato O3a completo sobre
-`f3a1e96`. `Start`, mapa FD y código O3a siguen cerrados hasta el doble GO,
+H0 PostgreSQL 18.4 y puerta global verdes. O3a-P1 queda cerrado en
+`a1aeab7`–`f3a1e96`, publicado en `ce0848e` y con CI `31298943127` 5/5. El
+siguiente trabajo es corregir/revisar el contrato O3a completo sobre
+`ce0848e`. `Start`, mapa FD y código O3a siguen cerrados hasta el doble GO,
 publicación y CI 5/5 de ese contrato; los ACK vivos ya no pertenecen al
 protocolo.
 Todavía no existe una migración `000007`
