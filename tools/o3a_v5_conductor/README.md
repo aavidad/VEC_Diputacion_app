@@ -43,6 +43,10 @@ como `working-directory` y ejecuta
 `./conductor.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/evidencia-o3a-v5"` después
 de la puerta de calidad. Así, un cambio en cualquiera de las diez fuentes, un
 caso omitido, un build race falso o un residuo hace fallar la misma puerta CI.
+Antes de ejecutar cada bloque, el conductor cierra en un subproceso todos los
+descriptores heredados desde 3. Así el inventario probado pertenece al caso y
+no a la infraestructura del runner; stdin, stdout y stderr permanecen bajo la
+custodia exterior y cualquier fallo del bloque conserva su estado exacto.
 El workflow publica en su propio log el resumen, manifiesto, TSV y logs de cada
 bloque, conservando sin traducción el estado del conductor. El plazo test-only
 para observar la salida nominal es diez segundos y no altera los tres segundos

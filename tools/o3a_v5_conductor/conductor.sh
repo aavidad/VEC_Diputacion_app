@@ -90,6 +90,21 @@ json_tsv() {
   ' "$tsv" >>"$ndjson"
 }
 
+ejecutar_bloque_aislado() {
+  local modo=$1 ruta=$2 staging=$3 salida=$4 fd ruta_fd
+  for ruta_fd in /proc/self/fd/*; do
+    fd=${ruta_fd##*/}
+    [[ $fd =~ ^[0-9]+$ && $fd -ge 3 ]] || continue
+    eval "exec ${fd}>&-" 2>/dev/null || true
+  done
+  if [[ $modo == race ]]; then
+    exec env CND_RUNTIME_TARGET="$target" CND_RACE=1 CND_CGO_ENABLED=1 \
+      timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida"
+  fi
+  exec env CND_RUNTIME_TARGET="$target" CND_RACE=0 CND_CGO_ENABLED=0 \
+    timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida"
+}
+
 scripts=(
   conductor_c01_c07.sh
   conductor_c02_interleavings.sh
@@ -112,11 +127,7 @@ for modo in normal race; do
     inicio=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     t0=$(date +%s%N)
     set +e
-    if [[ $modo == race ]]; then
-      CND_RUNTIME_TARGET="$target" CND_RACE=1 CND_CGO_ENABLED=1 timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida" >"$log" 2>&1
-    else
-      CND_RUNTIME_TARGET="$target" CND_RACE=0 CND_CGO_ENABLED=0 timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida" >"$log" 2>&1
-    fi
+    (ejecutar_bloque_aislado "$modo" "$ruta" "$staging" "$salida") >"$log" 2>&1
     estado=$?
     set -e
     t1=$(date +%s%N); duracion=$(((t1-t0)/1000000))
