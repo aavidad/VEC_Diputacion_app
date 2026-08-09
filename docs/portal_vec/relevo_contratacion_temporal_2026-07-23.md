@@ -13,15 +13,18 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- O2b queda integrado localmente en `d86aea8`–`4b39265`. Dos revisiones
+- O2b queda publicado en `c1ca5aa`, con material y evidencia en
+  `d86aea8`–`4b39265`. Dos revisiones
   independientes dieron `GO`, `P0=P1=P2=0`; dirección reprodujo 31/31
   mutantes, dos builds Go 1.26.5, H0 PostgreSQL 18.4, puerta global, Gitleaks y
   cero residuos. La
   [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
-  acredita el cierre técnico sin Bash ni modo operativo. Las métricas no
-  cambian. El siguiente trabajo es contratar O3a, `Start` y mapa FD.
-- Último corte publicado completamente verde antes de G2-S: `0a6de82`; CI
-  `30967899595`, cinco de cinco puertas superadas.
+  acredita el cierre técnico sin Bash ni modo operativo. La CI `31287803830`
+  terminó 5/5. Las métricas no cambian. El trabajo activo
+  es O3a-P0, traslado estructural del runner a D2d con doble GO documental;
+  debe publicarse y superar CI antes del código. O3a sigue cerrado.
+- Último corte publicado completamente verde: `c1ca5aa`; CI `31287803830`,
+  cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
   dos tests concurrentes intermitentes sin cambiar producción y tienen GO
@@ -82,8 +85,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
   `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
   O2b está cerrado técnicamente en `d86aea8`–`4b39265`. El trabajo activo es
-  contratar O3a, `Start` y mapa FD. Después siguen O3b–O6c, C4b-3, C4c y
-  C4d y se implementará C2. Todavía no existe una migración `000007` instalable.
+  O3a-P0; después siguen O3a–O6c, C4b-3, C4c y C4d y se implementará C2.
+  Todavía no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
   [revisión](revisiones/revision_f0_h0b_r0_sintetico_2026-08-02.md) y la
@@ -132,9 +135,10 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea disponible es redactar y revisar el contrato
-acotado de O3a, `Start` y mapa FD, sobre `4b39265`. Ninguna rama de agente ni
-los candidatos históricos se fusionan por conveniencia.
+y el tablero. La primera tarea es comprobar la publicación y CI del contrato
+O3a-P0; solo con 5/5 se produce el traslado estructural exacto. O3a se contrata
+tras cerrar P0. Ninguna rama de agente ni los candidatos históricos se
+fusionan por conveniencia.
 
 ## Fuente de requisitos
 

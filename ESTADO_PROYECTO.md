@@ -8,8 +8,12 @@ de Contratación temporal solicitada por RRHH.
 **Frente técnico activo:** integración O4-05 de Contratación temporal. El
 checkpoint interno O2b queda cerrado en `d86aea8`–`4b39265`, con doble `GO`,
 `P0=P1=P2=0`, 31/31 mutantes, H0 PostgreSQL 18.4 y puerta global verdes. No
-abre Bash ni modo operativo y no suma una capacidad funcional. El siguiente
-corte es O3a, `Start` y mapa FD, después de aprobar su contrato acotado.
+abre Bash ni modo operativo y no suma una capacidad funcional; está publicado
+en `c1ca5aa`, CI `31287803830` 5/5. El frente activo es O3a-P0: liberar margen
+del runner mediante un traslado estructural sin cambio funcional. Su contrato
+y acta tienen doble GO y esperan publicación+CI antes del código. O3a, `Start`
+y mapa FD siguen cerrados.
+
 Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.
 

@@ -14,9 +14,12 @@ fija el ledger y sus límites.
 Este checkpoint no abre Bash, FD operativos ni el modo
 `--supervisar-m38`, no acredita E2E y no cambia las métricas: F0 `10/23`,
 O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva `1/14` y
-producción `NO-GO`. La siguiente minitarea es contratar O3a, `Start` y mapa
-FD. Esta actualización prevalece sobre cualquier instrucción histórica que
-nombre O2b como trabajo pendiente.
+producción `NO-GO`. O2b está publicado en `c1ca5aa`, CI `31287803830` 5/5.
+El frente activo es O3a-P0, traslado estructural previo del runner a D2d; su
+contrato y acta tienen doble GO y deben publicarse con CI verde antes del
+código. O3a, `Start` y mapa FD permanecen cerrados. Esta actualización
+prevalece sobre cualquier instrucción histórica que nombre O2b u O3a directo
+como trabajo pendiente.
 
 ## Corte técnico actual — 5 de agosto de 2026
 
@@ -505,10 +508,10 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-Trabajo activo: contrato acotado O2b, «ARMAR y cancelación sin Bash». O2a/S0/G3
-está integrado y publicado dentro de `ef1f08b`, con CI `31021785711` verde.
-Después siguen O3a–O6c y, secuencialmente,
-C4b-3, C4c y C4d;
+O2b está publicado en `c1ca5aa`, con CI `31287803830` 5/5. Trabajo activo:
+O3a-P0, traslado estructural previo del runner a D2d; solo se produce su código
+después de publicar contrato y acta y obtener CI 5/5. Después siguen
+O3a–O6c y, secuencialmente, C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
 `ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
