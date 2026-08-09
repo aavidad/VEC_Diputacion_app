@@ -19,10 +19,12 @@ El corte técnico publicado vigente cierra O2b en `c1ca5aa`, con material y
 evidencia en `d86aea8`–`4b39265`: control
 previo de `ARMAR` y cancelación sin Bash, doble revisión independiente,
 31/31 mutantes, H0 PostgreSQL 18.4, puerta global y CI `31287803830` verdes.
-No es una capacidad E2E ni cambia los porcentajes oficiales. El frente activo
-es O3a-P0, traslado estructural previo que libera margen del runner sin añadir
-conducta. Su contrato tiene doble GO y debe publicarse con CI 5/5 antes del
-código. O3a, `Start` y mapa FD continúan cerrados. Véanse la
+No es una capacidad E2E ni cambia los porcentajes oficiales. El contrato
+O3a-P0 quedó publicado en `afd00c3`, CI `31289613463` 5/5, y el traslado
+estructural se cerró técnicamente en `ac988d6` tras doble GO: runner 702,
+D2d 264, H0 PostgreSQL 18.4, calidad global y residuos cero. Falta publicar
+este relevo y obtener CI 5/5; después comienza el contrato funcional O3a.
+O3a, `Start` y mapa FD continúan cerrados. Véanse la
 [revisión final O2b](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md),
 la
 [decisión O3a-P0](docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)

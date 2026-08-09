@@ -5,9 +5,10 @@
 O2b queda cerrado técnicamente en `d86aea8`–`4b39265`, con doble `GO`,
 31/31 mutantes, H0 PostgreSQL 18.4, puerta global y CI `31287803830` verdes;
 su cierre está publicado en `c1ca5aa`. No suma una tarea funcional ni abre el
-modo operativo. El trabajo activo es O3a-P0, traslado estructural previo con
-contrato y acta en doble GO, pendientes de publicación+CI antes del código.
-O3a, `Start` y mapa FD permanecen cerrados.
+modo operativo. El contrato O3a-P0 se publicó en `afd00c3`, CI `31289613463`
+5/5; el traslado quedó cerrado técnicamente en `ac988d6` con doble GO y
+puertas completas. Falta publicar este relevo y obtener CI; después se
+redactará el contrato O3a. O3a, `Start` y mapa FD permanecen cerrados.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -144,9 +145,10 @@ con binario reproducible, AST, 27 mutantes muertos, H0 PostgreSQL 18.4 y puerta
 global verdes. Quedó publicado dentro de `ef1f08b` y la CI `31021785711`
 terminó con cinco puertas verdes. O2b, «ARMAR y cancelación sin Bash», queda
 cerrado técnicamente en `d86aea8`–`4b39265`, con doble GO, 31/31 mutantes,
-H0 PostgreSQL 18.4 y puerta global verdes. O3a-P0 es el siguiente corte
-estructural; O3a, `Start` y mapa FD siguen cerrados y los ACK vivos ya no
-pertenecen al protocolo.
+H0 PostgreSQL 18.4 y puerta global verdes. O3a-P0 queda cerrado técnicamente
+en `ac988d6`; falta publicar su relevo y obtener CI antes de redactar O3a.
+`Start` y mapa FD siguen cerrados y los ACK vivos ya no pertenecen al
+protocolo.
 Todavía no existe una migración `000007`
 instalable ni cambian los tres hitos de O4-05 o las métricas.
 

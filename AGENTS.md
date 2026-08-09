@@ -30,14 +30,17 @@ instrucción de dirección.
   18.4, puerta global y Gitleaks verdes, con cero residuos. La
   [revisión final](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
   conserva el ledger y los límites. No abre Bash ni el modo operativo.
-- El último corte remoto verde es `c1ca5aa`, ejecución `31287803830`, cinco
-  de cinco puertas superadas. El análisis de O3a detectó que el runner ocupa
-  800/800 líneas. El trabajo activo es **O3a-P0**, un traslado estructural
-  previo de 98 líneas del runner a D2d. Su
+- El contrato y el acta de O3a-P0 están publicados en `afd00c3`; la ejecución
+  `31289613463` terminó con cinco de cinco puertas verdes. El traslado
+  estructural quedó cerrado técnicamente en `ac988d6` tras dos revisiones
+  independientes `GO`, `P0=P1=P2=0`: runner 702, D2d 264, reconstrucción
+  reversible byte a byte, H0 PostgreSQL 18.4, calidad global, dos builds
+  reproducibles, Gitleaks y residuos cero. Su
   [contrato](docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)
   y [acta](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)
-  tienen doble `GO`, pero no se produce código hasta publicar ambos y obtener
-  CI 5/5. O3a, `Start` y mapa FD siguen cerrados.
+  conservan el ledger y los límites. Falta publicar este cierre y obtener CI
+  5/5. Después solo puede redactarse el contrato funcional O3a; O3a, `Start`
+  y mapa FD siguen cerrados.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -110,9 +113,9 @@ instrucción de dirección.
   global verdes, con residuos cero. Quedó publicado en `ef1f08b` y la CI
   `31021785711` terminó con cinco puertas verdes.
   O2b, «ARMAR y cancelación sin Bash», queda cerrado técnicamente en
-  `d86aea8`–`4b39265`, con doble GO y evidencia durable. O3a-P0 es la tarea
-  activa previa para liberar margen del runner; O3a, `Start`, mapa FD y fases
-  posteriores siguen cerradas.
+  `d86aea8`–`4b39265`, con doble GO y evidencia durable. O3a-P0 queda cerrado
+  técnicamente en `ac988d6`; falta publicar su relevo y obtener CI 5/5 antes
+  de redactar O3a. `Start`, mapa FD y fases posteriores siguen cerradas.
   Las evidencias están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`,

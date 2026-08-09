@@ -9,10 +9,11 @@ de Contratación temporal solicitada por RRHH.
 checkpoint interno O2b queda cerrado en `d86aea8`–`4b39265`, con doble `GO`,
 `P0=P1=P2=0`, 31/31 mutantes, H0 PostgreSQL 18.4 y puerta global verdes. No
 abre Bash ni modo operativo y no suma una capacidad funcional; está publicado
-en `c1ca5aa`, CI `31287803830` 5/5. El frente activo es O3a-P0: liberar margen
-del runner mediante un traslado estructural sin cambio funcional. Su contrato
-y acta tienen doble GO y esperan publicación+CI antes del código. O3a, `Start`
-y mapa FD siguen cerrados.
+en `c1ca5aa`, CI `31287803830` 5/5. El contrato O3a-P0 se publicó en
+`afd00c3`, CI `31289613463` 5/5; el traslado sin cambio funcional quedó
+cerrado técnicamente en `ac988d6` con doble GO y puertas completas. Falta
+publicar este cierre y obtener CI 5/5. Después se redactará el contrato O3a;
+O3a, `Start` y mapa FD siguen cerrados.
 
 Solo se usan datos sintéticos hasta cerrar las puertas de
 autorización, trazabilidad y protección de datos.

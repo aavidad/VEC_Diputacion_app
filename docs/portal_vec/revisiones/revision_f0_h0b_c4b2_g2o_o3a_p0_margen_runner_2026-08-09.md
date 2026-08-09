@@ -2,10 +2,11 @@
 
 Fecha: 9 de agosto de 2026.
 
-Estado: **doble GO documental; P0=0, P1=0, P2=0**. Esta acta autoriza
-exclusivamente la publicación del contrato O3a-P0 y, tras CI 5/5, la preparación
-material del traslado estructural definido. No autoriza O3a, `Start`, Bash
-operativo, mapa FD, despliegue ni uso en producción.
+Estado: **cierre técnico material con doble GO; P0=0, P1=0, P2=0**. El
+contrato documental se publicó en `afd00c3` y su CI `31289613463` terminó
+5/5. El material exacto `ac988d6` superó todas las puertas y dos revisiones
+independientes. No autoriza O3a, `Start`, Bash operativo, mapa FD, despliegue
+ni uso en producción.
 
 ## Objeto y autoridad
 
@@ -96,12 +97,12 @@ R y restauró el literal de D. Recuperó byte a byte:
 La revisión funcional de la versión corregida emitió **GO**, `P0=0`, `P1=0`,
 `P2=0`. La revisión de seguridad emitió **GO**, `P0=0`, `P1=0`, `P2=0`.
 
-## Autorización limitada y puertas pendientes
+## Autorización documental anterior
 
-Se autoriza confirmar y publicar el contrato y esta acta. El código P0 solo
-puede producirse desde ese commit publicado y después de una CI 5/5.
+En el momento de publicar el contrato se autorizó confirmar esta acta y
+producir P0 únicamente desde aquel commit y después de una CI 5/5.
 
-El candidato material deberá superar en un worktree exclusivo:
+El candidato material debía superar en un worktree exclusivo:
 
 - write-set exacto de dos rutas;
 - conteos y huellas R/D contractuales;
@@ -115,8 +116,9 @@ El candidato material deberá superar en un worktree exclusivo:
 - calidad global, Gitleaks, diff y residuos cero;
 - doble revisión independiente antes de integrar o publicar.
 
-Todavía no se han ejecutado esas puertas sobre un candidato material porque
-el código P0 no existe. Esta acta no las presenta como verdes.
+Esta sección conserva la autorización documental histórica. El apartado
+«Cierre material posterior» registra que todas esas puertas se ejecutaron
+después sobre `ac988d6`; no se atribuyeron al candidato antes de existir.
 
 ## Alcance y métricas
 
@@ -131,3 +133,33 @@ Las métricas permanecen:
 - Contratación temporal `24/46`;
 - Bolsa productiva `1/14`;
 - producción `NO-GO`.
+
+## Cierre material posterior
+
+El traslado se confirmó en
+`ac988d615d021b14cbcfc2929f715ab4d9bb5567`, hijo directo del contrato
+publicado `afd00c35d7981cf136198746be88e631213bb08e`. Su write-set contiene
+exclusivamente las dos rutas autorizadas y el árbol quedó limpio.
+
+| Unidad | Líneas | SHA-256 |
+| --- | ---: | --- |
+| Runner R | 702 | `e617024a52c4a042971b026d0799816933b489ed4221e9b6147317936d18054c` |
+| Auxiliar D2d | 264 | `681efbbd7f856eb539d1656cffed87c26f48609e65d6d6adf8265c350ae69442` |
+| Binario Go reproducible | — | `6153f03a93c0a2618fdaf922443004244aa3bec7cbe9074466b22935c693edd0` |
+
+Los revisores funcional y de seguridad emitieron por separado **GO**,
+`P0=0`, `P1=0`, `P2=0`. Ambos reconstruyeron byte a byte el padre, verificaron
+las dos directivas locales, las guardas de carga, el inventario exacto de
+diecinueve funciones, el manifiesto de nueve entradas y la invariancia de las
+fuentes Go, capturador y adaptador.
+
+Las dos revisiones reprodujeron `bash -n`, ShellCheck, dos builds Go 1.26.5,
+autoprueba, modos cerrados, H0 PostgreSQL 18.4, calidad global, carrera,
+`govulncheck`, Gitleaks y residuos cero. La primera ejecución H0 con
+`LD_LIBRARY_PATH` heredado cerró correctamente en 65 antes de reservar
+recursos; la ejecución canónica retirando `LD_*` satisfizo la precondición
+explícita y terminó verde. No se ocultó un fallo material.
+
+O3a-P0 no suma una tarea funcional ni cambia las métricas. Antes de redactar
+el contrato O3a debe publicarse este cierre y obtenerse CI 5/5. O3a, `Start`,
+mapa FD y producción permanecen en `NO-GO`.
