@@ -75,9 +75,8 @@ jobs:
           done
           if [[ $estado -ne 0 ]]; then
             grep -hE 'NO-GO|resultado=NO-GO' \
-              "$RUNNER_TEMP/evidencia-o3a-v5/resumen.txt" \
-              "$RUNNER_TEMP/evidencia-o3a-v5/manifiesto.tsv" \
-              "$RUNNER_TEMP/evidencia-o3a-v5"/*.tsv 2>/dev/null |
+              "$RUNNER_TEMP/evidencia-o3a-v5"/*.tsv \
+              "$RUNNER_TEMP/evidencia-o3a-v5/resumen.txt" 2>/dev/null |
               head -20 |
               while IFS= read -r diagnostico; do
                 diagnostico=${diagnostico//'%'/'%25'}
