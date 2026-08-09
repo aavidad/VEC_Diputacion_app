@@ -5,19 +5,6 @@ for ruta_sistema_f0 in /usr/bin/bash /usr/bin/env /usr/bin/grep; do
     [[ -f "${ruta_sistema_f0}" && -x "${ruta_sistema_f0}" && ! -w "${ruta_sistema_f0}" ]] || exit 65
 done
 unset ruta_sistema_f0
-estados_entorno=()
-if /usr/bin/env -0 |
-    /usr/bin/grep -zE '^(BASH_FUNC_|LD_)' >/dev/null
-then
-    estados_entorno=("${PIPESTATUS[@]}")
-    exit 65
-else
-    estados_entorno=("${PIPESTATUS[@]}")
-fi
-((${#estados_entorno[@]} == 2)) || exit 65
-[[ "${estados_entorno[0]}" == 0 &&
-   "${estados_entorno[1]}" == 1 ]] || exit 65
-unset estados_entorno
 export LC_ALL=C
 umask 077
 unset BASH_ENV ENV home_go_f0 tmp_go_f0 cache_go_f0
@@ -45,6 +32,19 @@ if (($# > 0)) && [[ "$1" == '--caso-inyeccion-h0b' ]]; then
     builtin kill -STOP "${BASHPID}"
     modo_m38='hijo'; set -- --etapa H0
 fi
+estados_entorno=()
+if /usr/bin/env -0 |
+    /usr/bin/grep -zE '^(BASH_FUNC_|LD_)' >/dev/null
+then
+    estados_entorno=("${PIPESTATUS[@]}")
+    exit 65
+else
+    estados_entorno=("${PIPESTATUS[@]}")
+fi
+((${#estados_entorno[@]} == 2)) || exit 65
+[[ "${estados_entorno[0]}" == 0 &&
+   "${estados_entorno[1]}" == 1 ]] || exit 65
+unset estados_entorno
 if [[ "${modo_m38}" == hijo ]]; then
     ruta_runner=/proc/self/fd/8; raiz=/proc/self/fd/7
 else
