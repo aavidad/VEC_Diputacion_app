@@ -1,0 +1,6 @@
+caso	esperado	estado	stdout	stderr	resultado
+C15_AF	65	65	0	0	GO
+C16_ALIAS	0	0	0	0	GO
+C17_TESTIGOS_TID	0	0	0	0	GO
+C18_BORDES	0	0	0	0	GO
+C21_CIEN_INVENTARIOS	0	0	0	0	GO

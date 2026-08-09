@@ -1,0 +1,4 @@
+caso	esperado	estado	stdout	stderr	resultado
+C19_EINTR	73	73	0	0	GO
+C19_PRESUPUESTO	73	73	0	0	GO
+C19_POLL	73	73	0	0	GO

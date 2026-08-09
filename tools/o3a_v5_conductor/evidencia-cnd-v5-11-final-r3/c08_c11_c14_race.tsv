@@ -1,0 +1,10 @@
+variante	caso	esperado	estado	stdout	stderr	resultado
+low_hole	LOW_HOLE	0	0	0	0	GO
+barrido	C08_BARRIDO	66	66	0	0	GO
+cuarta	C08_CUARTA	65	65	0	0	GO
+flag	C08_FLAG	65	65	0	0	GO
+kill	C11_TERMINAL_POST_START	73	73	0	0	GO
+kill	C14_KILL	73	73	0	0	GO
+eof	C14_EOF	73	73	0	0	GO
+cancelar_terminal	C12_CANCELAR_TERMINAL	73	73	0	0	GO
+eof_terminal	C12_EOF_TERMINAL	73	73	0	0	GO

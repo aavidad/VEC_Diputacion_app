@@ -1,0 +1,4 @@
+caso	estado	stdout	stderr	resultado
+C02_SENAL_PRESTART	73	0	0	GO
+C02_SENAL_POSTSTART	73	0	0	GO
+C02_SENAL_PREHANDOFF	73	0	0	GO

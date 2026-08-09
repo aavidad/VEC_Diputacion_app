@@ -1,0 +1,15 @@
+resultado=GO
+go_version=go version go1.26.5 linux/amd64
+target=/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/o3a-v5-auditoria-20260809
+head=de9b98e9dae14c6a9812adda35694bac5838b191
+sha_conductor=f15ec1093878f68b64902f41a8c55569a0872fdcd1fad791076d6e067ad39e3c
+fuentes=10
+sha_fuentes=6e1600fb2f0ecc7ab83231b875815cbd0ca7163cb8e6e7ea857e417d9b718e7a
+bloques=14
+casos_registrados=74
+sha_casos=aaacdf94bf2b15a4f88844aea1d8e918bd0ad19a7bf846a45637267d503232c3
+sha_manifiesto=bf3a09622cebdb4e3c4fbd9d00b5989cd15ba79276d95893705ded7a0d59738c
+watchdog_segundos=300
+fd_conductor_inicio=5
+fd_conductor_fin=5
+residuos=cero
