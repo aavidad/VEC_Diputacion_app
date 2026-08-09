@@ -1,0 +1,8 @@
+{
+  "M57": ["retorno", "cierre", "log", "es"],
+  "M58": ["pidfd_open", "os_new_file", "os_file_prestado"],
+  "M59": ["senal_grupo", "exposicion_agregado"],
+  "M60": ["parcial", "eof", "cancelar", "fd_heredable_ge10"],
+  "M61": ["autoridad", "registro", "pertenencia", "autoidentidad", "tid", "generacion", "cas", "orden", "recrear_deadline"],
+  "M62": ["prestart_4s", "prehandoff_1s", "revalidacion_o3b"]
+}

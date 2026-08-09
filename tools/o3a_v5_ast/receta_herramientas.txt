@@ -1,0 +1,11 @@
+version=1
+checker_modulo=./tools/o3a_v5_ast
+aplicador_modulo=./tools/o3a_v5_ast/aplicar_manifest
+flags=-trimpath
+salidas=staging_privado
+entorno=env-i,GOENV=off,GOFLAGS=,GOTOOLCHAIN=local,CGO_ENABLED=0
+toolchain=go1.26.5
+gotooldir=inventario_ordenado_sha256
+goroot=inventario_regular_completo_ordenado_sha256
+modulo=go.mod,go.sum
+fuentes_propias=tools/o3a_v5_ast/main.go,tools/o3a_v5_ast/aplicar_manifest/main.go

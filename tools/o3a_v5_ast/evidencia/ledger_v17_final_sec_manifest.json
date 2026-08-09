@@ -1,0 +1,39 @@
+{
+  "estado": "EJECUCION_AUTORIZADA",
+  "cobertura_familias_completa": true,
+  "motivo": "M63 debe negar pertenencia y TID antes de comenzarCritico/transferir",
+  "mutantes": [
+    {
+      "id": "SEC-M63-LEASE-REGISTRO",
+      "familia": "M63",
+      "ruta": "G6c",
+      "anterior": "permisoStart, permisoValido := c.lease.comenzarCritico(operacionStartO3aM38, 1)",
+      "posterior": "delete(c.lease.registro.leases, c.lease)\n\tpermisoStart, permisoValido := c.lease.comenzarCritico(operacionStartO3aM38, 1)",
+      "oraculo": "CONDUCTUAL_COMENZAR_RECHAZA_LEASE_DESREGISTRADA"
+    },
+    {
+      "id": "SEC-M63-LEASE-TID",
+      "familia": "M63",
+      "ruta": "G6c",
+      "anterior": "permisoStart, permisoValido := c.lease.comenzarCritico(operacionStartO3aM38, 1)",
+      "posterior": "c.lease.tid++\n\tpermisoStart, permisoValido := c.lease.comenzarCritico(operacionStartO3aM38, 1)",
+      "oraculo": "CONDUCTUAL_COMENZAR_RECHAZA_TID_CAMBIADO"
+    },
+    {
+      "id": "SEC-M63-OBSERVADOR-REGISTRO",
+      "familia": "M63",
+      "ruta": "G6c",
+      "anterior": "nuevoBaseline, observadorTransferido := c.observador.transferirCritico(c.baselineSenal)",
+      "posterior": "delete(c.observador.registro.observadores, c.observador)\n\tnuevoBaseline, observadorTransferido := c.observador.transferirCritico(c.baselineSenal)",
+      "oraculo": "CONDUCTUAL_TRANSFERIR_RECHAZA_OBSERVADOR_DESREGISTRADO"
+    },
+    {
+      "id": "SEC-M63-OBSERVADOR-TID",
+      "familia": "M63",
+      "ruta": "G6c",
+      "anterior": "nuevoBaseline, observadorTransferido := c.observador.transferirCritico(c.baselineSenal)",
+      "posterior": "c.observador.registro.tid++\n\tnuevoBaseline, observadorTransferido := c.observador.transferirCritico(c.baselineSenal)",
+      "oraculo": "CONDUCTUAL_TRANSFERIR_RECHAZA_TID_CAMBIADO"
+    }
+  ]
+}

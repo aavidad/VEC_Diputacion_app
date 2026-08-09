@@ -1,0 +1,10 @@
+{
+  "M57": ["retorno", "cierre", "log", "es"],
+  "M58": ["pidfd_open", "os_new_file", "os_file_prestado"],
+  "M59": ["senal_grupo", "exposicion_agregado"],
+  "M60": ["parcial", "eof", "cancelar", "fd_heredable_ge10"],
+  "M61": ["autoridad", "registro", "pertenencia", "autoidentidad", "tid", "generacion", "cas", "orden", "recrear_deadline"],
+  "M62": ["prestart_4s", "prehandoff_1s", "revalidacion_o3b"],
+  "M63": ["omitir_inventario", "acortar_inventario", "iniciar_en_10", "aceptar_012_ausente", "aceptar_012_cambiado", "fd_ajeno_heredable", "limite_mayor", "forjar_lease", "liberar_lease", "forjar_observador", "liberar_observador", "omitir_begin", "reordenar_begin_syscall_consolidate", "permiso_ajeno", "permiso_reusado", "resultado_forjado", "b_como_c", "reservar_en_b", "syscall_al_consolidar_start", "no_restaurar_fallo", "entregar_pending"],
+  "M66": ["arista_no_permitida", "ciclo", "segundo_owner", "segundo_constructor", "segunda_escritura_autoridad", "segunda_escritura_estado", "start_productivo_fuera_g6c", "wait_productivo_fuera_g6c", "start_directo", "cleanup_omitido", "cleanup_doble", "cleanup_reordenado", "cleanup_fuera", "init", "global", "hook", "callback", "mock"]
+}

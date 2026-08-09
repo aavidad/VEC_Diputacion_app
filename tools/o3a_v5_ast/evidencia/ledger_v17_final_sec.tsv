@@ -1,0 +1,6 @@
+base_sha	id	compilo	oraculo	estado	clasificacion
+1e4bb36b193795688be7575d0ea872fe37033b170bc59561bd1ed33f2a92f8b8	BASE	si	autoprueba	0	verde
+1e4bb36b193795688be7575d0ea872fe37033b170bc59561bd1ed33f2a92f8b8	SEC-M63-LEASE-REGISTRO	si	autoprueba	65	muerto
+1e4bb36b193795688be7575d0ea872fe37033b170bc59561bd1ed33f2a92f8b8	SEC-M63-LEASE-TID	si	autoprueba	65	muerto
+1e4bb36b193795688be7575d0ea872fe37033b170bc59561bd1ed33f2a92f8b8	SEC-M63-OBSERVADOR-REGISTRO	si	autoprueba	65	muerto
+1e4bb36b193795688be7575d0ea872fe37033b170bc59561bd1ed33f2a92f8b8	SEC-M63-OBSERVADOR-TID	si	autoprueba	65	muerto
