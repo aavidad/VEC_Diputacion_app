@@ -37,6 +37,12 @@ FD inicial/final iguales y residuos cero. Cualquier divergencia termina no
 cero y hace fallar `puerta-calidad`. No usa Docker, PostgreSQL, red ni el modo
 operativo de Orquesta.
 
+Cada bloque se ejecuta en un subproceso que cierra todos los descriptores
+heredados desde 3 antes de entrar en el script focal. Esto elimina del
+inventario del caso los canales privados del runner CI sin relajar los
+oráculos: los descriptores 0--2 se conservan y el estado del bloque se propaga
+sin traducción.
+
 Resumen, manifiesto, TSV y logs de los catorce bloques se vuelcan al log CI sin
 ocultar el estado de salida. La espera test-only de terminalidad nominal usa
 diez segundos; `duracionRetiradaO3aM38 = 3 s` productivo permanece intacto.
