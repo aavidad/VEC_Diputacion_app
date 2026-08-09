@@ -1,0 +1,509 @@
+#!/usr/bin/bash
+set -Eeuo pipefail
+
+# Evidencia portable ligada al commit material y a su padre exactos.
+sha_material='d86aea8b4ed2b9fffbf74ef04cd90f397b017a55'
+sha_padre_material='5dff807652e11db6c7d446c5135e7301fc721c36'
+sha_g1='6b7f93b8b43c1040cc4ae2b6322c4e99e914eee415475e3fd50bf294b5a17afb'
+sha_g4='2befe2a4c16fc7a57aacd421ea6c8419ab49160bb2ae0d0eb6f03786194aa744'
+sha_g5='10ccaf8347bfcaa5f3990b75b4c9becd62cd39b60249b628af6c7a1fc6bc8867'
+sha_g2='01acb818e9abefcbfe4c279bb0dd5e3317bf03f082f1ed3fba4f257c5642866b'
+sha_g3='d608868ecb2cb753876f488b522975e05af06c013c82222959be5d85100c3633'
+sha_ast='1993cc4e6b9e35d9a08e5318b2713bd2e9826eb78b205c6b6e40fb1a33d00ec1'
+
+if (($# != 2)); then
+    printf 'uso: %s RAIZ_REPOSITORIO ANALIZADOR_AST_O2B\n' "$0" >&2
+    exit 64
+fi
+
+raiz=$1
+ast_origen=$2
+go126=${VEP_GO_BIN:-$(command -v go)}
+ruta=deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
+g1_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go
+g4_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_control_preinicio.go
+g5_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_control_preinicio_pruebas.go
+g2_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go
+g3_origen=${raiz}/${ruta}/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_sobre_s0.go
+ast_esperado=${raiz}/docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o2b_ast_d86aea8.go.txt
+mutador_esperado=docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o2b_mutantes_d86aea8.sh.txt
+ast_relativo=docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o2b_ast_d86aea8.go.txt
+mutador_absoluto=${raiz}/${mutador_esperado}
+
+for archivo in "$g1_origen" "$g4_origen" "$g5_origen" "$g2_origen" "$g3_origen" "$ast_origen"; do
+    [[ -f "$archivo" && ! -L "$archivo" ]] || {
+        printf 'archivo ausente o enlace no admitido: %s\n' "$archivo" >&2
+        exit 65
+    }
+done
+[[ -n "$go126" && -x "$go126" ]] || exit 65
+[[ "$(realpath -e -- "$ast_origen")" == "$(realpath -e -- "$ast_esperado")" ]] || {
+    printf 'el analizador debe ser el AST hermano ligado a d86aea8\n' >&2
+    exit 65
+}
+[[ "$(realpath -e -- "$0")" == "$(realpath -e -- "$mutador_absoluto")" ]] || {
+    printf 'el mutador debe ejecutarse desde su ruta de evidencia ligada\n' >&2
+    exit 65
+}
+[[ "$(env GOENV=off GOTOOLCHAIN=go1.26.5 "$go126" version)" == 'go version go1.26.5 linux/amd64' ]] || {
+    printf 'se requiere Go 1.26.5 linux/amd64\n' >&2
+    exit 65
+}
+goroot126=$(env GOENV=off GOTOOLCHAIN=go1.26.5 "$go126" env GOROOT)
+[[ -d "$goroot126" ]] || exit 65
+
+head_actual=$(git -C "$raiz" rev-parse HEAD)
+estado=$(git -C "$raiz" status --porcelain --untracked-files=all)
+esperado_precommit=$(printf '?? %s\n?? %s' "$ast_relativo" "$mutador_esperado")
+esperado_commit=$(printf 'A\t%s\nA\t%s' "$ast_relativo" "$mutador_esperado")
+
+if [[ "$head_actual" == "$sha_material" ]]; then
+    [[ "$(git -C "$raiz" rev-parse HEAD^)" == "$sha_padre_material" &&
+        "$(sort <<<"$estado")" == "$(sort <<<"$esperado_precommit")" ]] || {
+        printf 'estado precommit de evidencia O2b discrepante\n' >&2
+        exit 65
+    }
+elif [[ -z "$estado" && "$(git -C "$raiz" rev-parse HEAD^)" == "$sha_material" &&
+    "$(git -C "$raiz" rev-parse HEAD^^)" == "$sha_padre_material" ]]; then
+    cambios=$(git -C "$raiz" diff-tree --no-commit-id --name-status -r HEAD)
+    [[ "$(sort <<<"$cambios")" == "$(sort <<<"$esperado_commit")" ]] || {
+        printf 'el commit de evidencia no contiene exactamente AST y mutador nuevos\n' >&2
+        exit 65
+    }
+    for evidencia in "$ast_relativo" "$mutador_esperado"; do
+        [[ -f "${raiz}/${evidencia}" && ! -L "${raiz}/${evidencia}" &&
+            "$(git -C "$raiz" ls-tree HEAD -- "$evidencia" | awk '{print $1}')" == 100644 ]] || {
+            printf 'artefacto de evidencia no regular o no seguido: %s\n' "$evidencia" >&2
+            exit 65
+        }
+    done
+else
+    printf 'estado o genealogía de evidencia O2b no autorizados\n' >&2
+    exit 65
+fi
+
+comprobar_sha() {
+    local archivo=$1 esperado=$2 etiqueta=$3
+    local obtenido
+    obtenido=$(sha256sum "$archivo" | awk '{print $1}')
+    [[ "$obtenido" == "$esperado" ]] || {
+        printf 'SHA %s discrepante: %s\n' "$etiqueta" "$obtenido" >&2
+        exit 65
+    }
+}
+
+comprobar_sha "$g1_origen" "$sha_g1" G1
+comprobar_sha "$g4_origen" "$sha_g4" G4
+comprobar_sha "$g5_origen" "$sha_g5" G5
+comprobar_sha "$g2_origen" "$sha_g2" G2
+comprobar_sha "$g3_origen" "$sha_g3" G3
+comprobar_sha "$ast_origen" "$sha_ast" AST
+
+temporal=$(mktemp -d)
+limpiar() {
+    local estado=$?
+    trap - EXIT
+    if ! find "$temporal" \( -type f -o -type l \) -exec unlink -- {} \;; then
+        estado=1
+    fi
+    if ! find "$temporal" -depth -type d -exec rmdir -- {} \;; then
+        estado=1
+    fi
+    if [[ -e "$temporal" ]]; then
+        printf 'la limpieza temporal O2b dejó residuos\n' >&2
+        estado=1
+    fi
+    exit "$estado"
+}
+trap limpiar EXIT
+
+cp -- "$ast_origen" "$temporal/ast.go"
+mkdir "$temporal/ast_fuentes"
+env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+    "$go126" build -a -trimpath -o "$temporal/ast_o2b" "$temporal/ast.go"
+
+preparar() {
+    cp -- "$g1_origen" "$temporal/g1.go"
+    cp -- "$g4_origen" "$temporal/g4.go"
+    cp -- "$g5_origen" "$temporal/g5.go"
+    cp -- "$g2_origen" "$temporal/g2.go"
+    cp -- "$g3_origen" "$temporal/g3.go"
+    rm -f -- "$temporal/supervisor" "$temporal/stdout" "$temporal/stderr"
+}
+
+preparar_ast_fuentes() {
+    cp -- "$temporal/g1.go" "$temporal/ast_fuentes/$(basename "$g1_origen")"
+    cp -- "$temporal/g4.go" "$temporal/ast_fuentes/$(basename "$g4_origen")"
+    cp -- "$temporal/g5.go" "$temporal/ast_fuentes/$(basename "$g5_origen")"
+    cp -- "$temporal/g2.go" "$temporal/ast_fuentes/$(basename "$g2_origen")"
+    cp -- "$temporal/g3.go" "$temporal/ast_fuentes/$(basename "$g3_origen")"
+}
+
+ejecutar_ast() {
+    env GOROOT="$goroot126" "$temporal/ast_o2b" "$@" -- \
+        "$temporal/ast_fuentes/$(basename "$g1_origen")" \
+        "$temporal/ast_fuentes/$(basename "$g4_origen")" \
+        "$temporal/ast_fuentes/$(basename "$g5_origen")" \
+        "$temporal/ast_fuentes/$(basename "$g2_origen")" \
+        "$temporal/ast_fuentes/$(basename "$g3_origen")"
+}
+
+reemplazar_unico() {
+    local archivo=$1 anterior=$2 nuevo=$3
+    perl -0777 - "$archivo" "$anterior" "$nuevo" <<'PERL'
+use strict;
+use warnings;
+my ($ruta, $anterior, $nuevo) = @ARGV;
+open my $entrada, '<:raw', $ruta or die "no se abre $ruta: $!\n";
+local $/;
+my $contenido = <$entrada>;
+close $entrada or die "no se cierra $ruta: $!\n";
+my $primero = index($contenido, $anterior);
+die "patrón ausente en $ruta\n" if $primero < 0;
+die "patrón múltiple en $ruta\n" if index($contenido, $anterior, $primero + length($anterior)) >= 0;
+substr($contenido, $primero, length($anterior), $nuevo);
+open my $salida, '>:raw', $ruta or die "no se escribe $ruta: $!\n";
+print {$salida} $contenido or die "escritura incompleta $ruta: $!\n";
+close $salida or die "no se cierra $ruta: $!\n";
+PERL
+}
+
+aplicar_mutante() {
+    local numero=$1
+    case "$numero" in
+        1)
+            reemplazar_unico "$temporal/g4.go" \
+                'lector, err := nuevoLectorTramaM38("CONTROL")' \
+                'lector, err := nuevoLectorTramaM38("SOBRE")'
+            ;;
+        2)
+            reemplazar_unico "$temporal/g4.go" \
+                $'if recepcion.fase != recepcionSobreS1M38 || !receptorConfirmadoPreinicioM38(recepcion) {' \
+                $'if false && (recepcion.fase != recepcionSobreS1M38 || !receptorConfirmadoPreinicioM38(recepcion)) {'
+            ;;
+        3)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcontrolador := &controladorPreinicioM38{recepcion: recepcion, fase: controlPreinicioS1M38}\n\tcopy(controlador.nonce[:], recepcion.sobre.nonce)' \
+                $'\tcontrolador := &controladorPreinicioM38{recepcion: recepcion, fase: controlPreinicioS1M38}\n\tsegundaCopia := recepcion.sobre\n\t_ = segundaCopia\n\tcopy(controlador.nonce[:], recepcion.sobre.nonce)'
+            ;;
+        4)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\trecepcion *receptorSobreS0M38\n\tlector    *lectorTramaM38' \
+                $'\trecepcion      *receptorSobreS0M38\n\tticketAdicional string\n\tlector         *lectorTramaM38'
+            reemplazar_unico "$temporal/g4.go" \
+                '&controladorPreinicioM38{recepcion: recepcion, fase: controlPreinicioS1M38}' \
+                '&controladorPreinicioM38{recepcion: recepcion, ticketAdicional: recepcion.sobre.ticket, fase: controlPreinicioS1M38}'
+            ;;
+        5)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcopy(controlador.nonce[:], recepcion.sobre.nonce)\n\tlector, err :=' \
+                $'\tcopy(controlador.nonce[:], recepcion.sobre.nonce)\n\tcopy(controlador.nonce[:], recepcion.sobre.nonce)\n\tlector, err :='
+            ;;
+        6)
+            reemplazar_unico "$temporal/g4.go" \
+                't.campos[0] == "ARMAR" && validaNonce && t.campos[2] == c.recepcion.sobre.pidRunner' \
+                't.campos[0] == "ARMAR" && t.campos[2] == c.recepcion.sobre.pidRunner'
+            ;;
+        7)
+            reemplazar_unico "$temporal/g4.go" \
+                't.campos[0] == "ARMAR" && validaNonce && t.campos[2] == c.recepcion.sobre.pidRunner' \
+                't.campos[0] == "ARMAR" && validaNonce'
+            ;;
+        8)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcase controlPreinicioS1M38:\n\t\tif t.campos[0] == "ARMAR"' \
+                $'\tcase controlPreinicioS1M38:\n\t\tif t.campos[0] == "CANCELAR" && validaNonce {\n\t\t\tcausa, estado, valida := causaTransportadaPreinicioM38(t.campos[2], t.campos[3])\n\t\t\tif valida {\n\t\t\t\tc.enclavarCausa(causa, estado)\n\t\t\t\treturn true, nil\n\t\t\t}\n\t\t}\n\t\tif t.campos[0] == "ARMAR"'
+            ;;
+        9)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcase controlPreinicioS1M38:\n\t\tif t.campos[0] == "ARMAR"' \
+                $'\tcase controlPreinicioS1M38:\n\t\tif t.campos[0] == "INICIAR" && validaNonce {\n\t\t\tc.fase = controlPreinicioS3M38\n\t\t\treturn false, nil\n\t\t}\n\t\tif t.campos[0] == "ARMAR"'
+            ;;
+        10)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcase controlPreinicioS2M38:\n\t\tif t.campos[0] == "INICIAR"' \
+                $'\tcase controlPreinicioS2M38:\n\t\tif t.campos[0] == "ARMAR" && validaNonce {\n\t\t\treturn false, nil\n\t\t}\n\t\tif t.campos[0] == "INICIAR"'
+            ;;
+        11)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\t\tc.fase = controlPreinicioS3M38\n\t\t\treturn false, nil' \
+                $'\t\t\tc.fase = faseControlPreinicioM38(4)\n\t\t\treturn false, nil'
+            ;;
+        12)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tcase controlPreinicioS3M38:\n\t\tif t.campos[0] == "CANCELAR"' \
+                $'\tcase controlPreinicioS3M38:\n\t\tif t.campos[0] == "INICIAR" && validaNonce {\n\t\t\treturn false, nil\n\t\t}\n\t\tif t.campos[0] == "CANCELAR"'
+            ;;
+        13)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\tif t.campos[0] == "INICIAR" && validaNonce {' \
+                $'\t\tif t.campos[0] == "INICIAR" {'
+            ;;
+        14)
+            reemplazar_unico "$temporal/g4.go" \
+                'return "SENAL_TERM", "143", estado == "143"' \
+                'return "SENAL_INT", "130", estado == "143"'
+            ;;
+        15)
+            reemplazar_unico "$temporal/g4.go" \
+                'import "errors"' \
+                $'import (\n\t"errors"\n\t"os/signal"\n)'
+            reemplazar_unico "$temporal/g4.go" \
+                $'func (c *controladorPreinicioM38) aplicar(t tramaM38) (terminal bool, fallo error) {\n\tif !tramaControlEstructuralPreinicioM38(t) {' \
+                $'func (c *controladorPreinicioM38) aplicar(t tramaM38) (terminal bool, fallo error) {\n\tsignal.Ignore()\n\tif !tramaControlEstructuralPreinicioM38(t) {'
+            ;;
+        16)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\tcase lecturaEOFLimpioM38:\n\t\t\tc.enclavarCausa("CANCELADO", "65")' \
+                $'\t\tcase lecturaEOFLimpioM38:\n\t\t\tc.enclavarCausa("PROTOCOLO", "65")'
+            ;;
+        17)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\tif fallo != nil {\n\t\t\tif errorControlNormalizablePreinicioM38(fallo) {' \
+                $'\t\tif fallo != nil {\n\t\t\tif errors.Is(fallo, errEOFParcialM38) {\n\t\t\t\tc.enclavarCausa("CANCELADO", "65")\n\t\t\t\treturn c.retornarTerminal(consumidos, false)\n\t\t\t}\n\t\t\tif errorControlNormalizablePreinicioM38(fallo) {'
+            ;;
+        18)
+            reemplazar_unico "$temporal/g4.go" \
+                'if c.lector.estado == lectorEOFLimpioM38 {' \
+                'if false && c.lector.estado == lectorEOFLimpioM38 {'
+            ;;
+        19)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\t\tif terminal {\n\t\t\t\treturn c.retornarTerminal(consumidos, false)\n\t\t\t}' \
+                $'\t\t\tif terminal {\n\t\t\t\tif fin {\n\t\t\t\t\tc.causa = causaPreinicioM38{faseOrigen: c.causa.faseOrigen, causa: "CANCELADO", estado: "65"}\n\t\t\t\t}\n\t\t\t\treturn c.retornarTerminal(consumidos, false)\n\t\t\t}'
+            ;;
+        20)
+            reemplazar_unico "$temporal/g4.go" \
+                'if consumidos == len(fragmento) {' \
+                'if true {'
+            ;;
+        21)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\t\tif terminal {\n\t\t\t\treturn c.retornarTerminal(consumidos, false)\n\t\t\t}\n\t\t\tif c.lector.estado' \
+                $'\t\t\tif terminal {\n\t\t\t\treturn c.retornarTerminal(consumidos, false)\n\t\t\t}\n\t\t\tif c.fase == controlPreinicioS3M38 && consumidos < len(fragmento) {\n\t\t\t\treturn consumidos, controlPreinicioInicioPendienteM38, nil\n\t\t\t}\n\t\t\tif c.lector.estado'
+            ;;
+        22)
+            reemplazar_unico "$temporal/g4.go" \
+                $'func (c *controladorPreinicioM38) invalidar(fallo error) (int, resultadoControlPreinicioM38, error) {\n\tc.limpiarConFallo(fallo)\n\treturn c.retornarTerminal(0, false)\n}' \
+                $'func (c *controladorPreinicioM38) invalidar(fallo error) (int, resultadoControlPreinicioM38, error) {\n\tc.limpiarConFallo(fallo)\n\treturn 1, controlPreinicioArmadoM38, c.fallo\n}'
+            ;;
+        23)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\trecepcion *receptorSobreS0M38\n\tlector    *lectorTramaM38' \
+                $'\trecepcion   *receptorSobreS0M38\n\tsegundaCopia *receptorSobreS0M38\n\tlector      *lectorTramaM38'
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tc.causa = causaPreinicioM38{faseOrigen: origen, causa: causa, estado: estado}\n\tc.fallo, c.recepcion, c.lector = nil, nil, nil' \
+                $'\tc.causa = causaPreinicioM38{faseOrigen: origen, causa: causa, estado: estado}\n\tc.segundaCopia = c.recepcion\n\tc.fallo, c.recepcion, c.lector = nil, nil, nil'
+            ;;
+        24)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\tdefault:\n\t\t\treturn c.invalidar(errInvarianteControlPreinicioM38)\n\t\t}\n\t}\n}\n' \
+                $'\t\tdefault:\n\t\t\treturn c.invalidar(errInvarianteControlPreinicioM38)\n\t\t}\n\t}\n}\n\nfunc obtenerSobrePreinicioM38(c *controladorPreinicioM38) sobreRetenidoM38 {\n\treturn c.recepcion.sobre\n}\n'
+            ;;
+        25)
+            reemplazar_unico "$temporal/g4.go" \
+                'import "errors"' \
+                $'import (\n\t"errors"\n\t"os"\n)'
+            reemplazar_unico "$temporal/g4.go" \
+                $'\t\tdefault:\n\t\t\treturn c.invalidar(errInvarianteControlPreinicioM38)\n\t\t}\n\t}\n}\n' \
+                $'\t\tdefault:\n\t\t\treturn c.invalidar(errInvarianteControlPreinicioM38)\n\t\t}\n\t}\n}\n\nfunc activarModoPreinicioM38() {\n\tarchivo, _ := os.Open("/dev/null")\n\tif archivo != nil {\n\t\t_ = archivo.Close()\n\t}\n}\n'
+            ;;
+        26)
+            reemplazar_unico "$temporal/g4.go" \
+                '(n == 0 || l.estado == lectorAbiertoParcialM38 && n <= l.longitud)' \
+                'true'
+            ;;
+        27)
+            reemplazar_unico "$temporal/g4.go" \
+                $'if l == nil || l.clase != "CONTROL" || l.limite != 1024 ||\n\t\tn < 0' \
+                $'if l == nil || l.limite != 1024 ||\n\t\tn < 0'
+            ;;
+        28)
+            reemplazar_unico "$temporal/g4.go" \
+                $'if l == nil || l.clase != "CONTROL" || l.limite != 1024 ||\n\t\tn < 0' \
+                $'if l == nil || l.clase != "CONTROL" ||\n\t\tn < 0'
+            ;;
+        29)
+            reemplazar_unico "$temporal/g4.go" \
+                $'\tif l.err != nil {\n\t\treturn false\n\t}\n\tswitch lectura {' \
+                $'\tswitch lectura {'
+            ;;
+        30)
+            reemplazar_unico "$temporal/g4.go" \
+                'n < 0 || n > len(sufijo) || n > l.limite' \
+                'n < 0 || n > len(sufijo)'
+            ;;
+        31)
+            reemplazar_unico "$temporal/g4.go" \
+                'l.estado == lectorAbiertoParcialM38 && n <= l.longitud' \
+                'l.estado == lectorAbiertoParcialM38'
+            ;;
+        *)
+            printf 'mutante desconocido: %s\n' "$numero" >&2
+            exit 65
+            ;;
+    esac
+}
+
+mostrar_y_compilar() {
+    local numero=$1
+    local cambiado=g4 origen=$g4_origen
+    if ((numero == 25)); then
+        cambiado=g4
+    fi
+    printf '\n=== M%02d ===\n' "$numero"
+    gofmt -w "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+    [[ -z "$(gofmt -d "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go")" ]] || {
+        printf 'M%02d no queda en gofmt\n' "$numero" >&2
+        return 1
+    }
+    diff -u --label G4_base --label "G4_M${numero}" "$origen" "$temporal/${cambiado}.go" || true
+    printf 'SHA fuentes mutadas:\n'
+    sha256sum "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+    comprobar_sha "$temporal/g2.go" "$sha_g2" "G2 en M${numero}"
+    comprobar_sha "$temporal/g3.go" "$sha_g3" "G3 en M${numero}"
+    env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+        "$go126" vet "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+    env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+        "$go126" build -a -trimpath -o "$temporal/supervisor" \
+        "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+}
+
+oracle_ast() {
+    local numero=$1
+    local huella_g4
+    huella_g4=$(sha256sum "$temporal/g4.go" | awk '{print $1}')
+    preparar_ast_fuentes
+    : >"$temporal/stdout"
+    : >"$temporal/stderr"
+    local estado=0
+    ejecutar_ast --mutante "M${numero}" --sha-g4-mutante "$huella_g4" \
+        >"$temporal/stdout" 2>"$temporal/stderr" || estado=$?
+    [[ $estado -eq 1 && ! -s "$temporal/stdout" ]] || {
+        printf 'M%02d SOBREVIVE_AST estado=%d\n' "$numero" "$estado" >&2
+        cat "$temporal/stdout" "$temporal/stderr" >&2
+        return 1
+    }
+    grep -q '^ast_o2b=fallo ' "$temporal/stderr" || {
+        printf 'M%02d muerte AST sin diagnóstico O2b reconocido\n' "$numero" >&2
+        cat "$temporal/stderr" >&2
+        return 1
+    }
+    if grep -Eq 'huella discrepante|ledger de líneas discrepante' "$temporal/stderr"; then
+        printf 'M%02d falso muerto por huella o ledger\n' "$numero" >&2
+        cat "$temporal/stderr" >&2
+        return 1
+    fi
+    printf 'M%02d MUERTO_AST estado=1 stderr=%q\n' "$numero" "$(cat "$temporal/stderr")"
+}
+
+comprobar_ast_conductual() {
+    local numero=$1
+    local huella_g4
+    huella_g4=$(sha256sum "$temporal/g4.go" | awk '{print $1}')
+    preparar_ast_fuentes
+    : >"$temporal/stdout"
+    : >"$temporal/stderr"
+    local estado=0
+    ejecutar_ast --mutante "M${numero}" --sha-g4-mutante "$huella_g4" \
+        >"$temporal/stdout" 2>"$temporal/stderr" || estado=$?
+    [[ $estado -eq 0 || $estado -eq 1 ]] || {
+        printf 'M%02d control AST terminó en estado inesperado=%d\n' "$numero" "$estado" >&2
+        return 1
+    }
+    if ((estado == 1)); then
+        [[ ! -s "$temporal/stdout" ]] || return 1
+        grep -q '^ast_o2b=fallo ' "$temporal/stderr" || return 1
+        if grep -Eq 'huella discrepante|ledger de líneas discrepante' "$temporal/stderr"; then
+            printf 'M%02d falso rechazo previo por huella o ledger\n' "$numero" >&2
+            return 1
+        fi
+        printf 'M%02d CONTROL_AST_RECHAZA_SIN_CONTABILIZAR stderr=%q\n' "$numero" "$(cat "$temporal/stderr")"
+        return 0
+    fi
+    [[ ! -s "$temporal/stderr" ]] || return 1
+    printf 'M%02d CONTROL_AST_ACEPTA_MODO_MUTANTE\n' "$numero"
+}
+
+oracle_autoprueba() {
+    local numero=$1 esperado=$2
+    : >"$temporal/stdout"
+    : >"$temporal/stderr"
+    local estado=0
+    "$temporal/supervisor" --autoprueba >"$temporal/stdout" 2>"$temporal/stderr" || estado=$?
+    [[ $estado -eq 65 && ! -s "$temporal/stdout" && "$(cat "$temporal/stderr")" == "$esperado" ]] || {
+        printf 'M%02d SOBREVIVE_O_MUERE_POR_ORACULO_AJENO estado=%d\n' "$numero" "$estado" >&2
+        printf 'esperado=%q\nobtenido=%q\n' "$esperado" "$(cat "$temporal/stderr")" >&2
+        return 1
+    }
+    printf 'M%02d MUERTO_AUTOPRUEBA estado=65 stderr=%q\n' "$numero" "$esperado"
+}
+
+esperado_autoprueba() {
+    case "$1" in
+        1) printf '%s' 'autoprueba del supervisor: control previo constructores: constructor confirmado discrepante' ;;
+        2) printf '%s' 'autoprueba del supervisor: control previo constructores: receptor parcial no falló cerrado' ;;
+        6|7|9) printf '%s' 'autoprueba del supervisor: control previo errores: secuencia inválida no se normalizó' ;;
+        10|12|13) printf '%s' 'autoprueba del supervisor: control previo estados: secuencia de S2/S3 no se normalizó' ;;
+        8) printf '%s' 'autoprueba del supervisor: control previo errores: secuencia inválida no se normalizó' ;;
+        14) printf '%s' 'autoprueba del supervisor: control previo drenaje: causa o retirada sensible discrepante' ;;
+        19) printf '%s' 'autoprueba del supervisor: control previo causas y EOF: causa o retirada sensible discrepante' ;;
+        11) printf '%s' 'autoprueba del supervisor: control previo estados: estado vacío activo discrepante' ;;
+        16) printf '%s' 'autoprueba del supervisor: control previo causas y EOF: causa o retirada sensible discrepante' ;;
+        17) printf '%s' 'autoprueba del supervisor: control previo errores: causa o retirada sensible discrepante' ;;
+        18) printf '%s' 'autoprueba del supervisor: control previo causas y EOF: ARMAR más EOF no canceló' ;;
+        20) printf '%s' 'autoprueba del supervisor: control previo drenaje: drenaje coalescido discrepante' ;;
+        21) printf '%s' 'autoprueba del supervisor: control previo drenaje: drenaje coalescido discrepante' ;;
+        22) printf '%s' 'autoprueba del supervisor: control previo invariantes: invariante no retiró estado sensible' ;;
+        26) printf '%s' 'autoprueba del supervisor: control previo tuplas O1b: tupla O1b imposible aceptada' ;;
+        27|28|29) printf '%s' 'autoprueba del supervisor: control previo tuplas O1b: tupla O1b con lector incompatible aceptada' ;;
+        30|31) printf '%s' 'autoprueba del supervisor: control previo tuplas O1b: tupla O1b con contador superior al límite aceptada' ;;
+        *) return 1 ;;
+    esac
+}
+
+# Línea base: formato, vet, build, AST y autoprueba deben ser positivos.
+preparar
+[[ -z "$(gofmt -d "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go")" ]] || {
+    printf 'la línea base no está en gofmt\n' >&2
+    exit 65
+}
+env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+    "$go126" vet "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+env GOENV=off GOTOOLCHAIN=go1.26.5 GOAMD64=v1 CGO_ENABLED=0 \
+    "$go126" build -a -trimpath -o "$temporal/supervisor" \
+    "$temporal/g1.go" "$temporal/g4.go" "$temporal/g5.go" "$temporal/g2.go" "$temporal/g3.go"
+preparar_ast_fuentes
+ejecutar_ast
+"$temporal/supervisor" --autoprueba
+printf 'linea_base=OK sha_material=%s\n' "$sha_material"
+
+muertos=0
+seleccion=${VEP_MUTANTE_SOLO:-$(seq 1 31)}
+for numero in $seleccion; do
+    preparar
+    aplicar_mutante "$numero"
+    if ! mostrar_y_compilar "$numero"; then
+        printf 'M%02d NO_CONTABILIZADO: formato/vet/build falló antes del oráculo\n' "$numero" >&2
+        exit 1
+    fi
+    case "$numero" in
+        3|4|5|15|23|24|25)
+            oracle_ast "$numero"
+            ;;
+        *)
+            comprobar_ast_conductual "$numero"
+            oracle_autoprueba "$numero" "$(esperado_autoprueba "$numero")"
+            ;;
+    esac
+    muertos=$((muertos + 1))
+done
+
+if [[ -z ${VEP_MUTANTE_SOLO:-} ]]; then
+    [[ $muertos -eq 31 ]] || exit 1
+    printf 'mutantes_o2b=OK muertos=%d supervivientes=0 build_fallidos=0 g2_g3_invariantes=OK\n' "$muertos"
+else
+    esperados=$(wc -w <<<"$seleccion")
+    [[ $muertos -eq $esperados ]] || exit 1
+    printf 'mutantes_focales_o2b=OK muertos=%d supervivientes=0 build_fallidos=0 g2_g3_invariantes=OK\n' "$muertos"
+fi

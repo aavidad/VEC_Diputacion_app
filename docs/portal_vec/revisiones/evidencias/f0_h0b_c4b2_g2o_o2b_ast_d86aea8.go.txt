@@ -1,0 +1,799 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"go/ast"
+	"go/importer"
+	"go/parser"
+	"go/printer"
+	"go/token"
+	"go/types"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode"
+)
+
+const (
+	nombreLogico = "f0_h0b_c4b2_g2o_o2b_ast_d86aea8"
+	shaMaterial  = "d86aea8b4ed2b9fffbf74ef04cd90f397b017a55"
+)
+
+var nombresCanonicos = [5]string{
+	"supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1.go",
+	"supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_control_preinicio.go",
+	"supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_control_preinicio_pruebas.go",
+	"supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go",
+	"supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_sobre_s0.go",
+}
+
+var lineasEsperadas = [5]int{692, 404, 507, 798, 431}
+
+var shasEsperados = [5]string{
+	"6b7f93b8b43c1040cc4ae2b6322c4e99e914eee415475e3fd50bf294b5a17afb",
+	"2befe2a4c16fc7a57aacd421ea6c8419ab49160bb2ae0d0eb6f03786194aa744",
+	"10ccaf8347bfcaa5f3990b75b4c9becd62cd39b60249b628af6c7a1fc6bc8867",
+	"01acb818e9abefcbfe4c279bb0dd5e3317bf03f082f1ed3fba4f257c5642866b",
+	"d608868ecb2cb753876f488b522975e05af06c013c82222959be5d85100c3633",
+}
+
+type opciones struct {
+	mutante, shaG4Mutante string
+	rutas                 [5]string
+}
+
+type unidad struct{ archivo *ast.File }
+
+type analisis struct {
+	opciones           opciones
+	fset               *token.FileSet
+	unidades           [5]unidad
+	info               *types.Info
+	funcionesPorObjeto map[*types.Func]*ast.FuncDecl
+}
+
+func fallo(formato string, args ...any) {
+	fmt.Fprintf(os.Stderr, "ast_o2b=fallo nombre="+nombreLogico+" "+formato+"\n", args...)
+	os.Exit(1)
+}
+func prohibir(condicion bool, formato string, args ...any) {
+	if condicion {
+		fallo(formato, args...)
+	}
+}
+func parsearOpciones() opciones {
+	var o opciones
+	argumentos := os.Args[1:]
+	if len(argumentos) >= 4 && argumentos[0] == "--mutante" && argumentos[2] == "--sha-g4-mutante" {
+		o.mutante, o.shaG4Mutante = argumentos[1], argumentos[3]
+		numero, err := strconv.Atoi(strings.TrimPrefix(o.mutante, "M"))
+		prohibir(err != nil || o.mutante != fmt.Sprintf("M%d", numero) || numero < 1 || numero > 31 || len(o.shaG4Mutante) != 64 || o.shaG4Mutante == shasEsperados[1], "modo mutante o huella G4 alternativa inválidos")
+		if _, err := hex.DecodeString(o.shaG4Mutante); err != nil {
+			fallo("huella G4 mutante no hexadecimal")
+		}
+		argumentos = argumentos[4:]
+	}
+	if len(argumentos) == 6 && argumentos[0] == "--" {
+		argumentos = argumentos[1:]
+	}
+	prohibir(len(argumentos) != 5, "se requieren cinco rutas en orden G1,G4,G5,G2,G3")
+	copy(o.rutas[:], argumentos)
+	return o
+}
+func cargar(o opciones) *analisis {
+	a := &analisis{
+		opciones: o,
+		fset:     token.NewFileSet(),
+		info: &types.Info{
+			Types:      make(map[ast.Expr]types.TypeAndValue),
+			Defs:       make(map[*ast.Ident]types.Object),
+			Uses:       make(map[*ast.Ident]types.Object),
+			Selections: make(map[*ast.SelectorExpr]*types.Selection),
+		},
+		funcionesPorObjeto: make(map[*types.Func]*ast.FuncDecl),
+	}
+	archivos := make([]*ast.File, 0, 5)
+	for i, ruta := range o.rutas {
+		prohibir(filepath.Base(ruta) != nombresCanonicos[i], "nombre canónico discrepante para fuente %d: %s", i+1, filepath.Base(ruta))
+		datos, err := os.ReadFile(ruta)
+		prohibir(err != nil, "lectura de fuente %d: %v", i+1, err)
+		suma := fmt.Sprintf("%x", sha256.Sum256(datos))
+		huellaEsperada := shasEsperados[i]
+		if i == 1 && o.mutante != "" {
+			huellaEsperada = o.shaG4Mutante
+		}
+		prohibir(suma != huellaEsperada, "huella discrepante para fuente %d: %s", i+1, suma)
+		if n := contarLineas(datos); (i != 1 || o.mutante == "") && n != lineasEsperadas[i] {
+			fallo("ledger de líneas discrepante para fuente %d: %d != %d", i+1, n, lineasEsperadas[i])
+		}
+		f, err := parser.ParseFile(a.fset, nombresCanonicos[i], datos, parser.AllErrors|parser.ParseComments)
+		prohibir(err != nil, "parseo de fuente %d: %v", i+1, err)
+		prohibir(f.Name.Name != "main", "paquete inesperado en fuente %d", i+1)
+		a.unidades[i] = unidad{archivo: f}
+		archivos = append(archivos, f)
+	}
+	conf := types.Config{Importer: importer.Default(), Error: func(err error) {}}
+	_, err := conf.Check("evidencia/o2b", a.fset, archivos, a.info)
+	prohibir(err != nil, "tipado conjunto G1+G4+G5+G2+G3: %v", err)
+	for _, u := range a.unidades {
+		for _, d := range u.archivo.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			obj, ok := a.info.Defs[fd.Name].(*types.Func)
+			prohibir(!ok, "declaración funcional sin objeto tipado: %s", fd.Name.Name)
+			a.funcionesPorObjeto[obj] = fd
+		}
+	}
+	return a
+}
+func contarLineas(datos []byte) int {
+	if len(datos) == 0 {
+		return 0
+	}
+	n := 1
+	for _, b := range datos {
+		if b == '\n' {
+			n++
+		}
+	}
+	if datos[len(datos)-1] == '\n' {
+		n--
+	}
+	return n
+}
+func compactar(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+func textoNodo(fset *token.FileSet, n ast.Node) string {
+	var b strings.Builder
+	prohibir(printer.Fprint(&b, fset, n) != nil, "impresión AST")
+	return compactar(b.String())
+}
+func claveFuncion(fd *ast.FuncDecl) string {
+	if fd.Recv == nil {
+		return fd.Name.Name
+	}
+	return "(" + textoTipoReceptor(fd.Recv.List[0].Type) + ")." + fd.Name.Name
+}
+func textoTipoReceptor(e ast.Expr) string {
+	switch x := e.(type) {
+	case *ast.StarExpr:
+		return "*" + textoTipoReceptor(x.X)
+	case *ast.Ident:
+		return x.Name
+	case *ast.IndexExpr:
+		return textoTipoReceptor(x.X)
+	case *ast.IndexListExpr:
+		return textoTipoReceptor(x.X)
+	default:
+		return "?"
+	}
+}
+func conjuntoDeclaraciones(f *ast.File) map[string]bool {
+	r := make(map[string]bool)
+	for _, d := range f.Decls {
+		switch x := d.(type) {
+		case *ast.FuncDecl:
+			r["func "+claveFuncion(x)] = true
+		case *ast.GenDecl:
+			for _, s := range x.Specs {
+				switch y := s.(type) {
+				case *ast.TypeSpec:
+					r["type "+y.Name.Name] = true
+				case *ast.ValueSpec:
+					for _, n := range y.Names {
+						r[x.Tok.String()+" "+n.Name] = true
+					}
+				}
+			}
+		}
+	}
+	return r
+}
+func conjunto(items ...string) map[string]bool {
+	r := make(map[string]bool, len(items))
+	for _, x := range items {
+		r[x] = true
+	}
+	return r
+}
+func exigirConjunto(nombre string, obtenido, esperado map[string]bool) {
+	if reflect.DeepEqual(obtenido, esperado) {
+		return
+	}
+	var faltan, sobran []string
+	for x := range esperado {
+		if !obtenido[x] {
+			faltan = append(faltan, x)
+		}
+	}
+	for x := range obtenido {
+		if !esperado[x] {
+			sobran = append(sobran, x)
+		}
+	}
+	sort.Strings(faltan)
+	sort.Strings(sobran)
+	fallo("set %s discrepante; faltan=%v sobran=%v", nombre, faltan, sobran)
+}
+func comprobarSetsEImports(a *analisis) {
+	g4 := conjunto(
+		"type resultadoControlPreinicioM38", "type faseControlPreinicioM38", "type causaPreinicioM38", "type controladorPreinicioM38",
+		"const controlPreinicioNecesitaDatosM38", "const controlPreinicioArmadoM38", "const controlPreinicioInicioPendienteM38", "const controlPreinicioCausaEnclavadaM38",
+		"const controlPreinicioS1M38", "const controlPreinicioS2M38", "const controlPreinicioS3M38", "const controlPreinicioS5M38",
+		"var errControlPreinicioNuloM38", "var errSobreNoConfirmadoPreinicioM38", "var errInvarianteControlPreinicioM38", "var errUsoPosteriorControlPreinicioM38",
+		"func receptorPristinoPreinicioM38", "func sobrePresentePreinicioM38", "func receptorConfirmadoPreinicioM38", "func retirarReceptorPreinicioM38",
+		"func nuevoControladorPreinicioM38", "func nonceCoincidePreinicioM38", "func lectorActivoPreinicioM38", "func falloInvarianteActivoPreinicioM38",
+		"func (*controladorPreinicioM38).enclavarCausa", "func (*controladorPreinicioM38).limpiarConFallo", "func terminalInternoValidoPreinicioM38",
+		"func terminalFuncionalValidoPreinicioM38", "func (*controladorPreinicioM38).retornarTerminal", "func (*controladorPreinicioM38).invalidar",
+		"func errorControlNormalizablePreinicioM38", "func causaTransportadaPreinicioM38", "func tramaControlEstructuralPreinicioM38",
+		"func (*controladorPreinicioM38).aplicar", "func resultadoActivoPreinicioM38", "func tuplaLectorValidaPreinicioM38", "func (*controladorPreinicioM38).consumir",
+	)
+	g5 := conjunto(
+		"func receptorConfirmadoPruebaPreinicioM38", "func controladorNuevoPruebaPreinicioM38", "func exigirCausaPruebaPreinicioM38",
+		"func probarConstructoresPreinicioM38", "func probarFragmentacionPreinicioM38", "func probarEstadosYSecuenciasPreinicioM38",
+		"func probarDrenajePreinicioM38", "func probarCausasYEOFPreinicioM38", "func probarParcialesYErroresPreinicioM38",
+		"func probarInvariantesPreinicioM38", "func probarTerminalesPreinicioM38", "func probarTuplasLectorPreinicioM38", "func autoprobarControlPreinicioM38",
+	)
+	exigirConjunto("G4", conjuntoDeclaraciones(a.unidades[1].archivo), g4)
+	exigirConjunto("G5", conjuntoDeclaraciones(a.unidades[2].archivo), g5)
+	exigirImports(a.unidades[0].archivo, []string{"crypto/rand", "errors", "fmt", "os", "os/exec", "os/signal", "runtime", "strings", "syscall", "time"})
+	exigirImports(a.unidades[1].archivo, []string{"errors"})
+	exigirImports(a.unidades[2].archivo, []string{"errors", "fmt", "strings"})
+	exigirImports(a.unidades[3].archivo, []string{"errors", "fmt", "os", "strconv", "strings", "syscall", "time", "unsafe"})
+	exigirImports(a.unidades[4].archivo, []string{"errors", "fmt", "strings"})
+}
+func exigirImports(f *ast.File, esperados []string) {
+	var obtenidos []string
+	for _, i := range f.Imports {
+		obtenidos = append(obtenidos, strings.Trim(i.Path.Value, "\""))
+		if i.Name != nil {
+			fallo("alias de importación no autorizado: %s", i.Name.Name)
+		}
+	}
+	sort.Strings(obtenidos)
+	sort.Strings(esperados)
+	prohibir(!reflect.DeepEqual(obtenidos, esperados), "imports discrepantes: %v != %v", obtenidos, esperados)
+}
+func funciones(f *ast.File) map[string]*ast.FuncDecl {
+	r := make(map[string]*ast.FuncDecl)
+	for _, d := range f.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok {
+			r[claveFuncion(fd)] = fd
+		}
+	}
+	return r
+}
+func comprobarFormaControlador(a *analisis) {
+	f := a.unidades[1].archivo
+	var tipo *ast.StructType
+	for _, d := range f.Decls {
+		gd, ok := d.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, s := range gd.Specs {
+			ts, ok := s.(*ast.TypeSpec)
+			if !ok || ts.Name.Name != "controladorPreinicioM38" {
+				continue
+			}
+			tipo, _ = ts.Type.(*ast.StructType)
+		}
+	}
+	prohibir(tipo == nil, "struct controlador ausente")
+	campos := make(map[string]string)
+	for _, c := range tipo.Fields.List {
+		for _, n := range c.Names {
+			campos[n.Name] = textoNodo(a.fset, c.Type)
+		}
+	}
+	esperados := map[string]string{
+		"recepcion": "*receptorSobreS0M38", "lector": "*lectorTramaM38", "nonce": "[64]byte",
+		"fase": "faseControlPreinicioM38", "causa": "causaPreinicioM38", "fallo": "error",
+	}
+	prohibir(!reflect.DeepEqual(campos, esperados), "campos del controlador discrepantes: %v", campos)
+	for _, c := range tipo.Fields.List {
+		switch c.Type.(type) {
+		case *ast.FuncType, *ast.InterfaceType:
+			fallo("sustitución funcional o interfaz en controlador")
+		}
+	}
+}
+func objetoLlamado(a *analisis, c *ast.CallExpr) *types.Func {
+	switch f := c.Fun.(type) {
+	case *ast.Ident:
+		o, _ := a.info.Uses[f].(*types.Func)
+		return o
+	case *ast.SelectorExpr:
+		if s := a.info.Selections[f]; s != nil {
+			o, _ := s.Obj().(*types.Func)
+			return o
+		}
+		o, _ := a.info.Uses[f.Sel].(*types.Func)
+		return o
+	}
+	return nil
+}
+func baseReceptorFirma(fn *types.Func) string {
+	sig, _ := fn.Type().(*types.Signature)
+	if sig == nil || sig.Recv() == nil {
+		return ""
+	}
+	t := sig.Recv().Type()
+	if p, ok := t.(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	if n, ok := t.(*types.Named); ok {
+		return n.Obj().Name()
+	}
+	return ""
+}
+
+type sitio struct {
+	caller, args string
+	pos          token.Pos
+}
+
+func comprobarDosCallSites(a *analisis) {
+	var sitios []sitio
+	g4funcs := funciones(a.unidades[1].archivo)
+	for nombre, fd := range g4funcs {
+		ast.Inspect(fd.Body, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			fn := objetoLlamado(a, c)
+			if fn != nil && fn.Name() == "consumir" && baseReceptorFirma(fn) == "lectorTramaM38" {
+				var args []string
+				for _, x := range c.Args {
+					args = append(args, textoNodo(a.fset, x))
+				}
+				sitios = append(sitios, sitio{nombre, strings.Join(args, ","), c.Pos()})
+			}
+			return true
+		})
+	}
+	prohibir(len(sitios) != 2, "sitios tipados lector.consumir: %d != 2", len(sitios))
+	seen := map[string]int{}
+	for _, s := range sitios {
+		if s.caller != "(*controladorPreinicioM38).consumir" {
+			fallo("lector.consumir llamado desde %s", s.caller)
+		}
+		seen[s.args]++
+	}
+	if seen["sufijo,fin"] != 1 || seen["nil,true"] != 1 || len(seen) != 2 {
+		fallo("argumentos de los dos sitios discrepantes: %v", seen)
+	}
+	for sel, seleccion := range a.info.Selections {
+		fn, ok := seleccion.Obj().(*types.Func)
+		if !ok || fn.Name() != "consumir" || baseReceptorFirma(fn) != "lectorTramaM38" {
+			continue
+		}
+		if sel.Pos() < a.unidades[1].archivo.Pos() || sel.Pos() > a.unidades[1].archivo.End() {
+			continue
+		}
+		coincide := false
+		for _, s := range sitios {
+			if s.pos == sel.Pos() {
+				coincide = true
+			}
+		}
+		if !coincide {
+			fallo("referencia funcional/mock de lector.consumir fuera de call-site directo")
+		}
+	}
+}
+func comprobarConstruccionYCopias(a *analisis) {
+	f := a.unidades[1].archivo
+	constructores, copias := 0, 0
+	ast.Inspect(f, func(n ast.Node) bool {
+		c, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		fn := objetoLlamado(a, c)
+		if fn != nil && fn.Name() == "nuevoLectorTramaM38" {
+			constructores++
+			if len(c.Args) != 1 || textoNodo(a.fset, c.Args[0]) != `"CONTROL"` {
+				fallo("constructor de lector no CONTROL")
+			}
+		}
+		if id, ok := c.Fun.(*ast.Ident); ok && id.Name == "copy" {
+			copias++
+			if len(c.Args) != 2 || textoNodo(a.fset, c.Args[0]) != "controlador.nonce[:]" || textoNodo(a.fset, c.Args[1]) != "recepcion.sobre.nonce" {
+				fallo("copia distinta de nonce exacto")
+			}
+		}
+		if id, ok := c.Fun.(*ast.Ident); ok && (id.Name == "append" || id.Name == "string") {
+			fallo("copia o conversión sensible prohibida mediante %s", id.Name)
+		}
+		return true
+	})
+	if constructores != 1 || copias != 1 {
+		fallo("construcciones/copias discrepantes: lector=%d copy=%d", constructores, copias)
+	}
+}
+func comprobarAusenciasYGrafo(a *analisis) {
+	g4 := a.unidades[1].archivo
+	prohibidas := conjunto("codificarTramaM38", "decodificarTramaM38", "controlM38", "prevalidarCodificacionM38", "tramaExactaM38")
+	permitidasCompartidas := conjunto("nuevoLectorTramaM38", "lectorLimpioM38", "tramaCeroM38", "limpiarSobreS0M38")
+	permitidosMetodos := conjunto("lectorTramaM38.limpiarBuffer", "lectorTramaM38.consumir")
+	ast.Inspect(g4, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.GoStmt, *ast.DeferStmt, *ast.SendStmt, *ast.SelectStmt, *ast.FuncLit, *ast.ChanType:
+			fallo("concurrencia/callback prohibido en G4: %T", x)
+		case *ast.CallExpr:
+			fn := objetoLlamado(a, x)
+			if fn == nil {
+				id, ok := x.Fun.(*ast.Ident)
+				if !ok || (id.Name != "len" && id.Name != "copy") {
+					fallo("llamada dinámica, conversión o builtin no autorizado en G4: %s", textoNodo(a.fset, x.Fun))
+				}
+				return true
+			}
+			if prohibidas[fn.Name()] {
+				fallo("segunda gramática/códec llamado desde G4: %s", fn.Name())
+			}
+			if fn.Pkg() != nil && fn.Pkg().Path() == "errors" {
+				if fn.Name() != "New" && fn.Name() != "Is" {
+					fallo("API errors no autorizada: %s", fn.Name())
+				}
+				return true
+			}
+			if objetivo := a.funcionesPorObjeto[fn]; objetivo != nil && objetivo.Pos() >= g4.Pos() && objetivo.Pos() <= g4.End() {
+				return true
+			}
+			if receptor := baseReceptorFirma(fn); receptor != "" {
+				if !permitidosMetodos[receptor+"."+fn.Name()] {
+					fallo("método compartido no autorizado desde G4: %s.%s", receptor, fn.Name())
+				}
+			} else if !permitidasCompartidas[fn.Name()] {
+				fallo("función compartida no autorizada desde G4: %s", fn.Name())
+			}
+		case *ast.BasicLit:
+			if x.Kind == token.STRING && (x.Value == `"|"` || x.Value == `"\n"` || strings.Contains(x.Value, "V1|")) {
+				fallo("gramática de bytes incorporada a G4: %s", x.Value)
+			}
+		}
+		return true
+	})
+	entradasG5 := make(map[string]int)
+	for _, u := range a.unidades {
+		for _, d := range u.archivo.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			caller := claveFuncion(fd)
+			ast.Inspect(fd.Body, func(n ast.Node) bool {
+				c, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				fn := objetoLlamado(a, c)
+				if fn == nil {
+					return true
+				}
+				target := a.funcionesPorObjeto[fn]
+				if target == nil {
+					return true
+				}
+				if target.Pos() >= a.unidades[2].archivo.Pos() && target.Pos() <= a.unidades[2].archivo.End() &&
+					(fd.Pos() < a.unidades[2].archivo.Pos() || fd.Pos() > a.unidades[2].archivo.End()) {
+					entradasG5[caller+"->"+claveFuncion(target)]++
+				}
+				return true
+			})
+		}
+	}
+	esperado := map[string]int{"autoprobar->autoprobarControlPreinicioM38": 1}
+	if !reflect.DeepEqual(entradasG5, esperado) {
+		fallo("alcanzabilidad exterior de G5 discrepante: %v", entradasG5)
+	}
+}
+func cuerpoFuncion(a *analisis, unidad int, clave string) *ast.BlockStmt {
+	fd := funciones(a.unidades[unidad].archivo)[clave]
+	if fd == nil {
+		fallo("función ausente: %s", clave)
+	}
+	return fd.Body
+}
+func comprobarPostcondicion(a *analisis) {
+	b := cuerpoFuncion(a, 1, "tuplaLectorValidaPreinicioM38")
+	if len(b.List) != 5 {
+		fallo("forma de postcondición: %d sentencias", len(b.List))
+	}
+	primero, ok := b.List[0].(*ast.IfStmt)
+	if !ok {
+		fallo("primera guarda ausente")
+	}
+	if textoNodo(a.fset, primero.Cond) != `l==nil||l.clase!="CONTROL"||l.limite!=1024||n<0||n>len(sufijo)||n>l.limite` || !retornaBooleano(a, primero.Body, false) {
+		fallo("guarda común M27/M28/M30 discrepante")
+	}
+	segundo, ok := b.List[1].(*ast.IfStmt)
+	if !ok || textoNodo(a.fset, segundo.Cond) != "fallo!=nil" {
+		fallo("rama fallo ausente")
+	}
+	esperadoFallo := `n==0&&lectura==lecturaNecesitaDatosM38&&tramaCeroM38(trama)&&l.estado==lectorErrorTerminalM38&&l.err==fallo&&lectorLimpioM38(l)`
+	if retornoUnico(a, segundo.Body) != esperadoFallo {
+		fallo("postcondición de fallo físico discrepante")
+	}
+	tercero, ok := b.List[2].(*ast.IfStmt)
+	if !ok || textoNodo(a.fset, tercero.Cond) != "l.err!=nil" || !retornaBooleano(a, tercero.Body, false) {
+		fallo("guarda M29 de error pegajoso ausente")
+	}
+	sw, ok := b.List[3].(*ast.SwitchStmt)
+	if !ok || textoNodo(a.fset, sw.Tag) != "lectura" {
+		fallo("switch de lectura discrepante")
+	}
+	casos := make(map[string]string)
+	for _, s := range sw.Body.List {
+		cc, ok := s.(*ast.CaseClause)
+		if !ok || len(cc.List) != 1 || len(cc.Body) == 0 {
+			fallo("caso de lectura malformado")
+		}
+		clave := textoNodo(a.fset, cc.List[0])
+		ret, ok := cc.Body[len(cc.Body)-1].(*ast.ReturnStmt)
+		if !ok || len(ret.Results) != 1 {
+			fallo("retorno de caso %s malformado", clave)
+		}
+		casos[clave] = textoNodo(a.fset, ret.Results[0])
+	}
+	esperados := map[string]string{
+		"lecturaNecesitaDatosM38": `!fin&&n==len(sufijo)&&tramaCeroM38(trama)&&lectorActivoPreinicioM38(l)&&(n==0||l.estado==lectorAbiertoParcialM38&&n<=l.longitud)`,
+		"lecturaTramaM38":         `n>0&&tramaControlEstructuralPreinicioM38(trama)&&estadoValido&&lectorLimpioM38(l)`,
+		"lecturaEOFLimpioM38":     `n==0&&len(sufijo)==0&&fin&&tramaCeroM38(trama)&&l.estado==lectorEOFLimpioM38&&lectorLimpioM38(l)`,
+	}
+	if !reflect.DeepEqual(casos, esperados) {
+		fallo("ramas de postcondición M26/M31 discrepantes: %v", casos)
+	}
+	ultimo, ok := b.List[4].(*ast.ReturnStmt)
+	if !ok || len(ultimo.Results) != 1 || textoNodo(a.fset, ultimo.Results[0]) != "false" {
+		fallo("cierre fail-closed ausente")
+	}
+}
+func retornaBooleano(a *analisis, b *ast.BlockStmt, valor bool) bool {
+	v := "false"
+	if valor {
+		v = "true"
+	}
+	return retornoUnico(a, b) == v
+}
+func retornoUnico(a *analisis, b *ast.BlockStmt) string {
+	if len(b.List) != 1 {
+		return ""
+	}
+	r, ok := b.List[0].(*ast.ReturnStmt)
+	if !ok || len(r.Results) != 1 {
+		return ""
+	}
+	return textoNodo(a.fset, r.Results[0])
+}
+func comprobarTransicionesYLimpieza(a *analisis) {
+	comprobaciones := map[string][]string{
+		"(*controladorPreinicioM38).enclavarCausa": {
+			"c.lector.limpiarBuffer()", "retirarReceptorPreinicioM38(c.recepcion,errUsoPosteriorSobreM38)",
+			"c.fase=controlPreinicioS5M38", "c.causa=causaPreinicioM38{faseOrigen:origen,causa:causa,estado:estado}",
+			"c.fallo,c.recepcion,c.lector=nil,nil,nil",
+		},
+		"(*controladorPreinicioM38).limpiarConFallo": {
+			"c.lector.limpiarBuffer()", "retirarReceptorPreinicioM38(c.recepcion,fallo)",
+			"c.fase,c.causa,c.fallo=controlPreinicioS5M38,causaPreinicioM38{},fallo", "c.recepcion,c.lector=nil,nil",
+		},
+		"retirarReceptorPreinicioM38": {"r.lector.limpiarBuffer()", "limpiarSobreS0M38(&r.sobre)", "r.fase,r.fallo=recepcionSobreS0M38,fallo"},
+		"(*controladorPreinicioM38).aplicar": {
+			"c.fase=controlPreinicioS2M38", "c.fase=controlPreinicioS3M38", "c.enclavarCausa(causa,estado)", "c.enclavarCausa(\"PROTOCOLO\",\"65\")",
+		},
+	}
+	for fn, patrones := range comprobaciones {
+		texto := textoNodo(a.fset, cuerpoFuncion(a, 1, fn))
+		for _, p := range patrones {
+			if strings.Count(texto, p) == 0 {
+				fallo("invariante de transición/limpieza ausente en %s: %s", fn, p)
+			}
+		}
+	}
+	escrituras := make(map[string]int)
+	constructorS1 := 0
+	ast.Inspect(a.unidades[1].archivo, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.AssignStmt:
+			for i, lhs := range x.Lhs {
+				sel, ok := lhs.(*ast.SelectorExpr)
+				if !ok || textoNodo(a.fset, sel.X) != "c" || sel.Sel.Name != "fase" || i >= len(x.Rhs) {
+					continue
+				}
+				escrituras[textoNodo(a.fset, x.Rhs[i])]++
+			}
+		case *ast.CompositeLit:
+			if textoNodo(a.fset, x.Type) != "controladorPreinicioM38" {
+				return true
+			}
+			for _, elt := range x.Elts {
+				kv, ok := elt.(*ast.KeyValueExpr)
+				if ok && textoNodo(a.fset, kv.Key) == "fase" && textoNodo(a.fset, kv.Value) == "controlPreinicioS1M38" {
+					constructorS1++
+				}
+			}
+		}
+		return true
+	})
+	if !reflect.DeepEqual(escrituras, map[string]int{"controlPreinicioS2M38": 1, "controlPreinicioS3M38": 1, "controlPreinicioS5M38": 2}) || constructorS1 != 1 {
+		fallo("set de transiciones discrepante: constructorS1=%d escrituras=%v", constructorS1, escrituras)
+	}
+	llamadasCausa := make(map[string]int)
+	for nombre, fd := range funciones(a.unidades[1].archivo) {
+		ast.Inspect(fd.Body, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			fn := objetoLlamado(a, c)
+			if fn != nil && fn.Name() == "enclavarCausa" && baseReceptorFirma(fn) == "controladorPreinicioM38" {
+				var args []string
+				for _, arg := range c.Args {
+					args = append(args, textoNodo(a.fset, arg))
+				}
+				llamadasCausa[nombre+"->"+strings.Join(args, ",")]++
+			}
+			return true
+		})
+	}
+	esperadas := map[string]int{
+		"(*controladorPreinicioM38).aplicar->causa,estado":      2,
+		`(*controladorPreinicioM38).aplicar->"PROTOCOLO","65"`:  1,
+		`(*controladorPreinicioM38).consumir->"PROTOCOLO","65"`: 1,
+		`(*controladorPreinicioM38).consumir->"CANCELADO","65"`: 2,
+	}
+	if !reflect.DeepEqual(llamadasCausa, esperadas) {
+		fallo("origen de causas discrepante: %v", llamadasCausa)
+	}
+	cuerpoCausas := textoNodo(a.fset, cuerpoFuncion(a, 1, "causaTransportadaPreinicioM38"))
+	for _, p := range []string{`case"CANCELADO":return"CANCELADO","65",estado=="65"`, `case"PROTOCOLO":return"PROTOCOLO","65",estado=="65"`, `case"SENAL_INT":return"SENAL_INT","130",estado=="130"`, `case"SENAL_TERM":return"SENAL_TERM","143",estado=="143"`, `return"","",false`} {
+		if strings.Count(cuerpoCausas, p) != 1 {
+			fallo("tabla canónica de causas discrepante: %s", p)
+		}
+	}
+}
+func comprobarRegresiones(a *analisis) {
+	b := cuerpoFuncion(a, 2, "probarTuplasLectorPreinicioM38")
+	texto := textoNodo(a.fset, b)
+	literales := map[string]int{}
+	llamadasTupla := 0
+	ast.Inspect(b, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.BasicLit:
+			if x.Kind == token.STRING {
+				literales[strings.Trim(x.Value, "\"")]++
+			}
+		case *ast.CallExpr:
+			if fn := objetoLlamado(a, x); fn != nil && fn.Name() == "tuplaLectorValidaPreinicioM38" {
+				llamadasTupla++
+			}
+		}
+		return true
+	})
+	for _, s := range []string{"tupla O1b imposible aceptada", "tupla O1b con lector incompatible aceptada", "tupla O1b con contador superior al límite aceptada"} {
+		if literales[s] != 1 {
+			fallo("oráculo de regresión ausente o duplicado: %q", s)
+		}
+	}
+	if llamadasTupla != 10 {
+		fallo("matriz de tuplas focal discrepante: %d llamadas", llamadasTupla)
+	}
+	for _, p := range []string{"l1Contador.buffer[0]='x'", "sufijoLimite:=[]byte(strings.Repeat(\"x\",1025))", "sufijoLimite[:1024]"} {
+		if !strings.Contains(texto, p) {
+			fallo("regresión M30/M31 incompleta: %s", p)
+		}
+	}
+}
+func comprobarNoExposicion(a *analisis) {
+	const tipoSobre = "evidencia/o2b.sobreRetenidoM38"
+	permitidasTicket, permitidasIdentidad := conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38", "tramaControlEstructuralPreinicioM38"), conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38")
+	llamadasPuntero := conjunto("sobrePresentePreinicioM38(&r.sobre)", "sobrePresentePreinicioM38(&c.recepcion.sobre)", "limpiarSobreS0M38(&r.sobre)")
+	contieneSobre := func(raiz ast.Node) (hallado bool) {
+		var pila []ast.Node
+		ast.Inspect(raiz, func(n ast.Node) bool {
+			if n == nil {
+				pila = pila[:len(pila)-1]
+				return true
+			}
+			padre, abuelo := ast.Node(nil), ast.Node(nil)
+			if len(pila) > 0 {
+				padre = pila[len(pila)-1]
+			}
+			if len(pila) > 1 {
+				abuelo = pila[len(pila)-2]
+			}
+			pila = append(pila, n)
+			expresion, ok := n.(ast.Expr)
+			if !ok {
+				return true
+			}
+			tipo := types.TypeString(a.info.TypeOf(expresion), nil)
+			if tipo != tipoSobre && tipo != "*"+tipoSobre {
+				return true
+			}
+			if selector, ok := padre.(*ast.SelectorExpr); ok && (selector.X == expresion || selector.Sel == expresion) {
+				return true
+			}
+			if unario, ok := padre.(*ast.UnaryExpr); ok && unario.Op == token.AND {
+				if llamada, ok := abuelo.(*ast.CallExpr); ok && llamadasPuntero[textoNodo(a.fset, llamada)] {
+					return true
+				}
+			}
+			if llamada, ok := padre.(*ast.CallExpr); ok && llamadasPuntero[textoNodo(a.fset, llamada)] {
+				return true
+			}
+			hallado = true
+			return false
+		})
+		return
+	}
+	for _, d := range a.unidades[1].archivo.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		n := claveFuncion(fd)
+		if n == "sobrePresentePreinicioM38" && textoNodo(a.fset, fd.Type) != "func(s*sobreRetenidoM38)bool" {
+			fallo("firma de presencia del sobre discrepante")
+		}
+		campos := append([]*ast.Field{}, fd.Type.Params.List...)
+		if fd.Type.Results != nil {
+			campos = append(campos, fd.Type.Results.List...)
+		}
+		for _, campo := range campos {
+			tipo := types.TypeString(a.info.TypeOf(campo.Type), nil)
+			if tipo == tipoSobre || tipo == "*"+tipoSobre && n != "sobrePresentePreinicioM38" {
+				fallo("sobre por valor o puntero en firma no autorizada: %s", n)
+			}
+		}
+		ast.Inspect(fd.Body, func(node ast.Node) bool {
+			switch x := node.(type) {
+			case *ast.SelectorExpr:
+				switch x.Sel.Name {
+				case "ticket":
+					if !permitidasTicket[n] {
+						fallo("lectura de ticket fuera de predicado mínimo: %s", n)
+					}
+				case "identidad":
+					if !permitidasIdentidad[n] {
+						fallo("lectura de identidad fuera de predicado mínimo: %s", n)
+					}
+				}
+			}
+			return true
+		})
+		if contieneSobre(fd.Body) {
+			fallo("uso por valor, copia o retención del sobre completo: %s", n)
+		}
+	}
+}
+func main() {
+	o := parsearOpciones()
+	a := cargar(o)
+	comprobarSetsEImports(a)
+	comprobarFormaControlador(a)
+	comprobarDosCallSites(a)
+	comprobarConstruccionYCopias(a)
+	comprobarAusenciasYGrafo(a)
+	comprobarPostcondicion(a)
+	comprobarTransicionesYLimpieza(a)
+	comprobarRegresiones(a)
+	comprobarNoExposicion(a)
+	fmt.Printf("ast_o2b=ok nombre=%s material=%s fuentes=5 call_sites=2 postcondiciones=6\n", nombreLogico, shaMaterial)
+}
