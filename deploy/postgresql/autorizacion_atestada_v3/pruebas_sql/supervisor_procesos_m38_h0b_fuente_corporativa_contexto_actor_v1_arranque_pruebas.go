@@ -381,13 +381,27 @@ func prepararCasoExternoO3aM38() (*fixtureO3aM38, error) {
 		return nil, &falloPreparacionExternaO3aM38{estado: estadoSubreaperExternoO3aM38, causa: err}
 	}
 	f, err := crearFixtureO3aM38("NOMINAL")
-	if err == nil {
-		err = prepararFixtureO3aM38(f)
-	}
 	if err != nil {
-		err = &falloPreparacionExternaO3aM38{estado: estadoFixtureExternoO3aM38, causa: err}
+		return f, &falloPreparacionExternaO3aM38{estado: estadoFixtureExternoO3aM38, causa: err}
 	}
-	return f, err
+	err = prepararFixtureO3aM38(f)
+	if err == nil {
+		return f, nil
+	}
+	estado := estadoOtroFixtureExternoO3aM38
+	switch {
+	case errors.Is(err, errEntradaO3aM38), errors.Is(err, errAutoridadO3aM38):
+		estado = estadoEntradaFixtureExternoO3aM38
+	case errors.Is(err, errSubreaperO3aM38):
+		estado = estadoSubreaperFixtureExternoO3aM38
+	case errors.Is(err, errPdeathsigO3aM38):
+		estado = estadoPdeathFixtureExternoO3aM38
+	case errors.Is(err, errInventarioO3aM38):
+		estado = estadoInventarioFixtureExternoO3aM38
+	case errors.Is(err, errFormaFDO3aM38):
+		estado = estadoFormaFixtureExternoO3aM38
+	}
+	return f, &falloPreparacionExternaO3aM38{estado: estado, causa: err}
 }
 
 func ejecutarDegradacionPidfdExternaO3aM38(caso string) int {

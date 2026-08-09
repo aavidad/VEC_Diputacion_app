@@ -14,28 +14,34 @@ import (
 )
 
 const (
-	estadoErrorExternoO3aM38           = 66
-	estadoRetiradaSinHijoExternaO3aM38 = 72
-	estadoRetiradaConHijoExternaO3aM38 = 73
-	estadoPdeathCreadorExternoO3aM38   = 74
-	estadoPdeathOtroExternoO3aM38      = 75
-	estadoPdeathAusenteExternoO3aM38   = 76
-	estadoNetpollExternoO3aM38         = 77
-	estadoSubreaperExternoO3aM38       = 78
-	estadoFixtureExternoO3aM38         = 79
-	estadoVentanaFDExternaO3aM38       = 80
-	estadoMapaFixtureExternoO3aM38     = 81
-	estadoCierreHuecoExternoO3aM38     = 82
-	estadoSnapshotExternoO3aM38        = 83
-	estadoAvanceExternoO3aM38          = 84
-	estadoIdentidadExternaO3aM38       = 85
-	estadoLimpiezaExternaO3aM38        = 86
-	estadoClaseRetiradaExternaO3aM38   = 87
-	estadoOrigenRetiradaExternaO3aM38  = 88
-	estadoWaitExternoO3aM38            = 89
-	estadoPrecedenciaExternaO3aM38     = 90
-	estadoHijosExternosO3aM38          = 91
-	estadoCasoBaseExternoO3aM38        = 92
+	estadoErrorExternoO3aM38             = 66
+	estadoRetiradaSinHijoExternaO3aM38   = 72
+	estadoRetiradaConHijoExternaO3aM38   = 73
+	estadoPdeathCreadorExternoO3aM38     = 74
+	estadoPdeathOtroExternoO3aM38        = 75
+	estadoPdeathAusenteExternoO3aM38     = 76
+	estadoNetpollExternoO3aM38           = 77
+	estadoSubreaperExternoO3aM38         = 78
+	estadoFixtureExternoO3aM38           = 79
+	estadoVentanaFDExternaO3aM38         = 80
+	estadoMapaFixtureExternoO3aM38       = 81
+	estadoCierreHuecoExternoO3aM38       = 82
+	estadoSnapshotExternoO3aM38          = 83
+	estadoAvanceExternoO3aM38            = 84
+	estadoIdentidadExternaO3aM38         = 85
+	estadoLimpiezaExternaO3aM38          = 86
+	estadoClaseRetiradaExternaO3aM38     = 87
+	estadoOrigenRetiradaExternaO3aM38    = 88
+	estadoWaitExternoO3aM38              = 89
+	estadoPrecedenciaExternaO3aM38       = 90
+	estadoHijosExternosO3aM38            = 91
+	estadoCasoBaseExternoO3aM38          = 92
+	estadoEntradaFixtureExternoO3aM38    = 93
+	estadoSubreaperFixtureExternoO3aM38  = 94
+	estadoPdeathFixtureExternoO3aM38     = 95
+	estadoInventarioFixtureExternoO3aM38 = 96
+	estadoFormaFixtureExternoO3aM38      = 97
+	estadoOtroFixtureExternoO3aM38       = 98
 )
 
 func cerrarRetiradaPruebaO3aM38(r **retiradaO3aM38) error {

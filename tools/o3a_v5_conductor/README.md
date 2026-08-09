@@ -49,7 +49,8 @@ para observar la salida nominal es diez segundos y no altera los tres segundos
 productivos de retirada. C21 compara descriptores todavía vivos mediante
 `F_GETFD`: una entrada obsoleta de `/proc/self/fd` solo se omite si devuelve
 `EBADF`; cualquier otro error o descriptor vivo adicional mantiene el NO-GO.
-Los estados test-only 77--92 distinguen preparación, mapa FD, avance,
+Los estados test-only 77--98 distinguen preparación —incluidas sus causas
+entrada, subreaper, `Pdeathsig`, inventario y forma FD—, mapa FD, avance,
 identidad, limpieza, retirada y residuos; nunca son estados GO ni alteran las
 salidas contractuales 65 y 72--76. `C08_BARRIDO` espera 79 porque su mutación
 de barrido debe ser rechazada durante la preparación de la fixture.
