@@ -10,7 +10,7 @@ El contrato original asignaba a R la captura de cinco fuentes nuevas y la
 ampliación de su manifiesto de nueve a catorce entradas. La instrucción vigente
 «No uses R» obliga a mantener R byte a byte: 702 líneas y SHA-256
 `7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487`.
-La proyección V20 ya dispone de un conductor durable versionado que posee un
+La proyección V21 ya dispone de un conductor durable versionado que posee un
 ledger exacto de diez fuentes y ejecuta los catorce bloques C01..C21 en modo
 normal y `-race` real. Esta enmienda cambia el propietario de esa verificación,
 no reduce sus oráculos.
@@ -48,19 +48,19 @@ otro error o descriptor vivo adicional.
 
 La materialización autorizable pasa a ser:
 
-1. G1 y G6a--c/G7a--b: seis ficheros Go exactos del ledger V20;
-2. `tools/o3a_v5_ast/**`: analizador, catálogos y evidencia V20 autorizada;
+1. G1 y G6a--c/G7a--b: seis ficheros Go exactos del ledger V21;
+2. `tools/o3a_v5_ast/**`: analizador, catálogos y evidencia V21 autorizada;
 3. `tools/o3a_v5_conductor/**`: conductor, ledger y evidencia r3;
 4. `.github/workflows/ci.yml`: una invocación fail-closed en la puerta existente;
 5. contrato, acta y esta enmienda.
 
 R, D, G2--G5, capturador, adaptador, SQL, migraciones y producción quedan
-byte a byte. No se mezcla contenido de V19 ni de ledgers anteriores revocados,
+byte a byte. No se mezcla contenido de V20 ni de ledgers anteriores revocados,
 ni del checkpoint portable.
 
 ## Evidencia requerida
 
-- V20 técnico: conductor 14/14 y 74 casos, C21 estable normal/race, mutantes
+- V21 técnico: conductor 14/14 y 74 casos, C21 estable normal/race, mutantes
   195/195 y SEC 4/4; todo ello sujeto al doble `GO` del corte vigente.
 - Revisión funcional y de seguridad completa de esta enmienda y del delta CI.
 - Reproducción local del comando CI sobre el commit candidato.
