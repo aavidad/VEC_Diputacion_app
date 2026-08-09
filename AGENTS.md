@@ -30,17 +30,18 @@ instrucción de dirección.
   18.4, puerta global y Gitleaks verdes, con cero residuos. La
   [revisión final](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
   conserva el ledger y los límites. No abre Bash ni el modo operativo.
-- El contrato y el acta de O3a-P0 están publicados en `afd00c3`; la ejecución
-  `31289613463` terminó con cinco de cinco puertas verdes. El traslado
-  estructural quedó cerrado técnicamente en `ac988d6` tras dos revisiones
-  independientes `GO`, `P0=P1=P2=0`: runner 702, D2d 264, reconstrucción
-  reversible byte a byte, H0 PostgreSQL 18.4, calidad global, dos builds
-  reproducibles, Gitleaks y residuos cero. Su
-  [contrato](docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)
-  y [acta](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)
-  conservan el ledger y los límites. Falta publicar este cierre y obtener CI
-  5/5. Después solo puede redactarse el contrato funcional O3a; O3a, `Start`
-  y mapa FD siguen cerrados.
+- O3a-P1 queda cerrado técnicamente en la cadena exacta `758e66f` →
+  `a1aeab7` → `f3a1e96`. El par documental `758e66f` está publicado y la CI
+  `31293958163` terminó 5/5. El material R-only `a1aeab7`, hijo directo de
+  `758e66f`, conserva R en 702 líneas y SHA `7ad65a66…`; la evidencia
+  `f3a1e96`, hija directa del material, fija seis artefactos, la matriz
+  100/600 + 10/10 + 1, H0 PostgreSQL 18.4, calidad global, Gitleaks y residuos
+  cero. Dos revisores independientes dieron `GO`, `P0=P1=P2=0`. La
+  [revisión final](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o3a_p1_codigo_final_2026-08-09.md)
+  conserva hashes, ledger y límites. Material y evidencia están pendientes de
+  publicación y CI 5/5. El siguiente único trabajo de desarrollo es corregir
+  y revisar el contrato O3a completo sobre `f3a1e96`; O3a, `Start` y mapa FD
+  siguen bloqueados hasta doble GO documental, publicación y CI 5/5.
 - C4b-1 queda acreditado en la rama integradora hasta `c34db61`: decisión de señales
   `fb45b93`, código `84de42f`–`ffce19c` y acta
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b1_senales_regimen_2026-08-02.md`.
@@ -113,9 +114,11 @@ instrucción de dirección.
   global verdes, con residuos cero. Quedó publicado en `ef1f08b` y la CI
   `31021785711` terminó con cinco puertas verdes.
   O2b, «ARMAR y cancelación sin Bash», queda cerrado técnicamente en
-  `d86aea8`–`4b39265`, con doble GO y evidencia durable. O3a-P0 queda cerrado
-  técnicamente en `ac988d6`; falta publicar su relevo y obtener CI 5/5 antes
-  de redactar O3a. `Start`, mapa FD y fases posteriores siguen cerradas.
+  `d86aea8`–`4b39265`, con doble GO y evidencia durable. O3a-P1 queda cerrado
+  localmente en `a1aeab7`–`f3a1e96`, con doble GO; falta publicar este par y
+  obtener CI 5/5. Después solo se corrige y revisa el contrato O3a completo
+  sobre `f3a1e96`. `Start`, mapa FD y fases posteriores siguen cerradas hasta
+  el doble GO, publicación y CI 5/5 de ese contrato.
   Las evidencias están en
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2s_implementacion_2026-08-05.md`,
   `docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o1a_codigo_final_2026-08-05.md`,

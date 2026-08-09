@@ -20,12 +20,14 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   cero residuos. La
   [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md)
   acredita el cierre técnico sin Bash ni modo operativo. La CI `31287803830`
-  terminó 5/5. El contrato O3a-P0 se publicó en `afd00c3`, CI `31289613463`
-  5/5; el traslado quedó cerrado técnicamente en `ac988d6` con doble GO,
-  H0 PostgreSQL 18.4, calidad global y residuos cero. Las métricas no cambian.
-  Falta publicar este relevo y obtener CI antes de redactar O3a; O3a sigue
-  cerrado.
-- Último corte publicado completamente verde: `afd00c3`; CI `31289613463`,
+  terminó 5/5. O3a-P1 queda cerrado localmente en `758e66f` → `a1aeab7` →
+  `f3a1e96`: documentación publicada con CI `31293958163` 5/5, runner final
+  702/SHA `7ad65a66…`, seis evidencias, matriz 100/600 + 10/10 + 1, H0
+  PostgreSQL 18.4, calidad global, Gitleaks y residuos cero. Ambos revisores
+  dieron `GO`, `P0=P1=P2=0`. Las métricas no cambian. Falta publicar material
+  y evidencia y obtener CI; después solo se corrige y revisa el contrato O3a
+  completo sobre `f3a1e96`.
+- Último corte publicado completamente verde: `758e66f`; CI `31293958163`,
   cinco de cinco puertas superadas.
 - C4a queda integrado hasta `e130015` con doble GO final, `P0=P1=P2=0`, H0
   nominal PostgreSQL 18.4 y cero residuos. `f4ca93d` y `dda4488` estabilizan
@@ -86,9 +88,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
   carreras reales y cero residuos. La estructura H0b queda integrada en
   `ad8b170`; C4a activa y acredita después el flujo exterior R0/H0b hasta
   `e130015`. El checkpoint C4b-1 queda integrado en la rama hasta `ffce19c`.
-  O2b está cerrado técnicamente en `d86aea8`–`4b39265`. O3a-P0 queda cerrado
-  técnicamente en `ac988d6`; falta publicar su relevo y obtener CI. Después
-  siguen el contrato O3a, O3a–O6c, C4b-3, C4c y C4d y se implementará C2.
+  O2b está cerrado técnicamente en `d86aea8`–`4b39265`. O3a-P1 queda cerrado
+  localmente en `a1aeab7`–`f3a1e96`; falta publicarlo y obtener CI. Después el
+  único trabajo es corregir y revisar el contrato O3a completo sobre
+  `f3a1e96`; solo tras doble GO, publicación y CI siguen O3a–O6c, C4b-3, C4c,
+  C4d y la implementación de C2.
   Todavía no existe una migración `000007` instalable.
 - El primer candidato H0b `99491d3` recibió doble `NO-GO` y no se integró:
   sustituyó H0a y quebró la frontera D2c. La
@@ -138,9 +142,11 @@ git status --short --branch
 ```
 
 Antes de editar se leen `AGENTS.md`, este relevo, el relevo de sesión, el mapa
-y el tablero. La primera tarea es comprobar la publicación y CI del cierre
-O3a-P0 en `ac988d6`; solo con 5/5 se redacta el contrato funcional O3a.
-Ninguna rama de agente ni los candidatos históricos se fusionan por
+y el tablero. Primero se comprueban la publicación y CI del cierre
+`a1aeab7`–`f3a1e96`. El siguiente único trabajo de desarrollo es corregir y
+revisar el contrato O3a completo sobre `f3a1e96`. `Start`, mapa FD y código
+O3a permanecen prohibidos hasta el doble GO, publicación y CI 5/5 de ese
+contrato. Ninguna rama de agente ni los candidatos históricos se fusionan por
 conveniencia.
 
 ## Fuente de requisitos

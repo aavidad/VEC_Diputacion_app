@@ -20,16 +20,18 @@ evidencia en `d86aea8`–`4b39265`: control
 previo de `ARMAR` y cancelación sin Bash, doble revisión independiente,
 31/31 mutantes, H0 PostgreSQL 18.4, puerta global y CI `31287803830` verdes.
 No es una capacidad E2E ni cambia los porcentajes oficiales. El contrato
-O3a-P0 quedó publicado en `afd00c3`, CI `31289613463` 5/5, y el traslado
-estructural se cerró técnicamente en `ac988d6` tras doble GO: runner 702,
-D2d 264, H0 PostgreSQL 18.4, calidad global y residuos cero. Falta publicar
-este relevo y obtener CI 5/5; después comienza el contrato funcional O3a.
-O3a, `Start` y mapa FD continúan cerrados. Véanse la
+O3a-P1 quedó publicado documentalmente en `758e66f`, CI `31293958163` 5/5.
+El material `a1aeab7`, hijo directo, conserva el runner en 702 líneas/SHA
+`7ad65a66…`; la evidencia `f3a1e96`, hija del material, fija seis artefactos y
+la matriz 100/600 + 10/10 + 1. Ambos recibieron doble GO, con H0 PostgreSQL
+18.4, calidad global, Gitleaks y residuos cero. Falta publicar material y
+evidencia y obtener CI 5/5. Después solo se corrige y revisa el contrato O3a
+completo sobre `f3a1e96`. O3a, `Start` y mapa FD continúan bloqueados hasta el
+doble GO, publicación y CI 5/5 del contrato. Véanse la
 [revisión final O2b](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o2b_codigo_final_2026-08-09.md),
-la
-[decisión O3a-P0](docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md)
-y el
-[acta](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md).
+la [decisión O3a-P1](docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_p1_barrera_ticket_temprana_2026-08-09.md)
+y su
+[revisión final](docs/portal_vec/revisiones/revision_f0_h0b_c4b2_g2o_o3a_p1_codigo_final_2026-08-09.md).
 
 ## Seguimiento sencillo
 

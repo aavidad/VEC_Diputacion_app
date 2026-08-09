@@ -11,15 +11,15 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | F0/C4b-2/G2-O: publicar cierre O3a-P0 → contrato O3a → O3a → O3b → O3c → O4a → O4b → O4c → O5a → O5b → O5c → O5d → O6a → O6b → O6c → C4b-3 → C4c → C4d → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | F0/C4b-2/G2-O: publicar `f3a1e96` y obtener CI → corregir/revisar contrato O3a completo sobre `f3a1e96` → doble GO/publicación/CI del contrato → O3a → O3b → O3c → O4a → O4b → O4c → O5a → O5b → O5c → O5d → O6a → O6b → O6c → C4b-3 → C4c → C4d → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %). C4a está integrado hasta `e130015`, con doble GO, H0 nominal PostgreSQL 18.4 y [evidencia propia](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md); no contabiliza H0b porque C4b–C4d siguen abiertos. Es un contador más granular del mismo DAG, no una estimación temporal. |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte remoto completamente verde | `afd00c3` en `integracion/ct-o4-04e-20260726`; CI `31289613463`, cinco de cinco puertas verdes. |
-| Último commit técnico verificado | `ac988d6` cierra O3a-P0 tras doble GO: runner 702, D2d 264, reversión exacta, binario reproducible invariante, H0 PostgreSQL 18.4, calidad global, Gitleaks y residuos cero. Falta publicar el relevo y obtener CI; después se redacta O3a. |
+| Último corte remoto completamente verde | `758e66f` en `integracion/ct-o4-04e-20260726`; CI `31293958163`, cinco de cinco puertas verdes. |
+| Último commit técnico verificado | `f3a1e96`, hijo de `a1aeab7`, cierra localmente O3a-P1 tras doble GO: runner 702/SHA `7ad65a66…`, seis evidencias, matriz 100/600 + 10/10 + 1, H0 PostgreSQL 18.4, calidad global, Gitleaks y residuos cero. Falta publicar material/evidencia y obtener CI. |
 | Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b, C4a, C4b-2/G1, G2-S y G2-O/O1a/O1b/O2a/O2b/O3a-P0 están cerrados técnicamente, pero no suman una puerta funcional. |
-| Bloqueo externo actual | Ninguno; O3a-P0 mantiene la puerta interna de publicación+CI del cierre y producción sigue sujeta a las conformidades formales |
+| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b, C4a, C4b-2/G1, G2-S y G2-O/O1a/O1b/O2a/O2b/O3a-P0/O3a-P1 están cerrados técnicamente, pero no suman una puerta funcional. |
+| Bloqueo externo actual | Ninguno; O3a-P1 mantiene la puerta interna de publicación+CI y el código O3a espera contrato completo con doble GO, publicación y CI; producción sigue sujeta a las conformidades formales. |
 | Producción | No autorizada; no se usarán datos reales |
 
 La primera vertical cuenta diez tareas O2. La cifra de 46 mide el procedimiento

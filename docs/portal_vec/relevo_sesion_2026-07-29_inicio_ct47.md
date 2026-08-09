@@ -15,13 +15,15 @@ Este checkpoint no abre Bash, FD operativos ni el modo
 `--supervisar-m38`, no acredita E2E y no cambia las métricas: F0 `10/23`,
 O4-05 `3/5`, Contratación temporal `24/46`, Bolsa productiva `1/14` y
 producción `NO-GO`. O2b está publicado en `c1ca5aa`, CI `31287803830` 5/5.
-El contrato O3a-P0 se publicó en `afd00c3`, CI `31289613463` 5/5. Su traslado
-estructural quedó cerrado técnicamente en `ac988d6` tras doble GO, H0
-PostgreSQL 18.4, calidad global, Gitleaks y residuos cero. Falta publicar este
-relevo y obtener CI; después solo se redactará el contrato funcional O3a.
-O3a, `Start` y mapa FD permanecen cerrados. Esta actualización prevalece sobre
-cualquier instrucción histórica que nombre O2b, O3a-P0 u O3a directo como
-trabajo pendiente.
+O3a-P1 queda cerrado localmente en la cadena `758e66f` → `a1aeab7` →
+`f3a1e96`. La documentación está publicada y la CI `31293958163` terminó 5/5;
+material y evidencia recibieron doble GO, con runner 702/SHA `7ad65a66…`, seis
+artefactos, matriz 100/600 + 10/10 + 1, H0 PostgreSQL 18.4, calidad global,
+Gitleaks y residuos cero. Falta publicar `a1aeab7`–`f3a1e96` y obtener CI.
+Después solo se corrige y revisa el contrato O3a completo sobre `f3a1e96`.
+O3a, `Start` y mapa FD permanecen cerrados hasta el doble GO, publicación y CI
+5/5 del contrato. Esta actualización prevalece sobre cualquier instrucción
+histórica que nombre O2b, O3a-P0, O3a-P1 u O3a directo como trabajo pendiente.
 
 ## Corte técnico actual — 5 de agosto de 2026
 
@@ -510,10 +512,11 @@ Worktree estable:
 .worktrees/ct-stable-docs
 ```
 
-O2b está publicado en `c1ca5aa`, con CI `31287803830` 5/5. O3a-P0 está
-cerrado técnicamente en `ac988d6`; falta publicar su relevo y obtener CI 5/5.
-Después el trabajo activo será el contrato O3a, seguido de O3a–O6c y,
-secuencialmente, C4b-3, C4c y C4d;
+O2b está publicado en `c1ca5aa`, con CI `31287803830` 5/5. O3a-P1 está
+cerrado localmente en `a1aeab7`–`f3a1e96`; falta publicarlo y obtener CI 5/5.
+Después el único trabajo activo será corregir y revisar el contrato O3a
+completo sobre `f3a1e96`. Solo tras su doble GO, publicación y CI seguirán
+O3a–O6c y, secuencialmente, C4b-3, C4c y C4d;
 después comienza C2 de C2.3-F0. C1, C2.1b, S0.1, S0.2, A, B y el contrato
 C2.3-D0 están cerrados técnicamente. La estructura H0b está integrada en
 `ad8b170` y C4a activa su flujo exterior hasta `e130015`. El desglose F0
