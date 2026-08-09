@@ -1,0 +1,718 @@
+// Conductor probatorio transitorio O3a-P1. No forma parte del producto.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+	"unsafe"
+)
+
+const (
+	huellaRunner            = "7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487"
+	sysPidfdSendSignal      = uintptr(424) // Linux/amd64.
+	sysPidfdOpen            = uintptr(434)
+	sysWaitid               = uintptr(247)
+	idTipoPidfd             = uintptr(3)
+	pidfdSignalProcessGroup = uintptr(1 << 2)
+	prSetChildSubreaper     = uintptr(36)
+	prGetChildSubreaper     = uintptr(37)
+	wNoHang                 = uintptr(1)
+	wStopped                = uintptr(2)
+	wExited                 = uintptr(4)
+	wNowait                 = uintptr(0x01000000)
+	cldExited               = int32(1)
+	cldKilled               = int32(2)
+	cldDumped               = int32(3)
+	cldStopped              = int32(5)
+	plazoCaso               = 2 * time.Second
+)
+
+type infoProceso struct {
+	estado byte
+	ppid   int
+	pgrp   int
+	inicio uint64
+}
+
+type ejecucion struct {
+	cmd      *exec.Cmd
+	pidfd    int
+	pid      int
+	inicio   uint64
+	escritor *os.File
+	traza    string
+	salida   string
+	error    string
+	pipe     string
+	esperado bool
+}
+
+type runnerPrivado struct {
+	archivo *os.File
+	dev     uint64
+	ino     uint64
+	tamano  int64
+}
+
+var fechaLimiteGlobal time.Time
+
+func fechaLimiteTrabajo() time.Time {
+	return fechaLimiteGlobal.Add(-2 * plazoCaso)
+}
+
+func limiteCaso() time.Time {
+	limite := time.Now().Add(plazoCaso)
+	trabajo := fechaLimiteTrabajo()
+	if !fechaLimiteGlobal.IsZero() && trabajo.Before(limite) {
+		return trabajo
+	}
+	return limite
+}
+
+func limiteLimpieza() time.Time {
+	limite := time.Now().Add(2 * plazoCaso)
+	if !fechaLimiteGlobal.IsZero() && fechaLimiteGlobal.Before(limite) {
+		return fechaLimiteGlobal
+	}
+	return limite
+}
+
+func exigirPlazoGlobal() error {
+	if fechaLimiteGlobal.IsZero() || !time.Now().Before(fechaLimiteTrabajo()) {
+		return errors.New("margen de limpieza global alcanzado")
+	}
+	return nil
+}
+
+func main() {
+	if len(os.Args) < 3 || len(os.Args) > 4 {
+		fmt.Fprintln(os.Stderr, "uso: conductor_o3a_p1 R iteraciones [DIRECTORIO_MUTANTES]")
+		os.Exit(64)
+	}
+	iteraciones, err := strconv.Atoi(os.Args[2])
+	if err != nil || iteraciones != 100 {
+		fmt.Fprintln(os.Stderr, "las iteraciones deben ser exactamente 100")
+		os.Exit(64)
+	}
+	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
+		fmt.Fprintln(os.Stderr, "plataforma distinta de linux/amd64")
+		os.Exit(65)
+	}
+	fechaLimiteGlobal = time.Now().Add(90 * time.Second)
+	datosRunner, err := leerRunnerAcreditado(os.Args[1])
+	if err != nil {
+		fallar(err)
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	tid := syscall.Gettid()
+	if tid <= 1 || tid != syscall.Gettid() {
+		fallar(errors.New("hilo conductor no fijado"))
+	}
+	if err = activarSubreaper(); err != nil {
+		fallar(fmt.Errorf("subreaper: %w", err))
+	}
+	if err = autogatePidfdGrupo(); err != nil {
+		fallar(fmt.Errorf("autogate pidfd/grupo: %w", err))
+	}
+	if !sinHijos() {
+		fallar(errors.New("el conductor no parte sin hijos"))
+	}
+	fdInicial, err := snapshotFD()
+	if err != nil {
+		fallar(err)
+	}
+	temporal, err := os.MkdirTemp("/tmp", "o3a-p1-conductor-")
+	if err != nil {
+		fallar(err)
+	}
+	if err = os.Chmod(temporal, 0700); err != nil {
+		_ = os.RemoveAll(temporal)
+		fallar(err)
+	}
+	runner, err := crearRunnerPrivado(datosRunner, temporal)
+	if err != nil {
+		_ = os.RemoveAll(temporal)
+		fallar(err)
+	}
+	for i := 0; i < iteraciones; i++ {
+		if !time.Now().Before(fechaLimiteTrabajo()) {
+			err = errors.New("plazo global agotado")
+			break
+		}
+		if err = casoBloqueoEOF(runner, temporal, i); err != nil {
+			break
+		}
+		if err = casoAdverso(runner, temporal, i); err != nil {
+			break
+		}
+		if err = casoSegundaLinea(runner, temporal, i); err != nil {
+			break
+		}
+		if err = casoValidoHostil(runner, temporal, i, "LD"); err != nil {
+			break
+		}
+		if err = casoValidoHostil(runner, temporal, i, "FUNCION"); err != nil {
+			break
+		}
+		if err = casoDirectoLD(runner, temporal, i); err != nil {
+			break
+		}
+	}
+	mutantes := "omitidos"
+	if err == nil && len(os.Args) == 4 {
+		err = autoprobarMutantes(os.Args[3], temporal)
+		if err == nil {
+			mutantes = "10/10+1"
+		}
+	}
+	err = errors.Join(err, drenarAdoptados(limiteLimpieza()))
+	err = errors.Join(err, runner.archivo.Close())
+	err = errors.Join(err, os.RemoveAll(temporal))
+	fdFinal, errFD := snapshotFD()
+	err = errors.Join(err, errFD)
+	if fdFinal != fdInicial || !sinHijos() || tid != syscall.Gettid() {
+		err = errors.Join(err, fmt.Errorf("residuo final: fd_exactos=%v hijos=%v tid=%d/%d", fdFinal == fdInicial, !sinHijos(), syscall.Gettid(), tid))
+	}
+	if err != nil {
+		fallar(err)
+	}
+	fmt.Printf("conductor=ok iteraciones=100 casos=600 mutantes=%s fd_exactos=1 hijos=0 temporales=0\n", mutantes)
+}
+
+func casoBloqueoEOF(runner *runnerPrivado, temporal string, numero int) (err error) {
+	e, err := iniciar(runner, temporal, fmt.Sprintf("eof-%03d", numero), true, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	limite := limiteCaso()
+	info, err := esperarEstado(e, 'S', limite)
+	if err != nil {
+		return fmt.Errorf("vacío no bloqueado: %w", err)
+	}
+	if info.pgrp != e.pid || info.ppid != os.Getpid() || info.inicio != e.inicio {
+		return errors.New("identidad discrepante durante bloqueo")
+	}
+	if hijos, errHijos := hijosDe(e.pid); errHijos != nil || len(hijos) != 0 {
+		return fmt.Errorf("descendiente antes de EOF: %v/%v", hijos, errHijos)
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || contieneEntorno(traza) || strings.Contains(traza, "builtin kill -STOP") ||
+		!strings.HasSuffix(strings.TrimSpace(traza), "read -r padre_m38 caso_m38 identidad_m38 cid_esperado_m38 td ti tu tt tm th rd ri ru rt rm rh rs rsha zd zi zu zt zm zh") {
+		return errors.New("efecto anterior al EOF")
+	}
+	destinoFD9, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/9", e.pid))
+	if err != nil || destinoFD9 != e.pipe {
+		return fmt.Errorf("bloqueo no ligado al pipe FD9: %q/%v", destinoFD9, err)
+	}
+	if err = e.cerrarEscritor(); err != nil {
+		return err
+	}
+	if err = e.recoger(64, limite); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func casoAdverso(runner *runnerPrivado, temporal string, numero int) (err error) {
+	e, err := iniciar(runner, temporal, fmt.Sprintf("adverso-%03d", numero), true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar("adverso\n"); err != nil {
+		return err
+	}
+	if err = e.recoger(64, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || contieneEntorno(traza) || strings.Contains(traza, "builtin kill -STOP") {
+		return errors.New("ticket adverso alcanzó STOP o entorno")
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func casoSegundaLinea(runner *runnerPrivado, temporal string, numero int) (err error) {
+	e, err := iniciar(runner, temporal, fmt.Sprintf("segunda-%03d", numero), true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid()) + "sobrante\n"); err != nil {
+		return err
+	}
+	if err = e.recoger(64, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || contieneEntorno(traza) || strings.Contains(traza, "builtin kill -STOP") {
+		return errors.New("segunda línea alcanzó STOP o entorno")
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func casoValidoHostil(runner *runnerPrivado, temporal string, numero int, hostil string) (err error) {
+	e, err := iniciar(runner, temporal, fmt.Sprintf("valido-%s-%03d", strings.ToLower(hostil), numero), true, hostil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	limite := limiteCaso()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid())); err != nil {
+		return err
+	}
+	info, err := esperarSTOP(e, limite)
+	if err != nil {
+		return err
+	}
+	if info.ppid != os.Getpid() || info.pgrp != e.pid || info.inicio != e.inicio {
+		return errors.New("STOP sin identidad estable")
+	}
+	if _, err = os.Lstat(fmt.Sprintf("/proc/%d/fd/9", e.pid)); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("FD9 permanece en STOP: %v", err)
+	}
+	if hijos, errHijos := hijosDe(e.pid); errHijos != nil || len(hijos) != 0 {
+		return fmt.Errorf("descendiente anterior a STOP: %v/%v", hijos, errHijos)
+	}
+	trazaAntes, err := leerTraza(e.traza)
+	if err != nil || contieneEntorno(trazaAntes) || !strings.Contains(trazaAntes, "builtin kill -STOP") {
+		return errors.New("orden anterior al STOP discrepante")
+	}
+	if err = enviar(e.pidfd, syscall.SIGCONT, pidfdSignalProcessGroup); err != nil {
+		return fmt.Errorf("CONT por pidfd/grupo: %w", err)
+	}
+	if err = e.recoger(65, limite); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || !ordenSTOPEntorno(traza) || strings.Contains(traza, "docker") || strings.Contains(traza, "openssl") {
+		return errors.New("continuación hostil no cerró en la pipeline")
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func casoDirectoLD(runner *runnerPrivado, temporal string, numero int) (err error) {
+	e, err := iniciar(runner, temporal, fmt.Sprintf("directo-%03d", numero), false, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.cerrarEscritor(); err != nil {
+		return err
+	}
+	if err = e.recoger(65, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || !contieneEntorno(traza) || strings.Contains(traza, "builtin kill -STOP") || strings.Contains(traza, "dirname --") || strings.Contains(traza, "docker") {
+		return errors.New("modo directo hostil discrepante")
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func iniciar(runner *runnerPrivado, temporal, nombre string, hijo bool, hostil string) (*ejecucion, error) {
+	if err := exigirPlazoGlobal(); err != nil {
+		return nil, err
+	}
+	archivos := make([]*os.File, 0, 12)
+	cerrarArchivos := func() error {
+		var primero error
+		for _, archivo := range archivos {
+			if archivo != nil {
+				if err := archivo.Close(); primero == nil && err != nil {
+					primero = err
+				}
+			}
+		}
+		return primero
+	}
+	abrirNulo := func(bandera int) (*os.File, error) {
+		archivo, err := os.OpenFile("/dev/null", bandera, 0)
+		if err == nil {
+			archivos = append(archivos, archivo)
+		}
+		return archivo, err
+	}
+	entrada, err := abrirNulo(os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	rutaSalida := temporal + "/" + nombre + ".out"
+	salida, err := os.OpenFile(rutaSalida, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, salida)
+	rutaError := temporal + "/" + nombre + ".err"
+	errorSalida, err := os.OpenFile(rutaError, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, errorSalida)
+	relleno := make([]*os.File, 3)
+	for i := range relleno {
+		relleno[i], err = abrirNulo(os.O_RDWR)
+		if err != nil {
+			_ = cerrarArchivos()
+			return nil, err
+		}
+	}
+	rutaTraza := temporal + "/" + nombre + ".trace"
+	traza, err := os.OpenFile(rutaTraza, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, traza)
+	raiz, err := os.Open("/")
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, raiz)
+	archivoRunner, err := runner.duplicar()
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, archivoRunner)
+	lector, escritor, err := os.Pipe()
+	if err != nil {
+		_ = cerrarArchivos()
+		return nil, err
+	}
+	archivos = append(archivos, lector)
+	pipeTicket, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", escritor.Fd()))
+	if err != nil || !strings.HasPrefix(pipeTicket, "pipe:[") {
+		_ = cerrarArchivos()
+		_ = escritor.Close()
+		return nil, fmt.Errorf("pipe del ticket no acreditado: %q/%v", pipeTicket, err)
+	}
+	args := []string{"-p", "-x", "/proc/self/fd/8"}
+	if hijo {
+		args = append(args, "--caso-inyeccion-h0b", "NOMINAL")
+	} else {
+		args = append(args, "--supervisar-m38")
+	}
+	pidfd := -1
+	cmd := exec.Command("/usr/bin/bash", args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = entrada, salida, errorSalida
+	cmd.ExtraFiles = []*os.File{relleno[0], relleno[1], relleno[2], traza, raiz, archivoRunner, lector}
+	cmd.Dir = "/"
+	cmd.Env = []string{"PATH=/usr/local/go/bin:/usr/bin:/bin", "LC_ALL=C", "PS4=TRACE|", "BASH_XTRACEFD=6"}
+	switch hostil {
+	case "":
+	case "LD":
+		cmd.Env = append(cmd.Env, "LD_PRUEBA=1")
+	case "FUNCION":
+		cmd.Env = append(cmd.Env, "BASH_FUNC_prueba%%=() { :; }")
+	default:
+		return nil, errors.Join(errors.New("hostilidad no enumerada"), cerrarArchivos(), escritor.Close())
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0, Pdeathsig: syscall.SIGKILL, PidFD: &pidfd}
+	if err = cmd.Start(); err != nil {
+		return nil, errors.Join(err, cerrarArchivos(), escritor.Close())
+	}
+	errCierre := cerrarArchivos()
+	e := &ejecucion{cmd: cmd, pidfd: pidfd, pid: cmd.Process.Pid, escritor: escritor, traza: rutaTraza, salida: rutaSalida, error: rutaError, pipe: pipeTicket}
+	if errCierre != nil || pidfd < 0 {
+		causa := fmt.Errorf("Start sin cierre/pidfd: cierre=%v pidfd=%d", errCierre, pidfd)
+		return nil, errors.Join(causa, e.limpiar(limiteLimpieza()))
+	}
+	if err = enviar(pidfd, 0, pidfdSignalProcessGroup); err != nil {
+		return nil, errors.Join(fmt.Errorf("grupo no acreditado: %w", err), e.limpiar(limiteLimpieza()))
+	}
+	primera, err := leerInfo(e.pid)
+	if err != nil {
+		return nil, errors.Join(err, e.limpiar(limiteLimpieza()))
+	}
+	time.Sleep(time.Millisecond)
+	segunda, err := leerInfo(e.pid)
+	if err != nil || primera.ppid != os.Getpid() || primera.pgrp != e.pid || primera.inicio == 0 || primera.ppid != segunda.ppid || primera.pgrp != segunda.pgrp || primera.inicio != segunda.inicio {
+		return nil, errors.Join(errors.New("identidad inicial no estable"), err, e.limpiar(limiteLimpieza()))
+	}
+	e.inicio = primera.inicio
+	return e, nil
+}
+
+func (e *ejecucion) escribirYCerrar(texto string) error {
+	if e.escritor == nil {
+		return errors.New("escritor ya cerrado")
+	}
+	if _, err := e.escritor.WriteString(texto); err != nil {
+		return err
+	}
+	return e.cerrarEscritor()
+}
+
+func (e *ejecucion) cerrarEscritor() error {
+	if e.escritor == nil {
+		return nil
+	}
+	err := e.escritor.Close()
+	e.escritor = nil
+	return err
+}
+
+func (e *ejecucion) recoger(estadoEsperado int, limite time.Time) (resultado error) {
+	codigo, estado, err := esperarTerminal(e.pidfd, limite)
+	if err != nil {
+		return err
+	}
+	if codigo != cldExited || int(estado) != estadoEsperado {
+		return fmt.Errorf("terminalidad inesperada: codigo=%d estado=%d", codigo, estado)
+	}
+	errWait := e.cmd.Wait()
+	e.esperado = true
+	defer func() {
+		if e.pidfd >= 0 {
+			resultado = errors.Join(resultado, syscall.Close(e.pidfd))
+			e.pidfd = -1
+		}
+		resultado = errors.Join(resultado, drenarAdoptados(limite))
+		if !sinHijos() {
+			resultado = errors.Join(resultado, errors.New("hijo residual tras Wait"))
+		}
+	}()
+	estadoWait := 0
+	if errWait != nil {
+		var salida *exec.ExitError
+		if !errors.As(errWait, &salida) {
+			return errWait
+		}
+		estadoWait = salida.ExitCode()
+	}
+	if estadoWait != estadoEsperado {
+		return fmt.Errorf("Wait=%d esperado=%d", estadoWait, estadoEsperado)
+	}
+	if err := enviar(e.pidfd, 0, pidfdSignalProcessGroup); !errors.Is(err, syscall.ESRCH) {
+		return fmt.Errorf("grupo no terminal: %v", err)
+	}
+	return nil
+}
+
+func (e *ejecucion) limpiar(limite time.Time) (resultado error) {
+	resultado = e.cerrarEscritor()
+	if e.esperado {
+		if e.pidfd >= 0 {
+			resultado = errors.Join(resultado, syscall.Close(e.pidfd))
+			e.pidfd = -1
+		}
+		return errors.Join(resultado, drenarAdoptados(limite))
+	}
+	if e.pidfd < 0 {
+		return errors.Join(resultado, errors.New("limpieza sin pidfd"), drenarAdoptados(limite))
+	}
+	defer func() {
+		if e.pidfd >= 0 {
+			resultado = errors.Join(resultado, syscall.Close(e.pidfd))
+			e.pidfd = -1
+		}
+		resultado = errors.Join(resultado, drenarAdoptados(limite))
+	}()
+	if err := enviar(e.pidfd, syscall.SIGKILL, pidfdSignalProcessGroup); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return errors.Join(resultado, fmt.Errorf("KILL de limpieza: %w", err))
+	}
+	if _, _, err := esperarTerminal(e.pidfd, limite); err != nil {
+		return errors.Join(resultado, fmt.Errorf("terminalidad de limpieza: %w", err))
+	}
+	errWait := e.cmd.Wait()
+	e.esperado = true
+	if _, ok := errWait.(*exec.ExitError); errWait != nil && !ok {
+		resultado = errors.Join(resultado, errWait)
+	}
+	resultado = errors.Join(resultado, drenarAdoptados(limite))
+	if err := enviar(e.pidfd, 0, pidfdSignalProcessGroup); !errors.Is(err, syscall.ESRCH) {
+		resultado = errors.Join(resultado, fmt.Errorf("grupo residual tras limpieza: %v", err))
+	}
+	return resultado
+}
+
+func esperarSTOP(e *ejecucion, limite time.Time) (infoProceso, error) {
+	for time.Now().Before(limite) {
+		codigo, estado, disponible, err := eventoWaitid(e.pidfd, wStopped)
+		if err != nil {
+			return infoProceso{}, err
+		}
+		if disponible {
+			if codigo != cldStopped || estado != int32(syscall.SIGSTOP) {
+				return infoProceso{}, fmt.Errorf("STOP discrepante: %d/%d", codigo, estado)
+			}
+			primera, err := leerInfo(e.pid)
+			if err != nil {
+				return infoProceso{}, err
+			}
+			time.Sleep(time.Millisecond)
+			segunda, err := leerInfo(e.pid)
+			if err == nil && primera.estado == 'T' && primera.ppid == segunda.ppid && primera.pgrp == segunda.pgrp && primera.inicio == segunda.inicio {
+				return primera, nil
+			}
+			return infoProceso{}, errors.New("proc inestable durante STOP")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return infoProceso{}, errors.New("STOP no observado")
+}
+
+func esperarEstado(e *ejecucion, estado byte, limite time.Time) (infoProceso, error) {
+	for time.Now().Before(limite) {
+		info, err := leerInfo(e.pid)
+		if err == nil && info.estado == estado {
+			return info, nil
+		}
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return infoProceso{}, fmt.Errorf("estado %c no observado", estado)
+}
+
+func esperarTerminal(pidfd int, limite time.Time) (int32, int32, error) {
+	type pollfd struct {
+		fd               int32
+		eventos, retorno int16
+	}
+	p := pollfd{fd: int32(pidfd), eventos: 1}
+	for {
+		restante := time.Until(limite)
+		if restante <= 0 {
+			return 0, 0, errors.New("plazo terminal agotado")
+		}
+		ms := restante.Milliseconds()
+		if ms < 1 {
+			ms = 1
+		}
+		p.retorno = 0
+		n, _, errno := syscall.Syscall(syscall.SYS_POLL, uintptr(unsafe.Pointer(&p)), 1, uintptr(ms))
+		if errno == syscall.EINTR {
+			continue
+		}
+		if errno != 0 || n != 1 || p.retorno&1 == 0 {
+			return 0, 0, fmt.Errorf("poll terminal: n=%d revents=%x errno=%v", n, p.retorno, errno)
+		}
+		codigo, estado, disponible, err := eventoWaitid(pidfd, wExited)
+		if err != nil || !disponible {
+			return 0, 0, fmt.Errorf("waitid terminal: disponible=%v err=%v", disponible, err)
+		}
+		if codigo != cldExited && codigo != cldKilled && codigo != cldDumped {
+			return 0, 0, fmt.Errorf("codigo terminal=%d", codigo)
+		}
+		return codigo, estado, nil
+	}
+}
+
+func eventoWaitid(pidfd int, opciones uintptr) (int32, int32, bool, error) {
+	var info [128]byte
+	_, _, errno := syscall.Syscall6(sysWaitid, idTipoPidfd, uintptr(pidfd), uintptr(unsafe.Pointer(&info[0])), opciones|wNoHang|wNowait, 0, 0)
+	if errno == syscall.EINTR {
+		return 0, 0, false, nil
+	}
+	if errno != 0 {
+		return 0, 0, false, errno
+	}
+	signo := *(*int32)(unsafe.Pointer(&info[0]))
+	if signo == 0 {
+		return 0, 0, false, nil
+	}
+	codigo := *(*int32)(unsafe.Pointer(&info[8]))
+	estado := *(*int32)(unsafe.Pointer(&info[24]))
+	return codigo, estado, true, nil
+}
+
+func leerInfo(pid int) (infoProceso, error) {
+	datos, err := leerRutaAcotada(fmt.Sprintf("/proc/%d/stat", pid), 4096)
+	if err != nil {
+		return infoProceso{}, err
+	}
+	indice := strings.LastIndex(string(datos), ") ")
+	if indice < 0 {
+		return infoProceso{}, errors.New("stat sin cierre de comm")
+	}
+	campos := strings.Fields(string(datos[indice+2:]))
+	if len(campos) < 20 || len(campos[0]) != 1 {
+		return infoProceso{}, errors.New("stat truncado")
+	}
+	ppid, err := strconv.Atoi(campos[1])
+	if err != nil {
+		return infoProceso{}, err
+	}
+	pgrp, err := strconv.Atoi(campos[2])
+	if err != nil {
+		return infoProceso{}, err
+	}
+	inicio, err := strconv.ParseUint(campos[19], 10, 64)
+	if err != nil {
+		return infoProceso{}, err
+	}
+	return infoProceso{estado: campos[0][0], ppid: ppid, pgrp: pgrp, inicio: inicio}, nil
+}
+
+func hijosDe(pid int) ([]int, error) {
+	datos, err := leerRutaAcotada(fmt.Sprintf("/proc/%d/task/%d/children", pid, pid), 4096)
+	if err != nil {
+		return nil, err
+	}
+	var salida []int
+	for _, campo := range strings.Fields(string(datos)) {
+		valor, err := strconv.Atoi(campo)
+		if err != nil {
+			return nil, err
+		}
+		salida = append(salida, valor)
+	}
+	return salida, nil
+}
+
+func ticketValido(padre int) string {
+	h := strings.Repeat("0", 64)
+	u := os.Geteuid()
+	return fmt.Sprintf("%d|NOMINAL|%s|%s|1|1|%d|directory|700|2|1|1|%d|regular file|600|0|1|%s|1|1|%d|directory|700|2\n", padre, h, h, u, u, h, u)
+}
+
+func contieneEntorno(traza string) bool {
+	return strings.Contains(traza, "/usr/bin/env -0") || strings.Contains(traza, "/usr/bin/grep -zE")
+}
+
+func ordenSTOPEntorno(traza string) bool {
+	stop := strings.Index(traza, "builtin kill -STOP")
+	env := strings.Index(traza, "/usr/bin/env -0")
+	grep := strings.Index(traza, "/usr/bin/grep -zE")
+	return stop >= 0 && env > stop && grep > stop
+}
+
+func fallar(err error) {
+	fmt.Fprintf(os.Stderr, "conductor O3a-P1: %v\n", err)
+	os.Exit(65)
+}

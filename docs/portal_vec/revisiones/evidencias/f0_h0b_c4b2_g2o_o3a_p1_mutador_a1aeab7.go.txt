@@ -1,0 +1,374 @@
+// Evidencia durable del generador de mutantes O3a-P1.
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"syscall"
+	"time"
+)
+
+const (
+	shaMaterial      = "a1aeab7ed2a884d0fb10c265bd11982d3519ce49"
+	shaPadreMaterial = "758e66f9a283337dd542de0f1c898c581e202f47"
+	shaBase          = "e617024a52c4a042971b026d0799816933b489ed4221e9b6147317936d18054c"
+	shaCandidato     = "7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487"
+	tamanoRunner     = int64(46123)
+	rutaRunner       = "deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh"
+	shaBinario       = "5d28818ec289294dc7bf60726cc94790a084396fb2fb01115a6f1c0d2005621e"
+)
+
+const bloque = `estados_entorno=()
+if /usr/bin/env -0 |
+    /usr/bin/grep -zE '^(BASH_FUNC_|LD_)' >/dev/null
+then
+    estados_entorno=("${PIPESTATUS[@]}")
+    exit 65
+else
+    estados_entorno=("${PIPESTATUS[@]}")
+fi
+((${#estados_entorno[@]} == 2)) || exit 65
+[[ "${estados_entorno[0]}" == 0 &&
+   "${estados_entorno[1]}" == 1 ]] || exit 65
+unset estados_entorno
+`
+
+var rutasEvidencia = []string{
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_analizador_a1aeab7.go.txt",
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_mutador_a1aeab7.go.txt",
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_a1aeab7.go.txt",
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_archivos_a1aeab7.go.txt",
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_mutantes_a1aeab7.go.txt",
+	"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_sonda_a1aeab7.go.txt",
+}
+
+var huellasMutantes = map[string]string{
+	"M01": "e617024a52c4a042971b026d0799816933b489ed4221e9b6147317936d18054c",
+	"M02": "d95cbd7d2a401239742f3d1b67d46b9dcc12869e945aeedc1ad5f17bc450f276",
+	"M03": "b6527b16546ee3117a3a446886ded76c824b1dc391bc8560c10bb9b0090ff661",
+	"M04": "f976c5be2d348318838935fd704ba16e9afa9e360eaa003113ec0a94fcb3ae93",
+	"M05": "739eb921f06f55c289015c116953a5676be458eccb5c28c7dd83fedc45f91e27",
+	"M06": "b59fef757c28b08cbfba445fc0101f00574e94c220d2e15e69a1bd9eb70d146d",
+	"M07": "d39bb8a5f98a219cab32f74c85882094310e8e69f6de46f8d9122baec616e766",
+	"M08": "d7bebb53a104dd5f4de5d48f318993f978ad2b37bf64767b566d471365f8154d",
+	"M09": "b28379924d40c230ca122147b5d3c19de9b7391ae42ed7dbe8ec939ed46ae0af",
+	"M10": "bcffdc15cfd4777cd9cc84e9454cabdd5c580be1d64918391ef894e201dd5db3",
+	"M11": "a19e13b8d500cee925b2f92bc9ff08f883f77f49265c1897591a29e1dc1569a8",
+}
+
+type fuenteConductor struct {
+	ruta, nombre, huella string
+	tamano               int64
+}
+
+var fuentesConductor = []fuenteConductor{
+	{
+		"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_a1aeab7.go.txt",
+		"conductor_o3a_p1.go", "92b0dacc8eb57faf663bd1f7fdfcf372f4d7a8c95a88701e121a05787dd136e1", 21854,
+	},
+	{
+		"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_archivos_a1aeab7.go.txt",
+		"conductor_o3a_p1_archivos.go", "5583a99c95eeb20089626310695085bdb5a27859b70f16184a2cfa7306dec9f0", 4481,
+	},
+	{
+		"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_mutantes_a1aeab7.go.txt",
+		"conductor_o3a_p1_mutantes.go", "9de476222f4a32dc3d2ab5c8f45fbf8e8a5946b91a0292914e287b73e02a28dd", 10817,
+	},
+	{
+		"docs/portal_vec/revisiones/evidencias/f0_h0b_c4b2_g2o_o3a_p1_conductor_sonda_a1aeab7.go.txt",
+		"conductor_o3a_p1_sonda.go", "9777697f064e6327c03ddfae9da246f2be1936c7c0be9d5dd21bdb9a67dd6e68", 6801,
+	},
+}
+
+type escritorAcotado struct {
+	buffer bytes.Buffer
+	maximo int
+}
+
+var (
+	raizSalidas    *os.Root
+	salidasCreadas []string
+	salidasValidas bool
+)
+
+func (e *escritorAcotado) Write(p []byte) (int, error) {
+	if len(p) > e.maximo-e.buffer.Len() {
+		return 0, errors.New("salida excede el límite")
+	}
+	return e.buffer.Write(p)
+}
+
+func git(raiz string, argumentos ...string) (string, error) {
+	info, err := os.Lstat("/usr/bin/git")
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || info.Size() <= 0 || info.Size() > 16<<20 {
+		return "", errors.New("binario Git no acreditado")
+	}
+	forma, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || forma.Uid != 0 || forma.Nlink == 0 {
+		return "", errors.New("propiedad de Git no acreditada")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelar()
+	args := []string{
+		"--no-pager", "--no-optional-locks", "--no-replace-objects", "--literal-pathspecs",
+		"-c", "core.fsmonitor=false",
+		"-c", "core.hooksPath=/dev/null",
+		"-c", "core.pager=cat",
+		"-c", "color.ui=false",
+		"-C", raiz,
+	}
+	args = append(args, argumentos...)
+	cmd := exec.CommandContext(ctx, "/usr/bin/git", args...)
+	cmd.Dir = "/"
+	// No se hereda ninguna variable GIT_*, de localización, cargador o usuario.
+	cmd.Env = []string{
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+		"GIT_NO_REPLACE_OBJECTS=1",
+		"GIT_PAGER=cat",
+		"GIT_TERMINAL_PROMPT=0",
+		"HOME=/nonexistent",
+		"LANG=C",
+		"LC_ALL=C",
+		"PATH=/usr/bin:/bin",
+	}
+	salida := &escritorAcotado{maximo: 65536}
+	diagnostico := &escritorAcotado{maximo: 65536}
+	cmd.Stdout, cmd.Stderr = salida, diagnostico
+	err = cmd.Run()
+	if ctx.Err() != nil {
+		return "", errors.New("git excedió el plazo")
+	}
+	if err != nil {
+		return "", errors.New("git rechazó la comprobación")
+	}
+	return salida.buffer.String(), nil
+}
+
+func exigir(condicion bool, mensaje string) {
+	if !condicion {
+		retirarSalidas()
+		fmt.Fprintln(os.Stderr, mensaje)
+		os.Exit(65)
+	}
+}
+
+func retirarSalidas() {
+	if raizSalidas == nil || salidasValidas {
+		return
+	}
+	for i := len(salidasCreadas) - 1; i >= 0; i-- {
+		_ = raizSalidas.Remove(salidasCreadas[i])
+	}
+}
+
+func acreditarGenealogia(raiz string) string {
+	absoluta, err := filepath.Abs(raiz)
+	exigir(err == nil, "raíz no acreditada")
+	absoluta = filepath.Clean(absoluta)
+	real, err := filepath.EvalSymlinks(absoluta)
+	exigir(err == nil && real == absoluta, "raíz no canónica")
+	top, err := git(real, "rev-parse", "--show-toplevel")
+	exigir(err == nil, "repositorio no acreditado")
+	topReal, err := filepath.EvalSymlinks(strings.TrimSpace(top))
+	exigir(err == nil && topReal == real, "repositorio no acreditado")
+	head, err := git(real, "rev-parse", "HEAD")
+	exigir(err == nil, "HEAD no acreditado")
+	head = strings.TrimSpace(head)
+	if head == shaMaterial {
+		padre, err := git(real, "rev-parse", "HEAD^")
+		exigir(err == nil && strings.TrimSpace(padre) == shaPadreMaterial, "padre material discrepante")
+		diff, err := git(real, "diff", "--name-only", "--")
+		exigir(err == nil && diff == "", "cambios seguidos no autorizados")
+		indice, err := git(real, "diff", "--cached", "--name-only", "--")
+		exigir(err == nil && indice == "", "índice no autorizado")
+		argumentos := []string{"status", "--porcelain", "--untracked-files=all", "--"}
+		argumentos = append(argumentos, rutasEvidencia...)
+		estado, err := git(real, argumentos...)
+		exigir(err == nil, "estado precommit no acreditado")
+		lineas := strings.Split(strings.TrimSpace(estado), "\n")
+		esperadas := make([]string, len(rutasEvidencia))
+		for i, ruta := range rutasEvidencia {
+			esperadas[i] = "?? " + ruta
+		}
+		sort.Strings(lineas)
+		sort.Strings(esperadas)
+		exigir(strings.Join(lineas, "\n") == strings.Join(esperadas, "\n"), "evidencia precommit incompleta")
+	} else {
+		padre, err := git(real, "rev-parse", "HEAD^")
+		exigir(err == nil && strings.TrimSpace(padre) == shaMaterial, "commit de evidencia sin padre material")
+		abuelo, err := git(real, "rev-parse", "HEAD^^")
+		exigir(err == nil && strings.TrimSpace(abuelo) == shaPadreMaterial, "genealogía material discrepante")
+		estado, err := git(real, "status", "--porcelain", "--untracked-files=all")
+		exigir(err == nil && estado == "", "postcommit no limpio")
+		cambios, err := git(real, "diff-tree", "--no-commit-id", "--name-status", "-r", "HEAD")
+		exigir(err == nil, "commit de evidencia no acreditado")
+		lineas := strings.Split(strings.TrimSpace(cambios), "\n")
+		esperadas := make([]string, len(rutasEvidencia))
+		for i, ruta := range rutasEvidencia {
+			esperadas[i] = "A\t" + ruta
+		}
+		sort.Strings(lineas)
+		sort.Strings(esperadas)
+		exigir(strings.Join(lineas, "\n") == strings.Join(esperadas, "\n"), "write-set del commit de evidencia discrepante")
+		for _, ruta := range rutasEvidencia {
+			arbol, err := git(real, "ls-tree", "HEAD", "--", ruta)
+			exigir(err == nil && strings.HasPrefix(arbol, "100644 blob "), "modo Git de evidencia discrepante")
+		}
+	}
+	for _, ruta := range rutasEvidencia {
+		info, err := os.Lstat(filepath.Join(real, filepath.FromSlash(ruta)))
+		exigir(err == nil && info.Mode().IsRegular() && info.Mode().Perm() == 0644, "forma física de evidencia discrepante")
+	}
+	return real
+}
+
+func leerCandidato(ruta string) []byte {
+	fd, err := syscall.Open(ruta, syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	exigir(err == nil, "runner no accesible")
+	archivo := os.NewFile(uintptr(fd), "runner-material")
+	defer archivo.Close()
+	info, err := archivo.Stat()
+	exigir(err == nil && info.Mode().IsRegular() && info.Size() == tamanoRunner, "forma del runner discrepante")
+	permisos := info.Mode().Perm()
+	exigir(permisos == 0755 || permisos == 0775, "modo físico del runner discrepante")
+	datos, err := io.ReadAll(io.LimitReader(archivo, tamanoRunner+1))
+	exigir(err == nil && int64(len(datos)) == tamanoRunner, "lectura del runner discrepante")
+	exigir(fmt.Sprintf("%x", sha256.Sum256(datos)) == shaCandidato, "huella del runner discrepante")
+	return datos
+}
+
+func leerFuenteConductor(raiz string, fuente fuenteConductor) []byte {
+	ruta := filepath.Join(raiz, filepath.FromSlash(fuente.ruta))
+	fd, err := syscall.Open(ruta, syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	exigir(err == nil, "fuente del conductor no accesible")
+	archivo := os.NewFile(uintptr(fd), "fuente-conductor")
+	defer archivo.Close()
+	info, err := archivo.Stat()
+	exigir(err == nil && info.Mode().IsRegular() && info.Mode().Perm() == 0644 && info.Size() == fuente.tamano, "forma de fuente del conductor discrepante")
+	datos, err := io.ReadAll(io.LimitReader(archivo, fuente.tamano+1))
+	exigir(err == nil && int64(len(datos)) == fuente.tamano, "lectura de fuente del conductor discrepante")
+	exigir(fmt.Sprintf("%x", sha256.Sum256(datos)) == fuente.huella, "huella de fuente del conductor discrepante")
+	return datos
+}
+
+func leerMaterialLigado(raiz string) []byte {
+	datos := leerCandidato(filepath.Join(raiz, filepath.FromSlash(rutaRunner)))
+	arbol, err := git(raiz, "ls-tree", "HEAD", "--", rutaRunner)
+	exigir(err == nil, "entrada Git del runner ausente")
+	campos := strings.Fields(arbol)
+	exigir(len(campos) == 4 && campos[0] == "100755" && campos[1] == "blob" && len(campos[2]) == 40 && campos[3] == rutaRunner, "entrada Git del runner discrepante")
+	blob, err := git(raiz, "cat-file", "blob", "HEAD:"+rutaRunner)
+	exigir(err == nil && len(blob) == int(tamanoRunner) && bytes.Equal(datos, []byte(blob)), "runner físico no ligado al blob de HEAD")
+	return datos
+}
+
+func una(datos []byte, viejo, nuevo string) []byte {
+	exigir(bytes.Count(datos, []byte(viejo)) == 1, "patrón mutante no único")
+	return bytes.Replace(datos, []byte(viejo), []byte(nuevo), 1)
+}
+
+func mover(datos []byte, ancla string) []byte {
+	datos = una(datos, bloque, "")
+	return una(datos, ancla, bloque+ancla)
+}
+
+func baseDesdeCandidato(datos []byte) []byte {
+	base := una(datos, bloque, "")
+	base = una(base, "export LC_ALL=C\n", bloque+"export LC_ALL=C\n")
+	exigir(fmt.Sprintf("%x", sha256.Sum256(base)) == shaBase, "reversión base discrepante")
+	return base
+}
+
+func escribir(raiz *os.Root, nombre string, datos []byte) {
+	archivo, err := raiz.OpenFile(nombre, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	exigir(err == nil, "no se pudo crear una salida")
+	salidasCreadas = append(salidasCreadas, nombre)
+	n, err := archivo.Write(datos)
+	errCierre := archivo.Close()
+	exigir(err == nil && n == len(datos) && errCierre == nil, "escritura de salida incompleta")
+}
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "uso: mutador RAIZ_REPOSITORIO DIRECTORIO_VACIO")
+		os.Exit(64)
+	}
+	raiz := acreditarGenealogia(os.Args[1])
+	salidaAbsoluta, err := filepath.Abs(os.Args[2])
+	exigir(err == nil, "directorio de salida no acreditado")
+	salidaAbsoluta = filepath.Clean(salidaAbsoluta)
+	salidaReal, err := filepath.EvalSymlinks(salidaAbsoluta)
+	exigir(err == nil && salidaReal == salidaAbsoluta, "directorio de salida no canónico")
+	relativa, err := filepath.Rel(raiz, salidaReal)
+	exigir(err == nil && relativa != "." && relativa != ".." && strings.HasPrefix(relativa, ".."+string(filepath.Separator)), "directorio de salida dentro del repositorio")
+	infoSalida, err := os.Lstat(salidaReal)
+	exigir(err == nil && infoSalida.IsDir() && infoSalida.Mode().Perm()&0077 == 0, "directorio de salida no privado")
+	entradas, err := os.ReadDir(salidaReal)
+	exigir(err == nil && len(entradas) == 0, "directorio de salida no vacío o inaccesible")
+	salida, err := os.OpenRoot(salidaReal)
+	exigir(err == nil, "directorio de salida no acreditado")
+	raizSalidas = salida
+	defer salida.Close()
+	datos := leerMaterialLigado(raiz)
+	datosConductor := make([][]byte, len(fuentesConductor))
+	for i, fuente := range fuentesConductor {
+		datosConductor[i] = leerFuenteConductor(raiz, fuente)
+	}
+	base := baseDesdeCandidato(datos)
+	casos := map[string][]byte{
+		"M01": mover(datos, "export LC_ALL=C\n"),
+		"M02": mover(datos, "    [[ -n \"${zh}\""),
+		"M03": una(datos, "forma_temporal_m38='' forma_runner_m38='' forma_raiz_m38=''\n", "forma_temporal_m38='' forma_runner_m38='' forma_raiz_m38=''\n/usr/bin/true\n"),
+		"M04": una(datos, "    builtin kill -STOP \"${BASHPID}\"\n", "    /usr/bin/true\n    builtin kill -STOP \"${BASHPID}\"\n"),
+		"M05": una(datos, "    exec 9<&-\n", ""),
+		"M06": una(datos, "    if IFS= read -r _ <&9 2>/dev/null; then exit 64; fi\n", ""),
+		"M08": una(datos, bloque, ""),
+		"M09": una(datos, bloque, bloque+bloque),
+		"M10": una(datos, "'^(BASH_FUNC_|LD_)'", "'^(BASH_FUNC_)'"),
+		"M11": mover(datos, "cd -- \"${raiz}\" || exit 65\n"),
+	}
+	sinStop := una(datos, "    builtin kill -STOP \"${BASHPID}\"\n", "")
+	casos["M07"] = una(sinStop, "    exec 9<&-\n", "    exec 9<&-\n    builtin kill -STOP \"${BASHPID}\"\n")
+	escribir(salida, "BASE.sh", base)
+	for numero := 1; numero <= 11; numero++ {
+		nombre := fmt.Sprintf("M%02d", numero)
+		contenido := casos[nombre]
+		huella := fmt.Sprintf("%x", sha256.Sum256(contenido))
+		exigir(huella == huellasMutantes[nombre], "huella mutante discrepante")
+		escribir(salida, nombre+".sh", contenido)
+		fmt.Printf("mutante=%s sha=%s\n", nombre, huella)
+	}
+	for i, fuente := range fuentesConductor {
+		escribir(salida, fuente.nombre, datosConductor[i])
+	}
+	raizFinal := acreditarGenealogia(os.Args[1])
+	datosFinales := leerMaterialLigado(raizFinal)
+	exigir(raizFinal == raiz && bytes.Equal(datosFinales, datos), "material cambió durante la generación")
+	for i, fuente := range fuentesConductor {
+		exigir(bytes.Equal(leerFuenteConductor(raizFinal, fuente), datosConductor[i]), "fuente del conductor cambió durante la generación")
+	}
+	salidasValidas = true
+	fmt.Printf("conductor=preparado fuentes=4 sha_binario=%s marcadores=[%q,%q,%q] preparar=[[%q,%q,%q,%q],[%q,%q,%q,%q],[%q,%q,%q,%q],[%q,%q,%q,%q],[%q,%q,%q,%q]] cwd=%q ejecutable=%q entorno=env-i env=[%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q,%q] argv=[%q,%q,%q,%q,%q,%q,%q,%q,%q]\n",
+		shaBinario, "RAIZ_REPOSITORIO=argumento_1_canonico_acreditado", "DIRECTORIO_SALIDA=argumento_2_canonico_acreditado", "EJECUTABLE_GO_1_26_5_ACREDITADO=go1.26.5-linux/amd64",
+		"mkdir", "-m", "0700", "DIRECTORIO_SALIDA/entorno", "mkdir", "-m", "0700", "DIRECTORIO_SALIDA/temporal",
+		"mkdir", "-m", "0700", "DIRECTORIO_SALIDA/gocache", "mkdir", "-m", "0700", "DIRECTORIO_SALIDA/gomodcache",
+		"mkdir", "-m", "0700", "DIRECTORIO_SALIDA/gopath", "RAIZ_REPOSITORIO", "EJECUTABLE_GO_1_26_5_ACREDITADO",
+		"HOME=DIRECTORIO_SALIDA/entorno", "TMPDIR=DIRECTORIO_SALIDA/temporal", "GOCACHE=DIRECTORIO_SALIDA/gocache",
+		"GOMODCACHE=DIRECTORIO_SALIDA/gomodcache", "GOPATH=DIRECTORIO_SALIDA/gopath", "LC_ALL=C", "PATH=/usr/bin:/bin",
+		"GOENV=off", "GOTOOLCHAIN=local", "GOOS=linux", "GOARCH=amd64", "GOAMD64=v1", "CGO_ENABLED=1", "GOFLAGS=", "GOEXPERIMENT=", "GOWORK=off",
+		"build", "-a", "-trimpath", "-o", "DIRECTORIO_SALIDA/conductor_o3a_p1",
+		"DIRECTORIO_SALIDA/conductor_o3a_p1.go", "DIRECTORIO_SALIDA/conductor_o3a_p1_archivos.go",
+		"DIRECTORIO_SALIDA/conductor_o3a_p1_mutantes.go", "DIRECTORIO_SALIDA/conductor_o3a_p1_sonda.go")
+	fmt.Printf("material=%s padre=%s base=%s candidato=%s mutantes=11\n", shaMaterial, shaPadreMaterial, shaBase, shaCandidato)
+}

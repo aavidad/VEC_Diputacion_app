@@ -1,0 +1,168 @@
+// Evidencia durable del analizador estructural O3a-P1.
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"syscall"
+)
+
+const (
+	shaMaterial      = "a1aeab7ed2a884d0fb10c265bd11982d3519ce49"
+	shaPadreMaterial = "758e66f9a283337dd542de0f1c898c581e202f47"
+	shaBase          = "e617024a52c4a042971b026d0799816933b489ed4221e9b6147317936d18054c"
+	shaCandidato     = "7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487"
+	tamanoRunner     = int64(46123)
+)
+
+const bloqueEntorno = `estados_entorno=()
+if /usr/bin/env -0 |
+    /usr/bin/grep -zE '^(BASH_FUNC_|LD_)' >/dev/null
+then
+    estados_entorno=("${PIPESTATUS[@]}")
+    exit 65
+else
+    estados_entorno=("${PIPESTATUS[@]}")
+fi
+((${#estados_entorno[@]} == 2)) || exit 65
+[[ "${estados_entorno[0]}" == 0 &&
+   "${estados_entorno[1]}" == 1 ]] || exit 65
+unset estados_entorno
+`
+
+var anclas = []struct {
+	codigo string
+	texto  string
+}{
+	{"lectura_fd9", `    IFS='|' read -r padre_m38 caso_m38 identidad_m38 cid_esperado_m38 td ti tu tt tm th rd ri ru rt rm rh rs rsha zd zi zu zt zm zh <&9 2>/dev/null || exit 64`},
+	{"cardinalidad_fd9", `    if IFS= read -r _ <&9 2>/dev/null; then exit 64; fi`},
+	{"cierre_fd9", `    exec 9<&-`},
+	{"validacion_inicio", `    [[ -n "${zh}" && "${zh}" != *'|'* && "${padre_m38}" == "${PPID}" &&`},
+	{"validacion_fin", `       "${selector_inyeccion_h0b}" =~ ^(A0[1-3]|[NE](0[1-9]|10)|F(0[1-9]|1[0-5])|NOMINAL)$ ]] || exit 64`},
+	{"monitor_desactivar", `    set +m`},
+	{"monitor_comprobar", `    [[ "$-" != *m* ]] || exit 64`},
+	{"auto_stop", `    builtin kill -STOP "${BASHPID}"`},
+}
+
+func fallar(codigo string) {
+	fmt.Println("rechazo=" + codigo)
+	os.Exit(1)
+}
+
+func leerRegular(ruta string, modoBase bool) []byte {
+	fd, err := syscall.Open(ruta, syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		fallar("abrir_entrada")
+	}
+	archivo := os.NewFile(uintptr(fd), "entrada-acreditada")
+	defer archivo.Close()
+	info, err := archivo.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 65536 {
+		fallar("forma_entrada")
+	}
+	permisos := info.Mode().Perm()
+	if modoBase {
+		if info.Size() != tamanoRunner || permisos != 0600 && permisos != 0644 {
+			fallar("modo_base")
+		}
+	} else if permisos != 0600 && permisos != 0644 && permisos != 0755 && permisos != 0775 {
+		fallar("modo_candidato")
+	}
+	datos, err := io.ReadAll(io.LimitReader(archivo, 65537))
+	if err != nil || int64(len(datos)) != info.Size() {
+		fallar("lectura_entrada")
+	}
+	return datos
+}
+
+func proyectar(base []byte) []byte {
+	if bytes.Count(base, []byte(bloqueEntorno)) != 1 {
+		fallar("base_bloque_entorno")
+	}
+	sin := bytes.Replace(base, []byte(bloqueEntorno), nil, 1)
+	ancla := []byte("fi\nif [[ \"${modo_m38}\" == hijo ]]; then")
+	if bytes.Count(sin, ancla) != 1 {
+		fallar("base_ancla_insercion")
+	}
+	reemplazo := []byte("fi\n" + bloqueEntorno + `if [[ "${modo_m38}" == hijo ]]; then`)
+	return bytes.Replace(sin, ancla, reemplazo, 1)
+}
+
+func lineas(texto string) []string {
+	return strings.Split(strings.TrimSuffix(texto, "\n"), "\n")
+}
+
+func indiceUnico(ls []string, texto, codigo string) int {
+	indice, cuenta := -1, 0
+	for i, linea := range ls {
+		if linea == texto {
+			indice, cuenta = i, cuenta+1
+		}
+	}
+	if cuenta != 1 {
+		fallar(codigo)
+	}
+	return indice
+}
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "uso: analizador BASE CANDIDATO")
+		os.Exit(64)
+	}
+	if len(shaMaterial) != 40 || len(shaPadreMaterial) != 40 {
+		fallar("genealogia_interna")
+	}
+	base := leerRegular(os.Args[1], true)
+	candidato := leerRegular(os.Args[2], false)
+	if fmt.Sprintf("%x", sha256.Sum256(base)) != shaBase {
+		fallar("sha_base")
+	}
+	if bytes.Count(candidato, []byte("/usr/bin/env -0 |")) != 1 {
+		fallar("pipeline_cardinalidad")
+	}
+	if bytes.Count(candidato, []byte(bloqueEntorno)) != 1 {
+		fallar("bloque_entorno_exacto")
+	}
+	ls := lineas(string(candidato))
+	pos := make([]int, len(anclas))
+	for i, ancla := range anclas {
+		pos[i] = indiceUnico(ls, ancla.texto, ancla.codigo)
+	}
+	for i := 1; i < len(pos); i++ {
+		if pos[i-1] >= pos[i] {
+			fallar("orden_" + anclas[i].codigo)
+		}
+	}
+	primeraEntorno := strings.Index(string(candidato), bloqueEntorno)
+	posStop := strings.Index(string(candidato), anclas[len(anclas)-1].texto)
+	posModo := strings.Index(string(candidato), `if [[ "${modo_m38}" == hijo ]]; then`)
+	if primeraEntorno <= posStop {
+		fallar("entorno_antes_stop")
+	}
+	if posModo <= primeraEntorno {
+		fallar("entorno_despues_modo")
+	}
+	esperado := proyectar(base)
+	esperadoLineas := lineas(string(esperado))
+	stop := pos[len(pos)-1]
+	for i := 0; i <= stop; i++ {
+		if i >= len(esperadoLineas) || ls[i] != esperadoLineas[i] {
+			fallar("prefijo_no_permitido")
+		}
+	}
+	if !bytes.Equal(candidato, esperado) {
+		fallar("transformacion_no_exclusiva")
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(candidato)) != shaCandidato {
+		fallar("sha_candidato")
+	}
+	if len(ls) != 702 {
+		fallar("lineas")
+	}
+	fmt.Printf("ok=1 lineas=702 sha=%x\n", sha256.Sum256(candidato))
+}

@@ -1,0 +1,243 @@
+// Sonda y limpieza de procesos del conductor transitorio O3a-P1.
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+	"time"
+	"unsafe"
+)
+
+func activarSubreaper() error {
+	if _, _, errno := syscall.Syscall6(syscall.SYS_PRCTL, prSetChildSubreaper, 1, 0, 0, 0, 0); errno != 0 {
+		return errno
+	}
+	var valor int32
+	if _, _, errno := syscall.Syscall6(syscall.SYS_PRCTL, prGetChildSubreaper, uintptr(unsafe.Pointer(&valor)), 0, 0, 0, 0); errno != 0 {
+		return errno
+	}
+	if valor != 1 {
+		return errors.New("subreaper no acreditado")
+	}
+	return nil
+}
+
+func autogatePidfdGrupo() (resultado error) {
+	if err := exigirPlazoGlobal(); err != nil {
+		return err
+	}
+	lector, escritor, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	nulo, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
+	if err != nil {
+		_ = lector.Close()
+		_ = escritor.Close()
+		return err
+	}
+	pidfd := -1
+	cmd := exec.Command("/usr/bin/bash", "-p", "-c", "/usr/bin/bash -p -c 'IFS= read -r _ <&3' & IFS= read -r _ <&3")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = nulo, nulo, nulo
+	cmd.ExtraFiles = []*os.File{lector}
+	cmd.Dir = "/"
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LC_ALL=C"}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0, Pdeathsig: syscall.SIGKILL, PidFD: &pidfd}
+	errInicio := cmd.Start()
+	errLector := lector.Close()
+	errNulo := nulo.Close()
+	if errInicio != nil {
+		_ = escritor.Close()
+		return errInicio
+	}
+	pidfdMiembro := -1
+	liderTerminal := false
+	miembroTerminal := false
+	esperado := false
+	limite := limiteCaso()
+	limiteLimpieza := limiteLimpieza()
+	defer func() {
+		resultado = errors.Join(resultado, escritor.Close())
+		if pidfdMiembro >= 0 && !miembroTerminal {
+			if err := enviar(pidfdMiembro, syscall.SIGKILL, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
+				resultado = errors.Join(resultado, err)
+			}
+			if _, _, err := esperarTerminal(pidfdMiembro, limiteLimpieza); err == nil {
+				miembroTerminal = true
+			} else {
+				resultado = errors.Join(resultado, err)
+			}
+		}
+		if pidfd >= 0 && !liderTerminal {
+			if err := enviar(pidfd, syscall.SIGKILL, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
+				resultado = errors.Join(resultado, err)
+			}
+			if _, _, err := esperarTerminal(pidfd, limiteLimpieza); err == nil {
+				liderTerminal = true
+			} else {
+				resultado = errors.Join(resultado, err)
+			}
+		}
+		if liderTerminal && !esperado {
+			if err := cmd.Wait(); err != nil {
+				var salida *exec.ExitError
+				if !errors.As(err, &salida) {
+					resultado = errors.Join(resultado, err)
+				}
+			}
+			esperado = true
+		}
+		if pidfdMiembro >= 0 {
+			resultado = errors.Join(resultado, syscall.Close(pidfdMiembro))
+		}
+		if pidfd >= 0 {
+			resultado = errors.Join(resultado, syscall.Close(pidfd))
+		}
+		resultado = errors.Join(resultado, drenarAdoptados(limiteLimpieza))
+	}()
+	if errLector != nil || errNulo != nil || pidfd < 0 {
+		return fmt.Errorf("sonda sin cierre/pidfd: lector=%v nulo=%v pidfd=%d", errLector, errNulo, pidfd)
+	}
+	if err = enviar(pidfd, 0, pidfdSignalProcessGroup); err != nil {
+		return err
+	}
+	miembro, err := esperarMiembro(cmd.Process.Pid, limite)
+	if err != nil {
+		return err
+	}
+	descriptor, _, errno := syscall.Syscall(sysPidfdOpen, uintptr(miembro), 0, 0)
+	if errno != 0 {
+		return errno
+	}
+	pidfdMiembro = int(descriptor)
+	if err = enviar(pidfdMiembro, 0, 0); err != nil {
+		return err
+	}
+	if err = enviar(pidfd, syscall.SIGKILL, pidfdSignalProcessGroup); err != nil {
+		return err
+	}
+	codigo, estado, err := esperarTerminal(pidfd, limite)
+	if err != nil {
+		return err
+	}
+	liderTerminal = true
+	if codigo != cldKilled || estado != int32(syscall.SIGKILL) {
+		return fmt.Errorf("sonda terminal discrepante: codigo=%d estado=%d", codigo, estado)
+	}
+	codigoMiembro, estadoMiembro, err := esperarTerminal(pidfdMiembro, limite)
+	if err != nil {
+		return fmt.Errorf("la señal de grupo no alcanzó al miembro: %w", err)
+	}
+	miembroTerminal = true
+	if codigoMiembro != cldKilled || estadoMiembro != int32(syscall.SIGKILL) {
+		return fmt.Errorf("miembro terminal discrepante: codigo=%d estado=%d", codigoMiembro, estadoMiembro)
+	}
+	errWait := cmd.Wait()
+	esperado = true
+	var salida *exec.ExitError
+	if !errors.As(errWait, &salida) || salida.ExitCode() != -1 {
+		return fmt.Errorf("Wait de sonda discrepante: %v", errWait)
+	}
+	if err = drenarAdoptados(limite); err != nil {
+		return fmt.Errorf("drenaje del miembro de sonda: %w", err)
+	}
+	if err = enviar(pidfd, 0, pidfdSignalProcessGroup); !errors.Is(err, syscall.ESRCH) {
+		return fmt.Errorf("grupo de sonda no terminal: %v", err)
+	}
+	return nil
+}
+
+func esperarMiembro(lider int, limite time.Time) (int, error) {
+	for time.Now().Before(limite) {
+		hijos, err := hijosDe(lider)
+		if err == nil && len(hijos) == 1 {
+			return hijos[0], nil
+		}
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return 0, errors.New("miembro de la sonda no observado")
+}
+
+func enviar(pidfd int, senal syscall.Signal, banderas uintptr) error {
+	_, _, errno := syscall.Syscall6(sysPidfdSendSignal, uintptr(pidfd), uintptr(senal), 0, banderas, 0, 0)
+	if errno != 0 {
+		return errno
+	}
+	return nil
+}
+
+func drenarAdoptados(limite time.Time) error {
+	for time.Now().Before(limite) {
+		var estado syscall.WaitStatus
+		pid, err := syscall.Wait4(-1, &estado, syscall.WNOHANG, nil)
+		if errors.Is(err, syscall.ECHILD) {
+			return nil
+		}
+		if err != nil && !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+		if pid > 0 {
+			continue
+		}
+		hijos, err := hijosDe(os.Getpid())
+		if err != nil {
+			return err
+		}
+		for _, hijo := range hijos {
+			descriptor, _, errno := syscall.Syscall(sysPidfdOpen, uintptr(hijo), 0, 0)
+			if errno == syscall.ESRCH {
+				continue
+			}
+			if errno != 0 {
+				return errno
+			}
+			pidfd := int(descriptor)
+			if err = enviar(pidfd, syscall.SIGKILL, 0); err != nil && !errors.Is(err, syscall.ESRCH) {
+				_ = syscall.Close(pidfd)
+				return err
+			}
+			if _, _, err = esperarTerminal(pidfd, limite); err != nil {
+				_ = syscall.Close(pidfd)
+				return err
+			}
+			if err = syscall.Close(pidfd); err != nil {
+				return err
+			}
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return errors.New("drenaje de adoptados agotó plazo")
+}
+
+func sinHijos() bool {
+	var estado syscall.WaitStatus
+	_, err := syscall.Wait4(-1, &estado, syscall.WNOHANG, nil)
+	return errors.Is(err, syscall.ECHILD)
+}
+
+func snapshotFD() (string, error) {
+	entradas, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return "", err
+	}
+	var salida []string
+	for _, entrada := range entradas {
+		ruta := "/proc/self/fd/" + entrada.Name()
+		destino, err := os.Readlink(ruta)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		salida = append(salida, entrada.Name()+"="+destino)
+	}
+	return strings.Join(salida, "\n"), nil
+}

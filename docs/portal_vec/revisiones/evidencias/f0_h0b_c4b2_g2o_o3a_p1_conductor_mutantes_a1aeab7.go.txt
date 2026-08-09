@@ -1,0 +1,352 @@
+// Matriz conductual transitoria de mutantes O3a-P1.
+package main
+
+import (
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"syscall"
+	"time"
+)
+
+type metadatoMutante struct {
+	huella string
+	bytes  int64
+}
+
+var metadatosMutantes = map[string]metadatoMutante{
+	"M01": {"e617024a52c4a042971b026d0799816933b489ed4221e9b6147317936d18054c", 46123},
+	"M02": {"d95cbd7d2a401239742f3d1b67d46b9dcc12869e945aeedc1ad5f17bc450f276", 46123},
+	"M03": {"b6527b16546ee3117a3a446886ded76c824b1dc391bc8560c10bb9b0090ff661", 46137},
+	"M04": {"f976c5be2d348318838935fd704ba16e9afa9e360eaa003113ec0a94fcb3ae93", 46141},
+	"M05": {"739eb921f06f55c289015c116953a5676be458eccb5c28c7dd83fedc45f91e27", 46109},
+	"M06": {"b59fef757c28b08cbfba445fc0101f00574e94c220d2e15e69a1bd9eb70d146d", 46067},
+	"M07": {"d39bb8a5f98a219cab32f74c85882094310e8e69f6de46f8d9122baec616e766", 46123},
+	"M08": {"d7bebb53a104dd5f4de5d48f318993f978ad2b37bf64767b566d471365f8154d", 45777},
+	"M09": {"b28379924d40c230ca122147b5d3c19de9b7391ae42ed7dbe8ec939ed46ae0af", 46469},
+	"M10": {"bcffdc15cfd4777cd9cc84e9454cabdd5c580be1d64918391ef894e201dd5db3", 46119},
+	"M11": {"a19e13b8d500cee925b2f92bc9ff08f883f77f49265c1897591a29e1dc1569a8", 46123},
+}
+
+func autoprobarMutantes(directorio, temporal string) error {
+	for _, nombre := range []string{"M01", "M02", "M03", "M04", "M05", "M06", "M07", "M08", "M10", "M11"} {
+		if err := exigirPlazoGlobal(); err != nil {
+			return err
+		}
+		datos, err := leerMutante(directorio, nombre)
+		if err != nil {
+			return fmt.Errorf("%s no acreditado: %w", nombre, err)
+		}
+		runner, err := crearRunnerPrivado(datos, temporal)
+		if err != nil {
+			return fmt.Errorf("%s sin runner privado: %w", nombre, err)
+		}
+		err = ejecutarMutante(nombre, runner, temporal)
+		err = errors.Join(err, runner.archivo.Close())
+		if err != nil {
+			return fmt.Errorf("%s sobrevivió o no limpió: %w", nombre, err)
+		}
+	}
+	if err := exigirPlazoGlobal(); err != nil {
+		return err
+	}
+	datos, err := leerMutante(directorio, "M09")
+	if err != nil {
+		return err
+	}
+	if strings.Count(string(datos), "/usr/bin/env -0 |") != 2 {
+		return errors.New("M09 no conserva dos pipelines")
+	}
+	return nil
+}
+
+func leerMutante(directorio, nombre string) ([]byte, error) {
+	esperado, existe := metadatosMutantes[nombre]
+	if !existe {
+		return nil, errors.New("mutante no enumerado")
+	}
+	ruta := filepath.Join(directorio, nombre+".sh")
+	fd, err := syscall.Open(ruta, syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	archivo := os.NewFile(uintptr(fd), "mutante")
+	defer archivo.Close()
+	info, err := archivo.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0002 != 0 || info.Size() != esperado.bytes {
+		return nil, fmt.Errorf("forma mutante inválida: modo=%v err=%v", info, err)
+	}
+	datos, err := leerArchivoAcotado(archivo, esperado.bytes)
+	if err != nil {
+		return nil, err
+	}
+	if obtenida := fmt.Sprintf("%x", sha256.Sum256(datos)); obtenida != esperado.huella {
+		return nil, fmt.Errorf("huella=%s", obtenida)
+	}
+	return datos, nil
+}
+
+func ejecutarMutante(nombre string, runner *runnerPrivado, temporal string) error {
+	switch nombre {
+	case "M01":
+		return mutanteBloqueado(runner, temporal, nombre, "/usr/bin/env -0")
+	case "M03":
+		return mutanteBloqueado(runner, temporal, nombre, "/usr/bin/true")
+	case "M02":
+		return mutanteEntornoAntesSTOP(runner, temporal, nombre)
+	case "M04":
+		return mutanteOrdenAntesSTOP(runner, temporal, nombre)
+	case "M05":
+		return mutanteFD9Abierto(runner, temporal, nombre)
+	case "M06":
+		return mutanteSegundaAceptada(runner, temporal, nombre)
+	case "M07":
+		return mutanteAdversoDetenido(runner, temporal, nombre)
+	case "M08", "M10":
+		return mutanteEntornoOmitido(runner, temporal, nombre)
+	case "M11":
+		return mutanteRaizAntesEntorno(runner, temporal, nombre)
+	default:
+		return errors.New("mutante conductual no enumerado")
+	}
+}
+
+func mutanteBloqueado(runner *runnerPrivado, temporal, nombre, orden string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	limite := limiteCaso()
+	traza, err := esperarAnclaTraza(e.traza, "read -r", limite)
+	if err != nil {
+		return err
+	}
+	if _, err = esperarEstado(e, 'S', limite); err != nil {
+		return err
+	}
+	indiceOrden := strings.Index(traza, orden)
+	indiceRead := strings.LastIndex(traza, "read -r")
+	if err != nil || indiceOrden < 0 || indiceRead <= indiceOrden || contieneSTOP(traza) {
+		return fmt.Errorf("orden externo no completado antes del read: orden=%d read=%d stop=%v err=%v", indiceOrden, indiceRead, contieneSTOP(traza), err)
+	}
+	if err = e.limpiar(limiteLimpieza()); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteEntornoAntesSTOP(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid())); err != nil {
+		return err
+	}
+	if err = e.recoger(65, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || !contieneEntorno(traza) || contieneSTOP(traza) {
+		return errors.New("M02 no ejecutó entorno antes de STOP")
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteOrdenAntesSTOP(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid())); err != nil {
+		return err
+	}
+	if _, err = esperarSTOP(e, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	if err != nil || strings.Index(traza, "/usr/bin/true") < 0 || strings.Index(traza, "/usr/bin/true") > strings.Index(traza, "builtin kill -STOP") {
+		return errors.New("M04 no ejecutó true antes de STOP")
+	}
+	if err = e.limpiar(limiteLimpieza()); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteFD9Abierto(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid())); err != nil {
+		return err
+	}
+	if _, err = esperarSTOP(e, limiteCaso()); err != nil {
+		return err
+	}
+	destino, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/9", e.pid))
+	if err != nil || destino != e.pipe {
+		return errors.New("M05 no conservó FD9")
+	}
+	if err = e.limpiar(limiteLimpieza()); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteSegundaAceptada(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar(ticketValido(os.Getpid()) + "sobrante\n"); err != nil {
+		return err
+	}
+	if _, err = esperarSTOP(e, limiteCaso()); err != nil {
+		return err
+	}
+	if err = e.limpiar(limiteLimpieza()); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteAdversoDetenido(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, true, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.escribirYCerrar("adverso\n"); err != nil {
+		return err
+	}
+	if _, err = esperarSTOP(e, limiteCaso()); err != nil {
+		return err
+	}
+	if err = e.limpiar(limiteLimpieza()); err != nil {
+		return err
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func mutanteEntornoOmitido(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, false, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.cerrarEscritor(); err != nil {
+		return err
+	}
+	if err = e.recoger(65, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	dirname := strings.Index(traza, "dirname --")
+	entorno := strings.Index(traza, "/usr/bin/env -0")
+	if err != nil || dirname < 0 || contieneSTOP(traza) ||
+		(nombre == "M08" && entorno >= 0) || (nombre == "M10" && (entorno < 0 || dirname <= entorno)) {
+		return errors.New("M08/M10 aceptó LD sin alcanzar la raíz")
+	}
+	return validarFalloRaizYRetirar(e)
+}
+
+func mutanteRaizAntesEntorno(runner *runnerPrivado, temporal, nombre string) (err error) {
+	e, err := iniciar(runner, temporal, nombre, false, "LD")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if !e.esperado {
+			err = errors.Join(err, e.limpiar(limiteLimpieza()))
+		}
+	}()
+	if err = e.cerrarEscritor(); err != nil {
+		return err
+	}
+	if err = e.recoger(65, limiteCaso()); err != nil {
+		return err
+	}
+	traza, err := leerTraza(e.traza)
+	dirname := strings.Index(traza, "dirname --")
+	entorno := strings.Index(traza, "/usr/bin/env -0")
+	if err != nil || dirname < 0 || (entorno >= 0 && entorno <= dirname) || contieneSTOP(traza) {
+		return errors.New("M11 no resolvió raíz antes del entorno")
+	}
+	if entorno < 0 {
+		return validarFalloRaizYRetirar(e)
+	}
+	return e.validarYRetirarEvidencia()
+}
+
+func contieneSTOP(traza string) bool {
+	return strings.Contains(traza, "builtin kill -STOP")
+}
+
+func validarFalloRaizYRetirar(e *ejecucion) (resultado error) {
+	salida, err := leerRutaAcotada(e.salida, 65536)
+	if err != nil || len(salida) != 0 {
+		resultado = errors.Join(resultado, errors.New("stdout del fallo de raíz no vacío"), err)
+	}
+	errorSalida, err := leerRutaAcotada(e.error, 65536)
+	patron := regexp.MustCompile(`^/proc/self/fd/8: line [0-9]+: cd: /proc/[0-9]+/fd/\.\./\.\./\.\.: No such file or directory\n$`)
+	if err != nil || !patron.Match(errorSalida) {
+		resultado = errors.Join(resultado, errors.New("stderr del fallo de raíz discrepante"), err)
+	}
+	for _, ruta := range []string{e.traza, e.salida, e.error} {
+		resultado = errors.Join(resultado, os.Remove(ruta))
+	}
+	return resultado
+}
+
+func esperarAnclaTraza(ruta, ancla string, limite time.Time) (string, error) {
+	for time.Now().Before(limite) {
+		traza, err := leerTraza(ruta)
+		if err == nil && strings.Contains(traza, ancla) {
+			return traza, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return "", errors.New("ancla xtrace no observada")
+}
