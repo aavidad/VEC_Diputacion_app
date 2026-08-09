@@ -1,7 +1,8 @@
 # Diseño del conductor durable externo O3a V5 (P1-F01)
 
-Estado: **CND-V5-11 implementado y reproducido; el GO global permanece
-cerrado por la auditoría del ledger mutante, que es un artefacto separado**.
+Estado: **CND-V5-11 implementado, reproducido y propuesto como autoridad CI
+de O3a V5 mediante la enmienda sin R; pendiente doble revisión de esa
+composición**.
 
 ## Ejecución durable única
 
@@ -25,10 +26,10 @@ hace fallar toda la ejecución. Para congelar otra autoridad se debe revisar y
 reemplazar explícitamente `fuentes_v5.tsv`; el conductor nunca aprende hashes
 del target que está juzgando.
 
-Este directorio no contiene material integrable. Describe un conductor externo,
-reproducible y fail-closed para la proyección inmóvil situada en
-`../o3a-v5-auditoria-20260809`. No modifica sus fuentes, no toca R y no arranca
-el modo operativo de Orquesta.
+Este directorio contiene la herramienta de verificación integrable, reproducible
+y fail-closed de O3a V5. En desarrollo puede juzgar una proyección externa; en
+CI recibe la raíz del checkout como target. No modifica las fuentes, no toca R
+y no arranca el modo operativo de Orquesta.
 
 La reproducción congelada vigente es
 `evidencia-cnd-v5-11-final-r3`: 14/14 bloques, 74 registros NDJSON, modos
@@ -36,6 +37,14 @@ normal y `-race` real, FD del conductor 5→5 y residuos cero. C20 distingue en
 una columna durable las variantes `canonica` y `m18_sin_pdeathsig`. El resumen
 y `SHA256SUMS` se derivan dentro de ese directorio; una corrida nueva debe usar
 otro directorio inicialmente inexistente o vacío.
+
+La composición propuesta en `.github/workflows/ci.yml` fija este directorio
+como `working-directory` y ejecuta
+`./conductor.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/evidencia-o3a-v5"` después
+de la puerta de calidad. Así, un cambio en cualquiera de las diez fuentes, un
+caso omitido, un build race falso o un residuo hace fallar la misma puerta CI.
+R conserva su autoridad histórica y sus nueve entradas para cortes anteriores;
+no es autoridad de O3a V5.
 
 ## Genealogía de diseño ya superada
 

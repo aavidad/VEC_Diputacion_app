@@ -43,6 +43,12 @@ jobs:
           go-version-file: go.mod
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
+      - name: Probar el conductor durable O3a V5 sin R
+        working-directory: tools/o3a_v5_conductor
+        run: >-
+          ./conductor.sh
+          "$GITHUB_WORKSPACE"
+          "$RUNNER_TEMP/evidencia-o3a-v5"
 
   puerta-artefactos-productivos:
     runs-on: ubuntu-24.04
