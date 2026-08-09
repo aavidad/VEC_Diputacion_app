@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -30,6 +31,27 @@ type fixtureO3aM38 struct {
 	canalSenal        chan os.Signal
 	pararSenal        chan struct{}
 	senalParada       chan struct{}
+}
+
+func contarFDVivosPruebaO3aM38() (int, error) {
+	entradas, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return 0, err
+	}
+	vivos := 0
+	for _, entrada := range entradas {
+		fd, err := strconv.Atoi(entrada.Name())
+		if err != nil {
+			return 0, err
+		}
+		_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_GETFD, 0)
+		if errno == 0 {
+			vivos++
+		} else if errno != syscall.EBADF {
+			return 0, errno
+		}
+	}
+	return vivos, nil
 }
 
 func reducirRlimitPruebaO3aM38(f *fixtureO3aM38) error {
@@ -369,7 +391,7 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 	if prepararNetpoll() != nil {
 		return estadoErrorExternoO3aM38
 	}
-	inicial, err := contarFD()
+	inicial, err := contarFDVivosPruebaO3aM38()
 	f, errPreparacion := prepararCasoExternoO3aM38()
 	if err != nil || errPreparacion != nil {
 		return estadoErrorExternoO3aM38
@@ -384,7 +406,7 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 	if !valido || limpiarFixtureO3aM38(f) != nil {
 		return estadoErrorExternoO3aM38
 	}
-	final, err := contarFD()
+	final, err := contarFDVivosPruebaO3aM38()
 	if err != nil || final != inicial || !sinHijos() {
 		return estadoErrorExternoO3aM38
 	}

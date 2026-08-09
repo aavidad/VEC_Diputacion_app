@@ -43,6 +43,12 @@ como `working-directory` y ejecuta
 `./conductor.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/evidencia-o3a-v5"` después
 de la puerta de calidad. Así, un cambio en cualquiera de las diez fuentes, un
 caso omitido, un build race falso o un residuo hace fallar la misma puerta CI.
+El workflow publica en su propio log el resumen, manifiesto, TSV y logs de cada
+bloque, conservando sin traducción el estado del conductor. El plazo test-only
+para observar la salida nominal es diez segundos y no altera los tres segundos
+productivos de retirada. C21 compara descriptores todavía vivos mediante
+`F_GETFD`: una entrada obsoleta de `/proc/self/fd` solo se omite si devuelve
+`EBADF`; cualquier otro error o descriptor vivo adicional mantiene el NO-GO.
 R conserva su autoridad histórica y sus nueve entradas para cortes anteriores;
 no es autoridad de O3a V5.
 

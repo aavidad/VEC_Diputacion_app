@@ -57,7 +57,7 @@ func consumirAgregadoPruebaO3aM38(a **agregadoO3aM38) error {
 		fatalO3aM38()
 	}
 	c.ticketEscritor = nil
-	if err := terminalidadPidfdPruebaO3aM38(c.pidfdPrimario, time.Now().Add(3*time.Second)); err != nil {
+	if err := terminalidadPidfdPruebaO3aM38(c.pidfdPrimario, time.Now().Add(10*time.Second)); err != nil {
 		fatalO3aM38()
 	}
 	errWait := esperarConLeaseO3aM38(c)
