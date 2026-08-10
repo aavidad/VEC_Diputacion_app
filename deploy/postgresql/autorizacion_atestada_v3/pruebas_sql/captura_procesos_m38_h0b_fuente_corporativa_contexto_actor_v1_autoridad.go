@@ -31,8 +31,10 @@ var (
 // autoridadCapturaO3bM38 mantiene opaca la custodia consumida. P1 crea B0 o
 // clasifica el rechazo como B7/B8; las fases posteriores poseen sus efectos.
 type autoridadCapturaO3bM38 struct {
-	estado   estadoCapturaO3bM38
-	custodia *custodiaO3aM38
+	estado         estadoCapturaO3bM38
+	custodia       *custodiaO3aM38
+	fdsBarrera     [3]int
+	huellasBarrera [3]huellaFDO3aM38
 }
 
 func (a *autoridadCapturaO3bM38) es(estado estadoCapturaO3bM38) bool {
@@ -130,5 +132,13 @@ func consumirAutoridadO3bM38(entrada **agregadoO3aM38) (*autoridadCapturaO3bM38,
 	if !entradaIntegraO3bM38(agregado.custodia) {
 		return &autoridadCapturaO3bM38{estado: capturaB7RetirandoM38, custodia: agregado.custodia}, errAutoridadO3bM38
 	}
-	return &autoridadCapturaO3bM38{estado: capturaB0RecibidoM38, custodia: agregado.custodia}, nil
+	fds := [3]int{int(agregado.custodia.controlFD.Fd()), int(agregado.custodia.terminal.Fd()), int(agregado.custodia.ticketEscritor.Fd())}
+	var huellas [3]huellaFDO3aM38
+	for i, fd := range fds {
+		huella, existe := agregado.custodia.lease.fisico.mapa[fd]
+		if existe && huella.abierto {
+			huellas[i] = huella
+		}
+	}
+	return &autoridadCapturaO3bM38{estado: capturaB0RecibidoM38, custodia: agregado.custodia, fdsBarrera: fds, huellasBarrera: huellas}, nil
 }
