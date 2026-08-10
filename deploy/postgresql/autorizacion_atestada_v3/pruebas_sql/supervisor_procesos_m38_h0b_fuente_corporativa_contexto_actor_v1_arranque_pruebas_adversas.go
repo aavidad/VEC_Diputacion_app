@@ -9,39 +9,27 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
 
 const (
-	estadoErrorExternoO3aM38             = 66
-	estadoRetiradaSinHijoExternaO3aM38   = 72
-	estadoRetiradaConHijoExternaO3aM38   = 73
-	estadoPdeathCreadorExternoO3aM38     = 74
-	estadoPdeathOtroExternoO3aM38        = 75
-	estadoPdeathAusenteExternoO3aM38     = 76
-	estadoNetpollExternoO3aM38           = 77
-	estadoSubreaperExternoO3aM38         = 78
-	estadoFixtureExternoO3aM38           = 79
-	estadoVentanaFDExternaO3aM38         = 80
-	estadoMapaFixtureExternoO3aM38       = 81
-	estadoCierreHuecoExternoO3aM38       = 82
-	estadoSnapshotExternoO3aM38          = 83
-	estadoAvanceExternoO3aM38            = 84
-	estadoIdentidadExternaO3aM38         = 85
-	estadoLimpiezaExternaO3aM38          = 86
-	estadoClaseRetiradaExternaO3aM38     = 87
-	estadoOrigenRetiradaExternaO3aM38    = 88
-	estadoWaitExternoO3aM38              = 89
-	estadoPrecedenciaExternaO3aM38       = 90
-	estadoHijosExternosO3aM38            = 91
-	estadoCasoBaseExternoO3aM38          = 92
-	estadoEntradaFixtureExternoO3aM38    = 93
-	estadoSubreaperFixtureExternoO3aM38  = 94
-	estadoPdeathFixtureExternoO3aM38     = 95
-	estadoInventarioFixtureExternoO3aM38 = 96
-	estadoFormaFixtureExternoO3aM38      = 97
-	estadoOtroFixtureExternoO3aM38       = 98
+	estadoErrorExternoO3aM38                                               = 66
+	estadoRetiradaSinHijoExternaO3aM38, estadoRetiradaConHijoExternaO3aM38 = 72, 73
+	estadoPdeathCreadorExternoO3aM38, estadoPdeathOtroExternoO3aM38        = 74, 75
+	estadoPdeathAusenteExternoO3aM38, estadoNetpollExternoO3aM38           = 76, 77
+	estadoSubreaperExternoO3aM38, estadoFixtureExternoO3aM38               = 78, 79
+	estadoVentanaFDExternaO3aM38, estadoMapaFixtureExternoO3aM38           = 80, 81
+	estadoCierreHuecoExternoO3aM38, estadoSnapshotExternoO3aM38            = 82, 83
+	estadoAvanceExternoO3aM38, estadoIdentidadExternaO3aM38                = 84, 85
+	estadoLimpiezaExternaO3aM38, estadoClaseRetiradaExternaO3aM38          = 86, 87
+	estadoOrigenRetiradaExternaO3aM38, estadoWaitExternoO3aM38             = 88, 89
+	estadoPrecedenciaExternaO3aM38, estadoHijosExternosO3aM38              = 90, 91
+	estadoCasoBaseExternoO3aM38, estadoEntradaFixtureExternoO3aM38         = 92, 93
+	estadoSubreaperFixtureExternoO3aM38, estadoPdeathFixtureExternoO3aM38  = 94, 95
+	estadoInventarioFixtureExternoO3aM38, estadoFormaFixtureExternoO3aM38  = 96, 97
+	estadoOtroFixtureExternoO3aM38                                         = 98
 )
 
 func cerrarRetiradaPruebaO3aM38(r **retiradaO3aM38) error {
@@ -214,19 +202,34 @@ func selectoresPruebaO3aM38() []string {
 	return append(selectores, "NOMINAL")
 }
 
+func estadoSelectorPruebaO3aM38(err error) int {
+	grupo := 3
+	switch {
+	case errors.Is(err, errPreflightPidfdO3aM38), errors.Is(err, errSubreaperO3aM38), errors.Is(err, errPdeathsigO3aM38):
+		grupo = 0
+	case errors.Is(err, errEntradaO3aM38), errors.Is(err, errAutoridadO3aM38), errors.Is(err, errControlO3aM38), errors.Is(err, errTestigoO3aM38), errors.Is(err, errPlazoO3aM38):
+		grupo = 1
+	case errors.Is(err, errFormaFDO3aM38), errors.Is(err, errInventarioO3aM38):
+		grupo = 2
+	}
+	return []int{93, 94, 96, 98}[grupo]
+}
+
+func probarSelectorO3aM38(selector string) (err error) {
+	f, err := crearFixtureO3aM38(selector)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, limpiarFixtureO3aM38(f)) }()
+	if err = prepararFixtureO3aM38(f); err != nil {
+		return err
+	}
+	return verificarLiteralComandoO3aM38(f.preparado, selector)
+}
+
 func probarSelectoresO3aM38() error {
 	for _, selector := range selectoresPruebaO3aM38() {
-		f, err := crearFixtureO3aM38(selector)
-		if err != nil {
-			return fmt.Errorf("fixture %s: %w", selector, err)
-		}
-		if err = prepararFixtureO3aM38(f); err == nil {
-			err = verificarLiteralComandoO3aM38(f.preparado, selector)
-		}
-		if cierre := limpiarFixtureO3aM38(f); err == nil {
-			err = cierre
-		}
-		if err != nil {
+		if err := probarSelectorO3aM38(selector); err != nil {
 			return fmt.Errorf("selector %s: %w", selector, err)
 		}
 	}
@@ -573,6 +576,9 @@ func autoprobarArranqueO3aM38() error {
 // ejecutarCasoExternoO3aM38 expone únicamente sondas test-only cerradas. Los
 // casos AF no escriben: el conductor exterior acredita exit 65 y EOF.
 func ejecutarCasoExternoO3aM38(caso string) int {
+	if strings.HasPrefix(caso, "C03_SELECTOR_") {
+		return ejecutarSelectorExternoO3aM38(strings.TrimPrefix(caso, "C03_SELECTOR_"))
+	}
 	switch caso {
 	case "DUPFD_FALLO":
 		_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, ^uintptr(0), syscall.F_DUPFD_CLOEXEC, minFDDuplicadoM38)
@@ -605,6 +611,35 @@ func ejecutarCasoExternoO3aM38(caso string) int {
 		return ejecutarCasosBaseExternosO3aM38(caso)
 	}
 	return estadoUso
+}
+
+func ejecutarSelectorExternoO3aM38(selector string) int {
+	permitido := false
+	for _, candidato := range selectoresPruebaO3aM38() {
+		if selector == candidato {
+			permitido = true
+			break
+		}
+	}
+	if !permitido || prepararNetpoll() != nil {
+		return estadoUso
+	}
+	runtime.LockOSThread()
+	if activarSubreaper() != nil {
+		return estadoSubreaperExternoO3aM38
+	}
+	inicial, err := contarFDVivosPruebaO3aM38()
+	if err != nil {
+		return estadoSnapshotExternoO3aM38
+	}
+	if err = probarSelectorO3aM38(selector); err != nil {
+		return estadoSelectorPruebaO3aM38(err)
+	}
+	final, err := contarFDVivosPruebaO3aM38()
+	if err != nil || final != inicial || !sinHijos() {
+		return estadoHijosExternosO3aM38
+	}
+	return 0
 }
 
 func ejecutarCasosLinealesExternosO3aM38(caso string) int {
