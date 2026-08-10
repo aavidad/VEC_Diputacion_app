@@ -17,16 +17,18 @@ codifica las propiedades estructurales del contrato y
 `manifest_parcial.json` conserva 195 mutantes atómicos M001..M195, las 66
 familias, patrón anterior/posterior literal único y oráculo causal ejecutado.
 El manifiesto queda `COMPLETO_EJECUTADO`: la reproducción durable autoritativa
-V21 generó BASE+M001..M195, con 195 transformaciones compilables muertas y cero
-supervivientes. Un ledger V21 separado conserva BASE+cuatro mutantes SEC
+V25 generó BASE+M001..M195, con 195 transformaciones compilables muertas y cero
+supervivientes. Un ledger V25 separado conserva BASE+cuatro mutantes SEC
 muertos. Cada par incluye inventarios de las diez fuentes, GOROOT completo,
 GOTOOLDIR, fuentes/receta de las herramientas y el snapshot ejecutable.
 La BASE autorizada de las diez fuentes es
-`60def025db7355b81d3036998996e8e6643da1d8713a0510c218259d2921ba75`.
+`767c4e7a5beffdb81b5ca1a3798688dc8c2bef9a21993ae1ca3d5dab0a99494a`.
 
 `ejecutar_p1.sh` copia las diez fuentes a un directorio aislado, aplica un único
 patrón por ID, exige `gofmt`, `go vet` y build antes del oráculo y distingue
-`muerto_ast` de muerte conductual. El cierre exige un ledger integral único,
+`muerto_ast` de muerte conductual. Las herramientas atestadas se reconstruyen
+con `-trimpath -buildvcs=false`, por lo que su huella no depende del checkout o
+commit desde el que se publique. El cierre exige un ledger integral único,
 controles verdes, 195 transformaciones compilables y cero supervivientes.
 
 Validación reproducible:
@@ -36,15 +38,15 @@ pruebas_sql=/ruta/proyeccion/deploy/postgresql/autorizacion_atestada_v3/pruebas_
 go run ./tools/o3a_v5_ast/validar_manifest \
   ./tools/o3a_v5_ast/manifest_parcial.json "$pruebas_sql" \
   ./tools/o3a_v5_ast/catalogo_expansion_m57_m63_m66.json \
-  ./tools/o3a_v5_ast/evidencia/ledger_v21_m001_m195.tsv \
-  ./tools/o3a_v5_ast/evidencia/ledger_v21_sec.tsv
+  ./tools/o3a_v5_ast/evidencia/ledger_v25_m001_m195.tsv \
+  ./tools/o3a_v5_ast/evidencia/ledger_v25_sec.tsv
 go run ./tools/o3a_v5_ast -dir "$pruebas_sql" >o3a-v5-dag.json
 ```
 
-Los ledgers V16--V20 son evidencia genealógica revocada. Se conservan para
+Los ledgers V16--V24 son evidencia genealógica revocada. Se conservan para
 explicar las correcciones, pero no son entrada autorizada ni deben publicarse
 como resultado vigente; su fallo ante el validador actual es deliberado. La
-única autoridad mutante del corte es el par V21 nombrado en el comando anterior
+única autoridad mutante del corte es el par V25 nombrado en el comando anterior
 y todos sus sidecars homónimos.
 
 Esto acredita el candidato externo; no autoriza por sí solo integración,

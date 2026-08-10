@@ -56,11 +56,11 @@ trap limpiar EXIT
 repo_raiz=$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)
 receta=${repo_raiz}/tools/o3a_v5_ast/receta_herramientas.txt
 huella_receta=$(sha256sum -- "$receta")
-[[ "${huella_receta%% *}" == "57f4dfb0bd1c5a6602c311a04a8999a35b1cef2ca77147fe1b4ecdf01ec7c706" ]] || { printf 'receta de herramientas no autorizada\n' >&2; exit 65; }
+[[ "${huella_receta%% *}" == "e0937279b46f946919c146de56446b7123ad03adcca29d54713da5ff56038135" ]] || { printf 'receta de herramientas no autorizada\n' >&2; exit 65; }
 mkdir -p -- "$temporal/herramientas"
 ast_bin=${temporal}/herramientas/o3a_v5_ast_checker
 aplicador_bin=${temporal}/herramientas/o3a_v5_aplicador
-(cd "$repo_raiz" && go_controlado build -trimpath -o "$ast_bin" ./tools/o3a_v5_ast && go_controlado build -trimpath -o "$aplicador_bin" ./tools/o3a_v5_ast/aplicar_manifest)
+(cd "$repo_raiz" && go_controlado build -trimpath -buildvcs=false -o "$ast_bin" ./tools/o3a_v5_ast && go_controlado build -trimpath -buildvcs=false -o "$aplicador_bin" ./tools/o3a_v5_ast/aplicar_manifest)
 
 registrar() {
     local id=$1 compilo=$2 oraculo=$3 estado=$4 clasificacion=$5
@@ -330,7 +330,7 @@ ejecutar() {
     aplicar "$id"
     go_controlado fmt "${temporal}"/*.go >/dev/null
     go_controlado vet "${temporal}"/*.go
-    go_controlado build -trimpath -o "$bin" "${temporal}"/*.go
+    go_controlado build -trimpath -buildvcs=false -o "$bin" "${temporal}"/*.go
     if [[ -n "$ast_bin" ]]; then
         set +e
         herramienta_controlada "$ast_bin" -dir "$temporal" >"${temporal}/${id}.ast" 2>&1

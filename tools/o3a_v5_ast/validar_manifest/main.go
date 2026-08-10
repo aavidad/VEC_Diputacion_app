@@ -36,8 +36,8 @@ var archivo = map[string]string{
 var idValido = regexp.MustCompile(`^M[0-9]{3}$`)
 var familiaValida = regexp.MustCompile(`^M(?:0[1-9]|[1-5][0-9]|6[0-6])$`)
 
-const baseAutorizada = "60def025db7355b81d3036998996e8e6643da1d8713a0510c218259d2921ba75"
-const recetaAutorizada = "57f4dfb0bd1c5a6602c311a04a8999a35b1cef2ca77147fe1b4ecdf01ec7c706"
+const baseAutorizada = "767c4e7a5beffdb81b5ca1a3798688dc8c2bef9a21993ae1ca3d5dab0a99494a"
+const recetaAutorizada = "e0937279b46f946919c146de56446b7123ad03adcca29d54713da5ff56038135"
 const goAutorizado = "8da5fd321795754b994c64e3eb8a5a14ff47bd285559a7e876f3c79abafc67f9"
 const versionGoAutorizada = "11b4fb14680701f98ca60fd8464a836ca4374f17896a125f4510ab6ae8cecc9b"
 const gotoolAutorizado = "1061bd99d16310f8f549e375a5c0cb18a79d66441ca0ed4dee60f70fde633f9b"
@@ -310,7 +310,7 @@ func reconstruirHerramientas(repo string) (map[string]string, func()) {
 	entorno := []string{"HOME=" + tmp, "PATH=/usr/bin:/bin", "TMPDIR=" + filepath.Join(tmp, "tmp"), "GOROOT=" + runtime.GOROOT(), "GOENV=off", "GOFLAGS=", "GOTOOLCHAIN=local", "CGO_ENABLED=0", "GOCACHE=" + filepath.Join(tmp, "cache"), "GOMODCACHE=" + filepath.Join(tmp, "mod")}
 	salidas := map[string]string{"checker_bin": filepath.Join(tmp, "o3a_v5_ast_checker"), "aplicador_bin": filepath.Join(tmp, "o3a_v5_aplicador")}
 	for tipo, modulo := range map[string]string{"checker_bin": "./tools/o3a_v5_ast", "aplicador_bin": "./tools/o3a_v5_ast/aplicar_manifest"} {
-		cmd := exec.Command(goBin, "build", "-trimpath", "-o", salidas[tipo], modulo)
+		cmd := exec.Command(goBin, "build", "-trimpath", "-buildvcs=false", "-o", salidas[tipo], modulo)
 		cmd.Dir = repo
 		cmd.Env = entorno
 		if out, err := cmd.CombinedOutput(); err != nil {

@@ -1,7 +1,7 @@
 version=1
 checker_modulo=./tools/o3a_v5_ast
 aplicador_modulo=./tools/o3a_v5_ast/aplicar_manifest
-flags=-trimpath
+flags=-trimpath,-buildvcs=false
 salidas=staging_privado
 entorno=env-i,GOENV=off,GOFLAGS=,GOTOOLCHAIN=local,CGO_ENABLED=0
 toolchain=go1.26.5
