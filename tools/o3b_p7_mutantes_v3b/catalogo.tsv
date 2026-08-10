@@ -1,0 +1,51 @@
+id	familia	alternativa	target	antes	despues	funcion	oraculo
+V3B001	B19	proc-autoridad-senal	identidad	muestra.pid == a.custodia.cmd.Process.Pid	muestra.pid == os.Getpid()	muestraIdentidadEsperadaO3bM38	proc-no-autoriza-senal
+V3B002	B19	proc-pin-identidad	identidad	runtime.Gosched()	_ = "/proc/" + strconv.Itoa(a.custodia.cmd.Process.Pid); runtime.Gosched()	acreditarIdentidadO3bM38	proc-no-es-pin
+V3B003	B20	entregar-tras-terminalidad	handoff	if a == nil || a.estado != capturaB4IdentidadAcreditadaM38 || a.custodia == nil {	if a == nil || a.estado == capturaBFFatalM38 || a.custodia == nil {	transferirCapturadoO3bM38	BF-no-entrega
+V3B004	B20	entregar-tras-cancelacion	handoff	if origen == nil || *origen == nil {	if origen != nil && *origen == nil {	transferirCapturadoO3bM38	cancelado-no-entrega
+V3B005	B20	entregar-tras-senal	handoff	if !valido || actual != a.custodia.baselineSenal || senal != 0 {	if !valido || actual != a.custodia.baselineSenal || senal == 0 {	revalidarHandoffO3bM38	senal-pendiente-no-entrega
+V3B006	B20	bootstrap-vencido	handoff	if !time.Now().Before(a.custodia.finBootstrap) {	if time.Now().Before(a.custodia.finBootstrap) {	revalidarHandoffO3bM38	bootstrap-vencido-no-entrega
+V3B007	B21	PID-separado	handoff	salida.custodia = a.custodia	pidSeparado := a.custodia.cmd.Process.Pid; _ = pidSeparado; salida.custodia = a.custodia	consolidarHandoffO3bM38	PID-no-sale-separado
+V3B008	B21	pidfd-separado	handoff	salida.custodia = a.custodia	pidfdSeparado := a.custodia.pidfdPrimario; _ = pidfdSeparado; salida.custodia = a.custodia	consolidarHandoffO3bM38	pidfd-no-sale-separado
+V3B009	B21	Process-separado	handoff	salida.custodia = a.custodia	processSeparado := a.custodia.cmd.Process; _ = processSeparado; salida.custodia = a.custodia	consolidarHandoffO3bM38	Process-no-sale-separado
+V3B010	B21	CONTROL-separado	handoff	salida.custodia = a.custodia	controlSeparado := a.custodia.controlFD; _ = controlSeparado; salida.custodia = a.custodia	consolidarHandoffO3bM38	CONTROL-no-sale-separado
+V3B011	B21	TERMINAL-separado	handoff	salida.custodia = a.custodia	terminalSeparado := a.custodia.terminal; _ = terminalSeparado; salida.custodia = a.custodia	consolidarHandoffO3bM38	TERMINAL-no-sale-separado
+V3B012	B21A	invertir-transferencias	handoff	nuevoBaseline, ok := transferirObservadorCapturadoO3bM38(a.custodia.observador, a.custodia.baselineSenal)	okLease := transferirLeaseCapturadaO3bM38(a.custodia.lease); nuevoBaseline, ok := transferirObservadorCapturadoO3bM38(a.custodia.observador, a.custodia.baselineSenal); _ = okLease	consolidarHandoffO3bM38	observador-primero
+V3B013	B21A	omitir-prevalidacion	handoff	valida, fatal := prevalidarTransferenciaO3bM38(a, identidad)	valida, fatal := true, false	transferirCapturadoO3bM38	prevalidacion-conjunta
+V3B014	B21A	retornar-B4T	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok { return nil }; if !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	consolidarHandoffO3bM38	B4T-no-retorna
+V3B015	B21A	rollback-parcial	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) { _ = a.custodia.observador.palabra.CompareAndSwap(1, a.custodia.baselineSenal)	consolidarHandoffO3bM38	sin-rollback-parcial
+V3B016	B22	conservar-writer	handoff	salida.custodia = a.custodia	salida.custodia = a.custodia; salida.custodia.ticketEscritor = a.custodia.ticketEscritor	consolidarHandoffO3bM38	writer-no-se-transfiere
+V3B017	B22	perder-CONTROL	handoff	salida.custodia = a.custodia	salida.custodia = a.custodia; salida.custodia.controlFD = nil	consolidarHandoffO3bM38	CONTROL-conservado
+V3B018	B22	perder-TERMINAL	handoff	salida.custodia = a.custodia	salida.custodia = a.custodia; salida.custodia.terminal = nil	consolidarHandoffO3bM38	TERMINAL-conservado
+V3B019	B23	plazo-180s	handoff	salida.primera = nil	_ = time.Now().Add(180 * time.Second); salida.primera = nil	consolidarHandoffO3bM38	sin-plazo-180s
+V3B020	B23	CONT-en-O3b	handoff	salida.primera = nil	_ = syscall.SIGCONT; salida.primera = nil	consolidarHandoffO3bM38	sin-CONT
+V3B021	B24	Wait-fuera-retirada	identidad	runtime.Gosched()	runtime.Gosched(); _ = a.custodia.cmd.Wait()	acreditarIdentidadO3bM38	Wait-solo-retirada
+V3B022	B24	Wait-antes-terminalidad	handoff	if err := revalidarHandoffO3bM38(a); err != nil {	_ = a.custodia.cmd.Wait(); if err := revalidarHandoffO3bM38(a); err != nil {	transferirCapturadoO3bM38	Wait-tras-terminalidad
+V3B023	B25	senal-grupo	stop	return operarConLeaseBarreraO3bM38(c, func() error {	return syscall.Kill(-c.cmd.Process.Pid, syscall.SIGKILL); /* grupo */ return operarConLeaseBarreraO3bM38(c, func() error {	sondaGrupoCeroO3bM38	retirada-no-senal-grupo
+V3B024	B25	PID-numerico	stop	uintptr(pidfd), 0, 0, pidfdSignalGrupoO3bM38	uintptr(c.cmd.Process.Pid), 0, 0, pidfdSignalGrupoO3bM38	sondaGrupoCeroO3bM38	retirada-no-PID
+V3B025	B25	reabrir-identidad	stop	ruta := "/proc/" + strconv.Itoa(pid) + "/stat"	ruta := "/proc/" + strconv.Itoa(pid) + "/stat"; _, _ = syscall.Open(ruta, syscall.O_RDONLY|syscall.O_CLOEXEC, 0)	leerStatStopO3bM38	proc-no-pin
+V3B026	B25A	omitir-finRetirada	o3a	finRetirada := ahora.Add(duracionRetiradaO3aM38)	_ = ahora; finRetirada := c.finBootstrap	avanzarArranqueO3aM38	finRetirada-obligatorio
+V3B027	B25A	recrear-finRetirada	o3a	finRetirada := ahora.Add(duracionRetiradaO3aM38)	_ = ahora; finRetirada := time.Now().Add(duracionRetiradaO3aM38)	avanzarArranqueO3aM38	finRetirada-no-recreado
+V3B028	B25A	reiniciar-o-ampliar	o3a	finRetirada := ahora.Add(duracionRetiradaO3aM38)	finRetirada := ahora.Add(2 * duracionRetiradaO3aM38)	avanzarArranqueO3aM38	finRetirada-no-ampliado
+V3B029	B25A	no-limitar-bootstrap	o3a	if tope := c.finBootstrap.Add(-reservaO3bO3cM38); finRetirada.After(tope) {	if tope := c.finBootstrap.Add(-reservaO3bO3cM38); false && finRetirada.After(tope) {	avanzarArranqueO3aM38	finRetirada-limitado-bootstrap
+V3B030	B26	retorno-BF	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok { return nil }; if !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	consolidarHandoffO3bM38	BF-no-retorna
+V3B031	B26	log-BF	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) { println("BF")	consolidarHandoffO3bM38	BF-sin-log
+V3B032	B26	cierre-BF	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) { _ = syscall.Close(a.custodia.pidfdPrimario)	consolidarHandoffO3bM38	BF-sin-cierre
+V3B033	B26	ES-BF	handoff	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) {	if !ok || !transferirLeaseCapturadaO3bM38(a.custodia.lease) { _, _ = syscall.Write(2, []byte("BF"))	consolidarHandoffO3bM38	BF-sin-ES
+V3B034	B27	goroutine	handoff	salida := &agregadoO3cM38{}	salida := &agregadoO3cM38{}; go func() {}()	transferirCapturadoO3bM38	sin-goroutine
+V3B035	B27	callback	handoff	salida := &agregadoO3cM38{}	callback := func() {}; callback(); salida := &agregadoO3cM38{}	transferirCapturadoO3bM38	sin-callback
+V3B036	B27	global-mutable	handoff	var errHandoffO3bM38 = errors.New("handoff O3b no acreditado")	var estadoGlobalO3bM38 = 1; var errHandoffO3bM38 = errors.New("handoff O3b no acreditado")	transferirCapturadoO3bM38	sin-global-mutable
+V3B037	B27	init	handoff	var errHandoffO3bM38 = errors.New("handoff O3b no acreditado")	func init() {}; var errHandoffO3bM38 = errors.New("handoff O3b no acreditado")	transferirCapturadoO3bM38	sin-init
+V3B038	B27	hook	handoff	salida := &agregadoO3cM38{}	hookO3b := func(*agregadoO3cM38) {}; salida := &agregadoO3cM38{}; hookO3b(salida)	transferirCapturadoO3bM38	sin-hook
+V3B039	B27	segundo-owner	handoff	salida := &agregadoO3cM38{}	segundoOwner := &agregadoO3cM38{}; _ = segundoOwner; salida := &agregadoO3cM38{}	transferirCapturadoO3bM38	owner-unico
+V3B040	B28	arista-O3c	handoff	salida := &agregadoO3cM38{}	siguienteO3c := func(*agregadoO3cM38) {}; salida := &agregadoO3cM38{}; siguienteO3c(salida)	transferirCapturadoO3bM38	sin-arista-O3c
+V3B041	B28	arista-O4	handoff	salida := &agregadoO3cM38{}	o4 := func() {}; o4(); salida := &agregadoO3cM38{}	transferirCapturadoO3bM38	sin-arista-O4
+V3B042	B28	arista-O5	handoff	salida := &agregadoO3cM38{}	o5 := func() {}; o5(); salida := &agregadoO3cM38{}	transferirCapturadoO3bM38	sin-arista-O5
+V3B043	B28	parser-G4-o-inversa	handoff	salida := &agregadoO3cM38{}	parserG4 := func([]byte) {}; parserG4(nil); salida := &agregadoO3cM38{}	transferirCapturadoO3bM38	sin-parser-inverso
+V3B044	B29	omitir-inventario	handoff	if err := inventarioPostTicketO3bM38(a); err != nil {	if err := error(nil); err != nil {	revalidarHandoffO3bM38	inventario-obligatorio
+V3B045	B29	lease-pending	handoff	!leaseTransferidaO3bM38(a.custodia.lease, a.custodia.tid)	false	inventarioPostTicketO3bM38	lease-transferida
+V3B046	B29	omitir-revalidacion-fisica	handoff	if !snapshotsIgualesO3aM38(actual, a.custodia.lease.fisico) ||	if false ||	inventarioPostTicketO3bM38	snapshot-fisico
+V3B047	B29	omitir-cierre-causal	handoff	a.custodia.controlFD == nil || a.custodia.terminal == nil || a.custodia.ticketEscritor != nil {	a.custodia.controlFD == nil || a.custodia.terminal == nil || a.custodia.ticketEscritor == nil {	inventarioPostTicketO3bM38	cierre-ticket-causal
+V3B048	B30	falsear-residuos	conductor	[[ $resultado == GO ]] ||	true ||	ejecutar	residuos-no-falseados
+V3B049	B30	reutilizar-caso-fallido	conductor	local out="$staging/$id.$modo.out" err="$staging/$id.$modo.err"	local out="$staging/reutilizado.out" err="$staging/reutilizado.err"	ejecutar	caso-fallido-no-se-reutiliza
+V3B050	B30	aceptar-SKIP	conductor	[[ $id == id || $id == O18_CIEN_CAPTURAS ]] && continue	[[ $id == id || $id == O18_CIEN_CAPTURAS || $id == SKIP ]] && continue	ejecutar	SKIP-prohibido
