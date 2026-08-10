@@ -71,6 +71,15 @@ func bytesTicketBarreraO3bPruebaM38(t *testing.T, fd int) int {
 	return int(disponibles)
 }
 
+func limpiarPermisoPrimeraEscrituraBarreraO3bPruebaM38(t *testing.T, a *autoridadCapturaO3bM38) {
+	t.Helper()
+	if a == nil || a.ticket == nil || !a.ticket.permisoPrimero ||
+		!a.custodia.lease.consolidarCritico(a.ticket.primerPermiso) {
+		t.Fatal("limpiar permiso test-only")
+	}
+	a.ticket.permisoPrimero = false
+}
+
 func TestBarreraO3bNominalSinEfectoTicket(t *testing.T) {
 	_, a := autoridadRealBarreraO3bPruebaM38(t)
 	ticketFD := int(a.custodia.ticketEscritor.Fd())
@@ -83,12 +92,14 @@ func TestBarreraO3bNominalSinEfectoTicket(t *testing.T) {
 		t.Fatalf("barrera nominal causa=%d: %v", causaDelFalloBarreraO3bM38(err), err)
 	}
 	despues := identidadArchivoBarreraO3bPruebaM38(t, ticketFD)
-	if antes != despues || a.custodia.lease.estado.Load() != lease || a.custodia.observador.palabra.Load() != observador {
-		t.Fatal("la barrera alteró ticket, lease u observador")
+	if antes != despues || (lease != 1 && lease != 3) || a.custodia.lease.estado.Load() != 2 ||
+		a.ticket == nil || !a.ticket.permisoPrimero || a.custodia.observador.palabra.Load() != observador {
+		t.Fatal("la barrera no dejó preparado únicamente el permiso del primer Write")
 	}
 	if bytesTicketBarreraO3bPruebaM38(t, ticketFD) != 0 {
 		t.Fatal("la barrera escribió ticket")
 	}
+	limpiarPermisoPrimeraEscrituraBarreraO3bPruebaM38(t, a)
 }
 
 func TestBarreraO3bBordeBootstrap(t *testing.T) {
@@ -180,6 +191,7 @@ func TestBarreraO3bNoDuplicaPidfd(t *testing.T) {
 	if err := ejecutarBarreraO3bM38(a); err != nil {
 		t.Fatal(err)
 	}
+	defer limpiarPermisoPrimeraEscrituraBarreraO3bPruebaM38(t, a)
 	despues, err := snapshotActualO3aM38()
 	if err != nil || !snapshotsIgualesO3aM38(antes, despues) {
 		t.Fatalf("inventario cambió: %v", err)

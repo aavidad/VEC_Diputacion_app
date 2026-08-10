@@ -388,14 +388,28 @@ func ejecutarBarreraO3bM38(a *autoridadCapturaO3bM38) error {
 	if err := acreditarInventarioBarreraO3bM38(a); err != nil {
 		return resolverFalloOperacionBarreraO3bM38(a, err, barreraO3bInventarioM38)
 	}
+	if err := prepararTicketO3bM38(a); err != nil {
+		if a.ticket == nil {
+			fatalBarreraO3bM38(a)
+			select {}
+		}
+		return retirarTicketO3bM38(a, err)
+	}
 	if err := leerControlO3bM38(a.custodia); err != nil {
 		return resolverFalloOperacionBarreraO3bM38(a, err, barreraO3bControlM38)
 	}
 	if causa, err := revalidarAutoridadBarreraO3bM38(a.custodia); err != nil || causa != 0 {
 		return resolverFalloOperacionBarreraO3bM38(a, err, causa)
 	}
+	permiso, valido := a.custodia.lease.comenzar(operacionEscribirTicketO3bM38, 0, [2]int{a.ticket.fd, -1})
+	if !valido {
+		fatalBarreraO3bM38(a)
+		select {}
+	}
+	a.ticket.primerPermiso, a.ticket.permisoPrimero = permiso, true
 	if !transicionCapturaO3bM38(a.estado, capturaB1BarreraVerdeM38) {
-		return retirarBarreraO3bM38(a, barreraO3bInventarioM38)
+		fatalBarreraO3bM38(a)
+		select {}
 	}
 	a.estado = capturaB1BarreraVerdeM38
 	return nil
