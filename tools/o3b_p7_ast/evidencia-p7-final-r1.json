@@ -1,0 +1,1062 @@
+{
+  "Base": "d9f8aeb547f5d1b3b9ab3eb786382f78ef964e28",
+  "Go": "go1.26.5",
+  "FuentesSHA": "d18f178030779f0f93a88c6d03159515f46939214d71208f9198c3a97ef3b11d",
+  "DAG_SHA": "1ffd3321974f93ef61a274ba5818098da0833689643f5a256a104e31467f4d54",
+  "Fuentes": {
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go": "0b95fe0cfda784089c904941f56a3ad52a0eb519ef43b2057af22d24498c0e53",
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go": "0499ede483615d57d5438d579f32580649b40fbf34b3be6bc26d31fa6c86c02d",
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go": "4b8b856e506b188a750922b4e320502b597a4aacf930507376eec9feccf4a534",
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go": "803b9a343934e5423e0d3f5f5f4cbfee86f7321790d979e017254a924ac2be7a",
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go": "99ae6fc4267062863f7e5adbccbe9e3698f08f114f107fd07f8cb6ed2f4af5f2",
+    "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go": "4c3e7b888107a20b0ec2ae2479aa9a30378aad3a23b92ffc398597e6ce3dc484"
+  },
+  "Definiciones": [
+    "Error",
+    "acreditarIdentidadO3bM38",
+    "acreditarInventarioBarreraO3bM38",
+    "acreditarPidfdBarreraO3bM38",
+    "aplicarResultadoEscrituraO3bM38",
+    "bootstrapDisponibleO3bM38",
+    "causaDelFalloBarreraO3bM38",
+    "cerrarTicketO3bM38",
+    "consolidarHandoffO3bM38",
+    "consumirAutoridadO3bM38",
+    "copiarSnapshotSinFDO3bM38",
+    "decimalCanonicoO3bM38",
+    "dentroPresupuestoControlO3bM38",
+    "ejecutarBarreraO3bM38",
+    "emitirYCerrarTicketO3bM38",
+    "enteroCanonicoO3bM38",
+    "enteroProcesoO3bM38",
+    "entradaIntegraO3bM38",
+    "es",
+    "escribirTicketO3bM38",
+    "fatalBarreraO3bM38",
+    "fcntlBarreraO3bM38",
+    "fdAliasPidfdO3bM38",
+    "finStopO3bM38",
+    "fstatBarreraO3bM38",
+    "identidadPidfdBarreraO3bM38",
+    "inventarioPostTicketO3bM38",
+    "leaseTransferidaO3bM38",
+    "leerControlO3bM38",
+    "leerStatStopO3bM38",
+    "lseekBarreraO3bM38",
+    "muestraIdentidadEsperadaO3bM38",
+    "muestraTStopO3bM38",
+    "observadorTransferidoO3bM38",
+    "observarStopO3bM38",
+    "operarConLeaseBarreraO3bM38",
+    "parsearStatO3bM38",
+    "pidfdVivoBarreraO3bM38",
+    "precedenciaIdentidadO3bM38",
+    "precedenciaStopO3bM38",
+    "prepararTicketO3bM38",
+    "prevalidarTransferenciaO3bM38",
+    "recursosExactosBarreraO3bM38",
+    "resolverFalloOperacionBarreraO3bM38",
+    "retirarBarreraO3bM38",
+    "retirarTicketO3bM38",
+    "revalidarAutoridadBarreraO3bM38",
+    "revalidarHandoffO3bM38",
+    "snapshotBarreraO3bM38",
+    "sondaGrupoCeroO3bM38",
+    "ticketRetenidoO3bM38",
+    "transferirCapturadoO3bM38",
+    "transferirLeaseCapturadaO3bM38",
+    "transferirObservadorCapturadoO3bM38",
+    "transicionCapturaO3bM38"
+  ],
+  "Raices": [
+    "Error",
+    "acreditarIdentidadO3bM38",
+    "causaDelFalloBarreraO3bM38",
+    "consumirAutoridadO3bM38",
+    "ejecutarBarreraO3bM38",
+    "emitirYCerrarTicketO3bM38",
+    "observarStopO3bM38",
+    "transferirCapturadoO3bM38"
+  ],
+  "Aristas": [
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 174
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "leerStatStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 149
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "leerStatStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 161
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "muestraIdentidadEsperadaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 154
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "muestraIdentidadEsperadaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 166
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "parsearStatO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 153
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "parsearStatO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 165
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "precedenciaIdentidadO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 146
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "precedenciaIdentidadO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 158
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "precedenciaIdentidadO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 170
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 147
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 151
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 159
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 163
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 171
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 144
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 155
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 168
+    },
+    {
+      "Desde": "acreditarIdentidadO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 173
+    },
+    {
+      "Desde": "acreditarInventarioBarreraO3bM38",
+      "Hacia": "recursosExactosBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 352
+    },
+    {
+      "Desde": "acreditarInventarioBarreraO3bM38",
+      "Hacia": "snapshotBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 351
+    },
+    {
+      "Desde": "acreditarPidfdBarreraO3bM38",
+      "Hacia": "identidadPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 292
+    },
+    {
+      "Desde": "acreditarPidfdBarreraO3bM38",
+      "Hacia": "identidadPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 293
+    },
+    {
+      "Desde": "acreditarPidfdBarreraO3bM38",
+      "Hacia": "identidadPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 294
+    },
+    {
+      "Desde": "acreditarPidfdBarreraO3bM38",
+      "Hacia": "pidfdVivoBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 295
+    },
+    {
+      "Desde": "acreditarPidfdBarreraO3bM38",
+      "Hacia": "pidfdVivoBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 296
+    },
+    {
+      "Desde": "cerrarTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 181
+    },
+    {
+      "Desde": "cerrarTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 186
+    },
+    {
+      "Desde": "consolidarHandoffO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 105
+    },
+    {
+      "Desde": "consolidarHandoffO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 99
+    },
+    {
+      "Desde": "consolidarHandoffO3bM38",
+      "Hacia": "transferirLeaseCapturadaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 104
+    },
+    {
+      "Desde": "consolidarHandoffO3bM38",
+      "Hacia": "transferirObservadorCapturadoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 103
+    },
+    {
+      "Desde": "consolidarHandoffO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 98
+    },
+    {
+      "Desde": "consumirAutoridadO3bM38",
+      "Hacia": "entradaIntegraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 134
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "acreditarInventarioBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 388
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "acreditarPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 381
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 383
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 405
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 418
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 423
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "leerControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 375
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "leerControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 410
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 392
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "prepararTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 403
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 376
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 379
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 389
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 400
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 411
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 414
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 373
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 386
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "retirarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 408
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "revalidarAutoridadBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 378
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "revalidarAutoridadBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 413
+    },
+    {
+      "Desde": "ejecutarBarreraO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 422
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "cerrarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 222
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "escribirTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 219
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 216
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "retirarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 213
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "retirarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 220
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "retirarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 223
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "retirarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 226
+    },
+    {
+      "Desde": "emitirYCerrarTicketO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 225
+    },
+    {
+      "Desde": "enteroProcesoO3bM38",
+      "Hacia": "decimalCanonicoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 43
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "es",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 84
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "fdAliasPidfdO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 108
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "fdAliasPidfdO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 108
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "fdAliasPidfdO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 108
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "leaseTransferidaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 86
+    },
+    {
+      "Desde": "entradaIntegraO3bM38",
+      "Hacia": "observadorTransferidoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+      "Linea": 87
+    },
+    {
+      "Desde": "escribirTicketO3bM38",
+      "Hacia": "aplicarResultadoEscrituraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 161
+    },
+    {
+      "Desde": "escribirTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 146
+    },
+    {
+      "Desde": "escribirTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 158
+    },
+    {
+      "Desde": "escribirTicketO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 151
+    },
+    {
+      "Desde": "fatalBarreraO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 47
+    },
+    {
+      "Desde": "fcntlBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 81
+    },
+    {
+      "Desde": "fstatBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 94
+    },
+    {
+      "Desde": "identidadPidfdBarreraO3bM38",
+      "Hacia": "fcntlBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 119
+    },
+    {
+      "Desde": "identidadPidfdBarreraO3bM38",
+      "Hacia": "fcntlBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 123
+    },
+    {
+      "Desde": "identidadPidfdBarreraO3bM38",
+      "Hacia": "fstatBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 115
+    },
+    {
+      "Desde": "inventarioPostTicketO3bM38",
+      "Hacia": "leaseTransferidaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 48
+    },
+    {
+      "Desde": "inventarioPostTicketO3bM38",
+      "Hacia": "snapshotBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 51
+    },
+    {
+      "Desde": "leerControlO3bM38",
+      "Hacia": "dentroPresupuestoControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 201
+    },
+    {
+      "Desde": "leerControlO3bM38",
+      "Hacia": "dentroPresupuestoControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 213
+    },
+    {
+      "Desde": "leerControlO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 203
+    },
+    {
+      "Desde": "leerStatStopO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 43
+    },
+    {
+      "Desde": "leerStatStopO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 53
+    },
+    {
+      "Desde": "leerStatStopO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 58
+    },
+    {
+      "Desde": "lseekBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 101
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 152
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "finStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 113
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "leerStatStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 127
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "leerStatStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 141
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "muestraTStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 131
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "muestraTStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 148
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "precedenciaStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 124
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "precedenciaStopO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 138
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 125
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 129
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 139
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "resolverFalloOperacionBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 143
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 111
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 115
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 122
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 132
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 136
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 146
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 149
+    },
+    {
+      "Desde": "observarStopO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 151
+    },
+    {
+      "Desde": "operarConLeaseBarreraO3bM38",
+      "Hacia": "leaseTransferidaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 65
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "decimalCanonicoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 100
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "decimalCanonicoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 107
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "enteroCanonicoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 97
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "enteroProcesoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 104
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "enteroProcesoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 105
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "enteroProcesoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 106
+    },
+    {
+      "Desde": "parsearStatO3bM38",
+      "Hacia": "enteroProcesoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 79
+    },
+    {
+      "Desde": "pidfdVivoBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 137
+    },
+    {
+      "Desde": "precedenciaIdentidadO3bM38",
+      "Hacia": "acreditarPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 131
+    },
+    {
+      "Desde": "precedenciaIdentidadO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 133
+    },
+    {
+      "Desde": "precedenciaIdentidadO3bM38",
+      "Hacia": "leerControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 122
+    },
+    {
+      "Desde": "precedenciaIdentidadO3bM38",
+      "Hacia": "revalidarAutoridadBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go",
+      "Linea": 125
+    },
+    {
+      "Desde": "precedenciaStopO3bM38",
+      "Hacia": "acreditarPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 95
+    },
+    {
+      "Desde": "precedenciaStopO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 97
+    },
+    {
+      "Desde": "precedenciaStopO3bM38",
+      "Hacia": "leerControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 86
+    },
+    {
+      "Desde": "precedenciaStopO3bM38",
+      "Hacia": "revalidarAutoridadBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 89
+    },
+    {
+      "Desde": "precedenciaStopO3bM38",
+      "Hacia": "sondaGrupoCeroO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 105
+    },
+    {
+      "Desde": "prepararTicketO3bM38",
+      "Hacia": "copiarSnapshotSinFDO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 80
+    },
+    {
+      "Desde": "prepararTicketO3bM38",
+      "Hacia": "ticketRetenidoO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 88
+    },
+    {
+      "Desde": "resolverFalloOperacionBarreraO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 363
+    },
+    {
+      "Desde": "resolverFalloOperacionBarreraO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 366
+    },
+    {
+      "Desde": "retirarBarreraO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 40
+    },
+    {
+      "Desde": "retirarTicketO3bM38",
+      "Hacia": "cerrarTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 201
+    },
+    {
+      "Desde": "retirarTicketO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 197
+    },
+    {
+      "Desde": "retirarTicketO3bM38",
+      "Hacia": "transicionCapturaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go",
+      "Linea": 203
+    },
+    {
+      "Desde": "revalidarAutoridadBarreraO3bM38",
+      "Hacia": "bootstrapDisponibleO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 285
+    },
+    {
+      "Desde": "revalidarAutoridadBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 253
+    },
+    {
+      "Desde": "revalidarAutoridadBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 257
+    },
+    {
+      "Desde": "revalidarAutoridadBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 264
+    },
+    {
+      "Desde": "revalidarAutoridadBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 275
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "acreditarPidfdBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 139
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 141
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "inventarioPostTicketO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 147
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "leerControlO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 121
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 129
+    },
+    {
+      "Desde": "revalidarHandoffO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 133
+    },
+    {
+      "Desde": "snapshotBarreraO3bM38",
+      "Hacia": "fcntlBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 165
+    },
+    {
+      "Desde": "snapshotBarreraO3bM38",
+      "Hacia": "fcntlBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 172
+    },
+    {
+      "Desde": "snapshotBarreraO3bM38",
+      "Hacia": "fstatBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 176
+    },
+    {
+      "Desde": "snapshotBarreraO3bM38",
+      "Hacia": "lseekBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 180
+    },
+    {
+      "Desde": "snapshotBarreraO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go",
+      "Linea": 159
+    },
+    {
+      "Desde": "sondaGrupoCeroO3bM38",
+      "Hacia": "operarConLeaseBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go",
+      "Linea": 30
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "consolidarHandoffO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 190
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 170
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 177
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "fatalBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 184
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "prevalidarTransferenciaO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 182
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 180
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "retirarBarreraO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 188
+    },
+    {
+      "Desde": "transferirCapturadoO3bM38",
+      "Hacia": "revalidarHandoffO3bM38",
+      "Archivo": "captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go",
+      "Linea": 175
+    }
+  ],
+  "Aserciones": [
+    "entrada_unica_y_sin_cli",
+    "maquina_total_y_cas",
+    "ticket_escritura_cierre_unicos",
+    "wait_solo_retirada_terminal",
+    "pidfd_senal_cero_grupo",
+    "proc_stat_unico_acotado",
+    "dos_T_identidad_completa",
+    "revalidacion_handoff_conjunto",
+    "o3c_sin_efectos",
+    "apis_prohibidas_ausentes",
+    "ownership_dag_sin_test_productivo"
+  ]
+}
