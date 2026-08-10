@@ -1,0 +1,15 @@
+resultado=GO
+go_version=go version go1.26.5 linux/amd64
+target=/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/o3a-v5-candidata-20260809
+head=3864bdea91aead7b1f0fc2ff95f205b784969723
+sha_conductor=bb65400bd96e867495ca4c3e9df7d462273adfb8c7da55e3f6ae66f80d83e099
+fuentes=10
+sha_fuentes=fc654291ffda8c9dae2ef690267b842568082644cfe2d384d718238ac85d492a
+bloques=14
+casos_registrados=74
+sha_casos=53e9ca4071bb83349d46ca071ea64168619505eab192c3a2fcb25e6b691c3a9d
+sha_manifiesto=02fad07cf127d2c5cb95839a4c0e872dc57deeffe45e5247c6a291b4bcbaa118
+watchdog_segundos=300
+fd_conductor_inicio=6
+fd_conductor_fin=6
+residuos=cero

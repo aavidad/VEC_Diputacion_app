@@ -32,11 +32,25 @@ CI recibe la raíz del checkout como target. No modifica las fuentes, no toca R
 y no arranca el modo operativo de Orquesta.
 
 La reproducción congelada vigente es
-`evidencia-cnd-v5-11-final-r3`: 14/14 bloques, 74 registros NDJSON, modos
-normal y `-race` real, FD del conductor 5→5 y residuos cero. C20 distingue en
+`evidencia-cnd-v5-26-final-r1`: 14/14 bloques, 74 registros NDJSON, modos
+normal y `-race` real, FD del conductor 6→6 y residuos cero. C20 distingue en
 una columna durable las variantes `canonica` y `m18_sin_pdeathsig`. El resumen
-y `SHA256SUMS` se derivan dentro de ese directorio; una corrida nueva debe usar
-otro directorio inicialmente inexistente o vacío.
+y `SHA256SUMS` validan las 21 entradas durables del directorio sin autoentrada,
+incluidos los dos sidecars C21 de cien índices.
+Los logs vacíos de una corrida verde no se copian ni se sellan; un log con
+contenido permanece disponible para el diagnóstico fail-closed de una corrida
+fallida. La
+evidencia `evidencia-cnd-v5-11-final-r3` queda como genealogía revocada de una
+fuente anterior y no autoriza V26. La evidencia V25 queda igualmente revocada
+por la intermitencia C21 detectada tras commit. Una corrida nueva debe usar otro
+directorio inicialmente inexistente o vacío.
+
+C21 conserva una fila contractual, pero ejecuta sus cien entregas `TUPLA_C` en
+cien procesos aislados, exactamente una vez cada uno. El sidecar
+`*_c21_indices.tsv` registra índice, estado y tamaños de salida; cualquier
+divergencia corta en el primer índice sin reintentar y mantiene el bloque en
+`NO-GO`. El conductor exterior sigue exigiendo inventario y residuos cero para
+el bloque completo.
 
 La composición propuesta en `.github/workflows/ci.yml` fija este directorio
 como `working-directory` y ejecuta
@@ -47,6 +61,10 @@ Antes de ejecutar cada bloque, el conductor cierra en un subproceso todos los
 descriptores heredados desde 3. Así el inventario probado pertenece al caso y
 no a la infraestructura del runner; stdin, stdout y stderr permanecen bajo la
 custodia exterior y cualquier fallo del bloque conserva su estado exacto.
+El proceso conductor cuenta sus propios descriptores sin tuberías auxiliares y
+exige igualdad inicial/final. `SHA256SUMS` se construye fuera del directorio de
+evidencia y se mueve al final, por lo que nunca se incluye ni se trunca a sí
+mismo; `sha256sum -c` debe validar todas sus entradas.
 El workflow publica en su propio log el resumen, manifiesto, TSV y logs de cada
 bloque, conservando sin traducción el estado del conductor. El plazo test-only
 para observar la salida nominal es diez segundos y no altera los tres segundos
@@ -58,6 +76,12 @@ entrada, subreaper, `Pdeathsig`, inventario y forma FD—, mapa FD, avance,
 identidad, limpieza, retirada y residuos; nunca son estados GO ni alteran las
 salidas contractuales 65 y 72--76. `C08_BARRIDO` espera 79 porque su mutación
 de barrido debe ser rechazada durante la preparación de la fixture.
+Para `C03_SELECTORES`, la columna `detalle` identifica el selector exacto y
+los estados 93, 94, 96 y 98 distinguen cuatro grupos causales:
+preflight/prctl, autoridad/control, forma/inventario u otro. No colisionan con
+124, 126, 127 ni 128+N reservados por `timeout`; son siempre NO-GO y no
+sustituyen ni reintentan el caso agregado. Exit, stdout y stderr se comprueban
+tras cada proceso; la primera divergencia corta el lazo y conserva el selector.
 R conserva su autoridad histórica y sus nueve entradas para cortes anteriores;
 no es autoridad de O3a V5.
 
@@ -154,11 +178,11 @@ SHA. La variante conserva una única llamada a `Start` y modifica solo la
 clasificación/resultado inmediatamente posterior. Este mecanismo coincide con
 la disciplina M001..MN y evita hooks en el grafo productivo.
 
-G7b tiene margen contractual hasta 700 líneas (539 en el checkpoint); aun así,
-el despachador y sus oráculos deben refactorizarse si la proyección corregida
-supera ese tope. G6c no puede recibir líneas: el checkpoint estaba en 550 y la
-corrección externa informada queda en 548; cualquier cambio allí exige refactor
-y nuevas huellas.
+La enmienda CI V5 fija paradas revisables G7a=750/G7b=750 para alojar el
+aislamiento y diagnóstico test-only de C03. Ambos deben permanecer bajo esas
+paradas y bajo el tope duro de 800 líneas de DEC-051. G6c no puede recibir
+líneas: el checkpoint estaba en 550 y la corrección externa informada queda en
+548; cualquier crecimiento exige refactor o una nueva decisión revisada.
 
 ## Arquitectura del conductor una vez exista la frontera
 

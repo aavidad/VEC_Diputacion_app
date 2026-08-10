@@ -1,0 +1,4 @@
+variante	caso	estado	stdout	stderr	reap	delta_fd	grupo_cero	resultado
+canonica	C20_PDEATH_CREADOR	74	0	0	1	0	true	GO
+canonica	C20_PDEATH_OTRO	75	0	0	0	0	true	GO
+m18_sin_pdeathsig	C20_PDEATH_CREADOR	76	0	0	1	0	true	GO

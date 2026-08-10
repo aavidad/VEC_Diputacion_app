@@ -97,12 +97,23 @@ ejecutar_bloque_aislado() {
     [[ $fd =~ ^[0-9]+$ && $fd -ge 3 ]] || continue
     eval "exec ${fd}>&-" 2>/dev/null || true
   done
+  cd "$directorio"
   if [[ $modo == race ]]; then
     exec env CND_RUNTIME_TARGET="$target" CND_RACE=1 CND_CGO_ENABLED=1 \
       timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida"
   fi
   exec env CND_RUNTIME_TARGET="$target" CND_RACE=0 CND_CGO_ENABLED=0 \
     timeout --foreground -k 10s "${watchdog}s" "$ruta" "$staging" "$salida"
+}
+
+contar_fd_conductor() {
+  local destino=$1 fd ruta_fd total=0
+  for ruta_fd in "/proc/$$/fd/"*; do
+    fd=${ruta_fd##*/}
+    [[ $fd =~ ^[0-9]+$ && -e $ruta_fd ]] || continue
+    ((total += 1))
+  done
+  printf -v "$destino" '%d' "$total"
 }
 
 scripts=(
@@ -114,7 +125,9 @@ scripts=(
   conductor_c19.sh
   conductor_c20.sh
 )
-fd_inicio=$(find "/proc/$$/fd" -mindepth 1 -maxdepth 1 -type l 2>/dev/null | wc -l)
+fd_inicio=0
+fd_fin=0
+contar_fd_conductor fd_inicio
 fallos=0
 for modo in normal race; do
   for script in "${scripts[@]}"; do
@@ -145,7 +158,8 @@ done
 residuos="$raiz/residuos.txt"
 pgrep -af "$raiz|$staging" >"$residuos" || true
 [[ ! -s $residuos ]] || fallos=1
-fd_fin=$(find "/proc/$$/fd" -mindepth 1 -maxdepth 1 -type l 2>/dev/null | wc -l)
+contar_fd_conductor fd_fin
+[[ $fd_inicio -eq $fd_fin ]] || fallos=1
 
 sha_conductor=$(sha256sum "$directorio/conductor.sh" | awk '{print $1}')
 sha_fuentes=$(sha256sum "$verificado" | awk '{print $1}')
@@ -175,9 +189,17 @@ cp -- "$manifiesto" "$destino/manifiesto.tsv"
 cp -- "$ndjson" "$destino/casos.ndjson"
 cp -- "$resumen" "$destino/resumen.txt"
 cp -- "$residuos" "$destino/residuos.txt"
-for f in "$raiz"/*.log "$raiz"/*.tsv; do
+for f in "$raiz"/*.tsv; do
   [[ -f $f ]] && cp -- "$f" "$destino/"
 done
-sha256sum "$destino"/* | sort -k2 >"$destino/SHA256SUMS"
+for f in "$raiz"/*.log; do
+  [[ -s $f ]] && cp -- "$f" "$destino/"
+done
+(cd "$destino" && sha256sum ./*) | sort -k2 >"$raiz/SHA256SUMS.nuevo"
+mv -- "$raiz/SHA256SUMS.nuevo" "$destino/SHA256SUMS"
+if ! (cd "$destino" && sha256sum -c SHA256SUMS >/dev/null); then
+  printf 'NO-GO evidencia_sha256\n' >&2
+  exit 1
+fi
 printf '%s\n' "$resultado_global"
 exit "$fallos"

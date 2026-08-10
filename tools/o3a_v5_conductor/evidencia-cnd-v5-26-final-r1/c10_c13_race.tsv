@@ -1,0 +1,8 @@
+variante	caso	esperado	estado	stdout	stderr	resultado
+canonica	TUPLA_C	0	0	0	0	GO
+tupla_a	TUPLA_A	72	72	0	0	GO
+tupla_b	TUPLA_B	65	65	0	0	GO
+dupfd	C10_DUPFD_POST_START	73	73	0	0	GO
+primario_cerrado	AF_PIDFD_PRIMARIO_CERRADO	73	73	0	0	GO
+reserva_cerrada	AF_PIDFD_RESERVA_CERRADA	73	73	0	0	GO
+ambos_cerrados	AF_PIDFD_AMBOS_CERRADOS	65	65	0	0	GO
