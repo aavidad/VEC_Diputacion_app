@@ -36,6 +36,7 @@ type autoridadCapturaO3bM38 struct {
 	fdsBarrera     [3]int
 	huellasBarrera [3]huellaFDO3aM38
 	ticket         *ticketPreparadoO3bM38
+	sidSupervisor  int
 }
 
 func (a *autoridadCapturaO3bM38) es(estado estadoCapturaO3bM38) bool {

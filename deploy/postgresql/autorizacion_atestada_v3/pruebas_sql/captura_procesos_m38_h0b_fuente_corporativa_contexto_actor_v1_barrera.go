@@ -388,6 +388,18 @@ func ejecutarBarreraO3bM38(a *autoridadCapturaO3bM38) error {
 	if err := acreditarInventarioBarreraO3bM38(a); err != nil {
 		return resolverFalloOperacionBarreraO3bM38(a, err, barreraO3bInventarioM38)
 	}
+	var sid uintptr
+	if err := operarConLeaseBarreraO3bM38(a.custodia, func() error {
+		var errno syscall.Errno
+		sid, _, errno = syscall.Syscall(syscall.SYS_GETSID, 0, 0, 0)
+		if errno != 0 {
+			return errno
+		}
+		return nil
+	}); err != nil || sid == 0 || sid > uintptr(^uint(0)>>1) {
+		return resolverFalloOperacionBarreraO3bM38(a, err, barreraO3bInventarioM38)
+	}
+	a.sidSupervisor = int(sid)
 	if err := prepararTicketO3bM38(a); err != nil {
 		if a.ticket == nil {
 			fatalBarreraO3bM38(a)
