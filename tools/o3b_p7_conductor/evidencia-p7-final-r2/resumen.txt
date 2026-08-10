@@ -1,0 +1,13 @@
+resultado=GO
+base=d9f8aeb547f5d1b3b9ab3eb786382f78ef964e28
+go_version=go version go1.26.5 linux/amd64
+sha_conductor=5561475016a1cf2b59602e441dd825399356099f84bdcd33a3864169e9374343
+sha_matriz=4b77892033510062cc869325195c6514816d08b83f92dd40dea911f4d038edca
+sha_fuentes_matriz=69209010eb1c9f8d10270787a02f612a15d31d863cd24f6f093edff383b11a77
+fuentes=22
+sha_target=69209010eb1c9f8d10270787a02f612a15d31d863cd24f6f093edff383b11a77
+oraculos=17_por_modo
+capturas_normal=100
+capturas_race=100
+casos_totales=234
+residuos=cero
