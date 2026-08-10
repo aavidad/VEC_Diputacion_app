@@ -2,7 +2,9 @@
 
 Fecha: 9 de agosto de 2026.
 
-Estado: **CANDIDATA; no autoriza integración hasta doble revisión y CI 5/5**.
+Estado: **CERRADA Y PUBLICADA para el corte técnico O3a V5**. La autorización
+permaneció candidata hasta completar doble revisión, publicación y CI 5/5; esas
+condiciones constan cumplidas en la revisión final enlazada al cierre.
 
 ## Motivo
 
@@ -106,9 +108,13 @@ ni del checkpoint portable.
 - Push sin force y CI posterior 5/5, donde `puerta-calidad` incluya el conductor.
 - Revisión post-CI de SHA, jobs y ausencia de residuos.
 
-Solo después se podrá materializar la cadena exacta en
-`integracion/ct-o4-04e-20260726`, repetir las puertas y publicar esa rama. La
-enmienda no abre O3b, producción, datos reales ni cambia métricas.
+Estas condiciones eran previas a la materialización. Tras cumplirse, la cadena
+exacta se publicó en `integracion/ct-o4-04e-20260726`, se repitieron las puertas
+y la CI integradora terminó 5/5. La enmienda no abre O3b, producción, datos
+reales ni cambia métricas.
+
+El cierre publicado, sus dos CI y los dictámenes independientes quedan fijados
+en la [revisión final](revisiones/revision_f0_h0b_c4b2_g2o_o3a_v5_codigo_final_2026-08-10.md).
 
 ## Paradas duras
 
