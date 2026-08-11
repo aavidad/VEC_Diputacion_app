@@ -4,6 +4,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"os/exec"
 	"sync/atomic"
 	"time"
 )
@@ -83,12 +85,53 @@ type agregadoO4aM38 struct {
 	retornoCont int
 }
 
+// sellosCustodiaO3cM38 conserva la procedencia adquirida por P1 para que P2
+// no confunda un recurso sustituido por otro descriptor válido del snapshot.
+type sellosCustodiaO3cM38 struct {
+	cmd                      *exec.Cmd
+	proceso                  *os.Process
+	control                  *controladorPreinicioM38
+	controlFD, terminal      *os.File
+	lease                    *leaseGuardiaO3aM38
+	observador               *observadorSenalO3aM38
+	registro                 *registroAutoridadO3aM38
+	generacionLease          uint64
+	generacionObservador     uint64
+	baselineSenal            uint64
+	estadoLease              uint32
+	estadoObservador         uint64
+	pidfd                    [3]int
+	huellaControl, terminalH huellaFDO3aM38
+	fisico                   snapshotFDO3aM38
+	tid, ppid                int
+	finBootstrap             time.Time
+}
+
 type autoridadContinuacionO3cM38 struct {
 	estado    estadoContinuacionO3cM38
 	custodia  *custodiaO3aM38
 	identidad muestraStatO3bM38
 	autoridad *autoridadCustodiaO3cM38
 	salida    *agregadoO4aM38
+	sellos    sellosCustodiaO3cM38
+}
+
+func sellarCustodiaO3cM38(c *custodiaO3aM38) sellosCustodiaO3cM38 {
+	control := c.lease.fisico.mapa[int(c.controlFD.Fd())]
+	terminal := c.lease.fisico.mapa[int(c.terminal.Fd())]
+	mapa := make(map[int]huellaFDO3aM38, len(c.lease.fisico.mapa))
+	for fd, huella := range c.lease.fisico.mapa {
+		mapa[fd] = huella
+	}
+	return sellosCustodiaO3cM38{
+		cmd: c.cmd, proceso: c.cmd.Process, control: c.control, controlFD: c.controlFD, terminal: c.terminal,
+		lease: c.lease, observador: c.observador, pidfd: [3]int{c.pidfdPrimario, c.pidfdReserva, c.pidfdOpaco},
+		registro: c.lease.registro, generacionLease: c.lease.generacion, generacionObservador: c.observador.generacion,
+		baselineSenal: c.baselineSenal, estadoLease: c.lease.estado.Load(),
+		estadoObservador: c.observador.palabra.Load() & mascaraEstadoObservadorO3aM38,
+		huellaControl:    control, terminalH: terminal, fisico: snapshotFDO3aM38{limite: c.lease.fisico.limite, mapa: mapa},
+		tid: c.tid, ppid: c.ppid, finBootstrap: c.finBootstrap,
+	}
 }
 
 func (a *autoridadContinuacionO3cM38) es(estado estadoContinuacionO3cM38) bool {
@@ -200,10 +243,11 @@ func consumirAutoridadO3cM38(entrada **agregadoO3cM38) (*autoridadContinuacionO3
 	if !custodiaConsumidaValidaO3cM38(agregado) {
 		fatalO3cM38()
 	}
+	sellos := sellarCustodiaO3cM38(c)
 	salida.custodia, salida.identidad = c, agregado.identidad
 	return &autoridadContinuacionO3cM38{
 		estado: continuacionC0RecibidoM38, custodia: c, identidad: agregado.identidad,
-		autoridad: autoridad, salida: salida,
+		autoridad: autoridad, salida: salida, sellos: sellos,
 	}, nil
 }
 
