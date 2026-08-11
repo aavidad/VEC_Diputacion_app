@@ -17,7 +17,7 @@ Bytes documentales revisados:
 - decisión P1B: SHA-256
   `e279786ccbd302a1d9fc6bddf53013d98855b0f4e5b7839dbc936a76c203fba9`;
 - checkpoint P1B: SHA-256
-  `c8e62cb89e24b51ea5e6b3b0647935fefd8591170f5b0769c592c17edfb88eb9`.
+  `d7491d9cc58a52ce87ecabcf676a79f477c67add14bb997431e23718f8db763b`.
 
 ## Reproducción causal
 
