@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func sellosExactosO4aP1PruebaM38(a *autoridadCausaO4aM38, origen *agregadoO4aM38, fisico snapshotFDO3aM38) bool {
@@ -30,7 +31,7 @@ func sellosExactosO4aP1PruebaM38(a *autoridadCausaO4aM38, origen *agregadoO4aM38
 		s.generacionObservador == c.observador.generacion && s.tid == c.tid && s.ppid == c.ppid &&
 		s.baselineSenal == c.baselineSenal && s.pidfd == [3]int{c.pidfdPrimario, c.pidfdReserva, c.pidfdOpaco} &&
 		s.identidad == origen.identidad && s.primera == origen.primera.Load() && s.retornoCont == origen.retornoCont &&
-		s.palabraObservada == c.observador.palabra.Load() &&
+		s.palabraObservada == c.observador.palabra.Load() && s.ahoraCaso == origen.ahoraCaso && s.finCaso == origen.finCaso &&
 		maps.Equal(s.fisico.mapa, fisico.mapa) && s.fisico.limite == fisico.limite &&
 		s.huellaControl == fisico.mapa[int(c.controlFD.Fd())] && s.huellaTerminal == fisico.mapa[int(c.terminal.Fd())]
 }
@@ -71,10 +72,10 @@ func ejecutarAutoridadO4aP1AisladaM38(t *testing.T, caso string, estado int) {
 func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 	caso := os.Getenv("O4A_P1_CASO")
 	if caso == "" {
-		for _, nombre := range []string{"positivo", "alias", "clon", "carrera", "nulo", "senal_int", "senal_term", "senal_delta_cero", "senal_signo_cero", "senal_signo_ajeno", "senal_multiple", "control_cancelado", "control_protocolo", "control_int", "control_term", "control_activo", "inmutable"} {
+		for _, nombre := range []string{"positivo", "alias", "clon", "carrera", "nulo", "deadline_inmutable", "senal_int", "senal_term", "senal_delta_cero", "senal_signo_cero", "senal_signo_ajeno", "senal_multiple", "control_cancelado", "control_protocolo", "control_int", "control_term", "control_activo", "inmutable"} {
 			ejecutarAutoridadO4aP1AisladaM38(t, nombre, 0)
 		}
-		for _, nombre := range []string{"owner", "owner_obs", "autoridad_auto", "autoridad_arranque", "custodia_nil", "lease", "registro", "registro_auto", "generacion", "tid", "lease_auto", "observador_auto", "baseline", "pidfd", "control", "terminal", "proceso", "identidad", "primera", "raw", "senal_regresiva", "senal_estado", "palabra_no_senal", "control_interno", "control_s2", "control_primera_adversa", "control_funcional_adverso", "control_funcional_invalido"} {
+		for _, nombre := range []string{"owner", "owner_obs", "autoridad_auto", "autoridad_arranque", "custodia_nil", "lease", "registro", "registro_auto", "generacion", "tid", "lease_auto", "observador_auto", "baseline", "pidfd", "control", "terminal", "proceso", "identidad", "primera", "raw", "ahora_cero", "fin_cero", "ahora_civil", "fin_civil", "duracion_corta", "duracion_larga", "duracion_invertida", "bootstrap", "bootstrap_anterior", "bootstrap_cero", "bootstrap_civil", "overflow", "senal_regresiva", "senal_estado", "palabra_no_senal", "control_interno", "control_s2", "control_primera_adversa", "control_funcional_adverso", "control_funcional_invalido"} {
 			ejecutarAutoridadO4aP1AisladaM38(t, nombre, estadoFallo)
 		}
 		return
@@ -94,6 +95,7 @@ func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 		identidad: entrada.identidad, ahoraCaso: entrada.ahoraCaso, finCaso: entrada.finCaso, retornoCont: entrada.retornoCont}
 	clon.primera.Store(entrada.primera.Load())
 	primera, raw := entrada.primera.Load(), entrada.retornoCont
+	ahora, fin := entrada.ahoraCaso, entrada.finCaso
 	fisico := copiaSnapshotO4aM38(entrada.custodia.lease.fisico)
 	baseline := entrada.custodia.baselineSenal
 	palabraSenal := func(delta uint64, senal syscall.Signal) uint64 {
@@ -121,6 +123,7 @@ func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 			origen.autoridad.ownerObservador.Load() != uint32(propietarioO4aM38) ||
 			origen.autoridad.ownerLease.Load() != uint32(propietarioO4aM38) ||
 			origen.primera.Load() != primera || origen.retornoCont != raw ||
+			ganador.sellos.ahoraCaso != ahora || ganador.sellos.finCaso != fin ||
 			origen.custodia.observador.palabra.Load() != baseline ||
 			!snapshotsIgualesO3aM38(origen.custodia.lease.fisico, fisico) || !sellosExactosO4aP1PruebaM38(ganador, origen, fisico) {
 			os.Exit(14)
@@ -226,6 +229,31 @@ func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 		entrada.primera.Store(99)
 	case "raw":
 		entrada.retornoCont = -1
+	case "ahora_cero":
+		entrada.ahoraCaso = time.Time{}
+	case "fin_cero":
+		entrada.finCaso = time.Time{}
+	case "ahora_civil":
+		entrada.ahoraCaso = entrada.ahoraCaso.Round(0)
+	case "fin_civil":
+		entrada.finCaso = entrada.finCaso.Round(0)
+	case "duracion_corta":
+		entrada.finCaso = entrada.finCaso.Add(-time.Nanosecond)
+	case "duracion_larga":
+		entrada.finCaso = entrada.finCaso.Add(time.Nanosecond)
+	case "duracion_invertida":
+		entrada.finCaso = entrada.ahoraCaso
+	case "bootstrap":
+		entrada.custodia.finBootstrap = entrada.ahoraCaso
+	case "bootstrap_anterior":
+		entrada.custodia.finBootstrap = entrada.ahoraCaso.Add(-time.Nanosecond)
+	case "bootstrap_cero":
+		entrada.custodia.finBootstrap = time.Time{}
+	case "bootstrap_civil":
+		entrada.custodia.finBootstrap = entrada.custodia.finBootstrap.Round(0)
+	case "overflow":
+		entrada.ahoraCaso = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
+		entrada.finCaso = entrada.ahoraCaso
 	}
 	primera, raw = entrada.primera.Load(), entrada.retornoCont
 	if caso == "clon" {
@@ -236,7 +264,7 @@ func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 		}
 	}
 	a, err := consumirAutoridadO4aM38(&entrada)
-	casoValido := caso == "positivo" || caso == "alias" || caso == "clon" || strings.HasPrefix(caso, "senal_") && caso != "senal_regresiva" && caso != "senal_estado" || strings.HasPrefix(caso, "control_") && caso != "control_interno" && caso != "control_s2" && caso != "control_primera_adversa" && caso != "control_funcional_adverso" && caso != "control_funcional_invalido" || caso == "inmutable"
+	casoValido := caso == "positivo" || caso == "alias" || caso == "clon" || caso == "deadline_inmutable" || strings.HasPrefix(caso, "senal_") && caso != "senal_regresiva" && caso != "senal_estado" || strings.HasPrefix(caso, "control_") && caso != "control_interno" && caso != "control_s2" && caso != "control_primera_adversa" && caso != "control_funcional_adverso" && caso != "control_funcional_invalido" || caso == "inmutable"
 	if !casoValido {
 		os.Exit(99)
 	}
@@ -272,6 +300,15 @@ func TestAutoridadO4aP1CasosAislados(t *testing.T) {
 			os.Exit(16)
 		}
 	}
+	if caso == "deadline_inmutable" {
+		selloAhora, selloFin := a.sellos.ahoraCaso, a.sellos.finCaso
+		origen.ahoraCaso = time.Now()
+		origen.finCaso = origen.ahoraCaso.Add(duracionCasoO3cM38)
+		if a.sellos.ahoraCaso != selloAhora || a.sellos.finCaso != selloFin ||
+			(origen.ahoraCaso == selloAhora && origen.finCaso == selloFin) {
+			os.Exit(17)
+		}
+	}
 	if caso == "alias" {
 		alias := origen
 		if b, e := consumirAutoridadO4aM38(&alias); b != nil || !errors.Is(e, errConsumoO4aM38) || alias != nil {
@@ -292,7 +329,7 @@ func TestAutoridadO4aP1EstructuraSinEfectos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prohibidas := []string{"Now", "Sleep", "Syscall", "Poll", "Kill", "Wait", "Close", "Write", "Print", "Log"}
+	prohibidas := []string{"Now", "Round", "Add", "Sleep", "NewTimer", "Syscall", "Poll", "Kill", "Wait", "Close", "Write", "Print", "Log"}
 	ast.Inspect(nodo, func(n ast.Node) bool {
 		switch n.(type) {
 		case *ast.GoStmt, *ast.ChanType:
@@ -315,9 +352,18 @@ func TestAutoridadO4aP1EstructuraSinEfectos(t *testing.T) {
 	if strings.Count(string(contenido), ".primera.Load()") != 1 || strings.Count(string(contenido), ".palabra.Load()") != 1 {
 		t.Fatal("captura raw no es única")
 	}
+	if strings.Count(string(contenido), "a.ahoraCaso") != 1 || strings.Count(string(contenido), "a.finCaso") != 1 ||
+		strings.Count(string(contenido), "a.custodia.finBootstrap") != 1 {
+		t.Fatal("captura temporal no es única")
+	}
 	posBase := bytes.Index(contenido, []byte("entradaBaseExactaO4aM38(a)"))
-	posCaptura, posCAS := bytes.Index(contenido, []byte("a.primera.Load()")), bytes.Index(contenido, []byte("CompareAndSwap(custodiaEntregadaO3cM38"))
-	if posBase < 0 || posCaptura <= posBase || posCAS <= posCaptura {
+	posCaptura := bytes.Index(contenido, []byte("a.primera.Load()"))
+	posTiempo := bytes.Index(contenido, []byte("a.ahoraCaso, a.finCaso, a.custodia.finBootstrap"))
+	posValidacion := bytes.Index(contenido, []byte("!tiemposEntradaExactosO4aM38(ahora, fin, finBootstrap)"))
+	posSellado := bytes.Index(contenido, []byte("sellarEntradaO4aM38(a, primera, palabra, canon, ahora, fin)"))
+	posCAS := bytes.Index(contenido, []byte("CompareAndSwap(custodiaEntregadaO3cM38"))
+	if posBase < 0 || posCaptura <= posBase || posTiempo <= posCaptura || posValidacion <= posTiempo ||
+		posSellado <= posValidacion || posCAS <= posSellado {
 		t.Fatal("orden prevalidación-captura-CAS divergente")
 	}
 }

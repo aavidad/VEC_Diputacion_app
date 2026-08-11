@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync/atomic"
+	"time"
 )
 
 type estadoCausaO4aM38 uint32
@@ -67,6 +68,7 @@ type sellosO4aM38 struct {
 	retornoCont                   int
 	palabraObservada              uint64
 	canonControlRaw               canonControlRawO4aM38
+	ahoraCaso, finCaso            time.Time
 	fisico                        snapshotFDO3aM38
 	huellaControl, huellaTerminal huellaFDO3aM38
 }
@@ -150,6 +152,13 @@ func relacionPalabraRawO4aM38(primera uint32, baseline, observada uint64) bool {
 	return observada == baseline
 }
 
+func tiemposEntradaExactosO4aM38(ahora, fin, finBootstrap time.Time) bool {
+	finCalculado, valido := finCasoExactoO3cM38(ahora)
+	return valido && tiempoMonotonoO3cM38(fin) && tiempoMonotonoO3cM38(finBootstrap) &&
+		fin == finCalculado && fin.After(ahora) && fin.Sub(ahora) == duracionCasoO3cM38 &&
+		ahora.Before(finBootstrap)
+}
+
 func entradaBaseExactaO4aM38(a *agregadoO4aM38) bool {
 	if a == nil || a.auto != a || a.autoridad == nil || a.autoridad.auto != a.autoridad || a.custodia == nil ||
 		a.autoridad.ownerObservador.Load() != uint32(propietarioO4aM38) ||
@@ -188,7 +197,7 @@ func entradaBaseExactaO4aM38(a *agregadoO4aM38) bool {
 		h0.identidad == h1.identidad && h1.identidad == h2.identidad && okc && okt && hc.abierto && ht.abierto
 }
 
-func sellarEntradaO4aM38(a *agregadoO4aM38, primera uint32, palabra uint64, canon canonControlRawO4aM38) sellosO4aM38 {
+func sellarEntradaO4aM38(a *agregadoO4aM38, primera uint32, palabra uint64, canon canonControlRawO4aM38, ahora, fin time.Time) sellosO4aM38 {
 	c, l, o := a.custodia, a.custodia.lease, a.custodia.observador
 	return sellosO4aM38{
 		autoridad: a.autoridad, autoridadArranque: c.autoridad, custodia: c, lease: l, observador: o, registro: l.registro,
@@ -196,7 +205,7 @@ func sellarEntradaO4aM38(a *agregadoO4aM38, primera uint32, palabra uint64, cano
 		generacionLease: l.generacion, generacionObservador: o.generacion, tid: c.tid, ppid: c.ppid,
 		baselineSenal: c.baselineSenal, pidfd: [3]int{c.pidfdPrimario, c.pidfdReserva, c.pidfdOpaco},
 		identidad: a.identidad, primera: primera, retornoCont: a.retornoCont,
-		palabraObservada: palabra, canonControlRaw: canon,
+		palabraObservada: palabra, canonControlRaw: canon, ahoraCaso: ahora, finCaso: fin,
 		fisico: copiaSnapshotO4aM38(l.fisico), huellaControl: l.fisico.mapa[int(c.controlFD.Fd())],
 		huellaTerminal: l.fisico.mapa[int(c.terminal.Fd())],
 	}
@@ -221,15 +230,17 @@ func consumirAutoridadO4aM38(entrada **agregadoO4aM38) (*autoridadCausaO4aM38, e
 		fatalO3cM38()
 	}
 	primera, palabra := a.primera.Load(), a.custodia.observador.palabra.Load()
+	ahora, fin, finBootstrap := a.ahoraCaso, a.finCaso, a.custodia.finBootstrap
 	canon, capturaValida := normalizarControlRawO4aM38(a, primera)
 	if !capturaValida || a.retornoCont < 0 ||
+		!tiemposEntradaExactosO4aM38(ahora, fin, finBootstrap) ||
 		!discriminanteObservacionValidoO3cM38(discriminanteObservacionO3cM38(primera)) ||
 		!relacionPalabraRawO4aM38(primera, a.custodia.baselineSenal, palabra) ||
 		(discriminanteObservacionO3cM38(primera) == observacionControlRawO3cM38) != (canon != controlRawVacioO4aM38) {
 		fatalO3cM38()
 	}
 	r := &autoridadCausaO4aM38{origen: a}
-	r.auto, r.sellos = r, sellarEntradaO4aM38(a, primera, palabra, canon)
+	r.auto, r.sellos = r, sellarEntradaO4aM38(a, primera, palabra, canon, ahora, fin)
 	r.estado.Store(uint32(causaA0RecibidoM38))
 	if !a.custodia.consumida.CompareAndSwap(custodiaEntregadaO3cM38, custodiaRecibidaO4aM38) {
 		return nil, errConsumoO4aM38
