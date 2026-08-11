@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -114,7 +113,10 @@ func fuentesEsperadas(repo string) ([]byte, error) {
 		if k == "Q" {
 			b, err = os.ReadFile(filepath.Join(repo, fuentes[k]))
 		} else {
-			b, err = gitMostrar(repo, base+":"+paquete+"/"+fuentes[k])
+			b, err = os.ReadFile(filepath.Join(repo, paquete, fuentes[k]))
+			if err == nil && sha(b) != hashesBase[k] {
+				return nil, fmt.Errorf("fuente base %s alterada", k)
+			}
 		}
 		if err != nil {
 			return nil, err
@@ -122,19 +124,6 @@ func fuentesEsperadas(repo string) ([]byte, error) {
 		fmt.Fprintf(&out, "%s\t%s\t%s\n", k, fuentes[k], sha(b))
 	}
 	return []byte(out.String()), nil
-}
-
-func gitMostrar(repo, objeto string) ([]byte, error) {
-	return ejecutarSalida(repo, "git", "-C", repo, "show", objeto)
-}
-
-func ejecutarSalida(dir string, argv ...string) ([]byte, error) {
-	if len(argv) == 0 {
-		return nil, errors.New("comando vacio")
-	}
-	c := exec.Command(argv[0], argv[1:]...)
-	c.Dir = dir
-	return c.Output()
 }
 
 func validarResultados(cat, res []byte) (map[string]bool, error) {
@@ -237,7 +226,7 @@ func fusionar(repo, root, out string) error {
 		if string(l.fuente) != primeraFuente {
 			return errors.New("fuentes distintas")
 		}
-		if valorManifest(l.man, "base") != base || valorManifest(l.man, "toolchain") != runtime.Version() || valorManifest(l.man, "catalogo_total") != strconv.Itoa(len(catalogo())) {
+		if valorManifest(l.man, "base_producto") != base || valorManifest(l.man, "fuentes_objetivo_sha256") != digestObjetivos() || valorManifest(l.man, "toolchain") != runtime.Version() || valorManifest(l.man, "catalogo_total") != strconv.Itoa(len(catalogo())) {
 			return errors.New("base/toolchain/catalogo")
 		}
 		if valorManifest(l.man, "modo") != "mutantes" {
@@ -289,7 +278,7 @@ func fusionar(repo, root, out string) error {
 			return err
 		}
 	}
-	man := fmt.Sprintf("base\t%s\ntoolchain\t%s\ncatalogo_total\t%d\nmutantes\t%d/%d compilables-y-muertos\nfamilias\t24/24\nrunner_sha256\t%s\nrunner_fusion_sha256\t%s\nrunner_test_sha256\t%s\nrunner_readme_sha256\t%s\nrunner_bin_sha256\t%s\nast_main_sha256\t%s\nast_invariantes_sha256\t%s\nast_retirada_sha256\t%s\nast_seguridad_sha256\t%s\nast_test_sha256\t%s\nast_readme_sha256\t%s\nconductor_sha256\t%s\nfuentes_sha256\t%s\nresiduos\tcero\n", base, runtime.Version(), len(catalogo()), len(ids), len(catalogo()), actuales["runner_sha256"], actuales["runner_fusion_sha256"], actuales["runner_test_sha256"], actuales["runner_readme_sha256"], actuales["runner_bin_sha256"], actuales["ast_main_sha256"], actuales["ast_invariantes_sha256"], actuales["ast_retirada_sha256"], actuales["ast_seguridad_sha256"], actuales["ast_test_sha256"], actuales["ast_readme_sha256"], actuales["conductor_sha256"], sha(fuenteEsperada))
+	man := fmt.Sprintf("base_producto\t%s\nfuentes_objetivo_sha256\t%s\ntoolchain\t%s\ncatalogo_total\t%d\nmutantes\t%d/%d compilables-y-muertos\nfamilias\t24/24\nrunner_sha256\t%s\nrunner_fusion_sha256\t%s\nrunner_test_sha256\t%s\nrunner_readme_sha256\t%s\nrunner_bin_sha256\t%s\nast_main_sha256\t%s\nast_invariantes_sha256\t%s\nast_retirada_sha256\t%s\nast_seguridad_sha256\t%s\nast_test_sha256\t%s\nast_readme_sha256\t%s\nconductor_sha256\t%s\nfuentes_sha256\t%s\nresiduos\tcero\n", base, digestObjetivos(), runtime.Version(), len(catalogo()), len(ids), len(catalogo()), actuales["runner_sha256"], actuales["runner_fusion_sha256"], actuales["runner_test_sha256"], actuales["runner_readme_sha256"], actuales["runner_bin_sha256"], actuales["ast_main_sha256"], actuales["ast_invariantes_sha256"], actuales["ast_retirada_sha256"], actuales["ast_seguridad_sha256"], actuales["ast_test_sha256"], actuales["ast_readme_sha256"], actuales["conductor_sha256"], sha(fuenteEsperada))
 	if err = os.WriteFile(filepath.Join(out, "manifiesto.tsv"), []byte(man), 0644); err != nil {
 		return err
 	}

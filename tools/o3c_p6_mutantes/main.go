@@ -39,6 +39,13 @@ var fuentes = map[string]string{
 	"Q": "tools/o3c_p6_conductor/conductor.sh",
 }
 
+var hashesBase = map[string]string{
+	"A": "150c46ebeef8b6d2850d735b1f679701d620f0ef54850ab01f20fca986c9a599", "B": "0499ede483615d57d5438d579f32580649b40fbf34b3be6bc26d31fa6c86c02d",
+	"C": "447d5779ea90731b3b53a46870861b79bc95a478bd0fa7540b717ea279bd94be", "G": "9015dff049f04f839920c964a5d8471c1b3f7f9e3dcab339266cf2e13f155bd8",
+	"H": "66fb9c71e8c5d5e03cd7a32380986c23a0139720673a9b2348e1bcf03d3ec4cf", "O": "bf2a5814608479cfe03628be31e951087a6da29f21f8a88a053108fa0d6620b0",
+	"R": "35409603d803a6d74288a391bea93239d2246fbe3c0d35eecf2063c0da1fe1aa", "T": "13bac7a37f5d82bc27d2cb4f767b963eee6f99961cf574a8616186afde391d76",
+}
+
 type mutante struct{ id, familia, alternativa, fuente, antes, despues, oraculo string }
 type resultado struct {
 	mutante
@@ -227,6 +234,19 @@ func catalogo() []mutante {
 }
 
 func sha(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+
+func digestObjetivos() string {
+	keys := make([]string, 0, len(hashesBase))
+	for k := range hashesBase {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s\t%s\t%s\n", k, fuentes[k], hashesBase[k])
+	}
+	return sha([]byte(b.String()))
+}
 
 func ejecutarGrupo(dir, cache string, argv ...string) ([]byte, error, time.Duration) {
 	inicio := time.Now()
@@ -438,7 +458,7 @@ func validarConductorO3cP6(b []byte) error {
 }
 
 func archive(repo, dir string) error {
-	a := exec.Command("git", "archive", "--format=tar", base)
+	a := exec.Command("git", "archive", "--format=tar", "HEAD")
 	a.Dir = repo
 	t := exec.Command("tar", "-x", "-C", dir)
 	p, err := a.StdoutPipe()
@@ -456,9 +476,11 @@ func archive(repo, dir string) error {
 }
 
 func ejecutar(repo, out string, desde, hasta int, soloCompilar bool) error {
-	ancestro := exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", base, "HEAD")
-	if err := ancestro.Run(); err != nil {
-		return errors.New("la base O3c P5 no es ancestro del checkout de herramienta")
+	for k, esperado := range hashesBase {
+		b, err := os.ReadFile(filepath.Join(repo, paquete, fuentes[k]))
+		if err != nil || sha(b) != esperado {
+			return fmt.Errorf("fuente base %s no coincide con %s", k, base)
+		}
 	}
 	lista := catalogo()
 	if desde < 1 || hasta < desde || hasta > len(lista) {
@@ -626,7 +648,7 @@ func ejecutar(repo, out string, desde, hasta int, soloCompilar bool) error {
 		if k == "Q" {
 			b, err = os.ReadFile(filepath.Join(repo, fuentes[k]))
 		} else {
-			b, err = exec.Command("git", "-C", repo, "show", base+":"+paquete+"/"+fuentes[k]).Output()
+			b, err = os.ReadFile(filepath.Join(repo, paquete, fuentes[k]))
 		}
 		if err != nil {
 			return err
@@ -698,7 +720,7 @@ func ejecutar(repo, out string, desde, hasta int, soloCompilar bool) error {
 	if soloCompilar {
 		modo, estadoLote = "preflight", fmt.Sprintf("solo_compilacion\t%d/%d", len(lista), hasta-desde+1)
 	}
-	manifest := fmt.Sprintf("base\t%s\ntoolchain\t%s\ncatalogo_total\t%d\nmodo\t%s\nrango\t%d-%d\n%s\npgid\tESRCH por build/vet/oraculo\nresiduos\tcero\nrunner_sha256\t%s\nrunner_fusion_sha256\t%s\nrunner_test_sha256\t%s\nrunner_readme_sha256\t%s\nrunner_bin_sha256\t%s\nast_main_sha256\t%s\nast_invariantes_sha256\t%s\nast_retirada_sha256\t%s\nast_seguridad_sha256\t%s\nast_test_sha256\t%s\nast_readme_sha256\t%s\nconductor_sha256\t%s\n", base, runtime.Version(), len(catalogo()), modo, desde, hasta, estadoLote, sha(mainBytes), sha(fusionBytes), sha(testBytes), sha(readmeBytes), sha(binBytes), sha(astMain), sha(astInvariantes), sha(astRetirada), sha(astSeguridad), sha(astTest), sha(astREADME), sha(conductor))
+	manifest := fmt.Sprintf("base_producto\t%s\nfuentes_objetivo_sha256\t%s\ntoolchain\t%s\ncatalogo_total\t%d\nmodo\t%s\nrango\t%d-%d\n%s\npgid\tESRCH por build/vet/oraculo\nresiduos\tcero\nrunner_sha256\t%s\nrunner_fusion_sha256\t%s\nrunner_test_sha256\t%s\nrunner_readme_sha256\t%s\nrunner_bin_sha256\t%s\nast_main_sha256\t%s\nast_invariantes_sha256\t%s\nast_retirada_sha256\t%s\nast_seguridad_sha256\t%s\nast_test_sha256\t%s\nast_readme_sha256\t%s\nconductor_sha256\t%s\n", base, digestObjetivos(), runtime.Version(), len(catalogo()), modo, desde, hasta, estadoLote, sha(mainBytes), sha(fusionBytes), sha(testBytes), sha(readmeBytes), sha(binBytes), sha(astMain), sha(astInvariantes), sha(astRetirada), sha(astSeguridad), sha(astTest), sha(astREADME), sha(conductor))
 	if err := os.WriteFile(filepath.Join(out, "manifiesto.tsv"), []byte(manifest), 0644); err != nil {
 		return err
 	}

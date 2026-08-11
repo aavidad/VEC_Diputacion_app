@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"go/parser"
 	"go/token"
 	"os"
@@ -28,7 +29,10 @@ func TestCatalogoO3cP6CompletoAtomico(t *testing.T) {
 		if x.fuente == "Q" {
 			b, err = os.ReadFile(filepath.Join("../..", fuentes[x.fuente]))
 		} else {
-			b, err = exec.Command("git", "show", base+":"+paquete+"/"+fuentes[x.fuente]).Output()
+			b, err = os.ReadFile(filepath.Join("../..", paquete, fuentes[x.fuente]))
+			if err == nil && sha(b) != hashesBase[x.fuente] {
+				err = errors.New("hash base alterado")
+			}
 		}
 		if err != nil || bytes.Count(b, []byte(x.antes)) != 1 {
 			t.Fatalf("%s patrón anterior cardinalidad=%d err=%v", clave, bytes.Count(b, []byte(x.antes)), err)
@@ -155,6 +159,40 @@ func TestGoRunO3cP6FallaCerrado(t *testing.T) {
 	salida, err := cmd.CombinedOutput()
 	if err == nil || !bytes.Contains(salida, []byte("binario no canonico")) {
 		t.Fatalf("go run no falló cerrado: %v %s", err, salida)
+	}
+}
+
+func TestArchiveO3cP6FuncionaConUnSoloCommit(t *testing.T) {
+	repo, destino := filepath.Join(t.TempDir(), "repo"), filepath.Join(t.TempDir(), "archive")
+	if err := os.MkdirAll(repo, 0700); err != nil {
+		t.Fatal(err)
+	}
+	comandos := [][]string{{"init", "-q"}, {"config", "user.email", "fixture@example.invalid"}, {"config", "user.name", "fixture"}}
+	for _, args := range comandos {
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(repo, "unico"), []byte("HEAD\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "unico"}, {"commit", "-q", "-m", "unico"}} {
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	if err := os.MkdirAll(destino, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive(repo, destino); err != nil {
+		t.Fatalf("archive HEAD único: %v", err)
+	}
+	if b, err := os.ReadFile(filepath.Join(destino, "unico")); err != nil || string(b) != "HEAD\n" {
+		t.Fatalf("archive inválido: %v %q", err, b)
 	}
 }
 

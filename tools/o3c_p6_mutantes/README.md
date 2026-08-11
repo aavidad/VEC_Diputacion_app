@@ -7,6 +7,13 @@ formatear y parsear el resultado, exige `go vet` y un binario de pruebas
 compilable, y solo la cuenta muerta por una prueba O3c causal o por el grupo
 específico del analizador AST/tipos/DAG.
 
+La base anterior es autoridad de hashes, no una dependencia del historial:
+antes de mutar se comparan las fuentes de `HEAD` con sus SHA sellados y el
+archive se crea desde ese `HEAD`. Por ello funciona en checkout `fetch-depth: 1`
+sin requerir que exista el objeto padre. `HEAD` no se sella como autoridad: el
+manifiesto usa `fuentes_objetivo_sha256`, digest estable de ruta y SHA de los
+ocho targets, junto con los sellos explícitos de runner, AST y conductor.
+
 El analizador se ejecuta desde el checkout de la herramienta contra el paquete
 mutado con `-permitir-sha`; el archive efímero no contiene ni puede sustituir
 al oráculo. Un error de parseo, tipado, infraestructura, timeout o un grupo AST
