@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -13,6 +14,23 @@ import (
 	"time"
 	"unsafe"
 )
+
+func exigirFatalSinSalidaO3bPruebaM38(t *testing.T, variable, prueba string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(os.Args[0], "-test.run=^"+prueba+"$")
+	cmd.Env = append(os.Environ(), variable+"=1")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	var salida *exec.ExitError
+	if !errors.As(err, &salida) || salida.ExitCode() != estadoFallo {
+		t.Fatalf("BF no terminó en %d: %v", estadoFallo, err)
+	}
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("BF produjo salida: stdout=%d stderr=%d", stdout.Len(), stderr.Len())
+	}
+}
 
 func TestMain(m *testing.M) {
 	_, fuente, _, ok := runtime.Caller(0)
@@ -285,13 +303,7 @@ func TestBarreraO3bRelecturaFinalDetectaControl(t *testing.T) {
 
 func TestBarreraO3bSinReferenciaFiableEsFatal(t *testing.T) {
 	if os.Getenv("O3B_P2_FATAL") != "1" {
-		cmd := exec.Command(os.Args[0], "-test.run=^TestBarreraO3bSinReferenciaFiableEsFatal$")
-		cmd.Env = append(os.Environ(), "O3B_P2_FATAL=1")
-		err := cmd.Run()
-		var salida *exec.ExitError
-		if !errors.As(err, &salida) || salida.ExitCode() != estadoFallo {
-			t.Fatalf("BF no terminó en %d: %v", estadoFallo, err)
-		}
+		exigirFatalSinSalidaO3bPruebaM38(t, "O3B_P2_FATAL", "TestBarreraO3bSinReferenciaFiableEsFatal")
 		return
 	}
 	_, a := autoridadRealBarreraO3bPruebaM38(t)

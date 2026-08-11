@@ -23,3 +23,11 @@ La única evidencia vigente es `evidencia-p7-final-r2`: 234 filas, 117 por
 modo, con 100 capturas normal y 100 `race`, todos los inventarios sin delta y
 `residuos.txt` vacío. `resumen.txt` liga además los SHA del conductor, matriz
 y catálogo de fuentes usados para producirla.
+
+La corrección `O3B-P7B-O17-SALIDAS` sustituye esa autoridad por
+`evidencia-p7b-o17-final-r1`. Conserva las 234 filas y añade
+`o17_directo.tsv`: tres caminos BF por modo ejecutados directamente, cada uno
+con ID y comando estables, estado 65, EOF/no retorno y stdout/stderr de cero
+bytes. Las pruebas focales conectan además buffers separados antes de `Run` y
+exigen longitud cero exacta; `PASS\n` pertenece solo al harness exterior y ya
+no se usa para acreditar O17.

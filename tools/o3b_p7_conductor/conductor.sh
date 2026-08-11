@@ -51,6 +51,7 @@ printf 'modo\tsha_binario\nnormal\t%s\nrace\t%s\n' \
   "$(sha256sum "$staging/o3b-normal" | cut -d' ' -f1)" \
   "$(sha256sum "$staging/o3b-race" | cut -d' ' -f1)" > "$evidencia/binarios.tsv"
 printf 'id\tmodo\tcomando\tsha_target\testado\tstdout_bytes\tstderr_bytes\tduracion_ms\tfd_inicio\tfd_fin\thijos_inicio\thijos_fin\tzombis_inicio\tzombis_fin\tgrupos_inicio\tgrupos_fin\ttemporales_inicio\ttemporales_fin\toraculo\tresultado\n' > "$evidencia/casos.tsv"
+printf 'id\tmodo\tcomando\tsha_target\testado\tstdout_bytes\tstderr_bytes\tstdout_eof\tstderr_eof\tno_retorno\tduracion_ms\tfd_inicio\tfd_fin\thijos_inicio\thijos_fin\tzombis_inicio\tzombis_fin\tgrupos_inicio\tgrupos_fin\ttemporales_inicio\ttemporales_fin\toraculo\tresultado\n' > "$evidencia/o17_directo.tsv"
 
 inventario() {
   local destino_fd=$1 destino_hijos=$2 destino_zombis=$3 destino_grupos=$4 destino_temporales=$5
@@ -108,12 +109,41 @@ ejecutar() {
   [[ $resultado == GO ]] || { cp "$out" "$evidencia/$id.$modo.stdout"; cp "$err" "$evidencia/$id.$modo.stderr"; return 1; }
 }
 
+ejecutar_bf_directo() {
+  local id=$1 modo=$2 variable=$3 patron=$4 oraculo=$5 bin=$6
+  local out="$staging/$id.$modo.out" err="$staging/$id.$modo.err"
+  local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado stdout_bytes stderr_bytes
+  inventario fdi hi zi gi ti
+  inicio=${EPOCHREALTIME/./}
+  set +e
+  (cd "$target" && env "$variable=1" timeout --signal=KILL 180 "$bin" "-test.run=^${patron}$" -test.count=1) >"$out" 2>"$err"
+  estado=$?
+  set -e
+  fin=${EPOCHREALTIME/./}
+  inventario fdf hf zf gf tf
+  stdout_bytes=$(wc -c <"$out")
+  stderr_bytes=$(wc -c <"$err")
+  local resultado=GO
+  [[ $estado -eq 65 && $stdout_bytes -eq 0 && $stderr_bytes -eq 0 &&
+    $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
+  printf '%s\t%s\t%s\t%s\t%d\t%d\t%d\tsi\tsi\tsi\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n' \
+    "$id" "$modo" "env $variable=1 testbin -test.run=^${patron}$ -test.count=1" "$sha_target" "$estado" \
+    "$stdout_bytes" "$stderr_bytes" "$(((fin-inicio)/1000))" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" "$oraculo" "$resultado" >> "$evidencia/o17_directo.tsv"
+  [[ $resultado == GO ]] || { cp "$out" "$evidencia/$id.$modo.stdout"; cp "$err" "$evidencia/$id.$modo.stderr"; return 1; }
+}
+
 for modo in normal race; do
   bin="$staging/o3b-$modo"
   while IFS=$'\t' read -r id prueba oraculo; do
     [[ $id == id || $id == O18_CIEN_CAPTURAS ]] && continue
     ejecutar "$id" "$modo" "$prueba" "$oraculo" "$bin"
   done < "$casos"
+  ejecutar_bf_directo O17_BF_PIDFD "$modo" O3B_P2_FATAL TestBarreraO3bSinReferenciaFiableEsFatal \
+    'BF pidfd sin referencia fiable: estado 65 EOF no retorno stdout y stderr vacios' "$bin"
+  ejecutar_bf_directo O17_BF_PARTICION "$modo" O3B_P6_FATAL TestHandoffO3bParticionIrreversibleEsFatal \
+    'BF particion irreversible: estado 65 EOF no retorno stdout y stderr vacios' "$bin"
+  ejecutar_bf_directo O17_BF_LEASE "$modo" O3B_P6_LEASE_FATAL TestHandoffO3bLeasePerdidaEsFatalPorAPI \
+    'BF lease perdida: estado 65 EOF no retorno stdout y stderr vacios' "$bin"
   for numero in $(seq -w 1 100); do
     ejecutar "CAP_${modo^^}_$numero" "$modo" 'TestHandoffO3bNominalConjuntoYConsumido' \
       'captura completa; inventario hijos zombis grupos temporales y FD sin delta' "$bin"
@@ -123,6 +153,9 @@ done
 filas=$(( $(wc -l < "$evidencia/casos.tsv") - 1 ))
 [[ $filas -eq 234 ]] || { echo "NO-GO filas $filas" >&2; exit 1; }
 ! grep -q $'\tNO-GO$' "$evidencia/casos.tsv" || { echo 'NO-GO caso' >&2; exit 1; }
+filas_o17=$(( $(wc -l < "$evidencia/o17_directo.tsv") - 1 ))
+[[ $filas_o17 -eq 6 ]] || { echo "NO-GO filas O17 $filas_o17" >&2; exit 1; }
+! grep -q $'\tNO-GO$' "$evidencia/o17_directo.tsv" || { echo 'NO-GO O17 directo' >&2; exit 1; }
 cat > "$evidencia/resumen.txt" <<EOF
 resultado=GO
 base=$base
@@ -136,11 +169,15 @@ oraculos=17_por_modo
 capturas_normal=100
 capturas_race=100
 casos_totales=$filas
+o17_directos=$filas_o17
+o17_estado=65
+o17_stdout_stderr=cero
+o17_eof_no_retorno=si
 residuos=cero
 EOF
 : > "$evidencia/residuos.txt"
 sumas="$staging/SHA256SUMS"
-(cd "$evidencia" && sha256sum binarios.tsv casos.tsv fuentes.tsv residuos.txt resumen.txt | sort -k2) > "$sumas"
+(cd "$evidencia" && sha256sum binarios.tsv casos.tsv fuentes.tsv o17_directo.tsv residuos.txt resumen.txt | sort -k2) > "$sumas"
 mv "$sumas" "$evidencia/SHA256SUMS"
 (cd "$evidencia" && sha256sum -c SHA256SUMS >/dev/null)
 echo GO

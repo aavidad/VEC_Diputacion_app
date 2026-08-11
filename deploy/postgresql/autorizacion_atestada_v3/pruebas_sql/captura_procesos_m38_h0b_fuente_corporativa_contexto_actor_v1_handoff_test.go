@@ -93,12 +93,7 @@ func TestHandoffO3bParticionIrreversibleEsFatal(t *testing.T) {
 		_ = consolidarHandoffO3bM38(a, identidad, salida)
 		os.Exit(3)
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=^TestHandoffO3bParticionIrreversibleEsFatal$")
-	cmd.Env = append(os.Environ(), "O3B_P6_FATAL=1")
-	err := cmd.Run()
-	if salida, ok := err.(*exec.ExitError); !ok || salida.ExitCode() != 65 {
-		t.Fatalf("partición no fatal: %v", err)
-	}
+	exigirFatalSinSalidaO3bPruebaM38(t, "O3B_P6_FATAL", "TestHandoffO3bParticionIrreversibleEsFatal")
 }
 
 func TestHandoffO3bOrdenaObservadorAntesDeLease(t *testing.T) {
@@ -141,12 +136,7 @@ func TestHandoffO3bLeasePerdidaEsFatalPorAPI(t *testing.T) {
 		_, _ = transferirCapturadoO3bM38(&identidad)
 		os.Exit(3)
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=^TestHandoffO3bLeasePerdidaEsFatalPorAPI$")
-	cmd.Env = append(os.Environ(), "O3B_P6_LEASE_FATAL=1")
-	err := cmd.Run()
-	if salida, ok := err.(*exec.ExitError); !ok || salida.ExitCode() != 65 {
-		t.Fatalf("lease perdida no fue fatal: %v", err)
-	}
+	exigirFatalSinSalidaO3bPruebaM38(t, "O3B_P6_LEASE_FATAL", "TestHandoffO3bLeasePerdidaEsFatalPorAPI")
 }
 
 func TestHandoffO3bInventarioPreservaLeaseFatal(t *testing.T) {
