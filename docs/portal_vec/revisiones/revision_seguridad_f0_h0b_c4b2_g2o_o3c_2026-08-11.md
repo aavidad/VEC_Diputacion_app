@@ -38,6 +38,9 @@ del cierre.
 
 ## Dictamen
 
-No quedan hallazgos P0, P1 o P2. El doble GO autoriza únicamente el commit y
-push documental P7, condicionado a CI propia 5/5. No autoriza integración ni
-O4.
+No quedan hallazgos P0, P1 o P2. El commit material
+`981ed3d413a3bc0c061c74dd17939dbd55eaf759` quedó publicado y su CI
+[31507988378](https://github.com/aavidad/VEC_Diputacion_app/actions/runs/31507988378)
+alcanzó estado global `Success` con cinco jobs `success`. Esta incorporación
+de metadatos fue revalidada y no altera el GO material. No autoriza integración
+ni O4.

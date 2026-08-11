@@ -4,7 +4,7 @@ Fecha: 11 de agosto de 2026.
 
 Identificador: `O3C-P7-EVIDENCIA`.
 
-Estado: **GO documental material, P0=P1=P2=0; pendiente de publicación y CI**.
+Estado: **GO documental publicado, P0=P1=P2=0**.
 Este documento no autoriza merge, integración, producción, despliegue, cambio
 de métricas ni apertura de O4a--O6.
 
@@ -34,7 +34,7 @@ La cadena es lineal, sin merges:
 | P4 | `29ca98b88c9a4644b4676c9705bfd80b2f723c37` | `da53a224e3dfec2e014e480c9bdd4333085aac85` | `trabajo/o3c-p4-observacion-20260811` | Primera observación raw inmediata. |
 | P5 | `c0f2a9945ed2fc5648980ee48b91424a04977655` | `29ca98b88c9a4644b4676c9705bfd80b2f723c37` | `trabajo/o3c-p5-handoff-20260811` | Handoff O4a opaco y retirada pre-CONT. |
 | P6 | `bc926891654e9800a71d6039b389afb10bacb3df` | `dbe038e70060ccb89826a80565cc3bee18fb8ee2` | `trabajo/o3c-p6-conductor-20260811` | Conductor, AST/tipos/DAG y 144 mutantes; el material inicial es `dbe038e70060ccb89826a80565cc3bee18fb8ee2`. |
-| P7 | pendiente | `bc926891654e9800a71d6039b389afb10bacb3df` | `trabajo/o3c-p7-evidencia-20260811` | Ledger, revisiones y cierre documental. |
+| P7 material | `981ed3d413a3bc0c061c74dd17939dbd55eaf759` | `bc926891654e9800a71d6039b389afb10bacb3df` | `trabajo/o3c-p7-evidencia-20260811` | Ledger, revisiones y cierre documental material. |
 
 Aristas: `P0→P1→P2→P3→P4→P5→P6→P7`. O4a-P0 permanece
 bloqueada hasta la publicación y CI 5/5 de P7.
@@ -172,6 +172,19 @@ Las puertas focales normal/race, conductor completo, AST/tipos/DAG, mutantes,
 checksums, gofmt, ShellCheck, vet y calidad global quedaron verdes. Gitleaks se
 acreditó en la CI P6 `31504085619` mediante `puerta-secretos`.
 
+## Publicación P7
+
+El commit material `981ed3d413a3bc0c061c74dd17939dbd55eaf759`
+está publicado en la rama exclusiva. Su CI
+[31507988378](https://github.com/aavidad/VEC_Diputacion_app/actions/runs/31507988378)
+alcanzó estado global `Success` sobre ese SHA y rama exactos. Los cinco jobs
+—secretos, calidad, artefactos productivos y las dos puertas PostgreSQL—
+concluyeron `success`.
+
+Este registro posterior de publicación no cambia ninguna afirmación material
+del ledger SHA-256
+`617f2df9763dafaacd91d8a3f9651028804d08b286b74fe8cb5921c6153964a4`.
+
 ## Seguridad, datos y fronteras
 
 - No se trataron datos personales, secretos, PID/pidfd/ticket serializados ni
@@ -194,6 +207,6 @@ ausencia de cambios fuera del ledger.
 
 ## Condición de cierre
 
-Solo el doble GO permite commit documental, push normal y comprobación de la
-CI P7 exacta 5/5. Dirección conserva en exclusiva la decisión de integrar y de
-asignar O4A-P0-CONTRATO.
+El doble GO, el commit material, el push normal y la CI P7 exacta 5/5 están
+acreditados. Este cierre no integra la rama. Dirección conserva en exclusiva
+la decisión de integrar y de asignar O4A-P0-CONTRATO.

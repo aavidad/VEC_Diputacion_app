@@ -35,8 +35,15 @@ La primera lectura detectó un SHA mal transcrito para `retirada.go`:
 `55500193cce25d83b912f0b6298994864ff970cbd1718ef2dd1f0441ca6461cd`.
 La relectura completa del snapshot corregido no encontró otro hallazgo.
 
+## Publicación revalidada
+
+El ledger material revisado conserva SHA-256 `617f2df9…`. La incorporación
+posterior registra únicamente commit `981ed3d413a3bc0c061c74dd17939dbd55eaf759`
+y CI [31507988378](https://github.com/aavidad/VEC_Diputacion_app/actions/runs/31507988378)
+en estado global `Success`, con cinco jobs `success`. La relectura del delta no
+altera el GO material.
+
 ## Fronteras
 
 P7 solo documenta evidencia. No modifica producto, herramientas P6, master,
-integración, métricas, producción ni O4. La publicación y CI propia P7 siguen
-siendo condición posterior al GO material.
+integración, métricas, producción ni O4.
