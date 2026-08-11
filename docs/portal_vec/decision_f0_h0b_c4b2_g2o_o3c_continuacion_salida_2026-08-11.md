@@ -4,10 +4,11 @@ Fecha: 11 de agosto de 2026.
 
 Identificador: `O3C-P0-CONTRATO`.
 
-Estado: **GO DOCUMENTAL PARA PUBLICACIÓN**. No autoriza código, integración,
+Estado: **CERRADA Y PUBLICADA EN SU RAMA EXCLUSIVA**. No autoriza integración,
 ejecución operativa ni producción. Las revisiones funcional y de seguridad
-independientes cerraron `P0=P1=P2=0`; publicación y CI 5/5 siguen siendo
-condiciones previas para desbloquear código O3c.
+independientes cerraron `P0=P1=P2=0`; el commit material `2761eca` se publicó
+sin force y su CI `31454901886` terminó 5/5. Solo dirección puede asignar el
+código O3c y decidir una integración posterior.
 
 ## Resultado observable
 
