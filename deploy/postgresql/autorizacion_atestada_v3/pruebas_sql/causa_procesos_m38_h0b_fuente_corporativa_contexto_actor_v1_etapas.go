@@ -146,7 +146,7 @@ func fatalEtapasO4aM38(e *autoridadEtapasO4aM38) {
 
 func autoridadBaseEtapasExactaO4aM38(a *autoridadCausaO4aM38) bool {
 	if a == nil || a.auto != a || a.origen == nil || a.origen.auto != a.origen ||
-		a.origen.autoridad == nil || a.sellos.autoridad != a.origen.autoridad ||
+		a.origen.autoridad == nil || a.sellos.autoridad != a.origen.autoridad || a.sellos.autoridad.auto != a.sellos.autoridad ||
 		a.sellos.custodia == nil || a.sellos.custodia != a.origen.custodia ||
 		a.sellos.lease == nil || a.sellos.observador == nil || a.sellos.registro == nil ||
 		a.sellos.lease != a.sellos.custodia.lease || a.sellos.observador != a.sellos.custodia.observador ||
@@ -163,16 +163,23 @@ func autoridadBaseEtapasExactaO4aM38(a *autoridadCausaO4aM38) bool {
 		a.sellos.autoridadArranque != a.sellos.custodia.autoridad ||
 		!a.sellos.autoridadArranque.es(arranqueA6EntregadoM38) ||
 		a.sellos.custodia.consumida.Load() != custodiaRecibidaO4aM38 ||
+		a.sellos.custodia.ticketEscritor != nil || a.sellos.custodia.ticketLector != nil ||
 		a.sellos.registro.leases[a.sellos.lease] != a.sellos.generacionLease ||
 		a.sellos.registro.observadores[a.sellos.observador] != a.sellos.generacionObservador ||
 		a.sellos.lease.generacion != a.sellos.generacionLease || a.sellos.observador.generacion != a.sellos.generacionObservador ||
-		a.sellos.lease.tid != a.sellos.tid || a.sellos.registro.tid != a.sellos.tid ||
+		a.sellos.lease.tid != a.sellos.tid || a.sellos.registro.tid != a.sellos.tid || a.sellos.custodia.tid != a.sellos.tid ||
 		a.sellos.ppid != a.sellos.custodia.ppid ||
 		a.sellos.pidfd != [3]int{a.sellos.custodia.pidfdPrimario, a.sellos.custodia.pidfdReserva, a.sellos.custodia.pidfdOpaco} ||
 		a.sellos.identidad != a.origen.identidad || a.sellos.primera != a.origen.primera.Load() ||
 		a.sellos.retornoCont != a.origen.retornoCont || a.sellos.baselineSenal != a.sellos.custodia.baselineSenal ||
+		a.sellos.baselineSenal&mascaraEstadoObservadorO3aM38 != 2 || uint8(a.sellos.baselineSenal>>2) != 0 ||
+		a.sellos.identidad.estado != 'T' || a.sellos.identidad.pid != a.sellos.proceso.Pid ||
+		a.sellos.identidad.ppid != a.sellos.ppid || a.sellos.identidad.pgid != a.sellos.proceso.Pid ||
+		a.sellos.identidad.sid <= 0 || a.sellos.identidad.inicio == 0 ||
 		a.sellos.ahoraCaso != a.origen.ahoraCaso || a.sellos.finCaso != a.origen.finCaso ||
-		!tiempoSelladoArbitrajeO4aM38(a) || !snapshotsIgualesO3aM38(a.sellos.fisico, a.sellos.lease.fisico) {
+		!tiempoMonotonoO3cM38(a.sellos.custodia.finBootstrap) || !a.sellos.ahoraCaso.Before(a.sellos.custodia.finBootstrap) ||
+		!tiempoSelladoArbitrajeO4aM38(a) || a.sellos.fisico.mapa == nil || a.sellos.fisico.limite == 0 ||
+		!snapshotsIgualesO3aM38(a.sellos.fisico, a.sellos.lease.fisico) {
 		return false
 	}
 	p := a.sellos.pidfd

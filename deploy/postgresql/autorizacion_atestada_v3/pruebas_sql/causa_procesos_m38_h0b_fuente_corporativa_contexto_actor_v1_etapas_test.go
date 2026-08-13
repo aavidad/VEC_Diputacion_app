@@ -38,16 +38,16 @@ func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausa
 	control, controlFD, terminal := &controladorPreinicioM38{}, new(os.File), new(os.File)
 	cmd := &exec.Cmd{Process: &os.Process{Pid: 801}}
 	autoridadArranque := &autoridadEstadoO3aM38{estado: arranqueA6EntregadoM38}
+	inicio := time.Now()
 	custodia := &custodiaO3aM38{
 		autoridad: autoridadArranque, control: control, controlFD: controlFD, terminal: terminal,
 		lease: lease, observador: observador, baselineSenal: 2, tid: tid, ppid: 1, cmd: cmd,
-		pidfdPrimario: 10, pidfdReserva: 11, pidfdOpaco: 12,
+		pidfdPrimario: 10, pidfdReserva: 11, pidfdOpaco: 12, finBootstrap: inicio.Add(time.Minute),
 	}
 	custodia.consumida.Store(custodiaRecibidaO4aM38)
 	autoridadCustodia := nuevaAutoridadCustodiaO3cM38()
 	autoridadCustodia.ownerObservador.Store(uint32(propietarioO4aM38))
 	autoridadCustodia.ownerLease.Store(uint32(propietarioO4aM38))
-	inicio := time.Now()
 	fin := inicio.Add(duracionCasoO3cM38)
 	origen := &agregadoO4aM38{autoridad: autoridadCustodia, custodia: custodia, ahoraCaso: inicio, finCaso: fin}
 	origen.auto = origen
@@ -319,7 +319,7 @@ func ejecutarFatalEtapasO4aP4M38(t *testing.T, caso string) {
 func TestEtapasO4aP4Fatales(t *testing.T) {
 	caso := os.Getenv("O4A_P4_FATAL")
 	if caso == "" {
-		for _, nombre := range []string{"owner", "observador", "consumo", "ppid", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
+		for _, nombre := range []string{"owner", "auto_autoridad", "observador", "consumo", "tid", "ppid", "identidad", "baseline", "ticket", "bootstrap", "fisico", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
 			ejecutarFatalEtapasO4aP4M38(t, nombre)
 		}
 		return
@@ -329,6 +329,11 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 		a.origen.autoridad.ownerLease.Store(uint32(propietarioLiberadoO3cM38))
 		_, _, _ = iniciarEtapasO4aM38(&a)
 		os.Exit(10)
+	}
+	if caso == "auto_autoridad" {
+		a.origen.autoridad.auto = nil
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(18)
 	}
 	if caso == "observador" {
 		a.origen.custodia.observador.palabra.Store(3)
@@ -340,10 +345,40 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 		_, _, _ = iniciarEtapasO4aM38(&a)
 		os.Exit(15)
 	}
+	if caso == "tid" {
+		a.origen.custodia.tid++
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(19)
+	}
 	if caso == "ppid" {
 		a.sellos.ppid++
 		_, _, _ = iniciarEtapasO4aM38(&a)
 		os.Exit(16)
+	}
+	if caso == "identidad" {
+		a.sellos.identidad.sid, a.origen.identidad.sid = 0, 0
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(20)
+	}
+	if caso == "baseline" {
+		a.sellos.baselineSenal, a.origen.custodia.baselineSenal = 6, 6
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(21)
+	}
+	if caso == "ticket" {
+		a.origen.custodia.ticketEscritor = new(os.File)
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(22)
+	}
+	if caso == "bootstrap" {
+		a.origen.custodia.finBootstrap = time.Time{}
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(23)
+	}
+	if caso == "fisico" {
+		a.sellos.fisico.limite, a.origen.custodia.lease.fisico.limite = 0, 0
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(24)
 	}
 	if caso == "arranque" {
 		a.sellos.autoridadArranque.estado = arranqueA5PidfdTresM38
