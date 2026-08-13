@@ -210,6 +210,15 @@ func TestEtapasO4aP4RamasDeFalloCerradas(t *testing.T) {
 			t.Fatal("KILL error no convergió con incidente único")
 		}
 	})
+	t.Run("stop_no_estable_a_kill_rapido", func(t *testing.T) {
+		e, stop := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
+		r := sellarResultadoEtapaPruebaO4aP4M38(t, e, stop, 1, 0, 0, evidenciaNoEstableO4bM38, stop.limite)
+		kill := aplicarResultadoEnPruebaO4aP4M38(t, e, r, stop.limite)
+		if !permisoExactoEtapaPruebaO4aP4M38(kill, e, etapaMatarGrupoO4bM38, operacionKillO4bM38, 1, e.plazos.finDrenajeRapido, limiteDrenajeRapidoO4bM38) ||
+			e.causa.incidente.Load() != incidenteCierreEnclavadoO4aM38 || !e.plazos.finGracia.IsZero() {
+			t.Fatal("STOP no estable abrió una rama distinta de KILL rápido")
+		}
+	})
 	t.Run("term_error_omite_cont", func(t *testing.T) {
 		e, stop := iniciarEtapasPruebaO4aP4M38(t, causaPlazo65O4aM38)
 		rStop := sellarResultadoEtapaPruebaO4aP4M38(t, e, stop, 1, 0, 0, evidenciaEstableO4bM38, stop.limite.Add(-time.Nanosecond))
@@ -237,6 +246,19 @@ func TestEtapasO4aP4RamasDeFalloCerradas(t *testing.T) {
 		rTerm := sellarResultadoEtapaPruebaO4aP4M38(t, e, term, 2, 0, 0, evidenciaTerminalO4bM38, term.limite.Add(-time.Nanosecond))
 		if p := aplicarResultadoEnPruebaO4aP4M38(t, e, rTerm, term.limite.Add(-time.Nanosecond)); p != nil || !e.terminalidad || e.emitidas != 2 || e.causa.estado.Load() != uint32(causaA7EntregaO4cPreparadaM38) {
 			t.Fatal("terminalidad emitió señal adicional")
+		}
+	})
+	t.Run("parada_final_no_estable_a_kill", func(t *testing.T) {
+		e, stop := iniciarEtapasPruebaO4aP4M38(t, causaSenalInt130O4aM38)
+		rStop := sellarResultadoEtapaPruebaO4aP4M38(t, e, stop, 1, 0, 0, evidenciaEstableO4bM38, stop.limite.Add(-time.Nanosecond))
+		term := aplicarResultadoEnPruebaO4aP4M38(t, e, rStop, stop.limite)
+		rTerm := sellarResultadoEtapaPruebaO4aP4M38(t, e, term, 2, 0, 0, evidenciaGrupoPresenteO4bM38, term.limite.Add(-time.Nanosecond))
+		paradaFinal := aplicarResultadoEnPruebaO4aP4M38(t, e, rTerm, e.plazos.finGracia)
+		rFinal := sellarResultadoEtapaPruebaO4aP4M38(t, e, paradaFinal, 1, 0, 0, evidenciaNoEstableO4bM38, paradaFinal.limite)
+		kill := aplicarResultadoEnPruebaO4aP4M38(t, e, rFinal, paradaFinal.limite)
+		if !permisoExactoEtapaPruebaO4aP4M38(kill, e, etapaMatarGrupoO4bM38, operacionKillO4bM38, 1, e.plazos.finDrenajeCooperativo, limiteDrenajeCooperativoO4bM38) ||
+			e.causa.incidente.Load() != incidenteCierreEnclavadoO4aM38 {
+			t.Fatal("PARADA_FINAL no estable no convergió a KILL cooperativo")
 		}
 	})
 }
@@ -333,7 +355,7 @@ func ejecutarFatalEtapasO4aP4M38(t *testing.T, caso string) {
 func TestEtapasO4aP4Fatales(t *testing.T) {
 	caso := os.Getenv("O4A_P4_FATAL")
 	if caso == "" {
-		for _, nombre := range []string{"owner", "auto_autoridad", "observador", "consumo", "tid", "ppid", "identidad", "baseline", "ticket", "bootstrap", "fisico", "huella_control", "huella_terminal", "fd_alias", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
+		for _, nombre := range []string{"owner", "auto_autoridad", "observador", "consumo", "tid", "ppid", "identidad", "baseline", "ticket", "bootstrap", "fisico", "huella_control", "huella_terminal", "fd_alias", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "stop_terminal_forjado", "stop_estable_en_borde", "kill_en_borde", "parada_final_tardia"} {
 			ejecutarFatalEtapasO4aP4M38(t, nombre)
 		}
 		return
@@ -440,6 +462,12 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 	case "resultado_futuro":
 		r.rawPrimero, r.evidencia, r.observado = 0, evidenciaEstableO4bM38, stop.limite.Add(-time.Nanosecond)
 		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, r.observado.Add(-time.Nanosecond))
+	case "stop_terminal_forjado":
+		r.rawPrimero, r.evidencia, r.observado = 0, evidenciaTerminalO4bM38, stop.limite.Add(-time.Nanosecond)
+		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, stop.limite)
+	case "stop_estable_en_borde":
+		r.rawPrimero, r.evidencia, r.observado = 0, evidenciaEstableO4bM38, stop.limite
+		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, stop.limite)
 	case "kill_en_borde":
 		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, e.plazos.finDrenajeRapido)
 	case "parada_final_tardia":
