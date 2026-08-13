@@ -493,3 +493,80 @@ func TestEtapasO4aP4EstructuraOpacaSinEfectos(t *testing.T) {
 		t.Fatal("reloj, emisión o latch divergente")
 	}
 }
+
+func TestEtapasO4aP4FinBootstrapPermaneceInmutable(t *testing.T) {
+	_, prueba, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("ruta")
+	}
+	directorio := filepath.Dir(prueba)
+	archivos := []string{
+		"causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go",
+		"causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_semilla.go",
+		"causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arbitraje.go",
+		"causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas.go",
+	}
+	lecturas := 0
+	for _, archivo := range archivos {
+		ruta := filepath.Join(directorio, archivo)
+		nodo, err := parser.ParseFile(token.NewFileSet(), ruta, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, importacion := range nodo.Imports {
+			if importacion.Path.Value == `"unsafe"` || importacion.Path.Value == `"reflect"` {
+				t.Fatalf("mutación indirecta habilitada en %s", archivo)
+			}
+		}
+		esFinBootstrap := func(n ast.Node) bool {
+			x, existe := n.(*ast.SelectorExpr)
+			return existe && x.Sel.Name == "finBootstrap"
+		}
+		contieneFinBootstrap := func(n ast.Node) bool {
+			encontrado := false
+			ast.Inspect(n, func(actual ast.Node) bool {
+				if esFinBootstrap(actual) {
+					encontrado = true
+					return false
+				}
+				return !encontrado
+			})
+			return encontrado
+		}
+		ast.Inspect(nodo, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.SelectorExpr:
+				if x.Sel.Name == "finBootstrap" {
+					lecturas++
+				}
+			case *ast.AssignStmt:
+				for _, izquierda := range x.Lhs {
+					if contieneFinBootstrap(izquierda) {
+						t.Fatalf("reasignación de finBootstrap en %s", archivo)
+					}
+				}
+			case *ast.IncDecStmt:
+				if contieneFinBootstrap(x.X) {
+					t.Fatalf("incremento de finBootstrap en %s", archivo)
+				}
+			case *ast.RangeStmt:
+				if x.Tok == token.ASSIGN &&
+					(x.Key != nil && contieneFinBootstrap(x.Key) || x.Value != nil && contieneFinBootstrap(x.Value)) {
+					t.Fatalf("reasignación range de finBootstrap en %s", archivo)
+				}
+			case *ast.UnaryExpr:
+				if x.Op == token.AND && contieneFinBootstrap(x.X) {
+					t.Fatalf("dirección de finBootstrap expuesta en %s", archivo)
+				}
+			case *ast.KeyValueExpr:
+				if clave, existe := x.Key.(*ast.Ident); existe && clave.Name == "finBootstrap" {
+					t.Fatalf("finBootstrap recreado en literal de %s", archivo)
+				}
+			}
+			return true
+		})
+	}
+	if lecturas != 3 {
+		t.Fatalf("genealogía finBootstrap divergente: lecturas=%d", lecturas)
+	}
+}
