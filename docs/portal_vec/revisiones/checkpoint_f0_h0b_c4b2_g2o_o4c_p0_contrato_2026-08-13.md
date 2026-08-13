@@ -16,9 +16,11 @@ O5/O6, integración, producción, despliegue ni cambio de métricas.
 - Código, pruebas, herramientas, runner, workflows, SQL, O3, O4a, O4b,
   `AGENTS.md`, handoffs, roadmap, ledger transversal y métricas: byte-inmutables.
 
-El candidato O4A-P4
-`1e75c829215c43b4472908e9e00acc255aa016d9` no pertenece a esta base y
-continúa pendiente de revisión independiente. Este documento no lo acredita.
+La cadena candidata O4A-P4
+`1e75c829215c43b4472908e9e00acc255aa016d9` ->
+`4f5b5a1736a4e2a90cc728b03a9fa57b0b20e7f9` no pertenece a esta base y
+continúa pendiente de revisión independiente. El segundo SHA es el objetivo
+exacto vigente de esa revisión; este documento no lo acredita.
 
 La decisión candidata tiene 552 líneas y SHA-256
 `924f76b92d5988875866065eaaacf5405fd7d5c9a2f3e7013ba516c8fc6cc79c`.
