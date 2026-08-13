@@ -2,7 +2,7 @@ module vec-diputacion-granada
 
 go 1.25.12
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	codeberg.org/go-pdf/fpdf v0.12.0

@@ -22,7 +22,7 @@ watchdog=${CND_WATCHDOG_SEGUNDOS:-300}
 [[ -d $target && -d $base && -f $ledger ]] || { printf 'NO-GO entrada_ausente\n' >&2; exit 2; }
 [[ $watchdog =~ ^[1-9][0-9]*$ ]] || { printf 'NO-GO watchdog_invalido\n' >&2; exit 2; }
 version_go=$(go version)
-[[ $version_go == 'go version go1.26.5 '* ]] || { printf 'NO-GO version_go=%s\n' "$version_go" >&2; exit 2; }
+[[ $version_go == 'go version go1.26.6 '* ]] || { printf 'NO-GO version_go=%s\n' "$version_go" >&2; exit 2; }
 
 umask 077
 raiz=$(mktemp -d "${TMPDIR:-/var/tmp}/o3a-cnd-v5-11.XXXXXX")

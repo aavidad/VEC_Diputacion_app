@@ -6,8 +6,9 @@ composición**.
 
 ## Ejecución durable única
 
-`conductor.sh` es la única entrada del conjunto. Falla cerrado salvo con Go
-1.26.5 y las diez fuentes exactas declaradas en `fuentes_v5.tsv`. Copia esas
+`conductor.sh` es la única entrada del conjunto. Falla cerrado salvo con la
+toolchain de entrega fijada en `go.mod`, actualmente Go 1.26.6, y las diez
+fuentes exactas declaradas en `fuentes_v5.tsv`. Copia esas
 fuentes a un directorio privado, comprueba `gofmt` en modo solo lectura y
 ejecuta los siete bloques primero en modo normal y después con un build real
 `-race` (`CND_RACE=1`, `CGO_ENABLED=1`). El target nunca se formatea ni se
