@@ -4,7 +4,7 @@ Fecha: 13 de agosto de 2026.
 
 Identificador: `O4AB-P0-ENMIENDA-TERMINALIDAD-STOP`.
 
-Estado: **CANDIDATA DOCUMENTAL V2 A REVISIÓN**. No corrige ni autoriza código,
+Estado: **CANDIDATA DOCUMENTAL V3 A REVISIÓN**. No corrige ni autoriza código,
 no acredita `O4A-P4-ETAPAS`, no abre O4B-P1, O4A-P5, O4c, O5/O6,
 integración, producción ni despliegue. Requiere doble revisión independiente
 sobre los mismos bytes, publicación y CI 5/5 antes de un nuevo candidato
@@ -43,6 +43,14 @@ La primera versión de esta enmienda, commit
 podía cruzar `finParadaFinal` después de su única comprobación y, al prohibir
 un reloj posterior, permitir un STOP tardío. V2 corrige solo ese borde; V1 y
 sus actas permanecen históricas.
+
+V2, commit `9de3ba320dfa4beede58e5a1d34aa02a3459f073`, recibió `GO` de
+seguridad `569cc9ccfb94d3f195a6c08340b0e0e10429da96`, pero `NO-GO`
+funcional `876b7c8e330dc28003dab1d0057ca4bc9d83a727`,
+`P0=0, P1=1, P2=0`. El orden físico era seguro, pero su texto atribuía
+conjuntamente presencia y vigencia a la lectura `ahoraFinal`, posterior al
+último sondeo. V3 corrige solo esa atribución causal; V2 y sus actas permanecen
+históricas y no acreditan estos bytes.
 
 ## Base, autoridades y prevalencia
 
@@ -131,14 +139,20 @@ cardinalidad, raw, marca o incidente ordinarios y O4a no toma otra transición
 A5; rige la fatalidad heredada 65/EOF/stdout=0/stderr=0, sin señal, cierre,
 log, limpieza ni efecto posterior.
 
-Si la lectura queda verde, la linealización conjunta de presencia y vigencia
-se fija en `ahoraFinal`. El sobre ya estaba preasignado; solo se prepara el
+La evidencia física de presencia se linealiza exclusivamente en el último
+sondeo consolidado que acredita ambas referencias no terminales e identidad
+vigente. La lectura posterior `ahoraFinal` no vuelve a observar presencia ni
+traslada ese instante: acredita solo que el permiso sigue vigente. Esta
+decisión combina dos hechos ordenados —presencia en el último sondeo y
+vigencia en `ahoraFinal`— sin afirmar simultaneidad entre ellos.
+
+Si la lectura queda verde, el sobre ya estaba preasignado; solo se prepara el
 permiso lease de señal y STOP es la siguiente syscall literal. No se intercala
-otra lectura de reloj, sonda, validación, asignación falible, espera o log. Si
-la terminalidad ocurre después de esa linealización y antes del STOP
-inmediato, pertenece después de la decisión autorizante; STOP continúa
-autorizado. No se abre un bucle. La evidencia posterior al STOP detecta esa
-terminalidad y evita KILL.
+otra lectura de reloj, sonda, validación, asignación falible, espera o log. La
+terminalidad que ocurra después del último sondeo de presencia, incluso entre
+ese sondeo y `ahoraFinal`, es posterior a la decisión física autorizante;
+STOP continúa autorizado siempre que `ahoraFinal` quede verde. No se abre un
+bucle. La evidencia posterior al STOP detecta esa terminalidad y evita KILL.
 
 ### 3. Resultado de PARADA_FINAL
 
@@ -221,12 +235,14 @@ opaco que O4b materialice después.
 | E04 | Preflight final terminal produce cardinal 0, raws cero, A7 y cero STOP/KILL/incidente. |
 | E05 | Preflight presente cuya lectura final iguala o vence `finParadaFinal` produce OBF, cero resultado y cero STOP. |
 | E06 | Preflight presente con lectura final verde hace de STOP la siguiente syscall literal. |
-| E07 | Preflight presente, STOP y terminalidad posterior produce cardinal 1, A7 y cero KILL/incidente. |
-| E08 | STOP final estable/no estable/raw error conserva sus tres ramas exactas. |
-| E09 | Terminalidad en STOP inicial sigue `NO_ESTABLE`; `TERMINAL` forjado es AF. |
-| E10 | Cardinal 0 fuera de `PARADA_FINAL`, cardinal 2, raw no cero con terminal o marca forjada son AF. |
-| E11 | Alias/replay/carrera dejan un ganador y ninguna señal excede el cardinal máximo. |
-| E12 | AST/tipos prueba cero syscall en O4a y preflight inmediato sin Wait/señal cero en O4b. |
+| E07 | Presencia se linealiza en el último sondeo; `ahoraFinal` acredita solo vigencia. |
+| E08 | Terminalidad entre el último sondeo y el reloj es posterior a la decisión física; con reloj verde STOP sigue autorizado. |
+| E09 | Preflight presente, STOP y terminalidad posterior produce cardinal 1, A7 y cero KILL/incidente. |
+| E10 | STOP final estable/no estable/raw error conserva sus tres ramas exactas. |
+| E11 | Terminalidad en STOP inicial sigue `NO_ESTABLE`; `TERMINAL` forjado es AF. |
+| E12 | Cardinal 0 fuera de `PARADA_FINAL`, cardinal 2, raw no cero con terminal o marca forjada son AF. |
+| E13 | Alias/replay/carrera dejan un ganador y ninguna señal excede el cardinal máximo. |
+| E14 | AST/tipos prueba cero syscall en O4a y preflight inmediato sin Wait/señal cero en O4b. |
 
 Mutantes mínimos: volver a normalizar terminal final; emitir STOP tras
 preflight terminal; emitir KILL tras terminal cardinal 0 o 1; enclavar
@@ -235,7 +251,9 @@ A7; rechazar igualdad de gracia; aceptar marca posterior; omitir una
 referencia pidfd; omitir, invertir, adelantar o falsear la lectura final;
 aceptar igualdad de `finParadaFinal`; sellar resultado al vencer; intercalar
 una segunda lectura/sonda entre la lectura final verde y STOP; reintentar
-sondeo/STOP; compartir permiso; tratar duda física como presencia.
+sondeo/STOP; compartir permiso; tratar duda física como presencia; atribuir
+presencia a `ahoraFinal`; exigir que la no-terminalidad permanezca monotónica
+hasta el reloj; clasificar como previa una terminalidad posterior al sondeo.
 Cada mutante debe compilar y morir por su oráculo causal; timeout, SHA global
 o no compilación no cuentan como muerte.
 
