@@ -325,8 +325,9 @@ La secuencia positiva completa es:
 7. cierre de CONTROL bajo permiso separado; campo nulo;
 8. emisión lógica única y cierre de TERMINAL bajo permisos acotados; campo
    nulo, haya trama normal o artefacto de cuarentena;
-9. inventario físico igual al snapshot sellado menos los cinco recursos
-   poseídos y el handle opaco; ningún FD nuevo o ajeno cambia;
+9. inventario físico igual al snapshot sellado menos exactamente los cinco FD
+   poseídos `{pidfdOpaco, pidfdPrimario, pidfdReserva, CONTROL, TERMINAL}`;
+   ningún FD nuevo o ajeno cambia;
 10. liberación única del observador desde estado 2 y owner O4C→LIBERADO;
 11. liberación única de la lease desde estado 3 como última capacidad y owner
     O4C→LIBERADO;
@@ -440,7 +441,7 @@ O4b o mezclar dos responsabilidades exige detenerse y dividir.
 | ID | Oráculo causal |
 | --- | --- |
 | OC01 | Agregado A8 se consume una vez; nulo/alias/clon/replay/carrera dejan un ganador. |
-| OC02 | Owners O4C, estados 3/2, registro/generación/TID/pending y recursos exactos. |
+| OC02 | Owners O4C, estados 3/2, registro/generación/TID/pending y los cinco FD exactos. |
 | OC03 | Causa, incidente, historial y deadlines se preservan byte/valor a valor. |
 | OC04 | Límite elegido coincide con una sola rama; cero/civil/recreado/divergente es fatal. |
 | OC05 | Primario/reserva concuerdan terminalidad; vivo repite acotado, borde igual no Wait. |
@@ -454,7 +455,7 @@ O4b o mezclar dos responsabilidades exige detenerse y dividir.
 | OC13 | SALIDA usa 0/64/65/79 real; demás causas conservan su estado canónico. |
 | OC14 | Incidente previo/nuevo no sustituye causa ni emite terminal normal; exterior 65/cuarentena. |
 | OC15 | Escritura parcial/EINTR continúa solo sufijo, máximo ocho; nunca segunda trama. |
-| OC16 | CONTROL/TERMINAL cierran una vez; snapshot final solo elimina recursos propios. |
+| OC16 | Los cinco FD cierran o se consumen una vez; snapshot final elimina exactamente esos cinco. |
 | OC17 | Observador se libera antes y lease es la última capacidad; owners acaban LIBERADOS. |
 | OC18 | Resultado OC7 one-shot no expone PID/pidfd/nonce/ticket/error libre. |
 | OC19 | O4c no señala, no cambia causa/plazo/etapa y no usa API O5/O6. |
@@ -472,7 +473,8 @@ escritura parcial y liberación partida. No hay SKIP ni retry del caso fallido.
 Mutantes atómicos compilables, cada uno con oráculo causal propio:
 
 - OC01 aceptar nulo/clon/replay o dos consumidores;
-- OC02 omitir autoidentidad, owner, estado, registro, generación, TID o pending;
+- OC02 omitir autoidentidad, owner, estado, registro, generación, TID, pending
+  o uno de los cinco FD `{pidfdOpaco, pidfdPrimario, pidfdReserva, CONTROL, TERMINAL}`;
 - OC03 cambiar causa, incidente, historial, raw o deadline heredado;
 - OC04 escoger dos límites, reconstruir, extender o aceptar marca cero/civil;
 - OC05 promover reserva, aceptar discordancia o invertir borde temporal;
@@ -486,7 +488,8 @@ Mutantes atómicos compilables, cada uno con oráculo causal propio:
 - OC13 sustituir causa, mapear estado real adverso o fabricar SALIDA;
 - OC14 emitir terminal normal con incidente o no forzar cuarentena/65;
 - OC15 reiniciar offset, truncar, emitir dos tramas o reintentar sin límite;
-- OC16 omitir/repetir/reordenar cierre o modificar FD ajeno;
+- OC16 omitir, duplicar o reordenar uno de los cinco consumos/cierres, contar
+  seis recursos o modificar un FD ajeno;
 - OC17 liberar lease primero, omitir owner o usar capacidad después;
 - OC18 añadir getter, PID/pidfd/nonce/ticket/error libre/serialización;
 - OC19 añadir señal, CONTROL causal, etapa, timer, goroutine, canal o API O5;

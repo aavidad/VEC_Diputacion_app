@@ -2,17 +2,19 @@
 
 Fecha: 13 de agosto de 2026.
 
-Estado: **CANDIDATO A REVISIÓN**. No autoriza implementación O4c, O4A-P5,
+Estado: **CANDIDATO CORREGIDO A REVISIÓN**. No autoriza implementación O4c, O4A-P5,
 O5/O6, integración, producción, despliegue ni cambio de métricas.
 
 ## Corte exacto
 
 - Base: `5345d5d097b51ab3567983f048feabeceaf2957b`.
-- Rama: `trabajo/o4c-p0-contrato-20260813`.
+- Padre corregido: `64351a469df4e7bba4850ef1500d9e2c4bf378de`.
+- Rama: `trabajo/o4c-p0-correccion-inventario-20260813`.
 - Dependencias acreditadas: contratos O4a y O4b con doble GO; O4b publicado
   con CI `31546649383`, cinco de cinco puertas verdes.
 - Decisión: [O4c terminalidad y limpieza](../decision_f0_h0b_c4b2_g2o_o4c_terminalidad_limpieza_2026-08-13.md).
-- Write-set productor: decisión y este checkpoint, ambos Markdown nuevos.
+- Write-set corrector: decisión y este checkpoint, ambos Markdown; ningún otro
+  fichero cambia respecto de `64351a469df4e7bba4850ef1500d9e2c4bf378de`.
 - Código, pruebas, herramientas, runner, workflows, SQL, O3, O4a, O4b,
   `AGENTS.md`, handoffs, roadmap, ledger transversal y métricas: byte-inmutables.
 
@@ -25,10 +27,26 @@ La cadena candidata O4A-P4
 continúa pendiente de revisión independiente. El último SHA es el objetivo
 exacto vigente de esa revisión; este documento no lo acredita.
 
-La decisión candidata tiene 552 líneas y SHA-256
-`924f76b92d5988875866065eaaacf5405fd7d5c9a2f3e7013ba516c8fc6cc79c`.
+La decisión candidata corregida tiene 555 líneas y SHA-256
+`55e970da04933d7eb1287ec06d7b8f24767c25712d04d5111eedf6eb52b687bc`.
 Las revisiones independientes deberán fijar exactamente esos bytes o emitir
 NO-GO.
+
+## Corrección P1 del inventario
+
+La revisión funcional independiente del padre exacto emitió `NO-GO`,
+`P0=0, P1=1, P2=0`, en
+`109f11244d8a794f016961b59ac70e3ba03b1496`; la revisión de seguridad emitió
+`GO`, `P0=P1=P2=0`, en
+`f14afce00f07bb12d6d3b10a8fceb77b4cbd8707`. Este candidato no reescribe ni
+integra esas actas.
+
+La corrección sustituye la cardinalidad contradictoria por el conjunto
+cerrado de cinco FD
+`{pidfdOpaco, pidfdPrimario, pidfdReserva, CONTROL, TERMINAL}` y sella el
+mismo conjunto en OC02, OC16 y sus mutantes. `Cmd` y `Process` se anulan
+después como referencias lógicas, pero no añaden un sexto FD al inventario.
+Ninguna otra regla O4c cambia.
 
 ## Contrato fijado
 
