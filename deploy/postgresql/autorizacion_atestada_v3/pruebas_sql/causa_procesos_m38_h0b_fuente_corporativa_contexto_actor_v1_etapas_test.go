@@ -43,6 +43,7 @@ func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausa
 		lease: lease, observador: observador, baselineSenal: 2, tid: tid, ppid: 1, cmd: cmd,
 		pidfdPrimario: 10, pidfdReserva: 11, pidfdOpaco: 12,
 	}
+	custodia.consumida.Store(custodiaRecibidaO4aM38)
 	autoridadCustodia := nuevaAutoridadCustodiaO3cM38()
 	autoridadCustodia.ownerObservador.Store(uint32(propietarioO4aM38))
 	autoridadCustodia.ownerLease.Store(uint32(propietarioO4aM38))
@@ -318,7 +319,7 @@ func ejecutarFatalEtapasO4aP4M38(t *testing.T, caso string) {
 func TestEtapasO4aP4Fatales(t *testing.T) {
 	caso := os.Getenv("O4A_P4_FATAL")
 	if caso == "" {
-		for _, nombre := range []string{"owner", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "kill_en_borde", "parada_final_tardia"} {
+		for _, nombre := range []string{"owner", "observador", "consumo", "ppid", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
 			ejecutarFatalEtapasO4aP4M38(t, nombre)
 		}
 		return
@@ -328,6 +329,26 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 		a.origen.autoridad.ownerLease.Store(uint32(propietarioLiberadoO3cM38))
 		_, _, _ = iniciarEtapasO4aM38(&a)
 		os.Exit(10)
+	}
+	if caso == "observador" {
+		a.origen.custodia.observador.palabra.Store(3)
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(14)
+	}
+	if caso == "consumo" {
+		a.origen.custodia.consumida.Store(custodiaEntregadaO3cM38)
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(15)
+	}
+	if caso == "ppid" {
+		a.sellos.ppid++
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(16)
+	}
+	if caso == "arranque" {
+		a.sellos.autoridadArranque.estado = arranqueA5PidfdTresM38
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(17)
 	}
 	if caso == "causa" {
 		a.causa.Store(99)
@@ -351,6 +372,9 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 	case "resultado_incompatible":
 		r.cardinalidad = 2
 		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, stop.limite)
+	case "resultado_futuro":
+		r.rawPrimero, r.evidencia, r.observado = 0, evidenciaEstableO4bM38, stop.limite.Add(-time.Nanosecond)
+		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, r.observado.Add(-time.Nanosecond))
 	case "kill_en_borde":
 		_ = aplicarResultadoEnPruebaO4aP4M38(t, e, r, e.plazos.finDrenajeRapido)
 	case "parada_final_tardia":

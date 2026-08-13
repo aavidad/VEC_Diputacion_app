@@ -159,11 +159,15 @@ func autoridadBaseEtapasExactaO4aM38(a *autoridadCausaO4aM38) bool {
 		a.sellos.lease.auto != a.sellos.lease || a.sellos.observador.auto != a.sellos.observador ||
 		a.sellos.registro.auto != a.sellos.registro || a.sellos.lease.registro != a.sellos.registro ||
 		a.sellos.observador.registro != a.sellos.registro || a.sellos.lease.estado.Load() != 3 ||
+		a.sellos.observador.palabra.Load()&mascaraEstadoObservadorO3aM38 != 2 ||
 		a.sellos.autoridadArranque != a.sellos.custodia.autoridad ||
+		!a.sellos.autoridadArranque.es(arranqueA6EntregadoM38) ||
+		a.sellos.custodia.consumida.Load() != custodiaRecibidaO4aM38 ||
 		a.sellos.registro.leases[a.sellos.lease] != a.sellos.generacionLease ||
 		a.sellos.registro.observadores[a.sellos.observador] != a.sellos.generacionObservador ||
 		a.sellos.lease.generacion != a.sellos.generacionLease || a.sellos.observador.generacion != a.sellos.generacionObservador ||
 		a.sellos.lease.tid != a.sellos.tid || a.sellos.registro.tid != a.sellos.tid ||
+		a.sellos.ppid != a.sellos.custodia.ppid ||
 		a.sellos.pidfd != [3]int{a.sellos.custodia.pidfdPrimario, a.sellos.custodia.pidfdReserva, a.sellos.custodia.pidfdOpaco} ||
 		a.sellos.identidad != a.origen.identidad || a.sellos.primera != a.origen.primera.Load() ||
 		a.sellos.retornoCont != a.origen.retornoCont || a.sellos.baselineSenal != a.sellos.custodia.baselineSenal ||
@@ -402,7 +406,8 @@ func aplicarResultadoEnO4aM38(e *autoridadEtapasO4aM38, r *resultadoEtapaO4bM38,
 	}
 	p := e.pendiente
 	if !autoridadBaseEtapasExactaO4aM38(e.causa) || !resultadoExactoEtapaO4aM38(e, r) ||
-		!tiempoMonotonoO3cM38(ahora) || ahora.Before(e.causa.sellos.ahoraCaso) {
+		!tiempoMonotonoO3cM38(ahora) || ahora.Before(e.causa.sellos.ahoraCaso) ||
+		!r.observado.IsZero() && r.observado.After(ahora) {
 		fatalEtapasO4aM38(e)
 	}
 	switch p.etapa {
