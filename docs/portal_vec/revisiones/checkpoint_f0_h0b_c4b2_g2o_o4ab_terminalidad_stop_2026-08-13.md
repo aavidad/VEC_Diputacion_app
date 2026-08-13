@@ -2,15 +2,17 @@
 
 Fecha: 13 de agosto de 2026.
 
-Estado: **CANDIDATA DOCUMENTAL A REVISIÓN**. No acredita O4A-P4, no autoriza
+Estado: **CANDIDATA DOCUMENTAL V2 A REVISIÓN**. No acredita O4A-P4, no autoriza
 implementación O4a/O4b/O4c, integración, producción, despliegue ni métricas.
 
 ## Corte exacto y write-set
 
-- Base y padre: `5345d5d097b51ab3567983f048feabeceaf2957b`.
-- Rama: `trabajo/o4ab-p0-enmienda-terminalidad-stop-20260813`.
+- Base: `5345d5d097b51ab3567983f048feabeceaf2957b`.
+- Padre V2: `a89a3228554f53b32f5d81fc8b0438835f35b0f6`.
+- Rama: `trabajo/o4ab-p0-v2-limite-preflight-20260813`.
 - Enmienda: [terminalidad y STOP final](../enmienda_f0_h0b_c4b2_g2o_o4ab_terminalidad_stop_2026-08-13.md).
-- Write-set: la enmienda anterior y este checkpoint, ambos altas Markdown.
+- Write-set V2: la enmienda anterior y este checkpoint, ambos Markdown
+  modificados; ningún otro fichero cambia respecto del padre V2.
 - O4a/O4b publicados, código, pruebas, herramientas, runner, workflows, SQL,
   O3, O4c, `AGENTS.md`, handoffs, roadmap, ledger transversal, métricas y
   candidatos históricos permanecen byte-inmutables.
@@ -19,11 +21,11 @@ La base conserva O4B-P0 con doble GO y CI `31546649383`, cinco de cinco
 puertas verdes. La enmienda no reescribe ese contrato: define una prevalencia
 limitada para corregir dos aristas incompatibles con O4a.
 
-Huellas fijadas para revisión:
+Huellas V2 fijadas para revisión:
 
 | Documento | Líneas | SHA-256 |
 | --- | ---: | --- |
-| Enmienda O4AB | 234 | `d1edcd4b1468000577577cbe5f86037c64b6b9ade65e3f9d98d4edc9fa2985f9` |
+| Enmienda O4AB V2 | 264 | `f53ee8711eb64d7dc999e2f67154f874de7d80bfbc2e18a02c413febd04d1e15` |
 | Decisión O4a | 535 | `ffe3d570b3fe51be96948f8aeb0b163e2ff071d2c2cca4fbdba852a5f9dafebc` |
 | Decisión O4b | 443 | `675d33b6f96ef441843721effd332a82242ed9257a2af2246c75ed22f2984c7f` |
 
@@ -41,6 +43,13 @@ Objeto rechazado: `O4A-P4-ETAPAS`
 El candidato y ambas actas permanecen separados. Este checkpoint no acredita
 ningún descendiente ni sustituye las revisiones.
 
+La V1 de la enmienda `a89a3228554f53b32f5d81fc8b0438835f35b0f6`
+recibió doble `NO-GO P0=0, P1=1, P2=0`: funcional
+`cdcedc44b31f0f997139f0e9e1210f29d1eb08ca` y seguridad
+`e7e06423941807a41c40946e5a4af12e1b30bb11`. Sus gates documentales quedaron
+verdes, pero ambos revisores demostraron un STOP potencialmente posterior a
+`finParadaFinal`. V2 no integra ni altera esas actas.
+
 ## Contrato corregido resumido
 
 1. `TERMINAL` post-CONT observado hasta la igualdad de `finGracia` llega A7
@@ -49,12 +58,17 @@ ningún descendiente ni sustituye las revisiones.
    autorización condicional `PARADA_FINAL`.
 3. La presencia anterior no prueba el borde. `PARADA_FINAL` ejecuta un
    preflight no recolector después de validar el límite y antes del efecto.
-4. Terminalidad en preflight devuelve cardinalidad 0 y raws cero: no hay
+4. Tras toda evidencia de presencia, una lectura monotónica final exige
+   `ahoraFinal < finParadaFinal`; igualdad/vencimiento es OBF, sin resultado,
+   cardinal, raw, incidente, STOP ni efecto posterior.
+5. Con lectura final verde, solo se prepara el permiso lease y STOP es la
+   siguiente syscall literal, sin otra lectura, sonda, espera o log.
+6. Terminalidad en preflight devuelve cardinalidad 0 y raws cero: no hay
    STOP, KILL ni incidente.
-5. Presencia en preflight permite un STOP inmediato. Terminalidad posterior
+7. Presencia en preflight permite un STOP inmediato. Terminalidad posterior
    al STOP devuelve cardinalidad 1 y llega A7 sin KILL ni incidente.
-6. STOP final estable, no estable o raw error conserva sus ramas publicadas.
-7. STOP inicial permanece distinto: no admite `TERMINAL` ni cardinalidad 0.
+8. STOP final estable, no estable o raw error conserva sus ramas publicadas.
+9. STOP inicial permanece distinto: no admite `TERMINAL` ni cardinalidad 0.
 
 O4a conserva la decisión; O4b solo acredita la condición física y ejecuta el
 efecto autorizado. Cada syscall mantiene permiso lease separado y
@@ -92,7 +106,7 @@ Markdown. No se declaran verdes ni se sustituyen por pruebas documentales.
 ## Revisión requerida
 
 Dos revisores independientes deben releer completos O4a, O4b, esta enmienda,
-el checkpoint y los dos NO-GO; reproducir genealogía, hashes, enlaces,
+el checkpoint y los cuatro NO-GO; reproducir genealogía, hashes, enlaces,
 cardinalidades, bordes, permisos y puertas; y emitir sobre los mismos bytes
 `GO` o `NO-GO` con `P0/P1/P2`.
 

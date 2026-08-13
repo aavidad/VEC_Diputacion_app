@@ -4,7 +4,7 @@ Fecha: 13 de agosto de 2026.
 
 Identificador: `O4AB-P0-ENMIENDA-TERMINALIDAD-STOP`.
 
-Estado: **CANDIDATA DOCUMENTAL A REVISIÓN**. No corrige ni autoriza código,
+Estado: **CANDIDATA DOCUMENTAL V2 A REVISIÓN**. No corrige ni autoriza código,
 no acredita `O4A-P4-ETAPAS`, no abre O4B-P1, O4A-P5, O4c, O5/O6,
 integración, producción ni despliegue. Requiere doble revisión independiente
 sobre los mismos bytes, publicación y CI 5/5 antes de un nuevo candidato
@@ -34,6 +34,15 @@ existe terminalidad.
 
 No hay fuga de autoridad, dato o credencial. El defecto es de causalidad y
 permisos de señal. El candidato `2b7eaf4` permanece histórico y no se modifica.
+
+La primera versión de esta enmienda, commit
+`a89a3228554f53b32f5d81fc8b0438835f35b0f6`, recibió también doble
+`NO-GO`, `P0=0, P1=1, P2=0`: revisión funcional
+`cdcedc44b31f0f997139f0e9e1210f29d1eb08ca` y revisión de seguridad
+`e7e06423941807a41c40946e5a4af12e1b30bb11`. Ambas probaron que el preflight
+podía cruzar `finParadaFinal` después de su única comprobación y, al prohibir
+un reloj posterior, permitir un STOP tardío. V2 corrige solo ese borde; V1 y
+sus actas permanecen históricas.
 
 ## Base, autoridades y prevalencia
 
@@ -109,13 +118,26 @@ El resultado del preflight es exhaustivo:
 | Evidencia previa | Efecto y resultado |
 | --- | --- |
 | Ambas referencias acreditan terminalidad natural | Cero STOP; resultado `TERMINAL`, cardinalidad 0, raws cero y marca observada. |
-| Ambas referencias acreditan no terminalidad e identidad vigente | STOP es el siguiente syscall funcional, sin reloj, sonda, log ni asignación intermedia. |
+| Ambas referencias acreditan no terminalidad e identidad vigente y la lectura final queda antes del límite | STOP es el siguiente syscall funcional. |
+| La lectura final es igual o posterior a `finParadaFinal` | OBF directo; cero STOP y ningún resultado. |
 | Referencias discordantes, identidad/flags/lease dudosos o retorno no clasificable | OBF directo; cero STOP, resultado o efecto posterior. |
 
-La linealización queda fijada al último sondeo consolidado del preflight. Si
-la terminalidad ocurre después de acreditar presencia y antes del STOP
-inmediato, pertenece después de esa decisión; STOP continúa autorizado. No se
-abre una espera ni un bucle. La evidencia posterior al STOP detecta esa
+Si acredita no terminalidad e identidad vigente, después de consolidar toda
+esa evidencia física el preflight hace exactamente una lectura monotónica
+final. Para presencia exige
+`ahoraFinal.Before(finParadaFinal)`. Igualdad o vencimiento son OBF directo:
+la autorización queda consumida, no se sella ni devuelve resultado, no existen
+cardinalidad, raw, marca o incidente ordinarios y O4a no toma otra transición
+A5; rige la fatalidad heredada 65/EOF/stdout=0/stderr=0, sin señal, cierre,
+log, limpieza ni efecto posterior.
+
+Si la lectura queda verde, la linealización conjunta de presencia y vigencia
+se fija en `ahoraFinal`. El sobre ya estaba preasignado; solo se prepara el
+permiso lease de señal y STOP es la siguiente syscall literal. No se intercala
+otra lectura de reloj, sonda, validación, asignación falible, espera o log. Si
+la terminalidad ocurre después de esa linealización y antes del STOP
+inmediato, pertenece después de la decisión autorizante; STOP continúa
+autorizado. No se abre un bucle. La evidencia posterior al STOP detecta esa
 terminalidad y evita KILL.
 
 ### 3. Resultado de PARADA_FINAL
@@ -161,6 +183,8 @@ corrige solo la arista terminal explícita de `PARADA_FINAL`.
 | TERM y CONT consolidados; `GRUPO_PRESENTE` con `observado == finGracia` | Autorizar `PARADA_FINAL` condicional; A5. |
 | A3 alcanza `finGracia` desde presencia anterior y aún está antes de `finParadaFinal` | Autorizar `PARADA_FINAL` condicional; A5. |
 | Preflight final observa terminalidad | Resultado `TERMINAL`, cardinal 0; A7, cero STOP/KILL/incidente. |
+| Preflight final observa presencia y la lectura final es `>= finParadaFinal` | OBF, autorización consumida, cero resultado/STOP/efecto posterior. |
+| Preflight final observa presencia y la lectura final es `< finParadaFinal` | Preparar permiso; STOP es la siguiente syscall literal. |
 | Preflight final observa presencia y STOP=0; evidencia posterior terminal | Resultado `TERMINAL`, cardinal 1; A7, cero KILL/incidente. |
 | STOP final=0 y evidencia `ESTABLE` | Autorizar KILL cooperativo sin incidente. |
 | STOP final=0 y `NO_ESTABLE`, o raw STOP no cero | Incidente de cierre y KILL cooperativo dentro del drenaje. |
@@ -178,7 +202,8 @@ padre histórico exacto que determine. Ese corte material deberá:
 2. llegar A7 sin incidente ni KILL para ambos terminales finales;
 3. conservar `PARADA_INICIAL` y todas las ramas no afectadas;
 4. añadir focales para `NO_ESTABLE` inicial/final, terminalidad final antes y
-   después de STOP, presencia en igualdad y forjas de etapa/cardinalidad;
+   después de STOP, presencia en igualdad, cruce de `finParadaFinal` dentro
+   del preflight y forjas de etapa/cardinalidad;
 5. no añadir syscall, señal, Wait, FD, parser, goroutine, API o getter a O4a.
 
 La futura implementación O4b-P3 deberá materializar el preflight y su
@@ -194,19 +219,23 @@ opaco que O4b materialice después.
 | E02 | Presencia antes de gracia espera; presencia en igualdad prepara una sola parada final. |
 | E03 | Presencia o terminalidad posterior a gracia falla cerrada sin permiso nuevo. |
 | E04 | Preflight final terminal produce cardinal 0, raws cero, A7 y cero STOP/KILL/incidente. |
-| E05 | Preflight presente, STOP y terminalidad posterior produce cardinal 1, A7 y cero KILL/incidente. |
-| E06 | STOP final estable/no estable/raw error conserva sus tres ramas exactas. |
-| E07 | Terminalidad en STOP inicial sigue `NO_ESTABLE`; `TERMINAL` forjado es AF. |
-| E08 | Cardinal 0 fuera de `PARADA_FINAL`, cardinal 2, raw no cero con terminal o marca forjada son AF. |
-| E09 | Alias/replay/carrera dejan un ganador y ninguna señal excede el cardinal máximo. |
-| E10 | AST/tipos prueba cero syscall en O4a y preflight inmediato sin Wait/señal cero en O4b. |
+| E05 | Preflight presente cuya lectura final iguala o vence `finParadaFinal` produce OBF, cero resultado y cero STOP. |
+| E06 | Preflight presente con lectura final verde hace de STOP la siguiente syscall literal. |
+| E07 | Preflight presente, STOP y terminalidad posterior produce cardinal 1, A7 y cero KILL/incidente. |
+| E08 | STOP final estable/no estable/raw error conserva sus tres ramas exactas. |
+| E09 | Terminalidad en STOP inicial sigue `NO_ESTABLE`; `TERMINAL` forjado es AF. |
+| E10 | Cardinal 0 fuera de `PARADA_FINAL`, cardinal 2, raw no cero con terminal o marca forjada son AF. |
+| E11 | Alias/replay/carrera dejan un ganador y ninguna señal excede el cardinal máximo. |
+| E12 | AST/tipos prueba cero syscall en O4a y preflight inmediato sin Wait/señal cero en O4b. |
 
 Mutantes mínimos: volver a normalizar terminal final; emitir STOP tras
 preflight terminal; emitir KILL tras terminal cardinal 0 o 1; enclavar
 incidente terminal; aceptar cardinal 0 inicial; convertir terminal inicial en
 A7; rechazar igualdad de gracia; aceptar marca posterior; omitir una
-referencia pidfd; intercalar reloj/sonda entre preflight presente y STOP;
-reintentar sondeo/STOP; compartir permiso; tratar duda física como presencia.
+referencia pidfd; omitir, invertir, adelantar o falsear la lectura final;
+aceptar igualdad de `finParadaFinal`; sellar resultado al vencer; intercalar
+una segunda lectura/sonda entre la lectura final verde y STOP; reintentar
+sondeo/STOP; compartir permiso; tratar duda física como presencia.
 Cada mutante debe compilar y morir por su oráculo causal; timeout, SHA global
 o no compilación no cuentan como muerte.
 
@@ -224,8 +253,9 @@ productiva `1/14` ni producción `NO-GO`.
 
 Se detiene ante cualquier señal después de terminalidad acreditada; STOP sin
 preflight final; cardinalidad ambigua; terminal inicial aceptado como A7;
-marca posterior al límite; repetición del preflight, espera o efecto intercalado entre el
-preflight presente y STOP; raw sin consolidar; parser/primitiva nuevos; Wait,
+marca posterior al límite; ausencia/inversión de la lectura monotónica final;
+resultado o STOP al vencer; repetición del preflight, espera u otra lectura,
+sonda o efecto entre la lectura final verde y STOP; raw sin consolidar; parser/primitiva nuevos; Wait,
 señal cero, fallback o recurso alternativo; cambio de causa, métricas, estado
 transversal o candidatos históricos.
 
