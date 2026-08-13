@@ -18,14 +18,28 @@ import (
 	"time"
 )
 
-func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausaO4aM38 {
+func autoridadSinteticaEtapasO4aP4M38(t *testing.T, causa causaPrimariaO4aM38) *autoridadCausaO4aM38 {
+	t.Helper()
 	tid := 731
 	registro := &registroAutoridadO3aM38{tid: tid, leases: make(map[*leaseGuardiaO3aM38]uint64), observadores: make(map[*observadorSenalO3aM38]uint64)}
 	registro.auto = registro
+	controlFD, terminal, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = controlFD.Close()
+		_ = terminal.Close()
+	})
+	fdControl, fdTerminal := int(controlFD.Fd()), int(terminal.Fd())
+	pidfdPrimario, pidfdReserva, pidfdOpaco := fdTerminal+10, fdTerminal+11, fdTerminal+12
+	identidadPidfd := identidadFDO3aM38{dev: 1, ino: 7, fdflags: 1}
 	fisico := snapshotFDO3aM38{limite: 64, mapa: map[int]huellaFDO3aM38{
-		10: {identidad: identidadFDO3aM38{dev: 1, ino: 7, fdflags: 1}, abierto: true},
-		11: {identidad: identidadFDO3aM38{dev: 1, ino: 7, fdflags: 1}, abierto: true},
-		12: {identidad: identidadFDO3aM38{dev: 1, ino: 7, fdflags: 1}, abierto: true},
+		pidfdPrimario: {identidad: identidadPidfd, abierto: true},
+		pidfdReserva:  {identidad: identidadPidfd, abierto: true},
+		pidfdOpaco:    {identidad: identidadPidfd, abierto: true},
+		fdControl:     {identidad: identidadFDO3aM38{dev: 2, ino: 8, fdflags: 1}, abierto: true},
+		fdTerminal:    {identidad: identidadFDO3aM38{dev: 2, ino: 9, fdflags: 1}, abierto: true},
 	}}
 	lease := &leaseGuardiaO3aM38{registro: registro, generacion: 41, tid: tid, fisico: fisico}
 	lease.auto = lease
@@ -35,14 +49,14 @@ func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausa
 	observador.auto = observador
 	observador.palabra.Store(2)
 	registro.observadores[observador] = observador.generacion
-	control, controlFD, terminal := &controladorPreinicioM38{}, new(os.File), new(os.File)
+	control := &controladorPreinicioM38{}
 	cmd := &exec.Cmd{Process: &os.Process{Pid: 801}}
 	autoridadArranque := &autoridadEstadoO3aM38{estado: arranqueA6EntregadoM38}
 	inicio := time.Now()
 	custodia := &custodiaO3aM38{
 		autoridad: autoridadArranque, control: control, controlFD: controlFD, terminal: terminal,
 		lease: lease, observador: observador, baselineSenal: 2, tid: tid, ppid: 1, cmd: cmd,
-		pidfdPrimario: 10, pidfdReserva: 11, pidfdOpaco: 12, finBootstrap: inicio.Add(time.Minute),
+		pidfdPrimario: pidfdPrimario, pidfdReserva: pidfdReserva, pidfdOpaco: pidfdOpaco, finBootstrap: inicio.Add(time.Minute),
 	}
 	custodia.consumida.Store(custodiaRecibidaO4aM38)
 	autoridadCustodia := nuevaAutoridadCustodiaO3cM38()
@@ -61,10 +75,10 @@ func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausa
 		lease: lease, observador: observador, registro: registro, control: control,
 		controlFD: controlFD, terminal: terminal, cmd: cmd, proceso: cmd.Process,
 		generacionLease: lease.generacion, generacionObservador: observador.generacion,
-		tid: tid, ppid: 1, baselineSenal: 2, pidfd: [3]int{10, 11, 12}, identidad: identidad,
+		tid: tid, ppid: 1, baselineSenal: 2, pidfd: [3]int{pidfdPrimario, pidfdReserva, pidfdOpaco}, identidad: identidad,
 		primera: uint32(observacionPidfdVacioO3cM38), palabraObservada: 2,
 		canonControlRaw: controlRawVacioO4aM38, ahoraCaso: inicio, finCaso: fin,
-		fisico: copiaSnapshotO4aM38(fisico),
+		fisico: copiaSnapshotO4aM38(fisico), huellaControl: fisico.mapa[fdControl], huellaTerminal: fisico.mapa[fdTerminal],
 	}
 	a.causa.Store(uint32(causa))
 	a.estado.Store(uint32(causaA3CausaFijadaM38))
@@ -73,7 +87,7 @@ func autoridadSinteticaEtapasO4aP4M38(causa causaPrimariaO4aM38) *autoridadCausa
 
 func iniciarEtapasPruebaO4aP4M38(t *testing.T, causa causaPrimariaO4aM38) (*autoridadEtapasO4aM38, *autorizacionEtapaO4aM38) {
 	t.Helper()
-	a := autoridadSinteticaEtapasO4aP4M38(causa)
+	a := autoridadSinteticaEtapasO4aP4M38(t, causa)
 	e, p, err := iniciarEtapasO4aM38(&a)
 	if err != nil || e == nil || a != nil {
 		t.Fatalf("inicio: e=%p p=%p err=%v a=%p", e, p, err, a)
@@ -228,7 +242,7 @@ func TestEtapasO4aP4RamasDeFalloCerradas(t *testing.T) {
 }
 
 func TestEtapasO4aP4OneShotCarrerasYReplay(t *testing.T) {
-	a := autoridadSinteticaEtapasO4aP4M38(causaCancelado65O4aM38)
+	a := autoridadSinteticaEtapasO4aP4M38(t, causaCancelado65O4aM38)
 	alias1, alias2 := a, a
 	type inicio struct {
 		e   *autoridadEtapasO4aM38
@@ -289,7 +303,7 @@ func TestEtapasO4aP4OneShotCarrerasYReplay(t *testing.T) {
 	if (s1.err == nil) == (s2.err == nil) || (s1.p == nil) == (s2.p == nil) || r1 != nil || r2 != nil || ganador.e.historialLen != 1 {
 		t.Fatal("resultado concurrente no fue one-shot")
 	}
-	natural := autoridadSinteticaEtapasO4aP4M38(causaSalidaO4aM38)
+	natural := autoridadSinteticaEtapasO4aP4M38(t, causaSalidaO4aM38)
 	n1, n2 := natural, natural
 	naturales := make(chan error, 2)
 	for _, entrada := range []**autoridadCausaO4aM38{&n1, &n2} {
@@ -319,12 +333,12 @@ func ejecutarFatalEtapasO4aP4M38(t *testing.T, caso string) {
 func TestEtapasO4aP4Fatales(t *testing.T) {
 	caso := os.Getenv("O4A_P4_FATAL")
 	if caso == "" {
-		for _, nombre := range []string{"owner", "auto_autoridad", "observador", "consumo", "tid", "ppid", "identidad", "baseline", "ticket", "bootstrap", "fisico", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
+		for _, nombre := range []string{"owner", "auto_autoridad", "observador", "consumo", "tid", "ppid", "identidad", "baseline", "ticket", "bootstrap", "fisico", "huella_control", "huella_terminal", "fd_alias", "arranque", "causa", "permiso_adulterado", "resultado_forjado", "resultado_incompatible", "resultado_futuro", "kill_en_borde", "parada_final_tardia"} {
 			ejecutarFatalEtapasO4aP4M38(t, nombre)
 		}
 		return
 	}
-	a := autoridadSinteticaEtapasO4aP4M38(causaCancelado65O4aM38)
+	a := autoridadSinteticaEtapasO4aP4M38(t, causaCancelado65O4aM38)
 	if caso == "owner" {
 		a.origen.autoridad.ownerLease.Store(uint32(propietarioLiberadoO3cM38))
 		_, _, _ = iniciarEtapasO4aM38(&a)
@@ -379,6 +393,22 @@ func TestEtapasO4aP4Fatales(t *testing.T) {
 		a.sellos.fisico.limite, a.origen.custodia.lease.fisico.limite = 0, 0
 		_, _, _ = iniciarEtapasO4aM38(&a)
 		os.Exit(24)
+	}
+	if caso == "huella_control" {
+		a.sellos.huellaControl.abierto = false
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(25)
+	}
+	if caso == "huella_terminal" {
+		a.sellos.huellaTerminal.abierto = false
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(26)
+	}
+	if caso == "fd_alias" {
+		a.sellos.terminal, a.origen.custodia.terminal = a.sellos.controlFD, a.sellos.controlFD
+		a.sellos.huellaTerminal = a.sellos.huellaControl
+		_, _, _ = iniciarEtapasO4aM38(&a)
+		os.Exit(27)
 	}
 	if caso == "arranque" {
 		a.sellos.autoridadArranque.estado = arranqueA5PidfdTresM38

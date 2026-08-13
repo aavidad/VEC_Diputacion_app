@@ -186,11 +186,21 @@ func autoridadBaseEtapasExactaO4aM38(a *autoridadCausaO4aM38) bool {
 	if p[0] < 0 || p[1] < 0 || p[2] < 0 || p[0] == p[1] || p[0] == p[2] || p[1] == p[2] {
 		return false
 	}
+	fdControl, fdTerminal := int(a.sellos.controlFD.Fd()), int(a.sellos.terminal.Fd())
+	if fdControl < 0 || fdTerminal < 0 || fdControl == fdTerminal ||
+		fdControl == p[0] || fdControl == p[1] || fdControl == p[2] ||
+		fdTerminal == p[0] || fdTerminal == p[1] || fdTerminal == p[2] {
+		return false
+	}
 	h0, ok0 := a.sellos.fisico.mapa[p[0]]
 	h1, ok1 := a.sellos.fisico.mapa[p[1]]
 	h2, ok2 := a.sellos.fisico.mapa[p[2]]
+	hc, okc := a.sellos.fisico.mapa[fdControl]
+	ht, okt := a.sellos.fisico.mapa[fdTerminal]
 	if !ok0 || !ok1 || !ok2 || !h0.abierto || !h1.abierto || !h2.abierto ||
-		h0.identidad != h1.identidad || h1.identidad != h2.identidad {
+		h0.identidad != h1.identidad || h1.identidad != h2.identidad ||
+		!okc || !okt || !hc.abierto || !ht.abierto ||
+		hc != a.sellos.huellaControl || ht != a.sellos.huellaTerminal {
 		return false
 	}
 	c := causaPrimariaO4aM38(a.causa.Load())
