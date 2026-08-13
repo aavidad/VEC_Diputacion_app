@@ -18,8 +18,10 @@ O5/O6, integración, producción, despliegue ni cambio de métricas.
 
 La cadena candidata O4A-P4
 `1e75c829215c43b4472908e9e00acc255aa016d9` ->
-`4f5b5a1736a4e2a90cc728b03a9fa57b0b20e7f9` no pertenece a esta base y
-continúa pendiente de revisión independiente. El segundo SHA es el objetivo
+`4f5b5a1736a4e2a90cc728b03a9fa57b0b20e7f9` ->
+`1f8186cf0705043fea638db4ba1ab4ff086455a3` ->
+`6a7a83b252a24971d1255f19c0e30ae7f4e4eb90` no pertenece a esta base y
+continúa pendiente de revisión independiente. El último SHA es el objetivo
 exacto vigente de esa revisión; este documento no lo acredita.
 
 La decisión candidata tiene 552 líneas y SHA-256
