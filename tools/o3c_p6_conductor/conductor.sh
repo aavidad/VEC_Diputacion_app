@@ -10,9 +10,11 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 unidad="$raiz/tools/o3c_p6_conductor"
 fuentes="$unidad/fuentes.tsv"
 casos="$unidad/casos.tsv"
+publicador_fallo="$unidad/fallo_durable.sh"
 base=c0f2a9945ed2fc5648980ee48b91424a04977655
 
 [[ -d $target && ! -e $evidencia ]] || { printf 'NO-GO target/evidencia\n' >&2; exit 2; }
+[[ -x $publicador_fallo ]] || { printf 'NO-GO publicador_fallo\n' >&2; exit 2; }
 git -C "$target" cat-file -e "$base^{commit}" 2>/dev/null || { printf 'NO-GO base ausente\n' >&2; exit 2; }
 git -C "$target" merge-base --is-ancestor "$base" HEAD || { printf 'NO-GO ascendencia\n' >&2; exit 2; }
 if ! git -C "$target" diff --quiet || ! git -C "$target" diff --cached --quiet; then
@@ -50,6 +52,10 @@ entorno_race=(env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$s
 
 sha_target=$(sha256sum "$evidencia/fuentes.tsv" | cut -d' ' -f1)
 printf 'modo\tsha_binario\nnormal\t%s\nrace\t%s\n' "$(sha256sum "$staging/o3c-normal" | cut -d' ' -f1)" "$(sha256sum "$staging/o3c-race" | cut -d' ' -f1)" > "$evidencia/binarios.tsv"
+printf 'head\tgo_version\tsha_conductor\tsha_publicador_fallo\tsha_matriz\tsha_fuentes\tsha_target\n%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  "$(git -C "$target" rev-parse HEAD)" "$($go_bin version)" "$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)" \
+  "$(sha256sum "$publicador_fallo" | cut -d' ' -f1)" "$(sha256sum "$casos" | cut -d' ' -f1)" \
+  "$(sha256sum "$fuentes" | cut -d' ' -f1)" "$sha_target" > "$evidencia/contexto.tsv"
 cabecera='id\tmodo\tcomando\tsha_target\testado\tstdout_bytes\tstderr_bytes\tduracion_ms\tfd_inicio\tfd_fin\thijos_inicio\thijos_fin\tzombis_inicio\tzombis_fin\tgrupos_inicio\tgrupos_fin\ttemporales_inicio\ttemporales_fin\tgrupo_ejecucion_esrch\toraculo\tresultado'
 printf '%b\n' "$cabecera" > "$evidencia/casos.tsv"
 printf '%b\n' "${cabecera/estado\\tstdout_bytes\\tstderr_bytes/estado\\tstdout_bytes\\tstderr_bytes\\tstdout_eof\\tstderr_eof\\tno_retorno}" > "$evidencia/bf_directos.tsv"
@@ -111,7 +117,12 @@ ejecutar() {
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf
   [[ $estado -eq 0 && $grupo_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
   printf '%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n' "$id" "$modo" "testbin -test.run=^(${patron})$ -test.count=1" "$sha_target" "$estado" "$(wc -c <"$out")" "$(wc -c <"$err")" "$(((fin-inicio)/1000))" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" "$grupo_cero_aislado" "$oraculo" "$resultado" >> "$evidencia/casos.tsv"
-  [[ $resultado == GO ]] || { printf 'NO-GO caso=%s modo=%s estado=%d stdout=%d stderr=%d grupo=%s inventario=%d/%d,%d/%d,%d/%d,%d/%d,%d/%d\n' "$id" "$modo" "$estado" "$(wc -c <"$out")" "$(wc -c <"$err")" "$grupo_cero_aislado" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" >&2; return 1; }
+  if [[ $resultado != GO ]]; then
+    "$publicador_fallo" publicar "$evidencia" "$destino_evidencia" "$out" "$err" "$id" "$modo" "$estado" "$grupo_cero_aislado" \
+      "$fdi,$hi,$zi,$gi,$ti" "$fdf,$hf,$zf,$gf,$tf" "$(git -C "$target" rev-parse HEAD)" "$($go_bin version)"
+    printf 'NO-GO caso=%s modo=%s estado=%d stdout=%d stderr=%d grupo=%s inventario=%d/%d,%d/%d,%d/%d,%d/%d,%d/%d\n' "$id" "$modo" "$estado" "$(wc -c <"$out")" "$(wc -c <"$err")" "$grupo_cero_aislado" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" >&2
+    return 1
+  fi
 }
 
 ejecutar_bf() {
@@ -122,7 +133,12 @@ ejecutar_bf() {
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf; so=$(wc -c <"$out"); se=$(wc -c <"$err")
   [[ $estado -eq 65 && $so -eq 0 && $se -eq 0 && $grupo_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
   printf '%s\t%s\t%s\t%s\t%d\t%d\t%d\tsi\tsi\tsi\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n' "$id" "$modo" "env $variable=$valor testbin -test.run=^${prueba}$ -test.count=1" "$sha_target" "$estado" "$so" "$se" "$(((fin-inicio)/1000))" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" "$grupo_cero_aislado" "$oraculo" "$resultado" >> "$evidencia/bf_directos.tsv"
-  [[ $resultado == GO ]] || { printf 'NO-GO BF=%s modo=%s estado=%d stdout=%d stderr=%d grupo=%s\n' "$id" "$modo" "$estado" "$so" "$se" "$grupo_cero_aislado" >&2; return 1; }
+  if [[ $resultado != GO ]]; then
+    "$publicador_fallo" publicar "$evidencia" "$destino_evidencia" "$out" "$err" "$id" "$modo" "$estado" "$grupo_cero_aislado" \
+      "$fdi,$hi,$zi,$gi,$ti" "$fdf,$hf,$zf,$gf,$tf" "$(git -C "$target" rev-parse HEAD)" "$($go_bin version)"
+    printf 'NO-GO BF=%s modo=%s estado=%d stdout=%d stderr=%d grupo=%s\n' "$id" "$modo" "$estado" "$so" "$se" "$grupo_cero_aislado" >&2
+    return 1
+  fi
 }
 
 for modo in normal race; do
@@ -146,6 +162,7 @@ resultado=GO
 base=$base
 go_version=$($go_bin version)
 sha_conductor=$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)
+sha_publicador_fallo=$(sha256sum "$publicador_fallo" | cut -d' ' -f1)
 sha_matriz=$(sha256sum "$casos" | cut -d' ' -f1)
 sha_fuentes=$(sha256sum "$fuentes" | cut -d' ' -f1)
 sha_target=$sha_target
@@ -158,7 +175,7 @@ bf_directos=$filas_bf
 bf_estado_eof_no_retorno_0_0=si
 residuos=cero
 EOF
-(cd "$evidencia" && sha256sum bf_directos.tsv binarios.tsv casos.tsv fuentes.tsv residuos.txt resumen.txt | sort -k2) > "$staging/SHA256SUMS"
+(cd "$evidencia" && sha256sum bf_directos.tsv binarios.tsv casos.tsv contexto.tsv fuentes.tsv residuos.txt resumen.txt | sort -k2) > "$staging/SHA256SUMS"
 mv "$staging/SHA256SUMS" "$evidencia/SHA256SUMS"
 (cd "$evidencia" && sha256sum -c SHA256SUMS >/dev/null)
 mv "$evidencia" "$destino_evidencia"
