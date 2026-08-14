@@ -4,6 +4,9 @@ Fecha: 13 de agosto de 2026.
 
 Tarea: `SEC-TOOLCHAIN-PATCH-1.26.6`.
 
+Corrección de evidencia: `SEC-TOOLCHAIN-P2-CORTE-DB-VULN`, sobre el padre
+exacto `74f249587d5c0da41092a2c017ccd6cb54817248`.
+
 Estado: **CANDIDATO A REVISIÓN INDEPENDIENTE**. Este corte no publica, no
 despliega, no acredita O4 y no autoriza un nuevo candidato material O4A-P4.
 
@@ -13,9 +16,11 @@ La base exacta es el árbol documental O4 integrado localmente en
 `d16c0f6bd42078abe090c554ab42b1f9bb8d3a1c`. Su publicación ejecutaría las
 cinco puertas de `.github/workflows/ci.yml`.
 
-El preflight de esa CI con la fijación anterior `go1.26.5` alcanzó
-`govulncheck@v1.6.0` y terminó en estado 3 por cinco vulnerabilidades
-alcanzables de la biblioteca estándar:
+La reproducción del preflight con la fijación anterior `go1.26.5` alcanzó
+`govulncheck@v1.6.0` y terminó en estado 3 por seis vulnerabilidades
+alcanzables de la biblioteca estándar. Este inventario corresponde al corte
+observado el 13 de agosto de 2026 a las 23:11 UTC, después de que el registro
+de `GO-2026-5026` se actualizara a las 21:43:54 UTC:
 
 | Identificador | Paquete alcanzable |
 | --- | --- |
@@ -24,9 +29,13 @@ alcanzables de la biblioteca estándar:
 | `GO-2026-6089` | `net/http` |
 | `GO-2026-6088` | `encoding/xml` |
 | `GO-2026-5972` | `encoding/asn1` |
+| `GO-2026-5026` | `net/http` |
 
 La [revisión Go 1.26.6](https://go.dev/doc/devel/release#go1.26.6), publicada
-el mismo 13 de agosto, contiene correcciones de seguridad para esos paquetes.
+el mismo 13 de agosto, contiene las correcciones que cierran los seis
+intervalos observados. El criterio CI no es que el conteo histórico permanezca
+inmutable, sino que la toolchain seleccionada termine con cero vulnerabilidades
+alcanzables según la base oficial vigente.
 El criterio único de este corte es que todas las rutas activas de la CI de O4
 usen esa revisión corregida sin variar código de negocio, oráculos, permisos,
 porcentajes ni estados del roadmap.
@@ -97,8 +106,37 @@ Resultado:
   manifiestos, carga TLS, unitarias Python, vulnerabilidades, tamaños y diff.
 
 El baseline 1.26.5 del mismo árbol llegó hasta `govulncheck` después de dejar
-normal y race globales verdes, pero fue rechazado por los cinco hallazgos
+normal y race globales verdes, pero fue rechazado por los seis hallazgos
 anteriores. No se relajó ni omitió esa puerta.
+
+### Corte durable del inventario
+
+La salida completa del baseline tiene 4.522 bytes y SHA-256
+`4cfc5d433267d239479cf6f77c9bd5b7fd8b9825792be014d30276fdbf10eb86`.
+La salida sobre Go 1.26.6 tiene 26 bytes y SHA-256
+`3016e51e4eac0d421674d2128bbbdefb2924b4646e0c14a1ab034977ad73fae5`.
+Ambas proceden del mismo comando y del mismo árbol; solo cambia la toolchain:
+
+```text
+go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+```
+
+El corte baseline conserva al menos una traza alcanzable por identificador:
+
+| Identificador | Símbolo o frontera mínima observada | Versión corregida |
+| --- | --- | --- |
+| `GO-2026-6218` | `osrm.Calculador.Calcular` → `http.Client.Do` → `url.URL.Parse` | `go1.26.6` |
+| `GO-2026-6090` | `ServidorInterno.EscucharYServir` → `http.Server.ServeTLS` → `tls.Conn.HandshakeContext` | `go1.26.6` |
+| `GO-2026-6089` | `vec.main` → `http.Server.ListenAndServe` | `go1.26.6` |
+| `GO-2026-6088` | `docx.relacionExterna` → `xml.Decoder.Token` | `go1.26.6` |
+| `GO-2026-5972` | `cargarMaterialEmisorCapacidadPostgreSQLV4` → `x509.ParsePKIXPublicKey` → `asn1.Unmarshal` | `go1.26.6` |
+| `GO-2026-5026` | `osrm.Calculador.Calcular` → `http.Client.Do` | `go1.26.6` |
+
+La base de vulnerabilidades es mutable: este hash y esta tabla hacen durable
+la observación que motivó y revisó el parche, pero no convierten seis en un
+máximo futuro. Una actualización posterior de la base debe volver a evaluarse
+fail-closed; no autoriza a ignorar identificadores nuevos ni a reescribir este
+corte histórico.
 
 ### Conductor durable O3a V5
 
@@ -166,3 +204,5 @@ Un doble GO de esta enmienda no equivale a publicación ni CI remota. Dirección
 debe integrar el parche y el árbol documental O4, publicar normalmente y
 obtener las cinco puertas verdes antes de asignar un nuevo O4A-P4 material.
 O4B-P1, O4A-P5 y O4C-P1 continúan cerrados hasta cumplir sus dependencias.
+La corrección de inventario tampoco resuelve por sí sola el P1 independiente
+de estabilidad del conductor O3a V5 ni acredita el candidato de toolchain.
