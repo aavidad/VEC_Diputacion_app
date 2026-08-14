@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -66,26 +67,33 @@ func estadoPreparacionExternaO3aM38(err error) int {
 	}
 	return estadoErrorExternoO3aM38
 }
-
-func contarFDVivosPruebaO3aM38() (int, error) {
+func inventarioFDVivosPruebaO3aM38() (map[int][10]uint64, error) {
 	entradas, err := os.ReadDir("/proc/self/fd")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	vivos := 0
+	vivos := make(map[int][10]uint64, len(entradas))
 	for _, entrada := range entradas {
 		fd, err := strconv.Atoi(entrada.Name())
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_GETFD, 0)
-		if errno == 0 {
-			vivos++
-		} else if errno != syscall.EBADF {
-			return 0, errno
+		fdflags, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_GETFD, 0)
+		if errno == syscall.EBADF {
+			continue
 		}
+		flags, _, errnoFlags := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), syscall.F_GETFL, 0)
+		var st syscall.Stat_t
+		if errno != 0 || errnoFlags != 0 || syscall.Fstat(fd, &st) != nil {
+			return nil, errInventarioO3aM38
+		}
+		vivos[fd] = [10]uint64{uint64(fdflags), uint64(flags), uint64(st.Dev), st.Ino, uint64(st.Rdev), uint64(st.Mode), uint64(st.Uid), uint64(st.Gid), uint64(st.Nlink), uint64(st.Size)}
 	}
 	return vivos, nil
+}
+func contarFDVivosPruebaO3aM38() (int, error) {
+	vivos, err := inventarioFDVivosPruebaO3aM38()
+	return len(vivos), err
 }
 
 func reducirRlimitPruebaO3aM38(f *fixtureO3aM38) error {
@@ -442,7 +450,7 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 	if prepararNetpoll() != nil {
 		return estadoTuplaNetpollExternoO3aM38
 	}
-	inicial, err := contarFDVivosPruebaO3aM38()
+	inicial, err := inventarioFDVivosPruebaO3aM38()
 	f, errPreparacion := prepararCasoExternoO3aM38()
 	if err != nil {
 		return estadoTuplaSnapshotInicialExternoO3aM38
@@ -463,11 +471,11 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 	if limpiarFixtureO3aM38(f) != nil {
 		return estadoTuplaLimpiezaExternoO3aM38
 	}
-	final, err := contarFDVivosPruebaO3aM38()
+	final, err := inventarioFDVivosPruebaO3aM38()
 	if err != nil {
 		return estadoTuplaSnapshotFinalExternoO3aM38
 	}
-	if final != inicial {
+	if !maps.Equal(final, inicial) {
 		return estadoTuplaDeltaFDExternoO3aM38
 	}
 	if !sinHijos() {
