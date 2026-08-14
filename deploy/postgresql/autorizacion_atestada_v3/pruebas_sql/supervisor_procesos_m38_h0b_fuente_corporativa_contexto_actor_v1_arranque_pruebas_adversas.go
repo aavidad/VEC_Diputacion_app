@@ -653,9 +653,11 @@ func ejecutarCasosLinealesExternosO3aM38(caso string) int {
 	var err error
 	switch caso {
 	case "C16_ALIAS":
-		err = probarAliasPreparadoO3aM38()
-		if err == nil {
-			err = probarAliasRetiradaExternaO3aM38()
+		if err = probarAliasPreparadoO3aM38(); err != nil {
+			return estadoAliasPreparadoExternoO3aM38
+		}
+		if err = probarAliasRetiradaExternaO3aM38(); err != nil {
+			return estadoAliasRetiradaExternoO3aM38
 		}
 	case "C17_TESTIGOS_TID":
 		if err = probarTestigosO3aM38(); err == nil {
@@ -671,20 +673,24 @@ func ejecutarCasosLinealesExternosO3aM38(caso string) int {
 				err = nil
 			}
 		}
-	case "C18_BORDES":
-		for _, borde := range []string{"parcial", "plazo"} {
-			if err = probarBarreraAdversaO3aM38(borde); err != nil {
-				break
-			}
+		if err != nil {
+			return estadoTestigosExternoO3aM38
 		}
-		if err == nil {
-			err = probarVueltaTardiaExternaO3aM38()
+	case "C18_BORDES":
+		if err = probarBarreraAdversaO3aM38("parcial"); err != nil {
+			return estadoBarreraParcialExternoO3aM38
+		}
+		if err = probarBarreraAdversaO3aM38("plazo"); err != nil {
+			return estadoBarreraPlazoExternoO3aM38
+		}
+		if err = probarVueltaTardiaExternaO3aM38(); err != nil {
+			return estadoVueltaTardiaExternoO3aM38
 		}
 	default:
-		err = errEntradaO3aM38
+		return estadoCasoLinealExternoO3aM38
 	}
-	if err != nil || !sinHijos() {
-		return estadoErrorExternoO3aM38
+	if !sinHijos() {
+		return estadoHijosLinealesExternoO3aM38
 	}
 	return 0
 }
@@ -695,7 +701,10 @@ func probarAliasRetiradaExternaO3aM38() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, limpiarFixtureO3aM38(f)) }()
-	if err = prepararFixtureO3aM38(f); err != nil || escribirControlPruebaO3aM38(f, "V1|CONTROL|CANCELAR|"+string(f.preparado.custodia.control.nonce[:])+"|CANCELADO|65\n") != nil {
+	if err = prepararFixtureO3aM38(f); err != nil {
+		return err
+	}
+	if err = escribirControlPruebaO3aM38(f, "V1|CONTROL|CANCELAR|"+string(f.preparado.custodia.control.nonce[:])+"|CANCELADO|65\n"); err != nil {
 		return err
 	}
 	alias := f.preparado

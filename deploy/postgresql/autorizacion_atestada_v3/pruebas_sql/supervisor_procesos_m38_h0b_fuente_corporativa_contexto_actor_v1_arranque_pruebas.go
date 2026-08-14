@@ -17,6 +17,24 @@ import (
 	"unsafe"
 )
 
+const (
+	estadoTuplaNetpollExternoO3aM38 = 99 + iota
+	estadoTuplaSnapshotInicialExternoO3aM38
+	estadoTuplaResultadoExternoO3aM38
+	estadoTuplaLimpiezaExternoO3aM38
+	estadoTuplaSnapshotFinalExternoO3aM38
+	estadoTuplaDeltaFDExternoO3aM38
+	estadoTuplaHijosExternoO3aM38
+	estadoAliasPreparadoExternoO3aM38
+	estadoAliasRetiradaExternoO3aM38
+	estadoTestigosExternoO3aM38
+	estadoBarreraParcialExternoO3aM38
+	estadoBarreraPlazoExternoO3aM38
+	estadoVueltaTardiaExternoO3aM38
+	estadoCasoLinealExternoO3aM38
+	estadoHijosLinealesExternoO3aM38
+)
+
 type fixtureO3aM38 struct {
 	directorio        string
 	controlEscritor   *os.File
@@ -422,12 +440,12 @@ func ejecutarDegradacionPidfdExternaO3aM38(caso string) int {
 
 func ejecutarTuplaExternaO3aM38(caso string) int {
 	if prepararNetpoll() != nil {
-		return estadoErrorExternoO3aM38
+		return estadoTuplaNetpollExternoO3aM38
 	}
 	inicial, err := contarFDVivosPruebaO3aM38()
 	f, errPreparacion := prepararCasoExternoO3aM38()
 	if err != nil {
-		return estadoErrorExternoO3aM38
+		return estadoTuplaSnapshotInicialExternoO3aM38
 	}
 	if errPreparacion != nil {
 		return estadoPreparacionExternaO3aM38(errPreparacion)
@@ -439,12 +457,21 @@ func ejecutarTuplaExternaO3aM38(caso string) int {
 		caso == "TUPLA_A" && resultado.clase == resultadoRetiradoO3aM38 && resultado.retirada.origen == retiradaSinHijoO3aM38 ||
 		caso == "C10_DUPFD_POST_START" && resultado.clase == resultadoRetiradoO3aM38 && resultado.retirada.origen == retiradaConHijoO3aM38
 	f.agregado, f.retirada = resultado.agregado, resultado.retirada
-	if !valido || limpiarFixtureO3aM38(f) != nil {
-		return estadoErrorExternoO3aM38
+	if !valido {
+		return estadoTuplaResultadoExternoO3aM38
+	}
+	if limpiarFixtureO3aM38(f) != nil {
+		return estadoTuplaLimpiezaExternoO3aM38
 	}
 	final, err := contarFDVivosPruebaO3aM38()
-	if err != nil || final != inicial || !sinHijos() {
-		return estadoErrorExternoO3aM38
+	if err != nil {
+		return estadoTuplaSnapshotFinalExternoO3aM38
+	}
+	if final != inicial {
+		return estadoTuplaDeltaFDExternoO3aM38
+	}
+	if !sinHijos() {
+		return estadoTuplaHijosExternoO3aM38
 	}
 	if caso == "TUPLA_A" {
 		return estadoRetiradaSinHijoExternaO3aM38
