@@ -724,7 +724,10 @@ func probarVueltaTardiaExternaO3aM38() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, limpiarFixtureO3aM38(f)) }()
-	if err = prepararFixtureO3aM38(f); err != nil || escribirControlPruebaO3aM38(f, "V1|CONTROL|CANCELAR|") != nil {
+	if err = prepararFixtureO3aM38(f); err != nil {
+		return err
+	}
+	if err = escribirControlPruebaO3aM38(f, "V1|CONTROL|CANCELAR|"); err != nil {
 		return err
 	}
 	c := f.preparado.custodia
