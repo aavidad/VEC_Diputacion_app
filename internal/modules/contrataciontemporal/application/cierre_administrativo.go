@@ -122,7 +122,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 	defer cancelar()
 
 	var decisionInvocada bool
-	var actuacionRef, reciboRef string
+	var actuacionRef, reciboRef, actorRef string
 	resultado, err := s.transaccion.EjecutarCierreAdministrativo(
 		ctxOperacion,
 		solicitud,
@@ -180,6 +180,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 			}
 			actuacionRef = preparacion.ActuacionRef
 			reciboRef = preparacion.ReciboRef
+			actorRef = preparacion.ActorRef
 			return siguiente, nil
 		},
 	)
@@ -189,7 +190,11 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 	}
 	if resultado.ValidarPara(solicitud) != nil ||
 		decisionInvocada && (resultado.EsReplayConfirmado() ||
-			!resultado.CoincideConEfecto(actuacionRef, reciboRef)) ||
+			!resultado.CoincideConEfecto(
+				actuacionRef,
+				reciboRef,
+				actorRef,
+			)) ||
 		!decisionInvocada && !resultado.EsReplayConfirmado() {
 		return ports.ResultadoCierreAdministrativo{},
 			ErrResultadoCierreAdministrativoInvalido

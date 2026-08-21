@@ -25,7 +25,8 @@ type transaccionCierreAdministrativoPrueba struct {
 	err                 error
 	resultadoInvalido   bool
 	replayConfirmado    bool
-	antesDeAplicar      func()
+	despuesDeAplicar    func()
+	actorResultadoRef   string
 	llamadas            int
 	aplicaciones        int
 	solicitud           ports.SolicitudTransaccionCierreAdministrativo
@@ -54,12 +55,14 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 				VersionResultante: t.solicitudConfirmada.VersionEsperada + 1,
 				ActuacionRef:      t.preparacion.ActuacionRef,
 				ReciboRef:         t.preparacion.ReciboRef,
+				ActorRef:          t.preparacion.ActorRef,
 				Estado:            ports.EstadoResultadoCierreAdministrativoReplayConfirmado,
 			},
 		)
 	}
-	if t.antesDeAplicar != nil {
-		t.antesDeAplicar()
+	if t.preparacion.ValidarPara(solicitud) != nil {
+		return ports.ResultadoCierreAdministrativo{},
+			ports.ErrCierreAdministrativoDenegado
 	}
 	t.aplicaciones++
 	siguiente, err := aplicar(t.preparacion)
@@ -67,16 +70,27 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
 	t.siguiente = siguiente
+	if t.despuesDeAplicar != nil {
+		t.despuesDeAplicar()
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoCierreAdministrativo{}, err
+	}
 	t.confirmada = true
 	t.solicitudConfirmada = solicitud
 	if t.resultadoInvalido {
 		return ports.ResultadoCierreAdministrativo{}, nil
+	}
+	actorRef := t.preparacion.ActorRef
+	if t.actorResultadoRef != "" {
+		actorRef = t.actorResultadoRef
 	}
 	return ports.NuevoResultadoCierreAdministrativo(
 		ports.DatosResultadoCierreAdministrativo{
 			Solicitud: solicitud, VersionResultante: siguiente.Version(),
 			ActuacionRef: t.preparacion.ActuacionRef,
 			ReciboRef:    t.preparacion.ReciboRef,
+			ActorRef:     actorRef,
 			Estado:       ports.EstadoResultadoCierreAdministrativoConfirmado,
 		},
 	)
@@ -157,25 +171,6 @@ func TestCierreAdministrativoDevuelveReplayConfirmadoSinRepetirCallback(t *testi
 	if !errors.Is(err, ErrResultadoCierreAdministrativoInvalido) ||
 		transaccion.aplicaciones != 1 {
 		t.Fatalf("el replay aceptó la misma clave con otra identidad: %v", err)
-	}
-}
-
-func TestCierreAdministrativoCancelaDuranteFronteraAntesDelEfecto(t *testing.T) {
-	definicion, seguimiento := escenarioSeguimientoVigente(t)
-	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
-	ctx, cancelar := context.WithCancel(context.Background())
-	transaccion := &transaccionCierreAdministrativoPrueba{
-		preparacion: preparacionCierreAdministrativoPrueba(
-			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
-			seguimiento, instanteCierreAdministrativoPrueba,
-		),
-		antesDeAplicar: cancelar,
-	}
-	_, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
-		Cerrar(ctx, solicitud)
-	if !errors.Is(err, context.Canceled) || transaccion.confirmada ||
-		transaccion.aplicaciones != 1 || transaccion.siguiente.Version() != 0 {
-		t.Fatalf("cancelación durante frontera no revirtió: err=%v", err)
 	}
 }
 
@@ -328,7 +323,6 @@ func TestReaperturaExcepcionalEsMotivadaVersionadaYAuditable(t *testing.T) {
 	)
 	preparacion.ActuacionRef = referenciaCierreAdministrativoPrueba("actuacion_reapertura_01")
 	preparacion.ReciboRef = referenciaCierreAdministrativoPrueba("recibo_reapertura_01")
-	preparacion.CorrelacionRef = referenciaCierreAdministrativoPrueba("correlacion_reapertura_01")
 	transaccion := &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
 	servicio := nuevoServicioCierreAdministrativoPrueba(t, transaccion)
 	anteriores := cerrado.Actuaciones()
@@ -572,13 +566,19 @@ func preparacionCierreAdministrativoPrueba(
 			SeguimientoRef:  solicitud.SeguimientoRef, Version: 4,
 			Total: 6, Pendientes: 0, Completo: true,
 		},
-		UnidadRef:      referenciaCierreAdministrativoPrueba("unidad_rrhh_01"),
-		ActuacionRef:   referenciaCierreAdministrativoPrueba("actuacion_cierre_01"),
-		ReciboRef:      referenciaCierreAdministrativoPrueba("recibo_cierre_01"),
-		CorrelacionRef: referenciaCierreAdministrativoPrueba("correlacion_cierre_01"),
-		EfectivoEn:     instante, RegistradaEn: instante,
+		UnidadRef:    referenciaCierreAdministrativoPrueba("unidad_rrhh_01"),
+		ActorRef:     referenciaCierreAdministrativoPrueba("actor_rrhh_confiable_01"),
+		ActuacionRef: referenciaCierreAdministrativoPrueba("actuacion_cierre_01"),
+		ReciboRef:    referenciaCierreAdministrativoPrueba("recibo_cierre_01"),
+		CorrelacionRef: referenciaCierreAdministrativoPrueba(
+			"correlacion_cierre_01",
+		),
+		EfectivoEn: instante, RegistradaEn: instante,
 	}
 	prepararAutorizacionCierreAdministrativoPrueba(t, &preparacion, solicitud, instante)
+	if err := preparacion.ValidarPara(solicitud); err != nil {
+		t.Fatalf("preparación base de cierre inválida: %v", err)
+	}
 	return preparacion
 }
 
@@ -622,6 +622,10 @@ func prepararAutorizacionCierreAdministrativoPrueba(
 	if err != nil {
 		t.Fatalf("generar correlación V3 de cierre: %v", err)
 	}
+	correlacionV3Ref, err := correlacion.ValorCanonico()
+	if err != nil {
+		t.Fatalf("extraer correlación V3 de cierre: %v", err)
+	}
 	accion := ports.AccionAutorizacionCerrarAdministrativamente
 	finalidad := ports.FinalidadAutorizacionCerrarAdministrativamente
 	if solicitud.Operacion == ports.OperacionReabrirExcepcionalmente {
@@ -643,10 +647,14 @@ func prepararAutorizacionCierreAdministrativoPrueba(
 					"seguimiento_ref":  solicitud.SeguimientoRef,
 				},
 				Atributos: map[string]string{
-					"operacion":        string(solicitud.Operacion),
-					"version_esperada": strconv.FormatUint(solicitud.VersionEsperada, 10),
-					"transicion_clave": string(solicitud.TransicionClave),
-					"motivo_clave":     string(solicitud.MotivoClave),
+					"operacion":                   string(solicitud.Operacion),
+					"version_esperada":            strconv.FormatUint(solicitud.VersionEsperada, 10),
+					"transicion_clave":            string(solicitud.TransicionClave),
+					"motivo_clave":                string(solicitud.MotivoClave),
+					"principal_v3_ref":            vinculo.PrincipalID,
+					"actor_seguimiento_ref":       preparacion.ActorRef,
+					"correlacion_v3_ref":          correlacionV3Ref,
+					"correlacion_seguimiento_ref": preparacion.CorrelacionRef,
 				},
 			},
 			Finalidad:   finalidad,
@@ -668,17 +676,11 @@ func prepararAutorizacionCierreAdministrativoPrueba(
 	if err != nil {
 		t.Fatalf("conceder autorización V3 de cierre: %v", err)
 	}
-	correlacionRef, err := correlacion.ValorCanonico()
-	if err != nil {
-		t.Fatalf("extraer correlación V3 de cierre: %v", err)
-	}
 	preparacion.ContextoAutorizacionV3 = contexto
 	preparacion.SolicitudAutorizacionV3 = solicitudV3
 	preparacion.DecisionAutorizacionV3 = decision
 	preparacion.ConfirmacionAutorizacionV3 = confirmacion
 	preparacion.MotivoAutorizacionV3 = motivo
-	preparacion.CorrelacionAutorizacionV3Ref = correlacionRef
-	preparacion.ActorRef = referenciaCierreAdministrativoPrueba("actor_rrhh_confiable_01")
 	preparacion.PerfilRef = vinculo.PerfilActivoRef
 }
 

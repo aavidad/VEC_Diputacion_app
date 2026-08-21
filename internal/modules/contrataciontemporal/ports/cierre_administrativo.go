@@ -18,13 +18,17 @@ const (
 	FinalidadAutorizacionReabrirExcepcionalmente   = "reabrir_expediente_contratacion_temporal"
 	TipoRecursoCierreAdministrativo                = "seguimiento_contratacion_temporal"
 
-	ambitoCierreOrganizacion = "organizacion_ref"
-	ambitoCierreExpediente   = "expediente_ref"
-	ambitoCierreSeguimiento  = "seguimiento_ref"
-	atributoCierreOperacion  = "operacion"
-	atributoCierreVersion    = "version_esperada"
-	atributoCierreTransicion = "transicion_clave"
-	atributoCierreMotivo     = "motivo_clave"
+	ambitoCierreOrganizacion    = "organizacion_ref"
+	ambitoCierreExpediente      = "expediente_ref"
+	ambitoCierreSeguimiento     = "seguimiento_ref"
+	atributoCierreOperacion     = "operacion"
+	atributoCierreVersion       = "version_esperada"
+	atributoCierreTransicion    = "transicion_clave"
+	atributoCierreMotivo        = "motivo_clave"
+	atributoCierrePrincipalV3   = "principal_v3_ref"
+	atributoCierreActor         = "actor_seguimiento_ref"
+	atributoCierreCorrelacionV3 = "correlacion_v3_ref"
+	atributoCierreCorrelacion   = "correlacion_seguimiento_ref"
 )
 
 var (
@@ -130,25 +134,24 @@ func (i InventarioTareasCierreAdministrativo) ValidarPara(
 // coteja y consume en la misma transacción si el callback devuelve un estado
 // nuevo.
 type PreparacionTransaccionCierreAdministrativo struct {
-	Solicitud                    SolicitudTransaccionCierreAdministrativo
-	Definicion                   domain.DefinicionSeguimiento
-	Seguimiento                  domain.Seguimiento
-	Inventario                   InventarioTareasCierreAdministrativo
-	ContextoAutorizacionV3       ContextoAutorizacionAltaV3
-	SolicitudAutorizacionV3      dominiovec.SolicitudAutorizacionLigadaV3
-	DecisionAutorizacionV3       dominiovec.DecisionAutorizacionLigadaV3
-	ConfirmacionAutorizacionV3   puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
-	MotivoAutorizacionV3         dominiovec.ReferenciaEntradaCatalogo
-	CorrelacionAutorizacionV3Ref string
-	ActorRef                     string
-	PerfilRef                    string
-	UnidadRef                    string
-	ActuacionRef                 string
-	ReciboRef                    string
-	CorrelacionRef               string
-	Documentos                   []domain.DocumentoSeguimiento
-	EfectivoEn                   time.Time
-	RegistradaEn                 time.Time
+	Solicitud                  SolicitudTransaccionCierreAdministrativo
+	Definicion                 domain.DefinicionSeguimiento
+	Seguimiento                domain.Seguimiento
+	Inventario                 InventarioTareasCierreAdministrativo
+	ContextoAutorizacionV3     ContextoAutorizacionAltaV3
+	SolicitudAutorizacionV3    dominiovec.SolicitudAutorizacionLigadaV3
+	DecisionAutorizacionV3     dominiovec.DecisionAutorizacionLigadaV3
+	ConfirmacionAutorizacionV3 puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	MotivoAutorizacionV3       dominiovec.ReferenciaEntradaCatalogo
+	ActorRef                   string
+	PerfilRef                  string
+	UnidadRef                  string
+	ActuacionRef               string
+	ReciboRef                  string
+	CorrelacionRef             string
+	Documentos                 []domain.DocumentoSeguimiento
+	EfectivoEn                 time.Time
+	RegistradaEn               time.Time
 }
 
 func (p PreparacionTransaccionCierreAdministrativo) ValidarPara(
@@ -213,12 +216,15 @@ func validarAutorizacionCierreAdministrativoV3(
 		) ||
 		datos.ReferenciaMotivo != p.MotivoAutorizacionV3 ||
 		datos.Accion != accion || datos.Finalidad != finalidad ||
-		correlacion != p.CorrelacionAutorizacionV3Ref ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
 		!p.ConfirmacionAutorizacionV3.DentroDeVentanaEn(p.RegistradaEn) ||
 		!recursoAutorizacionCierreAdministrativoValido(
 			datos.Recurso,
 			solicitud,
+			vinculo.PrincipalID,
+			p.ActorRef,
+			correlacion,
+			p.CorrelacionRef,
 		) {
 		return ErrPreparacionCierreAdministrativoInvalida
 	}
@@ -243,19 +249,27 @@ func parametrosAutorizacionCierreAdministrativo(
 func recursoAutorizacionCierreAdministrativoValido(
 	recurso dominiovec.RecursoAutorizable,
 	solicitud SolicitudTransaccionCierreAdministrativo,
+	principalV3Ref string,
+	actorRef string,
+	correlacionV3Ref string,
+	correlacionRef string,
 ) bool {
 	return recurso.Validar() == nil &&
 		recurso.Referencia == solicitud.SeguimientoRef &&
 		recurso.ModuloID == ModuloContratacion &&
 		recurso.Tipo == TipoRecursoCierreAdministrativo &&
-		len(recurso.Ambitos) == 3 && len(recurso.Atributos) == 4 &&
+		len(recurso.Ambitos) == 3 && len(recurso.Atributos) == 8 &&
 		recurso.Ambitos[ambitoCierreOrganizacion] == solicitud.OrganizacionRef &&
 		recurso.Ambitos[ambitoCierreExpediente] == solicitud.ExpedienteRef &&
 		recurso.Ambitos[ambitoCierreSeguimiento] == solicitud.SeguimientoRef &&
 		recurso.Atributos[atributoCierreOperacion] == string(solicitud.Operacion) &&
 		recurso.Atributos[atributoCierreVersion] == strconv.FormatUint(solicitud.VersionEsperada, 10) &&
 		recurso.Atributos[atributoCierreTransicion] == string(solicitud.TransicionClave) &&
-		recurso.Atributos[atributoCierreMotivo] == string(solicitud.MotivoClave)
+		recurso.Atributos[atributoCierreMotivo] == string(solicitud.MotivoClave) &&
+		recurso.Atributos[atributoCierrePrincipalV3] == principalV3Ref &&
+		recurso.Atributos[atributoCierreActor] == actorRef &&
+		recurso.Atributos[atributoCierreCorrelacionV3] == correlacionV3Ref &&
+		recurso.Atributos[atributoCierreCorrelacion] == correlacionRef
 }
 
 type EstadoResultadoCierreAdministrativo string
@@ -275,6 +289,7 @@ type datosResultadoCierreAdministrativo struct {
 	versionResultante uint64
 	actuacionRef      string
 	reciboRef         string
+	actorRef          string
 	estado            EstadoResultadoCierreAdministrativo
 }
 
@@ -289,6 +304,7 @@ type DatosResultadoCierreAdministrativo struct {
 	VersionResultante uint64
 	ActuacionRef      string
 	ReciboRef         string
+	ActorRef          string
 	Estado            EstadoResultadoCierreAdministrativo
 }
 
@@ -299,6 +315,7 @@ func NuevoResultadoCierreAdministrativo(
 		datos.VersionResultante != datos.Solicitud.VersionEsperada+1 ||
 		!domain.ReferenciaOpacaValida(datos.ActuacionRef) ||
 		!domain.ReferenciaOpacaValida(datos.ReciboRef) ||
+		!domain.ReferenciaOpacaValida(datos.ActorRef) ||
 		!datos.Estado.valida() {
 		return ResultadoCierreAdministrativo{},
 			ErrResultadoCierreAdministrativoInvalido
@@ -306,7 +323,7 @@ func NuevoResultadoCierreAdministrativo(
 	return ResultadoCierreAdministrativo{datos: &datosResultadoCierreAdministrativo{
 		solicitud: datos.Solicitud, versionResultante: datos.VersionResultante,
 		actuacionRef: datos.ActuacionRef, reciboRef: datos.ReciboRef,
-		estado: datos.Estado,
+		actorRef: datos.ActorRef, estado: datos.Estado,
 	}}, nil
 }
 
@@ -318,6 +335,7 @@ func (r ResultadoCierreAdministrativo) ValidarPara(
 		r.datos.versionResultante != solicitud.VersionEsperada+1 ||
 		!domain.ReferenciaOpacaValida(r.datos.actuacionRef) ||
 		!domain.ReferenciaOpacaValida(r.datos.reciboRef) ||
+		!domain.ReferenciaOpacaValida(r.datos.actorRef) ||
 		!r.datos.estado.valida() {
 		return ErrResultadoCierreAdministrativoInvalido
 	}
@@ -327,9 +345,12 @@ func (r ResultadoCierreAdministrativo) ValidarPara(
 func (r ResultadoCierreAdministrativo) CoincideConEfecto(
 	actuacionRef string,
 	reciboRef string,
+	actorRef string,
 ) bool {
 	return r.datos != nil &&
-		r.datos.actuacionRef == actuacionRef && r.datos.reciboRef == reciboRef
+		r.datos.actuacionRef == actuacionRef &&
+		r.datos.reciboRef == reciboRef &&
+		r.datos.actorRef == actorRef
 }
 
 func (r ResultadoCierreAdministrativo) EsReplayConfirmado() bool {
@@ -363,8 +384,12 @@ type AplicarCierreAdministrativo func(
 // La implementación debe bloquear y reacreditar el
 // seguimiento, su definición y el inventario completo de tareas; resolver la
 // autoridad solo desde la frontera confiable; y, si el callback tiene éxito,
-// consumir esa autorización y añadir actuación, auditoría y outbox junto con
-// el nuevo estado. Cualquier error revierte todo el efecto.
+// consumir esa autorización y añadir actuación, auditoría, outbox y recibo
+// junto con el nuevo estado. El recurso V3 liga exactamente el par formado por
+// PrincipalID y el ActorRef nominal de Seguimiento, y también el par formado
+// por la correlación V3 y CorrelacionRef de Seguimiento. ActorRef y
+// CorrelacionRef nunca son autoridades independientes. Cualquier error
+// revierte todo el efecto.
 type TransaccionCierreAdministrativo interface {
 	EjecutarCierreAdministrativo(
 		context.Context,
