@@ -4,9 +4,10 @@ Fecha: 21 de agosto de 2026.
 
 Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`.
 
-Estado: candidato técnico local sin commit y sin corrida canónica disponible.
-Los intentos únicos de `9749ddd` y `9ec119f` están consumidos y permanecen
-`NO-GO`; no se repiten ni se reutilizan sus destinos. Este corte solo permite
+Estado: la única conducción canónica de `9b5b97d` terminó `NO-GO`; la presente
+corrección es local, sin commit ni conducción. Los intentos únicos de
+`9749ddd`, `9ec119f` y `9b5b97d` están consumidos; no se repiten sus SHA ni se
+reutilizan sus destinos. Este corte solo permite
 pruebas estáticas y probes que terminen antes de staging/Go/build/test/destino.
 Esa es la regla general y vuelve a regir sin excepciones en esta edición;
 dirección autorizó antes, de forma expresa y por una sola vez, el probe
@@ -61,6 +62,30 @@ exacto, modo 0500, huella y validación; las llamadas por nombre se fijan a esas
 copias para conservar la semántica de applets multicall. El runtime se retira
 antes del helper final mediante el `rm` bootstrap y no hay utilidades después
 del rename.
+
+La única conducción real de
+`9b5b97d011ed9c86de731deace5329bf6c555994` hacia
+`/srv/fabrica/orquesta/home/evidencias/o3c-p6-cap021-runtime-tmp-v4-9b5b97d-canonica-r1`
+terminó con exit 1 tras crear el `tool-runtime` y antes de resolver target o
+crear staging, build, test o destino. La copia privada de `find` emitió
+`Failed to restore initial working directory: /root: Permission denied`: el
+launcher inició el conductor con cwd `/root`, inaccesible al EUID `orquesta`, y
+el conductor no lo sustituyó antes de su primera ejecución externa. El trap
+retiró el `tool-runtime`; target permaneció limpio, el destino siguió ausente y
+no apareció staging nuevo. Ese SHA y ese destino están consumidos y no se
+repiten.
+
+La corrección posterior, antes de cualquier comando externo, completa primero
+los rechazos y limpiezas builtin ya definidos, ejecuta `hash -r` y después usa
+`builtin cd /`, comprobando también `PWD=/`. Si el cambio de cwd o su identidad
+lógica fallan, termina cerrado con `NO-GO cwd inicial`; ningún bootstrap ni
+applet privado hereda ya el cwd inaccesible entregado por el launcher.
+
+El probe ligero, sin conductor ni creación de temporales, lanzó `find` como
+`orquesta` desde `/root` y reprodujo el control con exit 1 y el mismo error de
+restauración. La variante que ejecutó primero `builtin cd /`, comprobó `PWD=/`
+y lanzó después el mismo `find` terminó `GO`. No alcanzó target, staging, Go,
+build, test o destino y no autoriza otra conducción.
 
 La frontera bootstrap es exacta: `/usr/bin/{realpath,stat,sha256sum,mktemp,install,rm}`
 root-owned y con cadena de directorios no escribible. El runtime privado contiene
@@ -605,10 +630,12 @@ operaciones fallibles, ni se afirma un modo de solo lectura.
 Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`, atestación acotada del
 runtime temporal y de las herramientas que construyen, ejecutan y publican la
 evidencia local bajo la cooperación de la autoridad operativa `orquesta`; no
-ofrece aislamiento frente a otro proceso con UID 999.
+ofrece aislamiento frente a otro proceso con UID 999. Incluye ahora el anclaje
+builtin del cwd inicial a `/` antes de cualquier ejecución externa.
 
 Invariante: ninguna decisión de capacidad posterior al bootstrap usa un
-resultado ambiental interno; destino y target son disjuntos, Git queda ligado
+resultado ambiental interno; el cwd heredado del launcher se descarta mediante
+`builtin cd /` antes del primer comando externo. Destino y target son disjuntos, Git queda ligado
 al `.git` exacto sin configuración local activa capaz de incluir, filtrar o
 redireccionar worktree/atributos o declarar partial clone/promisor; genealogía
 no usa grafts, shallow ni common-dir redirigido. Cada tracked conserva tag `H `,
@@ -646,7 +673,8 @@ Antes de congelar el candidato local y sin ejecutar conducta:
 5. `git diff --check`, write-set y ausencia de residuos.
 
 El siguiente corte es la revisión funcional y de seguridad independiente de
-los dos archivos y hashes congelados. El productor no emite GO. Solo después,
+los dos archivos y hashes congelados, incluido el anclaje de cwd. El productor
+no emite GO. Solo después,
 y mediante orden expresa de dirección, podrá existir un commit candidato, un
 clon `orquesta:orquesta` 0700 nuevo y una única corrida canónica a un destino
 nunca usado. Si termina roja, el publicador V2 conserva el primer paquete y

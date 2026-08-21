@@ -5,7 +5,7 @@ umask 077
 [[ -z ${BASH_ENV+x} && -z ${ENV+x} && -z ${CDPATH+x} ]] || { printf 'NO-GO entorno heredado\n' >&2; exit 2; }
 [[ -z $(compgen -A function) && -z $(compgen -A alias) ]] || { printf 'NO-GO funciones/alias heredados\n' >&2; exit 2; }
 for variable in ${!GIT_@}; do unset "$variable"; done
-hash -r
+hash -r; if ! builtin cd / || [[ $PWD != / ]]; then printf 'NO-GO cwd inicial\n' >&2; exit 2; fi
 [[ $# -eq 2 ]] || { printf 'NO-GO uso: conductor.sh TARGET EVIDENCIA_NUEVA\n' >&2; exit 2; }
 PATH=/usr/bin:/bin LC_ALL=C; export PATH LC_ALL; readonly pid_conductor=$$
 cerrar_fd_excepto() {
