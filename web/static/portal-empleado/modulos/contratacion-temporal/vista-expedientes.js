@@ -1,6 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
+import { validarReciboAnalisis } from "./contrato-analisis.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -68,10 +69,79 @@ function prepararComposicionAnalisis(entrada) {
   }
   return Object.freeze({
     cliente,
+    metodoCliente,
+    nombreMetodo: metodo,
     catalogos,
     contexto: Object.freeze({ operacion, artefacto_ref: artefactoRef }),
     analisisInicial: descriptores.analisisInicial.value,
   });
+}
+
+function errorIndeterminadoAnalisis() {
+  const error = new Error("resultado de análisis indeterminado");
+  Object.defineProperties(error, {
+    codigo: { value: "resultado_indeterminado", enumerable: true },
+    resultadoIndeterminado: { value: true, enumerable: true },
+  });
+  return error;
+}
+
+function clasificarErrorAnalisis(error, signal) {
+  let indeterminado;
+  let abortado = false;
+  try {
+    indeterminado = error?.resultadoIndeterminado;
+    abortado = signal?.aborted === true;
+  } catch {
+    return Object.freeze({ error: errorIndeterminadoAnalisis(), etapa: "indeterminado" });
+  }
+  if (indeterminado === false && !abortado) {
+    return Object.freeze({ error, etapa: "reintentable" });
+  }
+  return Object.freeze({
+    error: indeterminado === true && !abortado ? error : errorIndeterminadoAnalisis(),
+    etapa: "indeterminado",
+  });
+}
+
+function crearClienteAnalisisCercado(composicion, contexto, cambiarEtapa) {
+  const invocar = function invocarAnalisis(solicitud, opciones) {
+    const vuelo = Object.freeze({});
+    cambiarEtapa("transmitiendo", vuelo);
+    let resultado;
+    try {
+      resultado = Reflect.apply(
+        composicion.metodoCliente,
+        composicion.cliente,
+        [solicitud, opciones],
+      );
+    } catch (error) {
+      const clasificado = clasificarErrorAnalisis(error, opciones?.signal);
+      cambiarEtapa(clasificado.etapa, vuelo);
+      throw clasificado.error;
+    }
+    return Promise.resolve(resultado).then((respuesta) => {
+      let recibo;
+      try {
+        recibo = validarReciboAnalisis(respuesta);
+        if (recibo.operacion !== contexto.operacion
+          || recibo.expediente_ref !== contexto.expediente_ref
+          || recibo.version_resultante !== contexto.version_esperada + 1) {
+          throw new TypeError("recibo no ligado");
+        }
+      } catch {
+        cambiarEtapa("indeterminado", vuelo);
+        throw errorIndeterminadoAnalisis();
+      }
+      cambiarEtapa("confirmado", vuelo);
+      return recibo;
+    }, (error) => {
+      const clasificado = clasificarErrorAnalisis(error, opciones?.signal);
+      cambiarEtapa(clasificado.etapa, vuelo);
+      throw clasificado.error;
+    });
+  };
+  return Object.freeze({ [composicion.nombreMetodo]: invocar });
 }
 
 function renderizarNavegacion(estado, t) {
@@ -200,6 +270,78 @@ export async function montarModuloContratacionTemporal({
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
+  let sesionAnalisis = null;
+
+  function bloquearControlesAnalisis(sesion) {
+    if (sesion.controles === null) {
+      const controles = typeof raiz.querySelectorAll === "function"
+        ? [...raiz.querySelectorAll(
+          "[data-ct-exp-vista], [data-ct-exp-abrir], [data-ct-exp-tarea], [data-ct-exp-efecto], [data-ct-exp-accion]",
+        )] : [];
+      sesion.controles = controles.map((control) => ({
+        control,
+        deshabilitado: control.disabled === true,
+        aria: control.getAttribute?.("aria-disabled") ?? null,
+      }));
+      for (const registro of sesion.controles) {
+        registro.control.disabled = true;
+        registro.control.setAttribute?.("aria-disabled", "true");
+      }
+      sesion.ariaBusy = raiz.getAttribute?.("aria-busy") ?? null;
+    }
+    raiz.setAttribute?.("aria-busy", "true");
+  }
+
+  function restaurarOcupacionAnalisis(sesion) {
+    if (!sesion || sesion.controles === null) return;
+    if (sesion.ariaBusy === null) raiz.removeAttribute?.("aria-busy");
+    else raiz.setAttribute?.("aria-busy", sesion.ariaBusy);
+  }
+
+  function restaurarControlesAnalisis(sesion) {
+    if (!sesion || sesion.controles === null) return;
+    for (const registro of sesion.controles) {
+      registro.control.disabled = registro.deshabilitado;
+      if (registro.aria === null) registro.control.removeAttribute?.("aria-disabled");
+      else registro.control.setAttribute?.("aria-disabled", registro.aria);
+    }
+    restaurarOcupacionAnalisis(sesion);
+    sesion.controles = null;
+  }
+
+  function cambiarEtapaAnalisis(sesion, etapa, vuelo) {
+    if (!montada || sesionAnalisis !== sesion) return;
+    if (etapa === "transmitiendo") {
+      sesion.intentoIniciado = true;
+      sesion.vuelo = vuelo;
+      bloquearControlesAnalisis(sesion);
+    } else if (sesion.vuelo !== vuelo) {
+      return;
+    }
+    sesion.etapa = etapa;
+    if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
+  }
+
+  function analisisEstableActivo() {
+    return sesionAnalisis?.intentoIniciado === true;
+  }
+
+  function anunciarBloqueoAnalisis() {
+    const clave = {
+      transmitiendo: "estado_registrando_actuacion",
+      reintentable: "estado_error_actuacion",
+      indeterminado: "estado_resultado_indeterminado",
+      confirmado: "estado_confirmada_actualizacion_pendiente",
+    }[sesionAnalisis?.etapa] ?? "estado_resultado_indeterminado";
+    anunciar(crearTraductorExpedientesContratacion(mensajes)(clave), "aviso");
+    enfocar(raiz, "[data-ct-analisis-estado]");
+  }
+
+  function impedirCambioPorAnalisis() {
+    if (!analisisEstableActivo()) return false;
+    anunciarBloqueoAnalisis();
+    return true;
+  }
 
   function retirarAlta() {
     if (typeof desmontarAlta === "function") desmontarAlta();
@@ -209,6 +351,8 @@ export async function montarModuloContratacionTemporal({
   function retirarAnalisis() {
     if (typeof desmontarAnalisis === "function") desmontarAnalisis();
     desmontarAnalisis = null;
+    restaurarControlesAnalisis(sesionAnalisis);
+    sesionAnalisis = null;
   }
 
   function retirarComponentes() {
@@ -239,18 +383,34 @@ export async function montarModuloContratacionTemporal({
   function montarAnalisisSiProcede() {
     const estado = presentador.obtenerEstado();
     if (!montada || estado.vista !== "expediente" || composicionAnalisis === null) return null;
+    if (typeof desmontarAnalisis === "function") return true;
     const contenedor = raiz.querySelector("[data-ct-exp-analisis]");
     if (!contenedor) return null;
+    const contexto = Object.freeze({
+      operacion: composicionAnalisis.contexto.operacion,
+      expediente_ref: estado.expediente.expediente_ref,
+      version_esperada: estado.expediente.version,
+      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
+    });
+    const sesion = {
+      expedienteRef: contexto.expediente_ref,
+      intentoIniciado: false,
+      etapa: "preparado",
+      vuelo: null,
+      controles: null,
+      ariaBusy: null,
+    };
+    const clienteCercado = crearClienteAnalisisCercado(
+      composicionAnalisis,
+      contexto,
+      (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
+    );
+    sesionAnalisis = sesion;
     try {
       desmontarAnalisis = montarFormularioAnalisisRRHH({
         raiz: contenedor,
-        cliente: composicionAnalisis.cliente,
-        contexto: {
-          operacion: composicionAnalisis.contexto.operacion,
-          expediente_ref: estado.expediente.expediente_ref,
-          version_esperada: estado.expediente.version,
-          artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
-        },
+        cliente: clienteCercado,
+        contexto,
         catalogos: composicionAnalisis.catalogos,
         analisisInicial: composicionAnalisis.analisisInicial,
         mensajes,
@@ -261,12 +421,14 @@ export async function montarModuloContratacionTemporal({
       return true;
     } catch {
       desmontarAnalisis = null;
+      restaurarControlesAnalisis(sesion);
+      if (sesionAnalisis === sesion) sesionAnalisis = null;
       return false;
     }
   }
 
   function repintar(selectorFoco = "") {
-    if (!montada) return;
+    if (!montada || analisisEstableActivo()) return;
     retirarComponentes();
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -295,6 +457,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function cambiarVista(vista) {
+    if (impedirCambioPorAnalisis()) return;
     const estado = presentador.obtenerEstado();
     if (estado.ocupado) {
       anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_registrando_actuacion"), "aviso");
@@ -332,6 +495,7 @@ export async function montarModuloContratacionTemporal({
     const abrir = evento.target?.closest?.("[data-ct-exp-abrir]");
     if (abrir && raiz.contains(abrir)) {
       evento.preventDefault();
+      if (impedirCambioPorAnalisis()) return;
       try {
         const tarea = presentador.seleccionarExpediente(abrir.dataset.ctExpAbrir);
         repintar("[data-ct-exp-mensaje]");
@@ -349,7 +513,7 @@ export async function montarModuloContratacionTemporal({
     const tareaControl = evento.target?.closest?.("[data-ct-exp-tarea]");
     if (tareaControl && raiz.contains(tareaControl)) {
       evento.preventDefault();
-      if (presentador.obtenerEstado().ocupado) return;
+      if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
       presentador.seleccionarTarea(tareaControl.dataset.ctExpTarea);
       repintar("#ct-exp-tarea-titulo");
       return;
@@ -357,6 +521,7 @@ export async function montarModuloContratacionTemporal({
     const efecto = evento.target?.closest?.("[data-ct-exp-efecto]");
     if (efecto && raiz.contains(efecto)) {
       evento.preventDefault();
+      if (impedirCambioPorAnalisis()) return;
       const confirmacion = efecto.dataset.ctExpConfirmacion;
       const formulario = efecto.closest("[data-ct-exp-tarea-form]");
       if (typeof formulario?.checkValidity === "function" && !formulario.checkValidity()) {
@@ -381,6 +546,7 @@ export async function montarModuloContratacionTemporal({
     const accion = evento.target?.closest?.("[data-ct-exp-accion]");
     if (!accion || !raiz.contains(accion)) return;
     evento.preventDefault();
+    if (impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
     if (accion.dataset.ctExpAccion === "limpiar-filtros") {
@@ -403,7 +569,7 @@ export async function montarModuloContratacionTemporal({
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros]");
     if (!formulario || !raiz.contains(formulario)) return;
     evento.preventDefault();
-    if (presentador.obtenerEstado().ocupado) return;
+    if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
     const datos = new FormData(formulario);
     const promesa = presentador.cargar({
       texto: String(datos.get("texto") ?? "").trim(),
@@ -427,6 +593,7 @@ export async function montarModuloContratacionTemporal({
 
   return Object.freeze({
     desmontar() {
+      if (!montada) return;
       montada = false;
       retirarComponentes();
       raiz.removeEventListener("click", manejarClick);

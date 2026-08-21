@@ -76,6 +76,39 @@ function crearValoresFormulario() {
   };
 }
 
+function crearDiferida() {
+  let resolver;
+  let rechazar;
+  const promesa = new Promise((resolve, reject) => {
+    resolver = resolve;
+    rechazar = reject;
+  });
+  return { promesa, resolver, rechazar };
+}
+
+function crearErrorCliente(resultadoIndeterminado, codigo = "conflicto") {
+  const error = new Error("detalle privado no presentable");
+  error.codigo = codigo;
+  error.resultadoIndeterminado = resultadoIndeterminado;
+  return error;
+}
+
+function crearRecibo(expediente) {
+  return {
+    esquema: "vec.contratacion-temporal.recibo-analisis-rrhh.v1",
+    operacion: "registrar",
+    expediente_ref: expediente.expediente_ref,
+    version_resultante: expediente.version + 1,
+    recibo_ref: "recibo:opaco:analisis:001",
+    confirmada_en: "2026-08-21T22:00:00Z",
+  };
+}
+
+async function esperarTransmision() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function crearExpediente({ disponible = true, capacidad = CAP.analizar } = {}) {
   const entrada = structuredClone(crearExpedienteContratacionTemporalPresentacion());
   entrada.version = 7;
@@ -130,6 +163,7 @@ function crearPresentador(estadoInicial) {
 function crearContenedorAnalisis() {
   const eventos = new Map();
   const retirados = [];
+  let limpiezas = 0;
   return {
     innerHTML: "",
     eventos,
@@ -141,7 +175,11 @@ function crearContenedorAnalisis() {
     },
     contains() { return true; },
     querySelector() { return { focus() {}, scrollIntoView() {} }; },
-    replaceChildren() { this.innerHTML = ""; },
+    replaceChildren() {
+      limpiezas += 1;
+      this.innerHTML = "";
+    },
+    obtenerLimpiezas() { return limpiezas; },
     enviar(valores = crearValoresFormulario()) {
       const formulario = {
         valores,
@@ -156,20 +194,37 @@ function crearContenedorAnalisis() {
 
 function crearRaizModulo() {
   const eventos = new Map();
+  const atributos = new Map();
   let html = "";
   let contenedorAnalisis = null;
+  let montajesAnalisis = 0;
+  let controles = [];
   const raiz = {
     get innerHTML() { return html; },
     set innerHTML(valor) {
       html = valor;
       contenedorAnalisis = valor.includes("data-ct-exp-analisis")
         ? crearContenedorAnalisis() : null;
+      if (contenedorAnalisis) montajesAnalisis += 1;
+      controles = Array.from({ length: 3 }, () => {
+        const propios = new Map();
+        return {
+          disabled: false,
+          getAttribute(nombre) { return propios.get(nombre) ?? null; },
+          setAttribute(nombre, contenido) { propios.set(nombre, contenido); },
+          removeAttribute(nombre) { propios.delete(nombre); },
+        };
+      });
     },
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
     removeEventListener(tipo, manejador) {
       if (eventos.get(tipo) === manejador) eventos.delete(tipo);
     },
     contains() { return true; },
+    getAttribute(nombre) { return atributos.get(nombre) ?? null; },
+    setAttribute(nombre, contenido) { atributos.set(nombre, contenido); },
+    removeAttribute(nombre) { atributos.delete(nombre); },
+    querySelectorAll() { return controles; },
     querySelector(selector) {
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       return { focus() {}, scrollIntoView() {} };
@@ -179,6 +234,18 @@ function crearRaizModulo() {
     raiz,
     eventos,
     obtenerAnalisis() { return contenedorAnalisis; },
+    obtenerMontajesAnalisis() { return montajesAnalisis; },
+    obtenerControles() { return controles; },
+    obtenerAtributo(nombre) { return atributos.get(nombre) ?? null; },
+    async cambiarVista(vista) {
+      const control = {
+        dataset: { ctExpVista: vista },
+        closest(selector) {
+          return selector === "[data-ct-exp-vista]" ? this : null;
+        },
+      };
+      await eventos.get("click")({ target: control, preventDefault() {} });
+    },
     async seleccionarTarea(tareaRef) {
       const control = {
         dataset: { ctExpTarea: tareaRef },
@@ -223,14 +290,7 @@ test("la capacidad nominal disponible monta el formulario con expediente y versi
   const cliente = {
     registrarAnalisis(solicitud) {
       solicitudes.push(solicitud);
-      return Promise.resolve({
-        esquema: "vec.contratacion-temporal.recibo-analisis-rrhh.v1",
-        operacion: "registrar",
-        expediente_ref: expediente.expediente_ref,
-        version_resultante: expediente.version + 1,
-        recibo_ref: "recibo:opaco:analisis:001",
-        confirmada_en: "2026-08-21T22:00:00Z",
-      });
+      return Promise.resolve(crearRecibo(expediente));
     },
   };
   const escenario = await montarEscenario({
@@ -317,14 +377,138 @@ test("un resultado indeterminado del expediente no se transforma en un formulari
   escenario.modulo.desmontar();
 });
 
-test("repintar, cambiar de tarea y desmontar retiran listeners y abortan el único vuelo", async () => {
+test("un vuelo bloquea navegación y repintado, conserva el formulario y reintenta con la misma clave", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  const vuelos = [crearDiferida(), crearDiferida()];
+  const solicitudes = [];
+  const signals = [];
+  const cliente = Object.freeze({
+    registrarAnalisis(solicitud, opciones) {
+      solicitudes.push(solicitud);
+      signals.push(opciones.signal);
+      return vuelos[solicitudes.length - 1].promesa;
+    },
+  });
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    analisis: crearComposicion(cliente),
+  });
+  const primerFormulario = escenario.raiz.obtenerAnalisis();
+  const envio = primerFormulario.enviar();
+  await esperarTransmision();
+  const otraTarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia !== tareaRef);
+
+  assert.equal(primerFormulario.eventos.size, 3);
+  await escenario.raiz.seleccionarTarea(otraTarea.tarea_ref);
+  await escenario.raiz.cambiarVista("cuadro");
+  const mismoEnvio = primerFormulario.enviar();
+  assert.strictEqual(mismoEnvio, envio);
+  assert.strictEqual(escenario.raiz.obtenerAnalisis(), primerFormulario);
+  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
+  assert.equal(escenario.presentador.obtenerEstado().vista, "expediente");
+  assert.equal(escenario.presentador.obtenerEstado().tarea_ref, tareaRef);
+  assert.equal(solicitudes.length, 1);
+  assert.equal(signals[0].aborted, false);
+  assert.deepEqual(Object.keys(cliente), ["registrarAnalisis"]);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => disabled));
+  assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), "true");
+
+  vuelos[0].rechazar(crearErrorCliente(false));
+  await envio;
+  assert.strictEqual(escenario.raiz.obtenerAnalisis(), primerFormulario);
+  assert.match(primerFormulario.innerHTML, /data-ct-analisis-form/u);
+  assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
+
+  const reintento = primerFormulario.enviar();
+  await esperarTransmision();
+  assert.equal(solicitudes.length, 2);
+  assert.equal(
+    solicitudes[1].clave_idempotencia,
+    solicitudes[0].clave_idempotencia,
+  );
+  vuelos[1].resolver(crearRecibo(expediente));
+  await reintento;
+
+  escenario.modulo.desmontar();
+});
+
+test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni segundo envío", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  let llamadas = 0;
+  let signal;
+  const cliente = {
+    registrarAnalisis(_solicitud, opciones) {
+      llamadas += 1;
+      signal = opciones.signal;
+      return Promise.reject(crearErrorCliente(true, "resultado_indeterminado"));
+    },
+  };
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    analisis: crearComposicion(cliente),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+  const otraTarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia !== tareaRef);
+
+  assert.match(formulario.innerHTML, /data-ct-analisis-indeterminado/u);
+  await escenario.raiz.seleccionarTarea(otraTarea.tarea_ref);
+  await escenario.raiz.cambiarVista("documentos");
+  await formulario.enviar();
+  assert.strictEqual(escenario.raiz.obtenerAnalisis(), formulario);
+  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
+  assert.equal(escenario.presentador.obtenerEstado().tarea_ref, tareaRef);
+  assert.equal(llamadas, 1);
+  assert.equal(signal.aborted, false);
+  assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
+
+  escenario.modulo.desmontar();
+});
+
+test("el éxito conserva el recibo visible y no reenvía desde la versión obsoleta", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  let llamadas = 0;
+  const cliente = {
+    registrarAnalisis() {
+      llamadas += 1;
+      return Promise.resolve(crearRecibo(expediente));
+    },
+  };
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    analisis: crearComposicion(cliente),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+
+  assert.match(formulario.innerHTML, /data-ct-analisis-recibo/u);
+  assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
+  await escenario.raiz.cambiarVista("cuadro");
+  await formulario.enviar();
+  assert.strictEqual(escenario.raiz.obtenerAnalisis(), formulario);
+  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
+  assert.equal(escenario.presentador.obtenerEstado().vista, "expediente");
+  assert.equal(llamadas, 1);
+  assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
+
+  escenario.modulo.desmontar();
+});
+
+test("el desmontaje explícito aborta y limpia exactamente una vez sin presentar otro formulario", async () => {
   const { expediente, tareaRef } = crearExpediente();
   let signal;
+  let abortos = 0;
   const cliente = {
     registrarAnalisis(_solicitud, opciones) {
       signal = opciones.signal;
       return new Promise((_resolve, reject) => {
-        signal.addEventListener("abort", () => reject(new Error("vuelo retirado")), { once: true });
+        signal.addEventListener("abort", () => {
+          abortos += 1;
+          reject(crearErrorCliente(true, "operacion_abortada"));
+        }, { once: true });
       });
     },
   };
@@ -333,22 +517,21 @@ test("repintar, cambiar de tarea y desmontar retiran listeners y abortan el úni
     tareaRef,
     analisis: crearComposicion(cliente),
   });
-  const primerFormulario = escenario.raiz.obtenerAnalisis();
-  const envio = primerFormulario.enviar();
-  await Promise.resolve();
-
-  assert.equal(primerFormulario.eventos.size, 3);
-  await escenario.raiz.seleccionarTarea(tareaRef);
-  await envio;
-  assert.equal(signal.aborted, true);
-  assert.deepEqual([...primerFormulario.eventos.keys()], []);
-  assert.deepEqual(primerFormulario.retirados.sort(), ["change", "click", "submit"]);
-  const segundoFormulario = escenario.raiz.obtenerAnalisis();
-  assert.notEqual(segundoFormulario, primerFormulario);
-  assert.equal(segundoFormulario.eventos.size, 3);
+  const formulario = escenario.raiz.obtenerAnalisis();
+  const envio = formulario.enviar();
+  await esperarTransmision();
 
   escenario.modulo.desmontar();
-  assert.deepEqual([...segundoFormulario.eventos.keys()], []);
+  escenario.modulo.desmontar();
+  await envio;
+  assert.equal(signal.aborted, true);
+  assert.equal(abortos, 1);
+  assert.deepEqual([...formulario.eventos.keys()], []);
+  assert.deepEqual(formulario.retirados.sort(), ["change", "click", "submit"]);
+  assert.equal(formulario.obtenerLimpiezas(), 1);
+  assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
+  assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
+  assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
   assert.equal(escenario.presentador.obtenerDesmontajes(), 1);
 });
 
