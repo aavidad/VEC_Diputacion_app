@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -30,6 +31,10 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	if err != nil || !infoRuntime.IsDir() || infoRuntime.Mode()&os.ModeSymlink != 0 {
 		t.Fatalf("caso %s con TMPDIR no acreditable: %v", caso, err)
 	}
+	statRuntime, ok := infoRuntime.Sys().(*syscall.Stat_t)
+	if !ok || statRuntime.Uid != uint32(os.Geteuid()) || infoRuntime.Mode().Perm() != 0o700 {
+		t.Fatalf("caso %s con autoridad TMPDIR inválida", caso)
+	}
 	antesRuntime, err := os.ReadDir(raizRuntime)
 	if err != nil || len(antesRuntime) != 0 {
 		t.Fatalf("inventario temporal inicial %s: err=%v entradas=%d", caso, err, len(antesRuntime))
@@ -37,6 +42,15 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	runtimeSelector, err := os.MkdirTemp(raizRuntime, "o3c-p5-"+caso+"-")
 	if err != nil {
 		t.Fatalf("temporal privado %s: %v", caso, err)
+	}
+	infoSelector, err := os.Lstat(runtimeSelector)
+	statSelector, ok := infoSelectorSyscallO3cP5Prueba(infoSelector, err)
+	if !ok || statSelector.Uid != uint32(os.Geteuid()) || infoSelector.Mode().Perm() != 0o700 {
+		t.Fatalf("temporal privado %s sin autoridad exacta", caso)
+	}
+	entradasIniciales, err := os.ReadDir(runtimeSelector)
+	if err != nil || len(entradasIniciales) != 0 {
+		t.Fatalf("temporal privado %s no nació vacío", caso)
 	}
 	retiradoRuntime := false
 	defer func() {
@@ -66,12 +80,27 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 		residuoAntesDeLimpiar = residuoAntesDeLimpiar || !antes[pid]
 	}
 	hijosRetirados := retirarDescendientesO3cP5Prueba(antes)
+	infoPreLimpieza, errPreLimpieza := os.Lstat(runtimeSelector)
+	statPreLimpieza, identidadConservada := infoSelectorSyscallO3cP5Prueba(infoPreLimpieza, errPreLimpieza)
+	identidadConservada = identidadConservada && statPreLimpieza.Dev == statSelector.Dev &&
+		statPreLimpieza.Ino == statSelector.Ino && statPreLimpieza.Uid == statSelector.Uid &&
+		infoPreLimpieza.Mode().Perm() == infoSelector.Mode().Perm()
+	residuosPreLimpieza, errResiduos := os.ReadDir(runtimeSelector)
 	errRuntime := os.RemoveAll(runtimeSelector)
+	_, errLstatRetirado := os.Lstat(runtimeSelector)
+	lstatENOENT := errors.Is(errLstatRetirado, os.ErrNotExist)
 	despuesRuntime, errInventario := os.ReadDir(raizRuntime)
-	retiradoRuntime = errRuntime == nil && errInventario == nil && len(despuesRuntime) == 0
+	raizExteriorVacia := errInventario == nil && len(despuesRuntime) == 0
+	retiradoRuntime = identidadConservada && errResiduos == nil && errRuntime == nil && lstatENOENT && raizExteriorVacia
+	if errAtestacion := registrarAtestacionSelectorO3cP5Prueba(caso, statSelector, infoSelector.Mode().Perm(),
+		len(entradasIniciales), identidadConservada, len(residuosPreLimpieza), lstatENOENT,
+		raizExteriorVacia, retiradoRuntime); errAtestacion != nil {
+		t.Fatalf("caso %s sin atestación selector: %v", caso, errAtestacion)
+	}
 	if !retiradoRuntime {
-		t.Fatalf("caso %s dejó temporal: retirar=%v inventario=%v antes=%d después=%d", caso,
-			errRuntime, errInventario, len(antesRuntime), len(despuesRuntime))
+		t.Fatalf("caso %s dejó temporal: identidad=%t residuos=%v retirar=%v lstat_enoent=%t inventario=%v antes=%d después=%d",
+			caso, identidadConservada, errResiduos, errRuntime, lstatENOENT, errInventario,
+			len(antesRuntime), len(despuesRuntime))
 	}
 	if !hijosRetirados {
 		t.Fatalf("caso %s dejó hijos o zombis", caso)
@@ -91,11 +120,73 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	}
 }
 
+func registrarAtestacionSelectorO3cP5Prueba(caso string, statSelector *syscall.Stat_t, modo os.FileMode,
+	entradasIniciales int, identidadConservada bool, residuosPreLimpieza int, lstatENOENT,
+	raizExteriorVacia, retirado bool,
+) error {
+	ruta := os.Getenv("O3C_P5_ATESTACION")
+	if ruta == "" {
+		return nil
+	}
+	raizRuntime := os.Getenv("TMPDIR")
+	if !filepath.IsAbs(ruta) || !filepath.IsAbs(raizRuntime) ||
+		filepath.Dir(filepath.Clean(ruta)) != filepath.Dir(filepath.Clean(raizRuntime)) ||
+		filepath.Clean(ruta) == filepath.Clean(raizRuntime) {
+		return errors.New("ruta de atestación fuera de autoridad")
+	}
+	info, err := os.Lstat(ruta)
+	statRuta, ok := infoSelectorSyscallO3cP5PruebaArchivo(info, err)
+	if !ok || statRuta.Uid != uint32(os.Geteuid()) || info.Mode().Perm() != 0o600 {
+		return errors.New("archivo de atestación no acreditable")
+	}
+	fd, err := syscall.Open(ruta, syscall.O_WRONLY|syscall.O_APPEND|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return err
+	}
+	archivo := os.NewFile(uintptr(fd), ruta)
+	if archivo == nil {
+		_ = syscall.Close(fd)
+		return errors.New("descriptor de atestación inválido")
+	}
+	defer archivo.Close()
+	var statFD syscall.Stat_t
+	if err := syscall.Fstat(fd, &statFD); err != nil || statFD.Dev != statRuta.Dev || statFD.Ino != statRuta.Ino ||
+		statFD.Uid != uint32(os.Geteuid()) || statFD.Mode&syscall.S_IFMT != syscall.S_IFREG ||
+		statFD.Mode&0o777 != 0o600 {
+		return errors.New("identidad de atestación no conservada")
+	}
+	resultado := "NO-GO"
+	if entradasIniciales == 0 && identidadConservada && lstatENOENT && raizExteriorVacia && retirado {
+		resultado = "GO"
+	}
+	_, err = fmt.Fprintf(archivo, "%s\t%d\t%d\t%d\t%03o\t%d\t%t\t%d\t%t\t%t\t%t\t%s\n",
+		caso, statSelector.Dev, statSelector.Ino, statSelector.Uid, modo, entradasIniciales,
+		identidadConservada, residuosPreLimpieza, lstatENOENT, raizExteriorVacia, retirado, resultado)
+	return err
+}
+
+func infoSelectorSyscallO3cP5PruebaArchivo(info os.FileInfo, err error) (*syscall.Stat_t, bool) {
+	if err != nil || info == nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, false
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return stat, ok
+}
+
+func infoSelectorSyscallO3cP5Prueba(info os.FileInfo, err error) (*syscall.Stat_t, bool) {
+	if err != nil || info == nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, false
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return stat, ok
+}
+
 func entornoRuntimeHandoffO3cP5Prueba(caso, runtimeSelector string) []string {
 	entorno := make([]string, 0, len(os.Environ())+4)
 	for _, entrada := range os.Environ() {
 		if strings.HasPrefix(entrada, "HOME=") || strings.HasPrefix(entrada, "TMPDIR=") ||
-			strings.HasPrefix(entrada, "GOTMPDIR=") || strings.HasPrefix(entrada, "O3C_P5_CASO=") {
+			strings.HasPrefix(entrada, "GOTMPDIR=") || strings.HasPrefix(entrada, "O3C_P5_CASO=") ||
+			strings.HasPrefix(entrada, "O3C_P5_BF_DIRECTO=") || strings.HasPrefix(entrada, "O3C_P5_ATESTACION=") {
 			continue
 		}
 		entorno = append(entorno, entrada)
@@ -148,6 +239,14 @@ func retirarDescendientesO3cP5Prueba(antes map[int]bool) bool {
 
 func TestHandoffO3cP5CasosAislados(t *testing.T) {
 	caso := os.Getenv("O3C_P5_CASO")
+	bfDirecto := os.Getenv("O3C_P5_BF_DIRECTO")
+	if caso == "" && bfDirecto != "" {
+		if bfDirecto != "particion" {
+			os.Exit(64)
+		}
+		ejecutarHandoffO3cP5Aislado(t, bfDirecto, estadoFallo)
+		os.Exit(estadoFallo)
+	}
 	if caso == "" {
 		for _, nombre := range []string{"positivo", "retirada", "retirada_terminal"} {
 			ejecutarHandoffO3cP5Aislado(t, nombre, 0)

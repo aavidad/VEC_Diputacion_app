@@ -1,8 +1,8 @@
-# Enmienda O3c P6 CAP_NORMAL_021: runtime temporal aislado V3
+# Enmienda O3c P6 CAP_NORMAL_021: attestation del runtime temporal V4
 
 Fecha: 21 de agosto de 2026.
 
-Tarea: `O3C-P6-CAP-NORMAL-021-RUNTIME-TMP-V3`.
+Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`.
 
 Estado: candidato técnico local. Requiere pruebas focales, una única corrida
 canónica y revisión funcional y de seguridad independientes sobre el SHA
@@ -12,8 +12,8 @@ producción ni cambio de métricas.
 ## Base y autoridad
 
 La base exacta es
-`2cbcbae157a18eaf62e3de7f989b68be1e915941`, con árbol
-`d9d22407568670ddce2e631302f02162f25f2310`. Conserva el publicador durable
+`14c1f31079e466a82b8e1d390168078973cc6e05`, con árbol
+`1c736bcb555326841485a1f0c0486626ad6a5038`. Conserva el publicador durable
 V2 de `9391243f98d232a8eb78ed20ba5306e31b864bad` y sus dos revisiones
 independientes de alcance filesystem:
 
@@ -22,9 +22,32 @@ independientes de alcance filesystem:
 
 Esos GO no revocaron el rojo histórico `CAP_NORMAL_021`, los dos NO-GO de
 O3A-V5-CND-V3 ni el P1 C21/toolchain. Esta enmienda tampoco los convierte en
-GO: corrige únicamente la causa demostrada por la sonda de siete selectores,
-que obtuvo los estados esperados y salida cero, pero acumuló una entrada en
-el runtime temporal por selector.
+GO. V4 acredita únicamente el vínculo entre las 32 fuentes compiladas, el
+checkout, el `TMPDIR` exacto de cada ejecución y el paquete local publicado.
+
+## V3: GO productor revocado por revisión
+
+La base V4 `14c1f31` obtuvo una única corrida productora verde y durable:
+244 casos, seis BF, cien capturas normal y cien race, Go 1.26.5 y residuos
+cero. Su `SHA256SUMS` es
+`f1edf1a274843221a12c56f5cfc1abe9efd4bb4b460888f8948aa9699e26877b`.
+Ese GO productor no es un dictamen y no se repetirá.
+
+Las revisiones funcional y de seguridad independientes emitieron `NO-GO`
+sobre ese SHA exacto. Al iniciar V4 sus actas todavía no estaban presentes
+como objetos Git locales; los hallazgos transmitidos por dirección son:
+
+- P1 funcional: la fila medía el contenedor `runtime_tmp` después de borrarlo,
+  pero no el `TMPDIR` efectivo `runtime_aislado/tmp` antes de retirar el
+  contenedor;
+- P1 seguridad: la publicación verde usaba `mv` simple, sin no-replace ni
+  identidad física;
+- P1 seguridad: existía una ventana entre el hash de las fuentes del target y
+  su reapertura posterior para compilar;
+- P2 seguridad: el helper no acreditaba UID efectivo y modo 0700;
+- P2 seguridad: utilidades y FD ambientales no quedaban acreditados.
+
+V4 no convierte esos NO-GO en GO ni abre O3A-V4, C21, toolchain u O4.
 
 ## Candidatos rojos preservados y atribución corregida
 
@@ -74,17 +97,21 @@ Son autoridad funcional directa:
 
 ## Capability y criterio único
 
-Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
-runtime privado, atribuible al selector y creado dentro del `TMPDIR` privado
-de su ejecución. El proceso padre contiene descendientes y retira ese
-directorio después de esperar al hijo, también cuando el hijo termina con
-estado fatal 65.
+La única capability de V4 es una attestation no suplantable de la ejecución:
+las fuentes compiladas son un snapshot privado de las 32 rutas exactas; el
+checkout mantiene HEAD, árbol y limpieza; cada selector usa un `TMPDIR`
+privado de UID efectivo y modo 0700; y el paquete GO se publica localmente sin
+reemplazo, conservando identidad dev:inode.
 
-El conductor crea una raíz runtime separada del temporal de compilación,
-ejecuta cada caso en un subdirectorio privado y mide exactamente esa raíz.
-El subdirectorio de ejecución se retira después de acreditar la ausencia del
-grupo. El inventario antes y después observa por tanto el mismo `TMPDIR` que
-usan el binario, sus subprocesos y `os.MkdirTemp("", ...)`.
+Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
+runtime privado. El proceso padre mide las entradas del `TMPDIR` efectivo
+antes y después del hijo, registra también los residuos que existen antes de
+la limpieza, y retira solamente esas entradas conservando el directorio y su
+identidad física. La atestación TSV se escribe fuera del `TMPDIR` del hijo y
+se filtra de su entorno. Después de `Lstat=ENOENT` del selector, el padre
+acredita que la raíz exterior queda vacía; la retirada del contenedor se
+acredita en una columna separada, también cuando el hijo termina con estado
+fatal 65.
 
 ## Invariantes
 
@@ -103,24 +130,39 @@ Para cada uno de los siete selectores:
 Se exige conjuntamente:
 
 1. stdout y stderr de cero bytes;
-2. temporales antes=después=0 en la raíz privada;
+2. entradas del `TMPDIR` efectivo parten de cero; el preconteo de residuos se
+   conserva por selector, el padre los retira, y el conteo final es cero antes
+   de retirar el contenedor;
 3. ningún hijo, zombi o grupo residual;
 4. la limpieza temporal la realiza el padre después de `cmd.Run` y no depende
    de `defer` o `testing.Cleanup` en el hijo;
 5. los recorridos verdes conservan sus `os.Exit(0)` originales para no activar
    un cleanup O3b cuya autoridad ya fue transferida;
-6. ningún estado se reintenta, tolera, reclasifica, salta o decide por mayoría.
+6. el contenedor runtime queda retirado y acreditado separadamente;
+7. cada selector acredita dev/inode/UID/modo, entradas iniciales, residuos
+   pre-limpieza, `Lstat=ENOENT` y raíz exterior vacía en `tmpdir_selectores.tsv`;
+8. las fuentes compiladas son regulares, no symlink, byte-exactas al ledger y
+   se leen únicamente desde el snapshot privado;
+9. HEAD, árbol y limpieza del target son iguales antes y después del snapshot;
+10. cada hijo hereda solo stdin, stdout y stderr; todo FD ambiental `>=3` se
+   cierra antes de `exec`;
+11. la publicación GO no reemplaza un destino, elimina el origen de
+   publicación y conserva dev:inode, UID y modo 0700;
+12. ningún estado se reintenta, tolera, reclasifica, salta o decide por
+   mayoría.
 
 La corrida canónica conserva además 244 casos, seis BF directos, cien
-capturas normal y cien race, FD/hijos/zombis/grupos/temporales delta cero y
+capturas normal y cien race, 1.472 filas de atestación de selectores (cinco
+agregados y cien capturas por modo, más C17 por modo), FD/hijos/zombis/grupos/temporales delta cero y
 el toolchain literal `go version go1.26.5 linux/amd64`.
 
 ## Diseño acotado
 
 ### Arnés Go
 
-El padre valida que `TMPDIR` sea un directorio absoluto real y vacío. Antes de
-cada selector crea una raíz `0700`, reemplaza de forma explícita `HOME`,
+El padre valida que `TMPDIR` sea un directorio absoluto real, vacío, propiedad
+del UID efectivo y de modo 0700. Antes de cada selector crea una raíz con la
+misma autoridad, reemplaza de forma explícita `HOME`,
 `TMPDIR`, `GOTMPDIR` y `O3C_P5_CASO` en el entorno hijo, espera su estado,
 contiene descendientes y retira la raíz. Solo entonces comprueba estado y
 salidas.
@@ -130,17 +172,32 @@ hilo conserva su `defer` original. El proceso padre no delega en esas salidas
 la limpieza temporal: espera el estado, contiene descendientes y retira la
 raíz privada por igual en éxito y en fatal 65.
 
+El BF directo de partición usa un padre test-only que ejecuta una sola vez el
+selector fatal, acredita y retira su temporal privado y solo entonces termina
+él mismo en 65. La variable del BF no se hereda al selector, evitando recursión
+y conservando estado 65, EOF y salida 0/0.
+
 ### Conductor
 
-Compilación y ejecución tienen temporales distintos. Cada invocación recibe
-un entorno vacío y cerrado con `HOME`, `TMPDIR`, `GOTMPDIR`, `GOROOT`,
-`GOENV=off` y `GOTOOLCHAIN=local` explícitos. El lock del conductor se cierra
-antes del `exec` del target.
+Compilación y ejecución tienen temporales distintos. El conductor copia las
+32 fuentes a un snapshot 0700 conservando sus rutas relativas. Rechaza ruta
+absoluta o con ascenso, origen o copia no regular/symlink y cualquier hash
+distinto. Revalida HEAD, árbol y limpieza después de copiar y compila normal y
+race exclusivamente desde el snapshot.
 
-La raíz runtime se inventaría antes y después de cada fila. El conductor
-retira el subdirectorio propio solo después de contener el grupo y marca la
-fila NO-GO si la retirada o la ausencia no se acreditan. El publicador V2
-recibe sin cambios el primer fallo y lo publica en el destino nuevo exacto.
+Cada invocación recibe un entorno vacío y cerrado con `HOME`, `TMPDIR`,
+`GOTMPDIR`, `GOROOT`, `GOENV=off` y `GOTOOLCHAIN=local` explícitos. El proceso
+intermedio cierra todos los FD `>=3` antes de `exec`; el lock nunca llega al
+target. Las rutas y huellas SHA-256 de las utilidades externas se conservan en
+la evidencia.
+
+La fila registra tanto el inventario del contenedor como el del `TMPDIR`
+efectivo antes/después, el preconteo de residuos por selector, su acreditación,
+la retirada del contenedor y el cierre de FD ambientales. El publicador V2
+recibe sin cambios el primer fallo. Un GO se prepara en un temporal 0700 hermano
+del destino, se sella allí, se retira explícitamente el staging y solo después
+se revalida el target; finalmente se mueve con `mv -n -T` tras acreditar origen
+ausente, destino real y la misma huella dev:inode, UID y modo.
 
 ## Write-set exacto
 
