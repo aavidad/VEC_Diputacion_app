@@ -148,54 +148,137 @@ func TestInformeJuridicoRechazaVersionesReferenciasHuellasYDuplicados(t *testing
 func TestInformeJuridicoValidaLimitesAntesDeCopiar(t *testing.T) {
 	datosMaximos := datosInformeJuridicoEnLimitesMaximos(t)
 	if _, err := NuevoBorradorInformeJuridico(datosMaximos); err != nil {
-		t.Fatalf("se rechazo cardinalidad o tamano maximo: %v", err)
+		t.Fatalf("se rechazo el tamano maximo: %v", err)
 	}
 
-	datos := datosInformeJuridicoPrueba()
-	datos.VersionEsperadaExpediente = maximoEnteroSeguroInformeJuridico + 1
-	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
+	datosVersionExpediente := datosInformeJuridicoPrueba()
+	datosVersionExpediente.VersionEsperadaExpediente = maximoEnteroSeguroInformeJuridico + 1
+	if _, err := NuevoBorradorInformeJuridico(datosVersionExpediente); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
 		t.Fatalf("se acepto una version no interoperable: %v", err)
 	}
-	datos.Anexos[0].VersionDocumento = maximoEnteroSeguroInformeJuridico + 1
-	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
+	datosVersionDocumento := datosInformeJuridicoPrueba()
+	datosVersionDocumento.Anexos[0].VersionDocumento = maximoEnteroSeguroInformeJuridico + 1
+	if _, err := NuevoBorradorInformeJuridico(datosVersionDocumento); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
 		t.Fatalf("se acepto una version documental no interoperable: %v", err)
 	}
 
-	cardinalidadNormativa := datosMaximos
-	cardinalidadNormativa.ReferenciasNormativas = append(
-		append([]ReferenciaNormativaInformeJuridico(nil), datosMaximos.ReferenciasNormativas...),
-		ReferenciaNormativaInformeJuridico{},
+	cardinalidadNormativa := datosInformeJuridicoConNormativas(
+		maximoReferenciasNormativasInformeJuridico + 1,
 	)
-	cardinalidadAnexos := datosMaximos
-	cardinalidadAnexos.Anexos = append(
-		append([]AnexoDocumentalInformeJuridico(nil), datosMaximos.Anexos...),
-		AnexoDocumentalInformeJuridico{},
-	)
-	tamanoExcesivo := datosMaximos
-	tamanoExcesivo.ReferenciasNormativas = append(
-		[]ReferenciaNormativaInformeJuridico(nil), datosMaximos.ReferenciasNormativas...,
-	)
-	tamanoExcesivo.ReferenciasNormativas[0].NormaRef += "x"
+	cardinalidadAnexos := datosInformeJuridicoConAnexos(maximoAnexosInformeJuridico + 1)
+	validarFixtureCardinalidadInformeJuridico(t, cardinalidadNormativa)
+	validarFixtureCardinalidadInformeJuridico(t, cardinalidadAnexos)
 
-	casos := map[string]DatosBorradorInformeJuridico{
+	maximoNormativas := cardinalidadNormativa
+	maximoNormativas.ReferenciasNormativas =
+		maximoNormativas.ReferenciasNormativas[:maximoReferenciasNormativasInformeJuridico]
+	if _, err := NuevoBorradorInformeJuridico(maximoNormativas); err != nil {
+		t.Fatalf("se rechazo la cardinalidad normativa maxima: %v", err)
+	}
+	maximoAnexos := cardinalidadAnexos
+	maximoAnexos.Anexos = maximoAnexos.Anexos[:maximoAnexosInformeJuridico]
+	if _, err := NuevoBorradorInformeJuridico(maximoAnexos); err != nil {
+		t.Fatalf("se rechazo la cardinalidad maxima de anexos: %v", err)
+	}
+
+	casosCardinalidad := map[string]DatosBorradorInformeJuridico{
 		"cardinalidad normativa maxima mas uno": cardinalidadNormativa,
 		"cardinalidad anexos maxima mas uno":    cardinalidadAnexos,
-		"tamano maximo mas uno":                 tamanoExcesivo,
 	}
-	for nombre, caso := range casos {
+	for nombre, caso := range casosCardinalidad {
 		t.Run(nombre, func(t *testing.T) {
 			var errRutaTemprana error
 			asignaciones := testing.AllocsPerRun(1_000, func() {
 				_, errRutaTemprana = NuevoBorradorInformeJuridico(caso)
 			})
 			if !errors.Is(errRutaTemprana, ErrBorradorInformeJuridicoInvalido) {
-				t.Fatalf("se acepto el limite excedido: %v", errRutaTemprana)
+				t.Fatalf("se acepto la cardinalidad excedida: %v", errRutaTemprana)
 			}
 			if asignaciones != 0 {
-				t.Fatalf("la ruta temprana copio o reservo memoria: %.0f asignaciones", asignaciones)
+				t.Fatalf("la guardia de cardinalidad copio o reservo memoria: %.0f asignaciones", asignaciones)
 			}
 		})
 	}
+
+	tamanoExcesivo := datosMaximos
+	tamanoExcesivo.ReferenciasNormativas = append(
+		[]ReferenciaNormativaInformeJuridico(nil), datosMaximos.ReferenciasNormativas...,
+	)
+	tamanoExcesivo.ReferenciasNormativas[0].NormaRef += "x"
+	var errTamanoExcesivo error
+	asignaciones := testing.AllocsPerRun(1_000, func() {
+		_, errTamanoExcesivo = NuevoBorradorInformeJuridico(tamanoExcesivo)
+	})
+	if !errors.Is(errTamanoExcesivo, ErrBorradorInformeJuridicoInvalido) {
+		t.Fatalf("se acepto el tamano maximo mas uno: %v", errTamanoExcesivo)
+	}
+	if asignaciones != 0 {
+		t.Fatalf("la guardia de tamano copio o reservo memoria: %.0f asignaciones", asignaciones)
+	}
+}
+
+func datosInformeJuridicoConNormativas(cantidad int) DatosBorradorInformeJuridico {
+	datos := datosInformeJuridicoPrueba()
+	datos.ReferenciasNormativas = make([]ReferenciaNormativaInformeJuridico, cantidad)
+	for indice := range datos.ReferenciasNormativas {
+		datos.ReferenciasNormativas[indice] = ReferenciaNormativaInformeJuridico{
+			NormaRef:     fmt.Sprintf("norma:cardinalidad:%02d", indice),
+			Version:      uint64(indice + 1),
+			HuellaSHA256: fmt.Sprintf("%064x", indice+1),
+		}
+	}
+	return datos
+}
+
+func datosInformeJuridicoConAnexos(cantidad int) DatosBorradorInformeJuridico {
+	datos := datosInformeJuridicoPrueba()
+	datos.Anexos = make([]AnexoDocumentalInformeJuridico, cantidad)
+	for indice := range datos.Anexos {
+		datos.Anexos[indice] = AnexoDocumentalInformeJuridico{
+			DocumentoRef:     fmt.Sprintf("documento:cardinalidad:%02d", indice),
+			VersionDocumento: uint64(indice + 1),
+			HuellaSHA256:     fmt.Sprintf("%064x", indice+1),
+		}
+	}
+	return datos
+}
+
+func validarFixtureCardinalidadInformeJuridico(t *testing.T, datos DatosBorradorInformeJuridico) {
+	t.Helper()
+	if datos.Canon != CanonBorradorInformeJuridicoV1() ||
+		!referenciaValida(datos.ExpedienteRef) ||
+		!versionInformeJuridicoValida(datos.VersionEsperadaExpediente) ||
+		!referenciaPlantillaInformeJuridicoValida(datos.Plantilla) {
+		t.Fatal("el fixture de cardinalidad contiene datos base invalidos")
+	}
+	for _, referencia := range datos.ReferenciasNormativas {
+		if !referenciaNormativaInformeJuridicoValida(referencia) {
+			t.Fatal("el fixture de cardinalidad contiene una normativa invalida")
+		}
+	}
+	for _, anexo := range datos.Anexos {
+		if !anexoDocumentalInformeJuridicoValido(anexo) {
+			t.Fatal("el fixture de cardinalidad contiene un anexo invalido")
+		}
+	}
+	if tieneDuplicadosInformeJuridico(datos) {
+		t.Fatal("el fixture de cardinalidad contiene entradas duplicadas")
+	}
+	if bytes := bytesReferenciasInformeJuridicoPrueba(datos); bytes >= maximoBytesReferenciasInformeJuridico/2 {
+		t.Fatalf("el fixture no aisla la cardinalidad: consume %d bytes", bytes)
+	}
+}
+
+func bytesReferenciasInformeJuridicoPrueba(datos DatosBorradorInformeJuridico) int {
+	total := len(datos.ExpedienteRef) + len(datos.Plantilla.PlantillaRef) +
+		len(datos.Plantilla.HuellaSHA256)
+	for _, referencia := range datos.ReferenciasNormativas {
+		total += len(referencia.NormaRef) + len(referencia.HuellaSHA256)
+	}
+	for _, anexo := range datos.Anexos {
+		total += len(anexo.DocumentoRef) + len(anexo.HuellaSHA256)
+	}
+	return total
 }
 
 func datosInformeJuridicoEnLimitesMaximos(t *testing.T) DatosBorradorInformeJuridico {
