@@ -36,21 +36,23 @@ var (
 )
 
 type SolicitudCerrarAdministrativamente struct {
-	OrganizacionRef string
-	ExpedienteRef   string
-	SeguimientoRef  string
-	VersionEsperada uint64
-	TransicionClave domain.ClaveCatalogo
-	MotivoClave     domain.ClaveCatalogo
+	OrganizacionRef   string
+	ExpedienteRef     string
+	SeguimientoRef    string
+	VersionEsperada   uint64
+	ClaveIdempotencia string
+	TransicionClave   domain.ClaveCatalogo
+	MotivoClave       domain.ClaveCatalogo
 }
 
 type SolicitudReabrirExcepcionalmente struct {
-	OrganizacionRef string
-	ExpedienteRef   string
-	SeguimientoRef  string
-	VersionEsperada uint64
-	TransicionClave domain.ClaveCatalogo
-	MotivoClave     domain.ClaveCatalogo
+	OrganizacionRef   string
+	ExpedienteRef     string
+	SeguimientoRef    string
+	VersionEsperada   uint64
+	ClaveIdempotencia string
+	TransicionClave   domain.ClaveCatalogo
+	MotivoClave       domain.ClaveCatalogo
 }
 
 type ServicioCierreAdministrativo struct {
@@ -71,13 +73,14 @@ func (s *ServicioCierreAdministrativo) Cerrar(
 	solicitud SolicitudCerrarAdministrativamente,
 ) (ports.ResultadoCierreAdministrativo, error) {
 	return s.ejecutar(ctx, ports.SolicitudTransaccionCierreAdministrativo{
-		Operacion:       ports.OperacionCerrarAdministrativamente,
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ExpedienteRef:   solicitud.ExpedienteRef,
-		SeguimientoRef:  solicitud.SeguimientoRef,
-		VersionEsperada: solicitud.VersionEsperada,
-		TransicionClave: solicitud.TransicionClave,
-		MotivoClave:     solicitud.MotivoClave,
+		Operacion:         ports.OperacionCerrarAdministrativamente,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ExpedienteRef:     solicitud.ExpedienteRef,
+		SeguimientoRef:    solicitud.SeguimientoRef,
+		VersionEsperada:   solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		TransicionClave:   solicitud.TransicionClave,
+		MotivoClave:       solicitud.MotivoClave,
 	})
 }
 
@@ -86,13 +89,14 @@ func (s *ServicioCierreAdministrativo) ReabrirExcepcionalmente(
 	solicitud SolicitudReabrirExcepcionalmente,
 ) (ports.ResultadoCierreAdministrativo, error) {
 	return s.ejecutar(ctx, ports.SolicitudTransaccionCierreAdministrativo{
-		Operacion:       ports.OperacionReabrirExcepcionalmente,
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ExpedienteRef:   solicitud.ExpedienteRef,
-		SeguimientoRef:  solicitud.SeguimientoRef,
-		VersionEsperada: solicitud.VersionEsperada,
-		TransicionClave: solicitud.TransicionClave,
-		MotivoClave:     solicitud.MotivoClave,
+		Operacion:         ports.OperacionReabrirExcepcionalmente,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ExpedienteRef:     solicitud.ExpedienteRef,
+		SeguimientoRef:    solicitud.SeguimientoRef,
+		VersionEsperada:   solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		TransicionClave:   solicitud.TransicionClave,
+		MotivoClave:       solicitud.MotivoClave,
 	})
 }
 
@@ -125,6 +129,9 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 		func(
 			preparacion ports.PreparacionTransaccionCierreAdministrativo,
 		) (domain.Seguimiento, error) {
+			if errContexto := ctxOperacion.Err(); errContexto != nil {
+				return domain.Seguimiento{}, errContexto
+			}
 			if decisionInvocada {
 				return domain.Seguimiento{},
 					errDecisionCierreAdministrativoNoPermitida
@@ -160,6 +167,9 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 			if errAplicar != nil {
 				return domain.Seguimiento{}, errAplicar
 			}
+			if errContexto := ctxOperacion.Err(); errContexto != nil {
+				return domain.Seguimiento{}, errContexto
+			}
 			if !actuacionCierreAdministrativoValida(
 				siguiente,
 				solicitud,
@@ -177,11 +187,10 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 		return ports.ResultadoCierreAdministrativo{},
 			clasificarErrorCierreAdministrativo(ctxOperacion, err)
 	}
-	if !decisionInvocada || resultado.ValidarPara(
-		solicitud,
-		actuacionRef,
-		reciboRef,
-	) != nil {
+	if resultado.ValidarPara(solicitud) != nil ||
+		decisionInvocada && (resultado.EsReplayConfirmado() ||
+			!resultado.CoincideConEfecto(actuacionRef, reciboRef)) ||
+		!decisionInvocada && !resultado.EsReplayConfirmado() {
 		return ports.ResultadoCierreAdministrativo{},
 			ErrResultadoCierreAdministrativoInvalido
 	}
@@ -216,10 +225,12 @@ func transicionCierreAdministrativoValida(
 		switch solicitud.Operacion {
 		case ports.OperacionCerrarAdministrativamente:
 			return transicion.Clase == domain.TransicionOrdinaria &&
-				!origenFinal && destinoFinal
+				!origenFinal && destinoFinal &&
+				transicion.EfectoPeriodo == domain.EfectoPeriodoCerrar
 		case ports.OperacionReabrirExcepcionalmente:
 			return transicion.Clase == domain.TransicionReapertura &&
-				origenFinal && !destinoFinal
+				origenFinal && !destinoFinal &&
+				transicion.EfectoPeriodo == domain.EfectoPeriodoReabrir
 		default:
 			return false
 		}
@@ -252,14 +263,29 @@ func actuacionCierreAdministrativoValida(
 		return false
 	}
 	ultima := actuaciones[len(actuaciones)-1]
-	return ultima.VersionSeguimiento == seguimiento.Version() &&
-		ultima.ActuacionRef == preparacion.ActuacionRef &&
-		ultima.TransicionClave == solicitud.TransicionClave &&
-		ultima.MotivoClave == solicitud.MotivoClave &&
-		ultima.ActorRef == preparacion.ActorRef &&
-		ultima.UnidadRef == preparacion.UnidadRef &&
-		ultima.ReciboRef == preparacion.ReciboRef &&
-		ultima.CorrelacionRef == preparacion.CorrelacionRef
+	if ultima.VersionSeguimiento != seguimiento.Version() {
+		return false
+	}
+	if ultima.ActuacionRef != preparacion.ActuacionRef ||
+		ultima.TransicionClave != solicitud.TransicionClave ||
+		ultima.MotivoClave != solicitud.MotivoClave ||
+		ultima.ActorRef != preparacion.ActorRef ||
+		ultima.UnidadRef != preparacion.UnidadRef ||
+		ultima.ReciboRef != preparacion.ReciboRef ||
+		ultima.CorrelacionRef != preparacion.CorrelacionRef {
+		return false
+	}
+	cese := seguimiento.CeseEfectivo()
+	switch solicitud.Operacion {
+	case ports.OperacionCerrarAdministrativamente:
+		return cese != nil &&
+			cese.ActuacionRef == preparacion.ActuacionRef &&
+			cese.EfectivoEn.Equal(preparacion.EfectivoEn)
+	case ports.OperacionReabrirExcepcionalmente:
+		return preparacion.Seguimiento.CeseEfectivo() != nil && cese == nil
+	default:
+		return false
+	}
 }
 
 func clasificarErrorCierreAdministrativo(
@@ -274,6 +300,7 @@ func clasificarErrorCierreAdministrativo(
 		return ErrVersionCierreAdministrativoEnConflicto
 	case errors.Is(err, errDecisionCierreAdministrativoNoPermitida),
 		errors.Is(err, ports.ErrCierreAdministrativoDenegado),
+		errors.Is(err, ports.ErrClaveIdempotenciaCierreAdministrativoUsada),
 		errors.Is(err, domain.ErrTransicionInvalida),
 		errors.Is(err, domain.ErrSeguimientoInvalido),
 		errors.Is(err, domain.ErrActuacionSeguimientoEnConflicto):

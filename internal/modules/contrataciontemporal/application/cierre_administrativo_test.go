@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 var instanteCierreAdministrativoPrueba = time.Date(
@@ -19,13 +21,17 @@ var instanteCierreAdministrativoPrueba = time.Date(
 )
 
 type transaccionCierreAdministrativoPrueba struct {
-	preparacion       ports.PreparacionTransaccionCierreAdministrativo
-	err               error
-	resultadoInvalido bool
-	llamadas          int
-	solicitud         ports.SolicitudTransaccionCierreAdministrativo
-	siguiente         domain.Seguimiento
-	confirmada        bool
+	preparacion         ports.PreparacionTransaccionCierreAdministrativo
+	err                 error
+	resultadoInvalido   bool
+	replayConfirmado    bool
+	antesDeAplicar      func()
+	llamadas            int
+	aplicaciones        int
+	solicitud           ports.SolicitudTransaccionCierreAdministrativo
+	solicitudConfirmada ports.SolicitudTransaccionCierreAdministrativo
+	siguiente           domain.Seguimiento
+	confirmada          bool
 }
 
 func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
@@ -41,12 +47,28 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 	if err := ctx.Err(); err != nil {
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
+	if t.replayConfirmado {
+		return ports.NuevoResultadoCierreAdministrativo(
+			ports.DatosResultadoCierreAdministrativo{
+				Solicitud:         t.solicitudConfirmada,
+				VersionResultante: t.solicitudConfirmada.VersionEsperada + 1,
+				ActuacionRef:      t.preparacion.ActuacionRef,
+				ReciboRef:         t.preparacion.ReciboRef,
+				Estado:            ports.EstadoResultadoCierreAdministrativoReplayConfirmado,
+			},
+		)
+	}
+	if t.antesDeAplicar != nil {
+		t.antesDeAplicar()
+	}
+	t.aplicaciones++
 	siguiente, err := aplicar(t.preparacion)
 	if err != nil {
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
 	t.siguiente = siguiente
 	t.confirmada = true
+	t.solicitudConfirmada = solicitud
 	if t.resultadoInvalido {
 		return ports.ResultadoCierreAdministrativo{}, nil
 	}
@@ -55,6 +77,7 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 			Solicitud: solicitud, VersionResultante: siguiente.Version(),
 			ActuacionRef: t.preparacion.ActuacionRef,
 			ReciboRef:    t.preparacion.ReciboRef,
+			Estado:       ports.EstadoResultadoCierreAdministrativoConfirmado,
 		},
 	)
 }
@@ -64,6 +87,7 @@ func TestCierreAdministrativoConfirmaSoloSinTareasPendientes(t *testing.T) {
 	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
 	transaccion := &transaccionCierreAdministrativoPrueba{
 		preparacion: preparacionCierreAdministrativoPrueba(
+			t,
 			solicitudTransaccionalCierrePrueba(solicitud),
 			definicion,
 			seguimiento,
@@ -104,6 +128,110 @@ func TestCierreAdministrativoConfirmaSoloSinTareasPendientes(t *testing.T) {
 	}
 }
 
+func TestCierreAdministrativoDevuelveReplayConfirmadoSinRepetirCallback(t *testing.T) {
+	definicion, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
+	transaccion := &transaccionCierreAdministrativoPrueba{
+		preparacion: preparacionCierreAdministrativoPrueba(
+			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
+			seguimiento, instanteCierreAdministrativoPrueba,
+		),
+	}
+	servicio := nuevoServicioCierreAdministrativoPrueba(t, transaccion)
+	primero, err := servicio.Cerrar(context.Background(), solicitud)
+	if err != nil {
+		t.Fatalf("primer cierre: %v", err)
+	}
+	transaccion.replayConfirmado = true
+	segundo, err := servicio.Cerrar(context.Background(), solicitud)
+	if err != nil || !segundo.EsReplayConfirmado() ||
+		segundo.ReciboRef() != primero.ReciboRef() ||
+		segundo.VersionSeguimiento() != primero.VersionSeguimiento() ||
+		transaccion.aplicaciones != 1 || transaccion.llamadas != 2 {
+		t.Fatalf("replay no exacto: err=%v aplicaciones=%d llamadas=%d",
+			err, transaccion.aplicaciones, transaccion.llamadas)
+	}
+	colision := solicitud
+	colision.MotivoClave = "subsanacion_excepcional"
+	_, err = servicio.Cerrar(context.Background(), colision)
+	if !errors.Is(err, ErrResultadoCierreAdministrativoInvalido) ||
+		transaccion.aplicaciones != 1 {
+		t.Fatalf("el replay aceptó la misma clave con otra identidad: %v", err)
+	}
+}
+
+func TestCierreAdministrativoCancelaDuranteFronteraAntesDelEfecto(t *testing.T) {
+	definicion, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
+	ctx, cancelar := context.WithCancel(context.Background())
+	transaccion := &transaccionCierreAdministrativoPrueba{
+		preparacion: preparacionCierreAdministrativoPrueba(
+			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
+			seguimiento, instanteCierreAdministrativoPrueba,
+		),
+		antesDeAplicar: cancelar,
+	}
+	_, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
+		Cerrar(ctx, solicitud)
+	if !errors.Is(err, context.Canceled) || transaccion.confirmada ||
+		transaccion.aplicaciones != 1 || transaccion.siguiente.Version() != 0 {
+		t.Fatalf("cancelación durante frontera no revirtió: err=%v", err)
+	}
+}
+
+func TestCierreAdministrativoRechazaInventarioYAutorizacionCruzados(t *testing.T) {
+	definicion, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
+	orden := solicitudTransaccionalCierrePrueba(solicitud)
+	for _, caso := range []struct {
+		nombre    string
+		modificar func(*ports.PreparacionTransaccionCierreAdministrativo)
+	}{
+		{"inventario vacio de otro expediente", func(p *ports.PreparacionTransaccionCierreAdministrativo) {
+			p.Inventario.Total, p.Inventario.Pendientes = 0, 0
+			p.Inventario.ExpedienteRef = referenciaCierreAdministrativoPrueba("expediente_ajeno_01")
+		}},
+		{"autorizacion V3 de otro expediente", func(p *ports.PreparacionTransaccionCierreAdministrativo) {
+			ajena := orden
+			ajena.ExpedienteRef = referenciaCierreAdministrativoPrueba("expediente_ajeno_01")
+			prepararAutorizacionCierreAdministrativoPrueba(
+				t, p, ajena, instanteCierreAdministrativoPrueba,
+			)
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			preparacion := preparacionCierreAdministrativoPrueba(
+				t, orden, definicion, seguimiento, instanteCierreAdministrativoPrueba,
+			)
+			caso.modificar(&preparacion)
+			transaccion := &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
+			_, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
+				Cerrar(context.Background(), solicitud)
+			if !errors.Is(err, ErrCierreAdministrativoNoPermitido) || transaccion.confirmada {
+				t.Fatalf("cruce aceptado: err=%v", err)
+			}
+		})
+	}
+}
+
+func TestCierreAdministrativoExigeEfectoTemporalCompatible(t *testing.T) {
+	definicion, seguimiento := escenarioSeguimientoConEfectoCierre(
+		t, domain.EfectoPeriodoNinguno,
+	)
+	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
+	transaccion := &transaccionCierreAdministrativoPrueba{
+		preparacion: preparacionCierreAdministrativoPrueba(
+			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
+			seguimiento, instanteCierreAdministrativoPrueba,
+		),
+	}
+	_, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
+		Cerrar(context.Background(), solicitud)
+	if !errors.Is(err, ErrCierreAdministrativoNoPermitido) || transaccion.confirmada {
+		t.Fatalf("se aceptó cierre sin EfectoPeriodoCerrar: %v", err)
+	}
+}
+
 func TestCierreAdministrativoDeniegaInventarioPendienteOIncompleto(t *testing.T) {
 	for _, caso := range []struct {
 		nombre     string
@@ -128,11 +256,15 @@ func TestCierreAdministrativoDeniegaInventarioPendienteOIncompleto(t *testing.T)
 			definicion, seguimiento := escenarioSeguimientoVigente(t)
 			solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
 			preparacion := preparacionCierreAdministrativoPrueba(
+				t,
 				solicitudTransaccionalCierrePrueba(solicitud),
 				definicion,
 				seguimiento,
 				instanteCierreAdministrativoPrueba,
 			)
+			caso.inventario.OrganizacionRef = solicitud.OrganizacionRef
+			caso.inventario.ExpedienteRef = solicitud.ExpedienteRef
+			caso.inventario.SeguimientoRef = solicitud.SeguimientoRef
 			preparacion.Inventario = caso.inventario
 			transaccion := &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
 			servicio := nuevoServicioCierreAdministrativoPrueba(t, transaccion)
@@ -169,23 +301,26 @@ func TestReaperturaExcepcionalEsMotivadaVersionadaYAuditable(t *testing.T) {
 		t.Fatalf("preparar seguimiento cerrado: %v", err)
 	}
 	solicitud := SolicitudReabrirExcepcionalmente{
-		OrganizacionRef: referenciaCierreAdministrativoPrueba("organizacion_publica_01"),
-		ExpedienteRef:   referenciaCierreAdministrativoPrueba("expediente_temporal_01"),
-		SeguimientoRef:  referenciaCierreAdministrativoPrueba("seguimiento_laboral_01"),
-		VersionEsperada: cerrado.Version(),
-		TransicionClave: "reabrir_excepcionalmente",
-		MotivoClave:     "subsanacion_excepcional",
+		OrganizacionRef:   referenciaCierreAdministrativoPrueba("organizacion_publica_01"),
+		ExpedienteRef:     referenciaCierreAdministrativoPrueba("expediente_temporal_01"),
+		SeguimientoRef:    referenciaCierreAdministrativoPrueba("seguimiento_laboral_01"),
+		VersionEsperada:   cerrado.Version(),
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5c",
+		TransicionClave:   "reabrir_excepcionalmente",
+		MotivoClave:       "subsanacion_excepcional",
 	}
 	orden := ports.SolicitudTransaccionCierreAdministrativo{
-		Operacion:       ports.OperacionReabrirExcepcionalmente,
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ExpedienteRef:   solicitud.ExpedienteRef,
-		SeguimientoRef:  solicitud.SeguimientoRef,
-		VersionEsperada: solicitud.VersionEsperada,
-		TransicionClave: solicitud.TransicionClave,
-		MotivoClave:     solicitud.MotivoClave,
+		Operacion:         ports.OperacionReabrirExcepcionalmente,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ExpedienteRef:     solicitud.ExpedienteRef,
+		SeguimientoRef:    solicitud.SeguimientoRef,
+		VersionEsperada:   solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		TransicionClave:   solicitud.TransicionClave,
+		MotivoClave:       solicitud.MotivoClave,
 	}
 	preparacion := preparacionCierreAdministrativoPrueba(
+		t,
 		orden,
 		definicion,
 		cerrado,
@@ -229,7 +364,7 @@ func TestCierreAdministrativoDeniegaAutoridadOMotivoNoGobernado(t *testing.T) {
 		{
 			nombre: "sin autoridad",
 			modificar: func(_ *SolicitudCerrarAdministrativamente, p *ports.PreparacionTransaccionCierreAdministrativo) {
-				p.AutorizacionConcedida = false
+				p.DecisionAutorizacionV3 = dominiovec.DecisionAutorizacionLigadaV3{}
 			},
 		},
 		{
@@ -249,6 +384,7 @@ func TestCierreAdministrativoDeniegaAutoridadOMotivoNoGobernado(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			solicitud := base
 			preparacion := preparacionCierreAdministrativoPrueba(
+				t,
 				solicitudTransaccionalCierrePrueba(solicitud),
 				definicion,
 				seguimiento,
@@ -276,6 +412,7 @@ func TestCierreAdministrativoAplicaCASYValidaResultado(t *testing.T) {
 		solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version() - 1)
 		transaccion := &transaccionCierreAdministrativoPrueba{
 			preparacion: preparacionCierreAdministrativoPrueba(
+				t,
 				solicitudTransaccionalCierrePrueba(solicitud),
 				definicion,
 				seguimiento,
@@ -297,6 +434,7 @@ func TestCierreAdministrativoAplicaCASYValidaResultado(t *testing.T) {
 		solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
 		transaccion := &transaccionCierreAdministrativoPrueba{
 			preparacion: preparacionCierreAdministrativoPrueba(
+				t,
 				solicitudTransaccionalCierrePrueba(solicitud),
 				definicion,
 				seguimiento,
@@ -335,6 +473,7 @@ func TestCierreAdministrativoFallaCerradoEnFronteras(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			transaccion := &transaccionCierreAdministrativoPrueba{
 				preparacion: preparacionCierreAdministrativoPrueba(
+					t,
 					solicitudTransaccionalCierrePrueba(solicitud),
 					definicion,
 					seguimiento,
@@ -391,12 +530,13 @@ func solicitudCerrarAdministrativamentePrueba(
 	version uint64,
 ) SolicitudCerrarAdministrativamente {
 	return SolicitudCerrarAdministrativamente{
-		OrganizacionRef: referenciaCierreAdministrativoPrueba("organizacion_publica_01"),
-		ExpedienteRef:   referenciaCierreAdministrativoPrueba("expediente_temporal_01"),
-		SeguimientoRef:  referenciaCierreAdministrativoPrueba("seguimiento_laboral_01"),
-		VersionEsperada: version,
-		TransicionClave: "cerrar_administrativamente",
-		MotivoClave:     "fin_expediente",
+		OrganizacionRef:   referenciaCierreAdministrativoPrueba("organizacion_publica_01"),
+		ExpedienteRef:     referenciaCierreAdministrativoPrueba("expediente_temporal_01"),
+		SeguimientoRef:    referenciaCierreAdministrativoPrueba("seguimiento_laboral_01"),
+		VersionEsperada:   version,
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		TransicionClave:   "cerrar_administrativamente",
+		MotivoClave:       "fin_expediente",
 	}
 }
 
@@ -404,41 +544,153 @@ func solicitudTransaccionalCierrePrueba(
 	solicitud SolicitudCerrarAdministrativamente,
 ) ports.SolicitudTransaccionCierreAdministrativo {
 	return ports.SolicitudTransaccionCierreAdministrativo{
-		Operacion:       ports.OperacionCerrarAdministrativamente,
-		OrganizacionRef: solicitud.OrganizacionRef,
-		ExpedienteRef:   solicitud.ExpedienteRef,
-		SeguimientoRef:  solicitud.SeguimientoRef,
-		VersionEsperada: solicitud.VersionEsperada,
-		TransicionClave: solicitud.TransicionClave,
-		MotivoClave:     solicitud.MotivoClave,
+		Operacion:         ports.OperacionCerrarAdministrativamente,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ExpedienteRef:     solicitud.ExpedienteRef,
+		SeguimientoRef:    solicitud.SeguimientoRef,
+		VersionEsperada:   solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		TransicionClave:   solicitud.TransicionClave,
+		MotivoClave:       solicitud.MotivoClave,
 	}
 }
 
 func preparacionCierreAdministrativoPrueba(
+	t *testing.T,
 	solicitud ports.SolicitudTransaccionCierreAdministrativo,
 	definicion domain.DefinicionSeguimiento,
 	seguimiento domain.Seguimiento,
 	instante time.Time,
 ) ports.PreparacionTransaccionCierreAdministrativo {
-	return ports.PreparacionTransaccionCierreAdministrativo{
+	t.Helper()
+	preparacion := ports.PreparacionTransaccionCierreAdministrativo{
 		Solicitud: solicitud, Definicion: definicion, Seguimiento: seguimiento,
 		Inventario: ports.InventarioTareasCierreAdministrativo{
-			Referencia: referenciaCierreAdministrativoPrueba("inventario_tareas_01"), Version: 4,
+			Referencia:      referenciaCierreAdministrativoPrueba("inventario_tareas_01"),
+			OrganizacionRef: solicitud.OrganizacionRef,
+			ExpedienteRef:   solicitud.ExpedienteRef,
+			SeguimientoRef:  solicitud.SeguimientoRef, Version: 4,
 			Total: 6, Pendientes: 0, Completo: true,
 		},
-		AutorizacionRef:       referenciaCierreAdministrativoPrueba("autorizacion_cierre_01"),
-		AutorizacionConcedida: true,
-		ActorRef:              referenciaCierreAdministrativoPrueba("actor_rrhh_confiable_01"),
-		UnidadRef:             referenciaCierreAdministrativoPrueba("unidad_rrhh_01"),
-		ActuacionRef:          referenciaCierreAdministrativoPrueba("actuacion_cierre_01"),
-		ReciboRef:             referenciaCierreAdministrativoPrueba("recibo_cierre_01"),
-		CorrelacionRef:        referenciaCierreAdministrativoPrueba("correlacion_cierre_01"),
-		EfectivoEn:            instante, RegistradaEn: instante,
+		UnidadRef:      referenciaCierreAdministrativoPrueba("unidad_rrhh_01"),
+		ActuacionRef:   referenciaCierreAdministrativoPrueba("actuacion_cierre_01"),
+		ReciboRef:      referenciaCierreAdministrativoPrueba("recibo_cierre_01"),
+		CorrelacionRef: referenciaCierreAdministrativoPrueba("correlacion_cierre_01"),
+		EfectivoEn:     instante, RegistradaEn: instante,
 	}
+	prepararAutorizacionCierreAdministrativoPrueba(t, &preparacion, solicitud, instante)
+	return preparacion
+}
+
+type generadorCorrelacionCierreAdministrativoPrueba struct {
+	valor string
+}
+
+func (g generadorCorrelacionCierreAdministrativoPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
+	context.Context,
+) (string, error) {
+	return g.valor, nil
+}
+
+func prepararAutorizacionCierreAdministrativoPrueba(
+	t *testing.T,
+	preparacion *ports.PreparacionTransaccionCierreAdministrativo,
+	solicitud ports.SolicitudTransaccionCierreAdministrativo,
+	instante time.Time,
+) {
+	t.Helper()
+	contexto := contextoAutorizacionAltaV3Prueba(t, instante)
+	vinculo, err := contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatalf("extraer vínculo V3 de cierre: %v", err)
+	}
+	resumenMotivo := sha256.Sum256([]byte("motivo_autorizacion_cierre"))
+	motivo := dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_autorizacion_cierre", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: hex.EncodeToString(resumenMotivo[:]),
+		EntradaClave:         "motivo_" + hex.EncodeToString(resumenMotivo[:16]),
+	}
+	resumenCorrelacion := sha256.Sum256([]byte(
+		"correlacion_autorizacion_" + string(solicitud.Operacion) + solicitud.ClaveIdempotencia,
+	))
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+		context.Background(),
+		generadorCorrelacionCierreAdministrativoPrueba{
+			valor: "correlacion_" + hex.EncodeToString(resumenCorrelacion[:16]),
+		},
+	)
+	if err != nil {
+		t.Fatalf("generar correlación V3 de cierre: %v", err)
+	}
+	accion := ports.AccionAutorizacionCerrarAdministrativamente
+	finalidad := ports.FinalidadAutorizacionCerrarAdministrativamente
+	if solicitud.Operacion == ports.OperacionReabrirExcepcionalmente {
+		accion = ports.AccionAutorizacionReabrirExcepcionalmente
+		finalidad = ports.FinalidadAutorizacionReabrirExcepcionalmente
+	}
+	solicitudV3, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
+		dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: contexto.Vinculo,
+			ReferenciaMotivo:          motivo,
+			Accion:                    accion,
+			Recurso: dominiovec.RecursoAutorizable{
+				Referencia: solicitud.SeguimientoRef,
+				ModuloID:   ports.ModuloContratacion,
+				Tipo:       ports.TipoRecursoCierreAdministrativo,
+				Ambitos: map[string]string{
+					"organizacion_ref": solicitud.OrganizacionRef,
+					"expediente_ref":   solicitud.ExpedienteRef,
+					"seguimiento_ref":  solicitud.SeguimientoRef,
+				},
+				Atributos: map[string]string{
+					"operacion":        string(solicitud.Operacion),
+					"version_esperada": strconv.FormatUint(solicitud.VersionEsperada, 10),
+					"transicion_clave": string(solicitud.TransicionClave),
+					"motivo_clave":     string(solicitud.MotivoClave),
+				},
+			},
+			Finalidad:   finalidad,
+			Correlacion: correlacion,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear solicitud V3 de cierre: %v", err)
+	}
+	decision, confirmacion, err := concesionAutorizacionV3Prueba(
+		t,
+		solicitudV3,
+		contexto.Resultado,
+		motivo,
+		instante,
+		"decision:cierre-administrativo:prueba",
+		true,
+	)
+	if err != nil {
+		t.Fatalf("conceder autorización V3 de cierre: %v", err)
+	}
+	correlacionRef, err := correlacion.ValorCanonico()
+	if err != nil {
+		t.Fatalf("extraer correlación V3 de cierre: %v", err)
+	}
+	preparacion.ContextoAutorizacionV3 = contexto
+	preparacion.SolicitudAutorizacionV3 = solicitudV3
+	preparacion.DecisionAutorizacionV3 = decision
+	preparacion.ConfirmacionAutorizacionV3 = confirmacion
+	preparacion.MotivoAutorizacionV3 = motivo
+	preparacion.CorrelacionAutorizacionV3Ref = correlacionRef
+	preparacion.ActorRef = referenciaCierreAdministrativoPrueba("actor_rrhh_confiable_01")
+	preparacion.PerfilRef = vinculo.PerfilActivoRef
 }
 
 func escenarioSeguimientoVigente(
 	t *testing.T,
+) (domain.DefinicionSeguimiento, domain.Seguimiento) {
+	return escenarioSeguimientoConEfectoCierre(t, domain.EfectoPeriodoCerrar)
+}
+
+func escenarioSeguimientoConEfectoCierre(
+	t *testing.T,
+	efectoCierre domain.EfectoPeriodoSeguimiento,
 ) (domain.DefinicionSeguimiento, domain.Seguimiento) {
 	t.Helper()
 	definicion, err := domain.PublicarDefinicionSeguimiento(
@@ -478,7 +730,7 @@ func escenarioSeguimientoVigente(
 					Clave: "cerrar_administrativamente", Origen: "vigente", Destino: "cesada",
 					Clase:             domain.TransicionOrdinaria,
 					MotivosPermitidos: []domain.ClaveCatalogo{"fin_expediente"},
-					MotivoObligatorio: true, EfectoPeriodo: domain.EfectoPeriodoCerrar,
+					MotivoObligatorio: true, EfectoPeriodo: efectoCierre,
 				},
 				{
 					Clave: "reabrir_excepcionalmente", Origen: "cesada", Destino: "vigente",
