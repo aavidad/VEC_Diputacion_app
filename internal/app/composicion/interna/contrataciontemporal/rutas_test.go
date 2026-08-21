@@ -40,6 +40,32 @@ func (relojComposicionPrueba) Ahora() time.Time {
 	return time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
 }
 
+type autoridadAnalisisComposicionPrueba struct{}
+
+func (autoridadAnalisisComposicionPrueba) ResolverContextoCanalAnalisisRRHH(
+	context.Context,
+) (httpinterno.ContextoCanalAnalisisRRHH, error) {
+	return httpinterno.ContextoCanalAnalisisRRHH{}, errors.New(
+		"no debe ejecutarse",
+	)
+}
+
+type ejecutorAnalisisComposicionPrueba struct{}
+
+func (ejecutorAnalisisComposicionPrueba) Registrar(
+	context.Context,
+	application.SolicitudRegistrarAnalisis,
+) (ports.ReciboOperacionAnalisis, error) {
+	return ports.ReciboOperacionAnalisis{}, errors.New("no debe ejecutarse")
+}
+
+func (ejecutorAnalisisComposicionPrueba) Rectificar(
+	context.Context,
+	application.SolicitudRectificarAnalisis,
+) (ports.ReciboOperacionAnalisis, error) {
+	return ports.ReciboOperacionAnalisis{}, errors.New("no debe ejecutarse")
+}
+
 type autoridadCoberturaComposicionPrueba struct{}
 
 func (autoridadCoberturaComposicionPrueba) ResolverContextoCanalCobertura(
@@ -104,6 +130,8 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaDecisionCobertura,
 		httpinterno.RutaRectificacionCobertura,
 		httpinterno.RutaResultadoCobertura,
+		httpinterno.RutaRegistroAnalisisRRHH,
+		httpinterno.RutaRectificacionAnalisisRRHH,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -131,6 +159,10 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	if reflect.ValueOf(rutas[4].Manejador).Pointer() ==
 		reflect.ValueOf(rutas[1].Manejador).Pointer() {
 		t.Fatal("la lectura comparte el manejador de efectos")
+	}
+	if reflect.ValueOf(rutas[5].Manejador).Pointer() !=
+		reflect.ValueOf(rutas[6].Manejador).Pointer() {
+		t.Fatal("registro y rectificacion de analisis no comparten manejador")
 	}
 }
 
@@ -180,6 +212,12 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 		{"reloj", func(d *DependenciasRutas) {
 			d.Reloj = nil
 		}},
+		{"autoridad de analisis", func(d *DependenciasRutas) {
+			d.AutoridadAnalisis = nil
+		}},
+		{"ejecutor de analisis", func(d *DependenciasRutas) {
+			d.EjecutorAnalisis = nil
+		}},
 		{"autoridad de cobertura", func(d *DependenciasRutas) {
 			d.AutoridadCobertura = nil
 		}},
@@ -226,6 +264,14 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 			var nulo *relojComposicionPrueba
 			d.Reloj = nulo
 		}},
+		{"autoridad de analisis", func(d *DependenciasRutas) {
+			var nulo *autoridadAnalisisComposicionPrueba
+			d.AutoridadAnalisis = nulo
+		}},
+		{"ejecutor de analisis", func(d *DependenciasRutas) {
+			var nulo *ejecutorAnalisisComposicionPrueba
+			d.EjecutorAnalisis = nulo
+		}},
 		{"autoridad de cobertura", func(d *DependenciasRutas) {
 			var nulo *autoridadCoberturaComposicionPrueba
 			d.AutoridadCobertura = nulo
@@ -263,6 +309,8 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		AutoridadAlta:      autoridadAltaComposicionPrueba{},
 		EjecutorAlta:       ejecutorAltaComposicionPrueba{},
 		Reloj:              relojComposicionPrueba{},
+		AutoridadAnalisis:  autoridadAnalisisComposicionPrueba{},
+		EjecutorAnalisis:   ejecutorAnalisisComposicionPrueba{},
 		AutoridadCobertura: autoridadCoberturaComposicionPrueba{},
 		Presentador:        presentadorCoberturaComposicionPrueba{},
 		Decisor:            decisorCoberturaComposicionPrueba{},

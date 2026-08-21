@@ -19,6 +19,8 @@ type DependenciasRutas struct {
 	AutoridadAlta      httpinterno.AutoridadContextoCanal
 	EjecutorAlta       httpinterno.EjecutorAlta
 	Reloj              ports.Reloj
+	AutoridadAnalisis  httpinterno.AutoridadContextoCanalAnalisisRRHH
+	EjecutorAnalisis   httpinterno.EjecutorAnalisisRRHH
 	AutoridadCobertura httpinterno.AutoridadContextoCanalCobertura
 	Presentador        httpinterno.PresentadorPropuestaCobertura
 	Decisor            httpinterno.EjecutorDecisionCobertura
@@ -52,6 +54,13 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	analisis, err := httpinterno.NuevoManejadorAnalisisRRHH(
+		dependencias.AutoridadAnalisis,
+		dependencias.EjecutorAnalisis,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
 	return []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -72,6 +81,14 @@ func NuevasRutas(
 		{
 			Ruta:      httpinterno.RutaResultadoCobertura,
 			Manejador: resultado,
+		},
+		{
+			Ruta:      httpinterno.RutaRegistroAnalisisRRHH,
+			Manejador: analisis,
+		},
+		{
+			Ruta:      httpinterno.RutaRectificacionAnalisisRRHH,
+			Manejador: analisis,
 		},
 	}, nil
 }
