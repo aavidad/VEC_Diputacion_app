@@ -1,4 +1,4 @@
-/** Textos castellanos de la interfaz de alta; la vista solo consume claves. */
+/** Textos castellanos del módulo; las vistas solo consumen claves. */
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   sobrelinea: "Contratación temporal · Solicitud del centro",
@@ -120,6 +120,72 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   error_rc_residual: "Si no existe RC, sus datos asociados deben quedar vacíos.",
   error_adjuntos: "Seleccione como máximo 64 documentos válidos y sin duplicados.",
   error_generico: "El valor no es válido.",
+  analisis_sobrelinea: "Contratación temporal · Análisis de RRHH",
+  analisis_titulo_registrar: "Registrar análisis de RRHH",
+  analisis_titulo_rectificar: "Rectificar análisis de RRHH",
+  analisis_descripcion:
+    "Revise los campos funcionales gobernados antes de confirmar la operación.",
+  analisis_alcance_etiqueta: "Alcance de la operación",
+  analisis_alcance:
+    "La identidad, la organización, el perfil y la autorización se resuelven fuera de este formulario.",
+  analisis_estado_listo: "El análisis está preparado para su revisión.",
+  analisis_estado_validacion: "Revise los campos indicados antes de continuar.",
+  analisis_estado_enviando: "Enviando una única petición. Espere la confirmación.",
+  analisis_estado_cancelando: "Cancelando la espera de respuesta.",
+  analisis_estado_confirmado: "El recibo del análisis se ha verificado.",
+  analisis_estado_indeterminado:
+    "El resultado no puede determinarse. La operación queda bloqueada.",
+  analisis_estado_acceso_denegado: "No dispone de autorización para esta operación.",
+  analisis_estado_conflicto:
+    "El expediente cambió o la intención entra en conflicto. Revise su estado antes de continuar.",
+  analisis_estado_rechazado: "La operación fue rechazada sin confirmar el análisis.",
+  analisis_estado_error: "No se pudo confirmar el análisis.",
+  analisis_campos_leyenda: "Datos funcionales del análisis",
+  analisis_modalidad: "Modalidad",
+  analisis_modalidad_ayuda: "Modalidad procedente del catálogo vigente.",
+  analisis_categoria: "Categoría",
+  analisis_categoria_ayuda: "Referencia opaca de la categoría validada.",
+  analisis_grupo: "Grupo o subgrupo",
+  analisis_grupo_ayuda: "Grupo gobernado para la categoría seleccionada.",
+  analisis_causa: "Causa",
+  analisis_causa_ayuda: "Causa procedente del catálogo vigente.",
+  analisis_inicio: "Fecha de inicio",
+  analisis_fin: "Fecha de fin",
+  analisis_periodo_ayuda:
+    "Use fechas civiles; el periodo técnico no puede superar cien años.",
+  analisis_jornada: "Jornada en diezmilésimas",
+  analisis_jornada_ayuda:
+    "Introduzca un entero entre 1 y 10.000; 10.000 equivale a jornada completa.",
+  analisis_entrada_rc: "Entrada de retención de crédito",
+  analisis_entrada_rc_ayuda:
+    "Seleccione la referencia opaca preparada para este expediente.",
+  analisis_motivo_rectificacion: "Motivo de la rectificación",
+  analisis_motivo_rectificacion_ayuda:
+    "La rectificación exige un motivo del catálogo gobernado.",
+  analisis_registrar: "Registrar análisis",
+  analisis_rectificar: "Rectificar análisis",
+  analisis_cancelar: "Cancelar espera",
+  analisis_errores_titulo: "Revise los errores del análisis",
+  analisis_errores_descripcion:
+    "Corrija los campos indicados. No se ha enviado ninguna petición.",
+  analisis_error_opcion: "Seleccione una opción gobernada disponible.",
+  analisis_error_fecha: "Introduzca una fecha civil válida.",
+  analisis_error_periodo:
+    "El fin no puede preceder al inicio ni superar cien años civiles.",
+  analisis_error_jornada: "Introduzca una jornada entera entre 1 y 10.000.",
+  analisis_error_motivo: "Seleccione un motivo gobernado para rectificar.",
+  analisis_error_contrato: "Los datos no respetan el contrato cerrado.",
+  analisis_indeterminado_titulo: "Resultado indeterminado",
+  analisis_indeterminado_descripcion:
+    "No repita la operación. Consulte el estado por el canal protegido o solicite asistencia.",
+  analisis_recibo_sobrelinea: "Confirmación verificada",
+  analisis_recibo_titulo: "Análisis confirmado",
+  analisis_recibo_descripcion:
+    "El recibo corresponde a la operación, el expediente y la versión enviados.",
+  analisis_recibo_expediente: "Referencia del expediente",
+  analisis_recibo_version: "Versión resultante",
+  analisis_recibo_referencia: "Referencia del recibo",
+  analisis_recibo_fecha: "Fecha de confirmación",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {
