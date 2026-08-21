@@ -54,6 +54,16 @@ func (a autoridadCoberturaErrorComposicionPrueba) ResolverContextoCanalCobertura
 	return httpinterno.ContextoCanalCobertura{}, a.err
 }
 
+type autoridadAnalisisErrorComposicionPrueba struct {
+	err error
+}
+
+func (a autoridadAnalisisErrorComposicionPrueba) ResolverContextoCanalAnalisisRRHH(
+	context.Context,
+) (httpinterno.ContextoCanalAnalisisRRHH, error) {
+	return httpinterno.ContextoCanalAnalisisRRHH{}, a.err
+}
+
 type negocioContratacionNoInvocablePrueba struct {
 	altas           atomic.Int64
 	propuestas      atomic.Int64
@@ -107,6 +117,31 @@ func (n *negocioContratacionNoInvocablePrueba) total() int64 {
 		n.decisiones.Load() + n.rectificaciones.Load() + n.consultas.Load()
 }
 
+type negocioAnalisisNoInvocablePrueba struct {
+	registros       atomic.Int64
+	rectificaciones atomic.Int64
+}
+
+func (n *negocioAnalisisNoInvocablePrueba) Registrar(
+	context.Context,
+	contratacionapp.SolicitudRegistrarAnalisis,
+) (ports.ReciboOperacionAnalisis, error) {
+	n.registros.Add(1)
+	return ports.ReciboOperacionAnalisis{}, nil
+}
+
+func (n *negocioAnalisisNoInvocablePrueba) Rectificar(
+	context.Context,
+	contratacionapp.SolicitudRectificarAnalisis,
+) (ports.ReciboOperacionAnalisis, error) {
+	n.rectificaciones.Add(1)
+	return ports.ReciboOperacionAnalisis{}, nil
+}
+
+func (n *negocioAnalisisNoInvocablePrueba) total() int64 {
+	return n.registros.Load() + n.rectificaciones.Load()
+}
+
 func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
@@ -145,16 +180,20 @@ func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
 		httpinterno.RutaPropuestaCobertura,
 		httpinterno.RutaDecisionCobertura,
 		httpinterno.RutaRectificacionCobertura,
+		httpinterno.RutaRegistroAnalisisRRHH,
+		httpinterno.RutaRectificacionAnalisisRRHH,
 	}
 	for _, caso := range casos {
 		caso := caso
 		t.Run(caso.nombre, func(t *testing.T) {
 			t.Parallel()
 			negocio := &negocioContratacionNoInvocablePrueba{}
+			analisis := &negocioAnalisisNoInvocablePrueba{}
 			handler := nuevoHandlerContratacionErrorPrueba(
 				t,
 				caso.err,
 				negocio,
+				analisis,
 				autoridadDespachoContratacionPrueba{},
 			)
 			for _, ruta := range rutas {
@@ -176,7 +215,7 @@ func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
 					)
 				}
 			}
-			if llamadas := negocio.total(); llamadas != 0 {
+			if llamadas := negocio.total() + analisis.total(); llamadas != 0 {
 				t.Fatalf("el negocio recibio %d llamadas", llamadas)
 			}
 		})
@@ -188,10 +227,12 @@ func TestRutaResultadoCoberturaExigeAutoridadExteriorAntesDelConsultor(
 ) {
 	t.Parallel()
 	negocio := &negocioContratacionNoInvocablePrueba{}
+	analisis := &negocioAnalisisNoInvocablePrueba{}
 	handler := nuevoHandlerContratacionErrorPrueba(
 		t,
 		httpinterno.ErrContextoCanalNoDisponible,
 		negocio,
+		analisis,
 		autoridadDespachoContratacionDenegadaPrueba{},
 	)
 	respuesta := httptest.NewRecorder()
@@ -220,6 +261,7 @@ func nuevoHandlerContratacionErrorPrueba(
 	t *testing.T,
 	errAutoridad error,
 	negocio *negocioContratacionNoInvocablePrueba,
+	analisis *negocioAnalisisNoInvocablePrueba,
 	autoridad httpapi.AutoridadRutasExactas,
 ) *httpapi.Handler {
 	t.Helper()
@@ -230,6 +272,10 @@ func nuevoHandlerContratacionErrorPrueba(
 			},
 			EjecutorAlta: negocio,
 			Reloj:        relojComposicionPrueba{},
+			AutoridadAnalisis: autoridadAnalisisErrorComposicionPrueba{
+				err: errAutoridad,
+			},
+			EjecutorAnalisis: analisis,
 			AutoridadCobertura: autoridadCoberturaErrorComposicionPrueba{
 				err: errAutoridad,
 			},
@@ -284,6 +330,35 @@ func nuevaPeticionContratacionErrorPrueba(ruta string) *http.Request {
 		cuerpo = `{
 			"expediente_ref":"expediente:ct:0001",
 			"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"
+		}`
+	} else if ruta == httpinterno.RutaRegistroAnalisisRRHH ||
+		ruta == httpinterno.RutaRectificacionAnalisisRRHH {
+		motivo := ""
+		version := "1"
+		if ruta == httpinterno.RutaRectificacionAnalisisRRHH {
+			motivo = `"motivo_rectificacion_clave":"ajuste_jornada",`
+			version = "2"
+		}
+		cuerpo = `{
+			"expediente_ref":"expediente:analisis:http:001",
+			"version_esperada":` + version + `,
+			"clave_idempotencia":"11111111-2222-4333-8444-555555555555",
+			"artefacto_ref":"artefacto:analisis:http:001",` + motivo + `
+			"analisis":{
+				"modalidad_clave":"interinidad",
+				"categoria_ref":"categoria:tecnico:001",
+				"grupo_subgrupo":"A2",
+				"causa_clave":"sustitucion",
+				"periodo":{
+					"inicio":"2026-09-01T00:00:00Z",
+					"fin":"2027-02-28T00:00:00Z"
+				},
+				"porcentaje_jornada":7500,
+				"entrada_rc":{
+					"referencia":"entrada:rc:http:001",
+					"huella_sha256":"` + strings.Repeat("9", 64) + `"
+				}
+			}
 		}`
 	}
 	peticion := httptest.NewRequest(
