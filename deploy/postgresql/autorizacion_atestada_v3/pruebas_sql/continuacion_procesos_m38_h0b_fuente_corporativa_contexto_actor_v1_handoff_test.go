@@ -22,6 +22,28 @@ import (
 
 func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	t.Helper()
+	raizRuntime := os.Getenv("TMPDIR")
+	if raizRuntime == "" || !filepath.IsAbs(raizRuntime) {
+		t.Fatalf("caso %s sin TMPDIR privado absoluto", caso)
+	}
+	infoRuntime, err := os.Lstat(raizRuntime)
+	if err != nil || !infoRuntime.IsDir() || infoRuntime.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("caso %s con TMPDIR no acreditable: %v", caso, err)
+	}
+	antesRuntime, err := os.ReadDir(raizRuntime)
+	if err != nil || len(antesRuntime) != 0 {
+		t.Fatalf("inventario temporal inicial %s: err=%v entradas=%d", caso, err, len(antesRuntime))
+	}
+	runtimeSelector, err := os.MkdirTemp(raizRuntime, "o3c-p5-"+caso+"-")
+	if err != nil {
+		t.Fatalf("temporal privado %s: %v", caso, err)
+	}
+	retiradoRuntime := false
+	defer func() {
+		if !retiradoRuntime {
+			_ = os.RemoveAll(runtimeSelector)
+		}
+	}()
 	var subreaper int32
 	_, _, errno := syscall.Syscall6(syscall.SYS_PRCTL, 37, uintptr(unsafe.Pointer(&subreaper)), 0, 0, 0, 0)
 	if errno != 0 {
@@ -34,16 +56,24 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	defer syscall.Syscall6(syscall.SYS_PRCTL, 36, uintptr(subreaper), 0, 0, 0, 0)
 	antes := hijosDirectosO3cP5Prueba()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestHandoffO3cP5CasosAislados$")
-	cmd.Env = append(os.Environ(), "O3C_P5_CASO="+caso)
+	cmd.Env = entornoRuntimeHandoffO3cP5Prueba(caso, runtimeSelector)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	despues := hijosDirectosO3cP5Prueba()
 	residuoAntesDeLimpiar := false
 	for pid := range despues {
 		residuoAntesDeLimpiar = residuoAntesDeLimpiar || !antes[pid]
 	}
-	if !retirarDescendientesO3cP5Prueba(antes) {
+	hijosRetirados := retirarDescendientesO3cP5Prueba(antes)
+	errRuntime := os.RemoveAll(runtimeSelector)
+	despuesRuntime, errInventario := os.ReadDir(raizRuntime)
+	retiradoRuntime = errRuntime == nil && errInventario == nil && len(despuesRuntime) == 0
+	if !retiradoRuntime {
+		t.Fatalf("caso %s dejó temporal: retirar=%v inventario=%v antes=%d después=%d", caso,
+			errRuntime, errInventario, len(antesRuntime), len(despuesRuntime))
+	}
+	if !hijosRetirados {
 		t.Fatalf("caso %s dejó hijos o zombis", caso)
 	}
 	if (caso == "retirada" || caso == "retirada_terminal") && residuoAntesDeLimpiar {
@@ -59,6 +89,19 @@ func ejecutarHandoffO3cP5Aislado(t *testing.T, caso string, estado int) {
 	if !errors.As(err, &salida) || salida.ExitCode() != estado || stdout.Len() != 0 || stderr.Len() != 0 {
 		t.Fatalf("caso fatal %s: err=%v stdout=%d stderr=%d", caso, err, stdout.Len(), stderr.Len())
 	}
+}
+
+func entornoRuntimeHandoffO3cP5Prueba(caso, runtimeSelector string) []string {
+	entorno := make([]string, 0, len(os.Environ())+4)
+	for _, entrada := range os.Environ() {
+		if strings.HasPrefix(entrada, "HOME=") || strings.HasPrefix(entrada, "TMPDIR=") ||
+			strings.HasPrefix(entrada, "GOTMPDIR=") || strings.HasPrefix(entrada, "O3C_P5_CASO=") {
+			continue
+		}
+		entorno = append(entorno, entrada)
+	}
+	return append(entorno, "HOME="+runtimeSelector, "TMPDIR="+runtimeSelector,
+		"GOTMPDIR="+runtimeSelector, "O3C_P5_CASO="+caso)
 }
 
 func hijosDirectosO3cP5Prueba() map[int]bool {
@@ -145,7 +188,7 @@ func TestHandoffO3cP5CasosAislados(t *testing.T) {
 		_ = transferirHandoffO3cM38(&alias)
 		os.Exit(99)
 	}
-	os.Exit(0)
+	return
 }
 
 func autoridadRetiradaRealO3cP5(t *testing.T) *autoridadContinuacionO3cM38 {
@@ -178,7 +221,7 @@ func probarRetiradaO3cP5(t *testing.T, caso string) {
 	if err == nil || a != nil || !alias.es(continuacionC8RetiradoM38) || alias.custodia != nil || alias.salida != nil || alias.autoridad != nil {
 		os.Exit(20)
 	}
-	os.Exit(0)
+	return
 }
 
 func syscallCloseO3cP5Prueba(fd int) error { return syscall.Close(fd) }

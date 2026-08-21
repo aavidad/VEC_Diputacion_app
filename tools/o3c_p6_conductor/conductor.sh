@@ -27,7 +27,9 @@ go_bin="$goroot/bin/go"
 
 staging=$(mktemp -d /var/tmp/o3c-p6.XXXXXX)
 trap 'rm -rf -- "$staging"' EXIT
-mkdir "$staging/cache" "$staging/tmp"
+runtime_tmp="$staging/runtime-tmp"
+build_tmp="$staging/build-tmp"
+mkdir "$staging/cache" "$build_tmp" "$runtime_tmp"
 destino_evidencia=$evidencia
 evidencia="$staging/evidencia"
 mkdir -m 700 "$evidencia"
@@ -45,9 +47,9 @@ archivos=()
 [[ ${#archivos[@]} -eq 32 ]] || { printf 'NO-GO cardinalidad fuentes\n' >&2; exit 1; }
 
 cd "$target"
-entorno=(env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$staging/tmp" GOTMPDIR="$staging/tmp" GOCACHE="$staging/cache" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local CGO_ENABLED=0)
+entorno=(env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$build_tmp" GOTMPDIR="$build_tmp" GOCACHE="$staging/cache" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local CGO_ENABLED=0)
 "${entorno[@]}" "$go_bin" test -c -buildvcs=false -o "$staging/o3c-normal" "${archivos[@]}"
-entorno_race=(env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$staging/tmp" GOTMPDIR="$staging/tmp" GOCACHE="$staging/cache" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local CGO_ENABLED=1)
+entorno_race=(env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$build_tmp" GOTMPDIR="$build_tmp" GOCACHE="$staging/cache" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local CGO_ENABLED=1)
 "${entorno_race[@]}" "$go_bin" test -race -c -buildvcs=false -o "$staging/o3c-race" "${archivos[@]}"
 
 sha_target=$(sha256sum "$evidencia/fuentes.tsv" | cut -d' ' -f1)
@@ -74,7 +76,7 @@ inventario() {
     estado=${campos[0]}; grupo=${campos[2]}; ((nh+=1)); [[ $estado == Z ]] && ((nz+=1)); grupos[$grupo]=1
   done
   shopt -s nullglob dotglob
-  for temporal in "$staging/tmp"/*; do [[ -e $temporal ]] && ((nt+=1)); done
+  for temporal in "$runtime_tmp"/*; do [[ -e $temporal ]] && ((nt+=1)); done
   shopt -u nullglob dotglob
   printf -v "$dfd" %d "$nfd"; printf -v "$dh" %d "$nh"; printf -v "$dz" %d "$nz"; printf -v "$dg" %d "${#grupos[@]}"; printf -v "$dt" %d "$nt"
 }
@@ -83,12 +85,18 @@ inventario() {
 # proceso que aún responda en el grupo es residuo: se mata solo para contener
 # el fixture, pero la fila conserva NO-GO y nunca se acepta como evidencia.
 ejecutar_aislado() {
-  local out=$1 err=$2; shift 2
-  local lider
+  local id=$1 modo=$2 out=$3 err=$4; shift 4
+  local lider etiqueta=${id,,} runtime_aislado
+  [[ $etiqueta =~ ^[a-z0-9_]+$ && $modo =~ ^(normal|race)$ ]] || return 2
+  runtime_aislado=$(mktemp -d "$runtime_tmp/${etiqueta}-${modo}.XXXXXX")
+  chmod 0700 "$runtime_aislado"
+  mkdir -m 0700 "$runtime_aislado/home" "$runtime_aislado/tmp"
   set +e
   # El lock pertenece solo al conductor; nunca se hereda como sexto FD del
   # target ni contamina el inventario que se pretende acreditar.
-  setsid timeout --signal=KILL 180 "$@" 9>&- >"$out" 2>"$err" &
+  setsid timeout --signal=KILL 180 env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$runtime_aislado/home" \
+    TMPDIR="$runtime_aislado/tmp" GOTMPDIR="$runtime_aislado/tmp" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local \
+    "$@" 9>&- >"$out" 2>"$err" &
   lider=$!
   wait "$lider"
   estado_aislado=$?
@@ -106,6 +114,10 @@ ejecutar_aislado() {
     sleep 0.01
   done
   kill -0 -- "-$lider" 2>/dev/null && grupo_cero_aislado=no
+  runtime_cero_aislado=si
+  if ! rm -rf -- "$runtime_aislado" || [[ -e $runtime_aislado || -L $runtime_aislado ]]; then
+    runtime_cero_aislado=no
+  fi
   return 0
 }
 
@@ -113,9 +125,9 @@ ejecutar() {
   local id=$1 modo=$2 patron=$3 oraculo=$4 bin=$5 out="$staging/out" err="$staging/err"
   local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado resultado=GO
   inventario fdi hi zi gi ti; inicio=${EPOCHREALTIME/./}
-  ejecutar_aislado "$out" "$err" "$bin" "-test.run=^(${patron})$" -test.count=1; estado=$estado_aislado
+  ejecutar_aislado "$id" "$modo" "$out" "$err" "$bin" "-test.run=^(${patron})$" -test.count=1; estado=$estado_aislado
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf
-  [[ $estado -eq 0 && $grupo_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
+  [[ $estado -eq 0 && $grupo_cero_aislado == si && $runtime_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
   printf '%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n' "$id" "$modo" "testbin -test.run=^(${patron})$ -test.count=1" "$sha_target" "$estado" "$(wc -c <"$out")" "$(wc -c <"$err")" "$(((fin-inicio)/1000))" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" "$grupo_cero_aislado" "$oraculo" "$resultado" >> "$evidencia/casos.tsv"
   if [[ $resultado != GO ]]; then
     "$publicador_fallo" publicar "$evidencia" "$destino_evidencia" "$out" "$err" "$id" "$modo" "$estado" "$grupo_cero_aislado" \
@@ -129,9 +141,9 @@ ejecutar_bf() {
   local id=$1 modo=$2 variable=$3 valor=$4 prueba=$5 oraculo=$6 bin=$7 out="$staging/out" err="$staging/err"
   local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado so se resultado=GO
   inventario fdi hi zi gi ti; inicio=${EPOCHREALTIME/./}
-  ejecutar_aislado "$out" "$err" env "$variable=$valor" "$bin" "-test.run=^${prueba}$" -test.count=1; estado=$estado_aislado
+  ejecutar_aislado "$id" "$modo" "$out" "$err" env "$variable=$valor" "$bin" "-test.run=^${prueba}$" -test.count=1; estado=$estado_aislado
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf; so=$(wc -c <"$out"); se=$(wc -c <"$err")
-  [[ $estado -eq 65 && $so -eq 0 && $se -eq 0 && $grupo_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
+  [[ $estado -eq 65 && $so -eq 0 && $se -eq 0 && $grupo_cero_aislado == si && $runtime_cero_aislado == si && $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
   printf '%s\t%s\t%s\t%s\t%d\t%d\t%d\tsi\tsi\tsi\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n' "$id" "$modo" "env $variable=$valor testbin -test.run=^${prueba}$ -test.count=1" "$sha_target" "$estado" "$so" "$se" "$(((fin-inicio)/1000))" "$fdi" "$fdf" "$hi" "$hf" "$zi" "$zf" "$gi" "$gf" "$ti" "$tf" "$grupo_cero_aislado" "$oraculo" "$resultado" >> "$evidencia/bf_directos.tsv"
   if [[ $resultado != GO ]]; then
     "$publicador_fallo" publicar "$evidencia" "$destino_evidencia" "$out" "$err" "$id" "$modo" "$estado" "$grupo_cero_aislado" \
