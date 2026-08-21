@@ -51,8 +51,9 @@ type ReferenciaNormativaInformeJuridico struct {
 }
 
 type AnexoDocumentalInformeJuridico struct {
-	DocumentoRef string `json:"documento_ref"`
-	HuellaSHA256 string `json:"huella_sha256"`
+	DocumentoRef     string `json:"documento_ref"`
+	VersionDocumento uint64 `json:"version_documento"`
+	HuellaSHA256     string `json:"huella_sha256"`
 }
 
 // DatosBorradorInformeJuridico solo liga identidades gobernadas. No contiene
@@ -135,30 +136,47 @@ func normalizarDatosBorradorInformeJuridico(
 	datos DatosBorradorInformeJuridico,
 ) (DatosBorradorInformeJuridico, error) {
 	if datos.Canon != CanonBorradorInformeJuridicoV1() ||
-		!referenciaValida(datos.ExpedienteRef) ||
 		!versionInformeJuridicoValida(datos.VersionEsperadaExpediente) ||
-		!referenciaPlantillaInformeJuridicoValida(datos.Plantilla) ||
 		len(datos.ReferenciasNormativas) == 0 ||
 		len(datos.ReferenciasNormativas) > maximoReferenciasNormativasInformeJuridico ||
 		len(datos.Anexos) > maximoAnexosInformeJuridico {
 		return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
 	}
-	total := len(datos.ExpedienteRef) + len(datos.Plantilla.PlantillaRef) +
-		len(datos.Plantilla.HuellaSHA256)
+	// El presupuesto se descuenta antes de validadores, copias y ordenaciones:
+	// una entrada sobredimensionada no debe provocar reservas proporcionales.
+	restante := maximoBytesReferenciasInformeJuridico
+	if !consumirBytesInformeJuridico(&restante, len(datos.ExpedienteRef)) ||
+		!consumirBytesInformeJuridico(&restante, len(datos.Plantilla.PlantillaRef)) ||
+		!consumirBytesInformeJuridico(&restante, len(datos.Plantilla.HuellaSHA256)) {
+		return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
+	}
+	for _, referencia := range datos.ReferenciasNormativas {
+		if !consumirBytesInformeJuridico(&restante, len(referencia.NormaRef)) ||
+			!consumirBytesInformeJuridico(&restante, len(referencia.HuellaSHA256)) {
+			return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
+		}
+	}
+	for _, anexo := range datos.Anexos {
+		if !consumirBytesInformeJuridico(&restante, len(anexo.DocumentoRef)) ||
+			!consumirBytesInformeJuridico(&restante, len(anexo.HuellaSHA256)) {
+			return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
+		}
+	}
+	if !referenciaValida(datos.ExpedienteRef) ||
+		!referenciaPlantillaInformeJuridicoValida(datos.Plantilla) {
+		return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
+	}
 	for _, referencia := range datos.ReferenciasNormativas {
 		if !referenciaNormativaInformeJuridicoValida(referencia) {
 			return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
 		}
-		total += len(referencia.NormaRef) + len(referencia.HuellaSHA256)
 	}
 	for _, anexo := range datos.Anexos {
-		if !referenciaValida(anexo.DocumentoRef) || !huellaValida(anexo.HuellaSHA256) {
+		if !anexoDocumentalInformeJuridicoValido(anexo) {
 			return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
 		}
-		total += len(anexo.DocumentoRef) + len(anexo.HuellaSHA256)
 	}
-	if total > maximoBytesReferenciasInformeJuridico ||
-		tieneDuplicadosInformeJuridico(datos) {
+	if tieneDuplicadosInformeJuridico(datos) {
 		return DatosBorradorInformeJuridico{}, ErrBorradorInformeJuridicoInvalido
 	}
 	normalizados := datos
@@ -171,9 +189,20 @@ func normalizarDatosBorradorInformeJuridico(
 			normalizados.ReferenciasNormativas[j].NormaRef
 	})
 	sort.Slice(normalizados.Anexos, func(i, j int) bool {
-		return normalizados.Anexos[i].DocumentoRef < normalizados.Anexos[j].DocumentoRef
+		if normalizados.Anexos[i].DocumentoRef != normalizados.Anexos[j].DocumentoRef {
+			return normalizados.Anexos[i].DocumentoRef < normalizados.Anexos[j].DocumentoRef
+		}
+		return normalizados.Anexos[i].VersionDocumento < normalizados.Anexos[j].VersionDocumento
 	})
 	return normalizados, nil
+}
+
+func consumirBytesInformeJuridico(restante *int, longitud int) bool {
+	if longitud > *restante {
+		return false
+	}
+	*restante -= longitud
+	return true
 }
 
 func tieneDuplicadosInformeJuridico(datos DatosBorradorInformeJuridico) bool {
@@ -186,7 +215,8 @@ func tieneDuplicadosInformeJuridico(datos DatosBorradorInformeJuridico) bool {
 	}
 	for i, anexo := range datos.Anexos {
 		for j := 0; j < i; j++ {
-			if anexo.DocumentoRef == datos.Anexos[j].DocumentoRef {
+			if anexo.DocumentoRef == datos.Anexos[j].DocumentoRef &&
+				anexo.VersionDocumento == datos.Anexos[j].VersionDocumento {
 				return true
 			}
 		}
@@ -202,6 +232,11 @@ func referenciaPlantillaInformeJuridicoValida(r ReferenciaPlantillaInformeJuridi
 func referenciaNormativaInformeJuridicoValida(r ReferenciaNormativaInformeJuridico) bool {
 	return referenciaValida(r.NormaRef) && versionInformeJuridicoValida(r.Version) &&
 		huellaValida(r.HuellaSHA256)
+}
+
+func anexoDocumentalInformeJuridicoValido(a AnexoDocumentalInformeJuridico) bool {
+	return referenciaValida(a.DocumentoRef) && versionInformeJuridicoValida(a.VersionDocumento) &&
+		huellaValida(a.HuellaSHA256)
 }
 
 func versionInformeJuridicoValida(version uint64) bool {
@@ -226,6 +261,7 @@ func materialCanonicoInformeJuridico(datos DatosBorradorInformeJuridico) []byte 
 	e.entero16(uint16(len(datos.Anexos)))
 	for _, anexo := range datos.Anexos {
 		e.cadena(anexo.DocumentoRef)
+		e.entero64(anexo.VersionDocumento)
 		e.cadena(anexo.HuellaSHA256)
 	}
 	return append([]byte(nil), e.Bytes()...)

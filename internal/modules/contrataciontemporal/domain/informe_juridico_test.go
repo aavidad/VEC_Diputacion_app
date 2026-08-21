@@ -23,10 +23,10 @@ func TestInformeJuridicoConstruyeCanonRestauraYVerificaHuella(t *testing.T) {
 	}
 	suma := sha256.Sum256(material)
 	huella := hex.EncodeToString(suma[:])
-	const huellaEsperada = "bfd05972f66408600f6d5a1dbc49a55c35a2cb7eee0595cf1cf12a1bfcc3d30f"
+	const huellaEsperada = "4cb476f1a8b82c0622e41413d1675e4324e4f120d7815cc1eb1ab1346e70d7c6"
 	if huella != huellaEsperada || huella != borrador.HuellaSHA256() ||
 		!borrador.VerificarHuellaSHA256(huella) {
-		t.Fatal("la huella no es el SHA-256 exacto del canon")
+		t.Fatalf("la huella no es el SHA-256 exacto del canon: %s", huella)
 	}
 	if borrador.VerificarHuellaSHA256(strings.Repeat("f", 64)) {
 		t.Fatal("se acepto una huella distinta")
@@ -39,6 +39,9 @@ func TestInformeJuridicoConstruyeCanonRestauraYVerificaHuella(t *testing.T) {
 	var estado EstadoBorradorInformeJuridico
 	if err := json.Unmarshal(codificado, &estado); err != nil {
 		t.Fatalf("restaurar estado JSON: %v", err)
+	}
+	if estado.Anexos[0].VersionDocumento != datos.Anexos[0].VersionDocumento {
+		t.Fatal("el snapshot no conservo la version documental")
 	}
 	restaurado, err := RestaurarBorradorInformeJuridico(estado)
 	if err != nil {
@@ -61,19 +64,23 @@ func TestInformeJuridicoCanonOrdenadoYCopiasDefensivas(t *testing.T) {
 	}
 	datos.ReferenciasNormativas[0].NormaRef = "norma:alterada"
 	datos.Anexos[0].DocumentoRef = "documento:alterado"
+	datos.Anexos[0].VersionDocumento = 1
 
 	estado := borrador.Estado()
 	if estado.ReferenciasNormativas[0].NormaRef != "norma:empleo-publico:trebep" ||
-		estado.Anexos[0].DocumentoRef != "documento:analisis-rrhh:01" {
+		estado.Anexos[0].DocumentoRef != "documento:analisis-rrhh:01" ||
+		estado.Anexos[0].VersionDocumento != 11 {
 		t.Fatal("el constructor no ordeno o compartio las entradas")
 	}
 	estado.ReferenciasNormativas[0].NormaRef = "norma:otra"
 	estado.Anexos[0].DocumentoRef = "documento:otro"
+	estado.Anexos[0].VersionDocumento = 2
 	materialAntes, _ := borrador.SerializarCanonico()
 	materialAntes[0] ^= 0xff
 	materialDespues, _ := borrador.SerializarCanonico()
 	if borrador.Estado().ReferenciasNormativas[0].NormaRef != "norma:empleo-publico:trebep" ||
 		borrador.Estado().Anexos[0].DocumentoRef != "documento:analisis-rrhh:01" ||
+		borrador.Estado().Anexos[0].VersionDocumento != 11 ||
 		materialAntes[0] == materialDespues[0] {
 		t.Fatal("una salida comparte memoria con el borrador")
 	}
@@ -86,6 +93,21 @@ func TestInformeJuridicoCanonOrdenadoYCopiasDefensivas(t *testing.T) {
 	if !reflect.DeepEqual(materialDespues, canonOrdenado) ||
 		borrador.HuellaSHA256() != ordenado.HuellaSHA256() {
 		t.Fatal("el orden de entrada cambio el canon")
+	}
+
+	versiones := datosInformeJuridicoPrueba()
+	versiones.Anexos = []AnexoDocumentalInformeJuridico{
+		{DocumentoRef: "documento:versionado:01", VersionDocumento: maximoEnteroSeguroInformeJuridico, HuellaSHA256: strings.Repeat("d", 64)},
+		{DocumentoRef: "documento:versionado:01", VersionDocumento: 1, HuellaSHA256: strings.Repeat("e", 64)},
+	}
+	versionado, err := NuevoBorradorInformeJuridico(versiones)
+	if err != nil {
+		t.Fatalf("construir anexos con versiones distintas: %v", err)
+	}
+	estadoVersionado := versionado.Estado()
+	if estadoVersionado.Anexos[0].VersionDocumento != 1 ||
+		estadoVersionado.Anexos[1].VersionDocumento != maximoEnteroSeguroInformeJuridico {
+		t.Fatal("los anexos no se ordenaron por referencia y version documental")
 	}
 }
 
@@ -104,9 +126,13 @@ func TestInformeJuridicoRechazaVersionesReferenciasHuellasYDuplicados(t *testing
 		"normativa duplicada": func(d *DatosBorradorInformeJuridico) {
 			d.ReferenciasNormativas[1].NormaRef = d.ReferenciasNormativas[0].NormaRef
 		},
-		"anexo":           func(d *DatosBorradorInformeJuridico) { d.Anexos[0].DocumentoRef = "x" },
-		"huella anexo":    func(d *DatosBorradorInformeJuridico) { d.Anexos[0].HuellaSHA256 = strings.Repeat("0", 64) },
-		"anexo duplicado": func(d *DatosBorradorInformeJuridico) { d.Anexos[1].DocumentoRef = d.Anexos[0].DocumentoRef },
+		"anexo":         func(d *DatosBorradorInformeJuridico) { d.Anexos[0].DocumentoRef = "x" },
+		"version anexo": func(d *DatosBorradorInformeJuridico) { d.Anexos[0].VersionDocumento = 0 },
+		"huella anexo":  func(d *DatosBorradorInformeJuridico) { d.Anexos[0].HuellaSHA256 = strings.Repeat("0", 64) },
+		"anexo duplicado": func(d *DatosBorradorInformeJuridico) {
+			d.Anexos[1].DocumentoRef = d.Anexos[0].DocumentoRef
+			d.Anexos[1].VersionDocumento = d.Anexos[0].VersionDocumento
+		},
 	}
 	for nombre, alterar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -120,46 +146,98 @@ func TestInformeJuridicoRechazaVersionesReferenciasHuellasYDuplicados(t *testing
 }
 
 func TestInformeJuridicoValidaLimitesAntesDeCopiar(t *testing.T) {
+	datosMaximos := datosInformeJuridicoEnLimitesMaximos(t)
+	if _, err := NuevoBorradorInformeJuridico(datosMaximos); err != nil {
+		t.Fatalf("se rechazo cardinalidad o tamano maximo: %v", err)
+	}
+
 	datos := datosInformeJuridicoPrueba()
-	datos.ReferenciasNormativas = make(
-		[]ReferenciaNormativaInformeJuridico,
-		maximoReferenciasNormativasInformeJuridico+1,
-	)
-	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
-		t.Fatalf("se acepto cardinalidad normativa excesiva: %v", err)
-	}
-	datos = datosInformeJuridicoPrueba()
-	datos.Anexos = make([]AnexoDocumentalInformeJuridico, maximoAnexosInformeJuridico+1)
-	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
-		t.Fatalf("se acepto cardinalidad de anexos excesiva: %v", err)
-	}
-	datos = datosInformeJuridicoPrueba()
 	datos.VersionEsperadaExpediente = maximoEnteroSeguroInformeJuridico + 1
 	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
 		t.Fatalf("se acepto una version no interoperable: %v", err)
 	}
-	datos = datosInformeJuridicoPrueba()
+	datos.Anexos[0].VersionDocumento = maximoEnteroSeguroInformeJuridico + 1
+	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
+		t.Fatalf("se acepto una version documental no interoperable: %v", err)
+	}
+
+	cardinalidadNormativa := datosMaximos
+	cardinalidadNormativa.ReferenciasNormativas = append(
+		append([]ReferenciaNormativaInformeJuridico(nil), datosMaximos.ReferenciasNormativas...),
+		ReferenciaNormativaInformeJuridico{},
+	)
+	cardinalidadAnexos := datosMaximos
+	cardinalidadAnexos.Anexos = append(
+		append([]AnexoDocumentalInformeJuridico(nil), datosMaximos.Anexos...),
+		AnexoDocumentalInformeJuridico{},
+	)
+	tamanoExcesivo := datosMaximos
+	tamanoExcesivo.ReferenciasNormativas = append(
+		[]ReferenciaNormativaInformeJuridico(nil), datosMaximos.ReferenciasNormativas...,
+	)
+	tamanoExcesivo.ReferenciasNormativas[0].NormaRef += "x"
+
+	casos := map[string]DatosBorradorInformeJuridico{
+		"cardinalidad normativa maxima mas uno": cardinalidadNormativa,
+		"cardinalidad anexos maxima mas uno":    cardinalidadAnexos,
+		"tamano maximo mas uno":                 tamanoExcesivo,
+	}
+	for nombre, caso := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			var errRutaTemprana error
+			asignaciones := testing.AllocsPerRun(1_000, func() {
+				_, errRutaTemprana = NuevoBorradorInformeJuridico(caso)
+			})
+			if !errors.Is(errRutaTemprana, ErrBorradorInformeJuridicoInvalido) {
+				t.Fatalf("se acepto el limite excedido: %v", errRutaTemprana)
+			}
+			if asignaciones != 0 {
+				t.Fatalf("la ruta temprana copio o reservo memoria: %.0f asignaciones", asignaciones)
+			}
+		})
+	}
+}
+
+func datosInformeJuridicoEnLimitesMaximos(t *testing.T) DatosBorradorInformeJuridico {
+	t.Helper()
+	datos := datosInformeJuridicoPrueba()
 	datos.ReferenciasNormativas = make(
 		[]ReferenciaNormativaInformeJuridico,
 		maximoReferenciasNormativasInformeJuridico,
 	)
 	datos.Anexos = make([]AnexoDocumentalInformeJuridico, maximoAnexosInformeJuridico)
+
+	const bytesHuellas = (maximoReferenciasNormativasInformeJuridico + maximoAnexosInformeJuridico) * 64
+	bytesFijos := len(datos.ExpedienteRef) + len(datos.Plantilla.PlantillaRef) +
+		len(datos.Plantilla.HuellaSHA256) + bytesHuellas
+	entradas := len(datos.ReferenciasNormativas) + len(datos.Anexos)
+	bytesReferencias := maximoBytesReferenciasInformeJuridico - bytesFijos
+	longitudBase, restantes := bytesReferencias/entradas, bytesReferencias%entradas
+
+	longitud := func(indice int) int {
+		if indice < restantes {
+			return longitudBase + 1
+		}
+		return longitudBase
+	}
 	for indice := range datos.ReferenciasNormativas {
 		prefijo := fmt.Sprintf("norma:%02d:", indice)
 		datos.ReferenciasNormativas[indice] = ReferenciaNormativaInformeJuridico{
-			NormaRef:     prefijo + strings.Repeat("n", 159-len(prefijo)),
-			Version:      1,
+			NormaRef:     prefijo + strings.Repeat("n", longitud(indice)-len(prefijo)),
+			Version:      uint64(indice + 1),
 			HuellaSHA256: strings.Repeat("a", 64),
 		}
-		prefijo = fmt.Sprintf("anexo:%02d:", indice)
+	}
+	for indice := range datos.Anexos {
+		posicion := len(datos.ReferenciasNormativas) + indice
+		prefijo := fmt.Sprintf("anexo:%02d:", indice)
 		datos.Anexos[indice] = AnexoDocumentalInformeJuridico{
-			DocumentoRef: prefijo + strings.Repeat("d", 159-len(prefijo)),
-			HuellaSHA256: strings.Repeat("b", 64),
+			DocumentoRef:     prefijo + strings.Repeat("d", longitud(posicion)-len(prefijo)),
+			VersionDocumento: uint64(indice + 1),
+			HuellaSHA256:     strings.Repeat("b", 64),
 		}
 	}
-	if _, err := NuevoBorradorInformeJuridico(datos); !errors.Is(err, ErrBorradorInformeJuridicoInvalido) {
-		t.Fatalf("se acepto un tamano agregado excesivo: %v", err)
-	}
+	return datos
 }
 
 func TestInformeJuridicoRechazaRestauracionAdulterada(t *testing.T) {
@@ -172,7 +250,10 @@ func TestInformeJuridicoRechazaRestauracionAdulterada(t *testing.T) {
 		"plantilla":  func(e *EstadoBorradorInformeJuridico) { e.Plantilla.Version++ },
 		"normativa":  func(e *EstadoBorradorInformeJuridico) { e.ReferenciasNormativas[0].Version++ },
 		"anexo":      func(e *EstadoBorradorInformeJuridico) { e.Anexos[0].DocumentoRef = "documento:alterado:01" },
-		"huella":     func(e *EstadoBorradorInformeJuridico) { e.HuellaSHA256 = strings.Repeat("f", 64) },
+		"version anexo": func(e *EstadoBorradorInformeJuridico) {
+			e.Anexos[0].VersionDocumento++
+		},
+		"huella": func(e *EstadoBorradorInformeJuridico) { e.HuellaSHA256 = strings.Repeat("f", 64) },
 	}
 	for nombre, alterar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -200,8 +281,8 @@ func datosInformeJuridicoPrueba() DatosBorradorInformeJuridico {
 			{NormaRef: "norma:procedimiento:ley-39-2015", Version: 2, HuellaSHA256: strings.Repeat("c", 64)},
 		},
 		Anexos: []AnexoDocumentalInformeJuridico{
-			{DocumentoRef: "documento:analisis-rrhh:01", HuellaSHA256: strings.Repeat("d", 64)},
-			{DocumentoRef: "documento:cobertura:01", HuellaSHA256: strings.Repeat("e", 64)},
+			{DocumentoRef: "documento:analisis-rrhh:01", VersionDocumento: 11, HuellaSHA256: strings.Repeat("d", 64)},
+			{DocumentoRef: "documento:cobertura:01", VersionDocumento: 7, HuellaSHA256: strings.Repeat("e", 64)},
 		},
 	}
 }
