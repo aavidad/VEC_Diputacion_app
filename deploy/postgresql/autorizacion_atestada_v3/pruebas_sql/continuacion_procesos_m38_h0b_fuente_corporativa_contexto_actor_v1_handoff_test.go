@@ -158,7 +158,6 @@ func TestHandoffO3cP5CasosAislados(t *testing.T) {
 		return
 	}
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 	if strings.HasPrefix(caso, "retirada") {
 		probarRetiradaO3cP5(t, caso)
 		return

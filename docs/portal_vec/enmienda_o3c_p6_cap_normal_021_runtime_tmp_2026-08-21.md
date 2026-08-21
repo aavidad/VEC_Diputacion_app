@@ -26,6 +26,23 @@ GO: corrige únicamente la causa demostrada por la sonda de siete selectores,
 que obtuvo los estados esperados y salida cero, pero acumuló una entrada en
 el runtime temporal por selector.
 
+## Primer candidato rojo preservado
+
+El primer candidato `4d2951f83057490390c4e4e25927c5b06e0f868c` recibió una
+única corrida canónica. Terminó `NO-GO` en `C17_OWNERS`, normal, estado 1,
+stdout 200, stderr 0, grupo ausente e inventarios
+`6/6,0/0,0/0,0/0,0/0`. El publicador V2 conservó el paquete exacto bajo la
+raíz privada de evidencias del usuario `orquesta`; `SHA256SUMS` es
+`a5c4434ee7e04c3877641ed1b1d6d2c63e3e66bfc43bb77ca8708249419fda64`.
+No se repitió esa corrida.
+
+La salida sellada atribuye el fallo al selector positivo: al sustituir
+`os.Exit(0)` por retorno normal, se activaron tanto el `testing.Cleanup` del
+fixture —que ya libera el hilo fijado— como el `defer` local que intentaba
+liberarlo por segunda vez. La corrección retira únicamente ese `defer`
+duplicado. Los recorridos fatales, la fijación inicial del hilo y la limpieza
+propietaria del fixture permanecen invariantes.
+
 Son autoridad funcional directa:
 
 - la decisión O3c, en particular C21 y C22;
