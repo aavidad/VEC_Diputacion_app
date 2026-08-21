@@ -41,7 +41,7 @@ huella_padre_publicacion=
 destino_publicacion_go=
 limpiar_temporales_propios() {
   [[ -z $temporal_publicacion_go ]] || rm -rf -- "$temporal_publicacion_go"
-  rm -rf -- "$staging"
+  [[ -z $staging ]] || rm -rf -- "$staging"
 }
 trap limpiar_temporales_propios EXIT
 runtime_tmp="$staging/runtime-tmp"
@@ -123,6 +123,7 @@ sha_target=$(sha256sum "$evidencia/fuentes.tsv" | cut -d' ' -f1)
 printf 'modo\tsha_binario\nnormal\t%s\nrace\t%s\n' "$(sha256sum "$staging/o3c-normal" | cut -d' ' -f1)" "$(sha256sum "$staging/o3c-race" | cut -d' ' -f1)" > "$evidencia/binarios.tsv"
 registrar_contexto() {
   local head_publicacion=$1 tree_publicacion=$2 status_vacio=$3 unstaged_vacio=$4 staged_vacio=$5 salida=${6:-$evidencia/contexto.tsv}
+  [[ -f $salida && ! -L $salida ]] || return 2
   printf 'head_inicial\thead_snapshot\thead_publicacion\ttree_inicial\ttree_snapshot\ttree_publicacion\tstatus_vacio\tunstaged_vacio\tstaged_vacio\tgo_version\teuid\tsha_conductor\tsha_publicador_fallo\tsha_matriz\tsha_fuentes\tsha_target\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$head_inicial" "$head_final" "$head_publicacion" "$tree_inicial" "$tree_final" "$tree_publicacion" \
     "$status_vacio" "$unstaged_vacio" "$staged_vacio" "$($go_bin version)" "$EUID" \
@@ -130,7 +131,9 @@ registrar_contexto() {
     "$(sha256sum "$publicador_fallo" | cut -d' ' -f1)" "$(sha256sum "$casos" | cut -d' ' -f1)" \
     "$(sha256sum "$fuentes" | cut -d' ' -f1)" "$sha_target" > "$salida"
 }
-registrar_contexto pendiente pendiente pendiente pendiente pendiente
+: > "$evidencia/contexto.tsv"
+chmod 0600 "$evidencia/contexto.tsv"
+registrar_contexto pendiente pendiente pendiente pendiente pendiente "$evidencia/contexto.tsv"
 cabecera='id\tmodo\tcomando\tsha_target\testado\tstdout_bytes\tstderr_bytes\tduracion_ms\tfd_inicio\tfd_fin\thijos_inicio\thijos_fin\tzombis_inicio\tzombis_fin\tgrupos_inicio\tgrupos_fin\ttemporales_inicio\ttemporales_fin\ttmpdir_inicio\tresiduos_pre_limpieza\ttmpdir_fin\ttmpdir_acreditable\tcontenedor_retirado\tfd_ambiente_cerrado\tselectores_esperados\tselectores_obtenidos\tselectores_acreditados\tgrupo_ejecucion_esrch\toraculo\tresultado'
 printf '%b\n' "$cabecera" > "$evidencia/casos.tsv"
 printf '%b\n' "${cabecera/estado\\tstdout_bytes\\tstderr_bytes/estado\\tstdout_bytes\\tstderr_bytes\\tstdout_eof\\tstderr_eof\\tno_retorno}" > "$evidencia/bf_directos.tsv"
@@ -178,12 +181,12 @@ retirar_entradas_tmpdir() {
 }
 
 validar_atestaciones_selectores() {
-  local id=$1 modo=$2 esperados=$3 ruta=$4 cabecera_local linea selector
+  local id=$1 modo=$2 esperados=$3 ruta=$4 huella_esperada=$5 cabecera_local linea selector
   local -a campos=()
   local -A vistos=()
   selectores_obtenidos_aislado=0
   selectores_acreditados_aislado=no
-  [[ -f $ruta && ! -L $ruta && $(stat -c '%u:%a' -- "$ruta") == "$EUID:600" ]] || return 1
+  [[ -f $ruta && ! -L $ruta && $(stat -c '%d:%i:%u:%a' -- "$ruta") == "$huella_esperada" ]] || return 1
   IFS= read -r cabecera_local < "$ruta" || return 1
   [[ $cabecera_local == $'selector\tdev\tinode\tuid\tmodo_dir\tentradas_inicio\tidentidad_pre_limpieza\tresiduos_pre_limpieza\tlstat_enoent\traiz_exterior_vacia\tretirada\tresultado' ]] || return 1
   while IFS= read -r linea; do
@@ -228,7 +231,7 @@ escribir_fila() {
 # el fixture, pero la fila conserva NO-GO y nunca se acepta como evidencia.
 ejecutar_aislado() {
   local id=$1 modo=$2 out=$3 err=$4 selectores_esperados=$5; shift 5
-  local lider etiqueta=${id,,} runtime_aislado descriptor numero_fd huella_tmpdir_aislado atestacion_selectores fd_marker fd_marker_value
+  local lider etiqueta=${id,,} runtime_aislado descriptor numero_fd huella_tmpdir_aislado atestacion_selectores atestacion_selectores_huella fd_marker fd_marker_value fd_marker_huella
   [[ $etiqueta =~ ^[a-z0-9_]+$ && $modo =~ ^(normal|race)$ ]] || return 2
   runtime_aislado=$(mktemp -d "$runtime_tmp/${etiqueta}-${modo}.XXXXXX")
   chmod 0700 "$runtime_aislado"
@@ -236,6 +239,7 @@ ejecutar_aislado() {
   atestacion_selectores="$runtime_aislado/atestacion-selectores.tsv"
   printf 'selector\tdev\tinode\tuid\tmodo_dir\tentradas_inicio\tidentidad_pre_limpieza\tresiduos_pre_limpieza\tlstat_enoent\traiz_exterior_vacia\tretirada\tresultado\n' > "$atestacion_selectores"
   chmod 0600 "$atestacion_selectores"
+  atestacion_selectores_huella=$(stat -c '%d:%i:%u:%a' -- "$atestacion_selectores")
   tmp_inicio_aislado=-1
   residuos_pre_limpieza_aislado=-1
   tmp_fin_aislado=-1
@@ -251,19 +255,22 @@ ejecutar_aislado() {
   fi
   set +e
   fd_marker="$runtime_aislado/fd-ambiental"
+  : > "$fd_marker"
+  chmod 0600 "$fd_marker"
+  fd_marker_huella=$(stat -c '%d:%i:%u:%a' -- "$fd_marker")
   # El proceso intermedio cierra todo descriptor ambiental >=3 antes de
   # convertirse en el líder de sesión. stdout/stderr se fijan externamente.
   (
     for descriptor in /proc/self/fd/*; do
       numero_fd=${descriptor##*/}
-      if [[ $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
+      if [[ -e $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
         eval "exec ${numero_fd}>&-"
       fi
     done
     fd_ambiental_residual=no
     for descriptor in /proc/self/fd/*; do
       numero_fd=${descriptor##*/}
-      if [[ $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
+      if [[ -e $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
         fd_ambiental_residual=si
       fi
     done
@@ -284,7 +291,9 @@ ejecutar_aislado() {
   wait "$lider"
   estado_aislado=$?
   set -e
-  if [[ -f $fd_marker && ! -L $fd_marker ]] && read -r fd_marker_value < "$fd_marker" && [[ $fd_marker_value == si ]]; then
+  if [[ -f $fd_marker && ! -L $fd_marker && $(stat -c '%d:%i:%u:%a' -- "$fd_marker") == "$fd_marker_huella" ]] &&
+    read -r fd_marker_value < "$fd_marker" && [[ $fd_marker_value == si ]] &&
+    [[ $(wc -c < "$fd_marker") -eq 3 ]]; then
     fd_ambiente_cerrado_aislado=si
   fi
   rm -f -- "$fd_marker"
@@ -301,7 +310,7 @@ ejecutar_aislado() {
     sleep 0.01
   done
   kill -0 -- "-$lider" 2>/dev/null && grupo_cero_aislado=no
-  validar_atestaciones_selectores "$id" "$modo" "$selectores_esperados" "$atestacion_selectores" ||
+  validar_atestaciones_selectores "$id" "$modo" "$selectores_esperados" "$atestacion_selectores" "$atestacion_selectores_huella" ||
     selectores_acreditados_aislado=no
   if ! contar_entradas_tmpdir "$runtime_aislado/tmp" residuos_pre_limpieza_aislado ||
     ! retirar_entradas_tmpdir "$runtime_aislado/tmp" ||
@@ -322,7 +331,7 @@ ejecutar() {
   local id=$1 modo=$2 patron=$3 oraculo=$4 bin=$5 out="$staging/out" err="$staging/err"
   local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado resultado=GO selectores_esperados=0
   case "$id" in
-    C18_O4A_OPACO|C19_RETIRADA|C20_POST_CONT|C21_FRONTERA|C22_RESIDUOS|CAP_*) selectores_esperados=7 ;;
+    C17_OWNERS|C18_O4A_OPACO|C19_RETIRADA|C20_POST_CONT|C22_RESIDUOS|CAP_*) selectores_esperados=7 ;;
   esac
   inventario fdi hi zi gi ti; inicio=${EPOCHREALTIME/./}
   ejecutar_aislado "$id" "$modo" "$out" "$err" "$selectores_esperados" \

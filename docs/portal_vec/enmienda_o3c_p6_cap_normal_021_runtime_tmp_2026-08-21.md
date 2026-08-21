@@ -107,8 +107,9 @@ Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
 runtime privado. El proceso padre mide las entradas del `TMPDIR` efectivo
 antes y después del hijo, registra también los residuos que existen antes de
 la limpieza, y retira solamente esas entradas conservando el directorio y su
-identidad física. La atestación TSV se escribe fuera del `TMPDIR` del hijo y
-se filtra de su entorno. Después de `Lstat=ENOENT` del selector, el padre
+identidad física. La atestación TSV se precrea fuera del `TMPDIR` del hijo,
+congela su huella dev:inode/UID/modo y se filtra de su entorno; cualquier
+sustitución de esa ruta invalida el agregado. Después de `Lstat=ENOENT` del selector, el padre
 acredita que la raíz exterior queda vacía; la retirada del contenedor se
 acredita en una columna separada, también cuando el hijo termina con estado
 fatal 65.
