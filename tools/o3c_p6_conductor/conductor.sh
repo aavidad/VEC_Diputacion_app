@@ -37,6 +37,8 @@ fi
 
 staging=$(mktemp -d /var/tmp/o3c-p6.XXXXXX)
 temporal_publicacion_go=
+helper_bin_noreplace=
+sha_helper_noreplace_global=
 huella_padre_publicacion=
 destino_publicacion_go=
 limpiar_temporales_propios() {
@@ -55,7 +57,7 @@ mkdir -m 700 "$evidencia"
 
 printf 'nombre\truta\tsha256\n' > "$evidencia/utilidades.tsv"
 printf 'go\t%s\t%s\n' "$go_bin" "$(sha256sum "$go_bin" | cut -d' ' -f1)" >> "$evidencia/utilidades.tsv"
-for utilidad in bash cat chmod cp cut dirname env flock git grep mkdir mktemp mv realpath rm seq setsid sha256sum sleep sort stat tail timeout wc; do
+for utilidad in bash cat chmod cp cut dirname env flock git grep mkdir mktemp realpath rm seq setsid sha256sum sleep sort stat timeout wc; do
   ruta_utilidad=$(type -P "$utilidad")
   [[ $ruta_utilidad == /* && -f $ruta_utilidad && ! -L $ruta_utilidad && -x $ruta_utilidad ]] || {
     printf 'NO-GO utilidad %s\n' "$utilidad" >&2
@@ -66,6 +68,19 @@ done
 
 archivos=()
 declare -A rutas_ledger=()
+casos_privados="$staging/casos.tsv"
+fuentes_privadas="$staging/fuentes.tsv"
+cp -- "$casos" "$casos_privados"
+cp -- "$fuentes" "$fuentes_privadas"
+chmod 0400 "$casos_privados" "$fuentes_privadas"
+[[ -f $casos_privados && ! -L $casos_privados && -f $fuentes_privadas && ! -L $fuentes_privadas ]] || {
+  printf 'NO-GO ledger privado no acreditable\n' >&2
+  exit 1
+}
+sha_matriz_privada=$(sha256sum "$casos_privados" | cut -d' ' -f1)
+sha_fuentes_privadas=$(sha256sum "$fuentes_privadas" | cut -d' ' -f1)
+casos=$casos_privados
+fuentes=$fuentes_privadas
 {
   printf 'sha256\truta\n'
   while IFS=$'\t' read -r sha ruta; do
@@ -128,8 +143,8 @@ registrar_contexto() {
     "$head_inicial" "$head_final" "$head_publicacion" "$tree_inicial" "$tree_final" "$tree_publicacion" \
     "$status_vacio" "$unstaged_vacio" "$staged_vacio" "$($go_bin version)" "$EUID" \
     "$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)" \
-    "$(sha256sum "$publicador_fallo" | cut -d' ' -f1)" "$(sha256sum "$casos" | cut -d' ' -f1)" \
-    "$(sha256sum "$fuentes" | cut -d' ' -f1)" "$sha_target" > "$salida"
+    "$(sha256sum "$publicador_fallo" | cut -d' ' -f1)" "$sha_matriz_privada" \
+    "$sha_fuentes_privadas" "$sha_target" > "$salida"
 }
 : > "$evidencia/contexto.tsv"
 chmod 0600 "$evidencia/contexto.tsv"
@@ -181,39 +196,42 @@ retirar_entradas_tmpdir() {
 }
 
 validar_atestaciones_selectores() {
-  local id=$1 modo=$2 esperados=$3 ruta=$4 huella_esperada=$5 cabecera_local linea selector
+  local id=$1 modo=$2 esperados=$3 huella_esperada=$4 atestacion_fd=$5 cabecera_local linea selector huella_fd
   local -a campos=()
   local -A vistos=()
   selectores_obtenidos_aislado=0
   selectores_acreditados_aislado=no
-  [[ -f $ruta && ! -L $ruta && $(stat -c '%d:%i:%u:%a' -- "$ruta") == "$huella_esperada" ]] || return 1
-  IFS= read -r cabecera_local < "$ruta" || return 1
-  [[ $cabecera_local == $'selector\tdev\tinode\tuid\tmodo_dir\tentradas_inicio\tidentidad_pre_limpieza\tresiduos_pre_limpieza\tlstat_enoent\traiz_exterior_vacia\tretirada\tresultado' ]] || return 1
-  while IFS= read -r linea; do
-    [[ -n $linea ]] || return 1
+  huella_fd=$(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$atestacion_fd") || { exec {atestacion_fd}<&-; return 1; }
+  [[ $huella_fd == "$huella_esperada" ]] || { exec {atestacion_fd}<&-; return 1; }
+  IFS= read -r cabecera_local <&"$atestacion_fd" || { exec {atestacion_fd}<&-; return 1; }
+  [[ $cabecera_local == $'selector\tdev\tinode\tuid\tmodo_dir\tentradas_inicio\tidentidad_pre_limpieza\tresiduos_pre_limpieza\tlstat_enoent\traiz_exterior_vacia\tretirada\tresultado' ]] || { exec {atestacion_fd}<&-; return 1; }
+  while IFS= read -r linea <&"$atestacion_fd"; do
+    [[ -n $linea ]] || { exec {atestacion_fd}<&-; return 1; }
     IFS=$'\t' read -r -a campos <<< "$linea"
-    [[ ${#campos[@]} -eq 12 ]] || return 1
+    [[ ${#campos[@]} -eq 12 ]] || { exec {atestacion_fd}<&-; return 1; }
     selector=${campos[0]}
     [[ $selector =~ ^(positivo|retirada|retirada_terminal|reuso|particion|retirada_sin_ref|retirada_plazo)$ &&
       -z ${vistos[$selector]+presente} && ${campos[1]} =~ ^[0-9]+$ && ${campos[2]} =~ ^[0-9]+$ &&
       ${campos[3]} == "$EUID" && ${campos[4]} == 700 && ${campos[5]} == 0 &&
       ${campos[6]} == true && ${campos[7]} =~ ^[0-9]+$ && ${campos[8]} == true &&
-      ${campos[9]} == true && ${campos[10]} == true && ${campos[11]} == GO ]] || return 1
+      ${campos[9]} == true && ${campos[10]} == true && ${campos[11]} == GO ]] || { exec {atestacion_fd}<&-; return 1; }
     vistos[$selector]=1
     ((selectores_obtenidos_aislado+=1))
     printf '%s\t%s\t%s\n' "$id" "$modo" "$linea" >> "$evidencia/tmpdir_selectores.tsv"
-  done < <(tail -n +2 -- "$ruta")
-  [[ $selectores_obtenidos_aislado -eq $esperados ]] || return 1
+  done
+  [[ $selectores_obtenidos_aislado -eq $esperados ]] || { exec {atestacion_fd}<&-; return 1; }
   if [[ $esperados -eq 7 ]]; then
     for selector in positivo retirada retirada_terminal reuso particion retirada_sin_ref retirada_plazo; do
-      [[ -n ${vistos[$selector]+presente} ]] || return 1
+      [[ -n ${vistos[$selector]+presente} ]] || { exec {atestacion_fd}<&-; return 1; }
     done
   elif [[ $esperados -eq 1 ]]; then
-    [[ -n ${vistos[particion]+presente} ]] || return 1
+    [[ -n ${vistos[particion]+presente} ]] || { exec {atestacion_fd}<&-; return 1; }
   elif [[ $esperados -ne 0 ]]; then
+    exec {atestacion_fd}<&-
     return 1
   fi
   selectores_acreditados_aislado=si
+  exec {atestacion_fd}<&-
 }
 
 escribir_fila() {
@@ -231,7 +249,7 @@ escribir_fila() {
 # el fixture, pero la fila conserva NO-GO y nunca se acepta como evidencia.
 ejecutar_aislado() {
   local id=$1 modo=$2 out=$3 err=$4 selectores_esperados=$5; shift 5
-  local lider etiqueta=${id,,} runtime_aislado descriptor numero_fd huella_tmpdir_aislado atestacion_selectores atestacion_selectores_huella fd_marker fd_marker_value fd_marker_huella
+  local lider etiqueta=${id,,} runtime_aislado descriptor numero_fd huella_tmpdir_aislado atestacion_selectores atestacion_selectores_huella atestacion_fd fd_marker fd_marker_fd fd_marker_value fd_marker_huella
   [[ $etiqueta =~ ^[a-z0-9_]+$ && $modo =~ ^(normal|race)$ ]] || return 2
   runtime_aislado=$(mktemp -d "$runtime_tmp/${etiqueta}-${modo}.XXXXXX")
   chmod 0700 "$runtime_aislado"
@@ -240,6 +258,7 @@ ejecutar_aislado() {
   printf 'selector\tdev\tinode\tuid\tmodo_dir\tentradas_inicio\tidentidad_pre_limpieza\tresiduos_pre_limpieza\tlstat_enoent\traiz_exterior_vacia\tretirada\tresultado\n' > "$atestacion_selectores"
   chmod 0600 "$atestacion_selectores"
   atestacion_selectores_huella=$(stat -c '%d:%i:%u:%a' -- "$atestacion_selectores")
+  exec {atestacion_fd}< "$atestacion_selectores"
   tmp_inicio_aislado=-1
   residuos_pre_limpieza_aislado=-1
   tmp_fin_aislado=-1
@@ -258,6 +277,7 @@ ejecutar_aislado() {
   : > "$fd_marker"
   chmod 0600 "$fd_marker"
   fd_marker_huella=$(stat -c '%d:%i:%u:%a' -- "$fd_marker")
+  exec {fd_marker_fd}< "$fd_marker"
   # El proceso intermedio cierra todo descriptor ambiental >=3 antes de
   # convertirse en el líder de sesión. stdout/stderr se fijan externamente.
   (
@@ -291,11 +311,12 @@ ejecutar_aislado() {
   wait "$lider"
   estado_aislado=$?
   set -e
-  if [[ -f $fd_marker && ! -L $fd_marker && $(stat -c '%d:%i:%u:%a' -- "$fd_marker") == "$fd_marker_huella" ]] &&
-    read -r fd_marker_value < "$fd_marker" && [[ $fd_marker_value == si ]] &&
-    [[ $(wc -c < "$fd_marker") -eq 3 ]]; then
+  if [[ $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$fd_marker_fd") == "$fd_marker_huella" ]] &&
+    IFS= read -r fd_marker_value <&"$fd_marker_fd" && [[ $fd_marker_value == si ]] &&
+    ! IFS= read -r fd_marker_extra <&"$fd_marker_fd" && [[ -z ${fd_marker_extra:-} ]]; then
     fd_ambiente_cerrado_aislado=si
   fi
+  exec {fd_marker_fd}<&-
   rm -f -- "$fd_marker"
   grupo_cero_aislado=si
   if kill -0 -- "-$lider" 2>/dev/null; then
@@ -310,7 +331,7 @@ ejecutar_aislado() {
     sleep 0.01
   done
   kill -0 -- "-$lider" 2>/dev/null && grupo_cero_aislado=no
-  validar_atestaciones_selectores "$id" "$modo" "$selectores_esperados" "$atestacion_selectores" "$atestacion_selectores_huella" ||
+  validar_atestaciones_selectores "$id" "$modo" "$selectores_esperados" "$atestacion_selectores_huella" "$atestacion_fd" ||
     selectores_acreditados_aislado=no
   if ! contar_entradas_tmpdir "$runtime_aislado/tmp" residuos_pre_limpieza_aislado ||
     ! retirar_entradas_tmpdir "$runtime_aislado/tmp" ||
@@ -402,37 +423,103 @@ preparar_paquete_go() {
   propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
   modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
   [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
+  [[ $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
+}
+
+preparar_helper_noreplace() {
+  local helper_src helper_cache propietario modo huella_origen
+  [[ -d $temporal_publicacion_go && ! -L $temporal_publicacion_go ]] || return 2
+  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
+  modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
+  [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
+  helper_src="$staging/rename_noreplace.go"
+  helper_cache="$staging/rename-noreplace-cache"
+  helper_bin_noreplace="$temporal_publicacion_go/rename_noreplace"
+  mkdir -m 700 "$helper_cache"
+  cat > "$helper_src" <<'EOF'
+package main
+
+import (
+	"os"
+	"syscall"
+	"unsafe"
+)
+
+func main() {
+	if len(os.Args) != 3 {
+		os.Exit(2)
+	}
+	oldPath, err := syscall.BytePtrFromString(os.Args[1])
+	if err != nil {
+		os.Exit(2)
+	}
+	newPath, err := syscall.BytePtrFromString(os.Args[2])
+	if err != nil {
+		os.Exit(2)
+	}
+	const (
+		sysRenameat2    = 316
+		renameNoreplace = 1
+	)
+	atFdcwd := uintptr(^uint(99))
+	_, _, errno := syscall.Syscall6(sysRenameat2,
+		atFdcwd, uintptr(unsafe.Pointer(oldPath)),
+		atFdcwd, uintptr(unsafe.Pointer(newPath)),
+		renameNoreplace, 0)
+	if errno != 0 {
+		os.Exit(int(errno))
+	}
+}
+EOF
+  (
+    cd "$staging"
+    GOENV=off GOTOOLCHAIN=local GOROOT="$goroot" PATH="$goroot/bin:/usr/bin:/bin" \
+      HOME="$staging" GOCACHE="$helper_cache" \
+      "$go_bin" build -trimpath -o "$helper_bin_noreplace" "$helper_src"
+  ) || return 2
+  chmod 0700 "$helper_bin_noreplace"
+  sha_helper_noreplace_global=$(sha256sum "$helper_bin_noreplace" | cut -d' ' -f1)
+  rm -f -- "$helper_src"
+  rm -rf -- "$helper_cache"
+}
+
+sellar_paquete_go() {
+  local huella_origen propietario modo
+  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
+  modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
+  [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
+  printf 'metodo\thuella_origen\teuid\tmodo\tsha_helper_noreplace\tpostcondiciones\n' > "$temporal_publicacion_go/publicacion.tsv"
+  printf 'renameat2_RENAME_NOREPLACE\t%s\t%s\t%s\t%s\torigen_ausente+destino_real+identidad_conservada\n' \
+    "$huella_origen" "$EUID" "$modo" "$sha_helper_noreplace_global" >> "$temporal_publicacion_go/publicacion.tsv"
+  (
+    cd "$temporal_publicacion_go"
+    sha256sum bf_directos.tsv binarios.tsv casos.tsv contexto.tsv fuentes.tsv publicacion.tsv \
+      residuos.txt resumen.txt rename_noreplace tmpdir_selectores.tsv utilidades.tsv | sort -k2 > SHA256SUMS
+    sha256sum -c SHA256SUMS >/dev/null
+  )
 }
 
 publicar_go_sin_reemplazo() {
-  local destino=$1 padre nombre huella_origen huella_destino propietario modo
+  local destino=$1 padre nombre huella_origen huella_destino helper_bin
   padre=${destino%/*}
   nombre=${destino##*/}
   [[ $destino == "$destino_publicacion_go" && $destino == /* && $nombre != "$destino" &&
     -d $padre && ! -L $padre && ! -e $destino && ! -L $destino &&
     -d $temporal_publicacion_go && ! -L $temporal_publicacion_go ]] || return 2
   huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
-  propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
-  modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
-  [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
-  printf 'metodo\thuella_origen\teuid\tmodo\tpostcondiciones\n' > "$temporal_publicacion_go/publicacion.tsv"
-  printf 'mv_-n_-T\t%s\t%s\t%s\torigen_ausente+destino_real+identidad_conservada\n' \
-    "$huella_origen" "$EUID" "$modo" >> "$temporal_publicacion_go/publicacion.tsv"
-  (
-    cd "$temporal_publicacion_go"
-    sha256sum bf_directos.tsv binarios.tsv casos.tsv contexto.tsv fuentes.tsv publicacion.tsv \
-      residuos.txt resumen.txt tmpdir_selectores.tsv utilidades.tsv | sort -k2 > SHA256SUMS
-    sha256sum -c SHA256SUMS >/dev/null
-  )
-
+  helper_bin="$temporal_publicacion_go/rename_noreplace"
+  [[ -f $helper_bin && ! -L $helper_bin && $(stat -c '%F:%u:%a' -- "$helper_bin") == "regular file:$EUID:700" &&
+    $(sha256sum "$helper_bin" | cut -d' ' -f1) == "$sha_helper_noreplace_global" ]] || return 2
   [[ -d $padre && ! -L $padre && $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
-  mv -n -T -- "$temporal_publicacion_go" "$destino" || return 2
+  "$helper_bin" "$temporal_publicacion_go" "$destino" || return 2
   [[ ! -e $temporal_publicacion_go && ! -L $temporal_publicacion_go && -d $destino && ! -L $destino ]] || return 2
   huella_destino=$(stat -c '%d:%i' -- "$destino") || return 2
   [[ $huella_destino == "$huella_origen" && $(stat -c '%u:%a' -- "$destino") == "$EUID:700" &&
     $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
-  temporal_publicacion_go=
   (cd "$destino" && sha256sum -c SHA256SUMS >/dev/null)
+  temporal_publicacion_go=
 }
 
 for modo in normal race; do
@@ -473,8 +560,8 @@ base=$base
 go_version=$($go_bin version)
 sha_conductor=$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)
 sha_publicador_fallo=$(sha256sum "$publicador_fallo" | cut -d' ' -f1)
-sha_matriz=$(sha256sum "$casos" | cut -d' ' -f1)
-sha_fuentes=$(sha256sum "$fuentes" | cut -d' ' -f1)
+sha_matriz=$sha_matriz_privada
+sha_fuentes=$sha_fuentes_privadas
 sha_target=$sha_target
 fuentes=32
 oraculos=22_por_modo
@@ -496,29 +583,39 @@ preparar_paquete_go "$evidencia" "$destino_evidencia" || {
   printf 'NO-GO preparacion paquete GO no acreditada\n' >&2
   exit 1
 }
+preparar_helper_noreplace || {
+  printf 'NO-GO helper no acreditado\n' >&2
+  exit 1
+}
 staging_preparado=$staging
+cd "$raiz"
 rm -rf -- "$staging_preparado"
 [[ ! -e $staging_preparado && ! -L $staging_preparado ]] || {
   printf 'NO-GO staging no retirado\n' >&2
   exit 1
 }
 staging=
-head_publicacion=$(git -C "$target" rev-parse HEAD)
-tree_publicacion=$(git -C "$target" rev-parse 'HEAD^{tree}')
-status_vacio=no
-unstaged_vacio=no
-staged_vacio=no
-[[ -z $(git -C "$target" status --porcelain=v1 --untracked-files=all) ]] && status_vacio=si
-git -C "$target" diff --quiet && unstaged_vacio=si
-git -C "$target" diff --cached --quiet && staged_vacio=si
-[[ $head_publicacion == "$head_inicial" && $tree_publicacion == "$tree_inicial" &&
-  $status_vacio == si && $unstaged_vacio == si && $staged_vacio == si ]] || {
+head_post_staging=$(git -C "$target" rev-parse HEAD)
+tree_post_staging=$(git -C "$target" rev-parse 'HEAD^{tree}')
+status_post_staging=no
+unstaged_post_staging=no
+staged_post_staging=no
+[[ -z $(git -C "$target" status --porcelain=v1 --untracked-files=all) ]] && status_post_staging=si
+git -C "$target" diff --quiet && unstaged_post_staging=si
+git -C "$target" diff --cached --quiet && staged_post_staging=si
+[[ $head_post_staging == "$head_publicacion" && $tree_post_staging == "$tree_publicacion" &&
+  $status_post_staging == "$status_vacio" && $unstaged_post_staging == "$unstaged_vacio" &&
+  $staged_post_staging == "$staged_vacio" ]] || {
   printf 'NO-GO target mutado tras retirada staging\n' >&2
   exit 1
 }
 registrar_contexto "$head_publicacion" "$tree_publicacion" "$status_vacio" "$unstaged_vacio" "$staged_vacio" \
   "$temporal_publicacion_go/contexto.tsv"
 printf 'staging_retirado=si\n' >> "$temporal_publicacion_go/resumen.txt"
+sellar_paquete_go || {
+  printf 'NO-GO sello de publicacion no acreditado\n' >&2
+  exit 1
+}
 publicar_go_sin_reemplazo "$destino_evidencia" || {
   printf 'NO-GO publicacion GO no acreditada\n' >&2
   exit 1
