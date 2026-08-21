@@ -26,7 +26,7 @@ GO: corrige únicamente la causa demostrada por la sonda de siete selectores,
 que obtuvo los estados esperados y salida cero, pero acumuló una entrada en
 el runtime temporal por selector.
 
-## Primer candidato rojo preservado
+## Candidatos rojos preservados y atribución corregida
 
 El primer candidato `4d2951f83057490390c4e4e25927c5b06e0f868c` recibió una
 única corrida canónica. Terminó `NO-GO` en `C17_OWNERS`, normal, estado 1,
@@ -36,12 +36,34 @@ raíz privada de evidencias del usuario `orquesta`; `SHA256SUMS` es
 `a5c4434ee7e04c3877641ed1b1d6d2c63e3e66bfc43bb77ca8708249419fda64`.
 No se repitió esa corrida.
 
-La salida sellada atribuye el fallo al selector positivo: al sustituir
-`os.Exit(0)` por retorno normal, se activaron tanto el `testing.Cleanup` del
-fixture —que ya libera el hilo fijado— como el `defer` local que intentaba
-liberarlo por segunda vez. La corrección retira únicamente ese `defer`
-duplicado. Los recorridos fatales, la fijación inicial del hilo y la limpieza
-propietaria del fixture permanecen invariantes.
+El paquete sellado conserva solamente el fallo exterior y la línea que mide
+la ejecución interior: `err=exit status 2`, stdout 48 y stderr 1927. No
+conserva los 48 o 1927 bytes interiores, por lo que no acredita su contenido.
+La primera atribución a una doble liberación del hilo fue una inferencia del
+código —`defer runtime.UnlockOSThread()` local junto al `testing.Cleanup` de
+`autoridadRealBarreraO3bPruebaM38`—, no una conclusión contenida en el raw.
+
+El segundo candidato `6407fad5feb91330be3425c8feaea3fd31886460`
+retiró el `defer` y recibió una sola focal agregada de los siete selectores.
+Terminó también `NO-GO`, estado 1, stdout 200, stderr 0, con la misma medición
+interior 48/1927. Su paquete tiene `SHA256SUMS`
+`94e5fdca7f0de9297032f389e87c286042ec74ad4a7954293e69d04aacce42f2`.
+No recibió corrida canónica y no se repitió la focal. Este resultado refuta la
+atribución a la doble liberación y obliga a retirarla.
+
+La causa estructural visible es el `testing.Cleanup` heredado:
+`consolidarHandoffO3bM38` entrega la custodia y fija
+`autoridadCapturaO3bM38.custodia=nil`, mientras el cleanup registrado por
+`autoridadRealBarreraO3bPruebaM38` dereferencia después esa custodia. El
+retorno normal activa ese cleanup fuera de su precondición. Este corte no
+modifica el helper O3b ajeno: restaura los dos `os.Exit(0)` originales del
+hijo y el `defer runtime.UnlockOSThread()` original. La nueva capacidad de
+retirada temporal pertenece al padre y ocurre después de `cmd.Run`, con
+independencia de que el hijo termine mediante `os.Exit`.
+
+Una sonda anterior, ejecutada fuera del aislamiento canónico, heredó un FD
+ambiental y falló antes de alcanzar los selectores. Se conserva como intento
+inválido y no cuenta como GO, NO-GO ni evidencia causal.
 
 Son autoridad funcional directa:
 
@@ -83,8 +105,10 @@ Se exige conjuntamente:
 1. stdout y stderr de cero bytes;
 2. temporales antes=después=0 en la raíz privada;
 3. ningún hijo, zombi o grupo residual;
-4. la limpieza la realiza el padre y no depende de `defer` en el hijo fatal;
-5. los recorridos verdes retornan normalmente para ejecutar `testing.Cleanup`;
+4. la limpieza temporal la realiza el padre después de `cmd.Run` y no depende
+   de `defer` o `testing.Cleanup` en el hijo;
+5. los recorridos verdes conservan sus `os.Exit(0)` originales para no activar
+   un cleanup O3b cuya autoridad ya fue transferida;
 6. ningún estado se reintenta, tolera, reclasifica, salta o decide por mayoría.
 
 La corrida canónica conserva además 244 casos, seis BF directos, cien
@@ -101,9 +125,10 @@ cada selector crea una raíz `0700`, reemplaza de forma explícita `HOME`,
 contiene descendientes y retira la raíz. Solo entonces comprueba estado y
 salidas.
 
-Los dos puntos de éxito que antes llamaban `os.Exit(0)` retornan normalmente.
-Así se ejecutan las limpiezas registradas por el arnés; los cuatro caminos
-fatales conservan 65 y siguen siendo limpiados desde el padre.
+Los dos puntos de éxito conservan sus `os.Exit(0)` originales y la fijación de
+hilo conserva su `defer` original. El proceso padre no delega en esas salidas
+la limpieza temporal: espera el estado, contiene descendientes y retira la
+raíz privada por igual en éxito y en fatal 65.
 
 ### Conductor
 
@@ -132,22 +157,21 @@ workflows, estado transversal o métricas.
 
 ## Puertas y secuencia sin reintentos
 
-Antes del commit:
+Después del commit candidato y antes de ejecutar conducta:
 
 1. identidad, genealogía, limpieza, write-set y hashes;
 2. `gofmt -d` del único Go modificado;
 3. `bash -n` y ShellCheck del conductor, si la herramienta ya está presente;
-4. build normal y race de las 32 fuentes del ledger;
-5. una única ejecución focal normal de los siete selectores, cada selector
-   una vez, estados exactos, salida cero y cinco inventarios sin delta;
-6. validación mecánica de las 32 huellas del ledger;
-7. `go vet` focal, `git diff --check` y barrido de write-set.
+4. build normal y race de las 32 fuentes del ledger, sin ejecutar binarios;
+5. validación mecánica de las 32 huellas del ledger;
+6. `go vet` focal, `git diff --check` y barrido de write-set.
 
-Solo después del commit candidato se permite una única corrida canónica del
-conductor O3c, propiedad de `orquesta`, bajo lock cerrado, a un destino de
-evidencia nuevo. Si termina roja, el publicador V2 conserva el primer paquete
-y no se repite. Si termina verde, el mismo SHA recibe dos revisiones
-independientes; el productor no emite su propio GO.
+Después de esas puertas no conductuales se permite una única corrida canónica
+del conductor O3c, propiedad de `orquesta`, bajo lock cerrado, a un destino de
+evidencia nuevo. No se ejecuta una sonda ad hoc previa. Si termina roja, el
+publicador V2 conserva el primer paquete y ese SHA no se repite. Si termina
+verde, el mismo SHA recibe dos revisiones independientes; el productor no
+emite su propio GO.
 
 ## Límites
 

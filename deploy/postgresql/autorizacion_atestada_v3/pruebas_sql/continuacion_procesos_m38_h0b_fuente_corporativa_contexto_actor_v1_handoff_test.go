@@ -158,6 +158,7 @@ func TestHandoffO3cP5CasosAislados(t *testing.T) {
 		return
 	}
 	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	if strings.HasPrefix(caso, "retirada") {
 		probarRetiradaO3cP5(t, caso)
 		return
@@ -187,7 +188,7 @@ func TestHandoffO3cP5CasosAislados(t *testing.T) {
 		_ = transferirHandoffO3cM38(&alias)
 		os.Exit(99)
 	}
-	return
+	os.Exit(0)
 }
 
 func autoridadRetiradaRealO3cP5(t *testing.T) *autoridadContinuacionO3cM38 {
@@ -220,7 +221,7 @@ func probarRetiradaO3cP5(t *testing.T, caso string) {
 	if err == nil || a != nil || !alias.es(continuacionC8RetiradoM38) || alias.custodia != nil || alias.salida != nil || alias.autoridad != nil {
 		os.Exit(20)
 	}
-	return
+	os.Exit(0)
 }
 
 func syscallCloseO3cP5Prueba(fd int) error { return syscall.Close(fd) }
