@@ -12,16 +12,21 @@ go_bin="$goroot/bin/go"
 }
 PATH="$goroot/bin:/usr/bin:/bin"
 export PATH GOENV=off GOTOOLCHAIN=local
-exec 9>/var/tmp/o3c-p6-conductor.lock
-flock -n 9 || { printf 'NO-GO conductor concurrente\n' >&2; exit 2; }
 target=$(realpath "$1")
 evidencia=$(realpath -m "$2")
+destino_padre=${evidencia%/*}
+[[ $destino_padre == /* && -d $destino_padre && ! -L $destino_padre ]] || { printf 'NO-GO padre destino\n' >&2; exit 2; }
+huella_destino_padre=$(stat -c '%d:%i:%u:%a' -- "$destino_padre") || exit 2
+[[ $huella_destino_padre == *:"$EUID":700 ]] || { printf 'NO-GO padre destino\n' >&2; exit 2; }
+exec {destino_padre_fd}<"$destino_padre"
+[[ $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$destino_padre_fd") == "$huella_destino_padre" ]] || exit 2
+flock -n "$destino_padre_fd" || { printf 'NO-GO conductor concurrente\n' >&2; exit 2; }
 raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 unidad="$raiz/tools/o3c_p6_conductor"
 fuentes="$unidad/fuentes.tsv"
 casos="$unidad/casos.tsv"
 publicador_fallo="$unidad/fallo_durable.sh"
-base=c0f2a9945ed2fc5648980ee48b91424a04977655
+base=14c1f31079e466a82b8e1d390168078973cc6e05
 
 [[ -d $target && ! -L $target && ! -e $evidencia && ! -L $evidencia ]] || { printf 'NO-GO target/evidencia\n' >&2; exit 2; }
 [[ -x $publicador_fallo ]] || { printf 'NO-GO publicador_fallo\n' >&2; exit 2; }
@@ -39,8 +44,10 @@ staging=$(mktemp -d /var/tmp/o3c-p6.XXXXXX)
 temporal_publicacion_go=
 helper_bin_noreplace=
 sha_helper_noreplace_global=
+sha_sha256sums_global=
 huella_padre_publicacion=
 destino_publicacion_go=
+# shellcheck disable=SC2329  # invocada indirectamente por trap EXIT.
 limpiar_temporales_propios() {
   [[ -z $temporal_publicacion_go ]] || rm -rf -- "$temporal_publicacion_go"
   [[ -z $staging ]] || rm -rf -- "$staging"
@@ -57,7 +64,7 @@ mkdir -m 700 "$evidencia"
 
 printf 'nombre\truta\tsha256\n' > "$evidencia/utilidades.tsv"
 printf 'go\t%s\t%s\n' "$go_bin" "$(sha256sum "$go_bin" | cut -d' ' -f1)" >> "$evidencia/utilidades.tsv"
-for utilidad in bash cat chmod cp cut dirname env flock git grep mkdir mktemp realpath rm seq setsid sha256sum sleep sort stat timeout wc; do
+for utilidad in bash cat chmod cp cut dirname env flock git grep mkdir mkfifo mktemp realpath rm seq setsid sha256sum sleep sort stat timeout wc; do
   ruta_utilidad=$(type -P "$utilidad")
   [[ $ruta_utilidad == /* && -f $ruta_utilidad && ! -L $ruta_utilidad && -x $ruta_utilidad ]] || {
     printf 'NO-GO utilidad %s\n' "$utilidad" >&2
@@ -158,7 +165,7 @@ inventario() {
   local dfd=$1 dh=$2 dz=$3 dg=$4 dt=$5 fd hijos='' pid stat resto estado grupo temporal
   local nfd=0 nh=0 nz=0 nt=0
   local -A grupos=()
-  for fd in "/proc/$$/fd"/*; do [[ -e $fd ]] && ((nfd+=1)); done
+  for fd in "/proc/$$/fd"/*; do [[ -L $fd ]] && ((nfd+=1)); done
   read -r hijos < "/proc/$$/task/$$/children" || true
   for pid in $hijos; do
     [[ $pid =~ ^[0-9]+$ ]] || continue
@@ -248,8 +255,9 @@ escribir_fila() {
 # proceso que aún responda en el grupo es residuo: se mata solo para contener
 # el fixture, pero la fila conserva NO-GO y nunca se acepta como evidencia.
 ejecutar_aislado() {
-  local id=$1 modo=$2 out=$3 err=$4 selectores_esperados=$5; shift 5
-  local lider etiqueta=${id,,} runtime_aislado descriptor numero_fd huella_tmpdir_aislado atestacion_selectores atestacion_selectores_huella atestacion_fd fd_marker fd_marker_fd fd_marker_value fd_marker_huella
+  local id=$1 modo=$2 out=$3 err=$4 selectores_esperados=$5 env_assignment=; shift 5
+  if [[ ${1:-} == *=* ]]; then env_assignment=$1; shift; fi
+  local lider etiqueta=${id,,} runtime_aislado huella_tmpdir_aislado atestacion_selectores atestacion_selectores_huella atestacion_fd fd_marker fd_marker_fd fd_marker_value fd_marker_huella
   [[ $etiqueta =~ ^[a-z0-9_]+$ && $modo =~ ^(normal|race)$ ]] || return 2
   runtime_aislado=$(mktemp -d "$runtime_tmp/${etiqueta}-${modo}.XXXXXX")
   chmod 0700 "$runtime_aislado"
@@ -274,50 +282,36 @@ ejecutar_aislado() {
   fi
   set +e
   fd_marker="$runtime_aislado/fd-ambiental"
-  : > "$fd_marker"
-  chmod 0600 "$fd_marker"
-  fd_marker_huella=$(stat -c '%d:%i:%u:%a' -- "$fd_marker")
-  exec {fd_marker_fd}< "$fd_marker"
+  mkfifo -m 0600 "$fd_marker"
+  exec {fd_marker_bootstrap}<>"$fd_marker"
+  exec {fd_marker_fd}<"$fd_marker"
+  exec {fd_marker_writer_fd}>"$fd_marker"
+  exec {fd_marker_bootstrap}>&-
+  fd_marker_huella=$(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$fd_marker_fd")
+  rm -f -- "$fd_marker"
   # El proceso intermedio cierra todo descriptor ambiental >=3 antes de
   # convertirse en el líder de sesión. stdout/stderr se fijan externamente.
   (
-    for descriptor in /proc/self/fd/*; do
-      numero_fd=${descriptor##*/}
-      if [[ -e $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
-        eval "exec ${numero_fd}>&-"
-      fi
-    done
-    fd_ambiental_residual=no
-    for descriptor in /proc/self/fd/*; do
-      numero_fd=${descriptor##*/}
-      if [[ -e $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then
-        fd_ambiental_residual=si
-      fi
-    done
-    if [[ $fd_ambiental_residual == no ]]; then
-      printf 'si\n' > "$fd_marker"
-    else
-      printf 'no\n' > "$fd_marker"
-    fi
-    if [[ $selectores_esperados -gt 0 ]]; then
-      exec setsid timeout --signal=KILL 180 env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$runtime_aislado/home" \
-        TMPDIR="$runtime_aislado/tmp" GOTMPDIR="$runtime_aislado/tmp" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local \
-        O3C_P5_ATESTACION="$atestacion_selectores" "$@"
-    fi
-    exec setsid timeout --signal=KILL 180 env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$runtime_aislado/home" \
-      TMPDIR="$runtime_aislado/tmp" GOTMPDIR="$runtime_aislado/tmp" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local "$@"
+    local -a ambiente=(PATH="$goroot/bin:/usr/bin:/bin" HOME="$runtime_aislado/home" TMPDIR="$runtime_aislado/tmp" GOTMPDIR="$runtime_aislado/tmp" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local O3C_FD_MARKER_FD="$fd_marker_writer_fd")
+    [[ -z $env_assignment ]] || ambiente+=("$env_assignment")
+    # SC2016: las expansiones se difieren deliberadamente al wrapper hijo.
+    # shellcheck disable=SC2016
+    local script='marker_fd=$O3C_FD_MARKER_FD; unset O3C_FD_MARKER_FD; [[ $marker_fd =~ ^[0-9]+$ && $marker_fd -ge 3 ]] || exit 125; for descriptor in /proc/self/fd/*; do numero_fd=${descriptor##*/}; if [[ -L $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 && $numero_fd -ne $marker_fd ]]; then eval "exec ${numero_fd}>&-"; fi; done; fd_ambiental_residual=no; for descriptor in /proc/self/fd/*; do numero_fd=${descriptor##*/}; if [[ -L $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 && $numero_fd -ne $marker_fd ]]; then fd_ambiental_residual=si; fi; done; if [[ $fd_ambiental_residual == no ]]; then printf "si\\n" >&"$marker_fd" || exit 125; else printf "no\\n" >&"$marker_fd" || exit 125; fi; exec {marker_fd}>&- || exit 125; fd_ambiental_residual=no; for descriptor in /proc/self/fd/*; do numero_fd=${descriptor##*/}; if [[ -L $descriptor && $numero_fd =~ ^[0-9]+$ && $numero_fd -ge 3 ]]; then fd_ambiental_residual=si; fi; done; [[ $fd_ambiental_residual == no ]] || exit 125; exec "$@"'
+    [[ $selectores_esperados -gt 0 ]] && ambiente+=("O3C_P5_ATESTACION=$atestacion_selectores")
+    exec setsid timeout --signal=KILL 180 env -i "${ambiente[@]}" bash --noprofile --norc -c "$script" _ "$@"
   ) >"$out" 2>"$err" &
   lider=$!
+  exec {fd_marker_writer_fd}>&-
   wait "$lider"
   estado_aislado=$?
   set -e
+  fd_marker_extra=
   if [[ $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$fd_marker_fd") == "$fd_marker_huella" ]] &&
     IFS= read -r fd_marker_value <&"$fd_marker_fd" && [[ $fd_marker_value == si ]] &&
     ! IFS= read -r fd_marker_extra <&"$fd_marker_fd" && [[ -z ${fd_marker_extra:-} ]]; then
     fd_ambiente_cerrado_aislado=si
   fi
   exec {fd_marker_fd}<&-
-  rm -f -- "$fd_marker"
   grupo_cero_aislado=si
   if kill -0 -- "-$lider" 2>/dev/null; then
     grupo_cero_aislado=no
@@ -381,8 +375,8 @@ ejecutar_bf() {
   local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado so se resultado=GO selectores_esperados=0
   [[ $id == C17_BF_PARTICION ]] && selectores_esperados=1
   inventario fdi hi zi gi ti; inicio=${EPOCHREALTIME/./}
-  ejecutar_aislado "$id" "$modo" "$out" "$err" "$selectores_esperados" \
-    env "$variable=$valor" "$bin" "-test.run=^${prueba}$" -test.count=1; estado=$estado_aislado
+  ejecutar_aislado "$id" "$modo" "$out" "$err" "$selectores_esperados" "$variable=$valor" \
+    "$bin" "-test.run=^${prueba}$" -test.count=1; estado=$estado_aislado
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf; so=$(wc -c <"$out"); se=$(wc -c <"$err")
   [[ $estado -eq 65 && $so -eq 0 && $se -eq 0 && $grupo_cero_aislado == si &&
     $tmp_acreditable_aislado == si && $contenedor_retirado_aislado == si &&
@@ -410,7 +404,7 @@ preparar_paquete_go() {
   [[ $destino == /* && $nombre != "$destino" && -d $padre && ! -L $padre &&
     $(stat -c '%u:%a' -- "$padre") == "$EUID:700" &&
     -d $origen && ! -L $origen && ! -e $destino && ! -L $destino ]] || return 2
-  huella_padre_publicacion=$(stat -c '%d:%i' -- "$padre") || return 2
+  huella_padre_publicacion=$(stat -c '%d:%i:%u:%a' -- "$padre") || return 2
   destino_publicacion_go=$destino
 
   temporal_publicacion_go=$(mktemp -d "$padre/.${nombre}.go.XXXXXX")
@@ -419,17 +413,17 @@ preparar_paquete_go() {
     "$origen"/contexto.tsv "$origen"/fuentes.tsv "$origen"/residuos.txt \
     "$origen"/resumen.txt "$origen"/tmpdir_selectores.tsv "$origen"/utilidades.tsv \
     "$temporal_publicacion_go/"
-  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2
   propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
   modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
   [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
-  [[ $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
+  [[ $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$destino_padre_fd") == "$huella_padre_publicacion" ]] || return 2
 }
 
 preparar_helper_noreplace() {
   local helper_src helper_cache propietario modo huella_origen
   [[ -d $temporal_publicacion_go && ! -L $temporal_publicacion_go ]] || return 2
-  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2
   propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
   modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
   [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
@@ -441,32 +435,82 @@ preparar_helper_noreplace() {
 package main
 
 import (
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	if len(os.Args) != 8 {
 		os.Exit(2)
 	}
-	oldPath, err := syscall.BytePtrFromString(os.Args[1])
-	if err != nil {
-		os.Exit(2)
+	var fd int
+	if _, err := fmt.Sscan(os.Args[1], &fd); err != nil || fd < 0 { os.Exit(2) }
+	if os.Args[2] == "" || os.Args[3] == "" || os.Args[2] == "." || os.Args[2] == ".." || os.Args[3] == "." || os.Args[3] == ".." || filepath.Base(os.Args[2]) != os.Args[2] || filepath.Base(os.Args[3]) != os.Args[3] { os.Exit(2) }
+	parent := fd
+	var st syscall.Stat_t
+	if syscall.Fstat(parent, &st) != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&syscall.S_IFMT != syscall.S_IFDIR || st.Mode&0777 != 0700 { os.Exit(2) }
+	origin, err := syscall.Openat(parent, os.Args[2], syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil { os.Exit(2) }
+	defer syscall.Close(origin)
+	var ost syscall.Stat_t
+	if syscall.Fstat(origin, &ost) != nil || ost.Uid != uint32(os.Geteuid()) || ost.Mode&syscall.S_IFMT != syscall.S_IFDIR || ost.Mode&0777 != 0700 { os.Exit(2) }
+	if fmt.Sprintf("%d:%d:%d:%o", st.Dev, st.Ino, st.Uid, st.Mode&0777) != os.Args[4] || fmt.Sprintf("%d:%d:%d:%o", ost.Dev, ost.Ino, ost.Uid, ost.Mode&0777) != os.Args[5] { os.Exit(2) }
+	dirDup, err := syscall.Dup(origin)
+	if err != nil { os.Exit(2) }
+	dirFile := os.NewFile(uintptr(dirDup), "origin-dir")
+	names, err := dirFile.Readdirnames(-1)
+	dirFile.Close()
+	if err != nil { os.Exit(2) }
+	allowed := map[string]bool{"bf_directos.tsv": true, "binarios.tsv": true, "casos.tsv": true, "contexto.tsv": true, "fuentes.tsv": true, "publicacion.tsv": true, "residuos.txt": true, "resumen.txt": true, "rename_noreplace": true, "tmpdir_selectores.tsv": true, "utilidades.tsv": true, "SHA256SUMS": true}
+	seen := map[string]bool{}
+	for _, name := range names { if !allowed[name] || seen[name] { os.Exit(2) }; seen[name] = true }
+	if len(seen) != 12 { os.Exit(2) }
+	pathParent, err := syscall.Open(os.Args[7], syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil { os.Exit(2) }
+	defer syscall.Close(pathParent)
+	var pst syscall.Stat_t
+	if syscall.Fstat(pathParent, &pst) != nil || fmt.Sprintf("%d:%d:%d:%o", pst.Dev, pst.Ino, pst.Uid, pst.Mode&0777) != os.Args[4] { os.Exit(2) }
+	shaFD, err := syscall.Openat(origin, "SHA256SUMS", syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+	if err != nil { os.Exit(2) }
+	shaFile := os.NewFile(uintptr(shaFD), "SHA256SUMS")
+	shaBytes, err := io.ReadAll(shaFile)
+	if err != nil { os.Exit(2) }
+	if _, err = shaFile.Seek(0, 0); err != nil { os.Exit(2) }
+	h := sha256.Sum256(shaBytes)
+	if hex.EncodeToString(h[:]) != os.Args[6] { os.Exit(2) }
+	shaFile.Close()
+	checks := map[string]string{}
+	scanner := bufio.NewScanner(strings.NewReader(string(shaBytes)))
+	for scanner.Scan() {
+		parts := strings.Fields(scanner.Text())
+		if len(parts) != 2 || len(parts[0]) != 64 || checks[parts[1]] != "" { os.Exit(2) }
+		checks[parts[1]] = parts[0]
 	}
-	newPath, err := syscall.BytePtrFromString(os.Args[2])
-	if err != nil {
-		os.Exit(2)
+	if scanner.Err() != nil || len(checks) != 11 { os.Exit(2) }
+	for _, name := range []string{"bf_directos.tsv", "binarios.tsv", "casos.tsv", "contexto.tsv", "fuentes.tsv", "publicacion.tsv", "residuos.txt", "resumen.txt", "rename_noreplace", "tmpdir_selectores.tsv", "utilidades.tsv", "SHA256SUMS"} {
+		fd, err := syscall.Openat(origin, name, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
+		if err != nil { os.Exit(2) }
+		var entry syscall.Stat_t
+		ok := syscall.Fstat(fd, &entry) == nil && entry.Uid == uint32(os.Geteuid()) && entry.Mode&syscall.S_IFMT == syscall.S_IFREG
+		if ok && name != "SHA256SUMS" { file := os.NewFile(uintptr(fd), name); digest := sha256.New(); _, copyErr := io.Copy(digest, file); ok = copyErr == nil && hex.EncodeToString(digest.Sum(nil)) == checks[name]; file.Close() }
+		if name == "SHA256SUMS" { syscall.Close(fd) }
+		if !ok { os.Exit(2) }
 	}
 	const (
 		sysRenameat2    = 316
 		renameNoreplace = 1
 	)
-	atFdcwd := uintptr(^uint(99))
-	_, _, errno := syscall.Syscall6(sysRenameat2,
-		atFdcwd, uintptr(unsafe.Pointer(oldPath)),
-		atFdcwd, uintptr(unsafe.Pointer(newPath)),
-		renameNoreplace, 0)
+	oldPath, _ := syscall.BytePtrFromString(os.Args[2])
+	newPath, _ := syscall.BytePtrFromString(os.Args[3])
+	_, _, errno := syscall.Syscall6(sysRenameat2, uintptr(parent), uintptr(unsafe.Pointer(oldPath)), uintptr(parent), uintptr(unsafe.Pointer(newPath)), renameNoreplace, 0)
 	if errno != 0 {
 		os.Exit(int(errno))
 	}
@@ -474,8 +518,9 @@ func main() {
 EOF
   (
     cd "$staging"
-    GOENV=off GOTOOLCHAIN=local GOROOT="$goroot" PATH="$goroot/bin:/usr/bin:/bin" \
-      HOME="$staging" GOCACHE="$helper_cache" \
+    env -i PATH="$goroot/bin:/usr/bin:/bin" HOME="$staging" TMPDIR="$staging" \
+      GOTMPDIR="$staging" GOCACHE="$helper_cache" GOROOT="$goroot" \
+      GOENV=off GOTOOLCHAIN=local CGO_ENABLED=0 \
       "$go_bin" build -trimpath -o "$helper_bin_noreplace" "$helper_src"
   ) || return 2
   chmod 0700 "$helper_bin_noreplace"
@@ -486,39 +531,40 @@ EOF
 
 sellar_paquete_go() {
   local huella_origen propietario modo
-  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2
   propietario=$(stat -c '%u' -- "$temporal_publicacion_go") || return 2
   modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
   [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
-  printf 'metodo\thuella_origen\teuid\tmodo\tsha_helper_noreplace\tpostcondiciones\n' > "$temporal_publicacion_go/publicacion.tsv"
-  printf 'renameat2_RENAME_NOREPLACE\t%s\t%s\t%s\t%s\torigen_ausente+destino_real+identidad_conservada\n' \
-    "$huella_origen" "$EUID" "$modo" "$sha_helper_noreplace_global" >> "$temporal_publicacion_go/publicacion.tsv"
+  printf 'metodo\thuella_origen\tsha_helper_noreplace\tpostcondiciones\n' > "$temporal_publicacion_go/publicacion.tsv"
+  printf 'renameat2_RENAME_NOREPLACE\t%s\t%s\torigen_ausente+destino_real+identidad_conservada\n' \
+    "$huella_origen" "$sha_helper_noreplace_global" >> "$temporal_publicacion_go/publicacion.tsv"
   (
     cd "$temporal_publicacion_go"
     sha256sum bf_directos.tsv binarios.tsv casos.tsv contexto.tsv fuentes.tsv publicacion.tsv \
       residuos.txt resumen.txt rename_noreplace tmpdir_selectores.tsv utilidades.tsv | sort -k2 > SHA256SUMS
     sha256sum -c SHA256SUMS >/dev/null
   )
+  sha_sha256sums_global=$(sha256sum "$temporal_publicacion_go/SHA256SUMS" | cut -d' ' -f1)
 }
 
 publicar_go_sin_reemplazo() {
-  local destino=$1 padre nombre huella_origen huella_destino helper_bin
+  local destino=$1 padre nombre origen_nombre huella_origen helper_bin helper_fd
   padre=${destino%/*}
   nombre=${destino##*/}
   [[ $destino == "$destino_publicacion_go" && $destino == /* && $nombre != "$destino" &&
     -d $padre && ! -L $padre && ! -e $destino && ! -L $destino &&
     -d $temporal_publicacion_go && ! -L $temporal_publicacion_go ]] || return 2
-  huella_origen=$(stat -c '%d:%i' -- "$temporal_publicacion_go") || return 2
+  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2
+  origen_nombre=${temporal_publicacion_go##*/}
   helper_bin="$temporal_publicacion_go/rename_noreplace"
   [[ -f $helper_bin && ! -L $helper_bin && $(stat -c '%F:%u:%a' -- "$helper_bin") == "regular file:$EUID:700" &&
     $(sha256sum "$helper_bin" | cut -d' ' -f1) == "$sha_helper_noreplace_global" ]] || return 2
-  [[ -d $padre && ! -L $padre && $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
-  "$helper_bin" "$temporal_publicacion_go" "$destino" || return 2
-  [[ ! -e $temporal_publicacion_go && ! -L $temporal_publicacion_go && -d $destino && ! -L $destino ]] || return 2
-  huella_destino=$(stat -c '%d:%i' -- "$destino") || return 2
-  [[ $huella_destino == "$huella_origen" && $(stat -c '%u:%a' -- "$destino") == "$EUID:700" &&
-    $(stat -c '%d:%i:%u:%a' -- "$padre") == "$huella_padre_publicacion:$EUID:700" ]] || return 2
-  (cd "$destino" && sha256sum -c SHA256SUMS >/dev/null)
+  [[ -d $padre && ! -L $padre && $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$destino_padre_fd") == "$huella_padre_publicacion" ]] || return 2
+  [[ $sha_sha256sums_global =~ ^[0-9a-f]{64}$ ]] || return 2
+  exec {helper_fd}< "$helper_bin"
+  [[ $(stat -L -c '%F:%u:%a' -- "/proc/$$/fd/$helper_fd") == "regular file:$EUID:700" &&
+    $(sha256sum "/proc/$$/fd/$helper_fd" | cut -d' ' -f1) == "$sha_helper_noreplace_global" ]] || { exec {helper_fd}<&-; return 2; }
+  "/proc/$$/fd/$helper_fd" "$destino_padre_fd" "$origen_nombre" "$nombre" "$huella_padre_publicacion" "$huella_origen" "$sha_sha256sums_global" "$padre" || { exec {helper_fd}<&-; return 2; }
   temporal_publicacion_go=
 }
 
@@ -620,4 +666,6 @@ publicar_go_sin_reemplazo "$destino_evidencia" || {
   printf 'NO-GO publicacion GO no acreditada\n' >&2
   exit 1
 }
-printf 'GO\n'
+trap - EXIT
+printf 'GO\n' || :
+exit 0

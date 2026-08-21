@@ -104,15 +104,17 @@ privado de UID efectivo y modo 0700; y el paquete GO se publica localmente sin
 reemplazo, conservando identidad dev:inode.
 
 Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
-runtime privado. El proceso padre mide las entradas del `TMPDIR` efectivo
-antes y después del hijo, registra también los residuos que existen antes de
-la limpieza, y retira solamente esas entradas conservando el directorio y su
-identidad física. La atestación TSV se precrea fuera del `TMPDIR` del hijo,
+runtime privado. Go elimina por completo el selector `runtimeSelector` y acredita
+su `Lstat=ENOENT`; Bash mide las entradas del `TMPDIR` exterior antes y después
+del hijo, registra también los residuos que existen antes de la limpieza, y
+retira solamente esas entradas conservando el directorio y su identidad física.
+La atestación TSV se precrea fuera del `TMPDIR` del hijo,
 congela su huella dev:inode/UID/modo y se filtra de su entorno; cualquier
 sustitución de esa ruta invalida el agregado. Después de `Lstat=ENOENT` del selector, el padre
 acredita que la raíz exterior queda vacía; la retirada del contenedor se
 acredita en una columna separada, también cuando el hijo termina con estado
-fatal 65.
+fatal 65. Solo Bash retira después las entradas del `TMPDIR` exterior y luego
+el contenedor; no se atribuye esa limpieza a Go.
 
 ## Invariantes
 
@@ -147,9 +149,9 @@ Se exige conjuntamente:
 9. HEAD, árbol y limpieza del target son iguales antes y después del snapshot;
 10. cada hijo hereda solo stdin, stdout y stderr; todo FD ambiental `>=3` se
    cierra antes de `exec`;
-11. la publicación GO usa el helper Go de `renameat2(RENAME_NOREPLACE)` sin
-   reemplazar un destino, elimina el origen de publicación y conserva
-   dev:inode, UID y modo 0700;
+11. la publicación GO usa el helper Go pinado por FD y `renameat2(RENAME_NOREPLACE)`
+   sin reemplazar un destino; el helper ancla `SHA256SUMS`, recalcula las huellas SHA-256 de la lista
+   cerrada de 11 entradas selladas más `SHA256SUMS` por FD y contrasta la ruta del padre con el FD bloqueado;
 12. ningún estado se reintenta, tolera, reclasifica, salta o decide por
    mayoría.
 
@@ -198,14 +200,19 @@ Los ledgers `casos.tsv` y `fuentes.tsv` se copian al inicio a entradas privadas
 fila registra tanto el inventario del contenedor como el del `TMPDIR`
 efectivo antes/después, el preconteo de residuos por selector, su acreditación,
 la retirada del contenedor y el cierre de FD ambientales. El publicador V2
-recibe sin cambios el primer fallo. Un GO se prepara en un temporal 0700 hermano
+recibe sin cambios el primer fallo.
+El padre crea una FIFO 0600 con extremos separados, desvincula su nombre antes
+de lanzar, cierra su escritor tras fork, el wrapper conserva solo el escritor,
+comunica `si`, lo cierra y reenumera por symlink que no deja ningún FD>=3 antes
+de `exec`; el lector padre exige esa única línea y EOF.
+Un GO se prepara en un temporal 0700 hermano
 del destino; el helper se compila con el Go fijado mientras el staging existe.
 Después se retira explícitamente el staging y se revalida el target; entonces se
 escribe el contexto final en el temporal hermano, se sella `publicacion.tsv` y
 `SHA256SUMS` incluyendo el binario `rename_noreplace` ya compilado dentro del
-temporal, y el helper invoca `renameat2(RENAME_NOREPLACE)`. Solo tras su éxito
-se acredita origen ausente, destino real y la misma huella dev:inode, UID y
-modo; el destino queda solo en lectura y no requiere limpieza externa.
+temporal, y el helper invoca `renameat2(RENAME_NOREPLACE)`. El directorio 0700
+se trata como paquete cerrado: el rename no-replace es el punto definitivo y
+después no se realizan operaciones fallibles ni se afirma un modo de solo lectura.
 
 ## Write-set exacto
 
