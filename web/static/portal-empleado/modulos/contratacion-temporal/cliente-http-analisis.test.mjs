@@ -194,7 +194,7 @@ test("registrar y rectificar usan rutas, cuerpos y opciones HTTP exactas", async
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
-    assert.equal(opciones.credentials, "same-origin");
+    assert.equal(opciones.credentials, "omit");
     assert.equal(opciones.mode, "same-origin");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
@@ -306,28 +306,91 @@ test("transporte perdido y respuesta excesiva quedan indeterminados sin reintent
   assert.equal(llamadasExceso, 1);
 });
 
-test("operación pendiente conserva correlación y no reenvía el efecto", async () => {
-  let llamadas = 0;
-  const cliente = crearClienteHTTPContratacionTemporal({
-    fetchImpl: async () => {
-      llamadas += 1;
-      return respuestaJSON({ error: {
-        codigo: "operacion_pendiente",
-        clave_i18n:
-          "api.contratacion_temporal.cobertura.error.operacion_pendiente",
-        correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
-      } }, 503);
-    },
-  });
-  await assert.rejects(
-    cliente.registrarAnalisis(solicitudRegistro()),
-    (error) => error.codigo === "operacion_pendiente"
-      && error.resultadoIndeterminado === true
-      && error.reintentoPermitido === false
-      && error.correlacionRef
-        === "corr_0123456789abcdef0123456789abcdef",
-  );
-  assert.equal(llamadas, 1);
+test("los desenlaces HTTP ambiguos quedan indeterminados y no se reintentan", async () => {
+  const casos = [
+    [408, "peticion_cancelada"],
+    [500, "error_interno"],
+    [502, "resultado_no_confiable"],
+    [503, "servicio_no_disponible"],
+    [503, "operacion_pendiente"],
+    [504, "plazo_agotado"],
+  ];
+  const operaciones = [
+    ["registrar", "registrarAnalisis", solicitudRegistro],
+    ["rectificar", "rectificarAnalisis", solicitudRectificacion],
+  ];
+
+  for (const [operacion, metodo, crearSolicitud] of operaciones) {
+    for (const [estado, codigo] of casos) {
+      let llamadas = 0;
+      const cliente = crearClienteHTTPContratacionTemporal({
+        fetchImpl: async () => {
+          llamadas += 1;
+          return respuestaJSON({ error: {
+            codigo,
+            clave_i18n:
+              `api.contratacion_temporal.cobertura.error.${codigo}`,
+            correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+          } }, estado);
+        },
+      });
+      await assert.rejects(
+        cliente[metodo](crearSolicitud()),
+        (error) => error.codigo === codigo
+          && error.estado === estado
+          && error.envelopeValido === true
+          && error.resultadoIndeterminado === true
+          && error.requiereRecuperacion === true
+          && error.reintentoPermitido === false
+          && error.repetible === false
+          && error.correlacionRef
+            === "corr_0123456789abcdef0123456789abcdef",
+        `${operacion}: ${estado}/${codigo}`,
+      );
+      assert.equal(llamadas, 1, `${operacion}: ${estado}/${codigo}`);
+    }
+  }
+});
+
+test("solo los rechazos previos al efecto conservan resultado determinado", async () => {
+  const casos = [
+    [400, "peticion_no_valida"],
+    [400, "peticion_no_permitida"],
+    [401, "autenticacion_requerida"],
+    [403, "acceso_denegado"],
+    [404, "recurso_no_encontrado"],
+    [405, "metodo_no_permitido"],
+    [406, "representacion_no_aceptable"],
+    [409, "conflicto"],
+    [413, "peticion_demasiado_grande"],
+    [415, "tipo_contenido_no_admitido"],
+    [422, "contenido_no_valido"],
+  ];
+
+  for (const [estado, codigo] of casos) {
+    let llamadas = 0;
+    const cliente = crearClienteHTTPContratacionTemporal({
+      fetchImpl: async () => {
+        llamadas += 1;
+        return respuestaJSON({ error: {
+          codigo,
+          clave_i18n:
+            `api.contratacion_temporal.cobertura.error.${codigo}`,
+          correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+        } }, estado);
+      },
+    });
+    await assert.rejects(
+      cliente.registrarAnalisis(solicitudRegistro()),
+      (error) => error.codigo === codigo
+        && error.envelopeValido === true
+        && error.resultadoIndeterminado === false
+        && error.requiereRecuperacion === false
+        && error.reintentoPermitido === false,
+      `${estado}/${codigo}`,
+    );
+    assert.equal(llamadas, 1, `${estado}/${codigo}`);
+  }
 });
 
 test("cancelar tras enviar conserva el resultado indeterminado", async () => {

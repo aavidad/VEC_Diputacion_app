@@ -377,7 +377,7 @@ test("estado HTTP y rama cruzados conservan el bloqueo", async () => {
   }
 });
 
-test("las cinco operaciones usan rutas y opciones HTTP exactas", async () => {
+test("el inventario expone siete rutas y los cinco flujos previos siguen intactos", async () => {
   const llamadas = [];
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl: async (ruta, opciones) => {
@@ -407,11 +407,19 @@ test("las cinco operaciones usan rutas y opciones HTTP exactas", async () => {
   await cliente.consultarResultadoCobertura(
     solicitudConsultaResultadoCobertura(),
   );
-
   assert.deepEqual(
     llamadas.map(({ ruta }) => ruta),
-    Object.values(RUTAS_HTTP_CONTRATACION_TEMPORAL),
+    Object.values(RUTAS_HTTP_CONTRATACION_TEMPORAL).slice(0, 5),
   );
+  assert.deepEqual(Object.values(RUTAS_HTTP_CONTRATACION_TEMPORAL), [
+    "/api/vec/contratacion-temporal/solicitudes",
+    "/api/vec/contratacion-temporal/cobertura/propuesta",
+    "/api/vec/contratacion-temporal/cobertura/decisiones",
+    "/api/vec/contratacion-temporal/cobertura/rectificaciones",
+    "/api/vec/contratacion-temporal/cobertura/resultados",
+    "/api/vec/contratacion-temporal/analisis/registros",
+    "/api/vec/contratacion-temporal/analisis/rectificaciones",
+  ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
     assert.equal(opciones.credentials, "omit");

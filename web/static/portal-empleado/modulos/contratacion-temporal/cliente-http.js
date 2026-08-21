@@ -15,7 +15,7 @@ import {
 } from "./contrato-analisis.js";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
-  Object.defineProperties({
+  {
     alta: "/api/vec/contratacion-temporal/solicitudes",
     propuestaCobertura:
       "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -25,14 +25,11 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
       "/api/vec/contratacion-temporal/cobertura/rectificaciones",
     resultadoCobertura:
       "/api/vec/contratacion-temporal/cobertura/resultados",
-  }, {
-    registroAnalisis: {
-      value: "/api/vec/contratacion-temporal/analisis/registros",
-    },
-    rectificacionAnalisis: {
-      value: "/api/vec/contratacion-temporal/analisis/rectificaciones",
-    },
-  }),
+    registroAnalisis:
+      "/api/vec/contratacion-temporal/analisis/registros",
+    rectificacionAnalisis:
+      "/api/vec/contratacion-temporal/analisis/rectificaciones",
+  },
 );
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
@@ -78,6 +75,18 @@ const CODIGOS_RESULTADO_COBERTURA_POR_ESTADO = new Map([
   [422, new Set(["contenido_no_valido"])],
   [503, new Set(["servicio_no_disponible"])],
 ]);
+const RECHAZOS_ANALISIS_ANTERIORES_AL_EFECTO = new Map([
+  [400, new Set(["peticion_no_valida", "peticion_no_permitida"])],
+  [401, new Set(["autenticacion_requerida"])],
+  [403, new Set(["acceso_denegado"])],
+  [404, new Set(["recurso_no_encontrado"])],
+  [405, new Set(["metodo_no_permitido"])],
+  [406, new Set(["representacion_no_aceptable"])],
+  [409, new Set(["conflicto"])],
+  [413, new Set(["peticion_demasiado_grande"])],
+  [415, new Set(["tipo_contenido_no_admitido"])],
+  [422, new Set(["contenido_no_valido"])],
+]);
 
 export class ErrorClienteHTTPContratacionTemporal extends Error {
   constructor(codigo, {
@@ -110,12 +119,30 @@ function errorCliente(codigo, opciones) {
 
 function convertirEnResultadoIndeterminado(error) {
   if (!(error instanceof ErrorClienteHTTPContratacionTemporal)
-    || error.resultadoIndeterminado
-    || error.envelopeValido) return error;
+    || error.resultadoIndeterminado) return error;
   return errorCliente(error.codigo, {
     estado: error.estado,
+    claveI18n: error.claveI18n,
+    correlacionRef: error.correlacionRef,
+    envelopeValido: error.envelopeValido,
     resultadoIndeterminado: true,
   });
+}
+
+function rechazoAnalisisAnteriorAlEfecto(error) {
+  return error instanceof ErrorClienteHTTPContratacionTemporal
+    && error.envelopeValido
+    && RECHAZOS_ANALISIS_ANTERIORES_AL_EFECTO
+      .get(error.estado)?.has(error.codigo) === true;
+}
+
+function clasificarResultadoEfecto(error, rechazoDeterminado) {
+  if (!(error instanceof ErrorClienteHTTPContratacionTemporal)
+    || error.resultadoIndeterminado) return error;
+  const determinado = typeof rechazoDeterminado === "function"
+    ? rechazoDeterminado(error)
+    : error.envelopeValido;
+  return determinado ? error : convertirEnResultadoIndeterminado(error);
 }
 
 function esRegistro(valor) {
@@ -495,7 +522,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     maximoRespuesta,
     validarRespuesta,
     efecto,
-    credenciales = "omit",
+    rechazoDeterminado,
   }) {
     const cuerpo = serializarAcotado(entrada, maximoSolicitud);
     let cabeceras;
@@ -517,9 +544,6 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
         redirect: "error",
         referrerPolicy: "no-referrer",
       };
-      if (credenciales === "same-origin") {
-        opcionesFetch.credentials = "same-origin";
-      }
       respuesta = await ejecutarAbortable(
         () => fetchImpl(ruta, opcionesFetch),
         signal,
@@ -532,7 +556,9 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
         : signal?.aborted
           ? errorAborto(signal)
           : errorCliente("servicio_no_disponible", { causa: error });
-      throw efecto ? convertirEnResultadoIndeterminado(fallo) : fallo;
+      throw efecto
+        ? clasificarResultadoEfecto(fallo, rechazoDeterminado)
+        : fallo;
     }
     try {
       if (!respuesta || !Number.isInteger(respuesta.status)
@@ -571,7 +597,9 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       }
       return validada;
     } catch (error) {
-      throw efecto ? convertirEnResultadoIndeterminado(error) : error;
+      throw efecto
+        ? clasificarResultadoEfecto(error, rechazoDeterminado)
+        : error;
     } finally {
       await cancelarRespuesta(respuesta);
     }
@@ -683,7 +711,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
         return recibo;
       },
       efecto: true,
-      credenciales: "same-origin",
+      rechazoDeterminado: rechazoAnalisisAnteriorAlEfecto,
     });
   }
 
