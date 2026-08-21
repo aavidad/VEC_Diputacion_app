@@ -290,11 +290,13 @@ type datosResultadoCierreAdministrativo struct {
 	actuacionRef      string
 	reciboRef         string
 	actorRef          string
+	correlacionRef    string
 	estado            EstadoResultadoCierreAdministrativo
 }
 
-// ResultadoCierreAdministrativo oculta estado, identidad, inventario y
-// diagnóstico. Solo publica el recibo opaco y la versión confirmada.
+// ResultadoCierreAdministrativo transporta internamente actor y correlación
+// exactos del efecto, pero oculta identidad, inventario y diagnóstico. Solo
+// publica el recibo opaco y la versión confirmada.
 type ResultadoCierreAdministrativo struct {
 	datos *datosResultadoCierreAdministrativo
 }
@@ -305,6 +307,7 @@ type DatosResultadoCierreAdministrativo struct {
 	ActuacionRef      string
 	ReciboRef         string
 	ActorRef          string
+	CorrelacionRef    string
 	Estado            EstadoResultadoCierreAdministrativo
 }
 
@@ -316,6 +319,7 @@ func NuevoResultadoCierreAdministrativo(
 		!domain.ReferenciaOpacaValida(datos.ActuacionRef) ||
 		!domain.ReferenciaOpacaValida(datos.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(datos.ActorRef) ||
+		!domain.ReferenciaOpacaValida(datos.CorrelacionRef) ||
 		!datos.Estado.valida() {
 		return ResultadoCierreAdministrativo{},
 			ErrResultadoCierreAdministrativoInvalido
@@ -323,7 +327,8 @@ func NuevoResultadoCierreAdministrativo(
 	return ResultadoCierreAdministrativo{datos: &datosResultadoCierreAdministrativo{
 		solicitud: datos.Solicitud, versionResultante: datos.VersionResultante,
 		actuacionRef: datos.ActuacionRef, reciboRef: datos.ReciboRef,
-		actorRef: datos.ActorRef, estado: datos.Estado,
+		actorRef: datos.ActorRef, correlacionRef: datos.CorrelacionRef,
+		estado: datos.Estado,
 	}}, nil
 }
 
@@ -336,6 +341,7 @@ func (r ResultadoCierreAdministrativo) ValidarPara(
 		!domain.ReferenciaOpacaValida(r.datos.actuacionRef) ||
 		!domain.ReferenciaOpacaValida(r.datos.reciboRef) ||
 		!domain.ReferenciaOpacaValida(r.datos.actorRef) ||
+		!domain.ReferenciaOpacaValida(r.datos.correlacionRef) ||
 		!r.datos.estado.valida() {
 		return ErrResultadoCierreAdministrativoInvalido
 	}
@@ -346,11 +352,13 @@ func (r ResultadoCierreAdministrativo) CoincideConEfecto(
 	actuacionRef string,
 	reciboRef string,
 	actorRef string,
+	correlacionRef string,
 ) bool {
 	return r.datos != nil &&
 		r.datos.actuacionRef == actuacionRef &&
 		r.datos.reciboRef == reciboRef &&
-		r.datos.actorRef == actorRef
+		r.datos.actorRef == actorRef &&
+		r.datos.correlacionRef == correlacionRef
 }
 
 func (r ResultadoCierreAdministrativo) EsReplayConfirmado() bool {

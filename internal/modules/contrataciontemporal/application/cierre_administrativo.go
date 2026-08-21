@@ -56,7 +56,13 @@ type SolicitudReabrirExcepcionalmente struct {
 }
 
 type ServicioCierreAdministrativo struct {
-	transaccion ports.TransaccionCierreAdministrativo
+	transaccion       ports.TransaccionCierreAdministrativo
+	aplicarTransicion func(
+		domain.Seguimiento,
+		domain.DefinicionSeguimiento,
+		uint64,
+		domain.DatosTransicionSeguimiento,
+	) (domain.Seguimiento, error)
 }
 
 func NuevoServicioCierreAdministrativo(
@@ -65,7 +71,19 @@ func NuevoServicioCierreAdministrativo(
 	if dependenciaNula(transaccion) {
 		return nil, ErrServicioCierreAdministrativoInvalido
 	}
-	return &ServicioCierreAdministrativo{transaccion: transaccion}, nil
+	return &ServicioCierreAdministrativo{
+		transaccion:       transaccion,
+		aplicarTransicion: aplicarTransicionCierreAdministrativo,
+	}, nil
+}
+
+func aplicarTransicionCierreAdministrativo(
+	seguimiento domain.Seguimiento,
+	definicion domain.DefinicionSeguimiento,
+	versionEsperada uint64,
+	datos domain.DatosTransicionSeguimiento,
+) (domain.Seguimiento, error) {
+	return seguimiento.Aplicar(definicion, versionEsperada, datos)
 }
 
 func (s *ServicioCierreAdministrativo) Cerrar(
@@ -104,7 +122,8 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 	ctx context.Context,
 	solicitud ports.SolicitudTransaccionCierreAdministrativo,
 ) (ports.ResultadoCierreAdministrativo, error) {
-	if s == nil || ctx == nil || dependenciaNula(s.transaccion) {
+	if s == nil || ctx == nil || dependenciaNula(s.transaccion) ||
+		dependenciaNula(s.aplicarTransicion) {
 		return ports.ResultadoCierreAdministrativo{},
 			ErrServicioCierreAdministrativoInvalido
 	}
@@ -122,7 +141,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 	defer cancelar()
 
 	var decisionInvocada bool
-	var actuacionRef, reciboRef, actorRef string
+	var actuacionRef, reciboRef, actorRef, correlacionRef string
 	resultado, err := s.transaccion.EjecutarCierreAdministrativo(
 		ctxOperacion,
 		solicitud,
@@ -148,7 +167,8 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 				return domain.Seguimiento{},
 					errDecisionCierreAdministrativoNoPermitida
 			}
-			siguiente, errAplicar := preparacion.Seguimiento.Aplicar(
+			siguiente, errAplicar := s.aplicarTransicion(
+				preparacion.Seguimiento,
 				preparacion.Definicion,
 				solicitud.VersionEsperada,
 				domain.DatosTransicionSeguimiento{
@@ -181,6 +201,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 			actuacionRef = preparacion.ActuacionRef
 			reciboRef = preparacion.ReciboRef
 			actorRef = preparacion.ActorRef
+			correlacionRef = preparacion.CorrelacionRef
 			return siguiente, nil
 		},
 	)
@@ -194,6 +215,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 				actuacionRef,
 				reciboRef,
 				actorRef,
+				correlacionRef,
 			)) ||
 		!decisionInvocada && !resultado.EsReplayConfirmado() {
 		return ports.ResultadoCierreAdministrativo{},
@@ -303,9 +325,10 @@ func clasificarErrorCierreAdministrativo(
 	switch {
 	case errors.Is(err, domain.ErrVersionEnConflicto):
 		return ErrVersionCierreAdministrativoEnConflicto
+	case errors.Is(err, ports.ErrClaveIdempotenciaCierreAdministrativoUsada):
+		return ports.ErrClaveIdempotenciaCierreAdministrativoUsada
 	case errors.Is(err, errDecisionCierreAdministrativoNoPermitida),
 		errors.Is(err, ports.ErrCierreAdministrativoDenegado),
-		errors.Is(err, ports.ErrClaveIdempotenciaCierreAdministrativoUsada),
 		errors.Is(err, domain.ErrTransicionInvalida),
 		errors.Is(err, domain.ErrSeguimientoInvalido),
 		errors.Is(err, domain.ErrActuacionSeguimientoEnConflicto):

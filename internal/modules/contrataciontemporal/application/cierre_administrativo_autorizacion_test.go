@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -46,6 +47,27 @@ func TestCierreAdministrativoRechazaActorDeReciboCruzado(t *testing.T) {
 		resultado.VersionSeguimiento() != 0 || resultado.ReciboRef() != "" ||
 		resultado.EsReplayConfirmado() {
 		t.Fatalf("se publicó un recibo con actor ajeno: resultado=%#v error=%v", resultado, err)
+	}
+}
+
+func TestCierreAdministrativoRechazaCorrelacionDeReciboCruzada(t *testing.T) {
+	definicion, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamentePrueba(seguimiento.Version())
+	transaccion := &transaccionCierreAdministrativoPrueba{
+		preparacion: preparacionCierreAdministrativoPrueba(
+			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
+			seguimiento, instanteCierreAdministrativoPrueba,
+		),
+		correlacionResultadoRef: referenciaCierreAdministrativoPrueba(
+			"correlacion_recibo_ajena_01",
+		),
+	}
+	resultado, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
+		Cerrar(context.Background(), solicitud)
+	if !errors.Is(err, ErrResultadoCierreAdministrativoInvalido) ||
+		resultado.VersionSeguimiento() != 0 || resultado.ReciboRef() != "" ||
+		resultado.EsReplayConfirmado() {
+		t.Fatalf("se publicó un recibo con correlación ajena: resultado=%#v error=%v", resultado, err)
 	}
 }
 
@@ -196,19 +218,29 @@ func TestCierreAdministrativoCancelaTrasCalcularAntesDeConfirmar(t *testing.T) {
 			t, solicitudTransaccionalCierrePrueba(solicitud), definicion,
 			seguimiento, instanteCierreAdministrativoPrueba,
 		),
-		despuesDeAplicar: cancelar,
 	}
 	servicio := nuevoServicioCierreAdministrativoPrueba(t, transaccion)
+	aplicar := servicio.aplicarTransicion
+	servicio.aplicarTransicion = func(
+		actual domain.Seguimiento,
+		definicion domain.DefinicionSeguimiento,
+		versionEsperada uint64,
+		datos domain.DatosTransicionSeguimiento,
+	) (domain.Seguimiento, error) {
+		siguiente, err := aplicar(actual, definicion, versionEsperada, datos)
+		cancelar()
+		return siguiente, err
+	}
 	resultado, err := servicio.Cerrar(ctx, solicitud)
 	if !errors.Is(err, context.Canceled) || transaccion.confirmada ||
 		transaccion.aplicaciones != 1 ||
-		transaccion.siguiente.Version() != seguimiento.Version()+1 ||
+		transaccion.siguiente.Version() != 0 ||
 		resultado.VersionSeguimiento() != 0 || resultado.ReciboRef() != "" ||
 		resultado.EsReplayConfirmado() {
 		t.Fatalf("cancelación tras calcular produjo falso éxito: resultado=%#v error=%v", resultado, err)
 	}
 
-	transaccion.despuesDeAplicar = nil
+	servicio.aplicarTransicion = aplicar
 	resultado, err = servicio.Cerrar(context.Background(), solicitud)
 	if err != nil || resultado.EsReplayConfirmado() || !transaccion.confirmada ||
 		transaccion.aplicaciones != 2 {

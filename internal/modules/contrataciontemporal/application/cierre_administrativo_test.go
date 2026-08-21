@@ -21,18 +21,17 @@ var instanteCierreAdministrativoPrueba = time.Date(
 )
 
 type transaccionCierreAdministrativoPrueba struct {
-	preparacion         ports.PreparacionTransaccionCierreAdministrativo
-	err                 error
-	resultadoInvalido   bool
-	replayConfirmado    bool
-	despuesDeAplicar    func()
-	actorResultadoRef   string
-	llamadas            int
-	aplicaciones        int
-	solicitud           ports.SolicitudTransaccionCierreAdministrativo
-	solicitudConfirmada ports.SolicitudTransaccionCierreAdministrativo
-	siguiente           domain.Seguimiento
-	confirmada          bool
+	preparacion             ports.PreparacionTransaccionCierreAdministrativo
+	err                     error
+	resultadoInvalido       bool
+	actorResultadoRef       string
+	correlacionResultadoRef string
+	llamadas                int
+	aplicaciones            int
+	solicitud               ports.SolicitudTransaccionCierreAdministrativo
+	solicitudConfirmada     ports.SolicitudTransaccionCierreAdministrativo
+	siguiente               domain.Seguimiento
+	confirmada              bool
 }
 
 func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
@@ -48,7 +47,12 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 	if err := ctx.Err(); err != nil {
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
-	if t.replayConfirmado {
+	if t.confirmada &&
+		solicitud.ClaveIdempotencia == t.solicitudConfirmada.ClaveIdempotencia {
+		if solicitud != t.solicitudConfirmada {
+			return ports.ResultadoCierreAdministrativo{},
+				ports.ErrClaveIdempotenciaCierreAdministrativoUsada
+		}
 		return ports.NuevoResultadoCierreAdministrativo(
 			ports.DatosResultadoCierreAdministrativo{
 				Solicitud:         t.solicitudConfirmada,
@@ -56,6 +60,7 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 				ActuacionRef:      t.preparacion.ActuacionRef,
 				ReciboRef:         t.preparacion.ReciboRef,
 				ActorRef:          t.preparacion.ActorRef,
+				CorrelacionRef:    t.preparacion.CorrelacionRef,
 				Estado:            ports.EstadoResultadoCierreAdministrativoReplayConfirmado,
 			},
 		)
@@ -70,9 +75,6 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
 	t.siguiente = siguiente
-	if t.despuesDeAplicar != nil {
-		t.despuesDeAplicar()
-	}
 	if err := ctx.Err(); err != nil {
 		return ports.ResultadoCierreAdministrativo{}, err
 	}
@@ -85,13 +87,18 @@ func (t *transaccionCierreAdministrativoPrueba) EjecutarCierreAdministrativo(
 	if t.actorResultadoRef != "" {
 		actorRef = t.actorResultadoRef
 	}
+	correlacionRef := t.preparacion.CorrelacionRef
+	if t.correlacionResultadoRef != "" {
+		correlacionRef = t.correlacionResultadoRef
+	}
 	return ports.NuevoResultadoCierreAdministrativo(
 		ports.DatosResultadoCierreAdministrativo{
 			Solicitud: solicitud, VersionResultante: siguiente.Version(),
-			ActuacionRef: t.preparacion.ActuacionRef,
-			ReciboRef:    t.preparacion.ReciboRef,
-			ActorRef:     actorRef,
-			Estado:       ports.EstadoResultadoCierreAdministrativoConfirmado,
+			ActuacionRef:   t.preparacion.ActuacionRef,
+			ReciboRef:      t.preparacion.ReciboRef,
+			ActorRef:       actorRef,
+			CorrelacionRef: correlacionRef,
+			Estado:         ports.EstadoResultadoCierreAdministrativoConfirmado,
 		},
 	)
 }
@@ -156,7 +163,6 @@ func TestCierreAdministrativoDevuelveReplayConfirmadoSinRepetirCallback(t *testi
 	if err != nil {
 		t.Fatalf("primer cierre: %v", err)
 	}
-	transaccion.replayConfirmado = true
 	segundo, err := servicio.Cerrar(context.Background(), solicitud)
 	if err != nil || !segundo.EsReplayConfirmado() ||
 		segundo.ReciboRef() != primero.ReciboRef() ||
@@ -168,7 +174,7 @@ func TestCierreAdministrativoDevuelveReplayConfirmadoSinRepetirCallback(t *testi
 	colision := solicitud
 	colision.MotivoClave = "subsanacion_excepcional"
 	_, err = servicio.Cerrar(context.Background(), colision)
-	if !errors.Is(err, ErrResultadoCierreAdministrativoInvalido) ||
+	if !errors.Is(err, ports.ErrClaveIdempotenciaCierreAdministrativoUsada) ||
 		transaccion.aplicaciones != 1 {
 		t.Fatalf("el replay aceptó la misma clave con otra identidad: %v", err)
 	}
