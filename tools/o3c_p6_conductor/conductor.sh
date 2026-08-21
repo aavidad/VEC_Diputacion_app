@@ -29,6 +29,12 @@ publicador_fallo="$unidad/fallo_durable.sh"
 base=14c1f31079e466a82b8e1d390168078973cc6e05
 
 [[ -d $target && ! -L $target && ! -e $evidencia && ! -L $evidencia ]] || { printf 'NO-GO target/evidencia\n' >&2; exit 2; }
+target_huella=$(stat -c '%u:%a' -- "$target") || { printf 'NO-GO checkout Git no acreditable\n' >&2; exit 2; }
+[[ $target_huella == "$EUID:700" ]] || { printf 'NO-GO checkout Git no acreditable: uid/mode=%s\n' "$target_huella" >&2; exit 2; }
+if ! git_probe=$(git -C "$target" rev-parse --git-dir 2>&1); then
+  printf 'NO-GO checkout Git no acreditable: %s\n' "$git_probe" >&2
+  exit 2
+fi
 [[ -x $publicador_fallo ]] || { printf 'NO-GO publicador_fallo\n' >&2; exit 2; }
 git -C "$target" cat-file -e "$base^{commit}" 2>/dev/null || { printf 'NO-GO base ausente\n' >&2; exit 2; }
 git -C "$target" merge-base --is-ancestor "$base" HEAD || { printf 'NO-GO ascendencia\n' >&2; exit 2; }

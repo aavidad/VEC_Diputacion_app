@@ -25,6 +25,19 @@ O3A-V5-CND-V3 ni el P1 C21/toolchain. Esta enmienda tampoco los convierte en
 GO. V4 acredita únicamente el vínculo entre las 32 fuentes compiladas, el
 checkout, el `TMPDIR` exacto de cada ejecución y el paquete local publicado.
 
+## NO-GO consumido y requisito del próximo clon
+
+La única corrida de `9749ddd3ee1ecbd2e3a2c9db0d3eb9123d2ceb7c` terminó antes de
+staging con `NO-GO base ausente` y exit 2 por `dubious ownership`: el checkout
+era `root:root` modo 0755 al ejecutarse como `orquesta`. No hubo destino,
+paquete de evidencia, staging ni procesos de build o test; la consulta Git
+previa a la base falló por propiedad dudosa. Ese SHA no se repetirá.
+El siguiente target debe ser un clon local nuevo, limpio, modo 0700 y propiedad
+de `orquesta`; el conductor debe comprobar UID/modo y la sonda Git antes de
+consultar la base, emitiendo `NO-GO checkout Git no acreditable` con el
+diagnóstico real si falla. No se usa `safe.directory` global, fetch, pull ni
+red.
+
 ## V3: GO productor revocado por revisión
 
 La base V4 `14c1f31` obtuvo una única corrida productora verde y durable:
