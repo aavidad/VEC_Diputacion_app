@@ -4,9 +4,17 @@ Fecha: 21 de agosto de 2026.
 
 Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`.
 
-Estado: candidato técnico local. Requiere pruebas focales, una única corrida
-canónica y revisión funcional y de seguridad independientes sobre el SHA
-exacto. No autoriza integración, publicación, CI remota, despliegue,
+Estado: candidato técnico local sin commit y sin corrida canónica disponible.
+Los intentos únicos de `9749ddd` y `9ec119f` están consumidos y permanecen
+`NO-GO`; no se repiten ni se reutilizan sus destinos. Este corte solo permite
+pruebas estáticas y probes que terminen antes de staging/Go/build/test/destino.
+Esa es la regla general y vuelve a regir sin excepciones en esta edición;
+dirección autorizó antes, de forma expresa y por una sola vez, el probe
+histórico del publicador que atravesó Go/C y se detuvo antes de build/test. La
+excepción está consumida, no ampara los hashes actuales ni habilita otra
+conducción. Se exige revisión funcional y de seguridad independiente antes de
+que dirección pueda ordenar otro commit y una única corrida sobre un SHA y
+destino nuevos. No se autoriza integración, publicación, CI remota, despliegue,
 producción ni cambio de métricas.
 
 ## Base y autoridad
@@ -37,6 +45,364 @@ de `orquesta`; el conductor debe comprobar UID/modo y la sonda Git antes de
 consultar la base, emitiendo `NO-GO checkout Git no acreditable` con el
 diagnóstico real si falla. No se usa `safe.directory` global, fetch, pull ni
 red.
+
+La única corrida de `9ec119f679a2f00a3cf7f77fbd01bc0271141c89` terminó después de
+crear el staging privado, con `NO-GO utilidad cat` y exit 1: `type -P cat` resolvió `/usr/bin/cat`,
+un symlink propiedad de root hacia `/usr/lib/cargo/bin/coreutils/cat`; el
+conductor había creado staging/evidencia parcial, que la trampa retiró, y no
+hubo destino, build ni test. Ese SHA y su destino no se repetirán. La
+capability correctora exige resolver cada utilidad con `realpath -e` y acreditar
+solo la ruta canónica absoluta regular, no symlink y ejecutable, con su SHA-256;
+cualquier resolución o validación fallida cierra en NO-GO. El bootstrap mínimo
+previo a la atestación resuelve nombres desde el PATH fijo; no se afirma que
+esas consultas iniciales queden pinadas retroactivamente. Tras resolverlas,
+cada objeto se copia byte a byte a un `tool-runtime` privado 0700 con su basename
+exacto, modo 0500, huella y validación; las llamadas por nombre se fijan a esas
+copias para conservar la semántica de applets multicall. El runtime se retira
+antes del helper final mediante el `rm` bootstrap y no hay utilidades después
+del rename.
+
+La frontera bootstrap es exacta: `/usr/bin/{realpath,stat,sha256sum,mktemp,install,rm}`
+root-owned y con cadena de directorios no escribible. El runtime privado contiene
+29 applets con basename exacto; Go y el publicador se declaran por ruta absoluta,
+se pinan por FD y conservan su huella. La frontera bootstrap no se acredita
+retroactivamente como parte del runtime.
+
+## Hallazgo funcional paralelo sobre los hashes iniciales
+
+El hallazgo paralelo es una lista de riesgos sobre los hashes iniciales del
+conductor
+`d94545dbdeaedb348f2735e7b9ddc0c4f925735ee8d18d8abf23de79134360e4`
+y de esta enmienda
+`1a605c26c195ae1df5c69b5c73a62e1eda728b16b774f0807f19c71b7adcc72b`;
+no es una aprobación ni un dictamen sobre este candidato. Obliga a cerrar y
+volver a revisar independientemente cuatro puntos:
+
+- la lista cerrada contiene 29 utilidades, no 28: `basename` también es una
+  utilidad externa y queda copiada, acreditada y fijada dentro del runtime;
+- el hash inicial del conductor ejecutaba herramientas externas antes de completar la
+  transición. El candidato usa directamente el intérprete regular
+  `/usr/bin/bash` en modo de arranque `-p`, sin el salto previo por
+  `/usr/bin/env`, y exige ese modo con un builtin. Así Bash no procesa
+  `BASH_ENV` ni importa funciones antes del rechazo; una vez iniciado, solo
+  builtins limpian el ambiente y las únicas ejecuciones anteriores al runtime
+  privado son las seis rutas bootstrap cerradas. Target, destino, candado,
+  Git, staging, evidencia y Go se resuelven después de la transición;
+- el hash inicial reabría y ejecutaba el publicador por su ruta. El candidato
+  compara identidad física de ruta y FD al abrirlo, acredita y conserva ese FD,
+  y todas sus ejecuciones usan Bash privado sobre `/proc/$$/fd`, con `env -i` y
+  `PATH` privado;
+- el hash inicial no acreditaba toda la cadena de padres bootstrap. El candidato
+  recorre hasta `/` tanto la cadena del alias `/usr/bin/...` como la del objeto
+  canónico, y exige en cada directorio propietario root y ausencia de escritura
+  para grupo/otros.
+
+Estas correcciones son afirmaciones verificables del productor y permanecen
+pendientes de revisión funcional y de seguridad; no levantan ningún NO-GO.
+
+## Segundo dictamen de seguridad sobre los hashes iniciales
+
+El segundo dictamen es `NO-GO`. Se refiere a los mismos hashes iniciales
+`d94545db…` y `1a605c26…`, complementa el hallazgo funcional anterior y no
+aprueba los bytes posteriores. Identifica y obliga a volver a revisar estos
+riesgos de seguridad:
+
+- cada descriptor que pina el origen de una de las 29 utilidades debe cerrarse
+  inmediatamente después de acreditar la copia, y el cierre debe comprobarse;
+- toda consulta Git debe atravesar la copia privada con `env -i`, hogares
+  privados, configuración de sistema anulada, global nulo, locks opcionales
+  desactivados, atributos de sistema anulados y hooks, fsmonitor, diff externo
+  y textconv anulados;
+- el binario `go` no basta como frontera: deben fijarse y comprobarse antes y
+  después de todo uso de Go el árbol GOROOT completo, `11536` ficheros y SHA
+  `b53ebeab1542ea933c6f995a2bcf862d505cb8343ad2b0d1f7a7de3238157ae6`,
+  y los ocho ficheros de GOTOOLDIR, SHA
+  `1061bd99d16310f8f549e375a5c0cb18a79d66441ca0ed4dee60f70fde633f9b`;
+- la carrera debe fijar `CC`, `CXX`, `cc1`, `collect2`, `as`, `ld` y
+  `lto-wrapper` por ruta canónica, propietario/modo, padres y SHA, y declarar
+  que cabeceras, objetos, bibliotecas y sysroot C del host siguen fuera de la
+  atestación;
+- ningún hijo debe heredar FD ambientales: utilidades, Git, Go, builds y
+  publicador reciben solo stdio; el test recibe además únicamente su marcador,
+  `flock` y el helper final únicamente el FD del padre que necesitan;
+- el helper Go debe cerrar y comprobar todos los FD propios antes de
+  `renameat2`; después del éxito termina inmediatamente con `os.Exit(0)`, sin
+  `defer`, cierre ni otra operación falible posterior.
+
+El candidato incorpora esos cierres como afirmaciones del productor. El
+dictamen de seguridad permanece `NO-GO` hasta revisar independientemente los
+nuevos hashes exactos.
+
+### Autoridad operativa del publicador
+
+La futura conducción se ejecuta con EUID `orquesta` (`999`), pero el conductor
+y `fallo_durable.sh` se consumen desde este worktree de autoridad y son objetos
+`root:root` 0755. Por ello el publicador no se compara con el EUID: se exige UID
+root, modo 0755, fichero regular sin symlink, SHA exacta e igualdad de identidad
+física entre ruta y FD. Su cadena `o3c_p6_conductor/` → `tools/` → raíz
+canónica del worktree debe ser enteramente root-owned y no escribible por
+grupo/otros. Esa raíz es el ancla de esta autoridad; los directorios externos
+que alojan `.worktrees` pertenecen a `orquesta` y no se presentan como
+root-owned. El UID `orquesta` es una autoridad operativa cooperativa para
+target, temporales y destino, no una frontera adversarial frente a otro proceso
+que ya ejecute con el mismo UID: ese proceso conserva capacidad Unix
+equivalente sobre los objetos 0700/0600 de `orquesta` y queda fuera del modelo
+cerrado por V4.
+
+La prueba operativa no canónica ejecutada como `orquesta` usó un clon local
+desechable de `9ec119f`, limpio, `999:982` modo 0700, y un destino nuevo. Una
+fuente del ledger se marcó `skip-worktree` y se retiró para imponer un punto de
+parada posterior al publicador y anterior a build. El conductor atravesó las
+fronteras Go y C, acreditó el publicador root y terminó después con estado 1,
+stdout 0 y `NO-GO fuente ...autoridad.go`; no creó destino ni dejó variación de
+staging o `tool-runtime`. El clon se eliminó. No fue una conducción canónica.
+Un intento de preparación anterior no alcanzó el conductor por `dubious
+ownership`, sin añadir `safe.directory`; otro se detuvo antes del publicador al
+detectar que la salida alias de `gcc -print-prog-name=ld` debía canonicalizarse.
+Ninguno creó destino, build o test.
+
+Tras el presente dictamen se ejecutó únicamente un probe aislado del wrapper,
+sin target, staging, build, test ni destino. Un Bash pinado en el padre fue
+abierto por el hijo mediante `/proc/$pid_conductor/fd/N` después de cerrar los
+FD heredados: la variante Git/Go/publicador observó solo `0,1,2`, y la variante
+del helper observó solo `0,1,2` más el FD explícito de un directorio padre. Las
+dos aserciones terminaron `GO`; son evidencia focal del productor, no una
+conducción canónica ni una aprobación del candidato.
+
+## Dictamen independiente de seguridad sobre el corte endurecido
+
+El dictamen independiente de seguridad es `NO-GO` sobre los hashes exactos
+`02e27debd570ef3cc77b9df14dece0d0a5f8dde7a3d5e1cf93d454508ecda969`
+del conductor y
+`e5ce0dddbcd72828008704bdcefd680490fdb6c491940c1942f6a3d111d8cbe2`
+de esta enmienda. No aprueba ningún byte posterior y exige cerrar:
+
+- P1 Git: acreditar antes de `status`/`diff` un `$target/.git` exacto,
+  canónico, directorio sin symlink, del EUID y sin escritura de grupo/otros;
+  auditar con `git config --local --no-includes` todas las claves locales y
+  rechazar sin sensibilidad a mayúsculas `include.*`, `includeIf.*`,
+  `filter.*`, `core.worktree`, `core.attributesFile` y
+  `extensions.worktreeConfig`; exigir `--show-toplevel=$target`,
+  `--absolute-git-dir=$target/.git`, `info/attributes` ausente o regular vacío,
+  y valor efectivo `unspecified` de `filter` para cada ruta entregada por
+  `ls-files -z` a `check-attr -z --stdin`;
+- P1 destino: rechazar inmediatamente después de canonicalizar los argumentos
+  una evidencia igual a target o descendiente suyo, incluida `.git`;
+- P2 lanzamiento: declarar que el propio `exec` inicial solo es admisible desde
+  un launcher confiable/root que ya haya retirado `LD_PRELOAD`, `LD_AUDIT` y
+  `LD_LIBRARY_PATH`; el `env -i` interior llega después de cargar Bash y no
+  protege ese primer límite dinámico.
+
+El candidato posterior usa ficheros NUL privados para conservar y comprobar de
+forma directa los estados de `config`, `ls-files` y `check-attr`; no los oculta
+en process substitution ni ejecuta filtros durante la auditoría. Estas son
+afirmaciones del productor y el dictamen independiente permanece `NO-GO` hasta
+revisar los nuevos hashes.
+
+Los probes estáticos posteriores, sin conductor ni creación de temporales,
+confirmaron que la forma exacta de `config`/`ls-files`/`check-attr` es aceptada
+por el Git instalado, que las seis familias prohibidas se rechazan también con
+mayúsculas mezcladas y que target, `.git` y cualquier descendiente activan el
+predicado de separación mientras un prefijo vecino no lo activa. Estos probes
+no acreditan un repositorio candidato, no ejecutan una conducción y no cambian
+el `NO-GO` independiente.
+
+## Dictamen independiente funcional adicional
+
+El dictamen funcional adicional es `NO-GO` sobre los hashes viejos exactos
+`939eebc2f059d286a7b2258c5b25d9840366beaaebd802e3dc534bddc9bb75db`
+del conductor y
+`5186fb189ebdd7c68cf4391374b41e33f7470ab3d22a5c50a0a74e1242aeda12`
+de esta enmienda. No aprueba los bytes posteriores y registra tres hallazgos:
+
+- P1: `ejecutar()` podía decidir `GO` con salida ordinaria no vacía pese a la
+  invariante de stdout/stderr cero. El candidato posterior calcula ambos
+  tamaños una sola vez antes del predicado, exige `so=se=0` y reutiliza esos
+  valores en la fila y el diagnóstico; BF conserva su comprobación existente;
+- P2: con `set -e`, el trap podía abandonar las retiradas restantes tras el
+  primer `rm` fallido. El candidato posterior captura el estado original,
+  desarma `EXIT` para evitar recursión, intenta siempre
+  `temporal_publicacion_go`, `tool-runtime` y staging, acumula fallos y conserva
+  un NO-GO original; si el estado original era cero y falla alguna retirada,
+  termina no cero;
+- P2 documental: la regla general limita los probes al tramo anterior a
+  staging/Go, mientras el acta también conserva un probe que cruzó Go/C y
+  publicador. La cronología correcta es que dirección autorizó explícitamente
+  esa única excepción histórica para verificar la autoridad root del
+  publicador; quedó consumida antes de esta edición y no modifica la prohibición
+  vigente ni convierte aquel probe en conducción canónica.
+
+Las correcciones son afirmaciones verificables del productor. El dictamen
+funcional adicional permanece `NO-GO` hasta una nueva revisión independiente
+de los hashes congelados.
+
+Los probes estáticos posteriores comprobaron que `ejecutar()` contiene solo
+los dos cálculos `wc`, que el predicado exige ambos ceros y que fila y
+diagnóstico reutilizan `so`/`se`. Un primer arnés de limpieza fue inválido por
+quoting y no ejecutó la aserción; la repetición válida, enteramente en memoria,
+confirmó tres intentos en orden y los resultados `original=7+fallo → 7`,
+`original=0+fallo → 2` y `original=0+limpieza verde → 0`. No se invocaron el
+conductor, staging, Go, build, test ni destino.
+
+## Segunda revisión independiente de seguridad
+
+La segunda revisión independiente de seguridad emite `NO-GO` sobre los hashes
+viejos exactos
+`1df4840d5ae40c49ceedc8646c362704e58a35155fb52118cea78acd81638f7d`
+del conductor y
+`45f28d0ee204d21bfbb61b9e9fbeac3e53fd21cf08fc0ddc4180837546ea4850`
+de esta enmienda. No aprueba bytes posteriores y exige cerrar:
+
+- P1 índice: obtener registros NUL con `git ls-files -t -v -z`, aceptar
+  exclusivamente el tag exacto `H `, derivar de esos registros la lista NUL
+  para `check-attr` y rechazar `skip-worktree`, `assume-unchanged`, unmerged o
+  cualquier estado no normal. Tags y lista exacta deben revalidarse en cuatro
+  cortes: inicial, tras snapshot, antes de publicación y tras retirar staging;
+- P1 genealogía: `info/grafts` solo puede estar ausente o ser regular vacío sin
+  symlink; `.git/shallow` y `.git/commondir` deben estar totalmente ausentes, y
+  `--path-format=absolute --git-common-dir` debe resolver exactamente al
+  `$target/.git` ya acreditado;
+- P1 lazy fetch: toda consulta debe fijar `GIT_NO_LAZY_FETCH=1`, y la
+  configuración LOCAL cruda debe rechazar `extensions.partialClone`,
+  `remote.*.promisor` y `remote.*.partialCloneFilter`. Un objeto ausente debe
+  producir error local; no se autoriza transporte, fetch ni helper remoto;
+- toda consulta Git debe añadir `-c core.fileMode=true` y conservar los cierres
+  previos de entorno, atributos, filtros, reemplazos y diff.
+
+El candidato posterior centraliza los cuatro cortes en una única auditoría
+fail-closed: conserva la salida etiquetada, genera una lista NUL separada,
+comprueba cada `H ` y compara las listas posteriores byte a byte con la inicial.
+Solo la lista derivada alimenta `check-attr`. Estas son afirmaciones del
+productor; el dictamen permanece `NO-GO` hasta revisar los nuevos hashes.
+
+El cierre lazy-fetch impide la recuperación prometida en las consultas del
+conductor y no se ejecuta ningún comando de transporte. No equivale a `fsck`,
+no acredita exhaustivamente el object store ni sus alternates y no protege
+frente a mutación cooperativa por otro proceso UID 999.
+
+Los probes estáticos, sin conductor ni temporales, confirmaron que el Git
+instalado acepta common-dir absoluto y `ls-files -t -v -z`; el índice del
+worktree de autoridad produjo 3101 registros `H `. Registros sintéticos `S`,
+`h`, `M`, `R`, `C` y `?` fueron rechazados, y las tres nuevas familias de
+configuración se detectaron con mayúsculas mezcladas. La inspección mecánica
+confirmó exactamente cuatro llamadas y que cada una precede a su `status`.
+Esto prueba sintaxis y predicados, no atestigua el futuro clon ni levanta el
+`NO-GO`.
+
+## Tercera revisión independiente de seguridad
+
+La tercera revisión independiente de seguridad emite `NO-GO` sobre los hashes
+viejos exactos
+`72e675e2324ecf940d79c0f320a62231be78744ffb349b6cc462a1ed10ada313`
+del conductor y
+`f560f856e28323c86978fef5af3b0df18fbe09479115d893210034352cb4f105`
+de esta enmienda. No aprueba bytes posteriores y exige:
+
+- P1 caché estadística: todas las consultas Git deben fijar
+  `core.fileMode=true`, `core.trustctime=true`, `core.checkStat=default`,
+  `core.ignoreStat=false` y `core.untrackedCache=false`; la auditoría LOCAL
+  normalizada debe rechazar explícitamente las cuatro últimas claves para que
+  la prueba no dependa de configuración persistente ambigua;
+- P2 documental: no puede afirmarse que todo hijo hereda solo stdio. Cero FD
+  ambientales cruzan `exec`, pero las capabilities explícitas se distinguen:
+  `flock` conserva `destino_padre_fd`, el wrapper de test conserva
+  temporalmente su marcador y el helper final conserva `destino_padre_fd`;
+  Git, Go y publicador sí reciben exclusivamente stdin/stdout/stderr.
+
+El candidato posterior añade los cuatro overrides en el wrapper único Git y
+las cuatro claves normalizadas a la lista cerrada de rechazo. Corrige asimismo
+el criterio FD sin relajar el cierre ambiental. Son afirmaciones del productor;
+el dictamen permanece `NO-GO` hasta revisar los nuevos hashes.
+
+Los probes estáticos confirmaron que el Git instalado devuelve los cinco
+valores forzados exactos, que las cuatro claves de caché se rechazan también
+con mayúsculas mezcladas y que ya no existe la frase excesiva «cada hijo hereda
+solo». La inspección documental conserva por separado stdio, FD ambientales y
+las tres clases de capability explícita. No se invocaron conductor, staging,
+Go, build, test ni destino; los probes no levantan el `NO-GO`.
+
+Existe una precondición externa anterior al paso 1: el launcher confiable/root
+debe entregar al `exec` inicial un ambiente sin `LD_PRELOAD`, `LD_AUDIT` ni
+`LD_LIBRARY_PATH`. V4 no acredita al launcher, no neutraliza lo que el cargador
+dinámico pudiera haber consumido antes de iniciar Bash y no es autosuficiente
+frente a esa frontera.
+
+El orden V4 es causal dentro de esa precondición externa:
+
+1. solo builtins rechazan `BASH_ENV`, `ENV`, `CDPATH`, cualquier función o
+   alias heredado, retiran todo `GIT_*` heredado y ejecutan `hash -r`;
+2. el bootstrap acredita propietario root del alias, objetivo canónico regular
+   root, modo sin escritura de grupo/otros y todos sus directorios padres;
+3. crea el `tool-runtime` 0700 antes de resolver target, destino, candado, Git,
+   staging o evidencia;
+4. copia con modo 0500 y basename exacto `basename bash cat chmod cmp cp cut dirname env
+   find flock git grep install ln mkdir mkfifo mktemp mv realpath rm seq setsid
+   sha256sum sleep sort stat timeout wc`; acredita las 29 entradas, sus modos,
+   propietarios y hashes, cierra y verifica inmediatamente cada FD fuente,
+   fija `hash -p` y contrasta cada `hash -t`;
+5. solo entonces canonicaliza los dos argumentos y rechaza evidencia igual o
+   descendiente de target antes de resolver su padre o candado. Exige target
+   0700 y `$target/.git` canónico exacto, no symlink, del EUID y sin escritura
+   de grupo/otros; `--show-toplevel`, `--absolute-git-dir` y el common-dir
+   absoluto deben devolver exactamente target y `$target/.git`, mientras
+   `.git/commondir` y `.git/shallow` deben estar ausentes. Antes de
+   `merge-base`, `info/grafts` está ausente o es regular vacío sin symlink.
+   Antes del primer `status`/`diff` audita
+   las claves LOCAL crudas con `config --local --no-includes`, normalizadas en
+   locale C, y aplica la lista cerrada de rechazo, incluidas configuración
+   partial-clone y remotos promisor. Exige `info/attributes` ausente o regular
+   vacío. `ls-files -t -v -z` solo admite tags `H ` y de ellos deriva la lista
+   NUL cuyo `filter` efectivo debe ser `unspecified`; tags y lista byte-exacta
+   se revalidan en los cortes inicial, post-snapshot, pre-publicación y
+   post-staging. Los errores de `config`, `ls-files`, `check-attr` o `cmp`, una
+   terna truncada/excedente o cualquier discrepancia fallan cerrados. Cada Git
+   añade `-c core.fileMode=true`, `-c core.trustctime=true`,
+   `-c core.checkStat=default`, `-c core.ignoreStat=false` y
+   `-c core.untrackedCache=false`; las cuatro últimas claves también se
+   rechazan en la configuración LOCAL normalizada. Git se ejecuta con `env -i`,
+   `HOME`/`XDG_CONFIG_HOME` privados,
+   `GIT_CONFIG_NOSYSTEM=1`, `GIT_ATTR_NOSYSTEM=1`, global `/dev/null`,
+   `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_REPLACE_OBJECTS=1`,
+   `GIT_NO_LAZY_FETCH=1`, hooks en `/dev/null`, fsmonitor desactivado y
+   `diff.external` vacío; las ocho comprobaciones `diff` llevan conjuntamente
+   `--no-ext-diff --no-textconv`.
+   `GIT_NO_REPLACE_OBJECTS` impide la sustitución por `refs/replace` en estas
+   consultas; no equivale a `fsck`, no atestigua el object store ni protege
+   contra otro proceso cooperativo del mismo UID;
+6. después de crear staging/evidencia abre por descriptor únicamente
+   `/srv/fabrica/orquesta/home/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/bin/go`,
+   SHA-256 `8da5fd321795754b994c64e3eb8a5a14ff47bd285559a7e876f3c79abafc67f9`,
+   exige versión `go1.26.5`, `GOROOT` y `GOTOOLDIR` derivados exactos y
+   contrasta las huellas/cardinalidades transitivas anteriores antes del primer
+   uso y después de compilar el helper final;
+7. abre por descriptor `fallo_durable.sh`, regular, no symlink, UID root,
+   modo 0755, con todos sus padres root y sin escritura de grupo/otros hasta
+   la raíz canónica del worktree de autoridad, y SHA-256
+   `b8f91102a2e98ce1e2e79ed73bfa9bd48c5d1f8ca002271dc5fc2461512bf174`;
+   lo ejecuta con Bash privado, `env -i`, `PATH` privado y el objeto pinado en
+   `/proc/$pid_conductor/fd`, no mediante reapertura de la ruta;
+8. una frontera común cierra todo FD `>=3` antes de cada `exec`; solo conserva
+   el FD expresamente declarado para `flock`, el marcador del test o el padre
+   del helper. Git, Go y publicador reciben exclusivamente `0,1,2`: sus
+   ejecutables pinados se abren mediante `/proc/$pid_conductor/fd/N` después de
+   que el wrapper hijo haya cerrado la copia heredada del FD. El wrapper de
+   test acredita el cierre y retira también el marcador antes de `exec` del
+   binario;
+9. antes del rename final ya no existen staging ni `tool-runtime`; se cierran
+   los descriptores de Go y del publicador, y solo quedan stdio, el padre
+   bloqueado y el helper pinado. El hijo recibe solo el padre, cierra de forma
+   comprobada sus FD `origin` y `pathParent` antes de `renameat2` y, tras éxito,
+   ejecuta `os.Exit(0)` inmediatamente.
+
+La build normal queda enteramente ligada al Go/GOROOT/GOTOOLDIR anteriores.
+La build `race` necesita CGO: usa `PATH` privado, fija `CC`/`CXX` absolutos y
+`COMPILER_PATH`, y acredita la procedencia de siete ejecutables C root-owned
+por ruta y SHA. La frontera C permanece externa: fijar esa procedencia no
+acredita transitivamente cabeceras, objetos, bibliotecas, cargador ni sysroot
+del host. V4 registra
+`race_c_tcb=ejecutables_7_fijados_sysroot_host_no_atestado`; no incluye esos
+ejecutables entre las 29 utilidades copiadas ni afirma una atestación completa,
+un cierre total de la frontera C o el cierre del parche/toolchain C21.
 
 ## V3: GO productor revocado por revisión
 
@@ -110,11 +476,12 @@ Son autoridad funcional directa:
 
 ## Capability y criterio único
 
-La única capability de V4 es una attestation no suplantable de la ejecución:
-las fuentes compiladas son un snapshot privado de las 32 rutas exactas; el
-checkout mantiene HEAD, árbol y limpieza; cada selector usa un `TMPDIR`
-privado de UID efectivo y modo 0700; y el paquete GO se publica localmente sin
-reemplazo, conservando identidad dev:inode.
+La única capability de V4 es una atestación acotada de la ejecución bajo la
+autoridad operativa cooperativa `orquesta`: las fuentes compiladas son un
+snapshot privado de las 32 rutas exactas; el checkout mantiene HEAD, árbol y
+limpieza; cada selector usa un `TMPDIR` privado de UID efectivo y modo 0700; y
+el paquete GO se publica localmente sin reemplazo, conservando identidad
+dev:inode. No añade aislamiento frente a procesos con el mismo UID.
 
 Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
 runtime privado. Go elimina por completo el selector `runtimeSelector` y acredita
@@ -160,8 +527,10 @@ Se exige conjuntamente:
 8. las fuentes compiladas son regulares, no symlink, byte-exactas al ledger y
    se leen únicamente desde el snapshot privado;
 9. HEAD, árbol y limpieza del target son iguales antes y después del snapshot;
-10. cada hijo hereda solo stdin, stdout y stderr; todo FD ambiental `>=3` se
-   cierra antes de `exec`;
+10. ningún FD ambiental `>=3` cruza `exec`. Git, Go y publicador reciben solo
+   stdin/stdout/stderr; como capabilities explícitas, `flock` conserva
+   `destino_padre_fd`, el wrapper de test conserva temporalmente el marcador y
+   lo cierra antes del binario, y el helper final conserva `destino_padre_fd`;
 11. la publicación GO usa el helper Go pinado por FD y `renameat2(RENAME_NOREPLACE)`
    sin reemplazar un destino; el helper ancla `SHA256SUMS`, recalcula las huellas SHA-256 de la lista
    cerrada de 11 entradas selladas más `SHA256SUMS` por FD y contrasta la ruta del padre con el FD bloqueado;
@@ -206,7 +575,9 @@ Cada invocación recibe un entorno vacío y cerrado con `HOME`, `TMPDIR`,
 `GOTMPDIR`, `GOROOT`, `GOENV=off` y `GOTOOLCHAIN=local` explícitos. El proceso
 intermedio cierra todos los FD `>=3` antes de `exec`; el lock nunca llega al
 target. Las rutas y huellas SHA-256 de las utilidades externas se conservan en
-la evidencia.
+la evidencia. Build normal, ejecución y publicador usan solo el `tool-runtime`;
+race añade únicamente la frontera C absoluta y fijada descrita arriba, cuyo
+sysroot host queda declarado, no acreditado.
 
 Los ledgers `casos.tsv` y `fuentes.tsv` se copian al inicio a entradas privadas
 0400; la compilación, ejecución, rehash y contexto solo leen esas copias. La
@@ -225,38 +596,62 @@ escribe el contexto final en el temporal hermano, se sella `publicacion.tsv` y
 `SHA256SUMS` incluyendo el binario `rename_noreplace` ya compilado dentro del
 temporal, y el helper invoca `renameat2(RENAME_NOREPLACE)`. El directorio 0700
 se trata como paquete cerrado: el rename no-replace es el punto definitivo y
-después no se realizan operaciones fallibles ni se afirma un modo de solo lectura.
+el helper cierra antes todos sus FD propios comprobables. Un `os.Exit(0)` sigue
+inmediatamente al rename verde; después no se realizan `defer`, cierres ni otras
+operaciones fallibles, ni se afirma un modo de solo lectura.
 
-## Write-set exacto
+## Capability, invariante y write-set exacto
+
+Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`, atestación acotada del
+runtime temporal y de las herramientas que construyen, ejecutan y publican la
+evidencia local bajo la cooperación de la autoridad operativa `orquesta`; no
+ofrece aislamiento frente a otro proceso con UID 999.
+
+Invariante: ninguna decisión de capacidad posterior al bootstrap usa un
+resultado ambiental interno; destino y target son disjuntos, Git queda ligado
+al `.git` exacto sin configuración local activa capaz de incluir, filtrar o
+redireccionar worktree/atributos o declarar partial clone/promisor; genealogía
+no usa grafts, shallow ni common-dir redirigido. Cada tracked conserva tag `H `,
+la misma lista NUL en los cuatro cortes y `filter=unspecified`; lazy fetch y
+replace objects quedan anulados. `fileMode`, `trustctime`, `checkStat`,
+`ignoreStat` y `untrackedCache` quedan fijados en cada Git y las cuatro claves
+de caché se rechazan localmente. En cada corte, `git status` debe terminar cero
+antes de evaluar su salida vacía; un error Git nunca se interpreta como
+limpieza. Cada fila ordinaria exige estado cero y stdout/stderr de cero bytes.
+Snapshot, Go, helper, `TMPDIR`, cierre de FD y publicación pertenecen después a
+la misma cadena fail-closed; el trap intenta
+todas las retiradas, preserva el error original y convierte en error cualquier
+fallo de limpieza tras un resultado originalmente verde. Esta invariante
+empieza tras la precondición del launcher externo y no afirma control sobre el
+cargador dinámico inicial, todo el object store ni sus alternates.
 
 ```text
-deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff_test.go
 tools/o3c_p6_conductor/conductor.sh
-tools/o3c_p6_conductor/fuentes.tsv
 docs/portal_vec/enmienda_o3c_p6_cap_normal_021_runtime_tmp_2026-08-21.md
 ```
 
-`fuentes.tsv` cambia solo la huella de `handoff_test.go`. No se modifican
-fuentes productivas, G7a, `fallo_durable.sh`, casos, ledgers O3a/O3b,
-workflows, estado transversal o métricas.
+`handoff_test.go`, `fuentes.tsv`, las 32 fuentes, producto, G7a/G7b,
+`fallo_durable.sh`, casos, ledgers O3a/O3b/O3c, workflows, estado transversal
+y métricas permanecen byte a byte.
 
 ## Puertas y secuencia sin reintentos
 
-Después del commit candidato y antes de ejecutar conducta:
+Antes de congelar el candidato local y sin ejecutar conducta:
 
 1. identidad, genealogía, limpieza, write-set y hashes;
-2. `gofmt -d` del único Go modificado;
-3. `bash -n` y ShellCheck del conductor, si la herramienta ya está presente;
-4. build normal y race de las 32 fuentes del ledger, sin ejecutar binarios;
-5. validación mecánica de las 32 huellas del ledger;
-6. `go vet` focal, `git diff --check` y barrido de write-set.
+2. `bash -n` y ShellCheck del conductor;
+3. validación mecánica de las 32 huellas del ledger, sin modificarlo;
+4. build normal y race de las 32 fuentes, sin ejecutar los binarios, solo si
+   dirección amplía expresamente este corte estático;
+5. `git diff --check`, write-set y ausencia de residuos.
 
-Después de esas puertas no conductuales se permite una única corrida canónica
-del conductor O3c, propiedad de `orquesta`, bajo lock cerrado, a un destino de
-evidencia nuevo. No se ejecuta una sonda ad hoc previa. Si termina roja, el
-publicador V2 conserva el primer paquete y ese SHA no se repite. Si termina
-verde, el mismo SHA recibe dos revisiones independientes; el productor no
-emite su propio GO.
+El siguiente corte es la revisión funcional y de seguridad independiente de
+los dos archivos y hashes congelados. El productor no emite GO. Solo después,
+y mediante orden expresa de dirección, podrá existir un commit candidato, un
+clon `orquesta:orquesta` 0700 nuevo y una única corrida canónica a un destino
+nunca usado. Si termina roja, el publicador V2 conserva el primer paquete y
+ese SHA no se repite; si queda verde, la evidencia del mismo SHA vuelve a
+revisión independiente antes de cualquier integración.
 
 ## Límites
 
