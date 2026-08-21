@@ -11,10 +11,6 @@ autoriza commit, integración, convergencia, publicación, CI remota, O4,
 despliegue, producción, credenciales, datos reales, estado transversal o
 métricas.
 
-El blob anterior identificado por el prefijo `a3e60ab4` conserva los dos
-dictámenes `NO-GO` que motivan esta segunda corrección y no es autoridad para
-una conducción futura.
-
 ## Resultado único del contrato
 
 La capability que este contrato permitirá juzgar es:
@@ -44,7 +40,7 @@ invalida todo el SHA. Dos verdes nunca compensan el tercero.
 
 ## Base exacta y dependencias cerradas
 
-La base documental de este contrato es:
+La base técnica de este contrato es:
 
 | Propiedad | Valor |
 | --- | --- |
@@ -119,6 +115,12 @@ actualiza el ledger y no se acepta una fuente adicional o ausente. G7a, G7b,
 los demás ocho fuentes, los siete bloques, casos, oráculos, workflow,
 toolchain, evidencias históricas y documentos transversales son inmutables en
 este corte.
+Cada fila de `fuentes_v5.tsv` aporta solo un basename no vacío, sin `/` ni
+componentes `.` o `..`. El coordinador fija
+`base_fuentes_rel=deploy/postgresql/autorizacion_atestada_v3/pruebas_sql`,
+construye `ruta_relativa=base_fuentes_rel/basename` y
+`fichero=FUENTE/ruta_relativa`; `bytes_tecnicos.tsv` registra siempre esa ruta
+relativa canónica completa.
 
 ## Toolchain exacta del carril
 
@@ -208,14 +210,16 @@ contenido congelado reciba dos revisiones documentales independientes verdes,
 dirección podrá crear un único commit con estas propiedades:
 
 ```text
-padre = 484020703c683c324e9b2eaef5c43a56c1d95ea6
-delta = A docs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md
+padre_documental = 1789629ab78c5274356ae6998c4849254ff84c2b
+base_tecnica = 484020703c683c324e9b2eaef5c43a56c1d95ea6
+delta = M docs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md
 resto de rutas = cero
 ```
 
 El hash completo de ese commit se denomina `SHA_DOCUMENTAL`; sus doce primeros
-hexadecimales se denominan `SHA12`. El árbol del commit debe ser exactamente
-el árbol de `4840207` más este único blob Markdown. Los tres carriles fijan el
+hexadecimales se denominan `SHA12`. El árbol del commit debe partir del padre
+documental inmediato y conservar la base técnica `4840207` como su progenitor
+histórico. Los tres carriles fijan el
 mismo `SHA_DOCUMENTAL` y el mismo árbol. Un amend, rebase, cherry-pick, cambio
 de padre o cambio de un byte produce otro SHA y deja sin consumir estas rutas.
 
@@ -225,10 +229,17 @@ seis operandos `SHA_DOCUMENTAL`, `ARBOL_DOCUMENTAL`, `BLOB_DOCUMENTAL`,
 candidato aprobado y confirme las dos revisiones documentales. Esos seis
 valores se copian literalmente al argv del bootstrap; no se infieren del
 commit que se pretende juzgar. El coordinador compara antes de reservar rutas
-el padre, el delta Git de una sola alta, el árbol, el blob, la huella, las
+el padre, el delta Git de una sola modificación documental, el árbol, el blob, la huella, las
 líneas y los bytes observados con esos operandos. Cualquier diferencia impide
 el preflight y hace imposible consumir como verde una reedición, una ruta
 adicional o un commit distinto del blob revisado.
+
+El commit `1789629ab78c5274356ae6998c4849254ff84c2b` queda registrado como
+`BOOTSTRAP_INVALIDO_NO_MATERIAL`: su única invocación terminó en rojo porque
+el literal `BYTES_DOCUMENTO` no fue sustituido en el argv final, no creó rutas ni inició carriles y queda
+fuera de todo consumo. El siguiente candidato tendrá como `PADRE_DOCUMENTAL`
+ese commit y conservará `BASE_TECNICA=484020703c683c324e9b2eaef5c43a56c1d95ea6`;
+son autoridades distintas y no se intercambian.
 
 ## Rutas consumibles predeclaradas
 
@@ -318,14 +329,15 @@ sustituyen en la futura línea de invocación; fuente, documento y huella del
 coordinador ya son literales y nunca proceden de estado de shell heredado:
 
 ```text
-/usr/bin/busybox env -i LC_ALL=C PATH=/usr/bin:/bin HOME=/nonexistent/o3a-v5-bootstrap XDG_CONFIG_HOME=/nonexistent/o3a-v5-bootstrap GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=file /usr/bin/bash --noprofile --norc -c 'set -euo pipefail; fuente=$1; sha=$2; documento=$3; esperado=$4; shift 4; cd "$fuente"; extraer(){ /usr/bin/git -c core.hooksPath=/dev/null -c protocol.file.allow=always -C "$fuente" show "$sha:$documento" | /usr/bin/busybox awk '\''$0=="<!-- COORDINADOR_V3_INICIO -->"{d=1;s=1;next}$0=="<!-- COORDINADOR_V3_FIN -->"{d=0}d{if(s){s=0;next}a[++n]=$0}END{for(i=1;i<n;i++)print a[i]}'\''; }; observado=$(extraer | /usr/bin/busybox sha256sum | /usr/bin/busybox awk '\''{print $1}'\''); test "$observado" = "$esperado"; extraer | /usr/bin/busybox env -i LC_ALL=C PATH=/usr/bin:/bin HOME=/nonexistent/o3a-v5-bootstrap XDG_CONFIG_HOME=/nonexistent/o3a-v5-bootstrap GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=file /usr/bin/bash --noprofile --norc -s -- "$fuente" "$sha" "$documento" "$esperado" "$@"' bootstrap /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/o3a-v5-cnd-v4-c21-estabilidad-go1.26.6-20260821 SHA_DOCUMENTAL docs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md 6ec76628ce500c36b99e6d805db8e5db0f9959cc9d7d703ca9c71ebb9b0eee06 ARBOL_DOCUMENTAL BLOB_DOCUMENTAL SHA256_DOCUMENTO LINEAS_DOCUMENTO BYTES_DOCUMENTO
+/usr/bin/busybox env -i LC_ALL=C PATH=/usr/bin:/bin HOME=/nonexistent/o3a-v5-bootstrap XDG_CONFIG_HOME=/nonexistent/o3a-v5-bootstrap GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=file /usr/bin/bash --noprofile --norc -c 'set -euo pipefail; fuente=$1; sha=$2; documento=$3; esperado=$4; shift 4; cd "$fuente"; extraer(){ /usr/bin/git -c core.hooksPath=/dev/null -c protocol.file.allow=always -C "$fuente" show "$sha:$documento" | /usr/bin/busybox awk '\''$0=="<!-- COORDINADOR_V3_INICIO -->"{d=1;s=1;next}$0=="<!-- COORDINADOR_V3_FIN -->"{d=0}d{if(s){s=0;next}a[++n]=$0}END{for(i=1;i<n;i++)print a[i]}'\''; }; observado=$(extraer | /usr/bin/busybox sha256sum | /usr/bin/busybox awk '\''{print $1}'\''); test "$observado" = "$esperado"; extraer | /usr/bin/busybox env -i LC_ALL=C PATH=/usr/bin:/bin HOME=/nonexistent/o3a-v5-bootstrap XDG_CONFIG_HOME=/nonexistent/o3a-v5-bootstrap GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=file /usr/bin/bash --noprofile --norc -s -- "$fuente" "$sha" "$documento" "$esperado" "$@"' bootstrap /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/o3a-v5-cnd-v4-c21-estabilidad-go1.26.6-20260821 SHA_DOCUMENTAL docs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md b87e39dfca0ec30c6d90529b3a8d7442209a78f1022d5af3fb0b39d2bdea3e60 ARBOL_DOCUMENTAL BLOB_DOCUMENTAL SHA256_DOCUMENTO LINEAS_DOCUMENTO BYTES_DOCUMENTO FIN_OPERANDOS
 ```
 
 La segunda instancia Bash recibe por stdin exclusivamente la plantilla y el
 argv exacto `[/usr/bin/bash,--noprofile,--norc,-s,--,FUENTE_LITERAL,
 SHA_DOCUMENTAL,DOCUMENTO_LITERAL,HUELLA_COORDINADOR,ARBOL_DOCUMENTAL,
-BLOB_DOCUMENTAL,SHA256_DOCUMENTO,LINEAS_DOCUMENTO,BYTES_DOCUMENTO]`;
-dentro de la plantilla esos nueve operandos son `$1..$9`. Los dos literales
+BLOB_DOCUMENTAL,SHA256_DOCUMENTO,LINEAS_DOCUMENTO,BYTES_DOCUMENTO,FIN_OPERANDOS]`;
+dentro de la plantilla esos diez operandos son `$1..$10`; exige exactamente
+`FIN_OPERANDOS` en `$10` y rechaza cualquier otra cardinalidad o centinela. Los dos literales
 de ruta y la huella completa del coordinador son exactamente los publicados
 arriba. No se evalúa texto de variables heredadas.
 
@@ -361,7 +373,8 @@ GOROOT_ORIGEN=/srv/fabrica/orquesta/home/go/pkg/mod/golang.org/toolchain@v0.0.1-
 GOROOT_IDENTIDAD_SHA=9931a14ad98c26369bf964958b9adeec9edd26162086a51c1842aebe59135511
 GO_SHA=29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45
 GOFMT_SHA=0ef6fe2d15c972d15b8ecb75dcb9c861e042ac94a0e48baf0202a840648b0fdc
-BASE=484020703c683c324e9b2eaef5c43a56c1d95ea6
+PADRE_DOCUMENTAL=1789629ab78c5274356ae6998c4849254ff84c2b
+BASE_TECNICA=484020703c683c324e9b2eaef5c43a56c1d95ea6
 MODE_SHA=f03cbb57ff78c1021486549450b22a77fee846d2f4b9a04738ebceee643568fc
 PRIVILEGIO=(--reuid 999 --regid 982 --clear-groups --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs)
 
@@ -656,7 +669,7 @@ hijo() {
     local espera linea pid ppid pgid sid inicio conductor argv_sha previo ruta_fd fd
     for ruta_fd in /proc/self/fd/*; do
         fd=${ruta_fd##*/}; [[ $fd =~ ^[0-9]+$ && $fd -ge 3 ]] || continue
-        eval "exec ${fd}>&-" 2>/dev/null || true
+        { exec {fd}>&-; } 2>/dev/null || true
     done
     registrar_privilegio "$atestacion/privilegios.tsv" CONDUCCION conductor
     linea=$(campos_proceso $$)
@@ -683,19 +696,21 @@ case ${1:-} in
     --go-version) go_version_hijo "$@"; exit ;;
     --hijo) hijo "$@"; exit ;;
 esac
-[[ $# -eq 9 ]]
+[[ $# -eq 10 ]]
 fuente=$1; sha_documental=$2; documento=$3; coordinador_sha=$4
-arbol_esperado=$5; blob_esperado=$6; doc_sha_esperado=$7; doc_lineas_esperadas=$8; doc_bytes_esperados=$9
+arbol_esperado=$5; blob_esperado=$6; doc_sha_esperado=$7; doc_lineas_esperadas=$8; doc_bytes_esperados=$9; fin_operandos=${10}
+[[ $fin_operandos == FIN_OPERANDOS ]]
 [[ $fuente == /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/o3a-v5-cnd-v4-c21-estabilidad-go1.26.6-20260821 ]]
 [[ $documento == docs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md ]]
 [[ $sha_documental =~ ^[0-9a-f]{40}$ && $coordinador_sha =~ ^[0-9a-f]{64}$ && $arbol_esperado =~ ^[0-9a-f]{40}$ && $blob_esperado =~ ^[0-9a-f]{40}$ && $doc_sha_esperado =~ ^[0-9a-f]{64}$ && $doc_lineas_esperadas =~ ^[1-9][0-9]*$ && $doc_bytes_esperados =~ ^[1-9][0-9]*$ ]]
 uid=$("$BB" awk '/^Uid:/{print $2;exit}' /proc/self/status)
 gid=$("$BB" awk '/^Gid:/{print $2;exit}' /proc/self/status)
 [[ $uid:$gid == 0:0 && $PWD == "$fuente" ]]
-[[ $("$GIT" -C "$fuente" rev-parse "$sha_documental^") == "$BASE" ]]
+[[ $("$GIT" -C "$fuente" rev-parse "$sha_documental^") == "$PADRE_DOCUMENTAL" ]]
 [[ $("$GIT" -C "$fuente" rev-parse HEAD) == "$sha_documental" && -z $("$GIT" -C "$fuente" status --porcelain=v2 --untracked-files=all) ]]
-delta=$("$GIT" -C "$fuente" diff-tree --root --no-commit-id --name-status -r "$sha_documental")
-[[ $delta == $'A\tdocs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md' ]]
+[[ $("$GIT" -C "$fuente" rev-parse "$PADRE_DOCUMENTAL^") == "$BASE_TECNICA" ]]
+delta=$("$GIT" -C "$fuente" diff-tree --no-commit-id --name-status -r "$PADRE_DOCUMENTAL" "$sha_documental")
+[[ $delta == $'M\tdocs/portal_vec/enmienda_o3a_v5_cnd_v4_c21_estabilidad_go1_26_6_2026-08-21.md' ]]
 arbol=$("$GIT" -C "$fuente" rev-parse "$sha_documental^{tree}")
 blob=$("$GIT" -C "$fuente" rev-parse "$sha_documental:$documento")
 doc_sha=$("$GIT" -C "$fuente" show "$sha_documental:$documento" | "$BB" sha256sum | "$BB" awk '{print $1}')
@@ -1165,14 +1180,17 @@ log PREFLIGHT COORDINADOR "$coordinador_sha"
 : >"$control/ventana.lock"
 exec {lv}<"$control/ventana.lock"
 "$FLOCK" -n "$lv"
-printf 'sha_documental\tpadre\tarbol\tblob_documento\tsha256_documento\tlineas_documento\tbytes_documento\n%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$sha_documental" "$BASE" "$arbol" "$blob" "$doc_sha" "$doc_lineas" "$doc_bytes" >"$control/contrato.tsv"
+printf 'sha_documental\tpadre_documental\tbase_tecnica\tarbol\tblob_documento\tsha256_documento\tlineas_documento\tbytes_documento\n%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$sha_documental" "$PADRE_DOCUMENTAL" "$BASE_TECNICA" "$arbol" "$blob" "$doc_sha" "$doc_lineas" "$doc_bytes" >"$control/contrato.tsv"
 printf 'ruta\tmodo\tlineas\tsha256\n' >"$control/bytes_tecnicos.tsv"
 ledger=$fuente/tools/o3a_v5_conductor/fuentes_v5.tsv
+base_fuentes_rel=deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 while IFS=$'\t' read -r ruta lineas huella; do
     [[ $ruta == archivo ]] && continue
-    fichero=$fuente/$ruta
+    [[ -n $ruta && $ruta != */* && $ruta != . && $ruta != .. ]] || exit 1
+    ruta_relativa=$base_fuentes_rel/$ruta
+    fichero=$fuente/$ruta_relativa
     [[ ! -L $fichero && -f $fichero && $("$BB" stat -c %a "$fichero") == 644 && $("$BB" wc -l <"$fichero") -eq $lineas && $(sha "$fichero") == "$huella" ]]
-    printf '%s\t100644\t%s\t%s\n' "$ruta" "$lineas" "$huella" >>"$control/bytes_tecnicos.tsv"
+    printf '%s\t100644\t%s\t%s\n' "$ruta_relativa" "$lineas" "$huella" >>"$control/bytes_tecnicos.tsv"
 done <"$ledger"
 tecnicos_fijos=(
     "tools/o3a_v5_conductor/fuentes_v5.tsv|100644|11|ba2b0a1c9838f57ca43d53ec6133ae74bfa7452f7511421e367d7fc5f3d079b0"
@@ -1195,7 +1213,7 @@ for spec in "${tecnicos_fijos[@]}"; do
 done
 for acta in bb23278e0b5660b611cb9c7faa19b197e0283a19 22fde5f72b2ce4bf92c2ae32bee4d7ab47a4e36b baea7d014e403412dd77c7cbd380e89023dd9717 fd44303eaf5dd27d2fbbd221266b13fe1473b4ba; do
     "$GIT" -C "$fuente" cat-file -e "$acta^{commit}"
-    [[ $("$GIT" -C "$fuente" rev-parse "$acta^") == "$BASE" ]]
+    [[ $("$GIT" -C "$fuente" rev-parse "$acta^") == "$BASE_TECNICA" ]]
     [[ $("$GIT" -C "$fuente" diff-tree --no-commit-id --name-only -r "$acta" | "$BB" wc -l) -eq 1 ]]
 done
 log PREFLIGHT OBJETOS_Y_BYTES VERIFICADOS
@@ -1359,8 +1377,8 @@ for c in "${carriles[@]}"; do
         ((orden+=1)); printf 'PREPARACION\tcoordinador\t%s\t%s\t%s\tBOOTSTRAP_BASH\tGO\n' "$orden" "${par%%=*}" "${par#*=}" >>"$a/entorno_permitido.tsv"
     done
     printf 'fase\tproceso\tindice\tvalor\tsha256_bytes\n' >"$a/argv.tsv"
-    printf 'carril\tsha_documental\tpadre\tarbol\tblob_documento\ttarget\tdestino\tatestacion\tuid\tgid\tumask\tpropietario\tgrupo\tmodo\ttipo\tnlink\tresultado\n' >"$a/identidad.tsv"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t999\t982\t077\torquesta\torquesta\t700\tdirectory\t%s\tGO\n' "$c" "$sha_documental" "$BASE" "$(como_orquesta_git -C "${target[$c]}" rev-parse 'HEAD^{tree}')" "$blob" "${target[$c]}" "${destino[$c]}" "$a" "$("$BB" stat -c %h "$a")" >>"$a/identidad.tsv"
+    printf 'carril\tsha_documental\tpadre_documental\tbase_tecnica\tarbol\tblob_documento\ttarget\tdestino\tatestacion\tuid\tgid\tumask\tpropietario\tgrupo\tmodo\ttipo\tnlink\tresultado\n' >"$a/identidad.tsv"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t999\t982\t077\torquesta\torquesta\t700\tdirectory\t%s\tGO\n' "$c" "$sha_documental" "$PADRE_DOCUMENTAL" "$BASE_TECNICA" "$(como_orquesta_git -C "${target[$c]}" rev-parse 'HEAD^{tree}')" "$blob" "${target[$c]}" "${destino[$c]}" "$a" "$("$BB" stat -c %h "$a")" >>"$a/identidad.tsv"
     idx=0; for arg in /usr/bin/busybox mkdir -m 0700 "${home[$c]}" "${xdg[$c]}" "${xcache[$c]}" "${tmp[$c]}" "${gocache[$c]}" "${xdg[$c]}/go" "${xdg[$c]}/go/telemetry"; do printf 'PREPARACION\tbusybox_mkdir\t%s\t%s\t%s\n' "$idx" "$arg" "$(printf %s "$arg" | "$BB" sha256sum | "$BB" awk '{print $1}')" >>"$a/argv.tsv"; ((idx+=1)); done
     idx=0; for arg in /usr/bin/busybox env -i LC_ALL=C PATH=/usr/bin:/bin /usr/bin/setpriv "${PRIVILEGIO[@]}" /usr/bin/busybox env -i "HOME=${home[$c]}" "XDG_CONFIG_HOME=${xdg[$c]}" "XDG_CACHE_HOME=${xcache[$c]}" "TMPDIR=${tmp[$c]}" "GOCACHE=${gocache[$c]}" "GOROOT=$goroot" LC_ALL=C "PATH=$goroot/bin:/usr/bin:/bin" GOTOOLCHAIN=local GOENV=off GOPROXY=off GOSUMDB=off /usr/bin/bash --noprofile --norc "$control/coordinador_v3.sh" --go-version "${tmp[$c]}/go-version.pid.tsv" "$a/privilegios.tsv" "$GO"; do printf 'GO_VERSION\tbusybox_env_setpriv_env_bash\t%s\t%s\t%s\n' "$idx" "$arg" "$(printf %s "$arg" | "$BB" sha256sum | "$BB" awk '{print $1}')" >>"$a/argv.tsv"; ((idx+=1)); done
     idx=0; for arg in /usr/bin/busybox env -i "HOME=${home[$c]}" "XDG_CONFIG_HOME=${xdg[$c]}" "XDG_CACHE_HOME=${xcache[$c]}" "TMPDIR=${tmp[$c]}" "GOCACHE=${gocache[$c]}" "GOROOT=$goroot" LC_ALL=C "PATH=$goroot/bin:/usr/bin:/bin" GOTOOLCHAIN=local GOENV=off GOPROXY=off GOSUMDB=off "$GO" version; do printf 'GO_VERSION_EXEC\tbusybox_env_go\t%s\t%s\t%s\n' "$idx" "$arg" "$(printf %s "$arg" | "$BB" sha256sum | "$BB" awk '{print $1}')" >>"$a/argv.tsv"; ((idx+=1)); done
@@ -1706,13 +1724,13 @@ for c in "${carriles[@]}"; do
     "$BB" awk -F '\t' -v c="$c" 'FNR>1{print c"\t"$1"\t"$2"\t"$3"\t"$4"\t"$10}' "$a/capturas.tsv" >>"$control/capturas_global.tsv"
 done
 [[ $(($("$BB" wc -l <"$control/capturas_global.tsv")-1)) -eq 9 ]]
-resultado_global_material=GO_UNANIME_PENDIENTE_REVISION
+resultado_global_material=CANDIDATO_UNANIME_PENDIENTE_SELLADO
 printf 'recurso\truta\tantes\tdespues\tprocesos_usuarios\tfd_usuarios\tmaps_usuarios\tresiduos\tretirada_autorizada\tresultado\tdetalle\nventana\tglobal\tabierta\tcerrable\t0\t0\t0\t0\tsi\t%s\tpostflight_completo_global_rojo_%s\ngoroot\t%s\tpresente\tausente\t%s\t%s\t%s\t0\tsi\t%s\tpost_usuarios_%s,post_fd_%s,post_maps_%s\n' "$resultado_global_material" "$global_rojo" "$goroot" "$goroot_usuarios_antes" "$goroot_fd_antes" "$goroot_maps_antes" "$goroot_retirado" "$goroot_usuarios_despues" "$goroot_fd_despues" "$goroot_maps_despues" >"$control/postflight_global.tsv"
 incidencia_post=$(sha "$incidencia")
 [[ ! -L $incidencia && -f $incidencia && $("$BB" stat -c '%U|%G|%a|%h|%s|%F' "$incidencia") == 'orquesta|orquesta|644|1|16384|regular file' && $incidencia_post == "$incidencia_pre" ]]
 printf 'fase\truta\tclasificacion\tinstante_utc\tpropietario\tgrupo\tmodo\ttipo\tnlink\tbytes\tsha256\taccion\nPOST\t%s\tPREEXISTENTE_AJENA\t%s\torquesta\torquesta\t644\tregular\t1\t16384\t%s\tNO_TOCADO\n' "$incidencia" "$(utc)" "$incidencia_post" >"$control/incidencia_telemetria_post.tsv"
 log CIERRE RESULTADO "$global_rojo"
-escribir_terminal GO_UNANIME_PENDIENTE_REVISION MATERIAL_COMPLETO_PENDIENTE_SELLADO_CONTROL 0 CONDICIONADO_SHA256SUMS_CONTROL
+escribir_terminal CANDIDATO_UNANIME_PENDIENTE_SELLADO NO_ACREDITADO_HASTA_SHA256SUMS_CONTROL 0 NO_ACREDITADO_HASTA_SHA256SUMS_CONTROL
 exec {efd}>&-; efd=
 exec 9>&-; diario_abierto=0
 sellar_paquete "$control" 25 "$control/coordinador_v3.sh"
@@ -1722,9 +1740,9 @@ exit "$global_rojo"
 ```
 <!-- COORDINADOR_V3_FIN -->
 
-La recongelación fija la plantilla en **1354 líneas**, **106536 bytes** y
+La recongelación fija la plantilla en **1379 líneas**, **108460 bytes** y
 SHA-256
-`6ec76628ce500c36b99e6d805db8e5db0f9959cc9d7d703ca9c71ebb9b0eee06`.
+`b87e39dfca0ec30c6d90529b3a8d7442209a78f1022d5af3fb0b39d2bdea3e60`.
 La instancia de
 `CONTROL` debe coincidir con esos valores y con el blob documental antes de
 cualquier preparación.
@@ -2125,8 +2143,9 @@ El agregado se clasifica una sola vez por esta precedencia total:
 | 5 | `ROJO_PROTOCOLO`, `ROJO_EJECUCION`, `ROJO_EVIDENCIA` o `ROJO_POSTCONDICION` | Primer evento terminal material, clasificado exclusivamente por la fase de la tabla anterior; los carriles posteriores no empiezan. |
 | 6 | `ROJO_UNANIMIDAD` | Los tres carriles cerraron `GO`, pero la comparación cruzada discrepa. No absorbe un rojo anterior ni un carril no iniciado. |
 | 7 | `ROJO_REVISION` | Existen tres `GO` sellados y cualquiera de las dos revisiones postcanónicas dicta `NO-GO`; es terminal aunque la otra siga pendiente o después sea GO. |
-| 8 | `GO_UNANIME_PENDIENTE_REVISION` | Existen tres `GO`, ninguna revisión ha dictado `NO-GO` y todavía no se cumplen los dos GO con `P0=P1=P2=0`. |
-| 9 | `GO_UNANIME_REVISADO` | Existen tres `GO` y ambas revisiones postcanónicas dictan `GO`, cada una con `P0=P1=P2=0`, sobre el mismo conjunto sellado. |
+| 8 | `CANDIDATO_UNANIME_PENDIENTE_SELLADO` | Los tres carriles terminaron candidatos verdes, pero `CONTROL` aún no ha superado su sellado; es transitorio y nunca es aceptación. |
+| 9 | `GO_UNANIME_PENDIENTE_REVISION` | Solo una verificación posterior, estrictamente de lectura, confirma `SHA256SUMS` 24/24, cardinalidad, permisos y la fila candidata; entonces deriva este estado. |
+| 10 | `GO_UNANIME_REVISADO` | Existen tres `GO` y ambas revisiones postcanónicas dictan `GO`, cada una con `P0=P1=P2=0`, sobre el mismo conjunto sellado. |
 
 Las filas transitorias solo describen una fotografía mientras la ventana
 autorizada sigue activa; no son aceptación. Las revisiones postcanónicas solo
@@ -2178,7 +2197,7 @@ diario y el estado terminal todavía abiertos. Inventario y cabeceras exactas:
 
 | # | Fichero | Cabecera exacta o contenido |
 | ---: | --- | --- |
-| 1 | `contrato.tsv` | `sha_documental\tpadre\tarbol\tblob_documento\tsha256_documento\tlineas_documento\tbytes_documento` |
+| 1 | `contrato.tsv` | `sha_documental\tpadre_documental\tbase_tecnica\tarbol\tblob_documento\tsha256_documento\tlineas_documento\tbytes_documento` |
 | 2 | `bytes_tecnicos.tsv` | `ruta\tmodo\tlineas\tsha256` |
 | 3 | `rutas_reservadas.tsv` | `ordinal\tclase\tcarril\tsimbolo\truta_absoluta\tdebe_ausente_inicial` |
 | 4 | `ausencia_inicial.tsv` | `ordinal\truta_absoluta\tinstante_utc\tpid_observador\tuid_efectivo\tgid_efectivo\ttipo_observado\tresultado` |
@@ -2208,19 +2227,25 @@ diario y el estado terminal todavía abiertos. Inventario y cabeceras exactas:
 diario y `estado_terminal.tsv` se crean inmediatamente después de `CONTROL` y
 mantienen FD separados append-only; el diario encadena cada fila con la huella
 de la anterior y el estado terminal admite una sola fila. Ambos FD se cierran
-antes del manifiesto final. En verde esa fila declara
-`GO_UNANIME_PENDIENTE_REVISION` condicionado a que el propio `CONTROL` supere
-después su `SHA256SUMS`; un sellado fallido nunca es GO. En rojo conserva fase,
+antes del manifiesto final. Antes del sellado, la única fila candidata declara
+`CANDIDATO_UNANIME_PENDIENTE_SELLADO` y `NO_ACREDITADO_HASTA_SHA256SUMS_CONTROL`;
+solo una verificación posterior, estrictamente de lectura, de `SHA256SUMS`
+24/24, cardinalidad, permisos y fila candidata deriva
+`GO_UNANIME_PENDIENTE_REVISION`. Un manifiesto ausente o inválido deriva
+`ROJO_EVIDENCIA` y nunca verde. En rojo conserva fase,
 motivo, estado y contadores aun cuando el paquete parcial quede, por diseño,
 sin sello final. Un artefacto o manifiesto ausente sigue siendo rojo, no se
-completa tras el fallo.
+completa tras el fallo. El probe aislado de FD abre un descriptor decimal,
+ejecuta `{ exec {fd}>&-; } 2>/dev/null || true`, comprueba con un intento de
+escritura silenciado que el descriptor queda cerrado y emite después una marca
+por stderr restaurado; no crea temporales.
 
 Cada `ATESTACION` termina con exactamente 25 ficheros regulares y cero
 adicionales; su `SHA256SUMS` valida 24/24:
 
 | # | Fichero | Cabecera exacta o contenido |
 | ---: | --- | --- |
-| 1 | `identidad.tsv` | `carril\tsha_documental\tpadre\tarbol\tblob_documento\ttarget\tdestino\tatestacion\tuid\tgid\tumask\tpropietario\tgrupo\tmodo\ttipo\tnlink\tresultado` |
+| 1 | `identidad.tsv` | `carril\tsha_documental\tpadre_documental\tbase_tecnica\tarbol\tblob_documento\ttarget\tdestino\tatestacion\tuid\tgid\tumask\tpropietario\tgrupo\tmodo\ttipo\tnlink\tresultado` |
 | 2 | `entorno_permitido.tsv` | `fase\tproceso\torden\tnombre\tvalor\torigen\tresultado` |
 | 3 | `entorno_efectivo.tsv` | `fase\tproceso\tpid\tppid\tnombre\tvalor\torigen\tresultado` |
 | 4 | `privilegios.tsv` | `fase\tproceso\tpid\tppid\tuid\tgid\tgrupos_suplementarios\tcap_inh\tcap_prm\tcap_eff\tcap_bnd\tcap_amb\tno_new_privs\tresultado`; exactamente tres filas y, una sola vez cada una, las parejas `GO_VERSION/go`, `INTENTO_SUPERVISOR/setsid` y `CONDUCCION/conductor`; todas con `uid=999`, `gid=982` |
@@ -2354,7 +2379,8 @@ capability presente no cierra toda esa confianza.
 La secuencia es estricta:
 
 1. doble revisión independiente de este contrato congelado;
-2. commit documental de una sola ruta sobre `4840207`, sin amend posterior;
+2. commit documental de una sola ruta sobre `PADRE_DOCUMENTAL`, conservando
+   `BASE_TECNICA=4840207`, sin amend posterior;
 3. preflight conjunto y tres carriles únicos sobre `SHA_DOCUMENTAL`;
 4. doble revisión postcanónica del conjunto y, solo si procede,
    `GO_UNANIME_REVISADO`;
