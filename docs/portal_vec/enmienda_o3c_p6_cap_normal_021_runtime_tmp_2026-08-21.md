@@ -2,13 +2,14 @@
 
 Fecha: 21 de agosto de 2026.
 
-Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`.
+Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`.
 
-Estado: la única conducción canónica de `9b5b97d` terminó `NO-GO`; la presente
-corrección es local, sin commit ni conducción. Los intentos únicos de
-`9749ddd`, `9ec119f` y `9b5b97d` están consumidos; no se repiten sus SHA ni se
-reutilizan sus destinos. Este corte solo permite
-pruebas estáticas y probes que terminen antes de staging/Go/build/test/destino.
+Estado: las conducciones canónicas de `9b5b97d` y `a47a7a7` terminaron
+`NO-GO`; la presente corrección es local, sin commit ni conducción. Los
+intentos únicos de `9749ddd`, `9ec119f`, `9b5b97d` y `a47a7a7` están
+consumidos; no se repiten sus SHA ni se reutilizan sus destinos. Este corte
+solo permite pruebas estáticas, probes locales sin conductor y build normal y
+race sin ejecutar los binarios ni crear un destino de evidencia.
 Esa es la regla general y vuelve a regir sin excepciones en esta edición;
 dirección autorizó antes, de forma expresa y por una sola vez, el probe
 histórico del publicador que atravesó Go/C y se detuvo antes de build/test. La
@@ -17,6 +18,56 @@ conducción. Se exige revisión funcional y de seguridad independiente antes de
 que dirección pueda ordenar otro commit y una única corrida sobre un SHA y
 destino nuevos. No se autoriza integración, publicación, CI remota, despliegue,
 producción ni cambio de métricas.
+
+## Orden de dirección: cierre mínimo FIXTURE-PASS
+
+Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`.
+
+Invariante: el snapshot cerrado contiene las 32 fuentes Go compilables del
+ledger y un único fixture runtime byte-exacto; cada ejecución ordinaria verde
+produce exactamente `PASS\n` —cinco bytes en stdout y cero en stderr— y cada
+BF directo conserva salida exacta 0/0. Todo el resto de V4 se conserva sin
+relajar oráculos, cardinalidades, aislamiento, limpieza ni publicación.
+
+Write-set exacto de esta corrección:
+
+```text
+tools/o3c_p6_conductor/conductor.sh
+docs/portal_vec/enmienda_o3c_p6_cap_normal_021_runtime_tmp_2026-08-21.md
+```
+
+El siguiente corte es la revisión funcional y de seguridad independiente de
+los dos archivos y bytes congelados. No se autoriza commit ni corrida canónica
+en este corte.
+
+El hallazgo de seguridad previo a congelación invalida los hashes anteriores
+`2021ab059b44cd9879a638119aa8a08129abbf0dc1be5c03049d8a2fe1215eb5`
+del conductor y
+`0a0522260574b01bf4db5f1a3cbf724d36363752a7c4a6662fbafe97b1536b6c`
+de esta enmienda: Bash descarta NUL al cargar texto y `read` no acredita bytes
+binarios exactos. La revisión posterior invalida también los hashes
+`7647c9a3a45a82980639884b1afed11bd602569a892fa576c2a4a6e2e1407c23` y
+`3d669296b16c30190c61778094bd96b838fa0ff4b99efe497762ff736500170a`:
+aunque capturaban el digest ASCII, todavía usaban sustitución de comando.
+
+El candidato vigente conserva `stdout_bytes=5` y entrega por pipeline a la
+copia privada de `sha256sum --status -c -` un checklist con el literal de
+`PASS\n`,
+`c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431`.
+Ni los bytes ni el digest se cargan en una variable Bash. No crea referencia
+temporal ni conserva descriptor en el padre: el pipeline termina y cierra sus
+extremos antes del predicado, y el wrapper privado cierra FD `>=3` antes de
+`exec`. El probe adversarial `P\0ASS`, también de cinco bytes, da SHA-256
+`d51d490384e39c795194ab773ffc525e162dff431773e2e115d1501bc7a87ad3`
+y queda rechazado.
+
+El mismo hallazgo exige que cada copia del snapshot sea regular, no symlink,
+propiedad del EUID, modo 0400, `nlink=1` y SHA exacta. Una rutina única vuelve a
+acreditar las 33 rutas tras los builds y después de la última ejecución, antes
+de preparar o publicar. Esta lectura final reduce la ventana accidental, pero
+no ofrece aislamiento frente a una sustitución transitoria por otro proceso
+con el mismo UID 999; `orquesta` continúa siendo autoridad cooperativa, no una
+frontera entre procesos de igual UID.
 
 ## Base y autoridad
 
@@ -32,7 +83,8 @@ independientes de alcance filesystem:
 Esos GO no revocaron el rojo histórico `CAP_NORMAL_021`, los dos NO-GO de
 O3A-V5-CND-V3 ni el P1 C21/toolchain. Esta enmienda tampoco los convierte en
 GO. V4 acredita únicamente el vínculo entre las 32 fuentes compiladas, el
-checkout, el `TMPDIR` exacto de cada ejecución y el paquete local publicado.
+fixture runtime único, el checkout, el `TMPDIR` exacto de cada ejecución y el
+paquete local publicado.
 
 ## NO-GO consumido y requisito del próximo clon
 
@@ -86,6 +138,29 @@ El probe ligero, sin conductor ni creación de temporales, lanzó `find` como
 restauración. La variante que ejecutó primero `builtin cd /`, comprobó `PWD=/`
 y lanzó después el mismo `find` terminó `GO`. No alcanzó target, staging, Go,
 build, test o destino y no autoriza otra conducción.
+
+La corrida canónica del commit
+`a47a7a7a25eb31e1476c82a0131ff3cce187017a` contra el target
+`/srv/fabrica/orquesta/home/revisiones/o3c-p6-cap021-runtime-tmp-v4-a47a7a7-target`
+y el destino nuevo
+`/srv/fabrica/orquesta/home/evidencias/o3c-p6-cap021-runtime-tmp-v4-a47a7a7-canonica-r1`
+quedó consumida en `NO-GO C01_ENTRADA`: estado 1, stdout 512 bytes y stderr
+cero. El paquete durable existe. La causa exacta fue que
+`TestAutoridadO3cConsumeHandoffO3bReal` no pudo abrir en el snapshot
+`deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`.
+Ese SHA y ese destino no se repiten.
+
+La autoridad funcional directa para el cierre mínimo es el código de
+`crearFixtureO3aM38`/`leerRunnerPruebaO3aM38`, el runner citado y la evidencia
+histórica `tools/o3c_p6_conductor/evidencia/casos.tsv`. La inspección estática
+demuestra que la prueba solo abre ese fixture, exige fichero regular de 1 a 64
+KiB, copia sus bytes a un runner privado y entrega el contenido al hijo. En el
+modo hijo, el runner ejecuta solo builtins, lee el FD 9 y se auto-detiene antes
+de alcanzar herramientas externas, Docker o auxiliares. Por ello no se copia
+ningún otro elemento de `deploy`. En HEAD `a47a7a7` el fixture es Git 100755,
+46123 bytes y SHA-256
+`7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487`;
+permanece fuera del write-set.
 
 La frontera bootstrap es exacta: `/usr/bin/{realpath,stat,sha256sum,mktemp,install,rm}`
 root-owned y con cadena de directorios no escribible. El runtime privado contiene
@@ -240,10 +315,12 @@ del conductor y
 `5186fb189ebdd7c68cf4391374b41e33f7470ab3d22a5c50a0a74e1242aeda12`
 de esta enmienda. No aprueba los bytes posteriores y registra tres hallazgos:
 
-- P1: `ejecutar()` podía decidir `GO` con salida ordinaria no vacía pese a la
-  invariante de stdout/stderr cero. El candidato posterior calcula ambos
-  tamaños una sola vez antes del predicado, exige `so=se=0` y reutiliza esos
-  valores en la fila y el diagnóstico; BF conserva su comprobación existente;
+- P1: `ejecutar()` podía decidir `GO` sin acreditar la salida ordinaria. La
+  corrección provisional de aquel dictamen propuso 0/0, pero la autoridad
+  histórica posterior demuestra que un testbin Go verde produce exactamente
+  `PASS\n`: cinco bytes en stdout y cero en stderr. El candidato vigente mide
+  ambos una sola vez, exige esos bytes exactos y reutiliza tamaños en fila y
+  diagnóstico; BF conserva 0/0;
 - P2: con `set -e`, el trap podía abandonar las retiradas restantes tras el
   primer `rm` fallido. El candidato posterior captura el estado original,
   desarma `EXIT` para evitar recursión, intenta siempre
@@ -261,9 +338,10 @@ Las correcciones son afirmaciones verificables del productor. El dictamen
 funcional adicional permanece `NO-GO` hasta una nueva revisión independiente
 de los hashes congelados.
 
-Los probes estáticos posteriores comprobaron que `ejecutar()` contiene solo
-los dos cálculos `wc`, que el predicado exige ambos ceros y que fila y
-diagnóstico reutilizan `so`/`se`. Un primer arnés de limpieza fue inválido por
+Los probes estáticos de aquel candidato comprobaron que `ejecutar()` contenía
+solo los dos cálculos `wc` y que fila y diagnóstico reutilizaban `so`/`se`; su
+expectativa ordinaria 0/0 queda sustituida por la evidencia `PASS\n` 5/0. Un
+primer arnés de limpieza fue inválido por
 quoting y no ejecutó la aserción; la repetición válida, enteramente en memoria,
 confirmó tres intentos en orden y los resultados `original=7+fallo → 7`,
 `original=0+fallo → 2` y `original=0+limpieza verde → 0`. No se invocaron el
@@ -501,12 +579,14 @@ Son autoridad funcional directa:
 
 ## Capability y criterio único
 
-La única capability de V4 es una atestación acotada de la ejecución bajo la
-autoridad operativa cooperativa `orquesta`: las fuentes compiladas son un
-snapshot privado de las 32 rutas exactas; el checkout mantiene HEAD, árbol y
-limpieza; cada selector usa un `TMPDIR` privado de UID efectivo y modo 0700; y
-el paquete GO se publica localmente sin reemplazo, conservando identidad
-dev:inode. No añade aislamiento frente a procesos con el mismo UID.
+La única capability vigente es
+`O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`, una atestación acotada bajo la
+autoridad operativa cooperativa `orquesta`: el snapshot privado contiene las
+32 fuentes Go exactas y el único fixture runtime byte-exacto; el checkout
+mantiene HEAD, árbol y limpieza; cada selector usa un `TMPDIR` privado de UID
+efectivo y modo 0700; y el paquete GO se publica localmente sin reemplazo,
+conservando identidad dev:inode. No añade aislamiento frente a procesos con el
+mismo UID.
 
 Cada selector aislado de `TestHandoffO3cP5CasosAislados` recibe un directorio
 runtime privado. Go elimina por completo el selector `runtimeSelector` y acredita
@@ -537,7 +617,9 @@ Para cada uno de los siete selectores:
 
 Se exige conjuntamente:
 
-1. stdout y stderr de cero bytes;
+1. los hijos selectores internos conservan salida 0/0; el testbin ordinario que
+   los contiene termina con `PASS\n` exacto, stdout de cinco bytes y stderr
+   cero, mientras los BF directos conservan 0/0;
 2. entradas del `TMPDIR` efectivo parten de cero; el preconteo de residuos se
    conserva por selector, el padre los retira, y el conteo final es cero antes
    de retirar el contenedor;
@@ -549,8 +631,10 @@ Se exige conjuntamente:
 6. el contenedor runtime queda retirado y acreditado separadamente;
 7. cada selector acredita dev/inode/UID/modo, entradas iniciales, residuos
    pre-limpieza, `Lstat=ENOENT` y raíz exterior vacía en `tmpdir_selectores.tsv`;
-8. las fuentes compiladas son regulares, no symlink, byte-exactas al ledger y
-   se leen únicamente desde el snapshot privado;
+8. las fuentes compiladas y el fixture son regulares, no symlink y
+   byte-exactos, del EUID, modo 0400 y `nlink=1`; las 32 fuentes se leen
+   únicamente desde el snapshot privado y el único fixture queda disponible
+   allí solo para el consumo runtime citado;
 9. HEAD, árbol y limpieza del target son iguales antes y después del snapshot;
 10. ningún FD ambiental `>=3` cruza `exec`. Git, Go y publicador reciben solo
    stdin/stdout/stderr; como capabilities explícitas, `flock` conserva
@@ -590,11 +674,18 @@ y conservando estado 65, EOF y salida 0/0.
 
 ### Conductor
 
-Compilación y ejecución tienen temporales distintos. El conductor copia las
-32 fuentes a un snapshot 0700 conservando sus rutas relativas. Rechaza ruta
-absoluta o con ascenso, origen o copia no regular/symlink y cualquier hash
-distinto. Revalida HEAD, árbol y limpieza después de copiar y compila normal y
-race exclusivamente desde el snapshot.
+Compilación y ejecución tienen temporales distintos. Una única rutina cerrada
+copia al snapshot 0700 las 32 fuentes del ledger y el fixture literal, siempre
+con sus rutas relativas. Rechaza ruta absoluta o con ascenso, duplicados,
+origen o copia no regular/symlink y cualquier hash distinto. `archivos[]`
+conserva solo las 32 rutas Go; `evidencia/fuentes.tsv` enumera las 33 rutas,
+`sha_target` cubre esas 33 y el rehash posterior al build recorre esa evidencia
+para revalidar también el fixture. Cada copia y cada revalidación exigen además
+UID efectivo, modo 0400 y un único enlace. La misma función vuelve a recorrer
+las 33 rutas después de la última ejecución y antes de publicación. Revalida
+HEAD, árbol y limpieza después de copiar y compila normal y race exclusivamente
+desde las 32 fuentes del snapshot. El corte final no elimina la carrera frente
+a otro proceso UID 999 cooperativo que sustituya transitoriamente una ruta.
 
 Cada invocación recibe un entorno vacío y cerrado con `HOME`, `TMPDIR`,
 `GOTMPDIR`, `GOROOT`, `GOENV=off` y `GOTOOLCHAIN=local` explícitos. El proceso
@@ -627,11 +718,11 @@ operaciones fallibles, ni se afirma un modo de solo lectura.
 
 ## Capability, invariante y write-set exacto
 
-Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-ATTESTATION`, atestación acotada del
-runtime temporal y de las herramientas que construyen, ejecutan y publican la
-evidencia local bajo la cooperación de la autoridad operativa `orquesta`; no
-ofrece aislamiento frente a otro proceso con UID 999. Incluye ahora el anclaje
-builtin del cwd inicial a `/` antes de cualquier ejecución externa.
+Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`, atestación acotada del
+runtime temporal, el fixture único y las herramientas que construyen, ejecutan
+y publican la evidencia local bajo la cooperación de la autoridad operativa
+`orquesta`; no ofrece aislamiento frente a otro proceso con UID 999. Conserva
+el anclaje builtin del cwd inicial a `/` antes de cualquier ejecución externa.
 
 Invariante: ninguna decisión de capacidad posterior al bootstrap usa un
 resultado ambiental interno; el cwd heredado del launcher se descarta mediante
@@ -644,7 +735,11 @@ replace objects quedan anulados. `fileMode`, `trustctime`, `checkStat`,
 `ignoreStat` y `untrackedCache` quedan fijados en cada Git y las cuatro claves
 de caché se rechazan localmente. En cada corte, `git status` debe terminar cero
 antes de evaluar su salida vacía; un error Git nunca se interpreta como
-limpieza. Cada fila ordinaria exige estado cero y stdout/stderr de cero bytes.
+limpieza. El snapshot cerrado contiene 32 fuentes Go compilables y el fixture
+runtime único byte-exacto, regular, no symlink, EUID:0400 y `nlink=1`, también
+en la revalidación posterior a la última ejecución. Cada fila ordinaria exige
+estado cero, stdout de cinco bytes con la SHA-256 literal de `PASS\n` y stderr
+cero; cada BF directo exige 0/0.
 Snapshot, Go, helper, `TMPDIR`, cierre de FD y publicación pertenecen después a
 la misma cadena fail-closed; el trap intenta
 todas las retiradas, preserva el error original y convierte en error cualquier
@@ -668,13 +763,14 @@ Antes de congelar el candidato local y sin ejecutar conducta:
 1. identidad, genealogía, limpieza, write-set y hashes;
 2. `bash -n` y ShellCheck del conductor;
 3. validación mecánica de las 32 huellas del ledger, sin modificarlo;
-4. build normal y race de las 32 fuentes, sin ejecutar los binarios, solo si
-   dirección amplía expresamente este corte estático;
-5. `git diff --check`, write-set y ausencia de residuos.
+4. build normal y race de las 32 fuentes, sin ejecutar los binarios, autorizado
+   expresamente por dirección para este preflight;
+5. probes binarios de `PASS\n`, NUL y revalidación de los metadatos del snapshot;
+6. `git diff --check`, write-set y ausencia de residuos.
 
 El siguiente corte es la revisión funcional y de seguridad independiente de
-los dos archivos y hashes congelados, incluido el anclaje de cwd. El productor
-no emite GO. Solo después,
+los dos archivos y hashes congelados, incluido fixture y salida exacta. El
+productor no emite GO. Solo después,
 y mediante orden expresa de dirección, podrá existir un commit candidato, un
 clon `orquesta:orquesta` 0700 nuevo y una única corrida canónica a un destino
 nunca usado. Si termina roja, el publicador V2 conserva el primer paquete y
@@ -683,8 +779,9 @@ revisión independiente antes de cualquier integración.
 
 ## Límites
 
-El corte no interpreta stdout/stderr históricos, no borra residuos o
-evidencias previas y no relaja cardinalidades, plazos, oráculos o contención.
+El corte usa únicamente la evidencia histórica que fija `PASS\n` 5/0 para las
+filas ordinarias y 0/0 para BF; no borra residuos o evidencias previas ni relaja
+cardinalidades, plazos, oráculos o contención.
 No acredita la estabilidad C21 ni el parche de toolchain, no abre O4 y no
 autoriza datos reales, red, SQL, Docker, PostgreSQL, push, despliegue,
 producción o credenciales.

@@ -218,8 +218,9 @@ publicar_fallo_durable() {
   hijo_fd '' "${utilidad_ruta[env]}" -i PATH="$tool_runtime" HOME="$git_home" \
     "${utilidad_ruta[bash]}" --noprofile --norc "$publicador_fallo" publicar "$@"
 }
+fixture_ruta=deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh fixture_sha=7ad65a66ece586710a4651e579385b7aba2ad5b84ef6baf02ba4c36659cd6487
 archivos=()
-declare -A rutas_ledger=()
+declare -A rutas_snapshot=()
 casos_privados="$staging/casos.tsv"
 fuentes_privadas="$staging/fuentes.tsv"
 cp -- "$casos" "$casos_privados"
@@ -230,26 +231,26 @@ sha_matriz_privada=$(sha256sum "$casos_privados" | cut -d' ' -f1)
 sha_fuentes_privadas=$(sha256sum "$fuentes_privadas" | cut -d' ' -f1)
 casos=$casos_privados
 fuentes=$fuentes_privadas
+copiar_snapshot() {
+  local sha=$1 ruta=$2 origen="$target/$2" destino="$snapshot/$2"
+  [[ $ruta != /* && $ruta != ../* && $ruta != */../* ]] || { printf 'NO-GO ruta snapshot %s\n' "$ruta" >&2; exit 1; }
+  [[ -z ${rutas_snapshot[$ruta]+presente} ]] || { printf 'NO-GO ruta duplicada %s\n' "$ruta" >&2; exit 1; }
+  rutas_snapshot[$ruta]=1
+  [[ -f $origen && ! -L $origen && $(stat -c '%F' -- "$origen") == 'regular file' ]] || { printf 'NO-GO fuente %s\n' "$ruta" >&2; exit 1; }
+  mkdir -p "${destino%/*}"; cp --reflink=never -- "$origen" "$destino"; chmod 0400 "$destino"
+  [[ -f $destino && ! -L $destino && $(stat -c '%u:%a:%h:%F' -- "$destino") == "$EUID:400:1:regular file" &&
+    $(sha256sum "$destino" | cut -d' ' -f1) == "$sha" ]] || { printf 'NO-GO snapshot %s\n' "$ruta" >&2; exit 1; }
+  printf '%s\t%s\n' "$sha" "$ruta"
+}
 {
   printf 'sha256\truta\n'
   while IFS=$'\t' read -r sha ruta; do
     [[ $sha == sha256 ]] && continue
-    [[ $ruta != /* && $ruta != ../* && $ruta != */../* ]] || { printf 'NO-GO ruta fuente %s\n' "$ruta" >&2; exit 1; }
-    [[ -z ${rutas_ledger[$ruta]+presente} ]] || { printf 'NO-GO ruta duplicada %s\n' "$ruta" >&2; exit 1; }
-    rutas_ledger[$ruta]=1
-    origen="$target/$ruta"
-    destino="$snapshot/$ruta"
-    [[ -f $origen && ! -L $origen && $(stat -c '%F' -- "$origen") == 'regular file' ]] || { printf 'NO-GO fuente %s\n' "$ruta" >&2; exit 1; }
-    mkdir -p "${destino%/*}"
-    cp --reflink=never -- "$origen" "$destino"
-    chmod 0400 "$destino"
-    [[ -f $destino && ! -L $destino && $(stat -c '%F' -- "$destino") == 'regular file' ]] || { printf 'NO-GO snapshot %s\n' "$ruta" >&2; exit 1; }
-    [[ $(sha256sum "$destino" | cut -d' ' -f1) == "$sha" ]] || { printf 'NO-GO hash snapshot %s\n' "$ruta" >&2; exit 1; }
-    archivos+=("$ruta")
-    printf '%s\t%s\n' "$sha" "$ruta"
+    copiar_snapshot "$sha" "$ruta"; archivos+=("$ruta")
   done < "$fuentes"
+  copiar_snapshot "$fixture_sha" "$fixture_ruta"
 } > "$evidencia/fuentes.tsv"
-[[ ${#archivos[@]} -eq 32 ]] || { printf 'NO-GO cardinalidad fuentes\n' >&2; exit 1; }
+[[ ${#archivos[@]} -eq 32 && ${#rutas_snapshot[@]} -eq 33 ]] || { printf 'NO-GO cardinalidad snapshot\n' >&2; exit 1; }
 auditar_indice_git post_snapshot || { printf 'NO-GO índice Git tras snapshot\n' >&2; exit 1; }
 head_final=$(git_privado -C "$target" rev-parse HEAD); tree_final=$(git_privado -C "$target" rev-parse 'HEAD^{tree}')
 if ! git_status_salida=$(git_privado -C "$target" status --porcelain=v1 --untracked-files=all); then printf 'NO-GO status Git tras snapshot\n' >&2; exit 1; fi; [[ $head_final == "$head_inicial" && $tree_final == "$tree_inicial" && -z $git_status_salida ]] || { printf 'NO-GO target mutado durante snapshot\n' >&2; exit 1; }
@@ -259,15 +260,16 @@ entorno=("${utilidad_ruta[env]}" -i PATH="$tool_runtime" HOME="$staging/home-go"
 hijo_fd '' "${entorno[@]}" "$go_bin" test -c -buildvcs=false -o "$staging/o3c-normal" "${archivos[@]}"
 entorno_race=("${utilidad_ruta[env]}" -i PATH="$tool_runtime" HOME="$staging/home-go" TMPDIR="$build_tmp" GOTMPDIR="$build_tmp" GOCACHE="$staging/cache" GOROOT="$goroot" GOENV=off GOTOOLCHAIN=local CGO_ENABLED=1 CC="$cc_ruta" CXX="$cxx_ruta" COMPILER_PATH="$c_compiler_path")
 hijo_fd '' "${entorno_race[@]}" "$go_bin" test -race -c -buildvcs=false -o "$staging/o3c-race" "${archivos[@]}"
-while IFS=$'\t' read -r sha ruta; do
-  [[ $sha == sha256 ]] && continue
-  [[ -f $snapshot/$ruta && ! -L $snapshot/$ruta &&
-    $(stat -c '%F' -- "$snapshot/$ruta") == 'regular file' &&
-    $(sha256sum "$snapshot/$ruta" | cut -d' ' -f1) == "$sha" ]] || {
-    printf 'NO-GO snapshot mutado tras builds %s\n' "$ruta" >&2
-    exit 1
-  }
-done < "$fuentes"
+revalidar_snapshot() {
+  local fase=$1 sha ruta total=0
+  while IFS=$'\t' read -r sha ruta; do
+    [[ $sha == sha256 ]] && continue
+    [[ -f $snapshot/$ruta && ! -L $snapshot/$ruta && $(stat -c '%u:%a:%h:%F' -- "$snapshot/$ruta") == "$EUID:400:1:regular file" &&
+      $(sha256sum "$snapshot/$ruta" | cut -d' ' -f1) == "$sha" ]] || { printf 'NO-GO snapshot %s %s\n' "$fase" "$ruta" >&2; return 2; }
+    ((++total)); done < "$evidencia/fuentes.tsv"
+  [[ $total -eq 33 ]] || { printf 'NO-GO cardinalidad snapshot %s\n' "$fase" >&2; return 2; }
+}
+revalidar_snapshot tras_builds || exit 1
 sha_target=$(sha256sum "$evidencia/fuentes.tsv" | cut -d' ' -f1)
 printf 'modo\tsha_binario\nnormal\t%s\nrace\t%s\n' "$(sha256sum "$staging/o3c-normal" | cut -d' ' -f1)" "$(sha256sum "$staging/o3c-race" | cut -d' ' -f1)" > "$evidencia/binarios.tsv"
 sha_conductor_ejecucion=$(sha256sum "$script_canonico" | cut -d' ' -f1)
@@ -466,7 +468,7 @@ ejecutar_aislado() {
 }
 ejecutar() {
   local id=$1 modo=$2 patron=$3 oraculo=$4 bin=$5 out="$staging/out" err="$staging/err"
-  local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado so se resultado=GO selectores_esperados=0
+  local fdi fdf hi hf zi zf gi gf ti tf inicio fin estado so se resultado=GO selectores_esperados=0 salida_exacta=no
   case "$id" in
     C17_OWNERS|C18_O4A_OPACO|C19_RETIRADA|C20_POST_CONT|C22_RESIDUOS|CAP_*) selectores_esperados=7 ;;
   esac
@@ -474,7 +476,8 @@ ejecutar() {
   ejecutar_aislado "$id" "$modo" "$out" "$err" "$selectores_esperados" \
     "$bin" "-test.run=^(${patron})$" -test.count=1; estado=$estado_aislado
   fin=${EPOCHREALTIME/./}; inventario fdf hf zf gf tf; so=$(wc -c <"$out"); se=$(wc -c <"$err")
-  [[ $estado -eq 0 && $so -eq 0 && $se -eq 0 && $grupo_cero_aislado == si && $tmp_acreditable_aislado == si &&
+  if printf '%s  %s\n' c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431 "$out" | sha256sum --status -c -; then salida_exacta=si; fi
+  [[ $estado -eq 0 && $so -eq 5 && $salida_exacta == si && $se -eq 0 && $grupo_cero_aislado == si && $tmp_acreditable_aislado == si &&
     $contenedor_retirado_aislado == si && $fd_ambiente_cerrado_aislado == si &&
     $selectores_acreditados_aislado == si && $selectores_obtenidos_aislado -eq $selectores_esperados &&
     $fdi -eq $fdf && $hi -eq $hf && $zi -eq $zf && $gi -eq $gf && $ti -eq $tf ]] || resultado=NO-GO
@@ -713,6 +716,7 @@ filas_bf=$(( $(wc -l < "$evidencia/bf_directos.tsv") - 1 )); [[ $filas_bf -eq 6 
 filas_selectores=$(( $(wc -l < "$evidencia/tmpdir_selectores.tsv") - 1 ));
 [[ $filas_selectores -eq 1472 ]] || { printf 'NO-GO selectores %d\n' "$filas_selectores" >&2; exit 1; }
 ! grep -q $'\tNO-GO$' "$evidencia/casos.tsv" "$evidencia/bf_directos.tsv" || { printf 'NO-GO resultados\n' >&2; exit 1; }
+revalidar_snapshot pre_publicacion || { printf 'NO-GO snapshot antes de publicación\n' >&2; exit 1; }
 auditar_indice_git pre_publicacion || { printf 'NO-GO índice Git antes de publicación\n' >&2; exit 1; }
 head_publicacion=$(git_privado -C "$target" rev-parse HEAD); tree_publicacion=$(git_privado -C "$target" rev-parse 'HEAD^{tree}')
 status_vacio=no unstaged_vacio=no staged_vacio=no; if ! git_status_salida=$(git_privado -C "$target" status --porcelain=v1 --untracked-files=all); then printf 'NO-GO status Git antes de publicación\n' >&2; exit 1; fi; [[ -z $git_status_salida ]] && status_vacio=si
@@ -734,13 +738,15 @@ sha_matriz=$sha_matriz_privada
 sha_fuentes=$sha_fuentes_privadas
 sha_target=$sha_target
 fuentes=32
+snapshot_rutas=33
 oraculos=22_por_modo
 capturas_normal=100
 capturas_race=100
 casos_totales=$filas
 bf_directos=$filas_bf
 bf_estado_eof_no_retorno_0_0=si
-snapshot_fuentes_regulares_sin_symlink=si
+snapshot_rutas_regulares_euid_0400_nlink1_sin_symlink=si
+snapshot_revalidado_post_ejecucion=33
 target_head_tree_limpieza_revalidados=si
 tmpdir_exacto_inicio_preconteo_fin_cero=si
 tmpdir_selectores=1472
@@ -761,14 +767,8 @@ race_c_tcb=ejecutables_7_fijados_sysroot_host_no_atestado
 publicacion_go_no_replace=si
 residuos=cero
 EOF
-preparar_paquete_go "$evidencia" "$destino_evidencia" || {
-  printf 'NO-GO preparacion paquete GO no acreditada\n' >&2
-  exit 1
-}
-preparar_helper_noreplace || {
-  printf 'NO-GO helper no acreditado\n' >&2
-  exit 1
-}
+preparar_paquete_go "$evidencia" "$destino_evidencia" || { printf 'NO-GO preparacion paquete GO no acreditada\n' >&2; exit 1; }
+preparar_helper_noreplace || { printf 'NO-GO helper no acreditado\n' >&2; exit 1; }
 staging_preparado=$staging
 cd "$raiz"
 rm -rf -- "$staging_preparado"
