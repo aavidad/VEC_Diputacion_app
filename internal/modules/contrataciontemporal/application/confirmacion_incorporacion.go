@@ -19,6 +19,9 @@ var (
 	ErrConfirmacionIncorporacionDenegada = errors.New(
 		"contratacion temporal: confirmacion de incorporacion denegada",
 	)
+	ErrConfirmacionIncorporacionNoDisponible = errors.New(
+		"contratacion temporal: confirmacion de incorporacion no disponible",
+	)
 	ErrResultadoConfirmacionIncorporacionNoConfiable = errors.New(
 		"contratacion temporal: resultado de confirmacion de incorporacion no confiable",
 	)
@@ -109,11 +112,32 @@ func (s *ServicioConfirmacionIncorporacion) Confirmar(
 	}
 	recibo, err := s.transaccion.ConfirmarIncorporacion(ctx, orden)
 	if err != nil {
-		return ports.ReciboConfirmacionIncorporacion{}, err
+		return ports.ReciboConfirmacionIncorporacion{},
+			normalizarFalloConfirmacionIncorporacion(ctx, err)
 	}
 	if recibo.ValidarPara(orden) != nil {
 		return ports.ReciboConfirmacionIncorporacion{},
 			ErrResultadoConfirmacionIncorporacionNoConfiable
 	}
+	recibo.Documentos = append(
+		[]domain.DocumentoSeguimiento(nil),
+		recibo.Documentos...,
+	)
 	return recibo, nil
+}
+
+func normalizarFalloConfirmacionIncorporacion(ctx context.Context, err error) error {
+	if ctx != nil {
+		if errContexto := ctx.Err(); errContexto != nil {
+			return errContexto
+		}
+	}
+	switch {
+	case errors.Is(err, context.Canceled):
+		return context.Canceled
+	case errors.Is(err, context.DeadlineExceeded):
+		return context.DeadlineExceeded
+	default:
+		return ErrConfirmacionIncorporacionNoDisponible
+	}
 }

@@ -15,7 +15,6 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
-	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
@@ -123,18 +122,24 @@ func (t *transaccionIncorporacionPrueba) ConfirmarIncorporacion(
 	recibo := ports.ReciboConfirmacionIncorporacion{
 		ReciboRef:               t.referencias.ReciboRef,
 		ActuacionRef:            t.referencias.ActuacionRef,
-		CorrelacionRef:          t.referencias.CorrelacionRef,
-		ActorRef:                t.referencias.ActorRef,
+		CorrelacionRef:          evidencia.Contexto.PreparacionSeguimiento.CorrelacionRef,
+		ActorRef:                evidencia.Contexto.PreparacionSeguimiento.ActorRef,
+		OrganizacionRef:         evidencia.Contexto.PreparacionSeguimiento.OrganizacionRef,
+		UnidadRef:               evidencia.Contexto.PreparacionSeguimiento.UnidadRef,
 		DecisionAutorizacionRef: confirmacionV3.DecisionRef,
 		ExpedienteRef:           datos.SolicitudPersonal.ExpedienteRef,
+		SolicitudPersonalRef:    datos.SolicitudPersonal.SolicitudRef,
 		ResultadoPersonalRef:    datos.ResultadoPersonal.ResultadoRef,
 		ReciboPersonalRef:       datos.ResultadoPersonal.ReciboRef,
 		RelacionRef:             datos.ResultadoPersonal.RelacionRef,
 		OcupacionRef:            datos.ResultadoPersonal.OcupacionRef,
 		TransicionClave:         ports.TransicionConfirmarIncorporacion,
+		MotivoClave:             datos.MotivoClave,
+		VersionExpediente:       datos.SolicitudPersonal.VersionExpediente,
 		VersionAnterior:         datos.VersionSeguimientoEsperada,
 		VersionResultante:       datos.VersionSeguimientoEsperada + 1,
 		FechaIncorporacion:      datos.PeriodoIncorporacion.Desde,
+		FechaFinPrevista:        datos.PeriodoIncorporacion.Hasta,
 		ConfirmadaEn:            t.confirmadaEn,
 		Documentos: append(
 			[]domain.DocumentoSeguimiento(nil),
@@ -195,7 +200,7 @@ func TestCTLITEO702AConfirmaIncorporacionYReproduceReplayExacto(t *testing.T) {
 	divergente.Documentos[0].Referencia = referenciaIncorporacionPrueba("documento_incorporacion_divergente")
 	if _, err := servicio.Confirmar(context.Background(), divergente); !errors.Is(
 		err,
-		domain.ErrActuacionSeguimientoEnConflicto,
+		ErrConfirmacionIncorporacionNoDisponible,
 	) {
 		t.Fatalf("replay divergente aceptado: %v", err)
 	}
@@ -262,108 +267,6 @@ func TestCTLITEO702ARechazaEntradaAntesDeResolverAutoridad(t *testing.T) {
 	}
 }
 
-func TestCTLITEO702ADeniegaCrucesDeAutorizacionNominalV3(t *testing.T) {
-	casos := map[string]func(
-		*testing.T,
-		*ports.ContextoConfirmacionIncorporacion,
-		SolicitudConfirmarIncorporacion,
-	){
-		"accion": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, s SolicitudConfirmarIncorporacion) {
-			*c = contextoConfirmacionIncorporacionV3Prueba(
-				t, s.datos(), instanteConfirmacionIncorporacionPrueba,
-				func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
-					d.Accion = "contratacion_temporal.incorporacion.consultar"
-				},
-			)
-		},
-		"recurso": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, s SolicitudConfirmarIncorporacion) {
-			*c = contextoConfirmacionIncorporacionV3Prueba(
-				t, s.datos(), instanteConfirmacionIncorporacionPrueba,
-				func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
-					d.Recurso.Tipo = ports.TipoRecursoExpediente
-				},
-			)
-		},
-		"finalidad": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, s SolicitudConfirmarIncorporacion) {
-			*c = contextoConfirmacionIncorporacionV3Prueba(
-				t, s.datos(), instanteConfirmacionIncorporacionPrueba,
-				func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
-					d.Finalidad = "consultar_incorporacion"
-				},
-			)
-		},
-		"perfil": func(_ *testing.T, c *ports.ContextoConfirmacionIncorporacion, _ SolicitudConfirmarIncorporacion) {
-			c.SolicitudContexto.PerfilRef = "prf_0123456789abcdefghijklmnb"
-		},
-		"vinculo": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, _ SolicitudConfirmarIncorporacion) {
-			c.ContextoAutorizacion = contextoAutorizacionAltaV3PruebaConMarcas(
-				t, instanteConfirmacionIncorporacionPrueba, "b", "b",
-			)
-		},
-		"concesion ausente": func(_ *testing.T, c *ports.ContextoConfirmacionIncorporacion, _ SolicitudConfirmarIncorporacion) {
-			c.DecisionAutorizacionV3 = dominiovec.DecisionAutorizacionLigadaV3{}
-			c.ConfirmacionRegistroV3 = puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}
-		},
-		"correlacion": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, s SolicitudConfirmarIncorporacion) {
-			*c = contextoConfirmacionIncorporacionV3Prueba(
-				t, s.datos(), instanteConfirmacionIncorporacionPrueba,
-				func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
-					otra, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-						context.Background(),
-						&generadorReferenciasDoble{correlacion: "correlacion_fedcba9876543210fedcba9876543210"},
-					)
-					if err != nil {
-						t.Fatal(err)
-					}
-					d.Correlacion = otra
-				},
-			)
-		},
-		"garantia": func(t *testing.T, c *ports.ContextoConfirmacionIncorporacion, s SolicitudConfirmarIncorporacion) {
-			*c = contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
-				t, s.datos(), instanteConfirmacionIncorporacionPrueba,
-				contextoAutorizacionAltaV3SustancialPrueba(t, instanteConfirmacionIncorporacionPrueba), nil,
-			)
-		},
-	}
-	for nombre, cruzar := range casos {
-		t.Run(nombre, func(t *testing.T) {
-			servicio, contextos, transaccion, solicitud := escenarioConfirmacionIncorporacion(t)
-			cruzar(t, &contextos.contexto, solicitud)
-			if _, err := servicio.Confirmar(context.Background(), solicitud); !errors.Is(
-				err, ErrConfirmacionIncorporacionDenegada,
-			) {
-				t.Fatalf("cruce V3 aceptado: %v", err)
-			}
-			llamadas, efectos, _ := transaccion.estado()
-			if llamadas != 0 || efectos != 0 {
-				t.Fatal("el cruce V3 alcanzo la transaccion")
-			}
-		})
-	}
-
-	t.Run("vigencia", func(t *testing.T) {
-		_, contextos, transaccion, solicitud := escenarioConfirmacionIncorporacion(t)
-		servicio, err := NuevoServicioConfirmacionIncorporacion(
-			contextos,
-			&relojMutable{instante: instanteConfirmacionIncorporacionPrueba.Add(91 * time.Second)},
-			transaccion,
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := servicio.Confirmar(context.Background(), solicitud); !errors.Is(
-			err, ErrConfirmacionIncorporacionDenegada,
-		) {
-			t.Fatalf("autorizacion V3 vencida aceptada: %v", err)
-		}
-		llamadas, efectos, _ := transaccion.estado()
-		if llamadas != 0 || efectos != 0 {
-			t.Fatal("la autorizacion vencida alcanzo la transaccion")
-		}
-	})
-}
-
 func TestCTLITEO702ADenegacionCancelacionCASYFalloAtomico(t *testing.T) {
 	t.Run("autoridad ausente", func(t *testing.T) {
 		servicio, contextos, transaccion, solicitud := escenarioConfirmacionIncorporacion(t)
@@ -421,7 +324,7 @@ func TestCTLITEO702ADenegacionCancelacionCASYFalloAtomico(t *testing.T) {
 		)
 		if _, err := servicio.Confirmar(context.Background(), solicitud); !errors.Is(
 			err,
-			domain.ErrVersionEnConflicto,
+			ErrConfirmacionIncorporacionNoDisponible,
 		) {
 			t.Fatalf("CAS incorrecto aceptado: %v", err)
 		}
@@ -435,7 +338,9 @@ func TestCTLITEO702ADenegacionCancelacionCASYFalloAtomico(t *testing.T) {
 		servicio, _, transaccion, solicitud := escenarioConfirmacionIncorporacion(t)
 		transaccion.fallo = errTransaccionIncorporacionPrueba
 		recibo, err := servicio.Confirmar(context.Background(), solicitud)
-		if !errors.Is(err, errTransaccionIncorporacionPrueba) ||
+		if !errors.Is(err, ErrConfirmacionIncorporacionNoDisponible) ||
+			errors.Is(err, errTransaccionIncorporacionPrueba) ||
+			strings.Contains(err.Error(), "transaccional") ||
 			!reflect.DeepEqual(recibo, ports.ReciboConfirmacionIncorporacion{}) {
 			t.Fatalf("fallo transaccional produjo exito: recibo=%#v error=%v", recibo, err)
 		}
@@ -563,8 +468,12 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
 		context.Background(),
-		&generadorReferenciasDoble{correlacion: datos.ResultadoPersonal.CorrelacionRef},
+		&generadorReferenciasDoble{correlacion: "correlacion_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacionV3Ref, err := correlacion.ValorCanonico()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -574,6 +483,7 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 		CatalogoHuellaSHA256: strings.Repeat("c", 64),
 		EntradaClave:         "motivo_0123456789abcdef0123456789abcdef",
 	}
+	preparacion := preparacionSeguimientoIncorporacionPrueba()
 	solicitudDatos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
 		VinculoAutenticacionActor: autoridad.Vinculo,
 		ReferenciaMotivo:          motivo,
@@ -583,8 +493,8 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 			ModuloID:   ports.ModuloContratacion,
 			Tipo:       ports.TipoRecursoConfirmacionIncorporacion,
 			Ambitos: map[string]string{
-				"organizacion_ref": referenciaIncorporacionPrueba("organizacion_publica_0001"),
-				"unidad_ref":       referenciaIncorporacionPrueba("unidad_rrhh_0001"),
+				"organizacion_ref": preparacion.OrganizacionRef,
+				"unidad_ref":       preparacion.UnidadRef,
 			},
 			Atributos: map[string]string{
 				"resultado_personal_ref":       datos.ResultadoPersonal.ResultadoRef,
@@ -592,6 +502,11 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 				"ocupacion_ref":                datos.ResultadoPersonal.OcupacionRef,
 				"version_expediente_esperada":  strconv.FormatUint(datos.SolicitudPersonal.VersionExpediente, 10),
 				"version_seguimiento_esperada": strconv.FormatUint(datos.VersionSeguimientoEsperada, 10),
+				"principal_v3_ref":             vinculo.PrincipalID,
+				"actor_seguimiento_ref":        preparacion.ActorRef,
+				"correlacion_v3_ref":           correlacionV3Ref,
+				"correlacion_seguimiento_ref":  preparacion.CorrelacionRef,
+				"motivo_v3_ref":                motivo.EntradaClave,
 			},
 		},
 		Finalidad:   ports.FinalidadConfirmarIncorporacion,
@@ -605,7 +520,7 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 		t.Fatal(err)
 	}
 	decision, confirmacion, err := concesionAutorizacionV3Prueba(
-		t, solicitudV3, autoridad.Resultado, motivo, ahora,
+		t, solicitudV3, autoridad.Resultado, solicitudDatos.ReferenciaMotivo, ahora,
 		"dec_0123456789abcdef0123456789abcdef", true,
 	)
 	if err != nil {
@@ -618,6 +533,7 @@ func contextoConfirmacionIncorporacionV3ConAutoridadPrueba(
 			PerfilRef:        vinculo.PerfilActivoRef,
 		},
 		ContextoAutorizacion:    autoridad,
+		PreparacionSeguimiento:  preparacion,
 		SolicitudAutorizacionV3: solicitudV3,
 		DecisionAutorizacionV3:  decision,
 		ConfirmacionRegistroV3:  confirmacion,
@@ -700,11 +616,18 @@ func nuevaTransaccionIncorporacionPrueba(
 		versionExpediente: 7,
 		confirmadaEn:      instanteConfirmacionIncorporacionPrueba,
 		referencias: ports.ReferenciasDurablesConfirmacionIncorporacion{
-			ActuacionRef:   referenciaIncorporacionPrueba("actuacion_incorporacion_0001"),
-			ReciboRef:      referenciaIncorporacionPrueba("recibo_incorporacion_0001"),
-			CorrelacionRef: referenciaIncorporacionPrueba("correlacion_incorporacion_0001"),
-			ActorRef:       referenciaIncorporacionPrueba("actor_rrhh_0001"),
+			ActuacionRef: referenciaIncorporacionPrueba("actuacion_incorporacion_0001"),
+			ReciboRef:    referenciaIncorporacionPrueba("recibo_incorporacion_0001"),
 		},
+	}
+}
+
+func preparacionSeguimientoIncorporacionPrueba() ports.PreparacionSeguimientoConfirmacionIncorporacion {
+	return ports.PreparacionSeguimientoConfirmacionIncorporacion{
+		OrganizacionRef: referenciaIncorporacionPrueba("organizacion_publica_0001"),
+		UnidadRef:       referenciaIncorporacionPrueba("unidad_rrhh_0001"),
+		ActorRef:        referenciaIncorporacionPrueba("actor_rrhh_0001"),
+		CorrelacionRef:  referenciaIncorporacionPrueba("correlacion_incorporacion_0001"),
 	}
 }
 

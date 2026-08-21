@@ -14,18 +14,23 @@ import (
 )
 
 const (
-	AccionConfirmarIncorporacion                                             = "contratacion_temporal.incorporacion.confirmar"
-	FinalidadConfirmarIncorporacion                                          = "registrar_incorporacion_confirmada_por_personal"
-	TipoRecursoConfirmacionIncorporacion                                     = "confirmacion_incorporacion_contratacion_temporal"
-	TransicionConfirmarIncorporacion                    domain.ClaveCatalogo = "confirmar_incorporacion"
-	ambitoOrganizacionConfirmacionIncorporacion                              = "organizacion_ref"
-	ambitoUnidadConfirmacionIncorporacion                                    = "unidad_ref"
-	atributoResultadoConfirmacionIncorporacion                               = "resultado_personal_ref"
-	atributoRelacionConfirmacionIncorporacion                                = "relacion_ref"
-	atributoOcupacionConfirmacionIncorporacion                               = "ocupacion_ref"
-	atributoVersionExpedienteConfirmacionIncorporacion                       = "version_expediente_esperada"
-	atributoVersionSeguimientoConfirmacionIncorporacion                      = "version_seguimiento_esperada"
-	maximoDocumentosIncorporacion                                            = 32
+	AccionConfirmarIncorporacion                                                 = "contratacion_temporal.incorporacion.confirmar"
+	FinalidadConfirmarIncorporacion                                              = "registrar_incorporacion_confirmada_por_personal"
+	TipoRecursoConfirmacionIncorporacion                                         = "confirmacion_incorporacion_contratacion_temporal"
+	TransicionConfirmarIncorporacion                        domain.ClaveCatalogo = "confirmar_incorporacion"
+	ambitoOrganizacionConfirmacionIncorporacion                                  = "organizacion_ref"
+	ambitoUnidadConfirmacionIncorporacion                                        = "unidad_ref"
+	atributoResultadoConfirmacionIncorporacion                                   = "resultado_personal_ref"
+	atributoRelacionConfirmacionIncorporacion                                    = "relacion_ref"
+	atributoOcupacionConfirmacionIncorporacion                                   = "ocupacion_ref"
+	atributoVersionExpedienteConfirmacionIncorporacion                           = "version_expediente_esperada"
+	atributoVersionSeguimientoConfirmacionIncorporacion                          = "version_seguimiento_esperada"
+	atributoPrincipalV3ConfirmacionIncorporacion                                 = "principal_v3_ref"
+	atributoActorSeguimientoConfirmacionIncorporacion                            = "actor_seguimiento_ref"
+	atributoCorrelacionV3ConfirmacionIncorporacion                               = "correlacion_v3_ref"
+	atributoCorrelacionSeguimientoConfirmacionIncorporacion                      = "correlacion_seguimiento_ref"
+	atributoMotivoV3ConfirmacionIncorporacion                                    = "motivo_v3_ref"
+	maximoDocumentosIncorporacion                                                = 32
 )
 
 var (
@@ -46,9 +51,30 @@ var (
 type ContextoConfirmacionIncorporacion struct {
 	SolicitudContexto       SolicitudResolverContextoAutorizacionAltaV3
 	ContextoAutorizacion    ContextoAutorizacionAltaV3
+	PreparacionSeguimiento  PreparacionSeguimientoConfirmacionIncorporacion
 	SolicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
 	DecisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
 	ConfirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+}
+
+// PreparacionSeguimientoConfirmacionIncorporacion conserva las referencias
+// locales resueltas antes de solicitar la autorizacion V3. No traduce ni
+// deriva el principal o la correlacion V3: el recurso compromete ambos pares.
+type PreparacionSeguimientoConfirmacionIncorporacion struct {
+	OrganizacionRef string
+	UnidadRef       string
+	ActorRef        string
+	CorrelacionRef  string
+}
+
+func (p PreparacionSeguimientoConfirmacionIncorporacion) validar() error {
+	if !domain.ReferenciaOpacaValida(p.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(p.UnidadRef) ||
+		!domain.ReferenciaOpacaValida(p.ActorRef) ||
+		!domain.ReferenciaOpacaValida(p.CorrelacionRef) {
+		return ErrContextoConfirmacionIncorporacionInvalido
+	}
+	return nil
 }
 
 func (c ContextoConfirmacionIncorporacion) ValidarPara(
@@ -57,6 +83,7 @@ func (c ContextoConfirmacionIncorporacion) ValidarPara(
 ) error {
 	normalizados, err := normalizarDatosConfirmacionIncorporacion(datos)
 	if err != nil || !domain.InstanteUTCCanonico(instante) ||
+		c.PreparacionSeguimiento.validar() != nil ||
 		c.ContextoAutorizacion.ValidarPara(c.SolicitudContexto, instante) != nil {
 		return ErrContextoConfirmacionIncorporacionInvalido
 	}
@@ -80,11 +107,17 @@ func (c ContextoConfirmacionIncorporacion) ValidarPara(
 		c.DecisionAutorizacionV3.ValidarPara(c.SolicitudAutorizacionV3) != nil ||
 		solicitudV3.Accion != AccionConfirmarIncorporacion ||
 		solicitudV3.Finalidad != FinalidadConfirmarIncorporacion ||
-		correlacion != normalizados.ResultadoPersonal.CorrelacionRef ||
 		recurso.Referencia != normalizados.SolicitudPersonal.ExpedienteRef ||
 		recurso.ModuloID != ModuloContratacion ||
 		recurso.Tipo != TipoRecursoConfirmacionIncorporacion ||
-		!recursoConfirmacionIncorporacionExacto(recurso, normalizados) ||
+		!recursoConfirmacionIncorporacionExacto(
+			recurso,
+			normalizados,
+			c.PreparacionSeguimiento,
+			vinculo.PrincipalID,
+			correlacion,
+			solicitudV3.ReferenciaMotivo.EntradaClave,
+		) ||
 		confirmacion.DecisionRef == "" ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
 		!confirmacion.EmitidaEn.Equal(emitidaEn) ||
@@ -98,17 +131,26 @@ func (c ContextoConfirmacionIncorporacion) ValidarPara(
 func recursoConfirmacionIncorporacionExacto(
 	recurso dominiovec.RecursoAutorizable,
 	datos DatosConfirmacionIncorporacion,
+	preparacion PreparacionSeguimientoConfirmacionIncorporacion,
+	principalV3Ref string,
+	correlacionV3Ref string,
+	motivoV3Ref string,
 ) bool {
-	return len(recurso.Ambitos) == 2 && len(recurso.Atributos) == 5 &&
-		domain.ReferenciaOpacaValida(recurso.Ambitos[ambitoOrganizacionConfirmacionIncorporacion]) &&
-		domain.ReferenciaOpacaValida(recurso.Ambitos[ambitoUnidadConfirmacionIncorporacion]) &&
+	return len(recurso.Ambitos) == 2 && len(recurso.Atributos) == 10 &&
+		recurso.Ambitos[ambitoOrganizacionConfirmacionIncorporacion] == preparacion.OrganizacionRef &&
+		recurso.Ambitos[ambitoUnidadConfirmacionIncorporacion] == preparacion.UnidadRef &&
 		recurso.Atributos[atributoResultadoConfirmacionIncorporacion] == datos.ResultadoPersonal.ResultadoRef &&
 		recurso.Atributos[atributoRelacionConfirmacionIncorporacion] == datos.ResultadoPersonal.RelacionRef &&
 		recurso.Atributos[atributoOcupacionConfirmacionIncorporacion] == datos.ResultadoPersonal.OcupacionRef &&
 		recurso.Atributos[atributoVersionExpedienteConfirmacionIncorporacion] ==
 			strconv.FormatUint(datos.SolicitudPersonal.VersionExpediente, 10) &&
 		recurso.Atributos[atributoVersionSeguimientoConfirmacionIncorporacion] ==
-			strconv.FormatUint(datos.VersionSeguimientoEsperada, 10)
+			strconv.FormatUint(datos.VersionSeguimientoEsperada, 10) &&
+		recurso.Atributos[atributoPrincipalV3ConfirmacionIncorporacion] == principalV3Ref &&
+		recurso.Atributos[atributoActorSeguimientoConfirmacionIncorporacion] == preparacion.ActorRef &&
+		recurso.Atributos[atributoCorrelacionV3ConfirmacionIncorporacion] == correlacionV3Ref &&
+		recurso.Atributos[atributoCorrelacionSeguimientoConfirmacionIncorporacion] == preparacion.CorrelacionRef &&
+		recurso.Atributos[atributoMotivoV3ConfirmacionIncorporacion] == motivoV3Ref
 }
 
 // ResolutorContextoConfirmacionIncorporacion obtiene de la frontera confiable
@@ -183,20 +225,17 @@ func (o OrdenConfirmarIncorporacion) ValidarDentroDeTransaccion(instante time.Ti
 	return nil
 }
 
-// ReferenciasDurablesConfirmacionIncorporacion son referencias locales
-// estables que la transaccion resuelve para el resultado exacto de Personal.
+// ReferenciasDurablesConfirmacionIncorporacion son las referencias locales de
+// actuacion y recibo que la transaccion resuelve. Actor y correlacion ya vienen
+// fijados por la preparacion comprometida en la autorizacion V3.
 type ReferenciasDurablesConfirmacionIncorporacion struct {
-	ActuacionRef   string
-	ReciboRef      string
-	CorrelacionRef string
-	ActorRef       string
+	ActuacionRef string
+	ReciboRef    string
 }
 
 func (r ReferenciasDurablesConfirmacionIncorporacion) validar() error {
 	if !domain.ReferenciaOpacaValida(r.ActuacionRef) ||
-		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
-		!domain.ReferenciaOpacaValida(r.CorrelacionRef) ||
-		!domain.ReferenciaOpacaValida(r.ActorRef) {
+		!domain.ReferenciaOpacaValida(r.ReciboRef) {
 		return ErrOrdenConfirmacionIncorporacionInvalida
 	}
 	return nil
@@ -210,21 +249,21 @@ func (o OrdenConfirmarIncorporacion) DatosTransicionSeguimiento(
 	referencias ReferenciasDurablesConfirmacionIncorporacion,
 ) (domain.DatosTransicionSeguimiento, error) {
 	evidencia, err := o.Datos()
-	solicitudV3, errSolicitud := evidencia.Contexto.SolicitudAutorizacionV3.Datos()
-	if err != nil || errSolicitud != nil ||
-		o.ValidarDentroDeTransaccion(confirmadaEn) != nil || referencias.validar() != nil {
+	if err != nil || o.ValidarDentroDeTransaccion(confirmadaEn) != nil ||
+		referencias.validar() != nil {
 		return domain.DatosTransicionSeguimiento{}, ErrOrdenConfirmacionIncorporacionInvalida
 	}
 	datos := evidencia.Confirmacion
 	periodo := datos.PeriodoIncorporacion
+	preparacion := evidencia.Contexto.PreparacionSeguimiento
 	return domain.DatosTransicionSeguimiento{
 		ActuacionRef: referencias.ActuacionRef, TransicionClave: TransicionConfirmarIncorporacion,
-		MotivoClave: datos.MotivoClave, ActorRef: referencias.ActorRef,
-		UnidadRef:  solicitudV3.Recurso.Ambitos[ambitoUnidadConfirmacionIncorporacion],
+		MotivoClave: datos.MotivoClave, ActorRef: preparacion.ActorRef,
+		UnidadRef:  preparacion.UnidadRef,
 		EfectivoEn: periodo.Desde, RegistradaEn: confirmadaEn,
 		Documentos: append([]domain.DocumentoSeguimiento(nil), datos.Documentos...),
 		Periodo:    &periodo, ReciboRef: referencias.ReciboRef,
-		CorrelacionRef: referencias.CorrelacionRef,
+		CorrelacionRef: preparacion.CorrelacionRef,
 	}, nil
 }
 
@@ -233,16 +272,22 @@ type ReciboConfirmacionIncorporacion struct {
 	ActuacionRef            string
 	CorrelacionRef          string
 	ActorRef                string
+	OrganizacionRef         string
+	UnidadRef               string
 	ExpedienteRef           string
+	SolicitudPersonalRef    string
 	DecisionAutorizacionRef string
 	ResultadoPersonalRef    string
 	ReciboPersonalRef       string
 	RelacionRef             string
 	OcupacionRef            string
 	TransicionClave         domain.ClaveCatalogo
+	MotivoClave             domain.ClaveCatalogo
+	VersionExpediente       uint64
 	VersionAnterior         uint64
 	VersionResultante       uint64
 	FechaIncorporacion      time.Time
+	FechaFinPrevista        time.Time
 	ConfirmadaEn            time.Time
 	Documentos              []domain.DocumentoSeguimiento
 }
@@ -259,18 +304,26 @@ func (r ReciboConfirmacionIncorporacion) ValidarPara(
 	}
 	datos := evidencia.Confirmacion
 	resultado := datos.ResultadoPersonal
+	preparacion := evidencia.Contexto.PreparacionSeguimiento
 	if (ReferenciasDurablesConfirmacionIncorporacion{
 		ActuacionRef: r.ActuacionRef, ReciboRef: r.ReciboRef,
-		CorrelacionRef: r.CorrelacionRef, ActorRef: r.ActorRef,
 	}).validar() != nil || r.ExpedienteRef != datos.SolicitudPersonal.ExpedienteRef ||
+		r.SolicitudPersonalRef != datos.SolicitudPersonal.SolicitudRef ||
+		r.OrganizacionRef != preparacion.OrganizacionRef ||
+		r.UnidadRef != preparacion.UnidadRef ||
+		r.ActorRef != preparacion.ActorRef ||
+		r.CorrelacionRef != preparacion.CorrelacionRef ||
 		r.DecisionAutorizacionRef != confirmacionV3.DecisionRef ||
 		r.ResultadoPersonalRef != resultado.ResultadoRef ||
 		r.ReciboPersonalRef != resultado.ReciboRef ||
 		r.RelacionRef != resultado.RelacionRef || r.OcupacionRef != resultado.OcupacionRef ||
 		r.TransicionClave != TransicionConfirmarIncorporacion ||
+		r.MotivoClave != datos.MotivoClave ||
+		r.VersionExpediente != datos.SolicitudPersonal.VersionExpediente ||
 		r.VersionAnterior != datos.VersionSeguimientoEsperada ||
 		r.VersionResultante != r.VersionAnterior+1 ||
 		!r.FechaIncorporacion.Equal(datos.PeriodoIncorporacion.Desde) ||
+		!r.FechaFinPrevista.Equal(datos.PeriodoIncorporacion.Hasta) ||
 		!domain.InstanteUTCCanonico(r.ConfirmadaEn) ||
 		!slices.Equal(r.Documentos, datos.Documentos) {
 		return ErrReciboConfirmacionIncorporacionInvalido
@@ -282,10 +335,9 @@ func (r ReciboConfirmacionIncorporacion) ValidarPara(
 // commit bloquea expediente y seguimiento, comprueba versiones y relacion,
 // revalida la orden con su reloj autoritativo, coteja y consume DecisionRef y
 // huella de ConfirmacionRegistroV3, aplica confirmar_incorporacion y anexa
-// resultado, documentos, auditoria, recibo y outbox. Resuelve las mismas
-// referencias locales —incluida la proyeccion del principal V3— en replay
-// exacto; divergencia o rollback devuelven error
-// y recibo cero.
+// resultado, documentos, auditoria, recibo y outbox. Reutiliza actor y
+// correlacion locales ya ligados en el recurso, y resuelve actuacion y recibo
+// en replay exacto; divergencia o rollback devuelven error y recibo cero.
 type TransaccionConfirmacionIncorporacion interface {
 	ConfirmarIncorporacion(
 		context.Context,
