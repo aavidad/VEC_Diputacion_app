@@ -1,5 +1,7 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
+import { CAPACIDADES_CONTRATACION_TEMPORAL } from "./contrato-expedientes.js";
+
 export function escaparHTML(valor) {
   return String(valor ?? "")
     .replaceAll("&", "&amp;")
@@ -319,10 +321,27 @@ function renderizarRecibo(recibo, t, locale, zonaHoraria) {
   </section>`;
 }
 
-function renderizarTarea(expediente, tareaRef, estado, t, locale, zonaHoraria) {
+function renderizarTarea(
+  expediente,
+  tareaRef,
+  estado,
+  t,
+  locale,
+  zonaHoraria,
+  analisisDisponible,
+) {
   const tarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia === tareaRef)
     ?? expediente.tareas[0];
   if (!tarea) return "";
+  const montarAnalisis = analisisDisponible === true
+    && !estado.ocupado
+    && !estado.actualizacion_pendiente
+    && estado.resultado_indeterminado !== true
+    && tarea.acciones.some((accion) => (
+      accion.tipo === "efecto"
+        && accion.disponible === true
+        && accion.capacidad === CAPACIDADES_CONTRATACION_TEMPORAL.analizar
+    ));
   const editable = tarea.acciones.some((accion) => (
     accion.tipo === "efecto" && accion.disponible === true
   )) && !estado.ocupado && !estado.actualizacion_pendiente;
@@ -346,7 +365,7 @@ function renderizarTarea(expediente, tareaRef, estado, t, locale, zonaHoraria) {
       <div><dt>${escaparHTML(t("recibo"))}</dt><dd><code>${escaparHTML(tarea.recibo_ref || "—")}</code></dd></div>
       <div><dt>${escaparHTML(t("decision"))}</dt><dd><code>${escaparHTML(tarea.decision_ref || "—")}</code></dd></div>
     </dl>
-    <form data-ct-exp-tarea-form aria-label="${escaparHTML(t("formulario_tarea", { tarea: tarea.etiqueta }))}">
+    ${montarAnalisis ? '<div data-ct-exp-analisis></div>' : `<form data-ct-exp-tarea-form aria-label="${escaparHTML(t("formulario_tarea", { tarea: tarea.etiqueta }))}">
       ${editable ? "" : `<p class="ct-exp-solo-lectura">${escaparHTML(t("tarea_solo_lectura"))}</p>`}
       ${tarea.paneles.some((panel) => panel.campos.some(({ obligatorio }) => obligatorio))
     ? `<p class="ct-exp-obligatorios">${escaparHTML(t("campos_obligatorios"))}</p>` : ""}
@@ -369,12 +388,12 @@ function renderizarTarea(expediente, tareaRef, estado, t, locale, zonaHoraria) {
   }).join("")}
         ${estado.ocupado ? `<button type="button" class="boton-secundario" data-ct-exp-accion="cancelar">${escaparHTML(t("cancelar_espera"))}</button>` : ""}
       </div>` : ""}
-    </form>
-    ${renderizarRecibo(estado.recibo, t, locale, zonaHoraria)}
+    </form>`}
+    ${montarAnalisis ? "" : renderizarRecibo(estado.recibo, t, locale, zonaHoraria)}
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false) {
   const expediente = estado.expediente;
   if (!expediente) return `<section class="ct-exp-estado-global"><p>${escaparHTML(t("expediente_sin_seleccionar"))}</p>
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button></section>`;
@@ -382,7 +401,15 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria) {
     ${renderizarFases(expediente, t)}
     <div class="ct-exp-tramitacion">
       ${renderizarTareas(expediente, estado.tarea_ref, t)}
-      ${renderizarTarea(expediente, estado.tarea_ref, estado, t, locale, zonaHoraria)}
+      ${renderizarTarea(
+    expediente,
+    estado.tarea_ref,
+    estado,
+    t,
+    locale,
+    zonaHoraria,
+    analisisDisponible,
+  )}
     </div>`;
 }
 

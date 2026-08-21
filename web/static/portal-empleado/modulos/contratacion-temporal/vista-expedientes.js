@@ -1,6 +1,7 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -11,6 +12,67 @@ import {
   renderizarExpediente,
 } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+
+const CAMPOS_COMPOSICION_ANALISIS = Object.freeze([
+  "cliente", "catalogos", "contexto", "analisisInicial",
+]);
+const CAMPOS_CONTEXTO_ANALISIS = Object.freeze(["operacion", "artefacto_ref"]);
+const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+
+function descriptoresCerrados(entrada, campos, nombre) {
+  if (entrada === null || typeof entrada !== "object" || Array.isArray(entrada)
+    || Object.getPrototypeOf(entrada) !== Object.prototype) {
+    throw new TypeError(`${nombre} no válida`);
+  }
+  const descriptores = Object.getOwnPropertyDescriptors(entrada);
+  const claves = Object.keys(descriptores);
+  if (Object.getOwnPropertySymbols(entrada).length !== 0
+    || claves.some((clave) => !campos.includes(clave))
+    || claves.some((clave) => !Object.hasOwn(descriptores[clave], "value")
+      || descriptores[clave].enumerable !== true)) {
+    throw new TypeError(`${nombre} no válida`);
+  }
+  if (campos.some((campo) => !Object.hasOwn(descriptores, campo))) return null;
+  return descriptores;
+}
+
+function prepararComposicionAnalisis(entrada) {
+  if (entrada === null || entrada === undefined) return null;
+  const descriptores = descriptoresCerrados(
+    entrada,
+    CAMPOS_COMPOSICION_ANALISIS,
+    "composición del análisis",
+  );
+  if (descriptores === null) return null;
+  const contextoEntrada = descriptores.contexto.value;
+  if (contextoEntrada === null || typeof contextoEntrada !== "object"
+    || Array.isArray(contextoEntrada)) return null;
+  const contextoDescriptores = descriptoresCerrados(
+    contextoEntrada,
+    CAMPOS_CONTEXTO_ANALISIS,
+    "contexto de composición del análisis",
+  );
+  if (contextoDescriptores === null) return null;
+  const operacion = contextoDescriptores.operacion.value;
+  const artefactoRef = contextoDescriptores.artefacto_ref.value;
+  const cliente = descriptores.cliente.value;
+  const catalogos = descriptores.catalogos.value;
+  const metodo = operacion === "rectificar" ? "rectificarAnalisis" : "registrarAnalisis";
+  let metodoCliente;
+  try { metodoCliente = cliente?.[metodo]; } catch { return null; }
+  if (!(["registrar", "rectificar"].includes(operacion))
+    || typeof artefactoRef !== "string" || !PATRON_REFERENCIA.test(artefactoRef)
+    || cliente === null || typeof cliente !== "object" || typeof metodoCliente !== "function"
+    || catalogos === null || typeof catalogos !== "object" || Array.isArray(catalogos)) {
+    return null;
+  }
+  return Object.freeze({
+    cliente,
+    catalogos,
+    contexto: Object.freeze({ operacion, artefacto_ref: artefactoRef }),
+    analisisInicial: descriptores.analisisInicial.value,
+  });
+}
 
 function renderizarNavegacion(estado, t) {
   const opciones = [
@@ -63,6 +125,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
   altaDisponible = false,
+  analisisDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -72,7 +135,13 @@ export function renderizarModuloContratacionTemporal(estado, {
   } else if (estado.vista === "alta") {
     contenido = renderizarAlta(t, altaDisponible);
   } else if (estado.vista === "expediente") {
-    contenido = renderizarExpediente(estado, t, locale, zonaHoraria);
+    contenido = renderizarExpediente(
+      estado,
+      t,
+      locale,
+      zonaHoraria,
+      analisisDisponible,
+    );
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
   } else if (estado.vista === "auditoria") {
@@ -111,6 +180,7 @@ export async function montarModuloContratacionTemporal({
   raiz,
   presentador,
   alta = null,
+  analisis = null,
   mensajes = {},
   anunciar = () => {},
   confirmarOperacion = () => false,
@@ -126,12 +196,24 @@ export async function montarModuloContratacionTemporal({
   }
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
+  const composicionAnalisis = prepararComposicionAnalisis(analisis);
   let montada = true;
   let desmontarAlta = null;
+  let desmontarAnalisis = null;
 
   function retirarAlta() {
     if (typeof desmontarAlta === "function") desmontarAlta();
     desmontarAlta = null;
+  }
+
+  function retirarAnalisis() {
+    if (typeof desmontarAnalisis === "function") desmontarAnalisis();
+    desmontarAnalisis = null;
+  }
+
+  function retirarComponentes() {
+    retirarAlta();
+    retirarAnalisis();
   }
 
   function montarAltaSiProcede() {
@@ -154,17 +236,57 @@ export async function montarModuloContratacionTemporal({
     });
   }
 
+  function montarAnalisisSiProcede() {
+    const estado = presentador.obtenerEstado();
+    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null) return null;
+    const contenedor = raiz.querySelector("[data-ct-exp-analisis]");
+    if (!contenedor) return null;
+    try {
+      desmontarAnalisis = montarFormularioAnalisisRRHH({
+        raiz: contenedor,
+        cliente: composicionAnalisis.cliente,
+        contexto: {
+          operacion: composicionAnalisis.contexto.operacion,
+          expediente_ref: estado.expediente.expediente_ref,
+          version_esperada: estado.expediente.version,
+          artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
+        },
+        catalogos: composicionAnalisis.catalogos,
+        analisisInicial: composicionAnalisis.analisisInicial,
+        mensajes,
+        locale,
+        zonaHoraria,
+        anunciar,
+      });
+      return true;
+    } catch {
+      desmontarAnalisis = null;
+      return false;
+    }
+  }
+
   function repintar(selectorFoco = "") {
     if (!montada) return;
-    retirarAlta();
+    retirarComponentes();
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
       mensajes,
       locale,
       zonaHoraria,
       altaDisponible,
+      analisisDisponible: composicionAnalisis !== null,
     });
     montarAltaSiProcede();
+    if (montarAnalisisSiProcede() === false) {
+      retirarComponentes();
+      raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
+        mensajes,
+        locale,
+        zonaHoraria,
+        altaDisponible,
+        analisisDisponible: false,
+      });
+    }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     anunciar(
       crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
@@ -306,7 +428,7 @@ export async function montarModuloContratacionTemporal({
   return Object.freeze({
     desmontar() {
       montada = false;
-      retirarAlta();
+      retirarComponentes();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();
