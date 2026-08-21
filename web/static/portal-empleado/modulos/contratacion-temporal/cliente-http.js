@@ -8,22 +8,38 @@ import {
   validarSolicitudPropuestaCobertura,
   validarSolicitudRectificacionCobertura,
 } from "./contrato-cobertura.js";
+import {
+  validarReciboAnalisis,
+  validarSolicitudRectificacionAnalisis,
+  validarSolicitudRegistroAnalisis,
+} from "./contrato-analisis.js";
 
-export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
-  alta: "/api/vec/contratacion-temporal/solicitudes",
-  propuestaCobertura:
-    "/api/vec/contratacion-temporal/cobertura/propuesta",
-  decisionCobertura:
-    "/api/vec/contratacion-temporal/cobertura/decisiones",
-  rectificacionCobertura:
-    "/api/vec/contratacion-temporal/cobertura/rectificaciones",
-  resultadoCobertura:
-    "/api/vec/contratacion-temporal/cobertura/resultados",
-});
+export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
+  Object.defineProperties({
+    alta: "/api/vec/contratacion-temporal/solicitudes",
+    propuestaCobertura:
+      "/api/vec/contratacion-temporal/cobertura/propuesta",
+    decisionCobertura:
+      "/api/vec/contratacion-temporal/cobertura/decisiones",
+    rectificacionCobertura:
+      "/api/vec/contratacion-temporal/cobertura/rectificaciones",
+    resultadoCobertura:
+      "/api/vec/contratacion-temporal/cobertura/resultados",
+  }, {
+    registroAnalisis: {
+      value: "/api/vec/contratacion-temporal/analisis/registros",
+    },
+    rectificacionAnalisis: {
+      value: "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    },
+  }),
+);
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
+const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;
+const MAXIMO_RESPUESTA_ANALISIS_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_COBERTURA_BYTES = 256 * 1024;
 const MAXIMO_ERROR_BYTES = 16 * 1024;
 const MAXIMO_FRAGMENTOS = 4096;
@@ -479,6 +495,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     maximoRespuesta,
     validarRespuesta,
     efecto,
+    credenciales = "omit",
   }) {
     const cuerpo = serializarAcotado(entrada, maximoSolicitud);
     let cabeceras;
@@ -489,18 +506,22 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     }
     let respuesta;
     try {
+      const opcionesFetch = {
+        method: "POST",
+        headers: cabeceras,
+        body: cuerpo,
+        signal,
+        credentials: "omit",
+        mode: "same-origin",
+        cache: "no-store",
+        redirect: "error",
+        referrerPolicy: "no-referrer",
+      };
+      if (credenciales === "same-origin") {
+        opcionesFetch.credentials = "same-origin";
+      }
       respuesta = await ejecutarAbortable(
-        () => fetchImpl(ruta, {
-          method: "POST",
-          headers: cabeceras,
-          body: cuerpo,
-          signal,
-          credentials: "omit",
-          mode: "same-origin",
-          cache: "no-store",
-          redirect: "error",
-          referrerPolicy: "no-referrer",
-        }),
+        () => fetchImpl(ruta, opcionesFetch),
         signal,
         null,
         (tardia) => cancelarRespuesta(tardia),
@@ -634,6 +655,58 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     });
   }
 
+  async function ejecutarAnalisis({
+    solicitud,
+    opciones,
+    ruta,
+    operacion,
+    validarSolicitud,
+  }) {
+    const { signal } = validarOpciones(opciones);
+    const entrada = validarSolicitud(solicitud);
+    return ejecutar({
+      ruta,
+      entrada,
+      signal,
+      estadoEsperado: 201,
+      maximoSolicitud: MAXIMO_SOLICITUD_ANALISIS_BYTES,
+      maximoRespuesta: MAXIMO_RESPUESTA_ANALISIS_BYTES,
+      validarRespuesta: (respuesta) => {
+        const recibo = validarReciboAnalisis(respuesta);
+        if (recibo.operacion !== operacion
+          || recibo.expediente_ref !== entrada.expediente_ref
+          || recibo.version_resultante !== entrada.version_esperada + 1) {
+          throw new TypeError(
+            "el recibo no corresponde a la operación de análisis",
+          );
+        }
+        return recibo;
+      },
+      efecto: true,
+      credenciales: "same-origin",
+    });
+  }
+
+  function registrarAnalisis(solicitud, opciones) {
+    return ejecutarAnalisis({
+      solicitud,
+      opciones,
+      ruta: RUTAS_HTTP_CONTRATACION_TEMPORAL.registroAnalisis,
+      operacion: "registrar",
+      validarSolicitud: validarSolicitudRegistroAnalisis,
+    });
+  }
+
+  function rectificarAnalisis(solicitud, opciones) {
+    return ejecutarAnalisis({
+      solicitud,
+      opciones,
+      ruta: RUTAS_HTTP_CONTRATACION_TEMPORAL.rectificacionAnalisis,
+      operacion: "rectificar",
+      validarSolicitud: validarSolicitudRectificacionAnalisis,
+    });
+  }
+
   function consultarResultadoCobertura(solicitud, opciones) {
     let signal;
     let entrada;
@@ -685,5 +758,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     decidirCobertura,
     rectificarCobertura,
     consultarResultadoCobertura,
+    registrarAnalisis,
+    rectificarAnalisis,
   });
 }
