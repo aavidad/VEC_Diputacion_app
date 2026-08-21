@@ -4,30 +4,22 @@ Fecha: 21 de agosto de 2026.
 
 Tarea: `O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`.
 
-Estado: las conducciones canónicas de `9b5b97d` y `a47a7a7` terminaron
-`NO-GO`; la presente corrección es local, sin commit ni conducción. Los
-intentos únicos de `9749ddd`, `9ec119f`, `9b5b97d` y `a47a7a7` están
-consumidos; no se repiten sus SHA ni se reutilizan sus destinos. Este corte
-solo permite pruebas estáticas, probes locales sin conductor y build normal y
-race sin ejecutar los binarios ni crear un destino de evidencia.
-Esa es la regla general y vuelve a regir sin excepciones en esta edición;
-dirección autorizó antes, de forma expresa y por una sola vez, el probe
-histórico del publicador que atravesó Go/C y se detuvo antes de build/test. La
-excepción está consumida, no ampara los hashes actuales ni habilita otra
-conducción. Se exige revisión funcional y de seguridad independiente antes de
-que dirección pueda ordenar otro commit y una única corrida sobre un SHA y
-destino nuevos. No se autoriza integración, publicación, CI remota, despliegue,
-producción ni cambio de métricas.
+Estado: la conducción canónica de `7782e467` terminó `NO-GO` tras validar todos
+los casos y antes de publicar. Los intentos `9749ddd`, `9ec119f`, `9b5b97d`,
+`a47a7a7` y `7782e467`, junto con sus destinos, están consumidos. Esta corrección
+local solo autoriza pruebas estáticas y probes desechables del publicador como
+`orquesta`, sin build/test de producto, commit ni conducción. Requiere revisión
+funcional y de seguridad independiente; no autoriza integración, CI remota,
+despliegue, producción o métricas. El probe histórico Go/C sigue consumido.
 
 ## Orden de dirección: cierre mínimo FIXTURE-PASS
 
 Capability: `O3C-P6-CAP021-RUNTIME-TMP-V4-FIXTURE-PASS`.
 
-Invariante: el snapshot cerrado contiene las 32 fuentes Go compilables del
-ledger y un único fixture runtime byte-exacto; cada ejecución ordinaria verde
-produce exactamente `PASS\n` —cinco bytes en stdout y cero en stderr— y cada
-BF directo conserva salida exacta 0/0. Todo el resto de V4 se conserva sin
-relajar oráculos, cardinalidades, aislamiento, limpieza ni publicación.
+Invariante: el snapshot cerrado contiene las 32 fuentes Go compilables y un
+fixture runtime byte-exacto; cada ejecución ordinaria verde produce `PASS\n`
+—cinco bytes en stdout y cero en stderr— y cada BF conserva 0/0. Todo el resto
+de V4 mantiene oráculos, cardinalidades, aislamiento, limpieza y publicación.
 
 Write-set exacto de esta corrección:
 
@@ -36,19 +28,17 @@ tools/o3c_p6_conductor/conductor.sh
 docs/portal_vec/enmienda_o3c_p6_cap_normal_021_runtime_tmp_2026-08-21.md
 ```
 
-El siguiente corte es la revisión funcional y de seguridad independiente de
-los dos archivos y bytes congelados. No se autoriza commit ni corrida canónica
-en este corte.
+La capability es publicar atómicamente y sin reemplazo el paquete GO validado.
+Conserva target, resultados, producto, casos, fuentes y métricas; retira staging
+y `tool-runtime` antes del rename. Sigue revisión independiente de los dos
+archivos congelados; este corte no autoriza commit ni conducción.
 
-El hallazgo de seguridad previo a congelación invalida los hashes anteriores
-`2021ab059b44cd9879a638119aa8a08129abbf0dc1be5c03049d8a2fe1215eb5`
-del conductor y
-`0a0522260574b01bf4db5f1a3cbf724d36363752a7c4a6662fbafe97b1536b6c`
-de esta enmienda: Bash descarta NUL al cargar texto y `read` no acredita bytes
-binarios exactos. La revisión posterior invalida también los hashes
+El hallazgo NUL invalida `2021ab059b44cd9879a638119aa8a08129abbf0dc1be5c03049d8a2fe1215eb5`
+y `0a0522260574b01bf4db5f1a3cbf724d36363752a7c4a6662fbafe97b1536b6c`:
+Bash descarta NUL y `read` no acredita bytes binarios. También invalida
 `7647c9a3a45a82980639884b1afed11bd602569a892fa576c2a4a6e2e1407c23` y
-`3d669296b16c30190c61778094bd96b838fa0ff4b99efe497762ff736500170a`:
-aunque capturaban el digest ASCII, todavía usaban sustitución de comando.
+`3d669296b16c30190c61778094bd96b838fa0ff4b99efe497762ff736500170a`,
+que aún usaban sustitución de comando para el digest ASCII.
 
 El candidato vigente conserva `stdout_bytes=5` y entrega por pipeline a la
 copia privada de `sha256sum --status -c -` un checklist con el literal de
@@ -149,6 +139,28 @@ cero. El paquete durable existe. La causa exacta fue que
 `TestAutoridadO3cConsumeHandoffO3bReal` no pudo abrir en el snapshot
 `deploy/postgresql/autorizacion_atestada_v3/probar_fuente_corporativa_contexto_actor_v1_pg18_4.sh`.
 Ese SHA y ese destino no se repiten.
+
+La única conducción canónica de `7782e4679e546cde4d693633911d5ec3a47bf85b`
+contra `/srv/fabrica/orquesta/home/revisiones/o3c-p6-cap021-runtime-tmp-v4-7782e46-target`
+completó 244/244 casos, 6/6 BF directos y 1472/1472 atestaciones de selectores,
+sin filas `NO-GO`. Retiró staging y `tool-runtime`, pero terminó exit 1 con
+`NO-GO publicacion GO no acreditada`; el destino
+`/srv/fabrica/orquesta/home/evidencias/o3c-p6-cap021-runtime-tmp-v4-7782e46-canonica-r1` y los
+temporales propios quedaron ausentes y el target siguió limpio en ese commit; intento, commit y destino están consumidos.
+
+La causa exacta precedió al helper: el padre cerró el FD 255 del conductor;
+Bash reabrió su entrada en otro FD y el segundo inventario devolvió 2. El helper
+no llegó a `exec` ni llamó `renameat2`. El wrapper hijo conserva solo stdio y
+`destino_padre_fd`; el padre mantiene su FD interno y el helper pinado.
+
+El criterio independiente adicional no sustituye esa causa. El helper antiguo
+aceptó dos entradas 0600 hardlinkadas con `nlink=2`; además, precondición Bash,
+reapertura y huella inválida colisionaban en 2, ejecución daba 127 y `EEXIST`
+17. La variante usa `B_PRECONDICION`; `H_VALIDACION`; `X_REAPERTURA`,
+`X_CIERRE_FD`, `X_EJECUCION`, `X_ESTADO`, `X_LIMPIEZA`; y
+`R_EEXIST/R_ENOENT/R_EXDEV/R_NO_SOPORTE/R_AUTORIDAD/R_OTRO`. Los estados
+internos 70–77 y 2/126/127/otro se traducen sin exponer stderr ni rutas. Las 12
+entradas exigen regular, EUID, `nlink=1` y `Mode&07777` 0600, salvo helper 0700.
 
 La autoridad funcional directa para el cierre mínimo es el código de
 `crearFixtureO3aM38`/`leerRunnerPruebaO3aM38`, el runner citado y la evidencia
@@ -491,11 +503,11 @@ El orden V4 es causal dentro de esa precondición externa:
    que el wrapper hijo haya cerrado la copia heredada del FD. El wrapper de
    test acredita el cierre y retira también el marcador antes de `exec` del
    binario;
-9. antes del rename final ya no existen staging ni `tool-runtime`; se cierran
-   los descriptores de Go y del publicador, y solo quedan stdio, el padre
-   bloqueado y el helper pinado. El hijo recibe solo el padre, cierra de forma
-   comprobada sus FD `origin` y `pathParent` antes de `renameat2` y, tras éxito,
-   ejecuta `os.Exit(0)` inmediatamente.
+9. antes del rename final ya no existen staging ni `tool-runtime`; en el padre
+   quedan `0,1,2`, su descriptor interno de lectura del conductor,
+   `destino_padre_fd` y `helper_fd`. El subshell `hijo_fd` cierra sus copias
+   ambientales y el helper ejecutado recibe solo `0,1,2` y `destino_padre_fd`;
+   cierra sus FD `origin` y `pathParent` y, tras el rename, hace `os.Exit(0)`.
 
 La build normal queda enteramente ligada al Go/GOROOT/GOTOOLDIR anteriores.
 La build `race` necesita CGO: usa `PATH` privado, fija `CC`/`CXX` absolutos y
@@ -640,9 +652,9 @@ Se exige conjuntamente:
    stdin/stdout/stderr; como capabilities explícitas, `flock` conserva
    `destino_padre_fd`, el wrapper de test conserva temporalmente el marcador y
    lo cierra antes del binario, y el helper final conserva `destino_padre_fd`;
-11. la publicación GO usa el helper Go pinado por FD y `renameat2(RENAME_NOREPLACE)`
-   sin reemplazar un destino; el helper ancla `SHA256SUMS`, recalcula las huellas SHA-256 de la lista
-   cerrada de 11 entradas selladas más `SHA256SUMS` por FD y contrasta la ruta del padre con el FD bloqueado;
+11. la publicación usa helper pinado y `renameat2(RENAME_NOREPLACE)`; ancla
+   `SHA256SUMS`, revalida por FD las 12 entradas como regulares, EUID,
+   `Mode&07777` 0600 —helper 0700—, `nlink=1` y SHA, y contrasta ruta y FD del padre;
 12. ningún estado se reintenta, tolera, reclasifica, salta o decide por
    mayoría.
 
@@ -707,14 +719,11 @@ comunica `si`, lo cierra y reenumera por symlink que no deja ningún FD>=3 antes
 de `exec`; el lector padre exige esa única línea y EOF.
 Un GO se prepara en un temporal 0700 hermano
 del destino; el helper se compila con el Go fijado mientras el staging existe.
-Después se retira explícitamente el staging y se revalida el target; entonces se
-escribe el contexto final en el temporal hermano, se sella `publicacion.tsv` y
-`SHA256SUMS` incluyendo el binario `rename_noreplace` ya compilado dentro del
-temporal, y el helper invoca `renameat2(RENAME_NOREPLACE)`. El directorio 0700
-se trata como paquete cerrado: el rename no-replace es el punto definitivo y
-el helper cierra antes todos sus FD propios comprobables. Un `os.Exit(0)` sigue
-inmediatamente al rename verde; después no se realizan `defer`, cierres ni otras
-operaciones fallibles, ni se afirma un modo de solo lectura.
+Después se retira staging, se revalida target, se escriben contexto y sello y el
+helper invoca `renameat2(RENAME_NOREPLACE)`. Antes acredita inventario, SHA,
+huellas, UID, modos y `nlink=1`, y cierra sus FD propios. `os.Exit(0)` sigue
+inmediatamente al rename verde, sin `defer`, cierre u operación falible; no se
+afirma modo de solo lectura ni aislamiento frente a otro proceso UID 999.
 
 ## Capability, invariante y write-set exacto
 
@@ -758,18 +767,21 @@ y métricas permanecen byte a byte.
 
 ## Puertas y secuencia sin reintentos
 
-Antes de congelar el candidato local y sin ejecutar conducta:
+Matriz ligera como `orquesta`, sin conductor ni conducta de producto:
 
-1. identidad, genealogía, limpieza, write-set y hashes;
-2. `bash -n` y ShellCheck del conductor;
-3. validación mecánica de las 32 huellas del ledger, sin modificarlo;
-4. build normal y race de las 32 fuentes, sin ejecutar los binarios, autorizado
-   expresamente por dirección para este preflight;
-5. probes binarios de `PASS\n`, NUL y revalidación de los metadatos del snapshot;
-6. `git diff --check`, write-set y ausencia de residuos.
+| Probe | Resultado cerrado exigido |
+|---|---|
+| positivo | GO, rename único, origen ausente |
+| destino ya existente | `B_PRECONDICION`, destino intacto |
+| carrera tras precondición | `R_EEXIST`, origen y destino intactos |
+| hardlink/modos especiales/adulteración/helper/huella | `H_VALIDACION`, sin destino |
+| reapertura/cierre/exec/estado/limpieza | `X_REAPERTURA`/`X_CIERRE_FD`/`X_EJECUCION`/`X_ESTADO`/`X_LIMPIEZA`, sin destino |
+
+Se añaden `bash -n`, ShellCheck, `git diff --check`, líneas, write-set, hashes y
+cero residuos.
 
 El siguiente corte es la revisión funcional y de seguridad independiente de
-los dos archivos y hashes congelados, incluido fixture y salida exacta. El
+los dos archivos y hashes congelados, incluido el publicador corregido. El
 productor no emite GO. Solo después,
 y mediante orden expresa de dirección, podrá existir un commit candidato, un
 clon `orquesta:orquesta` 0700 nuevo y una única corrida canónica a un destino

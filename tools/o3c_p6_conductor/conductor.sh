@@ -566,69 +566,81 @@ import (
 	"syscall"
 	"unsafe"
 )
+const estadoReapertura, estadoValidacion = 70, 71
+const estadoEexist, estadoEnoent, estadoExdev = 72, 73, 74
+const estadoNoSoporte, estadoAutoridad, estadoOtro = 75, 76, 77
+func fallar(estado int) { os.Exit(estado) }
+func abrirAt(dir int, nombre string, flags int) (int, syscall.Stat_t) {
+	fd, err := syscall.Openat(dir, nombre, flags|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0); if err != nil { fallar(estadoReapertura) }
+	var st syscall.Stat_t; if syscall.Fstat(fd, &st) != nil { syscall.Close(fd); fallar(estadoReapertura) }
+	return fd, st
+}
+func estadoRename(errno syscall.Errno) int {
+	if errno == syscall.EEXIST || errno == syscall.ENOTEMPTY { return estadoEexist }; if errno == syscall.ENOENT { return estadoEnoent }
+	if errno == syscall.EXDEV { return estadoExdev }; if errno == syscall.ENOSYS || errno == syscall.EINVAL || errno == syscall.EOPNOTSUPP { return estadoNoSoporte }
+	if errno == syscall.EACCES || errno == syscall.EPERM || errno == syscall.EROFS { return estadoAutoridad }
+	return estadoOtro
+}
 func main() {
-	if len(os.Args) != 8 {
-		os.Exit(2)
-	}
+	if len(os.Args) != 8 { fallar(estadoValidacion) }
 	var fd int
-	if _, err := fmt.Sscan(os.Args[1], &fd); err != nil || fd < 0 { os.Exit(2) }
-	if os.Args[2] == "" || os.Args[3] == "" || os.Args[2] == "." || os.Args[2] == ".." || os.Args[3] == "." || os.Args[3] == ".." || filepath.Base(os.Args[2]) != os.Args[2] || filepath.Base(os.Args[3]) != os.Args[3] { os.Exit(2) }
+	if _, err := fmt.Sscan(os.Args[1], &fd); err != nil || fd < 0 { fallar(estadoValidacion) }
+	if os.Args[2] == "" || os.Args[3] == "" || os.Args[2] == "." || os.Args[2] == ".." || os.Args[3] == "." || os.Args[3] == ".." || filepath.Base(os.Args[2]) != os.Args[2] || filepath.Base(os.Args[3]) != os.Args[3] { fallar(estadoValidacion) }
 	parent := fd
 	var st syscall.Stat_t
-	if syscall.Fstat(parent, &st) != nil || st.Uid != uint32(os.Geteuid()) || st.Mode&syscall.S_IFMT != syscall.S_IFDIR || st.Mode&0777 != 0700 { os.Exit(2) }
-	origin, err := syscall.Openat(parent, os.Args[2], syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
-	if err != nil { os.Exit(2) }
-	var ost syscall.Stat_t
-	if syscall.Fstat(origin, &ost) != nil || ost.Uid != uint32(os.Geteuid()) || ost.Mode&syscall.S_IFMT != syscall.S_IFDIR || ost.Mode&0777 != 0700 { os.Exit(2) }
-	if fmt.Sprintf("%d:%d:%d:%o", st.Dev, st.Ino, st.Uid, st.Mode&0777) != os.Args[4] || fmt.Sprintf("%d:%d:%d:%o", ost.Dev, ost.Ino, ost.Uid, ost.Mode&0777) != os.Args[5] { os.Exit(2) }
+	if syscall.Fstat(parent, &st) != nil { fallar(estadoReapertura) }
+	if st.Uid != uint32(os.Geteuid()) || st.Mode&syscall.S_IFMT != syscall.S_IFDIR || st.Mode&0777 != 0700 { fallar(estadoValidacion) }
+	origin, ost := abrirAt(parent, os.Args[2], syscall.O_RDONLY|syscall.O_DIRECTORY)
+	if ost.Uid != uint32(os.Geteuid()) || ost.Mode&syscall.S_IFMT != syscall.S_IFDIR || ost.Mode&0777 != 0700 { fallar(estadoValidacion) }
+	if fmt.Sprintf("%d:%d:%d:%o", st.Dev, st.Ino, st.Uid, st.Mode&0777) != os.Args[4] || fmt.Sprintf("%d:%d:%d:%o", ost.Dev, ost.Ino, ost.Uid, ost.Mode&0777) != os.Args[5] { fallar(estadoValidacion) }
 	dirDup, err := syscall.Dup(origin)
-	if err != nil { os.Exit(2) }
+	if err != nil { fallar(estadoReapertura) }
 	dirFile := os.NewFile(uintptr(dirDup), "origin-dir")
 	names, err := dirFile.Readdirnames(-1)
-	if closeErr := dirFile.Close(); err != nil || closeErr != nil { os.Exit(2) }
+	if closeErr := dirFile.Close(); err != nil || closeErr != nil { fallar(estadoReapertura) }
 	allowed := map[string]bool{"bf_directos.tsv": true, "binarios.tsv": true, "casos.tsv": true, "contexto.tsv": true, "fuentes.tsv": true, "publicacion.tsv": true, "residuos.txt": true, "resumen.txt": true, "rename_noreplace": true, "tmpdir_selectores.tsv": true, "utilidades.tsv": true, "SHA256SUMS": true}
 	seen := map[string]bool{}
-	for _, name := range names { if !allowed[name] || seen[name] { os.Exit(2) }; seen[name] = true }
-	if len(seen) != 12 { os.Exit(2) }
+	for _, name := range names { if !allowed[name] || seen[name] { fallar(estadoValidacion) }; seen[name] = true }
+	if len(seen) != 12 { fallar(estadoValidacion) }
 	pathParent, err := syscall.Open(os.Args[7], syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
-	if err != nil { os.Exit(2) }
+	if err != nil { fallar(estadoReapertura) }
 	var pst syscall.Stat_t
-	if syscall.Fstat(pathParent, &pst) != nil || fmt.Sprintf("%d:%d:%d:%o", pst.Dev, pst.Ino, pst.Uid, pst.Mode&0777) != os.Args[4] { os.Exit(2) }
-	shaFD, err := syscall.Openat(origin, "SHA256SUMS", syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
-	if err != nil { os.Exit(2) }
+	if syscall.Fstat(pathParent, &pst) != nil { fallar(estadoReapertura) }
+	if fmt.Sprintf("%d:%d:%d:%o", pst.Dev, pst.Ino, pst.Uid, pst.Mode&0777) != os.Args[4] { fallar(estadoValidacion) }
+	shaFD, shaStat := abrirAt(origin, "SHA256SUMS", syscall.O_RDONLY)
+	if shaStat.Uid != uint32(os.Geteuid()) || shaStat.Mode&syscall.S_IFMT != syscall.S_IFREG || shaStat.Mode&07777 != 0600 || shaStat.Nlink != 1 { fallar(estadoValidacion) }
 	shaFile := os.NewFile(uintptr(shaFD), "SHA256SUMS")
 	shaBytes, err := io.ReadAll(shaFile)
-	if err != nil { os.Exit(2) }
-	if _, err = shaFile.Seek(0, 0); err != nil { os.Exit(2) }
+	if err != nil { fallar(estadoReapertura) }
+	if _, err = shaFile.Seek(0, 0); err != nil { fallar(estadoReapertura) }
 	h := sha256.Sum256(shaBytes)
-	if hex.EncodeToString(h[:]) != os.Args[6] { os.Exit(2) }
-	if shaFile.Close() != nil { os.Exit(2) }
+	if hex.EncodeToString(h[:]) != os.Args[6] { fallar(estadoValidacion) }
+	if shaFile.Close() != nil { fallar(estadoReapertura) }
 	checks := map[string]string{}
 	scanner := bufio.NewScanner(strings.NewReader(string(shaBytes)))
 	for scanner.Scan() {
 		parts := strings.Fields(scanner.Text())
-		if len(parts) != 2 || len(parts[0]) != 64 || checks[parts[1]] != "" { os.Exit(2) }
+		if len(parts) != 2 || len(parts[0]) != 64 || checks[parts[1]] != "" { fallar(estadoValidacion) }
 		checks[parts[1]] = parts[0]
 	}
-	if scanner.Err() != nil || len(checks) != 11 { os.Exit(2) }
+	if scanner.Err() != nil || len(checks) != 11 { fallar(estadoValidacion) }
 	for _, name := range []string{"bf_directos.tsv", "binarios.tsv", "casos.tsv", "contexto.tsv", "fuentes.tsv", "publicacion.tsv", "residuos.txt", "resumen.txt", "rename_noreplace", "tmpdir_selectores.tsv", "utilidades.tsv", "SHA256SUMS"} {
-		fd, err := syscall.Openat(origin, name, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
-		if err != nil { os.Exit(2) }
-		var entry syscall.Stat_t
-		ok := syscall.Fstat(fd, &entry) == nil && entry.Uid == uint32(os.Geteuid()) && entry.Mode&syscall.S_IFMT == syscall.S_IFREG
+		fd, entry := abrirAt(origin, name, syscall.O_RDONLY)
+		wantMode := uint32(0600); if name == "rename_noreplace" { wantMode = 0700 }
+		ok := entry.Uid == uint32(os.Geteuid()) && entry.Mode&syscall.S_IFMT == syscall.S_IFREG && entry.Mode&07777 == wantMode && entry.Nlink == 1
 		if ok && name != "SHA256SUMS" { file := os.NewFile(uintptr(fd), name); digest := sha256.New(); _, copyErr := io.Copy(digest, file); closeErr := file.Close(); ok = copyErr == nil && closeErr == nil && hex.EncodeToString(digest.Sum(nil)) == checks[name] }
 		if name == "SHA256SUMS" { ok = syscall.Close(fd) == nil && ok }
-		if !ok { os.Exit(2) }
+		if !ok { fallar(estadoValidacion) }
 	}
 	const (
 		sysRenameat2    = 316
 		renameNoreplace = 1
 	)
-	oldPath, _ := syscall.BytePtrFromString(os.Args[2])
-	newPath, _ := syscall.BytePtrFromString(os.Args[3])
-	if syscall.Close(pathParent) != nil || syscall.Close(origin) != nil { os.Exit(2) }
+	oldPath, err := syscall.BytePtrFromString(os.Args[2]); if err != nil { fallar(estadoValidacion) }
+	newPath, err := syscall.BytePtrFromString(os.Args[3]); if err != nil { fallar(estadoValidacion) }
+	if syscall.Close(pathParent) != nil || syscall.Close(origin) != nil { fallar(estadoReapertura) }
 	_, _, errno := syscall.Syscall6(sysRenameat2, uintptr(parent), uintptr(unsafe.Pointer(oldPath)), uintptr(parent), uintptr(unsafe.Pointer(newPath)), renameNoreplace, 0)
-	if errno != 0 { os.Exit(int(errno)) }
+	if errno != 0 { fallar(estadoRename(errno)) }
 	os.Exit(0)
 }
 EOF
@@ -652,8 +664,7 @@ sellar_paquete_go() {
   modo=$(stat -c '%a' -- "$temporal_publicacion_go") || return 2
   [[ $propietario == "$EUID" && $modo == 700 ]] || return 2
   printf 'metodo\thuella_origen\tsha_helper_noreplace\tpostcondiciones\n' > "$temporal_publicacion_go/publicacion.tsv"
-  printf 'renameat2_RENAME_NOREPLACE\t%s\t%s\torigen_ausente+destino_real+identidad_conservada\n' \
-    "$huella_origen" "$sha_helper_noreplace_global" >> "$temporal_publicacion_go/publicacion.tsv"
+  printf 'renameat2_RENAME_NOREPLACE\t%s\t%s\torigen_ausente+destino_real+identidad_conservada+entradas_uid_modo_nlink1+codigos_cerrados\n' "$huella_origen" "$sha_helper_noreplace_global" >> "$temporal_publicacion_go/publicacion.tsv"
   (
     cd "$temporal_publicacion_go"
     sha256sum bf_directos.tsv binarios.tsv casos.tsv contexto.tsv fuentes.tsv publicacion.tsv \
@@ -662,43 +673,32 @@ sellar_paquete_go() {
   )
   sha_sha256sums_global=$(sha256sum "$temporal_publicacion_go/SHA256SUMS" | cut -d' ' -f1)
 }
+clasificar_estado_publicador() { case $1 in 70) codigo_publicacion_go=X_REAPERTURA;; 71) codigo_publicacion_go=H_VALIDACION;; 72) codigo_publicacion_go=R_EEXIST;; 73) codigo_publicacion_go=R_ENOENT;; 74) codigo_publicacion_go=R_EXDEV;; 75) codigo_publicacion_go=R_NO_SOPORTE;; 76) codigo_publicacion_go=R_AUTORIDAD;; 77) codigo_publicacion_go=R_OTRO;; 2) codigo_publicacion_go=X_CIERRE_FD;; 126|127) codigo_publicacion_go=X_EJECUCION;; *) codigo_publicacion_go=X_ESTADO;; esac; }
 publicar_go_sin_reemplazo() {
-  local destino=$1 padre nombre origen_nombre huella_origen helper_bin helper_fd descriptor numero_fd
-  padre=${destino%/*}
-  nombre=${destino##*/}
+  local destino=$1 padre nombre origen_nombre huella_origen helper_bin helper_fd estado_helper
+  codigo_publicacion_go=B_PRECONDICION; padre=${destino%/*}; nombre=${destino##*/}
   [[ $destino == "$destino_publicacion_go" && $destino == /* && $nombre != "$destino" &&
     -d $padre && ! -L $padre && ! -e $destino && ! -L $destino &&
     -d $temporal_publicacion_go && ! -L $temporal_publicacion_go ]] || return 2
-  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2
-  origen_nombre=${temporal_publicacion_go##*/}
-  helper_bin="$temporal_publicacion_go/rename_noreplace"
+  codigo_publicacion_go=H_VALIDACION
+  huella_origen=$(stat -c '%d:%i:%u:%a' -- "$temporal_publicacion_go") || return 2; origen_nombre=${temporal_publicacion_go##*/}; helper_bin="$temporal_publicacion_go/rename_noreplace"
   [[ -f $helper_bin && ! -L $helper_bin && $(stat -c '%F:%u:%a' -- "$helper_bin") == "regular file:$EUID:700" &&
     $(sha256sum "$helper_bin" | cut -d' ' -f1) == "$sha_helper_noreplace_global" ]] || return 2
   [[ -d $padre && ! -L $padre && $(stat -L -c '%d:%i:%u:%a' -- "/proc/$$/fd/$destino_padre_fd") == "$huella_padre_publicacion" ]] || return 2
   [[ $sha_sha256sums_global =~ ^[0-9a-f]{64}$ ]] || return 2
-  exec {helper_fd}< "$helper_bin"
+  if ! exec {helper_fd}< "$helper_bin"; then codigo_publicacion_go=X_REAPERTURA; return 2; fi
   [[ $(stat -L -c '%F:%u:%a' -- "/proc/$$/fd/$helper_fd") == "regular file:$EUID:700" &&
     $(sha256sum "/proc/$$/fd/$helper_fd" | cut -d' ' -f1) == "$sha_helper_noreplace_global" ]] || { exec {helper_fd}<&-; return 2; }
-  exec {go_fd}<&-
-  go_fd=
-  exec {publicador_fallo_fd}<&-
-  publicador_fallo_fd=
-  hash -r
-  hijo_fd '' "$rm_bootstrap" -rf -- "$tool_runtime"
-  [[ ! -e $tool_runtime && ! -L $tool_runtime ]] || { exec {helper_fd}<&-; return 2; }
-  tool_runtime=
-  for descriptor in "/proc/$$/fd"/*; do
-    [[ -L $descriptor ]] || continue
-    numero_fd=${descriptor##*/}
-    case "$numero_fd" in 0|1|2|"$destino_padre_fd"|"$helper_fd") ;; *) eval "exec ${numero_fd}>&-" || return 2 ;; esac
-  done
-  for descriptor in "/proc/$$/fd"/*; do
-    [[ -L $descriptor ]] || continue
-    numero_fd=${descriptor##*/}
-    case "$numero_fd" in 0|1|2|"$destino_padre_fd"|"$helper_fd") ;; *) return 2 ;; esac
-  done
-  hijo_fd "$destino_padre_fd" "/proc/$pid_conductor/fd/$helper_fd" "$destino_padre_fd" "$origen_nombre" "$nombre" "$huella_padre_publicacion" "$huella_origen" "$sha_sha256sums_global" "$padre" || { exec {helper_fd}<&-; return 2; }
-  temporal_publicacion_go=
+  codigo_publicacion_go=X_CIERRE_FD; if ! exec {go_fd}<&-; then exec {helper_fd}<&-; return 2; fi; go_fd=
+  if ! exec {publicador_fallo_fd}<&-; then exec {helper_fd}<&-; return 2; fi; publicador_fallo_fd=
+  codigo_publicacion_go=X_LIMPIEZA; hash -r || { exec {helper_fd}<&-; return 2; }
+  if ! hijo_fd '' "$rm_bootstrap" -rf -- "$tool_runtime" || [[ -e $tool_runtime || -L $tool_runtime ]]; then exec {helper_fd}<&-; return 2; fi; tool_runtime=
+  if hijo_fd "$destino_padre_fd" "/proc/$pid_conductor/fd/$helper_fd" "$destino_padre_fd" "$origen_nombre" "$nombre" "$huella_padre_publicacion" "$huella_origen" "$sha_sha256sums_global" "$padre"; then
+    codigo_publicacion_go=GO; temporal_publicacion_go=
+  else
+    estado_helper=$?; exec {helper_fd}<&-; clasificar_estado_publicador "$estado_helper"
+    return 2
+  fi
 }
 for modo in normal race; do
   bin="$staging/o3c-$modo"
@@ -794,7 +794,7 @@ sellar_paquete_go || {
   printf 'NO-GO sello de publicacion no acreditado\n' >&2
   exit 1
 }
-publicar_go_sin_reemplazo "$destino_evidencia" || {
-  printf 'NO-GO publicacion GO no acreditada\n' >&2
+publicar_go_sin_reemplazo "$destino_evidencia" 2>/dev/null || {
+  printf 'NO-GO publicacion GO codigo=%s\n' "$codigo_publicacion_go" >&2
   exit 1
 }
