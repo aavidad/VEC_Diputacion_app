@@ -67,16 +67,27 @@ func NuevoExportadorAtomico(directorio string) (*ExportadorAtomico, error) {
 	if err != nil || !informacion.IsDir() || informacion.Mode()&os.ModeSymlink != 0 {
 		return nil, ErrExportacionLocalGINPIX
 	}
+	raiz, err := abrirRaizInspeccionada(directorio, informacion)
+	if err != nil {
+		return nil, ErrExportacionLocalGINPIX
+	}
+	return &ExportadorAtomico{raiz: raiz}, nil
+}
+
+func abrirRaizInspeccionada(directorio string, informacion fs.FileInfo) (*os.Root, error) {
+	if informacion == nil {
+		return nil, ErrExportacionLocalGINPIX
+	}
 	raiz, err := os.OpenRoot(directorio)
 	if err != nil {
 		return nil, ErrExportacionLocalGINPIX
 	}
 	informacionRaiz, err := raiz.Stat(".")
-	if err != nil || !informacionRaiz.IsDir() {
+	if err != nil || !informacionRaiz.IsDir() || !os.SameFile(informacion, informacionRaiz) {
 		_ = raiz.Close()
 		return nil, ErrExportacionLocalGINPIX
 	}
-	return &ExportadorAtomico{raiz: raiz}, nil
+	return raiz, nil
 }
 
 // Cerrar libera el descriptor del directorio. Espera a que terminen las
@@ -222,12 +233,9 @@ func exportarEnRaiz(
 		), nil
 	}
 
-	if !contextoExportacionActivo(ctx) {
-		_ = raiz.Remove(datos.nombreFinal)
-		return ComprobanteExportacionLocal{}, ErrExportacionLocalGINPIX
-	}
+	// Link exitoso es el punto de commit. Desde aqui no se consulta ctx ni se
+	// retira el nombre final; solo se completa y acredita la publicacion.
 	if raiz.Remove(nombreTemporal) != nil {
-		_ = raiz.Remove(datos.nombreFinal)
 		return ComprobanteExportacionLocal{}, ErrExportacionLocalGINPIX
 	}
 	temporalPendiente = false
@@ -237,8 +245,6 @@ func exportarEnRaiz(
 		datos.huella,
 		int64(len(datos.contenido)),
 	) != nil || sincronizarDirectorio(raiz) != nil {
-		_ = raiz.Remove(datos.nombreFinal)
-		_ = sincronizarDirectorio(raiz)
 		return ComprobanteExportacionLocal{}, ErrExportacionLocalGINPIX
 	}
 	return datos.comprobanteBase, nil

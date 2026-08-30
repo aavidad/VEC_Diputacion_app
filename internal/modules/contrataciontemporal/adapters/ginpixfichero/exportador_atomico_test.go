@@ -220,6 +220,60 @@ func TestExportadorAtomicoCancelacionAntesDePublicarLimpia(t *testing.T) {
 	assertEntradasExportacion(t, directorio)
 }
 
+func TestExportadorAtomicoCancelacionDespuesDeLinkConReplaysConservaFinal(t *testing.T) {
+	directorio := t.TempDir()
+	exportador := nuevoExportadorAtomicoPrueba(t, directorio)
+	preparacion := preparacionExportacionPrueba(t)
+	ctx := nuevoContextoCancelacionEscalonada(6)
+
+	primero, err := exportador.Exportar(ctx, preparacion)
+	if err != nil || primero.Validar() != nil {
+		t.Fatalf("publicacion antes de cancelar: %v", err)
+	}
+	// La sexta consulta era la comprobacion posterior a Link. Exportar ya no
+	// debe realizarla: el test cancela aqui, despues del punto de commit.
+	if !errors.Is(ctx.Err(), context.Canceled) {
+		t.Fatal("el contexto no se cancelo despues de publicar")
+	}
+	ruta, _ := primero.RutaRelativa()
+
+	const concurrentes = 16
+	resultados := make(chan error, concurrentes)
+	var grupo sync.WaitGroup
+	for indice := 0; indice < concurrentes; indice++ {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			comprobante, err := exportador.Exportar(context.Background(), preparacion)
+			if err != nil || comprobante.Validar() != nil {
+				resultados <- ErrExportacionLocalGINPIX
+				return
+			}
+			esReplay, _ := comprobante.EsReplayLocal()
+			rutaReplay, _ := comprobante.RutaRelativa()
+			if !esReplay || rutaReplay != ruta {
+				resultados <- ErrExportacionLocalGINPIX
+				return
+			}
+			resultados <- nil
+		}()
+	}
+	grupo.Wait()
+	close(resultados)
+	for err := range resultados {
+		if err != nil {
+			t.Fatal("replay concurrente posterior a cancelacion fallido")
+		}
+	}
+
+	esperado, _ := preparacion.Contenido()
+	contenido, err := os.ReadFile(filepath.Join(directorio, ruta))
+	if err != nil || !bytes.Equal(contenido, esperado) {
+		t.Fatalf("la cancelacion posterior retiro o altero el final: %v", err)
+	}
+	assertEntradasExportacion(t, directorio, ruta)
+}
+
 func TestExportadorAtomicoConcurrenteDejaUnFinalCoherente(t *testing.T) {
 	directorio := t.TempDir()
 	exportador := nuevoExportadorAtomicoPrueba(t, directorio)
@@ -299,6 +353,23 @@ func TestNuevoExportadorAtomicoExigeDirectorioExistenteNoSymlink(t *testing.T) {
 	}
 	if _, err := NuevoExportadorAtomico(symlink); !errors.Is(err, ErrExportacionLocalGINPIX) {
 		t.Fatalf("symlink aceptado como directorio configurado: %v", err)
+	}
+}
+
+func TestAbrirRaizInspeccionadaRechazaDirectorioDistinto(t *testing.T) {
+	directorioInspeccionado := t.TempDir()
+	informacion, err := os.Lstat(directorioInspeccionado)
+	if err != nil {
+		t.Fatalf("inspeccionar directorio inicial: %v", err)
+	}
+	directorioSustituto := t.TempDir()
+	raiz, err := abrirRaizInspeccionada(directorioSustituto, informacion)
+	if raiz != nil {
+		_ = raiz.Close()
+		t.Fatal("la raiz abierta no corresponde al directorio inspeccionado")
+	}
+	if !errors.Is(err, ErrExportacionLocalGINPIX) {
+		t.Fatalf("discrepancia de raiz aceptada: %v", err)
 	}
 }
 
