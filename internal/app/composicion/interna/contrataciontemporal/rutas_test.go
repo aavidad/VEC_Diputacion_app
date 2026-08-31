@@ -259,6 +259,8 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaReabrirExcepcionalmente,
 		httpinterno.RutaConsultaCuadroRRHH,
 		httpinterno.RutaConsultaDetalleRRHH,
+		httpinterno.RutaAsignaciones,
+		httpinterno.RutaReasignaciones,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -721,5 +723,7 @@ func dependenciasRutasPrueba() DependenciasRutas {
 			organizacionRef: referenciaCierreAdministrativoComposicionPrueba("a"),
 		},
 		EjecutorCierreAdministrativo: &ejecutorCierreAdministrativoComposicionPrueba{},
+		AutoridadAsignacion:          &autoridadAsignacionComposicionPrueba{},
+		EjecutorAsignacion:           &ejecutorAsignacionComposicionPrueba{},
 	}
 }
