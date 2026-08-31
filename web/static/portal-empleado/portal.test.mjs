@@ -9,12 +9,15 @@ import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-c
 import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { MENSAJES_PORTAL_ES } from "./portal-i18n.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, manifiestoProduccion, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
+  readFile(new URL("portal-modulos-coordinador.js", directorio), "utf8"),
+  readFile(new URL("portal-i18n.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-contrato.js", directorio), "utf8"),
@@ -186,7 +189,8 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260725-aislamiento-modular-v2/);
+  assert.match(html, /portal\.js\?v=20260831-ct-catalogo-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260831-ct-catalogo-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -196,6 +200,46 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.match(eventos, /case "reintentar-borradores"/);
   assert.match(eventos, /comprobarDisponibilidadBorradores\(\{ forzar: true \}\)/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
+});
+
+test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {
+  assert.match(javascript, /"contratacion-temporal": \[/);
+  assert.match(javascript, /return Object\.hasOwn\(TITULOS, candidata\) \? candidata : "portal"/);
+  const decision = javascript.indexOf('contenedor.innerHTML = estado.vista === "contratacion-temporal"');
+  const montaje = javascript.indexOf("void coordinadorModulos.montarVista", decision);
+  assert.ok(decision > 0 && montaje > decision, "la indisponibilidad debe resolverse antes del montaje");
+
+  const inicio = javascript.indexOf("function renderizarContratacionTemporalNoDisponible()");
+  const fin = javascript.indexOf("function encabezadoVista", inicio);
+  const vistaCerrada = javascript.slice(inicio, fin);
+  for (const clave of [
+    "contratacion_temporal_encabezado",
+    "estado_modulo_no_disponible_titulo",
+    "contratacion_temporal_descripcion_no_disponible",
+    "contratacion_temporal_aviso_no_disponible",
+    "accion_volver_portal",
+  ]) {
+    assert.match(vistaCerrada, new RegExp(`traducirPortal\\("${clave}"\\)`));
+    assert.match(catalogoI18n, new RegExp(`\\b${clave}:`));
+  }
+  assert.match(javascript, /traducirPortal\("contratacion_temporal_miga"\)/);
+  assert.match(javascript, /traducirPortal\("contratacion_temporal_titulo"\)/);
+  assert.match(coordinadorModulos, /textoEstado: traducir\("estado_modulo_no_disponible_titulo"\)/);
+  for (const clave of [
+    "contratacion_temporal_encabezado",
+    "contratacion_temporal_miga",
+    "contratacion_temporal_titulo",
+    "estado_modulo_no_disponible_titulo",
+    "contratacion_temporal_descripcion_no_disponible",
+    "contratacion_temporal_aviso_no_disponible",
+    "accion_volver_portal",
+  ]) {
+    const literal = MENSAJES_PORTAL_ES[clave];
+    assert.equal(`${javascript}\n${coordinadorModulos}`.includes(literal), false,
+      `el literal visible de CT debe residir solo en el catálogo i18n: ${literal}`);
+    assert.equal(catalogoI18n.includes(literal), true);
+  }
+  assert.doesNotMatch(vistaCerrada, /Gestión de Bolsas|No se han cargado datos de Bolsa|recargar-fuente/);
 });
 
 test("la propuesta real usa el cliente cerrado y no habilita un detalle inexistente", () => {

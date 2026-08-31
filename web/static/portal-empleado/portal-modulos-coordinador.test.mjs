@@ -4,6 +4,11 @@ import test from "node:test";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { crearAdaptadorPresentacion } from "./portal-presentacion-adaptador.js";
 import {
+  cargarCatalogoModulosInterno,
+  crearCatalogoModulosDesdeManifiestos,
+  extraerModulosEnvelopeCanonico,
+} from "./portal-catalogo-modulos.js";
+import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   resolverCargasModularesPresentacion,
@@ -65,6 +70,36 @@ function respuestaJSON(datos) {
   });
 }
 
+function manifiestoContratacionTemporal() {
+  return {
+    id: "vec.module.contratacion_temporal",
+    name_key: "ui.vec.module.contratacion_temporal.name",
+    description_key: "ui.vec.module.contratacion_temporal.description",
+    version: "v0.2.0",
+    group: "recursos_humanos",
+    base_path: "/modules/contratacion-temporal",
+    permissions: [{
+      key: "contratacion_temporal.cuadro.consultar",
+      label_key: "ui.permission.contratacion_temporal.cuadro",
+    }],
+    menu: [{
+      id: "contratacion_temporal.cuadro",
+      module_id: "vec.module.contratacion_temporal",
+      label_key: "ui.vec.menu.contratacion_temporal.cuadro",
+      path: "/modules/contratacion-temporal/cuadro",
+      icon: "layout-dashboard",
+      group: "modulo_contratacion_temporal",
+      order: 100,
+      required_permissions: ["contratacion_temporal.cuadro.consultar"],
+    }],
+  };
+}
+
+const TRADUCCIONES_CONTRATACION_TEMPORAL = Object.freeze({
+  "ui.vec.module.contratacion_temporal.name": "Contratación temporal",
+  "ui.vec.module.contratacion_temporal.description": "Expedientes de contratación temporal",
+});
+
 function crearCoordinador({ fetchImpl = async () => respuestaJSON(respuestaOSRM()), anunciar = () => {} } = {}) {
   return crearCoordinadorModulosPortal({
     escaparHTML: (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;"),
@@ -125,7 +160,7 @@ test("Bolsa conserva su estado de API y puede abrir Elaboración sin depender de
     estado: "cargando",
     etiqueta: "Comprobando acceso a borradores",
   }, "bolsa");
-  assert.match(cargando, /data-modulo-portal="bolsa" disabled aria-busy="true"/);
+  assert.match(cargando, /data-modulo-portal="bolsa" disabled aria-disabled="true" aria-busy="true"/);
   assert.match(cargando, />Comprobando<\/span>/);
 
   const denegado = coordinador.renderizarNavegacion({
@@ -136,6 +171,110 @@ test("Bolsa conserva su estado de API y puede abrir Elaboración sin depender de
   }, "bolsa");
   assert.match(denegado, />Sin permiso<\/span>/);
   assert.doesNotMatch(denegado, /data-vista=/);
+});
+
+test("el catálogo interno consume solo el envelope canónico y omite credenciales y caché", async () => {
+  const llamadas = [];
+  const fetchImpl = async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    if (ruta === "/api/vec/modules") {
+      return respuestaJSON({ data: { modules: [manifiestoContratacionTemporal()] } });
+    }
+    return respuestaJSON(TRADUCCIONES_CONTRATACION_TEMPORAL);
+  };
+  const catalogo = await cargarCatalogoModulosInterno(fetchImpl);
+  assert.equal(catalogo.length, 1);
+  assert.deepEqual(catalogo[0], {
+    clave: "contratacion_temporal",
+    sigla: "CON",
+    titulo: "Contratación temporal",
+    texto: "Expedientes de contratación temporal",
+    version: "v0.2.0",
+    grupo: "recursos_humanos",
+    rutaBase: "/modules/contratacion-temporal",
+  });
+  assert.deepEqual(llamadas.map(({ ruta }) => ruta), ["/api/vec/modules", "/locales/es.json"]);
+  const cabeceraAutoridad = ["Author", "ization"].join("");
+  for (const { opciones } of llamadas) {
+    assert.equal(opciones.method, "GET");
+    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.cache, "no-store");
+    assert.deepEqual(opciones.headers, { Accept: "application/json" });
+    assert.equal(Object.hasOwn(opciones.headers, cabeceraAutoridad), false);
+  }
+});
+
+test("el catálogo rechaza raíces raw y envolturas ausentes, extra o ambiguas", () => {
+  const modules = [manifiestoContratacionTemporal()];
+  assert.deepEqual(extraerModulosEnvelopeCanonico({ data: { modules } }), modules);
+  for (const invalida of [
+    { modules },
+    { data: { modules }, extra: true },
+    { data: { modules, extra: true } },
+    { data: { modules }, modules },
+    { data: {} },
+    { data: null },
+    { data: { modules: null } },
+  ]) assert.throws(() => extraerModulosEnvelopeCanonico(invalida), /respuesta de manifiestos no válida/);
+});
+
+test("el catálogo rechaza manifiestos y colecciones internas no canónicos", () => {
+  const conCampoExtra = { ...manifiestoContratacionTemporal(), estado: "activo" };
+  assert.throws(() => crearCatalogoModulosDesdeManifiestos(
+    [conCampoExtra], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  ), /manifiesto de módulo no válido/);
+
+  const permisoIncompleto = manifiestoContratacionTemporal();
+  permisoIncompleto.permissions = [{ key: "contratacion_temporal.cuadro.consultar" }];
+  assert.throws(() => crearCatalogoModulosDesdeManifiestos(
+    [permisoIncompleto], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  ), /permiso de módulo no válido/);
+
+  const menuAmbiguo = manifiestoContratacionTemporal();
+  menuAmbiguo.menu[0].extra = true;
+  assert.throws(() => crearCatalogoModulosDesdeManifiestos(
+    [menuAmbiguo], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  ), /entrada de menú no válida/);
+});
+
+test("CT inventariado queda visible no_disponible, accesible y sin carga dinámica", async () => {
+  let cargasContratacion = 0;
+  const clavesTraducidas = [];
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    traducir: (clave) => {
+      clavesTraducidas.push(clave);
+      return `i18n:${clave}`;
+    },
+    cargadoresPresentacion: {
+      base: async () => { throw new Error("la presentación no debe cargarse"); },
+      contratacion_temporal: async () => {
+        cargasContratacion += 1;
+        throw new Error("CT no debe cargarse");
+      },
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.deepEqual(coordinador.resolverAcceso("contratacion_temporal"), {
+    disponible: false,
+    vista: "",
+    estado: "no_disponible",
+    textoEstado: "i18n:estado_modulo_no_disponible_titulo",
+  });
+  const navegacion = coordinador.renderizarNavegacion(true, "portal");
+  assert.match(navegacion, /data-modulo-portal="contratacion_temporal" disabled aria-disabled="true"/);
+  assert.match(navegacion, />i18n:estado_modulo_no_disponible_titulo<\/span>/);
+  assert.doesNotMatch(navegacion, /data-vista=/);
+  assert.deepEqual(clavesTraducidas, [
+    "estado_modulo_no_disponible_titulo",
+    "estado_modulo_no_disponible_titulo",
+  ]);
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
+  assert.equal(cargasContratacion, 0);
 });
 
 test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas", async () => {
@@ -341,8 +480,8 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260725-aislamiento-modular-v2";
-  const versionPortal = "20260725-aislamiento-modular-v2";
+  const versionCoordinador = "20260831-ct-catalogo-v1";
+  const versionPortal = "20260831-ct-catalogo-v1";
   const versionTema = "20260725-aislamiento-modular-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([

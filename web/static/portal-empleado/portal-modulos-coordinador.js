@@ -13,11 +13,12 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260725-aislamiento-modular-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+} from "./portal-catalogo-modulos.js?v=20260831-ct-catalogo-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
 
+const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVES_CARGA_MODULAR = Object.freeze([
-  "contratacion_temporal",
+  CLAVE_CONTRATACION_TEMPORAL,
   "cronos",
   "dietas",
 ]);
@@ -177,12 +178,14 @@ export function crearCoordinadorModulosPortal({
   confirmarOperacion = () => false,
   entorno = globalThis,
   traducir = traducirPortal,
+  cargarCatalogoInterno = cargarCatalogoModulosInterno,
   cargadoresPresentacion = CARGADORES_PRESENTACION_PREDETERMINADOS,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
 } = {}) {
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
+    || typeof cargarCatalogoInterno !== "function"
     || typeof cargadoresPresentacion?.base !== "function"
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000) {
@@ -304,7 +307,7 @@ export function crearCoordinadorModulosPortal({
     presentacionActiva = false;
     composicion = null;
     catalogo = Object.freeze([]);
-    const catalogoInterno = await cargarCatalogoModulosInterno();
+    const catalogoInterno = await cargarCatalogoInterno();
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     catalogo = catalogoInterno;
   }
@@ -346,6 +349,15 @@ export function crearCoordinadorModulosPortal({
     }
     if (clave === "dietas" && vistaDisponible("dietas")) {
       return Object.freeze({ disponible: true, vista: "dietas" });
+    }
+    if (clave === CLAVE_CONTRATACION_TEMPORAL && !presentacionActiva
+      && catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)) {
+      return Object.freeze({
+        disponible: false,
+        vista: "",
+        estado: "no_disponible",
+        textoEstado: traducir("estado_modulo_no_disponible_titulo"),
+      });
     }
     if (CLAVES_CARGA_MODULAR.includes(clave)) {
       return Object.freeze({

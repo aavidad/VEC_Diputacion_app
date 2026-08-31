@@ -19,6 +19,15 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   estado_modulo_no_disponible: "No disponible",
   estado_modulo_no_habilitado: "No habilitado",
   estado_modulo_disponible_perfil: "Disponible para el perfil activo",
+  estado_modulo_no_disponible_titulo: "Módulo no disponible",
+  descripcion_superficie_no_montada: "No se pudo montar la superficie solicitada.",
+  contratacion_temporal_encabezado: "Contratación temporal",
+  contratacion_temporal_miga: "Portal del Empleado → Contratación temporal",
+  contratacion_temporal_titulo: "Gestión de expedientes de contratación temporal",
+  contratacion_temporal_descripcion_no_disponible:
+    "La composición real de Contratación temporal todavía no está disponible en este portal.",
+  contratacion_temporal_aviso_no_disponible: "Esta vista no monta el módulo ni habilita sus operaciones.",
+  accion_volver_portal: "Volver al portal",
   accion_entrar: "Entrar",
   accion_reintentar: "Reintentar",
 });
