@@ -313,26 +313,63 @@ func TestCTLITEO706AReservaConcurrenteConcedeUnaSolaEmision(t *testing.T) {
 	}
 }
 
-func TestCTLITEO706AFalloPreemisionAutorizaNuevaReserva(t *testing.T) {
+func TestCTLITEO706CEmisionAutorizadaNoReintentaYSeReconcilia(t *testing.T) {
 	servicio, registro, conector, solicitud := escenarioOperacionGINPIXRecuperable(t)
 	conector.errEmision = ports.ErrEmisionOperacionGINPIXNoIniciada
 	conector.reciboEmision = ports.ReciboExternoOperacionGINPIX{}
 	if resultado, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
 		err,
-		ErrOperacionGINPIXNoDisponible,
+		ErrOperacionGINPIXIndeterminada,
 	) || resultado != (ports.ResultadoOperacionGINPIX{}) {
-		t.Fatalf("fallo preemision mal clasificado: %#v / %v", resultado, err)
+		t.Fatalf("abandono autorizado mal clasificado: %#v / %v", resultado, err)
 	}
-	if registro.fallosPreemision != 1 || registro.estado != estadoRegistroGINPIXReintentable {
-		t.Fatal("el intento preemision no libero una nueva reserva")
+	if registro.fallosPreemision != 0 || registro.indeterminaciones != 1 ||
+		registro.estado != estadoRegistroGINPIXIndeterminado {
+		t.Fatal("el abandono autorizado no quedo indeterminado")
 	}
-	conector.errEmision = nil
-	conector.reciboEmision = reciboExternoOperacionGINPIXPrueba(t, solicitud.puertoPrueba(t))
-	if _, err := servicio.Ejecutar(context.Background(), solicitud); err != nil {
-		t.Fatalf("nuevo intento autorizado: %v", err)
+	if _, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
+		err,
+		ErrOperacionGINPIXIndeterminada,
+	) || conector.emisiones != 1 || registro.intento != 1 {
+		t.Fatalf("el replay volvio a emitir: %v", err)
 	}
-	if conector.emisiones != 2 || registro.intento != 2 || registro.confirmaciones != 1 {
-		t.Fatalf("reintento incorrecto: emisiones=%d intento=%d", conector.emisiones, registro.intento)
+	conector.reciboConsulta = reciboExternoOperacionGINPIXPrueba(t, solicitud.puertoPrueba(t))
+	resultado, err := servicio.Recuperar(context.Background(), solicitud)
+	if err != nil || resultado.ValidarPara(solicitud.puertoPrueba(t)) != nil ||
+		conector.emisiones != 1 || conector.consultas != 1 || registro.confirmaciones != 1 {
+		t.Fatalf("el abandono no se reconcilio por consulta: %#v / %v", resultado, err)
+	}
+}
+
+func TestCTLITEO706CRecuperaEmisionAutorizadaAbandonadaSinEmitir(t *testing.T) {
+	servicio, registro, conector, solicitud := escenarioOperacionGINPIXRecuperable(t)
+	puerto := solicitud.puertoPrueba(t)
+	reserva, err := registro.ReservarOperacionGINPIX(context.Background(), puerto)
+	if err != nil || reserva.Situacion != ports.ReservaOperacionGINPIXEmisionAutorizada {
+		t.Fatalf("preparar autorizacion abandonada: %#v / %v", reserva, err)
+	}
+	conector.reciboConsulta = reciboExternoOperacionGINPIXPrueba(t, puerto)
+	resultado, err := servicio.Recuperar(context.Background(), solicitud)
+	if err != nil || resultado.ValidarPara(puerto) != nil || conector.emisiones != 0 ||
+		conector.consultas != 1 || registro.indeterminaciones != 1 ||
+		registro.confirmaciones != 1 || registro.estado != estadoRegistroGINPIXConfirmado {
+		t.Fatalf("la autorizacion abandonada no se reconcilio: %#v / %v", resultado, err)
+	}
+}
+
+func TestCTLITEO706CTransicionAbandonadaFallaCerradaSinEfectos(t *testing.T) {
+	servicio, registro, conector, solicitud := escenarioOperacionGINPIXRecuperable(t)
+	puerto := solicitud.puertoPrueba(t)
+	if _, err := registro.ReservarOperacionGINPIX(context.Background(), puerto); err != nil {
+		t.Fatal(err)
+	}
+	registro.errTransicion = errors.New("fallo durable sintetico")
+	resultado, err := servicio.Recuperar(context.Background(), solicitud)
+	if resultado != (ports.ResultadoOperacionGINPIX{}) ||
+		!errors.Is(err, ErrOperacionGINPIXIndeterminada) || conector.emisiones != 0 ||
+		conector.consultas != 0 || registro.confirmaciones != 0 ||
+		registro.estado != estadoRegistroGINPIXAutorizado {
+		t.Fatalf("el fallo durable alcanzo un efecto: %#v / %v", resultado, err)
 	}
 }
 
@@ -383,9 +420,16 @@ func TestCTLITEO706ACancelacionEnCadaFronteraFallaCerrada(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
 		registro.cancelarAlReservar = cancelar
 		if _, err := servicio.Ejecutar(ctx, solicitud); !errors.Is(err, context.Canceled) ||
-			conector.emisiones != 0 || registro.fallosPreemision != 1 ||
-			registro.estado != estadoRegistroGINPIXReintentable {
+			!errors.Is(err, ErrOperacionGINPIXIndeterminada) || conector.emisiones != 0 ||
+			registro.fallosPreemision != 0 || registro.indeterminaciones != 1 ||
+			registro.estado != estadoRegistroGINPIXIndeterminado {
 			t.Fatalf("cancelacion preemision mal cerrada: %v", err)
+		}
+		if _, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
+			err,
+			ErrOperacionGINPIXIndeterminada,
+		) || conector.emisiones != 0 || registro.intento != 1 {
+			t.Fatalf("el replay tras cancelacion volvio a emitir: %v", err)
 		}
 	})
 
