@@ -129,7 +129,7 @@ func (e *EmisorOrdenTerminalLlamamientoAutorizadaV2) prepararEmision(
 	if err != nil || vinculo.ValidarPara(actorCanonico) != nil || terminal.Validar() != nil ||
 		correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return dominiovec.ContextoActor{}, dominiovec.RecursoAutorizable{},
-			especificacionTerminalLlamamiento{}, aplicacionvec.PoliticaUsoDecisionAutorizacion{}, "", err
+			especificacionTerminalLlamamiento{}, aplicacionvec.PoliticaUsoDecisionAutorizacion{}, "", ErrOrdenTerminalLlamamientoInvalida
 	}
 	recurso, err := recursoOrdenTerminalLlamamiento(llamamiento, versionEsperada, terminal)
 	if err != nil {

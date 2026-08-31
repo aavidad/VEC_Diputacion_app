@@ -112,6 +112,26 @@ type exigidorReplayOrdenTerminalPrueba struct {
 	llamadas  int
 }
 
+type exigidorNoInvocableOrdenTerminalPrueba struct {
+	t        *testing.T
+	llamadas int
+}
+
+func (e *exigidorNoInvocableOrdenTerminalPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+	context.Context,
+	dominiovec.ContextoActor,
+	dominiovec.VinculoAutenticacionActorV1,
+	dominiovec.RecursoAutorizable,
+	dominiovec.ReferenciaCorrelacionAutorizacionV2,
+	dominiovec.ReferenciaEntradaCatalogo,
+	aplicacionvec.PoliticaUsoDecisionAutorizacion,
+) (puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error) {
+	e.llamadas++
+	e.t.Helper()
+	e.t.Fatal("el exigidor fue invocado con una entrada invalida")
+	return puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2{}, errors.New("exigidor invocado")
+}
+
 func (e *exigidorReplayOrdenTerminalPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
 	ctx context.Context,
 	actor dominiovec.ContextoActor,
@@ -305,18 +325,15 @@ func TestOrdenTerminalLlamamientoFallaCerradoAntesDelExigidor(t *testing.T) {
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			escenario := base
-			escenario.autorizador = &autorizadorOrdenTerminalPrueba{ahora: base.autorizador.ahora, garantia: base.autorizador.garantia}
-			fachada, _ := aplicacionvec.NuevaFachadaUsoDecisionAutorizacionSolicitudLigadaV2(
-				escenario.autorizador, relojPanelInternoPrueba{ahora: instantePanelInternoPrueba},
-			)
-			escenario.emisor, _ = NuevoEmisorOrdenTerminalLlamamientoAutorizadaV2(fachada)
+			exigidor := &exigidorNoInvocableOrdenTerminalPrueba{t: t}
+			escenario.emisor, _ = NuevoEmisorOrdenTerminalLlamamientoAutorizadaV2(exigidor)
 			if caso.mutar != nil {
 				caso.mutar(&escenario)
 			}
 			orden, err := escenario.emitir(caso.ctx)
 			if err != ErrOrdenTerminalLlamamientoInvalida || orden.Validar() == nil ||
-				escenario.autorizador.llamadas != 0 {
-				t.Fatalf("precondicion aceptada: orden=%v llamadas=%d error=%v", orden, escenario.autorizador.llamadas, err)
+				exigidor.llamadas != 0 {
+				t.Fatalf("precondicion aceptada: orden=%v llamadas_exigidor=%d error=%v", orden, exigidor.llamadas, err)
 			}
 		})
 	}
@@ -655,4 +672,5 @@ func clonarMapaPrueba(origen map[string]string) map[string]string {
 }
 
 var _ puertosvec.AutorizadorSolicitudLigadaV2 = (*autorizadorOrdenTerminalPrueba)(nil)
+var _ aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 = (*exigidorNoInvocableOrdenTerminalPrueba)(nil)
 var _ aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 = (*exigidorReplayOrdenTerminalPrueba)(nil)
