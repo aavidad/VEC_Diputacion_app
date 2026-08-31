@@ -8,8 +8,11 @@ Estado: **NO-GO dinámico y estático; R2 obtuvo `GO ESTÁTICO` independiente co
 `P0=0`, `P1=0` y `P2=0`, pero las dos ejecuciones focales posteriores
 terminaron en el oráculo del preflight y en la primera resolución Go,
 respectivamente. R4 recibió un quinto `NO-GO` estático, con `P0=0`, `P1=2` y
-`P2=0`. R5 no ha ejecutado PostgreSQL y queda pendiente de revisión estática
-independiente y de una autorización dinámica posterior expresa**.
+`P2=0`. R5 recibió después un `NO-GO` estático independiente porque sus dos
+regresiones multidimensionales no aislaban la dimensión como única causa de
+rechazo. R6 no ha ejecutado PostgreSQL y queda pendiente de revisión estática
+independiente; toda dinámica continúa prohibida hasta un nuevo `GO`
+independiente y una autorización posterior expresa**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -255,6 +258,75 @@ Write-set exacto:
 2. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
 3. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
 
+### NO-GO estático independiente de R5
+
+La revisión independiente del hash exacto
+`8097acbdd12fe03ef89719cad63d7fbb10d7ba3f` emitió `NO-GO`. Cada fixture
+multidimensional construía `{{a,b},{a,b}}`: la matriz adversa tenía
+cardinalidad cuatro mientras su contraparte canónica conservaba cardinalidad
+dos. Aunque se eliminase la validación `array_ndims(...) <> 1`, el resolutor
+seguiría rechazando por cardinalidades distintas. Por tanto, la regresión era
+vacua para demostrar el control de dimensionalidad.
+
+El dictamen no debilita ni reinterpreta los demás rechazos de R5 y
+no autoriza PostgreSQL, Docker ni otra ejecución dinámica. Las puertas offline
+verdes de R5 tampoco convierten el candidato en `GO`.
+
+### Corrección R6
+
+R6 anida una sola vez cada literal canónico de dos elementos. Así genera
+`{{a,b}}`, una matriz bidimensional de cardinalidad dos, y conserva la otra
+entrada como `{a,b}`, un array unidimensional también de cardinalidad dos.
+
+Antes de cada una de las dos llamadas adversas, la prueba consulta
+explícitamente `array_ndims`, `array_lower(...,1)` y `cardinality` para ambas
+entradas. Exige `2/1/2` en la matriz adversa, `1/1/2` en la contraparte y
+ausencia de elementos nulos en las dos. La llamada posterior reutiliza esos
+mismos argumentos desde el rol runtime dentro de su propia transacción
+serializable y sigue exigiendo `22023`, el mensaje opaco
+`candidatura de alta invalida`, rollback e invariancia exacta de historia y
+efectos.
+
+## Capability, invariante y write-set de R6
+
+Capability: demostrar de forma no vacua que el resolutor rechaza matrices
+PostgreSQL multidimensionales aunque ambas entradas conserven la cardinalidad
+válida e igual.
+
+Invariante: cada una de las dos regresiones multidimensionales difiere de la
+entrada estable únicamente en `array_ndims != 1`. Cardinalidad, límite
+inferior, ausencia de nulos, contraparte canónica y las demás precondiciones
+permanecen válidas; los diecinueve casos existentes se conservan y el SQL
+productivo no cambia.
+
+Write-set exacto:
+
+1. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
+2. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+R6 no modifica SQL ni el runner y no ejecuta PostgreSQL, Docker, red, gates
+globales, integración o producción. La validación dinámica queda prohibida
+hasta que un revisor independiente emita un nuevo `GO` sobre el hash exacto.
+
+## Puertas offline de R6
+
+El preflight local verificó antes de editar la ruta, rama, `HEAD` inicial
+`8097acbdd12fe03ef89719cad63d7fbb10d7ba3f`, árbol limpio, Go 1.26.5,
+formato, sintaxis Bash, ShellCheck, modos y límites iniciales.
+
+Después de la corrección terminaron verdes `gofmt`, las pruebas focales
+normales y con carrera de `ports` y del adaptador PostgreSQL con
+`GOPROXY=off`, y `go vet` sobre esos dos paquetes. El runner, leído sin
+ejecutarlo ni modificarlo, superó `bash -n` y ShellCheck. También quedaron
+verdes `git diff --check`, los modos `644/644/755`, el límite de 800 líneas
+del test —789 líneas— y Gitleaks sobre los dos ficheros del write-set. Para
+Gitleaks se verificó antes el SHA-256 exigido
+`c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`.
+
+Estas puertas son exclusivamente estáticas y offline. No sustituyen la
+revisión independiente ni autorizan PostgreSQL, Docker, red, gates globales,
+integración o producción.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -337,8 +409,8 @@ imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
 Instala `000047` después de `000046`. La primera ejecución dinámica posterior
 a R2 se detuvo en el oráculo del preflight; la siguiente, ya sobre R3, superó
 ese preflight y se detuvo en la primera resolución Go. Ninguna alcanzó la
-matriz completa que una autorización dinámica nueva deberá acreditar. R4 y R5
-no se han ejecutado contra PostgreSQL:
+matriz completa que una autorización dinámica nueva deberá acreditar. R4, R5
+y R6 no se han ejecutado contra PostgreSQL:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -364,9 +436,9 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R5 y, solo si obtiene `GO` y existe
+revisión independiente del hash exacto de R6 y, solo si obtiene `GO` y existe
 una autorización posterior expresa, una nueva validación dinámica exclusiva.
-R5 permanece pendiente: no se declara PostgreSQL verde. La integración
+R6 permanece pendiente: no se declara PostgreSQL verde. La integración
 continúa prohibida. R3C permanece bloqueada hasta resolver ese `NO-GO`; después
 deberá migrar `ServicioRegistroSolicitud` al contrato candidato y componer el
 proveedor concreto de material de confirmación bajo revisión independiente.

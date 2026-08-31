@@ -314,8 +314,8 @@ func probarEntradasInvalidasR3B(t *testing.T, ctx context.Context, runtime, admi
 	}
 	ambitos, huellas := base[0].(string), base[1].(string)
 	casos = append(casos,
-		caso{"ambitos multidimensionales", argumentosInvalidosR3B(base, map[int]any{0: "{" + ambitos + "," + ambitos + "}"})},
-		caso{"huellas multidimensionales", argumentosInvalidosR3B(base, map[int]any{1: "{" + huellas + "," + huellas + "}"})},
+		caso{"ambitos multidimensionales", argumentosInvalidosR3B(base, map[int]any{0: "{" + ambitos + "}"})},
+		caso{"huellas multidimensionales", argumentosInvalidosR3B(base, map[int]any{1: "{" + huellas + "}"})},
 		caso{"ambitos con lower cero", argumentosInvalidosR3B(base, map[int]any{0: "[0:1]=" + ambitos})},
 		caso{"huellas con lower cero", argumentosInvalidosR3B(base, map[int]any{1: "[0:1]=" + huellas})},
 		caso{"matrices vacias", argumentosInvalidosR3B(base, map[int]any{0: "{}", 1: "{}"})},
@@ -324,9 +324,16 @@ func probarEntradasInvalidasR3B(t *testing.T, ctx context.Context, runtime, admi
 		caso{"elemento ambito nulo", argumentosInvalidosR3B(base, map[int]any{0: "{NULL," + entrada.ambitos[1] + "}"})},
 		caso{"elemento huella nulo", argumentosInvalidosR3B(base, map[int]any{1: "{NULL," + entrada.huellas[1] + "}"})},
 	)
+	matricesMultidimensionales := map[string]int{
+		"ambitos multidimensionales": 0,
+		"huellas multidimensionales": 1,
+	}
 	historiaAntes := huellaHistoriaCandidaturasR3B(t, ctx, admin)
 	for _, prueba := range casos {
 		t.Run("entrada invalida/"+prueba.nombre, func(t *testing.T) {
+			if indiceAdverso, existe := matricesMultidimensionales[prueba.nombre]; existe {
+				acreditarUnicoDefectoMatrizR3B(t, ctx, admin, prueba.argumentos, indiceAdverso)
+			}
 			tx, err := runtime.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 			if err != nil {
 				t.Fatal(err)
@@ -352,6 +359,43 @@ func probarEntradasInvalidasR3B(t *testing.T, ctx context.Context, runtime, admi
 				t.Fatalf("entrada invalida creo efecto administrativo: antes=%s despues=%s", efectosAntes, efectos)
 			}
 		})
+	}
+}
+
+func acreditarUnicoDefectoMatrizR3B(t *testing.T, ctx context.Context, admin *pgxpool.Pool, argumentos []any, indiceAdverso int) {
+	t.Helper()
+	type formaMatriz struct {
+		dimensiones  int
+		limiteUno    int
+		cardinalidad int
+		sinNulos     bool
+	}
+	var ambitos, huellas formaMatriz
+	err := admin.QueryRow(ctx, `SELECT
+		pg_catalog.array_ndims($1::text[]), pg_catalog.array_lower($1::text[],1),
+		pg_catalog.cardinality($1::text[]),
+		NOT EXISTS (SELECT FROM pg_catalog.unnest($1::text[]) AS a(valor) WHERE a.valor IS NULL),
+		pg_catalog.array_ndims($2::text[]), pg_catalog.array_lower($2::text[],1),
+		pg_catalog.cardinality($2::text[]),
+		NOT EXISTS (SELECT FROM pg_catalog.unnest($2::text[]) AS h(valor) WHERE h.valor IS NULL)`,
+		argumentos[0], argumentos[1]).Scan(
+		&ambitos.dimensiones, &ambitos.limiteUno, &ambitos.cardinalidad, &ambitos.sinNulos,
+		&huellas.dimensiones, &huellas.limiteUno, &huellas.cardinalidad, &huellas.sinNulos,
+	)
+	if err != nil {
+		t.Fatalf("no se pudo acreditar la forma de las matrices adversas: %v", err)
+	}
+	esperadoAmbitos := formaMatriz{dimensiones: 1, limiteUno: 1, cardinalidad: 2, sinNulos: true}
+	esperadoHuellas := esperadoAmbitos
+	if indiceAdverso == 0 {
+		esperadoAmbitos.dimensiones = 2
+	} else if indiceAdverso == 1 {
+		esperadoHuellas.dimensiones = 2
+	} else {
+		t.Fatalf("indice de matriz adversa invalido: %d", indiceAdverso)
+	}
+	if ambitos != esperadoAmbitos || huellas != esperadoHuellas {
+		t.Fatalf("la regresion no aisla array_ndims: ambitos=%+v huellas=%+v", ambitos, huellas)
 	}
 }
 
