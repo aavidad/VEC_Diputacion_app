@@ -313,31 +313,30 @@ func TestCTLITEO706AReservaConcurrenteConcedeUnaSolaEmision(t *testing.T) {
 	}
 }
 
-func TestCTLITEO706CEmisionAutorizadaNoReintentaYSeReconcilia(t *testing.T) {
+func TestCTLITEO706AFalloPreemisionAutorizaNuevaReserva(t *testing.T) {
 	servicio, registro, conector, solicitud := escenarioOperacionGINPIXRecuperable(t)
-	conector.errEmision = ports.ErrEmisionOperacionGINPIXNoIniciada
+	conector.errEmision = errors.Join(
+		ports.ErrEmisionOperacionGINPIXNoIniciada,
+		errors.New("detalle privado preemision"),
+	)
 	conector.reciboEmision = ports.ReciboExternoOperacionGINPIX{}
 	if resultado, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
 		err,
-		ErrOperacionGINPIXIndeterminada,
+		ErrOperacionGINPIXNoDisponible,
 	) || resultado != (ports.ResultadoOperacionGINPIX{}) {
-		t.Fatalf("abandono autorizado mal clasificado: %#v / %v", resultado, err)
+		t.Fatalf("fallo preemision mal clasificado: %#v / %v", resultado, err)
 	}
-	if registro.fallosPreemision != 0 || registro.indeterminaciones != 1 ||
-		registro.estado != estadoRegistroGINPIXIndeterminado {
-		t.Fatal("el abandono autorizado no quedo indeterminado")
+	if registro.fallosPreemision != 1 || registro.indeterminaciones != 0 ||
+		registro.estado != estadoRegistroGINPIXReintentable {
+		t.Fatal("el intento preemision no libero una nueva reserva")
 	}
-	if _, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
-		err,
-		ErrOperacionGINPIXIndeterminada,
-	) || conector.emisiones != 1 || registro.intento != 1 {
-		t.Fatalf("el replay volvio a emitir: %v", err)
+	conector.errEmision = nil
+	conector.reciboEmision = reciboExternoOperacionGINPIXPrueba(t, solicitud.puertoPrueba(t))
+	if _, err := servicio.Ejecutar(context.Background(), solicitud); err != nil {
+		t.Fatalf("nuevo intento autorizado: %v", err)
 	}
-	conector.reciboConsulta = reciboExternoOperacionGINPIXPrueba(t, solicitud.puertoPrueba(t))
-	resultado, err := servicio.Recuperar(context.Background(), solicitud)
-	if err != nil || resultado.ValidarPara(solicitud.puertoPrueba(t)) != nil ||
-		conector.emisiones != 1 || conector.consultas != 1 || registro.confirmaciones != 1 {
-		t.Fatalf("el abandono no se reconcilio por consulta: %#v / %v", resultado, err)
+	if conector.emisiones != 2 || registro.intento != 2 || registro.confirmaciones != 1 {
+		t.Fatalf("reintento incorrecto: emisiones=%d intento=%d", conector.emisiones, registro.intento)
 	}
 }
 
@@ -438,7 +437,10 @@ func TestCTLITEO706ACancelacionEnCadaFronteraFallaCerrada(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
 		conector.cancelarEmision = cancelar
 		conector.reciboEmision = ports.ReciboExternoOperacionGINPIX{}
-		conector.errEmision = context.Canceled
+		conector.errEmision = errors.Join(
+			ports.ErrEmisionOperacionGINPIXNoIniciada,
+			context.Canceled,
+		)
 		if resultado, err := servicio.Ejecutar(ctx, solicitud); !errors.Is(err, context.Canceled) ||
 			!errors.Is(err, ErrOperacionGINPIXIndeterminada) ||
 			resultado != (ports.ResultadoOperacionGINPIX{}) ||
@@ -508,6 +510,19 @@ func TestCTLITEO706AResultadoMasErrorYRecibosInvalidosFallanCerrados(t *testing.
 		) || resultado != (ports.ResultadoOperacionGINPIX{}) ||
 			registro.estado != estadoRegistroGINPIXIndeterminado || registro.fallosPreemision != 0 {
 			t.Fatalf("resultado+error se trato como preemision: %#v / %v", resultado, err)
+		}
+	})
+
+	t.Run("emision error generico sin recibo", func(t *testing.T) {
+		servicio, registro, conector, solicitud := escenarioOperacionGINPIXRecuperable(t)
+		conector.reciboEmision = ports.ReciboExternoOperacionGINPIX{}
+		conector.errEmision = errors.New("fallo de emision incierto")
+		if resultado, err := servicio.Ejecutar(context.Background(), solicitud); !errors.Is(
+			err,
+			ErrOperacionGINPIXIndeterminada,
+		) || resultado != (ports.ResultadoOperacionGINPIX{}) ||
+			registro.estado != estadoRegistroGINPIXIndeterminado || registro.fallosPreemision != 0 {
+			t.Fatalf("error generico se trato como preemision: %#v / %v", resultado, err)
 		}
 	})
 

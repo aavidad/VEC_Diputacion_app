@@ -72,8 +72,9 @@ func NuevoServicioOperacionGINPIXRecuperable(
 	}, nil
 }
 
-// Ejecutar reserva antes de emitir. Desde EmisionAutorizada, cualquier
-// abandono queda indeterminado: un replay nunca obtiene una segunda emision.
+// Ejecutar reserva antes de emitir. Solo un fallo preemision acreditado puede
+// liberar la reserva; cualquier abandono o resultado incierto se reconcilia
+// sin obtener una segunda emision.
 func (s *ServicioOperacionGINPIXRecuperable) Ejecutar(
 	ctx context.Context,
 	entrada SolicitudOperacionGINPIXRecuperable,
@@ -175,6 +176,13 @@ func (s *ServicioOperacionGINPIXRecuperable) emitir(
 	recibo, err := s.emisor.EmitirOperacionGINPIX(ctx, solicitud, reserva)
 	tieneResultado := recibo != (ports.ReciboExternoOperacionGINPIX{})
 	if err != nil {
+		if !tieneResultado && ctx.Err() == nil &&
+			errors.Is(err, ports.ErrEmisionOperacionGINPIXNoIniciada) &&
+			!errors.Is(err, ports.ErrEmisionOperacionGINPIXIndeterminada) &&
+			!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) &&
+			s.registrarFalloPreemision(ctx, reserva) {
+			return ports.ResultadoOperacionGINPIX{}, ErrOperacionGINPIXNoDisponible
+		}
 		s.marcarIndeterminada(ctx, reserva)
 		return ports.ResultadoOperacionGINPIX{}, errorIndeterminadoGINPIX(ctx)
 	}
@@ -241,6 +249,16 @@ func (s *ServicioOperacionGINPIXRecuperable) marcarIndeterminada(
 	reserva ports.ReservaOperacionGINPIX,
 ) bool {
 	return s.registro.MarcarOperacionGINPIXIndeterminada(
+		contextoRecuperacionGINPIX(ctx),
+		reserva,
+	) == nil
+}
+
+func (s *ServicioOperacionGINPIXRecuperable) registrarFalloPreemision(
+	ctx context.Context,
+	reserva ports.ReservaOperacionGINPIX,
+) bool {
+	return s.registro.RegistrarFalloPreemisionGINPIX(
 		contextoRecuperacionGINPIX(ctx),
 		reserva,
 	) == nil
