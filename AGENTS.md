@@ -17,13 +17,91 @@ Bolsa, Personal, documentos o firma:
 No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
 instrucción de dirección.
 
-## Relevo operativo vigente — 31 de agosto de 2026
+## Checkpoint operativo vivo — O6 y cableado O2 — 31 de agosto de 2026
 
-Este bloque prevalece sobre el relevo del 9 de agosto y sobre cualquier relevo
-anterior que describa otra rama, otro worktree o un estado previo del producto.
-El estado siguiente se comprobó en el servidor antes de confirmar este corte.
+Este bloque prevalece sobre los bloques cronológicamente anteriores o
+históricos que aparecen después en este archivo; nunca prevalece sobre relevos
+futuros. La base y el `HEAD` de producto publicados al abrir el corte son
+exactamente `3a8550eac9324168594bc1e36378015922ec5c4b`. Este documento parte de
+ese mismo commit en la rama `docs/ct-checkpoint-o6-r3a-rutas-20260831`; no
+integra ni publica por sí solo ningún cambio de producto.
 
-### Producto e integraciones acreditadas
+### Capability, invariante, write-set y condición contable
+
+- Capability: alinear la autoridad operativa viva con hechos ya integrados y
+  publicados, cerrar documentalmente solo `O6-02` y preservar toda deuda real.
+- Invariante: una sola subida contable pertenece a `O6-02`. `R3A`,
+  `O5-rutas`, `O4C-P0` y `RUTA-A` son subcortes: no cierran `O2-06`, `O5-01`,
+  `O2-07`/`O2-08`, `O4C-P1` ni una vertical E2E.
+- Write-set: este `AGENTS.md`,
+  `docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md` y
+  `docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md`.
+- Condición contable: el cierre formal anterior es `19/46` (`41,3 %`). Solo
+  después de integrar y publicar el hash exacto de este checkpoint pasa a
+  `20/46` (`43,5 %`), exclusivamente por `O6-02`.
+- Siguiente corte documental: registrar el cierre de `R3B`/`R3C` únicamente
+  cuando estén integrados; este checkpoint no lo anticipa.
+
+### Genealogía local acreditada en el producto publicado
+
+- `CT-O2-06-R3A`: candidato `1babd86ab891349640657c7e98305958f55e2c10`,
+  integrado mediante `2b96b64602ba82c904dbf1a0532542f50db3f032`.
+- Las piezas propias integradas de `O6-02` son
+  `433df1f8b5f8dab670a3d7ee2a5a617fea6b35c9` (`CT-LITE-O6-02A`) y
+  `908e7907a1c838dd4c0a508c73123ffa22571ec6` (`CT-LITE-O6-02B-HTTP`).
+- La cadena continúa con `02221b47a126762250d4fda791d2b0276e72d713`
+  (`CT-LITE-O6-03-GO`), adaptador de ejecuciones;
+  `fc8ab4616630749fcb8c7d912bc31bf8fdacb00f` (`CT-LITE-O6-REM-01`), replay
+  autorizado de selección; y
+  `d72254e36eb4737db4c44b2481522cac2f5260f8`
+  (`CT-LITE-O6-REM-02-R8`), ejecuciones revisadas, integrado mediante
+  `ca71902192afe3448e71eadd3fee125b52ca11ef`. La cadena completa permite a
+  Dirección contabilizar `O6-02`; estos tres seams posteriores no acreditan
+  por sí solos comunicación, aceptación, renuncia y siguiente candidato, por
+  lo que `O6-03` continúa abierta.
+- `O5-rutas`: candidato `ffc0717b59d5e07b6be272179e00ce9d4882c48e`,
+  integrado mediante `de2c9be8ea25c25a4e4173d1fdf6f5dcdfb769c8`.
+- `O4C-P0`: candidato `5555885d7a57d473ac7b7f224bc7a62c0a7bee01`,
+  integrado y publicado mediante
+  `7945de3968c118633e3a15ba5a97145939050ffb`.
+- `CT-O2-RUTA-A-R1`: candidato
+  `8bb15bcc78d0c002cff9cd17099db0945805b674`, integrado y publicado en
+  `3a8550eac9324168594bc1e36378015922ec5c4b`.
+
+### Métricas y límites vigentes del checkpoint
+
+- Cierre formal previo: `19/46` (`41,3 %`).
+- Cierre formal tras integrar y publicar este checkpoint: `20/46` (`43,5 %`).
+- Cierre técnico conservador: `22/46` (`47,8 %`).
+- Primera vertical: `5/10`; `O2-06` continúa activa.
+- Verticales E2E productivas completas: `0`.
+- Aplicación arrancable: `NO`.
+- Producción: `NO-GO`.
+
+Formal, técnico y E2E son magnitudes distintas. Una ruta aislada, un contrato,
+un adaptador o una prueba no acreditan composición raíz, persistencia, web ni
+una vertical productiva.
+
+### Orden de reanudación
+
+1. `O2-06` sigue activo. `R3A` aporta la candidatura técnica opaca, no un
+   implementador productivo; `R3B` pertenece a una producción candidata
+   separada y todavía no está integrada.
+2. `O5-01` sigue abierto. Las rutas integradas no acreditan raíz,
+   persistencia ni web.
+3. `O6-02` queda cerrado documentalmente solo por este checkpoint y su cadena
+   exacta. `O6-03` continúa abierto.
+4. `O4C-P0` está integrado y publicado; `O4C-P1` permanece bloqueado.
+5. `RUTA-A` está integrada de forma aislada, sin composición raíz, y no cierra
+   `O2-07` ni `O2-08`.
+
+## Relevo operativo histórico — corte previo del 31 de agosto de 2026
+
+Este bloque se conserva como historia del corte anterior y queda sustituido por
+el checkpoint operativo vivo precedente. Sus referencias a sesiones,
+worktrees, limpieza, métricas y siguiente tarea no describen el estado vigente.
+
+### Producto e integraciones acreditadas en aquel corte
 
 - Repositorio remoto: `/srv/fabrica/proyectos/VEC_Diputacion_app`.
 - Worktree de producto:
@@ -70,7 +148,7 @@ El estado siguiente se comprobó en el servidor antes de confirmar este corte.
   someter su hash exacto a revisión independiente e integrarlo únicamente si
   recibe `GO`.
 
-### Trabajo activo que no se debe pisar
+### Trabajo que estaba activo en aquel corte
 
 - Sesión `vec-produce-r2-consultas`, worktree
   `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-lite-r2-consultas-rutas-20260831`,
@@ -114,7 +192,7 @@ mientras sus sesiones estén activas. Revalidar su estado vivo antes de actuar.
   rama `trabajo/vec-doc-esquema-efectos-v4-20260831`. No integrar, borrar,
   limpiar ni usar como base; se conserva como evidencia del `NO-GO`.
 
-### Métricas conservadoras y estado de la interfaz
+### Métricas conservadoras de aquel corte y estado de la interfaz
 
 - Cierre formal: `19/46`, `41,3 %`.
 - Cierre técnico: `21/46`, `45,7 %`.
@@ -160,7 +238,7 @@ y `git diff --check` en producto; publicar la rama de producto; verificar que
 entonces retirar el worktree y la rama local ya integrados. Una rama pendiente
 de PostgreSQL o con `NO-GO` se preserva y no entra en esa limpieza.
 
-### Orden de reanudación
+### Orden de reanudación de aquel corte
 
 1. Revalidar producto, `origin`, limpieza, sesiones, rutas, ramas y hashes; no
    reconstruir trabajo existente.
@@ -182,7 +260,7 @@ Tras cada integración se actualiza este relevo con hashes verificables y solo
 se limpia lo ya integrado. Las ramas SQL pendientes y el candidato con
 `NO-GO` se preservan.
 
-## Relevo operativo inmediato — 9 de agosto de 2026
+## Relevo operativo histórico — 9 de agosto de 2026
 
 - Worktree obligatorio:
   `/home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs`.
