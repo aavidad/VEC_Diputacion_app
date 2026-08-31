@@ -193,7 +193,8 @@ func validarJSONCierreAdministrativoSinDuplicados(contenido []byte) error {
 				if err != nil || !correcta {
 					return 0, errEntradaCierreAdministrativoInvalida
 				}
-				if _, repetida := vistas[clave]; repetida {
+				if _, repetida := vistas[clave]; repetida ||
+					profundidad == 0 && !claveCierreAdministrativoJSONExacta(clave) {
 					return 0, errEntradaCierreAdministrativoInvalida
 				}
 				vistas[clave] = struct{}{}
@@ -228,6 +229,20 @@ func validarJSONCierreAdministrativoSinDuplicados(contenido []byte) error {
 		return errEntradaCierreAdministrativoInvalida
 	}
 	return nil
+}
+
+func claveCierreAdministrativoJSONExacta(clave string) bool {
+	switch clave {
+	case "expediente_ref",
+		"seguimiento_ref",
+		"version_esperada",
+		"clave_idempotencia",
+		"transicion_clave",
+		"motivo_clave":
+		return true
+	default:
+		return false
+	}
 }
 
 type envoltorioCierreAdministrativo struct {

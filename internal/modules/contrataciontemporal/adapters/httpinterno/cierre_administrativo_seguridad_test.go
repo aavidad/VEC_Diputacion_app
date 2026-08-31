@@ -189,6 +189,96 @@ func TestManejadorCierreAdministrativoRechazaJSONNoCerrado(
 	}
 }
 
+func TestManejadorCierreAdministrativoRechazaAliasDeCajaAntesDeAutoridad(
+	t *testing.T,
+) {
+	valido := cuerpoCierreAdministrativoHTTPPrueba(t)
+	entrada := entradaCierreAdministrativoHTTPPrueba()
+	claves := []struct {
+		exacta string
+		valor  string
+	}{
+		{"expediente_ref", strconv.Quote(entrada.ExpedienteRef)},
+		{"seguimiento_ref", strconv.Quote(entrada.SeguimientoRef)},
+		{"version_esperada", strconv.FormatUint(*entrada.VersionEsperada, 10)},
+		{"clave_idempotencia", strconv.Quote(entrada.ClaveIdempotencia)},
+		{"transicion_clave", strconv.Quote(entrada.TransicionClave)},
+		{"motivo_clave", strconv.Quote(entrada.MotivoClave)},
+	}
+	rutas := []struct {
+		nombre string
+		ruta   string
+	}{
+		{"cerrar", RutaCerrarAdministrativamente},
+		{"reabrir", RutaReabrirExcepcionalmente},
+	}
+	for _, ruta := range rutas {
+		for _, clave := range claves {
+			alias := strings.ToUpper(clave.exacta)
+			fragmento := `"` + clave.exacta + `":` + clave.valor
+			casos := []struct {
+				nombre string
+				cuerpo string
+			}{
+				{
+					"alias mayusculas",
+					strings.Replace(
+						valido,
+						fragmento,
+						`"`+alias+`":`+clave.valor,
+						1,
+					),
+				},
+				{
+					"exacta mas alias",
+					strings.Replace(
+						valido,
+						fragmento,
+						fragmento+`,"`+alias+`":`+clave.valor,
+						1,
+					),
+				},
+			}
+			for _, caso := range casos {
+				t.Run(
+					ruta.nombre+"/"+clave.exacta+"/"+caso.nombre,
+					func(t *testing.T) {
+						autoridad := autoridadCierreAdministrativoHTTPValidaPrueba()
+						ejecutor := &ejecutorCierreAdministrativoHTTPPrueba{}
+						peticion := httptest.NewRequest(
+							http.MethodPost,
+							ruta.ruta,
+							strings.NewReader(caso.cuerpo),
+						)
+						peticion.Header.Set("Content-Type", "application/json")
+						peticion.Header.Set("Accept", "application/json")
+						respuesta := httptest.NewRecorder()
+						nuevoManejadorCierreAdministrativoHTTPPrueba(
+							t,
+							autoridad,
+							ejecutor,
+						).ServeHTTP(respuesta, peticion)
+
+						if respuesta.Code != http.StatusBadRequest ||
+							autoridad.llamadas != 0 ||
+							ejecutor.llamadasCerrar != 0 ||
+							ejecutor.llamadasReabrir != 0 {
+							t.Fatalf(
+								"estado=%d llamadas=%d/%d/%d cuerpo=%s",
+								respuesta.Code,
+								autoridad.llamadas,
+								ejecutor.llamadasCerrar,
+								ejecutor.llamadasReabrir,
+								respuesta.Body,
+							)
+						}
+					},
+				)
+			}
+		}
+	}
+}
+
 func TestManejadorCierreAdministrativoExigeVersionInteroperableAntesDeAutoridad(
 	t *testing.T,
 ) {
