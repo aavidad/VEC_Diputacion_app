@@ -119,6 +119,10 @@ func marcasTipoIdentidadVisitado(
 		return 0
 	}
 	vistos[tipo] = true
+	var marcas marcasFronteraIdentidad
+	sumar := func(actual types.Type) {
+		marcas |= marcasTipoIdentidadVisitado(actual, vistos)
+	}
 	if nombrado, ok := tipo.(*types.Named); ok {
 		objeto := nombrado.Obj()
 		if objeto.Pkg() != nil {
@@ -130,15 +134,15 @@ func marcasTipoIdentidadVisitado(
 			case "context.Context":
 				return marcaContextoIdentidad
 			}
+			for indice := range nombrado.TypeArgs().Len() {
+				sumar(nombrado.TypeArgs().At(indice))
+			}
 			if objeto.Pkg().Path() != rutaPaqueteComposicionIdentidad {
-				return 0
+				return marcas
 			}
 		}
-		return marcasTipoIdentidadVisitado(nombrado.Underlying(), vistos)
-	}
-	var marcas marcasFronteraIdentidad
-	sumar := func(actual types.Type) {
-		marcas |= marcasTipoIdentidadVisitado(actual, vistos)
+		sumar(nombrado.Underlying())
+		return marcas
 	}
 	switch actual := tipo.(type) {
 	case *types.Pointer:
@@ -459,6 +463,8 @@ func validarFronterasIdentidad(
 			if marcasTipoIdentidad(estado.informacion.TypeOf(actual.Type))&marcaCanalIdentidad != 0 {
 				falla(actual, "tipo o alias transporta canal")
 			}
+		case *ast.TypeSwitchStmt:
+			validarSwitchTipoIdentidad(actual, estado, falla)
 		case *ast.ValueSpec:
 			validarValoresIdentidad(actual, estado, falla)
 		case *ast.CompositeLit:
@@ -473,6 +479,10 @@ func validarFronterasIdentidad(
 			}
 		case *ast.AssignStmt:
 			validarAsignacionIdentidad(actual, estado, falla)
+		case *ast.SendStmt:
+			if marcasExpresionIdentidad(actual.Value, estado)&marcaCanalIdentidad != 0 {
+				falla(actual, "envio por canal Go transporta canal")
+			}
 		case *ast.DeferStmt:
 			if marcasCanalLlamadaIdentidad(actual.Call, estado) {
 				falla(actual, "llamada diferida transporta canal")
@@ -487,6 +497,25 @@ func validarFronterasIdentidad(
 		return infraccion == nil
 	})
 	return infraccion
+}
+
+func validarSwitchTipoIdentidad(
+	switchTipo *ast.TypeSwitchStmt,
+	estado *estadoAnalisisFronterasIdentidad,
+	falla func(ast.Node, string),
+) {
+	for _, sentencia := range switchTipo.Body.List {
+		caso, ok := sentencia.(*ast.CaseClause)
+		if !ok {
+			continue
+		}
+		for _, tipo := range caso.List {
+			if marcasTipoIdentidad(estado.informacion.TypeOf(tipo))&marcaCanalIdentidad != 0 {
+				falla(tipo, "type switch transporta canal")
+				return
+			}
+		}
+	}
 }
 
 func validarClausuraIdentidad(

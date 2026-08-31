@@ -96,6 +96,63 @@ func mutante(d soporteMutante) {
 	callback := callbackMutante{}.Ejecutar
 	defer callback(canal)
 }`},
+		{"puntero", `func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	puntero := &canal
+	return puntero
+}`},
+		{"generico externo atomic.Pointer", `func mutante() atomic.Pointer[httpseguridad.CanalProxyAutenticado] {
+	return atomic.Pointer[httpseguridad.CanalProxyAutenticado]{}
+}`},
+		{"canal Go", `func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	diferido := make(chan any, 1)
+	diferido <- canal
+	recibido := <-diferido
+	return recibido
+}`},
+		{"append", `func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	_ = append([]any(nil), canal)
+}`},
+		{"copy", `func mutante(d soporteMutante, destino []any) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	_ = copy(destino, []any{canal})
+}`},
+		{"go statement", `func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	go func(valor any) {}(canal)
+}`},
+		{"method expression", `func mutante() any {
+	expresion := httpseguridad.CanalProxyAutenticado.IdentidadPar
+	return expresion
+}`},
+		{"tipo nominal", `type canalNominalMutante httpseguridad.CanalProxyAutenticado`},
+		{"type assertion", `func mutante(valor any) any {
+	canal := valor.(httpseguridad.CanalProxyAutenticado)
+	return canal
+}`},
+		{"type switch", `func mutante(valor any) {
+	switch canal := valor.(type) {
+	case httpseguridad.CanalProxyAutenticado:
+		_ = canal
+	}
+}`},
+		{"retorno multiple y tupla", `func tuplaMutante[T any](valor T) (T, bool) { return valor, true }
+func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	extraido, _ := tuplaMutante(canal)
+	return extraido
+}`},
+		{"genericos anidados con embed", `func mutante() envolturaGenericaInocua[httpseguridad.CanalProxyAutenticado] {
+	return envolturaGenericaInocua[httpseguridad.CanalProxyAutenticado]{}
+}`},
+		{"clausura transitiva", `func mutante(d soporteMutante) func() func() {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	return func() func() {
+		return func() { _ = canal }
+	}
+}`},
 	}
 	for _, mutante := range mutantes {
 		t.Run(mutante.nombre, func(t *testing.T) {
@@ -115,12 +172,30 @@ func mutante(d soporteMutante) {
 }
 
 const cabeceraMutantesIdentidad = `package interna
-import ("context"; "crypto/tls"; "vec-diputacion-granada/internal/vec/adapters/httpseguridad")
+import ("context"; "crypto/tls"; "sync/atomic"; "vec-diputacion-granada/internal/vec/adapters/httpseguridad")
 type soporteMutante struct { contexto context.Context; estado tls.ConnectionState; servicio *httpseguridad.ServicioIdentidad }
 type tipoHomonimoMutante struct{ CanalProxyAutenticado, CapsulaIdentidadPeticion int }
+type cajaGenericaInocua[T any] struct{ valor T }
+type envolturaGenericaInocua[T any] struct{ cajaGenericaInocua[*T] }
+var punteroAtomicoInocuo atomic.Pointer[int]
 func identidadGenericaInocua[T any](valor T) T { return valor }
 func selectorHomonimoMutante(v tipoHomonimoMutante) int {
 	return identidadGenericaInocua(v.CanalProxyAutenticado) + v.CapsulaIdentidadPeticion
+}
+func canalGoInocuo() int {
+	canal := make(chan int, 1)
+	canal <- identidadGenericaInocua(1)
+	return <-canal
+}
+func coleccionesInocuas(valores []int) []int {
+	destino := append([]int(nil), valores...)
+	_ = copy(destino, valores)
+	return destino
+}
+func tiposDinamicosInocuos(valor any) int {
+	if entero, ok := valor.(int); ok { return entero }
+	switch entero := valor.(type) { case int: return entero }
+	return 0
 }
 `
 
