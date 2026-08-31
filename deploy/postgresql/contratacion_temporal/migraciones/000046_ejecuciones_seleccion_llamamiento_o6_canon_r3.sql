@@ -1,5 +1,52 @@
--- CT-LITE-O6-03-FIX-R3: auxiliares privados del canon Go cerrado.
+-- CT-LITE-O6-03-FIX-R4: auxiliares privados del canon Go cerrado.
 -- Se incluye dentro de la misma transaccion de 000046.up.sql.
+
+DO $puerta$
+BEGIN
+    IF pg_catalog.current_setting('server_version_num') <> '180004'
+       OR pg_catalog.getdatabaseencoding() IS DISTINCT FROM 'UTF8'
+       OR pg_catalog.to_regnamespace('vec_contratacion_temporal') IS NULL
+       OR pg_catalog.to_regrole('vec_contratacion_temporal_propietario') IS NULL
+       OR pg_catalog.to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.instante_utc_json_canonico_v2(jsonb,boolean)'
+       ) IS NULL
+       OR pg_catalog.to_regclass(
+           'vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'
+       ) IS NOT NULL
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_proc funcion
+            WHERE funcion.pronamespace =
+                  'vec_contratacion_temporal'::pg_catalog.regnamespace
+              AND funcion.proname = ANY(ARRAY[
+                  'campo_canonico_seleccion_llamamiento_o6_v1',
+                  'entero_json_seleccion_llamamiento_o6_v1',
+                  'referencia_json_seleccion_llamamiento_o6_v1',
+                  'huella_solicitud_seleccion_llamamiento_o6_v1',
+                  'solicitud_json_seleccion_llamamiento_o6_v1',
+                  'solicitud_desde_texto_seleccion_llamamiento_o6_v1',
+                  'recibo_json_seleccion_llamamiento_o6_v1',
+                  'recibo_desde_texto_seleccion_llamamiento_o6_v1',
+                  'artefacto_json_seleccion_llamamiento_o6_v1',
+                  'referencia_material_seleccion_llamamiento_o6_v1',
+                  'contexto_material_seleccion_llamamiento_o6_v1',
+                  'huellas_materiales_seleccion_llamamiento_o6_v1',
+                  'materiales_ligados_seleccion_llamamiento_o6_v1',
+                  'confirmacion_canonica_seleccion_llamamiento_o6_v1',
+                  'resolver_terminal_seleccion_llamamiento_o6_v1',
+                  'reservar_seleccion_llamamiento_o6_v1',
+                  'abrir_ventana_seleccion_llamamiento_o6_v1',
+                  'marcar_indeterminada_seleccion_llamamiento_o6_v1',
+                  'liberar_seleccion_llamamiento_o6_v1',
+                  'confirmar_seleccion_llamamiento_o6_v1',
+                  'consultar_seleccion_llamamiento_o6_v1'
+              ]::name[])
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'estado incompatible para instalar ejecuciones O6';
+    END IF;
+END
+$puerta$;
 
 CREATE FUNCTION vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
     p_nombre text, p_valor text
@@ -10,13 +57,23 @@ AS $funcion$
            pg_catalog.octet_length(p_valor)::text || ':' || p_valor
 $funcion$;
 
+CREATE FUNCTION vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(
+    p_valor jsonb
+) RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT CASE WHEN pg_catalog.jsonb_typeof(p_valor) = 'number'
+                     AND p_valor #>> '{}' ~ '^(0|[1-9][0-9]*)$'
+                THEN p_valor #>> '{}' END
+$funcion$;
+
 CREATE FUNCTION vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(
     p_valor jsonb
 ) RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
 SET search_path = pg_catalog
 AS $funcion$
     SELECT '{"referencia":' || (p_valor->'referencia')::text ||
-           ',"version":' || (p_valor->'version')::text ||
+           ',"version":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_valor->'version') ||
            ',"huella_sha256":' || (p_valor->'huella_sha256')::text || '}'
 $funcion$;
 
@@ -49,7 +106,9 @@ BEGIN
            OR pg_catalog.jsonb_typeof(v_referencia.valor->'referencia') IS DISTINCT FROM 'string'
            OR pg_catalog.jsonb_typeof(v_referencia.valor->'version') IS DISTINCT FROM 'number'
            OR pg_catalog.jsonb_typeof(v_referencia.valor->'huella_sha256') IS DISTINCT FROM 'string'
-           OR v_referencia.valor->>'version' !~ '^[1-9][0-9]*$' THEN
+           OR v_referencia.valor->>'version' !~ '^[1-9][0-9]*$'
+           OR v_referencia.valor->>'huella_sha256' !~ '^[0-9a-f]{64}$'
+           OR v_referencia.valor->>'huella_sha256' = pg_catalog.repeat('0', 64) THEN
             RETURN NULL;
         END IF;
     END LOOP;
@@ -114,6 +173,130 @@ EXCEPTION WHEN OTHERS THEN
 END
 $funcion$;
 
+CREATE FUNCTION vec_contratacion_temporal.solicitud_json_seleccion_llamamiento_o6_v1(
+    p_solicitud jsonb
+) RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT '{"clave_idempotencia":' || (p_solicitud->'clave_idempotencia')::text ||
+        ',"huella_semantica":' || (p_solicitud->'huella_semantica')::text ||
+        ',"organizacion_ref":' || (p_solicitud->'organizacion_ref')::text ||
+        ',"expediente_ref":' || (p_solicitud->'expediente_ref')::text ||
+        ',"version_expediente":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_solicitud->'version_expediente') ||
+        ',"correlacion_ref":' || (p_solicitud->'correlacion_ref')::text ||
+        ',"accion_orden":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_solicitud->'accion_orden') ||
+        ',"finalidad":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_solicitud->'finalidad') ||
+        ',"necesidad":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_solicitud->'necesidad') ||
+        ',"bolsa":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_solicitud->'bolsa') ||
+        ',"politica":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_solicitud->'politica') ||
+        ',"maximo_posiciones":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_solicitud->'maximo_posiciones') ||
+        ',"cantidad_disponible":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_solicitud->'cantidad_disponible') || '}'
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+    p_texto text
+) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_solicitud jsonb;
+BEGIN
+    IF p_texto IS NULL OR pg_catalog.octet_length(p_texto) > 1048576 THEN
+        RETURN NULL;
+    END IF;
+    BEGIN
+        v_solicitud := p_texto::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+        RETURN NULL;
+    END;
+    IF pg_catalog.jsonb_typeof(v_solicitud) IS DISTINCT FROM 'object'
+       OR vec_contratacion_temporal.solicitud_json_seleccion_llamamiento_o6_v1(
+           v_solicitud
+       ) IS DISTINCT FROM p_texto
+       OR vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(
+           v_solicitud
+       ) IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN v_solicitud;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(
+    p_recibo jsonb
+) RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_procedencia jsonb := p_recibo->'procedencia';
+    v_evidencia jsonb := v_procedencia->'evidencia';
+    v_procedencia_texto text;
+BEGIN
+    v_procedencia_texto := '{"autoridad_ref":' || (v_procedencia->'autoridad_ref')::text ||
+        ',"respuesta_ref":' || (v_procedencia->'respuesta_ref')::text ||
+        ',"contrato_version":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_procedencia->'contrato_version') ||
+        ',"fuente":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_procedencia->'fuente') ||
+        ',"evidencia":{"evidencia_ref":' || (v_evidencia->'evidencia_ref')::text ||
+        ',"clave_verificacion_ref":' || (v_evidencia->'clave_verificacion_ref')::text ||
+        ',"sello_hmac":' || (v_evidencia->'sello_hmac')::text ||
+        ',"emitida_en":' || (v_evidencia->'emitida_en')::text ||
+        ',"valida_hasta":' || (v_evidencia->'valida_hasta')::text ||
+        ',"retener_hasta":' || (v_evidencia->'retener_hasta')::text || '}}';
+    RETURN '{"operacion_ref":' || (p_recibo->'operacion_ref')::text ||
+        ',"organizacion_ref":' || (p_recibo->'organizacion_ref')::text ||
+        ',"expediente_ref":' || (p_recibo->'expediente_ref')::text ||
+        ',"version_expediente":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_recibo->'version_expediente') ||
+        ',"correlacion_ref":' || (p_recibo->'correlacion_ref')::text ||
+        ',"necesidad":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'necesidad') ||
+        ',"bolsa":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'bolsa') ||
+        ',"orden":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'orden') ||
+        ',"politica":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'politica') ||
+        ',"resultado":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'resultado') ||
+        ',"propuesta_generada":' || (p_recibo->'propuesta_generada')::text ||
+        ',"propuesta":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'propuesta') ||
+        ',"accion_evento":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'accion_evento') ||
+        ',"llamamiento_ref":' || (p_recibo->'llamamiento_ref')::text ||
+        ',"seleccion_ref":' || (p_recibo->'seleccion_ref')::text ||
+        ',"retencion_seleccion":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(p_recibo->'retencion_seleccion') ||
+        ',"orden_seleccionado":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_recibo->'orden_seleccionado') ||
+        ',"recibo_ref":' || (p_recibo->'recibo_ref')::text ||
+        ',"auditoria_ref":' || (p_recibo->'auditoria_ref')::text ||
+        ',"evento_ref":' || (p_recibo->'evento_ref')::text ||
+        ',"confirmada_en":' || (p_recibo->'confirmada_en')::text ||
+        ',"procedencia":' || v_procedencia_texto || '}';
+END
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.recibo_desde_texto_seleccion_llamamiento_o6_v1(
+    p_texto text
+) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_recibo jsonb;
+BEGIN
+    IF p_texto IS NULL OR pg_catalog.octet_length(p_texto) > 1048576 THEN
+        RETURN NULL;
+    END IF;
+    BEGIN
+        v_recibo := p_texto::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+        RETURN NULL;
+    END;
+    IF pg_catalog.jsonb_typeof(v_recibo) IS DISTINCT FROM 'object'
+       OR vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(
+           v_recibo
+       ) IS DISTINCT FROM p_texto THEN
+        RETURN NULL;
+    END IF;
+    RETURN v_recibo;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END
+$funcion$;
+
 CREATE FUNCTION vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(
     p_artefacto jsonb, p_vaciar_huella boolean
 ) RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
@@ -137,9 +320,9 @@ BEGIN
     v_datos_texto := '{"operacion_ref":' || (v_datos->'operacion_ref')::text ||
         ',"organizacion_ref":' || (v_datos->'organizacion_ref')::text ||
         ',"expediente_ref":' || (v_datos->'expediente_ref')::text ||
-        ',"version_expediente":' || (v_datos->'version_expediente')::text ||
+        ',"version_expediente":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_datos->'version_expediente') ||
         ',"correlacion_ref":' || (v_datos->'correlacion_ref')::text ||
-        ',"contrato_version":' || (v_datos->'contrato_version')::text ||
+        ',"contrato_version":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_datos->'contrato_version') ||
         ',"autoridad_solicitante":' || (v_datos->'autoridad_solicitante')::text ||
         ',"autorizacion":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_datos->'autorizacion') ||
         ',"accion":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_datos->'accion') ||
@@ -155,13 +338,13 @@ BEGIN
         ',"bolsa":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_comando->'bolsa') ||
         ',"orden":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_comando->'orden') ||
         ',"politica":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_comando->'politica') ||
-        ',"total_posiciones_orden":' || (v_comando->'total_posiciones_orden')::text ||
-        ',"maxima_posicion_evaluable":' || (v_comando->'maxima_posicion_evaluable')::text ||
+        ',"total_posiciones_orden":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_comando->'total_posiciones_orden') ||
+        ',"maxima_posicion_evaluable":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_comando->'maxima_posicion_evaluable') ||
         ',"huella_recibo_orden":' || (v_comando->'huella_recibo_orden')::text || '}';
 
     v_procedencia_texto := '{"autoridad_ref":' || (v_procedencia->'autoridad_ref')::text ||
         ',"respuesta_ref":' || (v_procedencia->'respuesta_ref')::text ||
-        ',"contrato_version":' || (v_procedencia->'contrato_version')::text ||
+        ',"contrato_version":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_procedencia->'contrato_version') ||
         ',"fuente":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_procedencia->'fuente') ||
         ',"evidencia":{"evidencia_ref":' || (v_evidencia_nominal->'evidencia_ref')::text ||
         ',"clave_verificacion_ref":' || (v_evidencia_nominal->'clave_verificacion_ref')::text ||
@@ -172,7 +355,7 @@ BEGIN
     v_recibo_texto := '{"operacion_ref":' || (v_recibo->'operacion_ref')::text ||
         ',"organizacion_ref":' || (v_recibo->'organizacion_ref')::text ||
         ',"expediente_ref":' || (v_recibo->'expediente_ref')::text ||
-        ',"version_expediente":' || (v_recibo->'version_expediente')::text ||
+        ',"version_expediente":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_recibo->'version_expediente') ||
         ',"correlacion_ref":' || (v_recibo->'correlacion_ref')::text ||
         ',"necesidad":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_recibo->'necesidad') ||
         ',"bolsa":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_recibo->'bolsa') ||
@@ -185,7 +368,7 @@ BEGIN
         ',"llamamiento_ref":' || (v_recibo->'llamamiento_ref')::text ||
         ',"seleccion_ref":' || (v_recibo->'seleccion_ref')::text ||
         ',"retencion_seleccion":' || vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(v_recibo->'retencion_seleccion') ||
-        ',"orden_seleccionado":' || (v_recibo->'orden_seleccionado')::text ||
+        ',"orden_seleccionado":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(v_recibo->'orden_seleccionado') ||
         ',"recibo_ref":' || (v_recibo->'recibo_ref')::text ||
         ',"auditoria_ref":' || (v_recibo->'auditoria_ref')::text ||
         ',"evento_ref":' || (v_recibo->'evento_ref')::text ||
@@ -206,7 +389,7 @@ BEGIN
         ',"valida_hasta":' || (v_evidencia->'valida_hasta')::text ||
         ',"retener_hasta":' || (v_evidencia->'retener_hasta')::text || '}';
     RETURN '{"esquema":' || (p_artefacto->'esquema')::text ||
-        ',"version":' || (p_artefacto->'version')::text ||
+        ',"version":' || vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(p_artefacto->'version') ||
         ',"tipo":' || (p_artefacto->'tipo')::text ||
         ',"comando":' || v_comando_texto || ',"recibo":' || v_recibo_texto ||
         ',"evidencia":' || v_evidencia_texto ||
@@ -265,9 +448,9 @@ AS $funcion$
             'peticion_valida_hasta', p_datos->>'valida_hasta')
 $funcion$;
 
-CREATE FUNCTION vec_contratacion_temporal.materiales_ligados_seleccion_llamamiento_o6_v1(
+CREATE FUNCTION vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(
     p_artefacto jsonb
-) RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
+) RETURNS text[] LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
 SET search_path = pg_catalog
 AS $funcion$
 DECLARE
@@ -276,7 +459,6 @@ DECLARE
     v_recibo jsonb := p_artefacto->'recibo';
     v_procedencia jsonb := v_recibo->'procedencia';
     v_evidencia_nominal jsonb := v_procedencia->'evidencia';
-    v_evidencia jsonb := p_artefacto->'evidencia';
     v_prefijo text;
     v_peticion text;
     v_respuesta text;
@@ -384,19 +566,40 @@ BEGIN
             'evento_ref', v_recibo->>'evento_ref') ||
         vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(
             'confirmada_en', v_recibo->>'confirmada_en');
-    RETURN pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(v_peticion, 'UTF8')
-    ), 'hex') IS NOT DISTINCT FROM v_evidencia->>'huella_peticion_sha256'
-       AND pg_catalog.encode(pg_catalog.sha256(
-           pg_catalog.convert_to(v_respuesta, 'UTF8')
-       ), 'hex') IS NOT DISTINCT FROM v_evidencia->>'huella_respuesta_sha256';
+    RETURN ARRAY[
+        pg_catalog.encode(pg_catalog.sha256(
+            pg_catalog.convert_to(v_peticion, 'UTF8')
+        ), 'hex'),
+        pg_catalog.encode(pg_catalog.sha256(
+            pg_catalog.convert_to(v_respuesta, 'UTF8')
+        ), 'hex')
+    ];
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.materiales_ligados_seleccion_llamamiento_o6_v1(
+    p_artefacto jsonb
+) RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_huellas text[] := vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(
+        p_artefacto
+    );
+BEGIN
+    RETURN v_huellas[1] IS NOT DISTINCT FROM
+           p_artefacto #>> '{evidencia,huella_peticion_sha256}'
+       AND v_huellas[2] IS NOT DISTINCT FROM
+           p_artefacto #>> '{evidencia,huella_respuesta_sha256}';
 EXCEPTION WHEN OTHERS THEN
     RETURN false;
 END
 $funcion$;
 
 CREATE FUNCTION vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
-    p_artefacto jsonb, p_texto text, p_recibo jsonb
+    p_artefacto jsonb, p_texto text, p_recibo jsonb, p_recibo_texto text
 ) RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE
 SET search_path = pg_catalog
 AS $funcion$
@@ -449,7 +652,9 @@ BEGIN
     v_preimagen := vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(
         p_artefacto, true
     );
-    RETURN p_texto IS NOT DISTINCT FROM v_canon
+    RETURN p_recibo_texto IS NOT DISTINCT FROM
+           vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(p_recibo)
+       AND p_texto IS NOT DISTINCT FROM v_canon
        AND v_huella ~ '^[0-9a-f]{64}$'
        AND v_huella <> pg_catalog.repeat('0', 64)
        AND pg_catalog.encode(pg_catalog.sha256(
@@ -462,11 +667,17 @@ $funcion$;
 
 REVOKE ALL ON FUNCTION
     vec_contratacion_temporal.campo_canonico_seleccion_llamamiento_o6_v1(text, text),
+    vec_contratacion_temporal.entero_json_seleccion_llamamiento_o6_v1(jsonb),
     vec_contratacion_temporal.referencia_json_seleccion_llamamiento_o6_v1(jsonb),
     vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(jsonb),
+    vec_contratacion_temporal.solicitud_json_seleccion_llamamiento_o6_v1(jsonb),
+    vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(text),
+    vec_contratacion_temporal.recibo_json_seleccion_llamamiento_o6_v1(jsonb),
+    vec_contratacion_temporal.recibo_desde_texto_seleccion_llamamiento_o6_v1(text),
     vec_contratacion_temporal.artefacto_json_seleccion_llamamiento_o6_v1(jsonb, boolean),
     vec_contratacion_temporal.referencia_material_seleccion_llamamiento_o6_v1(text, jsonb),
     vec_contratacion_temporal.contexto_material_seleccion_llamamiento_o6_v1(jsonb),
+    vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(jsonb),
     vec_contratacion_temporal.materiales_ligados_seleccion_llamamiento_o6_v1(jsonb),
-    vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb, text, jsonb)
+    vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(jsonb, text, jsonb, text)
     FROM PUBLIC, vec_contratacion_temporal_ejecutor;

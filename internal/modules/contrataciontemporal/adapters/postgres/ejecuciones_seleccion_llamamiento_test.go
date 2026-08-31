@@ -160,6 +160,7 @@ func TestEjecucionesSeleccionO6ReservaClasificaTodosLosEstados(t *testing.T) {
 				(estado.ReciboConfirmado != recibo || estado.ArtefactoConfirmado != artefacto) {
 				t.Fatal("el terminal no conservo el par exacto")
 			}
+			exigirTextoCanonicoSeleccionO6Prueba(t, tx, 2, solicitudJSON)
 			exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadWrite,
 				funcionReservarSeleccionO6)
 		})
@@ -216,6 +217,8 @@ func TestEjecucionesSeleccionO6ConsultaEstadoPorParExacto(t *testing.T) {
 		estado.ReciboConfirmado != recibo || estado.ArtefactoConfirmado != artefacto {
 		t.Fatalf("consulta no ligada al par exacto: estado=%#v err=%v", estado, err)
 	}
+	exigirTextoCanonicoSeleccionO6Prueba(t, tx, 2,
+		string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)))
 	exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadOnly,
 		funcionConsultarSeleccionO6)
 }
@@ -258,12 +261,13 @@ func TestEjecucionesSeleccionO6MutaSoloMedianteFachadasNominales(t *testing.T) {
 			if err := caso.llamar(adaptador); err != nil {
 				t.Fatal(err)
 			}
+			exigirTextoCanonicoSeleccionO6Prueba(t, tx, 3,
+				string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)))
 			if caso.nombre == "confirmar" {
-				canonico := string(debeJSONSeleccionO6Prueba(t, artefacto))
-				recibido, ok := tx.argumentos[0][5].(string)
-				if !ok || recibido != canonico {
-					t.Fatalf("artefacto no cruzo como texto canonico exacto: %T", tx.argumentos[0][5])
-				}
+				exigirTextoCanonicoSeleccionO6Prueba(t, tx, 4,
+					string(debeJSONSeleccionO6Prueba(t, recibo)))
+				exigirTextoCanonicoSeleccionO6Prueba(t, tx, 5,
+					string(debeJSONSeleccionO6Prueba(t, artefacto)))
 			}
 			exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadWrite, caso.funcion)
 		})
@@ -430,8 +434,22 @@ func exigirTransaccionSeleccionO6Prueba(
 	if iniciador.inicios != 1 || iniciador.opciones.IsoLevel != pgx.Serializable ||
 		iniciador.opciones.AccessMode != modo || tx.configuraciones != 1 ||
 		tx.confirmaciones != 1 || len(tx.consultas) != 1 ||
-		!strings.Contains(tx.consultas[0], funcion) {
+		!strings.Contains(tx.consultas[0], funcion) || strings.Contains(tx.consultas[0], "::jsonb") {
 		t.Fatalf("frontera fisica incorrecta: iniciador=%#v tx=%#v", iniciador, tx)
+	}
+}
+
+func exigirTextoCanonicoSeleccionO6Prueba(
+	t *testing.T, tx *transaccionEjecucionSeleccionO6Prueba, indice int, esperado string,
+) {
+	t.Helper()
+	if len(tx.argumentos) != 1 || len(tx.argumentos[0]) <= indice {
+		t.Fatalf("argumentos de fachada incompletos: %#v", tx.argumentos)
+	}
+	recibido, ok := tx.argumentos[0][indice].(string)
+	if !ok || recibido != esperado {
+		t.Fatalf("carga no cruzo como text canonico exacto: indice=%d tipo=%T",
+			indice, tx.argumentos[0][indice])
 	}
 }
 

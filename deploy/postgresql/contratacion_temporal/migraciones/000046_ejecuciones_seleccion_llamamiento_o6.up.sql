@@ -6,46 +6,10 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'vec_contratacion_temporal:o6:ejecuciones-seleccion-llamamiento:v1', 0
 ));
 \ir 000046_ejecuciones_seleccion_llamamiento_o6_canon_r3.sql
-
-DO $puerta$
-BEGIN
-    IF pg_catalog.current_setting('server_version_num') <> '180004'
-       OR pg_catalog.getdatabaseencoding() IS DISTINCT FROM 'UTF8'
-       OR pg_catalog.to_regnamespace('vec_contratacion_temporal') IS NULL
-       OR pg_catalog.to_regrole('vec_contratacion_temporal_propietario') IS NULL
-       OR pg_catalog.to_regrole('vec_contratacion_temporal_ejecutor') IS NULL
-       OR pg_catalog.to_regprocedure(
-           'vec_contratacion_temporal.instante_utc_json_canonico_v2(jsonb,boolean)'
-       ) IS NULL
-       OR pg_catalog.to_regclass(
-           'vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6'
-       ) IS NOT NULL
-       OR EXISTS (
-           SELECT 1
-             FROM pg_catalog.pg_proc funcion
-            WHERE funcion.pronamespace =
-                  'vec_contratacion_temporal'::pg_catalog.regnamespace
-              AND funcion.proname = ANY(ARRAY[
-                  'resolver_terminal_seleccion_llamamiento_o6_v1',
-                  'reservar_seleccion_llamamiento_o6_v1',
-                  'abrir_ventana_seleccion_llamamiento_o6_v1',
-                  'marcar_indeterminada_seleccion_llamamiento_o6_v1',
-                  'liberar_seleccion_llamamiento_o6_v1',
-                  'confirmar_seleccion_llamamiento_o6_v1',
-                  'consultar_seleccion_llamamiento_o6_v1'
-              ]::name[])
-       ) THEN
-        RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'estado incompatible para instalar ejecuciones O6';
-    END IF;
-END
-$puerta$;
-
 CREATE TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
     clave_idempotencia uuid PRIMARY KEY,
     huella_semantica text NOT NULL
@@ -141,7 +105,14 @@ CREATE TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
             solicitud_json #>> '{finalidad,huella_sha256}' ~ '^[0-9a-f]{64}$' AND
             solicitud_json #>> '{necesidad,huella_sha256}' ~ '^[0-9a-f]{64}$' AND
             solicitud_json #>> '{bolsa,huella_sha256}' ~ '^[0-9a-f]{64}$' AND
-            solicitud_json #>> '{politica,huella_sha256}' ~ '^[0-9a-f]{64}$'
+            solicitud_json #>> '{politica,huella_sha256}' ~ '^[0-9a-f]{64}$' AND
+            pg_catalog.repeat('0', 64) <> ALL(ARRAY[
+                solicitud_json #>> '{accion_orden,huella_sha256}',
+                solicitud_json #>> '{finalidad,huella_sha256}',
+                solicitud_json #>> '{necesidad,huella_sha256}',
+                solicitud_json #>> '{bolsa,huella_sha256}',
+                solicitud_json #>> '{politica,huella_sha256}'
+            ])
         )
         CHECK (CASE WHEN
             pg_catalog.jsonb_typeof(solicitud_json #> '{accion_orden,version}') = 'number' AND
@@ -221,7 +192,6 @@ CREATE TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
     ) IS NOT DISTINCT FROM huella_semantica),
     CHECK (actualizada_en >= creada_en)
 );
-
 ALTER TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
@@ -230,7 +200,6 @@ CREATE POLICY propietario_ejecucion_seleccion_llamamiento_o6
     ON vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
     AS PERMISSIVE FOR ALL TO vec_contratacion_temporal_propietario
     USING (true) WITH CHECK (true);
-
 CREATE FUNCTION vec_contratacion_temporal.resolver_terminal_seleccion_llamamiento_o6_v1(
     p_clave uuid
 ) RETURNS TABLE (
@@ -260,9 +229,8 @@ BEGIN
     END IF;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_solicitud jsonb
+    p_clave uuid, p_huella text, p_solicitud_texto text
 ) RETURNS TABLE (
     situacion text, solicitud_json text, reserva_ref text,
     efecto text, recibo_json text, artefacto_json text
@@ -273,14 +241,20 @@ SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
     v_insertadas integer := 0;
+    p_solicitud jsonb;
     v_ejecucion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
 BEGIN
     IF NOT pg_catalog.pg_has_role(
         session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
     ) OR p_clave IS NULL OR p_huella IS NULL
-       OR p_huella !~ '^[0-9a-f]{64}$'
-       OR pg_catalog.jsonb_typeof(p_solicitud) IS DISTINCT FROM 'object'
-       OR pg_catalog.octet_length(p_solicitud::text) > 1048576
+       OR p_huella !~ '^[0-9a-f]{64}$' OR p_solicitud_texto IS NULL
+       OR pg_catalog.octet_length(p_solicitud_texto) > 1048576 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'reserva O6 invalida';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    IF p_solicitud IS NULL
        OR p_solicitud->>'clave_idempotencia' IS DISTINCT FROM p_clave::text
        OR p_solicitud->>'huella_semantica' IS DISTINCT FROM p_huella
        OR vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(
@@ -288,18 +262,15 @@ BEGIN
        ) IS DISTINCT FROM p_huella THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'reserva O6 invalida';
     END IF;
-
     INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
         clave_idempotencia, huella_semantica, solicitud_json
     ) VALUES (p_clave, p_huella, p_solicitud)
     ON CONFLICT (clave_idempotencia) DO NOTHING;
     GET DIAGNOSTICS v_insertadas = ROW_COUNT;
-
     SELECT ejecucion.* INTO STRICT v_ejecucion
       FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 ejecucion
      WHERE ejecucion.clave_idempotencia = p_clave
      FOR UPDATE;
-
     IF v_insertadas = 1 THEN
         RETURN QUERY SELECT 'propietaria', v_ejecucion.solicitud_json::text,
             v_ejecucion.reserva_ref, '', '', '';
@@ -317,15 +288,15 @@ BEGIN
     END IF;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_reserva text, p_solicitud jsonb, p_efecto text
+    p_clave uuid, p_huella text, p_reserva text, p_solicitud_texto text, p_efecto text
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET row_security = on SET TimeZone = 'UTC'
 SET lock_timeout = '2s' SET statement_timeout = '15s'
 SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
+    p_solicitud jsonb;
     v_ejecucion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
 BEGIN
     IF NOT pg_catalog.pg_has_role(
@@ -333,6 +304,12 @@ BEGIN
     ) OR p_efecto IS NULL
        OR p_efecto NOT IN ('preparar_orden', 'solicitar_llamamiento') THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'ventana O6 denegada';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    IF p_solicitud IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'ventana O6 invalida';
     END IF;
     SELECT ejecucion.* INTO STRICT v_ejecucion
       FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 ejecucion
@@ -358,15 +335,15 @@ BEGIN
     RETURN true;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_reserva text, p_solicitud jsonb, p_efecto text
+    p_clave uuid, p_huella text, p_reserva text, p_solicitud_texto text, p_efecto text
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET row_security = on SET TimeZone = 'UTC'
 SET lock_timeout = '2s' SET statement_timeout = '15s'
 SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
+    p_solicitud jsonb;
     v_ejecucion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
 BEGIN
     IF NOT pg_catalog.pg_has_role(
@@ -374,6 +351,12 @@ BEGIN
     ) OR p_efecto IS NULL
        OR p_efecto NOT IN ('preparar_orden', 'solicitar_llamamiento') THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'marca O6 denegada';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    IF p_solicitud IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'marca O6 invalida';
     END IF;
     SELECT ejecucion.* INTO STRICT v_ejecucion
       FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 ejecucion
@@ -394,9 +377,8 @@ BEGIN
     RETURN true;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_reserva text, p_solicitud jsonb
+    p_clave uuid, p_huella text, p_reserva text, p_solicitud_texto text
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET row_security = on SET TimeZone = 'UTC'
 SET lock_timeout = '2s' SET statement_timeout = '15s'
@@ -404,11 +386,18 @@ SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
     v_eliminadas integer;
+    p_solicitud jsonb;
 BEGIN
     IF NOT pg_catalog.pg_has_role(
         session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'liberacion O6 denegada';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    IF p_solicitud IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'liberacion O6 invalida';
     END IF;
     DELETE FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
      WHERE clave_idempotencia = p_clave AND huella_semantica = p_huella
@@ -423,16 +412,17 @@ BEGIN
     RETURN true;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_reserva text, p_solicitud jsonb,
-    p_recibo jsonb, p_artefacto text
+    p_clave uuid, p_huella text, p_reserva text, p_solicitud_texto text,
+    p_recibo_texto text, p_artefacto text
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET row_security = on SET TimeZone = 'UTC'
 SET lock_timeout = '2s' SET statement_timeout = '15s'
 SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
+    p_solicitud jsonb;
+    p_recibo jsonb;
     v_ejecucion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
     v_artefacto jsonb;
     v_comando jsonb;
@@ -445,12 +435,20 @@ BEGIN
     IF NOT pg_catalog.pg_has_role(
         session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
     ) OR p_clave IS NULL OR p_huella IS NULL OR p_reserva IS NULL
-       OR pg_catalog.jsonb_typeof(p_solicitud) IS DISTINCT FROM 'object'
-       OR pg_catalog.jsonb_typeof(p_recibo) IS DISTINCT FROM 'object'
-       OR p_artefacto IS NULL
-       OR pg_catalog.octet_length(p_solicitud::text) > 1048576
-       OR pg_catalog.octet_length(p_recibo::text) +
-          pg_catalog.octet_length(p_artefacto) > 1048576 THEN
+       OR p_solicitud_texto IS NULL OR p_recibo_texto IS NULL OR p_artefacto IS NULL
+       OR pg_catalog.octet_length(p_solicitud_texto) > 1048576
+       OR pg_catalog.octet_length(p_artefacto) > 1048576
+       OR pg_catalog.octet_length(p_recibo_texto) >
+          1048576 - pg_catalog.octet_length(p_artefacto) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'confirmacion O6 invalida';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    p_recibo := vec_contratacion_temporal.recibo_desde_texto_seleccion_llamamiento_o6_v1(
+        p_recibo_texto
+    );
+    IF p_solicitud IS NULL OR p_recibo IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'confirmacion O6 invalida';
     END IF;
     BEGIN
@@ -472,7 +470,6 @@ BEGIN
     v_procedencia := p_recibo->'procedencia';
     v_evidencia_recibo := v_procedencia->'evidencia';
     v_evidencia := v_artefacto->'evidencia';
-
     IF pg_catalog.jsonb_typeof(v_artefacto) IS DISTINCT FROM 'object'
        OR (v_artefacto ?& ARRAY['esquema','version','tipo','comando','recibo',
            'evidencia','clave_verificacion_ref','sello_hmac','huella_artefacto_sha256'])
@@ -532,7 +529,6 @@ BEGIN
            'valida_hasta','retener_hasta'] IS DISTINCT FROM '{}'::jsonb THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'confirmacion O6 invalida';
     END IF;
-
     IF EXISTS (
         SELECT 1 FROM (VALUES
             (v_comando->'necesidad'), (v_comando->'bolsa'),
@@ -590,7 +586,7 @@ BEGIN
        OR v_artefacto->>'huella_artefacto_sha256' !~ '^[0-9a-f]{64}$'
        OR v_artefacto->>'huella_artefacto_sha256' = pg_catalog.repeat('0', 64)
        OR NOT vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
-           v_artefacto, p_artefacto, p_recibo
+           v_artefacto, p_artefacto, p_recibo, p_recibo_texto
        )
        OR pg_catalog.jsonb_typeof(v_comando->'huella_recibo_orden') IS DISTINCT FROM 'string'
        OR v_comando->>'huella_recibo_orden' !~ '^[0-9a-f]{64}$'
@@ -664,6 +660,10 @@ BEGIN
           (v_evidencia_recibo->>'emitida_en')::timestamptz > interval '15 minutes'
        OR (v_evidencia_recibo->>'retener_hasta')::timestamptz <=
           (v_evidencia_recibo->>'valida_hasta')::timestamptz
+       OR (v_evidencia_recibo->>'emitida_en')::timestamptz >=
+          (v_datos->>'valida_hasta')::timestamptz
+       OR (v_evidencia_recibo->>'valida_hasta')::timestamptz >
+          (v_datos->>'valida_hasta')::timestamptz
        OR (p_recibo->>'confirmada_en')::timestamptz <
           (v_datos->>'solicitada_en')::timestamptz
        OR (p_recibo->>'confirmada_en')::timestamptz >
@@ -726,9 +726,8 @@ BEGIN
     RETURN true;
 END
 $funcion$;
-
 CREATE FUNCTION vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(
-    p_clave uuid, p_huella text, p_solicitud jsonb
+    p_clave uuid, p_huella text, p_solicitud_texto text
 ) RETURNS TABLE (
     situacion text, solicitud_json text, reserva_ref text,
     efecto text, recibo_json text, artefacto_json text
@@ -738,14 +737,20 @@ SET lock_timeout = '2s' SET statement_timeout = '15s'
 SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
+    p_solicitud jsonb;
     v_ejecucion vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6%ROWTYPE;
 BEGIN
     IF NOT pg_catalog.pg_has_role(
         session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
     ) OR p_clave IS NULL OR p_huella IS NULL
-       OR pg_catalog.jsonb_typeof(p_solicitud) IS DISTINCT FROM 'object'
-       OR pg_catalog.octet_length(p_solicitud::text) > 1048576 THEN
+       OR p_solicitud_texto IS NULL OR pg_catalog.octet_length(p_solicitud_texto) > 1048576 THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'consulta O6 denegada';
+    END IF;
+    p_solicitud := vec_contratacion_temporal.solicitud_desde_texto_seleccion_llamamiento_o6_v1(
+        p_solicitud_texto
+    );
+    IF p_solicitud IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'consulta O6 invalida';
     END IF;
     SELECT ejecucion.* INTO v_ejecucion
       FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 ejecucion
@@ -766,32 +771,30 @@ BEGIN
     END IF;
 END
 $funcion$;
-
 REVOKE ALL ON TABLE
     vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
     FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 REVOKE ALL ON FUNCTION
     vec_contratacion_temporal.resolver_terminal_seleccion_llamamiento_o6_v1(uuid),
-    vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid, text, jsonb),
-    vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
-    vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
-    vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb),
-    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, text),
-    vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, jsonb)
+    vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid, text, text),
+    vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, text, text),
+    vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, text, text),
+    vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, text),
+    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, text, text, text),
+    vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, text)
     FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 GRANT USAGE ON SCHEMA vec_contratacion_temporal
     TO vec_contratacion_temporal_ejecutor;
 GRANT EXECUTE ON FUNCTION
     vec_contratacion_temporal.resolver_terminal_seleccion_llamamiento_o6_v1(uuid),
-    vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid, text, jsonb),
-    vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
-    vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
-    vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb),
-    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, text),
-    vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, jsonb)
+    vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1(uuid, text, text),
+    vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, text, text),
+    vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, text, text),
+    vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, text),
+    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, text, text, text),
+    vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, text)
     TO vec_contratacion_temporal_ejecutor;
 
 COMMENT ON TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 IS
 'CT-LITE-O6-03: ejecuciones idempotentes minimizadas; no contiene identidad directa';
-
 COMMIT;

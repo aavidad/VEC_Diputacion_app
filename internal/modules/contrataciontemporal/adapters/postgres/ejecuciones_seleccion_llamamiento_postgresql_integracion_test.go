@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-const rolAjenoSeleccionO6Integracion = "vec_ct_o6_ajeno_prueba"
+const (
+	rolAjenoSeleccionO6Integracion = "vec_ct_o6_ajeno_prueba"
+	sesionesSeleccionO6Integracion = 8
+)
 
 // TestEjecucionesSeleccionO6PostgreSQLGoATerminal se prepara para el runner
 // PostgreSQL 18.4. Las puertas Go ordinarias lo compilan, pero nunca abren una
@@ -27,6 +31,9 @@ func TestEjecucionesSeleccionO6PostgreSQLGoATerminal(t *testing.T) {
 	if os.Getenv("VEC_CT_O6_INTEGRACION_PG") != "SI" ||
 		os.Getenv("VEC_CT_O6_BD_DESECHABLE") != "SI" {
 		t.Skip("integracion PostgreSQL O6 no solicitada")
+	}
+	if os.Getenv("VEC_CT_O6_SESIONES_CONCURRENTES") != "8" {
+		t.Fatal("el runner no fijo las ocho sesiones concurrentes exigidas")
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelar()
@@ -44,6 +51,8 @@ func TestEjecucionesSeleccionO6PostgreSQLGoATerminal(t *testing.T) {
 
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	borrarEjecucionSeleccionO6Integracion(t, context.Background(), admin, solicitud.ClaveIdempotencia)
+	probarConcurrenciaSeleccionO6Integracion(t, ctx, admin, solicitud)
+	probarHuellasNulasSolicitudSeleccionO6Integracion(t, ctx, admin, solicitud)
 	if os.Getenv("VEC_CT_O6_CONSERVAR_HISTORIA") != "SI" {
 		t.Cleanup(func() {
 			borrarEjecucionSeleccionO6Integracion(t, context.Background(), admin, solicitud.ClaveIdempotencia)
@@ -115,7 +124,7 @@ func TestEjecucionesSeleccionO6PostgreSQLGoATerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 	probarEncuadresNoCanonicosSeleccionO6Integracion(
-		t, ctx, poolEjecutor, reserva, recibo, artefacto,
+		t, ctx, admin, poolEjecutor, reserva, recibo, artefacto,
 	)
 	if err = adaptador.Confirmar(ctx, reserva, recibo, artefacto); err != nil {
 		t.Fatal(err)
@@ -160,7 +169,7 @@ func probarHuellaNoAutoritativaSeleccionO6Integracion(
 	var fila filaEjecucionSeleccionO6
 	err := pool.QueryRow(ctx, `SELECT situacion, solicitud_json, reserva_ref,
 		efecto, recibo_json, artefacto_json FROM `+funcionReservarSeleccionO6+`(
-		$1::uuid,$2::text,$3::jsonb)`, solicitud.ClaveIdempotencia,
+		$1::uuid,$2::text,$3::text)`, solicitud.ClaveIdempotencia,
 		strings.Repeat("0", 64), contenido).Scan(
 		&fila.Situacion, &fila.SolicitudJSON, &fila.ReservaRef,
 		&fila.Efecto, &fila.ReciboJSON, &fila.ArtefactoJSON,
@@ -168,6 +177,120 @@ func probarHuellaNoAutoritativaSeleccionO6Integracion(
 	var falloPG *pgconn.PgError
 	if !errors.As(err, &falloPG) || falloPG.Code != "22023" {
 		t.Fatalf("huella no autoritativa aceptada: fila=%#v err=%v", fila, err)
+	}
+}
+
+func probarConcurrenciaSeleccionO6Integracion(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+) {
+	t.Helper()
+	poolPropietario := nuevoPoolEjecutorSeleccionO6Integracion(t, ctx)
+	propietario, err := NuevasEjecucionesSeleccionLlamamientoPostgreSQL(poolPropietario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	estadoPropietario, err := propietario.Reservar(ctx, solicitud)
+	if err != nil || estadoPropietario.Situacion != ports.EjecucionSeleccionLlamamientoPropietaria {
+		t.Fatalf("no se preparo propietario para la contencion: estado=%#v err=%v",
+			estadoPropietario, err)
+	}
+	poolPropietario.Close()
+	type resultado struct {
+		estado ports.EstadoEjecucionSeleccionLlamamiento
+		err    error
+	}
+	adaptadores := make([]*EjecucionesSeleccionLlamamientoPostgreSQL, sesionesSeleccionO6Integracion)
+	pools := make([]*pgxpool.Pool, sesionesSeleccionO6Integracion)
+	pids := make(map[int32]struct{}, sesionesSeleccionO6Integracion)
+	for indice := range sesionesSeleccionO6Integracion {
+		pools[indice] = nuevoPoolEjecutorSeleccionO6Integracion(t, ctx)
+		defer pools[indice].Close()
+		var pid int32
+		if err := pools[indice].QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&pid); err != nil {
+			t.Fatal(err)
+		}
+		pids[pid] = struct{}{}
+		adaptador, err := NuevasEjecucionesSeleccionLlamamientoPostgreSQL(pools[indice])
+		if err != nil {
+			t.Fatal(err)
+		}
+		adaptadores[indice] = adaptador
+	}
+	if len(pids) != sesionesSeleccionO6Integracion {
+		t.Fatalf("la carrera no preparo ocho sesiones distintas: %d", len(pids))
+	}
+	inicio := make(chan struct{})
+	resultados := make(chan resultado, sesionesSeleccionO6Integracion)
+	var grupo sync.WaitGroup
+	for _, adaptador := range adaptadores {
+		grupo.Add(1)
+		go func(adaptador *EjecucionesSeleccionLlamamientoPostgreSQL) {
+			defer grupo.Done()
+			<-inicio
+			estado, err := adaptador.Reservar(ctx, solicitud)
+			resultados <- resultado{estado: estado, err: err}
+		}(adaptador)
+	}
+	close(inicio)
+	grupo.Wait()
+	close(resultados)
+	ocupadas := 0
+	for resultado := range resultados {
+		if resultado.err != nil {
+			t.Fatalf("sesion concurrente fallo: %v", resultado.err)
+		}
+		switch resultado.estado.Situacion {
+		case ports.EjecucionSeleccionLlamamientoOcupada:
+			ocupadas++
+		default:
+			t.Fatalf("estado concurrente inesperado: %#v", resultado.estado)
+		}
+	}
+	if ocupadas != sesionesSeleccionO6Integracion {
+		t.Fatalf("contencion de ocho sesiones divergente: ocupadas=%d", ocupadas)
+	}
+	borrarEjecucionSeleccionO6Integracion(t, context.Background(), admin, solicitud.ClaveIdempotencia)
+}
+
+func probarHuellasNulasSolicitudSeleccionO6Integracion(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+) {
+	t.Helper()
+	canonico := debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)
+	pool := nuevoPoolEjecutorSeleccionO6Integracion(t, ctx)
+	defer pool.Close()
+	for _, caso := range []struct{ campo, huella string }{
+		{"accion_orden", solicitud.AccionOrden.HuellaSHA256},
+		{"finalidad", solicitud.Finalidad.HuellaSHA256},
+		{"necesidad", solicitud.Necesidad.HuellaSHA256},
+		{"bolsa", solicitud.Bolsa.HuellaSHA256},
+		{"politica", solicitud.Politica.HuellaSHA256},
+	} {
+		t.Run("huella nula solicitud "+caso.campo, func(t *testing.T) {
+			mutada := reemplazarUnaVezSeleccionO6Integracion(t, string(canonico),
+				`"huella_sha256":"`+caso.huella+`"`,
+				`"huella_sha256":"`+strings.Repeat("0", 64)+`"`)
+			_, err := pool.Exec(ctx, `SELECT * FROM `+funcionReservarSeleccionO6+`(
+				$1::uuid,$2::text,$3::text)`, solicitud.ClaveIdempotencia,
+				solicitud.HuellaSemantica, mutada)
+			var falloPG *pgconn.PgError
+			if !errors.As(err, &falloPG) || falloPG.Code != "22023" {
+				t.Fatalf("la fachada acepto huella nula %s: %v", caso.campo, err)
+			}
+			var rechazada bool
+			if err := admin.QueryRow(ctx, `SELECT
+				vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(
+				$1::jsonb) IS NULL`, mutada).Scan(&rechazada); err != nil || !rechazada {
+				t.Fatalf("el recomputador acepto huella nula %s: rechazada=%v err=%v",
+					caso.campo, rechazada, err)
+			}
+		})
 	}
 }
 
@@ -263,7 +386,7 @@ func probarACLSeleccionO6Integracion(t *testing.T, ctx context.Context, admin *p
 				nombre, propietario, definidora, ejecutor, publico, ajeno, configuracion)
 		}
 	}
-	if err = filas.Err(); err != nil || conteo != 15 {
+	if err = filas.Err(); err != nil || conteo != 21 {
 		t.Fatalf("inventario de funciones O6 incompleto: conteo=%d err=%v", conteo, err)
 	}
 	var tablaEjecutor, tablaAjena, tablaPublica bool
@@ -315,59 +438,199 @@ func contieneConfiguracionSeleccionO6(configuracion []string, buscada string) bo
 func probarEncuadresNoCanonicosSeleccionO6Integracion(
 	t *testing.T,
 	ctx context.Context,
+	admin *pgxpool.Pool,
 	pool *pgxpool.Pool,
 	reserva ports.ReservaEjecucionSeleccionLlamamiento,
 	recibo ports.ReciboSolicitudLlamamientoBolsa,
 	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
 ) {
 	t.Helper()
-	solicitudJSON := debeCodificarSolicitudSeleccionO6Prueba(t, reserva.Solicitud)
-	reciboJSON := debeJSONSeleccionO6Prueba(t, recibo)
-	canonico := debeJSONSeleccionO6Prueba(t, artefacto)
+	solicitudJSON := string(debeCodificarSolicitudSeleccionO6Prueba(t, reserva.Solicitud))
+	reciboJSON := string(debeJSONSeleccionO6Prueba(t, recibo))
+	canonico := string(debeJSONSeleccionO6Prueba(t, artefacto))
 	var vista map[string]any
-	if err := json.Unmarshal(canonico, &vista); err != nil {
+	if err := json.Unmarshal([]byte(canonico), &vista); err != nil {
 		t.Fatal(err)
 	}
-	reordenado := debeJSONSeleccionO6Prueba(t, vista)
-	duplicado := strings.Replace(string(canonico), `{"esquema":`,
-		`{"esquema":"sustituido","esquema":`, 1)
-	versionTexto := strings.Replace(string(canonico), `"version":1`, `"version":"1"`, 1)
-	contratoTexto := strings.ReplaceAll(string(canonico),
-		`"contrato_version":1`, `"contrato_version":"1"`)
+	reordenado := string(debeJSONSeleccionO6Prueba(t, vista))
+	duplicado := reemplazarUnaVezSeleccionO6Integracion(t, canonico, `{"esquema":`,
+		`{"esquema":"sustituido","esquema":`)
+	versionTexto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
+		`"version":1`, `"version":"1"`)
+	contratoTexto := reemplazarNSeleccionO6Integracion(t, canonico,
+		`"contrato_version":1`, `"contrato_version":"1"`, 2)
+	decimalArtefacto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
+		`"total_posiciones_orden":3`, `"total_posiciones_orden":3.0`)
+	decimalArtefacto = rehuellarArtefactoSeleccionO6Integracion(
+		t, decimalArtefacto, artefacto.HuellaArtefactoSHA256,
+	)
+	exponenteArtefacto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
+		`"total_posiciones_orden":3`, `"total_posiciones_orden":3e0`)
+	exponenteArtefacto = rehuellarArtefactoSeleccionO6Integracion(
+		t, exponenteArtefacto, artefacto.HuellaArtefactoSHA256,
+	)
 	referenciaPropuesta := `"propuesta":{"referencia":"` + recibo.Propuesta.Referencia + `"`
 	referenciaPropuestaDistinta := `"propuesta":{"referencia":"propuesta:bolsa:otra"`
-	artefactoDesligado := strings.Replace(string(canonico),
-		referenciaPropuesta, referenciaPropuestaDistinta, 1)
+	artefactoDesligado := reemplazarUnaVezSeleccionO6Integracion(
+		t, canonico, referenciaPropuesta, referenciaPropuestaDistinta,
+	)
 	artefactoDesligado = rehuellarArtefactoSeleccionO6Integracion(
 		t, artefactoDesligado, artefacto.HuellaArtefactoSHA256,
 	)
-	reciboDesligado := strings.Replace(string(reciboJSON),
-		referenciaPropuesta, referenciaPropuestaDistinta, 1)
-	casos := map[string]struct {
+	reciboDesligado := reemplazarUnaVezSeleccionO6Integracion(
+		t, reciboJSON, referenciaPropuesta, referenciaPropuestaDistinta,
+	)
+	type casoEncuadre struct {
+		nombre    string
+		solicitud string
 		artefacto string
 		recibo    string
-	}{
-		"orden distinto":  {string(reordenado), string(reciboJSON)},
-		"clave duplicada": {duplicado, string(reciboJSON)},
-		"version textual": {versionTexto, string(reciboJSON)},
-		"contrato textual": {
-			contratoTexto, string(reciboJSON),
-		},
-		"material desligado": {artefactoDesligado, reciboDesligado},
 	}
-	for nombre, caso := range casos {
-		t.Run(nombre, func(t *testing.T) {
+	nuevoCaso := func(nombre, solicitud, reciboMutado, artefactoMutado string) casoEncuadre {
+		return casoEncuadre{nombre: nombre, solicitud: solicitud,
+			recibo: reciboMutado, artefacto: artefactoMutado}
+	}
+	casos := []casoEncuadre{
+		nuevoCaso("orden de claves artefacto", solicitudJSON, reciboJSON, reordenado),
+		nuevoCaso("clave duplicada artefacto", solicitudJSON, reciboJSON, duplicado),
+		nuevoCaso("version textual artefacto", solicitudJSON, reciboJSON, versionTexto),
+		nuevoCaso("contrato textual artefacto", solicitudJSON, reciboJSON, contratoTexto),
+		nuevoCaso("decimal artefacto", solicitudJSON, reciboJSON, decimalArtefacto),
+		nuevoCaso("exponente artefacto", solicitudJSON, reciboJSON, exponenteArtefacto),
+		nuevoCaso("material desligado", solicitudJSON, reciboDesligado, artefactoDesligado),
+		nuevoCaso("decimal solicitud", reemplazarUnaVezSeleccionO6Integracion(
+			t, solicitudJSON, `"version_expediente":7`, `"version_expediente":7.0`),
+			reciboJSON, canonico),
+		nuevoCaso("exponente solicitud", reemplazarUnaVezSeleccionO6Integracion(
+			t, solicitudJSON, `"version_expediente":7`, `"version_expediente":7e0`),
+			reciboJSON, canonico),
+		nuevoCaso("duplicada solicitud", reemplazarUnaVezSeleccionO6Integracion(
+			t, solicitudJSON, `{"clave_idempotencia":`,
+			`{"clave_idempotencia":"`+reserva.Solicitud.ClaveIdempotencia+`","clave_idempotencia":`),
+			reciboJSON, canonico),
+		nuevoCaso("decimal recibo", solicitudJSON, reemplazarUnaVezSeleccionO6Integracion(
+			t, reciboJSON, `"orden_seleccionado":2`, `"orden_seleccionado":2.0`), canonico),
+		nuevoCaso("exponente recibo", solicitudJSON, reemplazarUnaVezSeleccionO6Integracion(
+			t, reciboJSON, `"orden_seleccionado":2`, `"orden_seleccionado":2e0`), canonico),
+		nuevoCaso("duplicada recibo", solicitudJSON, reemplazarUnaVezSeleccionO6Integracion(
+			t, reciboJSON, `{"operacion_ref":`,
+			`{"operacion_ref":"`+recibo.OperacionRef+`","operacion_ref":`), canonico),
+	}
+	for _, mutacion := range []struct{ nombre, anterior, posterior string }{
+		{"accion", `"accion:evento:001"`, `"accion:evento:mutada"`},
+		{"evento", `"evento:llamamiento:001"`, `"evento:llamamiento:mutado"`},
+		{"llamamiento", `"llamamiento:seleccion:001"`, `"llamamiento:seleccion:mutado"`},
+		{"seleccion", strings.Repeat("9", 64), strings.Repeat("8", 64)},
+		{"retencion", `"retencion:seleccion:001"`, `"retencion:seleccion:mutada"`},
+		{"orden", `"orden_seleccionado":2`, `"orden_seleccionado":3`},
+	} {
+		reciboMutado := reemplazarUnaVezSeleccionO6Integracion(
+			t, reciboJSON, mutacion.anterior, mutacion.posterior,
+		)
+		artefactoMutado := reemplazarUnaVezSeleccionO6Integracion(
+			t, canonico, mutacion.anterior, mutacion.posterior,
+		)
+		artefactoMutado = rehuellarArtefactoSeleccionO6Integracion(
+			t, artefactoMutado, artefacto.HuellaArtefactoSHA256,
+		)
+		casos = append(casos, nuevoCaso(
+			"ligadura "+mutacion.nombre, solicitudJSON, reciboMutado, artefactoMutado,
+		))
+	}
+	casos = append(casos,
+		mutacionCronologicaSeleccionO6Integracion(t, ctx, admin, reserva, recibo,
+			artefacto, "evidencia emitida fuera de contexto", "2026-08-31T09:02:00Z",
+			"2026-08-31T09:10:00Z", "2026-08-31T09:08:00Z", "2026-08-31T09:11:00Z"),
+		mutacionCronologicaSeleccionO6Integracion(t, ctx, admin, reserva, recibo,
+			artefacto, "evidencia valida fuera de contexto", "2026-08-31T09:02:00Z",
+			"2026-08-31T09:02:00Z", "2026-08-31T09:08:00Z", "2026-08-31T09:11:00Z"),
+	)
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if caso.solicitud == solicitudJSON && caso.recibo == reciboJSON &&
+				caso.artefacto == canonico {
+				t.Fatal("la mutacion no produjo cambio efectivo")
+			}
 			var aplicada bool
 			err := pool.QueryRow(ctx, `SELECT `+funcionConfirmarSeleccionO6+`(
-				$1::uuid,$2::text,$3::text,$4::jsonb,$5::jsonb,$6::text)`,
+				$1::uuid,$2::text,$3::text,$4::text,$5::text,$6::text)`,
 				reserva.Solicitud.ClaveIdempotencia, reserva.Solicitud.HuellaSemantica,
-				reserva.ReservaRef, solicitudJSON, caso.recibo, caso.artefacto).Scan(&aplicada)
+				reserva.ReservaRef, caso.solicitud, caso.recibo, caso.artefacto).Scan(&aplicada)
 			var falloPG *pgconn.PgError
 			if !errors.As(err, &falloPG) || falloPG.Code != "22023" {
 				t.Fatalf("encuadre no canonico aceptado: aplicada=%v err=%v", aplicada, err)
 			}
 		})
 	}
+}
+
+func mutacionCronologicaSeleccionO6Integracion(
+	t *testing.T, ctx context.Context, admin *pgxpool.Pool,
+	reserva ports.ReservaEjecucionSeleccionLlamamiento,
+	recibo ports.ReciboSolicitudLlamamientoBolsa,
+	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
+	nombre, emitidaAnterior, emitidaNueva, validaAnterior, validaNueva string,
+) struct{ nombre, solicitud, artefacto, recibo string } {
+	t.Helper()
+	reciboMutado := string(debeJSONSeleccionO6Prueba(t, recibo))
+	if emitidaAnterior != emitidaNueva {
+		reciboMutado = reemplazarNSeleccionO6Integracion(t, reciboMutado,
+			`"emitida_en":"`+emitidaAnterior+`"`, `"emitida_en":"`+emitidaNueva+`"`, 1)
+	}
+	reciboMutado = reemplazarNSeleccionO6Integracion(t, reciboMutado,
+		`"valida_hasta":"`+validaAnterior+`"`, `"valida_hasta":"`+validaNueva+`"`, 1)
+	artefactoMutado := string(debeJSONSeleccionO6Prueba(t, artefacto))
+	if emitidaAnterior != emitidaNueva {
+		artefactoMutado = reemplazarNSeleccionO6Integracion(t, artefactoMutado,
+			`"emitida_en":"`+emitidaAnterior+`"`, `"emitida_en":"`+emitidaNueva+`"`, 2)
+	}
+	artefactoMutado = reemplazarNSeleccionO6Integracion(t, artefactoMutado,
+		`"valida_hasta":"`+validaAnterior+`"`, `"valida_hasta":"`+validaNueva+`"`, 2)
+	artefactoMutado = rehuellarMaterialesSeleccionO6Integracion(t, ctx, admin,
+		artefactoMutado, artefacto)
+	artefactoMutado = rehuellarArtefactoSeleccionO6Integracion(
+		t, artefactoMutado, artefacto.HuellaArtefactoSHA256,
+	)
+	return struct{ nombre, solicitud, artefacto, recibo string }{
+		nombre: nombre, solicitud: string(debeCodificarSolicitudSeleccionO6Prueba(t, reserva.Solicitud)),
+		artefacto: artefactoMutado, recibo: reciboMutado,
+	}
+}
+
+func rehuellarMaterialesSeleccionO6Integracion(
+	t *testing.T, ctx context.Context, admin *pgxpool.Pool, contenido string,
+	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
+) string {
+	t.Helper()
+	var peticion, respuesta string
+	err := admin.QueryRow(ctx, `SELECT huellas[1], huellas[2] FROM (
+		SELECT vec_contratacion_temporal.huellas_materiales_seleccion_llamamiento_o6_v1(
+			$1::jsonb) AS huellas
+	) calculo`, contenido).Scan(&peticion, &respuesta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido = reemplazarUnaVezSeleccionO6Integracion(t, contenido,
+		`"huella_peticion_sha256":"`+artefacto.Evidencia.HuellaPeticionSHA256+`"`,
+		`"huella_peticion_sha256":"`+peticion+`"`)
+	return reemplazarUnaVezSeleccionO6Integracion(t, contenido,
+		`"huella_respuesta_sha256":"`+artefacto.Evidencia.HuellaRespuestaSHA256+`"`,
+		`"huella_respuesta_sha256":"`+respuesta+`"`)
+}
+
+func reemplazarUnaVezSeleccionO6Integracion(t *testing.T, texto, anterior, posterior string) string {
+	t.Helper()
+	return reemplazarNSeleccionO6Integracion(t, texto, anterior, posterior, 1)
+}
+
+func reemplazarNSeleccionO6Integracion(
+	t *testing.T, texto, anterior, posterior string, esperadas int,
+) string {
+	t.Helper()
+	if anterior == posterior || strings.Count(texto, anterior) != esperadas {
+		t.Fatalf("mutacion no efectiva o cardinalidad inesperada: %q", anterior)
+	}
+	return strings.Replace(texto, anterior, posterior, esperadas)
 }
 
 func rehuellarArtefactoSeleccionO6Integracion(

@@ -117,8 +117,8 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) Reservar(
 	fila, err := e.consultarFila(ctx, pgx.ReadWrite, `
 		SELECT situacion, solicitud_json::text, reserva_ref, efecto,
 		       recibo_json::text, artefacto_json::text
-		  FROM `+funcionReservarSeleccionO6+`($1::uuid, $2::text, $3::jsonb)`,
-		solicitud.ClaveIdempotencia, solicitud.HuellaSemantica, contenido)
+		  FROM `+funcionReservarSeleccionO6+`($1::uuid, $2::text, $3::text)`,
+		solicitud.ClaveIdempotencia, solicitud.HuellaSemantica, string(contenido))
 	if err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, err
 	}
@@ -180,9 +180,9 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) Confirmar(
 	}
 	return e.ejecutar(ctx, `
 		SELECT `+funcionConfirmarSeleccionO6+`(
-			$1::uuid, $2::text, $3::text, $4::jsonb, $5::jsonb, $6::text
+			$1::uuid, $2::text, $3::text, $4::text, $5::text, $6::text
 		)`, reserva.Solicitud.ClaveIdempotencia, reserva.Solicitud.HuellaSemantica,
-		reserva.ReservaRef, solicitudJSON, reciboJSON, string(artefactoJSON))
+		reserva.ReservaRef, string(solicitudJSON), string(reciboJSON), string(artefactoJSON))
 }
 
 func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ConsultarEstado(
@@ -197,8 +197,8 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ConsultarEstado(
 	fila, err := e.consultarFila(ctx, pgx.ReadOnly, `
 		SELECT situacion, solicitud_json::text, reserva_ref, efecto,
 		       recibo_json::text, artefacto_json::text
-		  FROM `+funcionConsultarSeleccionO6+`($1::uuid, $2::text, $3::jsonb)`,
-		solicitud.ClaveIdempotencia, solicitud.HuellaSemantica, contenido)
+		  FROM `+funcionConsultarSeleccionO6+`($1::uuid, $2::text, $3::text)`,
+		solicitud.ClaveIdempotencia, solicitud.HuellaSemantica, string(contenido))
 	if err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, err
 	}
@@ -221,9 +221,9 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ejecutarReserva(
 		return errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
 	argumentos := []any{reserva.Solicitud.ClaveIdempotencia,
-		reserva.Solicitud.HuellaSemantica, reserva.ReservaRef, contenido}
+		reserva.Solicitud.HuellaSemantica, reserva.ReservaRef, string(contenido)}
 	argumentos = append(argumentos, extra...)
-	marcadores := "$1::uuid, $2::text, $3::text, $4::jsonb"
+	marcadores := "$1::uuid, $2::text, $3::text, $4::text"
 	if len(extra) == 1 {
 		marcadores += ", $5::text"
 	}
