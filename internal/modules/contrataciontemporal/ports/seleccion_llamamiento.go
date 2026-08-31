@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"time"
 
@@ -85,6 +86,54 @@ func (ConsultaTerminalAutorizada) MarshalJSON() ([]byte, error) {
 }
 
 func (*ConsultaTerminalAutorizada) UnmarshalJSON([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) UnmarshalText([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) UnmarshalBinary([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) GobEncode() ([]byte, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) GobDecode([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) MarshalCBOR() ([]byte, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) UnmarshalCBOR([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) MarshalYAML() (any, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) UnmarshalYAML(func(any) error) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (ConsultaTerminalAutorizada) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
+func (*ConsultaTerminalAutorizada) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
 	return ErrSerializacionCapacidadBolsa
 }
 
