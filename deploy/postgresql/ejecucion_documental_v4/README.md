@@ -10,6 +10,27 @@ ejecucion documental, las extensiones transaccionales del nucleo de
 autorizacion y un runner efimero sobre PostgreSQL 18.4. La aplicacion no aplica
 estas migraciones durante el arranque.
 
+La migracion propietaria
+`migraciones/000002_registro_efectos_generacion_documental_v1` es aditiva e
+independiente de `migraciones_autorizacion`. Deriva y reserva en SQL la tupla
+canonica decision/efecto/plan/manifiesto, materializa antes del efecto todos
+los pasos y conserva auditoria y outbox en la cadena global dentro de la misma
+transaccion. Sus cuatro tablas son privadas, de solo adicion y tienen RLS
+forzada.
+
+El ejecutor atestado solo recibe `EXECUTE` sobre tres operaciones:
+
+- `reservar_efecto_generacion_documental_v1`, con replay exacto y conflicto
+  cerrado;
+- `confirmar_paso_generacion_documental_v1`, idempotente solo para la misma
+  confirmacion terminal;
+- `marcar_paso_generacion_documental_indeterminado_v1`, terminal y sin
+  promocion posterior a confirmado.
+
+No existe operacion de liberar, borrar o reintentar. La retirada usa
+`RESTRICT` y exige el opt-in literal y especifico de la migracion. Este corte
+no incorpora adaptador Go ni activa la composicion real.
+
 `roles_up.sql` exige superusuario antes de crear estado. `CREATEROLE`, incluso
 combinado con la propiedad de la base, no es una autoridad de bootstrap valida.
 
@@ -53,12 +74,20 @@ cualquier dependencia no prevista.
 
 ## Prueba real
 
+La ejecucion PostgreSQL 18.4 de esta migracion queda pendiente por orden de
+direccion en el candidato actual. Solo se han autorizado comprobaciones
+estaticas; el runner siguiente es la prueba requerida durante la revision
+independiente.
+
 ```bash
 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 ```
 
 Ademas de migraciones, ACL, RLS y pruebas Go, el runner comprueba:
 
+- reserva concurrente de decision, manifiesto y pasos, replay exacto, cierres
+  confirmado e indeterminado, auditoria/outbox atomicos y retirada opt-in del
+  registro de efectos;
 - rechazo sin estado de un propietario de base con `CREATEROLE` pero no
   superusuario;
 - retirada y reinstalacion limpias de un bootstrap interrumpido antes de la

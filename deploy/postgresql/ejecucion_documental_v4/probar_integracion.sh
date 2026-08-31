@@ -389,6 +389,43 @@ if [[ "${VEC_POSTGRES_PRUEBA_SOLO_SQL:-0}" != "1" ]]; then
         -run '^TestIntegracionEjecucionDocumentalV4PostgreSQLReal$' -count=1)
 fi
 
+# El registro de efectos es una migracion propietaria posterior y no altera
+# las puertas historicas anteriores. Dos sesiones reservan la misma tupla: la
+# primera retiene la transaccion y la segunda debe converger al replay exacto.
+docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/migraciones/000002_registro_efectos_generacion_documental_v1.up.sql"
+docker exec --interactive --env PGAPPNAME=vec_v4_reserva_efecto_uno \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --set solo_reserva=1 --set retener_reserva=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql" &
+pid_reserva_efecto_uno=$!
+reserva_efecto_retenida=false
+for _ in $(seq 1 30); do
+    estado=$(docker exec "$contenedor" psql --tuples-only --no-align \
+        --username postgres --dbname "$base" \
+        --command "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name = 'vec_v4_reserva_efecto_uno' AND state = 'active' AND query LIKE 'SELECT pg_sleep(3)%'")
+    if [[ "$estado" == "1" ]]; then
+        reserva_efecto_retenida=true
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$reserva_efecto_retenida" != true ]]; then
+    wait "$pid_reserva_efecto_uno" || true
+    echo "no se observo la reserva documental concurrente" >&2
+    exit 1
+fi
+docker exec --interactive --env PGAPPNAME=vec_v4_reserva_efecto_dos \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --set solo_reserva=1 --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql"
+wait "$pid_reserva_efecto_uno"
+docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql"
+
 # En modo solo SQL no existe una orden real. Se marca en el contenedor efimero
 # un estado de auditoria no vacio para ejercer igualmente la guarda destructiva.
 docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
@@ -433,6 +470,21 @@ BEGIN
 END
 $conservada$;
 SQL
+
+# La migracion aditiva tiene su propio consentimiento destructivo. Se prueba
+# primero la denegacion y despues se retira antes de desmontar 000001.
+if docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/migraciones/000002_registro_efectos_generacion_documental_v1.down.sql" \
+    >/dev/null 2>&1; then
+    echo "el down del registro de efectos acepto borrar evidencia sin opt-in" >&2
+    exit 1
+fi
+docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_destruccion_registro_efectos_generacion_documental_v1=DESTRUIR_REGISTRO_EFECTOS_GENERACION_DOCUMENTAL_V1" \
+    "$contenedor" psql --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/ejecucion_documental_v4/migraciones/000002_registro_efectos_generacion_documental_v1.down.sql"
 
 docker exec --interactive \
     --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
