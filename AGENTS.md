@@ -17,6 +17,171 @@ Bolsa, Personal, documentos o firma:
 No se amplía otro módulo por conveniencia ni se cambia la prioridad sin
 instrucción de dirección.
 
+## Relevo operativo vigente — 31 de agosto de 2026
+
+Este bloque prevalece sobre el relevo del 9 de agosto y sobre cualquier relevo
+anterior que describa otra rama, otro worktree o un estado previo del producto.
+El estado siguiente se comprobó en el servidor antes de confirmar este corte.
+
+### Producto e integraciones acreditadas
+
+- Repositorio remoto: `/srv/fabrica/proyectos/VEC_Diputacion_app`.
+- Worktree de producto:
+  `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-producto-ligero-20260821`.
+- Rama de producto: `integracion/ct-producto-ligero-20260821`.
+- `HEAD`, referencia local de `origin` y rama remota coinciden exactamente en
+  `5af095d7c1e9cd095eaf653d544fc4fafc098109`; el producto está limpio. No
+  equivale a despliegue ni autoriza producción.
+- La secuencia ya integrada y publicada en la rama de producto es:
+  - `b2390a5179ec5cb807707766d90a8188fc3f4c66`: `CT-LITE-O7-06A`,
+    recuperación de GINPIX;
+  - `d69b4ea0325f58909f5c2cbe86ee8dadfb9770aa`: `CT-LITE-O8-02B`,
+    cierre administrativo HTTP;
+  - `c1afe81b164e3a9f86eb7a7a2fd5b014317db711`: `CT-LITE-O7-06B`,
+    puerto de API recuperable de GINPIX;
+  - `00bf61ac77fc358dff668042d4ef78747d3371c8`: `CT-LITE-O8-02C`,
+    composición de rutas de cierre administrativo;
+  - `3f72adc33d8a44203ae5785e14b033668975b266`: `VEC-DOC-CONS-01`,
+    política de conservación documental, con revisión independiente `GO`; y
+  - `02221b47a126762250d4fda791d2b0276e72d713`:
+    `CT-LITE-O6-03-GO`, adaptador de ejecuciones, con revisión independiente
+    `GO`; y
+  - `64cede515db67cb2cf236ded95518fa67c27f9bf`:
+    `CT-LITE-O8-03B`, consumo de la política de conservación, con padre exacto
+    `3f72adc33d8a44203ae5785e14b033668975b266` y revisión independiente
+    `GO`, `P0=0`, `P1=0` y `P2=0`. Se integró y publicó en producto mediante
+    el merge `5af095d7c1e9cd095eaf653d544fc4fafc098109`.
+- Se verificó que `64cede515db67cb2cf236ded95518fa67c27f9bf` es ancestro del
+  merge de producto. Solo después se retiraron el worktree, la sesión
+  `vec-produce-o8-03b` y las ramas temporales local y remota
+  `trabajo/ct-lite-o8-03b-consumo-20260831`. No queda trabajo O8 pendiente de
+  ese productor.
+
+### Capability, invariante y write-set de este relevo
+
+- Capability: corregir y conservar un relevo operativo verificable que permita
+  continuar el camino crítico sin reconstruir ni duplicar trabajo ya integrado.
+- Invariante: este corte documental no cambia producto, no convierte trabajo
+  activo o SQL pendiente en capacidad cerrada y conserva denegación por defecto,
+  autoridades únicas, trazabilidad y revisión independiente.
+- Write-set: únicamente el `AGENTS.md` de
+  `trabajo/ct-relevo-operativo-20260831`; ningún otro archivo.
+- Siguiente corte: cerrar un candidato focal de consultas y rutas `R2`,
+  someter su hash exacto a revisión independiente e integrarlo únicamente si
+  recibe `GO`.
+
+### Trabajo activo que no se debe pisar
+
+- Sesión `vec-produce-r2-consultas`, worktree
+  `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-lite-r2-consultas-rutas-20260831`,
+  rama `trabajo/ct-lite-r2-consultas-rutas-20260831`, desde
+  `5af095d7c1e9cd095eaf653d544fc4fafc098109`.
+- Sesión `vec-test-o6-pg`, worktree
+  `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-test-o6-pg-20260831`,
+  en `detached HEAD` exacto
+  `93b2fed3849f70b804f739f4772c6e010cdc632d`, con PostgreSQL 18.4 aislado
+  para la puerta dinámica obligatoria.
+- Sesión `vec-fix-relevo`, este worktree
+  `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-relevo-operativo-20260831`,
+  rama `trabajo/ct-relevo-operativo-20260831`; su único write-set es este
+  `AGENTS.md`.
+
+No fusionar, rebasar, borrar, limpiar ni reutilizar esos worktrees o ramas
+mientras sus sesiones estén activas. Revalidar su estado vivo antes de actuar.
+
+### Trabajo concluido sin candidato
+
+- La auditoría de solo lectura recogida por `vec-produce-o6-next` concluyó que
+  no existe otro seam `O6` no SQL honesto. La sesión, su worktree y su rama
+  fueron retirados sin cambios; no hay candidato que esperar, revisar o
+  integrar de ese carril.
+- La auditoría `vec-audit-completion` también ha terminado y ya no constituye
+  trabajo activo ni autoridad de implementación.
+
+### Evidencia durable preservada y candidato rechazado
+
+- `CT-LITE-O6-03` PostgreSQL queda preservado en
+  `origin/trabajo/ct-lite-o6-03-ejecuciones-pg-20260831`, commit
+  `93b2fed3849f70b804f739f4772c6e010cdc632d`; no se integra sin la prueba
+  obligatoria en PostgreSQL real desechable.
+- `VEC-DOC` SQL R4 queda preservado en
+  `origin/trabajo/vec-doc-registro-autoridad-sql-r3-20260831`, commit
+  `2536f32ccbeb915724671d7a25f204a31f8d2310`; tampoco se integra sin su
+  prueba PostgreSQL real desechable.
+- El candidato rechazado `444ff6ebf0d1a395c88207ca92e78e63d4b61dc8`
+  permanece en el worktree
+  `/srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/vec-doc-esquema-efectos-v4-20260831`,
+  rama `trabajo/vec-doc-esquema-efectos-v4-20260831`. No integrar, borrar,
+  limpiar ni usar como base; se conserva como evidencia del `NO-GO`.
+
+### Métricas conservadoras y estado de la interfaz
+
+- Cierre formal: `19/46`, `41,3 %`.
+- Cierre técnico: `21/46`, `45,7 %`.
+- Avance operativo conservador: `33 %`.
+- Arrancable: `NO`.
+- Verticales productivas completas: `0`.
+
+Estas magnitudes no son equivalentes: el cierre formal exige las autoridades y
+aprobaciones aplicables; el técnico cuenta capacidades verificadas dentro de
+su alcance; el operativo estima el recorrido utilizable; y una vertical solo
+es productiva cuando queda compuesta de extremo a extremo con dependencias
+reales. Ninguna cifra autoriza producción ni datos reales.
+
+La auditoría de interfaz ejecutó `103/103` pruebas Node verdes, pero acredita
+solo una superficie sintética. El manifiesto de Contratación temporal no está
+registrado, la raíz real no consume sus rutas y el frontend real permanece
+bloqueado hasta que la composición fail-closed las haga alcanzables con sus
+autoridades verdaderas.
+
+### Bloqueo raíz exacto
+
+La aplicación no está cerrada al cien por cien. El camino raíz exige todavía,
+sin sustitutos ficticios ni atajos en HTTP:
+
+1. componer en la raíz real el punto de decisión de políticas y fijar una única
+   autoridad de rutas, con denegación por defecto;
+2. disponer de un registro durable de operaciones GINPIX; un recibo local no
+   acredita por sí solo confirmación del sistema externo;
+3. ejecutar el cierre como una transacción durable que una autorización,
+   versión, cambio de estado, auditoría y outbox; y
+4. cerrar el contrato de entrada de `O7-06` en la composición real antes de
+   declarar alcanzable el flujo externo.
+
+Una ruta registrada, un puerto o una prueba aislada no cierran estos cuatro
+puntos si la composición raíz no los consume con sus autoridades reales.
+
+### Ciclo obligatorio de entrega
+
+Para cada corte: producir un commit coherente y limpio; someter ese hash exacto
+a revisión independiente; integrar solo con `GO`; repetir las pruebas focales
+y `git diff --check` en producto; publicar la rama de producto; verificar que
+`HEAD`, la referencia de seguimiento y el hash remoto coinciden; y solo
+entonces retirar el worktree y la rama local ya integrados. Una rama pendiente
+de PostgreSQL o con `NO-GO` se preserva y no entra en esa limpieza.
+
+### Orden de reanudación
+
+1. Revalidar producto, `origin`, limpieza, sesiones, rutas, ramas y hashes; no
+   reconstruir trabajo existente.
+2. Cerrar el candidato focal `R2` de consultas y rutas; revisar su hash exacto
+   de forma independiente e integrarlo y publicarlo solo si recibe `GO`.
+3. Obtener `GO` dinámico en PostgreSQL 18.4 real desechable y `GO` estático
+   independiente para `CT-LITE-O6-03` SQL antes de considerar su integración.
+4. Someter después `VEC-DOC` SQL a su propia validación PostgreSQL real
+   desechable y revisión independiente; no hereda el resultado de O6.
+5. Registrar el manifiesto y componer rutas y políticas en la raíz real con
+   denegación predeterminada y una única autoridad de rutas.
+6. Conectar el frontend de lectura únicamente después de esa composición
+   fail-closed, con contrato, seguridad, accesibilidad y revisión visual.
+7. Cerrar las autoridades corporativas y los efectos durables restantes,
+   incluidos GINPIX y la transacción de cierre, antes de declarar una vertical
+   arrancable o productiva.
+
+Tras cada integración se actualiza este relevo con hashes verificables y solo
+se limpia lo ya integrado. Las ramas SQL pendientes y el candidato con
+`NO-GO` se preservan.
+
 ## Relevo operativo inmediato — 9 de agosto de 2026
 
 - Worktree obligatorio:
@@ -146,10 +311,10 @@ Antes de editar:
 6. `docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md`;
 7. la especificación y matriz normativa enlazadas desde esos documentos.
 
-El relevo fechado identifica la rama integradora y los worktrees vigentes. El
-directorio raíz conserva una rama histórica y no es el lugar de desarrollo.
-El relevo anterior del 28 de julio es histórico y no sustituye al corte
-vigente del 29 de julio.
+El relevo fechado del 29 de julio es histórico y no vigente: no identifica la
+rama integradora ni los worktrees actuales y no sustituye el corte operativo
+del 31 de agosto. El directorio raíz conserva una rama histórica y no es el
+lugar de desarrollo. El relevo anterior del 28 de julio también es histórico.
 
 Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
 
