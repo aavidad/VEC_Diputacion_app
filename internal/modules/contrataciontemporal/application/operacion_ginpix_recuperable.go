@@ -72,8 +72,9 @@ func NuevoServicioOperacionGINPIXRecuperable(
 	}, nil
 }
 
-// Ejecutar reserva antes de emitir. Una reserva pendiente nunca vuelve a
-// pasar por el emisor: solo Recuperar puede consultar y conciliarla.
+// Ejecutar reserva antes de emitir. Solo un fallo preemision acreditado puede
+// liberar la reserva; cualquier abandono o resultado incierto se reconcilia
+// sin obtener una segunda emision.
 func (s *ServicioOperacionGINPIXRecuperable) Ejecutar(
 	ctx context.Context,
 	entrada SolicitudOperacionGINPIXRecuperable,
@@ -99,8 +100,8 @@ func (s *ServicioOperacionGINPIXRecuperable) Ejecutar(
 		return ports.ResultadoOperacionGINPIX{}, ErrResultadoOperacionGINPIXNoConfiable
 	}
 	if errContexto := ctx.Err(); errContexto != nil {
-		if reserva.Situacion == ports.ReservaOperacionGINPIXEmisionAutorizada &&
-			!s.registrarFalloPreemision(ctx, reserva) {
+		if reserva.Situacion == ports.ReservaOperacionGINPIXEmisionAutorizada {
+			s.marcarIndeterminada(ctx, reserva)
 			return ports.ResultadoOperacionGINPIX{},
 				errors.Join(ErrOperacionGINPIXIndeterminada, errContexto)
 		}
@@ -151,7 +152,11 @@ func (s *ServicioOperacionGINPIXRecuperable) Recuperar(
 	case ports.ReservaOperacionGINPIXConfirmada:
 		return resultadoOperacionGINPIXValidado(solicitud, reserva.Resultado)
 	case ports.ReservaOperacionGINPIXEmisionAutorizada:
-		return ports.ResultadoOperacionGINPIX{}, ErrOperacionGINPIXNoDisponible
+		if !s.marcarIndeterminada(ctx, reserva) {
+			return ports.ResultadoOperacionGINPIX{}, ErrOperacionGINPIXIndeterminada
+		}
+		reserva.Situacion = ports.ReservaOperacionGINPIXPendienteConciliacion
+		return s.consultar(ctx, solicitud, reserva)
 	case ports.ReservaOperacionGINPIXPendienteConciliacion:
 		return s.consultar(ctx, solicitud, reserva)
 	default:
@@ -165,21 +170,17 @@ func (s *ServicioOperacionGINPIXRecuperable) emitir(
 	reserva ports.ReservaOperacionGINPIX,
 ) (ports.ResultadoOperacionGINPIX, error) {
 	if err := ctx.Err(); err != nil {
-		if !s.registrarFalloPreemision(ctx, reserva) {
-			return ports.ResultadoOperacionGINPIX{}, errors.Join(ErrOperacionGINPIXIndeterminada, err)
-		}
-		return ports.ResultadoOperacionGINPIX{}, err
+		s.marcarIndeterminada(ctx, reserva)
+		return ports.ResultadoOperacionGINPIX{}, errors.Join(ErrOperacionGINPIXIndeterminada, err)
 	}
 	recibo, err := s.emisor.EmitirOperacionGINPIX(ctx, solicitud, reserva)
 	tieneResultado := recibo != (ports.ReciboExternoOperacionGINPIX{})
 	if err != nil {
-		if !tieneResultado && errors.Is(err, ports.ErrEmisionOperacionGINPIXNoIniciada) {
-			if !s.registrarFalloPreemision(ctx, reserva) {
-				return ports.ResultadoOperacionGINPIX{}, errorIndeterminadoGINPIX(ctx)
-			}
-			if errContexto := ctx.Err(); errContexto != nil {
-				return ports.ResultadoOperacionGINPIX{}, errContexto
-			}
+		if !tieneResultado && ctx.Err() == nil &&
+			errors.Is(err, ports.ErrEmisionOperacionGINPIXNoIniciada) &&
+			!errors.Is(err, ports.ErrEmisionOperacionGINPIXIndeterminada) &&
+			!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) &&
+			s.registrarFalloPreemision(ctx, reserva) {
 			return ports.ResultadoOperacionGINPIX{}, ErrOperacionGINPIXNoDisponible
 		}
 		s.marcarIndeterminada(ctx, reserva)
@@ -243,6 +244,16 @@ func (s *ServicioOperacionGINPIXRecuperable) confirmar(
 	return resultado, nil
 }
 
+func (s *ServicioOperacionGINPIXRecuperable) marcarIndeterminada(
+	ctx context.Context,
+	reserva ports.ReservaOperacionGINPIX,
+) bool {
+	return s.registro.MarcarOperacionGINPIXIndeterminada(
+		contextoRecuperacionGINPIX(ctx),
+		reserva,
+	) == nil
+}
+
 func (s *ServicioOperacionGINPIXRecuperable) registrarFalloPreemision(
 	ctx context.Context,
 	reserva ports.ReservaOperacionGINPIX,
@@ -251,16 +262,6 @@ func (s *ServicioOperacionGINPIXRecuperable) registrarFalloPreemision(
 		contextoRecuperacionGINPIX(ctx),
 		reserva,
 	) == nil
-}
-
-func (s *ServicioOperacionGINPIXRecuperable) marcarIndeterminada(
-	ctx context.Context,
-	reserva ports.ReservaOperacionGINPIX,
-) {
-	_ = s.registro.MarcarOperacionGINPIXIndeterminada(
-		contextoRecuperacionGINPIX(ctx),
-		reserva,
-	)
 }
 
 func (s *ServicioOperacionGINPIXRecuperable) validar(ctx context.Context) error {
