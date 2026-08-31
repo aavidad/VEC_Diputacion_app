@@ -343,9 +343,27 @@ const (
 	AtributoEvidenciaDestinoHuella    = "evidencia_destino_huella_sha256"
 	AtributoUnidadDestino             = "unidad_destino_ref"
 	AtributoResponsableDestino        = "responsable_destino_ref"
+	AtributoAmbitoIdempotenciaActivo  = "ambito_idempotencia_hmac_activo"
 	AtributoHuellaPeticionAsignacion  = "huella_peticion_hmac"
 	AtributoSegregacionAsignacion     = "exige_actor_distinto_responsable"
 )
+
+// EvidenciaReconciliacionAsignacion reúne únicamente autoridades frescas y
+// materiales ya existentes. Reconciliar no confirma ni repite el efecto.
+type EvidenciaReconciliacionAsignacion struct {
+	SolicitudContexto    SolicitudResolverContextoAutorizacionAltaV3
+	ContextoAutorizacion ContextoAutorizacionAltaV3
+	Material             MaterialHuellaAsignacion
+	SolicitudPreparacion SolicitudPrepararAsignacion
+	SolicitudDestino     SolicitudResolverDestinoAsignacion
+	Destino              DestinoAsignacionResuelto
+	SolicitudPolitica    SolicitudResolverPoliticaAsignacion
+	Politica             PoliticaAsignacion
+	SolicitudV3          dominiovec.SolicitudAutorizacionLigadaV3
+	DecisionV3           dominiovec.DecisionAutorizacionLigadaV3
+	ConfirmacionV3       puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	Instante             time.Time
+}
 
 type DatosOrdenConfirmarAsignacion struct {
 	SolicitudContexto    SolicitudResolverContextoAutorizacionAltaV3
@@ -572,10 +590,19 @@ func recursoAutorizacionAsignacionValido(
 	recurso dominiovec.RecursoAutorizable,
 	datos DatosOrdenConfirmarAsignacion,
 ) bool {
+	ambitoActivo, huellaActiva, err := ParActivoColeccionesHMAC(
+		datos.SolicitudPreparacion.AmbitosHMAC,
+		DominioAmbitoIdempotenciaAsignacion,
+		datos.SolicitudPreparacion.HuellasPeticionHMAC,
+		DominioHuellaPeticionAsignacion,
+	)
+	if err != nil {
+		return false
+	}
 	return recurso.Referencia == datos.Material.ExpedienteRef &&
 		recurso.ModuloID == ModuloContratacion &&
 		recurso.Tipo == TipoRecursoAsignacion &&
-		len(recurso.Ambitos) == 5 && len(recurso.Atributos) == 11 &&
+		len(recurso.Ambitos) == 5 && len(recurso.Atributos) == 12 &&
 		recurso.Ambitos["organizacion_ref"] ==
 			datos.Material.OrganizacionRef &&
 		recurso.Ambitos["expediente_ref"] ==
@@ -604,12 +631,73 @@ func recursoAutorizacionAsignacionValido(
 			datos.Material.UnidadRef &&
 		recurso.Atributos[AtributoResponsableDestino] ==
 			datos.Material.ResponsableRef &&
+		recurso.Atributos[AtributoAmbitoIdempotenciaActivo] ==
+			ambitoActivo &&
 		recurso.Atributos[AtributoHuellaPeticionAsignacion] ==
-			datos.Preparacion.HuellaPeticionHMAC &&
+			huellaActiva &&
 		recurso.Atributos[AtributoSegregacionAsignacion] ==
 			strconv.FormatBool(
 				datos.Politica.ExigeActorDistintoResponsable,
 			)
+}
+
+func validarReconciliacionAsignacion(
+	estado DatosEstadoCandidatoAsignacionIdempotente,
+	evidencia EvidenciaReconciliacionAsignacion,
+) error {
+	consulta, err := NuevaSolicitudConsultarAsignacionIdempotente(
+		evidencia.SolicitudPreparacion,
+	)
+	datosOrden := DatosOrdenConfirmarAsignacion{
+		SolicitudContexto:    evidencia.SolicitudContexto,
+		ContextoAutorizacion: evidencia.ContextoAutorizacion,
+		Material:             evidencia.Material,
+		SolicitudPreparacion: evidencia.SolicitudPreparacion,
+		Preparacion:          estado.Preparacion,
+		SolicitudDestino:     evidencia.SolicitudDestino,
+		Destino:              evidencia.Destino,
+		SolicitudPolitica:    evidencia.SolicitudPolitica,
+		Politica:             evidencia.Politica,
+		SolicitudV3:          evidencia.SolicitudV3,
+		DecisionV3:           evidencia.DecisionV3,
+		ConfirmacionV3:       evidencia.ConfirmacionV3,
+		InstanteEfecto:       evidencia.Instante,
+	}
+	if err != nil || consulta != estado.Consulta ||
+		validarEstadoCandidatoAsignacion(estado) != nil ||
+		estado.Preparacion.ValidarPara(
+			evidencia.SolicitudPreparacion,
+		) != nil ||
+		evidencia.Material.Validar() != nil ||
+		!domain.InstanteUTCCanonico(evidencia.Instante) ||
+		evidencia.ContextoAutorizacion.ValidarPara(
+			evidencia.SolicitudContexto,
+			evidencia.Instante,
+		) != nil ||
+		evidencia.Destino.ValidarPara(
+			evidencia.SolicitudDestino,
+			evidencia.Instante,
+		) != nil ||
+		evidencia.Politica.ValidarPara(
+			evidencia.SolicitudPolitica,
+			evidencia.Instante,
+		) != nil ||
+		!coincidenCoordenadasOrdenAsignacion(
+			datosOrden,
+			estado.Preparacion.Expediente,
+		) ||
+		evidencia.Destino.EvidenciaRef != estado.DestinoEvidenciaRef ||
+		evidencia.Destino.EvidenciaHuellaSHA256 !=
+			estado.DestinoEvidenciaHuellaSHA256 ||
+		evidencia.Politica.DefinicionRef != estado.PoliticaRef ||
+		evidencia.Politica.DefinicionVersion != estado.PoliticaVersion ||
+		evidencia.Politica.DefinicionHuellaSHA256 !=
+			estado.PoliticaHuellaSHA256 ||
+		evidencia.Politica.Finalidad != estado.Finalidad ||
+		validarAutorizacionOrdenAsignacion(datosOrden) != nil {
+		return ErrResultadoAsignacionNoConfiable
+	}
+	return nil
 }
 
 func (o OrdenConfirmarAsignacion) Datos() (

@@ -3,10 +3,11 @@
 Fecha: 23 de julio de 2026.
 
 Estado: candidato técnico de dominio, puertos y aplicación en
-`0be5600`–`8d1b4ce`, probado localmente y pendiente de adaptador PostgreSQL y
-revisión independiente. El corte original recibió `NO-GO` porque no ligaba el
-contenido de la asignación a su actuación. No está integrado ni habilita
-producción.
+`0be5600`–`8d1b4ce`. `CT-LITE-O5-01-R1-REPLAY-AUTORIZADO` añade sobre la base
+exacta `ef718918a8285e5235c715ab701d42681589b74a` una corrección local del
+replay, todavía pendiente de revisión independiente. El corte
+original recibió `NO-GO` porque no ligaba el contenido de la asignación a su
+actuación. No está integrado ni habilita producción.
 
 ## Resultado funcional
 
@@ -82,6 +83,50 @@ liga además a la concesión V3, la preparación y la misma orden.
 
 El adaptador PostgreSQL que materializa este contrato aún no existe. No se
 finge persistencia, entrega de mensajes ni autorización productiva.
+
+## CT-LITE-O5-01-R1 — replay autorizado
+
+El replay anterior podía devolver `ReciboConfirmado` inmediatamente después
+de la preparación. Ese retorno evitaba volver a comprobar el destino
+corporativo, la política publicada y la autorización V3 vigente.
+
+La corrección separa expresamente lectura, autorización y efecto:
+
+1. deriva el par HMAC activo del ámbito y de la petición ya ligados al contexto
+   confiable;
+2. consulta como máximo una vez, mediante `ConsultorAsignacionIdempotente`, un
+   posible terminal durable sin transportar la UUID en claro;
+3. acepta únicamente un estado candidato opaco, no serializable y de un solo
+   uso, ligado a operación, organización, expediente, versión, actor, perfil,
+   unidad, responsable y al par HMAC activo consultado;
+4. conserva en ese estado los compromisos durables mínimos de evidencia de
+   destino, definición de política y finalidad originales;
+5. vuelve a resolver destino y política y exige una concesión V3 nueva, cuyo
+   recurso liga operación, expediente, versión, unidad, responsable, destino,
+   política, finalidad, alias de ámbito HMAC activo y huella activa; y
+6. reconcilia localmente el recibo original una sola vez, únicamente si las
+   autoridades frescas coinciden con los compromisos durables.
+
+El replay encontrado no invoca `PrepararAsignacion` ni
+`TransaccionAsignaciones.ConfirmarAsignacion`. Por tanto no abre una segunda
+reserva, no aplica de nuevo el agregado y no duplica bandeja, auditoría,
+recibo, notificación u outbox. Si la consulta informa ausencia, el camino
+normal puede preparar y confirmar una operación nueva. Las combinaciones
+`encontrado`/estado contradictorias, un error, una cancelación o un terminal
+que aparece concurrentemente después de una consulta negativa fallan cerradas
+sin segunda confirmación.
+
+La matriz focal cubre autorización nueva válida y caducada, replay de
+asignación y reasignación, cambio válido pero discordante de evidencia de
+destino o versión de política, candidato asociado a un alias HMAC no activo,
+error de consulta, resultado ambiguo, cancelación durante la consulta, una
+sola consulta y cero llamadas a las dos fronteras mutantes en todo replay.
+
+Este corte define el puerto de lectura y el contrato de la capacidad opaca;
+no añade un adaptador PostgreSQL ni lo compone. El siguiente corte debe
+implementar el consultor en la autoridad durable propietaria, probarlo contra
+PostgreSQL real y someter el hash exacto de ambos cortes a revisión
+independiente antes de cualquier integración.
 
 ## Corte de dominio implementado
 

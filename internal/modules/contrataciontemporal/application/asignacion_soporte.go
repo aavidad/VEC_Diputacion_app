@@ -14,6 +14,7 @@ import (
 func (s *ServicioAsignacion) dependenciasValidas() bool {
 	return s != nil && !dependenciaNula(s.contextos) &&
 		!dependenciaNula(s.ambitos) && !dependenciaNula(s.huellas) &&
+		!dependenciaNula(s.consultas) &&
 		!dependenciaNula(s.preparaciones) &&
 		!dependenciaNula(s.destinos) && !dependenciaNula(s.politicas) &&
 		!dependenciaNula(s.correlaciones) &&
@@ -94,100 +95,48 @@ func (s *ServicioAsignacion) confirmar(
 	preparar ports.SolicitudPrepararAsignacion,
 	preparacion ports.PreparacionAsignacion,
 ) (ports.ReciboAsignacion, error) {
-	instanteResolucion := instanteCanonico(s.reloj.Ahora())
-	destinoSolicitud := ports.SolicitudResolverDestinoAsignacion{
-		OrganizacionRef:   material.OrganizacionRef,
-		ExpedienteRef:     material.ExpedienteRef,
-		VersionExpediente: material.VersionExpediente,
-		ActorRef:          material.ActorRef,
-		UnidadRef:         material.UnidadRef,
-		ResponsableRef:    material.ResponsableRef,
-		Instante:          instanteResolucion,
-	}
-	destino, err := s.destinos.ResolverDestinoAsignacion(
-		ctx,
-		destinoSolicitud,
-	)
-	if err != nil || destino.ValidarPara(
-		destinoSolicitud,
-		instanteResolucion,
-	) != nil {
-		return ports.ReciboAsignacion{},
-			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
-	}
-	politicaSolicitud := solicitudPoliticaAsignacion(
-		solicitud,
+	vista, err := ports.NuevaVistaAutoridadesAsignacion(
 		preparacion.Expediente,
+	)
+	if err != nil {
+		return ports.ReciboAsignacion{}, ErrResultadoAsignacionNoConfiable
+	}
+	evidencia, err := s.resolverAutoridadesAsignacion(
+		ctx,
+		solicitud,
 		material,
-		destino,
-		instanteResolucion,
-	)
-	politica, err := s.politicas.ResolverPoliticaAsignacion(
-		ctx,
-		politicaSolicitud,
-	)
-	if err != nil || politica.ValidarPara(
-		politicaSolicitud,
-		instanteResolucion,
-	) != nil {
-		return ports.ReciboAsignacion{},
-			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
-	}
-	solicitudV3, err := s.nuevaSolicitudAutorizacionAsignacion(
-		ctx,
+		contextoSolicitud,
 		contexto,
-		preparacion,
-		destino,
-		politica,
+		preparar,
+		vista,
 	)
 	if err != nil {
-		return ports.ReciboAsignacion{}, ErrAsignacionDenegada
-	}
-	decisionV3, confirmacionV3, err := s.autorizador.ExigirSolicitudLigadaV3(
-		ctx,
-		solicitudV3,
-		contexto.Resultado,
-	)
-	if err != nil {
-		return ports.ReciboAsignacion{},
-			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
-	}
-	instanteEfecto := instanteCanonico(s.reloj.Ahora())
-	if contexto.ValidarPara(contextoSolicitud, instanteEfecto) != nil ||
-		destino.ValidarPara(destinoSolicitud, instanteEfecto) != nil ||
-		politica.ValidarPara(politicaSolicitud, instanteEfecto) != nil ||
-		!autorizacionV3ValidaEn(
-			solicitudV3,
-			decisionV3,
-			confirmacionV3,
-			instanteEfecto,
-		) {
-		return ports.ReciboAsignacion{}, ErrAsignacionDenegada
+		return ports.ReciboAsignacion{}, err
 	}
 	siguiente, err := aplicarAsignacion(
 		material,
 		preparacion,
-		politica,
-		instanteEfecto,
+		evidencia.Politica,
+		evidencia.Instante,
 	)
 	if err != nil {
 		return ports.ReciboAsignacion{}, ErrSolicitudAsignacionInvalida
 	}
 	orden, err := ports.NuevaOrdenConfirmarAsignacion(
 		ports.DatosOrdenConfirmarAsignacion{
-			SolicitudContexto:    contextoSolicitud,
-			ContextoAutorizacion: contexto,
-			Material:             material,
-			SolicitudPreparacion: preparar,
+			SolicitudContexto:    evidencia.SolicitudContexto,
+			ContextoAutorizacion: evidencia.ContextoAutorizacion,
+			Material:             evidencia.Material,
+			SolicitudPreparacion: evidencia.SolicitudPreparacion,
 			Preparacion:          preparacion,
-			SolicitudDestino:     destinoSolicitud,
-			Destino:              destino,
-			SolicitudPolitica:    politicaSolicitud,
-			Politica:             politica,
-			SolicitudV3:          solicitudV3,
-			DecisionV3:           decisionV3,
-			ConfirmacionV3:       confirmacionV3,
-			InstanteEfecto:       instanteEfecto,
+			SolicitudDestino:     evidencia.SolicitudDestino,
+			Destino:              evidencia.Destino,
+			SolicitudPolitica:    evidencia.SolicitudPolitica,
+			Politica:             evidencia.Politica,
+			SolicitudV3:          evidencia.SolicitudV3,
+			DecisionV3:           evidencia.DecisionV3,
+			ConfirmacionV3:       evidencia.ConfirmacionV3,
+			InstanteEfecto:       evidencia.Instante,
 			ExpedienteSiguiente:  siguiente,
 		},
 	)
@@ -206,9 +155,155 @@ func (s *ServicioAsignacion) confirmar(
 	return recibo, nil
 }
 
+func (s *ServicioAsignacion) reconciliar(
+	ctx context.Context,
+	solicitud datosSolicitudAsignacion,
+	material ports.MaterialHuellaAsignacion,
+	contextoSolicitud ports.SolicitudResolverContextoAutorizacionAltaV3,
+	contexto ports.ContextoAutorizacionAltaV3,
+	preparar ports.SolicitudPrepararAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
+	estado ports.EstadoCandidatoAsignacionIdempotente,
+) (ports.ReciboAsignacion, error) {
+	evidencia, err := s.resolverAutoridadesAsignacion(
+		ctx,
+		solicitud,
+		material,
+		contextoSolicitud,
+		contexto,
+		preparar,
+		vista,
+	)
+	if err != nil {
+		return ports.ReciboAsignacion{}, err
+	}
+	recibo, err := estado.Reconciliar(evidencia)
+	if err != nil {
+		return ports.ReciboAsignacion{},
+			ErrResultadoAsignacionNoConfiable
+	}
+	return recibo, nil
+}
+
+func (s *ServicioAsignacion) resolverAutoridadesAsignacion(
+	ctx context.Context,
+	solicitud datosSolicitudAsignacion,
+	material ports.MaterialHuellaAsignacion,
+	contextoSolicitud ports.SolicitudResolverContextoAutorizacionAltaV3,
+	contexto ports.ContextoAutorizacionAltaV3,
+	preparar ports.SolicitudPrepararAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
+) (ports.EvidenciaReconciliacionAsignacion, error) {
+	vacia := ports.EvidenciaReconciliacionAsignacion{}
+	if err := ctx.Err(); err != nil {
+		return vacia, err
+	}
+	consulta, err := ports.NuevaSolicitudConsultarAsignacionIdempotente(
+		preparar,
+	)
+	if err != nil || vista.ValidarPara(consulta) != nil {
+		return vacia, ErrResultadoAsignacionNoConfiable
+	}
+	instanteResolucion := instanteCanonico(s.reloj.Ahora())
+	destinoSolicitud := ports.SolicitudResolverDestinoAsignacion{
+		OrganizacionRef:   material.OrganizacionRef,
+		ExpedienteRef:     material.ExpedienteRef,
+		VersionExpediente: material.VersionExpediente,
+		ActorRef:          material.ActorRef,
+		UnidadRef:         material.UnidadRef,
+		ResponsableRef:    material.ResponsableRef,
+		Instante:          instanteResolucion,
+	}
+	destino, err := s.destinos.ResolverDestinoAsignacion(
+		ctx,
+		destinoSolicitud,
+	)
+	if err != nil || destino.ValidarPara(
+		destinoSolicitud,
+		instanteResolucion,
+	) != nil {
+		return vacia,
+			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacia, err
+	}
+	politicaSolicitud := solicitudPoliticaAsignacion(
+		solicitud,
+		vista,
+		material,
+		destino,
+		instanteResolucion,
+	)
+	politica, err := s.politicas.ResolverPoliticaAsignacion(
+		ctx,
+		politicaSolicitud,
+	)
+	if err != nil || politica.ValidarPara(
+		politicaSolicitud,
+		instanteResolucion,
+	) != nil {
+		return vacia,
+			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacia, err
+	}
+	solicitudV3, err := s.nuevaSolicitudAutorizacionAsignacion(
+		ctx,
+		contexto,
+		preparar,
+		vista,
+		material,
+		destino,
+		politica,
+	)
+	if err != nil {
+		return vacia, ErrAsignacionDenegada
+	}
+	decisionV3, confirmacionV3, err := s.autorizador.ExigirSolicitudLigadaV3(
+		ctx,
+		solicitudV3,
+		contexto.Resultado,
+	)
+	if err != nil {
+		return vacia,
+			clasificarFalloAsignacion(ctx, ErrAsignacionDenegada)
+	}
+	if err := ctx.Err(); err != nil {
+		return vacia, err
+	}
+	instanteEfecto := instanteCanonico(s.reloj.Ahora())
+	if contexto.ValidarPara(contextoSolicitud, instanteEfecto) != nil ||
+		destino.ValidarPara(destinoSolicitud, instanteEfecto) != nil ||
+		politica.ValidarPara(politicaSolicitud, instanteEfecto) != nil ||
+		!autorizacionV3ValidaEn(
+			solicitudV3,
+			decisionV3,
+			confirmacionV3,
+			instanteEfecto,
+		) {
+		return vacia, ErrAsignacionDenegada
+	}
+	return ports.EvidenciaReconciliacionAsignacion{
+		SolicitudContexto:    contextoSolicitud,
+		ContextoAutorizacion: contexto,
+		Material:             material,
+		SolicitudPreparacion: preparar,
+		SolicitudDestino:     destinoSolicitud,
+		Destino:              destino,
+		SolicitudPolitica:    politicaSolicitud,
+		Politica:             politica,
+		SolicitudV3:          solicitudV3,
+		DecisionV3:           decisionV3,
+		ConfirmacionV3:       confirmacionV3,
+		Instante:             instanteEfecto,
+	}, nil
+}
+
 func solicitudPoliticaAsignacion(
 	solicitud datosSolicitudAsignacion,
-	expediente domain.Expediente,
+	vista ports.VistaAutoridadesAsignacion,
 	material ports.MaterialHuellaAsignacion,
 	destino ports.DestinoAsignacionResuelto,
 	instante time.Time,
@@ -218,19 +313,18 @@ func solicitudPoliticaAsignacion(
 		OrganizacionRef:         material.OrganizacionRef,
 		ExpedienteRef:           material.ExpedienteRef,
 		VersionExpediente:       material.VersionExpediente,
-		Flujo:                   expediente.Flujo,
-		FasePrevia:              expediente.FaseActual,
-		EstadoPrevio:            expediente.EstadoActual,
+		Flujo:                   vista.Flujo,
+		FasePrevia:              vista.FaseActual,
+		EstadoPrevio:            vista.EstadoActual,
 		ActorRef:                material.ActorRef,
 		PerfilRef:               material.PerfilRef,
 		Destino:                 destino,
 		MotivoReasignacionClave: solicitud.motivoReasignacion,
 		Instante:                instante,
 	}
-	if expediente.Asignacion != nil {
-		resultado.UnidadAnteriorRef = expediente.Asignacion.UnidadRef
-		resultado.ResponsableAnteriorRef =
-			expediente.Asignacion.ResponsableRef
+	if vista.TieneAsignacion {
+		resultado.UnidadAnteriorRef = vista.UnidadAnteriorRef
+		resultado.ResponsableAnteriorRef = vista.ResponsableAnteriorRef
 	}
 	return resultado
 }
@@ -238,10 +332,21 @@ func solicitudPoliticaAsignacion(
 func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 	ctx context.Context,
 	contexto ports.ContextoAutorizacionAltaV3,
-	preparacion ports.PreparacionAsignacion,
+	preparar ports.SolicitudPrepararAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
+	material ports.MaterialHuellaAsignacion,
 	destino ports.DestinoAsignacionResuelto,
 	politica ports.PoliticaAsignacion,
 ) (dominiovec.SolicitudAutorizacionLigadaV3, error) {
+	ambitoActivo, huellaActiva, err := ports.ParActivoColeccionesHMAC(
+		preparar.AmbitosHMAC,
+		ports.DominioAmbitoIdempotenciaAsignacion,
+		preparar.HuellasPeticionHMAC,
+		ports.DominioHuellaPeticionAsignacion,
+	)
+	if err != nil {
+		return dominiovec.SolicitudAutorizacionLigadaV3{}, err
+	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
 		ctx,
 		s.correlaciones,
@@ -255,20 +360,20 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 			ReferenciaMotivo:          politica.MotivoAutorizacion,
 			Accion:                    string(politica.Accion),
 			Recurso: dominiovec.RecursoAutorizable{
-				Referencia: preparacion.Expediente.Referencia,
+				Referencia: material.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoAsignacion,
 				Ambitos: map[string]string{
-					"organizacion_ref":   preparacion.OrganizacionRef,
-					"expediente_ref":     preparacion.Expediente.Referencia,
-					"fase_previa":        string(preparacion.Expediente.FaseActual),
-					"estado_previo":      string(preparacion.Expediente.EstadoActual),
-					"unidad_destino_ref": preparacion.UnidadRef,
+					"organizacion_ref":   material.OrganizacionRef,
+					"expediente_ref":     material.ExpedienteRef,
+					"fase_previa":        string(vista.FaseActual),
+					"estado_previo":      string(vista.EstadoActual),
+					"unidad_destino_ref": material.UnidadRef,
 				},
 				Atributos: map[string]string{
-					ports.AtributoOperacionAsignacion: string(preparacion.Operacion),
+					ports.AtributoOperacionAsignacion: string(material.Operacion),
 					ports.AtributoVersionAsignacion: strconv.FormatUint(
-						preparacion.Expediente.Version,
+						material.VersionExpediente,
 						10,
 					),
 					ports.AtributoPoliticaAsignacionRef: politica.DefinicionRef,
@@ -279,9 +384,10 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 					ports.AtributoPoliticaAsignacionHuella: politica.DefinicionHuellaSHA256,
 					ports.AtributoEvidenciaDestinoRef:      destino.EvidenciaRef,
 					ports.AtributoEvidenciaDestinoHuella:   destino.EvidenciaHuellaSHA256,
-					ports.AtributoUnidadDestino:            preparacion.UnidadRef,
-					ports.AtributoResponsableDestino:       preparacion.ResponsableRef,
-					ports.AtributoHuellaPeticionAsignacion: preparacion.HuellaPeticionHMAC,
+					ports.AtributoUnidadDestino:            material.UnidadRef,
+					ports.AtributoResponsableDestino:       material.ResponsableRef,
+					ports.AtributoAmbitoIdempotenciaActivo: ambitoActivo,
+					ports.AtributoHuellaPeticionAsignacion: huellaActiva,
 					ports.AtributoSegregacionAsignacion: strconv.FormatBool(
 						politica.ExigeActorDistintoResponsable,
 					),

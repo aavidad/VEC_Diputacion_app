@@ -1,7 +1,14 @@
 package ports
 
 import (
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
+	"fmt"
+	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -262,6 +269,289 @@ func TestSolicitudPrepararAsignacionExigeSellosYCoordenadas(t *testing.T) {
 		ErrPreparacionAsignacionInvalida,
 	) {
 		t.Fatalf("se esperaba dominio HMAC rechazado, recibido %v", err)
+	}
+}
+
+func TestConsultaAsignacionIdempotenteUsaSoloElParHMACActivo(t *testing.T) {
+	solicitud := solicitudPrepararAsignacionPrueba(t)
+	ambitoV1 := selloPrueba(
+		DominioAmbitoIdempotenciaAsignacion+"/v1",
+		"1",
+	)
+	huellaV1 := selloPrueba(
+		DominioHuellaPeticionAsignacion+"/v1",
+		"2",
+	)
+	ambitoV2 := selloPrueba(
+		DominioAmbitoIdempotenciaAsignacion+"/v2",
+		"3",
+	)
+	huellaV2 := selloPrueba(
+		DominioHuellaPeticionAsignacion+"/v2",
+		"4",
+	)
+	var err error
+	solicitud.AmbitosHMAC, err = NuevaColeccionSellosHMAC(
+		ambitoV2,
+		[]string{ambitoV1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud.HuellasPeticionHMAC, err = NuevaColeccionSellosHMAC(
+		huellaV2,
+		[]string{huellaV1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	consulta, err := NuevaSolicitudConsultarAsignacionIdempotente(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if consulta.AmbitoIdempotenciaHMACActivo != ambitoV2 ||
+		consulta.HuellaPeticionHMACActiva != huellaV2 ||
+		consulta.Validar() != nil {
+		t.Fatalf("la consulta no quedó ligada al par activo: %#v", consulta)
+	}
+	consulta.HuellaPeticionHMACActiva = huellaV1
+	if consulta.Validar() == nil {
+		t.Fatal("se aceptó un par HMAC de generaciones distintas")
+	}
+}
+
+type codecsMarshalEstadoCandidatoAsignacion interface {
+	MarshalText() ([]byte, error)
+	MarshalBinary() ([]byte, error)
+	GobEncode() ([]byte, error)
+	MarshalCBOR() ([]byte, error)
+	MarshalYAML() (any, error)
+}
+
+type codecsUnmarshalEstadoCandidatoAsignacion interface {
+	UnmarshalText([]byte) error
+	UnmarshalBinary([]byte) error
+	GobDecode([]byte) error
+	UnmarshalCBOR([]byte) error
+	UnmarshalYAML(func(any) error) error
+}
+
+func TestEstadoCandidatoAsignacionCierraCodecsFormatosYLogs(t *testing.T) {
+	const referenciaSensible = "expediente:PRUEBA_NO_SECRETO_serializacion_01"
+	selloSensible := selloPrueba(
+		DominioAmbitoIdempotenciaAsignacion+"/v9",
+		"a",
+	)
+	noCero := EstadoCandidatoAsignacionIdempotente{
+		datos: &datosEstadoCandidatoAsignacionIdempotente{
+			datos: DatosEstadoCandidatoAsignacionIdempotente{
+				Consulta: SolicitudConsultarAsignacionIdempotente{
+					AmbitoIdempotenciaHMACActivo: selloSensible,
+					ExpedienteRef:                referenciaSensible,
+				},
+			},
+		},
+	}
+	estados := map[string]EstadoCandidatoAsignacionIdempotente{
+		"cero":    {},
+		"no_cero": noCero,
+	}
+	for nombre, estado := range estados {
+		t.Run(nombre, func(t *testing.T) {
+			for tipo, valor := range map[string]any{
+				"valor":   estado,
+				"puntero": &estado,
+			} {
+				t.Run("marshal_"+tipo, func(t *testing.T) {
+					comprobarMarshalEstadoCandidatoAsignacionBloqueado(t, valor)
+					comprobarRepresentacionEstadoCandidatoAsignacionRedactada(
+						t,
+						valor,
+						[]string{referenciaSensible, selloSensible},
+					)
+				})
+			}
+
+			destino := estado
+			comprobarUnmarshalEstadoCandidatoAsignacionBloqueado(t, &destino)
+			if destino.EsCero() != estado.EsCero() {
+				t.Fatal("la deserialización prohibida alteró el estado")
+			}
+		})
+	}
+}
+
+func TestEstadoCandidatoAsignacionSoloReconciliarExponeTipoRecibo(t *testing.T) {
+	tipoEstado := reflect.TypeOf(EstadoCandidatoAsignacionIdempotente{})
+	tipoVista := reflect.TypeOf(VistaAutoridadesAsignacion{})
+	tipoRecibo := reflect.TypeOf(ReciboAsignacion{})
+	tipoPreparacion := reflect.TypeOf(PreparacionAsignacion{})
+
+	if tipoVista.NumField() != 9 {
+		t.Fatalf("vista pública ampliada fuera de sus coordenadas mínimas: %v", tipoVista)
+	}
+	for indice := 0; indice < tipoVista.NumField(); indice++ {
+		campo := tipoVista.Field(indice)
+		if strings.Contains(campo.Name, "Recibo") ||
+			campo.Type == tipoRecibo || campo.Type == reflect.PointerTo(tipoRecibo) ||
+			campo.Type == tipoPreparacion ||
+			campo.Type == reflect.PointerTo(tipoPreparacion) ||
+			campo.Type == reflect.TypeOf(domain.Expediente{}) {
+			t.Fatalf("vista pública permite recuperar estado terminal: %s %v", campo.Name, campo.Type)
+		}
+	}
+	for indice := 0; indice < tipoEstado.NumMethod(); indice++ {
+		metodo := tipoEstado.Method(indice)
+		if metodo.Name == "PreparacionPara" {
+			t.Fatal("el candidato conserva el extractor de preparación completa")
+		}
+		for salida := 0; salida < metodo.Type.NumOut(); salida++ {
+			tipoSalida := metodo.Type.Out(salida)
+			exponeRecibo := tipoSalida == tipoRecibo ||
+				tipoSalida == reflect.PointerTo(tipoRecibo)
+			exponePreparacion := tipoSalida == tipoPreparacion ||
+				tipoSalida == reflect.PointerTo(tipoPreparacion)
+			if exponePreparacion || (exponeRecibo && metodo.Name != "Reconciliar") {
+				t.Fatalf("%s expone estado terminal antes de reconciliar: %v", metodo.Name, tipoSalida)
+			}
+		}
+	}
+}
+
+func comprobarMarshalEstadoCandidatoAsignacionBloqueado(
+	t *testing.T,
+	valor any,
+) {
+	t.Helper()
+	_, err := json.Marshal(valor)
+	comprobarErrorEstadoCandidatoAsignacion(t, "json", err)
+	_, err = xml.Marshal(valor)
+	comprobarErrorEstadoCandidatoAsignacion(t, "xml", err)
+	var destino bytes.Buffer
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"gob",
+		gob.NewEncoder(&destino).Encode(valor),
+	)
+	codecs, ok := valor.(codecsMarshalEstadoCandidatoAsignacion)
+	if !ok {
+		t.Fatalf("%T no bloquea los codecs de codificación", valor)
+	}
+	_, err = codecs.MarshalText()
+	comprobarErrorEstadoCandidatoAsignacion(t, "texto", err)
+	_, err = codecs.MarshalBinary()
+	comprobarErrorEstadoCandidatoAsignacion(t, "binario", err)
+	_, err = codecs.GobEncode()
+	comprobarErrorEstadoCandidatoAsignacion(t, "gob directo", err)
+	_, err = codecs.MarshalCBOR()
+	comprobarErrorEstadoCandidatoAsignacion(t, "cbor", err)
+	_, err = codecs.MarshalYAML()
+	comprobarErrorEstadoCandidatoAsignacion(t, "yaml", err)
+}
+
+func comprobarUnmarshalEstadoCandidatoAsignacionBloqueado(
+	t *testing.T,
+	destino *EstadoCandidatoAsignacionIdempotente,
+) {
+	t.Helper()
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"json inverso",
+		json.Unmarshal([]byte(`{}`), destino),
+	)
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"xml inverso",
+		xml.Unmarshal([]byte(`<estado/>`), destino),
+	)
+	codecs, ok := any(destino).(codecsUnmarshalEstadoCandidatoAsignacion)
+	if !ok {
+		t.Fatalf("%T no bloquea los codecs de reconstrucción", destino)
+	}
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"texto inverso",
+		codecs.UnmarshalText([]byte("adulterado")),
+	)
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"binario inverso",
+		codecs.UnmarshalBinary([]byte("adulterado")),
+	)
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"gob inverso",
+		codecs.GobDecode([]byte("adulterado")),
+	)
+	comprobarErrorEstadoCandidatoAsignacion(
+		t,
+		"cbor inverso",
+		codecs.UnmarshalCBOR([]byte{0xa0}),
+	)
+	llamado := false
+	err := codecs.UnmarshalYAML(func(any) error {
+		llamado = true
+		return nil
+	})
+	comprobarErrorEstadoCandidatoAsignacion(t, "yaml inverso", err)
+	if llamado {
+		t.Fatal("YAML invocó el decodificador antes de denegar")
+	}
+}
+
+func comprobarRepresentacionEstadoCandidatoAsignacionRedactada(
+	t *testing.T,
+	valor any,
+	sensibles []string,
+) {
+	t.Helper()
+	stringer, okStringer := valor.(fmt.Stringer)
+	goStringer, okGoStringer := valor.(interface{ GoString() string })
+	logValuer, okLogValuer := valor.(slog.LogValuer)
+	if !okStringer || !okGoStringer || !okLogValuer ||
+		stringer.String() != estadoCandidatoAsignacionRedactado ||
+		goStringer.GoString() != estadoCandidatoAsignacionRedactado ||
+		logValuer.LogValue().Resolve().String() != estadoCandidatoAsignacionRedactado {
+		t.Fatalf("%T no implementa redacción constante", valor)
+	}
+	formatos := []string{
+		fmt.Sprintf("%v", valor),
+		fmt.Sprintf("%+v", valor),
+		fmt.Sprintf("%#v", valor),
+		fmt.Sprintf("%s", valor),
+		fmt.Sprintf("%q", valor),
+	}
+	for _, formato := range formatos {
+		if formato != estadoCandidatoAsignacionRedactado {
+			t.Fatalf("formato no constante: %q", formato)
+		}
+	}
+	var registro bytes.Buffer
+	slog.New(slog.NewTextHandler(&registro, nil)).Info(
+		"estado candidato",
+		"estado",
+		valor,
+	)
+	textoLog := registro.String()
+	if !strings.Contains(textoLog, estadoCandidatoAsignacionRedactado) {
+		t.Fatalf("log sin redacción: %q", textoLog)
+	}
+	for _, sensible := range sensibles {
+		if strings.Contains(textoLog, sensible) {
+			t.Fatalf("log filtró %q", sensible)
+		}
+	}
+}
+
+func comprobarErrorEstadoCandidatoAsignacion(
+	t *testing.T,
+	nombre string,
+	err error,
+) {
+	t.Helper()
+	if !errors.Is(err, ErrResultadoAsignacionNoConfiable) {
+		t.Fatalf("%s no quedó bloqueado: %v", nombre, err)
 	}
 }
 
