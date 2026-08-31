@@ -133,6 +133,41 @@ func (e *ejecutorSeleccionComposicionPrueba) SeleccionarYLlamarParaAdaptador(
 	}, nil
 }
 
+type autoridadPropuestaFormalizacionComposicionPrueba struct {
+	resoluciones int
+}
+
+func (a *autoridadPropuestaFormalizacionComposicionPrueba) ResolverContextoPropuestaFormalizacion(
+	context.Context,
+) (httpinterno.ContextoServidorPropuestaFormalizacion, error) {
+	a.resoluciones++
+	return httpinterno.ContextoServidorPropuestaFormalizacion{
+		OrganizacionRef: "organizacion:composicion-formalizacion",
+	}, nil
+}
+
+type ejecutorPropuestaFormalizacionComposicionPrueba struct {
+	ejecuciones int
+}
+
+func (e *ejecutorPropuestaFormalizacionComposicionPrueba) PrepararYConfirmar(
+	_ context.Context,
+	solicitud ports.SolicitudPropuestaFormalizacion,
+) (ports.ResultadoPropuestaFormalizacion, error) {
+	e.ejecuciones++
+	return ports.ResultadoPropuestaFormalizacion{
+		Solicitud:         solicitud.Clonar(),
+		PropuestaRef:      "propuesta:composicion-formalizacion",
+		ReciboLocalRef:    "recibo:composicion-formalizacion",
+		AuditoriaRef:      "auditoria:composicion-formalizacion",
+		VersionResultante: solicitud.VersionEsperada + 1,
+		ConfirmadaEn: time.Date(
+			2026, 8, 31, 16, 0, 0, 123000000, time.UTC,
+		),
+		Estado: ports.ResultadoPropuestaFormalizacionConfirmado,
+	}, nil
+}
+
 func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	t.Parallel()
 	rutas, err := NuevasRutas(
@@ -150,6 +185,7 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaRegistroAnalisisRRHH,
 		httpinterno.RutaRectificacionAnalisisRRHH,
 		httpinterno.RutaSeleccionLlamamiento,
+		httpinterno.RutaPropuestaFormalizacion,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -185,6 +221,10 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	if reflect.ValueOf(rutas[7].Manejador).Pointer() ==
 		reflect.ValueOf(rutas[6].Manejador).Pointer() {
 		t.Fatal("seleccion y analisis comparten manejador")
+	}
+	if reflect.ValueOf(rutas[8].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[7].Manejador).Pointer() {
+		t.Fatal("propuesta de formalizacion y seleccion comparten manejador")
 	}
 }
 
@@ -284,6 +324,12 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 		{"ejecutor de seleccion", func(d *DependenciasRutas) {
 			d.EjecutorSeleccion = nil
 		}},
+		{"autoridad de propuesta", func(d *DependenciasRutas) {
+			d.AutoridadPropuestaFormalizacion = nil
+		}},
+		{"ejecutor de propuesta", func(d *DependenciasRutas) {
+			d.EjecutorPropuestaFormalizacion = nil
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -346,6 +392,14 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 			var nulo *ejecutorSeleccionComposicionPrueba
 			d.EjecutorSeleccion = nulo
 		}},
+		{"autoridad de propuesta", func(d *DependenciasRutas) {
+			var nulo *autoridadPropuestaFormalizacionComposicionPrueba
+			d.AutoridadPropuestaFormalizacion = nulo
+		}},
+		{"ejecutor de propuesta", func(d *DependenciasRutas) {
+			var nulo *ejecutorPropuestaFormalizacionComposicionPrueba
+			d.EjecutorPropuestaFormalizacion = nulo
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -362,17 +416,57 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 	}
 }
 
+func TestRutasContratacionTemporalNoDevuelvenParcialSiFallaConstructorPropuesta(
+	t *testing.T,
+) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	dependencias.EjecutorPropuestaFormalizacion = nil
+	rutas, err := NuevasRutas(dependencias)
+	if rutas != nil || !errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
+		t.Fatalf("resultado = (%#v, %v)", rutas, err)
+	}
+}
+
+func nuevaPeticionPropuestaFormalizacionComposicionPrueba() *http.Request {
+	cuerpo := `{"clave_idempotencia":"938f47a6-5d2b-4c10-aa11-1234567890ab",` +
+		`"expediente_ref":"expediente:http-formalizacion",` +
+		`"llamamiento_ref":"llamamiento:http-formalizacion",` +
+		`"resolucion_llamamiento_aceptada_ref":"resolucion:http-aceptada",` +
+		`"recibo_resolucion_aceptada_ref":"recibo:http-aceptacion",` +
+		`"version_esperada":13,` +
+		`"tipo_formalizacion":{"referencia":"tipo:http-formalizacion",` +
+		`"version":7,"huella_sha256":"` + strings.Repeat("1", 64) + `"},` +
+		`"plantilla":{"referencia":"plantilla:http-formalizacion",` +
+		`"version":7,"huella_sha256":"` + strings.Repeat("2", 64) + `"},` +
+		`"anexos":[],` +
+		`"politica_firma":{"referencia":"politica:http-firma",` +
+		`"version":7,"huella_sha256":"` + strings.Repeat("3", 64) + `"},` +
+		`"plan_firma":{"referencia":"plan:http-firma",` +
+		`"version":7,"huella_sha256":"` + strings.Repeat("4", 64) + `"}}`
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		httpinterno.RutaPropuestaFormalizacion,
+		strings.NewReader(cuerpo),
+	)
+	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	peticion.Header.Set("Accept", "application/json")
+	return peticion
+}
+
 func dependenciasRutasPrueba() DependenciasRutas {
 	return DependenciasRutas{
-		AutoridadAlta:      autoridadAltaComposicionPrueba{},
-		EjecutorAlta:       ejecutorAltaComposicionPrueba{},
-		Reloj:              relojComposicionPrueba{},
-		AutoridadAnalisis:  autoridadAnalisisComposicionPrueba{},
-		EjecutorAnalisis:   ejecutorAnalisisComposicionPrueba{},
-		AutoridadCobertura: autoridadCoberturaComposicionPrueba{},
-		Presentador:        presentadorCoberturaComposicionPrueba{},
-		Decisor:            decisorCoberturaComposicionPrueba{},
-		ConsultorResultado: &consultorResultadoCoberturaComposicionPrueba{},
-		EjecutorSeleccion:  &ejecutorSeleccionComposicionPrueba{},
+		AutoridadAlta:                   autoridadAltaComposicionPrueba{},
+		EjecutorAlta:                    ejecutorAltaComposicionPrueba{},
+		Reloj:                           relojComposicionPrueba{},
+		AutoridadAnalisis:               autoridadAnalisisComposicionPrueba{},
+		EjecutorAnalisis:                ejecutorAnalisisComposicionPrueba{},
+		AutoridadCobertura:              autoridadCoberturaComposicionPrueba{},
+		Presentador:                     presentadorCoberturaComposicionPrueba{},
+		Decisor:                         decisorCoberturaComposicionPrueba{},
+		ConsultorResultado:              &consultorResultadoCoberturaComposicionPrueba{},
+		EjecutorSeleccion:               &ejecutorSeleccionComposicionPrueba{},
+		AutoridadPropuestaFormalizacion: &autoridadPropuestaFormalizacionComposicionPrueba{},
+		EjecutorPropuestaFormalizacion:  &ejecutorPropuestaFormalizacionComposicionPrueba{},
 	}
 }
