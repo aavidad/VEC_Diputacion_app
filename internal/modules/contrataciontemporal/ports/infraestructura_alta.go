@@ -364,15 +364,82 @@ func NuevoEstadoCandidatoAsignacionIdempotente(
 	}, nil
 }
 
-func (e EstadoCandidatoAsignacionIdempotente) PreparacionPara(
+// VistaAutoridadesAsignacion contiene solo las coordenadas anteriores que
+// necesitan destino, política y autorización V3. No incluye la preparación,
+// referencias del efecto, actuaciones ni recibos.
+type VistaAutoridadesAsignacion struct {
+	ExpedienteRef          string
+	OrganizacionRef        string
+	VersionExpediente      uint64
+	Flujo                  domain.ReferenciaFlujo
+	FaseActual             domain.ClaveFase
+	EstadoActual           domain.EstadoOperativo
+	TieneAsignacion        bool
+	UnidadAnteriorRef      string
+	ResponsableAnteriorRef string
+}
+
+func NuevaVistaAutoridadesAsignacion(
+	expediente domain.Expediente,
+) (VistaAutoridadesAsignacion, error) {
+	if expediente.Validar() != nil {
+		return VistaAutoridadesAsignacion{},
+			ErrResultadoAsignacionNoConfiable
+	}
+	vista := VistaAutoridadesAsignacion{
+		ExpedienteRef:     expediente.Referencia,
+		OrganizacionRef:   expediente.OrganizacionRef,
+		VersionExpediente: expediente.Version,
+		Flujo:             expediente.Flujo,
+		FaseActual:        expediente.FaseActual,
+		EstadoActual:      expediente.EstadoActual,
+	}
+	if expediente.Asignacion != nil {
+		vista.TieneAsignacion = true
+		vista.UnidadAnteriorRef = expediente.Asignacion.UnidadRef
+		vista.ResponsableAnteriorRef = expediente.Asignacion.ResponsableRef
+	}
+	return vista, nil
+}
+
+func (v VistaAutoridadesAsignacion) ValidarPara(
 	consulta SolicitudConsultarAsignacionIdempotente,
-) (PreparacionAsignacion, error) {
+) error {
+	if consulta.Validar() != nil ||
+		v.ExpedienteRef != consulta.ExpedienteRef ||
+		v.OrganizacionRef != consulta.OrganizacionRef ||
+		v.VersionExpediente != consulta.VersionExpediente ||
+		v.Flujo.Validar() != nil || !v.FaseActual.Valida() ||
+		!v.EstadoActual.Valido() ||
+		(consulta.Operacion == OperacionRegistrarAsignacion &&
+			(v.TieneAsignacion || v.UnidadAnteriorRef != "" ||
+				v.ResponsableAnteriorRef != "")) ||
+		(consulta.Operacion == OperacionRegistrarReasignacion &&
+			(!v.TieneAsignacion ||
+				!domain.ReferenciaOpacaValida(v.UnidadAnteriorRef) ||
+				!domain.ReferenciaOpacaValida(v.ResponsableAnteriorRef))) {
+		return ErrResultadoAsignacionNoConfiable
+	}
+	return nil
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) VistaPara(
+	consulta SolicitudConsultarAsignacionIdempotente,
+) (VistaAutoridadesAsignacion, error) {
 	if e.datos == nil || consulta.Validar() != nil ||
 		e.datos.datos.Consulta != consulta ||
 		validarEstadoCandidatoAsignacion(e.datos.datos) != nil {
-		return PreparacionAsignacion{}, ErrResultadoAsignacionNoConfiable
+		return VistaAutoridadesAsignacion{},
+			ErrResultadoAsignacionNoConfiable
 	}
-	return clonarPreparacionAsignacion(e.datos.datos.Preparacion), nil
+	vista, err := NuevaVistaAutoridadesAsignacion(
+		e.datos.datos.Preparacion.Expediente,
+	)
+	if err != nil || vista.ValidarPara(consulta) != nil {
+		return VistaAutoridadesAsignacion{},
+			ErrResultadoAsignacionNoConfiable
+	}
+	return vista, nil
 }
 
 func (e EstadoCandidatoAsignacionIdempotente) Reconciliar(

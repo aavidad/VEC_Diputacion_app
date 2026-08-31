@@ -2,8 +2,10 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +79,64 @@ func TestReplayAsignacionRenuevaAutorizacionConAliasActivoSinMutar(t *testing.T)
 	}
 }
 
+func TestReplayAsignacionVistaRepetidaNoExtraeYReconciliacionEsUnica(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioAsignacion(t)
+	servicio, dependencias := construirServicioAsignacion(t, escenario)
+	estado := configurarReplayAsignacionConfirmado(t, dependencias)
+	consulta, err := ports.NuevaSolicitudConsultarAsignacionIdempotente(
+		dependencias.preparar,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	primera, err := estado.VistaPara(consulta)
+	if err != nil {
+		t.Fatalf("primera vista mínima: %v", err)
+	}
+	primera.ExpedienteRef = "expediente:alterado-solo-en-copia"
+	segunda, err := estado.VistaPara(consulta)
+	if err != nil || segunda.ExpedienteRef != consulta.ExpedienteRef {
+		t.Fatalf("vista repetida mutable o inválida: %#v / %v", segunda, err)
+	}
+	codificada, err := json.Marshal(segunda)
+	if err != nil {
+		t.Fatalf("serializar vista mínima: %v", err)
+	}
+	for _, datoTerminal := range []string{
+		dependencias.transaccion.recibo.ReciboRef,
+		dependencias.transaccion.recibo.NotificacionRef,
+		dependencias.transaccion.recibo.BandejaRef,
+		dependencias.transaccion.recibo.AuditoriaRef,
+		dependencias.transaccion.recibo.EventoRef,
+		dependencias.transaccion.recibo.ConcesionV3DecisionRef,
+	} {
+		if strings.Contains(string(codificada), datoTerminal) {
+			t.Fatalf("vista mínima serializó dato terminal %q", datoTerminal)
+		}
+	}
+
+	recibo, err := servicio.Asignar(context.Background(), escenario.solicitud)
+	if err != nil || recibo != dependencias.transaccion.recibo ||
+		dependencias.destinos.llamadas != 1 ||
+		dependencias.politicas.llamadas != 1 ||
+		dependencias.autorizador.llamadas != 1 ||
+		dependencias.transaccion.llamadas != 0 {
+		t.Fatalf("reconciliación sin autoridades frescas: %#v / %v", recibo, err)
+	}
+	posterior, err := estado.VistaPara(consulta)
+	if err != nil || posterior.ExpedienteRef != consulta.ExpedienteRef {
+		t.Fatalf("vista posterior expuso o perdió el agregado previo: %#v / %v", posterior, err)
+	}
+	segundo, err := estado.Reconciliar(ports.EvidenciaReconciliacionAsignacion{})
+	if !errors.Is(err, ports.ErrResultadoAsignacionNoConfiable) ||
+		segundo != (ports.ReciboAsignacion{}) {
+		t.Fatalf("segunda extracción del recibo: %#v / %v", segundo, err)
+	}
+}
+
 func TestReplayReasignacionRenuevaLaOperacionExactaSinMutar(t *testing.T) {
 	escenario := nuevoEscenarioReasignacion(t)
 	servicio, dependencias := construirServicioAsignacion(t, escenario)
@@ -137,6 +197,70 @@ func TestReplayAsignacionRechazaDestinoOPoliticaAlterados(t *testing.T) {
 				t.Fatalf("%s alterado permitió replay: %v %#v", dimension, err, dependencias)
 			}
 		})
+	}
+}
+
+func TestReplayAsignacionEvidenciaInvalidaConsumeSinRevelarRecibo(t *testing.T) {
+	escenario := nuevoEscenarioAsignacion(t)
+	servicio, dependencias := construirServicioAsignacion(t, escenario)
+	configurarReplayAsignacionConfirmado(t, dependencias)
+	dependencias.destinos.evidenciaAlterna = true
+
+	primero, err := servicio.Asignar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrResultadoAsignacionNoConfiable) ||
+		primero != (ports.ReciboAsignacion{}) {
+		t.Fatalf("evidencia inválida reveló recibo: %#v / %v", primero, err)
+	}
+	dependencias.destinos.evidenciaAlterna = false
+	segundo, err := servicio.Asignar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrResultadoAsignacionNoConfiable) ||
+		segundo != (ports.ReciboAsignacion{}) ||
+		dependencias.preparaciones.llamadas != 0 ||
+		dependencias.transaccion.llamadas != 0 {
+		t.Fatalf("estado consumido entregó recibo después: %#v / %v", segundo, err)
+	}
+}
+
+func TestReplayAsignacionRotacionPosteriorNoRevelaRecibo(t *testing.T) {
+	escenario := nuevoEscenarioAsignacion(t)
+	servicio, dependencias := construirServicioAsignacion(t, escenario)
+	configurarReplayAsignacionConfirmado(t, dependencias)
+	ambitoV2, huellaV2, err := ports.ParActivoColeccionesHMAC(
+		dependencias.preparar.AmbitosHMAC,
+		ports.DominioAmbitoIdempotenciaAsignacion,
+		dependencias.preparar.HuellasPeticionHMAC,
+		ports.DominioHuellaPeticionAsignacion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambitoV3 := selloHMACRegistroPrueba(
+		ports.DominioAmbitoIdempotenciaAsignacion+"/v3",
+		"3",
+	)
+	huellaV3 := selloHMACRegistroPrueba(
+		ports.DominioHuellaPeticionAsignacion+"/v3",
+		"4",
+	)
+	ambitos, err := ports.NuevaColeccionSellosHMAC(ambitoV3, []string{ambitoV2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := ports.NuevaColeccionSellosHMAC(huellaV3, []string{huellaV2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio.ambitos.(*selladorAmbitoAsignacionDoble).coleccion = ambitos
+	servicio.huellas.(*derivadorHuellaAsignacionDoble).coleccion = huellas
+
+	recibo, err := servicio.Asignar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrResultadoAsignacionNoConfiable) ||
+		recibo != (ports.ReciboAsignacion{}) ||
+		dependencias.destinos.llamadas != 0 ||
+		dependencias.autorizador.llamadas != 0 ||
+		dependencias.preparaciones.llamadas != 0 ||
+		dependencias.transaccion.llamadas != 0 {
+		t.Fatalf("rotación posterior reveló recibo: %#v / %v", recibo, err)
 	}
 }
 

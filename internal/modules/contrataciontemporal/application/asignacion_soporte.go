@@ -95,6 +95,12 @@ func (s *ServicioAsignacion) confirmar(
 	preparar ports.SolicitudPrepararAsignacion,
 	preparacion ports.PreparacionAsignacion,
 ) (ports.ReciboAsignacion, error) {
+	vista, err := ports.NuevaVistaAutoridadesAsignacion(
+		preparacion.Expediente,
+	)
+	if err != nil {
+		return ports.ReciboAsignacion{}, ErrResultadoAsignacionNoConfiable
+	}
 	evidencia, err := s.resolverAutoridadesAsignacion(
 		ctx,
 		solicitud,
@@ -102,7 +108,7 @@ func (s *ServicioAsignacion) confirmar(
 		contextoSolicitud,
 		contexto,
 		preparar,
-		preparacion,
+		vista,
 	)
 	if err != nil {
 		return ports.ReciboAsignacion{}, err
@@ -156,7 +162,7 @@ func (s *ServicioAsignacion) reconciliar(
 	contextoSolicitud ports.SolicitudResolverContextoAutorizacionAltaV3,
 	contexto ports.ContextoAutorizacionAltaV3,
 	preparar ports.SolicitudPrepararAsignacion,
-	preparacion ports.PreparacionAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
 	estado ports.EstadoCandidatoAsignacionIdempotente,
 ) (ports.ReciboAsignacion, error) {
 	evidencia, err := s.resolverAutoridadesAsignacion(
@@ -166,7 +172,7 @@ func (s *ServicioAsignacion) reconciliar(
 		contextoSolicitud,
 		contexto,
 		preparar,
-		preparacion,
+		vista,
 	)
 	if err != nil {
 		return ports.ReciboAsignacion{}, err
@@ -186,11 +192,17 @@ func (s *ServicioAsignacion) resolverAutoridadesAsignacion(
 	contextoSolicitud ports.SolicitudResolverContextoAutorizacionAltaV3,
 	contexto ports.ContextoAutorizacionAltaV3,
 	preparar ports.SolicitudPrepararAsignacion,
-	preparacion ports.PreparacionAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
 ) (ports.EvidenciaReconciliacionAsignacion, error) {
 	vacia := ports.EvidenciaReconciliacionAsignacion{}
 	if err := ctx.Err(); err != nil {
 		return vacia, err
+	}
+	consulta, err := ports.NuevaSolicitudConsultarAsignacionIdempotente(
+		preparar,
+	)
+	if err != nil || vista.ValidarPara(consulta) != nil {
+		return vacia, ErrResultadoAsignacionNoConfiable
 	}
 	instanteResolucion := instanteCanonico(s.reloj.Ahora())
 	destinoSolicitud := ports.SolicitudResolverDestinoAsignacion{
@@ -218,7 +230,7 @@ func (s *ServicioAsignacion) resolverAutoridadesAsignacion(
 	}
 	politicaSolicitud := solicitudPoliticaAsignacion(
 		solicitud,
-		preparacion.Expediente,
+		vista,
 		material,
 		destino,
 		instanteResolucion,
@@ -241,7 +253,8 @@ func (s *ServicioAsignacion) resolverAutoridadesAsignacion(
 		ctx,
 		contexto,
 		preparar,
-		preparacion,
+		vista,
+		material,
 		destino,
 		politica,
 	)
@@ -290,7 +303,7 @@ func (s *ServicioAsignacion) resolverAutoridadesAsignacion(
 
 func solicitudPoliticaAsignacion(
 	solicitud datosSolicitudAsignacion,
-	expediente domain.Expediente,
+	vista ports.VistaAutoridadesAsignacion,
 	material ports.MaterialHuellaAsignacion,
 	destino ports.DestinoAsignacionResuelto,
 	instante time.Time,
@@ -300,19 +313,18 @@ func solicitudPoliticaAsignacion(
 		OrganizacionRef:         material.OrganizacionRef,
 		ExpedienteRef:           material.ExpedienteRef,
 		VersionExpediente:       material.VersionExpediente,
-		Flujo:                   expediente.Flujo,
-		FasePrevia:              expediente.FaseActual,
-		EstadoPrevio:            expediente.EstadoActual,
+		Flujo:                   vista.Flujo,
+		FasePrevia:              vista.FaseActual,
+		EstadoPrevio:            vista.EstadoActual,
 		ActorRef:                material.ActorRef,
 		PerfilRef:               material.PerfilRef,
 		Destino:                 destino,
 		MotivoReasignacionClave: solicitud.motivoReasignacion,
 		Instante:                instante,
 	}
-	if expediente.Asignacion != nil {
-		resultado.UnidadAnteriorRef = expediente.Asignacion.UnidadRef
-		resultado.ResponsableAnteriorRef =
-			expediente.Asignacion.ResponsableRef
+	if vista.TieneAsignacion {
+		resultado.UnidadAnteriorRef = vista.UnidadAnteriorRef
+		resultado.ResponsableAnteriorRef = vista.ResponsableAnteriorRef
 	}
 	return resultado
 }
@@ -321,7 +333,8 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 	ctx context.Context,
 	contexto ports.ContextoAutorizacionAltaV3,
 	preparar ports.SolicitudPrepararAsignacion,
-	preparacion ports.PreparacionAsignacion,
+	vista ports.VistaAutoridadesAsignacion,
+	material ports.MaterialHuellaAsignacion,
 	destino ports.DestinoAsignacionResuelto,
 	politica ports.PoliticaAsignacion,
 ) (dominiovec.SolicitudAutorizacionLigadaV3, error) {
@@ -347,20 +360,20 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 			ReferenciaMotivo:          politica.MotivoAutorizacion,
 			Accion:                    string(politica.Accion),
 			Recurso: dominiovec.RecursoAutorizable{
-				Referencia: preparacion.Expediente.Referencia,
+				Referencia: material.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoAsignacion,
 				Ambitos: map[string]string{
-					"organizacion_ref":   preparacion.OrganizacionRef,
-					"expediente_ref":     preparacion.Expediente.Referencia,
-					"fase_previa":        string(preparacion.Expediente.FaseActual),
-					"estado_previo":      string(preparacion.Expediente.EstadoActual),
-					"unidad_destino_ref": preparacion.UnidadRef,
+					"organizacion_ref":   material.OrganizacionRef,
+					"expediente_ref":     material.ExpedienteRef,
+					"fase_previa":        string(vista.FaseActual),
+					"estado_previo":      string(vista.EstadoActual),
+					"unidad_destino_ref": material.UnidadRef,
 				},
 				Atributos: map[string]string{
-					ports.AtributoOperacionAsignacion: string(preparacion.Operacion),
+					ports.AtributoOperacionAsignacion: string(material.Operacion),
 					ports.AtributoVersionAsignacion: strconv.FormatUint(
-						preparacion.Expediente.Version,
+						material.VersionExpediente,
 						10,
 					),
 					ports.AtributoPoliticaAsignacionRef: politica.DefinicionRef,
@@ -371,8 +384,8 @@ func (s *ServicioAsignacion) nuevaSolicitudAutorizacionAsignacion(
 					ports.AtributoPoliticaAsignacionHuella: politica.DefinicionHuellaSHA256,
 					ports.AtributoEvidenciaDestinoRef:      destino.EvidenciaRef,
 					ports.AtributoEvidenciaDestinoHuella:   destino.EvidenciaHuellaSHA256,
-					ports.AtributoUnidadDestino:            preparacion.UnidadRef,
-					ports.AtributoResponsableDestino:       preparacion.ResponsableRef,
+					ports.AtributoUnidadDestino:            material.UnidadRef,
+					ports.AtributoResponsableDestino:       material.ResponsableRef,
 					ports.AtributoAmbitoIdempotenciaActivo: ambitoActivo,
 					ports.AtributoHuellaPeticionAsignacion: huellaActiva,
 					ports.AtributoSegregacionAsignacion: strconv.FormatBool(

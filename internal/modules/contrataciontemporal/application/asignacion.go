@@ -226,8 +226,8 @@ func (s *ServicioAsignacion) ejecutar(
 		return ports.ReciboAsignacion{}, err
 	}
 	if encontrado {
-		preparacion, err := estado.PreparacionPara(consulta)
-		if err != nil || preparacion.ValidarPara(preparar) != nil {
+		vista, err := estado.VistaPara(consulta)
+		if err != nil || vista.ValidarPara(consulta) != nil {
 			return ports.ReciboAsignacion{},
 				ErrResultadoAsignacionNoConfiable
 		}
@@ -238,7 +238,7 @@ func (s *ServicioAsignacion) ejecutar(
 			contextoSolicitud,
 			contexto,
 			preparar,
-			preparacion,
+			vista,
 			estado,
 		)
 	}

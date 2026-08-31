@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -378,6 +379,43 @@ func TestEstadoCandidatoAsignacionCierraCodecsFormatosYLogs(t *testing.T) {
 				t.Fatal("la deserialización prohibida alteró el estado")
 			}
 		})
+	}
+}
+
+func TestEstadoCandidatoAsignacionSoloReconciliarExponeTipoRecibo(t *testing.T) {
+	tipoEstado := reflect.TypeOf(EstadoCandidatoAsignacionIdempotente{})
+	tipoVista := reflect.TypeOf(VistaAutoridadesAsignacion{})
+	tipoRecibo := reflect.TypeOf(ReciboAsignacion{})
+	tipoPreparacion := reflect.TypeOf(PreparacionAsignacion{})
+
+	if tipoVista.NumField() != 9 {
+		t.Fatalf("vista pública ampliada fuera de sus coordenadas mínimas: %v", tipoVista)
+	}
+	for indice := 0; indice < tipoVista.NumField(); indice++ {
+		campo := tipoVista.Field(indice)
+		if strings.Contains(campo.Name, "Recibo") ||
+			campo.Type == tipoRecibo || campo.Type == reflect.PointerTo(tipoRecibo) ||
+			campo.Type == tipoPreparacion ||
+			campo.Type == reflect.PointerTo(tipoPreparacion) ||
+			campo.Type == reflect.TypeOf(domain.Expediente{}) {
+			t.Fatalf("vista pública permite recuperar estado terminal: %s %v", campo.Name, campo.Type)
+		}
+	}
+	for indice := 0; indice < tipoEstado.NumMethod(); indice++ {
+		metodo := tipoEstado.Method(indice)
+		if metodo.Name == "PreparacionPara" {
+			t.Fatal("el candidato conserva el extractor de preparación completa")
+		}
+		for salida := 0; salida < metodo.Type.NumOut(); salida++ {
+			tipoSalida := metodo.Type.Out(salida)
+			exponeRecibo := tipoSalida == tipoRecibo ||
+				tipoSalida == reflect.PointerTo(tipoRecibo)
+			exponePreparacion := tipoSalida == tipoPreparacion ||
+				tipoSalida == reflect.PointerTo(tipoPreparacion)
+			if exponePreparacion || (exponeRecibo && metodo.Name != "Reconciliar") {
+				t.Fatalf("%s expone estado terminal antes de reconciliar: %v", metodo.Name, tipoSalida)
+			}
+		}
 	}
 }
 
