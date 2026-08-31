@@ -87,6 +87,7 @@ type ComunicacionProbatoria struct {
 	Canal             ReferenciaGobernadaComunicacionLlamamiento
 	Politica          ReferenciaGobernadaComunicacionLlamamiento
 	ReciboRef         string
+	AuditoriaRef      string
 	VersionResultante uint64
 	EntregadaEn       time.Time
 	RespuestaHasta    time.Time
@@ -100,6 +101,7 @@ func (c ComunicacionProbatoria) ValidarPara(
 		!domain.ReferenciaOpacaValida(c.ComunicacionRef) ||
 		c.Canal.Validar() != nil || c.Politica.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(c.ReciboRef) ||
+		!domain.ReferenciaOpacaValida(c.AuditoriaRef) ||
 		c.VersionResultante != solicitud.VersionEsperada+1 ||
 		!domain.InstanteUTCCanonico(c.EntregadaEn) ||
 		!domain.InstanteUTCCanonico(c.RespuestaHasta) ||
@@ -173,7 +175,9 @@ const (
 type EstadoOutboxSiguienteCandidato string
 
 const (
-	OutboxSiguienteCandidatoPendiente     EstadoOutboxSiguienteCandidato = "pendiente"
+	OutboxSiguienteCandidatoPendiente EstadoOutboxSiguienteCandidato = "pendiente"
+	// OutboxSiguienteCandidatoDespachada acredita solo el despacho local de
+	// la intencion; no acredita recepcion, exito ni otro efecto en Bolsa.
 	OutboxSiguienteCandidatoDespachada    EstadoOutboxSiguienteCandidato = "despachada"
 	OutboxSiguienteCandidatoIndeterminada EstadoOutboxSiguienteCandidato = "indeterminada"
 )
@@ -188,14 +192,32 @@ func (e EstadoOutboxSiguienteCandidato) valida() bool {
 // comando, las reglas, el orden y cualquier seleccion permanecen opacos hasta
 // que un despachador posterior los abra ante el puerto autorizado de Bolsa.
 type IntencionOutboxSiguienteCandidato struct {
-	IntencionRef    string
-	ComandoOpacoRef string
-	Estado          EstadoOutboxSiguienteCandidato
-	ActualizadaEn   time.Time
+	Solicitud         SolicitudResolverLlamamiento
+	ResolucionRef     string
+	LlamamientoRef    string
+	ClaveIdempotencia string
+	VersionEsperada   uint64
+	VersionResultante uint64
+	IntencionRef      string
+	ComandoOpacoRef   string
+	Estado            EstadoOutboxSiguienteCandidato
+	ActualizadaEn     time.Time
 }
 
-func (i IntencionOutboxSiguienteCandidato) Validar() error {
-	if !domain.ReferenciaOpacaValida(i.IntencionRef) ||
+func (i IntencionOutboxSiguienteCandidato) ValidarPara(
+	solicitud SolicitudResolverLlamamiento,
+	resolucionRef string,
+	versionResultante uint64,
+) error {
+	if solicitud.Validar() != nil || i.Solicitud != solicitud ||
+		!domain.ReferenciaOpacaValida(resolucionRef) ||
+		i.ResolucionRef != resolucionRef ||
+		i.LlamamientoRef != solicitud.LlamamientoRef ||
+		i.ClaveIdempotencia != solicitud.ClaveIdempotencia ||
+		i.VersionEsperada != solicitud.VersionEsperada ||
+		versionResultante != solicitud.VersionEsperada+1 ||
+		i.VersionResultante != versionResultante ||
+		!domain.ReferenciaOpacaValida(i.IntencionRef) ||
 		!domain.ReferenciaOpacaValida(i.ComandoOpacoRef) ||
 		!i.Estado.valida() || !domain.InstanteUTCCanonico(i.ActualizadaEn) {
 		return ErrResultadoComunicacionLlamamientoNoConfiable
@@ -216,6 +238,7 @@ type ResultadoResolucionLlamamiento struct {
 	EstadoPlazo        EstadoPlazoLlamamiento
 	ResolucionRef      string
 	ReciboLocalRef     string
+	AuditoriaRef       string
 	IntencionSiguiente IntencionOutboxSiguienteCandidato
 	VersionResultante  uint64
 	ResueltaEn         time.Time
@@ -230,6 +253,7 @@ func (r ResultadoResolucionLlamamiento) ValidarPara(
 		!domain.ReferenciaOpacaValida(r.EvaluacionPlazoRef) ||
 		!domain.ReferenciaOpacaValida(r.ResolucionRef) ||
 		!domain.ReferenciaOpacaValida(r.ReciboLocalRef) ||
+		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		r.VersionResultante != solicitud.VersionEsperada+1 ||
 		!domain.InstanteUTCCanonico(r.ResueltaEn) || !r.Estado.valida() ||
 		(!r.IntencionSiguiente.vacia() &&
@@ -246,12 +270,20 @@ func (r ResultadoResolucionLlamamiento) ValidarPara(
 		}
 	case RespuestaLlamamientoRenunciada:
 		if r.EstadoPlazo != PlazoLlamamientoVigente ||
-			r.IntencionSiguiente.Validar() != nil {
+			r.IntencionSiguiente.ValidarPara(
+				solicitud,
+				r.ResolucionRef,
+				r.VersionResultante,
+			) != nil {
 			return ErrResultadoComunicacionLlamamientoNoConfiable
 		}
 	case RespuestaLlamamientoExpirada:
 		if r.EstadoPlazo != PlazoLlamamientoExpirado ||
-			(!r.IntencionSiguiente.vacia() && r.IntencionSiguiente.Validar() != nil) {
+			r.IntencionSiguiente.ValidarPara(
+				solicitud,
+				r.ResolucionRef,
+				r.VersionResultante,
+			) != nil {
 			return ErrResultadoComunicacionLlamamientoNoConfiable
 		}
 	default:
@@ -270,8 +302,9 @@ func (r ResultadoResolucionLlamamiento) EsReplayConfirmado() bool {
 // recibo y outbox local en un commit con OCC e idempotencia. Resolver confirma
 // la respuesta local y, solo tras renuncia o expiracion gobernada, persiste
 // junto a ella una intencion outbox pendiente con referencia a un comando
-// opaco. No invoca Bolsa. Un replay puede devolver la intencion ya despachada
-// o indeterminada por un proceso posterior.
+// opaco. No invoca Bolsa. Un replay puede reflejar una intencion pendiente,
+// despachada localmente o indeterminada; ningun estado acredita exito ni efecto
+// externo en Bolsa.
 // Cualquier error previo al commit revierte todos los cambios locales.
 type TransaccionComunicacionLlamamiento interface {
 	RegistrarComunicacion(

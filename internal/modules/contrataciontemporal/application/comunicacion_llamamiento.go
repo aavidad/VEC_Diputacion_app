@@ -62,6 +62,9 @@ func (s *ServicioComunicacionLlamamiento) Registrar(
 		return ports.ComunicacionProbatoria{}, err
 	}
 	resultado, err := s.transaccion.RegistrarComunicacion(ctx, solicitud)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return ports.ComunicacionProbatoria{}, errContexto
+	}
 	if err != nil {
 		if errContexto := ctx.Err(); errContexto != nil {
 			return ports.ComunicacionProbatoria{}, errContexto
@@ -96,6 +99,9 @@ func (s *ServicioComunicacionLlamamiento) Resolver(
 		return ports.ResultadoResolucionLlamamiento{}, err
 	}
 	resultado, err := s.transaccion.ResolverLlamamiento(ctx, solicitud)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return ports.ResultadoResolucionLlamamiento{}, errContexto
+	}
 	if err != nil {
 		if errContexto := ctx.Err(); errContexto != nil {
 			return ports.ResultadoResolucionLlamamiento{}, errContexto

@@ -22,6 +22,27 @@ type transaccionComunicacionLlamamientoPrueba struct {
 	resoluciones     int
 }
 
+type contextoComunicacionFinalizadoPrueba struct {
+	context.Context
+	err  error
+	done chan struct{}
+}
+
+func nuevoContextoComunicacionFinalizadoPrueba() *contextoComunicacionFinalizadoPrueba {
+	return &contextoComunicacionFinalizadoPrueba{
+		Context: context.Background(),
+		done:    make(chan struct{}),
+	}
+}
+
+func (c *contextoComunicacionFinalizadoPrueba) Done() <-chan struct{} { return c.done }
+func (c *contextoComunicacionFinalizadoPrueba) Err() error            { return c.err }
+
+func (c *contextoComunicacionFinalizadoPrueba) finalizar(err error) {
+	c.err = err
+	close(c.done)
+}
+
 func (t *transaccionComunicacionLlamamientoPrueba) RegistrarComunicacion(
 	_ context.Context,
 	_ ports.SolicitudRegistrarComunicacionLlamamiento,
@@ -94,8 +115,7 @@ func TestServicioComunicacionLlamamientoResuelveSoloConOutboxLocal(t *testing.T)
 	}{
 		{"aceptacion_sin_outbox", ports.RespuestaLlamamientoAceptada, ports.PlazoLlamamientoVigente, nil},
 		{"renuncia_pendiente", ports.RespuestaLlamamientoRenunciada, ports.PlazoLlamamientoVigente, estadoOutboxAplicacion(ports.OutboxSiguienteCandidatoPendiente)},
-		{"expiracion_sin_avance", ports.RespuestaLlamamientoExpirada, ports.PlazoLlamamientoExpirado, nil},
-		{"expiracion_con_avance", ports.RespuestaLlamamientoExpirada, ports.PlazoLlamamientoExpirado, estadoOutboxAplicacion(ports.OutboxSiguienteCandidatoPendiente)},
+		{"expiracion_pendiente", ports.RespuestaLlamamientoExpirada, ports.PlazoLlamamientoExpirado, estadoOutboxAplicacion(ports.OutboxSiguienteCandidatoPendiente)},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -121,29 +141,37 @@ func TestServicioComunicacionLlamamientoResuelveSoloConOutboxLocal(t *testing.T)
 	}
 }
 
-func TestServicioComunicacionLlamamientoAceptaReplayOutboxPosterior(t *testing.T) {
-	solicitud := solicitudResolverComunicacionAplicacionPrueba(
+func TestServicioComunicacionLlamamientoAceptaReplaySinAfirmarEfectoExterno(t *testing.T) {
+	for _, respuesta := range []ports.RespuestaLlamamiento{
 		ports.RespuestaLlamamientoRenunciada,
-	)
-	for _, estado := range []ports.EstadoOutboxSiguienteCandidato{
-		ports.OutboxSiguienteCandidatoDespachada,
-		ports.OutboxSiguienteCandidatoIndeterminada,
+		ports.RespuestaLlamamientoExpirada,
 	} {
-		t.Run(string(estado), func(t *testing.T) {
-			transaccion := &transaccionComunicacionLlamamientoPrueba{
-				resolucion: resolucionAplicacionPrueba(
-					solicitud,
-					ports.ResultadoComunicacionLlamamientoReplay,
-					ports.PlazoLlamamientoVigente,
-					estadoOutboxAplicacion(estado),
-				),
-			}
-			servicio := nuevoServicioComunicacionAplicacionPrueba(t, transaccion)
-			resultado, err := servicio.Resolver(context.Background(), solicitud)
-			if err != nil || !resultado.EsReplayConfirmado() {
-				t.Fatalf("replay %s rechazado: resultado=%+v err=%v", estado, resultado, err)
-			}
-		})
+		for _, estado := range []ports.EstadoOutboxSiguienteCandidato{
+			ports.OutboxSiguienteCandidatoPendiente,
+			ports.OutboxSiguienteCandidatoDespachada,
+			ports.OutboxSiguienteCandidatoIndeterminada,
+		} {
+			t.Run(string(respuesta)+"_"+string(estado), func(t *testing.T) {
+				solicitud := solicitudResolverComunicacionAplicacionPrueba(respuesta)
+				plazo := ports.PlazoLlamamientoVigente
+				if respuesta == ports.RespuestaLlamamientoExpirada {
+					plazo = ports.PlazoLlamamientoExpirado
+				}
+				transaccion := &transaccionComunicacionLlamamientoPrueba{
+					resolucion: resolucionAplicacionPrueba(
+						solicitud,
+						ports.ResultadoComunicacionLlamamientoReplay,
+						plazo,
+						estadoOutboxAplicacion(estado),
+					),
+				}
+				servicio := nuevoServicioComunicacionAplicacionPrueba(t, transaccion)
+				resultado, err := servicio.Resolver(context.Background(), solicitud)
+				if err != nil || !resultado.EsReplayConfirmado() {
+					t.Fatalf("replay %s rechazado: resultado=%+v err=%v", estado, resultado, err)
+				}
+			})
+		}
 	}
 }
 
@@ -275,6 +303,49 @@ func TestServicioComunicacionLlamamientoPreservaCancelacionContradictoria(t *tes
 	})
 }
 
+func TestServicioComunicacionLlamamientoDescartaResultadoTrasFinalizarContexto(t *testing.T) {
+	for _, fallo := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(fallo.Error()+"_registrar", func(t *testing.T) {
+			ctx := nuevoContextoComunicacionFinalizadoPrueba()
+			solicitud := solicitudRegistroComunicacionAplicacionPrueba()
+			transaccion := &transaccionComunicacionLlamamientoPrueba{
+				comunicacion: comunicacionAplicacionPrueba(solicitud),
+				antesDeRegistrar: func() {
+					ctx.finalizar(fallo)
+				},
+			}
+			servicio := nuevoServicioComunicacionAplicacionPrueba(t, transaccion)
+			resultado, err := servicio.Registrar(ctx, solicitud)
+			if resultado != (ports.ComunicacionProbatoria{}) || !errors.Is(err, fallo) {
+				t.Fatalf("resultado sobrevivio al contexto finalizado: resultado=%+v err=%v", resultado, err)
+			}
+		})
+
+		t.Run(fallo.Error()+"_resolver", func(t *testing.T) {
+			ctx := nuevoContextoComunicacionFinalizadoPrueba()
+			solicitud := solicitudResolverComunicacionAplicacionPrueba(
+				ports.RespuestaLlamamientoAceptada,
+			)
+			transaccion := &transaccionComunicacionLlamamientoPrueba{
+				resolucion: resolucionAplicacionPrueba(
+					solicitud,
+					ports.ResultadoComunicacionLlamamientoConfirmado,
+					ports.PlazoLlamamientoVigente,
+					nil,
+				),
+				antesDeResolver: func() {
+					ctx.finalizar(fallo)
+				},
+			}
+			servicio := nuevoServicioComunicacionAplicacionPrueba(t, transaccion)
+			resultado, err := servicio.Resolver(ctx, solicitud)
+			if resultado != (ports.ResultadoResolucionLlamamiento{}) || !errors.Is(err, fallo) {
+				t.Fatalf("resultado sobrevivio al contexto finalizado: resultado=%+v err=%v", resultado, err)
+			}
+		})
+	}
+}
+
 func TestServicioComunicacionLlamamientoRechazaResultadoNoLigado(t *testing.T) {
 	solicitud := solicitudResolverComunicacionAplicacionPrueba(
 		ports.RespuestaLlamamientoAceptada,
@@ -294,6 +365,25 @@ func TestServicioComunicacionLlamamientoRechazaResultadoNoLigado(t *testing.T) {
 		ErrResultadoComunicacionLlamamientoNoConfiable,
 	) {
 		t.Fatalf("resultado no ligado aceptado: resultado=%+v err=%v", obtenido, err)
+	}
+
+	expiracion := solicitudResolverComunicacionAplicacionPrueba(
+		ports.RespuestaLlamamientoExpirada,
+	)
+	sinIntencion := resolucionAplicacionPrueba(
+		expiracion,
+		ports.ResultadoComunicacionLlamamientoConfirmado,
+		ports.PlazoLlamamientoExpirado,
+		nil,
+	)
+	transaccion = &transaccionComunicacionLlamamientoPrueba{resolucion: sinIntencion}
+	servicio = nuevoServicioComunicacionAplicacionPrueba(t, transaccion)
+	obtenido, err = servicio.Resolver(context.Background(), expiracion)
+	if obtenido != (ports.ResultadoResolucionLlamamiento{}) || !errors.Is(
+		err,
+		ErrResultadoComunicacionLlamamientoNoConfiable,
+	) {
+		t.Fatalf("expiracion sin intencion pendiente aceptada: resultado=%+v err=%v", obtenido, err)
 	}
 }
 
@@ -327,8 +417,9 @@ func comunicacionAplicacionPrueba(
 		Solicitud: solicitud, ComunicacionRef: "comunicacion:aplicacion-probatoria",
 		Canal:     referenciaComunicacionAplicacionPrueba("canal", "c"),
 		Politica:  referenciaComunicacionAplicacionPrueba("politica", "d"),
-		ReciboRef: "recibo:aplicacion-comunicacion", VersionResultante: solicitud.VersionEsperada + 1,
-		EntregadaEn: entregada, RespuestaHasta: respuestaHastaGobernada,
+		ReciboRef: "recibo:aplicacion-comunicacion", AuditoriaRef: "auditoria:aplicacion-comunicacion",
+		VersionResultante: solicitud.VersionEsperada + 1,
+		EntregadaEn:       entregada, RespuestaHasta: respuestaHastaGobernada,
 		Estado: ports.ResultadoComunicacionLlamamientoConfirmado,
 	}
 }
@@ -359,10 +450,14 @@ func resolucionAplicacionPrueba(
 		Solicitud: solicitud, Politica: referenciaComunicacionAplicacionPrueba("politica", "d"),
 		EvaluacionPlazoRef: "evaluacion:aplicacion-plazo", EstadoPlazo: plazo,
 		ResolucionRef: "resolucion:aplicacion-local", ReciboLocalRef: "recibo:aplicacion-local",
+		AuditoriaRef:      "auditoria:aplicacion-resolucion",
 		VersionResultante: solicitud.VersionEsperada + 1, ResueltaEn: resuelta, Estado: estado,
 	}
 	if estadoOutbox != nil {
 		resultado.IntencionSiguiente = ports.IntencionOutboxSiguienteCandidato{
+			Solicitud: solicitud, ResolucionRef: resultado.ResolucionRef,
+			LlamamientoRef: solicitud.LlamamientoRef, ClaveIdempotencia: solicitud.ClaveIdempotencia,
+			VersionEsperada: solicitud.VersionEsperada, VersionResultante: resultado.VersionResultante,
 			IntencionRef: "outbox:aplicacion-siguiente", ComandoOpacoRef: "comando:aplicacion-siguiente",
 			Estado: *estadoOutbox, ActualizadaEn: resuelta,
 		}

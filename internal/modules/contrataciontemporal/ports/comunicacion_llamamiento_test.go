@@ -31,6 +31,7 @@ func TestComunicacionProbatoriaExigePoliticaCanalPlazoYVersion(t *testing.T) {
 		{"solicitud", func(c *ComunicacionProbatoria) { c.Solicitud.ExpedienteRef = "expediente:otro" }},
 		{"canal", func(c *ComunicacionProbatoria) { c.Canal.Version = 0 }},
 		{"politica", func(c *ComunicacionProbatoria) { c.Politica.HuellaSHA256 = strings.Repeat("0", 64) }},
+		{"auditoria", func(c *ComunicacionProbatoria) { c.AuditoriaRef = "" }},
 		{"version", func(c *ComunicacionProbatoria) { c.VersionResultante++ }},
 		{"plazo", func(c *ComunicacionProbatoria) { c.RespuestaHasta = c.EntregadaEn }},
 		{"estado", func(c *ComunicacionProbatoria) { c.Estado = "inventado" }},
@@ -79,12 +80,16 @@ func TestResultadoResolucionLlamamientoModelaOutboxLocal(t *testing.T) {
 		plazo     EstadoPlazoLlamamiento
 		outbox    *EstadoOutboxSiguienteCandidato
 	}{
-		{"aceptacion", RespuestaLlamamientoAceptada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoVigente, nil},
+		{"aceptacion_nueva", RespuestaLlamamientoAceptada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoVigente, nil},
+		{"aceptacion_replay", RespuestaLlamamientoAceptada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoVigente, nil},
 		{"renuncia_pendiente", RespuestaLlamamientoRenunciada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoPendiente)},
-		{"renuncia_despachada_en_replay", RespuestaLlamamientoRenunciada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoDespachada)},
+		{"renuncia_pendiente_en_replay", RespuestaLlamamientoRenunciada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoPendiente)},
+		{"renuncia_despachada_local_en_replay", RespuestaLlamamientoRenunciada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoDespachada)},
 		{"renuncia_indeterminada_en_replay", RespuestaLlamamientoRenunciada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoIndeterminada)},
-		{"expiracion_sin_avance_gobernado", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoExpirado, nil},
-		{"expiracion_con_avance_gobernado", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoExpirado, estadoOutbox(OutboxSiguienteCandidatoPendiente)},
+		{"expiracion_pendiente", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoConfirmado, PlazoLlamamientoExpirado, estadoOutbox(OutboxSiguienteCandidatoPendiente)},
+		{"expiracion_pendiente_en_replay", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoExpirado, estadoOutbox(OutboxSiguienteCandidatoPendiente)},
+		{"expiracion_despachada_local_en_replay", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoExpirado, estadoOutbox(OutboxSiguienteCandidatoDespachada)},
+		{"expiracion_indeterminada_en_replay", RespuestaLlamamientoExpirada, ResultadoComunicacionLlamamientoReplay, PlazoLlamamientoExpirado, estadoOutbox(OutboxSiguienteCandidatoIndeterminada)},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -121,14 +126,36 @@ func TestResultadoResolucionLlamamientoRechazaAvanceFalsoOParcial(t *testing.T) 
 		{"despachada_sin_replay", func(r *ResultadoResolucionLlamamiento) {
 			r.IntencionSiguiente.Estado = OutboxSiguienteCandidatoDespachada
 		}},
+		{"estado_externo_inventado", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.Estado = EstadoOutboxSiguienteCandidato("exito_bolsa")
+		}},
 		{"indeterminada_sin_replay", func(r *ResultadoResolucionLlamamiento) {
 			r.IntencionSiguiente.Estado = OutboxSiguienteCandidatoIndeterminada
+		}},
+		{"otra_solicitud", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.Solicitud.ExpedienteRef = "expediente:otra-operacion"
+		}},
+		{"otra_resolucion", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.ResolucionRef = "resolucion:otra-operacion"
+		}},
+		{"otro_llamamiento", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.LlamamientoRef = "llamamiento:otra-operacion"
+		}},
+		{"otra_clave", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.ClaveIdempotencia = "418f47a6-5d2b-4c10-ca11-1234567890ab"
+		}},
+		{"otra_version_esperada", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.VersionEsperada++
+		}},
+		{"otra_version_resultante", func(r *ResultadoResolucionLlamamiento) {
+			r.IntencionSiguiente.VersionResultante++
 		}},
 		{"comando_vacio", func(r *ResultadoResolucionLlamamiento) { r.IntencionSiguiente.ComandoOpacoRef = "" }},
 		{"cronologia", func(r *ResultadoResolucionLlamamiento) {
 			r.IntencionSiguiente.ActualizadaEn = r.ResueltaEn.Add(-time.Microsecond)
 		}},
 		{"recibo_no_local", func(r *ResultadoResolucionLlamamiento) { r.ReciboLocalRef = "" }},
+		{"auditoria", func(r *ResultadoResolucionLlamamiento) { r.AuditoriaRef = "" }},
 	}
 	for _, caso := range mutaciones {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -149,6 +176,31 @@ func TestResultadoResolucionLlamamientoRechazaAvanceFalsoOParcial(t *testing.T) 
 	)
 	if conOutbox.ValidarPara(aceptacion) == nil {
 		t.Fatal("aceptacion con solicitud de siguiente candidato aceptada")
+	}
+
+	expiracion := solicitudResolverComunicacionPrueba(RespuestaLlamamientoExpirada)
+	sinIntencion := resultadoResolucionComunicacionPrueba(
+		expiracion,
+		ResultadoComunicacionLlamamientoConfirmado,
+		PlazoLlamamientoExpirado,
+		nil,
+	)
+	if sinIntencion.ValidarPara(expiracion) == nil {
+		t.Fatal("expiracion nueva sin intencion pendiente aceptada")
+	}
+
+	otraOperacion := renuncia
+	otraOperacion.ClaveIdempotencia = "518f47a6-5d2b-4c10-da11-1234567890ab"
+	intencionAjena := resultadoResolucionComunicacionPrueba(
+		otraOperacion,
+		ResultadoComunicacionLlamamientoConfirmado,
+		PlazoLlamamientoVigente,
+		estadoOutbox(OutboxSiguienteCandidatoPendiente),
+	).IntencionSiguiente
+	conIntencionAjena := valido
+	conIntencionAjena.IntencionSiguiente = intencionAjena
+	if conIntencionAjena.ValidarPara(renuncia) == nil {
+		t.Fatal("intencion de otra operacion aceptada")
 	}
 }
 
@@ -197,8 +249,9 @@ func comunicacionProbatoriaPrueba(
 		Solicitud: solicitud, ComunicacionRef: "comunicacion:probatoria",
 		Canal:     referenciaGobernadaComunicacionPrueba("canal", "a"),
 		Politica:  referenciaGobernadaComunicacionPrueba("politica", "b"),
-		ReciboRef: "recibo:comunicacion-local", VersionResultante: solicitud.VersionEsperada + 1,
-		EntregadaEn: entregada, RespuestaHasta: respuestaHastaGobernada,
+		ReciboRef: "recibo:comunicacion-local", AuditoriaRef: "auditoria:comunicacion-local",
+		VersionResultante: solicitud.VersionEsperada + 1,
+		EntregadaEn:       entregada, RespuestaHasta: respuestaHastaGobernada,
 		Estado: ResultadoComunicacionLlamamientoConfirmado,
 	}
 }
@@ -229,10 +282,14 @@ func resultadoResolucionComunicacionPrueba(
 		Solicitud: solicitud, Politica: referenciaGobernadaComunicacionPrueba("politica", "b"),
 		EvaluacionPlazoRef: "evaluacion:plazo-gobernado", EstadoPlazo: plazo,
 		ResolucionRef: "resolucion:llamamiento-local", ReciboLocalRef: "recibo:resolucion-local",
+		AuditoriaRef:      "auditoria:resolucion-local",
 		VersionResultante: solicitud.VersionEsperada + 1, ResueltaEn: resuelta, Estado: estado,
 	}
 	if estadoOutbox != nil {
 		resultado.IntencionSiguiente = IntencionOutboxSiguienteCandidato{
+			Solicitud: solicitud, ResolucionRef: resultado.ResolucionRef,
+			LlamamientoRef: solicitud.LlamamientoRef, ClaveIdempotencia: solicitud.ClaveIdempotencia,
+			VersionEsperada: solicitud.VersionEsperada, VersionResultante: resultado.VersionResultante,
 			IntencionRef: "outbox:siguiente-candidato", ComandoOpacoRef: "comando:siguiente-candidato",
 			Estado: *estadoOutbox, ActualizadaEn: resuelta,
 		}
