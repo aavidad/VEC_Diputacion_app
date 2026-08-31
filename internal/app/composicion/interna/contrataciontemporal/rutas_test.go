@@ -116,6 +116,23 @@ func (c *consultorResultadoCoberturaComposicionPrueba) ConsultarParaAdaptador(
 	}, nil
 }
 
+type ejecutorSeleccionComposicionPrueba struct {
+	ejecuciones int
+}
+
+func (e *ejecutorSeleccionComposicionPrueba) SeleccionarYLlamarParaAdaptador(
+	context.Context,
+	application.SolicitudSeleccionLlamamiento,
+) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	e.ejecuciones++
+	return application.DatosReciboSeleccionLlamamientoParaAdaptador{
+		ReciboRef: "recibo:llamamiento:http:001",
+		ConfirmadaEn: time.Date(
+			2026, 8, 31, 10, 0, 0, 123000000, time.UTC,
+		),
+	}, nil
+}
+
 func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	t.Parallel()
 	rutas, err := NuevasRutas(
@@ -132,6 +149,7 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaResultadoCobertura,
 		httpinterno.RutaRegistroAnalisisRRHH,
 		httpinterno.RutaRectificacionAnalisisRRHH,
+		httpinterno.RutaSeleccionLlamamiento,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -164,6 +182,10 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		reflect.ValueOf(rutas[6].Manejador).Pointer() {
 		t.Fatal("registro y rectificacion de analisis no comparten manejador")
 	}
+	if reflect.ValueOf(rutas[7].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[6].Manejador).Pointer() {
+		t.Fatal("seleccion y analisis comparten manejador")
+	}
 }
 
 func TestRutaResultadoCoberturaCompuestaUsaSoloElConsultor(t *testing.T) {
@@ -192,6 +214,35 @@ func TestRutaResultadoCoberturaCompuestaUsaSoloElConsultor(t *testing.T) {
 			"lectura compuesta: estado=%d consultas=%d cuerpo=%s",
 			respuesta.Code,
 			consultor.consultas,
+			respuesta.Body.String(),
+		)
+	}
+}
+
+func TestRutaSeleccionLlamamientoCompuestaDelegaUnaVez(t *testing.T) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	ejecutor := dependencias.EjecutorSeleccion.(*ejecutorSeleccionComposicionPrueba)
+	rutas, err := NuevasRutas(dependencias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		httpinterno.RutaSeleccionLlamamiento,
+		strings.NewReader(
+			`{"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"}`,
+		),
+	)
+	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	peticion.Header.Set("Accept", "application/json")
+	respuesta := httptest.NewRecorder()
+	rutas[7].Manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusOK || ejecutor.ejecuciones != 1 {
+		t.Fatalf(
+			"seleccion compuesta: estado=%d ejecuciones=%d cuerpo=%s",
+			respuesta.Code,
+			ejecutor.ejecuciones,
 			respuesta.Body.String(),
 		)
 	}
@@ -229,6 +280,9 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 		}},
 		{"consultor de resultado", func(d *DependenciasRutas) {
 			d.ConsultorResultado = nil
+		}},
+		{"ejecutor de seleccion", func(d *DependenciasRutas) {
+			d.EjecutorSeleccion = nil
 		}},
 	}
 	for _, caso := range casos {
@@ -288,6 +342,10 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 			var nulo *consultorResultadoCoberturaComposicionPrueba
 			d.ConsultorResultado = nulo
 		}},
+		{"ejecutor de seleccion", func(d *DependenciasRutas) {
+			var nulo *ejecutorSeleccionComposicionPrueba
+			d.EjecutorSeleccion = nulo
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -315,5 +373,6 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		Presentador:        presentadorCoberturaComposicionPrueba{},
 		Decisor:            decisorCoberturaComposicionPrueba{},
 		ConsultorResultado: &consultorResultadoCoberturaComposicionPrueba{},
+		EjecutorSeleccion:  &ejecutorSeleccionComposicionPrueba{},
 	}
 }

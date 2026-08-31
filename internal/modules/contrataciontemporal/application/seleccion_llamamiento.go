@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -42,6 +43,13 @@ var (
 // preparación confiable del servidor, nunca al canal que inicia el caso.
 type SolicitudSeleccionLlamamiento struct {
 	ClaveIdempotencia string
+}
+
+// DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
+// puede cruzar una frontera después de autenticar el recibo completo de Bolsa.
+type DatosReciboSeleccionLlamamientoParaAdaptador struct {
+	ReciboRef    string
+	ConfirmadaEn time.Time
 }
 
 type ServicioSeleccionLlamamiento struct {
@@ -361,6 +369,27 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		)
 	}
 	return recibo, nil
+}
+
+// SeleccionarYLlamarParaAdaptador minimiza únicamente el recibo que la ruta
+// completa anterior ya autenticó y ligó al comando exacto de llamamiento.
+func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
+	ctx context.Context,
+	solicitud SolicitudSeleccionLlamamiento,
+) (DatosReciboSeleccionLlamamientoParaAdaptador, error) {
+	recibo, err := s.SeleccionarYLlamar(ctx, solicitud)
+	if err != nil {
+		return DatosReciboSeleccionLlamamientoParaAdaptador{}, err
+	}
+	if !recibo.PropuestaGenerada ||
+		!domain.ReferenciaOpacaValida(recibo.ReciboRef) ||
+		!domain.InstanteUTCCanonico(recibo.ConfirmadaEn) {
+		return DatosReciboSeleccionLlamamientoParaAdaptador{},
+			ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	return DatosReciboSeleccionLlamamientoParaAdaptador{
+		ReciboRef: recibo.ReciboRef, ConfirmadaEn: recibo.ConfirmadaEn,
+	}, nil
 }
 
 func (s *ServicioSeleccionLlamamiento) dependenciasValidas() bool {
