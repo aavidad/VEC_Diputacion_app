@@ -37,6 +37,7 @@ type huellaCeroEfectosAutoridadO4bP1M38 struct {
 	pendiente           *autorizacionEtapaO4aM38
 	emitidas            uint8
 	historialLen        uint8
+	historial           [maximoEtapasO4aM38]registroEtapaO4aM38
 }
 
 func capturarHuellaCeroEfectosAutoridadO4bP1M38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) huellaCeroEfectosAutoridadO4bP1M38 {
@@ -52,7 +53,7 @@ func capturarHuellaCeroEfectosAutoridadO4bP1M38(e *autoridadEtapasO4aM38, p *aut
 		resultadoRawPrimero: p.resultado.rawPrimero, resultadoRawSegundo: p.resultado.rawSegundo,
 		resultadoEvidencia: p.resultado.evidencia, resultadoObservado: p.resultado.observado,
 		estadoCausa: e.causa.estado.Load(), estadoAutorizacion: p.estado.Load(),
-		pendiente: e.pendiente, emitidas: e.emitidas, historialLen: e.historialLen,
+		pendiente: e.pendiente, emitidas: e.emitidas, historialLen: e.historialLen, historial: e.historial,
 	}
 }
 
@@ -83,7 +84,7 @@ func exigirClasificacionSinEfectosAutoridadO4bP1M38(t *testing.T, e *autoridadEt
 	despues := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
 	if despues.estadoCausa != antes.estadoCausa || despues.estadoAutorizacion != antes.estadoAutorizacion ||
 		despues.pendiente != antes.pendiente || despues.emitidas != antes.emitidas ||
-		despues.historialLen != antes.historialLen {
+		despues.historialLen != antes.historialLen || despues.historial != antes.historial {
 		t.Fatal("la clasificacion altero la maquina O4a")
 	}
 }
@@ -101,33 +102,84 @@ func clonarAutorizacionAutoridadO4bP1M38(p *autorizacionEtapaO4aM38, autoidentic
 	return c
 }
 
-func prepararEntradaAdversaAutoridadO4bP1M38(caso string, e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) (*autorizacionEtapaO4aM38, bool) {
+func prepararEntradaAdversaAutoridadO4bP1M38(t *testing.T, caso string, e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) (*autorizacionEtapaO4aM38, bool, bool) {
+	t.Helper()
+	consumir := func() {
+		if !p.estado.CompareAndSwap(uint32(autorizacionEmitidaO4bM38), uint32(autorizacionConsumiendoO4bM38)) ||
+			!confirmarConsumoAutorizacionEtapaO4aM38(e, p) {
+			t.Fatal("no se preparo el consumo adverso")
+		}
+	}
+	sellar := func() {
+		sellarResultadoEtapaPruebaO4aP4M38(t, e, p, 1, 0, 0, evidenciaEstableO4bM38, p.limite.Add(-time.Nanosecond))
+	}
+	historizar := func() {
+		sellar()
+		p.resultado.estado.Store(uint32(resultadoConsumidoO4bM38))
+		e.historial[0] = registroEtapaO4aM38{autorizacion: p, resultado: p.resultado}
+		e.historialLen, e.pendiente = 1, nil
+		e.causa.estado.Store(uint32(causaA7EntregaO4cPreparadaM38))
+	}
 	switch caso {
 	case "clon_autoidentidad_rota":
-		return clonarAutorizacionAutoridadO4bP1M38(p, false), true
+		return clonarAutorizacionAutoridadO4bP1M38(p, false), true, false
 	case "forja_sin_autoridad":
 		forja := &autorizacionEtapaO4aM38{}
 		forja.auto = forja
-		return forja, true
+		return forja, true, false
 	case "forja_autoidentica_autoridad_sin_slot":
 		forja := clonarAutorizacionAutoridadO4bP1M38(p, true)
 		forja.generacion = uint64(len(e.autorizaciones)) + 1
-		return forja, true
+		return forja, true, false
 	case "copia_consumida_alterada":
 		p.estado.Store(uint32(autorizacionConsumidaO4bM38))
-		copia := clonarAutorizacionAutoridadO4bP1M38(p, true)
-		copia.tid++
-		return copia, true
+		return clonarAutorizacionAutoridadO4bP1M38(p, true), true, true
 	case "estructura_ambigua":
 		if len(e.autorizaciones) < 2 {
-			return nil, false
+			return nil, false, false
 		}
 		otro := &e.autorizaciones[1]
 		otro.generacion = p.generacion
 		otro.resultado.generacion = p.generacion
-		return p, true
+		return p, true, false
+	case "slot_consumido_sin_resultado":
+		p.estado.Store(uint32(autorizacionConsumidaO4bM38))
+		return p, true, false
+	case "slot_consumiendo_resultado_alterado":
+		consumir()
+		p.resultado.rawPrimero = 1
+		return p, true, false
+	case "slot_consumiendo_resultado_estado_incompatible":
+		consumir()
+		p.resultado.estado.Store(uint32(resultadoConsumidoO4bM38))
+		return p, true, false
+	case "slot_consumiendo_resultado_vacio_causa_incompatible":
+		consumir()
+		e.causa.estado.Store(uint32(causaA7EntregaO4cPreparadaM38))
+		return p, true, false
+	case "slot_consumido_resultado_alterado":
+		sellar()
+		p.resultado.rawSegundo = 1
+		return p, true, false
+	case "slot_consumido_resultado_estado_incompatible":
+		sellar()
+		p.resultado.estado.Store(uint32(resultadoConsumidoO4bM38))
+		return p, true, false
+	case "causa_cruzada":
+		e.causa.estado.Store(uint32(causaA5EsperandoResultadoM38))
+		return p, true, false
+	case "pendiente_cruzado":
+		e.pendiente = nil
+		return p, true, false
+	case "historial_cruzado":
+		historizar()
+		e.historial[0].resultado = nil
+		return p, true, false
+	case "copia_exacta_slot_malformado":
+		e.causa.estado.Store(uint32(causaA5EsperandoResultadoM38))
+		return clonarAutorizacionAutoridadO4bP1M38(p, true), true, true
 	default:
-		return nil, false
+		return nil, false, false
 	}
 }
 
@@ -211,6 +263,30 @@ func TestO4BP1AutoridadReplayRealSlotConsumido(t *testing.T) {
 		t.Fatalf("replay consumido: a=%p entrada=%p err=%v", a, entrada, err)
 	}
 	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+	copia := clonarAutorizacionAutoridadO4bP1M38(p, true)
+	if clasificarEntradaAutoridadO4bM38(copia) != entradaConsumidaAutoridadO4bM38 {
+		t.Fatal("la copia exacta del slot consumido valido no se clasifico como replay")
+	}
+	if a, err := consumirAutoridadO4bM38(&copia); a != nil || copia != nil || err != errUsoConsumidoAutoridadO4bM38 {
+		t.Fatalf("copia de replay consumido: a=%p copia=%p err=%v", a, copia, err)
+	}
+	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+}
+
+func TestO4BP1AutoridadReplayHistoricoBienFormado(t *testing.T) {
+	e, p := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
+	sellarResultadoEtapaPruebaO4aP4M38(t, e, p, 1, 0, 0, evidenciaEstableO4bM38, p.limite.Add(-time.Nanosecond))
+	p.resultado.estado.Store(uint32(resultadoConsumidoO4bM38))
+	e.historial[0] = registroEtapaO4aM38{autorizacion: p, resultado: p.resultado}
+	e.historialLen, e.pendiente = 1, nil
+	e.causa.estado.Store(uint32(causaA7EntregaO4cPreparadaM38))
+	antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
+	for _, entrada := range []*autorizacionEtapaO4aM38{p, clonarAutorizacionAutoridadO4bP1M38(p, true)} {
+		if clasificarEntradaAutoridadO4bM38(entrada) != entradaConsumidaAutoridadO4bM38 {
+			t.Fatal("el replay historico bien formado no se clasifico consumido")
+		}
+		exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+	}
 }
 
 func TestO4BP1AutoridadCopiaSinSlotPierdeSinEfectos(t *testing.T) {
@@ -238,15 +314,28 @@ var casosFatalesAutoridadO4bP1M38 = [...]string{
 	"forja_autoidentica_autoridad_sin_slot",
 	"copia_consumida_alterada",
 	"estructura_ambigua",
+	"slot_consumido_sin_resultado",
+	"slot_consumiendo_resultado_alterado",
+	"slot_consumiendo_resultado_estado_incompatible",
+	"slot_consumiendo_resultado_vacio_causa_incompatible",
+	"slot_consumido_resultado_alterado",
+	"slot_consumido_resultado_estado_incompatible",
+	"causa_cruzada",
+	"pendiente_cruzado",
+	"historial_cruzado",
+	"copia_exacta_slot_malformado",
 }
 
 func TestO4BP1AutoridadMalformadasClasificanFatalSinEfectos(t *testing.T) {
 	for _, nombre := range casosFatalesAutoridadO4bP1M38 {
 		t.Run(nombre, func(t *testing.T) {
 			e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
-			entrada, preparada := prepararEntradaAdversaAutoridadO4bP1M38(nombre, e, p)
+			entrada, preparada, copiaExacta := prepararEntradaAdversaAutoridadO4bP1M38(t, nombre, e, p)
 			if !preparada {
 				t.Fatal("caso adverso no preparado")
+			}
+			if copiaExacta && !copiaExactaSlotAutoridadO4bM38(entrada, p, p.estado.Load()) {
+				t.Fatal("la copia adversa no era superficial y exactamente igual al slot canonico")
 			}
 			antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
 			if clasificarEntradaAutoridadO4bM38(entrada) != entradaFatalAutoridadO4bM38 {
@@ -257,7 +346,7 @@ func TestO4BP1AutoridadMalformadasClasificanFatalSinEfectos(t *testing.T) {
 	}
 }
 
-const marcadorPreparacionFatalAutoridadO4bP1M38 = "O4B-P1-R2:fixture-validada\n"
+const marcadorPreparacionFatalAutoridadO4bP1M38 = "O4B-P1-R3:fixture-validada\n"
 
 func ejecutarEntradaFatalAutoridadO4bP1M38(t *testing.T, caso string) {
 	t.Helper()
@@ -301,20 +390,23 @@ func TestO4BP1AutoridadEntradasMalformadasFatales(t *testing.T) {
 	if clasificarEntradaAutoridadO4bM38(p) != entradaValidaAutoridadO4bM38 {
 		os.Exit(10)
 	}
-	entrada, preparada := prepararEntradaAdversaAutoridadO4bP1M38(caso, e, p)
+	entrada, preparada, copiaExacta := prepararEntradaAdversaAutoridadO4bP1M38(t, caso, e, p)
 	if !preparada || clasificarEntradaAutoridadO4bM38(entrada) != entradaFatalAutoridadO4bM38 {
 		os.Exit(11)
 	}
-	preparacion := os.NewFile(3, "o4b-p1-r2-preparacion")
-	if preparacion == nil {
+	if copiaExacta && !copiaExactaSlotAutoridadO4bM38(entrada, p, p.estado.Load()) {
 		os.Exit(12)
+	}
+	preparacion := os.NewFile(3, "o4b-p1-r3-preparacion")
+	if preparacion == nil {
+		os.Exit(13)
 	}
 	escritos, err := io.WriteString(preparacion, marcadorPreparacionFatalAutoridadO4bP1M38)
 	if err != nil || escritos != len(marcadorPreparacionFatalAutoridadO4bP1M38) || preparacion.Close() != nil {
-		os.Exit(13)
+		os.Exit(14)
 	}
 	_, _ = consumirAutoridadO4bM38(&entrada)
-	os.Exit(14)
+	os.Exit(15)
 }
 
 func TestO4BP1AutoridadCarreraUnGanador(t *testing.T) {

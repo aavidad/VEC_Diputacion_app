@@ -124,62 +124,179 @@ func slotCanonicoAutoridadO4bM38(p *autorizacionEtapaO4aM38) (*autoridadEtapasO4
 	return e, &e.autorizaciones[p.generacion-1], true
 }
 
-func slotCanonicoEstructuralAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
-	if e == nil || e.auto != e || e.causa == nil || e.emitidas == 0 ||
-		e.emitidas > uint8(len(e.autorizaciones)) ||
-		e.historialLen > e.emitidas || !autoridadBaseEtapasExactaO4aM38(e.causa) {
+func resultadoLigadoExactoAutoridadO4bM38(p *autorizacionEtapaO4aM38, r *resultadoEtapaO4bM38) bool {
+	return p != nil && r != nil && r.auto == r && r.autorizacion == p && p.resultado == r &&
+		r.generacion == p.generacion && r.etapa == p.etapa && r.limite == p.limite &&
+		r.claseLimite == p.claseLimite
+}
+
+func contenidoResultadoVacioAutoridadO4bM38(r *resultadoEtapaO4bM38) bool {
+	return r.cardinalidad == 0 && r.rawPrimero == 0 && r.rawSegundo == 0 && r.evidencia == 0 &&
+		r.observado.IsZero()
+}
+
+// resultadoTerminalExactoAutoridadO4bM38 completa el validador estructural
+// O4a con las combinaciones cerradas que O4a admite al consumir el resultado.
+func resultadoTerminalExactoAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
+	r := p.resultado
+	if !resultadoLigadoExactoAutoridadO4bM38(p, r) || r.cardinalidad > p.cardinalidadMaxima ||
+		r.rawPrimero < 0 || r.rawSegundo < 0 {
 		return false
 	}
+	switch p.etapa {
+	case etapaParadaInicialO4bM38:
+		valido := r.cardinalidad == 1 && r.rawSegundo == 0
+		return valido && (r.rawPrimero == 0 && r.evidencia == evidenciaEstableO4bM38 &&
+			marcaResultadoAntesO4aM38(e, r, e.plazos.finParadaInicial) ||
+			r.rawPrimero == 0 && r.evidencia == evidenciaNoEstableO4bM38 &&
+				marcaResultadoHastaO4aM38(e, r, e.plazos.finParadaInicial) ||
+			r.rawPrimero != 0 && r.evidencia == evidenciaSinO4bM38 && r.observado.IsZero())
+	case etapaTerminarReanudarO4bM38:
+		return r.cardinalidad == 1 && r.rawPrimero != 0 && r.rawSegundo == 0 &&
+			r.evidencia == evidenciaSinO4bM38 && r.observado.IsZero() ||
+			r.cardinalidad == 2 && r.rawPrimero == 0 && r.rawSegundo != 0 &&
+				r.evidencia == evidenciaSinO4bM38 && r.observado.IsZero() ||
+			r.cardinalidad == 2 && r.rawPrimero == 0 && r.rawSegundo == 0 &&
+				(r.evidencia == evidenciaTerminalO4bM38 || r.evidencia == evidenciaGrupoPresenteO4bM38) &&
+				marcaResultadoHastaO4aM38(e, r, e.plazos.finGracia)
+	case etapaParadaFinalO4bM38:
+		terminal := (r.cardinalidad == 0 || r.cardinalidad == 1) && r.rawPrimero == 0 &&
+			r.rawSegundo == 0 && r.evidencia == evidenciaTerminalO4bM38 &&
+			marcaResultadoHastaO4aM38(e, r, e.plazos.finParadaFinal)
+		valido := r.cardinalidad == 1 && r.rawSegundo == 0
+		return terminal || valido && (r.rawPrimero == 0 && r.evidencia == evidenciaEstableO4bM38 &&
+			marcaResultadoAntesO4aM38(e, r, e.plazos.finParadaFinal) ||
+			r.rawPrimero == 0 && r.evidencia == evidenciaNoEstableO4bM38 &&
+				marcaResultadoHastaO4aM38(e, r, e.plazos.finParadaFinal) ||
+			r.rawPrimero != 0 && r.evidencia == evidenciaSinO4bM38 && r.observado.IsZero())
+	case etapaMatarGrupoO4bM38:
+		return r.cardinalidad == 1 && r.rawSegundo == 0 && r.evidencia == evidenciaSinO4bM38 &&
+			r.observado.IsZero()
+	}
+	return false
+}
+
+func combinacionPendienteExactaAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38, estadoPermiso, estadoResultado uint32) (claseEntradaAutoridadO4bM38, uint32, bool) {
+	// Una segunda captura, sin espera, solo absorbe el CAS legítimo
+	// EMITIDO->CONSUMIENDO que otro contendiente puede completar en paralelo.
+	for range 2 {
+		estadoCausa := e.causa.estado.Load()
+		switch estadoAutorizacionEtapaO4bM38(estadoPermiso) {
+		case autorizacionEmitidaO4bM38:
+			valida := estadoCausa == uint32(causaA4PermisoPreparadoM38) &&
+				estadoResultado == uint32(resultadoVacioO4bM38) &&
+				contenidoResultadoVacioAutoridadO4bM38(p.resultado)
+			if valida {
+				return entradaValidaAutoridadO4bM38, estadoPermiso, true
+			}
+		case autorizacionConsumiendoO4bM38:
+			causaValida := estadoCausa == uint32(causaA4PermisoPreparadoM38) ||
+				estadoCausa == uint32(causaA5EsperandoResultadoM38)
+			resultadoVacio := estadoResultado == uint32(resultadoVacioO4bM38) &&
+				contenidoResultadoVacioAutoridadO4bM38(p.resultado)
+			resultadoSellado := estadoCausa == uint32(causaA5EsperandoResultadoM38) &&
+				estadoResultado == uint32(resultadoSelladoO4bM38) &&
+				resultadoTerminalExactoAutoridadO4bM38(e, p)
+			if causaValida && (resultadoVacio || resultadoSellado) {
+				return entradaConsumidaAutoridadO4bM38, estadoPermiso, true
+			}
+		case autorizacionConsumidaO4bM38:
+			resultadoTerminal := estadoResultado == uint32(resultadoSelladoO4bM38) ||
+				estadoResultado == uint32(resultadoConsumiendoO4bM38)
+			if estadoCausa == uint32(causaA5EsperandoResultadoM38) && resultadoTerminal &&
+				resultadoTerminalExactoAutoridadO4bM38(e, p) {
+				return entradaConsumidaAutoridadO4bM38, estadoPermiso, true
+			}
+		}
+		nuevoPermiso, nuevoResultado := p.estado.Load(), p.resultado.estado.Load()
+		if nuevoPermiso == estadoPermiso && nuevoResultado == estadoResultado {
+			break
+		}
+		estadoPermiso, estadoResultado = nuevoPermiso, nuevoResultado
+	}
+	return entradaFatalAutoridadO4bM38, estadoPermiso, false
+}
+
+// El historial es un prefijo completo. Como máximo existe un último slot
+// pendiente; ningún estado terminal exime de validar su resultado y su causa.
+func slotCanonicoEstructuralAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) (claseEntradaAutoridadO4bM38, uint32, bool) {
+	if e == nil || e.auto != e || e.causa == nil || e.emitidas == 0 ||
+		e.emitidas > uint8(len(e.autorizaciones)) ||
+		e.historialLen > e.emitidas || e.emitidas-e.historialLen > 1 ||
+		!autoridadBaseEtapasExactaO4aM38(e.causa) {
+		return entradaFatalAutoridadO4bM38, 0, false
+	}
+	if e.historialLen == e.emitidas {
+		estadoCausa := estadoCausaO4aM38(e.causa.estado.Load())
+		if e.pendiente != nil || estadoCausa != causaA3CausaFijadaM38 &&
+			estadoCausa != causaA5EsperandoResultadoM38 && estadoCausa != causaA7EntregaO4cPreparadaM38 {
+			return entradaFatalAutoridadO4bM38, 0, false
+		}
+	} else if e.pendiente != &e.autorizaciones[e.emitidas-1] {
+		return entradaFatalAutoridadO4bM38, 0, false
+	}
+	claseObjetivo, estadoObjetivo := entradaFatalAutoridadO4bM38, uint32(0)
 	for indice := range e.autorizaciones {
 		slot, resultado := &e.autorizaciones[indice], &e.resultados[indice]
 		if slot.auto != slot || slot.autoridad != e || slot.resultado != resultado ||
-			slot.generacion != uint64(indice+1) {
-			return false
+			slot.generacion != uint64(indice+1) || !resultadoLigadoExactoAutoridadO4bM38(slot, resultado) {
+			return entradaFatalAutoridadO4bM38, 0, false
 		}
+		estadoPermiso, estadoResultado := slot.estado.Load(), resultado.estado.Load()
+		clase := entradaFatalAutoridadO4bM38
 		if indice < int(e.emitidas) {
 			if !autorizacionExactaEtapaO4aM38(e, slot) {
-				return false
+				return entradaFatalAutoridadO4bM38, 0, false
+			}
+			if indice < int(e.historialLen) {
+				registro := e.historial[indice]
+				if registro.autorizacion != slot || registro.resultado != resultado ||
+					estadoPermiso != uint32(autorizacionConsumidaO4bM38) ||
+					estadoResultado != uint32(resultadoConsumidoO4bM38) ||
+					!resultadoTerminalExactoAutoridadO4bM38(e, slot) {
+					return entradaFatalAutoridadO4bM38, 0, false
+				}
+				clase = entradaConsumidaAutoridadO4bM38
+			} else {
+				registro := e.historial[indice]
+				if indice != int(e.emitidas)-1 || registro.autorizacion != nil || registro.resultado != nil {
+					return entradaFatalAutoridadO4bM38, 0, false
+				}
+				var valida bool
+				clase, estadoPermiso, valida = combinacionPendienteExactaAutoridadO4bM38(e, slot, estadoPermiso, estadoResultado)
+				if !valida {
+					return entradaFatalAutoridadO4bM38, 0, false
+				}
 			}
 		} else if slot.tid != 0 || slot.etapa != 0 || slot.cardinalidadMaxima != 0 ||
 			slot.operacion != 0 || !slot.limite.IsZero() || slot.claseLimite != 0 || slot.rolPidfd != 0 ||
-			slot.estado.Load() != uint32(autorizacionVaciaO4bM38) ||
-			!resultadoVacioExactoAutoridadO4bM38(resultado) {
-			return false
+			estadoPermiso != uint32(autorizacionVaciaO4bM38) ||
+			estadoResultado != uint32(resultadoVacioO4bM38) ||
+			!contenidoResultadoVacioAutoridadO4bM38(resultado) ||
+			e.historial[indice].autorizacion != nil || e.historial[indice].resultado != nil {
+			return entradaFatalAutoridadO4bM38, 0, false
 		}
-		registro := e.historial[indice]
-		if indice < int(e.historialLen) {
-			if registro.autorizacion != slot || registro.resultado != resultado {
-				return false
-			}
-		} else if registro.autorizacion != nil || registro.resultado != nil {
-			return false
+		if slot == p {
+			claseObjetivo, estadoObjetivo = clase, estadoPermiso
 		}
 	}
-	if e.pendiente != nil && e.pendiente != &e.autorizaciones[e.emitidas-1] {
-		return false
+	if claseObjetivo == entradaFatalAutoridadO4bM38 {
+		return entradaFatalAutoridadO4bM38, 0, false
 	}
-	return autorizacionExactaEtapaO4aM38(e, p)
+	return claseObjetivo, estadoObjetivo, true
 }
 
 func resultadoVacioExactoAutoridadO4bM38(r *resultadoEtapaO4bM38) bool {
-	return r != nil && r.auto == r && r.autorizacion != nil && r.autorizacion.resultado == r &&
-		r.generacion == r.autorizacion.generacion && r.etapa == r.autorizacion.etapa &&
-		r.limite == r.autorizacion.limite && r.claseLimite == r.autorizacion.claseLimite &&
-		r.cardinalidad == 0 && r.rawPrimero == 0 && r.rawSegundo == 0 && r.evidencia == 0 &&
-		r.observado.IsZero() && r.estado.Load() == uint32(resultadoVacioO4bM38)
+	return r != nil && resultadoLigadoExactoAutoridadO4bM38(r.autorizacion, r) &&
+		contenidoResultadoVacioAutoridadO4bM38(r) && r.estado.Load() == uint32(resultadoVacioO4bM38)
 }
 
-func entradaEmitidaExactaAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
-	return e.pendiente == p && e.causa.estado.Load() == uint32(causaA4PermisoPreparadoM38) &&
-		p.estado.Load() == uint32(autorizacionEmitidaO4bM38) && resultadoVacioExactoAutoridadO4bM38(p.resultado)
-}
-
-func copiaExactaSlotAutoridadO4bM38(p, slot *autorizacionEtapaO4aM38) bool {
+func copiaExactaSlotAutoridadO4bM38(p, slot *autorizacionEtapaO4aM38, estadoSlot uint32) bool {
 	return p != slot && p.auto == p && p.autoridad == slot.autoridad && p.resultado == slot.resultado &&
 		p.generacion == slot.generacion && p.tid == slot.tid && p.etapa == slot.etapa &&
 		p.cardinalidadMaxima == slot.cardinalidadMaxima && p.operacion == slot.operacion &&
 		p.limite == slot.limite && p.claseLimite == slot.claseLimite && p.rolPidfd == slot.rolPidfd &&
-		p.estado.Load() == slot.estado.Load()
+		p.estado.Load() == estadoSlot
 }
 
 func clasificarEntradaAutoridadO4bM38(p *autorizacionEtapaO4aM38) claseEntradaAutoridadO4bM38 {
@@ -187,32 +304,20 @@ func clasificarEntradaAutoridadO4bM38(p *autorizacionEtapaO4aM38) claseEntradaAu
 		return entradaFatalAutoridadO4bM38
 	}
 	e, slot, identificada := slotCanonicoAutoridadO4bM38(p)
-	if !identificada || !slotCanonicoEstructuralAutoridadO4bM38(e, slot) {
+	if !identificada {
+		return entradaFatalAutoridadO4bM38
+	}
+	clase, estadoSlot, estructuraValida := slotCanonicoEstructuralAutoridadO4bM38(e, slot)
+	if !estructuraValida {
 		return entradaFatalAutoridadO4bM38
 	}
 	if p != slot {
-		if copiaExactaSlotAutoridadO4bM38(p, slot) {
+		if copiaExactaSlotAutoridadO4bM38(p, slot, estadoSlot) {
 			return entradaConsumidaAutoridadO4bM38
 		}
 		return entradaFatalAutoridadO4bM38
 	}
-	estado := estadoAutorizacionEtapaO4bM38(p.estado.Load())
-	if estado == autorizacionConsumiendoO4bM38 || estado == autorizacionConsumidaO4bM38 {
-		return entradaConsumidaAutoridadO4bM38
-	}
-	if estado != autorizacionEmitidaO4bM38 {
-		return entradaFatalAutoridadO4bM38
-	}
-	if entradaEmitidaExactaAutoridadO4bM38(e, p) {
-		return entradaValidaAutoridadO4bM38
-	}
-	// Otro consumidor puede ganar mientras se comprueba la entrada. Esa
-	// transición solo convierte esta copia en un replay consumido.
-	estado = estadoAutorizacionEtapaO4bM38(p.estado.Load())
-	if estado == autorizacionConsumiendoO4bM38 || estado == autorizacionConsumidaO4bM38 {
-		return entradaConsumidaAutoridadO4bM38
-	}
-	return entradaFatalAutoridadO4bM38
+	return clase
 }
 
 func copiarSellosOrigenAutoridadO4bM38(origen sellosO4aM38) sellosO4aM38 {
