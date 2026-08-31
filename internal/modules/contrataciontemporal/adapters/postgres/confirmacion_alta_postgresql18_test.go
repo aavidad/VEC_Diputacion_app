@@ -116,13 +116,13 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 	})
 
 	t.Run("rotacion anade alias sin mutar raiz", func(t *testing.T) {
-		rotarPoliticaR3B(t, ctx, admin)
 		rotada, propuestaRotada := solicitudR3BIntegracion(t, "rotacion", []int{2, 1})
 		original, err := resolutor.ResolverCandidaturaAlta(ctx, rotada)
 		if err != nil {
 			t.Fatal(err)
 		}
 		assertCandidaturaR3B(t, original, propuestaRotada)
+		rotarPoliticaR3B(t, ctx, admin)
 		replay, propuestaNueva := solicitudR3BIntegracion(t, "rotacion", []int{3, 2, 1})
 		propuestaNueva.ReservaRef = "reserva:alta:r3b:propuesta-descartada"
 		propuestaNueva.Referencias.ExpedienteRef = "expediente:ct:r3b:propuesta-descartada"

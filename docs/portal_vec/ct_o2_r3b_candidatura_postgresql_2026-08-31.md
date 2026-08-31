@@ -10,10 +10,12 @@ terminaron en el oráculo del preflight y en la primera resolución Go,
 respectivamente. R4 recibió un quinto `NO-GO` estático, con `P0=0`, `P1=2` y
 `P2=0`. R5 recibió después un `NO-GO` estático independiente porque sus dos
 regresiones multidimensionales no aislaban la dimensión como única causa de
-rechazo. La ejecución dinámica posterior de R6 falló por una ambigüedad
-PL/pgSQL y la auditoría identificó una segunda colisión del mismo parámetro de
-salida. R7B aporta únicamente la corrección estática y queda pendiente de
-revisión independiente y de una nueva dinámica expresamente autorizada**.
+rechazo. La ejecución dinámica de R6 falló por una ambigüedad PL/pgSQL y la
+auditoría identificó una segunda colisión del mismo parámetro de salida. R7B
+corrigió ambas ambigüedades, pero la sexta ejecución dinámica terminó en el
+escenario de rotación porque la propia prueba rotaba antes de estabilizar la
+raíz bajo `[2,1]`. R8 corrige solo ese orden no vacuo y queda pendiente de
+revisión independiente; no acredita PostgreSQL ni autoriza otra ejecución**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -344,9 +346,67 @@ CONSTRAINT candidatura_alta_alias_pkey DO NOTHING`. No cambia datos, semántica
 ni ABI. Su capability es la resolución nominal compatible con
 `plpgsql.variable_conflict=error`, y su invariante es que ninguna referencia
 SQL de la función colisione con el parámetro `OUT ambito_hmac`. El write-set se
-limita al SQL del resolutor y a esta acta. R7B ofrece solo una corrección
-estática: quedan pendientes la revisión independiente de su hash exacto y una
-nueva validación dinámica autorizada en otro corte.
+limita al SQL del resolutor y a esta acta. La validación dinámica posterior
+queda registrada a continuación y no convierte el candidato en `GO`.
+
+### Sexto NO-GO dinámico focal: rotación anticipada en la prueba
+
+La ejecución dinámica posterior sobre el hash exacto
+`2f995d734faf1f3725a8d5c2f571f6d5a2ca8797` confirmó que R7B corrigió las dos
+ambigüedades PL/pgSQL: superó la resolución nominal, la matriz de nulidad y
+forma, el replay entre procesos y la concurrencia. El único fallo apareció en
+`rotacion_anade_alias_sin_mutar_raiz`, línea 123, con el error Go opaco:
+
+```text
+contratacion temporal: persistencia no disponible
+```
+
+El subtest invocaba `rotarPoliticaR3B` antes de crear la candidatura original
+con generaciones `[2,1]`. Por ello el SQL recibía una política ya rotada
+`[3,2,1]`, rechazaba correctamente con `22023` la solicitud inicial `[2,1]` y
+el adaptador opacificaba el detalle. El fallo pertenece al orden de la prueba,
+no demuestra un defecto nuevo del SQL, de su ABI, de las ACL ni de los locks.
+
+El log `/tmp/vec-o2-r3b-r7b-dynamic-20260901.log` tiene SHA-256
+`92c660c7001c597a32e82922d247ac45a7ac92c672839a75962ec9cc4c45c581`. Su
+metadato `/tmp/vec-o2-r3b-r7b-dynamic-20260901.meta` tiene SHA-256
+`31f884f1585bf7877d3f6d7c1fca8347c7699e6b6107ab131c35cbce61832320` y
+registra `RC=1`, ocho segundos, fuente limpia, cero residuos y cerrojo libre.
+El contenedor ajeno permaneció idéntico antes y después:
+
+```text
+d6217278d8718a4e51c4be9523dde15406559989abe46f3a5e496624d6aa4aeb|running|/contagrx-t224-pg-focal|sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+```
+
+La metadata fue reconstruida desde los instantes del fichero y comprobaciones
+inmediatas porque su escritura original no se alcanzó. Este resultado conserva
+el estado `NO-GO`, no acredita la matriz PostgreSQL completa y no autoriza una
+repetición.
+
+## Capability, invariantes y write-set de R8
+
+Capability: acreditar de forma no vacua la rotación HMAC real, estabilizando
+primero la raíz bajo `[2,1]`, rotando después a `[3,2,1]` y recuperando la
+misma candidatura al añadir solo el alias de la nueva generación activa.
+
+Invariantes:
+
+- la candidatura original se estabiliza antes de rotar;
+- raíz, identidad, instante y propuesta originales no mutan;
+- el replay posterior usa exactamente `[3,2,1]`;
+- la propuesta alternativa se descarta;
+- los aliases pasan exactamente de dos a tres;
+- resolver no crea ningún efecto administrativo; y
+- SQL, ABI, ACL, locks y runner permanecen intactos.
+
+Write-set exacto:
+
+1. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
+2. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+R8 mueve `rotarPoliticaR3B` hasta después de comprobar la candidatura original
+y antes de construir el replay rotado. No ejecuta PostgreSQL ni modifica SQL o
+runner.
 
 ## Capacidad e invariante funcional
 
@@ -431,9 +491,11 @@ Instala `000047` después de `000046`. La primera ejecución dinámica posterior
 a R2 se detuvo en el oráculo del preflight; la siguiente, ya sobre R3, superó
 ese preflight y se detuvo en la primera resolución Go. La ejecución posterior
 de R6 volvió a detenerse en la resolución nominal por la primera ambigüedad
-PL/pgSQL descrita arriba. R4 y R5 no se ejecutaron contra PostgreSQL; ninguna
-ejecución alcanzó la matriz completa que una autorización dinámica nueva
-deberá acreditar:
+PL/pgSQL descrita arriba. R7B corrigió ambas ambigüedades y su ejecución superó
+nominal, nulidad y forma, replay y concurrencia, pero se detuvo en el orden
+anticipado de la rotación. R4 y R5 no se ejecutaron contra PostgreSQL; ninguna
+ejecución alcanzó la matriz completa que una autorización dinámica futura
+tendría que acreditar:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -459,10 +521,9 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R7B y, solo si obtiene `GO` y existe
-una autorización posterior expresa, una nueva validación dinámica exclusiva.
-R7B permanece como corrección estática pendiente: no se declara PostgreSQL
-verde. La integración continúa prohibida. R3C permanece bloqueada hasta
-resolver ese `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al
-contrato candidato y componer el proveedor concreto de material de
-confirmación bajo revisión independiente.
+revisión independiente del hash exacto de R8. Este corte no autoriza una nueva
+validación dinámica; cualquier repetición requerirá una autorización posterior
+expresa y separada. No se declara PostgreSQL verde y la integración continúa
+prohibida. R3C permanece bloqueada hasta resolver este `NO-GO`; después deberá
+migrar `ServicioRegistroSolicitud` al contrato candidato y componer el
+proveedor concreto de material de confirmación bajo revisión independiente.
