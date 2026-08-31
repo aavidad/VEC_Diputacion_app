@@ -45,38 +45,68 @@ func (f *FachadaIdentidadOffline) Autenticar(
 	ctx context.Context,
 	asercionProtegida []byte,
 ) (httpseguridad.CapsulaIdentidadPeticion, error) {
+	capsula, _, err := f.autenticar(ctx, asercionProtegida)
+	return capsula, err
+}
+
+// AutenticarYVincular consume el canal TLS interno una sola vez, autentica la
+// asercion y liga inmediatamente la capsula opaca al contexto de la misma
+// peticion. El contexto original nunca se devuelve ante un fallo.
+func (f *FachadaIdentidadOffline) AutenticarYVincular(
+	ctx context.Context,
+	asercionProtegida []byte,
+) (context.Context, error) {
+	capsula, canal, err := f.autenticar(ctx, asercionProtegida)
+	if err != nil {
+		return nil, err
+	}
+	ctxVinculado, err := f.servicio.VincularCapsulaIdentidadPeticion(ctx, capsula, canal)
+	if err != nil {
+		return nil, err
+	}
+	return ctxVinculado, nil
+}
+
+func (f *FachadaIdentidadOffline) autenticar(
+	ctx context.Context,
+	asercionProtegida []byte,
+) (httpseguridad.CapsulaIdentidadPeticion, httpseguridad.CanalProxyAutenticado, error) {
 	if f == nil || f.servicio == nil || f.propietario == nil ||
 		interfazNulaIdentidadOffline(ctx) {
-		return httpseguridad.CapsulaIdentidadPeticion{}, ErrIdentidadOfflineNoDisponible
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, ErrIdentidadOfflineNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
-		return httpseguridad.CapsulaIdentidadPeticion{}, err
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, err
 	}
 	capacidad, valida := ctx.Value(
 		claveContextoCanalTLSInterno{},
 	).(*capacidadCanalTLSInterno)
 	if !valida {
-		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, httpseguridad.ErrCanalProxyNoAutenticado
 	}
 	estadoTLS, consumida := capacidad.consumir(f.propietario)
 	if !consumida {
-		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, httpseguridad.ErrCanalProxyNoAutenticado
 	}
 
 	canal, err := f.servicio.AutenticarCanalTLSMutuo(estadoTLS)
 	if err != nil || canal.Tipo() != httpseguridad.CanalProxyTLSMutuo ||
 		canal.Superficie() != httpseguridad.SuperficieInternaCorporativa {
-		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, httpseguridad.ErrCanalProxyNoAutenticado
 	}
 	credencial, err := httpseguridad.NuevaCredencialProxy(asercionProtegida, canal)
 	if err != nil {
-		return httpseguridad.CapsulaIdentidadPeticion{}, err
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, err
 	}
 	identidad, err := f.servicio.Resolver(ctx, credencial)
 	if err != nil {
-		return httpseguridad.CapsulaIdentidadPeticion{}, err
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, err
 	}
-	return f.servicio.ProyectarCapsulaIdentidadPeticion(ctx, identidad, canal)
+	capsula, err := f.servicio.ProyectarCapsulaIdentidadPeticion(ctx, identidad, canal)
+	if err != nil {
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.CanalProxyAutenticado{}, err
+	}
+	return capsula, canal, nil
 }
 
 func interfazNulaIdentidadOffline(valor any) bool {
