@@ -34,19 +34,24 @@ Las tareas no tienen un peso homogéneo: el formal previo `19/46` solo pasa a
 `20/46` tras integrar y publicar este checkpoint. El cierre técnico `22/46`
 no sustituye esa cuenta formal ni estima esfuerzo o tiempo restante.
 
-La cadena que permite cerrar documentalmente `O6-02` consta de
-`433df1f8`, `908e7907`, `02221b47`, `fc8ab461` y el candidato final
-`d72254e`, integrado en `ca719021`. Es la única subida contable de este corte;
-`O6-03` permanece abierto.
+Las piezas propias integradas de `O6-02` son `433df1f8`
+(`CT-LITE-O6-02A`) y `908e7907` (`CT-LITE-O6-02B-HTTP`). La cadena continúa
+con `02221b47` (`CT-LITE-O6-03-GO`), adaptador de ejecuciones; `fc8ab461`
+(`CT-LITE-O6-REM-01`), replay autorizado de selección; y `d72254e`
+(`CT-LITE-O6-REM-02-R8`), ejecuciones revisadas, integrado en `ca719021`. La
+cadena completa permite a Dirección contabilizar `O6-02` y constituye la única
+subida contable de este corte. Los tres seams posteriores no acreditan por sí
+solos comunicación, aceptación, renuncia y siguiente candidato; `O6-03`
+permanece abierta.
 
 `R3A`, candidato `1babd86`, está integrado en `2b96b646`; fija una candidatura
 técnica opaca, no un implementador productivo, y `O2-06` sigue en curso. Las
 rutas de `O5-01`, candidato `ffc0717` integrado en `de2c9be8`, tampoco
-acreditan raíz, persistencia o web. `O4C-P0`, candidato `5555885` con doble
-`GO`, está integrado y publicado en `7945de3968c118633e3a15ba5a97145939050ffb`,
-pero `O4C-P1` permanece bloqueado. `RUTA-A`, candidato `8bb15bcc` con `GO`,
-está integrada y publicada en `3a8550eac9324168594bc1e36378015922ec5c4b`
-sin composición raíz y no cierra `O2-07` ni `O2-08`.
+acreditan raíz, persistencia o web. `O4C-P0`, candidato `5555885`, está
+integrado y publicado en `7945de3968c118633e3a15ba5a97145939050ffb`, pero
+`O4C-P1` permanece bloqueado. `RUTA-A`, candidato `8bb15bcc`, está integrada y
+publicada en `3a8550eac9324168594bc1e36378015922ec5c4b` sin composición raíz y
+no cierra `O2-07` ni `O2-08`.
 
 ### Contexto técnico histórico conservado
 

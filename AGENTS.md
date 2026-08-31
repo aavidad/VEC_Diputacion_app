@@ -19,11 +19,12 @@ instrucción de dirección.
 
 ## Checkpoint operativo vivo — O6 y cableado O2 — 31 de agosto de 2026
 
-Este bloque prevalece sobre todos los relevos posteriores de este archivo. La
-base y el `HEAD` de producto publicados al abrir el corte son exactamente
-`3a8550eac9324168594bc1e36378015922ec5c4b`. Este documento parte de ese mismo
-commit en la rama `docs/ct-checkpoint-o6-r3a-rutas-20260831`; no integra ni
-publica por sí solo ningún cambio de producto.
+Este bloque prevalece sobre los bloques cronológicamente anteriores o
+históricos que aparecen después en este archivo; nunca prevalece sobre relevos
+futuros. La base y el `HEAD` de producto publicados al abrir el corte son
+exactamente `3a8550eac9324168594bc1e36378015922ec5c4b`. Este documento parte de
+ese mismo commit en la rama `docs/ct-checkpoint-o6-r3a-rutas-20260831`; no
+integra ni publica por sí solo ningún cambio de producto.
 
 ### Capability, invariante, write-set y condición contable
 
@@ -45,20 +46,27 @@ publica por sí solo ningún cambio de producto.
 
 - `CT-O2-06-R3A`: candidato `1babd86ab891349640657c7e98305958f55e2c10`,
   integrado mediante `2b96b64602ba82c904dbf1a0532542f50db3f032`.
-- `O6-02`: piezas integradas `433df1f8b5f8dab670a3d7ee2a5a617fea6b35c9`,
-  `908e7907a1c838dd4c0a508c73123ffa22571ec6`,
-  `02221b47a126762250d4fda791d2b0276e72d713` y
-  `fc8ab4616630749fcb8c7d912bc31bf8fdacb00f`; candidato final
-  `d72254e36eb4737db4c44b2481522cac2f5260f8`, integrado mediante
-  `ca71902192afe3448e71eadd3fee125b52ca11ef`.
+- Las piezas propias integradas de `O6-02` son
+  `433df1f8b5f8dab670a3d7ee2a5a617fea6b35c9` (`CT-LITE-O6-02A`) y
+  `908e7907a1c838dd4c0a508c73123ffa22571ec6` (`CT-LITE-O6-02B-HTTP`).
+- La cadena continúa con `02221b47a126762250d4fda791d2b0276e72d713`
+  (`CT-LITE-O6-03-GO`), adaptador de ejecuciones;
+  `fc8ab4616630749fcb8c7d912bc31bf8fdacb00f` (`CT-LITE-O6-REM-01`), replay
+  autorizado de selección; y
+  `d72254e36eb4737db4c44b2481522cac2f5260f8`
+  (`CT-LITE-O6-REM-02-R8`), ejecuciones revisadas, integrado mediante
+  `ca71902192afe3448e71eadd3fee125b52ca11ef`. La cadena completa permite a
+  Dirección contabilizar `O6-02`; estos tres seams posteriores no acreditan
+  por sí solos comunicación, aceptación, renuncia y siguiente candidato, por
+  lo que `O6-03` continúa abierta.
 - `O5-rutas`: candidato `ffc0717b59d5e07b6be272179e00ce9d4882c48e`,
   integrado mediante `de2c9be8ea25c25a4e4173d1fdf6f5dcdfb769c8`.
 - `O4C-P0`: candidato `5555885d7a57d473ac7b7f224bc7a62c0a7bee01`,
-  con doble `GO`, integrado y publicado mediante
+  integrado y publicado mediante
   `7945de3968c118633e3a15ba5a97145939050ffb`.
 - `CT-O2-RUTA-A-R1`: candidato
-  `8bb15bcc78d0c002cff9cd17099db0945805b674`, con `GO`, integrado y
-  publicado en `3a8550eac9324168594bc1e36378015922ec5c4b`.
+  `8bb15bcc78d0c002cff9cd17099db0945805b674`, integrado y publicado en
+  `3a8550eac9324168594bc1e36378015922ec5c4b`.
 
 ### Métricas y límites vigentes del checkpoint
 
