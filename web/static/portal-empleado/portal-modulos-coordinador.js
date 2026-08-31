@@ -14,10 +14,9 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260831-ct-catalogo-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
-const TEXTO_MODULO_NO_DISPONIBLE = "Módulo no disponible";
 const CLAVES_CARGA_MODULAR = Object.freeze([
   CLAVE_CONTRATACION_TEMPORAL,
   "cronos",
@@ -357,7 +356,7 @@ export function crearCoordinadorModulosPortal({
         disponible: false,
         vista: "",
         estado: "no_disponible",
-        textoEstado: TEXTO_MODULO_NO_DISPONIBLE,
+        textoEstado: traducir("estado_modulo_no_disponible_titulo"),
       });
     }
     if (CLAVES_CARGA_MODULAR.includes(clave)) {

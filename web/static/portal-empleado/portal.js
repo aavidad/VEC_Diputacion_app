@@ -21,7 +21,7 @@ import {
 } from "./portal-modulos-coordinador.js?v=20260831-ct-catalogo-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -96,8 +96,8 @@ const TITULOS = Object.freeze({
   cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
   "contratacion-temporal": [
-    "Portal del Empleado → Contratación temporal",
-    "Gestión de expedientes de contratación temporal",
+    traducirPortal("contratacion_temporal_miga"),
+    traducirPortal("contratacion_temporal_titulo"),
   ],
 });
 
@@ -500,7 +500,11 @@ function renderizar() {
       return;
     }
     void coordinadorModulos.montarVista(estado.vista, contenedor).catch((error) => {
-      contenedor.innerHTML = `${encabezadoVista("Módulo no disponible", titulo, "No se pudo montar la superficie solicitada.")}<section class="panel"><div class="cuerpo-panel vacio-controlado"><p>${escaparHTML(error instanceof Error ? error.message : "Error de composición")}</p></div></section>`;
+      contenedor.innerHTML = `${encabezadoVista(
+        traducirPortal("estado_modulo_no_disponible_titulo"),
+        titulo,
+        traducirPortal("descripcion_superficie_no_montada"),
+      )}<section class="panel"><div class="cuerpo-panel vacio-controlado"><p>${escaparHTML(error instanceof Error ? error.message : "Error de composición")}</p></div></section>`;
     });
     return;
   }
@@ -570,7 +574,7 @@ function renderizarFuenteNoDisponible() {
         <p><strong>${cargando ? "Comprobando acceso…" : "No se han cargado datos de Bolsa"}</strong></p>
         <p>${escaparHTML(detalle)}</p>
         <div class="acciones-vista">
-          <button type="button" class="boton-secundario" data-vista="portal">Volver al portal</button>
+          <button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("accion_volver_portal"))}</button>
           ${cargando ? "" : '<button type="button" class="boton-primario" data-accion="recargar-fuente">Reintentar</button>'}
         </div>
       </div>
@@ -579,13 +583,17 @@ function renderizarFuenteNoDisponible() {
 
 function renderizarContratacionTemporalNoDisponible() {
   return `
-    ${encabezadoVista("Contratación temporal", "Módulo no disponible", "La composición real de Contratación temporal todavía no está disponible en este portal.")}
+    ${encabezadoVista(
+      traducirPortal("contratacion_temporal_encabezado"),
+      traducirPortal("estado_modulo_no_disponible_titulo"),
+      traducirPortal("contratacion_temporal_descripcion_no_disponible"),
+    )}
     <section class="panel">
       <div class="cuerpo-panel vacio-controlado" role="status">
-        <p><strong>Módulo no disponible</strong></p>
-        <p>Esta vista no monta el módulo ni habilita sus operaciones.</p>
+        <p><strong>${escaparHTML(traducirPortal("estado_modulo_no_disponible_titulo"))}</strong></p>
+        <p>${escaparHTML(traducirPortal("contratacion_temporal_aviso_no_disponible"))}</p>
         <div class="acciones-vista">
-          <button type="button" class="boton-secundario" data-vista="portal">Volver al portal</button>
+          <button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("accion_volver_portal"))}</button>
         </div>
       </div>
     </section>`;

@@ -9,12 +9,15 @@ import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-c
 import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { MENSAJES_PORTAL_ES } from "./portal-i18n.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, manifiestoProduccion, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
+  readFile(new URL("portal-modulos-coordinador.js", directorio), "utf8"),
+  readFile(new URL("portal-i18n.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-contrato.js", directorio), "utf8"),
@@ -209,9 +212,33 @@ test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de B
   const inicio = javascript.indexOf("function renderizarContratacionTemporalNoDisponible()");
   const fin = javascript.indexOf("function encabezadoVista", inicio);
   const vistaCerrada = javascript.slice(inicio, fin);
-  assert.match(vistaCerrada, /Módulo no disponible/);
-  assert.match(vistaCerrada, /Esta vista no monta el módulo ni habilita sus operaciones/);
-  assert.match(vistaCerrada, /data-vista="portal">Volver al portal/);
+  for (const clave of [
+    "contratacion_temporal_encabezado",
+    "estado_modulo_no_disponible_titulo",
+    "contratacion_temporal_descripcion_no_disponible",
+    "contratacion_temporal_aviso_no_disponible",
+    "accion_volver_portal",
+  ]) {
+    assert.match(vistaCerrada, new RegExp(`traducirPortal\\("${clave}"\\)`));
+    assert.match(catalogoI18n, new RegExp(`\\b${clave}:`));
+  }
+  assert.match(javascript, /traducirPortal\("contratacion_temporal_miga"\)/);
+  assert.match(javascript, /traducirPortal\("contratacion_temporal_titulo"\)/);
+  assert.match(coordinadorModulos, /textoEstado: traducir\("estado_modulo_no_disponible_titulo"\)/);
+  for (const clave of [
+    "contratacion_temporal_encabezado",
+    "contratacion_temporal_miga",
+    "contratacion_temporal_titulo",
+    "estado_modulo_no_disponible_titulo",
+    "contratacion_temporal_descripcion_no_disponible",
+    "contratacion_temporal_aviso_no_disponible",
+    "accion_volver_portal",
+  ]) {
+    const literal = MENSAJES_PORTAL_ES[clave];
+    assert.equal(`${javascript}\n${coordinadorModulos}`.includes(literal), false,
+      `el literal visible de CT debe residir solo en el catálogo i18n: ${literal}`);
+    assert.equal(catalogoI18n.includes(literal), true);
+  }
   assert.doesNotMatch(vistaCerrada, /Gestión de Bolsas|No se han cargado datos de Bolsa|recargar-fuente/);
 });
 

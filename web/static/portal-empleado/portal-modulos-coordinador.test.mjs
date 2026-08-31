@@ -239,12 +239,17 @@ test("el catálogo rechaza manifiestos y colecciones internas no canónicos", ()
 
 test("CT inventariado queda visible no_disponible, accesible y sin carga dinámica", async () => {
   let cargasContratacion = 0;
+  const clavesTraducidas = [];
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
   );
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => catalogo,
+    traducir: (clave) => {
+      clavesTraducidas.push(clave);
+      return `i18n:${clave}`;
+    },
     cargadoresPresentacion: {
       base: async () => { throw new Error("la presentación no debe cargarse"); },
       contratacion_temporal: async () => {
@@ -258,13 +263,16 @@ test("CT inventariado queda visible no_disponible, accesible y sin carga dinámi
     disponible: false,
     vista: "",
     estado: "no_disponible",
-    textoEstado: "Módulo no disponible",
+    textoEstado: "i18n:estado_modulo_no_disponible_titulo",
   });
   const navegacion = coordinador.renderizarNavegacion(true, "portal");
   assert.match(navegacion, /data-modulo-portal="contratacion_temporal" disabled aria-disabled="true"/);
-  assert.match(navegacion, />Módulo no disponible<\/span>/);
+  assert.match(navegacion, />i18n:estado_modulo_no_disponible_titulo<\/span>/);
   assert.doesNotMatch(navegacion, /data-vista=/);
-  assert.doesNotMatch(navegacion, />Sin permiso<\/span>/);
+  assert.deepEqual(clavesTraducidas, [
+    "estado_modulo_no_disponible_titulo",
+    "estado_modulo_no_disponible_titulo",
+  ]);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
   assert.equal(cargasContratacion, 0);
 });
