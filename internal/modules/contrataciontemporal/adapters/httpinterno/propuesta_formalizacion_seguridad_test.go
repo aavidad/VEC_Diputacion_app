@@ -42,6 +42,88 @@ func codificarEntradaPropuestaFormalizacionHTTPPrueba(
 	return string(contenido)
 }
 
+func TestManejadorPropuestaFormalizacionAplicaListaPositivaDeCabeceras(
+	t *testing.T,
+) {
+	t.Parallel()
+	t.Run("permitidas case insensitive", func(t *testing.T) {
+		autoridad := autoridadPropuestaFormalizacionHTTPValidaPrueba()
+		ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
+		manejador := nuevoManejadorPropuestaFormalizacionHTTPPrueba(
+			t,
+			autoridad,
+			ejecutor,
+		)
+		peticion := peticionPropuestaFormalizacionHTTPPrueba(t)
+		peticion.Header = http.Header{
+			"content-type": {"application/json; charset=utf-8"},
+			"ACCEPT":       {"application/json", "application/*;q=0.5"},
+		}
+		respuesta := httptest.NewRecorder()
+		manejador.ServeHTTP(respuesta, peticion)
+		if respuesta.Code != http.StatusCreated || autoridad.total() != 1 ||
+			ejecutor.total() != 1 {
+			t.Fatalf(
+				"estado=%d llamadas=%d/%d cuerpo=%s",
+				respuesta.Code,
+				autoridad.total(),
+				ejecutor.total(),
+				respuesta.Body,
+			)
+		}
+	})
+
+	cancelaciones := []struct {
+		nombre string
+		mutar  func(*http.Request)
+		estado int
+	}{
+		{"desconocida", func(r *http.Request) { r.Header.Set("User-Agent", "cliente") }, http.StatusBadRequest},
+		{"X-Tenant", func(r *http.Request) { r.Header.Set("x-tEnAnT", "organizacion:forjada") }, http.StatusBadRequest},
+		{"X-Scope", func(r *http.Request) { r.Header.Set("X-Scope", "formalizar") }, http.StatusBadRequest},
+		{"X no permitida", func(r *http.Request) { r.Header.Set("X-Trace-ID", "traza") }, http.StatusBadRequest},
+		{"authorization", func(r *http.Request) { r.Header.Set("AUTHORIZATION", "Bearer privado") }, http.StatusBadRequest},
+		{"cookie", func(r *http.Request) { r.Header.Set("Cookie", "sesion=privada") }, http.StatusBadRequest},
+		{"set cookie", func(r *http.Request) { r.Header.Set("Set-Cookie", "sesion=privada") }, http.StatusBadRequest},
+		{"transfer encoding en Header", func(r *http.Request) { r.Header.Set("Transfer-Encoding", "chunked") }, http.StatusBadRequest},
+		{"content length en Header", func(r *http.Request) { r.Header.Set("Content-Length", "1") }, http.StatusBadRequest},
+		{"desconocida multivalor", func(r *http.Request) { r.Header["X-Interna"] = []string{"una", "dos"} }, http.StatusBadRequest},
+		{"content type multivalor", func(r *http.Request) { r.Header.Add("Content-Type", "application/json") }, http.StatusUnsupportedMediaType},
+		{"content type duplicada por caja", func(r *http.Request) { r.Header["content-type"] = []string{"application/json"} }, http.StatusUnsupportedMediaType},
+		{"content type invalido", func(r *http.Request) { r.Header.Set("Content-Type", " application/json") }, http.StatusUnsupportedMediaType},
+		{"accept multivalor invalido", func(r *http.Request) {
+			r.Header["Accept"] = []string{"application/json", "application/json;q=invalida"}
+		}, http.StatusNotAcceptable},
+	}
+	for _, caso := range cancelaciones {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			autoridad := autoridadPropuestaFormalizacionHTTPValidaPrueba()
+			ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
+			manejador := nuevoManejadorPropuestaFormalizacionHTTPPrueba(
+				t,
+				autoridad,
+				ejecutor,
+			)
+			peticion := peticionPropuestaFormalizacionHTTPPrueba(t)
+			caso.mutar(peticion)
+			respuesta := httptest.NewRecorder()
+			manejador.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != caso.estado || autoridad.total() != 0 ||
+				ejecutor.total() != 0 {
+				t.Fatalf(
+					"estado=%d llamadas=%d/%d cuerpo=%s",
+					respuesta.Code,
+					autoridad.total(),
+					ejecutor.total(),
+					respuesta.Body,
+				)
+			}
+		})
+	}
+}
+
 func TestManejadorPropuestaFormalizacionRechazaSuperficieHostilAntesDeAutoridad(
 	t *testing.T,
 ) {

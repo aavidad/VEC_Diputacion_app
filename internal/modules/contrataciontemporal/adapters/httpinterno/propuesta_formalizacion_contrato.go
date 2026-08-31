@@ -124,6 +124,10 @@ func validarMetadatosPropuestaFormalizacion(
 		problema := errorPeticionPropuestaFormalizacionNoValida
 		return &problema
 	}
+	if !cabecerasPropuestaFormalizacionPermitidas(r.Header) {
+		problema := errorPeticionPropuestaFormalizacionNoPermitida
+		return &problema
+	}
 	if !tipoContenidoJSON(r.Header) {
 		problema := errorTipoPropuestaFormalizacionNoAdmitido
 		return &problema
@@ -132,11 +136,21 @@ func validarMetadatosPropuestaFormalizacion(
 		problema := errorRepresentacionPropuestaFormalizacionNoAceptable
 		return &problema
 	}
-	if cabeceraCoberturaProhibida(r.Header) {
-		problema := errorPeticionPropuestaFormalizacionNoPermitida
-		return &problema
-	}
 	return nil
+}
+
+func cabecerasPropuestaFormalizacionPermitidas(cabeceras http.Header) bool {
+	// Content-Length y Transfer-Encoding llegan normalizadas en los campos
+	// tipados de Request; su presencia adicional en Header se rechaza.
+	for nombre := range cabeceras {
+		switch {
+		case strings.EqualFold(nombre, "Content-Type"),
+			strings.EqualFold(nombre, "Accept"):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func propuestaFormalizacionDesdePeticion(
