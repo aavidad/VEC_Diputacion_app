@@ -128,6 +128,39 @@ func permisoExactoEtapaPruebaO4aP4M38(p *autorizacionEtapaO4aM38, e *autoridadEt
 		p.rolPidfd == rolPidfdPrimarioO4bM38 && p.estado.Load() == uint32(autorizacionEmitidaO4bM38)
 }
 
+type resultadoEsperadoEtapasO4aP4M38 struct {
+	etapa                  etapaO4bM38
+	cardinalidad           uint8
+	rawPrimero, rawSegundo int
+	evidencia              claseEvidenciaEtapaO4bM38
+	observado              time.Time
+}
+
+func exigirCierreKillEtapasO4aP4M38(t *testing.T, e *autoridadEtapasO4aM38, causa causaPrimariaO4aM38, incidente uint32, esperados ...resultadoEsperadoEtapasO4aP4M38) {
+	t.Helper()
+	if e == nil || e.auto != e || e.causa.causa.Load() != uint32(causa) || e.causa.incidente.Load() != incidente ||
+		e.causa.estado.Load() != uint32(causaA7EntregaO4cPreparadaM38) || !e.extincion || e.terminalidad ||
+		e.pendiente != nil || int(e.emitidas) != len(esperados) || int(e.historialLen) != len(esperados) {
+		t.Fatalf("cierre KILL divergente: causa=%d incidente=%d estado=%d emitidas=%d historial=%d", e.causa.causa.Load(), e.causa.incidente.Load(), e.causa.estado.Load(), e.emitidas, e.historialLen)
+	}
+	for i, esperado := range esperados {
+		p, r, registro := &e.autorizaciones[i], &e.resultados[i], e.historial[i]
+		if registro.autorizacion != p || registro.resultado != r || !autorizacionExactaEtapaO4aM38(e, p) ||
+			p.estado.Load() != uint32(autorizacionConsumidaO4bM38) || r.estado.Load() != uint32(resultadoConsumidoO4bM38) ||
+			r.etapa != esperado.etapa || r.cardinalidad != esperado.cardinalidad || r.rawPrimero != esperado.rawPrimero ||
+			r.rawSegundo != esperado.rawSegundo || r.evidencia != esperado.evidencia || r.observado != esperado.observado {
+			t.Fatalf("historial divergente en %d: etapa=%d cardinalidad=%d raw=(%d,%d) evidencia=%d", i, r.etapa, r.cardinalidad, r.rawPrimero, r.rawSegundo, r.evidencia)
+		}
+		if p.estado.CompareAndSwap(uint32(autorizacionEmitidaO4bM38), uint32(autorizacionConsumiendoO4bM38)) || confirmarConsumoAutorizacionEtapaO4aM38(e, p) {
+			t.Fatalf("autorización %d reutilizable", i)
+		}
+		replay, historial := r, e.historialLen
+		if q, err := aplicarResultadoEtapaO4aM38(e, &replay); !errors.Is(err, errEtapasConsumidasO4aM38) || q != nil || replay != nil || e.historialLen != historial {
+			t.Fatalf("resultado %d reutilizable", i)
+		}
+	}
+}
+
 func hastaTermContPruebaO4aP4M38(t *testing.T) (*autoridadEtapasO4aM38, *autorizacionEtapaO4aM38) {
 	t.Helper()
 	e, stop := iniciarEtapasPruebaO4aP4M38(t, causaSenalTerm143O4aM38)
@@ -234,47 +267,99 @@ func TestEtapasO4aP4TerminalFinalCardinalRealCeroOUno(t *testing.T) {
 
 func TestEtapasO4aP4RamasFinalesExactas(t *testing.T) {
 	casos := []struct {
-		nombre    string
-		raw       int
-		evidencia claseEvidenciaEtapaO4bM38
-		observado func(*autoridadEtapasO4aM38) time.Time
-		incidente uint32
+		nombre                         string
+		rawFinal, rawKill              int
+		evidencia                      claseEvidenciaEtapaO4bM38
+		observado                      func(*autoridadEtapasO4aM38) time.Time
+		incidenteAntes, incidenteFinal uint32
 	}{
-		{"estable", 0, evidenciaEstableO4bM38, func(e *autoridadEtapasO4aM38) time.Time { return e.plazos.finParadaFinal.Add(-time.Nanosecond) }, 0},
-		{"no_estable", 0, evidenciaNoEstableO4bM38, func(e *autoridadEtapasO4aM38) time.Time { return e.plazos.finParadaFinal }, 1},
-		{"raw_error", 4, evidenciaSinO4bM38, func(*autoridadEtapasO4aM38) time.Time { return time.Time{} }, 1},
+		{"estable", 0, 0, evidenciaEstableO4bM38, func(e *autoridadEtapasO4aM38) time.Time { return e.plazos.finParadaFinal.Add(-time.Nanosecond) }, 0, 0},
+		{"estable_kill_error", 0, 4, evidenciaEstableO4bM38, func(e *autoridadEtapasO4aM38) time.Time { return e.plazos.finParadaFinal.Add(-time.Nanosecond) }, 0, 1},
+		{"no_estable", 0, 0, evidenciaNoEstableO4bM38, func(e *autoridadEtapasO4aM38) time.Time { return e.plazos.finParadaFinal }, 1, 1},
+		{"raw_error", 4, 4, evidenciaSinO4bM38, func(*autoridadEtapasO4aM38) time.Time { return time.Time{} }, 1, 1},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e, final := hastaParadaFinalPruebaO4aP4M38(t)
-			r := sellarResultadoEtapaPruebaO4aP4M38(t, e, final, 1, caso.raw, 0, caso.evidencia, caso.observado(e))
+			observadoFinal := caso.observado(e)
+			r := sellarResultadoEtapaPruebaO4aP4M38(t, e, final, 1, caso.rawFinal, 0, caso.evidencia, observadoFinal)
 			kill := aplicarResultadoEnPruebaO4aP4M38(t, e, r, e.plazos.finParadaFinal)
 			if !permisoExactoEtapaPruebaO4aP4M38(kill, e, etapaMatarGrupoO4bM38, operacionKillO4bM38, 1, e.plazos.finDrenajeCooperativo, limiteDrenajeCooperativoO4bM38) ||
-				e.causa.incidente.Load() != caso.incidente {
+				e.causa.causa.Load() != uint32(causaSenalTerm143O4aM38) || e.causa.incidente.Load() != caso.incidenteAntes {
 				t.Fatalf("rama final divergente: incidente=%d", e.causa.incidente.Load())
 			}
+			rKill := sellarResultadoEtapaPruebaO4aP4M38(t, e, kill, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{})
+			if p := aplicarResultadoEnPruebaO4aP4M38(t, e, rKill, kill.limite); p != nil {
+				t.Fatal("KILL final emitió otra autorización")
+			}
+			exigirCierreKillEtapasO4aP4M38(t, e, causaSenalTerm143O4aM38, caso.incidenteFinal,
+				resultadoEsperadoEtapasO4aP4M38{etapaParadaInicialO4bM38, 1, 0, 0, evidenciaEstableO4bM38, e.plazos.finParadaInicial.Add(-time.Nanosecond)},
+				resultadoEsperadoEtapasO4aP4M38{etapaTerminarReanudarO4bM38, 2, 0, 0, evidenciaGrupoPresenteO4bM38, e.plazos.finGracia},
+				resultadoEsperadoEtapasO4aP4M38{etapaParadaFinalO4bM38, 1, caso.rawFinal, 0, caso.evidencia, observadoFinal},
+				resultadoEsperadoEtapasO4aP4M38{etapaMatarGrupoO4bM38, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{}},
+			)
+		})
+	}
+}
+
+func TestEtapasO4aP4FallosTermContConsumenKillHastaA7(t *testing.T) {
+	for _, caso := range []struct {
+		nombre                          string
+		cardinalidad                    uint8
+		rawPrimero, rawSegundo, rawKill int
+	}{
+		{"fallo_TERM", 1, 4, 0, 0},
+		{"fallo_CONT", 2, 0, 4, 4},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e, term := hastaTermContPruebaO4aP4M38(t)
+			ahora := e.plazos.finGracia.Add(-time.Nanosecond)
+			r := sellarResultadoEtapaPruebaO4aP4M38(t, e, term, caso.cardinalidad, caso.rawPrimero, caso.rawSegundo, evidenciaSinO4bM38, time.Time{})
+			kill := aplicarResultadoEnPruebaO4aP4M38(t, e, r, ahora)
+			if !permisoExactoEtapaPruebaO4aP4M38(kill, e, etapaMatarGrupoO4bM38, operacionKillO4bM38, 1, e.plazos.finDrenajeCooperativo, limiteDrenajeCooperativoO4bM38) ||
+				e.causa.causa.Load() != uint32(causaSenalTerm143O4aM38) || e.causa.incidente.Load() != incidenteCierreEnclavadoO4aM38 {
+				t.Fatal("fallo TERM/CONT no convergió a KILL cooperativo")
+			}
+			rKill := sellarResultadoEtapaPruebaO4aP4M38(t, e, kill, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{})
+			if p := aplicarResultadoEnPruebaO4aP4M38(t, e, rKill, kill.limite); p != nil {
+				t.Fatal("KILL tras TERM/CONT emitió otra autorización")
+			}
+			exigirCierreKillEtapasO4aP4M38(t, e, causaSenalTerm143O4aM38, incidenteCierreEnclavadoO4aM38,
+				resultadoEsperadoEtapasO4aP4M38{etapaParadaInicialO4bM38, 1, 0, 0, evidenciaEstableO4bM38, e.plazos.finParadaInicial.Add(-time.Nanosecond)},
+				resultadoEsperadoEtapasO4aP4M38{etapaTerminarReanudarO4bM38, caso.cardinalidad, caso.rawPrimero, caso.rawSegundo, evidenciaSinO4bM38, time.Time{}},
+				resultadoEsperadoEtapasO4aP4M38{etapaMatarGrupoO4bM38, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{}},
+			)
 		})
 	}
 }
 
 func TestEtapasO4aP4ParadaInicialPermaneceCardinalUno(t *testing.T) {
 	for _, caso := range []struct {
-		nombre    string
-		raw       int
-		evidencia claseEvidenciaEtapaO4bM38
-		observado func(*autorizacionEtapaO4aM38) time.Time
+		nombre       string
+		raw, rawKill int
+		evidencia    claseEvidenciaEtapaO4bM38
+		observado    func(*autorizacionEtapaO4aM38) time.Time
 	}{
-		{"no_estable", 0, evidenciaNoEstableO4bM38, func(p *autorizacionEtapaO4aM38) time.Time { return p.limite }},
-		{"raw_error", 4, evidenciaSinO4bM38, func(*autorizacionEtapaO4aM38) time.Time { return time.Time{} }},
+		{"no_estable", 0, 0, evidenciaNoEstableO4bM38, func(p *autorizacionEtapaO4aM38) time.Time { return p.limite }},
+		{"raw_error", 4, 4, evidenciaSinO4bM38, func(*autorizacionEtapaO4aM38) time.Time { return time.Time{} }},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e, stop := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
-			r := sellarResultadoEtapaPruebaO4aP4M38(t, e, stop, 1, caso.raw, 0, caso.evidencia, caso.observado(stop))
+			observadoStop := caso.observado(stop)
+			r := sellarResultadoEtapaPruebaO4aP4M38(t, e, stop, 1, caso.raw, 0, caso.evidencia, observadoStop)
 			kill := aplicarResultadoEnPruebaO4aP4M38(t, e, r, stop.limite)
 			if !permisoExactoEtapaPruebaO4aP4M38(kill, e, etapaMatarGrupoO4bM38, operacionKillO4bM38, 1, e.plazos.finDrenajeRapido, limiteDrenajeRapidoO4bM38) ||
-				e.causa.incidente.Load() != incidenteCierreEnclavadoO4aM38 || !e.plazos.finGracia.IsZero() {
+				e.causa.causa.Load() != uint32(causaCancelado65O4aM38) || e.causa.incidente.Load() != incidenteCierreEnclavadoO4aM38 || !e.plazos.finGracia.IsZero() {
 				t.Fatal("PARADA_INICIAL no convergió a KILL rápido")
 			}
+			rKill := sellarResultadoEtapaPruebaO4aP4M38(t, e, kill, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{})
+			if p := aplicarResultadoEnPruebaO4aP4M38(t, e, rKill, kill.limite); p != nil {
+				t.Fatal("KILL rápido emitió otra autorización")
+			}
+			exigirCierreKillEtapasO4aP4M38(t, e, causaCancelado65O4aM38, incidenteCierreEnclavadoO4aM38,
+				resultadoEsperadoEtapasO4aP4M38{etapaParadaInicialO4bM38, 1, caso.raw, 0, caso.evidencia, observadoStop},
+				resultadoEsperadoEtapasO4aP4M38{etapaMatarGrupoO4bM38, 1, caso.rawKill, 0, evidenciaSinO4bM38, time.Time{}},
+			)
 		})
 	}
 }
