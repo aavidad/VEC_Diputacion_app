@@ -2,7 +2,6 @@ package interna
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"reflect"
 
@@ -32,13 +31,12 @@ func NuevaFachadaIdentidadOffline(
 	return &FachadaIdentidadOffline{servicio: servicio}, nil
 }
 
-// Autenticar transforma exclusivamente un ConnectionState mTLS real y una
-// asercion protegida en la capsula opaca existente. Exigir la superficie
-// interna obliga al ServicioIdentidad ya validado a aplicar Kerberos mas
-// certificado, dos grupos criptograficos y garantia alta.
+// Autenticar consume exclusivamente la capacidad de canal emitida por C4 en
+// el contexto y una asercion protegida. Exigir la superficie interna obliga al
+// ServicioIdentidad ya validado a aplicar Kerberos mas certificado, dos grupos
+// criptograficos y garantia alta.
 func (f *FachadaIdentidadOffline) Autenticar(
 	ctx context.Context,
-	estadoTLS tls.ConnectionState,
 	asercionProtegida []byte,
 ) (httpseguridad.CapsulaIdentidadPeticion, error) {
 	if f == nil || f.servicio == nil || interfazNulaIdentidadOffline(ctx) {
@@ -47,8 +45,14 @@ func (f *FachadaIdentidadOffline) Autenticar(
 	if err := ctx.Err(); err != nil {
 		return httpseguridad.CapsulaIdentidadPeticion{}, err
 	}
+	capacidad, valida := ctx.Value(
+		claveContextoCanalTLSInterno{},
+	).(*capacidadCanalTLSInterno)
+	if !valida || capacidad == nil || capacidad.sello == nil {
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
+	}
 
-	canal, err := f.servicio.AutenticarCanalTLSMutuo(estadoTLS)
+	canal, err := f.servicio.AutenticarCanalTLSMutuo(capacidad.estado)
 	if err != nil || canal.Tipo() != httpseguridad.CanalProxyTLSMutuo ||
 		canal.Superficie() != httpseguridad.SuperficieInternaCorporativa {
 		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
