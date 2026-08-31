@@ -124,7 +124,7 @@ func TestEjecucionesSeleccionO6ReservaClasificaTodosLosEstados(t *testing.T) {
 	solicitudJSON := string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud))
 	reciboJSON := string(debeJSONSeleccionO6Prueba(t, recibo))
 	artefactoJSON := string(debeJSONSeleccionO6Prueba(t, artefacto))
-	reserva := prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa"
+	reserva := prefijoReservaSeleccionO6 + strings.Repeat("6e", 32)
 
 	casos := []struct {
 		nombre    string
@@ -251,7 +251,7 @@ func TestEjecucionesSeleccionO6MutaSoloMedianteFachadasNominales(t *testing.T) {
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	reserva := ports.ReservaEjecucionSeleccionLlamamiento{
 		Solicitud:  solicitud,
-		ReservaRef: prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa",
+		ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 	}
 	casos := []struct {
 		nombre  string
@@ -302,7 +302,7 @@ func TestEjecucionesSeleccionO6CommitAmbiguoNuncaEsExitoNiSeReintenta(t *testing
 	solicitud, _, _ := materialesEjecucionSeleccionO6Prueba(t)
 	reserva := ports.ReservaEjecucionSeleccionLlamamiento{
 		Solicitud:  solicitud,
-		ReservaRef: prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa",
+		ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 	}
 	causaPrivada := errors.New("detalle-interno-no-publicable")
 	adaptador, iniciador, tx := nuevoAdaptadorEjecucionSeleccionO6Prueba(
@@ -365,7 +365,7 @@ func TestEjecucionesSeleccionO6RechazaEntradasAntesDePGX(t *testing.T) {
 	artefacto.Evidencia.EvidenciaRef = strings.Repeat("x", maximoCargaSeleccionO6+1)
 	if err := adaptador.Confirmar(context.Background(),
 		ports.ReservaEjecucionSeleccionLlamamiento{
-			Solicitud: solicitud, ReservaRef: prefijoReservaSeleccionO6 + claveEjecucionSeleccionO6Prueba,
+			Solicitud: solicitud, ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 		}, recibo, artefacto); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("artefacto sobredimensionado aceptado: %v", err)
 	}
