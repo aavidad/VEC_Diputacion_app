@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/config"
 	appserver "vec-diputacion-granada/internal/app/server"
 	"vec-diputacion-granada/internal/candidate/ports"
+	contrataciontemporal "vec-diputacion-granada/internal/modules/contrataciontemporal"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -447,6 +448,79 @@ func TestNewHTTPServerExposesUnifiedVECShellModules(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestManifestContratacionTemporalSoloPublicaDescriptorAutenticado(t *testing.T) {
+	srv := nuevoServidorFakeAisladoPrueba(t, config.Config{
+		Address:             "127.0.0.1:0",
+		APIBasePath:         "/api",
+		PersonalCatalogPath: "memory",
+	})
+
+	sinCredenciales := httptest.NewRecorder()
+	peticionSinCredenciales := httptest.NewRequest(http.MethodGet, "/api/vec/modules", nil)
+	peticionSinCredenciales.RemoteAddr = "127.0.0.1:12345"
+	srv.Handler.ServeHTTP(sinCredenciales, peticionSinCredenciales)
+	if sinCredenciales.Code != http.StatusUnauthorized ||
+		strings.Contains(sinCredenciales.Body.String(), contrataciontemporal.ModuleID) {
+		t.Fatalf("catalogo sin autenticar = %d %s", sinCredenciales.Code, sinCredenciales.Body.String())
+	}
+
+	peticionAutenticada := func(metodo, ruta string) *httptest.ResponseRecorder {
+		t.Helper()
+		respuesta := httptest.NewRecorder()
+		peticion := httptest.NewRequest(metodo, ruta, nil)
+		peticion.RemoteAddr = "127.0.0.1:12345"
+		peticion.Header.Set("Authorization", "Bearer "+tokenFakePruebas)
+		srv.Handler.ServeHTTP(respuesta, peticion)
+		return respuesta
+	}
+
+	respuestaModulos := peticionAutenticada(http.MethodGet, "/api/vec/modules")
+	if respuestaModulos.Code != http.StatusOK {
+		t.Fatalf("catalogo autenticado = %d %s", respuestaModulos.Code, respuestaModulos.Body.String())
+	}
+	var catalogo struct {
+		Data struct {
+			Modules []vecdomain.ModuleManifest `json:"modules"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respuestaModulos.Body.Bytes(), &catalogo); err != nil {
+		t.Fatalf("decodificar catalogo: %v", err)
+	}
+	presencias := 0
+	for _, modulo := range catalogo.Data.Modules {
+		if modulo.ID == contrataciontemporal.ModuleID {
+			presencias++
+		}
+	}
+	if presencias != 1 {
+		t.Fatalf("presencias de %s = %d; catalogo=%#v", contrataciontemporal.ModuleID, presencias, catalogo.Data.Modules)
+	}
+
+	respuestaMenu := peticionAutenticada(http.MethodGet, "/api/vec/menu")
+	if respuestaMenu.Code != http.StatusOK {
+		t.Fatalf("menu autenticado = %d %s", respuestaMenu.Code, respuestaMenu.Body.String())
+	}
+	var menu struct {
+		Data struct {
+			Entries []vecdomain.MenuEntry `json:"menu"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respuestaMenu.Body.Bytes(), &menu); err != nil {
+		t.Fatalf("decodificar menu: %v", err)
+	}
+	for _, entrada := range menu.Data.Entries {
+		if entrada.ModuleID == contrataciontemporal.ModuleID {
+			t.Fatalf("el catalogo concedio disponibilidad en el menu: %#v", entrada)
+		}
+	}
+
+	respuestaAccion := peticionAutenticada(http.MethodPost, "/api/vec/modules/contratacion_temporal/action")
+	if respuestaAccion.Code != http.StatusNotFound ||
+		!strings.Contains(respuestaAccion.Body.String(), "vec module action not found") {
+		t.Fatalf("accion generica CT = %d %s", respuestaAccion.Code, respuestaAccion.Body.String())
 	}
 }
 
