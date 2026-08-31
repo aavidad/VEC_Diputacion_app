@@ -186,7 +186,8 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260725-aislamiento-modular-v2/);
+  assert.match(html, /portal\.js\?v=20260831-ct-catalogo-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260831-ct-catalogo-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -196,6 +197,22 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.match(eventos, /case "reintentar-borradores"/);
   assert.match(eventos, /comprobarDisponibilidadBorradores\(\{ forzar: true \}\)/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
+});
+
+test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {
+  assert.match(javascript, /"contratacion-temporal": \[/);
+  assert.match(javascript, /return Object\.hasOwn\(TITULOS, candidata\) \? candidata : "portal"/);
+  const decision = javascript.indexOf('contenedor.innerHTML = estado.vista === "contratacion-temporal"');
+  const montaje = javascript.indexOf("void coordinadorModulos.montarVista", decision);
+  assert.ok(decision > 0 && montaje > decision, "la indisponibilidad debe resolverse antes del montaje");
+
+  const inicio = javascript.indexOf("function renderizarContratacionTemporalNoDisponible()");
+  const fin = javascript.indexOf("function encabezadoVista", inicio);
+  const vistaCerrada = javascript.slice(inicio, fin);
+  assert.match(vistaCerrada, /Módulo no disponible/);
+  assert.match(vistaCerrada, /Esta vista no monta el módulo ni habilita sus operaciones/);
+  assert.match(vistaCerrada, /data-vista="portal">Volver al portal/);
+  assert.doesNotMatch(vistaCerrada, /Gestión de Bolsas|No se han cargado datos de Bolsa|recargar-fuente/);
 });
 
 test("la propuesta real usa el cliente cerrado y no habilita un detalle inexistente", () => {

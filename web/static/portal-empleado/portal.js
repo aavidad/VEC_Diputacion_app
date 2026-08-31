@@ -18,7 +18,7 @@ import {
   rutaDeVistaPortal,
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
-} from "./portal-modulos-coordinador.js?v=20260725-aislamiento-modular-v2";
+} from "./portal-modulos-coordinador.js?v=20260831-ct-catalogo-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
@@ -494,7 +494,9 @@ function renderizar() {
   if (VISTAS_MODULOS_CONECTADOS.has(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
       coordinadorModulos.desmontarVistaActual();
-      contenedor.innerHTML = renderizarFuenteNoDisponible();
+      contenedor.innerHTML = estado.vista === "contratacion-temporal"
+        ? renderizarContratacionTemporalNoDisponible()
+        : renderizarFuenteNoDisponible();
       return;
     }
     void coordinadorModulos.montarVista(estado.vista, contenedor).catch((error) => {
@@ -570,6 +572,20 @@ function renderizarFuenteNoDisponible() {
         <div class="acciones-vista">
           <button type="button" class="boton-secundario" data-vista="portal">Volver al portal</button>
           ${cargando ? "" : '<button type="button" class="boton-primario" data-accion="recargar-fuente">Reintentar</button>'}
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderizarContratacionTemporalNoDisponible() {
+  return `
+    ${encabezadoVista("Contratación temporal", "Módulo no disponible", "La composición real de Contratación temporal todavía no está disponible en este portal.")}
+    <section class="panel">
+      <div class="cuerpo-panel vacio-controlado" role="status">
+        <p><strong>Módulo no disponible</strong></p>
+        <p>Esta vista no monta el módulo ni habilita sus operaciones.</p>
+        <div class="acciones-vista">
+          <button type="button" class="boton-secundario" data-vista="portal">Volver al portal</button>
         </div>
       </div>
     </section>`;
