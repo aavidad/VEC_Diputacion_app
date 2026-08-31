@@ -558,8 +558,8 @@ func probarEncuadresNoCanonicosSeleccionO6Integracion(
 	cabeceraExterior := `{"esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,"tipo":"recibo_llamamiento"`
 	duplicado := reemplazarNSeleccionO6Integracion(t, canonico, cabeceraExterior,
 		`{"esquema":"sustituido","esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,"tipo":"recibo_llamamiento"`, 1)
-	versionTexto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
-		`"version":1`, `"version":"1"`)
+	versionTexto := reemplazarNSeleccionO6Integracion(t, canonico, cabeceraExterior,
+		`{"esquema":"vec.contratacion-temporal.artefacto-bolsa","version":"1","tipo":"recibo_llamamiento"`, 1)
 	contratoTexto := reemplazarNSeleccionO6Integracion(t, canonico,
 		`"contrato_version":1`, `"contrato_version":"1"`, 2)
 	decimalArtefacto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
