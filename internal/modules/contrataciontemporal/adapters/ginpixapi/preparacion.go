@@ -7,7 +7,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
-	"slices"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/ginpixfichero"
@@ -18,8 +17,6 @@ import (
 const (
 	EsquemaReciboAPIGINPIXV1 = "vec.dipgra.contratacion-temporal.ginpix.api.recibo.v1"
 	VersionReciboAPIGINPIXV1 = uint64(1)
-
-	maximoDocumentosEvidenciaIncorporacion = 32
 )
 
 var (
@@ -53,23 +50,27 @@ type MetadatosOperacion struct {
 }
 
 type datosPreparacion struct {
-	cuerpo    []byte
-	metadatos MetadatosOperacion
+	cuerpo        []byte
+	metadatos     MetadatosOperacion
+	orden         ports.OrdenConfirmarIncorporacion
+	incorporacion ports.ReciboConfirmacionIncorporacion
 }
 
 // Preparacion es un sobre inmutable. Preparar no autentica, no envia y no
 // acredita ningun efecto fuera del proceso.
 type Preparacion struct{ datos *datosPreparacion }
 
-// Preparar coteja solicitud y resultado O7-01, la evidencia O7-02, la
-// transformación O7-03 y los bytes exactos O7-05. Este adaptador no
-// reconstruye ni sustituye la autorización V3 que produjo la incorporación.
+// Preparar coteja la orden autentica y el recibo O7-02, la transformación
+// O7-03 y los bytes exactos O7-05. La orden conserva el contexto y la decisión
+// V3 completos; este adaptador no los reconstruye desde campos copiables.
 func Preparar(
 	solicitud ports.SolicitudMapeoGINPIX,
-	solicitudPersonal ports.SolicitudAltaPersonalRPT,
-	resultadoPersonal ports.ResultadoAltaPersonalRPT,
+	orden ports.OrdenConfirmarIncorporacion,
 	incorporacion ports.ReciboConfirmacionIncorporacion,
 ) (Preparacion, error) {
+	if _, err := orden.Datos(); err != nil || incorporacion.ValidarPara(orden) != nil {
+		return Preparacion{}, ErrPreparacionAPIGINPIXInvalida
+	}
 	modelo, errModelo := solicitud.Modelo()
 	mapeo, errMapeo := solicitud.Mapeo()
 	if errModelo != nil || errMapeo != nil {
@@ -81,8 +82,7 @@ func Preparar(
 	}
 	datosCarga := carga.Datos()
 	if !evidenciaIncorporacionLigada(
-		solicitudPersonal,
-		resultadoPersonal,
+		orden,
 		incorporacion,
 		datosCarga,
 	) {
@@ -118,8 +118,10 @@ func Preparar(
 		ResultadoPersonalRef:   incorporacion.ResultadoPersonalRef,
 		ReciboPersonalRef:      incorporacion.ReciboPersonalRef,
 	}
+	incorporacion = clonarReciboConfirmacionIncorporacion(incorporacion)
 	preparacion := Preparacion{datos: &datosPreparacion{
 		cuerpo: append([]byte(nil), cuerpo...), metadatos: metadatos,
+		orden: orden, incorporacion: incorporacion,
 	}}
 	if preparacion.Validar() != nil {
 		return Preparacion{}, ErrPreparacionAPIGINPIXInvalida
@@ -130,7 +132,9 @@ func Preparar(
 func (p Preparacion) Validar() error {
 	if p.datos == nil || len(p.datos.cuerpo) == 0 ||
 		len(p.datos.cuerpo) > ginpixfichero.MaximoBytesFicheroGINPIX ||
-		!p.datos.metadatos.validar() {
+		!p.datos.metadatos.validar() ||
+		p.datos.incorporacion.ValidarPara(p.datos.orden) != nil ||
+		!p.datos.metadatos.ligadosA(p.datos.incorporacion) {
 		return ErrPreparacionAPIGINPIXInvalida
 	}
 	suma := sha256.Sum256(p.datos.cuerpo)
@@ -170,55 +174,35 @@ func (m MetadatosOperacion) validar() bool {
 		huellaValida(m.CargaHuellaSHA256) && huellaValida(m.CuerpoHuellaSHA256)
 }
 
+func (m MetadatosOperacion) ligadosA(r ports.ReciboConfirmacionIncorporacion) bool {
+	return m.VersionExpediente == r.VersionExpediente &&
+		m.ExpedienteRef == r.ExpedienteRef && m.IncorporacionRef == r.ActuacionRef &&
+		m.ReciboIncorporacionRef == r.ReciboRef &&
+		m.ResultadoPersonalRef == r.ResultadoPersonalRef &&
+		m.ReciboPersonalRef == r.ReciboPersonalRef
+}
+
 func evidenciaIncorporacionLigada(
-	solicitud ports.SolicitudAltaPersonalRPT,
-	resultado ports.ResultadoAltaPersonalRPT,
+	orden ports.OrdenConfirmarIncorporacion,
 	r ports.ReciboConfirmacionIncorporacion,
 	carga domain.DatosCargaMapeadaGINPIX,
 ) bool {
-	if solicitud.Validar() != nil || resultado.ValidarPara(solicitud) != nil ||
-		resultado.Estado != ports.AltaPersonalRPTConfirmada ||
-		r.SolicitudPersonalRef != solicitud.SolicitudRef ||
-		r.ResultadoPersonalRef != resultado.ResultadoRef ||
-		r.ReciboPersonalRef != resultado.ReciboRef ||
-		r.RelacionRef != resultado.RelacionRef || r.OcupacionRef != resultado.OcupacionRef ||
-		r.ExpedienteRef != solicitud.ExpedienteRef ||
-		r.VersionExpediente != solicitud.VersionExpediente ||
-		r.ExpedienteRef != carga.ExpedienteRef || r.ActuacionRef != carga.IncorporacionRef ||
-		r.VersionExpediente != carga.VersionExpediente ||
-		r.VersionAnterior >= ports.MaximoEnteroSeguroOperacionAnalisis ||
-		r.VersionResultante != r.VersionAnterior+1 ||
-		r.TransicionClave != ports.TransicionConfirmarIncorporacion || !r.MotivoClave.Valida() ||
-		!domain.InstanteUTCCanonico(r.FechaIncorporacion) ||
-		!domain.InstanteUTCCanonico(r.FechaFinPrevista) ||
-		r.FechaFinPrevista.Before(r.FechaIncorporacion) ||
-		!domain.InstanteUTCCanonico(r.ConfirmadaEn) ||
-		len(r.Documentos) == 0 || len(r.Documentos) > maximoDocumentosEvidenciaIncorporacion {
+	evidencia, err := orden.Datos()
+	if err != nil || r.ValidarPara(orden) != nil {
 		return false
 	}
-	referencias := []string{
-		r.ReciboRef, r.ActuacionRef, r.CorrelacionRef, r.ActorRef, r.OrganizacionRef,
-		r.UnidadRef, r.ExpedienteRef, r.SolicitudPersonalRef,
-		r.DecisionAutorizacionRef, r.ResultadoPersonalRef, r.ReciboPersonalRef,
-		r.RelacionRef, r.OcupacionRef,
-	}
-	for _, referencia := range referencias {
-		if !domain.ReferenciaOpacaValida(referencia) {
-			return false
-		}
-	}
-	documentos := make([]string, len(r.Documentos))
-	for indice, documento := range r.Documentos {
-		if !documento.TipoClave.Valida() || !domain.ReferenciaOpacaValida(documento.Referencia) {
-			return false
-		}
-		documentos[indice] = documento.Referencia
-	}
-	slices.Sort(documentos)
-	return !slices.ContainsFunc(documentos[1:], func(referencia string) bool {
-		indice, _ := slices.BinarySearch(documentos, referencia)
-		return indice+1 < len(documentos) && documentos[indice+1] == referencia
-	})
+	datos := evidencia.Confirmacion
+	return datos.SolicitudPersonal.ExpedienteRef == carga.ExpedienteRef &&
+		datos.SolicitudPersonal.VersionExpediente == carga.VersionExpediente &&
+		r.ExpedienteRef == carga.ExpedienteRef && r.ActuacionRef == carga.IncorporacionRef &&
+		r.VersionExpediente == carga.VersionExpediente
+}
+
+func clonarReciboConfirmacionIncorporacion(
+	r ports.ReciboConfirmacionIncorporacion,
+) ports.ReciboConfirmacionIncorporacion {
+	r.Documentos = append([]domain.DocumentoSeguimiento(nil), r.Documentos...)
+	return r
 }
 
 // DatosReciboExterno contiene solo referencias opacas, versiones y huellas.

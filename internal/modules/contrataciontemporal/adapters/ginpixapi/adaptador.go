@@ -3,6 +3,8 @@ package ginpixapi
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,7 +23,7 @@ import (
 )
 
 const (
-	maximosReintentosAPI       = 4
+	maximasEsperasPoliticaAPI  = 4
 	maximoBytesRespuestaAPI    = int64(256 * 1024)
 	maximoBytesAutorizacionAPI = 4 * 1024
 )
@@ -56,8 +59,9 @@ type ProveedorAutenticacionOpaca interface {
 	Autorizar(context.Context, *http.Request) error
 }
 
-// Politica gobierna el plazo total, las pausas entre intentos y el límite de
-// respuesta. Las pausas se copian al construir el adaptador.
+// Politica gobierna el plazo total y el límite de respuesta. La representación
+// canónica conserva las esperas declaradas, pero Nuevo las rechaza porque el
+// contrato GINPIX vigente no autoriza reintentos automáticos.
 type Politica struct {
 	Referencia           string
 	Version              uint64
@@ -65,6 +69,20 @@ type Politica struct {
 	TiempoMaximo         time.Duration
 	EsperasReintento     []time.Duration
 	MaximoBytesRespuesta int64
+}
+
+// SellarPolitica calcula la huella exacta de referencia, versión, plazo,
+// esperas y límite. El sello no vuelve operativa una política: Nuevo sigue
+// denegando cualquier lista de esperas no vacía.
+func SellarPolitica(p Politica) (Politica, error) {
+	p.EsperasReintento = append([]time.Duration(nil), p.EsperasReintento...)
+	material, valida := materialCanonicoPolitica(p)
+	if !valida {
+		return Politica{}, ErrConfiguracionAPIGINPIXInvalida
+	}
+	suma := sha256.Sum256(material)
+	p.HuellaSHA256 = hex.EncodeToString(suma[:])
+	return p, nil
 }
 
 // Configuracion recibe URL exactas para no compilar rutas del proveedor.
@@ -138,64 +156,42 @@ func (a *Adaptador) ejecutar(
 	operacion, cancelar := context.WithTimeout(ctx, a.politica.TiempoMaximo)
 	defer cancelar()
 
-	emitida := false
-	for intento := 0; intento <= len(a.politica.EsperasReintento); intento++ {
-		if err := operacion.Err(); err != nil {
-			return ReciboExterno{}, errorContextoOperacion(err, clase, emitida)
-		}
-		peticion, err := a.nuevaPeticion(operacion, preparacion, clase)
-		if err != nil {
-			if errContexto := operacion.Err(); errContexto != nil {
-				return ReciboExterno{}, errorContextoOperacion(errContexto, clase, emitida)
-			}
-			return ReciboExterno{}, ErrAutenticacionAPIGINPIXFallida
-		}
-		emitida = true
-		respuesta, errTransporte := a.transporte.RoundTrip(peticion)
-		if errTransporte != nil {
-			if respuesta != nil {
-				cerrarRespuesta(respuesta)
-				return ReciboExterno{}, errorSinResultado(clase)
-			}
-			cerrarRespuesta(respuesta)
-			if errContexto := operacion.Err(); errContexto != nil {
-				return ReciboExterno{}, errorContextoOperacion(errContexto, clase, emitida)
-			}
-			if intento < len(a.politica.EsperasReintento) {
-				if err := esperarReintento(operacion, a.politica.EsperasReintento[intento]); err != nil {
-					return ReciboExterno{}, errorContextoOperacion(err, clase, emitida)
-				}
-				continue
-			}
-			return ReciboExterno{}, errorSinResultado(clase)
-		}
-		if respuesta == nil {
-			return ReciboExterno{}, errorSinResultado(clase)
-		}
-		if codigoReintentable(respuesta.StatusCode) {
-			cerrarRespuesta(respuesta)
-			if intento < len(a.politica.EsperasReintento) {
-				if err := esperarReintento(operacion, a.politica.EsperasReintento[intento]); err != nil {
-					return ReciboExterno{}, errorContextoOperacion(err, clase, emitida)
-				}
-				continue
-			}
-			return ReciboExterno{}, errorSinResultado(clase)
-		}
-		if !codigoExito(respuesta.StatusCode, clase) {
-			codigo := respuesta.StatusCode
-			cerrarRespuesta(respuesta)
-			return ReciboExterno{}, errorCodigoNoExitoso(codigo, clase)
-		}
-		recibo, err := leerRecibo(respuesta, preparacion, a.politica.MaximoBytesRespuesta)
-		if err != nil {
-			return ReciboExterno{}, errorRespuestaInvalida(clase)
-		}
-		// El recibo completo prueba el resultado aunque la cancelación se
-		// observe después de recibir y validar todos sus bytes.
-		return recibo, nil
+	if err := operacion.Err(); err != nil {
+		return ReciboExterno{}, errorContextoOperacion(err, clase, false)
 	}
-	return ReciboExterno{}, errorSinResultado(clase)
+	peticion, err := a.nuevaPeticion(operacion, preparacion, clase)
+	if err != nil {
+		if errContexto := operacion.Err(); errContexto != nil {
+			return ReciboExterno{}, errorContextoOperacion(errContexto, clase, false)
+		}
+		return ReciboExterno{}, ErrAutenticacionAPIGINPIXFallida
+	}
+	respuesta, errTransporte := a.transporte.RoundTrip(peticion)
+	if errTransporte != nil {
+		cerrarRespuesta(respuesta)
+		if errContexto := operacion.Err(); errContexto != nil {
+			return ReciboExterno{}, errorContextoOperacion(errContexto, clase, true)
+		}
+		return ReciboExterno{}, errorTrasEmision(errorSinResultado(clase), clase)
+	}
+	if respuesta == nil {
+		return ReciboExterno{}, errorTrasEmision(errorSinResultado(clase), clase)
+	}
+	if !codigoExito(respuesta.StatusCode, clase) {
+		codigo := respuesta.StatusCode
+		cerrarRespuesta(respuesta)
+		return ReciboExterno{}, errorTrasEmision(errorCodigoNoExitoso(codigo, clase), clase)
+	}
+	recibo, err := leerRecibo(respuesta, preparacion, a.politica.MaximoBytesRespuesta)
+	if err != nil {
+		if errContexto := operacion.Err(); errContexto != nil {
+			return ReciboExterno{}, errorContextoOperacion(errContexto, clase, true)
+		}
+		return ReciboExterno{}, errorTrasEmision(errorRespuestaInvalida(clase), clase)
+	}
+	// El recibo completo prueba el resultado aunque la cancelación se observe
+	// después de recibir y validar todos sus bytes.
+	return recibo, nil
 }
 
 type consultaOperacion struct {
@@ -413,24 +409,6 @@ func cerrarRespuesta(respuesta *http.Response) {
 	_ = respuesta.Body.Close()
 }
 
-func esperarReintento(ctx context.Context, espera time.Duration) error {
-	if espera == 0 {
-		return ctx.Err()
-	}
-	temporizador := time.NewTimer(espera)
-	defer temporizador.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-temporizador.C:
-		return nil
-	}
-}
-
-func codigoReintentable(codigo int) bool {
-	return codigo == http.StatusTooManyRequests || codigo >= 500 && codigo <= 599
-}
-
 func codigoExito(codigo int, clase clasePeticion) bool {
 	if clase == claseConsulta {
 		return codigo == http.StatusOK
@@ -438,15 +416,9 @@ func codigoExito(codigo int, clase clasePeticion) bool {
 	return codigo == http.StatusOK || codigo == http.StatusCreated
 }
 
-func errorCodigoNoExitoso(codigo int, clase clasePeticion) error {
+func errorCodigoNoExitoso(_ int, clase clasePeticion) error {
 	if clase == claseConsulta {
-		if codigo == http.StatusNotFound {
-			return ErrOperacionAPIGINPIXNoConfirmada
-		}
 		return ErrConsultaAPIGINPIXNoDisponible
-	}
-	if codigo >= 400 && codigo <= 499 {
-		return ErrOperacionAPIGINPIXRechazada
 	}
 	return ErrOperacionAPIGINPIXIndeterminada
 }
@@ -472,19 +444,67 @@ func errorContextoOperacion(err error, clase clasePeticion, emitida bool) error 
 	return err
 }
 
+func errorTrasEmision(err error, clase clasePeticion) error {
+	if clase == claseEnvio && !errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) {
+		return errors.Join(ErrOperacionAPIGINPIXIndeterminada, err)
+	}
+	return err
+}
+
 func politicaValida(p Politica) bool {
-	if !domain.ReferenciaOpacaValida(p.Referencia) || p.Version == 0 ||
-		!huellaValida(p.HuellaSHA256) || p.TiempoMaximo <= 0 || p.MaximoBytesRespuesta <= 0 ||
-		p.MaximoBytesRespuesta > maximoBytesRespuestaAPI ||
-		len(p.EsperasReintento) > maximosReintentosAPI {
+	if len(p.EsperasReintento) != 0 || !huellaValida(p.HuellaSHA256) {
 		return false
+	}
+	material, valida := materialCanonicoPolitica(p)
+	if !valida {
+		return false
+	}
+	suma := sha256.Sum256(material)
+	return huellasIguales(p.HuellaSHA256, hex.EncodeToString(suma[:]))
+}
+
+func materialCanonicoPolitica(p Politica) ([]byte, bool) {
+	if !domain.ReferenciaOpacaValida(p.Referencia) || p.Version == 0 ||
+		p.TiempoMaximo <= 0 || p.MaximoBytesRespuesta <= 0 ||
+		p.MaximoBytesRespuesta > maximoBytesRespuestaAPI ||
+		len(p.EsperasReintento) > maximasEsperasPoliticaAPI {
+		return nil, false
 	}
 	for _, espera := range p.EsperasReintento {
 		if espera < 0 || espera >= p.TiempoMaximo {
-			return false
+			return nil, false
 		}
 	}
-	return true
+	constructor := constructorCanonicoPolitica{}
+	constructor.campo("esquema", "vec.dipgra.contratacion-temporal.ginpix.api.politica.v1")
+	constructor.campo("referencia", p.Referencia)
+	constructor.enteroSinSigno("version", p.Version)
+	constructor.entero("tiempo_maximo_nanosegundos", int64(p.TiempoMaximo))
+	constructor.enteroSinSigno("numero_esperas", uint64(len(p.EsperasReintento)))
+	for _, espera := range p.EsperasReintento {
+		constructor.entero("espera_nanosegundos", int64(espera))
+	}
+	constructor.entero("maximo_bytes_respuesta", p.MaximoBytesRespuesta)
+	return append([]byte(nil), constructor.Bytes()...), true
+}
+
+type constructorCanonicoPolitica struct{ bytes.Buffer }
+
+func (c *constructorCanonicoPolitica) campo(nombre, valor string) {
+	c.WriteString(strconv.Itoa(len(nombre)))
+	c.WriteByte(':')
+	c.WriteString(nombre)
+	c.WriteString(strconv.Itoa(len(valor)))
+	c.WriteByte(':')
+	c.WriteString(valor)
+}
+
+func (c *constructorCanonicoPolitica) entero(nombre string, valor int64) {
+	c.campo(nombre, strconv.FormatInt(valor, 10))
+}
+
+func (c *constructorCanonicoPolitica) enteroSinSigno(nombre string, valor uint64) {
+	c.campo(nombre, strconv.FormatUint(valor, 10))
 }
 
 func urlProveedor(valor string) (*url.URL, error) {

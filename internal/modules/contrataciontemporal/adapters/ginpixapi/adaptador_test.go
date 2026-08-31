@@ -66,6 +66,32 @@ func (c *cuerpoRespuestaFalso) Close() error {
 	return c.errCierre
 }
 
+type cuerpoLecturaCancelada struct {
+	cancelar context.CancelFunc
+	cerrados *atomic.Int32
+}
+
+func (c *cuerpoLecturaCancelada) Read([]byte) (int, error) {
+	c.cancelar()
+	return 0, context.Canceled
+}
+
+func (c *cuerpoLecturaCancelada) Close() error {
+	c.cerrados.Add(1)
+	return nil
+}
+
+type autenticadorHastaCancelacion struct{ total atomic.Int32 }
+
+func (a *autenticadorHastaCancelacion) Autorizar(
+	ctx context.Context,
+	_ *http.Request,
+) error {
+	a.total.Add(1)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
 func TestAdaptadorEnviaReproduceYConsultaConReciboExacto(t *testing.T) {
 	preparacion, _ := preparacionAPIGINPIXPrueba(t)
 	cuerpoPreparado, _ := preparacion.Cuerpo()
@@ -157,6 +183,41 @@ func TestAdaptadorCancelacionAntesDuranteYDespuesDelRecibo(t *testing.T) {
 		}
 	})
 
+	t.Run("durante autenticacion antes de emitir", func(t *testing.T) {
+		transporte := &transporteFalso{funcion: func(_ int, _ *http.Request) (*http.Response, error) {
+			t.Fatal("la autenticacion cancelada alcanzo el transporte")
+			return nil, nil
+		}}
+		autenticador := &autenticadorHastaCancelacion{}
+		adaptador := nuevoAdaptadorPrueba(t, transporte, autenticador,
+			politicaConfiguradaPrueba(20*time.Millisecond, nil, 32*1024))
+		_, err := adaptador.Enviar(context.Background(), preparacion)
+		if !errors.Is(err, context.DeadlineExceeded) ||
+			errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) ||
+			transporte.total() != 0 || autenticador.total.Load() != 1 {
+			t.Fatalf("cancelacion durante autenticacion mal clasificada: %v", err)
+		}
+	})
+
+	t.Run("durante lectura tras emitir", func(t *testing.T) {
+		ctx, cancelar := context.WithCancel(context.Background())
+		var cerrados atomic.Int32
+		transporte := &transporteFalso{funcion: func(_ int, _ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode:    http.StatusOK,
+				Header:        http.Header{"Content-Type": []string{"application/json"}},
+				Body:          &cuerpoLecturaCancelada{cancelar: cancelar, cerrados: &cerrados},
+				ContentLength: -1,
+			}, nil
+		}}
+		adaptador := nuevoAdaptadorPrueba(t, transporte, &autenticadorFalso{}, politicaPrueba())
+		_, err := adaptador.Enviar(ctx, preparacion)
+		if !errors.Is(err, context.Canceled) ||
+			!errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) || cerrados.Load() != 1 {
+			t.Fatalf("cancelacion durante lectura mal clasificada: %v / cierres=%d", err, cerrados.Load())
+		}
+	})
+
 	t.Run("despues de recibo completo", func(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
 		var cerrados atomic.Int32
@@ -178,7 +239,7 @@ func TestAdaptadorTimeoutTrasEmitirQuedaIndeterminado(t *testing.T) {
 		return nil, peticion.Context().Err()
 	}}
 	adaptador := nuevoAdaptadorPrueba(t, transporte, &autenticadorFalso{},
-		politicaConfiguradaPrueba(20*time.Millisecond, nil, 32*1024))
+		politicaConfiguradaPrueba(time.Second, nil, 32*1024))
 	_, err := adaptador.Enviar(context.Background(), preparacion)
 	if !errors.Is(err, context.DeadlineExceeded) ||
 		!errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) || transporte.total() != 1 {
@@ -186,37 +247,38 @@ func TestAdaptadorTimeoutTrasEmitirQuedaIndeterminado(t *testing.T) {
 	}
 }
 
-func TestAdaptadorClasifica4xx429Y5xxSinFalsoExito(t *testing.T) {
+func TestAdaptadorNoInventaCodigosReintentablesOTerminales(t *testing.T) {
 	preparacion, _ := preparacionAPIGINPIXPrueba(t)
 	casos := []struct {
 		nombre   string
 		consulta bool
 		codigo   int
 		esperado error
-		llamadas int
 	}{
-		{"envio 400", false, http.StatusBadRequest, ErrOperacionAPIGINPIXRechazada, 1},
-		{"envio 429", false, http.StatusTooManyRequests, ErrOperacionAPIGINPIXIndeterminada, 3},
-		{"envio 500", false, http.StatusInternalServerError, ErrOperacionAPIGINPIXIndeterminada, 3},
-		{"consulta 404", true, http.StatusNotFound, ErrOperacionAPIGINPIXNoConfirmada, 1},
-		{"consulta 503", true, http.StatusServiceUnavailable, ErrConsultaAPIGINPIXNoDisponible, 3},
+		{"envio 408", false, http.StatusRequestTimeout, ErrOperacionAPIGINPIXIndeterminada},
+		{"envio 409", false, http.StatusConflict, ErrOperacionAPIGINPIXIndeterminada},
+		{"envio 429", false, http.StatusTooManyRequests, ErrOperacionAPIGINPIXIndeterminada},
+		{"envio 500", false, http.StatusInternalServerError, ErrOperacionAPIGINPIXIndeterminada},
+		{"envio 202 ambiguo", false, http.StatusAccepted, ErrOperacionAPIGINPIXIndeterminada},
+		{"consulta 404", true, http.StatusNotFound, ErrConsultaAPIGINPIXNoDisponible},
+		{"consulta 503", true, http.StatusServiceUnavailable, ErrConsultaAPIGINPIXNoDisponible},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			var cerrados atomic.Int32
+			autenticador := &autenticadorFalso{}
 			transporte := &transporteFalso{funcion: func(_ int, _ *http.Request) (*http.Response, error) {
 				return respuestaSimplePrueba(caso.codigo, "text/plain", []byte("detalle no confiable"), &cerrados), nil
 			}}
-			adaptador := nuevoAdaptadorPrueba(t, transporte, &autenticadorFalso{},
-				politicaConfiguradaPrueba(time.Second, []time.Duration{0, 0}, 32*1024))
+			adaptador := nuevoAdaptadorPrueba(t, transporte, autenticador, politicaPrueba())
 			var err error
 			if caso.consulta {
 				_, err = adaptador.Consultar(context.Background(), preparacion)
 			} else {
 				_, err = adaptador.Enviar(context.Background(), preparacion)
 			}
-			if !errors.Is(err, caso.esperado) || transporte.total() != caso.llamadas ||
-				int(cerrados.Load()) != caso.llamadas {
+			if !errors.Is(err, caso.esperado) || transporte.total() != 1 ||
+				cerrados.Load() != 1 || autenticador.total.Load() != 1 {
 				t.Fatalf("clasificación=%v llamadas=%d cierres=%d", err, transporte.total(), cerrados.Load())
 			}
 		})
@@ -233,6 +295,18 @@ func TestAdaptadorDeniegaRespuestasExcesivasMalformadasODesligadas(t *testing.T)
 		},
 		"JSON malformado": func(c *atomic.Int32) (*http.Response, error) {
 			return respuestaSimplePrueba(http.StatusOK, "application/json", []byte(`{"esquema":`), c), nil
+		},
+		"JSON duplicado": func(c *atomic.Int32) (*http.Response, error) {
+			contenido, _ := json.Marshal(datosValidos)
+			contenido = append(contenido[:len(contenido)-1], []byte(
+				`,"esquema":"`+EsquemaReciboAPIGINPIXV1+`"}`,
+			)...)
+			return respuestaSimplePrueba(http.StatusOK, "application/json", contenido, c), nil
+		},
+		"JSON con cola": func(c *atomic.Int32) (*http.Response, error) {
+			contenido, _ := json.Marshal(datosValidos)
+			contenido = append(contenido, []byte("\n{}")...)
+			return respuestaSimplePrueba(http.StatusOK, "application/json", contenido, c), nil
 		},
 		"Content-Type": func(c *atomic.Int32) (*http.Response, error) {
 			contenido, _ := json.Marshal(datosValidos)
@@ -254,6 +328,16 @@ func TestAdaptadorDeniegaRespuestasExcesivasMalformadasODesligadas(t *testing.T)
 			contenido, _ := json.Marshal(datosValidos)
 			contenido = append(contenido[:len(contenido)-1], []byte(`,"estado_inventado":"exito"}`)...)
 			return respuestaSimplePrueba(http.StatusOK, "application/json", contenido, c), nil
+		},
+		"Set-Cookie": func(c *atomic.Int32) (*http.Response, error) {
+			respuesta := respuestaValidaPrueba(t, preparacion, http.StatusOK, c)
+			respuesta.Header.Add("Set-Cookie", "sesion="+secretoSinteticoPrueba)
+			return respuesta, nil
+		},
+		"fallo de Close": func(c *atomic.Int32) (*http.Response, error) {
+			respuesta := respuestaValidaPrueba(t, preparacion, http.StatusOK, c)
+			respuesta.Body.(*cuerpoRespuestaFalso).errCierre = errors.New("cierre opaco")
+			return respuesta, nil
 		},
 		"resultado mas error": func(c *atomic.Int32) (*http.Response, error) {
 			return respuestaValidaPrueba(t, preparacion, http.StatusOK, c),
@@ -320,28 +404,50 @@ func TestAdaptadorReciboDeniegaCadaLigaduraAlterada(t *testing.T) {
 	}
 }
 
-func TestAdaptadorReintentoReconstruyePeticionSinAliasing(t *testing.T) {
-	preparacion, _ := preparacionAPIGINPIXPrueba(t)
-	esperado, _ := preparacion.Cuerpo()
-	var cerrados atomic.Int32
-	transporte := &transporteFalso{funcion: func(llamada int, peticion *http.Request) (*http.Response, error) {
-		cuerpo, _ := io.ReadAll(peticion.Body)
-		if !bytes.Equal(cuerpo, esperado) || peticion.Header.Get("Authorization") != secretoSinteticoPrueba {
-			t.Fatalf("intento %d heredó una mutación", llamada)
-		}
-		peticion.Header.Set("Authorization", "MUTADO")
-		if llamada == 1 {
-			return respuestaSimplePrueba(http.StatusServiceUnavailable, "text/plain", nil, &cerrados), nil
-		}
-		return respuestaValidaPrueba(t, preparacion, http.StatusOK, &cerrados), nil
+func TestPoliticaSellaCanonExactoYRechazaEsperasAntesDelTransporte(t *testing.T) {
+	base := politicaPrueba()
+	mutaciones := map[string]func(*Politica){
+		"referencia": func(p *Politica) { p.Referencia = "politica_http_ginpix_api_otra" },
+		"version":    func(p *Politica) { p.Version++ },
+		"timeout":    func(p *Politica) { p.TiempoMaximo += time.Nanosecond },
+		"limite":     func(p *Politica) { p.MaximoBytesRespuesta++ },
+		"huella":     func(p *Politica) { p.HuellaSHA256 = strings.Repeat("a", 64) },
+	}
+	transporte := &transporteFalso{funcion: func(_ int, _ *http.Request) (*http.Response, error) {
+		t.Fatal("una politica sin sello exacto alcanzo el transporte")
+		return nil, nil
 	}}
-	esperas := []time.Duration{0}
-	adaptador := nuevoAdaptadorPrueba(t, transporte, &autenticadorFalso{},
-		politicaConfiguradaPrueba(time.Second, esperas, 32*1024))
-	esperas[0] = time.Hour
-	if _, err := adaptador.Enviar(context.Background(), preparacion); err != nil ||
-		transporte.total() != 2 || cerrados.Load() != 2 {
-		t.Fatalf("reintento exacto falló: %v / %d / %d", err, transporte.total(), cerrados.Load())
+	autenticador := &autenticadorFalso{}
+	for nombre, mutar := range mutaciones {
+		t.Run(nombre, func(t *testing.T) {
+			adulterada := base
+			mutar(&adulterada)
+			candidato, err := Nuevo(Configuracion{
+				URLEnvio:    "https://ginpix.invalid/operaciones/enviar",
+				URLConsulta: "https://ginpix.invalid/operaciones/consultar",
+				Politica:    adulterada,
+			}, transporte, autenticador)
+			if candidato != nil || !errors.Is(err, ErrConfiguracionAPIGINPIXInvalida) {
+				t.Fatalf("politica adulterada aceptada: %#v / %v", adulterada, err)
+			}
+		})
+	}
+
+	conEspera, err := SellarPolitica(Politica{
+		Referencia: base.Referencia, Version: base.Version, TiempoMaximo: base.TiempoMaximo,
+		EsperasReintento: []time.Duration{0}, MaximoBytesRespuesta: base.MaximoBytesRespuesta,
+	})
+	if err != nil || conEspera.HuellaSHA256 == base.HuellaSHA256 {
+		t.Fatalf("la espera no quedo sellada en el canon: %#v / %v", conEspera, err)
+	}
+	candidato, err := Nuevo(Configuracion{
+		URLEnvio:    "https://ginpix.invalid/operaciones/enviar",
+		URLConsulta: "https://ginpix.invalid/operaciones/consultar",
+		Politica:    conEspera,
+	}, transporte, autenticador)
+	if candidato != nil || !errors.Is(err, ErrConfiguracionAPIGINPIXInvalida) ||
+		transporte.total() != 0 || autenticador.total.Load() != 0 {
+		t.Fatalf("politica con espera no se rechazo antes del transporte: %v", err)
 	}
 }
 
@@ -419,11 +525,15 @@ func politicaConfiguradaPrueba(
 	esperas []time.Duration,
 	maximo int64,
 ) Politica {
-	return Politica{
+	politica, err := SellarPolitica(Politica{
 		Referencia: "politica_http_ginpix_api_0001", Version: 2,
-		HuellaSHA256: strings.Repeat("f", 64), TiempoMaximo: tiempo,
+		TiempoMaximo:     tiempo,
 		EsperasReintento: esperas, MaximoBytesRespuesta: maximo,
+	})
+	if err != nil {
+		panic(err)
 	}
+	return politica
 }
 
 func respuestaValidaPrueba(
