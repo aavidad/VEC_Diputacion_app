@@ -115,6 +115,52 @@ func slotPropioAutoridadO4bM38(p *autorizacionEtapaO4aM38) (*autoridadEtapasO4aM
 	return nil, false
 }
 
+func slotCanonicoAutoridadO4bM38(p *autorizacionEtapaO4aM38) (*autoridadEtapasO4aM38, *autorizacionEtapaO4aM38, bool) {
+	if p == nil || p.autoridad == nil || p.generacion == 0 ||
+		p.generacion > uint64(len(p.autoridad.autorizaciones)) {
+		return nil, nil, false
+	}
+	e := p.autoridad
+	return e, &e.autorizaciones[p.generacion-1], true
+}
+
+func slotCanonicoEstructuralAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
+	if e == nil || e.auto != e || e.causa == nil || e.emitidas == 0 ||
+		e.emitidas > uint8(len(e.autorizaciones)) ||
+		e.historialLen > e.emitidas || !autoridadBaseEtapasExactaO4aM38(e.causa) {
+		return false
+	}
+	for indice := range e.autorizaciones {
+		slot, resultado := &e.autorizaciones[indice], &e.resultados[indice]
+		if slot.auto != slot || slot.autoridad != e || slot.resultado != resultado ||
+			slot.generacion != uint64(indice+1) {
+			return false
+		}
+		if indice < int(e.emitidas) {
+			if !autorizacionExactaEtapaO4aM38(e, slot) {
+				return false
+			}
+		} else if slot.tid != 0 || slot.etapa != 0 || slot.cardinalidadMaxima != 0 ||
+			slot.operacion != 0 || !slot.limite.IsZero() || slot.claseLimite != 0 || slot.rolPidfd != 0 ||
+			slot.estado.Load() != uint32(autorizacionVaciaO4bM38) ||
+			!resultadoVacioExactoAutoridadO4bM38(resultado) {
+			return false
+		}
+		registro := e.historial[indice]
+		if indice < int(e.historialLen) {
+			if registro.autorizacion != slot || registro.resultado != resultado {
+				return false
+			}
+		} else if registro.autorizacion != nil || registro.resultado != nil {
+			return false
+		}
+	}
+	if e.pendiente != nil && e.pendiente != &e.autorizaciones[e.emitidas-1] {
+		return false
+	}
+	return autorizacionExactaEtapaO4aM38(e, p)
+}
+
 func resultadoVacioExactoAutoridadO4bM38(r *resultadoEtapaO4bM38) bool {
 	return r != nil && r.auto == r && r.autorizacion != nil && r.autorizacion.resultado == r &&
 		r.generacion == r.autorizacion.generacion && r.etapa == r.autorizacion.etapa &&
@@ -123,21 +169,32 @@ func resultadoVacioExactoAutoridadO4bM38(r *resultadoEtapaO4bM38) bool {
 		r.observado.IsZero() && r.estado.Load() == uint32(resultadoVacioO4bM38)
 }
 
-func entradaExactaAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
-	return e != nil && e.auto == e && e.causa != nil && e.pendiente == p &&
-		e.causa.estado.Load() == uint32(causaA4PermisoPreparadoM38) &&
-		p.estado.Load() == uint32(autorizacionEmitidaO4bM38) &&
-		autoridadBaseEtapasExactaO4aM38(e.causa) && autorizacionExactaEtapaO4aM38(e, p) &&
-		resultadoVacioExactoAutoridadO4bM38(p.resultado)
+func entradaEmitidaExactaAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) bool {
+	return e.pendiente == p && e.causa.estado.Load() == uint32(causaA4PermisoPreparadoM38) &&
+		p.estado.Load() == uint32(autorizacionEmitidaO4bM38) && resultadoVacioExactoAutoridadO4bM38(p.resultado)
+}
+
+func copiaExactaSlotAutoridadO4bM38(p, slot *autorizacionEtapaO4aM38) bool {
+	return p != slot && p.auto == p && p.autoridad == slot.autoridad && p.resultado == slot.resultado &&
+		p.generacion == slot.generacion && p.tid == slot.tid && p.etapa == slot.etapa &&
+		p.cardinalidadMaxima == slot.cardinalidadMaxima && p.operacion == slot.operacion &&
+		p.limite == slot.limite && p.claseLimite == slot.claseLimite && p.rolPidfd == slot.rolPidfd &&
+		p.estado.Load() == slot.estado.Load()
 }
 
 func clasificarEntradaAutoridadO4bM38(p *autorizacionEtapaO4aM38) claseEntradaAutoridadO4bM38 {
 	if p == nil || p.auto != p || p.autoridad == nil || p.autoridad.auto != p.autoridad {
 		return entradaFatalAutoridadO4bM38
 	}
-	e, propia := slotPropioAutoridadO4bM38(p)
-	if !propia {
-		return entradaConsumidaAutoridadO4bM38
+	e, slot, identificada := slotCanonicoAutoridadO4bM38(p)
+	if !identificada || !slotCanonicoEstructuralAutoridadO4bM38(e, slot) {
+		return entradaFatalAutoridadO4bM38
+	}
+	if p != slot {
+		if copiaExactaSlotAutoridadO4bM38(p, slot) {
+			return entradaConsumidaAutoridadO4bM38
+		}
+		return entradaFatalAutoridadO4bM38
 	}
 	estado := estadoAutorizacionEtapaO4bM38(p.estado.Load())
 	if estado == autorizacionConsumiendoO4bM38 || estado == autorizacionConsumidaO4bM38 {
@@ -146,7 +203,7 @@ func clasificarEntradaAutoridadO4bM38(p *autorizacionEtapaO4aM38) claseEntradaAu
 	if estado != autorizacionEmitidaO4bM38 {
 		return entradaFatalAutoridadO4bM38
 	}
-	if entradaExactaAutoridadO4bM38(e, p) {
+	if entradaEmitidaExactaAutoridadO4bM38(e, p) {
 		return entradaValidaAutoridadO4bM38
 	}
 	// Otro consumidor puede ganar mientras se comprueba la entrada. Esa
@@ -246,11 +303,11 @@ func consumirAutoridadO4bM38(entrada **autorizacionEtapaO4aM38) (*autoridadSenal
 		return nil, errUsoConsumidoAutoridadO4bM38
 	}
 	e, _ := slotPropioAutoridadO4bM38(p)
+	if clase != entradaValidaAutoridadO4bM38 {
+		fatalAutoridadO4bM38(nil, e)
+	}
 	a := &autoridadSenalesGrupoO4bM38{}
 	a.auto = a
-	if clase != entradaValidaAutoridadO4bM38 {
-		fatalAutoridadO4bM38(a, e)
-	}
 	if !p.estado.CompareAndSwap(uint32(autorizacionEmitidaO4bM38), uint32(autorizacionConsumiendoO4bM38)) {
 		return nil, errUsoConsumidoAutoridadO4bM38
 	}

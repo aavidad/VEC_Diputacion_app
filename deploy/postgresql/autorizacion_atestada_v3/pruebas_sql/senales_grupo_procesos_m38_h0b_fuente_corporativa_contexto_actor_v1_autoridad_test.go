@@ -5,10 +5,12 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type huellaCeroEfectosAutoridadO4bP1M38 struct {
@@ -29,6 +31,12 @@ type huellaCeroEfectosAutoridadO4bP1M38 struct {
 	resultadoRawPrimero int
 	resultadoRawSegundo int
 	resultadoEvidencia  claseEvidenciaEtapaO4bM38
+	resultadoObservado  time.Time
+	estadoCausa         uint32
+	estadoAutorizacion  uint32
+	pendiente           *autorizacionEtapaO4aM38
+	emitidas            uint8
+	historialLen        uint8
 }
 
 func capturarHuellaCeroEfectosAutoridadO4bP1M38(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) huellaCeroEfectosAutoridadO4bP1M38 {
@@ -42,7 +50,9 @@ func capturarHuellaCeroEfectosAutoridadO4bP1M38(e *autoridadEtapasO4aM38, p *aut
 		palabraObservador: s.observador.palabra.Load(), consumidaCustodia: s.custodia.consumida.Load(),
 		resultadoEstado: p.resultado.estado.Load(), resultadoCardinal: p.resultado.cardinalidad,
 		resultadoRawPrimero: p.resultado.rawPrimero, resultadoRawSegundo: p.resultado.rawSegundo,
-		resultadoEvidencia: p.resultado.evidencia,
+		resultadoEvidencia: p.resultado.evidencia, resultadoObservado: p.resultado.observado,
+		estadoCausa: e.causa.estado.Load(), estadoAutorizacion: p.estado.Load(),
+		pendiente: e.pendiente, emitidas: e.emitidas, historialLen: e.historialLen,
 	}
 }
 
@@ -61,8 +71,20 @@ func exigirCeroEfectosAutoridadO4bP1M38(t *testing.T, e *autoridadEtapasO4aM38, 
 		despues.resultadoCardinal != antes.resultadoCardinal ||
 		despues.resultadoRawPrimero != antes.resultadoRawPrimero ||
 		despues.resultadoRawSegundo != antes.resultadoRawSegundo ||
-		despues.resultadoEvidencia != antes.resultadoEvidencia || !p.resultado.observado.IsZero() {
+		despues.resultadoEvidencia != antes.resultadoEvidencia ||
+		despues.resultadoObservado != antes.resultadoObservado {
 		t.Fatal("O4B-P1 produjo un efecto o altero la autoridad prestada")
+	}
+}
+
+func exigirClasificacionSinEfectosAutoridadO4bP1M38(t *testing.T, e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38, antes huellaCeroEfectosAutoridadO4bP1M38) {
+	t.Helper()
+	exigirCeroEfectosAutoridadO4bP1M38(t, e, p, antes)
+	despues := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
+	if despues.estadoCausa != antes.estadoCausa || despues.estadoAutorizacion != antes.estadoAutorizacion ||
+		despues.pendiente != antes.pendiente || despues.emitidas != antes.emitidas ||
+		despues.historialLen != antes.historialLen {
+		t.Fatal("la clasificacion altero la maquina O4a")
 	}
 }
 
@@ -77,6 +99,36 @@ func clonarAutorizacionAutoridadO4bP1M38(p *autorizacionEtapaO4aM38, autoidentic
 	}
 	c.estado.Store(p.estado.Load())
 	return c
+}
+
+func prepararEntradaAdversaAutoridadO4bP1M38(caso string, e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) (*autorizacionEtapaO4aM38, bool) {
+	switch caso {
+	case "clon_autoidentidad_rota":
+		return clonarAutorizacionAutoridadO4bP1M38(p, false), true
+	case "forja_sin_autoridad":
+		forja := &autorizacionEtapaO4aM38{}
+		forja.auto = forja
+		return forja, true
+	case "forja_autoidentica_autoridad_sin_slot":
+		forja := clonarAutorizacionAutoridadO4bP1M38(p, true)
+		forja.generacion = uint64(len(e.autorizaciones)) + 1
+		return forja, true
+	case "copia_consumida_alterada":
+		p.estado.Store(uint32(autorizacionConsumidaO4bM38))
+		copia := clonarAutorizacionAutoridadO4bP1M38(p, true)
+		copia.tid++
+		return copia, true
+	case "estructura_ambigua":
+		if len(e.autorizaciones) < 2 {
+			return nil, false
+		}
+		otro := &e.autorizaciones[1]
+		otro.generacion = p.generacion
+		otro.resultado.generacion = p.generacion
+		return p, true
+	default:
+		return nil, false
+	}
 }
 
 func TestO4BP1AutoridadExitoOB0OB1(t *testing.T) {
@@ -145,10 +197,30 @@ func TestO4BP1AutoridadAliasYReplay(t *testing.T) {
 	exigirCeroEfectosAutoridadO4bP1M38(t, e, p, antes)
 }
 
+func TestO4BP1AutoridadReplayRealSlotConsumido(t *testing.T) {
+	e, p := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
+	sellarResultadoEtapaPruebaO4aP4M38(t, e, p, 1, 0, 0, evidenciaEstableO4bM38, p.limite.Add(-time.Nanosecond))
+	antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
+	if clasificarEntradaAutoridadO4bM38(p) != entradaConsumidaAutoridadO4bM38 {
+		t.Fatal("el slot consumido estructuralmente valido no se clasifico como replay")
+	}
+	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+	entrada := p
+	a, err := consumirAutoridadO4bM38(&entrada)
+	if a != nil || entrada != nil || err != errUsoConsumidoAutoridadO4bM38 {
+		t.Fatalf("replay consumido: a=%p entrada=%p err=%v", a, entrada, err)
+	}
+	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+}
+
 func TestO4BP1AutoridadCopiaSinSlotPierdeSinEfectos(t *testing.T) {
 	e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
 	antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
 	entrada := clonarAutorizacionAutoridadO4bP1M38(p, true)
+	if clasificarEntradaAutoridadO4bM38(entrada) != entradaConsumidaAutoridadO4bM38 {
+		t.Fatal("la copia ordinaria exacta no se clasifico consumida")
+	}
+	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
 	a, err := consumirAutoridadO4bM38(&entrada)
 	if a != nil || entrada != nil || err != errUsoConsumidoAutoridadO4bM38 {
 		t.Fatalf("copia aceptada: a=%p entrada=%p err=%v", a, entrada, err)
@@ -157,26 +229,68 @@ func TestO4BP1AutoridadCopiaSinSlotPierdeSinEfectos(t *testing.T) {
 		e.causa.estado.Load() != uint32(causaA4PermisoPreparadoM38) {
 		t.Fatal("la copia sin slot consumio la autoridad real")
 	}
-	exigirCeroEfectosAutoridadO4bP1M38(t, e, p, antes)
+	exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
 }
 
-func ejecutarEntradaFatalAutoridadO4bP1M38(t *testing.T, caso string) {
-	t.Helper()
-	cmd := exec.Command(os.Args[0], "-test.run=^TestO4BP1AutoridadClonYForjaFatales$")
-	cmd.Env = append(os.Environ(), "O4B_P1_FATAL="+caso)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	err := cmd.Run()
-	var salida *exec.ExitError
-	if !errors.As(err, &salida) || salida.ExitCode() != estadoFallo || stdout.Len() != 0 || stderr.Len() != 0 {
-		t.Fatalf("fatal %s: err=%v stdout=%d stderr=%d", caso, err, stdout.Len(), stderr.Len())
+var casosFatalesAutoridadO4bP1M38 = [...]string{
+	"clon_autoidentidad_rota",
+	"forja_sin_autoridad",
+	"forja_autoidentica_autoridad_sin_slot",
+	"copia_consumida_alterada",
+	"estructura_ambigua",
+}
+
+func TestO4BP1AutoridadMalformadasClasificanFatalSinEfectos(t *testing.T) {
+	for _, nombre := range casosFatalesAutoridadO4bP1M38 {
+		t.Run(nombre, func(t *testing.T) {
+			e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
+			entrada, preparada := prepararEntradaAdversaAutoridadO4bP1M38(nombre, e, p)
+			if !preparada {
+				t.Fatal("caso adverso no preparado")
+			}
+			antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
+			if clasificarEntradaAutoridadO4bM38(entrada) != entradaFatalAutoridadO4bM38 {
+				t.Fatal("la entrada malformada no se clasifico fatal")
+			}
+			exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
+		})
 	}
 }
 
-func TestO4BP1AutoridadClonYForjaFatales(t *testing.T) {
+const marcadorPreparacionFatalAutoridadO4bP1M38 = "O4B-P1-R2:fixture-validada\n"
+
+func ejecutarEntradaFatalAutoridadO4bP1M38(t *testing.T, caso string) {
+	t.Helper()
+	lector, escritor, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = lector.Close() })
+	cmd := exec.Command(os.Args[0], "-test.run=^TestO4BP1AutoridadEntradasMalformadasFatales$")
+	cmd.Env = append(os.Environ(), "O4B_P1_FATAL="+caso)
+	cmd.ExtraFiles = []*os.File{escritor}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Start(); err != nil {
+		_ = escritor.Close()
+		t.Fatal(err)
+	}
+	if err := escritor.Close(); err != nil {
+		t.Fatal(err)
+	}
+	err = cmd.Wait()
+	preparacion, errLectura := io.ReadAll(lector)
+	var salida *exec.ExitError
+	if errLectura != nil || !bytes.Equal(preparacion, []byte(marcadorPreparacionFatalAutoridadO4bP1M38)) ||
+		!errors.As(err, &salida) || salida.ExitCode() != estadoFallo || stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("fatal %s: err=%v preparacion=%q err_lectura=%v stdout=%d stderr=%d", caso, err, preparacion, errLectura, stdout.Len(), stderr.Len())
+	}
+}
+
+func TestO4BP1AutoridadEntradasMalformadasFatales(t *testing.T) {
 	caso := os.Getenv("O4B_P1_FATAL")
 	if caso == "" {
-		for _, nombre := range []string{"clon_autoidentidad_rota", "forja_sin_autoridad"} {
+		for _, nombre := range casosFatalesAutoridadO4bP1M38 {
 			t.Run(nombre, func(t *testing.T) {
 				ejecutarEntradaFatalAutoridadO4bP1M38(t, nombre)
 			})
@@ -184,21 +298,23 @@ func TestO4BP1AutoridadClonYForjaFatales(t *testing.T) {
 		return
 	}
 	e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
-	var entrada *autorizacionEtapaO4aM38
-	switch caso {
-	case "clon_autoidentidad_rota":
-		entrada = clonarAutorizacionAutoridadO4bP1M38(p, false)
-	case "forja_sin_autoridad":
-		entrada = &autorizacionEtapaO4aM38{}
-		entrada.auto = entrada
-	default:
+	if clasificarEntradaAutoridadO4bM38(p) != entradaValidaAutoridadO4bM38 {
 		os.Exit(10)
 	}
-	_, _ = consumirAutoridadO4bM38(&entrada)
-	if entrada != nil || e.causa.estado.Load() != uint32(causaA4PermisoPreparadoM38) {
+	entrada, preparada := prepararEntradaAdversaAutoridadO4bP1M38(caso, e, p)
+	if !preparada || clasificarEntradaAutoridadO4bM38(entrada) != entradaFatalAutoridadO4bM38 {
 		os.Exit(11)
 	}
-	os.Exit(12)
+	preparacion := os.NewFile(3, "o4b-p1-r2-preparacion")
+	if preparacion == nil {
+		os.Exit(12)
+	}
+	escritos, err := io.WriteString(preparacion, marcadorPreparacionFatalAutoridadO4bP1M38)
+	if err != nil || escritos != len(marcadorPreparacionFatalAutoridadO4bP1M38) || preparacion.Close() != nil {
+		os.Exit(13)
+	}
+	_, _ = consumirAutoridadO4bM38(&entrada)
+	os.Exit(14)
 }
 
 func TestO4BP1AutoridadCarreraUnGanador(t *testing.T) {
@@ -243,9 +359,19 @@ func TestO4BP1AutoridadAlteracionesSonFatalesSinEfecto(t *testing.T) {
 		{"autoidentidad_autoridad", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) { e.auto = nil }},
 		{"identidad", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) { e.causa.origen.identidad.inicio++ }},
 		{"generacion_permiso", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.generacion++ }},
+		{"resultado_autoidentidad", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.resultado.auto = nil }},
+		{"resultado_ligadura", func(e *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) {
+			p.resultado.autorizacion = &e.autorizaciones[1]
+		}},
 		{"generacion_lease", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) { e.causa.sellos.lease.generacion++ }},
 		{"tid", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.tid++ }},
 		{"etapa", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.etapa = etapaMatarGrupoO4bM38 }},
+		{"operacion", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.operacion++ }},
+		{"cardinalidad", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.cardinalidadMaxima++ }},
+		{"limite", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.limite = p.limite.Add(time.Second) }},
+		{"clase_limite", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.claseLimite++ }},
+		{"rol_pidfd", func(_ *autoridadEtapasO4aM38, p *autorizacionEtapaO4aM38) { p.rolPidfd++ }},
+		{"emitidas", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) { e.emitidas++ }},
 		{"recurso", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) { e.causa.sellos.custodia.pidfdPrimario++ }},
 		{"owner_lease", func(e *autoridadEtapasO4aM38, _ *autorizacionEtapaO4aM38) {
 			e.causa.sellos.autoridad.ownerLease.Store(uint32(propietarioO3cM38))
@@ -261,14 +387,11 @@ func TestO4BP1AutoridadAlteracionesSonFatalesSinEfecto(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e, p := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
 			caso.mutar(e, p)
-			estadoPermiso, estadoCausa := p.estado.Load(), e.causa.estado.Load()
+			antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
 			if clasificarEntradaAutoridadO4bM38(p) != entradaFatalAutoridadO4bM38 {
 				t.Fatal("la alteracion no se clasifico fatal")
 			}
-			if p.estado.Load() != estadoPermiso || e.causa.estado.Load() != estadoCausa ||
-				p.resultado.estado.Load() != uint32(resultadoVacioO4bM38) {
-				t.Fatal("la clasificacion adversarial produjo efectos")
-			}
+			exigirClasificacionSinEfectosAutoridadO4bP1M38(t, e, p, antes)
 		})
 	}
 }
