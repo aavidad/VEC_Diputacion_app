@@ -168,7 +168,44 @@ func (e *ejecutorPropuestaFormalizacionComposicionPrueba) PrepararYConfirmar(
 	}, nil
 }
 
-func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
+type autoridadCierreAdministrativoComposicionPrueba struct {
+	organizacionRef string
+	resoluciones    int
+}
+
+func (a *autoridadCierreAdministrativoComposicionPrueba) ResolverOrganizacionCierreAdministrativo(
+	context.Context,
+) (string, error) {
+	a.resoluciones++
+	return a.organizacionRef, nil
+}
+
+type ejecutorCierreAdministrativoComposicionPrueba struct {
+	cierres     int
+	reaperturas int
+}
+
+func (e *ejecutorCierreAdministrativoComposicionPrueba) Cerrar(
+	_ context.Context,
+	solicitud application.SolicitudCerrarAdministrativamente,
+) (ports.ResultadoCierreAdministrativo, error) {
+	e.cierres++
+	return resultadoCierreAdministrativoComposicionPrueba(
+		solicitudPuertoCierreAdministrativoComposicionPrueba(solicitud),
+	)
+}
+
+func (e *ejecutorCierreAdministrativoComposicionPrueba) ReabrirExcepcionalmente(
+	_ context.Context,
+	solicitud application.SolicitudReabrirExcepcionalmente,
+) (ports.ResultadoCierreAdministrativo, error) {
+	e.reaperturas++
+	return resultadoCierreAdministrativoComposicionPrueba(
+		solicitudPuertoReaperturaAdministrativaComposicionPrueba(solicitud),
+	)
+}
+
+func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	t.Parallel()
 	rutas, err := NuevasRutas(
 		dependenciasRutasPrueba(),
@@ -186,6 +223,8 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaRectificacionAnalisisRRHH,
 		httpinterno.RutaSeleccionLlamamiento,
 		httpinterno.RutaPropuestaFormalizacion,
+		httpinterno.RutaCerrarAdministrativamente,
+		httpinterno.RutaReabrirExcepcionalmente,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -225,6 +264,14 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	if reflect.ValueOf(rutas[8].Manejador).Pointer() ==
 		reflect.ValueOf(rutas[7].Manejador).Pointer() {
 		t.Fatal("propuesta de formalizacion y seleccion comparten manejador")
+	}
+	if reflect.ValueOf(rutas[9].Manejador).Pointer() !=
+		reflect.ValueOf(rutas[10].Manejador).Pointer() {
+		t.Fatal("cierre y reapertura no comparten un unico manejador")
+	}
+	if reflect.ValueOf(rutas[9].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[8].Manejador).Pointer() {
+		t.Fatal("cierre administrativo comparte un manejador previo")
 	}
 }
 
@@ -288,7 +335,7 @@ func TestRutaSeleccionLlamamientoCompuestaDelegaUnaVez(t *testing.T) {
 	}
 }
 
-func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
+func TestNuevasRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
 		nombre   string
@@ -330,6 +377,12 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 		{"ejecutor de propuesta", func(d *DependenciasRutas) {
 			d.EjecutorPropuestaFormalizacion = nil
 		}},
+		{"autoridad de cierre", func(d *DependenciasRutas) {
+			d.AutoridadCierreAdministrativo = nil
+		}},
+		{"ejecutor de cierre", func(d *DependenciasRutas) {
+			d.EjecutorCierreAdministrativo = nil
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -346,7 +399,7 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 	}
 }
 
-func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
+func TestNuevasRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
 		nombre     string
@@ -400,6 +453,14 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 			var nulo *ejecutorPropuestaFormalizacionComposicionPrueba
 			d.EjecutorPropuestaFormalizacion = nulo
 		}},
+		{"autoridad de cierre", func(d *DependenciasRutas) {
+			var nulo *autoridadCierreAdministrativoComposicionPrueba
+			d.AutoridadCierreAdministrativo = nulo
+		}},
+		{"ejecutor de cierre", func(d *DependenciasRutas) {
+			var nulo *ejecutorCierreAdministrativoComposicionPrueba
+			d.EjecutorCierreAdministrativo = nulo
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -422,6 +483,18 @@ func TestRutasContratacionTemporalNoDevuelvenParcialSiFallaConstructorPropuesta(
 	t.Parallel()
 	dependencias := dependenciasRutasPrueba()
 	dependencias.EjecutorPropuestaFormalizacion = nil
+	rutas, err := NuevasRutas(dependencias)
+	if rutas != nil || !errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
+		t.Fatalf("resultado = (%#v, %v)", rutas, err)
+	}
+}
+
+func TestNuevasRutasNoDevuelvenParcialSiFallaConstructorCierreAdministrativo(
+	t *testing.T,
+) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	dependencias.EjecutorCierreAdministrativo = nil
 	rutas, err := NuevasRutas(dependencias)
 	if rutas != nil || !errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
 		t.Fatalf("resultado = (%#v, %v)", rutas, err)
@@ -454,6 +527,85 @@ func nuevaPeticionPropuestaFormalizacionComposicionPrueba() *http.Request {
 	return peticion
 }
 
+func nuevaPeticionCierreAdministrativoComposicionPrueba(
+	ruta string,
+) *http.Request {
+	cuerpo := `{"expediente_ref":"` +
+		referenciaCierreAdministrativoComposicionPrueba("b") + `",` +
+		`"seguimiento_ref":"` +
+		referenciaCierreAdministrativoComposicionPrueba("c") + `",` +
+		`"version_esperada":7,` +
+		`"clave_idempotencia":"12345678-1234-4567-8abc-123456789abc",` +
+		`"transicion_clave":"cierre_administrativo",` +
+		`"motivo_clave":"fin_relacion_confirmado"}`
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		ruta,
+		strings.NewReader(cuerpo),
+	)
+	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	peticion.Header.Set("Accept", "application/json")
+	return peticion
+}
+
+func referenciaCierreAdministrativoComposicionPrueba(digito string) string {
+	return "ref:" + strings.Repeat(digito, 64)
+}
+
+func solicitudPuertoCierreAdministrativoComposicionPrueba(
+	s application.SolicitudCerrarAdministrativamente,
+) ports.SolicitudTransaccionCierreAdministrativo {
+	return ports.SolicitudTransaccionCierreAdministrativo{
+		Operacion:         ports.OperacionCerrarAdministrativamente,
+		OrganizacionRef:   s.OrganizacionRef,
+		ExpedienteRef:     s.ExpedienteRef,
+		SeguimientoRef:    s.SeguimientoRef,
+		VersionEsperada:   s.VersionEsperada,
+		ClaveIdempotencia: s.ClaveIdempotencia,
+		TransicionClave:   s.TransicionClave,
+		MotivoClave:       s.MotivoClave,
+	}
+}
+
+func solicitudPuertoReaperturaAdministrativaComposicionPrueba(
+	s application.SolicitudReabrirExcepcionalmente,
+) ports.SolicitudTransaccionCierreAdministrativo {
+	return ports.SolicitudTransaccionCierreAdministrativo{
+		Operacion:         ports.OperacionReabrirExcepcionalmente,
+		OrganizacionRef:   s.OrganizacionRef,
+		ExpedienteRef:     s.ExpedienteRef,
+		SeguimientoRef:    s.SeguimientoRef,
+		VersionEsperada:   s.VersionEsperada,
+		ClaveIdempotencia: s.ClaveIdempotencia,
+		TransicionClave:   s.TransicionClave,
+		MotivoClave:       s.MotivoClave,
+	}
+}
+
+func resultadoCierreAdministrativoComposicionPrueba(
+	solicitud ports.SolicitudTransaccionCierreAdministrativo,
+) (ports.ResultadoCierreAdministrativo, error) {
+	return ports.NuevoResultadoCierreAdministrativo(
+		ports.DatosResultadoCierreAdministrativo{
+			Solicitud:         solicitud,
+			VersionResultante: solicitud.VersionEsperada + 1,
+			ActuacionRef: referenciaCierreAdministrativoComposicionPrueba(
+				"d",
+			),
+			ReciboRef: referenciaCierreAdministrativoComposicionPrueba(
+				"e",
+			),
+			ActorRef: referenciaCierreAdministrativoComposicionPrueba(
+				"f",
+			),
+			CorrelacionRef: referenciaCierreAdministrativoComposicionPrueba(
+				"1",
+			),
+			Estado: ports.EstadoResultadoCierreAdministrativoConfirmado,
+		},
+	)
+}
+
 func dependenciasRutasPrueba() DependenciasRutas {
 	return DependenciasRutas{
 		AutoridadAlta:                   autoridadAltaComposicionPrueba{},
@@ -468,5 +620,9 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		EjecutorSeleccion:               &ejecutorSeleccionComposicionPrueba{},
 		AutoridadPropuestaFormalizacion: &autoridadPropuestaFormalizacionComposicionPrueba{},
 		EjecutorPropuestaFormalizacion:  &ejecutorPropuestaFormalizacionComposicionPrueba{},
+		AutoridadCierreAdministrativo: &autoridadCierreAdministrativoComposicionPrueba{
+			organizacionRef: referenciaCierreAdministrativoComposicionPrueba("a"),
+		},
+		EjecutorCierreAdministrativo: &ejecutorCierreAdministrativoComposicionPrueba{},
 	}
 }

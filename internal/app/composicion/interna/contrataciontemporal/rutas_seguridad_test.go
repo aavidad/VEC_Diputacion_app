@@ -388,6 +388,115 @@ func TestRutaPropuestaFormalizacionDenegadaNoInvocaManejador(
 	}
 }
 
+func TestRutasCierreAdministrativoDespachanBajoAutoridadExterior(
+	t *testing.T,
+) {
+	t.Parallel()
+	casos := []struct {
+		nombre      string
+		ruta        string
+		cierres     int
+		reaperturas int
+	}{
+		{
+			"cerrar",
+			httpinterno.RutaCerrarAdministrativamente,
+			1,
+			0,
+		},
+		{
+			"reabrir excepcionalmente",
+			httpinterno.RutaReabrirExcepcionalmente,
+			0,
+			1,
+		},
+	}
+	for _, caso := range casos {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			dependencias := dependenciasRutasPrueba()
+			autoridadInterior := dependencias.AutoridadCierreAdministrativo.(*autoridadCierreAdministrativoComposicionPrueba)
+			ejecutor := dependencias.EjecutorCierreAdministrativo.(*ejecutorCierreAdministrativoComposicionPrueba)
+			autoridadExterior := &autoridadDespachoContratacionEspiaPrueba{}
+			handler := nuevoHandlerContratacionConDependenciasPrueba(
+				t,
+				dependencias,
+				autoridadExterior,
+			)
+			respuesta := httptest.NewRecorder()
+			handler.ServeHTTP(
+				respuesta,
+				nuevaPeticionCierreAdministrativoComposicionPrueba(caso.ruta),
+			)
+			llamadas, ruta := autoridadExterior.estado()
+			if respuesta.Code != http.StatusCreated || llamadas != 1 ||
+				ruta != caso.ruta || autoridadInterior.resoluciones != 1 ||
+				ejecutor.cierres != caso.cierres ||
+				ejecutor.reaperturas != caso.reaperturas {
+				t.Fatalf(
+					"estado=%d exterior=%d/%q interior=%d ejecutor=%d/%d cuerpo=%s",
+					respuesta.Code,
+					llamadas,
+					ruta,
+					autoridadInterior.resoluciones,
+					ejecutor.cierres,
+					ejecutor.reaperturas,
+					respuesta.Body.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestRutasCierreAdministrativoRechazanOrganizacionDesdeHTTP(
+	t *testing.T,
+) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	autoridadInterior := dependencias.AutoridadCierreAdministrativo.(*autoridadCierreAdministrativoComposicionPrueba)
+	ejecutor := dependencias.EjecutorCierreAdministrativo.(*ejecutorCierreAdministrativoComposicionPrueba)
+	handler := nuevoHandlerContratacionConDependenciasPrueba(
+		t,
+		dependencias,
+		autoridadDespachoContratacionPrueba{},
+	)
+	cuerpo := `{"organizacion_ref":"` +
+		referenciaCierreAdministrativoComposicionPrueba("2") + `",` +
+		`"expediente_ref":"` +
+		referenciaCierreAdministrativoComposicionPrueba("b") + `",` +
+		`"seguimiento_ref":"` +
+		referenciaCierreAdministrativoComposicionPrueba("c") + `",` +
+		`"version_esperada":7,` +
+		`"clave_idempotencia":"12345678-1234-4567-8abc-123456789abc",` +
+		`"transicion_clave":"cierre_administrativo",` +
+		`"motivo_clave":"fin_relacion_confirmado"}`
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		httpinterno.RutaCerrarAdministrativamente,
+		strings.NewReader(cuerpo),
+	)
+	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	peticion.Header.Set("Accept", "application/json")
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusBadRequest ||
+		!strings.Contains(
+			respuesta.Body.String(),
+			`"codigo":"peticion_no_valida"`,
+		) || autoridadInterior.resoluciones != 0 ||
+		ejecutor.cierres != 0 || ejecutor.reaperturas != 0 {
+		t.Fatalf(
+			"estado=%d interior=%d ejecutor=%d/%d cuerpo=%s",
+			respuesta.Code,
+			autoridadInterior.resoluciones,
+			ejecutor.cierres,
+			ejecutor.reaperturas,
+			respuesta.Body.String(),
+		)
+	}
+}
+
 func nuevoHandlerContratacionErrorPrueba(
 	t *testing.T,
 	errAutoridad error,
