@@ -576,19 +576,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'confirmacion O6 invalida';
     END IF;
 
-    IF NOT CASE WHEN pg_catalog.jsonb_typeof(v_datos->'version_expediente') = 'number'
+    IF NOT (CASE WHEN pg_catalog.jsonb_typeof(v_datos->'version_expediente') = 'number'
         THEN (v_datos->>'version_expediente')::numeric BETWEEN 1 AND 9007199254740991
          AND (v_datos->>'version_expediente')::numeric =
-             pg_catalog.trunc((v_datos->>'version_expediente')::numeric) ELSE false END
+             pg_catalog.trunc((v_datos->>'version_expediente')::numeric) ELSE false END)
        OR v_datos->>'contrato_version' IS DISTINCT FROM '1'
-       OR NOT CASE WHEN pg_catalog.jsonb_typeof(v_comando->'total_posiciones_orden') = 'number'
+       OR NOT (CASE WHEN pg_catalog.jsonb_typeof(v_comando->'total_posiciones_orden') = 'number'
         AND pg_catalog.jsonb_typeof(v_comando->'maxima_posicion_evaluable') = 'number' THEN
             (v_comando->>'total_posiciones_orden')::numeric BETWEEN 1 AND 250000 AND
             (v_comando->>'total_posiciones_orden')::numeric =
                 pg_catalog.trunc((v_comando->>'total_posiciones_orden')::numeric) AND
             (v_comando->>'maxima_posicion_evaluable')::numeric =
-                (v_comando->>'total_posiciones_orden')::numeric ELSE false END
-       OR NOT CASE WHEN pg_catalog.jsonb_typeof(p_recibo->'version_expediente') = 'number'
+                (v_comando->>'total_posiciones_orden')::numeric ELSE false END)
+       OR NOT (CASE WHEN pg_catalog.jsonb_typeof(p_recibo->'version_expediente') = 'number'
         AND pg_catalog.jsonb_typeof(p_recibo->'orden_seleccionado') = 'number' THEN
             (p_recibo->>'version_expediente')::numeric BETWEEN 1 AND 9007199254740991 AND
             (p_recibo->>'version_expediente')::numeric =
@@ -596,7 +596,7 @@ BEGIN
             (p_recibo->>'orden_seleccionado')::numeric BETWEEN 1 AND
                 (v_comando->>'maxima_posicion_evaluable')::numeric AND
             (p_recibo->>'orden_seleccionado')::numeric =
-                pg_catalog.trunc((p_recibo->>'orden_seleccionado')::numeric) ELSE false END
+                pg_catalog.trunc((p_recibo->>'orden_seleccionado')::numeric) ELSE false END)
        OR v_procedencia->>'contrato_version' IS DISTINCT FROM '1'
        OR NOT vec_contratacion_temporal.instante_utc_json_canonico_v2(v_datos->'solicitada_en', false)
        OR NOT vec_contratacion_temporal.instante_utc_json_canonico_v2(v_datos->'valida_hasta', false)
