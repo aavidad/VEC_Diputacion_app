@@ -1,32 +1,58 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 9 de agosto de 2026.
+Última actualización: 31 de agosto de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
 [tablero de tareas](tablero_tareas_contratacion_temporal_2026-07-23.md).
 
+Este checkpoint parte del producto publicado
+`3a8550eac9324168594bc1e36378015922ec5c4b`. Sus métricas sustituyen las
+afirmaciones vigentes de cortes anteriores; las genealogías técnicas que se
+conservan más abajo son historia y no contadores actuales.
+
 ## Lectura rápida
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | F0/C4b-2/G2-O: corregir/revisar contrato O3a completo sobre `ce0848e` → doble GO/publicación/CI del contrato → O3a → O3b → O3c → O4a → O4b → O4c → O5a → O5b → O5c → O5d → O6a → O6b → O6c → C4b-3 → C4c → C4d → C2.4 selección/recibo → C2.5 fachada/reconciliación → PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
-| Desglose técnico F0 | 10 de 23 minitareas cerradas (43 %). C4a está integrado hasta `e130015`, con doble GO, H0 nominal PostgreSQL 18.4 y [evidencia propia](revisiones/revision_f0_h0b_c4a_frontera_topologia_2026-08-02.md); no contabiliza H0b porque C4b–C4d siguen abiertos. Es un contador más granular del mismo DAG, no una estimación temporal. |
-| Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
-| Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último corte remoto completamente verde | `ce0848e` en `integracion/ct-o4-04e-20260726`; CI `31298943127`, cinco de cinco puertas verdes. |
-| Último commit técnico verificado | `ce0848e` publica el cierre O3a-P1 sobre `a1aeab7`–`f3a1e96`: runner 702/SHA `7ad65a66…`, seis evidencias, matriz 100/600 + 10/10 + 1, H0 PostgreSQL 18.4, calidad global, Gitleaks y residuos cero. |
-| Cierre publicado de C2.1a | `808522d`; CI `30527303065` completamente verde |
-| Trabajo no contabilizado | C2.1b, S0.1, S0.2, C2.2-A, C2.2-B, C2.3-D0, F0-D1/D2/D2c/D2d, V0, H0, H0a, A1, A2, A3, A4, B1, B2, C1, la estructura aislada H0b, C4a, C4b-2/G1, G2-S y G2-O/O1a/O1b/O2a/O2b/O3a-P0/O3a-P1 están cerrados técnicamente, pero no suman una puerta funcional. |
-| Bloqueo externo actual | Ninguno; el código O3a espera contrato completo sobre `ce0848e` con doble GO, publicación y CI; producción sigue sujeta a las conformidades formales. |
-| Producción | No autorizada; no se usarán datos reales |
+| Objetivo activo | `O2-06` — adaptador y reconciliación; `R3A` está integrado, pero no existe aún implementador productivo. |
+| Camino crítico | `R3B` permanece como producción candidata separada y no integrada. El siguiente checkpoint sobre `R3B`/`R3C` solo se documentará cuando ambos estén integrados. |
+| Primera vertical | `5/10` (`50 %`); `O2-06` continúa activa. |
+| Cierre formal previo | `19/46` (`41,3 %`). |
+| Cierre formal tras el checkpoint | `20/46` (`43,5 %`), solo después de integrar y publicar este corte y únicamente por `O6-02`. |
+| Cierre técnico conservador | `22/46` (`47,8 %`). |
+| Verticales E2E productivas | `0`. |
+| Último producto publicado | `3a8550eac9324168594bc1e36378015922ec5c4b`; no se atribuye una CI no preservada. |
+| Trabajo no contabilizado | `R3A`, `O5-rutas`, `O4C-P0` y `RUTA-A` son subcortes: no cierran `O2-06`, `O5-01`, `O4C-P1` ni `O2-07`/`O2-08`. |
+| Bloqueos conservados | `O5-01` carece de raíz, persistencia y web; `O4C-P1` está bloqueado; `RUTA-A` está aislada sin raíz. |
+| Aplicación arrancable | `NO`. |
+| Producción | `NO-GO`; no se usarán datos reales. |
 
 La primera vertical cuenta diez tareas O2. La cifra de 46 mide el procedimiento
 temporal completo; ninguna representa por sí sola el porcentaje de todo VEP.
-Las tareas históricas no tienen un peso homogéneo: `24/46` sirve para contar
-cierres aceptados, no para estimar esfuerzo ni tiempo restante. El desglose F0
-evita ocultar varios días de trabajo bajo una sola fila O4-05.
+Las tareas no tienen un peso homogéneo: el formal previo `19/46` solo pasa a
+`20/46` tras integrar y publicar este checkpoint. El cierre técnico `22/46`
+no sustituye esa cuenta formal ni estima esfuerzo o tiempo restante.
+
+La cadena que permite cerrar documentalmente `O6-02` consta de
+`433df1f8`, `908e7907`, `02221b47`, `fc8ab461` y el candidato final
+`d72254e`, integrado en `ca719021`. Es la única subida contable de este corte;
+`O6-03` permanece abierto.
+
+`R3A`, candidato `1babd86`, está integrado en `2b96b646`; fija una candidatura
+técnica opaca, no un implementador productivo, y `O2-06` sigue en curso. Las
+rutas de `O5-01`, candidato `ffc0717` integrado en `de2c9be8`, tampoco
+acreditan raíz, persistencia o web. `O4C-P0`, candidato `5555885` con doble
+`GO`, está integrado y publicado en `7945de3968c118633e3a15ba5a97145939050ffb`,
+pero `O4C-P1` permanece bloqueado. `RUTA-A`, candidato `8bb15bcc` con `GO`,
+está integrada y publicada en `3a8550eac9324168594bc1e36378015922ec5c4b`
+sin composición raíz y no cierra `O2-07` ni `O2-08`.
+
+### Contexto técnico histórico conservado
+
+El desglose F0 y los hitos O4-05 que siguen pertenecen al corte histórico del
+9 de agosto. Se mantienen para trazabilidad, pero no alteran las métricas ni el
+orden vigente de este checkpoint.
 
 O3-04 se contabiliza tras el corrector `2834783` y su
 [GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
@@ -81,9 +107,9 @@ flowchart TD
     O204["✅ O2-04<br/>Autorización VEC durable"]
     O205["✅ O2-05<br/>Confirmación SQL atómica"]
     O206["🚧 O2-06<br/>Adaptador y reconciliación"]
-    O207["— O2-07<br/>Composición real"]
-    O208["— O2-08<br/>API interna"]
-    O209["— O2-09<br/>Web definitiva"]
+    O207["🚧 O2-07<br/>RUTA-A aislada; falta raíz"]
+    O208["🚧 O2-08<br/>API interna sin raíz"]
+    O209["🚧 O2-09<br/>Web definitiva sin E2E"]
     O210["— O2-10<br/>E2E y aceptación"]
 
     O201 --> O202
@@ -105,7 +131,15 @@ O2-04 demostró que esa preparación solo puede ejecutarse tras una concesión
 V3 durable, ligada al par HMAC activo exacto y sin autoridad reconstruida
 desde el cliente.
 
-## Olas de trabajo paralelo
+`R3A` está integrado en `2b96b646`, pero solo fija la candidatura técnica
+opaca. `R3B` no está integrado y O2-06 conserva su estado en curso. La
+declaración `RUTA-A` publicada en `3a8550e` no compone la raíz y, por tanto,
+no cierra O2-07 ni hace alcanzable O2-08.
+
+## Olas de trabajo paralelo — planificación histórica
+
+Las olas siguientes conservan el plan de construcción original. No sustituyen
+el objetivo activo ni el orden de reanudación fijados en la lectura rápida.
 
 ### Ola 0 — cierre actual
 
@@ -203,25 +237,27 @@ El campo responsable identifica el trabajo, no concede un rol de aplicación.
 
 ## Cómo calcular el avance
 
-Se publican dos métricas:
+Se publican tres planos que no se sustituyen entre sí:
 
-1. **Puertas funcionales:** porcentaje principal. Solo avanza cuando existe una
-   pieza completa del recorrido.
-2. **Tareas verificadas:** indicador operativo. Sirve para saber carga y
-   paralelización, pero no se presenta como porcentaje de producto.
+1. **Cierre formal:** exige integración, publicación y autoridades aplicables.
+2. **Cierre técnico:** reconoce capacidades verificadas dentro de su alcance,
+   sin convertirlas automáticamente en cierres formales.
+3. **Verticales E2E productivas:** solo cuenta recorridos completos con raíz y
+   dependencias reales. El progreso `5/10` de la primera vertical se informa
+   aparte y no equivale a una vertical productiva.
 
-Estado actual:
+Estado del checkpoint:
 
 | Medida | Avance | Qué significa |
 | --- | --- | --- |
-| Puertas funcionales O2 | `3/7` (43 %) | Recorrido funcional; unidades grandes. |
-| Hitos O4-05 | `3/5` (60 %) | Hitos de integración; no estima el esfuerzo interno. |
-| Minitareas técnicas F0 | `10/23` (43 %) | C4a activa el flujo exterior, pero H0b sigue abierto hasta completar C4b–C4d; C2 permanece bloqueado. |
-| Tareas aceptadas de Contratación | `24/46` (52 %) | Conteo histórico de cierres, no porcentaje de esfuerzo. |
-| Bolsa productiva estricta | `1/14` (7 %) | Capacidades con E2E productivo completo. |
+| Primera vertical O2 | `5/10` (`50 %`) | O2-06 sigue activa; R3A no es un implementador productivo. |
+| Formal previo | `19/46` (`41,3 %`) | Autoridad contable anterior a este checkpoint. |
+| Formal tras checkpoint | `20/46` (`43,5 %`) | Solo tras integrar y publicar este corte; el único incremento es O6-02. |
+| Técnico conservador | `22/46` (`47,8 %`) | Incluye capacidades técnicas verificadas sin convertir subcortes en cierres formales. |
+| Verticales E2E productivas | `0` | No hay recorrido productivo completo ni aplicación arrancable. |
 
-Trabajo histórico aparcado: candidatos O2-06/O5-01. O4-05 conserva tres de
-cinco hitos oficiales. Su trabajo interno acreditado incluye:
+Como historia del corte del 9 de agosto, O4-05 conservaba tres de cinco hitos
+oficiales. Su trabajo interno acreditado incluía:
 
 ```text
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
@@ -240,7 +276,8 @@ cinco hitos oficiales. Su trabajo interno acreditado incluye:
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
-El contador técnico F0 contiene exactamente 23 minitareas: H0, H0a, H0b, V0,
+En ese corte histórico, el contador técnico F0 contenía exactamente 23
+minitareas: H0, H0a, H0b, V0,
 A1, A2, A3, A4, B1, B2, C1, C2, C3, R1, R2a, R2b, T1, T2, P0, Q1, Q2, Q3 e I0.
 Las diez primeras cerradas son H0, H0a, V0, A1, A2, A3, A4, B1, B2 y C1.
 La estructura aislada de H0b y la activación C4a no añaden una undécima: el

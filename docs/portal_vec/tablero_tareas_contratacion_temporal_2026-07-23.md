@@ -1,6 +1,24 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 9 de agosto de 2026.
+Última actualización: 31 de agosto de 2026.
+
+## Checkpoint vivo O6 y cableado O2
+
+El producto publicado de referencia es
+`3a8550eac9324168594bc1e36378015922ec5c4b`. Este checkpoint parte de ese
+commit y solo adquiere autoridad contable cuando su hash exacto sea integrado y
+publicado: el cierre formal pasa entonces de `19/46` (`41,3 %`) a `20/46`
+(`43,5 %`) exclusivamente por `O6-02`. El cierre técnico conservador es
+`22/46` (`47,8 %`); la primera vertical permanece en `5/10`, las verticales
+E2E productivas en `0`, la aplicación no es arrancable y producción conserva
+`NO-GO`.
+
+`R3A`, `O5-rutas`, `O4C-P0` y `RUTA-A` son subcortes y no añaden cierres al
+contador. No cierran respectivamente `O2-06`, `O5-01`, `O4C-P1` ni
+`O2-07`/`O2-08`. La siguiente actualización documental sobre `R3B`/`R3C`
+solo procederá cuando esos cortes estén integrados.
+
+### Contexto histórico conservado — corte del 9 de agosto de 2026
 
 O2b queda cerrado técnicamente en `d86aea8`–`4b39265`, con doble `GO`,
 31/31 mutantes, H0 PostgreSQL 18.4, puerta global y CI `31287803830` verdes;
@@ -56,10 +74,10 @@ Estados:
 | O2-03 | Roles, migración y prueba SQL real de preparación idempotente; convivencia de generaciones HMAC antes del cierre. No confirma expedientes. | PostgreSQL efímero: alta, reintento, conflicto, ACL, `down` protegido y rotación v1→v2 sin segunda reserva ni falso conflicto. | ✅ | `55fdf19`–`6e007c8`; GO independiente y PostgreSQL real 3/3 |
 | O2-04 | Sustituir la autorización local provisional por la capacidad durable común de VEC. | Revisión arquitectónica; no existe constructor fabricable ni segunda autoridad; pruebas de replay y vigencia. | ✅ | `edbd0db`; GO independiente, PostgreSQL real y dos pruebas concurrentes 16/16 sin fallos |
 | O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | ✅ | Integrada en `77743a7` desde `cbe7299`, con GO 2/2. PostgreSQL 18 posterior a la fusión, globales, carrera, `go vet`, ocho fallos, cancelación, respuesta perdida, reinicio, ACL, tamaños y secretos: verdes. |
-| O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | 🚧 | Candidato `157a589` publicado pero en `NO-GO`: replay tras reinicio genera otra candidatura y una cancelación segura antes de enviar `COMMIT` puede reconciliar indebidamente. Se exige resolver candidatura durable y probar la frontera pública completa en PostgreSQL 18. |
-| O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | — | — |
-| O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | 🚧 | Adaptador O2-08B revisado con GO e integrado en `42dc3ac`–`94e09e8` (candidato original `3e2885c`): sobre común `{clave_idempotencia, solicitud}`, autoridad de servidor separada y cero hallazgos. Falta registrar la ruta mediante O2-07; por ello todavía no se cierra la tarea ni la puerta funcional. |
-| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | 🚧 | O2-09B `228df6f` obtuvo GO independiente y se integró en `764fd52`: límites exactos, i18n y cero cookies/almacenamiento/autoridad de cliente. `6fb6cc6` reproduce además las 17 pantallas de RRHH y supera 51/51 capturas locales y 272/272 pruebas del portal. Falta registrar la ruta mediante O2-07 y demostrar el E2E; por ello la tarea no se contabiliza aún como cerrada. |
+| O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | 🚧 | `R3A`, candidato `1babd86`, está integrado en `2b96b646` y fija la candidatura técnica opaca, pero no aporta un implementador productivo. `R3B` permanece como producción candidata separada y aún no está integrada. O2-06 sigue abierta; el candidato histórico `157a589` conserva su `NO-GO`. |
+| O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | 🚧 | `CT-O2-RUTA-A-R1`, candidato `8bb15bcc` con `GO`, está integrado y publicado en `3a8550eac9324168594bc1e36378015922ec5c4b`. Es una declaración de ruta aislada: falta la raíz real y no cierra O2-07 ni O2-08. |
+| O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | 🚧 | Adaptador O2-08B revisado con GO e integrado en `42dc3ac`–`94e09e8` (candidato original `3e2885c`): sobre común `{clave_idempotencia, solicitud}`, autoridad de servidor separada y cero hallazgos. `RUTA-A` está integrada de forma aislada, pero la raíz real aún no la consume; por ello no se cierra la tarea ni la puerta funcional. |
+| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | 🚧 | O2-09B `228df6f` obtuvo GO independiente y se integró en `764fd52`: límites exactos, i18n y cero cookies/almacenamiento/autoridad de cliente. `6fb6cc6` reproduce además las 17 pantallas de RRHH y supera 51/51 capturas locales y 272/272 pruebas del portal. Falta que la raíz real consuma `RUTA-A` y demostrar el E2E; por ello la tarea no se contabiliza aún como cerrada. |
 | O2-10 | E2E y aceptación de la vertical. | Navegador → API → autorización → PostgreSQL → recibo; reinicio y concurrencia; acta RRHH. | — | — |
 
 ## O3 — Análisis RRHH y retención de crédito
@@ -81,6 +99,11 @@ Estados:
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | ✅ `f5f5f5a`: orquestador nominal de proponer, decidir y rectificar; autorización específica, replay, reserva, motivo gobernado, confirmación única y reconciliación probados; `GO` independiente. No acredita persistencia productiva. |
 | O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | ✅ `faa5a5f`, `5954c29`: A/B/C/D/E cerrados; PostgreSQL 18.4, migraciones, roles, ACL/RLS, ambas ramas, C1, carreras, fallos, reinicio y reversión verdes; doble `GO` independiente. |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | 🚧 Tres de cinco hitos. HTTP, registro modular, cliente seguro, recuperación, ciclo de vida, proyecciones, autorización, recibos, acceso durable, cursores y composición visual están cerrados aisladamente. CT-000039 a CT-000046 cierran registro, contrato, cánones, prueba durable, motor privado, fachadas y adaptador Go; CT-000047A cierra los manejadores. CT-000047B cierra retención, recursos, motivos, guardianes, consumidores y M1/M2. C1 cierra la cápsula; C2.1a el rol selector; C2.1b la fachada mínima de Identidad; S0.1/S0.2 las retiradas ContextoActor; C2.2-A la historia organizativa; y C2.2-B la historia del vínculo corporativo, todas con revisión independiente. B está cerrada técnicamente en `de6e7df`, con evidencia `8c27c72`, GO y P0=P1=P2=0; B6 está publicada en `51a4390`, con CI `30650778125` completamente verde. C2.3-D0 queda integrado en `5fbf6a7`–`abfdc21` con doble GO: reduce C2.3 a F0, R0 y tres migraciones M5–M7, sin edición humana ni PDP selector, y obliga a consumo V3 y despacho atómicos. Estas piezas internas no cambian la métrica. Producción conserva `NO-GO`: faltan implementar F0/R0/M5–M7, C2.4 selección/recibo, C2.5 fachada/reconciliación, PDP, composición raíz, TLS/mTLS viva y E2E completo. |
+
+`O4C-P0`, candidato `5555885` con doble `GO`, está integrado y publicado en
+`7945de3968c118633e3a15ba5a97145939050ffb`. Se registra como subcorte del
+grafo existente, sin sumar una tarea: `O4C-P1` permanece bloqueado y no existe
+por ello cierre de O4-05 ni E2E.
 
 F0-D1 queda integrado en `c4fc55c`–`1236c0b` y F0-D2/D2a/D2b en
 `a5ba276`–`cebc8bd`, ambos con doble GO y `P0=P1=P2=0`. Fijan el perfil de
@@ -171,7 +194,7 @@ Desglose verificable del camino crítico `O4-04`:
 
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
-| O5-01 | Asignación de unidad, responsable y bandeja. | Ámbito organizativo, reasignación motivada y notificación. | 🚧 Candidato `0be5600`–`ff6c847`: dominio, caso de uso, PDP V3 y adaptador Go de preparación probados. SQL bloqueado correctamente hasta que O3-04 y O4-04 aporten la versión durable completa; después faltan fuente corporativa, composición y revisión independiente. |
+| O5-01 | Asignación de unidad, responsable y bandeja. | Ámbito organizativo, reasignación motivada y notificación. | 🚧 El candidato de rutas `ffc0717` está integrado en `de2c9be8`, además del trabajo previo `0be5600`–`ff6c847`. Las rutas no acreditan raíz, persistencia ni web; faltan las autoridades y la composición reales, por lo que O5-01 continúa abierta y no se contabiliza. |
 | O5-02 | Plantilla/datos del informe jurídico. | Generación por conector, versión, anexos y referencias normativas. | — |
 | O5-03 | Revisión y firma del informe. | Firma múltiple, rechazo, subsanación, CSV/QR y validación. | — |
 | O5-04 | Solicitud y resultado de fiscalización. | Intervención segregada, reparo, subsanación y recibo. | — |
@@ -182,8 +205,8 @@ Desglose verificable del camino crítico `O4-04`:
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
 | O6-01 | Contrato de integración con el módulo Bolsa. | Referencias/eventos; ninguna lectura directa de sus tablas. | ✅ `2b67c7a`–`20935bd`; doble GO independiente, pruebas focales y globales, carrera y `go vet`. |
-| O6-02 | Selección y propuesta de llamamiento. | Orden, disponibilidad, exclusiones, desempate y evidencia de regla. | — |
-| O6-03 | Comunicación, aceptación, renuncia y siguiente candidato. | Plazos, canales, entrega, reintento e idempotencia. | — |
+| O6-02 | Selección y propuesta de llamamiento. | Orden, disponibilidad, exclusiones, desempate y evidencia de regla. | ✅ Piezas integradas `433df1f8`, `908e7907`, `02221b47` y `fc8ab461`; candidato final `d72254e`, integrado en `ca719021`. Este checkpoint documenta el único incremento formal, condicionado a su integración y publicación; no cierra O6-03 ni O6-05. |
+| O6-03 | Comunicación, aceptación, renuncia y siguiente candidato. | Plazos, canales, entrega, reintento e idempotencia. | 🚧 `02221b47` integra un adaptador de ejecuciones dentro de la cadena técnica, pero no acredita por sí solo comunicación, aceptación, renuncia y siguiente candidato. O6-03 permanece abierta. |
 | O6-04 | Propuesta de nombramiento/contrato y documentación. | Plantillas gobernadas, anexos, firma múltiple y descarga interesada. | — |
 | O6-05 | Persistencia/API/web/E2E. | Ciclo completo con auditoría y rectificación sin reescritura. | — |
 
