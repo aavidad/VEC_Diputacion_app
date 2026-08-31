@@ -25,6 +25,8 @@ type DependenciasRutas struct {
 	Presentador                     httpinterno.PresentadorPropuestaCobertura
 	Decisor                         httpinterno.EjecutorDecisionCobertura
 	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
+	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
+	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
 	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
 	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
@@ -86,6 +88,18 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	cuadroRRHH, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(
+		dependencias.ConsultorCuadroRRHH,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
+	detalleRRHH, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(
+		dependencias.ConsultorDetalleRRHH,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
 	return []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -130,6 +144,14 @@ func NuevasRutas(
 		{
 			Ruta:      httpinterno.RutaReabrirExcepcionalmente,
 			Manejador: cierreAdministrativo,
+		},
+		{
+			Ruta:      httpinterno.RutaConsultaCuadroRRHH,
+			Manejador: cuadroRRHH,
+		},
+		{
+			Ruta:      httpinterno.RutaConsultaDetalleRRHH,
+			Manejador: detalleRRHH,
 		},
 	}, nil
 }
