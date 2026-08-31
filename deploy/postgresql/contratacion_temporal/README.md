@@ -503,6 +503,29 @@ replay, concurrencia, revocación viva y propagación exacta de `40001`,
 `40P01`, `55P03` y `57014`. Terminó verde en dos ciclos del productor, dos
 reproducciones independientes y una repetición sobre la rama integradora.
 
+### CT-LITE-O6-03: ejecuciones de selección y llamamiento
+
+`000046_ejecuciones_seleccion_llamamiento_o6` añade una autoridad durable
+independiente para el UUID y la huella semántica de cada ejecución O6. La
+tabla no es accesible por el ejecutor: las únicas entradas runtime son siete
+fachadas nominales `SECURITY DEFINER`. La reserva, las dos ventanas de efecto,
+la liberación anterior a efectos, la marca indeterminada, la confirmación y la
+consulta quedan serializadas por fila. Ninguna fachada reintenta ni ejecuta
+Bolsa, y la confirmación conserva juntos el recibo y el artefacto exactos.
+
+La puerta focal preparada para una base desechable PostgreSQL 18.4 es:
+
+```bash
+VEC_CT_O6_BD_DESECHABLE=SI \
+  ./deploy/postgresql/contratacion_temporal/probar_o6_03_ejecuciones_pg18_4.sh
+```
+
+El runner usa exclusivamente la conexión libpq del entorno, no acepta ni
+imprime DSN, exige superusuario de una base de prueba exclusiva, comprueba
+estados, ventanas únicas, liberación, terminales y ACL, y retira los objetos
+O6 al terminar. Este corte solo entrega el contrato y el runner: no acredita
+su ejecución real, carreras multisesión, despliegue ni composición.
+
 ## Reversión protegida
 
 La reversión normal solo funciona sin historia. Destruir historia exige un
