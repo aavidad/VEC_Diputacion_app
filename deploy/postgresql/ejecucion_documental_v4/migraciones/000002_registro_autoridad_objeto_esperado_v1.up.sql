@@ -2,7 +2,6 @@ BEGIN;
 SET LOCAL ROLE vec_ejecucion_documental_v4_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
-
 DO $precondicion$
 BEGIN
     IF to_regclass(
@@ -20,7 +19,6 @@ BEGIN
     END IF;
 END
 $precondicion$;
-
 -- Replica la lista positiva minima de referencias V2. No admite rutas,
 -- localizadores, comodines ni formas evidentes de identificador personal.
 CREATE FUNCTION
@@ -48,21 +46,16 @@ AS $funcion$
            '(arn:|etag:|kms:|bucket:|bucket_|endpoint:|ruta:|path:|file:|s3:|http:|https:|dni:|nif:|nie:|nombre:|apellido:|correo:|email:|telefono:|direccion:)'
        AND upper(p_valor) !~ '^([0-9]{8}|[XYZ][0-9]{7})[A-Z]$'
 $funcion$;
-
 CREATE FUNCTION
 vec_ejecucion_documental_v4.encuadrar_autoridad_objeto_v1(p_valor bytea)
 RETURNS bytea
 LANGUAGE sql
-IMMUTABLE
-STRICT
+IMMUTABLE STRICT
 SET search_path = pg_catalog, pg_temp
 AS $funcion$
     SELECT int8send(octet_length(p_valor)::bigint) || p_valor
 $funcion$;
-
--- Comprueba la estructura TLV V2 completa y obtiene solo las seis ligaduras
--- que este agregado necesita. La atestacion ya fue verificada en vivo por
--- PrepararRegistro; SQL no intenta reconstruir esa autoridad.
+-- Valida el TLV V2 completo; no reconstruye la autoridad ya atestada en vivo.
 CREATE FUNCTION
 vec_ejecucion_documental_v4.recibo_material_v2_coteja_autoridad_objeto_v1(
     p_recibo bytea,
@@ -78,14 +71,10 @@ IMMUTABLE
 SET search_path = pg_catalog, pg_temp
 AS $funcion$
 DECLARE
-    posicion integer := 0;
-    total integer;
-    etiqueta integer;
-    esperada integer := 0;
-    longitud bigint;
-    indice integer;
-    valor bytea;
-    texto text;
+    posicion integer := 0; esperada integer := 0;
+    total, etiqueta, indice integer; longitud bigint;
+    valor bytea; texto text;
+    entero, almacenado_micro numeric;
     tiene_retencion boolean := false;
 BEGIN
     total := octet_length(p_recibo);
@@ -125,6 +114,28 @@ BEGIN
            ) THEN
             RETURN false;
         END IF;
+        IF etiqueta IN (6, 16, 17, 24)
+           AND valor = decode(repeat('00', 32), 'hex')
+           OR etiqueta IN (5, 15)
+              AND get_byte(valor, 0)::bigint * 16777216
+                + get_byte(valor, 1) * 65536 + get_byte(valor, 2) * 256
+                + get_byte(valor, 3) = 0 THEN
+            RETURN false;
+        END IF;
+        IF etiqueta IN (23, 26, 28) THEN
+            entero := 0;
+            FOR indice IN 0..7 LOOP
+                entero := entero * 256 + get_byte(valor, indice);
+            END LOOP;
+            IF entero >= 9223372036854775808 THEN entero := entero - 18446744073709551616; END IF;
+            IF etiqueta = 23 AND entero < 1
+               OR etiqueta IN (26, 28) AND entero NOT BETWEEN
+                  -62135596800000000 AND 253402300799999999
+               OR etiqueta = 28 AND entero <= almacenado_micro THEN
+                RETURN false;
+            END IF;
+            IF etiqueta = 26 THEN almacenado_micro := entero; END IF;
+        END IF;
         IF etiqueta IN (
             0, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 18, 19, 20,
             21, 22, 25, 29, 30
@@ -135,8 +146,26 @@ BEGIN
             texto := convert_from(valor, 'UTF8');
             IF texto !~ '^[!-~]+$' THEN
                 RETURN false;
+            ELSIF etiqueta IN (
+                2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 18, 19, 20, 25
+            ) AND NOT vec_ejecucion_documental_v4.
+                referencia_opaca_autoridad_objeto_v1(texto, CASE
+                    WHEN etiqueta IN (3, 7, 9) THEN 128
+                    WHEN etiqueta IN (8, 18, 20) THEN 256 ELSE 512 END
+                ) THEN
+                RETURN false;
             ELSIF etiqueta = 0 AND texto <>
                    'vec.almacen.recibo-escritura-material.v2'
+               OR etiqueta = 9 AND texto <> 'escribir'
+               OR etiqueta = 21 AND texto NOT IN ('cuarentena', 'admitida')
+               OR etiqueta = 22 AND (
+                   octet_length(texto) > 255 OR texto <> lower(texto)
+                   OR texto !~ '^[^/]+/[^/]+$'
+                   OR texto ~ '[;?#\\]'
+               )
+               OR etiqueta = 29
+                  AND texto NOT IN ('no_inmovilizado', 'inmovilizado')
+               OR etiqueta = 30 AND texto <> 'activo'
                OR etiqueta = 2 AND texto <> p_recibo_ref
                OR etiqueta = 3 AND texto <> p_conector_id
                OR etiqueta = 13 AND texto <> p_efecto_ref
@@ -158,7 +187,6 @@ EXCEPTION
         RETURN false;
 END
 $funcion$;
-
 CREATE TABLE
 vec_ejecucion_documental_v4.registro_autoridad_objeto_esperado_v1 (
     registro_ref text PRIMARY KEY,
@@ -274,7 +302,6 @@ vec_ejecucion_documental_v4.registro_autoridad_objeto_esperado_v1 (
         AND huella_proyeccion_sha256 <> repeat('0', 64)
     )
 );
-
 CREATE TABLE vec_ejecucion_documental_v4.auditoria_autoridad_objeto_v1 (
     auditoria_ref text PRIMARY KEY,
     secuencia numeric(20, 0) NOT NULL UNIQUE,
@@ -292,7 +319,6 @@ CREATE TABLE vec_ejecucion_documental_v4.auditoria_autoridad_objeto_v1 (
     CHECK (huella_anterior_sha256 ~ '^[0-9a-f]{64}$'
         AND huella_registro_sha256 ~ '^[0-9a-f]{64}$')
 );
-
 CREATE TABLE vec_ejecucion_documental_v4.outbox_autoridad_objeto_v1 (
     evento_ref text PRIMARY KEY,
     secuencia numeric(20, 0) NOT NULL UNIQUE,
@@ -315,7 +341,6 @@ CREATE TABLE vec_ejecucion_documental_v4.outbox_autoridad_objeto_v1 (
         AND huella_proyeccion_sha256 ~ '^[0-9a-f]{64}$'
         AND huella_registro_sha256 ~ '^[0-9a-f]{64}$')
 );
-
 -- SECURITY DEFINER es imprescindible para que la futura identidad dedicada
 -- reciba solo USAGE/EXECUTE y no DML sobre estado, auditoria u outbox.
 -- Este corte no concede todavia esa ejecucion a ningun runtime.
@@ -499,7 +524,6 @@ BEGIN
             convert_to(documento ->> 'atestacion_dominio', 'UTF8')
         ) ||
         vec_ejecucion_documental_v4.encuadrar_autoridad_objeto_v1(codigo);
-
     PERFORM pg_advisory_xact_lock(clave)
       FROM (
           SELECT DISTINCT hashtextextended(valor, 0) AS clave
@@ -510,7 +534,6 @@ BEGIN
             ]) AS valor
       ) AS bloqueos
      ORDER BY clave;
-
     SELECT count(*), min(r.registro_ref)
       INTO cantidad, registro_calculado
       FROM vec_ejecucion_documental_v4.registro_autoridad_objeto_esperado_v1 AS r
@@ -548,7 +571,6 @@ BEGIN
         RETURN NEXT;
         RETURN;
     END IF;
-
     SELECT orden.orden_ref, orden.decision_ref, orden.efecto_ref,
            orden.estado, orden.huella_plan_sha256,
            orden.huella_decision_sha256, orden.huella_aplicacion_sha256,
@@ -590,11 +612,12 @@ BEGIN
        OR autoridad_v4.capacidad ->> 'huella_efecto_sha256' !~
           '^[0-9a-f]{64}$'
        OR autoridad_v4.capacidad ->> 'huella_efecto_sha256' = repeat('0', 64)
+       OR documento ->> 'huella_manifiesto_sha256' <>
+          autoridad_v4.huella_plan_sha256
        OR autoridad_v4.huella_plan_sha256 = repeat('0', 64) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'compromisos P0-1 de la orden V4 no validos';
     END IF;
-
     instante := clock_timestamp();
     registro_calculado := 'registro:autoridad-objeto:v1:' || encode(sha256(
         convert_to(documento ->> 'efecto_ref', 'UTF8') || decode('00', 'hex') ||
@@ -609,7 +632,6 @@ BEGIN
         convert_to(registro_calculado, 'UTF8') || decode('00', 'hex') ||
         convert_to('outbox', 'UTF8')
     ), 'hex');
-
     INSERT INTO
     vec_ejecucion_documental_v4.registro_autoridad_objeto_esperado_v1 (
         registro_ref, esquema, version_contrato,
@@ -646,7 +668,6 @@ BEGIN
         autoridad_v4.capacidad ->> 'huella_efecto_sha256',
         huella_entrada, autoridad_v4.correlacion_ref, instante
     );
-
     SELECT ultima_secuencia + 1, ultima_huella_sha256
       INTO STRICT secuencia, huella_anterior
       FROM vec_ejecucion_documental_v4.control_cadena_auditoria
@@ -704,7 +725,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'OCC de auditoria documental perdido';
     END IF;
-
     resultado := 'registrada';
     registro_ref := registro_calculado;
     estado := 'autoridad_objeto_registrada';
@@ -723,7 +743,6 @@ EXCEPTION
             MESSAGE = 'orden V4 ausente o ambigua';
 END
 $funcion$;
-
 DO $protecciones$
 DECLARE
     tabla text;
@@ -757,7 +776,6 @@ BEGIN
     END LOOP;
 END
 $protecciones$;
-
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_ejecucion_documental_v4 FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_ejecucion_documental_v4 FROM PUBLIC;
 DO $cerrar_tipos$
@@ -776,12 +794,6 @@ BEGIN
     END LOOP;
 END
 $cerrar_tipos$;
-
--- No se concede EXECUTE a ningun runtime. El siguiente corte debe incorporar
--- una credencial dedicada que haya invocado PrepararRegistro en el proceso.
-COMMENT ON FUNCTION
-vec_ejecucion_documental_v4.registrar_autoridad_objeto_esperado_v1(
-    numeric, bytea
-) IS
+COMMENT ON FUNCTION vec_ejecucion_documental_v4.registrar_autoridad_objeto_esperado_v1(numeric, bytea) IS
     'Registra solo la salida especializada de PrepararRegistro; sin concesion runtime hasta el adaptador V2 durable.';
 COMMIT;

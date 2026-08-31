@@ -120,6 +120,68 @@ AS $funcion$
         || int8send(octet_length(p_valor)::bigint) || p_valor
 $funcion$;
 
+CREATE FUNCTION pg_temp.mutar_tlv_v2(
+    p_recibo bytea,
+    p_etiqueta integer,
+    p_valor bytea
+)
+RETURNS bytea
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = pg_catalog, pg_temp
+AS $funcion$
+DECLARE
+    posicion integer := 0;
+    total integer := octet_length(p_recibo);
+    etiqueta integer;
+    longitud bigint;
+    indice integer;
+BEGIN
+    WHILE posicion < total LOOP
+        IF total - posicion < 10 THEN
+            RAISE EXCEPTION 'TLV fixture truncado';
+        END IF;
+        etiqueta := get_byte(p_recibo, posicion) * 256
+            + get_byte(p_recibo, posicion + 1);
+        longitud := 0;
+        FOR indice IN 2..9 LOOP
+            longitud := longitud * 256 + get_byte(p_recibo, posicion + indice);
+        END LOOP;
+        IF longitud > total - posicion - 10 THEN
+            RAISE EXCEPTION 'TLV fixture desbordado';
+        END IF;
+        IF etiqueta = p_etiqueta THEN
+            RETURN substring(p_recibo FROM 1 FOR posicion)
+                || CASE WHEN p_valor IS NULL THEN ''::bytea
+                        ELSE pg_temp.tlv_v2(p_etiqueta, p_valor) END
+                || substring(
+                    p_recibo FROM posicion + 11 + longitud::integer
+                );
+        END IF;
+        posicion := posicion + 10 + longitud::integer;
+    END LOOP;
+    RAISE EXCEPTION 'etiqueta TLV fixture ausente: %', p_etiqueta;
+END
+$funcion$;
+
+CREATE FUNCTION pg_temp.recibo_v2_valido_fixture(
+    p_recibo bytea,
+    p_documento jsonb
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, pg_temp
+AS $funcion$
+    SELECT vec_ejecucion_documental_v4.
+        recibo_material_v2_coteja_autoridad_objeto_v1(
+            p_recibo, p_documento ->> 'recibo_material_ref',
+            p_documento ->> 'conector_id', p_documento ->> 'efecto_ref',
+            p_documento ->> 'objeto_ref', p_documento ->> 'objeto_version'
+        )
+$funcion$;
+
 DO $fixture$
 DECLARE
     autoridad record;
@@ -136,10 +198,9 @@ DECLARE
     huella_d text := repeat('d', 64);
     huella_e text := repeat('e', 64);
     huella_f text := repeat('f', 64);
-    huella_1 text := repeat('1', 64);
     huella_2 text := repeat('2', 64);
 BEGIN
-    SELECT orden.orden_ref, orden.efecto_ref,
+    SELECT orden.orden_ref, orden.efecto_ref, orden.huella_plan_sha256,
            atestacion.aplicacion_registro
       INTO STRICT autoridad
       FROM vec_ejecucion_documental_v4.orden_generacion_documental AS orden
@@ -192,7 +253,8 @@ BEGIN
         || pg_temp.tlv_v2(24, decode(huella_d, 'hex'))
         || pg_temp.tlv_v2(25, convert_to('evidencia_material_prueba', 'UTF8'))
         || pg_temp.tlv_v2(26, int8send(1788163200123456))
-        || pg_temp.tlv_v2(27, decode('00', 'hex'))
+        || pg_temp.tlv_v2(27, decode('01', 'hex'))
+        || pg_temp.tlv_v2(28, int8send(1788163201123456))
         || pg_temp.tlv_v2(29, convert_to('no_inmovilizado', 'UTF8'))
         || pg_temp.tlv_v2(30, convert_to('activo', 'UTF8'));
     documento := jsonb_build_object(
@@ -206,7 +268,7 @@ BEGIN
         'conector_id', conector,
         'efecto_ref', autoridad.efecto_ref,
         'huella_plan_efecto_sha256', huella_f,
-        'huella_manifiesto_sha256', huella_1,
+        'huella_manifiesto_sha256', autoridad.huella_plan_sha256,
         'paso_ref', '01_custodiar_documento_firmado',
         'huella_paso_sha256', huella_2,
         'recibo_material_canonico_hex', encode(recibo, 'hex'),
@@ -223,6 +285,93 @@ BEGIN
     VALUES (convert_to(documento::text, 'UTF8'));
 END
 $fixture$;
+
+DO $canon_v2$
+DECLARE
+    documento jsonb;
+    recibo bytea;
+    mutante bytea;
+    etiqueta integer;
+    maximo integer;
+    hostil text;
+BEGIN
+    SELECT convert_from(proyeccion, 'UTF8')::jsonb
+      INTO STRICT documento
+      FROM entrada_autoridad_objeto_v1;
+    recibo := decode(documento ->> 'recibo_material_canonico_hex', 'hex');
+    IF NOT pg_temp.recibo_v2_valido_fixture(recibo, documento) THEN
+        RAISE EXCEPTION 'el recibo V2 canonico del fixture fue rechazado';
+    END IF;
+    mutante := pg_temp.mutar_tlv_v2(
+        pg_temp.mutar_tlv_v2(recibo, 27, decode('00', 'hex')), 28, NULL
+    );
+    IF NOT pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+        RAISE EXCEPTION 'la retencion falsa canonica fue rechazada';
+    END IF;
+
+    -- Cada grupo mata una invariante canonica; todos los alias atraviesan la
+    -- misma matriz de maximo y antipatrones de localizacion/PII.
+    FOR etiqueta, maximo IN SELECT * FROM unnest(
+        ARRAY[2,3,4,7,8,9,10,11,12,13,14,18,19,20,25],
+        ARRAY[512,128,512,128,256,128,512,512,512,512,512,256,512,256,512]
+    ) LOOP
+        mutante := pg_temp.mutar_tlv_v2(
+            recibo, etiqueta, convert_to(repeat('x', maximo + 1), 'UTF8')
+        );
+        IF pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+            RAISE EXCEPTION 'alias TLV % acepto exceso de longitud', etiqueta;
+        END IF;
+        FOREACH hostil IN ARRAY ARRAY[
+            'objeto/ruta', 'dni:12345678Z', '12345678Z'
+        ] LOOP
+            mutante := pg_temp.mutar_tlv_v2(
+                recibo, etiqueta, convert_to(hostil, 'UTF8')
+            );
+            IF pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+                RAISE EXCEPTION 'alias TLV % acepto %', etiqueta, hostil;
+            END IF;
+        END LOOP;
+    END LOOP;
+    FOREACH etiqueta IN ARRAY ARRAY[5, 15] LOOP
+        mutante := pg_temp.mutar_tlv_v2(recibo, etiqueta, int4send(0));
+        IF pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+            RAISE EXCEPTION 'version TLV % acepto cero', etiqueta;
+        END IF;
+    END LOOP;
+    FOREACH etiqueta IN ARRAY ARRAY[6, 16, 17, 24] LOOP
+        mutante := pg_temp.mutar_tlv_v2(
+            recibo, etiqueta, decode(repeat('00', 32), 'hex')
+        );
+        IF pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+            RAISE EXCEPTION 'huella TLV % acepto cero', etiqueta;
+        END IF;
+    END LOOP;
+    FOREACH mutante IN ARRAY ARRAY[
+        pg_temp.mutar_tlv_v2(recibo, 9, convert_to('leer', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 21, convert_to('temporal', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 22, convert_to('application/PDF', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 22, convert_to('applicationpdf', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 22, convert_to('a/b/c', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 22, convert_to('application/pdf;x', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 23, int8send(0)),
+        pg_temp.mutar_tlv_v2(recibo, 23, int8send(-1)),
+        pg_temp.mutar_tlv_v2(
+            recibo, 26, int8send(-62135596800000001::bigint)
+        ),
+        pg_temp.mutar_tlv_v2(
+            recibo, 26, int8send(253402300800000000::bigint)
+        ),
+        pg_temp.mutar_tlv_v2(recibo, 27, decode('00', 'hex')),
+        pg_temp.mutar_tlv_v2(recibo, 28, int8send(1788163200123456)),
+        pg_temp.mutar_tlv_v2(recibo, 29, convert_to('otro', 'UTF8')),
+        pg_temp.mutar_tlv_v2(recibo, 30, convert_to('eliminado', 'UTF8'))
+    ] LOOP
+        IF pg_temp.recibo_v2_valido_fixture(mutante, documento) THEN
+            RAISE EXCEPTION 'mutante semantico TLV V2 sobrevivio';
+        END IF;
+    END LOOP;
+END
+$canon_v2$;
 
 \if :{?solo_registro}
 DO $registro_concurrente$
@@ -308,7 +457,9 @@ BEGIN
         convert_to(overlay(texto placing '"esquema":"duplicado",'
             from 2 for 0), 'UTF8'),
         convert_to((jsonb_set(documento, '{efecto_ref}',
-            '"efecto_material_ajeno"'))::text, 'UTF8')
+            '"efecto_material_ajeno"'))::text, 'UTF8'),
+        convert_to((jsonb_set(documento, '{huella_manifiesto_sha256}',
+            to_jsonb(repeat('9', 64))))::text, 'UTF8')
     ] LOOP
         BEGIN
             PERFORM * FROM
@@ -337,9 +488,9 @@ BEGIN
     EXCEPTION WHEN invalid_parameter_value THEN
         rechazadas := rechazadas + 1;
     END;
-    IF rechazadas <> 12 THEN
+    IF rechazadas <> 13 THEN
         RAISE EXCEPTION 'la matriz adversarial acepto % mutaciones',
-            12 - rechazadas;
+            13 - rechazadas;
     END IF;
     SELECT count(*) AS registros,
            (SELECT count(*) FROM
@@ -370,7 +521,8 @@ BEGIN
        OR registro.version_contrato <> 1
        OR registro.huella_declaracion_v4_sha256 <> repeat('e', 64)
        OR registro.huella_plan_efecto_sha256 <> repeat('f', 64)
-       OR registro.huella_manifiesto_sha256 <> repeat('1', 64)
+       OR registro.huella_manifiesto_sha256 <>
+          registro.huella_plan_autorizacion_sha256
        OR registro.huella_paso_sha256 <> repeat('2', 64)
        OR registro.paso_ref <> '01_custodiar_documento_firmado'
        OR registro.conector_id <> 'conector_material_prueba_v2'

@@ -46,6 +46,16 @@ exigir_rechazo_login() {
     fi
 }
 
+exigir_sin_uso_tipo() {
+    local usuario=$1 clave=$2 etiqueta=$3 privilegio
+    privilegio=$(psql_login "$usuario" "$clave" --tuples-only --no-align \
+        --command "SELECT has_type_privilege(current_user, 'vec_ejecucion_documental_v4.atestacion_pdp', 'USAGE')")
+    if [[ "$privilegio" != "f" ]]; then
+        echo "ACL invalida: $etiqueta conserva USAGE sobre un tipo V4" >&2
+        exit 1
+    fi
+}
+
 docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
     --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
     "$imagen" >/dev/null
@@ -99,7 +109,11 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_catalog.pg_roles
          WHERE rolname LIKE 'vec_ejecucion_documental_v4_%'
-    ) OR to_regnamespace('vec_ejecucion_documental_v4_guardia') IS NOT NULL THEN
+    ) OR to_regnamespace('vec_ejecucion_documental_v4_guardia') IS NOT NULL
+      OR EXISTS (
+          SELECT 1 FROM pg_catalog.pg_event_trigger
+           WHERE evtname = 'vec_ejecucion_documental_v4_cerrar_acl_tipos'
+      ) THEN
         RAISE EXCEPTION 'el bootstrap no superusuario dejo estado';
     END IF;
     EXECUTE format('ALTER DATABASE %I OWNER TO postgres', current_database());
@@ -111,6 +125,26 @@ SQL
 # Un bootstrap interrumpido antes de la migracion debe retirarse y reinstalarse.
 aplicar deploy/postgresql/ejecucion_documental_v4/roles_up.sql
 aplicar deploy/postgresql/ejecucion_documental_v4/roles_down.sql
+psql_admin <<'SQL'
+DO $bootstrap_parcial_retirado$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_roles
+         WHERE rolname LIKE 'vec_ejecucion_documental_v4_%'
+    ) OR to_regnamespace('vec_ejecucion_documental_v4_guardia') IS NOT NULL
+      OR EXISTS (
+          SELECT 1 FROM pg_catalog.pg_event_trigger
+           WHERE evtname = 'vec_ejecucion_documental_v4_cerrar_acl_tipos'
+      ) OR EXISTS (
+          SELECT 1 FROM pg_catalog.pg_default_acl AS defecto
+          JOIN pg_catalog.pg_roles AS rol ON rol.oid = defecto.defaclrole
+           WHERE rol.rolname LIKE 'vec_ejecucion_documental_v4_%'
+      ) THEN
+        RAISE EXCEPTION 'la retirada del bootstrap V4 parcial dejo estado';
+    END IF;
+END
+$bootstrap_parcial_retirado$;
+SQL
 aplicar deploy/postgresql/ejecucion_documental_v4/roles_up.sql
 
 # Conserva una decision historica, aplica la autoridad actual de identidad y
@@ -121,16 +155,90 @@ aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/sembrar_decision_l
 aplicar deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000002_vinculo_autenticacion_actor_actual.up.sql
 aplicar deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000003_revalidacion_ejecucion_documental_v4.up.sql
 aplicar deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
-aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/revalidacion_identidad_v1.sql
-aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/privilegios_minimos_v2.sql
-
-# La retirada base permanece protegida incluso sin evidencia nueva.
-if aplicar \
-    deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.down.sql \
-    >/dev/null 2>&1; then
-    echo "el down V4 acepto una retirada sin consentimiento" >&2
+down_v4=deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.down.sql
+if aplicar "$down_v4" >/dev/null 2>&1; then
+    echo "el down V4 vacio acepto retirar el esquema sin opt-in" >&2
     exit 1
 fi
+psql_admin <<'SQL'
+DO $conservada_vacia$
+BEGIN
+    IF to_regnamespace('vec_ejecucion_documental_v4') IS NULL THEN
+        RAISE EXCEPTION 'el down vacio fallido no conservo el esquema';
+    END IF;
+END
+$conservada_vacia$;
+SET ROLE vec_ejecucion_documental_v4_propietario;
+CREATE TABLE vec_ejecucion_documental_v4.evidencia_futura_prueba (
+    evidencia_id bigint PRIMARY KEY
+);
+INSERT INTO vec_ejecucion_documental_v4.evidencia_futura_prueba VALUES (1);
+RESET ROLE;
+DO $acl_tipo_futuro$
+BEGIN
+    IF has_type_privilege(
+        'vec_ejecucion_documental_v4_emisor_capacidad',
+        'vec_ejecucion_documental_v4.evidencia_futura_prueba', 'USAGE'
+    ) OR has_type_privilege(
+        'vec_ejecucion_documental_v4_ejecutor_atestado',
+        'vec_ejecucion_documental_v4.evidencia_futura_prueba', 'USAGE'
+    ) THEN
+        RAISE EXCEPTION 'la guarda DDL no cerro el tipo fila futuro';
+    END IF;
+END
+$acl_tipo_futuro$;
+SQL
+if aplicar "$down_v4" >/dev/null 2>&1; then
+    echo "una relacion V4 futura eludio el opt-in destructivo" >&2
+    exit 1
+fi
+psql_admin <<'SQL'
+DO $conservada_futura$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM vec_ejecucion_documental_v4.evidencia_futura_prueba
+         WHERE evidencia_id = 1
+    ) THEN
+        RAISE EXCEPTION 'el down fallido no conservo la evidencia futura';
+    END IF;
+END
+$conservada_futura$;
+CREATE SCHEMA vec_v4_dependencia_externa_prueba;
+CREATE VIEW vec_v4_dependencia_externa_prueba.vista_evidencia AS
+    SELECT evidencia_id
+      FROM vec_ejecucion_documental_v4.evidencia_futura_prueba;
+SQL
+if docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
+    "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" < "$raiz/$down_v4" \
+    >/dev/null 2>&1; then
+    echo "el down V4 destruyo una dependencia externa" >&2
+    exit 1
+fi
+psql_admin <<'SQL'
+DO $dependencia_conservada$
+BEGIN
+    IF to_regclass(
+        'vec_v4_dependencia_externa_prueba.vista_evidencia'
+    ) IS NULL OR NOT EXISTS (
+        SELECT 1 FROM vec_ejecucion_documental_v4.evidencia_futura_prueba
+         WHERE evidencia_id = 1
+    ) THEN
+        RAISE EXCEPTION 'el down fallido no conservo la dependencia externa';
+    END IF;
+END
+$dependencia_conservada$;
+DROP VIEW vec_v4_dependencia_externa_prueba.vista_evidencia;
+DROP SCHEMA vec_v4_dependencia_externa_prueba;
+SQL
+docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
+    "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" < "$raiz/$down_v4"
+aplicar deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
+aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/revalidacion_identidad_v1.sql
+aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/privilegios_minimos_v2.sql
 
 psql_admin \
     --set clave_fuente="$clave_fuente" \
@@ -161,9 +269,33 @@ do
         "SELECT public.hmac(decode('00','hex'),decode('00','hex'),'sha256')" \
         "$etiqueta ejecuto HMAC directamente"
     exigir_rechazo_login "$usuario" "$clave" \
+        "SELECT public.digest(decode('00','hex'),'sha256')" \
+        "$etiqueta ejecuto otra funcion pgcrypto"
+    exigir_rechazo_login "$usuario" "$clave" \
         "SELECT * FROM vec_ejecucion_documental_v4.atestacion_pdp" \
         "$etiqueta leyo evidencia V4"
+    exigir_sin_uso_tipo "$usuario" "$clave" "$etiqueta"
 done
+
+# El propietario solo ejecuta el overload HMAC bytea exacto.
+psql_admin <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_ejecucion_documental_v4_propietario;
+SELECT octet_length(public.hmac(
+    decode('00', 'hex'), decode('00', 'hex'), 'sha256'
+));
+ROLLBACK;
+SQL
+if psql_admin --command "SET ROLE vec_ejecucion_documental_v4_propietario; SELECT public.hmac('dato'::text,'clave'::text,'sha256')" \
+    >/dev/null 2>&1; then
+    echo "el propietario ejecuto el overload HMAC text no autorizado" >&2
+    exit 1
+fi
+if psql_admin --command "SET ROLE vec_ejecucion_documental_v4_propietario; SELECT public.digest(decode('00','hex'),'sha256')" \
+    >/dev/null 2>&1; then
+    echo "el propietario ejecuto una funcion pgcrypto distinta de HMAC bytea" >&2
+    exit 1
+fi
 
 puerto=$(docker port "$contenedor" 5432/tcp | sed -n 's/.*://p' | head -n 1)
 if [[ ! "$puerto" =~ ^[0-9]+$ ]]; then
@@ -189,7 +321,7 @@ if [[ "${VEC_POSTGRES_PRUEBA_SOLO_SQL:-0}" == "1" ]]; then
     aplicar "$prueba_autoridad"
 else
     psql_admin --set exigir_autoridad=1 --set solo_registro=1 \
-        --set retener_registro=1 --file="$raiz/$prueba_autoridad" &
+        --set retener_registro=1 < "$raiz/$prueba_autoridad" &
     pid_registro_uno=$!
     registro_retenido=false
     for _ in $(seq 1 50); do
@@ -207,9 +339,9 @@ else
         exit 1
     fi
     psql_admin --set exigir_autoridad=1 --set solo_registro=1 \
-        --file="$raiz/$prueba_autoridad"
+        < "$raiz/$prueba_autoridad"
     wait "$pid_registro_uno"
-    psql_admin --set exigir_autoridad=1 --file="$raiz/$prueba_autoridad"
+    psql_admin --set exigir_autoridad=1 < "$raiz/$prueba_autoridad"
 fi
 
 # Ninguna identidad existente puede fabricar el nuevo registro ni leerlo.
@@ -262,6 +394,41 @@ $reinstalada$;
 SQL
 aplicar "$down_autoridad"
 
+# Incluso en modo solo SQL se conserva evidencia para probar que un rechazo de
+# 000001.down no pierde material ni muta el esquema.
+psql_admin <<'SQL'
+DO $marca_baseline$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM vec_ejecucion_documental_v4.atestacion_pdp)
+       AND NOT EXISTS (
+           SELECT 1 FROM vec_ejecucion_documental_v4.orden_generacion_documental
+       ) AND NOT EXISTS (SELECT 1 FROM vec_ejecucion_documental_v4.auditoria) THEN
+        UPDATE vec_ejecucion_documental_v4.control_cadena_auditoria
+           SET ultima_secuencia = 1,
+               ultima_huella_sha256 = repeat('1', 64)
+         WHERE control_id = true;
+    END IF;
+END
+$marca_baseline$;
+SQL
+if aplicar "$down_v4" >/dev/null 2>&1; then
+    echo "el down V4 destruyo evidencia sin opt-in explicito" >&2
+    exit 1
+fi
+psql_admin <<'SQL'
+DO $evidencia_conservada$
+BEGIN
+    IF to_regnamespace('vec_ejecucion_documental_v4') IS NULL
+       OR NOT EXISTS (
+           SELECT 1
+             FROM vec_ejecucion_documental_v4.control_cadena_auditoria
+            WHERE ultima_secuencia > 0
+       ) THEN
+        RAISE EXCEPTION 'el down fallido no conservo esquema y evidencia';
+    END IF;
+END
+$evidencia_conservada$;
+SQL
 docker exec --interactive \
     --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
     "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
@@ -281,7 +448,12 @@ DROP ROLE vec_v4_registro_prueba;
 DROP ROLE vec_v4_emisor_prueba;
 DROP ROLE vec_v4_ejecucion_prueba;
 SQL
-aplicar deploy/postgresql/ejecucion_documental_v4/roles_down.sql
+helper="$raiz/deploy/postgresql/ejecucion_documental_v4/probar_baseline_000001.sh"
+if [[ ! -x "$helper" ]]; then
+    echo "falta el helper ejecutable del baseline 000001" >&2
+    exit 1
+fi
+"$helper" "$contenedor" "$base" "$raiz"
 
 psql_admin <<'SQL'
 DO $retirada_final$

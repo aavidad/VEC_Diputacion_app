@@ -28,6 +28,13 @@ atestiguado. La caducidad de la capacidad V4 no se vuelve a evaluar: esa
 capacidad ya fue consumida atomicamente por `000001` y no autoriza este nuevo
 registro.
 
+El cotejo TLV replica tambien la validez semantica canonica V2: maximos y
+antipatrones de todos los alias, accion tecnica `escribir`, versiones y tamano
+positivos, huellas no nulas, MIME, zona y estados cerrados, UTC representable a
+microsegundos y retencion posterior coherente. La huella de manifiesto que
+entrega la proyeccion debe coincidir exactamente con la huella de plan de la
+orden V4; una discrepancia valida en forma se rechaza antes de persistir.
+
 Cada pareja `efecto_ref`/`paso_ref` usa OCC de creacion `0 -> 1`. El primer
 registro inserta en un unico `COMMIT` el estado terminal, un eslabon de la
 auditoria global y un evento outbox; el mismo texto canonico devuelve
@@ -118,6 +125,14 @@ Ademas de migraciones, ACL, RLS y pruebas Go, el runner comprueba:
 - cuentas `LOGIN` distintas para fuente, registro de autorizacion, emision y
   ejecucion, con comprobacion de ACL negativa sobre el nuevo registro;
 - desaparicion exacta de las tablas nuevas y de los cuatro roles V4 al cierre.
+
+`probar_integracion.sh` ejecuta el helper cerrado
+`probar_baseline_000001.sh`. Entre ambos conservan la matriz del runner padre
+`c499700`: relaciones futuras y `RESTRICT`, superficie minima de `pgcrypto`,
+membresias y otorgante, atributos/ACL/DDL/default privileges, carrera real
+`GRANT`/`roles_down` observada desde una conexion previa y ciclo con DBA
+alternativo. Los dos scripts exigen PostgreSQL `18.4` y cada fichero permanece
+por debajo del limite de 800 lineas.
 
 El runner es la unica evidencia dinamica prevista para este corte. No se ha
 ejecutado durante la produccion del commit: la integracion permanece bloqueada
