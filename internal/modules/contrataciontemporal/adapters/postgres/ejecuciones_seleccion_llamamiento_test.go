@@ -119,12 +119,77 @@ func TestEjecucionesSeleccionO6ConstructorFallaCerradoSinPool(t *testing.T) {
 	}
 }
 
+func TestEjecucionesSeleccionO6SelectoresCanonicosSonDeterministas(t *testing.T) {
+	t.Parallel()
+	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
+	textos := map[string]string{
+		"solicitud": string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)),
+		"recibo":    string(debeJSONSeleccionO6Prueba(t, recibo)),
+		"artefacto": string(debeJSONSeleccionO6Prueba(t, artefacto)),
+	}
+	type caso struct {
+		nombre, material, selector string
+		esperadas                  int
+	}
+	propuesta := `"propuesta":{"referencia":"` + recibo.Propuesta.Referencia + `"`
+	casos := []caso{
+		{"cabecera exterior", "artefacto", `{"esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,"tipo":"recibo_llamamiento"`, 1},
+		{"contrato version doble", "artefacto", `"contrato_version":1`, 2},
+		{"total posiciones", "artefacto", `"total_posiciones_orden":3`, 1},
+		{"propuesta recibo", "recibo", propuesta, 1}, {"propuesta artefacto", "artefacto", propuesta, 1},
+		{"version expediente", "solicitud", `"version_expediente":7`, 1},
+		{"clave inicial solicitud", "solicitud", `{"clave_idempotencia":`, 1},
+		{"clave inicial recibo", "recibo", `{"operacion_ref":`, 1},
+		{"orden recibo", "recibo", `"orden_seleccionado":2`, 1},
+		{"orden artefacto", "artefacto", `"orden_seleccionado":2`, 1},
+		{"operacion recibo", "recibo", `"operacion_ref":"` + recibo.OperacionRef + `"`, 1},
+		{"emitida recibo", "recibo", `"emitida_en":"2026-08-31T09:02:00Z"`, 1},
+		{"emitida artefacto doble", "artefacto", `"emitida_en":"2026-08-31T09:02:00Z"`, 2},
+		{"valida recibo", "recibo", `"valida_hasta":"2026-08-31T09:08:00Z"`, 1},
+		{"valida artefacto doble", "artefacto", `"valida_hasta":"2026-08-31T09:08:00Z"`, 2},
+		{"huella peticion", "artefacto", `"huella_peticion_sha256":"` + artefacto.Evidencia.HuellaPeticionSHA256 + `"`, 1},
+		{"huella respuesta", "artefacto", `"huella_respuesta_sha256":"` + artefacto.Evidencia.HuellaRespuestaSHA256 + `"`, 1},
+		{"huella artefacto", "artefacto", `"huella_artefacto_sha256":"` + artefacto.HuellaArtefactoSHA256 + `"`, 1},
+	}
+	for _, ligadura := range []struct{ nombre, selector string }{
+		{"accion", `"accion:evento:001"`}, {"evento", `"evento:llamamiento:001"`},
+		{"llamamiento", `"llamamiento:seleccion:001"`}, {"seleccion", strings.Repeat("9", 64)},
+		{"retencion", `"retencion:seleccion:001"`}, {"orden", `"orden_seleccionado":2`},
+	} {
+		casos = append(casos, caso{"ligadura " + ligadura.nombre + " recibo", "recibo", ligadura.selector, 1},
+			caso{"ligadura " + ligadura.nombre + " artefacto", "artefacto", ligadura.selector, 1})
+	}
+	for _, prueba := range casos {
+		if obtenidas := strings.Count(textos[prueba.material], prueba.selector); obtenidas != prueba.esperadas {
+			t.Errorf("selector %s en %s: esperadas=%d obtenidas=%d", prueba.nombre,
+				prueba.material, prueba.esperadas, obtenidas)
+		}
+	}
+}
+
+func TestEjecucionesSeleccionO6ActualizaUnaHuellaMaterialYConservaLaEstable(t *testing.T) {
+	t.Parallel()
+	estable, anterior, nueva := strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)
+	contenido := `{"huella_peticion_sha256":"` + estable + `","huella_respuesta_sha256":"` + anterior + `"}`
+	resultado, cambiaPeticion := actualizarHuellaMaterialSeleccionO6Integracion(
+		t, contenido, "huella_peticion_sha256", estable, estable)
+	resultado, cambiaRespuesta := actualizarHuellaMaterialSeleccionO6Integracion(
+		t, resultado, "huella_respuesta_sha256", anterior, nueva)
+	esperado := `{"huella_peticion_sha256":"` + estable + `","huella_respuesta_sha256":"` + nueva + `"}`
+	if cambiaPeticion || !cambiaRespuesta || resultado != esperado ||
+		strings.Count(resultado, `"huella_peticion_sha256":`) != 1 ||
+		strings.Count(resultado, `"huella_respuesta_sha256":`) != 1 {
+		t.Fatalf("actualizacion de huellas divergente: peticion=%v respuesta=%v contenido=%s",
+			cambiaPeticion, cambiaRespuesta, resultado)
+	}
+}
+
 func TestEjecucionesSeleccionO6ReservaClasificaTodosLosEstados(t *testing.T) {
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	solicitudJSON := string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud))
 	reciboJSON := string(debeJSONSeleccionO6Prueba(t, recibo))
 	artefactoJSON := string(debeJSONSeleccionO6Prueba(t, artefacto))
-	reserva := prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa"
+	reserva := prefijoReservaSeleccionO6 + strings.Repeat("6e", 32)
 
 	casos := []struct {
 		nombre    string
@@ -251,7 +316,7 @@ func TestEjecucionesSeleccionO6MutaSoloMedianteFachadasNominales(t *testing.T) {
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	reserva := ports.ReservaEjecucionSeleccionLlamamiento{
 		Solicitud:  solicitud,
-		ReservaRef: prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa",
+		ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 	}
 	casos := []struct {
 		nombre  string
@@ -302,7 +367,7 @@ func TestEjecucionesSeleccionO6CommitAmbiguoNuncaEsExitoNiSeReintenta(t *testing
 	solicitud, _, _ := materialesEjecucionSeleccionO6Prueba(t)
 	reserva := ports.ReservaEjecucionSeleccionLlamamiento{
 		Solicitud:  solicitud,
-		ReservaRef: prefijoReservaSeleccionO6 + "6e76b7ca-7fa8-41de-b097-e0401d4769aa",
+		ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 	}
 	causaPrivada := errors.New("detalle-interno-no-publicable")
 	adaptador, iniciador, tx := nuevoAdaptadorEjecucionSeleccionO6Prueba(
@@ -365,7 +430,7 @@ func TestEjecucionesSeleccionO6RechazaEntradasAntesDePGX(t *testing.T) {
 	artefacto.Evidencia.EvidenciaRef = strings.Repeat("x", maximoCargaSeleccionO6+1)
 	if err := adaptador.Confirmar(context.Background(),
 		ports.ReservaEjecucionSeleccionLlamamiento{
-			Solicitud: solicitud, ReservaRef: prefijoReservaSeleccionO6 + claveEjecucionSeleccionO6Prueba,
+			Solicitud: solicitud, ReservaRef: prefijoReservaSeleccionO6 + strings.Repeat("6e", 32),
 		}, recibo, artefacto); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("artefacto sobredimensionado aceptado: %v", err)
 	}

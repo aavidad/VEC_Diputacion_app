@@ -23,7 +23,7 @@ const (
 	funcionConfirmarSeleccionO6        = "vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1"
 	funcionConsultarSeleccionO6        = "vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1"
 
-	prefijoReservaSeleccionO6 = "reserva:seleccion-llamamiento:"
+	prefijoReservaSeleccionO6 = "reserva:seleccion-llamamiento:v2:"
 	maximoCargaSeleccionO6    = 1024 * 1024
 	// El sobre tiene estructura fija y menos de cien campos. Este margen cubre
 	// holgadamente nombres, comillas, delimitadores, booleanos, enteros y
@@ -426,8 +426,7 @@ func estadoDesdeFilaSeleccionO6(
 		var recibo ports.ReciboSolicitudLlamamientoBolsa
 		if err != nil || decodificarJSONEstricto([]byte(fila.ReciboJSON), &recibo) != nil ||
 			recibo != artefacto.Recibo || !confirmacionSeleccionO6Ligada(
-			ports.ReservaEjecucionSeleccionLlamamiento{Solicitud: estado.Solicitud,
-				ReservaRef: prefijoReservaSeleccionO6 + estado.Solicitud.ClaveIdempotencia},
+			ports.ReservaEjecucionSeleccionLlamamiento{Solicitud: estado.Solicitud},
 			recibo, artefacto,
 		) {
 			return ports.EstadoEjecucionSeleccionLlamamiento{}, errEjecucionesSeleccionLlamamientoPostgreSQL
@@ -502,12 +501,23 @@ func descontarTextoSeleccionO6(valor reflect.Value, restante *int) bool {
 }
 
 func reservaSeleccionO6Valida(reserva ports.ReservaEjecucionSeleccionLlamamiento) bool {
-	return referenciaReservaSeleccionO6Valida(reserva.ReservaRef)
+	return reserva.Solicitud.Validar() == nil && referenciaReservaSeleccionO6Valida(reserva.ReservaRef)
 }
 
 func referenciaReservaSeleccionO6Valida(valor string) bool {
-	return strings.HasPrefix(valor, prefijoReservaSeleccionO6) &&
-		ports.ClaveIdempotenciaValida(strings.TrimPrefix(valor, prefijoReservaSeleccionO6))
+	if !strings.HasPrefix(valor, prefijoReservaSeleccionO6) {
+		return false
+	}
+	sufijo := strings.TrimPrefix(valor, prefijoReservaSeleccionO6)
+	if len(sufijo) != 64 || sufijo == strings.Repeat("0", 64) {
+		return false
+	}
+	for _, caracter := range sufijo {
+		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func efectoSeleccionO6Valido(efecto ports.EfectoSeleccionLlamamiento) bool {
