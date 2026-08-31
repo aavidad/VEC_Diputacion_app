@@ -79,6 +79,55 @@ func (f *FachadaIdentidadOffline) Autenticar(
 	return f.servicio.ProyectarCapsulaIdentidadPeticion(ctx, identidad, canal)
 }
 
+// AutenticarYVincular consume el canal TLS interno una sola vez, autentica la
+// asercion y liga inmediatamente la capsula opaca al contexto de la misma
+// peticion. El contexto original nunca se devuelve ante un fallo.
+func (f *FachadaIdentidadOffline) AutenticarYVincular(
+	ctx context.Context,
+	asercionProtegida []byte,
+) (context.Context, error) {
+	if f == nil || f.servicio == nil || f.propietario == nil ||
+		interfazNulaIdentidadOffline(ctx) {
+		return nil, ErrIdentidadOfflineNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	capacidad, valida := ctx.Value(
+		claveContextoCanalTLSInterno{},
+	).(*capacidadCanalTLSInterno)
+	if !valida {
+		return nil, httpseguridad.ErrCanalProxyNoAutenticado
+	}
+	estadoTLS, consumida := capacidad.consumir(f.propietario)
+	if !consumida {
+		return nil, httpseguridad.ErrCanalProxyNoAutenticado
+	}
+
+	canal, err := f.servicio.AutenticarCanalTLSMutuo(estadoTLS)
+	if err != nil || canal.Tipo() != httpseguridad.CanalProxyTLSMutuo ||
+		canal.Superficie() != httpseguridad.SuperficieInternaCorporativa {
+		return nil, httpseguridad.ErrCanalProxyNoAutenticado
+	}
+	credencial, err := httpseguridad.NuevaCredencialProxy(asercionProtegida, canal)
+	if err != nil {
+		return nil, err
+	}
+	identidad, err := f.servicio.Resolver(ctx, credencial)
+	if err != nil {
+		return nil, err
+	}
+	capsula, err := f.servicio.ProyectarCapsulaIdentidadPeticion(ctx, identidad, canal)
+	if err != nil {
+		return nil, err
+	}
+	ctxVinculado, err := f.servicio.VincularCapsulaIdentidadPeticion(ctx, capsula, canal)
+	if err != nil {
+		return nil, err
+	}
+	return ctxVinculado, nil
+}
+
 func interfazNulaIdentidadOffline(valor any) bool {
 	if valor == nil {
 		return true
