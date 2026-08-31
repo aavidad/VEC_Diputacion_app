@@ -321,8 +321,8 @@ BEGIN
        OR v_ejecucion.reserva_ref IS DISTINCT FROM p_reserva
        OR v_ejecucion.situacion <> 'propietaria'
        OR NOT v_ejecucion.ventana_orden_abierta
-       OR p_efecto IS DISTINCT FROM CASE WHEN v_ejecucion.ventana_llamamiento_abierta
-              THEN 'solicitar_llamamiento' ELSE 'preparar_orden' END THEN
+       OR p_efecto IS DISTINCT FROM (CASE WHEN v_ejecucion.ventana_llamamiento_abierta
+              THEN 'solicitar_llamamiento' ELSE 'preparar_orden' END) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'marca O6 incompatible';
     END IF;
     UPDATE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
