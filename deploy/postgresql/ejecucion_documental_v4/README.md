@@ -10,6 +10,52 @@ ejecucion documental, las extensiones transaccionales del nucleo de
 autorizacion y un runner efimero sobre PostgreSQL 18.4. La aplicacion no aplica
 estas migraciones durante el arranque.
 
+## Registro de autoridad de objeto esperado V1
+
+La migracion aditiva
+`migraciones/000002_registro_autoridad_objeto_esperado_v1` conserva la salida
+especializada de `AutoridadObjetoEsperadoDocumentalV1.PrepararRegistro`. Recibe
+los bytes de un documento JSON plano de diecinueve propiedades; limita el
+tamano y calcula la huella de esos bytes antes de interpretar el `json`
+original. Comprueba claves duplicadas y tipos antes de convertir a `jsonb`.
+No es un codec publico ni permite reconstruir la capacidad Go.
+
+La funcion coteja el TLV canonico completo del recibo material V2 y obtiene de
+el, no de V4, la referencia durable, conector, efecto y pareja exacta de
+objeto/version. La orden V4 se bloquea solo para confirmar la misma referencia
+de efecto y conservar los compromisos P0-1 de plan autorizado y efecto
+atestiguado. La caducidad de la capacidad V4 no se vuelve a evaluar: esa
+capacidad ya fue consumida atomicamente por `000001` y no autoriza este nuevo
+registro.
+
+Cada pareja `efecto_ref`/`paso_ref` usa OCC de creacion `0 -> 1`. El primer
+registro inserta en un unico `COMMIT` el estado terminal, un eslabon de la
+auditoria global y un evento outbox; el mismo texto canonico devuelve
+exactamente la respuesta del registro original y cualquier variante se
+rechaza. Las tres tablas son privadas, append-only y fuerzan RLS.
+
+Se persisten los bytes canonicos V2 —formados solo por referencias opacas y
+hechos materiales minimizados— y todas sus huellas y ligaduras. El codigo HMAC
+o COSE solo atraviesa la llamada para calcular longitud, huella y el sello de
+atestacion definido por el puerto: no se guarda el codigo, un sobre completo
+ni una clave. Tampoco se guarda la proyeccion JSON original.
+
+`registrar_autoridad_objeto_esperado_v1` es `SECURITY DEFINER` porque la futura
+identidad tecnica solo debe recibir `USAGE` del esquema y `EXECUTE`, nunca DML
+sobre las tres tablas privadas. Tiene propietario y `search_path` fijos, y no
+se concede a `PUBLIC`, al emisor de capacidad ni al ejecutor atestado. Por
+tanto este corte SQL no puede ser invocado por un runtime con valores libres.
+El siguiente corte debe aportar un adaptador Go y una identidad tecnica dedicada que
+reciban la capacidad opaca, ejecuten `PrepararRegistro` con los verificadores
+V2 durables y solo entonces llamen a esta operacion. Hasta ese corte, la
+integracion funcional y la produccion permanecen en **NO-GO**.
+
+El `down` se permite directamente cuando no existe historia. Con registros,
+solo el opt-in de limpieza del runner efimero puede retirar una cola propia,
+contigua y situada al final de la auditoria global; una historia intercalada o
+una dependencia externa falla cerrada. Tras restaurar el eslabon anterior,
+usa exclusivamente `RESTRICT`.
+
 `roles_up.sql` exige superusuario antes de crear estado. `CREATEROLE`, incluso
 combinado con la propiedad de la base, no es una autoridad de bootstrap valida.
 
@@ -63,24 +109,17 @@ Ademas de migraciones, ACL, RLS y pruebas Go, el runner comprueba:
   superusuario;
 - retirada y reinstalacion limpias de un bootstrap interrumpido antes de la
   primera migracion;
-- membresias entrantes, salientes y un rol V4 presente solo como `grantor`;
-- contraseña, caducidad y ajustes globales o por base manipulados;
-- propietario, ACL, `proconfig`, etiquetas, objetos y usos de guarda alterados;
-- ACL de base, esquema, funcion, tabla y privilegios por defecto adicionales;
-- un ciclo completo creado y retirado por un DBA superusuario alternativo,
-  separando su propiedad del `grantor` bootstrap.
+- aplicacion, matriz adversarial y replay concurrente del registro de
+  autoridad de objeto con sesiones separadas;
+- OCC de creacion, terminalidad, ligaduras TLV V2, compromisos P0-1,
+  minimizacion de atestacion y atomicidad estado/auditoria/outbox;
+- rechazo efectivo del ejecutor V4, `DOWN` protegido con historia, limpieza
+  explicita, reinstalacion y retirada final sin historia;
+- cuentas `LOGIN` distintas para fuente, registro de autorizacion, emision y
+  ejecucion, con comprobacion de ACL negativa sobre el nuevo registro;
+- desaparicion exacta de las tablas nuevas y de los cuatro roles V4 al cierre.
 
-Finalmente ejecuta una carrera real entre bases. Un `GRANT` espera al proceso
-de retirada sin ser cancelado ni terminado, falla naturalmente tras
-`DROP ROLE` con SQLSTATE `42704` y la identidad concreta del rol retirado, y se
-verifican:
-
-- los tres campos OID de `pg_auth_members`;
-- la desaparicion exacta de los cuatro roles;
-- la ausencia global de membresias huerfanas;
-- que la retirada no reabra las funciones de `pgcrypto` a `PUBLIC`.
-
-El observador se conecta antes de congelar `pg_database` y usa
-`pg_stat_get_activity()` y `pg_lock_status()` directamente. La vista
-`pg_stat_activity` consulta `pg_authid` y quedaria bloqueada por la propia
-proteccion que se pretende demostrar.
+El runner es la unica evidencia dinamica prevista para este corte. No se ha
+ejecutado durante la produccion del commit: la integracion permanece bloqueada
+hasta reproducirlo en PostgreSQL 18.4 desechable y obtener revision
+independiente.
