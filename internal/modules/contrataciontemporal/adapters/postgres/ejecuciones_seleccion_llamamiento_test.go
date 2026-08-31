@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -201,17 +202,18 @@ func TestEjecucionesSeleccionO6ResuelveSoloTerminalDurable(t *testing.T) {
 
 func TestEjecucionesSeleccionO6ConsultaEstadoPorParExacto(t *testing.T) {
 	t.Parallel()
-	solicitud, _, _ := materialesEjecucionSeleccionO6Prueba(t)
+	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	adaptador, iniciador, tx := nuevoAdaptadorEjecucionSeleccionO6Prueba(
 		t, filaEjecucionSeleccionO6Prueba{valores: []any{
-			"ocupada", string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)),
-			"", "preparar_orden", "", "",
+			"confirmada", string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)),
+			"", "", string(debeJSONSeleccionO6Prueba(t, recibo)),
+			string(debeJSONSeleccionO6Prueba(t, artefacto)),
 		}},
 	)
 	estado, err := adaptador.ConsultarEstado(context.Background(), solicitud)
 	if err != nil || estado.Solicitud != solicitud ||
-		estado.Situacion != ports.EjecucionSeleccionLlamamientoOcupada ||
-		estado.EfectoPosible != ports.EfectoPrepararOrdenSeleccionLlamamiento {
+		estado.Situacion != ports.EjecucionSeleccionLlamamientoConfirmada ||
+		estado.ReciboConfirmado != recibo || estado.ArtefactoConfirmado != artefacto {
 		t.Fatalf("consulta no ligada al par exacto: estado=%#v err=%v", estado, err)
 	}
 	exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadOnly,
@@ -256,6 +258,13 @@ func TestEjecucionesSeleccionO6MutaSoloMedianteFachadasNominales(t *testing.T) {
 			if err := caso.llamar(adaptador); err != nil {
 				t.Fatal(err)
 			}
+			if caso.nombre == "confirmar" {
+				canonico := string(debeJSONSeleccionO6Prueba(t, artefacto))
+				recibido, ok := tx.argumentos[0][5].(string)
+				if !ok || recibido != canonico {
+					t.Fatalf("artefacto no cruzo como texto canonico exacto: %T", tx.argumentos[0][5])
+				}
+			}
 			exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadWrite, caso.funcion)
 		})
 	}
@@ -298,6 +307,7 @@ func TestEjecucionesSeleccionO6NoReintentaSQLStateConcurrente(t *testing.T) {
 }
 
 func TestEjecucionesSeleccionO6RechazaEntradasAntesDePGX(t *testing.T) {
+	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	adaptador, iniciador, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(
 		t, filaEjecucionSeleccionO6Prueba{valores: []any{true}},
 	)
@@ -308,6 +318,28 @@ func TestEjecucionesSeleccionO6RechazaEntradasAntesDePGX(t *testing.T) {
 	if _, err := adaptador.Reservar(context.Background(),
 		ports.SolicitudReservaEjecucionSeleccionLlamamiento{}); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("solicitud vacia aceptada: %v", err)
+	}
+	primerCaracter := byte('a')
+	if solicitud.HuellaSemantica[0] == primerCaracter {
+		primerCaracter = 'b'
+	}
+	for _, huella := range []string{
+		strings.Repeat("0", 64), string(primerCaracter) + solicitud.HuellaSemantica[1:],
+	} {
+		mutada := solicitud
+		mutada.HuellaSemantica = huella
+		if _, err := adaptador.Reservar(context.Background(), mutada); !errors.Is(
+			err, errEjecucionesSeleccionLlamamientoPostgreSQL,
+		) {
+			t.Fatalf("huella no semantica aceptada: %v", err)
+		}
+	}
+	artefacto.Evidencia.EvidenciaRef = strings.Repeat("x", maximoCargaSeleccionO6+1)
+	if err := adaptador.Confirmar(context.Background(),
+		ports.ReservaEjecucionSeleccionLlamamiento{
+			Solicitud: solicitud, ReservaRef: prefijoReservaSeleccionO6 + claveEjecucionSeleccionO6Prueba,
+		}, recibo, artefacto); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
+		t.Fatalf("artefacto sobredimensionado aceptado: %v", err)
 	}
 	if iniciador.inicios != 0 {
 		t.Fatalf("entrada invalida cruzo PGX: %d", iniciador.inicios)
@@ -325,6 +357,30 @@ func TestEjecucionesSeleccionO6TerminalAdulteradoFallaOpaco(t *testing.T) {
 	_, _, err := adaptador.ResolverTerminal(context.Background(), claveEjecucionSeleccionO6Prueba)
 	if !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("terminal adulterado aceptado: %v", err)
+	}
+}
+
+func TestEjecucionesSeleccionO6RechazaNormalizacionJSONBDelArtefacto(t *testing.T) {
+	t.Parallel()
+	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
+	canonico := debeJSONSeleccionO6Prueba(t, artefacto)
+	var vista map[string]any
+	if err := json.Unmarshal(canonico, &vista); err != nil {
+		t.Fatal(err)
+	}
+	normalizado := debeJSONSeleccionO6Prueba(t, vista)
+	if bytes.Equal(canonico, normalizado) {
+		t.Fatal("la regresion no altero el orden canonico")
+	}
+	adaptador, _, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(t,
+		filaEjecucionSeleccionO6Prueba{valores: []any{
+			"confirmada", string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)),
+			"", "", string(debeJSONSeleccionO6Prueba(t, recibo)), string(normalizado),
+		}},
+	)
+	_, _, err := adaptador.ResolverTerminal(context.Background(), claveEjecucionSeleccionO6Prueba)
+	if !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
+		t.Fatalf("normalizacion JSONB aceptada: %v", err)
 	}
 }
 

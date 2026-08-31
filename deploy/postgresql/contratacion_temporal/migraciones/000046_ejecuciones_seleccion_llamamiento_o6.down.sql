@@ -48,12 +48,12 @@ REVOKE EXECUTE ON FUNCTION
     vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
     vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text),
     vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb),
-    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, jsonb),
+    vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, text),
     vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, jsonb)
     FROM vec_contratacion_temporal_ejecutor;
 
 DROP FUNCTION vec_contratacion_temporal.consultar_seleccion_llamamiento_o6_v1(uuid, text, jsonb) RESTRICT;
-DROP FUNCTION vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, jsonb) RESTRICT;
+DROP FUNCTION vec_contratacion_temporal.confirmar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, jsonb, text) RESTRICT;
 DROP FUNCTION vec_contratacion_temporal.liberar_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb) RESTRICT;
 DROP FUNCTION vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text) RESTRICT;
 DROP FUNCTION vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1(uuid, text, text, jsonb, text) RESTRICT;

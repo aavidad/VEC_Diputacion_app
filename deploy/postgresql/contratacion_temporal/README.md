@@ -511,7 +511,11 @@ tabla no es accesible por el ejecutor: las únicas entradas runtime son siete
 fachadas nominales `SECURITY DEFINER`. La reserva, las dos ventanas de efecto,
 la liberación anterior a efectos, la marca indeterminada, la confirmación y la
 consulta quedan serializadas por fila. Ninguna fachada reintenta ni ejecuta
-Bolsa, y la confirmación conserva juntos el recibo y el artefacto exactos.
+Bolsa. La confirmación conserva el artefacto canónico como texto exacto; una
+vista `jsonb` transitoria solo valida su estructura cerrada, huellas no nulas,
+evidencia, contexto, cronología, seudónimo y ligadura con recibo y solicitud.
+El adaptador aplica antes los límites estructurales y el validador semántico
+autoritativo de la solicitud.
 
 La puerta focal preparada para una base desechable PostgreSQL 18.4 es:
 
@@ -523,8 +527,11 @@ VEC_CT_O6_BD_DESECHABLE=SI \
 El runner usa exclusivamente la conexión libpq del entorno, no acepta ni
 imprime DSN, exige superusuario de una base de prueba exclusiva, comprueba
 estados, ventanas únicas, liberación, terminales y ACL, y retira los objetos
-O6 al terminar. Este corte solo entrega el contrato y el runner: no acredita
-su ejecución real, carreras multisesión, despliegue ni composición.
+O6 al terminar. También prepara carreras de ocho sesiones, límites negativos,
+reversión denegada con historia y el artefacto completo. Las pruebas Go cubren
+el recorrido canónico Go–PG–Go en resolución, reserva y reconciliación. Este
+corte solo entrega el contrato y el runner: no acredita su ejecución real,
+despliegue ni composición.
 
 ## Reversión protegida
 

@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -160,20 +161,24 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) Confirmar(
 	recibo ports.ReciboSolicitudLlamamientoBolsa,
 	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
 ) error {
+	if !e.valido(ctx) || !reservaSeleccionO6Valida(reserva) ||
+		!confirmacionSeleccionO6DentroDeLimite(recibo, artefacto) {
+		return errEjecucionesSeleccionLlamamientoPostgreSQL
+	}
 	solicitudJSON, errSolicitud := codificarSolicitudSeleccionO6(reserva.Solicitud)
 	reciboJSON, errRecibo := json.Marshal(recibo)
 	artefactoJSON, errArtefacto := json.Marshal(artefacto)
-	if !e.valido(ctx) || errSolicitud != nil || errRecibo != nil || errArtefacto != nil ||
-		!reservaSeleccionO6Valida(reserva) || !confirmacionSeleccionO6Ligada(reserva, recibo, artefacto) ||
+	if errSolicitud != nil || errRecibo != nil || errArtefacto != nil ||
+		!confirmacionSeleccionO6Ligada(reserva, recibo, artefacto) ||
 		len(reciboJSON) == 0 || len(artefactoJSON) == 0 ||
 		len(reciboJSON)+len(artefactoJSON) > maximoCargaSeleccionO6 {
 		return errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
 	return e.ejecutar(ctx, `
 		SELECT `+funcionConfirmarSeleccionO6+`(
-			$1::uuid, $2::text, $3::text, $4::jsonb, $5::jsonb, $6::jsonb
+			$1::uuid, $2::text, $3::text, $4::jsonb, $5::jsonb, $6::text
 		)`, reserva.Solicitud.ClaveIdempotencia, reserva.Solicitud.HuellaSemantica,
-		reserva.ReservaRef, solicitudJSON, reciboJSON, artefactoJSON)
+		reserva.ReservaRef, solicitudJSON, reciboJSON, string(artefactoJSON))
 }
 
 func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ConsultarEstado(
@@ -311,14 +316,7 @@ func codificarSolicitudSeleccionO6(
 }
 
 func (s solicitudEjecucionSeleccionO6) valida() bool {
-	return ports.ClaveIdempotenciaValida(s.ClaveIdempotencia) && huellaSHA256SeleccionO6Valida(s.HuellaSemantica) &&
-		domain.ReferenciaOpacaValida(s.OrganizacionRef) && domain.ReferenciaOpacaValida(s.ExpedienteRef) &&
-		s.VersionExpediente > 0 && s.VersionExpediente <= ports.MaximoEnteroSeguroIntegracionBolsa &&
-		domain.ReferenciaOpacaValida(s.CorrelacionRef) && s.AccionOrden.Validar() == nil &&
-		s.Finalidad.Validar() == nil && s.Necesidad.Validar() == nil && s.Bolsa.Validar() == nil &&
-		s.Politica.Validar() == nil && s.MaximoPosiciones > 0 &&
-		s.MaximoPosiciones <= ports.MaximoElementosIntegracionBolsa && s.CantidadDisponible > 0 &&
-		s.CantidadDisponible <= s.MaximoPosiciones
+	return s.puertos().Validar() == nil
 }
 
 func (s solicitudEjecucionSeleccionO6) puertos() ports.SolicitudReservaEjecucionSeleccionLlamamiento {
@@ -409,6 +407,49 @@ func confirmacionSeleccionO6Ligada(
 		artefacto.Comando.MaximaPosicionEvaluable == artefacto.Comando.TotalPosicionesOrden
 }
 
+var tipoInstanteSeleccionO6 = reflect.TypeFor[time.Time]()
+
+// confirmacionSeleccionO6DentroDeLimite recorre solo la estructura estatica
+// antes de que json.Marshal o Validar recodifiquen el artefacto.
+func confirmacionSeleccionO6DentroDeLimite(
+	recibo ports.ReciboSolicitudLlamamientoBolsa,
+	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
+) bool {
+	restante := maximoCargaSeleccionO6
+	return descontarTextoSeleccionO6(reflect.ValueOf(recibo), &restante) &&
+		descontarTextoSeleccionO6(reflect.ValueOf(artefacto), &restante)
+}
+
+func descontarTextoSeleccionO6(valor reflect.Value, restante *int) bool {
+	if !valor.IsValid() || restante == nil || *restante < 0 {
+		return false
+	}
+	if valor.Type() == tipoInstanteSeleccionO6 {
+		return true
+	}
+	switch valor.Kind() {
+	case reflect.String:
+		// Un byte de entrada puede ocupar seis bytes como escape JSON.
+		if valor.Len() > *restante/6 {
+			return false
+		}
+		*restante -= valor.Len() * 6
+		return true
+	case reflect.Struct:
+		for indice := 0; indice < valor.NumField(); indice++ {
+			if !descontarTextoSeleccionO6(valor.Field(indice), restante) {
+				return false
+			}
+		}
+		return true
+	case reflect.Bool, reflect.Uint, reflect.Uint8, reflect.Uint16,
+		reflect.Uint32, reflect.Uint64:
+		return true
+	default:
+		return false
+	}
+}
+
 func reservaSeleccionO6Valida(reserva ports.ReservaEjecucionSeleccionLlamamiento) bool {
 	return referenciaReservaSeleccionO6Valida(reserva.ReservaRef)
 }
@@ -425,18 +466,6 @@ func efectoSeleccionO6Valido(efecto ports.EfectoSeleccionLlamamiento) bool {
 
 func efectoSeleccionO6ValidoOVacio(efecto ports.EfectoSeleccionLlamamiento) bool {
 	return efecto == "" || efectoSeleccionO6Valido(efecto)
-}
-
-func huellaSHA256SeleccionO6Valida(valor string) bool {
-	if len(valor) != 64 {
-		return false
-	}
-	for _, caracter := range valor {
-		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
-			return false
-		}
-	}
-	return true
 }
 
 func errorEjecucionesSeleccionO6(ctx context.Context) error {
