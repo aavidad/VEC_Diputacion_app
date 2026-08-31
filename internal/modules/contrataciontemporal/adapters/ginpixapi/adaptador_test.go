@@ -92,6 +92,21 @@ func (a *autenticadorHastaCancelacion) Autorizar(
 	return ctx.Err()
 }
 
+type autenticadorCancelaSinError struct {
+	cancelar context.CancelFunc
+	total    atomic.Int32
+}
+
+func (a *autenticadorCancelaSinError) Autorizar(
+	_ context.Context,
+	peticion *http.Request,
+) error {
+	a.total.Add(1)
+	peticion.Header.Set("Authorization", secretoSinteticoPrueba)
+	a.cancelar()
+	return nil
+}
+
 func TestAdaptadorEnviaReproduceYConsultaConReciboExacto(t *testing.T) {
 	preparacion, _ := preparacionAPIGINPIXPrueba(t)
 	cuerpoPreparado, _ := preparacion.Cuerpo()
@@ -244,6 +259,33 @@ func TestAdaptadorTimeoutTrasEmitirQuedaIndeterminado(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) ||
 		!errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) || transporte.total() != 1 {
 		t.Fatalf("timeout mal clasificado: %v / llamadas=%d", err, transporte.total())
+	}
+}
+
+func TestAdaptadorCancelacionTrasAutenticarNoEmite(t *testing.T) {
+	preparacion, _ := preparacionAPIGINPIXPrueba(t)
+	operaciones := map[string]func(*Adaptador, context.Context) (ReciboExterno, error){
+		"enviar":    func(a *Adaptador, ctx context.Context) (ReciboExterno, error) { return a.Enviar(ctx, preparacion) },
+		"consultar": func(a *Adaptador, ctx context.Context) (ReciboExterno, error) { return a.Consultar(ctx, preparacion) },
+	}
+	for nombre, ejecutar := range operaciones {
+		t.Run(nombre, func(t *testing.T) {
+			ctx, cancelar := context.WithCancel(context.Background())
+			autenticador := &autenticadorCancelaSinError{cancelar: cancelar}
+			transporte := &transporteFalso{funcion: func(_ int, _ *http.Request) (*http.Response, error) {
+				t.Fatal("la cancelacion previa a emision alcanzo el transporte")
+				return nil, nil
+			}}
+			adaptador := nuevoAdaptadorPrueba(t, transporte, autenticador, politicaPrueba())
+
+			_, err := ejecutar(adaptador, ctx)
+			if !errors.Is(err, context.Canceled) ||
+				errors.Is(err, ErrOperacionAPIGINPIXIndeterminada) ||
+				transporte.total() != 0 || autenticador.total.Load() != 1 {
+				t.Fatalf("cancelacion tras autenticar mal clasificada: %v / transporte=%d / auth=%d",
+					err, transporte.total(), autenticador.total.Load())
+			}
+		})
 	}
 }
 

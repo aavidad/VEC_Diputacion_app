@@ -166,6 +166,9 @@ func (a *Adaptador) ejecutar(
 		}
 		return ReciboExterno{}, ErrAutenticacionAPIGINPIXFallida
 	}
+	if errContexto := operacion.Err(); errContexto != nil {
+		return ReciboExterno{}, errorContextoOperacion(errContexto, clase, false)
+	}
 	respuesta, errTransporte := a.transporte.RoundTrip(peticion)
 	if errTransporte != nil {
 		cerrarRespuesta(respuesta)
