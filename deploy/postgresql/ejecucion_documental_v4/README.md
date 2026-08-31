@@ -110,6 +110,36 @@ cualquier dependencia no prevista.
 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 ```
 
+El runner solo acepta `VEC_POSTGRES_TEST_IMAGE` como referencia completa
+`nombre@sha256:<digest>`, exige que ya exista en el almacen local y arranca con
+`--pull=never`. `VEC_POSTGRES_TEST_PREFIX` permite reservar una ejecucion
+aislada; admite entre 8 y 48 caracteres minusculos, numericos o guiones, sin
+guiones consecutivos ni en los extremos. Si no se aporta, el runner deriva un
+prefijo del UID y PID. Para la revision dinamica de este corte se reserva
+`vecdoc-r3-dyn-20260831` y se aportara por entorno el digest local completo
+indicado por direccion.
+
+Del prefijo se derivan exactamente el contenedor
+`vec-ejecucion-v4-pg-<prefijo>` y la red `<prefijo>-internal`. Antes de crear
+estado se rechaza cualquier contenedor, red o volumen que use esos nombres o
+la etiqueta `vec.prefijo`; contenedor y red nuevos llevan tambien
+`vec.propietario=ejecucion_documental_v4` y
+`vec.tarea=VEC-DOC-RUNNER-AISLADO-R5`. La red es propia e interna y el
+contenedor no publica puertos ni escucha TCP.
+
+PostgreSQL usa raiz de solo lectura, datos en un `tmpfs` acotado, `/tmp` en
+otro `tmpfs`, dos CPU como maximo, 1 GiB de memoria y 256 procesos. El unico
+paso al host es un directorio aleatorio creado por `mktemp` bajo `/tmp`,
+montado en `/run/vec-postgresql`. Las cinco DSN que consume la prueba Go
+señalan exclusivamente a ese socket Unix y conservan credenciales sinteticas
+que el runner no imprime.
+
+El `trap` conserva el estado original y retira por identificador exacto solo
+el contenedor y la red cuyas tres etiquetas siguen coincidiendo. Despues
+elimina unicamente los dos nombres exactos del socket y su directorio propio;
+no usa patrones de borrado. El cierre vuelve a consultar nombres y etiquetas
+y solo acredita `residuos cero` si no queda ninguno de esos recursos.
+
 Ademas de migraciones, ACL, RLS y pruebas Go, el runner comprueba:
 
 - rechazo sin estado de un propietario de base con `CREATEROLE` pero no

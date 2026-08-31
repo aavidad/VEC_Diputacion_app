@@ -3,7 +3,19 @@ set -euo pipefail
 
 raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-contenedor="vec-ejecucion-v4-pg-${USER:-usuario}-$$"
+prefijo=${VEC_POSTGRES_TEST_PREFIX:-vecdoc-r5-${UID}-$$}
+propietario=ejecucion_documental_v4
+tarea=VEC-DOC-RUNNER-AISLADO-R5
+etiqueta_propietario="vec.propietario=$propietario"
+etiqueta_tarea="vec.tarea=$tarea"
+etiqueta_prefijo="vec.prefijo=$prefijo"
+contenedor="vec-ejecucion-v4-pg-${prefijo}"
+red="${prefijo}-internal"
+socket_contenedor=/run/vec-postgresql
+directorio_socket=
+firma_directorio=
+contenedor_id=
+red_id=
 base=vec_ejecucion_v4_prueba
 clave_admin="admin-v4-$$"
 clave_fuente="fuente-v4-$$"
@@ -11,14 +23,123 @@ clave_registro="registro-v4-$$"
 clave_emisor="emisor-v4-$$"
 clave_ejecucion="ejecucion-v4-$$"
 
+if (( ${#prefijo} < 8 || ${#prefijo} > 48 )) \
+    || [[ ! "$prefijo" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    echo "VEC_POSTGRES_TEST_PREFIX debe tener 8..48 caracteres [a-z0-9-], sin guiones consecutivos ni extremos" >&2
+    exit 1
+fi
+if [[ ! "$imagen" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
+    echo "VEC_POSTGRES_TEST_IMAGE debe ser una referencia exacta nombre@sha256" >&2
+    exit 1
+fi
+if ! imagen_id=$(docker image inspect --format '{{.Id}}' "$imagen" 2>/dev/null); then
+    echo "la imagen PostgreSQL exacta no existe localmente" >&2
+    exit 1
+fi
+if [[ ! "$imagen_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    echo "la imagen PostgreSQL local no resolvio a un identificador exacto" >&2
+    exit 1
+fi
+if docker container inspect "$contenedor" >/dev/null 2>&1 \
+    || docker network inspect "$red" >/dev/null 2>&1; then
+    echo "el prefijo solicitado colisiona con un nombre Docker preexistente" >&2
+    exit 1
+fi
+if [[ -n "$(docker container ls --all --quiet --filter "label=$etiqueta_prefijo")" \
+    || -n "$(docker network ls --quiet --filter "label=$etiqueta_prefijo")" \
+    || -n "$(docker volume ls --quiet --filter "label=$etiqueta_prefijo")" ]]; then
+    echo "el prefijo solicitado ya etiqueta recursos Docker preexistentes" >&2
+    exit 1
+fi
+
 limpiar() {
-    docker rm -f "$contenedor" >/dev/null 2>&1 || true
+    local estado=$1 error_limpieza=0 firma firma_actual residuos
+    trap - EXIT INT TERM
+    set +e
+
+    if [[ -n "$contenedor_id" ]] \
+        && docker container inspect "$contenedor_id" >/dev/null 2>&1; then
+        firma=$(docker container inspect --format \
+            '{{.Name}}|{{index .Config.Labels "vec.propietario"}}|{{index .Config.Labels "vec.tarea"}}|{{index .Config.Labels "vec.prefijo"}}' \
+            "$contenedor_id" 2>/dev/null)
+        if [[ "$firma" != "/$contenedor|$propietario|$tarea|$prefijo" ]]; then
+            echo "limpieza denegada: el contenedor exacto no conserva su identidad" >&2
+            error_limpieza=1
+        elif ! docker container rm --force --volumes "$contenedor_id" >/dev/null; then
+            echo "no se pudo retirar el contenedor propio exacto" >&2
+            error_limpieza=1
+        fi
+    fi
+
+    if [[ -n "$red_id" ]] && docker network inspect "$red_id" >/dev/null 2>&1; then
+        firma=$(docker network inspect --format \
+            '{{.Name}}|{{index .Labels "vec.propietario"}}|{{index .Labels "vec.tarea"}}|{{index .Labels "vec.prefijo"}}' \
+            "$red_id" 2>/dev/null)
+        if [[ "$firma" != "$red|$propietario|$tarea|$prefijo" ]]; then
+            echo "limpieza denegada: la red exacta no conserva su identidad" >&2
+            error_limpieza=1
+        elif ! docker network rm "$red_id" >/dev/null; then
+            echo "no se pudo retirar la red propia exacta" >&2
+            error_limpieza=1
+        fi
+    fi
+
+    if [[ -n "$directorio_socket" && -e "$directorio_socket" ]]; then
+        firma_actual=$(stat -c '%d:%i:%u' -- "$directorio_socket" 2>/dev/null)
+        if [[ ! -d "$directorio_socket" || -L "$directorio_socket" \
+            || "$firma_actual" != "$firma_directorio" ]]; then
+            echo "limpieza denegada: el directorio de socket cambio de identidad" >&2
+            error_limpieza=1
+        else
+            rm -f -- "$directorio_socket/.s.PGSQL.5432" \
+                "$directorio_socket/.s.PGSQL.5432.lock" || error_limpieza=1
+            rmdir -- "$directorio_socket" || error_limpieza=1
+        fi
+    fi
+
+    if ! residuos=$(
+        docker container ls --all --quiet --filter "name=^${contenedor}$" &&
+            docker container ls --all --quiet \
+                --filter "label=$etiqueta_prefijo" &&
+            docker network ls --quiet --filter "name=^${red}$" &&
+            docker network ls --quiet --filter "label=$etiqueta_prefijo" &&
+            docker volume ls --quiet --filter "label=$etiqueta_prefijo"
+    ); then
+        echo "la limpieza propia no pudo consultar los residuos Docker" >&2
+        error_limpieza=1
+    elif [[ -n "$residuos" \
+        || -n "$directorio_socket" && -e "$directorio_socket" ]]; then
+        echo "la limpieza propia no pudo acreditar residuos cero" >&2
+        error_limpieza=1
+    elif (( error_limpieza == 0 )); then
+        echo "limpieza $prefijo: contenedor, red y socket con residuos cero"
+    fi
+
+    if (( estado == 0 && error_limpieza != 0 )); then
+        estado=1
+    fi
+    exit "$estado"
 }
-trap limpiar EXIT INT TERM
+trap 'limpiar $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+directorio_socket=$(mktemp -d -p /tmp "${prefijo}.socket.XXXXXXXX")
+if [[ ! -O "$directorio_socket" || -L "$directorio_socket" ]]; then
+    echo "mktemp no creo un directorio de socket propio" >&2
+    exit 1
+fi
+firma_directorio=$(stat -c '%d:%i:%u' -- "$directorio_socket")
+chmod 1777 "$directorio_socket"
+
+red_id=$(docker network create --driver bridge --internal \
+    --label "$etiqueta_propietario" --label "$etiqueta_tarea" \
+    --label "$etiqueta_prefijo" "$red")
 
 psql_admin() {
-    docker exec --interactive "$contenedor" psql --no-psqlrc --quiet \
-        --set ON_ERROR_STOP=1 --username postgres --dbname "$base" "$@"
+    docker exec --interactive --env PGPASSWORD="$clave_admin" \
+        "$contenedor_id" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+        --host "$socket_contenedor" --username postgres --dbname "$base" "$@"
 }
 
 aplicar() {
@@ -29,8 +150,9 @@ psql_login() {
     local usuario=$1
     local clave=$2
     shift 2
-    docker exec --env PGPASSWORD="$clave" "$contenedor" \
-        psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    docker exec --env PGPASSWORD="$clave" "$contenedor_id" \
+        psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+        --host "$socket_contenedor" \
         --username "$usuario" --dbname "$base" "$@"
 }
 
@@ -56,18 +178,92 @@ exigir_sin_uso_tipo() {
     fi
 }
 
-docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
+if ! contenedor_id=$(docker run --detach --name "$contenedor" --pull=never \
+    --network "$red" --read-only --cpus 2 --memory 1g --pids-limit 256 \
+    --label "$etiqueta_propietario" --label "$etiqueta_tarea" \
+    --label "$etiqueta_prefijo" \
+    --tmpfs /var/lib/postgresql:rw,noexec,nosuid,nodev,size=768m,mode=1777 \
+    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+    --mount "type=bind,src=$directorio_socket,dst=$socket_contenedor" \
+    --env PGDATA=/var/lib/postgresql/18/docker \
+    --env PGHOST="$socket_contenedor" \
+    --env PGPASSWORD="$clave_admin" \
+    --env POSTGRES_INITDB_ARGS="--auth-local=scram-sha-256 --auth-host=scram-sha-256" \
     --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
-    "$imagen" >/dev/null
+    "$imagen" -c listen_addresses= \
+    -c "unix_socket_directories=$socket_contenedor"); then
+    if firma=$(docker container inspect --format \
+        '{{.Id}}|{{index .Config.Labels "vec.propietario"}}|{{index .Config.Labels "vec.tarea"}}|{{index .Config.Labels "vec.prefijo"}}' \
+        "$contenedor" 2>/dev/null) \
+        && [[ "$firma" == *"|$propietario|$tarea|$prefijo" ]]; then
+        contenedor_id=${firma%%|*}
+    fi
+    echo "no se pudo iniciar el contenedor PostgreSQL aislado" >&2
+    exit 1
+fi
+
+configuracion=$(docker container inspect --format \
+    '{{.Image}}|{{.HostConfig.ReadonlyRootfs}}|{{.HostConfig.NanoCpus}}|{{.HostConfig.Memory}}|{{.HostConfig.PidsLimit}}|{{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}' \
+    "$contenedor_id")
+if [[ "$configuracion" != "$imagen_id|true|2000000000|1073741824|256|$red|{}" ]]; then
+    echo "el contenedor no conserva imagen, aislamiento o limites exactos" >&2
+    exit 1
+fi
+firma=$(docker container inspect --format \
+    '{{.Name}}|{{index .Config.Labels "vec.propietario"}}|{{index .Config.Labels "vec.tarea"}}|{{index .Config.Labels "vec.prefijo"}}' \
+    "$contenedor_id")
+if [[ "$firma" != "/$contenedor|$propietario|$tarea|$prefijo" ]]; then
+    echo "el contenedor no conserva nombre y etiquetas propios" >&2
+    exit 1
+fi
+firma=$(docker network inspect --format \
+    '{{.Name}}|{{.Driver}}|{{.Internal}}|{{index .Labels "vec.propietario"}}|{{index .Labels "vec.tarea"}}|{{index .Labels "vec.prefijo"}}' \
+    "$red_id")
+if [[ "$firma" != "$red|bridge|true|$propietario|$tarea|$prefijo" ]]; then
+    echo "la red no conserva nombre, aislamiento y etiquetas propios" >&2
+    exit 1
+fi
+redes_contenedor=$(docker container inspect --format \
+    '{{range $nombre, $datos := .NetworkSettings.Networks}}{{$nombre}}{{"\n"}}{{end}}' \
+    "$contenedor_id")
+if [[ "$redes_contenedor" != "$red" ]]; then
+    echo "el contenedor tiene una conexion de red distinta de la interna propia" >&2
+    exit 1
+fi
+tmpfs=$(docker container inspect --format \
+    '{{index .HostConfig.Tmpfs "/var/lib/postgresql"}}|{{index .HostConfig.Tmpfs "/tmp"}}' \
+    "$contenedor_id")
+if [[ "$tmpfs" != "rw,noexec,nosuid,nodev,size=768m,mode=1777|rw,noexec,nosuid,nodev,size=64m,mode=1777" ]]; then
+    echo "el contenedor no conserva los tmpfs minimos exactos" >&2
+    exit 1
+fi
+montaje_socket=$(docker container inspect --format \
+    "{{range .Mounts}}{{if eq .Destination \"$socket_contenedor\"}}{{.Type}}|{{.Source}}|{{.RW}}{{end}}{{end}}" \
+    "$contenedor_id")
+if [[ "$montaje_socket" != "bind|$directorio_socket|true" ]]; then
+    echo "el socket no usa el montaje temporal propio exacto" >&2
+    exit 1
+fi
+if [[ -n "$(docker container inspect --format \
+    '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{end}}{{end}}' \
+    "$contenedor_id")" ]]; then
+    echo "el contenedor creo un volumen Docker no autorizado" >&2
+    exit 1
+fi
 for _ in $(seq 1 60); do
-    if docker exec "$contenedor" pg_isready --username postgres \
+    if docker exec "$contenedor_id" pg_isready --host "$socket_contenedor" \
+        --username postgres \
         --dbname "$base" >/dev/null 2>&1; then
         break
     fi
     sleep 1
 done
-docker exec "$contenedor" pg_isready --username postgres --dbname "$base" \
-    >/dev/null
+docker exec "$contenedor_id" pg_isready --host "$socket_contenedor" \
+    --username postgres --dbname "$base" >/dev/null
+if [[ ! -S "$directorio_socket/.s.PGSQL.5432" ]]; then
+    echo "PostgreSQL no publico el socket Unix en el directorio propio" >&2
+    exit 1
+fi
 version_postgresql=$(psql_admin --tuples-only --no-align \
     --command 'SHOW server_version_num')
 if [[ "$version_postgresql" != "180004" ]]; then
@@ -209,8 +405,10 @@ CREATE VIEW vec_v4_dependencia_externa_prueba.vista_evidencia AS
       FROM vec_ejecucion_documental_v4.evidencia_futura_prueba;
 SQL
 if docker exec --interactive \
+    --env PGPASSWORD="$clave_admin" \
     --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
-    "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    "$contenedor_id" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --host "$socket_contenedor" \
     --username postgres --dbname "$base" < "$raiz/$down_v4" \
     >/dev/null 2>&1; then
     echo "el down V4 destruyo una dependencia externa" >&2
@@ -233,8 +431,10 @@ DROP VIEW vec_v4_dependencia_externa_prueba.vista_evidencia;
 DROP SCHEMA vec_v4_dependencia_externa_prueba;
 SQL
 docker exec --interactive \
+    --env PGPASSWORD="$clave_admin" \
     --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
-    "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    "$contenedor_id" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --host "$socket_contenedor" \
     --username postgres --dbname "$base" < "$raiz/$down_v4"
 aplicar deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
 aplicar deploy/postgresql/ejecucion_documental_v4/pruebas_sql/revalidacion_identidad_v1.sql
@@ -297,16 +497,11 @@ if psql_admin --command "SET ROLE vec_ejecucion_documental_v4_propietario; SELEC
     exit 1
 fi
 
-puerto=$(docker port "$contenedor" 5432/tcp | sed -n 's/.*://p' | head -n 1)
-if [[ ! "$puerto" =~ ^[0-9]+$ ]]; then
-    echo "no se pudo resolver el puerto efimero" >&2
-    exit 1
-fi
-export VEC_POSTGRES_TEST_FUENTE_DSN="postgresql://vec_v4_fuente_prueba:${clave_fuente}@127.0.0.1:${puerto}/${base}?sslmode=disable"
-export VEC_POSTGRES_TEST_REGISTRO_DSN="postgresql://vec_v4_registro_prueba:${clave_registro}@127.0.0.1:${puerto}/${base}?sslmode=disable"
-export VEC_POSTGRES_TEST_ADMIN_DSN="postgresql://postgres:${clave_admin}@127.0.0.1:${puerto}/${base}?sslmode=disable"
-export VEC_POSTGRES_TEST_V4_EMISOR_DSN="postgresql://vec_v4_emisor_prueba:${clave_emisor}@127.0.0.1:${puerto}/${base}?sslmode=disable"
-export VEC_POSTGRES_TEST_V4_EJECUCION_DSN="postgresql://vec_v4_ejecucion_prueba:${clave_ejecucion}@127.0.0.1:${puerto}/${base}?sslmode=disable"
+export VEC_POSTGRES_TEST_FUENTE_DSN="host=$directorio_socket port=5432 user=vec_v4_fuente_prueba password=$clave_fuente dbname=$base sslmode=disable"
+export VEC_POSTGRES_TEST_REGISTRO_DSN="host=$directorio_socket port=5432 user=vec_v4_registro_prueba password=$clave_registro dbname=$base sslmode=disable"
+export VEC_POSTGRES_TEST_ADMIN_DSN="host=$directorio_socket port=5432 user=postgres password=$clave_admin dbname=$base sslmode=disable"
+export VEC_POSTGRES_TEST_V4_EMISOR_DSN="host=$directorio_socket port=5432 user=vec_v4_emisor_prueba password=$clave_emisor dbname=$base sslmode=disable"
+export VEC_POSTGRES_TEST_V4_EJECUCION_DSN="host=$directorio_socket port=5432 user=vec_v4_ejecucion_prueba password=$clave_ejecucion dbname=$base sslmode=disable"
 
 if [[ "${VEC_POSTGRES_PRUEBA_SOLO_SQL:-0}" != "1" ]]; then
     (cd "$raiz" && go test \
@@ -369,8 +564,10 @@ if [[ "$historia" != "0" ]]; then
         exit 1
     fi
     docker exec --interactive \
+        --env PGPASSWORD="$clave_admin" \
         --env PGOPTIONS="-c vec.limpiar_registro_autoridad_objeto_esperado_v1_prueba=LIMPIAR_REGISTRO_AUTORIDAD_OBJETO_ESPERADO_V1_PRUEBA" \
-        "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+        "$contenedor_id" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+        --host "$socket_contenedor" \
         --username postgres --dbname "$base" < "$raiz/$down_autoridad"
 else
     aplicar "$down_autoridad"
@@ -430,8 +627,10 @@ END
 $evidencia_conservada$;
 SQL
 docker exec --interactive \
+    --env PGPASSWORD="$clave_admin" \
     --env PGOPTIONS="-c vec.confirmar_destruccion_ejecucion_documental_v4=DESTRUIR_EVIDENCIA_V4_IRREVERSIBLE" \
-    "$contenedor" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    "$contenedor_id" psql --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --host "$socket_contenedor" \
     --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.down.sql"
 aplicar deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000003_revalidacion_ejecucion_documental_v4.down.sql
