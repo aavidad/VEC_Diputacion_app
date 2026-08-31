@@ -105,9 +105,34 @@ END
 $estructura$;
 
 \if :autoridad_disponible
+-- Los roles productivos no reciben TEMPORARY durable. La sesion
+-- administrativa crea el fixture aislado en su pg_temp y cede solo el uso
+-- minimo necesario al propietario durante esta conexion.
+RESET ROLE;
+DO $sin_temporary_base_antes$
+DECLARE
+    rol text;
+BEGIN
+    IF current_user <> session_user THEN
+        RAISE EXCEPTION 'el fixture temporal no recupero la identidad de sesion';
+    END IF;
+    FOREACH rol IN ARRAY ARRAY[
+        'vec_ejecucion_documental_v4_propietario',
+        'vec_ejecucion_documental_v4_emisor_capacidad',
+        'vec_ejecucion_documental_v4_ejecutor_atestado'
+    ] LOOP
+        IF has_database_privilege(rol, current_database(), 'TEMPORARY') THEN
+            RAISE EXCEPTION
+                'el rol productivo % conserva TEMPORARY sobre la base', rol;
+        END IF;
+    END LOOP;
+END
+$sin_temporary_base_antes$;
+
 CREATE TEMP TABLE entrada_autoridad_objeto_v1 (
     proyeccion bytea NOT NULL
 ) ON COMMIT DROP;
+REVOKE ALL ON TABLE pg_temp.entrada_autoridad_objeto_v1 FROM PUBLIC;
 
 CREATE FUNCTION pg_temp.tlv_v2(p_etiqueta integer, p_valor bytea)
 RETURNS bytea
@@ -181,6 +206,38 @@ AS $funcion$
             p_documento ->> 'objeto_ref', p_documento ->> 'objeto_version'
         )
 $funcion$;
+
+REVOKE EXECUTE ON FUNCTION pg_temp.tlv_v2(integer, bytea) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION
+    pg_temp.mutar_tlv_v2(bytea, integer, bytea) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION
+    pg_temp.recibo_v2_valido_fixture(bytea, jsonb) FROM PUBLIC;
+GRANT SELECT, INSERT ON TABLE pg_temp.entrada_autoridad_objeto_v1
+    TO vec_ejecucion_documental_v4_propietario;
+GRANT EXECUTE ON FUNCTION pg_temp.tlv_v2(integer, bytea)
+    TO vec_ejecucion_documental_v4_propietario;
+GRANT EXECUTE ON FUNCTION pg_temp.mutar_tlv_v2(bytea, integer, bytea)
+    TO vec_ejecucion_documental_v4_propietario;
+GRANT EXECUTE ON FUNCTION pg_temp.recibo_v2_valido_fixture(bytea, jsonb)
+    TO vec_ejecucion_documental_v4_propietario;
+
+SET LOCAL ROLE vec_ejecucion_documental_v4_propietario;
+DO $sin_temporary_base_despues$
+DECLARE
+    rol text;
+BEGIN
+    FOREACH rol IN ARRAY ARRAY[
+        'vec_ejecucion_documental_v4_propietario',
+        'vec_ejecucion_documental_v4_emisor_capacidad',
+        'vec_ejecucion_documental_v4_ejecutor_atestado'
+    ] LOOP
+        IF has_database_privilege(rol, current_database(), 'TEMPORARY') THEN
+            RAISE EXCEPTION
+                'el rol productivo % obtuvo TEMPORARY sobre la base', rol;
+        END IF;
+    END LOOP;
+END
+$sin_temporary_base_despues$;
 
 DO $fixture$
 DECLARE
