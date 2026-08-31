@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -217,6 +216,27 @@ type ResultadoPoliticaConservacionDocumental struct {
 	resueltaEn time.Time
 }
 
+// NuevoResultadoPoliticaConservacionDocumental inmoviliza una politica
+// aplicable a la solicitud y al instante exactos. No resuelve dependencias.
+func NuevoResultadoPoliticaConservacionDocumental(
+	politica PoliticaConservacionDocumental,
+	solicitud SolicitudPoliticaConservacionDocumental,
+	resueltaEn time.Time,
+) (ResultadoPoliticaConservacionDocumental, error) {
+	if !politica.aplicableEn(solicitud, resueltaEn) {
+		return ResultadoPoliticaConservacionDocumental{},
+			ErrPoliticaConservacionDocumentalNoResuelta
+	}
+	resultado := ResultadoPoliticaConservacionDocumental{
+		politica: politica, resueltaEn: resueltaEn,
+	}
+	if resultado.Validar() != nil {
+		return ResultadoPoliticaConservacionDocumental{},
+			ErrPoliticaConservacionDocumentalNoResuelta
+	}
+	return resultado, nil
+}
+
 func (r ResultadoPoliticaConservacionDocumental) Validar() error {
 	if !r.politica.aplicableEn(r.politica.solicitud, r.resueltaEn) {
 		return ErrPoliticaConservacionDocumentalNoResuelta
@@ -242,39 +262,6 @@ type ResolutorPoliticaConservacionDocumental interface {
 		context.Context,
 		SolicitudPoliticaConservacionDocumental,
 	) ([]PoliticaConservacionDocumental, error)
-}
-
-func ResolverPoliticaConservacionDocumental(
-	ctx context.Context,
-	resolutor ResolutorPoliticaConservacionDocumental,
-	reloj Reloj,
-	solicitud SolicitudPoliticaConservacionDocumental,
-) (ResultadoPoliticaConservacionDocumental, error) {
-	denegar := func() (ResultadoPoliticaConservacionDocumental, error) {
-		return ResultadoPoliticaConservacionDocumental{},
-			ErrPoliticaConservacionDocumentalNoResuelta
-	}
-	if ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil ||
-		dependenciaPoliticaConservacionDocumentalNula(resolutor) ||
-		dependenciaPoliticaConservacionDocumentalNula(reloj) {
-		return denegar()
-	}
-	politicas, err := resolutor.BuscarPoliticasConservacionDocumental(ctx, solicitud)
-	if err != nil || ctx.Err() != nil || len(politicas) != 1 {
-		return denegar()
-	}
-	resueltaEn := reloj.Ahora()
-	politica := politicas[0]
-	if ctx.Err() != nil || !politica.aplicableEn(solicitud, resueltaEn) {
-		return denegar()
-	}
-	resultado := ResultadoPoliticaConservacionDocumental{
-		politica: politica, resueltaEn: resueltaEn,
-	}
-	if resultado.Validar() != nil {
-		return denegar()
-	}
-	return resultado, nil
 }
 
 func (p PoliticaConservacionDocumental) aplicableEn(
@@ -304,19 +291,6 @@ func (s SolicitudPoliticaConservacionDocumental) contieneReferencia(referencia s
 	return referencia == s.procedimientoRef || referencia == s.serieDocumentalRef ||
 		referencia == s.tipoDocumentalRef || referencia == s.expedienteRef ||
 		referencia == s.politicaRef || referencia == s.baseJuridicaRef
-}
-
-func dependenciaPoliticaConservacionDocumentalNula(dependencia any) bool {
-	if dependencia == nil {
-		return true
-	}
-	valor := reflect.ValueOf(dependencia)
-	switch valor.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return valor.IsNil()
-	default:
-		return false
-	}
 }
 
 func referenciasPoliticaConservacionDocumentalValidas(referencias ...string) bool {

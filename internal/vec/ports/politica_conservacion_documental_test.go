@@ -2,7 +2,6 @@ package ports
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -85,61 +84,20 @@ func referenciaPoliticaConservacionDocumentalPrueba(caracter byte) string {
 	return "ref:" + strings.Repeat(string(caracter), 64)
 }
 
-type resolutorPoliticaConservacionDocumentalPrueba struct {
-	politicas []PoliticaConservacionDocumental
-	err       error
-	llamadas  int
-	alBuscar  func(context.Context, SolicitudPoliticaConservacionDocumental)
-}
-
-func (r *resolutorPoliticaConservacionDocumentalPrueba) BuscarPoliticasConservacionDocumental(
-	ctx context.Context,
-	solicitud SolicitudPoliticaConservacionDocumental,
-) ([]PoliticaConservacionDocumental, error) {
-	r.llamadas++
-	if r.alBuscar != nil {
-		r.alBuscar(ctx, solicitud)
-	}
-	return append([]PoliticaConservacionDocumental(nil), r.politicas...), r.err
-}
-
-type relojPoliticaConservacionDocumentalPrueba struct {
-	ahora    time.Time
-	llamadas int
-}
-
-func (r *relojPoliticaConservacionDocumentalPrueba) Ahora() time.Time {
-	r.llamadas++
-	return r.ahora
-}
-
-type relojPoliticaConservacionDocumentalNuloPrueba struct{}
-
-func (*relojPoliticaConservacionDocumentalNuloPrueba) Ahora() time.Time {
-	panic("un reloj nulo tipado no debe invocarse")
-}
-
-func TestPoliticaConservacionDocumentalValidaYBloqueoPrevalece(t *testing.T) {
+func TestPoliticaConservacionDocumentalValoresNeutralesValidosYBloqueoPrevalece(t *testing.T) {
 	vinculos := nuevosVinculosPoliticaConservacionDocumentalPrueba()
 	solicitud := vinculos.construir(t)
 	politica := nuevaPoliticaConservacionDocumentalPrueba(
 		t, solicitud, ProteccionPoliticaConservacionDocumentalBloqueada,
 		EstadoPoliticaConservacionDocumentalAprobada,
 	)
-	resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-		politicas: []PoliticaConservacionDocumental{politica},
-	}
 	ahora := time.Date(2028, 2, 1, 12, 0, 0, 0, time.UTC)
-	reloj := &relojPoliticaConservacionDocumentalPrueba{ahora: ahora}
-
-	resultado, err := ResolverPoliticaConservacionDocumental(
-		context.Background(), resolutor, reloj, solicitud,
-	)
+	resultado, err := NuevoResultadoPoliticaConservacionDocumental(politica, solicitud, ahora)
 	if err != nil || resultado.Validar() != nil {
-		t.Fatalf("politica exacta denegada: resultado=%v error=%v", resultado, err)
+		t.Fatalf("resultado neutral exacto denegado: resultado=%v error=%v", resultado, err)
 	}
 	obtenida := resultado.Politica()
-	if resolutor.llamadas != 1 || reloj.llamadas != 1 || !resultado.ResueltaEn().Equal(ahora) ||
+	if !resultado.ResueltaEn().Equal(ahora) ||
 		obtenida.Proteccion() != ProteccionPoliticaConservacionDocumentalBloqueada ||
 		obtenida.BloqueoRef() != referenciaPoliticaConservacionDocumentalPrueba('1') ||
 		obtenida.Estado() != EstadoPoliticaConservacionDocumentalAprobada ||
@@ -234,201 +192,6 @@ func TestPoliticaConservacionDocumentalRechazaEstadosIncoherentes(t *testing.T) 
 	}
 }
 
-func TestPoliticaConservacionDocumentalDeniegaVariantesDeTodasLasLigaduras(t *testing.T) {
-	base := nuevosVinculosPoliticaConservacionDocumentalPrueba()
-	solicitudBase := base.construir(t)
-	politicaBase := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitudBase, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalAprobada,
-	)
-	casos := []struct {
-		nombre  string
-		alterar func(*vinculosPoliticaConservacionDocumentalPrueba)
-	}{
-		{"procedimiento", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.procedimientoRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"serie", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.serieDocumentalRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"tipo", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.tipoDocumentalRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"expediente", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.expedienteRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"politica", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.politicaRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"version", func(v *vinculosPoliticaConservacionDocumentalPrueba) { v.versionPolitica++ }},
-		{"huella", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.huellaPolitica = bytes.Repeat([]byte{0x6b}, 32)
-		}},
-		{"base juridica", func(v *vinculosPoliticaConservacionDocumentalPrueba) {
-			v.baseJuridicaRef = referenciaPoliticaConservacionDocumentalPrueba('1')
-		}},
-		{"vigente desde", func(v *vinculosPoliticaConservacionDocumentalPrueba) { v.vigenteDesde = v.vigenteDesde.Add(-time.Hour) }},
-		{"vigente hasta", func(v *vinculosPoliticaConservacionDocumentalPrueba) { v.vigenteHasta = v.vigenteHasta.Add(time.Hour) }},
-	}
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			vinculos := base
-			vinculos.huellaPolitica = append([]byte(nil), base.huellaPolitica...)
-			caso.alterar(&vinculos)
-			solicitud := vinculos.construir(t)
-			resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-				politicas: []PoliticaConservacionDocumental{politicaBase},
-			}
-			reloj := &relojPoliticaConservacionDocumentalPrueba{
-				ahora: time.Date(2028, 2, 1, 12, 0, 0, 0, time.UTC),
-			}
-			resultado, err := ResolverPoliticaConservacionDocumental(
-				context.Background(), resolutor, reloj, solicitud,
-			)
-			if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-				!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) {
-				t.Fatalf("ligadura distinta aceptada: resultado=%v error=%v", resultado, err)
-			}
-		})
-	}
-}
-
-func TestPoliticaConservacionDocumentalDeniegaAusenciaAmbiguedadRetiradaYVencimiento(t *testing.T) {
-	solicitud := nuevosVinculosPoliticaConservacionDocumentalPrueba().construir(t)
-	aprobada := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitud, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalAprobada,
-	)
-	retirada := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitud, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalRetirada,
-	)
-	casos := []struct {
-		nombre    string
-		politicas []PoliticaConservacionDocumental
-		ahora     time.Time
-	}{
-		{"no encontrada", nil, time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC)},
-		{"ambigua", []PoliticaConservacionDocumental{aprobada, aprobada}, time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC)},
-		{"retirada", []PoliticaConservacionDocumental{retirada}, time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC)},
-		{"aun no vigente", []PoliticaConservacionDocumental{aprobada}, solicitud.VigenteDesde().Add(-time.Microsecond)},
-		{"vencida en borde exclusivo", []PoliticaConservacionDocumental{aprobada}, solicitud.VigenteHasta()},
-	}
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			resultado, err := ResolverPoliticaConservacionDocumental(
-				context.Background(),
-				&resolutorPoliticaConservacionDocumentalPrueba{politicas: caso.politicas},
-				&relojPoliticaConservacionDocumentalPrueba{ahora: caso.ahora},
-				solicitud,
-			)
-			if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-				!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) {
-				t.Fatalf("estado no aplicable aceptado: resultado=%v error=%v", resultado, err)
-			}
-		})
-	}
-}
-
-func TestPoliticaConservacionDocumentalDeniegaContextoCancelado(t *testing.T) {
-	solicitud := nuevosVinculosPoliticaConservacionDocumentalPrueba().construir(t)
-	politica := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitud, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalAprobada,
-	)
-	ahora := time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC)
-
-	t.Run("antes de resolver", func(t *testing.T) {
-		ctx, cancelar := context.WithCancel(context.Background())
-		cancelar()
-		resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-			politicas: []PoliticaConservacionDocumental{politica},
-		}
-		resultado, err := ResolverPoliticaConservacionDocumental(
-			ctx, resolutor, &relojPoliticaConservacionDocumentalPrueba{ahora: ahora}, solicitud,
-		)
-		if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-			!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) || resolutor.llamadas != 0 {
-			t.Fatalf("cancelacion previa alcanzo el resolutor: resultado=%v error=%v", resultado, err)
-		}
-	})
-
-	t.Run("durante la resolucion", func(t *testing.T) {
-		ctx, cancelar := context.WithCancel(context.Background())
-		resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-			politicas: []PoliticaConservacionDocumental{politica},
-			alBuscar: func(context.Context, SolicitudPoliticaConservacionDocumental) {
-				cancelar()
-			},
-		}
-		reloj := &relojPoliticaConservacionDocumentalPrueba{ahora: ahora}
-		resultado, err := ResolverPoliticaConservacionDocumental(ctx, resolutor, reloj, solicitud)
-		if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-			!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) || reloj.llamadas != 0 {
-			t.Fatalf("cancelacion tardia produjo politica: resultado=%v error=%v", resultado, err)
-		}
-	})
-}
-
-func TestPoliticaConservacionDocumentalDeniegaDependenciasNulasYTipadas(t *testing.T) {
-	solicitud := nuevosVinculosPoliticaConservacionDocumentalPrueba().construir(t)
-	politica := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitud, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalAprobada,
-	)
-	ahora := time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC)
-	resolutorValido := &resolutorPoliticaConservacionDocumentalPrueba{
-		politicas: []PoliticaConservacionDocumental{politica},
-	}
-	var resolutorTipado *resolutorPoliticaConservacionDocumentalPrueba
-	var relojTipado *relojPoliticaConservacionDocumentalNuloPrueba
-	casos := []struct {
-		nombre    string
-		resolutor ResolutorPoliticaConservacionDocumental
-		reloj     Reloj
-	}{
-		{"resolutor nulo", nil, &relojPoliticaConservacionDocumentalPrueba{ahora: ahora}},
-		{"resolutor nulo tipado", resolutorTipado, &relojPoliticaConservacionDocumentalPrueba{ahora: ahora}},
-		{"reloj nulo", resolutorValido, nil},
-		{"reloj nulo tipado", resolutorValido, relojTipado},
-	}
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			resultado, err := ResolverPoliticaConservacionDocumental(
-				context.Background(), caso.resolutor, caso.reloj, solicitud,
-			)
-			if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-				!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) {
-				t.Fatalf("dependencia nula aceptada: resultado=%v error=%v", resultado, err)
-			}
-		})
-	}
-}
-
-func TestPoliticaConservacionDocumentalDeniegaResultadoConErrorSinFiltrarlo(t *testing.T) {
-	solicitud := nuevosVinculosPoliticaConservacionDocumentalPrueba().construir(t)
-	politica := nuevaPoliticaConservacionDocumentalPrueba(
-		t, solicitud, ProteccionPoliticaConservacionDocumentalOrdinaria,
-		EstadoPoliticaConservacionDocumentalAprobada,
-	)
-	resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-		politicas: []PoliticaConservacionDocumental{politica},
-		err:       errors.New("detalle privado del proveedor"),
-	}
-	resultado, err := ResolverPoliticaConservacionDocumental(
-		context.Background(), resolutor,
-		&relojPoliticaConservacionDocumentalPrueba{
-			ahora: time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC),
-		},
-		solicitud,
-	)
-	if resultado != (ResultadoPoliticaConservacionDocumental{}) ||
-		!errors.Is(err, ErrPoliticaConservacionDocumentalNoResuelta) ||
-		strings.Contains(err.Error(), "proveedor") {
-		t.Fatalf("resultado+error no fallo cerrado: resultado=%v error=%v", resultado, err)
-	}
-}
-
 func TestPoliticaConservacionDocumentalConservaCopiasDefensivas(t *testing.T) {
 	vinculos := nuevosVinculosPoliticaConservacionDocumentalPrueba()
 	huellaOriginal := append([]byte(nil), vinculos.huellaPolitica...)
@@ -442,32 +205,19 @@ func TestPoliticaConservacionDocumentalConservaCopiasDefensivas(t *testing.T) {
 	if !bytes.Equal(solicitud.HuellaPoliticaSHA256(), huellaOriginal) {
 		t.Fatal("el accesor expuso la huella interna")
 	}
-
 	politica := nuevaPoliticaConservacionDocumentalPrueba(
 		t, solicitud, ProteccionPoliticaConservacionDocumentalBloqueada,
 		EstadoPoliticaConservacionDocumentalAprobada,
 	)
-	resolutor := &resolutorPoliticaConservacionDocumentalPrueba{
-		politicas: []PoliticaConservacionDocumental{politica},
-		alBuscar: func(_ context.Context, recibida SolicitudPoliticaConservacionDocumental) {
-			copia := recibida.HuellaPoliticaSHA256()
-			copia[2] ^= 0xff
-		},
-	}
-	resultado, err := ResolverPoliticaConservacionDocumental(
-		context.Background(), resolutor,
-		&relojPoliticaConservacionDocumentalPrueba{
-			ahora: time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC),
-		},
-		solicitud,
+	resultado, err := NuevoResultadoPoliticaConservacionDocumental(
+		politica, solicitud, time.Date(2028, 2, 1, 0, 0, 0, 0, time.UTC),
 	)
 	if err != nil {
-		t.Fatalf("resolver tras copia defensiva: %v", err)
+		t.Fatalf("construir resultado neutral: %v", err)
 	}
 	primera := resultado.Politica().Solicitud().HuellaPoliticaSHA256()
-	primera[3] ^= 0xff
-	segunda := resultado.Politica().Solicitud().HuellaPoliticaSHA256()
-	if !bytes.Equal(segunda, huellaOriginal) {
+	primera[2] ^= 0xff
+	if !bytes.Equal(resultado.Politica().Solicitud().HuellaPoliticaSHA256(), huellaOriginal) {
 		t.Fatal("el resultado compartio la huella mutable")
 	}
 }
