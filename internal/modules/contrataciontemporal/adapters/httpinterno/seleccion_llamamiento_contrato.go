@@ -65,10 +65,9 @@ type reciboSeleccionLlamamientoJSON struct {
 }
 
 func proyectarReciboSeleccionLlamamiento(
-	recibo ports.ReciboSolicitudLlamamientoBolsa,
+	recibo application.DatosReciboSeleccionLlamamientoParaAdaptador,
 ) (reciboSeleccionLlamamientoJSON, bool) {
-	if !recibo.PropuestaGenerada ||
-		!domain.ReferenciaOpacaValida(recibo.ReciboRef) ||
+	if !domain.ReferenciaOpacaValida(recibo.ReciboRef) ||
 		!domain.InstanteUTCCanonico(recibo.ConfirmadaEn) {
 		return reciboSeleccionLlamamientoJSON{}, false
 	}

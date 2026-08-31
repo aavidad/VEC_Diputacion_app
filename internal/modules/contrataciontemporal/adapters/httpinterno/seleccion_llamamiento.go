@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 const RutaSeleccionLlamamiento = "" +
@@ -21,10 +20,10 @@ var ErrManejadorSeleccionLlamamientoInvalido = errors.New(
 // EjecutorSeleccionLlamamiento limita HTTP al único caso de uso autorizado.
 // Identidad y acceso pertenecen a la AutoridadRutasExactas exterior.
 type EjecutorSeleccionLlamamiento interface {
-	SeleccionarYLlamar(
+	SeleccionarYLlamarParaAdaptador(
 		context.Context,
 		application.SolicitudSeleccionLlamamiento,
-	) (ports.ReciboSolicitudLlamamientoBolsa, error)
+	) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error)
 }
 
 type manejadorSeleccionLlamamiento struct {
@@ -98,7 +97,7 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 		)
 		return
 	}
-	recibo, err := h.ejecutor.SeleccionarYLlamar(
+	recibo, err := h.ejecutor.SeleccionarYLlamarParaAdaptador(
 		r.Context(),
 		application.SolicitudSeleccionLlamamiento{
 			ClaveIdempotencia: entrada.ClaveIdempotencia,

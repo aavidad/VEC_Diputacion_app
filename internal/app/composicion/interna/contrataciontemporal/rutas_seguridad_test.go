@@ -113,12 +113,12 @@ func (n *negocioContratacionNoInvocablePrueba) ConsultarParaAdaptador(
 	return contratacionapp.DatosConsultaResultadoCoberturaParaAdaptador{}, nil
 }
 
-func (n *negocioContratacionNoInvocablePrueba) SeleccionarYLlamar(
+func (n *negocioContratacionNoInvocablePrueba) SeleccionarYLlamarParaAdaptador(
 	context.Context,
 	contratacionapp.SolicitudSeleccionLlamamiento,
-) (ports.ReciboSolicitudLlamamientoBolsa, error) {
+) (contratacionapp.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
 	n.llamamientos.Add(1)
-	return ports.ReciboSolicitudLlamamientoBolsa{}, nil
+	return contratacionapp.DatosReciboSeleccionLlamamientoParaAdaptador{}, nil
 }
 
 func (n *negocioContratacionNoInvocablePrueba) total() int64 {

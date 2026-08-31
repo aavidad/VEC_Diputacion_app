@@ -120,14 +120,13 @@ type ejecutorSeleccionComposicionPrueba struct {
 	ejecuciones int
 }
 
-func (e *ejecutorSeleccionComposicionPrueba) SeleccionarYLlamar(
+func (e *ejecutorSeleccionComposicionPrueba) SeleccionarYLlamarParaAdaptador(
 	context.Context,
 	application.SolicitudSeleccionLlamamiento,
-) (ports.ReciboSolicitudLlamamientoBolsa, error) {
+) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
 	e.ejecuciones++
-	return ports.ReciboSolicitudLlamamientoBolsa{
-		PropuestaGenerada: true,
-		ReciboRef:         "recibo:llamamiento:http:001",
+	return application.DatosReciboSeleccionLlamamientoParaAdaptador{
+		ReciboRef: "recibo:llamamiento:http:001",
 		ConfirmadaEn: time.Date(
 			2026, 8, 31, 10, 0, 0, 123000000, time.UTC,
 		),

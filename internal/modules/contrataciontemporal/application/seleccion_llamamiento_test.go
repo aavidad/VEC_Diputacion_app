@@ -111,17 +111,17 @@ func TestSeleccionLlamamientoRechazaEvidenciaCruzada(t *testing.T) {
 func TestSeleccionLlamamientoReplayExactoUsaIdempotenciaDelPuerto(t *testing.T) {
 	e := nuevoEscenarioSeleccionLlamamiento(t)
 	solicitud := SolicitudSeleccionLlamamiento{ClaveIdempotencia: claveIdempotenciaSeleccion}
-	primero, err := e.servicio.SeleccionarYLlamar(context.Background(), solicitud)
+	primero, err := e.servicio.SeleccionarYLlamarParaAdaptador(context.Background(), solicitud)
 	if err != nil {
 		t.Fatalf("primer intento: %v", err)
 	}
 	e.disponibilidad.cantidad = 1
 	e.preparador.alternarPolitica = true
-	segundo, err := e.servicio.SeleccionarYLlamar(context.Background(), solicitud)
+	segundo, err := e.servicio.SeleccionarYLlamarParaAdaptador(context.Background(), solicitud)
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
-	if primero != segundo || e.preparador.consultasPreparadas != 1 ||
+	if primero.ReciboRef == "" || primero.ConfirmadaEn.IsZero() || primero != segundo || e.preparador.consultasPreparadas != 1 ||
 		e.disponibilidad.llamadas != 1 || e.llamamientos.llamadas != 1 || e.ordenes.llamadas != 1 ||
 		e.llamamientos.creaciones != 1 {
 		t.Fatalf("replay consultó o repitió efectos: igual=%v preparadas=%d disponibilidad=%d ordenes=%d llamadas=%d creaciones=%d",

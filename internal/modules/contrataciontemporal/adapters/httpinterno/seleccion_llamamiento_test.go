@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 const claveSeleccionLlamamientoHTTPPrueba = "" +
@@ -22,16 +21,16 @@ const claveSeleccionLlamamientoHTTPPrueba = "" +
 
 type ejecutorSeleccionLlamamientoHTTPPrueba struct {
 	mu       sync.Mutex
-	recibo   ports.ReciboSolicitudLlamamientoBolsa
+	recibo   application.DatosReciboSeleccionLlamamientoParaAdaptador
 	err      error
 	durante  func(context.Context)
 	entradas []application.SolicitudSeleccionLlamamiento
 }
 
-func (e *ejecutorSeleccionLlamamientoHTTPPrueba) SeleccionarYLlamar(
+func (e *ejecutorSeleccionLlamamientoHTTPPrueba) SeleccionarYLlamarParaAdaptador(
 	ctx context.Context,
 	solicitud application.SolicitudSeleccionLlamamiento,
-) (ports.ReciboSolicitudLlamamientoBolsa, error) {
+) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
 	e.mu.Lock()
 	e.entradas = append(e.entradas, solicitud)
 	e.mu.Unlock()
@@ -59,29 +58,12 @@ func (e *ejecutorSeleccionLlamamientoHTTPPrueba) ultima() (
 	return e.entradas[len(e.entradas)-1], true
 }
 
-func reciboSeleccionLlamamientoHTTPPrueba() ports.ReciboSolicitudLlamamientoBolsa {
-	return ports.ReciboSolicitudLlamamientoBolsa{
-		OperacionRef:      "operacion:privada:001",
-		OrganizacionRef:   "organizacion:privada:001",
-		ExpedienteRef:     "expediente:privado:001",
-		CorrelacionRef:    "correlacion:privada:001",
-		LlamamientoRef:    "llamamiento:privado:001",
-		ReciboRef:         "recibo:llamamiento:http:001",
-		AuditoriaRef:      "auditoria:privada:001",
-		EventoRef:         "evento:privado:001",
-		PropuestaGenerada: true,
-		OrdenSeleccionado: 7,
+func reciboSeleccionLlamamientoHTTPPrueba() application.DatosReciboSeleccionLlamamientoParaAdaptador {
+	return application.DatosReciboSeleccionLlamamientoParaAdaptador{
+		ReciboRef: "recibo:llamamiento:http:001",
 		ConfirmadaEn: time.Date(
 			2026, 8, 31, 10, 0, 0, 123000000, time.UTC,
 		),
-		Procedencia: ports.ProcedenciaIntegracionBolsa{
-			AutoridadRef: "autoridad:privada:001",
-			RespuestaRef: "respuesta:privada:001",
-			Evidencia: ports.EvidenciaNominalIntegracionBolsa{
-				EvidenciaRef: "evidencia:criptografica:privada",
-				SelloHMAC:    "hmac:secreto:privado",
-			},
-		},
 	}
 }
 
@@ -242,19 +224,19 @@ func TestManejadorSeleccionLlamamientoNoFiltraErroresInternos(t *testing.T) {
 	}
 }
 
-func TestManejadorSeleccionLlamamientoRechazaReciboNoPublicable(t *testing.T) {
+func TestManejadorSeleccionLlamamientoRechazaProyeccionNoPublicable(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
 		nombre string
-		mutar  func(*ports.ReciboSolicitudLlamamientoBolsa)
+		mutar  func(*application.DatosReciboSeleccionLlamamientoParaAdaptador)
 	}{
-		{"sin propuesta", func(r *ports.ReciboSolicitudLlamamientoBolsa) {
-			r.PropuestaGenerada = false
+		{"salida cero", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
+			*r = application.DatosReciboSeleccionLlamamientoParaAdaptador{}
 		}},
-		{"recibo privado invalido", func(r *ports.ReciboSolicitudLlamamientoBolsa) {
+		{"recibo privado invalido", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
 			r.ReciboRef = "persona@example.invalid"
 		}},
-		{"instante no canonico", func(r *ports.ReciboSolicitudLlamamientoBolsa) {
+		{"instante no canonico", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
 			r.ConfirmadaEn = r.ConfirmadaEn.In(time.FixedZone("privada", 3600))
 		}},
 	}
@@ -297,5 +279,14 @@ func TestManejadorSeleccionLlamamientoRechazaDependenciasNulas(t *testing.T) {
 	tipo := reflect.TypeOf(application.SolicitudSeleccionLlamamiento{})
 	if tipo.NumField() != 1 || tipo.Field(0).Name != "ClaveIdempotencia" {
 		t.Fatalf("entrada permite autoridad: %v", tipo)
+	}
+	metodo, existe := reflect.TypeOf((*EjecutorSeleccionLlamamiento)(nil)).Elem().MethodByName(
+		"SeleccionarYLlamarParaAdaptador",
+	)
+	tipoProyeccion := reflect.TypeOf(application.DatosReciboSeleccionLlamamientoParaAdaptador{})
+	if !existe || metodo.Type.NumOut() != 2 || metodo.Type.Out(0) != tipoProyeccion ||
+		tipoProyeccion.NumField() != 2 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
+		tipoProyeccion.Field(1).Name != "ConfirmadaEn" {
+		t.Fatalf("HTTP no exige la proyeccion de application: %v", metodo.Type)
 	}
 }
