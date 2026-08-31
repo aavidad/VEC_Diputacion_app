@@ -4,10 +4,12 @@ Fecha del corte: 31 de agosto de 2026.
 
 ## Resultados cronológicos de las puertas dinámicas
 
-Estado: **NO-GO dinámico; R2 obtuvo `GO ESTÁTICO` independiente con `P0=0`,
-`P1=0` y `P2=0`, pero las dos ejecuciones focales posteriores terminaron en
-el oráculo del preflight y en la primera resolución Go, respectivamente. R4
-queda sin ejecución dinámica y pendiente de revisión independiente**.
+Estado: **NO-GO dinámico y estático; R2 obtuvo `GO ESTÁTICO` independiente con
+`P0=0`, `P1=0` y `P2=0`, pero las dos ejecuciones focales posteriores
+terminaron en el oráculo del preflight y en la primera resolución Go,
+respectivamente. R4 recibió un quinto `NO-GO` estático, con `P0=0`, `P1=2` y
+`P2=0`. R5 no ha ejecutado PostgreSQL y queda pendiente de revisión estática
+independiente y de una autorización dinámica posterior expresa**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -193,6 +195,66 @@ Write-set exacto:
 3. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
 4. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
 
+### Quinto NO-GO estático de R4: `P0=0`, `P1=2`, `P2=0`
+
+La revisión independiente del hash exacto
+`8e771a9031ed4715d1686315c957e2f8261e4924` emitió `NO-GO` estático por dos
+hallazgos P1:
+
+1. las siete entradas de texto podían ser `NULL` y eludir tanto las
+   expresiones `!~` de entrada como las comparaciones `<>` del replay, porque
+   ambas producían `NULL` en vez de rechazo; y
+2. el resolutor no exigía matrices unidimensionales con límite inferior uno,
+   por lo que una matriz con límite cero conservaba su orden en `unnest` pero
+   desplazaba el par raíz leído mediante `[1]`.
+
+El dictamen no autorizó PostgreSQL, Docker ni otra ejecución dinámica. Sus
+puertas offline fueron verdes, pero no convierten R4 ni R3B en capacidad
+cerrada.
+
+### Corrección R5
+
+R5 separa la validación del resolutor en dos etapas. La primera, segura para
+cualquier entrada, exige que las dos matrices existan, sean exactamente
+unidimensionales, comiencen en uno, tengan la misma cardinalidad entre uno y
+cuatro, y que los siete textos y el instante existan y respeten su canon. Solo
+después se inspeccionan elementos nulos y pares HMAC. Toda nulidad o forma
+matricial adversa cubierta por R5 devuelve `22023` y el mensaje opaco
+`candidatura de alta invalida` antes de locks o escrituras.
+
+Las comparaciones de generación, identidad de replay y los tres campos de
+conflicto de alias pasan a `IS DISTINCT FROM`. `ROWS FROM`, las ACL, la ABI,
+los locks y la política HMAC permanecen intactos.
+
+La regresión focal llama directamente al SQL como runtime, con una transacción
+serializable UTC independiente por caso, después de estabilizar la candidatura
+inicial y antes de rotar la política. Reutiliza sus pares HMAC reales y cubre
+las diez entradas nulas una a una, matrices multidimensionales, límites cero,
+vacías, cardinalidad cinco, cardinalidades distintas y un elemento nulo en
+cada matriz. Cada rechazo exige estado `22023`, mensaje opaco, rollback,
+historia y recuentos invariantes y ningún efecto administrativo.
+
+## Capability, invariantes y write-set de R5
+
+Capability: rechazar exhaustiva y saneadamente toda entrada nula o matriz HMAC
+no canónica antes de resolver o hacer replay, conservando ABI y autoridad.
+
+Invariantes:
+
+- las diez entradas requeridas son no nulas;
+- ambas matrices son exactamente unidimensionales, con límite inferior uno,
+  cardinalidad común entre uno y cuatro y elementos no nulos;
+- identidad, generación y conflictos se comparan de forma null-safe;
+- toda forma adversa falla con `22023` antes de locks o escrituras;
+- historia y efectos permanecen intactos; y
+- `ROWS FROM`, ACL, ABI, locks y política HMAC no cambian.
+
+Write-set exacto:
+
+1. `deploy/postgresql/contratacion_temporal/migraciones/000047_componentes/020_resolucion_candidatura.sql`;
+2. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
+3. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -275,7 +337,8 @@ imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
 Instala `000047` después de `000046`. La primera ejecución dinámica posterior
 a R2 se detuvo en el oráculo del preflight; la siguiente, ya sobre R3, superó
 ese preflight y se detuvo en la primera resolución Go. Ninguna alcanzó la
-matriz completa que una autorización dinámica nueva deberá acreditar:
+matriz completa que una autorización dinámica nueva deberá acreditar. R4 y R5
+no se han ejecutado contra PostgreSQL:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -301,9 +364,9 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R4 y, solo después y con una
-autorización posterior expresa, una nueva validación dinámica exclusiva. La
-integración continúa prohibida. R3C permanece bloqueada hasta resolver ese
-`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato candidato
-y componer el proveedor concreto de material de confirmación bajo revisión
-independiente.
+revisión independiente del hash exacto de R5 y, solo si obtiene `GO` y existe
+una autorización posterior expresa, una nueva validación dinámica exclusiva.
+R5 permanece pendiente: no se declara PostgreSQL verde. La integración
+continúa prohibida. R3C permanece bloqueada hasta resolver ese `NO-GO`; después
+deberá migrar `ServicioRegistroSolicitud` al contrato candidato y componer el
+proveedor concreto de material de confirmación bajo revisión independiente.

@@ -32,41 +32,61 @@ BEGIN
        OR pg_catalog.current_setting('transaction_isolation') <> 'serializable'
        OR pg_catalog.current_setting('transaction_read_only') <> 'off'
        OR pg_catalog.current_setting('TimeZone') <> 'UTC'
+       OR p_ambitos_hmac IS NULL
+       OR p_huellas_hmac IS NULL
+       OR pg_catalog.array_ndims(p_ambitos_hmac) IS DISTINCT FROM 1
+       OR pg_catalog.array_ndims(p_huellas_hmac) IS DISTINCT FROM 1
+       OR pg_catalog.array_lower(p_ambitos_hmac, 1) IS DISTINCT FROM 1
+       OR pg_catalog.array_lower(p_huellas_hmac, 1) IS DISTINCT FROM 1
        OR pg_catalog.cardinality(p_ambitos_hmac) NOT BETWEEN 1 AND 4
-       OR pg_catalog.cardinality(p_huellas_hmac) <>
+       OR pg_catalog.cardinality(p_huellas_hmac) IS DISTINCT FROM
           pg_catalog.cardinality(p_ambitos_hmac)
-       OR pg_catalog.array_position(p_ambitos_hmac, NULL) IS NOT NULL
-       OR pg_catalog.array_position(p_huellas_hmac, NULL) IS NOT NULL
+       OR p_organizacion_ref IS NULL
        OR p_organizacion_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_actor_ref IS NULL
        OR p_actor_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_perfil_ref IS NULL
        OR p_perfil_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_reserva_ref_propuesta IS NULL
        OR p_reserva_ref_propuesta !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_expediente_ref_propuesto IS NULL
        OR p_expediente_ref_propuesto !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+       OR p_numero_visible_propuesto IS NULL
        OR p_numero_visible_propuesto !~ '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'
+       OR p_recibo_ref_propuesto IS NULL
        OR p_recibo_ref_propuesto !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
        OR p_instante_efecto_propuesto IS NULL
-       OR p_instante_efecto_propuesto <>
+       OR p_instante_efecto_propuesto IS DISTINCT FROM
           pg_catalog.date_trunc('microseconds', p_instante_efecto_propuesto) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'candidatura de alta invalida';
     END IF;
-    IF EXISTS (
+    IF pg_catalog.array_position(p_ambitos_hmac, NULL) IS NOT NULL
+       OR pg_catalog.array_position(p_huellas_hmac, NULL) IS NOT NULL
+       OR EXISTS (
         SELECT 1
           FROM ROWS FROM (
                    pg_catalog.unnest(p_ambitos_hmac),
                    pg_catalog.unnest(p_huellas_hmac)
                ) WITH ORDINALITY AS p(ambito, huella, orden)
-         WHERE p.ambito !~ ('^hmac-sha256:vec[.]contratacion-temporal[.]' ||
+         WHERE p.ambito IS NULL
+            OR p.huella IS NULL
+            OR p.ambito !~ ('^hmac-sha256:vec[.]contratacion-temporal[.]' ||
                    'ambito-idempotencia/v[1-9][0-9]{0,8}:[a-f0-9]{64}$')
             OR p.huella !~ ('^hmac-sha256:vec[.]contratacion-temporal[.]' ||
                    'huella-peticion/v[1-9][0-9]{0,8}:[a-f0-9]{64}$')
             OR pg_catalog.right(p.ambito, 64) = pg_catalog.repeat('0', 64)
             OR pg_catalog.right(p.huella, 64) = pg_catalog.repeat('0', 64)
-            OR substring(p.ambito FROM '/v([1-9][0-9]{0,8}):') <>
+            OR substring(p.ambito FROM '/v([1-9][0-9]{0,8}):') IS DISTINCT FROM
                substring(p.huella FROM '/v([1-9][0-9]{0,8}):')
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'pares HMAC invalidos';
+            MESSAGE = CASE
+                WHEN pg_catalog.array_position(p_ambitos_hmac, NULL) IS NOT NULL
+                  OR pg_catalog.array_position(p_huellas_hmac, NULL) IS NOT NULL
+                THEN 'candidatura de alta invalida'
+                ELSE 'pares HMAC invalidos'
+            END;
     END IF;
     SELECT pg_catalog.array_agg(substring(ambito FROM
                '/v([1-9][0-9]{0,8}):')::integer ORDER BY orden)
@@ -114,9 +134,9 @@ BEGIN
     SELECT * INTO STRICT v_candidatura
       FROM vec_contratacion_temporal.candidatura_alta_tecnica
      WHERE ambito_raiz_hmac = v_raiz;
-    IF v_candidatura.organizacion_ref <> p_organizacion_ref
-       OR v_candidatura.actor_ref <> p_actor_ref
-       OR v_candidatura.perfil_ref <> p_perfil_ref THEN
+    IF v_candidatura.organizacion_ref IS DISTINCT FROM p_organizacion_ref
+       OR v_candidatura.actor_ref IS DISTINCT FROM p_actor_ref
+       OR v_candidatura.perfil_ref IS DISTINCT FROM p_perfil_ref THEN
         RAISE EXCEPTION USING ERRCODE = '23505',
             MESSAGE = 'candidatura de alta en conflicto';
     END IF;
@@ -131,8 +151,9 @@ BEGIN
             ON a.ambito_raiz_hmac = v_raiz
            AND (a.generacion = p.generacion OR a.ambito_hmac = p.ambito
                 OR a.huella_hmac = p.huella)
-         WHERE a.generacion <> p.generacion OR a.ambito_hmac <> p.ambito
-            OR a.huella_hmac <> p.huella
+         WHERE a.generacion IS DISTINCT FROM p.generacion
+            OR a.ambito_hmac IS DISTINCT FROM p.ambito
+            OR a.huella_hmac IS DISTINCT FROM p.huella
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23505',
             MESSAGE = 'par HMAC de candidatura en conflicto';

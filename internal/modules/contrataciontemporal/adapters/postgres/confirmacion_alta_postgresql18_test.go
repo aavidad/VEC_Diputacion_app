@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -60,6 +61,7 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 	if despues := estadoEfectosR3B(t, ctx, admin); despues != estadoAntes {
 		t.Fatalf("resolver creo efecto administrativo: antes=%s despues=%s", estadoAntes, despues)
 	}
+	probarEntradasInvalidasR3B(t, ctx, runtime, admin, solicitud, estadoAntes)
 
 	t.Run("replay entre procesos conserva originales", func(t *testing.T) {
 		otroPool := abrirPoolR3B(t, ctx, "VEC_CT_O2_R3B_RUNTIME_DSN")
@@ -293,6 +295,74 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 			t.Fatalf("RLS divergente: forzada=%t politicas=%d error=%v", rlsForzada, politicas, err)
 		}
 	})
+}
+
+func probarEntradasInvalidasR3B(t *testing.T, ctx context.Context, runtime, admin *pgxpool.Pool, solicitud ports.SolicitudResolverCandidaturaAlta, efectosAntes string) {
+	t.Helper()
+	entrada, err := nuevaEntradaResolverCandidaturaAlta(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := []any{literalMatrizR3B(entrada.ambitos...), literalMatrizR3B(entrada.huellas...), entrada.organizacionRef, entrada.actorRef, entrada.perfilRef, entrada.propuesta.ReservaRef, entrada.propuesta.Referencias.ExpedienteRef, entrada.propuesta.Referencias.NumeroVisible, entrada.propuesta.Referencias.ReciboRef, entrada.propuesta.InstanteEfecto}
+	type caso struct {
+		nombre     string
+		argumentos []any
+	}
+	casos := make([]caso, 0, 19)
+	for indice, nombre := range []string{"ambitos nulos", "huellas nulas", "organizacion nula", "actor nulo", "perfil nulo", "reserva nula", "expediente nulo", "numero nulo", "recibo nulo", "instante nulo"} {
+		casos = append(casos, caso{nombre, argumentosInvalidosR3B(base, map[int]any{indice: nil})})
+	}
+	ambitos, huellas := base[0].(string), base[1].(string)
+	casos = append(casos,
+		caso{"ambitos multidimensionales", argumentosInvalidosR3B(base, map[int]any{0: "{" + ambitos + "," + ambitos + "}"})},
+		caso{"huellas multidimensionales", argumentosInvalidosR3B(base, map[int]any{1: "{" + huellas + "," + huellas + "}"})},
+		caso{"ambitos con lower cero", argumentosInvalidosR3B(base, map[int]any{0: "[0:1]=" + ambitos})},
+		caso{"huellas con lower cero", argumentosInvalidosR3B(base, map[int]any{1: "[0:1]=" + huellas})},
+		caso{"matrices vacias", argumentosInvalidosR3B(base, map[int]any{0: "{}", 1: "{}"})},
+		caso{"cardinalidad cinco", argumentosInvalidosR3B(base, map[int]any{0: literalMatrizR3B(entrada.ambitos[0], entrada.ambitos[1], entrada.ambitos[0], entrada.ambitos[1], entrada.ambitos[0]), 1: literalMatrizR3B(entrada.huellas[0], entrada.huellas[1], entrada.huellas[0], entrada.huellas[1], entrada.huellas[0])})},
+		caso{"cardinalidades distintas", argumentosInvalidosR3B(base, map[int]any{1: literalMatrizR3B(entrada.huellas[0])})},
+		caso{"elemento ambito nulo", argumentosInvalidosR3B(base, map[int]any{0: "{NULL," + entrada.ambitos[1] + "}"})},
+		caso{"elemento huella nulo", argumentosInvalidosR3B(base, map[int]any{1: "{NULL," + entrada.huellas[1] + "}"})},
+	)
+	historiaAntes := huellaHistoriaCandidaturasR3B(t, ctx, admin)
+	for _, prueba := range casos {
+		t.Run("entrada invalida/"+prueba.nombre, func(t *testing.T) {
+			tx, err := runtime.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = tx.Exec(ctx, `SELECT set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`); err != nil {
+				_ = tx.Rollback(context.Background())
+				t.Fatal(err)
+			}
+			var resultado string
+			err = tx.QueryRow(ctx, `SELECT resultado FROM `+funcionResolverCandidaturaAlta+`($1::text[],$2::text[],$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text,$10::timestamptz)`, prueba.argumentos...).Scan(&resultado)
+			var pgErr *pgconn.PgError
+			if !errors.As(err, &pgErr) || pgErr.Code != "22023" || pgErr.Message != "candidatura de alta invalida" || resultado != "" {
+				_ = tx.Rollback(context.Background())
+				t.Fatalf("rechazo divergente: resultado=%q error=%v", resultado, err)
+			}
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if historia := huellaHistoriaCandidaturasR3B(t, ctx, admin); historia != historiaAntes {
+				t.Fatalf("entrada invalida muto candidaturas: antes=%s despues=%s", historiaAntes, historia)
+			}
+			if efectos := estadoEfectosR3B(t, ctx, admin); efectos != efectosAntes {
+				t.Fatalf("entrada invalida creo efecto administrativo: antes=%s despues=%s", efectosAntes, efectos)
+			}
+		})
+	}
+}
+
+func literalMatrizR3B(valores ...string) string { return "{" + strings.Join(valores, ",") + "}" }
+
+func argumentosInvalidosR3B(base []any, cambios map[int]any) []any {
+	resultado := append([]any(nil), base...)
+	for indice, valor := range cambios {
+		resultado[indice] = valor
+	}
+	return resultado
 }
 
 type entradaPublicaR3B struct {
