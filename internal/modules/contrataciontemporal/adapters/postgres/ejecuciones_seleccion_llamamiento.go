@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	funcionResolverTerminalSeleccionO6 = "vec_contratacion_temporal.resolver_terminal_seleccion_llamamiento_o6_v1"
+	funcionResolverTerminalSeleccionO6 = "vec_contratacion_temporal.resolver_terminal_autorizado_seleccion_llamamiento_o6_v2"
 	funcionReservarSeleccionO6         = "vec_contratacion_temporal.reservar_seleccion_llamamiento_o6_v1"
 	funcionAbrirVentanaSeleccionO6     = "vec_contratacion_temporal.abrir_ventana_seleccion_llamamiento_o6_v1"
 	funcionMarcarIndeterminadaO6       = "vec_contratacion_temporal.marcar_indeterminada_seleccion_llamamiento_o6_v1"
@@ -60,19 +60,35 @@ func nuevasEjecucionesSeleccionLlamamientoPostgreSQL(
 }
 
 type solicitudEjecucionSeleccionO6 struct {
-	ClaveIdempotencia  string                                     `json:"clave_idempotencia"`
-	HuellaSemantica    string                                     `json:"huella_semantica"`
-	OrganizacionRef    string                                     `json:"organizacion_ref"`
-	ExpedienteRef      string                                     `json:"expediente_ref"`
-	VersionExpediente  uint64                                     `json:"version_expediente"`
-	CorrelacionRef     string                                     `json:"correlacion_ref"`
-	AccionOrden        ports.ReferenciaVersionadaIntegracionBolsa `json:"accion_orden"`
-	Finalidad          ports.ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
-	Necesidad          ports.ReferenciaVersionadaIntegracionBolsa `json:"necesidad"`
-	Bolsa              ports.ReferenciaVersionadaIntegracionBolsa `json:"bolsa"`
-	Politica           ports.ReferenciaVersionadaIntegracionBolsa `json:"politica"`
-	MaximoPosiciones   uint32                                     `json:"maximo_posiciones"`
-	CantidadDisponible uint32                                     `json:"cantidad_disponible"`
+	ClaveIdempotencia    string                                     `json:"clave_idempotencia"`
+	HuellaSemantica      string                                     `json:"huella_semantica"`
+	OrganizacionRef      string                                     `json:"organizacion_ref"`
+	ExpedienteRef        string                                     `json:"expediente_ref"`
+	VersionExpediente    uint64                                     `json:"version_expediente"`
+	CorrelacionRef       string                                     `json:"correlacion_ref"`
+	AutoridadSolicitante string                                     `json:"autoridad_solicitante"`
+	AutorizacionConsulta ports.ReferenciaVersionadaIntegracionBolsa `json:"autorizacion_consulta"`
+	AccionConsulta       ports.ReferenciaVersionadaIntegracionBolsa `json:"accion_consulta"`
+	RecursoConsulta      ports.ReferenciaVersionadaIntegracionBolsa `json:"recurso_consulta"`
+	AccionOrden          ports.ReferenciaVersionadaIntegracionBolsa `json:"accion_orden"`
+	Finalidad            ports.ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
+	Necesidad            ports.ReferenciaVersionadaIntegracionBolsa `json:"necesidad"`
+	Bolsa                ports.ReferenciaVersionadaIntegracionBolsa `json:"bolsa"`
+	Politica             ports.ReferenciaVersionadaIntegracionBolsa `json:"politica"`
+	MaximoPosiciones     uint32                                     `json:"maximo_posiciones"`
+	CantidadDisponible   uint32                                     `json:"cantidad_disponible"`
+}
+
+type consultaTerminalSeleccionO6 struct {
+	OrganizacionRef      string                                     `json:"organizacion_ref"`
+	ExpedienteRef        string                                     `json:"expediente_ref"`
+	VersionExpediente    uint64                                     `json:"version_expediente"`
+	CorrelacionRef       string                                     `json:"correlacion_ref"`
+	AutoridadSolicitante string                                     `json:"autoridad_solicitante"`
+	Autorizacion         ports.ReferenciaVersionadaIntegracionBolsa `json:"autorizacion"`
+	Accion               ports.ReferenciaVersionadaIntegracionBolsa `json:"accion"`
+	Recurso              ports.ReferenciaVersionadaIntegracionBolsa `json:"recurso"`
+	Finalidad            ports.ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
 }
 
 type filaEjecucionSeleccionO6 struct {
@@ -81,16 +97,20 @@ type filaEjecucionSeleccionO6 struct {
 
 func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ResolverTerminal(
 	ctx context.Context,
-	clave string,
+	consulta ports.ConsultaTerminalAutorizada,
+	instante time.Time,
 ) (ports.EstadoEjecucionSeleccionLlamamiento, bool, error) {
-	if !e.valido(ctx) || !ports.ClaveIdempotenciaValida(clave) {
+	datos, err := consulta.DatosEn(instante)
+	contenido, errContenido := codificarConsultaTerminalSeleccionO6(datos)
+	if !e.valido(ctx) || err != nil || errContenido != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false,
 			errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
 	fila, err := e.consultarFila(ctx, pgx.ReadOnly, `
 		SELECT situacion, solicitud_json::text, reserva_ref, efecto,
 		       recibo_json::text, artefacto_json::text
-		  FROM `+funcionResolverTerminalSeleccionO6+`($1::uuid)`, clave)
+		  FROM `+funcionResolverTerminalSeleccionO6+`($1::uuid, $2::text)`,
+		datos.ClaveIdempotencia, string(contenido))
 	if err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false, err
 	}
@@ -98,11 +118,15 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ResolverTerminal(
 	if err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false, err
 	}
-	if estado.Situacion != "" && estado.Solicitud.ClaveIdempotencia != clave {
+	if estado == (ports.EstadoEjecucionSeleccionLlamamiento{}) {
+		return estado, false, nil
+	}
+	if estado.Situacion != ports.EjecucionSeleccionLlamamientoConfirmada ||
+		consulta.ValidarSolicitudEn(estado.Solicitud, instante) != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false,
 			errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
-	return estado, estado.Situacion == ports.EjecucionSeleccionLlamamientoConfirmada, nil
+	return estado, true, nil
 }
 
 func (e *EjecucionesSeleccionLlamamientoPostgreSQL) Reservar(
@@ -305,6 +329,9 @@ func codificarSolicitudSeleccionO6(
 		ClaveIdempotencia: solicitud.ClaveIdempotencia, HuellaSemantica: solicitud.HuellaSemantica,
 		OrganizacionRef: solicitud.OrganizacionRef, ExpedienteRef: solicitud.ExpedienteRef,
 		VersionExpediente: solicitud.VersionExpediente, CorrelacionRef: solicitud.CorrelacionRef,
+		AutoridadSolicitante: solicitud.AutoridadSolicitante,
+		AutorizacionConsulta: solicitud.AutorizacionConsulta,
+		AccionConsulta:       solicitud.AccionConsulta, RecursoConsulta: solicitud.RecursoConsulta,
 		AccionOrden: solicitud.AccionOrden, Finalidad: solicitud.Finalidad,
 		Necesidad: solicitud.Necesidad, Bolsa: solicitud.Bolsa, Politica: solicitud.Politica,
 		MaximoPosiciones: solicitud.MaximoPosiciones, CantidadDisponible: solicitud.CantidadDisponible,
@@ -313,6 +340,21 @@ func codificarSolicitudSeleccionO6(
 		return nil, errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
 	contenido, err := json.Marshal(dto)
+	if err != nil || len(contenido) == 0 || len(contenido) > maximoCargaSeleccionO6 {
+		return nil, errEjecucionesSeleccionLlamamientoPostgreSQL
+	}
+	return contenido, nil
+}
+
+func codificarConsultaTerminalSeleccionO6(
+	datos ports.DatosConsultaTerminalAutorizada,
+) ([]byte, error) {
+	contenido, err := json.Marshal(consultaTerminalSeleccionO6{
+		OrganizacionRef: datos.OrganizacionRef, ExpedienteRef: datos.ExpedienteRef,
+		VersionExpediente: datos.VersionExpediente, CorrelacionRef: datos.CorrelacionRef,
+		AutoridadSolicitante: datos.AutoridadSolicitante, Autorizacion: datos.Autorizacion,
+		Accion: datos.Accion, Recurso: datos.Recurso, Finalidad: datos.Finalidad,
+	})
 	if err != nil || len(contenido) == 0 || len(contenido) > maximoCargaSeleccionO6 {
 		return nil, errEjecucionesSeleccionLlamamientoPostgreSQL
 	}
@@ -328,6 +370,9 @@ func (s solicitudEjecucionSeleccionO6) puertos() ports.SolicitudReservaEjecucion
 		ClaveIdempotencia: s.ClaveIdempotencia, HuellaSemantica: s.HuellaSemantica,
 		OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
 		VersionExpediente: s.VersionExpediente, CorrelacionRef: s.CorrelacionRef,
+		AutoridadSolicitante: s.AutoridadSolicitante,
+		AutorizacionConsulta: s.AutorizacionConsulta,
+		AccionConsulta:       s.AccionConsulta, RecursoConsulta: s.RecursoConsulta,
 		AccionOrden: s.AccionOrden, Finalidad: s.Finalidad, Necesidad: s.Necesidad,
 		Bolsa: s.Bolsa, Politica: s.Politica, MaximoPosiciones: s.MaximoPosiciones,
 		CantidadDisponible: s.CantidadDisponible,

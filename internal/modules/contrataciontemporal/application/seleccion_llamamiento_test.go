@@ -121,11 +121,13 @@ func TestSeleccionLlamamientoReplayExactoUsaIdempotenciaDelPuerto(t *testing.T) 
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
-	if primero.ReciboRef == "" || primero.ConfirmadaEn.IsZero() || primero != segundo || e.preparador.consultasPreparadas != 1 ||
+	if primero.ReciboRef == "" || primero.ConfirmadaEn.IsZero() || primero != segundo ||
+		e.preparador.consultasPreparadas != 2 || e.preparador.ordenesPreparadas != 1 ||
+		e.ejecuciones.resoluciones != 2 ||
 		e.disponibilidad.llamadas != 1 || e.llamamientos.llamadas != 1 || e.ordenes.llamadas != 1 ||
 		e.llamamientos.creaciones != 1 {
-		t.Fatalf("replay consultó o repitió efectos: igual=%v preparadas=%d disponibilidad=%d ordenes=%d llamadas=%d creaciones=%d",
-			primero == segundo, e.preparador.consultasPreparadas, e.disponibilidad.llamadas,
+		t.Fatalf("replay no revalidó autoridad o repitió efectos: igual=%v preparadas=%d resoluciones=%d disponibilidad=%d ordenes=%d llamadas=%d creaciones=%d",
+			primero == segundo, e.preparador.consultasPreparadas, e.ejecuciones.resoluciones, e.disponibilidad.llamadas,
 			e.ordenes.llamadas, e.llamamientos.llamadas, e.llamamientos.creaciones)
 	}
 }
@@ -178,9 +180,9 @@ func TestSeleccionLlamamientoTerminalesHostilesFallanCerrados(t *testing.T) {
 			estado := e.ejecuciones.estado(false)
 			caso.mutar(&estado)
 			e.ejecuciones.terminalForzado = &estado
-			antes := [4]int{e.preparador.consultasPreparadas, e.disponibilidad.llamadas, e.ordenes.llamadas, e.llamamientos.llamadas}
+			antes := [3]int{e.disponibilidad.llamadas, e.ordenes.llamadas, e.llamamientos.llamadas}
 			_, err := e.ejecutar(context.Background())
-			despues := [4]int{e.preparador.consultasPreparadas, e.disponibilidad.llamadas, e.ordenes.llamadas, e.llamamientos.llamadas}
+			despues := [3]int{e.disponibilidad.llamadas, e.ordenes.llamadas, e.llamamientos.llamadas}
 			if !errors.Is(err, ErrResultadoSeleccionLlamamientoNoConfiable) || antes != despues {
 				t.Fatalf("terminal hostil avanzó: antes=%v después=%v err=%v", antes, despues, err)
 			}
@@ -324,35 +326,56 @@ func TestSeleccionLlamamientoCierraFallosDeTodasLasFronteras(t *testing.T) {
 		})
 	}
 }
-func TestSeleccionLlamamientoRechazaContextosDesligadosYRelojRetrogrado(t *testing.T) {
-	casos := []struct {
-		nombre, operacion string
-		mutar             func(*ports.DatosContextoPeticionIntegracionBolsa)
-		ordenes           int
-	}{
-		{"organizacion de otra orden", "operacion:orden:001", func(d *ports.DatosContextoPeticionIntegracionBolsa) { d.OrganizacionRef = "organizacion:ajena" }, 0},
-		{"correlacion de otro llamamiento", "operacion:llamamiento:001", func(d *ports.DatosContextoPeticionIntegracionBolsa) { d.CorrelacionRef = "correlacion:ajena" }, 1},
-	}
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+func TestSeleccionLlamamientoAutoridadAusenteCaducadaOCruzadaNoConsultaNiActua(t *testing.T) {
+	for _, dimension := range []string{"organización", "expediente", "versión", "autoridad solicitante",
+		"autorización", "acción", "recurso", "finalidad", "ausente", "caducada"} {
+		t.Run(dimension, func(t *testing.T) {
 			e := nuevoEscenarioSeleccionLlamamiento(t)
+			if dimension != "ausente" && dimension != "caducada" {
+				_, err := e.ejecutar(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			antes := e.conteosFrontera()
 			e.preparador.mutarContexto = func(operacion string, datos *ports.DatosContextoPeticionIntegracionBolsa) {
-				if operacion == caso.operacion {
-					caso.mutar(datos)
+				if operacion != "operacion:disponibilidad:001" {
+					return
+				}
+				switch dimension {
+				case "organización":
+					datos.OrganizacionRef = "organizacion:ajena"
+				case "expediente":
+					datos.ExpedienteRef = "expediente:ajeno:001"
+				case "versión":
+					datos.VersionExpediente++
+				case "autoridad solicitante", "ausente":
+					datos.AutoridadSolicitante = map[bool]string{true: "", false: "autoridad:ajena"}[dimension == "ausente"]
+				case "autorización":
+					datos.Autorizacion = referenciaSeleccionPrueba("autorizacion:ajena:001", '1')
+				case "acción":
+					datos.Accion = referenciaSeleccionPrueba("accion:ajena:001", '2')
+				case "recurso":
+					datos.Recurso = referenciaSeleccionPrueba("necesidad:ajena:001", '3')
+				case "finalidad":
+					datos.Finalidad = referenciaSeleccionPrueba("finalidad:ajena:001", '4')
+				case "caducada":
+					datos.ValidaHasta = datos.SolicitadaEn.Add(time.Minute)
 				}
 			}
 			_, err := e.ejecutar(context.Background())
-			esperado := ErrResultadoSeleccionLlamamientoNoConfiable
-			if caso.ordenes != 0 {
-				esperado = ErrEjecucionSeleccionLlamamientoIndeterminada
-			}
-			if !errors.Is(err, esperado) ||
-				e.ordenes.llamadas != caso.ordenes || e.llamamientos.llamadas != 0 {
-				t.Fatalf("contextos desligados avanzaron: orden=%d llamada=%d err=%v", e.ordenes.llamadas, e.llamamientos.llamadas, err)
+			if despues := e.conteosFrontera(); err == nil || antes != despues {
+				t.Fatalf("autoridad inválida consultó o actuó: antes=%v después=%v err=%v", antes, despues, err)
 			}
 		})
 	}
+}
 
+func (e *escenarioSeleccionLlamamientoPrueba) conteosFrontera() [5]int {
+	return [5]int{e.ejecuciones.resoluciones, e.disponibilidad.llamadas,
+		e.ordenes.llamadas, e.llamamientos.llamadas, e.llamamientos.creaciones}
+}
+func TestSeleccionLlamamientoRechazaRelojRetrogrado(t *testing.T) {
 	base := time.Date(2026, 8, 22, 10, 3, 0, 0, time.UTC)
 	for _, secuencia := range [][]time.Time{
 		{base, base.Add(-time.Minute)},
@@ -395,21 +418,30 @@ type ejecucionesSeleccionLlamamientoPrueba struct {
 	recibo          ports.ReciboSolicitudLlamamientoBolsa
 	artefacto       ports.ArtefactoProbatorioLlamamientoBolsa
 	terminalForzado *ports.EstadoEjecucionSeleccionLlamamiento
+	resoluciones    int
 }
 
-func (e *ejecucionesSeleccionLlamamientoPrueba) ResolverTerminal(ctx context.Context, clave string) (ports.EstadoEjecucionSeleccionLlamamiento, bool, error) {
+func (e *ejecucionesSeleccionLlamamientoPrueba) ResolverTerminal(ctx context.Context, consulta ports.ConsultaTerminalAutorizada, instante time.Time) (ports.EstadoEjecucionSeleccionLlamamiento, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false, err
 	}
 	e.Lock()
 	defer e.Unlock()
 	if e.terminalForzado != nil {
+		if consulta.ValidarSolicitudEn(e.terminalForzado.Solicitud, instante) != nil {
+			return ports.EstadoEjecucionSeleccionLlamamiento{}, false, errors.New("autoridad no ligada")
+		}
+		e.resoluciones++
 		return *e.terminalForzado, true, nil
 	}
-	if e.situacion != ports.EjecucionSeleccionLlamamientoConfirmada ||
-		e.solicitud.ClaveIdempotencia != clave {
+	if e.situacion != ports.EjecucionSeleccionLlamamientoConfirmada {
+		e.resoluciones++
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, false, nil
 	}
+	if consulta.ValidarSolicitudEn(e.solicitud, instante) != nil {
+		return ports.EstadoEjecucionSeleccionLlamamiento{}, false, errors.New("autoridad no ligada")
+	}
+	e.resoluciones++
 	return e.estado(false), true, nil
 }
 func (e *ejecucionesSeleccionLlamamientoPrueba) Reservar(ctx context.Context, solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
