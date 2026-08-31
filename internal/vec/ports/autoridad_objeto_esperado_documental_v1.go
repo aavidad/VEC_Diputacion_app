@@ -48,6 +48,7 @@ type ProyeccionAutoridadObjetoEsperadoDocumentalV1 struct {
 	Version                    uint16
 	ReciboMaterialRef          string
 	HuellaReciboMaterialSHA256 string
+	HuellaDeclaracionV4SHA256  string
 	Objeto                     ReferenciaObjetoAlmacen
 	ConectorID                 string
 	EfectoRef                  string
@@ -65,6 +66,9 @@ type datosAutoridadObjetoEsperadoDocumentalV1 struct {
 	recibo                 ReciboEscrituraObjetoMaterialV2
 	reciboRef              string
 	huellaRecibo           [sha256.Size]byte
+	declaracion            DeclaracionEscrituraAlmacenDocumental
+	huellaDeclaracionV4    [sha256.Size]byte
+	contextoV4             ProyeccionContextoOperacionAlmacen
 	objeto                 ReferenciaObjetoAlmacen
 	conectorID             string
 	efectoRef              string
@@ -100,20 +104,33 @@ func NuevaAutoridadObjetoEsperadoDocumentalV1(
 	) != nil {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
-
-	contexto := declaracion.datos.solicitud.Contexto
-	huellaRecibo, err := recibo.HuellaSHA256()
-	if err != nil {
+	if ctx.Err() != nil || declaracion.Validar() != nil ||
+		!reciboMaterialV2CotejaDeclaracionV4(recibo, declaracion) {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
+
+	declaracionSellada := clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(declaracion)
+	contexto := declaracionSellada.datos.solicitud.Contexto
+	huellaRecibo, err := recibo.HuellaSHA256()
+	huellaDeclaracion, errDeclaracion :=
+		huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(declaracionSellada)
+	if err != nil || errDeclaracion != nil {
+		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
+	}
+	instantanea := recibo.instantanea
 	autoridad := AutoridadObjetoEsperadoDocumentalV1{
 		datos: &datosAutoridadObjetoEsperadoDocumentalV1{
 			esquema:   EsquemaAutoridadObjetoEsperadoDocumentalV1,
 			version:   VersionAutoridadObjetoEsperadoDocumentalV1,
 			recibo:    clonarReciboAutoridadObjetoEsperadoDocumentalV1(recibo),
 			reciboRef: recibo.referenciaDurableOriginal, huellaRecibo: huellaRecibo,
-			objeto:                 declaracion.datos.resultado.Objeto.Objeto,
-			conectorID:             declaracion.datos.resultado.Objeto.ConectorID,
+			declaracion:         declaracionSellada,
+			huellaDeclaracionV4: huellaDeclaracion,
+			contextoV4:          contexto,
+			objeto: ReferenciaObjetoAlmacen{
+				Referencia: instantanea.objetoRef, Version: instantanea.objetoVersion,
+			},
+			conectorID:             instantanea.conectorLogicoID,
 			efectoRef:              contexto.EfectoRef,
 			huellaPlanEfectoSHA256: contexto.HuellaPlanEfectoSHA256,
 			huellaManifiestoSHA256: contexto.HuellaManifiestoSHA256,
@@ -148,14 +165,14 @@ func (a AutoridadObjetoEsperadoDocumentalV1) PrepararRegistro(
 		dependenciaMaterialV2Nula(verificadorAtestacion) ||
 		verificarReciboAutoridadObjetoEsperadoDocumentalV1(
 			ctx, a.datos.recibo, verificadorReferencia, verificadorAtestacion,
-		) != nil {
+		) != nil || ctx.Err() != nil || a.Validar() != nil {
 		return ProyeccionAutoridadObjetoEsperadoDocumentalV1{},
 			errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 	canonico, atestacion, err := materialVerificacionAutoridadObjetoEsperadoDocumentalV1(
 		a.datos.recibo,
 	)
-	if err != nil || ctx.Err() != nil {
+	if err != nil || ctx.Err() != nil || a.Validar() != nil {
 		return ProyeccionAutoridadObjetoEsperadoDocumentalV1{},
 			errorAutoridadObjetoEsperadoDocumentalV1()
 	}
@@ -163,6 +180,7 @@ func (a AutoridadObjetoEsperadoDocumentalV1) PrepararRegistro(
 		Esquema: a.datos.esquema, Version: a.datos.version,
 		ReciboMaterialRef:          a.datos.reciboRef,
 		HuellaReciboMaterialSHA256: hex.EncodeToString(a.datos.huellaRecibo[:]),
+		HuellaDeclaracionV4SHA256:  hex.EncodeToString(a.datos.huellaDeclaracionV4[:]),
 		Objeto:                     a.datos.objeto, ConectorID: a.datos.conectorID,
 		EfectoRef:              a.datos.efectoRef,
 		HuellaPlanEfectoSHA256: a.datos.huellaPlanEfectoSHA256,
@@ -176,17 +194,35 @@ func (a AutoridadObjetoEsperadoDocumentalV1) PrepararRegistro(
 func validarDatosAutoridadObjetoEsperadoDocumentalV1(
 	d *datosAutoridadObjetoEsperadoDocumentalV1,
 ) error {
-	if d == nil || d.esquema != EsquemaAutoridadObjetoEsperadoDocumentalV1 ||
+	if d == nil {
+		return errorAutoridadObjetoEsperadoDocumentalV1()
+	}
+	huellaDeclaracion, errDeclaracion :=
+		huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(d.declaracion)
+	contextoDeclaracion := ProyeccionContextoOperacionAlmacen{}
+	if d.declaracion.datos != nil {
+		contextoDeclaracion = d.declaracion.datos.solicitud.Contexto
+	}
+	if d.esquema != EsquemaAutoridadObjetoEsperadoDocumentalV1 ||
 		d.version != VersionAutoridadObjetoEsperadoDocumentalV1 || d.recibo.Validar() != nil ||
+		d.declaracion.Validar() != nil || errDeclaracion != nil ||
+		!huellasMaterialV2Iguales(huellaDeclaracion, d.huellaDeclaracionV4) ||
+		!reciboMaterialV2CotejaDeclaracionV4(d.recibo, d.declaracion) ||
+		d.contextoV4 != contextoDeclaracion ||
 		!referenciaOpacaAlmacenValida(d.reciboRef, 512) || d.reciboRef != d.recibo.referenciaDurableOriginal ||
 		d.objeto.Validar() != nil || d.objeto.Referencia != d.recibo.instantanea.objetoRef ||
 		d.objeto.Version != d.recibo.instantanea.objetoVersion ||
 		!referenciaOpacaAlmacenValida(d.conectorID, 128) ||
 		d.conectorID != d.recibo.instantanea.conectorLogicoID ||
 		!referenciaOpacaAlmacenValida(d.efectoRef, 512) || d.efectoRef != d.recibo.efectoRef ||
+		d.efectoRef != contextoDeclaracion.EfectoRef ||
 		!esSHA256Hexadecimal(d.huellaPlanEfectoSHA256) ||
+		d.huellaPlanEfectoSHA256 != contextoDeclaracion.HuellaPlanEfectoSHA256 ||
 		!esSHA256Hexadecimal(d.huellaManifiestoSHA256) ||
-		!esSHA256Hexadecimal(d.huellaPasoSHA256) || d.pasoRef == "" ||
+		d.huellaManifiestoSHA256 != contextoDeclaracion.HuellaManifiestoSHA256 ||
+		!esSHA256Hexadecimal(d.huellaPasoSHA256) ||
+		d.huellaPasoSHA256 != contextoDeclaracion.HuellaPasoSHA256 ||
+		d.pasoRef == "" || d.pasoRef != contextoDeclaracion.PasoRef ||
 		contieneComodinContextoAlmacen(d.efectoRef, string(d.pasoRef)) {
 		return errorAutoridadObjetoEsperadoDocumentalV1()
 	}
@@ -307,6 +343,48 @@ func clonarReciboAutoridadObjetoEsperadoDocumentalV1(
 	copia := recibo
 	copia.atestacion.codigo = append([]byte(nil), recibo.atestacion.codigo...)
 	return copia
+}
+
+func clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(
+	declaracion DeclaracionEscrituraAlmacenDocumental,
+) DeclaracionEscrituraAlmacenDocumental {
+	datos := clonarDatosPreparacionEscrituraAlmacenDocumentalV4(declaracion.datos)
+	if datos != nil {
+		datos.contexto = clonarContextoAutoridadObjetoEsperadoDocumentalV1(datos.contexto)
+	}
+	return DeclaracionEscrituraAlmacenDocumental{datos: datos}
+}
+
+func clonarContextoAutoridadObjetoEsperadoDocumentalV1(
+	contexto ContextoOperacionAlmacen,
+) ContextoOperacionAlmacen {
+	if contexto.datos == nil {
+		return ContextoOperacionAlmacen{}
+	}
+	datosEvidencia, err := contexto.datos.evidencia.Datos()
+	if err != nil {
+		return ContextoOperacionAlmacen{}
+	}
+	evidencia, err := NuevaEvidenciaUsoDecisionAutorizacion(
+		datosEvidencia.Decision, datosEvidencia.VerificadaEn,
+	)
+	if err != nil {
+		return ContextoOperacionAlmacen{}
+	}
+	copia := *contexto.datos
+	copia.evidencia = evidencia
+	copia.pasos = clonarPasosOperacionAlmacen(contexto.datos.pasos)
+	return ContextoOperacionAlmacen{datos: &copia}
+}
+
+func huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(
+	declaracion DeclaracionEscrituraAlmacenDocumental,
+) ([sha256.Size]byte, error) {
+	canonico := serializarDeclaracionEscrituraAlmacenDocumental(declaracion)
+	if len(canonico) == 0 {
+		return [sha256.Size]byte{}, errorAutoridadObjetoEsperadoDocumentalV1()
+	}
+	return sha256.Sum256(canonico), nil
 }
 
 func clonarAtestacionAutoridadObjetoEsperadoDocumentalV1(

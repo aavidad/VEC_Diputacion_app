@@ -6,8 +6,10 @@ Fecha: 31 de agosto de 2026.
 
 Este corte incorpora una capacidad opaca en `internal/vec/ports` que autoriza
 la pareja exacta `objeto_ref` y `objeto_version` esperada al registrar un efecto
-documental V4. No modifica SQL, migraciones, producto, composicion, identidad,
-UI ni otros modulos.
+documental V4. La pareja se deriva exclusivamente de la `instantanea` atestada
+y referenciada del recibo material V2; la declaracion V4 solo se coteja y no es
+fuente de esos dos valores. No modifica SQL, migraciones, producto, composicion,
+identidad, UI ni otros modulos.
 
 El puerto `AlmacenObjetos.Escribir` determina y devuelve la referencia y la
 version despues de escribir. No dispone de reserva previa ni de una identidad
@@ -43,6 +45,15 @@ vez estas condiciones:
 5. la referencia durable se reconstruye desde la identidad material sin
    referencia y se coteja mediante `VerificadorReferenciaReciboMaterialV2`.
 
+La capacidad conserva una copia defensiva de la declaracion V4 y la huella
+SHA-256 de sus bytes canonicos privados. `Validar` vuelve a comprobar esa
+huella, el contexto V4 completo y, de forma individual, efecto, huella del plan,
+huella del manifiesto, referencia y huella del paso. `PrepararRegistro` repite
+el mismo cierre despues de los verificadores vivos y antes de proyectar; una
+mutacion durante cualquiera de esas fronteras no puede alcanzar el registro.
+La proyeccion entrega la huella de la declaracion, no sus bytes ni una via para
+reconstruirla.
+
 La huella autocontenida de `EvidenciaOperacionAlmacen`, el contenido guardado o
 un JSON aportado por el ejecutor no satisfacen ninguna de las dos ultimas
 condiciones. Tampoco pueden construir ni serializar genericamente la autoridad.
@@ -50,11 +61,14 @@ condiciones. Tampoco pueden construir ni serializar genericamente la autoridad.
 `PrepararRegistro` es la unica apertura prevista hacia el futuro adaptador SQL.
 Repite en vivo las verificaciones criptografica y de referencia durable antes
 de entregar copias defensivas de la pareja objeto/version y del material de
-verificacion. Una revocacion, una sustitucion o una cancelacion fallan cerradas.
+verificacion. La cancelacion durante cualquiera de ambos verificadores devuelve
+una proyeccion cero y el mismo error opaco. Una revocacion, una sustitucion o
+una cancelacion fallan cerradas.
 
 ## Frontera criptografica
 
-El contrato V2 vigente admite HMAC-SHA-256 o COSE Sign1. Una clave HMAC sigue
+El contrato V2 vigente admite HMAC-SHA-256 o COSE Sign1; la prueba focal recorre
+ambas modalidades sin fijar HMAC en la capacidad. Una clave HMAC sigue
 perteneciendo a la autoridad criptografica configurada: no se copia al valor,
 no se entrega al adaptador SQL y no se almacena en PostgreSQL. La proyeccion
 solo contiene referencia y version de clave, dominio, algoritmo, codigo y bytes

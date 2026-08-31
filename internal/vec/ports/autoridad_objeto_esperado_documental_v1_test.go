@@ -3,16 +3,115 @@ package ports
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 )
+
+type verificadorAtestacionCanceladorAutoridadObjetoV1Prueba struct {
+	delegado VerificadorAtestacionMaterialAlmacenV2
+	cancelar context.CancelFunc
+}
+
+func (v verificadorAtestacionCanceladorAutoridadObjetoV1Prueba) VerificarAtestacionMaterialAlmacenV2(
+	ctx context.Context,
+	solicitud SolicitudVerificarAtestacionMaterialAlmacenV2,
+) error {
+	err := v.delegado.VerificarAtestacionMaterialAlmacenV2(ctx, solicitud)
+	v.cancelar()
+	return err
+}
+
+type verificadorReferenciaCanceladorAutoridadObjetoV1Prueba struct {
+	delegado VerificadorReferenciaReciboMaterialV2
+	cancelar context.CancelFunc
+	mutar    func()
+}
+
+func (v verificadorReferenciaCanceladorAutoridadObjetoV1Prueba) VerificarReferenciaReciboMaterialV2(
+	ctx context.Context,
+	solicitud SolicitudReservarReferenciaReciboMaterialV2,
+	resultado ResultadoReferenciaReciboMaterialV2,
+) error {
+	err := v.delegado.VerificarReferenciaReciboMaterialV2(ctx, solicitud, resultado)
+	if v.mutar != nil {
+		v.mutar()
+	}
+	if v.cancelar != nil {
+		v.cancelar()
+	}
+	return err
+}
+
+type verificadorCOSESign1AutoridadObjetoV1Prueba struct {
+	publica      ed25519.PublicKey
+	claveRef     string
+	claveVersion uint32
+}
+
+func (v verificadorCOSESign1AutoridadObjetoV1Prueba) VerificarAtestacionMaterialAlmacenV2(
+	_ context.Context,
+	solicitud SolicitudVerificarAtestacionMaterialAlmacenV2,
+) error {
+	dominio, mensaje, algoritmo, claveRef, claveVersion, codigo, err :=
+		solicitud.RevelarParaVerificacion()
+	const cabecera = "\xd2\x84\x43\xa1\x01\x27\xa0\xf6\x58\x40"
+	if err != nil || algoritmo != AlgoritmoAtestacionMaterialCOSESign1 ||
+		claveRef != v.claveRef || claveVersion != v.claveVersion ||
+		len(codigo) != len(cabecera)+ed25519.SignatureSize ||
+		!bytes.Equal(codigo[:len(cabecera)], []byte(cabecera)) ||
+		!ed25519.Verify(v.publica, estructuraFirmaCOSESign1AutoridadObjetoV1Prueba(
+			dominio, mensaje,
+		), codigo[len(cabecera):]) {
+		return errors.New("cose sign1 no verificable")
+	}
+	return nil
+}
+
+func nuevoSobreCOSESign1AutoridadObjetoV1Prueba(
+	privada ed25519.PrivateKey,
+	dominio string,
+	mensaje []byte,
+) []byte {
+	const cabecera = "\xd2\x84\x43\xa1\x01\x27\xa0\xf6\x58\x40"
+	firma := ed25519.Sign(
+		privada, estructuraFirmaCOSESign1AutoridadObjetoV1Prueba(dominio, mensaje),
+	)
+	return append(append([]byte(nil), []byte(cabecera)...), firma...)
+}
+
+func estructuraFirmaCOSESign1AutoridadObjetoV1Prueba(dominio string, mensaje []byte) []byte {
+	estructura := []byte{0x84, 0x6a}
+	estructura = append(estructura, []byte("Signature1")...)
+	estructura = anexarBstrCOSEAutoridadObjetoV1Prueba(estructura, []byte{0xa1, 0x01, 0x27})
+	estructura = anexarBstrCOSEAutoridadObjetoV1Prueba(estructura, []byte(dominio))
+	return anexarBstrCOSEAutoridadObjetoV1Prueba(estructura, mensaje)
+}
+
+func anexarBstrCOSEAutoridadObjetoV1Prueba(destino, valor []byte) []byte {
+	longitud := len(valor)
+	switch {
+	case longitud < 24:
+		destino = append(destino, 0x40|byte(longitud))
+	case longitud <= 0xff:
+		destino = append(destino, 0x58, byte(longitud))
+	default:
+		var bytesLongitud [2]byte
+		binary.BigEndian.PutUint16(bytesLongitud[:], uint16(longitud))
+		destino = append(destino, 0x59)
+		destino = append(destino, bytesLongitud[:]...)
+	}
+	return append(destino, valor...)
+}
 
 type escenarioAutoridadObjetoEsperadoDocumentalV1Prueba struct {
 	materializacion escenarioMaterializacionDocumentalV4
@@ -164,10 +263,17 @@ func TestAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	huellaDeclaracion, err := huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(
+		escenario.materializacion.declaracion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if proyeccion.Esquema != EsquemaAutoridadObjetoEsperadoDocumentalV1 ||
 		proyeccion.Version != VersionAutoridadObjetoEsperadoDocumentalV1 ||
 		proyeccion.ReciboMaterialRef != escenario.recibo.referenciaDurableOriginal ||
 		proyeccion.HuellaReciboMaterialSHA256 != hex.EncodeToString(huellaRecibo[:]) ||
+		proyeccion.HuellaDeclaracionV4SHA256 != hex.EncodeToString(huellaDeclaracion[:]) ||
 		proyeccion.Objeto != escenario.materializacion.resultado.Objeto.Objeto ||
 		proyeccion.ConectorID != escenario.materializacion.resultado.Objeto.ConectorID ||
 		proyeccion.EfectoRef != contexto.EfectoRef ||
@@ -185,6 +291,75 @@ func TestAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto(t *testing
 		atestacion.Dominio != dominioAtestacionReciboEscrituraMaterialV2 ||
 		len(atestacion.Codigo) != sha256.Size {
 		t.Fatal("la proyeccion no entrega material verificable del recibo")
+	}
+}
+
+func TestAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2(t *testing.T) {
+	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+	autoridad := escenario.crearAutoridad(t)
+	esperada := ReferenciaObjetoAlmacen{
+		Referencia: escenario.recibo.instantanea.objetoRef,
+		Version:    escenario.recibo.instantanea.objetoVersion,
+	}
+	// La declaracion aportada queda fuera de la capacidad tras el cotejo. Estas
+	// alteraciones privadas simulan un propietario que conserva su copia.
+	escenario.materializacion.declaracion.datos.resultado.Objeto.Objeto.Version =
+		"version:documental:v4:externa"
+	escenario.materializacion.declaracion.datos.solicitud.Contexto.EfectoRef =
+		"efecto:documental:v4:externo"
+	escenario.materializacion.declaracion.datos.contexto.datos.efectoRef =
+		"efecto:documental:v4:contexto-externo"
+	proyeccion, err := autoridad.PrepararRegistro(
+		context.Background(), escenario.registro, escenario.criptografia,
+	)
+	if err != nil || proyeccion.Objeto != esperada {
+		t.Fatalf("la pareja no procede de la instantanea V2 sellada: proyeccion=%v err=%v", proyeccion, err)
+	}
+}
+
+func TestAutoridadObjetoEsperadoDocumentalV1AdmiteReciboCOSESign1Verificado(t *testing.T) {
+	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+	semilla := sha256.Sum256([]byte("semilla-ed25519-cose-sign1-autoridad-objeto-v1"))
+	privada := ed25519.NewKeyFromSeed(semilla[:])
+	verificador := verificadorCOSESign1AutoridadObjetoV1Prueba{
+		publica:  privada.Public().(ed25519.PublicKey),
+		claveRef: "clave:cose-sign1:objeto-esperado:v1", claveVersion: 19,
+	}
+	recibo := escenario.recibo
+	canonico, err := recibo.BytesCanonicos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud, err := nuevaSolicitudAtestarMaterialAlmacenV2(
+		dominioAtestacionReciboEscrituraMaterialV2, canonico,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo.atestacion, err = NuevaAtestacionCriptograficaMaterialAlmacenV2(
+		solicitud, AlgoritmoAtestacionMaterialCOSESign1,
+		verificador.claveRef, verificador.claveVersion,
+		nuevoSobreCOSESign1AutoridadObjetoV1Prueba(
+			privada, dominioAtestacionReciboEscrituraMaterialV2, canonico,
+		),
+	)
+	if err != nil || recibo.Validar() != nil {
+		t.Fatalf("crear recibo COSE Sign1: %v", err)
+	}
+	autoridad, err := NuevaAutoridadObjetoEsperadoDocumentalV1(
+		context.Background(), escenario.materializacion.declaracion, recibo,
+		escenario.registro, verificador,
+	)
+	if err != nil {
+		t.Fatalf("crear autoridad con COSE Sign1: %v", err)
+	}
+	proyeccion, err := autoridad.PrepararRegistro(
+		context.Background(), escenario.registro, verificador,
+	)
+	if err != nil ||
+		proyeccion.AtestacionReciboMaterial.Algoritmo != AlgoritmoAtestacionMaterialCOSESign1 ||
+		!bytes.Equal(proyeccion.AtestacionReciboMaterial.Codigo, recibo.atestacion.codigo) {
+		t.Fatalf("preparar recibo COSE Sign1: proyeccion=%v err=%v", proyeccion, err)
 	}
 }
 
@@ -318,6 +493,60 @@ func TestAutoridadObjetoEsperadoDocumentalV1ReverificaAntesDelRegistro(t *testin
 	}
 }
 
+func TestAutoridadObjetoEsperadoDocumentalV1CancelacionDuranteCadaVerificadorDevuelveCero(t *testing.T) {
+	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+	autoridad := escenario.crearAutoridad(t)
+	cero := ProyeccionAutoridadObjetoEsperadoDocumentalV1{}
+
+	t.Run("atestacion", func(t *testing.T) {
+		ctx, cancelar := context.WithCancel(context.Background())
+		proyeccion, err := autoridad.PrepararRegistro(
+			ctx, escenario.registro,
+			verificadorAtestacionCanceladorAutoridadObjetoV1Prueba{
+				delegado: escenario.criptografia, cancelar: cancelar,
+			},
+		)
+		if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) ||
+			!errors.Is(ctx.Err(), context.Canceled) || !reflect.DeepEqual(proyeccion, cero) {
+			t.Fatalf("cancelacion durante atestacion no fallo cerrada: proyeccion=%v err=%v", proyeccion, err)
+		}
+	})
+
+	t.Run("referencia durable", func(t *testing.T) {
+		ctx, cancelar := context.WithCancel(context.Background())
+		proyeccion, err := autoridad.PrepararRegistro(
+			ctx,
+			verificadorReferenciaCanceladorAutoridadObjetoV1Prueba{
+				delegado: escenario.registro, cancelar: cancelar,
+			},
+			escenario.criptografia,
+		)
+		if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) ||
+			!errors.Is(ctx.Err(), context.Canceled) || !reflect.DeepEqual(proyeccion, cero) {
+			t.Fatalf("cancelacion durante referencia no fallo cerrada: proyeccion=%v err=%v", proyeccion, err)
+		}
+	})
+}
+
+func TestAutoridadObjetoEsperadoDocumentalV1RevalidaCompromisosTrasVerificadoresVivos(t *testing.T) {
+	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+	autoridad := escenario.crearAutoridad(t)
+	proyeccion, err := autoridad.PrepararRegistro(
+		context.Background(),
+		verificadorReferenciaCanceladorAutoridadObjetoV1Prueba{
+			delegado: escenario.registro,
+			mutar: func() {
+				autoridad.datos.huellaManifiestoSHA256 = strings.Repeat("3", 64)
+			},
+		},
+		escenario.criptografia,
+	)
+	if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) ||
+		!reflect.DeepEqual(proyeccion, ProyeccionAutoridadObjetoEsperadoDocumentalV1{}) {
+		t.Fatalf("la mutacion durante reverificacion alcanzo registro: proyeccion=%v err=%v", proyeccion, err)
+	}
+}
+
 func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.T) {
 	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
 	autoridad := escenario.crearAutoridad(t)
@@ -334,18 +563,43 @@ func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.
 		"conector": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
 			d.conectorID += ":alterado"
 		},
+		"efecto": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.efectoRef += ":alterado"
+		},
+		"plan": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.huellaPlanEfectoSHA256 = strings.Repeat("1", 64)
+		},
+		"manifiesto": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.huellaManifiestoSHA256 = strings.Repeat("2", 64)
+		},
+		"paso": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.pasoRef = PasoOperacionAlmacen("99_paso_alterado")
+		},
+		"contexto V4": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.contextoV4.CorrelacionRef += ":alterada"
+		},
+		"declaracion V4 exacta": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.huellaDeclaracionV4[0] ^= 1
+		},
 	}
 	for nombre, mutar := range mutaciones {
 		t.Run(nombre, func(t *testing.T) {
 			copia := autoridad
 			datos := *autoridad.datos
 			datos.recibo = clonarReciboAutoridadObjetoEsperadoDocumentalV1(datos.recibo)
+			datos.declaracion = clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(
+				datos.declaracion,
+			)
 			copia.datos = &datos
 			mutar(copia.datos)
-			_, err := copia.PrepararRegistro(
+			if err := copia.Validar(); !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) {
+				t.Fatal("Validar admitio un compromiso alterado")
+			}
+			proyeccion, err := copia.PrepararRegistro(
 				context.Background(), escenario.registro, escenario.criptografia,
 			)
-			if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) {
+			if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) ||
+				!reflect.DeepEqual(proyeccion, ProyeccionAutoridadObjetoEsperadoDocumentalV1{}) {
 				t.Fatal("la alteracion interna alcanzo la frontera de registro")
 			}
 		})
