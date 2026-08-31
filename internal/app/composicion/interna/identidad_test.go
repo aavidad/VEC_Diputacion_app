@@ -140,19 +140,11 @@ type entornoIdentidadOfflinePrueba struct {
 }
 
 type efectosIdentidadOfflinePrueba struct {
-	verificaciones int32
-	evaluaciones   int32
-	altas          int32
-	revalidaciones int32
+	verificaciones, evaluaciones, altas, revalidaciones int32
 }
 
 func (e *entornoIdentidadOfflinePrueba) efectos() efectosIdentidadOfflinePrueba {
-	return efectosIdentidadOfflinePrueba{
-		verificaciones: e.verificador.llamadas.Load(),
-		evaluaciones:   e.evaluador.llamadas.Load(),
-		altas:          e.registro.altas.Load(),
-		revalidaciones: e.registro.revalidaciones.Load(),
-	}
+	return efectosIdentidadOfflinePrueba{e.verificador.llamadas.Load(), e.evaluador.llamadas.Load(), e.registro.altas.Load(), e.registro.revalidaciones.Load()}
 }
 
 func (e *entornoIdentidadOfflinePrueba) ejecutarEnC4(
@@ -299,7 +291,6 @@ func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 	if _, err := fachadaNula.Autenticar(context.Background(), []byte("x")); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
 		t.Fatalf("fachada nula admitida: %v", err)
 	}
-
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
 	var servidorNulo *ServidorInterno
 	if _, err := NuevaFachadaIdentidadOffline(
@@ -330,20 +321,33 @@ func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 	if _, err := entorno.fachada.Autenticar(ctxCapacidadNula, []byte("x")); !errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado) {
 		t.Fatalf("capacidad C4 tipada nula admitida: %v", err)
 	}
-	var errCancelacion error
-	entorno.ejecutarEnC4(t, func(ctx context.Context) {
+	if efectos := entorno.efectos(); efectos != (efectosIdentidadOfflinePrueba{}) {
+		t.Fatalf("typed nil produjo efectos: %+v", efectos)
+	}
+	var errCancelacion, errValido, errTercero error
+	var efectosCancelacion efectosIdentidadOfflinePrueba
+	codigo := entorno.ejecutarEnC4(t, func(ctx context.Context) {
 		ctxCancelado, cancelar := context.WithCancel(ctx)
 		cancelar()
 		_, errCancelacion = entorno.fachada.Autenticar(ctxCancelado, []byte("x"))
+		efectosCancelacion = entorno.efectos()
+		_, errValido = entorno.fachada.Autenticar(ctx, []byte("asercion-tras-cancelacion"))
+		_, errTercero = entorno.fachada.Autenticar(ctx, []byte("asercion-tercera"))
 	})
-	if !errors.Is(errCancelacion, context.Canceled) {
-		t.Fatalf("cancelacion perdida: %v", errCancelacion)
+	if codigo != http.StatusNoContent || !errors.Is(errCancelacion, context.Canceled) || errValido != nil ||
+		!errors.Is(errTercero, httpseguridad.ErrCanalProxyNoAutenticado) {
+		t.Fatalf("cancelacion/consumo: codigo=%d cancelada=%v valida=%v tercera=%v",
+			codigo, errCancelacion, errValido, errTercero)
+	}
+	if efectosCancelacion != (efectosIdentidadOfflinePrueba{}) ||
+		entorno.efectos() != (efectosIdentidadOfflinePrueba{1, 2, 1, 1}) {
+		t.Fatalf("ledger cancelacion/consumo: cancelada=%+v final=%+v",
+			efectosCancelacion, entorno.efectos())
 	}
 	var protegidaNula []byte
 	if _, err := entorno.autenticarEnC4(t, protegidaNula); !errors.Is(err, httpseguridad.ErrAsercionAusente) {
 		t.Fatalf("asercion tipada nula admitida: %v", err)
 	}
-
 	configuracionExterna := entorno.configuracion
 	configuracionExterna.Superficie = httpseguridad.SuperficieExternaPersonal
 	configuracionExterna.ZonaRed = httpseguridad.ZonaRedPublica
@@ -432,6 +436,17 @@ func TestFachadaIdentidadOfflineRechazaEstadosNoAcreditadosSinEfectos(t *testing
 		hibrido.OCSPResponse = destino.estadoServidor.OCSPResponse
 		hibrido.TLSUnique = destino.estadoServidor.TLSUnique
 		hibrido.ECHAccepted = destino.estadoServidor.ECHAccepted
+		probarRechazo(t, destino, hibrido)
+	})
+	t.Run("certificados trasplantados conservando exporter del destino", func(t *testing.T) {
+		origen := nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13)
+		destino := nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13)
+		hibrido := destino.estadoServidor
+		hibrido.PeerCertificates = origen.estadoServidor.PeerCertificates
+		hibrido.VerifiedChains = origen.estadoServidor.VerifiedChains
+		if hibrido.PeerCertificates[0].Equal(destino.estadoServidor.PeerCertificates[0]) {
+			t.Fatal("handshakes sin certificados distintos")
+		}
 		probarRechazo(t, destino, hibrido)
 	})
 	t.Run("TLS 1.2 del lado servidor", func(t *testing.T) {
