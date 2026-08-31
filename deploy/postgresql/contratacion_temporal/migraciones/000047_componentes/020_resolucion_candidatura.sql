@@ -52,8 +52,10 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1
-          FROM pg_catalog.unnest(p_ambitos_hmac, p_huellas_hmac)
-               WITH ORDINALITY AS p(ambito, huella, orden)
+          FROM ROWS FROM (
+                   pg_catalog.unnest(p_ambitos_hmac),
+                   pg_catalog.unnest(p_huellas_hmac)
+               ) WITH ORDINALITY AS p(ambito, huella, orden)
          WHERE p.ambito !~ ('^hmac-sha256:vec[.]contratacion-temporal[.]' ||
                    'ambito-idempotencia/v[1-9][0-9]{0,8}:[a-f0-9]{64}$')
             OR p.huella !~ ('^hmac-sha256:vec[.]contratacion-temporal[.]' ||
@@ -120,8 +122,10 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1
-          FROM pg_catalog.unnest(
-                   v_generaciones, p_ambitos_hmac, p_huellas_hmac
+          FROM ROWS FROM (
+                   pg_catalog.unnest(v_generaciones),
+                   pg_catalog.unnest(p_ambitos_hmac),
+                   pg_catalog.unnest(p_huellas_hmac)
                ) AS p(generacion, ambito, huella)
           JOIN vec_contratacion_temporal.candidatura_alta_alias a
             ON a.ambito_raiz_hmac = v_raiz
@@ -138,8 +142,11 @@ BEGIN
     )
     SELECT ambito, huella, v_raiz, generacion,
            pg_catalog.date_trunc('microseconds', pg_catalog.clock_timestamp())
-      FROM pg_catalog.unnest(v_generaciones, p_ambitos_hmac, p_huellas_hmac)
-           AS p(generacion, ambito, huella)
+      FROM ROWS FROM (
+               pg_catalog.unnest(v_generaciones),
+               pg_catalog.unnest(p_ambitos_hmac),
+               pg_catalog.unnest(p_huellas_hmac)
+           ) AS p(generacion, ambito, huella)
     ON CONFLICT (ambito_hmac) DO NOTHING;
     RETURN QUERY SELECT
         CASE WHEN v_insertada THEN 'estabilizada' ELSE 'recuperada' END,

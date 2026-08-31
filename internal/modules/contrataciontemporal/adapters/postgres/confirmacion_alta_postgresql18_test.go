@@ -271,7 +271,7 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 			"vec_contratacion_temporal.resolver_candidatura_alta_tecnica_v1(text[],text[],text,text,text,text,text,text,text,timestamp with time zone)",
 			"vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)",
 			"vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)").Scan(&privilegios)
-		if err != nil || privilegios != "true|true|false" {
+		if err != nil || privilegios != "t|t|f" {
 			t.Fatalf("privilegios runtime divergentes: %q, %v", privilegios, err)
 		}
 		var rlsForzada bool

@@ -460,6 +460,6 @@ docker exec -i --env \
     -d postgres --set ON_ERROR_STOP=1 --file \
     /repo/deploy/postgresql/contratacion_temporal/migraciones/000047_candidatura_alta_durable_o2_r3b.down.sql >/dev/null
 archivo vec_ct_r3b_migrador contratacion_temporal/migraciones/000047_candidatura_alta_durable_o2_r3b.up.sql >/dev/null
-[[ "$(valor "SELECT concat_ws('|',(to_regclass('vec_contratacion_temporal.candidatura_alta_tecnica') IS NOT NULL),has_function_privilege('vec_ct_r3b_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE'),has_function_privilege('vec_ct_r3b_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE'))")" == 'true|true|false' ]]
+[[ "$(valor "SELECT concat_ws('|',(to_regclass('vec_contratacion_temporal.candidatura_alta_tecnica') IS NOT NULL),has_function_privilege('vec_ct_r3b_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE'),has_function_privilege('vec_ct_r3b_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE'))")" == 't|t|f' ]]
 
 printf '[CT-O2-R3B:PG18.4] evidencia completa; instalacion tras 000046, V2 y residuos cero\n'

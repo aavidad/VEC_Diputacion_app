@@ -5,8 +5,9 @@ Fecha del corte: 31 de agosto de 2026.
 ## Resultados cronológicos de las puertas dinámicas
 
 Estado: **NO-GO dinámico; R2 obtuvo `GO ESTÁTICO` independiente con `P0=0`,
-`P1=0` y `P2=0`, pero la ejecución focal posterior terminó con `RC=1` en el
-oráculo del preflight**.
+`P1=0` y `P2=0`, pero las dos ejecuciones focales posteriores terminaron en
+el oráculo del preflight y en la primera resolución Go, respectivamente. R4
+queda sin ejecución dinámica y pendiente de revisión independiente**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -120,7 +121,79 @@ Esa captura incluye también el rechazo inicial con `RC=64` por ausencia de la
 marca desechable antes del relanzamiento. El resultado permanece en `NO-GO`
 dinámico y no autoriza otra ejecución.
 
-## Capacidad e invariante
+### Cuarto NO-GO dinámico focal: expansión matricial cualificada
+
+La ejecución focal preservada posterior a R3 superó el preflight exacto
+`180004|t|t|t` y comenzó
+`TestCandidaturaAltaPostgreSQL18DeExtremoATerminal`. Falló en
+`confirmacion_alta_postgresql18_test.go`, línea 57, durante la primera llamada
+al resolutor, con el error Go normalizado:
+
+```text
+contratacion temporal: persistencia no disponible
+```
+
+El log `/tmp/vec-o2-r3b-r3-dynamic-20260831.log` conserva 10 líneas y 816
+bytes; su SHA-256 es
+`9fb15e6e88ce974362b50a0f343bb86e8ef97ea9aec814ed7b4872300c10167c`.
+La normalización del adaptador impidió conservar en ese log el `PgError` crudo:
+no se afirma que se capturase. La causa se identificó después por inspección
+estática de `000047_componentes/020_resolucion_candidatura.sql` y del
+tratamiento del parser oficial de PostgreSQL: la transformación especial de
+`unnest` con varios arrays solo se aplica al nombre no cualificado; una llamada
+`pg_catalog.unnest` con dos o tres argumentos intenta resolver una función
+multiargumento inexistente.
+
+La limpieza dejó cero recursos propios y el contenedor ajeno permaneció
+idéntico antes y después:
+
+```text
+d6217278d8718a4e51c4be9523dde15406559989abe46f3a5e496624d6aa4aeb|running|/contagrx-t224-pg-focal|sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+```
+
+La ejecución no alcanzó la concurrencia, rotación, confirmación V2, ACL ni
+reinstalación. Este cuarto resultado conserva el estado `NO-GO`, no acredita
+PostgreSQL completo y no autoriza una repetición adicional.
+
+### Corrección R4
+
+R4 conserva `search_path = pg_catalog` y sustituye cada expansión multi-array
+por `ROWS FROM` con llamadas individuales y explícitamente cualificadas a
+`pg_catalog.unnest(...)`. La expansión de dos arrays conserva
+`WITH ORDINALITY`, los nombres `ambito`, `huella`, `orden` y su validación; las
+dos expansiones de tres arrays conservan `generacion`, `ambito`, `huella`, su
+orden posicional y las comprobaciones de conflicto e inserción.
+
+R4 corrige también los dos oráculos ACL posteriores para esperar la salida
+real de `psql`: `t|t|f` tanto en la prueba Go como tras reinstalar `000047` en
+el runner. El preflight permanece deliberadamente en `180004|t|t|t`; no se
+relajan su versión ni sus tres comprobaciones de presencia.
+
+## Capability, invariantes y write-set de R4
+
+Capability: recuperar la expansión posicional de los pares HMAC de la
+candidatura técnica y conservar oráculos fieles al formato booleano de
+PostgreSQL, sin ampliar la autoridad del resolutor ni de la confirmación.
+
+Invariantes:
+
+- la candidatura continúa siendo técnica, durable y no autoritativa;
+- ámbito, huella y generación permanecen alineados por posición, con la
+  ordinalidad de la validación de dos arrays intacta;
+- `search_path = pg_catalog` y la cualificación explícita de cada función se
+  mantienen, sin caída a resolución por esquemas del llamador;
+- el runtime solo conserva `EXECUTE` sobre el resolutor y V2, nunca sobre V1;
+- no se ejecuta PostgreSQL ni se reinterpreta ningún `NO-GO` histórico; y
+- R4 no cierra O2-06, R3B, la vertical, el arranque ni producción.
+
+Write-set exacto:
+
+1. `deploy/postgresql/contratacion_temporal/migraciones/000047_componentes/020_resolucion_candidatura.sql`;
+2. `deploy/postgresql/contratacion_temporal/probar_o2_r3b_candidatura_postgresql18_4.sh`;
+3. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_postgresql18_test.go`; y
+4. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
 `CandidaturaAlta` técnica mediante pares HMAC de una generación activa y hasta
@@ -199,9 +272,10 @@ propietario.
 
 El runner `probar_o2_r3b_candidatura_postgresql18_4.sh` usa exclusivamente la
 imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
-Instala `000047` después de `000046`. La ejecución dinámica posterior a R2 se
-detuvo en el oráculo del preflight y no alcanzó la matriz que una autorización
-dinámica nueva deberá acreditar:
+Instala `000047` después de `000046`. La primera ejecución dinámica posterior
+a R2 se detuvo en el oráculo del preflight; la siguiente, ya sobre R3, superó
+ese preflight y se detuvo en la primera resolución Go. Ninguna alcanzó la
+matriz completa que una autorización dinámica nueva deberá acreditar:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -227,7 +301,7 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R3 y, solo después y con una
+revisión independiente del hash exacto de R4 y, solo después y con una
 autorización posterior expresa, una nueva validación dinámica exclusiva. La
 integración continúa prohibida. R3C permanece bloqueada hasta resolver ese
 `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato candidato
