@@ -107,10 +107,14 @@ BEGIN
         pg_catalog.hashtextextended('vec_ct:candidatura:' || valor, 0))
       FROM pg_catalog.unnest(p_ambitos_hmac || p_huellas_hmac) AS u(valor)
      ORDER BY valor COLLATE "C";
-    SELECT pg_catalog.array_agg(DISTINCT ambito_raiz_hmac ORDER BY ambito_raiz_hmac)
+    SELECT pg_catalog.array_agg(
+               DISTINCT a.ambito_raiz_hmac
+               ORDER BY a.ambito_raiz_hmac
+           )
       INTO v_raices
-      FROM vec_contratacion_temporal.candidatura_alta_alias
-     WHERE ambito_hmac = ANY(p_ambitos_hmac) OR huella_hmac = ANY(p_huellas_hmac);
+      FROM vec_contratacion_temporal.candidatura_alta_alias AS a
+     WHERE a.ambito_hmac = ANY(p_ambitos_hmac)
+        OR a.huella_hmac = ANY(p_huellas_hmac);
     IF pg_catalog.cardinality(v_raices) > 1 THEN
         RAISE EXCEPTION USING ERRCODE = '23505',
             MESSAGE = 'candidatura de alta en conflicto';
@@ -168,7 +172,7 @@ BEGIN
                pg_catalog.unnest(p_ambitos_hmac),
                pg_catalog.unnest(p_huellas_hmac)
            ) AS p(generacion, ambito, huella)
-    ON CONFLICT (ambito_hmac) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT candidatura_alta_alias_pkey DO NOTHING;
     RETURN QUERY SELECT
         CASE WHEN v_insertada THEN 'estabilizada' ELSE 'recuperada' END,
         v_candidatura.reserva_ref, v_candidatura.expediente_ref,
