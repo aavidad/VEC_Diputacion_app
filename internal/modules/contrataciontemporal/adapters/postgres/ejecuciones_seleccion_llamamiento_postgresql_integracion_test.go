@@ -447,12 +447,12 @@ func probarACLSeleccionO6Integracion(t *testing.T, ctx context.Context, admin *p
 	}
 	filas, err := admin.Query(ctx, `
 		SELECT funcion.proname, funcion.prosecdef, propietario.rolname,
-		       pg_catalog.coalesce(funcion.proconfig, ARRAY[]::text[]),
+		       COALESCE(funcion.proconfig, ARRAY[]::text[]),
 		       pg_catalog.has_function_privilege(
 		           'vec_contratacion_temporal_ejecutor', funcion.oid, 'EXECUTE'),
 		       pg_catalog.has_function_privilege($1, funcion.oid, 'EXECUTE'),
 		       EXISTS (
-		           SELECT 1 FROM pg_catalog.aclexplode(pg_catalog.coalesce(
+		           SELECT 1 FROM pg_catalog.aclexplode(COALESCE(
 		               funcion.proacl, pg_catalog.acldefault('f', funcion.proowner)
 		           )) permiso
 		           WHERE permiso.grantee = 0 AND permiso.privilege_type = 'EXECUTE'
@@ -496,7 +496,7 @@ func probarACLSeleccionO6Integracion(t *testing.T, ctx context.Context, admin *p
 		 'vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6', 'SELECT'),
 		EXISTS (
 		    SELECT 1 FROM pg_catalog.pg_class tabla,
-		         LATERAL pg_catalog.aclexplode(pg_catalog.coalesce(
+		         LATERAL pg_catalog.aclexplode(COALESCE(
 		             tabla.relacl, pg_catalog.acldefault('r', tabla.relowner)
 		         )) permiso
 		    WHERE tabla.oid =

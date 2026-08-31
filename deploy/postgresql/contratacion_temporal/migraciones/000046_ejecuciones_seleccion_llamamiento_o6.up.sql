@@ -215,7 +215,7 @@ BEGIN
         RETURN QUERY SELECT 'colision', p_solicitud::text, '', '', '', '';
     ELSIF v_ejecucion.situacion = 'propietaria' AND v_ejecucion.lease_hasta > v_ahora THEN
         RETURN QUERY SELECT 'ocupada', v_ejecucion.solicitud_json::text, '',
-            pg_catalog.coalesce(v_ejecucion.efecto, ''), '', '';
+            COALESCE(v_ejecucion.efecto, ''), '', '';
     ELSIF v_ejecucion.situacion = 'propietaria' AND
           (v_ejecucion.ventana_orden_abierta OR v_ejecucion.ventana_llamamiento_abierta) THEN
         UPDATE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
@@ -236,9 +236,9 @@ BEGIN
             v_ejecucion.reserva_ref, '', '', '';
     ELSE
         RETURN QUERY SELECT v_ejecucion.situacion, v_ejecucion.solicitud_json::text, '',
-            pg_catalog.coalesce(v_ejecucion.efecto, ''),
-            pg_catalog.coalesce(v_ejecucion.recibo_json::text, ''),
-            pg_catalog.coalesce(v_ejecucion.artefacto_canonico, '');
+            COALESCE(v_ejecucion.efecto, ''),
+            COALESCE(v_ejecucion.recibo_json::text, ''),
+            COALESCE(v_ejecucion.artefacto_canonico, '');
     END IF;
 END
 $funcion$;
@@ -715,12 +715,12 @@ BEGIN
         RETURN QUERY SELECT 'colision', p_solicitud::text, '', '', '', '';
     ELSIF v_ejecucion.situacion = 'propietaria' THEN
         RETURN QUERY SELECT 'ocupada', v_ejecucion.solicitud_json::text, '',
-            pg_catalog.coalesce(v_ejecucion.efecto, ''), '', '';
+            COALESCE(v_ejecucion.efecto, ''), '', '';
     ELSE
         RETURN QUERY SELECT v_ejecucion.situacion, v_ejecucion.solicitud_json::text, '',
-            pg_catalog.coalesce(v_ejecucion.efecto, ''),
-            pg_catalog.coalesce(v_ejecucion.recibo_json::text, ''),
-            pg_catalog.coalesce(v_ejecucion.artefacto_canonico, '');
+            COALESCE(v_ejecucion.efecto, ''),
+            COALESCE(v_ejecucion.recibo_json::text, ''),
+            COALESCE(v_ejecucion.artefacto_canonico, '');
     END IF;
 END
 $funcion$;
