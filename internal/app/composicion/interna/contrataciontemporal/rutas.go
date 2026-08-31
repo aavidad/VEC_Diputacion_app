@@ -25,6 +25,7 @@ type DependenciasRutas struct {
 	Presentador        httpinterno.PresentadorPropuestaCobertura
 	Decisor            httpinterno.EjecutorDecisionCobertura
 	ConsultorResultado httpinterno.ConsultorResultadoCobertura
+	EjecutorSeleccion  httpinterno.EjecutorSeleccionLlamamiento
 }
 
 // NuevasRutas construye el conjunto de forma atomica. No devuelve una API
@@ -61,6 +62,12 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	seleccion, err := httpinterno.NuevoManejadorSeleccionLlamamiento(
+		dependencias.EjecutorSeleccion,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
 	return []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -89,6 +96,10 @@ func NuevasRutas(
 		{
 			Ruta:      httpinterno.RutaRectificacionAnalisisRRHH,
 			Manejador: analisis,
+		},
+		{
+			Ruta:      httpinterno.RutaSeleccionLlamamiento,
+			Manejador: seleccion,
 		},
 	}, nil
 }

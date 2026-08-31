@@ -70,6 +70,7 @@ type negocioContratacionNoInvocablePrueba struct {
 	decisiones      atomic.Int64
 	rectificaciones atomic.Int64
 	consultas       atomic.Int64
+	llamamientos    atomic.Int64
 }
 
 func (n *negocioContratacionNoInvocablePrueba) Registrar(
@@ -112,9 +113,18 @@ func (n *negocioContratacionNoInvocablePrueba) ConsultarParaAdaptador(
 	return contratacionapp.DatosConsultaResultadoCoberturaParaAdaptador{}, nil
 }
 
+func (n *negocioContratacionNoInvocablePrueba) SeleccionarYLlamar(
+	context.Context,
+	contratacionapp.SolicitudSeleccionLlamamiento,
+) (ports.ReciboSolicitudLlamamientoBolsa, error) {
+	n.llamamientos.Add(1)
+	return ports.ReciboSolicitudLlamamientoBolsa{}, nil
+}
+
 func (n *negocioContratacionNoInvocablePrueba) total() int64 {
 	return n.altas.Load() + n.propuestas.Load() +
-		n.decisiones.Load() + n.rectificaciones.Load() + n.consultas.Load()
+		n.decisiones.Load() + n.rectificaciones.Load() + n.consultas.Load() +
+		n.llamamientos.Load()
 }
 
 type negocioAnalisisNoInvocablePrueba struct {
@@ -257,6 +267,44 @@ func TestRutaResultadoCoberturaExigeAutoridadExteriorAntesDelConsultor(
 	}
 }
 
+func TestRutaSeleccionLlamamientoExigeAutoridadExteriorAntesDelNegocio(
+	t *testing.T,
+) {
+	t.Parallel()
+	negocio := &negocioContratacionNoInvocablePrueba{}
+	handler := nuevoHandlerContratacionErrorPrueba(
+		t,
+		httpinterno.ErrContextoCanalNoDisponible,
+		negocio,
+		&negocioAnalisisNoInvocablePrueba{},
+		autoridadDespachoContratacionDenegadaPrueba{},
+	)
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		httpinterno.RutaSeleccionLlamamiento,
+		strings.NewReader(
+			`{"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"}`,
+		),
+	)
+	peticion.Header.Set("Content-Type", "application/json")
+	peticion.Header.Set("Accept", "application/json")
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusForbidden ||
+		!strings.Contains(
+			respuesta.Body.String(),
+			`"codigo":"acceso_denegado"`,
+		) ||
+		negocio.total() != 0 {
+		t.Fatalf(
+			"autoridad exterior omitida: estado=%d cuerpo=%s negocio=%d",
+			respuesta.Code,
+			respuesta.Body.String(),
+			negocio.total(),
+		)
+	}
+}
+
 func nuevoHandlerContratacionErrorPrueba(
 	t *testing.T,
 	errAutoridad error,
@@ -282,6 +330,7 @@ func nuevoHandlerContratacionErrorPrueba(
 			Presentador:        negocio,
 			Decisor:            negocio,
 			ConsultorResultado: negocio,
+			EjecutorSeleccion:  negocio,
 		},
 	)
 	if err != nil {
