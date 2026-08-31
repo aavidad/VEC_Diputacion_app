@@ -360,6 +360,62 @@ SELECT * FROM public.invocar_vector_r3b('$1'); COMMIT;
 SQL
 }
 
+printf '[R3B] adaptador publico Go, doce entradas y ocho columnas reales\n'
+emisor_publico="$temporal/confianza-atestacion-r3b.test"
+adaptador_publico="$temporal/confirmacion-alta-r3b.test"
+(
+    cd -- "$raiz"
+    GOPROXY=off go test -c -o "$emisor_publico" \
+        ./internal/vec/adapters/seguridad/confianzaatestacion
+    GOPROXY=off go test -c -o "$adaptador_publico" \
+        ./internal/modules/contrataciontemporal/adapters/postgres
+)
+preparar adaptador_publico
+psql_usuario postgres >/dev/null <<'SQL'
+WITH original AS (
+    SELECT caso, convert_from(alta, 'UTF8')::jsonb AS a
+      FROM public.vectores_o2_05
+     WHERE caso = 'adaptador_publico'
+), normalizado AS (
+    SELECT caso,
+           jsonb_set(jsonb_set(jsonb_set(jsonb_set(
+               a, '{solicitud,periodo,inicio}',
+               to_jsonb(left(a #>> '{solicitud,periodo,inicio}', 10))
+           ), '{solicitud,periodo,fin}',
+               to_jsonb(left(a #>> '{solicitud,periodo,fin}', 10))
+           ), '{solicitud,rc,fecha}', '""'::jsonb
+           ), '{solicitud,rc,importe,moneda}', '"EUR"'::jsonb) AS a
+      FROM original
+)
+UPDATE public.vectores_o2_05 AS v
+   SET alta = vec_contratacion_temporal.reconstruir_efecto_alta_v2(n.a)
+  FROM normalizado AS n
+ WHERE v.caso = n.caso;
+SQL
+entrada_publica="$temporal/entrada-publica-r3b.json"
+bundle_publico="$temporal/bundle-publico-r3b.json"
+valor "SELECT public.exportar_entrada_go_o2_05('adaptador_publico')" \
+    >"$entrada_publica"
+chmod 600 "$entrada_publica"
+VEC_O205_VECTOR_ENTRADA="$entrada_publica" \
+VEC_O205_VECTOR_SALIDA="$bundle_publico" \
+    "$emisor_publico" -test.run '^TestGenerarVectorO205ParaSQL$' -test.count=1
+docker cp "$bundle_publico" "$contenedor:/tmp/bundle-publico-r3b.json"
+docker exec "$contenedor" chmod 644 /tmp/bundle-publico-r3b.json
+psql_usuario postgres --command \
+    "SELECT public.aplicar_bundle_go_o2_05('adaptador_publico',pg_catalog.pg_read_file('/tmp/bundle-publico-r3b.json')::jsonb)" \
+    >/dev/null
+docker exec "$contenedor" rm -f /tmp/bundle-publico-r3b.json
+VEC_CT_O2_R3B_INTEGRACION_PG=SI \
+VEC_CT_O2_R3B_RUNTIME_DSN="host=$socket port=5432 dbname=postgres user=vec_ct_r3b_runtime sslmode=disable" \
+VEC_CT_O2_R3B_ADMIN_DSN="host=$socket port=5432 dbname=postgres user=postgres sslmode=disable" \
+VEC_CT_O2_R3B_VECTOR_ENTRADA="$entrada_publica" \
+VEC_CT_O2_R3B_VECTOR_BUNDLE="$bundle_publico" \
+    "$adaptador_publico" \
+        -test.run '^TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools$' \
+        -test.count=1
+rm -f "$entrada_publica" "$bundle_publico" "$emisor_publico" "$adaptador_publico"
+
 preparar ligada
 resolver_vector ligada
 confirmar_vector ligada

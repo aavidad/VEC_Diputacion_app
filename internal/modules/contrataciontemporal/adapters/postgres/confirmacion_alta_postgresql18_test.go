@@ -1,7 +1,9 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
@@ -199,6 +203,55 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 		}
 	})
 
+	t.Run("propietario no reescribe ni trunca historia", func(t *testing.T) {
+		antes := huellaHistoriaCandidaturasR3B(t, ctx, admin)
+		operaciones := []struct {
+			nombre   string
+			consulta string
+		}{
+			{"actualizar candidatura", `UPDATE vec_contratacion_temporal.candidatura_alta_tecnica SET origen=origen`},
+			{"eliminar candidatura", `DELETE FROM vec_contratacion_temporal.candidatura_alta_tecnica`},
+			{"actualizar alias", `UPDATE vec_contratacion_temporal.candidatura_alta_alias SET registrada_en=registrada_en`},
+			{"eliminar alias", `DELETE FROM vec_contratacion_temporal.candidatura_alta_alias`},
+			{"truncar candidatura", `TRUNCATE vec_contratacion_temporal.candidatura_alta_tecnica, vec_contratacion_temporal.candidatura_alta_alias`},
+			{"truncar alias", `TRUNCATE vec_contratacion_temporal.candidatura_alta_alias`},
+		}
+		for _, operacion := range operaciones {
+			t.Run(operacion.nombre, func(t *testing.T) {
+				tx, err := admin.BeginTx(ctx, pgx.TxOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_contratacion_temporal_propietario`); err != nil {
+					_ = tx.Rollback(context.Background())
+					t.Fatal(err)
+				}
+				if _, err = tx.Exec(ctx, operacion.consulta); err == nil {
+					_ = tx.Rollback(context.Background())
+					t.Fatalf("el propietario pudo %s", operacion.nombre)
+				}
+				if err := tx.Rollback(context.Background()); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+					t.Fatal(err)
+				}
+				if despues := huellaHistoriaCandidaturasR3B(t, ctx, admin); despues != antes {
+					t.Fatalf("%s altero la historia: antes=%s despues=%s", operacion.nombre, antes, despues)
+				}
+			})
+		}
+		var disparadores int
+		err := admin.QueryRow(ctx, `SELECT count(*)
+		  FROM pg_catalog.pg_trigger t
+		  JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid
+		  JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+		 WHERE n.nspname='vec_contratacion_temporal'
+		   AND c.relname IN ('candidatura_alta_tecnica','candidatura_alta_alias')
+		   AND t.tgname IN ('candidatura_alta_tecnica_no_truncar','candidatura_alta_alias_no_truncar')
+		   AND NOT t.tgisinternal AND (t.tgtype & 32)=32 AND (t.tgtype & 1)=0`).Scan(&disparadores)
+		if err != nil || disparadores != 2 {
+			t.Fatalf("disparadores de truncado divergentes: %d, %v", disparadores, err)
+		}
+	})
+
 	t.Run("ACL y RLS cierran tablas V1 y preparador", func(t *testing.T) {
 		for _, consulta := range []string{
 			"TABLE vec_contratacion_temporal.candidatura_alta_tecnica",
@@ -240,6 +293,232 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 			t.Fatalf("RLS divergente: forzada=%t politicas=%d error=%v", rlsForzada, politicas, err)
 		}
 	})
+}
+
+type entradaPublicaR3B struct {
+	Ahora                  string                           `json:"ahora"`
+	DecisionPlantillaB64   string                           `json:"decision_plantilla_b64"`
+	MotivoB64              string                           `json:"motivo_b64"`
+	ContextoB64            string                           `json:"contexto_b64"`
+	ManifiestoB64          string                           `json:"manifiesto_b64"`
+	ManifiestoHuellaSHA256 string                           `json:"manifiesto_huella_sha256"`
+	AutoridadEfectiva      string                           `json:"autoridad_efectiva"`
+	ResueltoEn             string                           `json:"resuelto_en"`
+	AltaB64                string                           `json:"alta_b64"`
+	SellosB64              string                           `json:"sellos_b64"`
+	EfectoHuellaSHA256     string                           `json:"efecto_huella_sha256"`
+	Politicas              []dominiovec.PoliticaRestrictiva `json:"politicas"`
+	RevisionCatalogo       uint64                           `json:"revision_catalogo"`
+	HuellaCatalogoSHA256   string                           `json:"huella_catalogo_sha256"`
+}
+
+type decisionPlantillaPublicaR3B struct {
+	DecisionRef               string                                      `json:"decision_ref"`
+	Accion                    string                                      `json:"accion"`
+	RecursoRef                string                                      `json:"recurso_ref"`
+	ModuloID                  string                                      `json:"modulo_id"`
+	TipoRecurso               string                                      `json:"tipo_recurso"`
+	Finalidad                 string                                      `json:"finalidad"`
+	CorrelacionRef            string                                      `json:"correlacion_ref"`
+	VinculoAutenticacionActor dominiovec.DatosVinculoAutenticacionActorV2 `json:"vinculo_autenticacion_actor"`
+}
+
+type motivoPublicoR3B struct {
+	Referencia dominiovec.ReferenciaEntradaCatalogo `json:"referencia"`
+}
+
+type bundlePublicoR3B struct {
+	CapacidadB64        string          `json:"capacidad_b64"`
+	DecisionB64         string          `json:"decision_b64"`
+	MotivoB64           string          `json:"motivo_b64"`
+	ContextoB64         string          `json:"contexto_b64"`
+	PayloadB64          string          `json:"payload_b64"`
+	COSEB64             string          `json:"cose_b64"`
+	EvidenciaB64        string          `json:"evidencia_b64"`
+	SPKIB64             string          `json:"spki_b64"`
+	AltaB64             string          `json:"alta_b64"`
+	SellosB64           string          `json:"sellos_b64"`
+	PersonaVersion      uint64          `json:"persona_version"`
+	PerfilVersion       uint64          `json:"perfil_version"`
+	VersionRolDocumento json.RawMessage `json:"version_rol_documento"`
+	ControlRolDocumento json.RawMessage `json:"control_rol_documento"`
+	AsignacionDocumento json.RawMessage `json:"asignacion_documento"`
+}
+
+type capacidadPublicaR3B struct {
+	DecisionRef          string `json:"decision_ref"`
+	HuellaDecisionSHA256 string `json:"huella_decision_sha256"`
+	HuellaMotivoSHA256   string `json:"huella_motivo_sha256"`
+	ContextoRef          string `json:"contexto_ref"`
+	HuellaContextoSHA256 string `json:"huella_contexto_sha256"`
+	Operacion            string `json:"operacion"`
+	EfectoRef            string `json:"efecto_ref"`
+	HuellaEfectoSHA256   string `json:"huella_efecto_sha256"`
+	AudienciaConsumo     string `json:"audiencia_consumo"`
+	EmitidaEn            string `json:"emitida_en"`
+	ExpiraEn             string `json:"expira_en"`
+}
+
+type autoridadPublicaR3B struct {
+	autenticacion dominiovec.AutenticacionRevalidadaV1
+	contexto      dominiovec.ResultadoContextoActorRegistradoV2
+	ahora         time.Time
+	correlacion   string
+}
+
+func (a autoridadPublicaR3B) RevalidarAutenticacionActorV1(context.Context, dominiovec.SolicitudRevalidacionAutenticacionActorV1) (dominiovec.AutenticacionRevalidadaV1, error) {
+	return a.autenticacion, nil
+}
+func (a autoridadPublicaR3B) ResolverContextoActorRegistradoV2(context.Context, dominiovec.SolicitudContextoActor) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+	return a.contexto, nil
+}
+func (a autoridadPublicaR3B) Ahora() time.Time { return a.ahora }
+func (a autoridadPublicaR3B) NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error) {
+	return a.correlacion, nil
+}
+func (a autoridadPublicaR3B) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Context, puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3) (time.Time, error) {
+	return a.ahora, nil
+}
+
+type proveedorPublicoR3B struct {
+	material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+func (p proveedorPublicoR3B) ProveerMaterialConfirmacionAlta(ctx context.Context, orden ports.OrdenConfirmarAltaCandidata) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrPersistenciaNoDisponible
+	}
+	if _, err := orden.Datos(); err != nil || p.material.ValidarEstructura() != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrOrdenAltaInvalida
+	}
+	return p.material, nil
+}
+
+func TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools(t *testing.T) {
+	if os.Getenv("VEC_CT_O2_R3B_INTEGRACION_PG") != "SI" {
+		t.Skip("solo se ejecuta desde el runner PostgreSQL 18.4 de R3B")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	primerPool := abrirPoolR3B(t, ctx, "VEC_CT_O2_R3B_RUNTIME_DSN")
+	defer primerPool.Close()
+	segundoPool := abrirPoolR3B(t, ctx, "VEC_CT_O2_R3B_RUNTIME_DSN")
+	defer segundoPool.Close()
+	admin := abrirPoolR3B(t, ctx, "VEC_CT_O2_R3B_ADMIN_DSN")
+	defer admin.Close()
+
+	var entrada entradaPublicaR3B
+	var bundle bundlePublicoR3B
+	leerJSONPublicoR3B(t, os.Getenv("VEC_CT_O2_R3B_VECTOR_ENTRADA"), &entrada)
+	leerJSONPublicoR3B(t, os.Getenv("VEC_CT_O2_R3B_VECTOR_BUNDLE"), &bundle)
+	alta := decodificarPublicoR3B(t, bundle.AltaB64)
+	sellosJSON := decodificarPublicoR3B(t, bundle.SellosB64)
+	var efecto efectoAltaCanonico
+	var sellos sellosAltaCanonicos
+	if json.Unmarshal(alta, &efecto) != nil || json.Unmarshal(sellosJSON, &sellos) != nil {
+		t.Fatal("vector publico de alta invalido")
+	}
+	expediente := expedientePublicoR3B(t, efecto)
+	ambitos, huellas := coleccionesPublicasR3B(t, sellos)
+	propuesta, err := ports.NuevaCandidaturaAlta(ports.DatosCandidaturaAlta{
+		ReservaRef: efecto.ReservaRef,
+		Referencias: ports.ReferenciasAlta{ExpedienteRef: efecto.ExpedienteRef,
+			NumeroVisible: efecto.NumeroVisible, ReciboRef: efecto.ReciboRef},
+		AmbitoIdempotenciaHMAC: sellos.Activo.AmbitoHMAC,
+		HuellaPeticionHMAC:     sellos.Activo.HuellaHMAC,
+		OrganizacionRef:        efecto.OrganizacionRef, ActorRef: efecto.ActorRef,
+		PerfilRef: efecto.PerfilRef, InstanteEfecto: expediente.CreadoEn,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitudCandidatura, err := ports.NuevaSolicitudResolverCandidaturaAlta(ports.DatosSolicitudResolverCandidaturaAlta{
+		AmbitosIdempotenciaHMAC: ambitos, HuellasPeticionHMAC: huellas,
+		OrganizacionRef: efecto.OrganizacionRef, ActorRef: efecto.ActorRef,
+		PerfilRef: efecto.PerfilRef, Propuesta: propuesta,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutor, _ := NuevoResolutorCandidaturaAltaPostgreSQL(primerPool)
+	candidatura, err := resolutor.ResolverCandidaturaAlta(ctx, solicitudCandidatura)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud, decision, confirmacion, material := materialPublicoR3B(t, entrada, bundle, efecto, sellos)
+	orden, err := ports.NuevaOrdenConfirmarAltaCandidata(ports.DatosOrdenConfirmarAltaCandidata{
+		Expediente: expediente, SolicitudAutorizacionV3: solicitud,
+		DecisionAutorizacionV3: decision, ConfirmacionRegistroV3: confirmacion,
+		AmbitosIdempotenciaHMAC: ambitos, HuellasPeticionHMAC: huellas,
+		Candidatura: candidatura,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidencia, _ := orden.Datos()
+	entradas, err := prepararEntradasConfirmarAlta(evidencia, material)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer entradas.borrar()
+	if len(argumentosConfirmarAlta(entradas)) != 12 ||
+		!bytes.Equal(entradas.alta, alta) || !bytes.Equal(entradas.sellos, sellosJSON) {
+		t.Fatal("las doce entradas publicas no conservan alta y sellos exactos")
+	}
+	proveedor := proveedorPublicoR3B{material: material}
+	primeraTransaccion, err := NuevaTransaccionAltasPostgreSQLCandidata(primerPool, proveedor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primerRecibo, err := primeraTransaccion.ConfirmarAltaCandidata(ctx, orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	estado := estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef)
+	segundaTransaccion, err := NuevaTransaccionAltasPostgreSQLCandidata(segundoPool, proveedor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundoRecibo, err := segundaTransaccion.ConfirmarAltaCandidata(ctx, orden)
+	if err != nil || segundoRecibo != primerRecibo ||
+		estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef) != estado {
+		t.Fatalf("replay publico muto el efecto: recibos=%+v/%+v err=%v", primerRecibo, segundoRecibo, err)
+	}
+	var reciboSQL ports.ReciboAlta
+	var version int64
+	var huella string
+	err = admin.QueryRow(ctx, `SELECT expediente_ref,numero_visible,version_expediente,
+		recibo_ref,auditoria_ref,evento_ref,confirmada_en,recibo_huella_sha256
+		FROM vec_contratacion_temporal.confirmacion_agregado_alta WHERE expediente_ref=$1`,
+		efecto.ExpedienteRef).Scan(&reciboSQL.ExpedienteRef, &reciboSQL.NumeroVisible, &version,
+		&reciboSQL.ReciboRef, &reciboSQL.AuditoriaRef, &reciboSQL.EventoRef,
+		&reciboSQL.ConfirmadaEn, &huella)
+	reciboSQL.Version = uint64(version)
+	reciboSQL.ConfirmadaEn = reciboSQL.ConfirmadaEn.UTC()
+	if err != nil || reciboSQL != primerRecibo || huella != huellaReciboAlta(primerRecibo) {
+		t.Fatalf("recibo o huella interna divergente: SQL=%+v Go=%+v huella=%s err=%v",
+			reciboSQL, primerRecibo, huella, err)
+	}
+}
+
+func huellaHistoriaCandidaturasR3B(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+) string {
+	t.Helper()
+	var huella string
+	err := admin.QueryRow(ctx, `SELECT concat_ws('|',
+		(SELECT count(*) FROM vec_contratacion_temporal.candidatura_alta_tecnica),
+		(SELECT md5(coalesce(string_agg(to_jsonb(c)::text,E'\n' ORDER BY c.ambito_raiz_hmac),''))
+		   FROM vec_contratacion_temporal.candidatura_alta_tecnica c),
+		(SELECT count(*) FROM vec_contratacion_temporal.candidatura_alta_alias),
+		(SELECT md5(coalesce(string_agg(to_jsonb(a)::text,E'\n' ORDER BY a.ambito_hmac),''))
+		   FROM vec_contratacion_temporal.candidatura_alta_alias a))`).Scan(&huella)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return huella
 }
 
 func abrirPoolR3B(t *testing.T, ctx context.Context, variable string) *pgxpool.Pool {

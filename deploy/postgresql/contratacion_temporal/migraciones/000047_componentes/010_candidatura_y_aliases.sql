@@ -110,7 +110,15 @@ CREATE TRIGGER candidatura_alta_tecnica_inmutable
 BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.candidatura_alta_tecnica
 FOR EACH ROW EXECUTE FUNCTION
     vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER candidatura_alta_tecnica_no_truncar
+BEFORE TRUNCATE ON vec_contratacion_temporal.candidatura_alta_tecnica
+FOR EACH STATEMENT EXECUTE FUNCTION
+    vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 CREATE TRIGGER candidatura_alta_alias_inmutable
 BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.candidatura_alta_alias
 FOR EACH ROW EXECUTE FUNCTION
+    vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER candidatura_alta_alias_no_truncar
+BEFORE TRUNCATE ON vec_contratacion_temporal.candidatura_alta_alias
+FOR EACH STATEMENT EXECUTE FUNCTION
     vec_contratacion_temporal.rechazar_mutacion_historia_v1();

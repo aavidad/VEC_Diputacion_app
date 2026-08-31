@@ -4,8 +4,8 @@ Fecha del corte: 31 de agosto de 2026.
 
 ## Resultados cronológicos de las puertas dinámicas
 
-Estado: **NO-GO dinámico; candidato R3B-B no confirmado y R1 pendiente de
-revisión y autorización**.
+Estado: **NO-GO; R2 pendiente de revisión independiente y de cualquier nueva
+autorización dinámica**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -57,6 +57,27 @@ R1 retira exclusivamente la cualificación inválida de la construcción especia
 `GREATEST`, conservando la semántica de máximo temporal. Queda pendiente de una
 nueva revisión independiente y de autorización dinámica expresa; no se declara
 `GO`.
+
+### Revisión estática de `a0cedc2`: NO-GO, `P0=0`, `P1=2`, `P2=0`
+
+La revisión estática independiente del candidato `a0cedc2` emitió `NO-GO` con
+dos hallazgos P1 independientes:
+
+1. los triggers de `candidatura_alta_tecnica` y `candidatura_alta_alias`
+   rechazaban `UPDATE` y `DELETE`, pero no `TRUNCATE` de propietario; y
+2. el runner solo seleccionaba el resolutor Go y después invocaba V2
+   directamente, sin construir `NuevaTransaccionAltasPostgreSQLCandidata` ni
+   atravesar `ConfirmarAltaCandidata`, por lo que no acreditaba las doce
+   entradas ni el escaneo real de las ocho columnas.
+
+R1, commit `df4b0bddacb755c50a1e16b2dac936f2f46affa1`, se mantuvo estrecho:
+solo corrigió `pg_catalog.greatest` a `GREATEST` y conservó íntegros los dos
+`NO-GO` dinámicos anteriores. R2 añade la defensa canónica `BEFORE TRUNCATE`
+por sentencia, regresión de conservación exacta de filas y el recorrido del
+adaptador público con proveedor neutral, éxito y replay desde dos pools. R2 no
+ha ejecutado PostgreSQL ni el runner y permanece pendiente de revisión estática
+independiente y, solo después, de una autorización dinámica nueva. No se
+declara `GO`.
 
 ## Capacidad e invariante
 
@@ -130,32 +151,42 @@ El runtime carece de privilegios sobre las tablas nuevas, sobre
 recibe `EXECUTE` sobre el resolutor y V2. Las funciones auxiliares y las tablas
 siguen cerradas a `PUBLIC`. Ambas tablas activan y fuerzan RLS; su única
 política pertenece al rol propietario y los triggers conservan el historial
-append-only.
+append-only frente a `UPDATE`, `DELETE` y `TRUNCATE`, también cuando actúa el
+propietario.
 
 ## Evidencia focal
 
 El runner `probar_o2_r3b_candidatura_postgresql18_4.sh` usa exclusivamente la
 imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
-Instala `000047` después de `000046` y acredita:
+Instala `000047` después de `000046`. La matriz que deberá acreditar cuando
+exista una autorización dinámica nueva —R2 no la ha ejecutado— incluye:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
+- rechazo de `UPDATE`, `DELETE` y `TRUNCATE` por propietario, con recuentos y
+  huellas de ambas tablas exactamente conservados;
 - conflictos, colisión, rollback y ausencia de efectos al resolver;
-- confirmación V2 real con el canon O2-05 y replay exacto;
+- construcción del adaptador Go público con proveedor neutral, doce entradas,
+  escaneo real de ocho columnas, confirmación y replay exacto desde dos pools;
+- cotejo del recibo completo y de `recibo_huella_sha256` mediante la función
+  privada Go, sin exponer esa huella por el puerto;
 - rechazo de mutación de coordenada y revocación viva sin efectos;
 - ACL/RLS, `DOWN` protegido, retirada explícita y reinstalación; y
 - conservación del contenedor ajeno y ausencia de residuos propios.
 
-Las pruebas unitarias Go cubren además reintentos transaccionales, cancelación
-posterior al COMMIT, envío seguro, `ErrTxCommitRollback`, primera y segunda
-ambigüedad, y adulteración de fila/recibo/hash.
+Las pruebas unitarias Go cubren además `40001` y `40P01` en transacciones
+nuevas con máximo de tres intentos, cancelación posterior al COMMIT,
+`SafeToRetry`, `pgx.ErrTxCommitRollback`, `08007`, transporte posiblemente
+enviado, primera y segunda ambigüedad, y adulteración de fila/recibo/hash. Para
+cada clase se comprueban inicios, commits y reconciliaciones; la rama
+`SafeToRetry` inyecta ahora el fallo en `Commit`, no antes de alcanzarlo.
 
 ## Límite y siguiente corte
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R1 y, solo si dirección lo autoriza,
-una nueva validación dinámica. R3C permanece bloqueada hasta resolver ese
-`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
+revisión independiente del hash exacto de R2 y, solo con una autorización
+posterior expresa, una nueva validación dinámica. R3C permanece bloqueada hasta
+resolver ese `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
 candidato y componer el proveedor concreto de material de confirmación bajo
 revisión independiente.
