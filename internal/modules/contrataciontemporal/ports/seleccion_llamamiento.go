@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
 var ErrEjecucionSeleccionLlamamientoInvalida = errors.New(
@@ -29,10 +31,22 @@ const (
 
 // SolicitudReservaEjecucionSeleccionLlamamiento liga la UUID de intención a
 // la orden gobernada y a la cantidad exacta observada antes del primer efecto.
-// La huella no concede autoridad ni contiene posiciones o datos personales.
+// Los campos permiten cotejar un terminal durable sin repetir la consulta
+// volátil; la huella no concede autoridad ni contiene posiciones o personas.
 type SolicitudReservaEjecucionSeleccionLlamamiento struct {
-	ClaveIdempotencia string
-	HuellaSemantica   string
+	ClaveIdempotencia  string
+	HuellaSemantica    string
+	OrganizacionRef    string
+	ExpedienteRef      string
+	VersionExpediente  uint64
+	CorrelacionRef     string
+	AccionOrden        ReferenciaVersionadaIntegracionBolsa
+	Finalidad          ReferenciaVersionadaIntegracionBolsa
+	Necesidad          ReferenciaVersionadaIntegracionBolsa
+	Bolsa              ReferenciaVersionadaIntegracionBolsa
+	Politica           ReferenciaVersionadaIntegracionBolsa
+	MaximoPosiciones   uint32
+	CantidadDisponible uint32
 }
 
 func NuevaSolicitudReservaEjecucionSeleccionLlamamiento(
@@ -52,24 +66,46 @@ func NuevaSolicitudReservaEjecucionSeleccionLlamamiento(
 		return SolicitudReservaEjecucionSeleccionLlamamiento{},
 			ErrEjecucionSeleccionLlamamientoInvalida
 	}
+	solicitud := SolicitudReservaEjecucionSeleccionLlamamiento{
+		ClaveIdempotencia: clave, OrganizacionRef: contexto.OrganizacionRef,
+		ExpedienteRef: contexto.ExpedienteRef, VersionExpediente: contexto.VersionExpediente,
+		CorrelacionRef: contexto.CorrelacionRef, AccionOrden: contexto.Accion,
+		Finalidad: contexto.Finalidad, Necesidad: comando.Necesidad,
+		Bolsa: comando.Bolsa, Politica: comando.Politica,
+		MaximoPosiciones: comando.MaximoPosiciones, CantidadDisponible: cantidadDisponible,
+	}
+	solicitud.HuellaSemantica = solicitud.huellaEsperada()
+	return solicitud, nil
+}
+
+func (s SolicitudReservaEjecucionSeleccionLlamamiento) huellaEsperada() string {
 	canon := nuevoCanonicoBolsa("ejecucion-seleccion-llamamiento")
-	canon.campo("clave_idempotencia", clave)
-	canon.campo("organizacion_ref", contexto.OrganizacionRef)
-	canon.campo("expediente_ref", contexto.ExpedienteRef)
-	canon.entero("version_expediente", contexto.VersionExpediente)
-	canon.campo("correlacion_ref", contexto.CorrelacionRef)
-	canon.referencia("accion", contexto.Accion)
-	canon.referencia("recurso", contexto.Recurso)
-	canon.referencia("finalidad", contexto.Finalidad)
-	canon.referencia("necesidad", comando.Necesidad)
-	canon.referencia("bolsa", comando.Bolsa)
-	canon.referencia("politica", comando.Politica)
-	canon.entero("maximo_posiciones", uint64(comando.MaximoPosiciones))
-	canon.entero("cantidad_disponible", uint64(cantidadDisponible))
-	return SolicitudReservaEjecucionSeleccionLlamamiento{
-		ClaveIdempotencia: clave,
-		HuellaSemantica:   huellaBytesBolsa(canon.bytes()),
-	}, nil
+	canon.campo("clave_idempotencia", s.ClaveIdempotencia)
+	canon.campo("organizacion_ref", s.OrganizacionRef)
+	canon.campo("expediente_ref", s.ExpedienteRef)
+	canon.entero("version_expediente", s.VersionExpediente)
+	canon.campo("correlacion_ref", s.CorrelacionRef)
+	canon.referencia("accion", s.AccionOrden)
+	canon.referencia("recurso", s.Bolsa)
+	canon.referencia("finalidad", s.Finalidad)
+	canon.referencia("necesidad", s.Necesidad)
+	canon.referencia("bolsa", s.Bolsa)
+	canon.referencia("politica", s.Politica)
+	canon.entero("maximo_posiciones", uint64(s.MaximoPosiciones))
+	canon.entero("cantidad_disponible", uint64(s.CantidadDisponible))
+	return huellaBytesBolsa(canon.bytes())
+}
+
+func (s SolicitudReservaEjecucionSeleccionLlamamiento) validar() bool {
+	return ClaveIdempotenciaValida(s.ClaveIdempotencia) &&
+		domain.ReferenciaOpacaValida(s.OrganizacionRef) &&
+		domain.ReferenciaOpacaValida(s.ExpedienteRef) && enteroSeguroBolsa(s.VersionExpediente) &&
+		domain.ReferenciaOpacaValida(s.CorrelacionRef) && s.AccionOrden.Validar() == nil &&
+		s.Finalidad.Validar() == nil && s.Necesidad.Validar() == nil &&
+		s.Bolsa.Validar() == nil && s.Politica.Validar() == nil &&
+		s.MaximoPosiciones > 0 && s.MaximoPosiciones <= MaximoElementosIntegracionBolsa &&
+		s.CantidadDisponible > 0 && s.CantidadDisponible <= s.MaximoPosiciones &&
+		huellasBolsaIguales(s.HuellaSemantica, s.huellaEsperada())
 }
 
 type ReservaEjecucionSeleccionLlamamiento struct {
@@ -78,11 +114,60 @@ type ReservaEjecucionSeleccionLlamamiento struct {
 }
 
 type EstadoEjecucionSeleccionLlamamiento struct {
-	Solicitud        SolicitudReservaEjecucionSeleccionLlamamiento
-	Situacion        SituacionEjecucionSeleccionLlamamiento
-	ReservaRef       string
-	EfectoPosible    EfectoSeleccionLlamamiento
-	ReciboConfirmado ReciboSolicitudLlamamientoBolsa
+	Solicitud           SolicitudReservaEjecucionSeleccionLlamamiento
+	Situacion           SituacionEjecucionSeleccionLlamamiento
+	ReservaRef          string
+	EfectoPosible       EfectoSeleccionLlamamiento
+	ReciboConfirmado    ReciboSolicitudLlamamientoBolsa
+	ArtefactoConfirmado ArtefactoProbatorioLlamamientoBolsa
+}
+
+// VerificarTerminalConfirmado comprueba forma, ligadura y autenticidad del
+// terminal durable. La reautenticación es local: no consulta disponibilidad
+// ni permite repetir los efectos que originaron el recibo.
+func (e EstadoEjecucionSeleccionLlamamiento) VerificarTerminalConfirmado(
+	ctx context.Context,
+	clave string,
+	verificador *VerificadorEvidenciaIntegracionBolsa,
+	instante time.Time,
+) (ReciboSolicitudLlamamientoBolsa, error) {
+	vacio := ReciboSolicitudLlamamientoBolsa{}
+	a := e.ArtefactoConfirmado
+	if ctx == nil || verificador == nil || !instanteBolsaCanonico(instante) ||
+		e.Situacion != EjecucionSeleccionLlamamientoConfirmada || e.ReservaRef != "" ||
+		e.EfectoPosible != "" ||
+		e.Solicitud.ClaveIdempotencia != clave || !e.Solicitud.validar() ||
+		e.ReciboConfirmado == vacio || !e.ReciboConfirmado.PropuestaGenerada ||
+		a.Validar() != nil || a.Recibo != e.ReciboConfirmado {
+		return vacio, ErrEjecucionSeleccionLlamamientoInvalida
+	}
+	datos := a.Comando.Contexto.Datos
+	if datos.OrganizacionRef != e.Solicitud.OrganizacionRef ||
+		datos.ExpedienteRef != e.Solicitud.ExpedienteRef ||
+		datos.VersionExpediente != e.Solicitud.VersionExpediente ||
+		datos.CorrelacionRef != e.Solicitud.CorrelacionRef ||
+		datos.Finalidad != e.Solicitud.Finalidad ||
+		a.Comando.Necesidad != e.Solicitud.Necesidad ||
+		a.Comando.Bolsa != e.Solicitud.Bolsa || a.Comando.Politica != e.Solicitud.Politica ||
+		a.Comando.TotalPosicionesOrden < e.Solicitud.CantidadDisponible ||
+		a.Comando.TotalPosicionesOrden > e.Solicitud.MaximoPosiciones ||
+		a.Comando.MaximaPosicionEvaluable != a.Comando.TotalPosicionesOrden {
+		return vacio, ErrEjecucionSeleccionLlamamientoInvalida
+	}
+	contexto := contextoDesdeRegistroVerificado(a.Comando.Contexto)
+	comando := ComandoSolicitarLlamamientoBolsa{datos: &datosComandoSolicitarLlamamientoBolsa{
+		contexto: contexto, necesidad: a.Comando.Necesidad, bolsa: a.Comando.Bolsa,
+		orden: a.Comando.Orden, politica: a.Comando.Politica,
+		totalPosicionesOrden:    a.Comando.TotalPosicionesOrden,
+		maximaPosicionEvaluable: a.Comando.MaximaPosicionEvaluable,
+		huellaReciboOrden:       a.Comando.HuellaReciboOrden,
+	}}
+	if _, err := verificador.reautenticarReciboLlamamiento(
+		ctx, comando, e.ReciboConfirmado, a.Evidencia, instante,
+	); err != nil {
+		return vacio, ErrEjecucionSeleccionLlamamientoInvalida
+	}
+	return e.ReciboConfirmado, nil
 }
 
 // EjecucionesSeleccionLlamamiento es el límite atómico de idempotencia. Una
@@ -90,10 +175,15 @@ type EstadoEjecucionSeleccionLlamamiento struct {
 // reserva, mantener una reserva viva como ocupada y convertir una reserva
 // abandonada después de AbrirVentanaEfecto en indeterminada, nunca liberarla
 // para repetir a ciegas. LiberarAntesDeEfectos solo admite una ejecución que
-// todavía no cruzó ninguna ventana. Confirmar conserva el recibo exacto.
+// todavía no cruzó ninguna ventana. ResolverTerminal consulta primero por UUID
+// y solo devuelve terminales; Confirmar conserva atómicamente recibo y prueba.
 // Este contrato no aporta persistencia: la composición real requiere un
 // adaptador durable y recuperación explícita de estados indeterminados.
 type EjecucionesSeleccionLlamamiento interface {
+	ResolverTerminal(
+		context.Context,
+		string,
+	) (EstadoEjecucionSeleccionLlamamiento, bool, error)
 	Reservar(
 		context.Context,
 		SolicitudReservaEjecucionSeleccionLlamamiento,
@@ -116,6 +206,7 @@ type EjecucionesSeleccionLlamamiento interface {
 		context.Context,
 		ReservaEjecucionSeleccionLlamamiento,
 		ReciboSolicitudLlamamientoBolsa,
+		ArtefactoProbatorioLlamamientoBolsa,
 	) error
 	ConsultarEstado(
 		context.Context,
