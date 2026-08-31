@@ -327,6 +327,7 @@ func nuevoManejadorCierreAdministrativoHTTPPrueba(
 }
 
 func entradaCierreAdministrativoHTTPPrueba() cierreAdministrativoEntradaJSON {
+	versionEsperada := uint64(7)
 	return cierreAdministrativoEntradaJSON{
 		ExpedienteRef: referenciaCierreAdministrativoHTTPPrueba(
 			"expediente_http",
@@ -334,7 +335,7 @@ func entradaCierreAdministrativoHTTPPrueba() cierreAdministrativoEntradaJSON {
 		SeguimientoRef: referenciaCierreAdministrativoHTTPPrueba(
 			"seguimiento_http",
 		),
-		VersionEsperada:   7,
+		VersionEsperada:   &versionEsperada,
 		ClaveIdempotencia: claveCierreAdministrativoHTTPPrueba,
 		TransicionClave:   "cierre_administrativo",
 		MotivoClave:       "fin_relacion_confirmado",
@@ -439,7 +440,7 @@ func comprobarSolicitudCierreAdministrativoHTTPPrueba(
 		if s.OrganizacionRef != organizacionRef ||
 			s.ExpedienteRef != entrada.ExpedienteRef ||
 			s.SeguimientoRef != entrada.SeguimientoRef ||
-			s.VersionEsperada != entrada.VersionEsperada ||
+			s.VersionEsperada != *entrada.VersionEsperada ||
 			s.ClaveIdempotencia != entrada.ClaveIdempotencia ||
 			s.TransicionClave != domain.ClaveCatalogo(entrada.TransicionClave) ||
 			s.MotivoClave != domain.ClaveCatalogo(entrada.MotivoClave) {
@@ -451,7 +452,7 @@ func comprobarSolicitudCierreAdministrativoHTTPPrueba(
 	if s.OrganizacionRef != organizacionRef ||
 		s.ExpedienteRef != entrada.ExpedienteRef ||
 		s.SeguimientoRef != entrada.SeguimientoRef ||
-		s.VersionEsperada != entrada.VersionEsperada ||
+		s.VersionEsperada != *entrada.VersionEsperada ||
 		s.ClaveIdempotencia != entrada.ClaveIdempotencia ||
 		s.TransicionClave != domain.ClaveCatalogo(entrada.TransicionClave) ||
 		s.MotivoClave != domain.ClaveCatalogo(entrada.MotivoClave) {

@@ -7,8 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 func TestManejadorCierreAdministrativoRechazaSuperficieAntesDeAutoridad(
@@ -183,6 +186,105 @@ func TestManejadorCierreAdministrativoRechazaJSONNoCerrado(
 				)
 			}
 		})
+	}
+}
+
+func TestManejadorCierreAdministrativoExigeVersionInteroperableAntesDeAutoridad(
+	t *testing.T,
+) {
+	valido := cuerpoCierreAdministrativoHTTPPrueba(t)
+	versionBase := `"version_esperada":7`
+	maximaPermitida := ports.MaximoEnteroSeguroOperacionAnalisis - 1
+	primeraProhibida := ports.MaximoEnteroSeguroOperacionAnalisis
+	reemplazarVersion := func(valor string) string {
+		return strings.Replace(
+			valido,
+			versionBase,
+			`"version_esperada":`+valor,
+			1,
+		)
+	}
+	casos := []struct {
+		nombre string
+		cuerpo string
+		estado int
+	}{
+		{
+			"ausente",
+			strings.Replace(valido, versionBase+",", "", 1),
+			http.StatusUnprocessableEntity,
+		},
+		{"null", reemplazarVersion("null"), http.StatusBadRequest},
+		{"cero", reemplazarVersion("0"), http.StatusUnprocessableEntity},
+		{
+			"maximo permitido",
+			reemplazarVersion(strconv.FormatUint(maximaPermitida, 10)),
+			http.StatusCreated,
+		},
+		{
+			"primer valor prohibido",
+			reemplazarVersion(strconv.FormatUint(primeraProhibida, 10)),
+			http.StatusUnprocessableEntity,
+		},
+	}
+	rutas := []struct {
+		nombre string
+		ruta   string
+	}{
+		{"cerrar", RutaCerrarAdministrativamente},
+		{"reabrir", RutaReabrirExcepcionalmente},
+	}
+	for _, ruta := range rutas {
+		for _, caso := range casos {
+			t.Run(ruta.nombre+"/"+caso.nombre, func(t *testing.T) {
+				autoridad := autoridadCierreAdministrativoHTTPValidaPrueba()
+				ejecutor := &ejecutorCierreAdministrativoHTTPPrueba{}
+				peticion := httptest.NewRequest(
+					http.MethodPost,
+					ruta.ruta,
+					strings.NewReader(caso.cuerpo),
+				)
+				peticion.Header.Set("Content-Type", "application/json")
+				peticion.Header.Set("Accept", "application/json")
+				respuesta := httptest.NewRecorder()
+				nuevoManejadorCierreAdministrativoHTTPPrueba(
+					t,
+					autoridad,
+					ejecutor,
+				).ServeHTTP(respuesta, peticion)
+
+				llamadasEjecutor := ejecutor.llamadasCerrar +
+					ejecutor.llamadasReabrir
+				if caso.estado != http.StatusCreated {
+					if respuesta.Code != caso.estado ||
+						autoridad.llamadas != 0 || llamadasEjecutor != 0 {
+						t.Fatalf(
+							"estado=%d llamadas=%d/%d cuerpo=%s",
+							respuesta.Code,
+							autoridad.llamadas,
+							llamadasEjecutor,
+							respuesta.Body,
+						)
+					}
+					return
+				}
+				if respuesta.Code != http.StatusCreated ||
+					autoridad.llamadas != 1 || llamadasEjecutor != 1 ||
+					!strings.Contains(
+						respuesta.Body.String(),
+						`"version_seguimiento":`+
+							strconv.FormatUint(primeraProhibida, 10),
+					) {
+					t.Fatalf(
+						"maximo permitido: estado=%d llamadas=%d/%d cuerpo=%s",
+						respuesta.Code,
+						autoridad.llamadas,
+						llamadasEjecutor,
+						respuesta.Body,
+					)
+				}
+			})
+		}
 	}
 }
 

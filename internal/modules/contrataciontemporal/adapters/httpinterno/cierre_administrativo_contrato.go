@@ -33,18 +33,22 @@ var (
 // cierreAdministrativoEntradaJSON contiene solo intencion. Organizacion,
 // actor, perfil, unidad y autorizacion no forman parte del contrato HTTP.
 type cierreAdministrativoEntradaJSON struct {
-	ExpedienteRef     string `json:"expediente_ref"`
-	SeguimientoRef    string `json:"seguimiento_ref"`
-	VersionEsperada   uint64 `json:"version_esperada"`
-	ClaveIdempotencia string `json:"clave_idempotencia"`
-	TransicionClave   string `json:"transicion_clave"`
-	MotivoClave       string `json:"motivo_clave"`
+	ExpedienteRef  string `json:"expediente_ref"`
+	SeguimientoRef string `json:"seguimiento_ref"`
+	// El puntero conserva la presencia explicita y no confunde ausencia con cero.
+	VersionEsperada   *uint64 `json:"version_esperada"`
+	ClaveIdempotencia string  `json:"clave_idempotencia"`
+	TransicionClave   string  `json:"transicion_clave"`
+	MotivoClave       string  `json:"motivo_clave"`
 }
 
 func (e cierreAdministrativoEntradaJSON) valida() bool {
 	return domain.ReferenciaOpacaValida(e.ExpedienteRef) &&
 		domain.ReferenciaOpacaValida(e.SeguimientoRef) &&
-		e.VersionEsperada != ^uint64(0) &&
+		e.VersionEsperada != nil &&
+		ports.VersionOperacionAnalisisConIncrementoValida(
+			*e.VersionEsperada,
+		) &&
 		ports.ClaveIdempotenciaValida(e.ClaveIdempotencia) &&
 		domain.ClaveCatalogo(e.TransicionClave).Valida() &&
 		domain.ClaveCatalogo(e.MotivoClave).Valida()
@@ -59,7 +63,7 @@ func (e cierreAdministrativoEntradaJSON) solicitudPuerto(
 		OrganizacionRef:   organizacionRef,
 		ExpedienteRef:     e.ExpedienteRef,
 		SeguimientoRef:    e.SeguimientoRef,
-		VersionEsperada:   e.VersionEsperada,
+		VersionEsperada:   *e.VersionEsperada,
 		ClaveIdempotencia: e.ClaveIdempotencia,
 		TransicionClave:   domain.ClaveCatalogo(e.TransicionClave),
 		MotivoClave:       domain.ClaveCatalogo(e.MotivoClave),
