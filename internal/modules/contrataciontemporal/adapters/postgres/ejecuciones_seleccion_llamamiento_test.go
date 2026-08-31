@@ -346,6 +346,26 @@ func TestEjecucionesSeleccionO6RechazaEntradasAntesDePGX(t *testing.T) {
 	}
 }
 
+func TestEjecucionesSeleccionO6LimitePrevioConservadorNoAsignaCargaGrande(t *testing.T) {
+	_, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
+	if !confirmacionSeleccionO6DentroDeLimite(recibo, artefacto) {
+		t.Fatal("el material nominal no cabe en el limite previo")
+	}
+	artefacto.Evidencia.EvidenciaRef = strings.Repeat(
+		"x", (maximoCargaSeleccionO6-margenEstructuralSeleccionO6)/6+1,
+	)
+	var aceptada bool
+	medicion := testing.Benchmark(func(b *testing.B) {
+		for range b.N {
+			aceptada = confirmacionSeleccionO6DentroDeLimite(recibo, artefacto)
+		}
+	})
+	if aceptada || medicion.AllocedBytesPerOp() > 4*1024 {
+		t.Fatalf("frontera previa no conservadora: aceptada=%v bytes/op=%d",
+			aceptada, medicion.AllocedBytesPerOp())
+	}
+}
+
 func TestEjecucionesSeleccionO6TerminalAdulteradoFallaOpaco(t *testing.T) {
 	solicitud, recibo, _ := materialesEjecucionSeleccionO6Prueba(t)
 	adaptador, _, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(t,

@@ -10,6 +10,7 @@ SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'vec_contratacion_temporal:o6:ejecuciones-seleccion-llamamiento:v1', 0
 ));
+\ir 000046_ejecuciones_seleccion_llamamiento_o6_canon_r3.sql
 
 DO $puerta$
 BEGIN
@@ -215,6 +216,9 @@ CREATE TABLE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 (
         solicitud_json->>'huella_semantica' IS NOT DISTINCT FROM
             huella_semantica
     ),
+    CHECK (vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(
+        solicitud_json
+    ) IS NOT DISTINCT FROM huella_semantica),
     CHECK (actualizada_en >= creada_en)
 );
 
@@ -278,7 +282,10 @@ BEGIN
        OR pg_catalog.jsonb_typeof(p_solicitud) IS DISTINCT FROM 'object'
        OR pg_catalog.octet_length(p_solicitud::text) > 1048576
        OR p_solicitud->>'clave_idempotencia' IS DISTINCT FROM p_clave::text
-       OR p_solicitud->>'huella_semantica' IS DISTINCT FROM p_huella THEN
+       OR p_solicitud->>'huella_semantica' IS DISTINCT FROM p_huella
+       OR vec_contratacion_temporal.huella_solicitud_seleccion_llamamiento_o6_v1(
+           p_solicitud
+       ) IS DISTINCT FROM p_huella THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'reserva O6 invalida';
     END IF;
 
@@ -544,7 +551,7 @@ BEGIN
            OR valor->>'referencia' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
            OR NOT CASE WHEN pg_catalog.jsonb_typeof(valor->'version') = 'number' THEN
                 (valor->>'version')::numeric BETWEEN 1 AND 9007199254740991 AND
-                (valor->>'version')::numeric = pg_catalog.trunc((valor->>'version')::numeric)
+                valor->>'version' ~ '^[1-9][0-9]*$'
               ELSE false END
            OR pg_catalog.jsonb_typeof(valor->'huella_sha256') IS DISTINCT FROM 'string'
            OR valor->>'huella_sha256' !~ '^[0-9a-f]{64}$'
@@ -582,13 +589,9 @@ BEGIN
            IS DISTINCT FROM 'string'
        OR v_artefacto->>'huella_artefacto_sha256' !~ '^[0-9a-f]{64}$'
        OR v_artefacto->>'huella_artefacto_sha256' = pg_catalog.repeat('0', 64)
-       OR p_artefacto ~ '[[:space:]]'
-       OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
-           pg_catalog.replace(p_artefacto,
-               '"huella_artefacto_sha256":"' ||
-                   (v_artefacto->>'huella_artefacto_sha256') || '"',
-               '"huella_artefacto_sha256":""'), 'UTF8')), 'hex')
-           IS DISTINCT FROM v_artefacto->>'huella_artefacto_sha256'
+       OR NOT vec_contratacion_temporal.confirmacion_canonica_seleccion_llamamiento_o6_v1(
+           v_artefacto, p_artefacto, p_recibo
+       )
        OR pg_catalog.jsonb_typeof(v_comando->'huella_recibo_orden') IS DISTINCT FROM 'string'
        OR v_comando->>'huella_recibo_orden' !~ '^[0-9a-f]{64}$'
        OR v_comando->>'huella_recibo_orden' = pg_catalog.repeat('0', 64)

@@ -25,6 +25,10 @@ const (
 
 	prefijoReservaSeleccionO6 = "reserva:seleccion-llamamiento:"
 	maximoCargaSeleccionO6    = 1024 * 1024
+	// El sobre tiene estructura fija y menos de cien campos. Este margen cubre
+	// holgadamente nombres, comillas, delimitadores, booleanos, enteros y
+	// tiempos de recibo+artefacto antes de considerar un solo byte de texto.
+	margenEstructuralSeleccionO6 = 64 * 1024
 )
 
 var errEjecucionesSeleccionLlamamientoPostgreSQL = errors.New(
@@ -415,7 +419,7 @@ func confirmacionSeleccionO6DentroDeLimite(
 	recibo ports.ReciboSolicitudLlamamientoBolsa,
 	artefacto ports.ArtefactoProbatorioLlamamientoBolsa,
 ) bool {
-	restante := maximoCargaSeleccionO6
+	restante := maximoCargaSeleccionO6 - margenEstructuralSeleccionO6
 	return descontarTextoSeleccionO6(reflect.ValueOf(recibo), &restante) &&
 		descontarTextoSeleccionO6(reflect.ValueOf(artefacto), &restante)
 }
@@ -425,6 +429,8 @@ func descontarTextoSeleccionO6(valor reflect.Value, restante *int) bool {
 		return false
 	}
 	if valor.Type() == tipoInstanteSeleccionO6 {
+		// Su nombre, delimitadores y RFC3339Nano maximo ya estan reservados en
+		// margenEstructuralSeleccionO6.
 		return true
 	}
 	switch valor.Kind() {
