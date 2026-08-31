@@ -102,6 +102,21 @@ AS $funcion$
                   AND pg_catalog.strpos(p.prosrc,'SELECT DISTINCT bloqueos.clave')>0
                   AND pg_catalog.strpos(p.prosrc,'ORDER BY bloqueos.clave')>0
                   AND pg_catalog.strpos(p.prosrc,'pg_advisory_xact_lock')>0
+                  AND pg_catalog.strpos(p.prosrc,'IF v_grupo_esperado IS NULL')>0
+                  AND pg_catalog.strpos(p.prosrc,
+                    'IF pg_catalog.current_setting(''transaction_isolation'')')>0
+                  AND pg_catalog.strpos(p.prosrc,'RETURN;')>0
+                  AND pg_catalog.strpos(p.prosrc,'IF v_grupo_esperado IS NULL')<
+                      pg_catalog.strpos(p.prosrc,
+                        'IF pg_catalog.current_setting(''transaction_isolation'')')
+                  AND pg_catalog.strpos(p.prosrc,
+                        'IF pg_catalog.current_setting(''transaction_isolation'')')<
+                      pg_catalog.strpos(p.prosrc,'checkpoint_gobierno')
+                  AND pg_catalog.strpos(p.prosrc,'ORDER BY bloqueos.clave')<
+                      pg_catalog.strpos(p.prosrc,'pg_advisory_xact_lock(v_lock)')
+                  AND pg_catalog.strpos(p.prosrc,'RETURN;')<
+                      pg_catalog.strpos(p.prosrc,
+                        'acreditar_material_fuente_corporativa_contexto_actor_v1')
                   AND pg_catalog.strpos(p.prosrc,
                     'canon_y_huella_consumo_fuente_corporativa_v1')>0
                   AND pg_catalog.strpos(p.prosrc,
@@ -546,6 +561,95 @@ RESET ROLE;
 RESET SESSION AUTHORIZATION;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 
+-- Caso transitivo real: MEMBER/USAGE llega al publicador solo por el rol
+-- intermedio. La clausula estructural anterior prueba que esta denegacion
+-- precede checkpoint/advisory; aqui se acredita genealogia y efecto cero.
+RESET ROLE;
+CREATE ROLE vec_f0_c2_intermedio_prueba NOLOGIN INHERIT NOSUPERUSER
+  NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1;
+GRANT vec_contexto_actor_v1_publicador_corporativo
+  TO vec_f0_c2_intermedio_prueba
+  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+GRANT vec_f0_c2_intermedio_prueba TO vec_f0_h0_sin_rol
+  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE GRANTED BY postgres;
+DO $genealogia_transitiva_c2$
+DECLARE login_oid pg_catalog.oid; intermedio_oid pg_catalog.oid;
+        publicador_oid pg_catalog.oid; dba_oid pg_catalog.oid;
+BEGIN
+ SELECT r.oid INTO STRICT login_oid FROM pg_catalog.pg_roles AS r
+  WHERE r.rolname='vec_f0_h0_sin_rol';
+ SELECT r.oid INTO STRICT intermedio_oid FROM pg_catalog.pg_roles AS r
+  WHERE r.rolname='vec_f0_c2_intermedio_prueba' AND NOT r.rolcanlogin
+    AND r.rolinherit AND NOT r.rolsuper AND NOT r.rolcreatedb
+    AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls;
+ SELECT r.oid INTO STRICT publicador_oid FROM pg_catalog.pg_roles AS r
+  WHERE r.rolname='vec_contexto_actor_v1_publicador_corporativo';
+ SELECT d.datdba INTO STRICT dba_oid FROM pg_catalog.pg_database AS d
+  JOIN pg_catalog.pg_roles AS r ON r.oid=d.datdba AND r.rolsuper
+  WHERE d.datname=pg_catalog.current_database();
+ IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members AS m
+      WHERE m.roleid=publicador_oid AND m.member=login_oid)<>0
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members AS m
+      WHERE m.roleid=publicador_oid AND m.member=intermedio_oid
+        AND m.grantor=dba_oid AND NOT m.admin_option
+        AND m.inherit_option AND NOT m.set_option)<>1
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members AS m
+      WHERE m.roleid=intermedio_oid AND m.member=login_oid
+        AND m.grantor=dba_oid AND NOT m.admin_option
+        AND m.inherit_option AND NOT m.set_option)<>1
+    OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members AS m
+      WHERE m.member=login_oid)<>1
+    OR NOT pg_catalog.pg_has_role(login_oid,publicador_oid,'MEMBER')
+    OR NOT pg_catalog.pg_has_role(login_oid,publicador_oid,'USAGE') THEN
+  RAISE EXCEPTION USING ERRCODE='XX000',MESSAGE='C2: genealogia transitiva no acreditada';
+ END IF;
+END $genealogia_transitiva_c2$;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+CREATE TEMP TABLE estado_transitivo_c2_prueba ON COMMIT DROP AS
+SELECT (SELECT pg_catalog.row_to_json(cp)::pg_catalog.text FROM
+          vec_autorizacion_atestada_v3.checkpoint_gobierno AS cp) AS checkpoint,
+       (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
+          .atestacion_fuente_corporativa_contexto_actor_v1) AS atestaciones,
+       (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
+          .consumo_fuente_corporativa_contexto_actor_v1) AS consumos,
+       (SELECT pg_catalog.array_agg(pg_catalog.format('%s:%s:%s',l.classid,
+          l.objid,l.objsubid) ORDER BY l.classid,l.objid,l.objsubid)
+          FROM pg_catalog.pg_locks AS l WHERE l.pid=pg_catalog.pg_backend_pid()
+            AND l.locktype='advisory' AND l.granted) AS advisory;
+RESET ROLE;
+SET LOCAL SESSION AUTHORIZATION vec_f0_h0_sin_rol;
+DO $r0_transitivo$ BEGIN
+ IF vec_autorizacion_atestada_v3.capturar_estado_c2_prueba('normal')<>'42501' THEN
+  RAISE EXCEPTION USING ERRCODE='XX000',MESSAGE='C2: membresia transitiva aceptada'; END IF;
+END $r0_transitivo$;
+RESET SESSION AUTHORIZATION;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+DO $sin_efecto_transitivo_c2$ BEGIN
+ IF (SELECT pg_catalog.row_to_json(cp)::pg_catalog.text FROM
+       vec_autorizacion_atestada_v3.checkpoint_gobierno AS cp) IS DISTINCT FROM
+      (SELECT e.checkpoint FROM pg_temp.estado_transitivo_c2_prueba AS e)
+    OR (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
+       .atestacion_fuente_corporativa_contexto_actor_v1) IS DISTINCT FROM
+      (SELECT e.atestaciones FROM pg_temp.estado_transitivo_c2_prueba AS e)
+    OR (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
+       .consumo_fuente_corporativa_contexto_actor_v1) IS DISTINCT FROM
+      (SELECT e.consumos FROM pg_temp.estado_transitivo_c2_prueba AS e)
+    OR (SELECT pg_catalog.array_agg(pg_catalog.format('%s:%s:%s',l.classid,
+       l.objid,l.objsubid) ORDER BY l.classid,l.objid,l.objsubid)
+       FROM pg_catalog.pg_locks AS l WHERE l.pid=pg_catalog.pg_backend_pid()
+         AND l.locktype='advisory' AND l.granted) IS DISTINCT FROM
+      (SELECT e.advisory FROM pg_temp.estado_transitivo_c2_prueba AS e) THEN
+  RAISE EXCEPTION USING ERRCODE='XX000',MESSAGE='C2: denegacion transitiva dejo efecto';
+ END IF;
+END $sin_efecto_transitivo_c2$;
+DROP TABLE pg_temp.estado_transitivo_c2_prueba;
+RESET ROLE;
+REVOKE vec_f0_c2_intermedio_prueba FROM vec_f0_h0_sin_rol;
+REVOKE vec_contexto_actor_v1_publicador_corporativo
+  FROM vec_f0_c2_intermedio_prueba;
+DROP ROLE vec_f0_c2_intermedio_prueba;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+
 TRUNCATE pg_temp.material_c2_prueba_tabla;
 INSERT INTO pg_temp.material_c2_prueba_tabla
 SELECT * FROM vec_autorizacion_atestada_v3.material_c2_prueba(
@@ -555,9 +659,39 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.nominal_c2_prueba()
 RETURNS pg_catalog.bool
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog
 AS $funcion$
-DECLARE nuevo pg_catalog.jsonb; replay pg_catalog.jsonb; cantidad pg_catalog.int8;
+DECLARE nuevo pg_catalog.jsonb; replay pg_catalog.jsonb;
+    ahora pg_catalog.timestamptz; previos pg_catalog.text[];
+    esperados pg_catalog.text[]; observados pg_catalog.text[];
 BEGIN
+    SELECT pg_catalog.array_agg(pg_catalog.format('%s:%s:%s',l.classid,
+      l.objid,l.objsubid) ORDER BY l.classid,l.objid,l.objsubid) INTO previos
+      FROM pg_catalog.pg_locks AS l WHERE l.pid=pg_catalog.pg_backend_pid()
+       AND l.locktype='advisory' AND l.mode='ExclusiveLock' AND l.granted;
     nuevo:=vec_autorizacion_atestada_v3.invocar_c2_prueba('normal');
+    PERFORM pg_catalog.pg_sleep(5.1);
+    ahora:=pg_catalog.clock_timestamp();
+    INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
+    VALUES ('configuracion:f0-c2-rotada',800002,pg_catalog.repeat('7',64),
+      ahora-pg_catalog.make_interval(hours=>1),ahora+pg_catalog.make_interval(hours=>1),
+      'acto:f0-c2-config-rotada',ahora);
+    INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
+    VALUES ('configuracion:f0-c2-rotada','raiz:f0-c2',800001);
+    INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
+    VALUES (800002,'configuracion:f0-c2-rotada',ahora,
+      'acto:f0-c2-puntero-config-rotada',ahora);
+    INSERT INTO vec_autorizacion_atestada_v3
+      .fuente_corporativa_contexto_actor_v1
+    SELECT f.fuente_ref,800002,f.audiencia_consumo,f.accion,f.tipo_efecto,
+      f.clave_id,f.clave_version,f.revision_gobierno,f.huella_gobierno_sha256,
+      f.emisor_id,'configuracion:f0-c2-rotada',800002,pg_catalog.repeat('7',64),
+      f.raiz_clave_id,f.raiz_version,f.huella_raiz_spki_sha256,
+      f.audiencia_despliegue,f.suite,ahora-pg_catalog.make_interval(hours=>1),
+      ahora+pg_catalog.make_interval(hours=>1),'acto:f0-c2-fuente-rotada',ahora
+      FROM vec_autorizacion_atestada_v3
+        .fuente_corporativa_contexto_actor_v1 AS f
+      WHERE f.fuente_ref='fuente:f0-c2-sintetica' AND f.fuente_version=800001
+        AND f.audiencia_consumo=
+          'vec_contexto_actor.publicar_organizacion_corporativa_fuente.v1';
     INSERT INTO vec_autorizacion_atestada_v3
       .revocacion_fuente_corporativa_contexto_actor_v1 VALUES (
       'fuente:f0-c2-sintetica',800001,
@@ -565,10 +699,21 @@ BEGIN
       pg_catalog.clock_timestamp(),'motivo:f0-c2-replay',
       'acto:f0-c2-replay',pg_catalog.clock_timestamp());
     replay:=vec_autorizacion_atestada_v3.invocar_c2_prueba('normal');
-    SELECT pg_catalog.count(*) INTO cantidad
-      FROM pg_catalog.pg_locks AS l
-     WHERE l.pid=pg_catalog.pg_backend_pid() AND l.granted
-       AND l.locktype='advisory' AND l.mode='ExclusiveLock';
+    WITH claves AS (SELECT DISTINCT u.clave FROM pg_catalog.unnest(ARRAY[
+      pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:f0:capacidad:v1:'||
+        (nuevo->>'capacidad_ref'),0),
+      pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:f0:operacion:v1:'||
+        (nuevo->>'operacion_ref'),0)]) AS u(clave)), pares AS (
+      SELECT pg_catalog.format('%s:%s:1',(clave>>32)&4294967295,
+        clave&4294967295) AS par FROM claves)
+    SELECT pg_catalog.array_agg(par ORDER BY par) INTO esperados FROM pares;
+    SELECT pg_catalog.array_agg(par ORDER BY par) INTO observados FROM (
+      SELECT pg_catalog.format('%s:%s:%s',l.classid,l.objid,l.objsubid) AS par
+      FROM pg_catalog.pg_locks AS l WHERE l.pid=pg_catalog.pg_backend_pid()
+        AND l.locktype='advisory' AND l.mode='ExclusiveLock' AND l.granted) AS a
+      WHERE NOT (a.par=ANY(COALESCE(previos,ARRAY[]::pg_catalog.text[])));
+    -- pg_locks muestra el conjunto final, no la cronologia de adquisicion:
+    -- el conjunto exacto se combina con la asercion estructural ORDER BY.
     RETURN pg_catalog.jsonb_object_length(nuevo)=12
        AND pg_catalog.jsonb_object_length(replay)=12
        AND nuevo->>'consumo_nuevo'='true' AND replay->>'consumo_nuevo'='false'
@@ -576,7 +721,17 @@ BEGIN
        AND nuevo->>'capacidad_ref'='cfc_'||pg_catalog.encode(pg_catalog.sha256(
           (SELECT m.capacidad FROM pg_temp.material_c2_prueba_tabla AS m)),'hex')
        AND nuevo->>'consumida_en'=replay->>'consumida_en'
-       AND cantidad>=2
+       AND pg_catalog.cardinality(esperados) BETWEEN 1 AND 2
+       AND observados=esperados
+       AND ((pg_catalog.convert_from((SELECT m.capacidad FROM
+          pg_temp.material_c2_prueba_tabla AS m),'UTF8')::pg_catalog.json
+          ->>'expira_en')::pg_catalog.timestamptz)<=pg_catalog.clock_timestamp()
+       AND EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3
+          .puntero_configuracion_actual AS p WHERE p.orden=800002
+            AND p.configuracion_revision='configuracion:f0-c2-rotada')
+       AND EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3
+          .fuente_corporativa_contexto_actor_v1 AS f WHERE f.fuente_version=800002
+            AND f.configuracion_revision='configuracion:f0-c2-rotada')
        AND (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
           .atestacion_fuente_corporativa_contexto_actor_v1)=1
        AND (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3
