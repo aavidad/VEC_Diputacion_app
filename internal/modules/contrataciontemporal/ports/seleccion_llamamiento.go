@@ -96,16 +96,21 @@ func (s SolicitudReservaEjecucionSeleccionLlamamiento) huellaEsperada() string {
 	return huellaBytesBolsa(canon.bytes())
 }
 
-func (s SolicitudReservaEjecucionSeleccionLlamamiento) validar() bool {
-	return ClaveIdempotenciaValida(s.ClaveIdempotencia) &&
-		domain.ReferenciaOpacaValida(s.OrganizacionRef) &&
-		domain.ReferenciaOpacaValida(s.ExpedienteRef) && enteroSeguroBolsa(s.VersionExpediente) &&
-		domain.ReferenciaOpacaValida(s.CorrelacionRef) && s.AccionOrden.Validar() == nil &&
-		s.Finalidad.Validar() == nil && s.Necesidad.Validar() == nil &&
-		s.Bolsa.Validar() == nil && s.Politica.Validar() == nil &&
-		s.MaximoPosiciones > 0 && s.MaximoPosiciones <= MaximoElementosIntegracionBolsa &&
-		s.CantidadDisponible > 0 && s.CantidadDisponible <= s.MaximoPosiciones &&
-		huellasBolsaIguales(s.HuellaSemantica, s.huellaEsperada())
+// Validar aplica el unico canon semantico de la solicitud durable. Los
+// adaptadores deben invocarlo antes de cruzar su frontera de persistencia.
+func (s SolicitudReservaEjecucionSeleccionLlamamiento) Validar() error {
+	if !ClaveIdempotenciaValida(s.ClaveIdempotencia) ||
+		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(s.ExpedienteRef) || !enteroSeguroBolsa(s.VersionExpediente) ||
+		!domain.ReferenciaOpacaValida(s.CorrelacionRef) || s.AccionOrden.Validar() != nil ||
+		s.Finalidad.Validar() != nil || s.Necesidad.Validar() != nil ||
+		s.Bolsa.Validar() != nil || s.Politica.Validar() != nil ||
+		s.MaximoPosiciones == 0 || s.MaximoPosiciones > MaximoElementosIntegracionBolsa ||
+		s.CantidadDisponible == 0 || s.CantidadDisponible > s.MaximoPosiciones ||
+		!huellasBolsaIguales(s.HuellaSemantica, s.huellaEsperada()) {
+		return ErrEjecucionSeleccionLlamamientoInvalida
+	}
+	return nil
 }
 
 type ReservaEjecucionSeleccionLlamamiento struct {
@@ -136,7 +141,7 @@ func (e EstadoEjecucionSeleccionLlamamiento) VerificarTerminalConfirmado(
 	if ctx == nil || verificador == nil || !instanteBolsaCanonico(instante) ||
 		e.Situacion != EjecucionSeleccionLlamamientoConfirmada || e.ReservaRef != "" ||
 		e.EfectoPosible != "" ||
-		e.Solicitud.ClaveIdempotencia != clave || !e.Solicitud.validar() ||
+		e.Solicitud.ClaveIdempotencia != clave || e.Solicitud.Validar() != nil ||
 		e.ReciboConfirmado == vacio || !e.ReciboConfirmado.PropuestaGenerada ||
 		a.Validar() != nil || a.Recibo != e.ReciboConfirmado {
 		return vacio, ErrEjecucionSeleccionLlamamientoInvalida
