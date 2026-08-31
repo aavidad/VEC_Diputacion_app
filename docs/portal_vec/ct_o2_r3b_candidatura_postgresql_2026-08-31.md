@@ -2,11 +2,14 @@
 
 Fecha del corte: 31 de agosto de 2026.
 
-## Resultado de la única puerta dinámica
+## Resultados cronológicos de las puertas dinámicas
 
-Estado: **NO-GO dinámico; candidato R3B-B no confirmado**.
+Estado: **NO-GO dinámico; candidato R3B-B no confirmado y R1 pendiente de
+revisión y autorización**.
 
-La única ejecución autorizada del runner terminó con código `3` antes de
+### Primera ejecución pre-final: NO-GO de bootstrap
+
+La ejecución pre-final autorizada del runner terminó con código `3` antes de
 instalar migraciones. El bootstrap
 `deploy/postgresql/contexto_actor_v1/roles_up.sql` rechazó en su línea 41 la
 base desechable porque conservaba privilegios iniciales de `PUBLIC`:
@@ -15,9 +18,9 @@ base desechable porque conservaba privilegios iniciales de `PUBLIC`:
 ERROR: la base dedicada debe llegar sin privilegios de PUBLIC
 ```
 
-No se repitió la ejecución. No llegaron a ejecutarse `000046`, `000047`, las
-pruebas Go contra PostgreSQL ni ninguna confirmación V2. La limpieza automática
-retiró el contenedor, red, volumen y directorio temporal etiquetados
+En esa ejecución no llegaron a ejecutarse `000046`, `000047`, las pruebas Go
+contra PostgreSQL ni ninguna confirmación V2. La limpieza automática retiró el
+contenedor, red, volumen y directorio temporal etiquetados
 `ct-o2-r3b-pg-20260831`. La comprobación posterior obtuvo cero identificadores
 para esos cuatro tipos de residuo. El contenedor ajeno quedó antes y después en
 el mismo estado verificable:
@@ -26,16 +29,34 @@ el mismo estado verificable:
 d6217278d8718a4e51c4be9523dde15406559989abe46f3a5e496624d6aa4aeb|running|/contagrx-t224-pg-focal|sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
 ```
 
-El siguiente intento, si dirección autoriza una nueva ejecución, debe preparar
-la base dedicada con la barrera de privilegios de `PUBLIC` que exige Contexto
-de actor antes de cargar `roles_up.sql`. Esta evidencia no autoriza repetir la
-puerta ni convertir el resto de pruebas estáticas en un GO PostgreSQL.
+El candidato preservado incorporó después esa barrera en el runner: revoca los
+privilegios predeterminados de `PUBLIC` sobre la base y el esquema `public`
+antes de instalar la autoridad de contexto. El fallo pre-final permanece como
+`NO-GO`; la corrección posterior no lo reinterpreta ni lo convierte en una
+ejecución superada.
 
-El candidato preservado incorpora ya esa barrera en el runner y la mantiene
-sin ejecutar: revoca los privilegios predeterminados de `PUBLIC` sobre la base
-y el esquema `public` antes de instalar la autoridad de contexto. La única
-invocación autorizada ya terminó con el fallo descrito y no se fabrica una
-segunda ejecución.
+### Repetición excepcional final sobre `a0cedc2`: NO-GO de `000047`
+
+Dirección autorizó una única repetición excepcional sobre el hash exacto
+`a0cedc2e8fce0ab36f0d4fb4ff30dc43e6345596`. Se ejecutó exactamente una vez el
+31 de agosto de 2026, desde `19:39:02Z` hasta `19:39:12Z`, duró 10 segundos,
+terminó con `RC=3` y produjo un log con SHA-256
+`f988ce0cde679aae1ea39102b346d5210a3c450b9659fc0c1a6ee7de1e678193`.
+
+La repetición alcanzó las migraciones CT `000001` a `000005`, `000046` y
+VEC-AD-3. Falló en
+`000047_componentes/010_candidatura_y_aliases.sql`, línea 73, al resolver
+`pg_catalog.greatest(timestamp with time zone, timestamp with time zone)`. No
+alcanzó el resto de `000047`, las pruebas Go contra PostgreSQL ni ninguna
+confirmación. Terminó con cero residuos propios y el cerrojo liberado; el
+contenedor ajeno `d6217278...` permaneció intacto y en estado `running`.
+
+Este segundo resultado también es `NO-GO`. No oculta ni sustituye el fallo
+pre-final por `PUBLIC`, no acredita PostgreSQL y no autoriza otra ejecución.
+R1 retira exclusivamente la cualificación inválida de la construcción especial
+`GREATEST`, conservando la semántica de máximo temporal. Queda pendiente de una
+nueva revisión independiente y de autorización dinámica expresa; no se declara
+`GO`.
 
 ## Capacidad e invariante
 
@@ -132,6 +153,9 @@ ambigüedad, y adulteración de fila/recibo/hash.
 ## Límite y siguiente corte
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
-cierra O2-06 ni declara la aplicación arrancable. R3C debe migrar
-`ServicioRegistroSolicitud` al contrato candidato y componer el proveedor
-concreto de material de confirmación bajo revisión independiente.
+cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
+revisión independiente del hash exacto de R1 y, solo si dirección lo autoriza,
+una nueva validación dinámica. R3C permanece bloqueada hasta resolver ese
+`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
+candidato y componer el proveedor concreto de material de confirmación bajo
+revisión independiente.

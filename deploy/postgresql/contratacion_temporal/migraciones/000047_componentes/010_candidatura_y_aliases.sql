@@ -66,7 +66,7 @@ INSERT INTO vec_contratacion_temporal.candidatura_alta_alias (
     ambito_hmac, huella_hmac, ambito_raiz_hmac, generacion, registrada_en
 )
 SELECT a.alias_hmac, h.alias_hmac, a.ambito_raiz_hmac, a.generacion,
-       pg_catalog.greatest(a.registrada_en, h.registrada_en)
+       GREATEST(a.registrada_en, h.registrada_en)
   FROM vec_contratacion_temporal.alias_ambito_alta a
   JOIN vec_contratacion_temporal.alias_huella_alta h
     ON h.ambito_raiz_hmac = a.ambito_raiz_hmac
