@@ -4,8 +4,9 @@ Fecha del corte: 31 de agosto de 2026.
 
 ## Resultados cronológicos de las puertas dinámicas
 
-Estado: **NO-GO; R2 pendiente de revisión independiente y de cualquier nueva
-autorización dinámica**.
+Estado: **NO-GO dinámico; R2 obtuvo `GO ESTÁTICO` independiente con `P0=0`,
+`P1=0` y `P2=0`, pero la ejecución focal posterior terminó con `RC=1` en el
+oráculo del preflight**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -75,9 +76,49 @@ solo corrigió `pg_catalog.greatest` a `GREATEST` y conservó íntegros los dos
 `NO-GO` dinámicos anteriores. R2 añade la defensa canónica `BEFORE TRUNCATE`
 por sentencia, regresión de conservación exacta de filas y el recorrido del
 adaptador público con proveedor neutral, éxito y replay desde dos pools. R2 no
-ha ejecutado PostgreSQL ni el runner y permanece pendiente de revisión estática
-independiente y, solo después, de una autorización dinámica nueva. No se
-declara `GO`.
+había ejecutado PostgreSQL ni el runner y permanecía pendiente de revisión
+estática independiente y, solo después, de una autorización dinámica nueva. En
+ese corte no se declaraba `GO`.
+
+### Revisión estática de R2: GO ESTÁTICO, `P0=0`, `P1=0`, `P2=0`
+
+La revisión independiente del hash exacto
+`ba6f0d18ee0d344345af45d5ecfe51f92ec3fa25` emitió `GO ESTÁTICO`, con
+`P0=0`, `P1=0` y `P2=0`. Este resultado cerró la revisión del código de R2,
+pero no acreditó PostgreSQL ni sustituyó la puerta dinámica obligatoria.
+
+### Tercer NO-GO dinámico focal: oráculo booleano del preflight
+
+La ejecución focal posterior se realizó el `31-08-2026` bajo el
+cerrojo exclusivo, con `VEC_CT_O2_R3B_BD_DESECHABLE=SI`, la imagen local
+fijada por digest y `--pull=never`. El relanzamiento marcado terminó con
+`RC=1` después de instalar PostgreSQL, contexto de actor, autorización V3 y
+las migraciones CT `000001` a `000005`, `000046`, VEC-AD-3 y `000047`. El
+preflight devolvió:
+
+```text
+180004|t|t|t
+```
+
+El valor acredita PostgreSQL `18.4` y la presencia de los tres objetos
+consultados. PostgreSQL serializa los booleanos como `t`/`f`, mientras el
+oráculo del runner comparaba el resultado con `180004|true|true|true`. El
+único defecto demostrado es ese literal esperado de shell; no se cambia el
+`SELECT` ni se relajan versión, cardinalidad o presencia de objetos.
+
+La ejecución no alcanzó las pruebas Go ni la confirmación. Terminó con cero
+contenedores, redes, volúmenes o temporales propios, el cerrojo liberado y la
+fuente limpia. El contenedor ajeno permaneció idéntico antes y después:
+
+```text
+d6217278d8718a4e51c4be9523dde15406559989abe46f3a5e496624d6aa4aeb|running|/contagrx-t224-pg-focal|sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+```
+
+La captura completa del panel tiene SHA-256
+`f2efd05e362cee4e66c1bc9fc6dc96c230bb9b1cca1ecfb2903f7e21fa7ea171`.
+Esa captura incluye también el rechazo inicial con `RC=64` por ausencia de la
+marca desechable antes del relanzamiento. El resultado permanece en `NO-GO`
+dinámico y no autoriza otra ejecución.
 
 ## Capacidad e invariante
 
@@ -158,8 +199,9 @@ propietario.
 
 El runner `probar_o2_r3b_candidatura_postgresql18_4.sh` usa exclusivamente la
 imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
-Instala `000047` después de `000046`. La matriz que deberá acreditar cuando
-exista una autorización dinámica nueva —R2 no la ha ejecutado— incluye:
+Instala `000047` después de `000046`. La ejecución dinámica posterior a R2 se
+detuvo en el oráculo del preflight y no alcanzó la matriz que una autorización
+dinámica nueva deberá acreditar:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -185,8 +227,9 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R2 y, solo con una autorización
-posterior expresa, una nueva validación dinámica. R3C permanece bloqueada hasta
-resolver ese `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
-candidato y componer el proveedor concreto de material de confirmación bajo
-revisión independiente.
+revisión independiente del hash exacto de R3 y, solo después y con una
+autorización posterior expresa, una nueva validación dinámica exclusiva. La
+integración continúa prohibida. R3C permanece bloqueada hasta resolver ese
+`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato candidato
+y componer el proveedor concreto de material de confirmación bajo revisión
+independiente.

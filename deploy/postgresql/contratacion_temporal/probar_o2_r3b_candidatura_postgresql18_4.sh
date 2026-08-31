@@ -273,7 +273,7 @@ preflight="$(valor "SELECT concat_ws('|',current_setting('server_version_num'),
  (to_regclass('vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6') IS NOT NULL),
  (to_regclass('vec_contratacion_temporal.candidatura_alta_tecnica') IS NOT NULL),
  (to_regprocedure('vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL))")"
-if [[ $preflight != '180004|true|true|true' ]]; then
+if [[ $preflight != '180004|t|t|t' ]]; then
     printf 'preflight R3B incompatible: %s\n' "$preflight" >&2
     exit 1
 fi
