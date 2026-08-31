@@ -713,12 +713,29 @@ func rehuellarMaterialesSeleccionO6Integracion(
 	if err != nil {
 		t.Fatal(err)
 	}
-	contenido = reemplazarUnaVezSeleccionO6Integracion(t, contenido,
-		`"huella_peticion_sha256":"`+artefacto.Evidencia.HuellaPeticionSHA256+`"`,
-		`"huella_peticion_sha256":"`+peticion+`"`)
-	return reemplazarUnaVezSeleccionO6Integracion(t, contenido,
-		`"huella_respuesta_sha256":"`+artefacto.Evidencia.HuellaRespuestaSHA256+`"`,
-		`"huella_respuesta_sha256":"`+respuesta+`"`)
+	contenido, cambiaPeticion := actualizarHuellaMaterialSeleccionO6Integracion(t, contenido,
+		"huella_peticion_sha256", artefacto.Evidencia.HuellaPeticionSHA256, peticion)
+	contenido, cambiaRespuesta := actualizarHuellaMaterialSeleccionO6Integracion(t, contenido,
+		"huella_respuesta_sha256", artefacto.Evidencia.HuellaRespuestaSHA256, respuesta)
+	if !cambiaPeticion && !cambiaRespuesta {
+		t.Fatal("el rehuellado de materiales no produjo ningun cambio")
+	}
+	return contenido
+}
+
+func actualizarHuellaMaterialSeleccionO6Integracion(
+	t *testing.T, contenido, campo, anterior, posterior string,
+) (string, bool) {
+	t.Helper()
+	marca := `"` + campo + `":"` + anterior + `"`
+	if strings.Count(contenido, `"`+campo+`":`) != 1 || strings.Count(contenido, marca) != 1 {
+		t.Fatalf("cardinalidad inesperada para %s", campo)
+	}
+	if anterior == posterior {
+		return contenido, false
+	}
+	nuevaMarca := `"` + campo + `":"` + posterior + `"`
+	return strings.Replace(contenido, marca, nuevaMarca, 1), true
 }
 
 func reemplazarUnaVezSeleccionO6Integracion(t *testing.T, texto, anterior, posterior string) string {

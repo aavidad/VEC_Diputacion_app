@@ -167,6 +167,23 @@ func TestEjecucionesSeleccionO6SelectoresCanonicosSonDeterministas(t *testing.T)
 	}
 }
 
+func TestEjecucionesSeleccionO6ActualizaUnaHuellaMaterialYConservaLaEstable(t *testing.T) {
+	t.Parallel()
+	estable, anterior, nueva := strings.Repeat("a", 64), strings.Repeat("b", 64), strings.Repeat("c", 64)
+	contenido := `{"huella_peticion_sha256":"` + estable + `","huella_respuesta_sha256":"` + anterior + `"}`
+	resultado, cambiaPeticion := actualizarHuellaMaterialSeleccionO6Integracion(
+		t, contenido, "huella_peticion_sha256", estable, estable)
+	resultado, cambiaRespuesta := actualizarHuellaMaterialSeleccionO6Integracion(
+		t, resultado, "huella_respuesta_sha256", anterior, nueva)
+	esperado := `{"huella_peticion_sha256":"` + estable + `","huella_respuesta_sha256":"` + nueva + `"}`
+	if cambiaPeticion || !cambiaRespuesta || resultado != esperado ||
+		strings.Count(resultado, `"huella_peticion_sha256":`) != 1 ||
+		strings.Count(resultado, `"huella_respuesta_sha256":`) != 1 {
+		t.Fatalf("actualizacion de huellas divergente: peticion=%v respuesta=%v contenido=%s",
+			cambiaPeticion, cambiaRespuesta, resultado)
+	}
+}
+
 func TestEjecucionesSeleccionO6ReservaClasificaTodosLosEstados(t *testing.T) {
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
 	solicitudJSON := string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud))
