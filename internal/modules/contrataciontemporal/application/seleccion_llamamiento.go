@@ -8,7 +8,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-const tiempoMaximoSeleccionLlamamiento = 15 * time.Second
+const (
+	tiempoMaximoSeleccionLlamamiento       = 15 * time.Second
+	tiempoRecuperacionSeleccionLlamamiento = 2 * time.Second
+)
 
 var (
 	ErrServicioSeleccionLlamamientoInvalido = errors.New(
@@ -23,6 +26,15 @@ var (
 	ErrResultadoSeleccionLlamamientoNoConfiable = errors.New(
 		"contratacion temporal: resultado de seleccion y llamamiento no confiable",
 	)
+	ErrClaveSeleccionLlamamientoEnColision = errors.New(
+		"contratacion temporal: clave de seleccion y llamamiento usada con otra ejecucion",
+	)
+	ErrEjecucionSeleccionLlamamientoConcurrente = errors.New(
+		"contratacion temporal: ejecucion de seleccion y llamamiento concurrente",
+	)
+	ErrEjecucionSeleccionLlamamientoIndeterminada = errors.New(
+		"contratacion temporal: ejecucion de seleccion y llamamiento indeterminada",
+	)
 )
 
 // SolicitudSeleccionLlamamiento solo identifica un intento idempotente. La
@@ -34,6 +46,7 @@ type SolicitudSeleccionLlamamiento struct {
 
 type ServicioSeleccionLlamamiento struct {
 	preparador     ports.PreparadorSeleccionLlamamiento
+	ejecuciones    ports.EjecucionesSeleccionLlamamiento
 	disponibilidad ports.ConsultaDisponibilidadBolsa
 	ordenes        ports.PreparadorOrdenBolsa
 	llamamientos   ports.GestorLlamamientosBolsa
@@ -43,19 +56,22 @@ type ServicioSeleccionLlamamiento struct {
 
 func NuevoServicioSeleccionLlamamiento(
 	preparador ports.PreparadorSeleccionLlamamiento,
+	ejecuciones ports.EjecucionesSeleccionLlamamiento,
 	disponibilidad ports.ConsultaDisponibilidadBolsa,
 	ordenes ports.PreparadorOrdenBolsa,
 	llamamientos ports.GestorLlamamientosBolsa,
 	verificador *ports.VerificadorEvidenciaIntegracionBolsa,
 	reloj ports.Reloj,
 ) (*ServicioSeleccionLlamamiento, error) {
-	if dependenciaNula(preparador) || dependenciaNula(disponibilidad) ||
+	if dependenciaNula(preparador) || dependenciaNula(ejecuciones) ||
+		dependenciaNula(disponibilidad) ||
 		dependenciaNula(ordenes) || dependenciaNula(llamamientos) ||
 		verificador == nil || dependenciaNula(reloj) {
 		return nil, ErrServicioSeleccionLlamamientoInvalido
 	}
 	return &ServicioSeleccionLlamamiento{
-		preparador: preparador, disponibilidad: disponibilidad, ordenes: ordenes,
+		preparador: preparador, ejecuciones: ejecuciones,
+		disponibilidad: disponibilidad, ordenes: ordenes,
 		llamamientos: llamamientos, verificador: verificador, reloj: reloj,
 	}, nil
 }
@@ -130,36 +146,88 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		!disponibilidadYOrdenLigados(consulta, resultado, comandoOrden, instanteOrden) {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
 	}
-	reciboOrden, err := s.ordenes.PrepararOrden(operacion, comandoOrden)
+	if comandoOrden.MaximoPosiciones < resultado.CantidadDisponible {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	solicitudEjecucion, err := ports.NuevaSolicitudReservaEjecucionSeleccionLlamamiento(
+		solicitud.ClaveIdempotencia, comandoOrden, resultado.CantidadDisponible, instanteOrden,
+	)
+	if err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	estado, err := s.ejecuciones.Reservar(operacion, solicitudEjecucion)
 	if err != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, normalizarFalloSeleccionLlamamiento(operacion, err)
 	}
-	if err := operacion.Err(); err != nil {
+	reserva, reciboConfirmado, err := resolverReservaSeleccionLlamamiento(
+		estado, solicitudEjecucion,
+	)
+	if err != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, err
+	}
+	if reciboConfirmado != (ports.ReciboSolicitudLlamamientoBolsa{}) {
+		return reciboConfirmado, nil
+	}
+	if err := operacion.Err(); err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.liberarAntesDeEfectos(
+			operacion, reserva, err,
+		)
+	}
+	if err = s.ejecuciones.AbrirVentanaEfecto(
+		operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+	); err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.liberarAntesDeEfectos(
+			operacion, reserva, normalizarFalloSeleccionLlamamiento(operacion, err),
+		)
+	}
+	reciboOrden, err := s.ordenes.PrepararOrden(operacion, comandoOrden)
+	if err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
+	}
+	if err := operacion.Err(); err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
 	}
 	instanteReciboOrden := instanteCanonico(s.reloj.Ahora())
 	if instanteReciboOrden.Before(instanteOrden) {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	if _, _, err = s.verificador.VerificarReciboOrden(
 		operacion, comandoOrden, reciboOrden, instanteReciboOrden,
 	); err != nil || !reciboOrden.OrdenGenerada || !reciboOrden.OrdenCompleta ||
-		reciboOrden.TotalPosiciones == 0 {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, clasificarResultadoSeleccion(operacion)
+		reciboOrden.TotalPosiciones == 0 ||
+		reciboOrden.TotalPosiciones < resultado.CantidadDisponible {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			clasificarResultadoSeleccion(operacion),
+		)
 	}
 
 	contextoLlamamiento, err := s.preparador.PrepararContextoLlamamiento(
 		operacion, solicitud.ClaveIdempotencia, reciboOrden,
 	)
 	if err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, normalizarFalloSeleccionLlamamiento(operacion, err)
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
 	}
 	if err := operacion.Err(); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, err
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
 	}
 	instanteLlamamiento := instanteCanonico(s.reloj.Ahora())
 	if instanteLlamamiento.Before(instanteReciboOrden) {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	comprobanteOrden, evidenciaOrden, err := s.verificador.VerificarReciboOrden(
 		operacion, comandoOrden, reciboOrden, instanteLlamamiento,
@@ -167,7 +235,10 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 	if err != nil || !contextosSeleccionLigados(
 		consulta.Contexto, comandoOrden.Contexto, contextoLlamamiento, instanteLlamamiento,
 	) {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, clasificarResultadoSeleccion(operacion)
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			clasificarResultadoSeleccion(operacion),
+		)
 	}
 	comandoLlamamiento, err := ports.NuevoComandoSolicitarLlamamientoBolsa(
 		ports.PreparacionComandoSolicitarLlamamientoBolsa{
@@ -178,50 +249,186 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		instanteLlamamiento,
 	)
 	if err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	if _, err = ports.NuevoArtefactoProbatorioOrdenBolsa(
 		comandoOrden, reciboOrden, evidenciaOrden, comprobanteOrden,
 	); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	if err := operacion.Err(); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, err
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
+	}
+	if err = s.ejecuciones.AbrirVentanaEfecto(
+		operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento,
+	); err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+		)
 	}
 
 	recibo, err := s.llamamientos.SolicitarLlamamiento(operacion, comandoLlamamiento)
 	if err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, normalizarFalloSeleccionLlamamiento(operacion, err)
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento, err,
+		)
 	}
 	if err := operacion.Err(); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, err
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento, err,
+		)
 	}
 	instanteRecibo := instanteCanonico(s.reloj.Ahora())
 	if instanteRecibo.Before(instanteLlamamiento) {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	comprobante, evidencia, err := s.verificador.VerificarReciboLlamamiento(
 		operacion, comandoLlamamiento, recibo, instanteRecibo,
 	)
 	if err != nil || !recibo.PropuestaGenerada {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, clasificarResultadoSeleccion(operacion)
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento,
+			clasificarResultadoSeleccion(operacion),
+		)
 	}
 	if _, err = ports.NuevoArtefactoProbatorioLlamamientoBolsa(
 		comandoLlamamiento, recibo, evidencia, comprobante,
 	); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento,
+			ErrResultadoSeleccionLlamamientoNoConfiable,
+		)
 	}
 	if err := operacion.Err(); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, err
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento, err,
+		)
+	}
+	if err = s.ejecuciones.Confirmar(operacion, reserva, recibo); err != nil {
+		recuperacion, cancelarRecuperacion := contextoRecuperacionSeleccion(operacion)
+		defer cancelarRecuperacion()
+		estado, falloEstado := s.ejecuciones.ConsultarEstado(recuperacion, solicitudEjecucion)
+		if falloEstado == nil && estado.Solicitud == solicitudEjecucion &&
+			estado.Situacion == ports.EjecucionSeleccionLlamamientoConfirmada &&
+			estado.ReciboConfirmado == recibo {
+			return recibo, nil
+		}
+		return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+			operacion, reserva, ports.EfectoSolicitarSeleccionLlamamiento, err,
+		)
 	}
 	return recibo, nil
 }
 
 func (s *ServicioSeleccionLlamamiento) dependenciasValidas() bool {
 	return s != nil && !dependenciaNula(s.preparador) &&
-		!dependenciaNula(s.disponibilidad) && !dependenciaNula(s.ordenes) &&
+		!dependenciaNula(s.ejecuciones) && !dependenciaNula(s.disponibilidad) &&
+		!dependenciaNula(s.ordenes) &&
 		!dependenciaNula(s.llamamientos) && s.verificador != nil &&
 		!dependenciaNula(s.reloj)
+}
+
+func resolverReservaSeleccionLlamamiento(
+	estado ports.EstadoEjecucionSeleccionLlamamiento,
+	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+) (
+	ports.ReservaEjecucionSeleccionLlamamiento,
+	ports.ReciboSolicitudLlamamientoBolsa,
+	error,
+) {
+	vacio := ports.ReciboSolicitudLlamamientoBolsa{}
+	if estado.Solicitud != solicitud {
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+			ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	switch estado.Situacion {
+	case ports.EjecucionSeleccionLlamamientoPropietaria:
+		if estado.ReservaRef == "" || estado.ReciboConfirmado != vacio {
+			return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+				ErrResultadoSeleccionLlamamientoNoConfiable
+		}
+		return ports.ReservaEjecucionSeleccionLlamamiento{
+			Solicitud: solicitud, ReservaRef: estado.ReservaRef,
+		}, vacio, nil
+	case ports.EjecucionSeleccionLlamamientoConfirmada:
+		if estado.ReservaRef != "" || !estado.ReciboConfirmado.PropuestaGenerada {
+			return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+				ErrResultadoSeleccionLlamamientoNoConfiable
+		}
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, estado.ReciboConfirmado, nil
+	case ports.EjecucionSeleccionLlamamientoOcupada:
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+			ErrEjecucionSeleccionLlamamientoConcurrente
+	case ports.EjecucionSeleccionLlamamientoColision:
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+			ErrClaveSeleccionLlamamientoEnColision
+	case ports.EjecucionSeleccionLlamamientoIndeterminada:
+		if estado.EfectoPosible != ports.EfectoPrepararOrdenSeleccionLlamamiento &&
+			estado.EfectoPosible != ports.EfectoSolicitarSeleccionLlamamiento {
+			return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+				ErrResultadoSeleccionLlamamientoNoConfiable
+		}
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+			ErrEjecucionSeleccionLlamamientoIndeterminada
+	default:
+		return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
+			ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+}
+
+func contextoRecuperacionSeleccion(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithTimeout(
+		context.WithoutCancel(ctx), tiempoRecuperacionSeleccionLlamamiento,
+	)
+}
+
+func (s *ServicioSeleccionLlamamiento) liberarAntesDeEfectos(
+	ctx context.Context,
+	reserva ports.ReservaEjecucionSeleccionLlamamiento,
+	causa error,
+) error {
+	recuperacion, cancelar := contextoRecuperacionSeleccion(ctx)
+	defer cancelar()
+	if err := s.ejecuciones.LiberarAntesDeEfectos(recuperacion, reserva); err != nil {
+		return errorSeleccionIndeterminada(ctx, causa)
+	}
+	return causa
+}
+
+func (s *ServicioSeleccionLlamamiento) marcarIndeterminada(
+	ctx context.Context,
+	reserva ports.ReservaEjecucionSeleccionLlamamiento,
+	efecto ports.EfectoSeleccionLlamamiento,
+	causa error,
+) error {
+	recuperacion, cancelar := contextoRecuperacionSeleccion(ctx)
+	defer cancelar()
+	_ = s.ejecuciones.MarcarIndeterminada(recuperacion, reserva, efecto)
+	return errorSeleccionIndeterminada(ctx, causa)
+}
+
+func errorSeleccionIndeterminada(ctx context.Context, causa error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return errors.Join(ErrEjecucionSeleccionLlamamientoIndeterminada, ctx.Err())
+	}
+	if errors.Is(causa, context.Canceled) || errors.Is(causa, context.DeadlineExceeded) {
+		return errors.Join(ErrEjecucionSeleccionLlamamientoIndeterminada, causa)
+	}
+	return ErrEjecucionSeleccionLlamamientoIndeterminada
 }
 
 func disponibilidadYOrdenLigados(
