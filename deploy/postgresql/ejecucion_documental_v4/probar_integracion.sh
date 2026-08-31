@@ -12,6 +12,7 @@ etiqueta_prefijo="vec.prefijo=$prefijo"
 contenedor="vec-ejecucion-v4-pg-${prefijo}"
 red="${prefijo}-internal"
 socket_contenedor=/run/vec-postgresql
+socket_entrypoint=/var/run/postgresql
 directorio_socket=
 firma_directorio=
 contenedor_id=
@@ -124,6 +125,51 @@ trap 'limpiar $?' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+redactar_logs_arranque() {
+    local logs=$1 secreto
+    for secreto in "$clave_admin" "$clave_fuente" "$clave_registro" \
+        "$clave_emisor" "$clave_ejecucion"
+    do
+        logs=${logs//"$secreto"/[REDACTADO]}
+    done
+    logs=$(sed -E \
+        -e 's/((PGPASSWORD|POSTGRES_PASSWORD|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd])[=:])[^[:space:]]+/\1[REDACTADO]/g' \
+        -e 's#(postgres(ql)?://[^:/[:space:]]+:)[^@/[:space:]]+#\1[REDACTADO]#g' \
+        <<<"$logs")
+    printf '%.16384s' "$logs"
+}
+
+diagnosticar_contenedor_detenido() {
+    local estado codigo_salida oom logs
+    estado=$(docker container inspect --format '{{.State.Status}}' \
+        "$contenedor_id" 2>/dev/null || printf 'no_disponible')
+    codigo_salida=$(docker container inspect --format '{{.State.ExitCode}}' \
+        "$contenedor_id" 2>/dev/null || printf 'no_disponible')
+    oom=$(docker container inspect --format '{{.State.OOMKilled}}' \
+        "$contenedor_id" 2>/dev/null || printf 'no_disponible')
+    logs=$(docker container logs --tail 80 "$contenedor_id" 2>&1 || true)
+    logs=$(redactar_logs_arranque "$logs")
+    echo "PostgreSQL se detuvo durante el arranque: estado=$estado codigo_salida=$codigo_salida oom=$oom" >&2
+    if [[ -n "$logs" ]]; then
+        echo "ultimos logs de arranque (maximo 80 lineas/16384 caracteres, credenciales redactadas):" >&2
+        printf '%s\n' "$logs" >&2
+    fi
+}
+
+exigir_contenedor_en_ejecucion() {
+    local ejecutando
+    if ! ejecutando=$(docker container inspect --format '{{.State.Running}}' \
+        "$contenedor_id" 2>/dev/null); then
+        echo "no se pudo inspeccionar el estado del contenedor propio" >&2
+        return 1
+    fi
+    if [[ "$ejecutando" == "true" ]]; then
+        return 0
+    fi
+    diagnosticar_contenedor_detenido
+    return 1
+}
+
 directorio_socket=$(mktemp -d -p /tmp "${prefijo}.socket.XXXXXXXX")
 if [[ ! -O "$directorio_socket" || -L "$directorio_socket" ]]; then
     echo "mktemp no creo un directorio de socket propio" >&2
@@ -179,11 +225,12 @@ exigir_sin_uso_tipo() {
 }
 
 if ! contenedor_id=$(docker run --detach --name "$contenedor" --pull=never \
-    --network "$red" --read-only --cpus 2 --memory 1g --pids-limit 256 \
+    --network "$red" --read-only --cpus 2 --memory 1280m --pids-limit 256 \
     --label "$etiqueta_propietario" --label "$etiqueta_tarea" \
     --label "$etiqueta_prefijo" \
     --tmpfs /var/lib/postgresql:rw,noexec,nosuid,nodev,size=768m,mode=1777 \
     --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777 \
+    --tmpfs "$socket_entrypoint:rw,noexec,nosuid,nodev,size=8m,mode=3775" \
     --mount "type=bind,src=$directorio_socket,dst=$socket_contenedor" \
     --env PGDATA=/var/lib/postgresql/18/docker \
     --env PGHOST="$socket_contenedor" \
@@ -191,7 +238,7 @@ if ! contenedor_id=$(docker run --detach --name "$contenedor" --pull=never \
     --env POSTGRES_INITDB_ARGS="--auth-local=scram-sha-256 --auth-host=scram-sha-256" \
     --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave_admin" \
     "$imagen" -c listen_addresses= \
-    -c "unix_socket_directories=$socket_contenedor"); then
+    -c "unix_socket_directories=$socket_contenedor,$socket_entrypoint"); then
     if firma=$(docker container inspect --format \
         '{{.Id}}|{{index .Config.Labels "vec.propietario"}}|{{index .Config.Labels "vec.tarea"}}|{{index .Config.Labels "vec.prefijo"}}' \
         "$contenedor" 2>/dev/null) \
@@ -205,7 +252,7 @@ fi
 configuracion=$(docker container inspect --format \
     '{{.Image}}|{{.HostConfig.ReadonlyRootfs}}|{{.HostConfig.NanoCpus}}|{{.HostConfig.Memory}}|{{.HostConfig.PidsLimit}}|{{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}' \
     "$contenedor_id")
-if [[ "$configuracion" != "$imagen_id|true|2000000000|1073741824|256|$red|{}" ]]; then
+if [[ "$configuracion" != "$imagen_id|true|2000000000|1342177280|256|$red|{}" ]]; then
     echo "el contenedor no conserva imagen, aislamiento o limites exactos" >&2
     exit 1
 fi
@@ -231,9 +278,9 @@ if [[ "$redes_contenedor" != "$red" ]]; then
     exit 1
 fi
 tmpfs=$(docker container inspect --format \
-    '{{index .HostConfig.Tmpfs "/var/lib/postgresql"}}|{{index .HostConfig.Tmpfs "/tmp"}}' \
+    '{{index .HostConfig.Tmpfs "/var/lib/postgresql"}}|{{index .HostConfig.Tmpfs "/tmp"}}|{{index .HostConfig.Tmpfs "/var/run/postgresql"}}' \
     "$contenedor_id")
-if [[ "$tmpfs" != "rw,noexec,nosuid,nodev,size=768m,mode=1777|rw,noexec,nosuid,nodev,size=64m,mode=1777" ]]; then
+if [[ "$tmpfs" != "rw,noexec,nosuid,nodev,size=768m,mode=1777|rw,noexec,nosuid,nodev,size=64m,mode=1777|rw,noexec,nosuid,nodev,size=8m,mode=3775" ]]; then
     echo "el contenedor no conserva los tmpfs minimos exactos" >&2
     exit 1
 fi
@@ -250,24 +297,49 @@ if [[ -n "$(docker container inspect --format \
     echo "el contenedor creo un volumen Docker no autorizado" >&2
     exit 1
 fi
+postgres_listo=false
 for _ in $(seq 1 60); do
+    exigir_contenedor_en_ejecucion || exit 1
     if docker exec "$contenedor_id" pg_isready --host "$socket_contenedor" \
         --username postgres \
         --dbname "$base" >/dev/null 2>&1; then
+        postgres_listo=true
         break
     fi
+    exigir_contenedor_en_ejecucion || exit 1
     sleep 1
 done
-docker exec "$contenedor_id" pg_isready --host "$socket_contenedor" \
-    --username postgres --dbname "$base" >/dev/null
+if [[ "$postgres_listo" != "true" ]]; then
+    echo "PostgreSQL no quedo disponible antes del limite de 60 segundos" >&2
+    exit 1
+fi
 if [[ ! -S "$directorio_socket/.s.PGSQL.5432" ]]; then
     echo "PostgreSQL no publico el socket Unix en el directorio propio" >&2
     exit 1
 fi
+for socket in "$socket_contenedor" "$socket_entrypoint"; do
+    if ! docker exec "$contenedor_id" test -S "$socket/.s.PGSQL.5432"; then
+        exigir_contenedor_en_ejecucion || exit 1
+        echo "PostgreSQL no publico el socket Unix esperado en $socket" >&2
+        exit 1
+    fi
+    if ! docker exec "$contenedor_id" pg_isready --host "$socket" \
+        --username postgres --dbname "$base" >/dev/null 2>&1; then
+        exigir_contenedor_en_ejecucion || exit 1
+        echo "PostgreSQL no acepta conexiones por el socket esperado en $socket" >&2
+        exit 1
+    fi
+done
 version_postgresql=$(psql_admin --tuples-only --no-align \
     --command 'SHOW server_version_num')
 if [[ "$version_postgresql" != "180004" ]]; then
     echo "se requiere PostgreSQL 18.4, no ${version_postgresql}" >&2
+    exit 1
+fi
+directorios_socket_postgresql=$(psql_admin --tuples-only --no-align \
+    --command 'SHOW unix_socket_directories')
+if [[ "$directorios_socket_postgresql" != "$socket_contenedor,$socket_entrypoint" ]]; then
+    echo "PostgreSQL no conserva los dos directorios de socket exactos" >&2
     exit 1
 fi
 

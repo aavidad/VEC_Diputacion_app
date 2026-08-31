@@ -115,9 +115,9 @@ El runner solo acepta `VEC_POSTGRES_TEST_IMAGE` como referencia completa
 `--pull=never`. `VEC_POSTGRES_TEST_PREFIX` permite reservar una ejecucion
 aislada; admite entre 8 y 48 caracteres minusculos, numericos o guiones, sin
 guiones consecutivos ni en los extremos. Si no se aporta, el runner deriva un
-prefijo del UID y PID. Para la revision dinamica de este corte se reserva
-`vecdoc-r3-dyn-20260831` y se aportara por entorno el digest local completo
-indicado por direccion.
+prefijo del UID y PID. Para la unica revision dinamica posterior al correctivo
+R5 se reserva `vecdoc-r5-fix-dyn-20260831` y se aportara por entorno el digest
+local completo indicado por direccion.
 
 Del prefijo se derivan exactamente el contenedor
 `vec-ejecucion-v4-pg-<prefijo>` y la red `<prefijo>-internal`. Antes de crear
@@ -127,12 +127,27 @@ la etiqueta `vec.prefijo`; contenedor y red nuevos llevan tambien
 `vec.tarea=VEC-DOC-RUNNER-AISLADO-R5`. La red es propia e interna y el
 contenedor no publica puertos ni escucha TCP.
 
-PostgreSQL usa raiz de solo lectura, datos en un `tmpfs` acotado, `/tmp` en
-otro `tmpfs`, dos CPU como maximo, 1 GiB de memoria y 256 procesos. El unico
-paso al host es un directorio aleatorio creado por `mktemp` bajo `/tmp`,
-montado en `/run/vec-postgresql`. Las cinco DSN que consume la prueba Go
-señalan exclusivamente a ese socket Unix y conservan credenciales sinteticas
-que el runner no imprime.
+PostgreSQL usa raiz de solo lectura, dos CPU como maximo, 1,25 GiB de memoria y
+256 procesos. Los `tmpfs` admiten como maximo 768 MiB para datos, 64 MiB para
+`/tmp` y 8 MiB para `/var/run/postgresql`: 840 MiB en conjunto y 440 MiB
+reservados dentro del limite del contenedor para PostgreSQL y sus procesos.
+Los tres son escribibles, `noexec`, `nosuid`, `nodev` y acotados.
+
+El servidor escucha dos sockets Unix y ningun TCP. El primero esta en el
+`tmpfs` interno `/var/run/postgresql` que necesita el entrypoint de la imagen.
+El segundo es el unico paso al host: un directorio aleatorio creado por
+`mktemp` bajo `/tmp`, montado en `/run/vec-postgresql`. El runner inspecciona
+el `tmpfs`, exige que ambos sockets existan y acepten conexiones, y coteja la
+configuracion PostgreSQL. Las cinco DSN de la prueba Go señalan exclusivamente
+al socket ligado en `/run/vec-postgresql`; nunca usan el socket del entrypoint.
+Sus credenciales sinteticas no se imprimen.
+
+Durante la espera se consulta `State.Running` antes y despues de cada intento.
+Si el contenedor ya se ha detenido, antes de que se ejecute el `trap` se capturan y
+emiten estado, codigo de salida y como maximo las ultimas 80 lineas/16.384
+caracteres de log. Los cinco secretos sinteticos y formas genericas de
+contrasena se redactan antes de escribir ese diagnostico; no se esperan los 60
+segundos restantes.
 
 El `trap` conserva el estado original y retira por identificador exacto solo
 el contenedor y la red cuyas tres etiquetas siguen coincidiendo. Despues
