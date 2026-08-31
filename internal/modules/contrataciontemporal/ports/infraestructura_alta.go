@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -17,6 +20,7 @@ import (
 const (
 	DominioAmbitoIdempotenciaAsignacion = "vec.contratacion-temporal.asignacion.ambito"
 	DominioHuellaPeticionAsignacion     = "vec.contratacion-temporal.asignacion.peticion"
+	estadoCandidatoAsignacionRedactado  = "[ESTADO-CANDIDATO-ASIGNACION-IDEMPOTENTE-OPACO]"
 )
 
 var (
@@ -385,6 +389,25 @@ func (e EstadoCandidatoAsignacionIdempotente) EsCero() bool {
 	return e.datos == nil
 }
 
+func (EstadoCandidatoAsignacionIdempotente) String() string {
+	return estadoCandidatoAsignacionRedactado
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) GoString() string {
+	return e.String()
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) Format(
+	estado fmt.State,
+	_ rune,
+) {
+	_, _ = io.WriteString(estado, e.String())
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) LogValue() slog.Value {
+	return slog.StringValue(e.String())
+}
+
 func (EstadoCandidatoAsignacionIdempotente) MarshalJSON() ([]byte, error) {
 	return nil, ErrResultadoAsignacionNoConfiable
 }
@@ -473,9 +496,13 @@ func validarEstadoCandidatoAsignacion(
 		p.PerfilRef != datos.Consulta.PerfilRef ||
 		p.UnidadRef != datos.Consulta.UnidadRef ||
 		p.ResponsableRef != datos.Consulta.ResponsableRef ||
-		!parSellosAsignacionValido(
+		!sellosHMACIguales(
 			p.AmbitoIdempotenciaHMAC,
+			datos.Consulta.AmbitoIdempotenciaHMACActivo,
+		) ||
+		!sellosHMACIguales(
 			p.HuellaPeticionHMAC,
+			datos.Consulta.HuellaPeticionHMACActiva,
 		) ||
 		!domain.ReferenciaOpacaValida(datos.DestinoEvidenciaRef) ||
 		!huellaSHA256OperacionAnalisisValida(
@@ -488,15 +515,6 @@ func validarEstadoCandidatoAsignacion(
 		return ErrResultadoAsignacionNoConfiable
 	}
 	return nil
-}
-
-func parSellosAsignacionValido(ambito, huella string) bool {
-	dominioAmbito, generacionAmbito, ambitoValido := descomponerSelloHMAC(ambito)
-	dominioHuella, generacionHuella, huellaValida := descomponerSelloHMAC(huella)
-	return ambitoValido && huellaValida &&
-		dominioAmbito == DominioAmbitoIdempotenciaAsignacion &&
-		dominioHuella == DominioHuellaPeticionAsignacion &&
-		generacionAmbito == generacionHuella
 }
 
 func clonarPreparacionAsignacion(

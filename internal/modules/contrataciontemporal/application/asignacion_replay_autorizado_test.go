@@ -10,6 +10,26 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+func TestServicioAsignacionRechazaConsultorTypedNil(t *testing.T) {
+	var consultorNulo *consultorAsignacionDoble
+	servicio, err := NuevoServicioAsignacion(
+		&resolutorContextoDoble{},
+		&selladorAmbitoAsignacionDoble{},
+		&derivadorHuellaAsignacionDoble{},
+		consultorNulo,
+		&preparadorAsignacionDoble{},
+		&resolutorDestinoAsignacionDoble{},
+		&resolutorPoliticaAsignacionDoble{},
+		&generadorReferenciasDoble{},
+		&autorizadorV3Doble{t: t},
+		&relojMutable{},
+		&transaccionAsignacionDoble{},
+	)
+	if servicio != nil || !errors.Is(err, ErrServicioAsignacionInvalido) {
+		t.Fatalf("consultor nil tipado aceptado: %#v / %v", servicio, err)
+	}
+}
+
 func TestReplayAsignacionRenuevaAutorizacionConAliasActivoSinMutar(t *testing.T) {
 	escenario := nuevoEscenarioAsignacion(t)
 	servicio, dependencias := construirServicioAsignacion(t, escenario)
@@ -140,11 +160,26 @@ func TestReplayAsignacionRechazaCandidatoSinAliasHMACActivo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dependencias.consultas.estado = nuevoEstadoReplayAsignacion(
-		t,
-		dependencias,
-		consultaAnterior,
+	confirmada := dependencias.preparaciones.preparacion
+	recibo := dependencias.transaccion.recibo
+	confirmada.Estado = ports.PreparacionAsignacionConfirmada
+	confirmada.ReciboConfirmado = &recibo
+	estado, err := ports.NuevoEstadoCandidatoAsignacionIdempotente(
+		ports.DatosEstadoCandidatoAsignacionIdempotente{
+			Consulta:                     consultaAnterior,
+			Preparacion:                  confirmada,
+			DestinoEvidenciaRef:          dependencias.destinos.destino.EvidenciaRef,
+			DestinoEvidenciaHuellaSHA256: dependencias.destinos.destino.EvidenciaHuellaSHA256,
+			PoliticaRef:                  "politica:asignacion-sintetica-001",
+			PoliticaVersion:              2,
+			PoliticaHuellaSHA256:         "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+			Finalidad:                    "gestionar_contratacion_temporal",
+		},
 	)
+	if !errors.Is(err, ports.ErrResultadoAsignacionNoConfiable) || !estado.EsCero() {
+		t.Fatalf("candidato sin par activo construible: %#v / %v", estado, err)
+	}
+	dependencias.consultas.estado = estado
 	dependencias.consultas.encontrado = true
 
 	_, err = servicio.Asignar(context.Background(), escenario.solicitud)
@@ -155,6 +190,87 @@ func TestReplayAsignacionRechazaCandidatoSinAliasHMACActivo(t *testing.T) {
 		dependencias.preparaciones.llamadas != 0 ||
 		dependencias.transaccion.llamadas != 0 {
 		t.Fatalf("alias no activo permitió replay: %v %#v", err, dependencias)
+	}
+}
+
+func TestReplayAsignacionRechazaPreparacionRetenidaBajoConsultaActiva(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioAsignacion(t)
+	servicio, dependencias := construirServicioAsignacion(t, escenario)
+	ambitoV2 := selloHMACRegistroPrueba(
+		ports.DominioAmbitoIdempotenciaAsignacion+"/v2",
+		"a",
+	)
+	huellaV2 := selloHMACRegistroPrueba(
+		ports.DominioHuellaPeticionAsignacion+"/v2",
+		"b",
+	)
+	ambitoV1 := selloHMACRegistroPrueba(
+		ports.DominioAmbitoIdempotenciaAsignacion+"/v1",
+		"c",
+	)
+	huellaV1 := selloHMACRegistroPrueba(
+		ports.DominioHuellaPeticionAsignacion+"/v1",
+		"d",
+	)
+	ambitos, err := ports.NuevaColeccionSellosHMAC(ambitoV2, []string{ambitoV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := ports.NuevaColeccionSellosHMAC(huellaV2, []string{huellaV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio.ambitos.(*selladorAmbitoAsignacionDoble).coleccion = ambitos
+	servicio.huellas.(*derivadorHuellaAsignacionDoble).coleccion = huellas
+	dependencias.preparar.AmbitosHMAC = ambitos
+	dependencias.preparar.HuellasPeticionHMAC = huellas
+
+	preparacion := dependencias.preparaciones.preparacion
+	recibo := dependencias.transaccion.recibo
+	preparacion.AmbitoIdempotenciaHMAC = ambitoV1
+	preparacion.HuellaPeticionHMAC = huellaV1
+	recibo.AmbitoIdempotenciaHMAC = ambitoV1
+	recibo.HuellaPeticionHMAC = huellaV1
+	preparacion.Estado = ports.PreparacionAsignacionConfirmada
+	preparacion.ReciboConfirmado = &recibo
+	if err := preparacion.ValidarPara(dependencias.preparar); err != nil {
+		t.Fatalf("la validación generacional dejó de admitir el par retenido: %v", err)
+	}
+	consulta, err := ports.NuevaSolicitudConsultarAsignacionIdempotente(
+		dependencias.preparar,
+	)
+	if err != nil || consulta.AmbitoIdempotenciaHMACActivo != ambitoV2 ||
+		consulta.HuellaPeticionHMACActiva != huellaV2 {
+		t.Fatalf("consulta activa inválida: %#v / %v", consulta, err)
+	}
+	estado, err := ports.NuevoEstadoCandidatoAsignacionIdempotente(
+		ports.DatosEstadoCandidatoAsignacionIdempotente{
+			Consulta:                     consulta,
+			Preparacion:                  preparacion,
+			DestinoEvidenciaRef:          dependencias.destinos.destino.EvidenciaRef,
+			DestinoEvidenciaHuellaSHA256: dependencias.destinos.destino.EvidenciaHuellaSHA256,
+			PoliticaRef:                  "politica:asignacion-sintetica-001",
+			PoliticaVersion:              2,
+			PoliticaHuellaSHA256:         "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+			Finalidad:                    "gestionar_contratacion_temporal",
+		},
+	)
+	if !errors.Is(err, ports.ErrResultadoAsignacionNoConfiable) || !estado.EsCero() {
+		t.Fatalf("el terminal retenido quedó ligado a la consulta activa: %#v / %v", estado, err)
+	}
+	dependencias.consultas.estado = estado
+	dependencias.consultas.encontrado = true
+
+	_, err = servicio.Asignar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrResultadoAsignacionNoConfiable) ||
+		dependencias.consultas.llamadas != 1 ||
+		dependencias.destinos.llamadas != 0 ||
+		dependencias.autorizador.llamadas != 0 ||
+		dependencias.preparaciones.llamadas != 0 ||
+		dependencias.transaccion.llamadas != 0 {
+		t.Fatalf("el terminal retenido alcanzó mutadores: %v %#v", err, dependencias)
 	}
 }
 
