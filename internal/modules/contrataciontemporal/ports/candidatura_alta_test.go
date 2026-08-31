@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -426,6 +427,28 @@ func TestCandidaturaAltaPunterosNilFallanSinPanico(t *testing.T) {
 			var registro bytes.Buffer
 			slog.New(slog.NewJSONHandler(&registro, nil)).Info("candidatura_nil", "valor", valor)
 		})
+	}
+}
+
+func TestOrdenConfirmarAltaCandidataNoAdmitePreparacionNiCorrelacionLibre(t *testing.T) {
+	tipoEntrada := reflect.TypeOf(DatosOrdenConfirmarAltaCandidata{})
+	if _, existe := tipoEntrada.FieldByName("Candidatura"); !existe {
+		t.Fatal("la orden no recibe la candidatura técnica")
+	}
+	for _, prohibido := range []string{
+		"Preparacion", "Correlacion", "CorrelacionRef", "CorrelacionV3Ref",
+	} {
+		if _, existe := tipoEntrada.FieldByName(prohibido); existe {
+			t.Fatalf("la orden candidata acepta %s", prohibido)
+		}
+	}
+	tipoEvidencia := reflect.TypeOf(EvidenciaOrdenConfirmarAltaCandidata{})
+	if campo, existe := tipoEvidencia.FieldByName("Candidatura"); !existe ||
+		campo.Type != reflect.TypeOf(CandidaturaAlta{}) {
+		t.Fatal("la evidencia no conserva la candidatura opaca")
+	}
+	if _, existe := tipoEvidencia.FieldByName("CorrelacionV3Ref"); !existe {
+		t.Fatal("la evidencia no deriva la correlación V3")
 	}
 }
 
