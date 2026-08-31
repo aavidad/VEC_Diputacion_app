@@ -72,9 +72,9 @@ SET search_path = pg_catalog, pg_temp
 AS $funcion$
 DECLARE
     posicion integer := 0; esperada integer := 0;
-    total, etiqueta, indice integer; longitud bigint;
+    total integer; etiqueta integer; indice integer; longitud bigint;
     valor bytea; texto text;
-    entero, almacenado_micro numeric;
+    entero numeric; almacenado_micro numeric;
     tiene_retencion boolean := false;
 BEGIN
     total := octet_length(p_recibo);
