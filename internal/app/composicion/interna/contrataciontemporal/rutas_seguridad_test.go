@@ -2,6 +2,7 @@ package contrataciontemporal
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,6 +38,7 @@ func (autoridadDespachoContratacionDenegadaPrueba) AutorizarRutaExacta(
 type autoridadDespachoContratacionEspiaPrueba struct {
 	llamadas atomic.Int64
 	ruta     atomic.Value
+	err      error
 }
 
 func (a *autoridadDespachoContratacionEspiaPrueba) AutorizarRutaExacta(
@@ -45,7 +47,7 @@ func (a *autoridadDespachoContratacionEspiaPrueba) AutorizarRutaExacta(
 ) error {
 	a.ruta.Store(ruta)
 	a.llamadas.Add(1)
-	return nil
+	return a.err
 }
 
 func (a *autoridadDespachoContratacionEspiaPrueba) estado() (int64, string) {
@@ -495,6 +497,159 @@ func TestRutasCierreAdministrativoRechazanOrganizacionDesdeHTTP(
 			respuesta.Body.String(),
 		)
 	}
+}
+
+func TestRutasConsultaRRHHExigenAutoridadExteriorUnicaAntesDelConsultor(
+	t *testing.T,
+) {
+	t.Parallel()
+	casos := []struct {
+		nombre string
+		ruta   string
+	}{
+		{"cuadro", httpinterno.RutaConsultaCuadroRRHH},
+		{"detalle", httpinterno.RutaConsultaDetalleRRHH},
+	}
+	for _, caso := range casos {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			dependencias := dependenciasRutasPrueba()
+			autoridad := &autoridadDespachoContratacionEspiaPrueba{}
+			autorizadaAntes := false
+			consultas := prepararObservacionConsultaRRHHComposicionPrueba(
+				&dependencias,
+				caso.ruta,
+				func() {
+					llamadas, ruta := autoridad.estado()
+					autorizadaAntes = llamadas == 1 && ruta == caso.ruta
+				},
+			)
+			handler := nuevoHandlerContratacionConDependenciasPrueba(
+				t, dependencias, autoridad,
+			)
+			respuesta := httptest.NewRecorder()
+			handler.ServeHTTP(
+				respuesta,
+				nuevaPeticionConsultaRRHHComposicionPrueba(caso.ruta),
+			)
+			llamadas, ruta := autoridad.estado()
+			if respuesta.Code != http.StatusServiceUnavailable ||
+				llamadas != 1 || ruta != caso.ruta || !autorizadaAntes ||
+				consultas() != 1 {
+				t.Fatalf(
+					"estado=%d exterior=%d/%q previa=%t consultas=%d cuerpo=%s",
+					respuesta.Code, llamadas, ruta, autorizadaAntes,
+					consultas(), respuesta.Body.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestRutasConsultaRRHHDenegadasNoInvocanConsultor(t *testing.T) {
+	t.Parallel()
+	for _, ruta := range []string{
+		httpinterno.RutaConsultaCuadroRRHH,
+		httpinterno.RutaConsultaDetalleRRHH,
+	} {
+		ruta := ruta
+		t.Run(ruta, func(t *testing.T) {
+			t.Parallel()
+			dependencias := dependenciasRutasPrueba()
+			consultas := prepararObservacionConsultaRRHHComposicionPrueba(
+				&dependencias, ruta, nil,
+			)
+			autoridad := &autoridadDespachoContratacionEspiaPrueba{
+				err: httpapi.ErrAccesoRutaExactaDenegado,
+			}
+			handler := nuevoHandlerContratacionConDependenciasPrueba(
+				t, dependencias, autoridad,
+			)
+			respuesta := httptest.NewRecorder()
+			handler.ServeHTTP(
+				respuesta,
+				nuevaPeticionConsultaRRHHComposicionPrueba(ruta),
+			)
+			llamadas, autorizada := autoridad.estado()
+			if respuesta.Code != http.StatusForbidden || llamadas != 1 ||
+				autorizada != ruta || consultas() != 0 {
+				t.Fatalf(
+					"estado=%d exterior=%d/%q consultas=%d cuerpo=%s",
+					respuesta.Code, llamadas, autorizada, consultas(),
+					respuesta.Body.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestRutasConsultaRRHHNoAceptanAutoridadDesdeHTTP(t *testing.T) {
+	t.Parallel()
+	casos := []struct {
+		nombre   string
+		preparar func(*http.Request)
+		estado   int
+	}{
+		{"identidad en cuerpo", func(r *http.Request) {
+			cuerpo := `{"actor_ref":"actor:forjado"}`
+			r.Body = io.NopCloser(strings.NewReader(cuerpo))
+			r.ContentLength = int64(len(cuerpo))
+		}, http.StatusBadRequest},
+		{"perfil en URL", func(r *http.Request) {
+			r.URL.RawQuery = "perfil_ref=administrador"
+		}, http.StatusNotFound},
+		{"organizacion en cabecera", func(r *http.Request) {
+			r.Header.Set("X-Organizacion", "organizacion:forjada")
+		}, http.StatusBadRequest},
+	}
+	for _, ruta := range []string{
+		httpinterno.RutaConsultaCuadroRRHH,
+		httpinterno.RutaConsultaDetalleRRHH,
+	} {
+		for _, caso := range casos {
+			ruta, caso := ruta, caso
+			t.Run(ruta+"/"+caso.nombre, func(t *testing.T) {
+				t.Parallel()
+				dependencias := dependenciasRutasPrueba()
+				consultas := prepararObservacionConsultaRRHHComposicionPrueba(
+					&dependencias, ruta, nil,
+				)
+				autoridad := &autoridadDespachoContratacionEspiaPrueba{}
+				handler := nuevoHandlerContratacionConDependenciasPrueba(
+					t, dependencias, autoridad,
+				)
+				peticion := nuevaPeticionConsultaRRHHComposicionPrueba(ruta)
+				caso.preparar(peticion)
+				respuesta := httptest.NewRecorder()
+				handler.ServeHTTP(respuesta, peticion)
+				llamadas, autorizada := autoridad.estado()
+				if respuesta.Code != caso.estado || llamadas != 1 ||
+					autorizada != ruta || consultas() != 0 {
+					t.Fatalf(
+						"estado=%d exterior=%d/%q consultas=%d cuerpo=%s",
+						respuesta.Code, llamadas, autorizada, consultas(),
+						respuesta.Body.String(),
+					)
+				}
+			})
+		}
+	}
+}
+
+func prepararObservacionConsultaRRHHComposicionPrueba(
+	dependencias *DependenciasRutas,
+	ruta string,
+	antesDeConsultar func(),
+) func() int {
+	if ruta == httpinterno.RutaConsultaCuadroRRHH {
+		consultor := dependencias.ConsultorCuadroRRHH.(*consultorCuadroRRHHComposicionPrueba)
+		consultor.antesDeConsultar = antesDeConsultar
+		return func() int { return consultor.consultas }
+	}
+	consultor := dependencias.ConsultorDetalleRRHH.(*consultorDetalleRRHHComposicionPrueba)
+	consultor.antesDeConsultar = antesDeConsultar
+	return func() int { return consultor.consultas }
 }
 
 func nuevoHandlerContratacionErrorPrueba(

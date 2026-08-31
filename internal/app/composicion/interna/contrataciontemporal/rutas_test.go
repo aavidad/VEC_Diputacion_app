@@ -116,6 +116,38 @@ func (c *consultorResultadoCoberturaComposicionPrueba) ConsultarParaAdaptador(
 	}, nil
 }
 
+type consultorCuadroRRHHComposicionPrueba struct {
+	consultas        int
+	antesDeConsultar func()
+}
+
+func (c *consultorCuadroRRHHComposicionPrueba) Consultar(
+	context.Context,
+	ports.SolicitudCuadroRRHH,
+) (ports.PaginaCuadroRRHH, error) {
+	c.consultas++
+	if c.antesDeConsultar != nil {
+		c.antesDeConsultar()
+	}
+	return ports.PaginaCuadroRRHH{}, application.ErrConsultaRRHHNoDisponible
+}
+
+type consultorDetalleRRHHComposicionPrueba struct {
+	consultas        int
+	antesDeConsultar func()
+}
+
+func (c *consultorDetalleRRHHComposicionPrueba) Consultar(
+	context.Context,
+	ports.SolicitudDetalleRRHH,
+) (ports.DetalleExpedienteRRHH, error) {
+	c.consultas++
+	if c.antesDeConsultar != nil {
+		c.antesDeConsultar()
+	}
+	return ports.DetalleExpedienteRRHH{}, application.ErrConsultaRRHHNoDisponible
+}
+
 type ejecutorSeleccionComposicionPrueba struct {
 	ejecuciones int
 }
@@ -225,6 +257,8 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaPropuestaFormalizacion,
 		httpinterno.RutaCerrarAdministrativamente,
 		httpinterno.RutaReabrirExcepcionalmente,
+		httpinterno.RutaConsultaCuadroRRHH,
+		httpinterno.RutaConsultaDetalleRRHH,
 	}
 	if len(rutas) != len(esperadas) {
 		t.Fatalf("numero de rutas = %d", len(rutas))
@@ -272,6 +306,14 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	if reflect.ValueOf(rutas[9].Manejador).Pointer() ==
 		reflect.ValueOf(rutas[8].Manejador).Pointer() {
 		t.Fatal("cierre administrativo comparte un manejador previo")
+	}
+	if reflect.ValueOf(rutas[11].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[12].Manejador).Pointer() {
+		t.Fatal("cuadro y detalle RRHH comparten manejador")
+	}
+	if reflect.ValueOf(rutas[11].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[10].Manejador).Pointer() {
+		t.Fatal("las consultas RRHH comparten el manejador anterior")
 	}
 }
 
@@ -368,6 +410,12 @@ func TestNuevasRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) 
 		{"consultor de resultado", func(d *DependenciasRutas) {
 			d.ConsultorResultado = nil
 		}},
+		{"consultor de cuadro RRHH", func(d *DependenciasRutas) {
+			d.ConsultorCuadroRRHH = nil
+		}},
+		{"consultor de detalle RRHH", func(d *DependenciasRutas) {
+			d.ConsultorDetalleRRHH = nil
+		}},
 		{"ejecutor de seleccion", func(d *DependenciasRutas) {
 			d.EjecutorSeleccion = nil
 		}},
@@ -441,6 +489,14 @@ func TestNuevasRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 			var nulo *consultorResultadoCoberturaComposicionPrueba
 			d.ConsultorResultado = nulo
 		}},
+		{"consultor de cuadro RRHH", func(d *DependenciasRutas) {
+			var nulo *consultorCuadroRRHHComposicionPrueba
+			d.ConsultorCuadroRRHH = nulo
+		}},
+		{"consultor de detalle RRHH", func(d *DependenciasRutas) {
+			var nulo *consultorDetalleRRHHComposicionPrueba
+			d.ConsultorDetalleRRHH = nulo
+		}},
 		{"ejecutor de seleccion", func(d *DependenciasRutas) {
 			var nulo *ejecutorSeleccionComposicionPrueba
 			d.EjecutorSeleccion = nulo
@@ -486,6 +542,32 @@ func TestRutasContratacionTemporalNoDevuelvenParcialSiFallaConstructorPropuesta(
 	rutas, err := NuevasRutas(dependencias)
 	if rutas != nil || !errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
 		t.Fatalf("resultado = (%#v, %v)", rutas, err)
+	}
+}
+
+func TestNuevasRutasNoDevuelvenParcialSiFallaConstructorConsultasRRHH(
+	t *testing.T,
+) {
+	t.Parallel()
+	casos := []struct {
+		nombre   string
+		eliminar func(*DependenciasRutas)
+	}{
+		{"cuadro", func(d *DependenciasRutas) { d.ConsultorCuadroRRHH = nil }},
+		{"detalle", func(d *DependenciasRutas) { d.ConsultorDetalleRRHH = nil }},
+	}
+	for _, caso := range casos {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			dependencias := dependenciasRutasPrueba()
+			caso.eliminar(&dependencias)
+			rutas, err := NuevasRutas(dependencias)
+			if rutas != nil ||
+				!errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
+				t.Fatalf("resultado = (%#v, %v)", rutas, err)
+			}
+		})
 	}
 }
 
@@ -544,6 +626,19 @@ func nuevaPeticionCierreAdministrativoComposicionPrueba(
 		strings.NewReader(cuerpo),
 	)
 	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	peticion.Header.Set("Accept", "application/json")
+	return peticion
+}
+
+func nuevaPeticionConsultaRRHHComposicionPrueba(ruta string) *http.Request {
+	cuerpo := `{"filtros":{"texto":"","estado_clave":"",` +
+		`"fase_clave":""},"paginacion":{"limite":1,"cursor":""}}`
+	if ruta == httpinterno.RutaConsultaDetalleRRHH {
+		cuerpo = `{"expediente_ref":"expediente:ct:0001",` +
+			`"version_observada":1}`
+	}
+	peticion := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(cuerpo))
+	peticion.Header.Set("Content-Type", "application/json")
 	peticion.Header.Set("Accept", "application/json")
 	return peticion
 }
@@ -617,6 +712,8 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		Presentador:                     presentadorCoberturaComposicionPrueba{},
 		Decisor:                         decisorCoberturaComposicionPrueba{},
 		ConsultorResultado:              &consultorResultadoCoberturaComposicionPrueba{},
+		ConsultorCuadroRRHH:             &consultorCuadroRRHHComposicionPrueba{},
+		ConsultorDetalleRRHH:            &consultorDetalleRRHHComposicionPrueba{},
 		EjecutorSeleccion:               &ejecutorSeleccionComposicionPrueba{},
 		AutoridadPropuestaFormalizacion: &autoridadPropuestaFormalizacionComposicionPrueba{},
 		EjecutorPropuestaFormalizacion:  &ejecutorPropuestaFormalizacionComposicionPrueba{},
