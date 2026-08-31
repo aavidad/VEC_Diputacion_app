@@ -115,9 +115,12 @@ El runner solo acepta `VEC_POSTGRES_TEST_IMAGE` como referencia completa
 `--pull=never`. `VEC_POSTGRES_TEST_PREFIX` permite reservar una ejecucion
 aislada; admite entre 8 y 48 caracteres minusculos, numericos o guiones, sin
 guiones consecutivos ni en los extremos. Si no se aporta, el runner deriva un
-prefijo del UID y PID. Para la unica revision dinamica posterior al correctivo
-R5 se reserva `vecdoc-r5-fix-dyn-20260831` y se aportara por entorno el digest
-local completo indicado por direccion.
+prefijo del UID y PID. Cada revision dinamica recibe de direccion un prefijo
+exclusivo. Para la unica revision posterior al corte diagnostico R8 se reserva
+`vecdoc-r8-fix-dyn-20260831`; el digest local completo se aporta por entorno.
+
+Los mensajes fijos que distinguen etapas de validacion son solo diagnostico
+seguro de prueba: no forman una API estable ni constituyen autoridad.
 
 Del prefijo se derivan exactamente el contenedor
 `vec-ejecucion-v4-pg-<prefijo>` y la red `<prefijo>-internal`. Antes de crear

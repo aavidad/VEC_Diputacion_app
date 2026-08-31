@@ -735,7 +735,8 @@ BEGIN
     registrada_en := instante;
     RETURN NEXT;
 EXCEPTION
-    WHEN data_exception THEN
+    WHEN character_not_in_repertoire OR invalid_text_representation
+         OR numeric_value_out_of_range THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'proyeccion de autoridad documental no valida';
     WHEN no_data_found OR too_many_rows THEN
