@@ -364,17 +364,20 @@ func probarHuellasNulasSolicitudSeleccionO6Integracion(
 	canonico := debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)
 	pool := nuevoPoolEjecutorSeleccionO6Integracion(t, ctx)
 	defer pool.Close()
-	for _, caso := range []struct{ campo, huella string }{
-		{"accion_orden", solicitud.AccionOrden.HuellaSHA256},
-		{"finalidad", solicitud.Finalidad.HuellaSHA256},
-		{"necesidad", solicitud.Necesidad.HuellaSHA256},
-		{"bolsa", solicitud.Bolsa.HuellaSHA256},
-		{"politica", solicitud.Politica.HuellaSHA256},
+	for _, caso := range []struct {
+		campo, huella string
+		cardinalidad  int
+	}{
+		{"accion_orden", solicitud.AccionOrden.HuellaSHA256, 1},
+		{"finalidad", solicitud.Finalidad.HuellaSHA256, 1},
+		{"necesidad", solicitud.Necesidad.HuellaSHA256, 2},
+		{"bolsa", solicitud.Bolsa.HuellaSHA256, 1},
+		{"politica", solicitud.Politica.HuellaSHA256, 1},
 	} {
 		t.Run("huella nula solicitud "+caso.campo, func(t *testing.T) {
-			mutada := reemplazarUnaVezSeleccionO6Integracion(t, string(canonico),
+			mutada := reemplazarNSeleccionO6Integracion(t, string(canonico),
 				`"huella_sha256":"`+caso.huella+`"`,
-				`"huella_sha256":"`+strings.Repeat("0", 64)+`"`)
+				`"huella_sha256":"`+strings.Repeat("0", 64)+`"`, caso.cardinalidad)
 			_, err := pool.Exec(ctx, `SELECT * FROM `+funcionReservarSeleccionO6+`(
 				$1::uuid,$2::text,$3::text)`, solicitud.ClaveIdempotencia,
 				solicitud.HuellaSemantica, mutada)
@@ -552,8 +555,9 @@ func probarEncuadresNoCanonicosSeleccionO6Integracion(
 		t.Fatal(err)
 	}
 	reordenado := string(debeJSONSeleccionO6Prueba(t, vista))
-	duplicado := reemplazarUnaVezSeleccionO6Integracion(t, canonico, `{"esquema":`,
-		`{"esquema":"sustituido","esquema":`)
+	cabeceraExterior := `{"esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,"tipo":"recibo_llamamiento"`
+	duplicado := reemplazarNSeleccionO6Integracion(t, canonico, cabeceraExterior,
+		`{"esquema":"sustituido","esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,"tipo":"recibo_llamamiento"`, 1)
 	versionTexto := reemplazarUnaVezSeleccionO6Integracion(t, canonico,
 		`"version":1`, `"version":"1"`)
 	contratoTexto := reemplazarNSeleccionO6Integracion(t, canonico,
