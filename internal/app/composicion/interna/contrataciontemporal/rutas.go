@@ -16,16 +16,18 @@ var ErrRutasContratacionTemporalInvalidas = errors.New(
 // La identidad corporativa, PostgreSQL y los proveedores criptograficos
 // pertenecen a fronteras anteriores de la raiz de composicion.
 type DependenciasRutas struct {
-	AutoridadAlta      httpinterno.AutoridadContextoCanal
-	EjecutorAlta       httpinterno.EjecutorAlta
-	Reloj              ports.Reloj
-	AutoridadAnalisis  httpinterno.AutoridadContextoCanalAnalisisRRHH
-	EjecutorAnalisis   httpinterno.EjecutorAnalisisRRHH
-	AutoridadCobertura httpinterno.AutoridadContextoCanalCobertura
-	Presentador        httpinterno.PresentadorPropuestaCobertura
-	Decisor            httpinterno.EjecutorDecisionCobertura
-	ConsultorResultado httpinterno.ConsultorResultadoCobertura
-	EjecutorSeleccion  httpinterno.EjecutorSeleccionLlamamiento
+	AutoridadAlta                   httpinterno.AutoridadContextoCanal
+	EjecutorAlta                    httpinterno.EjecutorAlta
+	Reloj                           ports.Reloj
+	AutoridadAnalisis               httpinterno.AutoridadContextoCanalAnalisisRRHH
+	EjecutorAnalisis                httpinterno.EjecutorAnalisisRRHH
+	AutoridadCobertura              httpinterno.AutoridadContextoCanalCobertura
+	Presentador                     httpinterno.PresentadorPropuestaCobertura
+	Decisor                         httpinterno.EjecutorDecisionCobertura
+	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
+	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
+	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
+	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
 }
 
 // NuevasRutas construye el conjunto de forma atomica. No devuelve una API
@@ -68,6 +70,13 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	propuesta, err := httpinterno.NuevoManejadorPropuestaFormalizacion(
+		dependencias.AutoridadPropuestaFormalizacion,
+		dependencias.EjecutorPropuestaFormalizacion,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
 	return []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -100,6 +109,10 @@ func NuevasRutas(
 		{
 			Ruta:      httpinterno.RutaSeleccionLlamamiento,
 			Manejador: seleccion,
+		},
+		{
+			Ruta:      httpinterno.RutaPropuestaFormalizacion,
+			Manejador: propuesta,
 		},
 	}, nil
 }

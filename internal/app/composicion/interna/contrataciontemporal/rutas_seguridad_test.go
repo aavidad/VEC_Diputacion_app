@@ -34,6 +34,25 @@ func (autoridadDespachoContratacionDenegadaPrueba) AutorizarRutaExacta(
 	return httpapi.ErrAccesoRutaExactaDenegado
 }
 
+type autoridadDespachoContratacionEspiaPrueba struct {
+	llamadas atomic.Int64
+	ruta     atomic.Value
+}
+
+func (a *autoridadDespachoContratacionEspiaPrueba) AutorizarRutaExacta(
+	_ context.Context,
+	ruta string,
+) error {
+	a.ruta.Store(ruta)
+	a.llamadas.Add(1)
+	return nil
+}
+
+func (a *autoridadDespachoContratacionEspiaPrueba) estado() (int64, string) {
+	ruta, _ := a.ruta.Load().(string)
+	return a.llamadas.Load(), ruta
+}
+
 type autoridadAltaErrorComposicionPrueba struct {
 	err error
 }
@@ -305,6 +324,70 @@ func TestRutaSeleccionLlamamientoExigeAutoridadExteriorAntesDelNegocio(
 	}
 }
 
+func TestRutaPropuestaFormalizacionDelegaRutaExactaBajoAutoridadExterior(
+	t *testing.T,
+) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	autoridadInterior := dependencias.AutoridadPropuestaFormalizacion.(*autoridadPropuestaFormalizacionComposicionPrueba)
+	ejecutor := dependencias.EjecutorPropuestaFormalizacion.(*ejecutorPropuestaFormalizacionComposicionPrueba)
+	autoridadExterior := &autoridadDespachoContratacionEspiaPrueba{}
+	handler := nuevoHandlerContratacionConDependenciasPrueba(
+		t,
+		dependencias,
+		autoridadExterior,
+	)
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(
+		respuesta,
+		nuevaPeticionPropuestaFormalizacionComposicionPrueba(),
+	)
+	llamadas, ruta := autoridadExterior.estado()
+	if respuesta.Code != http.StatusCreated || llamadas != 1 ||
+		ruta != httpinterno.RutaPropuestaFormalizacion ||
+		autoridadInterior.resoluciones != 1 || ejecutor.ejecuciones != 1 {
+		t.Fatalf(
+			"estado=%d exterior=%d/%q interior=%d ejecutor=%d cuerpo=%s",
+			respuesta.Code,
+			llamadas,
+			ruta,
+			autoridadInterior.resoluciones,
+			ejecutor.ejecuciones,
+			respuesta.Body.String(),
+		)
+	}
+}
+
+func TestRutaPropuestaFormalizacionDenegadaNoInvocaManejador(
+	t *testing.T,
+) {
+	t.Parallel()
+	dependencias := dependenciasRutasPrueba()
+	autoridadInterior := dependencias.AutoridadPropuestaFormalizacion.(*autoridadPropuestaFormalizacionComposicionPrueba)
+	ejecutor := dependencias.EjecutorPropuestaFormalizacion.(*ejecutorPropuestaFormalizacionComposicionPrueba)
+	handler := nuevoHandlerContratacionConDependenciasPrueba(
+		t,
+		dependencias,
+		autoridadDespachoContratacionDenegadaPrueba{},
+	)
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(
+		respuesta,
+		nuevaPeticionPropuestaFormalizacionComposicionPrueba(),
+	)
+	if respuesta.Code != http.StatusForbidden ||
+		!strings.Contains(respuesta.Body.String(), `"codigo":"acceso_denegado"`) ||
+		autoridadInterior.resoluciones != 0 || ejecutor.ejecuciones != 0 {
+		t.Fatalf(
+			"estado=%d interior=%d ejecutor=%d cuerpo=%s",
+			respuesta.Code,
+			autoridadInterior.resoluciones,
+			ejecutor.ejecuciones,
+			respuesta.Body.String(),
+		)
+	}
+}
+
 func nuevoHandlerContratacionErrorPrueba(
 	t *testing.T,
 	errAutoridad error,
@@ -313,26 +396,36 @@ func nuevoHandlerContratacionErrorPrueba(
 	autoridad httpapi.AutoridadRutasExactas,
 ) *httpapi.Handler {
 	t.Helper()
-	rutas, err := NuevasRutas(
-		DependenciasRutas{
-			AutoridadAlta: autoridadAltaErrorComposicionPrueba{
-				err: errAutoridad,
-			},
-			EjecutorAlta: negocio,
-			Reloj:        relojComposicionPrueba{},
-			AutoridadAnalisis: autoridadAnalisisErrorComposicionPrueba{
-				err: errAutoridad,
-			},
-			EjecutorAnalisis: analisis,
-			AutoridadCobertura: autoridadCoberturaErrorComposicionPrueba{
-				err: errAutoridad,
-			},
-			Presentador:        negocio,
-			Decisor:            negocio,
-			ConsultorResultado: negocio,
-			EjecutorSeleccion:  negocio,
-		},
+	dependencias := dependenciasRutasPrueba()
+	dependencias.AutoridadAlta = autoridadAltaErrorComposicionPrueba{
+		err: errAutoridad,
+	}
+	dependencias.EjecutorAlta = negocio
+	dependencias.AutoridadAnalisis = autoridadAnalisisErrorComposicionPrueba{
+		err: errAutoridad,
+	}
+	dependencias.EjecutorAnalisis = analisis
+	dependencias.AutoridadCobertura = autoridadCoberturaErrorComposicionPrueba{
+		err: errAutoridad,
+	}
+	dependencias.Presentador = negocio
+	dependencias.Decisor = negocio
+	dependencias.ConsultorResultado = negocio
+	dependencias.EjecutorSeleccion = negocio
+	return nuevoHandlerContratacionConDependenciasPrueba(
+		t,
+		dependencias,
+		autoridad,
 	)
+}
+
+func nuevoHandlerContratacionConDependenciasPrueba(
+	t *testing.T,
+	dependencias DependenciasRutas,
+	autoridad httpapi.AutoridadRutasExactas,
+) *httpapi.Handler {
+	t.Helper()
+	rutas, err := NuevasRutas(dependencias)
 	if err != nil {
 		t.Fatalf("construir rutas: %v", err)
 	}
