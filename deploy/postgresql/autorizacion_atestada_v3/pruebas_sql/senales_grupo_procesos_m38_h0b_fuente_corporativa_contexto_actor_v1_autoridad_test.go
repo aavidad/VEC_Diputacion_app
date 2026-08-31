@@ -3,6 +3,10 @@
 package main
 
 import (
+	"bytes"
+	"errors"
+	"os"
+	"os/exec"
 	"sync/atomic"
 	"testing"
 )
@@ -90,14 +94,29 @@ func TestO4BP1AutoridadExitoOB0OB1(t *testing.T) {
 }
 
 func TestO4BP1AutoridadPunteroAnuladoAntesDeObservacion(t *testing.T) {
-	forjada := &autorizacionEtapaO4aM38{}
-	entrada := forjada
-	tomada, err := tomarEntradaAutoridadO4bM38(&entrada)
-	if err != nil || tomada != forjada || entrada != nil {
-		t.Fatalf("transferencia no lineal: tomada=%p entrada=%p err=%v", tomada, entrada, err)
+	_, permiso := iniciarEtapasPruebaO4aP4M38(t, causaCancelado65O4aM38)
+	forja := &autorizacionEtapaO4aM38{}
+	forja.auto = forja
+	casos := []struct {
+		nombre   string
+		entrada  *autorizacionEtapaO4aM38
+		esperada claseEntradaAutoridadO4bM38
+	}{
+		{"copia", clonarAutorizacionAutoridadO4bP1M38(permiso, true), entradaConsumidaAutoridadO4bM38},
+		{"clon", clonarAutorizacionAutoridadO4bP1M38(permiso, false), entradaFatalAutoridadO4bM38},
+		{"forja", forja, entradaFatalAutoridadO4bM38},
 	}
-	if clasificarEntradaAutoridadO4bM38(tomada) != entradaConsumidaAutoridadO4bM38 {
-		t.Fatal("la forja separada no se clasifico como consumida")
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entrada := caso.entrada
+			tomada, err := tomarEntradaAutoridadO4bM38(&entrada)
+			if err != nil || tomada != caso.entrada || entrada != nil {
+				t.Fatalf("transferencia no lineal: tomada=%p entrada=%p err=%v", tomada, entrada, err)
+			}
+			if clasificarEntradaAutoridadO4bM38(tomada) != caso.esperada {
+				t.Fatalf("clasificacion inesperada para %s", caso.nombre)
+			}
+		})
 	}
 }
 
@@ -126,28 +145,60 @@ func TestO4BP1AutoridadAliasYReplay(t *testing.T) {
 	exigirCeroEfectosAutoridadO4bP1M38(t, e, p, antes)
 }
 
-func TestO4BP1AutoridadClonCopiaYForja(t *testing.T) {
+func TestO4BP1AutoridadCopiaSinSlotPierdeSinEfectos(t *testing.T) {
 	e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
 	antes := capturarHuellaCeroEfectosAutoridadO4bP1M38(e, p)
-	entradas := map[string]*autorizacionEtapaO4aM38{
-		"clon":    clonarAutorizacionAutoridadO4bP1M38(p, false),
-		"copia":   clonarAutorizacionAutoridadO4bP1M38(p, true),
-		"forjada": func() *autorizacionEtapaO4aM38 { f := &autorizacionEtapaO4aM38{}; f.auto = f; return f }(),
-	}
-	for nombre, entradaOriginal := range entradas {
-		t.Run(nombre, func(t *testing.T) {
-			entrada := entradaOriginal
-			a, err := consumirAutoridadO4bM38(&entrada)
-			if a != nil || entrada != nil || err != errUsoConsumidoAutoridadO4bM38 {
-				t.Fatalf("aceptada: a=%p entrada=%p err=%v", a, entrada, err)
-			}
-		})
+	entrada := clonarAutorizacionAutoridadO4bP1M38(p, true)
+	a, err := consumirAutoridadO4bM38(&entrada)
+	if a != nil || entrada != nil || err != errUsoConsumidoAutoridadO4bM38 {
+		t.Fatalf("copia aceptada: a=%p entrada=%p err=%v", a, entrada, err)
 	}
 	if p.estado.Load() != uint32(autorizacionEmitidaO4bM38) ||
 		e.causa.estado.Load() != uint32(causaA4PermisoPreparadoM38) {
-		t.Fatal("clon, copia o forja consumieron el slot real")
+		t.Fatal("la copia sin slot consumio la autoridad real")
 	}
 	exigirCeroEfectosAutoridadO4bP1M38(t, e, p, antes)
+}
+
+func ejecutarEntradaFatalAutoridadO4bP1M38(t *testing.T, caso string) {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestO4BP1AutoridadClonYForjaFatales$")
+	cmd.Env = append(os.Environ(), "O4B_P1_FATAL="+caso)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	var salida *exec.ExitError
+	if !errors.As(err, &salida) || salida.ExitCode() != estadoFallo || stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("fatal %s: err=%v stdout=%d stderr=%d", caso, err, stdout.Len(), stderr.Len())
+	}
+}
+
+func TestO4BP1AutoridadClonYForjaFatales(t *testing.T) {
+	caso := os.Getenv("O4B_P1_FATAL")
+	if caso == "" {
+		for _, nombre := range []string{"clon_autoidentidad_rota", "forja_sin_autoridad"} {
+			t.Run(nombre, func(t *testing.T) {
+				ejecutarEntradaFatalAutoridadO4bP1M38(t, nombre)
+			})
+		}
+		return
+	}
+	e, p := iniciarEtapasPruebaO4aP4M38(t, causaIncidente65O4aM38)
+	var entrada *autorizacionEtapaO4aM38
+	switch caso {
+	case "clon_autoidentidad_rota":
+		entrada = clonarAutorizacionAutoridadO4bP1M38(p, false)
+	case "forja_sin_autoridad":
+		entrada = &autorizacionEtapaO4aM38{}
+		entrada.auto = entrada
+	default:
+		os.Exit(10)
+	}
+	_, _ = consumirAutoridadO4bM38(&entrada)
+	if entrada != nil || e.causa.estado.Load() != uint32(causaA4PermisoPreparadoM38) {
+		os.Exit(11)
+	}
+	os.Exit(12)
 }
 
 func TestO4BP1AutoridadCarreraUnGanador(t *testing.T) {

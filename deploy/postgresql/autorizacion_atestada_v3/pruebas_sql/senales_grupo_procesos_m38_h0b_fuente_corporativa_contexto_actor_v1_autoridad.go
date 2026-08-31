@@ -91,11 +91,6 @@ func transicionAutoridadO4bM38(desde, hacia estadoAutoridadO4bM38) bool {
 	return false
 }
 
-func (a *autoridadSenalesGrupoO4bM38) avanzar(desde, hacia estadoAutoridadO4bM38) bool {
-	return a != nil && a.auto == a && transicionAutoridadO4bM38(desde, hacia) &&
-		a.estado.CompareAndSwap(uint32(desde), uint32(hacia))
-}
-
 // tomarEntradaAutoridadO4bM38 separa la transferencia lineal de toda
 // observación del permiso. El puntero del llamador queda anulado primero.
 func tomarEntradaAutoridadO4bM38(entrada **autorizacionEtapaO4aM38) (*autorizacionEtapaO4aM38, error) {
@@ -137,6 +132,9 @@ func entradaExactaAutoridadO4bM38(e *autoridadEtapasO4aM38, p *autorizacionEtapa
 }
 
 func clasificarEntradaAutoridadO4bM38(p *autorizacionEtapaO4aM38) claseEntradaAutoridadO4bM38 {
+	if p == nil || p.auto != p || p.autoridad == nil || p.autoridad.auto != p.autoridad {
+		return entradaFatalAutoridadO4bM38
+	}
 	e, propia := slotPropioAutoridadO4bM38(p)
 	if !propia {
 		return entradaConsumidaAutoridadO4bM38
@@ -228,7 +226,7 @@ func autoridadExactaO4bM38(a *autoridadSenalesGrupoO4bM38) bool {
 func fatalAutoridadO4bM38(a *autoridadSenalesGrupoO4bM38, e *autoridadEtapasO4aM38) {
 	if a != nil && a.auto == a {
 		desde := estadoAutoridadO4bM38(a.estado.Load())
-		if transicionAutoridadO4bM38(desde, autoridadOBFFatalM38) {
+		if desde == autoridadOB0RecibidaM38 || desde == autoridadOB1ValidadaM38 {
 			a.estado.CompareAndSwap(uint32(desde), uint32(autoridadOBFFatalM38))
 		}
 	}
@@ -260,7 +258,8 @@ func consumirAutoridadO4bM38(entrada **autorizacionEtapaO4aM38) (*autoridadSenal
 		fatalAutoridadO4bM38(a, e)
 	}
 	a.sellos = sellarAutoridadO4bM38(e, p)
-	if !a.avanzar(autoridadOB0RecibidaM38, autoridadOB1ValidadaM38) || !autoridadExactaO4bM38(a) {
+	if !a.estado.CompareAndSwap(uint32(autoridadOB0RecibidaM38), uint32(autoridadOB1ValidadaM38)) ||
+		!autoridadExactaO4bM38(a) {
 		fatalAutoridadO4bM38(a, e)
 	}
 	return a, nil
