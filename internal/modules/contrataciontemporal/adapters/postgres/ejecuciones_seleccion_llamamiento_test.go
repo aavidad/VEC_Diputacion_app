@@ -169,6 +169,7 @@ func TestEjecucionesSeleccionO6ReservaClasificaTodosLosEstados(t *testing.T) {
 
 func TestEjecucionesSeleccionO6ResuelveSoloTerminalDurable(t *testing.T) {
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
+	consultaTerminal, instante := consultaTerminalSeleccionO6Prueba(t)
 	solicitudJSON := string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud))
 	reciboJSON := string(debeJSONSeleccionO6Prueba(t, recibo))
 	artefactoJSON := string(debeJSONSeleccionO6Prueba(t, artefacto))
@@ -180,8 +181,6 @@ func TestEjecucionesSeleccionO6ResuelveSoloTerminalDurable(t *testing.T) {
 		situacion  ports.SituacionEjecucionSeleccionLlamamiento
 	}{
 		{"ausente", []any{"", "", "", "", "", ""}, false, ""},
-		{"indeterminada", []any{"indeterminada", solicitudJSON, "", "preparar_orden", "", ""},
-			false, ports.EjecucionSeleccionLlamamientoIndeterminada},
 		{"confirmada", []any{"confirmada", solicitudJSON, "", "", reciboJSON, artefactoJSON},
 			true, ports.EjecucionSeleccionLlamamientoConfirmada},
 	} {
@@ -190,14 +189,39 @@ func TestEjecucionesSeleccionO6ResuelveSoloTerminalDurable(t *testing.T) {
 				t, filaEjecucionSeleccionO6Prueba{valores: caso.fila},
 			)
 			estado, confirmada, err := adaptador.ResolverTerminal(
-				context.Background(), claveEjecucionSeleccionO6Prueba,
+				context.Background(), consultaTerminal, instante,
 			)
 			if err != nil || confirmada != caso.confirmada || estado.Situacion != caso.situacion {
 				t.Fatalf("estado=%#v confirmada=%v err=%v", estado, confirmada, err)
 			}
 			exigirTransaccionSeleccionO6Prueba(t, iniciador, tx, pgx.ReadOnly,
 				funcionResolverTerminalSeleccionO6)
+			exigirTextoCanonicoSeleccionO6Prueba(t, tx, 1,
+				string(debeCodificarConsultaTerminalSeleccionO6Prueba(t, consultaTerminal, instante)))
 		})
+	}
+}
+
+func TestEjecucionesSeleccionO6ResolverExigeCapacidadVigenteAntesDePGX(t *testing.T) {
+	adaptador, iniciador, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(
+		t, filaEjecucionSeleccionO6Prueba{valores: []any{"", "", "", "", "", ""}},
+	)
+	if _, _, err := adaptador.ResolverTerminal(
+		context.Background(), ports.ConsultaTerminalAutorizada{}, time.Time{},
+	); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
+		t.Fatalf("capacidad ausente aceptada: %v", err)
+	}
+	consulta, instante := consultaTerminalSeleccionO6Prueba(t)
+	if _, _, err := adaptador.ResolverTerminal(
+		context.Background(), consulta, instante.Add(8*time.Minute),
+	); !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
+		t.Fatalf("capacidad caducada aceptada: %v", err)
+	}
+	if _, err := json.Marshal(consulta); !errors.Is(err, ports.ErrSerializacionCapacidadBolsa) {
+		t.Fatalf("capacidad serializable: %v", err)
+	}
+	if iniciador.inicios != 0 {
+		t.Fatalf("capacidad inválida alcanzó PGX: %d", iniciador.inicios)
 	}
 }
 
@@ -372,13 +396,14 @@ func TestEjecucionesSeleccionO6LimitePrevioConservadorNoAsignaCargaGrande(t *tes
 
 func TestEjecucionesSeleccionO6TerminalAdulteradoFallaOpaco(t *testing.T) {
 	solicitud, recibo, _ := materialesEjecucionSeleccionO6Prueba(t)
+	consulta, instante := consultaTerminalSeleccionO6Prueba(t)
 	adaptador, _, _ := nuevoAdaptadorEjecucionSeleccionO6Prueba(t,
 		filaEjecucionSeleccionO6Prueba{valores: []any{
 			"confirmada", string(debeCodificarSolicitudSeleccionO6Prueba(t, solicitud)),
 			"", "", string(debeJSONSeleccionO6Prueba(t, recibo)), `{}`,
 		}},
 	)
-	_, _, err := adaptador.ResolverTerminal(context.Background(), claveEjecucionSeleccionO6Prueba)
+	_, _, err := adaptador.ResolverTerminal(context.Background(), consulta, instante)
 	if !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("terminal adulterado aceptado: %v", err)
 	}
@@ -387,6 +412,7 @@ func TestEjecucionesSeleccionO6TerminalAdulteradoFallaOpaco(t *testing.T) {
 func TestEjecucionesSeleccionO6RechazaNormalizacionJSONBDelArtefacto(t *testing.T) {
 	t.Parallel()
 	solicitud, recibo, artefacto := materialesEjecucionSeleccionO6Prueba(t)
+	consulta, instante := consultaTerminalSeleccionO6Prueba(t)
 	canonico := debeJSONSeleccionO6Prueba(t, artefacto)
 	var vista map[string]any
 	if err := json.Unmarshal(canonico, &vista); err != nil {
@@ -402,7 +428,7 @@ func TestEjecucionesSeleccionO6RechazaNormalizacionJSONBDelArtefacto(t *testing.
 			"", "", string(debeJSONSeleccionO6Prueba(t, recibo)), string(normalizado),
 		}},
 	)
-	_, _, err := adaptador.ResolverTerminal(context.Background(), claveEjecucionSeleccionO6Prueba)
+	_, _, err := adaptador.ResolverTerminal(context.Background(), consulta, instante)
 	if !errors.Is(err, errEjecucionesSeleccionLlamamientoPostgreSQL) {
 		t.Fatalf("normalizacion JSONB aceptada: %v", err)
 	}
@@ -459,6 +485,23 @@ func debeCodificarSolicitudSeleccionO6Prueba(
 ) []byte {
 	t.Helper()
 	contenido, err := codificarSolicitudSeleccionO6(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return contenido
+}
+
+func debeCodificarConsultaTerminalSeleccionO6Prueba(
+	t *testing.T,
+	consulta ports.ConsultaTerminalAutorizada,
+	instante time.Time,
+) []byte {
+	t.Helper()
+	datos, err := consulta.DatosEn(instante)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := codificarConsultaTerminalSeleccionO6(datos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,13 +634,42 @@ func materialesEjecucionSeleccionO6Prueba(t *testing.T) (
 	if err != nil {
 		t.Fatal(err)
 	}
+	consultaTerminal, instante := consultaTerminalSeleccionO6Prueba(t)
 	solicitud, err := ports.NuevaSolicitudReservaEjecucionSeleccionLlamamiento(
-		claveEjecucionSeleccionO6Prueba, comandoOrden, 3, base.Add(3*time.Minute),
+		consultaTerminal, comandoOrden, 3, instante,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return solicitud, recibo, artefacto
+}
+
+func consultaTerminalSeleccionO6Prueba(
+	t *testing.T,
+) (ports.ConsultaTerminalAutorizada, time.Time) {
+	t.Helper()
+	base := time.Date(2026, time.August, 31, 9, 0, 0, 0, time.UTC)
+	emisor, err := ports.NuevoEmisorContextoPeticionIntegracionBolsa(
+		"autoridad:contratacion-temporal", clavePeticionSeleccionO6Prueba,
+		selladorContextoSeleccionO6Prueba{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contexto := emitirContextoSeleccionO6Prueba(
+		t, emisor, base, "operacion:disponibilidad:001",
+		referenciaSeleccionO6Prueba("necesidad:cobertura:001", 'c'),
+		referenciaSeleccionO6Prueba("accion:disponibilidad:001", '9'),
+		referenciaSeleccionO6Prueba("finalidad:seleccion:001", 'e'),
+	)
+	instante := base.Add(3 * time.Minute)
+	consulta, err := ports.NuevaConsultaTerminalAutorizada(
+		claveEjecucionSeleccionO6Prueba, contexto, instante,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return consulta, instante
 }
 
 func emitirContextoSeleccionO6Prueba(

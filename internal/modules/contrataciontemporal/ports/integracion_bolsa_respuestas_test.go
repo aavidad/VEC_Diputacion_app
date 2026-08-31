@@ -1,8 +1,11 @@
 package ports
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"reflect"
 	"strings"
@@ -597,5 +600,82 @@ func TestCapacidadesNoSonFabricablesNiSerializables(t *testing.T) {
 		(*verificadorHMACBolsaPrueba)(nil),
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("verificador aceptó dependencia tipada nula: %v", err)
+	}
+}
+
+func TestConsultaTerminalAutorizadaBloqueaSerializacionMulticodec(t *testing.T) {
+	consulta := ConsultaTerminalAutorizada{}
+	for nombre, valor := range map[string]any{
+		"valor":   consulta,
+		"puntero": &consulta,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			_, err := json.Marshal(valor)
+			comprobarSerializacionCapacidadBolsaProhibida(t, "JSON", err)
+			_, err = xml.Marshal(valor)
+			comprobarSerializacionCapacidadBolsaProhibida(t, "XML", err)
+
+			codecs, ok := valor.(interface {
+				MarshalText() ([]byte, error)
+				MarshalBinary() ([]byte, error)
+				GobEncode() ([]byte, error)
+				MarshalCBOR() ([]byte, error)
+				MarshalYAML() (any, error)
+			})
+			if !ok {
+				t.Fatalf("%T no bloquea todos los codecs", valor)
+			}
+			_, err = codecs.MarshalText()
+			comprobarSerializacionCapacidadBolsaProhibida(t, "Text", err)
+			_, err = codecs.MarshalBinary()
+			comprobarSerializacionCapacidadBolsaProhibida(t, "Binary", err)
+			var salida bytes.Buffer
+			comprobarSerializacionCapacidadBolsaProhibida(
+				t, "Gob", gob.NewEncoder(&salida).Encode(valor),
+			)
+			_, err = codecs.GobEncode()
+			comprobarSerializacionCapacidadBolsaProhibida(t, "Gob directo", err)
+			_, err = codecs.MarshalCBOR()
+			comprobarSerializacionCapacidadBolsaProhibida(t, "CBOR", err)
+			_, err = codecs.MarshalYAML()
+			comprobarSerializacionCapacidadBolsaProhibida(t, "YAML", err)
+		})
+	}
+
+	destino := &ConsultaTerminalAutorizada{}
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "JSON decode", json.Unmarshal([]byte(`{}`), destino),
+	)
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "XML decode", xml.Unmarshal([]byte(`<consulta/>`), destino),
+	)
+	codecs := any(destino).(interface {
+		UnmarshalText([]byte) error
+		UnmarshalBinary([]byte) error
+		GobDecode([]byte) error
+		UnmarshalCBOR([]byte) error
+		UnmarshalYAML(func(any) error) error
+	})
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "Text decode", codecs.UnmarshalText([]byte("adulterado")),
+	)
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "Binary decode", codecs.UnmarshalBinary([]byte("adulterado")),
+	)
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "Gob decode", codecs.GobDecode([]byte("adulterado")),
+	)
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "CBOR decode", codecs.UnmarshalCBOR([]byte{0xa0}),
+	)
+	comprobarSerializacionCapacidadBolsaProhibida(
+		t, "YAML decode", codecs.UnmarshalYAML(func(any) error { return nil }),
+	)
+}
+
+func comprobarSerializacionCapacidadBolsaProhibida(t *testing.T, codec string, err error) {
+	t.Helper()
+	if !errors.Is(err, ErrSerializacionCapacidadBolsa) {
+		t.Fatalf("%s no quedó bloqueado: %v", codec, err)
 	}
 }

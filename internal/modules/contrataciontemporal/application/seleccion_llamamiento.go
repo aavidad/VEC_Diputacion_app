@@ -105,29 +105,6 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 	}
 	operacion, cancelar := context.WithTimeout(ctx, tiempoMaximoSeleccionLlamamiento)
 	defer cancelar()
-	estadoTerminal, confirmado, err := s.ejecuciones.ResolverTerminal(
-		operacion, solicitud.ClaveIdempotencia,
-	)
-	if err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{},
-			normalizarFalloSeleccionLlamamiento(operacion, err)
-	}
-	if confirmado {
-		recibo, err := estadoTerminal.VerificarTerminalConfirmado(
-			operacion, solicitud.ClaveIdempotencia, s.verificador,
-			instanteCanonico(s.reloj.Ahora()),
-		)
-		if err != nil {
-			return ports.ReciboSolicitudLlamamientoBolsa{},
-				ErrResultadoSeleccionLlamamientoNoConfiable
-		}
-		return recibo, nil
-	}
-	if estadoTerminal != (ports.EstadoEjecucionSeleccionLlamamiento{}) {
-		return ports.ReciboSolicitudLlamamientoBolsa{},
-			ErrResultadoSeleccionLlamamientoNoConfiable
-	}
-
 	consulta, err := s.preparador.PrepararConsultaDisponibilidad(
 		operacion, solicitud.ClaveIdempotencia,
 	)
@@ -140,6 +117,33 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 	instanteConsulta := instanteCanonico(s.reloj.Ahora())
 	if consulta.ValidarEn(instanteConsulta) != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	consultaTerminal, err := ports.NuevaConsultaTerminalAutorizada(
+		solicitud.ClaveIdempotencia, consulta.Contexto, instanteConsulta,
+	)
+	if err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+	}
+	estadoTerminal, confirmado, err := s.ejecuciones.ResolverTerminal(
+		operacion, consultaTerminal, instanteConsulta,
+	)
+	if err != nil {
+		return ports.ReciboSolicitudLlamamientoBolsa{},
+			normalizarFalloSeleccionLlamamiento(operacion, err)
+	}
+	if confirmado {
+		recibo, err := estadoTerminal.VerificarTerminalConfirmado(
+			operacion, consultaTerminal, s.verificador, instanteConsulta,
+		)
+		if err != nil {
+			return ports.ReciboSolicitudLlamamientoBolsa{},
+				ErrResultadoSeleccionLlamamientoNoConfiable
+		}
+		return recibo, nil
+	}
+	if estadoTerminal != (ports.EstadoEjecucionSeleccionLlamamiento{}) {
+		return ports.ReciboSolicitudLlamamientoBolsa{},
+			ErrResultadoSeleccionLlamamientoNoConfiable
 	}
 	resultado, err := s.disponibilidad.ConsultarDisponibilidad(operacion, consulta)
 	if err != nil {
@@ -180,7 +184,7 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
 	}
 	solicitudEjecucion, err := ports.NuevaSolicitudReservaEjecucionSeleccionLlamamiento(
-		solicitud.ClaveIdempotencia, comandoOrden, resultado.CantidadDisponible, instanteOrden,
+		consultaTerminal, comandoOrden, resultado.CantidadDisponible, instanteOrden,
 	)
 	if err != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
@@ -197,7 +201,7 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		}
 	}
 	reserva, reciboConfirmado, err := resolverReservaSeleccionLlamamiento(
-		operacion, estado, solicitudEjecucion, s.verificador, instanteTerminal,
+		operacion, estado, solicitudEjecucion, consultaTerminal, s.verificador, instanteTerminal,
 	)
 	if err != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, err
@@ -358,7 +362,7 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		defer cancelarRecuperacion()
 		estado, falloEstado := s.ejecuciones.ConsultarEstado(recuperacion, solicitudEjecucion)
 		recuperado, falloTerminal := estado.VerificarTerminalConfirmado(
-			recuperacion, solicitud.ClaveIdempotencia, s.verificador, instanteRecibo,
+			recuperacion, consultaTerminal, s.verificador, instanteRecibo,
 		)
 		if falloEstado == nil && falloTerminal == nil &&
 			estado.Solicitud == solicitudEjecucion && recuperado == recibo {
@@ -404,6 +408,7 @@ func resolverReservaSeleccionLlamamiento(
 	ctx context.Context,
 	estado ports.EstadoEjecucionSeleccionLlamamiento,
 	solicitud ports.SolicitudReservaEjecucionSeleccionLlamamiento,
+	consulta ports.ConsultaTerminalAutorizada,
 	verificador *ports.VerificadorEvidenciaIntegracionBolsa,
 	instante time.Time,
 ) (
@@ -427,7 +432,7 @@ func resolverReservaSeleccionLlamamiento(
 		}, vacio, nil
 	case ports.EjecucionSeleccionLlamamientoConfirmada:
 		recibo, err := estado.VerificarTerminalConfirmado(
-			ctx, solicitud.ClaveIdempotencia, verificador, instante,
+			ctx, consulta, verificador, instante,
 		)
 		if err != nil {
 			return ports.ReservaEjecucionSeleccionLlamamiento{}, vacio,
