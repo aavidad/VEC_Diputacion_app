@@ -160,14 +160,49 @@ func TestManejadorAsignacionFallaCerradoAnteCancelacion(t *testing.T) {
 		manejador.ServeHTTP(respuesta, peticion)
 		comprobarCancelacionAsignacion(t, respuesta, autoridad, ejecutor, 1, 0)
 	})
-	t.Run("tras ejecutor", func(t *testing.T) {
+	t.Run("tras ejecutor con recibo válido", func(t *testing.T) {
 		autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
 		ctx, cancelar := context.WithCancel(context.Background())
 		ejecutor.antes = cancelar
 		peticion := nuevaPeticionAsignacionPrueba(RutaAsignaciones, cuerpoAsignacionPrueba(3)).WithContext(ctx)
 		respuesta := httptest.NewRecorder()
 		manejador.ServeHTTP(respuesta, peticion)
+		if respuesta.Code != http.StatusCreated || autoridad.llamadas != 1 ||
+			ejecutor.asignaciones != 1 {
+			t.Fatalf("estado=%d autoridad=%d ejecutor=%d cuerpo=%s", respuesta.Code, autoridad.llamadas, ejecutor.asignaciones, respuesta.Body.String())
+		}
+		comprobarRespuestaAsignacionMinimizada(t, respuesta)
+	})
+	t.Run("tras ejecutor sin recibo", func(t *testing.T) {
+		autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
+		ctx, cancelar := context.WithCancel(context.Background())
+		ejecutor.recibo = ports.ReciboAsignacion{}
+		ejecutor.err = context.Canceled
+		ejecutor.antes = cancelar
+		peticion := nuevaPeticionAsignacionPrueba(RutaAsignaciones, cuerpoAsignacionPrueba(3)).WithContext(ctx)
+		respuesta := httptest.NewRecorder()
+		manejador.ServeHTTP(respuesta, peticion)
 		comprobarCancelacionAsignacion(t, respuesta, autoridad, ejecutor, 1, 1)
+	})
+	t.Run("error con recibo tras cancelación", func(t *testing.T) {
+		autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
+		ctx, cancelar := context.WithCancel(context.Background())
+		ejecutor.err = application.ErrAsignacionDenegada
+		ejecutor.antes = cancelar
+		peticion := nuevaPeticionAsignacionPrueba(RutaAsignaciones, cuerpoAsignacionPrueba(3)).WithContext(ctx)
+		respuesta := httptest.NewRecorder()
+		manejador.ServeHTTP(respuesta, peticion)
+		comprobarResultadoAsignacionNoConfiable(t, respuesta, autoridad, ejecutor)
+	})
+	t.Run("recibo inválido tras cancelación", func(t *testing.T) {
+		autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
+		ctx, cancelar := context.WithCancel(context.Background())
+		ejecutor.recibo.ReciboRef = ""
+		ejecutor.antes = cancelar
+		peticion := nuevaPeticionAsignacionPrueba(RutaAsignaciones, cuerpoAsignacionPrueba(3)).WithContext(ctx)
+		respuesta := httptest.NewRecorder()
+		manejador.ServeHTTP(respuesta, peticion)
+		comprobarResultadoAsignacionNoConfiable(t, respuesta, autoridad, ejecutor)
 	})
 }
 
@@ -285,6 +320,20 @@ func comprobarCancelacionAsignacion(
 ) {
 	t.Helper()
 	if respuesta.Code != http.StatusRequestTimeout || autoridad.llamadas != llamadasAutoridad || ejecutor.asignaciones != llamadasEjecutor || !strings.Contains(respuesta.Body.String(), "peticion_cancelada") {
+		t.Fatalf("estado=%d autoridad=%d ejecutor=%d cuerpo=%s", respuesta.Code, autoridad.llamadas, ejecutor.asignaciones, respuesta.Body.String())
+	}
+}
+
+func comprobarResultadoAsignacionNoConfiable(
+	t *testing.T,
+	respuesta *httptest.ResponseRecorder,
+	autoridad *autoridadAsignacionPrueba,
+	ejecutor *ejecutorAsignacionPrueba,
+) {
+	t.Helper()
+	if respuesta.Code != http.StatusBadGateway || autoridad.llamadas != 1 ||
+		ejecutor.asignaciones != 1 ||
+		!strings.Contains(respuesta.Body.String(), "resultado_no_confiable") {
 		t.Fatalf("estado=%d autoridad=%d ejecutor=%d cuerpo=%s", respuesta.Code, autoridad.llamadas, ejecutor.asignaciones, respuesta.Body.String())
 	}
 }

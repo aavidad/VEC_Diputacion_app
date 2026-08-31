@@ -2,9 +2,11 @@
 
 Fecha: 31 de agosto de 2026.
 
-Estado del productor: candidato técnico con puertas focales verdes; pendiente
-de revisión independiente del hash exacto. Este documento no concede `GO`, no
-cierra O5-01 y no autoriza integración, registro de rutas ni producción.
+Estado del productor: candidato correctivo tras `NO-GO` independiente del
+hash `63fc34fe6f68f297f743db4ce356592c261bde59`, con `P0=0`, `P1=1` y
+`P2=0`; pendiente de nueva revisión independiente del hash correctivo exacto.
+Este documento no concede `GO`, no cierra O5-01 y no autoriza integración,
+registro de rutas ni producción.
 
 ## Punto de partida acreditado
 
@@ -48,6 +50,30 @@ Write-set exacto:
 - `internal/modules/contrataciontemporal/adapters/httpinterno/asignacion_test.go`;
 - `internal/modules/contrataciontemporal/adapters/httpinterno/asignacion_seguridad_test.go`;
 - `docs/portal_vec/ct_lite_o5_01_http_asignacion_2026-08-31.md`.
+
+## Corrección tras revisión independiente
+
+El único hallazgo bloqueante estaba en la precedencia posterior al ejecutor:
+el manejador consultaba `ctx.Err()` antes de cotejar el par recibo/error. Una
+cancelación observada después del efecto podía convertir en `408` un recibo
+válido que ya acreditaba el resultado.
+
+La corrección procesa primero ese par. Error con recibo no vacío e invalidez
+del recibo responden `502 resultado_no_confiable`; sin error, un recibo válido
+responde éxito aunque el contexto se haya cancelado después del efecto. La
+cancelación se aplica cuando el ejecutor no aporta recibo y el resultado no
+queda acreditado. Las regresiones distinguen recibo válido, ausencia de
+recibo, error acompañado de recibo y recibo inválido después de la
+cancelación.
+
+El write-set correctivo exacto se limita a `asignacion.go`,
+`asignacion_seguridad_test.go` y este documento. No modifica contrato JSON,
+aplicación, puertos, rutas ni composición.
+
+Tras la corrección se reprodujeron con Go 1.26.5 y `GOPROXY=off` las pruebas
+normales y con detector de carreras de `httpinterno`, la focal
+`Asignacion|Reasignacion` de `application` y `go vet` de `httpinterno`. El
+formato, el diff y las búsquedas sensibles permanecieron limpios.
 
 ## Contrato cerrado
 

@@ -146,18 +146,18 @@ func (h *manejadorAsignacion) ServeHTTP(
 		entrada,
 		contextoCanal,
 	)
-	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorAsignacion(
-			w,
-			clasificarErrorAsignacionHTTP(errContexto),
-		)
-		return
-	}
 	if err != nil {
 		if recibo != (ports.ReciboAsignacion{}) {
 			responderErrorAsignacion(
 				w,
 				errorResultadoAsignacionNoConfiable,
+			)
+			return
+		}
+		if errContexto := r.Context().Err(); errContexto != nil {
+			responderErrorAsignacion(
+				w,
+				clasificarErrorAsignacionHTTP(errContexto),
 			)
 			return
 		}
