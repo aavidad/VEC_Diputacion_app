@@ -1,257 +1,450 @@
-# Decisión O3A-LEASE-SEAM-P0: permisos TID sin syscall oculto
+# Decisión O3A-LEASE-SEAM-P0-R1: acreditación y efecto indivisibles
 
 Fecha: 1 de septiembre de 2026.
 
-Estado: **CANDIDATA DOCUMENTAL**. No autoriza editar código, integrar,
-publicar, ejecutar O4B-P2 ni declarar producto terminado. Requiere dos
-revisiones independientes completas —funcional y de seguridad— con `GO`,
-`P0=P1=P2=0`, y su integración posterior por Dirección antes de asignar el
-precorte de código O3a.
+Estado: **CANDIDATA DOCUMENTAL R1 A DOBLE REVISIÓN**. Sustituye por completo
+la propuesta transferible de este mismo fichero en
+`5a4fad03035f67b46c248cbbed64cfeda5ec71c7`. No autoriza código, pruebas,
+manifiestos, CI, integración, publicación, O4B-P2, producción ni despliegue.
+Solo una doble revisión documental independiente con `GO`, `P0=P1=P2=0`,
+seguida de integración y publicación por Dirección, permite crear el precorte
+de código definido al final.
 
-## Capability, autoridad e invariante
+## Base y preflight factual
 
-Capability: emitir bajo la autoridad única O3a dos permisos canónicos,
-físicamente distintos y de un solo uso: uno exclusivamente para `Gettid` y
-otro para un único syscall de efecto ya ligado al TID acreditado, sin syscall
-oculto dentro de comenzar, validar o consolidar.
+La base material exacta y limpia de R1 es
+`5a4fad03035f67b46c248cbbed64cfeda5ec71c7`, cuyo padre es
+`58800913b32e22b0f77eb8d62900d95c452e98fa`. La rama de trabajo de este
+documento es `trabajo/o3a-lease-seam-p0-contrato-20260901`; su único write-set
+es este fichero.
 
-O3a conserva la única autoridad sobre lease, TID, registro, generación,
-secuencia, slot y permisos. O4b se limita a elegir, por una autorización O4a
-ya consumida, el efecto cerrado y a ejecutar su syscall; no crea ni duplica
-autoridad O3a. No existe una segunda autoridad.
+Entre `f1c7f8f957cf1bfa478414f0cf24702cd49768f2` y
+`58800913b32e22b0f77eb8d62900d95c452e98fa` aparecieron exactamente cuatro
+rutas:
 
-Invariante literal:
+1. `docs/portal_vec/ct_lite_o5_01_web_a_contrato_asignacion_2026-08-31.md`;
+2. `docs/portal_vec/decision_o6_03_pre_cap_orden_terminal_autorizada_v2_2026-09-01.md`;
+3. `web/static/portal-empleado/modulos/contratacion-temporal/contrato-asignacion.js`;
+4. `web/static/portal-empleado/modulos/contratacion-temporal/contrato-asignacion.test.mjs`.
 
-```text
-lease estado 3, slot nil
-→ comenzar acreditación TID sin syscall
-→ lease 2, permiso Gettid canónico
-→ syscall.Gettid único
-→ consolidar acreditación sin syscall
-→ lease 3, acreditación canónica pendiente
-→ comenzar efecto con TID acreditado
-→ lease 2, permiso de efecto distinto y ligado
-→ syscall único
-→ consolidar sin syscall
-→ lease 3, slot nil.
-```
+Son dos documentos, el JavaScript O5 y su prueba. El delta contiene cero bytes
+O3a/O3b/O3c/O4a/O4b. En la base, G6a sigue teniendo 559 líneas, modo `0644` y
+SHA-256
+`9015dff049f04f839920c964a5d8471c1b3f7f9e3dcab339266cf2e13f155bd8`.
+Esa huella continúa activa en los cuatro consumidores que el futuro corte debe
+actualizar conjuntamente:
 
-`runtime.LockOSThread` es precondición viva antes del primer comienzo y no se
-libera hasta finalizar el segundo permiso. La acreditación no es una sesión
-TID reutilizable: solo enlaza esos dos permisos consecutivos.
+- `tools/o3a_v5_conductor/fuentes_v5.tsv`;
+- `tools/o3b_p7_conductor/fuentes.tsv`;
+- `tools/o3c_p6_conductor/fuentes.tsv`;
+- `tools/o3c_p6_mutantes/main.go`.
 
-## Preflight local anterior a la edición
+No se ha usado red para convertir referencias locales en hechos remotos. El
+preflight de R1 no acredita publicación, CI ni producto arrancable.
 
-Se acreditó, sin red ni escritura, lo siguiente:
+## Hallazgos que invalidan la propuesta anterior
 
-- worktree y rama exactos, `HEAD`
-  `58800913b32e22b0f77eb8d62900d95c452e98fa` y árbol limpio;
-- destino ausente, ningún `AGENTS.md` adicional bajo `docs/portal_vec` y
-  rutas del write-set posterior existentes;
-- log de análisis completo: 16.978 líneas, SHA-256
-  `4938b16c933d1c6cf574dd07559fcc388a3a81d69218df8e2e9c0d0c51ff3c4d`;
-- decisiones y enmiendas citadas leídas desde sus ficheros; desde la base del
-  análisis `f1c7f8f957cf1bfa478414f0cf24702cd49768f2` no cambió ninguna fuente
-  O3a/O3b/O3c/O4a/O4b ni el lease: solo aparecieron dos documentos ajenos;
-- G6a conserva 559 líneas, modo 0644 y SHA-256
-  `9015dff049f04f839920c964a5d8471c1b3f7f9e3dcab339266cf2e13f155bd8`,
-  coincidente con `tools/o3a_v5_conductor/fuentes_v5.tsv`;
-- producto local, seguimiento remoto conocido y base de esta rama coinciden
-  en `58800913b32e22b0f77eb8d62900d95c452e98fa`; el `merge-tree` local de esa
-  base no mostró delta.
+### P0 funcional: la acreditación era transferible
 
-## Causa exacta y prevalencia
+Un puntero, permiso o acreditación devuelto por
+`comenzarConTIDAcreditado` puede pasar a otra goroutine. La goroutine receptora
+puede ganar `3→2` y ejecutar el efecto desde otro TID. Que la goroutine
+original mantenga `runtime.LockOSThread` no vuelve intransferible el objeto ni
+acredita el TID de la goroutine que ejecuta el efecto.
 
-La API actual contradice la regla «un syscall por permiso»: `comenzar`
-ejecuta `syscall.Gettid` antes de entregar el permiso y
-`consolidarCritico` llama `permisoValido`, que vuelve a ejecutar
-`syscall.Gettid`. O4B-P2 tiene prohibido usar `comenzar`, `comenzarCritico`,
-`permisoValido`, `consolidarCritico` o cualquier envoltorio que conserve esos
-syscalls ocultos.
+Por tanto, el patrón separado
+`check → token/acreditación → efecto → consolidación` es insuficiente. También
+lo es ocultarlo tras un callback o closure: el llamador puede capturar,
+desviar, diferir o sustituir el comportamiento y la revisión no puede probar
+que el TID acreditado sea el del syscall funcional. Ninguna identidad física,
+autoidentidad, secuencia, one-shot o slot corrige esa separación causal.
 
-Prevalecen por responsabilidad las decisiones O3a, O3b, O3c y O4a, la
-decisión O4b de señales de grupo y la enmienda O4a/O4b de terminalidad y STOP.
-Esta decisión corrige solo el seam propietario de O3a. No cambia causa,
-etapas, deadlines, señal, cardinalidad funcional, terminalidad, `Wait`,
-limpieza ni resultado O4b.
+R1 elimina `permisoGettidO3aM38`, `acreditacionTIDO3aM38`,
+`permisoConTIDAcreditadoO3aM38`, `comenzarAcreditacionTID`,
+`consolidarAcreditacionTID`, `comenzarConTIDAcreditado` y
+`consolidarConTIDAcreditado` del diseño futuro. Esos nombres no se
+materializan ni se conservan como compatibilidad.
 
-## Slot, tipos y API privada mínima
+### P0 de seguridad: existía `pending` con slot nulo
 
-`leaseGuardiaO3aM38` incorpora un único slot privado canónico, inicialmente
-nulo, mediante un `atomic.Pointer` a una celda O3a. La celda conserva
-autoidentidad, lease, registro, generación, las dos secuencias, fase, TID
-acreditado, operación, cardinalidad, objetivos y las identidades canónicas de
-sus tres artefactos. No existe registro global ni sidecar.
+La propuesta anterior hacía primero `3→2` y publicaba después el slot. Esa
+ventana permite observar estado pendiente sin celda propietaria; las API
+anteriores tampoco tenían una guarda inicial común. Publicar el slot después
+del CAS, o retirarlo antes de restaurar el estado, no es corregible mediante
+validaciones posteriores.
 
-Los tipos privados son distintos y no convertibles:
+R1 exige una celda canónica publicada antes de cualquier transición a estado
+2. La celda permanece ocupada durante todo el ciclo. El cierre restaura el
+estado mientras la celda sigue publicada, declara después el cierre verde y
+solo entonces retira el slot. Todo fallo posterior a la publicación deja la
+celda en fase fatal y la lease en estado 5; no existe rollback a 1 o 3.
 
-- `permisoGettidO3aM38`;
-- `acreditacionTIDO3aM38`;
-- `permisoConTIDAcreditadoO3aM38`;
-- `celdaLeaseSeamO3aM38`, solo accesible desde la lease.
+## Prevalencia y reparto de autoridades
 
-Cada artefacto es puntero opaco autoidentificado y debe coincidir por identidad
-física con el guardado en el slot. La acreditación es one-shot y no tiene
-getter del TID raw, método de efecto, serialización ni conversión a entero.
+Permanecen simultáneamente vigentes:
 
-Las cuatro firmas privadas mínimas quedan fijadas así:
+1. O3a posee registro, generación, TID, lease, slot, mapa FD y ejecución
+   física de la primitiva cerrada;
+2. O3b posee identidad `/proc`, auto-STOP y las primitivas probatorias que le
+   fueron asignadas;
+3. O3c posee CONT inicial, primera observación y custodia C5;
+4. O4a decide causa, precedencia, reloj, etapa, cardinalidad y autorización;
+5. O4b consume la autorización O4a, selecciona etapa, operación y pidfd y
+   produce la evidencia física no recolectora.
+
+El ejecutor O3a no elige causa, etapa, plazo, cardinalidad funcional, rol de
+pidfd ni política de señal. Su enum cerrado es vocabulario físico del
+adaptador, no una segunda autorización funcional. O4b no ejecuta directamente
+`Gettid` ni `pidfd_send_signal`, no recibe una acreditación TID y no puede
+inyectar una función. O4a sigue sin syscall. O3b y O3c no adquieren esta API.
+
+Esta decisión sustituye únicamente la mecánica O4b antigua que separaba
+comienzo, syscall y consolidación para las cuatro señales de grupo. No cambia
+las tablas O4a/O4b, la enmienda de terminalidad y STOP final, la selección de
+primario/reserva, los deadlines, la evidencia posterior, `Wait`, drenaje,
+limpieza o resultado.
+
+## Capability e invariantes no negociables
+
+Capability: ofrecer a O4b un ejecutor O3a privado y finito que, en una sola
+invocación síncrona sobre la goroutine llamadora bloqueada al OS thread,
+acredite explícitamente su TID actual y ejecute exactamente un
+`pidfd_send_signal` de la unión cerrada, sin autoridad transferible entre
+acreditación y efecto.
+
+Invariantes:
+
+- no existe token, puntero, permiso, callback, closure, hook, interfaz ni
+  función variable entre `Gettid` y el efecto;
+- el ejecutor no lanza goroutine ni cambia el bloqueo del OS thread;
+- la única llamada `Gettid` y el único syscall funcional ocurren en la misma
+  invocación y en la misma goroutine llamadora;
+- el slot canónico se publica antes de `3→2` y nunca es nulo mientras el estado
+  es 2;
+- toda API heredada carga el slot como primer guard y, si no cumple la
+  condición que le corresponde —`nil` al comenzar o celda propia al
+  consolidar—, termina antes de cualquier `Gettid`;
+- toda lectura raw se consolida sin interpretación antes de cualquier
+  comparación o clasificación;
+- error, `EINTR` o duda consumen el intento: no hay retry, fallback, segundo
+  pidfd ni segunda señal;
+- cualquier fallo posterior a publicar la celda deja `FATAL` y estado 5;
+- el único cierre verde hace `2→3` con el slot ocupado, sella después el cierre
+  y retira al final el puntero exacto;
+- el resultado raw solo sale del ejecutor después de ese cierre verde; nunca
+  transporta autoridad TID.
+
+## Tipos y operación cerrada implementables
+
+G6a añadirá exactamente estos nombres privados, todos con sufijo
+`O3aM38`:
 
 ```go
-func (l *leaseGuardiaO3aM38) comenzarAcreditacionTID() (
-	*permisoGettidO3aM38, bool,
+type celdaEjecucionLeaseO3aM38 struct { /* sellos privados */ }
+type faseCeldaLeaseO3aM38 uint8
+type operacionEfectoLeaseO3aM38 uint8
+type resultadoEfectoLeaseO3aM38 struct {
+	intentadoO3aM38  bool
+	retornoRawO3aM38 syscall.Errno
+}
+
+const (
+	fasePreparadaO3aM38 faseCeldaLeaseO3aM38 = iota + 1
+	faseGettidEmitidoO3aM38
+	faseGettidConsolidadoO3aM38
+	faseEfectoEmitidoO3aM38
+	faseEfectoConsolidadoO3aM38
+	faseCierreVerdeO3aM38
+	faseFatalO3aM38
 )
 
-func (l *leaseGuardiaO3aM38) consolidarAcreditacionTID(
-	permiso *permisoGettidO3aM38,
-	tidRaw int,
-) (*acreditacionTIDO3aM38, bool)
+const (
+	operacionPararGrupoO3aM38 operacionEfectoLeaseO3aM38 = iota + 1
+	operacionTerminarGrupoO3aM38
+	operacionReanudarGrupoO3aM38
+	operacionMatarGrupoO3aM38
+)
 
-func (l *leaseGuardiaO3aM38) comenzarConTIDAcreditado(
-	acreditacion *acreditacionTIDO3aM38,
-	operacion operacionGuardiaO3aM38,
-	cardinalidad int,
-	objetivos [2]int,
-) (*permisoConTIDAcreditadoO3aM38, bool)
-
-func (l *leaseGuardiaO3aM38) consolidarConTIDAcreditado(
-	permiso *permisoConTIDAcreditadoO3aM38,
-) bool
+func (l *leaseGuardiaO3aM38) ejecutarEfectoConTIDActualO3aM38(
+	operacion operacionEfectoLeaseO3aM38,
+	pidfd int,
+) (resultadoEfectoLeaseO3aM38, bool)
 ```
 
-Ninguna de las cuatro funciones ejecuta syscall, E/S, reloj, callback,
-closure ejecutora, hook ni función variable. No acepta ni ejecuta una función
-de efecto.
+La lease añade el campo exacto
+`slotEjecucionO3aM38 atomic.Pointer[celdaEjecucionLeaseO3aM38]`. La celda
+conserva, como mínimo, autoidentidad, lease, registro, generación, secuencia
+reservada, estado de origen 3, fase atómica, operación cerrada, pidfd exacto,
+snapshot físico, TID raw y raw de efecto. No guarda autorización O4a,
+callback, función, interfaz, texto, PID, referencia humana, reloj o recurso
+alternativo. El pidfd recibido no es autoridad TID: antes de publicar la
+celda se acredita como objetivo único no negativo y presente en el snapshot
+físico sellado de la lease, sin nueva sonda ni syscall. O4b sigue siendo
+responsable de haber seleccionado su rol correcto conforme a la autorización
+consumida.
 
-## Secuencia, CAS, fase y fallo cerrado
+La operación se traduce dentro del ejecutor, mediante un `switch` exhaustivo,
+a `SIGSTOP`, `SIGTERM`, `SIGCONT` o `SIGKILL`. La única primitiva funcional es
+literalmente:
 
-Las fases publicadas del slot son `GETTID_EMITIDO`, `TID_ACREDITADO` y
-`EFECTO_EMITIDO`; `CONSUMIDO` y `FATAL` son terminales. Todo objeto se
-preasigna antes del primer CAS que pueda hacerlo visible.
+```go
+syscall.Syscall6(
+	sysPidfdSendSignal,
+	uintptr(pidfd),
+	uintptr(senalCerrada),
+	0,
+	pidfdSignalProcessGroup,
+	0,
+	0,
+)
+```
 
-1. `comenzarAcreditacionTID` acredita sin syscall autoidentidad, registro,
-   generación, estado 3, slot nulo y snapshot físico. Un único CAS gana
-   `3→2`; después incrementa una vez la secuencia y publica la celda y el
-   permiso Gettid canónicos. Overflow, slot extranjero o fallo tras ganar el
-   CAS llevan a estado fatal 5; nunca restauran 3 ni emiten permiso.
-2. El llamador ejecuta exactamente un `syscall.Gettid`. La consolidación
-   consume el permiso una vez, sin syscall. Solo `tidRaw>0` e igual al TID
-   sellado instala el TID dentro de la celda, avanza a `TID_ACREDITADO` y hace
-   `2→3`; el slot continúa ocupado. TID cero, incorrecto, copia, forja o duda
-   de CAS consume la capacidad y lleva a estado 5, sin acreditación.
-3. `comenzarConTIDAcreditado` exige estado 3, fase y slot canónicos, identidad
-   exacta de la acreditación y TID interno igual al de la lease. Sin syscall,
-   un único CAS gana `3→2`, consume la acreditación, incrementa por segunda
-   vez la secuencia y publica un permiso de efecto físicamente distinto,
-   ligado a operación, cardinalidad y objetivos. Overflow o duda lleva a 5.
-4. El llamador ejecuta exactamente el syscall autorizado. La consolidación
-   consume el segundo permiso sin syscall, sella `CONSUMIDO`, elimina por CAS
-   el slot exacto y solo entonces hace `2→3`. Si cualquier paso falla, la
-   lease queda en 5 o con capacidad irrevocablemente consumida; nunca se
-   reconstruye, restaura o devuelve una credencial utilizable.
+`senalCerrada` solo puede proceder del `switch`; `pidfdSignalProcessGroup`
+permanece `uintptr(1 << 2)`. No se acepta señal numérica libre, flags, siginfo,
+segundo objetivo, función de syscall ni modo de prueba inyectable. Los tests
+usan procesos desechables y AST, no sustitutos ejecutores.
 
-Nulo o material demostrado como antiguo/ajeno se rechaza antes de CAS y no
-afecta un ciclo canónico distinto. Si un objeto no canónico pretende la lease,
-generación, secuencia o fase activas, se sella el ciclo actual como fatal.
-Una copia superficial falla por autoidentidad; una copia autoidentificada, una
-celda reconstruida, una forja same-package y un slot extranjero fallan por no
-ser el puntero canónico del slot. Un replay consumido nunca recupera fase,
-estado ni secuencia y no puede dañar un ciclo posterior demostrado distinto.
+## Celda canónica y compatibilidad de la API heredada
 
-Un fallo de consolidación después del syscall hace que su raw sea no
-interpretable y prohíbe otro syscall. Raw cero, cualquier error y `EINTR` del
-efecto se consolidan exactamente una vez antes de ser interpretados fuera del
-seam; ninguno autoriza retry, fallback al pidfd de reserva ni otro efecto. El
-seam no interpreta raw de efecto. `Gettid` cero o distinto se trata únicamente
-como TID no acreditado.
+`leaseGuardiaO3aM38` incorpora un único
+`atomic.Pointer[celdaEjecucionLeaseO3aM38]`. La misma celda gobierna el nuevo
+ejecutor y los ciclos de las API heredadas. Así la invariante «estado 2 implica
+slot canónico no nulo» se aplica a G6a completo, no solo al camino O4b.
 
-## Compatibilidad y guardas de la API anterior
+Para `comenzar` y `comenzarCritico`, el orden obligatorio es:
 
-Las firmas y la conducta anterior permanecen intactas cuando el seam no se
-usa: el nuevo slot conserva su valor cero nulo. `valido`, `sellarFisico`,
-`comenzar`, `comenzarCritico`, `permisoValido`, `consolidarFisico`,
-`consolidarCritico`, `fatalPendiente`, `transferirCritico` y `liberar` deben
-exigir además `slot == nil`; así no se intercalan con una acreditación
-pendiente. No se reescribe ningún consumidor.
+1. cargar el slot como primera operación observable y rechazar si no es nulo;
+2. prevalidar y preasignar una celda heredada sin syscall;
+3. publicar por CAS `nil→celda`;
+4. desde ese punto, cualquier fallo fija fase fatal y estado 5;
+5. acreditar el TID conforme al orden raw de esta decisión;
+6. ejecutar el CAS autorizado `1/3→2` con la celda todavía publicada;
+7. devolver el permiso heredado ligado al puntero exacto de la celda.
 
-O3a, O3b y O3c siguen usando exclusivamente la API antigua y conservan sus
-bytes. O4B-P1 y sus pruebas permanecen también byte-inmutables. O4B-P2 será el
-primer consumidor del seam y deberá ejecutar exteriormente, en orden,
-comienzo Gettid, Gettid único, consolidación, comienzo efecto, syscall único y
-consolidación; no llamará a la API antigua.
+`permisoGuardiaO3aM38` añade solo el campo privado exacto
+`celdaO3aM38 *celdaEjecucionLeaseO3aM38`. Las firmas de la API heredada y
+todos sus llamadores permanecen byte-inmutables.
+`permisoValido`, `consolidarFisico`, `consolidarCritico` y `fatalPendiente`
+cargan como primer guard el slot y exigen que sea exactamente la celda del
+permiso antes de cualquier `Gettid`, snapshot o mutación. En cierre verde,
+`consolidarFisico` y `consolidarCritico` restauran `2→estadoPrevio` mientras
+el slot sigue ocupado, sellan el cierre y solo después hacen
+`slot.CompareAndSwap(celda, nil)`.
 
-## Write-set exacto del precorte posterior
+`valido`, `sellarFisico`, `transferirCritico` y `liberar` cargan también el
+slot como primer guard y exigen `nil` antes de cualquier `Gettid` o cambio de
+estado. Un slot no nulo corta la operación. Ninguna API puede saltar a la
+validación del TID, tocar el estado o ejecutar un efecto antes de completar su
+guard de slot.
 
-Tras doble `GO` de este documento e integración por Dirección, el precorte de
-código O3a solo podrá tocar:
+Una pérdida de carrera antes de publicar la celda no cambia la lease. Después
+de publicarla no existe retorno ordinario de error: overflow, TID inválido,
+CAS perdido, fase inesperada, permiso forjado, snapshot divergente o fallo al
+cerrar sellan la celda fatal y llevan el estado a 5. La celda fatal no se
+retira ni se reutiliza. Una operación expresable por la API nunca deja estado
+2 con slot nulo ni estado 1/3 con una celda pendiente utilizable.
 
-1. `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_autoridad.go`;
-2. `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/lease_tid_acreditado_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_test.go`;
-3. `tools/o3a_v5_conductor/fuentes_v5.tsv`, exclusivamente la nueva longitud
-   y SHA-256 de G6a.
+## Orden causal indivisible del nuevo ejecutor
 
-O4B-P1 y todos los consumidores O3a/O3b/O3c quedan byte-inmutables. No se
-reescriben ledgers, revisiones ni evidencias históricas. G6a parte de 559
-líneas y tiene parada dura antes de 800; si el corte no cabe, se vuelve a una
-nueva decisión y no se crea otra fuente por conveniencia.
+El ejecutor no llama a `comenzar`, `comenzarCritico`, `permisoValido`,
+`consolidarFisico`, `consolidarCritico` ni `fatalPendiente`. Tampoco es un
+envoltorio de la API transferible. Su secuencia completa es:
 
-## Matriz adversa obligatoria del precorte
+1. carga el slot como primer guard; prevalida lease, registro, generación,
+   estado 3, operación, pidfd y snapshot sin `Gettid` ni efecto;
+2. preasigna la celda y calcula la secuencia siguiente en un local, sin mutar
+   todavía `l.secuencia` ni hacer autoridad ese valor;
+3. gana `slot.CompareAndSwap(nil, celda)`;
+4. con la celda publicada, copia la secuencia a la celda, avanza una vez
+   `l.secuencia` y gana `estado.CompareAndSwap(3, 2)`; si falla, celda fatal y
+   estado 5;
+5. avanza a `faseGettidEmitidoO3aM38` (`GETTID_EMITIDO`);
+6. ejecuta exactamente una llamada literal `syscall.Gettid()`;
+7. copia el raw a la celda y lo consolida sin comparar, validar ni interpretar;
+8. avanza a `faseGettidConsolidadoO3aM38` (`GETTID_CONSOLIDADO`);
+9. solo ahora exige raw positivo e igualdad con `l.tid` y
+   `l.registro.tid`; cualquier divergencia fija fatal+5 y ejecuta cero efecto;
+10. avanza a `faseEfectoEmitidoO3aM38`, resuelve el `switch` cerrado y ejecuta
+    exactamente el `syscall.Syscall6` anterior;
+11. copia el raw de efecto a la celda y lo consolida sin interpretarlo;
+12. avanza a `faseEfectoConsolidadoO3aM38`;
+13. hace `estado.CompareAndSwap(2, 3)` mientras el slot todavía apunta a la
+    celda;
+14. avanza a `faseCierreVerdeO3aM38` y solo después hace
+    `slot.CompareAndSwap(celda, nil)`;
+15. devuelve `resultadoEfectoLeaseO3aM38` y `true` únicamente tras retirar el
+    slot exacto.
 
-- nominal: estado 3/slot nulo, dos permisos distintos, dos secuencias, un
-  syscall exacto por permiso y final 3/slot nulo;
-- AST y call graph: cero syscall, E/S, reloj o API antigua dentro del seam, y
-  secuencia exterior exacta;
-- TID erróneo y cero; nulo, permiso ajeno, forja, copia superficial, copia
-  autoidentificada, celda reconstruida, slot extranjero y replay en cada fase;
-- carreras de cada comienzo y consolidación, con un único ganador, sin ABA,
-  credencial duplicada ni slot huérfano;
-- overflow en cada incremento, fallo forzado de cada CAS y fase/secuencia,
-  operación, cardinalidad, objetivos, registro o generación adversos;
-- fallo post-syscall o de consolidación: raw no interpretable, estado 5 y cero
-  syscall posterior;
-- raw de efecto cero, error y `EINTR`: un intento, una consolidación, cero
-  retry y cero fallback;
-- fatalidad black-box: estado 65, EOF/no retorno y stdout/stderr cero;
-- focal normal, repetida y `-race`, `go vet`, AST/tipos/DAG y
-  `git diff --check`;
-- repetición focal de consumidores O3a/O3b/O3c y O4B-P1, sin editar sus
-  fuentes ni pruebas.
-
-## Exclusiones, seguridad y rollback lógico
-
-No se abre O4B-P2, STOP estable, TERM-CONT, KILL, resultados totales, O4c,
-conductor operativo, proceso real, Docker, PostgreSQL, despliegue, producción,
-datos o credenciales. No hay global mutable, callback, closure ejecutora,
-hook, reloj, E/S o syscall dentro del seam. No aparece identidad humana, PII,
-texto visible, i18n o interfaz; accesibilidad no cambia.
-
-El rollback lógico nunca restaura una acreditación o permiso. Ante duda se
-consume la capacidad o se fija estado 5. Un candidato documental o de código
-con `NO-GO` no se integra ni se enmienda ocultando su genealogía; se conserva
-y se corrige en un nuevo commit revisable. Si el diseño no cabe o exige otro
-fichero, se vuelve a decisión. Este contrato no cambia métricas ni estado de
-producto.
-
-## Criterios GO/NO-GO y DAG
-
-Este documento puede recibir `GO` solo si dos revisores independientes
-confirman autoridad única, invariante literal, secuencia CAS completa,
-compatibilidad, write-set, límites y matriz, y si modo 0644, enlaces, ausencia
-de marcadores, secretos y `git diff --check` quedan verdes sobre los mismos
-bytes. Cualquier syscall oculto, segunda autoridad, getter TID, restauración de
-credencial, permiso compartido, retry/fallback, cambio de consumidor/P1,
-cuarta ruta, reescritura histórica o ambigüedad de fase es `NO-GO`.
-
-DAG exacto:
+El orden raw es, literalmente:
 
 ```text
-esta decisión documental
-→ doble revisión funcional y de seguridad
-→ precorte de código O3a
-→ doble revisión e integración
-→ O4B-P2 por separado.
+GETTID_EMITIDO
+→ syscall.Gettid único
+→ consolidación raw sin interpretar
+→ GETTID_CONSOLIDADO
+→ comparación TID
+→ EFECTO_EMITIDO
+→ pidfd_send_signal único
+→ consolidación raw sin interpretar
+→ EFECTO_CONSOLIDADO
+→ 2→3 con slot ocupado
+→ CIERRE_VERDE
+→ retirada del slot
+→ interpretación exterior por O4b.
 ```
 
-El siguiente corte es únicamente la doble revisión de este documento. Ni este
-texto ni su commit autorizan todavía editar código: hacen falta los dos `GO`
-independientes y la integración de la decisión por Dirección. Integrar el seam
-posterior solo desbloqueará O4B-P2; no lo cerrará ni autorizará producción.
+Nunca se compara el TID antes de `GETTID_CONSOLIDADO`. Nunca se clasifica raw
+del efecto dentro del ejecutor. Si el cierre estructural falla, el raw no sale,
+no se interpreta y no habilita otra llamada. Transferir la lease, la operación
+o el pidfd a otra goroutine tampoco transfiere una acreditación: esa goroutine
+ejecutaría su propio `Gettid` dentro de la invocación y fallaría antes del
+efecto si no coincide con el TID sellado.
+
+## Write-set máximo exacto del futuro productor
+
+Después del cierre documental completo, el precorte deberá declarar como
+máximo estas once rutas nominales y ninguna otra:
+
+1. `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_autoridad.go`;
+2. `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/lease_seam_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_test.go`;
+3. `tools/o3a_v5_conductor/conductor.sh`;
+4. `tools/o3a_v5_conductor/conductor_c22_lease_seam.sh`;
+5. `tools/o3a_v5_conductor/fuentes_v5.tsv`;
+6. `tools/o3a_v5_conductor/manifiesto_c01_c21.tsv`, exclusivamente para su
+   baja;
+7. `tools/o3a_v5_conductor/manifiesto_c01_c22.tsv`, exclusivamente para su
+   alta como sustituto;
+8. `tools/o3b_p7_conductor/fuentes.tsv`;
+9. `tools/o3c_p6_conductor/fuentes.tsv`;
+10. `tools/o3c_p6_mutantes/main.go`;
+11. `docs/portal_vec/revisiones/evidencia_f0_h0b_c4b2_g2o_o3a_lease_seam_p0_codigo_2026-09-01.md`.
+
+Las rutas 6 y 7 forman una sustitución gobernada y no pueden coexistir al
+cerrar el candidato. La ruta 11 es evidencia nueva y autocontenida: fija el
+commit, las once rutas, sus huellas y los resultados reproducibles, pero no
+es revisión independiente ni permite sobrescribir un acta o evidencia
+anterior.
+
+G6a conserva parada dura en 800 líneas. La prueba y cada script nuevo quedan
+también por debajo de 800. Si la celda universal y el ejecutor cerrado no caben
+sin extraer una segunda fuente productiva, se emite `NO-GO` y se vuelve a una
+nueva decisión; no se oculta código en tests, conductor, O4b u otra autoridad.
+
+Los tres `fuentes*.tsv` deben fijar la misma longitud y el mismo SHA nuevos de
+G6a. `tools/o3c_p6_mutantes/main.go` debe retirar la huella G
+`9015dff049f04f839920c964a5d8471c1b3f7f9e3dcab339266cf2e13f155bd8`,
+fijar la nueva y adaptar sus mutaciones estructurales a la celda/orden nuevos
+sin relajar muertes. Después del candidato, ninguna de esas cuatro autoridades
+vivas puede conservar `9015dff…`.
+
+Las evidencias ya versionadas con `9015dff…` permanecen inmutables como
+genealogía histórica y no acreditan el candidato nuevo. La evidencia nueva
+debe registrar el nuevo G6a en todos los conductores reproducidos; una mezcla
+de huellas, un reporte que use el manifiesto anterior o una evidencia histórica
+presentada como vigente es `NO-GO`.
+
+## Runner adicional y matriz mínima obligatoria
+
+Añadir un `_test.go` no basta: el conductor O3a actual copia diez fuentes por
+prefijo, construye un binario y no ejecuta ese fichero. El futuro
+`conductor_c22_lease_seam.sh` debe ejecutar explícitamente el test focal con
+las fuentes verificadas, en los modos normal y `-race` que ya gobierna
+`conductor.sh`. `conductor.sh` debe exigir once entradas exactas —diez fuentes
+existentes y la prueba C22—, invocar C22, registrar sus filas y fallar ante
+`SKIP`, `NO-GO`, huella, salida o residuos divergentes. La job CI existente ya
+invoca ese conductor; no se modifica `.github/workflows/ci.yml`.
+
+Matriz mínima C22:
+
+- goroutine propietaria bloqueada: TID consolidado igual, un único efecto,
+  `2→3`, cierre verde y slot nulo final;
+- transferencia a otra goroutine: su TID se consolida antes de comparar,
+  falla con celda fatal+estado 5 y ejecuta cero señal;
+- AST de dominancia y orden para cada API heredada: carga del slot como primer
+  guard y toda salida adversa domina cualquier `syscall.Gettid`;
+- AST del ejecutor: un `Gettid`, un `Syscall6`, orden de fases literal, cero
+  llamada a la API heredada, callback, closure, función variable, goroutine o
+  interpretación raw;
+- observación concurrente en cada borde: nunca `estado==2 && slot==nil`;
+- carreras de publicación, `3→2`, consolidaciones, `2→3`, cierre y retirada:
+  un ganador, sin ABA ni celda huérfana verde;
+- operación, pidfd, snapshot, registro, generación, secuencia, fase y TID
+  adversos; todo fallo posterior a publicar produce celda fatal+estado 5;
+- raw de efecto cero, error y `EINTR`: un intento, una consolidación, cero
+  retry/fallback y clasificación solo tras retorno verde a O4b;
+- las cuatro señales cerradas usan pidfd, `NULL` y
+  `pidfdSignalProcessGroup` exactos; señal o flag libre no compila/no entra;
+- regresión completa de O3a, O3b y O3c con sus manifiestos nuevos, y mutantes
+  O3c con la nueva huella G; no cuenta una prueba que no haya sido invocada por
+  un runner registrado;
+- fatalidad black-box conserva 65, EOF/no retorno, stdout/stderr cero y cero
+  efecto adicional;
+- `gofmt`, focal normal/repetido/`-race`, `go vet`, conductores, mutantes,
+  calidad global y `git diff --check` verdes en el futuro corte.
+
+Este documento no ejecuta ninguna de esas pruebas dinámicas.
+
+## Seguridad, exclusiones y paradas
+
+La corrección reduce privilegios: el efecto no puede separarse de la
+acreditación del TID ejecutor. No añade identidad humana, dato personal,
+secreto, token, log, texto visible, i18n, interfaz, HTTP, SQL, red, Docker o
+producción. Accesibilidad no cambia porque no existe superficie de usuario.
+
+Se detiene con `NO-GO` ante cualquiera de estas condiciones:
+
+- permiso/acreditación TID transferible, callback, closure o función de efecto;
+- `Gettid` fuera del ejecutor para el nuevo camino, o escondido en comenzar,
+  validar o consolidar;
+- comparación antes de `GETTID_CONSOLIDADO`;
+- estado 2 con slot nulo, retirada previa al cierre verde o restauración antes
+  de consolidar el raw;
+- fallo posterior a publicación que vuelva a 1/3, retire la celda o permita
+  reutilización;
+- señal, flags, siginfo, cardinalidad o segundo objetivo libres;
+- retry, fallback, segundo syscall o interpretación raw dentro de O3a;
+- consumidor vivo con el SHA antiguo, C22 no ejecutado o evidencia mixta;
+- cambio de O4a/O4b funcional, O3b/O3c productivo, workflow, manifiesto ajeno,
+  código fuera del write-set o fichero productivo mayor de 800 líneas.
+
+O4B-P2 permanece bloqueado incluso después de publicar este documento. El
+seam de código tampoco cierra ni abre automáticamente O4B-P2: solo su
+integración, publicación y CI 5/5 permitirán a Dirección valorar un candidato
+O4B-P2 separado, con contrato y write-set propios.
+
+## DAG, cierre documental y siguiente corte
+
+El DAG exacto e indivisible es:
+
+```text
+doble revisión documental
+→ integración/publicación por Dirección
+→ precorte código
+→ productor
+→ doble revisión código
+→ integración/publicación
+→ CI 5/5.
+```
+
+No puede adelantarse el precorte, producirse código sobre una decisión sin
+publicar, revisar solo una disciplina, integrar antes del doble GO ni declarar
+el cierre antes de CI 5/5. `O4B-P2` sigue bloqueado al final de este DAG hasta
+una decisión posterior de Dirección.
+
+El siguiente corte es exclusivamente la doble revisión independiente,
+funcional y de seguridad, de los bytes exactos de R1. Debe verificar los dos
+P0 por separado, los hallazgos secundarios, la compatibilidad de autoridades,
+el write-set máximo, el runner ejecutable y estas puertas documentales:
+
+- `git diff --check`;
+- existencia y modo de todas las rutas afectadas, sin cambio fuera de este
+  documento;
+- Gitleaks con el binario exacto `/tmp/vec-gitleaks-20260831`, SHA-256
+  `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`;
+- `merge-tree` contra la integración local conocida, sin marcadores ni
+  resolución implícita.
+
+R1 no se autoaprueba ni cambia métricas. Durante este corte están prohibidos
+`fetch`, `pull`, `reset`, `push`, despliegue, pruebas dinámicas, producción y
+limpieza. Dirección conserva en exclusiva integración, publicación y estado
+transversal.
