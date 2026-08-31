@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,14 +34,14 @@ func (r *relojIdentidadOfflinePrueba) Ahora() time.Time { return r.ahora }
 type verificadorIdentidadOfflinePrueba struct {
 	asercion httpseguridad.AsercionProxyIdentidad
 	error    error
-	llamadas int
+	llamadas atomic.Int32
 }
 
 func (v *verificadorIdentidadOfflinePrueba) Verificar(
 	_ context.Context,
 	_ []byte,
 ) (httpseguridad.AsercionProxyIdentidad, error) {
-	v.llamadas++
+	v.llamadas.Add(1)
 	if v.error != nil {
 		return httpseguridad.AsercionProxyIdentidad{}, v.error
 	}
@@ -51,14 +53,14 @@ func (v *verificadorIdentidadOfflinePrueba) Verificar(
 type evaluadorIdentidadOfflinePrueba struct {
 	resultado httpseguridad.ResultadoEvaluacionGarantia
 	error     error
-	llamadas  int
+	llamadas  atomic.Int32
 }
 
 func (e *evaluadorIdentidadOfflinePrueba) Evaluar(
 	_ context.Context,
 	_ httpseguridad.EntradaEvaluacionGarantia,
 ) (httpseguridad.ResultadoEvaluacionGarantia, error) {
-	e.llamadas++
+	e.llamadas.Add(1)
 	return e.resultado, e.error
 }
 
@@ -66,8 +68,8 @@ type registroIdentidadOfflinePrueba struct {
 	errorAlta         error
 	errorRevalidacion error
 	adulterarAlta     func(*httpseguridad.ConfirmacionAltaSesion)
-	altas             int
-	revalidaciones    int
+	altas             atomic.Int32
+	revalidaciones    atomic.Int32
 	confirmacion      httpseguridad.ConfirmacionAltaSesion
 }
 
@@ -75,7 +77,7 @@ func (r *registroIdentidadOfflinePrueba) ConsumirAsercionYRegistrar(
 	_ context.Context,
 	alta httpseguridad.AltaSesionAtomica,
 ) (httpseguridad.ConfirmacionAltaSesion, error) {
-	r.altas++
+	r.altas.Add(1)
 	if r.errorAlta != nil {
 		return httpseguridad.ConfirmacionAltaSesion{}, r.errorAlta
 	}
@@ -104,7 +106,7 @@ func (r *registroIdentidadOfflinePrueba) ComprobarSesionYCuentaActivas(
 	_ context.Context,
 	consulta httpseguridad.ConsultaSesionActiva,
 ) error {
-	r.revalidaciones++
+	r.revalidaciones.Add(1)
 	if r.errorRevalidacion != nil {
 		return r.errorRevalidacion
 	}
@@ -126,7 +128,8 @@ func (*contextoIdentidadOfflineNulo) Value(any) any               { return nil }
 
 type entornoIdentidadOfflinePrueba struct {
 	configuracion httpseguridad.ConfiguracionSuperficie
-	contextoCanal context.Context
+	intercambio   *intercambioTLSIdentidadOfflinePrueba
+	propietario   *ServidorInterno
 	servicio      *httpseguridad.ServicioIdentidad
 	fachada       *FachadaIdentidadOffline
 	verificador   *verificadorIdentidadOfflinePrueba
@@ -136,19 +139,68 @@ type entornoIdentidadOfflinePrueba struct {
 	ahora         time.Time
 }
 
+type efectosIdentidadOfflinePrueba struct {
+	verificaciones int32
+	evaluaciones   int32
+	altas          int32
+	revalidaciones int32
+}
+
+func (e *entornoIdentidadOfflinePrueba) efectos() efectosIdentidadOfflinePrueba {
+	return efectosIdentidadOfflinePrueba{
+		verificaciones: e.verificador.llamadas.Load(),
+		evaluaciones:   e.evaluador.llamadas.Load(),
+		altas:          e.registro.altas.Load(),
+		revalidaciones: e.registro.revalidaciones.Load(),
+	}
+}
+
+func (e *entornoIdentidadOfflinePrueba) ejecutarEnC4(
+	t *testing.T,
+	operacion func(context.Context),
+) int {
+	t.Helper()
+	manejador := nuevoManejadorC4IdentidadOfflinePrueba(
+		e.intercambio,
+		e.propietario.token,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			operacion(r.Context())
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	)
+	return ejecutarManejadorC4IdentidadOfflinePrueba(
+		t, manejador, e.intercambio.servidor, &e.intercambio.estadoServidor,
+	)
+}
+
+func (e *entornoIdentidadOfflinePrueba) autenticarEnC4(
+	t *testing.T,
+	asercion []byte,
+) (httpseguridad.CapsulaIdentidadPeticion, error) {
+	t.Helper()
+	var capsula httpseguridad.CapsulaIdentidadPeticion
+	var err error
+	if codigo := e.ejecutarEnC4(t, func(ctx context.Context) {
+		capsula, err = e.fachada.Autenticar(ctx, asercion)
+	}); codigo != http.StatusNoContent {
+		t.Fatalf("C4 no ejecuto identidad: %d", codigo)
+	}
+	return capsula, err
+}
+
 func TestFachadaIdentidadOfflineEmiteCapsulaRevalidadaYLigada(t *testing.T) {
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
 	protegida := []byte("asercion-corporativa-protegida")
 
-	capsula, err := entorno.fachada.Autenticar(entorno.contextoCanal, protegida)
+	capsula, err := entorno.autenticarEnC4(t, protegida)
 	if err != nil {
 		t.Fatalf("autenticar: %v", err)
 	}
-	if entorno.verificador.llamadas != 1 || entorno.evaluador.llamadas != 2 ||
-		entorno.registro.altas != 1 || entorno.registro.revalidaciones != 1 {
+	efectos := entorno.efectos()
+	if efectos != (efectosIdentidadOfflinePrueba{1, 2, 1, 1}) {
 		t.Fatalf("secuencia incompleta: verificador=%d evaluador=%d altas=%d revalidaciones=%d",
-			entorno.verificador.llamadas, entorno.evaluador.llamadas,
-			entorno.registro.altas, entorno.registro.revalidaciones)
+			efectos.verificaciones, efectos.evaluaciones,
+			efectos.altas, efectos.revalidaciones)
 	}
 
 	otro := nuevoEntornoIdentidadOfflinePrueba(t)
@@ -158,7 +210,7 @@ func TestFachadaIdentidadOfflineEmiteCapsulaRevalidadaYLigada(t *testing.T) {
 		t.Fatalf("capsula cruzada entre instancias admitida: %v", err)
 	}
 	otroCanal, err := entorno.servicio.AutenticarCanalTLSMutuo(
-		canalTLSIdentidadOfflinePrueba(t).estado,
+		nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13).estadoServidor,
 	)
 	if err != nil {
 		t.Fatalf("segundo canal real: %v", err)
@@ -217,16 +269,14 @@ func TestFachadaIdentidadOfflineRechazaFronterasAdversas(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			entorno := nuevoEntornoIdentidadOfflinePrueba(t)
 			caso.mutar(entorno)
-			capsula, err := entorno.fachada.Autenticar(
-				entorno.contextoCanal, []byte("asercion-adversa"),
-			)
+			capsula, err := entorno.autenticarEnC4(t, []byte("asercion-adversa"))
 			if err == nil {
 				t.Fatal("frontera adversa aceptada")
 			}
-			if entorno.registro.altas != caso.altasEsperadas ||
-				entorno.registro.revalidaciones != caso.revalidacionesEspera {
+			if entorno.registro.altas.Load() != int32(caso.altasEsperadas) ||
+				entorno.registro.revalidaciones.Load() != int32(caso.revalidacionesEspera) {
 				t.Fatalf("efectos inesperados: altas=%d revalidaciones=%d",
-					entorno.registro.altas, entorno.registro.revalidaciones)
+					entorno.registro.altas.Load(), entorno.registro.revalidaciones.Load())
 			}
 			if _, errVinculo := entorno.servicio.VincularCapsulaIdentidadPeticion(
 				context.Background(), capsula, entorno.canal,
@@ -239,10 +289,10 @@ func TestFachadaIdentidadOfflineRechazaFronterasAdversas(t *testing.T) {
 
 func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 	var servicioNulo *httpseguridad.ServicioIdentidad
-	if _, err := NuevaFachadaIdentidadOffline(nil); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
+	if _, err := NuevaFachadaIdentidadOffline(nil, nil); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
 		t.Fatalf("servicio nulo admitido: %v", err)
 	}
-	if _, err := NuevaFachadaIdentidadOffline(servicioNulo); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
+	if _, err := NuevaFachadaIdentidadOffline(servicioNulo, nil); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
 		t.Fatalf("servicio tipado nulo admitido: %v", err)
 	}
 	var fachadaNula *FachadaIdentidadOffline
@@ -251,6 +301,18 @@ func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 	}
 
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+	var servidorNulo *ServidorInterno
+	if _, err := NuevaFachadaIdentidadOffline(
+		entorno.servicio, servidorNulo,
+	); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
+		t.Fatalf("propietario C4 tipado nulo admitido: %v", err)
+	}
+	servidorSinPropietario := &ServidorInterno{token: &tokenServidorInterno{marca: 1}}
+	if _, err := NuevaFachadaIdentidadOffline(
+		entorno.servicio, servidorSinPropietario,
+	); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
+		t.Fatalf("propietario C4 ajeno admitido: %v", err)
+	}
 	if _, err := entorno.fachada.Autenticar(nil, []byte("x")); !errors.Is(err, ErrIdentidadOfflineNoDisponible) {
 		t.Fatalf("contexto nulo admitido: %v", err)
 	}
@@ -268,13 +330,17 @@ func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 	if _, err := entorno.fachada.Autenticar(ctxCapacidadNula, []byte("x")); !errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado) {
 		t.Fatalf("capacidad C4 tipada nula admitida: %v", err)
 	}
-	ctxCancelado, cancelar := context.WithCancel(entorno.contextoCanal)
-	cancelar()
-	if _, err := entorno.fachada.Autenticar(ctxCancelado, []byte("x")); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelacion perdida: %v", err)
+	var errCancelacion error
+	entorno.ejecutarEnC4(t, func(ctx context.Context) {
+		ctxCancelado, cancelar := context.WithCancel(ctx)
+		cancelar()
+		_, errCancelacion = entorno.fachada.Autenticar(ctxCancelado, []byte("x"))
+	})
+	if !errors.Is(errCancelacion, context.Canceled) {
+		t.Fatalf("cancelacion perdida: %v", errCancelacion)
 	}
 	var protegidaNula []byte
-	if _, err := entorno.fachada.Autenticar(entorno.contextoCanal, protegidaNula); !errors.Is(err, httpseguridad.ErrAsercionAusente) {
+	if _, err := entorno.autenticarEnC4(t, protegidaNula); !errors.Is(err, httpseguridad.ErrAsercionAusente) {
 		t.Fatalf("asercion tipada nula admitida: %v", err)
 	}
 
@@ -292,11 +358,14 @@ func TestFachadaIdentidadOfflineCierraNulosTLSYSuperficieAjena(t *testing.T) {
 		t, configuracionExterna, &verificadorIdentidadOfflinePrueba{},
 		&evaluadorIdentidadOfflinePrueba{}, &registroIdentidadOfflinePrueba{}, entorno.ahora,
 	)
-	fachadaExterna, err := NuevaFachadaIdentidadOffline(servicioExterno)
+	fachadaExterna, err := NuevaFachadaIdentidadOffline(servicioExterno, entorno.propietario)
 	if err != nil {
 		t.Fatalf("crear fachada externa para rechazo: %v", err)
 	}
-	if _, err = fachadaExterna.Autenticar(entorno.contextoCanal, []byte("x")); !errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado) {
+	entorno.ejecutarEnC4(t, func(ctx context.Context) {
+		_, err = fachadaExterna.Autenticar(ctx, []byte("x"))
+	})
+	if !errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado) {
 		t.Fatalf("superficie externa admitida: %v", err)
 	}
 }
@@ -311,6 +380,7 @@ func TestFachadaIdentidadOfflineRechazaEstadosNoAcreditadosSinEfectos(t *testing
 		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
 		manejador := nuevoManejadorC4IdentidadOfflinePrueba(
 			intercambio,
+			entorno.propietario.token,
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, _ = entorno.fachada.Autenticar(r.Context(), []byte("asercion-no-acreditada"))
 				w.WriteHeader(http.StatusNoContent)
@@ -321,12 +391,12 @@ func TestFachadaIdentidadOfflineRechazaEstadosNoAcreditadosSinEfectos(t *testing
 		); codigo != http.StatusBadRequest {
 			t.Fatalf("estado no acreditado alcanzo C5: %d", codigo)
 		}
-		if entorno.verificador.llamadas != 0 || entorno.evaluador.llamadas != 0 ||
-			entorno.registro.altas != 0 || entorno.registro.revalidaciones != 0 {
+		efectos := entorno.efectos()
+		if efectos != (efectosIdentidadOfflinePrueba{}) {
 			t.Fatalf(
 				"estado no acreditado produjo efectos: verificador=%d evaluador=%d altas=%d revalidaciones=%d",
-				entorno.verificador.llamadas, entorno.evaluador.llamadas,
-				entorno.registro.altas, entorno.registro.revalidaciones,
+				efectos.verificaciones, efectos.evaluaciones,
+				efectos.altas, efectos.revalidaciones,
 			)
 		}
 	}
@@ -370,11 +440,99 @@ func TestFachadaIdentidadOfflineRechazaEstadosNoAcreditadosSinEfectos(t *testing
 	})
 }
 
+func TestCapacidadC4IdentidadOfflineEsEfimeraYDeConsumoUnico(t *testing.T) {
+	t.Run("segundo uso secuencial", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		var primerError, segundoError error
+		var efectosTrasPrimero efectosIdentidadOfflinePrueba
+		codigo := entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			_, primerError = entorno.fachada.Autenticar(ctx, []byte("asercion-primera"))
+			efectosTrasPrimero = entorno.efectos()
+			_, segundoError = entorno.fachada.Autenticar(ctx, []byte("asercion-segunda"))
+		})
+		if codigo != http.StatusNoContent || primerError != nil ||
+			!errors.Is(segundoError, httpseguridad.ErrCanalProxyNoAutenticado) {
+			t.Fatalf("replay secuencial: codigo=%d primero=%v segundo=%v",
+				codigo, primerError, segundoError)
+		}
+		if efectosTrasPrimero != (efectosIdentidadOfflinePrueba{1, 2, 1, 1}) ||
+			entorno.efectos() != efectosTrasPrimero {
+			t.Fatalf("segundo uso produjo efectos: primero=%+v final=%+v",
+				efectosTrasPrimero, entorno.efectos())
+		}
+	})
+
+	t.Run("dos usos concurrentes con exactamente un ganador", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		errores := make([]error, 2)
+		codigo := entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			inicio := make(chan struct{})
+			var grupo sync.WaitGroup
+			grupo.Add(len(errores))
+			for indice := range errores {
+				go func() {
+					defer grupo.Done()
+					<-inicio
+					_, errores[indice] = entorno.fachada.Autenticar(
+						ctx, []byte("asercion-concurrente"),
+					)
+				}()
+			}
+			close(inicio)
+			grupo.Wait()
+		})
+		ganadores, rechazados := 0, 0
+		for _, err := range errores {
+			switch {
+			case err == nil:
+				ganadores++
+			case errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado):
+				rechazados++
+			default:
+				t.Fatalf("resultado concurrente inesperado: %v", err)
+			}
+		}
+		if codigo != http.StatusNoContent || ganadores != 1 || rechazados != 1 ||
+			entorno.efectos() != (efectosIdentidadOfflinePrueba{1, 2, 1, 1}) {
+			t.Fatalf("consumo concurrente: codigo=%d ganadores=%d rechazos=%d efectos=%+v",
+				codigo, ganadores, rechazados, entorno.efectos())
+		}
+	})
+
+	t.Run("contexto capturado tras retorno", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		var capturado context.Context
+		if codigo := entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			capturado = ctx
+		}); codigo != http.StatusNoContent || capturado == nil {
+			t.Fatalf("captura del contexto: codigo=%d contexto=%v", codigo, capturado)
+		}
+		_, err := entorno.fachada.Autenticar(capturado, []byte("asercion-tardia"))
+		if !errors.Is(err, httpseguridad.ErrCanalProxyNoAutenticado) ||
+			entorno.efectos() != (efectosIdentidadOfflinePrueba{}) {
+			t.Fatalf("contexto capturado admitido: error=%v efectos=%+v", err, entorno.efectos())
+		}
+	})
+
+	t.Run("trasplante entre propietarios", func(t *testing.T) {
+		origen := nuevoEntornoIdentidadOfflinePrueba(t)
+		destino := nuevoEntornoIdentidadOfflinePrueba(t)
+		var errTrasplante error
+		codigo := origen.ejecutarEnC4(t, func(ctx context.Context) {
+			_, errTrasplante = destino.fachada.Autenticar(ctx, []byte("asercion-trasplantada"))
+		})
+		if codigo != http.StatusNoContent ||
+			!errors.Is(errTrasplante, httpseguridad.ErrCanalProxyNoAutenticado) ||
+			destino.efectos() != (efectosIdentidadOfflinePrueba{}) {
+			t.Fatalf("trasplante admitido: codigo=%d error=%v efectos=%+v",
+				codigo, errTrasplante, destino.efectos())
+		}
+	})
+}
+
 func TestCapsulaEmitidaPorFachadaIdentidadOfflineNoSeSerializa(t *testing.T) {
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
-	capsula, err := entorno.fachada.Autenticar(
-		entorno.contextoCanal, []byte("material-que-no-debe-serializarse"),
-	)
+	capsula, err := entorno.autenticarEnC4(t, []byte("material-que-no-debe-serializarse"))
 	if err != nil {
 		t.Fatalf("autenticar: %v", err)
 	}
@@ -397,8 +555,11 @@ func nuevoEntornoIdentidadOfflinePrueba(
 	t *testing.T,
 ) *entornoIdentidadOfflinePrueba {
 	t.Helper()
-	canalTLS := canalTLSIdentidadOfflinePrueba(t)
-	estadoTLS := canalTLS.estado
+	intercambio := nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13)
+	estadoTLS := intercambio.estadoServidor
+	token := &tokenServidorInterno{marca: 1}
+	propietario := &ServidorInterno{token: token}
+	propietario.propietario = propietario
 	ahora := time.Date(2026, 8, 30, 12, 0, 0, 0, time.UTC)
 	configuracion := configuracionIdentidadOfflinePrueba()
 	verificador := &verificadorIdentidadOfflinePrueba{}
@@ -416,12 +577,12 @@ func nuevoEntornoIdentidadOfflinePrueba(
 		t.Fatalf("autenticar canal de prueba: %v", err)
 	}
 	verificador.asercion = asercionIdentidadOfflinePrueba(ahora, configuracion, canal)
-	fachada, err := NuevaFachadaIdentidadOffline(servicio)
+	fachada, err := NuevaFachadaIdentidadOffline(servicio, propietario)
 	if err != nil {
 		t.Fatalf("crear fachada: %v", err)
 	}
 	return &entornoIdentidadOfflinePrueba{
-		configuracion: configuracion, contextoCanal: canalTLS.contexto,
+		configuracion: configuracion, intercambio: intercambio, propietario: propietario,
 		servicio: servicio, fachada: fachada, verificador: verificador, evaluador: evaluador,
 		registro: registro, canal: canal, ahora: ahora,
 	}
@@ -498,11 +659,6 @@ func asercionIdentidadOfflinePrueba(
 	}
 }
 
-type canalTLSIdentidadOffline struct {
-	contexto context.Context
-	estado   tls.ConnectionState
-}
-
 type intercambioTLSIdentidadOfflinePrueba struct {
 	servidor       *tls.Conn
 	estadoServidor tls.ConnectionState
@@ -511,39 +667,11 @@ type intercambioTLSIdentidadOfflinePrueba struct {
 	nombreServidor string
 }
 
-func canalTLSIdentidadOfflinePrueba(t *testing.T) canalTLSIdentidadOffline {
-	t.Helper()
-	intercambio := nuevoIntercambioTLSIdentidadOfflinePrueba(t, tls.VersionTLS13)
-	var contextoAcreditado context.Context
-	manejador := nuevoManejadorC4IdentidadOfflinePrueba(
-		intercambio,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			contextoAcreditado = r.Context()
-			w.WriteHeader(http.StatusNoContent)
-		}),
-	)
-	if codigo := ejecutarManejadorC4IdentidadOfflinePrueba(
-		t, manejador, intercambio.servidor, &intercambio.estadoServidor,
-	); codigo != http.StatusNoContent || contextoAcreditado == nil {
-		t.Fatalf("C4 no emitio capacidad TLS: %d", codigo)
-	}
-	capacidad, valida := contextoAcreditado.Value(
-		claveContextoCanalTLSInterno{},
-	).(*capacidadCanalTLSInterno)
-	if !valida || capacidad == nil || capacidad.sello != manejador.token {
-		t.Fatal("C4 no entrego una capacidad TLS opaca valida")
-	}
-	return canalTLSIdentidadOffline{
-		contexto: contextoAcreditado,
-		estado:   intercambio.estadoServidor,
-	}
-}
-
 func nuevoManejadorC4IdentidadOfflinePrueba(
 	intercambio *intercambioTLSIdentidadOfflinePrueba,
+	token *tokenServidorInterno,
 	siguiente http.Handler,
 ) *manejadorInternoVerificado {
-	token := &tokenServidorInterno{marca: 1}
 	return &manejadorInternoVerificado{
 		siguiente: siguiente,
 		token:     token,

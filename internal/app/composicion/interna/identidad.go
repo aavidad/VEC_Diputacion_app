@@ -16,19 +16,25 @@ var ErrIdentidadOfflineNoDisponible = errors.New(
 // listeners, configuracion ni credenciales. ServicioIdentidad conserva la
 // autoridad exclusiva sobre canal, asercion, alta durable y revalidacion.
 type FachadaIdentidadOffline struct {
-	servicio *httpseguridad.ServicioIdentidad
+	servicio    *httpseguridad.ServicioIdentidad
+	propietario *tokenServidorInterno
 }
 
 // NuevaFachadaIdentidadOffline recibe un servicio cuyos puertos productivos ya
-// han sido constituidos por su autoridad. No crea proveedores ni alternativas
-// de memoria.
+// han sido constituidos por su autoridad y lo liga al propietario C4 exacto.
+// No crea proveedores ni alternativas de memoria.
 func NuevaFachadaIdentidadOffline(
 	servicio *httpseguridad.ServicioIdentidad,
+	servidor *ServidorInterno,
 ) (*FachadaIdentidadOffline, error) {
-	if servicio == nil {
+	if servicio == nil || servidor == nil || servidor.propietario != servidor ||
+		servidor.token == nil {
 		return nil, ErrIdentidadOfflineNoDisponible
 	}
-	return &FachadaIdentidadOffline{servicio: servicio}, nil
+	return &FachadaIdentidadOffline{
+		servicio:    servicio,
+		propietario: servidor.token,
+	}, nil
 }
 
 // Autenticar consume exclusivamente la capacidad de canal emitida por C4 en
@@ -39,7 +45,8 @@ func (f *FachadaIdentidadOffline) Autenticar(
 	ctx context.Context,
 	asercionProtegida []byte,
 ) (httpseguridad.CapsulaIdentidadPeticion, error) {
-	if f == nil || f.servicio == nil || interfazNulaIdentidadOffline(ctx) {
+	if f == nil || f.servicio == nil || f.propietario == nil ||
+		interfazNulaIdentidadOffline(ctx) {
 		return httpseguridad.CapsulaIdentidadPeticion{}, ErrIdentidadOfflineNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -48,11 +55,15 @@ func (f *FachadaIdentidadOffline) Autenticar(
 	capacidad, valida := ctx.Value(
 		claveContextoCanalTLSInterno{},
 	).(*capacidadCanalTLSInterno)
-	if !valida || capacidad == nil || capacidad.sello == nil {
+	if !valida {
+		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
+	}
+	estadoTLS, consumida := capacidad.consumir(f.propietario)
+	if !consumida {
 		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado
 	}
 
-	canal, err := f.servicio.AutenticarCanalTLSMutuo(capacidad.estado)
+	canal, err := f.servicio.AutenticarCanalTLSMutuo(estadoTLS)
 	if err != nil || canal.Tipo() != httpseguridad.CanalProxyTLSMutuo ||
 		canal.Superficie() != httpseguridad.SuperficieInternaCorporativa {
 		return httpseguridad.CapsulaIdentidadPeticion{}, httpseguridad.ErrCanalProxyNoAutenticado

@@ -56,12 +56,51 @@ type posesionConexionTLS struct {
 	conexion *tls.Conn
 }
 
+const (
+	estadoCapacidadCanalTLSInternoVigente uint32 = iota + 1
+	estadoCapacidadCanalTLSInternoConsumida
+	estadoCapacidadCanalTLSInternoInvalidada
+)
+
 // capacidadCanalTLSInterno solo nace en la capsula C4 despues de cotejar la
 // peticion con el *tls.Conn exacto. C5 recibe su copia defensiva del estado del
-// lado servidor mediante la clave privada de contexto; su valor cero no vale.
+// lado servidor mediante la clave privada de contexto y puede consumirla una
+// sola vez mientras ServeHTTP permanece activo; su valor cero no vale.
 type capacidadCanalTLSInterno struct {
-	sello  *tokenServidorInterno
-	estado tls.ConnectionState
+	propietario *tokenServidorInterno
+	estadoTLS   tls.ConnectionState
+	estadoUso   atomic.Uint32
+}
+
+func nuevaCapacidadCanalTLSInterno(
+	propietario *tokenServidorInterno,
+	estado tls.ConnectionState,
+) *capacidadCanalTLSInterno {
+	capacidad := &capacidadCanalTLSInterno{
+		propietario: propietario,
+		estadoTLS:   estado,
+	}
+	capacidad.estadoUso.Store(estadoCapacidadCanalTLSInternoVigente)
+	return capacidad
+}
+
+func (c *capacidadCanalTLSInterno) consumir(
+	propietario *tokenServidorInterno,
+) (tls.ConnectionState, bool) {
+	if c == nil || propietario == nil || c.propietario != propietario ||
+		!c.estadoUso.CompareAndSwap(
+			estadoCapacidadCanalTLSInternoVigente,
+			estadoCapacidadCanalTLSInternoConsumida,
+		) {
+		return tls.ConnectionState{}, false
+	}
+	return c.estadoTLS, true
+}
+
+func (c *capacidadCanalTLSInterno) invalidar() {
+	if c != nil {
+		c.estadoUso.Store(estadoCapacidadCanalTLSInternoInvalidada)
+	}
 }
 
 // ServidorInterno es una capsula opaca y de un solo uso. No incrusta ni
@@ -136,6 +175,7 @@ func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Re
 		http.Error(w, "solicitud no disponible", http.StatusBadRequest)
 		return
 	}
+	defer capacidad.invalidar()
 	ctx := context.WithValue(r.Context(), claveContextoCanalTLSInterno{}, capacidad)
 	m.siguiente.ServeHTTP(w, r.WithContext(ctx))
 }
@@ -191,7 +231,7 @@ func (m *manejadorInternoVerificado) acreditarCanalTLSInterno(
 	if err != nil {
 		return nil, false
 	}
-	return &capacidadCanalTLSInterno{sello: m.token, estado: estadoAislado}, true
+	return nuevaCapacidadCanalTLSInterno(m.token, estadoAislado), true
 }
 
 func estadosTLSMismaConexion(estado, actual *tls.ConnectionState) bool {
