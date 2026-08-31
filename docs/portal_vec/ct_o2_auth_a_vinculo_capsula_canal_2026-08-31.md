@@ -2,8 +2,8 @@
 
 Fecha: 31 de agosto de 2026.
 
-Estado: candidato local para revisión independiente. No integrado, no
-publicado y no apto para producción ni datos reales.
+Estado: candidato local corregido R1 para revisión independiente. No
+integrado, no publicado y no apto para producción ni datos reales.
 
 ## Capacidad
 
@@ -20,11 +20,12 @@ que correspondan.
 
 ## Implementación
 
-La secuencia privada común de `Autenticar` conserva el
-`CanalProxyAutenticado` validado junto a la cápsula. La API histórica mantiene
-su firma y recibe solo la cápsula; la operación nueva entrega ambos valores
-directamente a `VincularCapsulaIdentidadPeticion`, sin serialización, getter ni
-tránsito por HTTP.
+`Autenticar` conserva su firma, cuerpo y semántica históricos. La operación
+nueva repite la secuencia corta dentro de `AutenticarYVincular`: el
+`CanalProxyAutenticado` solo vive en una variable local, la cápsula se vincula
+en esa misma función y el único resultado posible es el contexto derivado o
+`nil`. Ningún helper, resultado, estructura, callback o cierre del fichero
+entrega conjuntamente canal y cápsula ni permite demorar la vinculación.
 
 El orden es cerrado:
 
@@ -53,6 +54,10 @@ un resultado utilizable.
 - rechazo de sesión revocada y de contexto con cápsula previa propia o ajena;
 - rechazo de extracción mediante otro `ServicioIdentidad`;
 - un único ganador entre dieciséis contendientes y replay posterior denegado;
+- un único ganador al mezclar `Autenticar` y `AutenticarYVincular` en ambos
+  órdenes y en carrera, sin segundo contexto o cápsula utilizable;
+- regresión estructural AST que impide exponer `CanalProxyAutenticado` en
+  firmas, callbacks, tipos o campos de `identidad.go`;
 - cancelación previa sin consumir la capacidad y cancelación durante la
   verificación sin alta durable;
 - regresión de `Autenticar`, incluida vinculación y extracción posterior.
@@ -76,7 +81,7 @@ necesita ese cambio de identidad; la ejecución completa se reproduce como UID
 - `gofmt` sobre los dos ficheros Go: verde;
 - `GOTOOLCHAIN=go1.26.5 GOPROXY=off go test -count=1
   ./internal/app/composicion/interna`, como UID 10001: verde;
-- prueba focal `TestFachadaIdentidadOfflineAutenticarYVincular`, veinte
+- prueba focal `TestFachadaIdentidadOfflineAutenticarYVincular`, cincuenta
   repeticiones: verde;
 - la misma prueba focal con detector de carreras, cinco repeticiones: verde;
 - `go vet ./internal/app/composicion/interna`: verde;

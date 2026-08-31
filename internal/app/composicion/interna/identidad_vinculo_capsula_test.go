@@ -3,6 +3,9 @@ package interna
 import (
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -11,6 +14,45 @@ import (
 
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
+
+func TestFachadaIdentidadOfflineAutenticarYVincularNoExponeCanalEnFronteras(t *testing.T) {
+	archivos := token.NewFileSet()
+	archivo, err := parser.ParseFile(archivos, "identidad.go", nil, 0)
+	if err != nil {
+		t.Fatalf("analizar identidad.go: %v", err)
+	}
+	contieneCanal := func(nodo ast.Node) bool {
+		encontrado := false
+		ast.Inspect(nodo, func(actual ast.Node) bool {
+			selector, ok := actual.(*ast.SelectorExpr)
+			if ok && selector.Sel.Name == "CanalProxyAutenticado" {
+				encontrado = true
+				return false
+			}
+			return !encontrado
+		})
+		return encontrado
+	}
+	ast.Inspect(archivo, func(nodo ast.Node) bool {
+		switch declaracion := nodo.(type) {
+		case *ast.FuncType:
+			if contieneCanal(declaracion) {
+				t.Fatalf("firma o callback expone CanalProxyAutenticado en %s", archivos.Position(declaracion.Pos()))
+			}
+		case *ast.TypeSpec:
+			if contieneCanal(declaracion.Type) {
+				t.Fatalf("tipo o campo expone CanalProxyAutenticado en %s", archivos.Position(declaracion.Pos()))
+			}
+		}
+		return true
+	})
+	for _, declaracion := range archivo.Decls {
+		grupo, ok := declaracion.(*ast.GenDecl)
+		if ok && grupo.Tok == token.VAR && contieneCanal(grupo) {
+			t.Fatalf("variable de paquete expone CanalProxyAutenticado en %s", archivos.Position(grupo.Pos()))
+		}
+	}
+}
 
 func TestFachadaIdentidadOfflineAutenticarYVincularExitoYConservaContexto(t *testing.T) {
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
@@ -215,6 +257,110 @@ func TestFachadaIdentidadOfflineAutenticarYVincularConsumoUnico(t *testing.T) {
 	}
 }
 
+func TestFachadaIdentidadOfflineAutenticarYVincularCompiteConAutenticar(t *testing.T) {
+	t.Run("Autenticar gana antes de AutenticarYVincular", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		var capsula httpseguridad.CapsulaIdentidadPeticion
+		var vinculado context.Context
+		var errorAutenticar, errorVincular error
+		entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			capsula, errorAutenticar = entorno.fachada.Autenticar(ctx, []byte("asercion-autenticar-primero"))
+			vinculado, errorVincular = entorno.fachada.AutenticarYVincular(ctx, []byte("asercion-vincular-despues"))
+		})
+		if errorAutenticar != nil || vinculado != nil ||
+			!errors.Is(errorVincular, httpseguridad.ErrCanalProxyNoAutenticado) {
+			t.Fatalf("resultado mixto inesperado: autenticar=%v contexto_nulo=%t vincular=%v",
+				errorAutenticar, vinculado == nil, errorVincular)
+		}
+		ctxCapsula, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
+			context.Background(), capsula, entorno.canal,
+		)
+		if err != nil {
+			t.Fatalf("la unica capsula ganadora no se pudo vincular: %v", err)
+		}
+		if _, _, err = entorno.servicio.ExtraerCapsulaIdentidadPeticion(ctxCapsula); err != nil {
+			t.Fatalf("la unica capsula ganadora no se pudo extraer: %v", err)
+		}
+	})
+
+	t.Run("AutenticarYVincular gana antes de Autenticar", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		var capsula httpseguridad.CapsulaIdentidadPeticion
+		var vinculado context.Context
+		var errorAutenticar, errorVincular error
+		entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			vinculado, errorVincular = entorno.fachada.AutenticarYVincular(ctx, []byte("asercion-vincular-primero"))
+			capsula, errorAutenticar = entorno.fachada.Autenticar(ctx, []byte("asercion-autenticar-despues"))
+		})
+		if errorVincular != nil || vinculado == nil ||
+			!errors.Is(errorAutenticar, httpseguridad.ErrCanalProxyNoAutenticado) {
+			t.Fatalf("resultado mixto inesperado: vincular=%v contexto_nulo=%t autenticar=%v",
+				errorVincular, vinculado == nil, errorAutenticar)
+		}
+		if _, _, err := entorno.servicio.ExtraerCapsulaIdentidadPeticion(vinculado); err != nil {
+			t.Fatalf("el unico contexto ganador no se pudo extraer: %v", err)
+		}
+		exigirCapsulaIdentidadNoUtilizable(t, entorno, capsula)
+	})
+
+	t.Run("carrera mixta tiene un unico ganador", func(t *testing.T) {
+		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
+		var capsula httpseguridad.CapsulaIdentidadPeticion
+		var vinculado context.Context
+		var errorAutenticar, errorVincular error
+		entorno.ejecutarEnC4(t, func(ctx context.Context) {
+			inicio := make(chan struct{})
+			var grupo sync.WaitGroup
+			grupo.Add(2)
+			go func() {
+				defer grupo.Done()
+				<-inicio
+				capsula, errorAutenticar = entorno.fachada.Autenticar(ctx, []byte("asercion-carrera-autenticar"))
+			}()
+			go func() {
+				defer grupo.Done()
+				<-inicio
+				vinculado, errorVincular = entorno.fachada.AutenticarYVincular(ctx, []byte("asercion-carrera-vincular"))
+			}()
+			close(inicio)
+			grupo.Wait()
+		})
+
+		ganadores := 0
+		if errorAutenticar == nil {
+			ganadores++
+		}
+		if errorVincular == nil {
+			ganadores++
+		}
+		if ganadores != 1 {
+			t.Fatalf("la carrera mixta no tuvo un unico ganador: autenticar=%v vincular=%v", errorAutenticar, errorVincular)
+		}
+		if errorAutenticar == nil {
+			if vinculado != nil || !errors.Is(errorVincular, httpseguridad.ErrCanalProxyNoAutenticado) {
+				t.Fatalf("Autenticar ganador dejo un segundo contexto: contexto_nulo=%t error=%v", vinculado == nil, errorVincular)
+			}
+			ctxCapsula, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
+				context.Background(), capsula, entorno.canal,
+			)
+			if err != nil {
+				t.Fatalf("capsula ganadora de carrera no vinculable: %v", err)
+			}
+			if _, _, err = entorno.servicio.ExtraerCapsulaIdentidadPeticion(ctxCapsula); err != nil {
+				t.Fatalf("capsula ganadora de carrera no extraible: %v", err)
+			}
+			return
+		}
+		if vinculado == nil || !errors.Is(errorAutenticar, httpseguridad.ErrCanalProxyNoAutenticado) {
+			t.Fatalf("AutenticarYVincular ganador dejo una segunda capsula: contexto_nulo=%t error=%v", vinculado == nil, errorAutenticar)
+		}
+		if _, _, err := entorno.servicio.ExtraerCapsulaIdentidadPeticion(vinculado); err != nil {
+			t.Fatalf("contexto ganador de carrera no extraible: %v", err)
+		}
+		exigirCapsulaIdentidadNoUtilizable(t, entorno, capsula)
+	})
+}
+
 func TestFachadaIdentidadOfflineAutenticarYVincularCancelacionAntesYDurante(t *testing.T) {
 	t.Run("antes no consume el canal", func(t *testing.T) {
 		entorno := nuevoEntornoIdentidadOfflinePrueba(t)
@@ -320,5 +466,19 @@ func exigirContextoVinculadoNulo(
 	t.Helper()
 	if resultado != nil || !errors.Is(err, esperado) {
 		t.Fatalf("fallo no cerrado: contexto_nulo=%t error=%v esperado=%v", resultado == nil, err, esperado)
+	}
+}
+
+func exigirCapsulaIdentidadNoUtilizable(
+	t *testing.T,
+	entorno *entornoIdentidadOfflinePrueba,
+	capsula httpseguridad.CapsulaIdentidadPeticion,
+) {
+	t.Helper()
+	ctx, err := entorno.servicio.VincularCapsulaIdentidadPeticion(
+		context.Background(), capsula, entorno.canal,
+	)
+	if ctx != nil || !errors.Is(err, httpseguridad.ErrSesionNoValida) {
+		t.Fatalf("el perdedor devolvio una capsula utilizable: contexto_nulo=%t error=%v", ctx == nil, err)
 	}
 }
