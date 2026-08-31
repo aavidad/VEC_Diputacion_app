@@ -2,8 +2,10 @@ package ports
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -241,6 +243,272 @@ type PreparadorAsignacionIdempotente interface {
 		context.Context,
 		SolicitudPrepararAsignacion,
 	) (PreparacionAsignacion, error)
+}
+
+// SolicitudConsultarAsignacionIdempotente identifica un posible terminal por
+// el par HMAC activo y por sus coordenadas exactas. No contiene la UUID en
+// claro, no concede autoridad y no permite recuperar otra intención.
+type SolicitudConsultarAsignacionIdempotente struct {
+	AmbitoIdempotenciaHMACActivo string
+	HuellaPeticionHMACActiva     string
+	Operacion                    TipoOperacionAsignacion
+	OrganizacionRef              string
+	ExpedienteRef                string
+	VersionExpediente            uint64
+	ActorRef                     string
+	PerfilRef                    string
+	UnidadRef                    string
+	ResponsableRef               string
+}
+
+func NuevaSolicitudConsultarAsignacionIdempotente(
+	solicitud SolicitudPrepararAsignacion,
+) (SolicitudConsultarAsignacionIdempotente, error) {
+	if solicitud.Validar() != nil {
+		return SolicitudConsultarAsignacionIdempotente{},
+			ErrPreparacionAsignacionInvalida
+	}
+	ambito, huella, err := ParActivoColeccionesHMAC(
+		solicitud.AmbitosHMAC,
+		DominioAmbitoIdempotenciaAsignacion,
+		solicitud.HuellasPeticionHMAC,
+		DominioHuellaPeticionAsignacion,
+	)
+	if err != nil {
+		return SolicitudConsultarAsignacionIdempotente{},
+			ErrPreparacionAsignacionInvalida
+	}
+	consulta := SolicitudConsultarAsignacionIdempotente{
+		AmbitoIdempotenciaHMACActivo: ambito,
+		HuellaPeticionHMACActiva:     huella,
+		Operacion:                    solicitud.Operacion,
+		OrganizacionRef:              solicitud.OrganizacionRef,
+		ExpedienteRef:                solicitud.ExpedienteRef,
+		VersionExpediente:            solicitud.VersionExpediente,
+		ActorRef:                     solicitud.ActorRef,
+		PerfilRef:                    solicitud.PerfilRef,
+		UnidadRef:                    solicitud.UnidadRef,
+		ResponsableRef:               solicitud.ResponsableRef,
+	}
+	if consulta.Validar() != nil {
+		return SolicitudConsultarAsignacionIdempotente{},
+			ErrPreparacionAsignacionInvalida
+	}
+	return consulta, nil
+}
+
+func (s SolicitudConsultarAsignacionIdempotente) Validar() error {
+	dominioAmbito, generacionAmbito, ambitoValido := descomponerSelloHMAC(
+		s.AmbitoIdempotenciaHMACActivo,
+	)
+	dominioHuella, generacionHuella, huellaValida := descomponerSelloHMAC(
+		s.HuellaPeticionHMACActiva,
+	)
+	if !ambitoValido || !huellaValida ||
+		dominioAmbito != DominioAmbitoIdempotenciaAsignacion ||
+		dominioHuella != DominioHuellaPeticionAsignacion ||
+		generacionAmbito != generacionHuella || !s.Operacion.Valida() ||
+		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
+		!VersionOperacionAnalisisConIncrementoValida(s.VersionExpediente) ||
+		!domain.ReferenciaOpacaValida(s.ActorRef) ||
+		!domain.ReferenciaOpacaValida(s.PerfilRef) ||
+		!domain.ReferenciaOpacaValida(s.UnidadRef) ||
+		!domain.ReferenciaOpacaValida(s.ResponsableRef) {
+		return ErrPreparacionAsignacionInvalida
+	}
+	return nil
+}
+
+// DatosEstadoCandidatoAsignacionIdempotente contiene los compromisos durables
+// mínimos que permiten detectar cambios de destino o política sin convertir
+// el recibo anterior en autoridad.
+type DatosEstadoCandidatoAsignacionIdempotente struct {
+	Consulta                     SolicitudConsultarAsignacionIdempotente
+	Preparacion                  PreparacionAsignacion
+	DestinoEvidenciaRef          string
+	DestinoEvidenciaHuellaSHA256 string
+	PoliticaRef                  string
+	PoliticaVersion              uint64
+	PoliticaHuellaSHA256         string
+	Finalidad                    domain.ClaveCatalogo
+}
+
+type datosEstadoCandidatoAsignacionIdempotente struct {
+	datos        DatosEstadoCandidatoAsignacionIdempotente
+	reconciliada atomic.Bool
+}
+
+// EstadoCandidatoAsignacionIdempotente es una capacidad opaca y de un solo
+// uso. Un adaptador durable solo la construye tras una consulta de lectura
+// exacta; la aplicación no puede alterar ni serializar sus compromisos.
+type EstadoCandidatoAsignacionIdempotente struct {
+	datos *datosEstadoCandidatoAsignacionIdempotente
+}
+
+func NuevoEstadoCandidatoAsignacionIdempotente(
+	datos DatosEstadoCandidatoAsignacionIdempotente,
+) (EstadoCandidatoAsignacionIdempotente, error) {
+	if validarEstadoCandidatoAsignacion(datos) != nil {
+		return EstadoCandidatoAsignacionIdempotente{},
+			ErrResultadoAsignacionNoConfiable
+	}
+	copia := datos
+	copia.Preparacion = clonarPreparacionAsignacion(datos.Preparacion)
+	return EstadoCandidatoAsignacionIdempotente{
+		datos: &datosEstadoCandidatoAsignacionIdempotente{datos: copia},
+	}, nil
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) PreparacionPara(
+	consulta SolicitudConsultarAsignacionIdempotente,
+) (PreparacionAsignacion, error) {
+	if e.datos == nil || consulta.Validar() != nil ||
+		e.datos.datos.Consulta != consulta ||
+		validarEstadoCandidatoAsignacion(e.datos.datos) != nil {
+		return PreparacionAsignacion{}, ErrResultadoAsignacionNoConfiable
+	}
+	return clonarPreparacionAsignacion(e.datos.datos.Preparacion), nil
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) Reconciliar(
+	evidencia EvidenciaReconciliacionAsignacion,
+) (ReciboAsignacion, error) {
+	if e.datos == nil || !e.datos.reconciliada.CompareAndSwap(false, true) ||
+		validarReconciliacionAsignacion(e.datos.datos, evidencia) != nil {
+		return ReciboAsignacion{}, ErrResultadoAsignacionNoConfiable
+	}
+	return *e.datos.datos.Preparacion.ReciboConfirmado, nil
+}
+
+func (e EstadoCandidatoAsignacionIdempotente) EsCero() bool {
+	return e.datos == nil
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalJSON() ([]byte, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalJSON([]byte) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalText() ([]byte, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalText([]byte) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalBinary() ([]byte, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalBinary([]byte) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) GobEncode() ([]byte, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) GobDecode([]byte) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalCBOR() ([]byte, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalCBOR([]byte) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalYAML() (any, error) {
+	return nil, ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalYAML(func(any) error) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (EstadoCandidatoAsignacionIdempotente) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+func (*EstadoCandidatoAsignacionIdempotente) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error {
+	return ErrResultadoAsignacionNoConfiable
+}
+
+// ConsultorAsignacionIdempotente es una frontera exclusivamente de lectura.
+// encontrado=false exige estado cero; cualquier otra combinación es ambigua.
+type ConsultorAsignacionIdempotente interface {
+	ConsultarAsignacion(
+		context.Context,
+		SolicitudConsultarAsignacionIdempotente,
+	) (EstadoCandidatoAsignacionIdempotente, bool, error)
+}
+
+func validarEstadoCandidatoAsignacion(
+	datos DatosEstadoCandidatoAsignacionIdempotente,
+) error {
+	p := datos.Preparacion
+	if datos.Consulta.Validar() != nil || p.Expediente.Validar() != nil ||
+		p.Referencias.Validar() != nil ||
+		p.Estado != PreparacionAsignacionConfirmada ||
+		p.ReciboConfirmado == nil ||
+		p.ReciboConfirmado.ValidarParaPreparacion(p) != nil ||
+		p.Operacion != datos.Consulta.Operacion ||
+		p.OrganizacionRef != datos.Consulta.OrganizacionRef ||
+		p.Expediente.Referencia != datos.Consulta.ExpedienteRef ||
+		p.Expediente.Version != datos.Consulta.VersionExpediente ||
+		p.ActorRef != datos.Consulta.ActorRef ||
+		p.PerfilRef != datos.Consulta.PerfilRef ||
+		p.UnidadRef != datos.Consulta.UnidadRef ||
+		p.ResponsableRef != datos.Consulta.ResponsableRef ||
+		!parSellosAsignacionValido(
+			p.AmbitoIdempotenciaHMAC,
+			p.HuellaPeticionHMAC,
+		) ||
+		!domain.ReferenciaOpacaValida(datos.DestinoEvidenciaRef) ||
+		!huellaSHA256OperacionAnalisisValida(
+			datos.DestinoEvidenciaHuellaSHA256,
+		) ||
+		!domain.ReferenciaOpacaValida(datos.PoliticaRef) ||
+		!VersionOperacionAnalisisValida(datos.PoliticaVersion) ||
+		!huellaSHA256OperacionAnalisisValida(datos.PoliticaHuellaSHA256) ||
+		!datos.Finalidad.Valida() {
+		return ErrResultadoAsignacionNoConfiable
+	}
+	return nil
+}
+
+func parSellosAsignacionValido(ambito, huella string) bool {
+	dominioAmbito, generacionAmbito, ambitoValido := descomponerSelloHMAC(ambito)
+	dominioHuella, generacionHuella, huellaValida := descomponerSelloHMAC(huella)
+	return ambitoValido && huellaValida &&
+		dominioAmbito == DominioAmbitoIdempotenciaAsignacion &&
+		dominioHuella == DominioHuellaPeticionAsignacion &&
+		generacionAmbito == generacionHuella
+}
+
+func clonarPreparacionAsignacion(
+	preparacion PreparacionAsignacion,
+) PreparacionAsignacion {
+	copia := preparacion
+	copia.Expediente = preparacion.Expediente.Clonar()
+	if preparacion.ReciboConfirmado != nil {
+		recibo := *preparacion.ReciboConfirmado
+		copia.ReciboConfirmado = &recibo
+	}
+	return copia
 }
 
 type GeneradorReferenciasAsignacion interface {

@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -262,6 +263,71 @@ func TestSolicitudPrepararAsignacionExigeSellosYCoordenadas(t *testing.T) {
 		ErrPreparacionAsignacionInvalida,
 	) {
 		t.Fatalf("se esperaba dominio HMAC rechazado, recibido %v", err)
+	}
+}
+
+func TestConsultaAsignacionIdempotenteUsaSoloElParHMACActivo(t *testing.T) {
+	solicitud := solicitudPrepararAsignacionPrueba(t)
+	ambitoV1 := selloPrueba(
+		DominioAmbitoIdempotenciaAsignacion+"/v1",
+		"1",
+	)
+	huellaV1 := selloPrueba(
+		DominioHuellaPeticionAsignacion+"/v1",
+		"2",
+	)
+	ambitoV2 := selloPrueba(
+		DominioAmbitoIdempotenciaAsignacion+"/v2",
+		"3",
+	)
+	huellaV2 := selloPrueba(
+		DominioHuellaPeticionAsignacion+"/v2",
+		"4",
+	)
+	var err error
+	solicitud.AmbitosHMAC, err = NuevaColeccionSellosHMAC(
+		ambitoV2,
+		[]string{ambitoV1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud.HuellasPeticionHMAC, err = NuevaColeccionSellosHMAC(
+		huellaV2,
+		[]string{huellaV1},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	consulta, err := NuevaSolicitudConsultarAsignacionIdempotente(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if consulta.AmbitoIdempotenciaHMACActivo != ambitoV2 ||
+		consulta.HuellaPeticionHMACActiva != huellaV2 ||
+		consulta.Validar() != nil {
+		t.Fatalf("la consulta no quedó ligada al par activo: %#v", consulta)
+	}
+	consulta.HuellaPeticionHMACActiva = huellaV1
+	if consulta.Validar() == nil {
+		t.Fatal("se aceptó un par HMAC de generaciones distintas")
+	}
+}
+
+func TestEstadoCandidatoAsignacionNoSeSerializa(t *testing.T) {
+	estado := EstadoCandidatoAsignacionIdempotente{}
+	if _, err := json.Marshal(estado); !errors.Is(
+		err,
+		ErrResultadoAsignacionNoConfiable,
+	) {
+		t.Fatalf("estado opaco serializable: %v", err)
+	}
+	if _, err := estado.MarshalText(); !errors.Is(
+		err,
+		ErrResultadoAsignacionNoConfiable,
+	) {
+		t.Fatalf("estado opaco convertible a texto: %v", err)
 	}
 }
 

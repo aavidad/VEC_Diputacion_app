@@ -41,6 +41,7 @@ type ServicioAsignacion struct {
 	contextos     ports.ResolutorContextoAutorizacionAltaV3
 	ambitos       ports.SelladorAmbitoAsignacion
 	huellas       ports.DerivadorHuellaAsignacion
+	consultas     ports.ConsultorAsignacionIdempotente
 	preparaciones ports.PreparadorAsignacionIdempotente
 	destinos      ports.ResolutorDestinoAsignacion
 	politicas     ports.ResolutorPoliticaAsignacion
@@ -54,6 +55,7 @@ func NuevoServicioAsignacion(
 	contextos ports.ResolutorContextoAutorizacionAltaV3,
 	ambitos ports.SelladorAmbitoAsignacion,
 	huellas ports.DerivadorHuellaAsignacion,
+	consultas ports.ConsultorAsignacionIdempotente,
 	preparaciones ports.PreparadorAsignacionIdempotente,
 	destinos ports.ResolutorDestinoAsignacion,
 	politicas ports.ResolutorPoliticaAsignacion,
@@ -63,7 +65,8 @@ func NuevoServicioAsignacion(
 	transaccion ports.TransaccionAsignaciones,
 ) (*ServicioAsignacion, error) {
 	if dependenciaNula(contextos) || dependenciaNula(ambitos) ||
-		dependenciaNula(huellas) || dependenciaNula(preparaciones) ||
+		dependenciaNula(huellas) || dependenciaNula(consultas) ||
+		dependenciaNula(preparaciones) ||
 		dependenciaNula(destinos) || dependenciaNula(politicas) ||
 		dependenciaNula(correlaciones) || dependenciaNula(autorizador) ||
 		dependenciaNula(reloj) || dependenciaNula(transaccion) {
@@ -73,6 +76,7 @@ func NuevoServicioAsignacion(
 		contextos:     contextos,
 		ambitos:       ambitos,
 		huellas:       huellas,
+		consultas:     consultas,
 		preparaciones: preparaciones,
 		destinos:      destinos,
 		politicas:     politicas,
@@ -203,6 +207,45 @@ func (s *ServicioAsignacion) ejecutar(
 		ambitos,
 		huellas,
 	)
+	consulta, err := ports.NuevaSolicitudConsultarAsignacionIdempotente(
+		preparar,
+	)
+	if err != nil {
+		return ports.ReciboAsignacion{},
+			ports.ErrPreparacionAsignacionInvalida
+	}
+	estado, encontrado, err := s.consultas.ConsultarAsignacion(
+		ctxOperacion,
+		consulta,
+	)
+	if err != nil {
+		return ports.ReciboAsignacion{},
+			clasificarFalloAsignacion(ctxOperacion, err)
+	}
+	if err := ctxOperacion.Err(); err != nil {
+		return ports.ReciboAsignacion{}, err
+	}
+	if encontrado {
+		preparacion, err := estado.PreparacionPara(consulta)
+		if err != nil || preparacion.ValidarPara(preparar) != nil {
+			return ports.ReciboAsignacion{},
+				ErrResultadoAsignacionNoConfiable
+		}
+		return s.reconciliar(
+			ctxOperacion,
+			solicitud,
+			material,
+			contextoSolicitud,
+			contexto,
+			preparar,
+			preparacion,
+			estado,
+		)
+	}
+	if !estado.EsCero() {
+		return ports.ReciboAsignacion{},
+			ErrResultadoAsignacionNoConfiable
+	}
 	preparacion, err := s.preparaciones.PrepararAsignacion(
 		ctxOperacion,
 		preparar,
@@ -216,7 +259,8 @@ func (s *ServicioAsignacion) ejecutar(
 			ports.ErrPreparacionAsignacionInvalida
 	}
 	if preparacion.Estado == ports.PreparacionAsignacionConfirmada {
-		return *preparacion.ReciboConfirmado, nil
+		return ports.ReciboAsignacion{},
+			ErrResultadoAsignacionNoConfiable
 	}
 	return s.confirmar(
 		ctxOperacion,

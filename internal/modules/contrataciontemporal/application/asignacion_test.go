@@ -30,6 +30,25 @@ type derivadorHuellaAsignacionDoble struct {
 	llamadas  int
 }
 
+type consultorAsignacionDoble struct {
+	estado     ports.EstadoCandidatoAsignacionIdempotente
+	encontrado bool
+	err        error
+	llamadas   int
+	antes      func()
+}
+
+func (d *consultorAsignacionDoble) ConsultarAsignacion(
+	_ context.Context,
+	_ ports.SolicitudConsultarAsignacionIdempotente,
+) (ports.EstadoCandidatoAsignacionIdempotente, bool, error) {
+	d.llamadas++
+	if d.antes != nil {
+		d.antes()
+	}
+	return d.estado, d.encontrado, d.err
+}
+
 func (d *derivadorHuellaAsignacionDoble) DerivarHuellaAsignacion(
 	_ context.Context,
 	material ports.MaterialHuellaAsignacion,
@@ -56,9 +75,10 @@ func (d *preparadorAsignacionDoble) PrepararAsignacion(
 }
 
 type resolutorDestinoAsignacionDoble struct {
-	destino   ports.DestinoAsignacionResuelto
-	adulterar bool
-	llamadas  int
+	destino          ports.DestinoAsignacionResuelto
+	adulterar        bool
+	evidenciaAlterna bool
+	llamadas         int
 }
 
 func (d *resolutorDestinoAsignacionDoble) ResolverDestinoAsignacion(
@@ -78,12 +98,17 @@ func (d *resolutorDestinoAsignacionDoble) ResolverDestinoAsignacion(
 	if d.adulterar {
 		destino.ResponsableRef = "persona:ajena:0123456789abcdef"
 	}
+	if d.evidenciaAlterna {
+		destino.EvidenciaRef = "evidencia:destino-alterno-001"
+		destino.EvidenciaHuellaSHA256 = strings.Repeat("1", 64)
+	}
 	return destino, nil
 }
 
 type resolutorPoliticaAsignacionDoble struct {
-	motivo   dominiovec.ReferenciaEntradaCatalogo
-	llamadas int
+	motivo            dominiovec.ReferenciaEntradaCatalogo
+	definicionAlterna bool
+	llamadas          int
 }
 
 func (d *resolutorPoliticaAsignacionDoble) ResolverPoliticaAsignacion(
@@ -128,6 +153,11 @@ func (d *resolutorPoliticaAsignacionDoble) ResolverPoliticaAsignacion(
 			ClaveMensajeI18N: "contratacion_temporal.asignacion.motivo." +
 				solicitud.MotivoReasignacionClave,
 		}
+	}
+	if d.definicionAlterna {
+		politica.DefinicionRef = "politica:asignacion-alterna-001"
+		politica.DefinicionVersion++
+		politica.DefinicionHuellaSHA256 = strings.Repeat("2", 64)
 	}
 	return politica, nil
 }
@@ -198,17 +228,17 @@ func TestServicioAsignacionRechazaDestinoNoLigadoAntesDelPDP(t *testing.T) {
 func TestServicioAsignacionDevuelveReplaySinDuplicarEfectos(t *testing.T) {
 	escenario := nuevoEscenarioAsignacion(t)
 	servicio, dependencias := construirServicioAsignacion(t, escenario)
-	confirmado := dependencias.preparaciones.preparacion
-	reciboConfirmado := dependencias.transaccion.recibo
-	confirmado.Estado = ports.PreparacionAsignacionConfirmada
-	confirmado.ReciboConfirmado = &reciboConfirmado
-	dependencias.preparaciones.preparacion = confirmado
+	configurarReplayAsignacionConfirmado(t, dependencias)
 
 	recibo, err := servicio.Asignar(context.Background(), escenario.solicitud)
 	if err != nil || recibo != dependencias.transaccion.recibo ||
-		dependencias.destinos.llamadas != 0 ||
+		dependencias.consultas.llamadas != 1 ||
+		dependencias.destinos.llamadas != 1 ||
+		dependencias.politicas.llamadas != 1 ||
+		dependencias.autorizador.llamadas != 1 ||
+		dependencias.preparaciones.llamadas != 0 ||
 		dependencias.transaccion.llamadas != 0 {
-		t.Fatalf("replay no fue exacto: %#v, %v", recibo, err)
+		t.Fatalf("replay no fue autorizado y exacto: %#v, %v", recibo, err)
 	}
 }
 
@@ -231,11 +261,13 @@ func TestServicioAsignacionReasignaConMotivoGobernado(t *testing.T) {
 }
 
 type dependenciasAsignacion struct {
+	consultas     *consultorAsignacionDoble
 	destinos      *resolutorDestinoAsignacionDoble
 	politicas     *resolutorPoliticaAsignacionDoble
 	preparaciones *preparadorAsignacionDoble
 	autorizador   *autorizadorV3Doble
 	transaccion   *transaccionAsignacionDoble
+	preparar      ports.SolicitudPrepararAsignacion
 }
 
 func construirServicioAsignacion(
@@ -271,6 +303,7 @@ func construirServicioAsignacion(
 		t: t, instante: escenario.instante, motivo: escenario.motivo,
 	}
 	d := &dependenciasAsignacion{
+		consultas: &consultorAsignacionDoble{},
 		destinos: &resolutorDestinoAsignacionDoble{
 			destino: escenario.destino,
 		},
@@ -285,10 +318,27 @@ func construirServicioAsignacion(
 			recibo: escenario.recibo,
 		},
 	}
+	d.preparar = ports.SolicitudPrepararAsignacion{
+		ClaveIdempotencia:   escenario.solicitud.ClaveIdempotencia,
+		AmbitosHMAC:         ambitos,
+		HuellasPeticionHMAC: huellas,
+		Operacion:           escenario.preparacion.Operacion,
+		OrganizacionRef:     escenario.preparacion.OrganizacionRef,
+		ExpedienteRef:       escenario.preparacion.Expediente.Referencia,
+		VersionExpediente:   escenario.preparacion.Expediente.Version,
+		ActorRef:            escenario.preparacion.ActorRef,
+		PerfilRef:           escenario.preparacion.PerfilRef,
+		UnidadRef:           escenario.preparacion.UnidadRef,
+		ResponsableRef:      escenario.preparacion.ResponsableRef,
+	}
+	if escenario.preparacion.Operacion == ports.OperacionRegistrarReasignacion {
+		d.preparar.ClaveIdempotencia = escenario.reasignacion.ClaveIdempotencia
+	}
 	servicio, err := NuevoServicioAsignacion(
 		&resolutorContextoDoble{contexto: escenario.contexto},
 		&selladorAmbitoAsignacionDoble{coleccion: ambitos},
 		&derivadorHuellaAsignacionDoble{coleccion: huellas},
+		d.consultas,
 		d.preparaciones,
 		d.destinos,
 		d.politicas,
