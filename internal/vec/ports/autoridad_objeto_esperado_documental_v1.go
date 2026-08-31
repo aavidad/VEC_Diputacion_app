@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -66,6 +67,8 @@ type datosAutoridadObjetoEsperadoDocumentalV1 struct {
 	recibo                 ReciboEscrituraObjetoMaterialV2
 	reciboRef              string
 	huellaRecibo           [sha256.Size]byte
+	atestacionRecibo       AtestacionAutoridadObjetoEsperadoDocumentalV1
+	selloAtestacionRecibo  [sha256.Size]byte
 	declaracion            DeclaracionEscrituraAlmacenDocumental
 	huellaDeclaracionV4    [sha256.Size]byte
 	contextoV4             ProyeccionContextoOperacionAlmacen
@@ -99,34 +102,37 @@ func NuevaAutoridadObjetoEsperadoDocumentalV1(
 		!reciboMaterialV2CotejaDeclaracionV4(recibo, declaracion) {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
-	if verificarReciboAutoridadObjetoEsperadoDocumentalV1(
-		ctx, recibo, verificadorReferencia, verificadorAtestacion,
-	) != nil {
-		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
-	}
-	if ctx.Err() != nil || declaracion.Validar() != nil ||
-		!reciboMaterialV2CotejaDeclaracionV4(recibo, declaracion) {
+
+	reciboSellado := clonarReciboAutoridadObjetoEsperadoDocumentalV1(recibo)
+	declaracionSellada := clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(declaracion)
+	if reciboSellado.Validar() != nil || declaracionSellada.Validar() != nil ||
+		!reciboMaterialV2CotejaDeclaracionV4(reciboSellado, declaracionSellada) {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 
-	declaracionSellada := clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(declaracion)
 	contexto := declaracionSellada.datos.solicitud.Contexto
-	huellaRecibo, err := recibo.HuellaSHA256()
+	huellaRecibo, err := reciboSellado.HuellaSHA256()
+	canonicoRecibo, atestacionRecibo, errAtestacion :=
+		materialVerificacionAutoridadObjetoEsperadoDocumentalV1(reciboSellado)
+	selloAtestacion, errSello :=
+		selloAtestacionAutoridadObjetoEsperadoDocumentalV1(canonicoRecibo, atestacionRecibo)
 	huellaDeclaracion, errDeclaracion :=
 		huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(declaracionSellada)
-	if err != nil || errDeclaracion != nil {
+	if err != nil || errAtestacion != nil || errSello != nil || errDeclaracion != nil {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
-	instantanea := recibo.instantanea
+	instantanea := reciboSellado.instantanea
 	autoridad := AutoridadObjetoEsperadoDocumentalV1{
 		datos: &datosAutoridadObjetoEsperadoDocumentalV1{
 			esquema:   EsquemaAutoridadObjetoEsperadoDocumentalV1,
 			version:   VersionAutoridadObjetoEsperadoDocumentalV1,
-			recibo:    clonarReciboAutoridadObjetoEsperadoDocumentalV1(recibo),
-			reciboRef: recibo.referenciaDurableOriginal, huellaRecibo: huellaRecibo,
-			declaracion:         declaracionSellada,
-			huellaDeclaracionV4: huellaDeclaracion,
-			contextoV4:          contexto,
+			recibo:    reciboSellado,
+			reciboRef: reciboSellado.referenciaDurableOriginal, huellaRecibo: huellaRecibo,
+			atestacionRecibo:      clonarAtestacionAutoridadObjetoEsperadoDocumentalV1(atestacionRecibo),
+			selloAtestacionRecibo: selloAtestacion,
+			declaracion:           declaracionSellada,
+			huellaDeclaracionV4:   huellaDeclaracion,
+			contextoV4:            contexto,
 			objeto: ReferenciaObjetoAlmacen{
 				Referencia: instantanea.objetoRef, Version: instantanea.objetoVersion,
 			},
@@ -137,7 +143,10 @@ func NuevaAutoridadObjetoEsperadoDocumentalV1(
 			pasoRef:                contexto.PasoRef, huellaPasoSHA256: contexto.HuellaPasoSHA256,
 		},
 	}
-	if autoridad.Validar() != nil {
+	if autoridad.Validar() != nil || verificarReciboAutoridadObjetoEsperadoDocumentalV1(
+		ctx, autoridad.datos.recibo, verificadorReferencia, verificadorAtestacion,
+		autoridad.Validar,
+	) != nil || ctx.Err() != nil || autoridad.Validar() != nil {
 		return AutoridadObjetoEsperadoDocumentalV1{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 	return autoridad, nil
@@ -165,6 +174,7 @@ func (a AutoridadObjetoEsperadoDocumentalV1) PrepararRegistro(
 		dependenciaMaterialV2Nula(verificadorAtestacion) ||
 		verificarReciboAutoridadObjetoEsperadoDocumentalV1(
 			ctx, a.datos.recibo, verificadorReferencia, verificadorAtestacion,
+			a.Validar,
 		) != nil || ctx.Err() != nil || a.Validar() != nil {
 		return ProyeccionAutoridadObjetoEsperadoDocumentalV1{},
 			errorAutoridadObjetoEsperadoDocumentalV1()
@@ -230,6 +240,13 @@ func validarDatosAutoridadObjetoEsperadoDocumentalV1(
 	if err != nil || !huellasMaterialV2Iguales(huella, d.huellaRecibo) {
 		return errorAutoridadObjetoEsperadoDocumentalV1()
 	}
+	canonico, atestacion, err := materialVerificacionAutoridadObjetoEsperadoDocumentalV1(d.recibo)
+	sello, errSello := selloAtestacionAutoridadObjetoEsperadoDocumentalV1(canonico, atestacion)
+	if err != nil || errSello != nil ||
+		!atestacionesAutoridadObjetoEsperadoDocumentalV1Iguales(atestacion, d.atestacionRecibo) ||
+		!huellasMaterialV2Iguales(sello, d.selloAtestacionRecibo) {
+		return errorAutoridadObjetoEsperadoDocumentalV1()
+	}
 	return nil
 }
 
@@ -282,11 +299,14 @@ func verificarReciboAutoridadObjetoEsperadoDocumentalV1(
 	recibo ReciboEscrituraObjetoMaterialV2,
 	verificadorReferencia VerificadorReferenciaReciboMaterialV2,
 	verificadorAtestacion VerificadorAtestacionMaterialAlmacenV2,
+	revalidadores ...func() error,
 ) error {
 	if ctx == nil || ctx.Err() != nil || recibo.Validar() != nil ||
 		dependenciaMaterialV2Nula(verificadorReferencia) ||
 		dependenciaMaterialV2Nula(verificadorAtestacion) ||
-		recibo.VerificarAtestacion(ctx, verificadorAtestacion) != nil || ctx.Err() != nil {
+		revalidacionAutoridadObjetoEsperadoDocumentalV1Falla(revalidadores) ||
+		recibo.VerificarAtestacion(ctx, verificadorAtestacion) != nil || ctx.Err() != nil ||
+		revalidacionAutoridadObjetoEsperadoDocumentalV1Falla(revalidadores) {
 		return errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 	identidad := recibo
@@ -302,12 +322,26 @@ func verificarReciboAutoridadObjetoEsperadoDocumentalV1(
 	resultado, err := NuevoResultadoReferenciaReciboMaterialV2(
 		solicitud, recibo.referenciaDurableOriginal,
 	)
-	if err != nil || ctx.Err() != nil || verificadorReferencia.VerificarReferenciaReciboMaterialV2(
-		ctx, solicitud, resultado,
-	) != nil || ctx.Err() != nil {
+	if err != nil || ctx.Err() != nil ||
+		revalidacionAutoridadObjetoEsperadoDocumentalV1Falla(revalidadores) ||
+		verificadorReferencia.VerificarReferenciaReciboMaterialV2(
+			ctx, solicitud, resultado,
+		) != nil || ctx.Err() != nil ||
+		revalidacionAutoridadObjetoEsperadoDocumentalV1Falla(revalidadores) {
 		return errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 	return nil
+}
+
+func revalidacionAutoridadObjetoEsperadoDocumentalV1Falla(
+	revalidadores []func() error,
+) bool {
+	for _, revalidar := range revalidadores {
+		if revalidar == nil || revalidar() != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func materialVerificacionAutoridadObjetoEsperadoDocumentalV1(
@@ -351,8 +385,27 @@ func clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(
 	datos := clonarDatosPreparacionEscrituraAlmacenDocumentalV4(declaracion.datos)
 	if datos != nil {
 		datos.contexto = clonarContextoAutoridadObjetoEsperadoDocumentalV1(datos.contexto)
+		datos.vinculoEjecucion = clonarVinculoEjecucionAutoridadObjetoEsperadoDocumentalV1(
+			declaracion.datos.vinculoEjecucion,
+		)
 	}
 	return DeclaracionEscrituraAlmacenDocumental{datos: datos}
+}
+
+func clonarVinculoEjecucionAutoridadObjetoEsperadoDocumentalV1(
+	vinculo VinculoEjecucionEscrituraAlmacenDocumental,
+) VinculoEjecucionEscrituraAlmacenDocumental {
+	if vinculo.datos == nil {
+		return VinculoEjecucionEscrituraAlmacenDocumental{}
+	}
+	copia := *vinculo.datos
+	copia.vinculoActivacion = clonarVinculoEstableActivacionDocumentalV3(
+		vinculo.datos.vinculoActivacion,
+	)
+	copia.ordenDespachoConsumida = clonarOrdenDespachoDocumentalV3ConsumidaNominal(
+		vinculo.datos.ordenDespachoConsumida,
+	)
+	return VinculoEjecucionEscrituraAlmacenDocumental{datos: &copia}
 }
 
 func clonarContextoAutoridadObjetoEsperadoDocumentalV1(
@@ -385,6 +438,42 @@ func huellaDeclaracionAutoridadObjetoEsperadoDocumentalV1(
 		return [sha256.Size]byte{}, errorAutoridadObjetoEsperadoDocumentalV1()
 	}
 	return sha256.Sum256(canonico), nil
+}
+
+func selloAtestacionAutoridadObjetoEsperadoDocumentalV1(
+	canonico []byte,
+	atestacion AtestacionAutoridadObjetoEsperadoDocumentalV1,
+) ([sha256.Size]byte, error) {
+	if len(canonico) == 0 || len(atestacion.Codigo) == 0 {
+		return [sha256.Size]byte{}, errorAutoridadObjetoEsperadoDocumentalV1()
+	}
+	sellador := sha256.New()
+	escribir := func(campo []byte) {
+		var longitud [8]byte
+		binary.BigEndian.PutUint64(longitud[:], uint64(len(campo)))
+		_, _ = sellador.Write(longitud[:])
+		_, _ = sellador.Write(campo)
+	}
+	escribir([]byte("vec.documentos.sello-atestacion-autoridad-objeto-esperado.v1"))
+	escribir(canonico)
+	escribir([]byte(atestacion.Algoritmo))
+	escribir([]byte(atestacion.ClaveRef))
+	var version [4]byte
+	binary.BigEndian.PutUint32(version[:], atestacion.ClaveVersion)
+	escribir(version[:])
+	escribir([]byte(atestacion.Dominio))
+	escribir(atestacion.Codigo)
+	var sello [sha256.Size]byte
+	copy(sello[:], sellador.Sum(nil))
+	return sello, nil
+}
+
+func atestacionesAutoridadObjetoEsperadoDocumentalV1Iguales(
+	a, b AtestacionAutoridadObjetoEsperadoDocumentalV1,
+) bool {
+	return a.Algoritmo == b.Algoritmo && a.ClaveRef == b.ClaveRef &&
+		a.ClaveVersion == b.ClaveVersion && a.Dominio == b.Dominio &&
+		bytes.Equal(a.Codigo, b.Codigo)
 }
 
 func clonarAtestacionAutoridadObjetoEsperadoDocumentalV1(

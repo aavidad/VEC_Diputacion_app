@@ -20,6 +20,7 @@ import (
 type verificadorAtestacionCanceladorAutoridadObjetoV1Prueba struct {
 	delegado VerificadorAtestacionMaterialAlmacenV2
 	cancelar context.CancelFunc
+	mutar    func()
 }
 
 func (v verificadorAtestacionCanceladorAutoridadObjetoV1Prueba) VerificarAtestacionMaterialAlmacenV2(
@@ -27,7 +28,12 @@ func (v verificadorAtestacionCanceladorAutoridadObjetoV1Prueba) VerificarAtestac
 	solicitud SolicitudVerificarAtestacionMaterialAlmacenV2,
 ) error {
 	err := v.delegado.VerificarAtestacionMaterialAlmacenV2(ctx, solicitud)
-	v.cancelar()
+	if v.mutar != nil {
+		v.mutar()
+	}
+	if v.cancelar != nil {
+		v.cancelar()
+	}
 	return err
 }
 
@@ -118,6 +124,7 @@ type escenarioAutoridadObjetoEsperadoDocumentalV1Prueba struct {
 	perfil          PerfilCapacidadesAlmacenMaterialV2
 	plan            SeleccionPlanMaterialAlmacenV2
 	recibo          ReciboEscrituraObjetoMaterialV2
+	autoridad       AutoridadObjetoEsperadoDocumentalV1
 	criptografia    *criptografiaMaterialV2Prueba
 	registro        *registroAutoritativoMaterialV2Prueba
 }
@@ -174,6 +181,14 @@ func nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(
 		registro:        registro,
 	}
 	escenario.recibo = escenario.crearRecibo(t, materializacion.resultado)
+	autoridad, err := NuevaAutoridadObjetoEsperadoDocumentalV1(
+		context.Background(), escenario.materializacion.declaracion, escenario.recibo,
+		escenario.registro, escenario.criptografia,
+	)
+	if err != nil {
+		t.Fatalf("crear autoridad de objeto esperado: %v", err)
+	}
+	escenario.autoridad = autoridad
 	return escenario
 }
 
@@ -197,50 +212,89 @@ func (e escenarioAutoridadObjetoEsperadoDocumentalV1Prueba) crearAutoridad(
 	t *testing.T,
 ) AutoridadObjetoEsperadoDocumentalV1 {
 	t.Helper()
-	if !reciboMaterialV2CotejaDeclaracionV4(e.recibo, e.materializacion.declaracion) {
-		t.Fatal("precondicion: el recibo material no coteja la declaracion V4")
+	if e.autoridad.datos == nil {
+		t.Fatal("fixture sin autoridad de objeto esperado verificada")
 	}
-	if err := e.recibo.VerificarAtestacion(context.Background(), e.criptografia); err != nil {
-		t.Fatalf("precondicion: atestacion material no verificable: %v", err)
-	}
-	reciboSinReferencia := e.recibo
-	reciboSinReferencia.referenciaDurableOriginal = ""
-	identidad, err := reciboSinReferencia.canonicoIdentidadDurable()
-	if err != nil {
-		t.Fatalf("precondicion: identidad durable invalida: %v", err)
-	}
-	solicitud, err := nuevaSolicitudReservarReferenciaReciboMaterialV2(identidad)
-	if err != nil {
-		t.Fatalf("precondicion: solicitud de referencia invalida: %v", err)
-	}
-	resultado, err := NuevoResultadoReferenciaReciboMaterialV2(
-		solicitud, e.recibo.referenciaDurableOriginal,
-	)
-	if err != nil {
-		t.Fatalf("precondicion: resultado de referencia invalido: %v", err)
-	}
-	if err := e.registro.VerificarReferenciaReciboMaterialV2(
-		context.Background(), solicitud, resultado,
-	); err != nil {
-		t.Fatalf("precondicion: referencia durable no verificable: %v", err)
-	}
-	if err := verificarReciboAutoridadObjetoEsperadoDocumentalV1(
-		context.Background(), e.recibo, e.registro, e.criptografia,
-	); err != nil {
-		t.Fatalf("precondicion: recibo material no verificable: %v", err)
-	}
-	autoridad, err := NuevaAutoridadObjetoEsperadoDocumentalV1(
-		context.Background(), e.materializacion.declaracion, e.recibo,
-		e.registro, e.criptografia,
-	)
-	if err != nil {
-		t.Fatalf("crear autoridad de objeto esperado: %v", err)
-	}
-	return autoridad
+	return clonarAutoridadObjetoEsperadoDocumentalV1Prueba(e.autoridad)
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func clonarEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(
+	original escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) escenarioAutoridadObjetoEsperadoDocumentalV1Prueba {
+	copia := original
+	copia.materializacion.declaracion = clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(
+		original.materializacion.declaracion,
+	)
+	copia.perfil.atestacion.codigo = append([]byte(nil), original.perfil.atestacion.codigo...)
+	copia.recibo = clonarReciboAutoridadObjetoEsperadoDocumentalV1(original.recibo)
+	copia.autoridad = clonarAutoridadObjetoEsperadoDocumentalV1Prueba(original.autoridad)
+
+	criptografia := *original.criptografia
+	criptografia.clave = append([]byte(nil), original.criptografia.clave...)
+	copia.criptografia = &criptografia
+
+	registro := *original.registro
+	registro.perfiles = make(map[string]perfilPublicadoMaterialV2Prueba, len(original.registro.perfiles))
+	for referencia, perfil := range original.registro.perfiles {
+		perfil.capacidades = clonarCapacidadesAlmacenDocumentalV4(perfil.capacidades)
+		registro.perfiles[referencia] = perfil
+	}
+	registro.planes = make(map[string]planPublicadoMaterialV2Prueba, len(original.registro.planes))
+	for referencia, plan := range original.registro.planes {
+		registro.planes[referencia] = plan
+	}
+	registro.referencias = make(map[string]string, len(original.registro.referencias))
+	for identidad, referencia := range original.registro.referencias {
+		registro.referencias[identidad] = referencia
+	}
+	copia.registro = &registro
+	return copia
+}
+
+func clonarAutoridadObjetoEsperadoDocumentalV1Prueba(
+	autoridad AutoridadObjetoEsperadoDocumentalV1,
+) AutoridadObjetoEsperadoDocumentalV1 {
+	copia := autoridad
+	datos := *autoridad.datos
+	datos.recibo = clonarReciboAutoridadObjetoEsperadoDocumentalV1(datos.recibo)
+	datos.atestacionRecibo = clonarAtestacionAutoridadObjetoEsperadoDocumentalV1(
+		datos.atestacionRecibo,
+	)
+	datos.declaracion = clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(datos.declaracion)
+	copia.datos = &datos
+	return copia
+}
+
+func TestAutoridadObjetoEsperadoDocumentalV1(t *testing.T) {
+	fixture := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+	casos := []struct {
+		nombre string
+		probar func(*testing.T, escenarioAutoridadObjetoEsperadoDocumentalV1Prueba)
+	}{
+		{"sella recibo material exacto", probarAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto},
+		{"deriva pareja solo de instantanea V2", probarAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2},
+		{"admite recibo COSE Sign1 verificado", probarAutoridadObjetoEsperadoDocumentalV1AdmiteReciboCOSESign1Verificado},
+		{"entrega copias y permanece opaca", probarAutoridadObjetoEsperadoDocumentalV1EntregaCopiasYPermaneceOpaca},
+		{"rechaza evidencia sin recibo y objeto ajeno", probarAutoridadObjetoEsperadoDocumentalV1RechazaEvidenciaSinReciboYObjetoAjeno},
+		{"falla cerrada en dependencias y cancelacion", probarAutoridadObjetoEsperadoDocumentalV1FallaCerradaEnDependenciasYCancelacion},
+		{"reverifica antes del registro", probarAutoridadObjetoEsperadoDocumentalV1ReverificaAntesDelRegistro},
+		{"cancelacion durante cada verificador devuelve cero", probarAutoridadObjetoEsperadoDocumentalV1CancelacionDuranteCadaVerificadorDevuelveCero},
+		{"revalida compromisos tras verificadores vivos", probarAutoridadObjetoEsperadoDocumentalV1RevalidaCompromisosTrasVerificadoresVivos},
+		{"mutacion durante cada verificador devuelve cero", probarAutoridadObjetoEsperadoDocumentalV1MutacionDuranteCadaVerificadorDevuelveCero},
+		{"detecta alteracion interna", probarAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna},
+		{"preparacion concurrente", probarAutoridadObjetoEsperadoDocumentalV1PreparacionConcurrente},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			caso.probar(t, clonarEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(fixture))
+		})
+	}
+}
+
+func probarAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	if err := autoridad.Validar(); err != nil {
 		t.Fatalf("autoridad valida rechazada: %v", err)
@@ -294,8 +348,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1SellaReciboMaterialExacto(t *testing
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	esperada := ReferenciaObjetoAlmacen{
 		Referencia: escenario.recibo.instantanea.objetoRef,
@@ -309,6 +365,11 @@ func TestAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2(t *t
 		"efecto:documental:v4:externo"
 	escenario.materializacion.declaracion.datos.contexto.datos.efectoRef =
 		"efecto:documental:v4:contexto-externo"
+	escenario.recibo.atestacion.codigo[0] ^= 1
+	manifiesto := escenario.materializacion.declaracion.datos.vinculoEjecucion.datos.
+		vinculoActivacion.Manifiesto.datos
+	manifiesto.BorradorRef += ":mutado-por-propietario"
+	manifiesto.HuellaPlanSHA256 = strings.Repeat("4", 64)
 	proyeccion, err := autoridad.PrepararRegistro(
 		context.Background(), escenario.registro, escenario.criptografia,
 	)
@@ -317,8 +378,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1DerivaParejaSoloDeInstantaneaV2(t *t
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1AdmiteReciboCOSESign1Verificado(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1AdmiteReciboCOSESign1Verificado(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	semilla := sha256.Sum256([]byte("semilla-ed25519-cose-sign1-autoridad-objeto-v1"))
 	privada := ed25519.NewKeyFromSeed(semilla[:])
 	verificador := verificadorCOSESign1AutoridadObjetoV1Prueba{
@@ -363,8 +426,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1AdmiteReciboCOSESign1Verificado(t *t
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1EntregaCopiasYPermaneceOpaca(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1EntregaCopiasYPermaneceOpaca(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	primera, err := autoridad.PrepararRegistro(
 		context.Background(), escenario.registro, escenario.criptografia,
@@ -408,8 +473,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1EntregaCopiasYPermaneceOpaca(t *test
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1RechazaEvidenciaSinReciboYObjetoAjeno(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1RechazaEvidenciaSinReciboYObjetoAjeno(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	if huellaEvidenciaOperacionAlmacenDocumental(
 		escenario.materializacion.resultado.Evidencia,
 	) == "" {
@@ -441,8 +508,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1RechazaEvidenciaSinReciboYObjetoAjen
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1FallaCerradaEnDependenciasYCancelacion(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1FallaCerradaEnDependenciasYCancelacion(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	ctxCancelado, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	var verificadorNulo *criptografiaMaterialV2Prueba
@@ -469,8 +538,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1FallaCerradaEnDependenciasYCancelaci
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1ReverificaAntesDelRegistro(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1ReverificaAntesDelRegistro(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	escenario.criptografia.rechazar = true
 	if _, err := autoridad.PrepararRegistro(
@@ -493,8 +564,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1ReverificaAntesDelRegistro(t *testin
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1CancelacionDuranteCadaVerificadorDevuelveCero(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1CancelacionDuranteCadaVerificadorDevuelveCero(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	cero := ProyeccionAutoridadObjetoEsperadoDocumentalV1{}
 
@@ -528,8 +601,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1CancelacionDuranteCadaVerificadorDev
 	})
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1RevalidaCompromisosTrasVerificadoresVivos(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1RevalidaCompromisosTrasVerificadoresVivos(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	proyeccion, err := autoridad.PrepararRegistro(
 		context.Background(),
@@ -547,8 +622,68 @@ func TestAutoridadObjetoEsperadoDocumentalV1RevalidaCompromisosTrasVerificadores
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1MutacionDuranteCadaVerificadorDevuelveCero(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
+	autoridadBase := escenario.crearAutoridad(t)
+	cero := ProyeccionAutoridadObjetoEsperadoDocumentalV1{}
+	for _, caso := range []struct {
+		nombre     string
+		atestacion bool
+		mutar      func(AutoridadObjetoEsperadoDocumentalV1)
+	}{
+		{"atestacion/recibo", true, func(a AutoridadObjetoEsperadoDocumentalV1) {
+			a.datos.recibo.atestacion.codigo[0] ^= 1
+		}},
+		{"atestacion/vinculo-manifiesto", true, func(a AutoridadObjetoEsperadoDocumentalV1) {
+			a.datos.declaracion.datos.vinculoEjecucion.datos.vinculoActivacion.
+				Manifiesto.datos.BorradorRef += ":alterado"
+		}},
+		{"referencia/recibo", false, func(a AutoridadObjetoEsperadoDocumentalV1) {
+			a.datos.recibo.atestacion.codigo[0] ^= 1
+		}},
+		{"referencia/vinculo-manifiesto", false, func(a AutoridadObjetoEsperadoDocumentalV1) {
+			a.datos.declaracion.datos.vinculoEjecucion.datos.vinculoActivacion.
+				Manifiesto.datos.BorradorRef += ":alterado"
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			autoridad := clonarAutoridadObjetoEsperadoDocumentalV1Prueba(autoridadBase)
+			mutar := func() { caso.mutar(autoridad) }
+			var proyeccion ProyeccionAutoridadObjetoEsperadoDocumentalV1
+			var err error
+			if caso.atestacion {
+				proyeccion, err = autoridad.PrepararRegistro(
+					context.Background(), escenario.registro,
+					verificadorAtestacionCanceladorAutoridadObjetoV1Prueba{
+						delegado: escenario.criptografia, mutar: mutar,
+					},
+				)
+			} else {
+				proyeccion, err = autoridad.PrepararRegistro(
+					context.Background(),
+					verificadorReferenciaCanceladorAutoridadObjetoV1Prueba{
+						delegado: escenario.registro, mutar: mutar,
+					},
+					escenario.criptografia,
+				)
+			}
+			if !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) ||
+				!reflect.DeepEqual(proyeccion, cero) {
+				t.Fatalf("la mutacion viva alcanzo registro: proyeccion=%v err=%v", proyeccion, err)
+			}
+		})
+	}
+	if err := autoridadBase.Validar(); err != nil {
+		t.Fatalf("los casos compartieron estado mutable con el fixture base: %v", err)
+	}
+}
+
+func probarAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	mutaciones := map[string]func(*datosAutoridadObjetoEsperadoDocumentalV1){
 		"objeto": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
@@ -556,6 +691,12 @@ func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.
 		},
 		"recibo": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
 			d.recibo.atestacion.codigo[0] ^= 1
+		},
+		"atestacion conservada": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.atestacionRecibo.Codigo[0] ^= 1
+		},
+		"sello atestacion": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.selloAtestacionRecibo[0] ^= 1
 		},
 		"referencia durable": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
 			d.reciboRef += ":alterada"
@@ -581,16 +722,14 @@ func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.
 		"declaracion V4 exacta": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
 			d.huellaDeclaracionV4[0] ^= 1
 		},
+		"vinculo manifiesto V4": func(d *datosAutoridadObjetoEsperadoDocumentalV1) {
+			d.declaracion.datos.vinculoEjecucion.datos.vinculoActivacion.
+				Manifiesto.datos.BorradorRef += ":alterado"
+		},
 	}
 	for nombre, mutar := range mutaciones {
 		t.Run(nombre, func(t *testing.T) {
-			copia := autoridad
-			datos := *autoridad.datos
-			datos.recibo = clonarReciboAutoridadObjetoEsperadoDocumentalV1(datos.recibo)
-			datos.declaracion = clonarDeclaracionAutoridadObjetoEsperadoDocumentalV1(
-				datos.declaracion,
-			)
-			copia.datos = &datos
+			copia := clonarAutoridadObjetoEsperadoDocumentalV1Prueba(autoridad)
 			mutar(copia.datos)
 			if err := copia.Validar(); !errors.Is(err, ErrAutoridadObjetoEsperadoDocumentalV1NoValida) {
 				t.Fatal("Validar admitio un compromiso alterado")
@@ -606,8 +745,10 @@ func TestAutoridadObjetoEsperadoDocumentalV1DetectaAlteracionInterna(t *testing.
 	}
 }
 
-func TestAutoridadObjetoEsperadoDocumentalV1PreparacionConcurrente(t *testing.T) {
-	escenario := nuevoEscenarioAutoridadObjetoEsperadoDocumentalV1Prueba(t)
+func probarAutoridadObjetoEsperadoDocumentalV1PreparacionConcurrente(
+	t *testing.T,
+	escenario escenarioAutoridadObjetoEsperadoDocumentalV1Prueba,
+) {
 	autoridad := escenario.crearAutoridad(t)
 	const repeticiones = 24
 	errores := make(chan error, repeticiones)

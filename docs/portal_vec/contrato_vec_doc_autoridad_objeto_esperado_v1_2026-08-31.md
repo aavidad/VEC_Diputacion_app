@@ -45,13 +45,23 @@ vez estas condiciones:
 5. la referencia durable se reconstruye desde la identidad material sin
    referencia y se coteja mediante `VerificadorReferenciaReciboMaterialV2`.
 
-La capacidad conserva una copia defensiva de la declaracion V4 y la huella
-SHA-256 de sus bytes canonicos privados. `Validar` vuelve a comprobar esa
-huella, el contexto V4 completo y, de forma individual, efecto, huella del plan,
-huella del manifiesto, referencia y huella del paso. `PrepararRegistro` repite
-el mismo cierre despues de los verificadores vivos y antes de proyectar; una
-mutacion durante cualquiera de esas fronteras no puede alcanzar el registro.
-La proyeccion entrega la huella de la declaracion, no sus bytes ni una via para
+La capacidad conserva copias defensivas del recibo y de la declaracion V4. El
+clon focal V4 alcanza el contexto, sus pasos, las capacidades y toda la rama
+mutable del vinculo de ejecucion, incluido `vinculoActivacion` y los datos
+privados de su manifiesto; no modifica las autoridades fuente.
+
+La huella canonica V2 excluye deliberadamente la atestacion. Por ello la
+capacidad conserva ademas una copia separada de su material exacto y aplica un
+sello SHA-256 con dominio propio sobre los bytes canonicos V2, algoritmo,
+referencia y version de clave, dominio y codigo completo —HMAC o sobre
+COSE_Sign1—. Este sello no cambia la huella ni la semantica V2.
+
+`Validar` vuelve a comprobar ambos sellos, el contexto V4 completo y, de forma
+individual, efecto, huella del plan, huella del manifiesto, referencia y huella
+del paso. `PrepararRegistro` repite el mismo cierre antes y despues de cada uno
+de los dos verificadores vivos y antes de proyectar; una mutacion durante
+cualquiera de esas fronteras devuelve el error opaco y una proyeccion cero. La
+proyeccion entrega la huella de la declaracion, no sus bytes ni una via para
 reconstruirla.
 
 La huella autocontenida de `EvidenciaOperacionAlmacen`, el contenido guardado o
@@ -73,6 +83,11 @@ perteneciendo a la autoridad criptografica configurada: no se copia al valor,
 no se entrega al adaptador SQL y no se almacena en PostgreSQL. La proyeccion
 solo contiene referencia y version de clave, dominio, algoritmo, codigo y bytes
 canonicos del recibo.
+
+Las regresiones focales alteran las copias originales del recibo y del
+vinculo/manifiesto despues de construir la autoridad, y alteran el material
+sellado durante cada verificador vivo. Tambien conservan la cancelacion con
+proyeccion cero en ambas fronteras y los recorridos HMAC y COSE_Sign1.
 
 Si el registro SQL necesita verificacion autonoma fuera del proceso que posee
 el verificador V2, el siguiente corte debera usar una autoridad publica ya
