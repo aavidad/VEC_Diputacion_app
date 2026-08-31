@@ -395,9 +395,14 @@ fi
 docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/ejecucion_documental_v4/migraciones/000002_registro_efectos_generacion_documental_v1.up.sql"
+if [[ "${VEC_POSTGRES_PRUEBA_SOLO_SQL:-0}" == "1" ]]; then
+    docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
+        --username postgres --dbname "$base" \
+        < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql"
+else
 docker exec --interactive --env PGAPPNAME=vec_v4_reserva_efecto_uno \
     "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-    --set solo_reserva=1 --set retener_reserva=1 \
+    --set exigir_autoridad=1 --set solo_reserva=1 --set retener_reserva=1 \
     --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql" &
 pid_reserva_efecto_uno=$!
@@ -419,33 +424,42 @@ if [[ "$reserva_efecto_retenida" != true ]]; then
 fi
 docker exec --interactive --env PGAPPNAME=vec_v4_reserva_efecto_dos \
     "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
-    --set solo_reserva=1 --username postgres --dbname "$base" \
+    --set exigir_autoridad=1 --set solo_reserva=1 \
+    --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql"
 wait "$pid_reserva_efecto_uno"
 docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
+    --set exigir_autoridad=1 \
     --username postgres --dbname "$base" \
     < "$raiz/deploy/postgresql/ejecucion_documental_v4/pruebas_sql/efectos_generacion_documental_v1.sql"
+fi
 
-# En modo solo SQL no existe una orden real. Se marca en el contenedor efimero
-# un estado de auditoria no vacio para ejercer igualmente la guarda destructiva.
+# El control conserva el ultimo eslabon material de la cadena global. En modo
+# solo SQL, sin orden atestada, el genesis sigue siendo el ultimo estado real.
 docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" <<'SQL'
-DO $marca$
+DO $cadena_real$
+DECLARE control record; ultimo record;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM vec_ejecucion_documental_v4.atestacion_pdp
-    ) AND NOT EXISTS (
-        SELECT 1 FROM vec_ejecucion_documental_v4.orden_generacion_documental
-    ) AND NOT EXISTS (
-        SELECT 1 FROM vec_ejecucion_documental_v4.auditoria
-    ) THEN
-        UPDATE vec_ejecucion_documental_v4.control_cadena_auditoria
-           SET ultima_secuencia = 1,
-               ultima_huella_sha256 = repeat('1', 64)
-         WHERE control_id = true;
+    SELECT ultima_secuencia, ultima_huella_sha256 INTO STRICT control
+      FROM vec_ejecucion_documental_v4.control_cadena_auditoria
+     WHERE control_id = true;
+    SELECT secuencia, huella_registro_sha256 INTO ultimo
+      FROM (
+          SELECT secuencia, huella_registro_sha256
+            FROM vec_ejecucion_documental_v4.auditoria
+          UNION ALL
+          SELECT secuencia, huella_registro_sha256
+            FROM vec_ejecucion_documental_v4.auditoria_efecto_generacion_documental_v1
+      ) AS cadena ORDER BY secuencia DESC LIMIT 1;
+    IF FOUND AND (control.ultima_secuencia <> ultimo.secuencia
+          OR control.ultima_huella_sha256 <> ultimo.huella_registro_sha256)
+       OR NOT FOUND AND (control.ultima_secuencia <> 0
+          OR control.ultima_huella_sha256 <> repeat('0', 64)) THEN
+        RAISE EXCEPTION 'el control no conserva el ultimo eslabon real';
     END IF;
 END
-$marca$;
+$cadena_real$;
 SQL
 
 if docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
@@ -458,14 +472,27 @@ fi
 docker exec --interactive "$contenedor" psql --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" <<'SQL'
 DO $conservada$
+DECLARE control record; ultimo record;
 BEGIN
-    IF to_regnamespace('vec_ejecucion_documental_v4') IS NULL
-       OR NOT EXISTS (
-           SELECT 1
-             FROM vec_ejecucion_documental_v4.control_cadena_auditoria
-            WHERE ultima_secuencia > 0
-       ) THEN
+    IF to_regnamespace('vec_ejecucion_documental_v4') IS NULL THEN
         RAISE EXCEPTION 'el down fallido no conservo esquema y evidencia';
+    END IF;
+    SELECT ultima_secuencia, ultima_huella_sha256 INTO STRICT control
+      FROM vec_ejecucion_documental_v4.control_cadena_auditoria
+     WHERE control_id = true;
+    SELECT secuencia, huella_registro_sha256 INTO ultimo
+      FROM (
+          SELECT secuencia, huella_registro_sha256
+            FROM vec_ejecucion_documental_v4.auditoria
+          UNION ALL
+          SELECT secuencia, huella_registro_sha256
+            FROM vec_ejecucion_documental_v4.auditoria_efecto_generacion_documental_v1
+      ) AS cadena ORDER BY secuencia DESC LIMIT 1;
+    IF FOUND AND (control.ultima_secuencia <> ultimo.secuencia
+          OR control.ultima_huella_sha256 <> ultimo.huella_registro_sha256)
+       OR NOT FOUND AND (control.ultima_secuencia <> 0
+          OR control.ultima_huella_sha256 <> repeat('0', 64)) THEN
+        RAISE EXCEPTION 'el down fallido altero el ultimo eslabon real';
     END IF;
 END
 $conservada$;

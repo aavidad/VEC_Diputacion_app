@@ -13,17 +13,20 @@ estas migraciones durante el arranque.
 La migracion propietaria
 `migraciones/000002_registro_efectos_generacion_documental_v1` es aditiva e
 independiente de `migraciones_autorizacion`. Deriva y reserva en SQL la tupla
-canonica decision/efecto/plan/manifiesto, materializa antes del efecto todos
-los pasos y conserva auditoria y outbox en la cadena global dentro de la misma
-transaccion. Sus cuatro tablas son privadas, de solo adicion y tienen RLS
-forzada.
+canonica orden/decision/capacidad/efecto/plan/manifiesto exclusivamente desde
+la orden atestada y los consumos fijados por `000001`. Antes de insertar,
+bloquea esos registros y revalida la decision y la capacidad vigentes en la
+misma transaccion, sin volver a consumirlas. Materializa todos los pasos y
+conserva auditoria y outbox en la cadena global. Sus cuatro tablas son
+privadas, de solo adicion y tienen RLS forzada.
 
 El ejecutor atestado solo recibe `EXECUTE` sobre tres operaciones:
 
 - `reservar_efecto_generacion_documental_v1`, con replay exacto y conflicto
   cerrado;
 - `confirmar_paso_generacion_documental_v1`, idempotente solo para la misma
-  confirmacion terminal;
+  confirmacion terminal y obligada a persistir el `ContenidoDocumentoGuardado`
+  y la `EvidenciaOperacionAlmacen` completos, ligados al paso reservado;
 - `marcar_paso_generacion_documental_indeterminado_v1`, terminal y sin
   promocion posterior a confirmado.
 
@@ -86,8 +89,11 @@ deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 Ademas de migraciones, ACL, RLS y pruebas Go, el runner comprueba:
 
 - reserva concurrente de decision, manifiesto y pasos, replay exacto, cierres
-  confirmado e indeterminado, auditoria/outbox atomicos y retirada opt-in del
-  registro de efectos;
+  confirmado e indeterminado, rechazo de decisiones fabricadas, expiradas o
+  consumidas por otro efecto, ligaduras terminales mutadas, auditoria/outbox
+  atomicos y retirada opt-in del registro de efectos;
+- conservacion y cotejo del ultimo eslabon material de la cadena global; el
+  modo solo SQL mantiene el genesis si no existe una orden atestada;
 - rechazo sin estado de un propietario de base con `CREATEROLE` pero no
   superusuario;
 - retirada y reinstalacion limpias de un bootstrap interrumpido antes de la

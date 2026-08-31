@@ -48,6 +48,10 @@ DROP FUNCTION
     vec_ejecucion_documental_v4.marcar_paso_generacion_documental_indeterminado_v1(jsonb)
     RESTRICT;
 DROP FUNCTION
+    vec_ejecucion_documental_v4.contenido_documento_guardado_valido_v1(
+        jsonb, jsonb, jsonb, timestamptz, timestamptz
+    ) RESTRICT;
+DROP FUNCTION
     vec_ejecucion_documental_v4.registrar_cambio_efecto_generacion_documental_v1(
         text, text, text, text, timestamptz
     ) RESTRICT;
