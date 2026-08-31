@@ -15,7 +15,6 @@ const {
 const { parse: ANALIZAR_JSON, stringify: SERIALIZAR_JSON } = JSON;
 const { apply: APLICAR } = Reflect;
 const EJECUTAR_EXPRESION = RegExp.prototype.exec;
-const PROBAR_EXPRESION = RegExp.prototype.test;
 const CODIGO_UNIDAD = String.prototype.charCodeAt;
 const NORMALIZAR = String.prototype.normalize;
 const RECORTAR = String.prototype.trim;
@@ -29,6 +28,7 @@ const PATRON_UUID_V4 =
 const PATRON_INSTANTE_UTC =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?Z$/u;
 const UUID_V4_NULO = "00000000-0000-4000-8000-000000000000";
+const INSTANTE_CERO_UTC = "0001-01-01T00:00:00Z";
 const ESQUEMA_RECIBO =
   "vec.contratacion-temporal.recibo-asignacion.v1";
 
@@ -125,7 +125,7 @@ function analizarRegistroCanonico(texto, campos) {
 }
 
 function coincide(patron, valor) {
-  return APLICAR(PROBAR_EXPRESION, patron, [valor]);
+  return APLICAR(EJECUTAR_EXPRESION, patron, [valor]) !== null;
 }
 
 function referenciaValida(valor) {
@@ -197,7 +197,7 @@ function diasDelMes(anio, mes) {
 }
 
 function instanteUTCValido(valor) {
-  if (typeof valor !== "string") return false;
+  if (typeof valor !== "string" || valor === INSTANTE_CERO_UTC) return false;
   const partes = APLICAR(EJECUTAR_EXPRESION, PATRON_INSTANTE_UTC, [valor]);
   if (partes === null) return false;
   const anio = +partes[1];

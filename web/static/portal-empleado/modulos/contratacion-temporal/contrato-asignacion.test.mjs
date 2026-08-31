@@ -450,7 +450,7 @@ test("cierra esquema, operación e instante UTC canónico del recibo", () => {
     exigirTypeError(validarReciboAsignacion, canon(datosRecibo(cambios)));
   }
   for (const valor of [
-    "0001-01-01T00:00:00Z",
+    "0001-01-01T00:00:00.000001Z",
     "2000-02-29T23:59:59.000001Z",
     "9999-12-31T23:59:59.999999Z",
   ]) {
@@ -459,7 +459,8 @@ test("cierra esquema, operación e instante UTC canónico del recibo", () => {
     }))).confirmada_en, valor);
   }
   for (const valor of [
-    "0000-01-01T00:00:00Z", "10000-01-01T00:00:00Z",
+    "0001-01-01T00:00:00Z", "0000-01-01T00:00:00Z",
+    "10000-01-01T00:00:00Z",
     "2026-02-29T00:00:00Z", "2026-04-31T00:00:00Z",
     "2026-01-01T24:00:00Z", "2026-01-01T00:60:00Z",
     "2026-01-01T00:00:60Z", "2026-01-01T00:00:00+00:00",
@@ -471,6 +472,49 @@ test("cierra esquema, operación e instante UTC canónico del recibo", () => {
       canon(datosRecibo({ confirmada_en: valor })),
     );
   }
+});
+
+test("rechaza referencias y UUID inválidas sin filtrar intrínsecos alterados", () => {
+  const ejecutarOriginal = RegExp.prototype.exec;
+  const probarOriginal = RegExp.prototype.test;
+  let aceptacionesAtacantes = 0;
+  let erroresAtacantes = 0;
+  const rechazarEntradasInvalidas = () => {
+    exigirTypeError(
+      validarSolicitudAsignacion,
+      canon(datosAsignacion({ expediente_ref: "??" })),
+    );
+    exigirTypeError(
+      validarSolicitudAsignacion,
+      canon(datosAsignacion({ clave_idempotencia: "uuid-inválida" })),
+    );
+    exigirTypeError(
+      validarReciboAsignacion,
+      canon(datosRecibo({ recibo_ref: "??" })),
+    );
+  };
+  try {
+    const aceptarAtacante = () => {
+      aceptacionesAtacantes += 1;
+      return ["falso positivo atacante"];
+    };
+    RegExp.prototype.exec = aceptarAtacante;
+    RegExp.prototype.test = aceptarAtacante;
+    rechazarEntradasInvalidas();
+
+    const fallarAtacante = () => {
+      erroresAtacantes += 1;
+      throw new Error("error atacante no debe escapar");
+    };
+    RegExp.prototype.exec = fallarAtacante;
+    RegExp.prototype.test = fallarAtacante;
+    rechazarEntradasInvalidas();
+  } finally {
+    RegExp.prototype.exec = ejecutarOriginal;
+    RegExp.prototype.test = probarOriginal;
+  }
+  assert.equal(aceptacionesAtacantes, 0);
+  assert.equal(erroresAtacantes, 0);
 });
 
 test("aplica 8192 bytes antes de analizar y conserva intrínsecos capturados", async () => {
