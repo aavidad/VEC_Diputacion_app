@@ -22,6 +22,7 @@ import (
 	"vec-diputacion-granada/internal/candidate/usecases"
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
+	contrataciontemporal "vec-diputacion-granada/internal/modules/contrataciontemporal"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
@@ -235,6 +236,7 @@ func newVECShellAPICompuestaConIdentidad(
 		cronosmodule.Manifest(),
 		dietasmodule.Manifest(),
 		bolsamodule.Manifest(),
+		contrataciontemporal.Manifest(),
 		adminmodule.Manifest(),
 	} {
 		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
