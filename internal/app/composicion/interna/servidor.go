@@ -43,6 +43,8 @@ const etiquetaExportadorConexion = "EXPORTER-VEC-INTERNAL-CONNECTION-BINDING-v1"
 
 type claveContextoConexionTLS struct{}
 
+type claveContextoCanalTLSInterno struct{}
+
 type tokenServidorInterno struct {
 	// El tipo no puede ser de tamano cero: dos punteros a valores de tamano
 	// cero no tienen por que ser distintos segun el lenguaje.
@@ -52,6 +54,53 @@ type tokenServidorInterno struct {
 type posesionConexionTLS struct {
 	token    *tokenServidorInterno
 	conexion *tls.Conn
+}
+
+const (
+	estadoCapacidadCanalTLSInternoVigente uint32 = iota + 1
+	estadoCapacidadCanalTLSInternoConsumida
+	estadoCapacidadCanalTLSInternoInvalidada
+)
+
+// capacidadCanalTLSInterno solo nace en la capsula C4 despues de cotejar la
+// peticion con el *tls.Conn exacto. C5 recibe su copia defensiva del estado del
+// lado servidor mediante la clave privada de contexto y puede consumirla una
+// sola vez mientras ServeHTTP permanece activo; su valor cero no vale.
+type capacidadCanalTLSInterno struct {
+	propietario *tokenServidorInterno
+	estadoTLS   tls.ConnectionState
+	estadoUso   atomic.Uint32
+}
+
+func nuevaCapacidadCanalTLSInterno(
+	propietario *tokenServidorInterno,
+	estado tls.ConnectionState,
+) *capacidadCanalTLSInterno {
+	capacidad := &capacidadCanalTLSInterno{
+		propietario: propietario,
+		estadoTLS:   estado,
+	}
+	capacidad.estadoUso.Store(estadoCapacidadCanalTLSInternoVigente)
+	return capacidad
+}
+
+func (c *capacidadCanalTLSInterno) consumir(
+	propietario *tokenServidorInterno,
+) (tls.ConnectionState, bool) {
+	if c == nil || propietario == nil || c.propietario != propietario ||
+		!c.estadoUso.CompareAndSwap(
+			estadoCapacidadCanalTLSInternoVigente,
+			estadoCapacidadCanalTLSInternoConsumida,
+		) {
+		return tls.ConnectionState{}, false
+	}
+	return c.estadoTLS, true
+}
+
+func (c *capacidadCanalTLSInterno) invalidar() {
+	if c != nil {
+		c.estadoUso.Store(estadoCapacidadCanalTLSInternoInvalidada)
+	}
 }
 
 // ServidorInterno es una capsula opaca y de un solo uso. No incrusta ni
@@ -120,25 +169,33 @@ type protocolosHTTPAprobados struct {
 }
 
 func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !m.peticionTLSMutuaVerificada(r) {
+	capacidad, acreditada := m.acreditarCanalTLSInterno(r)
+	if !acreditada {
 		w.Header().Set("Connection", "close")
 		http.Error(w, "solicitud no disponible", http.StatusBadRequest)
 		return
 	}
-	m.siguiente.ServeHTTP(w, r)
+	defer capacidad.invalidar()
+	ctx := context.WithValue(r.Context(), claveContextoCanalTLSInterno{}, capacidad)
+	m.siguiente.ServeHTTP(w, r.WithContext(ctx))
 }
 
-func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request) bool {
+func (m *manejadorInternoVerificado) acreditarCanalTLSInterno(
+	r *http.Request,
+) (*capacidadCanalTLSInterno, bool) {
 	if m == nil || m.token == nil || r == nil || r.TLS == nil ||
 		r.ProtoMajor != 1 || r.ProtoMinor != 1 {
-		return false
+		return nil, false
 	}
 	posesion, valida := r.Context().Value(claveContextoConexionTLS{}).(*posesionConexionTLS)
-	if !valida || posesion == nil || posesion.token != m.token || posesion.conexion == nil ||
-		!estadoTLSCoherenteConConexion(r.TLS, posesion.conexion) {
-		return false
+	if !valida || posesion == nil || posesion.token != m.token || posesion.conexion == nil {
+		return nil, false
 	}
-	estado := r.TLS
+	estadoConexion := posesion.conexion.ConnectionState()
+	if !estadosTLSMismaConexion(r.TLS, &estadoConexion) {
+		return nil, false
+	}
+	estado := &estadoConexion
 	if !estado.HandshakeComplete || estado.Version != tls.VersionTLS13 || estado.DidResume ||
 		estado.NegotiatedProtocol != protocoloALPNHTTPUno ||
 		!estado.NegotiatedProtocolIsMutual ||
@@ -148,16 +205,16 @@ func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request)
 		len(estado.VerifiedChains) == 0 || len(estado.VerifiedChains[0]) == 0 ||
 		estado.VerifiedChains[0][0] == nil || estado.PeerCertificates[0] == nil ||
 		!estado.VerifiedChains[0][0].Equal(estado.PeerCertificates[0]) {
-		return false
+		return nil, false
 	}
 	hoja := estado.PeerCertificates[0]
 	if hoja.IsCA || !contieneUsoExtendido(hoja.ExtKeyUsage, x509.ExtKeyUsageClientAuth) {
-		return false
+		return nil, false
 	}
 	intermedias := x509.NewCertPool()
 	for _, certificado := range estado.PeerCertificates[1:] {
 		if certificado == nil {
-			return false
+			return nil, false
 		}
 		intermedias.AddCert(certificado)
 	}
@@ -167,14 +224,20 @@ func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request)
 		CurrentTime:   time.Now(),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	})
-	return err == nil && len(cadenas) != 0
+	if err != nil || len(cadenas) == 0 {
+		return nil, false
+	}
+	estadoAislado, err := clonarEstadoTLSParaIdentidad(estadoConexion)
+	if err != nil {
+		return nil, false
+	}
+	return nuevaCapacidadCanalTLSInterno(m.token, estadoAislado), true
 }
 
-func estadoTLSCoherenteConConexion(estado *tls.ConnectionState, conexion *tls.Conn) bool {
-	if estado == nil || conexion == nil {
+func estadosTLSMismaConexion(estado, actual *tls.ConnectionState) bool {
+	if estado == nil || actual == nil {
 		return false
 	}
-	actual := conexion.ConnectionState()
 	if estado.Version != actual.Version ||
 		estado.HandshakeComplete != actual.HandshakeComplete ||
 		estado.DidResume != actual.DidResume ||
@@ -202,6 +265,47 @@ func estadoTLSCoherenteConConexion(estado *tls.ConnectionState, conexion *tls.Co
 	return errPeticion == nil && errConexion == nil &&
 		len(vinculoPeticion) == sha256.Size && len(vinculoConexion) == sha256.Size &&
 		subtle.ConstantTimeCompare(vinculoPeticion, vinculoConexion) == 1
+}
+
+func clonarEstadoTLSParaIdentidad(estado tls.ConnectionState) (tls.ConnectionState, error) {
+	copia := estado
+	var err error
+	if copia.PeerCertificates, err = clonarCertificadosTLS(estado.PeerCertificates); err != nil {
+		return tls.ConnectionState{}, err
+	}
+	copia.VerifiedChains = make([][]*x509.Certificate, len(estado.VerifiedChains))
+	for indice := range estado.VerifiedChains {
+		copia.VerifiedChains[indice], err = clonarCertificadosTLS(estado.VerifiedChains[indice])
+		if err != nil {
+			return tls.ConnectionState{}, err
+		}
+	}
+	copia.SignedCertificateTimestamps = make([][]byte, len(estado.SignedCertificateTimestamps))
+	for indice := range estado.SignedCertificateTimestamps {
+		copia.SignedCertificateTimestamps[indice] = bytes.Clone(
+			estado.SignedCertificateTimestamps[indice],
+		)
+	}
+	copia.OCSPResponse = bytes.Clone(estado.OCSPResponse)
+	copia.TLSUnique = bytes.Clone(estado.TLSUnique)
+	return copia, nil
+}
+
+func clonarCertificadosTLS(
+	certificados []*x509.Certificate,
+) ([]*x509.Certificate, error) {
+	copias := make([]*x509.Certificate, len(certificados))
+	for indice, certificado := range certificados {
+		if certificado == nil || len(certificado.Raw) == 0 {
+			return nil, ErrTLSMutuoNoVerificado
+		}
+		copia, err := x509.ParseCertificate(bytes.Clone(certificado.Raw))
+		if err != nil {
+			return nil, ErrTLSMutuoNoVerificado
+		}
+		copias[indice] = copia
+	}
+	return copias, nil
 }
 
 func certificadosMismaConexion(izquierda, derecha []*x509.Certificate) bool {
