@@ -3,16 +3,7 @@ package interna
 import (
 	"context"
 	"errors"
-	"fmt"
-	"go/ast"
-	"go/importer"
-	"go/parser"
-	"go/token"
-	"go/types"
-	"io"
 	"net/http"
-	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,352 +13,116 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
-func TestFachadaIdentidadOfflineAutenticarYVincularNoExponeCanalEnFronteras(t *testing.T) {
-	contenido, err := os.ReadFile("identidad.go")
-	if err != nil {
-		t.Fatalf("leer identidad.go: %v", err)
-	}
-	if err := nuevoAnalizadorFronterasIdentidad(t).analizar("identidad.go", contenido); err != nil {
-		t.Fatalf("identidad.go expone o difiere el canal: %v", err)
-	}
-}
-
 func TestFachadaIdentidadOfflineAutenticarYVincularNoExponeCanalEnFronterasMutantes(t *testing.T) {
 	analizador := nuevoAnalizadorFronterasIdentidad(t)
-	mutantes := map[string][2]string{
-		"helper con retorno directo": {`func mutante(c httpseguridad.CanalProxyAutenticado) httpseguridad.CanalProxyAutenticado { return c }`, "firma"},
-		"alias de tipo":              {`type canalAliasMutante = httpseguridad.CanalProxyAutenticado`, "tipo"},
-		"callback":                   {`func mutante(_ func(httpseguridad.CanalProxyAutenticado, context.Context)) {}`, "firma"},
-		"clausura por captura": {`func mutante(d soporteMutante) func() {
-	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); var identidad httpseguridad.IdentidadSesion
+	mutantes := []struct {
+		nombre string
+		codigo string
+	}{
+		{"helper con retorno directo", `func mutante(c httpseguridad.CanalProxyAutenticado) httpseguridad.CanalProxyAutenticado { return c }`},
+		{"alias de tipo", `type canalAliasMutante = httpseguridad.CanalProxyAutenticado`},
+		{"callback", `func mutante(_ func(httpseguridad.CanalProxyAutenticado, context.Context)) {}`},
+		{"clausura por captura", `func mutante(d soporteMutante) func() {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	var identidad httpseguridad.IdentidadSesion
 	capsula, _ := d.servicio.ProyectarCapsulaIdentidadPeticion(d.contexto, identidad, canal)
 	return func() { _, _ = canal, capsula }
-}`, "clausura"},
-		"struct anonimo": {`func mutante(d soporteMutante) any {
-	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); var capsula httpseguridad.CapsulaIdentidadPeticion
+}`},
+		{"struct anonimo", `func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	var capsula httpseguridad.CapsulaIdentidadPeticion
 	return struct { canal httpseguridad.CanalProxyAutenticado; capsula httpseguridad.CapsulaIdentidadPeticion }{canal, capsula}
-}`, "retorno"},
-		"slice any": {`func mutante(d soporteMutante) {
-	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); var capsula httpseguridad.CapsulaIdentidadPeticion
+}`},
+		{"slice any", `func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	var capsula httpseguridad.CapsulaIdentidadPeticion
 	diferido := []any{canal, capsula}; _ = diferido
-}`, "contenedor"},
-		"retorno any": {`func mutante(d soporteMutante) any {
+}`},
+		{"retorno any", `func mutante(d soporteMutante) any {
 	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); return canal
-}`, "retorno"},
-		"almacenamiento de paquete": {`var almacenMutante any
-func mutante(d soporteMutante) { canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); almacenMutante = canal }`, "paquete"},
+}`},
+		{"almacenamiento de paquete", `var almacenMutante any
+func mutante(d soporteMutante) { canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado); almacenMutante = canal }`},
+		{"getter de receptor devuelto", `type receptorGetterMutante[T any] struct{ valor T }
+func (r receptorGetterMutante[T]) Obtener() T { return r.valor }
+func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	receptor := receptorGetterMutante[httpseguridad.CanalProxyAutenticado]{valor: canal}
+	return receptor.Obtener()
+}`},
+		{"getter de receptor almacenado", `type receptorGetterMutante[T any] struct{ valor T }
+func (r receptorGetterMutante[T]) Obtener() T { return r.valor }
+func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	receptor := receptorGetterMutante[httpseguridad.CanalProxyAutenticado]{valor: canal}
+	guardado := any(receptor.Obtener()); _ = guardado
+}`},
+		{"helper generico a any", `func ocultarMutante[T any](valor T) any { return valor }
+func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	diferido := ocultarMutante(canal); _ = diferido
+}`},
+		{"interfaz generica diferida", `type diferidorMutante[T any] interface{ Diferir(T) }
+func diferirMutante[T any](destino diferidorMutante[T], valor T) { destino.Diferir(valor) }
+func mutante(d soporteMutante, destino diferidorMutante[any]) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	diferirMutante[any](destino, canal)
+}`},
+		{"indice de array tipado", `func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	valores := [1]httpseguridad.CanalProxyAutenticado{canal}
+	extraido := valores[0]; return any(extraido)
+}`},
+		{"alias local", `func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	alias := canal; return alias
+}`},
+		{"clausura con selector separado", `func mutante(d soporteMutante) func() {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	contenedor := struct{ valor any }{valor: canal}
+	selector := contenedor.valor
+	return func() { _ = selector }
+}`},
+		{"map tras conversion generica", `func convertirMutante[T any](valor T) any { return valor }
+func mutante(d soporteMutante) any {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	convertido := convertirMutante(canal)
+	valores := map[string]any{"canal": convertido}; return valores["canal"]
+}`},
+		{"callback de metodo diferido", `type callbackMutante struct{}
+func (callbackMutante) Ejecutar(httpseguridad.CanalProxyAutenticado) {}
+func mutante(d soporteMutante) {
+	canal, _ := d.servicio.AutenticarCanalTLSMutuo(d.estado)
+	callback := callbackMutante{}.Ejecutar
+	defer callback(canal)
+}`},
 	}
-	for nombre, mutante := range mutantes {
-		t.Run(nombre, func(t *testing.T) {
-			err := analizador.analizar("mutante.go", []byte(cabeceraMutantesIdentidad+mutante[0]))
-			if err == nil || !strings.Contains(err.Error(), mutante[1]) {
-				t.Fatalf("mutante no rechazado por %q: %v", mutante[1], err)
+	for _, mutante := range mutantes {
+		t.Run(mutante.nombre, func(t *testing.T) {
+			err := analizador.analizar(
+				"mutante.go", []byte(cabeceraMutantesIdentidad+mutante.codigo),
+			)
+			if err == nil || !strings.HasPrefix(err.Error(), "frontera: ") {
+				t.Fatalf("mutante no tipado y rechazado por la frontera: %v", err)
 			}
 		})
 	}
-	if err := analizador.analizar("homonimo.go", []byte(cabeceraMutantesIdentidad)); err != nil {
-		t.Fatalf("selector homonimo inocuo produjo falso positivo: %v", err)
+	if err := analizador.analizar(
+		"homonimo.go", []byte(cabeceraMutantesIdentidad),
+	); err != nil {
+		t.Fatalf("homonimo inocuo produjo falso positivo: %v", err)
 	}
 }
-
-const fuenteSoporteIdentidad = `package interna
-import "crypto/tls"
-type tokenServidorInterno struct{ marca byte }
-type ServidorInterno struct { propietario *ServidorInterno; token *tokenServidorInterno }
-type claveContextoCanalTLSInterno struct{}
-type capacidadCanalTLSInterno struct{}
-func (*capacidadCanalTLSInterno) consumir(*tokenServidorInterno) (tls.ConnectionState, bool) { return tls.ConnectionState{}, false }`
 
 const cabeceraMutantesIdentidad = `package interna
 import ("context"; "crypto/tls"; "vec-diputacion-granada/internal/vec/adapters/httpseguridad")
 type soporteMutante struct { contexto context.Context; estado tls.ConnectionState; servicio *httpseguridad.ServicioIdentidad }
 type tipoHomonimoMutante struct{ CanalProxyAutenticado, CapsulaIdentidadPeticion int }
-func selectorHomonimoMutante(v tipoHomonimoMutante) int { return v.CanalProxyAutenticado + v.CapsulaIdentidadPeticion }
+func identidadGenericaInocua[T any](valor T) T { return valor }
+func selectorHomonimoMutante(v tipoHomonimoMutante) int {
+	return identidadGenericaInocua(v.CanalProxyAutenticado) + v.CapsulaIdentidadPeticion
+}
 `
-
-type marcasFronteraIdentidad uint8
-
-const (
-	marcaCanalIdentidad marcasFronteraIdentidad = 1 << iota
-	marcaCapsulaIdentidad
-	marcaContextoIdentidad
-	marcaAbiertaIdentidad
-)
-
-type analizadorFronterasIdentidad struct {
-	archivos   *token.FileSet
-	importador types.Importer
-}
-
-func nuevoAnalizadorFronterasIdentidad(t *testing.T) *analizadorFronterasIdentidad {
-	archivos := token.NewFileSet()
-	return &analizadorFronterasIdentidad{
-		archivos:   archivos,
-		importador: importer.ForCompiler(archivos, "gc", abrirExportIdentidad),
-	}
-}
-
-func abrirExportIdentidad(ruta string) (io.ReadCloser, error) {
-	orden := exec.Command("go", "list", "-export", "-f={{.Export}}", ruta)
-	orden.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS=-mod=readonly")
-	salida, err := orden.Output()
-	if err != nil {
-		return nil, fmt.Errorf("localizar export de %s: %w", ruta, err)
-	}
-	return os.Open(strings.TrimSpace(string(salida)))
-}
-
-func (a *analizadorFronterasIdentidad) analizar(nombre string, contenido []byte) error {
-	objetivo, err := parser.ParseFile(a.archivos, nombre, contenido, 0)
-	if err != nil {
-		return fmt.Errorf("parsear %s: %w", nombre, err)
-	}
-	soporte, err := parser.ParseFile(a.archivos, "soporte.go", fuenteSoporteIdentidad, 0)
-	if err != nil {
-		return fmt.Errorf("parsear soporte: %w", err)
-	}
-	informacion := &types.Info{
-		Types: make(map[ast.Expr]types.TypeAndValue),
-		Defs:  make(map[*ast.Ident]types.Object),
-		Uses:  make(map[*ast.Ident]types.Object),
-	}
-	configuracion := types.Config{Importer: a.importador, GoVersion: "go1.26"}
-	paquete, err := configuracion.Check("vec-diputacion-granada/internal/app/composicion/interna", a.archivos, []*ast.File{objetivo, soporte}, informacion)
-	if err != nil {
-		return fmt.Errorf("tipar %s: %w", nombre, err)
-	}
-	return validarFronterasIdentidad(a.archivos, objetivo, paquete, informacion)
-}
-
-func marcasTipoIdentidad(tipo types.Type) marcasFronteraIdentidad {
-	return marcasTipoIdentidadVisitado(tipo, map[types.Type]bool{})
-}
-
-func marcasTipoIdentidadVisitado(tipo types.Type, vistos map[types.Type]bool) marcasFronteraIdentidad {
-	if tipo == nil || vistos[tipo] {
-		return 0
-	}
-	vistos[tipo] = true
-	tipo = types.Unalias(tipo)
-	if nombrado, ok := tipo.(*types.Named); ok {
-		objeto := nombrado.Obj()
-		if objeto.Pkg() != nil {
-			switch objeto.Pkg().Path() + "." + objeto.Name() {
-			case "vec-diputacion-granada/internal/vec/adapters/httpseguridad.CanalProxyAutenticado":
-				return marcaCanalIdentidad
-			case "vec-diputacion-granada/internal/vec/adapters/httpseguridad.CapsulaIdentidadPeticion":
-				return marcaCapsulaIdentidad
-			case "context.Context":
-				return marcaContextoIdentidad
-			}
-			if objeto.Pkg().Path() != "vec-diputacion-granada/internal/app/composicion/interna" {
-				return 0
-			}
-		}
-		return marcasTipoIdentidadVisitado(nombrado.Underlying(), vistos)
-	}
-	var marcas marcasFronteraIdentidad
-	sumar := func(t types.Type) { marcas |= marcasTipoIdentidadVisitado(t, vistos) }
-	switch actual := tipo.(type) {
-	case *types.Pointer:
-		sumar(actual.Elem())
-	case *types.Array:
-		sumar(actual.Elem())
-	case *types.Slice:
-		sumar(actual.Elem())
-	case *types.Map:
-		sumar(actual.Key())
-		sumar(actual.Elem())
-	case *types.Chan:
-		sumar(actual.Elem())
-	case *types.Struct:
-		for indice := range actual.NumFields() {
-			sumar(actual.Field(indice).Type())
-		}
-	case *types.Tuple:
-		for indice := range actual.Len() {
-			sumar(actual.At(indice).Type())
-		}
-	case *types.Signature:
-		sumar(actual.Params())
-		sumar(actual.Results())
-	case *types.Interface:
-		marcas |= marcaAbiertaIdentidad
-		for indice := range actual.NumExplicitMethods() {
-			sumar(actual.ExplicitMethod(indice).Type())
-		}
-	}
-	return marcas
-}
-
-func marcasDerechaIdentidad(expresiones []ast.Expr, cantidad int, info *types.Info) []marcasFronteraIdentidad {
-	if len(expresiones) == 1 && cantidad > 1 {
-		if tupla, ok := info.TypeOf(expresiones[0]).(*types.Tuple); ok && tupla.Len() == cantidad {
-			resultado := make([]marcasFronteraIdentidad, cantidad)
-			for indice := range cantidad {
-				resultado[indice] = marcasTipoIdentidad(tupla.At(indice).Type())
-			}
-			return resultado
-		}
-	}
-	resultado := make([]marcasFronteraIdentidad, len(expresiones))
-	for indice, expresion := range expresiones {
-		resultado[indice] = marcasExpresionIdentidad(expresion, info)
-	}
-	return resultado
-}
-
-func marcasExpresionIdentidad(expresion ast.Expr, info *types.Info) marcasFronteraIdentidad {
-	if expresion == nil {
-		return 0
-	}
-	marcas := marcasTipoIdentidad(info.TypeOf(expresion))
-	switch actual := expresion.(type) {
-	case *ast.ParenExpr:
-		marcas |= marcasExpresionIdentidad(actual.X, info)
-	case *ast.UnaryExpr:
-		marcas |= marcasExpresionIdentidad(actual.X, info)
-	case *ast.CompositeLit:
-		for _, elemento := range actual.Elts {
-			if par, ok := elemento.(*ast.KeyValueExpr); ok {
-				marcas |= marcasExpresionIdentidad(par.Key, info)
-				marcas |= marcasExpresionIdentidad(par.Value, info)
-			} else if valor, ok := elemento.(ast.Expr); ok {
-				marcas |= marcasExpresionIdentidad(valor, info)
-			}
-		}
-	case *ast.CallExpr:
-		tipo, conversion := info.Types[actual.Fun]
-		identificador, appendBuiltin := actual.Fun.(*ast.Ident)
-		if conversion && tipo.IsType() || appendBuiltin && identificador.Name == "append" {
-			for _, argumento := range actual.Args {
-				marcas |= marcasExpresionIdentidad(argumento, info)
-			}
-		}
-	}
-	return marcas
-}
-
-func validarFronterasIdentidad(archivos *token.FileSet, archivo *ast.File, paquete *types.Package, info *types.Info) error {
-	var infraccion error
-	falla := func(nodo ast.Node, clase string) {
-		if infraccion == nil {
-			infraccion = fmt.Errorf("%s en %s", clase, archivos.Position(nodo.Pos()))
-		}
-	}
-	ast.Inspect(archivo, func(nodo ast.Node) bool {
-		if nodo == nil || infraccion != nil {
-			return infraccion == nil
-		}
-		switch actual := nodo.(type) {
-		case *ast.FuncDecl:
-			if objeto, ok := info.Defs[actual.Name].(*types.Func); ok && marcasTipoIdentidad(objeto.Type())&marcaCanalIdentidad != 0 {
-				falla(actual, "firma o callback transporta canal")
-			}
-		case *ast.FuncLit:
-			if marcasTipoIdentidad(info.TypeOf(actual))&marcaCanalIdentidad != 0 {
-				falla(actual, "firma o callback transporta canal")
-				break
-			}
-			ast.Inspect(actual.Body, func(interior ast.Node) bool {
-				identificador, ok := interior.(*ast.Ident)
-				if !ok {
-					return true
-				}
-				objeto := info.Uses[identificador]
-				if objeto != nil && (objeto.Pos() < actual.Pos() || objeto.Pos() > actual.End()) &&
-					marcasTipoIdentidad(objeto.Type())&marcaCanalIdentidad != 0 {
-					falla(actual, "clausura captura canal")
-					return false
-				}
-				return true
-			})
-		case *ast.TypeSpec:
-			if marcasTipoIdentidad(info.TypeOf(actual.Type))&marcaCanalIdentidad != 0 {
-				falla(actual, "tipo o alias transporta canal")
-			}
-		case *ast.ValueSpec:
-			for indice, nombre := range actual.Names {
-				objeto := info.ObjectOf(nombre)
-				if objeto == nil {
-					continue
-				}
-				marcas := marcasTipoIdentidad(objeto.Type())
-				if indice < len(actual.Values) {
-					marcas |= marcasExpresionIdentidad(actual.Values[indice], info)
-				}
-				if marcas&marcaCanalIdentidad != 0 && objeto.Parent() == paquete.Scope() {
-					falla(actual, "almacenamiento de paquete transporta canal")
-				}
-			}
-		case *ast.CompositeLit:
-			if marcasTipoIdentidad(info.TypeOf(actual.Type))&marcaCanalIdentidad != 0 {
-				falla(actual, "tipo anonimo transporta canal")
-			} else if marcas := marcasExpresionIdentidad(actual, info); marcas&marcaCanalIdentidad != 0 && marcas&(marcaCapsulaIdentidad|marcaContextoIdentidad|marcaAbiertaIdentidad) != 0 {
-				falla(actual, "contenedor transporta canal")
-			}
-		case *ast.ReturnStmt:
-			for _, resultado := range actual.Results {
-				if marcasExpresionIdentidad(resultado, info)&marcaCanalIdentidad != 0 {
-					falla(actual, "retorno transporta canal")
-				}
-			}
-		case *ast.AssignStmt:
-			marcas := marcasDerechaIdentidad(actual.Rhs, len(actual.Lhs), info)
-			for indice, izquierda := range actual.Lhs {
-				if indice >= len(marcas) || marcas[indice]&marcaCanalIdentidad == 0 {
-					continue
-				}
-				identificador, esIdentificador := izquierda.(*ast.Ident)
-				objeto := info.ObjectOf(identificador)
-				if esIdentificador && objeto != nil && objeto.Parent() == paquete.Scope() {
-					falla(actual, "almacenamiento de paquete transporta canal")
-				} else if marcasTipoIdentidad(info.TypeOf(izquierda))&marcaAbiertaIdentidad != 0 {
-					falla(actual, "interfaz o contenedor transporta canal")
-				}
-			}
-		case *ast.CallExpr:
-			validarLlamadaIdentidad(actual, info, falla)
-		}
-		return infraccion == nil
-	})
-	return infraccion
-}
-
-func validarLlamadaIdentidad(llamada *ast.CallExpr, info *types.Info, falla func(ast.Node, string)) {
-	if tipo, ok := info.Types[llamada.Fun]; ok && tipo.IsType() {
-		if marcasTipoIdentidad(tipo.Type)&marcaAbiertaIdentidad != 0 && marcasArgumentosIdentidad(llamada, info)&marcaCanalIdentidad != 0 {
-			falla(llamada, "interfaz transporta canal")
-		}
-		return
-	}
-	firma, ok := types.Unalias(info.TypeOf(llamada.Fun)).(*types.Signature)
-	if !ok {
-		return
-	}
-	for indice, argumento := range llamada.Args {
-		if marcasExpresionIdentidad(argumento, info)&marcaCanalIdentidad == 0 || firma.Params().Len() == 0 {
-			continue
-		}
-		parametro := min(indice, firma.Params().Len()-1)
-		tipoParametro := firma.Params().At(parametro).Type()
-		if firma.Variadic() && parametro == firma.Params().Len()-1 {
-			tipoParametro = tipoParametro.(*types.Slice).Elem()
-		}
-		if marcasTipoIdentidad(tipoParametro)&marcaCanalIdentidad == 0 {
-			falla(llamada, "interfaz o callback recibe canal")
-			return
-		}
-	}
-}
-
-func marcasArgumentosIdentidad(llamada *ast.CallExpr, info *types.Info) marcasFronteraIdentidad {
-	var marcas marcasFronteraIdentidad
-	for _, argumento := range llamada.Args {
-		marcas |= marcasExpresionIdentidad(argumento, info)
-	}
-	return marcas
-}
 
 func TestFachadaIdentidadOfflineAutenticarYVincularExitoYConservaContexto(t *testing.T) {
 	entorno := nuevoEntornoIdentidadOfflinePrueba(t)
