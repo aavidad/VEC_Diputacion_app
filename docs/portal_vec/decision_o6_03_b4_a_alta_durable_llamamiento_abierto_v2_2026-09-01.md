@@ -1,24 +1,27 @@
-# CT-LITE-O6-03-B4-A-DOC — alta durable de llamamiento abierto V2
+# CT-LITE-O6-03-B4-A-DOC-R1 — alta durable de llamamiento abierto V2
 
 Fecha: 1 de septiembre de 2026.
 
 ## Estado, autoridad y alcance
 
-Este documento parte de la base exacta
+Esta revisión parte del candidato exacto
+`eb62050e493e829669c9ff5081628cc739f47809`, cuyo padre único es el producto
 `c8cc4312b063ddca7294dfe27dc673ad1a4676d0`, que integra la autoridad
 `CT-LITE-O6-03-B4-R1`. Es un corte exclusivamente documental: no implementa
-producto, no cierra `O6-03`, no cambia métricas y no autoriza integración,
-despliegue ni producción.
+producto, no cierra `O6-03`, no cambia métricas y no autoriza código, SQL,
+integración, despliegue ni producción.
 
-La capability fijada es `AltaDurableLlamamientoAbiertoV2`, propiedad exclusiva
-de la aplicación de Bolsa. Su responsabilidad única es crear de forma durable
-un `LlamamientoAbierto` en estado técnico `abierto` a partir de un hecho local
-de creación posterior a la validación autoritativa de la propuesta.
+La capability futura es `AltaDurableLlamamientoAbiertoV2`, propiedad exclusiva
+de la aplicación de Bolsa. Su responsabilidad única seguirá siendo crear de
+forma durable un `LlamamientoAbierto` en estado técnico `abierto`, pero no
+podrá implementarse hasta que A0 cierre la autoridad V2 exacta del alta, su
+fuente durable bloqueable y la topología de identidad común Bolsa/VEC.
 
 Invariante del corte:
 
-> Una transacción `SERIALIZABLE READ WRITE` materializa hecho local de
-> creación + agregado abierto + historia inicial + auditoría + outbox + recibo,
+> Una transacción `SERIALIZABLE READ WRITE`, conforme al orden y las fuentes
+> que fije A0, consume la autorización VEC V2 y materializa hecho local de
+> creación + agregado abierto + historia inicial + auditoría + outbox + recibo:
 > todo `COMMIT` o todo `ROLLBACK`.
 
 Write-set único:
@@ -27,8 +30,9 @@ Write-set único:
 docs/portal_vec/decision_o6_03_b4_a_alta_durable_llamamiento_abierto_v2_2026-09-01.md
 ```
 
-El siguiente corte, únicamente después de revisión independiente e integración
-de este documento, es `CT-LITE-O6-03-B4-A1-CONTRATO-GO`.
+El siguiente corte, únicamente después de doble revisión independiente con
+`GO` del hash exacto e integración de este R1 por Dirección, es
+`CT-LITE-O6-03-B4-A0-AUTORIDAD-FUENTE-TOPOLOGIA-DOC`.
 
 ## Autoridades leídas y precedencia
 
@@ -37,7 +41,8 @@ Esta decisión consume, sin modificar ni reinterpretar:
 - B2: `LlamamientoAbierto`, `DatosLlamamientoAbierto` y
   `NuevoLlamamientoAbierto` en
   `internal/modules/bolsa/domain/llamamiento_abierto.go`;
-- PRE-CAP: `OrdenTerminalLlamamientoAutorizadaV2` en aplicación de Bolsa;
+- PRE-CAP: `OrdenTerminalLlamamientoAutorizadaV2` en aplicación de Bolsa,
+  limitada a aceptación, renuncia y expiración y sin autoridad para el alta;
 - B3: `TransicionarLlamamientoConOrdenTerminalAutorizadaV2` como única
   transición terminal ejecutable;
 - B4-R1 integrado, que decide una unidad V2 propia de Bolsa, aislada de V1 y
@@ -53,17 +58,43 @@ presenta `deploy/postgresql/autorizacion_atestada_v2` como autorizado para
 producción: su propia autoridad conserva `NO-GO` hasta cerrar broker, HSM/KMS,
 ancla anti-restauración, composición atómica y aprobaciones operativas.
 
+## Dictámenes `NO-GO` incorporados y cierre R1
+
+Este R1 registra los dos dictámenes emitidos sobre el candidato
+`eb62050e493e829669c9ff5081628cc739f47809`:
+
+- `NO-GO` local de Dirección, `P0`: no existe una autorización V2 exacta para
+  crear el llamamiento abierto. PRE-CAP solo cubre aceptación, renuncia y
+  expiración; una invocación condicional no autoriza el alta;
+- `NO-GO` local de Dirección, `P1`: no existe una propuesta o hecho durable V2
+  identificado y bloqueable cuya fuente pueda releerse. Una capacidad privada
+  en memoria no sustituye la fuente durable exigida por B4-R1; y
+- `NO-GO` remoto independiente, `P1`: el rol reservado
+  `vec_bolsa_llamamientos_v2_ejecutor` no compone con la fachada VEC vigente.
+  Esa fachada valida `session_user` y exige una única membresía directa
+  `vec_autorizacion_atestada_v2_consumidor`; el LOGIN miembro de ambos roles
+  falla y `SET ROLE` no cambia esa identidad. Además, la recuperación propuesta
+  no reconciliaba el consumo VEC.
+
+Los tres hallazgos quedan cerrados en el alcance documental de este R1 mediante
+una única barrera A0 previa: se retira el paso directo a A1, se declara inválida
+cualquier autoridad en memoria o condicional y se exige doble `GO` e integración
+de A0 antes de contrato, código o SQL. Este cierre no afirma que ya existan la
+autoridad, la fuente, la identidad o la atomicidad: A0 debe decidirlas y recibirá
+`NO-GO` si alguna permanece abierta.
+
 ## Responsabilidad única de B4-A
 
 B4-A crea el agregado abierto y nada más. Para una operación nueva debe:
 
-1. acreditar que la solicitud nació dentro del flujo local de Bolsa después
-   de validar la propuesta autoritativa exacta;
+1. releer bajo bloqueo la fuente durable V2 exacta que A0 autorice y acreditar
+   el vínculo con la propuesta confirmada;
 2. derivar en aplicación los datos de apertura y construir el valor mediante
    `NuevoLlamamientoAbierto`;
-3. confirmar en una sola transacción el hecho local de creación, la proyección
+3. consumir obligatoriamente la autorización VEC V2 exacta de toda alta nueva;
+4. confirmar en una sola transacción el hecho local de creación, la proyección
    abierta, su primera historia, auditoría, outbox y recibo; y
-4. devolver exclusivamente el recibo minimizado confirmado.
+5. devolver exclusivamente el recibo minimizado confirmado.
 
 B4-A no ejecuta una transición terminal. No acepta
 `OrdenTerminalLlamamientoAutorizadaV2`, no llama a
@@ -77,13 +108,14 @@ terminal. B4-B dependerá de un alta B4-A ya confirmada, reconstruirá el abiert
 con `NuevoLlamamientoAbierto` y nunca insertará oportunistamente el agregado si
 falta.
 
-## Nacimiento exclusivo de la solicitud
+## Origen exclusivo y límite de la solicitud
 
-`SolicitudAltaDurableLlamamientoAbiertoV2` solo puede nacer en proceso, dentro
-de la aplicación de Bolsa, desde el flujo local que acaba de validar la
-propuesta autoritativa. La validación debe conservar como capacidad privada la
-procedencia y los compromisos exactos necesarios para el efecto; una mera
-igualdad de referencias no la sustituye.
+`SolicitudAltaDurableLlamamientoAbiertoV2` será un transporte opaco interno de
+aplicación, nunca la autoridad del alta. Solo podrá construirse dentro de la
+operación que relea y bloquee la fuente durable V2 exacta fijada por A0 y
+consuma la autorización VEC V2 en el mismo `COMMIT`. Una capacidad privada en
+memoria, aunque conserve procedencia o compromisos, no sustituye esa relectura;
+una mera igualdad de referencias tampoco.
 
 Queda prohibido construir, reconstruir, rehidratar o promover la solicitud
 desde cualquiera de estas fuentes:
@@ -93,17 +125,53 @@ desde cualquiera de estas fuentes:
   parámetros o almacenamiento del navegador;
 - tablas, vistas, outbox, inbox o bytes de Contratación temporal;
 - tablas o funciones V1 de Bolsa;
+- una capacidad en memoria, un recibo externo o una confirmación externa;
 - una lista, mapa o estructura de referencias escalares aportada por un
   adaptador; o
-- una proyección persistida que no conserve la capacidad local autoritativa.
+- una proyección persistida cuyo productor, objeto bloqueable y vínculo con la
+  propuesta confirmada no hayan sido fijados por A0.
 
 El recibo O6-01 permite a Contratación temporal verificar su intercambio. No
 concede a Bolsa autoridad de creación, no puede convertirse en el hecho local
 y no autoriza a leer tablas de Contratación temporal.
 
+## Corte obligatorio CT-LITE-O6-03-B4-A0-AUTORIDAD-FUENTE-TOPOLOGIA-DOC
+
+A0 es una única decisión documental de propiedad coordinada Bolsa/VEC/DBA. No
+implementará código ni SQL. Este R1 no anticipa ni diseña sus valores: A0 debe
+fijarlos de forma literal, sin usar V1, y obtener doble `GO` independiente e
+integración por Dirección antes de desbloquear A1.
+
+A0 debe cerrar conjuntamente:
+
+1. acción, finalidad, perfil, tipo y recurso, huellas, motivo, correlación,
+   emisor, audiencia, vigencia y consumo V2 exactos de la autorización de alta;
+2. la función VEC nominal exacta y su consumo obligatorio para toda alta nueva,
+   dentro del mismo `COMMIT` que crea el abierto;
+3. una sola topología viable de LOGIN, `session_user` y membresías compatible
+   simultáneamente con la fachada VEC y la fachada Bolsa. Si esa topología exige
+   una enmienda VEC, A0 debe derivar una tarea previa propiedad de VEC/DBA,
+   integrada antes de cualquier SQL de Bolsa;
+4. el productor V2 exacto del hecho o propuesta durable, una representación sin
+   PII ni huellas derivadas de PII, su objeto y clave bloqueables, su función de
+   captura o consulta y el vínculo exacto con la propuesta confirmada;
+5. si hecho, propuesta y abierto nacen en la misma transacción, el orden y la
+   fuente previa que los autoriza; si existe una fuente durable previa, su
+   productor y bloqueo;
+6. el orden total de locks y relecturas. No son autoridad una capacidad en
+   memoria, un recibo externo, HTTP, Contratación temporal, escalares ni V1;
+7. que `Recuperar` reconcilie internamente las seis piezas locales y el consumo
+   VEC, sin ampliar el recibo ni exponer PII; y
+8. `NO-GO` obligatorio si cualquiera de autoridad, fuente, identidad o
+   atomicidad sigue abierta.
+
+A1 permanece bloqueado hasta el doble `GO` y la integración de A0. Una enmienda
+VEC/DBA exigida por la topología deberá ser una dependencia integrada antes de
+autorizar cualquier SQL de Bolsa.
+
 ## Contrato futuro reservado en aplicación
 
-El siguiente corte reserva exactamente estos dos ficheros nuevos:
+Después de A0, A1 conserva exactamente estos dos ficheros nuevos:
 
 ```text
 internal/modules/bolsa/application/alta_durable_llamamiento_abierto_v2.go
@@ -196,6 +264,12 @@ vec_bolsa_llamamientos_v2_migrador
 vec_bolsa_llamamientos_v2_ejecutor
 ```
 
+Estos nombres quedan reservados, pero no acreditan una topología runtime. En
+particular, conceder a un LOGIN membresía directa del ejecutor de Bolsa y del
+consumidor VEC es incompatible con la comprobación vigente sobre `session_user`;
+`SET ROLE` no lo corrige. Solo A0 puede fijar una topología viable o exigir la
+enmienda previa propiedad de VEC/DBA.
+
 Funciones exteriores nominales:
 
 ```text
@@ -221,11 +295,14 @@ outbox_llamamiento_v2
 recibo_alta_llamamiento_v2
 ```
 
-`hecho_creacion_llamamiento_abierto_v2` es la fuente local append-only del
-nacimiento. `llamamiento_abierto_v2` es la proyección actual que B4-B podrá
-transicionar en un corte posterior. La primera fila de
-`historia_llamamiento_v2`, la auditoría, el evento outbox y el recibo pertenecen
-a la misma operación y no existen parcialmente.
+`hecho_creacion_llamamiento_abierto_v2` reserva la materialización local
+append-only del nacimiento, pero su nombre no la convierte en fuente
+autoritativa. A0 debe identificar su productor y fuente previa o decidir el
+orden que evita circularidad si nace en la misma transacción.
+`llamamiento_abierto_v2` es la proyección actual que B4-B podrá transicionar en
+un corte posterior. La primera fila de `historia_llamamiento_v2`, la auditoría,
+el evento outbox y el recibo pertenecen a la misma operación y no existen
+parcialmente.
 
 V1 permanece histórica e inmutable. V2 no tendrá vistas, triggers, claves
 foráneas, sinónimos, lecturas, escrituras, backfill, conversión o proyección
@@ -237,17 +314,14 @@ objeto V1.
 
 La unidad V2 de Bolsa debe residir en la misma instancia y base PostgreSQL que
 la fachada VEC V2. El adaptador futuro usará la misma conexión y la misma
-transacción local `SERIALIZABLE READ WRITE` para:
+transacción local `SERIALIZABLE READ WRITE`. Antes de A1, A0 fijará el orden
+total de endurecimiento de sesión, locks, relecturas, replay/colisión,
+construcción con `NuevoLlamamientoAbierto`, consumo VEC, materialización de las
+seis piezas y validación previa al único `COMMIT`; este R1 no autoriza ni
+anticipa ese orden concreto.
 
-1. endurecer la sesión, identidad efectiva y límites;
-2. localizar replay o colisión por `OperacionRef` y huella sellada;
-3. abrir una sola vez la solicitud opaca y construir en Go el agregado con
-   `NuevoLlamamientoAbierto`;
-4. invocar la fachada nominal VEC V2 para releer, revalidar y consumir la
-   autorización exacta cuando corresponda al efecto;
-5. invocar `confirmar_alta_llamamiento_abierto_v2` para materializar las seis
-   piezas locales; y
-6. validar el recibo antes de un único `COMMIT`.
+Toda alta nueva debe invocar y consumir la autorización exacta mediante la
+función nominal VEC que fije A0. No existe alta exenta ni consumo condicional.
 
 Las funciones PostgreSQL no abren conexiones ni confirman transacciones por
 su cuenta. El consumo VEC y las seis piezas de Bolsa comparten un solo desenlace.
@@ -288,7 +362,8 @@ autoridad de negocio.
 
 `OperacionRef` identifica semánticamente el alta. `HuellaAltaSHA256` liga de
 forma canónica la operación, las cuatro referencias, versión, estado abierto y
-los compromisos técnicos autoritativos de la solicitud, sin PII.
+los compromisos técnicos que A0 ligue a la fuente durable y a la autorización
+V2 consumida, sin PII.
 
 - mismo `OperacionRef` y misma carga/huella exactas: devuelve byte y
   semánticamente el mismo recibo confirmado, con los mismos trece campos y sin
@@ -298,11 +373,13 @@ los compromisos técnicos autoritativos de la solicitud, sin PII.
 - recibo existente sin paquete local completo y coherente: corrupción o
   resultado indeterminado; nunca se fabrica o completa un recibo;
 - `40001` o `40P01` antes de intentar `COMMIT`: permiten reintento acotado en
-  una transacción nueva, siempre con la misma solicitud sellada;
+  una transacción nueva, siempre con la misma solicitud sellada y con nueva
+  relectura durable y revalidación/consumo VEC; la solicitud sola no autoriza;
 - error de `COMMIT`, pérdida de respuesta o conexión tras intentarlo: resultado
   indeterminado; queda prohibido repetir a ciegas y se exige `Recuperar`; y
-- `Recuperar` es de solo lectura, coteja operación, huella y las seis piezas
-  locales, y devuelve el recibo histórico exacto o una ausencia demostrada.
+- `Recuperar` es de solo lectura, coteja operación, huella, las seis piezas
+  locales y el consumo VEC correspondiente, y devuelve el recibo histórico
+  exacto o una ausencia demostrada sin ampliar sus trece campos.
 
 Una autorización caducada no puede crear un efecto nuevo. Recuperar un recibo
 histórico confirmado no vuelve a consumir la autorización ni exige que siga
@@ -314,7 +391,7 @@ vigente: solo acredita el `COMMIT` anterior.
 | --- | --- | --- | --- |
 | Solicitud/consulta cero, corrupta o no local | centinela de entrada inválida, opaco | ninguno | no |
 | Codec o intento de reconstrucción | centinela de serialización prohibida | ninguno | no |
-| Propuesta o capacidad autoritativa ausente, retirada o divergente | denegación opaca | ninguno | no |
+| Fuente durable, propuesta o autorización V2 ausente, retirada o divergente | denegación opaca | ninguno | no |
 | VEC V2 no disponible o no revalidable | denegación/indisponibilidad opaca | ninguno | no se interpreta como autorización |
 | Misma operación y misma huella | mismo recibo | ninguno nuevo | replay resuelto |
 | Misma operación con carga distinta | centinela de colisión | ninguno | no |
@@ -355,7 +432,7 @@ conteo e identidad que no queda estado parcial.
 | --- | --- | --- |
 | `..._propietario` | propiedad exacta de esquema, objetos y funciones V2 | LOGIN, uso funcional ordinario, autoridad V1 |
 | `..._migrador` | asumir propietario solo durante migración gobernada | LOGIN, ejecución funcional, DML ordinario |
-| `..._ejecutor` | `USAGE` de esquema y `EXECUTE` solo en las dos funciones nominales | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, secuencias, funciones internas, `SET ROLE` |
+| `..._ejecutor` | reserva de `USAGE` de esquema y `EXECUTE` solo en las dos funciones nominales, supeditada a A0 | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, secuencias, funciones internas, `SET ROLE` |
 | `PUBLIC` | ninguno | esquema, tipos, tablas, secuencias y funciones |
 
 Todas las tablas tendrán `ENABLE ROW LEVEL SECURITY` y `FORCE ROW LEVEL
@@ -365,8 +442,10 @@ equivalente al propietario. Las funciones serán `SECURITY DEFINER`, fijarán
 `search_path = pg_catalog`, comprobarán identidad efectiva y no expondrán
 oráculos de existencia.
 
-El rol V2 no heredará roles V1. Cualquier `EXECUTE` necesario sobre la fachada
-VEC V2 lo concede su autoridad sobre esa función exacta; no transfiere
+El rol V2 no heredará roles V1. A0 decidirá la única identidad runtime viable;
+este documento no concede membresías ni presupone que `EXECUTE` baste para
+superar la validación de `session_user`. Cualquier privilegio sobre la fachada
+VEC V2 lo concede su autoridad sobre una función exacta y no transfiere
 propiedad ni acceso a tablas VEC.
 
 ## Privacidad, seguridad, i18n y accesibilidad
@@ -400,46 +479,54 @@ adquirir autoridad:
   texto funcional; y
 - tiempos de sentencia, lock, inactividad y cancelación obligatorios.
 
-El corte futuro se detiene en `NO-GO` si:
+El corte A0 y todos los posteriores se detienen en `NO-GO` si:
 
-1. la solicitud puede nacer fuera del flujo local autoritativo;
-2. se usa O6-01, HTTP, bytes, escalares, tablas CT o V1 como fuente;
-3. `NuevoLlamamientoAbierto` deja de ser la única construcción B2;
-4. B4-A invoca B3 o realiza una terminal;
-5. no existe aislamiento físico V2 con los nombres fijados;
-6. no puede compartirse base, conexión y transacción local con VEC V2;
-7. el ejecutor requiere DML directo, `SET ROLE` o acceso a tablas ajenas;
-8. replay, colisión, cancelación o `COMMIT` ambiguo no fallan cerrados;
-9. alguna de las seis piezas puede sobrevivir sin las otras; o
-10. se pretende declarar `autorizacion_atestada_v2`, B4-A u O6-03 aptos para
+1. autoridad, fuente, identidad o atomicidad siguen abiertas;
+2. la solicitud puede nacer sin relectura y bloqueo de fuente durable V2;
+3. se usa O6-01, HTTP, bytes, escalares, tablas CT o V1 como fuente;
+4. `NuevoLlamamientoAbierto` deja de ser la única construcción B2;
+5. B4-A invoca B3 o realiza una terminal;
+6. no existe aislamiento físico V2 con los nombres fijados;
+7. no puede compartirse base, conexión y transacción local con VEC V2;
+8. la topología exige dos membresías incompatibles, `SET ROLE`, DML directo o
+   acceso a tablas ajenas;
+9. replay, colisión, cancelación o `COMMIT` ambiguo no fallan cerrados;
+10. alguna pieza local puede sobrevivir sin las otras o sin consumo VEC; o
+11. se pretende declarar `autorizacion_atestada_v2`, B4-A u O6-03 aptos para
     producción.
 
 ## Secuencia obligatoria de futuros cortes
 
 ```text
-CT-LITE-O6-03-B4-A-DOC (este candidato)
-  -> revisión independiente del hash exacto
+CT-LITE-O6-03-B4-A-DOC-R1 (este candidato)
+  -> doble revisión independiente del hash exacto: GO + GO
     -> integración por Dirección
-      -> CT-LITE-O6-03-B4-A1-CONTRATO-GO
-        -> A2 roles y topología V2
-          -> A3 migración 000001 y funciones nominales
-            -> A4 adaptador postgresllamamientosv2
-              -> A5 PostgreSQL real: replay, recuperación, ACL/RLS y rollback
-                -> revisión independiente e integración B4-A
-                  -> documento/contrato B4-B
+      -> CT-LITE-O6-03-B4-A0-AUTORIDAD-FUENTE-TOPOLOGIA-DOC
+        -> doble revisión independiente del hash exacto: GO + GO
+          -> integración por Dirección
+            -> CT-LITE-O6-03-B4-A1-CONTRATO-GO
+              -> A2 roles y topología V2
+                -> A3 migración 000001 y funciones nominales
+                  -> A4 adaptador postgresllamamientosv2
+                    -> A5 PostgreSQL real: replay, recuperación, ACL/RLS y rollback
+                      -> revisión independiente e integración B4-A
+                        -> documento/contrato B4-B
 ```
 
-A1 modifica solo los dos ficheros de aplicación reservados. Crea el contrato
-opaco y sus pruebas unitarias; no añade PostgreSQL, adaptador, composición,
-HTTP, V1 ni ningún fichero fuera de ese par. A2–A5 tendrán write-sets nuevos y
-disjuntos o se ejecutarán en secuencia. Ningún corte se integra sin revisión
-independiente de su hash exacto.
+A0 tiene propiedad coordinada Bolsa/VEC/DBA y es la única barrera documental
+añadida antes de A1. A1 modifica solo los dos ficheros de aplicación reservados.
+Crea el contrato opaco y sus pruebas unitarias; no añade PostgreSQL, adaptador,
+composición, HTTP, V1 ni ningún fichero fuera de ese par. A2–A5 tendrán
+write-sets nuevos y disjuntos o se ejecutarán en secuencia. Ningún corte se
+integra sin la revisión independiente exigida de su hash exacto.
 
 ## Matriz de pruebas futuras
 
-A1 deberá cubrir valor cero, nacimiento exclusivamente local, imposibilidad de
-constructor escalar, copias defensivas, redacción, bloqueo de todos los codecs,
-lista positiva exacta del recibo, consulta sin autoridad y errores opacos.
+A1 deberá cubrir valor cero, construcción restringida al mecanismo interno que
+A0 ligue a la relectura durable sin convertir la solicitud en autoridad,
+imposibilidad de constructor escalar, copias defensivas, redacción, bloqueo de
+todos los codecs, lista positiva exacta del recibo, consulta sin autoridad y
+errores opacos.
 
 Los cortes PostgreSQL deberán cubrir, en una instancia efímera real: alta
 nominal, replay exacto desde otro proceso, colisión de operación, propuesta o
@@ -457,6 +544,9 @@ funciones, migraciones, recibos efectivos, composición ni pruebas dinámicas.
 No acredita un alta, un `COMMIT`, comunicación, aceptación, renuncia,
 expiración, siguiente candidato, API, web, E2E, despliegue o producción.
 
-El siguiente corte exacto es `CT-LITE-O6-03-B4-A1-CONTRATO-GO`, limitado a
-los dos ficheros futuros de aplicación ya reservados y bloqueado hasta que este
-hash reciba revisión independiente e integración por Dirección.
+El siguiente corte exacto es
+`CT-LITE-O6-03-B4-A0-AUTORIDAD-FUENTE-TOPOLOGIA-DOC`, bloqueado hasta que el
+hash exacto de este R1 reciba doble `GO` independiente e integración por
+Dirección. A1 continúa bloqueado hasta que A0 reciba su doble `GO` y quede
+integrado; cualquier enmienda VEC/DBA que A0 derive deberá preceder al SQL de
+Bolsa.
