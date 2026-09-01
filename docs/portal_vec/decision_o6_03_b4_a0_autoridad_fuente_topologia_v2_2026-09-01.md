@@ -275,6 +275,7 @@ LlamamientoRef
 BolsaRef
 NecesidadRef
 PropuestaRef
+HuellaPropuestaAltaSHA256
 VersionInicial = 1
 OperacionOrigenRef
 SujetoRef
@@ -285,23 +286,116 @@ ConfirmadaEn
 `HuellaFuenteAltaSHA256` es el hexadecimal minúsculo de SHA-256 sobre el mismo
 encuadre binario ya definido y, en este orden exacto, el esquema literal
 `vec.bolsa.llamamiento-abierto.fuente-alta.v2`, FuenteRef, LlamamientoRef,
-BolsaRef, NecesidadRef, PropuestaRef, el literal `1`, OperacionOrigenRef,
-SujetoRef y ConfirmadaEn. El instante se representa en UTC con el patrón ASCII
-exacto `YYYY-MM-DDTHH:MM:SS.ffffffZ`, siempre seis dígitos de microsegundo. La
-preimagen excluye candidato, persona, selección, posición, contacto, documento,
-texto libre y cualquier huella derivada de PII.
+BolsaRef, NecesidadRef, PropuestaRef, HuellaPropuestaAltaSHA256, el literal
+`1`, OperacionOrigenRef, SujetoRef y ConfirmadaEn. El instante se representa
+en UTC con el patrón ASCII exacto `YYYY-MM-DDTHH:MM:SS.ffffffZ`, siempre seis
+dígitos de microsegundo. La preimagen excluye candidato, persona, selección,
+posición, contacto, documento, texto libre y cualquier huella derivada de PII.
 
-El único productor será la capacidad previa de Bolsa V2
-`RegistrarFuenteAltaLlamamientoAbiertoV2`. Esa capacidad confirma la fuente
-desde una propuesta V2 de Bolsa ya confirmada y gobernada; no acepta escalares
-de un adaptador ni deriva autoridad desde O6-01, Contratación temporal, HTTP,
+### Propuesta V2 previa: identidad cerrada aquí
+
+La propuesta previa no queda delegada a D2 ni a una futura decisión. Su única
+capacidad productora se denomina exactamente
+`ConfirmarPropuestaAltaLlamamientoAbiertoV2`, pertenece a la aplicación de
+Bolsa y tiene esta forma cerrada:
+
+```text
+ConfirmarPropuestaAltaLlamamientoAbiertoV2
+  Confirmar(context.Context, SolicitudConfirmarPropuestaAltaLlamamientoAbiertoV2)
+    -> ReciboPropuestaAltaLlamamientoAbiertoV2, error
+```
+
+Su solicitud es opaca, no serializable y no reconstruible desde escalares,
+HTTP, memoria, recibos o adaptadores. Solo nace tras obtener una
+`domain.PropuestaLlamamiento` canónica mediante la autoridad de dominio
+`domain.ProponerPrimerLlamamiento`; el documento completo de dominio, sus
+evaluaciones, participación y sujeto no se persisten ni se convierten en
+huellas. Esta reutilización de dominio no invoca
+`ServicioLlamamientos.ProponerPrimerLlamamiento`, `guardar_propuesta_v1`,
+objetos o datos V1.
+
+La capacidad confirma su único efecto durable dentro de una transacción
+`SERIALIZABLE READ WRITE` en la relación append-only:
+
+```text
+vec_bolsa_llamamientos_v2.propuesta_alta_llamamiento_abierto_v2
+```
+
+No admite `UPDATE` ni `DELETE`. Ninguna otra capacidad, función o rol puede
+insertarla.
+
+Cada fila de propuesta contiene exactamente:
+
+```text
+PropuestaRef
+LlamamientoRef
+BolsaRef
+NecesidadRef
+VersionInicial = 1
+OperacionPropuestaRef
+EstadoPropuesta = confirmada
+HuellaPropuestaAltaSHA256
+ConfirmadaEn
+```
+
+`PropuestaRef` es la clave primaria. `OperacionPropuestaRef`,
+`LlamamientoRef` y `HuellaPropuestaAltaSHA256` son claves únicas. La
+representación no contiene candidato, persona, sujeto, selección, posición,
+contacto, documento, texto libre ni huella de esos datos.
+`HuellaPropuestaAltaSHA256` solo compromete, con el encuadre binario común ya
+fijado y en este orden exacto:
+
+```text
+vec.bolsa.llamamiento-abierto.propuesta-alta.v2
+PropuestaRef
+LlamamientoRef
+BolsaRef
+NecesidadRef
+1
+OperacionPropuestaRef
+confirmada
+ConfirmadaEn
+```
+
+La única función bloqueable de captura es:
+
+```text
+vec_bolsa_llamamientos_v2.capturar_propuesta_alta_llamamiento_abierto_v2(text)
+```
+
+El argumento es `PropuestaRef`. La función es `SECURITY DEFINER`, fija
+`search_path=pg_catalog`, devuelve exclusivamente las nueve columnas
+anteriores y ejecuta `FOR UPDATE` sobre la propuesta exacta dentro de la
+transacción llamante. Cero filas, más de una, entrada inválida, incoherencia,
+fallo o indisponibilidad son denegación opaca. El LOGIN runtime no recibe
+`EXECUTE`: solo la invocan internamente las fachadas `SECURITY DEFINER`
+propietarias de D2-F y B4-A.
+
+El único productor de la fuente será después la capacidad de Bolsa V2
+`RegistrarFuenteAltaLlamamientoAbiertoV2`. Recibe una capacidad opaca sellada
+que liga PropuestaRef, FuenteRef, LlamamientoRef y OperacionOrigenRef; no recibe
+esos valores como escalares corregibles. Bloquea primero la propuesta mediante
+la función anterior, reconcilia la fuente y solo entonces la inserta.
+
+La fuente conserva una FK compuesta exacta hacia
+`propuesta_alta_llamamiento_abierto_v2` que obliga a la igualdad byte a byte
+de PropuestaRef, LlamamientoRef, BolsaRef, NecesidadRef, VersionInicial,
+`OperacionOrigenRef = OperacionPropuestaRef` y
+HuellaPropuestaAltaSHA256. `fuente.PropuestaRef` y
+`fuente.LlamamientoRef` son además únicas, y
+`fuente.ConfirmadaEn >= propuesta.ConfirmadaEn`. Cero, más de una o cualquier
+divergencia deniegan el efecto.
+
+Esta capacidad no deriva autoridad desde O6-01, Contratación temporal, HTTP,
 memoria, V1 o un recibo externo. Tendrá contrato, persistencia, autorización,
 pruebas y revisión propios antes de B4-A.
 
 La tarea previa se denomina
-`CT-LITE-O6-03-B4-A0-D2-FUENTE-ALTA-V2`. Su primer corte será documental y
-deberá fijar la propuesta V2 previa que consume; si esa propuesta no puede
-existir sin usar V1 o otra autoridad, el resultado es `NO-GO`.
+`CT-LITE-O6-03-B4-A0-D2-FUENTE-ALTA-V2` y conserva una sola línea canónica
+dividida causalmente: D2-P implementa y prueba contrato, persistencia y captura
+de propuesta; tras su doble revisión e integración, D2-F implementa y prueba
+`RegistrarFuenteAltaLlamamientoAbiertoV2`. Si D2-P no puede existir sin usar
+V1 u otra autoridad, el resultado es `NO-GO`.
 
 Una retirada futura se registra por adición, nunca modifica o borra la fuente.
 Una fuente retirada no permite un alta nueva. La recuperación de un recibo ya
@@ -310,8 +404,10 @@ confirmado sí puede cotejar la fuente histórica retirada.
 `hecho_creacion_llamamiento_abierto_v2` no duplica la fuente: es el consumo
 único de esa fuente por B4-A. Debe tener una FK exacta a `FuenteRef` y una
 unicidad que impida que una fuente produzca dos hechos o llamamientos. Las
-cuatro referencias, `SujetoRef`, versión y huella deben coincidir byte a byte
-entre fuente, hecho, agregado, historia y recibo.
+cuatro referencias, `SujetoRef`, `VersionInicial` y
+`HuellaFuenteAltaSHA256` deben coincidir byte a byte entre fuente, hecho,
+agregado, historia y recibo. `HuellaPropuestaAltaSHA256` coincide además
+entre propuesta, fuente, hecho, auditoría y recibo.
 
 ## Topología runtime única compatible con VEC
 
@@ -393,23 +489,27 @@ Para una operación nueva, el adaptador y las fachadas ejecutan este orden:
 2. adquirir advisory lock transaccional derivado de `OperacionRef`;
 3. releer por operación el paquete local y clasificar replay o colisión antes
    de bloquear otra fuente;
-4. adquirir advisory lock transaccional derivado de `FuenteRef`;
-5. bloquear con `FOR UPDATE` la fuente exacta y su posible retirada;
-6. exigir fuente existente, no retirada para efecto nuevo, productor V2
+4. adquirir advisory lock transaccional derivado de `PropuestaRef`;
+5. capturar con `FOR UPDATE` la propuesta exacta y exigir estado confirmado,
+   versión 1 y huella válida;
+6. adquirir advisory lock transaccional derivado de `FuenteRef`;
+7. bloquear con `FOR UPDATE` la fuente exacta y su posible retirada;
+8. exigir el vínculo compuesto exacto entre propuesta y fuente, fuente
+   existente, no retirada para efecto nuevo, productor V2
    acreditado, huella válida y coincidencia exacta de las cuatro referencias,
-   `SujetoRef`, versión 1 y OperacionOrigenRef;
-7. reconstruir B2 en Go mediante `NuevoLlamamientoAbierto`; SQL no decide el
+   `SujetoRef`, versiones y OperacionOrigenRef;
+9. reconstruir B2 en Go mediante `NuevoLlamamientoAbierto`; SQL no decide el
    agregado;
-8. releer y cotejar solicitud, decisión, motivo, vínculo, confianza, tiempos,
+10. releer y cotejar solicitud, decisión, motivo, vínculo, confianza, tiempos,
    recurso, capacidad y plan; obtener el instante transaccional después de los
    bloqueos;
-9. invocar una sola vez la fachada VEC de registro y consumo y cotejar su
+11. invocar una sola vez la fachada VEC de registro y consumo y cotejar su
    resultado nominal;
-10. insertar hecho, agregado abierto, historia inicial, auditoría, outbox y
+12. insertar hecho, agregado abierto, historia inicial, auditoría, outbox y
     recibo, con unicidades y FK internas exactas;
-11. releer defensivamente las seis piezas y el consumo VEC, comparar todos los
+13. releer defensivamente las seis piezas y el consumo VEC, comparar todos los
     compromisos y validar el recibo minimizado; y
-12. ejecutar el único `COMMIT`.
+14. ejecutar el único `COMMIT`.
 
 Un `40001` o `40P01` anterior al intento de commit permite reintento acotado
 en una transacción nueva, con la misma solicitud sellada y todas las
@@ -487,21 +587,22 @@ El DAG se detiene en `NO-GO` si:
 CT-LITE-O6-03-B4-A0 (este candidato)
   -> doble revisión independiente del hash exacto: GO + GO
     -> integración por Dirección
+      -> D2-P propuesta confirmada V2
+        -> D2-F contrato y productor de fuente V2
       -> D1 motivo dedicado publicado
-      -> D2 contrato y productor de fuente V2
       -> D4 reconciliación VEC por efecto único
         -> D3 roles, LOGIN y ACL exactas
-      -> D1 + D2 + D3 + D4 integrados
+      -> D1 + D2-P + D2-F + D3 + D4 integrados
         -> CT-LITE-O6-03-B4-A1-CONTRATO-GO
           -> A2/A3 persistencia y fachadas nominales
             -> A4 adaptador postgresllamamientosv2
               -> A5 PostgreSQL real y revisión independiente
 ```
 
-D1, D2 y D4 pueden analizarse en paralelo solo si sus write-sets son
-disjuntos; se integran uno a uno. D3 depende de D4. A1 no empieza hasta que
-D1, D2, D3 y D4 estén integrados. Ningún corte copia código entre ramas ni
-crea otra ruta B4-A.
+D1, D2-P y D4 pueden analizarse en paralelo solo si sus write-sets son
+disjuntos; se integran uno a uno. D2-F depende de D2-P y D3 depende de D4. A1
+no empieza hasta que D1, D2-P, D2-F, D3 y D4 estén integrados. Ningún corte
+copia código entre ramas ni crea otra ruta B4-A.
 
 Puertas ligeras de este candidato: autoridad completa, inventario de ramas y
 worktrees, destino sin historia, modo `0644`, menos de 800 líneas, UTF-8,
@@ -518,6 +619,6 @@ respuesta perdida, recuperación tras reinicio, `down` protegido y ausencia de
 PII en tablas, WAL de prueba, recibos, outbox, auditoría, errores y logs.
 
 El siguiente corte seguro es la doble revisión independiente de este hash
-exacto. Tras integrarlo, el primer corte de implementación permitido es D1, D2
-o D4 dentro de sus autoridades; D3 espera a D4 y A1 continúa bloqueada hasta
-integrar los cuatro.
+exacto. Tras integrarlo, el primer corte de implementación permitido es D1,
+D2-P o D4 dentro de sus autoridades; D2-F espera a D2-P, D3 espera a D4 y A1
+continúa bloqueada hasta integrar los cinco.
