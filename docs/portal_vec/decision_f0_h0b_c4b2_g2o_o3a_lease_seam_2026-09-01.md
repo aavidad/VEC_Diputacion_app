@@ -1,619 +1,779 @@
-# Decisión O3A-LEASE-CLOSED-OPS-R2: operaciones físicas cerradas
+# Decisión O3A-LEASE-CLOSED-OPS-R3: operaciones privadas cerradas
 
-Fecha: 1 de septiembre de 2026.
+Fecha: 1 de septiembre de 2026
 
-Estado: **CANDIDATA DOCUMENTAL R2 A DOBLE REVISIÓN**. Este documento no se
-autoaprueba. Sustituye por completo R1 en
-`6c22222796bb2d11d3dba86f8e8dbcfa3492de7c` y la propuesta transferible de
-`5a4fad03035f67b46c248cbbed64cfeda5ec71c7`. No autoriza código, pruebas
-dinámicas, integración, publicación, CI, O4B-P2, producción ni despliegue.
+Tarea: `O3A-LEASE-CLOSED-OPS-R3`
 
-## Capability, invariante y alcance
+Estado: candidato documental; no autoriza código, dinámica, integración ni
+producción
 
-Capability: cada operación física bajo la lease O3a se ejecuta mediante una
-función privada, síncrona, concreta y cerrada. La misma invocación reclama
-primero el slot; solo después lee el estado compartido; emite `Gettid`,
-consolida su raw, compara el TID y ejecuta el efecto literal. No existe una
-acreditación TID que pueda sobrevivir, salir o separarse de esa invocación.
+## Resultado contractual
 
-Invariante central:
+Este R3 sustituye íntegramente R2 y fija un contrato implementable para retirar
+la API de permisos, callbacks, acreditaciones y punteros de autoridad ligados a
+TID. Una operación privada cerrada adquiere por un único CAS su slot antes de
+leer o mutar estado compartido, posee el efecto físico completo, conserva el raw
+y consolida el resultado dentro de la misma llamada. No devuelve ni deja
+pendiente permiso, ticket de autoridad, callback, handle, puntero de capacidad o
+acreditación consumible por otra llamada.
 
-```text
-CAS slot nil→celda
-→ lecturas y mutaciones compartidas
-→ estado autorizado→2
-→ GETTID_RAW
-→ consolidación raw sin interpretar
-→ comparación TID
-→ efecto físico literal cerrado
-→ consolidación de su raw
-→ restauración con slot ocupado
-→ cierre verde
-→ retirada exacta del slot.
-```
+Un fallo al adquirir, validar o consolidar la autoridad es irreversible:
+`estado=5`, celda fatal y salida exterior 65. Un raw funcional producido por
+una operación ya autorizada no se convierte por ello en fallo de autoridad;
+conserva exactamente la semántica de O3a, O3b, O3c, O4a, O4b u O4c que lo
+posee.
 
-Ningún token, puntero, permiso, callback, closure, interfaz, hook o variable de
-tipo función puede transportar acreditación TID. Un argumento concreto como
-un FD, un buffer de bytes o `*exec.Cmd` es dato de la operación y no autoridad
-TID. Tampoco puede adquirir esa autoridad por quedar guardado en una celda,
-estructura, mapa, resultado o testigo.
+Este documento no declara que el árbol actual cumpla el contrato. La retirada
+instrumentada, las migraciones, pruebas, AST, mutantes, runners y manifiestos
+son trabajo futuro granular. La puerta de cero referencias es la última puerta
+material, no una precondición ficticia anterior a esos cambios.
 
-El alcance comprende los consumidores vivos O3a, O3b, O3c y O4a. R2 fija
-además la forma obligatoria de un futuro consumo O4b, pero **no autoriza
-O4B-P2** ni anticipa su decisión.
+## Base, genealogía y fuentes leídas
 
-## Base, genealogía y preflight reproducido
+La base documental exacta es
+`96ec857f434417f3a917b681464c5a36cc689941`. El producto publicado usado solo
+para comprobar composición de árboles es
+`c8cc4312b063ddca7294dfe27dc673ad1a4676d0`. No se hace `fetch`, `pull`,
+`reset`, integración ni publicación.
 
-La base exacta de este corte es
-`6c22222796bb2d11d3dba86f8e8dbcfa3492de7c`, con padre
-`5a4fad03035f67b46c248cbbed64cfeda5ec71c7`, en la rama existente
-`trabajo/o3a-lease-seam-p0-contrato-20260901`. Al abrir R2, `HEAD` coincidía
-con esa base, el árbol estaba limpio y el único write-set autorizado era:
+Se leyeron completas las instrucciones aplicables y las autoridades materiales
+siguientes:
 
-`docs/portal_vec/decision_f0_h0b_c4b2_g2o_o3a_lease_seam_2026-09-01.md`.
-
-El fichero R1 tenía modo `0644`, 450 líneas, 21.253 bytes y SHA-256
-`1000222fdcd6f563414ee96b9ae779c9b539befc2bcf72807150eab569d54fce`.
-R2 conserva `0644` y debe quedar por debajo de 800 líneas. No se ha cambiado
-ninguna fuente, test, herramienta, manifiesto, evidencia ni workflow.
-
-El producto local exacto observado antes de editar fue la rama
-`integracion/ct-producto-ligero-20260821` en
-`640610a4f806b0848682bbe844ff9d672c2777a6`, limpia. Su base común con R1 fue
-`58800913b32e22b0f77eb8d62900d95c452e98fa`. El `merge-tree` de esos tres
-hashes no presentó marcador ni conflicto y su salida tuvo SHA-256
-`05f3e95573c8c2617bb90c8c509dd3fe568d80f9e1f95f9cda18141026351332`.
-La puerta final de R2 se repite contra el mismo producto exacto y el commit R2;
-si la rama de producto deja de apuntar a `640610a…`, el resultado caduca y se
-repite contra el nuevo hash antes de revisar o integrar.
-
-Las fuentes afectables observadas son `0644`. Sus máximos actuales son 732
-líneas en O3a, 428 de producción y 364 de test en O3b, 293 de producción y
-310 de test en O3c, y 563 de producción y 572 de test en O4a. G6a tiene 559
-líneas y SHA-256
-`9015dff049f04f839920c964a5d8471c1b3f7f9e3dcab339266cf2e13f155bd8`.
-Toda fuente o test futuro conserva `0644`, todo script ejecutable `0755` y
-cada fichero el tope duro de 800 líneas. Alcanzarlo obliga a extraer una
-responsabilidad coherente, no a comprimir u ocultar código.
-
-## Autoridades leídas y prevalencia expresa
-
-R2 se coordinó tras leer completas las autoridades documentales de O3a,
-incluidas P0, P1 y la enmienda CI; O3b; O3c; O4a, incluidas P1B y P1D; O4b;
-y la enmienda O4ab de terminalidad y STOP. También se leyeron completas las
-dos revisiones independientes `NO-GO` de R1, funcional y de seguridad.
-
-Las autoridades nominales, todas bajo `docs/portal_vec/`, son:
-
-- `decision_f0_h0b_c4b2_g2o_o3a_arranque_mapa_fd_2026-08-09.md`;
-- `decision_f0_h0b_c4b2_g2o_o3a_p0_margen_runner_2026-08-09.md`;
-- `decision_f0_h0b_c4b2_g2o_o3a_p1_barrera_ticket_temprana_2026-08-09.md`;
-- `enmienda_f0_h0b_c4b2_g2o_o3a_v5_autoridad_ci_sin_r_2026-08-09.md`;
+- `decision_f0_h0b_c4b2_g2o_o3a_arranque_mapa_fd_2026-08-09.md`, su P0 de
+  margen, P1 de ticket temprano y enmienda CI;
 - `decision_f0_h0b_c4b2_g2o_o3b_ticket_stop_identidad_2026-08-10.md`;
 - `decision_f0_h0b_c4b2_g2o_o3c_continuacion_salida_2026-08-11.md`;
-- `decision_f0_h0b_c4b2_g2o_o4a_causa_tiempo_2026-08-11.md`;
-- `decision_f0_h0b_c4b2_g2o_o4a_p1b_sellos_raw_2026-08-11.md`;
-- `decision_f0_h0b_c4b2_g2o_o4a_p1d_contrato_deadline_2026-08-11.md`;
-- `decision_f0_h0b_c4b2_g2o_o4b_senales_grupo_2026-08-12.md`;
-- `enmienda_f0_h0b_c4b2_g2o_o4ab_terminalidad_stop_2026-08-13.md`.
+- contratos O4a de causa, arbitraje, señales, raw y plazos;
+- contrato O4b de autoridad de señales y su bloqueo O4B-P2;
+- `decision_f0_h0b_c4b2_g2o_o4c_terminalidad_limpieza_2026-08-13.md` y su
+  enmienda de terminalidad STOP;
+- autoridad O5 de composición, preflight, registros, recursos y resultado
+  privado;
+- el candidato R2, la matriz y especificaciones normativas enlazadas;
+- inventario dirigido `/tmp/o3a-lease-callers-20260831.txt`;
+- dictamen remoto `/tmp/vec-review-o3a-lease-r2-20260901.log` y el dictamen
+  local comunicado por Dirección.
 
-Esta R2 enmienda expresamente, solo ante contradicción, las autoridades:
+Los ficheros bajo `/tmp` son entrada de revisión, no evidencia durable ni parte
+del commit.
 
-1. **O3a:** sustituye la API permiso→efecto→consolidación por funciones
-   físicas cerradas y adelanta el CAS del slot a toda lectura compartida;
-2. **O3b:** elimina su broker con callback, cierra cada observación y hace del
-   primer ticket una operación compuesta indivisible;
-3. **O3c:** elimina su broker con callback y hace de CONT una operación
-   compuesta indivisible;
-4. **O4a:** sus observaciones vivas consumen operaciones concretas cerradas y
-   no un callback acreditado;
-5. **O4b:** una señal futura deberá usar una función literal por efecto y
-   situar la acreditación TID antes de la última marca o deadline cuya regla
-   exige que la señal sea el siguiente syscall.
+## Registro explícito de los dos NO-GO R2
 
-La enmienda O4ab se conserva con esa misma corrección causal. El resto de las
-reglas de identidad, roles de pidfd, causa, precedencia, tiempo, cardinalidad,
-terminalidad, no recolección, fallos, salidas y códigos sigue vigente.
+R2 recibió dos rechazos que este documento no oculta:
 
-R2 no promete compatibilidad byte-inmutable. Las firmas, tipos y llamadores
-que permitan transferir la acreditación deben cambiar o desaparecer. La
-compatibilidad funcional admisible se limita a los resultados y garantías
-que no contradigan esta decisión.
+- dictamen local: `NO-GO`, `P0=2`, `P1=3`;
+- dictamen remoto: `NO-GO`, `P0=4`, `P1=2`, `P2=0`.
 
-## Hallazgos R1 que R2 cierra contractualmente
+Dirección normalizó los cinco hallazgos locales así:
 
-Las revisiones R1 identificaron un P0 común: la API heredada todavía devolvía
-un permiso y una celda transferibles. Otra goroutine podía ejecutar el efecto
-antes de que una consolidación posterior detectara un TID distinto. Ocultar
-el efecto en callback o closure no cerraba la separación.
+| ID | Severidad | Hallazgo R2 | Cierre contractual R3 |
+| --- | --- | --- | --- |
+| L0-1 | P0 | Inventario incompleto de permisos, preflight y acreditación TID diferida. | El inventario nominal y semántico de retirada de este R3 incluye O3a, O3b, O3c, O4a y O4b, campos TID y derivados equivalentes. |
+| L0-2 | P0 | Callbacks y handles seguían vivos, incluidos dos `WithHandle`. | Se prohíben ambos y se sustituyen por preflight directo cerrado más postcondición de inventario de `Start`, sin callback ni handle visible. |
+| L1-1 | P1 | `valido`, `sellarFisico`, `transferirCritico` y `liberar` eludían el CAS. | Se retiran; validación, sellado, cambio de propietario y liberación son fases internas de operaciones cerradas. |
+| L1-2 | P1 | No había firmas M38 ni reconciliación funcional exactas. | Este R3 fija tipos, nombres, argumentos, resultados y propietario para cada efecto y separa raw funcional de fallo de autoridad. |
+| L1-3 | P1 | Hito de cero prematuro y C1/C2 no implementables. | C1/C2 se descomponen con una responsabilidad, rutas y presupuesto por corte; cero referencias queda después de material y herramientas. |
 
-La revisión funcional añadió un P0 de orden: insertar `Gettid` entre la última
-marca/deadline O4a/O4b/O4ab y la señal contradecía la exigencia de que la señal
-fuera el siguiente syscall. R2 mueve la acreditación dentro de la misma
-función cerrada, pero antes de esa última marca.
+El dictamen remoto enumeró seis hallazgos concretos:
 
-Los hallazgos secundarios fueron:
+| ID | Severidad | Hallazgo R2 | Cierre contractual R3 |
+| --- | --- | --- | --- |
+| R0-1 | P0 | Faltaban `primerPermiso`, `permisoPrimero`, `revalidacionO3cM38.permiso`, `permisoContMemoriaValidoO3cM38` y `consolidarContO3cM38`. | Todos figuran en la retirada nominal y CONT queda revalidado, ejecutado y consolidado dentro de una sola llamada. |
+| R0-2 | P0 | Se omitieron `acreditacionPidfdGoM38`, su preflight y los dos `WithHandle`. | Se retiran tipo, productor, consumidor y callbacks; O5 usa preflight directo efímero y O3a valida el pidfd opaco por delta físico. |
+| R0-3 | P0 | El CAS no dominaba `valido`, `sellarFisico`, `transferirCritico` ni `liberar`. | No sobreviven como métodos; toda lectura o mutación correspondiente queda tras el CAS de la operación exacta. |
+| R0-4 | P0 | O4c no estaba en el mapa de autoridades. | O4c queda reconciliada expresamente para terminalidad, Wait, Wait4, cierres, TERMINAL y liberación final. |
+| R1-1 | P1 | R2 confundía raw de `Start`/`Wait` con fallo de autoridad. | `Start` sin hijo admite retirada ordinaria y `*exec.ExitError` exacto de Wait es terminación válida; solo autoridad o consolidación fallida son fatal+5. |
+| R1-2 | P1 | C1/C2 eran monolíticos y sin presupuesto por responsabilidad. | La tabla de minitareas fija criterio observable, rutas máximas y parada de líneas inferior a 800 para cada commit. |
 
-- el manifiesto C01-C22 propuesto era decorativo porque el conductor seguía
-  seleccionando runners mediante una lista codificada;
-- la evidencia pretendía contener la huella del commit que la contenía, una
-  autorreferencia imposible;
-- `merge-tree` no fijaba rama y SHA de producto reproducibles.
+El cierre aquí es contractual. Solo una revisión independiente del hash exacto
+de R3 puede declarar que estos hallazgos documentales están resueltos.
 
-R2 convierte esos tres puntos en puertas explícitas más adelante.
+## Prevalencia y autoridades coordinadas
 
-## P0 obligatorio: retirada total de superficies transferibles
+R3 enmienda solo el seam común necesario. No mueve la política funcional de
+sus propietarios:
 
-Al finalizar C6 deben haber desaparecido del código de producción, tests,
-analizadores, mutantes, runners y manifiestos vivos estos símbolos:
+| Autoridad | Conserva | Enmienda cerrada obligatoria |
+| --- | --- | --- |
+| O3a | preparación, mapa FD, `Start`, pidfd explícitos y retirada previa a entrega | reemplaza lease, testigo, permisos y callbacks por el slot embebido y operaciones exactas de FD/proceso |
+| O3b | barrera, ticket temprano, auto-STOP e identidad `/proc` | primera escritura, parciales, EINTR, cierre, observaciones y handoff ocurren dentro de llamadas cerradas; no guarda permiso primero |
+| O3c | revalidación, marca monotónica, primer CONT y observación de salida | revalidación y CONT forman una sola llamada; no devuelve `revalidacion` ni permiso pendiente |
+| O4a | causa, precedencia, etapa, plazos e interpretación de raws | prepara por índice una etapa fija, pero no emite puntero de autorización ni TID; consume un resultado embebido |
+| O4b | raw literal de STOP/TERM/CONT/KILL según etapa O4a | la futura ejecución es una llamada cerrada por índice; P2 continúa bloqueado y este R3 no autoriza su código ni dinámica |
+| O4c | terminalidad, único Wait funcional, Wait4, ECHILD, ESRCH, cierres, TERMINAL y liberación | cada efecto usa el slot; el orquestador no lee estado compartido directamente y entrega a O5 solo un valor inerte |
+| O5 | construcción en dirección estable, preflight, composición, recursos y consumo final privado | no crea registro de tokens; compone preflight y preparación sin devolver acreditación y nunca recibe lease, handle o callback |
 
-- `permisoGuardiaO3aM38`;
-- `comenzar` y `comenzarCritico` como API de la lease;
-- `permisoValido`;
-- `consolidarFisico` y `consolidarCritico`;
-- `fatalPendiente`;
-- `operarConLeaseBarreraO3bM38`;
-- `syscallLeaseO3cM38`.
+O3a conserva su Wait de retirada anterior a la entrega. O4c conserva el único
+Wait funcional del caso entregado. No se confunden ni se duplican.
 
-No se renombran, aliasan ni envuelven. Tampoco se reemplazan por otra API que
-devuelva una celda, un ticket técnico, una función, una interfaz o un objeto
-capaz de habilitar un efecto tras salir de la función acreditadora. Se permite
-que una prueba histórica contenga el texto dentro de una evidencia histórica
-inmutable; ningún artefacto vivo puede compilar, buscar o aceptar ese patrón.
+## Estado cerrado embebido y CAS dominante
 
-La celda interna del slot no es una acreditación: solo registra el único ciclo
-en curso. No se devuelve, no se pasa entre funciones, no se captura y ninguna
-decisión de ejecutar se basa en que alguien posea su puntero. Su identidad
-sirve exclusivamente para el CAS de retirada dentro de la misma función
-privada que la creó.
+O5 construye una sola `custodiaO3aM38` en su dirección definitiva. Dentro de
+ella se embeben por valor, no mediante registros de punteros, estas celdas:
 
-## Mapa de consumidores vivos que deben migrar
+```go
+type estadoOperacionesCerradasM38 struct {
+	slot        atomic.Uint32
+	estado      atomic.Uint32
+	propietario atomic.Uint32
+	fisico      snapshotFDO3aM38
+}
 
-La migración no puede declararse completa atendiendo solo a O4b. El inventario
-vivo es:
-
-### O3a
-
-- cierres de descriptor y `os.File.Close` protegidos por snapshot físico;
-- duplicaciones `F_DUPFD_CLOEXEC` de archivos y pidfd;
-- apertura literal de `/dev/null` y creación `Pipe2` con flags cerrados;
-- `(*exec.Cmd).Start` y obtención/reserva del pidfd resultante;
-- `(*exec.Cmd).Wait`, cierre del pidfd y observaciones pidfd asociadas;
-- pruebas normales y adversas que hoy crean o consolidan permisos.
-
-Los consumidores están en G6a, `..._arranque_preparacion.go`,
-`..._arranque_inicio.go`, `..._arranque_pruebas.go` y
-`..._arranque_pruebas_adversas.go`.
-
-### O3b
-
-- el broker `operarConLeaseBarreraO3bM38` y sus usos para `fcntl`, `fstat`,
-  `poll`, `read`, `open`, `close`, identidad, CONTROL y observaciones;
-- la reserva y primera escritura del ticket, y las escrituras posteriores;
-- auto-STOP, sondas pidfd y retirada/handoff;
-- las pruebas de autoridad, barrera, ticket, STOP, identidad y handoff.
-
-El primer ticket merece una operación compuesta cerrada propia; no puede ser
-una reserva de permiso seguida por `Write` en otra función.
-
-### O3c
-
-- el broker `syscallLeaseO3cM38`, hoy delegado además en el broker O3b;
-- revalidaciones de TID, PPID, pdeathsig, inventario e identidad;
-- CONT inicial, primera observación, retirada y handoff con `Wait4`/pidfd;
-- sus cinco fuentes productivas y cinco pruebas focales.
-
-CONT merece una operación compuesta cerrada propia; la revalidación no puede
-devolver un permiso consumible por `intentarContO3cM38`.
-
-### O4a y frontera O4b
-
-- `observarSenalArbitrajeO4aM38`, `pidfdFiableArbitrajeO4aM38` y
-  `pollPidfdArbitrajeO4aM38` consumen hoy el broker O3b;
-- las pruebas de autoridad, semilla, arbitraje y etapas deben probar el nuevo
-  orden sin crear una segunda autoridad física;
-- las señales futuras O4b —STOP, TERM, CONT y KILL de grupo— quedan sujetas a
-  esta forma cerrada, pero su implementación sigue bloqueada por O4B-P2.
-
-## Modelo cerrado de una operación simple
-
-No habrá un ejecutor genérico que reciba operación, syscall, señal o flags.
-Cada efecto tiene una función privada distinta y una llamada literal. Un enum
-puede clasificar evidencia ya consolidada, pero no puede seleccionar un
-syscall, señal, flags, siginfo, ruta, cardinalidad ni objetivo libres.
-
-Ejemplos de familias cerradas, no firmas públicas, son cerrar un FD exacto,
-duplicar con `F_DUPFD_CLOEXEC`, abrir `/dev/null` con flags literales, crear un
-pipe con flags literales, iniciar un `*exec.Cmd`, esperar ese `*exec.Cmd`,
-observar un pidfd y emitir cada una de las cuatro señales mediante una función
-distinta. Si dos efectos tienen distinta semántica o flags, son dos funciones.
-
-La secuencia obligatoria de cada función es:
-
-1. construir solo locales no compartidos y una celda privada;
-2. ejecutar como primera operación compartida
-   `slot.CompareAndSwap(nil, celda)`; no se permite un `Load` previo;
-3. si pierde el CAS, devolver denegación sin leer ni mutar registro,
-   generación, secuencia, estado, snapshot o mapas;
-4. si gana, leer y validar, en ese orden cerrado, lease, registro,
-   generación, secuencia, estado, snapshot, mapas y argumentos concretos;
-5. reservar la secuencia y transicionar el estado admitido a 2 con el slot
-   todavía ocupado;
-6. marcar `GETTID_RAW`, ejecutar un único `syscall.Gettid`, copiar el raw y
-   marcar su consolidación sin compararlo ni interpretarlo;
-7. comparar después el raw positivo con el TID sellado de lease y registro;
-8. emitir el efecto literal exacto en esa misma invocación y goroutine;
-9. copiar y consolidar su resultado raw antes de clasificarlo; cualquier
-   resultado que la operación cerrada clasifique como fallo deja fatal+5;
-10. consolidar snapshot/mapa/resultado y restaurar el estado de origen con el
-    slot todavía ocupado;
-11. declarar cierre verde y solo entonces retirar por CAS la misma celda;
-12. devolver únicamente datos funcionales, nunca autoridad TID.
-
-El proceso llamador ya debe estar en la goroutine bloqueada al OS thread que
-gobierna O3a. La función no crea goroutines, no desbloquea el thread y no
-difiere el efecto. El bloqueo por sí solo no acredita nada: la comparación
-raw anterior sigue siendo obligatoria.
-
-## Slot, estado 2 y fallo fatal
-
-El CAS del slot precede toda lectura o mutación compartida, incluidas las que
-parezcan de prevalidación. La única preparación anterior es local y no puede
-consultar la lease ni sus punteros. Después de ganar el slot, cualquier fallo
-—estado inesperado, nil interno, registro/generación divergentes, overflow,
-secuencia, snapshot/mapa, argumento, TID, raw no consolidable, transición o
-retirada— fija la celda fatal y el estado 5.
-
-No existe rollback ordinario después del CAS ganado. Una celda fatal no se
-retira, no se recicla y no habilita un segundo intento. Error de sistema del
-efecto, incluido `EINTR`, se consolida como raw de un único intento y termina
-en fatal+5; no sale como error ordinario ni restaura el estado. Una observación
-solo puede cerrar verde con los discriminantes raw que su contrato concreto
-declare válidos; indisponibilidad o duda nunca se reclasifican como éxito. No
-hay retry, fallback, segundo pidfd ni segundo efecto.
-
-La relación es obligatoria en toda observación concurrente:
-
-```text
-estado == 2  ⇒  slot != nil
+type estadoObservacionCerradaM38 struct {
+	palabra atomic.Uint64
+}
 ```
 
-El slot puede estar ocupado brevemente antes de leer el estado y después de
-restaurarlo; nunca al revés. La restauración de estado, snapshot y mapa ocurre
-con slot ocupado. La retirada solo ocurre tras cierre verde. Una operación
-que requiera más de un efecto literal debe ser una composición cerrada
-expresamente autorizada, no una lista, callback o enum libre.
+No tienen getter, interfaz, serialización ni método público. No se copian tras
+el primer uso. `slot=0` significa libre; cada operación tiene un discriminante
+constante no reutilizado. `estado=5` significa fatal irreversible. El
+propietario es una fase cerrada O5→O3a→O3b→O3c→O4a→O4c→liberado, nunca un
+puntero consumible.
 
-## Operación compuesta del primer ticket O3b
+Toda operación con estado o efecto sigue exactamente este orden:
 
-La operación privada del primer ticket integra, sin devolver permiso:
+1. comprobar solo nulo del argumento raíz;
+2. CAS único de adquisición `slot: 0→operacion`; no hay lectura compartida
+   anterior, salvo el propio CAS;
+3. validar estado, propietario, fase, argumentos, plazos y snapshot;
+4. capturar el preestado necesario dentro de la llamada;
+5. ejecutar el raw literal o la secuencia compuesta expresamente autorizada;
+6. capturar raw y postestado sin soltar el slot;
+7. clasificar el raw conforme a su autoridad, actualizar resultado y snapshot;
+8. consolidar mediante CAS `slot: operacion→0` como última acción compartida.
 
-1. CAS del slot y validaciones compartidas;
-2. `Gettid` raw, consolidación y comparación;
-3. la ronda final cerrada O3b de identidad, inventario y CONTROL, con orden y
-   syscalls literales fijados en la función;
-4. transición a barrera verde;
-5. `syscall.Write` del primer fragmento del ticket como **primer syscall
-   posterior** a esa barrera verde;
-6. consolidación del raw, restauración con slot ocupado, cierre y retirada.
+Fallo en 2, 3, 6, 7 por contradicción de autoridad, o en 8, fija primero
+`estado=5` y la celda fatal y termina con 65. No restaura, no hace cleanup, no
+registra, no llama otro efecto y no retorna al llamador. Un raw funcional
+permitido sí llega a 7 y 8 aunque signifique retirada, incidente o resultado
+negativo.
 
-La acreditación TID ocurre antes de la ronda final, pero permanece válida por
-causalidad local: la función es síncrona, no cambia de goroutine ni libera el
-OS thread. Entre barrera verde y el primer `Write` no puede aparecer `Gettid`,
-reloj, sonda, log, cierre ni otro syscall. El buffer y FD concretos no portan
-autoridad TID.
+Una operación compuesta mantiene el mismo slot desde su primer acceso hasta su
+última consolidación. No se implementa llamando otra operación que vuelva a
+adquirirlo. Sus helpers privados no aceptan `func`, interfaz o autoridad, no se
+almacenan y no son llamables fuera de la función propietaria según AST.
 
-Una escritura parcial queda consolidada como primer intento. Los fragmentos
-restantes usan otra función cerrada concreta, sin reetiquetarse como primer
-ticket. No hay replay automático ni reanudación tras `EINTR`.
+## Inventario exhaustivo de retirada
 
-## Operación compuesta CONT O3c
+La retirada nominal obligatoria comprende definiciones, campos, métodos,
+llamadas, pruebas, AST, mutantes, runners y manifiestos vivos de:
 
-La revalidación ya no entrega permiso a otra función. Una única función
-privada integra:
+- `permisoGuardiaO3aM38`, `comenzar`, `comenzarCritico`, `permisoValido`,
+  `consolidarFisico`, `consolidarCritico` y `fatalPendiente`;
+- `primerPermiso`, `permisoPrimero`, `revalidacionO3cM38.permiso`,
+  `permisoContMemoriaValidoO3cM38` y `consolidarContO3cM38`;
+- `acreditacionPidfdGoM38`, `preflightPidfdGoM38` y
+  `consumirPreflightPidfdGoM38`;
+- `testigoVueltaM38`, `celdaVueltaM38`, `relojVueltaM38`, `emitir`, `consumir`
+  y el argumento `testigo` de `avanzarArranqueO3aM38`;
+- `operarConLeaseBarreraO3bM38`, `syscallLeaseO3cM38` y todo parámetro,
+  campo, variable o cierre de tipo `func` usado para transportar un efecto;
+- ambos `Process.WithHandle` vivos y cualquier `WithHandle`, `Handle`,
+  `uintptr` o callback que revele o compare el pidfd opaco;
+- los métodos `valido`, `sellarFisico`, `transferirCritico` y `liberar` de
+  lease u observador, más sus wrappers `leaseTransferidaO3bM38`,
+  `observadorTransferidoO3bM38` y equivalentes;
+- `leaseGuardiaO3aM38`, `observadorSenalO3aM38`,
+  `registroAutoridadO3aM38` y sus mapas de punteros, una vez migrado el último
+  consumidor al estado embebido;
+- los campos de autoridad `tid` en registro, lease, reloj, celda, bundle,
+  custodia, sellos O3c/O4a/O4b y autorizaciones de etapa, y todo `Gettid`
+  almacenado o comparado para permitir un efecto;
+- `autorizacionEtapaO4aM38`, `tomarEntradaAutoridadO4bM38`,
+  `slotPropioAutoridadO4bM38`, `slotCanonicoAutoridadO4bM38`, el puntero
+  `pendiente`, enlaces autorización↔resultado y cualquier clon consumible;
+- todo estado `pending`, permiso, generación, nonce, auto-puntero o resultado
+  que sobreviva a una llamada y habilite otra.
 
-1. CAS del slot y validaciones O3c/O4a compartidas;
-2. `Gettid` raw, consolidación y comparación;
-3. las rondas cerradas de identidad, inventario y señales;
-4. la lectura monotónica final `ahoraCaso` y el cálculo puro de
-   `finCaso=ahoraCaso+180s`;
-5. el `pidfd_send_signal(SIGCONT)` literal como **primer syscall posterior** a
-   la marca monotónica;
-6. consolidación raw, restauración con slot ocupado, cierre y retirada.
+`Gettid` tampoco puede reaparecer con otro nombre como autoridad de goroutine.
+Una observación técnica local que una autoridad previa aún exija solo puede
+existir dentro de una operación cerrada, no se almacena, no sale y no decide
+posesión; la implementación preferida elimina también esa observación.
 
-No hay `Gettid`, `time.Now`, sonda, log ni otra llamada al kernel entre la
-marca final y CONT. El pidfd primario es argumento concreto ya gobernado por
-O3c; no acredita TID ni permite elegir señal o flags.
+La lista nominal no limita la retirada semántica. Un canal equivalente es
+NO-GO aunque use nombres nuevos.
 
-La misma regla causal se aplica al futuro O4b: la función cerrada acredita TID
-antes de la última comprobación de deadline o marca que su contrato considere
-verde; desde esa comprobación hasta STOP, TERM, CONT o KILL, la señal literal
-es el siguiente syscall. Hay cuatro funciones, no una señal libre.
+## Sustitución concreta de `WithHandle` y preflight
 
-## Observaciones O3b, O3c y O4a
+O5 deja de acreditar la biblioteca estándar con un token. La sustitución es la
+operación compuesta exacta
+`componerEntradaConPreflightCerradoO5M38`: adquiere el slot del bundle en su
+dirección final; ejecuta `pidfd_open(getpid, 0)` directo, verifica
+`FD_CLOEXEC`, ejecuta señal cero directa, cierra ese pidfd una vez, comprueba
+inventario basal y continúa inmediatamente con la preparación O3a dentro de la
+misma llamada. No usa `os.FindProcess`, `WithHandle`, `Release`, callback ni
+resultado diferido. Ningún pidfd del preflight queda en el bundle.
 
-Cada observación física vive en una función concreta: `fcntl`, `fstat`,
-`poll`, lectura CONTROL, pdeathsig, TID/PPID, identidad pidfd, presencia,
-`Wait4`, apertura/lectura/cierre de proc y observador de señal. La función
-reclama su slot, acredita TID y consolida su raw antes de devolver la
-observación minimizada.
+La integración real de Go se acredita después de `cmd.Start`, todavía dentro
+de `iniciarProcesoCerradoO3aM38`: el delta físico contiene el pidfd primario de
+`SysProcAttr.PidFD` y exactamente un pidfd opaco adicional, ambos `CLOEXEC` y
+de identidad física igual. Su número se conserva solo en la custodia para que
+el único `cmd.Wait` acredite su desaparición. Nunca se obtiene, compara o
+expone mediante handle. La reserva explícita se crea en la operación cerrada
+posterior y debe tener la misma identidad.
 
-O4a sigue decidiendo causa, precedencia, etapa y tiempo. Puede consumir los
-datos devueltos, pero no un permiso físico, callback o puntero. O3a/O3b/O3c
-no interpretan esos datos como autorización funcional. Las observaciones que
-formen una unidad atómica se expresan como una secuencia cerrada concreta;
-nunca como `func() error`, interfaz ejecutora o slice de operaciones.
+Así se retiran los dos callbacks vivos sin sustituirlos por otro callback o
+por una acreditación copiable.
 
-## DAG obligatorio y granularidad
+## Tipos de resultado exactos sin autoridad
 
-El DAG de autoridad es exactamente:
+Los únicos resultados nuevos son valores inertes:
 
-```text
-documento R2 con doble GO
-→ integración documental
-→ C1 núcleo slot/operaciones O3a
-→ C2 migración O3a
-→ C3 O3b/primer ticket
-→ C4 O3c/CONT
-→ C5 O4a
-→ C6 eliminación de API transferible
-→ analizadores/mutantes/ledgers V26
-→ conductor C22
-→ doble revisión de código
-→ integración
-→ CI 5/5
-→ decisión separada O4B-P2.
+```go
+type resultadoFDCerradoM38 struct {
+	aplicado bool
+	errno    syscall.Errno
+}
+
+type claseStartCerradoO3aM38 uint8
+const (
+	startSinHijoO3aM38 claseStartCerradoO3aM38 = iota + 1
+	startConHijoRetirableO3aM38
+	startEntregableO3aM38
+)
+
+type resultadoEscrituraTicketO3bM38 struct {
+	completo bool
+	escritos int
+	errno    syscall.Errno
+}
+
+type resultadoContCerradoO3cM38 struct {
+	clase      claseContO3cM38
+	retornoRaw int
+	ahoraCaso  time.Time
+	finCaso    time.Time
+}
+
+type resultadoWait4CerradoO4cM38 struct {
+	clase  claseWait4O4cM38
+	pid    int
+	estado syscall.WaitStatus
+	uso    syscall.Rusage
+}
+
+type resultadoTerminalidadO4cM38 struct {
+	estadoExterior uint8
+	causa          causaPrimariaO4aM38
+	terminalNormal bool
+	cuarentena     bool
+}
 ```
 
-Ninguna flecha se adelanta. Los nodos C2-C5 pueden usar subcortes internos
-secuenciales para respetar tamaño y compilación, pero el nodo siguiente solo
-empieza cuando todos los subcortes del anterior están verdes e integrados en
-la rama candidata. Cada commit tiene una responsabilidad observable y
-compila con sus pruebas focales; no se produce un commit monolítico.
+Los enums nuevos y sus únicos valores son exactamente:
 
-## Prefijo y write-sets máximos de código
+```go
+type clasePreparacionO5M38 uint8
+const (
+	preparacionListaO5M38 clasePreparacionO5M38 = iota + 1
+	preparacionRechazadaO5M38
+)
 
-En los listados siguientes, `S/` significa
-`deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/`. Los globs son
-fronteras máximas declaradas, no permiso para tocar cada fichero sin necesidad.
-Toda ruta cambiada debe justificarse en el commit del subcorte y no se mezclan
-dos nodos en un mismo commit.
+type clasePidfdCerradoM38 uint8
+const (
+	pidfdVivoCerradoM38 clasePidfdCerradoM38 = iota + 1
+	pidfdTerminalCerradoM38
+	pidfdRawFallidoCerradoM38
+)
 
-### C1 — núcleo slot y operaciones O3a
+type rolPidfdCerradoM38 uint8
+const (
+	pidfdPrimarioCerradoM38 rolPidfdCerradoM38 = iota + 1
+	pidfdReservaCerradoM38
+	pidfdOpacoCerradoM38
+)
 
-Write-set máximo:
+type propietarioCerradoM38 uint8
+const (
+	propietarioO5CerradoM38 propietarioCerradoM38 = iota + 1
+	propietarioO3aCerradoM38
+	propietarioO3bCerradoM38
+	propietarioO3cCerradoM38
+	propietarioO4aCerradoM38
+	propietarioO4cCerradoM38
+	propietarioLiberadoCerradoM38
+)
 
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_autoridad.go`;
-- nueva `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas.go`;
-- nueva `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_test.go`.
+type claseWaitRetiradaO3aM38 uint8
+const (
+	waitRetiradaRecogidoO3aM38 claseWaitRetiradaO3aM38 = iota + 1
+	waitRetiradaExitErrorO3aM38
+)
 
-C1 publica el slot, las fases y operaciones simples cerradas sin retirar aún
-la API anterior. La prueba focal demuestra CAS primero, raw→consolidación→
-comparación→efecto y fatal+5. Si G6a no cabe, la nueva fuente posee la mecánica
-cerrada y G6a conserva solo el campo mínimo; no se exceden 800 líneas.
+type claseBarreraO3bM38 uint8
+const (
+	barreraVerdeCerradaO3bM38 claseBarreraO3bM38 = iota + 1
+	barreraAplazadaCerradaO3bM38
+	barreraRetiradaCerradaO3bM38
+)
 
-### C2 — migración O3a
+type claseStopO3bM38 uint8
+const (
+	stopAcreditadoCerradoO3bM38 claseStopO3bM38 = iota + 1
+	stopRetiradoCerradoO3bM38
+)
 
-C2a migra close/dup/open/pipe. C2b migra Start/pidfd/Wait. Write-set agregado
-máximo, repartido en commits distintos:
+type claseContO3cM38 uint8
+const (
+	contRetiradoAntesRawO3cM38 claseContO3cM38 = iota + 1
+	contRawIntentadoO3cM38
+)
 
-- las tres rutas C1;
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_preparacion.go`;
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_inicio.go`;
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_pruebas.go`;
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_pruebas_adversas.go`.
+type claseObservacionO3cM38 uint8
+const (
+	observacionSinEventoO3cM38 claseObservacionO3cM38 = iota + 1
+	observacionControlO3cM38
+	observacionSenalO3cM38
+	observacionTerminalO3cM38
+)
 
-Cada subcorte mantiene compilable el conjunto. C2 no borra aún la API mientras
-quede un consumidor posterior.
+type claseEjecucionEtapaO4bM38 uint8
+const (
+	etapaEjecutadaO4bM38 claseEjecucionEtapaO4bM38 = iota + 1
+	etapaRawNegativoO4bM38
+)
 
-### C3 — O3b y primer ticket
+type claseResultadoEtapaO4aM38 uint8
+const (
+	resultadoEtapaConsumidoO4aM38 claseResultadoEtapaO4aM38 = iota + 1
+	resultadoEtapaFuncionalNegativoO4aM38
+)
 
-C3a migra observaciones/barrera; C3b implementa el primer ticket compuesto;
-C3c migra STOP y handoff. Write-set agregado máximo:
+type claseTerminalidadO4cM38 uint8
+const (
+	terminalidadVivaO4cM38 claseTerminalidadO4cM38 = iota + 1
+	terminalidadConfirmadaO4cM38
+)
 
-- nueva `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
-- los stems exactos `autoridad`, `barrera`, `ticket`, `stop`, `identidad` y
-  `handoff` de `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_`,
-  cada uno en su `.go` y `_test.go` correspondiente;
-- G6a y `..._arranque_operaciones_cerradas.go`, solo si el contrato interno
-  mínimo de slot exige un cambio secuencial.
+type claseWaitO4cM38 uint8
+const (
+	waitRecogidoO4cM38 claseWaitO4cM38 = iota + 1
+	waitExitErrorValidoO4cM38
+)
 
-Compartir `barrera.go` entre C3a y C3b obliga a secuencia, no a fusionar
-responsabilidades.
+type claseWait4O4cM38 uint8
+const (
+	wait4AdoptadoO4cM38 claseWait4O4cM38 = iota + 1
+	wait4ECHILDO4cM38
+	wait4HijoVivoO4cM38
+	wait4RawFallidoO4cM38
+)
+```
 
-### C4 — O3c y CONT
+No contienen FD, PID/PGID persistible, handle, TID, nonce, generación,
+puntero, interfaz de autoridad, función, error libre, ruta o dato personal.
+Los raws que no caben en un valor seguro se fijan en la custodia dentro de la
+llamada y solo se devuelve su clase cerrada. Copiar un resultado no permite
+ningún efecto.
 
-C4a migra revalidaciones; C4b implementa CONT compuesto; C4c migra observación
-y handoff. Write-set agregado máximo:
+`destinoFDCerradoO3aM38` es un enum cerrado con exactamente estos literales:
+`fdRaizO3aM38`, `fdRunnerO3aM38`, `fdSalidaO3aM38`, `fdErrorCasoO3aM38`,
+`fdControlO3aM38`, `fdTerminalO3aM38`, `fdTicketLectorO3aM38`,
+`fdTicketEscritorO3aM38`, `fdPidfdPrimarioO3aM38` y
+`fdPidfdReservaO3aM38`. La operación escribe el recurso en la custodia; nunca
+lo devuelve.
 
-- nueva `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
-- los stems exactos `autoridad`, `revalidacion`, `cont`, `observacion` y
-  `handoff` de `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_`,
-  cada uno en su `.go` y `_test.go` correspondiente;
-- G6a y la fuente cerrada O3a, solo por el contrato interno compartido.
+Los argumentos físicos tampoco son libres: duplicación exige
+`minimo==minFDDuplicadoM38`; apertura O3a admite solo `/dev/null`,
+`O_RDONLY|O_CLOEXEC|O_NOFOLLOW`, modo cero y el nombre interno fijado por el
+destino; pipe admite solo `O_CLOEXEC` y los destinos ticket lector/escritor.
+Close admite solo un destino actualmente poseído. La apertura `/proc` de O3b
+permanece dentro de `evaluarBarreraCerradaO3bM38`, con PID sellado y flags de
+su autoridad; no reutiliza la apertura O3a. Todo otro tuple falla antes del raw
+como autoridad inválida y, tras CAS adquirido, es fatal+5.
 
-### C5 — observaciones O4a
+## Nombres y firmas M38 exactos
 
-C5a migra arbitraje; C5b ajusta regresiones de autoridad/semilla/etapas.
-Write-set agregado máximo:
+No son familias ni ejemplos. Cualquier otra firma que ejecute el mismo efecto
+es NO-GO.
 
-- nueva `S/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_observaciones_cerradas.go` y su `_test.go`;
-- los stems exactos `autoridad`, `semilla`, `arbitraje` y `etapas` de
-  `S/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_`, cada uno
-  en su `.go` y `_test.go` correspondiente;
-- las fuentes cerradas O3a/O3b estrictamente necesarias para componer la
-  observación, en commit secuencial y sin añadir política O4a allí.
+| Propietario | Firma exacta | Argumentos y resultado |
+| --- | --- | --- |
+| O5 | `func componerEntradaConPreflightCerradoO5M38(e *bundleEntradaO3aM38) clasePreparacionO5M38` | bundle en dirección final; preflight, cierre y preparación en una llamada; devuelve solo clase |
+| O3a | `func cerrarFDCerradoO3aM38(c *custodiaO3aM38, destino destinoFDCerradoO3aM38) resultadoFDCerradoM38` | cierra una vez el campo enumerado, lo anula si el inventario acredita baja |
+| O3a | `func duplicarFDCerradoO3aM38(c *custodiaO3aM38, origen, destino destinoFDCerradoO3aM38, minimo int, nombre string) resultadoFDCerradoM38` | `F_DUPFD_CLOEXEC`; almacena el nuevo archivo en `destino`; no devuelve FD/puntero |
+| O3a | `func abrirFDCerradoO3aM38(c *custodiaO3aM38, destino destinoFDCerradoO3aM38, ruta string, flags int, modo uint32, nombre string) resultadoFDCerradoM38` | `open` literal y sellado físico; almacena en destino |
+| O3a | `func crearPipeCerradoO3aM38(c *custodiaO3aM38, lector, escritor destinoFDCerradoO3aM38, flags int, nombres [2]string) resultadoFDCerradoM38` | `pipe2` literal; almacena ambos extremos o ninguno |
+| O3a | `func consumirControlCerradoO3aM38(c *custodiaO3aM38, fragmento []byte, fin bool) resultadoControlPreinicioM38` | consumo y contador internos; no devuelve testigo/vuelta |
+| O3a | `func iniciarProcesoCerradoO3aM38(c *custodiaO3aM38) claseStartCerradoO3aM38` | único `cmd.Start`, raw fijado en custodia, delta pidfd completo y clase sin autoridad |
+| O3a | `func reservarPidfdCerradoO3aM38(c *custodiaO3aM38) resultadoFDCerradoM38` | duplica primario a reserva y lo almacena; no devuelve FD |
+| O3a | `func sondearPidfdCerradoO3aM38(c *custodiaO3aM38, rol rolPidfdCerradoM38) clasePidfdCerradoM38` | `poll`/identidad bajo slot; devuelve solo vivo, terminal o raw fallido |
+| O3a | `func esperarRetiradaCerradoO3aM38(c *custodiaO3aM38) claseWaitRetiradaO3aM38` | único Wait de retirada; consume pidfd opaco y fija `ProcessState` dentro |
+| O3a | `func avanzarPropietarioCerradoO3aM38(c *custodiaO3aM38, desde, hacia propietarioCerradoM38) bool` | transición interna exacta; no devuelve lease/observador |
+| O3b | `func evaluarBarreraCerradaO3bM38(a *autoridadCapturaO3bM38) claseBarreraO3bM38` | lecturas, identidad, inventario y plazo dentro de una llamada compuesta |
+| O3b | `func emitirYCerrarTicketCerradoO3bM38(a *autoridadCapturaO3bM38) resultadoEscrituraTicketO3bM38` | primera escritura inmediata, parciales/reintentos acotados y cierre en el mismo slot |
+| O3b | `func observarStopCerradoO3bM38(a *autoridadCapturaO3bM38) claseStopO3bM38` | `/proc`, pidfd e inventario; fija identidad, no devuelve acreditación |
+| O3c | `func revalidarEIntentarContCerradoO3cM38(a *autoridadContinuacionO3cM38) resultadoContCerradoO3cM38` | toda revalidación, marca exacta y un CONT; no retorna `revalidacion` ni permiso |
+| O3c | `func observarCasoCerradoO3cM38(a *autoridadContinuacionO3cM38) claseObservacionO3cM38` | CONTROL/señal/pidfd bajo slot; fija primera observación dentro |
+| O4a | `func consumirResultadoEtapaCerradaO4aM38(e *autoridadEtapasO4aM38, indice uint8) claseResultadoEtapaO4aM38` | consume por valor la celda embebida del índice; no recibe puntero O4b |
+| O4b | `func ejecutarEtapaCerradaO4bM38(e *autoridadEtapasO4aM38, indice uint8) claseEjecucionEtapaO4bM38` | lee tras CAS la etapa ya fijada, ejecuta raws literales y sella resultado embebido |
+| O4b | `func enviarSenalPidfdCerradaO4bM38(e *autoridadEtapasO4aM38, indice uint8, senal syscall.Signal, flags uintptr) syscall.Errno` | helper privado de la anterior; un raw, solo flags canónicos, no se llama fuera según AST |
+| O4c | `func confirmarTerminalidadCerradaO4cM38(a *autoridadTerminalidadO4cM38) claseTerminalidadO4cM38` | pareja primario/reserva y límite prestado; no recoge |
+| O4c | `func esperarCmdCerradoO4cM38(a *autoridadTerminalidadO4cM38) claseWaitO4cM38` | exactamente un `cmd.Wait`; fija estado real internamente |
+| O4c | `func drenarWait4CerradoO4cM38(a *autoridadTerminalidadO4cM38) resultadoWait4CerradoO4cM38` | cada raw es `Wait4(-1,&estado,WNOHANG,&uso)`; itera dentro hasta `ECHILD` |
+| O4c | `func cerrarTerminalidadCerradaO4cM38(a *autoridadTerminalidadO4cM38) resultadoTerminalidadO4cM38` | orquesta solo llamadas cerradas: terminalidad, Wait, Wait4, ESRCH, cierres, TERMINAL y liberación |
+| O4c | `func liberarCustodiaCerradaO4cM38(a *autoridadTerminalidadO4cM38) bool` | libera primero observación y al final operaciones; fija propietario liberado; ningún efecto posterior |
 
-C5 no toca fuentes productivas O4b ni implementa señales de O4B-P2.
+`cerrarTerminalidadCerradaO4cM38` no inspecciona campos directamente. Sus
+decisiones proceden de los valores cerrados devueltos por las operaciones de
+la tabla. Los helpers de raw permanecen privados a su operación compuesta y no
+forman una API alternativa.
 
-### C6 — eliminación completa de la API
+## Semántica exacta de raws funcionales
 
-Write-set máximo:
+La regla `raw != éxito ⇒ fatal` de R2 queda anulada.
 
-- G6a y las dos pruebas O3a de arranque;
-- las fuentes y tests O3a/O3b/O3c/O4a anteriores únicamente si conservan una
-  referencia residual que debía haberse migrado en su nodo.
+### FD, close, dup, open y pipe
 
-C6 retira tipos, métodos, brokers y compatibilidad. Su criterio es cero
-definiciones y cero referencias vivas de los nueve símbolos prohibidos, más
-compilación y pruebas focales. Una referencia productiva descubierta aquí
-obliga a corregir el nodo propietario; no se improvisa un adaptador.
+Cada raw se intenta una vez, salvo el bucle de escritura de ticket autorizado
+por O3b. En dup/open/pipe, error más inventario sin cambio es resultado
+funcional negativo consolidado; éxito exige el delta exacto y `CLOEXEC`.
+Contradicción raw/inventario o inventario ilegible es fallo de consolidación y
+fatal+5.
 
-## Write-set de analizadores, mutantes y V26
+`Close` no reintenta `EINTR`. El inventario decide si hubo baja. O3a conserva
+la primera retirada; O4c enclava incidente y cuarentena cuando su contrato lo
+ordena. Un resultado incierto que impida acreditar la postcondición no se
+presenta como éxito: si rompe consolidación es fatal+5.
 
-Este nodo se divide en material de herramientas y actas V26. Su frontera
-máxima contabilizada comprende:
+### `Start` y pidfd
+
+`errStart != nil`, `cmd.Process == nil` y pidfd primario `-1`, con inventario
+sin hijo ni nuevas referencias, es `startSinHijoO3aM38` y retirada ordinaria.
+No es fallo de autoridad.
+
+Cualquier tupla con hijo observable se clasifica con hijo aunque `errStart` no
+sea nulo y entra en retirada protegida. `Process`, pidfd o delta mutuamente
+contradictorios, o consolidación imposible, son fatal+5. Éxito entregable exige
+Process válido, primario, opaco, reserva posterior, identidades iguales,
+`CLOEXEC` y delta exacto.
+
+### Ticket O3b
+
+Tras B1, el primer syscall de la llamada es literalmente `Write`; el CAS y las
+lecturas de memoria necesarias no son syscalls. No existe permiso preparado.
+Un parcial avanza solo por el sufijo no escrito. `EINTR` conserva `n`, cuenta
+como máximo ocho interrupciones y reintenta según O3b; antes de cada reintento,
+no antes del primero, se relee el límite. Error funcional retira y el cierre se
+intenta una vez dentro de la misma llamada. Fallo de slot o consolidación es
+fatal+5.
+
+### CONT O3c
+
+La llamada cerrada revalida CONTROL, señal, bootstrap, pidfd, inventario,
+identidad, STOP y segunda ronda; si una autoridad O3c permite retirada antes
+del CONT, devuelve esa clase sin efecto. Inmediatamente antes del raw crea la
+marca monotónica exacta de 180 segundos. Ejecuta una sola vez
+`pidfd_send_signal(primario,SIGCONT,0,PIDFD_SIGNAL_PROCESS_GROUP)`.
+
+El raw, incluido `EINTR`, se conserva sin retry ni interpretación en
+`retornoRaw`; O4a decide su significado. La misma llamada fija `ahoraCaso`,
+`finCaso`, raw y estado C2 antes de soltar el slot. No existe fase C1 que
+devuelva permiso a P3.
+
+### O4b
+
+Las cardinalidades, orden STOP/TERM/CONT/KILL, flags y deadlines siguen siendo
+los fijados por O4a/O4b. Cada señal literal tiene un intento. `EINTR`, EPERM,
+ESRCH y cualquier otro raw se sellan exactamente, no se reinterpretan como
+autoridad ni se reintentan. O4a conserva precedencia y clasificación.
+
+Estas firmas son contrato futuro, no apertura de O4B-P2. P2 sigue bloqueado;
+no se programa ni se ejecuta dinámica por este R3.
+
+### Wait, Wait4 y O4c
+
+O4c confirma terminalidad antes de Wait. `cmd.Wait()==nil` es válido.
+`*exec.ExitError` es terminación válida solo si pertenece al mismo Cmd y su
+`ProcessState` exacto queda fijado; no es por sí solo fatal ni incidente.
+Otro error que no acredite recolección sigue la fatalidad O4c.
+
+Después del Wait, `drenarWait4CerradoO4cM38` usa exclusivamente objetivo `-1`,
+`WNOHANG` y `Rusage` local. PID positivo recoge un adoptado ya terminal;
+`ECHILD` termina el drenaje; PID cero acredita un hijo vivo y no se acepta como
+cierre. No hay Wait4 bloqueante, retry libre ni Wait del líder. La semántica de
+`EINTR` y otros errores permanece la de O4c: no se inventa ECHILD ni éxito.
+
+El orden O4c es inmutable:
+
+1. terminalidad concordante antes del límite;
+2. único Wait funcional y consumo físico del pidfd opaco;
+3. Wait4 no bloqueante hasta ECHILD;
+4. grupo ausente por ESRCH según su autoridad;
+5. cierre único de primario, reserva y CONTROL, anulando cada campo;
+6. escritura lógica única y cierre de TERMINAL;
+7. liberación de observación;
+8. liberación final del estado de operaciones y propietario `liberado`;
+9. cero lectura, syscall, E/S, snapshot, log o asignación falible posterior.
+
+El resultado a O5 es el valor inerte `resultadoTerminalidadO4cM38`. No es
+autoidentificado ni consumible como permiso, no tiene getter o serialización y
+no sustituye el recibo Shell de O5.
+
+## DAG futuro y condición para abrir código
+
+Primero el hash exacto de este documento necesita dos revisiones materiales
+independientes `GO`, ambas `P0=P1=P2=0`; Dirección decide integración. Solo
+entonces puede abrirse la primera minitarea C1. Ningún productor revisa o
+integra su trabajo.
+
+El DAG exacto es:
+
+```text
+R3 doble GO e integración documental
+→ C1a … C1l, en el orden de su tabla
+→ C2a … C2v, en el orden de su tabla
+→ C3 pruebas y AST
+→ C4 mutantes, runners y manifiestos
+→ C5 cero nominal y semántico final
+→ V26 material → doble revisión → acta V26 separada
+→ C22 material → doble revisión → evidencia C22 separada
+→ integración, repetición de puertas y CI 5/5
+→ decisión separada sobre O4B-P2.
+```
+
+Cada flecha exige commit limpio, compilable y pruebas focales verdes. Cada hash
+material recibe dos revisiones independientes antes de integración. Un corte
+no mezcla responsabilidad ni acta.
+
+En las tablas, `S/` significa
+`deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/`. “Parada” es el máximo
+de líneas del fichero final, siempre menor de 800; si no cabe, se crea la ruta
+nueva indicada y no se amplía el write-set.
+
+Las rutas de C1/C2 se nombran mediante estos aliases exactos, sin globs:
+
+- `A0` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_autoridad.go`;
+- `A1N/A1NT` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_nucleo.go` y su `_test.go`;
+- `A1F/A1FT` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_fd.go` y su `_test.go`;
+- `A1P/A1PT` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_proceso.go` y su `_test.go`;
+- `A1S/A1ST` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_estado.go` y su `_test.go`;
+- `A2` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_preparacion.go`;
+- `A3` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_inicio.go`;
+- `A4` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_pruebas.go`;
+- `A5` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_pruebas_adversas.go`;
+- `B0/B0T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
+- `B1/B1T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_barrera.go` y su `_test.go`;
+- `B2/B2T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_ticket.go` y su `_test.go`;
+- `B3/B3T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_stop.go` y su `_test.go`;
+- `B4/B4T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_identidad.go` y su `_test.go`;
+- `B5/B5T` = `S/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go` y su `_test.go`;
+- `C0/C0T` = `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
+- `C1/C1T` = `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_revalidacion.go` y su `_test.go`;
+- `C2/C2T` = `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_cont.go` y su `_test.go`;
+- `C3/C3T` = `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_observacion.go` y su `_test.go`;
+- `C4/C4T` = `S/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go` y su `_test.go`;
+- `D0/D0T` = `S/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
+- `D1/D1T` = `S/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas.go` y su `_test.go`;
+- `D2/D2T` = `S/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go` y su `_test.go`;
+- `E0/E0T` = `S/senales_grupo_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go` y su `_test.go`;
+- `F0` = `S/terminalidad_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go`;
+- `F1/F1T` = `S/terminalidad_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` y su `_test.go`;
+- `OPR` = `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go`.
+
+## C1 descompuesto: núcleo sin consumidores migrados
+
+| ID | Responsabilidad observable y cierre | Write-set exacto máximo | Presupuesto/parada |
+| --- | --- | --- | --- |
+| C1a | Definir estado embebido, discriminantes, CAS y fatal+5, sin efecto físico. | `A0`, nuevas `A1N/A1NT` | A0 559→máx. 650; A1N/A1NT 300/420; parada 700 |
+| C1b | Implementar únicamente `cerrarFDCerradoO3aM38`, sin migrar callers. | nuevas `A1F/A1FT` | 120/180; parada 700 |
+| C1c | Implementar únicamente `duplicarFDCerradoO3aM38`. | `A1F/A1FT` | +100/+150; acumulado 220/330; parada 700 |
+| C1d | Implementar únicamente `abrirFDCerradoO3aM38`. | `A1F/A1FT` | +120/+160; acumulado 340/490; parada 700 |
+| C1e | Implementar únicamente `crearPipeCerradoO3aM38`. | `A1F/A1FT` | +110/+150; acumulado 450/640; parada 700 |
+| C1f | Implementar únicamente el preflight directo cerrado, sin `WithHandle`. | nuevas `A1P/A1PT` | 130/200; parada 760 |
+| C1g | Implementar únicamente `iniciarProcesoCerradoO3aM38`. | `A1P/A1PT` | +190/+220; acumulado 320/420; parada 760 |
+| C1h | Implementar únicamente reserva y sonda pidfd cerradas. | `A1P/A1PT` | +150/+170; acumulado 470/590; parada 760 |
+| C1i | Implementar únicamente `esperarRetiradaCerradoO3aM38`. | `A1P/A1PT` | +100/+130; acumulado 570/720; parada 760 |
+| C1j | Implementar únicamente consumo de CONTROL sin testigo. | nuevas `A1S/A1ST` | 140/200; parada 700 |
+| C1k | Implementar únicamente observación cerrada sin TID. | `A1S/A1ST` | +130/+180; acumulado 270/380; parada 700 |
+| C1l | Implementar únicamente cambio interno de propietario. | `A1S/A1ST` | +120/+170; acumulado 390/550; parada 700 |
+
+Los nombres abreviados empiezan por el stem literal
+`supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1`. C1 conserva
+compilable temporalmente la API antigua, pero ninguna función nueva puede
+devolverla o llamarla. C1l no abre O4B-P2.
+
+## C2 descompuesto: un propietario por migración
+
+| ID | Responsabilidad observable y cierre | Write-set exacto máximo | Presupuesto/parada |
+| --- | --- | --- | --- |
+| C2a | Migrar solo los cierres O3a y acreditar bajas exactas. | `A2`, `A3`, `A1F/A1FT` | A2 máx. 690; A3 máx. 680; A1F/A1FT 700 |
+| C2b | Migrar solo la duplicación O3a. | `A2`, `A1F/A1FT` | A2 máx. 700; A1F/A1FT 700 |
+| C2c | Migrar solo la apertura O3a. | `A2`, `A1F/A1FT` | A2 máx. 710; A1F/A1FT 700 |
+| C2d | Migrar solo la creación de pipe O3a. | `A2`, `A1F/A1FT` | A2 500→máx. 720; A1F/A1FT 700 |
+| C2e | Sustituir solo preflight/token y retirar el primer `WithHandle`. | `A0`, `A2`, `A4`, `A1P/A1PT` | 680, 740, 760, 760/760 |
+| C2f | Migrar solo `Start` y sus tres clases funcionales. | `A3`, `A1P/A1PT` | A3 548→máx. 720; A1P/A1PT 760 |
+| C2g | Migrar solo delta, reserva y sondas pidfd O3a. | `A3`, `A1P/A1PT` | A3 máx. 740; A1P/A1PT 760 |
+| C2h | Migrar solo el Wait de retirada O3a. | `A3`, `A1P/A1PT` | A3 máx. 750; A1P/A1PT 760 |
+| C2i | Migrar solo los consumidores de CONTROL sin testigo. | `A3`, `A4`, `A1S/A1ST` | 760, 760, 700/700 |
+| C2j | Retirar reloj/testigo y autoridad TID restantes de O3a. | `A0`, `A4`, `A5`, `A1S/A1ST` | 700, 770, 780, 700/700 |
+| C2k | Migrar solo la barrera O3b a operación cerrada. | nuevas `B0/B0T`; `B1/B1T` | 360/520; B1 428→máx. 690; B1T máx. 760 |
+| C2l | Migrar solo emisión/cierre de ticket; cero permiso primero. | `B0/B0T`, `B2/B2T` | B0/B0T máx. 620/720; B2 230→máx. 560; B2T máx. 760 |
+| C2m | Migrar solo observación STOP e identidad O3b. | `B0/B0T`, `B3/B3T`, `B4/B4T` | cada producción máx. 700; cada prueba máx. 760 |
+| C2n | Migrar solo handoff O3b sin lease/TID transferible. | `B0/B0T`, `B5/B5T` | producción máx. 700; pruebas máx. 760 |
+| C2o | Migrar solo revalidación O3c y retirar el segundo `WithHandle`. | nuevas `C0/C0T`; `C1/C1T` | 360/520; C1 293→máx. 620; C1T máx. 760 |
+| C2p | Migrar solo CONT compuesto; cero `revalidacion.permiso`. | `C0/C0T`, `C2/C2T` | C0/C0T máx. 620/720; C2 100→máx. 360; C2T máx. 760 |
+| C2q | Migrar solo observación O3c sin broker/callback. | `C0/C0T`, `C3/C3T` | producción máx. 700; pruebas máx. 760 |
+| C2r | Migrar solo handoff O3c sin acreditación TID. | `C0/C0T`, `C4/C4T` | producción máx. 700; pruebas máx. 760 |
+| C2s | Hacer que O4a emita solo índice/resultado embebido, sin puntero ni TID. | nuevas `D0/D0T`; `D1/D1T`, `D2/D2T` | D0/D0T 420/620; D1 563→730; D2 253→520; tests máx. 760 |
+| C2t | Migrar solo O4b P1 al índice embebido, sin implementar ni ejecutar P2. | `E0/E0T` | E0 428→máx. 690; E0T 710→máx. 790 |
+| C2u | Reconciliar solo el orquestador O4c estático y su orden total. | nuevas `F0`, `F1`, `F1T` | 420, 620 y 740; parada 780 |
+| C2v | Migrar solo composición O5 y resultado final inerte; retirar registros/tokens. | `A0`, `A2`, `A4`; `OPR` byte a byte | 720, 740 y 780; OPR conserva 798 |
+
+Cada fila es un commit material y una responsabilidad observable. Si una fila
+necesita más de sus rutas o excede su parada, se vuelve a contrato; no se
+fusionan filas, no se permite edición concurrente y no se reparte una misma
+ruta entre productores simultáneos.
+
+Ningún corte toca `OPR` mientras mida 798 líneas; cualquier
+necesidad crea una fuente propietaria nueva. Ningún fichero puede llegar a 800.
+
+## C3, C4 y la puerta final C5
+
+C3 actualiza pruebas conductuales y todos los analizadores AST vivos. C4
+actualiza mutantes, fuentes verificadas, runners y manifiestos. Solo después
+C5 ejecuta el cero final.
+
+Write-set máximo C3/C4:
 
 - `tools/o3a_v5_ast/**` completo;
 - `tools/o3b_p7_ast/{README.md,main.go,main_test.go}`;
-- `tools/o3b_p7_mutantes/**`;
-- `tools/o3b_p7_mutantes_v3a/**` y `tools/o3b_p7_mutantes_v3b/**`;
 - `tools/o3c_p6_ast/{README.md,invariantes.go,main.go,main_test.go,retirada.go,seguridad.go}`;
+- `tools/o3b_p7_mutantes/**`, `tools/o3b_p7_mutantes_v3a/**` y
+  `tools/o3b_p7_mutantes_v3b/**`;
 - `tools/o3c_p6_mutantes/{README.md,fusion.go,main.go,main_test.go}`;
-- los ficheros vivos `README.md`, `conductor.sh`, `casos.tsv` y `fuentes.tsv`
-  de `tools/o3b_p7_conductor/` y `tools/o3c_p6_conductor/`;
-- nuevos `tools/o3b_p7_conductor/manifiesto_v26.tsv` y
-  `tools/o3c_p6_conductor/manifiesto_v26.tsv`;
-- nuevas evidencias V26 bajo directorios nuevos, nunca sobre actas existentes.
+- `README.md`, `conductor.sh`, `casos.tsv`, `fuentes.tsv` y nuevos manifiestos
+  V26 de `tools/o3b_p7_conductor/` y `tools/o3c_p6_conductor/`;
+- pruebas y manifiestos vivos de O3a, O3b, O3c, O4a, O4b y O4c afectados.
 
-La cobertura `tools/o3a_v5_ast/**` es completa: README, aplicador, validador,
-main, catálogos, manifests, receta, scripts y evidencia se inventarían y
-hashearían. Los ledgers V21 y V25 son historia inmutable; deben entrar como
-entradas verificadas y no tener diff. La nueva autoridad es V26, con nuevos
-ledgers, manifests, fuentes, GOROOT, Go tool y herramientas. Igual regla rige
-para las evidencias históricas O3b/O3c: se verifican, no se reescriben.
+Los AST prueban CAS dominante, ausencia de lectura compartida previa, raw y
+consolidación en la misma llamada, call graph exacto y cero salida de
+autoridad. Los mutantes matan CAS tardío, raw fuera de función, consolidación
+omitida, raw funcional convertido en fatal, permiso diferido, callback, TID,
+puntero O4a/O4b, retry indebido, Wait duplicado y liberación reordenada.
 
-Los AST deben probar, por cada operación, dominancia del CAS del slot sobre
-toda lectura compartida; `Gettid` raw antes de comparación; efecto literal en
-la misma función; ausencia de callback/closure/interfaz/func variable; y
-restauración antes de retirada. Los mutantes deben matar, como mínimo, CAS
-tardío, lectura previa, comparación previa a consolidación, efecto movido a
-otra función, señal/flags libres, retorno de celda, restauración sin slot,
-retirada temprana, retry y supervivencia de cualquiera de los nueve símbolos.
+C5 se ejecuta sobre producción, tests, herramientas, runners y manifiestos
+vivos ya actualizados. Excluye solo evidencia histórica V21/V25, que debe
+permanecer byte a byte y verificarse por SHA. Exige cero referencias de cada
+símbolo nominal del inventario, cero `WithHandle`, cero campo/callback `func`
+que transporte efecto, cero mapa/registro de punteros de autoridad, cero TID o
+`Gettid` en predicados de autorización, cero permiso pendiente entre retornos,
+cero goroutine/canal/interfaz/`unsafe.Pointer`/`uintptr` que lleve autoridad y
+cero syscall físico fuera de las firmas exactas autorizadas.
 
-Los `fuentes.tsv` de O3a/O3b/O3c y toda huella embebida en AST o mutantes se
-actualizan al material real. Ningún artefacto vivo puede conservar
-`9015dff…` como huella vigente de G6a; las evidencias V21/V25 sí la conservan
-como genealogía y no acreditan V26.
+El analizador deriva además canales equivalentes: funciones que devuelven o
+escriben por argumento un FD/handle/puntero de capacidad, aliases de slot,
+resultados autoconsumibles, generaciones/nonce usados como permiso, closures,
+hooks, métodos variables y callbacks. Cualquier hallazgo es NO-GO y vuelve al
+nodo propietario; C5 no añade adaptadores.
 
-## C22 como autoridad viva
+## V26, revisión material y evidencia no autorreferente
 
-El write-set máximo del nodo C22 es:
+V21 y V25 son historia inmutable. La nueva autoridad es V26 y contiene
+manifiestos, rutas, modos, líneas, SHA-256 de fuentes, GOROOT, Go tool,
+herramientas, casos, mutantes y resultados normal/race del material exacto.
 
-- `tools/o3a_v5_conductor/README.md`;
-- `tools/o3a_v5_conductor/conductor.sh`;
-- los runners existentes `conductor_c*.sh` cuando deban publicar su SHA real;
-- nuevo `tools/o3a_v5_conductor/conductor_c22_lease_closed_ops.sh`;
-- `tools/o3a_v5_conductor/fuentes_v5.tsv`;
-- baja de `tools/o3a_v5_conductor/manifiesto_c01_c21.tsv`;
-- alta de `tools/o3a_v5_conductor/manifiesto_c01_c22.tsv`;
-- `S/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_operaciones_cerradas_test.go`;
-- nuevo `tools/o3a_v5_conductor/evidencia-cnd-c22-lease-closed-ops-r1/`,
-  exclusivamente en el commit de acta posterior al material C22.
+La secuencia por corte es:
 
-`manifiesto_c01_c22.tsv` es autoridad viva, no inventario decorativo. Contiene
-exactamente C01-C22 y, por caso, ruta relativa normalizada del runner, SHA-256
-del runner, ruta del manifiesto de fuentes y su SHA-256. El mismo runner puede
-agrupar varios casos solo con ruta y SHA idénticos; cada ID de caso aparece
-exactamente una vez.
+1. commit material limpio de una minitarea;
+2. dos revisiones independientes del mismo hash, con reproducción focal;
+3. integración solo por Dirección si ambas dan `GO`, `P0=P1=P2=0`;
+4. commit de acta/evidencia separado cuyo padre contiene el material;
+5. el acta registra el hash material y hashes de artefactos, nunca pretende
+   incluir su propio hash ni acredita un árbol distinto.
 
-`conductor.sh` no conserva una lista paralela de runners. Lee el manifiesto,
-rechaza cardinalidad distinta de 22, IDs fuera de C01-C22, huecos, IDs
-duplicados, rutas absolutas o escapadas, SHA inválido, rutas inexistentes,
-modos incorrectos y una misma ruta con huellas contradictorias. De ahí deriva
-la lista única de runners, verifica sus SHA y ejecuta cada uno en normal y
-`-race`. Un runner omitido, hardcoded fuera del manifiesto o marcado `SKIP`
-es `NO-GO`.
+Las evidencias nuevas viven en directorios V26 nuevos. No se reescriben actas,
+ledgers o evidencias históricas para acomodar el candidato.
 
-La evidencia liga manifiesto, fuentes, runners, modos, resultados, residuos y
-commit material. El conductor falla si no puede enlazarlos. C22 prueba además
-los bordes concurrentes `estado==2 ⇒ slot!=nil`, transferencia adversa entre
-goroutines con cero efecto, ticket primero, marca→CONT, las operaciones
-O3a/O3b/O3c/O4a y ausencia total de la API retirada.
+## C22 derivado del manifiesto y de SHA
 
-## Separación material/acta y ausencia de autorreferencia
+El nodo C22 puede tocar solo:
 
-Los commits de C1-C6, herramientas V26 y C22 son commits materiales pequeños.
-Después de fijar el último hash material se ejecutan las puertas autorizadas
-en el futuro corte y se crea un commit de acta probatoria separado. El acta
-registra el hash de su padre material, rutas y SHA de entradas/salidas y
-resultados; nunca promete contener su propio hash ni la huella de un árbol que
-la incluye.
+- `tools/o3a_v5_conductor/README.md` y `conductor.sh`;
+- runners `conductor_c*.sh` cuyo SHA real deba publicarse;
+- nuevo `conductor_c22_lease_closed_ops.sh`;
+- `fuentes_v5.tsv`;
+- baja de `manifiesto_c01_c21.tsv` y alta de
+  `manifiesto_c01_c22.tsv`;
+- prueba cerrada O3a necesaria para C22;
+- nuevo `evidencia-cnd-c22-lease-closed-ops-r1/`, únicamente en el commit de
+  evidencia posterior al material.
 
-La doble revisión de código recibe el hash exacto del commit de acta y comprueba
-su padre material. El hash del acta se conserva en las revisiones externas o
-en la entrega de Dirección, no dentro del acta misma. Una corrección material
-invalida el acta y exige regenerarla. V21 y V25 solo son evidencia histórica;
-la evidencia nueva se denomina V26.
+`manifiesto_c01_c22.tsv` contiene exactamente C01-C22. Cada fila fija ID, ruta
+relativa normalizada del runner, SHA-256 del runner, ruta del manifiesto de
+fuentes y su SHA-256. `conductor.sh` no conserva lista paralela: deriva del
+manifiesto la lista única, rechaza cardinalidad distinta de 22, huecos,
+duplicados, escapes, rutas absolutas, modos o SHA inválidos, y ejecuta cada
+runner en normal y `-race`.
 
-## Matriz y puertas del futuro código
+C22 verifica el hash material de cada runner antes de ejecutarlo, enlaza V26 y
+prueba los veintidós casos sin `SKIP`. La evidencia separada liga manifiesto,
+fuentes, runners, modos, resultados, residuos y commit material exacto.
 
-Cada precorte ejecutará `gofmt`, prueba focal normal y `-race`, `go vet` y
-`git diff --check`. Antes de revisión se añaden los conductores O3a/O3b/O3c,
-AST, mutantes, calidad global y las puertas proporcionadas por el contrato
-publicado, sin sustituirlas por mocks de syscall.
+## Matriz mínima de comportamiento futuro
 
-La matriz mínima incluye:
+- dos contendientes: solo uno gana el CAS y solo uno produce efecto;
+- lectura o mutación compartida anterior al CAS: muerte por AST/mutante;
+- callback, permiso, TID, handle o puntero diferido: rechazo estático;
+- close/dup/open/pipe: raw y delta coherentes, contradicción fatal+5;
+- preflight: cero callback, cero FD residual y preparación inmediata;
+- `Start` sin hijo: retirada ordinaria; tupla con hijo: retirada con hijo;
+- pidfd primario/opaco/reserva: identidad única, `CLOEXEC`, inventario exacto;
+- ticket: primer Write, parciales, hasta ocho EINTR, sufijo exacto y cierre;
+- CONT: marca 180 s, un raw incluso EINTR y resultado sellado para O4a;
+- O4b: cardinalidad/orden/raw exactos, sin retry ni dinámica antes de P2;
+- Wait: cardinal uno y `*exec.ExitError` exacto válido;
+- Wait4: WNOHANG, PID positivo o ECHILD, PID cero nunca cierre;
+- O4c: ECHILD antes de ESRCH, cierres ordenados, TERMINAL única, observación
+  antes de operaciones y cero efecto tras liberación;
+- resultado O5: valor inerte sin identidad, recurso o dato personal;
+- final C5: cero símbolos y cero canales equivalentes en todo material vivo;
+- C22: manifiesto único, SHA verificado y normal/race para C01-C22.
 
-- CAS perdido sin ninguna lectura compartida ni efecto;
-- cada fallo posterior al CAS como celda fatal+estado 5;
-- observación concurrente de todos los bordes sin estado 2/slot nulo;
-- TID de goroutine correcta e incorrecta, siempre raw→consolidar→comparar;
-- FD, buffer y `*exec.Cmd` adversos sin convertirlos en autoridad;
-- close, dup, open, pipe, Start, Wait y pidfd con una función literal cada uno;
-- primer `Write` como siguiente syscall tras barrera verde;
-- CONT como siguiente syscall tras la marca monotónica;
-- broker, callback, closure, interfaz, hook y función variable ausentes;
-- enum incapaz de inyectar syscall, señal o flags;
-- raw de éxito con cierre verde; error/`EINTR` con un intento, fatal+5 y cero
-  retry/fallback;
-- restauración completa con slot ocupado y retirada solo tras verde;
-- cero referencias vivas a la API retirada;
-- C01-C22 cardinales, sin huecos ni duplicados, normal y race derivados del
-  manifiesto y ligados a V26.
+## Seguridad, privacidad, i18n, accesibilidad y límites
 
-Esta R2 no ejecuta esas dinámicas ni acredita su resultado.
+Todo permanece privado, Linux/amd64, fail-closed y sin API, red, SQL, HTTP,
+Docker, Orquesta, Firecracker, Jailer, deploy o producción. No se registra ni
+expone PID, PGID, pidfd, TID, nonce, raw libre, ruta privada, actor, tenant,
+secreto o dato personal. Errores externos siguen siendo canónicos y sin
+detalles internos.
 
-## Seguridad, privacidad, i18n y accesibilidad
+No hay texto de interfaz, por lo que i18n y accesibilidad no cambian. TERMINAL
+conserva su contrato regular 0600 y su codec canónico. La indisponibilidad no
+se interpreta como autoridad, terminalidad, cierre o éxito.
 
-La decisión reduce autoridad transferible y aplica denegación predeterminada.
-No añade identidad humana, dato personal, secreto, credencial, token externo,
-red, SQL, Docker, HTTP, persistencia ni log. Los raws y TID se mantienen
-locales y minimizados; no se imprimen ni entran en interfaces.
+La fatalidad no ejecuta cleanup ni E/S posterior. La limpieza ordinaria
+mantiene primera causa, secundarios acotados, cierre único, inventario y
+privacidad. Ningún fichero supera 799 líneas y cada minitarea fija una parada
+inferior a 800.
 
-No hay texto visible ni superficie de usuario, por lo que i18n y accesibilidad
-no cambian. No se autoriza producción, datos reales, señal a procesos ajenos,
-prueba dinámica en este corte ni despliegue.
+O4B-P2 continúa bloqueado. Este R3 no autoriza su implementación, pruebas
+dinámicas ni señales reales. Tampoco acredita O4c productivo, C22, V26, E2E,
+aplicación arrancable o producción.
 
-## Condiciones de NO-GO y cierre documental
+## Condiciones de NO-GO
 
-Es `NO-GO` cualquiera de estas condiciones:
+Es NO-GO cualquiera de estos hechos:
 
-- sobrevive o se sustituye nominalmente alguna API transferible;
-- un efecto queda fuera de la función que acredita TID;
-- slot CAS posterior a una lectura compartida;
-- comparación TID previa a consolidar raw;
-- estado 2 con slot nulo, restauración sin slot o retirada antes de verde;
-- fallo posterior al CAS que no termina en fatal+5;
-- callback, closure, interfaz, hook, func variable o enum libre;
-- `Gettid` entre la última barrera/marca/deadline y primer ticket, CONT o
-  señal futura;
-- write-set no declarado, fichero mayor de 800 líneas o commit monolítico;
-- V21/V25 reescritos o presentados como V26;
-- acta autorreferencial;
-- C22 no derivado exclusivamente del manifiesto o sin normal/race;
-- producto distinto de `640610a…` sin repetir `merge-tree`;
-- intento de usar R2 para autorizar O4B-P2.
+- uno de los dos dictámenes R2 no queda trazado o un hallazgo se silencia;
+- operación con lectura compartida anterior al CAS o efecto fuera de llamada;
+- autoridad/consolidación que retorna como error ordinario en vez de fatal+5;
+- raw funcional de Start, Wait, ticket, CONT u O4b convertido indebidamente en
+  fatal o éxito;
+- cualquier símbolo retirado, `WithHandle` o canal equivalente vivo tras C5;
+- callback, TID, permiso, puntero, FD, handle o acreditación transportable;
+- O4c sin Wait único, ECHILD, ESRCH, orden de cierres o liberación final;
+- C1/C2 monolítico, write-set ampliado o fichero de 800 líneas;
+- O4B-P2 programado o ejecutado antes de su decisión separada;
+- V21/V25 modificados o presentados como V26;
+- evidencia en el commit material o acta autorreferente;
+- C22 no derivado solo del manifiesto/SHA o sin normal y race;
+- uso de datos reales, secretos, red, despliegue o producción.
 
-El siguiente y único paso es la doble revisión documental independiente,
-funcional y de seguridad, de los bytes exactos del commit R2. Debe emitir dos
-`GO` con `P0=P1=P2=0` antes de que Dirección integre el documento y abra C1.
-Este productor no revisa, integra, publica, actualiza métricas ni declara GO.
+## Condición de cierre documental
 
-Las puertas permitidas de este corte documental son `git diff --check`,
-Gitleaks focal exacto con `/tmp/vec-gitleaks-20260831`, modo `0700` y
-SHA-256 `c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`,
-y `merge-tree` contra
-`integracion/ct-producto-ligero-20260821=640610a4f806b0848682bbe844ff9d672c2777a6`.
-Siguen prohibidos `fetch`, `pull`, `reset`, `push`, deploy, dinámicas,
-producción, credenciales y gates pesados.
+El único cierre posible de esta tarea es documental: fichero UTF-8, modo 0644,
+no más de 800 líneas, diff limpio y puertas documentales ligeras. El candidato
+requiere después doble revisión independiente del hash exacto. Solo Dirección
+puede integrarlo y abrir C1a. No se cierra O3a, O3b, O3c, O4a, O4b, O4c, O5,
+C22, V26 ni una vertical productiva mediante este documento.
