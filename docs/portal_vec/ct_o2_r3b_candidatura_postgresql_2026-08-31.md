@@ -4,7 +4,8 @@ Fecha del corte: 31 de agosto de 2026.
 
 ## Resultados cronológicos de las puertas dinámicas
 
-Estado: **NO-GO dinámico y estático; R2 obtuvo `GO ESTÁTICO` independiente con
+Estado: **GO dinámico de R12 pendiente de sellado y revisión documental R13.
+R2 obtuvo `GO ESTÁTICO` independiente con
 `P0=0`, `P1=0` y `P2=0`, pero las dos ejecuciones focales posteriores
 terminaron en el oráculo del preflight y en la primera resolución Go,
 respectivamente. R4 recibió un quinto `NO-GO` estático, con `P0=0`, `P1=2` y
@@ -25,8 +26,10 @@ que mata esa regresión. Su única ejecución dinámica autorizada terminó en
 la revisión de sesión `2` como versión de clave de capacidad. R11 separa ambas
 coordenadas, pero su única dinámica aceptó el servidor PostgreSQL temporal de
 `initdb` y la primera conexión SQL recibió el cierre de ese servidor. R12
-distingue el servidor final y queda pendiente de doble revisión independiente
-exacta; no acredita PostgreSQL ni autoriza otra ejecución**.
+distingue el servidor final, recibió dos revisiones independientes exactas con
+`GO`, y su única dinámica autorizada recorrió la matriz completa con
+`runner_rc=0`, marcador de terminación y `postflight=GO`. R13 se limita a
+sellar esa evidencia; no reabre ni reinterpreta ningún resultado anterior**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -624,6 +627,50 @@ una autorización nueva, posterior, expresa, única y separada, se prohíbe toda
 ejecución dinámica; no existe reintento automático ni se reutiliza la
 autorización consumida de R11.
 
+### Décima puerta dinámica focal: GO PostgreSQL completo en R12
+
+La única ejecución dinámica autorizada de R12 se consumió sobre el candidato
+exacto `b59d009b3827addab1da993e50c284a101bf81f6`, con padre
+`3829ae266c913b640c6f172f816e019699589a12`, después de dos revisiones
+independientes exactas con `GO`, `P0=0`, `P1=0` y `P2=0`. Sus artefactos
+inmutables son:
+
+- autorización `/tmp/vec-o2-r3b-r12-dynamic-20260901.authorization`, SHA-256
+  `aad4245908176ea3c17d55fe4c5c415e16c49ab0f1e658fe99b5f99e44717ad7`;
+- log `/tmp/vec-o2-r3b-r12-dynamic-20260901.log`, SHA-256
+  `5e2924e5d67c928c3e97931798fb864211e0b7c4264306794a62baa5c561947a`;
+- metadato `/tmp/vec-o2-r3b-r12-dynamic-20260901.meta`, SHA-256
+  `a1b44877e248bf6bcc785ff82ec505987f8930e4ce516a5b747918cf342df02b`; y
+- envoltorio `/tmp/vec-o2-r3b-r12-dynamic-20260901.wrapper.sh`, SHA-256
+  `3744dfb2f9fd433c8d520fe9aef30a4a34b25c23b9ff421800f7263842875bb4`.
+
+El envoltorio fijó el runner con SHA-256
+`961942e116df95871b91ad9c475440426aad04ac478839c5305f0763195cdf75`,
+lo invocó una sola vez y terminó en catorce segundos con `runner_rc=0`,
+`shell_rc=0`, `completion_marker=yes` y `postflight=GO`. El log contiene una
+sola vez el marcador exacto:
+
+```text
+[CT-O2-R3B:PG18.4] evidencia completa; instalacion tras 000046, V2 y residuos cero
+```
+
+La fuente quedó limpia, el cerrojo libre y no quedaron residuos ni zombis. El
+contenedor ajeno permaneció idéntico y `running` antes y después. Este resultado
+es `GO` dinámico de R12; conserva intactos todos los `NO-GO` históricos y no
+autoriza ni necesita otra ejecución.
+
+## Capability, invariante y write-set de R13
+
+Capability: sellar en el acta canónica la evidencia dinámica completa de R12.
+
+Invariante: R13 tiene como padre exacto `b59d009b3827addab1da993e50c284a101bf81f6`,
+solo registra artefactos ya cerrados y no modifica ni vuelve a ejecutar runner,
+SQL, Go, fixtures, migraciones o Docker.
+
+Write-set exacto:
+
+1. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -704,15 +751,12 @@ propietario.
 
 El runner `probar_o2_r3b_candidatura_postgresql18_4.sh` usa exclusivamente la
 imagen local PostgreSQL 18.4 fijada por digest y recursos etiquetados propios.
-Instala `000047` después de `000046`. La primera ejecución dinámica posterior
-a R2 se detuvo en el oráculo del preflight; la siguiente, ya sobre R3, superó
-ese preflight y se detuvo en la primera resolución Go. La ejecución posterior
-de R6 volvió a detenerse en la resolución nominal por la primera ambigüedad
-PL/pgSQL descrita arriba. R7B corrigió ambas ambigüedades y su ejecución superó
-nominal, nulidad y forma, replay y concurrencia, pero se detuvo en el orden
-anticipado de la rotación. R4 y R5 no se ejecutaron contra PostgreSQL; ninguna
-ejecución alcanzó la matriz completa que una autorización dinámica futura
-tendría que acreditar:
+Instala `000047` después de `000046`. Las dinámicas anteriores conservan su
+resultado histórico: R2 se detuvo en el preflight; R3, en la primera resolución
+Go; R6, en la primera ambigüedad PL/pgSQL; R7B, en el orden anticipado de la
+rotación; R8, en la relación temporal; R10, en la clave de capacidad; y R11,
+en el servidor temporal. R4, R5 y R9 no se ejecutaron contra PostgreSQL. La
+única dinámica autorizada de R12 alcanzó y acreditó la matriz completa:
 
 - backfill e instante original;
 - replay entre pools, concurrencia y rotación con alias;
@@ -737,11 +781,11 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 ## Límite y siguiente corte
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
-cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-doble revisión independiente del hash exacto de R12. Hasta obtener ambos `GO`
-y una autorización dinámica nueva, posterior, expresa, única y separada, se
-prohíbe ejecutar Docker, PostgreSQL o el runner. No se declara PostgreSQL verde
-y la integración continúa prohibida. R3C permanece bloqueada hasta resolver
-este `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
-candidato y componer el proveedor concreto de material de confirmación bajo
-revisión independiente.
+cierra O2-06 ni declara la aplicación arrancable. R13 sella únicamente la
+evidencia dinámica de R12. La matriz PostgreSQL queda acreditada, pero la
+integración continúa prohibida hasta la doble revisión independiente del hash
+exacto de R13. No se autoriza otra ejecución de Docker, PostgreSQL o el runner.
+R3C permanece bloqueada hasta que R13 obtenga ambos `GO` y dirección integre
+la única línea canónica; después deberá migrar `ServicioRegistroSolicitud` al
+contrato candidato y componer el proveedor concreto de material de confirmación
+bajo revisión independiente.
