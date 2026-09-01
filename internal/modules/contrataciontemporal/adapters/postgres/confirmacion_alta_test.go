@@ -117,6 +117,7 @@ func TestConfirmacionAltaExigeVentanaBreveContenidaEnConcesion(t *testing.T) {
 		aceptada  bool
 	}{
 		{"concesion de 90s contiene capacidad de 5s", validaHasta.Add(-5 * time.Second), validaHasta, true},
+		{"capacidad de 5s forma subconjunto estricto desde registro", registradaEn, registradaEn.Add(5 * time.Second), true},
 		{"emision anterior a decision", emitidaDecision.Add(-time.Second), emitidaDecision.Add(4 * time.Second), false},
 		{"emision anterior a registro", registradaEn.Add(-time.Second), registradaEn.Add(4 * time.Second), false},
 		{"emision exactamente en limite final", validaHasta, validaHasta.Add(5 * time.Second), false},

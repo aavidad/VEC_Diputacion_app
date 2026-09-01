@@ -17,8 +17,11 @@ escenario de rotación porque la propia prueba rotaba antes de estabilizar la
 raíz bajo `[2,1]`. R8 corrigió solo ese orden no vacuo; su ejecución dinámica
 posterior alcanzó la confirmación pública y falló al exigir igualdad entre la
 capacidad breve AD-3 y la concesión V3 más amplia. R9 corrige únicamente esa
-relación temporal por contención y queda pendiente de revisión independiente;
-no acredita PostgreSQL ni autoriza otra ejecución**.
+relación temporal por contención, pero recibió `NO-GO` estático independiente
+por un hallazgo P1 probatorio: su único positivo no distinguía contención de
+igualdad en el límite final. R10 añade solo el positivo de subconjunto estricto
+que mata esa regresión y queda pendiente de revisión independiente; no acredita
+PostgreSQL ni autoriza otra ejecución**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -468,6 +471,45 @@ registro, emisión exactamente en el límite final y expiración posterior al
 límite. R9 no ejecuta PostgreSQL, Docker ni el runner, no repite R8 y no
 convierte ninguna puerta dinámica anterior en verde.
 
+### NO-GO estático independiente de R9: P1 probatorio
+
+La revisión independiente del hash exacto
+`b4732d9095d0732b8c4feb2bb80a6d47da230a20` emitió `NO-GO` por un hallazgo
+P1 de suficiencia probatoria. La implementación acepta contención, pero el
+único caso positivo de R9 emitía en `ValidaHasta-5s` y expiraba exactamente
+en `ValidaHasta`. Por ello una regresión a
+`ExpiraEn().Equal(ValidaHasta)` seguía superando toda la matriz: los negativos
+eran rechazados por otro extremo o por exceder el límite, y ningún positivo
+exigía una expiración estrictamente anterior.
+
+El dictamen no atribuye un defecto nuevo al código productivo de R9 y no
+autoriza PostgreSQL, Docker, runner ni otra ejecución dinámica. El commit R8
+`637fe26d38fe3ef6278be1bcf0bd5cea0ef12b1f` y los SHA-256 de su log
+`3a0d80dda00cd6582c629f7a8487a8d5ef3bead1b3539d40bef9c27aa216525a` y
+metadato `261f3c61d37d744b0c01545b3696f1ab3d0b788b7ad43dad833929395fc3a1b2`
+se conservan intactos y mantienen su condición `NO-GO` dinámica.
+
+## Capability, invariante y write-set de R10
+
+Capability: demostrar de forma no vacua que la contención admite una capacidad
+breve cuyo final es estrictamente anterior al de la concesión y matar una
+regresión que vuelva a exigir igualdad de expiraciones.
+
+Invariante: se conserva el positivo de R9 que expira exactamente en
+`ValidaHasta` y se añade otro que emite exactamente en `RegistradaEn`, expira
+cinco segundos después y espera `true`. Así los dos bordes admitidos quedan
+probados por separado sin cambiar `capacidadBreveContenidaEnConcesion`, la
+duración máxima AD-3 ni ninguna autoridad productiva.
+
+Write-set exacto:
+
+1. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go`; y
+2. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+R10 no modifica `confirmacion_alta.go`, SQL, runner, fixture PostgreSQL 18 ni
+evidencia dinámica. Tampoco ejecuta PostgreSQL, Docker, runner o gates pesados,
+ni autoriza una nueva validación dinámica.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -582,7 +624,7 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R9. Este corte no autoriza una nueva
+revisión independiente del hash exacto de R10. Este corte no autoriza una nueva
 validación dinámica; cualquier repetición requerirá una autorización posterior
 expresa y separada. No se declara PostgreSQL verde y la integración continúa
 prohibida. R3C permanece bloqueada hasta resolver este `NO-GO`; después deberá
