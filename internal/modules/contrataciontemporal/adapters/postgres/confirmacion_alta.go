@@ -150,8 +150,7 @@ func prepararEntradasConfirmarAlta(
 		resumen.EfectoRef() != ambitoActivo ||
 		resumen.EfectoHuellaSHA256() != huellaRecurso ||
 		resumen.AudienciaConsumo() != audienciaConfirmarAltaV1 ||
-		!resumen.EmitidaEn().Equal(confirmacion.EmitidaEn) ||
-		!resumen.ExpiraEn().Equal(confirmacion.ValidaHasta) {
+		!capacidadBreveContenidaEnConcesion(resumen, confirmacion) {
 		borrarBytes(alta)
 		borrarBytes(sellos)
 		return entradasConfirmarAlta{}, ports.ErrPersistenciaNoDisponible
@@ -165,6 +164,17 @@ func prepararEntradasConfirmarAlta(
 		evidencia: material.EvidenciaVerificacion(), raizPublicaSPKI: material.RaizPublicaSPKI(),
 		alta: alta, sellos: sellos,
 	}, nil
+}
+
+func capacidadBreveContenidaEnConcesion(
+	resumen puertosvec.ResumenCapacidadAtestacionAutorizacionV3,
+	confirmacion puertosvec.DatosConfirmacionRegistroConcesionAutorizacionLigadaV3,
+) bool {
+	emitidaEn := resumen.EmitidaEn()
+	return !emitidaEn.Before(confirmacion.EmitidaEn) &&
+		!emitidaEn.Before(confirmacion.RegistradaEn) &&
+		emitidaEn.Before(confirmacion.ValidaHasta) &&
+		!resumen.ExpiraEn().After(confirmacion.ValidaHasta)
 }
 
 type filaConfirmacionAlta struct {

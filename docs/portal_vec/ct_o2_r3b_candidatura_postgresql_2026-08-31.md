@@ -14,8 +14,11 @@ rechazo. La ejecución dinámica de R6 falló por una ambigüedad PL/pgSQL y la
 auditoría identificó una segunda colisión del mismo parámetro de salida. R7B
 corrigió ambas ambigüedades, pero la sexta ejecución dinámica terminó en el
 escenario de rotación porque la propia prueba rotaba antes de estabilizar la
-raíz bajo `[2,1]`. R8 corrige solo ese orden no vacuo y queda pendiente de
-revisión independiente; no acredita PostgreSQL ni autoriza otra ejecución**.
+raíz bajo `[2,1]`. R8 corrigió solo ese orden no vacuo; su ejecución dinámica
+posterior alcanzó la confirmación pública y falló al exigir igualdad entre la
+capacidad breve AD-3 y la concesión V3 más amplia. R9 corrige únicamente esa
+relación temporal por contención y queda pendiente de revisión independiente;
+no acredita PostgreSQL ni autoriza otra ejecución**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -408,6 +411,63 @@ R8 mueve `rotarPoliticaR3B` hasta después de comprobar la candidatura original
 y antes de construir el replay rotado. No ejecuta PostgreSQL ni modifica SQL o
 runner.
 
+### Séptimo NO-GO dinámico focal: igualdad indebida de ventanas en R8
+
+La ejecución dinámica posterior sobre el hash exacto
+`637fe26d38fe3ef6278be1bcf0bd5cea0ef12b1f` terminó con `RC=1` en
+`TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools`, línea 575, al devolver
+`prepararEntradasConfirmarAlta` el error opaco:
+
+```text
+contratacion temporal: persistencia no disponible
+```
+
+El log inmutable `/tmp/vec-o2-r3b-r8-dynamic-20260902.log` tiene SHA-256
+`3a0d80dda00cd6582c629f7a8487a8d5ef3bead1b3539d40bef9c27aa216525a`.
+Su metadato `/tmp/vec-o2-r3b-r8-dynamic-20260902.meta` tiene SHA-256
+`261f3c61d37d744b0c01545b3696f1ab3d0b788b7ad43dad833929395fc3a1b2`
+y registra quince segundos, fuente limpia, cero residuos y cerrojo libre. El
+contenedor ajeno permaneció idéntico antes y después:
+
+```text
+d6217278d8718a4e51c4be9523dde15406559989abe46f3a5e496624d6aa4aeb|running|/contagrx-t224-pg-focal|sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+```
+
+La causa exacta está en el cotejo Go: exigía que la capacidad AD-3 de cinco
+segundos tuviera los mismos extremos que la concesión V3 registrada de noventa
+segundos. La garantía requerida es contención completa de la ventana breve,
+no igualdad. Este resultado conserva `NO-GO`, no declara PostgreSQL verde y
+no autoriza una nueva ejecución dinámica.
+
+## Capability, invariantes y write-set de R9
+
+Capability: aceptar una capacidad breve solo cuando toda su ventana está
+contenida en la concesión registrada, sin ampliar ninguno de sus extremos.
+
+Invariantes:
+
+- la emisión de la capacidad no puede preceder ni a la decisión ni al registro
+  durable de la concesión;
+- la emisión sigue perteneciendo al intervalo half-open y debe ser
+  estrictamente anterior a `ValidaHasta`;
+- la expiración puede coincidir con `ValidaHasta`, pero nunca superarlo;
+- `ValidarEstructura` y la duración máxima AD-3 de cinco segundos permanecen
+  intactos; y
+- SQL, runner, fixture PostgreSQL 18, `materialPublicoR3B` y evidencias
+  dinámicas permanecen inmutables.
+
+Write-set exacto:
+
+1. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta.go`;
+2. `internal/modules/contrataciontemporal/adapters/postgres/confirmacion_alta_test.go`; y
+3. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+Las regresiones estáticas cubren concesión de noventa segundos que contiene
+capacidad de cinco, emisión anterior a la decisión, emisión anterior al
+registro, emisión exactamente en el límite final y expiración posterior al
+límite. R9 no ejecuta PostgreSQL, Docker ni el runner, no repite R8 y no
+convierte ninguna puerta dinámica anterior en verde.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -473,7 +533,8 @@ Go construye byte a byte `vec.contratacion-temporal.efecto-alta.v2` y
 `vec.contratacion-temporal.sellos-hmac.v1`, con UTC canónico a microsegundos.
 El hash del efecto debe coincidir con el atributo autorizado y el resumen de la
 capacidad debe ligar decisión, correlación, operación, efecto, audiencia y
-ventana exactos antes de abrir la transacción.
+ventana antes de abrir la transacción; su intervalo breve debe quedar contenido
+en la concesión registrada.
 
 El runtime carece de privilegios sobre las tablas nuevas, sobre
 `preparar_alta_v2` y sobre `confirmar_alta_atestada_v1`. Para este flujo solo
@@ -521,7 +582,7 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R8. Este corte no autoriza una nueva
+revisión independiente del hash exacto de R9. Este corte no autoriza una nueva
 validación dinámica; cualquier repetición requerirá una autorización posterior
 expresa y separada. No se declara PostgreSQL verde y la integración continúa
 prohibida. R3C permanece bloqueada hasta resolver este `NO-GO`; después deberá

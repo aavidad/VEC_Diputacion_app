@@ -103,6 +103,53 @@ func TestCanonConfirmacionAltaEsExactoYConMicrosegundos(t *testing.T) {
 	}
 }
 
+func TestConfirmacionAltaExigeVentanaBreveContenidaEnConcesion(t *testing.T) {
+	emitidaDecision := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	registradaEn := emitidaDecision.Add(10 * time.Second)
+	validaHasta := emitidaDecision.Add(90 * time.Second)
+	confirmacion := puertosvec.DatosConfirmacionRegistroConcesionAutorizacionLigadaV3{
+		EmitidaEn: emitidaDecision, RegistradaEn: registradaEn, ValidaHasta: validaHasta,
+	}
+	pruebas := []struct {
+		nombre    string
+		emitidaEn time.Time
+		expiraEn  time.Time
+		aceptada  bool
+	}{
+		{"concesion de 90s contiene capacidad de 5s", validaHasta.Add(-5 * time.Second), validaHasta, true},
+		{"emision anterior a decision", emitidaDecision.Add(-time.Second), emitidaDecision.Add(4 * time.Second), false},
+		{"emision anterior a registro", registradaEn.Add(-time.Second), registradaEn.Add(4 * time.Second), false},
+		{"emision exactamente en limite final", validaHasta, validaHasta.Add(5 * time.Second), false},
+		{"expiracion posterior a limite final", validaHasta.Add(-4 * time.Second), validaHasta.Add(time.Second), false},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			resumen := resumenCapacidadConfirmacionPrueba(t, prueba.emitidaEn, prueba.expiraEn)
+			if obtenida := capacidadBreveContenidaEnConcesion(resumen, confirmacion); obtenida != prueba.aceptada {
+				t.Fatalf("contencion temporal divergente: obtenida=%t esperada=%t", obtenida, prueba.aceptada)
+			}
+		})
+	}
+}
+
+func resumenCapacidadConfirmacionPrueba(
+	t *testing.T,
+	emitidaEn time.Time,
+	expiraEn time.Time,
+) puertosvec.ResumenCapacidadAtestacionAutorizacionV3 {
+	t.Helper()
+	huella := strings.Repeat("a", 64)
+	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		"decision:ct:r9", huella, huella, "contexto:ct:r9", huella,
+		ports.AccionCrearSolicitud, "efecto:ct:r9", huella,
+		audienciaConfirmarAltaV1, emitidaEn, expiraEn,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resumen
+}
+
 func filaConfirmacionPostgreSQLPrueba(
 	evidencia ports.EvidenciaOrdenConfirmarAltaCandidata,
 ) filaConfirmacionAlta {
