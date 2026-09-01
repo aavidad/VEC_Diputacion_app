@@ -20,8 +20,11 @@ capacidad breve AD-3 y la concesión V3 más amplia. R9 corrige únicamente esa
 relación temporal por contención, pero recibió `NO-GO` estático independiente
 por un hallazgo P1 probatorio: su único positivo no distinguía contención de
 igualdad en el límite final. R10 añade solo el positivo de subconjunto estricto
-que mata esa regresión y queda pendiente de revisión independiente; no acredita
-PostgreSQL ni autoriza otra ejecución**.
+que mata esa regresión. Su única ejecución dinámica autorizada terminó en
+`NO-GO` antes de construir el vector de sesión revocada porque el runner usaba
+la revisión de sesión `2` como versión de clave de capacidad. R11 separa ambas
+coordenadas y queda pendiente de doble revisión independiente exacta; no
+acredita PostgreSQL ni autoriza otra ejecución**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -510,6 +513,63 @@ R10 no modifica `confirmacion_alta.go`, SQL, runner, fixture PostgreSQL 18 ni
 evidencia dinámica. Tampoco ejecuta PostgreSQL, Docker, runner o gates pesados,
 ni autoriza una nueva validación dinámica.
 
+### Octavo NO-GO dinámico focal: clave de capacidad inexistente en R10
+
+La única ejecución dinámica autorizada de R10 se consumió sobre el candidato
+exacto `4fb08c9e178bc284725abdb3120db1b5680cc3ef`, con padre
+`b4732d9095d0732b8c4feb2bb80a6d47da230a20`. La autorización inmutable
+`/tmp/vec-o2-r3b-r10-dynamic-20260901.authorization` tiene SHA-256
+`b981c9ea101aeb4b776e9b4ffdb42e4371625f7fbd58deeaf102a92eade75670`.
+El log inmutable `/tmp/vec-o2-r3b-r10-dynamic-20260901.log` tiene SHA-256
+`77c2f8c76c6a7025146630f7c983d8b4e5574bf9ffde8fe884ca7cf05f61b1e7`
+y el metadato `/tmp/vec-o2-r3b-r10-dynamic-20260901.meta` tiene SHA-256
+`90991f88fd3c812c32566fc7b3f6b8adedc4465744c196a6b85f435dd6c1050d`.
+
+La ejecución alcanzó el adaptador público, las doce entradas y ocho columnas
+reales, la ligadura V2 y el rechazo de la coordenada mutada. Terminó después
+con `runner_rc=3` y `postflight=NO-GO`, sin residuos ni zombis, con el cerrojo
+libre y con el contenedor ajeno idéntico antes y después.
+
+El diagnóstico exacto no pertenece a la revocación productiva. El runner
+invocaba `preparar sesion_revocada 2`; el auxiliar de shell pasa ese segundo
+argumento como el tercer parámetro de
+`public.preparar_vector_o2_05`, `p_clave_version`. El fixture instala las
+versiones de clave de capacidad `1`, activa, y `99`, no activada, pero nunca la
+versión `2`. Por tanto, el `SELECT INTO STRICT` que busca
+`clave_capacidad_version.version = p_clave_version` terminó sin filas antes de
+durabilizar la decisión y antes de insertar la revocación. La revisión de
+sesión `2` se crea después y de forma explícita en
+`vec_autorizacion.control_sesion_v1`; no es una versión de clave de capacidad.
+
+Este resultado permanece como `NO-GO`, no acredita la revocación viva, no
+convierte en verde la matriz PostgreSQL y no puede repetirse.
+
+## Capability, invariante y write-set de R11
+
+Capability: construir el vector de revocación con la clave activa existente y
+revocar después la sesión en la revisión `2`.
+
+Invariante: la versión de clave de capacidad y la revisión de sesión son
+coordenadas distintas. El vector usa la clave activa `1`; la revocación
+inserta y controla la revisión de sesión `2`; y la confirmación debe rechazarse
+sin consumo de decisión ni alta de expediente.
+
+R11 sustituye exclusivamente `preparar sesion_revocada 2` por
+`preparar sesion_revocada`, que usa el valor predeterminado `1` del auxiliar.
+No cambia SQL, Go, fixtures, migraciones, las demás líneas funcionales del
+runner ni las evidencias inmutables de `/tmp`.
+
+Write-set exacto:
+
+1. `deploy/postgresql/contratacion_temporal/probar_o2_r3b_candidatura_postgresql18_4.sh`; y
+2. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+R11 no ejecuta Docker, PostgreSQL, el runner ni ninguna dinámica. El hash
+exacto de R11 debe recibir dos revisiones independientes antes de cualquier
+otra consideración. Incluso con doble `GO`, una nueva dinámica exigirá una
+autorización posterior, expresa, única y separada; no existe reintento
+automático ni se reutiliza la autorización consumida de R10.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -624,9 +684,10 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-revisión independiente del hash exacto de R10. Este corte no autoriza una nueva
-validación dinámica; cualquier repetición requerirá una autorización posterior
-expresa y separada. No se declara PostgreSQL verde y la integración continúa
-prohibida. R3C permanece bloqueada hasta resolver este `NO-GO`; después deberá
-migrar `ServicioRegistroSolicitud` al contrato candidato y componer el
-proveedor concreto de material de confirmación bajo revisión independiente.
+doble revisión independiente del hash exacto de R11. Hasta obtener ambos `GO`
+y una autorización dinámica posterior, expresa, única y separada, se prohíbe
+ejecutar Docker, PostgreSQL o el runner. No se declara PostgreSQL verde y la
+integración continúa prohibida. R3C permanece bloqueada hasta resolver este
+`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
+candidato y componer el proveedor concreto de material de confirmación bajo
+revisión independiente.

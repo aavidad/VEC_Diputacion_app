@@ -429,7 +429,7 @@ psql_usuario postgres --command \
 esperar_fallo 'mutacion de coordenada ligada' confirmar_vector coordenada
 [[ "$(valor "SELECT concat_ws('|',(SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:alterada'),(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:coordenada'))")" == '0|0' ]]
 
-preparar sesion_revocada 2
+preparar sesion_revocada
 resolver_vector sesion_revocada
 psql_usuario postgres --command \
     "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SELECT public.durabilizar_decision_o2_05('sesion_revocada'); COMMIT" >/dev/null
