@@ -8,6 +8,11 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+const (
+	esquemaAmbitoAsignacionV1   = "vec.contratacion-temporal.asignacion.ambito.v1"
+	esquemaPeticionAsignacionV1 = "vec.contratacion-temporal.asignacion.peticion.v1"
+)
+
 // AutoridadSellosAsignacionHMAC deriva conjuntamente el ámbito idempotente y
 // la huella funcional de una asignación. Sus dos llaveros son inmutables,
 // conservan la misma historia generacional y separan los dominios de clave.
@@ -86,13 +91,13 @@ func (a *AutoridadSellosAsignacionHMAC) SellarAmbitoAsignacion(
 		return ports.ColeccionSellosHMAC{}, err
 	}
 	contenido, err := json.Marshal(struct {
-		Dominio           string `json:"dominio"`
+		Esquema           string `json:"esquema"`
 		ClaveIdempotencia string `json:"clave_idempotencia"`
 		OrganizacionRef   string `json:"organizacion_ref"`
 		ActorRef          string `json:"actor_ref"`
 		PerfilRef         string `json:"perfil_ref"`
 	}{
-		Dominio:           ports.DominioAmbitoIdempotenciaAsignacion,
+		Esquema:           esquemaAmbitoAsignacionV1,
 		ClaveIdempotencia: solicitud.ClaveIdempotencia,
 		OrganizacionRef:   solicitud.OrganizacionRef,
 		ActorRef:          solicitud.ActorRef,
@@ -102,7 +107,14 @@ func (a *AutoridadSellosAsignacionHMAC) SellarAmbitoAsignacion(
 		return ports.ColeccionSellosHMAC{}, ErrSelladoAltaNoDisponible
 	}
 	defer borrar(contenido)
-	return a.ambitos.sellar(ctx, contenido)
+	coleccion, err := a.ambitos.sellar(ctx, contenido)
+	if err != nil {
+		return ports.ColeccionSellosHMAC{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ColeccionSellosHMAC{}, err
+	}
+	return coleccion, nil
 }
 
 func (a *AutoridadSellosAsignacionHMAC) DerivarHuellaAsignacion(
@@ -118,7 +130,7 @@ func (a *AutoridadSellosAsignacionHMAC) DerivarHuellaAsignacion(
 		return ports.ColeccionSellosHMAC{}, err
 	}
 	contenido, err := json.Marshal(struct {
-		Dominio                 string                        `json:"dominio"`
+		Esquema                 string                        `json:"esquema"`
 		Operacion               ports.TipoOperacionAsignacion `json:"operacion"`
 		OrganizacionRef         string                        `json:"organizacion_ref"`
 		ExpedienteRef           string                        `json:"expediente_ref"`
@@ -130,7 +142,7 @@ func (a *AutoridadSellosAsignacionHMAC) DerivarHuellaAsignacion(
 		MotivoReasignacionClave domain.ClaveCatalogo          `json:"motivo_reasignacion_clave"`
 		Observaciones           string                        `json:"observaciones"`
 	}{
-		Dominio:                 ports.DominioHuellaPeticionAsignacion,
+		Esquema:                 esquemaPeticionAsignacionV1,
 		Operacion:               material.Operacion,
 		OrganizacionRef:         material.OrganizacionRef,
 		ExpedienteRef:           material.ExpedienteRef,
@@ -146,7 +158,14 @@ func (a *AutoridadSellosAsignacionHMAC) DerivarHuellaAsignacion(
 		return ports.ColeccionSellosHMAC{}, ErrSelladoAltaNoDisponible
 	}
 	defer borrar(contenido)
-	return a.huellas.sellar(ctx, contenido)
+	coleccion, err := a.huellas.sellar(ctx, contenido)
+	if err != nil {
+		return ports.ColeccionSellosHMAC{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ColeccionSellosHMAC{}, err
+	}
+	return coleccion, nil
 }
 
 var (

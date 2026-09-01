@@ -17,12 +17,21 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+const (
+	materialAmbitoAsignacionV1Dorado = `{"esquema":"vec.contratacion-temporal.asignacion.ambito.v1","clave_idempotencia":"12345678-1234-4abc-8def-1234567890ab","organizacion_ref":"organizacion:dipgra:asignacion-001","actor_ref":"persona:tecnica:asignacion-001","perfil_ref":"perfil:tecnico:asignacion-001"}`
+	selloAmbitoAsignacionV1Dorado    = "hmac-sha256:vec.contratacion-temporal.asignacion.ambito/v1:cf86a71bf12954a1fff4ee05623a6eb368e7680fdaf45772171a49c5f621c8e7"
+
+	materialPeticionAsignacionV1Dorado = `{"esquema":"vec.contratacion-temporal.asignacion.peticion.v1","operacion":"reasignar","organizacion_ref":"organizacion:dipgra:asignacion-001","expediente_ref":"expediente:contratacion:asignacion-001","version_expediente":7,"actor_ref":"persona:tecnica:asignacion-001","perfil_ref":"perfil:tecnico:asignacion-001","unidad_ref":"unidad:seleccion:asignacion-001","responsable_ref":"persona:responsable:asignacion-001","motivo_reasignacion_clave":"necesidad_servicio","observaciones":"Cambio motivado por necesidad del servicio."}`
+	selloPeticionAsignacionV1Dorado    = "hmac-sha256:vec.contratacion-temporal.asignacion.peticion/v1:e461c2ed2b6a8d124e6c1ff175d9a4dc68901ccc95612088a5ef4dc7bd7f7174"
+)
+
 type selladorAsignacionPrueba struct {
 	mu                  sync.Mutex
 	clave               []byte
 	referencia          string
 	referenciaRespuesta string
 	err                 error
+	cancelarTrasSellar  func()
 	llamadas            int
 	material            []byte
 	materialPrestado    []byte
@@ -49,8 +58,12 @@ func (s *selladorAsignacionPrueba) SellarDatos(
 	}
 	mac := hmac.New(sha256.New, s.clave)
 	_, _ = mac.Write(material)
-	return "hmac-sha256:" + referencia + ":" +
-		hex.EncodeToString(mac.Sum(nil)), nil
+	sello := "hmac-sha256:" + referencia + ":" +
+		hex.EncodeToString(mac.Sum(nil))
+	if s.cancelarTrasSellar != nil {
+		s.cancelarTrasSellar()
+	}
+	return sello, nil
 }
 
 func (s *selladorAsignacionPrueba) estado() (int, []byte, []byte) {
@@ -153,6 +166,58 @@ func materialReasignacionHMACPrueba() ports.MaterialHuellaAsignacion {
 	}
 }
 
+func TestAutoridadSellosAsignacionHMACFijaABIV1ConVectoresDorados(
+	t *testing.T,
+) {
+	if esquemaAmbitoAsignacionV1 == ports.DominioAmbitoIdempotenciaAsignacion ||
+		esquemaAmbitoAsignacionV1 == ports.DominioAmbitoIdempotenciaAsignacion+"/v1" ||
+		esquemaPeticionAsignacionV1 == ports.DominioHuellaPeticionAsignacion ||
+		esquemaPeticionAsignacionV1 == ports.DominioHuellaPeticionAsignacion+"/v1" {
+		t.Fatal("el esquema ABI se confundió con dominio o generación de clave")
+	}
+	escenario := nuevaAutoridadSellosAsignacionPrueba(t, []uint32{1})
+	ambitos, err := escenario.autoridad.SellarAmbitoAsignacion(
+		context.Background(),
+		solicitudAmbitoAsignacionPrueba(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := escenario.autoridad.DerivarHuellaAsignacion(
+		context.Background(),
+		materialReasignacionHMACPrueba(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosAmbito, err := ambitos.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosHuella, err := huellas.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, materialAmbito, _ := escenario.ambitos[0].estado()
+	_, materialHuella, _ := escenario.huellas[0].estado()
+	if !slices.Equal(materialAmbito, []byte(materialAmbitoAsignacionV1Dorado)) ||
+		datosAmbito.Activo.Valor != selloAmbitoAsignacionV1Dorado {
+		t.Fatalf(
+			"vector de ámbito V1 alterado sin elevar esquema: material=%q sello=%q",
+			materialAmbito,
+			datosAmbito.Activo.Valor,
+		)
+	}
+	if !slices.Equal(materialHuella, []byte(materialPeticionAsignacionV1Dorado)) ||
+		datosHuella.Activo.Valor != selloPeticionAsignacionV1Dorado {
+		t.Fatalf(
+			"vector de petición V1 alterado sin elevar esquema: material=%q sello=%q",
+			materialHuella,
+			datosHuella.Activo.Valor,
+		)
+	}
+}
+
 func TestAutoridadSellosAsignacionHMACConservaRotacionOrdenYDominios(
 	t *testing.T,
 ) {
@@ -219,16 +284,16 @@ func TestAutoridadSellosAsignacionHMACConservaRotacionOrdenYDominios(
 	_, materialHuella, prestadoHuella := escenario.huellas[0].estado()
 	if !strings.Contains(
 		string(materialAmbito),
-		`"dominio":"`+ports.DominioAmbitoIdempotenciaAsignacion+`"`,
+		`"esquema":"`+esquemaAmbitoAsignacionV1+`"`,
 	) || strings.Contains(
 		string(materialAmbito),
-		ports.DominioHuellaPeticionAsignacion,
+		esquemaPeticionAsignacionV1,
 	) || !strings.Contains(
 		string(materialHuella),
-		`"dominio":"`+ports.DominioHuellaPeticionAsignacion+`"`,
+		`"esquema":"`+esquemaPeticionAsignacionV1+`"`,
 	) || strings.Contains(
 		string(materialHuella),
-		ports.DominioAmbitoIdempotenciaAsignacion,
+		esquemaAmbitoAsignacionV1,
 	) {
 		t.Fatalf("preimágenes de dominio mezcladas: %q / %q", materialAmbito, materialHuella)
 	}
@@ -447,6 +512,46 @@ func TestAutoridadSellosAsignacionHMACCancelaYNuncaFiltraMaterial(
 		strings.Contains(err.Error(), sensible) {
 		t.Fatalf("el error filtró material sensible: %v", err)
 	}
+}
+
+func TestAutoridadSellosAsignacionHMACCancelaDentroDelUltimoConector(
+	t *testing.T,
+) {
+	t.Run("ambito", func(t *testing.T) {
+		escenario := nuevaAutoridadSellosAsignacionPrueba(t, []uint32{1})
+		ctx, cancelar := context.WithCancel(context.Background())
+		escenario.ambitos[0].cancelarTrasSellar = cancelar
+		coleccion, err := escenario.autoridad.SellarAmbitoAsignacion(
+			ctx,
+			solicitudAmbitoAsignacionPrueba(),
+		)
+		if coleccion != (ports.ColeccionSellosHMAC{}) ||
+			!errors.Is(err, context.Canceled) {
+			t.Fatalf("cancelación tardía de ámbito aceptada: %#v / %v", coleccion, err)
+		}
+		_, _, prestado := escenario.ambitos[0].estado()
+		if !contenidoBorrado(prestado) {
+			t.Fatal("la preimagen de ámbito no se borró tras cancelar")
+		}
+	})
+
+	t.Run("peticion", func(t *testing.T) {
+		escenario := nuevaAutoridadSellosAsignacionPrueba(t, []uint32{1})
+		ctx, cancelar := context.WithCancel(context.Background())
+		escenario.huellas[0].cancelarTrasSellar = cancelar
+		coleccion, err := escenario.autoridad.DerivarHuellaAsignacion(
+			ctx,
+			materialReasignacionHMACPrueba(),
+		)
+		if coleccion != (ports.ColeccionSellosHMAC{}) ||
+			!errors.Is(err, context.Canceled) {
+			t.Fatalf("cancelación tardía de petición aceptada: %#v / %v", coleccion, err)
+		}
+		_, _, prestado := escenario.huellas[0].estado()
+		if !contenidoBorrado(prestado) {
+			t.Fatal("la preimagen de petición no se borró tras cancelar")
+		}
+	})
 }
 
 func TestAutoridadSellosAsignacionHMACEsConcurrenteSinEstadoMutable(

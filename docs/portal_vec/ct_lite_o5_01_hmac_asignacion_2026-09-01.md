@@ -1,44 +1,47 @@
-# CT-LITE-O5-01-HMAC-A — sellos HMAC de asignación
+# CT-LITE-O5-01-HMAC-A-R1 — ABI y cancelación de sellos de asignación
 
 Fecha: 1 de septiembre de 2026.
 
-Estado del productor: candidato local de un único commit, pendiente de
-revisión independiente del hash exacto. Este corte no concede `GO`, no cierra
-`O5-01` y no autoriza integración, publicación ni producción.
+Estado del productor: candidato correctivo local de un único commit,
+pendiente de doble revisión independiente del hash exacto. Este corte no
+concede `GO`, no cierra `O5-01` y no autoriza integración, publicación ni
+producción.
 
-## Preflight acreditado
+## Preflight y NO-GO corregidos
 
 - Worktree exclusivo:
   `.worktrees/ct-o5-01-hmac-a-20260901`.
-- Rama nueva: `trabajo/ct-o5-01-hmac-a-20260901`.
+- Rama conservada: `trabajo/ct-o5-01-hmac-a-20260901`.
 - Base y `HEAD` exactos antes de editar:
-  `c8cc4312b063ddca7294dfe27dc673ad1a4676d0`.
-- La rama local de producto
-  `integracion/ct-producto-ligero-20260821`, su seguimiento local y
-  `origin/integracion/ct-producto-ligero-20260821` coincidían exactamente en
-  esa misma base; el árbol de trabajo estaba limpio.
-- No existía implementación productiva de `SellarAmbitoAsignacion` ni de
-  `DerivarHuellaAsignacion`; solo estaban los contratos y dobles de prueba.
-- Blobs de autoridad verificados:
-  `infraestructura_alta.go` =
-  `e567334fcfcc74199438fd03ef63ca8c927a9752` y `sellos_alta.go` =
-  `d7ee9f4118f2e484d9713472d4c816a1fa7b9c4c`.
-- Toolchain: `go1.26.5 linux/amd64`.
-- La prueba previa `GOPROXY=off go test -count=1` del paquete
-  `adapters/seguridad` terminó verde.
+  `f1c515511c43ad0474f2c89eabff41fb31b8dd46`.
+- El padre del candidato original es
+  `c8cc4312b063ddca7294dfe27dc673ad1a4676d0`; la rama local de producto,
+  su seguimiento local y la referencia remota ya disponible continúan
+  coincidiendo en ese hash. No se actualizó ninguna referencia por red.
+- El dictamen independiente conservado en
+  `/tmp/vec-review-o5-01-hmac-a-20260901.log` declaró `NO-GO`,
+  `P0=0, P1=1, P2=0`: ambos métodos podían propagar éxito cuando el conector
+  cancelaba el contexto dentro de la última llamada y devolvía un sello
+  válido.
+- El NO-GO local adicional identificó un segundo P1: las preimágenes carecían
+  de marcador de esquema versionado y las pruebas no fijaban su ABI byte a
+  byte ni el HMAC resultante.
+- Toolchain: `go1.26.5 linux/amd64`. El árbol estaba limpio antes del corte.
 
 No se usaron Git de red, otros worktrees, Docker, PostgreSQL, despliegue,
 producción ni datos o credenciales reales.
 
 ## Capability, invariante, write-set y siguiente corte
 
-Capability: `AutoridadSellosAsignacionHMAC` implementa conjuntamente
-`ports.SelladorAmbitoAsignacion` y `ports.DerivadorHuellaAsignacion`.
+Capability: `AutoridadSellosAsignacionHMAC` continúa implementando
+conjuntamente `ports.SelladorAmbitoAsignacion` y
+`ports.DerivadorHuellaAsignacion`, ahora con ABI V1 fijada y cancelación
+tardía cerrada.
 
-Invariante: dominios de ámbito y petición estrictamente separados, mismas
-generaciones activas/retenidas y orden, asignación/reasignación no colisionan,
-toda coordenada funcional cambia la huella, cero material sensible fuera del
-HMAC.
+Invariante: esquemas de preimagen, dominios HMAC y generaciones de clave son
+coordenadas distintas; ámbito y petición permanecen separados, con las mismas
+generaciones activas/retenidas y orden. Ningún éxito se publica si el contexto
+queda cancelado o vence antes del retorno.
 
 Write-set exacto:
 
@@ -46,54 +49,64 @@ Write-set exacto:
 - `internal/modules/contrataciontemporal/adapters/seguridad/sellos_asignacion_test.go`;
 - `docs/portal_vec/ct_lite_o5_01_hmac_asignacion_2026-09-01.md`.
 
-Siguiente corte: consultor durable PostgreSQL solo tras resolver
+Siguiente corte: doble revisión independiente del hash exacto R1. El consultor
+durable PostgreSQL continúa fuera de alcance y condicionado por
 `R3B`/numeración.
 
-## Diseño implementado
+## ABI HMAC V1
 
-La nueva autoridad es inmutable y posee conjuntamente dos instancias del
-`llaveroHMAC` existente. Se construye exclusivamente con
-`ConfiguracionSelladorHMAC`; no replica HMAC, crea llaveros alternativos ni
-recibe claves. El constructor exige que activo y retenidos tengan las mismas
-generaciones y el mismo orden en ambos dominios:
+La autoridad conserva los dos `llaveroHMAC` existentes y se construye solo
+con `ConfiguracionSelladorHMAC`; no replica criptografía, recibe claves ni
+crea un llavero alternativo. Cada preimagen empieza por un esquema interno V1
+distinto tanto del dominio HMAC como de la referencia generacional:
 
-```text
-vec.contratacion-temporal.asignacion.ambito
-vec.contratacion-temporal.asignacion.peticion
-```
+| Uso | Esquema de preimagen | Dominio HMAC | Generación de clave |
+| --- | --- | --- | --- |
+| Ámbito | `vec.contratacion-temporal.asignacion.ambito.v1` | `vec.contratacion-temporal.asignacion.ambito` | `vec.contratacion-temporal.asignacion.ambito/vN` |
+| Petición | `vec.contratacion-temporal.asignacion.peticion.v1` | `vec.contratacion-temporal.asignacion.peticion` | `vec.contratacion-temporal.asignacion.peticion/vN` |
 
-La preimagen de ámbito contiene el dominio, la UUID de idempotencia,
-organización, actor y perfil. La preimagen de petición contiene el segundo
-dominio y operación, organización, expediente, versión, actor, perfil, unidad,
-responsable, motivo y observaciones. Ambas son canónicas, se entregan solo al
-conector HMAC y se borran al regresar. El resultado expone exclusivamente
-sellos HMAC generacionales.
+El vector dorado de ámbito fija el JSON completo de esquema, UUID de
+idempotencia, organización, actor y perfil. El vector de petición fija el JSON
+completo de esquema, operación, organización, expediente, versión, actor,
+perfil, unidad, responsable, motivo y observaciones. Ambos comparan los bytes
+íntegros y el HMAC SHA-256 esperado con material sintético.
 
-La autoridad no incorpora caché, estado global mutable, goroutines,
-persistencia, proveedor de desarrollo, registro ni trazas. Contexto nulo o
-cancelado, material inválido, configuración incoherente, dependencia nula
-tipada, fallo privado y sello devuelto bajo otro dominio fallan cerrados con
-errores opacos. Dos aserciones de compilación acreditan los puertos exactos.
+El orden de campos, sus nombres, tipos y reglas de serialización forman parte
+del ABI V1. Reordenar o renombrar un campo, o añadir o retirar cualquiera,
+exige introducir un esquema nuevo; no se permite alterar silenciosamente V1.
+
+## Cancelación tardía y borrado
+
+`SellarAmbitoAsignacion` y `DerivarHuellaAsignacion` capturan la colección y
+el error del llavero compartido. Solo después de un sellado correcto vuelven a
+consultar `ctx.Err()` y, si observan `context.Canceled` o
+`context.DeadlineExceeded`, devuelven la colección cero y el error exacto del
+contexto.
+
+Las regresiones usan una única generación: el último conector calcula y
+devuelve un sello válido, pero cancela el contexto dentro de esa misma llamada.
+Los dos métodos rechazan el éxito y las copias prestadas acreditan que ambas
+preimágenes se borraron antes de regresar. El `defer` de borrado se conserva
+en todas las salidas.
 
 ## Matriz de pruebas
 
-Las pruebas focales acreditan:
+Además de la matriz original, las pruebas focales acreditan:
 
-- rotación `v3 → v2 → v1`, retenidas y orden idénticos en ambos resultados;
-- separación de dominios en llavero, preimagen y sello;
-- invocación de todas las generaciones en cada llamada, sin caché;
-- compromisos distintos para asignar y reasignar;
-- cambio de huella al variar operación, organización, expediente, versión,
-  actor, perfil, unidad, responsable, motivo u observaciones;
-- ausencia de UUID y contenido funcional en resultados y errores;
-- borrado de la preimagen prestada al conector al terminar;
-- cancelación, receptor/contexto nulos, `nil` tipado, historias generacionales
-  divergentes y sello de dominio incorrecto;
-- estabilidad concurrente de una misma autoridad con 32 parejas de llamadas.
+- dos vectores ABI V1 con comparación byte a byte del JSON completo y del
+  HMAC esperado;
+- separación explícita entre esquema, dominio HMAC y referencia de generación;
+- cancelación dentro del último conector para ámbito y petición, con colección
+  cero, `context.Canceled` y preimagen borrada;
+- rotación `v3 → v2 → v1`, retenidas y orden idénticos;
+- separación de dominios, invocación sin caché y estabilidad concurrente;
+- asignación y reasignación distintas y sensibilidad a todas las coordenadas;
+- fallos opacos ante configuración, dependencia nula tipada, contexto,
+  material o sello de dominio inválidos, sin exposición de datos.
 
-## Puertas del productor
+## Puertas del productor R1
 
-Con Go 1.26.5 y `GOPROXY=off` terminaron en verde:
+Con Go 1.26.5 y `GOPROXY=off` terminaron en verde antes del commit:
 
 ```text
 gofmt sellos_asignacion.go sellos_asignacion_test.go
@@ -101,35 +114,35 @@ go test -count=1 ./internal/modules/contrataciontemporal/adapters/seguridad
 go test -count=50 -run 'Asignacion|Reasignacion' ./internal/modules/contrataciontemporal/adapters/seguridad
 go test -race -count=2 -run 'Asignacion|Reasignacion' ./internal/modules/contrataciontemporal/adapters/seguridad
 go vet ./internal/modules/contrataciontemporal/adapters/seguridad
-git diff --cached --check
+git diff --check
 /tmp/vec-gitleaks-20260831 protect --staged --redact --no-banner --log-level warn
 ```
 
-El write-set preparado contiene solo los tres ficheros declarados. El
-ejecutable focal de Gitleaks se verificó antes de usarlo con SHA-256
-`c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d` y el
-escaneo terminó sin hallazgos. Después del commit se ejecuta el `merge-tree`
-de solo lectura contra el producto local actual y se informa su resultado
-junto al hash candidato; esta nota no puede autoacreditar el hash que la
-contiene.
+El ejecutable focal de Gitleaks se verificó antes de usarlo con SHA-256
+`c100de843d374f76143b03487de20fe341fb20cae8a71b6fdff896aec561391d`.
+La lista focal confirma que el patrón repetido incluye expresamente
+`FijaABIV1ConVectoresDorados` y `CancelaDentroDelUltimoConector`. El
+`merge-tree` contra el producto local actual, el hash candidato y el resto de
+resultados poscommit se informan tras crear el commit; el documento no puede
+autoacreditar el hash que lo contiene.
 
 ## Seguridad, privacidad, i18n y accesibilidad
 
 Los datos funcionales solo forman preimágenes efímeras del HMAC. La autoridad
-no devuelve ni registra UUID, referencias u observaciones, y descarta el texto
-de errores privados. Las referencias de prueba son sintéticas; no se añaden
-secretos, datos personales, conectores reales ni material de clave al
-repositorio.
+no devuelve ni registra UUID, referencias u observaciones y descarta los
+errores privados. Los vectores son sintéticos; no se añaden secretos, datos
+personales, conectores reales ni material de clave al repositorio.
 
 No hay texto visible, HTTP, web ni presentación. Por ello este corte no cambia
-i18n o accesibilidad; tampoco las acredita para la vertical.
+i18n o accesibilidad ni las acredita para la vertical.
 
 ## Límites y revisión requerida
 
-Quedan fuera puertos, aplicación, `sellos_alta.go`, PostgreSQL, HTTP, rutas,
+Quedan fuera `sellos_alta.go`, puertos, aplicación, PostgreSQL, HTTP, rutas,
 manifiesto, web, composición, E2E y documentos transversales. La autoridad no
 está compuesta y no demuestra persistencia, notificación durable, aplicación
 arrancable, vertical productiva ni cumplimiento formal.
 
-Un agente distinto debe revisar el hash exacto, reproducir las puertas y
-emitir `GO` o `NO-GO`. El productor no integra, publica ni se autoaprueba.
+Dos agentes distintos del productor deben revisar el hash exacto, reproducir
+las puertas y emitir sus dictámenes. El productor no integra, publica ni se
+autoaprueba.
