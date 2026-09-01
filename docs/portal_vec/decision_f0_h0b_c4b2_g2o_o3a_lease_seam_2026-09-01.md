@@ -20,9 +20,10 @@ puntero de autoridad, permiso, callback ni raw copiable. El único resultado es
 una clase inerte. Los recursos y raws permanecen en la custodia definitiva.
 
 `C1a` solo puede abrir después de dos revisiones independientes `GO` sobre el
-hash exacto de este documento, integración por Dirección y CI documental
-exigida. `O4B-P2` continúa bloqueado. Este corte no se autoaprueba, no integra y
-no cambia porcentajes.
+hash exacto de este documento, integración por Dirección, CI documental
+exigida y `G-O4C-P8-PUBLICADO`. `O4B-P2` continúa bloqueado hasta su contrato y
+puertas propias. Este corte no se autoaprueba, no integra y no cambia
+porcentajes.
 
 ## Genealogía, write-set y lecturas
 
@@ -376,8 +377,7 @@ Rutas nuevas propietarias:
 - `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_proceso.go` (`RP`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_proceso_test.go` (`RPT`);
 - `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` (`RB`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/captura_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_test.go` (`RBT`);
 - `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` (`RC`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_test.go` (`RCT`);
-- `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` (`RD`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_test.go` (`RDT`);
-- `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/terminalidad_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` (`RT`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/terminalidad_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_test.go` (`RTT`).
+- `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas.go` (`RD`) y `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operaciones_cerradas_test.go` (`RDT`).
 
 ### C1: introducir raíz, wrapper y operaciones con consumidor
 
@@ -386,7 +386,7 @@ del orquestador propietario; ninguna API queda sin consumidor.
 
 | ID | Única responsabilidad observable | Dependencia | Write-set máximo |
 | --- | --- | --- | --- |
-| C1a | raíz definitiva y wrapper O5 aún sobre camino legacy | R4 integrado | nueva `R5`, `R5T`; `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_preparacion.go` |
+| C1a | raíz definitiva y wrapper O5 aún sobre camino legacy | R4 integrado y `G-O4C-P8-PUBLICADO` | nueva `R5`, `R5T`; `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_arranque_preparacion.go` |
 | C1b | sellado privado LockOSThread/Gettid | C1a | `R5`, `R5T` |
 | C1c | CAS, perdedor sin escritura y fatal del ganador | C1b | `R5`, `R5T` |
 | C1d | preflight O5 cerrado | C1c | `R5`, `R5T` |
@@ -411,26 +411,16 @@ del orquestador propietario; ninguna API queda sin consumidor.
 | C1s1 | handoff O3c→O4a | C1s | `RC`, `RCT`; `R5` |
 | C1t | productor de etapa O4a | C1s1 | nueva `RD`, `RDT`; `R5` |
 | C1u | consumidor de resultado O4a | C1t | `RD`, `RDT`; `R5` |
-| C1v | orquestador O4a sin efectos; no modifica O4b | C1t,C1u y puerta externa `G-O4B-P5` | `RD`, `RDT`; `R5` |
-| C1w | terminalidad O4c | C1c | nueva `RT`, `RTT`; `R5` |
-| C1x | Wait O4c exacto | C1w | `RT`, `RTT`; `R5` |
-| C1y | Wait4 O4c sin raws de salida | C1x | `RT`, `RTT`; `R5` |
-| C1z | ESRCH O4c | C1y | `RT`, `RTT`; `R5` |
-| C1aa | cierre primario/reserva/CONTROL | C1z | `RT`, `RTT`; `R5` |
-| C1ab | escritura y cierre TERMINAL | C1aa | `RT`, `RTT`; `R5` |
-| C1ac | liberación O4c | C1ab | `RT`, `RTT`; `R5` |
 
-`G-O4B-P5` no es una minitarea de R4 ni tiene write-set: acredita que
-O4B-P2, P3, P4 y P5 recibieron sus contratos, material, revisiones e
-integraciones propias. Mientras falte, C1v permanece cerrado y ningún nodo R4
-puede tocar rutas O4b.
+R4 termina su C1 en C1u. No asigna C1v ni ningún nodo C1 O4b/O4c, no reserva
+rutas terminales sustitutas y no convierte las firmas de diseño O4c en tareas.
+Las fronteras O4 continúan exclusivamente bajo sus DAG propios.
 
 Las dependencias de la tabla son mínimos funcionales. Como los write-sets C1
 se solapan, su orden de edición efectivo es total y obligatorio:
 `C1a -> C1b -> C1c -> C1d -> C1e -> C1f -> C1g -> C1h -> C1i -> C1j ->
 C1k -> C1l -> C1m -> C1m1 -> C1m2 -> C1n -> C1o -> C1p -> C1q -> C1q1 ->
-C1r -> C1s -> C1s1 -> C1t -> C1u -> C1w -> C1x -> C1y -> C1z -> C1aa ->
-C1ab -> C1ac -> G-O4B-P5 -> C1v`. No se abren dos nodos C1 a la vez.
+C1r -> C1s -> C1s1 -> C1t -> C1u`. No se abren dos nodos C1 a la vez.
 
 ### C2: migrar un consumidor por commit, sin retirar legacy
 
@@ -462,28 +452,38 @@ C1ab -> C1ac -> G-O4B-P5 -> C1v`. No se abren dos nodos C1 a la vez.
 | C2t | handoff O3c | C2s | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff_test.go`; `RC` |
 | C2u | productor O4a | C1t,C2t | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas_test.go`; `RD` |
 | C2v | consumidor O4a | C1u,C2u | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad_test.go`; `RD` |
-| C2w | migración del orquestador O4a; no modifica O4b | C1v,C2v y puerta externa `G-O4B-P5` | `RD`, `RDT`, `R5` |
-| C2x1 | consumidor de terminalidad O4c | C1w,C2w | `RT`, `RTT`, `R5` |
-| C2x2 | consumidor de Wait O4c | C1x,C2x1 | `RT`, `RTT`, `R5` |
-| C2x3 | consumidor de Wait4 O4c | C1y,C2x2 | `RT`, `RTT`, `R5` |
-| C2x4 | consumidor de ESRCH O4c | C1z,C2x3 | `RT`, `RTT`, `R5` |
-| C2x5 | consumidor de cierres O4c | C1aa,C2x4 | `RT`, `RTT`, `R5` |
-| C2x6 | consumidor de TERMINAL O4c | C1ab,C2x5 | `RT`, `RTT`, `R5` |
-| C2x7 | consumidor de liberación O4c | C1ac,C2x6 | `RT`, `RTT`, `R5` |
-| C2x8 | orquestador O4c sin efectos | C2x7 | `RT`, `RTT`, `R5` |
-| C2y | consumidor raíz del modo supervisor | C2x8 | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/supervisor_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_operativo.go`, `R5`, `R5T` |
+
+R4 termina su C2 en C2v. El orquestador O4a, todo consumidor O4c y el consumidor
+raíz se reservan a las fronteras O4a/O4c/O5 después de sus publicaciones; no
+son minitareas implícitas de este documento.
 
 Los write-sets C2 se solapan por bloques; por ello también se serializan en
 orden total: `C2a -> C2a1 -> C2b -> C2c -> C2d -> C2e -> C2f -> C2g ->
 C2h -> C2i -> C2j -> C2k -> C2k1 -> C2l -> C2m -> C2m1 -> C2n -> C2o ->
-C2p -> C2q -> C2q1 -> C2r -> C2s -> C2t -> C2u -> C2v -> C2w -> C2x1 ->
-C2x2 -> C2x3 -> C2x4 -> C2x5 -> C2x6 -> C2x7 -> C2x8 -> C2y`.
+C2p -> C2q -> C2q1 -> C2r -> C2s -> C2t -> C2u -> C2v`.
 La columna de dependencia añade prerrequisitos funcionales, pero nunca permite
 ejecución concurrente de dos nodos C2.
 
 Cada ruta existente de C2 queda expandida y exige `test -f` antes del corte.
-`operativo.go` mide 798 líneas: C2y no lo amplía; extrae el adaptador a `R5` y
-reduce el fichero. Si no puede, vuelve a contrato.
+`operativo.go` mide 798 líneas y ninguna minitarea R4 lo modifica. Su futura
+adaptación pertenece a O5 después del cierre O4c; cualquier cambio anterior
+vuelve a contrato.
+
+### Puertas externas O4, no minitareas R4
+
+Estas puertas no tienen write-set R4 y no autorizan editar una ruta sustituta:
+
+| Puerta | Evidencia literal exigida antes de cruzarla |
+| --- | --- |
+| `G-O4B-P5-PUBLICADO` | O4B-P2→P5 completos en su DAG; cada hash material con doble GO, integración, publicación y CI 5/5 antes del siguiente |
+| `G-O4A-P5-PUBLICADO` | `G-O4B-P5-PUBLICADO`, O4C-P0 vigente y O4A-P5 material con doble GO, integración, publicación y CI 5/5 |
+| `G-O4C-P8-PUBLICADO` | `G-O4A-P5-PUBLICADO` y O4C-P1→P8 completos, seriales, publicados y con CI 5/5 según la autoridad O4c |
+
+R4 no implementa ninguna de esas fases. Las firmas O4b/O4c de este seam son
+invariantes de integración que sus autoridades propias deberán consumir, no
+APIs ni tareas asignables por este documento. Ninguna minitarea C1, C2, C3 o C4
+se abre hasta `G-O4C-P8-PUBLICADO`, para respetar `O4C-P8 → O5a`, no validar
+material inexistente y no duplicarlo.
 
 ### C3: AST exacto, una responsabilidad por corte
 
@@ -533,53 +533,54 @@ reordenado. Ninguna fórmula abierta, brace expansion o glob define cobertura.
 
 ### Z1, retirada y C5
 
-Tras C2y y C3/C4 verdes, `Z1` acredita cero consumidores legacy permitiendo
-solo sus definiciones aún compilables. Después, commits separados retiran en
-orden: permisos; primer permiso/CONT; acreditación preflight y ambos
-`WithHandle`; testigos; lease/observador/registro; autorización O4a/O4b; y el
-wrapper O5 legacy. Cada retirada toca como máximo tres rutas, compila y supera
-su focal. Ninguna definición se elimina antes de `Z1`.
+R4 no autoriza ejecutar `Z1`, retiradas ni `C5`. Tras C3/C4 verdes, el único
+siguiente corte permitido es el documento
+`O3A-LEASE-RETIRADA-C5-P0-CONTRATO`: deberá inventariar cada símbolo vivo,
+enumerar IDs y dependencias y fijar para cada commit entre una y tres rutas
+literales, pruebas y parada. Solo su material completo con doble GO,
+integración, publicación y CI 5/5 acredita la puerta externa
+`G-RETIRADA-C5-PUBLICADO`. Hasta entonces no se retira ninguna definición.
 
-`C5` exige cero referencias finales a todos los símbolos inventariados, cero
-TID salvo `custodiaCerradaM38.tidEjecutor` y sus lecturas intrafunción, cero
-PID/FD/raw en resultados, cero callback/handle/puntero de autoridad, cero raw
-fuera de firmas exactas y cero API declarada sin consumidor. También ejecuta
-AST, mutantes, conductores, normal/race y calidad aplicables. Un fallo vuelve al
-nodo propietario; C5 no corrige código.
+La condición que ese contrato debe cerrar es: cero referencias finales a todos
+los símbolos inventariados; cero TID salvo `custodiaCerradaM38.tidEjecutor` y
+sus lecturas intrafunción; cero PID/FD/raw en resultados; cero callback, handle
+o puntero de autoridad; cero raw fuera de las firmas propietarias; y cero API
+sin consumidor. Son oráculos, no write-sets implícitos de R4.
 
 Dependencia total:
 
 ```text
 R4 doble GO + integración + CI documental
+  -> G-O4B-P5-PUBLICADO
+  -> G-O4A-P5-PUBLICADO
+  -> G-O4C-P8-PUBLICADO
   -> C1a -> C1b -> C1c
-  -> C1d..C1u y C1w..C1ac, cada rama según su columna
-  -> puerta externa G-O4B-P5, cerrada hasta contratos y dobles GO propios
-  -> C1v, sin editar O4b
-  -> C2a..C2y, en dependencias declaradas y sin retirada
+  -> C1d..C1u, según su columna
+  -> C2a..C2v, en dependencias declaradas y sin retirada
   -> C3a..C3e y C4a..C4l
-  -> Z1 cero consumidores legacy
-  -> retiradas granulares compilables
-  -> C5 cero final
-  -> V26 material -> doble GO -> integración -> acta separada
+  -> G-RETIRADA-C5-PUBLICADO, gobernada por contrato separado
+  -> G-V26-PUBLICADO, gobernada por contrato separado
   -> C22a -> C22b
 ```
 
 ## V26 y acta separada
 
-V21 y V25 son historia inmutable. V26 fija rutas, modos, líneas, SHA-256 de
-fuentes, GOROOT, Go tool, herramientas, casos, mutantes y resultados normal y
-race del material exacto. No modifica actas, ledgers ni evidencia histórica.
+V21 y V25 son historia inmutable. R4 tampoco autoriza V26 ni su acta. Después
+de `G-RETIRADA-C5-PUBLICADO`, un documento separado
+`O3A-V26-EVIDENCIA-P0-CONTRATO` debe fijar rutas, modos, líneas, SHA-256 de
+fuentes, GOROOT, Go tool, herramientas, casos, mutantes, resultados normal/race
+y write-sets literales distintos para material y acta.
 
-La secuencia es: commit material limpio; dos revisiones independientes del
-mismo hash; integración solo por Dirección con `P0=P1=P2=0`; después commit de
-acta/evidencia separado cuyo padre ya contiene el material. El acta registra el
-hash material y hashes de artefactos; nunca pretende contener su propio hash ni
-acredita otro árbol.
+Solo el material limpio con dos revisiones independientes, integración por
+Dirección, publicación y CI 5/5 acredita `G-V26-PUBLICADO`. El acta posterior
+tiene como padre el material, registra sus hashes y nunca pretende contener su
+propio hash ni acreditar otro árbol. Ninguna ruta V26 o de acta se edita bajo
+R4.
 
 ## C22 derivado del manifiesto
 
-C22 conserva el cierre válido de R3, dividido en dos commits seriales con tres
-rutas literales cada uno. `C22a` añade
+C22 conserva el cierre válido de R3 y depende de `G-V26-PUBLICADO`. Se divide
+en dos commits seriales con tres rutas literales cada uno. `C22a` añade
 `tools/o3a_v5_conductor/conductor_c22_lease_closed_ops.sh`, añade
 `tools/o3a_v5_conductor/manifiesto_c01_c22.tsv` y da de baja
 `tools/o3a_v5_conductor/manifiesto_c01_c21.tsv`. Ningún runner C01--C21 cambia.
@@ -608,8 +609,8 @@ enlaza V26 y no admite `SKIP`.
   de que el orquestador O5 invoque O3a;
 - `Start` sin hijo y con hijo conservan sus clases funcionales exactas;
 - `primerPermiso`, permiso CONT y ambos `WithHandle`: cero final;
-- O4a prepara primera y siguientes etapas por índice; R4 no toca O4b y su
-  orquestador permanece cerrado hasta `G-O4B-P5`;
+- O4a prepara primera y siguientes etapas por índice; R4 no crea su
+  orquestador ni toca O4b, y O4A-P5 espera `G-O4B-P5-PUBLICADO`;
 - Wait nil y `ExitError` coherentes permiten Wait4; EINTR, otro error o estado
   no acreditable sin evidencia positiva incompatible producen incidente
   65/cuarentena; contradicción raw/postestado positiva es fatal y no libera;
@@ -631,5 +632,6 @@ Este documento no ejecuta Go, Docker, PostgreSQL, dinámica, red ni producción;
 no acredita una vertical, aplicación arrancable, cumplimiento o despliegue.
 No implementa ni agenda O4b P2--P5: `O4B-P2` sigue bloqueado hasta su contrato
 y puertas propias, y ninguna ruta O4b aparece en los write-sets R4. El siguiente
-corte sigue siendo `C1a`, condicionado al doble GO, integración y CI documental
-de R4; C1v no abre hasta `G-O4B-P5`.
+corte global pertenece a O4B bajo su autoridad. El primer corte propio de R4 es
+`C1a`, pero solo después de `G-O4C-P8-PUBLICADO`. Este DAG termina en C1u/C2v y
+no salta ninguna puerta O4/O5.
