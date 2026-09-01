@@ -40,8 +40,8 @@ Dirección. Los ficheros de `/tmp` no son evidencia durable.
 El dictamen remoto fue `NO-GO`, `P0=5`, `P1=2`, `P2=0`. El local resumió
 `NO-GO`, `P0=2`, `P1=3`. R4 incorpora todos sus hallazgos: TID privado vivo,
 CAS perdedor sin escritura, raíz O5 definitiva, preflight separado, productor
-O4a, raw O4b literal, O4c completa, Wait/Wait4 cerrados, migración antes de
-retirada y C1--C4 granulares con rutas exactas.
+O4a, frontera O4b subordinada a sus cortes propios, O4c completa, Wait/Wait4
+cerrados, migración antes de retirada y C1--C4 granulares con rutas exactas.
 
 ## Autoridades coordinadas, no reemplazadas
 
@@ -51,15 +51,18 @@ retirada y C1--C4 granulares con rutas exactas.
 | O3b | barrera, ticket temprano, STOP e identidad | barrera, escritura, cierre, observación y handoff cerrados; cero `primerPermiso` |
 | O3c | revalidación, marca, primer CONT y salida | revalidación+CONT indivisibles; cero permiso diferido y segundo `WithHandle` |
 | O4a | causa, precedencia, etapa, índice y plazos | prepara cada etapa bajo slot y consume solo clase inerte |
-| O4b | raws STOP/TERM/CONT/KILL de P1 | syscall literal dentro de la ejecución de etapa; P2 no se abre |
+| O4b | estados y autoridad privada de P1; P2--P5 siguen su DAG propio | este seam no implementa ni agenda raws; solo podrá consumir la clase inerte después de P5 integrado |
 | O4c | terminalidad, Wait, Wait4, ESRCH, cierres y TERMINAL | orquestador sin efectos más siete operaciones cerradas exactas |
 | O5 | composición, preflight, recursos y salida privada | posee la única raíz estable y el TID ejecutor sellado; no registra tokens |
 
 O3a conserva su Wait de retirada antes de entregar. O4c conserva el único Wait
-funcional del caso entregado. R4 prevalece sobre O4c exclusivamente para el
-PID cero devuelto por `Wait4`: sustituye la clasificación histórica `OCF` por
-incidente de cierre, cuarentena y salida 65, sin repetición ni otro `Wait4`.
-Ningún otro contrato, causa, precedencia, plazo o clasificación cambia.
+funcional del caso entregado. R4 prevalece sobre O4c exclusivamente en dos
+refinamientos: PID cero devuelto por `Wait4` sustituye `OCF` por incidente de
+cierre, cuarentena y salida 65, sin repetición ni otro `Wait4`; y una evidencia
+positiva raw/postestado físicamente imposible dentro de Wait se separa del
+error funcional y aplica la regla fatal universal de este seam. Wait4 ya
+clasificaba esa contradicción como `OCF`. Ningún otro contrato, causa,
+precedencia, plazo o clasificación cambia.
 
 ## Inventario legacy exhaustivo que debe llegar a cero
 
@@ -193,9 +196,10 @@ crudo, bytes de CONTROL/TERMINAL, contador, índice mutable, causa copiable que
 habilite efecto, puntero o interfaz. Los detalles quedan en celdas privadas de
 la raíz y solo la siguiente operación propietaria puede leerlos bajo su slot.
 
-En particular, `ejecutarWait4CerradoO4cM38` conserva PID reaprovechado,
-`WaitStatus` y `Rusage` dentro de `estadoTerminalCerradoM38` y devuelve solo
-`claseWait4O4cM38`. No existe `resultadoWait4CerradoO4cM38` copiable.
+En particular, `ejecutarWait4CerradoO4cM38` conserva PID reaprovechado y
+`WaitStatus` dentro de `estadoTerminalCerradoM38` y devuelve solo
+`claseWait4O4cM38`. El argumento de recursos de `Wait4` permanece literalmente
+`nil`, como exige O4c. No existe `resultadoWait4CerradoO4cM38` copiable.
 
 ## Firmas exactas, productor y consumidor
 
@@ -283,10 +287,11 @@ literal sobre el pidfd custodiado y nunca recibe callback.
 - CONT O3c: revalidación de deadline, marca, identidad y estado, raw CONT y
   consolidación son una sola operación. EINTR tiene un intento y cero retry.
   No existe `revalidacion.permiso` ni permiso primero retornado.
-- O4b: STOP/TERM/CONT/KILL usan literalmente `pidfd_send_signal` dentro de
-  `ejecutarEtapaCerradaO4bM38`. Se elimina
-  `enviarSenalPidfdCerradaO4bM38`; no hay helper que acepte autoridad. Una etapa
-  TERM+CONT conserva un slot y reacredita TID antes de cada syscall.
+- O4b: este R4 no implementa, migra ni agenda STOP/TERM/CONT/KILL. La firma
+  cerrada queda reservada para consumir, sin raw copiable, la implementación
+  que solo podrá existir después de integrar los cortes propios O4B-P2--P5.
+  Hasta entonces el DAG de este documento se detiene antes del orquestador O4a;
+  no se toca ningún fichero O4b ni se elimina su helper vigente.
 - CONTROL/TERMINAL: lecturas, escritura completa, parciales, EINTR, EOF y
   cierres conservan los límites y precedencias de sus autoridades; los bytes y
   offsets no salen de la raíz.
@@ -339,20 +344,21 @@ retry. La clasificación bajo slot es:
   produce igualmente incidente de cierre, cuarentena y exterior 65, sin Wait4;
 - evidencia positiva irreconciliable —por ejemplo EINTR u otro error junto a
   un postestado que afirma recogida, `ExitError` de otro estado, o transición
-  raw/postestado imposible— es contradicción no acreditable: fatal+5, sin
-  liberar autoridad.
+  raw/postestado imposible— es contradicción fatal: fija la celda fatal y
+  `estado=5`, termina en 65 sin liberar el slot, sin Wait4 y sin cleanup.
 
 Solo las dos primeras clases permiten Wait4. No se infiere éxito de un error ni
 se interpreta indisponibilidad como terminalidad.
 
 `ejecutarWait4CerradoO4cM38` mantiene su slot durante el barrido. Antes de cada
-`wait4(-1, ..., WNOHANG, ...)` reacredita TID. PID positivo, `WaitStatus` y
-`Rusage` se consolidan dentro de la raíz y permiten continuar dentro de esa
-misma operación. PID cero produce inmediatamente incidente de cierre,
+`wait4(-1, ..., WNOHANG, nil)` reacredita TID. PID positivo y `WaitStatus` se
+consolidan dentro de la raíz y permiten continuar dentro de esa misma
+operación. PID cero produce inmediatamente incidente de cierre,
 cuarentena y exterior 65, sin espera, repetición ni otro `Wait4`. `ECHILD`
-cierra el barrido; EINTR u otro error siguen la política de incidente de cierre
-salvo contradicción raw/postestado, que es fatal+5. La función devuelve solo
-`claseWait4O4cM38`.
+cierra el barrido. EINTR, otro error, límite igual o vencido y estado no
+acreditable conservan `OCF`: son fatales, fijan `estado=5`, no liberan el slot y
+no hacen cleanup. Una contradicción raw/postestado aplica el mismo fatal
+universal. Solo las ramas no fatales devuelven `claseWait4O4cM38`.
 
 ## DAG compilable y retirada posterior a migración
 
@@ -405,8 +411,7 @@ del orquestador propietario; ninguna API queda sin consumidor.
 | C1s1 | handoff O3c→O4a | C1s | `RC`, `RCT`; `R5` |
 | C1t | productor de etapa O4a | C1s1 | nueva `RD`, `RDT`; `R5` |
 | C1u | consumidor de resultado O4a | C1t | `RD`, `RDT`; `R5` |
-| C1v | ejecución O4b con raw literal | C1t | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/senales_grupo_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/senales_grupo_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad_test.go`; `RD` |
-| C1v1 | orquestador O4a sin efectos | C1t,C1u,C1v | `RD`, `RDT`; `R5` |
+| C1v | orquestador O4a sin efectos; no modifica O4b | C1t,C1u y puerta externa `G-O4B-P5` | `RD`, `RDT`; `R5` |
 | C1w | terminalidad O4c | C1c | nueva `RT`, `RTT`; `R5` |
 | C1x | Wait O4c exacto | C1w | `RT`, `RTT`; `R5` |
 | C1y | Wait4 O4c sin raws de salida | C1x | `RT`, `RTT`; `R5` |
@@ -415,12 +420,17 @@ del orquestador propietario; ninguna API queda sin consumidor.
 | C1ab | escritura y cierre TERMINAL | C1aa | `RT`, `RTT`; `R5` |
 | C1ac | liberación O4c | C1ab | `RT`, `RTT`; `R5` |
 
+`G-O4B-P5` no es una minitarea de R4 ni tiene write-set: acredita que
+O4B-P2, P3, P4 y P5 recibieron sus contratos, material, revisiones e
+integraciones propias. Mientras falte, C1v permanece cerrado y ningún nodo R4
+puede tocar rutas O4b.
+
 Las dependencias de la tabla son mínimos funcionales. Como los write-sets C1
 se solapan, su orden de edición efectivo es total y obligatorio:
 `C1a -> C1b -> C1c -> C1d -> C1e -> C1f -> C1g -> C1h -> C1i -> C1j ->
 C1k -> C1l -> C1m -> C1m1 -> C1m2 -> C1n -> C1o -> C1p -> C1q -> C1q1 ->
-C1r -> C1s -> C1s1 -> C1t -> C1u -> C1v -> C1v1 -> C1w -> C1x -> C1y ->
-C1z -> C1aa -> C1ab -> C1ac`. No se abren dos nodos C1 a la vez.
+C1r -> C1s -> C1s1 -> C1t -> C1u -> C1w -> C1x -> C1y -> C1z -> C1aa ->
+C1ab -> C1ac -> G-O4B-P5 -> C1v`. No se abren dos nodos C1 a la vez.
 
 ### C2: migrar un consumidor por commit, sin retirar legacy
 
@@ -452,9 +462,8 @@ C1z -> C1aa -> C1ab -> C1ac`. No se abren dos nodos C1 a la vez.
 | C2t | handoff O3c | C2s | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/continuacion_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_handoff_test.go`; `RC` |
 | C2u | productor O4a | C1t,C2t | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_etapas_test.go`; `RD` |
 | C2v | consumidor O4a | C1u,C2u | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/causa_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad_test.go`; `RD` |
-| C2w | O4b P1 sin helper raw | C1v,C2v | `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/senales_grupo_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad.go`, `deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/senales_grupo_procesos_m38_h0b_fuente_corporativa_contexto_actor_v1_autoridad_test.go`; `RD` |
-| C2w1 | orquestador O4a sin efectos | C1v1,C2w | `RD`, `RDT`, `R5` |
-| C2x1 | consumidor de terminalidad O4c | C1w,C2w1 | `RT`, `RTT`, `R5` |
+| C2w | migración del orquestador O4a; no modifica O4b | C1v,C2v y puerta externa `G-O4B-P5` | `RD`, `RDT`, `R5` |
+| C2x1 | consumidor de terminalidad O4c | C1w,C2w | `RT`, `RTT`, `R5` |
 | C2x2 | consumidor de Wait O4c | C1x,C2x1 | `RT`, `RTT`, `R5` |
 | C2x3 | consumidor de Wait4 O4c | C1y,C2x2 | `RT`, `RTT`, `R5` |
 | C2x4 | consumidor de ESRCH O4c | C1z,C2x3 | `RT`, `RTT`, `R5` |
@@ -467,8 +476,8 @@ C1z -> C1aa -> C1ab -> C1ac`. No se abren dos nodos C1 a la vez.
 Los write-sets C2 se solapan por bloques; por ello también se serializan en
 orden total: `C2a -> C2a1 -> C2b -> C2c -> C2d -> C2e -> C2f -> C2g ->
 C2h -> C2i -> C2j -> C2k -> C2k1 -> C2l -> C2m -> C2m1 -> C2n -> C2o ->
-C2p -> C2q -> C2q1 -> C2r -> C2s -> C2t -> C2u -> C2v -> C2w -> C2w1 ->
-C2x1 -> C2x2 -> C2x3 -> C2x4 -> C2x5 -> C2x6 -> C2x7 -> C2x8 -> C2y`.
+C2p -> C2q -> C2q1 -> C2r -> C2s -> C2t -> C2u -> C2v -> C2w -> C2x1 ->
+C2x2 -> C2x3 -> C2x4 -> C2x5 -> C2x6 -> C2x7 -> C2x8 -> C2y`.
 La columna de dependencia añade prerrequisitos funcionales, pero nunca permite
 ejecución concurrente de dos nodos C2.
 
@@ -543,14 +552,16 @@ Dependencia total:
 ```text
 R4 doble GO + integración + CI documental
   -> C1a -> C1b -> C1c
-  -> C1d..C1ac, cada rama según su columna
+  -> C1d..C1u y C1w..C1ac, cada rama según su columna
+  -> puerta externa G-O4B-P5, cerrada hasta contratos y dobles GO propios
+  -> C1v, sin editar O4b
   -> C2a..C2y, en dependencias declaradas y sin retirada
   -> C3a..C3e y C4a..C4l
   -> Z1 cero consumidores legacy
   -> retiradas granulares compilables
   -> C5 cero final
   -> V26 material -> doble GO -> integración -> acta separada
-  -> C22
+  -> C22a -> C22b
 ```
 
 ## V26 y acta separada
@@ -567,12 +578,17 @@ acredita otro árbol.
 
 ## C22 derivado del manifiesto
 
-C22 conserva el cierre válido de R3. Puede tocar únicamente rutas literales de
-`tools/o3a_v5_conductor/`: `README.md`, `conductor.sh`, `fuentes_v5.tsv`, los
-runners existentes cuyo SHA cambie, la baja de `manifiesto_c01_c21.tsv`, y las
-nuevas `conductor_c22_lease_closed_ops.sh` y `manifiesto_c01_c22.tsv`. La
-evidencia nueva `evidencia-cnd-c22-lease-closed-ops-r1/` pertenece solo al
-commit de evidencia posterior.
+C22 conserva el cierre válido de R3, dividido en dos commits seriales con tres
+rutas literales cada uno. `C22a` añade
+`tools/o3a_v5_conductor/conductor_c22_lease_closed_ops.sh`, añade
+`tools/o3a_v5_conductor/manifiesto_c01_c22.tsv` y da de baja
+`tools/o3a_v5_conductor/manifiesto_c01_c21.tsv`. Ningún runner C01--C21 cambia.
+`C22b`, dependiente de C22a, modifica exclusivamente
+`tools/o3a_v5_conductor/conductor.sh`,
+`tools/o3a_v5_conductor/fuentes_v5.tsv` y
+`tools/o3a_v5_conductor/README.md`. La evidencia nueva
+`evidencia-cnd-c22-lease-closed-ops-r1/` pertenece solo al commit de evidencia
+posterior y requiere su propio contrato de write-set literal.
 
 El manifiesto C01--C22 contiene exactamente ID, ruta relativa normalizada del
 runner, SHA-256 del runner, ruta del manifiesto de fuentes y su SHA-256.
@@ -592,12 +608,13 @@ enlaza V26 y no admite `SKIP`.
   de que el orquestador O5 invoque O3a;
 - `Start` sin hijo y con hijo conservan sus clases funcionales exactas;
 - `primerPermiso`, permiso CONT y ambos `WithHandle`: cero final;
-- O4a prepara primera y siguientes etapas por índice; O4b contiene el syscall
-  literal; no existe helper raw con autoridad;
+- O4a prepara primera y siguientes etapas por índice; R4 no toca O4b y su
+  orquestador permanece cerrado hasta `G-O4B-P5`;
 - Wait nil y `ExitError` coherentes permiten Wait4; EINTR, otro error o estado
-  no acreditable producen incidente 65/cuarentena; contradicción positiva es
-  fatal+5;
+  no acreditable sin evidencia positiva incompatible producen incidente
+  65/cuarentena; contradicción raw/postestado positiva es fatal y no libera;
 - PID cero en Wait4 produce incidente 65/cuarentena, sin espera ni otro raw;
+- otro error, límite o estado no acreditable de Wait4 conservan `OCF` fatal;
 - Wait4 no devuelve PID, `WaitStatus` ni `Rusage`;
 - O4c acredita ESRCH, cierra primario/reserva/CONTROL, escribe/cierra TERMINAL
   y libera solo en el orden total;
@@ -612,6 +629,7 @@ texto de interfaz nuevo; i18n y accesibilidad no cambian.
 
 Este documento no ejecuta Go, Docker, PostgreSQL, dinámica, red ni producción;
 no acredita una vertical, aplicación arrancable, cumplimiento o despliegue.
-No implementa O4b P2: `O4B-P2` sigue bloqueado hasta su contrato y puertas
-propias. El siguiente corte sigue siendo `C1a`, condicionado al doble GO,
-integración y CI documental de R4.
+No implementa ni agenda O4b P2--P5: `O4B-P2` sigue bloqueado hasta su contrato
+y puertas propias, y ninguna ruta O4b aparece en los write-sets R4. El siguiente
+corte sigue siendo `C1a`, condicionado al doble GO, integración y CI documental
+de R4; C1v no abre hasta `G-O4B-P5`.
