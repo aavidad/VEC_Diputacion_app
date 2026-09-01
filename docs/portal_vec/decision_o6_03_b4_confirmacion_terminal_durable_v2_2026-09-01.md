@@ -1,14 +1,15 @@
-# CT-LITE-O6-03-B4-DOC — confirmación terminal durable V2
+# CT-LITE-O6-03-B4-R1-DOC — confirmación terminal durable V2
 
 Fecha: 1 de septiembre de 2026.
 
 ## Estado, base y alcance
 
-Este documento parte de la base exacta y limpia
-`640610a4f806b0848682bbe844ff9d672c2777a6`. Es un candidato documental:
-no implementa producto, no cierra `O6-03`, no cambia métricas y no adquiere
-autoridad hasta que un revisor independiente emita `GO` sobre su hash exacto
-y Dirección lo integre.
+Esta corrección R1 parte de la base exacta y limpia
+`0896322d67aac4cef1b559bc81f35fabd81230ad`, cuyo único padre es el producto
+local `640610a4f806b0848682bbe844ff9d672c2777a6`. Es un candidato documental: no
+implementa producto, no cierra `O6-03`, no cambia métricas y no adquiere
+autoridad hasta que dos revisores independientes emitan `GO` sobre su hash
+exacto y Dirección lo integre.
 
 La capability decidida es
 `ConfirmacionTerminalLlamamientoDuraderaV2`, propiedad de la aplicación de
@@ -22,28 +23,34 @@ Write-set único de este corte:
 docs/portal_vec/decision_o6_03_b4_confirmacion_terminal_durable_v2_2026-09-01.md
 ```
 
-El fichero es nuevo, modo `0644` y debe permanecer por debajo de 800 líneas.
-No se reservan nombres o números de migración, esquemas, funciones, roles,
-runners ni rutas SQL. La autoridad de integración debe decidir antes si V2
-nace como unidad aislada o si se incorpora, con frontera nueva y explícita, al
-despliegue antiguo de llamamientos V1.
+El fichero conserva modo `0644` y debe permanecer por debajo de 800 líneas. R1
+fija una única autoridad y topología lógica: una unidad V2 aislada y propia de
+Bolsa, con objetos, roles, funciones y adaptador V2 separados, dentro del mismo
+dominio transaccional PostgreSQL que la fachada VEC V2 de revalidación y
+consumo. B4-A fijará la ubicación, los nombres físicos y los números de
+migración concretos. V1 queda histórica e inmutable: no se amplía, reutiliza,
+convierte ni participa en la ejecución de B4.
 
 ## Preflight local acreditado antes de editar
 
 - rama exclusiva `trabajo/ct-o6-b4-doc-20260901`, `HEAD` exacto y árbol
-  limpio en `640610a4f806b0848682bbe844ff9d672c2777a6`;
+  limpio en `0896322d67aac4cef1b559bc81f35fabd81230ad`;
 - Go `go1.26.5 linux/amd64`;
 - rama de producto local y referencia local de
-  `origin/integracion/ct-producto-ligero-20260821` en el mismo hash, sin
-  ejecutar `fetch`, `pull` ni otra operación de red;
+  `origin/integracion/ct-producto-ligero-20260821` en
+  `640610a4f806b0848682bbe844ff9d672c2777a6`, sin ejecutar `fetch`, `pull` ni
+  otra operación de red;
+- el candidato original `0896322d67aac4cef1b559bc81f35fabd81230ad` tiene
+  como padre único ese producto y añade únicamente este documento;
 - B2 integrado mediante `adc8ec6c2f03fc9beee20eacd3e94e4b56ca441b`,
   PRE-CAP-DOC mediante `58800913b32e22b0f77eb8d62900d95c452e98fa`,
   PRE-CAP revisado mediante `2171c932c5f0c9b9080aa1f9dfda0e26581805f3`
-  y B3 mediante el `HEAD` base;
-- los cuatro merges son ancestros de la base y el merge-tree inicial contra
-  el producto conocido no presenta conflictos;
-- el destino no existía, el directorio tenía modo `0755` y las autoridades
-  documentales leídas tenían modo `0644` y menos de 800 líneas.
+  y B3 mediante `640610a4f806b0848682bbe844ff9d672c2777a6`;
+- los cuatro merges son ancestros del producto y el `merge-tree` inicial entre
+  producto y candidato original no presenta conflictos; produjo el árbol
+  `c3782da7a957272e04e1776c96eccd08263f0593`;
+- el documento de partida tenía 365 líneas y modo `0644`; las autoridades
+  documentales leídas también tenían modo `0644` y menos de 800 líneas.
 
 No se ejecutaron red, despliegue, credenciales, PostgreSQL, Docker, E2E,
 producción ni puertas globales o pesadas.
@@ -76,8 +83,9 @@ Bolsa ya posee dominio, aplicación, puertos y adaptadores de propuesta de
 primer llamamiento. El despliegue `bolsa_llamamientos` conserva tablas de
 bolsa, necesidad, política, instantánea, evaluación, propuesta, consumo,
 auditoría y outbox. Su función `guardar_propuesta_v1` y el adaptador Go V1
-están deliberadamente cerrados para el nuevo comando completo; no son una
-persistencia V2 de `LlamamientoAbierto`.
+son historia inmutable y están deliberadamente cerrados para el nuevo comando
+completo; no son una persistencia V2 de `LlamamientoAbierto`, no se modifican
+ni se invocan desde B4 y no aportan objetos, roles, funciones o adaptador a V2.
 
 Contratación temporal ya posee `seleccion_llamamiento` en `ports`,
 `application` y HTTP, además del adaptador PostgreSQL y la tabla de ejecuciones
@@ -108,6 +116,38 @@ Fuera de pruebas, el tipo aparece solo en B2, PRE-CAP y B3. Las tablas
 temporal no representan ese agregado y no pueden tratarse como su fuente de
 verdad por coincidencia de referencias.
 
+## Decisión cerrada de autoridad y topología V2
+
+B4 tendrá una sola unidad V2, aislada del despliegue V1 y propiedad exclusiva
+de Bolsa. «Aislada» significa separación de autoridad, objetos y privilegios,
+no otra base de datos: la unidad V2 deberá instalarse en la misma base primaria
+y dominio transaccional PostgreSQL que expone la fachada VEC V2. Estado de
+Bolsa y consumo VEC se ejecutarán por una misma conexión y una única
+transacción local, con un solo desenlace `COMMIT` o `ROLLBACK`.
+
+La separación mínima que B4-A debe concretar físicamente es:
+
+- objetos V2 de estado, historia, auditoría, outbox y recibos propios de Bolsa,
+  sin vistas, triggers, claves foráneas, lecturas ni escrituras sobre V1;
+- roles propietarios y de ejecución V2 exclusivos, sin heredar autoridad de
+  los roles V1 ni conceder DML directo al adaptador;
+- funciones V2 de alta, confirmación, replay y recuperación separadas de las
+  funciones V1, con fachadas nominales y privilegio mínimo; y
+- un adaptador PostgreSQL V2 de Bolsa separado del adaptador Go V1, capaz de
+  invocar las funciones V2 de Bolsa y la fachada VEC V2 dentro de la misma
+  transacción, sin leer ni escribir tablas de VEC.
+
+La fachada VEC V2 sigue siendo la única autoridad para releer, revalidar y
+consumir la autorización. La colocalización no transfiere propiedad de tablas:
+Bolsa llama a esa fachada nominal y VEC no adquiere autoridad sobre el estado
+de Bolsa. B4-A fijará nombres, esquemas, migraciones, roles y rutas de fichero;
+no volverá a decidir entre aislamiento y convivencia ni podrá elegir V1.
+
+Si no puede existir esta unidad V2 colocalizada y la fachada VEC V2 no puede
+participar atómicamente en su transacción local, B4 completo es `NO-GO`. No hay
+topología alternativa mediante otra base, transacción distribuida, consumo
+previo, marca intermedia, compensación ni consistencia eventual.
+
 ## Decisión: B4 se divide obligatoriamente
 
 La transición terminal no puede inventar el estado abierto que pretende
@@ -130,11 +170,11 @@ Contratación temporal verifique el intercambio, pero ese recibo de transporte
 no puede convertirse en la fuente de verdad interna de Bolsa ni autoriza una
 lectura de tablas de Contratación temporal.
 
-B4-A deberá ocurrir en la autoridad de Bolsa: releerá bajo bloqueo el hecho de
-creación y la propuesta durable exacta y confirmará conjuntamente el abierto y
-su recibo de alta. Si hoy no existe ese hecho local, B4-A deberá materializarlo
-en la misma transacción que emita el recibo de creación; queda prohibido
-inferirlo después desde una respuesta enviada a otro módulo.
+B4-A deberá ocurrir en la unidad V2 y autoridad de Bolsa: releerá bajo bloqueo
+el hecho de creación y la propuesta durable exacta y confirmará conjuntamente
+el abierto y su recibo de alta. Si hoy no existe ese hecho local, B4-A deberá
+materializarlo en la misma transacción que emita el recibo de creación; queda
+prohibido inferirlo después desde una respuesta enviada a otro módulo.
 
 El nacimiento inmoviliza, sin normalizar ni sustituir:
 
@@ -192,9 +232,9 @@ corte posterior.
 Para un efecto nuevo, el adaptador abre una transacción `SERIALIZABLE READ
 WRITE`, endurece sesión y tiempos y ejecuta este orden observable:
 
-1. localiza por las referencias opacas derivadas de la solicitud y bloquea la
-   fila B4-A, su historia actual y las autoridades necesarias en un orden
-   estable;
+1. en la unidad V2 localiza por las referencias opacas derivadas de la
+   solicitud y bloquea la fila B4-A, su historia actual y las autoridades
+   necesarias en un orden estable;
 2. relee la fuente durable de creación y reconstruye B2 mediante
    `NuevoLlamamientoAbierto`; no confía en una proyección Go anterior;
 3. coteja por igualdad exacta `LlamamientoRef`, `BolsaRef`, `NecesidadRef`,
@@ -215,12 +255,13 @@ WRITE`, endurece sesión y tiempos y ejecuta este orden observable:
    auditoría, outbox y recibo inmutable; y
 10. ejecuta un solo `COMMIT` para esos seis efectos.
 
-La revalidación y el consumo V2 pertenecen a la autoridad VEC existente. Bolsa
-solo podrá invocar una fachada transaccional autorizada; no leerá ni escribirá
-tablas ajenas ni creará un ledger alternativo. Si la topología elegida no
-permite unir consumo V2 y estado de Bolsa en el mismo `COMMIT` autoritativo,
-B4-B queda bloqueada: no se sustituye esa atomicidad por una transacción
-distribuida, una marca previa o compensación eventual.
+La revalidación y el consumo V2 pertenecen a la autoridad VEC existente. El
+adaptador V2 de Bolsa invocará su fachada transaccional autorizada en la misma
+transacción PostgreSQL local que las funciones V2 de Bolsa; no leerá ni
+escribirá tablas ajenas ni creará un ledger alternativo. Esa colocalización y
+fachada atómica son una precondición ya decidida, no una opción de B4-A. Si no
+pueden existir, B4 es `NO-GO` sin alternativa distribuida, marca previa,
+compensación o consumo eventual.
 
 SQL se limita a bloqueos, integridad, CAS y persistencia de las proyecciones
 ya derivadas. No decide qué terminal corresponde, no interpreta reglas de
@@ -264,16 +305,17 @@ evidencia V2 en claro.
 | --- | --- |
 | Normas y requisito | RGPD/LOPDGDD: minimización, exactitud e integridad; ENS: autenticidad, trazabilidad, privilegio mínimo, continuidad y recuperación; Leyes 39/2015 y 40/2015: acto, competencia, versión, motivo, recibo e historia; ENI y Ley andaluza 7/2011: evidencia y conservación gobernadas. La matriz de competencia y las aprobaciones siguen pendientes. |
 | Datos | Solo referencias opacas, estado técnico, versiones, compromisos V2, motivo catalogado por referencia/huella e identificadores de consumo, auditoría, outbox y recibo. Cero identidad personal, candidato, contacto, selección, posición o documento. |
-| Finalidad y autoridad | Confirmar en Bolsa una aceptación, renuncia o expiración gobernada ya autorizada. Cada terminal conserva exactamente la acción, finalidad y perfil fijados por PRE-CAP; Bolsa es autoridad del agregado y VEC de decisión, vínculo, motivo común y consumo. |
+| Finalidad y autoridad | Confirmar en la unidad V2 de Bolsa una aceptación, renuncia o expiración gobernada ya autorizada. Cada terminal conserva exactamente la acción, finalidad y perfil fijados por PRE-CAP; Bolsa es autoridad del agregado y VEC de decisión, vínculo, motivo común y consumo. |
 | Control preventivo | Denegación predeterminada, orden opaca, alta B4-A previa, relectura bajo bloqueo, reloj transaccional posterior, V2 sin fallback, motivo/vínculo vigentes, cotejo de cuatro referencias y N, B3 y CAS N→N+1. |
 | Evidencia y prueba | Historia append-only, consumo único, auditoría encadenada, outbox y recibo en un COMMIT; huella de intento, replay exacto, recuperación y matriz PostgreSQL real posterior. Este documento solo aporta decisión e inventario. |
 | Conservación y acceso | B4 no inventa plazos ni autoriza expurgo. Registros y recibos quedan bloqueados frente a borrado silencioso hasta política aprobada de su autoridad; una política documental VEC se consume donde corresponda, nunca se copia. Acceso por operación, finalidad y mínimo privilegio. |
-| Responsables pendientes | Bolsa: propietario funcional/técnico del agregado; VEC común: autorización y consumo; autoridad catalogal: motivo; Sistemas/DBA y Seguridad: topología, reloj, roles, cifrado, copias y recuperación; RRHH/órgano competente: competencia funcional; DPD, Archivo, Secretaría/Jurídico y responsables ENS: tratamiento, conservación y aprobaciones. Esta tabla no atribuye competencias. |
+| Responsables pendientes | Bolsa: propietario funcional/técnico del agregado y su unidad V2; VEC común: autorización, fachada V2 y consumo; autoridad catalogal: motivo; Sistemas/DBA y Seguridad: validar el aprovisionamiento de la topología fijada, reloj, roles, cifrado, copias y recuperación; RRHH/órgano competente: competencia funcional; DPD, Archivo, Secretaría/Jurídico y responsables ENS: tratamiento, conservación y aprobaciones. Esta tabla no atribuye competencias. |
 
 ## Seguridad, privacidad, i18n y accesibilidad
 
-- V1 queda prohibida: sin conversión, fallback, proyección o consumo mediante
-  `guardar_propuesta_v1` o `revalidar_decision_bolsa_llamamientos_v1`.
+- V1 queda histórica, inmutable y fuera de ejecución: no se amplía, reutiliza,
+  convierte, migra, proyecta ni consume mediante `guardar_propuesta_v1`,
+  `revalidar_decision_bolsa_llamamientos_v1` o cualquier otra pieza V1.
 - Identidad, perfil, vínculo, motivo y decisión no proceden de JSON, HTTP,
   cabeceras, cookies, almacenamiento web, parámetros o tablas de otro módulo.
 - Orden, solicitud y proyecciones internas se redactan en `fmt` y `slog`; los
@@ -288,12 +330,13 @@ evidencia V2 en claro.
 
 B4-A o B4-B se detienen sin candidato integrable si ocurre cualquiera:
 
-1. falta revisión independiente e integración de este documento;
-2. Dirección/arquitectura no decide unidad V2 aislada frente a convivencia con
-   el despliegue V1 existente;
+1. falta doble revisión independiente e integración de este documento;
+2. no puede instalarse la unidad V2 propia de Bolsa, con objetos, roles,
+   funciones y adaptador separados de V1, en el mismo dominio transaccional
+   PostgreSQL que la fachada VEC V2;
 3. B4-A no acredita fuente local de Bolsa y nacimiento durable del abierto;
-4. no existe una fachada V2 capaz de revalidar y consumir dentro del mismo
-   `COMMIT` sin acceso a tablas ajenas;
+4. la fachada VEC V2 no puede revalidar y consumir dentro del mismo `COMMIT`
+   local sin acceso cruzado a tablas;
 5. no pueden releerse bajo bloqueo las cuatro referencias, N, motivo, vínculo,
    decisión o historia;
 6. el reloj no es confiable, retrocede o se captura antes de los bloqueos;
@@ -308,37 +351,36 @@ B4-A o B4-B se detienen sin candidato integrable si ocurre cualquiera:
 ## DAG y cortes posteriores
 
 ```text
-CT-LITE-O6-03-B4-DOC (este candidato)
-  -> revisión independiente del hash exacto
+CT-LITE-O6-03-B4-R1-DOC (este candidato)
+  -> doble revisión independiente del hash exacto
     -> integración por Dirección
-      -> decisión de autoridad y topología SQL V2
-        -> CT-LITE-O6-03-B4-A-DOC/contrato
-          -> B4-A implementación + pruebas PostgreSQL + revisión + integración
-            -> CT-LITE-O6-03-B4-B-DOC/contrato
-              -> puerto/sellos de aplicación B4-B
-                -> persistencia V2 y adaptador B4-B
-                  -> replay/recuperación PostgreSQL
-                    -> revisión independiente + integración
+      -> CT-LITE-O6-03-B4-A-DOC/contrato
+        -> B4-A implementación + pruebas PostgreSQL + revisión + integración
+          -> CT-LITE-O6-03-B4-B-DOC/contrato
+            -> puerto/sellos de aplicación B4-B
+              -> persistencia V2 y adaptador B4-B
+                -> replay/recuperación PostgreSQL
+                  -> revisión independiente + integración
 ```
 
 B4-B depende de B4-A integrado. Los subcortes de aplicación, persistencia,
 adaptador y recuperación tendrán write-sets disjuntos o se ejecutarán en
-secuencia. Sus rutas concretas se fijarán únicamente después de la decisión de
-autoridad; este documento no las reserva.
+secuencia. B4-A-DOC fijará las rutas, nombres y migraciones físicos de la única
+unidad V2 ya decidida; no reabrirá autoridad, topología ni participación de V1.
 
 ## Pruebas documentales y matriz futura
 
 Puertas ligeras de este candidato:
 
 ```text
-base, rama y estado limpios
+base R1, rama y estado limpios
 Go 1.26.5
 inventario rg de tipos, puertos, adaptadores y SQL
 genealogía y ancestros B2 -> PRE-CAP -> B3
 modo 0644, write-set único y menos de 800 líneas
 git diff --check
-Gitleaks focal exacto sobre el fichero nuevo
-merge-tree de solo lectura contra el producto conocido
+Gitleaks focal exacto sobre el fichero
+merge-tree de solo lectura contra producto 640610a4f806b0848682bbe844ff9d672c2777a6
 ```
 
 No proceden `gofmt`, `go test`, carrera, `go vet`, PostgreSQL, Docker, E2E,
@@ -360,6 +402,7 @@ efecto terminal. Tampoco aporta comunicación, aceptación efectiva, renuncia
 efectiva, expiración efectiva, siguiente candidato, formalización, API,
 composición, web, E2E, despliegue o producción.
 
-El siguiente corte es exclusivamente la revisión independiente del hash exacto
-de este documento. Solo tras `GO` e integración por Dirección puede abrirse la
-decisión de topología y, después, `CT-LITE-O6-03-B4-A-DOC/contrato`.
+El siguiente corte es exclusivamente la doble revisión independiente del hash
+exacto de este documento. Solo tras ambos `GO` e integración por Dirección se
+abre directamente `CT-LITE-O6-03-B4-A-DOC/contrato`, sujeto a la topología V2
+aislada y colocalizada fijada aquí.
