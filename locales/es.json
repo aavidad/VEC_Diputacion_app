@@ -117,6 +117,7 @@
   "ui.permission.contratacion_temporal.analisis": "Validar el análisis de Recursos Humanos",
   "ui.permission.contratacion_temporal.cobertura": "Decidir la vía de cobertura",
   "ui.permission.contratacion_temporal.asignacion": "Asignar la unidad gestora",
+  "ui.permission.contratacion_temporal.reasignacion": "Reasignar la unidad gestora",
   "ui.permission.contratacion_temporal.informe_preparar": "Preparar informes de contratación temporal",
   "ui.permission.contratacion_temporal.informe_firmar": "Firmar informes de contratación temporal",
   "ui.permission.contratacion_temporal.fiscalizacion_solicitar": "Solicitar la fiscalización",
