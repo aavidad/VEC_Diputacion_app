@@ -105,13 +105,18 @@ docker run -d --pull=never --name "$contenedor" --label "$etiqueta" \
     "$imagen" -c listen_addresses= -c unix_socket_directories=/var/run/postgresql >/dev/null
 
 listo=0
+muestras_listas=0
 for _ in {1..80}; do
-    if docker exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres 2>/dev/null; then
-        listo=1
-        break
-    fi
-    if [[ $(docker inspect --format '{{.State.Running}}' "$contenedor") != true ]]; then
-        break
+    if [[ $(docker inspect --format '{{.State.Running}}' "$contenedor" 2>/dev/null) == true ]] &&
+       [[ $(docker exec "$contenedor" cat /proc/1/comm 2>/dev/null) == postgres ]] &&
+       docker exec "$contenedor" pg_isready -q -h /var/run/postgresql -U postgres 2>/dev/null; then
+        muestras_listas=$((muestras_listas + 1))
+        if (( muestras_listas >= 2 )); then
+            listo=1
+            break
+        fi
+    else
+        muestras_listas=0
     fi
     sleep 0.25
 done

@@ -23,8 +23,10 @@ igualdad en el límite final. R10 añade solo el positivo de subconjunto estrict
 que mata esa regresión. Su única ejecución dinámica autorizada terminó en
 `NO-GO` antes de construir el vector de sesión revocada porque el runner usaba
 la revisión de sesión `2` como versión de clave de capacidad. R11 separa ambas
-coordenadas y queda pendiente de doble revisión independiente exacta; no
-acredita PostgreSQL ni autoriza otra ejecución**.
+coordenadas, pero su única dinámica aceptó el servidor PostgreSQL temporal de
+`initdb` y la primera conexión SQL recibió el cierre de ese servidor. R12
+distingue el servidor final y queda pendiente de doble revisión independiente
+exacta; no acredita PostgreSQL ni autoriza otra ejecución**.
 
 ### Primera ejecución pre-final: NO-GO de bootstrap
 
@@ -570,6 +572,58 @@ otra consideración. Incluso con doble `GO`, una nueva dinámica exigirá una
 autorización posterior, expresa, única y separada; no existe reintento
 automático ni se reutiliza la autorización consumida de R10.
 
+### Noveno NO-GO dinámico focal: servidor temporal aceptado en R11
+
+La única ejecución dinámica autorizada de R11 se consumió sobre el candidato
+exacto `3829ae266c913b640c6f172f816e019699589a12`. La autorización inmutable
+tiene SHA-256
+`d71b18cd668b95430e8e398afff83fef17b4a4ff76d45d07ad31f09467411da7`;
+el log inmutable, SHA-256
+`9a5681201d5809a5e29c8a5945af4230c67490894c8cce0b81b381f7d5e3cfe8`;
+y el metadato inmutable, SHA-256
+`2e5e3f1054db155a0260db467a6577fce04d7256309b7a0675b257fa1e62ec98`.
+
+La ejecución terminó con `runner_rc=2`, duración de dos segundos y
+`postflight=NO-GO`. La fuente quedó limpia, el cerrojo libre y no quedaron
+residuos ni zombis. El contenedor ajeno permaneció idéntico antes y después.
+
+El bucle de readiness declaraba listo el primer `pg_isready` verde. La imagen
+oficial arranca durante `initdb` un servidor PostgreSQL temporal, lo detiene y
+después sustituye el proceso inicial por el servidor final. R11 aceptó el
+servidor temporal; por eso la primera invocación de `psql` recibió
+`FATAL: database system is shutting down`. El fallo precede a cualquier SQL
+funcional de R3B y no acredita ni refuta la corrección de R11.
+
+Este noveno resultado permanece como `NO-GO`, no acredita PostgreSQL y no
+puede repetirse.
+
+## Capability, invariante y write-set de R12
+
+Capability: distinguir el servidor PostgreSQL final del servidor temporal de
+inicialización antes de abrir cualquier conexión SQL.
+
+Invariante: una muestra solo es verde si el contenedor está `Running`, la
+lectura por `docker exec` de `/proc/1/comm` devuelve exactamente `postgres` y
+`pg_isready` es verde. El runner exige dos muestras verdes consecutivas,
+separadas por el `sleep` ya presupuestado; cualquier fallo reinicia el contador.
+Si no converge dentro de las ochenta iteraciones acotadas, falla cerrado y
+ejecuta la limpieza existente.
+
+R12 sustituye exclusivamente la lógica de readiness posterior a `docker run`.
+No cambia imagen, recursos, presupuesto, SQL, Go, fixtures, migraciones, resto
+funcional del runner ni evidencias inmutables.
+
+Write-set exacto:
+
+1. `deploy/postgresql/contratacion_temporal/probar_o2_r3b_candidatura_postgresql18_4.sh`; y
+2. `docs/portal_vec/ct_o2_r3b_candidatura_postgresql_2026-08-31.md`.
+
+R12 no ejecuta Docker, PostgreSQL, el runner ni ninguna dinámica. Su hash
+exacto debe recibir dos revisiones independientes. Hasta obtener ambos `GO` y
+una autorización nueva, posterior, expresa, única y separada, se prohíbe toda
+ejecución dinámica; no existe reintento automático ni se reutiliza la
+autorización consumida de R11.
+
 ## Capacidad e invariante funcional
 
 Este corte estabiliza o recupera, antes de autorización, una única
@@ -684,10 +738,10 @@ cada clase se comprueban inicios, commits y reconciliaciones; la rama
 
 R3B no modifica aplicación, HTTP, rutas, composición ni frontend. Tampoco
 cierra O2-06 ni declara la aplicación arrancable. El siguiente corte es la
-doble revisión independiente del hash exacto de R11. Hasta obtener ambos `GO`
-y una autorización dinámica posterior, expresa, única y separada, se prohíbe
-ejecutar Docker, PostgreSQL o el runner. No se declara PostgreSQL verde y la
-integración continúa prohibida. R3C permanece bloqueada hasta resolver este
-`NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
+doble revisión independiente del hash exacto de R12. Hasta obtener ambos `GO`
+y una autorización dinámica nueva, posterior, expresa, única y separada, se
+prohíbe ejecutar Docker, PostgreSQL o el runner. No se declara PostgreSQL verde
+y la integración continúa prohibida. R3C permanece bloqueada hasta resolver
+este `NO-GO`; después deberá migrar `ServicioRegistroSolicitud` al contrato
 candidato y componer el proveedor concreto de material de confirmación bajo
 revisión independiente.
