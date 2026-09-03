@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"strings"
@@ -118,7 +119,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		m.siguiente.ServeHTTP(w, r)
 		return
 	}
-	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(r.Context(), r)
+	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
+		r.Context(), peticionIdentidadConsultasContratacionTemporalDesarrollo(r),
+	)
 	if err == nil && principalContratacionTemporalDesarrolloValido(principal) {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
 			sello: m.autoridad.sello,
@@ -131,6 +134,34 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		))
 	}
 	m.siguiente.ServeHTTP(w, r)
+}
+
+// peticionIdentidadConsultasContratacionTemporalDesarrollo conserva la hoja
+// que identifica al cliente cuando la libreria TLS entrega tambien su cadena.
+// Solo normaliza certificados que ya pertenecen, en el mismo orden, a la unica
+// cadena verificada por mTLS; una cadena ambigua o con extras sigue llegando al
+// resolvedor sin cambios y este la rechaza.
+func peticionIdentidadConsultasContratacionTemporalDesarrollo(
+	peticion *http.Request,
+) *http.Request {
+	if peticion == nil || peticion.TLS == nil || len(peticion.TLS.PeerCertificates) <= 1 ||
+		len(peticion.TLS.VerifiedChains) != 1 ||
+		len(peticion.TLS.PeerCertificates) > len(peticion.TLS.VerifiedChains[0]) {
+		return peticion
+	}
+	cadenaVerificada := peticion.TLS.VerifiedChains[0]
+	for indice, certificado := range peticion.TLS.PeerCertificates {
+		if certificado == nil || cadenaVerificada[indice] == nil ||
+			!bytes.Equal(certificado.Raw, cadenaVerificada[indice].Raw) {
+			return peticion
+		}
+	}
+	copia := new(http.Request)
+	*copia = *peticion
+	estadoTLS := *peticion.TLS
+	estadoTLS.PeerCertificates = estadoTLS.PeerCertificates[:1:1]
+	copia.TLS = &estadoTLS
+	return copia
 }
 
 func esRutaConsultaContratacionTemporalDesarrollo(r *http.Request) bool {

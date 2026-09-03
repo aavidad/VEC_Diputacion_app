@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,7 +18,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 )
 
-func TestConsultasContratacionTemporalDesarrolloRespondenConMTLS(
+func TestConsultasContratacionTemporalDesarrolloRespondenEnListenerTLSReal(
 	t *testing.T,
 ) {
 	cfg, rutas := generarMaterialDesarrolloPrueba(t)
@@ -23,12 +26,21 @@ func TestConsultasContratacionTemporalDesarrolloRespondenConMTLS(
 	if err != nil {
 		t.Fatalf("componer desarrollo: %v", err)
 	}
-	prueba := httptest.NewUnstartedServer(servidor.Handler)
-	prueba.TLS = servidor.TLSConfig.Clone()
-	prueba.StartTLS()
-	t.Cleanup(prueba.Close)
+	escucha, err := net.Listen("tcp", servidor.Addr)
+	if err != nil {
+		t.Fatalf("abrir listener: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = servidor.Close()
+		_ = escucha.Close()
+	})
+	go func() {
+		_ = servidor.ServeTLS(escucha, cfg.TLSCertFile, cfg.TLSKeyFile)
+	}()
+	baseURL := fmt.Sprintf("https://localhost:%d", escucha.Addr().(*net.TCPAddr).Port)
 
 	cliente := nuevoClienteMTLSContratacionTemporalDesarrollo(t, rutas)
+	anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(t, cliente, rutas)
 	casos := []struct {
 		nombre    string
 		ruta      string
@@ -57,7 +69,7 @@ func TestConsultasContratacionTemporalDesarrolloRespondenConMTLS(
 		t.Run(caso.nombre, func(t *testing.T) {
 			peticion, err := http.NewRequest(
 				http.MethodPost,
-				prueba.URL+caso.ruta,
+				baseURL+caso.ruta,
 				strings.NewReader(caso.cuerpo),
 			)
 			if err != nil {
@@ -81,6 +93,57 @@ func TestConsultasContratacionTemporalDesarrolloRespondenConMTLS(
 				t.Fatalf("respuesta=%d %s", respuesta.StatusCode, contenido)
 			}
 		})
+	}
+}
+
+func anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(
+	t *testing.T,
+	cliente *http.Client,
+	rutas config.DevelopmentMaterialPaths,
+) {
+	t.Helper()
+	caPEM, err := os.ReadFile(rutas.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, resto := pem.Decode(caPEM)
+	if ca == nil || ca.Type != "CERTIFICATE" || len(bytes.TrimSpace(resto)) != 0 {
+		t.Fatal("CA de prueba invalida")
+	}
+	transporte, ok := cliente.Transport.(*http.Transport)
+	if !ok || transporte.TLSClientConfig == nil ||
+		len(transporte.TLSClientConfig.Certificates) != 1 {
+		t.Fatal("cliente mTLS de prueba invalido")
+	}
+	transporte.TLSClientConfig.Certificates[0].Certificate = append(
+		transporte.TLSClientConfig.Certificates[0].Certificate,
+		ca.Bytes,
+	)
+}
+
+func TestPeticionIdentidadConsultasContratacionTemporalDesarrolloSoloNormalizaCadenaVerificada(
+	t *testing.T,
+) {
+	hoja := &x509.Certificate{Raw: []byte("hoja")}
+	raiz := &x509.Certificate{Raw: []byte("raiz")}
+	peticion := &http.Request{TLS: &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{hoja, raiz},
+		VerifiedChains:   [][]*x509.Certificate{{hoja, raiz}},
+	}}
+	normalizada := peticionIdentidadConsultasContratacionTemporalDesarrollo(peticion)
+	if normalizada == peticion || normalizada.TLS == peticion.TLS ||
+		len(normalizada.TLS.PeerCertificates) != 1 ||
+		normalizada.TLS.PeerCertificates[0] != hoja ||
+		len(peticion.TLS.PeerCertificates) != 2 {
+		t.Fatal("la cadena verificada no se normalizo mediante una copia aislada")
+	}
+
+	adulterada := &http.Request{TLS: &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{hoja, {Raw: []byte("otra")}},
+		VerifiedChains:   [][]*x509.Certificate{{hoja, raiz}},
+	}}
+	if obtenida := peticionIdentidadConsultasContratacionTemporalDesarrollo(adulterada); obtenida != adulterada {
+		t.Fatal("una cadena presentada ajena a la verificada fue normalizada")
 	}
 }
 
