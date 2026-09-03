@@ -28,7 +28,11 @@ const (
 	organizacionAltaContratacionTemporalDesarrollo = "organizacion:desarrollo:dipgra"
 	centroAltaContratacionTemporalDesarrollo       = "centro:desarrollo:001"
 	categoriaAltaContratacionTemporalDesarrollo    = "categoria:desarrollo:c2"
+	unidadCoberturaContratacionTemporalDesarrollo  = "unidad:desarrollo:rrhh"
 	motivoAltaContratacionTemporalDesarrollo       = domain.ClaveCatalogo("sustitucion")
+	accionPropuestaCoberturaDesarrollo             = "contratacion_temporal.cobertura.propuesta.consultar"
+	finalidadPropuestaCoberturaDesarrollo          = "presentar_propuesta_cobertura"
+	finalidadDecisionCoberturaDesarrollo           = "tramitar_cobertura_temporal"
 )
 
 var errAltaContratacionTemporalDesarrolloNoDisponible = errors.New(
@@ -45,17 +49,22 @@ func (relojContratacionTemporalDesarrollo) Ahora() time.Time {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
-	mu                sync.Mutex
-	sello             *selloConsultasContratacionTemporalDesarrollo
-	principalID       string
-	certificadoSHA256 string
-	contexto          ports.ContextoAutorizacionAltaV3
-	flujo             ports.ConfiguracionAltaFlujo
-	motivo            dominiovec.ReferenciaEntradaCatalogo
-	instantanea       dominiovec.InstantaneaAutorizacion
-	ambitos           ports.SelladorAmbitoIdempotencia
-	reloj             relojContratacionTemporalDesarrollo
-	concesiones       map[string]struct{}
+	mu                           sync.Mutex
+	sello                        *selloConsultasContratacionTemporalDesarrollo
+	principalID                  string
+	certificadoSHA256            string
+	contexto                     ports.ContextoAutorizacionAltaV3
+	flujo                        ports.ConfiguracionAltaFlujo
+	motivo                       dominiovec.ReferenciaEntradaCatalogo
+	instantanea                  dominiovec.InstantaneaAutorizacion
+	instantaneaCobertura         dominiovec.InstantaneaAutorizacion
+	motivoPropuestaCobertura     dominiovec.ReferenciaEntradaCatalogo
+	motivoDecisionCobertura      dominiovec.ReferenciaEntradaCatalogo
+	motivoRectificacionCobertura dominiovec.ReferenciaEntradaCatalogo
+	motivoResultadoCobertura     dominiovec.ReferenciaEntradaCatalogo
+	ambitos                      ports.SelladorAmbitoIdempotencia
+	reloj                        relojContratacionTemporalDesarrollo
+	concesiones                  map[string]struct{}
 }
 
 func nuevaRutaAltaContratacionTemporalDesarrollo(
@@ -107,15 +116,41 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	instantanea, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		datosVinculo.PrincipalID, datosVinculo.PerfilActivoRef, ahora,
 	)
-	if err != nil || flujo.Validar() != nil ||
+	instantaneaCobertura, errCobertura :=
+		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+			datosVinculo.PrincipalID,
+			datosVinculo.PerfilActivoRef,
+			ahora,
+		)
+	motivoPropuesta := referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta")
+	motivoDecision := referenciaMotivoAutorizacionCoberturaDesarrollo("decision")
+	motivoRectificacion := referenciaMotivoAutorizacionCoberturaDesarrollo("rectificacion")
+	motivoResultado := referenciaMotivoAutorizacionCoberturaDesarrollo("resultado")
+	if err != nil || errCobertura != nil || flujo.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return vechttp.RutaExacta{}, nil, errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	for _, referencia := range []dominiovec.ReferenciaEntradaCatalogo{
+		motivoPropuesta,
+		motivoDecision,
+		motivoRectificacion,
+		motivoResultado,
+	} {
+		if !dominiovec.ReferenciaMotivoAutorizacionV2Valida(referencia) {
+			return vechttp.RutaExacta{}, nil,
+				errAltaContratacionTemporalDesarrolloNoDisponible
+		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
 		sello: sello, principalID: identidad.principal.ID,
 		certificadoSHA256: identidad.principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
-		ambitos: ambitos, reloj: reloj,
+		instantaneaCobertura:         instantaneaCobertura,
+		motivoPropuestaCobertura:     motivoPropuesta,
+		motivoDecisionCobertura:      motivoDecision,
+		motivoRectificacionCobertura: motivoRectificacion,
+		motivoResultadoCobertura:     motivoResultado,
+		ambitos:                      ambitos, reloj: reloj,
 		concesiones: make(map[string]struct{}),
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
@@ -155,18 +190,40 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 func (s *soporteAltaContratacionTemporalDesarrollo) capacidadAltaValida(
 	ctx context.Context,
 ) bool {
-	if s == nil || ctx == nil || ctx.Err() != nil || s.sello == nil ||
+	capacidad, valida := s.capacidadValida(ctx)
+	return valida && capacidad.ruta == httpinterno.RutaAltaSolicitudes
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
+	ctx context.Context,
+) (capacidadConsultaContratacionTemporalDesarrollo, bool) {
+	if s == nil || contextoInterfazNulo(ctx) || ctx.Err() != nil || s.sello == nil ||
 		s.principalID == "" || s.certificadoSHA256 == "" {
-		return false
+		return capacidadConsultaContratacionTemporalDesarrollo{}, false
 	}
 	capacidad, existe := ctx.Value(
 		claveCapacidadConsultasContratacionTemporalDesarrollo{},
 	).(capacidadConsultaContratacionTemporalDesarrollo)
-	return existe && capacidad.sello == s.sello &&
-		capacidad.ruta == httpinterno.RutaAltaSolicitudes &&
+	valida := existe && capacidad.sello == s.sello &&
 		principalContratacionTemporalDesarrolloValido(capacidad.principal) &&
 		capacidad.principal.ID == s.principalID &&
 		capacidad.principal.Attributes["certificate_sha256"] == s.certificadoSHA256
+	return capacidad, valida
+}
+
+func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaAltaSolicitudes ||
+		ruta == httpinterno.RutaPropuestaCobertura ||
+		ruta == httpinterno.RutaDecisionCobertura ||
+		ruta == httpinterno.RutaRectificacionCobertura
+
+}
+
+func rutaCoberturaContratacionTemporalDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaPropuestaCobertura ||
+		ruta == httpinterno.RutaDecisionCobertura ||
+		ruta == httpinterno.RutaRectificacionCobertura ||
+		ruta == httpinterno.RutaResultadoCobertura
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAlta(
@@ -191,7 +248,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoAutorizacion
 	ctx context.Context,
 	solicitud ports.SolicitudResolverContextoAutorizacionAltaV3,
 ) (ports.ContextoAutorizacionAltaV3, error) {
-	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil {
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida || !rutaContextoAutorizacionContratacionTemporalDesarrollo(capacidad.ruta) ||
+		solicitud.Validar() != nil {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
 	vinculo, err := s.contexto.Vinculo.Datos()
@@ -241,12 +300,20 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ObtenerInstantaneaAutorizaci
 	principalID string,
 	perfilRef string,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	if !s.capacidadAltaValida(ctx) ||
-		principalID != s.instantanea.AsignacionPerfil.PrincipalID ||
-		perfilRef != s.instantanea.AsignacionPerfil.PerfilActivoRef {
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida || (!rutaContextoAutorizacionContratacionTemporalDesarrollo(capacidad.ruta) &&
+		capacidad.ruta != httpinterno.RutaResultadoCobertura) {
 		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
 	}
-	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), nil
+	instantanea := s.instantanea
+	if rutaCoberturaContratacionTemporalDesarrollo(capacidad.ruta) {
+		instantanea = s.instantaneaCobertura
+	}
+	if principalID != instantanea.AsignacionPerfil.PrincipalID ||
+		perfilRef != instantanea.AsignacionPerfil.PerfilActivoRef {
+		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
+	}
+	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(instantanea), nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) ValidarReferenciaMotivoAutorizacionV2(
@@ -254,7 +321,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ValidarReferenciaMotivoAutor
 	referencia dominiovec.ReferenciaEntradaCatalogo,
 	instante time.Time,
 ) error {
-	if !s.capacidadAltaValida(ctx) || referencia != s.motivo ||
+	capacidad, valida := s.capacidadValida(ctx)
+	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	if !valida || !motivoValido || referencia != esperada ||
 		!domain.InstanteUTCCanonico(instante) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
@@ -265,11 +334,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	ctx context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 ) (time.Time, error) {
-	if !s.capacidadAltaValida(ctx) || s.instantanea.Validar() != nil {
+	capacidad, valida := s.capacidadValida(ctx)
+	instantanea, instantaneaValida := s.instantaneaParaRuta(capacidad.ruta)
+	if !valida || !instantaneaValida || instantanea.Validar() != nil {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
 	datos, err := orden.Datos()
-	if err != nil || datos.ReferenciaMotivo != s.motivo ||
+	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada ||
 		datos.ResultadoContexto.Validar() != nil ||
 		datos.Decision.ValidarPara(datos.Solicitud) != nil {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
@@ -290,11 +362,53 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	ctx context.Context,
 	orden puertosvec.OrdenRegistroDenegacionAutorizacionLigadaV3,
 ) error {
-	if !s.capacidadAltaValida(ctx) {
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
-	_, err := orden.Datos()
-	return err
+	datos, err := orden.Datos()
+	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
+		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	return nil
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
+	ruta string,
+) (dominiovec.ReferenciaEntradaCatalogo, bool) {
+	if s == nil {
+		return dominiovec.ReferenciaEntradaCatalogo{}, false
+	}
+	switch ruta {
+	case httpinterno.RutaAltaSolicitudes:
+		return s.motivo, true
+	case httpinterno.RutaPropuestaCobertura:
+		return s.motivoPropuestaCobertura, true
+	case httpinterno.RutaDecisionCobertura:
+		return s.motivoDecisionCobertura, true
+	case httpinterno.RutaRectificacionCobertura:
+		return s.motivoRectificacionCobertura, true
+	case httpinterno.RutaResultadoCobertura:
+		return s.motivoResultadoCobertura, true
+	default:
+		return dominiovec.ReferenciaEntradaCatalogo{}, false
+	}
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
+	ruta string,
+) (dominiovec.InstantaneaAutorizacion, bool) {
+	if s == nil {
+		return dominiovec.InstantaneaAutorizacion{}, false
+	}
+	if ruta == httpinterno.RutaAltaSolicitudes {
+		return s.instantanea, true
+	}
+	if rutaCoberturaContratacionTemporalDesarrollo(ruta) {
+		return s.instantaneaCobertura, true
+	}
+	return dominiovec.InstantaneaAutorizacion{}, false
 }
 
 func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
@@ -302,35 +416,92 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 	perfilRef string,
 	ahora time.Time,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	publicadaEn := ahora.Add(-48 * time.Hour)
-	version := dominiovec.VersionRol{
-		RolID: "tecnico_rrhh_desarrollo", Version: 1,
-		Nombre: "Tecnico RRHH de desarrollo",
-		Estado: dominiovec.EstadoVersionRolPublicada,
-		Concesiones: []dominiovec.ConcesionRol{{
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		principalID,
+		perfilRef,
+		ahora,
+		"tecnico_rrhh_desarrollo",
+		"Tecnico RRHH de desarrollo",
+		"asignacion-rrhh-desarrollo-no-autoritativa",
+		[]dominiovec.ConcesionRol{{
 			Accion:         ports.AccionCrearSolicitud,
 			ModuloID:       ports.ModuloContratacion,
 			TipoRecurso:    ports.TipoRecursoExpediente,
 			Finalidades:    []string{ports.FinalidadCrearSolicitud},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		PublicadaPor: "seguridad:desarrollo:no-autoritativa",
-		PublicadaEn:  publicadaEn,
-	}
-	asignacion := dominiovec.AsignacionPerfil{
-		AsignacionID: "asignacion-rrhh-desarrollo-no-autoritativa",
-		Version:      1, PerfilActivoRef: perfilRef, PrincipalID: principalID,
-		VersionRolRef: version.Referencia(),
-		Estado:        dominiovec.EstadoAsignacionPerfilActiva,
-		Ambitos: []dominiovec.AmbitoPerfil{
+		[]dominiovec.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
 			{Clave: "centro_ref", Valores: []string{centroAltaContratacionTemporalDesarrollo}},
 			{Clave: "categoria_ref", Valores: []string{categoriaAltaContratacionTemporalDesarrollo}},
 		},
-		VigenteDesde: ahora.Add(-time.Hour),
-		VigenteHasta: ahora.Add(24 * time.Hour),
-		EmitidaPor:   "identidad:desarrollo:no-autoritativa",
-		EmitidaEn:    ahora.Add(-2 * time.Hour),
+	)
+}
+
+func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+	principalID string,
+	perfilRef string,
+	ahora time.Time,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
+		return dominiovec.ConcesionRol{
+			Accion: accion, ModuloID: ports.ModuloContratacion,
+			TipoRecurso:    ports.TipoRecursoExpediente,
+			Finalidades:    []string{finalidad},
+			GarantiaMinima: dominiovec.AuthAssuranceHigh,
+		}
+	}
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		principalID,
+		perfilRef,
+		ahora,
+		"tecnico_rrhh_cobertura_desarrollo",
+		"Tecnico RRHH de cobertura de desarrollo",
+		"asignacion-rrhh-cobertura-desarrollo-no-autoritativa",
+		[]dominiovec.ConcesionRol{
+			concesion(accionPropuestaCoberturaDesarrollo, finalidadPropuestaCoberturaDesarrollo),
+			concesion(string(domain.AccionDecidirCoberturaGobernada), finalidadDecisionCoberturaDesarrollo),
+			concesion(string(domain.AccionRectificarCoberturaGobernada), finalidadDecisionCoberturaDesarrollo),
+			concesion(
+				string(ports.AccionConsultarResultadoCobertura),
+				string(ports.FinalidadRecuperarResultadoCobertura),
+			),
+		},
+		[]dominiovec.AmbitoPerfil{
+			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "unidad_ejecutora_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
+		},
+	)
+}
+
+func nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+	principalID string,
+	perfilRef string,
+	ahora time.Time,
+	rolID string,
+	nombreRol string,
+	asignacionID string,
+	concesiones []dominiovec.ConcesionRol,
+	ambitos []dominiovec.AmbitoPerfil,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	publicadaEn := ahora.Add(-48 * time.Hour)
+	version := dominiovec.VersionRol{
+		RolID: rolID, Version: 1, Nombre: nombreRol,
+		Estado:       dominiovec.EstadoVersionRolPublicada,
+		Concesiones:  concesiones,
+		PublicadaPor: "seguridad:desarrollo:no-autoritativa",
+		PublicadaEn:  publicadaEn,
+	}
+	asignacion := dominiovec.AsignacionPerfil{
+		AsignacionID: asignacionID,
+		Version:      1, PerfilActivoRef: perfilRef, PrincipalID: principalID,
+		VersionRolRef: version.Referencia(),
+		Estado:        dominiovec.EstadoAsignacionPerfilActiva,
+		Ambitos:       ambitos,
+		VigenteDesde:  ahora.Add(-time.Hour),
+		VigenteHasta:  ahora.Add(24 * time.Hour),
+		EmitidaPor:    "identidad:desarrollo:no-autoritativa",
+		EmitidaEn:     ahora.Add(-2 * time.Hour),
 	}
 	huellaPoliticas, err := dominiovec.HuellaCatalogoPoliticasAutorizacion(nil)
 	if err != nil {
@@ -351,6 +522,20 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	return instantanea, nil
+}
+
+func referenciaMotivoAutorizacionCoberturaDesarrollo(
+	operacion string,
+) dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID:           "motivos_autorizacion_cobertura",
+		CatalogoVersion:      1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-cobertura"),
+		EntradaClave: referenciaAltaContratacionTemporalDesarrollo(
+			"motivo_",
+			"cobertura-"+operacion,
+		),
+	}
 }
 
 func clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
