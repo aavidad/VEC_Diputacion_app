@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -23,8 +25,9 @@ type selloConsultasContratacionTemporalDesarrollo struct{}
 type claveCapacidadConsultasContratacionTemporalDesarrollo struct{}
 
 type capacidadConsultaContratacionTemporalDesarrollo struct {
-	sello *selloConsultasContratacionTemporalDesarrollo
-	ruta  string
+	sello     *selloConsultasContratacionTemporalDesarrollo
+	ruta      string
+	principal vecdomain.Principal
 }
 
 // autoridadConsultasContratacionTemporalDesarrollo solo reconoce capacidades
@@ -35,9 +38,10 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	resolvedor *resolvedorIdentidadDesarrollo
 }
 
-func nuevasRutasConsultasContratacionTemporalDesarrollo(
+func nuevasRutasContratacionTemporalDesarrollo(
 	cfg config.Config,
 	resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo,
 ) (
 	[]vechttp.RutaExacta,
 	*autoridadConsultasContratacionTemporalDesarrollo,
@@ -46,10 +50,19 @@ func nuevasRutasConsultasContratacionTemporalDesarrollo(
 	cfg = cfg.Normalize()
 	resolvedorDesarrollo, esDesarrollo := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil ||
-		!esDesarrollo || resolvedorDesarrollo == nil {
+		!esDesarrollo || resolvedorDesarrollo == nil || derivador == nil ||
+		!derivador.valido() {
 		return nil, nil, ErrActivacionDesarrolloInvalida
 	}
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
+	sello := &selloConsultasContratacionTemporalDesarrollo{}
+	reloj := relojContratacionTemporalDesarrollo{}
+	rutaAlta, err := nuevaRutaAltaContratacionTemporalDesarrollo(
+		origen, resolvedorDesarrollo, derivador, sello, reloj,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 	cuadro, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(
 		&consultorCuadroContratacionTemporalDesarrollo{origen: origen},
 	)
@@ -63,10 +76,11 @@ func nuevasRutasConsultasContratacionTemporalDesarrollo(
 		return nil, nil, err
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:      &selloConsultasContratacionTemporalDesarrollo{},
+		sello:      sello,
 		resolvedor: resolvedorDesarrollo,
 	}
 	return []vechttp.RutaExacta{
+		rutaAlta,
 		{Ruta: httpinterno.RutaConsultaCuadroRRHH, Manejador: cuadro},
 		{Ruta: httpinterno.RutaConsultaDetalleRRHH, Manejador: detalle},
 	}, autoridad, nil
@@ -115,7 +129,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
-	if !esRutaConsultaContratacionTemporalDesarrollo(r) {
+	if !esRutaContratacionTemporalDesarrollo(r) {
 		m.siguiente.ServeHTTP(w, r)
 		return
 	}
@@ -124,8 +138,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	)
 	if err == nil && principalContratacionTemporalDesarrolloValido(principal) {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
-			sello: m.autoridad.sello,
-			ruta:  r.URL.Path,
+			sello:     m.autoridad.sello,
+			ruta:      r.URL.Path,
+			principal: clonarPrincipalDesarrollo(principal),
 		}
 		r = r.WithContext(context.WithValue(
 			r.Context(),
@@ -164,11 +179,12 @@ func peticionIdentidadConsultasContratacionTemporalDesarrollo(
 	return copia
 }
 
-func esRutaConsultaContratacionTemporalDesarrollo(r *http.Request) bool {
+func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if r == nil || r.URL == nil {
 		return false
 	}
-	return r.URL.Path == httpinterno.RutaConsultaCuadroRRHH ||
+	return r.URL.Path == httpinterno.RutaAltaSolicitudes ||
+		r.URL.Path == httpinterno.RutaConsultaCuadroRRHH ||
 		r.URL.Path == httpinterno.RutaConsultaDetalleRRHH
 }
 
@@ -178,6 +194,8 @@ func principalContratacionTemporalDesarrolloValido(
 	return principal.Validate() == nil &&
 		principal.AuthMethod == vecdomain.AuthMethodCertificate &&
 		principal.AuthAssurance == vecdomain.AuthAssuranceHigh &&
+		len(principal.Roles) == 1 && principal.Roles[0] == "tecnico_rrhh" &&
+		len(principal.Permissions) == 0 &&
 		principal.Attributes["autoridad"] == AutoridadNoAutoritativa &&
 		principal.Attributes["perfil_ejecucion"] == config.ExecutionProfileDevelopment
 }
@@ -186,8 +204,10 @@ func principalContratacionTemporalDesarrolloValido(
 // sintetica y no autoritativa. Solo satisface los puertos de lectura existentes
 // para que la interfaz pueda demostrar el cuadro y su detalle.
 type origenConsultasContratacionTemporalDesarrollo struct {
-	pagina  ports.PaginaCuadroRRHH
-	detalle ports.DetalleExpedienteRRHH
+	mu        sync.RWMutex
+	autoridad string
+	pagina    ports.PaginaCuadroRRHH
+	detalles  map[string]ports.DetalleExpedienteRRHH
 }
 
 func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContratacionTemporalDesarrollo {
@@ -249,12 +269,69 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContra
 		},
 	}
 	return &origenConsultasContratacionTemporalDesarrollo{
+		autoridad: AutoridadNoAutoritativa,
 		pagina: ports.PaginaCuadroRRHH{
 			GeneradaEn:  actualizadoEn.Add(time.Minute),
 			Expedientes: []ports.ResumenExpedienteRRHH{resumen},
 		},
-		detalle: detalle,
+		detalles: map[string]ports.DetalleExpedienteRRHH{
+			expedienteContratacionTemporalDesarrolloRef: detalle,
+		},
 	}
+}
+
+func (o *origenConsultasContratacionTemporalDesarrollo) registrarExpediente(
+	expediente domain.Expediente,
+) error {
+	if o == nil || o.autoridad != AutoridadNoAutoritativa || expediente.Validar() != nil {
+		return application.ErrConsultaRRHHNoDisponible
+	}
+	resumen := ports.ResumenExpedienteRRHH{
+		ExpedienteRef: expediente.Referencia, OrganizacionRef: expediente.OrganizacionRef,
+		NumeroVisible: expediente.NumeroVisible, Version: expediente.Version,
+		FlujoRef: expediente.Flujo.DefinicionRef, FlujoVersion: expediente.Flujo.Version,
+		FlujoHuella: expediente.Flujo.HuellaSHA256, FaseClave: expediente.FaseActual,
+		EstadoClave: expediente.EstadoActual, CentroRef: expediente.Solicitud.CentroRef,
+		CategoriaRef: expediente.Solicitud.CategoriaRef,
+		CreadoEn:     expediente.CreadoEn, ActualizadoEn: expediente.ActualizadoEn,
+	}
+	hitos := make([]ports.HitoExpedienteRRHH, len(expediente.Actuaciones))
+	for indice, actuacion := range expediente.Actuaciones {
+		hitos[indice] = ports.HitoExpedienteRRHH{
+			Secuencia: actuacion.Secuencia, VersionExpediente: actuacion.VersionExpediente,
+			AccionClave: actuacion.AccionClave, RealizadaEn: actuacion.RealizadaEn,
+			FaseOrigen: actuacion.FaseOrigen, FaseDestino: actuacion.FaseDestino,
+			EstadoOrigen: actuacion.EstadoOrigen, EstadoDestino: actuacion.EstadoDestino,
+		}
+	}
+	detalle := ports.DetalleExpedienteRRHH{
+		Resumen: resumen,
+		Solicitud: ports.SolicitudOperativaRRHH{
+			GrupoSubgrupo: expediente.Solicitud.GrupoSubgrupo,
+			MotivoClave:   expediente.Solicitud.MotivoClave,
+			PeriodoInicio: expediente.Solicitud.Periodo.Inicio,
+			PeriodoFin:    expediente.Solicitud.Periodo.Fin,
+		},
+		Hitos: hitos,
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if _, existe := o.detalles[expediente.Referencia]; existe {
+		return application.ErrConsultaRRHHNoDisponible
+	}
+	o.pagina.Expedientes = append(o.pagina.Expedientes, resumen)
+	sort.Slice(o.pagina.Expedientes, func(i, j int) bool {
+		primero, segundo := o.pagina.Expedientes[i], o.pagina.Expedientes[j]
+		if !primero.ActualizadoEn.Equal(segundo.ActualizadoEn) {
+			return primero.ActualizadoEn.After(segundo.ActualizadoEn)
+		}
+		return primero.ExpedienteRef > segundo.ExpedienteRef
+	})
+	if o.pagina.GeneradaEn.Before(expediente.ActualizadoEn) {
+		o.pagina.GeneradaEn = expediente.ActualizadoEn
+	}
+	o.detalles[expediente.Referencia] = detalle
+	return nil
 }
 
 type consultorCuadroContratacionTemporalDesarrollo struct {
@@ -271,17 +348,27 @@ func (c *consultorCuadroContratacionTemporalDesarrollo) Consultar(
 	if err := ctx.Err(); err != nil {
 		return ports.PaginaCuadroRRHH{}, err
 	}
-	if c == nil || c.origen == nil || len(c.origen.pagina.Expedientes) != 1 {
+	if c == nil || c.origen == nil {
 		return ports.PaginaCuadroRRHH{}, application.ErrConsultaRRHHNoDisponible
 	}
-	resumen := c.origen.pagina.Expedientes[0]
-	coincide := solicitud.Cursor() == "" &&
-		(solicitud.Texto() == "" || strings.HasPrefix(resumen.NumeroVisible, solicitud.Texto())) &&
-		(solicitud.EstadoClave() == "" || solicitud.EstadoClave() == resumen.EstadoClave) &&
-		(solicitud.FaseClave() == "" || solicitud.FaseClave() == resumen.FaseClave)
-	expedientes := make([]ports.ResumenExpedienteRRHH, 0, 1)
-	if coincide {
-		expedientes = append(expedientes, resumen)
+	c.origen.mu.RLock()
+	defer c.origen.mu.RUnlock()
+	if c.origen.autoridad != AutoridadNoAutoritativa {
+		return ports.PaginaCuadroRRHH{}, application.ErrConsultaRRHHNoDisponible
+	}
+	expedientes := make([]ports.ResumenExpedienteRRHH, 0, len(c.origen.pagina.Expedientes))
+	if solicitud.Cursor() == "" {
+		for _, resumen := range c.origen.pagina.Expedientes {
+			coincide := (solicitud.Texto() == "" || strings.HasPrefix(resumen.NumeroVisible, solicitud.Texto())) &&
+				(solicitud.EstadoClave() == "" || solicitud.EstadoClave() == resumen.EstadoClave) &&
+				(solicitud.FaseClave() == "" || solicitud.FaseClave() == resumen.FaseClave)
+			if coincide {
+				expedientes = append(expedientes, resumen)
+			}
+		}
+	}
+	if len(expedientes) > int(solicitud.Limite()) {
+		return ports.PaginaCuadroRRHH{}, application.ErrConsultaRRHHNoDisponible
 	}
 	return ports.PaginaCuadroRRHH{
 		GeneradaEn:  c.origen.pagina.GeneradaEn,
@@ -306,10 +393,13 @@ func (c *consultorDetalleContratacionTemporalDesarrollo) Consultar(
 	if c == nil || c.origen == nil {
 		return ports.DetalleExpedienteRRHH{}, application.ErrConsultaRRHHNoDisponible
 	}
-	if solicitud.ExpedienteRef() != c.origen.detalle.Resumen.ExpedienteRef ||
+	c.origen.mu.RLock()
+	defer c.origen.mu.RUnlock()
+	detalle, existe := c.origen.detalles[solicitud.ExpedienteRef()]
+	if c.origen.autoridad != AutoridadNoAutoritativa || !existe ||
 		solicitud.VersionObservada() != 0 &&
-			solicitud.VersionObservada() != c.origen.detalle.Resumen.Version {
+			solicitud.VersionObservada() != detalle.Resumen.Version {
 		return ports.DetalleExpedienteRRHH{}, application.ErrConsultaRRHHNoObservable
 	}
-	return c.origen.detalle.Clonar(), nil
+	return detalle.Clonar(), nil
 }
