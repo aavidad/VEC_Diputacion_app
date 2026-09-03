@@ -13,6 +13,7 @@ import {
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js";
+import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
   {
@@ -29,6 +30,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
       "/api/vec/contratacion-temporal/analisis/registros",
     rectificacionAnalisis:
       "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    ...RUTAS_CONSULTA_RRHH,
   },
 );
 
@@ -417,7 +419,10 @@ function claveI18nValida(ruta, codigo, clave) {
   }
   const prefijo = ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
     ? "api.contratacion_temporal.alta.error."
-    : "api.contratacion_temporal.cobertura.error.";
+    : ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH
+      || ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH
+      ? "api.contratacion_temporal.consulta_rrhh.error."
+      : "api.contratacion_temporal.cobertura.error.";
   return clave === `${prefijo}${codigo}`;
 }
 
@@ -781,6 +786,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
 
   return Object.freeze({
     modo: "http",
+    ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
     registrarSolicitud,
     proponerCobertura,
     decidirCobertura,
