@@ -179,6 +179,35 @@ test("rechaza entradas y proyecciones ambiguas antes de publicarlas", async () =
   assert.equal(llamadas, 1);
 });
 
+test("rechaza un getter mutable antes de consultar el cuadro RRHH", () => {
+  let lecturas = 0;
+  let llamadas = 0;
+  const filtros = {
+    estado_clave: "",
+    fase_clave: "",
+  };
+  Object.defineProperty(filtros, "texto", {
+    enumerable: true,
+    get() {
+      lecturas += 1;
+      return lecturas === 1 ? "" : "correo@invalid.example";
+    },
+  });
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async () => {
+      llamadas += 1;
+      return respuesta({ data: {} });
+    },
+  });
+
+  assert.throws(() => cliente.consultarCuadroRRHH({
+    filtros,
+    paginacion: { limite: 50, cursor: "" },
+  }), /solicitud de cuadro RRHH no válida/);
+  assert.equal(lecturas, 0);
+  assert.equal(llamadas, 0);
+});
+
 test("acepta el error cerrado propio de consulta RRHH", async () => {
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl: async () => respuesta({ error: {

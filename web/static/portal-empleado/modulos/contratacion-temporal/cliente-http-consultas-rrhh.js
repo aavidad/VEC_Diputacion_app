@@ -22,8 +22,19 @@ export const RUTAS_CONSULTA_RRHH = Object.freeze({
 });
 
 function esRegistro(valor) {
-  return valor !== null && typeof valor === "object" && !Array.isArray(valor)
-    && Object.getPrototypeOf(valor) === Object.prototype;
+  if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
+    return false;
+  }
+  try {
+    if (Object.getPrototypeOf(valor) !== Object.prototype
+      || Object.getOwnPropertySymbols(valor).length !== 0) return false;
+    return Object.values(Object.getOwnPropertyDescriptors(valor)).every(
+      (descriptor) => Object.hasOwn(descriptor, "value")
+        && descriptor.enumerable === true,
+    );
+  } catch {
+    return false;
+  }
 }
 
 function camposCerrados(valor, obligatorios, opcionales = []) {
