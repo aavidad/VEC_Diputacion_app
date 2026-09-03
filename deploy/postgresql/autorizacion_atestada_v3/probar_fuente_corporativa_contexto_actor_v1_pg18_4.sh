@@ -67,7 +67,7 @@ readonly ruta_capturador='deploy/postgresql/autorizacion_atestada_v3/pruebas_sql
 readonly sha256_helper_sql='a07057fb15315c5d2d0d10d6f3beea85f196fc78598cfcc4d1f63918bcbadde5'
 readonly sha256_helper_h0b='02a00f2fc49e181d1cf8ed147a927155899956dbdbd7f36f3443ee4d7cbafded'
 readonly sha256_helper_operativo='681efbbd7f856eb539d1656cffed87c26f48609e65d6d6adf8265c350ae69442'
-readonly sha256_adaptador_m38='98d22a302bfd8ad3964b9135ce78c655f7a31171088ad9c5c49c285f647a8cb7'
+readonly sha256_adaptador_m38='adaca5a5420da77beb2c1becabd07644e662a2f8de6edde00b633e47b38cd871'
 readonly sha256_supervisor_m38='6b7f93b8b43c1040cc4ae2b6322c4e99e914eee415475e3fd50bf294b5a17afb'
 readonly sha256_supervisor_m38_control_preinicio='2befe2a4c16fc7a57aacd421ea6c8419ab49160bb2ae0d0eb6f03786194aa744'
 readonly sha256_supervisor_m38_control_preinicio_pruebas='10ccaf8347bfcaa5f3990b75b4c9becd62cd39b60249b628af6c7a1fc6bc8867'
@@ -565,7 +565,7 @@ cid_contenedor="${temporales}/contenedor.cid"
 intencion_contenedor='1'
 if [[ "${modo_m38}" != hijo ]]; then
     [[ ! -e "${cid_contenedor}" && ! -L "${cid_contenedor}" ]] || fallar 'ruta cidfile no exclusiva'
-    docker run --detach --name "${contenedor}" --network none \
+    docker run --pull=never --detach --name "${contenedor}" --network none \
         --label "es.dipgra.vep.f0.propietario=${propietario_contenedor}" \
         --cidfile "${cid_contenedor}" --env POSTGRES_PASSWORD="${clave_postgres}" \
         --env POSTGRES_INITDB_ARGS='--auth-local=trust' \

@@ -109,7 +109,7 @@ preparar_recursos_m38_f0() {
     propietario_contenedor="${identidad_activa_m38}"
     cid_contenedor="${ruta_caso_m38}/contenedor.cid"; intencion_contenedor=1
     clave_postgres="$(openssl rand -hex 24)" || return 65
-    esperar_cliente_m38_f0 30 docker run --detach --name "${contenedor}" --network none \
+    esperar_cliente_m38_f0 30 docker run --pull=never --detach --name "${contenedor}" --network none \
         --label "es.dipgra.vep.f0.propietario=${propietario_contenedor}" --cidfile "${cid_contenedor}" \
         --env POSTGRES_PASSWORD="${clave_postgres}" --env POSTGRES_INITDB_ARGS=--auth-local=trust \
         --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=768m "${imagen}" \

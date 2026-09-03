@@ -3,7 +3,10 @@
 // permisos ni sustituye la decisión del PDP.
 package contrataciontemporal
 
-import "vec-diputacion-granada/internal/vec/domain"
+import (
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/domain"
+)
 
 const (
 	ModuleID = "vec.module.contratacion_temporal"
@@ -15,7 +18,8 @@ const (
 	PermisoEnviarAnalisis                = "contratacion_temporal.solicitud.enviar_analisis"
 	PermisoAnalizarSolicitud             = "contratacion_temporal.analisis.validar"
 	PermisoDecidirViaCobertura           = "contratacion_temporal.cobertura.decidir"
-	PermisoAsignarUnidad                 = "contratacion_temporal.unidad.asignar"
+	PermisoAsignarUnidad                 = ports.AccionRegistrarAsignacion
+	PermisoReasignarUnidad               = ports.AccionRegistrarReasignacion
 	PermisoPrepararInforme               = "contratacion_temporal.informe.preparar"
 	PermisoFirmarInforme                 = "contratacion_temporal.informe.firmar"
 	PermisoSolicitarFiscalizacion        = "contratacion_temporal.fiscalizacion.solicitar"
@@ -42,7 +46,7 @@ func Manifest() domain.ModuleManifest {
 		ID:             ModuleID,
 		NameKey:        "ui.vec.module.contratacion_temporal.name",
 		DescriptionKey: "ui.vec.module.contratacion_temporal.description",
-		Version:        "v0.2.0",
+		Version:        "v0.3.0",
 		Group:          "recursos_humanos",
 		BasePath:       "/modules/contratacion-temporal",
 		Permissions: []domain.Permission{
@@ -54,6 +58,7 @@ func Manifest() domain.ModuleManifest {
 			{Key: PermisoAnalizarSolicitud, LabelKey: "ui.permission.contratacion_temporal.analisis"},
 			{Key: PermisoDecidirViaCobertura, LabelKey: "ui.permission.contratacion_temporal.cobertura"},
 			{Key: PermisoAsignarUnidad, LabelKey: "ui.permission.contratacion_temporal.asignacion"},
+			{Key: PermisoReasignarUnidad, LabelKey: "ui.permission.contratacion_temporal.reasignacion"},
 			{Key: PermisoPrepararInforme, LabelKey: "ui.permission.contratacion_temporal.informe_preparar"},
 			{Key: PermisoFirmarInforme, LabelKey: "ui.permission.contratacion_temporal.informe_firmar"},
 			{Key: PermisoSolicitarFiscalizacion, LabelKey: "ui.permission.contratacion_temporal.fiscalizacion_solicitar"},

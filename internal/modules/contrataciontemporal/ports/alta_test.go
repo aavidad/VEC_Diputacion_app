@@ -604,6 +604,62 @@ func TestReciboAsignacionQuedaLigadoALaPreparacion(t *testing.T) {
 	}
 }
 
+func TestFronteraConfirmacionCandidataEsAditivaYCerrada(t *testing.T) {
+	if _, err := NuevaOrdenConfirmarAltaCandidata(
+		DatosOrdenConfirmarAltaCandidata{},
+	); !errors.Is(err, ErrOrdenAltaInvalida) {
+		t.Fatalf("orden candidata cero aceptada: %v", err)
+	}
+	if _, err := (OrdenConfirmarAltaCandidata{}).Datos(); !errors.Is(
+		err,
+		ErrOrdenAltaInvalida,
+	) {
+		t.Fatalf("extracción de orden candidata cero aceptada: %v", err)
+	}
+
+	tipoProveedor := reflect.TypeOf((*ProveedorMaterialConfirmacionAlta)(nil)).Elem()
+	metodoProveedor, existe := tipoProveedor.MethodByName("ProveerMaterialConfirmacionAlta")
+	if !existe || metodoProveedor.Type.NumIn() != 2 || metodoProveedor.Type.NumOut() != 2 ||
+		metodoProveedor.Type.In(1) != reflect.TypeOf(OrdenConfirmarAltaCandidata{}) {
+		t.Fatalf("proveedor de material ampliado fuera del contrato: %v", metodoProveedor.Type)
+	}
+	tipoTransaccion := reflect.TypeOf((*TransaccionAltasCandidata)(nil)).Elem()
+	metodoTransaccion, existe := tipoTransaccion.MethodByName("ConfirmarAltaCandidata")
+	if !existe || metodoTransaccion.Type.NumIn() != 2 || metodoTransaccion.Type.NumOut() != 2 ||
+		metodoTransaccion.Type.In(1) != reflect.TypeOf(OrdenConfirmarAltaCandidata{}) ||
+		metodoTransaccion.Type.Out(0) != reflect.TypeOf(ReciboAlta{}) {
+		t.Fatalf("transacción candidata ampliada fuera del contrato: %v", metodoTransaccion.Type)
+	}
+}
+
+func TestHuellaEfectoAltaExigeSHA256CanonicoNoNulo(t *testing.T) {
+	if !huellaSHA256AltaValida(strings.Repeat("a", 64)) {
+		t.Fatal("huella SHA-256 canónica rechazada")
+	}
+	for _, valor := range []string{
+		strings.Repeat("0", 64), strings.Repeat("A", 64), "abc",
+	} {
+		if huellaSHA256AltaValida(valor) {
+			t.Fatalf("huella de efecto inválida aceptada: %q", valor)
+		}
+	}
+}
+
+func TestErroresResultadoAltaSonDistintosYOpaques(t *testing.T) {
+	if ErrResultadoAltaIndeterminado == nil || ErrResultadoAltaNoConfiable == nil {
+		t.Fatal("los errores de resultado deben estar definidos")
+	}
+	if errors.Is(ErrResultadoAltaIndeterminado, ErrResultadoAltaNoConfiable) {
+		t.Fatal("una ambigüedad no puede confundirse con un resultado divergente")
+	}
+	for _, err := range []error{ErrResultadoAltaIndeterminado, ErrResultadoAltaNoConfiable} {
+		texto := err.Error()
+		if strings.Contains(texto, "postgres") || strings.Contains(texto, "sql") || strings.Contains(texto, "recibo_ref") {
+			t.Fatalf("el error filtra detalles internos: %q", texto)
+		}
+	}
+}
+
 func materialHuellaAsignacionPrueba() MaterialHuellaAsignacion {
 	return MaterialHuellaAsignacion{
 		Operacion:         OperacionRegistrarAsignacion,
