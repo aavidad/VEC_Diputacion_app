@@ -134,9 +134,16 @@ instalar_modulo() {
         deploy/postgresql/autorizacion_atestada_v2/migraciones_confianza/000001_cotejo_consumo_atestado_v2.up.sql
     psql_archivo \
         deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
+    psql_archivo \
+        deploy/postgresql/autorizacion_atestada_v2/migraciones/000002_reconciliacion_efecto_v2.up.sql
 }
 
 retirar_modulo() {
+    docker exec --interactive "$contenedor" psql -X --quiet \
+        --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+        --command "SET vec.confirmar_retirada_reconciliacion_efecto_v2='RETIRAR_RECONCILIACION_EFECTO_V2'" \
+        --file=- \
+        < "$raiz/deploy/postgresql/autorizacion_atestada_v2/migraciones/000002_reconciliacion_efecto_v2.down.sql"
     docker exec --interactive "$contenedor" psql -X --quiet \
         --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
         --command "SET vec.confirmar_destruccion_autorizacion_atestada_v2='DESTRUIR_AUTORIZACION_ATESTADA_V2_IRREVERSIBLE'" \
@@ -232,6 +239,8 @@ BEGIN
 END
 $conectar_ajeno$;
 SQL
+psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/reconciliacion_efecto_v2.sql
 
 exigir_snapshot_obsoleto \
     deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/preparar_revocacion_snapshot_clave.sql \
@@ -288,6 +297,9 @@ consulta_login vec_ad2_consumidor_prueba "$clave_consumidor" \
     "SELECT count(*) FROM vec_autorizacion_atestada_v2.reconciliar_consumo_decision_v2('decision:ausente',repeat('1',64),'efecto:ausente',repeat('2',64),repeat('3',64))" \
     >/dev/null
 exigir_rechazo_login vec_ad2_consumidor_prueba "$clave_consumidor" \
+    "SELECT * FROM vec_autorizacion_atestada_v2.reconciliar_consumo_efecto_v2('efecto*invalido',repeat('1',64))" \
+    'el consumidor obtuvo una clasificacion para entrada invalida'
+exigir_rechazo_login vec_ad2_consumidor_prueba "$clave_consumidor" \
     'SELECT count(*) FROM vec_autorizacion_atestada_v2.atestacion_decision_v2' \
     'el consumidor pudo leer tablas'
 exigir_rechazo_login vec_ad2_consumidor_prueba "$clave_consumidor" \
@@ -299,9 +311,15 @@ exigir_rechazo_login vec_ad2_consumidor_prueba "$clave_consumidor" \
 exigir_rechazo_login vec_ad2_emisor_prueba "$clave_emisor" \
     "SELECT * FROM vec_autorizacion_atestada_v2.registrar_y_consumir_decision_v2_atestada('x'::bytea,'x'::bytea,'x'::bytea,repeat('x',16)::bytea,'x'::bytea,repeat('x',44)::bytea,'{}'::jsonb)" \
     'el emisor alcanzo la puerta de consumo'
+exigir_rechazo_login vec_ad2_emisor_prueba "$clave_emisor" \
+    "SELECT * FROM vec_autorizacion_atestada_v2.reconciliar_consumo_efecto_v2('efecto:ausente',repeat('1',64))" \
+    'el emisor alcanzo la reconciliacion de efecto'
 exigir_rechazo_login vec_ad2_ajeno_prueba "$clave_ajeno" \
     'SELECT * FROM vec_autorizacion_atestada_v2.obtener_material_emisor_capacidad()' \
     'un rol ajeno obtuvo material HMAC'
+exigir_rechazo_login vec_ad2_ajeno_prueba "$clave_ajeno" \
+    "SELECT * FROM vec_autorizacion_atestada_v2.reconciliar_consumo_efecto_v2('efecto:ausente',repeat('1',64))" \
+    'un rol ajeno alcanzo la reconciliacion de efecto'
 
 # La cuenta emisora deja de ser valida si acumula otra membresia directa.
 docker exec --interactive "$contenedor" psql -X --quiet \
@@ -461,6 +479,17 @@ for prueba in \
     psql_archivo \
         "deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/$prueba"
 done
+if psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/migraciones/000002_reconciliacion_efecto_v2.down.sql \
+    >/dev/null 2>&1; then
+    echo "el down retiro la reconciliacion sin confirmacion" >&2
+    exit 1
+fi
+docker exec "$contenedor" psql -X -Atq --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" --command \
+    "SELECT to_regprocedure('vec_autorizacion_atestada_v2.reconciliar_consumo_efecto_v2(text,text)') IS NOT NULL" \
+    | grep -qx 't'
+
 
 # Existe historia de clave. El down sin token debe abortar y conservarla.
 if psql_archivo \
