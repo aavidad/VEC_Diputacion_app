@@ -209,7 +209,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion, autoridadContratacion, err := nuevasRutasConsultasContratacionTemporalDesarrollo(cfg, resolvedor)
+	rutasContratacion, autoridadContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
+		cfg, resolvedor, composicion.derivadorIdempotencia,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
