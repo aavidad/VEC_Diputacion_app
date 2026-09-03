@@ -164,13 +164,17 @@ function validarIndicador(entrada, nombre) {
 }
 
 function validarResumen(entrada, nombre) {
-  exigirCamposExactos(entrada, [
+  const tieneFaseClave = Object.hasOwn(entrada, "fase_clave");
+  const campos = [
     "expediente_ref", "numero_visible", "centro", "categoria", "modalidad",
     "estado_clave", "estado", "fase_actual", "fecha_solicitud", "responsable",
     "plazo", "version",
-  ], nombre);
+  ];
+  if (tieneFaseClave) campos.push("fase_clave");
+  exigirCamposExactos(entrada, campos, nombre);
   if (!ESTADOS.has(entrada.estado_clave)
     || !PATRON_NUMERO.test(entrada.numero_visible)
+    || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1) {
     throw new TypeError(`${nombre} no válido`);
   }
@@ -182,6 +186,7 @@ function validarResumen(entrada, nombre) {
     modalidad: cadenaNoVacia(entrada.modalidad, `${nombre}.modalidad`),
     estado_clave: entrada.estado_clave,
     estado: cadenaNoVacia(entrada.estado, `${nombre}.estado`),
+    ...(tieneFaseClave ? { fase_clave: entrada.fase_clave } : {}),
     fase_actual: cadenaNoVacia(entrada.fase_actual, `${nombre}.fase_actual`),
     fecha_solicitud: cadenaNoVacia(entrada.fecha_solicitud, `${nombre}.fecha_solicitud`, 80),
     responsable: cadenaNoVacia(entrada.responsable, `${nombre}.responsable`),

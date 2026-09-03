@@ -90,5 +90,8 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
   assert.equal(consultas, 2);
   assert.match(raiz.innerHTML, /2026\/CT-0001/);
   assert.match(raiz.innerHTML, /categoria:auxiliar/);
+  assert.match(raiz.innerHTML, /option value="solicitud"/);
+  assert.doesNotMatch(raiz.innerHTML, /option value="Solicitud"/);
+  assert.doesNotMatch(raiz.innerHTML, /mis tareas/i);
   assert.doesNotMatch(raiz.innerHTML, /DEMO|demostraci[o√≥]n/i);
 });

@@ -4,9 +4,17 @@ import {
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
 
-const ESTADOS = new Set([
-  "pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado",
+const ESTADOS_SERVIDOR_A_VISUAL = new Map([
+  ["pendiente", "pendiente"],
+  ["en_curso", "en_curso"],
+  ["espera_externa", "espera"],
+  ["completado", "completado"],
+  ["incidencia", "incidencia"],
+  ["cancelado", "cancelado"],
 ]);
+const ESTADOS_VISUAL_A_SERVIDOR = new Map(
+  [...ESTADOS_SERVIDOR_A_VISUAL].map(([servidor, visual]) => [visual, servidor]),
+);
 
 function etiqueta(clave, alternativa = "No consta") {
   if (typeof clave !== "string" || clave === "") return alternativa;
@@ -14,8 +22,17 @@ function etiqueta(clave, alternativa = "No consta") {
   return texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1);
 }
 
-function estado(clave) {
-  return ESTADOS.has(clave) ? clave : "pendiente";
+function estadoVisual(clave) {
+  const visual = ESTADOS_SERVIDOR_A_VISUAL.get(clave);
+  if (visual === undefined) throw new TypeError("estado operativo del servidor no válido");
+  return visual;
+}
+
+function estadoServidor(clave) {
+  if (clave === "") return "";
+  const servidor = ESTADOS_VISUAL_A_SERVIDOR.get(clave);
+  if (servidor === undefined) throw new TypeError("filtro de estado visual no válido");
+  return servidor;
 }
 
 function campo(clave, titulo, valor) {
@@ -31,18 +48,20 @@ function campo(clave, titulo, valor) {
 }
 
 function resumenVisual(entrada) {
+  const estadoClave = estadoVisual(entrada.estado_clave);
   return {
     expediente_ref: entrada.expediente_ref,
     numero_visible: entrada.numero_visible,
     centro: entrada.centro_ref,
     categoria: entrada.categoria_ref,
-    modalidad: etiqueta(entrada.modalidad_clave, "Pendiente de análisis"),
-    estado_clave: estado(entrada.estado_clave),
+    modalidad: etiqueta(entrada.modalidad_clave, "—"),
+    estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave),
+    fase_clave: entrada.fase_clave,
     fase_actual: etiqueta(entrada.fase_clave),
     fecha_solicitud: entrada.creado_en,
-    responsable: entrada.unidad_ref || "Sin unidad asignada",
-    plazo: entrada.actualizado_en,
+    responsable: "—",
+    plazo: "—",
     version: entrada.version,
   };
 }
@@ -103,63 +122,8 @@ function cabeceraDetalle(detalle) {
   return campos;
 }
 
-function normalizarHitos(detalle) {
-  if (detalle.hitos.length > 0) return detalle.hitos;
-  return [{
-    secuencia: 1,
-    version_expediente: detalle.resumen.version,
-    accion_clave: "estado_actual",
-    realizada_en: detalle.resumen.actualizado_en,
-    fase_destino: detalle.resumen.fase_clave,
-    estado_origen: detalle.resumen.estado_clave,
-    estado_destino: detalle.resumen.estado_clave,
-  }];
-}
 
 function proyectarExpediente(detalle) {
-  const hitos = normalizarHitos(detalle);
-  const clavesFases = [...new Set(hitos.map(({ fase_destino: clave }) => clave))];
-  const fases = clavesFases.map((clave, indice) => ({
-    fase_ref: `fase:${clave}`,
-    orden: indice + 1,
-    etiqueta: etiqueta(clave),
-    estado_clave: indice === clavesFases.length - 1
-      ? estado(detalle.resumen.estado_clave) : "completado",
-  }));
-  const tareas = hitos.map((hito, indice) => {
-    const ultima = indice === hitos.length - 1;
-    const estadoTarea = ultima ? estado(detalle.resumen.estado_clave) : "completado";
-    return {
-      tarea_ref: `tarea:hito:${hito.secuencia}`,
-      orden: indice + 1,
-      fase_ref: `fase:${hito.fase_destino}`,
-      etiqueta: etiqueta(hito.accion_clave),
-      descripcion: "Actuación registrada en la cronología operativa del expediente.",
-      estado_clave: estadoTarea,
-      estado: etiqueta(estadoTarea),
-      unidad: detalle.resumen.unidad_ref || "Sin unidad asignada",
-      responsable: "Identidad no publicada",
-      entrada: hito.realizada_en,
-      salida: ultima && estadoTarea !== "completado" ? "" : hito.realizada_en,
-      tiempo: ultima ? "Estado actual" : "Registrada",
-      recibo_ref: "",
-      decision_ref: "",
-      paneles: [{
-        panel_ref: `panel:hito:${hito.secuencia}`,
-        tipo: "datos",
-        titulo: "Traza operativa",
-        descripcion: "Proyección minimizada publicada por el servidor.",
-        campos: [
-          campo("accion", "Actuación", etiqueta(hito.accion_clave)),
-          campo("realizada_en", "Realizada", hito.realizada_en),
-          campo("transicion", "Transición", `${etiqueta(hito.estado_origen)} → ${etiqueta(hito.estado_destino)}`),
-        ],
-        columnas: [],
-        filas: [],
-      }],
-      acciones: [],
-    };
-  });
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -170,8 +134,8 @@ function proyectarExpediente(detalle) {
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
     cabecera: cabeceraDetalle(detalle),
-    fases,
-    tareas,
+    fases: [],
+    tareas: [],
   });
 }
 
@@ -181,25 +145,27 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente } = 
     throw new TypeError("cliente de expedientes de contratación temporal no disponible");
   }
   const versiones = new Map();
-  return Object.freeze({
-    capacidades: Object.freeze([
-      CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro,
-      CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente,
-    ]),
+  const capacidadesConsultadas = new Set();
+  const adaptador = {
+    get capacidades() {
+      return Object.freeze([...capacidadesConsultadas]);
+    },
     async listar({ filtros = { texto: "", estado: "", fase: "" }, signal } = {}) {
       const pagina = await cliente.consultarCuadroRRHH({
         filtros: {
           texto: filtros.texto,
-          estado_clave: filtros.estado,
+          estado_clave: estadoServidor(filtros.estado),
           fase_clave: filtros.fase,
         },
         paginacion: { limite: 100, cursor: "" },
       }, { signal });
+      const cuadro = proyectarCuadro(pagina);
       versiones.clear();
       pagina.expedientes.forEach(({ expediente_ref: referencia, version }) => {
         versiones.set(referencia, version);
       });
-      return proyectarCuadro(pagina);
+      capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
+      return cuadro;
     },
     async obtener(expedienteRef, { signal } = {}) {
       const version = versiones.get(expedienteRef);
@@ -210,12 +176,15 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente } = 
         expediente_ref: expedienteRef,
         version_observada: version,
       }, { signal });
-      return proyectarExpediente(detalle);
+      const expediente = proyectarExpediente(detalle);
+      capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
+      return expediente;
     },
     async ejecutar() {
       const error = new Error("Las actuaciones todavía no están conectadas");
       error.codigo = "actuacion_no_disponible";
       throw error;
     },
-  });
+  };
+  return Object.freeze(adaptador);
 }

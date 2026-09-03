@@ -6,9 +6,15 @@ const MAXIMO_SOLICITUD = 4 * 1024;
 const MAXIMO_RESPUESTA = 256 * 1024;
 const MAXIMO_EXPEDIENTES = 100;
 const MAXIMO_HITOS = 2_000;
-const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,255}$/u;
-const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,159}$/u;
+const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
+const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}$/u;
+const PATRON_TEXTO_CUADRO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
+const PATRON_CURSOR = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
+const ESTADOS_OPERATIVOS = new Set([
+  "pendiente", "en_curso", "espera_externa", "completado", "incidencia", "cancelado",
+]);
 
 export const RUTAS_CONSULTA_RRHH = Object.freeze({
   cuadroRRHH: RUTA_CUADRO,
@@ -37,13 +43,21 @@ function cadena(valor, { vacia = false, maximo = 4_000, patron } = {}) {
 }
 
 function referencia(valor, vacia = false) {
-  return cadena(valor, { vacia, maximo: 256 })
+  return cadena(valor, { vacia, maximo: 160 })
     && (valor === "" ? vacia : PATRON_REFERENCIA.test(valor));
 }
 
 function clave(valor, vacia = false) {
-  return cadena(valor, { vacia, maximo: 160 })
+  return cadena(valor, { vacia, maximo: 80 })
     && (valor === "" ? vacia : PATRON_CLAVE.test(valor));
+}
+
+function estadoOperativo(valor, vacio = false) {
+  return valor === "" ? vacio : ESTADOS_OPERATIVOS.has(valor);
+}
+
+function cursor(valor, vacio = false) {
+  return valor === "" ? vacio : cadena(valor, { maximo: 43, patron: PATRON_CURSOR });
 }
 
 function instante(valor) {
@@ -59,12 +73,14 @@ function validarSolicitudCuadro(entrada) {
   if (!camposCerrados(entrada, ["filtros", "paginacion"])
     || !camposCerrados(entrada.filtros, ["texto", "estado_clave", "fase_clave"])
     || !camposCerrados(entrada.paginacion, ["limite", "cursor"])
-    || !cadena(entrada.filtros.texto, { vacia: true, maximo: 512 })
-    || !clave(entrada.filtros.estado_clave, true)
+    || !cadena(entrada.filtros.texto, {
+      vacia: true, maximo: 80, patron: PATRON_TEXTO_CUADRO,
+    })
+    || !estadoOperativo(entrada.filtros.estado_clave, true)
     || !clave(entrada.filtros.fase_clave, true)
     || !entero(entrada.paginacion.limite, 1)
     || entrada.paginacion.limite > MAXIMO_EXPEDIENTES
-    || !cadena(entrada.paginacion.cursor, { vacia: true, maximo: 2_048 })) {
+    || !cursor(entrada.paginacion.cursor, true)) {
     throw new TypeError("solicitud de cuadro RRHH no válida");
   }
   return structuredClone(entrada);
@@ -73,7 +89,7 @@ function validarSolicitudCuadro(entrada) {
 function validarSolicitudDetalle(entrada) {
   if (!camposCerrados(entrada, ["expediente_ref", "version_observada"])
     || !referencia(entrada.expediente_ref)
-    || !entero(entrada.version_observada, 1)) {
+    || !entero(entrada.version_observada, 0)) {
     throw new TypeError("solicitud de detalle RRHH no válida");
   }
   return structuredClone(entrada);
@@ -88,11 +104,11 @@ function validarResumen(entrada) {
   if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref"])
     || !referencia(entrada.expediente_ref) || !referencia(entrada.flujo_ref)
     || !referencia(entrada.centro_ref) || !referencia(entrada.categoria_ref)
-    || !cadena(entrada.numero_visible, { maximo: 80 })
+    || !cadena(entrada.numero_visible, { maximo: 45, patron: PATRON_NUMERO })
     || !entero(entrada.version, 1) || !entero(entrada.flujo_version, 1)
     || typeof entrada.flujo_huella_sha256 !== "string"
     || !/^[a-f0-9]{64}$/u.test(entrada.flujo_huella_sha256)
-    || !clave(entrada.fase_clave) || !clave(entrada.estado_clave)
+    || !clave(entrada.fase_clave) || !estadoOperativo(entrada.estado_clave)
     || !instante(entrada.creado_en) || !instante(entrada.actualizado_en)
     || (Object.hasOwn(entrada, "modalidad_clave") && !clave(entrada.modalidad_clave))
     || (Object.hasOwn(entrada, "unidad_ref") && !referencia(entrada.unidad_ref))) {
@@ -111,7 +127,7 @@ function validarPagina(entrada) {
     || entrada.expedientes.length > MAXIMO_EXPEDIENTES
     || typeof entrada.hay_mas !== "boolean"
     || (Object.hasOwn(entrada, "cursor_siguiente")
-      && !cadena(entrada.cursor_siguiente, { maximo: 2_048 }))) {
+      && !cursor(entrada.cursor_siguiente))) {
     throw new TypeError("página de cuadro RRHH no válida");
   }
   const expedientes = entrada.expedientes.map(validarResumen);
@@ -197,8 +213,8 @@ function validarHito(entrada) {
   if (!camposCerrados(entrada, obligatorios, ["fase_origen"])
     || !entero(entrada.secuencia, 1) || !entero(entrada.version_expediente, 1)
     || !clave(entrada.accion_clave) || !instante(entrada.realizada_en)
-    || !clave(entrada.fase_destino) || !clave(entrada.estado_origen)
-    || !clave(entrada.estado_destino)
+    || !clave(entrada.fase_destino) || !estadoOperativo(entrada.estado_origen)
+    || !estadoOperativo(entrada.estado_destino)
     || (Object.hasOwn(entrada, "fase_origen") && !clave(entrada.fase_origen))) {
     throw new TypeError("hito RRHH no válido");
   }

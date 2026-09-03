@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -11,7 +12,7 @@ const resumen = Object.freeze({
   flujo_version: 1,
   flujo_huella_sha256: "a".repeat(64),
   fase_clave: "analisis",
-  estado_clave: "en_curso",
+  estado_clave: "espera_externa",
   centro_ref: "centro:001",
   categoria_ref: "categoria:auxiliar",
   modalidad_clave: "bolsa",
@@ -82,24 +83,32 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
     cliente: clienteFalso(llamadas),
   });
+  assert.deepEqual(adaptador.capacidades, []);
   const cuadro = await adaptador.listar({
-    filtros: { texto: "auxiliar", estado: "en_curso", fase: "analisis" },
+    filtros: { texto: "auxiliar", estado: "espera", fase: "analisis" },
   });
+  assert.deepEqual(adaptador.capacidades, ["contratacion_temporal.cuadro.consultar"]);
   const detalle = await adaptador.obtener(resumen.expediente_ref);
 
   assert.equal(cuadro.demostracion, false);
   assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
+  assert.equal(cuadro.expedientes[0].estado_clave, "espera");
+  assert.equal(cuadro.expedientes[0].fase_clave, "analisis");
+  assert.equal(cuadro.expedientes[0].fase_actual, "Analisis");
   assert.equal(detalle.demostracion, false);
-  assert.equal(detalle.fases.length, 2);
-  assert.equal(detalle.tareas.length, 2);
-  assert.equal(detalle.tareas[1].estado_clave, "en_curso");
+  assert.deepEqual(detalle.fases, []);
+  assert.deepEqual(detalle.tareas, []);
+  assert.doesNotMatch(
+    JSON.stringify(detalle),
+    /tarea:hito|Identidad no publicada|Actuación registrada/u,
+  );
   assert.deepEqual(adaptador.capacidades, [
     "contratacion_temporal.cuadro.consultar",
     "contratacion_temporal.expediente.consultar",
   ]);
   assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["cuadro", "detalle"]);
   assert.deepEqual(llamadas[0].solicitud, {
-    filtros: { texto: "auxiliar", estado_clave: "en_curso", fase_clave: "analisis" },
+    filtros: { texto: "auxiliar", estado_clave: "espera_externa", fase_clave: "analisis" },
     paginacion: { limite: 100, cursor: "" },
   });
   assert.deepEqual(llamadas[1].solicitud, {
@@ -107,6 +116,37 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
     version_observada: 2,
   });
 });
+test("delega el detalle real al servidor y solo lo concede después de consultarlo", async () => {
+  const llamadas = [];
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: clienteFalso(llamadas),
+  });
+  await adaptador.listar();
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente: adaptador,
+    capacidades: adaptador.capacidades,
+  });
+  assert.deepEqual(adaptador.capacidades, ["contratacion_temporal.cuadro.consultar"]);
+  await assert.rejects(
+    presentador.cargar({ texto: "A".repeat(81), estado: "", fase: "" }),
+    /filtros no válidos/,
+  );
+  assert.equal(llamadas.length, 1);
+
+  await presentador.cargar({ texto: "", estado: "espera", fase: "analisis" });
+  const referencia = presentador.obtenerEstado().cuadro.expedientes[0].expediente_ref;
+  await presentador.seleccionarExpediente(referencia);
+
+  assert.equal(presentador.obtenerEstado().expediente.expediente_ref, referencia);
+  assert.deepEqual(adaptador.capacidades, [
+    "contratacion_temporal.cuadro.consultar",
+    "contratacion_temporal.expediente.consultar",
+  ]);
+  assert.deepEqual(llamadas.map(({ operacion }) => operacion), [
+    "cuadro", "cuadro", "detalle",
+  ]);
+});
+
 
 test("no permite pedir detalle fuera del último cuadro ni ejecutar efectos", async () => {
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
@@ -127,4 +167,31 @@ test("rechaza una dependencia parcial antes de publicar el adaptador", () => {
     () => crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: {} }),
     /cliente de expedientes.*no disponible/,
   );
+});
+
+test("rechaza estados desconocidos sin degradarlos a pendiente", async () => {
+  let consultas = 0;
+  const cliente = clienteFalso([]);
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: {
+      ...cliente,
+      async consultarCuadroRRHH() {
+        consultas += 1;
+        return {
+          esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+          generada_en: "2026-09-03T09:05:00Z",
+          expedientes: [{ ...resumen, estado_clave: "desconocido" }],
+          hay_mas: false,
+        };
+      },
+    },
+  });
+  await assert.rejects(adaptador.listar(), /estado operativo del servidor no válido/);
+  assert.deepEqual(adaptador.capacidades, []);
+  assert.equal(consultas, 1);
+  await assert.rejects(
+    adaptador.listar({ filtros: { texto: "", estado: "desconocido", fase: "" } }),
+    /filtro de estado visual no válido/,
+  );
+  assert.equal(consultas, 1);
 });

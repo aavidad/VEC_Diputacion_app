@@ -97,8 +97,11 @@ export function renderizarCuadro(estado, t) {
     ["incidencia", t("fase_incidencia")],
     ["cancelado", t("fase_cancelado")],
   ];
-  const fases = [...new Set(cuadro.expedientes.map(({ fase_actual: fase }) => fase))]
-    .sort((a, b) => a.localeCompare(b, "es"));
+  const fases = [...new Map(cuadro.expedientes.map((expediente) => [
+    expediente.fase_clave ?? expediente.fase_actual.toLocaleLowerCase("es-ES"),
+    expediente.fase_actual,
+  ])).entries()].map(([clave, etiqueta]) => ({ clave, etiqueta }))
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
   const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t("indicadores"))}">
     ${cuadro.indicadores.map((indicador) => `<article class="ct-exp-indicador ct-tono-${escaparHTML(indicador.tono)}">
       <span>${escaparHTML(indicador.etiqueta)}</span>
@@ -121,7 +124,7 @@ export function renderizarCuadro(estado, t) {
       <span>${escaparHTML(t("filtro_fase"))}</span>
       <select name="fase">
         ${opcionFiltro("", t("filtro_todos"), estado.filtros.fase)}
-        ${fases.map((fase) => opcionFiltro(fase.toLocaleLowerCase("es-ES"), fase, estado.filtros.fase)).join("")}
+        ${fases.map(({ clave, etiqueta }) => opcionFiltro(clave, etiqueta, estado.filtros.fase)).join("")}
       </select>
     </label>
     <div class="ct-exp-filtros-acciones">
@@ -161,7 +164,8 @@ export function renderizarCuadro(estado, t) {
       </table>
     </div>
   </section>`;
-  return `${indicadores}${renderizarTrabajoOperativo(cuadro, t)}${filtros}${estado.carga === "vacio"
+  const trabajoOperativo = cuadro.demostracion ? renderizarTrabajoOperativo(cuadro, t) : "";
+  return `${indicadores}${trabajoOperativo}${filtros}${estado.carga === "vacio"
     ? renderizarEstadoCarga(estado, t) : tabla}`;
 }
 

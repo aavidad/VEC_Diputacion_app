@@ -101,6 +101,33 @@ function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
       );
   });
 }
+function consultarFuenteConLimite(fuente, controlador, limiteMs, temporizadores) {
+  return new Promise((resolver, rechazar) => {
+    let terminada = false;
+    const finalizar = (continuacion, valor) => {
+      if (terminada) return;
+      terminada = true;
+      temporizadores.clearTimeout(temporizador);
+      continuacion(valor);
+    };
+    const temporizador = temporizadores.setTimeout(() => {
+      controlador.abort();
+      finalizar(
+        rechazar,
+        new Error("tiempo agotado al consultar contratación temporal"),
+      );
+    }, limiteMs);
+    Promise.resolve()
+      .then(() => fuente.listar({ signal: controlador.signal }))
+      .then(
+        (resultado) => finalizar(resolver, resultado),
+        () => finalizar(
+          rechazar,
+          new Error("no se pudo consultar contratación temporal"),
+        ),
+      );
+  });
+}
 
 export async function resolverCargasModularesPresentacion(cargadores, {
   claves = CLAVES_CARGA_MODULAR,
@@ -212,11 +239,20 @@ export function crearCoordinadorModulosPortal({
   let desmontarVista = null;
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
+  let controladorCargaInterna = null;
+
+  function cancelarCargaInterna() {
+    if (controladorCargaInterna === null) return;
+    secuenciaCarga += 1;
+    controladorCargaInterna.abort();
+    controladorCargaInterna = null;
+  }
 
   function desmontarVistaActual() {
     secuenciaMontaje += 1;
     if (typeof desmontarVista === "function") desmontarVista();
     desmontarVista = null;
+    cancelarCargaInterna();
   }
 
   async function cargarPresentacion(sesionBolsa) {
@@ -341,7 +377,15 @@ export function crearCoordinadorModulosPortal({
         });
         const fuente = recursos.adaptador
           .crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
-        await fuente.listar();
+        const controladorConsulta = new AbortController();
+        controladorCargaInterna = controladorConsulta;
+        try {
+          await consultarFuenteConLimite(
+            fuente, controladorConsulta, limiteCargaModularMs, temporizadores,
+          );
+        } finally {
+          if (controladorCargaInterna === controladorConsulta) controladorCargaInterna = null;
+        }
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
         contratacionTemporal = Object.freeze({
           crearPresentador: () => recursos.presentador
