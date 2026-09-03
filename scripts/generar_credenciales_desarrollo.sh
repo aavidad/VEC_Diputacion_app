@@ -316,8 +316,18 @@ JSON
 find "$TEMPORAL" -type d -exec chmod 700 {} +
 find "$TEMPORAL" -type f -exec chmod 600 {} +
 verificar_directorio "$TEMPORAL"
-mv -- "$TEMPORAL" "$DESTINO"
-TEMPORAL=''
+if mv --no-target-directory --update=none-fail -- "$TEMPORAL" "$DESTINO"; then
+  [[ ! -e "$TEMPORAL" && ! -L "$TEMPORAL" ]] ||
+    fallar "la publicacion no consumio el directorio temporal"
+  TEMPORAL=''
+elif [[ -e "$DESTINO" || -L "$DESTINO" ]]; then
+  verificar_directorio "$DESTINO"
+  printf 'Otro proceso publico credenciales de desarrollo validas: %s\n' "$DESTINO"
+  mostrar_instrucciones_navegador "$DESTINO"
+  exit 0
+else
+  fallar "no se pudieron publicar atomicamente las credenciales de desarrollo"
+fi
 
 printf 'Credenciales de desarrollo generadas fuera de Git: %s\n' "$DESTINO"
 printf 'CA SHA-256: %s\n' "$HUELLA_CA"

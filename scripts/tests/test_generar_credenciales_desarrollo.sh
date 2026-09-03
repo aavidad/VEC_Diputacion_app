@@ -88,6 +88,55 @@ CONTRASENA_PKCS12_DOS=$(<"$DESTINO_DOS/mtls/cliente.p12.password")
 [[ "$CONTRASENA_PKCS12_DOS" =~ ^[0-9a-f]{64}$ ]]
 [[ "$CONTRASENA_PKCS12_DOS" != "$CONTRASENA_PKCS12" ]]
 
+PADRE_CONCURRENTE="$TEMPORAL/concurrente"
+DESTINO_CONCURRENTE="$PADRE_CONCURRENTE/credenciales"
+BIN_CONCURRENTE="$TEMPORAL/bin-concurrente"
+BARRERA_MV="$TEMPORAL/barrera-mv"
+SALIDA_UNO="$TEMPORAL/concurrente-uno.out"
+SALIDA_DOS="$TEMPORAL/concurrente-dos.out"
+ERROR_UNO="$TEMPORAL/concurrente-uno.err"
+ERROR_DOS="$TEMPORAL/concurrente-dos.err"
+MV_REAL=$(command -v mv)
+mkdir -p -- "$BIN_CONCURRENTE" "$BARRERA_MV"
+cat >"$BIN_CONCURRENTE/mv" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+: "${VEC_TEST_MV_REAL:?}"
+: "${VEC_TEST_MV_BARRERA:?}"
+printf '' >"$VEC_TEST_MV_BARRERA/listo.$BASHPID"
+limite=$((SECONDS + 30))
+while [[ $(find "$VEC_TEST_MV_BARRERA" -maxdepth 1 -type f -name 'listo.*' | wc -l) -lt 2 ]]; do
+  (( SECONDS < limite )) || exit 70
+  sleep 0.01
+done
+exec "$VEC_TEST_MV_REAL" "$@"
+SH
+chmod 700 "$BIN_CONCURRENTE/mv"
+
+PATH="$BIN_CONCURRENTE:$PATH" VEC_TEST_MV_REAL="$MV_REAL" VEC_TEST_MV_BARRERA="$BARRERA_MV" \
+  "$GENERADOR" "$DESTINO_CONCURRENTE" >"$SALIDA_UNO" 2>"$ERROR_UNO" &
+PID_UNO=$!
+PATH="$BIN_CONCURRENTE:$PATH" VEC_TEST_MV_REAL="$MV_REAL" VEC_TEST_MV_BARRERA="$BARRERA_MV" \
+  "$GENERADOR" "$DESTINO_CONCURRENTE" >"$SALIDA_DOS" 2>"$ERROR_DOS" &
+PID_DOS=$!
+ESTADO_UNO=0
+ESTADO_DOS=0
+wait "$PID_UNO" || ESTADO_UNO=$?
+wait "$PID_DOS" || ESTADO_DOS=$?
+if (( ESTADO_UNO != 0 || ESTADO_DOS != 0 )); then
+  printf 'fallo en generadores concurrentes: uno=%d dos=%d\n' "$ESTADO_UNO" "$ESTADO_DOS" >&2
+  exit 1
+fi
+[[ $(awk 'index($0, "Credenciales de desarrollo generadas fuera de Git:") {n++} END {print n+0}' \
+  "$SALIDA_UNO" "$SALIDA_DOS") -eq 1 ]]
+[[ $(awk 'index($0, "Otro proceso publico credenciales de desarrollo validas:") {n++} END {print n+0}' \
+  "$SALIDA_UNO" "$SALIDA_DOS") -eq 1 ]]
+[[ -z "$(find "$PADRE_CONCURRENTE" -type d -name '.vec-desarrollo.*' -print -quit)" ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.key' | wc -l) -eq 1 ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.p12' | wc -l) -eq 1 ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.p12.password' | wc -l) -eq 1 ]]
+"$GENERADOR" "$DESTINO_CONCURRENTE" >/dev/null
+
 HUELLA_ANTES=$(find "$DESTINO" -type f -print0 | sort -z | xargs -0 sha256sum)
 "$GENERADOR" "$DESTINO" >/dev/null
 HUELLA_DESPUES=$(find "$DESTINO" -type f -print0 | sort -z | xargs -0 sha256sum)
