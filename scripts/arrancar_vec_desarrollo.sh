@@ -147,7 +147,10 @@ BINARIO="$TEMPORAL_BUILD/vec-server"
 )
 comprobar_puerto_libre
 
-"$BINARIO" &
+(
+  cd "$RAIZ_REPOSITORIO"
+  exec "$BINARIO"
+) &
 SERVIDOR_PID=$!
 URL_BASE="https://localhost:$PUERTO"
 LISTO=false
