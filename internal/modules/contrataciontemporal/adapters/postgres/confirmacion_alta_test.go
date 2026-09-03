@@ -97,6 +97,14 @@ func TestCanonConfirmacionAltaEsExactoYConMicrosegundos(t *testing.T) {
 	if string(alta) != esperado || len(huella) != 64 {
 		t.Fatalf("canon de alta divergente\nobtenido=%s\nesperado=%s\nhuella=%s", alta, esperado, huella)
 	}
+	derivador := NuevoDerivadorHuellaEfectoAltaCanonico()
+	huellaPrevia, err := derivador.DerivarHuellaEfectoAlta(
+		evidencia.Expediente,
+		evidencia.Candidatura,
+	)
+	if err != nil || huellaPrevia != huella {
+		t.Fatalf("huella previa divergente del canon confirmado: previa=%s confirmada=%s err=%v", huellaPrevia, huella, err)
+	}
 	esperadoSellos := `{"esquema":"vec.contratacion-temporal.sellos-hmac.v1","activo":{"generacion":2,"ambito_hmac":"` + selloCandidaturaPrueba("vec.contratacion-temporal.ambito-idempotencia", 2, "a") + `","huella_hmac":"` + selloCandidaturaPrueba("vec.contratacion-temporal.huella-peticion", 2, "c") + `"},"retenidos":[{"generacion":1,"ambito_hmac":"` + selloCandidaturaPrueba("vec.contratacion-temporal.ambito-idempotencia", 1, "b") + `","huella_hmac":"` + selloCandidaturaPrueba("vec.contratacion-temporal.huella-peticion", 1, "d") + `"}]}`
 	if string(sellos) != esperadoSellos {
 		t.Fatalf("canon de sellos divergente: %s", sellos)

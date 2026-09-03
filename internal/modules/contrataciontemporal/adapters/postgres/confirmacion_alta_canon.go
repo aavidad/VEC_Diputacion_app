@@ -101,18 +101,34 @@ type parSelloAltaCanonico struct {
 	HuellaHMAC string `json:"huella_hmac"`
 }
 
+// DerivadorHuellaEfectoAltaCanonico comparte exactamente la serialización que
+// la función PostgreSQL coteja al confirmar. No persiste ni autoriza.
+type DerivadorHuellaEfectoAltaCanonico struct{}
+
+var _ ports.DerivadorHuellaEfectoAlta = DerivadorHuellaEfectoAltaCanonico{}
+
+func NuevoDerivadorHuellaEfectoAltaCanonico() DerivadorHuellaEfectoAltaCanonico {
+	return DerivadorHuellaEfectoAltaCanonico{}
+}
+
+func (DerivadorHuellaEfectoAltaCanonico) DerivarHuellaEfectoAlta(
+	expediente domain.Expediente,
+	candidatura ports.CandidaturaAlta,
+) (string, error) {
+	contenido, huella, err := canonEfectoAlta(expediente, candidatura)
+	borrarBytes(contenido)
+	return huella, err
+}
+
 func canonConfirmacionAlta(
 	evidencia ports.EvidenciaOrdenConfirmarAltaCandidata,
 ) ([]byte, []byte, string, error) {
-	candidatura, err := evidencia.Candidatura.Datos()
-	if err != nil || evidencia.Expediente.Validar() != nil ||
-		len(evidencia.Expediente.Actuaciones) != 1 {
-		return nil, nil, "", ports.ErrOrdenAltaInvalida
-	}
-	efecto := construirEfectoAltaCanonico(evidencia.Expediente, candidatura)
-	alta, err := json.Marshal(efecto)
-	if err != nil || len(alta) < 256 || len(alta) > 32*1024 {
-		return nil, nil, "", ports.ErrOrdenAltaInvalida
+	alta, huella, err := canonEfectoAlta(
+		evidencia.Expediente,
+		evidencia.Candidatura,
+	)
+	if err != nil {
+		return nil, nil, "", err
 	}
 	sellos, err := construirSellosAltaCanonicos(
 		evidencia.AmbitosIdempotenciaHMAC,
@@ -128,8 +144,26 @@ func canonConfirmacionAlta(
 		borrarBytes(sellosJSON)
 		return nil, nil, "", ports.ErrOrdenAltaInvalida
 	}
+	return alta, sellosJSON, huella, nil
+}
+
+func canonEfectoAlta(
+	expediente domain.Expediente,
+	candidatura ports.CandidaturaAlta,
+) ([]byte, string, error) {
+	datosCandidatura, err := candidatura.Datos()
+	if err != nil || expediente.Validar() != nil ||
+		len(expediente.Actuaciones) != 1 {
+		return nil, "", ports.ErrOrdenAltaInvalida
+	}
+	efecto := construirEfectoAltaCanonico(expediente, datosCandidatura)
+	alta, err := json.Marshal(efecto)
+	if err != nil || len(alta) < 256 || len(alta) > 32*1024 {
+		borrarBytes(alta)
+		return nil, "", ports.ErrOrdenAltaInvalida
+	}
 	huella := sha256.Sum256(alta)
-	return alta, sellosJSON, hex.EncodeToString(huella[:]), nil
+	return alta, hex.EncodeToString(huella[:]), nil
 }
 
 func construirEfectoAltaCanonico(

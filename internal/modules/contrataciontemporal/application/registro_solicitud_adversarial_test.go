@@ -19,6 +19,7 @@ func TestSolicitudRegistroNoAceptaMaterialHMACAportado(t *testing.T) {
 		"HuellasPeticionHMAC",
 		"AmbitoIdempotenciaHMAC",
 		"HuellaPeticionHMAC",
+		"HuellaEfectoAltaSHA256",
 		"GeneracionHMAC",
 	} {
 		if _, existe := tipo.FieldByName(nombre); existe {
@@ -90,6 +91,17 @@ func TestRegistroSolicitudCompletaMatrizAdversarialRecursoV3(t *testing.T) {
 				)
 			},
 		),
+		"huella efecto": mutacionRecursoV3Prueba(escenario, func(
+			datos *dominiovec.DatosSolicitudAutorizacionLigadaV3,
+		) {
+			datos.Recurso.Atributos[ports.AtributoHuellaEfectoAltaSHA256] =
+				strings.Repeat("f", 64)
+		}),
+		"sin huella efecto": mutacionRecursoV3Prueba(escenario, func(
+			datos *dominiovec.DatosSolicitudAutorizacionLigadaV3,
+		) {
+			delete(datos.Recurso.Atributos, ports.AtributoHuellaEfectoAltaSHA256)
+		}),
 		"ambito extra": mutacionRecursoV3Prueba(escenario, func(
 			datos *dominiovec.DatosSolicitudAutorizacionLigadaV3,
 		) {
@@ -132,7 +144,7 @@ func TestRegistroSolicitudCompletaMatrizAdversarialRecursoV3(t *testing.T) {
 				escenario.solicitud,
 			)
 			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-				d.preparaciones.llamadas != 0 ||
+				d.candidaturas.llamadas != 1 ||
 				d.transaccion.llamadas != 0 {
 				t.Fatalf("ligadura %s cruzada produjo efecto: %v", nombre, err)
 			}
@@ -147,8 +159,8 @@ func TestRegistroSolicitudRechazaDecisionV3Denegada(t *testing.T) {
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
-		t.Fatalf("decisión denegada produjo reserva o efecto: %v", err)
+		d.candidaturas.llamadas != 1 || d.transaccion.llamadas != 0 {
+		t.Fatalf("decisión denegada produjo efecto: %v", err)
 	}
 }
 
@@ -184,15 +196,16 @@ func TestOrdenAltaCotejaHuellaActivaComprometidaEnV3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ports.NuevaOrdenConfirmarAlta(ports.DatosOrdenConfirmarAlta{
-		Expediente:              evidencia.Expediente,
-		SolicitudAutorizacionV3: evidencia.SolicitudAutorizacionV3,
-		DecisionAutorizacionV3:  evidencia.DecisionAutorizacionV3,
-		ConfirmacionRegistroV3:  evidencia.ConfirmacionRegistroV3,
-		AmbitosIdempotenciaHMAC: evidencia.AmbitosIdempotenciaHMAC,
-		HuellasPeticionHMAC:     huellasCruzadas,
-		Preparacion:             evidencia.Preparacion,
-	})
+	_, err = ports.NuevaOrdenConfirmarAltaCandidata(
+		ports.DatosOrdenConfirmarAltaCandidata{
+			Expediente:              evidencia.Expediente,
+			SolicitudAutorizacionV3: evidencia.SolicitudAutorizacionV3,
+			DecisionAutorizacionV3:  evidencia.DecisionAutorizacionV3,
+			ConfirmacionRegistroV3:  evidencia.ConfirmacionRegistroV3,
+			AmbitosIdempotenciaHMAC: evidencia.AmbitosIdempotenciaHMAC,
+			HuellasPeticionHMAC:     huellasCruzadas,
+			Candidatura:             evidencia.Candidatura,
+		})
 	if !errors.Is(err, ports.ErrOrdenAltaInvalida) {
 		t.Fatalf("orden aceptó otra huella activa: %v", err)
 	}
@@ -209,30 +222,37 @@ func TestRegistroSolicitudRechazaReciboNoConfiable(t *testing.T) {
 	}
 }
 
-func TestRegistroSolicitudRechazaEstadosPreparacionInvalidos(t *testing.T) {
+func TestRegistroSolicitudRechazaCandidaturaCruzada(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
-	recibo := escenario.recibo
-	casos := map[string]func(*ports.PreparacionAlta){
-		"desconocido": func(p *ports.PreparacionAlta) {
-			p.Estado = "estado_ajeno"
+	casos := map[string]func(*ports.DatosCandidaturaAlta){
+		"organizacion": func(c *ports.DatosCandidaturaAlta) {
+			c.OrganizacionRef = "organizacion:ajena"
 		},
-		"confirmada sin recibo": func(p *ports.PreparacionAlta) {
-			p.Estado = ports.PreparacionConfirmada
+		"actor": func(c *ports.DatosCandidaturaAlta) {
+			c.ActorRef = "persona:ajena"
 		},
-		"reservada con recibo": func(p *ports.PreparacionAlta) {
-			p.ReciboConfirmado = &recibo
+		"perfil": func(c *ports.DatosCandidaturaAlta) {
+			c.PerfilRef = "perfil:ajeno"
 		},
 	}
 	for nombre, mutar := range casos {
 		t.Run(nombre, func(t *testing.T) {
 			caso := escenario
-			mutar(&caso.preparacion)
+			datosCandidatura, err := caso.candidatura.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			mutar(&datosCandidatura)
+			caso.candidatura, err = ports.NuevaCandidaturaAlta(datosCandidatura)
+			if err != nil {
+				t.Fatal(err)
+			}
 			servicio, d := construirServicioRegistro(t, caso)
 
-			_, err := servicio.Registrar(context.Background(), caso.solicitud)
+			_, err = servicio.Registrar(context.Background(), caso.solicitud)
 			if !errors.Is(err, ports.ErrPreparacionAltaInvalida) ||
 				d.transaccion.llamadas != 0 {
-				t.Fatalf("estado %s produjo efecto: %v", nombre, err)
+				t.Fatalf("candidatura %s produjo efecto: %v", nombre, err)
 			}
 		})
 	}

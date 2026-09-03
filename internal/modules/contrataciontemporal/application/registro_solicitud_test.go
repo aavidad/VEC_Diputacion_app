@@ -119,22 +119,63 @@ func (d *generadorReferenciasDoble) NuevaClaveMotivoAutorizacionV2(
 	return "", errors.New("no se usa para el alta")
 }
 
-type preparadorAltaDoble struct {
-	preparacion ports.PreparacionAlta
+type generadorAltaDoble struct {
+	referencias         ports.ReferenciasAlta
+	reservaRef          string
+	errReferencias      error
+	errReserva          error
+	llamadasReferencias int
+	llamadasReserva     int
+}
+
+func (d *generadorAltaDoble) GenerarReferenciasAlta(
+	context.Context,
+) (ports.ReferenciasAlta, error) {
+	d.llamadasReferencias++
+	return d.referencias, d.errReferencias
+}
+
+func (d *generadorAltaDoble) NuevaReferenciaReservaAlta(
+	context.Context,
+) (string, error) {
+	d.llamadasReserva++
+	return d.reservaRef, d.errReserva
+}
+
+type resolutorCandidaturaDoble struct {
+	candidatura ports.CandidaturaAlta
 	err         error
 	llamadas    int
 	antes       func()
 }
 
-func (d *preparadorAltaDoble) PrepararAlta(
+func (d *resolutorCandidaturaDoble) ResolverCandidaturaAlta(
 	context.Context,
-	ports.SolicitudPrepararAlta,
-) (ports.PreparacionAlta, error) {
+	ports.SolicitudResolverCandidaturaAlta,
+) (ports.CandidaturaAlta, error) {
 	d.llamadas++
 	if d.antes != nil {
 		d.antes()
 	}
-	return d.preparacion, d.err
+	return d.candidatura, d.err
+}
+
+type derivadorHuellaEfectoDoble struct {
+	huella      string
+	err         error
+	llamadas    int
+	expediente  domain.Expediente
+	candidatura ports.CandidaturaAlta
+}
+
+func (d *derivadorHuellaEfectoDoble) DerivarHuellaEfectoAlta(
+	expediente domain.Expediente,
+	candidatura ports.CandidaturaAlta,
+) (string, error) {
+	d.llamadas++
+	d.expediente = expediente
+	d.candidatura = candidatura
+	return d.huella, d.err
 }
 
 type relojMutable struct {
@@ -165,13 +206,13 @@ type transaccionAltaDoble struct {
 	recibo   ports.ReciboAlta
 	err      error
 	llamadas int
-	orden    ports.OrdenConfirmarAlta
+	orden    ports.OrdenConfirmarAltaCandidata
 	despues  func()
 }
 
-func (d *transaccionAltaDoble) ConfirmarAlta(
+func (d *transaccionAltaDoble) ConfirmarAltaCandidata(
 	_ context.Context,
-	orden ports.OrdenConfirmarAlta,
+	orden ports.OrdenConfirmarAltaCandidata,
 ) (ports.ReciboAlta, error) {
 	d.llamadas++
 	d.orden = orden
@@ -266,7 +307,7 @@ type escenarioRegistro struct {
 	solicitud     SolicitudRegistrarExpediente
 	contexto      ports.ContextoAutorizacionAltaV3
 	configuracion ports.ConfiguracionAltaFlujo
-	preparacion   ports.PreparacionAlta
+	candidatura   ports.CandidaturaAlta
 	motivo        dominiovec.ReferenciaEntradaCatalogo
 	recibo        ports.ReciboAlta
 }
@@ -276,6 +317,23 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 	instante := time.Date(2026, time.July, 23, 9, 15, 0, 0, time.UTC)
 	contexto := contextoAutorizacionAltaV3Prueba(t, instante)
 	vinculo, err := contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidatura, err := ports.NuevaCandidaturaAlta(ports.DatosCandidaturaAlta{
+		ReservaRef: "reserva:alta-001",
+		Referencias: ports.ReferenciasAlta{
+			ExpedienteRef: "expediente:ct-2026-0001",
+			NumeroVisible: "2026/CT-0001",
+			ReciboRef:     "recibo:alta-001",
+		},
+		AmbitoIdempotenciaHMAC: selloHMACRegistroPrueba(claveAmbitoRegistroPrueba, "d"),
+		HuellaPeticionHMAC:     selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"),
+		OrganizacionRef:        "organizacion:diputacion-granada",
+		ActorRef:               vinculo.PrincipalID,
+		PerfilRef:              vinculo.PerfilActivoRef,
+		InstanteEfecto:         instante,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,20 +370,7 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			UnidadInicialRef: "unidad:recursos-humanos",
 			AccionInicial:    "solicitud.registrada",
 		},
-		preparacion: ports.PreparacionAlta{
-			ReservaRef: "reserva:alta-001",
-			Referencias: ports.ReferenciasAlta{
-				ExpedienteRef: "expediente:ct-2026-0001",
-				NumeroVisible: "2026/CT-0001",
-				ReciboRef:     "recibo:alta-001",
-			},
-			AmbitoIdempotenciaHMAC: selloHMACRegistroPrueba(claveAmbitoRegistroPrueba, "d"),
-			HuellaPeticionHMAC:     selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"),
-			OrganizacionRef:        "organizacion:diputacion-granada",
-			ActorRef:               vinculo.PrincipalID,
-			PerfilRef:              vinculo.PerfilActivoRef,
-			Estado:                 ports.PreparacionReservada,
-		},
+		candidatura: candidatura,
 		motivo: dominiovec.ReferenciaEntradaCatalogo{
 			CatalogoID:           "motivos_autorizacion",
 			CatalogoVersion:      2,
@@ -351,7 +396,9 @@ type dependenciasRegistro struct {
 	ambitos       *selladorAmbitoDoble
 	motivos       *resolutorMotivoDoble
 	correlaciones *generadorReferenciasDoble
-	preparaciones *preparadorAltaDoble
+	referencias   *generadorAltaDoble
+	candidaturas  *resolutorCandidaturaDoble
+	huellasEfecto *derivadorHuellaEfectoDoble
 	autorizador   *autorizadorV3Doble
 	reloj         *relojMutable
 	transaccion   *transaccionAltaDoble
@@ -362,12 +409,16 @@ func construirServicioRegistro(
 	escenario escenarioRegistro,
 ) (*ServicioRegistroSolicitud, *dependenciasRegistro) {
 	t.Helper()
+	datosCandidatura, err := escenario.candidatura.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ambitosHMAC, err := ports.NuevaColeccionSellosHMAC(
 		selloHMACRegistroPrueba(
 			"vec.contratacion-temporal.ambito-idempotencia/v2",
 			"c",
 		),
-		[]string{escenario.preparacion.AmbitoIdempotenciaHMAC},
+		[]string{datosCandidatura.AmbitoIdempotenciaHMAC},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +428,7 @@ func construirServicioRegistro(
 			"vec.contratacion-temporal.huella-peticion/v2",
 			"c",
 		),
-		[]string{escenario.preparacion.HuellaPeticionHMAC},
+		[]string{datosCandidatura.HuellaPeticionHMAC},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -391,7 +442,12 @@ func construirServicioRegistro(
 		correlaciones: &generadorReferenciasDoble{
 			correlacion: "correlacion_11111111111111111111111111111111",
 		},
-		preparaciones: &preparadorAltaDoble{preparacion: escenario.preparacion},
+		referencias: &generadorAltaDoble{
+			referencias: datosCandidatura.Referencias,
+			reservaRef:  datosCandidatura.ReservaRef,
+		},
+		candidaturas:  &resolutorCandidaturaDoble{candidatura: escenario.candidatura},
+		huellasEfecto: &derivadorHuellaEfectoDoble{huella: strings.Repeat("e", 64)},
 		autorizador: &autorizadorV3Doble{
 			t: t, instante: escenario.instante, motivo: escenario.motivo,
 		},
@@ -405,7 +461,9 @@ func construirServicioRegistro(
 		d.ambitos,
 		d.motivos,
 		d.correlaciones,
-		d.preparaciones,
+		d.referencias,
+		d.candidaturas,
+		d.huellasEfecto,
 		d.autorizador,
 		d.reloj,
 		d.transaccion,
@@ -416,19 +474,20 @@ func construirServicioRegistro(
 	return servicio, d
 }
 
-func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
+func TestRegistroSolicitudEstabilizaCandidaturaAutorizaV3YConfirma(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	secuencia := make([]string, 0, 2)
+	secuencia := make([]string, 0, 3)
+	d.candidaturas.antes = func() { secuencia = append(secuencia, "candidatura") }
 	d.autorizador.antes = func() { secuencia = append(secuencia, "autorizar") }
-	d.preparaciones.antes = func() { secuencia = append(secuencia, "preparar") }
+	d.transaccion.despues = func() { secuencia = append(secuencia, "confirmar") }
 
 	recibo, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if err != nil {
 		t.Fatalf("registrar: %v", err)
 	}
 	if recibo != escenario.recibo || d.transaccion.llamadas != 1 ||
-		len(secuencia) != 2 || secuencia[0] != "autorizar" || secuencia[1] != "preparar" {
+		!reflect.DeepEqual(secuencia, []string{"candidatura", "autorizar", "confirmar"}) {
 		t.Fatalf("secuencia o recibo incorrectos: %#v, %v", recibo, secuencia)
 	}
 	datosSolicitud, err := d.autorizador.solicitud.Datos()
@@ -439,6 +498,8 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 			datosAmbitos.Activo.Valor ||
 		datosSolicitud.Recurso.Atributos[ports.AtributoHuellaPeticionHMACActiva] !=
 			datosHuellas.Activo.Valor ||
+		datosSolicitud.Recurso.Atributos[ports.AtributoHuellaEfectoAltaSHA256] !=
+			d.huellasEfecto.huella ||
 		datosSolicitud.Accion != ports.AccionCrearSolicitud ||
 		datosSolicitud.Finalidad != ports.FinalidadCrearSolicitud ||
 		datosSolicitud.Recurso.ModuloID != ports.ModuloContratacion ||
@@ -457,15 +518,16 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 	}
 	expedienteCruzado := datosOrden.Expediente
 	expedienteCruzado.Actuaciones[0].ActorRef = "per_2222222222222222222222"
-	if _, err := ports.NuevaOrdenConfirmarAlta(ports.DatosOrdenConfirmarAlta{
-		Expediente:              expedienteCruzado,
-		SolicitudAutorizacionV3: datosOrden.SolicitudAutorizacionV3,
-		DecisionAutorizacionV3:  datosOrden.DecisionAutorizacionV3,
-		ConfirmacionRegistroV3:  datosOrden.ConfirmacionRegistroV3,
-		AmbitosIdempotenciaHMAC: datosOrden.AmbitosIdempotenciaHMAC,
-		HuellasPeticionHMAC:     datosOrden.HuellasPeticionHMAC,
-		Preparacion:             datosOrden.Preparacion,
-	}); !errors.Is(err, ports.ErrOrdenAltaInvalida) {
+	if _, err := ports.NuevaOrdenConfirmarAltaCandidata(
+		ports.DatosOrdenConfirmarAltaCandidata{
+			Expediente:              expedienteCruzado,
+			SolicitudAutorizacionV3: datosOrden.SolicitudAutorizacionV3,
+			DecisionAutorizacionV3:  datosOrden.DecisionAutorizacionV3,
+			ConfirmacionRegistroV3:  datosOrden.ConfirmacionRegistroV3,
+			AmbitosIdempotenciaHMAC: datosOrden.AmbitosIdempotenciaHMAC,
+			HuellasPeticionHMAC:     datosOrden.HuellasPeticionHMAC,
+			Candidatura:             datosOrden.Candidatura,
+		}); !errors.Is(err, ports.ErrOrdenAltaInvalida) {
 		t.Fatalf("actuación atribuida a otro actor aceptada: %v", err)
 	}
 }
@@ -473,7 +535,7 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 func TestContratosNoAceptanCorrelacionFuncionalAportada(t *testing.T) {
 	for _, tipo := range []reflect.Type{
 		reflect.TypeOf(SolicitudRegistrarExpediente{}),
-		reflect.TypeOf(ports.DatosOrdenConfirmarAlta{}),
+		reflect.TypeOf(ports.DatosOrdenConfirmarAltaCandidata{}),
 	} {
 		for _, nombre := range []string{"Correlacion", "CorrelacionRef", "CorrelacionV3Ref"} {
 			if _, existe := tipo.FieldByName(nombre); existe {
@@ -481,7 +543,7 @@ func TestContratosNoAceptanCorrelacionFuncionalAportada(t *testing.T) {
 			}
 		}
 	}
-	if _, existe := reflect.TypeOf(ports.EvidenciaOrdenConfirmarAlta{}).
+	if _, existe := reflect.TypeOf(ports.EvidenciaOrdenConfirmarAltaCandidata{}).
 		FieldByName("CorrelacionV3Ref"); !existe {
 		t.Fatal("la evidencia de persistencia no propagó la correlación V3")
 	}
@@ -563,35 +625,30 @@ func TestRegistroSolicitudAislaMutacionesDePuertosYOrden(t *testing.T) {
 	}
 }
 
-func TestRegistroSolicitudReplayConfirmadoRevalidaPDP(t *testing.T) {
+func TestRegistroSolicitudReintentoRevalidaPDPYConfirmaCandidaturaEstable(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
 	servicio, d := construirServicioRegistro(t, escenario)
 
 	devuelto, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if err != nil || devuelto != recibo || d.autorizador.llamadas != 1 ||
-		d.preparaciones.llamadas != 1 || d.transaccion.llamadas != 0 {
-		t.Fatalf("replay no revalidado: recibo=%#v err=%v auth=%d prep=%d tx=%d",
-			devuelto, err, d.autorizador.llamadas, d.preparaciones.llamadas, d.transaccion.llamadas)
+		d.candidaturas.llamadas != 1 || d.transaccion.llamadas != 1 {
+		t.Fatalf("reintento no revalidado: recibo=%#v err=%v auth=%d cand=%d tx=%d",
+			devuelto, err, d.autorizador.llamadas, d.candidaturas.llamadas, d.transaccion.llamadas)
 	}
 }
 
-func TestRegistroSolicitudDenegadaNoReservaNada(t *testing.T) {
+func TestRegistroSolicitudDenegadaNoConfirmaEfecto(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
-	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
 	servicio, d := construirServicioRegistro(t, escenario)
 	d.autorizador.err = errors.New("PDP deniega")
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.autorizador.llamadas != 1 || d.preparaciones.llamadas != 0 ||
+		d.autorizador.llamadas != 1 || d.candidaturas.llamadas != 1 ||
 		d.transaccion.llamadas != 0 {
-		t.Fatalf("denegación produjo efecto: err=%v auth=%d prep=%d tx=%d",
-			err, d.autorizador.llamadas, d.preparaciones.llamadas, d.transaccion.llamadas)
+		t.Fatalf("denegación produjo efecto: err=%v auth=%d cand=%d tx=%d",
+			err, d.autorizador.llamadas, d.candidaturas.llamadas, d.transaccion.llamadas)
 	}
 }
 
@@ -603,34 +660,23 @@ func TestRegistroSolicitudRechazaContextoV3QueNoCorrespondeALaPeticion(t *testin
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
 		d.contextos.llamadas != 1 || d.autorizador.llamadas != 0 ||
-		d.preparaciones.llamadas != 0 {
+		d.candidaturas.llamadas != 0 {
 		t.Fatalf("contexto cruzado alcanzó PDP o persistencia: %v", err)
 	}
 }
 
-func TestRegistroSolicitudExpiradaMientrasPreparaNoConfirmaNiDevuelveReplay(t *testing.T) {
+func TestRegistroSolicitudExpiradaTrasAutorizarNoConfirma(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	d.preparaciones.antes = func() {
+	d.autorizador.antes = func() {
 		d.reloj.fijar(escenario.instante.Add(2 * time.Minute))
 	}
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 1 || d.transaccion.llamadas != 0 {
-		t.Fatalf("concesión expirada llegó al efecto: err=%v prep=%d tx=%d",
-			err, d.preparaciones.llamadas, d.transaccion.llamadas)
-	}
-
-	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
-	servicio, d = construirServicioRegistro(t, escenario)
-	d.preparaciones.antes = func() {
-		d.reloj.fijar(escenario.instante.Add(2 * time.Minute))
-	}
-	if _, err = servicio.Registrar(context.Background(), escenario.solicitud); !errors.Is(err, ports.ErrAutorizacionDenegada) || d.transaccion.llamadas != 0 {
-		t.Fatalf("replay expirado eludió PDP: %v", err)
+		d.candidaturas.llamadas != 1 || d.transaccion.llamadas != 0 {
+		t.Fatalf("concesión expirada llegó al efecto: err=%v cand=%d tx=%d",
+			err, d.candidaturas.llamadas, d.transaccion.llamadas)
 	}
 }
 
@@ -641,19 +687,21 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 	invalida := escenario.solicitud
 	invalida.AutenticacionRef = "aut_corta"
 	if _, err := servicio.Registrar(context.Background(), invalida); !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.contextos.llamadas != 0 || d.preparaciones.llamadas != 0 {
+		d.contextos.llamadas != 0 || d.candidaturas.llamadas != 0 {
 		t.Fatalf("referencia de autenticación fabricable aceptada: %v", err)
 	}
 	if _, err := NuevoServicioRegistroSolicitud(
 		nil, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.candidaturas, d.huellasEfecto, d.autorizador, d.reloj,
+		d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
 	}
 	var nuloTipado *resolutorContextoDoble
 	if _, err := NuevoServicioRegistroSolicitud(
 		nuloTipado, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.candidaturas, d.huellasEfecto, d.autorizador, d.reloj,
+		d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula tipada aceptada: %v", err)
 	}
@@ -662,23 +710,31 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 func TestRegistroSolicitudRechazaAmbitoDistintoDelAutorizado(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	d.preparaciones.preparacion.AmbitoIdempotenciaHMAC =
+	datosCandidatura, err := escenario.candidatura.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosCandidatura.AmbitoIdempotenciaHMAC =
 		selloHMACRegistroPrueba(claveAmbitoRegistroPrueba, "e")
+	d.candidaturas.candidatura, err = ports.NuevaCandidaturaAlta(datosCandidatura)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	_, err = servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrPreparacionAltaInvalida) || d.transaccion.llamadas != 0 {
 		t.Fatalf("ámbito preparado distinto alcanzó el efecto: %v", err)
 	}
 }
 
-func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDePreparar(t *testing.T) {
+func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDeConfirmar(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
 	d.autorizador.confirmacionAjena = true
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
-		t.Fatalf("confirmación V3 cruzada produjo reserva o efecto: %v", err)
+		d.candidaturas.llamadas != 1 || d.transaccion.llamadas != 0 {
+		t.Fatalf("confirmación V3 cruzada produjo efecto: %v", err)
 	}
 }

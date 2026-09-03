@@ -479,6 +479,7 @@ func NuevaOrdenConfirmarAltaCandidata(
 		candidatura.OrganizacionRef != datos.Expediente.OrganizacionRef ||
 		candidatura.ActorRef != vinculo.PrincipalID ||
 		candidatura.PerfilRef != vinculo.PerfilActivoRef ||
+		datos.Expediente.Actuaciones[0].ActorRef != vinculo.PrincipalID ||
 		!candidatura.InstanteEfecto.Equal(datos.Expediente.CreadoEn) ||
 		!candidatura.InstanteEfecto.Equal(datos.Expediente.ActualizadoEn) ||
 		!candidatura.InstanteEfecto.Equal(datos.Expediente.Actuaciones[0].RealizadaEn) ||
@@ -601,6 +602,13 @@ func (r ReciboAlta) ValidarPara(expediente domain.Expediente) error {
 // reserva, el expediente, la auditoría y el outbox en un único COMMIT.
 type TransaccionAltas interface {
 	ConfirmarAlta(context.Context, OrdenConfirmarAlta) (ReciboAlta, error)
+}
+
+// DerivadorHuellaEfectoAlta calcula la huella del mismo efecto canónico que
+// consumirá la transacción durable. Aplicación depende del puerto para ligar
+// la autorización al efecto completo antes de pedir la decisión al PDP.
+type DerivadorHuellaEfectoAlta interface {
+	DerivarHuellaEfectoAlta(domain.Expediente, CandidaturaAlta) (string, error)
 }
 
 // ProveedorMaterialConfirmacionAlta entrega la única instantánea coherente de
