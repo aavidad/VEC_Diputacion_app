@@ -101,6 +101,9 @@ cat >"$SALIDA" <<'BINARIO'
 set -Eeuo pipefail
 printf '%s\n' "$$" >"$VEC_ARRANQUE_TEST_ESTADO/pid"
 printf '%s\n' "$0" >"$VEC_ARRANQUE_TEST_ESTADO/binario"
+DIRECTORIO_TRABAJO=$(pwd -P)
+printf '%s\n' "$DIRECTORIO_TRABAJO" >"$VEC_ARRANQUE_TEST_ESTADO/cwd"
+[[ "$DIRECTORIO_TRABAJO" == "$VEC_ARRANQUE_TEST_RAIZ" ]]
 {
   printf 'VEC_EXECUTION_PROFILE=%s\n' "$VEC_EXECUTION_PROFILE"
   printf 'VEC_AUTH_MODE=%s\n' "$VEC_AUTH_MODE"
@@ -134,9 +137,15 @@ sock.close()
 PY
 )
 MATERIAL="$TEMPORAL/material"
-PATH="$FAKES:$PATH" VEC_ARRANQUE_TEST_ESTADO="$ESTADO" \
-  "$LANZADOR" --puerto "$PUERTO_LIBRE" --directorio-material "$MATERIAL" \
-  >"$TEMPORAL/salida" 2>&1 &
+CWD_EXTERNO="$TEMPORAL/cwd-externo"
+mkdir -p -- "$CWD_EXTERNO"
+(
+  cd "$CWD_EXTERNO"
+  export PATH="$FAKES:$PATH"
+  export VEC_ARRANQUE_TEST_ESTADO="$ESTADO"
+  export VEC_ARRANQUE_TEST_RAIZ="$RAIZ_REPOSITORIO"
+  exec "$LANZADOR" --puerto "$PUERTO_LIBRE" --directorio-material "$MATERIAL"
+) >"$TEMPORAL/salida" 2>&1 &
 LANZADOR_PID=$!
 for (( INTENTO = 0; INTENTO < 300; INTENTO++ )); do
   [[ ! -f "$ESTADO/listo" ]] || break
@@ -153,6 +162,7 @@ done
 
 SERVIDOR_PRUEBA_PID=$(<"$ESTADO/pid")
 kill -0 "$SERVIDOR_PRUEBA_PID"
+grep -Fxq "$RAIZ_REPOSITORIO" "$ESTADO/cwd"
 grep -Fxq 'VEC_EXECUTION_PROFILE=desarrollo' "$ESTADO/entorno"
 grep -Fxq 'VEC_AUTH_MODE=desarrollo' "$ESTADO/entorno"
 grep -Fxq 'VEC_DEVELOPMENT_GUARD=ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO' "$ESTADO/entorno"
