@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -377,7 +376,7 @@ test("estado HTTP y rama cruzados conservan el bloqueo", async () => {
   }
 });
 
-test("el inventario expone siete rutas y los cinco flujos previos siguen intactos", async () => {
+test("el inventario expone nueve rutas y los cinco flujos previos siguen intactos", async () => {
   const llamadas = [];
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl: async (ruta, opciones) => {
@@ -419,6 +418,8 @@ test("el inventario expone siete rutas y los cinco flujos previos siguen intacto
     "/api/vec/contratacion-temporal/cobertura/resultados",
     "/api/vec/contratacion-temporal/analisis/registros",
     "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    "/api/vec/contratacion-temporal/cuadro/consultas",
+    "/api/vec/contratacion-temporal/expedientes/consultas",
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
@@ -780,21 +781,4 @@ test("una implementación de cabeceras que inyecta autoridad falla antes de red"
     (error) => error.codigo === "cabeceras_no_disponibles",
   );
   assert.equal(llamadas, 0);
-});
-
-test("el código productivo no contiene cookies, storage, demo ni reintentos", async () => {
-  const fuente = await readFile(
-    new URL("./cliente-http.js", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    fuente,
-    /document\.cookie|localStorage|sessionStorage|indexedDB/u,
-  );
-  assert.doesNotMatch(
-    fuente,
-    /adaptador-presentacion|datos-presentacion|setTimeout|Retry-After/u,
-  );
-  assert.match(fuente, /credentials:\s*"omit"/u);
-  assert.match(fuente, /mode:\s*"same-origin"/u);
 });

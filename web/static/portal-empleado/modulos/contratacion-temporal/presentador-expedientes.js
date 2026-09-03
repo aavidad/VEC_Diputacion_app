@@ -15,6 +15,11 @@ const ESTADOS_CARGA = new Set([
   "inicial", "cargando", "listo", "vacio", "error", "denegado",
 ]);
 
+const PATRON_TEXTO_CUADRO = /^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$/u;
+const PATRON_CLAVE_FASE = /^[a-z][a-z0-9._-]{1,79}$/u;
+const ESTADOS_FILTRO = new Set([
+  "", "pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado",
+]);
 function congelar(valor) {
   if (valor && typeof valor === "object" && !Object.isFrozen(valor)) {
     Object.values(valor).forEach(congelar);
@@ -109,10 +114,15 @@ function filtrosValidos(entrada) {
   for (const campo of Object.keys(resultado)) {
     const valor = entrada[campo];
     if (typeof valor !== "string" || valor !== valor.trim()
-      || valor.normalize("NFC") !== valor || [...valor].length > 200) {
+      || valor.normalize("NFC") !== valor) {
       throw new TypeError("filtros no válidos");
     }
     resultado[campo] = valor;
+  }
+  if (!PATRON_TEXTO_CUADRO.test(resultado.texto)
+    || !ESTADOS_FILTRO.has(resultado.estado)
+    || (resultado.fase !== "" && !PATRON_CLAVE_FASE.test(resultado.fase))) {
+    throw new TypeError("filtros no válidos");
   }
   return resultado;
 }
@@ -226,7 +236,9 @@ export function crearPresentadorExpedientesContratacionTemporal({
     ) || vista === "auditoria" && (
       !puedeConsultarAuditoria || typeof fuente?.obtenerAuditoria !== "function"
     );
-    if (!disponible || !puedeConsultarExpediente || vistaDenegada || desmontado) {
+    const consultaRealDelegada = estado.cuadro?.demostracion === false;
+    if (!disponible || (!puedeConsultarExpediente && !consultaRealDelegada)
+      || vistaDenegada || desmontado) {
       reemplazar({
         carga: "denegado",
         mensaje_clave: "estado_denegado_expediente",
