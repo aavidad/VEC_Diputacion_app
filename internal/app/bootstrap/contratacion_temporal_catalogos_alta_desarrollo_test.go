@@ -220,7 +220,7 @@ func TestCatalogosAltaContratacionTemporalNoSeRegistranFueraDeDesarrollo(
 			actual := cfg
 			caso.modificar(&actual)
 			rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(
-				actual, resolvedor, composicion.derivadorIdempotencia,
+				actual, resolvedor, composicion.derivadorIdempotencia, io.Discard,
 			)
 			if !errors.Is(err, ErrActivacionDesarrolloInvalida) ||
 				rutas != nil || autoridad != nil || cerrar != nil {

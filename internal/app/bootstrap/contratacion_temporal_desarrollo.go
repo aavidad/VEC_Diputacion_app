@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -34,14 +35,16 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
-	sello      *selloConsultasContratacionTemporalDesarrollo
-	resolvedor *resolvedorIdentidadDesarrollo
+	sello       *selloConsultasContratacionTemporalDesarrollo
+	resolvedor  *resolvedorIdentidadDesarrollo
+	noCompuesta *capacidadNoCompuestaContratacionTemporalDesarrollo
 }
 
 func nuevasRutasContratacionTemporalDesarrollo(
 	cfg config.Config,
 	resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo,
+	registro io.Writer,
 ) (
 	[]vechttp.RutaExacta,
 	*autoridadConsultasContratacionTemporalDesarrollo,
@@ -54,6 +57,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		!esDesarrollo || resolvedorDesarrollo == nil || derivador == nil ||
 		!derivador.valido() {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
+	noCompuesta, err := nuevaCapacidadNoCompuestaContratacionTemporalDesarrollo(registro)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
@@ -84,8 +91,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:      sello,
-		resolvedor: resolvedorDesarrollo,
+		sello:       sello,
+		resolvedor:  resolvedorDesarrollo,
+		noCompuesta: noCompuesta,
 	}
 	return []vechttp.RutaExacta{
 		rutaAlta,
@@ -120,6 +128,9 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 	}
 	if capacidad.sello != a.sello || capacidad.ruta != ruta {
 		return vechttp.ErrAccesoRutaExactaDenegado
+	}
+	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) {
+		return a.noCompuesta.denegarRuta(ctx, ruta)
 	}
 	return nil
 }
