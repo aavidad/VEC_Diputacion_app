@@ -63,6 +63,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
+	if err != nil {
+		return nil, nil, err
+	}
 	cuadro, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(
 		&consultorCuadroContratacionTemporalDesarrollo{origen: origen},
 	)
@@ -81,6 +85,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	return []vechttp.RutaExacta{
 		rutaAlta,
+		rutaCatalogosAlta,
 		{Ruta: httpinterno.RutaConsultaCuadroRRHH, Manejador: cuadro},
 		{Ruta: httpinterno.RutaConsultaDetalleRRHH, Manejador: detalle},
 	}, autoridad, nil
@@ -184,6 +189,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return false
 	}
 	return r.URL.Path == httpinterno.RutaAltaSolicitudes ||
+		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == httpinterno.RutaConsultaCuadroRRHH ||
 		r.URL.Path == httpinterno.RutaConsultaDetalleRRHH
 }
@@ -215,7 +221,7 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContra
 	actualizadoEn := time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC)
 	resumen := ports.ResumenExpedienteRRHH{
 		ExpedienteRef:   expedienteContratacionTemporalDesarrolloRef,
-		OrganizacionRef: "organizacion:desarrollo:dipgra",
+		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
 		NumeroVisible:   "2026/CT-0001",
 		Version:         3,
 		FlujoRef:        "flujo:ct:desarrollo",
@@ -223,8 +229,8 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContra
 		FlujoHuella:     strings.Repeat("d", 64),
 		FaseClave:       domain.ClaveFase("analisis"),
 		EstadoClave:     domain.EstadoEnCurso,
-		CentroRef:       "centro:desarrollo:001",
-		CategoriaRef:    "categoria:desarrollo:c2",
+		CentroRef:       centroAltaContratacionTemporalDesarrollo,
+		CategoriaRef:    categoriaAltaContratacionTemporalDesarrollo,
 		ModalidadClave:  domain.ClaveCatalogo("interinidad"),
 		CreadoEn:        creadoEn,
 		ActualizadoEn:   actualizadoEn,
@@ -234,8 +240,8 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContra
 	detalle := ports.DetalleExpedienteRRHH{
 		Resumen: resumenDetalle,
 		Solicitud: ports.SolicitudOperativaRRHH{
-			GrupoSubgrupo: "C2",
-			MotivoClave:   domain.ClaveCatalogo("sustitucion"),
+			GrupoSubgrupo: grupoSubgrupoAltaContratacionTemporalDesarrollo,
+			MotivoClave:   motivoAltaContratacionTemporalDesarrollo,
 			PeriodoInicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC),
 			PeriodoFin:    time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
 		},
