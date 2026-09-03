@@ -38,6 +38,7 @@ archivos_obligatorios=(
   ca/ca.crt ca/ca.key ca/serie
   tls/servidor.crt tls/servidor.key
   mtls/cliente.crt mtls/cliente.key
+  mtls/cliente.p12 mtls/cliente.p12.password
   kms/clave-maestra.bin
   kms/atestacion-ed25519.key kms/atestacion-ed25519.pub
   kms/revalidacion-ed25519.key kms/revalidacion-ed25519.pub
@@ -60,8 +61,38 @@ huella_clave_publica_privada() {
     sha256sum | awk '{print $1}'
 }
 
+huella_certificado_cliente_pkcs12() {
+  openssl pkcs12 -in "$1" -passin "file:$2" -clcerts -nokeys 2>/dev/null |
+    openssl x509 -outform DER 2>/dev/null |
+    sha256sum | awk '{print $1}'
+}
+
+huella_clave_publica_pkcs12() {
+  openssl pkcs12 -in "$1" -passin "file:$2" -nocerts -nodes 2>/dev/null |
+    openssl pkey -pubout -outform DER 2>/dev/null |
+    sha256sum | awk '{print $1}'
+}
+
+huella_ca_pkcs12() {
+  openssl pkcs12 -in "$1" -passin "file:$2" -cacerts -nokeys 2>/dev/null |
+    openssl x509 -outform DER 2>/dev/null |
+    sha256sum | awk '{print $1}'
+}
+
+mostrar_instrucciones_navegador() {
+  local raiz=$1
+  printf 'Acceso desde navegador con mTLS:\n'
+  printf '  1. Importe %s como autoridad certificadora local de confianza.\n' "$raiz/ca/ca.crt"
+  printf '  2. Importe %s como certificado personal.\n' "$raiz/mtls/cliente.p12"
+  printf '  3. Use en el dialogo local la contrasena guardada en %s; no la copie a registros.\n' \
+    "$raiz/mtls/cliente.p12.password"
+  printf '  4. Abra https://localhost:<puerto>/portal-empleado/ con VEC en perfil desarrollo.\n'
+}
+
 verificar_directorio() {
-  local raiz=$1 archivo modo huella_ca huella_servidor huella_cliente
+  local raiz=$1 archivo modo huella_ca huella_ca_der huella_ca_p12
+  local huella_servidor huella_cliente huella_cliente_p12
+  local huella_clave_cliente huella_clave_cliente_p12 numero_certificados
   local huella_publica_atestacion_kms huella_publica_revalidacion_kms
   local -a secretos_hmac
   local indice anterior huella
@@ -74,6 +105,26 @@ verificar_directorio() {
     modo=$(stat -c '%a' -- "$raiz/$archivo")
     (( (8#$modo & 077) == 0 )) || fallar "permisos demasiado amplios en $archivo ($modo)"
   done
+
+  [[ $(stat -c '%a' -- "$raiz/mtls/cliente.p12") == 600 ]] ||
+    fallar "el paquete PKCS#12 debe tener permisos 0600"
+  [[ $(stat -c '%a' -- "$raiz/mtls/cliente.p12.password") == 600 ]] ||
+    fallar "la contrasena del paquete PKCS#12 debe tener permisos 0600"
+  if [[ $(awk 'END {print NR}' "$raiz/mtls/cliente.p12.password") -ne 1 ]] ||
+    ! grep -Eq '^[0-9a-f]{64}$' "$raiz/mtls/cliente.p12.password"; then
+    fallar "la contrasena del paquete PKCS#12 no tiene el formato aleatorio esperado"
+  fi
+  openssl pkcs12 -in "$raiz/mtls/cliente.p12" \
+    -passin "file:$raiz/mtls/cliente.p12.password" -noout 2>/dev/null ||
+    fallar "el paquete PKCS#12 no supera su comprobacion de integridad"
+  numero_certificados=$(openssl pkcs12 -in "$raiz/mtls/cliente.p12" \
+    -passin "file:$raiz/mtls/cliente.p12.password" -clcerts -nokeys 2>/dev/null |
+    grep -c -- '-----BEGIN CERTIFICATE-----' || true)
+  [[ "$numero_certificados" -eq 1 ]] || fallar "el paquete PKCS#12 no contiene una unica identidad cliente"
+  numero_certificados=$(openssl pkcs12 -in "$raiz/mtls/cliente.p12" \
+    -passin "file:$raiz/mtls/cliente.p12.password" -cacerts -nokeys 2>/dev/null |
+    grep -c -- '-----BEGIN CERTIFICATE-----' || true)
+  [[ "$numero_certificados" -eq 1 ]] || fallar "el paquete PKCS#12 no contiene la cadena local esperada"
 
   [[ $(stat -c '%s' -- "$raiz/kms/clave-maestra.bin") -eq 32 ]] || fallar "secreto KMS con longitud incorrecta"
   [[ $(stat -c '%s' -- "$raiz/tsa/clave-hmac.bin") -eq 32 ]] || fallar "secreto TSA con longitud incorrecta"
@@ -107,6 +158,20 @@ verificar_directorio() {
     fallar "la clave de servidor no corresponde al certificado"
   [[ "$(huella_clave_publica_certificado "$raiz/mtls/cliente.crt")" == "$(huella_clave_publica_privada "$raiz/mtls/cliente.key")" ]] ||
     fallar "la clave de cliente no corresponde al certificado"
+  huella_cliente=$(openssl x509 -in "$raiz/mtls/cliente.crt" -outform DER | sha256sum | awk '{print $1}')
+  huella_cliente_p12=$(huella_certificado_cliente_pkcs12 \
+    "$raiz/mtls/cliente.p12" "$raiz/mtls/cliente.p12.password")
+  [[ "$huella_cliente_p12" == "$huella_cliente" ]] ||
+    fallar "la identidad del paquete PKCS#12 no corresponde al certificado cliente"
+  huella_clave_cliente=$(huella_clave_publica_privada "$raiz/mtls/cliente.key")
+  huella_clave_cliente_p12=$(huella_clave_publica_pkcs12 \
+    "$raiz/mtls/cliente.p12" "$raiz/mtls/cliente.p12.password")
+  [[ "$huella_clave_cliente_p12" == "$huella_clave_cliente" ]] ||
+    fallar "la clave del paquete PKCS#12 no corresponde a la identidad cliente"
+  huella_ca_der=$(openssl x509 -in "$raiz/ca/ca.crt" -outform DER | sha256sum | awk '{print $1}')
+  huella_ca_p12=$(huella_ca_pkcs12 "$raiz/mtls/cliente.p12" "$raiz/mtls/cliente.p12.password")
+  [[ "$huella_ca_p12" == "$huella_ca_der" ]] ||
+    fallar "la cadena del paquete PKCS#12 no corresponde a la CA local"
   [[ "$(openssl pkey -in "$raiz/kms/atestacion-ed25519.key" -pubout -outform DER 2>/dev/null | sha256sum | awk '{print $1}')" == \
     "$(openssl pkey -pubin -in "$raiz/kms/atestacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')" ]] ||
     fallar "la clave de atestacion KMS no corresponde a la publica"
@@ -115,7 +180,6 @@ verificar_directorio() {
     fallar "la clave de revalidacion KMS no corresponde a la publica"
   huella_ca=$(openssl x509 -in "$raiz/ca/ca.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
   huella_servidor=$(openssl x509 -in "$raiz/tls/servidor.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
-  huella_cliente=$(openssl x509 -in "$raiz/mtls/cliente.crt" -outform DER | sha256sum | awk '{print $1}')
   huella_publica_atestacion_kms=$(openssl pkey -pubin -in "$raiz/kms/atestacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
   huella_publica_revalidacion_kms=$(openssl pkey -pubin -in "$raiz/kms/revalidacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
   grep -Fq "\"huella_ca_sha256\":\"$huella_ca\"" "$raiz/manifiesto.json" || fallar "huella CA incoherente en manifiesto"
@@ -149,6 +213,7 @@ verificar_directorio() {
 if [[ -e "$DESTINO" || -L "$DESTINO" ]]; then
   verificar_directorio "$DESTINO"
   printf 'Credenciales de desarrollo ya existentes y verificadas: %s\n' "$DESTINO"
+  mostrar_instrucciones_navegador "$DESTINO"
   exit 0
 fi
 
@@ -204,6 +269,11 @@ EXT
 openssl x509 -req -sha256 -days 397 -in "$TEMPORAL/mtls/cliente.csr" \
   -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
   -extfile "$TEMPORAL/mtls/cliente.ext" -out "$TEMPORAL/mtls/cliente.crt" 2>/dev/null
+openssl rand -hex 32 >"$TEMPORAL/mtls/cliente.p12.password"
+openssl pkcs12 -export -out "$TEMPORAL/mtls/cliente.p12" \
+  -inkey "$TEMPORAL/mtls/cliente.key" -in "$TEMPORAL/mtls/cliente.crt" \
+  -certfile "$TEMPORAL/ca/ca.crt" -name 'VEC desarrollo - operador RRHH' \
+  -passout "file:$TEMPORAL/mtls/cliente.p12.password" 2>/dev/null
 
 rm -f -- "$TEMPORAL/tls/servidor.csr" "$TEMPORAL/tls/servidor.ext" \
   "$TEMPORAL/mtls/cliente.csr" "$TEMPORAL/mtls/cliente.ext"
@@ -220,7 +290,10 @@ openssl rand 32 >"$TEMPORAL/idempotencia/g1-huella-solicitud.bin"
 
 HUELLA_CA=$(openssl x509 -in "$TEMPORAL/ca/ca.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
 HUELLA_SERVIDOR=$(openssl x509 -in "$TEMPORAL/tls/servidor.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
-HUELLA_CLIENTE=$(openssl x509 -in "$TEMPORAL/mtls/cliente.crt" -outform DER | sha256sum | awk '{print $1}')
+# La huella del manifiesto nace de la identidad importable y se coteja tambien
+# con el PEM; asi ambas representaciones mantienen una sola identidad canonica.
+HUELLA_CLIENTE=$(huella_certificado_cliente_pkcs12 \
+  "$TEMPORAL/mtls/cliente.p12" "$TEMPORAL/mtls/cliente.p12.password")
 HUELLA_PUBLICA_ATESTACION_KMS=$(openssl pkey -pubin -in "$TEMPORAL/kms/atestacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
 HUELLA_PUBLICA_REVALIDACION_KMS=$(openssl pkey -pubin -in "$TEMPORAL/kms/revalidacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
 
@@ -250,3 +323,4 @@ printf 'Credenciales de desarrollo generadas fuera de Git: %s\n' "$DESTINO"
 printf 'CA SHA-256: %s\n' "$HUELLA_CA"
 printf 'Cliente mTLS SHA-256: %s\n' "$HUELLA_CLIENTE"
 printf 'Cargue la configuracion solo en una terminal local: set -a; source %q; set +a\n' "$DESTINO/desarrollo.env"
+mostrar_instrucciones_navegador "$DESTINO"
