@@ -45,6 +45,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 ) (
 	[]vechttp.RutaExacta,
 	*autoridadConsultasContratacionTemporalDesarrollo,
+	func(),
 	error,
 ) {
 	cfg = cfg.Normalize()
@@ -52,32 +53,35 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil ||
 		!esDesarrollo || resolvedorDesarrollo == nil || derivador == nil ||
 		!derivador.valido() {
-		return nil, nil, ErrActivacionDesarrolloInvalida
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	reloj := relojContratacionTemporalDesarrollo{}
-	rutaAlta, err := nuevaRutaAltaContratacionTemporalDesarrollo(
-		origen, resolvedorDesarrollo, derivador, sello, reloj,
+	rutaAlta, cerrarPostgreSQL, err := nuevaRutaAltaContratacionTemporalDesarrollo(
+		cfg, resolvedorDesarrollo, derivador, sello, reloj,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
 	if err != nil {
-		return nil, nil, err
+		cerrarPostgreSQL()
+		return nil, nil, nil, err
 	}
 	cuadro, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(
 		&consultorCuadroContratacionTemporalDesarrollo{origen: origen},
 	)
 	if err != nil {
-		return nil, nil, err
+		cerrarPostgreSQL()
+		return nil, nil, nil, err
 	}
 	detalle, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(
 		&consultorDetalleContratacionTemporalDesarrollo{origen: origen},
 	)
 	if err != nil {
-		return nil, nil, err
+		cerrarPostgreSQL()
+		return nil, nil, nil, err
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:      sello,
@@ -88,7 +92,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutaCatalogosAlta,
 		{Ruta: httpinterno.RutaConsultaCuadroRRHH, Manejador: cuadro},
 		{Ruta: httpinterno.RutaConsultaDetalleRRHH, Manejador: detalle},
-	}, autoridad, nil
+	}, autoridad, cerrarPostgreSQL, nil
 }
 
 func (a *autoridadConsultasContratacionTemporalDesarrollo) proteger(

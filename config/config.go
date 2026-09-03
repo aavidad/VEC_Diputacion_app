@@ -121,6 +121,7 @@ type Config struct {
 	RRHHPresentationGuardOne              string
 	RRHHPresentationGuardTwo              string
 	BolsaBorradoresPostgreSQL             ConfiguracionPostgreSQLBorradores
+	ContratacionTemporalPostgreSQL        ConfiguracionPostgreSQLContratacionTemporal
 }
 
 func Load() Config {
@@ -171,6 +172,10 @@ func Load() Config {
 			dsnEjecutorConsulta:  envFirst(EnvBolsaBorradoresEjecutorConsultaDatabaseURL),
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
+		},
+		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
+			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
+			dsnGobierno:  envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
 		},
 	}.Normalize()
 }
@@ -255,6 +260,7 @@ func (c Config) Normalize() Config {
 	c.RRHHPresentationGuardTwo = strings.TrimSpace(c.RRHHPresentationGuardTwo)
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
+	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)
 	return c
 }

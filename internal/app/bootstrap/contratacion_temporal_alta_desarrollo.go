@@ -9,8 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	seguridadcontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/seguridad"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -43,50 +45,46 @@ func (relojContratacionTemporalDesarrollo) Ahora() time.Time {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
-	mu                   sync.Mutex
-	sello                *selloConsultasContratacionTemporalDesarrollo
-	principalID          string
-	certificadoSHA256    string
-	contexto             ports.ContextoAutorizacionAltaV3
-	flujo                ports.ConfiguracionAltaFlujo
-	motivo               dominiovec.ReferenciaEntradaCatalogo
-	instantanea          dominiovec.InstantaneaAutorizacion
-	ambitos              ports.SelladorAmbitoIdempotencia
-	reloj                relojContratacionTemporalDesarrollo
-	origen               *origenConsultasContratacionTemporalDesarrollo
-	preparaciones        map[string]ports.PreparacionAlta
-	concesiones          map[string]struct{}
-	secuenciaExpedientes uint64
+	mu                sync.Mutex
+	sello             *selloConsultasContratacionTemporalDesarrollo
+	principalID       string
+	certificadoSHA256 string
+	contexto          ports.ContextoAutorizacionAltaV3
+	flujo             ports.ConfiguracionAltaFlujo
+	motivo            dominiovec.ReferenciaEntradaCatalogo
+	instantanea       dominiovec.InstantaneaAutorizacion
+	ambitos           ports.SelladorAmbitoIdempotencia
+	reloj             relojContratacionTemporalDesarrollo
+	concesiones       map[string]struct{}
 }
 
 func nuevaRutaAltaContratacionTemporalDesarrollo(
-	origen *origenConsultasContratacionTemporalDesarrollo,
+	cfg config.Config,
 	identidad *resolvedorIdentidadDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
-) (vechttp.RutaExacta, error) {
-	if origen == nil || origen.autoridad != AutoridadNoAutoritativa ||
-		identidad == nil || derivador == nil || !derivador.valido() || sello == nil ||
+) (vechttp.RutaExacta, func(), error) {
+	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil ||
 		!principalContratacionTemporalDesarrolloValido(identidad.principal) {
-		return vechttp.RutaExacta{}, ErrActivacionDesarrolloInvalida
+		return vechttp.RutaExacta{}, nil, ErrActivacionDesarrolloInvalida
 	}
 	ahora := reloj.Ahora()
 	contexto, err := nuevoContextoAltaContratacionTemporalDesarrollo(
 		identidad.principal, ahora,
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, err
+		return vechttp.RutaExacta{}, nil, err
 	}
 	datosVinculo, err := contexto.Vinculo.Datos()
 	if err != nil {
-		return vechttp.RutaExacta{}, err
+		return vechttp.RutaExacta{}, nil, err
 	}
 	huellas, ambitos, err := nuevasCapacidadesHMACAltaContratacionTemporalDesarrollo(
 		derivador,
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, err
+		return vechttp.RutaExacta{}, nil, err
 	}
 	flujo := ports.ConfiguracionAltaFlujo{
 		Flujo: domain.ReferenciaFlujo{
@@ -111,15 +109,14 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	)
 	if err != nil || flujo.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
-		return vechttp.RutaExacta{}, errAltaContratacionTemporalDesarrolloNoDisponible
+		return vechttp.RutaExacta{}, nil, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
 		sello: sello, principalID: identidad.principal.ID,
 		certificadoSHA256: identidad.principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
-		ambitos: ambitos, reloj: reloj, origen: origen,
-		preparaciones: make(map[string]ports.PreparacionAlta),
-		concesiones:   make(map[string]struct{}), secuenciaExpedientes: 1,
+		ambitos: ambitos, reloj: reloj,
+		concesiones: make(map[string]struct{}),
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizador, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
@@ -127,16 +124,32 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second},
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, err
+		return vechttp.RutaExacta{}, nil, err
+	}
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
+	candidaturas, transaccion, cerrarPostgreSQL, err :=
+		nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
+			cfg, derivador, soporte, reloj,
+		)
+	if err != nil {
+		return vechttp.RutaExacta{}, nil, err
 	}
 	servicio, err := application.NuevoServicioRegistroSolicitud(
 		soporte, soporte, huellas, ambitos, soporte, generador,
-		soporte, autorizador, reloj, soporte,
+		referencias, candidaturas,
+		postgrescontratacion.NuevoDerivadorHuellaEfectoAltaCanonico(),
+		autorizador, reloj, transaccion,
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, err
+		cerrarPostgreSQL()
+		return vechttp.RutaExacta{}, nil, err
 	}
-	return contratacioncomposicion.NuevaRutaAlta(soporte, servicio, reloj)
+	ruta, err := contratacioncomposicion.NuevaRutaAlta(soporte, servicio, reloj)
+	if err != nil {
+		cerrarPostgreSQL()
+		return vechttp.RutaExacta{}, nil, err
+	}
+	return ruta, cerrarPostgreSQL, nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) capacidadAltaValida(
@@ -221,133 +234,6 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverMotivoAutorizacionAl
 		return dominiovec.ReferenciaEntradaCatalogo{}, ports.ErrMotivoAutorizacionNoDisponible
 	}
 	return s.motivo, nil
-}
-
-func (s *soporteAltaContratacionTemporalDesarrollo) PrepararAlta(
-	ctx context.Context,
-	solicitud ports.SolicitudPrepararAlta,
-) (ports.PreparacionAlta, error) {
-	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil || s.ambitos == nil {
-		return ports.PreparacionAlta{}, ports.ErrPreparacionAltaInvalida
-	}
-	coleccionAmbitos, err := s.ambitos.SellarAmbitoIdempotencia(
-		ctx,
-		ports.SolicitudSellarAmbitoIdempotencia{
-			ClaveIdempotencia: solicitud.ClaveIdempotencia,
-			OrganizacionRef:   solicitud.OrganizacionRef,
-			ActorRef:          solicitud.ActorRef,
-			PerfilRef:         solicitud.PerfilRef,
-		},
-	)
-	if err != nil {
-		return ports.PreparacionAlta{}, err
-	}
-	ambito, huella, err := ports.ParActivoColeccionesHMACAlta(
-		coleccionAmbitos, solicitud.HuellasPeticionHMAC,
-	)
-	if err != nil {
-		return ports.PreparacionAlta{}, err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if existente, existe := s.preparaciones[ambito]; existe {
-		if existente.HuellaPeticionHMAC != huella ||
-			existente.OrganizacionRef != solicitud.OrganizacionRef ||
-			existente.ActorRef != solicitud.ActorRef ||
-			existente.PerfilRef != solicitud.PerfilRef {
-			return ports.PreparacionAlta{}, ports.ErrClaveIdempotenciaUsada
-		}
-		return clonarPreparacionAltaContratacionTemporalDesarrollo(existente), nil
-	}
-	s.secuenciaExpedientes++
-	sufijo := fmt.Sprintf("%04d", s.secuenciaExpedientes)
-	preparacion := ports.PreparacionAlta{
-		ReservaRef: "reserva:ct:desarrollo:" + sufijo,
-		Referencias: ports.ReferenciasAlta{
-			ExpedienteRef: "expediente:ct:desarrollo:" + sufijo,
-			NumeroVisible: fmt.Sprintf("%04d/CT-%s", s.reloj.Ahora().Year(), sufijo),
-			ReciboRef:     "recibo:ct:desarrollo:" + sufijo,
-		},
-		AmbitoIdempotenciaHMAC: ambito,
-		HuellaPeticionHMAC:     huella,
-		OrganizacionRef:        solicitud.OrganizacionRef,
-		ActorRef:               solicitud.ActorRef,
-		PerfilRef:              solicitud.PerfilRef,
-		Estado:                 ports.PreparacionReservada,
-	}
-	if preparacion.ValidarPara(solicitud) != nil {
-		return ports.PreparacionAlta{}, ports.ErrPreparacionAltaInvalida
-	}
-	s.preparaciones[ambito] = preparacion
-	return clonarPreparacionAltaContratacionTemporalDesarrollo(preparacion), nil
-}
-
-func (s *soporteAltaContratacionTemporalDesarrollo) ConfirmarAlta(
-	ctx context.Context,
-	orden ports.OrdenConfirmarAlta,
-) (ports.ReciboAlta, error) {
-	if !s.capacidadAltaValida(ctx) {
-		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
-	}
-	datos, err := orden.Datos()
-	if err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	huellaDecision, err := dominiovec.HuellaSHA256DecisionAutorizacionV3(
-		datos.DecisionAutorizacionV3,
-	)
-	if err != nil {
-		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	preparacion, existe := s.preparaciones[datos.Preparacion.AmbitoIdempotenciaHMAC]
-	if !existe || preparacion.Estado != ports.PreparacionReservada ||
-		preparacion.HuellaPeticionHMAC != datos.Preparacion.HuellaPeticionHMAC ||
-		preparacion.Referencias != datos.Preparacion.Referencias {
-		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
-	}
-	if _, registrada := s.concesiones[huellaDecision]; !registrada {
-		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
-	}
-	confirmadaEn := s.reloj.Ahora()
-	if confirmadaEn.Before(datos.Expediente.ActualizadoEn) {
-		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
-	}
-	recibo := ports.ReciboAlta{
-		ExpedienteRef: datos.Expediente.Referencia,
-		NumeroVisible: datos.Expediente.NumeroVisible,
-		Version:       datos.Expediente.Version,
-		ReciboRef:     datos.Expediente.Actuaciones[0].ReciboRef,
-		AuditoriaRef: referenciaAltaContratacionTemporalDesarrollo(
-			"auditoria:ct:desarrollo:", datos.Expediente.Referencia,
-		),
-		EventoRef: referenciaAltaContratacionTemporalDesarrollo(
-			"evento:ct:desarrollo:", datos.Expediente.Referencia,
-		),
-		ConfirmadaEn: confirmadaEn,
-	}
-	if recibo.ValidarPara(datos.Expediente) != nil ||
-		s.origen.registrarExpediente(datos.Expediente) != nil {
-		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
-	}
-	preparacion.Estado = ports.PreparacionConfirmada
-	preparacion.ReciboConfirmado = &recibo
-	s.preparaciones[datos.Preparacion.AmbitoIdempotenciaHMAC] = preparacion
-	delete(s.concesiones, huellaDecision)
-	return recibo, nil
-}
-
-func clonarPreparacionAltaContratacionTemporalDesarrollo(
-	preparacion ports.PreparacionAlta,
-) ports.PreparacionAlta {
-	if preparacion.ReciboConfirmado != nil {
-		recibo := *preparacion.ReciboConfirmado
-		preparacion.ReciboConfirmado = &recibo
-	}
-	return preparacion
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) ObtenerInstantaneaAutorizacion(

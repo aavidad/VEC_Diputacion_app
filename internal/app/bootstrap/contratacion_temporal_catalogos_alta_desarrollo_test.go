@@ -219,11 +219,11 @@ func TestCatalogosAltaContratacionTemporalNoSeRegistranFueraDeDesarrollo(
 		t.Run(caso.nombre, func(t *testing.T) {
 			actual := cfg
 			caso.modificar(&actual)
-			rutas, autoridad, err := nuevasRutasContratacionTemporalDesarrollo(
+			rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(
 				actual, resolvedor, composicion.derivadorIdempotencia,
 			)
 			if !errors.Is(err, ErrActivacionDesarrolloInvalida) ||
-				rutas != nil || autoridad != nil {
+				rutas != nil || autoridad != nil || cerrar != nil {
 				t.Fatalf("configuracion invalida registro rutas CT: rutas=%v autoridad=%v error=%v", rutas, autoridad, err)
 			}
 		})

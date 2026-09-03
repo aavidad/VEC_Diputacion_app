@@ -209,12 +209,18 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion, autoridadContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
+	completa := false
+	defer func() {
+		if !completa {
+			cerrarContratacion()
+		}
+	}()
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
 	)
@@ -236,6 +242,8 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
+	servidor.RegisterOnShutdown(cerrarContratacion)
+	completa = true
 	return servidor, composicion, nil
 }
 

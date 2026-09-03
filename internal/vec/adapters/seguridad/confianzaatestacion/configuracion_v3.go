@@ -189,6 +189,18 @@ func (c ConfiguracionConfianzaAtestacionAutorizacionV3) ValidarHuellaSHA256Esper
 	return nil
 }
 
+// HuellaSHA256ParaGobierno entrega únicamente el testigo público que debe
+// coincidir con el gobierno PostgreSQL. No exporta raíces ni material secreto.
+func (c ConfiguracionConfianzaAtestacionAutorizacionV3) HuellaSHA256ParaGobierno() (
+	string,
+	error,
+) {
+	if c.validar() != nil {
+		return "", ErrConfiguracionConfianzaAtestacionV3Invalida
+	}
+	return c.huellaSHA256, nil
+}
+
 func (c ConfiguracionConfianzaAtestacionAutorizacionV3) validar() error {
 	if c.marca != marcaConfiguracionConfianzaAtestacionV3 ||
 		!referenciaConfiguracionConfianzaValida(c.revision) ||
