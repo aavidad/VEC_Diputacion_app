@@ -482,16 +482,15 @@ async function construirErrorRespuesta(respuesta, signal, ruta) {
   });
 }
 
-function construirCabeceras(HeadersImpl) {
+function construirCabeceras(HeadersImpl, tipoContenido = "application/json; charset=utf-8") {
   const cabeceras = new HeadersImpl();
   cabeceras.set("Accept", "application/json");
-  cabeceras.set("Content-Type", "application/json; charset=utf-8");
+  cabeceras.set("Content-Type", tipoContenido);
   if (typeof cabeceras.keys !== "function"
     || [...cabeceras.keys()].map((nombre) => nombre.toLowerCase()).sort()
       .join(",") !== "accept,content-type"
     || cabeceras.get("accept") !== "application/json"
-    || cabeceras.get("content-type")
-      !== "application/json; charset=utf-8") {
+    || cabeceras.get("content-type") !== tipoContenido) {
     throw new TypeError("cabeceras de contratación temporal no válidas");
   }
   return cabeceras;
@@ -528,11 +527,12 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     validarRespuesta,
     efecto,
     rechazoDeterminado,
+    tipoContenido,
   }) {
     const cuerpo = serializarAcotado(entrada, maximoSolicitud);
     let cabeceras;
     try {
-      cabeceras = construirCabeceras(HeadersImpl);
+      cabeceras = construirCabeceras(HeadersImpl, tipoContenido);
     } catch (error) {
       throw errorCliente("cabeceras_no_disponibles", { causa: error });
     }

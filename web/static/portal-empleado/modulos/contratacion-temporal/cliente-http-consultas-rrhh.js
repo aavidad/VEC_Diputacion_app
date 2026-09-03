@@ -242,6 +242,7 @@ export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}
         maximoRespuesta: MAXIMO_RESPUESTA,
         validarRespuesta: validarPagina,
         efecto: false,
+        tipoContenido: "application/json",
       });
     },
     consultarDetalleRRHH(solicitud, opciones) {
@@ -255,6 +256,7 @@ export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}
         maximoRespuesta: MAXIMO_RESPUESTA,
         validarRespuesta: validarDetalle,
         efecto: false,
+        tipoContenido: "application/json",
       });
     },
   });

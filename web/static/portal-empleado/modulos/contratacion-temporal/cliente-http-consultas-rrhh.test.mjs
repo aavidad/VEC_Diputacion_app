@@ -81,6 +81,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
     assert.equal(opciones.credentials, "omit");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
+    assert.equal(opciones.headers.get("content-type"), "application/json");
   }
   assert.deepEqual(llamadas[0].cuerpo, {
     filtros: { texto: "", estado_clave: "", fase_clave: "" },

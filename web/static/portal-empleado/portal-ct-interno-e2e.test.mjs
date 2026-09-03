@@ -52,6 +52,7 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataciÃ
   const fetchImpl = async (ruta, opciones) => {
     assert.equal(ruta, "/api/vec/contratacion-temporal/cuadro/consultas");
     assert.equal(opciones.method, "POST");
+    assert.equal(opciones.headers.get("content-type"), "application/json");
     consultas += 1;
     return new Response(JSON.stringify({ data: {
       esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
