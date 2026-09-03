@@ -71,6 +71,15 @@ func (g *GeneradorReferenciasAltaCriptografico) NuevaReferenciaReservaAlta(
 	return g.generar(ctx, "reserva:ct-alta:")
 }
 
+func (g *GeneradorReferenciasAltaCriptografico) NuevaReferenciaComprobacionCobertura(
+	ctx context.Context,
+) (string, error) {
+	if !generadorValido(g) || ctx == nil {
+		return "", ErrGeneracionReferenciaAlta
+	}
+	return g.generar(ctx, "peticion:ct-cobertura:")
+}
+
 func (g *GeneradorReferenciasAltaCriptografico) numeroVisible(
 	ctx context.Context,
 ) (string, error) {
