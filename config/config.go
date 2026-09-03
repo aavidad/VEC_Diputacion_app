@@ -174,8 +174,10 @@ func Load() Config {
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
-			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
-			dsnGobierno:  envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
+			dsnEjecucion:       envFirst(EnvContratacionTemporalDatabaseURL),
+			dsnGobierno:        envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
+			dsnConfirmador:     envFirst(EnvContratacionTemporalConfirmadorDatabaseURL),
+			dsnLectorResultado: envFirst(EnvContratacionTemporalLectorResultadoDatabaseURL),
 		},
 	}.Normalize()
 }
