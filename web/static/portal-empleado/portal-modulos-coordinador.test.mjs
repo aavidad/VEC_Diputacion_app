@@ -237,7 +237,7 @@ test("el catálogo rechaza manifiestos y colecciones internas no canónicos", ()
   ), /entrada de menú no válida/);
 });
 
-test("CT inventariado queda visible no_disponible, accesible y sin carga dinámica", async () => {
+test("CT inventariado queda visible no_disponible si falla su carga real", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];
   const catalogo = crearCatalogoModulosDesdeManifiestos(
@@ -252,9 +252,11 @@ test("CT inventariado queda visible no_disponible, accesible y sin carga dinámi
     },
     cargadoresPresentacion: {
       base: async () => { throw new Error("la presentación no debe cargarse"); },
+    },
+    cargadoresInternos: {
       contratacion_temporal: async () => {
         cargasContratacion += 1;
-        throw new Error("CT no debe cargarse");
+        throw new Error("CT no disponible");
       },
     },
   });
@@ -274,7 +276,53 @@ test("CT inventariado queda visible no_disponible, accesible y sin carga dinámi
     "estado_modulo_no_disponible_titulo",
   ]);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
-  assert.equal(cargasContratacion, 0);
+  assert.equal(cargasContratacion, 1);
+});
+
+test("CT interno se activa solo después de una consulta autorizada", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  let consultas = 0;
+  let montajes = 0;
+  const fuente = Object.freeze({
+    capacidades: Object.freeze([
+      "contratacion_temporal.cuadro.consultar",
+      "contratacion_temporal.expediente.consultar",
+    ]),
+    async listar() { consultas += 1; return { expedientes: [] }; },
+    async obtener() { throw new Error("sin expedientes"); },
+    async ejecutar() { throw new Error("solo lectura"); },
+  });
+  const presentador = {
+    obtenerEstado: () => ({}),
+    cargar: async () => ({}),
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    entorno: { fetch: async () => { throw new Error("no debe usarse"); } },
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+        presentador: {
+          crearPresentadorExpedientesContratacionTemporal: () => presentador,
+        },
+        vista: {
+          montarModuloContratacionTemporal: async () => {
+            montajes += 1;
+            return { desmontar() {} };
+          },
+        },
+      }),
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(consultas, 1);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+  assert.equal(montajes, 1);
 });
 
 test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas", async () => {

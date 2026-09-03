@@ -64,6 +64,18 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   },
 });
 
+const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
+  contratacion_temporal: async () => {
+    const [cliente, presentador, vista, adaptador] = await Promise.all([
+      import("./modulos/contratacion-temporal/cliente-http.js"),
+      import("./modulos/contratacion-temporal/presentador-expedientes.js"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js"),
+      import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
+    ]);
+    return Object.freeze({ cliente, presentador, vista, adaptador });
+  },
+});
+
 function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
   if (typeof temporizadores?.setTimeout !== "function"
     || typeof temporizadores?.clearTimeout !== "function") {
@@ -180,6 +192,7 @@ export function crearCoordinadorModulosPortal({
   traducir = traducirPortal,
   cargarCatalogoInterno = cargarCatalogoModulosInterno,
   cargadoresPresentacion = CARGADORES_PRESENTACION_PREDETERMINADOS,
+  cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
 } = {}) {
@@ -187,6 +200,7 @@ export function crearCoordinadorModulosPortal({
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || typeof cargarCatalogoInterno !== "function"
     || typeof cargadoresPresentacion?.base !== "function"
+    || typeof cargadoresInternos?.contratacion_temporal !== "function"
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000) {
     throw new TypeError("dependencias del coordinador de módulos no válidas");
@@ -310,6 +324,48 @@ export function crearCoordinadorModulosPortal({
     const catalogoInterno = await cargarCatalogoInterno();
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     catalogo = catalogoInterno;
+    let contratacionTemporal;
+    if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
+      try {
+        const recursos = await cargarModuloConLimite(
+          cargadoresInternos.contratacion_temporal,
+          CLAVE_CONTRATACION_TEMPORAL,
+          limiteCargaModularMs,
+          temporizadores,
+        );
+        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
+          fetchImpl: typeof entorno.fetch === "function"
+            ? entorno.fetch.bind(entorno) : undefined,
+          HeadersImpl: entorno.Headers,
+        });
+        const fuente = recursos.adaptador
+          .crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+        await fuente.listar();
+        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        contratacionTemporal = Object.freeze({
+          crearPresentador: () => recursos.presentador
+            .crearPresentadorExpedientesContratacionTemporal({
+              fuente, capacidades: fuente.capacidades,
+            }),
+          alta: null,
+          montar: recursos.vista.montarModuloContratacionTemporal,
+        });
+      } catch {
+        contratacionTemporal = undefined;
+      }
+    }
+    if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+    composicion = Object.freeze({
+      contextos: Object.freeze({}),
+      contratacionTemporal,
+      estadosModulos: Object.freeze({
+        contratacion_temporal: contratacionTemporal === undefined
+          ? "no_disponible" : "disponible",
+        cronos: "no_disponible",
+        dietas: "no_disponible",
+      }),
+    });
   }
 
   function obtenerCatalogo() {

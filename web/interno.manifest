@@ -24,6 +24,8 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contrato.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
+static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/expedientes-responsive.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes.css
