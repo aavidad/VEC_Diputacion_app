@@ -209,10 +209,17 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	vecAPI, err := newVECShellAPICompuestaConIdentidad(cfg, resolvedor, categoriasPersonal)
+	rutasContratacion, autoridadContratacion, err := nuevasRutasConsultasContratacionTemporalDesarrollo(cfg, resolvedor)
 	if err != nil {
 		return nil, nil, err
 	}
+	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
+		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	vecAPI = autoridadContratacion.proteger(vecAPI)
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
