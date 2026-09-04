@@ -32,6 +32,7 @@ static/portal-empleado/modulos/contratacion-temporal/expedientes-responsive.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
+static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js

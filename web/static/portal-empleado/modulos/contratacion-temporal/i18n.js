@@ -186,6 +186,59 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_recibo_version: "Versión resultante",
   analisis_recibo_referencia: "Referencia del recibo",
   analisis_recibo_fecha: "Fecha de confirmación",
+  cobertura_sobrelinea: "Contratación temporal · Vía de cobertura",
+  cobertura_titulo: "Decidir la vía de cobertura",
+  cobertura_descripcion:
+    "Revise la propuesta calculada con el análisis confirmado antes de aplicar la decisión.",
+  cobertura_alcance_etiqueta: "Alcance de la decisión",
+  cobertura_alcance:
+    "La propuesta, la identidad, la autorización y la persistencia proceden del servidor.",
+  cobertura_estado_cargando: "Calculando la propuesta de cobertura.",
+  cobertura_estado_lista: "La propuesta de cobertura está preparada para su confirmación.",
+  cobertura_estado_sin_via: "No existe una vía de cobertura viable.",
+  cobertura_estado_error_propuesta: "No se pudo obtener una propuesta de cobertura verificable.",
+  cobertura_estado_enviando: "Aplicando una única decisión de cobertura. Espere la confirmación.",
+  cobertura_estado_confirmada: "La decisión de cobertura ha quedado confirmada.",
+  cobertura_estado_indeterminado:
+    "El resultado no puede determinarse todavía. No repita la decisión.",
+  cobertura_estado_rechazada: "La decisión no se confirmó. Revise el estado del expediente.",
+  cobertura_estado_consultando: "Consultando el resultado de la decisión original.",
+  cobertura_estado_no_observable: "El resultado original todavía no es observable.",
+  cobertura_estado_consulta_error: "No se pudo consultar el resultado. No repita la decisión.",
+  cobertura_estado_error: "No se pudo preparar la decisión de cobertura.",
+  cobertura_cargando_descripcion:
+    "Se consulta el análisis durable y las fuentes gobernadas de cobertura.",
+  cobertura_error_descripcion:
+    "La operación permanece cerrada. Revise el estado antes de volver a intentarlo.",
+  cobertura_propuesta_titulo: "Propuesta calculada",
+  cobertura_via_recomendada: "Vía recomendada",
+  cobertura_via_bolsa_vigente: "Bolsa vigente",
+  cobertura_evaluacion: "Evaluación",
+  cobertura_evaluacion_viable: "Viable",
+  cobertura_evaluacion_incompleta: "Incompleta",
+  cobertura_evaluacion_conflictiva: "Con conflictos",
+  cobertura_evaluacion_no_viable: "No viable",
+  cobertura_confirmacion_ayuda:
+    "Confirme solo después de comprobar que la vía recomendada corresponde a este expediente.",
+  cobertura_confirmar: "Confirmar vía de cobertura",
+  cobertura_confirmacion_advertencia:
+    "Esta acción registrará la decisión y avanzará el expediente a asignación de unidad.",
+  cobertura_indeterminado_titulo: "Resultado pendiente de comprobación",
+  cobertura_indeterminado_descripcion:
+    "Use la consulta protegida con la misma clave; no vuelva a enviar la decisión.",
+  cobertura_consultar_resultado: "Consultar resultado original",
+  cobertura_sin_via_titulo: "Sin vía viable",
+  cobertura_sin_via_descripcion:
+    "La propuesta no permite continuar. Revise las ausencias y conflictos del análisis.",
+  cobertura_recibo_sobrelinea: "Decisión confirmada",
+  cobertura_recibo_titulo: "Vía de cobertura aplicada",
+  cobertura_recibo_descripcion:
+    "El recibo acredita la decisión, la nueva versión del expediente y su persistencia.",
+  cobertura_recibo_expediente: "Referencia del expediente",
+  cobertura_recibo_version: "Versión resultante",
+  cobertura_recibo_referencia: "Referencia del recibo",
+  cobertura_recibo_decision: "Referencia de la decisión",
+  cobertura_recibo_fecha: "Fecha de confirmación",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

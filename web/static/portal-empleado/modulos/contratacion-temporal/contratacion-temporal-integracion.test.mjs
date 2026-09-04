@@ -20,6 +20,8 @@ const [
   coordinadorPruebas,
   indicePortal,
   catalogoPresentacion,
+  vistaExpedientesFuente,
+  coberturaFuente,
 ] = await Promise.all([
   readFile(new URL("contrato.js", directorio), "utf8"),
   readFile(new URL("presentador.js", directorio), "utf8"),
@@ -29,6 +31,8 @@ const [
   readFile(new URL("../../portal-modulos-coordinador.test.mjs", directorio), "utf8"),
   readFile(new URL("../../index.html", directorio), "utf8"),
   readFile(new URL("../../portal-catalogo-presentacion.js", directorio), "utf8"),
+  readFile(new URL("vista-expedientes.js", directorio), "utf8"),
+  readFile(new URL("formulario-cobertura.js", directorio), "utf8"),
 ]);
 
 test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () => {
@@ -55,7 +59,7 @@ test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () 
 });
 
 test("el módulo no usa red, cookies, almacenamiento web ni registra claves", () => {
-  const fuentes = `${contratoFuente}\n${presentadorFuente}\n${vistaFuente}`;
+  const fuentes = `${contratoFuente}\n${presentadorFuente}\n${vistaFuente}\n${coberturaFuente}`;
   assert.doesNotMatch(
     fuentes,
     /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|document\.cookie|localStorage|sessionStorage|indexedDB/i,
@@ -67,6 +71,9 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.match(vistaFuente, /raiz\.innerHTML = renderizarAltaContratacionTemporal/);
   assert.match(vistaFuente, /if \(!montada\) return/);
   assert.doesNotMatch(vistaFuente, /preventScroll/);
+  assert.doesNotMatch(coberturaFuente, /datos-presentacion|document\.cookie|localStorage|sessionStorage|indexedDB|console\./i);
+  assert.match(vistaExpedientesFuente, /montarFormularioCobertura/);
+  assert.match(vistaExpedientesFuente, /data-ct-exp-cobertura/);
 });
 
 test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Dietas", async () => {
@@ -94,6 +101,7 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Di
     "contratacion-temporal.css",
     "contratacion-temporal.test.mjs", "contrato-expedientes.js", "contrato.js",
     "datos-presentacion.js", "expedientes-responsive.css", "expedientes.css",
+    "formulario-cobertura.js", "formulario-cobertura.test.mjs",
     "i18n-expedientes.js", "i18n.js", "presentador-expedientes.js", "presentador.js",
     "vista-expedientes.js", "vista.js",
   ]) assert.ok(archivos.includes(nombre), `falta ${nombre}`);

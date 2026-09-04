@@ -6,6 +6,7 @@ import {
 import { validarReciboAlta } from "./contrato.js";
 import { validarReciboAnalisis } from "./contrato-analisis.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
+import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -107,7 +108,12 @@ function clasificarErrorAnalisis(error, signal) {
   });
 }
 
-function crearClienteAnalisisCercado(composicion, contexto, cambiarEtapa) {
+function crearClienteAnalisisCercado(
+  composicion,
+  contexto,
+  cambiarEtapa,
+  alConfirmar,
+) {
   const invocar = function invocarAnalisis(solicitud, opciones) {
     const vuelo = Object.freeze({});
     cambiarEtapa("transmitiendo", vuelo);
@@ -137,6 +143,9 @@ function crearClienteAnalisisCercado(composicion, contexto, cambiarEtapa) {
         throw errorIndeterminadoAnalisis();
       }
       cambiarEtapa("confirmado", vuelo);
+      try { alConfirmar(recibo); } catch {
+        // El recibo de Análisis prevalece si el siguiente paso no puede montarse.
+      }
       return recibo;
     }, (error) => {
       const clasificado = clasificarErrorAnalisis(error, opciones?.signal);
@@ -200,14 +209,15 @@ export function crearEjecutorAltaConRefresco(
   };
 }
 
-function renderizarAlta(t, disponible, analisisDisponible) {
+function renderizarAlta(t, disponible, analisisDisponible, coberturaDisponible) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
     <p>${escaparHTML(t("nueva_peticion_descripcion"))}</p>
   </header>
   ${disponible
     ? `<div data-ct-exp-alta></div>
-      ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}`
+      ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
+      ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}`
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
@@ -220,6 +230,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   zonaHoraria = "Europe/Madrid",
   altaDisponible = false,
   analisisDisponible = false,
+  coberturaDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -227,7 +238,12 @@ export function renderizarModuloContratacionTemporal(estado, {
     && estado.vista !== "alta") {
     contenido = renderizarEstadoCarga(estado, t);
   } else if (estado.vista === "alta") {
-    contenido = renderizarAlta(t, altaDisponible, analisisDisponible);
+    contenido = renderizarAlta(
+      t,
+      altaDisponible,
+      analisisDisponible,
+      coberturaDisponible,
+    );
   } else if (estado.vista === "expediente") {
     contenido = renderizarExpediente(
       estado,
@@ -292,9 +308,14 @@ export async function montarModuloContratacionTemporal({
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
   const composicionAnalisis = prepararComposicionAnalisis(analisis);
+  const coberturaDisponible = composicionAnalisis !== null
+    && typeof composicionAnalisis.cliente.proponerCobertura === "function"
+    && typeof composicionAnalisis.cliente.decidirCobertura === "function"
+    && typeof composicionAnalisis.cliente.consultarResultadoCobertura === "function";
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
+  let desmontarCobertura = null;
   let sesionAnalisis = null;
 
   function bloquearControlesAnalisis(sesion) {
@@ -380,9 +401,40 @@ export async function montarModuloContratacionTemporal({
     sesionAnalisis = null;
   }
 
+  function retirarCobertura() {
+    if (typeof desmontarCobertura === "function") desmontarCobertura();
+    desmontarCobertura = null;
+  }
+
   function retirarComponentes() {
+    retirarCobertura();
     retirarAlta();
     retirarAnalisis();
+  }
+
+  function montarCoberturaDesdeAnalisis(recibo) {
+    if (!montada || !coberturaDisponible || desmontarCobertura !== null) return null;
+    const contenedor = raiz.querySelector("[data-ct-exp-cobertura]");
+    if (!contenedor) return null;
+    try {
+      desmontarCobertura = montarFormularioCobertura({
+        raiz: contenedor,
+        cliente: composicionAnalisis.cliente,
+        contexto: Object.freeze({
+          expediente_ref: recibo.expediente_ref,
+          version_esperada: recibo.version_resultante,
+        }),
+        confirmarOperacion,
+        mensajes,
+        locale,
+        zonaHoraria,
+        anunciar,
+      });
+      return true;
+    } catch {
+      desmontarCobertura = null;
+      return false;
+    }
   }
 
   function montarAltaSiProcede() {
@@ -424,6 +476,7 @@ export async function montarModuloContratacionTemporal({
       composicionAnalisis,
       contexto,
       (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
+      montarCoberturaDesdeAnalisis,
     );
     sesionAnalisis = sesion;
     try {
@@ -490,6 +543,7 @@ export async function montarModuloContratacionTemporal({
       zonaHoraria,
       altaDisponible,
       analisisDisponible: composicionAnalisis !== null,
+      coberturaDisponible,
     });
     montarAltaSiProcede();
     if (montarAnalisisSiProcede() === false) {
@@ -500,6 +554,7 @@ export async function montarModuloContratacionTemporal({
         zonaHoraria,
         altaDisponible,
         analisisDisponible: false,
+        coberturaDisponible: false,
       });
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
