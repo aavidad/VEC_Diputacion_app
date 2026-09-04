@@ -254,7 +254,7 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 		}
 	})
 
-	t.Run("ACL y RLS cierran tablas V1 y preparador", func(t *testing.T) {
+	t.Run("ACL y RLS dejan una unica confirmacion publica", func(t *testing.T) {
 		for _, consulta := range []string{
 			"TABLE vec_contratacion_temporal.candidatura_alta_tecnica",
 			"TABLE vec_contratacion_temporal.candidatura_alta_alias",
@@ -269,11 +269,13 @@ func TestCandidaturaAltaPostgreSQL18DeExtremoATerminal(t *testing.T) {
 		err := admin.QueryRow(ctx, `SELECT concat_ws('|',
 			has_function_privilege('vec_ct_r3b_runtime',$1,'EXECUTE'),
 			has_function_privilege('vec_ct_r3b_runtime',$2,'EXECUTE'),
-			has_function_privilege('vec_ct_r3b_runtime',$3,'EXECUTE'))`,
+			has_function_privilege('vec_ct_r3b_runtime',$3,'EXECUTE'),
+			has_function_privilege('vec_ct_r3b_runtime',$4,'EXECUTE'))`,
 			"vec_contratacion_temporal.resolver_candidatura_alta_tecnica_v1(text[],text[],text,text,text,text,text,text,text,timestamp with time zone)",
+			"vec_contratacion_temporal.confirmar_alta_atestada_v3(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)",
 			"vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)",
 			"vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)").Scan(&privilegios)
-		if err != nil || privilegios != "t|t|f" {
+		if err != nil || privilegios != "t|t|f|f" {
 			t.Fatalf("privilegios runtime divergentes: %q, %v", privilegios, err)
 		}
 		var rlsForzada bool
@@ -593,6 +595,35 @@ func TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var huellaReciboOriginal string
+	if err := admin.QueryRow(ctx, `SELECT recibo_huella_sha256
+		FROM vec_contratacion_temporal.confirmacion_agregado_alta
+		WHERE expediente_ref=$1`, efecto.ExpedienteRef).Scan(&huellaReciboOriginal); err != nil {
+		t.Fatal(err)
+	}
+	huellaReciboIncoherente := strings.Repeat("f", 64)
+	if huellaReciboIncoherente == huellaReciboOriginal {
+		huellaReciboIncoherente = strings.Repeat("e", 64)
+	}
+	cambiarHuellaReciboPublicoR3B(
+		t, ctx, admin, efecto.ExpedienteRef, huellaReciboIncoherente,
+	)
+	defer func() {
+		cambiarHuellaReciboPublicoR3B(
+			t, context.Background(), admin, efecto.ExpedienteRef, huellaReciboOriginal,
+		)
+	}()
+	reciboRechazado, err := segundaTransaccion.ConfirmarAltaCandidata(ctx, orden)
+	if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
+		reciboRechazado != (ports.ReciboAlta{}) {
+		t.Fatalf("otro fallo posterior al consumo fue reconciliado: %+v, %v", reciboRechazado, err)
+	}
+	cambiarHuellaReciboPublicoR3B(
+		t, ctx, admin, efecto.ExpedienteRef, huellaReciboOriginal,
+	)
+	if despues := estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef); despues != estado {
+		t.Fatalf("fallo distinto muto o duplico el efecto: antes=%s despues=%s", estado, despues)
+	}
 	segundoRecibo, err := segundaTransaccion.ConfirmarAltaCandidata(ctx, orden)
 	if err != nil || segundoRecibo != primerRecibo ||
 		estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef) != estado {
@@ -612,6 +643,31 @@ func TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools(t *testing.T) {
 	if err != nil || reciboSQL != primerRecibo || huella != huellaReciboAlta(primerRecibo) {
 		t.Fatalf("recibo o huella interna divergente: SQL=%+v Go=%+v huella=%s err=%v",
 			reciboSQL, primerRecibo, huella, err)
+	}
+}
+
+func cambiarHuellaReciboPublicoR3B(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+	expedienteRef string,
+	huella string,
+) {
+	t.Helper()
+	tx, err := admin.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL session_replication_role = replica`); err == nil {
+		_, err = tx.Exec(ctx, `UPDATE vec_contratacion_temporal.confirmacion_agregado_alta
+			SET recibo_huella_sha256=$2 WHERE expediente_ref=$1`, expedienteRef, huella)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 

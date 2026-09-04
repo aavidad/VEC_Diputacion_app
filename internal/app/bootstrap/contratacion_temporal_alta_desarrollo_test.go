@@ -2,15 +2,18 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,22 +25,9 @@ func TestAltaContratacionTemporalDesarrolloPersisteYConsultasPosterioresDeniegan
 	t *testing.T,
 ) {
 	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
-	servidor, err := NewHTTPServerWithConfig(cfg)
-	if err != nil {
-		t.Fatalf("componer desarrollo: %v", err)
-	}
-	escucha, err := net.Listen("tcp", servidor.Addr)
-	if err != nil {
-		t.Fatalf("abrir listener: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = servidor.Close()
-		_ = escucha.Close()
-	})
-	go func() {
-		_ = servidor.ServeTLS(escucha, cfg.TLSCertFile, cfg.TLSKeyFile)
-	}()
-	baseURL := fmt.Sprintf("https://localhost:%d", escucha.Addr().(*net.TCPAddr).Port)
+	baseURL, cerrarServidor := arrancarServidorAltaContratacionTemporalDesarrolloPrueba(
+		t, cfg,
+	)
 	cuerpoAlta := cuerpoAltaContratacionTemporalDesarrolloPrueba()
 
 	t.Run("sin certificado no alcanza el manejador", func(t *testing.T) {
@@ -139,6 +129,67 @@ func TestAltaContratacionTemporalDesarrolloPersisteYConsultasPosterioresDeniegan
 			}
 		})
 	}
+
+	if err := cerrarServidor(); err != nil {
+		t.Fatalf("cerrar servidor antes del reinicio: %v", err)
+	}
+	cliente.CloseIdleConnections()
+	baseURLReiniciada, _ := arrancarServidorAltaContratacionTemporalDesarrolloPrueba(
+		t, cfg,
+	)
+	peticionReplay := nuevaPeticionJSONContratacionTemporalDesarrolloPrueba(
+		t, baseURLReiniciada+httpinterno.RutaAltaSolicitudes, cuerpoAlta,
+	)
+	respuestaReplay, contenidoReplay := ejecutarPeticionContratacionTemporalDesarrolloPrueba(
+		t, cliente, peticionReplay,
+	)
+	if respuestaReplay.StatusCode != http.StatusCreated ||
+		!bytes.Equal(contenidoReplay, contenidoAlta) {
+		t.Fatalf(
+			"replay tras reinicio=%d %s; original=%s",
+			respuestaReplay.StatusCode, contenidoReplay, contenidoAlta,
+		)
+	}
+}
+
+func arrancarServidorAltaContratacionTemporalDesarrolloPrueba(
+	t *testing.T,
+	cfg config.Config,
+) (string, func() error) {
+	t.Helper()
+	servidor, err := NewHTTPServerWithConfig(cfg)
+	if err != nil {
+		t.Fatalf("componer desarrollo: %v", err)
+	}
+	escucha, err := net.Listen("tcp", servidor.Addr)
+	if err != nil {
+		t.Fatalf("abrir listener: %v", err)
+	}
+	fin := make(chan error, 1)
+	go func() {
+		fin <- servidor.ServeTLS(escucha, cfg.TLSCertFile, cfg.TLSKeyFile)
+	}()
+	var unaVez sync.Once
+	var errCierre error
+	cerrar := func() error {
+		unaVez.Do(func() {
+			ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelar()
+			if err := servidor.Shutdown(ctx); err != nil {
+				errCierre = err
+				_ = servidor.Close()
+			}
+			if err := <-fin; err != nil && !errors.Is(err, http.ErrServerClosed) &&
+				errCierre == nil {
+				errCierre = err
+			}
+		})
+		return errCierre
+	}
+	t.Cleanup(func() { _ = cerrar() })
+	return fmt.Sprintf(
+		"https://localhost:%d", escucha.Addr().(*net.TCPAddr).Port,
+	), cerrar
 }
 
 func cuerpoAltaContratacionTemporalDesarrolloPrueba() string {

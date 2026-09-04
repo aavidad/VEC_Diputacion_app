@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	funcionConfirmarAltaV2      = "vec_contratacion_temporal.confirmar_alta_atestada_v2"
+	funcionConfirmarAltaV3      = "vec_contratacion_temporal.confirmar_alta_atestada_v3"
 	maximoIntentosConfirmarAlta = 3
 	limiteReconciliacionAlta    = 5 * time.Second
 )
@@ -224,7 +224,7 @@ func consultaConfirmarAltaV2() string {
 	return `SELECT expediente_ref, numero_visible, version, recibo_ref,
 	              auditoria_ref, evento_ref, confirmada_en,
 	              recibo_huella_sha256
-	         FROM ` + funcionConfirmarAltaV2 + `(
+	         FROM ` + funcionConfirmarAltaV3 + `(
 	              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`
 }
 
