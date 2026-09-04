@@ -147,9 +147,22 @@ verificar_locales_internos
 # ejemplo, abrir la consulta publica o verificar un recibo). Lo que no puede
 # hacer el cliente interno es consumir directamente la API anonima ni incluir
 # sus recursos: esto ultimo ya queda cerrado por el manifiesto exacto.
-if rg -ni '/api/publico(?:/|[?"'"'"'])|\bBearer\b|Authorization|document\.cookie|localStorage|sessionStorage|credentials[[:space:]]*:[[:space:]]*["'"'"'](?:include|same-origin)' \
+if rg -ni '/api/publico(?:/|[?"'"'"'])|\bBearer\b|Authorization|document\.cookie|localStorage|sessionStorage|credentials[[:space:]]*:[[:space:]]*["'"'"']include' \
 	"${temporal}/interno/web" >/dev/null; then
 	fallar "interno: el cliente incorpora credenciales de navegador, estado local o la API publica."
+fi
+
+# El certificado de cliente TLS requiere credenciales del mismo origen. Se
+# admite una sola aparicion y exclusivamente en el transporte interno revisado;
+# el servidor no emite cookies y las guardas anteriores siguen prohibiendo su
+# lectura, almacenamiento o inclusion entre origenes.
+ruta_transporte_mtls="${temporal}/interno/web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.js:"
+mapfile -t usos_mismo_origen < <(
+	rg -ni 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
+		"${temporal}/interno/web" || true
+)
+if ((${#usos_mismo_origen[@]} != 1)) || [[ "${usos_mismo_origen[0]}" != "${ruta_transporte_mtls}"* ]]; then
+	fallar "interno: el transporte mTLS del mismo origen no coincide con la lista positiva."
 fi
 
 printf 'Artefactos productivos publico e interno aislados y conformes con sus manifiestos.\n'

@@ -78,7 +78,7 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
   ]);
   for (const { opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
     assert.equal(opciones.headers.get("content-type"), "application/json");

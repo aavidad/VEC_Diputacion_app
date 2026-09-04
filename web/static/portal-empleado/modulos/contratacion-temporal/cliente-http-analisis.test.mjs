@@ -194,7 +194,7 @@ test("registrar y rectificar usan rutas, cuerpos y opciones HTTP exactas", async
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.mode, "same-origin");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
