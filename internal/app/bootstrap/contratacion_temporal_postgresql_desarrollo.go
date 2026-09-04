@@ -544,7 +544,8 @@ func prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 			SELECT orden FROM vec_autorizacion_atestada_v3.puntero_clave_emision
 			 WHERE clave_id=$1 AND version=$2
 			   AND orden=(SELECT max(orden) FROM
-			    vec_autorizacion_atestada_v3.puntero_clave_emision)`,
+			    vec_autorizacion_atestada_v3.puntero_clave_emision
+			    WHERE establecida_en <= pg_catalog.statement_timestamp())`,
 			material.claveHMACID, claveHMACVersion,
 		).Scan(&orden)
 		if err != nil {
@@ -592,7 +593,8 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		   JOIN vec_autorizacion_atestada_v3.clave_capacidad_version c
 		     ON (c.clave_id,c.version)=(p.clave_id,p.version)
 		  WHERE p.orden=(SELECT max(orden) FROM
-		         vec_autorizacion_atestada_v3.puntero_clave_emision)
+		         vec_autorizacion_atestada_v3.puntero_clave_emision
+		         WHERE establecida_en <= pg_catalog.statement_timestamp())
 		    AND pg_catalog.left(p.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:puntero-clave:'))=
 		        'acto:ct:desarrollo:puntero-clave:'
@@ -610,7 +612,8 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		   JOIN vec_autorizacion_atestada_v3.raiz_confianza_version r
 		     ON (r.clave_id,r.version)=(cr.raiz_clave_id,cr.raiz_version)
 		  WHERE p.orden=(SELECT max(orden) FROM
-		         vec_autorizacion_atestada_v3.puntero_configuracion_actual)
+		         vec_autorizacion_atestada_v3.puntero_configuracion_actual
+		         WHERE establecida_en <= pg_catalog.statement_timestamp())
 		    AND pg_catalog.left(p.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:puntero-configuracion:'))=
 		        'acto:ct:desarrollo:puntero-configuracion:'
@@ -674,7 +677,8 @@ func prepararConfiguracionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 		  JOIN vec_autorizacion_atestada_v3.configuracion_raiz cr
 		    ON cr.configuracion_revision=c.revision
 		 WHERE p.orden=(SELECT max(orden) FROM
-		        vec_autorizacion_atestada_v3.puntero_configuracion_actual)
+		        vec_autorizacion_atestada_v3.puntero_configuracion_actual
+		        WHERE establecida_en <= pg_catalog.statement_timestamp())
 		   AND cr.raiz_clave_id=$1 AND cr.raiz_version=$2
 		   AND c.publicada_en=$3 AND c.expira_en=$4
 		   AND pg_catalog.left(p.acto_ref,
@@ -761,17 +765,35 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		len(material.claveHMAC) == 0 || len(material.spki) == 0 {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	conexion, err := pool.Acquire(ctx)
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if _, err = conexion.Exec(ctx, `
+		SELECT pg_catalog.pg_advisory_lock(
+		 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`); err != nil {
+		conexion.Release()
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer func() {
+		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelar()
+		var liberado bool
+		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
+			SELECT pg_catalog.pg_advisory_unlock(
+			 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`,
+		).Scan(&liberado)
+		if errDesbloqueo != nil || !liberado {
+			_ = conexion.Conn().Close(ctxDesbloqueo)
+		}
+		conexion.Release()
+	}()
+	tx, err := conexion.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	if _, err = tx.Exec(ctx, `
-		SELECT pg_catalog.pg_advisory_xact_lock(
-		 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	if err = prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
