@@ -66,13 +66,14 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
-    const [cliente, presentador, vista, adaptador] = await Promise.all([
+    const [contrato, cliente, presentador, vista, adaptador] = await Promise.all([
+      import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
       import("./modulos/contratacion-temporal/vista-expedientes.js"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
     ]);
-    return Object.freeze({ cliente, presentador, vista, adaptador });
+    return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
   },
 });
 
@@ -101,7 +102,7 @@ function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
       );
   });
 }
-function consultarFuenteConLimite(fuente, controlador, limiteMs, temporizadores) {
+function consultarConLimite(consultar, controlador, limiteMs, temporizadores) {
   return new Promise((resolver, rechazar) => {
     let terminada = false;
     const finalizar = (continuacion, valor) => {
@@ -118,7 +119,7 @@ function consultarFuenteConLimite(fuente, controlador, limiteMs, temporizadores)
       );
     }, limiteMs);
     Promise.resolve()
-      .then(() => fuente.listar({ signal: controlador.signal }))
+      .then(() => consultar({ signal: controlador.signal }))
       .then(
         (resultado) => finalizar(resolver, resultado),
         () => finalizar(
@@ -379,20 +380,56 @@ export function crearCoordinadorModulosPortal({
           .crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
         const controladorConsulta = new AbortController();
         controladorCargaInterna = controladorConsulta;
+        let cuadroDisponible = false;
         try {
-          await consultarFuenteConLimite(
-            fuente, controladorConsulta, limiteCargaModularMs, temporizadores,
+          await consultarConLimite(
+            (opciones) => fuente.listar(opciones),
+            controladorConsulta,
+            limiteCargaModularMs,
+            temporizadores,
           );
+          cuadroDisponible = true;
+        } catch {
+          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
         } finally {
           if (controladorCargaInterna === controladorConsulta) controladorCargaInterna = null;
         }
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        let alta = null;
+        const controladorCatalogos = new AbortController();
+        controladorCargaInterna = controladorCatalogos;
+        try {
+          const catalogos = recursos.contrato.validarCatalogosAlta(
+            await consultarConLimite(
+              (opciones) => cliente.obtenerCatalogosAlta(opciones),
+              controladorCatalogos,
+              limiteCargaModularMs,
+              temporizadores,
+            ),
+          );
+          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+          alta = Object.freeze({
+            catalogos,
+            capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
+            ejecutor: cliente.registrarSolicitud,
+          });
+        } catch {
+          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        } finally {
+          if (controladorCargaInterna === controladorCatalogos) {
+            controladorCargaInterna = null;
+          }
+        }
+        if (!cuadroDisponible && alta === null) {
+          throw new Error("contratación temporal no disponible");
+        }
         contratacionTemporal = Object.freeze({
           crearPresentador: () => recursos.presentador
             .crearPresentadorExpedientesContratacionTemporal({
               fuente, capacidades: fuente.capacidades,
+              altaDisponible: alta !== null,
             }),
-          alta: null,
+          alta,
           montar: recursos.vista.montarModuloContratacionTemporal,
         });
       } catch {

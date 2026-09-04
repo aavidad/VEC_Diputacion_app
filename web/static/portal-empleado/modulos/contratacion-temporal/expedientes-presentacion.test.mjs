@@ -25,6 +25,7 @@ import {
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import {
+  crearEjecutorAltaConRefresco,
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes.js";
@@ -44,6 +45,37 @@ function adaptador(perfil = "administrador") {
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
 }
+
+test("el alta disponible no concede capacidades de consulta", async () => {
+  let consultas = 0;
+  const fuente = {
+    capacidades: [],
+    async listar() {
+      consultas += 1;
+      throw new Error("cuadro todavía no compuesto");
+    },
+    async obtener() { throw new Error("detalle no compuesto"); },
+    async ejecutar() { throw new Error("actuación no compuesta"); },
+  };
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente,
+    capacidades: [],
+    altaDisponible: true,
+  });
+
+  presentador.cambiarVista("alta");
+  await presentador.cargar();
+  assert.equal(consultas, 1);
+  assert.equal(presentador.obtenerEstado().vista, "alta");
+  assert.equal(presentador.obtenerEstado().carga, "error");
+  assert.deepEqual(fuente.capacidades, []);
+  assert.throws(
+    () => crearPresentadorExpedientesContratacionTemporal({
+      fuente, capacidades: [], altaDisponible: "si",
+    }),
+    /disponibilidad de alta no válida/u,
+  );
+});
 
 function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
   return {
@@ -475,6 +507,35 @@ test("el alta crea un expediente nuevo mínimo sin heredar candidato ni document
   assert.doesNotMatch(JSON.stringify(detalle), /CAND-DEMO|fiscalización favorable/i);
   assert.equal(documentos.documentos.length, 0);
   assert.equal(auditoria.actuaciones.length, 1);
+});
+
+test("el alta ejecuta un solo efecto y conserva su recibo aunque falle el refresco", async () => {
+  const recibo = Object.freeze({ recibo_ref: "recibo:ct:real:001" });
+  let altas = 0;
+  let refrescos = 0;
+  const ejecutar = async () => {
+    altas += 1;
+    return recibo;
+  };
+  const presentador = {
+    async cargar() {
+      refrescos += 1;
+      throw new Error("cuadro todavía no compuesto");
+    },
+  };
+  const ejecutarConRefresco = crearEjecutorAltaConRefresco(ejecutar, presentador);
+
+  assert.strictEqual(await ejecutarConRefresco({}, {}), recibo);
+  assert.equal(altas, 1);
+  assert.equal(refrescos, 1);
+});
+
+test("un refresco satisfactorio conserva la vista de alta", async () => {
+  const presentador = presentadorDe(adaptador());
+  await presentador.cargar();
+  presentador.cambiarVista("alta");
+  await presentador.cargar();
+  assert.equal(presentador.obtenerEstado().vista, "alta");
 });
 
 test("HTML escapa contenido, bloquea históricos y expone semántica accesible", () => {

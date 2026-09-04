@@ -1,4 +1,7 @@
-import { validarComandoAlta, validarReciboAlta } from "./contrato.js";
+import {
+  crearAltaClienteHTTP,
+  RUTAS_ALTA_CONTRATACION_TEMPORAL,
+} from "./cliente-http-alta.js";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -17,7 +20,7 @@ import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-ht
 
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
   {
-    alta: "/api/vec/contratacion-temporal/solicitudes",
+    alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura:
       "/api/vec/contratacion-temporal/cobertura/propuesta",
     decisionCobertura:
@@ -31,13 +34,12 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
     rectificacionAnalisis:
       "/api/vec/contratacion-temporal/analisis/rectificaciones",
     ...RUTAS_CONSULTA_RRHH,
+    catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
   },
 );
 
-const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
-const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_ANALISIS_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_COBERTURA_BYTES = 256 * 1024;
 const MAXIMO_ERROR_BYTES = 16 * 1024;
@@ -482,15 +484,21 @@ async function construirErrorRespuesta(respuesta, signal, ruta) {
   });
 }
 
-function construirCabeceras(HeadersImpl, tipoContenido = "application/json; charset=utf-8") {
+function construirCabeceras(
+  HeadersImpl,
+  tipoContenido = "application/json; charset=utf-8",
+  conCuerpo = true,
+) {
   const cabeceras = new HeadersImpl();
   cabeceras.set("Accept", "application/json");
-  cabeceras.set("Content-Type", tipoContenido);
+  if (conCuerpo) cabeceras.set("Content-Type", tipoContenido);
+  const nombresEsperados = conCuerpo ? "accept,content-type" : "accept";
   if (typeof cabeceras.keys !== "function"
     || [...cabeceras.keys()].map((nombre) => nombre.toLowerCase()).sort()
-      .join(",") !== "accept,content-type"
+      .join(",") !== nombresEsperados
     || cabeceras.get("accept") !== "application/json"
-    || cabeceras.get("content-type") !== tipoContenido) {
+    || (conCuerpo && cabeceras.get("content-type") !== tipoContenido)
+    || (!conCuerpo && cabeceras.has("content-type"))) {
     throw new TypeError("cabeceras de contratación temporal no válidas");
   }
   return cabeceras;
@@ -518,6 +526,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
   const consultasResultadoEnCurso = new Map();
 
   async function ejecutar({
+    metodo = "POST",
     ruta,
     entrada,
     signal,
@@ -529,26 +538,32 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     rechazoDeterminado,
     tipoContenido,
   }) {
-    const cuerpo = serializarAcotado(entrada, maximoSolicitud);
+    if (metodo !== "GET" && metodo !== "POST") {
+      throw errorCliente("metodo_no_valido");
+    }
+    const conCuerpo = metodo === "POST";
+    const cuerpo = conCuerpo
+      ? serializarAcotado(entrada, maximoSolicitud)
+      : undefined;
     let cabeceras;
     try {
-      cabeceras = construirCabeceras(HeadersImpl, tipoContenido);
+      cabeceras = construirCabeceras(HeadersImpl, tipoContenido, conCuerpo);
     } catch (error) {
       throw errorCliente("cabeceras_no_disponibles", { causa: error });
     }
     let respuesta;
     try {
       const opcionesFetch = {
-        method: "POST",
+        method: metodo,
         headers: cabeceras,
-        body: cuerpo,
         signal,
-        credentials: "omit",
+        credentials: "same-origin",
         mode: "same-origin",
         cache: "no-store",
         redirect: "error",
         referrerPolicy: "no-referrer",
       };
+      if (conCuerpo) opcionesFetch.body = cuerpo;
       respuesta = await ejecutarAbortable(
         () => fetchImpl(ruta, opcionesFetch),
         signal,
@@ -608,21 +623,6 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     } finally {
       await cancelarRespuesta(respuesta);
     }
-  }
-
-  async function registrarSolicitud(comando, opciones) {
-    const { signal } = validarOpciones(opciones);
-    const entrada = validarComandoAlta(comando);
-    return ejecutar({
-      ruta: RUTAS_HTTP_CONTRATACION_TEMPORAL.alta,
-      entrada,
-      signal,
-      estadoEsperado: 201,
-      maximoSolicitud: MAXIMO_SOLICITUD_ALTA_BYTES,
-      maximoRespuesta: MAXIMO_RESPUESTA_ALTA_BYTES,
-      validarRespuesta: validarReciboAlta,
-      efecto: true,
-    });
   }
 
   async function proponerCobertura(solicitud, opciones) {
@@ -786,8 +786,8 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
 
   return Object.freeze({
     modo: "http",
+    ...crearAltaClienteHTTP({ ejecutar, validarOpciones }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
-    registrarSolicitud,
     proponerCobertura,
     decidirCobertura,
     rectificarCobertura,

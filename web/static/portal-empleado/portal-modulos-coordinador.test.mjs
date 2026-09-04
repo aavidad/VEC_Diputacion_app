@@ -332,6 +332,82 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
   assert.equal(montajes, 1);
 });
 
+test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const catalogosAlta = Object.freeze({
+    esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+    centros: Object.freeze([]),
+    categorias: Object.freeze([]),
+    motivos: Object.freeze([]),
+    documentos: Object.freeze([]),
+  });
+  const registrarSolicitud = async () => ({ recibo_ref: "recibo:opaco:001" });
+  let consultasCuadro = 0;
+  let consultasCatalogo = 0;
+  let argumentosPresentador;
+  let altaMontada;
+  const fuente = Object.freeze({
+    capacidades: Object.freeze([]),
+    async listar() {
+      consultasCuadro += 1;
+      const error = new Error("cuadro pendiente");
+      error.estado = 503;
+      throw error;
+    },
+    async obtener() { throw new Error("detalle no compuesto"); },
+    async ejecutar() { throw new Error("actuación no compuesta"); },
+  });
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() {
+      consultasCatalogo += 1;
+      return catalogosAlta;
+    },
+    registrarSolicitud,
+  });
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: {
+          crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente,
+        },
+        contrato: {
+          validarCatalogosAlta: (valor) => valor,
+          CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear",
+        },
+        presentador: {
+          crearPresentadorExpedientesContratacionTemporal: (argumentos) => {
+            argumentosPresentador = argumentos;
+            return {};
+          },
+        },
+        vista: {
+          montarModuloContratacionTemporal: async ({ alta }) => {
+            altaMontada = alta;
+            return { desmontar() {} };
+          },
+        },
+      }),
+    },
+  });
+
+  await coordinador.cargarInterno();
+  await coordinador.cargarInterno();
+  assert.equal(consultasCuadro, 2);
+  assert.equal(consultasCatalogo, 2);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+  assert.equal(argumentosPresentador.altaDisponible, true);
+  assert.deepEqual(argumentosPresentador.capacidades, []);
+  assert.strictEqual(altaMontada.catalogos, catalogosAlta);
+  assert.strictEqual(altaMontada.ejecutor, registrarSolicitud);
+  assert.equal(Object.hasOwn(altaMontada, "desarrolloNoAutoritativo"), false);
+});
+
 test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,

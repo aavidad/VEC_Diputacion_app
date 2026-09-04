@@ -133,13 +133,19 @@ func TestCatalogosAltaContratacionTemporalDesarrolloCompartenOrigenConAltaEnMTLS
 		motivo.Clave != string(motivoAltaContratacionTemporalDesarrollo) {
 		t.Fatalf("referencias divergentes del alta: %+v", catalogos.Data)
 	}
-	for nombre, etiqueta := range map[string]string{
-		"centro": centro.Etiqueta, "contacto": contacto.Etiqueta,
-		"categoria": categoria.Etiqueta, "grupo": grupo.Etiqueta,
-		"motivo": motivo.Etiqueta,
+	for nombre, valores := range map[string][2]string{
+		"centro":    {centro.Etiqueta, "Centro solicitante"},
+		"contacto":  {contacto.Etiqueta, "Contacto del centro"},
+		"categoria": {categoria.Etiqueta, "Categoría C2"},
+		"grupo":     {grupo.Etiqueta, "Grupo C2"},
+		"motivo":    {motivo.Etiqueta, "Sustitución temporal"},
 	} {
-		if !strings.Contains(strings.ToLower(etiqueta), "no autoritativ") {
-			t.Fatalf("%s no declara su caracter no autoritativo: %q", nombre, etiqueta)
+		etiqueta, esperada := valores[0], valores[1]
+		minusculas := strings.ToLower(etiqueta)
+		if etiqueta != esperada || strings.Contains(minusculas, "desarrollo") ||
+			strings.Contains(minusculas, "no autoritativ") ||
+			strings.Contains(minusculas, "demo") {
+			t.Fatalf("%s muestra una etiqueta no neutra: %q", nombre, etiqueta)
 		}
 	}
 

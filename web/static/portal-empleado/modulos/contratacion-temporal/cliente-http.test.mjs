@@ -60,6 +60,27 @@ function reciboAlta() {
   };
 }
 
+function catalogosAlta() {
+  return {
+    esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+    centros: [{
+      referencia: "centro:solicitante:001",
+      etiqueta: "Centro solicitante",
+      contactos: [{
+        referencia: "contacto:opaco:001",
+        etiqueta: "Contacto del centro",
+      }],
+    }],
+    categorias: [{
+      referencia: "categoria:tecnica:001",
+      etiqueta: "Categoría técnica",
+      grupos_subgrupos: [{ clave: "C2", etiqueta: "Grupo C2" }],
+    }],
+    motivos: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
+    documentos: [],
+  };
+}
+
 function propuesta() {
   return {
     esquema: "vec.contratacion-temporal.propuesta-cobertura.v1",
@@ -298,7 +319,7 @@ test("la consulta usa la ruta, cuerpo y opciones exactas para 200 y 202", async 
       "/api/vec/contratacion-temporal/cobertura/resultados",
     );
     assert.equal(opciones.method, "POST");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
     assert.equal(opciones.referrerPolicy, "no-referrer");
@@ -376,7 +397,7 @@ test("estado HTTP y rama cruzados conservan el bloqueo", async () => {
   }
 });
 
-test("el inventario expone nueve rutas y los cinco flujos previos siguen intactos", async () => {
+test("el inventario expone diez rutas y los cinco flujos previos siguen intactos", async () => {
   const llamadas = [];
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl: async (ruta, opciones) => {
@@ -420,10 +441,11 @@ test("el inventario expone nueve rutas y los cinco flujos previos siguen intacto
     "/api/vec/contratacion-temporal/analisis/rectificaciones",
     "/api/vec/contratacion-temporal/cuadro/consultas",
     "/api/vec/contratacion-temporal/expedientes/consultas",
+    "/api/vec/contratacion-temporal/catalogos-alta",
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.mode, "same-origin");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
@@ -456,6 +478,34 @@ test("el inventario expone nueve rutas y los cinco flujos previos siguen intacto
     JSON.parse(llamadas[4].opciones.body),
     solicitudConsultaResultadoCobertura(),
   );
+});
+
+test("el catálogo de alta se consulta sin cuerpo, caché ni autoridad fabricada", async () => {
+  const llamadas = [];
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async (ruta, opciones) => {
+      llamadas.push({ ruta, opciones });
+      return respuestaJSON({ data: catalogosAlta() }, 200);
+    },
+  });
+
+  const catalogos = await cliente.obtenerCatalogosAlta();
+  assert.equal(Object.isFrozen(catalogos), true);
+  assert.equal(catalogos.centros[0].referencia, "centro:solicitante:001");
+  assert.equal(llamadas.length, 1);
+  assert.equal(
+    llamadas[0].ruta,
+    RUTAS_HTTP_CONTRATACION_TEMPORAL.catalogosAlta,
+  );
+  assert.equal(llamadas[0].opciones.method, "GET");
+  assert.equal(Object.hasOwn(llamadas[0].opciones, "body"), false);
+  assert.deepEqual([...llamadas[0].opciones.headers.keys()], ["accept"]);
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.cache, "no-store");
+  for (const prohibida of [
+    "authorization", "cookie", "remote-user", "x-forwarded-user",
+    "x-auth-subject", "x-vec-subject", "actor", "perfil",
+  ]) assert.equal(llamadas[0].opciones.headers.has(prohibida), false);
 });
 
 test("la configuración es cerrada y no admite autoridad del navegador", () => {

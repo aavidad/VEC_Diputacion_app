@@ -90,7 +90,8 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Di
   const archivos = (await readdir(directorio)).sort();
   for (const nombre of [
     "INTEGRACION.md", "adaptador-presentacion.js", "componentes-expedientes.js",
-    "contratacion-temporal-integracion.test.mjs", "contratacion-temporal.css",
+    "cliente-http-alta.js", "cliente-http.js", "contratacion-temporal-integracion.test.mjs",
+    "contratacion-temporal.css",
     "contratacion-temporal.test.mjs", "contrato-expedientes.js", "contrato.js",
     "datos-presentacion.js", "expedientes-responsive.css", "expedientes.css",
     "i18n-expedientes.js", "i18n.js", "presentador-expedientes.js", "presentador.js",

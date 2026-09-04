@@ -76,23 +76,23 @@ func (o *origenConsultasContratacionTemporalDesarrollo) catalogosAlta() (
 		Esquema: esquemaCatalogosAltaContratacionTemporal,
 		Centros: []centroCatalogosAltaContratacionTemporalDesarrollo{{
 			Referencia: centroAltaContratacionTemporalDesarrollo,
-			Etiqueta:   "Centro de desarrollo (no autoritativo)",
+			Etiqueta:   "Centro solicitante",
 			Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{
 				Referencia: contactoAltaContratacionTemporalDesarrollo,
-				Etiqueta:   "Contacto de desarrollo (no autoritativo)",
+				Etiqueta:   "Contacto del centro",
 			}},
 		}},
 		Categorias: []categoriaCatalogosAltaContratacionTemporalDesarrollo{{
 			Referencia: categoriaAltaContratacionTemporalDesarrollo,
-			Etiqueta:   "Categoría C2 de desarrollo (no autoritativa)",
+			Etiqueta:   "Categoría C2",
 			GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 				Clave:    grupoSubgrupoAltaContratacionTemporalDesarrollo,
-				Etiqueta: "Grupo C2 de desarrollo (no autoritativo)",
+				Etiqueta: "Grupo C2",
 			}},
 		}},
 		Motivos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 			Clave:    string(motivoAltaContratacionTemporalDesarrollo),
-			Etiqueta: "Sustitución de desarrollo (no autoritativa)",
+			Etiqueta: "Sustitución temporal",
 		}},
 		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
 	}, nil

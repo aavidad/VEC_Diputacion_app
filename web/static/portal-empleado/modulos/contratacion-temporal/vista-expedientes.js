@@ -177,6 +177,21 @@ function renderizarCabeceraModulo(estado, t) {
   </header>`;
 }
 
+export function crearEjecutorAltaConRefresco(ejecutor, presentador) {
+  if (typeof ejecutor !== "function" || typeof presentador?.cargar !== "function") {
+    throw new TypeError("dependencias del refresco de alta no válidas");
+  }
+  return async (comando, opciones) => {
+    const recibo = await ejecutor(comando, opciones);
+    try {
+      await presentador.cargar();
+    } catch {
+      // Un fallo de lectura posterior no invalida ni repite el alta confirmada.
+    }
+    return recibo;
+  };
+}
+
 function renderizarAlta(t, disponible) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
@@ -221,7 +236,8 @@ export function renderizarModuloContratacionTemporal(estado, {
   }
   return `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-exp-titulo">
-    ${renderizarCabeceraModulo(estado, t).replace("<h2>", '<h2 id="ct-exp-titulo">')}
+    ${renderizarCabeceraModulo(estado, t)
+    .replace("<h2>", '<h2 id="ct-exp-titulo">')}
     ${renderizarNavegacion(estado, t)}
     <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje)}"
       data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
@@ -368,7 +384,7 @@ export async function montarModuloContratacionTemporal({
     const presentadorAlta = crearPresentadorAltaContratacionTemporal({
       catalogos: alta.catalogos,
       capacidad: alta.capacidad,
-      ejecutor: alta.ejecutor,
+      ejecutor: crearEjecutorAltaConRefresco(alta.ejecutor, presentador),
       generarClaveIdempotencia: alta.generarClaveIdempotencia,
     });
     desmontarAlta = montarAltaContratacionTemporal({

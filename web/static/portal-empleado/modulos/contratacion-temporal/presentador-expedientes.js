@@ -130,7 +130,11 @@ function filtrosValidos(entrada) {
 export function crearPresentadorExpedientesContratacionTemporal({
   fuente,
   capacidades = [],
+  altaDisponible = false,
 } = {}) {
+  if (typeof altaDisponible !== "boolean") {
+    throw new TypeError("disponibilidad de alta no válida");
+  }
   const concesionesVisuales = normalizarCapacidades(capacidades);
   const puedeConsultarCuadro = concesionesVisuales.has(
     CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro,
@@ -144,7 +148,8 @@ export function crearPresentadorExpedientesContratacionTemporal({
   const puedeConsultarAuditoria = concesionesVisuales.has(
     CAPACIDADES_CONTRATACION_TEMPORAL.consultarAuditoria,
   );
-  const disponible = fuenteValida(fuente) && puedeConsultarCuadro;
+  const disponible = fuenteValida(fuente)
+    && (puedeConsultarCuadro || altaDisponible);
   let estado = congelar(estadoInicial(disponible));
   let controlador = null;
   let secuencia = 0;
@@ -201,7 +206,9 @@ export function crearPresentadorExpedientesContratacionTemporal({
       );
       reemplazar({
         carga: cuadro.expedientes.length === 0 ? "vacio" : "listo",
-        vista: seleccionVisible ? estado.vista : "cuadro",
+        vista: seleccionVisible || estado.vista === "alta"
+          ? estado.vista
+          : "cuadro",
         cuadro,
         expediente: seleccionVisible ? estado.expediente : null,
         documentos: seleccionVisible ? estado.documentos : null,
