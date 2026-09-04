@@ -420,6 +420,39 @@ export function crearCoordinadorModulosPortal({
             controladorCargaInterna = null;
           }
         }
+        let analisis = null;
+        const controladorAnalisis = new AbortController();
+        controladorCargaInterna = controladorAnalisis;
+        try {
+          const configuracionAnalisis = await consultarConLimite(
+            (opciones) => cliente.obtenerConfiguracionAnalisis(opciones),
+            controladorAnalisis,
+            limiteCargaModularMs,
+            temporizadores,
+          );
+          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+          analisis = Object.freeze({
+            cliente,
+            catalogos: Object.freeze({
+              modalidades: configuracionAnalisis.modalidades,
+              categorias: configuracionAnalisis.categorias,
+              causas: configuracionAnalisis.causas,
+              entradas_rc: configuracionAnalisis.entradas_rc,
+              motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
+            }),
+            contexto: Object.freeze({
+              operacion: "registrar",
+              artefacto_ref: configuracionAnalisis.artefacto_ref,
+            }),
+            analisisInicial: null,
+          });
+        } catch {
+          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        } finally {
+          if (controladorCargaInterna === controladorAnalisis) {
+            controladorCargaInterna = null;
+          }
+        }
         if (!cuadroDisponible && alta === null) {
           throw new Error("contratación temporal no disponible");
         }
@@ -430,6 +463,7 @@ export function crearCoordinadorModulosPortal({
               altaDisponible: alta !== null,
             }),
           alta,
+          analisis,
           montar: recursos.vista.montarModuloContratacionTemporal,
         });
       } catch {
@@ -543,6 +577,7 @@ export function crearCoordinadorModulosPortal({
         raiz,
         presentador: composicion.contratacionTemporal.crearPresentador(),
         alta: composicion.contratacionTemporal.alta,
+        analisis: composicion.contratacionTemporal.analisis,
         confirmarOperacion,
         anunciar,
       });

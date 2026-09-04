@@ -397,7 +397,7 @@ test("estado HTTP y rama cruzados conservan el bloqueo", async () => {
   }
 });
 
-test("el inventario expone diez rutas y los cinco flujos previos siguen intactos", async () => {
+test("el inventario expone once rutas y los cinco flujos previos siguen intactos", async () => {
   const llamadas = [];
   const cliente = crearClienteHTTPContratacionTemporal({
     fetchImpl: async (ruta, opciones) => {
@@ -439,6 +439,7 @@ test("el inventario expone diez rutas y los cinco flujos previos siguen intactos
     "/api/vec/contratacion-temporal/cobertura/resultados",
     "/api/vec/contratacion-temporal/analisis/registros",
     "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    "/api/vec/contratacion-temporal/configuracion-analisis",
     "/api/vec/contratacion-temporal/cuadro/consultas",
     "/api/vec/contratacion-temporal/expedientes/consultas",
     "/api/vec/contratacion-temporal/catalogos-alta",

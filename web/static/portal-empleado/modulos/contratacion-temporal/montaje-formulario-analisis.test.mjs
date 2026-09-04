@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { crearExpedienteContratacionTemporalPresentacion } from "./datos-presentacion.js";
+import { CAPACIDAD_CREAR_SOLICITUD } from "./contrato.js";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarExpedienteContratacionTemporal,
@@ -21,6 +22,12 @@ class FormDataFalso {
     return Object.hasOwn(this.valores, nombre) ? this.valores[nombre] : null;
   }
 
+  getAll(nombre) {
+    const valor = this.get(nombre);
+    if (valor === null) return [];
+    return Array.isArray(valor) ? valor : [valor];
+  }
+
   *entries() {
     yield* Object.entries(this.valores);
   }
@@ -31,7 +38,13 @@ test.after(() => { globalThis.FormData = FORM_DATA_ORIGINAL; });
 
 function crearCatalogos() {
   return {
-    modalidades: [{ clave: "interinidad", etiqueta: "Interinidad" }],
+    modalidades: [
+      { clave: "sustitucion", etiqueta: "Sustitución" },
+      { clave: "vacante", etiqueta: "Vacante" },
+      { clave: "acumulacion_tareas", etiqueta: "Acumulación de tareas" },
+      { clave: "programa", etiqueta: "Programa temporal" },
+      { clave: "relevo", etiqueta: "Contrato de relevo" },
+    ],
     categorias: [{
       referencia: "categoria:rrhh:001",
       etiqueta: "Técnica o técnico superior",
@@ -52,7 +65,7 @@ function crearCatalogos() {
 
 function crearAnalisisInicial() {
   return {
-    modalidad_clave: "interinidad",
+    modalidad_clave: "sustitucion",
     categoria_ref: "categoria:rrhh:001",
     grupo_subgrupo: "A1",
     causa_clave: "sustitucion",
@@ -64,7 +77,7 @@ function crearAnalisisInicial() {
 
 function crearValoresFormulario() {
   return {
-    modalidad_clave: "interinidad",
+    modalidad_clave: "sustitucion",
     categoria_ref: "categoria:rrhh:001",
     grupo_subgrupo: "A1",
     causa_clave: "sustitucion",
@@ -146,12 +159,15 @@ function crearEstado(expediente, tareaRef, sobrescrituras = {}) {
   };
 }
 
-function crearPresentador(estadoInicial) {
+function crearPresentador(estadoInicial, fallarCarga = false) {
   let estado = estadoInicial;
   let desmontajes = 0;
   return {
     obtenerEstado() { return estado; },
-    async cargar() { return estado; },
+    async cargar() {
+      if (fallarCarga) throw new Error("listado temporalmente no disponible");
+      return estado;
+    },
     cambiarVista(vista) { estado = { ...estado, vista }; },
     seleccionarTarea(tareaRef) { estado = { ...estado, vista: "expediente", tarea_ref: tareaRef }; },
     cancelar() {},
@@ -192,10 +208,44 @@ function crearContenedorAnalisis() {
   };
 }
 
+function crearContenedorAlta() {
+  const eventos = new Map();
+  return {
+    innerHTML: "",
+    eventos,
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
+    removeEventListener(tipo, manejador) {
+      if (eventos.get(tipo) === manejador) eventos.delete(tipo);
+    },
+    contains() { return true; },
+    querySelector() { return { focus() {}, scrollIntoView() {} }; },
+    enviar(valores) {
+      const formulario = {
+        valores,
+        closest(selector) {
+          return selector === "[data-ct-form]" ? this : null;
+        },
+      };
+      return eventos.get("submit")({ target: formulario, preventDefault() {} });
+    },
+    confirmar() {
+      const control = {
+        dataset: { ctAccion: "confirmar" },
+        closest(selector) {
+          if (selector === "[data-ct-enfocar]") return null;
+          return selector === "[data-ct-accion]" ? this : null;
+        },
+      };
+      return eventos.get("click")({ target: control, preventDefault() {} });
+    },
+  };
+}
+
 function crearRaizModulo() {
   const eventos = new Map();
   const atributos = new Map();
   let html = "";
+  let contenedorAlta = null;
   let contenedorAnalisis = null;
   let montajesAnalisis = 0;
   let controles = [];
@@ -203,6 +253,8 @@ function crearRaizModulo() {
     get innerHTML() { return html; },
     set innerHTML(valor) {
       html = valor;
+      contenedorAlta = valor.includes("data-ct-exp-alta")
+        ? crearContenedorAlta() : null;
       contenedorAnalisis = valor.includes("data-ct-exp-analisis")
         ? crearContenedorAnalisis() : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
@@ -226,6 +278,7 @@ function crearRaizModulo() {
     removeAttribute(nombre) { atributos.delete(nombre); },
     querySelectorAll() { return controles; },
     querySelector(selector) {
+      if (selector === "[data-ct-exp-alta]") return contenedorAlta;
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       return { focus() {}, scrollIntoView() {} };
     },
@@ -233,6 +286,7 @@ function crearRaizModulo() {
   return {
     raiz,
     eventos,
+    obtenerAlta() { return contenedorAlta; },
     obtenerAnalisis() { return contenedorAnalisis; },
     obtenerMontajesAnalisis() { return montajesAnalisis; },
     obtenerControles() { return controles; },
@@ -273,12 +327,18 @@ async function montarEscenario({
   tareaRef,
   estado = null,
   analisis = null,
+  alta = null,
+  fallarCarga = false,
 } = {}) {
   const raiz = crearRaizModulo();
-  const presentador = crearPresentador(estado ?? crearEstado(expediente, tareaRef));
+  const presentador = crearPresentador(
+    estado ?? crearEstado(expediente, tareaRef),
+    fallarCarga,
+  );
   const modulo = await montarModuloContratacionTemporal({
     raiz: raiz.raiz,
     presentador,
+    alta,
     analisis,
   });
   return { raiz, presentador, modulo };
@@ -302,13 +362,107 @@ test("la capacidad nominal disponible monta el formulario con expediente y versi
 
   assert.ok(formulario);
   assert.match(formulario.innerHTML, /data-ct-analisis-form/u);
-  assert.match(formulario.innerHTML, /value="interinidad" selected/u);
+  assert.match(formulario.innerHTML, /value="sustitucion" selected/u);
+  for (const modalidad of [
+    "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
+  ]) assert.match(formulario.innerHTML, new RegExp(`value="${modalidad}"`, "u"));
   assert.doesNotMatch(escenario.raiz.raiz.innerHTML, /data-ct-exp-tarea-form/u);
   await formulario.enviar();
   assert.equal(solicitudes.length, 1);
   assert.equal(solicitudes[0].expediente_ref, expediente.expediente_ref);
   assert.equal(solicitudes[0].version_esperada, expediente.version);
   assert.equal(solicitudes[0].artefacto_ref, "artefacto:opaco:001");
+  escenario.modulo.desmontar();
+});
+
+test("el recibo de alta monta el análisis real sin perderse si falla el listado", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  const reciboAlta = {
+    expediente_ref: "expediente:alta:analisis:001",
+    numero_visible: "2026/CT-9001",
+    version: 1,
+    recibo_ref: "recibo:alta:analisis:001",
+    confirmada_en: "2026-09-04T08:15:00Z",
+  };
+  const solicitudesAnalisis = [];
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    estado: crearEstado(expediente, tareaRef, { vista: "alta" }),
+    fallarCarga: true,
+    alta: {
+      catalogos: {
+        esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        centros: [{
+          referencia: "centro:sintetico:001",
+          etiqueta: "Centro sintético",
+          contactos: [{
+            referencia: "contacto:sintetico:001",
+            etiqueta: "Contacto sintético",
+          }],
+        }],
+        categorias: [{
+          referencia: "categoria:rrhh:001",
+          etiqueta: "Técnica o técnico superior",
+          grupos_subgrupos: [{ clave: "A1", etiqueta: "A1" }],
+        }],
+        motivos: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
+        documentos: [{
+          referencia: "documento:sintetico:001",
+          etiqueta: "Retención sintética",
+        }],
+      },
+      capacidad: CAPACIDAD_CREAR_SOLICITUD,
+      ejecutor: async () => reciboAlta,
+      generarClaveIdempotencia: () => "12345678-1234-4abc-8def-1234567890ab",
+    },
+    analisis: crearComposicion({
+      registrarAnalisis(solicitud) {
+        solicitudesAnalisis.push(solicitud);
+        return Promise.resolve({
+          esquema: "vec.contratacion-temporal.recibo-analisis-rrhh.v1",
+          operacion: "registrar",
+          expediente_ref: reciboAlta.expediente_ref,
+          version_resultante: 2,
+          recibo_ref: "recibo:analisis:alta:001",
+          confirmada_en: "2026-09-04T08:16:00Z",
+        });
+      },
+    }, { analisisInicial: null }),
+  });
+  const alta = escenario.raiz.obtenerAlta();
+  alta.enviar({
+    centro_ref: "centro:sintetico:001",
+    contacto_ref: "contacto:sintetico:001",
+    categoria_ref: "categoria:rrhh:001",
+    grupo_subgrupo: "A1",
+    motivo_clave: "sustitucion",
+    detalle: "Necesidad temporal sintética.",
+    inicio: "2026-09-10",
+    fin: "2027-03-10",
+    rc_existe: "si",
+    rc_numero: "RC-2026-9001",
+    rc_fecha: "2026-09-04",
+    rc_importe: "12500,00",
+    rc_documento_ref: "documento:sintetico:001",
+    documentos_adjuntos: ["documento:sintetico:001"],
+    observaciones: "Datos exclusivamente sintéticos.",
+  });
+  await alta.confirmar();
+
+  assert.match(alta.innerHTML, /data-ct-recibo/u);
+  assert.match(alta.innerHTML, /recibo:alta:analisis:001/u);
+  const formularioAnalisis = escenario.raiz.obtenerAnalisis();
+  assert.match(formularioAnalisis.innerHTML, /data-ct-analisis-form/u);
+  await formularioAnalisis.enviar();
+  assert.equal(solicitudesAnalisis.length, 1);
+  assert.equal(
+    solicitudesAnalisis[0].expediente_ref,
+    reciboAlta.expediente_ref,
+  );
+  assert.equal(solicitudesAnalisis[0].version_esperada, reciboAlta.version);
+  assert.equal(solicitudesAnalisis[0].artefacto_ref, "artefacto:opaco:001");
+  assert.match(formularioAnalisis.innerHTML, /recibo:analisis:alta:001/u);
   escenario.modulo.desmontar();
 });
 

@@ -11,36 +11,28 @@ import {
   validarSolicitudPropuestaCobertura,
   validarSolicitudRectificacionCobertura,
 } from "./contrato-cobertura.js";
-import {
-  validarReciboAnalisis,
+import { validarConfiguracionAnalisis, validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
-  validarSolicitudRegistroAnalisis,
-} from "./contrato-analisis.js";
+  validarSolicitudRegistroAnalisis } from "./contrato-analisis.js";
 import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 
-export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze(
-  {
+export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
-    propuestaCobertura:
-      "/api/vec/contratacion-temporal/cobertura/propuesta",
-    decisionCobertura:
-      "/api/vec/contratacion-temporal/cobertura/decisiones",
-    rectificacionCobertura:
-      "/api/vec/contratacion-temporal/cobertura/rectificaciones",
-    resultadoCobertura:
-      "/api/vec/contratacion-temporal/cobertura/resultados",
-    registroAnalisis:
-      "/api/vec/contratacion-temporal/analisis/registros",
-    rectificacionAnalisis:
-      "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
+    decisionCobertura: "/api/vec/contratacion-temporal/cobertura/decisiones",
+    rectificacionCobertura: "/api/vec/contratacion-temporal/cobertura/rectificaciones",
+    resultadoCobertura: "/api/vec/contratacion-temporal/cobertura/resultados",
+    registroAnalisis: "/api/vec/contratacion-temporal/analisis/registros",
+    rectificacionAnalisis: "/api/vec/contratacion-temporal/analisis/rectificaciones",
+    configuracionAnalisis: "/api/vec/contratacion-temporal/configuracion-analisis",
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
-  },
-);
+});
 
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
 const MAXIMO_RESPUESTA_ANALISIS_BYTES = 16 * 1024;
+const MAXIMO_RESPUESTA_CONFIGURACION_ANALISIS_BYTES = 64 * 1024;
 const MAXIMO_RESPUESTA_COBERTURA_BYTES = 256 * 1024;
 const MAXIMO_ERROR_BYTES = 16 * 1024;
 const MAXIMO_FRAGMENTOS = 4096;
@@ -740,6 +732,19 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     });
   }
 
+  function obtenerConfiguracionAnalisis(opciones) {
+    const { signal } = validarOpciones(opciones);
+    return ejecutar({
+      metodo: "GET",
+      ruta: RUTAS_HTTP_CONTRATACION_TEMPORAL.configuracionAnalisis,
+      signal,
+      estadoEsperado: 200,
+      maximoRespuesta: MAXIMO_RESPUESTA_CONFIGURACION_ANALISIS_BYTES,
+      validarRespuesta: validarConfiguracionAnalisis,
+      efecto: false,
+    });
+  }
+
   function consultarResultadoCobertura(solicitud, opciones) {
     let signal;
     let entrada;
@@ -788,11 +793,8 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     modo: "http",
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
-    proponerCobertura,
-    decidirCobertura,
-    rectificarCobertura,
-    consultarResultadoCobertura,
-    registrarAnalisis,
-    rectificarAnalisis,
+    proponerCobertura, decidirCobertura, rectificarCobertura,
+    consultarResultadoCobertura, obtenerConfiguracionAnalisis,
+    registrarAnalisis, rectificarAnalisis,
   });
 }

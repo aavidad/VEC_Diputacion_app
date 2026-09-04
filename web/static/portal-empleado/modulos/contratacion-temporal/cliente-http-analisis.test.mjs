@@ -8,12 +8,45 @@ import {
   crearClienteHTTPContratacionTemporal,
 } from "./cliente-http.js";
 import {
+  validarConfiguracionAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js";
 
 const HUELLA = "9".repeat(64);
+const ESQUEMA_CONFIGURACION_ANALISIS =
+  "vec.contratacion_temporal.configuracion_analisis.v1";
+
+function configuracionAnalisis(cambios = {}) {
+  return {
+    esquema: ESQUEMA_CONFIGURACION_ANALISIS,
+    artefacto_ref: "artefacto:analisis:http:001",
+    modalidades: [
+      { clave: "sustitucion", etiqueta: "Sustitución" },
+      { clave: "vacante", etiqueta: "Vacante" },
+      { clave: "acumulacion_tareas", etiqueta: "Acumulación de tareas" },
+      { clave: "programa", etiqueta: "Programa temporal" },
+      { clave: "relevo", etiqueta: "Contrato de relevo" },
+    ],
+    categorias: [{
+      referencia: "categoria:tecnico:001",
+      etiqueta: "Técnica o técnico",
+      grupos_subgrupos: [{ clave: "A2", etiqueta: "A2" }],
+    }],
+    causas: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
+    entradas_rc: [{
+      referencia: "entrada:rc:http:001",
+      huella_sha256: HUELLA,
+      etiqueta: "Retención de crédito 001",
+    }],
+    motivos_rectificacion: [{
+      clave: "ajuste_jornada",
+      etiqueta: "Ajuste de jornada",
+    }],
+    ...cambios,
+  };
+}
 
 function solicitudRegistro(cambios = {}) {
   return {
@@ -96,6 +129,68 @@ test("el contrato de análisis clona, congela y conserva el DTO exacto", () => {
   const salida = validarReciboAnalisis(recibo("registrar", 2));
   assert.equal(Object.isFrozen(salida), true);
   assert.equal(salida.operacion, "registrar");
+});
+
+test("la configuración real exige contrato cerrado y cinco modalidades", () => {
+  const entrada = configuracionAnalisis();
+  const salida = validarConfiguracionAnalisis(entrada);
+  entrada.modalidades[0].etiqueta = "Alterada";
+  entrada.categorias[0].grupos_subgrupos[0].etiqueta = "Alterado";
+
+  assert.equal(salida.modalidades[0].etiqueta, "Sustitución");
+  assert.equal(salida.categorias[0].grupos_subgrupos[0].etiqueta, "A2");
+  assert.equal(Object.isFrozen(salida), true);
+  assert.equal(Object.isFrozen(salida.modalidades), true);
+  assert.equal(Object.isFrozen(salida.categorias[0]), true);
+  assert.equal(Object.isFrozen(salida.entradas_rc[0]), true);
+  assert.throws(
+    () => validarConfiguracionAnalisis({
+      ...configuracionAnalisis(),
+      identidad_ref: "actor:fabricado",
+    }),
+    /configuración/u,
+  );
+  assert.throws(
+    () => validarConfiguracionAnalisis(configuracionAnalisis({
+      modalidades: configuracionAnalisis().modalidades.slice(0, 4),
+    })),
+    /modalidades/u,
+  );
+  assert.throws(
+    () => validarConfiguracionAnalisis(configuracionAnalisis({
+      entradas_rc: [{
+        ...configuracionAnalisis().entradas_rc[0],
+        huella_sha256: "0".repeat(64),
+      }],
+    })),
+    /retención/u,
+  );
+});
+
+test("la configuración de análisis usa un único GET real sin autoridad de navegador", async () => {
+  const llamadas = [];
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async (ruta, opciones) => {
+      llamadas.push({ ruta, opciones });
+      return respuestaJSON({ data: configuracionAnalisis() }, 200);
+    },
+  });
+
+  const salida = await cliente.obtenerConfiguracionAnalisis();
+  assert.equal(salida.modalidades.length, 5);
+  assert.equal(llamadas.length, 1);
+  assert.equal(
+    llamadas[0].ruta,
+    "/api/vec/contratacion-temporal/configuracion-analisis",
+  );
+  assert.equal(llamadas[0].opciones.method, "GET");
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.mode, "same-origin");
+  assert.equal(llamadas[0].opciones.cache, "no-store");
+  assert.equal(llamadas[0].opciones.redirect, "error");
+  assert.equal(llamadas[0].opciones.referrerPolicy, "no-referrer");
+  assert.deepEqual([...llamadas[0].opciones.headers.keys()], ["accept"]);
+  assert.equal(Object.hasOwn(llamadas[0].opciones, "body"), false);
 });
 
 test("los DTO cerrados rechazan autoridad, extras, accesores y formas inválidas", () => {
@@ -442,10 +537,16 @@ test("AbortSignal preabortada evita el envío del análisis", async () => {
 });
 
 test("el contrato y cliente no crean autoridad ni almacenamiento de navegador", async () => {
-  const fuentes = await Promise.all([
-    "./contrato-analisis.js",
-    "./cliente-http.js",
-  ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
+  const [fuentes, fuenteBackend] = await Promise.all([
+    Promise.all([
+      "./contrato-analisis.js",
+      "./cliente-http.js",
+    ].map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8"))),
+    readFile(new URL(
+      "../../../../../internal/app/bootstrap/contratacion_temporal_analisis_desarrollo.go",
+      import.meta.url,
+    ), "utf8"),
+  ]);
   const fuente = fuentes.join("\n");
   assert.doesNotMatch(
     fuente,
@@ -457,4 +558,12 @@ test("el contrato y cliente no crean autoridad ni almacenamiento de navegador", 
   );
   assert.match(fuente, /MAXIMO_SOLICITUD_ANALISIS_BYTES\s*=\s*64\s*\*\s*1024/u);
   assert.match(fuente, /MAXIMO_RESPUESTA_ANALISIS_BYTES\s*=\s*16\s*\*\s*1024/u);
+  assert.match(
+    fuente,
+    /MAXIMO_RESPUESTA_CONFIGURACION_ANALISIS_BYTES\s*=\s*64\s*\*\s*1024/u,
+  );
+  assert.equal(
+    fuenteBackend.includes(`"${ESQUEMA_CONFIGURACION_ANALISIS}"`),
+    true,
+  );
 });

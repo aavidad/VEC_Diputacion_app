@@ -344,14 +344,33 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     documentos: Object.freeze([]),
   });
   const registrarSolicitud = async () => ({ recibo_ref: "recibo:opaco:001" });
+  const configuracionAnalisis = Object.freeze({
+    esquema: "vec.contratacion_temporal.configuracion_analisis.v1",
+    artefacto_ref: "artefacto:analisis:vigente:001",
+    modalidades: Object.freeze([
+      { clave: "sustitucion", etiqueta: "Sustitución" },
+      { clave: "vacante", etiqueta: "Vacante" },
+      { clave: "acumulacion_tareas", etiqueta: "Acumulación de tareas" },
+      { clave: "programa", etiqueta: "Programa temporal" },
+      { clave: "relevo", etiqueta: "Contrato de relevo" },
+    ]),
+    categorias: Object.freeze([]),
+    causas: Object.freeze([]),
+    entradas_rc: Object.freeze([]),
+    motivos_rectificacion: Object.freeze([]),
+  });
   let consultasCuadro = 0;
   let consultasCatalogo = 0;
+  let consultasAnalisis = 0;
+  const orden = [];
   let argumentosPresentador;
   let altaMontada;
+  let analisisMontado;
   const fuente = Object.freeze({
     capacidades: Object.freeze([]),
     async listar() {
       consultasCuadro += 1;
+      orden.push("cuadro");
       const error = new Error("cuadro pendiente");
       error.estado = 503;
       throw error;
@@ -362,9 +381,16 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   const cliente = Object.freeze({
     async obtenerCatalogosAlta() {
       consultasCatalogo += 1;
+      orden.push("alta");
       return catalogosAlta;
     },
+    async obtenerConfiguracionAnalisis() {
+      consultasAnalisis += 1;
+      orden.push("analisis");
+      return configuracionAnalisis;
+    },
     registrarSolicitud,
+    async registrarAnalisis() {},
   });
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
@@ -386,8 +412,9 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
           },
         },
         vista: {
-          montarModuloContratacionTemporal: async ({ alta }) => {
+          montarModuloContratacionTemporal: async ({ alta, analisis }) => {
             altaMontada = alta;
+            analisisMontado = analisis;
             return { desmontar() {} };
           },
         },
@@ -399,6 +426,10 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   await coordinador.cargarInterno();
   assert.equal(consultasCuadro, 2);
   assert.equal(consultasCatalogo, 2);
+  assert.equal(consultasAnalisis, 2);
+  assert.deepEqual(orden, [
+    "cuadro", "alta", "analisis", "cuadro", "alta", "analisis",
+  ]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
   assert.equal(argumentosPresentador.altaDisponible, true);
@@ -406,6 +437,18 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   assert.strictEqual(altaMontada.catalogos, catalogosAlta);
   assert.strictEqual(altaMontada.ejecutor, registrarSolicitud);
   assert.equal(Object.hasOwn(altaMontada, "desarrolloNoAutoritativo"), false);
+  assert.strictEqual(analisisMontado.cliente, cliente);
+  assert.strictEqual(
+    analisisMontado.catalogos.modalidades,
+    configuracionAnalisis.modalidades,
+  );
+  assert.equal(analisisMontado.catalogos.modalidades.length, 5);
+  assert.deepEqual(analisisMontado.contexto, {
+    operacion: "registrar",
+    artefacto_ref: "artefacto:analisis:vigente:001",
+  });
+  assert.equal(analisisMontado.analisisInicial, null);
+  assert.equal(Object.hasOwn(analisisMontado, "desarrolloNoAutoritativo"), false);
 });
 
 test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", async () => {
@@ -674,8 +717,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260831-ct-catalogo-v1";
-  const versionPortal = "20260831-ct-catalogo-v1";
+  const versionCoordinador = "20260904-ct-analisis-v1";
+  const versionPortal = "20260904-ct-analisis-v1";
+  const versionCatalogo = "20260831-ct-catalogo-v1";
   const versionTema = "20260725-aislamiento-modular-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
@@ -687,7 +731,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
-  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCoordinador}`));
+  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));

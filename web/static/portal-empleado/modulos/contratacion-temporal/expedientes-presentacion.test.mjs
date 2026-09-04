@@ -510,7 +510,13 @@ test("el alta crea un expediente nuevo mínimo sin heredar candidato ni document
 });
 
 test("el alta ejecuta un solo efecto y conserva su recibo aunque falle el refresco", async () => {
-  const recibo = Object.freeze({ recibo_ref: "recibo:ct:real:001" });
+  const recibo = Object.freeze({
+    expediente_ref: "expediente:ct:real:001",
+    numero_visible: "2026/CT-0001",
+    version: 1,
+    recibo_ref: "recibo:ct:real:001",
+    confirmada_en: "2026-09-04T07:55:00Z",
+  });
   let altas = 0;
   let refrescos = 0;
   const ejecutar = async () => {
@@ -525,7 +531,7 @@ test("el alta ejecuta un solo efecto y conserva su recibo aunque falle el refres
   };
   const ejecutarConRefresco = crearEjecutorAltaConRefresco(ejecutar, presentador);
 
-  assert.strictEqual(await ejecutarConRefresco({}, {}), recibo);
+  assert.deepEqual(await ejecutarConRefresco({}, {}), recibo);
   assert.equal(altas, 1);
   assert.equal(refrescos, 1);
 });

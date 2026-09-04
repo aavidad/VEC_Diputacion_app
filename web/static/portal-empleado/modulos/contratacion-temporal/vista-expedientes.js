@@ -1,6 +1,9 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
+import {
+  crearPresentadorAltaContratacionTemporal,
+} from "./presentador.js";
+import { validarReciboAlta } from "./contrato.js";
 import { validarReciboAnalisis } from "./contrato-analisis.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
@@ -177,28 +180,39 @@ function renderizarCabeceraModulo(estado, t) {
   </header>`;
 }
 
-export function crearEjecutorAltaConRefresco(ejecutor, presentador) {
-  if (typeof ejecutor !== "function" || typeof presentador?.cargar !== "function") {
+export function crearEjecutorAltaConRefresco(
+  ejecutor,
+  presentador,
+  alConfirmar = () => {},
+) {
+  if (typeof ejecutor !== "function" || typeof presentador?.cargar !== "function"
+    || typeof alConfirmar !== "function") {
     throw new TypeError("dependencias del refresco de alta no válidas");
   }
   return async (comando, opciones) => {
-    const recibo = await ejecutor(comando, opciones);
+    const recibo = validarReciboAlta(await ejecutor(comando, opciones));
     try {
       await presentador.cargar();
     } catch {
       // Un fallo de lectura posterior no invalida ni repite el alta confirmada.
     }
+    try {
+      alConfirmar(recibo);
+    } catch {
+      // El recibo confirmado prevalece si no puede montarse el siguiente paso.
+    }
     return recibo;
   };
 }
 
-function renderizarAlta(t, disponible) {
+function renderizarAlta(t, disponible, analisisDisponible) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
     <p>${escaparHTML(t("nueva_peticion_descripcion"))}</p>
   </header>
   ${disponible
-    ? '<div data-ct-exp-alta></div>'
+    ? `<div data-ct-exp-alta></div>
+      ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}`
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
@@ -218,7 +232,7 @@ export function renderizarModuloContratacionTemporal(estado, {
     && estado.vista !== "alta") {
     contenido = renderizarEstadoCarga(estado, t);
   } else if (estado.vista === "alta") {
-    contenido = renderizarAlta(t, altaDisponible);
+    contenido = renderizarAlta(t, altaDisponible, analisisDisponible);
   } else if (estado.vista === "expediente") {
     contenido = renderizarExpediente(
       estado,
@@ -384,7 +398,11 @@ export async function montarModuloContratacionTemporal({
     const presentadorAlta = crearPresentadorAltaContratacionTemporal({
       catalogos: alta.catalogos,
       capacidad: alta.capacidad,
-      ejecutor: crearEjecutorAltaConRefresco(alta.ejecutor, presentador),
+      ejecutor: crearEjecutorAltaConRefresco(
+        alta.ejecutor,
+        presentador,
+        montarAnalisisDesdeAlta,
+      ),
       generarClaveIdempotencia: alta.generarClaveIdempotencia,
     });
     desmontarAlta = montarAltaContratacionTemporal({
@@ -396,18 +414,9 @@ export async function montarModuloContratacionTemporal({
     });
   }
 
-  function montarAnalisisSiProcede() {
-    const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null) return null;
-    if (typeof desmontarAnalisis === "function") return true;
-    const contenedor = raiz.querySelector("[data-ct-exp-analisis]");
+  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial) {
     if (!contenedor) return null;
-    const contexto = Object.freeze({
-      operacion: composicionAnalisis.contexto.operacion,
-      expediente_ref: estado.expediente.expediente_ref,
-      version_esperada: estado.expediente.version,
-      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
-    });
+    if (typeof desmontarAnalisis === "function") return true;
     const sesion = {
       expedienteRef: contexto.expediente_ref,
       intentoIniciado: false,
@@ -428,7 +437,7 @@ export async function montarModuloContratacionTemporal({
         cliente: clienteCercado,
         contexto,
         catalogos: composicionAnalisis.catalogos,
-        analisisInicial: composicionAnalisis.analisisInicial,
+        analisisInicial,
         mensajes,
         locale,
         zonaHoraria,
@@ -441,6 +450,39 @@ export async function montarModuloContratacionTemporal({
       if (sesionAnalisis === sesion) sesionAnalisis = null;
       return false;
     }
+  }
+
+  function montarAnalisisDesdeAlta(recibo) {
+    const estado = presentador.obtenerEstado();
+    if (!montada || estado.vista !== "alta" || composicionAnalisis === null
+      || composicionAnalisis.contexto.operacion !== "registrar") return null;
+    const contexto = Object.freeze({
+      operacion: "registrar",
+      expediente_ref: recibo.expediente_ref,
+      version_esperada: recibo.version,
+      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
+    });
+    return montarAnalisisEnContenedor(
+      raiz.querySelector("[data-ct-exp-analisis]"),
+      contexto,
+      null,
+    );
+  }
+
+  function montarAnalisisSiProcede() {
+    const estado = presentador.obtenerEstado();
+    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null) return null;
+    const contexto = Object.freeze({
+      operacion: composicionAnalisis.contexto.operacion,
+      expediente_ref: estado.expediente.expediente_ref,
+      version_esperada: estado.expediente.version,
+      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
+    });
+    return montarAnalisisEnContenedor(
+      raiz.querySelector("[data-ct-exp-analisis]"),
+      contexto,
+      composicionAnalisis.analisisInicial,
+    );
   }
 
   function repintar(selectorFoco = "") {

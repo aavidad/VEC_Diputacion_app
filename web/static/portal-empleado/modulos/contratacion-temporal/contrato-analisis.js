@@ -11,7 +11,10 @@ const UUID_V4_NULO = "00000000-0000-4000-8000-000000000000";
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
 const ESQUEMA_RECIBO =
   "vec.contratacion-temporal.recibo-analisis-rrhh.v1";
+const ESQUEMA_CONFIGURACION =
+  "vec.contratacion_temporal.configuracion_analisis.v1";
 const OPERACIONES = new Set(["registrar", "rectificar"]);
+const MAXIMO_OPCIONES_CONFIGURACION = 100;
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -41,6 +44,49 @@ function exigirCamposExactos(valor, campos, nombre) {
   }
 }
 
+function valoresListaCerrada(lista, nombre, minimo = 1) {
+  if (!Array.isArray(lista) || Object.getPrototypeOf(lista) !== Array.prototype
+    || Object.getOwnPropertySymbols(lista).length !== 0
+    || lista.length < minimo || lista.length > MAXIMO_OPCIONES_CONFIGURACION) {
+    throw new TypeError(`${nombre} no válida`);
+  }
+  const valores = [];
+  for (let indice = 0; indice < lista.length; indice += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(lista, String(indice));
+    if (!descriptor || !Object.hasOwn(descriptor, "value")
+      || descriptor.enumerable !== true) throw new TypeError(`${nombre} no válida`);
+    valores.push(descriptor.value);
+  }
+  if (Reflect.ownKeys(lista).length !== lista.length + 1) {
+    throw new TypeError(`${nombre} no válida`);
+  }
+  return valores;
+}
+
+function etiquetaValida(valor) {
+  return typeof valor === "string" && valor.length > 0 && valor.length <= 160
+    && valor.trim() === valor
+    && !/[\u0000-\u001f\u007f-\u009f]/u.test(valor);
+}
+
+function normalizarOpciones(lista, {
+  nombre, campo, patron, minimo = 1, cantidadExacta = null,
+}) {
+  const valores = valoresListaCerrada(lista, nombre, minimo);
+  if (cantidadExacta !== null && valores.length !== cantidadExacta) {
+    throw new TypeError(`${nombre} no válida`);
+  }
+  const vistos = new Set();
+  return Object.freeze(valores.map((opcion) => {
+    exigirCamposExactos(opcion, [campo, "etiqueta"], nombre);
+    const valor = opcion[campo];
+    if (typeof valor !== "string" || !patron.test(valor) || vistos.has(valor)
+      || !etiquetaValida(opcion.etiqueta)) throw new TypeError(`${nombre} no válida`);
+    vistos.add(valor);
+    return Object.freeze({ [campo]: valor, etiqueta: opcion.etiqueta });
+  }));
+}
+
 function referenciaValida(valor) {
   return typeof valor === "string" && PATRON_REFERENCIA.test(valor);
 }
@@ -59,6 +105,82 @@ function versionConIncrementoValida(valor) {
   return Number.isSafeInteger(valor)
     && valor >= 1
     && valor < MAXIMO_ENTERO_SEGURO;
+}
+
+export function validarConfiguracionAnalisis(configuracion) {
+  exigirCamposExactos(configuracion, [
+    "esquema", "artefacto_ref", "modalidades", "categorias", "causas",
+    "entradas_rc", "motivos_rectificacion",
+  ], "configuración del análisis");
+  if (configuracion.esquema !== ESQUEMA_CONFIGURACION
+    || !referenciaValida(configuracion.artefacto_ref)) {
+    throw new TypeError("configuración del análisis no válida");
+  }
+  const modalidades = normalizarOpciones(configuracion.modalidades, {
+    nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
+    cantidadExacta: 5,
+  });
+  const causas = normalizarOpciones(configuracion.causas, {
+    nombre: "causas", campo: "clave", patron: PATRON_CLAVE,
+  });
+  const motivos = normalizarOpciones(configuracion.motivos_rectificacion, {
+    nombre: "motivos de rectificación", campo: "clave", patron: PATRON_CLAVE,
+    minimo: 0,
+  });
+  const referenciasCategorias = new Set();
+  const categorias = Object.freeze(valoresListaCerrada(
+    configuracion.categorias,
+    "categorías",
+  ).map((categoria) => {
+    exigirCamposExactos(
+      categoria,
+      ["referencia", "etiqueta", "grupos_subgrupos"],
+      "categoría",
+    );
+    if (!referenciaValida(categoria.referencia)
+      || referenciasCategorias.has(categoria.referencia)
+      || !etiquetaValida(categoria.etiqueta)) throw new TypeError("categoría no válida");
+    referenciasCategorias.add(categoria.referencia);
+    return Object.freeze({
+      referencia: categoria.referencia,
+      etiqueta: categoria.etiqueta,
+      grupos_subgrupos: normalizarOpciones(categoria.grupos_subgrupos, {
+        nombre: "grupos o subgrupos", campo: "clave", patron: PATRON_GRUPO,
+      }),
+    });
+  }));
+  const referenciasEntradas = new Set();
+  const entradasRC = Object.freeze(valoresListaCerrada(
+    configuracion.entradas_rc,
+    "entradas de retención de crédito",
+  ).map((entrada) => {
+    exigirCamposExactos(
+      entrada,
+      ["referencia", "huella_sha256", "etiqueta"],
+      "entrada de retención de crédito",
+    );
+    if (!referenciaValida(entrada.referencia)
+      || referenciasEntradas.has(entrada.referencia)
+      || !huellaValida(entrada.huella_sha256)
+      || !etiquetaValida(entrada.etiqueta)) {
+      throw new TypeError("entrada de retención de crédito no válida");
+    }
+    referenciasEntradas.add(entrada.referencia);
+    return Object.freeze({
+      referencia: entrada.referencia,
+      huella_sha256: entrada.huella_sha256,
+      etiqueta: entrada.etiqueta,
+    });
+  }));
+  return Object.freeze({
+    esquema: configuracion.esquema,
+    artefacto_ref: configuracion.artefacto_ref,
+    modalidades,
+    categorias,
+    causas,
+    entradas_rc: entradasRC,
+    motivos_rectificacion: motivos,
+  });
 }
 
 function diasDelMes(anio, mes) {
