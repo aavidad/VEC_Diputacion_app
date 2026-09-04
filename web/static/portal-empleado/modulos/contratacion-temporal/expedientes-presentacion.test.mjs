@@ -509,7 +509,7 @@ test("el alta crea un expediente nuevo mínimo sin heredar candidato ni document
   assert.equal(auditoria.actuaciones.length, 1);
 });
 
-test("el alta ejecuta un solo efecto y conserva su recibo aunque falle el refresco", async () => {
+test("el alta ejecuta un solo efecto y conserva su recibo sin refresco automático", async () => {
   const recibo = Object.freeze({
     expediente_ref: "expediente:ct:real:001",
     numero_visible: "2026/CT-0001",
@@ -532,8 +532,54 @@ test("el alta ejecuta un solo efecto y conserva su recibo aunque falle el refres
   const ejecutarConRefresco = crearEjecutorAltaConRefresco(ejecutar, presentador);
 
   assert.deepEqual(await ejecutarConRefresco({}, {}), recibo);
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(altas, 1);
-  assert.equal(refrescos, 1);
+  assert.equal(refrescos, 0);
+});
+
+test("el alta no inicia un refresco pendiente que pueda retirar el análisis", async () => {
+  const recibo = Object.freeze({
+    expediente_ref: "expediente:ct:real:pendiente",
+    numero_visible: "2026/CT-0002",
+    version: 1,
+    recibo_ref: "recibo:ct:real:pendiente",
+    confirmada_en: "2026-09-04T08:05:00Z",
+  });
+  const refrescoPendiente = new Promise(() => {});
+  const eventos = [];
+  let montajes = 0;
+  let refrescos = 0;
+  const ejecutarConRefresco = crearEjecutorAltaConRefresco(
+    async () => {
+      eventos.push("alta");
+      return recibo;
+    },
+    {
+      cargar() {
+        refrescos += 1;
+        eventos.push("refresco");
+        return refrescoPendiente;
+      },
+    },
+    (confirmado) => {
+      montajes += 1;
+      eventos.push("analisis");
+      assert.deepEqual(confirmado, recibo);
+    },
+  );
+
+  const resultado = await Promise.race([
+    ejecutarConRefresco({}, {}),
+    new Promise((_, reject) => setImmediate(() => {
+      reject(new Error("el alta quedó bloqueada por el refresco"));
+    })),
+  ]);
+
+  assert.deepEqual(resultado, recibo);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(eventos, ["alta", "analisis"]);
+  assert.equal(montajes, 1);
+  assert.equal(refrescos, 0);
 });
 
 test("un refresco satisfactorio conserva la vista de alta", async () => {

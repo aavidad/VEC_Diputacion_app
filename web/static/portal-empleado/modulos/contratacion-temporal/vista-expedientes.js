@@ -192,11 +192,6 @@ export function crearEjecutorAltaConRefresco(
   return async (comando, opciones) => {
     const recibo = validarReciboAlta(await ejecutor(comando, opciones));
     try {
-      await presentador.cargar();
-    } catch {
-      // Un fallo de lectura posterior no invalida ni repite el alta confirmada.
-    }
-    try {
       alConfirmar(recibo);
     } catch {
       // El recibo confirmado prevalece si no puede montarse el siguiente paso.
