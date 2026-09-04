@@ -80,7 +80,8 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigad
 	}
 	if datos.Accion == ports.AccionRegistrarAnalisis ||
 		datos.Accion == ports.AccionCrearSolicitud ||
-		datos.Accion == ports.AccionRegistrarAsignacion {
+		datos.Accion == ports.AccionRegistrarAsignacion ||
+		datos.Accion == ports.AccionEmitirInformeJuridico {
 		if ctx == nil {
 			return vecdomain.DecisionAutorizacionLigadaV3{},
 				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
@@ -209,6 +210,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	informeJuridicoReal, err := nuevasDependenciasInformeJuridicoContratacionTemporalDesarrollo(
+		derivador,
+		&alta,
+		reloj,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	cerrarCobertura := true
 	defer func() {
 		if cerrarCobertura {
@@ -247,6 +256,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorCierreAdministrativo:    noCompuesta,
 			AutoridadAsignacion:             alta.soporte,
 			EjecutorAsignacion:              asignacionReal,
+			AutoridadInformeJuridico:        alta.soporte,
+			EjecutorInformeJuridico:         informeJuridicoReal,
 		},
 	)
 	if err != nil {
@@ -382,6 +393,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaResultadoCobertura ||
 		r.URL.Path == httpinterno.RutaAsignaciones ||
 		r.URL.Path == httpinterno.RutaReasignaciones ||
+		r.URL.Path == httpinterno.RutaPreparacionesInformeJuridico ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaConfiguracionAnalisisContratacionTemporalDesarrollo
 }

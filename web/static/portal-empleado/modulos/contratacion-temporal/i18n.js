@@ -252,6 +252,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_estado_enviando: "Registrando una única asignación. Espere la confirmación.",
   asignacion_estado_recuperando: "Recuperando la asignación original con la misma clave.",
   asignacion_estado_confirmada: "La asignación ha quedado confirmada.",
+  asignacion_estado_informe_no_disponible:
+    "La asignación está confirmada, pero el informe jurídico no pudo abrirse. Conserve el recibo.",
   asignacion_estado_indeterminado:
     "El resultado no puede determinarse todavía. Recupere la operación original; no cree otra.",
   asignacion_estado_rechazada:
@@ -281,6 +283,68 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_recibo_version: "Versión resultante",
   asignacion_recibo_referencia: "Referencia del recibo",
   asignacion_recibo_fecha: "Fecha de confirmación",
+  informe_sobrelinea: "Contratación temporal · Informe jurídico",
+  informe_titulo: "Preparar informe jurídico",
+  informe_descripcion:
+    "Genere el documento de desarrollo a partir del expediente asignado y de sus datos gobernados.",
+  informe_alcance_etiqueta: "Alcance del informe",
+  informe_alcance:
+    "El contenido, la identidad, la autorización y la persistencia proceden del servidor.",
+  informe_estado_listo: "El informe jurídico está preparado para su confirmación.",
+  informe_estado_enviando: "Preparando un único informe jurídico. Espere la confirmación.",
+  informe_estado_recuperando: "Recuperando el informe original con la misma clave.",
+  informe_estado_confirmado: "El informe jurídico y su recibo han quedado confirmados.",
+  informe_estado_indeterminado:
+    "El resultado no puede determinarse todavía. Recupere la operación original; no cree otra.",
+  informe_estado_rechazado:
+    "El informe no se confirmó. Revise el estado del expediente antes de volver a intentarlo.",
+  informe_estado_error: "No se pudo preparar una solicitud de informe jurídico válida.",
+  informe_estado_historial_no_disponible:
+    "El informe está confirmado, pero el historial no está disponible temporalmente.",
+  informe_confirmacion_leyenda: "Confirmación del informe jurídico",
+  informe_resumen: "Expediente {expediente}, versión asignada {version}.",
+  informe_confirmacion:
+    "He comprobado el expediente y entiendo que se generará un documento de desarrollo sin firma.",
+  informe_confirmar: "Confirmar y preparar informe",
+  informe_confirmacion_advertencia:
+    "Esta acción generará y registrará una nueva versión del informe jurídico de desarrollo.",
+  informe_indeterminado_titulo: "Resultado pendiente de recuperación",
+  informe_indeterminado_descripcion:
+    "Tras una interrupción, reenvíe exactamente la misma operación para recuperar su recibo.",
+  informe_recuperar: "Recuperar informe original",
+  informe_recibo_sobrelinea: "Informe registrado",
+  informe_recibo_titulo: "Recibo del informe jurídico",
+  informe_recibo_descripcion:
+    "El recibo acredita el informe, el documento y la nueva versión persistida del expediente.",
+  informe_recibo_expediente: "Referencia del expediente",
+  informe_recibo_version: "Versión resultante",
+  informe_recibo_informe: "Referencia del informe",
+  informe_recibo_documento: "Referencia del documento",
+  informe_recibo_referencia: "Referencia del recibo",
+  informe_recibo_auditoria: "Referencia de auditoría",
+  informe_recibo_evento: "Referencia del evento",
+  informe_recibo_fecha: "Fecha de confirmación",
+  informe_documento_rotulo: "Documento de desarrollo · Pendiente de revisión y firma",
+  informe_documento_advertencia:
+    "Este contenido no está firmado ni tiene validez jurídica.",
+  informe_documento_version: "Versión del documento",
+  informe_documento_formato: "Formato",
+  informe_documento_huella: "Huella SHA-256",
+  informe_documento_contenido: "Contenido del documento",
+  informe_historial_titulo: "Historial real del expediente",
+  informe_historial_descripcion:
+    "Actuaciones persistidas recuperadas después de registrar el informe.",
+  informe_historial_cargando: "Recuperando el historial actualizado.",
+  informe_historial_no_disponible:
+    "El historial no se pudo recuperar. El informe y su recibo permanecen confirmados y visibles.",
+  informe_historial_vacio: "El expediente no contiene hitos visibles.",
+  informe_historial_tabla: "Historial persistido del expediente",
+  informe_historial_secuencia: "Secuencia",
+  informe_historial_version: "Versión",
+  informe_historial_accion: "Actuación",
+  informe_historial_fase: "Fase de origen y destino",
+  informe_historial_estado: "Estado de origen y destino",
+  informe_historial_fecha: "Fecha",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

@@ -1,6 +1,7 @@
 # Recorrido manual de contratación temporal O2-07
 
-Esta guía permite probar los cuatro primeros pasos del flujo de Recursos Humanos con la
+Esta guía permite probar los cuatro primeros pasos completos del flujo de
+Recursos Humanos y la preparación real del informe jurídico del paso 5 con la
 aplicación real: navegador con certificado de cliente → API interna →
 autorización de servidor → PostgreSQL → recibo. No usa el adaptador DEMO.
 
@@ -69,19 +70,26 @@ La última consulta debe devolver exclusivamente
 `true|vec_contratacion_temporal_gobernador`.
 
 Antes de arrancar VEC, compruebe que PostgreSQL conserva exactamente las
-definiciones de las dos migraciones de Asignación incluidas en el producto. La
-comprobación es de solo lectura y se detiene ante cualquier diferencia:
+definiciones de las migraciones de Asignación e informe jurídico incluidas en
+el producto. La comprobación es de solo lectura y se detiene ante cualquier
+diferencia:
 
 ```bash
 set -euo pipefail
 
 fuente_autorizacion=deploy/postgresql/autorizacion_atestada_v3/migraciones/000008_consumidor_asignacion_v3_atestada.up.sql
 fuente_asignacion=deploy/postgresql/contratacion_temporal/migraciones/000050_asignacion_durable_v3_v4.up.sql
+fuente_autorizacion_informe=deploy/postgresql/autorizacion_atestada_v3/migraciones/000009_consumidor_informe_juridico_v3_atestada.up.sql
+fuente_informe=deploy/postgresql/contratacion_temporal/migraciones/000051_informe_juridico_durable_v4_v5.up.sql
 
 test "$(sha256sum "$fuente_autorizacion" | awk '{print $1}')" = \
   42f7dfef32464f1a0ce2f3bcb9af035d800b7ceb302917d0652161408488451c
 test "$(sha256sum "$fuente_asignacion" | awk '{print $1}')" = \
   cba96bd9a281e583b9f14edc661d3fc3b26b2a4898515c907c4d5f56cdf89e89
+test "$(sha256sum "$fuente_autorizacion_informe" | awk '{print $1}')" = \
+  32542f535e58f06668987be79ff6f23c66efc04957da964a2986cd79920934b5
+test "$(sha256sum "$fuente_informe" | awk '{print $1}')" = \
+  4059e3be58824eb0f094e878a3542f2e5b4ed6bbc9976842af30daae25f93627
 
 huella_funcion() {
   docker exec vec-ct-o2-07-browser-20260904-tls \
@@ -101,8 +109,16 @@ test "$(huella_funcion 'vec_contratacion_temporal.consultar_asignacion_v1(jsonb)
   152a7e7ad94c6cf654aab22ffe74354b46eb18fd956a7aa5249793c54c0a84c8
 test "$(huella_funcion 'vec_contratacion_temporal.confirmar_asignacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
   f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276
+test "$(huella_funcion 'vec_autorizacion_atestada_v3.registrar_y_consumir_informe_juridico_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  c880864503d228663ea1058ebb4644d09aa191e2944f8ee646e2d2a606f41c8a
+test "$(huella_funcion 'vec_contratacion_temporal.preparar_informe_juridico_v1(jsonb)')" = \
+  ad4cdebda73cb735de7268e54cf54000710431fb4ebd0def4d07925b59143842
+test "$(huella_funcion 'vec_contratacion_temporal.recibo_informe_juridico_v1(text)')" = \
+  49b6707746756178ae97f6d489429d6552f52ba7cf7d4e8b7ee0ac6b80166607
+test "$(huella_funcion 'vec_contratacion_temporal.confirmar_informe_juridico_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  c5754a5705789b918dc9c3e6568ddd2f2fac200a35e5772d1780273787c451c1
 
-printf '%s\n' 'OK: migraciones y funciones de Asignación coinciden'
+printf '%s\n' 'OK: migraciones y funciones de Asignación e informe coinciden'
 ```
 
 Si alguna comparación falla, no abra el navegador ni reaplique migraciones a
@@ -174,7 +190,7 @@ Al acabar, cierre el perfil temporal. Elimine el directorio temporal mediante
 el mecanismo de papelera o borrado seguro aprobado en su equipo; contiene una
 credencial de desarrollo.
 
-## 4. Registrar una solicitud, analizarla, decidir la cobertura, asignarla y ver los cuatro recibos
+## 4. Registrar una solicitud, analizarla, decidir la cobertura, asignarla y preparar el informe
 
 1. Seleccione un centro, una persona de contacto referenciada, una categoría,
    un grupo o subgrupo y un motivo de los catálogos mostrados.
@@ -307,6 +323,57 @@ Debe devolver una sola fila: versión `4`, estado `confirmada`, la misma
 referencia de recibo, la unidad y la persona responsable mostradas y
 `terminales_del_expediente = 1`.
 
+Después del recibo de Asignación aparece **Preparar informe jurídico**:
+
+1. Compruebe que la pantalla muestra el mismo expediente y la versión asignada
+   `4`.
+2. Marque **He comprobado el expediente y entiendo que se generará un
+   documento de desarrollo sin firma**.
+3. Pulse **Confirmar y preparar informe** una sola vez y acepte el diálogo.
+4. En la red debe aparecer un único
+   `POST /api/vec/contratacion-temporal/informes-juridicos/preparaciones` con
+   estado `201`. Conserve el cuerpo exacto de tres campos para comprobar la
+   repetición después del reinicio.
+5. La pantalla debe mostrar el quinto recibo, la versión resultante `5` y el
+   contenido del documento encabezado por
+   **DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA**.
+
+Compruebe informe, documento y autorización persistidos:
+
+```bash
+expediente_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_EXPEDIENTE'
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -v expediente_ref="$expediente_ref" \
+  -U postgres -d postgres -P pager=off <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT r.expediente_ref, r.estado,
+       t.documento_ref, t.decision_ref, t.confirmada_en,
+       a.version AS version_resultante,
+       v.agregado_json->>'fase_actual' AS fase_actual,
+       count(DISTINCT d.documento_ref) AS documentos,
+       count(DISTINCT c.decision_ref) AS consumos_autorizacion
+  FROM vec_contratacion_temporal.reserva_informe_juridico r
+  JOIN vec_contratacion_temporal.terminal_informe_juridico t
+    USING (ambito_hmac)
+  JOIN vec_contratacion_temporal.documento_informe_juridico_desarrollo d
+    USING (ambito_hmac)
+  JOIN vec_autorizacion_atestada_v3.consumo_decision_v3 c
+    ON c.decision_ref=t.decision_ref
+  JOIN vec_contratacion_temporal.expediente_integral_actual a
+    USING (expediente_ref)
+  JOIN vec_contratacion_temporal.expediente_version_integral v
+    USING (expediente_ref, version)
+ WHERE r.expediente_ref=:'expediente_ref'
+ GROUP BY r.expediente_ref, r.estado, t.documento_ref, t.decision_ref,
+          t.confirmada_en, a.version, v.agregado_json;
+COMMIT;
+SQL
+```
+
+Debe devolver una fila en estado `confirmada`, versión `5`, fase
+`informe_juridico`, un documento y un consumo de autorización. Las referencias
+de documento y recibo de la pantalla deben corresponder al mismo resultado.
+
 ## 5. Demostrar que sobrevive al reinicio
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
@@ -318,8 +385,8 @@ referencia de recibo, la unidad y la persona responsable mostradas y
 scripts/arrancar_vec_desarrollo.sh --puerto 8443
 ```
 
-3. Repita las cuatro consultas SQL del apartado anterior. Deben devolver las mismas
-   referencias después del reinicio.
+3. Repita las cinco consultas SQL del apartado anterior. Deben devolver las
+   mismas referencias después del reinicio.
 4. Consulte el resultado de cobertura, sin repetir la decisión, con la clave
    anotada en las herramientas de red:
 
@@ -365,6 +432,26 @@ adicional que no expone la API; compare semánticamente los campos públicos, no
 el texto JSON literal. Esta repetición recupera el resultado y no crea una
 segunda asignación.
 
+6. En la consola del navegador repita también el cuerpo exacto de tres campos
+   conservado del informe, sin generar otra clave:
+
+```javascript
+const cuerpoInforme = PEGUE_AQUI_EL_OBJETO_JSON_DE_TRES_CAMPOS;
+await fetch("/api/vec/contratacion-temporal/informes-juridicos/preparaciones", {
+  method: "POST",
+  credentials: "same-origin",
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json; charset=utf-8",
+  },
+  body: JSON.stringify(cuerpoInforme),
+}).then(async (respuesta) => ({ estado: respuesta.status, cuerpo: await respuesta.json() }));
+```
+
+Debe responder otra vez `201` con el mismo informe, documento, recibo, huella
+e instante de confirmación. La consulta SQL debe seguir mostrando un único
+documento y un único consumo de autorización para ese informe.
+
 La consulta protegida anterior recupera el resultado de cobertura. Alta y
 Análisis todavía no tienen una vista que recargue sus recibos cerrados después
 de desmontar la página; su persistencia se comprueba con las consultas SQL.
@@ -372,17 +459,17 @@ de desmontar la página; su persistencia se comprueba con las consultas SQL.
 ## Resultado y siguiente paso funcional
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
-manualmente 1, **Solicitud**, 2, **Análisis**, 3, **Bolsa**, y 4,
-**Asignación**. La secuencia restante es 5, **Informe jurídico y
-Fiscalización**, 6, **Llamamiento**, 7, **Nombramiento** con sus seis
-documentos, incluida la Diligencia, y 8, **Incorporación, GINPIX y
-Seguimiento**.
+manualmente 1, **Solicitud**, 2, **Análisis**, 3, **Bolsa**, 4,
+**Asignación**, y la primera mitad del paso 5: **Informe jurídico**. El contador
+de pasos completos permanece en **4 de 8** hasta cerrar Fiscalización. La
+secuencia restante es completar 5, **Fiscalización**, 6, **Llamamiento**, 7,
+**Nombramiento** con sus seis documentos, incluida la Diligencia, y 8,
+**Incorporación, GINPIX y Seguimiento**.
 
-El siguiente corte es **Fiscalización**: generar el informe jurídico, registrar
-un resultado favorable, favorable con observaciones o desfavorable y, en este
-último caso, devolver automáticamente el expediente a la Unidad conservando el
-histórico completo. No se simula Fiscalización ni se abre Llamamiento en esta
-guía.
+El siguiente corte es **Fiscalización**: registrar un resultado favorable,
+favorable con observaciones o desfavorable y, en este último caso, devolver
+automáticamente el expediente a la Unidad conservando el histórico completo.
+No se simula Fiscalización ni se abre Llamamiento en esta guía.
 
 ## Apéndice: recreación segura de la instancia aislada
 

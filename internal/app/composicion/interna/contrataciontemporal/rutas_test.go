@@ -257,6 +257,7 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaPropuestaFormalizacion,
 		httpinterno.RutaCerrarAdministrativamente,
 		httpinterno.RutaReabrirExcepcionalmente,
+		httpinterno.RutaPreparacionesInformeJuridico,
 		httpinterno.RutaConsultaCuadroRRHH,
 		httpinterno.RutaConsultaDetalleRRHH,
 		httpinterno.RutaAsignaciones,
@@ -725,5 +726,7 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		EjecutorCierreAdministrativo: &ejecutorCierreAdministrativoComposicionPrueba{},
 		AutoridadAsignacion:          &autoridadAsignacionComposicionPrueba{},
 		EjecutorAsignacion:           &ejecutorAsignacionComposicionPrueba{},
+		AutoridadInformeJuridico:     &autoridadInformeJuridicoComposicionPrueba{},
+		EjecutorInformeJuridico:      &ejecutorInformeJuridicoComposicionPrueba{},
 	}
 }

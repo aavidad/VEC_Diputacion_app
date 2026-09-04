@@ -8,6 +8,7 @@ import { validarReciboAnalisis } from "./contrato-analisis.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -216,6 +217,7 @@ function renderizarAlta(
   analisisDisponible,
   coberturaDisponible,
   asignacionDisponible,
+  informeJuridicoDisponible,
 ) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
@@ -225,11 +227,26 @@ function renderizarAlta(
     ? `<div data-ct-exp-alta></div>
       ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
       ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
-      ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}`
+      ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
+      ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}`
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
     </section>`}`;
+}
+
+function contextoInformeJuridicoDesdeEstado(estado) {
+  if (estado?.vista !== "expediente" || estado.expediente === null
+    || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === estado.expediente.expediente_ref
+  ));
+  if (resumen?.fase_clave !== "asignacion_unidad"
+    || resumen.version !== estado.expediente.version) return null;
+  return Object.freeze({
+    expediente_ref: estado.expediente.expediente_ref,
+    version_esperada: estado.expediente.version,
+  });
 }
 
 export function renderizarModuloContratacionTemporal(estado, {
@@ -240,6 +257,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   analisisDisponible = false,
   coberturaDisponible = false,
   asignacionDisponible = false,
+  informeJuridicoDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -253,15 +271,22 @@ export function renderizarModuloContratacionTemporal(estado, {
       analisisDisponible,
       coberturaDisponible,
       asignacionDisponible,
+      informeJuridicoDisponible,
     );
   } else if (estado.vista === "expediente") {
-    contenido = renderizarExpediente(
+    const detalle = renderizarExpediente(
       estado,
       t,
       locale,
       zonaHoraria,
       analisisDisponible,
     );
+    const contextoInforme = informeJuridicoDisponible
+      ? contextoInformeJuridicoDesdeEstado(estado)
+      : null;
+    contenido = `${detalle}${contextoInforme
+      ? '<div data-ct-exp-informe-juridico></div>'
+      : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
   } else if (estado.vista === "auditoria") {
@@ -324,11 +349,15 @@ export async function montarModuloContratacionTemporal({
     && typeof composicionAnalisis.cliente.consultarResultadoCobertura === "function";
   const asignacionDisponible = coberturaDisponible
     && typeof composicionAnalisis.cliente.asignarUnidad === "function";
+  const informeJuridicoDisponible = asignacionDisponible
+    && typeof composicionAnalisis.cliente.prepararInformeJuridico === "function"
+    && typeof composicionAnalisis.cliente.consultarDetalleRRHH === "function";
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
+  let desmontarInformeJuridico = null;
   let sesionAnalisis = null;
 
   function bloquearControlesAnalisis(sesion) {
@@ -420,8 +449,43 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarAsignacion() {
+    if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
+    desmontarInformeJuridico = null;
     if (typeof desmontarAsignacion === "function") desmontarAsignacion();
     desmontarAsignacion = null;
+  }
+
+  function montarInformeDesdeAsignacion(recibo) {
+    if (!montada || !informeJuridicoDisponible || desmontarInformeJuridico !== null) {
+      return desmontarInformeJuridico !== null;
+    }
+    const contenedor = raiz.querySelector("[data-ct-exp-informe-juridico]");
+    if (!contenedor) return false;
+    try {
+      desmontarInformeJuridico = montarFormularioInformeJuridico({
+        raiz: contenedor, cliente: composicionAnalisis.cliente,
+        contexto: Object.freeze({
+          expediente_ref: recibo.expediente_ref,
+          version_esperada: recibo.version_resultante,
+        }),
+        confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+      });
+      return true;
+    } catch {
+      desmontarInformeJuridico = null;
+      return false;
+    }
+  }
+
+  function montarInformeDesdeExpedienteActual() {
+    const contextoInforme = contextoInformeJuridicoDesdeEstado(
+      presentador.obtenerEstado(),
+    );
+    if (contextoInforme === null) return null;
+    return montarInformeDesdeAsignacion({
+      expediente_ref: contextoInforme.expediente_ref,
+      version_resultante: contextoInforme.version_esperada,
+    });
   }
 
   function retirarComponentes() {
@@ -449,6 +513,7 @@ export async function montarModuloContratacionTemporal({
         locale,
         zonaHoraria,
         anunciar,
+        alConfirmar: montarInformeDesdeAsignacion,
       });
       return true;
     } catch {
@@ -594,6 +659,7 @@ export async function montarModuloContratacionTemporal({
       analisisDisponible: composicionAnalisis !== null,
       coberturaDisponible,
       asignacionDisponible,
+      informeJuridicoDisponible,
     });
     montarAltaSiProcede();
     if (montarAnalisisSiProcede() === false) {
@@ -606,7 +672,10 @@ export async function montarModuloContratacionTemporal({
         analisisDisponible: false,
         coberturaDisponible: false,
         asignacionDisponible: false,
+        informeJuridicoDisponible: false,
       });
+    } else {
+      montarInformeDesdeExpedienteActual();
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     anunciar(

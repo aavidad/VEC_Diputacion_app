@@ -56,6 +56,7 @@ type Expediente struct {
 	// última publicación coincide con la proyección ViaCobertura.
 	DecisionesCobertura []PublicacionDecisionCoberturaGobernada `json:"decisiones_cobertura,omitempty"`
 	Asignacion          *AsignacionUnidad                       `json:"asignacion,omitempty"`
+	InformeJuridico     *InformeJuridicoEmitido                 `json:"informe_juridico,omitempty"`
 	CreadoEn            time.Time                               `json:"creado_en"`
 	ActualizadoEn       time.Time                               `json:"actualizado_en"`
 	Actuaciones         []Actuacion                             `json:"actuaciones"`
@@ -317,7 +318,7 @@ func (e Expediente) ReasignarUnidad(
 ) (Expediente, error) {
 	if e.Validar() != nil || asignacion.validarReasignacion() != nil ||
 		actuacion.validar() != nil || e.Analisis == nil ||
-		e.ViaCobertura == nil || e.Asignacion == nil ||
+		e.ViaCobertura == nil || e.Asignacion == nil || e.InformeJuridico != nil ||
 		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) ||
 		!asignacion.AsignadaEn.After(e.Asignacion.AsignadaEn) ||
 		asignacion.NotificacionRef == e.Asignacion.NotificacionRef ||

@@ -88,11 +88,13 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoRegistroAnalisis       dominiovec.ReferenciaEntradaCatalogo
 	instantaneaCobertura         dominiovec.InstantaneaAutorizacion
 	instantaneaAsignacion        dominiovec.InstantaneaAutorizacion
+	instantaneaInformeJuridico   dominiovec.InstantaneaAutorizacion
 	motivoPropuestaCobertura     dominiovec.ReferenciaEntradaCatalogo
 	motivoDecisionCobertura      dominiovec.ReferenciaEntradaCatalogo
 	motivoRectificacionCobertura dominiovec.ReferenciaEntradaCatalogo
 	motivoResultadoCobertura     dominiovec.ReferenciaEntradaCatalogo
 	motivoAsignacion             dominiovec.ReferenciaEntradaCatalogo
+	motivoInformeJuridico        dominiovec.ReferenciaEntradaCatalogo
 	ambitos                      ports.SelladorAmbitoIdempotencia
 	reloj                        relojContratacionTemporalDesarrollo
 	concesiones                  map[string]struct{}
@@ -103,6 +105,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 
 var _ httpinterno.AutoridadContextoCanalAnalisisRRHH = (*soporteAltaContratacionTemporalDesarrollo)(nil)
 var _ httpinterno.AutoridadContextoCanalAsignacion = (*soporteAltaContratacionTemporalDesarrollo)(nil)
+var _ httpinterno.AutoridadContextoCanalInformeJuridico = (*soporteAltaContratacionTemporalDesarrollo)(nil)
 
 type dependenciasAltaContratacionTemporalDesarrollo struct {
 	soporte     *soporteAltaContratacionTemporalDesarrollo
@@ -185,14 +188,21 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			datosVinculo.PerfilActivoRef,
 			ahora,
 		)
+	instantaneaInformeJuridico, errInformeJuridico :=
+		nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
+			datosVinculo.PrincipalID,
+			datosVinculo.PerfilActivoRef,
+			ahora,
+		)
 	motivoPropuesta := referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta")
 	motivoDecision := referenciaMotivoAutorizacionCoberturaDesarrollo("decision")
 	motivoRectificacion := referenciaMotivoAutorizacionCoberturaDesarrollo("rectificacion")
 	motivoResultado := referenciaMotivoAutorizacionCoberturaDesarrollo("resultado")
 	motivoRegistroAnalisis := referenciaMotivoAutorizacionAnalisisDesarrollo("registro")
 	motivoAsignacion := referenciaMotivoAutorizacionAsignacionDesarrollo()
+	motivoInformeJuridico := referenciaMotivoAutorizacionInformeJuridicoDesarrollo()
 	if err != nil || errCobertura != nil || errAnalisis != nil ||
-		errAsignacion != nil || flujo.Validar() != nil ||
+		errAsignacion != nil || errInformeJuridico != nil || flujo.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
@@ -203,6 +213,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		motivoResultado,
 		motivoRegistroAnalisis,
 		motivoAsignacion,
+		motivoInformeJuridico,
 	} {
 		if !dominiovec.ReferenciaMotivoAutorizacionV2Valida(referencia) {
 			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
@@ -214,6 +225,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
 		instantaneaAnalisis:          instantaneaAnalisis,
 		instantaneaAsignacion:        instantaneaAsignacion,
+		instantaneaInformeJuridico:   instantaneaInformeJuridico,
 		motivoRegistroAnalisis:       motivoRegistroAnalisis,
 		instantaneaCobertura:         instantaneaCobertura,
 		motivoPropuestaCobertura:     motivoPropuesta,
@@ -221,6 +233,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		motivoRectificacionCobertura: motivoRectificacion,
 		motivoResultadoCobertura:     motivoResultado,
 		motivoAsignacion:             motivoAsignacion,
+		motivoInformeJuridico:        motivoInformeJuridico,
 		ambitos:                      ambitos, reloj: reloj,
 		concesiones:              make(map[string]struct{}),
 		instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion),
@@ -322,7 +335,8 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura ||
 		ruta == httpinterno.RutaRegistroAnalisisRRHH ||
-		rutaAsignacionContratacionTemporalDesarrollo(ruta)
+		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
+		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta)
 
 }
 
@@ -340,6 +354,10 @@ func rutaCoberturaContratacionTemporalDesarrollo(ruta string) bool {
 
 func rutaAsignacionContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaAsignaciones
+}
+
+func rutaInformeJuridicoContratacionTemporalDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaPreparacionesInformeJuridico
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAlta(
@@ -391,6 +409,25 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAsignac
 		return httpinterno.ContextoCanalAsignacion{}, ports.ErrAutorizacionDenegada
 	}
 	return httpinterno.ContextoCanalAsignacion{
+		AutenticacionRef: vinculo.AutenticacionRef,
+		SesionRef:        vinculo.SesionRef,
+		PerfilRef:        vinculo.PerfilActivoRef,
+		OrganizacionRef:  organizacionAltaContratacionTemporalDesarrollo,
+	}, nil
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalInformeJuridico(
+	ctx context.Context,
+) (httpinterno.ContextoCanalInformeJuridico, error) {
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida || !rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta) {
+		return httpinterno.ContextoCanalInformeJuridico{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := s.contexto.Vinculo.Datos()
+	if err != nil {
+		return httpinterno.ContextoCanalInformeJuridico{}, ports.ErrAutorizacionDenegada
+	}
+	return httpinterno.ContextoCanalInformeJuridico{
 		AutenticacionRef: vinculo.AutenticacionRef,
 		SesionRef:        vinculo.SesionRef,
 		PerfilRef:        vinculo.PerfilActivoRef,
@@ -505,7 +542,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
 	if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
 		rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) ||
-		rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) {
+		rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) ||
+		rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
 			datos.Solicitud,
 		)
@@ -513,7 +551,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 		instantanea, valida = s.instantaneasPorSolicitud[clave]
 		autoridad := s.autoridadAsignaciones
 		if rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) ||
-			rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) {
+			rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) ||
+			rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta) {
 			registroAnalisis = s.registroDecisionesAnalisis
 		}
 		s.mu.Unlock()
@@ -523,7 +562,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
 		if (rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) ||
-			rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta)) &&
+			rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) ||
+			rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta)) &&
 			registroAnalisis == nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
@@ -563,7 +603,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
 	if rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) ||
-		rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) {
+		rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) ||
+		rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
 			datos.Solicitud,
 		)
@@ -605,6 +646,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoResultadoCobertura, true
 	case httpinterno.RutaAsignaciones:
 		return s.motivoAsignacion, true
+	case httpinterno.RutaPreparacionesInformeJuridico:
+		return s.motivoInformeJuridico, true
 	default:
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
@@ -630,6 +673,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	if rutaAsignacionContratacionTemporalDesarrollo(ruta) {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAsignacion), true
 	}
+	if rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaInformeJuridico), true
+	}
 	return dominiovec.InstantaneaAutorizacion{}, false
 }
 
@@ -641,6 +687,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	dinamica := ruta == httpinterno.RutaAltaSolicitudes ||
 		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
+		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
 	if !valida || !dinamica {
@@ -681,6 +728,19 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 			{Clave: "unidad_destino_ref", Valores: []string{datos.Recurso.Ambitos["unidad_destino_ref"]}},
+		}
+	} else if rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) {
+		if !solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
+			ruta,
+			datos,
+		) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
+			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
+			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
+			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
+			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 		}
 	} else if ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura {

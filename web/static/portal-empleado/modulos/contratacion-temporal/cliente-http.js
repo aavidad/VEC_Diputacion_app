@@ -1,7 +1,4 @@
-import {
-  crearAltaClienteHTTP,
-  RUTAS_ALTA_CONTRATACION_TEMPORAL,
-} from "./cliente-http-alta.js";
+import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -15,6 +12,7 @@ import { validarConfiguracionAnalisis, validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis, validarSolicitudRegistroAnalisis } from "./contrato-analisis.js";
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
+import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -24,6 +22,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     registroAnalisis: "/api/vec/contratacion-temporal/analisis/registros",
     rectificacionAnalisis: "/api/vec/contratacion-temporal/analisis/rectificaciones",
     configuracionAnalisis: "/api/vec/contratacion-temporal/configuracion-analisis",
+    preparacionInformeJuridico: RUTA_PREPARACION_INFORME_JURIDICO,
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
 });
@@ -81,7 +80,6 @@ const RECHAZOS_ANALISIS_ANTERIORES_AL_EFECTO = new Map([
   [415, new Set(["tipo_contenido_no_admitido"])],
   [422, new Set(["contenido_no_valido"])],
 ]);
-
 export class ErrorClienteHTTPContratacionTemporal extends Error {
   constructor(codigo, {
     estado = 0,
@@ -106,7 +104,6 @@ export class ErrorClienteHTTPContratacionTemporal extends Error {
     this.repetible = false;
   }
 }
-
 function errorCliente(codigo, opciones) {
   return new ErrorClienteHTTPContratacionTemporal(codigo, opciones);
 }
@@ -413,6 +410,8 @@ function claveI18nValida(ruta, codigo, clave) {
     ? "api.contratacion_temporal.alta.error."
     : ruta === RUTA_ASIGNACION_CONTRATACION_TEMPORAL
       ? "api.contratacion_temporal.asignacion.error."
+    : ruta === RUTA_PREPARACION_INFORME_JURIDICO
+      ? "api.contratacion_temporal.informe_juridico.error."
     : ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH
       || ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH
       ? "api.contratacion_temporal.consulta_rrhh.error."
@@ -794,6 +793,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
+    ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });

@@ -24,6 +24,10 @@ func (e Expediente) Validar() error {
 	if e.Asignacion != nil && (e.ViaCobertura == nil || e.Asignacion.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
+	if e.InformeJuridico != nil &&
+		(e.Asignacion == nil || e.InformeJuridico.Validar() != nil) {
+		return ErrExpedienteInvalido
+	}
 	for indice, actuacion := range e.Actuaciones {
 		if !actuacionValida(actuacion, uint64(indice+1)) {
 			return ErrExpedienteInvalido
@@ -47,6 +51,10 @@ func (e Expediente) Validar() error {
 	}
 	if e.Asignacion != nil &&
 		!asignacionLigadaAActuacion(e.Asignacion, e.Actuaciones) {
+		return ErrExpedienteInvalido
+	}
+	if e.InformeJuridico != nil &&
+		!informeJuridicoLigadoAActuacion(e.InformeJuridico, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
 	ultima := e.Actuaciones[len(e.Actuaciones)-1]
@@ -118,6 +126,20 @@ func asignacionLigadaAActuacion(
 		asignacion.Observaciones == actuacion.Observaciones
 }
 
+func informeJuridicoLigadoAActuacion(
+	informe *InformeJuridicoEmitido,
+	actuaciones []Actuacion,
+) bool {
+	if informe == nil || informe.ActuacionRegistro == nil ||
+		informe.ActuacionRegistro.validar() != nil ||
+		informe.ActuacionRegistro.Secuencia > uint64(len(actuaciones)) {
+		return false
+	}
+	actuacion := actuaciones[informe.ActuacionRegistro.Secuencia-1]
+	return informe.ActuacionRegistro.correspondeA(actuacion, *informe) &&
+		informe.EmitidoEn.Equal(actuacion.RealizadaEn)
+}
+
 func analisisLigadoAActuacion(analisis *AnalisisRRHH, actuaciones []Actuacion) bool {
 	if analisis == nil || analisis.ActuacionRegistro == nil ||
 		analisis.ActuacionRegistro.validar() != nil ||
@@ -161,6 +183,10 @@ func (e Expediente) Clonar() Expediente {
 			clon.ActuacionRegistro = &vinculo
 		}
 		e.Asignacion = &clon
+	}
+	if e.InformeJuridico != nil {
+		clon := e.InformeJuridico.clonar()
+		e.InformeJuridico = &clon
 	}
 	e.Actuaciones = append([]Actuacion(nil), e.Actuaciones...)
 	for indice := range e.Actuaciones {

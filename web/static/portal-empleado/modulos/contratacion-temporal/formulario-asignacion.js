@@ -8,7 +8,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "alConfirmar", "mensajes", "locale", "zonaHoraria", "anunciar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const UNIDAD_REF = "unidad:desarrollo:rrhh";
@@ -119,7 +119,8 @@ export function montarFormularioAsignacion(configuracion = {}) {
   let {
     raiz, cliente, contexto: contextoEntrada,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
-    confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
+    confirmarOperacion = () => false, alConfirmar = () => true,
+    mensajes = {}, locale = "es-ES",
     zonaHoraria = "Europe/Madrid", anunciar = () => {},
   } = configuracion;
   configuracion = null;
@@ -129,7 +130,8 @@ export function montarFormularioAsignacion(configuracion = {}) {
     || typeof raiz.replaceChildren !== "function"
     || typeof cliente?.asignarUnidad !== "function"
     || typeof generarClaveIdempotencia !== "function"
-    || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
+    || typeof confirmarOperacion !== "function" || typeof alConfirmar !== "function"
+    || typeof anunciar !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de asignación no válidas");
   }
@@ -138,6 +140,7 @@ export function montarFormularioAsignacion(configuracion = {}) {
   let clienteActual = cliente;
   let generarClaveActual = generarClaveIdempotencia;
   let confirmarActual = confirmarOperacion;
+  let alConfirmarActual = alConfirmar;
   let anunciarActual = anunciar;
   let t = crearTraductorContratacionTemporal(mensajes);
   let formateador = new Intl.DateTimeFormat(locale, {
@@ -156,6 +159,7 @@ export function montarFormularioAsignacion(configuracion = {}) {
   contextoEntrada = null;
   generarClaveIdempotencia = null;
   confirmarOperacion = null;
+  alConfirmar = null;
   mensajes = null;
   locale = null;
   zonaHoraria = null;
@@ -231,6 +235,21 @@ export function montarFormularioAsignacion(configuracion = {}) {
           mensaje_clave: "asignacion_estado_confirmada", tipo_mensaje: "exito",
         };
         solicitudActual = null;
+        try {
+          if (alConfirmarActual(recibo) !== true) {
+            estado = {
+              ...estado,
+              mensaje_clave: "asignacion_estado_informe_no_disponible",
+              tipo_mensaje: "aviso",
+            };
+          }
+        } catch {
+          estado = {
+            ...estado,
+            mensaje_clave: "asignacion_estado_informe_no_disponible",
+            tipo_mensaje: "aviso",
+          };
+        }
         return recibo;
       } catch (error) {
         if (!montado) return null;
@@ -306,6 +325,7 @@ export function montarFormularioAsignacion(configuracion = {}) {
     clienteActual = null;
     generarClaveActual = null;
     confirmarActual = null;
+    alConfirmarActual = null;
     anunciarActual = null;
     controlador = null;
     vuelo = null;

@@ -119,6 +119,44 @@ func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasAsignacion(
 	return referencias, nil
 }
 
+func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasInformeJuridico(
+	ctx context.Context,
+) (ports.ReferenciasEfectoInformeJuridico, error) {
+	if !generadorValido(g) || ctx == nil {
+		return ports.ReferenciasEfectoInformeJuridico{}, ErrGeneracionReferenciaAlta
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReferenciasEfectoInformeJuridico{}, err
+	}
+	prefijos := [...]string{
+		"reserva:ct-informe-juridico:",
+		"informe:ct:",
+		"documento:ct-informe-juridico:",
+		"recibo:ct-informe-juridico:",
+		"auditoria:ct-informe-juridico:",
+		"evento:ct-informe-juridico:",
+	}
+	valores := make([]string, len(prefijos))
+	for indice, prefijo := range prefijos {
+		referencia, err := g.generar(ctx, prefijo)
+		if err != nil {
+			return ports.ReferenciasEfectoInformeJuridico{}, err
+		}
+		valores[indice] = referencia
+	}
+	referencias := ports.ReferenciasEfectoInformeJuridico{
+		ReservaRef:   valores[0],
+		InformeRef:   valores[1],
+		DocumentoRef: valores[2],
+		ReciboRef:    valores[3],
+		AuditoriaRef: valores[4],
+		EventoRef:    valores[5],
+	}
+	if referencias.Validar() != nil {
+		return ports.ReferenciasEfectoInformeJuridico{}, ErrGeneracionReferenciaAlta
+	}
+	return referencias, nil
+}
 func (g *GeneradorReferenciasAltaCriptografico) numeroVisible(
 	ctx context.Context,
 ) (string, error) {
@@ -174,3 +212,4 @@ func generadorValido(g *GeneradorReferenciasAltaCriptografico) bool {
 
 var _ ports.GeneradorReferenciasAlta = (*GeneradorReferenciasAltaCriptografico)(nil)
 var _ ports.GeneradorReferenciasAsignacion = (*GeneradorReferenciasAltaCriptografico)(nil)
+var _ ports.GeneradorReferenciasInformeJuridico = (*GeneradorReferenciasAltaCriptografico)(nil)
