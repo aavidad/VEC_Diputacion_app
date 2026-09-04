@@ -47,7 +47,7 @@ type autorizadorLigadoContratacionTemporalDesarrollo interface {
 	puertosvec.PreparadorRegistroCompuestoSolicitudLigadaV3
 }
 
-type claveSolicitudAutorizacionAnalisisContratacionTemporalDesarrollo struct{}
+type claveSolicitudAutorizacionContratacionTemporalDesarrollo struct{}
 
 // autorizadorAnalisisContratacionTemporalDesarrollo liga a este contexto
 // interno la solicitud ya construida por el caso de uso tras preparar el
@@ -77,7 +77,8 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigad
 			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
 			errAltaContratacionTemporalDesarrolloNoDisponible
 	}
-	if datos.Accion == ports.AccionRegistrarAnalisis {
+	if datos.Accion == ports.AccionRegistrarAnalisis ||
+		datos.Accion == ports.AccionCrearSolicitud {
 		if ctx == nil {
 			return vecdomain.DecisionAutorizacionLigadaV3{},
 				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
@@ -85,7 +86,7 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigad
 		}
 		ctx = context.WithValue(
 			ctx,
-			claveSolicitudAutorizacionAnalisisContratacionTemporalDesarrollo{},
+			claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
 			datos,
 		)
 	}

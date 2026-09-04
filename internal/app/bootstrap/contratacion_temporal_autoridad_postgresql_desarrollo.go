@@ -256,7 +256,7 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	pool *pgxpool.Pool,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
-	autoridad := &autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo{
+	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{
 		pool: pool, soporte: soporte,
 	}
 	instantanea, err := autoridad.prepararInstantanea(
@@ -274,7 +274,7 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	return nil
 }
 
-type autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo struct {
+type autoridadPostgreSQLContratacionTemporalDesarrollo struct {
 	pool    *pgxpool.Pool
 	soporte *soporteAltaContratacionTemporalDesarrollo
 }
@@ -289,21 +289,21 @@ type asignacionActualPostgreSQLContratacionTemporalDesarrollo struct {
 	huella        string
 }
 
-func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) PrepararInstantaneaAnalisis(
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PrepararInstantanea(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	return a.prepararInstantanea(ctx, instantanea, false)
 }
 
-func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) PublicarInstantaneaAnalisis(
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PublicarInstantanea(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 ) error {
 	return a.publicarInstantanea(ctx, instantanea)
 }
 
-func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) prepararInstantanea(
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) prepararInstantanea(
 	ctx context.Context,
 	solicitada dominiovec.InstantaneaAutorizacion,
 	permitirInicial bool,
@@ -390,7 +390,7 @@ func leerAsignacionActualPostgreSQLContratacionTemporalDesarrollo(
 	return actual, true, nil
 }
 
-func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) publicarInstantanea(
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) publicarInstantanea(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 ) error {

@@ -18,14 +18,18 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-type autoridadAnalisisContratacionTemporalDesarrolloPrueba struct{}
-
-type registroConcesionAnalisisContratacionTemporalDesarrolloPrueba struct {
-	llamadas int
-	huella   string
+type autoridadAsignacionesContratacionTemporalDesarrolloPrueba struct {
+	preparadas int
+	publicadas int
 }
 
-func (r *registroConcesionAnalisisContratacionTemporalDesarrolloPrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
+type registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba struct {
+	concesiones  int
+	denegaciones int
+	huella       string
+}
+
+func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
 	_ context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 ) (time.Time, error) {
@@ -41,22 +45,35 @@ func (r *registroConcesionAnalisisContratacionTemporalDesarrolloPrueba) Registra
 	if err != nil {
 		return time.Time{}, err
 	}
-	r.llamadas++
+	r.concesiones++
 	r.huella = huella
 	return emitidaEn, nil
 }
 
-func (autoridadAnalisisContratacionTemporalDesarrolloPrueba) PrepararInstantaneaAnalisis(
+func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) RegistrarDenegacionAutorizacionLigadaV3(
+	_ context.Context,
+	orden puertosvec.OrdenRegistroDenegacionAutorizacionLigadaV3,
+) error {
+	if _, err := orden.Datos(); err != nil {
+		return err
+	}
+	r.denegaciones++
+	return nil
+}
+
+func (a *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) PrepararInstantanea(
 	_ context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	a.preparadas++
 	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(instantanea), nil
 }
 
-func (autoridadAnalisisContratacionTemporalDesarrolloPrueba) PublicarInstantaneaAnalisis(
+func (a *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) PublicarInstantanea(
 	context.Context,
 	dominiovec.InstantaneaAutorizacion,
 ) error {
+	a.publicadas++
 	return nil
 }
 
@@ -189,8 +206,8 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 			}
 		})
 	}
-	registro, valido := soporte.registroConcesionesAnalisis.(*registroConcesionAnalisisContratacionTemporalDesarrolloPrueba)
-	if !valido || registro.llamadas != 1 || registro.huella == "" {
+	registro, valido := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+	if !valido || registro.concesiones != 1 || registro.huella == "" {
 		t.Fatalf("registro durable de analisis no usado: %+v", registro)
 	}
 	soporte.mu.Lock()
@@ -198,6 +215,127 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 	soporte.mu.Unlock()
 	if totalConcesionesEfimeras != 0 {
 		t.Fatalf("analisis duplico la concesion durable en memoria: %d", totalConcesionesEfimeras)
+	}
+	ctxAlta := contextoRutaCoberturaDesarrolloPrueba(
+		soporte,
+		principal,
+		httpinterno.RutaAltaSolicitudes,
+	)
+	correlacionAlta, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+		ctxAlta,
+		seguridadvec.GeneradorReferenciasCriptograficas{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitudAlta, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
+		dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: soporte.contexto.Vinculo,
+			ReferenciaMotivo:          soporte.motivo,
+			Accion:                    ports.AccionCrearSolicitud,
+			Recurso: dominiovec.RecursoAutorizable{
+				Referencia: "efecto:alta:posterior-analisis",
+				ModuloID:   ports.ModuloContratacion,
+				Tipo:       ports.TipoRecursoExpediente,
+				Ambitos: map[string]string{
+					"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+					"centro_ref":       centroAltaContratacionTemporalDesarrollo,
+					"categoria_ref":    categoriaAltaContratacionTemporalDesarrollo,
+				},
+			},
+			Finalidad:   ports.FinalidadCrearSolicitud,
+			Correlacion: correlacionAlta,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionAlta, _, err := autorizador.ExigirSolicitudLigadaV3(
+		ctxAlta,
+		solicitudAlta,
+		soporte.contexto.Resultado,
+	)
+	concedidaAlta, _, errResultadoAlta := decisionAlta.Resultado()
+	if err != nil || errResultadoAlta != nil || !concedidaAlta {
+		t.Fatalf("alta posterior a analisis no concedida: %v %v", err, errResultadoAlta)
+	}
+	autoridad, valida := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	if !valida || autoridad.preparadas != 2 || autoridad.publicadas != 2 {
+		t.Fatalf("asignaciones de analisis y alta no publicadas: %+v", autoridad)
+	}
+	soporte.mu.Lock()
+	totalConcesionesEfimeras = len(soporte.concesiones)
+	soporte.mu.Unlock()
+	if totalConcesionesEfimeras != 1 {
+		t.Fatalf("alta posterior no registro su concesion efimera: %d", totalConcesionesEfimeras)
+	}
+	instantaneaSinConcesionAnalisis := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		soporte.instantaneaAnalisis,
+	)
+	instantaneaSinConcesionAnalisis.VersionRol.Concesiones[0].Accion =
+		ports.AccionRectificarAnalisis
+	if err := instantaneaSinConcesionAnalisis.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	soporte.mu.Lock()
+	soporte.instantaneaAnalisis = instantaneaSinConcesionAnalisis
+	soporte.mu.Unlock()
+	ctxDenegacion := contextoRutaCoberturaDesarrolloPrueba(
+		soporte,
+		principal,
+		httpinterno.RutaRegistroAnalisisRRHH,
+	)
+	correlacionDenegacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+		ctxDenegacion,
+		seguridadvec.GeneradorReferenciasCriptograficas{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitudDenegada, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
+		dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: soporte.contexto.Vinculo,
+			ReferenciaMotivo:          soporte.motivoRegistroAnalisis,
+			Accion:                    ports.AccionRegistrarAnalisis,
+			Recurso: dominiovec.RecursoAutorizable{
+				Referencia: "expediente:analisis:denegado",
+				ModuloID:   ports.ModuloContratacion,
+				Tipo:       ports.TipoRecursoAnalisis,
+				Ambitos: map[string]string{
+					"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+					"expediente_ref":   "expediente:analisis:denegado",
+					"fase_previa":      "solicitud",
+					"estado_previo":    "en_curso",
+				},
+				Atributos: map[string]string{
+					ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo,
+				},
+			},
+			Finalidad:   finalidadAnalisisContratacionTemporalDesarrollo,
+			Correlacion: correlacionDenegacion,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, errDenegacion := autorizador.ExigirSolicitudLigadaV3(
+		ctxDenegacion,
+		solicitudDenegada,
+		soporte.contexto.Resultado,
+	)
+	if !errors.Is(errDenegacion, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatalf("analisis sin concesion no fue denegado: %v", errDenegacion)
+	}
+	if registro.denegaciones != 1 {
+		t.Fatalf(
+			"denegacion de analisis no registrada de forma durable: %+v; error=%v; autoridad=%+v",
+			registro,
+			errDenegacion,
+			autoridad,
+		)
+	}
+	if autoridad.preparadas != 3 || autoridad.publicadas != 3 {
+		t.Fatalf("asignacion de la denegacion no publicada: %+v", autoridad)
 	}
 
 	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
@@ -420,9 +558,9 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		motivoResultadoCobertura:     referenciaMotivoAutorizacionCoberturaDesarrollo("resultado"),
 		reloj:                        relojContratacionTemporalDesarrollo{},
 		concesiones:                  make(map[string]struct{}),
-		autoridadAnalisis:            autoridadAnalisisContratacionTemporalDesarrolloPrueba{},
-		registroConcesionesAnalisis:  &registroConcesionAnalisisContratacionTemporalDesarrolloPrueba{},
-		instantaneasAnalisis:         make(map[string]dominiovec.InstantaneaAutorizacion),
+		autoridadAsignaciones:        &autoridadAsignacionesContratacionTemporalDesarrolloPrueba{},
+		registroDecisionesAnalisis:   &registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba{},
+		instantaneasPorSolicitud:     make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(

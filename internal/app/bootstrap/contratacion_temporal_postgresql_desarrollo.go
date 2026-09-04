@@ -163,7 +163,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	soporte.mu.Lock()
-	soporte.autoridadAnalisis = &autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo{
+	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{
 		pool: gobierno, soporte: soporte,
 	}
 	soporte.mu.Unlock()
@@ -222,14 +222,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	registroConcesiones, err := postgresvec.NuevoAlmacenAutorizacion(registroAutorizacion)
+	registroDecisiones, err := postgresvec.NuevoAlmacenAutorizacion(registroAutorizacion)
 	if err != nil {
 		registroAutorizacion.Close()
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias.registroAutorizacion = registroAutorizacion
 	soporte.mu.Lock()
-	soporte.registroConcesionesAnalisis = registroConcesiones
+	soporte.registroDecisionesAnalisis = registroDecisiones
 	soporte.mu.Unlock()
 	resolver, err := postgrescontratacion.NuevoResolutorCandidaturaAltaPostgreSQL(ejecucion)
 	if err != nil {
