@@ -20,7 +20,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   estado_cancelado:
     "La espera se canceló y el resultado puede ser indeterminado. Reintente solo con el mismo contenido.",
   estado_error:
-    "No se pudo confirmar el registro. Los datos se conservan para un reintento seguro.",
+    "No se pudo confirmar el registro. Si coincide con una solicitud ya registrada, no la envíe de nuevo: revise el expediente existente o cambie el detalle solo si es una petición distinta.",
   estado_recibo_invalido:
     "La respuesta no pudo verificarse. No se muestra ningún resultado; conserve los datos y contacte con soporte.",
   estado_operacion_pendiente:
