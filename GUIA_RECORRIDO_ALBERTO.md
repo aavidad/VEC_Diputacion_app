@@ -1,6 +1,6 @@
 # Recorrido manual de contratación temporal O2-07
 
-Esta guía permite probar el primer paso del flujo de Recursos Humanos con la
+Esta guía permite probar los dos primeros pasos del flujo de Recursos Humanos con la
 aplicación real: navegador con certificado de cliente → API interna →
 autorización de servidor → PostgreSQL → recibo. No usa el adaptador DEMO.
 
@@ -39,12 +39,23 @@ docker exec vec-ct-o2-07-browser-20260904-tls \
       JOIN vec_contratacion_temporal.confirmacion_agregado_alta a USING(expediente_ref)),
     (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta),
     (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_agregado_alta));"
+docker exec vec-ct-o2-07-browser-20260904-tls \
+  psql -X -U postgres -d postgres -Atqc \
+  "SELECT login.rolcanlogin::text||'|'||string_agg(grupo.rolname,',' ORDER BY grupo.rolname)
+     FROM pg_roles login
+     JOIN pg_auth_members miembro ON miembro.member=login.oid
+     JOIN pg_roles grupo ON grupo.oid=miembro.roleid
+    WHERE login.rolname='vec_autorizacion_o207_registro'
+    GROUP BY login.rolcanlogin;"
 ```
 
 El árbol debe estar limpio. El contenedor debe estar `running`, usar la imagen
 fijada por digest, montar `vec-ct-o2-07-browser-20260904-data` en
 `/var/lib/postgresql` y publicar únicamente `127.0.0.1:55433`. Tras la evidencia
-automatizada, el recuento esperado es `23/23/23`.
+automatizada, los tres recuentos deben ser iguales y mayores que cero; el valor
+crece con cada solicitud sintética nueva.
+La última consulta debe devolver exclusivamente
+`true|vec_autorizacion_registro`.
 
 ## 2. Arrancar VEC con PostgreSQL real
 
@@ -61,6 +72,7 @@ export VEC_CT_DATABASE_URL="postgresql://vec_ct_o207_runtime@localhost:55433/pos
 export VEC_CT_GOBIERNO_DATABASE_URL="postgresql://vec_ad3_o207_gobierno@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_CONFIRMADOR_DATABASE_URL="postgresql://vec_ct_o207_confirmador@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_LECTOR_RESULTADO_DATABASE_URL="postgresql://vec_ct_o207_lector@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
+export VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL="postgresql://vec_autorizacion_o207_registro@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 
 scripts/arrancar_vec_desarrollo.sh --puerto 8443
 ```
@@ -103,7 +115,7 @@ Al acabar, cierre el perfil temporal. Elimine el directorio temporal mediante
 el mecanismo de papelera o borrado seguro aprobado en su equipo; contiene una
 credencial de desarrollo.
 
-## 4. Registrar una solicitud y ver el recibo
+## 4. Registrar una solicitud, analizarla y ver ambos recibos
 
 1. Seleccione un centro, una persona de contacto referenciada, una categoría,
    un grupo o subgrupo y un motivo de los catálogos mostrados.
@@ -132,20 +144,44 @@ ssh root@cidonia.cloud \
 
 Los identificadores de PostgreSQL deben coincidir con los del recibo visible.
 
+Después del recibo de Alta aparece el formulario **Análisis por Recursos
+Humanos**. Para repetir el recorrido acreditado:
+
+1. Seleccione **Sustitución**, **Categoría C2**, **Grupo C2** y **Necesidad
+   temporal**.
+2. Use las fechas `2027-01-01` y `2027-03-31`, jornada `10000` y la entrada
+   **Retención de crédito sintética 001**.
+3. Pulse **Registrar análisis** una sola vez. En la red debe aparecer un único
+   `POST /api/vec/contratacion-temporal/analisis/registros` con estado `201`.
+4. El segundo recibo debe mostrar la misma referencia de expediente, versión
+   resultante `2`, una referencia `rec_ct_an_…` y fecha de confirmación.
+
+Compruebe el último Análisis persistido:
+
+```bash
+ssh root@cidonia.cloud \
+  "docker exec vec-ct-o2-07-browser-20260904-tls psql -X -U postgres -d postgres -P pager=off -c \"SELECT recibo_json->>'expediente_ref' AS expediente_ref, recibo_json->>'version_resultante' AS version_resultante, recibo_json->>'recibo_ref' AS recibo_ref, confirmada_en FROM vec_contratacion_temporal.confirmacion_operacion_analisis ORDER BY confirmada_en DESC LIMIT 1;\""
+```
+
+Los tres datos deben coincidir con el segundo recibo visible. Las cinco
+modalidades disponibles —Sustitución, Vacante, Acumulación de tareas, Programa
+y Relevo— pasan por el mismo servicio real; el recorrido acreditado usa
+Sustitución.
+
 ## 5. Demostrar que sobrevive al reinicio
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
    PostgreSQL.
-2. Sin cambiar las cuatro variables exportadas ni el worktree, arranque otra
+2. Sin cambiar las cinco variables exportadas ni el worktree, arranque otra
    vez:
 
 ```bash
 scripts/arrancar_vec_desarrollo.sh --puerto 8443
 ```
 
-3. Repita la consulta SQL del apartado anterior. Debe devolver las mismas
+3. Repita las dos consultas SQL del apartado anterior. Deben devolver las mismas
    referencias después del reinicio.
-4. El replay técnico del mismo `POST` debe responder con el mismo recibo y no
+4. El replay técnico del mismo `POST` de Análisis debe responder con el mismo recibo y no
    crear otra fila. La prueba automatizada ya lo demostró con el mismo cuerpo y
    la misma clave idempotente: `201`, recibo JSON idéntico y recuento estable.
 
@@ -157,12 +193,12 @@ consulta pública de recibo pertenece al corte siguiente y no se simula aquí.
 ## Resultado y siguiente paso funcional
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
-manualmente el paso 1, **Solicitud**. Los siete pasos restantes son
-**Análisis**, **Bolsa**, **Fiscalización**, **Candidato**, **Nombramiento**,
+manualmente los pasos 1, **Solicitud**, y 2, **Análisis**. Los seis pasos
+restantes son **Bolsa**, **Fiscalización**, **Candidato**, **Nombramiento**,
 **Incorporación** y **Seguimiento**.
 
-El siguiente corte es **Análisis por Recursos Humanos**, incluida la validación
-de la retención de crédito. No forma parte de O2-07.
+El siguiente corte es **Bolsa**: decisión de vía de cobertura, comprobaciones
+visibles y asignación a unidad. No forma parte de O2-07.
 
 ## Apéndice: recreación segura de la instancia aislada
 
@@ -274,6 +310,22 @@ for intento in $(seq 1 100); do
   test "$intento" -lt 100
   sleep 0.1
 done
+
+docker exec -i "$destino" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+DO $provision$
+BEGIN
+  IF NOT EXISTS (
+    SELECT FROM pg_catalog.pg_roles
+    WHERE rolname='vec_autorizacion_o207_registro'
+  ) THEN
+    CREATE ROLE vec_autorizacion_o207_registro LOGIN;
+  END IF;
+END
+$provision$;
+GRANT vec_autorizacion_registro TO vec_autorizacion_o207_registro;
+SQL
+
+test "$(docker exec "$destino" psql -X -U postgres -d postgres -Atqc "SELECT login.rolcanlogin::text||'|'||string_agg(grupo.rolname,',' ORDER BY grupo.rolname) FROM pg_roles login JOIN pg_auth_members miembro ON miembro.member=login.oid JOIN pg_roles grupo ON grupo.oid=miembro.roleid WHERE login.rolname='vec_autorizacion_o207_registro' GROUP BY login.rolcanlogin;")" = 'true|vec_autorizacion_registro'
 
 docker exec -i "$destino" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
 BEGIN;
