@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -65,42 +66,81 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	reloj := relojContratacionTemporalDesarrollo{}
-	rutaAlta, cerrarPostgreSQL, err := nuevaRutaAltaContratacionTemporalDesarrollo(
+	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		cfg, resolvedorDesarrollo, derivador, sello, reloj,
 	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	cerrarAlta := true
+	defer func() {
+		if cerrarAlta {
+			alta.cerrar()
+		}
+	}()
+	coberturaReal, err := nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
+		derivador,
+		&alta,
+		reloj,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	cerrarCobertura := true
+	defer func() {
+		if cerrarCobertura {
+			coberturaReal.cerrar()
+		}
+	}()
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
 	if err != nil {
-		cerrarPostgreSQL()
 		return nil, nil, nil, err
 	}
-	cuadro, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(
-		&consultorCuadroContratacionTemporalDesarrollo{origen: origen},
+	rutas, err := contratacioncomposicion.NuevasRutas(
+		contratacioncomposicion.DependenciasRutas{
+			AutoridadAlta:      alta.soporte,
+			EjecutorAlta:       alta.servicio,
+			Reloj:              reloj,
+			AutoridadCobertura: alta.soporte,
+			Presentador:        coberturaReal.presentador,
+			Decisor:            coberturaReal.decisor,
+			ConsultorResultado: coberturaReal.consultor,
+			AutoridadAnalisis:  noCompuesta,
+			EjecutorAnalisis:   noCompuesta,
+			ConsultorCuadroRRHH: &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{
+				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
+			},
+			ConsultorDetalleRRHH: &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{
+				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
+			},
+			EjecutorSeleccion:               noCompuesta,
+			AutoridadPropuestaFormalizacion: noCompuesta,
+			EjecutorPropuestaFormalizacion:  noCompuesta,
+			AutoridadCierreAdministrativo:   noCompuesta,
+			EjecutorCierreAdministrativo:    noCompuesta,
+			AutoridadAsignacion:             noCompuesta,
+			EjecutorAsignacion:              noCompuesta,
+		},
 	)
 	if err != nil {
-		cerrarPostgreSQL()
 		return nil, nil, nil, err
 	}
-	detalle, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(
-		&consultorDetalleContratacionTemporalDesarrollo{origen: origen},
-	)
-	if err != nil {
-		cerrarPostgreSQL()
-		return nil, nil, nil, err
-	}
+	rutas = append(rutas, rutaCatalogosAlta)
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:       sello,
 		resolvedor:  resolvedorDesarrollo,
 		noCompuesta: noCompuesta,
 	}
-	return []vechttp.RutaExacta{
-		rutaAlta,
-		rutaCatalogosAlta,
-		{Ruta: httpinterno.RutaConsultaCuadroRRHH, Manejador: cuadro},
-		{Ruta: httpinterno.RutaConsultaDetalleRRHH, Manejador: detalle},
-	}, autoridad, cerrarPostgreSQL, nil
+	var cierre sync.Once
+	cerrar := func() {
+		cierre.Do(func() {
+			coberturaReal.cerrar()
+			alta.cerrar()
+		})
+	}
+	cerrarCobertura = false
+	cerrarAlta = false
+	return rutas, autoridad, cerrar, nil
 }
 
 func (a *autoridadConsultasContratacionTemporalDesarrollo) proteger(
@@ -203,10 +243,15 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if r == nil || r.URL == nil {
 		return false
 	}
+	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
+		return true
+	}
 	return r.URL.Path == httpinterno.RutaAltaSolicitudes ||
-		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
-		r.URL.Path == httpinterno.RutaConsultaCuadroRRHH ||
-		r.URL.Path == httpinterno.RutaConsultaDetalleRRHH
+		r.URL.Path == httpinterno.RutaPropuestaCobertura ||
+		r.URL.Path == httpinterno.RutaDecisionCobertura ||
+		r.URL.Path == httpinterno.RutaRectificacionCobertura ||
+		r.URL.Path == httpinterno.RutaResultadoCobertura ||
+		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo
 }
 
 func principalContratacionTemporalDesarrolloValido(

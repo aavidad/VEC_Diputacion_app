@@ -19,7 +19,7 @@ import (
 func TestCatalogosAltaContratacionTemporalDesarrolloCompartenOrigenConAltaEnMTLSReal(
 	t *testing.T,
 ) {
-	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		t.Fatalf("componer desarrollo: %v", err)

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,10 +25,12 @@ import (
 )
 
 const (
-	rolEjecucionPostgreSQLContratacionTemporalDesarrollo = "vec_contratacion_temporal_ejecutor"
-	rolGobiernoPostgreSQLContratacionTemporalDesarrollo  = "vec_autorizacion_atestada_v3_migrador"
-	audienciaAtestacionContratacionTemporalDesarrollo    = "vec:desarrollo:contratacion-temporal:atestacion:v3"
-	audienciaConsumoAltaContratacionTemporal             = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
+	rolEjecucionPostgreSQLContratacionTemporalDesarrollo   = "vec_contratacion_temporal_ejecutor"
+	rolGobiernoPostgreSQLContratacionTemporalDesarrollo    = "vec_autorizacion_atestada_v3_migrador"
+	rolConfirmadorPostgreSQLContratacionTemporalDesarrollo = "vec_contratacion_temporal_confirmador_cobertura"
+	rolLectorPostgreSQLContratacionTemporalDesarrollo      = "vec_contratacion_temporal_lector_resultado_cobertura"
+	audienciaAtestacionContratacionTemporalDesarrollo      = "vec:desarrollo:contratacion-temporal:atestacion:v3"
+	audienciaConsumoAltaContratacionTemporal               = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
 )
 
 var errPostgreSQLContratacionTemporalDesarrolloNoDisponible = errors.New(
@@ -59,24 +62,43 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 	capacidad           confianzaatestacion.ClaveHMACCapacidadAtestacionV3
 }
 
-func nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
+type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
+	ejecucion       *pgxpool.Pool
+	confirmador     *pgxpool.Pool
+	lectorResultado *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	candidaturas    ports.ResolutorCandidaturaAlta
+	transaccionAlta ports.TransaccionAltasCandidata
+	cerrarUnaVez    func()
+}
+
+func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
+	if d == nil {
+		return
+	}
+	if d.cerrarUnaVez != nil {
+		d.cerrarUnaVez()
+	}
+}
+
+func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	cfg config.Config,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
-) (
-	ports.ResolutorCandidaturaAlta,
-	ports.TransaccionAltasCandidata,
-	func(),
-	error,
-) {
+) (dependenciasPostgreSQLContratacionTemporalDesarrollo, error) {
+	vacias := dependenciasPostgreSQLContratacionTemporalDesarrollo{}
 	if derivador == nil || !derivador.valido() || soporte == nil {
-		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	dsnEjecucion, dsnGobierno, err := cfg.Normalize().
-		ContratacionTemporalPostgreSQL.DSNSeparados()
+	configuracion := cfg.Normalize().ContratacionTemporalPostgreSQL
+	dsnEjecucion, dsnGobierno, err := configuracion.DSNSeparados()
 	if err != nil {
-		return nil, nil, nil, err
+		return vacias, err
+	}
+	dsnConfirmador, dsnLectorResultado, err :=
+		configuracion.DSNCoberturaSeparados()
+	if err != nil {
+		return vacias, err
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
@@ -84,7 +106,7 @@ func nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
 		derivador, reloj.Ahora(),
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return vacias, err
 	}
 	defer material.borrarCopiasEfimeras()
 	gobierno, usuarioGobierno, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(
@@ -92,13 +114,13 @@ func nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
 		rolGobiernoPostgreSQLContratacionTemporalDesarrollo,
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return vacias, err
 	}
 	if err := publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		ctx, gobierno, material,
 	); err != nil {
 		gobierno.Close()
-		return nil, nil, nil, err
+		return vacias, err
 	}
 	gobierno.Close()
 	ejecucion, usuarioEjecucion, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(
@@ -109,28 +131,89 @@ func nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
 		if ejecucion != nil {
 			ejecucion.Close()
 		}
-		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	dependencias := dependenciasPostgreSQLContratacionTemporalDesarrollo{
+		ejecucion: ejecucion,
+	}
+	var cierre sync.Once
+	dependencias.cerrarUnaVez = func() {
+		cierre.Do(func() {
+			if dependencias.lectorResultado != nil {
+				dependencias.lectorResultado.Cerrar()
+			}
+			if dependencias.confirmador != nil {
+				dependencias.confirmador.Close()
+			}
+			if dependencias.ejecucion != nil {
+				dependencias.ejecucion.Close()
+			}
+		})
+	}
+	completa := false
+	defer func() {
+		if !completa {
+			dependencias.cerrar()
+		}
+	}()
 	resolver, err := postgrescontratacion.NuevoResolutorCandidaturaAltaPostgreSQL(ejecucion)
 	if err != nil {
-		ejecucion.Close()
-		return nil, nil, nil, err
+		return vacias, err
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
 	)
 	if err != nil {
-		ejecucion.Close()
-		return nil, nil, nil, err
+		return vacias, err
 	}
 	transaccion, err := postgrescontratacion.NuevaTransaccionAltasPostgreSQLCandidata(
 		ejecucion, proveedor,
 	)
 	if err != nil {
-		ejecucion.Close()
-		return nil, nil, nil, err
+		return vacias, err
 	}
-	return resolver, transaccion, ejecucion.Close, nil
+	confirmador, usuarioConfirmador, err :=
+		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
+			ctx,
+			dsnConfirmador,
+			"vec-ct-desarrollo-confirmador",
+			rolConfirmadorPostgreSQLContratacionTemporalDesarrollo,
+		)
+	if err != nil || usuarioConfirmador == usuarioEjecucion ||
+		usuarioConfirmador == usuarioGobierno {
+		if confirmador != nil {
+			confirmador.Close()
+		}
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	dependencias.confirmador = confirmador
+	inspectorLector, usuarioLector, err :=
+		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
+			ctx,
+			dsnLectorResultado,
+			"vec-ct-desarrollo-lector-preflight",
+			rolLectorPostgreSQLContratacionTemporalDesarrollo,
+		)
+	if inspectorLector != nil {
+		inspectorLector.Close()
+	}
+	if err != nil || usuarioLector == usuarioEjecucion ||
+		usuarioLector == usuarioGobierno || usuarioLector == usuarioConfirmador {
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	lectorResultado, err :=
+		postgrescontratacion.NuevoPoolRecuperacionCoberturaO405PostgreSQL(
+			ctx,
+			dsnLectorResultado,
+		)
+	if err != nil {
+		return vacias, err
+	}
+	dependencias.lectorResultado = lectorResultado
+	dependencias.candidaturas = resolver
+	dependencias.transaccionAlta = transaccion
+	completa = true
+	return dependencias, nil
 }
 
 func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
@@ -182,7 +265,9 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 ) (string, error) {
 	if ctx == nil || consultador == nil ||
 		(rolEsperado != rolEjecucionPostgreSQLContratacionTemporalDesarrollo &&
-			rolEsperado != rolGobiernoPostgreSQLContratacionTemporalDesarrollo) {
+			rolEsperado != rolGobiernoPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolConfirmadorPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	var usuario string

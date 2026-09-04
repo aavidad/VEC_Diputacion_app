@@ -128,6 +128,41 @@ func generarMaterialDesarrolloPrueba(t *testing.T) (config.Config, config.Develo
 	return cfg, cfg.DevelopmentPaths()
 }
 
+func generarMaterialDesarrolloConPostgreSQLPrueba(
+	t *testing.T,
+) (config.Config, config.DevelopmentMaterialPaths) {
+	t.Helper()
+	variables := []string{
+		config.EnvContratacionTemporalDatabaseURL,
+		config.EnvContratacionTemporalGobiernoDatabaseURL,
+		config.EnvContratacionTemporalConfirmadorDatabaseURL,
+		config.EnvContratacionTemporalLectorResultadoDatabaseURL,
+	}
+	presentes := 0
+	for _, variable := range variables {
+		if strings.TrimSpace(os.Getenv(variable)) != "" {
+			presentes++
+		}
+	}
+	if presentes == 0 {
+		t.Skip("PostgreSQL de contratación temporal no configurado")
+	}
+	if presentes != len(variables) {
+		t.Fatalf(
+			"PostgreSQL de contratación temporal incompleto: %d/%d conexiones",
+			presentes,
+			len(variables),
+		)
+	}
+	postgresql := config.Load().ContratacionTemporalPostgreSQL
+	if err := postgresql.Validar(); err != nil {
+		t.Fatalf("PostgreSQL de contratación temporal inválido: %v", err)
+	}
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg.ContratacionTemporalPostgreSQL = postgresql
+	return cfg, rutas
+}
+
 func TestProduccionRechazaTLSRealGeneradoPorT21(t *testing.T) {
 	_, rutas := generarMaterialDesarrolloPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(config.Config{
@@ -176,7 +211,7 @@ func TestMaterialDesarrolloDetectaRepositorioDesdeLaPropiaRuta(t *testing.T) {
 }
 
 func TestComposicionDesarrolloOperaConTLSMutuoEIdentidadAlta(t *testing.T) {
-	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	var registro bytes.Buffer
 	servidor, composicion, err := NewHTTPServerDesarrolloWithConfig(cfg, &registro)
 	if err != nil {
@@ -275,7 +310,7 @@ func TestComposicionDesarrolloOperaConTLSMutuoEIdentidadAlta(t *testing.T) {
 }
 
 func TestRaizHTTPComponePerfilDesarrolloSoloConDobleLlaveCompleta(t *testing.T) {
-	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	cfg, _ := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		t.Fatalf("raiz HTTP desarrollo: %v", err)

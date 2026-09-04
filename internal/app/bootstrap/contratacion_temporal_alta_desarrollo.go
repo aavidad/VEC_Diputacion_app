@@ -67,33 +67,47 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	concesiones                  map[string]struct{}
 }
 
-func nuevaRutaAltaContratacionTemporalDesarrollo(
+type dependenciasAltaContratacionTemporalDesarrollo struct {
+	soporte     *soporteAltaContratacionTemporalDesarrollo
+	servicio    *application.ServicioRegistroSolicitud
+	autorizador *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
+	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
+}
+
+func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
+	if d != nil {
+		d.postgresql.cerrar()
+	}
+}
+
+func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	cfg config.Config,
 	identidad *resolvedorIdentidadDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
-) (vechttp.RutaExacta, func(), error) {
+) (dependenciasAltaContratacionTemporalDesarrollo, error) {
+	vacias := dependenciasAltaContratacionTemporalDesarrollo{}
 	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil ||
 		!principalContratacionTemporalDesarrolloValido(identidad.principal) {
-		return vechttp.RutaExacta{}, nil, ErrActivacionDesarrolloInvalida
+		return vacias, ErrActivacionDesarrolloInvalida
 	}
 	ahora := reloj.Ahora()
 	contexto, err := nuevoContextoAltaContratacionTemporalDesarrollo(
 		identidad.principal, ahora,
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
+		return vacias, err
 	}
 	datosVinculo, err := contexto.Vinculo.Datos()
 	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
+		return vacias, err
 	}
 	huellas, ambitos, err := nuevasCapacidadesHMACAltaContratacionTemporalDesarrollo(
 		derivador,
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
+		return vacias, err
 	}
 	flujo := ports.ConfiguracionAltaFlujo{
 		Flujo: domain.ReferenciaFlujo{
@@ -128,7 +142,7 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	motivoResultado := referenciaMotivoAutorizacionCoberturaDesarrollo("resultado")
 	if err != nil || errCobertura != nil || flujo.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
-		return vechttp.RutaExacta{}, nil, errAltaContratacionTemporalDesarrolloNoDisponible
+		return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	for _, referencia := range []dominiovec.ReferenciaEntradaCatalogo{
 		motivoPropuesta,
@@ -137,8 +151,7 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 		motivoResultado,
 	} {
 		if !dominiovec.ReferenciaMotivoAutorizacionV2Valida(referencia) {
-			return vechttp.RutaExacta{}, nil,
-				errAltaContratacionTemporalDesarrolloNoDisponible
+			return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
@@ -159,32 +172,61 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 		aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second},
 	)
 	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
+		return vacias, err
 	}
 	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
-	candidaturas, transaccion, cerrarPostgreSQL, err :=
-		nuevasDependenciasAltaPostgreSQLContratacionTemporalDesarrollo(
+	postgresql, err :=
+		nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			cfg, derivador, soporte, reloj,
 		)
 	if err != nil {
-		return vechttp.RutaExacta{}, nil, err
+		return vacias, err
 	}
 	servicio, err := application.NuevoServicioRegistroSolicitud(
 		soporte, soporte, huellas, ambitos, soporte, generador,
-		referencias, candidaturas,
+		referencias, postgresql.candidaturas,
 		postgrescontratacion.NuevoDerivadorHuellaEfectoAltaCanonico(),
-		autorizador, reloj, transaccion,
+		autorizador, reloj, postgresql.transaccionAlta,
 	)
 	if err != nil {
-		cerrarPostgreSQL()
-		return vechttp.RutaExacta{}, nil, err
+		postgresql.cerrar()
+		return vacias, err
 	}
-	ruta, err := contratacioncomposicion.NuevaRutaAlta(soporte, servicio, reloj)
+	return dependenciasAltaContratacionTemporalDesarrollo{
+		soporte:     soporte,
+		servicio:    servicio,
+		autorizador: autorizador,
+		postgresql:  postgresql,
+	}, nil
+}
+
+func nuevaRutaAltaContratacionTemporalDesarrollo(
+	cfg config.Config,
+	identidad *resolvedorIdentidadDesarrollo,
+	derivador *derivadorIdentidadOperacionDesarrollo,
+	sello *selloConsultasContratacionTemporalDesarrollo,
+	reloj relojContratacionTemporalDesarrollo,
+) (vechttp.RutaExacta, func(), error) {
+	dependencias, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
+		cfg,
+		identidad,
+		derivador,
+		sello,
+		reloj,
+	)
 	if err != nil {
-		cerrarPostgreSQL()
 		return vechttp.RutaExacta{}, nil, err
 	}
-	return ruta, cerrarPostgreSQL, nil
+	ruta, err := contratacioncomposicion.NuevaRutaAlta(
+		dependencias.soporte,
+		dependencias.servicio,
+		reloj,
+	)
+	if err != nil {
+		dependencias.cerrar()
+		return vechttp.RutaExacta{}, nil, err
+	}
+	return ruta, dependencias.cerrar, nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) capacidadAltaValida(

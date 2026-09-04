@@ -18,10 +18,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 )
 
-func TestAltaContratacionTemporalDesarrolloApareceEnCuadroYDetalleConMTLSReal(
+func TestAltaContratacionTemporalDesarrolloPersisteYConsultasPosterioresDenieganConMTLSReal(
 	t *testing.T,
 ) {
-	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		t.Fatalf("componer desarrollo: %v", err)
@@ -101,38 +101,43 @@ func TestAltaContratacionTemporalDesarrolloApareceEnCuadroYDetalleConMTLSReal(
 		t.Fatalf("recibo incompleto: %+v", alta.Data)
 	}
 
-	cuerpoCuadro := fmt.Sprintf(
-		`{"filtros":{"texto":%q,"estado_clave":"en_curso","fase_clave":"solicitud"},`+
-			`"paginacion":{"limite":50,"cursor":""}}`,
-		alta.Data.NumeroVisible,
-	)
-	peticionCuadro := nuevaPeticionJSONContratacionTemporalDesarrolloPrueba(
-		t, baseURL+httpinterno.RutaConsultaCuadroRRHH, cuerpoCuadro,
-	)
-	respuestaCuadro, contenidoCuadro := ejecutarPeticionContratacionTemporalDesarrolloPrueba(
-		t, cliente, peticionCuadro,
-	)
-	if respuestaCuadro.StatusCode != http.StatusOK ||
-		!bytes.Contains(contenidoCuadro, []byte(alta.Data.ExpedienteRef)) ||
-		!bytes.Contains(contenidoCuadro, []byte(alta.Data.NumeroVisible)) {
-		t.Fatalf("cuadro no contiene el alta: %d %s", respuestaCuadro.StatusCode, contenidoCuadro)
-	}
-
-	cuerpoDetalle := fmt.Sprintf(
-		`{"expediente_ref":%q,"version_observada":%d}`,
-		alta.Data.ExpedienteRef,
-		alta.Data.Version,
-	)
-	peticionDetalle := nuevaPeticionJSONContratacionTemporalDesarrolloPrueba(
-		t, baseURL+httpinterno.RutaConsultaDetalleRRHH, cuerpoDetalle,
-	)
-	respuestaDetalle, contenidoDetalle := ejecutarPeticionContratacionTemporalDesarrolloPrueba(
-		t, cliente, peticionDetalle,
-	)
-	if respuestaDetalle.StatusCode != http.StatusOK ||
-		!bytes.Contains(contenidoDetalle, []byte(alta.Data.ExpedienteRef)) ||
-		!bytes.Contains(contenidoDetalle, []byte(`"motivo_clave":"sustitucion"`)) {
-		t.Fatalf("detalle no contiene el alta: %d %s", respuestaDetalle.StatusCode, contenidoDetalle)
+	for _, consulta := range []struct {
+		nombre string
+		ruta   string
+		cuerpo string
+	}{
+		{
+			nombre: "cuadro",
+			ruta:   httpinterno.RutaConsultaCuadroRRHH,
+			cuerpo: fmt.Sprintf(
+				`{"filtros":{"texto":%q,"estado_clave":"en_curso","fase_clave":"solicitud"},`+
+					`"paginacion":{"limite":50,"cursor":""}}`,
+				alta.Data.NumeroVisible,
+			),
+		},
+		{
+			nombre: "detalle",
+			ruta:   httpinterno.RutaConsultaDetalleRRHH,
+			cuerpo: fmt.Sprintf(
+				`{"expediente_ref":%q,"version_observada":%d}`,
+				alta.Data.ExpedienteRef,
+				alta.Data.Version,
+			),
+		},
+	} {
+		t.Run(consulta.nombre+" queda no compuesta", func(t *testing.T) {
+			peticion := nuevaPeticionJSONContratacionTemporalDesarrolloPrueba(
+				t, baseURL+consulta.ruta, consulta.cuerpo,
+			)
+			respuesta, contenido := ejecutarPeticionContratacionTemporalDesarrolloPrueba(
+				t, cliente, peticion,
+			)
+			if respuesta.StatusCode != http.StatusServiceUnavailable ||
+				!bytes.Contains(contenido, []byte(`"codigo":"servicio_no_disponible"`)) ||
+				bytes.Contains(contenido, []byte(alta.Data.ExpedienteRef)) {
+				t.Fatalf("consulta no compuesta=%d %s", respuesta.StatusCode, contenido)
+			}
+		})
 	}
 }
 

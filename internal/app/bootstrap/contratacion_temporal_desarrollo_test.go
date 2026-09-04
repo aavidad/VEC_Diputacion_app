@@ -18,10 +18,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 )
 
-func TestConsultasContratacionTemporalDesarrolloRespondenEnListenerTLSReal(
+func TestConsultasContratacionTemporalDesarrolloDenieganComoNoCompuestasEnListenerTLSReal(
 	t *testing.T,
 ) {
-	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		t.Fatalf("componer desarrollo: %v", err)
@@ -42,27 +42,21 @@ func TestConsultasContratacionTemporalDesarrolloRespondenEnListenerTLSReal(
 	cliente := nuevoClienteMTLSContratacionTemporalDesarrollo(t, rutas)
 	anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(t, cliente, rutas)
 	casos := []struct {
-		nombre    string
-		ruta      string
-		cuerpo    string
-		esquema   string
-		contenido string
+		nombre string
+		ruta   string
+		cuerpo string
 	}{
 		{
 			nombre: "cuadro",
 			ruta:   httpinterno.RutaConsultaCuadroRRHH,
 			cuerpo: "{\"filtros\":{\"texto\":\"2026/CT\",\"estado_clave\":\"en_curso\"," +
 				"\"fase_clave\":\"analisis\"},\"paginacion\":{\"limite\":50,\"cursor\":\"\"}}",
-			esquema:   "vec.contratacion-temporal.cuadro-rrhh.v1",
-			contenido: expedienteContratacionTemporalDesarrolloRef,
 		},
 		{
 			nombre: "detalle",
 			ruta:   httpinterno.RutaConsultaDetalleRRHH,
 			cuerpo: "{\"expediente_ref\":\"" + expedienteContratacionTemporalDesarrolloRef +
 				"\",\"version_observada\":3}",
-			esquema:   "vec.contratacion-temporal.detalle-rrhh.v1",
-			contenido: "\"grupo_subgrupo\":\"C2\"",
 		},
 	}
 	for _, caso := range casos {
@@ -86,10 +80,9 @@ func TestConsultasContratacionTemporalDesarrolloRespondenEnListenerTLSReal(
 			if err != nil {
 				t.Fatal(err)
 			}
-			esquema := []byte("\"esquema\":\"" + caso.esquema + "\"")
-			if respuesta.StatusCode != http.StatusOK ||
-				!bytes.Contains(contenido, esquema) ||
-				!bytes.Contains(contenido, []byte(caso.contenido)) {
+			if respuesta.StatusCode != http.StatusServiceUnavailable ||
+				!bytes.Contains(contenido, []byte(`"codigo":"servicio_no_disponible"`)) ||
+				bytes.Contains(contenido, []byte(expedienteContratacionTemporalDesarrolloRef)) {
 				t.Fatalf("respuesta=%d %s", respuesta.StatusCode, contenido)
 			}
 		})
@@ -150,7 +143,7 @@ func TestPeticionIdentidadConsultasContratacionTemporalDesarrolloSoloNormalizaCa
 func TestConsultasContratacionTemporalDesarrolloNoAceptanAutoridadCliente(
 	t *testing.T,
 ) {
-	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
 	servidor, err := NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -180,8 +173,8 @@ func TestConsultasContratacionTemporalDesarrolloNoAceptanAutoridadCliente(
 	}
 	contenido, _ := io.ReadAll(respuesta.Body)
 	respuesta.Body.Close()
-	if respuesta.StatusCode != http.StatusBadRequest &&
-		respuesta.StatusCode != http.StatusUnauthorized ||
+	if respuesta.StatusCode != http.StatusServiceUnavailable ||
+		!bytes.Contains(contenido, []byte(`"codigo":"servicio_no_disponible"`)) ||
 		bytes.Contains(contenido, []byte(expedienteContratacionTemporalDesarrolloRef)) {
 		t.Fatalf("cabecera cliente autorizo la consulta: %d %s", respuesta.StatusCode, contenido)
 	}
