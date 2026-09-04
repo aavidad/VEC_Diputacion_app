@@ -482,6 +482,8 @@ func permissionsForRoles(roles []string) []string {
 		return permisosJefaturaRRHHDemo()
 	case "tecnico_rrhh", "validator_l2":
 		return permisosTecnicoRRHHDemo()
+	case "intervencion":
+		return permisosCarcasaInternaDemo()
 	case "administrativo", "validator_l1":
 		return permisosAdministrativoRRHHDemo()
 	case "personal_interno":

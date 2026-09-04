@@ -9,6 +9,7 @@ import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -218,6 +219,7 @@ function renderizarAlta(
   coberturaDisponible,
   asignacionDisponible,
   informeJuridicoDisponible,
+  fiscalizacionDisponible,
 ) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
@@ -228,11 +230,32 @@ function renderizarAlta(
       ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
       ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
       ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
-      ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}`
+      ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}
+      ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
     </section>`}`;
+}
+
+function contextoFiscalizacionDesdeEstado(estado) {
+  if (estado?.vista !== "expediente" || estado.expediente === null
+    || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === estado.expediente.expediente_ref
+  ));
+  if (resumen?.fase_clave !== "informe_juridico"
+    || resumen.version !== estado.expediente.version) return null;
+  const informe = estado.expediente.cabecera?.find(
+    ({ clave }) => clave === "informe_ref",
+  )?.valor;
+  return Object.freeze({
+    expediente_ref: estado.expediente.expediente_ref,
+    version_esperada: estado.expediente.version,
+    fase_clave: resumen.fase_clave,
+    informe_ref: typeof informe === "string" && PATRON_REFERENCIA.test(informe)
+      ? informe : "",
+  });
 }
 
 function contextoInformeJuridicoDesdeEstado(estado) {
@@ -258,6 +281,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   coberturaDisponible = false,
   asignacionDisponible = false,
   informeJuridicoDisponible = false,
+  fiscalizacionDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -272,6 +296,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       coberturaDisponible,
       asignacionDisponible,
       informeJuridicoDisponible,
+      fiscalizacionDisponible,
     );
   } else if (estado.vista === "expediente") {
     const detalle = renderizarExpediente(
@@ -284,8 +309,13 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)
       : null;
+    const contextoFiscalizacion = fiscalizacionDisponible
+      ? contextoFiscalizacionDesdeEstado(estado)
+      : null;
     contenido = `${detalle}${contextoInforme
       ? '<div data-ct-exp-informe-juridico></div>'
+      : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
+      ? '<div data-ct-exp-fiscalizacion></div>'
       : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
@@ -327,6 +357,7 @@ export async function montarModuloContratacionTemporal({
   presentador,
   alta = null,
   analisis = null,
+  fiscalizacion = null,
   mensajes = {},
   anunciar = () => {},
   confirmarOperacion = () => false,
@@ -352,12 +383,17 @@ export async function montarModuloContratacionTemporal({
   const informeJuridicoDisponible = asignacionDisponible
     && typeof composicionAnalisis.cliente.prepararInformeJuridico === "function"
     && typeof composicionAnalisis.cliente.consultarDetalleRRHH === "function";
+  const clienteFiscalizacion = fiscalizacion !== null && typeof fiscalizacion === "object"
+    && typeof fiscalizacion.cliente?.registrarResultadoFiscalizacion === "function"
+    ? fiscalizacion.cliente : null;
+  const fiscalizacionDisponible = clienteFiscalizacion !== null;
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
   let desmontarInformeJuridico = null;
+  let desmontarFiscalizacion = null;
   let sesionAnalisis = null;
 
   function bloquearControlesAnalisis(sesion) {
@@ -449,10 +485,45 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarAsignacion() {
+    if (typeof desmontarFiscalizacion === "function") desmontarFiscalizacion();
+    desmontarFiscalizacion = null;
     if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
     desmontarInformeJuridico = null;
     if (typeof desmontarAsignacion === "function") desmontarAsignacion();
     desmontarAsignacion = null;
+  }
+
+  function montarFiscalizacion(contexto) {
+    if (!montada || !fiscalizacionDisponible || desmontarFiscalizacion !== null) {
+      return desmontarFiscalizacion !== null;
+    }
+    const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
+    if (!contenedor) return false;
+    try {
+      desmontarFiscalizacion = montarFormularioFiscalizacion({
+        raiz: contenedor,
+        cliente: clienteFiscalizacion,
+        contexto,
+        confirmarOperacion,
+        mensajes,
+        locale,
+        zonaHoraria,
+        anunciar,
+      });
+      return true;
+    } catch {
+      desmontarFiscalizacion = null;
+      return false;
+    }
+  }
+
+  function montarFiscalizacionDesdeInforme(recibo) {
+    return montarFiscalizacion(Object.freeze({
+      expediente_ref: recibo.expediente_ref,
+      version_esperada: recibo.version_resultante,
+      fase_clave: "informe_juridico",
+      informe_ref: recibo.informe_ref,
+    }));
   }
 
   function montarInformeDesdeAsignacion(recibo) {
@@ -469,12 +540,19 @@ export async function montarModuloContratacionTemporal({
           version_esperada: recibo.version_resultante,
         }),
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+        alConfirmar: montarFiscalizacionDesdeInforme,
       });
       return true;
     } catch {
       desmontarInformeJuridico = null;
       return false;
     }
+  }
+
+  function montarFiscalizacionDesdeExpedienteActual() {
+    const contexto = contextoFiscalizacionDesdeEstado(presentador.obtenerEstado());
+    if (contexto === null) return null;
+    return montarFiscalizacion(contexto);
   }
 
   function montarInformeDesdeExpedienteActual() {
@@ -660,6 +738,7 @@ export async function montarModuloContratacionTemporal({
       coberturaDisponible,
       asignacionDisponible,
       informeJuridicoDisponible,
+      fiscalizacionDisponible,
     });
     montarAltaSiProcede();
     if (montarAnalisisSiProcede() === false) {
@@ -673,9 +752,11 @@ export async function montarModuloContratacionTemporal({
         coberturaDisponible: false,
         asignacionDisponible: false,
         informeJuridicoDisponible: false,
+        fiscalizacionDisponible: false,
       });
     } else {
       montarInformeDesdeExpedienteActual();
+      montarFiscalizacionDesdeExpedienteActual();
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     anunciar(
@@ -827,6 +908,100 @@ export async function montarModuloContratacionTemporal({
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();
+    },
+  });
+}
+
+export function montarModuloFiscalizacionContratacionTemporal({
+  raiz,
+  cliente,
+  mensajes = {},
+  anunciar = () => {},
+  confirmarOperacion = () => false,
+  locale = "es-ES",
+  zonaHoraria = "Europe/Madrid",
+} = {}) {
+  if (!raiz || typeof raiz.addEventListener !== "function"
+    || typeof raiz.querySelector !== "function"
+    || typeof cliente?.registrarResultadoFiscalizacion !== "function"
+    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
+    throw new TypeError("dependencias de fiscalización no válidas");
+  }
+  let montado = true;
+  let desmontarFormulario = null;
+  raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
+    aria-labelledby="ct-fiscalizacion-acceso-titulo">
+    <header class="ct-exp-cabecera">
+      <p class="sobrelinea">Intervención</p>
+      <h2 id="ct-fiscalizacion-acceso-titulo">Fiscalización de contratación temporal</h2>
+      <p>Abra un expediente remitido por Recursos Humanos para registrar su resultado.</p>
+    </header>
+    <form class="ct-exp-filtros" data-ct-fiscalizacion-acceso>
+      <div class="ct-campo">
+        <label for="ct-fiscalizacion-expediente">Referencia del expediente</label>
+        <input id="ct-fiscalizacion-expediente" name="expediente_ref"
+          type="text" maxlength="160" autocomplete="off" required>
+      </div>
+      <div class="ct-campo">
+        <label for="ct-fiscalizacion-version">Versión remitida</label>
+        <input id="ct-fiscalizacion-version" name="version_esperada"
+          type="number" min="5" max="5" step="1" value="5" required>
+      </div>
+      <div class="ct-acciones">
+        <button class="boton-primario" type="submit">Abrir fiscalización</button>
+      </div>
+    </form>
+  </section>`;
+
+  function manejarEnvio(evento) {
+    const formulario = evento.target?.closest?.("[data-ct-fiscalizacion-acceso]");
+    if (!formulario || !raiz.contains(formulario) || !montado) return;
+    evento.preventDefault();
+    if (typeof formulario.checkValidity === "function" && !formulario.checkValidity()) {
+      formulario.reportValidity?.();
+      return;
+    }
+    const referencia = String(
+      formulario.elements?.namedItem?.("expediente_ref")?.value ?? "",
+    ).trim();
+    const version = Number(
+      formulario.elements?.namedItem?.("version_esperada")?.value ?? 0,
+    );
+    if (!PATRON_REFERENCIA.test(referencia) || version !== 5) {
+      formulario.elements?.namedItem?.("expediente_ref")?.setCustomValidity?.(
+        "Indique la referencia íntegra del expediente remitido.",
+      );
+      formulario.reportValidity?.();
+      return;
+    }
+    raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal">
+      <div data-ct-exp-fiscalizacion></div>
+    </section>`;
+    const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
+    desmontarFormulario = montarFormularioFiscalizacion({
+      raiz: contenedor,
+      cliente,
+      contexto: Object.freeze({
+        expediente_ref: referencia,
+        version_esperada: version,
+        fase_clave: "informe_juridico",
+        informe_ref: "",
+      }),
+      confirmarOperacion,
+      mensajes,
+      locale,
+      zonaHoraria,
+      anunciar,
+    });
+  }
+
+  raiz.addEventListener("submit", manejarEnvio);
+  return Object.freeze({
+    desmontar() {
+      if (!montado) return;
+      montado = false;
+      if (typeof desmontarFormulario === "function") desmontarFormulario();
+      raiz.removeEventListener("submit", manejarEnvio);
     },
   });
 }

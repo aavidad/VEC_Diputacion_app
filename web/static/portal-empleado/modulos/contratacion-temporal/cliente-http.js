@@ -13,6 +13,7 @@ import { validarConfiguracionAnalisis, validarReciboAnalisis,
 import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
+import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -23,6 +24,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     rectificacionAnalisis: "/api/vec/contratacion-temporal/analisis/rectificaciones",
     configuracionAnalisis: "/api/vec/contratacion-temporal/configuracion-analisis",
     preparacionInformeJuridico: RUTA_PREPARACION_INFORME_JURIDICO,
+    resultadosFiscalizacion: RUTA_RESULTADOS_FISCALIZACION,
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
 });
@@ -794,6 +796,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
+    ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });

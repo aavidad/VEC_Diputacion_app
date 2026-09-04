@@ -21,7 +21,11 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-const expedienteContratacionTemporalDesarrolloRef = "expediente:ct:demo:0001"
+const (
+	expedienteContratacionTemporalDesarrolloRef   = "expediente:ct:demo:0001"
+	rolTecnicoRRHHContratacionTemporalDesarrollo  = "tecnico_rrhh"
+	rolIntervencionContratacionTemporalDesarrollo = "intervencion"
+)
 
 type selloConsultasContratacionTemporalDesarrollo struct{}
 
@@ -218,6 +222,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	fiscalizacionReal, err := nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
+		resolvedorDesarrollo,
+		derivador,
+		&alta,
+		sello,
+		reloj,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	cerrarCobertura := true
 	defer func() {
 		if cerrarCobertura {
@@ -258,6 +272,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorAsignacion:              asignacionReal,
 			AutoridadInformeJuridico:        alta.soporte,
 			EjecutorInformeJuridico:         informeJuridicoReal,
+			AutoridadFiscalizacion:          fiscalizacionReal.soporte,
+			EjecutorFiscalizacion:           fiscalizacionReal.servicio,
 		},
 	)
 	if err != nil {
@@ -335,7 +351,10 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
 		r.Context(), r,
 	)
-	if err == nil && principalContratacionTemporalDesarrolloValido(principal) {
+	if err == nil && principalContratacionTemporalDesarrolloValidoParaRuta(
+		principal,
+		r.URL.Path,
+	) {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
 			sello:     m.autoridad.sello,
 			ruta:      r.URL.Path,
@@ -386,6 +405,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return true
 	}
 	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
 		r.URL.Path == httpinterno.RutaAltaSolicitudes ||
 		r.URL.Path == httpinterno.RutaPropuestaCobertura ||
 		r.URL.Path == httpinterno.RutaDecisionCobertura ||
@@ -401,10 +421,33 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 func principalContratacionTemporalDesarrolloValido(
 	principal vecdomain.Principal,
 ) bool {
+	return principalSinteticoContratacionTemporalDesarrolloValido(principal) &&
+		len(principal.Roles) == 1 && principal.Roles[0] == rolTecnicoRRHHContratacionTemporalDesarrollo
+}
+
+func principalIntervencionContratacionTemporalDesarrolloValido(
+	principal vecdomain.Principal,
+) bool {
+	return principalSinteticoContratacionTemporalDesarrolloValido(principal) &&
+		len(principal.Roles) == 1 && principal.Roles[0] == rolIntervencionContratacionTemporalDesarrollo
+}
+
+func principalContratacionTemporalDesarrolloValidoParaRuta(
+	principal vecdomain.Principal,
+	ruta string,
+) bool {
+	if ruta == httpinterno.RutaResultadosFiscalizacion {
+		return principalIntervencionContratacionTemporalDesarrolloValido(principal)
+	}
+	return principalContratacionTemporalDesarrolloValido(principal)
+}
+
+func principalSinteticoContratacionTemporalDesarrolloValido(
+	principal vecdomain.Principal,
+) bool {
 	return principal.Validate() == nil &&
 		principal.AuthMethod == vecdomain.AuthMethodCertificate &&
 		principal.AuthAssurance == vecdomain.AuthAssuranceHigh &&
-		len(principal.Roles) == 1 && principal.Roles[0] == "tecnico_rrhh" &&
 		len(principal.Permissions) == 0 &&
 		principal.Attributes["autoridad"] == AutoridadNoAutoritativa &&
 		principal.Attributes["perfil_ejecucion"] == config.ExecutionProfileDevelopment

@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -157,6 +158,50 @@ func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasInformeJuridic
 	}
 	return referencias, nil
 }
+
+func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasFiscalizacion(
+	ctx context.Context,
+	resultado domain.ResultadoFiscalizacion,
+) (ports.ReferenciasEfectoFiscalizacion, error) {
+	if !generadorValido(g) || ctx == nil || !resultado.Valido() {
+		return ports.ReferenciasEfectoFiscalizacion{}, ErrGeneracionReferenciaAlta
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReferenciasEfectoFiscalizacion{}, err
+	}
+	prefijos := [...]string{
+		"reserva:ct-fiscalizacion:",
+		"fiscalizacion:ct:",
+		"recibo:ct-fiscalizacion:",
+		"evento:ct-fiscalizacion:",
+	}
+	valores := make([]string, len(prefijos))
+	for indice, prefijo := range prefijos {
+		referencia, err := g.generar(ctx, prefijo)
+		if err != nil {
+			return ports.ReferenciasEfectoFiscalizacion{}, err
+		}
+		valores[indice] = referencia
+	}
+	referencias := ports.ReferenciasEfectoFiscalizacion{
+		ReservaRef:       valores[0],
+		FiscalizacionRef: valores[1],
+		ReciboRef:        valores[2],
+		EventoRef:        valores[3],
+	}
+	if resultado == domain.FiscalizacionDesfavorable {
+		retorno, err := g.generar(ctx, "retorno:ct-fiscalizacion:")
+		if err != nil {
+			return ports.ReferenciasEfectoFiscalizacion{}, err
+		}
+		referencias.RetornoRef = retorno
+	}
+	if referencias.ValidarPara(resultado) != nil {
+		return ports.ReferenciasEfectoFiscalizacion{}, ErrGeneracionReferenciaAlta
+	}
+	return referencias, nil
+}
+
 func (g *GeneradorReferenciasAltaCriptografico) numeroVisible(
 	ctx context.Context,
 ) (string, error) {

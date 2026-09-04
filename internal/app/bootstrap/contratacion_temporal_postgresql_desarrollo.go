@@ -1156,6 +1156,25 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialCon
 	return material, nil
 }
 
+func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialConfirmacionFiscalizacion(
+	ctx context.Context,
+	orden ports.OrdenConfirmarFiscalizacion,
+) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	material, err := p.proveerMaterialConfirmacion(
+		ctx,
+		orden.Evidencia.SolicitudV3,
+		orden.Evidencia.DecisionV3,
+		orden.Evidencia.ConfirmacionV3,
+		orden.Politica.MotivoAutorizacion,
+		orden.Evidencia.Contexto.Resultado,
+	)
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+			ports.ErrPersistenciaFiscalizacionNoDisponible
+	}
+	return material, nil
+}
+
 func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) proveerMaterialConfirmacion(
 	ctx context.Context,
 	solicitud dominiovec.SolicitudAutorizacionLigadaV3,

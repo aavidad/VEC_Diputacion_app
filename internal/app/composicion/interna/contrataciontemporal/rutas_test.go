@@ -258,6 +258,7 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 		httpinterno.RutaCerrarAdministrativamente,
 		httpinterno.RutaReabrirExcepcionalmente,
 		httpinterno.RutaPreparacionesInformeJuridico,
+		httpinterno.RutaResultadosFiscalizacion,
 		httpinterno.RutaConsultaCuadroRRHH,
 		httpinterno.RutaConsultaDetalleRRHH,
 		httpinterno.RutaAsignaciones,
@@ -312,6 +313,14 @@ func TestNuevasRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	}
 	if reflect.ValueOf(rutas[11].Manejador).Pointer() ==
 		reflect.ValueOf(rutas[12].Manejador).Pointer() {
+		t.Fatal("informe juridico y fiscalizacion comparten manejador")
+	}
+	if reflect.ValueOf(rutas[12].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[13].Manejador).Pointer() {
+		t.Fatal("fiscalizacion y consultas RRHH comparten manejador")
+	}
+	if reflect.ValueOf(rutas[13].Manejador).Pointer() ==
+		reflect.ValueOf(rutas[14].Manejador).Pointer() {
 		t.Fatal("cuadro y detalle RRHH comparten manejador")
 	}
 	if reflect.ValueOf(rutas[11].Manejador).Pointer() ==
@@ -728,5 +737,7 @@ func dependenciasRutasPrueba() DependenciasRutas {
 		EjecutorAsignacion:           &ejecutorAsignacionComposicionPrueba{},
 		AutoridadInformeJuridico:     &autoridadInformeJuridicoComposicionPrueba{},
 		EjecutorInformeJuridico:      &ejecutorInformeJuridicoComposicionPrueba{},
+		AutoridadFiscalizacion:       &autoridadFiscalizacionComposicionPrueba{},
+		EjecutorFiscalizacion:        &ejecutorFiscalizacionComposicionPrueba{},
 	}
 }

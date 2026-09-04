@@ -128,13 +128,18 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 ) (dependenciasAltaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasAltaContratacionTemporalDesarrollo{}
-	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil ||
-		!principalContratacionTemporalDesarrolloValido(identidad.principal) {
+	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil {
+		return vacias, ErrActivacionDesarrolloInvalida
+	}
+	principal, identidadRRHHValida := identidad.principalConRolUnico(
+		rolTecnicoRRHHContratacionTemporalDesarrollo,
+	)
+	if !identidadRRHHValida || !principalContratacionTemporalDesarrolloValido(principal) {
 		return vacias, ErrActivacionDesarrolloInvalida
 	}
 	ahora := reloj.Ahora()
 	contexto, err := nuevoContextoAltaContratacionTemporalDesarrollo(
-		identidad.principal, ahora,
+		principal, ahora,
 	)
 	if err != nil {
 		return vacias, err
@@ -220,8 +225,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: identidad.principal.ID,
-		certificadoSHA256: identidad.principal.Attributes["certificate_sha256"],
+		sello: sello, principalID: principal.ID,
+		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
 		instantaneaAnalisis:          instantaneaAnalisis,
 		instantaneaAsignacion:        instantaneaAsignacion,
@@ -1209,7 +1214,18 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 	principal dominiovec.Principal,
 	ahora time.Time,
 ) (ports.ContextoAutorizacionAltaV3, error) {
-	if !principalContratacionTemporalDesarrolloValido(principal) ||
+	if !principalContratacionTemporalDesarrolloValido(principal) {
+		return ports.ContextoAutorizacionAltaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	return nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, ahora)
+}
+
+func nuevoContextoSinteticoContratacionTemporalDesarrollo(
+	principal dominiovec.Principal,
+	ahora time.Time,
+) (ports.ContextoAutorizacionAltaV3, error) {
+	if !principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
 		!domain.InstanteUTCCanonico(ahora) {
 		return ports.ContextoAutorizacionAltaV3{},
 			errAltaContratacionTemporalDesarrolloNoDisponible

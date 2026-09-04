@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -13,9 +12,32 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
+type identidadCertificadoDesarrollo struct {
+	huella    [sha256.Size]byte
+	principal vecdomain.Principal
+}
+
 type resolvedorIdentidadDesarrollo struct {
-	huellaCertificado [sha256.Size]byte
-	principal         vecdomain.Principal
+	porHuella map[[sha256.Size]byte]vecdomain.Principal
+}
+
+func nuevoResolvedorIdentidadDesarrollo(
+	identidades ...identidadCertificadoDesarrollo,
+) (*resolvedorIdentidadDesarrollo, error) {
+	if len(identidades) == 0 {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	porHuella := make(map[[sha256.Size]byte]vecdomain.Principal, len(identidades))
+	for _, identidad := range identidades {
+		if identidad.principal.Validate() != nil || identidad.huella == ([sha256.Size]byte{}) {
+			return nil, ErrMaterialDesarrolloInvalido
+		}
+		if _, repetida := porHuella[identidad.huella]; repetida {
+			return nil, ErrMaterialDesarrolloInvalido
+		}
+		porHuella[identidad.huella] = clonarPrincipalDesarrollo(identidad.principal)
+	}
+	return &resolvedorIdentidadDesarrollo{porHuella: porHuella}, nil
 }
 
 func (r *resolvedorIdentidadDesarrollo) ResolveDemoIdentity(
@@ -35,10 +57,31 @@ func (r *resolvedorIdentidadDesarrollo) ResolveDemoIdentity(
 		return vecdomain.Principal{}, ErrMaterialDesarrolloInvalido
 	}
 	huella := sha256.Sum256(verificado.Raw)
-	if subtle.ConstantTimeCompare(huella[:], r.huellaCertificado[:]) != 1 {
+	principal, existe := r.porHuella[huella]
+	if !existe {
 		return vecdomain.Principal{}, ErrMaterialDesarrolloInvalido
 	}
-	return clonarPrincipalDesarrollo(r.principal), nil
+	return clonarPrincipalDesarrollo(principal), nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) principalConRolUnico(
+	rol string,
+) (vecdomain.Principal, bool) {
+	if r == nil || len(r.porHuella) == 0 || rol == "" {
+		return vecdomain.Principal{}, false
+	}
+	var encontrado vecdomain.Principal
+	coincidencias := 0
+	for _, principal := range r.porHuella {
+		if len(principal.Roles) == 1 && principal.Roles[0] == rol {
+			encontrado = principal
+			coincidencias++
+		}
+	}
+	if coincidencias != 1 {
+		return vecdomain.Principal{}, false
+	}
+	return clonarPrincipalDesarrollo(encontrado), true
 }
 
 func clonarPrincipalDesarrollo(principal vecdomain.Principal) vecdomain.Principal {

@@ -332,6 +332,56 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
   assert.equal(montajes, 1);
 });
 
+test("Intervención abre CT con acceso directo a fiscalización, sin funciones de RRHH", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() { throw new Error("alta reservada a RRHH"); },
+    async obtenerConfiguracionAnalisis() { throw new Error("análisis reservado a RRHH"); },
+    async registrarResultadoFiscalizacion() {},
+  });
+  const fuente = Object.freeze({
+    capacidades: Object.freeze([
+      "contratacion_temporal.cuadro.consultar",
+      "contratacion_temporal.expediente.consultar",
+    ]),
+    async listar() { return { expedientes: [] }; },
+    async obtener() { return {}; },
+    async ejecutar() { throw new Error("solo lectura"); },
+  });
+  let montaje;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        presentador: {
+          crearPresentadorExpedientesContratacionTemporal: () => ({}),
+        },
+        vista: {
+          montarModuloContratacionTemporal: async (dependencias) => {
+            montaje = dependencias;
+            return { desmontar() {} };
+          },
+          montarModuloFiscalizacionContratacionTemporal: async (dependencias) => {
+            montaje = dependencias;
+            return { desmontar() {} };
+          },
+        },
+      }),
+    },
+  });
+
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+  assert.strictEqual(montaje.cliente, cliente);
+});
+
 test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,

@@ -55,6 +55,7 @@ function raizFalsa() {
 test("conserva documento y recibo si el historial no corresponde", async () => {
   const raiz = raizFalsa();
   const solicitudes = [];
+  const confirmados = [];
   montarFormularioInformeJuridico({
     raiz,
     cliente: {
@@ -77,6 +78,7 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4 },
     generarClaveIdempotencia: () => CLAVE,
     confirmarOperacion: () => true,
+    alConfirmar: (resultado) => confirmados.push(resultado),
   });
 
   await raiz.enviar();
@@ -88,6 +90,7 @@ test("conserva documento y recibo si el historial no corresponde", async () => {
   assert.match(raiz.innerHTML, /data-ct-informe-recibo/u);
   assert.match(raiz.innerHTML, /data-ct-informe-documento/u);
   assert.match(raiz.innerHTML, /data-ct-informe-historial-error/u);
+  assert.deepEqual(confirmados, [recibo()]);
 });
 
 test("ofrece el informe al reabrir un expediente asignado", () => {

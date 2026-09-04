@@ -39,6 +39,8 @@ archivos_obligatorios=(
   tls/servidor.crt tls/servidor.key
   mtls/cliente.crt mtls/cliente.key
   mtls/cliente.p12 mtls/cliente.p12.password
+  mtls/intervencion.crt mtls/intervencion.key
+  mtls/intervencion.p12 mtls/intervencion.p12.password
   kms/clave-maestra.bin
   kms/atestacion-ed25519.key kms/atestacion-ed25519.pub
   kms/revalidacion-ed25519.key kms/revalidacion-ed25519.pub
@@ -46,7 +48,7 @@ archivos_obligatorios=(
   idempotencia/configuracion.json
   idempotencia/g2-localizador.bin idempotencia/g2-huella-solicitud.bin
   idempotencia/g1-localizador.bin idempotencia/g1-huella-solicitud.bin
-  identidad/identidad.json manifiesto.json desarrollo.env
+  identidad/identidad.json identidad/intervencion.json manifiesto.json desarrollo.env
 )
 CONFIGURACION_IDEMPOTENCIA_CANONICA='{"version":1,"esquema":"vec.bolsa.convocatoria.idempotencia-hmac.desarrollo.v1","autoridad":"no_autoritativo","version_esquema_hmac":2,"generaciones":[{"generacion":2,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v2","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v2"},{"generacion":1,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v1","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v1"}]}'
 
@@ -86,13 +88,18 @@ mostrar_instrucciones_navegador() {
   printf '  2. Importe %s como certificado personal.\n' "$raiz/mtls/cliente.p12"
   printf '  3. Use en el dialogo local la contrasena guardada en %s; no la copie a registros.\n' \
     "$raiz/mtls/cliente.p12.password"
-  printf '  4. Abra https://localhost:<puerto>/portal-empleado/ con VEC en perfil desarrollo.\n'
+  printf '  4. Para fiscalizar, importe %s como identidad separada de Intervencion.\n' \
+    "$raiz/mtls/intervencion.p12"
+  printf '  5. Su contrasena independiente esta en %s; no la copie a registros.\n' \
+    "$raiz/mtls/intervencion.p12.password"
+  printf '  6. Abra https://localhost:<puerto>/portal-empleado/ con VEC en perfil desarrollo.\n'
 }
 
 verificar_directorio() {
   local raiz=$1 archivo modo huella_ca huella_ca_der huella_ca_p12
-  local huella_servidor huella_cliente huella_cliente_p12
-  local huella_clave_cliente huella_clave_cliente_p12 numero_certificados
+  local huella_servidor huella_cliente huella_cliente_p12 huella_intervencion huella_intervencion_p12
+  local huella_clave_cliente huella_clave_cliente_p12 huella_clave_intervencion huella_clave_intervencion_p12
+  local numero_certificados
   local huella_publica_atestacion_kms huella_publica_revalidacion_kms
   local -a secretos_hmac
   local indice anterior huella
@@ -125,6 +132,27 @@ verificar_directorio() {
     -passin "file:$raiz/mtls/cliente.p12.password" -cacerts -nokeys 2>/dev/null |
     grep -c -- '-----BEGIN CERTIFICATE-----' || true)
   [[ "$numero_certificados" -eq 1 ]] || fallar "el paquete PKCS#12 no contiene la cadena local esperada"
+  [[ $(stat -c '%a' -- "$raiz/mtls/intervencion.p12") == 600 ]] ||
+    fallar "el paquete PKCS#12 de Intervencion debe tener permisos 0600"
+  [[ $(stat -c '%a' -- "$raiz/mtls/intervencion.p12.password") == 600 ]] ||
+    fallar "la contrasena PKCS#12 de Intervencion debe tener permisos 0600"
+  if [[ $(awk 'END {print NR}' "$raiz/mtls/intervencion.p12.password") -ne 1 ]] ||
+    ! grep -Eq '^[0-9a-f]{64}$' "$raiz/mtls/intervencion.p12.password"; then
+    fallar "la contrasena PKCS#12 de Intervencion no tiene el formato aleatorio esperado"
+  fi
+  openssl pkcs12 -in "$raiz/mtls/intervencion.p12" \
+    -passin "file:$raiz/mtls/intervencion.p12.password" -noout 2>/dev/null ||
+    fallar "el paquete PKCS#12 de Intervencion no supera su comprobacion de integridad"
+  numero_certificados=$(openssl pkcs12 -in "$raiz/mtls/intervencion.p12" \
+    -passin "file:$raiz/mtls/intervencion.p12.password" -clcerts -nokeys 2>/dev/null |
+    grep -c -- '-----BEGIN CERTIFICATE-----' || true)
+  [[ "$numero_certificados" -eq 1 ]] ||
+    fallar "el paquete PKCS#12 de Intervencion no contiene una unica identidad cliente"
+  numero_certificados=$(openssl pkcs12 -in "$raiz/mtls/intervencion.p12" \
+    -passin "file:$raiz/mtls/intervencion.p12.password" -cacerts -nokeys 2>/dev/null |
+    grep -c -- '-----BEGIN CERTIFICATE-----' || true)
+  [[ "$numero_certificados" -eq 1 ]] ||
+    fallar "el paquete PKCS#12 de Intervencion no contiene la cadena local esperada"
 
   [[ $(stat -c '%s' -- "$raiz/kms/clave-maestra.bin") -eq 32 ]] || fallar "secreto KMS con longitud incorrecta"
   [[ $(stat -c '%s' -- "$raiz/tsa/clave-hmac.bin") -eq 32 ]] || fallar "secreto TSA con longitud incorrecta"
@@ -147,9 +175,11 @@ verificar_directorio() {
   done
   openssl verify -purpose sslserver -CAfile "$raiz/ca/ca.crt" "$raiz/tls/servidor.crt" >/dev/null
   openssl verify -purpose sslclient -CAfile "$raiz/ca/ca.crt" "$raiz/mtls/cliente.crt" >/dev/null
+  openssl verify -purpose sslclient -CAfile "$raiz/ca/ca.crt" "$raiz/mtls/intervencion.crt" >/dev/null
   openssl x509 -in "$raiz/ca/ca.crt" -noout -checkend 0 >/dev/null
   openssl x509 -in "$raiz/tls/servidor.crt" -noout -checkend 0 >/dev/null
   openssl x509 -in "$raiz/mtls/cliente.crt" -noout -checkend 0 >/dev/null
+  openssl x509 -in "$raiz/mtls/intervencion.crt" -noout -checkend 0 >/dev/null
   openssl x509 -in "$raiz/tls/servidor.crt" -noout -ext subjectAltName |
     grep -Fq 'DNS:localhost' || fallar "el certificado servidor no incluye localhost"
   [[ "$(huella_clave_publica_certificado "$raiz/ca/ca.crt")" == "$(huella_clave_publica_privada "$raiz/ca/ca.key")" ]] ||
@@ -158,6 +188,8 @@ verificar_directorio() {
     fallar "la clave de servidor no corresponde al certificado"
   [[ "$(huella_clave_publica_certificado "$raiz/mtls/cliente.crt")" == "$(huella_clave_publica_privada "$raiz/mtls/cliente.key")" ]] ||
     fallar "la clave de cliente no corresponde al certificado"
+  [[ "$(huella_clave_publica_certificado "$raiz/mtls/intervencion.crt")" == "$(huella_clave_publica_privada "$raiz/mtls/intervencion.key")" ]] ||
+    fallar "la clave de Intervencion no corresponde al certificado"
   huella_cliente=$(openssl x509 -in "$raiz/mtls/cliente.crt" -outform DER | sha256sum | awk '{print $1}')
   huella_cliente_p12=$(huella_certificado_cliente_pkcs12 \
     "$raiz/mtls/cliente.p12" "$raiz/mtls/cliente.p12.password")
@@ -172,6 +204,24 @@ verificar_directorio() {
   huella_ca_p12=$(huella_ca_pkcs12 "$raiz/mtls/cliente.p12" "$raiz/mtls/cliente.p12.password")
   [[ "$huella_ca_p12" == "$huella_ca_der" ]] ||
     fallar "la cadena del paquete PKCS#12 no corresponde a la CA local"
+  huella_intervencion=$(openssl x509 -in "$raiz/mtls/intervencion.crt" -outform DER | sha256sum | awk '{print $1}')
+  huella_intervencion_p12=$(huella_certificado_cliente_pkcs12 \
+    "$raiz/mtls/intervencion.p12" "$raiz/mtls/intervencion.p12.password")
+  [[ "$huella_intervencion_p12" == "$huella_intervencion" ]] ||
+    fallar "la identidad PKCS#12 de Intervencion no corresponde a su certificado"
+  huella_clave_intervencion=$(huella_clave_publica_privada "$raiz/mtls/intervencion.key")
+  huella_clave_intervencion_p12=$(huella_clave_publica_pkcs12 \
+    "$raiz/mtls/intervencion.p12" "$raiz/mtls/intervencion.p12.password")
+  [[ "$huella_clave_intervencion_p12" == "$huella_clave_intervencion" ]] ||
+    fallar "la clave PKCS#12 de Intervencion no corresponde a su identidad"
+  huella_ca_p12=$(huella_ca_pkcs12 \
+    "$raiz/mtls/intervencion.p12" "$raiz/mtls/intervencion.p12.password")
+  [[ "$huella_ca_p12" == "$huella_ca_der" ]] ||
+    fallar "la cadena PKCS#12 de Intervencion no corresponde a la CA local"
+  [[ "$huella_intervencion" != "$huella_cliente" ]] ||
+    fallar "RRHH e Intervencion no pueden compartir certificado"
+  [[ "$huella_clave_intervencion" != "$huella_clave_cliente" ]] ||
+    fallar "RRHH e Intervencion no pueden compartir clave"
   [[ "$(openssl pkey -in "$raiz/kms/atestacion-ed25519.key" -pubout -outform DER 2>/dev/null | sha256sum | awk '{print $1}')" == \
     "$(openssl pkey -pubin -in "$raiz/kms/atestacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')" ]] ||
     fallar "la clave de atestacion KMS no corresponde a la publica"
@@ -185,11 +235,15 @@ verificar_directorio() {
   grep -Fq "\"huella_ca_sha256\":\"$huella_ca\"" "$raiz/manifiesto.json" || fallar "huella CA incoherente en manifiesto"
   grep -Fq "\"huella_servidor_sha256\":\"$huella_servidor\"" "$raiz/manifiesto.json" || fallar "huella servidor incoherente en manifiesto"
   grep -Fq "\"huella_cliente_sha256\":\"$huella_cliente\"" "$raiz/manifiesto.json" || fallar "huella cliente incoherente en manifiesto"
+  grep -Fq "\"huella_intervencion_sha256\":\"$huella_intervencion\"" "$raiz/manifiesto.json" ||
+    fallar "huella de Intervencion incoherente en manifiesto"
   grep -Fq "\"huella_publica_atestacion_kms_sha256\":\"$huella_publica_atestacion_kms\"" "$raiz/manifiesto.json" ||
     fallar "huella publica de atestacion KMS incoherente en manifiesto"
   grep -Fq "\"huella_publica_revalidacion_kms_sha256\":\"$huella_publica_revalidacion_kms\"" "$raiz/manifiesto.json" ||
     fallar "huella publica de revalidacion KMS incoherente en manifiesto"
   grep -Fq "\"certificate_sha256\":\"$huella_cliente\"" "$raiz/identidad/identidad.json" || fallar "identidad no ligada al certificado cliente"
+  grep -Fq "\"certificate_sha256\":\"$huella_intervencion\"" "$raiz/identidad/intervencion.json" ||
+    fallar "identidad de Intervencion no ligada a su certificado"
   grep -Fq '"esquema":"vec.bolsa.convocatoria.idempotencia-hmac.desarrollo.v1"' \
     "$raiz/idempotencia/configuracion.json" || fallar "esquema HMAC de idempotencia ausente"
   grep -Fq '"version_esquema_hmac":2' "$raiz/idempotencia/configuracion.json" ||
@@ -200,7 +254,7 @@ verificar_directorio() {
     "$raiz/idempotencia/configuracion.json" || fallar "generacion historica HMAC incoherente"
   grep -Fq '"idempotencia_hmac":"idempotencia-hmac-fichero-local-v1"' "$raiz/manifiesto.json" ||
     fallar "proveedor HMAC de idempotencia ausente en manifiesto"
-  grep -Fq '"version":3' "$raiz/manifiesto.json" || fallar "version de manifiesto incoherente"
+  grep -Fq '"version":4' "$raiz/manifiesto.json" || fallar "version de manifiesto incoherente"
   [[ "$(sha256sum -- "$raiz/idempotencia/configuracion.json" | awk '{print $1}')" == \
     "$(printf '%s\n' "$CONFIGURACION_IDEMPOTENCIA_CANONICA" | sha256sum | awk '{print $1}')" ]] ||
     fallar "configuracion HMAC alterada respecto del acuerdo generado"
@@ -275,8 +329,30 @@ openssl pkcs12 -export -out "$TEMPORAL/mtls/cliente.p12" \
   -certfile "$TEMPORAL/ca/ca.crt" -name 'VEC desarrollo - operador RRHH' \
   -passout "file:$TEMPORAL/mtls/cliente.p12.password" 2>/dev/null
 
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TEMPORAL/mtls/intervencion.key" 2>/dev/null
+openssl req -new -sha256 -key "$TEMPORAL/mtls/intervencion.key" \
+  -subj '/CN=intervencion-desarrollo/O=VEC Desarrollo/OU=NO AUTORITATIVO' \
+  -out "$TEMPORAL/mtls/intervencion.csr" 2>/dev/null
+cat >"$TEMPORAL/mtls/intervencion.ext" <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature
+extendedKeyUsage=clientAuth
+subjectAltName=URI:urn:vec:desarrollo:intervencion
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+EXT
+openssl x509 -req -sha256 -days 397 -in "$TEMPORAL/mtls/intervencion.csr" \
+  -CA "$TEMPORAL/ca/ca.crt" -CAkey "$TEMPORAL/ca/ca.key" -CAserial "$TEMPORAL/ca/serie" \
+  -extfile "$TEMPORAL/mtls/intervencion.ext" -out "$TEMPORAL/mtls/intervencion.crt" 2>/dev/null
+openssl rand -hex 32 >"$TEMPORAL/mtls/intervencion.p12.password"
+openssl pkcs12 -export -out "$TEMPORAL/mtls/intervencion.p12" \
+  -inkey "$TEMPORAL/mtls/intervencion.key" -in "$TEMPORAL/mtls/intervencion.crt" \
+  -certfile "$TEMPORAL/ca/ca.crt" -name 'VEC desarrollo - Intervencion' \
+  -passout "file:$TEMPORAL/mtls/intervencion.p12.password" 2>/dev/null
+
 rm -f -- "$TEMPORAL/tls/servidor.csr" "$TEMPORAL/tls/servidor.ext" \
-  "$TEMPORAL/mtls/cliente.csr" "$TEMPORAL/mtls/cliente.ext"
+  "$TEMPORAL/mtls/cliente.csr" "$TEMPORAL/mtls/cliente.ext" \
+  "$TEMPORAL/mtls/intervencion.csr" "$TEMPORAL/mtls/intervencion.ext"
 openssl rand 32 >"$TEMPORAL/kms/clave-maestra.bin"
 openssl genpkey -algorithm ED25519 -out "$TEMPORAL/kms/atestacion-ed25519.key" 2>/dev/null
 openssl pkey -in "$TEMPORAL/kms/atestacion-ed25519.key" -pubout -out "$TEMPORAL/kms/atestacion-ed25519.pub" 2>/dev/null
@@ -294,15 +370,20 @@ HUELLA_SERVIDOR=$(openssl x509 -in "$TEMPORAL/tls/servidor.crt" -noout -fingerpr
 # con el PEM; asi ambas representaciones mantienen una sola identidad canonica.
 HUELLA_CLIENTE=$(huella_certificado_cliente_pkcs12 \
   "$TEMPORAL/mtls/cliente.p12" "$TEMPORAL/mtls/cliente.p12.password")
+HUELLA_INTERVENCION=$(huella_certificado_cliente_pkcs12 \
+  "$TEMPORAL/mtls/intervencion.p12" "$TEMPORAL/mtls/intervencion.p12.password")
 HUELLA_PUBLICA_ATESTACION_KMS=$(openssl pkey -pubin -in "$TEMPORAL/kms/atestacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
 HUELLA_PUBLICA_REVALIDACION_KMS=$(openssl pkey -pubin -in "$TEMPORAL/kms/revalidacion-ed25519.pub" -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
 
 cat >"$TEMPORAL/identidad/identidad.json" <<JSON
 {"version":1,"autoridad":"no_autoritativo","certificate_sha256":"$HUELLA_CLIENTE","subject":"desarrollo:operador-rrhh","display_name":"Operador RRHH de desarrollo","roles":["tecnico_rrhh"]}
 JSON
+cat >"$TEMPORAL/identidad/intervencion.json" <<JSON
+{"version":1,"autoridad":"no_autoritativo","certificate_sha256":"$HUELLA_INTERVENCION","subject":"desarrollo:intervencion","display_name":"Intervencion de desarrollo","roles":["intervencion"]}
+JSON
 printf '%s\n' "$CONFIGURACION_IDEMPOTENCIA_CANONICA" >"$TEMPORAL/idempotencia/configuracion.json"
 cat >"$TEMPORAL/manifiesto.json" <<JSON
-{"version":3,"perfil":"desarrollo","autoridad":"no_autoritativo","migrable_a_produccion":false,"huella_ca_sha256":"$HUELLA_CA","huella_servidor_sha256":"$HUELLA_SERVIDOR","huella_cliente_sha256":"$HUELLA_CLIENTE","huella_publica_atestacion_kms_sha256":"$HUELLA_PUBLICA_ATESTACION_KMS","huella_publica_revalidacion_kms_sha256":"$HUELLA_PUBLICA_REVALIDACION_KMS","proveedores":{"identidad":"identidad-mtls-local-v1","idempotencia_hmac":"idempotencia-hmac-fichero-local-v1","kms_emisor":"kms-emisor-fichero-local-v2","kms_revalidador":"kms-revalidador-ed25519-local-v1","kms_verificador_recibo":"kms-verificador-publico-local-v1","tsa":"tsa-determinista-local-v1","tls":"tls-ca-local-v1"}}
+{"version":4,"perfil":"desarrollo","autoridad":"no_autoritativo","migrable_a_produccion":false,"huella_ca_sha256":"$HUELLA_CA","huella_servidor_sha256":"$HUELLA_SERVIDOR","huella_cliente_sha256":"$HUELLA_CLIENTE","huella_intervencion_sha256":"$HUELLA_INTERVENCION","huella_publica_atestacion_kms_sha256":"$HUELLA_PUBLICA_ATESTACION_KMS","huella_publica_revalidacion_kms_sha256":"$HUELLA_PUBLICA_REVALIDACION_KMS","proveedores":{"identidad":"identidad-mtls-local-v1","idempotencia_hmac":"idempotencia-hmac-fichero-local-v1","kms_emisor":"kms-emisor-fichero-local-v2","kms_revalidador":"kms-revalidador-ed25519-local-v1","kms_verificador_recibo":"kms-verificador-publico-local-v1","tsa":"tsa-determinista-local-v1","tls":"tls-ca-local-v1"}}
 JSON
 {
   printf 'VEC_EXECUTION_PROFILE=desarrollo\n'
@@ -332,5 +413,6 @@ fi
 printf 'Credenciales de desarrollo generadas fuera de Git: %s\n' "$DESTINO"
 printf 'CA SHA-256: %s\n' "$HUELLA_CA"
 printf 'Cliente mTLS SHA-256: %s\n' "$HUELLA_CLIENTE"
+printf 'Intervencion mTLS SHA-256: %s\n' "$HUELLA_INTERVENCION"
 printf 'Cargue la configuracion solo en una terminal local: set -a; source %q; set +a\n' "$DESTINO/desarrollo.env"
 mostrar_instrucciones_navegador "$DESTINO"

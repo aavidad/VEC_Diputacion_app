@@ -9,6 +9,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
   "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "alConfirmar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
@@ -170,7 +171,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     raiz, cliente, contexto: contextoEntrada,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
-    zonaHoraria = "Europe/Madrid", anunciar = () => {},
+    zonaHoraria = "Europe/Madrid", anunciar = () => {}, alConfirmar = () => {},
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -181,6 +182,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     || typeof cliente?.consultarDetalleRRHH !== "function"
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
+    || typeof alConfirmar !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de informe jurídico no válidas");
   }
@@ -190,6 +192,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let generarClaveActual = generarClaveIdempotencia;
   let confirmarActual = confirmarOperacion;
   let anunciarActual = anunciar;
+  let alConfirmarActual = alConfirmar;
   let t = crearTraductorContratacionTemporal(mensajes);
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
@@ -212,6 +215,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   locale = null;
   zonaHoraria = null;
   anunciar = null;
+  alConfirmar = null;
 
   function enfocar(selector) {
     const elemento = raizActual?.querySelector?.(selector);
@@ -314,6 +318,9 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
         };
         solicitudActual = null;
         repintar("[data-ct-informe-recibo]");
+        try { alConfirmarActual(recibo); } catch {
+          // El recibo del informe prevalece si no puede montarse Fiscalización.
+        }
         await cargarHistorial(recibo, controlador.signal);
         return recibo;
       } catch (error) {
@@ -392,6 +399,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     generarClaveActual = null;
     confirmarActual = null;
     anunciarActual = null;
+    alConfirmarActual = null;
     controlador = null;
     vuelo = null;
     solicitudActual = null;

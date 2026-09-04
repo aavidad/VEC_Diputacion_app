@@ -58,6 +58,7 @@ type archivoManifiestoDesarrollo struct {
 	HuellaCASHA256                     string            `json:"huella_ca_sha256"`
 	HuellaServidorSHA256               string            `json:"huella_servidor_sha256"`
 	HuellaClienteSHA256                string            `json:"huella_cliente_sha256"`
+	HuellaIntervencionSHA256           string            `json:"huella_intervencion_sha256"`
 	HuellaPublicaAtestacionKMSSHA256   string            `json:"huella_publica_atestacion_kms_sha256"`
 	HuellaPublicaRevalidacionKMSSHA256 string            `json:"huella_publica_revalidacion_kms_sha256"`
 	Proveedores                        map[string]string `json:"proveedores"`
@@ -82,6 +83,7 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	for _, ruta := range []string{
 		rutas.CACertificate, rutas.CAPrivateKey, rutas.ServerCertificate, rutas.ServerPrivateKey,
 		rutas.ClientCertificate, rutas.ClientPrivateKey, rutas.KMSSecret,
+		rutas.IntervencionCertificate, rutas.IntervencionPrivateKey, rutas.IntervencionIdentity,
 		rutas.KMSAttestationKey, rutas.KMSAttestationPublic, rutas.TSASecret, rutas.Identity,
 		rutas.KMSRevalidationKey, rutas.KMSRevalidationPublic,
 		rutas.IdempotencyHMACConfig,
@@ -113,6 +115,13 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	intervencionPEM, err := leerFicheroMaterialSeguro(
+		rutas.IntervencionCertificate,
+		tamanoMaximoFicheroMaterialDesarrollo,
+	)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
 	defer borrarBytes(servidorClavePEM)
 
 	ca, err := decodificarCertificadoUnico(caPEM)
@@ -132,6 +141,10 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	certificadoIntervencion, err := decodificarCertificadoUnico(intervencionPEM)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
 
 	raices := x509.NewCertPool()
 	raices.AddCert(ca)
@@ -141,6 +154,11 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		return materialSeguridadDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	if _, err := certificadoCliente.Verify(x509.VerifyOptions{
+		Roots: raices, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}); err != nil {
+		return materialSeguridadDesarrollo{}, ErrMaterialDesarrolloInvalido
+	}
+	if _, err := certificadoIntervencion.Verify(x509.VerifyOptions{
 		Roots: raices, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}); err != nil {
 		return materialSeguridadDesarrollo{}, ErrMaterialDesarrolloInvalido
@@ -170,7 +188,26 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if !materialIdempotencia.separadoDe(&claveKMS, &claveTSA) {
 		return materialSeguridadDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
-	identidad, err := cargarIdentidadDesarrollo(rutas.Identity, certificadoCliente)
+	identidadRRHH, err := cargarIdentidadDesarrollo(
+		rutas.Identity,
+		certificadoCliente,
+		"tecnico_rrhh",
+	)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	identidadIntervencion, err := cargarIdentidadDesarrollo(
+		rutas.IntervencionIdentity,
+		certificadoIntervencion,
+		"intervencion",
+	)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	identidad, err := nuevoResolvedorIdentidadDesarrollo(
+		identidadRRHH,
+		identidadIntervencion,
+	)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
@@ -194,7 +231,8 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	}
 	if err := validarManifiestoDesarrollo(
 		filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"), ca, certificadoServidor,
-		certificadoCliente, huellaPublicaAtestacionKMS, huellaPublicaRevalidacionKMS,
+		certificadoCliente, certificadoIntervencion,
+		huellaPublicaAtestacionKMS, huellaPublicaRevalidacionKMS,
 	); err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
@@ -303,26 +341,31 @@ func decodificarCertificadoUnico(contenido []byte) (*x509.Certificate, error) {
 	return certificado, nil
 }
 
-func cargarIdentidadDesarrollo(ruta string, certificado *x509.Certificate) (*resolvedorIdentidadDesarrollo, error) {
+func cargarIdentidadDesarrollo(
+	ruta string,
+	certificado *x509.Certificate,
+	rolEsperado string,
+) (identidadCertificadoDesarrollo, error) {
 	contenido, err := leerFicheroMaterialSeguro(ruta, 64<<10)
 	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, ErrMaterialDesarrolloInvalido
+		return identidadCertificadoDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	var archivo archivoIdentidadDesarrollo
 	if err := decodificador.Decode(&archivo); err != nil {
-		return nil, ErrMaterialDesarrolloInvalido
+		return identidadCertificadoDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	var sobrante any
 	if err := decodificador.Decode(&sobrante); !errors.Is(err, io.EOF) {
-		return nil, ErrMaterialDesarrolloInvalido
+		return identidadCertificadoDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	huella := sha256.Sum256(certificado.Raw)
 	huellaEsperada, err := hex.DecodeString(archivo.CertificateSHA256)
 	if err != nil || len(huellaEsperada) != sha256.Size || subtle.ConstantTimeCompare(huella[:], huellaEsperada) != 1 ||
-		archivo.Version != 1 || archivo.Autoridad != AutoridadNoAutoritativa || len(archivo.Roles) != 1 {
-		return nil, ErrMaterialDesarrolloInvalido
+		archivo.Version != 1 || archivo.Autoridad != AutoridadNoAutoritativa || len(archivo.Roles) != 1 ||
+		archivo.Roles[0] != rolEsperado {
+		return identidadCertificadoDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	principal := vecdomain.Principal{
 		ID: archivo.Subject, DisplayName: archivo.DisplayName,
@@ -334,14 +377,16 @@ func cargarIdentidadDesarrollo(ruta string, certificado *x509.Certificate) (*res
 		},
 	}
 	if principal.Validate() != nil {
-		return nil, ErrMaterialDesarrolloInvalido
+		return identidadCertificadoDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
-	return &resolvedorIdentidadDesarrollo{huellaCertificado: huella, principal: principal}, nil
+	return identidadCertificadoDesarrollo{
+		huella: huella, principal: principal,
+	}, nil
 }
 
 func validarManifiestoDesarrollo(
 	ruta string,
-	ca, servidor, cliente *x509.Certificate,
+	ca, servidor, cliente, intervencion *x509.Certificate,
 	huellaPublicaAtestacionKMS, huellaPublicaRevalidacionKMS [sha256.Size]byte,
 ) error {
 	contenido, err := leerFicheroMaterialSeguro(ruta, 64<<10)
@@ -365,6 +410,7 @@ func validarManifiestoDesarrollo(
 		{manifiesto.HuellaCASHA256, ca},
 		{manifiesto.HuellaServidorSHA256, servidor},
 		{manifiesto.HuellaClienteSHA256, cliente},
+		{manifiesto.HuellaIntervencionSHA256, intervencion},
 	}
 	for _, dato := range huellas {
 		huella := sha256.Sum256(dato.cert.Raw)
@@ -391,7 +437,7 @@ func validarManifiestoDesarrollo(
 		"kms_verificador_recibo": "kms-verificador-publico-local-v1",
 		"tsa":                    "tsa-determinista-local-v1", "tls": "tls-ca-local-v1",
 	}
-	if manifiesto.Version != 3 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
+	if manifiesto.Version != 4 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
 		manifiesto.Autoridad != AutoridadNoAutoritativa || manifiesto.MigrableAProduccion ||
 		len(manifiesto.Proveedores) != len(esperados) {
 		return ErrMaterialDesarrolloInvalido

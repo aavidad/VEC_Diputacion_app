@@ -57,6 +57,7 @@ type Expediente struct {
 	DecisionesCobertura []PublicacionDecisionCoberturaGobernada `json:"decisiones_cobertura,omitempty"`
 	Asignacion          *AsignacionUnidad                       `json:"asignacion,omitempty"`
 	InformeJuridico     *InformeJuridicoEmitido                 `json:"informe_juridico,omitempty"`
+	Fiscalizacion       *FiscalizacionRegistrada                `json:"fiscalizacion,omitempty"`
 	CreadoEn            time.Time                               `json:"creado_en"`
 	ActualizadoEn       time.Time                               `json:"actualizado_en"`
 	Actuaciones         []Actuacion                             `json:"actuaciones"`

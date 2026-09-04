@@ -17,6 +17,10 @@ SALIDA_GENERACION="$TEMPORAL/salida-generacion.txt"
 [[ -f "$DESTINO/mtls/cliente.key" ]]
 [[ -f "$DESTINO/mtls/cliente.p12" ]]
 [[ -f "$DESTINO/mtls/cliente.p12.password" ]]
+[[ -f "$DESTINO/mtls/intervencion.key" ]]
+[[ -f "$DESTINO/mtls/intervencion.p12" ]]
+[[ -f "$DESTINO/mtls/intervencion.p12.password" ]]
+[[ -f "$DESTINO/identidad/intervencion.json" ]]
 [[ -f "$DESTINO/kms/atestacion-ed25519.key" ]]
 [[ -f "$DESTINO/kms/atestacion-ed25519.pub" ]]
 [[ -f "$DESTINO/kms/revalidacion-ed25519.key" ]]
@@ -39,13 +43,15 @@ done
   "$DESTINO/tsa/clave-hmac.bin" \
   "$DESTINO"/idempotencia/g{2,1}-{localizador,huella-solicitud}.bin |
   awk '{print $1}' | sort -u | wc -l) -eq 6 ]]
-grep -Fq '"version":3' "$DESTINO/manifiesto.json"
+grep -Fq '"version":4' "$DESTINO/manifiesto.json"
 grep -Fq '"idempotencia_hmac":"idempotencia-hmac-fichero-local-v1"' "$DESTINO/manifiesto.json"
 grep -Fq '"generacion":2' "$DESTINO/idempotencia/configuracion.json"
 grep -Fq '"generacion":1' "$DESTINO/idempotencia/configuracion.json"
 [[ $(stat -c '%a' "$DESTINO/tls/servidor.key") == 600 ]]
 [[ $(stat -c '%a' "$DESTINO/mtls/cliente.p12") == 600 ]]
 [[ $(stat -c '%a' "$DESTINO/mtls/cliente.p12.password") == 600 ]]
+[[ $(stat -c '%a' "$DESTINO/mtls/intervencion.p12") == 600 ]]
+[[ $(stat -c '%a' "$DESTINO/mtls/intervencion.p12.password") == 600 ]]
 [[ $(stat -c '%a' "$DESTINO") == 700 ]]
 
 CONTRASENA_PKCS12=$(<"$DESTINO/mtls/cliente.p12.password")
@@ -54,9 +60,18 @@ if grep -Fq -- "$CONTRASENA_PKCS12" "$SALIDA_GENERACION"; then
   printf 'el generador mostro la contrasena PKCS#12 en su salida\n' >&2
   exit 1
 fi
+CONTRASENA_INTERVENCION_PKCS12=$(<"$DESTINO/mtls/intervencion.p12.password")
+[[ "$CONTRASENA_INTERVENCION_PKCS12" =~ ^[0-9a-f]{64}$ ]]
+[[ "$CONTRASENA_INTERVENCION_PKCS12" != "$CONTRASENA_PKCS12" ]]
+if grep -Fq -- "$CONTRASENA_INTERVENCION_PKCS12" "$SALIDA_GENERACION"; then
+  printf 'el generador mostro la contrasena PKCS#12 de Intervencion en su salida\n' >&2
+  exit 1
+fi
 grep -Fq "$DESTINO/ca/ca.crt" "$SALIDA_GENERACION"
 grep -Fq "$DESTINO/mtls/cliente.p12" "$SALIDA_GENERACION"
 grep -Fq "$DESTINO/mtls/cliente.p12.password" "$SALIDA_GENERACION"
+grep -Fq "$DESTINO/mtls/intervencion.p12" "$SALIDA_GENERACION"
+grep -Fq "$DESTINO/mtls/intervencion.p12.password" "$SALIDA_GENERACION"
 
 openssl pkcs12 -in "$DESTINO/mtls/cliente.p12" \
   -passin "file:$DESTINO/mtls/cliente.p12.password" -noout 2>/dev/null
@@ -67,6 +82,20 @@ HUELLA_CLIENTE_PKCS12=$(openssl pkcs12 -in "$DESTINO/mtls/cliente.p12" \
   openssl x509 -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
 [[ "$HUELLA_CLIENTE_PKCS12" == "$HUELLA_CLIENTE_PEM" ]]
 grep -Fq "\"huella_cliente_sha256\":\"$HUELLA_CLIENTE_PKCS12\"" "$DESTINO/manifiesto.json"
+
+openssl pkcs12 -in "$DESTINO/mtls/intervencion.p12" \
+  -passin "file:$DESTINO/mtls/intervencion.p12.password" -noout 2>/dev/null
+HUELLA_INTERVENCION_PEM=$(openssl x509 -in "$DESTINO/mtls/intervencion.crt" -outform DER |
+  sha256sum | awk '{print $1}')
+HUELLA_INTERVENCION_PKCS12=$(openssl pkcs12 -in "$DESTINO/mtls/intervencion.p12" \
+  -passin "file:$DESTINO/mtls/intervencion.p12.password" -clcerts -nokeys 2>/dev/null |
+  openssl x509 -outform DER 2>/dev/null | sha256sum | awk '{print $1}')
+[[ "$HUELLA_INTERVENCION_PKCS12" == "$HUELLA_INTERVENCION_PEM" ]]
+[[ "$HUELLA_INTERVENCION_PKCS12" != "$HUELLA_CLIENTE_PKCS12" ]]
+grep -Fq "\"huella_intervencion_sha256\":\"$HUELLA_INTERVENCION_PKCS12\"" \
+  "$DESTINO/manifiesto.json"
+grep -Fq "\"certificate_sha256\":\"$HUELLA_INTERVENCION_PKCS12\"" \
+  "$DESTINO/identidad/intervencion.json"
 
 HUELLA_CLAVE_PEM=$(openssl pkey -in "$DESTINO/mtls/cliente.key" -pubout -outform DER 2>/dev/null |
   sha256sum | awk '{print $1}')
@@ -87,6 +116,9 @@ DESTINO_DOS="$TEMPORAL/estado-dos/credenciales"
 CONTRASENA_PKCS12_DOS=$(<"$DESTINO_DOS/mtls/cliente.p12.password")
 [[ "$CONTRASENA_PKCS12_DOS" =~ ^[0-9a-f]{64}$ ]]
 [[ "$CONTRASENA_PKCS12_DOS" != "$CONTRASENA_PKCS12" ]]
+CONTRASENA_INTERVENCION_PKCS12_DOS=$(<"$DESTINO_DOS/mtls/intervencion.p12.password")
+[[ "$CONTRASENA_INTERVENCION_PKCS12_DOS" =~ ^[0-9a-f]{64}$ ]]
+[[ "$CONTRASENA_INTERVENCION_PKCS12_DOS" != "$CONTRASENA_INTERVENCION_PKCS12" ]]
 
 PADRE_CONCURRENTE="$TEMPORAL/concurrente"
 DESTINO_CONCURRENTE="$PADRE_CONCURRENTE/credenciales"
@@ -135,6 +167,9 @@ fi
 [[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.key' | wc -l) -eq 1 ]]
 [[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.p12' | wc -l) -eq 1 ]]
 [[ $(find "$DESTINO_CONCURRENTE" -type f -name 'cliente.p12.password' | wc -l) -eq 1 ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'intervencion.key' | wc -l) -eq 1 ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'intervencion.p12' | wc -l) -eq 1 ]]
+[[ $(find "$DESTINO_CONCURRENTE" -type f -name 'intervencion.p12.password' | wc -l) -eq 1 ]]
 "$GENERADOR" "$DESTINO_CONCURRENTE" >/dev/null
 
 HUELLA_ANTES=$(find "$DESTINO" -type f -print0 | sort -z | xargs -0 sha256sum)

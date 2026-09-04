@@ -28,6 +28,16 @@ func (e Expediente) Validar() error {
 		(e.Asignacion == nil || e.InformeJuridico.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
+	if e.Fiscalizacion != nil &&
+		(e.Asignacion == nil || e.InformeJuridico == nil ||
+			e.Fiscalizacion.Validar() != nil ||
+			e.Fiscalizacion.InformeJuridicoRef != e.InformeJuridico.InformeRef ||
+			e.Fiscalizacion.DocumentoInformeRef != e.InformeJuridico.DocumentoRef ||
+			(e.Fiscalizacion.Retorno != nil &&
+				(e.Fiscalizacion.Retorno.UnidadRef != e.Asignacion.UnidadRef ||
+					e.Fiscalizacion.Retorno.ResponsableRef != e.Asignacion.ResponsableRef))) {
+		return ErrExpedienteInvalido
+	}
 	for indice, actuacion := range e.Actuaciones {
 		if !actuacionValida(actuacion, uint64(indice+1)) {
 			return ErrExpedienteInvalido
@@ -55,6 +65,10 @@ func (e Expediente) Validar() error {
 	}
 	if e.InformeJuridico != nil &&
 		!informeJuridicoLigadoAActuacion(e.InformeJuridico, e.Actuaciones) {
+		return ErrExpedienteInvalido
+	}
+	if e.Fiscalizacion != nil &&
+		!fiscalizacionLigadaAActuacion(e.Fiscalizacion, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
 	ultima := e.Actuaciones[len(e.Actuaciones)-1]
@@ -187,6 +201,10 @@ func (e Expediente) Clonar() Expediente {
 	if e.InformeJuridico != nil {
 		clon := e.InformeJuridico.clonar()
 		e.InformeJuridico = &clon
+	}
+	if e.Fiscalizacion != nil {
+		clon := e.Fiscalizacion.clonar()
+		e.Fiscalizacion = &clon
 	}
 	e.Actuaciones = append([]Actuacion(nil), e.Actuaciones...)
 	for indice := range e.Actuaciones {

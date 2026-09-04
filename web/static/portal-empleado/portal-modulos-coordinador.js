@@ -453,7 +453,11 @@ export function crearCoordinadorModulosPortal({
             controladorCargaInterna = null;
           }
         }
-        if (!cuadroDisponible && alta === null) {
+        const fiscalizacion = alta === null && analisis === null
+          && typeof cliente.registrarResultadoFiscalizacion === "function"
+          && typeof recursos.vista.montarModuloFiscalizacionContratacionTemporal === "function"
+          ? Object.freeze({ cliente }) : null;
+        if (!cuadroDisponible && alta === null && fiscalizacion === null) {
           throw new Error("contratación temporal no disponible");
         }
         contratacionTemporal = Object.freeze({
@@ -464,7 +468,9 @@ export function crearCoordinadorModulosPortal({
             }),
           alta,
           analisis,
+          fiscalizacion,
           montar: recursos.vista.montarModuloContratacionTemporal,
+          montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
       } catch {
         contratacionTemporal = undefined;
@@ -573,14 +579,22 @@ export function crearCoordinadorModulosPortal({
     raiz.innerHTML = '<section class="panel"><div class="cuerpo-panel" role="status">Cargando módulo…</div></section>';
 
     if (vista === "contratacion-temporal") {
-      const moduloContratacion = await composicion.contratacionTemporal.montar({
-        raiz,
-        presentador: composicion.contratacionTemporal.crearPresentador(),
-        alta: composicion.contratacionTemporal.alta,
-        analisis: composicion.contratacionTemporal.analisis,
-        confirmarOperacion,
-        anunciar,
-      });
+      const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
+      const moduloContratacion = esFiscalizacion
+        ? await composicion.contratacionTemporal.montarFiscalizacion({
+          raiz,
+          cliente: composicion.contratacionTemporal.fiscalizacion.cliente,
+          confirmarOperacion,
+          anunciar,
+        })
+        : await composicion.contratacionTemporal.montar({
+          raiz,
+          presentador: composicion.contratacionTemporal.crearPresentador(),
+          alta: composicion.contratacionTemporal.alta,
+          analisis: composicion.contratacionTemporal.analisis,
+          confirmarOperacion,
+          anunciar,
+        });
       if (montaje !== secuenciaMontaje) {
         moduloContratacion.desmontar();
         return false;

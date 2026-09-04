@@ -345,6 +345,64 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   informe_historial_fase: "Fase de origen y destino",
   informe_historial_estado: "Estado de origen y destino",
   informe_historial_fecha: "Fecha",
+  fiscalizacion_sobrelinea: "Contratación temporal · Fiscalización",
+  fiscalizacion_titulo: "Registrar resultado de fiscalización",
+  fiscalizacion_descripcion:
+    "Revise el expediente y registre el resultado comunicado por Intervención.",
+  fiscalizacion_alcance_etiqueta: "Alcance del registro",
+  fiscalizacion_alcance:
+    "El actor, la unidad, la autorización, la transición y la persistencia proceden del servidor.",
+  fiscalizacion_estado_lista: "El resultado de fiscalización está preparado para su registro.",
+  fiscalizacion_estado_enviando: "Registrando un único resultado. Espere la confirmación.",
+  fiscalizacion_estado_recuperando:
+    "Recuperando el resultado original con la misma clave de idempotencia.",
+  fiscalizacion_estado_confirmada: "El resultado y su recibo han quedado confirmados.",
+  fiscalizacion_estado_indeterminado:
+    "El resultado no puede determinarse todavía. Recupere la operación original; no cree otra.",
+  fiscalizacion_estado_rechazada:
+    "El resultado no se confirmó. Revise el expediente antes de volver a intentarlo.",
+  fiscalizacion_estado_validacion:
+    "Seleccione un resultado y aporte observaciones cuando sean obligatorias.",
+  fiscalizacion_contexto_expediente: "Referencia del expediente",
+  fiscalizacion_contexto_version: "Versión actual",
+  fiscalizacion_contexto_fase: "Fase actual",
+  fiscalizacion_contexto_informe: "Informe jurídico",
+  fiscalizacion_fase_informe_juridico: "Informe jurídico registrado",
+  fiscalizacion_informe_registrado: "Registrado en la versión {version}",
+  fiscalizacion_resultado_leyenda: "Resultado comunicado por Intervención",
+  fiscalizacion_resultado_ayuda:
+    "El resultado determina si el expediente continúa o vuelve para subsanación.",
+  fiscalizacion_resultado_favorable: "Favorable",
+  fiscalizacion_resultado_favorable_con_observaciones: "Favorable con observaciones",
+  fiscalizacion_resultado_desfavorable: "Desfavorable",
+  fiscalizacion_observaciones: "Observaciones",
+  fiscalizacion_observaciones_ayuda:
+    "Obligatorias para favorable con observaciones y desfavorable.",
+  fiscalizacion_confirmar: "Registrar resultado",
+  fiscalizacion_confirmacion_continuar:
+    "Esta acción registrará la fiscalización y permitirá continuar el expediente.",
+  fiscalizacion_confirmacion_desfavorable:
+    "Esta acción registrará el resultado desfavorable y devolverá el expediente para subsanación sin sustituir su histórico.",
+  fiscalizacion_indeterminada_titulo: "Resultado pendiente de recuperación",
+  fiscalizacion_indeterminada_descripcion:
+    "Tras una interrupción, reenvíe exactamente la misma operación para recuperar su recibo.",
+  fiscalizacion_recuperar: "Recuperar resultado original",
+  fiscalizacion_recibo_sobrelinea: "Fiscalización registrada",
+  fiscalizacion_recibo_titulo: "Recibo del resultado de fiscalización",
+  fiscalizacion_recibo_descripcion:
+    "El recibo acredita el resultado, el actor y el estado resultante del expediente.",
+  fiscalizacion_recibo_expediente: "Referencia del expediente",
+  fiscalizacion_recibo_resultado: "Resultado",
+  fiscalizacion_recibo_fase: "Fase resultante",
+  fiscalizacion_recibo_estado: "Estado resultante",
+  fiscalizacion_recibo_version: "Versión resultante",
+  fiscalizacion_recibo_referencia: "Referencia del recibo",
+  fiscalizacion_recibo_auditoria: "Referencia de auditoría",
+  fiscalizacion_recibo_evento: "Referencia del evento",
+  fiscalizacion_recibo_actor: "Actor registrado",
+  fiscalizacion_recibo_unidad_retorno: "Unidad de retorno",
+  fiscalizacion_recibo_responsable_retorno: "Responsable del retorno",
+  fiscalizacion_recibo_fecha: "Fecha de registro",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

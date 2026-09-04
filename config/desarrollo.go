@@ -25,37 +25,43 @@ const (
 	// reconocimiento literal.
 	DevelopmentGuardAcknowledgement = "ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO"
 
-	DevelopmentCACertificateRelativePath         = "ca/ca.crt"
-	DevelopmentCAPrivateKeyRelativePath          = "ca/ca.key"
-	DevelopmentServerCertificateRelativePath     = "tls/servidor.crt"
-	DevelopmentServerPrivateKeyRelativePath      = "tls/servidor.key"
-	DevelopmentClientCertificateRelativePath     = "mtls/cliente.crt"
-	DevelopmentClientPrivateKeyRelativePath      = "mtls/cliente.key"
-	DevelopmentKMSSecretRelativePath             = "kms/clave-maestra.bin"
-	DevelopmentKMSAttestationKeyRelativePath     = "kms/atestacion-ed25519.key"
-	DevelopmentKMSAttestationPublicRelativePath  = "kms/atestacion-ed25519.pub"
-	DevelopmentKMSRevalidationKeyRelativePath    = "kms/revalidacion-ed25519.key"
-	DevelopmentKMSRevalidationPublicRelativePath = "kms/revalidacion-ed25519.pub"
-	DevelopmentTSASecretRelativePath             = "tsa/clave-hmac.bin"
-	DevelopmentIdentityRelativePath              = "identidad/identidad.json"
-	DevelopmentIdempotencyHMACConfigRelativePath = "idempotencia/configuracion.json"
+	DevelopmentCACertificateRelativePath           = "ca/ca.crt"
+	DevelopmentCAPrivateKeyRelativePath            = "ca/ca.key"
+	DevelopmentServerCertificateRelativePath       = "tls/servidor.crt"
+	DevelopmentServerPrivateKeyRelativePath        = "tls/servidor.key"
+	DevelopmentClientCertificateRelativePath       = "mtls/cliente.crt"
+	DevelopmentClientPrivateKeyRelativePath        = "mtls/cliente.key"
+	DevelopmentIntervencionCertificateRelativePath = "mtls/intervencion.crt"
+	DevelopmentIntervencionPrivateKeyRelativePath  = "mtls/intervencion.key"
+	DevelopmentKMSSecretRelativePath               = "kms/clave-maestra.bin"
+	DevelopmentKMSAttestationKeyRelativePath       = "kms/atestacion-ed25519.key"
+	DevelopmentKMSAttestationPublicRelativePath    = "kms/atestacion-ed25519.pub"
+	DevelopmentKMSRevalidationKeyRelativePath      = "kms/revalidacion-ed25519.key"
+	DevelopmentKMSRevalidationPublicRelativePath   = "kms/revalidacion-ed25519.pub"
+	DevelopmentTSASecretRelativePath               = "tsa/clave-hmac.bin"
+	DevelopmentIdentityRelativePath                = "identidad/identidad.json"
+	DevelopmentIntervencionIdentityRelativePath    = "identidad/intervencion.json"
+	DevelopmentIdempotencyHMACConfigRelativePath   = "idempotencia/configuracion.json"
 )
 
 type DevelopmentMaterialPaths struct {
-	CACertificate         string
-	CAPrivateKey          string
-	ServerCertificate     string
-	ServerPrivateKey      string
-	ClientCertificate     string
-	ClientPrivateKey      string
-	KMSSecret             string
-	KMSAttestationKey     string
-	KMSAttestationPublic  string
-	KMSRevalidationKey    string
-	KMSRevalidationPublic string
-	TSASecret             string
-	Identity              string
-	IdempotencyHMACConfig string
+	CACertificate           string
+	CAPrivateKey            string
+	ServerCertificate       string
+	ServerPrivateKey        string
+	ClientCertificate       string
+	ClientPrivateKey        string
+	IntervencionCertificate string
+	IntervencionPrivateKey  string
+	KMSSecret               string
+	KMSAttestationKey       string
+	KMSAttestationPublic    string
+	KMSRevalidationKey      string
+	KMSRevalidationPublic   string
+	TSASecret               string
+	Identity                string
+	IntervencionIdentity    string
+	IdempotencyHMACConfig   string
 }
 
 func normalizeExecutionProfile(profile string) string {
@@ -97,19 +103,22 @@ func (c Config) DevelopmentPaths() DevelopmentMaterialPaths {
 		return filepath.Join(raiz, filepath.FromSlash(relativa))
 	}
 	return DevelopmentMaterialPaths{
-		CACertificate:         unir(DevelopmentCACertificateRelativePath),
-		CAPrivateKey:          unir(DevelopmentCAPrivateKeyRelativePath),
-		ServerCertificate:     unir(DevelopmentServerCertificateRelativePath),
-		ServerPrivateKey:      unir(DevelopmentServerPrivateKeyRelativePath),
-		ClientCertificate:     unir(DevelopmentClientCertificateRelativePath),
-		ClientPrivateKey:      unir(DevelopmentClientPrivateKeyRelativePath),
-		KMSSecret:             unir(DevelopmentKMSSecretRelativePath),
-		KMSAttestationKey:     unir(DevelopmentKMSAttestationKeyRelativePath),
-		KMSAttestationPublic:  unir(DevelopmentKMSAttestationPublicRelativePath),
-		KMSRevalidationKey:    unir(DevelopmentKMSRevalidationKeyRelativePath),
-		KMSRevalidationPublic: unir(DevelopmentKMSRevalidationPublicRelativePath),
-		TSASecret:             unir(DevelopmentTSASecretRelativePath),
-		Identity:              unir(DevelopmentIdentityRelativePath),
-		IdempotencyHMACConfig: unir(DevelopmentIdempotencyHMACConfigRelativePath),
+		CACertificate:           unir(DevelopmentCACertificateRelativePath),
+		CAPrivateKey:            unir(DevelopmentCAPrivateKeyRelativePath),
+		ServerCertificate:       unir(DevelopmentServerCertificateRelativePath),
+		ServerPrivateKey:        unir(DevelopmentServerPrivateKeyRelativePath),
+		ClientCertificate:       unir(DevelopmentClientCertificateRelativePath),
+		ClientPrivateKey:        unir(DevelopmentClientPrivateKeyRelativePath),
+		IntervencionCertificate: unir(DevelopmentIntervencionCertificateRelativePath),
+		IntervencionPrivateKey:  unir(DevelopmentIntervencionPrivateKeyRelativePath),
+		KMSSecret:               unir(DevelopmentKMSSecretRelativePath),
+		KMSAttestationKey:       unir(DevelopmentKMSAttestationKeyRelativePath),
+		KMSAttestationPublic:    unir(DevelopmentKMSAttestationPublicRelativePath),
+		KMSRevalidationKey:      unir(DevelopmentKMSRevalidationKeyRelativePath),
+		KMSRevalidationPublic:   unir(DevelopmentKMSRevalidationPublicRelativePath),
+		TSASecret:               unir(DevelopmentTSASecretRelativePath),
+		Identity:                unir(DevelopmentIdentityRelativePath),
+		IntervencionIdentity:    unir(DevelopmentIntervencionIdentityRelativePath),
+		IdempotencyHMACConfig:   unir(DevelopmentIdempotencyHMACConfigRelativePath),
 	}
 }

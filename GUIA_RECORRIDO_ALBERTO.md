@@ -1,8 +1,8 @@
 # Recorrido manual de contratación temporal O2-07
 
-Esta guía permite probar los cuatro primeros pasos completos del flujo de
-Recursos Humanos y la preparación real del informe jurídico del paso 5 con la
-aplicación real: navegador con certificado de cliente → API interna →
+Esta guía permite probar los cinco primeros pasos completos del flujo de
+Recursos Humanos, incluida la Fiscalización y su devolución a la unidad, con
+la aplicación real: navegador con certificado de cliente → API interna →
 autorización de servidor → PostgreSQL → recibo. No usa el adaptador DEMO.
 
 ## Entorno preservado para el recorrido manual
@@ -16,8 +16,8 @@ servidor. No es necesario recrearla ni borrarla para recorrer otro expediente:
   `vec-ct-o2-07-browser-20260904-tls`, puerto local remoto `55433`;
 - PostgreSQL reservado para pruebas Go: contenedor
   `vec-ct-o2-07-e2e-20260904-tls`, puerto local remoto `55432`;
-- material HTTPS y certificado de cliente de VEC:
-  `/root/.local/state/vec-diputacion/desarrollo`.
+- material HTTPS y certificados separados de RRHH e Intervención:
+  `/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904`.
 
 Regla obligatoria: el servidor usado por el navegador solo apunta a `55433`.
 Las pruebas Go solo apuntan a `55432`. Nunca se usan a la vez contra la misma
@@ -70,9 +70,9 @@ La última consulta debe devolver exclusivamente
 `true|vec_contratacion_temporal_gobernador`.
 
 Antes de arrancar VEC, compruebe que PostgreSQL conserva exactamente las
-definiciones de las migraciones de Asignación e informe jurídico incluidas en
-el producto. La comprobación es de solo lectura y se detiene ante cualquier
-diferencia:
+definiciones de las migraciones de Asignación, informe jurídico y
+Fiscalización incluidas en el producto. La comprobación es de solo lectura y
+se detiene ante cualquier diferencia:
 
 ```bash
 set -euo pipefail
@@ -81,6 +81,8 @@ fuente_autorizacion=deploy/postgresql/autorizacion_atestada_v3/migraciones/00000
 fuente_asignacion=deploy/postgresql/contratacion_temporal/migraciones/000050_asignacion_durable_v3_v4.up.sql
 fuente_autorizacion_informe=deploy/postgresql/autorizacion_atestada_v3/migraciones/000009_consumidor_informe_juridico_v3_atestada.up.sql
 fuente_informe=deploy/postgresql/contratacion_temporal/migraciones/000051_informe_juridico_durable_v4_v5.up.sql
+fuente_autorizacion_fiscalizacion=deploy/postgresql/autorizacion_atestada_v3/migraciones/000010_consumidor_fiscalizacion_v3_atestada.up.sql
+fuente_fiscalizacion=deploy/postgresql/contratacion_temporal/migraciones/000052_fiscalizacion_durable_v5_v6.up.sql
 
 test "$(sha256sum "$fuente_autorizacion" | awk '{print $1}')" = \
   42f7dfef32464f1a0ce2f3bcb9af035d800b7ceb302917d0652161408488451c
@@ -90,6 +92,10 @@ test "$(sha256sum "$fuente_autorizacion_informe" | awk '{print $1}')" = \
   32542f535e58f06668987be79ff6f23c66efc04957da964a2986cd79920934b5
 test "$(sha256sum "$fuente_informe" | awk '{print $1}')" = \
   4fdbc64117f0f619ce7fb3758ccc63fde08cb21fd5f6ffbfe4cd6fb138be0840
+test "$(sha256sum "$fuente_autorizacion_fiscalizacion" | awk '{print $1}')" = \
+  a9f79e4486cdf7cf475d66d0f20015170d0c5627c8368fd786b53e0d086845df
+test "$(sha256sum "$fuente_fiscalizacion" | awk '{print $1}')" = \
+  c3258be1075381d5ce1d077a3ddc25c2e38d2961b87a5c637f0906fe2746ce61
 
 huella_funcion() {
   docker exec vec-ct-o2-07-browser-20260904-tls \
@@ -117,8 +123,16 @@ test "$(huella_funcion 'vec_contratacion_temporal.recibo_informe_juridico_v1(tex
   1cbc9c91c9c712cb30a223e3666dbd7034d87f34c504407914644c93c1ed97ae
 test "$(huella_funcion 'vec_contratacion_temporal.confirmar_informe_juridico_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
   c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e
+test "$(huella_funcion 'vec_autorizacion_atestada_v3.registrar_y_consumir_fiscalizacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  f96438ebd4a445c53240d0741f520fc52073fb4087820afe21b5618519610147
+test "$(huella_funcion 'vec_contratacion_temporal.preparar_fiscalizacion_v1(jsonb)')" = \
+  34a33a97425f02e59b66c05186c496a419c545e2ab7734b958a15f7be0cfb056
+test "$(huella_funcion 'vec_contratacion_temporal.recibo_fiscalizacion_v1(text)')" = \
+  27fc25b3d1fb12431db2e29ccad52f25d56344ea5ec5540a63e916c918dfaa36
+test "$(huella_funcion 'vec_contratacion_temporal.confirmar_fiscalizacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  27e369c38267d18d3ed258eca1a986c5835717d9c9630740d2291033fddeb147
 
-printf '%s\n' 'OK: migraciones y funciones de Asignación e informe coinciden'
+printf '%s\n' 'OK: Asignación, informe y Fiscalización coinciden'
 ```
 
 Si alguna comparación falla, no abra el navegador ni reaplique migraciones a
@@ -149,7 +163,9 @@ export VEC_CT_CONFIRMADOR_DATABASE_URL="postgresql://vec_ct_o207_confirmador@loc
 export VEC_CT_LECTOR_RESULTADO_DATABASE_URL="postgresql://vec_ct_o207_lector@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL="postgresql://vec_autorizacion_o207_registro@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 
-scripts/arrancar_vec_desarrollo.sh --puerto 8443
+material_vec=/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904
+scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
+  --directorio-material "$material_vec"
 ```
 
 El lanzador genera o valida las credenciales fuera de Git, construye un binario
@@ -163,18 +179,24 @@ En una segunda terminal del equipo desde el que se abrirá el navegador:
 ```bash
 directorio_navegador=$(mktemp -d /tmp/vec-o2-07-navegador.XXXXXX)
 chmod 700 "$directorio_navegador"
-scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo/ca/ca.crt \
+scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/ca/ca.crt \
   "$directorio_navegador/ca.crt"
-scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo/mtls/cliente.p12 \
+scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/cliente.p12 \
   "$directorio_navegador/cliente.p12"
-scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo/mtls/cliente.p12.password \
+scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/cliente.p12.password \
   "$directorio_navegador/cliente.p12.password"
+scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/intervencion.p12 \
+  "$directorio_navegador/intervencion.p12"
+scp root@cidonia.cloud:/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/intervencion.p12.password \
+  "$directorio_navegador/intervencion.p12.password"
 chmod 600 "$directorio_navegador"/*
 ssh -N -L 18443:127.0.0.1:8443 root@cidonia.cloud
 ```
 
-No muestre ni copie la contraseña en la consola. Impórtela directamente desde
-`cliente.p12.password` cuando el navegador la pida.
+No muestre ni copie las contraseñas en la consola. Impórtelas directamente
+desde sus ficheros cuando el navegador las pida. Use perfiles temporales
+separados: `cliente.p12` representa RRHH e `intervencion.p12` representa
+Intervención; ninguno sustituye al otro.
 
 1. Antes de importar el certificado personal, abra
    `https://localhost:18443/portal-empleado/` en un perfil temporal: el acceso
@@ -182,7 +204,7 @@ No muestre ni copie la contraseña en la consola. Impórtela directamente desde
    denegación predeterminada.
 2. Importe `ca.crt` como autoridad de confianza para sitios web.
 3. Importe `cliente.p12` como certificado personal usando su fichero de
-   contraseña, cierre el perfil anterior y abra uno nuevo.
+   contraseña, cierre el perfil anterior y abra uno nuevo para RRHH.
 4. Acceda a `https://localhost:18443/portal-empleado/` y elija
    **Contratación temporal** → **Nueva petición**.
 
@@ -190,7 +212,7 @@ Al acabar, cierre el perfil temporal. Elimine el directorio temporal mediante
 el mecanismo de papelera o borrado seguro aprobado en su equipo; contiene una
 credencial de desarrollo.
 
-## 4. Registrar una solicitud, analizarla, decidir la cobertura, asignarla y preparar el informe
+## 4. Registrar una solicitud, analizarla, decidir la cobertura, asignarla, informar y fiscalizar
 
 1. Seleccione un centro, una persona de contacto referenciada, una categoría,
    un grupo o subgrupo y un motivo de los catálogos mostrados.
@@ -374,6 +396,69 @@ Debe devolver una fila en estado `confirmada`, versión `5`, fase
 `informe_juridico`, un documento y un consumo de autorización. Las referencias
 de documento y recibo de la pantalla deben corresponder al mismo resultado.
 
+Después del informe aparece **Registrar resultado de Fiscalización**. Esta
+operación pertenece a Intervención, no a RRHH. En el perfil que vaya a enviarla
+debe estar instalado `intervencion.p12`; una petición hecha con `cliente.p12`
+queda denegada sin escritura.
+
+En el entorno de desarrollo, si el navegador ya ha fijado el certificado de
+RRHH para ese origen, abra un perfil temporal separado que contenga solo la CA
+y `intervencion.p12`. Abra el portal normalmente y entre en
+**Contratación temporal**. La pantalla separada de Intervención no contiene las
+funciones de alta o análisis reservadas a RRHH. Pegue la referencia del
+expediente mostrada en el recibo anterior, conserve la versión remitida `5` y
+pulse **Abrir fiscalización**. Aparecerá el formulario real **Registrar
+resultado de Fiscalización**. No abra la consola ni llame directamente a la
+API.
+
+1. Seleccione **Favorable**, **Favorable con observaciones** o
+   **Desfavorable**. Los dos últimos exigen observaciones.
+2. Para comprobar la vuelta a la unidad elija **Desfavorable**, escriba una
+   observación inequívocamente sintética y pulse **Registrar resultado** una
+   sola vez.
+3. En la red debe aparecer un único
+   `POST /api/vec/contratacion-temporal/fiscalizaciones/resultados` con estado
+   `201`. Conserve su cuerpo exacto de cinco campos para el reinicio.
+4. El sexto recibo visible debe indicar versión `6`, fase
+   `subsanacion_unidad`, estado `incidencia`, una referencia de auditoría y el
+   retorno a `unidad:desarrollo:rrhh` con
+   `persona:responsable-sintetica-001`.
+
+Compruebe la historia y el retorno persistidos:
+
+```bash
+expediente_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_EXPEDIENTE'
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -v expediente_ref="$expediente_ref" \
+  -U postgres -d postgres -P pager=off <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT a.version, v.fase_clave, v.estado,
+       r.resultado, r.estado AS estado_reserva,
+       u.estado AS estado_retorno, u.unidad_ref, u.responsable_ref,
+       t.auditoria_ref,
+       count(DISTINCT c.decision_ref) AS consumos_autorizacion
+  FROM vec_contratacion_temporal.expediente_integral_actual a
+  JOIN vec_contratacion_temporal.expediente_version_integral v
+    USING (expediente_ref, version)
+  JOIN vec_contratacion_temporal.reserva_fiscalizacion r
+    USING (expediente_ref)
+  JOIN vec_contratacion_temporal.terminal_fiscalizacion t
+    USING (ambito_hmac)
+  JOIN vec_contratacion_temporal.retorno_fiscalizacion_unidad u
+    USING (ambito_hmac)
+  JOIN vec_autorizacion_atestada_v3.consumo_decision_v3 c
+    ON c.decision_ref=t.decision_ref
+ WHERE a.expediente_ref=:'expediente_ref'
+ GROUP BY a.version, v.fase_clave, v.estado, r.resultado, r.estado,
+          u.estado, u.unidad_ref, u.responsable_ref, t.auditoria_ref;
+COMMIT;
+SQL
+```
+
+Debe devolver una fila: versión `6`, fase `subsanacion_unidad`, estado
+`incidencia`, reserva `confirmada`, retorno `pendiente` y un único consumo de
+autorización.
+
 ## 5. Demostrar que sobrevive al reinicio
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
@@ -382,10 +467,11 @@ de documento y recibo de la pantalla deben corresponder al mismo resultado.
    vez:
 
 ```bash
-scripts/arrancar_vec_desarrollo.sh --puerto 8443
+scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
+  --directorio-material /root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904
 ```
 
-3. Repita las cinco consultas SQL del apartado anterior. Deben devolver las
+3. Repita las seis consultas SQL del apartado anterior. Deben devolver las
    mismas referencias después del reinicio.
 4. Consulte el resultado de cobertura, sin repetir la decisión, con la clave
    anotada en las herramientas de red:
@@ -397,9 +483,9 @@ cuerpo_consulta=$(EXPEDIENTE_REF="$expediente_ref" \
   CLAVE_IDEMPOTENCIA="$clave_idempotencia" python3 -c \
   'import json, os; print(json.dumps({"expediente_ref": os.environ["EXPEDIENTE_REF"], "clave_idempotencia": os.environ["CLAVE_IDEMPOTENCIA"]}, separators=(",", ":")))')
 curl --silent --show-error --fail-with-body \
-  --cacert /root/.local/state/vec-diputacion/desarrollo/ca/ca.crt \
-  --cert /root/.local/state/vec-diputacion/desarrollo/mtls/cliente.crt \
-  --key /root/.local/state/vec-diputacion/desarrollo/mtls/cliente.key \
+  --cacert /root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/ca/ca.crt \
+  --cert /root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/cliente.crt \
+  --key /root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904/mtls/cliente.key \
   -H 'Accept: application/json' \
   -H 'Content-Type: application/json; charset=utf-8' \
   --data-binary "$cuerpo_consulta" \
@@ -452,6 +538,27 @@ Debe responder otra vez `201` con el mismo informe, documento, recibo, huella
 e instante de confirmación. La consulta SQL debe seguir mostrando un único
 documento y un único consumo de autorización para ese informe.
 
+7. En el perfil temporal de Intervención, repita el cuerpo exacto de cinco
+   campos conservado de Fiscalización, sin generar otra clave:
+
+```javascript
+const cuerpoFiscalizacion = PEGUE_AQUI_EL_OBJETO_JSON_DE_CINCO_CAMPOS;
+await fetch("/api/vec/contratacion-temporal/fiscalizaciones/resultados", {
+  method: "POST",
+  credentials: "same-origin",
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json; charset=utf-8",
+  },
+  body: JSON.stringify(cuerpoFiscalizacion),
+}).then(async (respuesta) => ({ estado: respuesta.status, cuerpo: await respuesta.json() }));
+```
+
+Debe responder otra vez `201` con exactamente el mismo recibo, auditoría,
+evento, instante y retorno. La consulta SQL de Fiscalización debe seguir
+mostrando una sola reserva, un solo terminal, un solo retorno y un solo consumo
+de autorización.
+
 La consulta protegida anterior recupera el resultado de cobertura. Alta y
 Análisis todavía no tienen una vista que recargue sus recibos cerrados después
 de desmontar la página; su persistencia se comprueba con las consultas SQL.
@@ -460,16 +567,15 @@ de desmontar la página; su persistencia se comprueba con las consultas SQL.
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
 manualmente 1, **Solicitud**, 2, **Análisis**, 3, **Bolsa**, 4,
-**Asignación**, y la primera mitad del paso 5: **Informe jurídico**. El contador
-de pasos completos permanece en **4 de 8** hasta cerrar Fiscalización. La
-secuencia restante es completar 5, **Fiscalización**, 6, **Llamamiento**, 7,
-**Nombramiento** con sus seis documentos, incluida la Diligencia, y 8,
-**Incorporación, GINPIX y Seguimiento**.
+**Asignación** y 5, **Informe jurídico y Fiscalización**. El contador funcional
+queda en **5 de 8**. Fiscalización acepta los tres resultados reales y el
+desfavorable devuelve automáticamente el expediente a la Unidad conservando
+el histórico completo.
 
-El siguiente corte es **Fiscalización**: registrar un resultado favorable,
-favorable con observaciones o desfavorable y, en este último caso, devolver
-automáticamente el expediente a la Unidad conservando el histórico completo.
-No se simula Fiscalización ni se abre Llamamiento en esta guía.
+El siguiente corte es 6, **Llamamiento**. Después quedan 7,
+**Nombramiento** con sus seis documentos, incluida la Diligencia, y 8,
+**Incorporación, GINPIX y Seguimiento**. Esta guía no simula ni abre todavía
+Llamamiento.
 
 ## Apéndice: recreación segura de la instancia aislada
 
