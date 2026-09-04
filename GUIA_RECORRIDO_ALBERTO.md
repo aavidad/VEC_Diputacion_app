@@ -1,13 +1,13 @@
 # Recorrido manual de contratación temporal O2-07
 
-Esta guía permite probar los tres primeros pasos del flujo de Recursos Humanos con la
+Esta guía permite probar los cuatro primeros pasos del flujo de Recursos Humanos con la
 aplicación real: navegador con certificado de cliente → API interna →
 autorización de servidor → PostgreSQL → recibo. No usa el adaptador DEMO.
 
-## Estado que debe preservarse antes de la repetición de Dirección
+## Entorno preservado para el recorrido manual
 
-La evidencia del 4 de septiembre de 2026 sigue viva en el servidor y no debe
-recrearse ni borrarse antes de que Dirección repita el recorrido:
+La evidencia sintética del 4 de septiembre de 2026 sigue disponible en el
+servidor. No es necesario recrearla ni borrarla para recorrer otro expediente:
 
 - repositorio: `/srv/fabrica/proyectos/VEC_Diputacion_app`;
 - producto: `.worktrees/ct-producto-ligero-20260821`;
@@ -30,6 +30,7 @@ En una terminal del servidor:
 ssh root@cidonia.cloud
 cd /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-producto-ligero-20260821
 git status --short --branch
+docker start vec-ct-o2-07-browser-20260904-tls >/dev/null
 docker inspect vec-ct-o2-07-browser-20260904-tls \
   --format 'estado={{.State.Status}} imagen={{.Config.Image}} {{range .Mounts}}volumen={{.Name}} destino={{.Destination}}{{end}} puertos={{json .HostConfig.PortBindings}}'
 docker exec vec-ct-o2-07-browser-20260904-tls \
@@ -66,6 +67,46 @@ crece con cada solicitud sintética nueva.
 La última consulta debe devolver exclusivamente
 `true|vec_autorizacion_registro` y la siguiente
 `true|vec_contratacion_temporal_gobernador`.
+
+Antes de arrancar VEC, compruebe que PostgreSQL conserva exactamente las
+definiciones de las dos migraciones de Asignación incluidas en el producto. La
+comprobación es de solo lectura y se detiene ante cualquier diferencia:
+
+```bash
+set -euo pipefail
+
+fuente_autorizacion=deploy/postgresql/autorizacion_atestada_v3/migraciones/000008_consumidor_asignacion_v3_atestada.up.sql
+fuente_asignacion=deploy/postgresql/contratacion_temporal/migraciones/000050_asignacion_durable_v3_v4.up.sql
+
+test "$(sha256sum "$fuente_autorizacion" | awk '{print $1}')" = \
+  42f7dfef32464f1a0ce2f3bcb9af035d800b7ceb302917d0652161408488451c
+test "$(sha256sum "$fuente_asignacion" | awk '{print $1}')" = \
+  cba96bd9a281e583b9f14edc661d3fc3b26b2a4898515c907c4d5f56cdf89e89
+
+huella_funcion() {
+  docker exec vec-ct-o2-07-browser-20260904-tls \
+    psql -X -U postgres -d postgres -Atqc \
+    "SELECT pg_catalog.encode(public.digest(pg_catalog.convert_to(pg_catalog.pg_get_functiondef('$1'::regprocedure),'UTF8'),'sha256'),'hex');"
+}
+
+test "$(huella_funcion 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  e97203f7b0ae8efad70b7c1168e9c35b109157d3b191d46521960c10e69e67cb
+test "$(huella_funcion 'vec_autorizacion_atestada_v3.registrar_y_consumir_asignacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  a384447d25ef86cab6bbdb99d32a2d478232a972a3c70e6290ea470c4917ce53
+test "$(huella_funcion 'vec_contratacion_temporal.asignacion_claves_exactas_v1(jsonb,text[])')" = \
+  e9dbba7cb7cb82f287a9edfb8ac43b862ada1d7ad74a196bece82735b28aa2e1
+test "$(huella_funcion 'vec_contratacion_temporal.preparar_asignacion_v1(jsonb)')" = \
+  977fef59d076ab551718970686ada6ee86c4bc702e5ebe679839098082badf65
+test "$(huella_funcion 'vec_contratacion_temporal.consultar_asignacion_v1(jsonb)')" = \
+  152a7e7ad94c6cf654aab22ffe74354b46eb18fd956a7aa5249793c54c0a84c8
+test "$(huella_funcion 'vec_contratacion_temporal.confirmar_asignacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
+  f20c58b07740b8e2b5907d1d9e017d649b641812de0ce6ded41c64583ab02276
+
+printf '%s\n' 'OK: migraciones y funciones de Asignación coinciden'
+```
+
+Si alguna comparación falla, no abra el navegador ni reaplique migraciones a
+ciegas: el código y la instancia no están alineados.
 
 ## 2. Arrancar VEC con PostgreSQL real
 
@@ -133,7 +174,7 @@ Al acabar, cierre el perfil temporal. Elimine el directorio temporal mediante
 el mecanismo de papelera o borrado seguro aprobado en su equipo; contiene una
 credencial de desarrollo.
 
-## 4. Registrar una solicitud, analizarla, decidir la cobertura y ver los tres recibos
+## 4. Registrar una solicitud, analizarla, decidir la cobertura, asignarla y ver los cuatro recibos
 
 1. Seleccione un centro, una persona de contacto referenciada, una categoría,
    un grupo o subgrupo y un motivo de los catálogos mostrados.
@@ -226,6 +267,46 @@ SQL
 Debe devolver una sola fila, versión `3`, vía `bolsa_vigente`, las mismas
 referencias visibles y `concesiones_autorizacion = 1`.
 
+Después del recibo de Cobertura aparece **Asignar expediente a la unidad
+responsable**:
+
+1. Compruebe que la unidad mostrada es `unidad:desarrollo:rrhh` y la persona
+   responsable seleccionada es `persona:responsable-sintetica-001`.
+2. Marque **He comprobado el expediente, la unidad y la referencia
+   responsable**.
+3. Pulse **Confirmar asignación** una sola vez y acepte el diálogo de
+   confirmación.
+4. En la red debe aparecer un único
+   `POST /api/vec/contratacion-temporal/asignaciones` con estado `201`. Conserve
+   su cuerpo exacto de cinco campos para la comprobación posterior al reinicio.
+5. El cuarto recibo debe mostrar el mismo expediente, versión resultante `4`,
+   una referencia de recibo y la fecha de confirmación.
+
+Compruebe la Asignación persistida sustituyendo la referencia por la visible:
+
+```bash
+expediente_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_EXPEDIENTE'
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -v expediente_ref="$expediente_ref" \
+  -U postgres -d postgres -P pager=off <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT r.expediente_ref,
+       t.recibo_json->>'version_resultante' AS version_resultante,
+       t.recibo_json->>'recibo_ref' AS recibo_ref,
+       r.unidad_ref, r.responsable_ref, r.estado,
+       count(*) OVER () AS terminales_del_expediente
+  FROM vec_contratacion_temporal.reserva_asignacion r
+  JOIN vec_contratacion_temporal.terminal_asignacion t
+    USING (ambito_hmac)
+ WHERE r.expediente_ref=:'expediente_ref';
+COMMIT;
+SQL
+```
+
+Debe devolver una sola fila: versión `4`, estado `confirmada`, la misma
+referencia de recibo, la unidad y la persona responsable mostradas y
+`terminales_del_expediente = 1`.
+
 ## 5. Demostrar que sobrevive al reinicio
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
@@ -237,7 +318,7 @@ referencias visibles y `concesiones_autorizacion = 1`.
 scripts/arrancar_vec_desarrollo.sh --puerto 8443
 ```
 
-3. Repita las tres consultas SQL del apartado anterior. Deben devolver las mismas
+3. Repita las cuatro consultas SQL del apartado anterior. Deben devolver las mismas
    referencias después del reinicio.
 4. Consulte el resultado de cobertura, sin repetir la decisión, con la clave
    anotada en las herramientas de red:
@@ -261,6 +342,29 @@ curl --silent --show-error --fail-with-body \
 La respuesta debe indicar `confirmado` e incluir exactamente el mismo tercer
 recibo. Esta consulta no repite ni modifica la decisión.
 
+5. En la consola del mismo navegador, repita el cuerpo exacto de cinco campos
+   que conservó de Asignación, sin generar otra clave:
+
+```javascript
+const cuerpoAsignacion = PEGUE_AQUI_EL_OBJETO_JSON_DE_CINCO_CAMPOS;
+await fetch("/api/vec/contratacion-temporal/asignaciones", {
+  method: "POST",
+  credentials: "same-origin",
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json; charset=utf-8",
+  },
+  body: JSON.stringify(cuerpoAsignacion),
+}).then(async (respuesta) => ({ estado: respuesta.status, cuerpo: await respuesta.json() }));
+```
+
+Debe responder otra vez `201`, con el mismo expediente, versión `4` y
+referencia de recibo. Repita la consulta SQL de Asignación: debe seguir habiendo
+un único terminal para ese expediente. El recibo interno contiene trazabilidad
+adicional que no expone la API; compare semánticamente los campos públicos, no
+el texto JSON literal. Esta repetición recupera el resultado y no crea una
+segunda asignación.
+
 La consulta protegida anterior recupera el resultado de cobertura. Alta y
 Análisis todavía no tienen una vista que recargue sus recibos cerrados después
 de desmontar la página; su persistencia se comprueba con las consultas SQL.
@@ -268,13 +372,17 @@ de desmontar la página; su persistencia se comprueba con las consultas SQL.
 ## Resultado y siguiente paso funcional
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
-manualmente los pasos 1, **Solicitud**, 2, **Análisis**, y 3, **Bolsa**. Los
-cinco pasos restantes son **Fiscalización**, **Candidato**, **Nombramiento**,
-**Incorporación** y **Seguimiento**.
+manualmente 1, **Solicitud**, 2, **Análisis**, 3, **Bolsa**, y 4,
+**Asignación**. La secuencia restante es 5, **Informe jurídico y
+Fiscalización**, 6, **Llamamiento**, 7, **Nombramiento** con sus seis
+documentos, incluida la Diligencia, y 8, **Incorporación, GINPIX y
+Seguimiento**.
 
-El siguiente corte es completar la transición posterior a **Bolsa** con la
-asignación del expediente a una unidad responsable. Después podrá abrirse
-**Fiscalización**. No se simula ninguno de esos pasos en esta guía.
+El siguiente corte es **Fiscalización**: generar el informe jurídico, registrar
+un resultado favorable, favorable con observaciones o desfavorable y, en este
+último caso, devolver automáticamente el expediente a la Unidad conservando el
+histórico completo. No se simula Fiscalización ni se abre Llamamiento en esta
+guía.
 
 ## Apéndice: recreación segura de la instancia aislada
 

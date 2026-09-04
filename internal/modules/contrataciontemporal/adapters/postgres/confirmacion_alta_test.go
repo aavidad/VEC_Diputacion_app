@@ -162,7 +162,9 @@ func resumenCapacidadConfirmacionPrueba(
 func filaConfirmacionPostgreSQLPrueba(
 	evidencia ports.EvidenciaOrdenConfirmarAltaCandidata,
 ) filaConfirmacionAlta {
-	instante := evidencia.Expediente.ActualizadoEn.Add(time.Second)
+	instante := evidencia.Expediente.ActualizadoEn.Add(time.Second).In(
+		time.FixedZone("postgresql-utc", 0),
+	)
 	return filaConfirmacionAlta{
 		expedienteRef: evidencia.Expediente.Referencia,
 		numeroVisible: evidencia.Expediente.NumeroVisible,

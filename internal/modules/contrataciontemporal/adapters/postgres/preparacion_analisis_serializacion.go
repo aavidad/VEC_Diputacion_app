@@ -98,11 +98,8 @@ func (f filaPreparacionAnalisis) restaurar(
 			return ports.PreparacionOperacionAnalisis{},
 				ports.ErrPersistenciaOperacionAnalisisNoDisponible
 		}
-		var recibo ports.ReciboOperacionAnalisis
-		if decodificarJSONEstricto(
-			[]byte(f.reciboJSON),
-			&recibo,
-		) != nil {
+		recibo, err := decodificarReciboConfirmacionAnalisis(f.reciboJSON)
+		if err != nil {
 			return ports.PreparacionOperacionAnalisis{},
 				ports.ErrPersistenciaOperacionAnalisisNoDisponible
 		}
@@ -148,8 +145,8 @@ func reciboConsultaAnalisisSeguro(
 	solicitud ports.SolicitudConsultarOperacionAnalisisConfirmada,
 	contenido string,
 ) (ports.ReciboOperacionAnalisis, error) {
-	var recibo ports.ReciboOperacionAnalisis
-	if decodificarJSONEstricto([]byte(contenido), &recibo) != nil ||
+	recibo, err := decodificarReciboConfirmacionAnalisis(contenido)
+	if err != nil ||
 		recibo.ValidarParaConsulta(solicitud) != nil {
 		return ports.ReciboOperacionAnalisis{},
 			ports.ErrPersistenciaOperacionAnalisisNoDisponible

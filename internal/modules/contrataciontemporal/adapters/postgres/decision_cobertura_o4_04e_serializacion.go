@@ -420,7 +420,12 @@ func decodificarReciboDecisionCoberturaO404E(
 		contenido,
 		clavesReciboDecisionCoberturaO404E,
 		&dto,
-	); err != nil || !validarReciboDecisionCoberturaO404E(dto) {
+	); err != nil {
+		return cobertura.DatosReciboSesionTCBOperacionDecisionCobertura{},
+			errAdaptadorDecisionCoberturaO404ENoDisponible
+	}
+	dto = normalizarReciboDecisionCoberturaPostgreSQL(dto)
+	if !validarReciboDecisionCoberturaO404E(dto) {
 		return cobertura.DatosReciboSesionTCBOperacionDecisionCobertura{},
 			errAdaptadorDecisionCoberturaO404ENoDisponible
 	}
@@ -441,6 +446,13 @@ func decodificarReciboDecisionCoberturaO404E(
 		VersionResultante:       dto.VersionResultante, EventoRef: dto.EventoRef,
 		ActuacionRef: dto.ActuacionRef,
 	}, nil
+}
+
+func normalizarReciboDecisionCoberturaPostgreSQL(
+	dto reciboDecisionCoberturaO404E,
+) reciboDecisionCoberturaO404E {
+	dto.ConfirmadaEn = normalizarInstantePostgreSQL(dto.ConfirmadaEn)
+	return dto
 }
 
 func igualesDecisionCoberturaO404E(a, b string) bool {

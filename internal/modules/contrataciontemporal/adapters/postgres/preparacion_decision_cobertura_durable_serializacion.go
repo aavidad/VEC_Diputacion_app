@@ -213,6 +213,7 @@ func restaurarPreparacionTerminalDecisionCoberturaDurable(
 		return cobertura.PreparacionOperacionDecisionCobertura{},
 			errPersistenciaDecisionCoberturaDurableNoDisponible
 	}
+	carga = normalizarCargaTerminalDecisionCoberturaDurablePostgreSQL(carga)
 	d := carga.ReservaTerminal
 	reserva, err :=
 		cobertura.RehidratarReservaTerminalOperacionDecisionCobertura(
@@ -278,6 +279,18 @@ func restaurarPreparacionTerminalDecisionCoberturaDurable(
 			errPersistenciaDecisionCoberturaDurableNoDisponible
 	}
 	return preparacion, nil
+}
+
+func normalizarCargaTerminalDecisionCoberturaDurablePostgreSQL(
+	carga cargaTerminalDecisionCoberturaDurableV1,
+) cargaTerminalDecisionCoberturaDurableV1 {
+	carga.ReservaTerminal.ObservadaEnDB = normalizarInstantePostgreSQL(
+		carga.ReservaTerminal.ObservadaEnDB,
+	)
+	carga.Recibo.ConfirmadaEn = normalizarInstantePostgreSQL(
+		carga.Recibo.ConfirmadaEn,
+	)
+	return carga
 }
 
 func decodificarCargaDecisionCoberturaDurable(

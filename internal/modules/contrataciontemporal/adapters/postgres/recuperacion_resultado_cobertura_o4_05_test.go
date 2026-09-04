@@ -152,7 +152,7 @@ func cargaRecuperacionResultadoCoberturaO405Prueba() consultaRecuperacionResulta
 func respuestaNoObservableRecuperacionResultadoCoberturaO405Prueba() []byte {
 	return []byte(`{"esquema":"` +
 		esquemaResultadoRecuperacionResultadoCoberturaO405 +
-		`","estado":"no_observable","observada_en":"2026-07-26T10:02:00Z"}`)
+		`","estado":"no_observable","observada_en":"2026-07-26T10:02:00.123456789+00:00"}`)
 }
 
 func TestEjecutorRecuperacionResultadoCoberturaO405UsaUnaLecturaPrimariaExacta(

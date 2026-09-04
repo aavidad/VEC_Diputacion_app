@@ -351,6 +351,7 @@ func decodificarReciboConfirmacionAnalisis(
 		return ports.ReciboOperacionAnalisis{},
 			ports.ErrPersistenciaOperacionAnalisisNoDisponible
 	}
+	recibo.ConfirmadaEn = normalizarInstantePostgreSQL(recibo.ConfirmadaEn)
 	return recibo, nil
 }
 

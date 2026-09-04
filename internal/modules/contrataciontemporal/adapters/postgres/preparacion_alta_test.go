@@ -244,7 +244,10 @@ func filaReservadaPreparacionPrueba(resultado string) pgx.Row {
 
 func filaConfirmadaPreparacionPrueba() filaPreparacionPrueba {
 	referencias := referenciasPreparacionPrueba()
-	instante := time.Date(2026, 7, 23, 10, 0, 0, 123_456_000, time.UTC)
+	instante := time.Date(
+		2026, 7, 23, 10, 0, 0, 123_456_000,
+		time.FixedZone("postgresql-utc", 0),
+	)
 	return filaPreparacionPrueba{valores: []any{
 		"confirmada",
 		"reserva:alta-candidata-001",

@@ -82,6 +82,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
   const raiz = raizFalsa();
   const propuestas = [];
   const decisiones = [];
+  const continuaciones = [];
   let confirmaciones = 0;
   const cliente = {
     async proponerCobertura(solicitud) {
@@ -102,6 +103,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
     generarClaveIdempotencia: () => CLAVE,
     confirmarOperacion() { confirmaciones += 1; return true; },
+    alConfirmar(confirmado) { continuaciones.push(confirmado); return true; },
   });
   await estabilizar();
   assert.deepEqual(propuestas, [{ expediente_ref: EXPEDIENTE, version_esperada: 2 }]);
@@ -120,6 +122,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
   });
   assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/);
   assert.match(raiz.innerHTML, /recibo:ct:cobertura:prueba:001/);
+  assert.deepEqual(continuaciones, [recibo()]);
   desmontar();
   assert.equal(raiz.eventos.size, 0);
 });
@@ -145,6 +148,7 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
   const raiz = raizFalsa();
   let decisiones = 0;
   const consultas = [];
+  const continuaciones = [];
   const error = new Error("resultado privado indeterminado");
   error.resultadoIndeterminado = true;
   montarFormularioCobertura({
@@ -164,6 +168,7 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
     generarClaveIdempotencia: () => CLAVE,
     confirmarOperacion: () => true,
+    alConfirmar(confirmado) { continuaciones.push(confirmado); return true; },
   });
   await estabilizar();
   await raiz.enviar();
@@ -176,4 +181,26 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
     clave_idempotencia: CLAVE,
   }]);
   assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/);
+  assert.deepEqual(continuaciones, [recibo()]);
+});
+
+test("conserva el recibo y avisa si la asignación no puede montarse", async () => {
+  const raiz = raizFalsa();
+  montarFormularioCobertura({
+    raiz,
+    cliente: {
+      async proponerCobertura() { return propuesta(); },
+      async decidirCobertura() { return recibo(); },
+      async consultarResultadoCobertura() { throw new Error("consulta inesperada"); },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
+    generarClaveIdempotencia: () => CLAVE,
+    confirmarOperacion: () => true,
+    alConfirmar: () => false,
+  });
+  await estabilizar();
+  await raiz.enviar();
+
+  assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/u);
+  assert.match(raiz.innerHTML, /La cobertura está confirmada, pero la asignación no está disponible/u);
 });

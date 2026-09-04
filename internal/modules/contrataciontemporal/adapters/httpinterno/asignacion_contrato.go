@@ -155,13 +155,7 @@ func transferenciaAsignacionPermitida(r *http.Request) bool {
 }
 
 func cabecerasAsignacionPermitidas(cabeceras http.Header) bool {
-	for nombre := range cabeceras {
-		if !strings.EqualFold(nombre, "Content-Type") &&
-			!strings.EqualFold(nombre, "Accept") {
-			return false
-		}
-	}
-	return true
+	return !cabeceraCoberturaProhibida(cabeceras)
 }
 
 func asignacionDesdePeticion(

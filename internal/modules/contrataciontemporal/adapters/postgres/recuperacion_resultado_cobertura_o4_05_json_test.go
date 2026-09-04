@@ -15,7 +15,8 @@ func confirmadoRecuperacionResultadoCoberturaO405Prueba() resultadoConfirmadoRec
 		"cobertura-decision.ambito/v2:" + strings.Repeat("a", 64)
 	semantica := "hmac-sha256:vec.contratacion-temporal." +
 		"cobertura-decision.semantica/v2:" + strings.Repeat("b", 64)
-	observadaDB := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
+	zona := time.FixedZone("postgresql-utc", 0)
+	observadaDB := time.Date(2026, 7, 26, 10, 0, 0, 123456789, zona)
 	confirmada := observadaDB.Add(time.Minute)
 	return resultadoConfirmadoRecuperacionResultadoCoberturaO405{
 		Esquema:                esquemaResultadoRecuperacionResultadoCoberturaO405,
@@ -67,8 +68,23 @@ func TestDecodificarRecuperacionResultadoCoberturaO405AceptaRamasExactas(
 	noObservable := respuestaNoObservableRecuperacionResultadoCoberturaO405Prueba()
 	resultado, err :=
 		decodificarResultadoRecuperacionResultadoCoberturaO405(noObservable)
-	if err != nil || resultado.Encontrado || resultado.ObservadaEn.IsZero() {
+	if err != nil || resultado.Encontrado || resultado.ObservadaEn.IsZero() ||
+		resultado.ObservadaEn.Location() != time.UTC ||
+		resultado.ObservadaEn.Nanosecond() != 123456000 {
 		t.Fatalf("no observable inválido: resultado=%+v err=%v", resultado, err)
+	}
+	conDesplazamiento := []byte(strings.Replace(
+		string(noObservable),
+		`2026-07-26T10:02:00.123456789+00:00`,
+		`2026-07-26T12:02:00.123456789+02:00`,
+		1,
+	))
+	resultado, err = decodificarResultadoRecuperacionResultadoCoberturaO405(
+		conDesplazamiento,
+	)
+	if err != nil || resultado.ObservadaEn.Location() != time.UTC ||
+		resultado.ObservadaEn.Hour() != 10 {
+		t.Fatalf("desplazamiento PostgreSQL no normalizado: resultado=%+v err=%v", resultado, err)
 	}
 	confirmado := confirmadoRecuperacionResultadoCoberturaO405Prueba()
 	contenido, err := json.Marshal(confirmado)
@@ -80,6 +96,10 @@ func TestDecodificarRecuperacionResultadoCoberturaO405AceptaRamasExactas(
 	if err != nil || !resultado.Encontrado ||
 		resultado.Reserva.ReciboRef != confirmado.ReciboRef ||
 		resultado.Recibo.ReciboRef != confirmado.ReciboRef ||
+		resultado.Reserva.ObservadaEnDB.Location() != time.UTC ||
+		resultado.Reserva.ObservadaEnDB.Nanosecond() != 123456000 ||
+		resultado.Recibo.ConfirmadaEn.Location() != time.UTC ||
+		resultado.ObservadaEn.Location() != time.UTC ||
 		resultado.Recibo.DenegadaVEC == nil ||
 		resultado.Recibo.Aplicada != nil {
 		t.Fatalf("confirmado inválido: resultado=%+v err=%v", resultado, err)
@@ -176,14 +196,6 @@ func TestDecodificarRecuperacionResultadoCoberturaO405RechazaJSONAdversario(
 				string(noObservable),
 				`"no_observable"`,
 				`"ausente"`,
-				1,
-			),
-		),
-		"instante_no_canonico": []byte(
-			strings.Replace(
-				string(noObservable),
-				`2026-07-26T10:02:00Z`,
-				`2026-07-26T12:02:00+02:00`,
 				1,
 			),
 		),

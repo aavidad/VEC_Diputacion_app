@@ -12,10 +12,9 @@ import {
   validarSolicitudRectificacionCobertura,
 } from "./contrato-cobertura.js";
 import { validarConfiguracionAnalisis, validarReciboAnalisis,
-  validarSolicitudRectificacionAnalisis,
-  validarSolicitudRegistroAnalisis } from "./contrato-analisis.js";
+  validarSolicitudRectificacionAnalisis, validarSolicitudRegistroAnalisis } from "./contrato-analisis.js";
+import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } from "./cliente-http-asignacion.js";
 import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
-
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -28,7 +27,6 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
 });
-
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
 const MAXIMO_RESPUESTA_ANALISIS_BYTES = 16 * 1024;
@@ -413,6 +411,8 @@ function claveI18nValida(ruta, codigo, clave) {
   }
   const prefijo = ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
     ? "api.contratacion_temporal.alta.error."
+    : ruta === RUTA_ASIGNACION_CONTRATACION_TEMPORAL
+      ? "api.contratacion_temporal.asignacion.error."
     : ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH
       || ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH
       ? "api.contratacion_temporal.consulta_rrhh.error."
@@ -793,8 +793,8 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     modo: "http",
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones }),
+    ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
-    consultarResultadoCobertura, obtenerConfiguracionAnalisis,
-    registrarAnalisis, rectificarAnalisis,
+    consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });
 }

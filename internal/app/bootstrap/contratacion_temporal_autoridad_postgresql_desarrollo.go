@@ -665,6 +665,7 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 		soporte.motivoDecisionCobertura,
 		soporte.motivoRectificacionCobertura,
 		soporte.motivoResultadoCobertura,
+		soporte.motivoAsignacion,
 	}
 	porCatalogo := make(map[string][]dominiovec.ReferenciaEntradaCatalogo)
 	for _, motivo := range motivos {

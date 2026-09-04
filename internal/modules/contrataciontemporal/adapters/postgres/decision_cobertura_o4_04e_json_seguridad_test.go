@@ -105,9 +105,51 @@ func TestResultadoPrimarioDecisionCoberturaO404EEncontradoNominal(t *testing.T) 
 	}
 	if !resultado.Encontrado || resultado.Recibo.DenegadaVEC == nil ||
 		resultado.Recibo.Aplicada != nil ||
+		resultado.Recibo.ConfirmadaEn.Location() != time.UTC ||
+		resultado.Recibo.ConfirmadaEn.Nanosecond() != 123456000 ||
+		resultado.ObservadaEnPrimario.Location() != time.UTC ||
 		resultado.Coordenadas.ReciboRef != recibo.ReciboRef ||
 		resultado.HuellaOrdenSHA256 != consulta.HuellaOrdenSHA256 {
 		t.Fatalf("resultado primario incompleto: %+v", resultado)
+	}
+}
+
+func TestReciboDecisionCoberturaO404ENormalizaInstantePostgreSQL(
+	t *testing.T,
+) {
+	t.Parallel()
+	dto := reciboDenegadoDecisionCoberturaO404EPrueba()
+	contenido, err := json.Marshal(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo, err := decodificarReciboDecisionCoberturaO404E(contenido)
+	if err != nil || recibo.ConfirmadaEn.Location() != time.UTC ||
+		recibo.ConfirmadaEn.Nanosecond() != 123456000 {
+		t.Fatalf("recibo de cobertura no normalizado: %#v, %v", recibo, err)
+	}
+}
+
+func TestCargaTerminalDecisionCoberturaDurableNormalizaInstantesPostgreSQL(
+	t *testing.T,
+) {
+	t.Parallel()
+	zona := time.FixedZone("postgresql-utc", 0)
+	carga := normalizarCargaTerminalDecisionCoberturaDurablePostgreSQL(
+		cargaTerminalDecisionCoberturaDurableV1{
+			ReservaTerminal: reservaTerminalDecisionCoberturaDurableV1{
+				ObservadaEnDB: time.Date(2026, 9, 4, 13, 50, 52, 123456789, zona),
+			},
+			Recibo: reciboDecisionCoberturaDurableV1{
+				ConfirmadaEn: time.Date(2026, 9, 4, 13, 51, 52, 654321987, zona),
+			},
+		},
+	)
+	if carga.ReservaTerminal.ObservadaEnDB.Location() != time.UTC ||
+		carga.ReservaTerminal.ObservadaEnDB.Nanosecond() != 123456000 ||
+		carga.Recibo.ConfirmadaEn.Location() != time.UTC ||
+		carga.Recibo.ConfirmadaEn.Nanosecond() != 654321000 {
+		t.Fatalf("terminal durable no normalizado: %#v", carga)
 	}
 }
 
@@ -123,8 +165,11 @@ func reciboDenegadoDecisionCoberturaO404EPrueba() reciboDecisionCoberturaO404E {
 			strings.Repeat("b", 64),
 		HuellaSemanticaHMAC: "hmac-sha256:vec.ct.semantica/v1:" +
 			strings.Repeat("c", 64),
-		ConfirmadaEn: time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC),
-		Aplicada:     false, DenegadaVEC: true,
+		ConfirmadaEn: time.Date(
+			2026, 7, 26, 10, 0, 0, 123456789,
+			time.FixedZone("postgresql-utc", 0),
+		),
+		Aplicada: false, DenegadaVEC: true,
 	}
 }
 

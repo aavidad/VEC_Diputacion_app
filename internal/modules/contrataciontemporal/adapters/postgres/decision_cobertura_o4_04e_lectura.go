@@ -243,8 +243,16 @@ func decodificarResultadoPrimarioDecisionCoberturaO404E(
 		clavesResultadoPrimarioDecisionCoberturaO404E,
 		&dto,
 	)
-	if err != nil ||
-		dto.Esquema != esquemaResultadoPrimarioDecisionCoberturaO404E ||
+	if err != nil {
+		return cobertura.DatosResultadoLecturaPrimariaTCBOperacionDecisionCobertura{},
+			errAdaptadorDecisionCoberturaO404ENoDisponible
+	}
+	dto.ObservadaEnPrimario = normalizarInstantePostgreSQL(dto.ObservadaEnPrimario)
+	if dto.Recibo != nil {
+		recibo := normalizarReciboDecisionCoberturaPostgreSQL(*dto.Recibo)
+		dto.Recibo = &recibo
+	}
+	if dto.Esquema != esquemaResultadoPrimarioDecisionCoberturaO404E ||
 		!domain.InstanteUTCCanonico(dto.ObservadaEnPrimario) ||
 		dto.Encontrado != (dto.Consulta != nil && dto.Recibo != nil) ||
 		(!dto.Encontrado && (dto.Consulta != nil || dto.Recibo != nil)) {

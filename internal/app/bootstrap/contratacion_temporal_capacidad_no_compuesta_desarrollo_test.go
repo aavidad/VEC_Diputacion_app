@@ -46,7 +46,7 @@ func TestCapacidadNoCompuestaContratacionTemporalDeniegaYAuditaUnaVez(t *testing
 	}
 }
 
-func TestCapacidadNoCompuestaContratacionTemporalAcotaNueveRutas(t *testing.T) {
+func TestCapacidadNoCompuestaContratacionTemporalAcotaOchoRutas(t *testing.T) {
 	t.Parallel()
 
 	var registro bytes.Buffer
@@ -54,7 +54,7 @@ func TestCapacidadNoCompuestaContratacionTemporalAcotaNueveRutas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construir capacidad: %v", err)
 	}
-	if len(rutasCapacidadNoCompuestaContratacionTemporal) != 9 {
+	if len(rutasCapacidadNoCompuestaContratacionTemporal) != 8 {
 		t.Fatalf("rutas no compuestas: %d", len(rutasCapacidadNoCompuestaContratacionTemporal))
 	}
 	for _, ruta := range []string{
@@ -64,6 +64,7 @@ func TestCapacidadNoCompuestaContratacionTemporalAcotaNueveRutas(t *testing.T) {
 		httpinterno.RutaDecisionCobertura,
 		httpinterno.RutaRectificacionCobertura,
 		httpinterno.RutaResultadoCobertura,
+		httpinterno.RutaAsignaciones,
 	} {
 		if capacidad.esRuta(ruta) {
 			t.Fatalf("ruta compuesta marcada no compuesta: %s", ruta)
@@ -71,6 +72,9 @@ func TestCapacidadNoCompuestaContratacionTemporalAcotaNueveRutas(t *testing.T) {
 	}
 	if !capacidad.esRuta(httpinterno.RutaRectificacionAnalisisRRHH) {
 		t.Fatal("rectificacion de analisis salio de la barrera no compuesta")
+	}
+	if !capacidad.esRuta(httpinterno.RutaReasignaciones) {
+		t.Fatal("reasignacion fuera del corte salio de la barrera no compuesta")
 	}
 }
 

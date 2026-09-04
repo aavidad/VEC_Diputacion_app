@@ -23,7 +23,6 @@ var rutasCapacidadNoCompuestaContratacionTemporal = map[string]struct{}{
 	httpinterno.RutaReabrirExcepcionalmente:   {},
 	httpinterno.RutaConsultaCuadroRRHH:        {},
 	httpinterno.RutaConsultaDetalleRRHH:       {},
-	httpinterno.RutaAsignaciones:              {},
 	httpinterno.RutaReasignaciones:            {},
 }
 
@@ -43,8 +42,6 @@ var (
 	_ httpinterno.EjecutorPropuestaFormalizacion          = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.AutoridadServidorCierreAdministrativo   = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.EjecutorCierreAdministrativo            = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
-	_ httpinterno.AutoridadContextoCanalAsignacion        = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
-	_ httpinterno.EjecutorAsignacion                      = (*capacidadNoCompuestaContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.ConsultorCuadroRRHH                     = (*consultorCuadroNoCompuestoContratacionTemporalDesarrollo)(nil)
 	_ httpinterno.ConsultorDetalleRRHH                    = (*consultorDetalleNoCompuestoContratacionTemporalDesarrollo)(nil)
 )
@@ -168,26 +165,6 @@ func (*capacidadNoCompuestaContratacionTemporalDesarrollo) ReabrirExcepcionalmen
 	application.SolicitudReabrirExcepcionalmente,
 ) (ports.ResultadoCierreAdministrativo, error) {
 	return ports.ResultadoCierreAdministrativo{}, application.ErrCierreAdministrativoNoDisponible
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) ResolverContextoCanalAsignacion(
-	context.Context,
-) (httpinterno.ContextoCanalAsignacion, error) {
-	return httpinterno.ContextoCanalAsignacion{}, httpinterno.ErrContextoCanalNoDisponible
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) Asignar(
-	context.Context,
-	application.SolicitudAsignarUnidad,
-) (ports.ReciboAsignacion, error) {
-	return ports.ReciboAsignacion{}, application.ErrServicioAsignacionInvalido
-}
-
-func (*capacidadNoCompuestaContratacionTemporalDesarrollo) Reasignar(
-	context.Context,
-	application.SolicitudReasignarUnidad,
-) (ports.ReciboAsignacion, error) {
-	return ports.ReciboAsignacion{}, application.ErrServicioAsignacionInvalido
 }
 
 type consultorCuadroNoCompuestoContratacionTemporalDesarrollo struct {

@@ -50,6 +50,20 @@ func TestNormalizarInstantePostgreSQLProduceUTCCanonico(t *testing.T) {
 	}
 }
 
+func TestDecodificarReciboConfirmacionAnalisisNormalizaInstantePostgreSQL(
+	t *testing.T,
+) {
+	t.Parallel()
+	recibo, err := decodificarReciboConfirmacionAnalisis(
+		`{"confirmada_en":"2026-09-04T13:50:52.123456789+00:00"}`,
+	)
+	if err != nil || !domain.InstanteUTCCanonico(recibo.ConfirmadaEn) ||
+		recibo.ConfirmadaEn.Location() != time.UTC ||
+		recibo.ConfirmadaEn.Nanosecond() != 123456000 {
+		t.Fatalf("instante de recibo de análisis no normalizado: %#v, %v", recibo, err)
+	}
+}
+
 func TestTransaccionAnalisisPostgreSQLUsaFronteraDominioV3(t *testing.T) {
 	t.Parallel()
 	const esperada = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"

@@ -126,8 +126,11 @@ func decodificarNoObservableRecuperacionResultadoCoberturaO405(
 		clavesResultadoNoObservableRecuperacionResultadoCoberturaO405,
 		&dto,
 	)
-	if err != nil ||
-		dto.Esquema != esquemaResultadoRecuperacionResultadoCoberturaO405 ||
+	if err != nil {
+		return resultadoNoConfiableRecuperacionResultadoCoberturaO405()
+	}
+	dto.ObservadaEn = normalizarInstantePostgreSQL(dto.ObservadaEn)
+	if dto.Esquema != esquemaResultadoRecuperacionResultadoCoberturaO405 ||
 		dto.Estado != estadoNoObservableRecuperacionResultadoCoberturaO405 ||
 		!domain.InstanteUTCCanonico(dto.ObservadaEn) {
 		return resultadoNoConfiableRecuperacionResultadoCoberturaO405()
@@ -150,11 +153,16 @@ func decodificarConfirmadoRecuperacionResultadoCoberturaO405(
 		clavesResultadoConfirmadoRecuperacionResultadoCoberturaO405,
 		&dto,
 	)
-	if err != nil ||
-		validarObjetoCrudoJSONExactoDecisionCoberturaO404E(
-			objeto["recibo"],
-			clavesReciboDecisionCoberturaO404E,
-		) != nil ||
+	if err != nil {
+		return resultadoNoConfiableRecuperacionResultadoCoberturaO405()
+	}
+	dto.ObservadaEnDB = normalizarInstantePostgreSQL(dto.ObservadaEnDB)
+	dto.ObservadaEn = normalizarInstantePostgreSQL(dto.ObservadaEn)
+	dto.Recibo = normalizarReciboDecisionCoberturaPostgreSQL(dto.Recibo)
+	if validarObjetoCrudoJSONExactoDecisionCoberturaO404E(
+		objeto["recibo"],
+		clavesReciboDecisionCoberturaO404E,
+	) != nil ||
 		!validarConfirmadoRecuperacionResultadoCoberturaO405(dto) {
 		return resultadoNoConfiableRecuperacionResultadoCoberturaO405()
 	}

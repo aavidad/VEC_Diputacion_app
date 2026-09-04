@@ -18,7 +18,7 @@ func TestManejadorAsignacionRechazaCookiesYCabecerasDeAutoridad(t *testing.T) {
 		"Cookie", "Set-Cookie", "Authorization", "Proxy-Authorization",
 		"Remote-User", "X-Remote-User", "X-Actor", "X-Perfil",
 		"X-Organizacion", "X-Vec-Identidad", "X-Forwarded-For",
-		"Idempotency-Key", "Role", "Connection", "User-Agent",
+		"Idempotency-Key", "Role", "Connection",
 	} {
 		t.Run(cabecera, func(t *testing.T) {
 			autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
@@ -40,6 +40,37 @@ func TestManejadorAsignacionRechazaCookiesYCabecerasDeAutoridad(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestManejadorAsignacionAceptaMetadatosInertesDeNavegador(t *testing.T) {
+	autoridad, ejecutor, manejador := entornoAsignacionHTTPPrueba(t)
+	peticion := nuevaPeticionAsignacionPrueba(
+		RutaAsignaciones,
+		cuerpoAsignacionPrueba(3),
+	)
+	for nombre, valor := range map[string]string{
+		"Accept-Encoding": "gzip, deflate, br",
+		"Accept-Language": "es-ES,es;q=0.9",
+		"Origin":          "https://localhost:18443",
+		"Referer":         "https://localhost:18443/portal-empleado/",
+		"Sec-Fetch-Dest":  "empty",
+		"Sec-Fetch-Mode":  "same-origin",
+		"Sec-Fetch-Site":  "same-origin",
+		"User-Agent":      "navegador-de-prueba",
+	} {
+		peticion.Header.Set(nombre, valor)
+	}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || autoridad.llamadas != 1 ||
+		ejecutor.asignaciones != 1 {
+		t.Fatalf(
+			"metadatos inertes rechazados: estado=%d autoridad=%d ejecutor=%d",
+			respuesta.Code,
+			autoridad.llamadas,
+			ejecutor.asignaciones,
+		)
 	}
 }
 

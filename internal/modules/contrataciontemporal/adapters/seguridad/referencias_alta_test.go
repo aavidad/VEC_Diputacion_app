@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 func TestGeneradorReferenciasAltaUsaEntropiaIndependiente(t *testing.T) {
@@ -66,5 +68,51 @@ func TestGeneradorReferenciasAltaPropagaCancelacion(t *testing.T) {
 		context.Canceled,
 	) {
 		t.Fatalf("cancelación perdida: %v", err)
+	}
+}
+
+func TestGeneradorReferenciasAsignacionGeneraSeisReferenciasSeparadas(t *testing.T) {
+	entropia := make([]byte, bytesAleatoriosReferenciaAlta*6)
+	for indice := range entropia {
+		entropia[indice] = byte(indice + 1)
+	}
+	generador := &GeneradorReferenciasAltaCriptografico{
+		lector: bytes.NewReader(entropia),
+		ahora:  func() time.Time { return time.Now().UTC() },
+	}
+	referencias, err := generador.GenerarReferenciasAsignacion(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if referencias.Validar() != nil {
+		t.Fatalf("referencias inválidas: %#v", referencias)
+	}
+	vistas := []string{
+		referencias.ReservaRef,
+		referencias.ReciboRef,
+		referencias.NotificacionRef,
+		referencias.BandejaRef,
+		referencias.AuditoriaRef,
+		referencias.EventoRef,
+	}
+	unicas := make(map[string]struct{}, len(vistas))
+	for _, referencia := range vistas {
+		unicas[referencia] = struct{}{}
+	}
+	if len(unicas) != len(vistas) {
+		t.Fatalf("referencias de efecto repetidas: %#v", referencias)
+	}
+}
+
+func TestGeneradorReferenciasAsignacionFallaCerrado(t *testing.T) {
+	generador := &GeneradorReferenciasAltaCriptografico{
+		lector: bytes.NewReader(make([]byte, bytesAleatoriosReferenciaAlta*5)),
+		ahora:  func() time.Time { return time.Now().UTC() },
+	}
+	if referencias, err := generador.GenerarReferenciasAsignacion(
+		context.Background(),
+	); !errors.Is(err, ErrGeneracionReferenciaAlta) ||
+		referencias != (ports.ReferenciasEfectoAsignacion{}) {
+		t.Fatalf("entropía insuficiente aceptada: %#v / %v", referencias, err)
 	}
 }

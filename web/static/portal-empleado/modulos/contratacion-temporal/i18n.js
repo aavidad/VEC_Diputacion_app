@@ -199,6 +199,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_estado_error_propuesta: "No se pudo obtener una propuesta de cobertura verificable.",
   cobertura_estado_enviando: "Aplicando una única decisión de cobertura. Espere la confirmación.",
   cobertura_estado_confirmada: "La decisión de cobertura ha quedado confirmada.",
+  cobertura_estado_asignacion_no_disponible:
+    "La cobertura está confirmada, pero la asignación no está disponible. Conserve el recibo y solicite revisión.",
   cobertura_estado_indeterminado:
     "El resultado no puede determinarse todavía. No repita la decisión.",
   cobertura_estado_rechazada: "La decisión no se confirmó. Revise el estado del expediente.",
@@ -239,6 +241,46 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_recibo_referencia: "Referencia del recibo",
   cobertura_recibo_decision: "Referencia de la decisión",
   cobertura_recibo_fecha: "Fecha de confirmación",
+  asignacion_sobrelinea: "Contratación temporal · Asignación de unidad",
+  asignacion_titulo: "Asignar expediente a la unidad responsable",
+  asignacion_descripcion:
+    "Revise el destino sintético y confirme la asignación del expediente.",
+  asignacion_alcance_etiqueta: "Alcance de la asignación",
+  asignacion_alcance:
+    "La identidad, la organización, la autorización y la persistencia proceden del servidor.",
+  asignacion_estado_lista: "La asignación está preparada para su confirmación.",
+  asignacion_estado_enviando: "Registrando una única asignación. Espere la confirmación.",
+  asignacion_estado_recuperando: "Recuperando la asignación original con la misma clave.",
+  asignacion_estado_confirmada: "La asignación ha quedado confirmada.",
+  asignacion_estado_indeterminado:
+    "El resultado no puede determinarse todavía. Recupere la operación original; no cree otra.",
+  asignacion_estado_rechazada:
+    "La asignación no se confirmó. Revise el estado antes de volver a intentarlo.",
+  asignacion_estado_error: "No se pudo preparar una solicitud de asignación válida.",
+  asignacion_destino_leyenda: "Destino de la asignación",
+  asignacion_unidad: "Unidad responsable",
+  asignacion_unidad_ayuda: "Unidad sintética cerrada para este recorrido de desarrollo.",
+  asignacion_responsable: "Responsable referenciado",
+  asignacion_responsable_ayuda:
+    "Referencia opaca sintética; no contiene nombre, correo ni documento identificativo.",
+  asignacion_confirmacion:
+    "He comprobado el expediente, la unidad y la referencia responsable.",
+  asignacion_resumen: "Expediente {expediente}, versión actual {version}.",
+  asignacion_confirmar: "Confirmar asignación",
+  asignacion_confirmacion_advertencia:
+    "Esta acción registrará la unidad y la persona responsable referenciada en una nueva versión.",
+  asignacion_indeterminada_titulo: "Resultado pendiente de recuperación",
+  asignacion_indeterminada_descripcion:
+    "Tras una interrupción, reenvíe exactamente la misma operación para recuperar su recibo.",
+  asignacion_recuperar: "Recuperar asignación original",
+  asignacion_recibo_sobrelinea: "Asignación confirmada",
+  asignacion_recibo_titulo: "Expediente asignado",
+  asignacion_recibo_descripcion:
+    "El recibo acredita la asignación y la nueva versión persistida del expediente.",
+  asignacion_recibo_expediente: "Referencia del expediente",
+  asignacion_recibo_version: "Versión resultante",
+  asignacion_recibo_referencia: "Referencia del recibo",
+  asignacion_recibo_fecha: "Fecha de confirmación",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

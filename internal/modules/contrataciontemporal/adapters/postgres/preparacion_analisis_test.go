@@ -73,6 +73,38 @@ func TestPreparadorOperacionAnalisisPostgreSQLReservaDurable(
 	}
 }
 
+func TestPreparadorOperacionAnalisisPostgreSQLNormalizaReplayConfirmado(
+	t *testing.T,
+) {
+	expediente := expedienteInicialAnalisisPostgreSQLPrueba(t)
+	solicitud := solicitudAnalisisPostgreSQLPrueba(t, expediente)
+	datosPreparacion, err := preparacionAnalisisPostgreSQLPrueba(
+		t, solicitud, expediente,
+	).DatosPara(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reciboBruto := reciboAnalisisPostgreSQLPrueba(datosPreparacion)
+	tx := &transaccionPreparacionPrueba{fila: filaAnalisisPostgreSQLPrueba(
+		t, "confirmada", solicitud, expediente, &reciboBruto,
+	)}
+	preparador, err := nuevoPreparadorOperacionAnalisisPostgreSQL(
+		&iniciadorPreparacionPrueba{tx: tx},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparacion, err := preparador.PrepararOperacionAnalisis(
+		context.Background(), solicitud,
+	)
+	datos, errDatos := preparacion.DatosPara(solicitud)
+	if err != nil || errDatos != nil || datos.ReciboConfirmado == nil ||
+		!domain.InstanteUTCCanonico(datos.ReciboConfirmado.ConfirmadaEn) ||
+		datos.ReciboConfirmado.ConfirmadaEn.Nanosecond() != 123456000 {
+		t.Fatalf("replay confirmado no normalizado: %#v, %v, %v", datos, err, errDatos)
+	}
+}
+
 func TestPreparadorOperacionAnalisisPostgreSQLRechazaAgregadoAdulterado(
 	t *testing.T,
 ) {
@@ -120,6 +152,8 @@ func TestPreparadorOperacionAnalisisPostgreSQLConsultaReplay(
 		t.Fatal(err)
 	}
 	recibo := reciboAnalisisPostgreSQLPrueba(datosPreparacion)
+	esperado := recibo
+	esperado.ConfirmadaEn = normalizarInstantePostgreSQL(esperado.ConfirmadaEn)
 	contenido, err := json.Marshal(recibo)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +172,8 @@ func TestPreparadorOperacionAnalisisPostgreSQLConsultaReplay(
 		context.Background(),
 		solicitud.IdentidadConsulta,
 	)
-	if err != nil || !existe || encontrado != recibo ||
+	if err != nil || !existe || encontrado != esperado ||
+		!domain.InstanteUTCCanonico(encontrado.ConfirmadaEn) ||
 		tx.confirmaciones != 1 ||
 		!strings.Contains(tx.consulta, funcionConsultarAnalisis) {
 		t.Fatalf("replay inesperado: %#v, %t, %v", encontrado, existe, err)
@@ -339,7 +374,8 @@ func reciboAnalisisPostgreSQLPrueba(
 		AmbitoConsultaHMAC:     preparacion.AmbitoConsultaHMAC,
 		HuellaConsultaHMAC:     preparacion.HuellaConsultaHMAC,
 		ConfirmadaEn: time.Date(
-			2026, 7, 24, 12, 0, 0, 0, time.UTC,
+			2026, 7, 24, 12, 0, 0, 123456789,
+			time.FixedZone("postgresql-utc", 0),
 		),
 	}
 }

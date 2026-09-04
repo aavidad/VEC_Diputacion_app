@@ -10,7 +10,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "alConfirmar", "mensajes", "locale", "zonaHoraria", "anunciar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
@@ -136,6 +136,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     contexto: contextoEntrada,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false,
+    alConfirmar = () => true,
     mensajes = {},
     locale = "es-ES",
     zonaHoraria = "Europe/Madrid",
@@ -150,7 +151,8 @@ export function montarFormularioCobertura(configuracion = {}) {
     || typeof cliente?.decidirCobertura !== "function"
     || typeof cliente?.consultarResultadoCobertura !== "function"
     || typeof generarClaveIdempotencia !== "function"
-    || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
+    || typeof confirmarOperacion !== "function" || typeof alConfirmar !== "function"
+    || typeof anunciar !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de cobertura no válidas");
   }
@@ -163,6 +165,7 @@ export function montarFormularioCobertura(configuracion = {}) {
   let clienteActual = cliente;
   let generarClaveActual = generarClaveIdempotencia;
   let confirmarActual = confirmarOperacion;
+  let alConfirmarActual = alConfirmar;
   let anunciarActual = anunciar;
   let controlador = null;
   let vuelo = null;
@@ -182,6 +185,7 @@ export function montarFormularioCobertura(configuracion = {}) {
   contextoEntrada = null;
   generarClaveIdempotencia = null;
   confirmarOperacion = null;
+  alConfirmar = null;
   mensajes = null;
   locale = null;
   zonaHoraria = null;
@@ -191,6 +195,19 @@ export function montarFormularioCobertura(configuracion = {}) {
     const elemento = raizActual?.querySelector?.(selector);
     elemento?.focus?.();
     elemento?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }
+
+  function enlazarSiguientePaso(recibo) {
+    try {
+      if (alConfirmarActual(recibo) === true) return;
+    } catch {
+      // El aviso visible conserva el recibo confirmado sin filtrar el error.
+    }
+    estado = {
+      ...estado,
+      mensaje_clave: "cobertura_estado_asignacion_no_disponible",
+      tipo_mensaje: "aviso",
+    };
   }
 
   function repintar(selectorFoco = "") {
@@ -318,6 +335,7 @@ export function montarFormularioCobertura(configuracion = {}) {
           tipo_mensaje: "exito",
         };
         claveIntento = "";
+        enlazarSiguientePaso(recibo);
         return recibo;
       } catch (error) {
         if (!montado) return null;
@@ -384,6 +402,7 @@ export function montarFormularioCobertura(configuracion = {}) {
             tipo_mensaje: "exito",
           };
           claveIntento = "";
+          enlazarSiguientePaso(recibo);
           return recibo;
         }
         estado = {
@@ -446,6 +465,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     clienteActual = null;
     generarClaveActual = null;
     confirmarActual = null;
+    alConfirmarActual = null;
     anunciarActual = null;
     controlador = null;
     vuelo = null;

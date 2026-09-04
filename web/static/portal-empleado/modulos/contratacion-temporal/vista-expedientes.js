@@ -7,6 +7,7 @@ import { validarReciboAlta } from "./contrato.js";
 import { validarReciboAnalisis } from "./contrato-analisis.js";
 import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -209,7 +210,13 @@ export function crearEjecutorAltaConRefresco(
   };
 }
 
-function renderizarAlta(t, disponible, analisisDisponible, coberturaDisponible) {
+function renderizarAlta(
+  t,
+  disponible,
+  analisisDisponible,
+  coberturaDisponible,
+  asignacionDisponible,
+) {
   return `<header class="ct-exp-subcabecera">
     <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
     <p>${escaparHTML(t("nueva_peticion_descripcion"))}</p>
@@ -217,7 +224,8 @@ function renderizarAlta(t, disponible, analisisDisponible, coberturaDisponible) 
   ${disponible
     ? `<div data-ct-exp-alta></div>
       ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
-      ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}`
+      ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
+      ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}`
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
@@ -231,6 +239,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   altaDisponible = false,
   analisisDisponible = false,
   coberturaDisponible = false,
+  asignacionDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -243,6 +252,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       altaDisponible,
       analisisDisponible,
       coberturaDisponible,
+      asignacionDisponible,
     );
   } else if (estado.vista === "expediente") {
     contenido = renderizarExpediente(
@@ -312,10 +322,13 @@ export async function montarModuloContratacionTemporal({
     && typeof composicionAnalisis.cliente.proponerCobertura === "function"
     && typeof composicionAnalisis.cliente.decidirCobertura === "function"
     && typeof composicionAnalisis.cliente.consultarResultadoCobertura === "function";
+  const asignacionDisponible = coberturaDisponible
+    && typeof composicionAnalisis.cliente.asignarUnidad === "function";
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
+  let desmontarAsignacion = null;
   let sesionAnalisis = null;
 
   function bloquearControlesAnalisis(sesion) {
@@ -406,10 +419,42 @@ export async function montarModuloContratacionTemporal({
     desmontarCobertura = null;
   }
 
+  function retirarAsignacion() {
+    if (typeof desmontarAsignacion === "function") desmontarAsignacion();
+    desmontarAsignacion = null;
+  }
+
   function retirarComponentes() {
+    retirarAsignacion();
     retirarCobertura();
     retirarAlta();
     retirarAnalisis();
+  }
+
+  function montarAsignacionDesdeCobertura(expedienteRef, recibo) {
+    if (!montada || !asignacionDisponible) return false;
+    if (desmontarAsignacion !== null) return true;
+    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]");
+    if (!contenedor) return false;
+    try {
+      desmontarAsignacion = montarFormularioAsignacion({
+        raiz: contenedor,
+        cliente: composicionAnalisis.cliente,
+        contexto: Object.freeze({
+          expediente_ref: expedienteRef,
+          version_esperada: recibo.version_resultante,
+        }),
+        confirmarOperacion,
+        mensajes,
+        locale,
+        zonaHoraria,
+        anunciar,
+      });
+      return true;
+    } catch {
+      desmontarAsignacion = null;
+      return false;
+    }
   }
 
   function montarCoberturaDesdeAnalisis(recibo) {
@@ -429,6 +474,10 @@ export async function montarModuloContratacionTemporal({
         locale,
         zonaHoraria,
         anunciar,
+        alConfirmar: (reciboCobertura) => montarAsignacionDesdeCobertura(
+          recibo.expediente_ref,
+          reciboCobertura,
+        ),
       });
       return true;
     } catch {
@@ -544,6 +593,7 @@ export async function montarModuloContratacionTemporal({
       altaDisponible,
       analisisDisponible: composicionAnalisis !== null,
       coberturaDisponible,
+      asignacionDisponible,
     });
     montarAltaSiProcede();
     if (montarAnalisisSiProcede() === false) {
@@ -555,6 +605,7 @@ export async function montarModuloContratacionTemporal({
         altaDisponible,
         analisisDisponible: false,
         coberturaDisponible: false,
+        asignacionDisponible: false,
       });
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);

@@ -85,6 +85,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	lectorResultado      *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
 	candidaturas         ports.ResolutorCandidaturaAlta
 	transaccionAlta      ports.TransaccionAltasCandidata
+	proveedorMaterial    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	cerrarUnaVez         func()
 }
 
@@ -298,6 +299,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.lectorResultado = lectorResultado
 	dependencias.candidaturas = resolver
 	dependencias.transaccionAlta = transaccion
+	dependencias.proveedorMaterial = proveedor
 	completa = true
 	return dependencias, nil
 }
@@ -1096,51 +1098,90 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialCon
 	ctx context.Context,
 	orden ports.OrdenConfirmarAltaCandidata,
 ) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	datos, err := orden.Datos()
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+			ports.ErrPersistenciaNoDisponible
+	}
+	return p.proveerMaterialConfirmacion(
+		ctx,
+		datos.SolicitudAutorizacionV3,
+		datos.DecisionAutorizacionV3,
+		datos.ConfirmacionRegistroV3,
+		p.motivo,
+		p.contexto,
+	)
+}
+
+func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialConfirmacionAsignacion(
+	ctx context.Context,
+	orden ports.OrdenConfirmarAsignacion,
+) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	datos, err := orden.Datos()
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+			ports.ErrPersistenciaAsignacionNoDisponible
+	}
+	material, err := p.proveerMaterialConfirmacion(
+		ctx,
+		datos.SolicitudV3,
+		datos.DecisionV3,
+		datos.ConfirmacionV3,
+		datos.Politica.MotivoAutorizacion,
+		datos.ContextoAutorizacion.Resultado,
+	)
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+			ports.ErrPersistenciaAsignacionNoDisponible
+	}
+	return material, nil
+}
+
+func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) proveerMaterialConfirmacion(
+	ctx context.Context,
+	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
+	decision dominiovec.DecisionAutorizacionLigadaV3,
+	confirmacion puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	motivo dominiovec.ReferenciaEntradaCatalogo,
+	contextoOriginal dominiovec.ResultadoContextoActorRegistradoV2,
+) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	vacio := puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	if ctx == nil || p == nil || p.atestador == nil || p.confianza == nil || p.emisor == nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
-	datos, err := orden.Datos()
+	contexto, err := contextoOriginal.Clonar()
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
-	contexto, err := p.contexto.Clonar()
-	if err != nil {
-		return vacio, ports.ErrPersistenciaNoDisponible
-	}
-	datosSolicitud, err := datos.SolicitudAutorizacionV3.Datos()
+	datosSolicitud, err := solicitud.Datos()
 	ordenConcesion, errOrden := puertosvec.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
-		datos.SolicitudAutorizacionV3, datos.DecisionAutorizacionV3,
-		p.motivo, contexto,
+		solicitud, decision, motivo, contexto,
 	)
-	if err != nil || errOrden != nil || datosSolicitud.ReferenciaMotivo != p.motivo ||
+	if err != nil || errOrden != nil || datosSolicitud.ReferenciaMotivo != motivo ||
 		datosSolicitud.VinculoAutenticacionActor.ValidarPara(contexto) != nil ||
-		datos.ConfirmacionRegistroV3.ValidarPara(ordenConcesion) != nil {
+		confirmacion.ValidarPara(ordenConcesion) != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
 	atestacion, err := p.atestador.Atestar(
-		ctx, datos.DecisionAutorizacionV3, p.motivo, contexto,
+		ctx, decision, motivo, contexto,
 	)
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
 	prueba, err := p.confianza.Verificar(
-		ctx, datos.SolicitudAutorizacionV3, datos.DecisionAutorizacionV3,
-		p.motivo, contexto, atestacion,
+		ctx, solicitud, decision, motivo, contexto, atestacion,
 	)
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
 	capacidad, err := p.emisor.Emitir(
-		ctx, datos.SolicitudAutorizacionV3, datos.DecisionAutorizacionV3,
-		p.motivo, contexto, atestacion, prueba,
+		ctx, solicitud, decision, motivo, contexto, atestacion, prueba,
 	)
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
 	material, err := confianzaatestacion.NuevoMaterialConsumoAutorizacionAtestadaV3(
-		datos.SolicitudAutorizacionV3, datos.DecisionAutorizacionV3,
-		p.motivo, contexto, atestacion, prueba, capacidad, p.raiz,
+		solicitud, decision, motivo, contexto, atestacion, prueba, capacidad, p.raiz,
 	)
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
