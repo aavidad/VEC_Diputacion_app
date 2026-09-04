@@ -45,6 +45,15 @@ func (relojContratacionTemporalDesarrollo) Ahora() time.Time {
 	return time.Now().UTC().Truncate(time.Microsecond)
 }
 
+func ventanaAutoridadSinteticaContratacionTemporalDesarrollo(
+	ahora time.Time,
+) (time.Time, time.Time, bool) {
+	desde := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	hasta := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
+	ahora = ahora.UTC().Truncate(time.Microsecond)
+	return desde, hasta, !ahora.Before(desde) && ahora.Before(hasta)
+}
+
 // soporteAltaContratacionTemporalDesarrollo simula las fuentes corporativas
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
@@ -526,7 +535,15 @@ func nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 	concesiones []dominiovec.ConcesionRol,
 	ambitos []dominiovec.AmbitoPerfil,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	publicadaEn := ahora.Add(-48 * time.Hour)
+	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
+	if !vigente {
+		return dominiovec.InstantaneaAutorizacion{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	publicadaEn := desde
+	asignacionID = referenciaAltaContratacionTemporalDesarrollo(
+		"asg_", principalID+"\x00"+perfilRef+"\x00"+asignacionID,
+	)
 	version := dominiovec.VersionRol{
 		RolID: rolID, Version: 1, Nombre: nombreRol,
 		Estado:       dominiovec.EstadoVersionRolPublicada,
@@ -540,10 +557,10 @@ func nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		VersionRolRef: version.Referencia(),
 		Estado:        dominiovec.EstadoAsignacionPerfilActiva,
 		Ambitos:       ambitos,
-		VigenteDesde:  ahora.Add(-time.Hour),
-		VigenteHasta:  ahora.Add(24 * time.Hour),
+		VigenteDesde:  desde,
+		VigenteHasta:  hasta,
 		EmitidaPor:    "identidad:desarrollo:no-autoritativa",
-		EmitidaEn:     ahora.Add(-2 * time.Hour),
+		EmitidaEn:     desde,
 	}
 	huellaPoliticas, err := dominiovec.HuellaCatalogoPoliticasAutorizacion(nil)
 	if err != nil {
@@ -713,6 +730,12 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 		return ports.ContextoAutorizacionAltaV3{},
 			errAltaContratacionTemporalDesarrolloNoDisponible
 	}
+	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
+	if !vigente {
+		return ports.ContextoAutorizacionAltaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	resueltoEn := desde.Add(3 * time.Minute)
 	base := principal.ID + "\x00" + principal.Attributes["certificate_sha256"]
 	cuentaRef := referenciaAltaContratacionTemporalDesarrollo("cta_", base+"\x00cuenta")
 	personaRef := referenciaAltaContratacionTemporalDesarrollo("per_", base+"\x00persona")
@@ -729,11 +752,11 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 		PersonaRef: personaRef, PersonaVersion: 1,
 		PerfilActivoRef: perfilRef, PerfilVersion: 1,
 		Estado:       dominiovec.EstadoVinculoContextoActorActivo,
-		VigenteDesde: ahora.Add(-time.Hour),
-		VigenteHasta: ahora.Add(24 * time.Hour),
+		VigenteDesde: desde,
+		VigenteHasta: hasta,
 		Vinculos:     []dominiovec.VinculoReferenciaContextoActor{},
 	}
-	actor, err := dominiovec.NuevoContextoActor(cuenta, instantanea, ahora.Add(-time.Minute))
+	actor, err := dominiovec.NuevoContextoActor(cuenta, instantanea, resueltoEn)
 	if err != nil {
 		return ports.ContextoAutorizacionAltaV3{}, err
 	}
@@ -798,7 +821,7 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 		ManifiestoProcedenciaCanonico:     manifiestoCanon,
 		ManifiestoProcedenciaHuellaSHA256: manifiestoHuella,
 		AutoridadEfectiva:                 dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
-		ResueltoEnAutoritativo:            actor.ResueltoEn,
+		ResueltoEnAutoritativo:            resueltoEn,
 	}
 	autenticacion := dominiovec.AutenticacionRevalidadaV1{
 		AutenticacionRef: referenciaAltaContratacionTemporalDesarrollo(
@@ -830,10 +853,10 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 		PoliticaGarantiaHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(
 			base + "\x00politica-garantia",
 		),
-		AutenticacionVerificadaEn: ahora.Add(-10 * time.Minute),
-		SesionEmitidaEn:           ahora.Add(-9 * time.Minute),
-		SesionValidaHasta:         ahora.Add(24 * time.Hour),
-		SesionRevalidadaEn:        ahora.Add(-2 * time.Minute),
+		AutenticacionVerificadaEn: desde,
+		SesionEmitidaEn:           desde.Add(time.Minute),
+		SesionValidaHasta:         hasta,
+		SesionRevalidadaEn:        desde.Add(2 * time.Minute),
 	}
 	solicitudAutenticacion := dominiovec.SolicitudRevalidacionAutenticacionActorV1{
 		AutenticacionRef: autenticacion.AutenticacionRef,

@@ -87,7 +87,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 ) (dependenciasPostgreSQLContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasPostgreSQLContratacionTemporalDesarrollo{}
-	if derivador == nil || !derivador.valido() || soporte == nil {
+	if !cfg.DevelopmentEnabledByDoubleKey() ||
+		derivador == nil || !derivador.valido() || soporte == nil {
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	configuracion := cfg.Normalize().ContratacionTemporalPostgreSQL
@@ -118,6 +119,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if err := publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		ctx, gobierno, material,
+	); err != nil {
+		gobierno.Close()
+		return vacias, err
+	}
+	if err := publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
+		ctx, gobierno, soporte,
 	); err != nil {
 		gobierno.Close()
 		return vacias, err

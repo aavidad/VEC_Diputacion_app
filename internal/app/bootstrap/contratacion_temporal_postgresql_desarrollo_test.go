@@ -46,3 +46,75 @@ func TestMaterialAtestacionContratacionTemporalDesarrolloEsEstableYSeparado(
 			primero.configuracionRef, primero.configuracionOrden)
 	}
 }
+
+func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
+	t *testing.T,
+) {
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	primero, err := nuevoContextoAltaContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := nuevoContextoAltaContratacionTemporalDesarrollo(
+		principal, ahora.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if primero.Resultado.RegistroContextoRef != segundo.Resultado.RegistroContextoRef ||
+		!bytes.Equal(
+			primero.Resultado.RepresentacionCanonica,
+			segundo.Resultado.RepresentacionCanonica,
+		) ||
+		!bytes.Equal(
+			primero.Resultado.ManifiestoProcedenciaCanonico,
+			segundo.Resultado.ManifiestoProcedenciaCanonico,
+		) {
+		t.Fatal("el contexto sintetico cambio entre dos arranques")
+	}
+	altaPrimera, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"prf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	altaRepetida, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"prf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ahora.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otraIdentidad, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		"per_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"prf_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if altaPrimera.AsignacionPerfil.Referencia() !=
+		altaRepetida.AsignacionPerfil.Referencia() {
+		t.Fatal("la asignacion cambio entre dos arranques")
+	}
+	if altaPrimera.AsignacionPerfil.Referencia() ==
+		otraIdentidad.AsignacionPerfil.Referencia() {
+		t.Fatal("dos identidades comparten referencia de asignacion")
+	}
+	otroPerfil, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		"per_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"prf_cccccccccccccccccccccccccccccccc",
+		ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if altaPrimera.AsignacionPerfil.Referencia() ==
+		otroPerfil.AsignacionPerfil.Referencia() {
+		t.Fatal("dos certificados de una identidad comparten asignacion")
+	}
+}

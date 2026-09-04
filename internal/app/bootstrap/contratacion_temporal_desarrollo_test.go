@@ -153,6 +153,7 @@ func TestConsultasContratacionTemporalDesarrolloNoAceptanAutoridadCliente(
 	prueba.StartTLS()
 	t.Cleanup(prueba.Close)
 	cliente := nuevoClienteMTLSContratacionTemporalDesarrollo(t, rutas)
+	anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(t, cliente, rutas)
 	peticion, err := http.NewRequest(
 		http.MethodPost,
 		prueba.URL+httpinterno.RutaConsultaCuadroRRHH,
@@ -173,8 +174,7 @@ func TestConsultasContratacionTemporalDesarrolloNoAceptanAutoridadCliente(
 	}
 	contenido, _ := io.ReadAll(respuesta.Body)
 	respuesta.Body.Close()
-	if respuesta.StatusCode != http.StatusServiceUnavailable ||
-		!bytes.Contains(contenido, []byte(`"codigo":"servicio_no_disponible"`)) ||
+	if respuesta.StatusCode != http.StatusBadRequest ||
 		bytes.Contains(contenido, []byte(expedienteContratacionTemporalDesarrolloRef)) {
 		t.Fatalf("cabecera cliente autorizo la consulta: %d %s", respuesta.StatusCode, contenido)
 	}
