@@ -1,6 +1,6 @@
 # Recorrido manual de contratación temporal O2-07
 
-Esta guía permite probar los dos primeros pasos del flujo de Recursos Humanos con la
+Esta guía permite probar los tres primeros pasos del flujo de Recursos Humanos con la
 aplicación real: navegador con certificado de cliente → API interna →
 autorización de servidor → PostgreSQL → recibo. No usa el adaptador DEMO.
 
@@ -47,6 +47,15 @@ docker exec vec-ct-o2-07-browser-20260904-tls \
      JOIN pg_roles grupo ON grupo.oid=miembro.roleid
     WHERE login.rolname='vec_autorizacion_o207_registro'
     GROUP BY login.rolcanlogin;"
+docker exec vec-ct-o2-07-browser-20260904-tls \
+  psql -X -U postgres -d postgres -Atqc \
+  "SELECT login.rolcanlogin::text||'|'||string_agg(grupo.rolname,',' ORDER BY grupo.rolname)
+     FROM pg_roles login
+     JOIN pg_auth_members miembro ON miembro.member=login.oid
+     JOIN pg_roles grupo ON grupo.oid=miembro.roleid
+    WHERE login.rolname='vec_ad3_o207_gobierno'
+      AND grupo.rolname='vec_contratacion_temporal_gobernador'
+    GROUP BY login.rolcanlogin;"
 ```
 
 El árbol debe estar limpio. El contenedor debe estar `running`, usar la imagen
@@ -55,7 +64,8 @@ fijada por digest, montar `vec-ct-o2-07-browser-20260904-data` en
 automatizada, los tres recuentos deben ser iguales y mayores que cero; el valor
 crece con cada solicitud sintética nueva.
 La última consulta debe devolver exclusivamente
-`true|vec_autorizacion_registro`.
+`true|vec_autorizacion_registro` y la siguiente
+`true|vec_contratacion_temporal_gobernador`.
 
 ## 2. Arrancar VEC con PostgreSQL real
 
@@ -67,6 +77,14 @@ docker cp \
   vec-ct-o2-07-browser-20260904-tls:/var/lib/postgresql/18/docker/o207-ca.crt \
   "$directorio_pg/ca.crt"
 chmod 600 "$directorio_pg/ca.crt"
+
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+GRANT vec_contratacion_temporal_gobernador TO vec_ad3_o207_gobierno;
+SQL
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < deploy/postgresql/contratacion_temporal/migraciones/000035a_compatibilidad_barreras_decision_cobertura.up.sql
 
 export VEC_CT_DATABASE_URL="postgresql://vec_ct_o207_runtime@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_GOBIERNO_DATABASE_URL="postgresql://vec_ad3_o207_gobierno@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
@@ -115,7 +133,7 @@ Al acabar, cierre el perfil temporal. Elimine el directorio temporal mediante
 el mecanismo de papelera o borrado seguro aprobado en su equipo; contiene una
 credencial de desarrollo.
 
-## 4. Registrar una solicitud, analizarla y ver ambos recibos
+## 4. Registrar una solicitud, analizarla, decidir la cobertura y ver los tres recibos
 
 1. Seleccione un centro, una persona de contacto referenciada, una categoría,
    un grupo o subgrupo y un motivo de los catálogos mostrados.
@@ -168,6 +186,46 @@ modalidades disponibles —Sustitución, Vacante, Acumulación de tareas, Progra
 y Relevo— pasan por el mismo servicio real; el recorrido acreditado usa
 Sustitución.
 
+Después del recibo de Análisis aparece **Decidir la vía de cobertura**:
+
+1. Espere a que la propuesta muestre estado viable y vía recomendada
+   **Bolsa vigente**. En la red debe aparecer un único
+   `POST /api/vec/contratacion-temporal/cobertura/propuesta` con estado `200`.
+2. Pulse **Confirmar vía de cobertura** una sola vez y acepte el diálogo de
+   confirmación. Anote la `clave_idempotencia` del cuerpo de la petición en las
+   herramientas de red; se utilizará solo para consultar el resultado.
+3. Debe aparecer un único
+   `POST /api/vec/contratacion-temporal/cobertura/decisiones` con estado `201`.
+4. El tercer recibo debe mostrar el mismo expediente, versión resultante `3`,
+   una referencia `recibo:ct:cobertura:…`, la referencia de la decisión y la
+   fecha de confirmación.
+
+Compruebe decisión, autorización y recibo persistidos sustituyendo las dos
+referencias por las que muestra la pantalla:
+
+```bash
+expediente_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_EXPEDIENTE'
+recibo_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_TERCER_RECIBO'
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -v expediente_ref="$expediente_ref" \
+  -v recibo_ref="$recibo_ref" -U postgres -d postgres -P pager=off <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT d.expediente_ref, d.version_expediente, d.recibo_ref,
+       d.decision_ref, d.via_elegida, d.persistida_en,
+       count(a.decision_ref) AS concesiones_autorizacion
+  FROM vec_contratacion_temporal.decision_cobertura_gobernada_durable d
+  JOIN vec_autorizacion.decision_concedida_contexto_actor_v3 a
+    ON a.decision_ref=d.decision_vec_ref
+ WHERE d.expediente_ref=:'expediente_ref'
+   AND d.recibo_ref=:'recibo_ref'
+ GROUP BY d.decision_ref;
+COMMIT;
+SQL
+```
+
+Debe devolver una sola fila, versión `3`, vía `bolsa_vigente`, las mismas
+referencias visibles y `concesiones_autorizacion = 1`.
+
 ## 5. Demostrar que sobrevive al reinicio
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
@@ -179,26 +237,44 @@ Sustitución.
 scripts/arrancar_vec_desarrollo.sh --puerto 8443
 ```
 
-3. Repita las dos consultas SQL del apartado anterior. Deben devolver las mismas
+3. Repita las tres consultas SQL del apartado anterior. Deben devolver las mismas
    referencias después del reinicio.
-4. El replay técnico del mismo `POST` de Análisis debe responder con el mismo recibo y no
-   crear otra fila. La prueba automatizada ya lo demostró con el mismo cuerpo y
-   la misma clave idempotente: `201`, recibo JSON idéntico y recuento estable.
+4. Consulte el resultado de cobertura, sin repetir la decisión, con la clave
+   anotada en las herramientas de red:
 
-Todavía no existe una ruta pública para volver a cargar en la pantalla un recibo
-cerrado. Por ello, tras remontar la página, la persistencia se comprueba con la
-consulta SQL y la igualdad del replay se comprueba automáticamente. Añadir una
-consulta pública de recibo pertenece al corte siguiente y no se simula aquí.
+```bash
+expediente_ref='PEGUE_AQUI_LA_REFERENCIA_DEL_EXPEDIENTE'
+clave_idempotencia='PEGUE_AQUI_LA_CLAVE_DE_LA_DECISION'
+cuerpo_consulta=$(EXPEDIENTE_REF="$expediente_ref" \
+  CLAVE_IDEMPOTENCIA="$clave_idempotencia" python3 -c \
+  'import json, os; print(json.dumps({"expediente_ref": os.environ["EXPEDIENTE_REF"], "clave_idempotencia": os.environ["CLAVE_IDEMPOTENCIA"]}, separators=(",", ":")))')
+curl --silent --show-error --fail-with-body \
+  --cacert /root/.local/state/vec-diputacion/desarrollo/ca/ca.crt \
+  --cert /root/.local/state/vec-diputacion/desarrollo/mtls/cliente.crt \
+  --key /root/.local/state/vec-diputacion/desarrollo/mtls/cliente.key \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data-binary "$cuerpo_consulta" \
+  https://localhost:8443/api/vec/contratacion-temporal/cobertura/resultados
+```
+
+La respuesta debe indicar `confirmado` e incluir exactamente el mismo tercer
+recibo. Esta consulta no repite ni modifica la decisión.
+
+La consulta protegida anterior recupera el resultado de cobertura. Alta y
+Análisis todavía no tienen una vista que recargue sus recibos cerrados después
+de desmontar la página; su persistencia se comprueba con las consultas SQL.
 
 ## Resultado y siguiente paso funcional
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
-manualmente los pasos 1, **Solicitud**, y 2, **Análisis**. Los seis pasos
-restantes son **Bolsa**, **Fiscalización**, **Candidato**, **Nombramiento**,
+manualmente los pasos 1, **Solicitud**, 2, **Análisis**, y 3, **Bolsa**. Los
+cinco pasos restantes son **Fiscalización**, **Candidato**, **Nombramiento**,
 **Incorporación** y **Seguimiento**.
 
-El siguiente corte es **Bolsa**: decisión de vía de cobertura, comprobaciones
-visibles y asignación a unidad. No forma parte de O2-07.
+El siguiente corte es completar la transición posterior a **Bolsa** con la
+asignación del expediente a una unidad responsable. Después podrá abrirse
+**Fiscalización**. No se simula ninguno de esos pasos en esta guía.
 
 ## Apéndice: recreación segura de la instancia aislada
 
@@ -323,9 +399,11 @@ BEGIN
 END
 $provision$;
 GRANT vec_autorizacion_registro TO vec_autorizacion_o207_registro;
+GRANT vec_contratacion_temporal_gobernador TO vec_ad3_o207_gobierno;
 SQL
 
 test "$(docker exec "$destino" psql -X -U postgres -d postgres -Atqc "SELECT login.rolcanlogin::text||'|'||string_agg(grupo.rolname,',' ORDER BY grupo.rolname) FROM pg_roles login JOIN pg_auth_members miembro ON miembro.member=login.oid JOIN pg_roles grupo ON grupo.oid=miembro.roleid WHERE login.rolname='vec_autorizacion_o207_registro' GROUP BY login.rolcanlogin;")" = 'true|vec_autorizacion_registro'
+test "$(docker exec "$destino" psql -X -U postgres -d postgres -Atqc "SELECT login.rolcanlogin::text||'|'||string_agg(grupo.rolname,',' ORDER BY grupo.rolname) FROM pg_roles login JOIN pg_auth_members miembro ON miembro.member=login.oid JOIN pg_roles grupo ON grupo.oid=miembro.roleid WHERE login.rolname='vec_ad3_o207_gobierno' AND grupo.rolname='vec_contratacion_temporal_gobernador' GROUP BY login.rolcanlogin;")" = 'true|vec_contratacion_temporal_gobernador'
 
 docker exec -i "$destino" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
 BEGIN;
