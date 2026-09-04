@@ -40,6 +40,20 @@ type ResolucionMotivoDecisionCobertura struct {
 	resueltaEn time.Time
 }
 
+// ConsultaMotivoDecisionCoberturaAcotada evita reconstruir un catálogo
+// completo cuando la fuente durable ya ofrece la entrada vigente exacta.
+// La implementación debe resolver únicamente desde una publicación
+// autoritativa para el instante solicitado.
+type ConsultaMotivoDecisionCoberturaAcotada interface {
+	ConsultarMotivoDecisionCobertura(
+		context.Context,
+		string,
+		string,
+		domain.ClaveCatalogo,
+		time.Time,
+	) (domain.MotivoGobernadoDecisionCobertura, error)
+}
+
 func (r ResolucionMotivoDecisionCobertura) Motivo() (
 	domain.MotivoGobernadoDecisionCobertura,
 	error,
@@ -90,9 +104,10 @@ func (r ResolucionMotivoDecisionCobertura) MarshalJSON() ([]byte, error) {
 // composición. La referencia sellada selecciona una versión y entrada, pero
 // nunca sustituye la lectura de la publicación VEC.
 type ResolutorMotivoDecisionCobertura struct {
-	consulta   puertosvec.ConsultaCatalogosConfigurablesAcotada
-	catalogoID string
-	moduloID   string
+	consulta        puertosvec.ConsultaCatalogosConfigurablesAcotada
+	consultaAcotada ConsultaMotivoDecisionCoberturaAcotada
+	catalogoID      string
+	moduloID        string
 }
 
 func NuevoResolutorMotivoDecisionCobertura(
@@ -100,24 +115,37 @@ func NuevoResolutorMotivoDecisionCobertura(
 	catalogoID string,
 	moduloID string,
 ) (*ResolutorMotivoDecisionCobertura, error) {
-	centinela := dominiovec.CatalogoConfigurable{
-		ID:             catalogoID,
-		Version:        1,
-		Revision:       1,
-		ModuloID:       moduloID,
-		Nombre:         "Configuración de motivos",
-		FuenteRef:      "configuracion_motivos_cobertura",
-		MotivoCreacion: "Validación de composición.",
-		Estado:         dominiovec.EstadoCatalogoBorrador,
-		CreadoPor:      "composicion_aplicacion",
-		CreadoEn:       time.Unix(0, 0).UTC(),
-	}
 	if dependenciaResolucionMotivoNula(consulta) ||
-		centinela.Validar() != nil {
+		!configuracionResolutorMotivoDecisionCoberturaValida(
+			catalogoID,
+			moduloID,
+		) {
 		return nil, ErrConfiguracionResolutorMotivoDecisionCobertura
 	}
 	return &ResolutorMotivoDecisionCobertura{
 		consulta: consulta, catalogoID: catalogoID, moduloID: moduloID,
+	}, nil
+}
+
+// NuevoResolutorMotivoDecisionCoberturaAcotado conserva la validación de
+// dominio pero permite que PostgreSQL entregue solo la entrada gobernada
+// necesaria para la decisión.
+func NuevoResolutorMotivoDecisionCoberturaAcotado(
+	consulta ConsultaMotivoDecisionCoberturaAcotada,
+	catalogoID string,
+	moduloID string,
+) (*ResolutorMotivoDecisionCobertura, error) {
+	if dependenciaResolucionMotivoNula(consulta) ||
+		!configuracionResolutorMotivoDecisionCoberturaValida(
+			catalogoID,
+			moduloID,
+		) {
+		return nil, ErrConfiguracionResolutorMotivoDecisionCobertura
+	}
+	return &ResolutorMotivoDecisionCobertura{
+		consultaAcotada: consulta,
+		catalogoID:      catalogoID,
+		moduloID:        moduloID,
 	}, nil
 }
 
@@ -138,6 +166,28 @@ func (r *ResolutorMotivoDecisionCobertura) ResolverClave(
 	if err := ctx.Err(); err != nil {
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
+	}
+	if r.consultaAcotada != nil {
+		motivo, err := r.consultaAcotada.ConsultarMotivoDecisionCobertura(
+			ctx,
+			r.catalogoID,
+			r.moduloID,
+			clave,
+			instante,
+		)
+		if err != nil || ctx.Err() != nil {
+			return ResolucionMotivoDecisionCobertura{},
+				errorResolucionMotivoCobertura(ctx)
+		}
+		if motivo.ReferenciaCatalogo.CatalogoID != r.catalogoID ||
+			motivo.ReferenciaCatalogo.EntradaClave != string(clave) ||
+			!motivoDecisionCoberturaNominalValido(motivo) {
+			return ResolucionMotivoDecisionCobertura{},
+				ErrMotivoDecisionCoberturaNoConfiable
+		}
+		return ResolucionMotivoDecisionCobertura{
+			motivo: motivo, resueltaEn: instante,
+		}, nil
 	}
 	limites := limitesConsultaMotivosDecisionCobertura()
 	resultado, err := r.consulta.ListarVersionesCatalogoAcotado(
@@ -237,6 +287,26 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
 	}
+	if r.consultaAcotada != nil {
+		resuelto, err := r.consultaAcotada.ConsultarMotivoDecisionCobertura(
+			ctx,
+			r.catalogoID,
+			r.moduloID,
+			domain.ClaveCatalogo(motivo.ReferenciaCatalogo.EntradaClave),
+			instante,
+		)
+		if err != nil || ctx.Err() != nil {
+			return ResolucionMotivoDecisionCobertura{},
+				errorResolucionMotivoCobertura(ctx)
+		}
+		if resuelto != motivo {
+			return ResolucionMotivoDecisionCobertura{},
+				ErrMotivoDecisionCoberturaNoConfiable
+		}
+		return ResolucionMotivoDecisionCobertura{
+			motivo: motivo, resueltaEn: instante,
+		}, nil
+	}
 	resultado, err := r.consulta.ObtenerCatalogoAcotado(
 		ctx,
 		motivo.ReferenciaCatalogo.CatalogoID,
@@ -289,8 +359,35 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 }
 
 func (r *ResolutorMotivoDecisionCobertura) configuracionValida() bool {
-	return r != nil && !dependenciaResolucionMotivoNula(r.consulta) &&
-		r.catalogoID != "" && r.moduloID != ""
+	if r == nil ||
+		!configuracionResolutorMotivoDecisionCoberturaValida(
+			r.catalogoID,
+			r.moduloID,
+		) {
+		return false
+	}
+	consultaCompleta := !dependenciaResolucionMotivoNula(r.consulta)
+	consultaAcotada := !dependenciaResolucionMotivoNula(r.consultaAcotada)
+	return consultaCompleta != consultaAcotada
+}
+
+func configuracionResolutorMotivoDecisionCoberturaValida(
+	catalogoID string,
+	moduloID string,
+) bool {
+	centinela := dominiovec.CatalogoConfigurable{
+		ID:             catalogoID,
+		Version:        1,
+		Revision:       1,
+		ModuloID:       moduloID,
+		Nombre:         "Configuración de motivos",
+		FuenteRef:      "configuracion_motivos_cobertura",
+		MotivoCreacion: "Validación de composición.",
+		Estado:         dominiovec.EstadoCatalogoBorrador,
+		CreadoPor:      "composicion_aplicacion",
+		CreadoEn:       time.Unix(0, 0).UTC(),
+	}
+	return centinela.Validar() == nil
 }
 
 func catalogoMotivoDecisionCoberturaAcotado(
