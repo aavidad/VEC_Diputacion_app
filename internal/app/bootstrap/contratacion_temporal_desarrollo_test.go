@@ -217,6 +217,37 @@ func TestPeticionIdentidadConsultasContratacionTemporalDesarrolloSoloNormalizaCa
 	}
 }
 
+func TestPerimetroMTLSContratacionTemporalDesarrolloIncluyeSoloRutasAnalisisCompuestas(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	for _, ruta := range []string{
+		httpinterno.RutaRegistroAnalisisRRHH,
+		rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
+	} {
+		peticion := httptest.NewRequest(http.MethodGet, ruta, nil)
+		if !esRutaContratacionTemporalDesarrollo(peticion) {
+			t.Fatalf("ruta de analisis fuera del perimetro mTLS: %s", ruta)
+		}
+		if _, denegada := rutasCapacidadNoCompuestaContratacionTemporal[ruta]; denegada {
+			t.Fatalf("ruta de analisis conserva la denegacion: %s", ruta)
+		}
+	}
+
+	peticionRectificacion := httptest.NewRequest(
+		http.MethodPost,
+		httpinterno.RutaRectificacionAnalisisRRHH,
+		nil,
+	)
+	if !esRutaContratacionTemporalDesarrollo(peticionRectificacion) {
+		t.Fatal("rectificacion no queda protegida por el perimetro mTLS")
+	}
+	if _, denegada := rutasCapacidadNoCompuestaContratacionTemporal[httpinterno.RutaRectificacionAnalisisRRHH]; !denegada {
+		t.Fatal("rectificacion de analisis no conserva la denegacion")
+	}
+}
+
 func TestConsultasContratacionTemporalDesarrolloNoAceptanAutoridadCliente(
 	t *testing.T,
 ) {

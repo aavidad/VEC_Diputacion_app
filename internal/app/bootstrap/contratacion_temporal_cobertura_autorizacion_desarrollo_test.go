@@ -76,6 +76,98 @@ func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 	}
 }
 
+func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
+	t *testing.T,
+) {
+	soporte, autorizadorCobertura, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	delegado, valido := autorizadorCobertura.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
+	if !valido {
+		t.Fatal("el autorizador V3 no conserva sus dos contratos")
+	}
+	autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{delegado: delegado}
+	for _, caso := range []struct {
+		ruta   string
+		accion string
+		motivo dominiovec.ReferenciaEntradaCatalogo
+	}{
+		{
+			httpinterno.RutaRegistroAnalisisRRHH,
+			ports.AccionRegistrarAnalisis,
+			soporte.motivoRegistroAnalisis,
+		},
+	} {
+		t.Run(caso.accion, func(t *testing.T) {
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, caso.ruta)
+			canal, err := soporte.ResolverContextoCanalAnalisisRRHH(ctx)
+			if err != nil || canal.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+				t.Fatalf("contexto de analisis no resuelto: %+v %v", canal, err)
+			}
+			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+				ctx,
+				seguridadvec.GeneradorReferenciasCriptograficas{},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
+				dominiovec.DatosSolicitudAutorizacionLigadaV3{
+					VinculoAutenticacionActor: soporte.contexto.Vinculo,
+					ReferenciaMotivo:          caso.motivo,
+					Accion:                    caso.accion,
+					Recurso: dominiovec.RecursoAutorizable{
+						Referencia: "expediente:analisis:desarrollo:001",
+						ModuloID:   ports.ModuloContratacion,
+						Tipo:       ports.TipoRecursoAnalisis,
+						Ambitos: map[string]string{
+							"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+							"expediente_ref":   "expediente:analisis:desarrollo:001",
+							"fase_previa":      "solicitud",
+							"estado_previo":    "en_curso",
+						},
+						Atributos: map[string]string{
+							ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo,
+						},
+					},
+					Finalidad:   finalidadAnalisisContratacionTemporalDesarrollo,
+					Correlacion: correlacion,
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision, _, err := autorizador.ExigirSolicitudLigadaV3(
+				ctx,
+				solicitud,
+				soporte.contexto.Resultado,
+			)
+			concedida, _, errResultado := decision.Resultado()
+			if err != nil || errResultado != nil || !concedida {
+				t.Fatalf("autorizacion de analisis no concedida: %v %v", err, errResultado)
+			}
+		})
+	}
+
+	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
+		contextoRutaCoberturaDesarrolloPrueba(
+			soporte,
+			principal,
+			httpinterno.RutaRectificacionAnalisisRRHH,
+		),
+	); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatalf("rectificacion obtuvo contexto de analisis: %v", err)
+	}
+
+	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
+		contextoRutaCoberturaDesarrolloPrueba(
+			soporte,
+			principal,
+			httpinterno.RutaAltaSolicitudes,
+		),
+	); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatalf("alta obtuvo contexto de analisis: %v", err)
+	}
+}
+
 func TestAutorizadorConsultasCoberturaUsaServicioV3Real(t *testing.T) {
 	soporte, autorizador, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ctxPropuesta := contextoRutaCoberturaDesarrolloPrueba(
@@ -242,6 +334,15 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
+	analisisVEC, err :=
+		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
+			vinculo.PrincipalID,
+			vinculo.PerfilActivoRef,
+			ahora,
+		)
+	if err != nil {
+		t.Fatal(err)
+	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
 		sello:             &selloConsultasContratacionTemporalDesarrollo{},
 		principalID:       principal.ID,
@@ -257,6 +358,8 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 			),
 		},
 		instantanea:                  alta,
+		instantaneaAnalisis:          analisisVEC,
+		motivoRegistroAnalisis:       referenciaMotivoAutorizacionAnalisisDesarrollo("registro"),
 		instantaneaCobertura:         coberturaVEC,
 		motivoPropuestaCobertura:     referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta"),
 		motivoDecisionCobertura:      referenciaMotivoAutorizacionCoberturaDesarrollo("decision"),

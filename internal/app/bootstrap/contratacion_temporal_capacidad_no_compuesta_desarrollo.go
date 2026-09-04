@@ -16,7 +16,6 @@ import (
 const claveI18nCapacidadNoCompuestaContratacionTemporal = "api.vec.ruta_exacta.error.servicio_no_disponible"
 
 var rutasCapacidadNoCompuestaContratacionTemporal = map[string]struct{}{
-	httpinterno.RutaRegistroAnalisisRRHH:      {},
 	httpinterno.RutaRectificacionAnalisisRRHH: {},
 	httpinterno.RutaSeleccionLlamamiento:      {},
 	httpinterno.RutaPropuestaFormalizacion:    {},

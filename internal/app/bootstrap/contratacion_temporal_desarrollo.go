@@ -18,6 +18,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const expedienteContratacionTemporalDesarrolloRef = "expediente:ct:demo:0001"
@@ -39,6 +40,76 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	sello       *selloConsultasContratacionTemporalDesarrollo
 	resolvedor  *resolvedorIdentidadDesarrollo
 	noCompuesta *capacidadNoCompuestaContratacionTemporalDesarrollo
+}
+
+type autorizadorLigadoContratacionTemporalDesarrollo interface {
+	puertosvec.AutorizadorSolicitudLigadaV3
+	puertosvec.PreparadorRegistroCompuestoSolicitudLigadaV3
+}
+
+type claveSolicitudAutorizacionAnalisisContratacionTemporalDesarrollo struct{}
+
+// autorizadorAnalisisContratacionTemporalDesarrollo liga a este contexto
+// interno la solicitud ya construida por el caso de uso tras preparar el
+// expediente y resolver su politica. soporteAlta no lee cuerpo ni cabeceras
+// HTTP para ampliar los ambitos de la instantanea.
+type autorizadorAnalisisContratacionTemporalDesarrollo struct {
+	delegado autorizadorLigadoContratacionTemporalDesarrollo
+}
+
+func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud vecdomain.SolicitudAutorizacionLigadaV3,
+	resultado vecdomain.ResultadoContextoActorRegistradoV2,
+) (
+	vecdomain.DecisionAutorizacionLigadaV3,
+	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	error,
+) {
+	if a == nil || dependenciaEsNulaContratacionTemporalDesarrollo(a.delegado) {
+		return vecdomain.DecisionAutorizacionLigadaV3{},
+			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	datos, err := solicitud.Datos()
+	if err != nil {
+		return vecdomain.DecisionAutorizacionLigadaV3{},
+			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	if datos.Accion == ports.AccionRegistrarAnalisis {
+		if ctx == nil {
+			return vecdomain.DecisionAutorizacionLigadaV3{},
+				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+				errAltaContratacionTemporalDesarrolloNoDisponible
+		}
+		ctx = context.WithValue(
+			ctx,
+			claveSolicitudAutorizacionAnalisisContratacionTemporalDesarrollo{},
+			datos,
+		)
+	}
+	return a.delegado.ExigirSolicitudLigadaV3(ctx, solicitud, resultado)
+}
+
+func (a *autorizadorAnalisisContratacionTemporalDesarrollo) PrepararRegistroCompuestoSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud vecdomain.SolicitudAutorizacionLigadaV3,
+	resultado vecdomain.ResultadoContextoActorRegistradoV2,
+	generador puertosvec.GeneradorReferenciaDecisionAutorizacion,
+) (
+	vecdomain.DecisionAutorizacionLigadaV3,
+	puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	if a == nil || dependenciaEsNulaContratacionTemporalDesarrollo(a.delegado) {
+		return vecdomain.DecisionAutorizacionLigadaV3{},
+			puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	return a.delegado.PrepararRegistroCompuestoSolicitudLigadaV3(
+		ctx, solicitud, resultado, generador,
+	)
 }
 
 func nuevasRutasContratacionTemporalDesarrollo(
@@ -78,6 +149,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
+		&alta,
+		derivador,
+		reloj,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	coberturaReal, err := nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		derivador,
 		&alta,
@@ -96,6 +175,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			AutoridadAlta:      alta.soporte,
@@ -105,8 +188,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			Presentador:        coberturaReal.presentador,
 			Decisor:            coberturaReal.decisor,
 			ConsultorResultado: coberturaReal.consultor,
-			AutoridadAnalisis:  noCompuesta,
-			EjecutorAnalisis:   noCompuesta,
+			AutoridadAnalisis:  alta.soporte,
+			EjecutorAnalisis:   servicioAnalisis,
 			ConsultorCuadroRRHH: &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{
 				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
 			},
@@ -125,7 +208,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutas = append(rutas, rutaCatalogosAlta)
+	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:       sello,
 		resolvedor:  resolvedorDesarrollo,
@@ -247,12 +330,14 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return r.URL.Path == httpinterno.RutaAltaSolicitudes ||
+	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+		r.URL.Path == httpinterno.RutaAltaSolicitudes ||
 		r.URL.Path == httpinterno.RutaPropuestaCobertura ||
 		r.URL.Path == httpinterno.RutaDecisionCobertura ||
 		r.URL.Path == httpinterno.RutaRectificacionCobertura ||
 		r.URL.Path == httpinterno.RutaResultadoCobertura ||
-		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo
+		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
+		r.URL.Path == rutaConfiguracionAnalisisContratacionTemporalDesarrollo
 }
 
 func principalContratacionTemporalDesarrolloValido(
