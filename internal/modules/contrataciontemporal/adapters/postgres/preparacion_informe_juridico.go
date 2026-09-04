@@ -174,7 +174,7 @@ func (p *PreparadorInformeJuridicoPostgreSQL) iniciarInformeJuridico(
 	ctx context.Context,
 ) (pgx.Tx, error) {
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite,
+		IsoLevel: pgx.Serializable, AccessMode: pgx.ReadOnly,
 	})
 	if err != nil {
 		return nil, err

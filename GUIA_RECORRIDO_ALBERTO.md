@@ -89,7 +89,7 @@ test "$(sha256sum "$fuente_asignacion" | awk '{print $1}')" = \
 test "$(sha256sum "$fuente_autorizacion_informe" | awk '{print $1}')" = \
   32542f535e58f06668987be79ff6f23c66efc04957da964a2986cd79920934b5
 test "$(sha256sum "$fuente_informe" | awk '{print $1}')" = \
-  4059e3be58824eb0f094e878a3542f2e5b4ed6bbc9976842af30daae25f93627
+  4fdbc64117f0f619ce7fb3758ccc63fde08cb21fd5f6ffbfe4cd6fb138be0840
 
 huella_funcion() {
   docker exec vec-ct-o2-07-browser-20260904-tls \
@@ -112,11 +112,11 @@ test "$(huella_funcion 'vec_contratacion_temporal.confirmar_asignacion_v1(jsonb,
 test "$(huella_funcion 'vec_autorizacion_atestada_v3.registrar_y_consumir_informe_juridico_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
   c880864503d228663ea1058ebb4644d09aa191e2944f8ee646e2d2a606f41c8a
 test "$(huella_funcion 'vec_contratacion_temporal.preparar_informe_juridico_v1(jsonb)')" = \
-  ad4cdebda73cb735de7268e54cf54000710431fb4ebd0def4d07925b59143842
+  a7f5d8ba0e8fa185a5ba46208e7bf608ff4f5c9d6a5bcbd05be2d4a64d4e4e44
 test "$(huella_funcion 'vec_contratacion_temporal.recibo_informe_juridico_v1(text)')" = \
-  49b6707746756178ae97f6d489429d6552f52ba7cf7d4e8b7ee0ac6b80166607
+  1cbc9c91c9c712cb30a223e3666dbd7034d87f34c504407914644c93c1ed97ae
 test "$(huella_funcion 'vec_contratacion_temporal.confirmar_informe_juridico_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
-  c5754a5705789b918dc9c3e6568ddd2f2fac200a35e5772d1780273787c451c1
+  c71c053abf0f2f98fb01b7534d55f5e5c56e4ede92e81822911c36b7fe1da39e
 
 printf '%s\n' 'OK: migraciones y funciones de Asignación e informe coinciden'
 ```

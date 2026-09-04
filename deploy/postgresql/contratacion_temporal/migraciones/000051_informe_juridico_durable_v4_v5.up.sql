@@ -122,6 +122,7 @@ CREATE TABLE vec_contratacion_temporal.terminal_informe_juridico (
     decision_ref text NOT NULL UNIQUE,
     decision_huella_sha256 text NOT NULL,
     consumo_huella_sha256 text NOT NULL UNIQUE,
+    auditoria_ref text NOT NULL UNIQUE,
     documento_ref text NOT NULL UNIQUE,
     huella_borrador_sha256 text NOT NULL,
     configuracion_ref text NOT NULL,
@@ -135,6 +136,7 @@ CREATE TABLE vec_contratacion_temporal.terminal_informe_juridico (
         REFERENCES vec_contratacion_temporal.documento_informe_juridico_desarrollo,
     CHECK (decision_huella_sha256 ~ '^[0-9a-f]{64}$'),
     CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (auditoria_ref ~ '^aud_v3_[0-9a-f]{32}$'),
     CHECK (huella_borrador_sha256 ~ '^[0-9a-f]{64}$'),
     CHECK (configuracion_version BETWEEN 1 AND 9007199254740991::numeric),
     CHECK (configuracion_huella_sha256 ~ '^[0-9a-f]{64}$'),
@@ -216,7 +218,7 @@ AS $funcion$
         'huella_documento_sha256', d.huella_documento_sha256,
         'huella_borrador_sha256', t.huella_borrador_sha256,
         'recibo_ref', r.recibo_ref,
-        'auditoria_ref', r.auditoria_ref,
+        'auditoria_ref', t.auditoria_ref,
         'evento_ref', r.evento_ref,
         'concesion_v3_decision_ref', t.decision_ref,
         'ambito_idempotencia_hmac', r.ambito_hmac,
@@ -244,7 +246,7 @@ RETURNS TABLE (
     perfil_ref text, estado text, recibo_json jsonb
 )
 LANGUAGE plpgsql
-VOLATILE
+STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog
 SET row_security = 'on'
@@ -256,7 +258,6 @@ DECLARE
     v_retenido jsonb;
     v_reserva vec_contratacion_temporal.reserva_informe_juridico%ROWTYPE;
     v_actual record;
-    v_ahora timestamptz(6);
     v_encontrada boolean := false;
 BEGIN
     IF session_user = current_user
@@ -265,7 +266,7 @@ BEGIN
        OR pg_catalog.pg_has_role(
            session_user, 'vec_contratacion_temporal_propietario', 'MEMBER')
        OR pg_catalog.current_setting('transaction_isolation') <> 'serializable'
-       OR pg_catalog.current_setting('transaction_read_only') <> 'off'
+       OR pg_catalog.current_setting('transaction_read_only') <> 'on'
        OR pg_catalog.pg_column_size(p_operacion) > 65536
        OR NOT vec_contratacion_temporal.informe_juridico_claves_exactas_v1(
            p_operacion, ARRAY['actor_ref','esquema','expediente_ref',
@@ -315,8 +316,7 @@ BEGIN
 
     SELECT r.* INTO v_reserva
       FROM vec_contratacion_temporal.reserva_informe_juridico r
-     WHERE r.ambito_hmac = v_activo ->> 'ambito_hmac'
-     FOR UPDATE;
+     WHERE r.ambito_hmac = v_activo ->> 'ambito_hmac';
     v_encontrada := FOUND;
     IF NOT v_encontrada THEN
         FOR v_retenido IN
@@ -327,8 +327,7 @@ BEGIN
         LOOP
             SELECT r.* INTO v_reserva
               FROM vec_contratacion_temporal.reserva_informe_juridico r
-             WHERE r.ambito_hmac = v_retenido ->> 'ambito_hmac'
-             FOR UPDATE;
+             WHERE r.ambito_hmac = v_retenido ->> 'ambito_hmac';
             IF FOUND THEN
                 v_encontrada := true;
                 EXIT;
@@ -358,11 +357,10 @@ BEGIN
     ELSE
         SELECT a.version, v.agregado_json
           INTO STRICT v_actual
-          FROM vec_contratacion_temporal.expediente_integral_actual a
+         FROM vec_contratacion_temporal.expediente_integral_actual a
           JOIN vec_contratacion_temporal.expediente_version_integral v
             USING (expediente_ref, version)
-         WHERE a.expediente_ref = p_operacion ->> 'expediente_ref'
-         FOR UPDATE OF a, v;
+         WHERE a.expediente_ref = p_operacion ->> 'expediente_ref';
         IF v_actual.version <> 4
            OR v_actual.agregado_json ->> 'organizacion_ref' <>
               p_operacion ->> 'organizacion_ref'
@@ -373,26 +371,29 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '40001',
                 MESSAGE = 'expediente no disponible para informe jurídico';
         END IF;
-        v_ahora := pg_catalog.date_trunc(
-            'microseconds', pg_catalog.clock_timestamp());
-        INSERT INTO vec_contratacion_temporal.reserva_informe_juridico (
-            ambito_hmac, huella_peticion_hmac, operacion, organizacion_ref,
-            expediente_ref, version_expediente, actor_ref, perfil_ref,
-            reserva_ref, informe_ref, documento_ref, recibo_ref,
-            auditoria_ref, evento_ref, expediente_anterior_json, reservada_en
-        ) VALUES (
-            v_activo ->> 'ambito_hmac', v_activo ->> 'huella_peticion_hmac',
-            'preparar', p_operacion ->> 'organizacion_ref',
-            p_operacion ->> 'expediente_ref', 4,
-            p_operacion ->> 'actor_ref', p_operacion ->> 'perfil_ref',
-            p_operacion #>> '{referencias_candidatas,reserva_ref}',
-            p_operacion #>> '{referencias_candidatas,informe_ref}',
-            p_operacion #>> '{referencias_candidatas,documento_ref}',
-            p_operacion #>> '{referencias_candidatas,recibo_ref}',
-            p_operacion #>> '{referencias_candidatas,auditoria_ref}',
-            p_operacion #>> '{referencias_candidatas,evento_ref}',
-            v_actual.agregado_json, v_ahora
-        ) RETURNING * INTO v_reserva;
+        v_reserva.ambito_hmac := v_activo ->> 'ambito_hmac';
+        v_reserva.huella_peticion_hmac :=
+            v_activo ->> 'huella_peticion_hmac';
+        v_reserva.operacion := 'preparar';
+        v_reserva.organizacion_ref := p_operacion ->> 'organizacion_ref';
+        v_reserva.expediente_ref := p_operacion ->> 'expediente_ref';
+        v_reserva.version_expediente := 4;
+        v_reserva.actor_ref := p_operacion ->> 'actor_ref';
+        v_reserva.perfil_ref := p_operacion ->> 'perfil_ref';
+        v_reserva.reserva_ref :=
+            p_operacion #>> '{referencias_candidatas,reserva_ref}';
+        v_reserva.informe_ref :=
+            p_operacion #>> '{referencias_candidatas,informe_ref}';
+        v_reserva.documento_ref :=
+            p_operacion #>> '{referencias_candidatas,documento_ref}';
+        v_reserva.recibo_ref :=
+            p_operacion #>> '{referencias_candidatas,recibo_ref}';
+        v_reserva.auditoria_ref :=
+            p_operacion #>> '{referencias_candidatas,auditoria_ref}';
+        v_reserva.evento_ref :=
+            p_operacion #>> '{referencias_candidatas,evento_ref}';
+        v_reserva.expediente_anterior_json := v_actual.agregado_json;
+        v_reserva.estado := 'reservada';
         resultado := 'reservada';
     END IF;
 
@@ -431,7 +432,6 @@ SET lock_timeout = '2s'
 AS $funcion$
 DECLARE
     r vec_contratacion_temporal.reserva_informe_juridico%ROWTYPE;
-    t vec_contratacion_temporal.terminal_informe_juridico%ROWTYPE;
     v_actual record;
     v_consumo record;
     v_decision jsonb;
@@ -456,6 +456,7 @@ DECLARE
     v_contexto_huella text;
     v_anexos_borrador jsonb;
     v_elemento record;
+    v_reserva_persistida boolean := false;
 BEGIN
     IF session_user = current_user
        OR NOT pg_catalog.pg_has_role(
@@ -722,22 +723,46 @@ BEGIN
 
     v_carga_huella := pg_catalog.encode(pg_catalog.sha256(
         pg_catalog.convert_to(p_operacion::text, 'UTF8')), 'hex');
-    SELECT x.* INTO STRICT r
+    SELECT x.* INTO r
       FROM vec_contratacion_temporal.reserva_informe_juridico x
      WHERE x.ambito_hmac = p_operacion ->> 'ambito_idempotencia_hmac'
-       AND x.huella_peticion_hmac = p_operacion ->> 'huella_peticion_hmac'
      FOR UPDATE;
+    v_reserva_persistida := FOUND;
+    IF v_reserva_persistida AND (
+       r.huella_peticion_hmac <> p_operacion ->> 'huella_peticion_hmac'
+       OR r.operacion <> p_operacion ->> 'operacion'
+       OR r.organizacion_ref <> p_operacion ->> 'organizacion_ref'
+       OR r.expediente_ref <> p_operacion ->> 'expediente_ref'
+       OR r.version_expediente <>
+          (p_operacion ->> 'version_anterior')::numeric
+       OR r.actor_ref <> p_operacion ->> 'actor_ref'
+       OR r.perfil_ref <> p_operacion ->> 'perfil_ref') THEN
+        RAISE EXCEPTION USING ERRCODE = '23505',
+            MESSAGE = 'idempotencia de informe jurídico reutilizada';
+    END IF;
     IF r.estado = 'confirmada' THEN
-        SELECT x.* INTO STRICT t
-          FROM vec_contratacion_temporal.terminal_informe_juridico x
-         WHERE x.ambito_hmac = r.ambito_hmac;
-        IF t.carga_huella_sha256 <> v_carga_huella THEN
-            RAISE EXCEPTION USING ERRCODE = '23505',
-                MESSAGE = 'replay de informe jurídico divergente';
-        END IF;
         RETURN QUERY SELECT
             vec_contratacion_temporal.recibo_informe_juridico_v1(r.ambito_hmac);
         RETURN;
+    END IF;
+    IF NOT v_reserva_persistida THEN
+        r.ambito_hmac := p_operacion ->> 'ambito_idempotencia_hmac';
+        r.huella_peticion_hmac := p_operacion ->> 'huella_peticion_hmac';
+        r.operacion := 'preparar';
+        r.organizacion_ref := p_operacion ->> 'organizacion_ref';
+        r.expediente_ref := p_operacion ->> 'expediente_ref';
+        r.version_expediente :=
+            (p_operacion ->> 'version_anterior')::numeric;
+        r.actor_ref := p_operacion ->> 'actor_ref';
+        r.perfil_ref := p_operacion ->> 'perfil_ref';
+        r.reserva_ref := p_operacion ->> 'reserva_ref';
+        r.informe_ref := p_operacion #>> '{referencias,informe_ref}';
+        r.documento_ref := p_operacion #>> '{referencias,documento_ref}';
+        r.recibo_ref := p_operacion #>> '{referencias,recibo_ref}';
+        r.auditoria_ref := p_operacion #>> '{referencias,auditoria_ref}';
+        r.evento_ref := p_operacion #>> '{referencias,evento_ref}';
+        r.expediente_anterior_json := p_operacion -> 'expediente_anterior';
+        r.estado := 'reservada';
     END IF;
 
     v_ahora := pg_catalog.date_trunc(
@@ -957,6 +982,8 @@ BEGIN
        OR v_consumo.efecto_ref <> r.expediente_ref
        OR v_consumo.huella_efecto_sha256 <>
           v_contexto_huella
+       OR coalesce(v_consumo.auditoria_ref, '') !~
+          '^aud_v3_[0-9a-f]{32}$'
        OR v_consumo.consumo_nuevo IS NOT TRUE THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'consumo de autorización de informe jurídico divergente';
@@ -968,6 +995,21 @@ BEGIN
           (p_operacion #>> '{configuracion,valida_hasta}')::timestamptz THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'vigencia de informe jurídico agotada';
+    END IF;
+
+    IF NOT v_reserva_persistida THEN
+        INSERT INTO vec_contratacion_temporal.reserva_informe_juridico (
+            ambito_hmac, huella_peticion_hmac, operacion, organizacion_ref,
+            expediente_ref, version_expediente, actor_ref, perfil_ref,
+            reserva_ref, informe_ref, documento_ref, recibo_ref,
+            auditoria_ref, evento_ref, expediente_anterior_json, reservada_en
+        ) VALUES (
+            r.ambito_hmac, r.huella_peticion_hmac, r.operacion,
+            r.organizacion_ref, r.expediente_ref, r.version_expediente,
+            r.actor_ref, r.perfil_ref, r.reserva_ref, r.informe_ref,
+            r.documento_ref, r.recibo_ref, r.auditoria_ref, r.evento_ref,
+            r.expediente_anterior_json, v_ahora
+        );
     END IF;
 
     INSERT INTO vec_contratacion_temporal.documento_informe_juridico_desarrollo (
@@ -1067,13 +1109,15 @@ BEGIN
 
     INSERT INTO vec_contratacion_temporal.terminal_informe_juridico (
         ambito_hmac, huella_peticion_hmac, decision_ref,
-        decision_huella_sha256, consumo_huella_sha256, documento_ref,
+        decision_huella_sha256, consumo_huella_sha256, auditoria_ref,
+        documento_ref,
         huella_borrador_sha256, configuracion_ref, configuracion_version,
         configuracion_huella_sha256, carga_huella_sha256, confirmada_en
     ) VALUES (
         r.ambito_hmac, r.huella_peticion_hmac, v_consumo.decision_ref,
         p_operacion #>> '{autorizacion,decision_huella_sha256}',
-        v_consumo.consumo_huella_sha256, r.documento_ref,
+        v_consumo.consumo_huella_sha256, v_consumo.auditoria_ref,
+        r.documento_ref,
         p_operacion #>> '{borrador,huella_sha256}',
         p_operacion #>> '{configuracion,definicion_ref}',
         (p_operacion #>> '{configuracion,definicion_version}')::numeric,

@@ -345,7 +345,8 @@ func (r ReciboInformeJuridico) ValidarParaPreparacion(
 		r.Formato != FormatoInformeJuridicoDesarrollo || strings.TrimSpace(r.Nombre) == "" ||
 		!huellaSHA256OperacionAnalisisValida(r.HuellaDocumentoSHA256) ||
 		!huellaSHA256OperacionAnalisisValida(r.HuellaBorradorSHA256) ||
-		r.ReciboRef != p.Referencias.ReciboRef || r.AuditoriaRef != p.Referencias.AuditoriaRef ||
+		r.ReciboRef != p.Referencias.ReciboRef ||
+		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		r.EventoRef != p.Referencias.EventoRef ||
 		!domain.ReferenciaOpacaValida(r.ConcesionV3DecisionRef) ||
 		r.AmbitoIdempotenciaHMAC != p.AmbitoIdempotenciaHMAC ||
