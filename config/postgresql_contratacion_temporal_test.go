@@ -11,11 +11,13 @@ import (
 func TestConfiguracionPostgreSQLContratacionTemporalSeparaYRedacta(t *testing.T) {
 	ejecutor := "postgres://ejecutor:secreto-ejecucion@127.0.0.1/vec"
 	gobierno := "postgres://gobierno:secreto-gobierno@127.0.0.1/vec"
+	registro := "postgres://registro:secreto-registro@127.0.0.1/vec"
 	confirmador := "postgres://confirmador:secreto-confirmador@127.0.0.1/vec"
 	lector := "postgres://lector:secreto-lector@127.0.0.1/vec"
 	configuracion, err := NuevaConfiguracionPostgreSQLContratacionTemporal(
 		ejecutor,
 		gobierno,
+		registro,
 		confirmador,
 		lector,
 	)
@@ -25,6 +27,10 @@ func TestConfiguracionPostgreSQLContratacionTemporalSeparaYRedacta(t *testing.T)
 	obtenidoEjecutor, obtenidoGobierno, err := configuracion.DSNSeparados()
 	if err != nil || obtenidoEjecutor != ejecutor || obtenidoGobierno != gobierno {
 		t.Fatalf("DSN separados = (%q, %q, %v)", obtenidoEjecutor, obtenidoGobierno, err)
+	}
+	obtenidoRegistro, err := configuracion.DSNRegistroAutorizacionSeparado()
+	if err != nil || obtenidoRegistro != registro {
+		t.Fatalf("DSN de registro separado = (%q, %v)", obtenidoRegistro, err)
 	}
 	obtenidoConfirmador, obtenidoLector, err := configuracion.DSNCoberturaSeparados()
 	if err != nil || obtenidoConfirmador != confirmador || obtenidoLector != lector {
@@ -52,7 +58,7 @@ func TestConfiguracionPostgreSQLContratacionTemporalSeparaYRedacta(t *testing.T)
 }
 
 func TestConfiguracionPostgreSQLContratacionTemporalFallaCerrado(t *testing.T) {
-	completas := [4]string{"ejecucion", "gobierno", "confirmador", "lector"}
+	completas := [5]string{"ejecucion", "gobierno", "registro", "confirmador", "lector"}
 	for indice := range completas {
 		dsn := completas
 		dsn[indice] = "  "
@@ -61,6 +67,7 @@ func TestConfiguracionPostgreSQLContratacionTemporalFallaCerrado(t *testing.T) {
 			dsn[1],
 			dsn[2],
 			dsn[3],
+			dsn[4],
 		); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
 			t.Fatalf("configuracion incompleta en posicion %d: %v", indice, err)
 		}
@@ -74,6 +81,7 @@ func TestConfiguracionPostgreSQLContratacionTemporalFallaCerrado(t *testing.T) {
 				dsn[1],
 				dsn[2],
 				dsn[3],
+				dsn[4],
 			); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
 				t.Fatalf("configuracion no separada entre %d y %d: %v", izquierda, derecha, err)
 			}
@@ -81,25 +89,31 @@ func TestConfiguracionPostgreSQLContratacionTemporalFallaCerrado(t *testing.T) {
 	}
 }
 
-func TestLoadCargaCuatroConexionesPostgreSQLContratacionTemporal(t *testing.T) {
-	dsn := [4]string{
+func TestLoadCargaCincoConexionesPostgreSQLContratacionTemporal(t *testing.T) {
+	dsn := [5]string{
 		"postgres://ejecucion@127.0.0.1/vec",
 		"postgres://gobierno@127.0.0.1/vec",
+		"postgres://registro@127.0.0.1/vec",
 		"postgres://confirmador@127.0.0.1/vec",
 		"postgres://lector@127.0.0.1/vec",
 	}
 	t.Setenv(EnvContratacionTemporalDatabaseURL, " "+dsn[0]+" ")
 	t.Setenv(EnvContratacionTemporalGobiernoDatabaseURL, " "+dsn[1]+" ")
-	t.Setenv(EnvContratacionTemporalConfirmadorDatabaseURL, " "+dsn[2]+" ")
-	t.Setenv(EnvContratacionTemporalLectorResultadoDatabaseURL, " "+dsn[3]+" ")
+	t.Setenv(EnvContratacionTemporalRegistroAutorizacionDatabaseURL, " "+dsn[2]+" ")
+	t.Setenv(EnvContratacionTemporalConfirmadorDatabaseURL, " "+dsn[3]+" ")
+	t.Setenv(EnvContratacionTemporalLectorResultadoDatabaseURL, " "+dsn[4]+" ")
 
 	configuracion := Load().ContratacionTemporalPostgreSQL
 	ejecutor, gobierno, err := configuracion.DSNSeparados()
 	if err != nil || ejecutor != dsn[0] || gobierno != dsn[1] {
 		t.Fatalf("conexiones base = (%q, %q, %v)", ejecutor, gobierno, err)
 	}
+	registro, err := configuracion.DSNRegistroAutorizacionSeparado()
+	if err != nil || registro != dsn[2] {
+		t.Fatalf("conexion de registro = (%q, %v)", registro, err)
+	}
 	confirmador, lector, err := configuracion.DSNCoberturaSeparados()
-	if err != nil || confirmador != dsn[2] || lector != dsn[3] {
+	if err != nil || confirmador != dsn[3] || lector != dsn[4] {
 		t.Fatalf("conexiones de cobertura = (%q, %q, %v)", confirmador, lector, err)
 	}
 }

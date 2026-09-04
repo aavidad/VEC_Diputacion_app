@@ -55,6 +55,17 @@ func ventanaAutoridadSinteticaContratacionTemporalDesarrollo(
 	return desde, hasta, !ahora.Before(desde) && ahora.Before(hasta)
 }
 
+type autoridadAnalisisContratacionTemporalDesarrollo interface {
+	PrepararInstantaneaAnalisis(
+		context.Context,
+		dominiovec.InstantaneaAutorizacion,
+	) (dominiovec.InstantaneaAutorizacion, error)
+	PublicarInstantaneaAnalisis(
+		context.Context,
+		dominiovec.InstantaneaAutorizacion,
+	) error
+}
+
 // soporteAltaContratacionTemporalDesarrollo simula las fuentes corporativas
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
@@ -77,6 +88,9 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	ambitos                      ports.SelladorAmbitoIdempotencia
 	reloj                        relojContratacionTemporalDesarrollo
 	concesiones                  map[string]struct{}
+	autoridadAnalisis            autoridadAnalisisContratacionTemporalDesarrollo
+	registroConcesionesAnalisis  puertosvec.RegistroConcesionesCandidatasAutorizacionLigadaV3
+	instantaneasAnalisis         map[string]dominiovec.InstantaneaAutorizacion
 }
 
 var _ httpinterno.AutoridadContextoCanalAnalisisRRHH = (*soporteAltaContratacionTemporalDesarrollo)(nil)
@@ -188,7 +202,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		motivoRectificacionCobertura: motivoRectificacion,
 		motivoResultadoCobertura:     motivoResultado,
 		ambitos:                      ambitos, reloj: reloj,
-		concesiones: make(map[string]struct{}),
+		concesiones:          make(map[string]struct{}),
+		instantaneasAnalisis: make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
@@ -425,10 +440,6 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 ) (time.Time, error) {
 	capacidad, valida := s.capacidadValida(ctx)
-	instantanea, instantaneaValida := s.instantaneaParaContexto(ctx, capacidad.ruta)
-	if !valida || !instantaneaValida || instantanea.Validar() != nil {
-		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
-	}
 	datos, err := orden.Datos()
 	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada ||
@@ -436,16 +447,51 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 		datos.Decision.ValidarPara(datos.Solicitud) != nil {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
+	if !valida {
+		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+	}
+	var instantanea dominiovec.InstantaneaAutorizacion
+	var registroAnalisis puertosvec.RegistroConcesionesCandidatasAutorizacionLigadaV3
+	if rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) {
+		clave, claveValida := claveInstantaneaAnalisisContratacionTemporalDesarrollo(
+			datos.Solicitud,
+		)
+		s.mu.Lock()
+		instantanea, valida = s.instantaneasAnalisis[clave]
+		autoridad := s.autoridadAnalisis
+		registroAnalisis = s.registroConcesionesAnalisis
+		s.mu.Unlock()
+		if !claveValida || !valida || autoridad == nil || registroAnalisis == nil ||
+			instantanea.Validar() != nil ||
+			autoridad.PublicarInstantaneaAnalisis(ctx, instantanea) != nil {
+			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+		}
+	} else {
+		var instantaneaValida bool
+		instantanea, instantaneaValida = s.instantaneaParaContexto(ctx, capacidad.ruta)
+		if !instantaneaValida || instantanea.Validar() != nil {
+			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+		}
+	}
 	huella, err := dominiovec.HuellaSHA256DecisionAutorizacionV3(datos.Decision)
 	desde, hasta, errVentana := datos.Decision.VentanaValidez()
 	ahora := s.reloj.Ahora()
 	if err != nil || errVentana != nil || ahora.Before(desde) || !ahora.Before(hasta) {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
+	registradaEn := ahora
+	if registroAnalisis != nil {
+		registradaEn, err = registroAnalisis.
+			RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return registradaEn, nil
+	}
 	s.mu.Lock()
 	s.concesiones[huella] = struct{}{}
 	s.mu.Unlock()
-	return ahora, nil
+	return registradaEn, nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizacionLigadaV3(
@@ -533,7 +579,53 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 		{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 	}
-	return instantanea, instantanea.Validar() == nil
+	clave, claveValida := claveInstantaneaAnalisisContratacionTemporalDesarrolloDesdeDatos(
+		datos,
+	)
+	if !claveValida {
+		return dominiovec.InstantaneaAutorizacion{}, false
+	}
+	s.mu.Lock()
+	preparada, existe := s.instantaneasAnalisis[clave]
+	autoridad := s.autoridadAnalisis
+	s.mu.Unlock()
+	if existe {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada),
+			preparada.Validar() == nil
+	}
+	if autoridad == nil {
+		return dominiovec.InstantaneaAutorizacion{}, false
+	}
+	preparada, err := autoridad.PrepararInstantaneaAnalisis(ctx, instantanea)
+	if err != nil || preparada.Validar() != nil {
+		return dominiovec.InstantaneaAutorizacion{}, false
+	}
+	s.mu.Lock()
+	if existente, yaExiste := s.instantaneasAnalisis[clave]; yaExiste {
+		preparada = existente
+	} else {
+		s.instantaneasAnalisis[clave] = preparada
+	}
+	s.mu.Unlock()
+	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada),
+		preparada.Validar() == nil
+}
+
+func claveInstantaneaAnalisisContratacionTemporalDesarrollo(
+	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
+) (string, bool) {
+	huella, err := dominiovec.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	return huella, err == nil && huella != ""
+}
+
+func claveInstantaneaAnalisisContratacionTemporalDesarrolloDesdeDatos(
+	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+) (string, bool) {
+	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
+	if err != nil {
+		return "", false
+	}
+	return claveInstantaneaAnalisisContratacionTemporalDesarrollo(solicitud)
 }
 
 func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
@@ -647,32 +739,7 @@ func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return dominiovec.InstantaneaAutorizacion{}, err
 	}
-	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
-	if !vigente {
-		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
-	}
-	instantanea.Politicas = []dominiovec.PoliticaRestrictiva{{
-		PoliticaID: "analisis_rrhh_desarrollo", Version: 1,
-		Nombre:                "Analisis RRHH sintetico de desarrollo",
-		Estado:                dominiovec.EstadoPoliticaRestrictivaPublicada,
-		Efecto:                dominiovec.EfectoPoliticaRestringir,
-		Acciones:              []string{ports.AccionRegistrarAnalisis},
-		Modulos:               []string{ports.ModuloContratacion},
-		TiposRecurso:          []string{ports.TipoRecursoAnalisis},
-		FinalidadesPermitidas: []string{finalidadAnalisisContratacionTemporalDesarrollo},
-		GarantiaMinima:        dominiovec.AuthAssuranceHigh,
-		Restricciones: []dominiovec.RestriccionAtributoRecurso{{
-			Clave:             ports.AtributoUnidadPoliticaRef,
-			ValoresPermitidos: []string{unidadCoberturaContratacionTemporalDesarrollo},
-		}},
-		VigenteDesde: desde,
-		VigenteHasta: hasta,
-		PublicadaPor: "seguridad:desarrollo:no-autoritativa",
-		PublicadaEn:  desde,
-	}}
-	instantanea.CatalogoPoliticasHuellaSHA256, err =
-		dominiovec.HuellaCatalogoPoliticasAutorizacion(instantanea.Politicas)
-	if err != nil || instantanea.Validar() != nil {
+	if instantanea.Validar() != nil {
 		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	return instantanea, nil

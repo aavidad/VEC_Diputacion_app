@@ -256,7 +256,150 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	pool *pgxpool.Pool,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
-	instantanea := soporte.instantanea
+	autoridad := &autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo{
+		pool: pool, soporte: soporte,
+	}
+	instantanea, err := autoridad.prepararInstantanea(
+		ctx, soporte.instantanea, true,
+	)
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := autoridad.publicarInstantanea(ctx, instantanea); err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	soporte.mu.Lock()
+	soporte.instantanea = instantanea
+	soporte.mu.Unlock()
+	return nil
+}
+
+type autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo struct {
+	pool    *pgxpool.Pool
+	soporte *soporteAltaContratacionTemporalDesarrollo
+}
+
+type asignacionActualPostgreSQLContratacionTemporalDesarrollo struct {
+	referencia    string
+	identificador string
+	version       int64
+	perfilRef     string
+	principalID   string
+	versionRolRef string
+	huella        string
+}
+
+func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) PrepararInstantaneaAnalisis(
+	ctx context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	return a.prepararInstantanea(ctx, instantanea, false)
+}
+
+func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) PublicarInstantaneaAnalisis(
+	ctx context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+) error {
+	return a.publicarInstantanea(ctx, instantanea)
+}
+
+func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) prepararInstantanea(
+	ctx context.Context,
+	solicitada dominiovec.InstantaneaAutorizacion,
+	permitirInicial bool,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	vacia := dominiovec.InstantaneaAutorizacion{}
+	if a == nil || a.pool == nil || a.soporte == nil || ctx == nil ||
+		ctx.Err() != nil || solicitada.Validar() != nil || len(solicitada.Politicas) != 0 {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+
+		rolPropietarioAutorizacionContratacionTemporalDesarrollo); err != nil {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	perfilRef := solicitada.AsignacionPerfil.PerfilActivoRef
+	if _, err = tx.Exec(ctx, `
+		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
+		"vec:ct:desarrollo:autorizacion:"+perfilRef,
+	); err != nil {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	actual, encontrada, err := leerAsignacionActualPostgreSQLContratacionTemporalDesarrollo(
+		ctx, tx, perfilRef,
+	)
+	if err != nil || (!encontrada && !permitirInicial) {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	preparada := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(solicitada)
+	if encontrada {
+		if actual.perfilRef != perfilRef ||
+			actual.principalID != solicitada.AsignacionPerfil.PrincipalID ||
+			actual.version <= 0 || actual.version == int64(1<<63-1) {
+			return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		preparada.AsignacionPerfil.AsignacionID = actual.identificador
+		preparada.AsignacionPerfil.Version = int(actual.version)
+		huellaActual, errHuella := preparada.AsignacionPerfil.HuellaSHA256()
+		if errHuella != nil || preparada.AsignacionPerfil.Referencia() != actual.referencia ||
+			huellaActual != actual.huella || preparada.VersionRol.Referencia() != actual.versionRolRef {
+			preparada.AsignacionPerfil.Version = int(actual.version + 1)
+		}
+	} else if preparada.AsignacionPerfil.Version != 1 {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if preparada.Validar() != nil || tx.Commit(ctx) != nil {
+		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return preparada, nil
+}
+
+func leerAsignacionActualPostgreSQLContratacionTemporalDesarrollo(
+	ctx context.Context,
+	consultador interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	},
+	perfilRef string,
+) (asignacionActualPostgreSQLContratacionTemporalDesarrollo, bool, error) {
+	var actual asignacionActualPostgreSQLContratacionTemporalDesarrollo
+	err := consultador.QueryRow(ctx, `
+		SELECT asignacion.asignacion_ref, asignacion.asignacion_id,
+		       asignacion.version, asignacion.perfil_activo_ref,
+		       asignacion.principal_id, asignacion.version_rol_ref,
+		       asignacion.huella_sha256
+		  FROM vec_autorizacion.asignacion_perfil_actual AS vigente
+		  JOIN vec_autorizacion.asignacion_perfil AS asignacion
+		    ON asignacion.perfil_activo_ref=vigente.perfil_activo_ref
+		   AND asignacion.asignacion_ref=vigente.asignacion_ref
+		 WHERE vigente.perfil_activo_ref=$1
+		 FOR UPDATE OF vigente`, perfilRef).Scan(
+		&actual.referencia, &actual.identificador, &actual.version,
+		&actual.perfilRef, &actual.principalID, &actual.versionRolRef,
+		&actual.huella,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return asignacionActualPostgreSQLContratacionTemporalDesarrollo{}, false, nil
+	}
+	if err != nil {
+		return asignacionActualPostgreSQLContratacionTemporalDesarrollo{}, false, err
+	}
+	return actual, true, nil
+}
+
+func (a *autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo) publicarInstantanea(
+	ctx context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+) error {
+	if a == nil || a.pool == nil || a.soporte == nil || ctx == nil ||
+		ctx.Err() != nil || instantanea.Validar() != nil || len(instantanea.Politicas) != 0 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	pool := a.pool
+	soporte := a.soporte
 	datosVinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
@@ -307,6 +450,36 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	actual, encontrada, err := leerAsignacionActualPostgreSQLContratacionTemporalDesarrollo(
+		ctx, tx, datosVinculo.PerfilActivoRef,
+	)
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if encontrada {
+		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion
+		siguienteExacta := actual.identificador == instantanea.AsignacionPerfil.AsignacionID &&
+			actual.perfilRef == datosVinculo.PerfilActivoRef &&
+			actual.principalID == datosVinculo.PrincipalID &&
+			actual.version > 0 && actual.version < int64(1<<63-1) &&
+			instantanea.AsignacionPerfil.Version == int(actual.version+1)
+		if !yaPublicada && !siguienteExacta {
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+	} else if instantanea.AsignacionPerfil.Version != 1 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	var revisionCatalogo uint64
+	var huellaCatalogo string
+	if err = tx.QueryRow(ctx, `
+		SELECT revision, huella_sha256
+		  FROM vec_autorizacion.control_catalogo_politicas
+		 WHERE control_id=true
+		 FOR UPDATE`).Scan(&revisionCatalogo, &huellaCatalogo); err != nil ||
+		revisionCatalogo != instantanea.RevisionCatalogoPoliticas ||
+		huellaCatalogo != instantanea.CatalogoPoliticasHuellaSHA256 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
 	consultas := []struct {
 		sql  string
 		args []any
@@ -343,11 +516,15 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 				instantanea.AsignacionPerfil.Version, datosVinculo.PerfilActivoRef,
 				datosVinculo.PrincipalID, rolRef, huellaAsignacion,
 				instantanea.AsignacionPerfil.EmitidaEn, documentoAsignacion}},
-		{`INSERT INTO vec_autorizacion.asignacion_perfil_actual
+		{`INSERT INTO vec_autorizacion.asignacion_perfil_actual AS vigente
 		  (perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
-		 SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS (
-		  SELECT 1 FROM vec_autorizacion.asignacion_perfil_actual
-		   WHERE perfil_activo_ref=$1)`,
+		 VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (perfil_activo_ref) DO UPDATE SET
+		  asignacion_ref=EXCLUDED.asignacion_ref,
+		  actualizada_en=EXCLUDED.actualizada_en,
+		  actualizada_por=EXCLUDED.actualizada_por,
+		  acto_ref=EXCLUDED.acto_ref
+		 WHERE vigente.asignacion_ref IS DISTINCT FROM EXCLUDED.asignacion_ref`,
 			[]any{datosVinculo.PerfilActivoRef, asignacionRef,
 				instantanea.AsignacionPerfil.EmitidaEn,
 				instantanea.AsignacionPerfil.EmitidaPor,
@@ -461,7 +638,10 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 		datosVinculo.ControlSesionHuellaSHA256,
 		datosVinculo.SesionRevalidadaEn, datosVinculo.SesionValidaHasta,
 	).Scan(&coincide)
-	if err != nil || !coincide || tx.Commit(ctx) != nil {
+	if err != nil || !coincide {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if tx.Commit(ctx) != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	return nil
@@ -480,6 +660,7 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 ) error {
 	motivos := []dominiovec.ReferenciaEntradaCatalogo{
 		soporte.motivo,
+		soporte.motivoRegistroAnalisis,
 		soporte.motivoPropuestaCobertura,
 		soporte.motivoDecisionCobertura,
 		soporte.motivoRectificacionCobertura,

@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	EnvContratacionTemporalDatabaseURL                   = "VEC_CT_DATABASE_URL"
-	EnvContratacionTemporalGobiernoDatabaseURL           = "VEC_CT_GOBIERNO_DATABASE_URL"
-	EnvContratacionTemporalConfirmadorDatabaseURL        = "VEC_CT_CONFIRMADOR_DATABASE_URL"
-	EnvContratacionTemporalLectorResultadoDatabaseURL    = "VEC_CT_LECTOR_RESULTADO_DATABASE_URL"
-	configuracionPostgreSQLContratacionTemporalRedactada = "configuracion_postgresql_contratacion_temporal_redactada"
+	EnvContratacionTemporalDatabaseURL                     = "VEC_CT_DATABASE_URL"
+	EnvContratacionTemporalGobiernoDatabaseURL             = "VEC_CT_GOBIERNO_DATABASE_URL"
+	EnvContratacionTemporalRegistroAutorizacionDatabaseURL = "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"
+	EnvContratacionTemporalConfirmadorDatabaseURL          = "VEC_CT_CONFIRMADOR_DATABASE_URL"
+	EnvContratacionTemporalLectorResultadoDatabaseURL      = "VEC_CT_LECTOR_RESULTADO_DATABASE_URL"
+	configuracionPostgreSQLContratacionTemporalRedactada   = "configuracion_postgresql_contratacion_temporal_redactada"
 )
 
 var (
@@ -25,27 +26,31 @@ var (
 	)
 )
 
-// ConfiguracionPostgreSQLContratacionTemporal separa las cuatro identidades
-// necesarias para ejecutar, gobernar, confirmar y leer resultados históricos.
+// ConfiguracionPostgreSQLContratacionTemporal separa las cinco identidades
+// necesarias para ejecutar, gobernar, registrar autorizaciones, confirmar y
+// leer resultados históricos.
 // Ninguna representación genérica expone los DSN.
 type ConfiguracionPostgreSQLContratacionTemporal struct {
-	dsnEjecucion       string
-	dsnGobierno        string
-	dsnConfirmador     string
-	dsnLectorResultado string
+	dsnEjecucion            string
+	dsnGobierno             string
+	dsnRegistroAutorizacion string
+	dsnConfirmador          string
+	dsnLectorResultado      string
 }
 
 func NuevaConfiguracionPostgreSQLContratacionTemporal(
 	dsnEjecucion string,
 	dsnGobierno string,
+	dsnRegistroAutorizacion string,
 	dsnConfirmador string,
 	dsnLectorResultado string,
 ) (ConfiguracionPostgreSQLContratacionTemporal, error) {
 	configuracion := ConfiguracionPostgreSQLContratacionTemporal{
-		dsnEjecucion:       dsnEjecucion,
-		dsnGobierno:        dsnGobierno,
-		dsnConfirmador:     dsnConfirmador,
-		dsnLectorResultado: dsnLectorResultado,
+		dsnEjecucion:            dsnEjecucion,
+		dsnGobierno:             dsnGobierno,
+		dsnRegistroAutorizacion: dsnRegistroAutorizacion,
+		dsnConfirmador:          dsnConfirmador,
+		dsnLectorResultado:      dsnLectorResultado,
 	}.normalizar()
 	if err := configuracion.Validar(); err != nil {
 		return ConfiguracionPostgreSQLContratacionTemporal{}, err
@@ -55,20 +60,34 @@ func NuevaConfiguracionPostgreSQLContratacionTemporal(
 
 func (c ConfiguracionPostgreSQLContratacionTemporal) Validar() error {
 	c = c.normalizar()
-	if c.dsnEjecucion == "" || c.dsnGobierno == "" ||
+	if c.dsnEjecucion == "" || c.dsnGobierno == "" || c.dsnRegistroAutorizacion == "" ||
 		c.dsnConfirmador == "" || c.dsnLectorResultado == "" {
 		return ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
 	}
 	dsnUnicos := map[string]struct{}{
-		c.dsnEjecucion:       {},
-		c.dsnGobierno:        {},
-		c.dsnConfirmador:     {},
-		c.dsnLectorResultado: {},
+		c.dsnEjecucion:            {},
+		c.dsnGobierno:             {},
+		c.dsnRegistroAutorizacion: {},
+		c.dsnConfirmador:          {},
+		c.dsnLectorResultado:      {},
 	}
-	if len(dsnUnicos) != 4 {
+	if len(dsnUnicos) != 5 {
 		return ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
 	}
 	return nil
+}
+
+// DSNRegistroAutorizacionSeparado entrega exclusivamente la identidad que
+// confirma decisiones V3; nunca comparte credencial con fuente o consumidor.
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNRegistroAutorizacionSeparado() (
+	string,
+	error,
+) {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return "", err
+	}
+	return c.dsnRegistroAutorizacion, nil
 }
 
 func (c ConfiguracionPostgreSQLContratacionTemporal) DSNSeparados() (
@@ -84,7 +103,7 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) DSNSeparados() (
 }
 
 // DSNCoberturaSeparados entrega exclusivamente las conexiones adicionales de
-// cobertura a la raíz de composición, después de validar las cuatro.
+// cobertura a la raíz de composición, después de validar las cinco.
 func (c ConfiguracionPostgreSQLContratacionTemporal) DSNCoberturaSeparados() (
 	confirmador string,
 	lectorResultado string,
@@ -100,6 +119,7 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) DSNCoberturaSeparados() (
 func (c ConfiguracionPostgreSQLContratacionTemporal) normalizar() ConfiguracionPostgreSQLContratacionTemporal {
 	c.dsnEjecucion = strings.TrimSpace(c.dsnEjecucion)
 	c.dsnGobierno = strings.TrimSpace(c.dsnGobierno)
+	c.dsnRegistroAutorizacion = strings.TrimSpace(c.dsnRegistroAutorizacion)
 	c.dsnConfirmador = strings.TrimSpace(c.dsnConfirmador)
 	c.dsnLectorResultado = strings.TrimSpace(c.dsnLectorResultado)
 	return c

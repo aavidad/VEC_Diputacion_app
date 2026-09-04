@@ -19,6 +19,7 @@ import (
 	"vec-diputacion-granada/config"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -26,12 +27,13 @@ import (
 )
 
 const (
-	rolEjecucionPostgreSQLContratacionTemporalDesarrollo   = "vec_contratacion_temporal_ejecutor"
-	rolGobiernoPostgreSQLContratacionTemporalDesarrollo    = "vec_autorizacion_atestada_v3_migrador"
-	rolConfirmadorPostgreSQLContratacionTemporalDesarrollo = "vec_contratacion_temporal_confirmador_cobertura"
-	rolLectorPostgreSQLContratacionTemporalDesarrollo      = "vec_contratacion_temporal_lector_resultado_cobertura"
-	audienciaAtestacionContratacionTemporalDesarrollo      = "vec:desarrollo:contratacion-temporal:atestacion:v3"
-	audienciaConsumoAltaContratacionTemporal               = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
+	rolEjecucionPostgreSQLContratacionTemporalDesarrollo            = "vec_contratacion_temporal_ejecutor"
+	rolGobiernoPostgreSQLContratacionTemporalDesarrollo             = "vec_autorizacion_atestada_v3_migrador"
+	rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo = "vec_autorizacion_registro"
+	rolConfirmadorPostgreSQLContratacionTemporalDesarrollo          = "vec_contratacion_temporal_confirmador_cobertura"
+	rolLectorPostgreSQLContratacionTemporalDesarrollo               = "vec_contratacion_temporal_lector_resultado_cobertura"
+	audienciaAtestacionContratacionTemporalDesarrollo               = "vec:desarrollo:contratacion-temporal:atestacion:v3"
+	audienciaConsumoAltaContratacionTemporal                        = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
 )
 
 var (
@@ -76,12 +78,14 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion       *pgxpool.Pool
-	confirmador     *pgxpool.Pool
-	lectorResultado *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	candidaturas    ports.ResolutorCandidaturaAlta
-	transaccionAlta ports.TransaccionAltasCandidata
-	cerrarUnaVez    func()
+	ejecucion            *pgxpool.Pool
+	gobierno             *pgxpool.Pool
+	registroAutorizacion *pgxpool.Pool
+	confirmador          *pgxpool.Pool
+	lectorResultado      *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	candidaturas         ports.ResolutorCandidaturaAlta
+	transaccionAlta      ports.TransaccionAltasCandidata
+	cerrarUnaVez         func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -111,6 +115,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	dsnConfirmador, dsnLectorResultado, err :=
 		configuracion.DSNCoberturaSeparados()
+	if err != nil {
+		return vacias, err
+	}
+	dsnRegistroAutorizacion, err := configuracion.DSNRegistroAutorizacionSeparado()
 	if err != nil {
 		return vacias, err
 	}
@@ -154,7 +162,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		gobierno.Close()
 		return vacias, err
 	}
-	gobierno.Close()
+	soporte.mu.Lock()
+	soporte.autoridadAnalisis = &autoridadPostgreSQLAnalisisContratacionTemporalDesarrollo{
+		pool: gobierno, soporte: soporte,
+	}
+	soporte.mu.Unlock()
 	ejecucion, usuarioEjecucion, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 		ctx, dsnEjecucion, "vec-ct-desarrollo-ejecucion",
 		rolEjecucionPostgreSQLContratacionTemporalDesarrollo,
@@ -163,10 +175,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if ejecucion != nil {
 			ejecucion.Close()
 		}
+		gobierno.Close()
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias := dependenciasPostgreSQLContratacionTemporalDesarrollo{
 		ejecucion: ejecucion,
+		gobierno:  gobierno,
 	}
 	var cierre sync.Once
 	dependencias.cerrarUnaVez = func() {
@@ -180,6 +194,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			if dependencias.ejecucion != nil {
 				dependencias.ejecucion.Close()
 			}
+			if dependencias.registroAutorizacion != nil {
+				dependencias.registroAutorizacion.Close()
+			}
+			if dependencias.gobierno != nil {
+				dependencias.gobierno.Close()
+			}
 		})
 	}
 	completa := false
@@ -188,6 +208,29 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.cerrar()
 		}
 	}()
+	registroAutorizacion, usuarioRegistroAutorizacion, err :=
+		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
+			ctx,
+			dsnRegistroAutorizacion,
+			"vec-ct-desarrollo-registro-autorizacion",
+			rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo,
+		)
+	if err != nil || usuarioRegistroAutorizacion == usuarioEjecucion ||
+		usuarioRegistroAutorizacion == usuarioGobierno {
+		if registroAutorizacion != nil {
+			registroAutorizacion.Close()
+		}
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	registroConcesiones, err := postgresvec.NuevoAlmacenAutorizacion(registroAutorizacion)
+	if err != nil {
+		registroAutorizacion.Close()
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	dependencias.registroAutorizacion = registroAutorizacion
+	soporte.mu.Lock()
+	soporte.registroConcesionesAnalisis = registroConcesiones
+	soporte.mu.Unlock()
 	resolver, err := postgrescontratacion.NuevoResolutorCandidaturaAltaPostgreSQL(ejecucion)
 	if err != nil {
 		return vacias, err
@@ -212,7 +255,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			rolConfirmadorPostgreSQLContratacionTemporalDesarrollo,
 		)
 	if err != nil || usuarioConfirmador == usuarioEjecucion ||
-		usuarioConfirmador == usuarioGobierno {
+		usuarioConfirmador == usuarioGobierno ||
+		usuarioConfirmador == usuarioRegistroAutorizacion {
 		if confirmador != nil {
 			confirmador.Close()
 		}
@@ -230,7 +274,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		inspectorLector.Close()
 	}
 	if err != nil || usuarioLector == usuarioEjecucion ||
-		usuarioLector == usuarioGobierno || usuarioLector == usuarioConfirmador {
+		usuarioLector == usuarioGobierno ||
+		usuarioLector == usuarioRegistroAutorizacion || usuarioLector == usuarioConfirmador {
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	lectorResultado, err :=
@@ -319,6 +364,7 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 	if ctx == nil || consultador == nil ||
 		(rolEsperado != rolEjecucionPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolGobiernoPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolConfirmadorPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible

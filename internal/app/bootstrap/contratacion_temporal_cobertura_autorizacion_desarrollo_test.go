@@ -15,7 +15,50 @@ import (
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+type autoridadAnalisisContratacionTemporalDesarrolloPrueba struct{}
+
+type registroConcesionAnalisisContratacionTemporalDesarrolloPrueba struct {
+	llamadas int
+	huella   string
+}
+
+func (r *registroConcesionAnalisisContratacionTemporalDesarrolloPrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
+	_ context.Context,
+	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+) (time.Time, error) {
+	datos, err := orden.Datos()
+	if err != nil {
+		return time.Time{}, err
+	}
+	huella, err := dominiovec.HuellaSHA256DecisionAutorizacionV3(datos.Decision)
+	if err != nil {
+		return time.Time{}, err
+	}
+	emitidaEn, _, err := datos.Decision.VentanaValidez()
+	if err != nil {
+		return time.Time{}, err
+	}
+	r.llamadas++
+	r.huella = huella
+	return emitidaEn, nil
+}
+
+func (autoridadAnalisisContratacionTemporalDesarrolloPrueba) PrepararInstantaneaAnalisis(
+	_ context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(instantanea), nil
+}
+
+func (autoridadAnalisisContratacionTemporalDesarrolloPrueba) PublicarInstantaneaAnalisis(
+	context.Context,
+	dominiovec.InstantaneaAutorizacion,
+) error {
+	return nil
+}
 
 func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
@@ -145,6 +188,16 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 				t.Fatalf("autorizacion de analisis no concedida: %v %v", err, errResultado)
 			}
 		})
+	}
+	registro, valido := soporte.registroConcesionesAnalisis.(*registroConcesionAnalisisContratacionTemporalDesarrolloPrueba)
+	if !valido || registro.llamadas != 1 || registro.huella == "" {
+		t.Fatalf("registro durable de analisis no usado: %+v", registro)
+	}
+	soporte.mu.Lock()
+	totalConcesionesEfimeras := len(soporte.concesiones)
+	soporte.mu.Unlock()
+	if totalConcesionesEfimeras != 0 {
+		t.Fatalf("analisis duplico la concesion durable en memoria: %d", totalConcesionesEfimeras)
 	}
 
 	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
@@ -367,6 +420,9 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		motivoResultadoCobertura:     referenciaMotivoAutorizacionCoberturaDesarrollo("resultado"),
 		reloj:                        relojContratacionTemporalDesarrollo{},
 		concesiones:                  make(map[string]struct{}),
+		autoridadAnalisis:            autoridadAnalisisContratacionTemporalDesarrolloPrueba{},
+		registroConcesionesAnalisis:  &registroConcesionAnalisisContratacionTemporalDesarrolloPrueba{},
+		instantaneasAnalisis:         make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
