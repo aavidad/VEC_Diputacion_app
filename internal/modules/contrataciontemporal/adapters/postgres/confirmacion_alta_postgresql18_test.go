@@ -591,6 +591,7 @@ func TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools(t *testing.T) {
 		t.Fatal(err)
 	}
 	estado := estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef)
+	estadoGlobal := estadoEfectosR3B(t, ctx, admin)
 	segundaTransaccion, err := NuevaTransaccionAltasPostgreSQLCandidata(segundoPool, proveedor)
 	if err != nil {
 		t.Fatal(err)
@@ -621,8 +622,10 @@ func TestConfirmacionAltaPublicaPostgreSQL18DesdeDosPools(t *testing.T) {
 	cambiarHuellaReciboPublicoR3B(
 		t, ctx, admin, efecto.ExpedienteRef, huellaReciboOriginal,
 	)
-	if despues := estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef); despues != estado {
-		t.Fatalf("fallo distinto muto o duplico el efecto: antes=%s despues=%s", estado, despues)
+	if despues, globalDespues := estadoConfirmacionPublicaR3B(t, ctx, admin, efecto.ExpedienteRef),
+		estadoEfectosR3B(t, ctx, admin); despues != estado || globalDespues != estadoGlobal {
+		t.Fatalf("fallo distinto muto o duplico el efecto: antes=%s/%s despues=%s/%s",
+			estado, estadoGlobal, despues, globalDespues)
 	}
 	segundoRecibo, err := segundaTransaccion.ConfirmarAltaCandidata(ctx, orden)
 	if err != nil || segundoRecibo != primerRecibo ||

@@ -261,6 +261,11 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	if instantanea.AsignacionPerfil.PerfilActivoRef != datosVinculo.PerfilActivoRef ||
+		instantanea.AsignacionPerfil.PrincipalID != datosVinculo.PrincipalID {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+
 	documentoRol, err := json.Marshal(instantanea.VersionRol)
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible

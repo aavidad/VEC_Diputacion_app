@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -116,5 +118,39 @@ func TestAutoridadSinteticaContratacionTemporalDesarrolloEsEstableYNoColisiona(
 	if altaPrimera.AsignacionPerfil.Referencia() ==
 		otroPerfil.AsignacionPerfil.Referencia() {
 		t.Fatal("dos certificados de una identidad comparten asignacion")
+	}
+}
+
+func TestPublicacionAutorizacionContratacionTemporalDesarrolloRechazaAsignacionAjena(
+	t *testing.T,
+) {
+	casos := []struct {
+		nombre string
+		mutar  func(*soporteAltaContratacionTemporalDesarrollo)
+	}{
+		{
+			nombre: "perfil",
+			mutar: func(soporte *soporteAltaContratacionTemporalDesarrollo) {
+				soporte.instantanea.AsignacionPerfil.PerfilActivoRef = "perfil:ajeno"
+			},
+		},
+		{
+			nombre: "principal",
+			mutar: func(soporte *soporteAltaContratacionTemporalDesarrollo) {
+				soporte.instantanea.AsignacionPerfil.PrincipalID = "principal:ajeno"
+			},
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			caso.mutar(soporte)
+			err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
+				context.Background(), nil, soporte,
+			)
+			if !errors.Is(err, errPostgreSQLContratacionTemporalDesarrolloNoDisponible) {
+				t.Fatalf("asignacion ajena aceptada: %v", err)
+			}
+		})
 	}
 }

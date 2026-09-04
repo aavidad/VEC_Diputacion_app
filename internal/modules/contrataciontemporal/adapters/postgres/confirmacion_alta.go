@@ -199,7 +199,7 @@ func (t *TransaccionAltasPostgreSQLCandidata) confirmarEnTransaccion(
 	}
 	defer revertirTransaccion(tx)
 	fila := filaConfirmacionAlta{}
-	err = tx.QueryRow(ctx, consultaConfirmarAltaV2(), argumentosConfirmarAlta(entradas)...).Scan(
+	err = tx.QueryRow(ctx, consultaConfirmarAltaV3(), argumentosConfirmarAlta(entradas)...).Scan(
 		&fila.expedienteRef, &fila.numeroVisible, &fila.version,
 		&fila.reciboRef, &fila.auditoriaRef, &fila.eventoRef,
 		&fila.confirmadaEn, &fila.huellaRecibo,
@@ -220,7 +220,7 @@ func (t *TransaccionAltasPostgreSQLCandidata) confirmarEnTransaccion(
 	return recibo, nil
 }
 
-func consultaConfirmarAltaV2() string {
+func consultaConfirmarAltaV3() string {
 	return `SELECT expediente_ref, numero_visible, version, recibo_ref,
 	              auditoria_ref, evento_ref, confirmada_en,
 	              recibo_huella_sha256
