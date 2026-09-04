@@ -24,9 +24,9 @@ const (
 		"TABLE(resultado_json jsonb)"
 	lenguajeFuncionRecuperacionResultadoCoberturaO405     = "plpgsql"
 	huellaProsrcFuncionRecuperacionResultadoCoberturaO405 = "" +
-		"8e44dc20eef5d66b4acc3c6b89801ea85618b6f451151f2d50dd4be2ed06c0d3"
+		"379f7913cb05cf1a393d2104a3ad588f6e5945b5bbcb15e2358c739967020c7a"
 	huellaDefinicionFuncionRecuperacionResultadoCoberturaO405 = "" +
-		"81dcbffeb598368bd11ee9100351c649b37308c6a7a0a0876835b86d82e7d555"
+		"a721175e1548fc1c98bc3fffaadb69f1e0657bd3e2f53169594121c3f64a6e53"
 )
 
 func configuracionFuncionRecuperacionResultadoCoberturaO405() []string {

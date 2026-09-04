@@ -84,6 +84,27 @@ func TestFuentesCoberturaDesarrolloFirmanVerificanYSeRecuperanTrasReinicio(
 	}
 }
 
+func TestFuenteCoberturaDesarrolloAdmitePeriodoDelRecorridoRRHH(t *testing.T) {
+	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
+	t.Cleanup(dependencias.cerrar)
+	solicitud := solicitudFuenteCoberturaDesarrolloPrueba(t)
+	solicitud.Periodo = domain.PeriodoPrevisto{
+		Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		Fin:    time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC),
+	}
+	resultado, err := dependencias.fuente.ConsultarCobertura(
+		context.Background(),
+		solicitud,
+	)
+	if err != nil {
+		t.Fatalf("consultar periodo documentado de RRHH: %v", err)
+	}
+	datos, err := resultado.Datos()
+	if err != nil || datos.Comprobacion.Resultado != domain.ComprobacionAfirmativa {
+		t.Fatalf("resultado sintetico inesperado: %#v, %v", datos, err)
+	}
+}
+
 func TestFuenteCoberturaDesarrolloDeniegaCoordenadasNoDeclaradas(t *testing.T) {
 	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
 	t.Cleanup(dependencias.cerrar)

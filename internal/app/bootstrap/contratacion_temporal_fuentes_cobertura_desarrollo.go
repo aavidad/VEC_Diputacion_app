@@ -506,6 +506,14 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 					resultado: domain.ComprobacionAfirmativa,
 				},
 				{
+					categoriaRef: categoriaAltaContratacionTemporalDesarrollo,
+					periodo: domain.PeriodoPrevisto{
+						Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+						Fin:    time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC),
+					},
+					resultado: domain.ComprobacionAfirmativa,
+				},
+				{
 					categoriaRef: "categoria:desarrollo:sin-cobertura",
 					periodo: domain.PeriodoPrevisto{
 						Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC),

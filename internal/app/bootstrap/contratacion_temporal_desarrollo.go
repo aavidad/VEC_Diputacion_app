@@ -55,6 +55,7 @@ type claveSolicitudAutorizacionContratacionTemporalDesarrollo struct{}
 // HTTP para ampliar los ambitos de la instantanea.
 type autorizadorAnalisisContratacionTemporalDesarrollo struct {
 	delegado autorizadorLigadoContratacionTemporalDesarrollo
+	soporte  *soporteAltaContratacionTemporalDesarrollo
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -107,6 +108,39 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) PrepararRegistroComp
 		return vecdomain.DecisionAutorizacionLigadaV3{},
 			puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
 			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	datos, err := solicitud.Datos()
+	if err != nil {
+		return vecdomain.DecisionAutorizacionLigadaV3{},
+			puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	ruta := ""
+	switch datos.Accion {
+	case string(domain.AccionDecidirCoberturaGobernada):
+		ruta = httpinterno.RutaDecisionCobertura
+	case string(domain.AccionRectificarCoberturaGobernada):
+		ruta = httpinterno.RutaRectificacionCobertura
+	}
+	if ruta != "" {
+		if a.soporte == nil || ctx == nil {
+			return vecdomain.DecisionAutorizacionLigadaV3{},
+				puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
+				errAltaContratacionTemporalDesarrolloNoDisponible
+		}
+		ctx = context.WithValue(
+			ctx,
+			claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
+			datos,
+		)
+		if err := a.soporte.publicarInstantaneaDecisionCobertura(
+			ctx,
+			ruta,
+		); err != nil {
+			return vecdomain.DecisionAutorizacionLigadaV3{},
+				puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
+				err
+		}
 	}
 	return a.delegado.PrepararRegistroCompuestoSolicitudLigadaV3(
 		ctx, solicitud, resultado, generador,

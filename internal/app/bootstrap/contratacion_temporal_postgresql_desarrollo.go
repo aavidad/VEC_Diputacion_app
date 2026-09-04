@@ -153,6 +153,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		gobierno.Close()
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	if err := publicarGobiernoCoberturaPostgreSQLContratacionTemporalDesarrollo(
+		ctx, gobierno, soporte,
+	); err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"publicar_gobierno_cobertura", "gobierno_cobertura_no_disponible",
+		)
+		gobierno.Close()
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
 	if err := publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 		ctx, gobierno, soporte,
 	); err != nil {

@@ -11,6 +11,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
@@ -113,6 +114,20 @@ func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 			coberturaVEC.AsignacionPerfil.Ambitos,
 		)
 	}
+	tiposPorAccion := make(map[string]string, len(coberturaVEC.VersionRol.Concesiones))
+	for _, concesion := range coberturaVEC.VersionRol.Concesiones {
+		tiposPorAccion[concesion.Accion] = concesion.TipoRecurso
+	}
+	for accion, tipoEsperado := range map[string]string{
+		accionPropuestaCoberturaDesarrollo:                ports.TipoRecursoExpediente,
+		string(domain.AccionDecidirCoberturaGobernada):    "decision_cobertura_gobernada",
+		string(domain.AccionRectificarCoberturaGobernada): "decision_cobertura_gobernada",
+		string(ports.AccionConsultarResultadoCobertura):   ports.TipoRecursoExpediente,
+	} {
+		if tiposPorAccion[accion] != tipoEsperado {
+			t.Fatalf("tipo de recurso para %s=%q, esperado %q", accion, tiposPorAccion[accion], tipoEsperado)
+		}
+	}
 	claves := map[string]string{}
 	for _, ambito := range coberturaVEC.AsignacionPerfil.Ambitos {
 		claves[ambito.Clave] = ambito.Valores[0]
@@ -133,6 +148,68 @@ func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 		),
 	); !errors.Is(err, ports.ErrAutorizacionDenegada) {
 		t.Fatalf("resultado obtuvo autoridad de efecto: %v", err)
+	}
+}
+
+func TestPreparacionDecisionCoberturaPublicaLaAsignacionQueReferencia(t *testing.T) {
+	soporte, consultas, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	delegado, ok := consultas.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
+	if !ok {
+		t.Fatal("el autorizador de cobertura no expone la preparacion compuesta")
+	}
+	autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{
+		delegado: delegado,
+		soporte:  soporte,
+	}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(
+		soporte,
+		principal,
+		httpinterno.RutaDecisionCobertura,
+	)
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+		ctx,
+		seguridadvec.GeneradorReferenciasCriptograficas{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
+		dominiovec.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: soporte.contexto.Vinculo,
+			ReferenciaMotivo:          soporte.motivoDecisionCobertura,
+			Accion:                    string(domain.AccionDecidirCoberturaGobernada),
+			Recurso: dominiovec.RecursoAutorizable{
+				Referencia: "reserva:ct:desarrollo:cobertura:0001",
+				ModuloID:   ports.ModuloContratacion,
+				Tipo:       tipoRecursoDecisionCoberturaDesarrollo,
+				Ambitos: map[string]string{
+					"organizacion_ref":     organizacionAltaContratacionTemporalDesarrollo,
+					"unidad_ejecutora_ref": unidadCoberturaContratacionTemporalDesarrollo,
+				},
+				Atributos: map[string]string{},
+			},
+			Finalidad:   finalidadDecisionCoberturaDesarrollo,
+			Correlacion: correlacion,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, candidata, err := autorizador.PrepararRegistroCompuestoSolicitudLigadaV3(
+		ctx,
+		solicitud,
+		soporte.contexto.Resultado,
+		seguridadvec.GeneradorReferenciasCriptograficas{},
+	)
+	if _, errResumen := candidata.Resumen(); err != nil || errResumen != nil {
+		t.Fatalf("candidata de cobertura no preparada: %v", err)
+	}
+	autoridad, ok := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	if !ok {
+		t.Fatal("autoridad de asignaciones de prueba inesperada")
+	}
+	if autoridad.preparadas != 1 || autoridad.publicadas != 1 {
+		t.Fatalf("asignacion de cobertura no publicada antes de la candidata: %+v", autoridad)
 	}
 }
 

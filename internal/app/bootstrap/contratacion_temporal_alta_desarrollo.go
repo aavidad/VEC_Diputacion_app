@@ -31,6 +31,7 @@ const (
 	unidadCoberturaContratacionTemporalDesarrollo   = "unidad:desarrollo:rrhh"
 	motivoAltaContratacionTemporalDesarrollo        = domain.ClaveCatalogo("sustitucion")
 	accionPropuestaCoberturaDesarrollo              = "contratacion_temporal.cobertura.propuesta.consultar"
+	tipoRecursoDecisionCoberturaDesarrollo          = "decision_cobertura_gobernada"
 	finalidadPropuestaCoberturaDesarrollo           = "presentar_propuesta_cobertura"
 	finalidadDecisionCoberturaDesarrollo            = "tramitar_cobertura_temporal"
 	finalidadAnalisisContratacionTemporalDesarrollo = "analisis.tramitar"
@@ -220,6 +221,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	}
 	autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{
 		delegado: autorizadorBase,
+		soporte:  soporte,
 	}
 	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
 	postgresql, err :=
@@ -590,7 +592,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 ) (dominiovec.InstantaneaAutorizacion, bool) {
 	instantanea, valida := s.instantaneaParaRuta(ruta)
 	dinamica := ruta == httpinterno.RutaAltaSolicitudes ||
-		rutaAnalisisContratacionTemporalDesarrollo(ruta)
+		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
+		ruta == httpinterno.RutaDecisionCobertura ||
+		ruta == httpinterno.RutaRectificacionCobertura
 	if !valida || !dinamica {
 		return instantanea, valida
 	}
@@ -615,6 +619,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
+		}
+	} else if ruta == httpinterno.RutaDecisionCobertura ||
+		ruta == httpinterno.RutaRectificacionCobertura {
+		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if !solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
 		return dominiovec.InstantaneaAutorizacion{}, false
@@ -649,6 +658,29 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	s.mu.Unlock()
 	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada),
 		preparada.Validar() == nil
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) publicarInstantaneaDecisionCobertura(
+	ctx context.Context,
+	ruta string,
+) error {
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida || capacidad.ruta != ruta ||
+		(ruta != httpinterno.RutaDecisionCobertura &&
+			ruta != httpinterno.RutaRectificacionCobertura) {
+		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	instantanea, valida := s.instantaneaParaContexto(ctx, ruta)
+	if !valida || instantanea.Validar() != nil {
+		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	s.mu.Lock()
+	autoridad := s.autoridadAsignaciones
+	s.mu.Unlock()
+	if autoridad == nil || autoridad.PublicarInstantanea(ctx, instantanea) != nil {
+		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	return nil
 }
 
 func claveInstantaneaContratacionTemporalDesarrollo(
@@ -698,6 +730,27 @@ func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
 		datos.Recurso.Atributos[ports.AtributoUnidadPoliticaRef] == unidadCoberturaContratacionTemporalDesarrollo
 }
 
+func solicitudAutorizacionDecisionCoberturaDesarrolloValida(
+	ruta string,
+	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+) bool {
+	accion := string(domain.AccionDecidirCoberturaGobernada)
+	if ruta == httpinterno.RutaRectificacionCobertura {
+		accion = string(domain.AccionRectificarCoberturaGobernada)
+	} else if ruta != httpinterno.RutaDecisionCobertura {
+		return false
+	}
+	return datos.Accion == accion &&
+		datos.Recurso.ModuloID == ports.ModuloContratacion &&
+		datos.Recurso.Tipo == tipoRecursoDecisionCoberturaDesarrollo &&
+		datos.Finalidad == finalidadDecisionCoberturaDesarrollo &&
+		len(datos.Recurso.Ambitos) == 2 &&
+		datos.Recurso.Ambitos["organizacion_ref"] ==
+			organizacionAltaContratacionTemporalDesarrollo &&
+		datos.Recurso.Ambitos["unidad_ejecutora_ref"] ==
+			unidadCoberturaContratacionTemporalDesarrollo
+}
+
 func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
@@ -730,10 +783,10 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 	perfilRef string,
 	ahora time.Time,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
+	concesion := func(accion, finalidad, tipoRecurso string) dominiovec.ConcesionRol {
 		return dominiovec.ConcesionRol{
 			Accion: accion, ModuloID: ports.ModuloContratacion,
-			TipoRecurso:    ports.TipoRecursoExpediente,
+			TipoRecurso:    tipoRecurso,
 			Finalidades:    []string{finalidad},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}
@@ -746,12 +799,13 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 		"Tecnico RRHH de cobertura de desarrollo",
 		"asignacion-rrhh-cobertura-desarrollo-no-autoritativa",
 		[]dominiovec.ConcesionRol{
-			concesion(accionPropuestaCoberturaDesarrollo, finalidadPropuestaCoberturaDesarrollo),
-			concesion(string(domain.AccionDecidirCoberturaGobernada), finalidadDecisionCoberturaDesarrollo),
-			concesion(string(domain.AccionRectificarCoberturaGobernada), finalidadDecisionCoberturaDesarrollo),
+			concesion(accionPropuestaCoberturaDesarrollo, finalidadPropuestaCoberturaDesarrollo, ports.TipoRecursoExpediente),
+			concesion(string(domain.AccionDecidirCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo),
+			concesion(string(domain.AccionRectificarCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo),
 			concesion(
 				string(ports.AccionConsultarResultadoCobertura),
 				string(ports.FinalidadRecuperarResultadoCobertura),
+				ports.TipoRecursoExpediente,
 			),
 		},
 		[]dominiovec.AmbitoPerfil{
