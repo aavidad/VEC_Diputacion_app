@@ -89,6 +89,83 @@ func TestConsultasContratacionTemporalDesarrolloDenieganComoNoCompuestasEnListen
 	}
 }
 
+func TestCarcasaDesarrolloAceptaLaMismaCadenaMTLSVerificada(
+	t *testing.T,
+) {
+	cfg, rutas := generarMaterialDesarrolloConPostgreSQLPrueba(t)
+	servidor, err := NewHTTPServerWithConfig(cfg)
+	if err != nil {
+		t.Fatalf("componer desarrollo: %v", err)
+	}
+	escucha, err := net.Listen("tcp", servidor.Addr)
+	if err != nil {
+		t.Fatalf("abrir listener: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = servidor.Close()
+		_ = escucha.Close()
+	})
+	go func() {
+		_ = servidor.ServeTLS(escucha, cfg.TLSCertFile, cfg.TLSKeyFile)
+	}()
+	baseURL := fmt.Sprintf("https://localhost:%d", escucha.Addr().(*net.TCPAddr).Port)
+
+	cliente := nuevoClienteMTLSContratacionTemporalDesarrollo(t, rutas)
+	anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(t, cliente, rutas)
+	t.Cleanup(func() { cliente.CloseIdleConnections() })
+
+	t.Run("catalogo_de_modulos", func(t *testing.T) {
+		peticion, err := http.NewRequest(http.MethodGet, baseURL+"/api/vec/modules", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		peticion.Header.Set("Accept", "application/json")
+		respuesta, err := cliente.Do(peticion)
+		if err != nil {
+			t.Fatalf("consultar catalogo por mTLS: %v", err)
+		}
+		contenido, err := io.ReadAll(respuesta.Body)
+		respuesta.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if respuesta.StatusCode != http.StatusOK ||
+			!bytes.Contains(contenido, []byte(`"id":"vec.module.contratacion_temporal"`)) {
+			t.Fatalf("catalogo mTLS=%d %s", respuesta.StatusCode, contenido)
+		}
+	})
+
+	t.Run("autoridad_ambiental_denegada", func(t *testing.T) {
+		peticion, err := http.NewRequest(http.MethodGet, baseURL+"/api/vec/modules", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		peticion.Header.Set("X-Vec-Principal", "administrador")
+		respuesta, err := cliente.Do(peticion)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contenido, _ := io.ReadAll(respuesta.Body)
+		respuesta.Body.Close()
+		if respuesta.StatusCode != http.StatusBadRequest ||
+			bytes.Contains(contenido, []byte("vec.module.contratacion_temporal")) {
+			t.Fatalf("autoridad ambiental=%d %s", respuesta.StatusCode, contenido)
+		}
+	})
+
+	t.Run("sin_certificado_no_alcanza_la_carcasa", func(t *testing.T) {
+		transporte := cliente.Transport.(*http.Transport).Clone()
+		transporte.TLSClientConfig = transporte.TLSClientConfig.Clone()
+		transporte.TLSClientConfig.Certificates = nil
+		sinCertificado := &http.Client{Transport: transporte}
+		t.Cleanup(func() { sinCertificado.CloseIdleConnections() })
+		if respuesta, err := sinCertificado.Get(baseURL + "/api/vec/modules"); err == nil {
+			respuesta.Body.Close()
+			t.Fatalf("la carcasa fue accesible sin certificado: %d", respuesta.StatusCode)
+		}
+	})
+}
+
 func anadirCadenaCompletaClienteMTLSContratacionTemporalDesarrollo(
 	t *testing.T,
 	cliente *http.Client,

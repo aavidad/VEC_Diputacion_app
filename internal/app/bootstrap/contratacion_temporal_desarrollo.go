@@ -189,12 +189,13 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
+	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 	if !esRutaContratacionTemporalDesarrollo(r) {
 		m.siguiente.ServeHTTP(w, r)
 		return
 	}
 	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
-		r.Context(), peticionIdentidadConsultasContratacionTemporalDesarrollo(r),
+		r.Context(), r,
 	)
 	if err == nil && principalContratacionTemporalDesarrolloValido(principal) {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
