@@ -159,7 +159,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	capacidad, valida := e.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.Respuesta != ports.RespuestaLlamamientoAceptada {
+		(solicitud.Respuesta != ports.RespuestaLlamamientoAceptada && solicitud.Respuesta != ports.RespuestaLlamamientoRenunciada) {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
 	}
 	if solicitud.VersionEsperada != 2 {

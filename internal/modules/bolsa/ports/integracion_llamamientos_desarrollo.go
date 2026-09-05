@@ -35,6 +35,7 @@ const (
 	AccionPrepararOrdenDesarrollo             = "bolsa.orden.preparar"
 	AccionAbrirLlamamientoDesarrollo          = "bolsa.llamamiento.abrir"
 	AccionAceptarLlamamientoRRHHDesarrollo    = "bolsa.llamamiento.aceptacion_rrhh.registrar"
+	AccionRenunciarLlamamientoRRHHDesarrollo  = "bolsa.llamamiento.renuncia_rrhh.registrar"
 	FinalidadIntegracionLlamamientoDesarrollo = "gestionar_contratacion_temporal"
 )
 
@@ -64,7 +65,7 @@ type PeticionLlamamientoDesarrollo struct {
 	MaximoPosiciones  uint32
 }
 
-// ResolucionLlamamientoDesarrollo liga la aceptación a una evaluación y una
+// ResolucionLlamamientoDesarrollo liga la aceptación o renuncia a una evaluación y una
 // política reacreditadas por la frontera confiable. Las referencias no prueban
 // por sí mismas competencia, entrega, origen del correo ni vigencia del plazo.
 // Este proveedor no fabrica una evaluación positiva ni calcula plazos legales.
@@ -150,14 +151,15 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 		len(r.FirmaFuente) != 64 || r.Instantanea.Validar() != nil {
 		return nil, ErrIntegracionLlamamientoDesarrollo
 	}
-	if r.Tipo != "aceptacion_rrhh" && r.Resolucion != nil {
+	terminal := r.Tipo == "aceptacion_rrhh" || r.Tipo == "renuncia_rrhh"
+	if !terminal && r.Resolucion != nil {
 		return nil, ErrIntegracionLlamamientoDesarrollo
 	}
 	if r.Tipo == "orden" {
 		if r.Propuesta != nil || r.Llamamiento != nil || r.EstadoLlamamiento != "" || r.OrdenOperacionRef != "" {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
-	} else if r.Tipo == "propuesta" || r.Tipo == "aceptacion_rrhh" {
+	} else if r.Tipo == "propuesta" || terminal {
 		if !ReferenciaOpacaLlamamientoValida(r.OrdenOperacionRef) || r.Propuesta == nil ||
 			r.Propuesta.Validar() != nil || r.Propuesta.NecesidadRef != r.NecesidadRef || r.Propuesta.VersionNecesidad != r.VersionNecesidad ||
 			r.Propuesta.InstantaneaRef != r.Instantanea.InstantaneaRef ||
@@ -175,7 +177,8 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 			}
 		} else if r.Resolucion == nil || r.Resolucion.Validar() != nil ||
 			r.Resolucion.AperturaOperacionRef == r.OperacionRef ||
-			r.EstadoLlamamiento != domain.EstadoLlamamientoAceptado || r.Llamamiento.Version != 2 ||
+			(r.Tipo == "aceptacion_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoAceptado) ||
+			(r.Tipo == "renuncia_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoRenunciado) || r.Llamamiento.Version != 2 ||
 			r.Resolucion.ResueltaEn.Before(r.Propuesta.GeneradaEn) || r.Resolucion.ResueltaEn.Before(r.Instantanea.GeneradaEn) {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
@@ -208,8 +211,11 @@ func (r RegistroLlamamientoDesarrollo) Accion() string {
 	if r.Tipo == "propuesta" {
 		return AccionAbrirLlamamientoDesarrollo
 	}
-	if r.Tipo == "aceptacion_rrhh" {
+	if r.Tipo == "aceptacion_rrhh" && r.EstadoLlamamiento == domain.EstadoLlamamientoAceptado {
 		return AccionAceptarLlamamientoRRHHDesarrollo
+	}
+	if r.Tipo == "renuncia_rrhh" && r.EstadoLlamamiento == domain.EstadoLlamamientoRenunciado {
+		return AccionRenunciarLlamamientoRRHHDesarrollo
 	}
 	return ""
 }

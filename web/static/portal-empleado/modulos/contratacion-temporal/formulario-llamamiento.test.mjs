@@ -147,7 +147,9 @@ test("Nueva petición conserva recuperación manual tras remontar incluso si fal
 
 const CORREO = "Subject: Respuesta sintetica\r\n\r\nAceptacion declarada por RRHH.\r\n";
 const HUELLA = createHash("sha256").update(CORREO).digest("hex");
-const archivoCorreo = () => new File([CORREO], "respuesta-sintetica.eml");
+const archivoCorreo = (opcion = "aceptacion") => new File([
+  CORREO.replace("Aceptacion", opcion === "renuncia" ? "Renuncia" : "Aceptacion"),
+], "respuesta-sintetica.eml");
 const comunicacionRegistrada = {
   esquema: "vec.contratacion-temporal.registro-comunicacion-llamamiento.v1",
   estado_local: "registrada_localmente", comunicacion_ref: "comunicacion:sintetica:001",
@@ -186,17 +188,22 @@ const resolucionConfirmada = {
   auditoria_ref: "auditoria:resolucion:001", version_resultante: 3,
   resuelta_en: "2026-09-05T09:05:00.123450Z",
 };
-async function abrirResolucion(raiz, cliente = {}, extras = {}) {
+const reciboResolucion = (opcion, estado_local = "confirmado") => ({
+  ...resolucionConfirmada, respuesta: opcion, estado_local,
+  ...(opcion === "renuncia" ? { intencion_siguiente: { referencia: "intencion:siguiente:001",
+    estado_local: "pendiente", actualizada_en: "2026-09-05T09:05:00.12345Z" } } : {}),
+});
+async function abrirResolucion(raiz, cliente = {}, extras = {}, opcion = "aceptacion") {
   const cerrar = await abrirRespuesta(raiz, cliente, extras);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
-  await raiz.archivo(archivoCorreo());
-  await raiz.enviar("respuesta", declaracion());
+  await raiz.archivo(archivoCorreo(opcion));
+  await raiz.enviar("respuesta", { ...declaracion(), respuesta: opcion });
   raiz.preparar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION,
     revision_respuesta_rrhh: false, revision_plazo_rrhh: false });
   return cerrar;
 }
 
-test("cuarta operación exige justificante confirmado de aceptación y no se solicita automáticamente", async () => {
+test("cuarta operación exige justificante confirmado de aceptación o renuncia y no se solicita automáticamente", async () => {
   for (const opcion of ["aceptacion", "renuncia", "recibo_invalido"]) {
     const raiz = raizPrueba(); let llamadas = 0;
     const cerrar = await abrirRespuesta(raiz, {
@@ -207,14 +214,15 @@ test("cuarta operación exige justificante confirmado de aceptación y no se sol
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
     assert.equal(llamadas, 0);
     delete raiz.borradores.resolucion; // El envío simulado no crea un formulario real.
-    await raiz.archivo(archivoCorreo());
+    await raiz.archivo(archivoCorreo(opcion));
     await raiz.enviar("respuesta", { ...declaracion(), respuesta: opcion === "renuncia" ? opcion : "aceptacion" });
     assert.equal(llamadas, 0);
-    if (opcion === "aceptacion") {
+    if (opcion !== "recibo_invalido") {
       const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="resolucion"[\s\S]*?<\/form>/u)[0];
       assert.match(formulario, /name="clave_idempotencia" value=""/u);
       assert.doesNotMatch(formulario, /type="file"|name="(?:actor_ref|estado_plazo|evaluacion_plazo_ref|politica_ref)"/u);
       assert.match(formulario, /name="respuesta" required disabled/u);
+      assert.match(formulario, new RegExp(`value="${opcion}"\\s+selected`, "u"));
       for (const nombre of Object.keys(revisionManual)) {
         const control = formulario.match(new RegExp(`<input[^>]*name="${nombre}"[^>]*>`, "u"))[0];
         assert.match(control, /type="checkbox"/u);
@@ -238,14 +246,14 @@ test("cuarta operación exige justificante confirmado de aceptación y no se sol
   }
 });
 
-test("resolución exige clave propia y confirmación; el DOM no concede antecedentes, identidad ni plazo", async () => {
+for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exige clave propia y confirmación; DOM no concede respuesta, antecedentes ni plazo`, async () => {
   const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false;
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async (s) => {
-    solicitudes.push(s); return resolucionConfirmada;
+    solicitudes.push(s); return reciboResolucion(opcion);
   } }, { confirmarOperacion: (datos) => {
     if (!datos.datos.prueba_respuesta_ref) return true;
     confirmaciones.push(datos); return confirmar;
-  } });
+  } }, opcion);
   for (const [revision_respuesta_rrhh, revision_plazo_rrhh] of [[false, false], [true, false], [false, true], ["true", "true"]]) {
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
     assert.equal(solicitudes.length, 0);
@@ -262,20 +270,28 @@ test("resolución exige clave propia y confirmación; el DOM no concede antecede
   confirmar = true;
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual,
     organizacion_ref: "org:inventada", expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
-    comunicacion_ref: "com:inventada", version_esperada: "99", respuesta: "renuncia",
+    comunicacion_ref: "com:inventada", version_esperada: "99", respuesta: opcion === "renuncia" ? "aceptacion" : "renuncia",
     prueba_respuesta_ref: "prueba:inventada", estado_plazo: "vigente", actor_ref: "actor:inventado",
     criterio_validacion_ref: "politica:inventada" });
   assert.deepEqual(solicitudes, [{ clave_idempotencia: CLAVE_RESOLUCION,
     organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
-    version_esperada: 2, respuesta: "aceptacion", prueba_respuesta_ref: justificante({}).justificante_ref,
+    version_esperada: 2, respuesta: opcion, prueba_respuesta_ref: justificante({}).justificante_ref,
     ...revisionManual, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" }]);
   assert.ok(Object.isFrozen(solicitudes[0]));
   assert.match(confirmaciones.at(-1).advertencia, /no acredita entrega de correo ni plazo legal real/u);
   assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u);
   assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
+  assert.match(confirmaciones.at(-1).advertencia, new RegExp(`Resolución de ${opcion === "renuncia" ? "renuncia" : "aceptación"}`, "u"));
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u);
-  assert.match(raiz.innerHTML, /Aceptación registrada · ejercicio sintético/u);
+  assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} registrada · ejercicio sintético`, "u"));
+  if (opcion === "renuncia") {
+    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u);
+    assert.match(raiz.innerHTML, /intencion:siguiente:001/u);
+    assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u);
+    assert.match(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u);
+    assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
+  } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada/u);
   assert.match(raiz.innerHTML, /El servidor confirma el registro en Contratación temporal y Bolsa/u);
   assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u);
   assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
@@ -284,7 +300,7 @@ test("resolución exige clave propia y confirmación; el DOM no concede antecede
   cerrar();
 });
 
-test("HTTP 409 pendiente sin efectos libera las casillas pero conserva la clave y exige otra confirmación", async () => {
+for (const opcion of ["aceptacion", "renuncia"]) test(`HTTP 409 pendiente ${opcion} libera casillas pero conserva clave y exige otra confirmación`, async () => {
   const raiz = raizPrueba(), solicitudes = []; let claves = 0, confirmaciones = 0;
   const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
     assert.ok(ruta.endsWith("/resoluciones"));
@@ -298,13 +314,13 @@ test("HTTP 409 pendiente sin efectos libera las casillas pero conserva la clave 
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: cliente.resolverLlamamiento }, {
     confirmarOperacion: () => { confirmaciones += 1; return true; },
     generarClaveIdempotencia: () => { claves += 1; return CLAVE; },
-  });
+  }, opcion);
   assert.equal(solicitudes.length, 0);
   for (let intento = 0; intento < 2; intento += 1) {
     await raiz.enviar("resolucion", { clave_idempotencia: intento === 0 ? CLAVE_RESOLUCION : CLAVE, ...revisionManual });
     assert.equal(solicitudes.length, intento + 1);
-    assert.match(raiz.innerHTML, /Pendiente de validar respuesta y plazo por RRHH\. No se ha confirmado la aceptación\./u);
-    assert.match(raiz.innerHTML, /Revisar y solicitar resolución de aceptación/u);
+    assert.match(raiz.innerHTML, /Pendiente de validar respuesta y plazo por RRHH\. No se ha confirmado la resolución\./u);
+    assert.match(raiz.innerHTML, /Revisar y solicitar resolución/u);
     assert.match(raiz.innerHTML, /name="clave_idempotencia" value="123e4567-e89b-42d3-a456-426614174003"[^>]*readonly/u);
     const control = raiz.innerHTML.match(/<input[^>]*name="revision_plazo_rrhh"[^>]*>/u)[0];
     assert.match(control, /\schecked/u); assert.doesNotMatch(control, /\sdisabled/u);
@@ -324,21 +340,22 @@ test("HTTP 409 pendiente sin efectos libera las casillas pero conserva la clave 
   cerrar();
 });
 
-test("resolución ambigua o recibo inválido conserva el intento incluso si el replay pierde permiso", async () => {
-  for (const invalido of [false, true, "replay_pendiente"]) {
+for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} ambigua o inválida conserva intento incluso si el replay pierde permiso`, async () => {
+  for (const invalido of [false, true, "replay_pendiente", ...(opcion === "renuncia" ? ["sin_intencion"] : [])]) {
     const raiz = raizPrueba(), solicitudes = [];
     const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async (s) => {
       solicitudes.push(s);
       if (solicitudes.length === 1) {
-        if (invalido === true) return { ...resolucionConfirmada, estado_plazo: "vencido" };
+        if (invalido === true) return { ...reciboResolucion(opcion), estado_plazo: "vencido" };
+        if (invalido === "sin_intencion") return { ...resolucionConfirmada, respuesta: opcion };
         throw new Error("transporte interrumpido");
       }
       if (solicitudes.length === 2) throw Object.assign(new Error(), {
         codigo: invalido === "replay_pendiente" ? "validacion_respuesta_pendiente" : "acceso_denegado",
         estado: invalido === "replay_pendiente" ? 409 : 403, envelopeValido: true, resultadoIndeterminado: false,
       });
-      return { ...resolucionConfirmada, estado_local: "replay_confirmado" };
-    } });
+      return reciboResolucion(opcion, "replay_confirmado");
+    } }, {}, opcion);
     for (let intento = 0; intento < 3; intento += 1) {
       await raiz.enviar("resolucion", { clave_idempotencia: intento === 0 ? CLAVE_RESOLUCION : CLAVE,
         revision_respuesta_rrhh: intento === 0, revision_plazo_rrhh: intento === 0 });
@@ -355,19 +372,19 @@ test("resolución ambigua o recibo inválido conserva el intento incluso si el r
   }
 });
 
-test("resolución no duplica al pulsar dos veces; desmontar aborta y descarta el recibo tardío", async () => {
+for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} no duplica; desmontar aborta y descarta el recibo tardío`, async () => {
   const raiz = raizPrueba(); let resolver, signal, llamadas = 0;
   const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: (_, opciones) => {
     llamadas += 1; signal = opciones.signal;
     return new Promise((resolve) => { resolver = resolve; });
-  } });
+  } }, {}, opcion);
   raiz.preparar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
   const pendiente = raiz.enviar("resolucion");
   await raiz.enviar("resolucion");
   assert.equal(llamadas, 1);
   cerrar();
   assert.equal(signal.aborted, true);
-  resolver(resolucionConfirmada);
+  resolver(reciboResolucion(opcion));
   await pendiente;
   assert.equal(raiz.innerHTML, "");
   assert.equal(raiz.eventos.size, 0);

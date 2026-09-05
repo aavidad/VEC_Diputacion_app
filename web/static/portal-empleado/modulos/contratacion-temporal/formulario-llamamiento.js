@@ -10,6 +10,7 @@ import {
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   CAMPOS_RESOLUCION, validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
   CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
+  RESPUESTAS_RESOLUCION,
 } from "./contrato-llamamiento.js";
 
 const OPERACIONES = Object.freeze({
@@ -156,7 +157,7 @@ export function montarFormularioLlamamiento({
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
     if (operacion === "respuesta" && estado.comunicacion.recibo?.version_resultante !== 2) return;
-    if (operacion === "resolucion" && estado.respuesta.recibo?.respuesta !== "aceptacion") return;
+    if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
     guardarBorradores();
     const contrato = OPERACIONES[operacion];
     const recuperandoRespuesta = ["respuesta", "resolucion"].includes(operacion) && paso.solicitud !== null;
@@ -190,6 +191,7 @@ export function montarFormularioLlamamiento({
           version: solicitud.version_esperada,
           justificante: solicitud.prueba_respuesta_ref,
           criterio: solicitud.criterio_validacion_ref,
+          ...(operacion === "resolucion" ? { respuesta: t("llamamiento_resolucion_" + solicitud.respuesta) } : {}),
           ...(operacion === "respuesta" ? {
             respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
             correo: solicitud.correo_ref, huella: solicitud.correo_sha256,
@@ -218,7 +220,7 @@ export function montarFormularioLlamamiento({
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
-      paso.mensaje = operacion === "resolucion" ? "llamamiento_resolucion_recibo"
+      paso.mensaje = operacion === "resolucion" ? "llamamiento_resolucion_recibo_" + recibo.respuesta
         : operacion === "respuesta" ? "llamamiento_respuesta_recibo" : "llamamiento_recibo";
       paso.tono = "exito";
       if (operacion === "seleccion") {
@@ -244,7 +246,7 @@ export function montarFormularioLlamamiento({
           version_comunicacion_esperada: recibo.version_resultante,
         };
       }
-      if (operacion === "respuesta" && recibo.respuesta === "aceptacion") {
+      if (operacion === "respuesta" && RESPUESTAS_RESOLUCION.includes(recibo.respuesta)) {
         estado.resolucion.valores = {
           ...estado.resolucion.valores,
           organizacion_ref: recibo.organizacion_ref, expediente_ref: recibo.expediente_ref,
@@ -287,7 +289,7 @@ export function montarFormularioLlamamiento({
     evento.preventDefault();
     const operacion = control.dataset.ctLlamamientoClave;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
-    if (operacion === "resolucion" && estado.respuesta.recibo?.respuesta !== "aceptacion") return;
+    if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
     const paso = estado[operacion];
     if (paso.solicitud !== null || paso.claveConservada || paso.ocupado || paso.calculando) return;
     guardarBorradores();

@@ -20,6 +20,7 @@ export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
 ]);
 // Configuración fija de este ejercicio de desarrollo; no concede autoridad.
 export const CRITERIO_VALIDACION_RESOLUCION_DESARROLLO = "politica:ct:revision-manual-sintetica:20260906";
+export const RESPUESTAS_RESOLUCION = Object.freeze(["aceptacion", "renuncia"]);
 export const CAMPOS_REVISION_RESOLUCION = Object.freeze([
   "revision_respuesta_rrhh", "revision_plazo_rrhh",
 ]);
@@ -77,7 +78,7 @@ function instanteRespuesta(valor) {
 export function validarSolicitudRespuestaRecibida(entrada) {
   const valor = solicitud(entrada, CAMPOS_RESPUESTA_RECIBIDA, "version_comunicacion_esperada");
   exigir(valor.version_comunicacion_esperada === 2
-    && ["aceptacion", "renuncia"].includes(valor.respuesta)
+    && RESPUESTAS_RESOLUCION.includes(valor.respuesta)
     && typeof valor.correo_sha256 === "string" && /^[0-9a-f]{64}$/u.test(valor.correo_sha256)
     && valor.correo_sha256 !== "0".repeat(64));
   instanteRespuesta(valor.recibida_en);
@@ -97,21 +98,23 @@ export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
   exigir(instanteRespuesta(valor.registrada_en) >= instanteRespuesta(valor.recibida_en));
   return valor;
 }
-// Este corte solicita solo aceptación. El justificante no concede plazo ni
+// La respuesta procede del justificante; este no concede plazo ni
 // autorización: ambos se comprueban en el servidor antes de producir un recibo.
 export function validarSolicitudResolucionLlamamiento(entrada) {
   const valor = solicitud(entrada, CAMPOS_RESOLUCION);
-  exigir(valor.version_esperada === 2 && valor.respuesta === "aceptacion"
+  exigir(valor.version_esperada === 2 && RESPUESTAS_RESOLUCION.includes(valor.respuesta)
     && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true)
     && valor.criterio_validacion_ref === CRITERIO_VALIDACION_RESOLUCION_DESARROLLO);
   return valor;
 }
 export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
   const esperada = validarSolicitudResolucionLlamamiento(solicitudEntrada);
-  // Aceptación no lleva intencion_siguiente; no se admite ni siquiera null.
+  const renuncia = esperada.respuesta === "renuncia";
+  // Intención obligatoria en renuncia y prohibida, incluso null, en aceptación.
   const valor = registro(entrada, [
     "esquema", "respuesta", "estado_plazo", "estado_local", "resolucion_ref",
     "recibo_local_ref", "auditoria_ref", "version_resultante", "resuelta_en",
+    ...(renuncia ? ["intencion_siguiente"] : []),
   ]);
   exigir(valor.esquema === "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1"
     && valor.respuesta === esperada.respuesta && valor.estado_plazo === "vigente"
@@ -120,8 +123,12 @@ export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
     && ["resolucion_ref", "recibo_local_ref", "auditoria_ref"].every(
       (campo) => referenciaLlamamientoValida(valor[campo]),
     ));
-  instanteRespuesta(valor.resuelta_en);
-  return valor;
+  const resuelta = instanteRespuesta(valor.resuelta_en);
+  if (!renuncia) return valor;
+  const intencion = registro(valor.intencion_siguiente, ["referencia", "estado_local", "actualizada_en"]);
+  exigir(referenciaLlamamientoValida(intencion.referencia) && intencion.estado_local === "pendiente"
+    && instanteRespuesta(intencion.actualizada_en) >= resuelta);
+  return Object.freeze({ ...valor, intencion_siguiente: intencion });
 }
 export function validarReciboSeleccionLlamamiento(entrada) {
   const valor = registro(entrada, [

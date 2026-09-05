@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `4a2138e`.**
+**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `17ea874`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -21,12 +21,23 @@ Los rechazos intermitentes por comparar como texto fechas equivalentes están
 corregidos mediante comparación de instantes; el diagnóstico se retiró.
 También se comprobó un conflicto `409` desde el navegador, sin duplicado.
 
-**Corte actual incluido en esta entrega: aceptación manual sintética.** El cuarto
+**Corte 4 publicado: aceptación manual sintética.** El cuarto
 formulario reutiliza antecedentes y justificante, exige dos revisiones expresas
 con política fija de desarrollo y devuelve éxito solo tras confirmar CT y Bolsa.
 Navegador real `200/200/200/201`; tras reiniciar aplicación y PostgreSQL principal,
 `200/200/200/200`, mismo recibo CT y fecha, sin duplicados ni errores JS, cookies,
 almacenamiento web o desbordamiento. Cierre técnico, no aprobación de política legal.
+
+**Corte 5: renuncia manual sintética registrada.** Navegador real
+`200/201/201/201` sobre otro expediente creado desde la UI, fiscalizado en `v6`;
+la base principal conserva **51 solicitudes**, con bandeja y detalle consultables.
+El mismo cuarto formulario
+conserva resolución e intención de siguiente candidato **pendiente**, sin ejecutar
+otro llamamiento. Sin errores JS, cookies, almacenamiento web ni desbordamiento.
+Tras reiniciar aplicación y PostgreSQL principal, dirección confirmó
+`200/200/200/200`, mismos recibo, resolución, auditoría, fecha e intención, sin
+duplicados. Objetivo 5 cerrado funcionalmente solo para el ejercicio sintético;
+criterio manual provisional, sin aval legal ni aprobación del operador.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -71,7 +82,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH y aceptación manual sintética persistentes y recuperables tras reinicio, sin duplicados. | Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. No acredita entrega ni plazo legal aprobado. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperables tras reinicio; intención de siguiente pendiente. | Faltan vencimiento, siguiente candidato y correo corporativo. No acredita entrega ni plazo legal aprobado. |
 | 7. Nombramiento | Pendiente enlace desde aceptación sintética (objetivo 8). | No se declaran terminados sus seis documentos, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -87,9 +98,12 @@ se custodia. El aviso sigue siendo local, no correo corporativo entregado.
 AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están instaladas en
 ambas bases, con ambas apps en la compilación corregida; AD3-16/CT57 ya estaban.
 No reaplicar. La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble
-privado transaccional. El roundtrip actual UP/DOWN de las cuatro migraciones
+privado transaccional. El roundtrip de aceptación UP/DOWN de esas cuatro migraciones
 verificó reversión exacta en ROLLBACK, sin modificar autorización ni usar dobles.
 El navegador actual sí usó criptografía real; no confundir estas comprobaciones.
+AD3 `000018` / Bolsa `000005` / CT `000059` también están instaladas en ambas
+bases: dirección confirmó UP/DOWN con ACL, funciones y comprobaciones conservadas.
+No reaplicar ni ejecutar DOWN sobre los registros guardados.
 Las preguntas pendientes no detienen la programación independiente ni autorizan
 a inventar plazo o autoridad; continúa **5/8 más parte del sexto**.
 
@@ -107,8 +121,9 @@ a inventar plazo o autoridad; continúa **5/8 más parte del sexto**.
 5. Para continuar el llamamiento existente, utilice sus datos y claves
    originales. Recuperar no significa crear otra solicitud o preparar una
    clave nueva. La guía conserva el ejemplo exacto de la respuesta y enlaza
-   el `.eml` sintético que debe cargarse sin cambios. La recuperación ya está
-   comprobada; no eluda un rechazo cambiando claves o repitiendo el registro.
+   el `.eml` sintético de aceptación que debe cargarse sin cambios. El caso de
+   renuncia usa su propio material y claves; su recuperación tras reinicio también está confirmada.
+   No eluda un rechazo cambiando claves o repitiendo el registro.
 6. Para verificar un reinicio, siga la guía conservando PostgreSQL y el
    material de seguridad. El resultado recuperado mantiene recibo y fecha;
    no debe duplicar el efecto.

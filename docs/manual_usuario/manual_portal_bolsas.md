@@ -10,10 +10,10 @@ autorizado para tramitar expedientes de personas reales.
 
 **Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH, más aceptación manual del ejercicio sintético.** No están
+respuesta por RRHH, más aceptación y renuncia manuales del ejercicio sintético.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
-La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
-`8443`/base `55433`; no incrementa el contador de pasos.
+La base principal conserva 51 solicitudes, con bandeja y detalle consultables
+en el recorrido local `8443`/base `55433`; no incrementa el contador de pasos.
 
 **Incluido en esta entrega; recuperación demostrada:**
 el registro de declaración RRHH obtuvo `HTTP 201`. Corregida la comparación
@@ -24,10 +24,17 @@ registro. Sin errores JavaScript, cookies, almacenamiento web ni desbordamiento
 horizontal en ese recorrido. También se confirmó un conflicto real `409` en
 navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.
 
-**Corte actual incluido en esta entrega:** aceptación manual sintética `201`;
+**Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`;
 tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
 mismo recibo y fecha, sin duplicados. Cierre técnico con servicios y permisos reales,
 no aprobación de un plazo legal. Continúan **5/8 pasos completos más parte del sexto**.
+
+**Corte 5 incluido en esta entrega:** renuncia manual sintética registrada desde
+el mismo formulario: navegador real `200/201/201/201` y recuperación
+`200/200/200/200` tras reiniciar aplicación y PostgreSQL principal, con los mismos
+recibo, resolución, auditoría, fecha e intención pendiente, sin duplicados.
+Sin errores JS, cookies, almacenamiento web ni desbordamiento. Objetivo 5 cerrado
+funcionalmente en desarrollo; criterio provisional sin aval legal ni del operador.
 
 Para elegir la documentación adecuada:
 
@@ -58,7 +65,7 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.
 | Zona | Qué puede esperar en esta edición |
 |---|---|
 | Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
-| Cuadro y detalle de expedientes de Contratación temporal | Bandeja real de desarrollo: 50 expedientes y detalle consultable en `8443`/`55433`, con datos sintéticos. |
+| Cuadro y detalle de expedientes de Contratación temporal | La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/`55433`, con datos sintéticos. |
 | Gestión interna de Bolsas | Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5. |
 | Consulta pública de convocatorias | Listado, filtros, detalle y documentos cuando el servicio público esté habilitado. Compruebe el aviso de la fuente; no permite tramitar una candidatura personal. |
 | Otros módulos del portal | Solo están disponibles si el servidor los habilita para su perfil. No se consideran terminados por aparecer en la portada. |
@@ -152,7 +159,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración RRHH y aceptación manual sintética. | Aceptación `201` y recuperación `200` tras reinicio, sin duplicados. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas. | Ambas resoluciones `201` y recuperación `200` tras reinicio, sin duplicados; intención de siguiente pendiente en renuncia. Faltan vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -230,8 +237,10 @@ clave nueva**: mantenga la clave y todos los datos originales.
    clave ni cambie los datos para forzar el registro: avise al operador.
 
 Para practicar, use el [correo sintético existente](../manual_rrhh/ejemplos/respuesta_sintetica.eml)
-y los datos conservados de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Ese archivo
+y los datos del caso de aceptación de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Ese archivo
 **nunca se envió y no corresponde a una persona real**.
+El caso de renuncia tiene otro correo y otras claves: use su apartado de la guía,
+no cambie la respuesta ni los bytes del ejemplo anterior para recuperar la renuncia.
 
 El original sigue en el sistema de correo; VEC registra la declaración, su
 referencia y su huella, **sin verificar origen, firma ni custodia**. No acredita
@@ -239,28 +248,35 @@ envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
 la versión `2`, el expediente observado sigue en `6` y no cambia la candidatura
 ni su estado en Bolsa. No aumenta el contador de pasos.
 
-### Registrar aceptación manual: solo ejercicio sintético
+### Registrar aceptación o renuncia manual: solo ejercicio sintético
 
-1. Recupere la declaración **Aceptación declarada en el correo** con los datos
+1. Recupere la declaración **Aceptación declarada en el correo** o **Renuncia
+   declarada en el correo** con los datos
    originales de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Aparece **4. Solicitar
-   resolución de aceptación** en el mismo formulario. Sus referencias y el
-   justificante se toman del recibo de comunicación `v2`.
+   resolución de respuesta** en el mismo formulario. La respuesta y el justificante
+   proceden del recibo de declaración confirmado, enlazado a comunicación `v2`;
+   no puede elegir otra respuesta desde la resolución.
 2. Use una clave propia para resolución, distinta de las operaciones anteriores.
-   Para recuperar una aceptación registrada, conserve su clave y datos originales.
+   Para recuperar una resolución registrada, conserve su clave y datos originales.
 3. Solo tras comprobar el caso sintético, marque las dos casillas, inicialmente
    vacías: **He comprobado la respuesta y su justificante** y **Para este ejercicio
    sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio**.
    El criterio de desarrollo es de solo lectura. No se aporta otro `.eml`.
-4. Pulse **Revisar y solicitar resolución de aceptación** y confirme expresamente.
-   Solo tras confirmar CT y Bolsa aparece **Aceptación registrada · ejercicio sintético**.
+4. Pulse **Revisar y solicitar resolución** y confirme expresamente. Solo tras
+   confirmar CT y Bolsa aparece **Aceptación registrada · ejercicio sintético**
+   o **Renuncia registrada · ejercicio sintético**, según la declaración original.
+   La renuncia muestra referencia, fecha UTC y **Siguiente candidato pendiente**:
+   no se ha seleccionado ni avisado a otra persona.
 
 **Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
 Sin ambas casillas no se envía. La petición antigua sin revisión manual conserva
 el `409` de validación pendiente, sin efectos: puede corregir casillas con la misma
 clave. Ante resultado ambiguo, clave y material quedan congelados, sin reintento automático.
-Dirección confirmó `201` y replay `200` tras reinicio, con el mismo recibo y fecha.
+Dirección confirmó ambas resoluciones `201` y recuperación `200` tras reinicio,
+con sus respectivos recibos y fechas originales; la intención de renuncia sigue pendiente.
 El enlace a propuesta de nombramiento (objetivo 8) sigue pendiente; no hay política
-legal aprobada, renuncia, vencimiento, siguiente candidato ni correo corporativo completos.
+legal aprobada, vencimiento, siguiente candidato ni correo corporativo completos.
+El criterio manual es provisional y exclusivo de desarrollo sintético, no aval del operador.
 
 ### Qué ocurre después de un reinicio
 
@@ -276,6 +292,10 @@ temporal y repetir el reinicio de aplicación y PostgreSQL. El navegador devolvi
 Los identificadores exactos constan en el [manual de RRHH](../manual_rrhh/README.md).
 La aceptación manual sintética también se recuperó tras reiniciar aplicación y
 PostgreSQL principal: `200/200/200/200`, mismo recibo CT y fecha, sin duplicados.
+La renuncia manual sintética también: `200/200/200/200`, mismos recibo, resolución,
+auditoría, fecha e intención pendiente con su carga real. La aceptación anterior
+y su declaración siguen intactas. La [guía](../../GUIA_RECORRIDO_ALBERTO.md)
+separa las claves de ambos casos; no se ha ejecutado el siguiente candidato.
 
 El formulario sin confirmar no se guarda automáticamente en el navegador.
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.

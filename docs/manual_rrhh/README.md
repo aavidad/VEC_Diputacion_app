@@ -2,8 +2,8 @@
 
 Contratación temporal · VEC Diputación · Corte: 6 de septiembre de 2026.
 
-**Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
-real muestra 50 expedientes y su detalle en el recorrido local (`8443` / base
+**Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
+La base principal conserva 51 solicitudes; bandeja y detalle consultables (`8443` / base
 `55433`). El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
 recupera el recibo único tras reinicio, mediante lectura independiente de
 PostgreSQL y navegador.
@@ -19,15 +19,21 @@ aplicación y PostgreSQL. Mismos recibo, justificante y fecha, sin nuevo registr
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo; no aumenta el contador.
 
-**Corte actual incluido en esta entrega:** aceptación manual sintética `201`;
+**Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`;
 tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
 mismo recibo y fecha, sin duplicados. Cierre técnico, no aprobación de política
 legal ni del procedimiento por RRHH. Continúan **5/8 pasos más parte del 6**.
 
+**Corte 5 incluido en esta entrega:** renuncia manual sintética registrada;
+navegador real `200/201/201/201` y, tras reiniciar aplicación y PostgreSQL principal,
+`200/200/200/200`, mismos recibo, resolución, auditoría, fecha e intención pendiente.
+Sin duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
+Objetivo 5 cerrado funcionalmente solo en desarrollo, sin aval legal ni del operador.
+
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más selección,
-aviso local, declaración y aceptación manual sintética del sexto.** Se usa la aplicación
+aviso local, declaración, aceptación y renuncia manuales sintéticas del sexto.** Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -40,12 +46,13 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso, declaración y aceptación manual sintética recuperables tras reinicio. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación y renuncia manuales sintéticas recuperables tras reinicio; intención de siguiente pendiente. Faltan vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Pendiente enlace desde aceptación sintética (objetivo 8), modelos y circuito de firmas; no recorrible de extremo a extremo. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
-lista 50 expedientes y abre el detalle real en `8443`/`55433`. Esto no convierte
+la base principal conserva 51 solicitudes, con bandeja y detalle consultables
+en `8443`/`55433`. Esto no convierte
 los datos sintéticos en expedientes reales ni amplía los cinco pasos y parte
 del sexto. Para recuperar el llamamiento se usan las referencias conservadas
 en la guía.
@@ -196,8 +203,8 @@ firmada; la orden, el llamamiento y el registro local sí quedan persistidos.
 La versión local resultante `2` de comunicación no es la versión del
 expediente. **Registrar el aviso local no abre plazo legal, no acredita
 aceptación y no permite dar por realizado el nombramiento.** No hay recorrido
-completo de envío, entrega, renuncia o vencimiento. La aceptación manual se
-limita al ejercicio sintético descrito debajo. No use las
+completo de envío, entrega o vencimiento. La aceptación y la renuncia manuales se
+limitan al ejercicio sintético descrito debajo. No use las
 opciones de una pantalla de demostración para simular esas decisiones.
 
 #### Operación 3: registrar la respuesta declarada por RRHH
@@ -224,6 +231,9 @@ Ejemplo reproducible: [respuesta_sintetica.eml](ejemplos/respuesta_sintetica.eml
 `7984edfd3ba13c87b0c04160dbfa8b338b356ead70d80df04066e67e4ed419b9`.
 Para recuperar la declaración existente use los datos y la clave de la
 [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md), no una operación nueva.
+Este archivo corresponde al caso de aceptación. La renuncia usa su propio
+correo sintético conservado por el operador, con la huella y claves de la guía;
+no sustituya un correo por el otro ni reconstruya su contenido para recuperar.
 
 El servidor conserva actor, declaración y recibo. El justificante enlaza la
 referencia y la huella declaradas: **no conserva el correo ni verifica origen,
@@ -245,12 +255,13 @@ registro**. El recorrido quedó comprobado sin errores JavaScript, cookies,
 almacenamiento web ni desbordamiento horizontal. Cierra esta entrega de
 declaración, no la aceptación terminal ni todo el paso 6.
 
-#### Operación 4: aceptación manual del ejercicio sintético
+#### Operación 4: aceptación o renuncia manual del ejercicio sintético
 
-Después de recuperar una declaración `aceptacion`, aparece **4. Solicitar
-resolución de aceptación** en el mismo formulario. Reutiliza las referencias
+Después de recuperar una declaración `aceptacion` o `renuncia`, aparece **4. Solicitar
+resolución de respuesta** en el mismo formulario. Reutiliza las referencias
 originales, recibo de comunicación `v2` y justificante; no permite cambiar sus
-antecedentes ni conceder identidad. Use una clave propia; si recupera, la original.
+antecedentes, elegir otra respuesta ni conceder identidad. Use una clave propia;
+si recupera, la original.
 Solo tras comprobar el caso, marque las dos casillas inicialmente vacías:
 
 - **He comprobado la respuesta y su justificante**.
@@ -260,7 +271,10 @@ El criterio fijo, de solo lectura, es `politica:ct:revision-manual-sintetica:202
 **Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
 Revise y confirme expresamente, sin otro `.eml`. El servidor conserva declaración,
 actor y política con permisos propios; solo tras CT y Bolsa muestra
-**Aceptación registrada · ejercicio sintético**. La declaración del corte 3 no basta.
+**Aceptación registrada · ejercicio sintético** o **Renuncia registrada · ejercicio
+sintético**, según el recibo antecedente. La declaración del corte 3 no basta.
+La renuncia añade referencia, fecha UTC y **Siguiente candidato pendiente**;
+no confirma selección ni aviso a otra persona.
 
 Dirección confirmó `201` con API/V3/CT58/Bolsa4 reales y `200/200/200/200`
 tras reiniciar aplicación y PostgreSQL principal, sin duplicados:
@@ -269,10 +283,25 @@ tras reiniciar aplicación y PostgreSQL principal, sin duplicados:
 - Resolución: `7a3e4a2e-d142-4562-ae5c-59c95b011e0c`.
 - Fecha UTC conservada: `2026-09-05T22:27:02.861379Z`.
 
+Para renuncia, dirección confirmó navegador real `200/201/201/201` y recuperación
+`200/200/200/200` tras reiniciar app/PostgreSQL principal. Otro expediente,
+`fe4934a1…`, fiscalizado `v6`, conserva:
+
+- Recibo CT: `recibo:408fda57-638d-4a3b-a441-4ef56396e23a`.
+- Resolución: `resolucion:0c5fdea4-be11-4bdd-bd0b-5bc035dd9ae0`.
+- Fecha UTC: `2026-09-05T23:00:45.289468Z`.
+- Intención: `intencion:f4bd0049-8b96-410b-8144-4384bdb47ed0`, pendiente.
+
+Tras reinicio se conservan esos datos, auditoría y carga de intención en la misma
+fila CT, sin duplicados ni siguiente ejecutado. Aceptación y declaración anteriores
+intactas. La [guía, caso de renuncia](../../GUIA_RECORRIDO_ALBERTO.md#corte-5-recuperar-la-renuncia-manual-sintética)
+contiene expediente completo, cuatro claves y correo/huella/fecha originales.
+El método es manual provisional solo para desarrollo sintético, no aval del operador.
+
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. El enlace
+Faltan vencimiento, siguiente candidato y correo corporativo. El enlace
 al nombramiento (objetivo 8) sigue pendiente; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
@@ -316,6 +345,7 @@ incluya certificados o secretos en una captura o incidencia.
 | Alta o análisis tras cerrar la página | La persistencia existe, pero la guía advierte que no tienen aún una vista de recarga de recibos cerrados. Pida comprobación al operador, no cree un duplicado. |
 | Recuperación de selección y comunicación | La guía acredita mismos recibos y fechas tras reiniciar, usando las claves originales. No pulse **Preparar clave nueva** para recuperar ese caso. |
 | Recuperación de la declaración RRHH | Comprobada tras el segundo reinicio de aplicación y PostgreSQL: mismos recibo, justificante y fecha, sin nuevo registro. Conserve la misma clave y todos los datos originales. |
+| Recuperación de la renuncia manual sintética | Comprobada tras reiniciar aplicación y PostgreSQL principal: mismos recibo, resolución, auditoría, fecha e intención pendiente. Use sus cuatro claves originales, no las de aceptación. |
 
 La recuperación de una selección interrumpida está acotada al estado
 admitido por el servidor. No autoriza a borrar historia, reiniciar estados o

@@ -575,33 +575,82 @@ func escenarioAceptacionPuentePrueba(t *testing.T) (*puenteBolsaLlamamientoDesar
 }
 
 func TestPuenteBolsaLlamamientoDesarrolloAceptacionReutilizaAperturaYReplay(t *testing.T) {
+	for _, caso := range []struct {
+		tipo, prefijo, accion string
+		estado                dominiobolsa.EstadoLlamamiento
+		resolver              func(*puenteBolsaLlamamientoDesarrollo, context.Context, ports.SolicitudResolverLlamamiento, ports.ReciboSolicitudLlamamientoBolsa, puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error)
+	}{
+		{"aceptacion_rrhh", "operacion-aceptacion-rrhh", puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, dominiobolsa.EstadoLlamamientoAceptado, (*puenteBolsaLlamamientoDesarrollo).AceptarRespuestaRRHH},
+		{"renuncia_rrhh", "operacion-renuncia-rrhh", puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, dominiobolsa.EstadoLlamamientoRenunciado, (*puenteBolsaLlamamientoDesarrollo).RenunciarRespuestaRRHH},
+	} {
+		t.Run(caso.tipo, func(t *testing.T) {
+			p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
+			if caso.tipo == "renuncia_rrhh" {
+				s.Respuesta = ports.RespuestaLlamamientoRenunciada
+				p.autorizadorRenuncia, p.autorizadorAceptacion = a, autorizadorPuenteBolsaDenegado{}
+			}
+			canonOriginal, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
+			r, err := caso.resolver(p, ctx, s, seleccion, resolucion)
+			if err != nil {
+				t.Fatal(err)
+			}
+			esperada := referenciaPuenteLlamamientoDesarrollo(caso.prefijo, s.OrganizacionRef, s.ExpedienteRef, seleccion.OperacionRef, s.ClaveIdempotencia)
+			if r.Registro.Tipo != caso.tipo || r.Registro.OperacionRef != esperada || r.Registro.Llamamiento.Version != 2 ||
+				r.Registro.EstadoLlamamiento != caso.estado || r.Registro.Llamamiento.LlamamientoRef != seleccion.LlamamientoRef ||
+				r.Registro.Resolucion.AperturaOperacionRef != seleccion.OperacionRef || a.llamadas != 1 ||
+				a.accion != caso.accion || len(repo.filas) != 3 {
+				t.Fatal("aceptación creó otra apertura o utilizó otro permiso")
+			}
+			p2 := *p
+			repo.reloj.instante = repo.reloj.instante.Add(time.Minute)
+			replay, err := caso.resolver(&p2, ctx, s, seleccion, resolucion)
+			if err != nil || replay.ReciboRef != r.ReciboRef || replay.ConfirmadaEn != r.ConfirmadaEn ||
+				replay.Registro.Resolucion.ResueltaEn != r.Registro.Resolucion.ResueltaEn || a.llamadas != 2 || len(repo.filas) != 3 || repo.guardados != 4 {
+				t.Fatal("recuperación sin autorización nueva o con fecha/efectos distintos", err)
+			}
+			canonActual, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
+			if !bytes.Equal(canonOriginal, canonActual) || !resolucion.ResueltaEn.IsZero() {
+				t.Fatal("mutó apertura o resolución de entrada")
+			}
+			resolucion.PoliticaVersion++
+			if _, err = caso.resolver(p, ctx, s, seleccion, resolucion); err == nil || repo.guardados != 4 || a.llamadas != 2 {
+				t.Fatal("replay divergente alcanzó autorización o persistencia")
+			}
+		})
+	}
+}
+
+func TestPuenteBolsaLlamamientoDesarrolloRenunciaExigePermisoYRespuestaPropios(t *testing.T) {
 	p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
-	canonOriginal, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
-	r, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion)
-	if err != nil {
-		t.Fatal(err)
+	s.Respuesta = ports.RespuestaLlamamientoRenunciada
+	for _, ausente := range []puertosbolsa.AutorizadorLlamamientoDesarrollo{nil, (*autorizadorAceptacionPuentePrueba)(nil)} {
+		p.autorizadorRenuncia = ausente
+		lecturas := len(repo.busquedas)
+		if r, err := p.RenunciarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrAutorizacionDenegada) || r.ReciboRef != "" || len(repo.busquedas) != lecturas || a.llamadas != 0 {
+			t.Fatal("renuncia sin permiso propio consultó o reutilizó aceptación", err)
+		}
 	}
-	esperada := referenciaPuenteLlamamientoDesarrollo("operacion-aceptacion-rrhh", s.OrganizacionRef, s.ExpedienteRef, seleccion.OperacionRef, s.ClaveIdempotencia)
-	if r.Registro.Tipo != "aceptacion_rrhh" || r.Registro.OperacionRef != esperada || r.Registro.Llamamiento.Version != 2 ||
-		r.Registro.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoAceptado || r.Registro.Llamamiento.LlamamientoRef != seleccion.LlamamientoRef ||
-		r.Registro.Resolucion.AperturaOperacionRef != seleccion.OperacionRef || a.llamadas != 1 ||
-		a.accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo || len(repo.filas) != 3 {
-		t.Fatal("aceptación creó otra apertura o utilizó otro permiso")
+	p.autorizadorRenuncia = a
+	s.Respuesta = ports.RespuestaLlamamientoAceptada
+	if _, err := p.RenunciarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrPeticionIntegracionBolsaInvalida) || a.llamadas != 0 {
+		t.Fatal("método de renuncia admitió aceptación", err)
 	}
-	p2 := *p
-	repo.reloj.instante = repo.reloj.instante.Add(time.Minute)
-	replay, err := p2.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion)
-	if err != nil || replay.ReciboRef != r.ReciboRef || replay.ConfirmadaEn != r.ConfirmadaEn ||
-		replay.Registro.Resolucion.ResueltaEn != r.Registro.Resolucion.ResueltaEn || a.llamadas != 2 || len(repo.filas) != 3 || repo.guardados != 4 {
-		t.Fatal("recuperación sin autorización nueva o con fecha/efectos distintos", err)
+	s.Respuesta = ports.RespuestaLlamamientoRenunciada
+	if _, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrPeticionIntegracionBolsaInvalida) || a.llamadas != 0 {
+		t.Fatal("método de aceptación admitió renuncia", err)
 	}
-	canonActual, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
-	if !bytes.Equal(canonOriginal, canonActual) || !resolucion.ResueltaEn.IsZero() {
-		t.Fatal("mutó apertura o resolución de entrada")
+	seleccion.Orden.Version++
+	if _, err := p.RenunciarRespuestaRRHH(ctx, s, seleccion, resolucion); err == nil || a.llamadas != 0 || repo.guardados != 2 {
+		t.Fatal("renuncia desligada alcanzó permiso o efecto")
 	}
-	resolucion.PoliticaVersion++
-	if _, err = p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); err == nil || repo.guardados != 4 || a.llamadas != 2 {
-		t.Fatal("replay divergente alcanzó autorización o persistencia")
+	seleccion.Orden.Version--
+	a.denegar = true
+	if r, err := p.RenunciarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrAutorizacionDenegada) || r.ReciboRef != "" || repo.guardados != 2 {
+		t.Fatal("renuncia denegada produjo efecto", err)
+	}
+	a.denegar, repo.fallar = false, true
+	if r, err := p.RenunciarRespuestaRRHH(ctx, s, seleccion, resolucion); err == nil || r.ReciboRef != "" || len(repo.filas) != 2 {
+		t.Fatal("renuncia fallida produjo recibo", err)
 	}
 }
 

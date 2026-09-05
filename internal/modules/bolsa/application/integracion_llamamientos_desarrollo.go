@@ -209,6 +209,22 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarLlamamiento(ctx con
 // Reutiliza la apertura durable, el dominio y Guardar con autorización propia.
 // El repositorio debe confirmar CAS, terminal, recibo, historia y evento juntos.
 func (s *ServicioIntegracionLlamamientosDesarrollo) AceptarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
+	return s.resolverLlamamiento(ctx, p, false)
+}
+
+// RenunciarLlamamiento aplica la misma frontera confiable que la aceptación,
+// con permiso propio de renuncia. No selecciona ni avisa al siguiente candidato.
+func (s *ServicioIntegracionLlamamientosDesarrollo) RenunciarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
+	return s.resolverLlamamiento(ctx, p, true)
+}
+
+// Solo existen estos dos pares tipo/estado. No se expone una resolución genérica
+// que permita al llamador elegir un estado o una acción arbitrarios.
+func (s *ServicioIntegracionLlamamientosDesarrollo) resolverLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo, renuncia bool) (ports.ReciboLlamamientoDesarrollo, error) {
+	tipo, estado := "aceptacion_rrhh", domain.EstadoLlamamientoAceptado
+	if renuncia {
+		tipo, estado = "renuncia_rrhh", domain.EstadoLlamamientoRenunciado
+	}
 	vacio := ports.ReciboLlamamientoDesarrollo{}
 	if ctx == nil || s == nil || p.Validar() != nil || dependenciaLlamamientoNula(s.repositorio) ||
 		dependenciaLlamamientoNula(s.autorizador) || dependenciaLlamamientoNula(s.reloj) {
@@ -234,7 +250,7 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) AceptarLlamamiento(ctx conte
 	}
 	resolucion := p.Resolucion
 	if recuperada {
-		if existente.Tipo != "aceptacion_rrhh" || existente.OperacionRef != p.OperacionRef || existente.Resolucion == nil ||
+		if existente.Tipo != tipo || existente.OperacionRef != p.OperacionRef || existente.Resolucion == nil ||
 			existente.Resolucion.Validar() != nil {
 			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
 		}
@@ -257,15 +273,15 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) AceptarLlamamiento(ctx conte
 	if err != nil {
 		return vacio, err
 	}
-	aceptado, err := abierto.TransicionarATerminal(resolucion.VersionEsperada, &domain.TerminalLlamamiento{
-		Estado: domain.EstadoLlamamientoAceptado, OperacionRef: p.OperacionRef,
+	resuelto, err := abierto.TransicionarATerminal(resolucion.VersionEsperada, &domain.TerminalLlamamiento{
+		Estado: estado, OperacionRef: p.OperacionRef,
 	})
 	if err != nil {
 		return vacio, err
 	}
-	datos := aceptado.Datos()
-	r.OperacionRef, r.Tipo = p.OperacionRef, "aceptacion_rrhh"
-	r.Llamamiento, r.EstadoLlamamiento, r.Resolucion = &datos, aceptado.Estado(), &resolucion
+	datos := resuelto.Datos()
+	r.OperacionRef, r.Tipo = p.OperacionRef, tipo
+	r.Llamamiento, r.EstadoLlamamiento, r.Resolucion = &datos, resuelto.Estado(), &resolucion
 	canon, err := r.Canonico()
 	if err != nil {
 		return vacio, ports.ErrIntegracionLlamamientoDesarrollo

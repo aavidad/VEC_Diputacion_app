@@ -40,7 +40,7 @@ func TestSolicitudResolverLlamamientoRevisionManualYProyeccionLegacy(t *testing.
 		"sin_plazo":         func(s *SolicitudResolverLlamamiento) { s.RevisionPlazoRRHH = false },
 		"sin_criterio":      func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "" },
 		"criterio_invalido": func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "no válido" },
-		"renuncia":          func(s *SolicitudResolverLlamamiento) { s.Respuesta = RespuestaLlamamientoRenunciada },
+		"expiracion":        func(s *SolicitudResolverLlamamiento) { s.Respuesta = RespuestaLlamamientoExpirada },
 		"otra_version":      func(s *SolicitudResolverLlamamiento) { s.VersionEsperada = 3 },
 		"solo_criterio":     func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH, s.RevisionPlazoRRHH = false, false },
 	} {
@@ -51,6 +51,20 @@ func TestSolicitudResolverLlamamientoRevisionManualYProyeccionLegacy(t *testing.
 				t.Fatal("revisión incompleta aceptada")
 			}
 		})
+	}
+	renuncia := manual
+	renuncia.Respuesta = RespuestaLlamamientoRenunciada
+	if renuncia.Validar() != nil || !renuncia.RevisionManualConfirmada() {
+		t.Fatal("renuncia manual explícita rechazada")
+	}
+	resultado := resultadoResolucionComunicacionPrueba(renuncia, ResultadoComunicacionLlamamientoConfirmado,
+		PlazoLlamamientoVigente, estadoOutbox(OutboxSiguienteCandidatoPendiente))
+	if resultado.ValidarPara(renuncia) != nil {
+		t.Fatal("renuncia sin intención pendiente válida")
+	}
+	resultado.IntencionSiguiente = IntencionOutboxSiguienteCandidato{}
+	if resultado.ValidarPara(renuncia) == nil {
+		t.Fatal("renuncia aceptada sin intención siguiente")
 	}
 }
 

@@ -66,6 +66,7 @@ type puenteBolsaLlamamientoDesarrollo struct {
 	// Solo composición puede inyectar el permiso propio tras validar respuesta
 	// y plazo. Nunca se sustituye por el autorizador de selección o consulta.
 	autorizadorAceptacion puertosbolsa.AutorizadorLlamamientoDesarrollo
+	autorizadorRenuncia   puertosbolsa.AutorizadorLlamamientoDesarrollo
 	reloj                 ports.Reloj
 	privadaFuente         ed25519.PrivateKey
 	seleccion             selladorPuenteLlamamientoDesarrollo
@@ -614,9 +615,31 @@ func (p *puenteBolsaLlamamientoDesarrollo) AceptarRespuestaRRHH(ctx context.Cont
 	solicitud ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa,
 	resolucion puertosbolsa.ResolucionLlamamientoDesarrollo,
 ) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	return p.resolverRespuestaRRHH(ctx, solicitud, seleccion, resolucion, false)
+}
+
+// RenunciarRespuestaRRHH exige los mismos antecedentes reacreditados y un
+// autorizador separado. Devuelve solo el terminal Bolsa, no el siguiente candidato.
+func (p *puenteBolsaLlamamientoDesarrollo) RenunciarRespuestaRRHH(ctx context.Context,
+	solicitud ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa,
+	resolucion puertosbolsa.ResolucionLlamamientoDesarrollo,
+) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	return p.resolverRespuestaRRHH(ctx, solicitud, seleccion, resolucion, true)
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Context,
+	solicitud ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa,
+	resolucion puertosbolsa.ResolucionLlamamientoDesarrollo, renuncia bool,
+) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
 	vacio := puertosbolsa.ReciboLlamamientoDesarrollo{}
-	if ctx == nil || p == nil || p.alta == nil || p.alta.soporte == nil ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(p.autorizadorAceptacion) {
+	if ctx == nil || p == nil || p.alta == nil || p.alta.soporte == nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	respuesta, prefijo, autorizador := ports.RespuestaLlamamientoAceptada, "operacion-aceptacion-rrhh", p.autorizadorAceptacion
+	if renuncia {
+		respuesta, prefijo, autorizador = ports.RespuestaLlamamientoRenunciada, "operacion-renuncia-rrhh", p.autorizadorRenuncia
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(autorizador) {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	if err := ctx.Err(); err != nil {
@@ -627,14 +650,14 @@ func (p *puenteBolsaLlamamientoDesarrollo) AceptarRespuestaRRHH(ctx context.Cont
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
-	if solicitud.Validar() != nil || solicitud.VersionEsperada != 2 || solicitud.Respuesta != ports.RespuestaLlamamientoAceptada ||
+	if solicitud.Validar() != nil || solicitud.VersionEsperada != 2 || solicitud.Respuesta != respuesta ||
 		seleccion.OrganizacionRef != solicitud.OrganizacionRef || seleccion.ExpedienteRef != solicitud.ExpedienteRef ||
 		seleccion.LlamamientoRef != solicitud.LlamamientoRef || seleccion.VersionExpediente != 6 || !seleccion.PropuestaGenerada ||
 		resolucion.AperturaOperacionRef != seleccion.OperacionRef || resolucion.JustificanteRef != solicitud.PruebaRespuestaRef {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	peticion := puertosbolsa.PeticionResolverLlamamientoDesarrollo{
-		OperacionRef: referenciaPuenteLlamamientoDesarrollo("operacion-aceptacion-rrhh",
+		OperacionRef: referenciaPuenteLlamamientoDesarrollo(prefijo,
 			solicitud.OrganizacionRef, solicitud.ExpedienteRef, seleccion.OperacionRef, solicitud.ClaveIdempotencia),
 		Resolucion: resolucion,
 	}
@@ -657,18 +680,21 @@ func (p *puenteBolsaLlamamientoDesarrollo) AceptarRespuestaRRHH(ctx context.Cont
 	if !existe {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
-	fuente, err := p.fuenteAceptacionLigada(solicitud, seleccion, apertura)
+	fuente, err := p.fuenteResolucionLigada(solicitud, seleccion, apertura)
 	if err != nil {
 		return vacio, err
 	}
-	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, p.repositorio, p.autorizadorAceptacion, p.reloj)
+	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, p.repositorio, autorizador, p.reloj)
 	if err != nil {
 		return vacio, err
+	}
+	if renuncia {
+		return servicio.RenunciarLlamamiento(ctx, peticion)
 	}
 	return servicio.AceptarLlamamiento(ctx, peticion)
 }
 
-func (p *puenteBolsaLlamamientoDesarrollo) fuenteAceptacionLigada(solicitud ports.SolicitudResolverLlamamiento,
+func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionLigada(solicitud ports.SolicitudResolverLlamamiento,
 	seleccion ports.ReciboSolicitudLlamamientoBolsa, apertura puertosbolsa.RegistroLlamamientoDesarrollo,
 ) (*fuentesintetica.FuenteLlamamientos, error) {
 	canon, err := apertura.Canonico()

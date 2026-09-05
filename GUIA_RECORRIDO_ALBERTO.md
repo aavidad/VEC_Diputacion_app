@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Base publicada del corte actual: `4a2138e`. El cierre de bandeja,
+Base publicada del corte actual: `17ea874`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -17,7 +17,7 @@ El defecto de comparación de fechas está corregido en ambas bases y el
 diagnóstico temporal retirado. El corte queda cerrado técnicamente.
 La métrica sigue en **5 de 8 pasos completos más parte del sexto**.
 
-**Corte actual: aceptación manual sintética registrada.** Dirección comprobó
+**Corte 4 publicado: aceptación manual sintética registrada.** Dirección comprobó
 `200/200/200/201`: tres antecedentes originales recuperados y aceptación con
 API, V3, CT58 y Bolsa4 reales; cero errores JS, cookies, almacenamiento web y
 desbordamiento. Tras reiniciar app/PostgreSQL principal: `200/200/200/200`,
@@ -25,6 +25,16 @@ mismo recibo/fecha, sin duplicados; cierre técnico de aceptación manual sinté
 AD3-15/Bolsa4 y AD3-17/CT58 están instaladas en ambas bases y ambas apps usan
 la compilación corregida. AD3-16/CT57 ya estaban en ambas.
 No reaplicar migraciones. No hay política legal aprobada ni correo corporativo.
+
+**Corte 5 incluido en esta entrega: renuncia manual sintética cerrada funcionalmente.**
+Dirección comprobó navegador real `200/201/201/201` y, tras reiniciar aplicación
+y PostgreSQL principal, `200/200/200/200`: mismos recibo, resolución, auditoría,
+fecha e intención pendiente con su carga real, sin duplicados. Cero errores JS,
+cookies, almacenamiento web y desbordamiento. La base principal conserva
+**51 solicitudes**, con bandeja y detalle consultables;
+AD3-18/Bolsa5/CT59 instaladas en ambas bases. No reaplicar. No se ha ejecutado
+el siguiente candidato. El criterio manual provisional solo sirve al ejercicio
+sintético: no es aval legal ni aprobación del operador. Sigue **5/8 más parte del 6**.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -48,9 +58,10 @@ Las migraciones de registro de respuesta `000056` de Contratación temporal y
 reaplicarlas. Dirección aplicó literalmente el bloque `DO $fechas$` de la
 migración `000014` en ambas bases, con sus tres comprobaciones incorporadas
 correctas. El diagnóstico temporal de la función de respuesta también se retiró
-de ambas bases. La huella SHA256 actual del núcleo, tras AD3-16/17 y comprobada
+de ambas bases. La huella SHA256 actual del núcleo, tras AD3-18 y comprobada
 igual en ambas bases por dirección, es
-`02453e9617aff9926b55735ede70bdffe3ee15b490c903aa8870a996871b4af9`.
+`e6c3d28c27b7cb864916ffe967a8b2fa47611cb3528ad8148302d8bbedd11bf6`.
+La anterior `02453e…` corresponde al corte 4, tras AD3-16/17.
 La anterior `42f67b…` corresponde al corte histórico AD3-14, no al arranque vigente.
 No repetir el bloque temporal para arrancar: también está aplicado.
 Las huellas anteriores del historial no son referencias operativas actuales.
@@ -193,7 +204,7 @@ sortearlo: conservar la operación original sigue siendo obligatorio.
 ### Corte 4: aceptación manual registrada, solo ejercicio sintético
 
 Tras recuperar la declaración `aceptacion` anterior, el mismo formulario muestra
-**4. Solicitar resolución de aceptación** (`data-ct-llamamiento-form="resolucion"`).
+**4. Solicitar resolución de respuesta** (`data-ct-llamamiento-form="resolucion"`).
 Organización, expediente, llamamiento y comunicación proceden del recibo original;
 la versión esperada es `2` y `prueba_respuesta_ref` es su `justificante_ref`, no
 el recibo ni una referencia inventada. Use una clave propia de resolución,
@@ -208,7 +219,7 @@ Las dos casillas empiezan desmarcadas. Solo tras comprobar el caso sintético ma
 
 El criterio de solo lectura es `politica:ct:revision-manual-sintetica:20260906`.
 **Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
-Con ambas casillas marcadas, pulse **Revisar y solicitar resolución de aceptación**
+Con ambas casillas marcadas, pulse **Revisar y solicitar resolución**
 y confirme expresamente. El servidor autoriza y conserva la declaración, actor y
 política; solo devuelve éxito tras confirmar CT y Bolsa, no por marcar casillas.
 
@@ -225,11 +236,63 @@ el `409 validacion_respuesta_pendiente`, sin efectos. Solo ante ese rechazo cono
 puede corregir las casillas conservando la clave. Ante resultado ambiguo mantenga
 congelados clave y material; no hay reintentos automáticos ni claves sustitutas.
 La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional.
-El roundtrip actual UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 comprobó reversión exacta en
+El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 comprobó reversión exacta en
 ROLLBACK, sin modificar autorización ni usar dobles; el navegador usó criptografía real.
-Faltan renuncia, vencimiento, siguiente candidato y correo corporativo;
+Faltan vencimiento, siguiente candidato y correo corporativo;
 el enlace al nombramiento (objetivo 8) sigue pendiente y no hay política legal
 aprobada. Véase el [plan vigente](ESTADO_PROYECTO.md).
+
+### Corte 5: recuperar la renuncia manual sintética
+
+Es otro expediente, creado desde la UI y fiscalizado favorablemente en `v6`:
+`expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7`.
+No reutilice las claves ni el correo de aceptación. Con el perfil RRHH, use
+el mismo formulario de llamamiento y recupere, en orden, las cuatro operaciones:
+
+| Operación | Clave original exacta |
+| --- | --- |
+| Selección, expediente `v6` | `a77d3f10-a635-46fd-b9eb-a00000000001` |
+| Comunicación local | `a77d3f10-a635-46fd-b9eb-a00000000002` |
+| Declaración RRHH | `a77d3f10-a635-46fd-b9eb-a00000000003` |
+| Resolución manual de renuncia | `a77d3f10-a635-46fd-b9eb-a00000000004` |
+
+El recibo de selección identifica
+`llamamiento:nccfkjnioljdeikkpipkcgcpilbogjnociankdfbapmnaekanagbiioaahphbmgj`.
+Deje que los recibos rellenen los antecedentes siguientes; la comunicación
+antecedente es `v2`. Para la declaración elija `renuncia`, referencia
+`correo:sintetico:renuncia-20260906`, recepción UTC `2026-09-05T23:00:42.971Z`.
+Cargue el `.eml` original conservado fuera de Git por el operador (ubicación en
+su bitácora local), hasta
+2 MiB, cuya SHA256 es `b3d14ec8b017425a1a867023f7170ab72600f6e5ddf34baed2fa8f5776c4e397`.
+No use `respuesta_sintetica.eml`, que corresponde a la aceptación anterior;
+si falta el original de renuncia, solicítelo, no reconstruya bytes ni edite la huella.
+El contenido no se sube ni se guarda en VEC.
+
+La declaración devuelve `justificante:19fc8396-846c-4a3b-8cab-ebd57054f298`.
+La cuarta operación deriva de ese recibo `respuesta=renuncia` y el justificante;
+no permite sustituirlos. Mantenga las dos revisiones expresas y el criterio fijo
+del corte 4, confirme con la clave de resolución original y sin otro `.eml`.
+Resultado: **Renuncia registrada · ejercicio sintético**, versión resultante `3`,
+con **Siguiente candidato pendiente**, no seleccionado ni avisado.
+
+| Evidencia conservada tras reiniciar app y PostgreSQL principal | Valor |
+| --- | --- |
+| Recibo CT | `recibo:408fda57-638d-4a3b-a441-4ef56396e23a` |
+| Resolución | `resolucion:0c5fdea4-be11-4bdd-bd0b-5bc035dd9ae0` |
+| Auditoría | `aud_v3_01af1fd2958fa327d4fc5425be4f6e98` |
+| Fecha UTC | `2026-09-05T23:00:45.289468Z` |
+| Intención de siguiente | `intencion:f4bd0049-8b96-410b-8144-4384bdb47ed0`, `pendiente` |
+
+Dirección confirmó `200/200/200/200` con esos mismos datos y la carga de intención
+durable en la misma fila CT. Se conservan dos resoluciones CT (aceptación y renuncia),
+seis registros Bolsa (dos órdenes, dos propuestas y ambos terminales), seis historias
+y seis eventos, sin duplicados. La aceptación previa `d6bdcc7b…`/`22:27:02.861379Z`
+y la declaración `9e14599d…`/`18:09:06.065542Z` permanecen intactas.
+AD3-18/Bolsa5/CT59 superaron UP/DOWN con ACL, funciones y comprobaciones correctas
+según dirección y están instaladas en ambas bases. Eso no autoriza DOWN sobre
+estos datos ni atribuye a la secundaria el recorrido realizado en la principal.
+Se cierra el objetivo 5 solo para desarrollo sintético; no el siguiente candidato,
+el vencimiento, el correo corporativo ni el paso 6 completo.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

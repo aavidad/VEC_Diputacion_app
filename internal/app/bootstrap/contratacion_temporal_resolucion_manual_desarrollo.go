@@ -33,6 +33,8 @@ type aceptacionRevisadaDesarrollo struct {
 type aceptadorRespuestaRRHHDesarrollo interface {
 	AceptarRespuestaRRHH(context.Context, ports.SolicitudResolverLlamamiento,
 		ports.ReciboSolicitudLlamamientoBolsa, puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error)
+	RenunciarRespuestaRRHH(context.Context, ports.SolicitudResolverLlamamiento,
+		ports.ReciboSolicitudLlamamientoBolsa, puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error)
 }
 
 func politicaManualDesarrollo() ports.ReferenciaGobernadaComunicacionLlamamiento {
@@ -48,6 +50,14 @@ func motivoResolucionManualDesarrollo(bolsa bool) dominiovec.ReferenciaEntradaCa
 		CatalogoID: "motivos_" + tipo, CatalogoVersion: 1,
 		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(tipo + "-desarrollo-v1"),
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", tipo),
+	}
+}
+
+func motivoRenunciaBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_renuncia_bolsa_rrhh", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("renuncia_bolsa_rrhh-desarrollo-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "renuncia_bolsa_rrhh"),
 	}
 }
 
@@ -124,11 +134,19 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 	// mismos antecedentes y autorización fresca para ambos módulos.
 	ligada.local = local
 	ctx = context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, ligada)
-	b, err := e.aceptador.AceptarRespuestaRRHH(ctx, s, j.Seleccion, puertosbolsa.ResolucionLlamamientoDesarrollo{
+	resolucionBolsa := puertosbolsa.ResolucionLlamamientoDesarrollo{
 		AperturaOperacionRef: j.Seleccion.OperacionRef, JustificanteRef: s.PruebaRespuestaRef,
 		EvaluacionPlazoRef: local.EvaluacionPlazoRef, PoliticaRef: local.Politica.Referencia,
 		PoliticaVersion: local.Politica.Version, PoliticaSHA256: local.Politica.HuellaSHA256, VersionEsperada: 1,
-	})
+	}
+	var b puertosbolsa.ReciboLlamamientoDesarrollo
+	tipo := "aceptacion_rrhh"
+	if s.Respuesta == ports.RespuestaLlamamientoRenunciada {
+		tipo = "renuncia_rrhh"
+		b, err = e.aceptador.RenunciarRespuestaRRHH(ctx, s, j.Seleccion, resolucionBolsa)
+	} else {
+		b, err = e.aceptador.AceptarRespuestaRRHH(ctx, s, j.Seleccion, resolucionBolsa)
+	}
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
@@ -136,7 +154,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	res := b.Registro.Resolucion
-	if res == nil || res.Validar() != nil || b.Registro.Tipo != "aceptacion_rrhh" ||
+	if res == nil || res.Validar() != nil || b.Registro.Tipo != tipo ||
 		b.Registro.OperacionRef != operacionAceptacionManualDesarrollo(ligada) ||
 		res.AperturaOperacionRef != j.Seleccion.OperacionRef || res.JustificanteRef != s.PruebaRespuestaRef ||
 		res.EvaluacionPlazoRef != local.EvaluacionPlazoRef || res.PoliticaRef != local.Politica.Referencia ||
@@ -148,7 +166,11 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 }
 
 func operacionAceptacionManualDesarrollo(l aceptacionRevisadaDesarrollo) string {
-	return referenciaPuenteLlamamientoDesarrollo("operacion-aceptacion-rrhh",
+	prefijo := "operacion-aceptacion-rrhh"
+	if l.solicitud.Respuesta == ports.RespuestaLlamamientoRenunciada {
+		prefijo = "operacion-renuncia-rrhh"
+	}
+	return referenciaPuenteLlamamientoDesarrollo(prefijo,
 		l.solicitud.OrganizacionRef, l.solicitud.ExpedienteRef, l.justificante.Seleccion.OperacionRef, l.solicitud.ClaveIdempotencia)
 }
 
@@ -165,13 +187,17 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 		return err == nil && r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID && r.Tipo == esperado.Tipo &&
 			maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 	}
-	if datos.Accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo || datos.ReferenciaMotivo != motivoResolucionManualDesarrollo(true) {
-		return false
-	}
 	l, ok := ctx.Value(claveAceptacionRevisadaDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !ok || !l.solicitud.RevisionManualConfirmada() || l.justificante.ValidarPara(l.solicitud) != nil ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.solicitud) ||
 		l.local.ValidarPara(l.solicitud) != nil || l.local.Politica != politicaManualDesarrollo() {
+		return false
+	}
+	accion, motivo := puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, motivoResolucionManualDesarrollo(true)
+	if l.solicitud.Respuesta == ports.RespuestaLlamamientoRenunciada {
+		accion, motivo = puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, motivoRenunciaBolsaDesarrollo()
+	}
+	if datos.Accion != accion || datos.ReferenciaMotivo != motivo {
 		return false
 	}
 	// Solo la composición instala el recibo CT confirmado. El servicio Bolsa
@@ -220,9 +246,17 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	if err != nil {
 		return err
 	}
+	renuncia, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"renuncia_bolsa_rrhh_desarrollo", "Renuncia RRHH en Bolsa sintética", "renuncia-bolsa-rrhh-desarrollo",
+		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
+		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
+			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
 	// Son catálogos distintos: el publicador exige una sola identidad de
 	// catálogo por llamada y no agrupa permisos de CT con los de Bolsa.
-	for _, motivo := range []dominiovec.ReferenciaEntradaCatalogo{motivoResolucionManualDesarrollo(false), motivoResolucionManualDesarrollo(true)} {
+	for _, motivo := range []dominiovec.ReferenciaEntradaCatalogo{motivoResolucionManualDesarrollo(false), motivoResolucionManualDesarrollo(true), motivoRenunciaBolsaDesarrollo()} {
 		if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
 			[]dominiovec.ReferenciaEntradaCatalogo{motivo}, desde); err != nil {
 			return err
@@ -230,6 +264,7 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	}
 	alta.soporte.mu.Lock()
 	alta.soporte.instantaneaResolucionManual, alta.soporte.instantaneaAceptacionBolsa = local, bolsa
+	alta.soporte.instantaneaRenunciaBolsa = renuncia
 	alta.soporte.mu.Unlock()
 	return nil
 }

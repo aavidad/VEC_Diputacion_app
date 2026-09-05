@@ -261,6 +261,7 @@ type autorizadorLlamamientoDesarrollo struct {
 	consultaJustificante bool
 	resolucionManual     bool
 	aceptacionBolsa      bool
+	renunciaBolsa        bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -272,6 +273,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.renunciaBolsa {
+		return motivoRenunciaBolsaDesarrollo()
+	}
 	if a.resolucionManual || a.aceptacionBolsa {
 		return motivoResolucionManualDesarrollo(a.aceptacionBolsa)
 	}
@@ -333,7 +337,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	modosResolucion := 0
-	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa} {
+	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa, a.renunciaBolsa} {
 		if activo {
 			modosResolucion++
 		}
@@ -343,6 +347,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		(a.consultaJustificante && accion != postgresct.AccionConsultaJustificanteRespuestaRecibida) ||
 		(a.resolucionManual && accion != postgresct.AccionResolucionManualLlamamiento) ||
 		(a.aceptacionBolsa && accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo) ||
+		(a.renunciaBolsa && accion != puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo) ||
 		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||

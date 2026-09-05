@@ -4,8 +4,8 @@ Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
 Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
 Estado funcional de referencia: 6 de septiembre de 2026.
 
-**Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
-real devuelve 50 expedientes y detalle en el recorrido local `8443`/base
+**Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
+La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/base
 `55433`; el caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
 recupera un único recibo tras reinicio, mediante lectura independiente de
 PostgreSQL y navegador. Se mantienen cinco pasos y parte del sexto, sin
@@ -22,10 +22,17 @@ cookies, almacenamiento web ni desbordamiento horizontal en ese recorrido.
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo, sin nuevo paso completo.
 
-**Corte actual incluido en esta entrega:** aceptación manual sintética `201`
+**Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`
 con API/V3/CT58/Bolsa4 reales; tras reiniciar app/PostgreSQL principal,
 `200/200/200/200`, mismo recibo y fecha, sin duplicados. Cierre técnico, no política
 legal aprobada. Continúan **5/8 pasos completos más parte del sexto**.
+
+**Corte 5 incluido en esta entrega:** renuncia manual sintética con servicios y
+permisos reales, navegador `200/201/201/201` y recuperación `200/200/200/200`
+tras reiniciar app/PostgreSQL principal. Mismos recibo, resolución, auditoría,
+fecha e intención pendiente, sin duplicados ni siguiente ejecutado. Cero errores
+JS, cookies, almacenamiento web y desbordamiento. Objetivo 5 cerrado funcionalmente;
+criterio manual provisional solo sintético, sin aval legal ni del operador.
 
 ## Qué leer y qué mantener
 
@@ -114,7 +121,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH y aceptación manual sintética recuperados tras reinicio; mismos recibos, sin duplicados. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperadas tras reinicio; mismos recibos, sin duplicados. Intención de siguiente pendiente; faltan vencimiento, siguiente candidato y correo corporativo. |
 | 7 y 8 | Nombramiento e incorporación, GINPIX y seguimiento: no declarados completos de extremo a extremo. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
@@ -122,8 +129,8 @@ renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
 es un acuse del sistema externo. El contador es **cinco pasos completos más
 un tramo del sexto**, no un porcentaje global de aplicación terminada.
 
-La bandeja y el detalle de expedientes están conectados en el recorrido local:
-50 expedientes consultables en `8443`/`55433`. El alcance sigue siendo cinco
+La base principal conserva 51 solicitudes, con bandeja y detalle consultables
+en `8443`/`55433`; no implica 51 filas visibles simultáneas. El alcance sigue siendo cinco
 pasos y parte del sexto; la bandeja no se cuenta como paso adicional.
 Un `503` debe explicarse como dependencia no disponible, no sustituirse por
 datos de presentación. Un `404` del panel de Bolsa tampoco demuestra que
@@ -169,20 +176,21 @@ firmados, hashes, MAC ni permisos. Dirección aplicó el bloque literal
 `DO $fechas$` en ambas bases; sus tres regresiones pasaron. La instrumentación
 de diagnóstico CT56 está retirada. No reaplicar la migración ni reconstruir
 el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) distingue aquel
-corte histórico de la huella actual del núcleo tras AD3-16/17.
+corte histórico de la huella actual del núcleo tras AD3-18.
 
 El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
 observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
 
-### Resolución de aceptación manual sintética
+### Resolución de aceptación o renuncia manual sintética
 
 La cuarta operación del formulario es `data-ct-llamamiento-form="resolucion"`.
-Tras un recibo de declaración `aceptacion`, `resolverLlamamiento` envía a
+Tras un recibo de declaración `aceptacion` o `renuncia`, `resolverLlamamiento` envía a
 `POST /api/vec/contratacion-temporal/llamamientos/resoluciones` los ocho campos
 base: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
 `llamamiento_ref`, `comunicacion_ref`, `version_esperada`, `respuesta` y
 `prueba_respuesta_ref`. Deriva los antecedentes del recibo, usa versión `2`,
-`justificante_ref` como prueba y una clave propia; no recibe autoridad del DOM.
+`justificante_ref` como prueba y una clave propia; tampoco permite cambiar la
+respuesta derivada del recibo ni recibe autoridad del DOM.
 
 La UI añade, en ese orden, `revision_respuesta_rrhh: true`, `revision_plazo_rrhh: true`
 y `criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906"`.
@@ -197,28 +205,45 @@ El resolutor consulta el justificante mediante CT57 con permiso propio V3 real
 y fresco (`contratacion_temporal.llamamiento.respuesta.consultar_justificante`),
 sin doble. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
 AD3 `000016` / CT `000057` instaladas en ambas bases locales (`55433`/`55432`),
-con consulta confirmada tras reinicio de app/PostgreSQL principal; no concede aceptación.
+con consulta confirmada tras reinicio de app/PostgreSQL principal; no concede resolución.
 
 La composición de desarrollo de doble llave fija la política sintética y exige
 `contratacion_temporal.llamamiento.respuesta.validacion_manual.registrar` para
-guardar declaración, actor y política en CT; Bolsa consume su permiso separado.
+guardar declaración, actor y política en CT; Bolsa consume su permiso separado:
+`bolsa.llamamiento.aceptacion_rrhh.registrar` o
+`bolsa.llamamiento.renuncia_rrhh.registrar`, sin intercambiarlos.
 No deriva plazo legal del aviso ni acredita entrega. Solo devuelve el recibo HTTP
-existente de nueve campos, versión resultante `3`, tras confirmar CT y Bolsa.
+tras confirmar CT y Bolsa: aceptación conserva los nueve campos y renuncia añade
+`intencion_siguiente` con exactamente `referencia`, `estado_local: "pendiente"`
+y `actualizada_en` UTC. La intención es obligatoria en renuncia y está prohibida
+en aceptación, incluso como `null`; versión resultante `3` en ambas.
+La UI valida la fecha de intención no anterior a la resolución, conserva
+precisión microsegundo y muestra «Vigente solo para el ejercicio sintético».
+CT59 guarda la intención y su carga real en la misma fila de resolución;
+se devuelve la misma al recuperar, no se despacha otro llamamiento.
 Si Bolsa falla después del commit CT, no hay éxito parcial: reintento explícito
 con la misma clave/material, recibo CT conservado y autorizaciones frescas.
-Los dos catálogos de motivos se publican en llamadas separadas, no como uno solo.
+Los tres catálogos de motivos se publican en llamadas separadas, no como uno solo.
 
 AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están **instaladas
 en ambas bases**, con ambas aplicaciones en la compilación corregida; no reaplicar.
 La prueba aislada anterior de Bolsa4 (`8197db3`) comprobó almacenamiento/replay/conflictos
-con doble privado transaccional, no criptografía. El roundtrip actual UP/DOWN de
+con doble privado transaccional, no criptografía. El roundtrip de aceptación UP/DOWN de
 las cuatro migraciones verificó reversión exacta en ROLLBACK, sin modificar
 autorización ni usar dobles. El recorrido navegador sí usó criptografía y V3 reales:
 `201` y replay `200` tras reinicio principal, misma fecha/recibo, una resolución CT58,
 una aceptación Bolsa, tres historias y tres eventos, sin duplicados.
+AD3 `000018` / Bolsa `000005` / CT `000059` están instaladas en ambas bases;
+dirección confirmó UP/DOWN con ACL, funciones y comprobaciones conservadas.
+El navegador registró además renuncia `201`, recuperada `200` tras reinicio con
+los mismos identificadores, auditoría, fecha e intención pendiente. Totales
+confirmados: dos filas CT, seis registros Bolsa (dos órdenes, dos propuestas,
+una aceptación y una renuncia), seis historias/eventos; sin duplicados y con la
+aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobre esos datos.
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
-sintética; pendiente enlazar propuesta de nombramiento (objetivo 8). No hay política
-legal aprobada ni cierre de renuncia, vencimiento, siguiente candidato o correo corporativo.
+sintética y funcionalmente la renuncia sintética; pendiente enlazar propuesta de
+nombramiento (objetivo 8). No hay política legal aprobada ni cierre de vencimiento,
+siguiente candidato o correo corporativo.
 
 ## Arquitectura real y propiedad
 

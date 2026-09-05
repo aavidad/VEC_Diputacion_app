@@ -117,14 +117,30 @@ type aceptadorRevisionManualPrueba struct {
 }
 
 func (a *aceptadorRevisionManualPrueba) AceptarRespuestaRRHH(ctx context.Context, s ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	if s.Respuesta != ports.RespuestaLlamamientoAceptada {
+		return puertosbolsa.ReciboLlamamientoDesarrollo{}, errors.New("no es aceptación")
+	}
+	return a.resolver(ctx, s, r)
+}
+func (a *aceptadorRevisionManualPrueba) RenunciarRespuestaRRHH(ctx context.Context, s ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	if s.Respuesta != ports.RespuestaLlamamientoRenunciada {
+		return puertosbolsa.ReciboLlamamientoDesarrollo{}, errors.New("no es renuncia")
+	}
+	return a.resolver(ctx, s, r)
+}
+func (a *aceptadorRevisionManualPrueba) resolver(ctx context.Context, s ports.SolicitudResolverLlamamiento, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
 	a.llamadas++
 	l, ok := ctx.Value(claveAceptacionRevisadaDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !ok || l.local.ValidarPara(s) != nil || a.falla {
 		return puertosbolsa.ReciboLlamamientoDesarrollo{}, errors.New("bolsa no confirmada")
 	}
 	r.ResueltaEn = l.local.ResueltaEn
+	tipo := "aceptacion_rrhh"
+	if s.Respuesta == ports.RespuestaLlamamientoRenunciada {
+		tipo = "renuncia_rrhh"
+	}
 	return puertosbolsa.ReciboLlamamientoDesarrollo{Registro: puertosbolsa.RegistroLlamamientoDesarrollo{
-		Tipo: "aceptacion_rrhh", OperacionRef: operacionAceptacionManualDesarrollo(l), Resolucion: &r},
+		Tipo: tipo, OperacionRef: operacionAceptacionManualDesarrollo(l), Resolucion: &r},
 		ReciboRef: "recibo:bolsa-prueba", ConfirmadaEn: r.ResueltaEn}, nil
 }
 
@@ -141,5 +157,47 @@ func TestResolucionManualDesarrolloSoloEntregaReciboTrasAmbosCommits(t *testing.
 	r, err = e.resolverConRevisionManual(ctx, l.solicitud, l.justificante)
 	if err != nil || !r.EsReplayConfirmado() || r.ReciboLocalRef != l.local.ReciboLocalRef || r.ResueltaEn != l.local.ResueltaEn || servicio.llamadas != 2 {
 		t.Fatal("reintento perdió recibo original", err)
+	}
+}
+
+func TestResolucionManualDesarrolloRenunciaConservaIntencionSinLlamarSiguiente(t *testing.T) {
+	ctx, p, l := escenarioRevisionManualPrueba(t)
+	l.solicitud.Respuesta = ports.RespuestaLlamamientoRenunciada
+	l.justificante.Respuesta.Solicitud.Respuesta = ports.RespuestaLlamamientoRenunciada
+	l.local.Solicitud = l.solicitud
+	l.local.IntencionSiguiente = ports.IntencionOutboxSiguienteCandidato{
+		Solicitud: l.solicitud, ResolucionRef: l.local.ResolucionRef, LlamamientoRef: l.solicitud.LlamamientoRef,
+		ClaveIdempotencia: l.solicitud.ClaveIdempotencia, VersionEsperada: 2, VersionResultante: 3,
+		IntencionRef: "outbox:renuncia-prueba", ComandoOpacoRef: "comando:renuncia-prueba",
+		Estado: ports.OutboxSiguienteCandidatoPendiente, ActualizadaEn: l.local.ResueltaEn,
+	}
+	ctx = context.WithValue(ctx, claveResolucionManualDesarrollo{}, l)
+	ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, l.solicitud)
+	m, err := p.PrepararResolucionManual(ctx, l.solicitud)
+	if err != nil || m.Solicitud != l.solicitud {
+		t.Fatal("revisión de renuncia rechazada", err)
+	}
+	servicio := &servicioRevisionManualPrueba{local: l.local}
+	aceptador := &aceptadorRevisionManualPrueba{}
+	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: p.soporte, servicio: servicio, aceptador: aceptador}
+	for i := 0; i < 2; i++ {
+		r, err := e.resolverConRevisionManual(ctx, l.solicitud, l.justificante)
+		if err != nil || r.IntencionSiguiente != l.local.IntencionSiguiente || r.ReciboLocalRef != l.local.ReciboLocalRef || r.EsReplayConfirmado() != (i > 0) {
+			t.Fatal("renuncia perdió intención o recibo", err)
+		}
+	}
+	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal",
+		Accion: puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, ReferenciaMotivo: motivoRenunciaBolsaDesarrollo(),
+		Recurso: dominiovec.RecursoAutorizable{Referencia: operacionAceptacionManualDesarrollo(l),
+			ModuloID: "bolsa", Tipo: "integracion_llamamientos_bolsa", Ambitos: map[string]string{
+				"categoria_ref": "categoria:desarrollo:c2", "unidad_ref": unidadCoberturaContratacionTemporalDesarrollo},
+			Atributos: map[string]string{"necesidad_ref": l.justificante.Seleccion.Necesidad.Referencia, "contenido_sha256": strings.Repeat("a", 64)}}}
+	ctx = context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, l)
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+		t.Fatal("permiso propio de renuncia rechazado")
+	}
+	d.Accion, d.ReferenciaMotivo = puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, motivoResolucionManualDesarrollo(true)
+	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+		t.Fatal("aceptación autorizó renuncia")
 	}
 }

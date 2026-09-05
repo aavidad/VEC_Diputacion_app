@@ -35,10 +35,19 @@ La entrega 3 queda cerrada funcionalmente en desarrollo.
 Los identificadores observados constan en el
 [manual de RRHH](../manual_rrhh/README.md).
 
-**Corte actual incluido en esta entrega:** aceptación manual sintética `201`
+**Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`
 con API/V3/CT58/Bolsa4 reales. Tras reiniciar app/PostgreSQL principal:
 `200/200/200/200`, mismo recibo y fecha, sin duplicados; cierre técnico sintético.
 El alcance continúa en **5/8 pasos completos más parte del sexto**.
+
+**Corte 5 incluido en esta entrega:** renuncia manual sintética registrada en
+otro expediente fiscalizado `v6`; la base principal conserva **51 solicitudes**,
+con bandeja y detalle consultables.
+Dirección confirmó navegador `200/201/201/201` y, tras reiniciar aplicación y
+PostgreSQL principal, `200/200/200/200`, mismos recibo, resolución, auditoría,
+fecha e intención pendiente, sin duplicados. Cero errores JS, cookies,
+almacenamiento web y desbordamiento. Objetivo 5 cerrado funcionalmente en
+desarrollo sintético; método manual provisional, sin aval legal ni del operador.
 
 ## Alcance y referencias
 
@@ -53,7 +62,7 @@ es **planificación pendiente de aprobación, no la instalación vigente**.
 No hay que desplegar su inventario para realizar estas operaciones.
 
 Alcance funcional acreditado: **cinco pasos completos y parte del sexto**,
-con selección, aviso, declaración RRHH y aceptación manual sintética recuperables.
+con selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperables.
 La declaración sola no resuelve aceptación ni renuncia. Lista, detalle y
 análisis desde una solicitud existente están comprobados y publicados;
 su persistencia tras reinicio también está contrastada.
@@ -180,18 +189,29 @@ La política fija es exclusivamente `politica:ct:revision-manual-sintetica:20260
 no acredita entrega ni plazo legal aprobado. CT guarda revisión/actor/política
 con permiso propio y Bolsa confirma con otro; no hay éxito HTTP parcial.
 La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional,
-no probaba criptografía. El roundtrip actual UP/DOWN de las cuatro migraciones
+no probaba criptografía. El roundtrip de aceptación UP/DOWN de las cuatro migraciones
 verificó reversión exacta en ROLLBACK, sin modificar autorización ni usar dobles.
 El navegador sí usó criptografía y API/V3/CT58/Bolsa4 reales: `201` y replay `200`,
 mismo recibo/fecha; una resolución CT58, una aceptación Bolsa, tres historias y
 tres eventos, sin duplicados. La instalación secundaria no acredita otro E2E allí.
 
+AD3 `000018` / Bolsa `000005` / CT `000059` también están instaladas en ambas
+bases. Dirección confirmó UP/DOWN con ACL, funciones y comprobaciones correctas;
+no repetirlo sobre los datos del recorrido. Bolsa exige permiso distinto para
+renuncia, no el de aceptación. Siguen once LOGIN por aplicación contra su base.
+Recuperación de renuncia confirmada tras reiniciar app/PostgreSQL principal:
+misma resolución e intención pendiente con carga real en la misma fila CT.
+Totales: dos filas CT (aceptación y renuncia), seis registros Bolsa (dos órdenes,
+dos propuestas y ambos terminales), seis historias y seis eventos, sin duplicados.
+La aceptación y la declaración previas permanecen intactas. No se ejecutó otro
+candidato ni se acredita ese recorrido en la secundaria por instalar allí SQL.
+
 Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
 compara instantes y corrige la diferencia de ceros finales entre decisión y
 capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
-pasaron. La huella de aquel corte AD3-14 es histórica. SHA-256 actual del núcleo
-tras AD3-16/17, comprobado igual en ambas bases por dirección:
-`02453e9617aff9926b55735ede70bdffe3ee15b490c903aa8870a996871b4af9`.
+pasaron. Las huellas de AD3-14 y del corte 4 (`02453e…`, tras AD3-16/17) son
+históricas. SHA-256 actual del núcleo tras AD3-18, comprobado igual en ambas bases
+por dirección: `e6c3d28c27b7cb864916ffe967a8b2fa47611cb3528ad8148302d8bbedd11bf6`.
 La instrumentación de diagnóstico CT56 se retiró de ambas bases, que conservan
 la misma función final. No ejecutar de nuevo el bloque ni reinstalar consumidores.
 
@@ -300,15 +320,18 @@ llamamiento, tras recuperar la comunicación confirmada `v2`; requiere respuesta
 declarada, referencia opaca, recepción UTC y `.eml` de hasta 2 MiB para calcular
 su huella local. No cambia la comunicación `v2`, el expediente observado `v6`
 ni el estado Bolsa. No acredita envío, entrega ni aceptación terminal.
-Tras recuperar una declaración `aceptacion`, la cuarta operación solicita
+Tras recuperar una declaración `aceptacion` o `renuncia`, la cuarta operación solicita
 resolución con las referencias y el justificante originales, clave propia y
 dos revisiones explícitas RRHH del ejercicio sintético, inicialmente falsas;
 criterio fijo de solo lectura y confirmación, sin otro `.eml`. Solo tras CT y
-Bolsa muestra «Aceptación registrada · ejercicio sintético». Sin ambas casillas
+Bolsa muestra «Aceptación registrada · ejercicio sintético» o «Renuncia registrada
+· ejercicio sintético», según la respuesta original no editable. Renuncia añade
+referencia/fecha de intención y «Siguiente candidato pendiente», no seleccionado
+ni avisado. Sin ambas casillas
 no envía; la petición antigua conserva `409 validacion_respuesta_pendiente`, sin efectos.
 Ese rechazo permite corregir casillas conservando la clave; ante resultado ambiguo,
 mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
-Pendiente enlace al nombramiento (objetivo 8), renuncia, vencimiento, siguiente
+Pendiente enlace al nombramiento (objetivo 8), vencimiento, siguiente
 candidato y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
@@ -427,8 +450,9 @@ Los DOWN de CT56/AD3-14 bloquean la reversión (`55000`) si hay registros o
 dependencias. Es una protección de la evidencia, no una pérdida de datos.
 No ejecutarlos en estas bases con historial; recuperación mediante respaldo
 o avance correctivo bajo dirección, no borrado de declaraciones.
-El rollback previo de aceptación tampoco autoriza DOWN después de guardar
-resoluciones CT58/Bolsa: conservar historial y recuperar por respaldo o avance correctivo.
+Los UP/DOWN comprobados de aceptación y renuncia tampoco autorizan DOWN después
+de guardar resoluciones CT58/59 y Bolsa: conservar historial y recuperar por respaldo
+o avance correctivo. La reversión comprobada del esquema no borra ni revierte un terminal.
 
 ## 7. Incidencias y registro de evidencia
 

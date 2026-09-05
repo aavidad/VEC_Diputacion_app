@@ -6,12 +6,13 @@ Este bloque sustituye las ubicaciones y órdenes históricas inferiores.
 Lea las instrucciones de desatasco del operador y el plan vigente en
 `ESTADO_PROYECTO.md`; solo Contratación temporal y dependencias imprescindibles.
 La bandeja y el análisis se publicaron en `b2effba`; esta entrega añade el
-registro de respuesta y la aceptación manual sintética. La línea de trabajo sigue siendo
+registro de respuesta, aceptación y renuncia manuales sintéticas. La línea de trabajo sigue siendo
 `trabajo/ct-app-llamamiento-b4a-20260905`, ahora en el equipo local del operador,
 worktree `.worktrees/ct-app-llamamiento-b4a-20260905`.
 Las dos bases sintéticas están aquí, con consultas instaladas. Principal:
-recorrido (8443/55433), 50 solicitudes y análisis desde una solicitud existente
-v1, recibo v2 único conservado tras reiniciar aplicación y PostgreSQL.
+recorrido (8443/55433), base con 51 solicitudes conservadas, bandeja y detalle
+consultables. Análisis desde una solicitud existente v1, recibo v2 único
+conservado tras reiniciar aplicación y PostgreSQL.
 Secundaria: consultas (8444/55432), 21 expedientes; no mezclar ambas bases.
 Las instancias remotas de desarrollo están detenidas y conservadas. No crear
 otra línea ni reactivar allí programación; el WIP ajeno D1 sigue intacto.
@@ -28,6 +29,15 @@ La cuarta operación registró aceptación manual sintética: navegador real
 cookies, almacenamiento web y desbordamiento. Tras reiniciar app/PostgreSQL
 principal: `200/200/200/200`, mismo recibo CT/fecha, una resolución CT58 y una
 aceptación Bolsa, tres historias y tres eventos, sin duplicados.
+Renuncia manual sintética registrada en otro expediente fiscalizado `v6`:
+navegador real `200/201/201/201`, sin errores JS, cookies, almacenamiento web
+ni desbordamiento. Recibo `recibo:408fda57-638d-4a3b-a441-4ef56396e23a`, fecha
+`2026-09-05T23:00:45.289468Z`; intención de siguiente pendiente, durable en la
+misma fila CT, no ejecutada. Tras reiniciar app/PostgreSQL principal, dirección
+confirmó `200/200/200/200`: mismos recibo, resolución, auditoría, fecha e intención;
+dos filas CT, seis registros Bolsa, seis historias/eventos, sin duplicados.
+Objetivo 5 cerrado funcionalmente solo en el ejercicio sintético. Aceptación y
+declaración previas intactas. Datos y claves exactos en la guía.
 Exige dos revisiones expresas de RRHH y la política fija de desarrollo
 `politica:ct:revision-manual-sintetica:20260906`, no una política legal aprobada.
 Consulta el justificante con permiso propio V3; `Seleccion` permanece interna.
@@ -39,13 +49,16 @@ mismo recibo, una respuesta/historial/evento y auditoría nueva de acceso.
 Justificante ajeno503 sin datos; Intervención401 antes de consultar.
 AD3-15/Bolsa4 y AD3-17/CT58 están instaladas en ambas bases; ambas apps usan
 la compilación corregida. No reaplicar ni recrear bases.
+AD3-18/Bolsa5/CT59 instaladas también en ambas bases; dirección confirmó
+UP/DOWN con ACL, funciones y comprobaciones conservadas. No repetirlas al arrancar.
 La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional.
-El roundtrip actual UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 verificó reversión exacta
+El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 verificó reversión exacta
 en ROLLBACK, sin modificar autorización ni usar dobles. El navegador actual sí
 usó criptografía real; no confundir las tres comprobaciones.
 Aceptación manual sintética cerrada técnicamente; pendiente el enlace al
-nombramiento (objetivo 8), renuncia, vencimiento, siguiente candidato y correo corporativo.
+nombramiento (objetivo 8), vencimiento, siguiente candidato y correo corporativo.
 La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.
+El criterio manual provisional tampoco es una aprobación del operador.
 Orden posterior del operador: las preguntas pendientes no detienen las partes
 independientes; se validarán después. No inventar una regla de plazo ni otra
 línea de implementación. Continúan cinco pasos completos y parte del sexto.

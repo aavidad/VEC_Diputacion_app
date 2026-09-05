@@ -96,6 +96,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
 	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
 	instantaneaAceptacionBolsa        dominiovec.InstantaneaAutorizacion
+	instantaneaRenunciaBolsa          dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -805,6 +806,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaResolucionManual)
 			case "bolsa.llamamiento.aceptacion_rrhh.registrar":
 				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAceptacionBolsa)
+			case "bolsa.llamamiento.renuncia_rrhh.registrar":
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRenunciaBolsa)
 			}
 			s.mu.Unlock()
 			if instantanea.Validar() != nil {

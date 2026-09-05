@@ -202,7 +202,7 @@ func (s SolicitudResolverLlamamiento) Validar() error {
 func (s SolicitudResolverLlamamiento) RevisionManualConfirmada() bool {
 	return s.RevisionRespuestaRRHH && s.RevisionPlazoRRHH &&
 		domain.ReferenciaOpacaValida(s.CriterioValidacionRef) &&
-		s.Respuesta == RespuestaLlamamientoAceptada && s.VersionEsperada == 2
+		(s.Respuesta == RespuestaLlamamientoAceptada || s.Respuesta == RespuestaLlamamientoRenunciada) && s.VersionEsperada == 2
 }
 
 // ParaConsultaJustificante conserva el contrato de ocho campos del lector.

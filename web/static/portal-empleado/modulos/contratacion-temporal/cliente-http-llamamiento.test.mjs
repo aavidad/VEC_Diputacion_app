@@ -59,6 +59,10 @@ const RESOLUCION_CONFIRMADA = {
   auditoria_ref: "auditoria:resolucion:001", version_resultante: 3,
   resuelta_en: "2026-09-05T09:05:00.123450Z",
 };
+const INTENCION_SIGUIENTE = {
+  referencia: "intencion:siguiente:001", estado_local: "pendiente",
+  actualizada_en: "2026-09-05T09:05:00.12345Z",
+};
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
 });
@@ -235,15 +239,18 @@ test("respuesta recibida conserva errores genéricos y distingue rechazo previo 
     (error) => error.resultadoIndeterminado === true);
 });
 
-test("resolución envía once campos canónicos y valida el recibo 201/200 sin intención siguiente", async () => {
+test("resolución envía once campos canónicos y valida 201/200 con intención solo en renuncia", async () => {
   assert.deepEqual(CAMPOS_RESOLUCION, ["clave_idempotencia", "organizacion_ref", "expediente_ref",
     "llamamiento_ref", "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
     "revision_respuesta_rrhh", "revision_plazo_rrhh", "criterio_validacion_ref"]);
-  for (const [status, estado_local] of [[201, "confirmado"], [200, "replay_confirmado"]]) {
-    const eco = { ...RESOLUCION_CONFIRMADA, estado_local };
+  for (const [opcion, status, estado_local] of ["aceptacion", "renuncia"].flatMap((opcion) =>
+    [[opcion, 201, "confirmado"], [opcion, 200, "replay_confirmado"]])) {
+    const solicitud = { ...RESOLUCION, respuesta: opcion };
+    const eco = { ...RESOLUCION_CONFIRMADA, respuesta: opcion, estado_local,
+      ...(opcion === "renuncia" ? { intencion_siguiente: { ...INTENCION_SIGUIENTE } } : {}) };
     const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
       assert.equal(ruta, "/api/vec/contratacion-temporal/llamamientos/resoluciones");
-      assert.equal(opciones.body, JSON.stringify(RESOLUCION));
+      assert.equal(opciones.body, JSON.stringify(solicitud));
       assert.deepEqual(Object.keys(JSON.parse(opciones.body)), CAMPOS_RESOLUCION);
       assert.equal(opciones.method, "POST");
       assert.equal(opciones.credentials, "same-origin");
@@ -252,31 +259,33 @@ test("resolución envía once campos canónicos y valida el recibo 201/200 sin i
       assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
       return respuesta({ data: eco }, status);
     } });
-    const desordenada = Object.fromEntries(Object.entries(RESOLUCION).reverse());
+    const desordenada = Object.fromEntries(Object.entries(solicitud).reverse());
     const resultado = await cliente.resolverLlamamiento(desordenada);
     assert.deepEqual(resultado, eco);
     assert.ok(Object.isFrozen(resultado));
+    if (opcion === "renuncia") assert.ok(Object.isFrozen(resultado.intencion_siguiente));
   }
 });
 
-test("solicitud de resolución solo acepta v2/aceptación y rechaza autoridad añadida antes de HTTP", () => {
+for (const opcion of ["aceptacion", "renuncia"]) test(`solicitud ${opcion} exige v2 y rechaza autoridad añadida antes de HTTP`, () => {
   const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: () => assert.fail("HTTP") });
+  const solicitud = { ...RESOLUCION, respuesta: opcion };
   for (const cambio of [{ version_esperada: 3 }, { version_esperada: "2" },
-    { respuesta: "renuncia" }, { respuesta: "expiracion_gobernada" }, { respuesta: "aceptada" },
+    { respuesta: "" }, { respuesta: "expiracion_gobernada" }, { respuesta: "aceptada" },
     { estado_plazo: "vigente" }, { actor_ref: "actor:inventado" }, { politica_ref: "politica:inventada" },
     { evaluacion_plazo_ref: "evaluacion:inventada" }, { correo_sha256: "a".repeat(64) },
     { prueba_respuesta_ref: "persona@example.invalid" }, { clave_idempotencia: "otra" },
     { criterio_validacion_ref: "politica:inventada" }, { criterio_validacion_ref: "" },
     ...["revision_respuesta_rrhh", "revision_plazo_rrhh"].flatMap((campo) =>
       [false, "true", "false", 1, null, undefined].map((valor) => ({ [campo]: valor })))]) {
-    assert.throws(() => cliente.resolverLlamamiento({ ...RESOLUCION, ...cambio }), TypeError);
+    assert.throws(() => cliente.resolverLlamamiento({ ...solicitud, ...cambio }), TypeError);
   }
   for (const campo of CAMPOS_RESOLUCION) {
-    const incompleta = { ...RESOLUCION }; delete incompleta[campo];
+    const incompleta = { ...solicitud }; delete incompleta[campo];
     assert.throws(() => validarSolicitudResolucionLlamamiento(incompleta), TypeError);
   }
   for (const campo of ["prueba_respuesta_ref", "revision_respuesta_rrhh", "revision_plazo_rrhh", "criterio_validacion_ref"]) {
-    const getter = { ...RESOLUCION };
+    const getter = { ...solicitud };
     Object.defineProperty(getter, campo, { get() { assert.fail("getter"); } });
     assert.throws(() => validarSolicitudResolucionLlamamiento(getter), TypeError);
   }
@@ -287,7 +296,8 @@ test("recibo resolución exige nueve campos, aceptación, plazo vigente y versi�
     { estado_local: "registrada_por_rrhh" }, { version_resultante: 2 }, { version_resultante: "3" },
     { estado_local: "validacion_registrada" }, { Seleccion: {} },
     { resolucion_ref: "" }, { recibo_local_ref: "persona@example.invalid" }, { auditoria_ref: null },
-    { intencion_siguiente: null }, { intencion_siguiente: {} }, { actor_ref: "actor:inventado" },
+    { intencion_siguiente: null }, { intencion_siguiente: {} }, { intencion_siguiente: INTENCION_SIGUIENTE },
+    { actor_ref: "actor:inventado" },
     { resuelta_en: "2026-02-30T09:05:00Z" }, { resuelta_en: "2026-09-05T09:05:00.1234567Z" },
     { resuelta_en: "2026-09-05T09:05:00+00:00" }, { resuelta_en: "0000-01-01T00:00:00Z" }]) {
     const eco = { ...RESOLUCION_CONFIRMADA, ...cambio };
@@ -305,11 +315,51 @@ test("recibo resolución exige nueve campos, aceptación, plazo vigente y versi�
   assert.throws(() => validarReciboResolucionLlamamiento(getter, RESOLUCION), TypeError);
 });
 
+test("renuncia exige intención exacta pendiente, UTC no anterior y copia inmutable sin getters", async () => {
+  const solicitud = { ...RESOLUCION, respuesta: "renuncia" };
+  const base = { ...RESOLUCION_CONFIRMADA, respuesta: "renuncia" };
+  const campos = Object.keys(INTENCION_SIGUIENTE);
+  const casos = [undefined, null, {}, [], "pendiente",
+    ...campos.map((campo) => Object.fromEntries(Object.entries(INTENCION_SIGUIENTE).filter(([c]) => c !== campo))),
+    ...[{ referencia: "" }, { referencia: "persona@example.invalid" },
+      { estado_local: "despachada" }, { estado_local: "confirmado" }, { estado_local: null },
+      { candidatura_ref: "candidatura:inventada" }, { comando_opaco_ref: "comando:privado" },
+      ...["2026-09-05T09:05:00.123449Z", "2026-09-05T09:05:00.1234501Z",
+        "2026-09-05T09:05:00+00:00", "2026-02-30T09:05:00Z", "0000-01-01T00:00:00Z"]
+        .map((actualizada_en) => ({ actualizada_en }))].map((cambio) => ({ ...INTENCION_SIGUIENTE, ...cambio })),
+  ];
+  for (const intencion_siguiente of casos) {
+    const eco = { ...base, intencion_siguiente };
+    assert.throws(() => validarReciboResolucionLlamamiento(eco, solicitud), TypeError);
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: eco }) });
+    await assert.rejects(cliente.resolverLlamamiento(solicitud), (e) => e.resultadoIndeterminado === true);
+  }
+  assert.throws(() => validarReciboResolucionLlamamiento(base, solicitud), TypeError);
+  for (const actualizada_en of [INTENCION_SIGUIENTE.actualizada_en, "2026-09-05T09:05:00.123451Z"]) {
+    const intencion_siguiente = { ...INTENCION_SIGUIENTE, actualizada_en };
+    const validado = validarReciboResolucionLlamamiento({ ...base, intencion_siguiente }, solicitud);
+    assert.ok(Object.isFrozen(validado.intencion_siguiente));
+    assert.notEqual(validado.intencion_siguiente, intencion_siguiente);
+    intencion_siguiente.estado_local = "despachada";
+    assert.equal(validado.intencion_siguiente.estado_local, "pendiente");
+    assert.equal(validado.intencion_siguiente.actualizada_en, actualizada_en);
+  }
+  for (const campo of campos) {
+    const intencion_siguiente = { ...INTENCION_SIGUIENTE };
+    Object.defineProperty(intencion_siguiente, campo, { get() { assert.fail("getter anidado"); } });
+    assert.throws(() => validarReciboResolucionLlamamiento({ ...base, intencion_siguiente }, solicitud), TypeError);
+  }
+  const getter = { ...base };
+  Object.defineProperty(getter, "intencion_siguiente", { enumerable: true, get() { assert.fail("getter raíz"); } });
+  assert.throws(() => validarReciboResolucionLlamamiento(getter, solicitud), TypeError);
+});
+
 test("409 pendiente es conocido sin efecto solo en resolución y con su prefijo exacto", async () => {
   const codigo = "validacion_respuesta_pendiente";
   const clave = `api.contratacion_temporal.comunicacion_llamamiento.error.${codigo}`;
   for (const [metodo, solicitud, status, clave_i18n, valido] of [
     ["resolverLlamamiento", RESOLUCION, 409, clave, true],
+    ["resolverLlamamiento", { ...RESOLUCION, respuesta: "renuncia" }, 409, clave, true],
     ["registrarComunicacionLlamamiento", COMUNICACION, 409, clave, false],
     ["registrarRespuestaRecibida", RESPUESTA_RECIBIDA, 409,
       `api.contratacion_temporal.respuesta_recibida.error.${codigo}`, false],
