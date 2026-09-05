@@ -1,5 +1,98 @@
 # Estado y plan de ataque del proyecto
 
+**Plan vigente: 5 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
+
+Este es el único plan operativo. El historial inferior se conserva como
+referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
+Bolsa y los demás módulos quedan fuera, salvo la pieza mínima que necesite
+contratación. No se reabren los cinco primeros pasos ya recorridos.
+
+## Punto de partida comprobado
+
+- Publicado: cinco pasos del procedimiento de RRHH y parte del sexto
+  (selección, apertura de llamamiento y aviso local), con datos sintéticos.
+- Manuales de usuario, RRHH, programación y Sistemas publicados en
+  `287751ad4042167a5920ba79f26815241718af29`.
+- En cierre, todavía no publicado: bandeja y detalle con PostgreSQL.
+  Navegador → lista de 21 expedientes sintéticos → abrir uno desde su fila →
+  detalle, conservado tras reinicio en el entorno aislado. Falta incorporar
+  la corrección visual y publicar el conjunto en el entorno de recorrido.
+- No se acredita correo entregado, aceptación, nombramiento, incorporación
+  ni producción por tener pantallas o contratos escritos.
+
+## Cómo trabajamos desde ahora
+
+1. Un objetivo funcional en curso por línea canónica. Dirección integra;
+   tres subagentes ayudan con archivos separados, componentes necesarios o
+   documentación. No se crean ramas equivalentes ni se copia código entre ellas.
+2. Cada corte debe dejar algo que se pueda enseñar desde el navegador.
+   Se busca un tamaño de **una sesión corta, unas 1–4 horas de trabajo**:
+   es un límite para dividir el trabajo, no una promesa de duración.
+   Si aparece una dependencia mayor, se identifica el siguiente resultado
+   mínimo y se divide antes de continuar; no se prolonga un hito durante semanas.
+3. Cada cierre tiene código, comprobación focal y recorrido visible.
+   Cuando escribe datos, se comprueba persistencia y recuperación sin duplicar.
+   Las pruebas se agrupan al terminar el corte, no por línea modificada.
+   Se conservan las revisiones independientes exigidas para identidad,
+   permisos, criptografía y SQL; no se añaden campañas preventivas generales.
+4. Commit pequeño y coherente; revisión aplicable, inventario y equivalencias
+   antes de integrar, publicación y comprobación del estado remoto. No se
+   mezcla WIP ajeno ni se retiran ramas con trabajo pendiente.
+5. Se actualiza esta tabla y el manual afectado en el mismo cierre. La bitácora
+   existente recoge avances y fallos concretos, sin crear tableros, contratos
+   de gobierno ni documentos de decisión adicionales.
+6. Se corrige lo que impide el recorrido o induce a error. Mejoras no necesarias
+   no abren una reescritura ni desplazan el siguiente objetivo.
+
+## Cola de entregas pequeñas
+
+El orden expresa dependencias, no autoriza a dar por existente una pieza.
+Antes de cada edición se comprueba qué implementación ya está disponible.
+
+| Orden | Entrega observable | Comprobación de cierre | Estado |
+| --- | --- | --- | --- |
+| 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | En cierre |
+| 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Después de 1 |
+| 3 | Registrar el justificante de una respuesta al llamamiento | Referencia o documento sintético real conservado, vinculado al llamamiento; no se inventa entrega de correo ni se acepta aún a la persona. | Pendiente |
+| 4 | Registrar una aceptación válida | Permiso específico, comprobación del justificante y estado, resolución y mismo recibo recuperable; habilita la propuesta de nombramiento. | Después de 3 |
+| 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |
+| 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
+| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Después de 5 o 6 |
+| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Después de 4 |
+| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Después de 8 |
+| 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
+| 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
+| 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |
+| 13 | Registrar seguimiento y cerrar el expediente | Una anotación y después el cierre, en cortes separados; historial y estado final conservados. | Después de 11 |
+| 14 | Entregar el recorrido completo a Alberto y RRHH | Arranque reproducible, ocho pasos recorribles, manuales al día y lista explícita de dependencias productivas. Una comprobación conjunta final. | Después de los anteriores |
+
+**Documentos del objetivo 9: seis cortes, no un generador nuevo.**
+Informe definitivo, resolución, diligencia, toma de posesión, notificación y
+comunicación al centro. Se reutilizan las piezas escritas. Sin modelo oficial
+se entrega un borrador de desarrollo claramente marcado, no una redacción
+jurídica validada ni un documento firmado.
+
+El paso 6 no se declara completo por cerrar solo la aceptación: también se
+comprueban sus alternativas y la continuidad con la selección siguiente.
+La numeración de esta cola no sustituye los ocho pasos del procedimiento.
+
+## Dependencias externas sin detener todo el desarrollo
+
+Correo corporativo, modelos oficiales, circuito de firma y conexión automática
+a GINPIX requieren información o autorización externas. Se continúa únicamente
+por alternativas reales permitidas: justificantes verificables, documentos
+de desarrollo identificados y ficha de grabación manual. Si falta una
+autoridad imprescindible, se señala la entrega exacta bloqueada y se trabaja
+en otra entrega de contratación que no dependa de ella. No se simula el éxito.
+
+La aplicación de desarrollo con datos sintéticos y la autorización para usar
+datos reales en producción son cierres distintos.
+
+## Historial conservado — no es el plan activo
+
+<details>
+<summary>Tablero anterior a este plan (julio–agosto de 2026)</summary>
+
 **Última actualización:** 9 de agosto de 2026
 
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
@@ -246,3 +339,5 @@ Cada cierre debe actualizar, en este orden:
 
 Para el detalle técnico y la brecha de cada fila se mantiene la
 [matriz ampliada](docs/portal_vec/matriz_estado_operativo_bolsa_2026-07-18.md).
+
+</details>
