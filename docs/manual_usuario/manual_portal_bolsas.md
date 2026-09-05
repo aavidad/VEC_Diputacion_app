@@ -2,7 +2,7 @@
 
 Diputación de Granada · Ventanilla Electrónica del Empleado Público
 
-**Edición: 5 de septiembre de 2026.** Cierre anterior publicado: versión
+**Edición: 6 de septiembre de 2026.** Cierre anterior publicado: versión
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. Este manual explica qué puede recorrer una persona desde el
 portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
@@ -10,7 +10,7 @@ autorizado para tramitar expedientes de personas reales.
 
 **Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH, más la solicitud de resolución aún pendiente de validar.** No están
+respuesta por RRHH, más aceptación manual del ejercicio sintético.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
 `8443`/base `55433`; no incrementa el contador de pasos.
@@ -24,10 +24,10 @@ registro. Sin errores JavaScript, cookies, almacenamiento web ni desbordamiento
 horizontal en ese recorrido. También se confirmó un conflicto real `409` en
 navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.
 
-**Corte actual:** la cuarta operación solicita resolución con los antecedentes
-originales. Navegador real `200/200/200/409`: validación de respuesta/plazo
-pendiente, sin recibo de aceptación ni duplicados. No aumenta los cinco pasos
-completos ni completa el sexto.
+**Corte actual incluido en esta entrega:** aceptación manual sintética `201`;
+tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
+mismo recibo y fecha, sin duplicados. Cierre técnico con servicios y permisos reales,
+no aprobación de un plazo legal. Continúan **5/8 pasos completos más parte del sexto**.
 
 Para elegir la documentación adecuada:
 
@@ -152,7 +152,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Iniciar selección, registrar aviso y declaración RRHH; solicitar resolución de aceptación. | Antecedentes recuperados sin duplicar; la resolución devuelve `409` pendiente. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo. |
+| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración RRHH y aceptación manual sintética. | Aceptación `201` y recuperación `200` tras reinicio, sin duplicados. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -239,23 +239,28 @@ envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
 la versión `2`, el expediente observado sigue en `6` y no cambia la candidatura
 ni su estado en Bolsa. No aumenta el contador de pasos.
 
-### Solicitar resolución de aceptación: todavía pendiente
+### Registrar aceptación manual: solo ejercicio sintético
 
 1. Recupere la declaración **Aceptación declarada en el correo** con los datos
    originales de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Aparece **4. Solicitar
    resolución de aceptación** en el mismo formulario. Sus referencias y el
-   justificante se toman del recibo; la comunicación sigue en versión `2`.
+   justificante se toman del recibo de comunicación `v2`.
 2. Use una clave propia para resolución, distinta de las operaciones anteriores.
-   Pulse **Revisar y solicitar resolución de aceptación** y confirme. No se
-   aporta otro `.eml`; confirmar no declara identidad, plazo vigente ni aceptación.
-3. El resultado actual es `409`: **«Pendiente de validar respuesta y plazo por
-   RRHH. No se ha confirmado la aceptación.»**. No hay recibo terminal, cambio
-   de candidatura ni duplicado. Conserve ese intento y su clave para una nueva
-   solicitud manual con los mismos datos; no prepare otra clave para eludirlo.
+   Para recuperar una aceptación registrada, conserve su clave y datos originales.
+3. Solo tras comprobar el caso sintético, marque las dos casillas, inicialmente
+   vacías: **He comprobado la respuesta y su justificante** y **Para este ejercicio
+   sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio**.
+   El criterio de desarrollo es de solo lectura. No se aporta otro `.eml`.
+4. Pulse **Revisar y solicitar resolución de aceptación** y confirme expresamente.
+   Solo tras confirmar CT y Bolsa aparece **Aceptación registrada · ejercicio sintético**.
 
-El recorrido real es `200/200/200/409`. Falta validación de negocio competente y
-proveedor de permiso nominal; las piezas técnicas preparadas no están activadas.
-No avance al nombramiento ni interprete una prueba técnica aislada como aceptación.
+**Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
+Sin ambas casillas no se envía. La petición antigua sin revisión manual conserva
+el `409` de validación pendiente, sin efectos: puede corregir casillas con la misma
+clave. Ante resultado ambiguo, clave y material quedan congelados, sin reintento automático.
+Dirección confirmó `201` y replay `200` tras reinicio, con el mismo recibo y fecha.
+El enlace a propuesta de nombramiento (objetivo 8) sigue pendiente; no hay política
+legal aprobada, renuncia, vencimiento, siguiente candidato ni correo corporativo completos.
 
 ### Qué ocurre después de un reinicio
 
@@ -269,6 +274,8 @@ La declaración de respuesta también se recuperó tras corregir la comparación
 temporal y repetir el reinicio de aplicación y PostgreSQL. El navegador devolvió
 `200`, con los mismos recibo, justificante y fecha original, sin nuevo registro.
 Los identificadores exactos constan en el [manual de RRHH](../manual_rrhh/README.md).
+La aceptación manual sintética también se recuperó tras reiniciar aplicación y
+PostgreSQL principal: `200/200/200/200`, mismo recibo CT y fecha, sin duplicados.
 
 El formulario sin confirmar no se guarda automáticamente en el navegador.
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.

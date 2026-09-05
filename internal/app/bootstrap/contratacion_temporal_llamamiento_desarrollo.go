@@ -68,6 +68,10 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 	if err != nil {
 		return nil, nil, err
 	}
+	puente.autorizadorAceptacion = &autorizadorLlamamientoDesarrollo{
+		alta: alta, material: alta.postgresql.proveedorMaterialBolsa, aceptacionBolsa: true,
+	}
+	comunicacion.aceptador = puente
 	manejador, err := httpinterno.NuevoManejadorComunicacionLlamamiento(comunicacion)
 	if err != nil {
 		return nil, nil, err

@@ -2,7 +2,7 @@
 
 Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
 Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
-Estado funcional de referencia: 5 de septiembre de 2026.
+Estado funcional de referencia: 6 de septiembre de 2026.
 
 **Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
 real devuelve 50 expedientes y detalle en el recorrido local `8443`/base
@@ -22,9 +22,10 @@ cookies, almacenamiento web ni desbordamiento horizontal en ese recorrido.
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo, sin nuevo paso completo.
 
-**Corte actual:** cuarto formulario de solicitud de resolución, demostrado en
-navegador con `200/200/200/409`, referencias originales y sin duplicados. No hay
-terminal aceptado; continúan **5/8 pasos completos más parte del sexto**.
+**Corte actual incluido en esta entrega:** aceptación manual sintética `201`
+con API/V3/CT58/Bolsa4 reales; tras reiniciar app/PostgreSQL principal,
+`200/200/200/200`, mismo recibo y fecha, sin duplicados. Cierre técnico, no política
+legal aprobada. Continúan **5/8 pasos completos más parte del sexto**.
 
 ## Qué leer y qué mantener
 
@@ -113,7 +114,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección e inicio del llamamiento, aviso local y declaración RRHH recuperados tras reinicio; mismos recibos y sin duplicar registros. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH y aceptación manual sintética recuperados tras reinicio; mismos recibos, sin duplicados. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. |
 | 7 y 8 | Nombramiento e incorporación, GINPIX y seguimiento: no declarados completos de extremo a extremo. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
@@ -167,49 +168,57 @@ decimales y la capacidad RFC3339Nano omite ceros finales. No cambia bytes
 firmados, hashes, MAC ni permisos. Dirección aplicó el bloque literal
 `DO $fechas$` en ambas bases; sus tres regresiones pasaron. La instrumentación
 de diagnóstico CT56 está retirada. No reaplicar la migración ni reconstruir
-el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) identifica el
-núcleo instalado, sin confundir su huella con un commit de publicación.
+el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) distingue aquel
+corte histórico de la huella actual del núcleo tras AD3-16/17.
 
 El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
 observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
 
-### Solicitud de resolución y preparación de aceptación RRHH
+### Resolución de aceptación manual sintética
 
 La cuarta operación del formulario es `data-ct-llamamiento-form="resolucion"`.
 Tras un recibo de declaración `aceptacion`, `resolverLlamamiento` envía a
 `POST /api/vec/contratacion-temporal/llamamientos/resoluciones` los ocho campos
-publicados: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
+base: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
 `llamamiento_ref`, `comunicacion_ref`, `version_esperada`, `respuesta` y
 `prueba_respuesta_ref`. Deriva los antecedentes del recibo, usa versión `2`,
 `justificante_ref` como prueba y una clave propia; no recibe autoridad del DOM.
 
-La ruta exacta protegida devuelve actualmente `409 validacion_respuesta_pendiente`,
-con clave i18n `api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente`.
-La UI muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha
-confirmado la aceptación.». Es rechazo conocido sin efecto terminal; conserva el intento
-para reintento manual, no automático ni con nueva clave. El validador del recibo
-existente no implica que la composición actual pueda confirmar una aceptación.
+La UI añade, en ese orden, `revision_respuesta_rrhh: true`, `revision_plazo_rrhh: true`
+y `criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906"`.
+Son once campos canónicos: solo envía tras marcar ambas casillas inicialmente falsas;
+criterio de solo lectura, confirmación explícita, sin identidad ni otro `.eml`.
+Los ocho campos antiguos siguen admitidos y devuelven `409 validacion_respuesta_pendiente`,
+clave i18n `api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente`.
+Ese rechazo conocido sin efectos permite corregir casillas conservando la clave;
+ante resultado ambiguo se congelan clave y material, sin reintento automático.
 
 El resolutor consulta el justificante mediante CT57 con permiso propio V3 real
 y fresco (`contratacion_temporal.llamamiento.respuesta.consultar_justificante`),
-sin doble: navegador `200/200/200/409`, misma respuesta/recibo y nueva auditoría
-de acceso, sin terminal. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
+sin doble. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
 AD3 `000016` / CT `000057` instaladas en ambas bases locales (`55433`/`55432`),
-con consulta confirmada tras reinicio de app/PostgreSQL principal. Política y validación de respuesta/plazo
-siguen pendientes; la consulta no concede permiso de aceptación.
+con consulta confirmada tras reinicio de app/PostgreSQL principal; no concede aceptación.
 
-Bolsa Go y AD3 `000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
-`000004_aceptacion_rrhh_integracion_desarrollo` están preparados, **no activados
-ni instalados permanentemente en BD**. Falta validación de negocio competente y
-proveedor de permiso nominal. La dinámica focal PostgreSQL final pasó:
-una aceptación almacenada, un historial y un evento; replay con mismo recibo y
-fecha; material divergente y segundo terminal rechazados. UP/DOWN restauraron
-SHA y ACL exactos, con cero datos y cero migraciones persistidos. Se corrigieron
-puntualmente precedencia SQL y búsqueda de catálogo en DOWN, sin reescrituras.
-El doble de autorización fue estrictamente privado y transaccional: comprueba
-almacenamiento aislado, no criptografía ni aceptación funcional E2E. No sustituye
-el permiso real ni modifica el plazo desde el aviso local.
-El [plan canónico](../../ESTADO_PROYECTO.md) mantiene el objetivo 4 en curso.
+La composición de desarrollo de doble llave fija la política sintética y exige
+`contratacion_temporal.llamamiento.respuesta.validacion_manual.registrar` para
+guardar declaración, actor y política en CT; Bolsa consume su permiso separado.
+No deriva plazo legal del aviso ni acredita entrega. Solo devuelve el recibo HTTP
+existente de nueve campos, versión resultante `3`, tras confirmar CT y Bolsa.
+Si Bolsa falla después del commit CT, no hay éxito parcial: reintento explícito
+con la misma clave/material, recibo CT conservado y autorizaciones frescas.
+Los dos catálogos de motivos se publican en llamadas separadas, no como uno solo.
+
+AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están **instaladas
+en ambas bases**, con ambas aplicaciones en la compilación corregida; no reaplicar.
+La prueba aislada anterior de Bolsa4 (`8197db3`) comprobó almacenamiento/replay/conflictos
+con doble privado transaccional, no criptografía. El roundtrip actual UP/DOWN de
+las cuatro migraciones verificó reversión exacta en ROLLBACK, sin modificar
+autorización ni usar dobles. El recorrido navegador sí usó criptografía y V3 reales:
+`201` y replay `200` tras reinicio principal, misma fecha/recibo, una resolución CT58,
+una aceptación Bolsa, tres historias y tres eventos, sin duplicados.
+El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
+sintética; pendiente enlazar propuesta de nombramiento (objetivo 8). No hay política
+legal aprobada ni cierre de renuncia, vencimiento, siguiente candidato o correo corporativo.
 
 ## Arquitectura real y propiedad
 

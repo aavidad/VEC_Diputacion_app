@@ -99,10 +99,11 @@ func TestConsultaJustificanteRespuestaRecibidaPGMaterialOchoCampos(t *testing.T)
 		t.Fatal("recurso no ligado a la solicitud directa")
 	}
 	tipo := reflect.TypeOf(s)
-	if tipo.NumField() != 8 {
-		t.Fatal("material debe conservar ocho campos")
+	var material map[string]json.RawMessage
+	if json.Unmarshal(b, &material) != nil || len(material) != 8 {
+		t.Fatal("material SQL debe conservar ocho campos")
 	}
-	for i := 0; i < tipo.NumField(); i++ {
+	for i := 0; i < 8; i++ {
 		if tipo.Field(i).Tag != "" {
 			t.Fatal("material con etiquetas")
 		}
@@ -127,6 +128,35 @@ func TestConsultaJustificanteRespuestaRecibidaPGMaterialOchoCampos(t *testing.T)
 		if err != nil || nuevo.Atributos["material_sha256"] == r.Atributos["material_sha256"] {
 			t.Fatal("campo no ligado", tipo.Field(i).Name, err)
 		}
+	}
+}
+
+func TestConsultaJustificanteRespuestaRecibidaPGProyectaSinPerderContextoManual(t *testing.T) {
+	s, original := justificanteConsultaPGPrueba(t)
+	legacy := s
+	s.RevisionRespuestaRRHH, s.RevisionPlazoRRHH = true, true
+	s.CriterioValidacionRef = "criterio:rrhh-sintetico"
+	r, err := RecursoConsultaJustificanteRespuestaRecibida(s)
+	rLegacy, _ := RecursoConsultaJustificanteRespuestaRecibida(legacy)
+	if err != nil || !reflect.DeepEqual(r, rLegacy) || original.ValidarPara(s) != nil {
+		t.Fatal("la revisión manual cambió la lectura de antecedentes", err)
+	}
+	b, _ := json.Marshal(original)
+	tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{string(b)}}}
+	pool := &iniciadorEjecucionSeleccionO6Prueba{tx: tx}
+	llamadas := 0
+	p := proveedorConsultaJustificantePrueba(func(_ context.Context, recibida ports.SolicitudResolverLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		llamadas++
+		if recibida != s {
+			t.Fatal("el proveedor perdió las confirmaciones ligadas al contexto")
+		}
+		return materialConsultaJustificantePrueba(t, recibida, AccionConsultaJustificanteRespuestaRecibida, AudienciaRegistroComunicacionLlamamiento, 1), nil
+	})
+	l := &LectorJustificantesRespuestaRecibidaPostgreSQL{pool: pool, proveedor: p}
+	j, err := l.ConsultarJustificanteRespuestaRecibida(context.Background(), s)
+	esperado, _ := json.Marshal(legacy)
+	if err != nil || j != original || llamadas != 1 || tx.confirmaciones != 1 || len(tx.argumentos) != 1 || tx.argumentos[0][0] != string(esperado) {
+		t.Fatal("consulta no conserva contrato SQL y contexto completo", err)
 	}
 }
 

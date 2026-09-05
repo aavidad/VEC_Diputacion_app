@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 5 de septiembre de 2026. Base publicada del corte actual: `4034157`.**
+**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `4a2138e`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -21,11 +21,12 @@ Los rechazos intermitentes por comparar como texto fechas equivalentes están
 corregidos mediante comparación de instantes; el diagnóstico se retiró.
 También se comprobó un conflicto `409` desde el navegador, sin duplicado.
 
-**Corte actual: solicitud de resolución, no aceptación confirmada.** El cuarto
-formulario reutiliza las referencias originales y el justificante RRHH.
-Navegador real: `200/200/200/409`; muestra «Pendiente de validar respuesta y
-plazo por RRHH. No se ha confirmado la aceptación.», sin recibo terminal ni
-duplicados. Conserva el intento para reintento manual con la misma clave.
+**Corte actual incluido en esta entrega: aceptación manual sintética.** El cuarto
+formulario reutiliza antecedentes y justificante, exige dos revisiones expresas
+con política fija de desarrollo y devuelve éxito solo tras confirmar CT y Bolsa.
+Navegador real `200/200/200/201`; tras reiniciar aplicación y PostgreSQL principal,
+`200/200/200/200`, mismo recibo CT y fecha, sin duplicados ni errores JS, cookies,
+almacenamiento web o desbordamiento. Cierre técnico, no aprobación de política legal.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -70,8 +71,8 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, aviso local y declaración RRHH persistentes y recuperables. Cuarta operación: solicitar resolución; recorrido real `200/200/200/409`, pendiente de validación. | No confirma aceptación ni duplica registros. Faltan validación competente de respuesta/plazo, permiso nominal y activación; tampoco acredita envío o entrega corporativos. |
-| 7. Nombramiento | Pendiente como recorrido completo. | No se declaran terminados sus seis documentos, incluida la Diligencia. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH y aceptación manual sintética persistentes y recuperables tras reinicio, sin duplicados. | Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. No acredita entrega ni plazo legal aprobado. |
+| 7. Nombramiento | Pendiente enlace desde aceptación sintética (objetivo 8). | No se declaran terminados sus seis documentos, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 La métrica es **cinco pasos completos más un tramo del sexto**, no un
@@ -83,13 +84,14 @@ El registro de respuesta conserva una respuesta, un asiento y un evento;
 no cambia Bolsa, no avanza el expediente y mantiene comunicación versión `2`.
 El `.eml` sintético se lee y resume con SHA256 en el navegador: no se sube ni
 se custodia. El aviso sigue siendo local, no correo corporativo entregado.
-Bolsa Go y SQL AD3 `000015` / Bolsa `000004` están preparados para aceptación
-RRHH, no activados ni instalados permanentemente en BD. La dinámica SQL aislada
-comprobó solo almacenamiento con un doble de autorización estrictamente privado
-y transaccional, sin datos ni migraciones persistidos; no acredita
-criptografía ni aceptación de extremo a extremo. Falta validación de negocio
-competente y proveedor de permiso nominal. Las preguntas pendientes no detienen
-la programación independiente ni autorizan a inventar plazo o autoridad.
+AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están instaladas en
+ambas bases, con ambas apps en la compilación corregida; AD3-16/CT57 ya estaban.
+No reaplicar. La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble
+privado transaccional. El roundtrip actual UP/DOWN de las cuatro migraciones
+verificó reversión exacta en ROLLBACK, sin modificar autorización ni usar dobles.
+El navegador actual sí usó criptografía real; no confundir estas comprobaciones.
+Las preguntas pendientes no detienen la programación independiente ni autorizan
+a inventar plazo o autoridad; continúa **5/8 más parte del sexto**.
 
 ## Probar el recorrido disponible
 

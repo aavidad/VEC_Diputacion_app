@@ -206,20 +206,10 @@ func decodificarComunicacionLlamamientoLocal(contenido string, solicitud ports.S
 	return r, nil
 }
 
-// El registro de salida local no es una prueba de entrega ni de respuesta.
-// Mantener denegada la resolución evita inventar aceptación o plazo vencido.
-// Este método no abre transacción y no modifica el llamamiento de Bolsa.
+// ResolverLlamamiento exige un proveedor propio de revisión manual; el permiso
+// de comunicación no habilita esta operación. No modifica el agregado de Bolsa.
 func (t *TransaccionComunicacionLlamamientoPostgreSQL) ResolverLlamamiento(ctx context.Context, solicitud ports.SolicitudResolverLlamamiento) (ports.ResultadoResolucionLlamamiento, error) {
-	if ctx == nil {
-		return ports.ResultadoResolucionLlamamiento{}, ErrPersistenciaComunicacionLlamamientoNoDisponible
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.ResultadoResolucionLlamamiento{}, err
-	}
-	if solicitud.Validar() != nil {
-		return ports.ResultadoResolucionLlamamiento{}, ports.ErrSolicitudComunicacionLlamamientoInvalida
-	}
-	return ports.ResultadoResolucionLlamamiento{}, ports.ErrOperacionComunicacionLlamamientoDenegada
+	return t.resolverManual(ctx, solicitud)
 }
 
 func normalizarErrorComunicacionLlamamiento(ctx context.Context, err error) error {

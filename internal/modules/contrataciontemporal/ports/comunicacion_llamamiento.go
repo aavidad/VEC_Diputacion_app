@@ -158,14 +158,17 @@ func (r RespuestaLlamamiento) Valida() bool {
 // SolicitudResolverLlamamiento no declara plazos ni candidatos. La expiracion
 // se solicita sin una falsa respuesta personal y la evalua la politica vigente.
 type SolicitudResolverLlamamiento struct {
-	ClaveIdempotencia  string
-	OrganizacionRef    string
-	ExpedienteRef      string
-	LlamamientoRef     string
-	ComunicacionRef    string
-	VersionEsperada    uint64
-	Respuesta          RespuestaLlamamiento
-	PruebaRespuestaRef string
+	ClaveIdempotencia     string
+	OrganizacionRef       string
+	ExpedienteRef         string
+	LlamamientoRef        string
+	ComunicacionRef       string
+	VersionEsperada       uint64
+	Respuesta             RespuestaLlamamiento
+	PruebaRespuestaRef    string
+	RevisionRespuestaRRHH bool   `json:",omitempty"`
+	RevisionPlazoRRHH     bool   `json:",omitempty"`
+	CriterioValidacionRef string `json:",omitempty"`
 }
 
 func (s SolicitudResolverLlamamiento) Validar() error {
@@ -179,6 +182,9 @@ func (s SolicitudResolverLlamamiento) Validar() error {
 		!s.Respuesta.Valida() {
 		return ErrSolicitudComunicacionLlamamientoInvalida
 	}
+	if (s.RevisionRespuestaRRHH || s.RevisionPlazoRRHH || s.CriterioValidacionRef != "") && !s.RevisionManualConfirmada() {
+		return ErrSolicitudComunicacionLlamamientoInvalida
+	}
 	if s.Respuesta == RespuestaLlamamientoExpirada {
 		if s.PruebaRespuestaRef != "" {
 			return ErrSolicitudComunicacionLlamamientoInvalida
@@ -189,6 +195,23 @@ func (s SolicitudResolverLlamamiento) Validar() error {
 		return ErrSolicitudComunicacionLlamamientoInvalida
 	}
 	return nil
+}
+
+// RevisionManualConfirmada expresa las dos revisiones declaradas por RRHH.
+// No verifica por sí sola el correo ni acredita una política o un plazo legal.
+func (s SolicitudResolverLlamamiento) RevisionManualConfirmada() bool {
+	return s.RevisionRespuestaRRHH && s.RevisionPlazoRRHH &&
+		domain.ReferenciaOpacaValida(s.CriterioValidacionRef) &&
+		s.Respuesta == RespuestaLlamamientoAceptada && s.VersionEsperada == 2
+}
+
+// ParaConsultaJustificante conserva el contrato de ocho campos del lector.
+// La autorización de resolución manual debe usar siempre la solicitud completa.
+func (s SolicitudResolverLlamamiento) ParaConsultaJustificante() SolicitudResolverLlamamiento {
+	s.RevisionRespuestaRRHH = false
+	s.RevisionPlazoRRHH = false
+	s.CriterioValidacionRef = ""
+	return s
 }
 
 type EstadoPlazoLlamamiento string

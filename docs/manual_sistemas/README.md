@@ -1,6 +1,6 @@
 # Manual de Sistemas — operación diaria de VEC
 
-Entorno de desarrollo de Contratación temporal · Corte: 5 de septiembre de 2026.
+Entorno de desarrollo de Contratación temporal · Corte: 6 de septiembre de 2026.
 
 **Cierre anterior publicado:** código
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con desarrollo en el equipo local.
@@ -35,9 +35,9 @@ La entrega 3 queda cerrada funcionalmente en desarrollo.
 Los identificadores observados constan en el
 [manual de RRHH](../manual_rrhh/README.md).
 
-**Corte actual:** navegador real `200/200/200/409` al recuperar los antecedentes
-y solicitar resolución desde la cuarta operación. El `409` indica validación
-de respuesta/plazo pendiente, no aceptación ni recibo terminal; sin duplicados.
+**Corte actual incluido en esta entrega:** aceptación manual sintética `201`
+con API/V3/CT58/Bolsa4 reales. Tras reiniciar app/PostgreSQL principal:
+`200/200/200/200`, mismo recibo y fecha, sin duplicados; cierre técnico sintético.
 El alcance continúa en **5/8 pasos completos más parte del sexto**.
 
 ## Alcance y referencias
@@ -53,8 +53,8 @@ es **planificación pendiente de aprobación, no la instalación vigente**.
 No hay que desplegar su inventario para realizar estas operaciones.
 
 Alcance funcional acreditado: **cinco pasos completos y parte del sexto**,
-con selección, aviso local y declaración RRHH recuperables tras reiniciar.
-La declaración no resuelve aceptación ni renuncia terminal. Lista, detalle y
+con selección, aviso, declaración RRHH y aceptación manual sintética recuperables.
+La declaración sola no resuelve aceptación ni renuncia. Lista, detalle y
 análisis desde una solicitud existente están comprobados y publicados;
 su persistencia tras reinicio también está contrastada.
 Consulte el
@@ -170,27 +170,28 @@ No añada conexiones ni conceda permisos manuales para superar un rechazo.
 AD3 `000016` / CT `000057` están instaladas en ambas bases locales (`55433`/`55432`).
 No reaplicarlas. Consulta confirmada después de reiniciar app/PostgreSQL principal.
 La consulta interna al resolutor ya usa permiso propio V3 real y fresco,
-sin doble: navegador `200/200/200/409`, misma respuesta/recibo y nueva auditoría
-de acceso, sin terminal. No añade DTO HTTP ni expone `Seleccion`; política y
-validación competente de respuesta/plazo siguen pendientes.
+sin doble, con auditoría de acceso. No añade DTO HTTP ni expone `Seleccion`;
+su permiso de lectura no concede escritura CT ni aceptación Bolsa.
 
-Distinto estado: Bolsa Go y las migraciones AD3
-`000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
-`000004_aceptacion_rrhh_integracion_desarrollo` están **preparados, no activados
-ni instalados permanentemente en las bases**. No aplicarlos como parte del
-arranque: falta validación de negocio competente y proveedor de permiso nominal.
-La dinámica PostgreSQL aislada comprobó un registro/historial/evento, replay
-con el mismo recibo/fecha y rechazo de material divergente y segundo terminal.
-UP/DOWN restauraron SHA y ACL exactos: cero datos y cero migraciones persistidos.
-El doble de autorización fue estrictamente privado y transaccional; acredita
-solo almacenamiento, no criptografía ni aceptación funcional de extremo a extremo.
-No trasladarlo a la aplicación ni dar por instalada la aceptación por esa prueba.
+AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están **instaladas
+en ambas bases**, con ambas apps en la compilación corregida. No reaplicar ni
+añadir conexiones al arrancar: siguen once LOGIN por aplicación, todos a su base.
+La política fija es exclusivamente `politica:ct:revision-manual-sintetica:20260906`;
+no acredita entrega ni plazo legal aprobado. CT guarda revisión/actor/política
+con permiso propio y Bolsa confirma con otro; no hay éxito HTTP parcial.
+La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional,
+no probaba criptografía. El roundtrip actual UP/DOWN de las cuatro migraciones
+verificó reversión exacta en ROLLBACK, sin modificar autorización ni usar dobles.
+El navegador sí usó criptografía y API/V3/CT58/Bolsa4 reales: `201` y replay `200`,
+mismo recibo/fecha; una resolución CT58, una aceptación Bolsa, tres historias y
+tres eventos, sin duplicados. La instalación secundaria no acredita otro E2E allí.
 
 Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
 compara instantes y corrige la diferencia de ceros finales entre decisión y
 capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
-pasaron. SHA-256 del núcleo instalado, **no de un commit de publicación**:
-`42f67b75786e996c56309350389801091cf749adb85a2e7b6d40ee49c399fb62`.
+pasaron. La huella de aquel corte AD3-14 es histórica. SHA-256 actual del núcleo
+tras AD3-16/17, comprobado igual en ambas bases por dirección:
+`02453e9617aff9926b55735ede70bdffe3ee15b490c903aa8870a996871b4af9`.
 La instrumentación de diagnóstico CT56 se retiró de ambas bases, que conservan
 la misma función final. No ejecutar de nuevo el bloque ni reinstalar consumidores.
 
@@ -301,11 +302,14 @@ su huella local. No cambia la comunicación `v2`, el expediente observado `v6`
 ni el estado Bolsa. No acredita envío, entrega ni aceptación terminal.
 Tras recuperar una declaración `aceptacion`, la cuarta operación solicita
 resolución con las referencias y el justificante originales, clave propia y
-confirmación explícita, sin otro `.eml`. El `409 validacion_respuesta_pendiente`
-muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado
-la aceptación.». Es una condición conocida sin efecto terminal: conserve el intento
-para reintento manual con la misma clave, no automático ni con otra clave.
-No corrija ese estado concediendo permisos o marcando un plazo manualmente.
+dos revisiones explícitas RRHH del ejercicio sintético, inicialmente falsas;
+criterio fijo de solo lectura y confirmación, sin otro `.eml`. Solo tras CT y
+Bolsa muestra «Aceptación registrada · ejercicio sintético». Sin ambas casillas
+no envía; la petición antigua conserva `409 validacion_respuesta_pendiente`, sin efectos.
+Ese rechazo permite corregir casillas conservando la clave; ante resultado ambiguo,
+mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
+Pendiente enlace al nombramiento (objetivo 8), renuncia, vencimiento, siguiente
+candidato y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar
@@ -423,6 +427,8 @@ Los DOWN de CT56/AD3-14 bloquean la reversión (`55000`) si hay registros o
 dependencias. Es una protección de la evidencia, no una pérdida de datos.
 No ejecutarlos en estas bases con historial; recuperación mediante respaldo
 o avance correctivo bajo dirección, no borrado de declaraciones.
+El rollback previo de aceptación tampoco autoriza DOWN después de guardar
+resoluciones CT58/Bolsa: conservar historial y recuperar por respaldo o avance correctivo.
 
 ## 7. Incidencias y registro de evidencia
 

@@ -38,6 +38,10 @@ const RECHAZOS_PREVIOS = new Set([
   "413:peticion_demasiado_grande", "415:tipo_contenido_no_admitido",
   "422:contenido_no_valido",
 ]);
+export function esValidacionRespuestaPendiente(error) {
+  return error?.envelopeValido === true && error.estado === 409
+    && error.codigo === "validacion_respuesta_pendiente";
+}
 export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) {
   if (typeof ejecutar !== "function" || typeof validarOpciones !== "function") {
     throw new TypeError("dependencias HTTP de llamamiento no disponibles");
@@ -49,8 +53,8 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       maximoSolicitud: 4096, maximoRespuesta: 4096, validarRespuesta, efecto: true,
       rechazoDeterminado: (error) => error?.envelopeValido === true
         && (RECHAZOS_PREVIOS.has(`${error.estado}:${error.codigo}`)
-          || (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento && error.estado === 409
-            && error.codigo === "validacion_respuesta_pendiente")),
+          || (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
+            && esValidacionRespuestaPendiente(error))),
     });
   }
   return Object.freeze({

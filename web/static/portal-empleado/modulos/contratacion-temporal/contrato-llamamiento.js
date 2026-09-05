@@ -18,9 +18,15 @@ export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
 export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
   "clave_idempotencia", "respuesta", "correo_ref", "recibida_en",
 ]);
+// Configuración fija de este ejercicio de desarrollo; no concede autoridad.
+export const CRITERIO_VALIDACION_RESOLUCION_DESARROLLO = "politica:ct:revision-manual-sintetica:20260906";
+export const CAMPOS_REVISION_RESOLUCION = Object.freeze([
+  "revision_respuesta_rrhh", "revision_plazo_rrhh",
+]);
 export const CAMPOS_RESOLUCION = Object.freeze([
   "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
   "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
+  ...CAMPOS_REVISION_RESOLUCION, "criterio_validacion_ref",
 ]);
 
 function exigir(condicion) {
@@ -95,7 +101,9 @@ export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
 // autorización: ambos se comprueban en el servidor antes de producir un recibo.
 export function validarSolicitudResolucionLlamamiento(entrada) {
   const valor = solicitud(entrada, CAMPOS_RESOLUCION);
-  exigir(valor.version_esperada === 2 && valor.respuesta === "aceptacion");
+  exigir(valor.version_esperada === 2 && valor.respuesta === "aceptacion"
+    && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true)
+    && valor.criterio_validacion_ref === CRITERIO_VALIDACION_RESOLUCION_DESARROLLO);
   return valor;
 }
 export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {

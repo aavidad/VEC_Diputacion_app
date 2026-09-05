@@ -1,6 +1,6 @@
 # Manual funcional del técnico de Recursos Humanos
 
-Contratación temporal · VEC Diputación · Corte: 5 de septiembre de 2026.
+Contratación temporal · VEC Diputación · Corte: 6 de septiembre de 2026.
 
 **Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
 real muestra 50 expedientes y su detalle en el recorrido local (`8443` / base
@@ -19,14 +19,15 @@ aplicación y PostgreSQL. Mismos recibo, justificante y fecha, sin nuevo registr
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo; no aumenta el contador.
 
-**Corte actual:** el cuarto formulario permite solicitar resolución, no confirmar
-aceptación. Recorrido real `200/200/200/409`: mismos antecedentes, validación de
-respuesta/plazo pendiente, sin duplicados. Continúan **5/8 pasos más parte del 6**.
+**Corte actual incluido en esta entrega:** aceptación manual sintética `201`;
+tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
+mismo recibo y fecha, sin duplicados. Cierre técnico, no aprobación de política
+legal ni del procedimiento por RRHH. Continúan **5/8 pasos más parte del 6**.
 
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más selección,
-aviso local y declaración de respuesta del sexto.** Se usa la aplicación
+aviso local, declaración y aceptación manual sintética del sexto.** Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -39,8 +40,8 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso y declaración RRHH recuperables; cuarta operación solicita resolución y devuelve `409` pendiente, sin duplicados. Sin envío, entrega, aceptación terminal ni plazo acreditados. |
-| 7. Nombramiento / formalización | No recorrible de extremo a extremo: pendientes aceptación, modelos y circuito de firmas. |
+| 6. Llamamiento | Parcial: selección, aviso, declaración y aceptación manual sintética recuperables tras reinicio. Faltan renuncia, vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
+| 7. Nombramiento / formalización | Pendiente enlace desde aceptación sintética (objetivo 8), modelos y circuito de firmas; no recorrible de extremo a extremo. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
@@ -195,7 +196,8 @@ firmada; la orden, el llamamiento y el registro local sí quedan persistidos.
 La versión local resultante `2` de comunicación no es la versión del
 expediente. **Registrar el aviso local no abre plazo legal, no acredita
 aceptación y no permite dar por realizado el nombramiento.** No hay recorrido
-completo de envío, entrega, aceptación, renuncia o vencimiento. No use las
+completo de envío, entrega, renuncia o vencimiento. La aceptación manual se
+limita al ejercicio sintético descrito debajo. No use las
 opciones de una pantalla de demostración para simular esas decisiones.
 
 #### Operación 3: registrar la respuesta declarada por RRHH
@@ -243,24 +245,36 @@ registro**. El recorrido quedó comprobado sin errores JavaScript, cookies,
 almacenamiento web ni desbordamiento horizontal. Cierra esta entrega de
 declaración, no la aceptación terminal ni todo el paso 6.
 
-#### Operación 4: solicitar resolución de aceptación, pendiente de validar
+#### Operación 4: aceptación manual del ejercicio sintético
 
 Después de recuperar una declaración `aceptacion`, aparece **4. Solicitar
 resolución de aceptación** en el mismo formulario. Reutiliza las referencias
-originales, comunicación `v2` y justificante; no permite cambiar sus antecedentes
-ni conceder identidad o plazo. Use una clave propia de resolución y confirme
-expresamente. No requiere otro `.eml`.
+originales, recibo de comunicación `v2` y justificante; no permite cambiar sus
+antecedentes ni conceder identidad. Use una clave propia; si recupera, la original.
+Solo tras comprobar el caso, marque las dos casillas inicialmente vacías:
 
-El recorrido real devolvió `200/200/200/409` y el mensaje **«Pendiente de validar
-respuesta y plazo por RRHH. No se ha confirmado la aceptación.»**. No hay recibo
-terminal ni duplicado; la declaración sigue siendo solo una declaración.
-Conserve el intento y su clave: únicamente se admite volver a solicitarlo
-manualmente con los mismos datos, sin reintento automático ni clave nueva.
+- **He comprobado la respuesta y su justificante**.
+- **Para este ejercicio sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio**.
 
-Faltan validación de negocio competente y proveedor de permiso nominal. Las
-piezas técnicas preparadas no están activadas y no autorizan a dar por aceptada
-la candidatura. La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el
-recorrido exacto y separa las pruebas aisladas del resultado funcional.
+El criterio fijo, de solo lectura, es `politica:ct:revision-manual-sintetica:20260906`.
+**Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real**.
+Revise y confirme expresamente, sin otro `.eml`. El servidor conserva declaración,
+actor y política con permisos propios; solo tras CT y Bolsa muestra
+**Aceptación registrada · ejercicio sintético**. La declaración del corte 3 no basta.
+
+Dirección confirmó `201` con API/V3/CT58/Bolsa4 reales y `200/200/200/200`
+tras reiniciar aplicación y PostgreSQL principal, sin duplicados:
+
+- Recibo CT: `recibo:d6bdcc7b-e22e-4fe9-8aac-a1eb554a4103`.
+- Resolución: `7a3e4a2e-d142-4562-ae5c-59c95b011e0c`.
+- Fecha UTC conservada: `2026-09-05T22:27:02.861379Z`.
+
+Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
+`409` pendiente, sin efectos: permite corregir casillas conservando la clave.
+Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
+Faltan renuncia, vencimiento, siguiente candidato y correo corporativo. El enlace
+al nombramiento (objetivo 8) sigue pendiente; no hay política legal aprobada.
+La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
 ### 7. Nombramiento: límite actual
 

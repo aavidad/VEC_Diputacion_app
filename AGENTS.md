@@ -1,12 +1,12 @@
 # Instrucciones del repositorio para agentes
 
-## Punto operativo vigente — desarrollo local, 5 de septiembre de 2026
+## Punto operativo vigente — desarrollo local, 6 de septiembre de 2026
 
 Este bloque sustituye las ubicaciones y órdenes históricas inferiores.
 Lea las instrucciones de desatasco del operador y el plan vigente en
 `ESTADO_PROYECTO.md`; solo Contratación temporal y dependencias imprescindibles.
 La bandeja y el análisis se publicaron en `b2effba`; esta entrega añade el
-registro de respuesta declarada por RRHH. La línea de trabajo sigue siendo
+registro de respuesta y la aceptación manual sintética. La línea de trabajo sigue siendo
 `trabajo/ct-app-llamamiento-b4a-20260905`, ahora en el equipo local del operador,
 worktree `.worktrees/ct-app-llamamiento-b4a-20260905`.
 Las dos bases sintéticas están aquí, con consultas instaladas. Principal:
@@ -23,22 +23,29 @@ CT56 y autorización14 están instaladas en ambas bases; no reaplicarlas.
 La comparación de fechas equivalentes está corregida y no queda diagnóstico
 temporal en SQL. La declaración conserva referencia y SHA256 del correo,
 no su contenido ni su custodia; no resuelve aceptación/renuncia ni cambia Bolsa.
-La cuarta operación del formulario solicita resolución por la ruta real:
-consulta el justificante original con permiso específico V3, conserva su
-selección solo internamente y devuelve `409 validacion_respuesta_pendiente`,
-sin aceptación ni efectos de negocio, hasta conectar validación de respuesta/plazo.
+La cuarta operación registró aceptación manual sintética: navegador real
+`200/200/200/201`, con API, V3, CT58 y Bolsa4 reales; cero errores JS,
+cookies, almacenamiento web y desbordamiento. Tras reiniciar app/PostgreSQL
+principal: `200/200/200/200`, mismo recibo CT/fecha, una resolución CT58 y una
+aceptación Bolsa, tres historias y tres eventos, sin duplicados.
+Exige dos revisiones expresas de RRHH y la política fija de desarrollo
+`politica:ct:revision-manual-sintetica:20260906`, no una política legal aprobada.
+Consulta el justificante con permiso propio V3; `Seleccion` permanece interna.
+Permisos de lectura, escritura CT y Bolsa separados; éxito solo tras CT y Bolsa.
+La petición antigua sin revisión manual sigue en `409 validacion_respuesta_pendiente`.
 Autorización16 y CT57 están instaladas en ambas bases: no reaplicarlas.
 Consulta con autorización real repetida tras reiniciar app/PostgreSQL principal;
 mismo recibo, una respuesta/historial/evento y auditoría nueva de acceso.
 Justificante ajeno503 sin datos; Intervención401 antes de consultar.
-La persistencia de aceptación en Bolsa reutiliza la misma apertura y registro
-de operaciones. Sus migraciones autorización15/Bolsa4 se comprobaron solamente
-en una transacción revertida; NO están instaladas en las bases conservadas.
-Guardado/replay/conflictos y reversión exacta comprobados con doble de
-autorización exclusivamente transaccional: no es una aceptación autorizada de
-extremo a extremo ni una prueba de criptografía. No reactivar ese doble.
-Siguiente corte: conectar justificante, validación y permiso nominal al
-resolutor existente, sin convertir la declaración en aceptación automática.
+AD3-15/Bolsa4 y AD3-17/CT58 están instaladas en ambas bases; ambas apps usan
+la compilación corregida. No reaplicar ni recrear bases.
+La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional.
+El roundtrip actual UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 verificó reversión exacta
+en ROLLBACK, sin modificar autorización ni usar dobles. El navegador actual sí
+usó criptografía real; no confundir las tres comprobaciones.
+Aceptación manual sintética cerrada técnicamente; pendiente el enlace al
+nombramiento (objetivo 8), renuncia, vencimiento, siguiente candidato y correo corporativo.
+La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.
 Orden posterior del operador: las preguntas pendientes no detienen las partes
 independientes; se validarán después. No inventar una regla de plazo ni otra
 línea de implementación. Continúan cinco pasos completos y parte del sexto.

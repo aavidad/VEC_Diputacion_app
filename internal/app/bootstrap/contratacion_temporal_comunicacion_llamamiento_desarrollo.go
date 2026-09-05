@@ -39,9 +39,10 @@ type autorizacionComunicacionLlamamientoDesarrollo interface {
 }
 
 type proveedorComunicacionLlamamientoDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	autorizador autorizacionComunicacionLlamamientoDesarrollo
-	reloj       ports.Reloj
+	soporte               *soporteAltaContratacionTemporalDesarrollo
+	autorizador           autorizacionComunicacionLlamamientoDesarrollo
+	autorizadorResolucion autorizacionComunicacionLlamamientoDesarrollo
+	reloj                 ports.Reloj
 }
 
 var _ postgresct.ProveedorRegistroComunicacionLlamamiento = (*proveedorComunicacionLlamamientoDesarrollo)(nil)
@@ -52,6 +53,7 @@ type ejecutorComunicacionLlamamientoDesarrollo struct {
 	lector                   ports.LectorExpedienteSeleccionLlamamiento
 	lectorJustificante       ports.LectorJustificantesRespuestaRecibida
 	servicio                 httpinterno.EjecutorComunicacionLlamamiento
+	aceptador                aceptadorRespuestaRRHHDesarrollo
 }
 
 var _ httpinterno.EjecutorComunicacionLlamamiento = (*ejecutorComunicacionLlamamientoDesarrollo)(nil)
@@ -76,7 +78,8 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	}
 	proveedor := &proveedorComunicacionLlamamientoDesarrollo{
 		soporte: alta.soporte, reloj: reloj,
-		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: material, comunicacion: true},
+		autorizador:           &autorizadorLlamamientoDesarrollo{alta: alta, material: material, comunicacion: true},
+		autorizadorResolucion: &autorizadorLlamamientoDesarrollo{alta: alta, material: material, resolucionManual: true},
 	}
 	transaccion, err := postgresct.NuevaTransaccionComunicacionLlamamientoPostgreSQL(poolCT, proveedor)
 	if err != nil {
@@ -184,7 +187,10 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	if err != nil || justificante.ValidarPara(solicitud) != nil {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
-	return ports.ResultadoResolucionLlamamiento{}, application.ErrValidacionRespuestaLlamamientoPendiente
+	if !solicitud.RevisionManualConfirmada() {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrValidacionRespuestaLlamamientoPendiente
+	}
+	return e.resolverConRevisionManual(ctx, solicitud, justificante)
 }
 
 func expedienteComunicacionLlamamientoDesarrolloValido(expediente ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarComunicacionLlamamiento) bool {

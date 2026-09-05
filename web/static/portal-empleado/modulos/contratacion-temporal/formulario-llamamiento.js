@@ -1,6 +1,7 @@
 /** Una intención visible por acción; no se guarda nada en el navegador. */
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarLlamamiento } from "./renderizado-llamamiento.js";
+import { esValidacionRespuestaPendiente } from "./cliente-http-llamamiento.js";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
@@ -8,6 +9,7 @@ import {
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   CAMPOS_RESOLUCION, validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
+  CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
 } from "./contrato-llamamiento.js";
 
 const OPERACIONES = Object.freeze({
@@ -53,7 +55,9 @@ export function montarFormularioLlamamiento({
   });
   let montado = true, lecturaCorreo = 0;
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
-    resolucion: { ...nuevoPaso(), mensaje: "llamamiento_resolucion_pendiente" },
+    resolucion: { ...nuevoPaso(), mensaje: "llamamiento_resolucion_pendiente", claveConservada: false,
+      valores: { revision_respuesta_rrhh: false, revision_plazo_rrhh: false,
+        criterio_validacion_ref: CRITERIO_VALIDACION_RESOLUCION_DESARROLLO } },
     enlazado: false, comunicacionAbierta: false };
 
   function repintar(operacion = "") {
@@ -76,9 +80,12 @@ export function montarFormularioLlamamiento({
       if (!formulario?.elements || paso.solicitud !== null) continue;
       for (const campo of contrato.campos) {
         // Los antecedentes de comunicación proceden del recibo, no de los controles.
-        if (["comunicacion", "resolucion"].includes(operacion) && campo !== "clave_idempotencia") continue;
+        const revision = operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(campo);
+        if (["comunicacion", "resolucion"].includes(operacion) && campo !== "clave_idempotencia" && !revision) continue;
+        if (paso.claveConservada && campo === "clave_idempotencia") continue;
         if (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
-        paso.valores[campo] = String(formulario.elements.namedItem(campo)?.value ?? "");
+        const control = formulario.elements.namedItem(campo);
+        paso.valores[campo] = revision ? control?.checked === true : String(control?.value ?? "");
       }
     }
     estado.comunicacionAbierta = raiz.querySelector(
@@ -182,6 +189,7 @@ export function montarFormularioLlamamiento({
         advertencia: t("llamamiento_confirmacion_" + operacion, {
           version: solicitud.version_esperada,
           justificante: solicitud.prueba_respuesta_ref,
+          criterio: solicitud.criterio_validacion_ref,
           ...(operacion === "respuesta" ? {
             respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
             correo: solicitud.correo_ref, huella: solicitud.correo_sha256,
@@ -250,8 +258,8 @@ export function montarFormularioLlamamiento({
       guardarBorradores();
       const conflicto = ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
         "version_en_conflicto", "seleccion_no_disponible"].includes(error?.codigo);
-      const validacionPendiente = operacion === "resolucion" && error?.estado === 409
-        && error?.codigo === "validacion_respuesta_pendiente" && error?.envelopeValido === true;
+      const validacionPendiente = operacion === "resolucion" && esValidacionRespuestaPendiente(error)
+        && error.resultadoIndeterminado === false && !recuperandoRespuesta && !respuestaRecibida;
       // Denegar un replay no demuestra ausencia de efecto del intento original.
       const rechazo = !validacionPendiente && !recuperandoRespuesta && !respuestaRecibida && error?.resultadoIndeterminado === false
         && error?.envelopeValido === true;
@@ -260,6 +268,12 @@ export function montarFormularioLlamamiento({
         : conflicto ? "llamamiento_conflicto"
         : rechazo ? "llamamiento_rechazada" : "llamamiento_error";
       paso.tono = conflicto || rechazo ? "error" : "aviso";
+      // Solo un rechazo conocido de este primer intento permite corregir las
+      // casillas. Un intento anterior ambiguo nunca se libera por un replay.
+      if (validacionPendiente) {
+        paso.solicitud = null;
+        paso.claveConservada = true;
+      }
       if (rechazo && !conflicto) paso.solicitud = null;
     } finally {
       paso.ocupado = false;
@@ -275,7 +289,7 @@ export function montarFormularioLlamamiento({
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     if (operacion === "resolucion" && estado.respuesta.recibo?.respuesta !== "aceptacion") return;
     const paso = estado[operacion];
-    if (paso.solicitud !== null || paso.ocupado || paso.calculando) return;
+    if (paso.solicitud !== null || paso.claveConservada || paso.ocupado || paso.calculando) return;
     guardarBorradores();
     try { paso.valores.clave_idempotencia = generarClaveIdempotencia() ?? ""; } catch {
       paso.mensaje = "llamamiento_validacion";

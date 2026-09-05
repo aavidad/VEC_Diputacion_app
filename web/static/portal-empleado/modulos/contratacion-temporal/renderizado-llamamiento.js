@@ -1,10 +1,16 @@
 import { escaparHTML as e } from "./componentes-expedientes.js";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
-  CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION } from "./contrato-llamamiento.js";
+  CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
+  CAMPOS_REVISION_RESOLUCION } from "./contrato-llamamiento.js";
 
 export function renderizarLlamamiento(estado, t, fecha) {
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
+    if (operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(nombre)) {
+      return `<div class="ct-campo"><label for="${id}"><input id="${id}" name="${nombre}"
+        type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}
+        aria-describedby="ct-llamamiento-resolucion-validacion-ayuda"> ${e(t("llamamiento_" + nombre))}</label></div>`;
+    }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(operacion === "resolucion"
@@ -69,11 +75,14 @@ export function renderizarLlamamiento(estado, t, fecha) {
           ? "llamamiento_clave_ayuda" : operacion === "resolucion" ? "llamamiento_resolucion_ayuda" : operacion === "respuesta"
             ? "llamamiento_respuesta_ayuda" : "llamamiento_prueba_ayuda"))}</p>
         ${operacion !== "seleccion" ? `<p>${e(t("llamamiento_clave_ayuda"))}</p>` : ""}
+        ${operacion === "resolucion" ? `<p id="ct-llamamiento-resolucion-validacion-ayuda" class="ct-ayuda">${e(t("llamamiento_validacion_manual_desarrollo"))}</p>` : ""}
         <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}>
           <legend>${e(t("llamamiento_contexto"))}</legend>
           <div class="ct-campos">${campos.map((nombre) => campo(
             operacion, nombre, paso.valores[nombre] ?? "", paso.solicitud !== null
-              || (["comunicacion", "resolucion"].includes(operacion) && nombre !== "clave_idempotencia")
+              || (paso.claveConservada && nombre === "clave_idempotencia")
+              || (["comunicacion", "resolucion"].includes(operacion) && nombre !== "clave_idempotencia"
+                && !(operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(nombre)))
               || (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(nombre)),
           )).join("")}</div>
         ${operacion === "respuesta" ? `<div class="ct-campo">
@@ -86,7 +95,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${paso.solicitud === null ? `<button class="boton-secundario" type="button"
+        ${paso.solicitud === null && !paso.claveConservada ? `<button class="boton-secundario" type="button"
           data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
         ${!paso.recibo && !paso.bloqueado ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null

@@ -1,8 +1,8 @@
 # Estado y plan de ataque del proyecto
 
-**Plan vigente: 5 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
+**Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Base publicada del corte actual: `4034157b0e09ce9e1827c503cacd85ea7c894c01`.
+Base publicada del corte actual: `4a2138eb7ed2fbad53507997e7d4ec83a14951a2`.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -37,32 +37,38 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   almacenamiento web ni desbordamiento horizontal en móvil.
   Conflicto `409` comprobado desde el navegador, sin duplicado.
   No cambia Bolsa ni expediente; comunicación sigue en versión `2`.
-- Objetivo 4 en curso: el cuarto formulario solicita resolución de aceptación
-  con las referencias originales y el justificante de la declaración RRHH.
-  Navegador real: recuperación `200/200/200` y solicitud `409`, con el texto
-  «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado la
-  aceptación.». Sin recibo terminal, duplicados ni cambio de estado; se conserva
-  el mismo intento para reintento manual, sin nueva clave ni reintento automático.
-- Consulta de justificante conectada: navegador `200/200/200/409` con permiso
-  propio V3 real y fresco, sin doble; misma respuesta/recibo y nueva auditoría
-  de acceso, sin terminal. Es interna al resolutor: no crea DTO HTTP ni expone
+- Objetivo 4 cerrado técnicamente para aceptación manual sintética desde el cuarto formulario.
+  Navegador real `200/200/200/201`, con antecedentes originales, API, V3, CT58 y
+  Bolsa4 reales; cero errores JS, cookies, almacenamiento web y desbordamiento.
+  Recibo CT `recibo:d6bdcc7b-e22e-4fe9-8aac-a1eb554a4103`, resolución
+  `7a3e4a2e-d142-4562-ae5c-59c95b011e0c`, fecha `2026-09-05T22:27:02.861379Z`.
+  Tras reiniciar app/PostgreSQL principal: `200/200/200/200`, mismo recibo/fecha.
+  Base: una resolución CT58 y una aceptación Bolsa, tres historias y tres
+  eventos, sin duplicados. No se atribuye este recorrido a la secundaria.
+  Dos revisiones RRHH expresas y política fija
+  `politica:ct:revision-manual-sintetica:20260906`; no aprobación legal real.
+  Éxito solo tras CT y Bolsa; consulta/escritura/Bolsa conservan permisos propios.
+  La petición antigua sin revisión manual sigue en `409` pendiente, sin efectos.
+- Consulta de justificante conectada con permiso propio V3 real y fresco,
+  misma respuesta/recibo y auditoría de acceso. Es interna: no crea DTO HTTP ni expone
   `Seleccion`. AD3 `000016` / CT `000057` instaladas en ambas bases locales,
   `55433` y `55432`; consulta repetida tras reiniciar app/PostgreSQL principal.
-  Política y validación competente de respuesta/plazo siguen pendientes.
-- Bolsa Go y las migraciones AD3 `000015` / Bolsa `000004` están preparadas para
-  aceptación RRHH, **no activadas ni instaladas permanentemente en las bases**.
-  Falta validación de negocio competente y proveedor de permiso nominal.
-  Dinámica focal PostgreSQL PASS: una aceptación almacenada, un historial y un
-  evento; replay con mismo recibo/fecha, material divergente y segundo terminal
-  rechazados. UP/DOWN restauraron SHA y ACL exactos; cero datos y cero migraciones
-  persistidos. El doble de autorización fue estrictamente privado y transaccional:
-  acredita almacenamiento aislado, no criptografía ni aceptación funcional E2E.
+  No concede por sí sola aceptación ni valida un plazo legal.
+- AD3 `000015` / Bolsa `000004` y AD3 `000017` / CT `000058` están **instaladas
+  en ambas bases**, con ambas apps en la compilación corregida; no reaplicar.
+  La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado
+  transaccional: acreditó almacenamiento/replay/conflictos, no criptografía.
+  El roundtrip actual UP/DOWN de las cuatro migraciones comprobó reversión
+  exacta en ROLLBACK, sin modificar autorización ni usar dobles. El navegador
+  actual sí utilizó criptografía real; son comprobaciones distintas.
 - Métrica sin incremento: **5 de 8 pasos completos más parte del sexto**.
   Registrar una declaración de aceptación no resuelve la aceptación ni
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
   localmente en el navegador; no se sube.
-- No se acredita correo entregado, aceptación, nombramiento, incorporación
-  ni producción por tener pantallas o contratos escritos.
+- Pendiente conectar la aceptación a la propuesta de nombramiento (objetivo 8).
+  Faltan renuncia, vencimiento, siguiente candidato y correo corporativo.
+  La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
+  nombramiento, incorporación o producción.
 
 ## Cómo trabajamos desde ahora
 
@@ -98,11 +104,11 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | Cerrado: `b2effba` |
 | 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Cerrado para análisis de solicitud v1: `b2effba`; no afirma recuperación de todas las actuaciones |
 | 3 | Registrar la declaración de una respuesta recibida por RRHH | Actor, referencia y SHA256 declarados, vinculados al llamamiento y con justificante persistente; no verifica origen, firma o custodia, entrega de correo ni aceptación terminal. Recuperación con la misma clave y autorización vigente sin duplicados. | Incluido en esta entrega: `201` y recuperación `200` tras parche y segundo reinicio; conflicto `409` sin duplicado. Cerrado técnicamente |
-| 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | En curso: formulario real hasta `409` pendiente, con consulta interna del justificante y V3 real; Bolsa Go/SQL preparados, no activados. Faltan validación de negocio y proveedor de permiso nominal de aceptación |
+| 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | Cerrado técnicamente solo para ejercicio manual sintético: `201` y replay `200` tras reinicio con API/V3/CT/Bolsa reales, sin duplicados. No política legal aprobada ni habilitación productiva |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Después de 5 o 6 |
-| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Después de 4 |
+| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Pendiente de enlazar desde la aceptación manual sintética; no acredita nombramiento real |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Después de 8 |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |

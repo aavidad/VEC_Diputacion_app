@@ -49,6 +49,8 @@ const RESOLUCION = {
   llamamiento_ref: RESPUESTA_RECIBIDA.llamamiento_ref,
   comunicacion_ref: RESPUESTA_RECIBIDA.comunicacion_ref, version_esperada: 2,
   respuesta: "aceptacion", prueba_respuesta_ref: registroRespuesta().justificante_ref,
+  revision_respuesta_rrhh: true, revision_plazo_rrhh: true,
+  criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906",
 };
 const RESOLUCION_CONFIRMADA = {
   esquema: "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1",
@@ -233,7 +235,10 @@ test("respuesta recibida conserva errores genéricos y distingue rechazo previo 
     (error) => error.resultadoIndeterminado === true);
 });
 
-test("resolución envía ocho campos canónicos y valida recibo local 201/200 sin intención siguiente", async () => {
+test("resolución envía once campos canónicos y valida el recibo 201/200 sin intención siguiente", async () => {
+  assert.deepEqual(CAMPOS_RESOLUCION, ["clave_idempotencia", "organizacion_ref", "expediente_ref",
+    "llamamiento_ref", "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
+    "revision_respuesta_rrhh", "revision_plazo_rrhh", "criterio_validacion_ref"]);
   for (const [status, estado_local] of [[201, "confirmado"], [200, "replay_confirmado"]]) {
     const eco = { ...RESOLUCION_CONFIRMADA, estado_local };
     const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
@@ -260,21 +265,27 @@ test("solicitud de resolución solo acepta v2/aceptación y rechaza autoridad a�
     { respuesta: "renuncia" }, { respuesta: "expiracion_gobernada" }, { respuesta: "aceptada" },
     { estado_plazo: "vigente" }, { actor_ref: "actor:inventado" }, { politica_ref: "politica:inventada" },
     { evaluacion_plazo_ref: "evaluacion:inventada" }, { correo_sha256: "a".repeat(64) },
-    { prueba_respuesta_ref: "persona@example.invalid" }, { clave_idempotencia: "otra" }]) {
+    { prueba_respuesta_ref: "persona@example.invalid" }, { clave_idempotencia: "otra" },
+    { criterio_validacion_ref: "politica:inventada" }, { criterio_validacion_ref: "" },
+    ...["revision_respuesta_rrhh", "revision_plazo_rrhh"].flatMap((campo) =>
+      [false, "true", "false", 1, null, undefined].map((valor) => ({ [campo]: valor })))]) {
     assert.throws(() => cliente.resolverLlamamiento({ ...RESOLUCION, ...cambio }), TypeError);
   }
   for (const campo of CAMPOS_RESOLUCION) {
     const incompleta = { ...RESOLUCION }; delete incompleta[campo];
     assert.throws(() => validarSolicitudResolucionLlamamiento(incompleta), TypeError);
   }
-  const getter = { ...RESOLUCION };
-  Object.defineProperty(getter, "prueba_respuesta_ref", { get() { assert.fail("getter"); } });
-  assert.throws(() => validarSolicitudResolucionLlamamiento(getter), TypeError);
+  for (const campo of ["prueba_respuesta_ref", "revision_respuesta_rrhh", "revision_plazo_rrhh", "criterio_validacion_ref"]) {
+    const getter = { ...RESOLUCION };
+    Object.defineProperty(getter, campo, { get() { assert.fail("getter"); } });
+    assert.throws(() => validarSolicitudResolucionLlamamiento(getter), TypeError);
+  }
 });
 
 test("recibo resolución exige nueve campos, aceptación, plazo vigente y versión 3, sin atribuciones extra", async () => {
   for (const cambio of [{ esquema: "otro" }, { respuesta: "renuncia" }, { estado_plazo: "vencido" },
     { estado_local: "registrada_por_rrhh" }, { version_resultante: 2 }, { version_resultante: "3" },
+    { estado_local: "validacion_registrada" }, { Seleccion: {} },
     { resolucion_ref: "" }, { recibo_local_ref: "persona@example.invalid" }, { auditoria_ref: null },
     { intencion_siguiente: null }, { intencion_siguiente: {} }, { actor_ref: "actor:inventado" },
     { resuelta_en: "2026-02-30T09:05:00Z" }, { resuelta_en: "2026-09-05T09:05:00.1234567Z" },

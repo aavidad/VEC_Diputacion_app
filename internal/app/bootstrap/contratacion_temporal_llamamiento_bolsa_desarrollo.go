@@ -60,16 +60,19 @@ func prepararReferenciasLlamamientoDesarrollo(expediente ports.ExpedienteParaSel
 }
 
 type puenteBolsaLlamamientoDesarrollo struct {
-	alta            *dependenciasAltaContratacionTemporalDesarrollo
-	repositorio     puertosbolsa.RepositorioLlamamientoDesarrollo
-	autorizador     puertosbolsa.AutorizadorLlamamientoDesarrollo
-	reloj           ports.Reloj
-	privadaFuente   ed25519.PrivateKey
-	seleccion       selladorPuenteLlamamientoDesarrollo
-	emisorPeticion  *ports.EmisorContextoPeticionIntegracionBolsa
-	emisorRespuesta *ports.EmisorEvidenciaIntegracionBolsa
-	verificador     *ports.VerificadorEvidenciaIntegracionBolsa
-	autenticador    *ports.AutenticadorContextoPeticionIntegracionBolsa
+	alta        *dependenciasAltaContratacionTemporalDesarrollo
+	repositorio puertosbolsa.RepositorioLlamamientoDesarrollo
+	autorizador puertosbolsa.AutorizadorLlamamientoDesarrollo
+	// Solo composición puede inyectar el permiso propio tras validar respuesta
+	// y plazo. Nunca se sustituye por el autorizador de selección o consulta.
+	autorizadorAceptacion puertosbolsa.AutorizadorLlamamientoDesarrollo
+	reloj                 ports.Reloj
+	privadaFuente         ed25519.PrivateKey
+	seleccion             selladorPuenteLlamamientoDesarrollo
+	emisorPeticion        *ports.EmisorContextoPeticionIntegracionBolsa
+	emisorRespuesta       *ports.EmisorEvidenciaIntegracionBolsa
+	verificador           *ports.VerificadorEvidenciaIntegracionBolsa
+	autenticador          *ports.AutenticadorContextoPeticionIntegracionBolsa
 }
 
 var (
@@ -600,4 +603,104 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoPersistido(ctx conte
 		ConfirmadaEn: r.ConfirmadaEn, Procedencia: p.procedencia(c, f, "llamamiento", ahora),
 	}
 	return p.emisorRespuesta.FirmarLlamamiento(ctx, comando, recibo, ahora)
+}
+
+// AceptarRespuestaRRHH es un enlace interno, no una entrada HTTP. El emisor
+// confiable debe haber consultado el justificante nominal y acreditado la
+// evaluación/política antes de cada llamada, también al recuperar. Las
+// referencias recibidas no prueban por sí mismas plazo ni origen del correo.
+// Devuelve exclusivamente el recibo Bolsa; no resuelve ni avanza CT.
+func (p *puenteBolsaLlamamientoDesarrollo) AceptarRespuestaRRHH(ctx context.Context,
+	solicitud ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa,
+	resolucion puertosbolsa.ResolucionLlamamientoDesarrollo,
+) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	vacio := puertosbolsa.ReciboLlamamientoDesarrollo{}
+	if ctx == nil || p == nil || p.alta == nil || p.alta.soporte == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(p.autorizadorAceptacion) {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	capacidad, valida := p.alta.soporte.capacidadValida(ctx)
+	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
+		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if solicitud.Validar() != nil || solicitud.VersionEsperada != 2 || solicitud.Respuesta != ports.RespuestaLlamamientoAceptada ||
+		seleccion.OrganizacionRef != solicitud.OrganizacionRef || seleccion.ExpedienteRef != solicitud.ExpedienteRef ||
+		seleccion.LlamamientoRef != solicitud.LlamamientoRef || seleccion.VersionExpediente != 6 || !seleccion.PropuestaGenerada ||
+		resolucion.AperturaOperacionRef != seleccion.OperacionRef || resolucion.JustificanteRef != solicitud.PruebaRespuestaRef {
+		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	peticion := puertosbolsa.PeticionResolverLlamamientoDesarrollo{
+		OperacionRef: referenciaPuenteLlamamientoDesarrollo("operacion-aceptacion-rrhh",
+			solicitud.OrganizacionRef, solicitud.ExpedienteRef, seleccion.OperacionRef, solicitud.ClaveIdempotencia),
+		Resolucion: resolucion,
+	}
+	if peticion.Validar() != nil {
+		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(p.repositorio) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(p.reloj) || len(p.privadaFuente) != ed25519.PrivateKeySize {
+		return vacio, ports.ErrIntegracionBolsaNoDisponible
+	}
+	// La clave de resolución solo identifica el terminal. La apertura procede
+	// del recibo original conservado en CT, nunca de una nueva derivación.
+	apertura, existe, err := p.repositorio.BuscarOperacion(ctx, seleccion.OperacionRef)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		return vacio, ports.ErrIntegracionBolsaNoDisponible
+	}
+	if !existe {
+		return vacio, ports.ErrRespuestaBolsaNoConfiable
+	}
+	fuente, err := p.fuenteAceptacionLigada(solicitud, seleccion, apertura)
+	if err != nil {
+		return vacio, err
+	}
+	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, p.repositorio, p.autorizadorAceptacion, p.reloj)
+	if err != nil {
+		return vacio, err
+	}
+	return servicio.AceptarLlamamiento(ctx, peticion)
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) fuenteAceptacionLigada(solicitud ports.SolicitudResolverLlamamiento,
+	seleccion ports.ReciboSolicitudLlamamientoBolsa, apertura puertosbolsa.RegistroLlamamientoDesarrollo,
+) (*fuentesintetica.FuenteLlamamientos, error) {
+	canon, err := apertura.Canonico()
+	if err != nil || apertura.Tipo != "propuesta" || apertura.OperacionRef != seleccion.OperacionRef ||
+		apertura.Llamamiento == nil || apertura.Propuesta == nil || apertura.VersionNecesidad != 6 ||
+		apertura.NecesidadRef != referenciaPuenteLlamamientoDesarrollo("necesidad", solicitud.OrganizacionRef, solicitud.ExpedienteRef, "6") ||
+		apertura.Llamamiento.LlamamientoRef != solicitud.LlamamientoRef ||
+		seleccion.Orden != referenciaVersionadaPuenteLlamamientoDesarrollo(apertura.Instantanea.InstantaneaRef, apertura.Instantanea.Version, apertura.Instantanea.HuellaContenidoSHA256) ||
+		seleccion.Propuesta != referenciaVersionadaPuenteLlamamientoDesarrollo(apertura.Propuesta.PropuestaRef, 1, apertura.Propuesta.HuellaContenidoSHA256) ||
+		seleccion.OrdenSeleccionado != uint32(apertura.Propuesta.OrdenSeleccionado) ||
+		seleccion.Resultado != referenciaVersionadaPuenteLlamamientoDesarrollo(seleccion.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canon)) ||
+		!domain.ReferenciaOpacaValida(seleccion.ReciboRef) || !domain.ReferenciaOpacaValida(seleccion.AuditoriaRef) ||
+		!domain.ReferenciaOpacaValida(seleccion.EventoRef) || !domain.InstanteUTCCanonico(seleccion.ConfirmadaEn) ||
+		seleccion.SeleccionRef.Validar() != nil {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	// Reusar los bytes firmados originales. No firmar otra fuente ni cambiar
+	// fechas o reglas de selección para fabricar una evaluación positiva.
+	fuente, err := fuentesintetica.NuevaFuenteLlamamientos(apertura.Fuente, apertura.FirmaFuente,
+		p.privadaFuente.Public().(ed25519.PublicKey), p.reloj)
+	if err != nil {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	var datos fuentesintetica.DocumentoFuenteLlamamientos
+	if json.Unmarshal(apertura.Fuente, &datos) != nil {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	necesidad, bolsa, politica := referenciasFuentePuenteLlamamientoDesarrollo(datos)
+	if seleccion.Necesidad != necesidad || seleccion.Bolsa != bolsa || seleccion.Politica != politica ||
+		apertura.NecesidadRef != necesidad.Referencia || apertura.VersionNecesidad != necesidad.Version ||
+		apertura.CategoriaRef != datos.Datos.Necesidad.CategoriaRef || apertura.UnidadRef != datos.Datos.Necesidad.UnidadRef {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	return fuente, nil
 }

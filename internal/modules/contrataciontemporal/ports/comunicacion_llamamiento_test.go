@@ -1,11 +1,58 @@
 package ports
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestSolicitudResolverLlamamientoRevisionManualYProyeccionLegacy(t *testing.T) {
+	s := solicitudResolverComunicacionPrueba(RespuestaLlamamientoAceptada)
+	s.VersionEsperada = 2
+	legacy, err := json.Marshal(s)
+	if err != nil || s.Validar() != nil || s.RevisionManualConfirmada() {
+		t.Fatal("intención legacy alterada", err)
+	}
+	var ocho map[string]json.RawMessage
+	if json.Unmarshal(legacy, &ocho) != nil || len(ocho) != 8 {
+		t.Fatal("el material legacy ya no tiene ocho campos")
+	}
+	manual := s
+	manual.RevisionRespuestaRRHH, manual.RevisionPlazoRRHH = true, true
+	manual.CriterioValidacionRef = "criterio:rrhh-sintetico"
+	if manual.Validar() != nil || !manual.RevisionManualConfirmada() || manual.ParaConsultaJustificante() != s {
+		t.Fatal("revisión completa o proyección incorrectas")
+	}
+	proyectado, _ := json.Marshal(manual.ParaConsultaJustificante())
+	if string(proyectado) != string(legacy) || !manual.RevisionManualConfirmada() {
+		t.Fatal("proyección cambió bytes legacy o mutó el original")
+	}
+	b, _ := json.Marshal(manual)
+	var once map[string]json.RawMessage
+	if json.Unmarshal(b, &once) != nil || len(once) != 11 || string(once["RevisionRespuestaRRHH"]) != "true" ||
+		string(once["RevisionPlazoRRHH"]) != "true" || string(once["CriterioValidacionRef"]) != `"criterio:rrhh-sintetico"` {
+		t.Fatal("campos manuales no conservan nombres y valores")
+	}
+	for nombre, mutar := range map[string]func(*SolicitudResolverLlamamiento){
+		"sin_respuesta":     func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH = false },
+		"sin_plazo":         func(s *SolicitudResolverLlamamiento) { s.RevisionPlazoRRHH = false },
+		"sin_criterio":      func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "" },
+		"criterio_invalido": func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "no válido" },
+		"renuncia":          func(s *SolicitudResolverLlamamiento) { s.Respuesta = RespuestaLlamamientoRenunciada },
+		"otra_version":      func(s *SolicitudResolverLlamamiento) { s.VersionEsperada = 3 },
+		"solo_criterio":     func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH, s.RevisionPlazoRRHH = false, false },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			otra := manual
+			mutar(&otra)
+			if otra.Validar() == nil || otra.RevisionManualConfirmada() {
+				t.Fatal("revisión incompleta aceptada")
+			}
+		})
+	}
+}
 
 const (
 	claveRegistroComunicacionPrueba = "018f47a6-5d2b-4c10-8a11-1234567890ab"

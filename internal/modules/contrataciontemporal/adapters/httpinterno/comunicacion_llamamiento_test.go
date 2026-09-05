@@ -284,6 +284,29 @@ func TestResolucionAceptacionHTTPInformaValidacionPendiente(t *testing.T) {
 	}
 }
 
+func TestResolucionAceptacionHTTPRevisionManualEstricta(t *testing.T) {
+	entrada := resolucionComunicacionLlamamientoJSON{ClaveIdempotencia: claveResolverComunicacionHTTPPrueba,
+		OrganizacionRef: "organizacion:sintetica", ExpedienteRef: "expediente:sintetico", LlamamientoRef: "llamamiento:sintetico",
+		ComunicacionRef: "comunicacion:sintetica", VersionEsperada: 2, Respuesta: "aceptacion", PruebaRespuestaRef: "justificante:sintetico",
+		RevisionRespuestaRRHH: true, RevisionPlazoRRHH: true, CriterioValidacionRef: "politica:ct:revision-manual-sintetica:20260906"}
+	canon, err := json.Marshal(entrada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leer := func(c string) (ports.SolicitudResolverLlamamiento, error) {
+		return solicitudResolucionLlamamientoDesdePeticion(httptest.NewRecorder(), peticionComunicacionHTTPPrueba(RutaResolucionComunicacionLlamamiento, c))
+	}
+	s, err := leer(string(canon))
+	if err != nil || !s.RevisionManualConfirmada() {
+		t.Fatal("revisión explícita rechazada", err)
+	}
+	for _, valor := range []string{`"true"`, `1`, `null`, `false`} {
+		if _, err := leer(strings.Replace(string(canon), `"revision_plazo_rrhh":true`, `"revision_plazo_rrhh":`+valor, 1)); err == nil {
+			t.Fatal("declaración no explícita aceptada", valor)
+		}
+	}
+}
+
 func TestManejadorComunicacionLlamamientoRegistraYProyectaMinimoLocal(
 	t *testing.T,
 ) {

@@ -3,12 +3,14 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	appbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -436,5 +438,220 @@ func TestPuenteBolsaLlamamientoDesarrolloConstructorCerrado(t *testing.T) {
 	p := &puenteBolsaLlamamientoDesarrollo{}
 	if err := p.configurarFirmas([]byte("corta")); err == nil {
 		t.Fatal("clave corta aceptada")
+	}
+}
+
+// Dobles exclusivos de unidad. No acreditan una evaluación de plazo, firmas
+// V3 ni persistencia SQL; no se conectan a la composición de desarrollo.
+type autorizadorAceptacionPuentePrueba struct {
+	t        *testing.T
+	puente   *puenteBolsaLlamamientoDesarrollo
+	llamadas int
+	denegar  bool
+	accion   string
+}
+
+func (a *autorizadorAceptacionPuentePrueba) AutorizarOperacion(_ context.Context, accion string, recurso dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.llamadas++
+	a.accion = accion
+	if a.denegar {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrAutorizacionDenegada
+	}
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	h := strings.Repeat("a", 64)
+	ahora := a.puente.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:unidad", h, h, "contexto:unidad", h,
+		accion, recurso.Referencia, huella, puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo, ahora, ahora.Add(5*time.Second))
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	spki, err := x509.MarshalPKIXPublicKey(a.puente.privadaFuente.Public())
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	material, err := puertosvec.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3([]byte(strings.Repeat("x", 512)), resumen,
+		[]byte("{}"), []byte("{}"), []byte("{}"), 1, 1, []byte("unidad"), []byte("unidad"), []byte("unidad"), spki)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	return material, nil
+}
+
+type repositorioAceptacionPuentePrueba struct {
+	reloj     *relojPuenteBolsaPrueba
+	filas     map[string]puertosbolsa.ReciboLlamamientoDesarrollo
+	busquedas []string
+	guardados int
+	fallar    bool
+}
+
+func (r *repositorioAceptacionPuentePrueba) BuscarOperacion(_ context.Context, ref string) (puertosbolsa.RegistroLlamamientoDesarrollo, bool, error) {
+	r.busquedas = append(r.busquedas, ref)
+	fila, existe := r.filas[ref]
+	return fila.Registro, existe, nil
+}
+
+func (r *repositorioAceptacionPuentePrueba) Guardar(_ context.Context, registro puertosbolsa.RegistroLlamamientoDesarrollo, _ puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
+	r.guardados++
+	if r.fallar {
+		return puertosbolsa.ReciboLlamamientoDesarrollo{}, ports.ErrIntegracionBolsaNoDisponible
+	}
+	if fila, existe := r.filas[registro.OperacionRef]; existe {
+		return fila, nil
+	}
+	recibo := puertosbolsa.ReciboLlamamientoDesarrollo{Registro: registro, ReciboRef: "recibo:" + registro.OperacionRef,
+		AuditoriaRef: "auditoria:" + registro.OperacionRef, EventoRef: "evento:" + registro.OperacionRef, ConfirmadaEn: r.reloj.Ahora()}
+	r.filas[registro.OperacionRef] = recibo
+	return recibo, nil
+}
+
+func escenarioAceptacionPuentePrueba(t *testing.T) (*puenteBolsaLlamamientoDesarrollo, context.Context, ports.SolicitudResolverLlamamiento,
+	ports.ReciboSolicitudLlamamientoBolsa, puertosbolsa.ResolucionLlamamientoDesarrollo, *repositorioAceptacionPuentePrueba, *autorizadorAceptacionPuentePrueba) {
+	t.Helper()
+	p, ctx, d, reloj := puenteBolsaPrueba(t)
+	fuente, doc, err := p.fuente(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repositorioAceptacionPuentePrueba{reloj: reloj, filas: map[string]puertosbolsa.ReciboLlamamientoDesarrollo{}}
+	a := &autorizadorAceptacionPuentePrueba{t: t, puente: p}
+	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, repo, a, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = servicio.PrepararOrden(ctx, puertosbolsa.PeticionLlamamientoDesarrollo{
+		OperacionRef: d.operacionOrden, NecesidadRef: d.necesidad, MaximoPosiciones: 3,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	r, err := servicio.SolicitarLlamamiento(ctx, puertosbolsa.PeticionLlamamientoDesarrollo{
+		OperacionRef: d.operacionPropuesta, OrdenOperacionRef: d.operacionOrden, NecesidadRef: d.necesidad, MaximoPosiciones: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, bolsa, politica := referenciasFuentePuenteLlamamientoDesarrollo(doc)
+	canon, err := r.Registro.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sello, err := p.seleccion.SellarDatos(ctx, []byte("seleccion-sintetica-unidad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seudonimo, err := ports.NuevoSeudonimoSeleccionBolsa(sello)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seleccion := ports.ReciboSolicitudLlamamientoBolsa{
+		OperacionRef: d.operacionPropuesta, OrganizacionRef: d.expediente.Fiscalizado.OrganizacionRef,
+		ExpedienteRef: d.expediente.Fiscalizado.Referencia, VersionExpediente: 6,
+		Necesidad: n, Bolsa: bolsa, Politica: politica,
+		Orden:             referenciaVersionadaPuenteLlamamientoDesarrollo(r.Registro.Instantanea.InstantaneaRef, r.Registro.Instantanea.Version, r.Registro.Instantanea.HuellaContenidoSHA256),
+		Propuesta:         referenciaVersionadaPuenteLlamamientoDesarrollo(r.Registro.Propuesta.PropuestaRef, 1, r.Registro.Propuesta.HuellaContenidoSHA256),
+		Resultado:         referenciaVersionadaPuenteLlamamientoDesarrollo(r.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canon)),
+		PropuestaGenerada: true, LlamamientoRef: r.Registro.Llamamiento.LlamamientoRef,
+		SeleccionRef: seudonimo, OrdenSeleccionado: uint32(r.Registro.Propuesta.OrdenSeleccionado),
+		ReciboRef: r.ReciboRef, AuditoriaRef: r.AuditoriaRef, EventoRef: r.EventoRef, ConfirmadaEn: r.ConfirmadaEn,
+	}
+	s := ports.SolicitudResolverLlamamiento{ClaveIdempotencia: "22222222-2222-4222-8222-222222222222",
+		OrganizacionRef: seleccion.OrganizacionRef, ExpedienteRef: seleccion.ExpedienteRef, LlamamientoRef: seleccion.LlamamientoRef,
+		ComunicacionRef: "comunicacion:sintetica", VersionEsperada: 2, Respuesta: ports.RespuestaLlamamientoAceptada, PruebaRespuestaRef: "justificante:unidad",
+	}
+	resolucion := puertosbolsa.ResolucionLlamamientoDesarrollo{AperturaOperacionRef: seleccion.OperacionRef,
+		JustificanteRef: s.PruebaRespuestaRef, EvaluacionPlazoRef: "evaluacion:unidad", PoliticaRef: "politica:unidad",
+		PoliticaVersion: 1, PoliticaSHA256: strings.Repeat("a", 64), VersionEsperada: 1,
+	}
+	capacidad, _ := p.alta.soporte.capacidadValida(ctx)
+	capacidad.ruta = httpinterno.RutaResolucionComunicacionLlamamiento
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	p.repositorio = repo
+	a = &autorizadorAceptacionPuentePrueba{t: t, puente: p}
+	p.autorizadorAceptacion = a
+	return p, ctx, s, seleccion, resolucion, repo, a
+}
+
+func TestPuenteBolsaLlamamientoDesarrolloAceptacionReutilizaAperturaYReplay(t *testing.T) {
+	p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
+	canonOriginal, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
+	r, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperada := referenciaPuenteLlamamientoDesarrollo("operacion-aceptacion-rrhh", s.OrganizacionRef, s.ExpedienteRef, seleccion.OperacionRef, s.ClaveIdempotencia)
+	if r.Registro.Tipo != "aceptacion_rrhh" || r.Registro.OperacionRef != esperada || r.Registro.Llamamiento.Version != 2 ||
+		r.Registro.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoAceptado || r.Registro.Llamamiento.LlamamientoRef != seleccion.LlamamientoRef ||
+		r.Registro.Resolucion.AperturaOperacionRef != seleccion.OperacionRef || a.llamadas != 1 ||
+		a.accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo || len(repo.filas) != 3 {
+		t.Fatal("aceptación creó otra apertura o utilizó otro permiso")
+	}
+	p2 := *p
+	repo.reloj.instante = repo.reloj.instante.Add(time.Minute)
+	replay, err := p2.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion)
+	if err != nil || replay.ReciboRef != r.ReciboRef || replay.ConfirmadaEn != r.ConfirmadaEn ||
+		replay.Registro.Resolucion.ResueltaEn != r.Registro.Resolucion.ResueltaEn || a.llamadas != 2 || len(repo.filas) != 3 || repo.guardados != 4 {
+		t.Fatal("recuperación sin autorización nueva o con fecha/efectos distintos", err)
+	}
+	canonActual, _ := repo.filas[seleccion.OperacionRef].Registro.Canonico()
+	if !bytes.Equal(canonOriginal, canonActual) || !resolucion.ResueltaEn.IsZero() {
+		t.Fatal("mutó apertura o resolución de entrada")
+	}
+	resolucion.PoliticaVersion++
+	if _, err = p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); err == nil || repo.guardados != 4 || a.llamadas != 2 {
+		t.Fatal("replay divergente alcanzó autorización o persistencia")
+	}
+}
+
+func TestPuenteBolsaLlamamientoDesarrolloAceptacionCotejaAntesDeAutorizar(t *testing.T) {
+	p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
+	for nombre, cambiar := range map[string]func(*ports.ReciboSolicitudLlamamientoBolsa){
+		"apertura":     func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.OperacionRef += "otra" },
+		"organizacion": func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.OrganizacionRef += "otra" },
+		"expediente":   func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.ExpedienteRef += "otro" },
+		"llamamiento":  func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.LlamamientoRef += "otro" },
+		"necesidad":    func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.Necesidad.Referencia += "otra" },
+		"orden":        func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.Orden.Version++ },
+		"propuesta":    func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.Propuesta.HuellaSHA256 = strings.Repeat("b", 64) },
+		"canon":        func(r *ports.ReciboSolicitudLlamamientoBolsa) { r.Resultado.HuellaSHA256 = strings.Repeat("b", 64) },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			otra := seleccion
+			cambiar(&otra)
+			r, err := p.AceptarRespuestaRRHH(ctx, s, otra, resolucion)
+			if err == nil || r.ReciboRef != "" || a.llamadas != 0 || repo.guardados != 2 {
+				t.Fatal("antecedente desligado alcanzó permiso/efecto", err)
+			}
+		})
+	}
+	capacidad, _ := p.alta.soporte.capacidadValida(ctx)
+	capacidad.ruta = httpinterno.RutaSeleccionLlamamiento
+	otroCtx := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if _, err := p.AceptarRespuestaRRHH(otroCtx, s, seleccion, resolucion); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatal("ruta selección admitida", err)
+	}
+	p.autorizadorAceptacion = (*autorizadorAceptacionPuentePrueba)(nil)
+	lecturas := len(repo.busquedas)
+	if _, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrAutorizacionDenegada) || len(repo.busquedas) != lecturas {
+		t.Fatal("sin permiso propio hubo lectura", err)
+	}
+}
+
+func TestPuenteBolsaLlamamientoDesarrolloAceptacionNoFabricaExito(t *testing.T) {
+	p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
+	a.denegar = true
+	if r, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrAutorizacionDenegada) || r.ReciboRef != "" || repo.guardados != 2 {
+		t.Fatal(err)
+	}
+	a.denegar, repo.fallar = false, true
+	if r, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); err == nil || r.ReciboRef != "" || len(repo.filas) != 2 {
+		t.Fatal("fallo de persistencia dio recibo", err)
+	}
+	ctx, cancelar := context.WithCancel(ctx)
+	cancelar()
+	if _, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
 	}
 }

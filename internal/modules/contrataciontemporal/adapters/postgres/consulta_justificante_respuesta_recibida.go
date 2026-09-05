@@ -36,7 +36,7 @@ func RecursoConsultaJustificanteRespuestaRecibida(s ports.SolicitudResolverLlama
 		return dominiovec.RecursoAutorizable{}, ports.ErrVersionRespuestaRecibidaEnConflicto
 	}
 	// Material directo, sin envoltorio ni cambio de nombres: mismos ocho campos.
-	b, err := json.Marshal(s)
+	b, err := json.Marshal(s.ParaConsultaJustificante())
 	if err != nil {
 		return dominiovec.RecursoAutorizable{}, ports.ErrSolicitudRespuestaRecibidaInvalida
 	}
@@ -88,7 +88,7 @@ func (l *LectorJustificantesRespuestaRecibidaPostgreSQL) ConsultarJustificanteRe
 		r.AudienciaConsumo() != AudienciaRegistroComunicacionLlamamiento {
 		return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
 	}
-	contenido, err := json.Marshal(s)
+	contenido, err := json.Marshal(s.ParaConsultaJustificante())
 	if err != nil {
 		return vacio, ports.ErrSolicitudRespuestaRecibidaInvalida
 	}

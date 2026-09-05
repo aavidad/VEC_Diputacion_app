@@ -76,6 +76,9 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 	}
 	r := datos.Recurso
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
+		if datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
+			return solicitudAutorizacionResolucionManualDesarrolloValida(ctx, datos, p)
+		}
 		s, existe := ctx.Value(claveConsultaJustificanteRespuestaDesarrollo{}).(ports.SolicitudResolverLlamamiento)
 		if !existe || !consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, s) ||
 			datos.ReferenciaMotivo != motivoConsultaJustificanteRespuestaDesarrollo() || datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
@@ -247,7 +250,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
 	s.mu.Unlock()
-	return nil
+	return configurarAutoridadResolucionManualDesarrollo(ctx, alta, reloj, desde)
 }
 
 type autorizadorLlamamientoDesarrollo struct {
@@ -256,6 +259,8 @@ type autorizadorLlamamientoDesarrollo struct {
 	comunicacion         bool
 	respuestaRecibida    bool
 	consultaJustificante bool
+	resolucionManual     bool
+	aceptacionBolsa      bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -267,6 +272,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.resolucionManual || a.aceptacionBolsa {
+		return motivoResolucionManualDesarrollo(a.aceptacionBolsa)
+	}
 	if a.consultaJustificante {
 		return motivoConsultaJustificanteRespuestaDesarrollo()
 	}
@@ -324,8 +332,17 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if !valida || !rutaLlamamientoContratacionTemporalDesarrollo(capacidad.ruta) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
-	if (a.consultaJustificante && (a.comunicacion || a.respuestaRecibida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento)) ||
-		(!a.consultaJustificante && capacidad.ruta == httpinterno.RutaResolucionComunicacionLlamamiento) ||
+	modosResolucion := 0
+	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa} {
+		if activo {
+			modosResolucion++
+		}
+	}
+	if (modosResolucion > 0 && (modosResolucion != 1 || a.comunicacion || a.respuestaRecibida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento)) ||
+		(modosResolucion == 0 && capacidad.ruta == httpinterno.RutaResolucionComunicacionLlamamiento) ||
+		(a.consultaJustificante && accion != postgresct.AccionConsultaJustificanteRespuestaRecibida) ||
+		(a.resolucionManual && accion != postgresct.AccionResolucionManualLlamamiento) ||
+		(a.aceptacionBolsa && accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo) ||
 		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||

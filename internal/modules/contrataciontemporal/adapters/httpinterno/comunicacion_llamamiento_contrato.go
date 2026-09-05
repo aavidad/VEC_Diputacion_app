@@ -63,14 +63,17 @@ func (e registroComunicacionLlamamientoJSON) solicitud() (
 }
 
 type resolucionComunicacionLlamamientoJSON struct {
-	ClaveIdempotencia  string `json:"clave_idempotencia"`
-	OrganizacionRef    string `json:"organizacion_ref"`
-	ExpedienteRef      string `json:"expediente_ref"`
-	LlamamientoRef     string `json:"llamamiento_ref"`
-	ComunicacionRef    string `json:"comunicacion_ref"`
-	VersionEsperada    uint64 `json:"version_esperada"`
-	Respuesta          string `json:"respuesta"`
-	PruebaRespuestaRef string `json:"prueba_respuesta_ref"`
+	ClaveIdempotencia     string `json:"clave_idempotencia"`
+	OrganizacionRef       string `json:"organizacion_ref"`
+	ExpedienteRef         string `json:"expediente_ref"`
+	LlamamientoRef        string `json:"llamamiento_ref"`
+	ComunicacionRef       string `json:"comunicacion_ref"`
+	VersionEsperada       uint64 `json:"version_esperada"`
+	Respuesta             string `json:"respuesta"`
+	PruebaRespuestaRef    string `json:"prueba_respuesta_ref"`
+	RevisionRespuestaRRHH bool   `json:"revision_respuesta_rrhh,omitempty"`
+	RevisionPlazoRRHH     bool   `json:"revision_plazo_rrhh,omitempty"`
+	CriterioValidacionRef string `json:"criterio_validacion_ref,omitempty"`
 }
 
 func (e resolucionComunicacionLlamamientoJSON) solicitud() (
@@ -78,14 +81,17 @@ func (e resolucionComunicacionLlamamientoJSON) solicitud() (
 	error,
 ) {
 	solicitud := ports.SolicitudResolverLlamamiento{
-		ClaveIdempotencia:  e.ClaveIdempotencia,
-		OrganizacionRef:    e.OrganizacionRef,
-		ExpedienteRef:      e.ExpedienteRef,
-		LlamamientoRef:     e.LlamamientoRef,
-		ComunicacionRef:    e.ComunicacionRef,
-		VersionEsperada:    e.VersionEsperada,
-		Respuesta:          ports.RespuestaLlamamiento(e.Respuesta),
-		PruebaRespuestaRef: e.PruebaRespuestaRef,
+		ClaveIdempotencia:     e.ClaveIdempotencia,
+		OrganizacionRef:       e.OrganizacionRef,
+		ExpedienteRef:         e.ExpedienteRef,
+		LlamamientoRef:        e.LlamamientoRef,
+		ComunicacionRef:       e.ComunicacionRef,
+		VersionEsperada:       e.VersionEsperada,
+		Respuesta:             ports.RespuestaLlamamiento(e.Respuesta),
+		PruebaRespuestaRef:    e.PruebaRespuestaRef,
+		RevisionRespuestaRRHH: e.RevisionRespuestaRRHH,
+		RevisionPlazoRRHH:     e.RevisionPlazoRRHH,
+		CriterioValidacionRef: e.CriterioValidacionRef,
 	}
 	if solicitud.Validar() != nil {
 		return ports.SolicitudResolverLlamamiento{},

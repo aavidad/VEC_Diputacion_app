@@ -94,6 +94,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
 	instantaneaRespuestaRecibida      dominiovec.InstantaneaAutorizacion
 	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
+	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
+	instantaneaAceptacionBolsa        dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -529,7 +531,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ValidarReferenciaMotivoAutor
 	instante time.Time,
 ) error {
 	capacidad, valida := s.capacidadValida(ctx)
-	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	esperada, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
 	if !valida || !motivoValido || referencia != esperada ||
 		!domain.InstanteUTCCanonico(instante) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
@@ -543,7 +545,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 ) (time.Time, error) {
 	capacidad, valida := s.capacidadValida(ctx)
 	datos, err := orden.Datos()
-	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	esperada, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada ||
 		datos.ResultadoContexto.Validar() != nil ||
 		datos.Decision.ValidarPara(datos.Solicitud) != nil {
@@ -615,7 +617,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
 	datos, err := orden.Datos()
-	esperada, motivoValido := s.motivoAutorizacionParaRuta(capacidad.ruta)
+	esperada, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
@@ -795,6 +797,19 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
 		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
+			s.mu.Lock()
+			switch datos.Accion {
+			case postgrescontratacion.AccionResolucionManualLlamamiento:
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaResolucionManual)
+			case "bolsa.llamamiento.aceptacion_rrhh.registrar":
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAceptacionBolsa)
+			}
+			s.mu.Unlock()
+			if instantanea.Validar() != nil {
+				return dominiovec.InstantaneaAutorizacion{}, false
+			}
 		}
 		if datos.Accion == ports.AccionReanudacionSeleccionLlamamiento {
 			s.mu.Lock()
