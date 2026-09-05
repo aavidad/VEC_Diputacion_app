@@ -23,9 +23,20 @@ CT56 y autorización14 están instaladas en ambas bases; no reaplicarlas.
 La comparación de fechas equivalentes está corregida y no queda diagnóstico
 temporal en SQL. La declaración conserva referencia y SHA256 del correo,
 no su contenido ni su custodia; no resuelve aceptación/renuncia ni cambia Bolsa.
-Siguiente corte: aceptación válida, reutilizando la resolución existente y
-comprobando el justificante con permiso propio. No convertir una declaración
-en aceptación automática. Continúan cinco pasos completos y parte del sexto.
+La cuarta operación del formulario ya solicita resolución por la ruta real:
+reutiliza el justificante y devuelve `409 validacion_respuesta_pendiente`, sin
+aceptación ni efectos, hasta conectar validación competente de respuesta/plazo.
+La persistencia de aceptación en Bolsa reutiliza la misma apertura y registro
+de operaciones. Sus migraciones autorización15/Bolsa4 se comprobaron solamente
+en una transacción revertida; NO están instaladas en las bases conservadas.
+Guardado/replay/conflictos y reversión exacta comprobados con doble de
+autorización exclusivamente transaccional: no es una aceptación autorizada de
+extremo a extremo ni una prueba de criptografía. No reactivar ese doble.
+Siguiente corte: conectar justificante, validación y permiso nominal al
+resolutor existente, sin convertir la declaración en aceptación automática.
+Orden posterior del operador: las preguntas pendientes no detienen las partes
+independientes; se validarán después. No inventar una regla de plazo ni otra
+línea de implementación. Continúan cinco pasos completos y parte del sexto.
 No reconstruir bandeja ni análisis ya cerrados. No reabrir O3a.
 
 ## Prioridad vigente

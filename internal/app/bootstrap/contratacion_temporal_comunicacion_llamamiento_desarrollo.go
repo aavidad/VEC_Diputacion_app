@@ -131,9 +131,10 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 	return e.registrarConAviso(ctx, solicitud)
 }
 
-// No existe resolución local equivalente a aceptación/renuncia/expiración.
-// Se deniega sin lecturas ni efectos. No se utiliza el permiso de registro
-// para fingir autorización de una acción diferente.
+// La solicitud llega por su ruta y por la identidad interna exactas. Mientras
+// no exista validación competente de respuesta/plazo, informa de esa condición
+// sin consultar datos ni confirmar un terminal. El permiso de registrar un
+// aviso nunca concede autorización para aceptar, renunciar o declarar vencido.
 func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context, solicitud ports.SolicitudResolverLlamamiento) (ports.ResultadoResolucionLlamamiento, error) {
 	if contextoInterfazNulo(ctx) || e == nil || e.soporte == nil {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrServicioComunicacionLlamamientoInvalido
@@ -144,7 +145,16 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	if solicitud.Validar() != nil {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrSolicitudComunicacionLlamamientoInvalida
 	}
-	return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
+	capacidad, valida := e.soporte.capacidadValida(ctx)
+	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
+		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
+		solicitud.Respuesta != ports.RespuestaLlamamientoAceptada {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
+	}
+	if solicitud.VersionEsperada != 2 {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrVersionComunicacionLlamamientoEnConflicto
+	}
+	return ports.ResultadoResolucionLlamamiento{}, application.ErrValidacionRespuestaLlamamientoPendiente
 }
 
 func expedienteComunicacionLlamamientoDesarrolloValido(expediente ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarComunicacionLlamamiento) bool {

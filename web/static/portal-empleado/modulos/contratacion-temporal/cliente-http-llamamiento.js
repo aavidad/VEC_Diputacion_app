@@ -2,18 +2,21 @@ import {
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
   validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
+  validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
 } from "./contrato-llamamiento.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
   comunicacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
   respuestaRecibida: "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
+  resolucionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/resoluciones",
 });
 export function prefijoErrorLlamamiento(ruta) {
   if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento) {
     return "api.contratacion_temporal.seleccion_llamamiento.error.";
   }
-  if (ruta === RUTAS_LLAMAMIENTO.comunicacionLlamamiento) {
+  if (ruta === RUTAS_LLAMAMIENTO.comunicacionLlamamiento
+    || ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento) {
     return "api.contratacion_temporal.comunicacion_llamamiento.error.";
   }
   if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida) {
@@ -22,6 +25,8 @@ export function prefijoErrorLlamamiento(ruta) {
   return null;
 }
 export function conflictoLlamamientoValido(ruta, codigo) {
+  if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
+    && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
     ? ["conflicto_no_reintentable", "seleccion_no_disponible"]
     : ["version_en_conflicto", "clave_idempotencia_reutilizada"]).includes(codigo);
@@ -43,7 +48,9 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       ruta, entrada, signal, estadoEsperado: [200, 201],
       maximoSolicitud: 4096, maximoRespuesta: 4096, validarRespuesta, efecto: true,
       rechazoDeterminado: (error) => error?.envelopeValido === true
-        && RECHAZOS_PREVIOS.has(`${error.estado}:${error.codigo}`),
+        && (RECHAZOS_PREVIOS.has(`${error.estado}:${error.codigo}`)
+          || (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento && error.estado === 409
+            && error.codigo === "validacion_respuesta_pendiente")),
     });
   }
   return Object.freeze({
@@ -61,6 +68,11 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       const entrada = validarSolicitudRespuestaRecibida(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.respuestaRecibida, entrada, opciones,
         (respuesta) => validarReciboRespuestaRecibida(respuesta, entrada));
+    },
+    resolverLlamamiento(solicitud, opciones) {
+      const entrada = validarSolicitudResolucionLlamamiento(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.resolucionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboResolucionLlamamiento(respuesta, entrada));
     },
   });
 }

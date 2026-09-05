@@ -224,6 +224,37 @@ func TestComunicacionLlamamientoDesarrolloResolverNoUsaPermisoDeRegistro(t *test
 	}
 }
 
+func TestResolucionAceptacionDesarrolloPendienteSinEfectos(t *testing.T) {
+	ctx, p, autorizador := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
+	capacidad, _ := p.soporte.capacidadValida(ctx)
+	capacidad.ruta = httpinterno.RutaResolucionComunicacionLlamamiento
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	lector := &lectorComunicacionLlamamientoDesarrolloPrueba{}
+	servicio := &ejecutorComunicacionDesarrolloPrueba{}
+	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: p.soporte, lector: lector, servicio: servicio}
+	s := ports.SolicitudResolverLlamamiento{
+		ClaveIdempotencia: "018f47a6-5d2b-4c10-8a11-1234567890ab",
+		OrganizacionRef:   organizacionAltaContratacionTemporalDesarrollo,
+		ExpedienteRef:     "expediente:ct:sintetico:001", LlamamientoRef: "llamamiento:sintetico:001",
+		ComunicacionRef: "comunicacion:sintetica:001", VersionEsperada: 2,
+		Respuesta: ports.RespuestaLlamamientoAceptada, PruebaRespuestaRef: "justificante:sintetico:001",
+	}
+	r, err := e.Resolver(ctx, s)
+	if !errors.Is(err, application.ErrValidacionRespuestaLlamamientoPendiente) || r != (ports.ResultadoResolucionLlamamiento{}) {
+		t.Fatal("no se conservó la validación pendiente sin recibo")
+	}
+	if _, err = e.Resolver(context.Background(), s); !errors.Is(err, application.ErrComunicacionLlamamientoDenegada) {
+		t.Fatal("referencias públicas sustituyeron identidad")
+	}
+	s.VersionEsperada = 3
+	if _, err = e.Resolver(ctx, s); !errors.Is(err, application.ErrVersionComunicacionLlamamientoEnConflicto) {
+		t.Fatal("versión de resolución no comprobada")
+	}
+	if lector.llamadas != 0 || servicio.llamadas != 0 || autorizador.llamadas != 0 {
+		t.Fatal("validación pendiente abrió lectura, permiso o efecto")
+	}
+}
+
 func reciboAvisoComunicacionDesarrolloPrueba(t *testing.T, ctx context.Context, p *proveedorComunicacionLlamamientoDesarrollo) ports.ComunicacionProbatoria {
 	t.Helper()
 	s := solicitudComunicacionLlamamientoDesarrolloPrueba()

@@ -373,6 +373,8 @@ func errorEntradaComunicacionLlamamiento(err error) errorPublicoCobertura {
 
 func clasificarErrorComunicacionLlamamientoHTTP(err error) errorPublicoCobertura {
 	switch {
+	case errors.Is(err, application.ErrValidacionRespuestaLlamamientoPendiente):
+		return nuevoErrorComunicacionLlamamiento(http.StatusConflict, "validacion_respuesta_pendiente")
 	case errors.Is(err, application.ErrClaveComunicacionLlamamientoEnColision):
 		return errorClaveComunicacionLlamamientoReutilizada
 	case errors.Is(err, application.ErrVersionComunicacionLlamamientoEnConflicto):

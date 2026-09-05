@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Base documental previa a esta entrega: `5c6b03e`. El cierre de bandeja,
+Base publicada del corte actual: `4034157`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -16,6 +16,13 @@ originales. Se conservan el mismo justificante, recibo y fecha de registro.
 El defecto de comparación de fechas está corregido en ambas bases y el
 diagnóstico temporal retirado. El corte queda cerrado técnicamente.
 La métrica sigue en **5 de 8 pasos completos más parte del sexto**.
+
+**Corte actual: solicitar resolución, sin aceptación terminal.** Dirección
+comprobó `200/200/200/409`: recupera los tres antecedentes originales y la cuarta
+operación informa de validación de respuesta/plazo pendiente, sin duplicados.
+Las piezas Bolsa Go y SQL AD3 `000015` / Bolsa `000004` están preparadas, no
+activadas ni instaladas permanentemente en BD. Faltan validación de negocio
+competente y proveedor de permiso nominal; no aplicar SQL para eludirlas.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -115,9 +122,9 @@ de quien registra y justificante persistentes. La lectura de la base confirmó
 Es una declaración registrada, **no una aceptación terminal**: no cambia el
 estado de Bolsa, no avanza el expediente y la comunicación sigue en versión `2`.
 No verifica origen, firma ni custodia del correo; tampoco acredita envío o
-entrega del aviso local. El siguiente corte es resolver una aceptación válida
-con su autorización y comprobaciones propias, no convertir esta declaración
-automáticamente en aceptación.
+entrega del aviso local. La cuarta operación permite solicitar la resolución,
+pero sigue pendiente la aceptación válida con su autorización y comprobaciones
+propias; no convierte esta declaración automáticamente en aceptación.
 
 Para recuperar este caso use los datos originales, sin crear otra solicitud
 ni cambiar claves. El acceso requiere el certificado y contexto autorizado
@@ -179,6 +186,31 @@ sin generar un duplicado. El corte está incluido en esta entrega, cerrado
 técnicamente; no equivale a cerrar todo el paso 6.
 Ante un rechazo posterior, no encadene reintentos ni genere otra clave para
 sortearlo: conservar la operación original sigue siendo obligatorio.
+
+### Corte 4 en curso: solicitar resolución de aceptación
+
+Tras recuperar la declaración `aceptacion` anterior, el mismo formulario muestra
+**4. Solicitar resolución de aceptación** (`data-ct-llamamiento-form="resolucion"`).
+Organización, expediente, llamamiento y comunicación proceden del recibo original;
+la versión esperada es `2` y `prueba_respuesta_ref` es su `justificante_ref`, no
+el recibo ni una referencia inventada. Solo la clave es editable: debe ser propia
+de resolución, distinta de las tres anteriores; si ya hizo el intento, conserve
+su clave. No se carga otro `.eml` ni se introducen identidad o plazo en pantalla.
+
+Pulse **Revisar y solicitar resolución de aceptación** y confirme expresamente.
+`POST /api/vec/contratacion-temporal/llamamientos/resoluciones` devuelve actualmente
+`409 validacion_respuesta_pendiente`: **«Pendiente de validar respuesta y plazo
+por RRHH. No se ha confirmado la aceptación.»**. Es una condición conocida sin
+efecto, no un resultado indeterminado; se conserva el intento para volver a
+solicitarlo manualmente con los mismos datos, nunca automáticamente ni con otra
+clave. No genera recibo de aceptación ni permite continuar al nombramiento.
+
+El navegador real confirmó `200/200/200/409`, sin duplicados ni cambios de estado.
+La dinámica SQL aislada comprobó almacenamiento con un doble de autorización
+estrictamente privado y transaccional, sin datos ni migraciones persistidos;
+no acredita criptografía ni aceptación funcional E2E.
+Las preguntas pendientes no detienen programación independiente; no conceden
+plazo ni autoridad. Véase el [plan vigente](ESTADO_PROYECTO.md).
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

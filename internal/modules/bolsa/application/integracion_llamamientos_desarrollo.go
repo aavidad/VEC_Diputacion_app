@@ -204,6 +204,95 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarLlamamiento(ctx con
 	return s.confirmar(ctx, r)
 }
 
+// AceptarLlamamiento solo recibe una evaluación ya reacreditada por la frontera
+// confiable; no interpreta la declaración de RRHH como prueba de plazo o correo.
+// Reutiliza la apertura durable, el dominio y Guardar con autorización propia.
+// El repositorio debe confirmar CAS, terminal, recibo, historia y evento juntos.
+func (s *ServicioIntegracionLlamamientosDesarrollo) AceptarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
+	vacio := ports.ReciboLlamamientoDesarrollo{}
+	if ctx == nil || s == nil || p.Validar() != nil || dependenciaLlamamientoNula(s.repositorio) ||
+		dependenciaLlamamientoNula(s.autorizador) || dependenciaLlamamientoNula(s.reloj) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	apertura, existe, err := s.repositorio.BuscarOperacion(ctx, p.Resolucion.AperturaOperacionRef)
+	if err != nil || !existe || apertura.Tipo != "propuesta" || apertura.OperacionRef != p.Resolucion.AperturaOperacionRef {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	canonApertura, err := apertura.Canonico()
+	if err != nil {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	existente, recuperada, err := s.repositorio.BuscarOperacion(ctx, p.OperacionRef)
+	if err != nil {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	resolucion := p.Resolucion
+	if recuperada {
+		if existente.Tipo != "aceptacion_rrhh" || existente.OperacionRef != p.OperacionRef || existente.Resolucion == nil ||
+			existente.Resolucion.Validar() != nil {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+		antecedentes := *existente.Resolucion
+		antecedentes.ResueltaEn = time.Time{}
+		if antecedentes != p.Resolucion {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+		resolucion.ResueltaEn = existente.Resolucion.ResueltaEn
+	} else {
+		resolucion.ResueltaEn = s.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	}
+	// Deserializar nuestro propio canon clona también fuente, firma, instantánea
+	// y propuesta: no se modifica ningún puntero compartido con la apertura.
+	var r ports.RegistroLlamamientoDesarrollo
+	if err := json.Unmarshal(canonApertura, &r); err != nil {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	abierto, err := domain.NuevoLlamamientoAbierto(*r.Llamamiento)
+	if err != nil {
+		return vacio, err
+	}
+	aceptado, err := abierto.TransicionarATerminal(resolucion.VersionEsperada, &domain.TerminalLlamamiento{
+		Estado: domain.EstadoLlamamientoAceptado, OperacionRef: p.OperacionRef,
+	})
+	if err != nil {
+		return vacio, err
+	}
+	datos := aceptado.Datos()
+	r.OperacionRef, r.Tipo = p.OperacionRef, "aceptacion_rrhh"
+	r.Llamamiento, r.EstadoLlamamiento, r.Resolucion = &datos, aceptado.Estado(), &resolucion
+	canon, err := r.Canonico()
+	if err != nil {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	if recuperada {
+		canonExistente, err := existente.Canonico()
+		if err != nil || !bytes.Equal(canon, canonExistente) {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	recibo, err := s.confirmar(ctx, r)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		return vacio, err
+	}
+	if recibo.ConfirmadaEn.Location() != time.UTC || recibo.ConfirmadaEn.Nanosecond()%1000 != 0 ||
+		recibo.ConfirmadaEn.Before(resolucion.ResueltaEn) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	return recibo, nil
+}
+
 func (s *ServicioIntegracionLlamamientosDesarrollo) confirmar(ctx context.Context, r ports.RegistroLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
 	recurso, err := r.RecursoAutorizable()
 	if err != nil {

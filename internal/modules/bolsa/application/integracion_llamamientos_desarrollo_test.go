@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -234,5 +235,190 @@ func TestIntegracionLlamamientosDesarrolloFuenteFirmaYCaducidad(t *testing.T) {
 	reloj.instante = reloj.instante.Add(2 * time.Hour)
 	if _, err := f.CargarDatosAutoritativosLlamamiento(context.Background(), "necesidad:aplicacion:0001"); err == nil {
 		t.Fatal("fuente expirada aceptada")
+	}
+}
+
+func aperturaAceptacionIntegracionPrueba(t *testing.T) (*ServicioIntegracionLlamamientosDesarrollo, *repositorioIntegracionPrueba, *relojFijoLlamamiento, *int, ports.PeticionResolverLlamamientoDesarrollo) {
+	t.Helper()
+	s, r, reloj, autorizaciones := servicioIntegracionPrueba(t)
+	ctx := context.Background()
+	_, err := s.PrepararOrden(ctx, ports.PeticionLlamamientoDesarrollo{
+		OperacionRef: "operacion:orden", NecesidadRef: "necesidad:aplicacion:0001", MaximoPosiciones: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.SolicitarLlamamiento(ctx, ports.PeticionLlamamientoDesarrollo{
+		OperacionRef: "operacion:apertura", OrdenOperacionRef: "operacion:orden", NecesidadRef: "necesidad:aplicacion:0001", MaximoPosiciones: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Referencias exclusivas de unidad. No simulan un verificador de plazo.
+	p := ports.PeticionResolverLlamamientoDesarrollo{OperacionRef: "operacion:aceptacion", Resolucion: ports.ResolucionLlamamientoDesarrollo{
+		AperturaOperacionRef: "operacion:apertura", JustificanteRef: "justificante:unidad", EvaluacionPlazoRef: "evaluacion:unidad",
+		PoliticaRef: "politica:unidad", PoliticaVersion: 1, PoliticaSHA256: strings.Repeat("a", 64), VersionEsperada: 1,
+	}}
+	return s, r, reloj, autorizaciones, p
+}
+
+type repositorioAperturaCompartidaPrueba struct {
+	ports.RepositorioLlamamientoDesarrollo
+	apertura ports.RegistroLlamamientoDesarrollo
+}
+
+func (r repositorioAperturaCompartidaPrueba) BuscarOperacion(ctx context.Context, ref string) (ports.RegistroLlamamientoDesarrollo, bool, error) {
+	if ref == r.apertura.OperacionRef {
+		return r.apertura, true, nil
+	}
+	return r.RepositorioLlamamientoDesarrollo.BuscarOperacion(ctx, ref)
+}
+
+func TestIntegracionLlamamientosDesarrolloAceptacionDominioClonadoYReplay(t *testing.T) {
+	s, r, reloj, autorizaciones, p := aperturaAceptacionIntegracionPrueba(t)
+	apertura := r.recibos[p.Resolucion.AperturaOperacionRef].Registro
+	canonApertura, err := apertura.Canonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.repositorio = repositorioAperturaCompartidaPrueba{r, apertura}
+	// El reloj puede venir de otra zona: la fecha persistida sí debe ser UTC.
+	reloj.instante = reloj.instante.In(time.FixedZone("desarrollo", 3600))
+	recibo, err := s.AceptarLlamamiento(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registro := recibo.Registro
+	if registro.Tipo != "aceptacion_rrhh" || registro.EstadoLlamamiento != domain.EstadoLlamamientoAceptado ||
+		registro.Llamamiento.Version != 2 || registro.Llamamiento.LlamamientoRef != apertura.Llamamiento.LlamamientoRef ||
+		registro.OrdenOperacionRef != apertura.OrdenOperacionRef || registro.Resolucion == nil ||
+		registro.Resolucion.ResueltaEn.Location() != time.UTC || !registro.Resolucion.ResueltaEn.Equal(reloj.instante) ||
+		len(r.filas) != 3 || *autorizaciones != 3 || !p.Resolucion.ResueltaEn.IsZero() {
+		t.Fatal("terminal, referencias, fecha o autorización incorrectos")
+	}
+	reloj.instante = reloj.instante.Add(time.Minute)
+	s2, err := NuevoServicioIntegracionLlamamientosDesarrollo(s.fuente, s.repositorio, s.autorizador, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := s2.AceptarLlamamiento(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.ReciboRef != recibo.ReciboRef || replay.EventoRef != recibo.EventoRef ||
+		replay.ConfirmadaEn != recibo.ConfirmadaEn || *replay.Registro.Resolucion != *registro.Resolucion ||
+		*autorizaciones != 4 || r.guardados != 4 || len(r.filas) != 3 {
+		t.Fatal("replay cambió fecha, duplicó o evitó reautorización")
+	}
+	registro.Fuente[0] ^= 1
+	registro.FirmaFuente[0] ^= 1
+	registro.Propuesta.Evaluaciones[0].Motivos[0].Clave = "alterada"
+	registro.Instantanea.Entradas[0].Participacion.Situaciones[0].EstadoClave = "alterada"
+	registro.Llamamiento.Version = 9
+	despues, err := apertura.Canonico()
+	if err != nil || !bytes.Equal(canonApertura, despues) {
+		t.Fatal("aceptación comparte memoria o mutó la apertura")
+	}
+}
+
+func TestIntegracionLlamamientosDesarrolloAceptacionRechazaCambiosEnReplay(t *testing.T) {
+	s, r, _, _, p := aperturaAceptacionIntegracionPrueba(t)
+	if _, err := s.AceptarLlamamiento(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	guardados := r.guardados
+	for nombre, cambiar := range map[string]func(*ports.PeticionResolverLlamamientoDesarrollo){
+		"justificante": func(p *ports.PeticionResolverLlamamientoDesarrollo) {
+			p.Resolucion.JustificanteRef = "justificante:otro"
+		},
+		"evaluacion": func(p *ports.PeticionResolverLlamamientoDesarrollo) {
+			p.Resolucion.EvaluacionPlazoRef = "evaluacion:otra"
+		},
+		"politica":         func(p *ports.PeticionResolverLlamamientoDesarrollo) { p.Resolucion.PoliticaRef = "politica:otra" },
+		"version_politica": func(p *ports.PeticionResolverLlamamientoDesarrollo) { p.Resolucion.PoliticaVersion = 2 },
+		"huella_politica": func(p *ports.PeticionResolverLlamamientoDesarrollo) {
+			p.Resolucion.PoliticaSHA256 = strings.Repeat("b", 64)
+		},
+		"apertura": func(p *ports.PeticionResolverLlamamientoDesarrollo) {
+			p.Resolucion.AperturaOperacionRef = "operacion:orden"
+		},
+		"version_apertura": func(p *ports.PeticionResolverLlamamientoDesarrollo) { p.Resolucion.VersionEsperada = 2 },
+		"fecha_externa": func(p *ports.PeticionResolverLlamamientoDesarrollo) {
+			p.Resolucion.ResueltaEn = instanteAplicacionLlamamientoPrueba
+		},
+		"colision_orden": func(p *ports.PeticionResolverLlamamientoDesarrollo) { p.OperacionRef = "operacion:orden" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			alterada := p
+			cambiar(&alterada)
+			recibo, err := s.AceptarLlamamiento(context.Background(), alterada)
+			if err == nil || recibo.ReciboRef != "" || r.guardados != guardados || len(r.filas) != 3 {
+				t.Fatal("replay incompatible obtuvo éxito o un guardado")
+			}
+		})
+	}
+	// Incluso una alteración que sigue siendo canónica debe contrastarse con
+	// la apertura: no basta comparar únicamente la resolución declarada.
+	var alterado ports.RegistroLlamamientoDesarrollo
+	if err := json.Unmarshal(r.filas[p.OperacionRef], &alterado); err != nil {
+		t.Fatal(err)
+	}
+	alterado.FirmaFuente[0] ^= 1
+	r.filas[p.OperacionRef], _ = alterado.Canonico()
+	if recibo, err := s.AceptarLlamamiento(context.Background(), p); err == nil || recibo.ReciboRef != "" || r.guardados != guardados {
+		t.Fatal("replay aceptó antecedentes diferentes de la apertura")
+	}
+}
+
+func TestIntegracionLlamamientosDesarrolloAceptacionAutorizacionPropiaYFallos(t *testing.T) {
+	for _, modo := range []string{"denegada_nueva", "denegada_replay", "permiso_apertura", "repositorio", "fecha_recibo"} {
+		t.Run(modo, func(t *testing.T) {
+			s, r, _, _, p := aperturaAceptacionIntegracionPrueba(t)
+			if modo == "denegada_replay" || modo == "fecha_recibo" {
+				if _, err := s.AceptarLlamamiento(context.Background(), p); err != nil {
+					t.Fatal(err)
+				}
+			}
+			guardados, filas := r.guardados, len(r.filas)
+			switch modo {
+			case "denegada_nueva", "denegada_replay":
+				s.autorizador = autorizadorIntegracionPrueba(func(context.Context, string, dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+					return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, errors.New("denegada")
+				})
+			case "permiso_apertura":
+				s.autorizador = autorizadorIntegracionPrueba(func(_ context.Context, accion string, recurso dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+					if accion != ports.AccionAceptarLlamamientoRRHHDesarrollo {
+						t.Fatal("no solicitó permiso propio")
+					}
+					return materialIntegracionPrueba(t, ports.AccionAbrirLlamamientoDesarrollo, recurso), nil
+				})
+			case "repositorio":
+				r.fallo = true
+			case "fecha_recibo":
+				recibo := r.recibos[p.OperacionRef]
+				recibo.ConfirmadaEn = recibo.ConfirmadaEn.In(time.FixedZone("no-canonica", 0))
+				r.recibos[p.OperacionRef] = recibo
+			}
+			recibo, err := s.AceptarLlamamiento(context.Background(), p)
+			if err == nil || recibo.ReciboRef != "" || len(r.filas) != filas {
+				t.Fatal("fallo convertido en éxito o duplicado")
+			}
+			if modo != "repositorio" && modo != "fecha_recibo" && r.guardados != guardados {
+				t.Fatal("guardó sin autorización exacta")
+			}
+		})
+	}
+}
+
+func TestIntegracionLlamamientosDesarrolloAceptacionSinAperturaOCancelada(t *testing.T) {
+	s, r, _, _, p := aperturaAceptacionIntegracionPrueba(t)
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := s.AceptarLlamamiento(ctx, p); !errors.Is(err, context.Canceled) || r.guardados != 2 {
+		t.Fatal("no respetó cancelación")
+	}
+	delete(r.filas, p.Resolucion.AperturaOperacionRef)
+	if recibo, err := s.AceptarLlamamiento(context.Background(), p); err == nil || recibo.ReciboRef != "" || r.guardados != 2 {
+		t.Fatal("aceptación sin apertura real")
 	}
 }

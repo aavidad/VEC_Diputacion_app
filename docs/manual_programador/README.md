@@ -22,6 +22,10 @@ cookies, almacenamiento web ni desbordamiento horizontal en ese recorrido.
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo, sin nuevo paso completo.
 
+**Corte actual:** cuarto formulario de solicitud de resolución, demostrado en
+navegador con `200/200/200/409`, referencias originales y sin duplicados. No hay
+terminal aceptado; continúan **5/8 pasos completos más parte del sexto**.
+
 ## Qué leer y qué mantener
 
 Este manual puede consultarse desde un clon del repositorio, sin acceder a
@@ -32,6 +36,8 @@ o bloqueos históricos. Las reglas operativas de este corte son:
 
 - Priorizar avances observables de Contratación temporal, conectando las
   piezas existentes antes de perfeccionarlas o reconstruirlas.
+- Las preguntas pendientes no detienen programación independiente por orden
+  del operador; no autorizan a inventar plazo, autoridad o aceptación.
 - Mantener una línea canónica por capacidad y archivos de edición disjuntos;
   conservar el trabajo ajeno, sin copiar implementaciones entre ramas.
 - Usar solo datos sintéticos, autorización de servidor y efectos persistentes
@@ -166,6 +172,36 @@ núcleo instalado, sin confundir su huella con un commit de publicación.
 
 El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
 observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
+
+### Solicitud de resolución y preparación de aceptación RRHH
+
+La cuarta operación del formulario es `data-ct-llamamiento-form="resolucion"`.
+Tras un recibo de declaración `aceptacion`, `resolverLlamamiento` envía a
+`POST /api/vec/contratacion-temporal/llamamientos/resoluciones` los ocho campos
+publicados: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
+`llamamiento_ref`, `comunicacion_ref`, `version_esperada`, `respuesta` y
+`prueba_respuesta_ref`. Deriva los antecedentes del recibo, usa versión `2`,
+`justificante_ref` como prueba y una clave propia; no recibe autoridad del DOM.
+
+La ruta exacta protegida devuelve actualmente `409 validacion_respuesta_pendiente`,
+con clave i18n `api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente`.
+La UI muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha
+confirmado la aceptación.». Es rechazo conocido sin efecto; conserva el intento
+para reintento manual, no automático ni con nueva clave. El validador del recibo
+existente no implica que la composición actual pueda confirmar una aceptación.
+
+Bolsa Go y AD3 `000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
+`000004_aceptacion_rrhh_integracion_desarrollo` están preparados, **no activados
+ni instalados permanentemente en BD**. Falta validación de negocio competente y
+proveedor de permiso nominal. La dinámica focal PostgreSQL final pasó:
+una aceptación almacenada, un historial y un evento; replay con mismo recibo y
+fecha; material divergente y segundo terminal rechazados. UP/DOWN restauraron
+SHA y ACL exactos, con cero datos y cero migraciones persistidos. Se corrigieron
+puntualmente precedencia SQL y búsqueda de catálogo en DOWN, sin reescrituras.
+El doble de autorización fue estrictamente privado y transaccional: comprueba
+almacenamiento aislado, no criptografía ni aceptación funcional E2E. No sustituye
+el permiso real ni modifica el plazo desde el aviso local.
+El [plan canónico](../../ESTADO_PROYECTO.md) mantiene el objetivo 4 en curso.
 
 ## Arquitectura real y propiedad
 

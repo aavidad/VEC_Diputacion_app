@@ -4,6 +4,7 @@ import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida, CAMPOS_RESPUESTA_RECIBIDA,
+  validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento, CAMPOS_RESOLUCION,
 } from "./contrato-llamamiento.js";
 import { RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
 
@@ -42,6 +43,20 @@ const registroRespuesta = (entrada = RESPUESTA_RECIBIDA) => ({
   auditoria_ref: "auditoria:respuesta:001", registrada_en: "2026-09-05T09:00:00.123456Z",
   estado: "registrada_por_rrhh",
 });
+const RESOLUCION = {
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174003",
+  organizacion_ref: RESPUESTA_RECIBIDA.organizacion_ref, expediente_ref: SELECCION.expediente_ref,
+  llamamiento_ref: RESPUESTA_RECIBIDA.llamamiento_ref,
+  comunicacion_ref: RESPUESTA_RECIBIDA.comunicacion_ref, version_esperada: 2,
+  respuesta: "aceptacion", prueba_respuesta_ref: registroRespuesta().justificante_ref,
+};
+const RESOLUCION_CONFIRMADA = {
+  esquema: "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1",
+  respuesta: "aceptacion", estado_plazo: "vigente", estado_local: "confirmado",
+  resolucion_ref: "resolucion:sintetica:001", recibo_local_ref: "recibo:resolucion:001",
+  auditoria_ref: "auditoria:resolucion:001", version_resultante: 3,
+  resuelta_en: "2026-09-05T09:05:00.123450Z",
+};
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
 });
@@ -216,4 +231,88 @@ test("respuesta recibida conserva errores genéricos y distingue rechazo previo 
     respuesta({ data: { ...registroRespuesta(), correo_ref: "correo:otro" } }) });
   await assert.rejects(cliente.registrarRespuestaRecibida(RESPUESTA_RECIBIDA),
     (error) => error.resultadoIndeterminado === true);
+});
+
+test("resolución envía ocho campos canónicos y valida recibo local 201/200 sin intención siguiente", async () => {
+  for (const [status, estado_local] of [[201, "confirmado"], [200, "replay_confirmado"]]) {
+    const eco = { ...RESOLUCION_CONFIRMADA, estado_local };
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, "/api/vec/contratacion-temporal/llamamientos/resoluciones");
+      assert.equal(opciones.body, JSON.stringify(RESOLUCION));
+      assert.deepEqual(Object.keys(JSON.parse(opciones.body)), CAMPOS_RESOLUCION);
+      assert.equal(opciones.method, "POST");
+      assert.equal(opciones.credentials, "same-origin");
+      assert.equal(opciones.cache, "no-store");
+      assert.equal(opciones.redirect, "error");
+      assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
+      return respuesta({ data: eco }, status);
+    } });
+    const desordenada = Object.fromEntries(Object.entries(RESOLUCION).reverse());
+    const resultado = await cliente.resolverLlamamiento(desordenada);
+    assert.deepEqual(resultado, eco);
+    assert.ok(Object.isFrozen(resultado));
+  }
+});
+
+test("solicitud de resolución solo acepta v2/aceptación y rechaza autoridad añadida antes de HTTP", () => {
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: () => assert.fail("HTTP") });
+  for (const cambio of [{ version_esperada: 3 }, { version_esperada: "2" },
+    { respuesta: "renuncia" }, { respuesta: "expiracion_gobernada" }, { respuesta: "aceptada" },
+    { estado_plazo: "vigente" }, { actor_ref: "actor:inventado" }, { politica_ref: "politica:inventada" },
+    { evaluacion_plazo_ref: "evaluacion:inventada" }, { correo_sha256: "a".repeat(64) },
+    { prueba_respuesta_ref: "persona@example.invalid" }, { clave_idempotencia: "otra" }]) {
+    assert.throws(() => cliente.resolverLlamamiento({ ...RESOLUCION, ...cambio }), TypeError);
+  }
+  for (const campo of CAMPOS_RESOLUCION) {
+    const incompleta = { ...RESOLUCION }; delete incompleta[campo];
+    assert.throws(() => validarSolicitudResolucionLlamamiento(incompleta), TypeError);
+  }
+  const getter = { ...RESOLUCION };
+  Object.defineProperty(getter, "prueba_respuesta_ref", { get() { assert.fail("getter"); } });
+  assert.throws(() => validarSolicitudResolucionLlamamiento(getter), TypeError);
+});
+
+test("recibo resolución exige nueve campos, aceptación, plazo vigente y versión 3, sin atribuciones extra", async () => {
+  for (const cambio of [{ esquema: "otro" }, { respuesta: "renuncia" }, { estado_plazo: "vencido" },
+    { estado_local: "registrada_por_rrhh" }, { version_resultante: 2 }, { version_resultante: "3" },
+    { resolucion_ref: "" }, { recibo_local_ref: "persona@example.invalid" }, { auditoria_ref: null },
+    { intencion_siguiente: null }, { intencion_siguiente: {} }, { actor_ref: "actor:inventado" },
+    { resuelta_en: "2026-02-30T09:05:00Z" }, { resuelta_en: "2026-09-05T09:05:00.1234567Z" },
+    { resuelta_en: "2026-09-05T09:05:00+00:00" }, { resuelta_en: "0000-01-01T00:00:00Z" }]) {
+    const eco = { ...RESOLUCION_CONFIRMADA, ...cambio };
+    assert.throws(() => validarReciboResolucionLlamamiento(eco, RESOLUCION), TypeError);
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: eco }) });
+    await assert.rejects(cliente.resolverLlamamiento(RESOLUCION), (e) => e.resultadoIndeterminado === true);
+  }
+  for (const campo of Object.keys(RESOLUCION_CONFIRMADA)) {
+    const incompleta = { ...RESOLUCION_CONFIRMADA }; delete incompleta[campo];
+    assert.throws(() => validarReciboResolucionLlamamiento(incompleta, RESOLUCION), TypeError);
+  }
+  assert.throws(() => validarReciboResolucionLlamamiento(registroRespuesta(), RESOLUCION), TypeError);
+  const getter = { ...RESOLUCION_CONFIRMADA };
+  Object.defineProperty(getter, "estado_plazo", { get() { assert.fail("getter"); } });
+  assert.throws(() => validarReciboResolucionLlamamiento(getter, RESOLUCION), TypeError);
+});
+
+test("409 pendiente es conocido sin efecto solo en resolución y con su prefijo exacto", async () => {
+  const codigo = "validacion_respuesta_pendiente";
+  const clave = `api.contratacion_temporal.comunicacion_llamamiento.error.${codigo}`;
+  for (const [metodo, solicitud, status, clave_i18n, valido] of [
+    ["resolverLlamamiento", RESOLUCION, 409, clave, true],
+    ["registrarComunicacionLlamamiento", COMUNICACION, 409, clave, false],
+    ["registrarRespuestaRecibida", RESPUESTA_RECIBIDA, 409,
+      `api.contratacion_temporal.respuesta_recibida.error.${codigo}`, false],
+    ["resolverLlamamiento", RESOLUCION, 403, clave, false],
+    ["resolverLlamamiento", RESOLUCION, 409, `api.contratacion_temporal.resolucion.error.${codigo}`, false],
+  ]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ error: {
+      codigo, clave_i18n, correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }, status) });
+    await assert.rejects(cliente[metodo](solicitud), (e) => {
+      assert.equal(e.envelopeValido, valido);
+      assert.equal(e.resultadoIndeterminado, !valido);
+      if (valido) { assert.equal(e.codigo, codigo); assert.equal(e.estado, 409); }
+      return true;
+    });
+  }
 });

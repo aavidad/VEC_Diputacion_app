@@ -2,7 +2,7 @@
 
 **Plan vigente: 5 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Base documental previa a esta entrega: `5c6b03e`.
+Base publicada del corte actual: `4034157b0e09ce9e1827c503cacd85ea7c894c01`.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -37,6 +37,20 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   almacenamiento web ni desbordamiento horizontal en móvil.
   Conflicto `409` comprobado desde el navegador, sin duplicado.
   No cambia Bolsa ni expediente; comunicación sigue en versión `2`.
+- Objetivo 4 en curso: el cuarto formulario solicita resolución de aceptación
+  con las referencias originales y el justificante de la declaración RRHH.
+  Navegador real: recuperación `200/200/200` y solicitud `409`, con el texto
+  «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado la
+  aceptación.». Sin recibo terminal, duplicados ni cambio de estado; se conserva
+  el mismo intento para reintento manual, sin nueva clave ni reintento automático.
+- Bolsa Go y las migraciones AD3 `000015` / Bolsa `000004` están preparadas para
+  aceptación RRHH, **no activadas ni instaladas permanentemente en las bases**.
+  Falta validación de negocio competente y proveedor de permiso nominal.
+  Dinámica focal PostgreSQL PASS: una aceptación almacenada, un historial y un
+  evento; replay con mismo recibo/fecha, material divergente y segundo terminal
+  rechazados. UP/DOWN restauraron SHA y ACL exactos; cero datos y cero migraciones
+  persistidos. El doble de autorización fue estrictamente privado y transaccional:
+  acredita almacenamiento aislado, no criptografía ni aceptación funcional E2E.
 - Métrica sin incremento: **5 de 8 pasos completos más parte del sexto**.
   Registrar una declaración de aceptación no resuelve la aceptación ni
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
@@ -78,7 +92,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | Cerrado: `b2effba` |
 | 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Cerrado para análisis de solicitud v1: `b2effba`; no afirma recuperación de todas las actuaciones |
 | 3 | Registrar la declaración de una respuesta recibida por RRHH | Actor, referencia y SHA256 declarados, vinculados al llamamiento y con justificante persistente; no verifica origen, firma o custodia, entrega de correo ni aceptación terminal. Recuperación con la misma clave y autorización vigente sin duplicados. | Incluido en esta entrega: `201` y recuperación `200` tras parche y segundo reinicio; conflicto `409` sin duplicado. Cerrado técnicamente |
-| 4 | Registrar una aceptación válida | Permiso específico, comprobación del justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento. | Siguiente |
+| 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | En curso: formulario real hasta `409` pendiente; Bolsa Go/SQL preparados, no activados. Faltan validación de negocio y proveedor de permiso nominal |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Después de 5 o 6 |
@@ -101,6 +115,10 @@ comprueban sus alternativas y la continuidad con la selección siguiente.
 La numeración de esta cola no sustituye los ocho pasos del procedimiento.
 
 ## Dependencias externas sin detener todo el desarrollo
+
+Orden del operador: las preguntas pendientes no detienen la programación de
+partes independientes. No autorizan a inventar plazo, identidad o permiso, ni
+a convertir una solicitud de resolución pendiente en aceptación confirmada.
 
 Correo corporativo, modelos oficiales, circuito de firma y conexión automática
 a GINPIX requieren información o autorización externas. Se continúa únicamente

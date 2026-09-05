@@ -31,7 +31,7 @@ function raizPrueba() {
     contains: () => true,
     replaceChildren() { this.innerHTML = ""; },
     querySelector(selector) {
-      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|respuesta)"\]$/u)?.[1];
+      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|respuesta|resolucion)"\]$/u)?.[1];
       if (tipo) return borradores[tipo] ?? null;
       if (selector === "[data-ct-llamamiento-comunicacion]") return { open: false };
       return { focus: () => foco.push(selector), scrollIntoView() {} };
@@ -62,7 +62,7 @@ function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
       registrarComunicacionLlamamiento: async () => {},
-      registrarRespuestaRecibida: async () => {}, ...cliente },
+      registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {}, ...cliente },
     confirmarOperacion: () => true, criptografia: webcrypto, ...extras,
   });
 }
@@ -107,6 +107,7 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
       seleccionarLlamamiento: async () => { peticiones += 1; return recibo; },
       registrarComunicacionLlamamiento: async () => { peticiones += 1; },
       registrarRespuestaRecibida: async () => { peticiones += 1; },
+      resolverLlamamiento: async () => { peticiones += 1; },
     } },
   });
   return {
@@ -175,6 +176,165 @@ async function abrirRespuesta(raiz, cliente = {}, extras = {}) {
   raiz.preparar("respuesta", declaracion());
   return cerrar;
 }
+const CLAVE_RESOLUCION = "123e4567-e89b-42d3-a456-426614174003";
+const resolucionConfirmada = {
+  esquema: "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1",
+  respuesta: "aceptacion", estado_plazo: "vigente", estado_local: "confirmado",
+  resolucion_ref: "resolucion:sintetica:001", recibo_local_ref: "recibo:resolucion:001",
+  auditoria_ref: "auditoria:resolucion:001", version_resultante: 3,
+  resuelta_en: "2026-09-05T09:05:00.123450Z",
+};
+async function abrirResolucion(raiz, cliente = {}, extras = {}) {
+  const cerrar = await abrirRespuesta(raiz, cliente, extras);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  raiz.preparar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
+  return cerrar;
+}
+
+test("cuarta operación exige justificante confirmado de aceptación y no se solicita automáticamente", async () => {
+  for (const opcion of ["aceptacion", "renuncia", "recibo_invalido"]) {
+    const raiz = raizPrueba(); let llamadas = 0;
+    const cerrar = await abrirRespuesta(raiz, {
+      registrarRespuestaRecibida: async (s) => opcion === "recibo_invalido"
+        ? { ...justificante(s), estado: "aceptada" } : justificante(s),
+      resolverLlamamiento: async () => { llamadas += 1; },
+    });
+    await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
+    assert.equal(llamadas, 0);
+    delete raiz.borradores.resolucion; // El envío simulado no crea un formulario real.
+    await raiz.archivo(archivoCorreo());
+    await raiz.enviar("respuesta", { ...declaracion(), respuesta: opcion === "renuncia" ? opcion : "aceptacion" });
+    assert.equal(llamadas, 0);
+    if (opcion === "aceptacion") {
+      const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="resolucion"[\s\S]*?<\/form>/u)[0];
+      assert.match(formulario, /name="clave_idempotencia" value=""/u);
+      assert.doesNotMatch(formulario, /type="file"|name="(?:actor_ref|estado_plazo|evaluacion_plazo_ref|politica_ref)"/u);
+      assert.match(formulario, /name="respuesta" required disabled/u);
+      for (const campo of ["organizacion_ref", "expediente_ref", "llamamiento_ref",
+        "comunicacion_ref", "version_esperada", "prueba_respuesta_ref"]) {
+        assert.match(formulario, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
+      }
+    } else {
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+      await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
+      assert.equal(llamadas, 0);
+    }
+    cerrar();
+  }
+});
+
+test("resolución exige clave propia y confirmación; el DOM no concede antecedentes, identidad ni plazo", async () => {
+  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false;
+  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async (s) => {
+    solicitudes.push(s); return resolucionConfirmada;
+  } }, { confirmarOperacion: (datos) => {
+    if (!datos.datos.prueba_respuesta_ref) return true;
+    confirmaciones.push(datos); return confirmar;
+  } });
+  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia]) {
+    await raiz.enviar("resolucion", { clave_idempotencia });
+    assert.match(raiz.innerHTML, /utilice una clave propia de resolución/u);
+  }
+  assert.equal(confirmaciones.length, 0);
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
+  assert.equal(solicitudes.length, 0);
+  confirmar = true;
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION,
+    organizacion_ref: "org:inventada", expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
+    comunicacion_ref: "com:inventada", version_esperada: "99", respuesta: "renuncia",
+    prueba_respuesta_ref: "prueba:inventada", estado_plazo: "vigente", actor_ref: "actor:inventado" });
+  assert.deepEqual(solicitudes, [{ clave_idempotencia: CLAVE_RESOLUCION,
+    organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
+    llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
+    version_esperada: 2, respuesta: "aceptacion", prueba_respuesta_ref: justificante({}).justificante_ref }]);
+  assert.ok(Object.isFrozen(solicitudes[0]));
+  assert.match(confirmaciones.at(-1).advertencia, /no declara el plazo vigente/u);
+  assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u);
+  assert.match(raiz.innerHTML, /no acredita por sí solo una transición en Bolsa/u);
+  assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u);
+  assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
+  assert.equal(solicitudes.length, 1);
+  cerrar();
+});
+
+test("HTTP 409 pendiente conserva intento conocido y solo permite solicitarlo de nuevo explícitamente", async () => {
+  const raiz = raizPrueba(), solicitudes = []; let claves = 0, confirmaciones = 0;
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    assert.ok(ruta.endsWith("/resoluciones"));
+    solicitudes.push(opciones.body);
+    return new Response(JSON.stringify({ error: {
+      codigo: "validacion_respuesta_pendiente",
+      clave_i18n: "api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente",
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }), { status: 409, headers: { "content-type": "application/json; charset=utf-8" } });
+  } });
+  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: cliente.resolverLlamamiento }, {
+    confirmarOperacion: () => { confirmaciones += 1; return true; },
+    generarClaveIdempotencia: () => { claves += 1; return CLAVE; },
+  });
+  assert.equal(solicitudes.length, 0);
+  for (let intento = 0; intento < 2; intento += 1) {
+    await raiz.enviar("resolucion", { clave_idempotencia: intento === 0 ? CLAVE_RESOLUCION : CLAVE });
+    assert.equal(solicitudes.length, intento + 1);
+    assert.match(raiz.innerHTML, /Pendiente de validar respuesta y plazo por RRHH\. No se ha confirmado la aceptación\./u);
+    assert.match(raiz.innerHTML, /Volver a solicitar con los mismos datos/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"|No se ha podido confirmar el resultado/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="resolucion"/u); // gitleaks:allow — selector HTML.
+    raiz.eventos.get("click")({ target: { closest: () => ({ dataset: { ctLlamamientoClave: "resolucion" } }) },
+      preventDefault() {} });
+    assert.equal(claves, 0);
+  }
+  assert.equal(solicitudes[0], solicitudes[1]);
+  assert.equal(JSON.parse(solicitudes[1]).clave_idempotencia, CLAVE_RESOLUCION);
+  assert.equal(confirmaciones, 5); // Tres antecedentes más dos solicitudes expresas.
+  cerrar();
+});
+
+test("resolución ambigua o recibo inválido conserva el intento incluso si el replay pierde permiso", async () => {
+  for (const invalido of [false, true]) {
+    const raiz = raizPrueba(), solicitudes = [];
+    const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async (s) => {
+      solicitudes.push(s);
+      if (solicitudes.length === 1) {
+        if (invalido) return { ...resolucionConfirmada, estado_plazo: "vencido" };
+        throw new Error("transporte interrumpido");
+      }
+      if (solicitudes.length === 2) throw Object.assign(new Error(), {
+        codigo: "acceso_denegado", envelopeValido: true, resultadoIndeterminado: false,
+      });
+      return { ...resolucionConfirmada, estado_local: "replay_confirmado" };
+    } });
+    for (let intento = 0; intento < 3; intento += 1) {
+      await raiz.enviar("resolucion", { clave_idempotencia: intento === 0 ? CLAVE_RESOLUCION : CLAVE });
+      assert.deepEqual(solicitudes[intento], solicitudes[0]);
+      if (intento < 2) assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="resolucion"/u); // gitleaks:allow — selector HTML.
+    }
+    assert.match(raiz.innerHTML, /Recuperado sin repetir el efecto/u);
+    cerrar();
+  }
+});
+
+test("resolución no duplica al pulsar dos veces; desmontar aborta y descarta el recibo tardío", async () => {
+  const raiz = raizPrueba(); let resolver, signal, llamadas = 0;
+  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: (_, opciones) => {
+    llamadas += 1; signal = opciones.signal;
+    return new Promise((resolve) => { resolver = resolve; });
+  } });
+  const pendiente = raiz.enviar("resolucion");
+  await raiz.enviar("resolucion");
+  assert.equal(llamadas, 1);
+  cerrar();
+  assert.equal(signal.aborted, true);
+  resolver(resolucionConfirmada);
+  await pendiente;
+  assert.equal(raiz.innerHTML, "");
+  assert.equal(raiz.eventos.size, 0);
+});
 
 test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo declaración y huella", async () => {
   const raiz = raizPrueba(), confirmaciones = [], solicitudes = [];

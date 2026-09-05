@@ -118,7 +118,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
     raiz, cliente: {
       registrarResultadoFiscalizacion: async () => recibo("favorable"),
       seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
-      registrarRespuestaRecibida: async () => {},
+      registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
     },
     confirmarOperacion: () => true,
   });

@@ -35,6 +35,11 @@ La entrega 3 queda cerrada funcionalmente en desarrollo.
 Los identificadores observados constan en el
 [manual de RRHH](../manual_rrhh/README.md).
 
+**Corte actual:** navegador real `200/200/200/409` al recuperar los antecedentes
+y solicitar resolución desde la cuarta operación. El `409` indica validación
+de respuesta/plazo pendiente, no aceptación ni recibo terminal; sin duplicados.
+El alcance continúa en **5/8 pasos completos más parte del sexto**.
+
 ## Alcance y referencias
 
 Este manual sirve para operar **un entorno sintético ya preparado**, no para
@@ -162,6 +167,18 @@ propio `contratacion_temporal.llamamiento.respuesta.registrar`, no el de aviso
 local, y mantiene las once DSN nominales por aplicación contra su única base.
 No añada conexiones ni conceda permisos manuales para superar un rechazo.
 
+Distinto estado: Bolsa Go y las migraciones AD3
+`000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
+`000004_aceptacion_rrhh_integracion_desarrollo` están **preparados, no activados
+ni instalados permanentemente en las bases**. No aplicarlos como parte del
+arranque: falta validación de negocio competente y proveedor de permiso nominal.
+La dinámica PostgreSQL aislada comprobó un registro/historial/evento, replay
+con el mismo recibo/fecha y rechazo de material divergente y segundo terminal.
+UP/DOWN restauraron SHA y ACL exactos: cero datos y cero migraciones persistidos.
+El doble de autorización fue estrictamente privado y transaccional; acredita
+solo almacenamiento, no criptografía ni aceptación funcional de extremo a extremo.
+No trasladarlo a la aplicación ni dar por instalada la aceptación por esa prueba.
+
 Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
 compara instantes y corrige la diferencia de ceros finales entre decisión y
 capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
@@ -275,6 +292,13 @@ llamamiento, tras recuperar la comunicación confirmada `v2`; requiere respuesta
 declarada, referencia opaca, recepción UTC y `.eml` de hasta 2 MiB para calcular
 su huella local. No cambia la comunicación `v2`, el expediente observado `v6`
 ni el estado Bolsa. No acredita envío, entrega ni aceptación terminal.
+Tras recuperar una declaración `aceptacion`, la cuarta operación solicita
+resolución con las referencias y el justificante originales, clave propia y
+confirmación explícita, sin otro `.eml`. El `409 validacion_respuesta_pendiente`
+muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado
+la aceptación.». Es una condición conocida sin efecto: conserve el intento
+para reintento manual con la misma clave, no automático ni con otra clave.
+No corrija ese estado concediendo permisos o marcando un plazo manualmente.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar

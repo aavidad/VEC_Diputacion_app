@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 5 de septiembre de 2026. Base documental previa: `5c6b03e`.**
+**Estado funcional: 5 de septiembre de 2026. Base publicada del corte actual: `4034157`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -20,6 +20,12 @@ con `200/200/200`, conservando el mismo justificante, recibo y fecha.
 Los rechazos intermitentes por comparar como texto fechas equivalentes están
 corregidos mediante comparación de instantes; el diagnóstico se retiró.
 También se comprobó un conflicto `409` desde el navegador, sin duplicado.
+
+**Corte actual: solicitud de resolución, no aceptación confirmada.** El cuarto
+formulario reutiliza las referencias originales y el justificante RRHH.
+Navegador real: `200/200/200/409`; muestra «Pendiente de validar respuesta y
+plazo por RRHH. No se ha confirmado la aceptación.», sin recibo terminal ni
+duplicados. Conserva el intento para reintento manual con la misma clave.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -64,7 +70,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, orden y propuesta persistidas, llamamiento abierto y aviso local recuperables tras reiniciar. Respuesta declarada por RRHH registrada con `201` y recuperada con `200` después del parche y segundo reinicio; corte 3 incluido en esta entrega. | La declaración no verifica el correo ni resuelve aceptación o renuncia. Faltan envío y entrega corporativos, resolución de respuestas y gestión completa del plazo. |
+| 6. Llamamiento, parcial | Selección, aviso local y declaración RRHH persistentes y recuperables. Cuarta operación: solicitar resolución; recorrido real `200/200/200/409`, pendiente de validación. | No confirma aceptación ni duplica registros. Faltan validación competente de respuesta/plazo, permiso nominal y activación; tampoco acredita envío o entrega corporativos. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se declaran terminados sus seis documentos, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -77,8 +83,13 @@ El registro de respuesta conserva una respuesta, un asiento y un evento;
 no cambia Bolsa, no avanza el expediente y mantiene comunicación versión `2`.
 El `.eml` sintético se lee y resume con SHA256 en el navegador: no se sube ni
 se custodia. El aviso sigue siendo local, no correo corporativo entregado.
-El siguiente corte es resolver una aceptación válida con permiso propio;
-la aceptación declarada por RRHH no sustituye esa resolución.
+Bolsa Go y SQL AD3 `000015` / Bolsa `000004` están preparados para aceptación
+RRHH, no activados ni instalados permanentemente en BD. La dinámica SQL aislada
+comprobó solo almacenamiento con un doble de autorización estrictamente privado
+y transaccional, sin datos ni migraciones persistidos; no acredita
+criptografía ni aceptación de extremo a extremo. Falta validación de negocio
+competente y proveedor de permiso nominal. Las preguntas pendientes no detienen
+la programación independiente ni autorizan a inventar plazo o autoridad.
 
 ## Probar el recorrido disponible
 

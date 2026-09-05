@@ -10,7 +10,7 @@ autorizado para tramitar expedientes de personas reales.
 
 **Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH.** No están
+respuesta por RRHH, más la solicitud de resolución aún pendiente de validar.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
 `8443`/base `55433`; no incrementa el contador de pasos.
@@ -23,6 +23,11 @@ de aplicación y PostgreSQL: mismos recibo, justificante y fecha, sin nuevo
 registro. Sin errores JavaScript, cookies, almacenamiento web ni desbordamiento
 horizontal en ese recorrido. También se confirmó un conflicto real `409` en
 navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.
+
+**Corte actual:** la cuarta operación solicita resolución con los antecedentes
+originales. Navegador real `200/200/200/409`: validación de respuesta/plazo
+pendiente, sin recibo de aceptación ni duplicados. No aumenta los cinco pasos
+completos ni completa el sexto.
 
 Para elegir la documentación adecuada:
 
@@ -147,7 +152,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Iniciar la selección, registrar su comunicación local y declarar la respuesta recibida por RRHH. | Mismos recibos recuperados tras reiniciar, incluida la declaración RRHH, sin duplicar el registro. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo. |
+| 6. Llamamiento, parcialmente disponible | Iniciar selección, registrar aviso y declaración RRHH; solicitar resolución de aceptación. | Antecedentes recuperados sin duplicar; la resolución devuelve `409` pendiente. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -233,6 +238,24 @@ referencia y su huella, **sin verificar origen, firma ni custodia**. No acredita
 envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
 la versión `2`, el expediente observado sigue en `6` y no cambia la candidatura
 ni su estado en Bolsa. No aumenta el contador de pasos.
+
+### Solicitar resolución de aceptación: todavía pendiente
+
+1. Recupere la declaración **Aceptación declarada en el correo** con los datos
+   originales de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Aparece **4. Solicitar
+   resolución de aceptación** en el mismo formulario. Sus referencias y el
+   justificante se toman del recibo; la comunicación sigue en versión `2`.
+2. Use una clave propia para resolución, distinta de las operaciones anteriores.
+   Pulse **Revisar y solicitar resolución de aceptación** y confirme. No se
+   aporta otro `.eml`; confirmar no declara identidad, plazo vigente ni aceptación.
+3. El resultado actual es `409`: **«Pendiente de validar respuesta y plazo por
+   RRHH. No se ha confirmado la aceptación.»**. No hay recibo terminal, cambio
+   de candidatura ni duplicado. Conserve ese intento y su clave para una nueva
+   solicitud manual con los mismos datos; no prepare otra clave para eludirlo.
+
+El recorrido real es `200/200/200/409`. Falta validación de negocio competente y
+proveedor de permiso nominal; las piezas técnicas preparadas no están activadas.
+No avance al nombramiento ni interprete una prueba técnica aislada como aceptación.
 
 ### Qué ocurre después de un reinicio
 

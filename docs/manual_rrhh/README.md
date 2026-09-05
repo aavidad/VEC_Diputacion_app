@@ -19,6 +19,10 @@ aplicación y PostgreSQL. Mismos recibo, justificante y fecha, sin nuevo registr
 También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
 cerrada funcionalmente en desarrollo; no aumenta el contador.
 
+**Corte actual:** el cuarto formulario permite solicitar resolución, no confirmar
+aceptación. Recorrido real `200/200/200/409`: mismos antecedentes, validación de
+respuesta/plazo pendiente, sin duplicados. Continúan **5/8 pasos más parte del 6**.
+
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más selección,
@@ -35,7 +39,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso local y declaración RRHH recuperados tras reiniciar, con los mismos recibos y sin duplicados. Sin envío, entrega, aceptación terminal ni plazo acreditados. |
+| 6. Llamamiento | Parcial: selección, aviso y declaración RRHH recuperables; cuarta operación solicita resolución y devuelve `409` pendiente, sin duplicados. Sin envío, entrega, aceptación terminal ni plazo acreditados. |
 | 7. Nombramiento / formalización | No recorrible de extremo a extremo: pendientes aceptación, modelos y circuito de firmas. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -238,6 +242,25 @@ PostgreSQL, el navegador recuperó selección, comunicación y respuesta con
 registro**. El recorrido quedó comprobado sin errores JavaScript, cookies,
 almacenamiento web ni desbordamiento horizontal. Cierra esta entrega de
 declaración, no la aceptación terminal ni todo el paso 6.
+
+#### Operación 4: solicitar resolución de aceptación, pendiente de validar
+
+Después de recuperar una declaración `aceptacion`, aparece **4. Solicitar
+resolución de aceptación** en el mismo formulario. Reutiliza las referencias
+originales, comunicación `v2` y justificante; no permite cambiar sus antecedentes
+ni conceder identidad o plazo. Use una clave propia de resolución y confirme
+expresamente. No requiere otro `.eml`.
+
+El recorrido real devolvió `200/200/200/409` y el mensaje **«Pendiente de validar
+respuesta y plazo por RRHH. No se ha confirmado la aceptación.»**. No hay recibo
+terminal ni duplicado; la declaración sigue siendo solo una declaración.
+Conserve el intento y su clave: únicamente se admite volver a solicitarlo
+manualmente con los mismos datos, sin reintento automático ni clave nueva.
+
+Faltan validación de negocio competente y proveedor de permiso nominal. Las
+piezas técnicas preparadas no están activadas y no autorizan a dar por aceptada
+la candidatura. La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el
+recorrido exacto y separa las pruebas aisladas del resultado funcional.
 
 ### 7. Nombramiento: límite actual
 

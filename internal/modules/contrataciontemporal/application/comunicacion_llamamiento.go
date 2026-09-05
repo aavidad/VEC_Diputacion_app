@@ -8,6 +8,11 @@ import (
 )
 
 var (
+	// No indica rechazo de la respuesta ni ausencia de su registro: falta la
+	// validación competente que permita resolverla. No autoriza otro efecto.
+	ErrValidacionRespuestaLlamamientoPendiente = errors.New(
+		"contratacion temporal: validacion de respuesta y plazo pendiente",
+	)
 	ErrServicioComunicacionLlamamientoInvalido = errors.New(
 		"contratacion temporal: servicio de comunicacion de llamamiento invalido",
 	)

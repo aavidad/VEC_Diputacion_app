@@ -310,9 +310,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if comunicacionReal != nil {
-		// Solo se compone el registro local; aceptación/renuncia no se anuncian
-		// como disponibles mientras no exista su ejecución autorizada.
+		// La resolución recibe la intención, pero no confirma aceptación sin
+		// validación de respuesta/plazo. Devuelve la condición pendiente exacta.
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroComunicacionLlamamiento, Manejador: comunicacionReal})
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionComunicacionLlamamiento, Manejador: comunicacionReal})
 	}
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
@@ -460,6 +461,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return true
 	}
 	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||

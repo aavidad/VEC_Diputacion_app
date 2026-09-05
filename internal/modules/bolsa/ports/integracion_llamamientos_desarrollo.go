@@ -34,6 +34,7 @@ const (
 	AudienciaIntegracionLlamamientoDesarrollo = "vec_bolsa_llamamientos.confirmar_integracion_desarrollo.v1"
 	AccionPrepararOrdenDesarrollo             = "bolsa.orden.preparar"
 	AccionAbrirLlamamientoDesarrollo          = "bolsa.llamamiento.abrir"
+	AccionAceptarLlamamientoRRHHDesarrollo    = "bolsa.llamamiento.aceptacion_rrhh.registrar"
 	FinalidadIntegracionLlamamientoDesarrollo = "gestionar_contratacion_temporal"
 )
 
@@ -63,24 +64,72 @@ type PeticionLlamamientoDesarrollo struct {
 	MaximoPosiciones  uint32
 }
 
+// ResolucionLlamamientoDesarrollo liga la aceptación a una evaluación y una
+// política reacreditadas por la frontera confiable. Las referencias no prueban
+// por sí mismas competencia, entrega, origen del correo ni vigencia del plazo.
+// Este proveedor no fabrica una evaluación positiva ni calcula plazos legales.
+type ResolucionLlamamientoDesarrollo struct {
+	AperturaOperacionRef string    `json:"apertura_operacion_ref"`
+	JustificanteRef      string    `json:"justificante_ref"`
+	EvaluacionPlazoRef   string    `json:"evaluacion_plazo_ref"`
+	PoliticaRef          string    `json:"politica_ref"`
+	PoliticaVersion      uint64    `json:"politica_version"`
+	PoliticaSHA256       string    `json:"politica_sha256"`
+	VersionEsperada      uint64    `json:"version_esperada"`
+	ResueltaEn           time.Time `json:"resuelta_en"`
+}
+
+func (r ResolucionLlamamientoDesarrollo) referenciasValidas() bool {
+	return ReferenciaOpacaLlamamientoValida(r.AperturaOperacionRef) &&
+		ReferenciaOpacaLlamamientoValida(r.JustificanteRef) && ReferenciaOpacaLlamamientoValida(r.EvaluacionPlazoRef) &&
+		ReferenciaOpacaLlamamientoValida(r.PoliticaRef) && r.PoliticaVersion > 0 && r.PoliticaVersion <= 1<<53-1 &&
+		huellaSHA256LlamamientoValida(r.PoliticaSHA256) && r.PoliticaSHA256 != strings.Repeat("0", 64) && r.VersionEsperada == 1
+}
+
+func (r ResolucionLlamamientoDesarrollo) Validar() error {
+	if !r.referenciasValidas() || !instanteCanonicoLlamamiento(r.ResueltaEn) {
+		return ErrIntegracionLlamamientoDesarrollo
+	}
+	return nil
+}
+
+// PeticionResolverLlamamientoDesarrollo es interna, no un DTO HTTP. Su emisor
+// debe reacreditar justificante, evaluación y política antes de cada llamada,
+// también en replay. ResueltaEn debe venir vacía: la fija el servicio solo al
+// primer intento y la conserva al recuperar. El consumidor durable debe ligar
+// esos antecedentes y consumir autorización fresca junto al único terminal.
+type PeticionResolverLlamamientoDesarrollo struct {
+	OperacionRef string
+	Resolucion   ResolucionLlamamientoDesarrollo
+}
+
+func (p PeticionResolverLlamamientoDesarrollo) Validar() error {
+	if !ReferenciaOpacaLlamamientoValida(p.OperacionRef) || !p.Resolucion.referenciasValidas() ||
+		p.OperacionRef == p.Resolucion.AperturaOperacionRef || !p.Resolucion.ResueltaEn.IsZero() {
+		return ErrIntegracionLlamamientoDesarrollo
+	}
+	return nil
+}
+
 // RegistroLlamamientoDesarrollo conserva la instantánea completa y la propuesta
 // del dominio, incluido su prefijo evaluado. Los agregados no salen hacia CT;
 // el puente traduce exclusivamente sus referencias y seudonimiza la selección.
 type RegistroLlamamientoDesarrollo struct {
-	Esquema           string                          `json:"esquema"`
-	OperacionRef      string                          `json:"operacion_ref"`
-	Tipo              string                          `json:"tipo"`
-	OrdenOperacionRef string                          `json:"orden_operacion_ref"`
-	NecesidadRef      string                          `json:"necesidad_ref"`
-	VersionNecesidad  uint64                          `json:"version_necesidad"`
-	CategoriaRef      string                          `json:"categoria_ref"`
-	UnidadRef         string                          `json:"unidad_ref"`
-	Fuente            json.RawMessage                 `json:"fuente"`
-	FirmaFuente       []byte                          `json:"firma_fuente"`
-	Instantanea       domain.InstantaneaOrdenBolsa    `json:"instantanea"`
-	Propuesta         *domain.PropuestaLlamamiento    `json:"propuesta,omitempty"`
-	Llamamiento       *domain.DatosLlamamientoAbierto `json:"llamamiento,omitempty"`
-	EstadoLlamamiento domain.EstadoLlamamiento        `json:"estado_llamamiento,omitempty"`
+	Esquema           string                           `json:"esquema"`
+	OperacionRef      string                           `json:"operacion_ref"`
+	Tipo              string                           `json:"tipo"`
+	OrdenOperacionRef string                           `json:"orden_operacion_ref"`
+	NecesidadRef      string                           `json:"necesidad_ref"`
+	VersionNecesidad  uint64                           `json:"version_necesidad"`
+	CategoriaRef      string                           `json:"categoria_ref"`
+	UnidadRef         string                           `json:"unidad_ref"`
+	Fuente            json.RawMessage                  `json:"fuente"`
+	FirmaFuente       []byte                           `json:"firma_fuente"`
+	Instantanea       domain.InstantaneaOrdenBolsa     `json:"instantanea"`
+	Propuesta         *domain.PropuestaLlamamiento     `json:"propuesta,omitempty"`
+	Llamamiento       *domain.DatosLlamamientoAbierto  `json:"llamamiento,omitempty"`
+	EstadoLlamamiento domain.EstadoLlamamiento         `json:"estado_llamamiento,omitempty"`
+	Resolucion        *ResolucionLlamamientoDesarrollo `json:"resolucion,omitempty"`
 }
 
 type ReciboLlamamientoDesarrollo struct {
@@ -101,20 +150,33 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 		len(r.FirmaFuente) != 64 || r.Instantanea.Validar() != nil {
 		return nil, ErrIntegracionLlamamientoDesarrollo
 	}
+	if r.Tipo != "aceptacion_rrhh" && r.Resolucion != nil {
+		return nil, ErrIntegracionLlamamientoDesarrollo
+	}
 	if r.Tipo == "orden" {
 		if r.Propuesta != nil || r.Llamamiento != nil || r.EstadoLlamamiento != "" || r.OrdenOperacionRef != "" {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
-	} else if r.Tipo == "propuesta" {
+	} else if r.Tipo == "propuesta" || r.Tipo == "aceptacion_rrhh" {
 		if !ReferenciaOpacaLlamamientoValida(r.OrdenOperacionRef) || r.Propuesta == nil ||
 			r.Propuesta.Validar() != nil || r.Propuesta.NecesidadRef != r.NecesidadRef || r.Propuesta.VersionNecesidad != r.VersionNecesidad ||
 			r.Propuesta.InstantaneaRef != r.Instantanea.InstantaneaRef ||
 			r.Propuesta.HuellaInstantaneaSHA256 != r.Instantanea.HuellaContenidoSHA256 {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
-		if r.Llamamiento == nil || r.EstadoLlamamiento != domain.EstadoLlamamientoAbierto ||
+		if r.Llamamiento == nil ||
 			r.Llamamiento.NecesidadRef != r.NecesidadRef || r.Llamamiento.PropuestaRef != r.Propuesta.PropuestaRef ||
-			r.Llamamiento.BolsaRef != r.Instantanea.BolsaRef || r.Llamamiento.Version != 1 {
+			r.Llamamiento.BolsaRef != r.Instantanea.BolsaRef {
+			return nil, ErrIntegracionLlamamientoDesarrollo
+		}
+		if r.Tipo == "propuesta" {
+			if r.EstadoLlamamiento != domain.EstadoLlamamientoAbierto || r.Llamamiento.Version != 1 {
+				return nil, ErrIntegracionLlamamientoDesarrollo
+			}
+		} else if r.Resolucion == nil || r.Resolucion.Validar() != nil ||
+			r.Resolucion.AperturaOperacionRef == r.OperacionRef ||
+			r.EstadoLlamamiento != domain.EstadoLlamamientoAceptado || r.Llamamiento.Version != 2 ||
+			r.Resolucion.ResueltaEn.Before(r.Propuesta.GeneradaEn) || r.Resolucion.ResueltaEn.Before(r.Instantanea.GeneradaEn) {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
 		if _, err := domain.NuevoLlamamientoAbierto(*r.Llamamiento); err != nil {
@@ -145,6 +207,9 @@ func (r RegistroLlamamientoDesarrollo) Accion() string {
 	}
 	if r.Tipo == "propuesta" {
 		return AccionAbrirLlamamientoDesarrollo
+	}
+	if r.Tipo == "aceptacion_rrhh" {
+		return AccionAceptarLlamamientoRRHHDesarrollo
 	}
 	return ""
 }

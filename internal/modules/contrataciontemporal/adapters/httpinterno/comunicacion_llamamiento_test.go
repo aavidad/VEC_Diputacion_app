@@ -270,6 +270,20 @@ func nuevoManejadorComunicacionHTTPPrueba(
 	return manejador
 }
 
+func TestResolucionAceptacionHTTPInformaValidacionPendiente(t *testing.T) {
+	ejecutor := &ejecutorComunicacionLlamamientoHTTPPrueba{
+		errResolucion: application.ErrValidacionRespuestaLlamamientoPendiente,
+	}
+	manejador := nuevoManejadorComunicacionHTTPPrueba(t, ejecutor)
+	w := httptest.NewRecorder()
+	manejador.ServeHTTP(w, peticionComunicacionHTTPPrueba(RutaResolucionComunicacionLlamamiento,
+		cuerpoResolucionComunicacionHTTPPrueba(ports.RespuestaLlamamientoAceptada)))
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"codigo":"validacion_respuesta_pendiente"`) ||
+		strings.Contains(w.Body.String(), `"data"`) || w.Header().Get("Set-Cookie") != "" {
+		t.Fatal("validación pendiente presentada como confirmación:", w.Code, w.Body.String())
+	}
+}
+
 func TestManejadorComunicacionLlamamientoRegistraYProyectaMinimoLocal(
 	t *testing.T,
 ) {

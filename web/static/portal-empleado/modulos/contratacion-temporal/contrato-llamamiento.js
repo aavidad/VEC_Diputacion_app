@@ -18,6 +18,10 @@ export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
 export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
   "clave_idempotencia", "respuesta", "correo_ref", "recibida_en",
 ]);
+export const CAMPOS_RESOLUCION = Object.freeze([
+  "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
+  "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
+]);
 
 function exigir(condicion) {
   if (!condicion) throw new TypeError("contrato de llamamiento no válido");
@@ -85,6 +89,30 @@ export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
       ? instanteRespuesta(valor[campo]) === instanteRespuesta(esperada[campo])
       : valor[campo] === esperada[campo]));
   exigir(instanteRespuesta(valor.registrada_en) >= instanteRespuesta(valor.recibida_en));
+  return valor;
+}
+// Este corte solicita solo aceptación. El justificante no concede plazo ni
+// autorización: ambos se comprueban en el servidor antes de producir un recibo.
+export function validarSolicitudResolucionLlamamiento(entrada) {
+  const valor = solicitud(entrada, CAMPOS_RESOLUCION);
+  exigir(valor.version_esperada === 2 && valor.respuesta === "aceptacion");
+  return valor;
+}
+export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
+  const esperada = validarSolicitudResolucionLlamamiento(solicitudEntrada);
+  // Aceptación no lleva intencion_siguiente; no se admite ni siquiera null.
+  const valor = registro(entrada, [
+    "esquema", "respuesta", "estado_plazo", "estado_local", "resolucion_ref",
+    "recibo_local_ref", "auditoria_ref", "version_resultante", "resuelta_en",
+  ]);
+  exigir(valor.esquema === "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1"
+    && valor.respuesta === esperada.respuesta && valor.estado_plazo === "vigente"
+    && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
+    && entero(valor.version_resultante) && valor.version_resultante === esperada.version_esperada + 1
+    && ["resolucion_ref", "recibo_local_ref", "auditoria_ref"].every(
+      (campo) => referenciaLlamamientoValida(valor[campo]),
+    ));
+  instanteRespuesta(valor.resuelta_en);
   return valor;
 }
 export function validarReciboSeleccionLlamamiento(entrada) {

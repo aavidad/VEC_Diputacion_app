@@ -30,7 +30,7 @@ Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.</p>
 <p><strong>Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH.</strong> No están
+respuesta por RRHH, más la solicitud de resolución aún pendiente de validar.</strong> No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
 <code>8443</code>/base <code>55433</code>; no incrementa el contador de pasos.</p>
@@ -42,6 +42,10 @@ de aplicación y PostgreSQL: mismos recibo, justificante y fecha, sin nuevo
 registro. Sin errores JavaScript, cookies, almacenamiento web ni desbordamiento
 horizontal en ese recorrido. También se confirmó un conflicto real <code>409</code> en
 navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.</p>
+<p><strong>Corte actual:</strong> la cuarta operación solicita resolución con los antecedentes
+originales. Navegador real <code>200/200/200/409</code>: validación de respuesta/plazo
+pendiente, sin recibo de aceptación ni duplicados. No aumenta los cinco pasos
+completos ni completa el sexto.</p>
 <p>Para elegir la documentación adecuada:</p>
 <ul>
 <li>Este manual: acceso, navegación, resultados visibles y ayuda del portal.</li>
@@ -198,8 +202,8 @@ conservado, use los datos exactos de la
 </tr>
 <tr>
 <td>6. Llamamiento, parcialmente disponible</td>
-<td>Iniciar la selección, registrar su comunicación local y declarar la respuesta recibida por RRHH.</td>
-<td>Mismos recibos recuperados tras reiniciar, incluida la declaración RRHH, sin duplicar el registro. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo.</td>
+<td>Iniciar selección, registrar aviso y declaración RRHH; solicitar resolución de aceptación.</td>
+<td>Antecedentes recuperados sin duplicar; la resolución devuelve <code>409</code> pendiente. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo.</td>
 </tr>
 <tr>
 <td>7. Nombramiento</td>
@@ -289,6 +293,23 @@ referencia y su huella, <strong>sin verificar origen, firma ni custodia</strong>
 envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
 la versión <code>2</code>, el expediente observado sigue en <code>6</code> y no cambia la candidatura
 ni su estado en Bolsa. No aumenta el contador de pasos.</p>
+<h3>Solicitar resolución de aceptación: todavía pendiente</h3>
+<ol>
+<li>Recupere la declaración <strong>Aceptación declarada en el correo</strong> con los datos
+originales de la <a href="../../GUIA_RECORRIDO_ALBERTO.md">guía</a>. Aparece <strong>4. Solicitar
+resolución de aceptación</strong> en el mismo formulario. Sus referencias y el
+justificante se toman del recibo; la comunicación sigue en versión <code>2</code>.</li>
+<li>Use una clave propia para resolución, distinta de las operaciones anteriores.
+Pulse <strong>Revisar y solicitar resolución de aceptación</strong> y confirme. No se
+aporta otro <code>.eml</code>; confirmar no declara identidad, plazo vigente ni aceptación.</li>
+<li>El resultado actual es <code>409</code>: <strong>«Pendiente de validar respuesta y plazo por
+RRHH. No se ha confirmado la aceptación.»</strong>. No hay recibo terminal, cambio
+de candidatura ni duplicado. Conserve ese intento y su clave para una nueva
+solicitud manual con los mismos datos; no prepare otra clave para eludirlo.</li>
+</ol>
+<p>El recorrido real es <code>200/200/200/409</code>. Falta validación de negocio competente y
+proveedor de permiso nominal; las piezas técnicas preparadas no están activadas.
+No avance al nombramiento ni interprete una prueba técnica aislada como aceptación.</p>
 <h3>Qué ocurre después de un reinicio</h3>
 <p>En el cierre previamente publicado, la solicitud <code>v1</code> llevó al análisis <code>201</code>/<code>v2</code> y,
 tras reiniciar, se recuperó un único recibo, mediante lectura independiente
