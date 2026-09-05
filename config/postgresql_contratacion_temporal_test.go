@@ -118,6 +118,94 @@ func TestLoadCargaCincoConexionesPostgreSQLContratacionTemporal(t *testing.T) {
 	}
 }
 
+func TestConsultasRRHHExigenConexionesCompletasSeparadasYRedactadas(t *testing.T) {
+	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
+	if err != nil || c.ConsultasRRHHConfiguradas() {
+		t.Fatal("la configuración anterior cambió")
+	}
+	c.dsnBolsaLlamamientos = "bolsa"
+	for _, par := range [][2]string{{"", ""}, {"consultas", ""}, {"", "motivos"}} {
+		c.dsnConsultasRRHH, c.dsnMotivosRRHH = par[0], par[1]
+		if _, _, err := c.DSNConsultasRRHHSeparados(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+			t.Fatal("aceptó conexiones incompletas")
+		}
+		if c.ConsultasRRHHConfiguradas() != (par[0] != "" || par[1] != "") {
+			t.Fatal("configuración parcial ignorada")
+		}
+	}
+	for _, previa := range []string{"ejecutor", "gobierno", "registro", "confirmador", "lector", "bolsa", "misma"} {
+		for _, par := range [][2]string{{" " + previa + " ", "misma"}, {"misma", " " + previa + " "}} {
+			c.dsnConsultasRRHH, c.dsnMotivosRRHH = par[0], par[1]
+			if _, _, err := c.DSNConsultasRRHHSeparados(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
+				t.Fatal("aceptó conexiones compartidas")
+			}
+		}
+	}
+	const consultas = "postgres://consultas:secreto-consultas@localhost/vec"
+	const motivos = "postgres://motivos:secreto-motivos@localhost/vec"
+	t.Setenv(EnvContratacionTemporalConsultasRRHHDatabaseURL, " "+consultas+" ")
+	t.Setenv(EnvContratacionTemporalMotivosRRHHDatabaseURL, " "+motivos+" ")
+	cargada := Load().ContratacionTemporalPostgreSQL
+	c.dsnConsultasRRHH, c.dsnMotivosRRHH = cargada.dsnConsultasRRHH, cargada.dsnMotivosRRHH
+	if a, b, err := c.DSNConsultasRRHHSeparados(); err != nil || a != consultas || b != motivos || !c.ConsultasRRHHConfiguradas() {
+		t.Fatal("conexiones no cargadas")
+	}
+	serializado, err := json.Marshal(c)
+	if err != nil || strings.Contains(fmt.Sprintf("%+v %#v %s", c, c, serializado), "secreto-") {
+		t.Fatal("representación de conexiones no redactada")
+	}
+}
+
+func TestIdentidadConsultasRRHHExigeDosConexionesNominalesSeparadas(t *testing.T) {
+	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.dsnConsultasRRHH, c.dsnMotivosRRHH, c.dsnBolsaLlamamientos = "consultas", "motivos", "bolsa"
+	for _, par := range [][2]string{{"", ""}, {"identidad", ""}, {"", "revalidacion"}} {
+		c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad = par[0], par[1]
+		if _, _, err := c.DSNIdentidadConsultasSeparados(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+			t.Fatal("identidad incompleta aceptada")
+		}
+	}
+	for _, previa := range []string{"ejecutor", "gobierno", "registro", "confirmador", "lector", "bolsa", "consultas", "motivos", "misma"} {
+		for _, par := range [][2]string{{previa, "misma"}, {"misma", previa}} {
+			c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad = par[0], par[1]
+			if _, _, err := c.DSNIdentidadConsultasSeparados(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
+				t.Fatal("identidad compartida aceptada")
+			}
+		}
+	}
+	t.Setenv(EnvContratacionTemporalRegistroIdentidadDatabaseURL, " postgres://identidad:secreto-identidad@localhost/vec ")
+	t.Setenv(EnvContratacionTemporalRevalidacionIdentidadDatabaseURL, " postgres://revalidacion:secreto-revalidacion@localhost/vec ")
+	cargada := Load().ContratacionTemporalPostgreSQL
+	c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad = cargada.dsnRegistroIdentidad, cargada.dsnRevalidacionIdentidad
+	if a, b, err := c.DSNIdentidadConsultasSeparados(); err != nil || a != strings.TrimSpace(c.dsnRegistroIdentidad) || b != strings.TrimSpace(c.dsnRevalidacionIdentidad) {
+		t.Fatal("identidad no cargada")
+	}
+	serializado, _ := json.Marshal(c)
+	if strings.Contains(fmt.Sprintf("%+v %#v %s", c, c, serializado), "secreto-") {
+		t.Fatal("credencial expuesta")
+	}
+	if !cargada.ConsultasRRHHConfiguradas() {
+		t.Fatal("configuración parcial ignorada")
+	}
+	if _, err := c.DSNContextoActorConsultasSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+		t.Fatal("contexto ausente aceptado")
+	}
+	for _, previa := range []string{"ejecutor", "gobierno", "registro", "confirmador", "lector", "bolsa", "consultas", "motivos", c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad} {
+		c.dsnContextoActor = previa
+		if _, err := c.DSNContextoActorConsultasSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
+			t.Fatal("contexto compartido aceptado")
+		}
+	}
+	t.Setenv(EnvContratacionTemporalContextoActorDatabaseURL, " postgres://contexto:secreto-contexto@localhost/vec ")
+	c.dsnContextoActor = Load().ContratacionTemporalPostgreSQL.dsnContextoActor
+	if dsn, err := c.DSNContextoActorConsultasSeparado(); err != nil || dsn != strings.TrimSpace(c.dsnContextoActor) {
+		t.Fatal("contexto no cargado")
+	}
+}
+
 func TestBolsaLlamamientosSeConfiguraSeparadaSinExponerConexion(t *testing.T) {
 	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
 	if err != nil {

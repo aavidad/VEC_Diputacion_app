@@ -179,9 +179,14 @@ func Load() Config {
 			dsnRegistroAutorizacion: envFirst(
 				EnvContratacionTemporalRegistroAutorizacionDatabaseURL,
 			),
-			dsnConfirmador:       envFirst(EnvContratacionTemporalConfirmadorDatabaseURL),
-			dsnLectorResultado:   envFirst(EnvContratacionTemporalLectorResultadoDatabaseURL),
-			dsnBolsaLlamamientos: envFirst(EnvBolsaLlamamientosDatabaseURL),
+			dsnConfirmador:           envFirst(EnvContratacionTemporalConfirmadorDatabaseURL),
+			dsnLectorResultado:       envFirst(EnvContratacionTemporalLectorResultadoDatabaseURL),
+			dsnBolsaLlamamientos:     envFirst(EnvBolsaLlamamientosDatabaseURL),
+			dsnConsultasRRHH:         envFirst(EnvContratacionTemporalConsultasRRHHDatabaseURL),
+			dsnMotivosRRHH:           envFirst(EnvContratacionTemporalMotivosRRHHDatabaseURL),
+			dsnRegistroIdentidad:     envFirst(EnvContratacionTemporalRegistroIdentidadDatabaseURL),
+			dsnRevalidacionIdentidad: envFirst(EnvContratacionTemporalRevalidacionIdentidadDatabaseURL),
+			dsnContextoActor:         envFirst(EnvContratacionTemporalContextoActorDatabaseURL),
 		},
 	}.Normalize()
 }

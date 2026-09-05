@@ -9,13 +9,18 @@ import (
 )
 
 const (
-	EnvContratacionTemporalDatabaseURL                     = "VEC_CT_DATABASE_URL"
-	EnvContratacionTemporalGobiernoDatabaseURL             = "VEC_CT_GOBIERNO_DATABASE_URL"
-	EnvContratacionTemporalRegistroAutorizacionDatabaseURL = "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"
-	EnvContratacionTemporalConfirmadorDatabaseURL          = "VEC_CT_CONFIRMADOR_DATABASE_URL"
-	EnvContratacionTemporalLectorResultadoDatabaseURL      = "VEC_CT_LECTOR_RESULTADO_DATABASE_URL"
-	EnvBolsaLlamamientosDatabaseURL                        = "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL"
-	configuracionPostgreSQLContratacionTemporalRedactada   = "configuracion_postgresql_contratacion_temporal_redactada"
+	EnvContratacionTemporalDatabaseURL                      = "VEC_CT_DATABASE_URL"
+	EnvContratacionTemporalGobiernoDatabaseURL              = "VEC_CT_GOBIERNO_DATABASE_URL"
+	EnvContratacionTemporalRegistroAutorizacionDatabaseURL  = "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"
+	EnvContratacionTemporalConfirmadorDatabaseURL           = "VEC_CT_CONFIRMADOR_DATABASE_URL"
+	EnvContratacionTemporalLectorResultadoDatabaseURL       = "VEC_CT_LECTOR_RESULTADO_DATABASE_URL"
+	EnvBolsaLlamamientosDatabaseURL                         = "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL"
+	EnvContratacionTemporalConsultasRRHHDatabaseURL         = "VEC_CT_CONSULTAS_RRHH_DATABASE_URL"
+	EnvContratacionTemporalMotivosRRHHDatabaseURL           = "VEC_CT_MOTIVOS_RRHH_DATABASE_URL"
+	EnvContratacionTemporalRegistroIdentidadDatabaseURL     = "VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL"
+	EnvContratacionTemporalRevalidacionIdentidadDatabaseURL = "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL"
+	EnvContratacionTemporalContextoActorDatabaseURL         = "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL"
+	configuracionPostgreSQLContratacionTemporalRedactada    = "configuracion_postgresql_contratacion_temporal_redactada"
 )
 
 var (
@@ -32,12 +37,17 @@ var (
 // leer resultados históricos.
 // Ninguna representación genérica expone los DSN.
 type ConfiguracionPostgreSQLContratacionTemporal struct {
-	dsnEjecucion            string
-	dsnGobierno             string
-	dsnRegistroAutorizacion string
-	dsnConfirmador          string
-	dsnLectorResultado      string
-	dsnBolsaLlamamientos    string
+	dsnEjecucion             string
+	dsnGobierno              string
+	dsnRegistroAutorizacion  string
+	dsnConfirmador           string
+	dsnLectorResultado       string
+	dsnBolsaLlamamientos     string
+	dsnConsultasRRHH         string
+	dsnMotivosRRHH           string
+	dsnRegistroIdentidad     string
+	dsnRevalidacionIdentidad string
+	dsnContextoActor         string
 }
 
 func NuevaConfiguracionPostgreSQLContratacionTemporal(
@@ -125,7 +135,80 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) normalizar() ConfiguracionP
 	c.dsnConfirmador = strings.TrimSpace(c.dsnConfirmador)
 	c.dsnLectorResultado = strings.TrimSpace(c.dsnLectorResultado)
 	c.dsnBolsaLlamamientos = strings.TrimSpace(c.dsnBolsaLlamamientos)
+	c.dsnConsultasRRHH = strings.TrimSpace(c.dsnConsultasRRHH)
+	c.dsnMotivosRRHH = strings.TrimSpace(c.dsnMotivosRRHH)
+	c.dsnRegistroIdentidad = strings.TrimSpace(c.dsnRegistroIdentidad)
+	c.dsnRevalidacionIdentidad = strings.TrimSpace(c.dsnRevalidacionIdentidad)
+	c.dsnContextoActor = strings.TrimSpace(c.dsnContextoActor)
 	return c
+}
+
+// ConsultasRRHHConfiguradas no habilita permisos: indica que la raíz debe
+// componer las consultas y rechazar una configuración parcial.
+func (c ConfiguracionPostgreSQLContratacionTemporal) ConsultasRRHHConfiguradas() bool {
+	c = c.normalizar()
+	return c.dsnConsultasRRHH != "" || c.dsnMotivosRRHH != "" ||
+		c.dsnRegistroIdentidad != "" || c.dsnRevalidacionIdentidad != "" || c.dsnContextoActor != ""
+}
+
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNContextoActorConsultasSeparado() (string, error) {
+	c = c.normalizar()
+	if _, _, err := c.DSNIdentidadConsultasSeparados(); err != nil {
+		return "", err
+	}
+	if c.dsnContextoActor == "" {
+		return "", ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
+	}
+	for _, previa := range []string{c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion,
+		c.dsnConfirmador, c.dsnLectorResultado, c.dsnBolsaLlamamientos, c.dsnConsultasRRHH, c.dsnMotivosRRHH,
+		c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad} {
+		if c.dsnContextoActor == previa {
+			return "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+		}
+	}
+	return c.dsnContextoActor, nil
+}
+
+// DSNIdentidadConsultasSeparados conserva separados el registro y la
+// revalidación nominal, también respecto de las conexiones de negocio.
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNIdentidadConsultasSeparados() (registro, revalidacion string, err error) {
+	c = c.normalizar()
+	if _, _, err = c.DSNConsultasRRHHSeparados(); err != nil {
+		return "", "", err
+	}
+	if c.dsnRegistroIdentidad == "" || c.dsnRevalidacionIdentidad == "" {
+		return "", "", ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
+	}
+	if c.dsnRegistroIdentidad == c.dsnRevalidacionIdentidad {
+		return "", "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+	}
+	for _, previa := range []string{c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion,
+		c.dsnConfirmador, c.dsnLectorResultado, c.dsnBolsaLlamamientos, c.dsnConsultasRRHH, c.dsnMotivosRRHH} {
+		if c.dsnRegistroIdentidad == previa || c.dsnRevalidacionIdentidad == previa {
+			return "", "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+		}
+	}
+	return c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad, nil
+}
+
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNConsultasRRHHSeparados() (consultas, motivos string, err error) {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return "", "", err
+	}
+	if c.dsnConsultasRRHH == "" || c.dsnMotivosRRHH == "" {
+		return "", "", ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
+	}
+	if c.dsnConsultasRRHH == c.dsnMotivosRRHH {
+		return "", "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+	}
+	for _, previa := range []string{c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion,
+		c.dsnConfirmador, c.dsnLectorResultado, c.dsnBolsaLlamamientos} {
+		if c.dsnConsultasRRHH == previa || c.dsnMotivosRRHH == previa {
+			return "", "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+		}
+	}
+	return c.dsnConsultasRRHH, c.dsnMotivosRRHH, nil
 }
 
 // BolsaLlamamientosConfigurada indica si se ha solicitado componer el paso de

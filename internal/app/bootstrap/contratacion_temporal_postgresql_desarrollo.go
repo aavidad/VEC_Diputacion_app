@@ -397,6 +397,9 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolConfirmadorPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolEjecucionBolsaLlamamientosDesarrollo &&
+			rolEsperado != rolRegistroIdentidadConsultasDesarrollo &&
+			rolEsperado != rolRevalidacionIdentidadConsultasDesarrollo &&
+			rolEsperado != rolContextoActorConsultasDesarrollo &&
 			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
@@ -682,7 +685,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -708,6 +711,8 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		audienciaConsumoAltaContratacionTemporal,
 		audienciaAtestacionContratacionTemporalDesarrollo,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
+		ports.AudienciaConsumoConsultaCuadroRRHHV3,
+		ports.AudienciaConsumoConsultaDetalleRRHHV3,
 	).Scan(&propio)
 	return propio, err
 }
@@ -846,7 +851,9 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 	if ctx == nil || pool == nil || material == nil ||
 		len(material.claveHMAC) == 0 || len(material.spki) == 0 ||
 		(material.audienciaConsumo != audienciaConsumoAltaContratacionTemporal &&
-			material.audienciaConsumo != puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo) {
+			material.audienciaConsumo != puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo &&
+			material.audienciaConsumo != ports.AudienciaConsumoConsultaCuadroRRHHV3 &&
+			material.audienciaConsumo != ports.AudienciaConsumoConsultaDetalleRRHHV3) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	conexion, err := pool.Acquire(ctx)

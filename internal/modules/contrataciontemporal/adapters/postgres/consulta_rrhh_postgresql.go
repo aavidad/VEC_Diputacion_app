@@ -86,6 +86,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 		argumentosSQL,
 		destinosCuadroConsultaRRHH(&salida),
 		func() (ports.PaginaCuadroRRHH, error) {
+			salida.cierre.normalizarInstantesSQL()
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
 			if err != nil {
 				return ports.PaginaCuadroRRHH{},
@@ -151,6 +152,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		argumentosSQL,
 		destinosDetalleConsultaRRHH(&salida),
 		func() (ports.DetalleExpedienteRRHH, error) {
+			salida.cierre.normalizarInstantesSQL()
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
 			if err != nil {
 				return ports.DetalleExpedienteRRHH{},

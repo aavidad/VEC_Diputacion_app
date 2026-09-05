@@ -92,6 +92,10 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaLlamamiento            dominiovec.InstantaneaAutorizacion
 	instantaneaReanudacionLlamamiento dominiovec.InstantaneaAutorizacion
 	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
+	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
+	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
+	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
+	motivoDetalleRRHH                 dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                 dominiovec.ReferenciaEntradaCatalogo
 	motivoComunicacion                dominiovec.ReferenciaEntradaCatalogo
 	motivoPropuestaCobertura          dominiovec.ReferenciaEntradaCatalogo
@@ -347,7 +351,8 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaRegistroAnalisisRRHH ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
-		rutaLlamamientoContratacionTemporalDesarrollo(ruta)
+		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
+		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
 }
 
@@ -552,14 +557,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
 	if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
-		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) {
+		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
 			datos.Solicitud,
 		)
 		s.mu.Lock()
 		instantanea, valida = s.instantaneasPorSolicitud[clave]
 		autoridad := s.autoridadAsignaciones
-		if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) {
+		if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+			rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 			registroAnalisis = s.registroDecisionesAnalisis
 		}
 		s.mu.Unlock()
@@ -568,7 +575,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 			autoridad.PublicarInstantanea(ctx, instantanea) != nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
-		if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) &&
+		if (rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+			rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta)) &&
 			registroAnalisis == nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
@@ -607,7 +615,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
-	if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) {
+	if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
 			datos.Solicitud,
 		)
@@ -635,6 +644,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
 	switch ruta {
+	case httpinterno.RutaConsultaCuadroRRHH:
+		return s.motivoCuadroRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoCuadroRRHH)
+	case httpinterno.RutaConsultaDetalleRRHH:
+		return s.motivoDetalleRRHH, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDetalleRRHH)
 	case httpinterno.RutaAltaSolicitudes:
 		return s.motivo, true
 	case httpinterno.RutaPropuestaCobertura:
@@ -668,6 +681,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if ruta == httpinterno.RutaConsultaCuadroRRHH {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaCuadroRRHH), s.instantaneaCuadroRRHH.Validar() == nil
+	}
+	if ruta == httpinterno.RutaConsultaDetalleRRHH {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaDetalleRRHH), s.instantaneaDetalleRRHH.Validar() == nil
+	}
 	if ruta == httpinterno.RutaAltaSolicitudes {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), true
 	}
@@ -699,6 +718,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	instantanea, valida := s.instantaneaParaRuta(ruta)
 	dinamica := ruta == httpinterno.RutaAltaSolicitudes ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(ruta) ||
+		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
 	if !valida || !dinamica {
@@ -716,7 +736,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	if rutaAnalisisContratacionTemporalDesarrollo(ruta) {
+	if rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) {
+		if !s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		// El ámbito de organización es fijo; nunca se amplía desde la petición.
+	} else if rutaAnalisisContratacionTemporalDesarrollo(ruta) {
 		if !solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}

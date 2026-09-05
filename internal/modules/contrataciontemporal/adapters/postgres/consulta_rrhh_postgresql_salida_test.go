@@ -10,11 +10,31 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestCierreConsultaRRHHNormalizaUTCsinCambiarInstante(t *testing.T) {
+	t.Parallel()
+	for _, instante := range []time.Time{
+		time.Date(2026, 9, 5, 12, 0, 0, 123456000, time.FixedZone("desarrollo", 7200)),
+		time.Unix(1788602400, 123456000),
+		time.Time{},
+		time.Unix(1788602400, 1),
+	} {
+		salida := salidaCierreConsultaRRHH{registradaEn: instante, generadaEn: instante}
+		salida.normalizarInstantesSQL()
+		for _, actual := range []time.Time{salida.registradaEn, salida.generadaEn} {
+			if actual.Location() != time.UTC || !actual.Equal(instante) ||
+				actual.Nanosecond() != instante.Nanosecond() || actual.IsZero() != instante.IsZero() {
+				t.Fatal("la normalización debe conservar instante, precisión y valor cero")
+			}
+		}
+	}
+}
 
 func TestAnalizadorCuadroRRHHPostgreSQLValidaMaterialRealDelCursor(
 	t *testing.T,

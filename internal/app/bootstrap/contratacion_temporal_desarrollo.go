@@ -32,19 +32,23 @@ type selloConsultasContratacionTemporalDesarrollo struct{}
 type claveCapacidadConsultasContratacionTemporalDesarrollo struct{}
 
 type capacidadConsultaContratacionTemporalDesarrollo struct {
-	sello     *selloConsultasContratacionTemporalDesarrollo
-	ruta      string
-	principal vecdomain.Principal
+	sello                   *selloConsultasContratacionTemporalDesarrollo
+	ruta                    string
+	principal               vecdomain.Principal
+	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
+	certificadoVerificadoEn time.Time
+	certificadoValidoHasta  time.Time
 }
 
 // autoridadConsultasContratacionTemporalDesarrollo solo reconoce capacidades
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
-	sello                *selloConsultasContratacionTemporalDesarrollo
-	resolvedor           *resolvedorIdentidadDesarrollo
-	noCompuesta          *capacidadNoCompuestaContratacionTemporalDesarrollo
-	llamamientoCompuesto bool
+	sello                   *selloConsultasContratacionTemporalDesarrollo
+	resolvedor              *resolvedorIdentidadDesarrollo
+	noCompuesta             *capacidadNoCompuestaContratacionTemporalDesarrollo
+	llamamientoCompuesto    bool
+	consultasRRHHCompuestas bool
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -255,23 +259,34 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
+	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
+	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
+	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, derivador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		cuadroReal, detalleReal = consultasRRHH.cuadro, consultasRRHH.detalle
+	}
+	defer func() {
+		if cerrarAlta {
+			consultasRRHH.cerrar()
+		}
+	}()
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
-			AutoridadAlta:      alta.soporte,
-			EjecutorAlta:       alta.servicio,
-			Reloj:              reloj,
-			AutoridadCobertura: alta.soporte,
-			Presentador:        coberturaReal.presentador,
-			Decisor:            coberturaReal.decisor,
-			ConsultorResultado: coberturaReal.consultor,
-			AutoridadAnalisis:  alta.soporte,
-			EjecutorAnalisis:   servicioAnalisis,
-			ConsultorCuadroRRHH: &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{
-				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
-			},
-			ConsultorDetalleRRHH: &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{
-				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
-			},
+			AutoridadAlta:                   alta.soporte,
+			EjecutorAlta:                    alta.servicio,
+			Reloj:                           reloj,
+			AutoridadCobertura:              alta.soporte,
+			Presentador:                     coberturaReal.presentador,
+			Decisor:                         coberturaReal.decisor,
+			ConsultorResultado:              coberturaReal.consultor,
+			AutoridadAnalisis:               alta.soporte,
+			EjecutorAnalisis:                servicioAnalisis,
+			ConsultorCuadroRRHH:             cuadroReal,
+			ConsultorDetalleRRHH:            detalleReal,
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: noCompuesta,
 			EjecutorPropuestaFormalizacion:  noCompuesta,
@@ -295,14 +310,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroComunicacionLlamamiento, Manejador: comunicacionReal})
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:                sello,
-		resolvedor:           resolvedorDesarrollo,
-		noCompuesta:          noCompuesta,
-		llamamientoCompuesto: comunicacionReal != nil,
+		sello:                   sello,
+		resolvedor:              resolvedorDesarrollo,
+		noCompuesta:             noCompuesta,
+		llamamientoCompuesto:    comunicacionReal != nil,
+		consultasRRHHCompuestas: consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
 	}
 	var cierre sync.Once
 	cerrar := func() {
 		cierre.Do(func() {
+			consultasRRHH.cerrar()
 			coberturaReal.cerrar()
 			alta.cerrar()
 		})
@@ -339,7 +356,8 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) &&
-		!(a.llamamientoCompuesto && ruta == httpinterno.RutaSeleccionLlamamiento) {
+		!((a.llamamientoCompuesto && ruta == httpinterno.RutaSeleccionLlamamiento) ||
+			(a.consultasRRHHCompuestas && rutaConsultaRRHHContratacionTemporalDesarrollo(ruta))) {
 		return a.noCompuesta.denegarRuta(ctx, ruta)
 	}
 	return nil
@@ -375,6 +393,19 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			sello:     m.autoridad.sello,
 			ruta:      r.URL.Path,
 			principal: clonarPrincipalDesarrollo(principal),
+		}
+		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
+			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
+			// aquí su ventana también cubre conexiones abiertas antes de caducar.
+			certificado := r.TLS.VerifiedChains[0][0]
+			observado := time.Now().UTC().Truncate(time.Microsecond)
+			if observado.Before(certificado.NotBefore) || !observado.Before(certificado.NotAfter) {
+				m.siguiente.ServeHTTP(w, r)
+				return
+			}
+			capacidad.certificadoVerificadoEn = observado
+			capacidad.certificadoValidoHasta = certificado.NotAfter.UTC()
+			capacidad.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
 		}
 		r = r.WithContext(context.WithValue(
 			r.Context(),

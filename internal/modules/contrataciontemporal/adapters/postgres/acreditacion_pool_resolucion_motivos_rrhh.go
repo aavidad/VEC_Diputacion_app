@@ -348,6 +348,13 @@ SELECT
     SELECT 1 FROM pg_catalog.pg_type t
     JOIN esquemas_aplicativos e ON e.oid=t.typnamespace
     CROSS JOIN LATERAL pg_catalog.aclexplode(CASE
+      -- El tipo fila implícito no concede lectura sobre su relación.
+      -- Sus ACL explícitas, como las de tipos independientes, sí se revisan.
+      WHEN t.typtype='c' AND EXISTS (
+        SELECT 1 FROM pg_catalog.pg_class relacion
+        WHERE relacion.oid=t.typrelid
+          AND relacion.relkind IN ('r','p','v','m','f')
+      ) THEN NULLIF(t.typacl,'{}'::aclitem[])
       WHEN EXISTS (
         SELECT 1 FROM pg_catalog.pg_type elemento
         WHERE elemento.oid=t.typelem AND elemento.typarray=t.oid
@@ -441,6 +448,13 @@ SELECT
           )
         )
           AND pg_catalog.has_type_privilege(l.oid,t.oid,'USAGE')
+          AND NOT (
+            t.typtype='c' AND t.typacl IS NULL AND EXISTS (
+              SELECT 1 FROM pg_catalog.pg_class relacion
+              WHERE relacion.oid=t.typrelid
+                AND relacion.relkind IN ('r','p','v','m','f')
+            )
+          )
       )
     FROM login l CROSS JOIN base_actual b CROSS JOIN esquema e
   ),false),

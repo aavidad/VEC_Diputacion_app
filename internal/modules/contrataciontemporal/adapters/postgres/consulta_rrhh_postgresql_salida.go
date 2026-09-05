@@ -40,6 +40,14 @@ type salidaCuadroConsultaRRHH struct {
 	cierre            salidaCierreConsultaRRHH
 }
 
+// timestamptz conserva un instante absoluto, pero pgx puede entregarlo con
+// time.Local. Cambiar su representación a UTC no altera el instante ni su
+// precisión; las validaciones del recibo siguen rechazando valores inválidos.
+func (s *salidaCierreConsultaRRHH) normalizarInstantesSQL() {
+	s.registradaEn = s.registradaEn.UTC()
+	s.generadaEn = s.generadaEn.UTC()
+}
+
 type salidaDetalleConsultaRRHH struct {
 	contenidoCanonico []byte
 	cierre            salidaCierreConsultaRRHH
