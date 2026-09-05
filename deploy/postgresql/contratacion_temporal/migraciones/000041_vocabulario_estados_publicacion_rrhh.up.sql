@@ -539,8 +539,12 @@ BEGIN
                    'publicacion_version_rrhh'::regclass
                ),
            'UTF8'
-       )), 'hex') <>
-       'b0d098190a2d5cbdd01885342232e231315e1be100344ab2b9150a1bd98e1276'
+       )), 'hex') NOT IN (
+           'b0d098190a2d5cbdd01885342232e231315e1be100344ab2b9150a1bd98e1276',
+           -- CT-000037 admite incidencia en el relleno posterior a CT-000052.
+           -- Solo cambia ese CHECK; se conserva todo el material estructural.
+           '9bb7bd8b747c810aaaf08098f90953bd55808ae4398bc8da2258f8c030ed3d40'
+       )
        OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
            vec_contratacion_temporal
                .material_estructura_relacion_ct000041a(
@@ -559,7 +563,7 @@ BEGIN
         SELECT 1
           FROM vec_contratacion_temporal.publicacion_version_rrhh
          WHERE estado_clave NOT IN (
-             'en_curso', 'completado', 'cancelado'
+             'en_curso', 'completado', 'cancelado', 'incidencia'
          )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',

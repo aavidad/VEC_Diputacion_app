@@ -129,7 +129,11 @@ CREATE TABLE vec_contratacion_temporal.publicacion_version_rrhh (
         AND agregado_huella_sha256 <> pg_catalog.repeat('0', 64)
     ),
     CHECK (fase_clave ~ '^[a-z][a-z0-9._-]{1,79}$'),
-    CHECK (estado_clave IN ('en_curso', 'completado', 'cancelado')),
+    -- El relleno puede ejecutarse después de fiscalización (CT-000052).
+    -- Conserva su estado incidencia; CT-000041 amplía después el vocabulario.
+    CHECK (estado_clave IN (
+        'en_curso', 'completado', 'cancelado', 'incidencia'
+    )),
     CHECK (
         modalidad_clave IS NULL
         OR modalidad_clave ~ '^[a-z][a-z0-9._-]{1,79}$'
