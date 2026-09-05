@@ -3,7 +3,7 @@
 Diputación de Granada · Ventanilla Electrónica del Empleado Público
 
 **Edición: 5 de septiembre de 2026.** Alcance de referencia: versión
-`f5931f9`. Este manual explica qué puede recorrer una persona desde el
+`b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. Este manual explica qué puede recorrer una persona desde el
 portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.
@@ -11,8 +11,8 @@ autorizado para tramitar expedientes de personas reales.
 **Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento y aviso local.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
-La bandeja de expedientes que se está preparando no se considera disponible
-en esta edición.
+La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
+`8443`/base `55433`; no incrementa el contador de pasos.
 
 Para elegir la documentación adecuada:
 
@@ -43,7 +43,7 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.
 | Zona | Qué puede esperar en esta edición |
 |---|---|
 | Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
-| Cuadro y detalle de expedientes de Contratación temporal | Pendientes de completar su conexión en la versión de referencia. No se ofrecen como bandeja operativa para recuperar expedientes. |
+| Cuadro y detalle de expedientes de Contratación temporal | Bandeja real de desarrollo: 50 expedientes y detalle consultable en `8443`/`55433`, con datos sintéticos. |
 | Gestión interna de Bolsas | Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5. |
 | Consulta pública de convocatorias | Listado, filtros, detalle y documentos cuando el servicio público esté habilitado. Compruebe el aviso de la fuente; no permite tramitar una candidatura personal. |
 | Otros módulos del portal | Solo están disponibles si el servidor los habilita para su perfil. No se consideran terminados por aparecer en la portada. |
@@ -166,9 +166,9 @@ Fiscalización admite **Favorable**, **Favorable con observaciones** y
 desfavorable devuelve el expediente a la unidad con estado de incidencia;
 no habilita el llamamiento favorable ni constituye un error de guardado.
 
-No registre otra solicitud solo para volver a abrir la anterior. En esta
-edición, use las referencias conservadas y las entradas indicadas en la guía:
-no se da por terminada la recuperación desde la bandeja general.
+No registre otra solicitud solo para volver a abrir la anterior. La bandeja
+permite localizar el expediente y abrir su detalle; use las referencias
+conservadas y las entradas indicadas en la guía.
 
 ### Iniciar o recuperar el llamamiento y su aviso local
 
@@ -198,7 +198,10 @@ clave nueva**: mantenga la clave y todos los datos originales.
 
 ### Qué ocurre después de un reinicio
 
-Los resultados confirmados de este recorrido se conservan en el servidor.
+Los resultados confirmados de este recorrido se conservan en el servidor. En
+la comprobación de cierre, la solicitud `v1` llevó al análisis `201`/`v2` y,
+tras reiniciar, se recuperó un único recibo, mediante lectura independiente
+de PostgreSQL y navegador.
 Con la misma instalación, datos y material de seguridad, una recuperación
 autorizada del llamamiento o del aviso devuelve el mismo recibo y la fecha
 original, sin crear otro efecto.

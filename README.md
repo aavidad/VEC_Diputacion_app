@@ -6,11 +6,11 @@ Provincial de Granada. Publicado bajo la
 
 **Estado funcional de referencia: 5 de septiembre de 2026 · `f5931f9`.**
 
-Código posterior publicado: `80ea801`. El desarrollo y las bases sintéticas
+Código posterior publicado: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
-[guía de arranque vigente](GUIA_RECORRIDO_ALBERTO.md) distingue la bandeja
-aislada ya recorrible del entorno de los cinco pasos, cuya instalación de
-consultas sigue pendiente. El servidor remoto queda detenido y conservado.
+[guía de arranque vigente](GUIA_RECORRIDO_ALBERTO.md) permite abrir expedientes
+en la bandeja principal y registrar el análisis de una solicitud existente,
+con recibo conservado tras reiniciar. El servidor remoto queda detenido y conservado.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -61,9 +61,9 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 
 La métrica es **cinco pasos completos más un tramo del sexto**, no un
 porcentaje global ni un recuento de pantallas, contratos o pruebas.
-La bandeja general y el detalle de expedientes aún no se consideran
-completamente conectados en la base funcional indicada. Los cambios en
-preparación no se incluyen como capacidad entregada.
+La bandeja y el detalle ya están conectados en `b2effba`: se demostraron 50
+solicitudes conservadas y un análisis desde una de sus filas, sin otra alta.
+Esto mejora la continuidad del trabajo; no cierra por sí solo otro paso del flujo.
 
 ## Probar el recorrido disponible
 

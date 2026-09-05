@@ -5,17 +5,19 @@
 Este bloque sustituye las ubicaciones y órdenes históricas inferiores.
 Lea las instrucciones de desatasco del operador y el plan vigente en
 `ESTADO_PROYECTO.md`; solo Contratación temporal y dependencias imprescindibles.
-El código publicado llega a `80ea801`. La línea de trabajo sigue siendo
+El código publicado llega a `b2effba`. La línea de trabajo sigue siendo
 `trabajo/ct-app-llamamiento-b4a-20260905`, ahora en el equipo local del operador,
 worktree `.worktrees/ct-app-llamamiento-b4a-20260905`.
-Las dos bases sintéticas están aquí; lista y detalle comprobados tras reinicio.
-La guía de Alberto distingue consultas (8444/55432) y recorrido (8443/55433):
-la segunda base aún necesita la instalación de consultas.
+Las dos bases sintéticas están aquí, con consultas instaladas. Principal:
+recorrido (8443/55433), 50 solicitudes y análisis desde una solicitud existente
+v1, recibo v2 único conservado tras reiniciar aplicación y PostgreSQL.
+Secundaria: consultas (8444/55432), 21 expedientes; no mezclar ambas bases.
 Las instancias remotas de desarrollo están detenidas y conservadas. No crear
 otra línea ni reactivar allí programación; el WIP ajeno D1 sigue intacto.
 Rutas privadas y comandos exactos quedan en la bitácora local, fuera de Git.
-Siguiente corte: terminar la bandeja en el entorno del recorrido y enlazar
-la actuación pendiente usando los formularios existentes. No reabrir O3a.
+Siguiente corte: justificante de respuesta al llamamiento, según el plan vigente;
+la resolución sigue cerrada hasta disponer de su evidencia y autorización.
+No reconstruir bandeja ni análisis ya cerrados. No reabrir O3a.
 
 ## Prioridad vigente
 

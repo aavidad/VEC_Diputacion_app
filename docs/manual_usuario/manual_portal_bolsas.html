@@ -24,15 +24,15 @@ li { margin: 4px 0; }
 <h1>Manual de usuario · Portal VEC y Bolsas de trabajo</h1>
 <p>Diputación de Granada · Ventanilla Electrónica del Empleado Público</p>
 <p><strong>Edición: 5 de septiembre de 2026.</strong> Alcance de referencia: versión
-<code>f5931f9</code>. Este manual explica qué puede recorrer una persona desde el
+<code>b2effbaf09fd4ad8477bf42c56e4615ff52d0c62</code>. Este manual explica qué puede recorrer una persona desde el
 portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.</p>
 <p><strong>Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento y aviso local.</strong> No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
-La bandeja de expedientes que se está preparando no se considera disponible
-en esta edición.</p>
+La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
+<code>8443</code>/base <code>55433</code>; no incrementa el contador de pasos.</p>
 <p>Para elegir la documentación adecuada:</p>
 <ul>
 <li>Este manual: acceso, navegación, resultados visibles y ayuda del portal.</li>
@@ -69,7 +69,7 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.</p
 </tr>
 <tr>
 <td>Cuadro y detalle de expedientes de Contratación temporal</td>
-<td>Pendientes de completar su conexión en la versión de referencia. No se ofrecen como bandeja operativa para recuperar expedientes.</td>
+<td>Bandeja real de desarrollo: 50 expedientes y detalle consultable en <code>8443</code>/<code>55433</code>, con datos sintéticos.</td>
 </tr>
 <tr>
 <td>Gestión interna de Bolsas</td>
@@ -227,9 +227,9 @@ versión remitida <code>5</code>; pulse <strong>Abrir fiscalización</strong>.</
 <strong>Desfavorable</strong>. Los dos últimos requieren observaciones. Un resultado
 desfavorable devuelve el expediente a la unidad con estado de incidencia;
 no habilita el llamamiento favorable ni constituye un error de guardado.</p>
-<p>No registre otra solicitud solo para volver a abrir la anterior. En esta
-edición, use las referencias conservadas y las entradas indicadas en la guía:
-no se da por terminada la recuperación desde la bandeja general.</p>
+<p>No registre otra solicitud solo para volver a abrir la anterior. La bandeja
+permite localizar el expediente y abrir su detalle; use las referencias
+conservadas y las entradas indicadas en la guía.</p>
 <h3>Iniciar o recuperar el llamamiento y su aviso local</h3>
 <ol>
 <li>Con el perfil de RRHH, abra <strong>Contratación temporal → Nueva petición →
@@ -255,7 +255,10 @@ haya comenzado un plazo legal de respuesta.</p>
 clave antes de enviar. Para recuperar una anterior, no pulse <strong>Preparar
 clave nueva</strong>: mantenga la clave y todos los datos originales.</p>
 <h3>Qué ocurre después de un reinicio</h3>
-<p>Los resultados confirmados de este recorrido se conservan en el servidor.
+<p>Los resultados confirmados de este recorrido se conservan en el servidor. En
+la comprobación de cierre, la solicitud <code>v1</code> llevó al análisis <code>201</code>/<code>v2</code> y,
+tras reiniciar, se recuperó un único recibo, mediante lectura independiente
+de PostgreSQL y navegador.
 Con la misma instalación, datos y material de seguridad, una recuperación
 autorizada del llamamiento o del aviso devuelve el mismo recibo y la fecha
 original, sin crear otro efecto.</p>

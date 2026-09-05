@@ -1,21 +1,33 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Código publicado: `80ea801`. El desarrollo utiliza la misma rama
+Código publicado: `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
+Dirección confirmó producto local, GitHub y producto remoto en ese mismo
+commit, limpios y sincronizados (`0/0`). Incluye el corrector SQL `13f7a92`
+y la interfaz, integrados por avance directo. El desarrollo utiliza la misma rama
 `trabajo/ct-app-llamamiento-b4a-20260905`, en el worktree local
 `.worktrees/ct-app-llamamiento-b4a-20260905`. Las instancias de desarrollo
 remotas están detenidas y conservadas; no se programa en dos líneas paralelas.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
-de arrancar. Después de reiniciar aplicación y PostgreSQL locales, la bandeja
-muestra los mismos 21 expedientes y abre el mismo detalle, versión 1.
-La otra base conserva sus 50 altas confirmadas y 24 asientos de tramitación.
+de arrancar. En la comprobación del traslado, después de reiniciar aplicación
+y PostgreSQL locales, la base secundaria mostró los mismos 21 expedientes y
+abrió el mismo detalle, versión 1. La base principal conservó sus 50 altas
+confirmadas y 24 asientos de tramitación.
 Son conjuntos diferentes: no mezclarlos ni usar uno para rellenar el otro.
 
-| Modalidad del lanzador | Portal local | Base y alcance |
+| Modalidad del lanzador | Portal local | Base y alcance actual |
 | --- | --- | --- |
-| `consultas` | `https://localhost:8444/portal-empleado/` | PostgreSQL 55432: bandeja y detalle reales en el entorno aislado. No ejecutar pruebas SQL simultáneas. |
-| `recorrido` | `https://localhost:8443/portal-empleado/` | PostgreSQL 55433: conserva el recorrido de los cinco pasos y parte del sexto. Aún no tiene instalada la bandeja. |
+| `recorrido` — principal | `https://localhost:8443/portal-empleado/` | PostgreSQL 55433: cinco pasos y parte del sexto; bandeja, detalle y análisis de una solicitud existente comprobados y publicados. |
+| `consultas` — secundaria | `https://localhost:8444/portal-empleado/` | PostgreSQL 55432: bandeja y detalle reales en el entorno aislado. No ejecutar pruebas simultáneas contra esta base mientras la usa la aplicación. |
+
+Ambas bases tienen instalada la dependencia de consultas. Dirección confirmó
+en 55433 la publicación del catálogo sintético original y sus dos vínculos:
+tres resultados positivos en una transacción, secuencia de catálogo `8`.
+No copiar filas entre bases ni repetir esa instalación para arrancar.
+Cada modalidad requiere **once conexiones PostgreSQL separadas**, todas a su
+propia base. Sus variables y funciones están en el
+[manual de sistemas, apartado 2](docs/manual_sistemas/README.md#2-configuración-local-once-conexiones-por-instancia).
 
 El operador conserva fuera de Git el lanzador `arrancar-local.sh`, las bases
 y los certificados. La bitácora local identifica su ruta exacta. Defina
@@ -24,9 +36,9 @@ y los certificados. La bitácora local identifica su ruta exacta. Defina
 ```bash
 : "${VEC_ESTADO_LOCAL:?Indique el directorio privado conservado en la bitácora local}"
 test -f "$VEC_ESTADO_LOCAL/arrancar-local.sh"
-bash "$VEC_ESTADO_LOCAL/arrancar-local.sh" consultas
-# Para el recorrido anterior, en otra terminal:
 bash "$VEC_ESTADO_LOCAL/arrancar-local.sh" recorrido
+# Solo si se necesita la instancia secundaria, en otra terminal:
+bash "$VEC_ESTADO_LOCAL/arrancar-local.sh" consultas
 ```
 
 No arranque otra copia si el puerto ya está ocupado. Ctrl-C detiene esa
@@ -34,8 +46,46 @@ aplicación, no borra la base. El lanzador reutiliza y comprueba el material
 existente; las instrucciones de importación del certificado se muestran al
 arrancar. Es desarrollo sintético, no producción ni identidad corporativa.
 
-Siguiente cierre: instalar las consultas ya publicadas en la base del recorrido
-y continuar la actuación pendiente desde el expediente, sin reescribir formularios.
+### Abrir una solicitud existente y registrar su análisis
+
+Recorrido confirmado por dirección el 5 de septiembre en **8443**, incluido
+en el código publicado: bandeja de **50 expedientes** → solicitud existente versión `1` →
+formulario real de análisis → respuesta `201` → recibo versión `2`.
+Se conservaron las 50 altas: esta actuación no registra una solicitud nueva.
+
+1. Abra el portal principal con el certificado de RRHH y entre en
+   **Contratación temporal**. Use la bandeja, no **Nueva petición**.
+2. Localice una fila en fase **Solicitud**, en curso, versión `1`, y ábrala
+   con los controles de esa fila. La aplicación lleva su referencia al
+   detalle: no hace falta copiar identificadores ni llamar a la API a mano.
+3. Compruebe el expediente y su versión. Debe aparecer el formulario real
+   **Análisis por Recursos Humanos** para esa solicitud, sin reconstruir el alta.
+4. Complete sus campos con los catálogos y datos sintéticos válidos del
+   formulario. Pulse **Registrar análisis** una sola vez.
+5. Compruebe que el recibo conserva el expediente y devuelve versión `2`.
+   En la red, lista y detalle usan `/cuadro/consultas` y
+   `/expedientes/consultas`; el análisis usa `/analisis/registros`, con
+   respuesta `201`. Todas pertenecen a `/api/vec/contratacion-temporal`.
+
+En la comprobación se usó la solicitud identificada por el tramo
+`b50fa719…` de su referencia; el recibo fue
+`rec_ct_an_c4c3b1fc86cc0d5531e655b26bd68096`, versión `2`.
+La referencia abreviada solo identifica la evidencia: no se pega en formularios.
+Esa solicitud ya está analizada; no repetirla como si continuara en versión `1`.
+Abrir otra solicitud para analizarla constituye otra actuación, no una consulta.
+
+Si el formulario no aparece, hay una actualización pendiente o se muestra un
+error, no fuerce la versión ni cree otra alta para eludirlo. Una pantalla
+cargada no sustituye al recibo real. Se mantiene el límite de **cinco pasos
+completos y parte del sexto**, con aviso local, no correo corporativo.
+
+**Reinicio confirmado por dirección:** la base principal sigue mostrando
+50 expedientes y el detalle conserva la versión `2`. Una lectura independiente
+confirmó un único recibo, asiento y terminal del análisis en esa versión.
+La comprobación conserva el efecto único, sin otra alta.
+La entrega de aplicación ya está integrada y publicada en `b2effbaf`;
+no queda código de este corte pendiente de integrar. Publicar el código no
+reactiva las instancias remotas ni autoriza producción.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

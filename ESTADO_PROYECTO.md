@@ -13,13 +13,13 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   (selección, apertura de llamamiento y aviso local), con datos sintéticos.
 - Manuales de usuario, RRHH, programación y Sistemas publicados en
   `287751ad4042167a5920ba79f26815241718af29`.
-- Código de bandeja y detalle publicado en `80ea801`; desarrollo trasladado
-  al equipo local, en la misma rama, con ambas bases y material conservados.
-  Instancias remotas detenidas. La bandeja sigue en cierre porque su SQL
-  solo está instalado en la base aislada 55432, no en la del recorrido 55433.
-  Navegador → lista de 21 expedientes sintéticos → abrir uno desde su fila →
-  detalle, conservado tras reiniciar aplicación y PostgreSQL locales.
-  Corrección visual publicada; falta activar el conjunto en el entorno de recorrido.
+- Bandeja, detalle y acceso al análisis publicados en `b2effba`, con corrección
+  de instalación `13f7a92`. Desarrollo local, misma rama, ambas bases y material
+  conservados; instancias remotas detenidas. Consultas instaladas en ambas bases.
+  Recorrido principal 8443/55433: lista de 50 solicitudes → abrir una existente
+  v1 → formulario de análisis → HTTP 201 y recibo v2. Tras reiniciar aplicación
+  y PostgreSQL conserva 50 solicitudes y un único recibo/asiento de análisis.
+  La base secundaria 8444/55432 conserva sus 21 expedientes; no se mezclan datos.
 - No se acredita correo entregado, aceptación, nombramiento, incorporación
   ni producción por tener pantallas o contratos escritos.
 
@@ -54,8 +54,8 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 
 | Orden | Entrega observable | Comprobación de cierre | Estado |
 | --- | --- | --- | --- |
-| 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | En cierre |
-| 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Después de 1 |
+| 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | Cerrado: `b2effba` |
+| 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Cerrado para análisis de solicitud v1: `b2effba`; no afirma recuperación de todas las actuaciones |
 | 3 | Registrar el justificante de una respuesta al llamamiento | Referencia o documento sintético real conservado, vinculado al llamamiento; no se inventa entrega de correo ni se acepta aún a la persona. | Pendiente |
 | 4 | Registrar una aceptación válida | Permiso específico, comprobación del justificante y estado, resolución y mismo recibo recuperable; habilita la propuesta de nombramiento. | Después de 3 |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |

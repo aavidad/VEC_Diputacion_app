@@ -2,20 +2,34 @@
 
 Entorno de desarrollo de Contratación temporal · Corte: 5 de septiembre de 2026.
 
-**Actualización operativa:** código `80ea801` y desarrollo trasladado al equipo
-local del operador. Consulte primero el bloque inicial de la
+**Actualización operativa:** código publicado
+`b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con desarrollo en el equipo local.
+Dirección confirmó producto local, GitHub y producto remoto en ese mismo
+commit, limpios y sincronizados (`0/0`). El corrector SQL `13f7a92` y la
+interfaz ya están integrados por avance directo.
+Consulte primero el bloque inicial de la
 [guía vigente](../../GUIA_RECORRIDO_ALBERTO.md): ambas bases y el material están
-conservados aquí; las instancias remotas quedan detenidas. Las cinco conexiones
-de consultas ya están publicadas y activas solo en 55432, todavía no en 55433.
-Las referencias inferiores al arranque anterior de seis conexiones describen
-la modalidad `recorrido`, no sustituyen las instrucciones locales actuales.
+conservados aquí; las instancias remotas quedan detenidas. La instalación de
+consultas está completada en ambas bases. Cada aplicación usa once conexiones
+a su propia base, con identidades nominales distintas.
+
+| Uso | Modalidad del lanzador local | HTTPS | PostgreSQL |
+| --- | --- | --- | --- |
+| Principal: recorrido de RRHH | `recorrido` | `8443` | `55433` |
+| Secundario: consultas aisladas | `consultas` | `8444` | `55432` |
+
+En 8443, con el recorrido ahora publicado, dirección confirmó bandeja de 50 expedientes,
+detalle de una solicitud versión 1 y análisis real con recibo versión 2,
+sin crear otra alta. **Tras reinicio, la lista conserva 50 expedientes y el
+detalle la versión 2**. Una lectura independiente confirmó un único recibo,
+asiento y terminal de ese análisis. No es solo la comprobación del traslado;
+la entrega está integrada y publicada, sin código pendiente de integrar.
 
 ## Alcance y referencias
 
 Este manual sirve para operar **un entorno sintético ya preparado**, no para
 instalar otro, conceder permisos, migrar bases o habilitar producción. Toma como
-base la [guía del recorrido](../../GUIA_RECORRIDO_ALBERTO.md) publicada en
-`f5931f91fca0cd24afdb66a7f2eb16f6dbfc4a4b` y los scripts
+base la [guía del recorrido vigente](../../GUIA_RECORRIDO_ALBERTO.md) y los scripts
 [arrancar VEC](../../scripts/arrancar_vec_desarrollo.sh) y
 [generar o verificar credenciales](../../scripts/generar_credenciales_desarrollo.sh).
 
@@ -24,8 +38,10 @@ es **planificación pendiente de aprobación, no la instalación vigente**.
 No hay que desplegar su inventario para realizar estas operaciones.
 
 Alcance funcional acreditado: **cinco pasos completos y parte del sexto**,
-con selección y aviso local recuperables tras reiniciar. La bandeja real
-sigue pendiente de cierre. Consulte el
+con selección y aviso local recuperables tras reiniciar. Lista, detalle y
+análisis desde una solicitud existente están comprobados y publicados;
+su persistencia tras reinicio también está contrastada.
+Consulte el
 [manual de RRHH](../manual_rrhh/README.md) para interpretar cada recibo.
 Ninguna respuesta de salud, publicación en GitHub o credencial de desarrollo
 equivale a autorización productiva, firma oficial o aceptación de RRHH.
@@ -39,7 +55,7 @@ equivale a autorización productiva, firma oficial o aceptación de RRHH.
 | PostgreSQL | Base verificada: **PostgreSQL 18.4**, instancia existente e imagen fijada por digest según la guía. No usar una etiqueta flotante ni recrear contenedores. |
 | Herramientas | Bash, OpenSSL, curl, Python 3 y utilidades GNU usadas por los scripts; Git para identificar la entrega. Docker para la instancia descrita en la guía. |
 | Material y red | Material persistente fuera de Git, CA de PostgreSQL correcta, certificado de cliente vigente y puerto libre en bucle local. |
-| Separación | Navegador: `55433`; pruebas aisladas: `55432`. No ejecutar pruebas contra la base del navegador ni redirigirla para resolver un fallo. |
+| Separación | Principal `8443/55433`; secundaria `8444/55432`. No ejecutar pruebas contra la base del navegador; en 55432 tampoco mientras la usa la aplicación secundaria. No redirigir conexiones para eludir fallos. |
 
 Los valores `/RUTA/…`, `<LOGIN>` y demás marcadores deben sustituirse por
 los del entorno autorizado. **No son rutas reales ni instrucciones para crear
@@ -69,7 +85,7 @@ PostgreSQL estar publicado solo en `127.0.0.1`. Si algo difiere, documente el
 dato y deténgase antes de arrancar. No limpie trabajo ajeno ni cambie de rama
 para hacer coincidir el resultado.
 
-## 2. Configuración del recorrido publicado: seis conexiones
+## 2. Configuración local: once conexiones por instancia
 
 Cada variable contiene una cadena de conexión PostgreSQL, también llamada
 DSN. Deben llegar por el mecanismo privado aprobado para el entorno, nunca
@@ -83,6 +99,11 @@ por un archivo versionado, captura, incidencia o salida de `env`.
 | `VEC_CT_LECTOR_RESULTADO_DATABASE_URL` | Consultar resultados de cobertura con su lector autorizado. |
 | `VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL` | Registrar decisiones de autorización. |
 | `VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL` | Operar el llamamiento mediante la identidad propia de Bolsa. |
+| `VEC_CT_CONSULTAS_RRHH_DATABASE_URL` | Consultar lista y detalle con registro de acceso. |
+| `VEC_CT_MOTIVOS_RRHH_DATABASE_URL` | Resolver los motivos publicados de consulta; no los inventa la aplicación. |
+| `VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL` | Registrar la sesión nominal breve ligada al certificado de la petición. |
+| `VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL` | Revalidar esa sesión mediante una identidad separada. |
+| `VEC_CT_CONTEXTO_ACTOR_DATABASE_URL` | Resolver el contexto de actor vigente mediante el servicio existente. |
 
 Forma orientativa, **no ejecutable ni portadora de una contraseña**:
 
@@ -90,7 +111,9 @@ Forma orientativa, **no ejecutable ni portadora de una contraseña**:
 postgresql://<LOGIN_NOMINAL>@localhost:55433/<BASE_EXISTENTE>?sslmode=verify-full&sslrootcert=<RUTA_CA_POSTGRESQL>
 ```
 
-Los seis usuarios deben conservar sus roles nominales distintos. No basta
+El ejemplo corresponde al principal; la secundaria usa `55432`. Las once
+conexiones de un proceso deben señalar su misma base, nunca mezclar ambas.
+Los once usuarios deben conservar sus roles nominales distintos. No basta
 variar el texto de una conexión usando la misma identidad; no se sustituyen
 por un superusuario. La CA de PostgreSQL no se confunde con la CA HTTPS del
 portal. Mantenga `sslmode=verify-full`; un fallo de certificado no se resuelve
@@ -107,28 +130,32 @@ set +x
 : "${VEC_CT_LECTOR_RESULTADO_DATABASE_URL:?Falta la conexión de lectura}"
 : "${VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL:?Falta la conexión de autorización}"
 : "${VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL:?Falta la conexión de Bolsa}"
+: "${VEC_CT_CONSULTAS_RRHH_DATABASE_URL:?Falta la conexión de consultas RRHH}"
+: "${VEC_CT_MOTIVOS_RRHH_DATABASE_URL:?Falta la conexión de motivos RRHH}"
+: "${VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL:?Falta la conexión de registro de identidad}"
+: "${VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL:?Falta la conexión de revalidación de identidad}"
+: "${VEC_CT_CONTEXTO_ACTOR_DATABASE_URL:?Falta la conexión de contexto de actor}"
 ```
 
 Esto comprueba presencia, **no conectividad, roles ni funcionamiento**. La
-comprobación de instancia y definiciones corresponde al apartado 1 de la guía.
-No reaplique sus migraciones ni ejecute el apéndice de recreación para operar
-el entorno ya preparado.
+referencia operativa es el bloque local inicial de la guía, no sus comandos
+remotos históricos. No reaplique migraciones ni ejecute el apéndice de
+recreación para operar el entorno ya preparado.
 
-### Cinco conexiones adicionales: bandeja todavía en desarrollo
+### Dependencias ya preparadas, no instalación al arrancar
 
-No forman parte del arranque publicado de seis conexiones:
+Dirección confirmó en 55433 las migraciones de consultas y sus dependencias
+de identidad, contexto y autorización, con barreras `25/9`. El catálogo
+`motivos_ct_consultas_rrhh_desarrollo`, versión `1`, se publicó con los
+argumentos sintéticos originales en secuencia `8`, junto con los vínculos
+de cuadro y detalle: tres resultados positivos en una transacción.
+Esto completa la preparación que faltaba tras el traslado; no es una receta
+para copiar filas de 55432 ni para publicar de nuevo el catálogo.
 
-- `VEC_CT_CONSULTAS_RRHH_DATABASE_URL`;
-- `VEC_CT_MOTIVOS_RRHH_DATABASE_URL`;
-- `VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL`;
-- `VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL`;
-- `VEC_CT_CONTEXTO_ACTOR_DATABASE_URL`.
-
-Su presencia en la candidata no acredita una bandeja funcional. No herede
-estas variables de una terminal de pruebas ni intente habilitarlas
-parcialmente. La composición nueva necesita registro y revalidación de
-identidad, contexto y permisos específicos; su instalación y activación
-requieren una entrega posterior, no nuevas concesiones improvisadas.
+No herede conexiones de otra terminal ni habilite parcialmente las cinco
+dependencias de consultas. No reaplique `000001` de contexto ni conceda roles
+para salvar un rechazo. El publicador de instalación no sustituye ninguna
+de las once identidades de la aplicación ni añade una conexión de ejecución.
 
 ## 3. Material y certificados: reutilizar, no regenerar
 
@@ -168,8 +195,11 @@ o el directorio completo al navegador.
 
 ## 4. Arrancar y comprobar sin confundir salud con funcionalidad
 
-Tras las comprobaciones previas, en la terminal que conserva las seis
-conexiones:
+Use preferentemente el lanzador local conservado fuera de Git, indicado en
+la guía: `recorrido` para 8443 y `consultas` para 8444. El comando inferior es
+su alternativa de arranque directo, no una segunda copia simultánea.
+Tras las comprobaciones previas y el aviso de dirección, en la terminal que
+conserva las once conexiones del entorno elegido:
 
 ```bash
 (
@@ -187,7 +217,7 @@ en `127.0.0.1`, con **TLS 1.3 y certificado de cliente obligatorio**.
 No abre producción ni instala un servicio permanente. Si el puerto está
 ocupado, identifique su dueño: no mate procesos por nombre.
 
-Desde otra terminal del mismo servidor, con las variables de referencia:
+Desde otra terminal del mismo equipo local, con las variables de referencia:
 
 ```bash
 curl --silent --show-error --fail \
@@ -208,9 +238,14 @@ El lanzador imprime ejemplos de consultas de cuadro y detalle, incluidas
 referencias de demostración. **No son una prueba de bandeja real ni datos que
 deban copiarse para operar.**
 
-Para acceder desde otro equipo, use el túnel autorizado y el certificado
-local según la guía; mantenga la escucha del servidor en bucle local.
-La URL de acceso es `https://localhost:<PUERTO_LOCAL_DEL_TUNEL>/portal-empleado/`.
+En el equipo del operador abra `https://localhost:8443/portal-empleado/`
+(principal) o `https://localhost:8444/portal-empleado/` (secundaria), con su
+certificado de RRHH; no necesita un túnel al remoto detenido.
+Para continuar una solicitud existente, use los controles de su fila en
+la bandeja y el formulario de análisis del detalle, como indica la guía.
+No cree otra alta ni copie referencias de los ejemplos del lanzador.
+Un acceso desde otro equipo requiere coordinación de red y certificado;
+mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar
 el acceso. Las operaciones funcionales se prueban con los datos y claves de
 la guía, no con envíos repetidos como comprobador de salud.
@@ -280,7 +315,7 @@ no se restaura sobre el entorno preservado como comprobación rutinaria.
 2. Pulse **Ctrl-C** en la terminal del lanzador y espere a que termine.
    El script envía terminación al servidor que supervisa, espera su salida y
    retira su binario temporal. No borra PostgreSQL ni el material.
-3. Mantenga base, seis conexiones y material. Reinicie con el mismo comando
+3. Mantenga base, once conexiones y material. Reinicie con el mismo comando
    del apartado 4; no regenere certificados o claves.
 4. Compruebe salud y después el resultado funcional conforme a la guía.
    Para recuperar una operación, use sus mismos datos y clave, con autorización
@@ -301,8 +336,8 @@ la página.
 4. Arranque esa entrega con la configuración y material acordados. Compruebe
    salud y un recorrido focal de la guía, conservando los mismos identificadores
    cuando se trate de una recuperación.
-5. Registre el resultado antes de reabrir el uso. No instale las conexiones
-   nuevas de bandeja por el mero hecho de que existan en la candidata.
+5. Registre el resultado antes de reabrir el uso. Una instalación SQL correcta
+   no acredita por sí sola el recorrido ni su recuperación tras reinicio.
 
 ### Reversión conservadora
 

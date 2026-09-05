@@ -4,6 +4,15 @@ Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
 Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
 Estado funcional de referencia: 5 de septiembre de 2026.
 
+**Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
+real devuelve 50 expedientes y detalle en el recorrido local `8443`/base
+`55433`; el caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
+recupera un único recibo tras reinicio, mediante lectura independiente de
+PostgreSQL y navegador. Se mantienen cinco pasos y parte del sexto, sin
+incremento.
+Consultar la [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) para el recorrido
+operativo.
+
 ## Qué leer y qué mantener
 
 Este manual puede consultarse desde un clon del repositorio, sin acceder a
@@ -96,9 +105,9 @@ renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
 es un acuse del sistema externo. El contador es **cinco pasos completos más
 un tramo del sexto**, no un porcentaje global de aplicación terminada.
 
-La bandeja y el detalle de expedientes tienen código y una conexión candidata
-en trabajo. Su instalación de consultas, configuración nominal de identidad
-y recorrido real todavía no se dan por entregados en este manual.
+La bandeja y el detalle de expedientes están conectados en el recorrido local:
+50 expedientes consultables en `8443`/`55433`. El alcance sigue siendo cinco
+pasos y parte del sexto; la bandeja no se cuenta como paso adicional.
 Un `503` debe explicarse como dependencia no disponible, no sustituirse por
 datos de presentación. Un `404` del panel de Bolsa tampoco demuestra que
 haya fallado la identidad de Contratación temporal.
@@ -201,9 +210,12 @@ roles ni migraciones. Genera o verifica material de desarrollo, compila un
 binario temporal y escucha en loopback con TLS 1.3 y certificado de cliente.
 No usar `arrancar_presentacion_rrhh.sh` para demostrar efectos persistentes.
 
-Para el recorrido ya conservado, preparar las seis conexiones según el
-[apartado de arranque de la guía](../../GUIA_RECORRIDO_ALBERTO.md#2-arrancar-vec-con-postgresql-real).
-Son cuentas separadas, no seis alias del mismo usuario:
+Para el recorrido ya conservado, preparar las once conexiones DSN en las dos
+instancias PostgreSQL locales según el
+[bloque de arranque vigente de la guía](../../GUIA_RECORRIDO_ALBERTO.md).
+Cada aplicación usa sus once logins contra una sola base; no se mezclan entre
+instancias, ni son conexiones a un remoto de desarrollo. No copiar DSN,
+credenciales ni rutas privadas en este manual:
 
 - `VEC_CT_DATABASE_URL`: ejecución del módulo.
 - `VEC_CT_GOBIERNO_DATABASE_URL`: gobierno.
@@ -211,11 +223,13 @@ Son cuentas separadas, no seis alias del mismo usuario:
 - `VEC_CT_LECTOR_RESULTADO_DATABASE_URL`: lectura de resultado.
 - `VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL`: registro de autorización.
 - `VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL`: ejecución de Bolsa.
+- Las cinco DSN adicionales de consultas, motivos RRHH, registro y
+  revalidación de identidad y contexto del actor, también locales, se preparan
+  según la guía.
 
-Las conexiones de consultas y motivos RRHH, registro/revalidación de identidad
-y contexto del actor que aparecen en la configuración candidata pertenecen al
-trabajo de bandeja aún pendiente. No activarlas parcialmente ni atribuirles
-éxito por existir sus variables.
+Las once conexiones de cada aplicación apuntan a su única base local. No se
+usa un DSN de desarrollo remoto. No activarlas parcialmente ni atribuir éxito
+por existir sus variables.
 
 Con esas conexiones preparadas y la variable `material_vec` apuntando al
 directorio persistente aprobado:

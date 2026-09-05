@@ -2,6 +2,15 @@
 
 Contratación temporal · VEC Diputación · Corte: 5 de septiembre de 2026.
 
+**Cierre ya publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. La bandeja
+real muestra 50 expedientes y su detalle en el recorrido local (`8443` / base
+`55433`). El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
+recupera el recibo único tras reinicio, mediante lectura independiente de
+PostgreSQL y navegador.
+Se mantienen cinco pasos y parte del sexto; este cierre no incrementa el
+contador. La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) contiene el
+recorrido y comandos exactos.
+
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más la selección
@@ -21,11 +30,11 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 7. Nombramiento / formalización | No recorrible de extremo a extremo: pendientes aceptación, modelos y circuito de firmas. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
-La **bandeja de expedientes está en desarrollo, no cerrada**. La existencia de
-«Cuadro de mando» o «Abrir expediente» no demuestra aún que el entorno
-publicado liste y abra todos los expedientes reales. Para el recorrido
-acreditado se encadenan los formularios desde sus recibos; para recuperar el
-llamamiento se usan las referencias conservadas en la guía.
+La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
+lista 50 expedientes y abre el detalle real en `8443`/`55433`. Esto no convierte
+los datos sintéticos en expedientes reales ni amplía los cinco pasos y parte
+del sexto. Para recuperar el llamamiento se usan las referencias conservadas
+en la guía.
 
 Este manual explica el trabajo funcional. Los comandos de arranque,
 certificados, datos sintéticos de ejemplo y comprobaciones de persistencia
@@ -246,8 +255,8 @@ con datos personales ni material de autenticación.
 - [Guía técnica para arrancar, recorrer y recuperar el caso sintético](../../GUIA_RECORRIDO_ALBERTO.md).
 - [Manual de usuario del módulo Bolsa](../manual_usuario/manual_portal_bolsas.md).
 
-El siguiente avance funcional pendiente es la bandeja real de expedientes,
-sin contarla aún como entregada. Para completar el sexto paso siguen faltando
+El siguiente avance funcional pendiente es completar la respuesta del sexto
+paso. Siguen faltando
 la comunicación con entrega acreditada y la respuesta de la persona candidata
 con sus reglas de plazo. Este manual no redefine esas reglas ni declara
 aceptación por RRHH.
