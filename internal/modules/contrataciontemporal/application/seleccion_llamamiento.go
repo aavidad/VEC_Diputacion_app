@@ -38,18 +38,24 @@ var (
 	)
 )
 
-// SolicitudSeleccionLlamamiento solo identifica un intento idempotente. La
+// SolicitudSeleccionLlamamiento identifica expediente, versión e intento. Son
+// entradas no autoritativas que la preparación del servidor debe contrastar. La
 // política, el orden y la posición seleccionada pertenecen a Bolsa y a la
 // preparación confiable del servidor, nunca al canal que inicia el caso.
 type SolicitudSeleccionLlamamiento struct {
+	ExpedienteRef     string
+	VersionEsperada   uint64
 	ClaveIdempotencia string
 }
 
 // DatosReciboSeleccionLlamamientoParaAdaptador es la proyección mínima que
 // puede cruzar una frontera después de autenticar el recibo completo de Bolsa.
 type DatosReciboSeleccionLlamamientoParaAdaptador struct {
-	ReciboRef    string
-	ConfirmadaEn time.Time
+	ReciboRef          string
+	ConfirmadaEn       time.Time
+	OrganizacionRef    string
+	LlamamientoRef     string
+	VersionLlamamiento uint64
 }
 
 type ServicioSeleccionLlamamiento struct {
@@ -60,6 +66,13 @@ type ServicioSeleccionLlamamiento struct {
 	llamamientos   ports.GestorLlamamientosBolsa
 	verificador    *ports.VerificadorEvidenciaIntegracionBolsa
 	reloj          ports.Reloj
+}
+
+// Solo las composiciones que acreditan un proveedor de órdenes idempotente y
+// autorización nueva pueden reanudar una ventana anterior. El resto conserva
+// el rechazo de estados indeterminados; no hay reintentos automáticos genéricos.
+type reanudadorOrdenSeleccionLlamamiento interface {
+	ReanudarPreparacionOrden(context.Context, ports.SolicitudReservaEjecucionSeleccionLlamamiento) (ports.EstadoEjecucionSeleccionLlamamiento, error)
 }
 
 func NuevoServicioSeleccionLlamamiento(
@@ -193,6 +206,21 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 	if err != nil {
 		return ports.ReciboSolicitudLlamamientoBolsa{}, normalizarFalloSeleccionLlamamiento(operacion, err)
 	}
+	ordenReanudada := false
+	if estado.Situacion == ports.EjecucionSeleccionLlamamientoIndeterminada &&
+		estado.EfectoPosible == ports.EfectoPrepararOrdenSeleccionLlamamiento && estado.Solicitud == solicitudEjecucion {
+		if reanudador, habilitado := s.ejecuciones.(reanudadorOrdenSeleccionLlamamiento); habilitado {
+			estado, err = reanudador.ReanudarPreparacionOrden(operacion, solicitudEjecucion)
+			if err != nil {
+				return ports.ReciboSolicitudLlamamientoBolsa{}, normalizarFalloSeleccionLlamamiento(operacion, err)
+			}
+			if estado.Situacion != ports.EjecucionSeleccionLlamamientoPropietaria ||
+				estado.EfectoPosible != ports.EfectoPrepararOrdenSeleccionLlamamiento {
+				return ports.ReciboSolicitudLlamamientoBolsa{}, ErrResultadoSeleccionLlamamientoNoConfiable
+			}
+			ordenReanudada = true
+		}
+	}
 	instanteTerminal := instanteOrden
 	if estado.Situacion == ports.EjecucionSeleccionLlamamientoConfirmada {
 		instanteTerminal = instanteCanonico(s.reloj.Ahora())
@@ -210,16 +238,23 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamar(
 		return reciboConfirmado, nil
 	}
 	if err := operacion.Err(); err != nil {
+		if ordenReanudada {
+			return ports.ReciboSolicitudLlamamientoBolsa{}, s.marcarIndeterminada(
+				operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento, err,
+			)
+		}
 		return ports.ReciboSolicitudLlamamientoBolsa{}, s.liberarAntesDeEfectos(
 			operacion, reserva, err,
 		)
 	}
-	if err = s.ejecuciones.AbrirVentanaEfecto(
-		operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
-	); err != nil {
-		return ports.ReciboSolicitudLlamamientoBolsa{}, s.liberarAntesDeEfectos(
-			operacion, reserva, normalizarFalloSeleccionLlamamiento(operacion, err),
-		)
+	if !ordenReanudada {
+		if err = s.ejecuciones.AbrirVentanaEfecto(
+			operacion, reserva, ports.EfectoPrepararOrdenSeleccionLlamamiento,
+		); err != nil {
+			return ports.ReciboSolicitudLlamamientoBolsa{}, s.liberarAntesDeEfectos(
+				operacion, reserva, normalizarFalloSeleccionLlamamiento(operacion, err),
+			)
+		}
 	}
 	reciboOrden, err := s.ordenes.PrepararOrden(operacion, comandoOrden)
 	if err != nil {
@@ -387,12 +422,20 @@ func (s *ServicioSeleccionLlamamiento) SeleccionarYLlamarParaAdaptador(
 	}
 	if !recibo.PropuestaGenerada ||
 		!domain.ReferenciaOpacaValida(recibo.ReciboRef) ||
+		!domain.ReferenciaOpacaValida(recibo.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(recibo.LlamamientoRef) ||
 		!domain.InstanteUTCCanonico(recibo.ConfirmadaEn) {
 		return DatosReciboSeleccionLlamamientoParaAdaptador{},
 			ErrResultadoSeleccionLlamamientoNoConfiable
 	}
 	return DatosReciboSeleccionLlamamientoParaAdaptador{
 		ReciboRef: recibo.ReciboRef, ConfirmadaEn: recibo.ConfirmadaEn,
+		OrganizacionRef: recibo.OrganizacionRef,
+		LlamamientoRef:  recibo.LlamamientoRef,
+		// Versión inicial pactada para esta alta. El replay devuelve el mismo
+		// antecedente, no afirma consultar la versión actual del llamamiento.
+		// Propuesta.Version pertenece a otro objeto y no se usa como sustituto.
+		VersionLlamamiento: 1,
 	}, nil
 }
 

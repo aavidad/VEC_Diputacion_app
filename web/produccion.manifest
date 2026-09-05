@@ -47,9 +47,11 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-fiscalizacion.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-fiscalizacion.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-alta.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
@@ -62,9 +64,12 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-fiscalizacion.js
+static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/vista.js

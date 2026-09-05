@@ -100,6 +100,8 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 	recibo, err := h.ejecutor.SeleccionarYLlamarParaAdaptador(
 		r.Context(),
 		application.SolicitudSeleccionLlamamiento{
+			ExpedienteRef:     entrada.ExpedienteRef,
+			VersionEsperada:   entrada.VersionEsperada,
 			ClaveIdempotencia: entrada.ClaveIdempotencia,
 		},
 	)

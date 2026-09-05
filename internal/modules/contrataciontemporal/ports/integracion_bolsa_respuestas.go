@@ -120,6 +120,9 @@ type ReciboOrdenBolsa struct {
 	Resultado         ReferenciaVersionadaIntegracionBolsa `json:"resultado"`
 	OrdenGenerada     bool                                 `json:"orden_generada"`
 	OrdenCompleta     bool                                 `json:"orden_completa"`
+	// OrdenRecuperada atesta con permiso nuevo una orden ya confirmada; no
+	// sustituye su fecha original por la fecha de la petición actual.
+	OrdenRecuperada   bool                                 `json:"orden_recuperada,omitempty"`
 	Orden             ReferenciaVersionadaIntegracionBolsa `json:"orden"`
 	AccionLlamamiento ReferenciaVersionadaIntegracionBolsa `json:"accion_llamamiento"`
 	TotalPosiciones   uint32                               `json:"total_posiciones"`
@@ -160,12 +163,12 @@ func (r ReciboOrdenBolsa) ValidarDurablePara(
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.EventoRef) ||
 		!instanteBolsaCanonico(r.ConfirmadaEn) ||
-		r.ConfirmadaEn.Before(contexto.SolicitadaEn) ||
+		(!r.OrdenRecuperada && r.ConfirmadaEn.Before(contexto.SolicitadaEn)) ||
 		r.ConfirmadaEn.After(r.Procedencia.Evidencia.EmitidaEn) {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	if !r.OrdenGenerada {
-		if r.OrdenCompleta || r.Orden != (ReferenciaVersionadaIntegracionBolsa{}) ||
+		if r.OrdenRecuperada || r.OrdenCompleta || r.Orden != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.AccionLlamamiento != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.TotalPosiciones != 0 {
 			return ErrRespuestaBolsaNoConfiable

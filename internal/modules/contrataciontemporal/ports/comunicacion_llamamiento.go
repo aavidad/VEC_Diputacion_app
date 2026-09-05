@@ -47,6 +47,9 @@ type EstadoResultadoComunicacionLlamamiento string
 const (
 	ResultadoComunicacionLlamamientoConfirmado EstadoResultadoComunicacionLlamamiento = "confirmado"
 	ResultadoComunicacionLlamamientoReplay     EstadoResultadoComunicacionLlamamiento = "replay_confirmado"
+	// Registro local no significa entrega al destinatario ni abre un plazo.
+	ResultadoComunicacionLlamamientoLocal       EstadoResultadoComunicacionLlamamiento = "registrada_localmente"
+	ResultadoComunicacionLlamamientoReplayLocal EstadoResultadoComunicacionLlamamiento = "replay_registrada_localmente"
 )
 
 func (e EstadoResultadoComunicacionLlamamiento) valida() bool {
@@ -57,6 +60,10 @@ func (e EstadoResultadoComunicacionLlamamiento) valida() bool {
 // SolicitudRegistrarComunicacionLlamamiento solo transporta intencion y una
 // referencia probatoria. Canal, politica, vencimiento e identidad se resuelven
 // en la frontera confiable, no desde el solicitante.
+// En la implementación de registro local, PruebaEntregaRef conserva su nombre
+// de transporte pero identifica exclusivamente el recibo de selección
+// confirmado; no acredita entrega ni habilita plazos. VersionEsperada se
+// refiere al llamamiento, no a la versión del expediente.
 type SolicitudRegistrarComunicacionLlamamiento struct {
 	ClaveIdempotencia string
 	OrganizacionRef   string
@@ -92,6 +99,8 @@ type ComunicacionProbatoria struct {
 	EntregadaEn       time.Time
 	RespuestaHasta    time.Time
 	Estado            EstadoResultadoComunicacionLlamamiento
+	RegistradaEn      time.Time
+	IntencionEnvioRef string
 }
 
 func (c ComunicacionProbatoria) ValidarPara(
@@ -103,16 +112,33 @@ func (c ComunicacionProbatoria) ValidarPara(
 		!domain.ReferenciaOpacaValida(c.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(c.AuditoriaRef) ||
 		c.VersionResultante != solicitud.VersionEsperada+1 ||
-		!domain.InstanteUTCCanonico(c.EntregadaEn) ||
+		(c.Estado != ResultadoComunicacionLlamamientoLocal &&
+			c.Estado != ResultadoComunicacionLlamamientoReplayLocal && !c.Estado.valida()) {
+		return ErrResultadoComunicacionLlamamientoNoConfiable
+	}
+	if c.EsRegistroLocal() {
+		if !domain.InstanteUTCCanonico(c.RegistradaEn) ||
+			!domain.ReferenciaOpacaValida(c.IntencionEnvioRef) ||
+			!c.EntregadaEn.IsZero() || !c.RespuestaHasta.IsZero() {
+			return ErrResultadoComunicacionLlamamientoNoConfiable
+		}
+	} else if !domain.InstanteUTCCanonico(c.EntregadaEn) ||
 		!domain.InstanteUTCCanonico(c.RespuestaHasta) ||
-		!c.RespuestaHasta.After(c.EntregadaEn) || !c.Estado.valida() {
+		!c.RespuestaHasta.After(c.EntregadaEn) ||
+		!c.RegistradaEn.IsZero() || c.IntencionEnvioRef != "" {
 		return ErrResultadoComunicacionLlamamientoNoConfiable
 	}
 	return nil
 }
 
+func (c ComunicacionProbatoria) EsRegistroLocal() bool {
+	return c.Estado == ResultadoComunicacionLlamamientoLocal ||
+		c.Estado == ResultadoComunicacionLlamamientoReplayLocal
+}
+
 func (c ComunicacionProbatoria) EsReplayConfirmado() bool {
-	return c.Estado == ResultadoComunicacionLlamamientoReplay
+	return c.Estado == ResultadoComunicacionLlamamientoReplay ||
+		c.Estado == ResultadoComunicacionLlamamientoReplayLocal
 }
 
 type RespuestaLlamamiento string
@@ -297,7 +323,9 @@ func (r ResultadoResolucionLlamamiento) EsReplayConfirmado() bool {
 }
 
 // TransaccionComunicacionLlamamiento es una frontera exclusivamente local.
-// Registrar resuelve autorizacion, reacredita la prueba de entrega, obtiene
+// Registrar resuelve autorizacion. En registro local persiste la intención
+// pendiente sin acreditar entrega, plazo ni respuesta. En registro probatorio
+// reacredita la prueba de entrega, obtiene
 // canal, politica y vencimiento gobernados y confirma estado, auditoria,
 // recibo y outbox local en un commit con OCC e idempotencia. Resolver confirma
 // la respuesta local y, solo tras renuncia o expiracion gobernada, persiste

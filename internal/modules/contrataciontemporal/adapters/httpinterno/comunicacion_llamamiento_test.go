@@ -90,6 +90,35 @@ func (e *ejecutorComunicacionLlamamientoHTTPPrueba) ultimaResolucion() (
 	return e.resoluciones[len(e.resoluciones)-1], true
 }
 
+func TestComunicacionLlamamientoHTTPRegistroLocalNoPublicaPlazo(t *testing.T) {
+	s := solicitudRegistroComunicacionHTTPPrueba()
+	r := comunicacionHTTPPrueba(s)
+	r.RegistradaEn = r.EntregadaEn
+	r.EntregadaEn = time.Time{}
+	r.RespuestaHasta = time.Time{}
+	r.IntencionEnvioRef = "outbox:local"
+	for _, caso := range []struct {
+		estado ports.EstadoResultadoComunicacionLlamamiento
+		codigo int
+	}{
+		{ports.ResultadoComunicacionLlamamientoLocal, http.StatusCreated},
+		{ports.ResultadoComunicacionLlamamientoReplayLocal, http.StatusOK},
+	} {
+		r.Estado = caso.estado
+		salida, codigo, valido := proyectarRegistroComunicacionLlamamiento(s, r)
+		if !valido || codigo != caso.codigo || salida.RegistradaEn == "" ||
+			salida.IntencionEnvioRef != r.IntencionEnvioRef ||
+			salida.EstadoLocal != string(caso.estado) {
+			t.Fatal("proyección local divergente")
+		}
+		b, err := json.Marshal(salida)
+		if err != nil || bytes.Contains(b, []byte("respuesta_hasta")) ||
+			bytes.Contains(b, []byte("entregada_en")) || bytes.Contains(b, []byte("0001-")) {
+			t.Fatal("entrega o plazo ficticios publicados")
+		}
+	}
+}
+
 func solicitudRegistroComunicacionHTTPPrueba() ports.SolicitudRegistrarComunicacionLlamamiento {
 	return ports.SolicitudRegistrarComunicacionLlamamiento{
 		ClaveIdempotencia: claveRegistroComunicacionHTTPPrueba,

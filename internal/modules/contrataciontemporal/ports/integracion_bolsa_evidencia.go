@@ -242,6 +242,10 @@ func materialReciboOrdenBolsa(
 	c.campo("auditoria_ref", recibo.AuditoriaRef)
 	c.campo("evento_ref", recibo.EventoRef)
 	c.instante("confirmada_en", recibo.ConfirmadaEn)
+	// Ausente cuando false: los recibos previos conservan su canon y HMAC.
+	if recibo.OrdenRecuperada {
+		c.booleano("recibo_orden_recuperada", true)
+	}
 	return c.bytes()
 }
 

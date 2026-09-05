@@ -14,6 +14,7 @@ const (
 	EnvContratacionTemporalRegistroAutorizacionDatabaseURL = "VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL"
 	EnvContratacionTemporalConfirmadorDatabaseURL          = "VEC_CT_CONFIRMADOR_DATABASE_URL"
 	EnvContratacionTemporalLectorResultadoDatabaseURL      = "VEC_CT_LECTOR_RESULTADO_DATABASE_URL"
+	EnvBolsaLlamamientosDatabaseURL                        = "VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL"
 	configuracionPostgreSQLContratacionTemporalRedactada   = "configuracion_postgresql_contratacion_temporal_redactada"
 )
 
@@ -36,6 +37,7 @@ type ConfiguracionPostgreSQLContratacionTemporal struct {
 	dsnRegistroAutorizacion string
 	dsnConfirmador          string
 	dsnLectorResultado      string
+	dsnBolsaLlamamientos    string
 }
 
 func NuevaConfiguracionPostgreSQLContratacionTemporal(
@@ -122,7 +124,32 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) normalizar() ConfiguracionP
 	c.dsnRegistroAutorizacion = strings.TrimSpace(c.dsnRegistroAutorizacion)
 	c.dsnConfirmador = strings.TrimSpace(c.dsnConfirmador)
 	c.dsnLectorResultado = strings.TrimSpace(c.dsnLectorResultado)
+	c.dsnBolsaLlamamientos = strings.TrimSpace(c.dsnBolsaLlamamientos)
 	return c
+}
+
+// BolsaLlamamientosConfigurada indica si se ha solicitado componer el paso de
+// llamamiento. Su ausencia conserva los pasos anteriores; no simula Bolsa.
+func (c ConfiguracionPostgreSQLContratacionTemporal) BolsaLlamamientosConfigurada() bool {
+	return strings.TrimSpace(c.dsnBolsaLlamamientos) != ""
+}
+
+// DSNBolsaLlamamientosSeparado entrega la conexión del módulo propietario de
+// Bolsa. La raíz comprueba además que su identidad real no mezcla roles de CT.
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNBolsaLlamamientosSeparado() (string, error) {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return "", err
+	}
+	if c.dsnBolsaLlamamientos == "" {
+		return "", ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
+	}
+	for _, dsn := range []string{c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion, c.dsnConfirmador, c.dsnLectorResultado} {
+		if c.dsnBolsaLlamamientos == dsn {
+			return "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+		}
+	}
+	return c.dsnBolsaLlamamientos, nil
 }
 
 func (ConfiguracionPostgreSQLContratacionTemporal) String() string {

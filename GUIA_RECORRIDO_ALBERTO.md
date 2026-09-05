@@ -12,6 +12,8 @@ servidor. No es necesario recrearla ni borrarla para recorrer otro expediente:
 
 - repositorio: `/srv/fabrica/proyectos/VEC_Diputacion_app`;
 - producto: `.worktrees/ct-producto-ligero-20260821`;
+- única línea de trabajo del paso 6:
+  `.worktrees/ct-app-llamamiento-b4a-20260905`, base `83fc7631`;
 - PostgreSQL exclusivo del navegador: contenedor
   `vec-ct-o2-07-browser-20260904-tls`, puerto local remoto `55433`;
 - PostgreSQL reservado para pruebas Go: contenedor
@@ -23,13 +25,17 @@ Regla obligatoria: el servidor usado por el navegador solo apunta a `55433`.
 Las pruebas Go solo apuntan a `55432`. Nunca se usan a la vez contra la misma
 instancia.
 
+Ambas instancias ya tienen autorización `000011/000012/000013`, Bolsa `000003`
+y Contratación temporal `000053/000054/000055`. No recrear, borrar ni reaplicar
+migraciones o concesiones. El apéndice de recreación no se usa en este hito.
+
 ## 1. Comprobar la instancia aislada
 
 En una terminal del servidor:
 
 ```bash
 ssh root@cidonia.cloud
-cd /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-producto-ligero-20260821
+cd /srv/fabrica/proyectos/VEC_Diputacion_app/.worktrees/ct-app-llamamiento-b4a-20260905
 git status --short --branch
 docker start vec-ct-o2-07-browser-20260904-tls >/dev/null
 docker inspect vec-ct-o2-07-browser-20260904-tls \
@@ -60,7 +66,8 @@ docker exec vec-ct-o2-07-browser-20260904-tls \
     GROUP BY login.rolcanlogin;"
 ```
 
-El árbol debe estar limpio. El contenedor debe estar `running`, usar la imagen
+El producto debe seguir limpio; la candidata contiene el trabajo compartido
+del paso 6 y no se limpia ni se sustituye. El contenedor debe estar `running`, usar la imagen
 fijada por digest, montar `vec-ct-o2-07-browser-20260904-data` en
 `/var/lib/postgresql` y publicar únicamente `127.0.0.1:55433`. Tras la evidencia
 automatizada, los tres recuentos deben ser iguales y mayores que cero; el valor
@@ -73,6 +80,12 @@ Antes de arrancar VEC, compruebe que PostgreSQL conserva exactamente las
 definiciones de las migraciones de Asignación, informe jurídico y
 Fiscalización incluidas en el producto. La comprobación es de solo lectura y
 se detiene ante cualquier diferencia:
+
+El núcleo común incluye ahora los cambios de `000011/000012/000013`.
+Dirección confirma esta huella instalada en ambas bases (`55432` y `55433`):
+`5079499ad2c05ead1afc6e36b3505249b30f7ba98b913c1e5b4e1c942b8d2b57`.
+Es la definición ampliada que contrasta el comando siguiente; no debe
+compararse con la huella anterior a la recuperación.
 
 ```bash
 set -euo pipefail
@@ -104,7 +117,7 @@ huella_funcion() {
 }
 
 test "$(huella_funcion 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
-  e97203f7b0ae8efad70b7c1168e9c35b109157d3b191d46521960c10e69e67cb
+  5079499ad2c05ead1afc6e36b3505249b30f7ba98b913c1e5b4e1c942b8d2b57
 test "$(huella_funcion 'vec_autorizacion_atestada_v3.registrar_y_consumir_asignacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')" = \
   a384447d25ef86cab6bbdb99d32a2d478232a972a3c70e6290ea470c4917ce53
 test "$(huella_funcion 'vec_contratacion_temporal.asignacion_claves_exactas_v1(jsonb,text[])')" = \
@@ -140,7 +153,8 @@ ciegas: el código y la instancia no están alineados.
 
 ## 2. Arrancar VEC con PostgreSQL real
 
-En la misma terminal remota, desde el worktree de producto:
+En la misma terminal remota, desde la candidata indicada, con las seis
+conexiones separadas a `55433`:
 
 ```bash
 directorio_pg=$(mktemp -d /tmp/vec-o2-07-pg.XXXXXX)
@@ -149,19 +163,12 @@ docker cp \
   "$directorio_pg/ca.crt"
 chmod 600 "$directorio_pg/ca.crt"
 
-docker exec -i vec-ct-o2-07-browser-20260904-tls \
-  psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
-GRANT vec_contratacion_temporal_gobernador TO vec_ad3_o207_gobierno;
-SQL
-docker exec -i vec-ct-o2-07-browser-20260904-tls \
-  psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres \
-  < deploy/postgresql/contratacion_temporal/migraciones/000035a_compatibilidad_barreras_decision_cobertura.up.sql
-
 export VEC_CT_DATABASE_URL="postgresql://vec_ct_o207_runtime@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_GOBIERNO_DATABASE_URL="postgresql://vec_ad3_o207_gobierno@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_CONFIRMADOR_DATABASE_URL="postgresql://vec_ct_o207_confirmador@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_LECTOR_RESULTADO_DATABASE_URL="postgresql://vec_ct_o207_lector@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 export VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL="postgresql://vec_autorizacion_o207_registro@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
+export VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL="postgresql://vec_bolsa_llamamientos_desarrollo@localhost:55433/postgres?sslmode=verify-full&sslrootcert=$directorio_pg/ca.crt"
 
 material_vec=/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904
 scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
@@ -463,7 +470,7 @@ autorización.
 
 1. En la primera terminal pulse `Ctrl-C`. Solo debe terminar VEC; no detenga
    PostgreSQL.
-2. Sin cambiar las cinco variables exportadas ni el worktree, arranque otra
+2. Sin cambiar las seis variables exportadas ni el worktree, arranque otra
    vez:
 
 ```bash
@@ -563,6 +570,112 @@ La consulta protegida anterior recupera el resultado de cobertura. Alta y
 Análisis todavía no tienen una vista que recargue sus recibos cerrados después
 de desmontar la página; su persistencia se comprueba con las consultas SQL.
 
+## 6. Llamamiento y aviso local — recorrido real recuperado tras reinicio
+
+**Cinco pasos completos más este tramo del sexto recorrible.** Dirección
+comprobó en navegador real selección `200` y comunicación local `201`.
+Tras reiniciar VEC a las `00:46:33 UTC` del 5 de septiembre de 2026, abrió
+un contexto nuevo de navegador y repitió las mismas claves: `200/200`,
+mismo JSON de selección y mismo recibo de comunicación, ahora con estado
+`replay_registrada_localmente`. Se conservaron las claves del servidor,
+PostgreSQL y el directorio de material; no se depende de almacenamiento web.
+
+Datos sintéticos ya registrados, para recuperar sin crear otro expediente:
+
+- Expediente: `expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001`;
+  versión de entrada `6`, fiscalización favorable.
+- Clave de selección: `90d52c16-a63d-4ef1-bcf7-62c7c455f9aa`.
+  Recibo: `recibo:pldjefhkpgifphgejphkpgcmkjlkphjgmfiedehlnpbphnoefikkcfmjancmdhce`;
+  fecha conservada: `2026-09-05T00:45:25.244696Z`.
+- Clave de comunicación: `d1b5428f-2188-4b8f-98b7-42f82ad88c2a`.
+  Recibo: `recibo:68d32388-b423-4483-b7b1-2fcd091624a8`;
+  fecha conservada: `2026-09-05T00:45:25.506363Z`.
+  Intención de aviso: `outbox:2e3b64dc-ec3c-4076-bbdb-f036090aaa64`.
+
+### Recorrerlo a mano
+
+1. Arranque la candidata y abra el túnel con los comandos de los apartados
+   2 y 3. Use el certificado de RRHH y abra
+   **Contratación temporal → Nueva petición → Llamamiento y comunicación**.
+   No registre otra solicitud ni repita la fiscalización.
+2. Introduzca el expediente anterior, versión `6` y su clave de selección.
+   Pulse **Revisar e iniciar llamamiento** y confirme. La ruta
+   `POST /api/vec/contratacion-temporal/llamamientos/seleccion` devuelve
+   `200` y el recibo anterior. No pulse **Preparar clave nueva**.
+3. En **Registrar comunicación**, organización, llamamiento, versión `1` y
+   recibo antecedente se rellenan desde la selección real. No invente ni
+   cambie esas referencias. Introduzca la clave de comunicación anterior,
+   pulse **Revisar y registrar comunicación** y confirme.
+4. La repetición devuelve `200`, **Registro local recuperado · Sin entrega
+   acreditada**, el mismo recibo, fecha e intención. La primera escritura
+   devolvió `201`. La versión local resultante `2` no es la del expediente.
+5. Para comprobar otro reinicio, termine solo VEC con `Ctrl-C` en su terminal,
+   conserve las seis conexiones del apartado 2 y arranque desde la misma
+   candidata, sin regenerar material ni detener PostgreSQL:
+
+```bash
+scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
+  --directorio-material /root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904
+```
+
+Abra un contexto nuevo de navegador con el certificado de RRHH y repita
+los puntos 2–4 con exactamente los mismos datos. Compare los recibos y
+fechas anteriores; no espere un recibo nuevo.
+
+### Comprobar lo persistido, sin modificarlo
+
+La revisión independiente contrastó en lectura real una orden original
+(`2026-09-05T00:07:16.220132Z`), una propuesta, un llamamiento y un terminal
+de selección. La recuperación conserva una historia y un evento pendiente,
+con contador de exclusión `1 → 2`. Comunicación, historia y evento pendiente
+también tienen una fila cada uno. El intento interrumpido se recuperó con su
+misma clave, sin borrar la orden ni duplicar esos efectos.
+
+```bash
+expediente_ref='expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001'
+docker exec -i vec-ct-o2-07-browser-20260904-tls \
+  psql -X -v ON_ERROR_STOP=1 -v expediente_ref="$expediente_ref" \
+  -U postgres -d postgres -P pager=off <<'SQL'
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT count(*) OVER () AS ejecuciones, s.situacion,
+       s.recibo_json->>'recibo_ref' AS recibo_seleccion,
+       s.recibo_json->>'llamamiento_ref' AS llamamiento,
+       c.estado, c.recibo_json->>'ReciboRef' AS recibo_comunicacion,
+       c.registrada_en, c.recibo_json->>'IntencionEnvioRef' AS intencion,
+       (SELECT count(*) FROM vec_contratacion_temporal.historia_comunicacion_llamamiento_local h
+         WHERE h.comunicacion_ref=c.comunicacion_ref) AS historia,
+       (SELECT count(*) FROM vec_contratacion_temporal.outbox_comunicacion_llamamiento_local o
+         WHERE o.comunicacion_ref=c.comunicacion_ref AND o.estado='pendiente') AS outbox_pendiente
+  FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 s
+  LEFT JOIN vec_contratacion_temporal.comunicacion_llamamiento_local c
+    ON c.seleccion_clave=s.clave_idempotencia
+ WHERE s.solicitud_json->>'expediente_ref'=:'expediente_ref';
+ROLLBACK;
+SQL
+```
+
+Para el expediente indicado debe aparecer una ejecución `confirmada`, los
+recibos anteriores, comunicación `registrada_localmente`, una historia y un
+evento pendiente de comunicación. Ese evento por sí solo no acredita el
+fichero. Se verificó también el aviso: **803 bytes**, directorio `0700`,
+archivo `0600`, SHA256
+`d0173929c18b437d44b84fcab632ef60659b3246bb98586a09cc0fc506a48c17`.
+
+En la terminal remota, compruebe tamaño, permisos y huella sin mostrar contenido:
+
+```bash
+material_vec=/root/.local/state/vec-diputacion/desarrollo-fiscalizacion-20260904
+intencion_envio_ref='outbox:2e3b64dc-ec3c-4076-bbdb-f036090aaa64'
+huella_intencion=$(printf '%s' "$intencion_envio_ref" | sha256sum | cut -d ' ' -f 1)
+aviso_local="$material_vec/comunicaciones/aviso-$huella_intencion.json"
+stat -c '%a %s %n' "$material_vec/comunicaciones" "$aviso_local"
+sha256sum "$aviso_local"
+```
+
+**Es selección más aviso LOCAL persistido, no correo enviado, entrega,
+aceptación ni apertura de plazo.** La fuente de Bolsa es sintética firmada;
+los recibos y efectos descritos sí están guardados de verdad.
+
 ## Resultado y siguiente paso funcional
 
 De los ocho pasos solicitados por Recursos Humanos, este corte permite recorrer
@@ -572,10 +685,17 @@ queda en **5 de 8**. Fiscalización acepta los tres resultados reales y el
 desfavorable devuelve automáticamente el expediente a la Unidad conservando
 el histórico completo.
 
-El siguiente corte es 6, **Llamamiento**. Después quedan 7,
-**Nombramiento** con sus seis documentos, incluida la Diligencia, y 8,
-**Incorporación, GINPIX y Seguimiento**. Esta guía no simula ni abre todavía
-Llamamiento.
+El apartado 6 añade **selección y aviso local recorribles**, con los mismos
+recibos recuperados tras reiniciar. El resultado es **5 pasos completos más
+un tramo del sexto**, no el 100 % del llamamiento corporativo. Faltan envío y
+entrega reales, aceptación o renuncia y gestión del plazo; no están
+acreditados por un aviso local. Después quedan 7, **Nombramiento**, con sus
+seis documentos, incluida la Diligencia, y 8, **Incorporación, GINPIX y
+Seguimiento**.
+
+La evidencia corresponde a la línea de trabajo indicada. Es un recorrido de
+desarrollo: ni su integración ni su publicación en GitHub autorizan producción
+o sustituyen la aceptación de Recursos Humanos.
 
 ## Apéndice: recreación segura de la instancia aislada
 

@@ -8,7 +8,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "mensajes", "locale", "zonaHoraria", "anunciar", "alConfirmar",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const RESULTADOS = Object.freeze([
@@ -178,7 +178,7 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
     raiz, cliente, contexto: contextoEntrada,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     confirmarOperacion = () => false, mensajes = {}, locale = "es-ES",
-    zonaHoraria = "Europe/Madrid", anunciar = () => {},
+    zonaHoraria = "Europe/Madrid", anunciar = () => {}, alConfirmar = () => {},
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -188,6 +188,7 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
     || typeof cliente?.registrarResultadoFiscalizacion !== "function"
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof anunciar !== "function"
+    || typeof alConfirmar !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de fiscalización no válidas");
   }
@@ -197,6 +198,7 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
   let generarClaveActual = generarClaveIdempotencia;
   let confirmarActual = confirmarOperacion;
   let anunciarActual = anunciar;
+  let alConfirmarActual = alConfirmar;
   let t = crearTraductorContratacionTemporal(mensajes);
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
@@ -300,6 +302,9 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
           mensaje_clave: "fiscalizacion_estado_confirmada", tipo_mensaje: "exito",
         };
         solicitudActual = null;
+        try { alConfirmarActual(recibo); } catch {
+          // El recibo confirmado prevalece aunque no se pueda montar el siguiente paso.
+        }
         return recibo;
       } catch (error) {
         if (!montado) return null;
@@ -419,6 +424,7 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
     generarClaveActual = null;
     confirmarActual = null;
     anunciarActual = null;
+    alConfirmarActual = null;
     t = null;
     formateador = null;
     solicitudActual = null;

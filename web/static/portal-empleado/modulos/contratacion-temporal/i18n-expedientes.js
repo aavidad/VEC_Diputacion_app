@@ -139,7 +139,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   documento_asociado: "Documento asociado",
   nueva_peticion_titulo: "Nueva petición de personal",
   nueva_peticion_descripcion:
-    "El alta reutiliza el contrato definitivo O2-09B y recibe catálogos y ejecutor por inyección.",
+    "Indique la necesidad de personal del centro y revise los datos antes de registrar la solicitud.",
   fase_pendiente: "Pendiente",
   fase_en_curso: "En tramitación",
   fase_espera: "Pendiente de otro departamento",

@@ -1,6 +1,8 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
+import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+  ...MENSAJES_LLAMAMIENTO_ES,
   sobrelinea: "Contratación temporal · Solicitud del centro",
   titulo: "Nueva solicitud de contratación temporal",
   descripcion:

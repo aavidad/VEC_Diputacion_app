@@ -41,9 +41,10 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
-	sello       *selloConsultasContratacionTemporalDesarrollo
-	resolvedor  *resolvedorIdentidadDesarrollo
-	noCompuesta *capacidadNoCompuestaContratacionTemporalDesarrollo
+	sello                *selloConsultasContratacionTemporalDesarrollo
+	resolvedor           *resolvedorIdentidadDesarrollo
+	noCompuesta          *capacidadNoCompuestaContratacionTemporalDesarrollo
+	llamamientoCompuesto bool
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -246,6 +247,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	var seleccionReal httpinterno.EjecutorSeleccionLlamamiento = noCompuesta
+	var comunicacionReal http.Handler
+	if alta.postgresql.bolsa != nil {
+		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			AutoridadAlta:      alta.soporte,
@@ -263,7 +272,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			ConsultorDetalleRRHH: &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{
 				capacidadNoCompuestaContratacionTemporalDesarrollo: noCompuesta,
 			},
-			EjecutorSeleccion:               noCompuesta,
+			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: noCompuesta,
 			EjecutorPropuestaFormalizacion:  noCompuesta,
 			AutoridadCierreAdministrativo:   noCompuesta,
@@ -280,10 +289,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if comunicacionReal != nil {
+		// Solo se compone el registro local; aceptación/renuncia no se anuncian
+		// como disponibles mientras no exista su ejecución autorizada.
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroComunicacionLlamamiento, Manejador: comunicacionReal})
+	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:       sello,
-		resolvedor:  resolvedorDesarrollo,
-		noCompuesta: noCompuesta,
+		sello:                sello,
+		resolvedor:           resolvedorDesarrollo,
+		noCompuesta:          noCompuesta,
+		llamamientoCompuesto: comunicacionReal != nil,
 	}
 	var cierre sync.Once
 	cerrar := func() {
@@ -323,7 +338,8 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 	if capacidad.sello != a.sello || capacidad.ruta != ruta {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
-	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) {
+	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) &&
+		!(a.llamamientoCompuesto && ruta == httpinterno.RutaSeleccionLlamamiento) {
 		return a.noCompuesta.denegarRuta(ctx, ruta)
 	}
 	return nil
@@ -405,6 +421,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return true
 	}
 	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
 		r.URL.Path == httpinterno.RutaAltaSolicitudes ||
 		r.URL.Path == httpinterno.RutaPropuestaCobertura ||

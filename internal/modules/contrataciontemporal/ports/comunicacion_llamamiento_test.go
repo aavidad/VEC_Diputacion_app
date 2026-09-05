@@ -12,6 +12,38 @@ const (
 	claveResolverComunicacionPrueba = "118f47a6-5d2b-4c10-9a11-1234567890ab"
 )
 
+func TestComunicacionProbatoriaLocalNoAcreditaEntregaNiPlazo(t *testing.T) {
+	s := solicitudRegistrarComunicacionPrueba()
+	c := comunicacionProbatoriaPrueba(s)
+	c.Estado = ResultadoComunicacionLlamamientoLocal
+	c.RegistradaEn = c.EntregadaEn
+	c.EntregadaEn = time.Time{}
+	c.RespuestaHasta = time.Time{}
+	c.IntencionEnvioRef = "outbox:local"
+	if c.ValidarPara(s) != nil || !c.EsRegistroLocal() || c.EsReplayConfirmado() {
+		t.Fatal("registro local rechazado")
+	}
+	c.Estado = ResultadoComunicacionLlamamientoReplayLocal
+	if c.ValidarPara(s) != nil || !c.EsReplayConfirmado() {
+		t.Fatal("replay local rechazado")
+	}
+	for nombre, mutar := range map[string]func(*ComunicacionProbatoria){
+		"entrega":           func(c *ComunicacionProbatoria) { c.EntregadaEn = c.RegistradaEn },
+		"plazo":             func(c *ComunicacionProbatoria) { c.RespuestaHasta = c.RegistradaEn.Add(time.Hour) },
+		"sin_fecha":         func(c *ComunicacionProbatoria) { c.RegistradaEn = time.Time{} },
+		"sin_outbox":        func(c *ComunicacionProbatoria) { c.IntencionEnvioRef = "" },
+		"estado_probatorio": func(c *ComunicacionProbatoria) { c.Estado = ResultadoComunicacionLlamamientoConfirmado },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			alterada := c
+			mutar(&alterada)
+			if alterada.ValidarPara(s) == nil {
+				t.Fatal("registro local falseado aceptado")
+			}
+		})
+	}
+}
+
 func TestComunicacionProbatoriaExigePoliticaCanalPlazoYVersion(t *testing.T) {
 	solicitud := solicitudRegistrarComunicacionPrueba()
 	comunicacion := comunicacionProbatoriaPrueba(solicitud)

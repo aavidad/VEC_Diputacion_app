@@ -190,7 +190,9 @@ type registroComunicacionLlamamientoSalidaJSON struct {
 	ReciboRef         string `json:"recibo_ref"`
 	AuditoriaRef      string `json:"auditoria_ref"`
 	VersionResultante uint64 `json:"version_resultante"`
-	RespuestaHasta    string `json:"respuesta_hasta"`
+	RespuestaHasta    string `json:"respuesta_hasta,omitempty"`
+	RegistradaEn      string `json:"registrada_en,omitempty"`
+	IntencionEnvioRef string `json:"intencion_envio_ref,omitempty"`
 }
 
 func proyectarRegistroComunicacionLlamamiento(
@@ -204,17 +206,21 @@ func proyectarRegistroComunicacionLlamamiento(
 	if resultado.EsReplayConfirmado() {
 		estadoHTTP = http.StatusOK
 	}
-	return registroComunicacionLlamamientoSalidaJSON{
+	salida := registroComunicacionLlamamientoSalidaJSON{
 		Esquema:           EsquemaRegistroComunicacionLlamamiento,
 		EstadoLocal:       string(resultado.Estado),
 		ComunicacionRef:   resultado.ComunicacionRef,
 		ReciboRef:         resultado.ReciboRef,
 		AuditoriaRef:      resultado.AuditoriaRef,
 		VersionResultante: resultado.VersionResultante,
-		RespuestaHasta: resultado.RespuestaHasta.UTC().Format(
-			time.RFC3339Nano,
-		),
-	}, estadoHTTP, true
+	}
+	if resultado.EsRegistroLocal() {
+		salida.RegistradaEn = resultado.RegistradaEn.UTC().Format(time.RFC3339Nano)
+		salida.IntencionEnvioRef = resultado.IntencionEnvioRef
+	} else {
+		salida.RespuestaHasta = resultado.RespuestaHasta.UTC().Format(time.RFC3339Nano)
+	}
+	return salida, estadoHTTP, true
 }
 
 type envoltorioResolucionComunicacionLlamamiento struct {

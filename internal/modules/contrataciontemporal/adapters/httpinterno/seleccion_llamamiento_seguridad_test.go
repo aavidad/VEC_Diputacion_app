@@ -93,7 +93,7 @@ func TestManejadorSeleccionLlamamientoRechazaJSONNoCerradoONoCanonico(
 	t *testing.T,
 ) {
 	t.Parallel()
-	valida := `{"clave_idempotencia":"` +
+	valida := `{"expediente_ref":"expediente:http:001","version_esperada":6,"clave_idempotencia":"` +
 		claveSeleccionLlamamientoHTTPPrueba + `"}`
 	casos := []struct {
 		nombre string
@@ -102,6 +102,13 @@ func TestManejadorSeleccionLlamamientoRechazaJSONNoCerradoONoCanonico(
 	}{
 		{"vacio", "", http.StatusBadRequest},
 		{"objeto vacio", `{}`, http.StatusUnprocessableEntity},
+		{"sin expediente", `{"clave_idempotencia":"` + claveSeleccionLlamamientoHTTPPrueba + `"}`, http.StatusUnprocessableEntity},
+		{"version cero", strings.Replace(valida, `"version_esperada":6`, `"version_esperada":0`, 1), http.StatusUnprocessableEntity},
+		{"organizacion desde cliente", strings.TrimSuffix(valida, "}") + `,"organizacion_ref":"organizacion:ajena"}`, http.StatusBadRequest},
+		{"llamamiento desde cliente", strings.TrimSuffix(valida, "}") + `,"llamamiento_ref":"llamamiento:ajeno"}`, http.StatusBadRequest},
+		{"version llamamiento desde cliente", strings.TrimSuffix(valida, "}") + `,"version_llamamiento":1}`, http.StatusBadRequest},
+		{"version insegura", strings.Replace(valida, `"version_esperada":6`, `"version_esperada":9007199254740992`, 1), http.StatusUnprocessableEntity},
+		{"referencia invalida", strings.Replace(valida, "expediente:http:001", "../privado", 1), http.StatusUnprocessableEntity},
 		{"null", `null`, http.StatusBadRequest},
 		{"cadena", `"` + claveSeleccionLlamamientoHTTPPrueba + `"`, http.StatusBadRequest},
 		{"campo desconocido", `{"clave_idempotencia":"` + claveSeleccionLlamamientoHTTPPrueba + `","actor":"privado"}`, http.StatusBadRequest},
@@ -178,7 +185,7 @@ func TestManejadorSeleccionLlamamientoCanceladoTrasDecodificarNoInvocaNegocio(
 	t.Parallel()
 	ctx, cancelar := context.WithCancel(context.Background())
 	defer cancelar()
-	cuerpo := `{"clave_idempotencia":"` +
+	cuerpo := `{"expediente_ref":"expediente:http:001","version_esperada":6,"clave_idempotencia":"` +
 		claveSeleccionLlamamientoHTTPPrueba + `"}`
 	lector := &lectorCanceladorSeleccionLlamamiento{
 		lector: strings.NewReader(cuerpo), cancelar: cancelar,

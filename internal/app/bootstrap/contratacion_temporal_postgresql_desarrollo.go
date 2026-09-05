@@ -17,6 +17,7 @@ import (
 	gocose "github.com/veraison/go-cose"
 
 	"vec-diputacion-granada/config"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -74,19 +75,22 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 	claveHMACHuella     string
 	claveHMACSecreto    string
 	emisorID            string
+	audienciaConsumo    string
 	capacidad           confianzaatestacion.ClaveHMACCapacidadAtestacionV3
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion            *pgxpool.Pool
-	gobierno             *pgxpool.Pool
-	registroAutorizacion *pgxpool.Pool
-	confirmador          *pgxpool.Pool
-	lectorResultado      *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	candidaturas         ports.ResolutorCandidaturaAlta
-	transaccionAlta      ports.TransaccionAltasCandidata
-	proveedorMaterial    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	cerrarUnaVez         func()
+	ejecucion              *pgxpool.Pool
+	bolsa                  *pgxpool.Pool
+	gobierno               *pgxpool.Pool
+	registroAutorizacion   *pgxpool.Pool
+	confirmador            *pgxpool.Pool
+	lectorResultado        *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	candidaturas           ports.ResolutorCandidaturaAlta
+	transaccionAlta        ports.TransaccionAltasCandidata
+	proveedorMaterial      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
+	cerrarUnaVez           func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -195,6 +199,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	var cierre sync.Once
 	dependencias.cerrarUnaVez = func() {
 		cierre.Do(func() {
+			if dependencias.bolsa != nil {
+				dependencias.bolsa.Close()
+			}
 			if dependencias.lectorResultado != nil {
 				dependencias.lectorResultado.Cerrar()
 			}
@@ -250,6 +257,18 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	)
 	if err != nil {
 		return vacias, err
+	}
+	if configuracion.BolsaLlamamientosConfigurada() {
+		bolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.bolsa = bolsa
+		proveedorBolsa, err := nuevoProveedorMaterialBolsaDesarrollo(ctx, gobierno, material, soporte, reloj)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.proveedorMaterialBolsa = proveedorBolsa
 	}
 	transaccion, err := postgrescontratacion.NuevaTransaccionAltasPostgreSQLCandidata(
 		ejecucion, proveedor,
@@ -377,6 +396,7 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolGobiernoPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolConfirmadorPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolEjecucionBolsaLlamamientosDesarrollo &&
 			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
@@ -486,6 +506,7 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		claveHMACOrden: 1, claveHMACRevision: 1, claveHMACHuella: huellaGobierno,
 		claveHMACSecreto: hex.EncodeToString(huellaSecreto[:]),
 		emisorID:         emisorID, capacidad: capacidad,
+		audienciaConsumo: audienciaConsumoAltaContratacionTemporal,
 	}, nil
 }
 
@@ -543,7 +564,7 @@ func prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 		       pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		       'acto:ct:desarrollo:clave-capacidad:'`,
 		material.claveHMACSecreto, material.claveHMAC, material.claveHMACHuella,
-		material.emisorID, audienciaConsumoAltaContratacionTemporal,
+		material.emisorID, material.audienciaConsumo,
 		material.validaDesde, material.validaHasta,
 	).Scan(&material.claveHMACID, &claveHMACVersion, &claveHMACRevision)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -601,9 +622,12 @@ func prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 			SELECT orden FROM vec_autorizacion_atestada_v3.puntero_clave_emision
 			 WHERE clave_id=$1 AND version=$2
 			   AND orden=(SELECT max(orden) FROM
-			    vec_autorizacion_atestada_v3.puntero_clave_emision
-			    WHERE establecida_en <= pg_catalog.statement_timestamp())`,
-			material.claveHMACID, claveHMACVersion,
+			    vec_autorizacion_atestada_v3.puntero_clave_emision p
+			    JOIN vec_autorizacion_atestada_v3.clave_capacidad_version k
+			      ON (k.clave_id,k.version)=(p.clave_id,p.version)
+			    WHERE p.establecida_en <= pg_catalog.statement_timestamp()
+			      AND k.audiencia_consumo=$3)`,
+			material.claveHMACID, claveHMACVersion, material.audienciaConsumo,
 		).Scan(&orden)
 		if err != nil {
 			return errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -658,7 +682,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo=$1)
+		    AND c.audiencia_consumo IN ($1,$3))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -683,6 +707,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND r.audiencia_despliegue=$2)`,
 		audienciaConsumoAltaContratacionTemporal,
 		audienciaAtestacionContratacionTemporalDesarrollo,
+		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 	).Scan(&propio)
 	return propio, err
 }
@@ -706,7 +731,7 @@ func reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(
 	}
 	capacidad, err := confianzaatestacion.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(
 		material.claveHMACID, material.claveHMACVersion, material.claveHMAC,
-		material.emisorID, audienciaConsumoAltaContratacionTemporal,
+		material.emisorID, material.audienciaConsumo,
 		confianzaatestacion.EstadoClaveHMACCapacidadAtestacionV3Emision,
 		material.validaDesde, material.validaHasta, time.Time{},
 		material.claveHMACRevision, material.claveHMACHuella,
@@ -819,7 +844,9 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 	material *materialAtestacionContratacionTemporalDesarrollo,
 ) error {
 	if ctx == nil || pool == nil || material == nil ||
-		len(material.claveHMAC) == 0 || len(material.spki) == 0 {
+		len(material.claveHMAC) == 0 || len(material.spki) == 0 ||
+		(material.audienciaConsumo != audienciaConsumoAltaContratacionTemporal &&
+			material.audienciaConsumo != puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	conexion, err := pool.Acquire(ctx)
@@ -892,7 +919,7 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING`,
 			[]any{material.claveHMACID, material.claveHMACVersion, material.claveHMACRevision,
 				material.claveHMACHuella, material.claveHMAC, material.claveHMACSecreto,
-				material.emisorID, audienciaConsumoAltaContratacionTemporal,
+				material.emisorID, material.audienciaConsumo,
 				material.validaDesde, material.validaHasta, actoClaveHMAC}},
 		{`INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision
 		  (orden,clave_id,version,establecida_en,acto_ref)
@@ -961,7 +988,7 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		 WHERE orden=$22 AND clave_id=$1 AND version=$2)`,
 		material.claveHMACID, material.claveHMACVersion, material.claveHMACRevision,
 		material.claveHMACHuella, material.claveHMAC, material.claveHMACSecreto,
-		material.emisorID, audienciaConsumoAltaContratacionTemporal,
+		material.emisorID, material.audienciaConsumo,
 		material.validaDesde, material.validaHasta,
 		material.claveID, material.claveVersion, material.spki, material.spkiHuella,
 		confianzaatestacion.SuiteAtestacionAutorizacionV3COSEEdDSA,

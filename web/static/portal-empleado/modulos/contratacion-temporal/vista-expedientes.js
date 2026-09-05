@@ -10,6 +10,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -282,6 +283,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   asignacionDisponible = false,
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
+  llamamientoDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -332,7 +334,9 @@ export function renderizarModuloContratacionTemporal(estado, {
     <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje)}"
       data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
       aria-live="polite">${escaparHTML(t(estado.mensaje_clave))}</div>
-    <div class="ct-exp-contenido">${contenido}</div>
+    <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
+      && ["alta", "cuadro", "expediente"].includes(estado.vista)
+      ? '<div data-ct-exp-llamamiento></div>' : ""}</div>
   </section>`;
 }
 
@@ -358,6 +362,7 @@ export async function montarModuloContratacionTemporal({
   alta = null,
   analisis = null,
   fiscalizacion = null,
+  llamamiento = null,
   mensajes = {},
   anunciar = () => {},
   confirmarOperacion = () => false,
@@ -387,6 +392,11 @@ export async function montarModuloContratacionTemporal({
     && typeof fiscalizacion.cliente?.registrarResultadoFiscalizacion === "function"
     ? fiscalizacion.cliente : null;
   const fiscalizacionDisponible = clienteFiscalizacion !== null;
+  const clienteLlamamiento = llamamiento?.cliente ?? clienteFiscalizacion
+    ?? composicionAnalisis?.cliente;
+  const llamamientoDisponible = typeof clienteLlamamiento?.seleccionarLlamamiento === "function"
+    && typeof clienteLlamamiento?.registrarComunicacionLlamamiento === "function";
+  let desmontarLlamamiento = null;
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
@@ -485,6 +495,8 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarAsignacion() {
+    desmontarLlamamiento?.();
+    desmontarLlamamiento = null;
     if (typeof desmontarFiscalizacion === "function") desmontarFiscalizacion();
     desmontarFiscalizacion = null;
     if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
@@ -509,6 +521,14 @@ export async function montarModuloContratacionTemporal({
         locale,
         zonaHoraria,
         anunciar,
+        alConfirmar: (recibo) => {
+          if (recibo.resultado !== "desfavorable") {
+            montarLlamamiento({
+              expediente_ref: recibo.expediente_ref,
+              version_esperada: recibo.version_resultante,
+            });
+          }
+        },
       });
       return true;
     } catch {
@@ -524,6 +544,20 @@ export async function montarModuloContratacionTemporal({
       fase_clave: "informe_juridico",
       informe_ref: recibo.informe_ref,
     }));
+  }
+
+  function montarLlamamiento(contexto = null) {
+    if (!montada || !llamamientoDisponible) return;
+    if (desmontarLlamamiento !== null) {
+      if (contexto !== null) desmontarLlamamiento.actualizarContexto(contexto);
+      return;
+    }
+    const contenedor = raiz.querySelector("[data-ct-exp-llamamiento]");
+    if (!contenedor) return;
+    desmontarLlamamiento = montarFormularioLlamamiento({
+      raiz: contenedor, cliente: clienteLlamamiento, contexto,
+      confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+    });
   }
 
   function montarInformeDesdeAsignacion(recibo) {
@@ -739,8 +773,10 @@ export async function montarModuloContratacionTemporal({
       asignacionDisponible,
       informeJuridicoDisponible,
       fiscalizacionDisponible,
+      llamamientoDisponible,
     });
     montarAltaSiProcede();
+    montarLlamamiento();
     if (montarAnalisisSiProcede() === false) {
       retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -929,6 +965,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
   }
   let montado = true;
   let desmontarFormulario = null;
+  let desmontarLlamamiento = null;
   raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-fiscalizacion-acceso-titulo">
     <header class="ct-exp-cabecera">
@@ -976,6 +1013,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
     }
     raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal">
       <div data-ct-exp-fiscalizacion></div>
+      <div data-ct-exp-llamamiento></div>
     </section>`;
     const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
     desmontarFormulario = montarFormularioFiscalizacion({
@@ -992,6 +1030,17 @@ export function montarModuloFiscalizacionContratacionTemporal({
       locale,
       zonaHoraria,
       anunciar,
+      alConfirmar: (recibo) => {
+        if (recibo.resultado === "desfavorable" || desmontarLlamamiento !== null
+          || typeof cliente.seleccionarLlamamiento !== "function"
+          || typeof cliente.registrarComunicacionLlamamiento !== "function") return;
+        desmontarLlamamiento = montarFormularioLlamamiento({
+          raiz: raiz.querySelector("[data-ct-exp-llamamiento]"), cliente,
+          contexto: { expediente_ref: recibo.expediente_ref,
+            version_esperada: recibo.version_resultante },
+          confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+        });
+      },
     });
   }
 
@@ -1001,6 +1050,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
       if (!montado) return;
       montado = false;
       if (typeof desmontarFormulario === "function") desmontarFormulario();
+      desmontarLlamamiento?.();
       raiz.removeEventListener("submit", manejarEnvio);
     },
   });

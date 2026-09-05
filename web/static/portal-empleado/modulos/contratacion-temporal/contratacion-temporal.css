@@ -511,6 +511,29 @@
   }
 }
 
+.ct-llamamiento {
+  margin-block: 20px;
+}
+
+.ct-llamamiento .ct-llamamiento-paso {
+  border-top: 1px solid var(--portal-borde);
+  padding-block: 16px;
+}
+
+.ct-llamamiento fieldset {
+  min-width: 0;
+}
+
+.ct-llamamiento summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding-block: 12px;
+}
+
+.ct-llamamiento input[readonly] {
+  border-style: dashed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ct-alta *,
   .ct-alta *::before,

@@ -117,3 +117,38 @@ func TestLoadCargaCincoConexionesPostgreSQLContratacionTemporal(t *testing.T) {
 		t.Fatalf("conexiones de cobertura = (%q, %q, %v)", confirmador, lector, err)
 	}
 }
+
+func TestBolsaLlamamientosSeConfiguraSeparadaSinExponerConexion(t *testing.T) {
+	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.BolsaLlamamientosConfigurada() {
+		t.Fatal("Bolsa no debe estar habilitada por defecto")
+	}
+	if _, err := c.DSNBolsaLlamamientosSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+		t.Fatal(err)
+	}
+	for _, repetida := range []string{"ejecutor", "gobierno", "registro", "confirmador", "lector"} {
+		c.dsnBolsaLlamamientos = " " + repetida + " "
+		if _, err := c.DSNBolsaLlamamientosSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
+			t.Fatal("conexión compartida aceptada")
+		}
+	}
+	const dsn = "postgres://bolsa:secreto-bolsa@localhost/vec"
+	t.Setenv(EnvBolsaLlamamientosDatabaseURL, " "+dsn+" ")
+	c.dsnBolsaLlamamientos = Load().ContratacionTemporalPostgreSQL.dsnBolsaLlamamientos
+	if obtenido, err := c.DSNBolsaLlamamientosSeparado(); err != nil || obtenido != dsn {
+		t.Fatal("conexión Bolsa no cargada")
+	}
+	if !c.BolsaLlamamientosConfigurada() {
+		t.Fatal("Bolsa no habilitada")
+	}
+	serializado, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(fmt.Sprintf("%+v %#v %s", c, c, serializado), "secreto-bolsa") {
+		t.Fatal("conexión expuesta")
+	}
+}

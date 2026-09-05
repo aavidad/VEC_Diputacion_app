@@ -60,7 +60,10 @@ func (e *ejecutorSeleccionLlamamientoHTTPPrueba) ultima() (
 
 func reciboSeleccionLlamamientoHTTPPrueba() application.DatosReciboSeleccionLlamamientoParaAdaptador {
 	return application.DatosReciboSeleccionLlamamientoParaAdaptador{
-		ReciboRef: "recibo:llamamiento:http:001",
+		ReciboRef:          "recibo:llamamiento:http:001",
+		OrganizacionRef:    "organizacion:http:001",
+		LlamamientoRef:     "llamamiento:http:001",
+		VersionLlamamiento: 1,
 		ConfirmadaEn: time.Date(
 			2026, 8, 31, 10, 0, 0, 123000000, time.UTC,
 		),
@@ -68,7 +71,7 @@ func reciboSeleccionLlamamientoHTTPPrueba() application.DatosReciboSeleccionLlam
 }
 
 func nuevaPeticionSeleccionLlamamientoHTTPPrueba() *http.Request {
-	cuerpo := `{"clave_idempotencia":"` +
+	cuerpo := `{"expediente_ref":"expediente:http:001","version_esperada":6,"clave_idempotencia":"` +
 		claveSeleccionLlamamientoHTTPPrueba + `"}`
 	peticion := httptest.NewRequest(
 		http.MethodPost,
@@ -109,17 +112,20 @@ func TestManejadorSeleccionLlamamientoPublicaReciboMinimoAutenticado(
 		EsquemaReciboSeleccionLlamamiento +
 		`","estado":"confirmado","recibo_ref":` +
 		`"recibo:llamamiento:http:001",` +
-		`"confirmada_en":"2026-08-31T10:00:00.123Z"}}`
+		`"confirmada_en":"2026-08-31T10:00:00.123Z",` +
+		`"organizacion_ref":"organizacion:http:001",` +
+		`"llamamiento_ref":"llamamiento:http:001","version_llamamiento":1}}`
 	if respuesta.Body.String() != esperado {
 		t.Fatalf("respuesta inesperada:\n%s\n!=\n%s", respuesta.Body, esperado)
 	}
 	entrada, existe := ejecutor.ultima()
 	if !existe || entrada.ClaveIdempotencia != claveSeleccionLlamamientoHTTPPrueba ||
+		entrada.ExpedienteRef != "expediente:http:001" || entrada.VersionEsperada != 6 ||
 		ejecutor.total() != 1 {
 		t.Fatalf("delegacion no exacta: entrada=%#v total=%d", entrada, ejecutor.total())
 	}
 	for _, privado := range []string{
-		"organizacion", "expediente", "correlacion", "llamamiento:privado",
+		"expediente", "correlacion", "seleccion_ref", "seudonimo", "llamamiento:privado",
 		"auditoria", "evento", "evidencia", "hmac", "orden_seleccionado",
 	} {
 		if strings.Contains(strings.ToLower(respuesta.Body.String()), privado) {
@@ -236,6 +242,18 @@ func TestManejadorSeleccionLlamamientoRechazaProyeccionNoPublicable(t *testing.T
 		{"recibo privado invalido", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
 			r.ReciboRef = "persona@example.invalid"
 		}},
+		{"organizacion invalida", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
+			r.OrganizacionRef = ""
+		}},
+		{"llamamiento invalido", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
+			r.LlamamientoRef = "persona@example.invalid"
+		}},
+		{"version ausente", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
+			r.VersionLlamamiento = 0
+		}},
+		{"version no inicial", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
+			r.VersionLlamamiento = 2
+		}},
 		{"instante no canonico", func(r *application.DatosReciboSeleccionLlamamientoParaAdaptador) {
 			r.ConfirmadaEn = r.ConfirmadaEn.In(time.FixedZone("privada", 3600))
 		}},
@@ -277,7 +295,8 @@ func TestManejadorSeleccionLlamamientoRechazaDependenciasNulas(t *testing.T) {
 		}
 	}
 	tipo := reflect.TypeOf(application.SolicitudSeleccionLlamamiento{})
-	if tipo.NumField() != 1 || tipo.Field(0).Name != "ClaveIdempotencia" {
+	if tipo.NumField() != 3 || tipo.Field(0).Name != "ExpedienteRef" ||
+		tipo.Field(1).Name != "VersionEsperada" || tipo.Field(2).Name != "ClaveIdempotencia" {
 		t.Fatalf("entrada permite autoridad: %v", tipo)
 	}
 	metodo, existe := reflect.TypeOf((*EjecutorSeleccionLlamamiento)(nil)).Elem().MethodByName(
@@ -285,8 +304,11 @@ func TestManejadorSeleccionLlamamientoRechazaDependenciasNulas(t *testing.T) {
 	)
 	tipoProyeccion := reflect.TypeOf(application.DatosReciboSeleccionLlamamientoParaAdaptador{})
 	if !existe || metodo.Type.NumOut() != 2 || metodo.Type.Out(0) != tipoProyeccion ||
-		tipoProyeccion.NumField() != 2 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
-		tipoProyeccion.Field(1).Name != "ConfirmadaEn" {
+		tipoProyeccion.NumField() != 5 || tipoProyeccion.Field(0).Name != "ReciboRef" ||
+		tipoProyeccion.Field(1).Name != "ConfirmadaEn" ||
+		tipoProyeccion.Field(2).Name != "OrganizacionRef" ||
+		tipoProyeccion.Field(3).Name != "LlamamientoRef" ||
+		tipoProyeccion.Field(4).Name != "VersionLlamamiento" {
 		t.Fatalf("HTTP no exige la proyeccion de application: %v", metodo.Type)
 	}
 }

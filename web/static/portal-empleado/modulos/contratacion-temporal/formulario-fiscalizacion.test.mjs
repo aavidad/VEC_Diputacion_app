@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { renderizarModuloContratacionTemporal,
+  montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
@@ -94,6 +95,44 @@ function montar(raiz, cliente, extras = {}) {
     ...extras,
   });
 }
+
+test("entrega el recibo validado a la continuación sin ocultarlo si falla el montaje", async () => {
+  const raiz = raizFalsa();
+  let siguiente;
+  montar(raiz, { registrarResultadoFiscalizacion: async () => recibo("favorable") }, {
+    alConfirmar: (resultado) => { siguiente = resultado; throw new Error("montaje"); },
+  });
+  await raiz.enviar("favorable", "");
+  assert.equal(siguiente.version_resultante, 6);
+  assert.equal(siguiente.resultado, "favorable");
+  assert.match(raiz.innerHTML, /data-ct-fiscalizacion-recibo/u);
+});
+
+test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo", async () => {
+  const raiz = raizFalsa();
+  const fiscalizacion = raizFalsa();
+  const llamamiento = raizFalsa();
+  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
+    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
+  const modulo = montarModuloFiscalizacionContratacionTemporal({
+    raiz, cliente: {
+      registrarResultadoFiscalizacion: async () => recibo("favorable"),
+      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
+    },
+    confirmarOperacion: () => true,
+  });
+  const formulario = {
+    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "5" }) },
+    closest() { return this; }, checkValidity() { return true; },
+  };
+  raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
+  await fiscalizacion.enviar("favorable", "");
+  assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
+  assert.match(llamamiento.innerHTML, /Datos enlazados desde el recibo/u);
+  assert.match(llamamiento.innerHTML, /value="6"/u);
+  modulo.desmontar();
+  assert.equal(llamamiento.eventos.size, 0);
+});
 
 test("al elegir favorable elimina y bloquea observaciones previas", () => {
   const raiz = raizFalsa();

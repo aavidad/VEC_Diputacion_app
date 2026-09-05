@@ -14,6 +14,7 @@ import { crearAsignacionClienteHTTP, RUTA_ASIGNACION_CONTRATACION_TEMPORAL } fro
 import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
+import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO, prefijoErrorLlamamiento, conflictoLlamamientoValido } from "./cliente-http-llamamiento.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -27,6 +28,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     resultadosFiscalizacion: RUTA_RESULTADOS_FISCALIZACION,
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
+    ...RUTAS_LLAMAMIENTO,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -408,7 +410,7 @@ function claveI18nValida(ruta, codigo, clave) {
       "servicio_no_disponible",
     ].includes(codigo);
   }
-  const prefijo = ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
+  const prefijo = prefijoErrorLlamamiento(ruta) ?? (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
     ? "api.contratacion_temporal.alta.error."
     : ruta === RUTA_ASIGNACION_CONTRATACION_TEMPORAL
       ? "api.contratacion_temporal.asignacion.error."
@@ -417,11 +419,14 @@ function claveI18nValida(ruta, codigo, clave) {
     : ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH
       || ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH
       ? "api.contratacion_temporal.consulta_rrhh.error."
-      : "api.contratacion_temporal.cobertura.error.";
+      : "api.contratacion_temporal.cobertura.error.");
   return clave === `${prefijo}${codigo}`;
 }
 
 function codigoValidoParaRuta(ruta, estado, codigo) {
+  if (prefijoErrorLlamamiento(ruta) && estado === 409) {
+    return conflictoLlamamientoValido(ruta, codigo);
+  }
   if (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.resultadoCobertura) {
     return CODIGOS_RESULTADO_COBERTURA_POR_ESTADO
       .get(estado)?.has(codigo) === true;
@@ -797,6 +802,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
+    ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });

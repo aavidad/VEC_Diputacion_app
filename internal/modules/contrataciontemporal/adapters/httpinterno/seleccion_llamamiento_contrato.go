@@ -22,6 +22,8 @@ var errCanonSeleccionLlamamientoInvalido = errors.New(
 )
 
 type seleccionLlamamientoEntradaJSON struct {
+	ExpedienteRef     string `json:"expediente_ref"`
+	VersionEsperada   uint64 `json:"version_esperada"`
 	ClaveIdempotencia string `json:"clave_idempotencia"`
 }
 
@@ -44,7 +46,9 @@ func seleccionLlamamientoDesdePeticion(
 		return seleccionLlamamientoEntradaJSON{},
 			errCanonSeleccionLlamamientoInvalido
 	}
-	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) {
+	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
+		!domain.ReferenciaOpacaValida(entrada.ExpedienteRef) ||
+		entrada.VersionEsperada == 0 || entrada.VersionEsperada > 9007199254740991 {
 		return seleccionLlamamientoEntradaJSON{},
 			errContenidoCoberturaNoValido
 	}
@@ -55,27 +59,37 @@ type envoltorioReciboSeleccionLlamamiento struct {
 	Data reciboSeleccionLlamamientoJSON `json:"data"`
 }
 
-// reciboSeleccionLlamamientoJSON omite organización, expediente, correlación,
-// selección seudonimizada, posición, auditoría, evento y toda evidencia.
+// reciboSeleccionLlamamientoJSON publica solo las referencias necesarias para
+// continuar la comunicación. Omite expediente, correlación, selección
+// seudonimizada, posición, auditoría, evento y toda evidencia criptográfica.
 type reciboSeleccionLlamamientoJSON struct {
-	Esquema      string `json:"esquema"`
-	Estado       string `json:"estado"`
-	ReciboRef    string `json:"recibo_ref"`
-	ConfirmadaEn string `json:"confirmada_en"`
+	Esquema            string `json:"esquema"`
+	Estado             string `json:"estado"`
+	ReciboRef          string `json:"recibo_ref"`
+	ConfirmadaEn       string `json:"confirmada_en"`
+	OrganizacionRef    string `json:"organizacion_ref"`
+	LlamamientoRef     string `json:"llamamiento_ref"`
+	VersionLlamamiento uint64 `json:"version_llamamiento"`
 }
 
 func proyectarReciboSeleccionLlamamiento(
 	recibo application.DatosReciboSeleccionLlamamientoParaAdaptador,
 ) (reciboSeleccionLlamamientoJSON, bool) {
 	if !domain.ReferenciaOpacaValida(recibo.ReciboRef) ||
+		!domain.ReferenciaOpacaValida(recibo.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(recibo.LlamamientoRef) ||
+		recibo.VersionLlamamiento != 1 ||
 		!domain.InstanteUTCCanonico(recibo.ConfirmadaEn) {
 		return reciboSeleccionLlamamientoJSON{}, false
 	}
 	return reciboSeleccionLlamamientoJSON{
-		Esquema:      EsquemaReciboSeleccionLlamamiento,
-		Estado:       "confirmado",
-		ReciboRef:    recibo.ReciboRef,
-		ConfirmadaEn: recibo.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
+		Esquema:            EsquemaReciboSeleccionLlamamiento,
+		Estado:             "confirmado",
+		ReciboRef:          recibo.ReciboRef,
+		ConfirmadaEn:       recibo.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
+		OrganizacionRef:    recibo.OrganizacionRef,
+		LlamamientoRef:     recibo.LlamamientoRef,
+		VersionLlamamiento: recibo.VersionLlamamiento,
 	}, true
 }
 
