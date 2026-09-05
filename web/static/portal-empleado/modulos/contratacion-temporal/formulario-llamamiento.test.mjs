@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import {
+  montarModuloContratacionTemporal, renderizarModuloContratacionTemporal,
+} from "./vista-expedientes.js";
 
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 const EXPEDIENTE = "expediente:ct:sintetico:001";
@@ -58,6 +60,108 @@ function montar(raiz, cliente = {}, extras = {}) {
   });
 }
 
+function estadoSeleccionado(expedienteRef = EXPEDIENTE) {
+  return {
+    vista: "expediente", carga: "listo", expediente_ref: expedienteRef,
+    cuadro: { demostracion: false, expedientes: [
+      { expediente_ref: expedienteRef, version: 6, fase_clave: "fiscalizacion" },
+    ] },
+    expediente: {
+      demostracion: false, expediente_ref: expedienteRef, version: 6,
+      numero_visible: "CT-SINTETICO-001", cabecera: [], fases: [], tareas: [],
+    },
+    tipo_mensaje: "informacion", mensaje_clave: "estado_expediente_listo",
+    ocupado: false, actualizacion_pendiente: false, resultado_indeterminado: false,
+  };
+}
+
+async function montarExpedienteSeleccionado(inicial) {
+  let estado = inicial, html = "", formulario;
+  let peticiones = 0;
+  const eventos = new Map();
+  const raiz = {
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn),
+    removeEventListener: (tipo) => eventos.delete(tipo),
+    contains: () => true,
+    get innerHTML() { return html; },
+    set innerHTML(valor) { html = valor; formulario = raizPrueba(); },
+    querySelector: (selector) => selector === "[data-ct-exp-llamamiento]"
+      && html.includes("data-ct-exp-llamamiento") ? formulario : null,
+  };
+  const modulo = await montarModuloContratacionTemporal({
+    raiz,
+    presentador: {
+      obtenerEstado: () => estado,
+      cargar: async () => estado,
+      async seleccionarExpediente(referencia) { estado = estadoSeleccionado(referencia); },
+    },
+    llamamiento: { cliente: {
+      seleccionarLlamamiento: async () => { peticiones += 1; return recibo; },
+      registrarComunicacionLlamamiento: async () => { peticiones += 1; },
+    } },
+  });
+  return {
+    formulario: () => formulario,
+    peticiones: () => peticiones,
+    desmontar: modulo.desmontar,
+    abrir: (referencia) => eventos.get("click")({
+      target: { closest: (selector) => selector === "[data-ct-exp-abrir]"
+        ? { dataset: { ctExpAbrir: referencia } } : null },
+      preventDefault() {},
+    }),
+  };
+}
+
+test("el expediente fiscalizado seleccionado rellena el formulario existente sin POST ni clave automática", async () => {
+  const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
+  const html = montaje.formulario().innerHTML;
+  assert.match(html, /Datos del expediente fiscalizado/u);
+  assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:001"/u);
+  assert.match(html, /id="ct-llamamiento-seleccion-version_esperada"[^>]*value="6"/u);
+  assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
+  assert.equal(montaje.peticiones(), 0);
+  montaje.desmontar();
+});
+
+test("no enlaza un detalle sin cargar, desfasado, de otro expediente o no fiscalizado", async () => {
+  const casos = [
+    (e) => { e.carga = "cargando"; },
+    (e) => { e.carga = "error"; },
+    (e) => { e.expediente = null; },
+    (e) => { e.expediente_ref = "expediente:otro"; },
+    (e) => { e.cuadro.expedientes[0].expediente_ref = "expediente:otro"; },
+    (e) => { e.cuadro.expedientes[0].version = 5; },
+    (e) => { e.cuadro.expedientes[0].fase_clave = "subsanacion_unidad"; },
+    (e) => { e.actualizacion_pendiente = true; },
+    (e) => { e.expediente.demostracion = true; },
+  ];
+  for (const modificar of casos) {
+    const estado = estadoSeleccionado();
+    modificar(estado);
+    const montaje = await montarExpedienteSeleccionado(estado);
+    assert.match(montaje.formulario().innerHTML,
+      /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u);
+    assert.doesNotMatch(montaje.formulario().innerHTML, /Datos del expediente fiscalizado/u);
+    assert.equal(montaje.peticiones(), 0);
+    montaje.desmontar();
+  }
+});
+
+test("abrir otro expediente no reutiliza referencias ni clave del formulario anterior", async () => {
+  const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
+  const anterior = montaje.formulario();
+  anterior.preparar("seleccion", seleccion());
+  await montaje.abrir("expediente:ct:sintetico:002");
+  const actual = montaje.formulario();
+  assert.notEqual(actual, anterior);
+  assert.equal(anterior.eventos.size, 0);
+  assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value="expediente:ct:sintetico:002"/u);
+  assert.match(actual.innerHTML, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
+  assert.doesNotMatch(actual.innerHTML, /expediente:ct:sintetico:001/u);
+  assert.equal(montaje.peticiones(), 0);
+  montaje.desmontar();
+});
+
 test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {
   const recursos = [
     "cliente-http-llamamiento.js", "contrato-llamamiento.js",
@@ -81,7 +185,7 @@ test("enlaza fiscalización y exige confirmación sin inventar candidato ni auto
   const desmontar = montar(raiz, { seleccionarLlamamiento: () => { llamadas += 1; } },
     { confirmarOperacion: () => false });
   assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6 }), true);
-  assert.match(raiz.innerHTML, /Datos enlazados desde el recibo/u);
+  assert.match(raiz.innerHTML, /Datos del expediente fiscalizado/u);
   assert.match(raiz.innerHTML, /value="expediente:ct:sintetico:001"/u);
   await raiz.enviar("seleccion", seleccion());
   assert.equal(llamadas, 0);

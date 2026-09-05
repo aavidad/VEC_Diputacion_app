@@ -6,7 +6,7 @@ export const MENSAJES_LLAMAMIENTO_ES = Object.freeze({
   llamamiento_alcance: "Fuente sintética de desarrollo. No se elige una persona arbitraria ni se envía correo real.",
   llamamiento_contexto: "Expediente de trabajo",
   llamamiento_contexto_manual: "Introduzca la referencia y versión del expediente fiscalizado, o recupere una operación con sus datos originales.",
-  llamamiento_contexto_enlazado: "Datos enlazados desde el recibo de fiscalización. El servidor vuelve a comprobar su vigencia.",
+  llamamiento_contexto_enlazado: "Datos del expediente fiscalizado. El servidor vuelve a comprobar su vigencia.",
   llamamiento_seleccion: "1. Iniciar llamamiento",
   llamamiento_comunicacion: "2. Registrar comunicación",
   llamamiento_expediente_ref: "Referencia del expediente",

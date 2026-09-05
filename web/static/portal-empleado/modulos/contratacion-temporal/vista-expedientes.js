@@ -239,6 +239,25 @@ function renderizarAlta(
     </section>`}`;
 }
 
+function contextoLlamamientoDesdeEstado(estado) {
+  const expediente = estado?.expediente;
+  if (estado?.vista !== "expediente" || estado.carga !== "listo"
+    || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
+    || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
+    || estado.expediente_ref !== expediente.expediente_ref
+    || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === expediente.expediente_ref
+  ));
+  if (resumen?.fase_clave !== "fiscalizacion"
+    || resumen.version !== expediente.version) return null;
+  // Es contexto del formulario; el servidor decide vigencia y permisos al enviar.
+  return Object.freeze({
+    expediente_ref: expediente.expediente_ref,
+    version_esperada: expediente.version,
+  });
+}
+
 function contextoFiscalizacionDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.expediente === null
     || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
@@ -776,7 +795,7 @@ export async function montarModuloContratacionTemporal({
       llamamientoDisponible,
     });
     montarAltaSiProcede();
-    montarLlamamiento();
+    montarLlamamiento(contextoLlamamientoDesdeEstado(estado));
     if (montarAnalisisSiProcede() === false) {
       retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {

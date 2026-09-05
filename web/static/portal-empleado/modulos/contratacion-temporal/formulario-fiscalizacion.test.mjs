@@ -128,7 +128,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
   assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
-  assert.match(llamamiento.innerHTML, /Datos enlazados desde el recibo/u);
+  assert.match(llamamiento.innerHTML, /Datos del expediente fiscalizado/u);
   assert.match(llamamiento.innerHTML, /value="6"/u);
   modulo.desmontar();
   assert.equal(llamamiento.eventos.size, 0);

@@ -1,5 +1,8 @@
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
+  contexto_portal_titulo: "Portal interno",
+  contexto_portal_descripcion: "Identidad personal no mostrada",
+  contexto_portal_accesible: "Portal interno. Identidad personal no mostrada",
   acceso_borradores_disponible: "Borradores disponibles",
   acceso_borradores_denegado: "Sin permiso para gestionar borradores",
   acceso_borradores_error: "Servicio de borradores no disponible",

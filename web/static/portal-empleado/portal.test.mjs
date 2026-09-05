@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
@@ -9,7 +10,7 @@ import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-c
 import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
-import { MENSAJES_PORTAL_ES } from "./portal-i18n.js";
+import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
 
 const directorio = new URL("./", import.meta.url);
 const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
@@ -104,6 +105,79 @@ test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos"
   assert.match(javascript, /superficieBorradores\.obtenerAcceso\(\)/);
   assert.doesNotMatch(javascript, /resolverAcceso\(clave, estado\.fuenteLista\)/);
   assert.doesNotMatch(codigo, /María Pérez|García López|Auxiliar Administrativo|BOL-2026|CON-2026|DOC-[A-Z]{2}|20\/07\/2026/);
+});
+
+test("el 404 de Bolsa conserva su error y reintento sin atribuirlo a la identidad del portal", async () => {
+  const elemento = () => ({
+    textContent: "", atributos: {},
+    setAttribute(nombre, valor) { this.atributos[nombre] = valor; },
+  });
+  const avatar = elemento(), nombre = elemento(), perfil = elemento(), avisos = elemento();
+  const sesion = {
+    ...elemento(), dataset: { actorRef: "actor:anterior" },
+    querySelector: (selector) => ({ ".avatar": avatar, strong: nombre, small: perfil })[selector],
+  };
+  const estado = { fuenteLista: false, modoPresentacion: false, errorFuente: "" };
+  let cargasModulos = 0;
+  const fragmento = (inicio, fin) => javascript.slice(
+    javascript.indexOf(inicio), javascript.indexOf(fin, javascript.indexOf(inicio)),
+  );
+  const contexto = {
+    estado, DATOS_PANEL: { sesion: null }, API_PANEL_BOLSA: "/api/vec/bolsa/panel",
+    porId: () => sesion, traducirPortal,
+    document: { querySelector: (selector) => selector === ".aviso-presentacion" ? {} : avisos },
+    modoPresentacionSolicitado: () => false,
+    coordinadorModulos: { async cargarInterno() { cargasModulos += 1; } },
+    superficieBorradores: { comprobarDisponibilidad: async () => {} },
+    actualizarNavegacionModulos() {},
+    async fetch(ruta, opciones) {
+      assert.equal(ruta, "/api/vec/bolsa/panel");
+      assert.equal(opciones.credentials, "omit");
+      return { ok: false, status: 404 };
+    },
+    escaparHTML: (valor) => String(valor),
+    encabezadoVista: (...textos) => textos.join(" "),
+  };
+  const funciones = [
+    fragmento("function actualizarSesionVisible()", "async function cargarFuenteDatos()"),
+    fragmento("async function cargarFuenteDatos()", "function necesidadLlamamientoSeleccionada()"),
+    fragmento("function renderizarFuenteNoDisponible()", "function renderizarContratacionTemporalNoDisponible()"),
+  ].join("\n");
+  const bolsa = await runInNewContext(
+    funciones + "\ncargarFuenteDatos().then(() => renderizarFuenteNoDisponible());",
+    contexto,
+  );
+  assert.equal(cargasModulos, 1, "la carga modular sigue independiente del panel");
+  assert.equal(estado.fuenteLista, false);
+  assert.match(estado.errorFuente, /panel de Bolsa aún no está compuesta/u);
+  assert.match(bolsa, /Gestión de Bolsas no disponible/u);
+  assert.ok(bolsa.includes(estado.errorFuente));
+  assert.match(bolsa, /data-accion="recargar-fuente"/u);
+  assert.equal(nombre.textContent, MENSAJES_PORTAL_ES.contexto_portal_titulo);
+  assert.equal(perfil.textContent, MENSAJES_PORTAL_ES.contexto_portal_descripcion);
+  assert.equal(sesion.atributos["aria-label"], MENSAJES_PORTAL_ES.contexto_portal_accesible);
+  assert.equal(Object.hasOwn(sesion.dataset, "actorRef"), false);
+  assert.equal(avatar.textContent, "—");
+  assert.doesNotMatch(html, /Sesión no resuelta|La API interna debe identificar al usuario/u);
+  for (const texto of [nombre.textContent, perfil.textContent, sesion.atributos["aria-label"]]) {
+    assert.ok(html.includes(texto), "la cabecera inicial coincide con el catálogo i18n");
+  }
+  // Un panel válido conserva su contexto real y el tratamiento de avisos.
+  contexto.DATOS_PANEL = validarPanelBolsa(panelInternoReal());
+  contexto.presentadorPanelInterno = crearPresentadorPanelInterno({
+    claseEstado: () => "neutro", encabezadoVista: () => "",
+    escaparHTML: String, numero: String, tituloVista: String,
+    obtenerDatosPanel: () => contexto.DATOS_PANEL,
+  });
+  estado.fuenteLista = true;
+  runInNewContext("actualizarSesionVisible();", contexto);
+  assert.equal(avatar.textContent, "INT");
+  assert.equal(nombre.textContent, "Contexto interno autorizado");
+  assert.equal(perfil.textContent, "Ámbito: organización");
+  assert.equal(avisos.atributos["aria-label"], "Avisos no incluidos en el contrato del panel interno");
+  contexto.DATOS_PANEL = { sesion: null };
+  runInNewContext("actualizarSesionVisible();", contexto);
+  assert.equal(perfil.textContent, MENSAJES_PORTAL_ES.contexto_portal_descripcion);
 });
 
 test("el contrato real exige envelope canónico y rechaza una raíz raw", () => {

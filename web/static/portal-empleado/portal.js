@@ -283,11 +283,12 @@ function actualizarSesionVisible() {
   if (estado.fuenteLista && presentadorPanelInterno.actualizarContextoSesion({ avatar, nombre, perfil, avisos })) {
     return;
   }
+  // El fallo del panel de Bolsa no determina la identidad del portal.
   avatar.textContent = "—";
-  nombre.textContent = "Sesión no resuelta";
-  perfil.textContent = estado.errorFuente || "La API interna debe identificar al usuario";
+  nombre.textContent = traducirPortal("contexto_portal_titulo");
+  perfil.textContent = traducirPortal("contexto_portal_descripcion");
   delete sesion.dataset.actorRef;
-  sesion.setAttribute("aria-label", "Contexto de sesión no resuelto");
+  sesion.setAttribute("aria-label", traducirPortal("contexto_portal_accesible"));
   if (avisos) {
     avisos.textContent = "—";
     avisos.setAttribute("aria-label", "Avisos pendientes sin resolver");
