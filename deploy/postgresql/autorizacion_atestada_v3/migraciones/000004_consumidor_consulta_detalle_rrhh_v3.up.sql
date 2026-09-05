@@ -39,28 +39,44 @@ BEGIN
        AND c.contype = 'c'
        AND c.convalidated
        AND c.conkey = ARRAY[8]::smallint[];
+    -- Solo se admite la base histórica o su extensión nominal de Bolsa.
     IF v_definicion IS NULL
-       OR v_definicion <>
-          'CHECK (audiencia_consumo = ANY (ARRAY[''vec_contratacion_temporal.confirmar_alta_atestada.v1''::text, ''vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1''::text]))' THEN
+       OR v_definicion NOT IN (
+          'CHECK (audiencia_consumo = ANY (ARRAY[''vec_contratacion_temporal.confirmar_alta_atestada.v1''::text, ''vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1''::text]))',
+          'CHECK (audiencia_consumo = ANY (ARRAY[''vec_contratacion_temporal.confirmar_alta_atestada.v1''::text, ''vec_bolsa_llamamientos.confirmar_integracion_desarrollo.v1''::text, ''vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1''::text]))'
+       ) THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'gobierno de audiencias de consulta incompleto';
     END IF;
+
+    ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+        DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+    IF v_definicion =
+          'CHECK (audiencia_consumo = ANY (ARRAY[''vec_contratacion_temporal.confirmar_alta_atestada.v1''::text, ''vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1''::text]))' THEN
+        ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+            ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check
+            CHECK (audiencia_consumo IN (
+                'vec_contratacion_temporal.confirmar_alta_atestada.v1',
+                'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1',
+                'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'
+            )) NOT VALID;
+    ELSE
+        -- Conservar Bolsa sin habilitarla en instalaciones que no la tenían.
+        ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+            ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check
+            CHECK (audiencia_consumo IN (
+                'vec_contratacion_temporal.confirmar_alta_atestada.v1',
+                'vec_bolsa_llamamientos.confirmar_integracion_desarrollo.v1',
+                'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1',
+                'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'
+            )) NOT VALID;
+    END IF;
+    ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
+        VALIDATE CONSTRAINT
+            clave_capacidad_version_audiencia_consumo_check;
 END
 $prevalidacion$;
-
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
-    DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
-    ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check
-    CHECK (audiencia_consumo IN (
-        'vec_contratacion_temporal.confirmar_alta_atestada.v1',
-        'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1',
-        'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'
-    )) NOT VALID;
-ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version
-    VALIDATE CONSTRAINT
-        clave_capacidad_version_audiencia_consumo_check;
 
 CREATE FUNCTION
     vec_autorizacion_atestada_v3

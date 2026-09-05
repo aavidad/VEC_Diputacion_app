@@ -548,8 +548,13 @@ BEGIN
                    'expediente_version_integral'::regclass
                ),
            'UTF8'
-       )), 'hex') <>
-       'a6a567bbb0fc0a4ed392447088a6269ed39b1eb81bbb3d86922ffb8e458b389d'
+       )), 'hex') NOT IN (
+           'a6a567bbb0fc0a4ed392447088a6269ed39b1eb81bbb3d86922ffb8e458b389d',
+           -- CT-000052 puede estar instalada antes de activar la bandeja.
+           -- Solo cambian los CHECK de origen_version (informe/fiscalización)
+           -- y estado (incidencia). El resto del material es idéntico.
+           'ee42c3928369f50f0b1ca1a0a72ec4685edb745d085365e6ed493e98b0d01c35'
+       )
        OR EXISTS (
         SELECT 1
           FROM vec_contratacion_temporal.publicacion_version_rrhh

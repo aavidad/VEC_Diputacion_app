@@ -111,24 +111,68 @@ BEGIN
             MESSAGE = 'alta del resolutor RRHH rechazada';
     END IF;
 
-    IF (
-        SELECT count(*)
+    -- La resolución puede instalarse después de que existan conexiones
+    -- nominales de gobierno/proyección. No se retiran sus permisos ni se
+    -- conceden otros: solo se admiten LOGIN limitados, sin delegación.
+    -- Los grupos siguen sin pertenecer a otros roles ni otorgar membresías.
+    IF EXISTS (
+        SELECT 1
           FROM pg_catalog.pg_auth_members AS relacion
-         WHERE relacion.roleid = ANY (ARRAY[oid_proyector, oid_evaluador])
-            OR relacion.member = ANY (ARRAY[oid_proyector, oid_evaluador])
-            OR relacion.grantor = ANY (ARRAY[oid_proyector, oid_evaluador])
-    ) <> 0 OR NOT EXISTS (
+          JOIN pg_catalog.pg_roles AS miembro
+            ON miembro.oid = relacion.member
+         WHERE (
+             relacion.roleid = ANY (ARRAY[
+                 oid_propietario, oid_proyector, oid_evaluador
+             ])
+             OR relacion.member = ANY (ARRAY[
+                 oid_propietario, oid_proyector, oid_evaluador
+             ])
+             OR relacion.grantor = ANY (ARRAY[
+                 oid_propietario, oid_proyector, oid_evaluador
+             ])
+         ) AND NOT (
+             (
+                 relacion.roleid = oid_propietario
+                 AND relacion.member = oid_migrador
+                 AND relacion.grantor = 10
+                 AND NOT relacion.admin_option
+                 AND NOT relacion.inherit_option
+                 AND relacion.set_option
+             ) OR (
+                 relacion.roleid = ANY (ARRAY[
+                     oid_propietario, oid_proyector, oid_evaluador
+                 ])
+                 AND relacion.grantor = 10
+                 AND NOT relacion.admin_option
+                 AND miembro.rolcanlogin
+                 AND NOT miembro.rolsuper
+                 AND NOT miembro.rolcreatedb
+                 AND NOT miembro.rolcreaterole
+                 AND miembro.rolinherit
+                 AND NOT miembro.rolreplication
+                 AND NOT miembro.rolbypassrls
+                 AND NOT EXISTS (
+                     SELECT 1 FROM pg_catalog.pg_auth_members AS subordinada
+                      WHERE subordinada.roleid = miembro.oid
+                 )
+                 AND (
+                     (relacion.roleid = oid_propietario
+                      AND relacion.set_option)
+                     OR (relacion.roleid IN (oid_proyector, oid_evaluador)
+                         AND relacion.inherit_option)
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM pg_catalog.pg_db_role_setting AS ajuste
+                      WHERE ajuste.setrole = miembro.oid
+                 )
+             )
+         )
+    ) OR NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_authid
          WHERE oid = 10
            AND rolsuper IS TRUE
-    ) OR (
-        SELECT count(*)
-          FROM pg_catalog.pg_auth_members AS relacion
-         WHERE relacion.roleid = oid_propietario
-            OR relacion.member = oid_propietario
-            OR relacion.grantor = oid_propietario
-    ) <> 1 OR NOT EXISTS (
+    ) OR NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_auth_members
          WHERE roleid = oid_propietario
@@ -235,6 +279,23 @@ BEGIN
            oid_propietario, oid_proyector, 'EXECUTE'::text, false),
           ('vec_autorizacion.retirar_vinculacion_motivo_detalle_rrhh_v1(text,text,bigint,text,text,timestamp with time zone)',
            oid_propietario, oid_proyector, 'EXECUTE'::text, false)
+        -- Cobertura puede estar instalada antes que la bandeja. Se preservan
+        -- solo sus tres fachadas nominales, sin aceptar otras ACL adicionales.
+        UNION ALL
+        SELECT cobertura.objeto, oid_propietario, cobertura.destinatario,
+               'EXECUTE'::text, false
+          FROM (VALUES
+            ('vec_autorizacion.publicar_motivos_cobertura_v1(text,bigint,text,text,integer,text,text,timestamp with time zone,jsonb)',
+             oid_proyector),
+            ('vec_autorizacion.retirar_motivos_cobertura_v1(text,bigint,text,text,integer,text,text,text,timestamp with time zone)',
+             oid_proyector),
+            ('vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamp with time zone)',
+             oid_evaluador)
+          ) AS cobertura(objeto, destinatario)
+          JOIN pg_catalog.pg_proc AS funcion
+            ON funcion.oid = pg_catalog.to_regprocedure(cobertura.objeto)
+           AND funcion.proowner = oid_propietario
+           AND funcion.prosecdef
     ), diferencia AS (
         (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)
         UNION ALL

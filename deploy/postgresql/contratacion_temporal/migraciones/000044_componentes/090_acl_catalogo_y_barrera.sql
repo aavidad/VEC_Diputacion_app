@@ -512,7 +512,19 @@ BEGIN
                     pg_catalog.jsonb_build_array(
                         politica.polname, politica.polcmd::text,
                         politica.polpermissive,
-                        politica.polroles::text,
+                        (
+                            SELECT pg_catalog.jsonb_agg(
+                                CASE WHEN rol = 0 THEN 'PUBLIC'
+                                     ELSE rol::pg_catalog.regrole::text
+                                END
+                                ORDER BY (
+                                    CASE WHEN rol = 0 THEN 'PUBLIC'
+                                         ELSE rol::pg_catalog.regrole::text
+                                    END
+                                ) COLLATE "C"
+                            )
+                            FROM pg_catalog.unnest(politica.polroles) rol
+                        ),
                         pg_catalog.pg_get_expr(
                             politica.polqual, politica.polrelid, false
                         ),
@@ -679,7 +691,7 @@ BEGIN
        OR v_restricciones <> 10 OR v_indices <> 2
        OR v_disparadores <> 8
        OR v_huella <>
-          '709ccfca844e6147de7f81a9e633598cf7b350175d3ac339d612b67e929f955c'
+          'a01d3cdc140fac44d3db2073964644a6a031bc536ea0c93ed86908077b8b0a09'
        THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'catálogo del motor de consultas RRHH incompatible',

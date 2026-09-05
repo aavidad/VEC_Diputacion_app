@@ -356,6 +356,19 @@ CREATE FUNCTION vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(
           WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_'
             AND t.typtype IN ('c','d','e','m','r')
             AND pg_catalog.has_type_privilege(p_login_oid,t.oid,'USAGE')
+            -- PostgreSQL atribuye USAGE implícito al tipo fila de una tabla.
+            -- Sin ACL propia ni acceso a su esquema, no concede acceso a datos.
+            -- Los tipos independientes y cualquier concesión explícita siguen
+            -- rechazados, también si pertenecen a otro esquema cerrado.
+            AND NOT (
+              t.typtype='c' AND t.typacl IS NULL
+              AND NOT pg_catalog.has_schema_privilege(p_login_oid,n.oid,'USAGE')
+              AND EXISTS (
+                SELECT 1 FROM pg_catalog.pg_class relacion
+                 WHERE relacion.oid=t.typrelid
+                   AND relacion.relkind IN ('r','p','v','m','f')
+              )
+            )
        )
        AND NOT EXISTS (
          SELECT 1 FROM pg_catalog.pg_largeobject_metadata l

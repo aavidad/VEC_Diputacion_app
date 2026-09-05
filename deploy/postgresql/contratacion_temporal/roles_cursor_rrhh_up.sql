@@ -16,6 +16,7 @@ DECLARE
     v_funcion oid;
     v_identidad_migrador oid;
     v_identidad_propietario oid;
+    v_atestacion_propietario oid;
     v_propietario oid;
 BEGIN
     IF NOT EXISTS (
@@ -54,6 +55,19 @@ BEGIN
       INTO v_identidad_propietario
       FROM pg_catalog.pg_roles
      WHERE rolname = 'vec_identidad_sesiones_v1_propietario'
+       AND NOT rolcanlogin
+       AND NOT rolsuper
+       AND NOT rolcreatedb
+       AND NOT rolcreaterole
+       AND NOT rolinherit
+       AND NOT rolreplication
+       AND NOT rolbypassrls;
+    -- El núcleo V3 ya puede usar este mismo generador. No se retira ni se
+    -- concede su permiso aquí: solo se reconoce al propietario nominal exacto.
+    SELECT oid
+      INTO v_atestacion_propietario
+      FROM pg_catalog.pg_roles
+     WHERE rolname = 'vec_autorizacion_atestada_v3_propietario'
        AND NOT rolcanlogin
        AND NOT rolsuper
        AND NOT rolcreatedb
@@ -150,10 +164,11 @@ BEGIN
               AND privilegio.grantee
                     IS DISTINCT FROM funcion.proowner
               AND (
-                  v_identidad_propietario IS NULL
-                  OR privilegio.grantee
-                        IS DISTINCT FROM v_identidad_propietario
-                  OR privilegio.is_grantable
+                  privilegio.is_grantable
+                  OR (
+                      privilegio.grantee IS DISTINCT FROM v_identidad_propietario
+                      AND privilegio.grantee IS DISTINCT FROM v_atestacion_propietario
+                  )
               )
        ) THEN
         RAISE EXCEPTION USING
