@@ -1,314 +1,352 @@
-# Manual de usuario · Portal del Empleado — Gestión de Bolsas de Trabajo
-
-**Diputación de Granada · Ventanilla Electrónica del Empleado Público (VEC)**
-
-Versión del manual: 17 de julio de 2026.
-
----
-
-## 1. Qué es el Portal del Empleado
-
-El Portal del Empleado es la aplicación web unificada de la Diputación de
-Granada para la gestión interna de Recursos Humanos. Los distintos ámbitos
-funcionales (Bolsas de trabajo, Personal, Nóminas, Cronos, Dietas,
-Solicitudes y certificados) se presentan como módulos de un mismo portal:
-comparten identidad, datos, documentos y criterios de seguridad, y se van
-habilitando por fases.
-
-En la fase inicial está habilitado el módulo **Bolsas de trabajo**, que cubre
-el ciclo completo de una bolsa de empleo temporal: elaboración y publicación,
-llamamientos conforme a las bases y al Reglamento, contratos y ceses, motor de
-reglas, consulta para candidatos, estadísticas, generación documental,
-comunicaciones y auditoría.
-
-Este manual describe cada pantalla del módulo y la forma correcta de operar
-con él. Las imágenes proceden del modo de demostración del portal. Los títulos,
-categorías, fechas de publicación y referencias BOP de las convocatorias son
-datos públicos reales; las personas, expedientes y actuaciones privadas son
-sintéticos. La franja superior amarilla identifica este alcance. En la
-operación real esa franja no existe y la información procede de las API
-autorizadas.
-
-> **Vigencia visual:** las capturas corresponden al corte del 17 de julio de
-> 2026. La web ha cambiado desde entonces y las imágenes se conservan como
-> referencia histórica, no como evidencia del corte vigente. Se regenerarán
-> desde la composición real, sin datos personales, cuando se cierre la web,
-> conforme al
-> [inventario de capturas pendientes](../portal_vec/inventario_capturas_pendientes_cierre_web_2026-07-30.md).
-
-## 2. Acceso y estructura de la pantalla
-
-El portal se abre desde el navegador corporativo, en la dirección interna
-`/portal-empleado/`. La sesión se resuelve en el servidor: la cabecera
-muestra en todo momento el nombre y el perfil efectivo de la persona
-conectada (en las imágenes, «María Pérez · Perfil de presentación RRHH»).
-
-Todas las pantallas comparten la misma estructura:
-
-- **Menú lateral izquierdo**: acceso a la portada del portal, a los módulos
-  y, dentro de Bolsas de trabajo, a los diez bloques de gestión numerados.
-  El bloque activo queda resaltado.
-- **Cabecera**: migas de navegación (por ejemplo «Portal del Empleado →
-  Bolsas de trabajo → Llamamientos»), título de la vista y los controles
-  **A+** (aumento de texto), **Contraste** (alto contraste), **Avisos** (con
-  el número de pendientes) y la identidad de la sesión.
-- **Zona de contenido**: paneles, tablas e indicadores propios de cada vista.
-- **Pie**: enlaces permanentes a Protección de datos, Accesibilidad y Ayuda.
-
-La navegación funciona con ratón y con teclado; existe un salto directo al
-contenido para lectores de pantalla y las tablas anchas se desplazan dentro
-de su propio marco sin romper la página.
-
-## 3. Portada del portal
-
-![Portada del Portal del Empleado](capturas/01_portada.png)
-
-La portada presenta los módulos del portal como tarjetas. En la fase inicial
-solo **Bolsas de trabajo** aparece habilitado, con el botón **Entrar**; el
-resto (Personal, Nóminas, Cronos, Dietas, Solicitudes y certificados,
-Méritos y formación, Comunicaciones) se muestran como «No habilitado» hasta
-sus fases correspondientes.
-
-La franja informativa recuerda el carácter del acceso: este portal es la
-zona interna de RRHH. La zona externa de aspirantes tendrá su propia sesión,
-permisos y proyección de datos, y nunca mostrará expedientes de terceras
-personas.
-
-## 4. Cuadro de mando
-
-![Cuadro de mando de Bolsas](capturas/02_cuadro_mando.png)
-
-Es la vista de situación del módulo y la primera que conviene abrir cada
-mañana. Ofrece, de arriba abajo:
-
-- **Cinco indicadores principales**: bolsas activas, candidatos disponibles,
-  llamamientos pendientes, contratos activos y cobertura media. Cada tarjeta
-  enlaza con su detalle.
-- **Bolsas destacadas**: tabla con categoría, número de integrantes,
-  candidaturas en llamamiento y barra de cobertura de cada bolsa, con acceso
-  directo a cada expediente mediante **Abrir**.
-- **Llamamientos próximos (7 días)**: agenda con fecha, bolsa, número de
-  llamamiento y estado.
-- **Actividad reciente**: últimos actos registrados (llamamientos
-  preparados, contratos, ceses, reincorporaciones) con autor, fecha y hora,
-  enlazados con la trazabilidad completa.
-- **Indicadores clave**: distribución de candidatos por estado, cobertura
-  por bolsa y evolución mensual de contratos.
-- **Accesos rápidos**: nuevo llamamiento, elaborar una bolsa, registrar
-  contrato, registrar cese, generar documento y preparar comunicación.
-
-Los botones **Imprimir resumen** y **Nuevo llamamiento** de la cabecera
-permiten, respectivamente, obtener una copia imprimible del cuadro y lanzar
-el asistente de llamamientos que se describe en el apartado 6.
-
-## 5. Elaboración y gestión de bolsas
-
-![Elaboración y gestión de bolsas](capturas/03_elaboracion.png)
-
-Este bloque gobierna el ciclo de vida de cada bolsa desde su expediente de
-elaboración hasta su publicación. La vista principal lista los **expedientes
-de elaboración** con su fase (configuración de baremo, validación jurídica,
-publicación), la versión de reglas aplicable, el plazo, la unidad
-responsable y el estado.
-
-![Detalle de un expediente de elaboración](capturas/03b_detalle_expediente.png)
-
-Al seleccionar un expediente se abre su detalle con los **campos
-gobernados** (versión de bases con huella criptográfica registrada,
-calendario de solicitudes, circuito de firmantes) y las **comprobaciones
-para publicar**: la aplicación no permite publicar una bolsa hasta que las
-bases están aprobadas y firmadas, el baremo configurado y validado, y el
-calendario definido.
-
-![Configuración de bases y baremo](capturas/03c_configurar_bases.png)
-
-El botón **Configurar bases** muestra las familias de configuración del
-baremo: criterios, puntuaciones, requisitos y versiones. Cada versión de
-bases publicada queda sellada con su huella y no puede alterarse sin dejar
-constancia; las convocatorias posteriores citan siempre la versión exacta
-con la que se resolvieron.
-
-## 6. Nuevo llamamiento: asistente en cuatro pasos
-
-El llamamiento es el acto más delicado de la gestión de bolsas y el portal lo
-conduce mediante un asistente que impide saltarse comprobaciones. Los cuatro
-pasos aparecen siempre visibles en la parte superior y puede volverse a un
-paso anterior sin perder lo introducido.
-
-### Paso 1 · Elegir necesidad de cobertura
-
-![Paso 1: elegir necesidad](capturas/04a_llamamiento_paso1.png)
-
-Se parte de una **necesidad de cobertura** ya registrada (referencia, bolsa,
-destino, jornada, duración y tipo de cobertura). Basta con pulsar
-**Seleccionar** en la necesidad que se va a atender. La regla aplicable
-(Reglamento y bases vigentes) queda asociada desde este momento.
-
-### Paso 2 · Propuesta calculada por el servidor
-
-![Paso 2: propuesta calculada](capturas/04b_llamamiento_paso2.png)
-
-Es el corazón del sistema. **El servidor** aplica la prelación, la
-elegibilidad y las reglas de la bolsa a la necesidad concreta y devuelve una
-propuesta ordenada; el navegador no elige personas ni puede alterar el orden.
-
-Cada fila de la propuesta muestra la secuencia, el resultado (*Elegible*,
-*No disponible*, *Excluida por regla*), la puntuación, la regla aplicada y su
-fundamento. El panel **Recibo de cálculo** deja constancia de la propuesta:
-identificador, versión de bolsa (con huella registrada), versión de reglas,
-fecha de corte y número de personas incluidas.
-
-Protección de datos: la interfaz no recibe nombre, documento, teléfono,
-correo ni ningún identificador individual reutilizable; el servidor conserva
-la relación probatoria completa bajo autorización. De este modo puede
-revisarse la legalidad del orden sin exponer identidades en pantalla.
-
-### Paso 3 · Configurar llamamiento
-
-![Paso 3: configurar llamamiento](capturas/04c_llamamiento_paso3.png)
-
-Se establecen las condiciones del llamamiento: apertura, plazo de respuesta
-(24, 48 o 72 horas desde la recepción fehaciente), tipo de cobertura,
-destino, jornada, duración y canales de comunicación previstos (correo,
-mensajería, aviso interno). Los valores proceden de catálogos gobernados,
-de modo que no pueden introducirse condiciones fuera de las previstas.
-
-### Paso 4 · Revisar y preparar
-
-![Paso 4: revisar y preparar](capturas/04d_llamamiento_paso4.png)
-
-Resumen completo antes de preparar el acto: bolsa, personas seleccionadas
-según el orden visible, apertura, plazo de respuesta, canales, datos de
-destino y las **evidencias previstas** que quedarán registradas (identidad y
-rol de quien actúa, autorización sobre el expediente, versión de bolsa y de
-reglas, selección y orden aplicados, plantillas y firmas, recibos de
-entrega). El acto administrativo se genera después por el circuito de firma
-y notificación correspondiente.
-
-## 7. Contratos, ceses y reincorporaciones
-
-![Contratos, ceses y reincorporaciones](capturas/05_contratos.png)
-
-Bandeja de **relaciones y disponibilidad**: cada movimiento (contrato, cese,
-reincorporación) conserva su causa, las fechas de inicio y fin, el efecto
-sobre la disponibilidad de la persona en la bolsa y la evidencia de su
-aprobación. Así, la disponibilidad que usa el motor de llamamientos deriva
-siempre de actos registrados y no de anotaciones manuales.
-
-## 8. Motor de reglas configurable
-
-![Motor de reglas configurable](capturas/06_reglas.png)
-
-Las reglas de funcionamiento de cada bolsa (orden de prelación, causas de
-indisponibilidad, penalizaciones, desempates) se administran como
-**conjuntos de reglas versionados**. La vista lista cada conjunto con su
-versión, número de criterios y estado.
-
-![Detalle de una regla](capturas/06b_detalle_regla.png)
-
-El detalle de una regla muestra su definición y su fundamento normativo. Las
-versiones publicadas son inmutables: un cambio de reglas produce una versión
-nueva, y cada llamamiento cita la versión exacta con la que se calculó, lo
-que permite comparar versiones y justificar cualquier resultado pasado.
-
-## 9. Consulta segura para candidatos
-
-![Consulta segura para candidatos](capturas/07_consulta.png)
-
-Define lo que la **zona pública** puede mostrar a cada aspirante: su propia
-posición y estado, nunca el censo completo ni datos de terceros. La vista
-interna muestra la **frontera de privacidad** (qué campos se proyectan al
-exterior) y la **política de contacto**. La consulta pública queda así
-gobernada desde dentro, con los mismos catálogos y versiones.
-
-## 10. Estadísticas y explotación de datos
-
-![Estadísticas y explotación](capturas/08_estadisticas.png)
-
-Indicadores agregados del módulo: evolución y cobertura, distribución por
-categorías y series temporales. Los agregados se calculan en el servidor con
-fecha de corte y ámbito; la explotación de datos con fines de informe se
-apoya en estos indicadores y no en descargas de datos personales.
-
-## 11. Generación y firma de documentos
-
-![Generación y firma de documentos](capturas/09_documentos.png)
-
-Catálogo de **plantillas y formatos** para la salida documental del módulo
-(resoluciones, comunicaciones, certificados). Cada generación queda
-gobernada por su plantilla, formatos disponibles, versión, firmantes, CSV de
-cotejo, sello de tiempo y custodia, de modo que todo documento emitido es
-verificable posteriormente.
-
-## 12. Correo y mensajería
-
-![Correo y mensajería](capturas/10_comunicaciones.png)
-
-Canales de comunicación con las personas candidatas, presentados como
-**conectores intercambiables** (correo, mensajería, aviso interno) con su
-uso, integración y estado. La preparación, el envío, la recepción y el acuse
-se registran por separado; ningún canal concede por sí solo efecto
-administrativo — el efecto lo dan los recibos y su incorporación al
-expediente.
-
-## 13. Auditoría y trazabilidad
-
-![Auditoría y trazabilidad](capturas/11_auditoria.png)
-
-Línea temporal completa del expediente: cada acto (preparación de un
-llamamiento, registro de un contrato, cese, comunicación) aparece con su
-autor, fecha, hora y evidencias asociadas. La trazabilidad es de solo
-lectura y permite reconstruir cualquier decisión con las versiones de bolsa
-y reglas que estaban vigentes en ese momento.
-
-## 14. Avisos y ayuda
-
-![Panel de avisos](capturas/12_avisos.png)
-
-El botón **Avisos** de la cabecera muestra las notificaciones internas
-pendientes (llamamientos por preparar, plazos próximos, tareas de revisión).
-
-![Ayuda del portal](capturas/13_ayuda.png)
-
-El enlace **Ayuda**, disponible en el menú lateral y en el pie, ofrece la
-guía de uso contextual del módulo. El ejemplo incluye un recorrido de cuatro
-pasos, preguntas frecuentes, un audio local y su transcripción completa; puede
-usarse con teclado y no envía ningún contenido a servicios externos.
-
-## 15. Accesibilidad
-
-![Modo de alto contraste](capturas/14_alto_contraste.png)
-
-El portal cumple criterios de accesibilidad de uso diario:
-
-- **A+**: aumento del tamaño de texto, persistente entre sesiones.
-- **Contraste**: modo de alto contraste para entornos de baja visibilidad,
-  también persistente.
-- Navegación completa por teclado, foco visible, salto al contenido y
-  región de anuncios para lectores de pantalla.
-- Tablas desplazables y composición adaptable a pantallas pequeñas.
-
-Estas dos preferencias visuales son la única información que el navegador
-almacena localmente: el portal no guarda en el equipo datos de bolsas,
-candidatos ni expedientes.
-
-## 16. Protección de datos
-
-El módulo aplica minimización de datos por diseño:
-
-- Los identificadores personales aparecen enmascarados en las vistas de
-  gestión y no salen del servidor cuando no son imprescindibles.
-- Las propuestas de llamamiento se revisan por secuencia, puntuación y
-  regla, sin nombres ni documentos en pantalla; la relación probatoria
-  completa queda custodiada en el servidor bajo autorización.
-- La zona pública de candidatos solo proyecta a cada persona su propia
-  información.
-- Todos los actos quedan auditados con autor, momento y versión de las
-  reglas aplicadas.
-
----
-
-Portal del Empleado · Diputación de Granada. Las pantallas de este manual
-proceden del modo de demostración. Sus referencias BOP son públicas y reales;
-las personas, expedientes, operaciones y resultados privados son sintéticos y
-no corresponden a expedientes reales.
+# Manual de usuario · Portal VEC y Bolsas de trabajo
+
+Diputación de Granada · Ventanilla Electrónica del Empleado Público
+
+**Edición: 5 de septiembre de 2026.** Alcance de referencia: versión
+`f5931f9`. Este manual explica qué puede recorrer una persona desde el
+portal, qué resultados debe esperar y qué opciones siguen pendientes.
+Describe un entorno de desarrollo con datos sintéticos, no un servicio
+autorizado para tramitar expedientes de personas reales.
+
+**Disponible: cinco pasos completos de Contratación temporal y una parte
+del sexto: selección, apertura de llamamiento y aviso local.** No están
+completados el llamamiento corporativo, el nombramiento ni la incorporación.
+La bandeja de expedientes que se está preparando no se considera disponible
+en esta edición.
+
+Para elegir la documentación adecuada:
+
+- Este manual: acceso, navegación, resultados visibles y ayuda del portal.
+- [Manual de Recursos Humanos](../manual_rrhh/README.md): procedimiento,
+  responsabilidades y recorrido de tramitación por perfiles.
+- [Guía de recorrido de Alberto](../../GUIA_RECORRIDO_ALBERTO.md): comandos
+  exactos de preparación y arranque, datos sintéticos conservados y
+  comprobación del recorrido después de reiniciar. La preparación del
+  servidor corresponde a Sistemas; no necesita ejecutar sus comandos para
+  utilizar un entorno que ya le hayan preparado.
+
+## 1. Antes de empezar: real, demostración y pendiente
+
+En este manual, **real en desarrollo** significa que el servidor comprueba el
+permiso, guarda el resultado en la base de datos y devuelve un recibo. Los datos
+siguen siendo sintéticos. No significa firma jurídica, envío corporativo ni
+autorización para producción.
+
+**DEMO o presentación** permite conocer pantallas con ejemplos. Sus cambios
+son simulados; un recibo de presentación no acredita una actuación guardada
+en el expediente. Puede perder esos cambios al recargar o cerrar la página.
+
+**Pendiente o no disponible** significa que no hay un recorrido completo
+habilitado en esta versión, aunque exista el menú, el formulario o una parte
+del programa. Un botón visible no garantiza que el servicio esté conectado.
+
+| Zona | Qué puede esperar en esta edición |
+|---|---|
+| Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
+| Cuadro y detalle de expedientes de Contratación temporal | Pendientes de completar su conexión en la versión de referencia. No se ofrecen como bandeja operativa para recuperar expedientes. |
+| Gestión interna de Bolsas | Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5. |
+| Consulta pública de convocatorias | Listado, filtros, detalle y documentos cuando el servicio público esté habilitado. Compruebe el aviso de la fuente; no permite tramitar una candidatura personal. |
+| Otros módulos del portal | Solo están disponibles si el servidor los habilita para su perfil. No se consideran terminados por aparecer en la portada. |
+
+No utilice datos de personas reales, documentos de identidad, teléfonos,
+correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
+
+## 2. Acceso y finalización de la sesión
+
+### Entrar al portal interno
+
+1. Pida a Sistemas la dirección del entorno, su certificado de desarrollo y
+   el perfil de navegador preparado. No comparta certificados ni contraseñas.
+2. Abra la dirección indicada y entre en `/portal-empleado/`, sin seleccionar
+   el modo de presentación. En el entorno de la guía, después de preparar
+   el túnel, la dirección es
+   `https://localhost:18443/portal-empleado/`.
+3. Utilice el certificado correspondiente a su función. Recursos Humanos e
+   Intervención usan certificados y perfiles de navegador separados.
+4. Espere a que el portal compruebe los módulos disponibles. Entre desde
+   **Inicio del portal** en **Contratación temporal** y, para iniciar el
+   recorrido, en **Nueva petición**.
+
+La conexión exige un certificado de cliente válido. Si el navegador indica
+que falta el certificado o no reconoce el servidor, pida ayuda a Sistemas:
+no omita la advertencia de seguridad ni cambie la dirección para sortearla.
+
+El perfil y los permisos los determina el servidor. Escribir otro nombre de
+perfil en la dirección, cambiar una referencia o seleccionar un perfil de
+presentación no concede permisos reales.
+
+### Consultar la zona pública
+
+Si Sistemas ha habilitado la consulta pública, abra `/bolsa/`. Esa zona
+muestra información de convocatorias, no los expedientes internos de RRHH
+ni la ficha privada de cada aspirante. Su disponibilidad es independiente
+del recorrido interno de Contratación temporal.
+
+### Conocer la presentación
+
+Use el selector de `/presentacion/` cuando quiera explorar las pantallas
+DEMO. La franja **Presentación para RRHH** indica que las personas,
+expedientes y actuaciones internas son sintéticos y sin efectos reales.
+
+Algunas referencias de convocatorias o del Boletín Oficial de la Provincia
+pueden proceder de publicaciones públicas. Eso no convierte en reales los
+plazos, documentos o actuaciones rotulados DEMO. No mezcle sus referencias
+con un formulario del recorrido real.
+
+### Al terminar
+
+Conserve por el canal autorizado las referencias necesarias para continuar
+y cierre el perfil temporal de navegador. La retirada del material de
+desarrollo se realiza según las instrucciones de Sistemas y la guía.
+Cerrar una pestaña no revoca por sí solo un certificado.
+
+## 3. Cómo orientarse en la pantalla
+
+- **Inicio del portal** muestra los módulos y su disponibilidad para el
+  perfil activo. Si aparece **No disponible**, no hay una entrada operativa
+  concedida para ese acceso.
+- El **menú lateral** cambia según el módulo. En pantallas pequeñas se abre
+  con el botón de navegación. En Bolsa, los grupos desplegables reúnen
+  opciones relacionadas; el apartado activo queda señalado.
+- Las **migas de navegación** y el título de la cabecera indican dónde está.
+  No confunda el llamamiento de Contratación temporal con el asistente de
+  presentación de Bolsa: son accesos distintos.
+- **A+** aumenta o restablece el texto y **Contraste** activa o desactiva el
+  alto contraste. Estos ajustes afectan a la página abierta; no se guardan
+  como preferencias para otra sesión.
+- **Avisos** muestra los avisos accesibles. Un guion o un mensaje de fuente
+  no disponible no equivale a «cero asuntos pendientes».
+- **Ayuda** abre una explicación del portal. **Cerrar** permite volver a la
+  pantalla sin realizar una actuación.
+
+Si el panel de Bolsa no carga, no suponga que ha perdido todos los permisos
+del portal: la disponibilidad de Contratación temporal se comprueba por
+separado.
+
+## 4. Recorrido real de Contratación temporal
+
+El orden disponible se resume a continuación. Los campos concretos, las
+responsabilidades y las alternativas de tramitación se desarrollan en el
+[manual de RRHH](../manual_rrhh/README.md). Para reproducir el ejemplo
+conservado, use los datos exactos de la
+[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
+
+| Paso del recorrido | Acción visible disponible | Resultado y límite |
+|---|---|---|
+| 1. Solicitud | Revisar y registrar una nueva petición con datos de catálogo. | Expediente y primer recibo guardados. |
+| 2. Análisis | Registrar el análisis por Recursos Humanos. | Mismo expediente, nueva versión y recibo. Hay cinco modalidades; el ejemplo recorrido utiliza Sustitución. |
+| 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
+| 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
+| 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
+| 6. Llamamiento, parcialmente disponible | Iniciar la selección desde un expediente fiscalizado favorablemente y registrar su comunicación local. | Orden, propuesta, llamamiento abierto y aviso local persistentes. No acredita correo enviado, entrega, aceptación, renuncia ni gestión completa del plazo. |
+| 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
+| 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
+
+El número de recibos o la versión del expediente no es el número de pasos
+completados: el paso 5 contiene más de una actuación.
+
+### Iniciar y continuar una petición
+
+1. En **Contratación temporal → Nueva petición**, complete el formulario con
+   las entradas sintéticas de los catálogos. Revise fechas y campos
+   obligatorios.
+2. Pulse **Revisar solicitud** y después **Confirmar y registrar** una sola
+   vez. Espere a ver **Solicitud registrada** y su recibo.
+3. Continúe por los formularios que aparecen tras cada resultado: análisis,
+   decisión de cobertura, asignación e informe. Compruebe que mantienen la
+   misma referencia de expediente.
+4. Lea los avisos antes de confirmar. El informe muestra expresamente
+   **DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA**.
+5. Para fiscalizar, use el perfil separado de Intervención. En
+   **Contratación temporal**, introduzca la referencia del expediente y su
+   versión remitida `5`; pulse **Abrir fiscalización**.
+
+Fiscalización admite **Favorable**, **Favorable con observaciones** y
+**Desfavorable**. Los dos últimos requieren observaciones. Un resultado
+desfavorable devuelve el expediente a la unidad con estado de incidencia;
+no habilita el llamamiento favorable ni constituye un error de guardado.
+
+No registre otra solicitud solo para volver a abrir la anterior. En esta
+edición, use las referencias conservadas y las entradas indicadas en la guía:
+no se da por terminada la recuperación desde la bandeja general.
+
+### Iniciar o recuperar el llamamiento y su aviso local
+
+1. Con el perfil de RRHH, abra **Contratación temporal → Nueva petición →
+   Llamamiento y comunicación**.
+2. Para recuperar el ejemplo ya existente, tome de la guía la referencia
+   del expediente fiscalizado, la versión de entrada `6` y la clave de
+   selección original. No cree otra solicitud ni repita la fiscalización.
+3. Pulse **Revisar e iniciar llamamiento** y confirme. El servidor comprueba
+   los permisos y el expediente; no elija ni invente una persona candidata.
+4. Espere al **Recibo verificado**. Los datos de **Registrar comunicación**
+   se rellenan desde ese resultado. No sustituya la organización, la
+   referencia del llamamiento ni el recibo antecedente.
+5. Para recuperar también el aviso existente, introduzca su clave de
+   comunicación original y pulse **Revisar y registrar comunicación**.
+6. Compruebe el mensaje **Registrada localmente · Sin entrega acreditada** o,
+   si ya existía, **Registro local recuperado · Sin entrega acreditada**.
+
+El aviso se conserva como un archivo en el servidor de desarrollo. **No se
+envía correo corporativo ni se acredita que lo haya recibido una persona.**
+Una referencia de intención de envío o un plazo mostrado no demuestra que
+haya comenzado un plazo legal de respuesta.
+
+Para una operación genuinamente nueva, siga la guía y conserve su nueva
+clave antes de enviar. Para recuperar una anterior, no pulse **Preparar
+clave nueva**: mantenga la clave y todos los datos originales.
+
+### Qué ocurre después de un reinicio
+
+Los resultados confirmados de este recorrido se conservan en el servidor.
+Con la misma instalación, datos y material de seguridad, una recuperación
+autorizada del llamamiento o del aviso devuelve el mismo recibo y la fecha
+original, sin crear otro efecto.
+
+El formulario sin confirmar no se guarda automáticamente en el navegador.
+Después de cerrar o recargar puede tener que introducir de nuevo sus datos.
+La guía contiene el ejemplo y la comprobación del reinicio; no reinicie ni
+recree el servidor por su cuenta.
+
+## 5. Bolsas de trabajo: estado de todas las opciones
+
+El menú organiza 17 vistas en diez grupos. La tabla distingue la pantalla
+escrita de la función realmente utilizable en la versión de referencia.
+Las opciones de presentación no sustituyen al recorrido real del apartado 4.
+
+| Opción del menú | Uso y estado en esta edición |
+|---|---|
+| Elaboración y borradores | Tiene un formulario de guardado real separado de la DEMO, pero su recorrido completo no está habilitado en el entorno descrito. No dé un borrador por guardado sin confirmación del servicio. |
+| Convocatorias, bases y calendario | Presentación de configuración y publicación. No acredita aprobación, firma ni publicación administrativa de unas bases. |
+| Solicitudes y admisión | Presentación de revisión, admisión y subsanación de candidaturas a Bolsa. No es el alta real de una petición de personal de Contratación temporal. |
+| Revisión de méritos | Presentación de méritos sintéticos. No registra una valoración administrativa real de una persona. |
+| Alegaciones | Presentación de revisión y resolución. No presenta ni notifica una alegación real. |
+| Importación Convoca | Simula lotes ya incluidos en la presentación. No procesa un archivo del equipo ni concilia personas con un sistema corporativo. |
+| Llamamientos automáticos según bases y Reglamento | Asistente general de presentación en cuatro pasos. La vía real escrita bloquea la continuación tras confirmar la propuesta; no ofrece el llamamiento corporativo completo. |
+| Contratos, ceses y reincorporaciones | Presentación. No registra un contrato, un cese o una reincorporación reales desde esta pantalla. |
+| Reglas y versiones | Presentación de reglas. No cambia las reglas autorizadas del recorrido real. |
+| Baremación y ranking | Presentación de cálculo y ordenación. No publica una lista oficial ni una puntuación administrativa. |
+| Portal de consulta para candidatos | Presentación de una consulta minimizada. No es una sesión personal operativa para consultar la posición real o datos privados. |
+| Cuadro de mando para dirección | Pantalla y consulta de datos escritas, pero todavía sin conectar en el entorno descrito. Sus indicadores DEMO no representan actividad real. |
+| Estadísticas y explotación de datos | Presentación de agregados. No se ofrece como informe real sobre personas o expedientes. |
+| Generación y firma de documentos | Presentación de plantillas y circuito de firma. No acredita firma, cotejo ni custodia jurídica. El informe real de desarrollo se obtiene en Contratación temporal y lleva su aviso sin validez jurídica. |
+| Correo y mensajería | Presentación de canales y envíos. No envía correo ni acredita recepción. Es distinta del registro real de aviso local de Contratación temporal. |
+| Auditoría y trazabilidad | Pantalla de presentación. Los hechos persistentes del recorrido real no convierten esta vista en un historial operativo completo. |
+| Configuración, roles y permisos | Presentación de administración. Cambiar un ejemplo no concede permisos reales ni modifica la seguridad del servidor. |
+
+### Explorar la presentación de llamamientos
+
+Desde la presentación, entre en **Bolsas de trabajo → Llamamientos** y siga
+el asistente: elegir necesidad, revisar la propuesta, configurar y revisar
+la preparación. Sirve para conocer la disposición y el vocabulario de la
+pantalla. Sus recibos y efectos siguen siendo DEMO.
+
+En acceso real, un mensaje de «detalle no disponible» tras confirmar una
+propuesta no autoriza a avanzar a configuración o comunicación. No cambie
+al modo DEMO para completar aparentemente esa operación.
+
+### Buscar una convocatoria pública
+
+Cuando esté habilitada la zona `/bolsa/`:
+
+1. Revise el aviso de la fuente para saber si está consultando una
+   presentación.
+2. Busque por texto y use los filtros de tipo, categoría, estado o plazo.
+   Puede limpiar los filtros y recorrer las páginas de resultados.
+3. Abra el detalle de la convocatoria y consulte su descripción, requisitos,
+   plazos, publicación y documentos asociados.
+4. Abra solo los documentos que la propia ficha ofrezca. Un archivo rotulado
+   DEMO no es una base aprobada.
+5. Si no hay resultados, compruebe los filtros. Si hay un error de servicio,
+   la consulta no ha confirmado que no existan convocatorias.
+
+Este listado no registra inscripciones, no comunica una selección y no
+muestra la posición privada de una persona candidata.
+
+## 6. Recibos y mensajes: cómo actuar
+
+Un recibo identifica el resultado confirmado de una operación: referencia,
+fecha y, según la actuación, expediente, versión y otras referencias
+relacionadas. Conserve esos datos por el canal autorizado si necesita
+continuar o pedir ayuda. No invente referencias ni confunda la versión del
+llamamiento con la del expediente.
+
+Un recibo de selección acredita selección; un recibo de aviso local acredita
+registro local. Ninguno acredita por sí solo firma jurídica, correo,
+entrega, aceptación o nombramiento.
+
+| Mensaje o situación | Qué hacer |
+|---|---|
+| **Registrando. Conserve los datos y espere la respuesta.** | Espere. No pulse varias veces ni cambie la clave de operación. |
+| **Recuperado sin repetir el efecto** | Es el resultado anterior recuperado. Compare su referencia y fecha; no espere un recibo nuevo. |
+| **Registro local recuperado · Sin entrega acreditada** | El aviso local ya existía. No se ha demostrado un envío ni una entrega. |
+| Campos inválidos o **Petición rechazada** | Revise campos, referencias y fechas. No cambie datos para aparentar una autorización. |
+| Solicitud duplicada o conflicto | No cree otra clave ni altere el detalle para forzar el registro de la misma petición. Conserve las referencias y solicite revisión. |
+| **Esta operación requiere revisión del servidor. No la repita ni cambie la clave para forzarla.** | Deténgase y avise a soporte. No inicie una operación sustitutiva. |
+| Resultado no confirmado o conexión interrumpida | No suponga que nada se guardó. Conserve los datos originales; use la recuperación indicada por la pantalla y la guía, o consulte a soporte. |
+| Acceso denegado | Compruebe el perfil y certificado con Sistemas. RRHH no puede fiscalizar usando su certificado. |
+| Servicio, módulo o fuente no disponibles | No significa lista vacía ni éxito. Puede volver a comprobar una consulta de lectura; no repita a ciegas una operación de escritura. |
+| **No hay avisos accesibles** | No hay avisos que esta vista pueda mostrar; no equivale a demostrar que toda la tramitación está al día. |
+
+Los cambios locales de un formulario y las confirmaciones de presentación
+no son recibos del servidor. Si no hay resultado confirmado, no comunique
+que la actuación ha finalizado.
+
+## 7. Seguridad y privacidad durante el uso
+
+- Use únicamente datos sintéticos autorizados en desarrollo y el certificado
+  asignado a su perfil. No intercambie el de RRHH con el de Intervención.
+- No comparta contraseñas, certificados, claves privadas ni configuraciones
+  de conexión. No los adjunte a incidencias ni los publique en GitHub.
+- El portal no utiliza cookies ni almacenamiento web para conservar
+  sesiones, expedientes o preferencias. Los datos confirmados permanecen en
+  el servidor, no en una copia local del navegador.
+- La falta de nombres o contactos en un recibo de selección es intencionada.
+  No intente reconstruir identidades desde referencias ni consultar
+  expedientes ajenos.
+- No pegue referencias privadas en buscadores, servicios externos o
+  incidencias públicas. Incluso las referencias sin nombre deben tratarse
+  por el canal de soporte autorizado.
+- Si una acción está bloqueada, no modifique direcciones, campos técnicos o
+  perfiles de presentación para sortearlo.
+
+## 8. Ayuda y accesibilidad
+
+Use **Ayuda** en el menú o en el pie del portal para abrir la explicación
+contextual. La ayuda de Bolsa incluye preguntas frecuentes, un audio servido
+por el propio portal y su transcripción. Puede leer el texto sin reproducir
+el audio.
+
+Ese contenido explica el asistente general de Bolsa; no constituye una
+confirmación de que sus cuatro pasos estén habilitados en operación real.
+Para el recorrido disponible de Contratación temporal, consulte el apartado
+4, el [manual de RRHH](../manual_rrhh/README.md) y la
+[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
+
+Para manejar la pantalla:
+
+- Use **Tabulador** y **Mayús + Tabulador** para recorrer los controles, y
+  **Entrar** o **Espacio** para activar un botón.
+- El enlace **Saltar al contenido principal** evita recorrer todo el menú.
+- En pantalla pequeña, abra y cierre el menú de navegación; **Escape**
+  permite cerrarlo.
+- Use **A+**, **Contraste** y el zoom del navegador según sus necesidades.
+  Las tablas anchas pueden desplazarse dentro de su marco.
+- Lea los mensajes junto al formulario y cierre los diálogos con
+  **Cerrar**. Si un control no es accesible, notifíquelo; no se declara una
+  certificación de accesibilidad por disponer de estas ayudas.
+
+### Pedir ayuda sin perder el trabajo
+
+Indique a soporte el entorno, la fecha y hora, su perfil funcional, la
+pantalla y el texto exacto del mensaje. Añada por canal privado la referencia
+de expediente, recibo y clave de operación si resultan necesarias para
+localizar el intento. No incluya certificados, contraseñas ni datos reales.
+
+Si aporta una captura, oculte cualquier dato sensible. Distinga entre
+«pulsé confirmar», «recibí confirmación» y «recuperé un recibo existente»:
+son situaciones diferentes.
+
+Este manual en Markdown recoge el alcance de esta edición. Las capturas o
+exportaciones anteriores no acreditan funcionalidades nuevas; utilice la
+documentación de la versión que Sistemas le haya indicado.
