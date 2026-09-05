@@ -13,10 +13,13 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   (selección, apertura de llamamiento y aviso local), con datos sintéticos.
 - Manuales de usuario, RRHH, programación y Sistemas publicados en
   `287751ad4042167a5920ba79f26815241718af29`.
-- En cierre, todavía no publicado: bandeja y detalle con PostgreSQL.
+- Código de bandeja y detalle publicado en `80ea801`; desarrollo trasladado
+  al equipo local, en la misma rama, con ambas bases y material conservados.
+  Instancias remotas detenidas. La bandeja sigue en cierre porque su SQL
+  solo está instalado en la base aislada 55432, no en la del recorrido 55433.
   Navegador → lista de 21 expedientes sintéticos → abrir uno desde su fila →
-  detalle, conservado tras reinicio en el entorno aislado. Falta incorporar
-  la corrección visual y publicar el conjunto en el entorno de recorrido.
+  detalle, conservado tras reiniciar aplicación y PostgreSQL locales.
+  Corrección visual publicada; falta activar el conjunto en el entorno de recorrido.
 - No se acredita correo entregado, aceptación, nombramiento, incorporación
   ni producción por tener pantallas o contratos escritos.
 

@@ -1,4 +1,48 @@
-# Recorrido manual de contratación temporal O2-07
+# Arranque vigente en el equipo local — 5 de septiembre de 2026
+
+Código publicado: `80ea801`. El desarrollo utiliza la misma rama
+`trabajo/ct-app-llamamiento-b4a-20260905`, en el worktree local
+`.worktrees/ct-app-llamamiento-b4a-20260905`. Las instancias de desarrollo
+remotas están detenidas y conservadas; no se programa en dos líneas paralelas.
+
+Las dos bases y el material de desarrollo se han trasladado sin regenerar
+identidades, claves ni expedientes. Las copias físicas se verificaron antes
+de arrancar. Después de reiniciar aplicación y PostgreSQL locales, la bandeja
+muestra los mismos 21 expedientes y abre el mismo detalle, versión 1.
+La otra base conserva sus 50 altas confirmadas y 24 asientos de tramitación.
+Son conjuntos diferentes: no mezclarlos ni usar uno para rellenar el otro.
+
+| Modalidad del lanzador | Portal local | Base y alcance |
+| --- | --- | --- |
+| `consultas` | `https://localhost:8444/portal-empleado/` | PostgreSQL 55432: bandeja y detalle reales en el entorno aislado. No ejecutar pruebas SQL simultáneas. |
+| `recorrido` | `https://localhost:8443/portal-empleado/` | PostgreSQL 55433: conserva el recorrido de los cinco pasos y parte del sexto. Aún no tiene instalada la bandeja. |
+
+El operador conserva fuera de Git el lanzador `arrancar-local.sh`, las bases
+y los certificados. La bitácora local identifica su ruta exacta. Defina
+`VEC_ESTADO_LOCAL` con ese directorio privado existente, sin generar otro:
+
+```bash
+: "${VEC_ESTADO_LOCAL:?Indique el directorio privado conservado en la bitácora local}"
+test -f "$VEC_ESTADO_LOCAL/arrancar-local.sh"
+bash "$VEC_ESTADO_LOCAL/arrancar-local.sh" consultas
+# Para el recorrido anterior, en otra terminal:
+bash "$VEC_ESTADO_LOCAL/arrancar-local.sh" recorrido
+```
+
+No arranque otra copia si el puerto ya está ocupado. Ctrl-C detiene esa
+aplicación, no borra la base. El lanzador reutiliza y comprueba el material
+existente; las instrucciones de importación del certificado se muestran al
+arrancar. Es desarrollo sintético, no producción ni identidad corporativa.
+
+Siguiente cierre: instalar las consultas ya publicadas en la base del recorrido
+y continuar la actuación pendiente desde el expediente, sin reescribir formularios.
+
+## Recorrido remoto del 4 de septiembre — historial conservado
+
+Las secciones posteriores conservan los ejemplos funcionales y la evidencia
+anterior. Sus comandos SSH, rutas remotas y apéndice de recreación no son
+instrucciones de arranque actuales. Para operar aquí use el bloque precedente;
+no recree bases ni arranque el desarrollo remoto.
 
 Esta guía permite probar los cinco primeros pasos completos del flujo de
 Recursos Humanos, incluida la Fiscalización y su devolución a la unidad, con

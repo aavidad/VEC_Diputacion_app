@@ -2,6 +2,14 @@
 
 Entorno de desarrollo de Contratación temporal · Corte: 5 de septiembre de 2026.
 
+**Actualización operativa:** código `80ea801` y desarrollo trasladado al equipo
+local del operador. Consulte primero el bloque inicial de la
+[guía vigente](../../GUIA_RECORRIDO_ALBERTO.md): ambas bases y el material están
+conservados aquí; las instancias remotas quedan detenidas. Las cinco conexiones
+de consultas ya están publicadas y activas solo en 55432, todavía no en 55433.
+Las referencias inferiores al arranque anterior de seis conexiones describen
+la modalidad `recorrido`, no sustituyen las instrucciones locales actuales.
+
 ## Alcance y referencias
 
 Este manual sirve para operar **un entorno sintético ya preparado**, no para

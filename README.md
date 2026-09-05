@@ -6,6 +6,12 @@ Provincial de Granada. Publicado bajo la
 
 **Estado funcional de referencia: 5 de septiembre de 2026 · `f5931f9`.**
 
+Código posterior publicado: `80ea801`. El desarrollo y las bases sintéticas
+se han trasladado al equipo local del operador. La
+[guía de arranque vigente](GUIA_RECORRIDO_ALBERTO.md) distingue la bandeja
+aislada ya recorrible del entorno de los cinco pasos, cuya instalación de
+consultas sigue pendiente. El servidor remoto queda detenido y conservado.
+
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
 temporal coordina la petición de personal y su tramitación; Bolsa conserva
