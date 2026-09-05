@@ -322,6 +322,14 @@
   background: var(--portal-superficie);
 }
 
+.ct-exp-cabecera-expediente > div {
+  min-width: 0;
+}
+
+.ct-exp-cabecera-expediente h3 {
+  overflow-wrap: anywhere;
+}
+
 .ct-exp-cabecera-expediente code {
   color: var(--portal-muted);
   overflow-wrap: anywhere;

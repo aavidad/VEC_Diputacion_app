@@ -5,6 +5,8 @@ import test from "node:test";
 import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
 import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
 import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { renderizarExpediente } from "./componentes-expedientes.js";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
@@ -75,6 +77,85 @@ test("el alta disponible no concede capacidades de consulta", async () => {
     }),
     /disponibilidad de alta no válida/u,
   );
+});
+
+test("un 502 de cuadro conserva el error al navegar y no muestra llamamiento", async () => {
+  let consultas = 0;
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async (ruta, opciones) => {
+      consultas += 1;
+      assert.equal(ruta, "/api/vec/contratacion-temporal/cuadro/consultas");
+      assert.equal(opciones.method, "POST");
+      return new Response(JSON.stringify({ error: {
+        codigo: "resultado_no_confiable",
+        clave_i18n: "api.contratacion_temporal.consulta_rrhh.error.resultado_no_confiable",
+        correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+      } }), { status: 502, headers: { "Content-Type": "application/json" } });
+    },
+  });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente, capacidades: [], altaDisponible: true,
+  });
+  const eventos = new Map();
+  const raiz = {
+    innerHTML: "",
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn),
+    removeEventListener: (tipo) => eventos.delete(tipo),
+    querySelector: () => null,
+    contains: () => true,
+  };
+  const montaje = await montarModuloContratacionTemporal({
+    raiz, presentador, llamamiento: { cliente },
+  });
+  try {
+    for (const vista of ["cuadro", "alta", "cuadro"]) {
+      await eventos.get("click")({
+        target: { closest: (selector) => selector === "[data-ct-exp-vista]"
+          ? { dataset: { ctExpVista: vista } } : null },
+        preventDefault() {},
+      });
+      const estado = presentador.obtenerEstado();
+      assert.equal(estado.carga, "error");
+      assert.equal(estado.cuadro, null);
+      assert.equal(estado.expediente, null);
+      assert.equal(estado.mensaje_clave, "estado_error_carga");
+      assert.equal(estado.tipo_mensaje, "error");
+      assert.match(raiz.innerHTML, /role="alert"/u);
+      assert.doesNotMatch(raiz.innerHTML, /Cuadro de contratación temporal actualizado/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-exp-llamamiento/u);
+      if (vista === "cuadro") {
+        assert.match(raiz.innerHTML, /data-ct-exp-accion="reintentar"/u);
+      }
+    }
+    assert.equal(consultas, 1, "navegar no reintenta ni crea un efecto");
+    assert.deepEqual(fuente.capacidades, []);
+  } finally {
+    montaje.desmontar();
+  }
+});
+
+test("navegar sin resultado o cancelar una carga no anuncia un cuadro actualizado", async () => {
+  let rechazar;
+  const fuente = {
+    listar: () => new Promise((_, reject) => { rechazar = reject; }),
+    obtener() {}, ejecutar() {},
+  };
+  const presentador = presentadorDe(fuente, [CAP.consultarCuadro]);
+  presentador.cambiarVista("cuadro");
+  assert.equal(presentador.obtenerEstado().carga, "inicial");
+  assert.equal(presentador.obtenerEstado().mensaje_clave, "estado_inicial");
+  const carga = presentador.cargar();
+  presentador.cambiarVista("cuadro");
+  assert.equal(presentador.obtenerEstado().carga, "inicial");
+  assert.equal(presentador.obtenerEstado().mensaje_clave, "estado_lectura_cancelada");
+  rechazar(new Error("consulta sintética cancelada"));
+  await carga;
+  assert.equal(presentador.obtenerEstado().carga, "inicial");
+  const denegado = presentadorDe(fuente, []);
+  denegado.cambiarVista("cuadro");
+  assert.equal(denegado.obtenerEstado().carga, "denegado");
+  assert.equal(denegado.obtenerEstado().mensaje_clave, "estado_denegado");
 });
 
 function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
@@ -608,6 +689,33 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico">/);
   assert.doesNotMatch(htmlComponente, /<details class="ct-exp-detalle-tecnico" open/);
   assert.match(htmlComponente, /Metadatos técnicos del expediente/);
+});
+
+test("el identificador completo puede envolver y los paneles vacíos no ocultan auditoría", async () => {
+  const css = await readFile(new URL("./expedientes.css", import.meta.url), "utf8");
+  assert.match(css, /\.ct-exp-cabecera-expediente > div\s*\{\s*min-width: 0;\s*\}/u);
+  assert.match(css, /\.ct-exp-cabecera-expediente h3\s*\{\s*overflow-wrap: anywhere;\s*\}/u);
+  const expediente = validarExpedienteContratacionTemporal({
+    ...crearExpedienteContratacionTemporalPresentacion(),
+    numero_visible: "2026/CT-" + "b".repeat(32),
+    fases: [], tareas: [],
+  });
+  const estado = estadoVista(expediente, "");
+  const html = renderizarModuloContratacionTemporal(estado);
+  assert.ok(html.includes(`<h3>${expediente.numero_visible}</h3>`));
+  assert.match(html, /ct-exp-cabecera-expediente/u);
+  assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
+  const auditoria = validarAuditoriaContratacionTemporal(
+    crearAuditoriaContratacionTemporalPresentacion(),
+  );
+  const htmlAuditoria = renderizarModuloContratacionTemporal({
+    ...estado, vista: "auditoria", auditoria,
+  });
+  assert.ok(auditoria.actuaciones.length > 0);
+  assert.match(htmlAuditoria, /ct-exp-tabla-auditoria/u);
+  for (const actuacion of auditoria.actuaciones) {
+    assert.ok(htmlAuditoria.includes(actuacion.fecha));
+  }
 });
 
 test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {

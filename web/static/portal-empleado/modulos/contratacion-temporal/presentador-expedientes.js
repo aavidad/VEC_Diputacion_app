@@ -345,14 +345,21 @@ export function crearPresentadorExpedientesContratacionTemporal({
     if (["expediente", "documentos", "auditoria"].includes(vista) && estado.expediente === null) {
       throw errorPublico("expediente_no_seleccionado");
     }
-    cancelarEnCurso();
+    if (estado.carga === "cargando") cancelar();
+    else cancelarEnCurso();
+    // Navegar no acredita una consulta: conserva errores, denegaciones y
+    // ausencia de resultado hasta que cargar obtenga un cuadro válido.
+    if (estado.cuadro === null || !["listo", "vacio"].includes(estado.carga)) {
+      reemplazar({ vista, recibo: null });
+      return estado;
+    }
     reemplazar({
       vista,
       carga: estado.cuadro?.expedientes.length === 0 ? "vacio" : "listo",
       recibo: null,
       mensaje_clave: estado.resultado_indeterminado
         ? "estado_resultado_indeterminado"
-        : "estado_listo",
+        : (estado.cuadro.expedientes.length === 0 ? "estado_vacio" : "estado_listo"),
       tipo_mensaje: estado.resultado_indeterminado
         ? "aviso"
         : "informacion",

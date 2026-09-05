@@ -354,7 +354,9 @@ export function renderizarModuloContratacionTemporal(estado, {
       data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
       aria-live="polite">${escaparHTML(t(estado.mensaje_clave))}</div>
     <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
-      && ["alta", "cuadro", "expediente"].includes(estado.vista)
+      && ((estado.vista === "alta" && altaDisponible)
+        || (estado.vista === "expediente" && estado.carga === "listo"
+          && estado.expediente !== null))
       ? '<div data-ct-exp-llamamiento></div>' : ""}</div>
   </section>`;
 }
@@ -567,6 +569,12 @@ export async function montarModuloContratacionTemporal({
 
   function montarLlamamiento(contexto = null) {
     if (!montada || !llamamientoDisponible) return;
+    // Nueva petición conserva el acceso manual publicado para recuperar con
+    // las mismas referencias tras reinicio, sin repetir alta ni fiscalización.
+    // La bandeja y los detalles siguen necesitando contexto válido.
+    const recuperacionManual = altaDisponible
+      && presentador.obtenerEstado().vista === "alta";
+    if (contexto === null && !recuperacionManual) return;
     if (desmontarLlamamiento !== null) {
       if (contexto !== null) desmontarLlamamiento.actualizarContexto(contexto);
       return;
@@ -764,7 +772,8 @@ export async function montarModuloContratacionTemporal({
 
   function montarAnalisisSiProcede() {
     const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null) return null;
+    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null
+      || estado.carga !== "listo" || estado.expediente === null) return null;
     const contexto = Object.freeze({
       operacion: composicionAnalisis.contexto.operacion,
       expediente_ref: estado.expediente.expediente_ref,

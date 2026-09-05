@@ -75,7 +75,7 @@ function estadoSeleccionado(expedienteRef = EXPEDIENTE) {
   };
 }
 
-async function montarExpedienteSeleccionado(inicial) {
+async function montarExpedienteSeleccionado(inicial, alta = null) {
   let estado = inicial, html = "", formulario;
   let peticiones = 0;
   const eventos = new Map();
@@ -90,6 +90,7 @@ async function montarExpedienteSeleccionado(inicial) {
   };
   const modulo = await montarModuloContratacionTemporal({
     raiz,
+    alta,
     presentador: {
       obtenerEstado: () => estado,
       cargar: async () => estado,
@@ -112,6 +113,28 @@ async function montarExpedienteSeleccionado(inicial) {
   };
 }
 
+test("Nueva petición conserva recuperación manual tras remontar incluso si falla el cuadro", async () => {
+  const alta = {
+    catalogos: {},
+    ejecutor: () => { throw new Error("no debe registrar otra petición"); },
+  };
+  for (const carga of ["listo", "error"]) {
+    for (let reinicio = 0; reinicio < 2; reinicio += 1) {
+      const montaje = await montarExpedienteSeleccionado({
+        ...estadoSeleccionado(), vista: "alta", carga, cuadro: null,
+        expediente: null, expediente_ref: "",
+        mensaje_clave: carga === "error" ? "estado_error_carga" : "estado_inicial",
+      }, alta);
+      const html = montaje.formulario().innerHTML;
+      assert.match(html, /Llamamiento y comunicación/u);
+      assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u);
+      assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
+      assert.equal(montaje.peticiones(), 0);
+      montaje.desmontar();
+    }
+  }
+});
+
 test("el expediente fiscalizado seleccionado rellena el formulario existente sin POST ni clave automática", async () => {
   const montaje = await montarExpedienteSeleccionado(estadoSeleccionado());
   const html = montaje.formulario().innerHTML;
@@ -123,7 +146,7 @@ test("el expediente fiscalizado seleccionado rellena el formulario existente sin
   montaje.desmontar();
 });
 
-test("no enlaza un detalle sin cargar, desfasado, de otro expediente o no fiscalizado", async () => {
+test("no monta llamamiento para un detalle sin cargar, desfasado, ajeno o no fiscalizado", async () => {
   const casos = [
     (e) => { e.carga = "cargando"; },
     (e) => { e.carga = "error"; },
@@ -139,9 +162,8 @@ test("no enlaza un detalle sin cargar, desfasado, de otro expediente o no fiscal
     const estado = estadoSeleccionado();
     modificar(estado);
     const montaje = await montarExpedienteSeleccionado(estado);
-    assert.match(montaje.formulario().innerHTML,
-      /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u);
-    assert.doesNotMatch(montaje.formulario().innerHTML, /Datos del expediente fiscalizado/u);
+    assert.equal(montaje.formulario().innerHTML, "");
+    assert.equal(montaje.formulario().eventos.size, 0);
     assert.equal(montaje.peticiones(), 0);
     montaje.desmontar();
   }
@@ -294,13 +316,15 @@ test("desmontar cancela la espera y una respuesta tardía no repinta", async () 
   assert.equal(raiz.innerHTML, "");
 });
 
-test("el llamamiento queda dentro del shell incluso con consultas temporalmente no disponibles", () => {
+test("la bandeja con error conserva navegación y reintento sin formulario de llamamiento", () => {
   const html = renderizarModuloContratacionTemporal({
     vista: "cuadro", carga: "error", cuadro: null, expediente: null,
     tipo_mensaje: "error", mensaje_clave: "estado_error_carga",
   }, { llamamientoDisponible: true });
   assert.match(html, /ct-exp-navegacion/u);
-  assert.match(html, /data-ct-exp-llamamiento/u);
+  assert.match(html, /role="alert"/u);
+  assert.match(html, /data-ct-exp-accion="reintentar"/u);
+  assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
 });
 
 test("encadenado selección y replay autorrellenan comunicación local sin transcribir referencias", async () => {

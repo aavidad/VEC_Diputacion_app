@@ -170,6 +170,7 @@ export function renderizarCuadro(estado, t) {
 }
 
 function renderizarFases(expediente, t) {
+  if (expediente.fases.length === 0) return "";
   return `<nav class="ct-exp-progreso" aria-label="${escaparHTML(t("fases_expediente"))}">
     <ol>${expediente.fases.map((fase) => `<li class="${estadoClave(fase.estado_clave)}"
       ${fase.estado_clave === "en_curso" ? 'aria-current="step"' : ""}>
@@ -403,7 +404,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button></section>`;
   return `${renderizarCabecera(expediente, t)}
     ${renderizarFases(expediente, t)}
-    <div class="ct-exp-tramitacion">
+    ${expediente.tareas.length === 0 ? "" : `<div class="ct-exp-tramitacion">
       ${renderizarTareas(expediente, estado.tarea_ref, t)}
       ${renderizarTarea(
     expediente,
@@ -414,7 +415,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     zonaHoraria,
     analisisDisponible,
   )}
-    </div>`;
+    </div>`}`;
 }
 
 export function renderizarDocumentos(estado, t) {
