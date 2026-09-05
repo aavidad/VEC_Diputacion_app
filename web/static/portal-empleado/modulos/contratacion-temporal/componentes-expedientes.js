@@ -337,7 +337,24 @@ function renderizarTarea(
 ) {
   const tarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia === tareaRef)
     ?? expediente.tareas[0];
-  if (!tarea) return "";
+  if (!tarea) {
+    const resumen = estado.cuadro?.expedientes?.find(({ expediente_ref: referencia }) => (
+      referencia === expediente.expediente_ref
+    ));
+    const solicitudV1EnCurso = estado.carga === "listo"
+      && expediente.version === 1
+      && resumen?.fase_clave === "solicitud"
+      && resumen.version === expediente.version
+      && resumen.estado_clave === "en_curso";
+    const montarAnalisis = analisisDisponible === true
+      && solicitudV1EnCurso
+      && !estado.ocupado
+      && !estado.actualizacion_pendiente
+      && estado.resultado_indeterminado !== true;
+    return montarAnalisis
+      ? '<div data-ct-exp-analisis></div>'
+      : "";
+  }
   const montarAnalisis = analisisDisponible === true
     && !estado.ocupado
     && !estado.actualizacion_pendiente
@@ -402,9 +419,9 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   const expediente = estado.expediente;
   if (!expediente) return `<section class="ct-exp-estado-global"><p>${escaparHTML(t("expediente_sin_seleccionar"))}</p>
     <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button></section>`;
-  return `${renderizarCabecera(expediente, t)}
-    ${renderizarFases(expediente, t)}
-    ${expediente.tareas.length === 0 ? "" : `<div class="ct-exp-tramitacion">
+  const tramitacion = expediente.tareas.length === 0
+    ? renderizarTarea(expediente, estado.tarea_ref, estado, t, locale, zonaHoraria, analisisDisponible)
+    : `<div class="ct-exp-tramitacion">
       ${renderizarTareas(expediente, estado.tarea_ref, t)}
       ${renderizarTarea(
     expediente,
@@ -415,7 +432,10 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     zonaHoraria,
     analisisDisponible,
   )}
-    </div>`}`;
+    </div>`;
+  return `${renderizarCabecera(expediente, t)}
+    ${renderizarFases(expediente, t)}
+    ${tramitacion}`;
 }
 
 export function renderizarDocumentos(estado, t) {

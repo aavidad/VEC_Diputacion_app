@@ -375,6 +375,43 @@ test("la capacidad nominal disponible monta el formulario con expediente y versi
   escenario.modulo.desmontar();
 });
 
+test("el detalle sin tareas solo expone análisis para solicitud v1 en curso", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  const expedienteSinTareas = { ...expediente, version: 1, tareas: [] };
+  const cliente = { registrarAnalisis() { return Promise.resolve(crearRecibo(expedienteSinTareas)); } };
+  const resumen = {
+    expediente_ref: expediente.expediente_ref,
+    fase_clave: "solicitud",
+    estado_clave: "en_curso",
+    version: expedienteSinTareas.version,
+  };
+  const casos = [
+    ["válido", {}, true],
+    ["fase avanzada", { cuadro: { demostracion: false, expedientes: [{ ...resumen, fase_clave: "fiscalizacion" }] } }, false],
+    ["versión avanzada", {
+      expediente: { ...expedienteSinTareas, version: 2 },
+      cuadro: { demostracion: false, expedientes: [{ ...resumen, version: 2 }] },
+    }, false],
+    ["resumen desfasado", { cuadro: { demostracion: false, expedientes: [{ ...resumen, version: 2 }] } }, false],
+    ["estado avanzado", { cuadro: { demostracion: false, expedientes: [{ ...resumen, estado_clave: "completado" }] } }, false],
+  ];
+  for (const [nombre, cambios, debeMontar] of casos) {
+    const expedienteCaso = cambios.expediente ?? expedienteSinTareas;
+    const estado = crearEstado(expedienteCaso, tareaRef, {
+      cuadro: { demostracion: false, expedientes: [resumen] },
+      ...cambios,
+    });
+    const escenario = await montarEscenario({
+      expediente: expedienteCaso,
+      tareaRef,
+      estado,
+      analisis: crearComposicion(cliente),
+    });
+    assert.equal(Boolean(escenario.raiz.obtenerAnalisis()), debeMontar, nombre);
+    escenario.modulo.desmontar();
+  }
+});
+
 test("el recibo de alta monta el análisis real sin perderse si falla el listado", async () => {
   const { expediente, tareaRef } = crearExpediente();
   const reciboAlta = {
