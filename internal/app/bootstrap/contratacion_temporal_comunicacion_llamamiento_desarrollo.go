@@ -50,6 +50,7 @@ type ejecutorComunicacionLlamamientoDesarrollo struct {
 	directorioComunicaciones string
 	soporte                  *soporteAltaContratacionTemporalDesarrollo
 	lector                   ports.LectorExpedienteSeleccionLlamamiento
+	lectorJustificante       ports.LectorJustificantesRespuestaRecibida
 	servicio                 httpinterno.EjecutorComunicacionLlamamiento
 }
 
@@ -85,9 +86,15 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	if err != nil {
 		return nil, err
 	}
+	lectorJustificante, err := postgresct.NuevoLectorJustificantesRespuestaRecibidaPostgreSQL(poolCT,
+		&proveedorConsultaJustificanteRespuestaDesarrollo{soporte: alta.soporte, reloj: reloj,
+			autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: material, consultaJustificante: true}})
+	if err != nil {
+		return nil, err
+	}
 	return &ejecutorComunicacionLlamamientoDesarrollo{
 		directorioComunicaciones: directorioComunicaciones,
-		soporte:                  alta.soporte, lector: lector, servicio: servicio,
+		soporte:                  alta.soporte, lector: lector, lectorJustificante: lectorJustificante, servicio: servicio,
 	}, nil
 }
 
@@ -133,7 +140,8 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 
 // La solicitud llega por su ruta y por la identidad interna exactas. Mientras
 // no exista validación competente de respuesta/plazo, informa de esa condición
-// sin consultar datos ni confirmar un terminal. El permiso de registrar un
+// tras comprobar el justificante con permiso de lectura propio, sin confirmar
+// un terminal. La selección recuperada nunca sale hacia HTTP. El permiso de registrar un
 // aviso nunca concede autorización para aceptar, renunciar o declarar vencido.
 func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context, solicitud ports.SolicitudResolverLlamamiento) (ports.ResultadoResolucionLlamamiento, error) {
 	if contextoInterfazNulo(ctx) || e == nil || e.soporte == nil {
@@ -153,6 +161,28 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	}
 	if solicitud.VersionEsperada != 2 {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrVersionComunicacionLlamamientoEnConflicto
+	}
+	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) || dependenciaEsNulaContratacionTemporalDesarrollo(e.lectorJustificante) {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
+	}
+	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, 6)
+	if ctx.Err() != nil {
+		return ports.ResultadoResolucionLlamamiento{}, ctx.Err()
+	}
+	if err != nil || !consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, solicitud) {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
+	}
+	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
+	ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, solicitud)
+	justificante, err := e.lectorJustificante.ConsultarJustificanteRespuestaRecibida(ctx, solicitud)
+	if ctx.Err() != nil {
+		return ports.ResultadoResolucionLlamamiento{}, ctx.Err()
+	}
+	if errors.Is(err, ports.ErrOperacionRespuestaRecibidaDenegada) {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
+	}
+	if err != nil || justificante.ValidarPara(solicitud) != nil {
+		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	return ports.ResultadoResolucionLlamamiento{}, application.ErrValidacionRespuestaLlamamientoPendiente
 }

@@ -167,6 +167,13 @@ propio `contratacion_temporal.llamamiento.respuesta.registrar`, no el de aviso
 local, y mantiene las once DSN nominales por aplicación contra su única base.
 No añada conexiones ni conceda permisos manuales para superar un rechazo.
 
+AD3 `000016` / CT `000057` están instaladas en ambas bases locales (`55433`/`55432`).
+No reaplicarlas. Consulta confirmada después de reiniciar app/PostgreSQL principal.
+La consulta interna al resolutor ya usa permiso propio V3 real y fresco,
+sin doble: navegador `200/200/200/409`, misma respuesta/recibo y nueva auditoría
+de acceso, sin terminal. No añade DTO HTTP ni expone `Seleccion`; política y
+validación competente de respuesta/plazo siguen pendientes.
+
 Distinto estado: Bolsa Go y las migraciones AD3
 `000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
 `000004_aceptacion_rrhh_integracion_desarrollo` están **preparados, no activados
@@ -296,7 +303,7 @@ Tras recuperar una declaración `aceptacion`, la cuarta operación solicita
 resolución con las referencias y el justificante originales, clave propia y
 confirmación explícita, sin otro `.eml`. El `409 validacion_respuesta_pendiente`
 muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado
-la aceptación.». Es una condición conocida sin efecto: conserve el intento
+la aceptación.». Es una condición conocida sin efecto terminal: conserve el intento
 para reintento manual con la misma clave, no automático ni con otra clave.
 No corrija ese estado concediendo permisos o marcando un plazo manualmente.
 Un acceso desde otro equipo requiere coordinación de red y certificado;

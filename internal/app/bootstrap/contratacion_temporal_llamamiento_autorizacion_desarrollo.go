@@ -75,6 +75,16 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		return false
 	}
 	r := datos.Recurso
+	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
+		s, existe := ctx.Value(claveConsultaJustificanteRespuestaDesarrollo{}).(ports.SolicitudResolverLlamamiento)
+		if !existe || !consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, s) ||
+			datos.ReferenciaMotivo != motivoConsultaJustificanteRespuestaDesarrollo() || datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
+			return false
+		}
+		esperado, err := postgresct.RecursoConsultaJustificanteRespuestaRecibida(s)
+		return err == nil && r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
+			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
+	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		s, existe := ctx.Value(claveSolicitudRespuestaRecibidaDesarrollo{}).(ports.SolicitudRegistrarRespuestaRecibida)
 		if !existe || !expedienteRespuestaRecibidaDesarrolloValido(p.expediente, s) ||
@@ -218,20 +228,34 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoRespuestaRecibidaDesarrollo()}, desde); err != nil {
 		return err
 	}
+	consultaJustificante, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"consulta_justificante_rrhh_desarrollo", "Consulta de justificante RRHH", "consulta-justificante-rrhh-desarrollo",
+		[]dominiovec.ConcesionRol{concesion(postgresct.AccionConsultaJustificanteRespuestaRecibida, "contratacion_temporal", postgresct.TipoRecursoConsultaJustificanteRespuestaRecibida)},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultaJustificanteRespuestaDesarrollo()}, desde); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	s.instantaneaLlamamiento, s.instantaneaComunicacion = seleccion, comunicacion
 	s.instantaneaReanudacionLlamamiento = reanudacion
 	s.motivoLlamamiento, s.motivoComunicacion = motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
+	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
 	s.mu.Unlock()
 	return nil
 }
 
 type autorizadorLlamamientoDesarrollo struct {
-	alta              *dependenciasAltaContratacionTemporalDesarrollo
-	material          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	comunicacion      bool
-	respuestaRecibida bool
+	alta                 *dependenciasAltaContratacionTemporalDesarrollo
+	material             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	comunicacion         bool
+	respuestaRecibida    bool
+	consultaJustificante bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -243,6 +267,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.consultaJustificante {
+		return motivoConsultaJustificanteRespuestaDesarrollo()
+	}
 	if a.respuestaRecibida {
 		return motivoRespuestaRecibidaDesarrollo()
 	}
@@ -297,7 +324,9 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if !valida || !rutaLlamamientoContratacionTemporalDesarrollo(capacidad.ruta) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
-	if (a.comunicacion && a.respuestaRecibida) ||
+	if (a.consultaJustificante && (a.comunicacion || a.respuestaRecibida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento)) ||
+		(!a.consultaJustificante && capacidad.ruta == httpinterno.RutaResolucionComunicacionLlamamiento) ||
+		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||
 		(accion == ports.AccionReanudacionSeleccionLlamamiento && (a.comunicacion || a.respuestaRecibida)) {

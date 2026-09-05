@@ -186,9 +186,17 @@ publicados: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`,
 La ruta exacta protegida devuelve actualmente `409 validacion_respuesta_pendiente`,
 con clave i18n `api.contratacion_temporal.comunicacion_llamamiento.error.validacion_respuesta_pendiente`.
 La UI muestra «Pendiente de validar respuesta y plazo por RRHH. No se ha
-confirmado la aceptación.». Es rechazo conocido sin efecto; conserva el intento
+confirmado la aceptación.». Es rechazo conocido sin efecto terminal; conserva el intento
 para reintento manual, no automático ni con nueva clave. El validador del recibo
 existente no implica que la composición actual pueda confirmar una aceptación.
+
+El resolutor consulta el justificante mediante CT57 con permiso propio V3 real
+y fresco (`contratacion_temporal.llamamiento.respuesta.consultar_justificante`),
+sin doble: navegador `200/200/200/409`, misma respuesta/recibo y nueva auditoría
+de acceso, sin terminal. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
+AD3 `000016` / CT `000057` instaladas en ambas bases locales (`55433`/`55432`),
+con consulta confirmada tras reinicio de app/PostgreSQL principal. Política y validación de respuesta/plazo
+siguen pendientes; la consulta no concede permiso de aceptación.
 
 Bolsa Go y AD3 `000015_consumidor_aceptacion_rrhh_bolsa` / Bolsa
 `000004_aceptacion_rrhh_integracion_desarrollo` están preparados, **no activados

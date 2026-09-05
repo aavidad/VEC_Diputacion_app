@@ -224,7 +224,7 @@ func TestComunicacionLlamamientoDesarrolloResolverNoUsaPermisoDeRegistro(t *test
 	}
 }
 
-func TestResolucionAceptacionDesarrolloPendienteSinEfectos(t *testing.T) {
+func TestResolucionAceptacionDesarrolloSinLectorNoInventaValidacion(t *testing.T) {
 	ctx, p, autorizador := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
 	capacidad, _ := p.soporte.capacidadValida(ctx)
 	capacidad.ruta = httpinterno.RutaResolucionComunicacionLlamamiento
@@ -240,8 +240,8 @@ func TestResolucionAceptacionDesarrolloPendienteSinEfectos(t *testing.T) {
 		Respuesta: ports.RespuestaLlamamientoAceptada, PruebaRespuestaRef: "justificante:sintetico:001",
 	}
 	r, err := e.Resolver(ctx, s)
-	if !errors.Is(err, application.ErrValidacionRespuestaLlamamientoPendiente) || r != (ports.ResultadoResolucionLlamamiento{}) {
-		t.Fatal("no se conservó la validación pendiente sin recibo")
+	if !errors.Is(err, application.ErrComunicacionLlamamientoNoDisponible) || r != (ports.ResultadoResolucionLlamamiento{}) {
+		t.Fatal("lector ausente interpretado como justificante válido")
 	}
 	if _, err = e.Resolver(context.Background(), s); !errors.Is(err, application.ErrComunicacionLlamamientoDenegada) {
 		t.Fatal("referencias públicas sustituyeron identidad")

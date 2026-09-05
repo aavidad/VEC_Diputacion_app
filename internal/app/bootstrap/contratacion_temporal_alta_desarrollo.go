@@ -93,6 +93,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaReanudacionLlamamiento dominiovec.InstantaneaAutorizacion
 	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
 	instantaneaRespuestaRecibida      dominiovec.InstantaneaAutorizacion
+	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -100,6 +101,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoLlamamiento                 dominiovec.ReferenciaEntradaCatalogo
 	motivoComunicacion                dominiovec.ReferenciaEntradaCatalogo
 	motivoRespuestaRecibida           dominiovec.ReferenciaEntradaCatalogo
+	motivoConsultaJustificante        dominiovec.ReferenciaEntradaCatalogo
 	motivoPropuestaCobertura          dominiovec.ReferenciaEntradaCatalogo
 	motivoDecisionCobertura           dominiovec.ReferenciaEntradaCatalogo
 	motivoRectificacionCobertura      dominiovec.ReferenciaEntradaCatalogo
@@ -668,8 +670,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoInformeJuridico, true
 	case httpinterno.RutaSeleccionLlamamiento:
 		return s.motivoLlamamiento, true
-	case httpinterno.RutaRegistroComunicacionLlamamiento, httpinterno.RutaResolucionComunicacionLlamamiento:
+	case httpinterno.RutaRegistroComunicacionLlamamiento:
 		return s.motivoComunicacion, true
+	case httpinterno.RutaResolucionComunicacionLlamamiento:
+		return s.motivoConsultaJustificante, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoConsultaJustificante)
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
 	default:
@@ -711,6 +715,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil
+	}
+	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaConsultaJustificante), s.instantaneaConsultaJustificante.Validar() == nil
 	}
 	if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaComunicacion), true

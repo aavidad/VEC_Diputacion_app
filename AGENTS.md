@@ -23,9 +23,14 @@ CT56 y autorización14 están instaladas en ambas bases; no reaplicarlas.
 La comparación de fechas equivalentes está corregida y no queda diagnóstico
 temporal en SQL. La declaración conserva referencia y SHA256 del correo,
 no su contenido ni su custodia; no resuelve aceptación/renuncia ni cambia Bolsa.
-La cuarta operación del formulario ya solicita resolución por la ruta real:
-reutiliza el justificante y devuelve `409 validacion_respuesta_pendiente`, sin
-aceptación ni efectos, hasta conectar validación competente de respuesta/plazo.
+La cuarta operación del formulario solicita resolución por la ruta real:
+consulta el justificante original con permiso específico V3, conserva su
+selección solo internamente y devuelve `409 validacion_respuesta_pendiente`,
+sin aceptación ni efectos de negocio, hasta conectar validación de respuesta/plazo.
+Autorización16 y CT57 están instaladas en ambas bases: no reaplicarlas.
+Consulta con autorización real repetida tras reiniciar app/PostgreSQL principal;
+mismo recibo, una respuesta/historial/evento y auditoría nueva de acceso.
+Justificante ajeno503 sin datos; Intervención401 antes de consultar.
 La persistencia de aceptación en Bolsa reutiliza la misma apertura y registro
 de operaciones. Sus migraciones autorización15/Bolsa4 se comprobaron solamente
 en una transacción revertida; NO están instaladas en las bases conservadas.

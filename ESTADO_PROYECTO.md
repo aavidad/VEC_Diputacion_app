@@ -43,6 +43,12 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   «Pendiente de validar respuesta y plazo por RRHH. No se ha confirmado la
   aceptación.». Sin recibo terminal, duplicados ni cambio de estado; se conserva
   el mismo intento para reintento manual, sin nueva clave ni reintento automático.
+- Consulta de justificante conectada: navegador `200/200/200/409` con permiso
+  propio V3 real y fresco, sin doble; misma respuesta/recibo y nueva auditoría
+  de acceso, sin terminal. Es interna al resolutor: no crea DTO HTTP ni expone
+  `Seleccion`. AD3 `000016` / CT `000057` instaladas en ambas bases locales,
+  `55433` y `55432`; consulta repetida tras reiniciar app/PostgreSQL principal.
+  Política y validación competente de respuesta/plazo siguen pendientes.
 - Bolsa Go y las migraciones AD3 `000015` / Bolsa `000004` están preparadas para
   aceptación RRHH, **no activadas ni instaladas permanentemente en las bases**.
   Falta validación de negocio competente y proveedor de permiso nominal.
@@ -92,7 +98,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | Cerrado: `b2effba` |
 | 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Cerrado para análisis de solicitud v1: `b2effba`; no afirma recuperación de todas las actuaciones |
 | 3 | Registrar la declaración de una respuesta recibida por RRHH | Actor, referencia y SHA256 declarados, vinculados al llamamiento y con justificante persistente; no verifica origen, firma o custodia, entrega de correo ni aceptación terminal. Recuperación con la misma clave y autorización vigente sin duplicados. | Incluido en esta entrega: `201` y recuperación `200` tras parche y segundo reinicio; conflicto `409` sin duplicado. Cerrado técnicamente |
-| 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | En curso: formulario real hasta `409` pendiente; Bolsa Go/SQL preparados, no activados. Faltan validación de negocio y proveedor de permiso nominal |
+| 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | En curso: formulario real hasta `409` pendiente, con consulta interna del justificante y V3 real; Bolsa Go/SQL preparados, no activados. Faltan validación de negocio y proveedor de permiso nominal de aceptación |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Después de 5 o 6 |
