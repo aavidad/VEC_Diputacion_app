@@ -38,6 +38,7 @@ type preparacionLlamamientoDesarrollo struct {
 
 func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaSeleccionLlamamiento ||
+		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		ruta == httpinterno.RutaResolucionComunicacionLlamamiento
 }
@@ -74,6 +75,16 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		return false
 	}
 	r := datos.Recurso
+	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
+		s, existe := ctx.Value(claveSolicitudRespuestaRecibidaDesarrollo{}).(ports.SolicitudRegistrarRespuestaRecibida)
+		if !existe || !expedienteRespuestaRecibidaDesarrolloValido(p.expediente, s) ||
+			datos.ReferenciaMotivo != motivoRespuestaRecibidaDesarrollo() || datos.Accion != postgresct.AccionRegistroRespuestaRecibida {
+			return false
+		}
+		esperado, err := postgresct.RecursoRegistroRespuestaRecibida(s)
+		return err == nil && r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
+			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
+	}
 	if ruta == httpinterno.RutaSeleccionLlamamiento {
 		if datos.Accion == ports.AccionReanudacionSeleccionLlamamiento {
 			reserva, existe := ctx.Value(claveReanudacionSeleccionDesarrollo{}).(ports.SolicitudReservaEjecucionSeleccionLlamamiento)
@@ -193,18 +204,49 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)}, desde); err != nil {
 		return err
 	}
+	respuesta, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"respuesta_recibida_desarrollo", "Registro RRHH de respuesta recibida", "respuesta-recibida-desarrollo",
+		[]dominiovec.ConcesionRol{concesion(postgresct.AccionRegistroRespuestaRecibida, "contratacion_temporal", postgresct.TipoRecursoRegistroRespuestaRecibida)},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
+	// Catálogo y rol propios: no alterar versiones ya publicadas ni reutilizar
+	// el permiso de registrar un aviso para declarar una respuesta.
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoRespuestaRecibidaDesarrollo()}, desde); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	s.instantaneaLlamamiento, s.instantaneaComunicacion = seleccion, comunicacion
 	s.instantaneaReanudacionLlamamiento = reanudacion
 	s.motivoLlamamiento, s.motivoComunicacion = motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)
+	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.mu.Unlock()
 	return nil
 }
 
 type autorizadorLlamamientoDesarrollo struct {
-	alta         *dependenciasAltaContratacionTemporalDesarrollo
-	material     *proveedorMaterialAltaContratacionTemporalDesarrollo
-	comunicacion bool
+	alta              *dependenciasAltaContratacionTemporalDesarrollo
+	material          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	comunicacion      bool
+	respuestaRecibida bool
+}
+
+func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_respuesta_recibida_rrhh", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("respuesta-recibida-rrhh-desarrollo-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "respuesta-recibida-rrhh"),
+	}
+}
+
+func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.respuestaRecibida {
+		return motivoRespuestaRecibidaDesarrollo()
+	}
+	return motivoLlamamientoDesarrollo(a.comunicacion)
 }
 
 func reservaReanudacionLigadaAPreparacionDesarrollo(p preparacionLlamamientoDesarrollo, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) bool {
@@ -229,7 +271,7 @@ func (a *autorizadorLlamamientoDesarrollo) AutorizarOperacion(ctx context.Contex
 		return vacio, err
 	}
 	return a.material.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion,
-		motivoLlamamientoDesarrollo(a.comunicacion), a.alta.soporte.contexto.Resultado)
+		a.motivo(), a.alta.soporte.contexto.Resultado)
 }
 
 // La recuperación es una lectura autorizada nueva, aunque el resultado sea
@@ -255,7 +297,10 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if !valida || !rutaLlamamientoContratacionTemporalDesarrollo(capacidad.ruta) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
-	if accion == ports.AccionReanudacionSeleccionLlamamiento && a.comunicacion {
+	if (a.comunicacion && a.respuestaRecibida) ||
+		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
+		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||
+		(accion == ports.AccionReanudacionSeleccionLlamamiento && (a.comunicacion || a.respuestaRecibida)) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
@@ -263,7 +308,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		return fallo(err)
 	}
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: s.contexto.Vinculo, ReferenciaMotivo: motivoLlamamientoDesarrollo(a.comunicacion),
+		VinculoAutenticacionActor: s.contexto.Vinculo, ReferenciaMotivo: a.motivo(),
 		Accion: accion, Recurso: recurso, Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
 	}
 	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, capacidad.ruta, datos) {

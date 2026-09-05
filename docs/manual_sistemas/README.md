@@ -2,7 +2,7 @@
 
 Entorno de desarrollo de Contratación temporal · Corte: 5 de septiembre de 2026.
 
-**Actualización operativa:** código publicado
+**Cierre anterior publicado:** código
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con desarrollo en el equipo local.
 Dirección confirmó producto local, GitHub y producto remoto en ese mismo
 commit, limpios y sincronizados (`0/0`). El corrector SQL `13f7a92` y la
@@ -18,12 +18,22 @@ a su propia base, con identidades nominales distintas.
 | Principal: recorrido de RRHH | `recorrido` | `8443` | `55433` |
 | Secundario: consultas aisladas | `consultas` | `8444` | `55432` |
 
-En 8443, con el recorrido ahora publicado, dirección confirmó bandeja de 50 expedientes,
+En 8443, con ese recorrido publicado, dirección confirmó bandeja de 50 expedientes,
 detalle de una solicitud versión 1 y análisis real con recibo versión 2,
 sin crear otra alta. **Tras reinicio, la lista conserva 50 expedientes y el
 detalle la versión 2**. Una lectura independiente confirmó un único recibo,
-asiento y terminal de ese análisis. No es solo la comprobación del traslado;
-la entrega está integrada y publicada, sin código pendiente de integrar.
+asiento y terminal de ese análisis. Ese cierre corresponde a bandeja y análisis.
+
+**Incluido en esta entrega; recuperación demostrada:**
+dirección comprobó el registro de declaración RRHH mediante `HTTP 201`.
+Corregido el defecto temporal en ambas bases y repetido el reinicio de aplicación
+y PostgreSQL, el navegador recuperó selección, comunicación y respuesta con
+`200/200/200`: mismos recibo, justificante y fecha, sin nuevo registro. Sin
+errores JavaScript, cookies, almacenamiento web ni desbordamiento horizontal
+en ese recorrido. También se confirmó un conflicto real `409` en navegador.
+La entrega 3 queda cerrada funcionalmente en desarrollo.
+Los identificadores observados constan en el
+[manual de RRHH](../manual_rrhh/README.md).
 
 ## Alcance y referencias
 
@@ -38,7 +48,8 @@ es **planificación pendiente de aprobación, no la instalación vigente**.
 No hay que desplegar su inventario para realizar estas operaciones.
 
 Alcance funcional acreditado: **cinco pasos completos y parte del sexto**,
-con selección y aviso local recuperables tras reiniciar. Lista, detalle y
+con selección, aviso local y declaración RRHH recuperables tras reiniciar.
+La declaración no resuelve aceptación ni renuncia terminal. Lista, detalle y
 análisis desde una solicitud existente están comprobados y publicados;
 su persistencia tras reinicio también está contrastada.
 Consulte el
@@ -144,6 +155,21 @@ recreación para operar el entorno ya preparado.
 
 ### Dependencias ya preparadas, no instalación al arrancar
 
+CT `000056_respuesta_recibida_rrhh` y AD3
+`000014_consumidor_respuesta_recibida_rrhh` están **instaladas en ambas bases
+locales**. No reaplicarlas ni recrear el entorno. El registro usa el permiso
+propio `contratacion_temporal.llamamiento.respuesta.registrar`, no el de aviso
+local, y mantiene las once DSN nominales por aplicación contra su única base.
+No añada conexiones ni conceda permisos manuales para superar un rechazo.
+
+Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
+compara instantes y corrige la diferencia de ceros finales entre decisión y
+capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
+pasaron. SHA-256 del núcleo instalado, **no de un commit de publicación**:
+`42f67b75786e996c56309350389801091cf749adb85a2e7b6d40ee49c399fb62`.
+La instrumentación de diagnóstico CT56 se retiró de ambas bases, que conservan
+la misma función final. No ejecutar de nuevo el bloque ni reinstalar consumidores.
+
 Dirección confirmó en 55433 las migraciones de consultas y sus dependencias
 de identidad, contexto y autorización, con barreras `25/9`. El catálogo
 `motivos_ct_consultas_rrhh_desarrollo`, versión `1`, se publicó con los
@@ -244,6 +270,11 @@ certificado de RRHH; no necesita un túnel al remoto detenido.
 Para continuar una solicitud existente, use los controles de su fila en
 la bandeja y el formulario de análisis del detalle, como indica la guía.
 No cree otra alta ni copie referencias de los ejemplos del lanzador.
+La declaración de respuesta es la tercera operación del mismo formulario de
+llamamiento, tras recuperar la comunicación confirmada `v2`; requiere respuesta
+declarada, referencia opaca, recepción UTC y `.eml` de hasta 2 MiB para calcular
+su huella local. No cambia la comunicación `v2`, el expediente observado `v6`
+ni el estado Bolsa. No acredita envío, entrega ni aceptación terminal.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar
@@ -251,6 +282,11 @@ el acceso. Las operaciones funcionales se prueban con los datos y claves de
 la guía, no con envíos repetidos como comprobador de salud.
 
 ## 5. Copias: base de datos, material y avisos juntos
+
+El registro de respuesta conserva declaración, actor, referencia, SHA-256 y
+recibo, **no el contenido del `.eml`**. WebCrypto lo procesa localmente sin
+subirlo ni guardarlo en VEC. El original sigue en el sistema de correo: una
+copia de VEC no es copia ni custodia de ese correo, ni verifica origen o firma.
 
 Antes de una actualización o intervención, acuerde una ventana sin escrituras:
 termine VEC ordenadamente y confirme que ningún otro proceso, agente o prueba
@@ -321,8 +357,9 @@ no se restaura sobre el entorno preservado como comprobación rutinaria.
    Para recuperar una operación, use sus mismos datos y clave, con autorización
    vigente. No pulse «Preparar clave nueva» para recuperar un recibo.
 
-La guía acredita recuperación de selección y comunicación conservando recibos
-y fechas. No demuestra una recuperación automática de cualquier operación,
+La guía acredita recuperación de selección, comunicación y declaración RRHH
+conservando recibos y fechas, sin nuevos registros. No demuestra una
+recuperación automática de cualquier operación,
 ni que alta y análisis tengan ya una vista de recarga de recibos tras cerrar
 la página.
 
@@ -350,6 +387,11 @@ Si esa compatibilidad no está demostrada, mantenga el entorno detenido y
 solicite un plan de recuperación. No ejecute migraciones de vuelta, borre
 volúmenes, reinicie tablas o restaure una copia encima de escrituras nuevas.
 No use operaciones Git destructivas para recuperar un arranque.
+
+Los DOWN de CT56/AD3-14 bloquean la reversión (`55000`) si hay registros o
+dependencias. Es una protección de la evidencia, no una pérdida de datos.
+No ejecutarlos en estas bases con historial; recuperación mediante respaldo
+o avance correctivo bajo dirección, no borrado de declaraciones.
 
 ## 7. Incidencias y registro de evidencia
 

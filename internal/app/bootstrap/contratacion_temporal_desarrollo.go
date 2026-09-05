@@ -253,8 +253,13 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	var seleccionReal httpinterno.EjecutorSeleccionLlamamiento = noCompuesta
 	var comunicacionReal http.Handler
+	var respuestaRecibidaReal http.Handler
 	if alta.postgresql.bolsa != nil {
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		respuestaRecibidaReal, err = nuevoManejadorRespuestaRecibidaDesarrollo(&alta, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -308,6 +313,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		// Solo se compone el registro local; aceptación/renuncia no se anuncian
 		// como disponibles mientras no exista su ejecución autorizada.
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroComunicacionLlamamiento, Manejador: comunicacionReal})
+	}
+	if respuestaRecibidaReal != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                   sello,
@@ -452,6 +460,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return true
 	}
 	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
 		r.URL.Path == httpinterno.RutaAltaSolicitudes ||

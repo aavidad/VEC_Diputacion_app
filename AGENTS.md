@@ -5,7 +5,8 @@
 Este bloque sustituye las ubicaciones y órdenes históricas inferiores.
 Lea las instrucciones de desatasco del operador y el plan vigente en
 `ESTADO_PROYECTO.md`; solo Contratación temporal y dependencias imprescindibles.
-El código publicado llega a `b2effba`. La línea de trabajo sigue siendo
+La bandeja y el análisis se publicaron en `b2effba`; esta entrega añade el
+registro de respuesta declarada por RRHH. La línea de trabajo sigue siendo
 `trabajo/ct-app-llamamiento-b4a-20260905`, ahora en el equipo local del operador,
 worktree `.worktrees/ct-app-llamamiento-b4a-20260905`.
 Las dos bases sintéticas están aquí, con consultas instaladas. Principal:
@@ -15,8 +16,16 @@ Secundaria: consultas (8444/55432), 21 expedientes; no mezclar ambas bases.
 Las instancias remotas de desarrollo están detenidas y conservadas. No crear
 otra línea ni reactivar allí programación; el WIP ajeno D1 sigue intacto.
 Rutas privadas y comandos exactos quedan en la bitácora local, fuera de Git.
-Siguiente corte: justificante de respuesta al llamamiento, según el plan vigente;
-la resolución sigue cerrada hasta disponer de su evidencia y autorización.
+Registro de respuesta demostrado: navegador `201`, recuperación `200` tras
+reiniciar aplicación y PostgreSQL, mismo justificante/recibo/fecha y un solo
+registro, historial y evento. Material cambiado con la misma clave: `409`.
+CT56 y autorización14 están instaladas en ambas bases; no reaplicarlas.
+La comparación de fechas equivalentes está corregida y no queda diagnóstico
+temporal en SQL. La declaración conserva referencia y SHA256 del correo,
+no su contenido ni su custodia; no resuelve aceptación/renuncia ni cambia Bolsa.
+Siguiente corte: aceptación válida, reutilizando la resolución existente y
+comprobando el justificante con permiso propio. No convertir una declaración
+en aceptación automática. Continúan cinco pasos completos y parte del sexto.
 No reconstruir bandeja ni análisis ya cerrados. No reabrir O3a.
 
 ## Prioridad vigente

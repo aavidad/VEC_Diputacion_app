@@ -5,6 +5,8 @@ import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
   validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
+  CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES,
+  validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
 } from "./contrato-llamamiento.js";
 
 const OPERACIONES = Object.freeze({
@@ -16,14 +18,20 @@ const OPERACIONES = Object.freeze({
     campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
     recibo: validarReciboComunicacionLlamamiento, metodo: "registrarComunicacionLlamamiento",
   },
+  respuesta: {
+    campos: CAMPOS_RESPUESTA_RECIBIDA, validar: validarSolicitudRespuestaRecibida,
+    recibo: validarReciboRespuestaRecibida, metodo: "registrarRespuestaRecibida",
+  },
 });
 function nuevoPaso() {
   return { valores: {}, solicitud: null, recibo: null, ocupado: false, bloqueado: false,
+    calculando: false,
     mensaje: "llamamiento_pendiente", tono: "informacion", controlador: null };
 }
 export function montarFormularioLlamamiento({
   raiz, cliente, contexto = null, confirmarOperacion = () => false,
   generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
+  criptografia = globalThis.crypto,
   mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -38,8 +46,8 @@ export function montarFormularioLlamamiento({
   const fecha = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
-  let montado = true;
-  const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(),
+  let montado = true, lecturaCorreo = 0;
+  const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     enlazado: false, comunicacionAbierta: false };
 
   function repintar(operacion = "") {
@@ -63,12 +71,53 @@ export function montarFormularioLlamamiento({
       for (const campo of contrato.campos) {
         // Los antecedentes de comunicación proceden del recibo, no de los controles.
         if (operacion === "comunicacion" && campo !== "clave_idempotencia") continue;
+        if (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
         paso.valores[campo] = String(formulario.elements.namedItem(campo)?.value ?? "");
       }
     }
     estado.comunicacionAbierta = raiz.querySelector(
       "[data-ct-llamamiento-comunicacion]",
     )?.open === true || estado.comunicacionAbierta;
+  }
+  async function alCambiarArchivo(evento) {
+    const control = evento.target?.closest?.("[data-ct-llamamiento-correo]");
+    const paso = estado.respuesta;
+    if (!control || !raiz.contains(control) || paso.solicitud || paso.ocupado
+      || estado.comunicacion.recibo?.version_resultante !== 2) return;
+    guardarBorradores();
+    const lectura = ++lecturaCorreo;
+    const archivo = control.files?.length === 1 ? control.files[0] : null;
+    paso.valores.correo_sha256 = "";
+    paso.calculando = true;
+    paso.mensaje = "llamamiento_correo_calculando";
+    paso.tono = "informacion";
+    repintar("respuesta");
+    let bytes;
+    try {
+      // Se limita antes de leer. Solo la huella llega al estado y al POST;
+      // el nombre y contenido del correo nunca se proyectan ni se guardan.
+      if (!archivo || !/\.eml$/iu.test(archivo.name) || archivo.size < 1
+        || archivo.size > 2 * 1024 * 1024 || !criptografia?.subtle?.digest) throw new TypeError();
+      bytes = new Uint8Array(await archivo.arrayBuffer());
+      if (!montado || lectura !== lecturaCorreo) return;
+      if (bytes.byteLength !== archivo.size) throw new TypeError();
+      const digest = new Uint8Array(await criptografia.subtle.digest("SHA-256", bytes));
+      if (!montado || lectura !== lecturaCorreo) return;
+      const huella = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      if (digest.length !== 32 || huella === "0".repeat(64)) throw new TypeError();
+      paso.valores.correo_sha256 = huella;
+      paso.mensaje = "llamamiento_correo_calculado";
+    } catch {
+      if (!montado || lectura !== lecturaCorreo) return;
+      paso.mensaje = "llamamiento_correo_error";
+      paso.tono = "error";
+    } finally {
+      bytes?.fill(0);
+      if (montado && lectura === lecturaCorreo) {
+        paso.calculando = false;
+        repintar("respuesta");
+      }
+    }
   }
   function actualizarContexto(nuevo) {
     if (!montado || estado.seleccion.solicitud !== null
@@ -91,19 +140,25 @@ export function montarFormularioLlamamiento({
     const operacion = formulario.dataset.ctLlamamientoForm;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     const paso = estado[operacion];
-    if (paso.ocupado || paso.recibo || paso.bloqueado) return;
+    if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
+    if (operacion === "respuesta" && estado.comunicacion.recibo?.version_resultante !== 2) return;
     guardarBorradores();
     const contrato = OPERACIONES[operacion];
+    const recuperandoRespuesta = operacion === "respuesta" && paso.solicitud !== null;
     let solicitud;
     try {
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
         contrato.campos.map((campo) => [
-          campo, campo === "version_esperada" ? Number(paso.valores[campo]) : paso.valores[campo],
+          campo, campo === "version_esperada" || campo === "version_comunicacion_esperada"
+            ? Number(paso.valores[campo])
+            : campo === "recibida_en" && !paso.valores[campo]?.endsWith("Z")
+              ? `${paso.valores[campo]}${paso.valores[campo]?.length === 16 ? ":00" : ""}Z`
+              : paso.valores[campo],
         ]),
       ));
     } catch {
-      paso.mensaje = "llamamiento_validacion";
+      paso.mensaje = operacion === "respuesta" ? "llamamiento_respuesta_validacion" : "llamamiento_validacion";
       paso.tono = "error";
       repintar(operacion);
       return;
@@ -114,6 +169,11 @@ export function montarFormularioLlamamiento({
         titulo: t("llamamiento_" + operacion),
         advertencia: t("llamamiento_confirmacion_" + operacion, {
           version: solicitud.version_esperada,
+          ...(operacion === "respuesta" ? {
+            respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
+            correo: solicitud.correo_ref, huella: solicitud.correo_sha256,
+            recibida: solicitud.recibida_en,
+          } : {}),
         }),
         referencia: solicitud.expediente_ref,
         datos: Object.freeze({ ...solicitud }),
@@ -137,7 +197,7 @@ export function montarFormularioLlamamiento({
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
-      paso.mensaje = "llamamiento_recibo";
+      paso.mensaje = operacion === "respuesta" ? "llamamiento_respuesta_recibo" : "llamamiento_recibo";
       paso.tono = "exito";
       if (operacion === "seleccion") {
         estado.comunicacionAbierta = true;
@@ -152,12 +212,23 @@ export function montarFormularioLlamamiento({
           };
         }
       }
+      if (operacion === "comunicacion" && recibo.version_resultante === 2) {
+        estado.respuesta.valores = {
+          ...estado.respuesta.valores,
+          organizacion_ref: solicitud.organizacion_ref,
+          expediente_ref: solicitud.expediente_ref,
+          llamamiento_ref: solicitud.llamamiento_ref,
+          comunicacion_ref: recibo.comunicacion_ref,
+          version_comunicacion_esperada: recibo.version_resultante,
+        };
+      }
     } catch (error) {
       if (!montado) return;
       guardarBorradores();
       const conflicto = ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
         "version_en_conflicto", "seleccion_no_disponible"].includes(error?.codigo);
-      const rechazo = !respuestaRecibida && error?.resultadoIndeterminado === false
+      // Denegar un replay no demuestra ausencia de efecto del intento original.
+      const rechazo = !recuperandoRespuesta && !respuestaRecibida && error?.resultadoIndeterminado === false
         && error?.envelopeValido === true;
       paso.bloqueado = conflicto;
       paso.mensaje = conflicto ? "llamamiento_conflicto"
@@ -177,7 +248,7 @@ export function montarFormularioLlamamiento({
     const operacion = control.dataset.ctLlamamientoClave;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     const paso = estado[operacion];
-    if (paso.solicitud !== null || paso.ocupado) return;
+    if (paso.solicitud !== null || paso.ocupado || paso.calculando) return;
     guardarBorradores();
     try { paso.valores.clave_idempotencia = generarClaveIdempotencia() ?? ""; } catch {
       paso.mensaje = "llamamiento_validacion";
@@ -189,14 +260,16 @@ export function montarFormularioLlamamiento({
 
   raiz.addEventListener("submit", alEnviar);
   raiz.addEventListener("click", alPulsar);
+  raiz.addEventListener("change", alCambiarArchivo);
   if (!actualizarContexto(contexto)) repintar();
   const desmontar = () => {
     if (!montado) return;
     montado = false;
-    estado.seleccion.controlador?.abort();
-    estado.comunicacion.controlador?.abort();
+    lecturaCorreo += 1;
+    for (const operacion of Object.keys(OPERACIONES)) estado[operacion].controlador?.abort();
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("click", alPulsar);
+    raiz.removeEventListener("change", alCambiarArchivo);
     raiz.replaceChildren();
   };
   desmontar.actualizarContexto = actualizarContexto;

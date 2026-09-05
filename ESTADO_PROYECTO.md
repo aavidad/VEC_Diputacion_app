@@ -2,6 +2,8 @@
 
 **Plan vigente: 5 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
+Base documental previa a esta entrega: `5c6b03e`.
+
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
 Bolsa y los demás módulos quedan fuera, salvo la pieza mínima que necesite
@@ -20,6 +22,25 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   v1 → formulario de análisis → HTTP 201 y recibo v2. Tras reiniciar aplicación
   y PostgreSQL conserva 50 solicitudes y un único recibo/asiento de análisis.
   La base secundaria 8444/55432 conserva sus 21 expedientes; no se mezclan datos.
+- Corte 3 incluido en esta entrega, cerrado técnicamente: respuesta declarada por RRHH registrada desde el
+  navegador con HTTP `201`, actor, referencia y huella del correo y
+  justificante persistentes. Lectura confirmada: una respuesta, un asiento
+  y un evento. Migraciones CT `000056` y autorización `000014` instaladas en
+  ambas bases; no reaplicar. Los rechazos intermitentes `403` se debían a
+  comparación textual de fechas equivalentes, no al reinicio.
+  Comparación temporal corregida en ambas bases mediante el bloque literal
+  `DO $fechas$` de autorización `000014`, con sus tres comprobaciones correctas;
+  diagnóstico temporal retirado. **Recuperación confirmada después del parche
+  y segundo reinicio de aplicación y PostgreSQL principal: navegador
+  `200/200/200` para selección, comunicación y respuesta**, mismas claves,
+  justificante, recibo y fecha originales. Sin errores de JavaScript, cookies,
+  almacenamiento web ni desbordamiento horizontal en móvil.
+  Conflicto `409` comprobado desde el navegador, sin duplicado.
+  No cambia Bolsa ni expediente; comunicación sigue en versión `2`.
+- Métrica sin incremento: **5 de 8 pasos completos más parte del sexto**.
+  Registrar una declaración de aceptación no resuelve la aceptación ni
+  verifica origen, firma o custodia del correo. El `.eml` se lee y resume
+  localmente en el navegador; no se sube.
 - No se acredita correo entregado, aceptación, nombramiento, incorporación
   ni producción por tener pantallas o contratos escritos.
 
@@ -56,8 +77,8 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | --- | --- | --- | --- |
 | 1 | Abrir un expediente desde la bandeja real | Lista y detalle desde navegador, tras reinicio; misma referencia y versión, sin otra alta. Publicado con instrucciones de arranque. | Cerrado: `b2effba` |
 | 2 | Retomar la actuación pendiente desde ese expediente | El formulario existente recibe automáticamente expediente y versión; se conserva la recuperación manual ya publicada. Una actuación por corte. | Cerrado para análisis de solicitud v1: `b2effba`; no afirma recuperación de todas las actuaciones |
-| 3 | Registrar el justificante de una respuesta al llamamiento | Referencia o documento sintético real conservado, vinculado al llamamiento; no se inventa entrega de correo ni se acepta aún a la persona. | Pendiente |
-| 4 | Registrar una aceptación válida | Permiso específico, comprobación del justificante y estado, resolución y mismo recibo recuperable; habilita la propuesta de nombramiento. | Después de 3 |
+| 3 | Registrar la declaración de una respuesta recibida por RRHH | Actor, referencia y SHA256 declarados, vinculados al llamamiento y con justificante persistente; no verifica origen, firma o custodia, entrega de correo ni aceptación terminal. Recuperación con la misma clave y autorización vigente sin duplicados. | Incluido en esta entrega: `201` y recuperación `200` tras parche y segundo reinicio; conflicto `409` sin duplicado. Cerrado técnicamente |
+| 4 | Registrar una aceptación válida | Permiso específico, comprobación del justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento. | Siguiente |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Después de 3 |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Después de 5 o 6 |
@@ -83,8 +104,8 @@ La numeración de esta cola no sustituye los ocho pasos del procedimiento.
 
 Correo corporativo, modelos oficiales, circuito de firma y conexión automática
 a GINPIX requieren información o autorización externas. Se continúa únicamente
-por alternativas reales permitidas: justificantes verificables, documentos
-de desarrollo identificados y ficha de grabación manual. Si falta una
+por alternativas reales permitidas: declaraciones registradas con sus límites
+explícitos, documentos de desarrollo identificados y ficha de grabación manual. Si falta una
 autoridad imprescindible, se señala la entrega exacta bloqueada y se trabaja
 en otra entrega de contratación que no dependa de ella. No se simula el éxito.
 

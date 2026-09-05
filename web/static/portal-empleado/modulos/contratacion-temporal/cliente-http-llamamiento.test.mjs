@@ -3,6 +3,7 @@ import test from "node:test";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,
+  validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida, CAMPOS_RESPUESTA_RECIBIDA,
 } from "./contrato-llamamiento.js";
 import { RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
 
@@ -28,6 +29,19 @@ const REGISTRO = {
   recibo_ref: "recibo:comunicacion:001", auditoria_ref: "auditoria:sintetica:001",
   version_resultante: 8, respuesta_hasta: "2026-09-06T08:00:00Z",
 };
+const RESPUESTA_RECIBIDA = {
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
+  organizacion_ref: COMUNICACION.organizacion_ref, expediente_ref: SELECCION.expediente_ref,
+  llamamiento_ref: COMUNICACION.llamamiento_ref, comunicacion_ref: REGISTRO.comunicacion_ref,
+  version_comunicacion_esperada: 2, respuesta: "aceptacion", correo_ref: "correo:sintetico:001",
+  correo_sha256: "1234567890abcdef".repeat(4), recibida_en: "2026-09-05T08:30:00.000Z",
+};
+const registroRespuesta = (entrada = RESPUESTA_RECIBIDA) => ({
+  ...entrada, esquema: "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1",
+  justificante_ref: "justificante:sintetico:001", recibo_ref: "recibo:respuesta:001",
+  auditoria_ref: "auditoria:respuesta:001", registrada_en: "2026-09-05T09:00:00.123456Z",
+  estado: "registrada_por_rrhh",
+});
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
 });
@@ -124,4 +138,82 @@ test("conserva códigos de conflicto y no trata caídas del servicio como rechaz
       return true;
     });
   }
+});
+
+test("respuesta recibida: POST canónico diez campos, eco normalizado UTC y replay", async () => {
+  for (const [status, estado, opcion] of [[201, "registrada_por_rrhh", "aceptacion"],
+    [200, "replay_registrada_por_rrhh", "renuncia"]]) {
+    const esperada = { ...RESPUESTA_RECIBIDA, respuesta: opcion };
+    const eco = { ...registroRespuesta(esperada), recibida_en: "2026-09-05T08:30:00Z", estado };
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, "/api/vec/contratacion-temporal/llamamientos/respuestas/registro");
+      assert.equal(opciones.body, JSON.stringify(esperada));
+      assert.deepEqual(Object.keys(JSON.parse(opciones.body)), CAMPOS_RESPUESTA_RECIBIDA);
+      assert.equal(opciones.credentials, "same-origin");
+      assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
+      return respuesta({ data: eco }, status);
+    } });
+    const desordenada = Object.fromEntries(Object.entries(esperada).reverse());
+    assert.deepEqual(await cliente.registrarRespuestaRecibida(desordenada), eco);
+  }
+});
+
+test("respuesta recibida rechaza campos ajenos, huella o fecha inválidas antes de HTTP", () => {
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: () => assert.fail("HTTP") });
+  const casos = [
+    { actor_ref: "actor:inventado" }, { contenido: "correo" }, { version_resultante: 3 },
+    { version_comunicacion_esperada: 3 }, { respuesta: "expiracion_gobernada" },
+    { correo_ref: "persona@example.invalid" }, { correo_sha256: "0".repeat(64) },
+    { correo_sha256: "A".repeat(64) }, { correo_sha256: "a".repeat(63) },
+    { recibida_en: "2026-02-30T08:30:00Z" }, { recibida_en: "2026-09-05T08:30:00+00:00" },
+    { recibida_en: "2026-09-05T08:30:00.1234567Z" }, { recibida_en: "0000-01-01T00:00:00Z" },
+  ];
+  for (const cambio of casos) {
+    assert.throws(() => cliente.registrarRespuestaRecibida({ ...RESPUESTA_RECIBIDA, ...cambio }), TypeError);
+  }
+  const getter = { ...RESPUESTA_RECIBIDA };
+  Object.defineProperty(getter, "correo_sha256", { get() { assert.fail("getter"); } });
+  assert.throws(() => validarSolicitudRespuestaRecibida(getter), TypeError);
+});
+
+test("recibo de respuesta exige todo el eco y conserva diferencias de un microsegundo", () => {
+  const s = { ...RESPUESTA_RECIBIDA, recibida_en: "2026-09-05T08:30:00.123450Z" };
+  const eco = { ...registroRespuesta(s), recibida_en: "2026-09-05T08:30:00.12345Z" };
+  assert.equal(validarReciboRespuestaRecibida(eco, s).recibida_en, eco.recibida_en);
+  for (const campo of CAMPOS_RESPUESTA_RECIBIDA) {
+    const cambio = campo === "recibida_en" ? "2026-09-05T08:30:00.123451Z" : "otro";
+    assert.throws(() => validarReciboRespuestaRecibida({ ...eco, [campo]: cambio }, s), TypeError);
+  }
+  for (const cambio of [{ version_resultante: 3 }, { actor_ref: "actor:inventado" },
+    { estado: "aceptada" }, { registrada_en: "2026-09-05T09:00:00.1234567Z" }]) {
+    assert.throws(() => validarReciboRespuestaRecibida({ ...eco, ...cambio }, s), TypeError);
+  }
+  for (const registrada of ["2026-09-05T08:30:00.12345Z", "2026-09-05T08:30:00.123451Z"]) {
+    assert.equal(validarReciboRespuestaRecibida({ ...eco, registrada_en: registrada }, s).registrada_en, registrada);
+  }
+  assert.throws(() => validarReciboRespuestaRecibida({
+    ...eco, registrada_en: "2026-09-05T08:30:00.123449Z",
+  }, s), TypeError);
+});
+
+test("respuesta recibida conserva errores genéricos y distingue rechazo previo de resultado ambiguo", async () => {
+  for (const [status, codigo, indeterminado] of [[403, "acceso_denegado", false],
+    [422, "contenido_no_valido", false], [409, "clave_idempotencia_reutilizada", true],
+    [409, "version_en_conflicto", true], [503, "servicio_no_disponible", true],
+    [502, "resultado_no_confiable", true]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ error: {
+      codigo, clave_i18n: `api.contratacion_temporal.respuesta_recibida.error.${codigo}`,
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }, status) });
+    await assert.rejects(cliente.registrarRespuestaRecibida(RESPUESTA_RECIBIDA), (error) => {
+      assert.equal(error.codigo, codigo);
+      assert.equal(error.envelopeValido, true);
+      assert.equal(error.resultadoIndeterminado, indeterminado);
+      return true;
+    });
+  }
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () =>
+    respuesta({ data: { ...registroRespuesta(), correo_ref: "correo:otro" } }) });
+  await assert.rejects(cliente.registrarRespuestaRecibida(RESPUESTA_RECIBIDA),
+    (error) => error.resultadoIndeterminado === true);
 });

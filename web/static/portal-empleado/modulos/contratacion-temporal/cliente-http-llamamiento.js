@@ -1,11 +1,13 @@
 import {
   validarSolicitudSeleccionLlamamiento, validarSolicitudComunicacionLlamamiento,
   validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
+  validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
 } from "./contrato-llamamiento.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
   comunicacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
+  respuestaRecibida: "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
 });
 export function prefijoErrorLlamamiento(ruta) {
   if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento) {
@@ -13,6 +15,9 @@ export function prefijoErrorLlamamiento(ruta) {
   }
   if (ruta === RUTAS_LLAMAMIENTO.comunicacionLlamamiento) {
     return "api.contratacion_temporal.comunicacion_llamamiento.error.";
+  }
+  if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida) {
+    return "api.contratacion_temporal.respuesta_recibida.error.";
   }
   return null;
 }
@@ -51,6 +56,11 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       const entrada = validarSolicitudComunicacionLlamamiento(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.comunicacionLlamamiento, entrada, opciones,
         (respuesta) => validarReciboComunicacionLlamamiento(respuesta, entrada));
+    },
+    registrarRespuestaRecibida(solicitud, opciones) {
+      const entrada = validarSolicitudRespuestaRecibida(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.respuestaRecibida, entrada, opciones,
+        (respuesta) => validarReciboRespuestaRecibida(respuesta, entrada));
     },
   });
 }

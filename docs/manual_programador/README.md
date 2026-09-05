@@ -13,6 +13,15 @@ incremento.
 Consultar la [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) para el recorrido
 operativo.
 
+**Incluido en esta entrega; recuperación demostrada:**
+la declaración RRHH obtuvo `HTTP 201`. Corregido el defecto temporal AD3 en
+ambas bases, dirección confirmó en navegador `200/200/200` para selección,
+comunicación y respuesta tras el segundo reinicio de aplicación y PostgreSQL:
+mismos recibo, justificante y fecha, sin nuevo registro. Sin errores JavaScript,
+cookies, almacenamiento web ni desbordamiento horizontal en ese recorrido.
+También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
+cerrada funcionalmente en desarrollo, sin nuevo paso completo.
+
 ## Qué leer y qué mantener
 
 Este manual puede consultarse desde un clon del repositorio, sin acceder a
@@ -87,8 +96,9 @@ este manual ni confiar en sus resúmenes históricos como estado del producto.
 
 ## Estado funcional: cinco pasos y parte del sexto
 
-El recorrido de desarrollo acreditado usa navegador, API interna, autorización,
-PostgreSQL y recibos reales, con datos sintéticos y conservación tras reinicio:
+El recorrido usa navegador, API interna, autorización, PostgreSQL y recibos
+reales con datos sintéticos. La declaración RRHH tiene su comprobación propia
+de recuperación tras el segundo reinicio, además del cierre anterior:
 
 | Paso del recorrido mantenido | Alcance demostrado |
 | --- | --- |
@@ -97,7 +107,7 @@ PostgreSQL y recibos reales, con datos sintéticos y conservación tras reinicio
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección e inicio del llamamiento y registro de un aviso local; mismos recibos recuperados tras reinicio. |
+| 6. Llamamiento, parcial | Selección e inicio del llamamiento, aviso local y declaración RRHH recuperados tras reinicio; mismos recibos y sin duplicar registros. |
 | 7 y 8 | Nombramiento e incorporación, GINPIX y seguimiento: no declarados completos de extremo a extremo. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
@@ -115,6 +125,47 @@ haya fallado la identidad de Contratación temporal.
 No confundir la instalación parcial de migraciones, una compilación correcta,
 el menú visible o `/livez` con un recorrido completo. El cierre exige evidencia
 de la versión que realmente se arrancó.
+
+### Declaración de respuesta recibida por RRHH
+
+El formulario de llamamiento existente incorpora la tercera operación tras
+recuperar la comunicación confirmada `v2`; deriva de su recibo los antecedentes.
+El cliente `registrarRespuestaRecibida` usa
+`POST /api/vec/contratacion-temporal/llamamientos/respuestas/registro`, con
+respuesta `{data: respuesta}` y estados `registrada_por_rrhh` /
+`replay_registrada_por_rrhh`. No devuelve `version_resultante`: la comunicación
+permanece en `2`, el expediente observado en `6` y Bolsa no cambia de estado.
+
+La entrada contiene `aceptacion` o `renuncia` declaradas, referencia opaca del
+correo, huella SHA-256 y recepción UTC. El `.eml` (no vacío, hasta 2 MiB) se
+procesa con WebCrypto local: solo se transmite la huella, nunca su contenido
+ni su nombre. La confirmación es explícita y un resultado ambiguo conserva
+el intento y la clave; no se usa almacenamiento web ni cookies.
+
+La acción propia es `contratacion_temporal.llamamiento.respuesta.registrar`;
+la autoridad de servidor vincula actor, perfil y material completo, también
+para recuperar el mismo registro. No se reutiliza el permiso de comunicación
+ni se añade identidad al JSON. Se conservan actor, recibo y justificante de la
+declaración, sin verificar origen, firma o custodia del correo, envío, entrega
+ni aceptación o renuncia terminal. El original sigue en el sistema de correo.
+
+CT `000056_respuesta_recibida_rrhh` y AD3
+`000014_consumidor_respuesta_recibida_rrhh` ya están instaladas en **ambas bases
+locales**. No reaplicarlas ni recrear bases: se mantienen las once DSN nominales
+por aplicación contra su única base. Los DOWN bloquean la reversión cuando
+hay registros o dependencias; no eliminan la declaración conservada.
+
+La corrección puntual de AD3-14 compara `valida_hasta` y
+`decision_valida_hasta` como instantes (`::timestamptz`): la decisión tiene seis
+decimales y la capacidad RFC3339Nano omite ceros finales. No cambia bytes
+firmados, hashes, MAC ni permisos. Dirección aplicó el bloque literal
+`DO $fechas$` en ambas bases; sus tres regresiones pasaron. La instrumentación
+de diagnóstico CT56 está retirada. No reaplicar la migración ni reconstruir
+el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) identifica el
+núcleo instalado, sin confundir su huella con un commit de publicación.
+
+El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
+observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
 
 ## Arquitectura real y propiedad
 
@@ -242,13 +293,7 @@ scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
 
 Abrir `https://localhost:8443/portal-empleado/` con el certificado de RRHH;
 Intervención usa su certificado y perfil de navegador separados.
-Si el proceso está en el remoto, abrir desde el equipo del navegador:
-
-```bash
-ssh -N -L 18443:127.0.0.1:8443 root@cidonia.cloud
-```
-
-En ese caso la URL es `https://localhost:18443/portal-empleado/`.
+El desarrollo remoto permanece detenido; el recorrido local no necesita túnel.
 La importación protegida de certificados se describe en la guía; no publicar
 claves, contraseñas ni cadenas de conexión en Git, capturas o mensajes.
 

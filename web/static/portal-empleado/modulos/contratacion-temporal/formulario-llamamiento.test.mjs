@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createHash, webcrypto } from "node:crypto";
+import { File } from "node:buffer";
 import test from "node:test";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
@@ -29,7 +31,7 @@ function raizPrueba() {
     contains: () => true,
     replaceChildren() { this.innerHTML = ""; },
     querySelector(selector) {
-      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion)"\]$/u)?.[1];
+      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|respuesta)"\]$/u)?.[1];
       if (tipo) return borradores[tipo] ?? null;
       if (selector === "[data-ct-llamamiento-comunicacion]") return { open: false };
       return { focus: () => foco.push(selector), scrollIntoView() {} };
@@ -49,14 +51,19 @@ function raizPrueba() {
       const form = valores ? this.preparar(tipo, valores) : borradores[tipo];
       return eventos.get("submit")({ target: form, preventDefault() {} });
     },
+    archivo(archivo) {
+      const control = { files: archivo ? [archivo] : [], closest() { return this; } };
+      return eventos.get("change")({ target: control });
+    },
   };
   return raiz;
 }
 function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
-      registrarComunicacionLlamamiento: async () => {}, ...cliente },
-    confirmarOperacion: () => true, ...extras,
+      registrarComunicacionLlamamiento: async () => {},
+      registrarRespuestaRecibida: async () => {}, ...cliente },
+    confirmarOperacion: () => true, criptografia: webcrypto, ...extras,
   });
 }
 
@@ -99,6 +106,7 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
     llamamiento: { cliente: {
       seleccionarLlamamiento: async () => { peticiones += 1; return recibo; },
       registrarComunicacionLlamamiento: async () => { peticiones += 1; },
+      registrarRespuestaRecibida: async () => { peticiones += 1; },
     } },
   });
   return {
@@ -132,6 +140,193 @@ test("Nueva petición conserva recuperación manual tras remontar incluso si fal
       assert.equal(montaje.peticiones(), 0);
       montaje.desmontar();
     }
+  }
+});
+
+const CORREO = "Subject: Respuesta sintetica\r\n\r\nAceptacion declarada por RRHH.\r\n";
+const HUELLA = createHash("sha256").update(CORREO).digest("hex");
+const archivoCorreo = () => new File([CORREO], "respuesta-sintetica.eml");
+const comunicacionRegistrada = {
+  esquema: "vec.contratacion-temporal.registro-comunicacion-llamamiento.v1",
+  estado_local: "registrada_localmente", comunicacion_ref: "comunicacion:sintetica:001",
+  recibo_ref: "recibo:comunicacion:001", auditoria_ref: "auditoria:sintetica:001",
+  version_resultante: 2, registrada_en: "2026-09-05T08:05:00Z",
+  intencion_envio_ref: "intencion:sintetica:001",
+};
+const declaracion = () => ({
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
+  respuesta: "aceptacion", correo_ref: "correo:sintetico:001", recibida_en: "2026-09-05T08:30",
+});
+const justificante = (solicitud) => ({
+  ...solicitud, esquema: "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1",
+  justificante_ref: "justificante:sintetico:001", recibo_ref: "recibo:respuesta:001",
+  auditoria_ref: "auditoria:respuesta:001", registrada_en: "2026-09-05T09:00:00.123456Z",
+  estado: "registrada_por_rrhh",
+});
+async function abrirRespuesta(raiz, cliente = {}, extras = {}) {
+  const cerrar = montar(raiz, {
+    registrarComunicacionLlamamiento: async () => comunicacionRegistrada,
+    registrarRespuestaRecibida: async (s) => justificante(s), ...cliente,
+  }, extras);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  await raiz.enviar("seleccion", seleccion());
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  await raiz.enviar("comunicacion", { clave_idempotencia: CLAVE });
+  raiz.preparar("respuesta", declaracion());
+  return cerrar;
+}
+
+test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo declaración y huella", async () => {
+  const raiz = raizPrueba(), confirmaciones = [], solicitudes = [];
+  const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
+    solicitudes.push(s); return justificante(s);
+  } }, { confirmarOperacion: (datos) => { confirmaciones.push(datos); return true; } });
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  for (const campo of ["organizacion_ref", "expediente_ref", "llamamiento_ref",
+    "comunicacion_ref", "version_comunicacion_esperada", "correo_sha256"]) {
+    assert.match(raiz.innerHTML, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
+  }
+  await raiz.archivo(archivoCorreo());
+  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada");
+  assert.match(raiz.innerHTML, /Huella calculada: se conserva la huella mostrada/u);
+  assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
+  await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
+    expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
+    comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
+    correo_sha256: "f".repeat(64), contenido: CORREO, actor_ref: "actor:inventado" });
+  assert.deepEqual(solicitudes, [{
+    clave_idempotencia: declaracion().clave_idempotencia,
+    organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
+    llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
+    version_comunicacion_esperada: 2, respuesta: "aceptacion", correo_ref: declaracion().correo_ref,
+    correo_sha256: HUELLA, recibida_en: "2026-09-05T08:30:00Z",
+  }]);
+  const confirmacion = confirmaciones.at(-1);
+  assert.equal(confirmacion.referencia, EXPEDIENTE);
+  assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u"));
+  assert.match(confirmacion.advertencia, /no cambia la candidatura/iu);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.match(raiz.innerHTML, /no resuelve aceptación o renuncia/u);
+  assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u);
+  assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u);
+  assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(solicitudes.length, 1);
+  cerrar();
+});
+
+test("respuesta exige comunicación confirmada, archivo, datos y confirmación explícita", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  const cerrar = montar(raiz, { registrarRespuestaRecibida: async () => { llamadas += 1; } });
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(llamadas, 0);
+  cerrar();
+  const otra = raizPrueba();
+  await abrirRespuesta(otra, { registrarRespuestaRecibida: async () => { llamadas += 1; } }, {
+    confirmarOperacion: (datos) => !datos.datos.respuesta,
+  });
+  await otra.enviar("respuesta", declaracion());
+  assert.match(otra.innerHTML, /Calcule la huella desde un .eml/u);
+  await otra.archivo(archivoCorreo());
+  await otra.enviar("respuesta", { ...declaracion(), respuesta: "expiracion_gobernada" });
+  await otra.enviar("respuesta", declaracion());
+  assert.equal(llamadas, 0);
+  assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+});
+
+test("correo limita tamaño antes de leer, vacía huella anterior y falla cerrado sin WebCrypto", async () => {
+  for (const archivo of [null, { name: "otro.pdf", size: 10 },
+    { name: "vacio.eml", size: 0 }, { name: "grande.eml", size: 2 * 1024 * 1024 + 1 }]) {
+    const raiz = raizPrueba(); let llamadas = 0;
+    await abrirRespuesta(raiz, { registrarRespuestaRecibida: async () => { llamadas += 1; } });
+    await raiz.archivo(archivoCorreo());
+    if (archivo) archivo.arrayBuffer = () => assert.fail("no debe leer");
+    await raiz.archivo(archivo);
+    await raiz.enviar("respuesta", declaracion());
+    assert.equal(llamadas, 0);
+    assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+  }
+  const raiz = raizPrueba();
+  await abrirRespuesta(raiz, {}, { criptografia: null });
+  await raiz.archivo(archivoCorreo());
+  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u);
+  assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+});
+
+test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", async () => {
+  const raiz = raizPrueba();
+  await abrirRespuesta(raiz);
+  const bytes = new Uint8Array(2 * 1024 * 1024).fill(65);
+  const esperada = createHash("sha256").update(bytes).digest("hex");
+  await raiz.archivo({ name: "limite.eml", size: bytes.length, arrayBuffer: async () => bytes.buffer });
+  assert.match(raiz.innerHTML, new RegExp(`name="correo_sha256" value="${esperada}"`, "u"));
+  assert.ok(bytes.every((b) => b === 0));
+});
+
+test("huella en curso bloquea envío y desmontar descarta su resolución tardía", async () => {
+  const raiz = raizPrueba(); let resolver, llamadas = 0;
+  const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: () => { llamadas += 1; } });
+  const bytes = new Uint8Array([65]);
+  const pendiente = raiz.archivo({ name: "pendiente.eml", size: 1,
+    arrayBuffer: () => new Promise((resolve) => { resolver = resolve; }) });
+  assert.match(raiz.innerHTML, /Calculando la huella local/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(llamadas, 0);
+  cerrar();
+  resolver(bytes.buffer);
+  await pendiente;
+  assert.equal(raiz.innerHTML, "");
+  assert.equal(raiz.eventos.size, 0);
+  assert.equal(bytes[0], 0);
+});
+
+test("respuesta perdida congela clave, fecha, declaración y huella; replay usa el mismo intento", async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
+    solicitudes.push(s);
+    if (solicitudes.length === 1) throw new Error("transporte interrumpido");
+    if (solicitudes.length === 2) throw Object.assign(new Error("permiso de replay denegado"), {
+      codigo: "acceso_denegado", envelopeValido: true, resultadoIndeterminado: false,
+    });
+    return { ...justificante(s), estado: "replay_registrada_por_rrhh" };
+  } });
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.match(raiz.innerHTML, /Recuperar con los mismos datos/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
+  await raiz.archivo(new File(["otro"], "otro.eml"));
+  await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia",
+    clave_idempotencia: CLAVE, correo_ref: "correo:otro", recibida_en: "2026-09-06T10:00" });
+  assert.deepEqual(solicitudes[0], solicitudes[1]);
+  assert.equal(solicitudes[0].correo_sha256, HUELLA);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
+  await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia" });
+  assert.deepEqual(solicitudes[0], solicitudes[2]);
+  assert.match(raiz.innerHTML, /Misma declaración recuperada, sin nuevo registro/u);
+});
+
+test("doble envío de respuesta no duplica y conflicto impide reintentar", async () => {
+  const raiz = raizPrueba(); let resolver; const solicitudes = [];
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: (s) => {
+    solicitudes.push(s); return new Promise((resolve) => { resolver = resolve; });
+  } });
+  await raiz.archivo(archivoCorreo());
+  const pendiente = raiz.enviar("respuesta", declaracion());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(solicitudes.length, 1);
+  resolver(justificante(solicitudes[0]));
+  await pendiente;
+  for (const codigo of ["version_en_conflicto", "clave_idempotencia_reutilizada"]) {
+    const otra = raizPrueba(); let llamadas = 0;
+    await abrirRespuesta(otra, { registrarRespuestaRecibida: async () => {
+      llamadas += 1; throw Object.assign(new Error(), { codigo, envelopeValido: true });
+    } });
+    await otra.archivo(archivoCorreo());
+    await otra.enviar("respuesta", declaracion());
+    await otra.enviar("respuesta", declaracion());
+    assert.equal(llamadas, 1);
+    assert.match(otra.innerHTML, /requiere revisión del servidor/u);
+    assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   }
 });
 

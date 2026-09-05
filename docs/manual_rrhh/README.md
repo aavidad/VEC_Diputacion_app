@@ -11,10 +11,19 @@ Se mantienen cinco pasos y parte del sexto; este cierre no incrementa el
 contador. La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) contiene el
 recorrido y comandos exactos.
 
+**Incluido en esta entrega; recuperación demostrada:**
+declaración RRHH registrada mediante `HTTP 201`. Corregida la comparación de
+fechas con ceros finales, dirección confirmó en navegador `200/200/200` para
+recuperar selección, comunicación y respuesta tras el segundo reinicio de
+aplicación y PostgreSQL. Mismos recibo, justificante y fecha, sin nuevo registro.
+También se confirmó un conflicto real `409` en navegador. La entrega 3 queda
+cerrada funcionalmente en desarrollo; no aumenta el contador.
+
 ## Qué puede hacer hoy
 
-**Cinco de los ocho pasos están demostrados en desarrollo, más la selección
-y el aviso local del sexto.** Se usa la aplicación conectada a PostgreSQL:
+**Cinco de los ocho pasos están demostrados en desarrollo, más selección,
+aviso local y declaración de respuesta del sexto.** Se usa la aplicación
+conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
 reales ni una aceptación funcional de Recursos Humanos.
@@ -26,7 +35,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, registro de aviso local y recuperación de los mismos recibos tras reiniciar. Sin envío, entrega, aceptación ni plazo acreditados. |
+| 6. Llamamiento | Parcial: selección, aviso local y declaración RRHH recuperados tras reiniciar, con los mismos recibos y sin duplicados. Sin envío, entrega, aceptación terminal ni plazo acreditados. |
 | 7. Nombramiento / formalización | No recorrible de extremo a extremo: pendientes aceptación, modelos y circuito de firmas. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -152,7 +161,7 @@ no permite continuar al llamamiento ni demuestra que toda la subsanación
 posterior esté disponible. Para el tramo demostrado del paso 6 se parte de
 un expediente con resultado **Favorable**.
 
-### 6. Seleccionar y registrar el aviso local
+### 6. Seleccionar, registrar el aviso local y declarar la respuesta
 
 Entrada: expediente fiscalizado favorablemente en versión `6`. Para
 recuperar el caso ya demostrado, use los datos exactos del apartado 6 de la
@@ -184,6 +193,51 @@ expediente. **Registrar el aviso local no abre plazo legal, no acredita
 aceptación y no permite dar por realizado el nombramiento.** No hay recorrido
 completo de envío, entrega, aceptación, renuncia o vencimiento. No use las
 opciones de una pantalla de demostración para simular esas decisiones.
+
+#### Operación 3: registrar la respuesta declarada por RRHH
+
+En el **mismo formulario**, tras recuperar el recibo confirmado de comunicación
+en versión `2`, aparece **3. Registrar respuesta recibida por correo**. Sus
+referencias proceden de ese recibo. Requiere el permiso específico
+`contratacion_temporal.llamamiento.respuesta.registrar`; poder registrar un
+aviso no concede este permiso.
+
+1. Seleccione **Aceptación declarada en el correo** (`aceptacion`) o **Renuncia
+   declarada en el correo** (`renuncia`). Indique una referencia opaca del correo,
+   sin direcciones ni datos personales, y la fecha de recepción **en UTC**.
+2. Seleccione un `.eml` no vacío de hasta **2 MiB**. WebCrypto calcula SHA-256
+   localmente; el contenido nunca se envía ni se guarda en VEC. La huella no
+   admite edición manual. **Huella calculada** sigue siendo válido aunque el
+   selector quede vacío al actualizarse la pantalla; no se muestra el nombre.
+3. Revise y confirme expresamente la declaración. Conserve datos, clave y
+   recibo; ante resultado ambiguo o acceso denegado, no
+   cambie la clave ni el material para forzar otro registro. Avise al operador.
+
+Ejemplo reproducible: [respuesta_sintetica.eml](ejemplos/respuesta_sintetica.eml),
+**nunca enviado ni correspondiente a una persona real**. SHA-256 del archivo:
+`7984edfd3ba13c87b0c04160dbfa8b338b356ead70d80df04066e67e4ed419b9`.
+Para recuperar la declaración existente use los datos y la clave de la
+[guía canónica](../../GUIA_RECORRIDO_ALBERTO.md), no una operación nueva.
+
+El servidor conserva actor, declaración y recibo. El justificante enlaza la
+referencia y la huella declaradas: **no conserva el correo ni verifica origen,
+firma o custodia**. El original sigue en el sistema de correo. No acredita
+envío, entrega ni aceptación o renuncia terminal; no cambia candidatura ni
+estado Bolsa, y no avanza expediente.
+
+Registro sintético observado por dirección (`HTTP 201` y navegador):
+
+- Recibo: `9e14599d-2edc-42aa-afde-170420c838aa`.
+- Justificante: `84727d1d-31ef-4fde-92c8-d3a8e2953931`.
+- Registrada en UTC: `2026-09-05T18:09:06.065542Z`.
+- Misma comunicación `v2` y expediente `v6`, sin transición en Bolsa.
+
+Tras corregir el defecto temporal y repetir el reinicio de aplicación y
+PostgreSQL, el navegador recuperó selección, comunicación y respuesta con
+`200/200/200`. **Mismos recibo, justificante y fecha anteriores, sin nuevo
+registro**. El recorrido quedó comprobado sin errores JavaScript, cookies,
+almacenamiento web ni desbordamiento horizontal. Cierra esta entrega de
+declaración, no la aceptación terminal ni todo el paso 6.
 
 ### 7. Nombramiento: límite actual
 
@@ -224,6 +278,7 @@ incluya certificados o secretos en una captura o incidencia.
 | Reinicio de VEC | El operador conserva PostgreSQL y el material del entorno. La guía indica cómo consultar o recuperar el resultado; no se recrea la base. |
 | Alta o análisis tras cerrar la página | La persistencia existe, pero la guía advierte que no tienen aún una vista de recarga de recibos cerrados. Pida comprobación al operador, no cree un duplicado. |
 | Recuperación de selección y comunicación | La guía acredita mismos recibos y fechas tras reiniciar, usando las claves originales. No pulse **Preparar clave nueva** para recuperar ese caso. |
+| Recuperación de la declaración RRHH | Comprobada tras el segundo reinicio de aplicación y PostgreSQL: mismos recibo, justificante y fecha, sin nuevo registro. Conserve la misma clave y todos los datos originales. |
 
 La recuperación de una selección interrumpida está acotada al estado
 admitido por el servidor. No autoriza a borrar historia, reiniciar estados o
@@ -255,7 +310,7 @@ con datos personales ni material de autenticación.
 - [Guía técnica para arrancar, recorrer y recuperar el caso sintético](../../GUIA_RECORRIDO_ALBERTO.md).
 - [Manual de usuario del módulo Bolsa](../manual_usuario/manual_portal_bolsas.md).
 
-El siguiente avance funcional pendiente es completar la respuesta del sexto
+El registro de la declaración no completa la resolución de respuesta del sexto
 paso. Siguen faltando
 la comunicación con entrega acreditada y la respuesta de la persona candidata
 con sus reglas de plazo. Este manual no redefine esas reglas ni declara

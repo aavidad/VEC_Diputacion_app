@@ -9,6 +9,15 @@ export const CAMPOS_COMUNICACION = Object.freeze([
   "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
   "version_esperada", "prueba_entrega_ref",
 ]);
+// El orden forma parte de la representación JSON canónica del POST.
+export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
+  "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
+  "comunicacion_ref", "version_comunicacion_esperada", "respuesta", "correo_ref",
+  "correo_sha256", "recibida_en",
+]);
+export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
+  "clave_idempotencia", "respuesta", "correo_ref", "recibida_en",
+]);
 
 function exigir(condicion) {
   if (!condicion) throw new TypeError("contrato de llamamiento no válido");
@@ -32,11 +41,11 @@ function registro(valor, campos) {
       && Object.hasOwn(descriptores[campo], "value") && descriptores[campo].enumerable));
   return Object.freeze(Object.fromEntries(campos.map((campo) => [campo, valor[campo]])));
 }
-function solicitud(entrada, campos) {
+function solicitud(entrada, campos, version = "version_esperada") {
   const valor = registro(entrada, campos);
   exigir(typeof valor.clave_idempotencia === "string" && UUID.test(valor.clave_idempotencia)
     && valor.clave_idempotencia !== "00000000-0000-4000-8000-000000000000"
-    && entero(valor.version_esperada) && valor.version_esperada < Number.MAX_SAFE_INTEGER
+    && entero(valor[version]) && valor[version] < Number.MAX_SAFE_INTEGER
     && campos.filter((campo) => campo.endsWith("_ref")).every(
       (campo) => referenciaLlamamientoValida(valor[campo]),
     ));
@@ -47,6 +56,36 @@ export function validarSolicitudSeleccionLlamamiento(entrada) {
 }
 export function validarSolicitudComunicacionLlamamiento(entrada) {
   return solicitud(entrada, CAMPOS_COMUNICACION);
+}
+// Conserva los seis decimales para comparar instantes sin perder microsegundos
+// con Date (milisegundos). Go puede omitir ceros finales en el eco del recibo.
+function instanteRespuesta(valor) {
+  exigir(instante(valor) && /^[0-9]{4}-.+T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u.test(valor)
+    && !valor.startsWith("0000-"));
+  return `${valor.slice(0, 19)}.${(valor.match(/\.(\d+)Z$/u)?.[1] ?? "").padEnd(6, "0")}Z`;
+}
+export function validarSolicitudRespuestaRecibida(entrada) {
+  const valor = solicitud(entrada, CAMPOS_RESPUESTA_RECIBIDA, "version_comunicacion_esperada");
+  exigir(valor.version_comunicacion_esperada === 2
+    && ["aceptacion", "renuncia"].includes(valor.respuesta)
+    && typeof valor.correo_sha256 === "string" && /^[0-9a-f]{64}$/u.test(valor.correo_sha256)
+    && valor.correo_sha256 !== "0".repeat(64));
+  instanteRespuesta(valor.recibida_en);
+  return valor;
+}
+export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
+  const valor = registro(entrada, [...CAMPOS_RESPUESTA_RECIBIDA,
+    "esquema", "justificante_ref", "recibo_ref", "auditoria_ref", "registrada_en", "estado"]);
+  const esperada = validarSolicitudRespuestaRecibida(solicitudEntrada);
+  exigir(valor.esquema === "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1"
+    && ["registrada_por_rrhh", "replay_registrada_por_rrhh"].includes(valor.estado)
+    && ["justificante_ref", "recibo_ref", "auditoria_ref"].every(
+      (campo) => referenciaLlamamientoValida(valor[campo]),
+    ) && CAMPOS_RESPUESTA_RECIBIDA.every((campo) => campo === "recibida_en"
+      ? instanteRespuesta(valor[campo]) === instanteRespuesta(esperada[campo])
+      : valor[campo] === esperada[campo]));
+  exigir(instanteRespuesta(valor.registrada_en) >= instanteRespuesta(valor.recibida_en));
+  return valor;
 }
 export function validarReciboSeleccionLlamamiento(entrada) {
   const valor = registro(entrada, [

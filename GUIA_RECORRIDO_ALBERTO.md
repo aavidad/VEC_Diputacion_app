@@ -1,12 +1,21 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Código publicado: `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
-Dirección confirmó producto local, GitHub y producto remoto en ese mismo
-commit, limpios y sincronizados (`0/0`). Incluye el corrector SQL `13f7a92`
-y la interfaz, integrados por avance directo. El desarrollo utiliza la misma rama
+Base documental previa a esta entrega: `5c6b03e`. El cierre de bandeja,
+detalle y análisis corresponde a
+`b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
+y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
 `trabajo/ct-app-llamamiento-b4a-20260905`, en el worktree local
 `.worktrees/ct-app-llamamiento-b4a-20260905`. Las instancias de desarrollo
 remotas están detenidas y conservadas; no se programa en dos líneas paralelas.
+
+**Corte 3 incluido en esta entrega; recuperación demostrada:** respuesta declarada
+por RRHH registrada desde el navegador (`201`). Después del parche temporal y
+del segundo reinicio de aplicación y PostgreSQL principal, dirección confirmó
+`200/200/200` al recuperar selección, comunicación y respuesta con sus claves
+originales. Se conservan el mismo justificante, recibo y fecha de registro.
+El defecto de comparación de fechas está corregido en ambas bases y el
+diagnóstico temporal retirado. El corte queda cerrado técnicamente.
+La métrica sigue en **5 de 8 pasos completos más parte del sexto**.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -25,6 +34,16 @@ Ambas bases tienen instalada la dependencia de consultas. Dirección confirmó
 en 55433 la publicación del catálogo sintético original y sus dos vínculos:
 tres resultados positivos en una transacción, secuencia de catálogo `8`.
 No copiar filas entre bases ni repetir esa instalación para arrancar.
+Las migraciones de registro de respuesta `000056` de Contratación temporal y
+`000014` de autorización también están instaladas en **ambas bases**: no
+reaplicarlas. Dirección aplicó literalmente el bloque `DO $fechas$` de la
+migración `000014` en ambas bases, con sus tres comprobaciones incorporadas
+correctas. El diagnóstico temporal de la función de respuesta también se retiró
+de ambas bases. La huella SHA256 final del núcleo de autorización comunicada
+por dirección es
+`42f67b75786e996c56309350389801091cf749adb85a2e7b6d40ee49c399fb62`.
+No repetir el bloque temporal para arrancar: también está aplicado.
+Las huellas anteriores del historial no son referencias operativas actuales.
 Cada modalidad requiere **once conexiones PostgreSQL separadas**, todas a su
 propia base. Sus variables y funciones están en el
 [manual de sistemas, apartado 2](docs/manual_sistemas/README.md#2-configuración-local-once-conexiones-por-instancia).
@@ -83,9 +102,83 @@ completos y parte del sexto**, con aviso local, no correo corporativo.
 50 expedientes y el detalle conserva la versión `2`. Una lectura independiente
 confirmó un único recibo, asiento y terminal del análisis en esa versión.
 La comprobación conserva el efecto único, sin otra alta.
-La entrega de aplicación ya está integrada y publicada en `b2effbaf`;
-no queda código de este corte pendiente de integrar. Publicar el código no
+La entrega de bandeja y análisis ya está integrada y publicada en `b2effbaf`;
+no queda código de ese corte pendiente de integrar. Publicar el código no
 reactiva las instancias remotas ni autoriza producción.
+
+### Corte 3: registrar la declaración de una respuesta recibida por RRHH
+
+El recorrido real en la principal devolvió `201`: RRHH declaró una
+**aceptación recibida**, con referencia del correo, huella SHA256, identidad
+de quien registra y justificante persistentes. La lectura de la base confirmó
+**una respuesta, un asiento de historial y un evento de salida**.
+Es una declaración registrada, **no una aceptación terminal**: no cambia el
+estado de Bolsa, no avanza el expediente y la comunicación sigue en versión `2`.
+No verifica origen, firma ni custodia del correo; tampoco acredita envío o
+entrega del aviso local. El siguiente corte es resolver una aceptación válida
+con su autorización y comprobaciones propias, no convertir esta declaración
+automáticamente en aceptación.
+
+Para recuperar este caso use los datos originales, sin crear otra solicitud
+ni cambiar claves. El acceso requiere el certificado y contexto autorizado
+de RRHH; conocer las referencias no sustituye el permiso.
+
+1. Abra el llamamiento del expediente
+   `expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001`.
+   Recupere la selección con versión `6` y clave
+   `90d52c16-a63d-4ef1-bcf7-62c7c455f9aa`, sin preparar una selección nueva.
+2. Recupere su comunicación local con la clave
+   `d1b5428f-2188-4b8f-98b7-42f82ad88c2a`. El recibo aporta las referencias
+   de llamamiento y comunicación al formulario de respuesta; compruebe
+   versión de comunicación `2`. No invente ni cambie esas referencias.
+3. En el formulario de respuesta, mantenga los valores de la tabla y cargue
+   el mismo [correo sintético de ejemplo](docs/manual_rrhh/ejemplos/respuesta_sintetica.eml),
+   sin editarlo ni cambiar sus saltos de línea. La huella se calcula en el
+   navegador: el archivo `.eml` (máximo 2 MiB) **no se sube ni queda custodiado
+   por la aplicación**. Se envían su referencia y huella declaradas, no su
+   contenido ni nombre de archivo. La fecha del formulario se expresa en UTC.
+
+| Dato de la respuesta original | Valor que debe conservarse |
+| --- | --- |
+| Clave de operación | `c3e0f431-b274-48fd-a2e8-4b1e6d220056` |
+| Respuesta declarada | `aceptacion` |
+| Referencia del correo | `correo:sintetico:respuesta-20260905-0056` |
+| Fecha de recepción declarada, UTC | `2026-09-05T10:00:00Z` |
+| SHA256 del archivo | `7984edfd3ba13c87b0c04160dbfa8b338b356ead70d80df04066e67e4ed419b9` |
+
+Desde el directorio de esta guía puede comprobar los bytes del ejemplo:
+
+```bash
+sha256sum docs/manual_rrhh/ejemplos/respuesta_sintetica.eml
+```
+
+El registro inicial se realizó en
+`/api/vec/contratacion-temporal/llamamientos/respuestas/registro`, con estado
+`registrada_por_rrhh`. Conservó el justificante
+`84727d1d-31ef-4fde-92c8-d3a8e2953931`, el recibo
+`9e14599d-2edc-42aa-afde-170420c838aa` y la fecha de registro
+`2026-09-05T18:09:06.065542Z`.
+
+**Defecto corregido y recuperación confirmada:** los rechazos intermitentes
+`403` procedían de comparar fechas como texto (seis decimales frente a una
+representación que omite ceros finales), aunque expresasen el mismo instante;
+no del reinicio. Ambas bases comparan ahora instantes mediante conversión a
+`timestamptz`, sin cambiar bytes firmados ni permisos. El diagnóstico temporal
+está retirado.
+
+Después de aplicar esa corrección y del segundo reinicio de aplicación y
+PostgreSQL principal, dirección confirmó desde el navegador las tres
+recuperaciones `200/200/200`: selección, comunicación y respuesta. Con las
+mismas claves y material, la respuesta devuelve `replay_registrada_por_rrhh`
+y conserva el justificante `84727d1d-31ef-4fde-92c8-d3a8e2953931`, el recibo
+`9e14599d-2edc-42aa-afde-170420c838aa` y la fecha original
+`2026-09-05T18:09:06.065542Z`. También se confirmó ausencia de errores de
+JavaScript, cookies, almacenamiento web y desbordamiento horizontal en móvil.
+También se comprobó desde el navegador el rechazo `409` por conflicto,
+sin generar un duplicado. El corte está incluido en esta entrega, cerrado
+técnicamente; no equivale a cerrar todo el paso 6.
+Ante un rechazo posterior, no encadene reintentos ni genere otra clave para
+sortearlo: conservar la operación original sigue siendo obligatorio.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

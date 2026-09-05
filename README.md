@@ -4,13 +4,22 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional de referencia: 5 de septiembre de 2026 · `f5931f9`.**
+**Estado funcional: 5 de septiembre de 2026. Base documental previa: `5c6b03e`.**
 
-Código posterior publicado: `b2effba`. El desarrollo y las bases sintéticas
+Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
 [guía de arranque vigente](GUIA_RECORRIDO_ALBERTO.md) permite abrir expedientes
 en la bandeja principal y registrar el análisis de una solicitud existente,
 con recibo conservado tras reiniciar. El servidor remoto queda detenido y conservado.
+
+**Corte 3 incluido en esta entrega; recuperación demostrada:** el navegador registró
+una respuesta declarada por RRHH (`201`), con referencia y huella del correo,
+actor y justificante persistentes. Tras el parche y segundo reinicio de
+aplicación y PostgreSQL, selección, comunicación y respuesta se recuperaron
+con `200/200/200`, conservando el mismo justificante, recibo y fecha.
+Los rechazos intermitentes por comparar como texto fechas equivalentes están
+corregidos mediante comparación de instantes; el diagnóstico se retiró.
+También se comprobó un conflicto `409` desde el navegador, sin duplicado.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -55,7 +64,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, orden y propuesta persistidas, llamamiento abierto y aviso local; recuperación con los mismos recibos tras reiniciar. | Faltan envío y entrega corporativos, aceptación o renuncia y gestión completa del plazo. |
+| 6. Llamamiento, parcial | Selección, orden y propuesta persistidas, llamamiento abierto y aviso local recuperables tras reiniciar. Respuesta declarada por RRHH registrada con `201` y recuperada con `200` después del parche y segundo reinicio; corte 3 incluido en esta entrega. | La declaración no verifica el correo ni resuelve aceptación o renuncia. Faltan envío y entrega corporativos, resolución de respuestas y gestión completa del plazo. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se declaran terminados sus seis documentos, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -64,6 +73,12 @@ porcentaje global ni un recuento de pantallas, contratos o pruebas.
 La bandeja y el detalle ya están conectados en `b2effba`: se demostraron 50
 solicitudes conservadas y un análisis desde una de sus filas, sin otra alta.
 Esto mejora la continuidad del trabajo; no cierra por sí solo otro paso del flujo.
+El registro de respuesta conserva una respuesta, un asiento y un evento;
+no cambia Bolsa, no avanza el expediente y mantiene comunicación versión `2`.
+El `.eml` sintético se lee y resume con SHA256 en el navegador: no se sube ni
+se custodia. El aviso sigue siendo local, no correo corporativo entregado.
+El siguiente corte es resolver una aceptación válida con permiso propio;
+la aceptación declarada por RRHH no sustituye esa resolución.
 
 ## Probar el recorrido disponible
 
@@ -78,7 +93,9 @@ Esto mejora la continuidad del trabajo; no cierra por sí solo otro paso del flu
    recibo. Un error de conexión no demuestra que no se haya guardado nada.
 5. Para continuar el llamamiento existente, utilice sus datos y claves
    originales. Recuperar no significa crear otra solicitud o preparar una
-   clave nueva. La guía conserva el ejemplo exacto.
+   clave nueva. La guía conserva el ejemplo exacto de la respuesta y enlaza
+   el `.eml` sintético que debe cargarse sin cambios. La recuperación ya está
+   comprobada; no eluda un rechazo cambiando claves o repitiendo el registro.
 6. Para verificar un reinicio, siga la guía conservando PostgreSQL y el
    material de seguridad. El resultado recuperado mantiene recibo y fecha;
    no debe duplicar el efecto.

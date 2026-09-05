@@ -2,17 +2,27 @@
 
 Diputación de Granada · Ventanilla Electrónica del Empleado Público
 
-**Edición: 5 de septiembre de 2026.** Alcance de referencia: versión
+**Edición: 5 de septiembre de 2026.** Cierre anterior publicado: versión
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`. Este manual explica qué puede recorrer una persona desde el
 portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.
 
 **Disponible: cinco pasos completos de Contratación temporal y una parte
-del sexto: selección, apertura de llamamiento y aviso local.** No están
+del sexto: selección, apertura de llamamiento, aviso local y declaración de
+respuesta por RRHH.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La bandeja real lista 50 expedientes y abre su detalle en el recorrido local
 `8443`/base `55433`; no incrementa el contador de pasos.
+
+**Incluido en esta entrega; recuperación demostrada:**
+el registro de declaración RRHH obtuvo `HTTP 201`. Corregida la comparación
+de fechas con ceros finales, dirección confirmó en navegador `200/200/200`
+para recuperar selección, comunicación y respuesta tras el segundo reinicio
+de aplicación y PostgreSQL: mismos recibo, justificante y fecha, sin nuevo
+registro. Sin errores JavaScript, cookies, almacenamiento web ni desbordamiento
+horizontal en ese recorrido. También se confirmó un conflicto real `409` en
+navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.
 
 Para elegir la documentación adecuada:
 
@@ -58,9 +68,8 @@ correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
 1. Pida a Sistemas la dirección del entorno, su certificado de desarrollo y
    el perfil de navegador preparado. No comparta certificados ni contraseñas.
 2. Abra la dirección indicada y entre en `/portal-empleado/`, sin seleccionar
-   el modo de presentación. En el entorno de la guía, después de preparar
-   el túnel, la dirección es
-   `https://localhost:18443/portal-empleado/`.
+   el modo de presentación. El recorrido principal local de la guía está en
+   `https://localhost:8443/portal-empleado/`, sin túnel al remoto detenido.
 3. Utilice el certificado correspondiente a su función. Recursos Humanos e
    Intervención usan certificados y perfiles de navegador separados.
 4. Espere a que el portal compruebe los módulos disponibles. Entre desde
@@ -138,7 +147,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Iniciar la selección desde un expediente fiscalizado favorablemente y registrar su comunicación local. | Orden, propuesta, llamamiento abierto y aviso local persistentes. No acredita correo enviado, entrega, aceptación, renuncia ni gestión completa del plazo. |
+| 6. Llamamiento, parcialmente disponible | Iniciar la selección, registrar su comunicación local y declarar la respuesta recibida por RRHH. | Mismos recibos recuperados tras reiniciar, incluida la declaración RRHH, sin duplicar el registro. No acredita envío, entrega, aceptación o renuncia terminal ni gestión completa del plazo. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -196,15 +205,47 @@ Para una operación genuinamente nueva, siga la guía y conserve su nueva
 clave antes de enviar. Para recuperar una anterior, no pulse **Preparar
 clave nueva**: mantenga la clave y todos los datos originales.
 
+### Registrar una respuesta declarada por RRHH
+
+1. Recupere la comunicación confirmada en versión `2` mediante el recorrido
+   anterior. En el **mismo formulario**, la operación **3. Registrar respuesta
+   recibida por correo** toma sus antecedentes del recibo; no los invente.
+   El servidor exige el permiso propio
+   `contratacion_temporal.llamamiento.respuesta.registrar`.
+2. Elija **Aceptación declarada en el correo** o **Renuncia declarada en el
+   correo**, indique una referencia opaca sin datos personales y la **fecha de
+   recepción en UTC**, no la hora local. Seleccione un `.eml` no vacío de hasta
+   **2 MiB**. WebCrypto calcula SHA-256 en su equipo: el contenido no se envía
+   ni se guarda en VEC y la huella no se edita manualmente.
+3. Espere a **Huella calculada**, revise los datos y confirme expresamente el
+   registro. El selector puede quedar vacío al actualizar la pantalla aunque
+   la huella siga calculada; el contenido del archivo no se conserva.
+4. Conserve el recibo, el justificante, la huella, las fechas y la clave. Ante
+   un resultado ambiguo o un acceso denegado, no prepare otra
+   clave ni cambie los datos para forzar el registro: avise al operador.
+
+Para practicar, use el [correo sintético existente](../manual_rrhh/ejemplos/respuesta_sintetica.eml)
+y los datos conservados de la [guía](../../GUIA_RECORRIDO_ALBERTO.md). Ese archivo
+**nunca se envió y no corresponde a una persona real**.
+
+El original sigue en el sistema de correo; VEC registra la declaración, su
+referencia y su huella, **sin verificar origen, firma ni custodia**. No acredita
+envío o entrega ni resuelve aceptación o renuncia. La comunicación conserva
+la versión `2`, el expediente observado sigue en `6` y no cambia la candidatura
+ni su estado en Bolsa. No aumenta el contador de pasos.
+
 ### Qué ocurre después de un reinicio
 
-Los resultados confirmados de este recorrido se conservan en el servidor. En
-la comprobación de cierre, la solicitud `v1` llevó al análisis `201`/`v2` y,
+En el cierre previamente publicado, la solicitud `v1` llevó al análisis `201`/`v2` y,
 tras reiniciar, se recuperó un único recibo, mediante lectura independiente
 de PostgreSQL y navegador.
 Con la misma instalación, datos y material de seguridad, una recuperación
 autorizada del llamamiento o del aviso devuelve el mismo recibo y la fecha
 original, sin crear otro efecto.
+La declaración de respuesta también se recuperó tras corregir la comparación
+temporal y repetir el reinicio de aplicación y PostgreSQL. El navegador devolvió
+`200`, con los mismos recibo, justificante y fecha original, sin nuevo registro.
+Los identificadores exactos constan en el [manual de RRHH](../manual_rrhh/README.md).
 
 El formulario sin confirmar no se guarda automáticamente en el navegador.
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.
