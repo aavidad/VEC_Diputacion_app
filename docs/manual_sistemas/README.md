@@ -2,6 +2,30 @@
 
 Entorno de desarrollo de Contratación temporal · Corte: 6 de septiembre de 2026.
 
+## Organización de referencia configurable
+
+La consulta utiliza un catálogo de fichero explícito, conservado fuera de la
+base de expedientes y leído mediante el adaptador existente. Configuración
+para el lanzador de desarrollo:
+
+```sh
+export VEC_PERSONAL_ORGANIZACION_SOURCE_PATH="$PWD/data/catalogos/estructura-organizativa/v1.rpt-publica.json"
+export VEC_PERSONAL_ORGANIZACION_VERSION=1
+```
+
+Arranque después con el mismo material y conexiones ya preparados. Sin ruta,
+la consulta responde `503`; si ruta o versión configuradas son incompatibles,
+el arranque falla sin escoger otra versión. La página es
+`/portal-empleado/organizacion/`; API de solo lectura:
+`GET /api/vec/contratacion-temporal/organizacion`, con identidad RRHH de desarrollo.
+
+Para una reorganización, prepare otro fichero/versionado conservando el
+anterior, sus claves estables y la referencia a la versión precedente.
+Coteje su fuente y seleccione expresamente la nueva versión antes de
+reiniciar solo la aplicación; no necesita recompilar ni migrar PostgreSQL.
+Esto no publica una organización administrativa ni concede permisos:
+la edición web y la ratificación de solicitudes aún no están conectadas.
+
 **Cierre anterior publicado:** código
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con desarrollo en el equipo local.
 Dirección confirmó producto local, GitHub y producto remoto en ese mismo

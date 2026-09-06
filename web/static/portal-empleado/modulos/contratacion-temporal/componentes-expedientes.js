@@ -165,7 +165,8 @@ export function renderizarCuadro(estado, t) {
     </div>
   </section>`;
   const trabajoOperativo = cuadro.demostracion ? renderizarTrabajoOperativo(cuadro, t) : "";
-  return `${indicadores}${trabajoOperativo}${filtros}${estado.carga === "vacio"
+  const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a></p>`;
+  return `${indicadores}${organizacion}${trabajoOperativo}${filtros}${estado.carga === "vacio"
     ? renderizarEstadoCarga(estado, t) : tabla}`;
 }
 

@@ -2,6 +2,19 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
+Petición funcional posterior del operador: centros y categorías de la RPT,
+organización editable y ratificación previa según cada unidad, sin niveles
+obligatorios inexistentes. Primer corte: consulta real de los 41 centros de
+la fuente publicada, sus agrupaciones y once puestos cotejados de Transformación
+Digital. API y pantalla conectadas al catálogo versionado de Personal,
+en preparación; no es un organigrama funcional completo ni habilita altas.
+Siguiente: edición durable de la organización conservando versiones; después,
+vinculación de responsables autorizados y ratificación antes de RRHH. No
+deducir permisos ni dependencias por el orden de las filas. La categoría
+profesional y el código individual de puesto no son la denominación RPT.
+Este corte no añade un sexto paso completo. Se mantiene la cola inferior,
+incluidas las dependencias de firma y nombramiento, sin reabrir lo cerrado.
+
 Primer PDF del objetivo 9 publicado en `5c57b29f`.
 AD3-21 cerrada en `975f0c16`, resolución publicada en `9e692f80`.
 Objetivo 9, seis PDF borradores, publicado en `c82a3068`. Esta revisión incorpora

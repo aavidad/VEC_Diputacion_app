@@ -32,6 +32,8 @@ const (
 	EnvTLSCertFile                           = "VEC_TLS_CERT_FILE"
 	EnvTLSKeyFile                            = "VEC_TLS_KEY_FILE"
 	EnvPersonalCatalogPath                   = "VEC_PERSONAL_CATALOG_PATH"
+	EnvPersonalOrganizacionSourcePath        = "VEC_PERSONAL_ORGANIZACION_SOURCE_PATH"
+	EnvPersonalOrganizacionVersion           = "VEC_PERSONAL_ORGANIZACION_VERSION"
 	EnvBolsaPublicSourcePath                 = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
 	EnvBolsaCategoriesSourcePath             = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
 	EnvBolsaCategoriesCatalogID              = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
@@ -104,6 +106,8 @@ type Config struct {
 	TLSKeyFile                            string
 	PersonalCatalogPath                   string
 	PersonalCatalogInMemory               bool
+	PersonalOrganizacionSourcePath        string
+	PersonalOrganizacionVersion           int
 	BolsaPublicSourcePath                 string
 	BolsaCategoriesSourcePath             string
 	BolsaCategoriesCatalogID              string
@@ -150,6 +154,8 @@ func Load() Config {
 		TLSCertFile:                           envFirst(EnvTLSCertFile),
 		TLSKeyFile:                            envFirst(EnvTLSKeyFile),
 		PersonalCatalogPath:                   envFirst(EnvPersonalCatalogPath),
+		PersonalOrganizacionSourcePath:        envFirst(EnvPersonalOrganizacionSourcePath),
+		PersonalOrganizacionVersion:           envPositiveInt(EnvPersonalOrganizacionVersion),
 		BolsaPublicSourcePath:                 envFirst(EnvBolsaPublicSourcePath),
 		BolsaCategoriesSourcePath:             envFirst(EnvBolsaCategoriesSourcePath),
 		BolsaCategoriesCatalogID:              envFirst(EnvBolsaCategoriesCatalogID),
@@ -253,6 +259,10 @@ func (c Config) Normalize() Config {
 		c.PersonalCatalogPath = normalizeOptionalPath(c.PersonalCatalogPath, DefaultPersonalCatalogPath)
 	}
 	c.BolsaPublicSourcePath = defaultString(c.BolsaPublicSourcePath, DefaultBolsaPublicSourcePath)
+	c.PersonalOrganizacionSourcePath = strings.TrimSpace(c.PersonalOrganizacionSourcePath)
+	if c.PersonalOrganizacionVersion == 0 {
+		c.PersonalOrganizacionVersion = 1
+	}
 	c.BolsaCategoriesSourcePath = defaultString(c.BolsaCategoriesSourcePath, DefaultBolsaCategoriesSourcePath)
 	c.BolsaCategoriesCatalogID = defaultString(c.BolsaCategoriesCatalogID, DefaultBolsaCategoriesCatalogID)
 	if c.BolsaCategoriesVersion == 0 {

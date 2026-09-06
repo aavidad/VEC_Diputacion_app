@@ -4,6 +4,21 @@ Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
 Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
 Estado funcional de referencia: 6 de septiembre de 2026.
 
+La consulta organizativa de Contratación reutiliza `CatalogoConfigurable`
+del núcleo mediante `ConsultaCatalogosConfigurables`; Personal proyecta
+`ConsultaEstructuraOrganizativa` sin otro catálogo, repositorio ni permisos.
+`contratacion_temporal_organizacion_desarrollo.go` conecta la lectura
+protegida y la vista `portal-empleado/organizacion/` consume su API real.
+La ruta revalida certificado y rol con la frontera ya existente.
+
+Las entradas tienen clave estable, tipo y adscripción opcional; los nombres
+de los cargos no son enumeraciones compiladas. Se rechazan ciclos y padres
+ausentes, sin inferir dependencia funcional por el orden del PDF. El lector
+está fijado a versión explícita; no resuelve «la última». El paquete inicial
+está en borrador y conserva las limitaciones de la extracción pública.
+Edición durable, aprobación y conexión al alta/ratificación son trabajo pendiente;
+no reemplazarlo por mutaciones del DOM ni reutilizar esta tabla como autorización.
+
 **Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
 La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/base
 `55433`; el caso verificado encadena solicitud `v1` a análisis `201`/`v2` y

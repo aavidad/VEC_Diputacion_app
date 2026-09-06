@@ -2,6 +2,15 @@
 
 Contratación temporal · VEC Diputación · Corte: 6 de septiembre de 2026.
 
+**Consulta de centros:** desde la bandeja, **Centros y organización de
+referencia** abre una tabla con búsqueda, tipo, adscripción y página de la RPT.
+La [guía](../../GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia)
+detalla su cobertura: 41 centros, agrupaciones de la fuente y once puestos de
+Transformación Digital, todavía sin las dependencias funcionales completas.
+Una adscripción no identifica al ocupante ni a quien puede ratificar.
+Consultar este catálogo no amplía los centros admitidos por el formulario
+actual; edición y ratificación multicientro siguen pendientes.
+
 **Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
 La base principal conserva 51 solicitudes; bandeja y detalle consultables (`8443` / base
 `55433`). El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y

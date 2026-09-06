@@ -1,0 +1,789 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "rpt-organizacion-2026-05-07-preparacion-v1",
+    "actualizada_en": "2026-09-06T00:00:00Z",
+    "demostracion": true,
+    "aviso": "Demostración del catálogo organizativo en preparación desde fuente pública; no habilita ratificaciones ni afirma ocupantes o vigencia administrativa.",
+    "origen_sha256": "67cfc02f025c2697d6a3dc6e7a22ad7fe23b4e7c941a7f343e95beda377edb4a"
+  },
+  "catalogo": {
+    "id": "estructura-organizativa-dipgra",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "personal",
+    "nombre": "Organización de referencia de la Diputación de Granada",
+    "descripcion": "Referencia de la RPT publicada de 7 de mayo de 2026: los 41 centros y sus adscripciones por encabezados. Incluye únicamente los once puestos de responsabilidad cotejados en la página 17 de Transformación Digital; los de los demás centros están pendientes de incorporar. No reconstruye la dependencia funcional entre jefaturas, ocupación de puestos ni permisos. Los códigos de las filas de puestos son datos de reserva de la fuente, no códigos de puesto individual. La fecha técnica del catálogo no acredita vigencia administrativa.",
+    "fuente_ref": "https://www.dipgra.es/servicios/areas/transparencia/portal-de-transparencia/a-informacion-institucional-y-organizativa/a3-personal/relacion-de-Puestos-de-trabajo/",
+    "motivo_creacion": "Preparar la organización configurable solicitada, conservando las adscripciones documentadas y sin inferir cadenas de autorización.",
+    "entradas": [
+      {
+        "clave": "delegacion-01",
+        "etiqueta": "PRESIDENCIA",
+        "orden": 0,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "1"
+        }
+      },
+      {
+        "clave": "delegacion-02",
+        "etiqueta": "DELEGACIÓN DE PRESIDENCIA, PROYECTOS ESTRATÉGICOS, BIENES CULTURALES, RETO DEMOGRÁFICO Y PORTAVOCÍA",
+        "orden": 1,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "8"
+        }
+      },
+      {
+        "clave": "delegacion-03",
+        "etiqueta": "DELEGACIÓN DE TURISMO Y PATRIMONIO",
+        "orden": 2,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "12"
+        }
+      },
+      {
+        "clave": "delegacion-04",
+        "etiqueta": "DELEGACIÓN DE DEPORTES E INSTALACIONES DEPORTIVAS",
+        "orden": 3,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "13"
+        }
+      },
+      {
+        "clave": "delegacion-05",
+        "etiqueta": "DELEGACIÓN DE TRANSPARENCIA, RECURSOS HUMANOS Y TRANSFORMACIÓN DIGITAL",
+        "orden": 4,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "16"
+        }
+      },
+      {
+        "clave": "delegacion-06",
+        "etiqueta": "DELEGACIÓN DE RETO DEMOGRÁFICO Y CONTRATACIÓN",
+        "orden": 5,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "25"
+        }
+      },
+      {
+        "clave": "delegacion-07",
+        "etiqueta": "DELEGACIÓN DE CONTRATACIÓN, AGUA, PROMOCIÓN AGRARIA Y MEDIO AMBIENTE",
+        "orden": 6,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "27"
+        }
+      },
+      {
+        "clave": "delegacion-08",
+        "etiqueta": "DELEGACIÓN DE FONDOS EUROPEOS, DESARROLLO, INDUSTRIA, EMPLEO Y PORTAVOCÍA",
+        "orden": 7,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "32"
+        }
+      },
+      {
+        "clave": "delegacion-09",
+        "etiqueta": "DELEGACIÓN OBRAS PÚBLICAS Y VIVIENDA",
+        "orden": 8,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "35"
+        }
+      },
+      {
+        "clave": "delegacion-10",
+        "etiqueta": "DELEGACIÓN ECONOMÍA Y ATENCIÓN AL ALCALDE",
+        "orden": 9,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "47"
+        }
+      },
+      {
+        "clave": "delegacion-11",
+        "etiqueta": "DELEGACIÓN DE CULTURA Y EDUCACIÓN",
+        "orden": 10,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "50"
+        }
+      },
+      {
+        "clave": "delegacion-12",
+        "etiqueta": "DELEGACIÓN BIENESTAR SOCIAL Y FAMILIA",
+        "orden": 11,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "53"
+        }
+      },
+      {
+        "clave": "delegacion-13",
+        "etiqueta": "DELEGACIÓN DE ASISTENCIA A MUNICIPIOS Y EMERGENCIAS",
+        "orden": 12,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "68"
+        }
+      },
+      {
+        "clave": "delegacion-14",
+        "etiqueta": "DELEGACIÓN DE CENTROS SOCIALES, MAYORES Y JUVENTUD",
+        "orden": 13,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "delegacion",
+          "pagina_fuente": "74"
+        }
+      },
+      {
+        "clave": "centro-101",
+        "etiqueta": "GABINETE DE PRESIDENCIA",
+        "orden": 14,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-01",
+          "codigo_fuente": "101",
+          "pagina_fuente": "1"
+        }
+      },
+      {
+        "clave": "centro-102",
+        "etiqueta": "SECRETARÍA GENERAL",
+        "orden": 15,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-01",
+          "codigo_fuente": "102",
+          "pagina_fuente": "3"
+        }
+      },
+      {
+        "clave": "centro-301",
+        "etiqueta": "INTERVENCIÓN - CONTROL Y FISCALIZACIÓN",
+        "orden": 16,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-01",
+          "codigo_fuente": "301",
+          "pagina_fuente": "5"
+        }
+      },
+      {
+        "clave": "centro-104",
+        "etiqueta": "PARQUE MÓVIL",
+        "orden": 17,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-02",
+          "codigo_fuente": "104",
+          "pagina_fuente": "8"
+        }
+      },
+      {
+        "clave": "centro-105",
+        "etiqueta": "GABINETE TÉCNICO DE PRESIDENCIA",
+        "orden": 18,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-02",
+          "codigo_fuente": "105",
+          "pagina_fuente": "9"
+        }
+      },
+      {
+        "clave": "centro-106",
+        "etiqueta": "ABOGACÍA PROVINCIAL",
+        "orden": 19,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-02",
+          "codigo_fuente": "106",
+          "pagina_fuente": "10"
+        }
+      },
+      {
+        "clave": "centro-108",
+        "etiqueta": "OFICINA DE RETO DEMOGRÁFICO",
+        "orden": 20,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-02",
+          "codigo_fuente": "108",
+          "pagina_fuente": "11"
+        }
+      },
+      {
+        "clave": "centro-215",
+        "etiqueta": "PATRIMONIO",
+        "orden": 21,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-03",
+          "codigo_fuente": "215",
+          "pagina_fuente": "12"
+        }
+      },
+      {
+        "clave": "centro-600",
+        "etiqueta": "DEPORTES",
+        "orden": 22,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-04",
+          "codigo_fuente": "600",
+          "pagina_fuente": "13"
+        }
+      },
+      {
+        "clave": "centro-503",
+        "etiqueta": "SUBALTERNOS Y COMUNICACIÓN",
+        "orden": 23,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-05",
+          "codigo_fuente": "503",
+          "pagina_fuente": "16"
+        }
+      },
+      {
+        "clave": "centro-520",
+        "etiqueta": "TRANSFORMACIÓN DIGITAL",
+        "orden": 24,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-05",
+          "codigo_fuente": "520",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "centro-530",
+        "etiqueta": "RECURSOS HUMANOS",
+        "orden": 25,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-05",
+          "codigo_fuente": "530",
+          "pagina_fuente": "20"
+        }
+      },
+      {
+        "clave": "centro-540",
+        "etiqueta": "TRANSPARENCIA",
+        "orden": 26,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-05",
+          "codigo_fuente": "540",
+          "pagina_fuente": "24"
+        }
+      },
+      {
+        "clave": "centro-103",
+        "etiqueta": "CONTRATACIÓN ADMINISTRATIVA - CENTRAL PROV. CONTRAT.",
+        "orden": 27,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-06",
+          "codigo_fuente": "103",
+          "pagina_fuente": "25"
+        }
+      },
+      {
+        "clave": "centro-110",
+        "etiqueta": "SERVICIO DE SOSTENIBILIDAD AMBIENTAL",
+        "orden": 28,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-07",
+          "codigo_fuente": "110",
+          "pagina_fuente": "27"
+        }
+      },
+      {
+        "clave": "centro-111",
+        "etiqueta": "SERVICIOS PROVINCIALES DE RESIDUOS",
+        "orden": 29,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-07",
+          "codigo_fuente": "111",
+          "pagina_fuente": "29"
+        }
+      },
+      {
+        "clave": "centro-112",
+        "etiqueta": "SERVICIO DEL CICLO URBANO DEL AGUA",
+        "orden": 30,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-07",
+          "codigo_fuente": "112",
+          "pagina_fuente": "30"
+        }
+      },
+      {
+        "clave": "centro-200",
+        "etiqueta": "EMPLEO Y DESARROLLO PROVINCIAL",
+        "orden": 31,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-08",
+          "codigo_fuente": "200",
+          "pagina_fuente": "32"
+        }
+      },
+      {
+        "clave": "centro-810",
+        "etiqueta": "SERVICIO DE PROYECTOS Y OBRAS",
+        "orden": 32,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "810",
+          "pagina_fuente": "35"
+        }
+      },
+      {
+        "clave": "centro-810a",
+        "etiqueta": "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA",
+        "orden": 33,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "810A",
+          "pagina_fuente": "37"
+        }
+      },
+      {
+        "clave": "centro-820",
+        "etiqueta": "SERVICIO DE PLANIFICACIÓN",
+        "orden": 34,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "820",
+          "pagina_fuente": "39"
+        }
+      },
+      {
+        "clave": "centro-830",
+        "etiqueta": "SERVICIO DE INGENIERÍA",
+        "orden": 35,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "830",
+          "pagina_fuente": "41"
+        }
+      },
+      {
+        "clave": "centro-840",
+        "etiqueta": "SERVICIO DE CARRETERAS",
+        "orden": 36,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "840",
+          "pagina_fuente": "43"
+        }
+      },
+      {
+        "clave": "centro-850",
+        "etiqueta": "SERVICIO DE ARQUITECTURA",
+        "orden": 37,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "850",
+          "pagina_fuente": "45"
+        }
+      },
+      {
+        "clave": "centro-901",
+        "etiqueta": "SERVICIO DE P.F.E.A. - PLANES DE FOMENTO DE EMPLEO AGRARIO",
+        "orden": 38,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-09",
+          "codigo_fuente": "901",
+          "pagina_fuente": "46"
+        }
+      },
+      {
+        "clave": "centro-302",
+        "etiqueta": "GESTIÓN PRESUPUESTARIA",
+        "orden": 39,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-10",
+          "codigo_fuente": "302",
+          "pagina_fuente": "47"
+        }
+      },
+      {
+        "clave": "centro-304",
+        "etiqueta": "BOLETIN OFICIAL DE LA PROVINCIA",
+        "orden": 40,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-10",
+          "codigo_fuente": "304",
+          "pagina_fuente": "48"
+        }
+      },
+      {
+        "clave": "centro-330",
+        "etiqueta": "TESORERÍA",
+        "orden": 41,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-10",
+          "codigo_fuente": "330",
+          "pagina_fuente": "49"
+        }
+      },
+      {
+        "clave": "centro-210",
+        "etiqueta": "CULTURA - SERVICIOS GENERALES",
+        "orden": 42,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-11",
+          "codigo_fuente": "210",
+          "pagina_fuente": "50"
+        }
+      },
+      {
+        "clave": "centro-220",
+        "etiqueta": "IMPRENTA PROVINCIAL",
+        "orden": 43,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-11",
+          "codigo_fuente": "220",
+          "pagina_fuente": "52"
+        }
+      },
+      {
+        "clave": "centro-711",
+        "etiqueta": "SERVICIOS SOCIALES COMUNITARIOS",
+        "orden": 44,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-12",
+          "codigo_fuente": "711",
+          "pagina_fuente": "53"
+        }
+      },
+      {
+        "clave": "centro-712",
+        "etiqueta": "CENTRO PROVINCIAL DE DROGODEPENDENCIAS",
+        "orden": 45,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-12",
+          "codigo_fuente": "712",
+          "pagina_fuente": "65"
+        }
+      },
+      {
+        "clave": "centro-107",
+        "etiqueta": "OFICINA DE CONCERTACIÓN LOCAL",
+        "orden": 46,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-13",
+          "codigo_fuente": "107",
+          "pagina_fuente": "68"
+        }
+      },
+      {
+        "clave": "centro-109",
+        "etiqueta": "SERVICIO DE CONSUMO",
+        "orden": 47,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-13",
+          "codigo_fuente": "109",
+          "pagina_fuente": "69"
+        }
+      },
+      {
+        "clave": "centro-900",
+        "etiqueta": "SERVICIO DE ASISTENCIA A MUNICIPIOS",
+        "orden": 48,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-13",
+          "codigo_fuente": "900",
+          "pagina_fuente": "70"
+        }
+      },
+      {
+        "clave": "centro-751",
+        "etiqueta": "RESIDENCIA DE MAYORES \"LA MILAGROSA\"",
+        "orden": 49,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "751",
+          "pagina_fuente": "74"
+        }
+      },
+      {
+        "clave": "centro-752",
+        "etiqueta": "RESIDENCIA \"RODRÍGUEZ PENALVA\"",
+        "orden": 50,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "752",
+          "pagina_fuente": "75"
+        }
+      },
+      {
+        "clave": "centro-753",
+        "etiqueta": "CENTRO PSICOPEDAGÓGICO \"REINA SOFÍA\"",
+        "orden": 51,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "753",
+          "pagina_fuente": "78"
+        }
+      },
+      {
+        "clave": "centro-754",
+        "etiqueta": "SERVICIOS GENERALES DE LOS CENTROS SOCIALES",
+        "orden": 52,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "754",
+          "pagina_fuente": "80"
+        }
+      },
+      {
+        "clave": "centro-755",
+        "etiqueta": "CENTRO OCUPACIONAL \"REINA SOFÍA\"",
+        "orden": 53,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "755",
+          "pagina_fuente": "83"
+        }
+      },
+      {
+        "clave": "centro-713",
+        "etiqueta": "IGUALDAD Y JUVENTUD",
+        "orden": 54,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "centro",
+          "adscripcion_clave": "delegacion-14",
+          "codigo_fuente": "713",
+          "pagina_fuente": "84"
+        }
+      },
+      {
+        "clave": "rpt-520-732",
+        "etiqueta": "DIRECCION TÉCNICA DE TRANSFORMACIÓN DIGITAL",
+        "orden": 55,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "732",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-735",
+        "etiqueta": "JEFATURA DE SERVICIO DE SERVICIOS DIGITALES Y ASESORÍA TECNOLÓGICA A MUNICIPIOS",
+        "orden": 56,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "735",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-656",
+        "etiqueta": "JEF. SERV. INFRAESTR. DE SISTEMAS, COMUNIC. Y CIBERSEGURIDAD",
+        "orden": 57,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "656",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-733",
+        "etiqueta": "JEFATURA DE SERVICIO JURÍDICO-ADMINISTRATIVO",
+        "orden": 58,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "733",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-734",
+        "etiqueta": "JEFATURA DE SERVICIO DE DESARROLLO DE SERVICIOS DIGITALES Y TERRITORIOS INTELIGENTES",
+        "orden": 59,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "734",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-736",
+        "etiqueta": "RESPONSABLE DE SEGURIDAD DE LA INFORMACIÓN",
+        "orden": 60,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "736",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-737",
+        "etiqueta": "JEFATURA DE SECCION DE PLATAFORMAS Y SERVICIOS DIGITALES A LA CIUDADANÍA",
+        "orden": 61,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "737",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-294",
+        "etiqueta": "JEF. SECCION INFRAESTR. INFORM. Y DE COMUN.",
+        "orden": 62,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "294",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-283",
+        "etiqueta": "JEF. SECCION DESARROLLO DE APLICACIONES",
+        "orden": 63,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "283",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-273",
+        "etiqueta": "JEF. SECCION ATENCION A USUARIOS",
+        "orden": 64,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "273",
+          "pagina_fuente": "17"
+        }
+      },
+      {
+        "clave": "rpt-520-269",
+        "etiqueta": "JEF. SECCION ASIST. INFORM. A MUNICIPIOS",
+        "orden": 65,
+        "vigente_desde": "2026-09-06T00:00:00Z",
+        "atributos": {
+          "tipo": "puesto_responsabilidad",
+          "adscripcion_clave": "centro-520",
+          "codigo_fuente": "269",
+          "pagina_fuente": "17"
+        }
+      }
+    ],
+    "estado": "borrador",
+    "creado_por": "operador:preparacion:organizacion",
+    "creado_en": "2026-09-06T00:00:00Z"
+  }
+}

@@ -253,6 +253,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	rutaOrganizacion, err := nuevaRutaOrganizacionContratacionTemporalDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	var seleccionReal httpinterno.EjecutorSeleccionLlamamiento = noCompuesta
 	var autoridadPropuestaReal httpinterno.AutoridadServidorPropuestaFormalizacion = noCompuesta
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
@@ -320,7 +324,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis, rutaOrganizacion)
 	if comunicacionReal != nil {
 		// La continuación confirma solo después de abrir en Bolsa; no implica
 		// envío de aviso ni aplicación de un plazo legal.
@@ -416,7 +420,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			ruta:      r.URL.Path,
 			principal: clonarPrincipalDesarrollo(principal),
 		}
-		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
+		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.
 			certificado := r.TLS.VerifiedChains[0][0]
@@ -488,6 +493,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaReasignaciones ||
 		r.URL.Path == httpinterno.RutaPreparacionesInformeJuridico ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
+		r.URL.Path == rutaOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaConfiguracionAnalisisContratacionTemporalDesarrollo
 }
 

@@ -524,11 +524,17 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 		{"vigente_detalle", httpinterno.RutaConsultaDetalleRRHH, ahora.Add(-time.Hour), ahora.Add(time.Hour), true},
 		{"caducado", httpinterno.RutaConsultaCuadroRRHH, ahora.Add(-time.Hour), ahora.Add(-time.Minute), false},
 		{"futuro", httpinterno.RutaConsultaDetalleRRHH, ahora.Add(time.Minute), ahora.Add(time.Hour), false},
+		{"organizacion_vigente", rutaOrganizacionContratacionTemporalDesarrollo, ahora.Add(-time.Hour), ahora.Add(time.Hour), true},
+		{"organizacion_caducado", rutaOrganizacionContratacionTemporalDesarrollo, ahora.Add(-time.Hour), ahora.Add(-time.Minute), false},
+		{"organizacion_futuro", rutaOrganizacionContratacionTemporalDesarrollo, ahora.Add(time.Minute), ahora.Add(time.Hour), false},
 		{"ruta_previa_intacta", httpinterno.RutaAltaSolicitudes, ahora.Add(-time.Hour), ahora.Add(-time.Minute), true},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			certificado := &x509.Certificate{Raw: raw, NotBefore: caso.desde, NotAfter: caso.hasta}
 			peticion := httptest.NewRequest(http.MethodPost, "https://localhost"+caso.ruta, nil)
+			if caso.ruta == rutaOrganizacionContratacionTemporalDesarrollo {
+				peticion.Method = http.MethodGet
+			}
 			peticion.RemoteAddr = "127.0.0.1:41000"
 			peticion.TLS = &tls.ConnectionState{
 				HandshakeComplete: true, Version: tls.VersionTLS13,
@@ -547,7 +553,7 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 					if existe != caso.emite {
 						t.Fatal("emisión de capacidad incorrecta")
 					}
-					if existe && rutaConsultaRRHHContratacionTemporalDesarrollo(caso.ruta) {
+					if existe && (rutaConsultaRRHHContratacionTemporalDesarrollo(caso.ruta) || caso.ruta == rutaOrganizacionContratacionTemporalDesarrollo) {
 						if capacidad.consultaRRHH == nil || capacidad.certificadoVerificadoEn.Location() != time.UTC ||
 							capacidad.certificadoVerificadoEn.Before(caso.desde) || !capacidad.certificadoVerificadoEn.Before(caso.hasta) ||
 							capacidad.certificadoValidoHasta != certificado.NotAfter.UTC() {

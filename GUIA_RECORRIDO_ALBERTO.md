@@ -1,5 +1,23 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
+## Centros y organización de referencia
+
+En la bandeja de Contratación, abra **Centros y organización de referencia**,
+o visite `https://localhost:8443/portal-empleado/organizacion/` con el
+navegador de desarrollo ya preparado. Puede buscar por denominación o código,
+filtrar por tipo y consultar la adscripción y página de la fuente.
+
+La versión inicial recoge los 41 centros de la RPT fechada el 7 de mayo de
+2026, sus 14 agrupaciones de encabezados y once puestos cotejados de
+Transformación Digital. Es preparación: no contiene el organigrama funcional
+completo, ocupantes ni permisos de ratificación. La edición desde la pantalla
+y la conexión multicientro del alta siguen pendientes. No aumenta los cinco
+pasos completos del procedimiento.
+
+El [manual de Sistemas](docs/manual_sistemas/README.md#organización-de-referencia-configurable)
+explica cómo seleccionar una versión sin recompilar. No se modifica la
+organización anterior ni se importan puestos individuales desde este catálogo.
+
 Primer PDF publicado: `5c57b29f`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`

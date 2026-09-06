@@ -4,6 +4,9 @@ static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
 static/portal-empleado/ayuda-contenido.js
 static/portal-empleado/identidad/contexto-actor.js
 static/portal-empleado/index.html
+static/portal-empleado/organizacion/index.html
+static/portal-empleado/organizacion/organizacion.js
+static/portal-empleado/organizacion/organizacion.css
 static/portal-empleado/modulos/cronos/contrato.js
 static/portal-empleado/modulos/cronos/cronos.css
 static/portal-empleado/modulos/cronos/documentos.js
