@@ -195,7 +195,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. | Faltan vencimiento, envío corporativo, plazo y resolución del sucesor; no acredita entrega ni plazo legal. |
+| 6. Llamamiento, parcialmente disponible | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. | Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores desde el detalle, incluida comunicación al centro. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -345,11 +345,24 @@ compruebe la huella calculada localmente y confirme con su clave propia. El cont
 `201` real y siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha, sin duplicados.
 **Declaración de respuesta del sucesor registrada · Sin resolución**
 no acredita origen, firma, entrega ni plazo; tampoco cambia la resolución original. Conserve clave/material
-ante ambigüedad. La resolución del sucesor contra su apertura Bolsa real sigue pendiente y no es automática.
+ante ambigüedad. La resolución del sucesor requiere la octava operación separada, no es automática.
+
+### Octava operación: resolución manual sintética del sucesor
+
+Recupere las siete operaciones anteriores y use la octava con la clave original de la
+[guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+El panel deriva la respuesta y el justificante; no los edite. Marque las dos revisiones explícitas,
+inicialmente vacías, de respuesta/justificante y plazo del ejercicio sintético, y confirme sin otro `.eml`.
+La aceptación solo se confirma tras CT y Bolsa: versión resultante `3`, expediente conservado en `6`.
+El primer `503` se recuperó con la misma clave, sin regenerar evaluación: ocho POST `200` antes y después
+del reinicio principal, mismos recibo/fecha/evaluación/auditoría, sin duplicados.
+Ante ambigüedad conserve clave/material; el `409` pendiente conocido, sin ambigüedad previa, permite corregir casillas, no cambiar clave.
+No acredita envío, plazo legal ni firma; no activa propuesta ni tercer llamamiento.
+Propuesta desde esta aceptación en estudio, no realizada. La métrica sigue en **5/8 más partes del sexto y séptimo**.
 
 ### Propuesta de nombramiento tras aceptación
 
-El mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
+Para el caso original de la guía, el mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
 aceptación confirmada, nunca renuncia. Referencias y publicaciones no son editables;
 la solicitud conserva versión esperada `6`, también para recuperar el expediente ya en `7`.
 Use la clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento)

@@ -83,7 +83,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y resolución del sucesor; no acredita entrega ni plazo legal. |
+| 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. Pendiente circuito de firma/evidencia admitida (10); no posesión real, nombramiento eficaz, envío ni entrega. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -338,7 +338,7 @@ El método es manual provisional solo para desarrollo sintético, no aval del op
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan vencimiento, envío corporativo, plazo y resolución del sucesor. La propuesta de desarrollo
+Faltan vencimiento, envío corporativo y plazo legal. La propuesta de desarrollo
 se describe a continuación; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
@@ -376,11 +376,24 @@ fecha UTC y `.eml` hasta 2 MiB para huella local; confirme expresamente. No se c
 Registro real `201`; siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha,
 sin duplicados. Aceptación solo declarada, no resuelta ni verificada en origen/firma/plazo.
 No cambia los recibos ni la resolución anterior. Mantenga clave/material ante ambigüedad; `409` no autoriza otra clave.
-Queda resolver al sucesor contra su apertura Bolsa real, sin actuación automática.
+La resolución requiere la octava operación separada, no es automática.
+
+#### Operación 8: resolver manualmente al sucesor, solo ejercicio sintético
+
+Recupere las siete operaciones previas y use la octava con la clave original de la
+[guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+Respuesta, justificante y referencias se derivan, no se editan. Marque expresamente las dos revisiones
+de respuesta/justificante y plazo del ejercicio, inicialmente vacías, y confirme; sin otro `.eml`.
+Solo tras confirmar CT y Bolsa se muestra la aceptación sintética. Versión resultante `3`, expediente `6`.
+El primer `503` dejó CT guardado y Bolsa pendiente; se recuperó con la misma clave, sin regenerar evaluación.
+Ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría, sin duplicados.
+Ante ambigüedad conserve clave/material; el `409` pendiente conocido, sin ambigüedad previa, permite corregir casillas, no cambiar clave.
+No acredita envío, plazo legal ni firma; no activa propuesta ni tercer llamamiento. Propuesta desde esta aceptación
+en estudio, no realizada. Continúan cinco pasos completos más tramos del sexto y séptimo.
 
 ### 7. Nombramiento: propuesta de desarrollo y límites
 
-Tras recuperar la aceptación confirmada, el mismo panel ofrece registrar la
+En el caso original de aceptación confirmada de la guía, el mismo panel ofrece registrar la
 propuesta, nunca desde renuncia. Referencias y cuatro publicaciones se derivan;
 no se editan. Conserve versión esperada `6`, aunque el agregado ya sea `7`, y la
 clave de propuesta `018f47a6-5d2b-4c10-8a11-123456789008` del caso de la guía.

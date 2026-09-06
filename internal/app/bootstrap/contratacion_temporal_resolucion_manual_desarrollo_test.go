@@ -112,15 +112,83 @@ func (s *servicioRevisionManualPrueba) Resolver(context.Context, ports.Solicitud
 }
 
 type aceptadorRevisionManualPrueba struct {
-	falla    bool
-	llamadas int
+	falla     bool
+	llamadas  int
+	seleccion ports.ReciboSolicitudLlamamientoBolsa
+	apertura  string
 }
 
 func (a *aceptadorRevisionManualPrueba) AceptarRespuestaRRHH(ctx context.Context, s ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
 	if s.Respuesta != ports.RespuestaLlamamientoAceptada {
 		return puertosbolsa.ReciboLlamamientoDesarrollo{}, errors.New("no es aceptación")
 	}
+	a.seleccion, a.apertura = seleccion, r.AperturaOperacionRef
 	return a.resolver(ctx, s, r)
+}
+
+// Reutiliza la apertura de siguiente del servicio real con repositorios de
+// unidad: no fabrica otra fuente, selección ni autenticación PostgreSQL.
+func escenarioResolucionSucesorPrueba(t *testing.T) (*puenteBolsaLlamamientoDesarrollo, context.Context, aceptacionRevisadaDesarrollo, *repositorioAceptacionPuentePrueba, *autorizadorAceptacionPuentePrueba) {
+	t.Helper()
+	f := escenarioContinuacionCoordinadorPrueba(t)
+	c, err := f.ejecutor.Continuar(f.ctx, f.solicitud)
+	if err != nil {
+		t.Fatal("apertura sucesora previa", err)
+	}
+	p := f.ejecutor.continuador.(*puenteBolsaLlamamientoDesarrollo)
+	j := f.ejecutor.lectorJustificante.(*lectorJustificanteContinuacionPrueba).justificante
+	s := f.registro.antecedente.Resolucion.Solicitud
+	s.ClaveIdempotencia, s.LlamamientoRef = "44444444-4444-4444-8444-444444444444", c.ReciboBolsa.LlamamientoRef
+	s.ComunicacionRef, s.PruebaRespuestaRef, s.Respuesta = "comunicacion:sucesora", "justificante:sucesor", ports.RespuestaLlamamientoAceptada
+	j.Respuesta.Solicitud.ClaveIdempotencia = "55555555-5555-4555-8555-555555555555"
+	j.Respuesta.Solicitud.LlamamientoRef, j.Respuesta.Solicitud.ComunicacionRef = s.LlamamientoRef, s.ComunicacionRef
+	j.Respuesta.Solicitud.Respuesta, j.Respuesta.JustificanteRef = s.Respuesta, s.PruebaRespuestaRef
+	j.Respuesta.Solicitud.RecibidaEn = c.ConfirmadaEn.Add(time.Second)
+	j.Respuesta.RegistradaEn = j.Respuesta.Solicitud.RecibidaEn
+	j.Respuesta.ReciboRef, j.Respuesta.AuditoriaRef = "recibo:respuesta-sucesora", "auditoria:respuesta-sucesora"
+	j.Continuacion = &c
+	l := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j, local: ports.ResultadoResolucionLlamamiento{
+		Solicitud: s, Politica: politicaManualDesarrollo(), EvaluacionPlazoRef: "evaluacion:sucesora", EstadoPlazo: ports.PlazoLlamamientoVigente,
+		ResolucionRef: "resolucion:sucesora", ReciboLocalRef: "recibo:manual-sucesora", AuditoriaRef: "auditoria:manual-sucesora",
+		VersionResultante: 3, ResueltaEn: j.Respuesta.RegistradaEn.Add(time.Second), Estado: ports.ResultadoComunicacionLlamamientoConfirmado}}
+	if j.ValidarPara(s) != nil || l.local.ValidarPara(s) != nil {
+		t.Fatal("fixture sucesora inválida")
+	}
+	f.registro.bolsa.reloj.instante = l.local.ResueltaEn.Add(time.Second)
+	ctx := contextoConOtraRutaContinuacionPrueba(f, httpinterno.RutaResolucionComunicacionLlamamiento)
+	ctx = context.WithValue(ctx, claveResolucionManualDesarrollo{}, l)
+	ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, s)
+	ctx = context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, l)
+	a := &autorizadorAceptacionPuentePrueba{t: t, puente: p}
+	p.autorizadorAceptacion = a
+	return p, ctx, l, f.registro.bolsa, a
+}
+
+func TestResolucionManualDesarrolloSucesorConservaSeleccionYAperturaEfectiva(t *testing.T) {
+	p, ctx, l, _, _ := escenarioResolucionSucesorPrueba(t)
+	servicio := &servicioRevisionManualPrueba{local: l.local}
+	a := &aceptadorRevisionManualPrueba{}
+	e := &ejecutorComunicacionLlamamientoDesarrollo{soporte: p.alta.soporte, servicio: servicio, aceptador: a}
+	for i := 0; i < 2; i++ {
+		r, err := e.resolverConRevisionManual(ctx, l.solicitud, l.justificante)
+		if err != nil || a.seleccion != l.justificante.Seleccion || a.apertura != l.justificante.Continuacion.ReciboBolsa.OperacionRef ||
+			r.ReciboLocalRef != l.local.ReciboLocalRef || r.EsReplayConfirmado() != (i > 0) {
+			t.Fatal("enlace sucesor", err)
+		}
+	}
+	d := dominiovec.DatosSolicitudAutorizacionLigadaV3{Finalidad: "gestionar_contratacion_temporal", Accion: puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo,
+		ReferenciaMotivo: motivoResolucionManualDesarrollo(true), Recurso: dominiovec.RecursoAutorizable{Referencia: operacionAceptacionManualDesarrollo(l),
+			ModuloID: "bolsa", Tipo: "integracion_llamamientos_bolsa", Ambitos: map[string]string{"categoria_ref": "categoria:desarrollo:c2", "unidad_ref": unidadCoberturaContratacionTemporalDesarrollo},
+			Atributos: map[string]string{"necesidad_ref": l.justificante.Seleccion.Necesidad.Referencia, "contenido_sha256": strings.Repeat("a", 64)}}}
+	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+		t.Fatal("permiso sucesor no ligado")
+	}
+	otra := l
+	otra.justificante.Continuacion = nil
+	d.Recurso.Referencia = operacionAceptacionManualDesarrollo(otra)
+	if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaResolucionComunicacionLlamamiento, d) {
+		t.Fatal("operación raíz autorizó sucesor")
+	}
 }
 func (a *aceptadorRevisionManualPrueba) RenunciarRespuestaRRHH(ctx context.Context, s ports.SolicitudResolverLlamamiento, seleccion ports.ReciboSolicitudLlamamientoBolsa, r puertosbolsa.ResolucionLlamamientoDesarrollo) (puertosbolsa.ReciboLlamamientoDesarrollo, error) {
 	if s.Respuesta != ports.RespuestaLlamamientoRenunciada {

@@ -651,15 +651,35 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
+	operacionApertura, llamamiento := seleccion.OperacionRef, seleccion.LlamamientoRef
+	var justificante *ports.JustificanteRespuestaRecibida
+	if ligada, ok := ctx.Value(claveAceptacionRevisadaDesarrollo{}).(aceptacionRevisadaDesarrollo); ok && ligada.justificante.Continuacion != nil {
+		if ligada.solicitud != solicitud || ligada.justificante.Seleccion != seleccion ||
+			ligada.justificante.ValidarPara(solicitud) != nil || !solicitud.RevisionManualConfirmada() ||
+			solicitud.CriterioValidacionRef != criterioRevisionManualDesarrollo ||
+			ligada.local.ValidarPara(solicitud) != nil || ligada.local.Politica != politicaManualDesarrollo() ||
+			ligada.local.ResueltaEn.Before(ligada.justificante.Respuesta.RegistradaEn) ||
+			resolucion != (puertosbolsa.ResolucionLlamamientoDesarrollo{
+				AperturaOperacionRef: operacionAperturaRespuestaDesarrollo(ligada.justificante),
+				JustificanteRef:      solicitud.PruebaRespuestaRef, EvaluacionPlazoRef: ligada.local.EvaluacionPlazoRef,
+				PoliticaRef: ligada.local.Politica.Referencia, PoliticaVersion: ligada.local.Politica.Version,
+				PoliticaSHA256: ligada.local.Politica.HuellaSHA256, VersionEsperada: 1}) {
+			return vacio, ports.ErrAutorizacionDenegada
+		}
+		copia := *ligada.justificante.Continuacion
+		ligada.justificante.Continuacion = &copia
+		justificante = &ligada.justificante
+		operacionApertura, llamamiento = copia.ReciboBolsa.OperacionRef, copia.ReciboBolsa.LlamamientoRef
+	}
 	if solicitud.Validar() != nil || solicitud.VersionEsperada != 2 || solicitud.Respuesta != respuesta ||
 		seleccion.OrganizacionRef != solicitud.OrganizacionRef || seleccion.ExpedienteRef != solicitud.ExpedienteRef ||
-		seleccion.LlamamientoRef != solicitud.LlamamientoRef || seleccion.VersionExpediente != 6 || !seleccion.PropuestaGenerada ||
-		resolucion.AperturaOperacionRef != seleccion.OperacionRef || resolucion.JustificanteRef != solicitud.PruebaRespuestaRef {
+		llamamiento != solicitud.LlamamientoRef || seleccion.VersionExpediente != 6 || !seleccion.PropuestaGenerada ||
+		resolucion.AperturaOperacionRef != operacionApertura || resolucion.JustificanteRef != solicitud.PruebaRespuestaRef {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	peticion := puertosbolsa.PeticionResolverLlamamientoDesarrollo{
 		OperacionRef: referenciaPuenteLlamamientoDesarrollo(prefijo,
-			solicitud.OrganizacionRef, solicitud.ExpedienteRef, seleccion.OperacionRef, solicitud.ClaveIdempotencia),
+			solicitud.OrganizacionRef, solicitud.ExpedienteRef, operacionApertura, solicitud.ClaveIdempotencia),
 		Resolucion: resolucion,
 	}
 	if peticion.Validar() != nil {
@@ -671,7 +691,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 	}
 	// La clave de resolución solo identifica el terminal. La apertura procede
 	// del recibo original conservado en CT, nunca de una nueva derivación.
-	apertura, existe, err := p.repositorio.BuscarOperacion(ctx, seleccion.OperacionRef)
+	apertura, existe, err := p.repositorio.BuscarOperacion(ctx, operacionApertura)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
@@ -681,7 +701,12 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 	if !existe {
 		return vacio, ports.ErrRespuestaBolsaNoConfiable
 	}
-	fuente, err := p.fuenteResolucionLigada(solicitud, seleccion, apertura)
+	var fuente *fuentesintetica.FuenteLlamamientos
+	if justificante == nil {
+		fuente, err = p.fuenteResolucionLigada(solicitud, seleccion, apertura)
+	} else {
+		fuente, err = p.fuenteResolucionSucesorLigada(ctx, solicitud, *justificante, apertura)
+	}
 	if err != nil {
 		return vacio, err
 	}
@@ -698,11 +723,17 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionLigada(solicitud ports.SolicitudResolverLlamamiento,
 	seleccion ports.ReciboSolicitudLlamamientoBolsa, apertura puertosbolsa.RegistroLlamamientoDesarrollo,
 ) (*fuentesintetica.FuenteLlamamientos, error) {
+	return p.fuenteSeleccionRaizLigada(solicitud.OrganizacionRef, solicitud.ExpedienteRef, solicitud.LlamamientoRef, seleccion, apertura)
+}
+
+func (p *puenteBolsaLlamamientoDesarrollo) fuenteSeleccionRaizLigada(organizacion, expediente, llamamiento string,
+	seleccion ports.ReciboSolicitudLlamamientoBolsa, apertura puertosbolsa.RegistroLlamamientoDesarrollo,
+) (*fuentesintetica.FuenteLlamamientos, error) {
 	canon, err := apertura.Canonico()
 	if err != nil || apertura.Tipo != "propuesta" || apertura.OperacionRef != seleccion.OperacionRef ||
 		apertura.Llamamiento == nil || apertura.Propuesta == nil || apertura.VersionNecesidad != 6 ||
-		apertura.NecesidadRef != referenciaPuenteLlamamientoDesarrollo("necesidad", solicitud.OrganizacionRef, solicitud.ExpedienteRef, "6") ||
-		apertura.Llamamiento.LlamamientoRef != solicitud.LlamamientoRef ||
+		apertura.NecesidadRef != referenciaPuenteLlamamientoDesarrollo("necesidad", organizacion, expediente, "6") ||
+		apertura.Llamamiento.LlamamientoRef != llamamiento ||
 		seleccion.Orden != referenciaVersionadaPuenteLlamamientoDesarrollo(apertura.Instantanea.InstantaneaRef, apertura.Instantanea.Version, apertura.Instantanea.HuellaContenidoSHA256) ||
 		seleccion.Propuesta != referenciaVersionadaPuenteLlamamientoDesarrollo(apertura.Propuesta.PropuestaRef, 1, apertura.Propuesta.HuellaContenidoSHA256) ||
 		seleccion.OrdenSeleccionado != uint32(apertura.Propuesta.OrdenSeleccionado) ||

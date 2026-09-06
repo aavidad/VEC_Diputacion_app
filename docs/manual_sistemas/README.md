@@ -274,6 +274,16 @@ Recibo desktop/móvil 390 px inspeccionado por dirección; cero JS/cookies/stora
 [Ficha exacta](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
 No atribuir este recorrido a secundaria ni interpretar aceptación declarada como resolución.
 
+CT64 instalada por dirección en ambas bases locales; no reaplicar ni ejecutar DOWN con resolución sucesora.
+Sin SQL remoto ni nuevas conexiones. Primer `503`: CT persistido, Bolsa pendiente por colisión de UUID
+de evaluación con heurística DNI. Parche mínimo de formato en ese único campo, doble GO y focal PASS de 4 ms;
+sin regenerar evaluación, clave ni historia. Recuperación de la misma clave y siete antecedentes:
+ocho POST `200`, también tras reiniciar PostgreSQL y aplicación principal, mismos recibo/fecha/evaluación/auditoría.
+Tres resoluciones CT y ocho operaciones/historias/outbox Bolsa; tres respuestas, tres comunicaciones,
+dos resoluciones CT anteriores y siete Bolsa anteriores intactas. No atribuir `201` a esta aceptación recuperada.
+[Octava operación, huella y límites](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+Cero JS/cookies/storage/desbordamiento; dirección inspeccionó desktop/móvil 390 px, solo principal, sin repetir PDF.
+
 AD3-20/CT61 instaladas en ambas bases por dirección; no reaplicar. La propuesta
 consume permiso propio fresco antes de lecturas/replay y conserva actor, perfil,
 material y recibo. Agregado `nombramiento/en_curso/v7`; una actuación v7 y un outbox.
@@ -410,8 +420,9 @@ Ese rechazo permite corregir casillas conservando la clave; ante resultado ambig
 mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
 La quinta operación abre el siguiente llamamiento solo tras renuncia sintética y
 confirmación explícita; no envía aviso. La sexta registra por separado el aviso local
-del sucesor; la séptima permite declarar su respuesta sin sustituir la primera ni activar resolución a mano.
-La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
+del sucesor; la séptima declara su respuesta y la octava permite resolverla con dos revisiones explícitas,
+política sintética fija y permisos propios, conservando los recibos previos. Sin otro `.eml`.
+La propuesta del caso original se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
 Los seis borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
 Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**,
@@ -423,7 +434,8 @@ No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exa
 Comunicación al centro: diez POST `200` antes y después del reinicio principal, seis PDF e historial
 idénticos. Evidencia en la guía, no atribuida a secundaria ni a envío u orden de incorporación.
 Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida. Siguen pendientes
-vencimiento, envío corporativo, plazo y resolución del sucesor contra su apertura Bolsa real; no hay política legal aprobada.
+vencimiento, envío corporativo y plazo legal; propuesta desde la aceptación del sucesor en estudio, no realizada.
+No hay política legal aprobada, firma ni tercer llamamiento automático.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar

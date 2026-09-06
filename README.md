@@ -90,7 +90,12 @@ mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases, no reaplicar ni eje
 Declaración del sucesor CT63: `201` y siete operaciones `200` tras reinicio principal;
 mismos justificante/recibo/auditoría/fecha e historia, sin duplicados.
 CT63 instalada en ambas bases, no reaplicar ni DOWN con historial. [Séptima operación](GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
-Aceptación solo declarada; falta resolver al sucesor contra su apertura Bolsa real, sin automatismo.
+CT64: aceptación manual sintética del sucesor confirmada CT+Bolsa, recuperando la misma clave tras
+un `503` con CT persistido y Bolsa pendiente. Ocho POST `200` antes y después del reinicio principal;
+mismos recibo/fecha/evaluación/auditoría, tres resoluciones CT y ocho operaciones Bolsa, sin duplicados.
+CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
+[Octava operación](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64):
+expediente `6`, versión resultante `3`; propuesta desde esta aceptación en estudio, no automática.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -135,7 +140,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal, sin duplicados. | Faltan vencimiento, envío corporativo, plazo y resolución del sucesor. No acredita entrega ni plazo legal aprobado. |
+| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal, sin duplicados. | Faltan vencimiento, envío corporativo y plazo. No acredita entrega ni plazo legal aprobado. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. | Sin nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 

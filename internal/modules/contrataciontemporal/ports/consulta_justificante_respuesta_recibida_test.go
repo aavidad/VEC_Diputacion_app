@@ -1,10 +1,66 @@
 package ports
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestConsultaJustificanteRespuestaRecibidaContinuacionConservaRaiz(t *testing.T) {
+	s, j := justificanteRespuestaRecibidaPrueba(t)
+	legacy, _ := json.Marshal(struct {
+		Respuesta RespuestaRecibidaRegistrada
+		Seleccion ReciboSolicitudLlamamientoBolsa
+	}{j.Respuesta, j.Seleccion})
+	actual, _ := json.Marshal(j)
+	if !bytes.Equal(legacy, actual) {
+		t.Fatal("nil cambió los bytes históricos")
+	}
+	raiz := j.Seleccion
+	s.LlamamientoRef = "llamamiento:sucesor"
+	j.Respuesta.Solicitud.LlamamientoRef = s.LlamamientoRef
+	j.Continuacion = &ResultadoContinuacionLlamamiento{
+		Solicitud: SolicitudContinuarLlamamiento{ClaveIdempotencia: "33333333-3333-4333-8333-333333333333",
+			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, ResolucionRef: "resolucion:anterior", IntencionRef: "intencion:sucesor"},
+		LlamamientoAnteriorRef: raiz.LlamamientoRef,
+		ReciboBolsa: ReciboBolsaContinuacion{IntencionRef: "intencion:sucesor", TerminalOperacionRef: "terminal:anterior",
+			OperacionRef: "operacion:sucesor", LlamamientoRef: s.LlamamientoRef, PropuestaRef: "propuesta:sucesor",
+			ReciboRef: "recibo:bolsa", AuditoriaRef: "auditoria:bolsa", EventoRef: "evento:bolsa", RegistroSHA256: strings.Repeat("a", 64),
+			ConfirmadaEn: raiz.ConfirmadaEn.Add(time.Minute)},
+		ReciboRef: "recibo:continuacion", AuditoriaRef: "auditoria:continuacion", ConfirmadaEn: raiz.ConfirmadaEn.Add(2 * time.Minute), Estado: "confirmado",
+	}
+	if err := j.ValidarPara(s); err != nil || j.Seleccion != raiz {
+		t.Fatal("cadena sucesora", err)
+	}
+	for nombre, cambiar := range map[string]func(*ResultadoContinuacionLlamamiento){
+		"raiz":               func(c *ResultadoContinuacionLlamamiento) { c.LlamamientoAnteriorRef += "otra" },
+		"sucesor":            func(c *ResultadoContinuacionLlamamiento) { c.ReciboBolsa.LlamamientoRef += "otro" },
+		"organizacion":       func(c *ResultadoContinuacionLlamamiento) { c.Solicitud.OrganizacionRef += "otra" },
+		"original_no_replay": func(c *ResultadoContinuacionLlamamiento) { c.Estado = "replay_confirmado" },
+		"anterior_seleccion": func(c *ResultadoContinuacionLlamamiento) {
+			c.ReciboBolsa.ConfirmadaEn = raiz.ConfirmadaEn.Add(-time.Microsecond)
+		},
+		"posterior_respuesta": func(c *ResultadoContinuacionLlamamiento) {
+			c.ConfirmadaEn = j.Respuesta.RegistradaEn.Add(time.Microsecond)
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			otra, c := j, *j.Continuacion
+			cambiar(&c)
+			otra.Continuacion = &c
+			if otra.ValidarPara(s) == nil {
+				t.Fatal("cadena desligada admitida")
+			}
+		})
+	}
+	j.Continuacion = nil
+	if j.ValidarPara(s) == nil {
+		t.Fatal("sucesor admitido como selección raíz")
+	}
+}
 
 func justificanteRespuestaRecibidaPrueba(t *testing.T) (SolicitudResolverLlamamiento, JustificanteRespuestaRecibida) {
 	t.Helper()

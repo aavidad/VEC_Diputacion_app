@@ -70,7 +70,11 @@ bases, no reaplicar ni ejecutar DOWN. [Recuperación y evidencia](#aviso-local-a
 Declaración del sucesor CT63: seis antecedentes `200` y registro `201`; tras reinicio principal, siete `200`,
 mismos justificante/recibo/auditoría/fecha e historia, sin duplicados.
 [Séptima operación, correo y recibo](#declaración-de-respuesta-del-sucesor-ct63). CT63 instalada en ambas bases;
-no reaplicar ni ejecutar DOWN con historial. Aceptación solo declarada, no resuelta.
+no reaplicar ni ejecutar DOWN con historial. Esa declaración no es una resolución.
+CT64 confirma separadamente la aceptación manual sintética del sucesor: recuperación con la misma clave,
+ocho POST `200` antes y después del reinicio principal; mismos recibo/fecha/evaluación/auditoría e historia.
+[Octava operación y recuperación del primer `503`](#resolución-manual-del-sucesor-ct64).
+CT64 instalada en ambas bases, no reaplicar ni DOWN con resolución sucesora; sin SQL remoto.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -296,6 +300,7 @@ el mismo formulario de llamamiento y recupere, en orden, las cuatro operaciones:
 | Continuación tras renuncia (objetivo 7, apartado siguiente) | `a77d3f10-a635-46fd-b9eb-a00000000005` |
 | Aviso local al sucesor (CT62) | `a77d3f10-a635-46fd-b9eb-a00000000006` |
 | Declaración RRHH del sucesor (CT63) | `a77d3f10-a635-46fd-b9eb-a00000000007` |
+| Resolución manual del sucesor (CT64) | `a77d3f10-a635-46fd-b9eb-a00000000008` |
 
 El recibo de selección identifica
 `llamamiento:nccfkjnioljdeikkpipkcgcpilbogjnociankdfbapmnaekanagbiioaahphbmgj`.
@@ -401,7 +406,7 @@ cero errores JS, cookies, almacenamiento web y desbordamiento. Solo principal ac
 CT62: doble GO, UP/DOWN transaccional exacto en secundaria y UP instalada en ambas bases;
 no reaplicar ni ejecutar DOWN con este historial. El aviso conserva `recibo_continuacion_ref`;
 no acredita envío, entrega ni plazo. La declaración del sucesor se describe debajo;
-siguen pendientes correo corporativo, plazo, resolución del sucesor y circuito de firma.
+siguen pendientes correo corporativo, plazo y circuito de firma; la resolución manual CT64 se describe debajo.
 Métrica: **5/8 más partes del sexto y séptimo**.
 
 ### Declaración de respuesta del sucesor CT63
@@ -439,8 +444,54 @@ Para recuperar, repita esos mismos datos, archivo y clave; nunca otra clave para
 congela clave/material y exige recuperación explícita, sin reintento automático.
 CT63 instalada en ambas bases tras revisión y UP/DOWN transaccional en secundaria sin persistir;
 no reaplicar ni ejecutar DOWN con respuestas del sucesor. Remoto apagado, sin aplicar SQL.
-No cambia la resolución original ni activa una resolución del sucesor: ese siguiente corte debe
-cotejar su apertura Bolsa real. Métrica **5/8 más tramos del sexto y séptimo**; seis PDF cerrados, no repetidos.
+No cambia la resolución original ni resuelve automáticamente al sucesor: requiere la octava operación separada.
+Métrica **5/8 más tramos del sexto y séptimo**; seis PDF cerrados, no repetidos.
+
+### Resolución manual del sucesor CT64
+
+En el mismo expediente `fe4934a1…`, recupere los siete antecedentes con las claves de la tabla.
+Tras validar el justificante CT63 aparece la octava operación
+(`data-ct-llamamiento-form="resolucion_siguiente"`). Deriva organización, expediente, llamamiento,
+comunicación en versión `2`, respuesta y prueba del recibo, sin editar esos antecedentes.
+Use la clave original **`a77d3f10-a635-46fd-b9eb-a00000000008`**, no otra para eludir un error.
+Revise el ejercicio y marque expresamente ambas casillas, inicialmente vacías:
+
+- **He comprobado la respuesta y su justificante**.
+- **Para este ejercicio sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio**.
+
+El criterio fijo es `politica:ct:revision-manual-sintetica:20260906`; no es política legal aprobada.
+Revise y confirme expresamente: once campos, sin otro `.eml`. Ante ambigüedad conserve clave y material;
+solo el `409 validacion_respuesta_pendiente` conocido, sin ambigüedad previa, permite corregir revisiones conservando la clave.
+Sin reintentos automáticos. El recibo de éxito requiere confirmación de CT y Bolsa.
+
+El primer intento devolvió **`503`**: CT ya había persistido a `04:52:46.758226Z`, pero Bolsa seguía
+con siete operaciones. La referencia de evaluación UUID colisionaba con la heurística DNI.
+El parche mínimo, con doble GO y focal PASS de 4 ms, admite formato `evaluacion:UUIDv4` únicamente
+en ese campo; no cambia autoridad ni el validador general. **No se regeneró la evaluación ni la clave**.
+La recuperación con la misma clave y los siete antecedentes dio **ocho POST `200`**;
+no se atribuye un `201` ni una aceptación completa al intento fallido.
+
+| Aceptación sintética del sucesor | Valor conservado |
+| --- | --- |
+| Resolución | `resolucion:c1d55777-ce6c-49e6-a7fc-3eaac0f728bb` |
+| Recibo CT | `recibo:de377a72-ace7-4365-b865-f9384a4c3196` |
+| Evaluación | `evaluacion:409ebaed-71ee-418f-be7c-4025729222c7` |
+| Auditoría | `aud_v3_42ae013bb945deb79a258006391db31c` |
+| Resuelta en UTC | `2026-09-06T04:52:46.758226Z` |
+| Versión resultante | `3`; el expediente permanece en `6` |
+
+SHA256 del recibo en PostgreSQL:
+`f8a0b0c80db4797eeee0216ea020d6925a001422866d90d0c5bd19c4be01952d`.
+Única operación nueva Bolsa:
+`operacion-aceptacion-rrhh:imbiennjhbamlaibfdlclpmmdiplepafdgpmnmmdmhbmjgieejadaeceokcpomfn`.
+**Tras reiniciar PostgreSQL y aplicación principal: otros ocho POST `200`**, mismos recibo, fecha,
+evaluación, auditoría e historia. Tres resoluciones CT y ocho operaciones/historias/outbox Bolsa;
+las siete Bolsa anteriores, tres respuestas, tres comunicaciones y dos resoluciones CT previas conservan sus huellas.
+Cero errores JS, cookies, almacenamiento web y desbordamiento; dirección inspeccionó recibo desktop y móvil 390 px.
+Capturas privadas; navegador acreditado solo en principal. No se repitieron los seis PDF cerrados.
+CT64 instalada en ambas bases locales: no reaplicar ni ejecutar DOWN con resolución sucesora; sin SQL remoto.
+Sin envío, plazo legal, firma, propuesta automática ni tercer llamamiento. Propuesta desde esta aceptación
+en estudio, no realizada. Métrica **5/8 más tramos del sexto y séptimo**, sin incremento.
 
 ### Objetivo 8: recuperar la propuesta de nombramiento
 
@@ -571,8 +622,8 @@ No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar
 Los seis son borradores sin firma ni eficacia administrativa, envío, entrega, plazo legal
 ni orden de incorporación. Objetivo 9 cerrado funcionalmente en desarrollo: **6/6**;
 siguiente 10, dependiente de fuente/circuito de firma admitido.
-El aviso local CT62 y la declaración CT63 del sucesor ya se registran; siguen pendientes envío corporativo,
-plazo y resolución del sucesor contra su apertura Bolsa real en el paso 6.
+El aviso CT62, la declaración CT63 y la aceptación manual sintética CT64 del sucesor son recuperables;
+siguen pendientes envío corporativo y plazo legal en el paso 6, sin propuesta automática desde el sucesor.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

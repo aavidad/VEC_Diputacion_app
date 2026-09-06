@@ -139,6 +139,10 @@ func (l *LectorJustificantesRespuestaRecibidaPostgreSQL) consultar(ctx context.C
 	justificante.Seleccion.ConfirmadaEn = justificante.Seleccion.ConfirmadaEn.UTC()
 	e := &justificante.Seleccion.Procedencia.Evidencia
 	e.EmitidaEn, e.ValidaHasta, e.RetenerHasta = e.EmitidaEn.UTC(), e.ValidaHasta.UTC(), e.RetenerHasta.UTC()
+	if c := justificante.Continuacion; c != nil {
+		c.ConfirmadaEn = c.ConfirmadaEn.UTC()
+		c.ReciboBolsa.ConfirmadaEn = c.ReciboBolsa.ConfirmadaEn.UTC()
+	}
 	if err := justificante.ValidarPara(s); err != nil {
 		return vacio, err
 	}

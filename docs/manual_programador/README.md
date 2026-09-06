@@ -159,7 +159,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y resolución del sucesor. |
+| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; agregado `nombramiento/en_curso/v7`. Sin firma ni nombramiento eficaz. |
 | 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
 
@@ -282,7 +282,7 @@ aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobr
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
 sintética y funcionalmente la renuncia y propuesta de desarrollo. No hay política
 legal aprobada ni cierre de vencimiento,
-envío corporativo, plazo o resolución del sucesor; aviso y declaración locales se describen debajo.
+envío corporativo ni plazo; aviso, declaración y resolución manual sintética del sucesor se describen debajo.
 
 ### Continuación tras renuncia sintética
 
@@ -328,11 +328,26 @@ cadena CT62/CT60 verificada antes de omitir las dos comparaciones con el llamami
 Instalada en ambas bases; no reaplicar ni DOWN con historial. `201` real y cruces `409` sin efectos;
 siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha e historia;
 solo cambia `estado` a `replay_registrada_por_rrhh`. [Evidencia y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
-No activa resolución del sucesor ni altera la anterior; resolver exige su apertura Bolsa real en otro corte.
+No resuelve automáticamente al sucesor ni altera la resolución anterior.
+
+### Resolución manual del sucesor, mismo contrato de once campos
+
+`data-ct-llamamiento-form="resolucion_siguiente"` comparte configuración, validadores, cliente y renderer
+con la resolución original; estado separado, antecedentes del justificante CT63 validado, nunca del DOM.
+Dos revisiones inicialmente falsas, política sintética fija y confirmación explícita; sin otro `.eml`.
+CT64 liga aviso/continuación CT60 y conserva selección raíz íntegra; apertura Bolsa real y permisos propios,
+sin éxito hasta confirmar CT y Bolsa. Versión resultante `3`, expediente `6`; sin propuesta ni tercer llamamiento automáticos.
+Primer `503` dejó CT durable y Bolsa pendiente: excepción de formato solo para `EvaluacionPlazoRef`
+`evaluacion:UUIDv4`, reutilizando el validador puro existente, sin relajar las otras referencias ni regenerarla.
+Recuperación misma clave: ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría;
+tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
+CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
+[Ficha y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+La propuesta desde esta aceptación está en estudio, no realizada; sin envío, plazo legal ni firma.
 
 ### Propuesta de nombramiento desde aceptación
 
-Operación `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
+Caso original de aceptación: operación `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
 reutiliza `POST /api/vec/contratacion-temporal/formalizacion/propuestas`, once campos
 de solicitud y seis de recibo, sin otro DTO ni autoridad del DOM. Antecedentes
 de aceptación CT y terminal Bolsa real; nunca renuncia. Versión esperada `6`,

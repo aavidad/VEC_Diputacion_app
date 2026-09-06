@@ -10,8 +10,9 @@ import (
 // consulta nominal acredita su procedencia de CT, no verifica el correo,
 // recalcula su firma ni convierte la declaración en una aceptación o plazo.
 type JustificanteRespuestaRecibida struct {
-	Respuesta RespuestaRecibidaRegistrada
-	Seleccion ReciboSolicitudLlamamientoBolsa
+	Respuesta    RespuestaRecibidaRegistrada
+	Seleccion    ReciboSolicitudLlamamientoBolsa
+	Continuacion *ResultadoContinuacionLlamamiento `json:",omitempty"`
 }
 
 func (j JustificanteRespuestaRecibida) ValidarPara(s SolicitudResolverLlamamiento) error {
@@ -25,10 +26,21 @@ func (j JustificanteRespuestaRecibida) ValidarPara(s SolicitudResolverLlamamient
 		r.Solicitud.VersionComunicacionEsperada != s.VersionEsperada ||
 		!seleccion.PropuestaGenerada || seleccion.VersionExpediente != 6 ||
 		seleccion.OrganizacionRef != s.OrganizacionRef || seleccion.ExpedienteRef != s.ExpedienteRef ||
-		seleccion.LlamamientoRef != s.LlamamientoRef || seleccion.SeleccionRef.Validar() != nil ||
+		seleccion.SeleccionRef.Validar() != nil ||
 		seleccion.OrdenSeleccionado == 0 || seleccion.OrdenSeleccionado > MaximoElementosIntegracionBolsa ||
 		!instanteBolsaCanonico(seleccion.ConfirmadaEn) || seleccion.ConfirmadaEn.After(r.RegistradaEn) ||
 		!seleccion.Procedencia.validarNominal() || seleccion.ConfirmadaEn.After(seleccion.Procedencia.Evidencia.EmitidaEn) {
+		return ErrResultadoRespuestaRecibidaNoConfiable
+	}
+	if c := j.Continuacion; c == nil {
+		if seleccion.LlamamientoRef != s.LlamamientoRef {
+			return ErrResultadoRespuestaRecibidaNoConfiable
+		}
+	} else if c.ValidarPara(c.Solicitud) != nil || c.Estado != "confirmado" ||
+		c.Solicitud.OrganizacionRef != s.OrganizacionRef || c.Solicitud.ExpedienteRef != s.ExpedienteRef ||
+		c.LlamamientoAnteriorRef != seleccion.LlamamientoRef || c.ReciboBolsa.LlamamientoRef != s.LlamamientoRef ||
+		c.ReciboBolsa.OperacionRef == seleccion.OperacionRef ||
+		c.ReciboBolsa.ConfirmadaEn.Before(seleccion.ConfirmadaEn) || c.ConfirmadaEn.After(r.RegistradaEn) {
 		return ErrResultadoRespuestaRecibidaNoConfiable
 	}
 	for _, ref := range []string{seleccion.OperacionRef, seleccion.CorrelacionRef,

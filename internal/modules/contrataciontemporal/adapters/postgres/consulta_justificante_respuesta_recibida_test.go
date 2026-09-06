@@ -24,6 +24,40 @@ import (
 
 type proveedorConsultaJustificantePrueba func(context.Context, ports.SolicitudResolverLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 
+func TestConsultaJustificanteRespuestaRecibidaPGSucesorUTCYPermisoNuevo(t *testing.T) {
+	s, original := justificanteConsultaPGPrueba(t)
+	raiz := original.Seleccion
+	s.LlamamientoRef = "llamamiento:sucesor"
+	original.Respuesta.Solicitud.LlamamientoRef = s.LlamamientoRef
+	original.Continuacion = &ports.ResultadoContinuacionLlamamiento{
+		Solicitud: ports.SolicitudContinuarLlamamiento{ClaveIdempotencia: "33333333-3333-4333-8333-333333333333",
+			OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef, ResolucionRef: "resolucion:anterior", IntencionRef: "intencion:sucesor"},
+		LlamamientoAnteriorRef: raiz.LlamamientoRef,
+		ReciboBolsa: ports.ReciboBolsaContinuacion{IntencionRef: "intencion:sucesor", TerminalOperacionRef: "terminal:anterior",
+			OperacionRef: "operacion:sucesor", LlamamientoRef: s.LlamamientoRef, PropuestaRef: "propuesta:sucesor",
+			ReciboRef: "recibo:bolsa", AuditoriaRef: "auditoria:bolsa", EventoRef: "evento:bolsa", RegistroSHA256: strings.Repeat("a", 64),
+			ConfirmadaEn: raiz.ConfirmadaEn.Add(time.Minute)},
+		ReciboRef: "recibo:continuacion", AuditoriaRef: "auditoria:continuacion", ConfirmadaEn: raiz.ConfirmadaEn.Add(2 * time.Minute), Estado: "confirmado",
+	}
+	b, _ := json.Marshal(original)
+	tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{strings.ReplaceAll(string(b), "Z\"", "+00:00\"")}}}
+	autorizaciones := 0
+	p := proveedorConsultaJustificantePrueba(func(_ context.Context, recibida ports.SolicitudResolverLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		if recibida != s {
+			t.Fatal("solicitud ajena")
+		}
+		autorizaciones++
+		return materialConsultaJustificantePrueba(t, recibida, AccionConsultaJustificanteRespuestaRecibida, AudienciaRegistroComunicacionLlamamiento, autorizaciones), nil
+	})
+	l := &LectorJustificantesRespuestaRecibidaPostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: p}
+	for i := 1; i <= 2; i++ {
+		j, err := l.ConsultarJustificanteRespuestaRecibida(context.Background(), s)
+		if err != nil || !reflect.DeepEqual(j, original) || j.Seleccion != raiz || autorizaciones != i || tx.confirmaciones != i {
+			t.Fatal("recuperación sucesora alteró antecedente o permiso", err)
+		}
+	}
+}
+
 func (p proveedorConsultaJustificantePrueba) AutorizarConsultaJustificanteRespuestaRecibida(ctx context.Context, s ports.SolicitudResolverLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	return p(ctx, s)
 }

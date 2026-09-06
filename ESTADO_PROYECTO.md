@@ -5,7 +5,7 @@
 Primer PDF del objetivo 9 publicado en `5c57b29f`.
 AD3-21 cerrada en `975f0c16`, resolución publicada en `9e692f80`.
 Objetivo 9, seis PDF borradores, publicado en `c82a3068`. Esta revisión incorpora
-la declaración de respuesta del sucesor CT63, tras el aviso local publicado en `e45a5815`;
+la aceptación manual sintética del sucesor CT64, tras la declaración CT63 publicada en `7d665ae3`;
 el hash publicado se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
@@ -144,8 +144,13 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   Tras reiniciar app/PostgreSQL principal, siete operaciones `200`, mismo justificante/recibo/auditoría/fecha;
   tres declaraciones/historias/outbox y antecedentes CT/Bolsa intactos, sin duplicados. Declaración cerrada funcionalmente.
   CT63 instalada en ambas bases; no reaplicar ni DOWN con historial. Datos exactos en la guía.
-  Faltan vencimiento, envío corporativo, plazo y resolución del sucesor contra su apertura Bolsa real;
-  continuación tras renuncia sintética `201` y replay `200` tras reinicio.
+  CT64: aceptación manual sintética del sucesor confirmada CT+Bolsa mediante recuperación con la misma clave;
+  primer `503` había conservado CT, no completado Bolsa. Ocho POST `200` antes y después del reinicio principal,
+  mismos recibo/fecha/evaluación/auditoría; tres resoluciones CT y ocho operaciones/historias/outbox Bolsa,
+  antecedentes intactos. Versión resultante `3`, expediente `6`. CT64 instalada en ambas bases:
+  no reaplicar ni DOWN con resolución sucesora, sin SQL remoto.
+  [Octava operación y evidencia](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+  Faltan vencimiento, envío corporativo y plazo; propuesta desde esta aceptación en estudio, no realizada.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
   nombramiento, incorporación o producción.
   El criterio manual de desarrollo sigue provisional, no aprobado por el operador.
@@ -187,7 +192,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | Cerrado técnicamente solo para ejercicio manual sintético: `201` y replay `200` tras reinicio con API/V3/CT/Bolsa reales, sin duplicados. No política legal aprobada ni habilitación productiva |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Cerrado funcionalmente solo en ejercicio manual sintético: `201` y recuperación `200` tras reinicio, mismos recibo e intención pendiente, sin duplicados. No política legal aprobada |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
-| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Continuación, aviso CT62 y declaración CT63 recuperados tras reinicio principal: siete `200`, recibos e historia intactos. Falta resolver al sucesor contra su apertura Bolsa real; no envío, entrega ni vencimiento |
+| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Continuación, aviso CT62, declaración CT63 y aceptación manual sintética CT64 recuperados tras reinicio principal: ocho `200`, recibos e historia intactos. Sin tercer llamamiento, envío, entrega ni vencimiento |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Cerrado funcionalmente en desarrollo: 6/6 borradores; diez POST `200` antes/después del reinicio principal, PDF e historial idénticos. Siguiente 10, sujeto a fuente/circuito de firma admitido. Sin firmas, envío, entrega, plazo legal, incorporación ni otro paso RRHH completo |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
@@ -206,7 +211,8 @@ El paso 6 no se declara completo por registrar aceptación y renuncia sintética
 faltan vencimiento y correo corporativo; la continuación tras renuncia sintética
 tiene `201` real y recuperación `200` tras reinicio; su aviso local posterior también es recuperable,
 la declaración del sucesor tiene `201` y recuperación `200` tras reinicio principal confirmada.
-No hay envío corporativo, plazo ni resolución del sucesor; la aceptación declarada no la activa.
+La octava operación confirma separadamente la aceptación manual sintética del sucesor con CT y Bolsa;
+no hay envío corporativo ni plazo legal. La declaración no resuelve automáticamente.
 La numeración de esta cola no sustituye los ocho pasos del procedimiento.
 
 ## Dependencias externas sin detener todo el desarrollo

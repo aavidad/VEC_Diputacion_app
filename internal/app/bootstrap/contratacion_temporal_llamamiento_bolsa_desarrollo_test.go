@@ -443,6 +443,64 @@ func TestPuenteBolsaLlamamientoDesarrolloConstructorCerrado(t *testing.T) {
 
 // Dobles exclusivos de unidad. No acreditan una evaluación de plazo, firmas
 // V3 ni persistencia SQL; no se conectan a la composición de desarrollo.
+func TestPuenteBolsaLlamamientoDesarrolloResolucionSucesorLigadoYReplay(t *testing.T) {
+	p, ctx, l, repo, a := escenarioResolucionSucesorPrueba(t)
+	seleccion, c := l.justificante.Seleccion, *l.justificante.Continuacion
+	originales := map[string][]byte{}
+	for ref, recibo := range repo.filas {
+		originales[ref], _ = recibo.Registro.Canonico()
+	}
+	r := puertosbolsa.ResolucionLlamamientoDesarrollo{AperturaOperacionRef: c.ReciboBolsa.OperacionRef,
+		JustificanteRef: l.solicitud.PruebaRespuestaRef, EvaluacionPlazoRef: l.local.EvaluacionPlazoRef,
+		PoliticaRef: l.local.Politica.Referencia, PoliticaVersion: l.local.Politica.Version, PoliticaSHA256: l.local.Politica.HuellaSHA256, VersionEsperada: 1}
+	for _, alterar := range []func(*aceptacionRevisadaDesarrollo){
+		func(x *aceptacionRevisadaDesarrollo) { x.solicitud.ComunicacionRef += "otra" },
+		func(x *aceptacionRevisadaDesarrollo) {
+			x.justificante.Continuacion.ReciboBolsa.RegistroSHA256 = strings.Repeat("b", 64)
+		},
+		func(x *aceptacionRevisadaDesarrollo) {
+			x.justificante.Continuacion.ReciboBolsa.TerminalOperacionRef += "otro"
+		},
+	} {
+		otra, copia := l, c
+		otra.justificante.Continuacion = &copia
+		alterar(&otra)
+		_, err := p.AceptarRespuestaRRHH(context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, otra), l.solicitud, seleccion, r)
+		if err == nil || a.llamadas != 0 || len(repo.filas) != len(originales) {
+			t.Fatal("aceptó antecedente cruzado", err)
+		}
+	}
+	sinContexto := context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, aceptacionRevisadaDesarrollo{})
+	if _, err := p.AceptarRespuestaRRHH(sinContexto, l.solicitud, seleccion, r); err == nil || a.llamadas != 0 {
+		t.Fatal("sin contexto privado")
+	}
+	var primero puertosbolsa.ReciboLlamamientoDesarrollo
+	for i := 1; i <= 2; i++ {
+		actual, err := p.AceptarRespuestaRRHH(ctx, l.solicitud, seleccion, r)
+		if err != nil || actual.Registro.OperacionRef != operacionAceptacionManualDesarrollo(l) ||
+			actual.Registro.Resolucion.AperturaOperacionRef != c.ReciboBolsa.OperacionRef ||
+			actual.Registro.Llamamiento.LlamamientoRef != c.ReciboBolsa.LlamamientoRef || actual.Registro.Llamamiento.Version != 2 ||
+			a.llamadas != i || a.accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo || len(repo.filas) != len(originales)+1 {
+			t.Fatal("resolución sucesora no ligada o duplicada", err)
+		}
+		if i == 1 {
+			primero = actual
+		} else if actual.ReciboRef != primero.ReciboRef || actual.ConfirmadaEn != primero.ConfirmadaEn {
+			t.Fatal("replay cambió recibo")
+		}
+		repo.reloj.instante = repo.reloj.instante.Add(time.Second)
+	}
+	for ref, canon := range originales {
+		actual, err := repo.filas[ref].Registro.Canonico()
+		if err != nil || !bytes.Equal(canon, actual) {
+			t.Fatal("antecedente alterado", ref, err)
+		}
+	}
+	if seleccion != l.justificante.Seleccion || *l.justificante.Continuacion != c {
+		t.Fatal("selección o continuación transformada")
+	}
+}
+
 type autorizadorAceptacionPuentePrueba struct {
 	t        *testing.T
 	puente   *puenteBolsaLlamamientoDesarrollo

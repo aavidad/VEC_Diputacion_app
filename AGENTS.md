@@ -119,8 +119,15 @@ Tras reiniciar aplicación/PostgreSQL principal, siete operaciones `200`: mismo 
 solo estado `replay_registrada_por_rrhh`, historia exacta y sin duplicados. Cero JS/cookies/storage/desbordamiento;
 dirección inspeccionó recibo desktop y móvil 390 px. No se repitieron PDF.
 CT63 instalada en ambas bases; no reaplicar ni ejecutar DOWN con este historial, ni SQL remoto.
-Séptima operación, clave y correo exactos en la guía. Aceptación solo declarada, no resuelta:
-queda resolver al sucesor contra su apertura Bolsa real, sin automatismo. Sin envío, plazo ni firma.
+Séptima operación, clave y correo exactos en la guía; esa declaración no constituye resolución.
+CT64 cierra la aceptación manual sintética del sucesor contra su apertura Bolsa real:
+primer `503` con CT persistido y Bolsa pendiente; recuperación con la misma clave y ocho POST `200`,
+también tras reiniciar app/PostgreSQL principal, mismos recibo/fecha/evaluación/auditoría e historia.
+Tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
+CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora, sin SQL remoto.
+Versión resultante `3`, expediente conservado en `6`; dos revisiones expresas, sin otro correo.
+[Octava operación y límites](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
+Propuesta desde esta aceptación en estudio, no realizada; sin tercer llamamiento, envío, plazo legal ni firma.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

@@ -1,10 +1,13 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"maps"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/adapters/fuentesintetica"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -114,11 +117,17 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) AutorizarResolucionManual(c
 
 func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ctx context.Context, s ports.SolicitudResolverLlamamiento, j ports.JustificanteRespuestaRecibida) (ports.ResultadoResolucionLlamamiento, error) {
 	vacio := ports.ResultadoResolucionLlamamiento{}
-	if s.CriterioValidacionRef != criterioRevisionManualDesarrollo || !s.RevisionManualConfirmada() {
+	if s.CriterioValidacionRef != criterioRevisionManualDesarrollo || !s.RevisionManualConfirmada() || j.ValidarPara(s) != nil {
 		return vacio, application.ErrComunicacionLlamamientoDenegada
 	}
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) || dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptador) {
 		return vacio, application.ErrComunicacionLlamamientoNoDisponible
+	}
+	// La continuación recuperada no puede mutarse a través de un puntero
+	// compartido mientras CT y Bolsa comprueban el mismo antecedente privado.
+	if j.Continuacion != nil {
+		copia := *j.Continuacion
+		j.Continuacion = &copia
 	}
 	ligada := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j}
 	ctx = context.WithValue(ctx, claveResolucionManualDesarrollo{}, ligada)
@@ -135,7 +144,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 	ligada.local = local
 	ctx = context.WithValue(ctx, claveAceptacionRevisadaDesarrollo{}, ligada)
 	resolucionBolsa := puertosbolsa.ResolucionLlamamientoDesarrollo{
-		AperturaOperacionRef: j.Seleccion.OperacionRef, JustificanteRef: s.PruebaRespuestaRef,
+		AperturaOperacionRef: operacionAperturaRespuestaDesarrollo(j), JustificanteRef: s.PruebaRespuestaRef,
 		EvaluacionPlazoRef: local.EvaluacionPlazoRef, PoliticaRef: local.Politica.Referencia,
 		PoliticaVersion: local.Politica.Version, PoliticaSHA256: local.Politica.HuellaSHA256, VersionEsperada: 1,
 	}
@@ -156,7 +165,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 	res := b.Registro.Resolucion
 	if res == nil || res.Validar() != nil || b.Registro.Tipo != tipo ||
 		b.Registro.OperacionRef != operacionAceptacionManualDesarrollo(ligada) ||
-		res.AperturaOperacionRef != j.Seleccion.OperacionRef || res.JustificanteRef != s.PruebaRespuestaRef ||
+		res.AperturaOperacionRef != operacionAperturaRespuestaDesarrollo(j) || res.JustificanteRef != s.PruebaRespuestaRef ||
 		res.EvaluacionPlazoRef != local.EvaluacionPlazoRef || res.PoliticaRef != local.Politica.Referencia ||
 		res.PoliticaVersion != local.Politica.Version || res.PoliticaSHA256 != local.Politica.HuellaSHA256 ||
 		!domain.ReferenciaOpacaValida(b.ReciboRef) || !domain.InstanteUTCCanonico(b.ConfirmadaEn) || b.ConfirmadaEn.Before(local.ResueltaEn) {
@@ -165,13 +174,92 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 	return local, nil
 }
 
+// Solo selecciona la referencia de un antecedente ya validado; no la deriva
+// ni convierte el recibo raíz en una selección del sucesor.
+func operacionAperturaRespuestaDesarrollo(j ports.JustificanteRespuestaRecibida) string {
+	if j.Continuacion != nil {
+		return j.Continuacion.ReciboBolsa.OperacionRef
+	}
+	return j.Seleccion.OperacionRef
+}
+
 func operacionAceptacionManualDesarrollo(l aceptacionRevisadaDesarrollo) string {
 	prefijo := "operacion-aceptacion-rrhh"
 	if l.solicitud.Respuesta == ports.RespuestaLlamamientoRenunciada {
 		prefijo = "operacion-renuncia-rrhh"
 	}
 	return referenciaPuenteLlamamientoDesarrollo(prefijo,
-		l.solicitud.OrganizacionRef, l.solicitud.ExpedienteRef, l.justificante.Seleccion.OperacionRef, l.solicitud.ClaveIdempotencia)
+		l.solicitud.OrganizacionRef, l.solicitud.ExpedienteRef, operacionAperturaRespuestaDesarrollo(l.justificante), l.solicitud.ClaveIdempotencia)
+}
+
+// Comprueba el primer sucesor con originales durables: CT60 fija el canon de
+// apertura; su continuación fija el terminal anterior. No emite otra fuente,
+// modifica la selección raíz ni abre un llamamiento.
+func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx context.Context,
+	s ports.SolicitudResolverLlamamiento, j ports.JustificanteRespuestaRecibida, apertura puertosbolsa.RegistroLlamamientoDesarrollo,
+) (*fuentesintetica.FuenteLlamamientos, error) {
+	c := j.Continuacion
+	if c == nil || j.ValidarPara(s) != nil {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	b := c.ReciboBolsa
+	canon, err := apertura.Canonico()
+	if err != nil || apertura.Tipo != "propuesta" || apertura.OperacionRef != b.OperacionRef ||
+		apertura.Llamamiento == nil || apertura.Propuesta == nil || apertura.Propuesta.Continuacion == nil ||
+		apertura.Llamamiento.LlamamientoRef != b.LlamamientoRef || apertura.Propuesta.PropuestaRef != b.PropuestaRef ||
+		huellaPuenteLlamamientoDesarrollo(canon) != b.RegistroSHA256 || apertura.Propuesta.GeneradaEn.After(b.ConfirmadaEn) {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	raiz, existe, err := p.repositorio.BuscarOperacion(ctx, j.Seleccion.OperacionRef)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if err != nil || !existe || raiz.Propuesta == nil || raiz.Propuesta.Continuacion != nil {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	fuente, err := p.fuenteSeleccionRaizLigada(s.OrganizacionRef, s.ExpedienteRef, c.LlamamientoAnteriorRef, j.Seleccion, raiz)
+	if err != nil {
+		return nil, err
+	}
+	terminal, existe, err := p.repositorio.BuscarOperacion(ctx, b.TerminalOperacionRef)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if err != nil || !existe || terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil ||
+		terminal.OperacionRef != b.TerminalOperacionRef || terminal.Resolucion.AperturaOperacionRef != raiz.OperacionRef ||
+		terminal.Resolucion.PoliticaRef != criterioRevisionManualDesarrollo ||
+		terminal.Resolucion.PoliticaVersion != 1 || terminal.Resolucion.PoliticaSHA256 != politicaManualDesarrollo().HuellaSHA256 ||
+		terminal.Resolucion.ResueltaEn.Before(j.Seleccion.ConfirmadaEn) || terminal.Resolucion.ResueltaEn.After(apertura.Propuesta.GeneradaEn) {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	canonTerminal, err := terminal.Canonico()
+	ante := apertura.Propuesta.Continuacion
+	if err != nil || ante.TerminalOperacionRef != b.TerminalOperacionRef ||
+		ante.TerminalSHA256 != huellaPuenteLlamamientoDesarrollo(canonTerminal) ||
+		ante.PropuestaRef != raiz.Propuesta.PropuestaRef || ante.PropuestaSHA256 != raiz.Propuesta.HuellaContenidoSHA256 ||
+		ante.OrdenAnterior != raiz.Propuesta.OrdenSeleccionado || apertura.Propuesta.OrdenSeleccionado <= ante.OrdenAnterior ||
+		ante.IntencionRef != intencionSiguienteBolsaDesarrollo(c.Solicitud) {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	// Comparaciones de originales, no registros para guardar. Solo pueden
+	// variar operación/propuesta/llamamiento en la apertura sucesora.
+	raizCanon, _ := raiz.Canonico()
+	base := apertura
+	base.OperacionRef, base.Propuesta, base.Llamamiento = raiz.OperacionRef, raiz.Propuesta, raiz.Llamamiento
+	baseCanon, err := base.Canonico()
+	if err != nil || !bytes.Equal(baseCanon, raizCanon) {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	esperado := raiz
+	datos := *raiz.Llamamiento
+	datos.Version = 2
+	esperado.OperacionRef, esperado.Tipo, esperado.EstadoLlamamiento = b.TerminalOperacionRef, "renuncia_rrhh", dominiobolsa.EstadoLlamamientoRenunciado
+	esperado.Llamamiento, esperado.Resolucion = &datos, terminal.Resolucion
+	esperadoCanon, err := esperado.Canonico()
+	if err != nil || !bytes.Equal(esperadoCanon, canonTerminal) {
+		return nil, ports.ErrRespuestaBolsaNoConfiable
+	}
+	return fuente, nil
 }
 
 func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {

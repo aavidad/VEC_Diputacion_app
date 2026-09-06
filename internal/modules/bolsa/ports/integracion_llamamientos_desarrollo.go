@@ -99,9 +99,18 @@ type ResolucionLlamamientoDesarrollo struct {
 
 func (r ResolucionLlamamientoDesarrollo) referenciasValidas() bool {
 	return ReferenciaOpacaLlamamientoValida(r.AperturaOperacionRef) &&
-		ReferenciaOpacaLlamamientoValida(r.JustificanteRef) && ReferenciaOpacaLlamamientoValida(r.EvaluacionPlazoRef) &&
+		ReferenciaOpacaLlamamientoValida(r.JustificanteRef) && referenciaEvaluacionLocalLlamamientoValida(r.EvaluacionPlazoRef) &&
 		ReferenciaOpacaLlamamientoValida(r.PoliticaRef) && r.PoliticaVersion > 0 && r.PoliticaVersion <= 1<<53-1 &&
 		huellaSHA256LlamamientoValida(r.PoliticaSHA256) && r.PoliticaSHA256 != strings.Repeat("0", 64) && r.VersionEsperada == 1
+}
+
+// CT conserva evaluacion:UUIDv4. Sus dígitos aleatorios no son un DNI. La
+// excepción es solo de formato en este campo; origen y ligadura se acreditan
+// en la composición y el consumidor. No relaja las demás referencias.
+func referenciaEvaluacionLocalLlamamientoValida(valor string) bool {
+	uuid, tipada := strings.CutPrefix(valor, "evaluacion:")
+	return ReferenciaOpacaLlamamientoValida(valor) ||
+		(tipada && referenciaMaterialOpacaBaremacionValida(uuid, 36))
 }
 
 func (r ResolucionLlamamientoDesarrollo) Validar() error {

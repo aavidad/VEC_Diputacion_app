@@ -116,6 +116,32 @@ func TestIntegracionLlamamientosDesarrolloResolucionContratoYFechas(t *testing.T
 	}
 }
 
+func TestIntegracionLlamamientosDesarrolloResolucionEvaluacionUUIDNoEsDNI(t *testing.T) {
+	// Identificador aleatorio del recorrido sintético: el sufijo coincidía con
+	// la heurística de DNI. No se regenera una evaluación ya confirmada en CT.
+	const ref = "evaluacion:409ebaed-71ee-418f-be7c-4025729222c7"
+	r := resolucionIntegracionPrueba()
+	r.EvaluacionPlazoRef = ref
+	if ReferenciaOpacaLlamamientoValida(ref) || r.Validar() != nil {
+		t.Fatal("la excepción debe quedar limitada a la evaluación estructurada")
+	}
+	for _, invalida := range []string{
+		"evaluacion:12345678Z", "evaluacion:dni:12345678Z", ref + ":dni:12345678Z",
+		strings.Replace(ref, "418f", "118f", 1), strings.ToUpper(ref),
+		strings.Replace(ref, "be7c", "7e7c", 1), strings.Replace(ref, "evaluacion:", "justificante:", 1),
+	} {
+		r.EvaluacionPlazoRef = invalida
+		if r.Validar() == nil {
+			t.Fatal("evaluación no estructurada o dato personal admitido")
+		}
+	}
+	r = resolucionIntegracionPrueba()
+	r.JustificanteRef = ref
+	if r.Validar() == nil {
+		t.Fatal("la excepción se extendió a otros campos")
+	}
+}
+
 func TestIntegracionLlamamientosDesarrolloCanonAceptacionYLigaduras(t *testing.T) {
 	for _, caso := range []struct {
 		tipo   string
