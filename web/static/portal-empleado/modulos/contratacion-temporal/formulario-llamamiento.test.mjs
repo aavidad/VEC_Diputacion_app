@@ -27,7 +27,7 @@ function raizPrueba() {
     contains: () => true,
     replaceChildren() { this.innerHTML = ""; },
     querySelector(selector) {
-      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|comunicacion_siguiente|respuesta|resolucion|siguiente|propuesta)"\]$/u)?.[1];
+      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|comunicacion_siguiente|respuesta|respuesta_siguiente|resolucion|siguiente|propuesta)"\]$/u)?.[1];
       if (tipo) return borradores[tipo] ?? null;
       if (selector === "[data-ct-llamamiento-comunicacion]") return { open: false };
       return { focus: () => foco.push(selector), scrollIntoView() {} };
@@ -47,8 +47,10 @@ function raizPrueba() {
       const form = valores ? this.preparar(tipo, valores) : borradores[tipo];
       return eventos.get("submit")({ target: form, preventDefault() {} });
     },
-    archivo: (archivo) => eventos.get("change")({ target: {
-      files: archivo ? [archivo] : [], closest() { return this; },
+    archivo: (archivo, operacion = "respuesta") => eventos.get("change")({ target: {
+      files: archivo ? [archivo] : [], closest(selector) {
+        return selector === "[data-ct-llamamiento-form]" ? { dataset: { ctLlamamientoForm: operacion } } : this;
+      },
     } }),
   };
   return raiz;
@@ -196,6 +198,12 @@ const avisoSiguienteRegistrado = { ...comunicacionRegistrada,
   comunicacion_ref: "comunicacion:sucesor:002", recibo_ref: "recibo:aviso:sucesor:002",
   auditoria_ref: "auditoria:sucesor:002", registrada_en: "2026-09-05T09:07:00.123456Z",
   intencion_envio_ref: "intencion:aviso:sucesor:002" };
+const declaracionSiguiente = () => ({ ...declaracion(),
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174007",
+  correo_ref: "correo:sintetico:sucesor:002", recibida_en: "2026-09-05T09:08" });
+const justificanteSiguiente = (s) => ({ ...justificante(s),
+  justificante_ref: "justificante:sucesor:002", recibo_ref: "recibo:respuesta:sucesor:002",
+  auditoria_ref: "auditoria:respuesta:sucesor:002", registrada_en: "2026-09-05T09:09:00.123456Z" });
 async function abrirResolucion(raiz, cliente = {}, extras = {}, opcion = "aceptacion") {
   const cerrar = await abrirRespuesta(raiz, cliente, extras);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
@@ -210,6 +218,19 @@ async function abrirSiguiente(raiz, cliente = {}, extras = {}) {
     resolverLlamamiento: async () => reciboResolucion("renuncia"), ...cliente,
   }, extras, "renuncia");
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  return cerrar;
+}
+async function abrirRespuestaSiguiente(raiz, registrar = justificanteSiguiente, extras = {}) {
+  const cerrar = await abrirSiguiente(raiz, {
+    continuarLlamamiento: async () => continuacionConfirmada,
+    registrarComunicacionLlamamiento: async (s) => s.tipo_antecedente ? avisoSiguienteRegistrado : comunicacionRegistrada,
+    registrarRespuestaRecibida: (s, opciones) => s.comunicacion_ref === avisoSiguienteRegistrado.comunicacion_ref
+      ? registrar(s, opciones) : justificante(s),
+  }, extras);
+  await raiz.enviar("siguiente", solicitudSiguiente);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
+  await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente);
+  raiz.preparar("respuesta_siguiente", declaracionSiguiente());
   return cerrar;
 }
 for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "conflicto", "tardia"]) test(`propuesta ${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {
@@ -363,7 +384,8 @@ test("aviso local al sucesor exige continuación, clave propia y confirmación; 
   assert.ok(confirmaciones.at(-1).advertencia.includes(continuacionConfirmada.recibo_ref));
   assert.match(raiz.innerHTML, /Aviso local al sucesor registrado · No enviado/u);
   assert.doesNotMatch(formulario(), /type="submit"/u);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:respuesta_siguiente|resolucion_siguiente)"/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion_siguiente"/u);
   await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente); pulsarClave();
   assert.equal(solicitudes.length, 2); assert.equal(claves, 1); cerrar();
 });
@@ -388,6 +410,7 @@ for (const fallo of ["red", "recibo_no_local", "rechazo", "conflicto"]) test(`av
   await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente);
   assert.equal(solicitudes.length, 1);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion_siguiente"|data-ct-llamamiento-clave=["]comunicacion_siguiente["]/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
   for (let intento = 0; intento < 2; intento += 1) await raiz.enviar("comunicacion_siguiente", {
     ...solicitudAvisoSiguiente, clave_idempotencia: CLAVE, prueba_entrega_ref: "recibo:ajeno", tipo_antecedente: "inventado" });
   assert.equal(solicitudes.length, fallo === "conflicto" ? 1 : 3);
@@ -410,6 +433,124 @@ test("aviso al sucesor en vuelo evita duplicación y se cancela al desmontar sin
   await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente); assert.equal(llamadas, 1);
   cerrar(); assert.equal(signal.aborted, true); resolver(avisoSiguienteRegistrado); await pendiente;
   assert.equal(raiz.innerHTML, "");
+});
+
+for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor ${respuesta}: diez campos derivados, confirmación y recibos anteriores intactos sin resolver`, async () => {
+  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false;
+  const cerrar = await abrirRespuestaSiguiente(raiz, (s) => { solicitudes.push(s); return justificanteSiguiente(s); }, {
+    confirmarOperacion: (d) => {
+      if (d.datos.comunicacion_ref !== avisoSiguienteRegistrado.comunicacion_ref) return true;
+      confirmaciones.push(d); return confirmar;
+    },
+  });
+  const valores = { ...declaracionSiguiente(), respuesta };
+  const formulario = () => raiz.innerHTML.match(/<form data-ct-llamamiento-form="respuesta_siguiente"[\s\S]*?<\/form>/u)[0];
+  const previos = () => ["seleccion", "comunicacion", "respuesta", "resolucion", "siguiente", "comunicacion_siguiente"].map((op) => [
+    raiz.innerHTML.match(new RegExp(`<form data-ct-llamamiento-form="${op}"[\\s\\S]*?<\\/form>`, "u"))[0],
+    raiz.innerHTML.match(new RegExp(`<section[^>]*data-ct-llamamiento-recibo="${op}"[\\s\\S]*?<\\/section>`, "u"))[0],
+  ]);
+  const anteriores = previos(), ids = [...raiz.innerHTML.matchAll(/\bid="([^"]+)"/gu)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.match(formulario(), /id="ct-llamamiento-respuesta_siguiente-correo"/u);
+  assert.match(formulario(), /aria-describedby="ct-llamamiento-respuesta_siguiente-correo-ayuda"/u);
+  assert.match(formulario(), /Fecha de recepción[^<]*UTC/u);
+  assert.doesNotMatch(formulario(), /name="(?:tipo_antecedente|actor_ref|politica_ref|revision_plazo_rrhh)"/u);
+  await raiz.enviar("respuesta_siguiente", { ...valores, correo_sha256: HUELLA });
+  assert.equal(confirmaciones.length, 0); // No admite una huella escrita en el DOM.
+  await raiz.archivo(archivoCorreo(respuesta), "respuesta_siguiente");
+  assert.match(formulario(), /Huella calculada/u);
+  assert.match(formulario(), /name="correo_sha256"[^>]*readonly/u);
+  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
+    solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia])
+    await raiz.enviar("respuesta_siguiente", { ...valores, clave_idempotencia });
+  assert.equal(confirmaciones.length, 0);
+  await raiz.enviar("respuesta_siguiente", valores); assert.equal(solicitudes.length, 0);
+  confirmar = true;
+  await raiz.enviar("respuesta_siguiente", { ...valores, organizacion_ref: "org:ajena",
+    expediente_ref: "exp:ajeno", llamamiento_ref: "llamamiento:ajeno", comunicacion_ref: "comunicacion:ajena",
+    version_comunicacion_esperada: 99, correo_sha256: "f".repeat(64), tipo_antecedente: "inventado" });
+  const esperada = {
+    clave_idempotencia: valores.clave_idempotencia, organizacion_ref: solicitudAvisoSiguiente.organizacion_ref,
+    expediente_ref: solicitudAvisoSiguiente.expediente_ref, llamamiento_ref: solicitudAvisoSiguiente.llamamiento_ref,
+    comunicacion_ref: avisoSiguienteRegistrado.comunicacion_ref, version_comunicacion_esperada: 2,
+    respuesta, correo_ref: valores.correo_ref,
+    correo_sha256: createHash("sha256").update(await archivoCorreo(respuesta).text()).digest("hex"),
+    recibida_en: "2026-09-05T09:08:00Z",
+  };
+  assert.equal(JSON.stringify(solicitudes[0]), JSON.stringify(esperada)); assert.ok(Object.isFrozen(solicitudes[0]));
+  assert.match(confirmaciones.at(-1).advertencia, /no cambia la candidatura/iu);
+  assert.deepEqual(previos(), anteriores);
+  assert.match(raiz.innerHTML, /Declaración de respuesta del sucesor registrada · Sin resolución/u);
+  assert.match(raiz.innerHTML, /justificante:sucesor:002/u);
+  assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|data-ct-llamamiento-form="resolucion_siguiente"/u);
+  assert.doesNotMatch(formulario(), /type="submit"/u);
+  await raiz.enviar("respuesta_siguiente", valores); assert.equal(solicitudes.length, 1); cerrar();
+});
+test("respuesta del sucesor no admite envío ni lectura antes de su aviso local validado v2", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  const cerrar = await abrirSiguiente(raiz, {
+    continuarLlamamiento: async () => continuacionConfirmada,
+    registrarComunicacionLlamamiento: async (s) => s.tipo_antecedente
+      ? { ...avisoSiguienteRegistrado, version_resultante: 3 } : comunicacionRegistrada,
+  });
+  const archivo = { name: "sintetico.eml", size: 1, arrayBuffer: () => { llamadas += 1; } };
+  await raiz.archivo(archivo, "respuesta_siguiente");
+  await raiz.enviar("respuesta_siguiente", declaracionSiguiente());
+  await raiz.enviar("siguiente", solicitudSiguiente);
+  await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente);
+  await raiz.archivo(archivo, "respuesta_siguiente");
+  await raiz.enviar("respuesta_siguiente", declaracionSiguiente());
+  assert.equal(llamadas, 0); assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
+  cerrar();
+});
+for (const fallo of ["red", "recibo_cruzado", "rechazo", "conflicto"]) test(`respuesta del sucesor ${fallo}: sin recibo falso, misma clave y recuperación explícita`, async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  const cerrar = await abrirRespuestaSiguiente(raiz, (s) => {
+    solicitudes.push(s);
+    if (solicitudes.length === 1 && fallo === "red") throw new Error("red");
+    if (solicitudes.length === 1 && fallo === "recibo_cruzado") return {
+      ...justificanteSiguiente(s), comunicacion_ref: comunicacionRegistrada.comunicacion_ref };
+    if (solicitudes.length < 3) throw Object.assign(new Error(), { envelopeValido: true, resultadoIndeterminado: false,
+      codigo: fallo === "conflicto" ? "clave_idempotencia_reutilizada" : "acceso_denegado" });
+    return { ...justificanteSiguiente(s), estado: "replay_registrada_por_rrhh" };
+  });
+  await raiz.archivo(archivoCorreo(), "respuesta_siguiente");
+  await raiz.enviar("respuesta_siguiente", declaracionSiguiente());
+  assert.equal(solicitudes.length, 1);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta_siguiente"|data-ct-llamamiento-clave=["]respuesta_siguiente["]/u);
+  for (let intento = 0; intento < 2; intento += 1) {
+    if (fallo !== "rechazo") await raiz.archivo(archivoCorreo("renuncia"), "respuesta_siguiente");
+    await raiz.enviar("respuesta_siguiente", { ...declaracionSiguiente(), clave_idempotencia: CLAVE,
+      comunicacion_ref: "comunicacion:ajena", ...(fallo !== "rechazo" ? { respuesta: "renuncia", recibida_en: "2026-09-06T12:00" } : {}) });
+  }
+  assert.equal(solicitudes.length, fallo === "conflicto" ? 1 : 3);
+  assert.ok(solicitudes.every((s) => JSON.stringify(s) === JSON.stringify(solicitudes[0])));
+  if (fallo !== "conflicto") assert.match(raiz.innerHTML, /Misma declaración recuperada, sin nuevo registro/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion_siguiente"/u); cerrar();
+});
+for (const fase of ["huella", "peticion"]) test(`respuesta del sucesor cancela ${fase} sin duplicado ni repintado tardío`, async () => {
+  const raiz = raizPrueba(); let liberar, signal, llamadas = 0, solicitud;
+  const cerrar = await abrirRespuestaSiguiente(raiz, (s, opciones) => {
+    llamadas += 1; solicitud = s; signal = opciones.signal;
+    return new Promise((resolve) => { liberar = resolve; });
+  });
+  const bytes = new Uint8Array([65]);
+  let pendiente;
+  if (fase === "huella") {
+    await raiz.archivo({ name: "grande.eml", size: 2 * 1024 * 1024 + 1,
+      arrayBuffer: () => assert.fail("no leer más de 2 MiB") }, "respuesta_siguiente");
+    pendiente = raiz.archivo({ name: "pendiente.eml", size: 1,
+      arrayBuffer: () => new Promise((resolve) => { liberar = resolve; }) }, "respuesta_siguiente");
+  } else {
+    await raiz.archivo(archivoCorreo(), "respuesta_siguiente");
+    pendiente = raiz.enviar("respuesta_siguiente", declaracionSiguiente());
+  }
+  await raiz.enviar("respuesta_siguiente", declaracionSiguiente());
+  assert.equal(llamadas, fase === "huella" ? 0 : 1); cerrar();
+  if (fase === "peticion") assert.equal(signal.aborted, true);
+  liberar(fase === "huella" ? bytes.buffer : justificanteSiguiente(solicitud)); await pendiente;
+  assert.equal(raiz.innerHTML, ""); assert.equal(raiz.eventos.size, 0);
+  if (fase === "huella") assert.equal(bytes[0], 0);
 });
 
 test("cuarta operación exige justificante confirmado de aceptación o renuncia y no se solicita automáticamente", async () => {

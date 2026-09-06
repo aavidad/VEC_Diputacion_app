@@ -159,7 +159,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación sintéticas recuperables; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor. |
+| 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y resolución del sucesor. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; agregado `nombramiento/en_curso/v7`. Sin firma ni nombramiento eficaz. |
 | 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
 
@@ -282,7 +282,7 @@ aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobr
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
 sintética y funcionalmente la renuncia y propuesta de desarrollo. No hay política
 legal aprobada ni cierre de vencimiento,
-envío corporativo, plazo o respuesta/resolución del sucesor; el aviso local se describe debajo.
+envío corporativo, plazo o resolución del sucesor; aviso y declaración locales se describen debajo.
 
 ### Continuación tras renuncia sintética
 
@@ -310,11 +310,25 @@ la ruta publicada de comunicaciones, sin endpoint nuevo. Estado independiente;
 antecedentes del recibo CT60 validado, no del DOM. Añade al final del JSON
 `tipo_antecedente: "continuacion_confirmada"`; la primera comunicación conserva sus seis campos exactos.
 Solo clave propia editable y confirmación explícita; conflicto bloquea, ambigüedad congela
-clave/material. No rearma respuesta/resolución. CT62 coteja CT60 con permiso fresco,
+clave/material. Habilita una declaración separada, sin rearmar la resolución anterior. CT62 coteja CT60 con permiso fresco,
 política local v2 y selección padre; no lee/escribe Bolsa. Versión resultante `2`, aviso JSON v2 y outbox pendiente
 con `recibo_continuacion_ref`; no envío ni plazo. CT62 instalada en ambas bases, no reaplicar/DOWN.
 `201`, negativos `403` sin efectos y recuperación `200` tras reinicio principal, mismo recibo/fecha/v2/outbox.
 [Evidencia](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62).
+
+### Declaración del sucesor, mismo contrato de diez campos
+
+`data-ct-llamamiento-form="respuesta_siguiente"` comparte configuración, validador y método
+`registrarRespuestaRecibida` con `respuesta`: mismo POST `/api/vec/contratacion-temporal/llamamientos/respuestas/registro`, diez campos,
+sin `tipo_antecedente` adicional. Estado y lectura `.eml` separados, renderer/calculador comunes e IDs únicos.
+Solo aviso local validado `v2`; antecedentes de solicitud/recibo `comunicacion_siguiente`, nunca del DOM.
+Clave propia, confirmación explícita, huella en RAM sin contenido; ambigüedad congela material, sin retry automático.
+CT63 adapta solo la función CT56: consumo fresco antes del replay exacto material/actor/perfil,
+cadena CT62/CT60 verificada antes de omitir las dos comparaciones con el llamamiento/recibo raíz. Sin efectos Bolsa.
+Instalada en ambas bases; no reaplicar ni DOWN con historial. `201` real y cruces `409` sin efectos;
+siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha e historia;
+solo cambia `estado` a `replay_registrada_por_rrhh`. [Evidencia y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+No activa resolución del sucesor ni altera la anterior; resolver exige su apertura Bolsa real en otro corte.
 
 ### Propuesta de nombramiento desde aceptación
 

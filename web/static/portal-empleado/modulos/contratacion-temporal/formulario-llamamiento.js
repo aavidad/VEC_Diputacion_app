@@ -20,6 +20,10 @@ const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
   recibo: validarReciboComunicacionLlamamiento, metodo: "registrarComunicacionLlamamiento",
 });
+const OPERACION_RESPUESTA = Object.freeze({
+  campos: CAMPOS_RESPUESTA_RECIBIDA, validar: validarSolicitudRespuestaRecibida,
+  recibo: validarReciboRespuestaRecibida, metodo: "registrarRespuestaRecibida",
+});
 const OPERACIONES = Object.freeze({
   seleccion: {
     campos: CAMPOS_SELECCION, validar: validarSolicitudSeleccionLlamamiento,
@@ -27,10 +31,8 @@ const OPERACIONES = Object.freeze({
   },
   comunicacion: OPERACION_COMUNICACION,
   comunicacion_siguiente: { ...OPERACION_COMUNICACION, campos: CAMPOS_COMUNICACION_SIGUIENTE },
-  respuesta: {
-    campos: CAMPOS_RESPUESTA_RECIBIDA, validar: validarSolicitudRespuestaRecibida,
-    recibo: validarReciboRespuestaRecibida, metodo: "registrarRespuestaRecibida",
-  },
+  respuesta: OPERACION_RESPUESTA,
+  respuesta_siguiente: OPERACION_RESPUESTA,
   resolucion: {
     campos: CAMPOS_RESOLUCION, validar: validarSolicitudResolucionLlamamiento,
     recibo: validarReciboResolucionLlamamiento, metodo: "resolverLlamamiento",
@@ -44,9 +46,10 @@ const OPERACIONES = Object.freeze({
     recibo: validarReciboPropuestaFormalizacion, metodo: "prepararPropuestaFormalizacion",
   },
 });
+function esRespuesta(operacion) { return OPERACIONES[operacion] === OPERACION_RESPUESTA; }
 function nuevoPaso() {
   return { valores: {}, solicitud: null, recibo: null, ocupado: false, bloqueado: false,
-    calculando: false,
+    calculando: false, lecturaCorreo: 0,
     mensaje: "llamamiento_pendiente", tono: "informacion", controlador: null };
 }
 export function montarFormularioLlamamiento({
@@ -68,9 +71,10 @@ export function montarFormularioLlamamiento({
   const fecha = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
-  let montado = true, lecturaCorreo = 0;
+  let montado = true;
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     comunicacion_siguiente: { ...nuevoPaso(), claveConservada: false },
+    respuesta_siguiente: { ...nuevoPaso(), claveConservada: false },
     propuesta: { ...nuevoPaso(), disponible: false, claveConservada: false, mensaje: "llamamiento_propuesta_no_disponible" },
     siguiente: { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false },
     resolucion: { ...nuevoPaso(), mensaje: "llamamiento_resolucion_pendiente", claveConservada: false,
@@ -78,6 +82,11 @@ export function montarFormularioLlamamiento({
         criterio_validacion_ref: CRITERIO_VALIDACION_RESOLUCION_DESARROLLO } },
     enlazado: false, comunicacionAbierta: false };
 
+  function puedeDeclarar(operacion) {
+    const recibo = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"].recibo;
+    return recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
+      || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local));
+  }
   function repintar(operacion = "") {
     if (!montado) return;
     raiz.innerHTML = renderizarLlamamiento(estado, t, fecha);
@@ -101,7 +110,7 @@ export function montarFormularioLlamamiento({
         const revision = operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(campo);
         if (["comunicacion", "comunicacion_siguiente", "resolucion", "siguiente", "propuesta"].includes(operacion) && campo !== "clave_idempotencia" && !revision) continue;
         if (paso.claveConservada && campo === "clave_idempotencia") continue;
-        if (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
+        if (esRespuesta(operacion) && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
         const control = formulario.elements.namedItem(campo);
         paso.valores[campo] = revision ? control?.checked === true : String(control?.value ?? "");
       }
@@ -112,17 +121,18 @@ export function montarFormularioLlamamiento({
   }
   async function alCambiarArchivo(evento) {
     const control = evento.target?.closest?.("[data-ct-llamamiento-correo]");
-    const paso = estado.respuesta;
-    if (!control || !raiz.contains(control) || paso.solicitud || paso.ocupado
-      || estado.comunicacion.recibo?.version_resultante !== 2) return;
+    const operacion = control?.closest?.("[data-ct-llamamiento-form]")?.dataset.ctLlamamientoForm;
+    if (!control || !raiz.contains(control) || !esRespuesta(operacion) || !puedeDeclarar(operacion)) return;
+    const paso = estado[operacion];
+    if (paso.solicitud || paso.ocupado || paso.bloqueado) return;
     guardarBorradores();
-    const lectura = ++lecturaCorreo;
+    const lectura = ++paso.lecturaCorreo;
     const archivo = control.files?.length === 1 ? control.files[0] : null;
     paso.valores.correo_sha256 = "";
     paso.calculando = true;
     paso.mensaje = "llamamiento_correo_calculando";
     paso.tono = "informacion";
-    repintar("respuesta");
+    repintar(operacion);
     let bytes;
     try {
       // Se limita antes de leer. Solo la huella llega al estado y al POST;
@@ -130,23 +140,23 @@ export function montarFormularioLlamamiento({
       if (!archivo || !/\.eml$/iu.test(archivo.name) || archivo.size < 1
         || archivo.size > 2 * 1024 * 1024 || !criptografia?.subtle?.digest) throw new TypeError();
       bytes = new Uint8Array(await archivo.arrayBuffer());
-      if (!montado || lectura !== lecturaCorreo) return;
+      if (!montado || lectura !== paso.lecturaCorreo) return;
       if (bytes.byteLength !== archivo.size) throw new TypeError();
       const digest = new Uint8Array(await criptografia.subtle.digest("SHA-256", bytes));
-      if (!montado || lectura !== lecturaCorreo) return;
+      if (!montado || lectura !== paso.lecturaCorreo) return;
       const huella = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
       if (digest.length !== 32 || huella === "0".repeat(64)) throw new TypeError();
       paso.valores.correo_sha256 = huella;
       paso.mensaje = "llamamiento_correo_calculado";
     } catch {
-      if (!montado || lectura !== lecturaCorreo) return;
+      if (!montado || lectura !== paso.lecturaCorreo) return;
       paso.mensaje = "llamamiento_correo_error";
       paso.tono = "error";
     } finally {
       bytes?.fill(0);
-      if (montado && lectura === lecturaCorreo) {
+      if (montado && lectura === paso.lecturaCorreo) {
         paso.calculando = false;
-        repintar("respuesta");
+        repintar(operacion);
       }
     }
   }
@@ -210,13 +220,13 @@ export function montarFormularioLlamamiento({
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
-    if (operacion === "respuesta" && estado.comunicacion.recibo?.version_resultante !== 2) return;
+    if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
     if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !paso.disponible)) return;
     guardarBorradores();
     const contrato = OPERACIONES[operacion];
-    const recuperandoRespuesta = ["respuesta", "resolucion", "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion) && paso.solicitud !== null;
+    const recuperandoRespuesta = ["respuesta", "respuesta_siguiente", "resolucion", "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion) && paso.solicitud !== null;
     let solicitud;
     try {
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
@@ -228,10 +238,10 @@ export function montarFormularioLlamamiento({
               : paso.valores[campo],
         ]),
       ));
-      if (operacion === "comunicacion_siguiente" && Object.keys(OPERACIONES).some(
+      if (["comunicacion_siguiente", "respuesta_siguiente"].includes(operacion) && Object.keys(OPERACIONES).some(
         (anterior) => anterior !== operacion
           && estado[anterior].solicitud?.clave_idempotencia === solicitud.clave_idempotencia,
-      )) throw new TypeError("el aviso al sucesor necesita su propia clave");
+      )) throw new TypeError("la operación del sucesor necesita su propia clave");
       if (["resolucion", "siguiente", "propuesta"].includes(operacion) && [estado.seleccion, estado.comunicacion,
         estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion] : []),
         ...(operacion === "propuesta" ? [estado.siguiente] : [])]
@@ -239,7 +249,8 @@ export function montarFormularioLlamamiento({
         throw new TypeError("la operación necesita su propia clave");
       }
     } catch {
-      paso.mensaje = operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_validacion"
+      paso.mensaje = operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_validacion"
+        : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_validacion"
         : operacion === "propuesta" ? "llamamiento_propuesta_validacion" : operacion === "siguiente" ? "llamamiento_siguiente_validacion"
         : operacion === "resolucion" ? "llamamiento_resolucion_validacion"
         : operacion === "respuesta" ? "llamamiento_respuesta_validacion" : "llamamiento_validacion";
@@ -251,7 +262,7 @@ export function montarFormularioLlamamiento({
     try {
       confirmado = confirmarOperacion({
         titulo: t("llamamiento_" + operacion),
-        advertencia: t("llamamiento_confirmacion_" + operacion, {
+        advertencia: t("llamamiento_confirmacion_" + (esRespuesta(operacion) ? "respuesta" : operacion), {
           version: solicitud.version_esperada,
           justificante: solicitud.prueba_respuesta_ref,
           criterio: solicitud.criterio_validacion_ref,
@@ -260,7 +271,7 @@ export function montarFormularioLlamamiento({
             resolucion: solicitud.resolucion_ref, intencion: solicitud.intencion_ref,
           } : {}),
           ...(operacion === "resolucion" ? { respuesta: t("llamamiento_resolucion_" + solicitud.respuesta) } : {}),
-          ...(operacion === "respuesta" ? {
+          ...(esRespuesta(operacion) ? {
             respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
             correo: solicitud.correo_ref, huella: solicitud.correo_sha256,
             recibida: solicitud.recibida_en,
@@ -272,7 +283,7 @@ export function montarFormularioLlamamiento({
     } catch { /* La confirmación es obligatoria. */ }
     if (!confirmado || !montado) return;
     paso.solicitud = solicitud;
-    if (["siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)) paso.claveConservada = true;
+    if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "propuesta"].includes(operacion)) paso.claveConservada = true;
     paso.valores = { ...solicitud };
     paso.ocupado = true;
     paso.controlador = new AbortController();
@@ -290,7 +301,8 @@ export function montarFormularioLlamamiento({
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
-      paso.mensaje = operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo"
+      paso.mensaje = operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_recibo"
+        : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo"
         : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo"
         : operacion === "resolucion" ? "llamamiento_resolucion_recibo_" + recibo.respuesta
         : operacion === "respuesta" ? "llamamiento_respuesta_recibo" : "llamamiento_recibo";
@@ -308,9 +320,10 @@ export function montarFormularioLlamamiento({
           };
         }
       }
-      if (operacion === "comunicacion" && recibo.version_resultante === 2) {
-        estado.respuesta.valores = {
-          ...estado.respuesta.valores,
+      if (["comunicacion", "comunicacion_siguiente"].includes(operacion) && recibo.version_resultante === 2) {
+        const destino = estado[operacion === "comunicacion" ? "respuesta" : "respuesta_siguiente"];
+        destino.valores = {
+          ...destino.valores,
           organizacion_ref: solicitud.organizacion_ref,
           expediente_ref: solicitud.expediente_ref,
           llamamiento_ref: solicitud.llamamiento_ref,
@@ -341,7 +354,7 @@ export function montarFormularioLlamamiento({
           prueba_entrega_ref: recibo.recibo_ref, tipo_antecedente: TIPO_ANTECEDENTE_CONTINUACION,
         };
       }
-      // El sucesor tiene su propio aviso; no rearma comunicación, respuesta ni resolución anteriores.
+      // Aviso y declaración del sucesor separados; nunca rearman la resolución anterior.
     } catch (error) {
       if (!montado) return;
       guardarBorradores();
@@ -377,6 +390,7 @@ export function montarFormularioLlamamiento({
     const operacion = control.dataset.ctLlamamientoClave;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
+    if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
     if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !estado.propuesta.disponible)) return;
@@ -398,8 +412,10 @@ export function montarFormularioLlamamiento({
   const desmontar = () => {
     if (!montado) return;
     montado = false;
-    lecturaCorreo += 1;
-    for (const operacion of Object.keys(OPERACIONES)) estado[operacion].controlador?.abort();
+    for (const operacion of Object.keys(OPERACIONES)) {
+      estado[operacion].lecturaCorreo += 1;
+      estado[operacion].controlador?.abort();
+    }
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("change", alCambiarArchivo);

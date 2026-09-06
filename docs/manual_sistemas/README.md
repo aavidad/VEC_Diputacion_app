@@ -263,6 +263,17 @@ Tres comunicaciones/historias/outbox, anteriores intactos; sin tipo o con recibo
 sin efectos. Sin cambios de DSN: once LOGIN por aplicación a su única base.
 [Recuperación y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62); no E2E acreditado en secundaria.
 
+CT63 instalada en ambas bases por dirección tras doble GO y UP/DOWN transaccional exacto
+en secundaria, sin persistencia en esa prueba. No reaplicar ni ejecutar DOWN con respuestas del sucesor;
+el bloqueo conserva historial. Sin SQL ni arranque remoto; once LOGIN por aplicación a su única base, sin cambios.
+Principal: seis antecedentes `200` y declaración `201`; cruces comunicación/llamamiento `409` sin efectos.
+Tres declaraciones/historias/outbox; dos declaraciones, tres comunicaciones, dos resoluciones CT y siete Bolsa previos intactos.
+Tras reiniciar aplicación/PostgreSQL principal: siete operaciones `200`, mismos justificante/recibo/auditoría/fecha;
+solo estado de replay, historia exacta y tres respuestas/historias/outbox sin duplicados.
+Recibo desktop/móvil 390 px inspeccionado por dirección; cero JS/cookies/storage/desbordamiento, sin repetir PDF.
+[Ficha exacta](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+No atribuir este recorrido a secundaria ni interpretar aceptación declarada como resolución.
+
 AD3-20/CT61 instaladas en ambas bases por dirección; no reaplicar. La propuesta
 consume permiso propio fresco antes de lecturas/replay y conserva actor, perfil,
 material y recibo. Agregado `nombramiento/en_curso/v7`; una actuación v7 y un outbox.
@@ -399,7 +410,7 @@ Ese rechazo permite corregir casillas conservando la clave; ante resultado ambig
 mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
 La quinta operación abre el siguiente llamamiento solo tras renuncia sintética y
 confirmación explícita; no envía aviso. La sexta registra por separado el aviso local
-del sucesor; no sustituya la primera comunicación ni active respuesta/resolución a mano.
+del sucesor; la séptima permite declarar su respuesta sin sustituir la primera ni activar resolución a mano.
 La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
 Los seis borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
@@ -412,7 +423,7 @@ No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exa
 Comunicación al centro: diez POST `200` antes y después del reinicio principal, seis PDF e historial
 idénticos. Evidencia en la guía, no atribuida a secundaria ni a envío u orden de incorporación.
 Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida. Siguen pendientes
-vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor; no hay política legal aprobada.
+vencimiento, envío corporativo, plazo y resolución del sucesor contra su apertura Bolsa real; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar

@@ -67,6 +67,10 @@ AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añ
 Navegador acreditado solo en principal.
 Aviso local al sucesor CT60: `201` y recuperación `200` tras reinicio principal; CT62 instalada en ambas
 bases, no reaplicar ni ejecutar DOWN. [Recuperación y evidencia](#aviso-local-al-sucesor-ct62).
+Declaración del sucesor CT63: seis antecedentes `200` y registro `201`; tras reinicio principal, siete `200`,
+mismos justificante/recibo/auditoría/fecha e historia, sin duplicados.
+[Séptima operación, correo y recibo](#declaración-de-respuesta-del-sucesor-ct63). CT63 instalada en ambas bases;
+no reaplicar ni ejecutar DOWN con historial. Aceptación solo declarada, no resuelta.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -290,6 +294,8 @@ el mismo formulario de llamamiento y recupere, en orden, las cuatro operaciones:
 | Declaración RRHH | `a77d3f10-a635-46fd-b9eb-a00000000003` |
 | Resolución manual de renuncia | `a77d3f10-a635-46fd-b9eb-a00000000004` |
 | Continuación tras renuncia (objetivo 7, apartado siguiente) | `a77d3f10-a635-46fd-b9eb-a00000000005` |
+| Aviso local al sucesor (CT62) | `a77d3f10-a635-46fd-b9eb-a00000000006` |
+| Declaración RRHH del sucesor (CT63) | `a77d3f10-a635-46fd-b9eb-a00000000007` |
 
 El recibo de selección identifica
 `llamamiento:nccfkjnioljdeikkpipkcgcpilbogjnociankdfbapmnaekanagbiioaahphbmgj`.
@@ -371,7 +377,7 @@ sus claves originales. El mismo panel ofrece **6. Registrar aviso local al suces
 **`a77d3f10-a635-46fd-b9eb-a00000000006`** y confirme expresamente el registro local.
 Organización, expediente, llamamiento `eipmg…`, versión `1` y antecedente
 `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778` se derivan de la continuación, no se editan.
-No sustituye la primera comunicación ni activa respuesta/resolución del sucesor.
+No sustituye la primera comunicación; habilita la declaración manual del paso 7, no una resolución.
 Ante ambigüedad conserve clave/material; reintento solo explícito. `409` no permite otra clave.
 
 Dirección confirmó cinco antecedentes `200` y aviso `201`; sin tipo o con recibo ajeno,
@@ -394,8 +400,47 @@ Inspección desktop y móvil 390 px; no se repitieron los PDF de cierres anterio
 cero errores JS, cookies, almacenamiento web y desbordamiento. Solo principal acreditada.
 CT62: doble GO, UP/DOWN transaccional exacto en secundaria y UP instalada en ambas bases;
 no reaplicar ni ejecutar DOWN con este historial. El aviso conserva `recibo_continuacion_ref`;
-no acredita envío, entrega ni plazo. Siguen pendientes correo corporativo, plazo,
-respuesta/resolución del sucesor y circuito de firma. Métrica: **5/8 más partes del sexto y séptimo**.
+no acredita envío, entrega ni plazo. La declaración del sucesor se describe debajo;
+siguen pendientes correo corporativo, plazo, resolución del sucesor y circuito de firma.
+Métrica: **5/8 más partes del sexto y séptimo**.
+
+### Declaración de respuesta del sucesor CT63
+
+En el mismo caso `fe4934a1…`, recupere las seis operaciones anteriores con sus claves originales.
+Tras validar el aviso local en versión `2`, aparece **7. Registrar respuesta recibida del sucesor**
+(`data-ct-llamamiento-form="respuesta_siguiente"`). Organización, expediente, llamamiento `eipmg…`,
+comunicación `7bdf8ba7…` y versión `2` se derivan de ese aviso; no se editan.
+Use **`a77d3f10-a635-46fd-b9eb-a00000000007`**, respuesta **aceptación declarada**,
+referencia `correo:sintetico:sucesor-20260906` y recepción UTC **`2026-09-06T04:00:00Z`**
+(control de fecha: `2026-09-06T04:00`). Seleccione **`respuesta-sucesor-sintetica.eml`**,
+original sintético de **386 bytes**, conservado fuera de Git por el operador; ruta en su bitácora local.
+SHA256: `9f5fde0e55589d26349467081df601ede5b1b15e3da2d69bc671de13eff9fe17`.
+No use los correos anteriores ni reconstruya bytes si falta el archivo: solicite el original.
+El `.eml` admite hasta 2 MiB; solo su huella se calcula en RAM, sin subir ni guardar contenido.
+Confirme expresamente la declaración RRHH; no acredita origen, firma, custodia, envío, entrega ni plazo.
+
+| Declaración del sucesor, comunicación en versión `2` | Valor conservado tras reinicio |
+| --- | --- |
+| Justificante | `justificante:6353cd84-616d-467f-95c2-ec8a27e15c64` |
+| Recibo | `recibo:f2f54bfc-d537-4d1b-a4e9-81c7a653e5d8` |
+| Auditoría | `aud_v3_11dc51ba44d91c00c8ae765544a83b24` |
+| Registrada en UTC | `2026-09-06T04:26:40.108845Z` |
+
+Dirección confirmó seis antecedentes `200` y declaración `201`; dos cruces de comunicación/llamamiento
+devuelven `409` sin efectos. Tres declaraciones/historias/outbox; las dos declaraciones anteriores,
+tres comunicaciones, dos resoluciones CT y siete registros Bolsa conservan sus huellas.
+El ajuste de segundos de `datetime-local` fue del arnés Playwright, sin cambiar producto.
+**Tras reiniciar aplicación/PostgreSQL principal: siete operaciones `200`**, mismos justificante,
+recibo, auditoría y fecha; solo cambia `estado` a `replay_registrada_por_rrhh`. Historia exacta,
+tres respuestas/historias/outbox, sin duplicados; antecedentes anteriores intactos.
+Cero errores JS, cookies, almacenamiento web y desbordamiento. Dirección inspeccionó el recibo
+desktop y móvil 390 px; evidencia solo principal. Ningún PDF repetido.
+Para recuperar, repita esos mismos datos, archivo y clave; nunca otra clave para eludir un `409`. La ambigüedad
+congela clave/material y exige recuperación explícita, sin reintento automático.
+CT63 instalada en ambas bases tras revisión y UP/DOWN transaccional en secundaria sin persistir;
+no reaplicar ni ejecutar DOWN con respuestas del sucesor. Remoto apagado, sin aplicar SQL.
+No cambia la resolución original ni activa una resolución del sucesor: ese siguiente corte debe
+cotejar su apertura Bolsa real. Métrica **5/8 más tramos del sexto y séptimo**; seis PDF cerrados, no repetidos.
 
 ### Objetivo 8: recuperar la propuesta de nombramiento
 
@@ -526,8 +571,8 @@ No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar
 Los seis son borradores sin firma ni eficacia administrativa, envío, entrega, plazo legal
 ni orden de incorporación. Objetivo 9 cerrado funcionalmente en desarrollo: **6/6**;
 siguiente 10, dependiente de fuente/circuito de firma admitido.
-El aviso local al sucesor ya se registra con CT62; siguen pendientes envío corporativo,
-plazo y respuesta/resolución del sucesor en el paso 6.
+El aviso local CT62 y la declaración CT63 del sucesor ya se registran; siguen pendientes envío corporativo,
+plazo y resolución del sucesor contra su apertura Bolsa real en el paso 6.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

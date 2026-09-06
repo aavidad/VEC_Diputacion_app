@@ -83,7 +83,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación sintéticas recuperables; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor; no acredita entrega ni plazo legal. |
+| 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y resolución del sucesor; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. Pendiente circuito de firma/evidencia admitida (10); no posesión real, nombramiento eficaz, envío ni entrega. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -338,7 +338,7 @@ El método es manual provisional solo para desarrollo sintético, no aval del op
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor. La propuesta de desarrollo
+Faltan vencimiento, envío corporativo, plazo y resolución del sucesor. La propuesta de desarrollo
 se describe a continuación; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
@@ -364,8 +364,19 @@ Referencias y versión `1` vienen de su recibo; solo introduzca la sexta clave o
 de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62) y confirme expresamente.
 `201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
 `200` recupera la misma comunicación, recibo, fecha, versión `2` e intención local, sin duplicados.
-No cambia los recibos previos ni habilita respuesta/resolución del sucesor; no envía ni abre plazo.
+No cambia los recibos previos; habilita la declaración manual del paso 7, no una resolución. No envía ni abre plazo.
 Conserve clave/material ante ambigüedad; no eluda un `409` con otra clave.
+
+#### Operación 7: declarar la respuesta del sucesor, sin resolverla
+
+Tras recuperar el aviso local `v2`, use **7. Registrar respuesta recibida del sucesor**.
+El panel deriva sus antecedentes; introduzca clave propia, respuesta declarada, referencia opaca de correo,
+fecha UTC y `.eml` hasta 2 MiB para huella local; confirme expresamente. No se conserva el contenido.
+[Clave, archivo exacto y recibo](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+Registro real `201`; siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha,
+sin duplicados. Aceptación solo declarada, no resuelta ni verificada en origen/firma/plazo.
+No cambia los recibos ni la resolución anterior. Mantenga clave/material ante ambigüedad; `409` no autoriza otra clave.
+Queda resolver al sucesor contra su apertura Bolsa real, sin actuación automática.
 
 ### 7. Nombramiento: propuesta de desarrollo y límites
 

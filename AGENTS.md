@@ -112,7 +112,15 @@ Aviso local al sucesor CT60 cerrado: `201` y seis operaciones `200` tras reinici
 mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases, no reaplicar ni ejecutar DOWN.
 Tres comunicaciones/historias/outbox; las dos comunicaciones y resoluciones previas y
 siete registros Bolsa intactos. Clave, recibo y huella en la guía.
-Pendientes envío corporativo, plazo y respuesta/resolución del sucesor; no habilita firma.
+Declaración del sucesor CT63: seis antecedentes `200` y registro `201` en navegador principal;
+dos cruces comunicación/llamamiento `409` sin efectos. Tres declaraciones/historias/outbox;
+dos declaraciones, tres comunicaciones, dos resoluciones CT y siete registros Bolsa previos intactos.
+Tras reiniciar aplicación/PostgreSQL principal, siete operaciones `200`: mismo justificante/recibo/auditoría/fecha,
+solo estado `replay_registrada_por_rrhh`, historia exacta y sin duplicados. Cero JS/cookies/storage/desbordamiento;
+dirección inspeccionó recibo desktop y móvil 390 px. No se repitieron PDF.
+CT63 instalada en ambas bases; no reaplicar ni ejecutar DOWN con este historial, ni SQL remoto.
+Séptima operación, clave y correo exactos en la guía. Aceptación solo declarada, no resuelta:
+queda resolver al sucesor contra su apertura Bolsa real, sin automatismo. Sin envío, plazo ni firma.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

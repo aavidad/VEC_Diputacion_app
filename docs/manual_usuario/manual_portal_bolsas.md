@@ -195,7 +195,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación sintéticas; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. | Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor; no acredita entrega ni plazo legal. |
+| 6. Llamamiento, parcialmente disponible | Recorridos sintéticos, aviso CT62 y declaración del sucesor CT63 recuperables tras reinicio principal. | Faltan vencimiento, envío corporativo, plazo y resolución del sucesor; no acredita entrega ni plazo legal. |
 | 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores desde el detalle, incluida comunicación al centro. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -333,8 +333,19 @@ Solo introduzca su sexta clave original de la [guía](../../GUIA_RECORRIDO_ALBER
 el panel deriva las referencias y versión del recibo de continuación. Confirme expresamente.
 `201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
 `200` recupera el mismo recibo, fecha, versión `2` e intención local, sin duplicados.
-No envía correo, no abre plazo ni activa respuesta/resolución del sucesor. Los recibos previos
+No envía correo ni abre plazo; habilita la declaración manual del paso 7, no una resolución. Los recibos previos
 se conservan; ante ambigüedad mantenga clave/material, sin reintento automático ni eludir `409`.
+
+### Séptima operación: declaración de respuesta del sucesor
+
+Tras el aviso local validado `v2`, **7. Registrar respuesta recibida del sucesor** deriva sus referencias.
+Declare aceptación o renuncia, referencia opaca de correo y fecha UTC; seleccione el `.eml` hasta 2 MiB,
+compruebe la huella calculada localmente y confirme con su clave propia. El contenido no se sube ni guarda.
+[Datos y archivo exactos para recuperar](../../GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
+`201` real y siete operaciones `200` tras reinicio principal, mismos justificante/recibo/auditoría/fecha, sin duplicados.
+**Declaración de respuesta del sucesor registrada · Sin resolución**
+no acredita origen, firma, entrega ni plazo; tampoco cambia la resolución original. Conserve clave/material
+ante ambigüedad. La resolución del sucesor contra su apertura Bolsa real sigue pendiente y no es automática.
 
 ### Propuesta de nombramiento tras aceptación
 
