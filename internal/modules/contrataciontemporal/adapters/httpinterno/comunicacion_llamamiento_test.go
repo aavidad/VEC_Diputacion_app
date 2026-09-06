@@ -119,6 +119,48 @@ func TestComunicacionLlamamientoHTTPRegistroLocalNoPublicaPlazo(t *testing.T) {
 	}
 }
 
+func TestComunicacionLlamamientoHTTPTipoAntecedenteCanonico(t *testing.T) {
+	antiguo := cuerpoRegistroComunicacionHTTPPrueba()
+	for _, tipo := range []string{"", "continuacion_confirmada"} {
+		t.Run("tipo_"+tipo, func(t *testing.T) {
+			s := solicitudRegistroComunicacionHTTPPrueba()
+			s.TipoAntecedente = tipo
+			cuerpo := antiguo
+			if tipo != "" {
+				cuerpo = strings.TrimSuffix(antiguo, "}") + `,"tipo_antecedente":"continuacion_confirmada"}`
+			}
+			r := comunicacionHTTPPrueba(s)
+			r.Estado = ports.ResultadoComunicacionLlamamientoLocal
+			r.RegistradaEn, r.EntregadaEn, r.RespuestaHasta = r.EntregadaEn, time.Time{}, time.Time{}
+			r.IntencionEnvioRef = "outbox:local"
+			e := &ejecutorComunicacionLlamamientoHTTPPrueba{comunicacion: r}
+			manejador := nuevoManejadorComunicacionHTTPPrueba(t, e)
+			w := httptest.NewRecorder()
+			manejador.ServeHTTP(w, peticionComunicacionHTTPPrueba(RutaRegistroComunicacionLlamamiento, cuerpo))
+			registrada, ok := e.ultimaRegistro()
+			if w.Code != http.StatusCreated || !ok || registrada != s {
+				t.Fatalf("contrato canónico no preservado: %d", w.Code)
+			}
+		})
+	}
+	for _, tipoJSON := range []string{`""`, `null`, `"seleccion_confirmada"`, `"politica:v2"`} {
+		t.Run("rechaza_"+tipoJSON, func(t *testing.T) {
+			e := &ejecutorComunicacionLlamamientoHTTPPrueba{}
+			w := httptest.NewRecorder()
+			cuerpo := strings.TrimSuffix(antiguo, "}") + `,"tipo_antecedente":` + tipoJSON + `}`
+			nuevoManejadorComunicacionHTTPPrueba(t, e).ServeHTTP(w, peticionComunicacionHTTPPrueba(RutaRegistroComunicacionLlamamiento, cuerpo))
+			registros, resoluciones := e.totales()
+			codigo := http.StatusUnprocessableEntity
+			if tipoJSON == "null" {
+				codigo = http.StatusBadRequest // La guarda JSON común rechaza null antes del contrato tipado.
+			}
+			if w.Code != codigo || registros != 0 || resoluciones != 0 {
+				t.Fatalf("tipo inválido alcanzó efecto: %d", w.Code)
+			}
+		})
+	}
+}
+
 func solicitudRegistroComunicacionHTTPPrueba() ports.SolicitudRegistrarComunicacionLlamamiento {
 	return ports.SolicitudRegistrarComunicacionLlamamiento{
 		ClaveIdempotencia: claveRegistroComunicacionHTTPPrueba,

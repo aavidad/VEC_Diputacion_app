@@ -41,6 +41,7 @@ type registroComunicacionLlamamientoJSON struct {
 	LlamamientoRef    string `json:"llamamiento_ref"`
 	VersionEsperada   uint64 `json:"version_esperada"`
 	PruebaEntregaRef  string `json:"prueba_entrega_ref"`
+	TipoAntecedente   string `json:"tipo_antecedente,omitempty"`
 }
 
 func (e registroComunicacionLlamamientoJSON) solicitud() (
@@ -54,6 +55,7 @@ func (e registroComunicacionLlamamientoJSON) solicitud() (
 		LlamamientoRef:    e.LlamamientoRef,
 		VersionEsperada:   e.VersionEsperada,
 		PruebaEntregaRef:  e.PruebaEntregaRef,
+		TipoAntecedente:   e.TipoAntecedente,
 	}
 	if solicitud.Validar() != nil {
 		return ports.SolicitudRegistrarComunicacionLlamamiento{},

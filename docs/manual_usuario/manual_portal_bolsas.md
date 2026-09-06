@@ -195,7 +195,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación sintéticas; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. | Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor; no acredita entrega ni plazo legal. |
 | 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores desde el detalle, incluida comunicación al centro. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -322,9 +322,19 @@ e intención vienen de sus recibos, no se editan. Use la quinta clave original d
 y confirme expresamente la apertura de un único nuevo llamamiento, sin otro `.eml`.
 **Siguiente llamamiento abierto · ejercicio sintético** confirma la continuidad
 posterior: no reescribe el recibo de renuncia, ni acredita aviso enviado, entrega
-o aceptación. No reutilice el nuevo llamamiento en el formulario de comunicación.
+o aceptación. No sustituya el llamamiento de la primera comunicación.
 Una vez recibido, otro envío queda desactivado; ante ambigüedad conserve clave y
 material, reintento solo explícito. Un `409` no autoriza cambiar de clave.
+
+### Sexta operación: aviso local al sucesor
+
+Recupere las cinco operaciones previas y use **6. Registrar aviso local al sucesor**.
+Solo introduzca su sexta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62);
+el panel deriva las referencias y versión del recibo de continuación. Confirme expresamente.
+`201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
+`200` recupera el mismo recibo, fecha, versión `2` e intención local, sin duplicados.
+No envía correo, no abre plazo ni activa respuesta/resolución del sucesor. Los recibos previos
+se conservan; ante ambigüedad mantenga clave/material, sin reintento automático ni eludir `409`.
 
 ### Propuesta de nombramiento tras aceptación
 

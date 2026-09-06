@@ -4,7 +4,8 @@
 
 Primer PDF del objetivo 9 publicado en `5c57b29f`.
 AD3-21 cerrada en `975f0c16`, resolución publicada en `9e692f80`.
-Esta revisión incorpora los seis PDF borradores del objetivo 9, incluida comunicación al centro; el hash publicado se comprueba en Git.
+Objetivo 9, seis PDF borradores, publicado en `c82a3068`. Esta revisión incorpora
+el aviso local al sucesor CT60; el hash publicado se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -135,7 +136,10 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   Objetivo 9 cerrado funcionalmente en desarrollo: **6/6 borradores**; siguiente 10, fuente/circuito de firma admitido.
   Sin SQL nuevo, firma, envío, entrega, plazo legal ni orden de incorporación.
   Corrección temporal confirmada tras reinicio; no se atribuye una carrera ni se cierra la paginación 50.
-  Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
+  Aviso local al sucesor cerrado: `201` y seis operaciones `200` tras reinicio principal,
+  mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases; no reaplicar ni ejecutar DOWN.
+  Tres comunicaciones/historias/outbox, anteriores intactos; evidencia central en la guía.
+  Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor;
   continuación tras renuncia sintética `201` y replay `200` tras reinicio.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
   nombramiento, incorporación o producción.
@@ -178,7 +182,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | Cerrado técnicamente solo para ejercicio manual sintético: `201` y replay `200` tras reinicio con API/V3/CT/Bolsa reales, sin duplicados. No política legal aprobada ni habilitación productiva |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Cerrado funcionalmente solo en ejercicio manual sintético: `201` y recuperación `200` tras reinicio, mismos recibo e intención pendiente, sin duplicados. No política legal aprobada |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
-| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
+| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Continuación y aviso local posterior CT62 recuperados con `200` tras reinicio principal, sin duplicados; no acredita envío, entrega, vencimiento ni respuesta/resolución del sucesor |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Cerrado funcionalmente en desarrollo: 6/6 borradores; diez POST `200` antes/después del reinicio principal, PDF e historial idénticos. Siguiente 10, sujeto a fuente/circuito de firma admitido. Sin firmas, envío, entrega, plazo legal, incorporación ni otro paso RRHH completo |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
@@ -195,7 +199,8 @@ jurídica validada ni un documento firmado.
 
 El paso 6 no se declara completo por registrar aceptación y renuncia sintéticas:
 faltan vencimiento y correo corporativo; la continuación tras renuncia sintética
-tiene `201` real y recuperación `200` tras reinicio, pero no aviso al sucesor.
+tiene `201` real y recuperación `200` tras reinicio; su aviso local posterior también es recuperable,
+no envío corporativo, plazo ni respuesta/resolución del sucesor.
 La numeración de esta cola no sustituye los ocho pasos del procedimiento.
 
 ## Dependencias externas sin detener todo el desarrollo

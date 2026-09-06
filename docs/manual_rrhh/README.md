@@ -33,7 +33,7 @@ Objetivo 5 cerrado funcionalmente solo en desarrollo, sin aval legal ni del oper
 **Objetivo 7 incluido en esta entrega:** continuación tras esa renuncia, quinta
 operación `201` real y cinco `200` tras reiniciar app/PostgreSQL principal; mismos
 recibos/fecha, sin duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
-Cerrado funcionalmente solo tras renuncia sintética; no acredita aviso al sucesor.
+En el corte `9ccef45` todavía no se registraba el aviso local al sucesor.
 
 **Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta desde aceptación,
 Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200`
@@ -83,7 +83,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperables tras reinicio. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación sintéticas recuperables; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. Pendiente circuito de firma/evidencia admitida (10); no posesión real, nombramiento eficaz, envío ni entrega. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -338,7 +338,7 @@ El método es manual provisional solo para desarrollo sintético, no aval del op
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan vencimiento, aviso al sucesor y correo corporativo. La propuesta de desarrollo
+Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor. La propuesta de desarrollo
 se describe a continuación; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
@@ -356,6 +356,16 @@ el `pendiente` del recibo de renuncia queda histórico, sin modificar sus bytes.
 No acredita envío, entrega ni aceptación; no sustituya la comunicación antecedente
 por este nuevo llamamiento. El éxito desactiva otro envío. Ante resultado ambiguo
 conserve clave/material, sin reintentos automáticos ni otra clave para eludir `409`.
+
+#### Operación 6: registrar el aviso local al sucesor
+
+Tras recuperar la continuación, use **6. Registrar aviso local al sucesor** en el mismo panel.
+Referencias y versión `1` vienen de su recibo; solo introduzca la sexta clave original
+de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62) y confirme expresamente.
+`201` muestra **Aviso local al sucesor registrado · No enviado**; tras reinicio principal,
+`200` recupera la misma comunicación, recibo, fecha, versión `2` e intención local, sin duplicados.
+No cambia los recibos previos ni habilita respuesta/resolución del sucesor; no envía ni abre plazo.
+Conserve clave/material ante ambigüedad; no eluda un `409` con otra clave.
 
 ### 7. Nombramiento: propuesta de desarrollo y límites
 

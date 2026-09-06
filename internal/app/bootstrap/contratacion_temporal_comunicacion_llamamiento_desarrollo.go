@@ -28,8 +28,9 @@ import (
 // Catálogos sintéticos explícitos de esta composición. No son canales
 // corporativos, política de plazos ni evidencia de entrega de una notificación.
 const (
-	canalComunicacionLlamamientoDesarrollo    = `{"esquema":"vec.ct.canal-comunicacion.desarrollo.v1","tipo":"registro_local","envio_externo":false}`
-	politicaComunicacionLlamamientoDesarrollo = `{"esquema":"vec.ct.politica-comunicacion.desarrollo.v1","antecedente":"recibo_seleccion_confirmado","abre_plazo":false}`
+	canalComunicacionLlamamientoDesarrollo                = `{"esquema":"vec.ct.canal-comunicacion.desarrollo.v1","tipo":"registro_local","envio_externo":false}`
+	politicaComunicacionLlamamientoDesarrollo             = `{"esquema":"vec.ct.politica-comunicacion.desarrollo.v1","antecedente":"recibo_seleccion_confirmado","abre_plazo":false}`
+	politicaComunicacionContinuacionLlamamientoDesarrollo = `{"esquema":"vec.ct.politica-comunicacion.desarrollo.v2","antecedente":"recibo_continuacion_confirmada","abre_plazo":false}`
 )
 
 type claveSolicitudComunicacionLlamamientoDesarrollo struct{}
@@ -233,10 +234,17 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararRegistroComunicacio
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
+	politica := referenciaCatalogoComunicacionDesarrollo("politica:ct:desarrollo:registro-local:v1", politicaComunicacionLlamamientoDesarrollo)
+	if solicitud.TipoAntecedente == "continuacion_confirmada" {
+		// Intención no confiable, no autoridad del cliente. PostgreSQL comprueba
+		// el recibo CT60 y su cadena tras consumir autorización fresca.
+		politica = referenciaCatalogoComunicacionDesarrollo("politica:ct:desarrollo:registro-local:v2", politicaComunicacionContinuacionLlamamientoDesarrollo)
+		politica.Version = 2
+	}
 	return postgresct.MaterialRegistroComunicacionLlamamiento{
 		Solicitud: solicitud,
 		Canal:     referenciaCatalogoComunicacionDesarrollo("canal:ct:desarrollo:registro-local:v1", canalComunicacionLlamamientoDesarrollo),
-		Politica:  referenciaCatalogoComunicacionDesarrollo("politica:ct:desarrollo:registro-local:v1", politicaComunicacionLlamamientoDesarrollo),
+		Politica:  politica,
 	}, nil
 }
 
@@ -302,18 +310,19 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) registrarConAviso(ctx contex
 }
 
 type avisoComunicacionDesarrollo struct {
-	Esquema            string    `json:"esquema"`
-	Texto              string    `json:"texto"`
-	ClaveIdempotencia  string    `json:"clave_idempotencia"`
-	OrganizacionRef    string    `json:"organizacion_ref"`
-	ExpedienteRef      string    `json:"expediente_ref"`
-	LlamamientoRef     string    `json:"llamamiento_ref"`
-	ReciboSeleccionRef string    `json:"recibo_seleccion_ref"`
-	ComunicacionRef    string    `json:"comunicacion_ref"`
-	IntencionEnvioRef  string    `json:"intencion_envio_ref"`
-	ReciboRef          string    `json:"recibo_ref"`
-	AuditoriaRef       string    `json:"auditoria_ref"`
-	RegistradaEn       time.Time `json:"registrada_en"`
+	Esquema               string    `json:"esquema"`
+	Texto                 string    `json:"texto"`
+	ClaveIdempotencia     string    `json:"clave_idempotencia"`
+	OrganizacionRef       string    `json:"organizacion_ref"`
+	ExpedienteRef         string    `json:"expediente_ref"`
+	LlamamientoRef        string    `json:"llamamiento_ref"`
+	ReciboSeleccionRef    string    `json:"recibo_seleccion_ref,omitempty"`
+	ComunicacionRef       string    `json:"comunicacion_ref"`
+	IntencionEnvioRef     string    `json:"intencion_envio_ref"`
+	ReciboRef             string    `json:"recibo_ref"`
+	AuditoriaRef          string    `json:"auditoria_ref"`
+	RegistradaEn          time.Time `json:"registrada_en"`
+	ReciboContinuacionRef string    `json:"recibo_continuacion_ref,omitempty"`
 }
 
 func rutaDirectorioComunicacionesValida(directorio string) bool {
@@ -329,7 +338,7 @@ func escribirAvisoComunicacionDesarrollo(ctx context.Context, directorio string,
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	contenido, err := json.Marshal(avisoComunicacionDesarrollo{
+	aviso := avisoComunicacionDesarrollo{
 		Esquema:           "vec.ct.aviso-desarrollo.v1",
 		Texto:             "Aviso de desarrollo, no enviado, no abre plazo",
 		ClaveIdempotencia: s.ClaveIdempotencia, OrganizacionRef: s.OrganizacionRef,
@@ -337,7 +346,13 @@ func escribirAvisoComunicacionDesarrollo(ctx context.Context, directorio string,
 		ReciboSeleccionRef: s.PruebaEntregaRef, ComunicacionRef: r.ComunicacionRef,
 		IntencionEnvioRef: r.IntencionEnvioRef, ReciboRef: r.ReciboRef,
 		AuditoriaRef: r.AuditoriaRef, RegistradaEn: r.RegistradaEn,
-	})
+	}
+	if s.TipoAntecedente == "continuacion_confirmada" {
+		aviso.Esquema = "vec.ct.aviso-desarrollo.v2"
+		aviso.ReciboSeleccionRef = ""
+		aviso.ReciboContinuacionRef = s.PruebaEntregaRef
+	}
+	contenido, err := json.Marshal(aviso)
 	if err != nil {
 		return err
 	}

@@ -61,8 +61,10 @@ func (e EstadoResultadoComunicacionLlamamiento) valida() bool {
 // referencia probatoria. Canal, politica, vencimiento e identidad se resuelven
 // en la frontera confiable, no desde el solicitante.
 // En la implementación de registro local, PruebaEntregaRef conserva su nombre
-// de transporte pero identifica exclusivamente el recibo de selección
-// confirmado; no acredita entrega ni habilita plazos. VersionEsperada se
+// de transporte: sin TipoAntecedente identifica el recibo de selección
+// confirmado; con continuacion_confirmada, el recibo de continuación confirmado.
+// El tipo solo declara intención: la frontera persistente comprueba su ligadura.
+// Ninguno acredita entrega ni habilita plazos. VersionEsperada se
 // refiere al llamamiento, no a la versión del expediente.
 type SolicitudRegistrarComunicacionLlamamiento struct {
 	ClaveIdempotencia string
@@ -71,6 +73,7 @@ type SolicitudRegistrarComunicacionLlamamiento struct {
 	LlamamientoRef    string
 	VersionEsperada   uint64
 	PruebaEntregaRef  string
+	TipoAntecedente   string `json:",omitempty"`
 }
 
 func (s SolicitudRegistrarComunicacionLlamamiento) Validar() error {
@@ -80,7 +83,8 @@ func (s SolicitudRegistrarComunicacionLlamamiento) Validar() error {
 		!domain.ReferenciaOpacaValida(s.LlamamientoRef) ||
 		!enteroSeguroBolsa(s.VersionEsperada) ||
 		s.VersionEsperada == MaximoEnteroSeguroIntegracionBolsa ||
-		!domain.ReferenciaOpacaValida(s.PruebaEntregaRef) {
+		!domain.ReferenciaOpacaValida(s.PruebaEntregaRef) ||
+		(s.TipoAntecedente != "" && s.TipoAntecedente != "continuacion_confirmada") {
 		return ErrSolicitudComunicacionLlamamientoInvalida
 	}
 	return nil

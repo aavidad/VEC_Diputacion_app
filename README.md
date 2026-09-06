@@ -84,6 +84,9 @@ y almacenamiento web. Comunicación al centro: diez POST `200` antes y después 
 principal, seis PDF e historial idénticos. [Evidencia y huella](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
 Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida.
 No acredita firma, posesión real, nombramiento eficaz, envío, entrega, plazo legal ni orden de incorporación.
+Aviso local al sucesor CT60 cerrado: `201` y seis operaciones `200` tras reinicio principal,
+mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases, no reaplicar ni ejecutar DOWN.
+[Clave, recibo y límites](GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62); no envío, plazo ni respuesta/resolución del sucesor.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -128,7 +131,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas; recibos recuperados tras reinicio sin duplicados. | Faltan vencimiento, aviso al sucesor y correo corporativo. No acredita entrega ni plazo legal aprobado. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación sintéticas recuperables; aviso local al sucesor CT62 `201` y `200` tras reinicio principal, sin duplicados. | Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor. No acredita entrega ni plazo legal aprobado. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. | Sin nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 

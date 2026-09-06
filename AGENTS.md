@@ -108,6 +108,11 @@ Comunicación al centro: diez POST `200` antes y después del reinicio principal
 seis PDF e historial conservados. Evidencia y huella en la guía.
 Objetivo 9 cerrado funcionalmente en desarrollo: **6/6 borradores**; siguiente 10, fuente/circuito de firma admitido.
 Sin firma, envío, entrega, plazo legal ni orden de incorporación.
+Aviso local al sucesor CT60 cerrado: `201` y seis operaciones `200` tras reinicio principal,
+mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases, no reaplicar ni ejecutar DOWN.
+Tres comunicaciones/historias/outbox; las dos comunicaciones y resoluciones previas y
+siete registros Bolsa intactos. Clave, recibo y huella en la guía.
+Pendientes envío corporativo, plazo y respuesta/resolución del sucesor; no habilita firma.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

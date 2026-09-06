@@ -6,6 +6,7 @@ import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,
+  validarSolicitudComunicacionLlamamiento, CAMPOS_COMUNICACION_SIGUIENTE,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida, CAMPOS_RESPUESTA_RECIBIDA,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento, CAMPOS_RESOLUCION,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
@@ -83,6 +84,12 @@ const CONTINUACION = {
   version_llamamiento: 1, recibo_bolsa_ref: "recibo:bolsa:siguiente:002",
   recibo_ref: "recibo:ct:siguiente:002", auditoria_ref: "auditoria:siguiente:002",
   confirmada_en: "2026-09-05T09:06:00.123450Z", estado_intencion: "despachada", estado_local: "confirmado",
+};
+const COMUNICACION_SIGUIENTE = {
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174006",
+  organizacion_ref: CONTINUACION.organizacion_ref, expediente_ref: CONTINUACION.expediente_ref,
+  llamamiento_ref: CONTINUACION.llamamiento_ref, version_esperada: 1,
+  prueba_entrega_ref: CONTINUACION.recibo_ref, tipo_antecedente: "continuacion_confirmada",
 };
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
@@ -289,12 +296,55 @@ test("POST canónico selección y comunicación usan el transporte común sin ca
   assert.equal(llamadas[1].ruta, RUTAS_LLAMAMIENTO.comunicacionLlamamiento);
   assert.equal(llamadas[0].opciones.body, JSON.stringify(SELECCION));
   assert.equal(llamadas[1].opciones.body, JSON.stringify(COMUNICACION));
+  assert.equal(Object.keys(JSON.parse(llamadas[1].opciones.body)).length, 6);
+  assert.doesNotMatch(llamadas[1].opciones.body, /tipo_antecedente/u);
   for (const { opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
     assert.equal(opciones.cache, "no-store");
     assert.equal(opciones.redirect, "error");
     assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
   }
+});
+
+test("aviso al sucesor reutiliza ruta y siete campos canónicos; recibo local 201/200 sin plazo", async () => {
+  assert.deepEqual(CAMPOS_COMUNICACION_SIGUIENTE, ["clave_idempotencia", "organizacion_ref",
+    "expediente_ref", "llamamiento_ref", "version_esperada", "prueba_entrega_ref", "tipo_antecedente"]);
+  const local = { esquema: REGISTRO.esquema, estado_local: "registrada_localmente",
+    comunicacion_ref: "comunicacion:sucesor:002", recibo_ref: "recibo:aviso:sucesor:002",
+    auditoria_ref: "auditoria:sucesor:002", version_resultante: 2,
+    registrada_en: "2026-09-05T09:07:00.123456Z", intencion_envio_ref: "intencion:aviso:sucesor:002" };
+  for (const status of [201, 200]) {
+    const data = { ...local, estado_local: status === 201 ? "registrada_localmente" : "replay_registrada_localmente" };
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, RUTAS_LLAMAMIENTO.comunicacionLlamamiento);
+      assert.equal(opciones.body, JSON.stringify(COMUNICACION_SIGUIENTE));
+      assert.match(opciones.body, /,"tipo_antecedente":"continuacion_confirmada"\}$/u);
+      assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
+      return respuesta({ data }, status);
+    } });
+    const obtenido = await cliente.registrarComunicacionLlamamiento(
+      Object.fromEntries(Object.entries(COMUNICACION_SIGUIENTE).reverse()));
+    assert.deepEqual(obtenido, data); assert.equal(obtenido.recibo_ref, local.recibo_ref);
+    assert.equal(obtenido.registrada_en, local.registrada_en);
+  }
+  for (const data of [{ ...REGISTRO, version_resultante: 2 },
+    { ...local, respuesta_hasta: "2026-09-06T08:00:00Z" }, { ...local, version_resultante: 3 }]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data }) });
+    await assert.rejects(cliente.registrarComunicacionLlamamiento(COMUNICACION_SIGUIENTE),
+      (error) => error.resultadoIndeterminado === true);
+  }
+});
+test("comunicación admite solo seis campos o antecedente nominal de continuación, sin getters", () => {
+  for (const cambio of [{ tipo_antecedente: undefined }, { tipo_antecedente: null },
+    { tipo_antecedente: "seleccion_confirmada" }, { tipo_antecedente: "continuacion_confirmada " },
+    { tipo_antecedente: true }, { version_esperada: 2 }, { prueba_entrega_ref: "" },
+    { actor_ref: "actor:ajeno" }]) {
+    assert.throws(() => validarSolicitudComunicacionLlamamiento({ ...COMUNICACION_SIGUIENTE, ...cambio }), TypeError);
+  }
+  const entrada = { ...COMUNICACION_SIGUIENTE };
+  Object.defineProperty(entrada, "tipo_antecedente", { get() { assert.fail("getter"); } });
+  assert.throws(() => validarSolicitudComunicacionLlamamiento(entrada), TypeError);
+  assert.deepEqual(validarSolicitudComunicacionLlamamiento(COMUNICACION), COMUNICACION);
 });
 
 test("recuperación acepta los mismos recibos con HTTP 200", async () => {
@@ -350,6 +400,9 @@ test("conserva códigos de conflicto y no trata caídas del servicio como rechaz
   for (const [metodo, solicitud, status, codigo, prefijo, indeterminado] of [
     ["seleccionarLlamamiento", SELECCION, 409, "conflicto_no_reintentable", "seleccion", true],
     ["registrarComunicacionLlamamiento", COMUNICACION, 409, "version_en_conflicto", "comunicacion", true],
+    ["registrarComunicacionLlamamiento", COMUNICACION_SIGUIENTE, 409, "clave_idempotencia_reutilizada", "comunicacion", true],
+    ["registrarComunicacionLlamamiento", COMUNICACION_SIGUIENTE, 503, "servicio_no_disponible", "comunicacion", true],
+    ["registrarComunicacionLlamamiento", COMUNICACION_SIGUIENTE, 403, "acceso_denegado", "comunicacion", false],
     ["seleccionarLlamamiento", SELECCION, 503, "servicio_no_disponible", "seleccion", true],
     ["seleccionarLlamamiento", SELECCION, 403, "acceso_denegado", "seleccion", false],
   ]) {

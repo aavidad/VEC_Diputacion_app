@@ -85,6 +85,49 @@ func TestComunicacionLlamamientoDesarrolloCatalogosNoInventanEntrega(t *testing.
 	}
 }
 
+func TestComunicacionLlamamientoDesarrolloMaterialV1ByteIdenticoYContinuacionV2(t *testing.T) {
+	ctx, p, a := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
+	s := solicitudComunicacionLlamamientoDesarrolloPrueba()
+	m, err := p.PrepararRegistroComunicacion(ctx, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bytes previos al campo opcional: el material completo liga autorización
+	// e idempotencia, no basta con que ambos JSON sean semánticamente iguales.
+	const anterior = `{"solicitud":{"ClaveIdempotencia":"018f47a6-5d2b-4c10-8a11-1234567890ab","OrganizacionRef":"organizacion:desarrollo:dipgra","ExpedienteRef":"expediente:ct:sintetico:001","LlamamientoRef":"llamamiento:sintetico:001","VersionEsperada":1,"PruebaEntregaRef":"recibo:seleccion:sintetica:001"},"canal":{"Referencia":"canal:ct:desarrollo:registro-local:v1","Version":1,"HuellaSHA256":"c2346af19aa8489c3b878b2c780fcf0251129e0a397ed6e3c32c4438c44a88dc"},"politica":{"Referencia":"politica:ct:desarrollo:registro-local:v1","Version":1,"HuellaSHA256":"b69261c788d87a049344499d278276a9491c9bea0afb2dc099e7b00dfc4ffdd5"}}`
+	b, err := json.Marshal(m)
+	if err != nil || string(b) != anterior {
+		t.Fatal("material histórico modificado", err)
+	}
+	s.TipoAntecedente = "continuacion_confirmada"
+	s.PruebaEntregaRef = "recibo:continuacion:sintetica:001"
+	ctx = context.WithValue(ctx, claveSolicitudComunicacionLlamamientoDesarrollo{}, s)
+	nuevo, err := p.PrepararRegistroComunicacion(ctx, s)
+	if err != nil || nuevo.Validar() != nil || nuevo.Canal != m.Canal ||
+		nuevo.Politica.Referencia != "politica:ct:desarrollo:registro-local:v2" || nuevo.Politica.Version != 2 ||
+		nuevo.Politica.HuellaSHA256 != "24d08a85ca5e62b8b3832df49d208ccea098f2b202909639d900b9d42da0bacb" {
+		t.Fatal("política de continuación divergente", err)
+	}
+	b, err = json.Marshal(nuevo)
+	if err != nil || !bytes.Contains(b, []byte(`"TipoAntecedente":"continuacion_confirmada"`)) {
+		t.Fatal("tipo no ligado al material", err)
+	}
+	r, err := postgresct.RecursoRegistroComunicacionLlamamiento(nuevo)
+	huella := sha256.Sum256(b)
+	if err != nil || r.Atributos["material_sha256"] != hex.EncodeToString(huella[:]) {
+		t.Fatal("recurso no liga todo el material", err)
+	}
+	for intento := 1; intento <= 2; intento++ {
+		if _, err := p.AutorizarRegistroComunicacion(ctx, nuevo); !errors.Is(err, ports.ErrOperacionComunicacionLlamamientoDenegada) || a.llamadas != intento {
+			t.Fatal("continuación o replay evitaron la autoridad fresca", err)
+		}
+	}
+	nuevo.Politica = m.Politica
+	if _, err := p.AutorizarRegistroComunicacion(ctx, nuevo); err == nil || a.llamadas != 2 {
+		t.Fatal("continuación permitió reinterpretar política v1")
+	}
+}
+
 func TestComunicacionLlamamientoDesarrolloIdentidadNoSustituyeV3NiReplay(t *testing.T) {
 	ctx, p, a := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
 	m, err := p.PrepararRegistroComunicacion(ctx, solicitudComunicacionLlamamientoDesarrolloPrueba())
@@ -119,10 +162,13 @@ func TestComunicacionLlamamientoDesarrolloRechazaMaterialAjeno(t *testing.T) {
 		t.Fatal("política declarada por cliente alcanzó autorización")
 	}
 	for nombre, mutar := range map[string]func(*ports.SolicitudRegistrarComunicacionLlamamiento){
-		"organizacion":       func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.OrganizacionRef = "org:ajena" },
-		"expediente":         func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.ExpedienteRef += "b" },
-		"llamamiento":        func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.LlamamientoRef += "b" },
-		"recibo":             func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.PruebaEntregaRef += "b" },
+		"organizacion": func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.OrganizacionRef = "org:ajena" },
+		"expediente":   func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.ExpedienteRef += "b" },
+		"llamamiento":  func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.LlamamientoRef += "b" },
+		"recibo":       func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.PruebaEntregaRef += "b" },
+		"tipo_antecedente": func(s *ports.SolicitudRegistrarComunicacionLlamamiento) {
+			s.TipoAntecedente = "continuacion_confirmada"
+		},
 		"version_expediente": func(s *ports.SolicitudRegistrarComunicacionLlamamiento) { s.VersionEsperada = 6 },
 		"clave": func(s *ports.SolicitudRegistrarComunicacionLlamamiento) {
 			s.ClaveIdempotencia = "118f47a6-5d2b-4c10-8a11-1234567890ab"
@@ -255,9 +301,15 @@ func TestResolucionAceptacionDesarrolloSinLectorNoInventaValidacion(t *testing.T
 	}
 }
 
-func reciboAvisoComunicacionDesarrolloPrueba(t *testing.T, ctx context.Context, p *proveedorComunicacionLlamamientoDesarrollo) ports.ComunicacionProbatoria {
+func reciboAvisoComunicacionDesarrolloPrueba(t *testing.T, ctx context.Context, p *proveedorComunicacionLlamamientoDesarrollo, tipo string) ports.ComunicacionProbatoria {
 	t.Helper()
 	s := solicitudComunicacionLlamamientoDesarrolloPrueba()
+	s.TipoAntecedente = tipo
+	if tipo == "continuacion_confirmada" {
+		s.PruebaEntregaRef = "recibo:continuacion:sintetica:001"
+		s.LlamamientoRef = "llamamiento:sucesor:sintetico:001"
+	}
+	ctx = context.WithValue(ctx, claveSolicitudComunicacionLlamamientoDesarrollo{}, s)
 	m, err := p.PrepararRegistroComunicacion(ctx, s)
 	if err != nil {
 		t.Fatal(err)
@@ -272,8 +324,15 @@ func reciboAvisoComunicacionDesarrolloPrueba(t *testing.T, ctx context.Context, 
 }
 
 func TestComunicacionLlamamientoDesarrolloAvisoFicheroYReplay(t *testing.T) {
+	for _, tipo := range []string{"", "continuacion_confirmada"} {
+		t.Run("tipo_"+tipo, func(t *testing.T) { comprobarAvisoFicheroYReplayDesarrollo(t, tipo) })
+	}
+}
+
+func comprobarAvisoFicheroYReplayDesarrollo(t *testing.T, tipo string) {
+	t.Helper()
 	ctx, p, _ := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
-	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p)
+	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, tipo)
 	s := r.Solicitud
 	base := t.TempDir()
 	if err := os.Chmod(base, 0700); err != nil {
@@ -304,13 +363,24 @@ func TestComunicacionLlamamientoDesarrolloAvisoFicheroYReplay(t *testing.T) {
 	if err != nil || json.Unmarshal(contenido, &aviso) != nil ||
 		aviso.Texto != "Aviso de desarrollo, no enviado, no abre plazo" ||
 		aviso.IntencionEnvioRef != r.IntencionEnvioRef || aviso.ReciboRef != r.ReciboRef ||
-		aviso.RegistradaEn != r.RegistradaEn || aviso.ReciboSeleccionRef != s.PruebaEntregaRef ||
+		aviso.RegistradaEn != r.RegistradaEn ||
 		aviso.OrganizacionRef != s.OrganizacionRef || aviso.ExpedienteRef != s.ExpedienteRef ||
 		aviso.LlamamientoRef != s.LlamamientoRef || aviso.ClaveIdempotencia != s.ClaveIdempotencia ||
 		bytes.Contains(contenido, []byte("respuesta_hasta")) || bytes.Contains(contenido, []byte("destinatario")) {
 		t.Fatal("aviso inventado o desligado del recibo", err)
 	}
+	if tipo == "" {
+		const anterior = `{"esquema":"vec.ct.aviso-desarrollo.v1","texto":"Aviso de desarrollo, no enviado, no abre plazo","clave_idempotencia":"018f47a6-5d2b-4c10-8a11-1234567890ab","organizacion_ref":"organizacion:desarrollo:dipgra","expediente_ref":"expediente:ct:sintetico:001","llamamiento_ref":"llamamiento:sintetico:001","recibo_seleccion_ref":"recibo:seleccion:sintetica:001","comunicacion_ref":"comunicacion:sintetica:001","intencion_envio_ref":"outbox:comunicacion:sintetica:001","recibo_ref":"recibo:comunicacion:sintetica:001","auditoria_ref":"auditoria:sintetica:001","registrada_en":"2026-09-05T12:00:00Z"}`
+		if string(contenido) != anterior {
+			t.Fatal("bytes del aviso histórico alterados")
+		}
+	} else if aviso.Esquema != "vec.ct.aviso-desarrollo.v2" || aviso.ReciboContinuacionRef != s.PruebaEntregaRef ||
+		aviso.ReciboSeleccionRef != "" || bytes.Contains(contenido, []byte("recibo_seleccion_ref")) {
+		t.Fatal("aviso del sucesor reinterpretó selección original")
+	}
 	r.Estado = ports.ResultadoComunicacionLlamamientoReplayLocal
+	// Recrear el ejecutor no permite otro fichero ni otro contenido.
+	e = &ejecutorComunicacionLlamamientoDesarrollo{servicio: servicio, directorioComunicaciones: directorio}
 	repetido, err := e.registrarConAviso(ctx, s)
 	if err != nil || repetido != r || servicio.llamadas != 2 {
 		t.Fatal("replay no consultó de nuevo al servicio", err)
@@ -324,8 +394,15 @@ func TestComunicacionLlamamientoDesarrolloAvisoFicheroYReplay(t *testing.T) {
 }
 
 func TestComunicacionLlamamientoDesarrolloAvisoFalloYReintentoExplicito(t *testing.T) {
+	for _, tipo := range []string{"", "continuacion_confirmada"} {
+		t.Run("tipo_"+tipo, func(t *testing.T) { comprobarAvisoFalloYReintentoDesarrollo(t, tipo) })
+	}
+}
+
+func comprobarAvisoFalloYReintentoDesarrollo(t *testing.T, tipo string) {
+	t.Helper()
 	ctx, p, _ := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
-	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p)
+	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, tipo)
 	s := r.Solicitud
 	base := t.TempDir()
 	padre := filepath.Join(base, "material")

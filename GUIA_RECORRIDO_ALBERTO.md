@@ -65,6 +65,8 @@ Siguiente objetivo 10, fuente/circuito de firma admitido; sin firmas, posesión 
 nombramiento eficaz, envío, entrega, plazo legal ni orden de incorporación.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
 Navegador acreditado solo en principal.
+Aviso local al sucesor CT60: `201` y recuperación `200` tras reinicio principal; CT62 instalada en ambas
+bases, no reaplicar ni ejecutar DOWN. [Recuperación y evidencia](#aviso-local-al-sucesor-ct62).
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -350,8 +352,9 @@ Dirección confirmó `201` real, **Siguiente llamamiento abierto · ejercicio si
 
 La quinta operación informa intención `despachada`; el recibo original de renuncia
 mantiene sus bytes y su `pendiente` histórico. Tras obtener el nuevo recibo se
-desactiva otro envío. No sustituya el antecedente del formulario de comunicación
-por este nuevo llamamiento: esa continuidad no está conectada ni presume aviso.
+desactiva otro envío. No sustituya el antecedente de la primera comunicación.
+En el corte `9ccef45` el aviso del sucesor aún no estaba conectado;
+el corte CT62 descrito debajo lo registra por separado, sin presumir envío.
 Bolsa conserva siete registros (dos órdenes, tres propuestas, aceptación y renuncia),
 siete historias y siete eventos. Cero errores JS, cookies, almacenamiento web y
 desbordamiento. **Tras reiniciar app/PostgreSQL principal, cinco POST `200/200/200/200/200`**:
@@ -359,6 +362,40 @@ los 14 campos de la continuación se conservan salvo `estado_local: replay_confi
 incluidos recibos CT/Bolsa, auditoría, fecha y referencias de ambos llamamientos.
 Objetivo 7 cerrado funcionalmente solo tras renuncia sintética, sin duplicados.
 Ese corte mantenía **5/8 más parte del sexto**; no acredita entrega, aceptación ni plazo legal.
+
+### Aviso local al sucesor CT62
+
+En el caso de renuncia `fe4934a1…`, recupere las cinco operaciones anteriores con
+sus claves originales. El mismo panel ofrece **6. Registrar aviso local al sucesor**
+(`data-ct-llamamiento-form="comunicacion_siguiente"`). Solo introduzca la clave original
+**`a77d3f10-a635-46fd-b9eb-a00000000006`** y confirme expresamente el registro local.
+Organización, expediente, llamamiento `eipmg…`, versión `1` y antecedente
+`recibo:b5bb611f-0126-4806-90c5-85b9f9b63778` se derivan de la continuación, no se editan.
+No sustituye la primera comunicación ni activa respuesta/resolución del sucesor.
+Ante ambigüedad conserve clave/material; reintento solo explícito. `409` no permite otra clave.
+
+Dirección confirmó cinco antecedentes `200` y aviso `201`; sin tipo o con recibo ajeno,
+`403` sin efectos. **Reinicio de aplicación/PostgreSQL principal confirmado:** seis operaciones
+`200/200/200/200/200/200`, misma comunicación, recibo, auditoría, fecha, versión `2` e intención local.
+
+| Aviso local, versión resultante `2` | Valor conservado |
+| --- | --- |
+| Comunicación | `comunicacion:7bdf8ba7-6388-4ffe-9d10-09b7c7b66228` |
+| Recibo | `recibo:21bf6275-70e6-45c4-ba7f-7732dc8799e0` |
+| Auditoría | `aud_v3_67952097afa2953b25700d92c1462bc0` |
+| Registrada en UTC | `2026-09-06T03:59:10.809598Z` |
+| Intención local pendiente | `outbox:a07c1143-97ae-4192-bdbe-7637e7c6ba16` |
+
+JSON del aviso: **778 bytes**, SHA256
+`1c80c14d0937d135453bfe85094f58c268de5188325a8c27fb4b716fbf063277`.
+Tras reinicio, mismo JSON/huella y tres comunicaciones/historias/outbox, sin duplicados;
+dos comunicaciones v1 byteidénticas, dos resoluciones CT completas y siete registros Bolsa intactos.
+Inspección desktop y móvil 390 px; no se repitieron los PDF de cierres anteriores;
+cero errores JS, cookies, almacenamiento web y desbordamiento. Solo principal acreditada.
+CT62: doble GO, UP/DOWN transaccional exacto en secundaria y UP instalada en ambas bases;
+no reaplicar ni ejecutar DOWN con este historial. El aviso conserva `recibo_continuacion_ref`;
+no acredita envío, entrega ni plazo. Siguen pendientes correo corporativo, plazo,
+respuesta/resolución del sucesor y circuito de firma. Métrica: **5/8 más partes del sexto y séptimo**.
 
 ### Objetivo 8: recuperar la propuesta de nombramiento
 
@@ -489,7 +526,8 @@ No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar
 Los seis son borradores sin firma ni eficacia administrativa, envío, entrega, plazo legal
 ni orden de incorporación. Objetivo 9 cerrado funcionalmente en desarrollo: **6/6**;
 siguiente 10, dependiente de fuente/circuito de firma admitido.
-El aviso al llamamiento sucesor sigue pendiente en el paso 6.
+El aviso local al sucesor ya se registra con CT62; siguen pendientes envío corporativo,
+plazo y respuesta/resolución del sucesor en el paso 6.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

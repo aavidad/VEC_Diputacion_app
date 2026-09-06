@@ -159,7 +159,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperadas tras reinicio; mismos recibos, sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación sintéticas recuperables; aviso local al sucesor CT62 `201` y `200` tras reinicio principal. Faltan vencimiento, envío corporativo, plazo y respuesta/resolución del sucesor. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; agregado `nombramiento/en_curso/v7`. Sin firma ni nombramiento eficaz. |
 | 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
 
@@ -282,7 +282,7 @@ aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobr
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
 sintética y funcionalmente la renuncia y propuesta de desarrollo. No hay política
 legal aprobada ni cierre de vencimiento,
-aviso al sucesor o correo corporativo.
+envío corporativo, plazo o respuesta/resolución del sucesor; el aviso local se describe debajo.
 
 ### Continuación tras renuncia sintética
 
@@ -302,6 +302,19 @@ estable. Corrige el rechazo accidental del UUID sin relajar validadores.
 El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
 confirma continuidad posterior. No se conecta automáticamente a la comunicación
 del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
+
+### Aviso local al sucesor, sin nueva ruta
+
+Operación `comunicacion_siguiente`, mismo `registrarComunicacionLlamamiento` y
+la ruta publicada de comunicaciones, sin endpoint nuevo. Estado independiente;
+antecedentes del recibo CT60 validado, no del DOM. Añade al final del JSON
+`tipo_antecedente: "continuacion_confirmada"`; la primera comunicación conserva sus seis campos exactos.
+Solo clave propia editable y confirmación explícita; conflicto bloquea, ambigüedad congela
+clave/material. No rearma respuesta/resolución. CT62 coteja CT60 con permiso fresco,
+política local v2 y selección padre; no lee/escribe Bolsa. Versión resultante `2`, aviso JSON v2 y outbox pendiente
+con `recibo_continuacion_ref`; no envío ni plazo. CT62 instalada en ambas bases, no reaplicar/DOWN.
+`201`, negativos `403` sin efectos y recuperación `200` tras reinicio principal, mismo recibo/fecha/v2/outbox.
+[Evidencia](../../GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62).
 
 ### Propuesta de nombramiento desde aceptación
 

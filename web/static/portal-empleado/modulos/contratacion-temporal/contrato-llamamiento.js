@@ -9,6 +9,10 @@ export const CAMPOS_COMUNICACION = Object.freeze([
   "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
   "version_esperada", "prueba_entrega_ref",
 ]);
+export const TIPO_ANTECEDENTE_CONTINUACION = "continuacion_confirmada";
+export const CAMPOS_COMUNICACION_SIGUIENTE = Object.freeze([
+  ...CAMPOS_COMUNICACION, "tipo_antecedente",
+]);
 // El orden forma parte de la representación JSON canónica del POST.
 export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
   "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
@@ -132,7 +136,12 @@ export function validarSolicitudSeleccionLlamamiento(entrada) {
   return solicitud(entrada, CAMPOS_SELECCION);
 }
 export function validarSolicitudComunicacionLlamamiento(entrada) {
-  return solicitud(entrada, CAMPOS_COMUNICACION);
+  const continuacion = entrada !== null && typeof entrada === "object"
+    && Object.hasOwn(entrada, "tipo_antecedente");
+  const valor = solicitud(entrada, continuacion ? CAMPOS_COMUNICACION_SIGUIENTE : CAMPOS_COMUNICACION);
+  exigir(!continuacion || (valor.tipo_antecedente === TIPO_ANTECEDENTE_CONTINUACION
+    && valor.version_esperada === 1));
+  return valor;
 }
 export function validarSolicitudContinuacionLlamamiento(entrada) {
   return solicitud(entrada, CAMPOS_SIGUIENTE, null);
@@ -239,6 +248,7 @@ export function validarReciboComunicacionLlamamiento(entrada, solicitudEntrada) 
   ]);
   exigir(valor.esquema === "vec.contratacion-temporal.registro-comunicacion-llamamiento.v1"
     && (local || ["confirmado", "replay_confirmado"].includes(valor.estado_local))
+    && (solicitudEntrada.tipo_antecedente !== TIPO_ANTECEDENTE_CONTINUACION || local)
     && ["comunicacion_ref", "recibo_ref", "auditoria_ref"].every(
       (campo) => referenciaLlamamientoValida(valor[campo]),
     ) && entero(valor.version_resultante)
