@@ -3,7 +3,8 @@
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
 Primer PDF del objetivo 9 publicado en `5c57b29f`.
-Esta revisión incorpora la corrección de consultas AD3-21; su hash se comprueba en Git.
+AD3-21 cerrada en `975f0c16`. Esta revisión incorpora el segundo PDF borrador,
+resolución; el hash publicado se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -116,7 +117,14 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   mismo PDF e historia CT/Bolsa conservada. Dirección observó pantalla estable de 390 px sin obstrucción
   del detalle ni botón; captura previa durante transición de 180 ms, sin modificar UI
   ni validar usabilidad global. Sin SQL propio del PDF ni replay
-  de propuesta para descargar. Quedan cinco borradores; siguiente resolución.
+  de propuesta para descargar.
+  Segundo borrador: resolución, Chrome `200`, 29770 bytes; misma sesión con informe
+  original idéntico, seis POST `200`, cero errores JS, cookies y almacenamiento web.
+  Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones.
+  Tras reiniciar aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF
+  idénticos en tamaño y SHA256, historial y recibos anteriores conservados;
+  cero errores JS, cookies y almacenamiento web. E2E acreditado solo en principal.
+  Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia. Sin SQL nuevo.
   Corrección temporal confirmada tras reinicio; no se atribuye una carrera ni se cierra la paginación 50.
   Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
   continuación tras renuncia sintética `201` y replay `200` tras reinicio.
@@ -163,7 +171,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
-| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Primer PDF publicado; tras AD3-21 y reinicio principal, cinco POST `200`, sin `404`, PDF idéntico. Cinco borradores pendientes, siguiente resolución. Sin firmas |
+| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | 2/6 borradores demostrados: informe y resolución, seis POST `200` antes y después del reinicio principal app/PostgreSQL; PDF, historial y recibos idénticos. Quedan cuatro, siguiente diligencia. Sin firmas ni otro paso RRHH completo |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
 | 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |
@@ -171,7 +179,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 14 | Entregar el recorrido completo a Alberto y RRHH | Arranque reproducible, ocho pasos recorribles, manuales al día y lista explícita de dependencias productivas. Una comprobación conjunta final. | Después de los anteriores |
 
 **Documentos del objetivo 9: seis cortes, no un generador nuevo.**
-Informe definitivo ya descargable como borrador; quedan resolución, diligencia,
+Informe definitivo y resolución ya descargables como borradores; quedan diligencia,
 toma de posesión, notificación y comunicación al centro. Se reutilizan las piezas escritas. Sin modelo oficial
 se entrega un borrador de desarrollo claramente marcado, no una redacción
 jurídica validada ni un documento firmado.

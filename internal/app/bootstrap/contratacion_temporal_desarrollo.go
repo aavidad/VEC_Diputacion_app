@@ -276,14 +276,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
-	var informeDefinitivo ports.RenderizadorInformeDefinitivoRRHH
+	var borradorRRHH ports.RenderizadorBorradorRRHH
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, derivador, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal = consultasRRHH.cuadro, consultasRRHH.detalle
-		informeDefinitivo = informejuridico.RenderizadorInformeDefinitivoDesarrollo{PDF: pdfvec.Renderizador{}}
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -303,7 +303,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorAnalisis:                servicioAnalisis,
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
-			InformeDefinitivoRRHH:           informeDefinitivo,
+			BorradorRRHH:                    borradorRRHH,
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,

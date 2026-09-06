@@ -58,7 +58,13 @@ cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal: cinco POS
 sin `404`, mismo PDF e historia CT/Bolsa conservada; no cierra la paginación con límite 50.
 Dirección observó la pantalla estable de 390 px sin obstrucción del detalle ni del botón;
 la captura previa era una transición de 180 ms, sin cambio de UI ni validación de usabilidad global.
-El PDF no añadió SQL propio. Quedan cinco borradores; siguiente resolución, sin firma ni eficacia administrativa.
+Esta revisión añade resolución borrador: Chrome `200`, 29770 bytes, informe original
+idéntico en la misma sesión; seis POST `200`, cero errores JS, cookies y almacenamiento web.
+Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras reiniciar
+aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
+y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
+almacenamiento web. Disponibles **2/6**, quedan cuatro,
+siguiente diligencia. Sin SQL nuevo, firmas ni eficacia administrativa.
 
 Para elegir la documentación adecuada:
 
@@ -184,7 +190,7 @@ conservado, use los datos exactos de la
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
 | 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar el primer informe borrador desde el detalle. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; quedan otros cinco borradores. |
+| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar informe y resolución borradores desde el detalle. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; quedan otros cuatro borradores. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 El número de recibos o la versión del expediente no es el número de pasos
@@ -325,15 +331,17 @@ El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
 fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
 sin reintento automático ni otra clave para eludir un `409`.
 
-### Descargar el primer informe borrador
+### Descargar informe o resolución como borrador
 
 En **Contratación temporal → Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
-En el detalle real `v7`, `nombramiento/en_curso`, pulse el botón de cabecera
-**Descargar informe · borrador de desarrollo**: archivo `informe-definitivo-borrador.pdf`.
+En el detalle real `v7`, `nombramiento/en_curso`, elija un botón de cabecera:
+**Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`) o
+**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`).
 No recupere la propuesta por POST ni repita las operaciones de llamamiento para descargar.
 Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Es un borrador sin firma, no un nombramiento eficaz; la métrica sigue en **5/8 más partes del sexto y séptimo**.
+Son borradores sin firma, no una resolución aprobada ni un nombramiento eficaz;
+la métrica sigue en **5/8 más partes del sexto y séptimo**, sin otro paso RRHH completo.
 
 ### Qué ocurre después de un reinicio
 

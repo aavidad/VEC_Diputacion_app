@@ -19,8 +19,9 @@ const (
 	MaximoCuerpoConsultaCuadroRRHHBytes  = 4 * 1024
 	MaximoCuerpoConsultaDetalleRRHHBytes = 4 * 1024
 	MaximoRespuestaConsultaRRHHBytes     = 256 * 1024
-	MaximoPDFInformeDefinitivoRRHHBytes  = 2 * 1024 * 1024
+	MaximoPDFBorradorRRHHBytes           = 2 * 1024 * 1024
 	AcceptInformeDefinitivoRRHH          = "application/pdf; documento=informe-definitivo-desarrollo"
+	AcceptResolucionRRHH                 = "application/pdf; documento=resolucion-desarrollo"
 
 	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
 	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
@@ -82,8 +83,9 @@ func validarMetadatosConsultaRRHHConPDF(
 		problema := errorTipoConsultaRRHHNoAdmitido
 		return &problema
 	}
+	_, solicitaPDF := borradorRRHHSolicitado(r.Header)
 	if !cabeceraJSONConsultaRRHHExacta(r.Header, "Accept") &&
-		!(permitirPDF && solicitaInformeDefinitivoRRHH(r.Header)) {
+		!(permitirPDF && solicitaPDF) {
 		problema := errorRepresentacionConsultaRRHHNoAceptable
 		return &problema
 	}
@@ -94,9 +96,24 @@ func validarMetadatosConsultaRRHHConPDF(
 	return nil
 }
 
-func solicitaInformeDefinitivoRRHH(cabeceras http.Header) bool {
+type representacionBorradorRRHH struct {
+	tipo          ports.TipoBorradorRRHH
+	nombreArchivo string
+}
+
+// Correspondencia cerrada e inmutable: ni el tipo ni el nombre del archivo
+// se toman de parámetros libres o del detalle del expediente.
+func borradorRRHHSolicitado(cabeceras http.Header) (representacionBorradorRRHH, bool) {
 	valor, unico := cabeceraUnicaAlta(cabeceras, "Accept")
-	return unico && valor == AcceptInformeDefinitivoRRHH
+	if unico {
+		switch valor {
+		case AcceptInformeDefinitivoRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorInformeDefinitivo, nombreArchivo: "informe-definitivo-borrador.pdf"}, true
+		case AcceptResolucionRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorResolucion, nombreArchivo: "resolucion-borrador.pdf"}, true
+		}
+	}
+	return representacionBorradorRRHH{}, false
 }
 
 func cabeceraJSONConsultaRRHHExacta(

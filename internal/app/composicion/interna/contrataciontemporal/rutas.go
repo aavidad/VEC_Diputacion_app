@@ -27,7 +27,7 @@ type DependenciasRutas struct {
 	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
 	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
 	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
-	InformeDefinitivoRRHH           ports.RenderizadorInformeDefinitivoRRHH
+	BorradorRRHH                    ports.RenderizadorBorradorRRHH
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
 	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
 	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
@@ -101,12 +101,12 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
-	var renderizadoresInforme []ports.RenderizadorInformeDefinitivoRRHH
-	if dependencias.InformeDefinitivoRRHH != nil {
-		renderizadoresInforme = append(renderizadoresInforme, dependencias.InformeDefinitivoRRHH)
+	var renderizadoresBorrador []ports.RenderizadorBorradorRRHH
+	if dependencias.BorradorRRHH != nil {
+		renderizadoresBorrador = append(renderizadoresBorrador, dependencias.BorradorRRHH)
 	}
 	detalleRRHH, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(
-		dependencias.ConsultorDetalleRRHH, renderizadoresInforme...,
+		dependencias.ConsultorDetalleRRHH, renderizadoresBorrador...,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearClienteHTTPInformeDefinitivo } from "./cliente-http-informe-definitivo.js";
+import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js";
 
 const solicitud = { expediente_ref: "expediente:ct:sintetico-009", version_observada: 7 };
 const pdf = "%PDF-1.7\nBorrador sintético\n%%EOF";
@@ -13,16 +13,16 @@ function respuestaPDF(contenido = pdf, cabeceras = {}, status = 200) {
   } });
 }
 function cliente(respuesta) {
-  return crearClienteHTTPInformeDefinitivo({ fetchImpl: async () => respuesta });
+  return crearClienteHTTPBorradorRRHH({ fetchImpl: async () => respuesta });
 }
 
 test("POST de consulta: dos campos ordenados, representación nominal y PDF acotado", async () => {
   const llamadas = [];
-  const http = crearClienteHTTPInformeDefinitivo({ fetchImpl: async (ruta, opciones) => {
+  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
     return respuestaPDF(pdf, { "Content-Length": String(new TextEncoder().encode(pdf).length) });
   } });
-  const blob = await http.descargarInformeDefinitivo(solicitud);
+  const blob = await http.descargarBorrador(solicitud);
   assert.equal(blob.type, "application/pdf");
   assert.equal(await blob.text(), pdf);
   assert.equal(llamadas.length, 1);
@@ -43,48 +43,81 @@ test("POST de consulta: dos campos ordenados, representación nominal y PDF acot
 
 test("rechaza contrato alterado antes de red", async () => {
   let llamadas = 0;
-  const http = crearClienteHTTPInformeDefinitivo({ fetchImpl: () => { llamadas += 1; } });
+  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: () => { llamadas += 1; } });
   for (const entrada of [
     { ...solicitud, version_observada: 6 }, { ...solicitud, actor: "rrhh" },
     { ...solicitud, expediente_ref: "no válido" }, { expediente_ref: solicitud.expediente_ref },
-  ]) await assert.rejects(http.descargarInformeDefinitivo(entrada), { codigo: "solicitud_no_valida" });
+  ]) await assert.rejects(http.descargarBorrador(entrada), { codigo: "solicitud_no_valida" });
+  for (const tipo of ["", "otro", "constructor", "__proto__", null, {}, new String("resolucion")]) {
+    await assert.rejects(http.descargarBorrador(solicitud, { tipo }), { codigo: "solicitud_no_valida" });
+  }
   assert.equal(llamadas, 0);
 });
 
+test("resolución usa la misma consulta y su perfil nominal; no intercambia documentos", async () => {
+  const llamadas = [];
+  const cabeceras = { "Content-Disposition": 'attachment; filename="resolucion-borrador.pdf"' };
+  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return respuestaPDF(pdf, cabeceras);
+  } });
+  const blob = await http.descargarBorrador(solicitud, { tipo: "resolucion" });
+  assert.equal(await blob.text(), pdf);
+  assert.equal(blob.type, "application/pdf");
+  assert.equal(llamadas.length, 1);
+  assert.equal(llamadas[0].ruta, "/api/vec/contratacion-temporal/expedientes/consultas");
+  assert.equal(llamadas[0].opciones.method, "POST");
+  assert.equal(llamadas[0].opciones.body, JSON.stringify(solicitud));
+  assert.deepEqual(llamadas[0].opciones.headers, {
+    "Content-Type": "application/json", Accept: "application/pdf; documento=resolucion-desarrollo",
+  });
+  await assert.rejects(cliente(respuestaPDF()).descargarBorrador(solicitud, { tipo: "resolucion" }), {
+    codigo: "resultado_no_confiable",
+  });
+  await assert.rejects(cliente(respuestaPDF(pdf, cabeceras)).descargarBorrador(solicitud), {
+    codigo: "resultado_no_confiable",
+  });
+});
+
 test("no convierte JSON/HTML, nombre ajeno, exceso ni cuerpo truncado en descarga", async () => {
-  for (const respuesta of [
-    respuestaPDF("<html>error</html>"), respuestaPDF(pdf, { "Content-Type": "application/json" }),
-    respuestaPDF(pdf, { "Content-Disposition": 'attachment; filename="otro.pdf"' }),
-    respuestaPDF(pdf, { "Content-Length": "2097153" }),
-    respuestaPDF(pdf, { "Content-Length": "12" }),
-    respuestaPDF(new Uint8Array(2097153)),
-  ]) await assert.rejects(cliente(respuesta).descargarInformeDefinitivo(solicitud), { codigo: "resultado_no_confiable" });
+  for (const tipo of ["informe_definitivo", "resolucion"]) {
+    const nominales = { "Content-Disposition": `attachment; filename="${tipo === "resolucion" ? "resolucion" : "informe-definitivo"}-borrador.pdf"` };
+    for (const respuesta of [
+      respuestaPDF("<html>error</html>", nominales), respuestaPDF(pdf, { ...nominales, "Content-Type": "application/json" }),
+      respuestaPDF(pdf, { "Content-Disposition": 'attachment; filename="otro.pdf"' }),
+      respuestaPDF(pdf, { ...nominales, "Content-Length": "2097153" }),
+      respuestaPDF(pdf, { ...nominales, "Content-Length": "12" }),
+      respuestaPDF(new Uint8Array(2097153), nominales),
+    ]) await assert.rejects(cliente(respuesta).descargarBorrador(solicitud, { tipo }), { codigo: "resultado_no_confiable" });
+  }
 });
 
 test("errores JSON cerrados de consulta, incluido 409; no reintenta", async () => {
   for (const [estado, codigo] of [[403, "acceso_denegado"], [409, "documento_no_disponible"], [503, "servicio_no_disponible"]]) {
-    const error = { codigo, clave_i18n: `api.contratacion_temporal.consulta_rrhh.error.${codigo}`, correlacion_ref: "corr_" + "a".repeat(32) };
-    await assert.rejects(cliente(Response.json({ error }, { status: estado })).descargarInformeDefinitivo(solicitud), {
-      codigo, estado, envelopeValido: true, resultadoIndeterminado: false,
-    });
-    error.clave_i18n = `otra.error.${codigo}`;
-    await assert.rejects(cliente(Response.json({ error }, { status: estado })).descargarInformeDefinitivo(solicitud), {
-      codigo: "respuesta_error_no_valida",
-    });
+    for (const tipo of ["informe_definitivo", "resolucion"]) {
+      const error = { codigo, clave_i18n: `api.contratacion_temporal.consulta_rrhh.error.${codigo}`, correlacion_ref: "corr_" + "a".repeat(32) };
+      await assert.rejects(cliente(Response.json({ error }, { status: estado })).descargarBorrador(solicitud, { tipo }), {
+        codigo, estado, envelopeValido: true, resultadoIndeterminado: false,
+      });
+      error.clave_i18n = `otra.error.${codigo}`;
+      await assert.rejects(cliente(Response.json({ error }, { status: estado })).descargarBorrador(solicitud, { tipo }), {
+        codigo: "respuesta_error_no_valida",
+      });
+    }
   }
-  await assert.rejects(cliente(respuestaPDF(pdf, {}, 201)).descargarInformeDefinitivo(solicitud));
+  await assert.rejects(cliente(respuestaPDF(pdf, {}, 201)).descargarBorrador(solicitud));
 });
 
 test("cancelación antes de fetch, durante fetch tardío y durante lectura", async () => {
   const previo = new AbortController(); previo.abort();
   let llamadas = 0;
-  await assert.rejects(crearClienteHTTPInformeDefinitivo({ fetchImpl: () => { llamadas += 1; } })
-    .descargarInformeDefinitivo(solicitud, { signal: previo.signal }), { name: "AbortError" });
+  await assert.rejects(crearClienteHTTPBorradorRRHH({ fetchImpl: () => { llamadas += 1; } })
+    .descargarBorrador(solicitud, { signal: previo.signal }), { name: "AbortError" });
   assert.equal(llamadas, 0);
   let completar;
   const controlador = new AbortController();
-  const pendiente = crearClienteHTTPInformeDefinitivo({ fetchImpl: () => new Promise((resolve) => { completar = resolve; }) })
-    .descargarInformeDefinitivo(solicitud, { signal: controlador.signal });
+  const pendiente = crearClienteHTTPBorradorRRHH({ fetchImpl: () => new Promise((resolve) => { completar = resolve; }) })
+    .descargarBorrador(solicitud, { signal: controlador.signal });
   controlador.abort();
   await assert.rejects(pendiente, { name: "AbortError" });
   const tardia = respuestaPDF(); completar(tardia);
@@ -94,7 +127,7 @@ test("cancelación antes de fetch, durante fetch tardío y durante lectura", asy
   const leyendo = new AbortController();
   const lectura = cliente(respuestaPDF(new ReadableStream({
     pull() { leyendo.abort(); }, cancel() { cancelado = true; },
-  }))).descargarInformeDefinitivo(solicitud, { signal: leyendo.signal });
+  }))).descargarBorrador(solicitud, { signal: leyendo.signal });
   await assert.rejects(lectura, { name: "AbortError" });
   assert.equal(cancelado, true);
 });

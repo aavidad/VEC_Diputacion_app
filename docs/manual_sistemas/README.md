@@ -77,6 +77,13 @@ filtrado 100, detalle v7 y PDF), sin `404`, mismo PDF e historia CT/Bolsa conser
 No repetir UP/DOWN de AD3-21. Remoto apagado, sin aplicar SQL ni arrancarlo.
 Pantalla estable de 390 px observada sin obstrucción del detalle ni del botón; captura
 previa en transición de 180 ms, sin cambios de UI ni validación de usabilidad global.
+Esta revisión añade resolución borrador: Chrome `200`, 29770 bytes, informe original
+idéntico en la misma sesión; seis POST `200`, cero errores JS, cookies y almacenamiento web.
+Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras reiniciar
+aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
+y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
+almacenamiento web. No atribuir este recorrido a secundaria.
+Sin SQL nuevo del objetivo 9: mantener las migraciones instaladas, no reaplicarlas.
 
 ## Alcance y referencias
 
@@ -382,10 +389,11 @@ La quinta operación abre el siguiente llamamiento solo tras renuncia sintética
 confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
 La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
-El primer informe del objetivo 9 se descarga desde **Cuadro de mando → buscar número →
-Abrir expediente → Descargar informe · borrador de desarrollo**, detalle `v7`.
+Los dos borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
+Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**
+y **Descargar resolución · borrador de desarrollo**. Son lecturas, no actuaciones nuevas.
 No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exactos](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Quedan cinco borradores; siguiente resolución. Siguen pendientes
+Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia. Siguen pendientes
 vencimiento, aviso al sucesor y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.

@@ -11,14 +11,14 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-// RenderizadorInformeDefinitivoDesarrollo representa la consulta ya autorizada.
+// RenderizadorBorradorDesarrollo representa la consulta ya autorizada.
 // No consulta más datos, registra propuestas ni sustituye un modelo oficial.
-type RenderizadorInformeDefinitivoDesarrollo struct {
+type RenderizadorBorradorDesarrollo struct {
 	PDF vecports.RenderizadorDocumento
 }
 
-func (r RenderizadorInformeDefinitivoDesarrollo) RenderizarInforme(
-	ctx context.Context, detalle ports.DetalleExpedienteRRHH,
+func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
+	ctx context.Context, tipo ports.TipoBorradorRRHH, detalle ports.DetalleExpedienteRRHH,
 ) ([]byte, error) {
 	if ctx == nil || r.PDF == nil || r.PDF.Formato() != vecdomain.FormatoDocumentoPDF {
 		return nil, ports.ErrConsultaRRHHNoDisponible
@@ -30,14 +30,23 @@ func (r RenderizadorInformeDefinitivoDesarrollo) RenderizarInforme(
 	if err != nil || detalle.ValidarContenidoPublicablePara(solicitud) != nil ||
 		detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso ||
 		detalle.Analisis == nil || detalle.Cobertura == nil || detalle.Asignacion == nil || len(detalle.Hitos) != 7 {
-		return nil, ports.ErrInformeDefinitivoRRHHNoDisponible
+		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
 	hito := detalle.Hitos[6]
 	if hito.VersionExpediente != 7 || hito.AccionClave != "registrar_propuesta_formalizacion" ||
 		hito.FaseDestino != "nombramiento" || hito.EstadoDestino != domain.EstadoEnCurso {
-		return nil, ports.ErrInformeDefinitivoRRHHNoDisponible
+		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
-	contenido, err := r.PDF.Renderizar(ctx, contenidoInformeDefinitivoDesarrollo(detalle))
+	var documento vecdomain.ContenidoDocumento
+	switch tipo {
+	case ports.BorradorInformeDefinitivo:
+		documento = contenidoInformeDefinitivoDesarrollo(detalle)
+	case ports.BorradorResolucion:
+		documento = contenidoResolucionDesarrollo(detalle)
+	default:
+		return nil, ports.ErrBorradorRRHHNoDisponible
+	}
+	contenido, err := r.PDF.Renderizar(ctx, documento)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +77,24 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH) vecdoma
 		"Esta copia se regenera desde el detalle persistido y autorizado del expediente. No guarda un documento firmado, no acredita custodia documental, no modifica el expediente y no realiza ningún envío. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	)
 	return vecdomain.ContenidoDocumento{Titulo: "Informe definitivo — borrador de desarrollo", Parrafos: parrafos}
+}
+
+func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+	r, a := d.Resumen, d.Analisis
+	return vecdomain.ContenidoDocumento{Titulo: "Resolución — borrador de desarrollo", Parrafos: []string{
+		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No constituye una resolución aprobada, un nombramiento efectivo ni una orden de incorporación.",
+		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
+		"1. Antecedentes disponibles",
+		fmt.Sprintf("La propuesta de formalización figura en el historial del expediente, actuación 7, de %s UTC. Este borrador se prepara desde ese detalle persistido y autorizado; no añade una nueva propuesta.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
+		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. Estos datos no fijan la fecha de efectos de un nombramiento.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		"2. Contenido resolutivo pendiente",
+		"Órgano competente: pendiente de determinar y validar. Persona propuesta: identificación autorizada pendiente de incorporar. No se infieren ni se asignan nombres, competencias o firmantes desde esta consulta.",
+		"Acuerdos, fundamento jurídico, fecha de efectos, recursos y destinatarios: pendientes del modelo oficial y de la validación competente. No se inventa redacción jurídica ni se declara aprobado ningún acuerdo.",
+		"3. Firma y efectos pendientes",
+		"Número y fecha de resolución, firmas y evidencia de validación: pendientes. La descarga no acredita firma, aprobación, custodia documental, notificación ni toma de posesión; tampoco modifica el expediente o envía comunicaciones.",
+		"BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS. Debe completarse y validarse por el circuito competente antes de cualquier uso real.",
+	}}
 }
 
 func modalidadInformeDefinitivo(clave domain.ClaveCatalogo) string {

@@ -2,7 +2,17 @@
 import { ErrorClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 
-export const NOMBRE_INFORME_DEFINITIVO = "informe-definitivo-borrador.pdf";
+// Perfiles de representación, no de identidad ni autorización.
+export const PERFILES_BORRADOR_RRHH = Object.freeze({
+  informe_definitivo: Object.freeze({
+    accept: "application/pdf; documento=informe-definitivo-desarrollo",
+    nombre: "informe-definitivo-borrador.pdf",
+  }),
+  resolucion: Object.freeze({
+    accept: "application/pdf; documento=resolucion-desarrollo",
+    nombre: "resolucion-borrador.pdf",
+  }),
+});
 const MAXIMO_PDF = 2 * 1024 * 1024;
 const PREFIJO_ERROR = "api.contratacion_temporal.consulta_rrhh.error.";
 const CODIGOS = Object.freeze({
@@ -98,9 +108,13 @@ async function errorConsulta(respuesta, signal) {
   });
 }
 
-export function crearClienteHTTPInformeDefinitivo({ fetchImpl = globalThis.fetch } = {}) {
+export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({
-    async descargarInformeDefinitivo(solicitud, { signal } = {}) {
+    async descargarBorrador(solicitud, { tipo = "informe_definitivo", signal } = {}) {
+      if (typeof tipo !== "string" || !Object.hasOwn(PERFILES_BORRADOR_RRHH, tipo)) {
+        throw errorCliente("solicitud_no_valida");
+      }
+      const perfil = PERFILES_BORRADOR_RRHH[tipo];
       if (!camposExactos(solicitud, ["expediente_ref", "version_observada"])
         || typeof solicitud.expediente_ref !== "string"
         || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(solicitud.expediente_ref)
@@ -118,7 +132,7 @@ export function crearClienteHTTPInformeDefinitivo({ fetchImpl = globalThis.fetch
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Accept: "application/pdf; documento=informe-definitivo-desarrollo",
+            Accept: perfil.accept,
           },
           body: JSON.stringify({ expediente_ref: solicitud.expediente_ref, version_observada: 7 }),
           signal: controlador.signal, mode: "same-origin", credentials: "same-origin",
@@ -131,7 +145,7 @@ export function crearClienteHTTPInformeDefinitivo({ fetchImpl = globalThis.fetch
         if (respuesta.redirected) throw errorCliente("resultado_no_confiable");
         if (respuesta.status !== 200) throw await errorConsulta(respuesta, controlador.signal);
         if (respuesta.headers.get("Content-Type") !== "application/pdf"
-          || respuesta.headers.get("Content-Disposition") !== `attachment; filename="${NOMBRE_INFORME_DEFINITIVO}"`) {
+          || respuesta.headers.get("Content-Disposition") !== `attachment; filename="${perfil.nombre}"`) {
           throw errorCliente("resultado_no_confiable");
         }
         const bytes = await leerAcotado(respuesta, controlador.signal, MAXIMO_PDF);

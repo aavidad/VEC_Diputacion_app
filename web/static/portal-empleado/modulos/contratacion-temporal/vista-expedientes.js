@@ -11,7 +11,7 @@ import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
-import { crearClienteHTTPInformeDefinitivo, NOMBRE_INFORME_DEFINITIVO } from "./cliente-http-informe-definitivo.js";
+import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -386,7 +386,7 @@ export async function montarModuloContratacionTemporal({
   analisis = null,
   fiscalizacion = null,
   llamamiento = null,
-  clienteInformeDefinitivo = crearClienteHTTPInformeDefinitivo(),
+  clienteBorradorRRHH = crearClienteHTTPBorradorRRHH(),
   entornoDescarga = globalThis,
   mensajes = {},
   anunciar = () => {},
@@ -457,19 +457,23 @@ export async function montarModuloContratacionTemporal({
     anunciar(texto, tipo);
   }
 
-  async function descargarInforme(boton) {
+  async function descargarBorrador(boton) {
     const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
     if (!montada || descargaInforme || !solicitud) return;
+    const tipo = boton.dataset.ctExpAccion === "descargar-resolucion" ? "resolucion" : "informe_definitivo";
+    const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
+      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"]',
+    )] : [boton];
     const controlador = new AbortController();
     descargaInforme = controlador;
-    boton.disabled = true;
+    botones.forEach((control) => { control.disabled = true; });
     informarDescarga("informe_definitivo_descargando", "informacion");
     try {
       const { document: documento, URL: urls } = entornoDescarga;
       if (!documento?.body || typeof urls?.createObjectURL !== "function"
         || typeof urls?.revokeObjectURL !== "function") throw new TypeError();
-      const blob = await clienteInformeDefinitivo.descargarInformeDefinitivo(solicitud, {
-        signal: controlador.signal,
+      const blob = await clienteBorradorRRHH.descargarBorrador(solicitud, {
+        tipo, signal: controlador.signal,
       });
       if (!montada || descargaInforme !== controlador || controlador.signal.aborted
         || JSON.stringify(solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado()))
@@ -479,7 +483,7 @@ export async function montarModuloContratacionTemporal({
       const enlace = documento.createElement("a");
       try {
         enlace.href = urlInforme;
-        enlace.download = NOMBRE_INFORME_DEFINITIVO;
+        enlace.download = PERFILES_BORRADOR_RRHH[tipo].nombre;
         enlace.hidden = true;
         documento.body.append(enlace);
         enlace.click();
@@ -497,7 +501,7 @@ export async function montarModuloContratacionTemporal({
       informarDescarga(clave, "error");
     } finally {
       if (descargaInforme === controlador) descargaInforme = null;
-      boton.disabled = false;
+      botones.forEach((control) => { control.disabled = false; });
     }
   }
 
@@ -997,8 +1001,8 @@ export async function montarModuloContratacionTemporal({
     if (impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
-    if (accion.dataset.ctExpAccion === "descargar-informe-definitivo") {
-      await descargarInforme(accion);
+    if (["descargar-informe-definitivo", "descargar-resolucion"].includes(accion.dataset.ctExpAccion)) {
+      await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });
       repintar("[data-ct-exp-mensaje]");

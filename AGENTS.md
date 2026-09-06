@@ -92,8 +92,14 @@ Dirección observó pantalla estable de 390 px sin obstrucción del detalle ni b
 captura previa durante transición de 180 ms, sin modificar UI ni validar usabilidad global.
 Descarga desde bandeja y detalle v7, sin recuperar la propuesta por POST.
 La descarga no añadió SQL propio; AD3-21 corrige la consulta existente.
-Quedan cinco borradores; siguiente resolución. Sin firma ni nombramiento eficaz.
-Corrección temporal de las consultas confirmada tras reinicio; siguiente borrador: resolución.
+Segundo borrador demostrado: resolución, Chrome `200`, 29770 bytes, SHA256 en la guía;
+misma sesión con informe original idéntico, seis POST `200`, cero errores JS, cookies
+y almacenamiento web. Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones.
+Tras reiniciar aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF
+idénticos en tamaño y SHA256, historial y recibos anteriores conservados;
+cero errores JS, cookies y almacenamiento web. No atribuir este E2E a secundaria.
+Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia. Sin firma ni nombramiento eficaz.
+Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación
 tras renuncia sintética está cerrada, no el envío del aviso sucesor.

@@ -47,12 +47,12 @@ func detalleInformeDefinitivoPrueba() ports.DetalleExpedienteRRHH {
 
 func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorInformeDefinitivoDesarrollo{PDF: pdf.Renderizador{}}
-	primero, err := r.RenderizarInforme(context.Background(), d)
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorInformeDefinitivo, d)
 	if err != nil {
 		t.Fatal(err)
 	}
-	segundo, err := r.RenderizarInforme(context.Background(), d)
+	segundo, err := r.RenderizarBorrador(context.Background(), ports.BorradorInformeDefinitivo, d)
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("PDF no determinista o inválido: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 }
 
 func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
-	r := RenderizadorInformeDefinitivoDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
 	for _, mutar := range []func(*ports.DetalleExpedienteRRHH){
 		func(d *ports.DetalleExpedienteRRHH) { d.Resumen.Version = 6 },
 		func(d *ports.DetalleExpedienteRRHH) { d.Hitos[6].AccionClave = "otra_actuacion" },
@@ -77,14 +77,42 @@ func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
 	} {
 		d := detalleInformeDefinitivoPrueba()
 		mutar(&d)
-		b, err := r.RenderizarInforme(context.Background(), d)
-		if !errors.Is(err, ports.ErrInformeDefinitivoRRHHNoDisponible) || len(b) != 0 {
-			t.Fatal("antecedente inválido produjo documento")
+		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion} {
+			b, err := r.RenderizarBorrador(context.Background(), tipo, d)
+			if !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
+				t.Fatal("antecedente inválido produjo documento")
+			}
 		}
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
-	if b, err := r.RenderizarInforme(ctx, detalleInformeDefinitivoPrueba()); !errors.Is(err, context.Canceled) || len(b) != 0 {
+	if b, err := r.RenderizarBorrador(ctx, ports.BorradorResolucion, detalleInformeDefinitivoPrueba()); !errors.Is(err, context.Canceled) || len(b) != 0 {
 		t.Fatal("cancelación produjo documento")
+	}
+	if b, err := r.RenderizarBorrador(context.Background(), "desconocido", detalleInformeDefinitivoPrueba()); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
+		t.Fatal("tipo desconocido produjo documento")
+	}
+}
+
+func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorResolucion, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := r.RenderizarBorrador(context.Background(), ports.BorradorResolucion, d)
+	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
+		t.Fatalf("resolución PDF no determinista o inválida: %v", err)
+	}
+	contenido := contenidoResolucionDesarrollo(d)
+	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
+	for _, esperado := range []string{"Resolución — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Órgano competente: pendiente", "Persona propuesta: identificación autorizada pendiente", "SIN EFECTOS ADMINISTRATIVOS"} {
+		if !strings.Contains(texto, esperado) {
+			t.Fatalf("falta %q", esperado)
+		}
+	}
+	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "RESUELVO") {
+		t.Fatal("el borrador expone datos innecesarios o aparenta resolver")
 	}
 }

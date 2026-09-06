@@ -70,7 +70,13 @@ POST volvieron a `200`, sin `404`, mismo PDF e historia CT/Bolsa conservada.
 Dirección observó pantalla estable de 390 px sin obstrucción del detalle ni botón;
 la captura previa era transición de 180 ms, sin cambiar UI ni validar usabilidad global.
 [Descarga desde bandeja](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador),
-sin recuperar la propuesta por POST ni SQL propio del PDF. Quedan cinco borradores; siguiente resolución.
+sin recuperar la propuesta por POST ni SQL propio del PDF. Esta revisión añade resolución:
+Chrome `200`, 29770 bytes, informe original idéntico en la misma sesión; seis POST `200`,
+cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF y pantalla
+estable de 390 px con ambos botones. Tras reiniciar aplicación/PostgreSQL principal:
+otros seis POST `200`, ambos PDF idénticos en tamaño y SHA256, historial y recibos
+anteriores conservados; cero errores JS, cookies y almacenamiento web.
+Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia.
 No acredita firma, nombramiento eficaz ni correo real.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
@@ -117,7 +123,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
 | 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas; recibos recuperados tras reinicio sin duplicados. | Faltan vencimiento, aviso al sucesor y correo corporativo. No acredita entrega ni plazo legal aprobado. |
-| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; primer informe borrador descargable. | Sin nombramiento eficaz ni firma; pendientes otros cinco borradores, incluida la Diligencia. |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; informe y resolución borradores descargables. | Sin nombramiento eficaz ni firma; pendientes otros cuatro borradores, siguiente Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un

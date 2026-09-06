@@ -39,7 +39,7 @@ type manejadorConsultaCuadroRRHH struct {
 
 type manejadorConsultaDetalleRRHH struct {
 	consultor    ConsultorDetalleRRHH
-	renderizador ports.RenderizadorInformeDefinitivoRRHH
+	renderizador ports.RenderizadorBorradorRRHH
 }
 
 var (
@@ -60,7 +60,7 @@ func NuevoManejadorConsultaCuadroRRHH(
 
 func NuevoManejadorConsultaDetalleRRHH(
 	consultor ConsultorDetalleRRHH,
-	renderizadores ...ports.RenderizadorInformeDefinitivoRRHH,
+	renderizadores ...ports.RenderizadorBorradorRRHH,
 ) (http.Handler, error) {
 	if dependenciaConsultaRRHHNula(consultor) || len(renderizadores) > 1 {
 		return nil, ErrManejadorConsultaRRHHInvalido
@@ -176,8 +176,8 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
-	if solicitaInformeDefinitivoRRHH(r.Header) {
-		h.responderInformeDefinitivo(w, r, detalle)
+	if borrador, solicitado := borradorRRHHSolicitado(r.Header); solicitado {
+		h.responderBorrador(w, r, detalle, borrador)
 		return
 	}
 	responderJSONConsultaRRHH(
@@ -187,10 +187,11 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 	)
 }
 
-func (h *manejadorConsultaDetalleRRHH) responderInformeDefinitivo(
+func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	w http.ResponseWriter,
 	r *http.Request,
 	detalle ports.DetalleExpedienteRRHH,
+	borrador representacionBorradorRRHH,
 ) {
 	if dependenciaConsultaRRHHNula(h.renderizador) {
 		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
@@ -200,12 +201,12 @@ func (h *manejadorConsultaDetalleRRHH) responderInformeDefinitivo(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	contenido, err := h.renderizador.RenderizarInforme(r.Context(), detalle.Clonar())
+	contenido, err := h.renderizador.RenderizarBorrador(r.Context(), borrador.tipo, detalle.Clonar())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
-	if errors.Is(err, ports.ErrInformeDefinitivoRRHHNoDisponible) {
+	if errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
 		responderErrorConsultaRRHH(w, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
 		return
 	}
@@ -213,13 +214,13 @@ func (h *manejadorConsultaDetalleRRHH) responderInformeDefinitivo(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if len(contenido) > MaximoPDFInformeDefinitivoRRHHBytes || !bytes.HasPrefix(contenido, []byte("%PDF-")) {
+	if len(contenido) > MaximoPDFBorradorRRHHBytes || !bytes.HasPrefix(contenido, []byte("%PDF-")) {
 		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	aplicarCabecerasCobertura(w)
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", `attachment; filename="informe-definitivo-borrador.pdf"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+borrador.nombreArchivo+`"`)
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(contenido)
