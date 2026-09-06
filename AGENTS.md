@@ -125,9 +125,16 @@ primer `503` con CT persistido y Bolsa pendiente; recuperación con la misma cla
 también tras reiniciar app/PostgreSQL principal, mismos recibo/fecha/evaluación/auditoría e historia.
 Tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
 CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora, sin SQL remoto.
-Versión resultante `3`, expediente conservado en `6`; dos revisiones expresas, sin otro correo.
+En CT64, versión resultante `3` y expediente conservado en `6`; dos revisiones expresas, sin otro correo.
 [Octava operación y límites](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
-Propuesta desde esta aceptación en estudio, no realizada; sin tercer llamamiento, envío, plazo legal ni firma.
+CT65 cierra la propuesta desde esa aceptación: ocho antecedentes `200` y propuesta `201`;
+tras reiniciar app/PostgreSQL principal, nueve `200`, mismos recibo/fecha/v7 e historia.
+Expediente `fe4934a1…` pasa a `nombramiento/en_curso/v7`; solicitud conserva versión esperada `6`.
+Dos propuestas y 55 actuaciones/outbox globales; antecedentes CT/Bolsa y propuesta original intactos.
+CT65 instalada en ambas bases; no reaplicar ni DOWN con propuesta sucesora, sin SQL remoto.
+CT60 desde v7 solo recupera apertura existente con permiso nuevo, no abre otra.
+[Novena operación del panel y evidencia](GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+No es otro paso RRHH completo; sin envío, plazo legal, firma ni incorporación. Seis PDF cerrados, no repetidos.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

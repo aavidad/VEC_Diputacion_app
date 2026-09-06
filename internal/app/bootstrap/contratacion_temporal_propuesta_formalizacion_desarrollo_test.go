@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -100,6 +101,13 @@ func nuevaPropuestaCoordinadorPrueba(t *testing.T) escenarioPropuestaPrueba {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return componerPropuestaCoordinadorPrueba(t, p, ctx, l, bolsa, b.Registro.OperacionRef)
+}
+
+func componerPropuestaCoordinadorPrueba(t *testing.T, p *puenteBolsaLlamamientoDesarrollo, ctx context.Context,
+	l aceptacionRevisadaDesarrollo, bolsa *repositorioAceptacionPuentePrueba, terminal string,
+) escenarioPropuestaPrueba {
+	t.Helper()
 	pub, err := cargarPublicacionesPropuestaDesarrollo()
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +133,78 @@ func nuevaPropuestaCoordinadorPrueba(t *testing.T) escenarioPropuestaPrueba {
 	lector := &lectorExpedienteConsultaJustificantePrueba{expediente: expedientePuenteBolsaPrueba(t)}
 	e := &ejecutorPropuestaFormalizacionDesarrollo{soporte: p.alta.soporte, lector: lector, registro: registro,
 		bolsa: bolsa, publicaciones: pub, servicio: servicio}
-	return escenarioPropuestaPrueba{ctx: ctx, ejecutor: e, solicitud: s, registro: registro, lector: lector, bolsa: bolsa, terminal: b.Registro.OperacionRef}
+	return escenarioPropuestaPrueba{ctx: ctx, ejecutor: e, solicitud: s, registro: registro, lector: lector, bolsa: bolsa, terminal: terminal}
+}
+
+func nuevaPropuestaSucesorPrueba(t *testing.T) escenarioPropuestaPrueba {
+	t.Helper()
+	// Apertura y aceptación existentes se construyen por sus servicios de
+	// unidad. La propuesta posterior no vuelve a ejecutar ninguno de ellos.
+	p, ctx, l, bolsa, _ := escenarioResolucionSucesorPrueba(t)
+	b, err := p.AceptarRespuestaRRHH(ctx, l.solicitud, l.justificante.Seleccion, puertosbolsa.ResolucionLlamamientoDesarrollo{
+		AperturaOperacionRef: l.justificante.Continuacion.ReciboBolsa.OperacionRef, JustificanteRef: l.solicitud.PruebaRespuestaRef,
+		EvaluacionPlazoRef: l.local.EvaluacionPlazoRef, PoliticaRef: l.local.Politica.Referencia,
+		PoliticaVersion: l.local.Politica.Version, PoliticaSHA256: l.local.Politica.HuellaSHA256, VersionEsperada: 1})
+	if err != nil {
+		t.Fatal("aceptación sucesora previa", err)
+	}
+	return componerPropuestaCoordinadorPrueba(t, p, ctx, l, bolsa, b.Registro.OperacionRef)
+}
+
+func TestPropuestaFormalizacionDesarrolloSucesorYReplaySinReaceptar(t *testing.T) {
+	f := nuevaPropuestaSucesorPrueba(t)
+	guardados, raiz := f.bolsa.guardados, f.registro.antecedente.Justificante.Seleccion
+	c := *f.registro.antecedente.Justificante.Continuacion
+	originales := map[string][]byte{}
+	for ref, recibo := range f.bolsa.filas {
+		originales[ref], _ = recibo.Registro.Canonico()
+	}
+	primero, err := f.ejecutor.PrepararYConfirmar(f.ctx, f.solicitud)
+	if err != nil || primero.ValidarPara(f.solicitud) != nil {
+		t.Fatal("propuesta sucesora", err)
+	}
+	f.lector.expediente.VersionActual = 7
+	replay, err := f.ejecutor.PrepararYConfirmar(f.ctx, f.solicitud)
+	if err != nil || !replay.EsReplayConfirmado() || replay.ReciboLocalRef != primero.ReciboLocalRef ||
+		replay.ConfirmadaEn != primero.ConfirmadaEn || f.registro.consultas != 2 || f.registro.confirmaciones != 2 ||
+		f.registro.huellaConsulta == f.registro.huellaConfirmacion || f.bolsa.guardados != guardados || len(f.bolsa.filas) != len(originales) {
+		t.Fatal("replay o autoridad de propuesta", err)
+	}
+	for ref, canon := range originales {
+		actual, err := f.bolsa.filas[ref].Registro.Canonico()
+		if err != nil || !bytes.Equal(canon, actual) {
+			t.Fatal("historia Bolsa alterada", err)
+		}
+	}
+	if f.registro.antecedente.Justificante.Seleccion != raiz || *f.registro.antecedente.Justificante.Continuacion != c {
+		t.Fatal("antecedentes CT transformados")
+	}
+}
+
+func TestPropuestaFormalizacionDesarrolloSucesorExigeCadenaCanonica(t *testing.T) {
+	for _, caso := range []string{"sin_terminal", "huella_apertura", "terminal_previo", "firma_aceptacion"} {
+		t.Run(caso, func(t *testing.T) {
+			f := nuevaPropuestaSucesorPrueba(t)
+			guardados := f.bolsa.guardados
+			switch caso {
+			case "sin_terminal":
+				delete(f.bolsa.filas, f.terminal)
+			case "huella_apertura":
+				f.registro.antecedente.Justificante.Continuacion.ReciboBolsa.RegistroSHA256 = strings.Repeat("a", 64)
+			case "terminal_previo":
+				delete(f.bolsa.filas, f.registro.antecedente.Justificante.Continuacion.ReciboBolsa.TerminalOperacionRef)
+			case "firma_aceptacion":
+				b := f.bolsa.filas[f.terminal]
+				b.Registro.FirmaFuente = bytes.Clone(b.Registro.FirmaFuente)
+				b.Registro.FirmaFuente[0] ^= 1
+				f.bolsa.filas[f.terminal] = b
+			}
+			r, err := f.ejecutor.PrepararYConfirmar(f.ctx, f.solicitud)
+			if !errors.Is(err, application.ErrResolucionFormalizacionNoAceptada) || !r.EsCero() || f.registro.confirmaciones != 0 || f.bolsa.guardados != guardados {
+				t.Fatal("confirmó con cadena rota o reaceptó", err)
+			}
+		})
+	}
 }
 
 func TestPropuestaFormalizacionDesarrolloRecuperaConVersionAvanzada(t *testing.T) {

@@ -384,14 +384,22 @@ Recupere las siete operaciones previas y use la octava con la clave original de 
 [guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
 Respuesta, justificante y referencias se derivan, no se editan. Marque expresamente las dos revisiones
 de respuesta/justificante y plazo del ejercicio, inicialmente vacías, y confirme; sin otro `.eml`.
-Solo tras confirmar CT y Bolsa se muestra la aceptación sintética. Versión resultante `3`, expediente `6`.
+Solo tras confirmar CT y Bolsa se muestra la aceptación sintética. En CT64, versión resultante `3`, expediente `6`.
 El primer `503` dejó CT guardado y Bolsa pendiente; se recuperó con la misma clave, sin regenerar evaluación.
 Ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría, sin duplicados.
 Ante ambigüedad conserve clave/material; el `409` pendiente conocido, sin ambigüedad previa, permite corregir casillas, no cambiar clave.
-No acredita envío, plazo legal ni firma; no activa propuesta ni tercer llamamiento. Propuesta desde esta aceptación
-en estudio, no realizada. Continúan cinco pasos completos más tramos del sexto y séptimo.
+No acredita envío, plazo legal ni firma; no registra propuesta ni tercer llamamiento automáticamente.
+CT65 permite la propuesta separada descrita debajo. Continúan cinco pasos completos más tramos del sexto y séptimo.
 
 ### 7. Nombramiento: propuesta de desarrollo y límites
+
+Para el sucesor aceptado, recupere las ocho operaciones anteriores y use el mismo formulario de propuesta,
+novena operación del panel: clave original y [recorrido CT65](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+Referencias/publicaciones derivadas, confirmación expresa y versión esperada `6` incluso al recuperar desde `7`.
+Navegador: ocho antecedentes `200` y propuesta `201`; tras reiniciar app/PostgreSQL principal, nueve `200`,
+mismos recibo/fecha/v7 e historia. El expediente sucesor pasa a nombramiento/en_curso; propuesta original intacta.
+No cambie clave/material ante ambigüedad o conflicto. Sin otro `.eml`, firma, envío, plazo legal ni incorporación;
+no aumenta la métrica RRHH ni acredita nuevas descargas de PDF.
 
 En el caso original de aceptación confirmada de la guía, el mismo panel ofrece registrar la
 propuesta, nunca desde renuncia. Referencias y cuatro publicaciones se derivan;

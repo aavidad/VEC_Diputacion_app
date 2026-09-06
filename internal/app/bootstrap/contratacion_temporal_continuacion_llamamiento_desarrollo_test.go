@@ -164,6 +164,52 @@ func escenarioContinuacionCoordinadorPrueba(t *testing.T) escenarioContinuacionC
 	return escenarioContinuacionCoordinador{ctx: ctx, ejecutor: e, solicitud: s, registro: registro, lector: lector, autoridad: autoridad}
 }
 
+func TestContinuacionLlamamientoDesarrolloTrasPropuestaSoloRecupera(t *testing.T) {
+	for _, existe := range []bool{false, true} {
+		t.Run(strconv.FormatBool(existe), func(t *testing.T) {
+			f := escenarioContinuacionCoordinadorPrueba(t)
+			var primero ports.ResultadoContinuacionLlamamiento
+			if existe {
+				var err error
+				primero, err = f.ejecutor.Continuar(f.ctx, f.solicitud)
+				if err != nil {
+					t.Fatal("continuación previa", err)
+				}
+			}
+			f.lector.expediente.VersionActual = 7
+			guardados := f.registro.bolsa.guardados
+			originales := make(map[string]string)
+			for ref, fila := range f.registro.bolsa.filas {
+				canon, err := fila.Registro.Canonico()
+				if err != nil {
+					t.Fatal(err)
+				}
+				originales[ref] = string(canon)
+			}
+			r, err := f.ejecutor.Continuar(f.ctx, f.solicitud)
+			if existe {
+				if err != nil || r.Estado != "replay_confirmado" || r.ReciboRef != primero.ReciboRef ||
+					r.ConfirmadaEn != primero.ConfirmadaEn || r.ReciboBolsa != primero.ReciboBolsa || len(f.autoridad.etapas) != 8 {
+					t.Fatal("no recuperó la continuación con permisos nuevos", err)
+				}
+			} else if !errors.Is(err, ports.ErrOperacionContinuacionNoDisponible) || r != (ports.ResultadoContinuacionLlamamiento{}) ||
+				len(f.registro.recibidos) != 0 {
+				t.Fatal("abrió continuación después de la propuesta", err)
+			}
+			// Guardar consume permiso también al recuperar: no equivale a insertar.
+			if (!existe && f.registro.bolsa.guardados != guardados) || len(f.registro.bolsa.filas) != len(originales) {
+				t.Fatal("nuevo efecto Bolsa después de la propuesta")
+			}
+			for ref, anterior := range originales {
+				canon, err := f.registro.bolsa.filas[ref].Registro.Canonico()
+				if err != nil || string(canon) != anterior {
+					t.Fatal("registro Bolsa alterado", err)
+				}
+			}
+		})
+	}
+}
+
 func TestContinuacionLlamamientoDesarrolloSinIdentidadNoLee(t *testing.T) {
 	f := escenarioContinuacionCoordinadorPrueba(t)
 	for _, ctx := range []context.Context{context.Background(), contextoConOtraRutaContinuacionPrueba(f, httpinterno.RutaResolucionComunicacionLlamamiento)} {

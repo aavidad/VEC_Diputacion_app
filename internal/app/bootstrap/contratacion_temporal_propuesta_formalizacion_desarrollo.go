@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -158,22 +159,103 @@ func acreditarAceptacionBolsaPropuestaDesarrollo(ctx context.Context, repo puert
 	}
 	canon, err := b.Canonico()
 	j, r, s := a.Justificante.Seleccion, a.Resolucion, a.Resolucion.Solicitud
+	aperturaRef, propuestaRef := j.OperacionRef, j.Propuesta.Referencia
+	if c := a.Justificante.Continuacion; c != nil {
+		aperturaRef, propuestaRef = c.ReciboBolsa.OperacionRef, c.ReciboBolsa.PropuestaRef
+	}
 	if !existe || err != nil || b.Tipo != "aceptacion_rrhh" || b.OperacionRef != operacion ||
 		b.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoAceptado || b.Resolucion == nil || b.Llamamiento == nil || b.Propuesta == nil ||
 		b.NecesidadRef != j.Necesidad.Referencia || b.CategoriaRef != p.categoria || b.UnidadRef != p.unidad ||
-		b.OrdenOperacionRef != p.operacionOrden || b.Propuesta.PropuestaRef != j.Propuesta.Referencia ||
+		b.OrdenOperacionRef != p.operacionOrden || b.Propuesta.PropuestaRef != propuestaRef ||
 		b.Llamamiento.LlamamientoRef != s.LlamamientoRef || b.Llamamiento.Version != 2 ||
-		b.Resolucion.AperturaOperacionRef != j.OperacionRef || b.Resolucion.JustificanteRef != s.PruebaRespuestaRef ||
+		b.Resolucion.AperturaOperacionRef != aperturaRef || b.Resolucion.JustificanteRef != s.PruebaRespuestaRef ||
 		b.Resolucion.EvaluacionPlazoRef != r.EvaluacionPlazoRef || b.Resolucion.PoliticaRef != r.Politica.Referencia ||
 		b.Resolucion.PoliticaVersion != r.Politica.Version || b.Resolucion.PoliticaSHA256 != r.Politica.HuellaSHA256 ||
 		b.Resolucion.ResueltaEn.Before(r.ResueltaEn) {
 		return vacio, application.ErrResolucionFormalizacionNoAceptada
 	}
+	if a.Justificante.Continuacion != nil {
+		if err := acreditarCadenaSucesoraPropuestaDesarrollo(ctx, repo, a, b, p); err != nil {
+			return vacio, err
+		}
+	}
 	h := sha256.Sum256(canon)
-	return ports.EvidenciaAceptacionBolsaPropuesta{OperacionRef: operacion, AperturaOperacionRef: j.OperacionRef,
+	return ports.EvidenciaAceptacionBolsaPropuesta{OperacionRef: operacion, AperturaOperacionRef: aperturaRef,
 		LlamamientoRef: s.LlamamientoRef, JustificanteRef: s.PruebaRespuestaRef, EvaluacionPlazoRef: r.EvaluacionPlazoRef,
 		Politica:       ports.SnapshotGobernadoFormalizacion{Referencia: r.Politica.Referencia, Version: r.Politica.Version, HuellaSHA256: r.Politica.HuellaSHA256},
 		RegistroSHA256: hex.EncodeToString(h[:]), ResueltaEn: b.Resolucion.ResueltaEn}, nil
+}
+
+// Solo recupera originales del repositorio propietario. La continuación fija
+// la apertura; no se transforma Seleccion ni se vuelve a aceptar en Bolsa.
+func acreditarCadenaSucesoraPropuestaDesarrollo(ctx context.Context, repo puertosbolsa.RepositorioLlamamientoDesarrollo,
+	a ports.AntecedentePropuestaFormalizacion, aceptacion puertosbolsa.RegistroLlamamientoDesarrollo, p preparacionLlamamientoDesarrollo,
+) error {
+	j, c := a.Justificante.Seleccion, a.Justificante.Continuacion
+	if c == nil || a.Justificante.ValidarPara(a.Resolucion.Solicitud) != nil {
+		return application.ErrResolucionFormalizacionNoAceptada
+	}
+	refs := [3]string{j.OperacionRef, c.ReciboBolsa.OperacionRef, c.ReciboBolsa.TerminalOperacionRef}
+	var registros [3]puertosbolsa.RegistroLlamamientoDesarrollo
+	var canones [3][]byte
+	for i, ref := range refs {
+		r, existe, err := repo.BuscarOperacion(ctx, ref)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			return application.ErrPropuestaFormalizacionNoDisponible
+		}
+		canon, err := r.Canonico()
+		if !existe || err != nil || r.OperacionRef != ref {
+			return application.ErrResolucionFormalizacionNoAceptada
+		}
+		registros[i], canones[i] = r, canon
+	}
+	raiz, apertura, terminal := registros[0], registros[1], registros[2]
+	if raiz.Tipo != "propuesta" || raiz.Propuesta == nil || raiz.Propuesta.Continuacion != nil || raiz.Llamamiento == nil ||
+		raiz.OperacionRef != p.operacionPropuesta || raiz.OrdenOperacionRef != p.operacionOrden ||
+		raiz.Llamamiento.LlamamientoRef != j.LlamamientoRef ||
+		j.Resultado != referenciaVersionadaPuenteLlamamientoDesarrollo(j.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canones[0])) ||
+		j.Propuesta != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Propuesta.PropuestaRef, 1, raiz.Propuesta.HuellaContenidoSHA256) ||
+		j.Orden != referenciaVersionadaPuenteLlamamientoDesarrollo(raiz.Instantanea.InstantaneaRef, raiz.Instantanea.Version, raiz.Instantanea.HuellaContenidoSHA256) ||
+		uint32(raiz.Propuesta.OrdenSeleccionado) != j.OrdenSeleccionado ||
+		apertura.Tipo != "propuesta" || apertura.Propuesta == nil || apertura.Propuesta.Continuacion == nil || apertura.Llamamiento == nil ||
+		apertura.Llamamiento.LlamamientoRef != c.ReciboBolsa.LlamamientoRef || apertura.Propuesta.PropuestaRef != c.ReciboBolsa.PropuestaRef ||
+		huellaPuenteLlamamientoDesarrollo(canones[1]) != c.ReciboBolsa.RegistroSHA256 ||
+		apertura.Propuesta.GeneradaEn.After(c.ReciboBolsa.ConfirmadaEn) {
+		return application.ErrResolucionFormalizacionNoAceptada
+	}
+	ante := apertura.Propuesta.Continuacion
+	if terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil || terminal.Llamamiento == nil ||
+		terminal.Resolucion.AperturaOperacionRef != raiz.OperacionRef || terminal.Llamamiento.LlamamientoRef != j.LlamamientoRef ||
+		ante.TerminalOperacionRef != terminal.OperacionRef || ante.TerminalSHA256 != huellaPuenteLlamamientoDesarrollo(canones[2]) ||
+		ante.PropuestaRef != raiz.Propuesta.PropuestaRef || ante.PropuestaSHA256 != raiz.Propuesta.HuellaContenidoSHA256 ||
+		ante.OrdenAnterior != raiz.Propuesta.OrdenSeleccionado || apertura.Propuesta.OrdenSeleccionado <= ante.OrdenAnterior ||
+		ante.IntencionRef != intencionSiguienteBolsaDesarrollo(c.Solicitud) ||
+		terminal.Resolucion.ResueltaEn.Before(j.ConfirmadaEn) || terminal.Resolucion.ResueltaEn.After(apertura.Propuesta.GeneradaEn) {
+		return application.ErrResolucionFormalizacionNoAceptada
+	}
+	// Igualdad de origen/firma/instantánea/orden íntegros, no una nueva fuente.
+	base := apertura
+	base.OperacionRef, base.Propuesta, base.Llamamiento = raiz.OperacionRef, raiz.Propuesta, raiz.Llamamiento
+	canonBase, err := base.Canonico()
+	if err != nil || !bytes.Equal(canonBase, canones[0]) {
+		return application.ErrResolucionFormalizacionNoAceptada
+	}
+	// El terminal actual debe conservar toda su apertura, incluido el enlace
+	// de continuación; solamente cambia el estado/version y su resolución.
+	esperada := apertura
+	datos := *apertura.Llamamiento
+	datos.Version = 2
+	esperada.OperacionRef, esperada.Tipo, esperada.EstadoLlamamiento = aceptacion.OperacionRef, "aceptacion_rrhh", dominiobolsa.EstadoLlamamientoAceptado
+	esperada.Llamamiento, esperada.Resolucion = &datos, aceptacion.Resolucion
+	canonEsperado, err := esperada.Canonico()
+	canonAceptacion, errAceptacion := aceptacion.Canonico()
+	if err != nil || errAceptacion != nil || !bytes.Equal(canonEsperado, canonAceptacion) {
+		return application.ErrResolucionFormalizacionNoAceptada
+	}
+	return nil
 }
 
 func errorPreparacionPropuestaDesarrollo(err error) error {

@@ -22,9 +22,10 @@ type claveMaterialContinuacionDesarrollo struct{}
 // Solo la composición instala estos antecedentes después de recuperarlos con
 // permisos nominales nuevos. No son entradas del navegador ni otra cola.
 type continuacionLigadaDesarrollo struct {
-	solicitud    ports.SolicitudContinuarLlamamiento
-	antecedente  ports.AntecedenteContinuacionLlamamiento
-	justificante ports.JustificanteRespuestaRecibida
+	solicitud        ports.SolicitudContinuarLlamamiento
+	antecedente      ports.AntecedenteContinuacionLlamamiento
+	justificante     ports.JustificanteRespuestaRecibida
+	soloRecuperacion bool
 }
 
 type continuadorBolsaDesarrollo interface {
@@ -54,7 +55,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	if err != nil || expediente.Fiscalizado.Validar() != nil || expediente.VersionActual != 6 ||
+	if err != nil || expediente.Fiscalizado.Validar() != nil ||
 		!expedienteComunicacionLlamamientoDesarrolloValido(expediente, ports.SolicitudRegistrarComunicacionLlamamiento{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef}) {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
@@ -71,7 +72,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 		a.Resolucion.Solicitud.CriterioValidacionRef != criterioRevisionManualDesarrollo {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
-	l := continuacionLigadaDesarrollo{solicitud: s, antecedente: a}
+	l := continuacionLigadaDesarrollo{solicitud: s, antecedente: a, soloRecuperacion: expediente.VersionActual > 6}
 	ctx = context.WithValue(ctx, claveContinuacionLlamamientoDesarrollo{}, l)
 	ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, a.Resolucion.Solicitud)
 	j, err := e.lectorJustificante.ConsultarJustificanteRespuestaRecibida(ctx, a.Resolucion.Solicitud)
@@ -181,6 +182,18 @@ func (p *puenteBolsaLlamamientoDesarrollo) AbrirSiguienteRRHH(ctx context.Contex
 	if err != nil || terminal.OperacionRef != terminalRef || terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil ||
 		*terminal.Resolucion != esperado || esperado.ResueltaEn.Before(a.ResueltaEn) || terminal.Llamamiento == nil || terminal.Llamamiento.LlamamientoRef != a.Solicitud.LlamamientoRef {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
+	}
+	// La propuesta de nombramiento avanza a v7. Desde ahí solo se recupera
+	// una apertura existente; nunca se ejecuta otra continuación. El servicio
+	// mantiene la autorización fresca y la validación completa del replay.
+	if l.soloRecuperacion {
+		previa, existe, err := p.repositorio.BuscarOperacion(ctx, operacionSiguienteDesarrollo(s))
+		if ctx.Err() != nil {
+			return vacio, ctx.Err()
+		}
+		if err != nil || !existe || previa.Tipo != "propuesta" || previa.Propuesta == nil || previa.Propuesta.Continuacion == nil {
+			return vacio, ports.ErrOperacionContinuacionNoDisponible
+		}
 	}
 	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, p.repositorio, p.autorizadorSiguiente, p.reloj)
 	if err != nil {

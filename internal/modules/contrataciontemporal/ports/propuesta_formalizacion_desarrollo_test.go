@@ -1,11 +1,61 @@
 package ports
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestPropuestaFormalizacionDesarrolloSucesorConservaRaizYMaterial(t *testing.T) {
+	s, a, e := propuestaDesarrolloPrueba(t)
+	raiz := a.Justificante.Seleccion
+	// El justificante sin continuación mantiene los dos campos históricos.
+	antes, _ := json.Marshal(a.Justificante)
+	esperado, _ := json.Marshal(struct {
+		Respuesta RespuestaRecibidaRegistrada
+		Seleccion ReciboSolicitudLlamamientoBolsa
+	}{a.Justificante.Respuesta, raiz})
+	if !bytes.Equal(antes, esperado) {
+		t.Fatal("bytes históricos cambiados")
+	}
+	sc, _, b := continuacionPrueba(t)
+	sc.OrganizacionRef, sc.ExpedienteRef = s.OrganizacionRef, s.ExpedienteRef
+	b.ConfirmadaEn = raiz.ConfirmadaEn.Add(time.Second)
+	c := ResultadoContinuacionLlamamiento{Solicitud: sc, LlamamientoAnteriorRef: raiz.LlamamientoRef, ReciboBolsa: b,
+		ReciboRef: "recibo:continuacion", AuditoriaRef: "auditoria:continuacion", ConfirmadaEn: b.ConfirmadaEn.Add(time.Second), Estado: "confirmado"}
+	a.Justificante.Continuacion = &c
+	s.LlamamientoRef, a.Resolucion.Solicitud.LlamamientoRef = b.LlamamientoRef, b.LlamamientoRef
+	a.Justificante.Respuesta.Solicitud.LlamamientoRef = b.LlamamientoRef
+	e.LlamamientoRef, e.AperturaOperacionRef = b.LlamamientoRef, b.OperacionRef
+	if a.ValidarPara(s) != nil || e.ValidarPara(a) != nil || a.Justificante.Seleccion != raiz {
+		t.Fatal("sucesor ligado rechazado")
+	}
+	m := MaterialPropuestaFormalizacion{Etapa: "confirmacion", Solicitud: s, AceptacionBolsa: &e}
+	bm, _ := json.Marshal(m)
+	var campos map[string]json.RawMessage
+	if m.Validar() != nil || json.Unmarshal(bm, &campos) != nil || len(campos) != 3 {
+		t.Fatal("otro material de propuesta")
+	}
+	e.AperturaOperacionRef = raiz.OperacionRef
+	if e.ValidarPara(a) == nil {
+		t.Fatal("apertura raíz usada para el sucesor")
+	}
+	e.AperturaOperacionRef = b.OperacionRef
+	for _, alterar := range []func(*ResultadoContinuacionLlamamiento){
+		func(c *ResultadoContinuacionLlamamiento) { c.LlamamientoAnteriorRef += "otro" },
+		func(c *ResultadoContinuacionLlamamiento) { c.ReciboBolsa.LlamamientoRef += "otro" },
+		func(c *ResultadoContinuacionLlamamiento) { c.Estado = "replay_confirmado" },
+	} {
+		otra, copia := a, c
+		alterar(&copia)
+		otra.Justificante.Continuacion = &copia
+		if e.ValidarPara(otra) == nil {
+			t.Fatal("cadena cruzada")
+		}
+	}
+}
 
 func propuestaDesarrolloPrueba(t *testing.T) (SolicitudPropuestaFormalizacion, AntecedentePropuestaFormalizacion, EvidenciaAceptacionBolsaPropuesta) {
 	t.Helper()

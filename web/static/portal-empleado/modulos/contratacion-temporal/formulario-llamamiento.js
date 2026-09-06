@@ -83,7 +83,7 @@ export function montarFormularioLlamamiento({
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     comunicacion_siguiente: { ...nuevoPaso(), claveConservada: false },
     respuesta_siguiente: { ...nuevoPaso(), claveConservada: false },
-    propuesta: { ...nuevoPaso(), disponible: false, claveConservada: false, mensaje: "llamamiento_propuesta_no_disponible" },
+    propuesta: { ...nuevoPaso(), aceptacion: null, disponible: false, claveConservada: false, mensaje: "llamamiento_propuesta_no_disponible" },
     siguiente: { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false },
     resolucion: nuevoPasoResolucion(), resolucion_siguiente: nuevoPasoResolucion(),
     enlazado: false, comunicacionAbierta: false };
@@ -190,12 +190,16 @@ export function montarFormularioLlamamiento({
       && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente";
   }
   function puedeProponer() {
-    return estado.resolucion.recibo?.respuesta === "aceptacion"
+    return estado.propuesta.aceptacion?.respuesta === "aceptacion"
       && estado.seleccion.solicitud?.version_esperada === 6;
   }
-  async function prepararPropuesta() {
+  async function prepararPropuesta(aceptacion) {
     const paso = estado.propuesta;
-    const s = estado.resolucion.solicitud, r = estado.resolucion.recibo;
+    if (paso.aceptacion || paso.solicitud !== null || paso.recibo || paso.calculando) return;
+    const s = aceptacion.solicitud, r = aceptacion.recibo;
+    // Recibo ya validado de la resolución que confirmó la aceptación; no se
+    // sustituye al cargar publicaciones, enviar o recuperar esta propuesta.
+    paso.aceptacion = r;
     paso.valores = { expediente_ref: s.expediente_ref, llamamiento_ref: s.llamamiento_ref,
       resolucion_llamamiento_aceptada_ref: r.resolucion_ref, recibo_resolucion_aceptada_ref: r.recibo_local_ref,
       version_esperada: estado.seleccion.solicitud.version_esperada, anexos: Object.freeze([]) };
@@ -249,13 +253,12 @@ export function montarFormularioLlamamiento({
               : paso.valores[campo],
         ]),
       ));
-      if (["comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente"].includes(operacion) && Object.keys(OPERACIONES).some(
+      if (["comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta"].includes(operacion) && Object.keys(OPERACIONES).some(
         (anterior) => anterior !== operacion
           && estado[anterior].solicitud?.clave_idempotencia === solicitud.clave_idempotencia,
-      )) throw new TypeError("la operación del sucesor necesita su propia clave");
-      if (["resolucion", "siguiente", "propuesta"].includes(operacion) && [estado.seleccion, estado.comunicacion,
-        estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion] : []),
-        ...(operacion === "propuesta" ? [estado.siguiente] : [])]
+      )) throw new TypeError("la operación necesita su propia clave");
+      if (["resolucion", "siguiente"].includes(operacion) && [estado.seleccion, estado.comunicacion,
+        estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion] : [])]
         .some((anterior) => anterior.solicitud?.clave_idempotencia === solicitud.clave_idempotencia)) {
         throw new TypeError("la operación necesita su propia clave");
       }
@@ -280,6 +283,9 @@ export function montarFormularioLlamamiento({
           antecedente: solicitud.prueba_entrega_ref,
           ...(operacion === "siguiente" ? {
             resolucion: solicitud.resolucion_ref, intencion: solicitud.intencion_ref,
+          } : {}),
+          ...(operacion === "propuesta" ? {
+            llamamiento: solicitud.llamamiento_ref, resolucion: solicitud.resolucion_llamamiento_aceptada_ref,
           } : {}),
           ...(esResolucion(operacion) ? { respuesta: t("llamamiento_resolucion_" + solicitud.respuesta) } : {}),
           ...(esRespuesta(operacion) ? {
@@ -308,7 +314,7 @@ export function montarFormularioLlamamiento({
       });
       respuestaRecibida = true;
       const recibo = contrato.recibo(respuesta, solicitud, operacion === "siguiente"
-        ? estado.resolucion.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.resolucion.recibo.resuelta_en : undefined);
+        ? estado.resolucion.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.propuesta.aceptacion.resuelta_en : undefined);
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
@@ -357,7 +363,8 @@ export function montarFormularioLlamamiento({
           organizacion_ref: solicitud.organizacion_ref, expediente_ref: solicitud.expediente_ref,
           resolucion_ref: recibo.resolucion_ref, intencion_ref: recibo.intencion_siguiente.referencia };
       }
-      if (operacion === "resolucion" && puedeProponer()) await prepararPropuesta();
+      if (esResolucion(operacion) && recibo.respuesta === "aceptacion"
+        && estado.seleccion.solicitud?.version_esperada === 6) await prepararPropuesta(paso);
       if (operacion === "siguiente" && estado.comunicacion_siguiente.solicitud === null) {
         estado.comunicacion_siguiente.valores = {
           ...estado.comunicacion_siguiente.valores,
@@ -366,7 +373,7 @@ export function montarFormularioLlamamiento({
           prueba_entrega_ref: recibo.recibo_ref, tipo_antecedente: TIPO_ANTECEDENTE_CONTINUACION,
         };
       }
-      // El sucesor conserva su propio estado; no rearma resolución, propuesta ni continuación anteriores.
+      // El sucesor conserva su propio estado; no rearma recibos ni continuación anteriores.
     } catch (error) {
       if (!montado) return;
       guardarBorradores();

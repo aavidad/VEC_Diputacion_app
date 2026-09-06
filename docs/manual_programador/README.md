@@ -336,22 +336,31 @@ No resuelve automáticamente al sucesor ni altera la resolución anterior.
 con la resolución original; estado separado, antecedentes del justificante CT63 validado, nunca del DOM.
 Dos revisiones inicialmente falsas, política sintética fija y confirmación explícita; sin otro `.eml`.
 CT64 liga aviso/continuación CT60 y conserva selección raíz íntegra; apertura Bolsa real y permisos propios,
-sin éxito hasta confirmar CT y Bolsa. Versión resultante `3`, expediente `6`; sin propuesta ni tercer llamamiento automáticos.
+sin éxito hasta confirmar CT y Bolsa. En CT64, versión resultante `3`, expediente `6`; sin propuesta ni tercer llamamiento automáticos.
 Primer `503` dejó CT durable y Bolsa pendiente: excepción de formato solo para `EvaluacionPlazoRef`
 `evaluacion:UUIDv4`, reutilizando el validador puro existente, sin relajar las otras referencias ni regenerarla.
 Recuperación misma clave: ocho POST `200` antes y después del reinicio principal, mismos recibo/fecha/evaluación/auditoría;
 tres resoluciones CT y ocho operaciones/historias/outbox Bolsa, anteriores intactos.
 CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
 [Ficha y recuperación](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
-La propuesta desde esta aceptación está en estudio, no realizada; sin envío, plazo legal ni firma.
+La propuesta posterior CT65 ya es recorrible, sin envío, plazo legal ni firma.
 
 ### Propuesta de nombramiento desde aceptación
 
-Caso original de aceptación: operación `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
+Aceptación original o sucesora confirmada: operación única `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
 reutiliza `POST /api/vec/contratacion-temporal/formalizacion/propuestas`, once campos
 de solicitud y seis de recibo, sin otro DTO ni autoridad del DOM. Antecedentes
 de aceptación CT y terminal Bolsa real; nunca renuncia. Versión esperada `6`,
 también en replay desde agregado `7`; clave propia y confirmación explícita.
+CT65 conserva el recibo de aceptación correspondiente para referencias y comparación temporal;
+clave de propuesta distinta de las ocho anteriores, material congelado ante ambigüedad, sin autoenvío.
+Ocho antecedentes `200` y propuesta `201`; nueve `200` tras reinicio principal, mismos recibo/fecha/v7 e historia.
+Consulta interna con `Continuacion` opcional y selección raíz íntegra; apertura y terminal Bolsa originales,
+sin otro DTO web. CT65 instalada en ambas bases; no reaplicar ni DOWN con propuesta sucesora.
+El ajuste CT60 liga `soloRecuperacion` a versión actual mayor que `6` y exige apertura existente
+antes del servicio, conservando permiso fresco y replay completo; no permite un nuevo llamamiento desde v7.
+[Novena operación del panel y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65);
+no es otro paso RRHH. Propuesta original y antecedentes conservados; seis PDF cerrados, no repetidos.
 Las cuatro publicaciones proceden del único asset `formalizacion-desarrollo.json`,
 con SHA256 de contenido UTF-8, carga sin credenciales ni caché y fallo cerrado.
 El permiso propio `contratacion_temporal.formalizacion.propuesta.registrar` liga

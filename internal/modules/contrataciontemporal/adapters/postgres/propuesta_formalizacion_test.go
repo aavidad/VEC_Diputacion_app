@@ -133,6 +133,49 @@ func TestPropuestaFormalizacionPGConsultaConfirmacionYReplay(t *testing.T) {
 	}
 }
 
+func TestPropuestaFormalizacionPGSucesorNormalizaUTCNoTrunca(t *testing.T) {
+	s, a, _, _ := datosPropuestaPGPrueba(t)
+	_, _, c := datosContinuacionPG(t)
+	c.Solicitud.OrganizacionRef, c.Solicitud.ExpedienteRef = s.OrganizacionRef, s.ExpedienteRef
+	c.LlamamientoAnteriorRef = a.Justificante.Seleccion.LlamamientoRef
+	c.ReciboBolsa.ConfirmadaEn = a.Justificante.Seleccion.ConfirmadaEn.Add(time.Second)
+	c.ConfirmadaEn = c.ReciboBolsa.ConfirmadaEn.Add(time.Microsecond)
+	a.Justificante.Continuacion = &c
+	s.LlamamientoRef, a.Resolucion.Solicitud.LlamamientoRef = c.ReciboBolsa.LlamamientoRef, c.ReciboBolsa.LlamamientoRef
+	a.Justificante.Respuesta.Solicitud.LlamamientoRef = s.LlamamientoRef
+	if err := a.ValidarPara(s); err != nil {
+		t.Fatal("fixture sucesor", err)
+	}
+	tx := &transaccionEjecucionSeleccionO6Prueba{}
+	permisos := 0
+	p := &proveedorPropuestaPGPrueba{autorizar: func(_ context.Context, m ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		permisos++
+		return materialPropuestaPGPrueba(t, m, AccionPropuestaFormalizacion), nil
+	}}
+	repo := &RegistroPropuestaFormalizacionPostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: p}
+	canon, _ := json.Marshal(a)
+	// Solo las dos fechas añadidas. No convertir ceros de la estructura Go:
+	// la aceptación SQL conserva IntencionSiguiente={}, no una fecha cero local.
+	salida := string(canon)
+	for _, fecha := range []time.Time{c.ConfirmadaEn, c.ReciboBolsa.ConfirmadaEn} {
+		utc := fecha.Format(time.RFC3339Nano)
+		salida = strings.ReplaceAll(salida, utc, strings.TrimSuffix(utc, "Z")+"+00:00")
+	}
+	tx.fila = filaEjecucionSeleccionO6Prueba{valores: []any{salida}}
+	for i := 1; i <= 2; i++ {
+		leido, err := repo.LeerAntecedente(context.Background(), s)
+		if err != nil || !reflect.DeepEqual(leido, a) || permisos != i || tx.confirmaciones != i {
+			t.Fatal("continuación no preservada con permiso nuevo", err)
+		}
+	}
+	c.ConfirmadaEn = c.ConfirmadaEn.Add(time.Nanosecond)
+	canon, _ = json.Marshal(a)
+	tx.fila = filaEjecucionSeleccionO6Prueba{valores: []any{string(canon)}}
+	if _, err := repo.LeerAntecedente(context.Background(), s); err == nil || tx.confirmaciones != 2 {
+		t.Fatal("se truncó fecha no canónica")
+	}
+}
+
 func TestPropuestaFormalizacionPGFalloNoConfirmaNiFiltra(t *testing.T) {
 	s, _, m, original := datosPropuestaPGPrueba(t)
 	for _, caso := range []string{"permiso", "etapa", "proveedor", "recibo", "sql", "commit", "cancelacion"} {

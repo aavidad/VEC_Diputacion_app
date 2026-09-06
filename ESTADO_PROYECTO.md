@@ -5,7 +5,7 @@
 Primer PDF del objetivo 9 publicado en `5c57b29f`.
 AD3-21 cerrada en `975f0c16`, resolución publicada en `9e692f80`.
 Objetivo 9, seis PDF borradores, publicado en `c82a3068`. Esta revisión incorpora
-la aceptación manual sintética del sucesor CT64, tras la declaración CT63 publicada en `7d665ae3`;
+la propuesta desde la aceptación del sucesor CT65, tras la aceptación CT64 del corte `117c9fb9`;
 el hash publicado se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
@@ -147,10 +147,16 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   CT64: aceptación manual sintética del sucesor confirmada CT+Bolsa mediante recuperación con la misma clave;
   primer `503` había conservado CT, no completado Bolsa. Ocho POST `200` antes y después del reinicio principal,
   mismos recibo/fecha/evaluación/auditoría; tres resoluciones CT y ocho operaciones/historias/outbox Bolsa,
-  antecedentes intactos. Versión resultante `3`, expediente `6`. CT64 instalada en ambas bases:
+  antecedentes intactos. En aquel corte, versión resultante `3`, expediente `6`. CT64 instalada en ambas bases:
   no reaplicar ni DOWN con resolución sucesora, sin SQL remoto.
   [Octava operación y evidencia](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
-  Faltan vencimiento, envío corporativo y plazo; propuesta desde esta aceptación en estudio, no realizada.
+  CT65: ocho antecedentes `200` y propuesta `201`; tras reiniciar app/PostgreSQL principal, nueve `200`,
+  mismos recibo/fecha/v7 e historia. Expediente `fe4934a1…`, `6→7`, nombramiento/en_curso;
+  versión esperada de solicitud siempre `6`. Dos propuestas, 55 actuaciones y 55 outbox globales (+1 cada uno).
+  Tres respuestas/comunicaciones/resoluciones, ocho Bolsa, propuesta original y trece versiones previas intactas.
+  CT65 instalada en ambas bases; no reaplicar ni DOWN con propuesta sucesora, sin SQL remoto.
+  [Novena operación del panel, no noveno paso RRHH](GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+  Faltan vencimiento, envío corporativo y plazo legal; seis PDF cerrados, no repetidos en este corte.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
   nombramiento, incorporación o producción.
   El criterio manual de desarrollo sigue provisional, no aprobado por el operador.
@@ -193,7 +199,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Cerrado funcionalmente solo en ejercicio manual sintético: `201` y recuperación `200` tras reinicio, mismos recibo e intención pendiente, sin duplicados. No política legal aprobada |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Continuación, aviso CT62, declaración CT63 y aceptación manual sintética CT64 recuperados tras reinicio principal: ocho `200`, recibos e historia intactos. Sin tercer llamamiento, envío, entrega ni vencimiento |
-| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
+| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Caso original y sucesor CT65 recorridos: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7 en cada caso; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Cerrado funcionalmente en desarrollo: 6/6 borradores; diez POST `200` antes/después del reinicio principal, PDF e historial idénticos. Siguiente 10, sujeto a fuente/circuito de firma admitido. Sin firmas, envío, entrega, plazo legal, incorporación ni otro paso RRHH completo |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |

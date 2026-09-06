@@ -246,7 +246,7 @@ async function abrirResolucionSucesor(raiz, cliente = {}, extras = {}, opcion = 
   const cerrar = await abrirRespuestaSiguiente(raiz, justificanteSiguiente, { ...extras,
     confirmarOperacion: (d) => d.datos.prueba_respuesta_ref === justificante({}).justificante_ref
       ? true : (extras.confirmarOperacion?.(d) ?? true),
-  }, { resolverLlamamiento: (s, opciones) => s.comunicacion_ref === avisoSiguienteRegistrado.comunicacion_ref
+  }, { ...cliente, resolverLlamamiento: (s, opciones) => s.comunicacion_ref === avisoSiguienteRegistrado.comunicacion_ref
     ? cliente.resolverLlamamiento(s, opciones) : reciboResolucion("renuncia") });
   await raiz.archivo(archivoCorreo(opcion), "respuesta_siguiente");
   await raiz.enviar("respuesta_siguiente", { ...declaracionSiguiente(), respuesta: opcion });
@@ -254,24 +254,34 @@ async function abrirResolucionSucesor(raiz, cliente = {}, extras = {}, opcion = 
     revision_respuesta_rrhh: false, revision_plazo_rrhh: false });
   return cerrar;
 }
-for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "conflicto", "tardia"]) test(`propuesta ${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {
-  const raiz = raizPrueba(), solicitudes = []; let lecturas = 0, confirmar = false, liberar, avisar, señal;
+for (const sucesor of [false, true])
+for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fecha_anterior", "conflicto", "tardia"]) test(`propuesta ${sucesor ? "sucesor" : "original"}/${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {
+  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let lecturas = 0, confirmar = false, liberar, avisar, señal;
   const inicio = new Promise((resolve) => { avisar = resolve; });
-  const operacionId = "123e4567-e89b-42d3-a456-426614174005";
+  const operacionId = sucesor ? "123e4567-e89b-42d3-a456-426614174009" : "123e4567-e89b-42d3-a456-426614174005";
+  const operacionResolucion = sucesor ? "resolucion_siguiente" : "resolucion";
+  const resolucionId = sucesor ? CLAVE_RESOLUCION_SIGUIENTE : CLAVE_RESOLUCION;
+  const aceptacion = sucesor ? reciboResolucionSucesor("aceptacion") : resolucionConfirmada;
+  const llamamientoRef = sucesor ? continuacionConfirmada.llamamiento_ref : recibo.llamamiento_ref;
+  const previos = () => [...raiz.innerHTML.matchAll(/<section[^>]*data-ct-llamamiento-recibo="(?!propuesta")[^"]+"[\s\S]*?<\/section>/gu)].map((m) => m[0]);
   const resultado = { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1", estado_local: "confirmado",
     propuesta_ref: "propuesta:sintetica:001", recibo_local_ref: "recibo:propuesta:001", version_resultante: 7,
     confirmada_en: "2026-09-06T10:00:00.123456Z" };
   const respuestaPublica = () => new Response(caso === "asset_invalido" ? "{}" : PUBLICACIONES_PROPUESTA,
     { status: 200, headers: { "Content-Type": "application/json" } });
   const opcion = caso === "renuncia" ? "renuncia" : "aceptacion";
-  const cerrar = await abrirResolucion(raiz, {
-    resolverLlamamiento: async () => reciboResolucion(opcion),
+  const cerrar = await (sucesor ? abrirResolucionSucesor : abrirResolucion)(raiz, {
+    resolverLlamamiento: async () => (sucesor ? reciboResolucionSucesor : reciboResolucion)(opcion),
     prepararPropuestaFormalizacion: async (s) => {
       solicitudes.push(s);
       if (caso === "ambiguo" && solicitudes.length === 1) throw new Error("red");
       if (caso === "conflicto") throw Object.assign(new Error(), { envelopeValido: true,
         codigo: "resolucion_no_aceptada", resultadoIndeterminado: true });
-      return { ...resultado, estado_local: solicitudes.length > 1 ? "replay_confirmado" : "confirmado" };
+      return { ...resultado, estado_local: solicitudes.length > 1 ? "replay_confirmado" : "confirmado",
+        // En sucesor, una fecha posterior a la resolución raíz pero anterior a
+        // su aceptación también debe rechazarse: se coteja el antecedente propio.
+        ...(caso === "fecha_anterior" && solicitudes.length === 1
+          ? { confirmada_en: sucesor ? "2026-09-05T09:07:00Z" : "2026-09-05T09:04:00Z" } : {}) };
     },
   }, { fetchPublicaciones: async (_, opciones) => {
     lecturas += 1; señal = opciones.signal; avisar();
@@ -279,10 +289,16 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "conf
     return respuestaPublica();
   }, confirmarOperacion: ({ titulo, advertencia }) => {
     if (!titulo.startsWith("Propuesta")) return true;
+    confirmaciones.push(advertencia);
+    assert.ok(advertencia.includes(llamamientoRef)); assert.ok(advertencia.includes(aceptacion.resolucion_ref));
     assert.match(advertencia, /borrador sin datos ni firma/u); return confirmar;
   } }, opcion);
   assert.equal(lecturas, 0); assert.equal(solicitudes.length, 0);
-  const resolviendo = raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: operacionId });
+  assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0);
+  delete raiz.borradores.propuesta;
+  const resolviendo = raiz.enviar(operacionResolucion, { clave_idempotencia: resolucionId, ...revisionManual });
   if (caso === "tardia") {
     await inicio; cerrar(); assert.equal(señal.aborted, true); liberar(respuestaPublica());
     await resolviendo; assert.equal(raiz.innerHTML, ""); assert.equal(solicitudes.length, 0); return;
@@ -294,20 +310,33 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "conf
     else assert.match(raiz.innerHTML, /Publicaciones de formalización no disponibles/u);
     cerrar(); return;
   }
+  const anteriores = previos(); assert.equal(anteriores.length, sucesor ? 8 : 4);
   assert.equal(lecturas, 1); assert.match(raiz.innerHTML, /id="ct-llamamiento-propuesta-version_esperada"[^>]*value="6"[^>]*readonly/u);
-  await raiz.enviar("propuesta", { clave_idempotencia: CLAVE_RESOLUCION }); assert.equal(solicitudes.length, 0);
+  assert.equal([...raiz.innerHTML.matchAll(/data-ct-llamamiento-form="propuesta"/gu)].length, 1);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:propuesta_siguiente|siguiente_siguiente)"/u);
+  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
+    ...(sucesor ? [solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia,
+      declaracionSiguiente().clave_idempotencia, CLAVE_RESOLUCION_SIGUIENTE] : [])])
+    await raiz.enviar("propuesta", { clave_idempotencia });
+  assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0);
   await raiz.enviar("propuesta", { clave_idempotencia: operacionId }); assert.equal(solicitudes.length, 0);
   confirmar = true;
   await raiz.enviar("propuesta", { clave_idempotencia: operacionId, version_esperada: 3, expediente_ref: "expediente:ajeno",
+    llamamiento_ref: "llamamiento:ajeno", resolucion_llamamiento_aceptada_ref: "resolucion:ajena",
+    recibo_resolucion_aceptada_ref: "recibo:ajeno",
     tipo_formalizacion: {}, plantilla: {}, politica_firma: {}, plan_firma: {}, anexos: [{}] });
-  assert.equal(solicitudes.length, 1); assert.equal(solicitudes[0].version_esperada, 6); assert.equal(solicitudes[0].expediente_ref, EXPEDIENTE); assert.equal(solicitudes[0].llamamiento_ref, recibo.llamamiento_ref); assert.equal(solicitudes[0].resolucion_llamamiento_aceptada_ref, resolucionConfirmada.resolucion_ref);
-  assert.equal(solicitudes[0].recibo_resolucion_aceptada_ref, resolucionConfirmada.recibo_local_ref); assert.equal(Object.keys(solicitudes[0]).length, 11); assert.ok(Object.isFrozen(solicitudes[0].plantilla)); assert.deepEqual(solicitudes[0].anexos, []);
+  assert.equal(solicitudes.length, 1); assert.equal(solicitudes[0].version_esperada, 6); assert.equal(solicitudes[0].expediente_ref, EXPEDIENTE); assert.equal(solicitudes[0].llamamiento_ref, llamamientoRef); assert.equal(solicitudes[0].resolucion_llamamiento_aceptada_ref, aceptacion.resolucion_ref);
+  assert.equal(solicitudes[0].recibo_resolucion_aceptada_ref, aceptacion.recibo_local_ref); assert.equal(Object.keys(solicitudes[0]).length, 11); assert.ok(Object.isFrozen(solicitudes[0])); assert.ok(Object.isFrozen(solicitudes[0].plantilla)); assert.deepEqual(solicitudes[0].anexos, []);
   if (caso !== "confirmado") assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="propuesta"/u);
   await raiz.enviar("propuesta", { clave_idempotencia: CLAVE, version_esperada: 99 });
-  assert.equal(solicitudes.length, caso === "ambiguo" ? 2 : 1);
-  if (caso === "ambiguo") assert.deepEqual(solicitudes[0], solicitudes[1]);
+  assert.equal(solicitudes.length, ["ambiguo", "fecha_anterior"].includes(caso) ? 2 : 1);
+  if (["ambiguo", "fecha_anterior"].includes(caso)) {
+    assert.strictEqual(solicitudes[0], solicitudes[1]);
+    assert.match(raiz.innerHTML, /Recuperado sin repetir el efecto/u);
+    assert.equal(solicitudes[1].version_esperada, 6); assert.match(raiz.innerHTML, /2026-09-06T10:00:00.123456Z/u);
+  }
   if (caso !== "conflicto") assert.match(raiz.innerHTML, /Propuesta registrada · ejercicio sintético/u);
-  assert.equal(lecturas, 1); cerrar();
+  assert.deepEqual(previos(), anteriores); assert.equal(lecturas, 1); cerrar();
 });
 test("siguiente exige renuncia, clave propia y confirmación; no modifica recibos ni la primera comunicación", async () => {
   const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false, claves = 0;
@@ -713,7 +742,9 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
     assert.match(resultado, /intencion:sucesor:003/u); assert.match(resultado, /No se ha seleccionado ni avisado a otra persona/u);
     assert.doesNotMatch(resultado, /Recibo histórico de renuncia/u);
   } else assert.doesNotMatch(resultado, /intencion:sucesor:003/u);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:propuesta|siguiente_siguiente)"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:propuesta_siguiente|siguiente_siguiente)"/u);
+  if (respuesta === "renuncia") assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  else assert.match(raiz.innerHTML, /Publicaciones de formalización no disponibles/u);
   assert.equal([...raiz.innerHTML.matchAll(/data-ct-llamamiento-form="siguiente"/gu)].length, 1);
   assert.doesNotMatch(formulario(), /type="submit"/u);
   await raiz.enviar("resolucion_siguiente", valores); assert.equal(solicitudes.length, 1); cerrar();

@@ -284,6 +284,14 @@ dos resoluciones CT anteriores y siete Bolsa anteriores intactas. No atribuir `2
 [Octava operación, huella y límites](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
 Cero JS/cookies/storage/desbordamiento; dirección inspeccionó desktop/móvil 390 px, solo principal, sin repetir PDF.
 
+CT65 instalada en ambas bases locales; no reaplicar ni ejecutar DOWN con propuesta sucesora, sin SQL remoto.
+Principal: ocho antecedentes `200` y propuesta `201`; tras el único reinicio app/PostgreSQL, nueve `200`,
+mismos recibo/fecha/v7 e historia. Dos propuestas, 55 actuaciones y 55 outbox globales (+1 cada uno);
+tres respuestas/comunicaciones/resoluciones, ocho Bolsa, propuesta original y trece versiones previas intactas.
+El parche CT60 solo permite recuperar una apertura existente desde v7, con permiso nuevo; nunca abrir otra.
+[Recuperación, huella de fila completa y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+Sin nuevas conexiones ni repetición de SQL65/64 o PDF; no atribuir este E2E a secundaria.
+
 AD3-20/CT61 instaladas en ambas bases por dirección; no reaplicar. La propuesta
 consume permiso propio fresco antes de lecturas/replay y conserva actor, perfil,
 material y recibo. Agregado `nombramiento/en_curso/v7`; una actuación v7 y un outbox.
@@ -422,8 +430,8 @@ La quinta operación abre el siguiente llamamiento solo tras renuncia sintética
 confirmación explícita; no envía aviso. La sexta registra por separado el aviso local
 del sucesor; la séptima declara su respuesta y la octava permite resolverla con dos revisiones explícitas,
 política sintética fija y permisos propios, conservando los recibos previos. Sin otro `.eml`.
-La propuesta del caso original se ofrece solo tras aceptación confirmada, con referencias derivadas,
-versión esperada `6` incluso para replay en `7` y clave original de la guía.
+La propuesta se ofrece en el mismo formulario tras aceptación original o sucesora confirmada, con referencias derivadas,
+versión esperada `6` incluso para replay en `7` y clave original del caso correspondiente en la guía.
 Los seis borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
 Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**,
 **Descargar resolución · borrador de desarrollo**, **Descargar diligencia · borrador de desarrollo**,
@@ -434,7 +442,7 @@ No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exa
 Comunicación al centro: diez POST `200` antes y después del reinicio principal, seis PDF e historial
 idénticos. Evidencia en la guía, no atribuida a secundaria ni a envío u orden de incorporación.
 Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida. Siguen pendientes
-vencimiento, envío corporativo y plazo legal; propuesta desde la aceptación del sucesor en estudio, no realizada.
+vencimiento, envío corporativo y plazo legal; propuesta desde la aceptación del sucesor CT65 ya recuperable tras reinicio.
 No hay política legal aprobada, firma ni tercer llamamiento automático.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.

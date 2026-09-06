@@ -82,6 +82,10 @@ func (r *RegistroPropuestaFormalizacionPostgreSQL) LeerAntecedente(ctx context.C
 		j.Seleccion.ConfirmadaEn = j.Seleccion.ConfirmadaEn.UTC()
 		e := &j.Seleccion.Procedencia.Evidencia
 		e.EmitidaEn, e.ValidaHasta, e.RetenerHasta = e.EmitidaEn.UTC(), e.ValidaHasta.UTC(), e.RetenerHasta.UTC()
+		if c := j.Continuacion; c != nil {
+			c.ConfirmadaEn = c.ConfirmadaEn.UTC()
+			c.ReciboBolsa.ConfirmadaEn = c.ReciboBolsa.ConfirmadaEn.UTC()
+		}
 		return resultado.ValidarPara(s)
 	})
 	if err != nil {

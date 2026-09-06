@@ -96,9 +96,13 @@ func (e EvidenciaAceptacionBolsaPropuesta) Validar() error {
 
 func (e EvidenciaAceptacionBolsaPropuesta) ValidarPara(a AntecedentePropuestaFormalizacion) error {
 	r := a.Resolucion
+	apertura := a.Justificante.Seleccion.OperacionRef
+	if c := a.Justificante.Continuacion; c != nil {
+		apertura = c.ReciboBolsa.OperacionRef
+	}
 	if e.Validar() != nil || r.ValidarPara(r.Solicitud) != nil ||
 		r.Solicitud.Respuesta != RespuestaLlamamientoAceptada || a.Justificante.ValidarPara(r.Solicitud) != nil ||
-		e.AperturaOperacionRef != a.Justificante.Seleccion.OperacionRef ||
+		e.AperturaOperacionRef != apertura ||
 		e.LlamamientoRef != r.Solicitud.LlamamientoRef || e.JustificanteRef != r.Solicitud.PruebaRespuestaRef ||
 		e.EvaluacionPlazoRef != r.EvaluacionPlazoRef ||
 		e.Politica != (SnapshotGobernadoFormalizacion{Referencia: r.Politica.Referencia, Version: r.Politica.Version, HuellaSHA256: r.Politica.HuellaSHA256}) ||

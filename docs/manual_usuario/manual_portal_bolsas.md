@@ -353,14 +353,22 @@ Recupere las siete operaciones anteriores y use la octava con la clave original 
 [guía](../../GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64).
 El panel deriva la respuesta y el justificante; no los edite. Marque las dos revisiones explícitas,
 inicialmente vacías, de respuesta/justificante y plazo del ejercicio sintético, y confirme sin otro `.eml`.
-La aceptación solo se confirma tras CT y Bolsa: versión resultante `3`, expediente conservado en `6`.
+La aceptación solo se confirma tras CT y Bolsa: en CT64, versión resultante `3`, expediente conservado en `6`.
 El primer `503` se recuperó con la misma clave, sin regenerar evaluación: ocho POST `200` antes y después
 del reinicio principal, mismos recibo/fecha/evaluación/auditoría, sin duplicados.
 Ante ambigüedad conserve clave/material; el `409` pendiente conocido, sin ambigüedad previa, permite corregir casillas, no cambiar clave.
-No acredita envío, plazo legal ni firma; no activa propuesta ni tercer llamamiento.
-Propuesta desde esta aceptación en estudio, no realizada. La métrica sigue en **5/8 más partes del sexto y séptimo**.
+No acredita envío, plazo legal ni firma; no registra propuesta ni tercer llamamiento automáticamente.
+CT65 permite la propuesta separada descrita debajo. La métrica sigue en **5/8 más partes del sexto y séptimo**.
 
 ### Propuesta de nombramiento tras aceptación
+
+Para el sucesor aceptado, recupere las ocho operaciones previas y use **Propuesta de nombramiento · desarrollo**,
+el mismo formulario, novena operación del panel. [Clave y datos CT65](../../GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65).
+Revise los antecedentes derivados y las publicaciones; confirme con su clave original y versión esperada `6`,
+también al recuperar desde `7`. Ocho antecedentes `200` y propuesta `201`; tras reinicio principal,
+nueve `200`, mismos recibo/fecha/v7 e historia, sin duplicados. Propuesta original conservada.
+Mantenga clave/material ante ambigüedad; no eluda conflictos con otra clave. Sin firma, envío, plazo legal ni incorporación;
+no es un noveno paso RRHH ni acredita nuevas descargas de los seis PDF ya cerrados.
 
 Para el caso original de la guía, el mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
 aceptación confirmada, nunca renuncia. Referencias y publicaciones no son editables;

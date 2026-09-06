@@ -164,7 +164,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${estado.resolucion.recibo?.respuesta === "aceptacion" && estado.seleccion.solicitud?.version_esperada === 6
+    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && estado.seleccion.solicitud?.version_esperada === 6
       ? formulario("propuesta", CAMPOS_PROPUESTA) : ""}
   </section>`;
 }

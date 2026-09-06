@@ -43,7 +43,7 @@ func motivoContinuacionDesarrollo(bolsa bool) dominiovec.ReferenciaEntradaCatalo
 
 func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, existe := ctx.Value(claveMaterialContinuacionDesarrollo{}).(ports.MaterialContinuacionLlamamiento)
-	if !existe || m.Validar() != nil || p.expediente.VersionActual != 6 ||
+	if !existe || m.Validar() != nil ||
 		!expedienteComunicacionLlamamientoDesarrolloValido(p.expediente, ports.SolicitudRegistrarComunicacionLlamamiento{
 			OrganizacionRef: m.Solicitud.OrganizacionRef, ExpedienteRef: m.Solicitud.ExpedienteRef}) {
 		return false
@@ -59,7 +59,8 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 		}
 		if m.Etapa == "confirmacion" {
 			l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
-			if !ok || l.solicitud != m.Solicitud || !antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
+			if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
+				!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
 				l.justificante.ValidarPara(l.antecedente.Resolucion.Solicitud) != nil ||
 				m.ReciboBolsa.OperacionRef != operacionSiguienteDesarrollo(m.Solicitud) ||
 				m.ReciboBolsa.TerminalOperacionRef != terminalContinuacionDesarrollo(l) ||
@@ -70,7 +71,8 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 		return igual(postgresct.RecursoContinuacionLlamamiento(m))
 	}
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
-	if !ok || l.solicitud != m.Solicitud || !antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
+	if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
+		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.antecedente.Resolucion.Solicitud) {
 		return false
 	}

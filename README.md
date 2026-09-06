@@ -95,7 +95,13 @@ un `503` con CT persistido y Bolsa pendiente. Ocho POST `200` antes y después d
 mismos recibo/fecha/evaluación/auditoría, tres resoluciones CT y ocho operaciones Bolsa, sin duplicados.
 CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
 [Octava operación](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64):
-expediente `6`, versión resultante `3`; propuesta desde esta aceptación en estudio, no automática.
+expediente `6` en CT64, versión resultante de resolución `3`.
+CT65: propuesta del sucesor recorrida, ocho antecedentes `200` y propuesta `201`;
+tras reinicio principal app/PostgreSQL, nueve `200`, mismos recibo/fecha/v7 e historia.
+Expediente `fe4934a1…` ahora `nombramiento/en_curso/v7`; solicitud conserva versión esperada `6`.
+CT65 instalada en ambas bases, no reaplicar ni DOWN con propuesta sucesora.
+[Novena operación del panel](GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65),
+sin otro paso RRHH completo, firma, envío, plazo legal ni incorporación. Propuesta original intacta.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación

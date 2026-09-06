@@ -75,6 +75,10 @@ CT64 confirma separadamente la aceptación manual sintética del sucesor: recupe
 ocho POST `200` antes y después del reinicio principal; mismos recibo/fecha/evaluación/auditoría e historia.
 [Octava operación y recuperación del primer `503`](#resolución-manual-del-sucesor-ct64).
 CT64 instalada en ambas bases, no reaplicar ni DOWN con resolución sucesora; sin SQL remoto.
+CT65 incorpora la propuesta del sucesor: ocho antecedentes `200` y propuesta `201`;
+tras reiniciar app/PostgreSQL principal, nueve `200`, mismos recibo/fecha/v7 e historia.
+[Novena operación del panel, clave y evidencia](#propuesta-desde-la-aceptación-del-sucesor-ct65).
+No es un noveno paso RRHH: siguen **5/8 más partes del sexto y séptimo**.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -301,6 +305,7 @@ el mismo formulario de llamamiento y recupere, en orden, las cuatro operaciones:
 | Aviso local al sucesor (CT62) | `a77d3f10-a635-46fd-b9eb-a00000000006` |
 | Declaración RRHH del sucesor (CT63) | `a77d3f10-a635-46fd-b9eb-a00000000007` |
 | Resolución manual del sucesor (CT64) | `a77d3f10-a635-46fd-b9eb-a00000000008` |
+| Propuesta desde aceptación del sucesor (CT65) | `a77d3f10-a635-46fd-b9eb-a00000000009` |
 
 El recibo de selección identifica
 `llamamiento:nccfkjnioljdeikkpipkcgcpilbogjnociankdfbapmnaekanagbiioaahphbmgj`.
@@ -478,7 +483,7 @@ no se atribuye un `201` ni una aceptación completa al intento fallido.
 | Evaluación | `evaluacion:409ebaed-71ee-418f-be7c-4025729222c7` |
 | Auditoría | `aud_v3_42ae013bb945deb79a258006391db31c` |
 | Resuelta en UTC | `2026-09-06T04:52:46.758226Z` |
-| Versión resultante | `3`; el expediente permanece en `6` |
+| Versión resultante | `3`; expediente `6` al cierre CT64, antes del avance CT65 a `7` |
 
 SHA256 del recibo en PostgreSQL:
 `f8a0b0c80db4797eeee0216ea020d6925a001422866d90d0c5bd19c4be01952d`.
@@ -490,12 +495,49 @@ las siete Bolsa anteriores, tres respuestas, tres comunicaciones y dos resolucio
 Cero errores JS, cookies, almacenamiento web y desbordamiento; dirección inspeccionó recibo desktop y móvil 390 px.
 Capturas privadas; navegador acreditado solo en principal. No se repitieron los seis PDF cerrados.
 CT64 instalada en ambas bases locales: no reaplicar ni ejecutar DOWN con resolución sucesora; sin SQL remoto.
-Sin envío, plazo legal, firma, propuesta automática ni tercer llamamiento. Propuesta desde esta aceptación
-en estudio, no realizada. Métrica **5/8 más tramos del sexto y séptimo**, sin incremento.
+Sin envío, plazo legal, firma, propuesta automática ni tercer llamamiento. La propuesta posterior
+se recupera por separado como CT65. Métrica **5/8 más tramos del sexto y séptimo**, sin incremento.
+
+### Propuesta desde la aceptación del sucesor CT65
+
+En el caso `fe4934a1…`, recupere los ocho antecedentes con sus claves originales de la tabla.
+La aceptación del sucesor es `resolucion:c1d55777-ce6c-49e6-a7fc-3eaac0f728bb`,
+recibo `recibo:de377a72-ace7-4365-b865-f9384a4c3196`. Solo después aparece el formulario común
+**Propuesta de nombramiento · desarrollo** (`data-ct-llamamiento-form="propuesta"`):
+novena operación del panel, no otro paso RRHH ni formulario paralelo.
+Use **`a77d3f10-a635-46fd-b9eb-a00000000009`** y conserve **versión esperada `6`, incluso en replay desde `7`**.
+Antecedentes y cuatro publicaciones se derivan; no se editan. Espere su carga, revise el llamamiento
+y la resolución mostrados y confirme expresamente, sin otro `.eml`. No se registra automáticamente.
+Ante ambigüedad conserve clave/material; ningún `409` autoriza otra clave para eludirlo.
+
+| Propuesta del sucesor | Valor conservado tras reinicio principal |
+| --- | --- |
+| Propuesta | `propuesta:e3e68788-3fa8-46fb-ba94-c4ded2ef4196` |
+| Recibo | `recibo:6e3602be-22d9-42d9-b32a-fe80ee4103b0` |
+| Confirmada en UTC | `2026-09-06T08:45:03.718917Z` |
+| Auditoría persistida | `aud_v3_6b305700ef115f74637e0f81b21fcdbb` |
+| Expediente | `6→7`, `nombramiento/en_curso` |
+
+Navegador: **ocho antecedentes `200` y propuesta `201`**; cruce con llamamiento anterior,
+`409 resolucion_no_aceptada`, sin efecto. Tras el único reinicio app/PostgreSQL principal:
+**nueve `200`**, mismos recibo/fecha/v7 e historia exacta; los cuatro campos de referencia,
+recibo, fecha y versión vistos en navegador coinciden con PostgreSQL.
+SHA256 de la **fila completa de propuesta**, no del recibo:
+`1eac65a224e7e36d43302565667f2e30a55c8720c1f895d957cbfd0b45c4dfe4`.
+Recuentos globales: dos propuestas, 55 actuaciones y 55 outbox (+1 cada uno); tres respuestas,
+tres comunicaciones, tres resoluciones y ocho Bolsa sin cambios. Propuesta original y trece
+versiones previas conservan sus huellas. La primera interrupción del arnés fue al capturar un DOM
+desmontado, antes del POST de propuesta: baseline intacto, corregido solo el arnés.
+Cero errores JS, cookies, almacenamiento web y desbordamiento; dirección inspeccionó desktop
+y recibo tras reinicio en móvil 390 px. Capturas privadas durables; E2E acreditado solo en principal.
+CT65 instalada en ambas bases: no reaplicar ni ejecutar DOWN con propuesta sucesora; sin SQL remoto.
+El ajuste CT60 permite desde v7 únicamente recuperar la apertura Bolsa existente con permiso nuevo,
+no abrir otra. No repetir SQL65/64 ni los seis PDF cerrados. Sin firma, envío, plazo legal ni incorporación;
+métrica **5/8 más partes del sexto y séptimo**, sin incremento.
 
 ### Objetivo 8: recuperar la propuesta de nombramiento
 
-Use el caso de aceptación, no el de renuncia: expediente
+Para recuperar la propuesta del caso original de aceptación, use el expediente
 `expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001`.
 Recupere en el mismo panel los cuatro antecedentes descritos arriba; la operación
 `data-ct-llamamiento-form="propuesta"` aparece solo tras aceptación confirmada.
