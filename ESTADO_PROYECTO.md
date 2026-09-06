@@ -2,6 +2,33 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
+**Entrega solicitada por el operador: aplicación funcional para presentación,
+no puesta en producción.** El cierre de esta entrega exige recorrer los ocho
+pasos desde el navegador con datos sintéticos, persistencia y recibos reales,
+centro/personas responsables identificados y manual de demostración. No basta
+una pantalla de muestra. Correo corporativo, firma oficial, datos reales y
+conexión automática a GINPIX no bloquean esta entrega: se emplean avisos locales
+visibles, borradores claramente marcados, actuaciones sintéticas explícitas y
+ficha descargable. Nunca se presentan como envío, firma o nombramiento legal.
+Las decisiones configuradas para el ejercicio son de desarrollo y sustituibles;
+no se inventan reglas jurídicas. La autorización productiva queda fuera de este
+cierre, sin perder su lista de dependencias. Se mantienen los ocho pasos y la
+cola funcional existente; no se reabren capacidades terminadas.
+
+La presentación se construye sobre la aplicación final: mismo dominio,
+formularios, casos de uso, persistencia e historial. No se crea una maqueta
+desechable ni una segunda implementación. Identidades sintéticas, avisos locales
+y modelos documentales de desarrollo quedan en configuración/adaptadores
+sustituibles; los conectores corporativos se incorporarán por los mismos puertos.
+
+Cada sustitución de presentación debe explicarse en el paso afectado y en los
+manuales: qué se ha realizado, qué no, y qué conector o actuación se requiere
+para uso real. Ejemplo: «Documento generado y guardado, sin firma electrónica;
+para uso real debe incorporarse la firma mediante certificado o servicio
+corporativo que se establezca». La autenticación con certificado no constituye
+la firma de un documento. No indicar como aprobada una alternativa todavía
+pendiente de concretar con la Diputación.
+
 Petición funcional posterior del operador: centros y categorías de la RPT,
 organización editable y ratificación previa según cada unidad, sin niveles
 obligatorios inexistentes. Primer corte: consulta real de los 41 centros de
@@ -30,6 +57,15 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
 
 ## Punto de partida comprobado
 
+- Circuito previo del centro demostrado: presentación y ratificación con dos
+  certificados sintéticos distintos, formulario real, autorización, PostgreSQL
+  y recibos. Tras reiniciar aplicación y base principal, ambos reintentos200
+  conservan recibo/fecha: una petición, dos revisiones/eventos, 51 expedientes
+  previos intactos. Autorización23/Contratación67 ya tienen historia; no revertir.
+  Dos revisiones independientes de las zonas sensibles cerradas sin bloqueos.
+  Siguiente incremento observable: entregar la petición ratificada al alta
+  existente de RRHH. No crear otro alta ni duplicar código entre ramas.
+  Métrica sin cambio: cinco pasos completos y partes del sexto/séptimo.
 - Publicado: cinco pasos del procedimiento de RRHH y parte del sexto
   (selección, apertura de llamamiento y aviso local), con datos sintéticos.
 - Manuales de usuario, RRHH, programación y Sistemas publicados en

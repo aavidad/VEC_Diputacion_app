@@ -1,0 +1,43 @@
+.peticiones-centro-app { min-width: 320px; }
+.pc-barra { display:flex; gap:18px; align-items:center; padding:14px clamp(16px,4vw,42px); background:var(--portal-azul-950); color:#fff; }
+.pc-marca { color:#fff; font-weight:800; text-decoration:none; }
+.pc-contenido { max-width:1440px; margin:auto; padding:24px clamp(14px,3vw,38px) 40px; }
+.pc-pie { padding:18px; color:var(--portal-muted); text-align:center; font-size:.85rem; }
+.pc-cabecera, .pc-panel { padding:20px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); background:var(--portal-superficie); box-shadow:var(--portal-sombra-sm); }
+.pc-cabecera { margin-bottom:16px; }
+.pc-cabecera h1 { margin:4px 0 8px; line-height:1.15; }
+.pc-cabecera p { max-width:78ch; margin:0; color:var(--portal-muted); }
+.pc-etiquetas { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.pc-etiqueta { display:inline-flex; padding:5px 9px; border:1px solid var(--portal-borde); border-radius:999px; background:var(--portal-cian-suave); color:var(--portal-tinta); font-size:.8rem; font-weight:700; }
+.pc-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:16px; align-items:start; }
+.pc-panel h2 { margin-top:0; }
+.pc-tabla-wrap { overflow:auto; }
+.pc-tabla { width:100%; border-collapse:collapse; min-width:680px; }
+.pc-tabla th, .pc-tabla td { padding:10px 9px; border-bottom:1px solid var(--portal-borde); text-align:left; vertical-align:top; }
+.pc-tabla th { background:var(--portal-fondo); color:var(--portal-muted); font-size:.78rem; }
+.pc-tabla tr[aria-selected=true] { background:var(--portal-azul-100); }
+.pc-tabla button { color:var(--portal-azul-800); font-weight:700; }
+.pc-estado { display:inline-block; padding:4px 8px; border-radius:5px; font-size:.78rem; font-weight:750; }
+.pc-estado-pendiente { background:var(--portal-aviso-suave); color:var(--portal-aviso); }
+.pc-estado-ratificada { background:var(--portal-exito-suave); color:var(--portal-exito); }
+.pc-detalle dl { display:grid; grid-template-columns:minmax(110px,.7fr) minmax(0,1.3fr); gap:8px 12px; }
+.pc-detalle dt { color:var(--portal-muted); font-weight:700; }
+.pc-detalle dd { margin:0; overflow-wrap:anywhere; }
+.pc-acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+.pc-aviso { padding:12px; border-left:4px solid var(--portal-aviso); background:var(--portal-aviso-suave); }
+.pc-error { padding:12px; border-left:4px solid var(--portal-peligro); background:var(--portal-peligro-suave); }
+.pc-recibo { border-left:4px solid var(--portal-exito); background:var(--portal-exito-suave); }
+.pc-pendiente { border-left:4px solid var(--portal-aviso); background:var(--portal-aviso-suave); }
+.pc-cargando { color:var(--portal-muted); }
+.pc-detalle input:not([type=checkbox]) { display:block; box-sizing:border-box; width:100%; margin:8px 0; padding:10px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); font:inherit; }
+.pc-confirmacion { display:flex; align-items:center; gap:8px; margin-top:18px; }
+.pc-recibo { margin-bottom:16px; }
+.pc-recibo dd, .pc-tabla td:first-child { overflow-wrap:anywhere; }
+.pc-recibo dt { font-weight:700; margin-top:8px; }
+.pc-recibo dd { margin-left:0; }
+.pc-cabecera .pc-etiquetas + p { margin-top:12px; }
+@media (max-width:1180px) { .pc-layout { grid-template-columns:1fr; } }
+@media (max-width:720px) { .pc-contenido { padding-top:14px; } .pc-panel, .pc-cabecera { padding:15px; } }
+@media (max-width:420px) { .pc-barra { align-items:flex-start; flex-direction:column; gap:3px; } .pc-detalle dl { grid-template-columns:1fr; gap:2px; } .pc-detalle dt { margin-top:8px; } .pc-acciones button { width:100%; } }
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
+@media (forced-colors:active) { .pc-etiqueta, .pc-estado { border:1px solid currentColor; } }

@@ -19,6 +19,7 @@ type identidadCertificadoDesarrollo struct {
 
 type resolvedorIdentidadDesarrollo struct {
 	porHuella map[[sha256.Size]byte]vecdomain.Principal
+	porSujeto map[string]adscripcionCentroDesarrollo
 }
 
 func nuevoResolvedorIdentidadDesarrollo(
@@ -37,7 +38,15 @@ func nuevoResolvedorIdentidadDesarrollo(
 		}
 		porHuella[identidad.huella] = clonarPrincipalDesarrollo(identidad.principal)
 	}
-	return &resolvedorIdentidadDesarrollo{porHuella: porHuella}, nil
+	return &resolvedorIdentidadDesarrollo{porHuella: porHuella, porSujeto: make(map[string]adscripcionCentroDesarrollo)}, nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) adscripcionCentro(subject string) (adscripcionCentroDesarrollo, bool) {
+	if r == nil {
+		return adscripcionCentroDesarrollo{}, false
+	}
+	a, ok := r.porSujeto[subject]
+	return a, ok
 }
 
 func (r *resolvedorIdentidadDesarrollo) ResolveDemoIdentity(

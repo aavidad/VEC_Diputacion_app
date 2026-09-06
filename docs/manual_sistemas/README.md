@@ -155,6 +155,37 @@ Consulte el
 Ninguna respuesta de salud, publicación en GitHub o credencial de desarrollo
 equivale a autorización productiva, firma oficial o aceptación de RRHH.
 
+## Presentación funcional y límites de integración
+
+La demostración usa la misma aplicación final y datos sintéticos; correo corporativo, firma y GINPIX no son prerrequisitos para presentarla.
+
+| Operación presentada | Alcance de la presentación | Requisito para uso real |
+| --- | --- | --- |
+| Certificado de cliente | Autenticación TLS/perfil de desarrollo; no firma documentos. | Identidad corporativa y asignaciones de permisos reales. |
+| Aviso local | Escritura persistente de aviso/intención en VEC; no correo enviado, entrega ni plazo. | Canal corporativo y acreditación de entrega/plazo conforme al circuito aprobado. |
+| PDF borrador | Renderizado preparatorio; no documento oficial ni nombramiento eficaz. | Plantillas oficiales y firma con certificado o servicio corporativo admitido, con circuito y evidencia aún pendientes de determinar. |
+| Fichero GINPIX | Artefacto de desarrollo; no hay conexión ni transmisión automática. | Integración o carga autorizada y confirmación del sistema destino. |
+
+La [petición y ratificación del centro](../../GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
+está comprobada en principal con PostgreSQL y reinicio. Requiere autorización23
+y Contratación67, en ese orden; aquí ya tienen historia y no deben reaplicarse
+ni revertirse. No está instalada en la instancia secundaria ni en el servidor remoto.
+
+La composición utiliza el fichero privado opcional `identidad/centros.json`
+dentro del material existente: `version:1`, `autoridad:"no_autoritativo"` y
+`entradas` con rutas relativas `certificate`, `identity`, `role`, `centro_ref`
+y `puesto_ref`. Los roles son `solicitante_centro` y `ratificador_centro`; solo
+el solicitante incluye `ratificador_subject`, referido a la otra identidad.
+Cada certificado debe pertenecer a la CA local y a su identidad privada
+correspondiente. No reutilice certificados RRHH ni Intervención. Archivos0600,
+directorio0700, sin enlaces, claves ni contraseñas en Git. Para Firefox, use
+certificados cliente compatibles con su almacén, como P-256.
+
+Se requiere `VEC_PERSONAL_ORGANIZACION_POSTGRESQL=1`. Con0 no se compone este
+circuito; con1 y configuración presente se comprueban centro/puesto en Personal
+al arrancar y antes de operar. Los cambios de relación nominal se cargan al
+reiniciar; no conceda permisos a partir de denominaciones del organigrama.
+
 ## 1. Comprobaciones al comenzar
 
 | Requisito | Comprobación y límite |

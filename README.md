@@ -145,6 +145,12 @@ revisión y recibo persistentes. Alta y edición sintéticas comprobadas tras
 reinicio, sin duplicados. No asigna ocupantes, concede permisos ni habilita
 todavía la ratificación multicientro.
 
+El [circuito previo del centro](GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
+permite presentar y ratificar una petición con dos identidades sintéticas
+configuradas, formularios reales y recibos persistentes tras reinicio.
+La entrega posterior al alta de RRHH sigue pendiente; no es firma documental
+ni habilita automáticamente a todos los centros del catálogo.
+
 | Paso | Recorrido disponible | Límite |
 |---|---|---|
 | 1. Solicitud | Alta desde formulario y primer recibo del expediente. | Datos y catálogos de desarrollo. |

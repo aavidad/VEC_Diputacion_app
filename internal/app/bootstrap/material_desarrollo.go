@@ -211,6 +211,18 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	adscripciones, err := cargarAdscripcionesCentrosDesarrollo(cfg.DevelopmentMaterialDir, ca, identidadRRHH, identidadIntervencion)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	identidades := append([]identidadCertificadoDesarrollo{identidadRRHH, identidadIntervencion}, adscripciones.Identidades...)
+	identidad, err = nuevoResolvedorIdentidadDesarrollo(identidades...)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	for subject, adscripcion := range adscripciones.Adscripciones {
+		identidad.porSujeto[subject] = adscripcion
+	}
 
 	firmaAtestacionKMS, verificadorAtestacionKMS, huellaPublicaAtestacionKMS, err := cargarFirmaKMSDesarrollo(
 		rutas.KMSAttestationKey, rutas.KMSAttestationPublic,

@@ -116,6 +116,21 @@ El [manual de usuario de Bolsa](../manual_usuario/manual_portal_bolsas.md)
 complementa la navegación de ese módulo; sus pantallas de demostración no
 acreditan funciones reales de Contratación temporal.
 
+## Presentación funcional y límites de uso real
+
+La presentación se recorre en la misma aplicación final, con perfiles y datos sintéticos; no se bloquea por correo corporativo, firma o GINPIX.
+
+| Operación de presentación | Qué hace realmente | Qué falta para uso real |
+| --- | --- | --- |
+| Acceso con certificado | Autentica el perfil de desarrollo frente a la aplicación; **no es firma de documento**. | Identidad corporativa y permisos del personal real. |
+| Aviso local | Persiste un aviso e intención recuperables en VEC; no envía correo ni acredita entrega o plazo. | Canal corporativo admitido, entrega acreditada y reglas de plazo. |
+| Descarga de borradores | Genera documentos preparatorios para revisar; no son documentos oficiales ni nombramiento eficaz. | Plantillas oficiales y firma con certificado o servicio corporativo admitido, según el circuito que se determine. |
+| Salida GINPIX | Puede dejar un fichero de desarrollo; no conecta ni transmite automáticamente a GINPIX. | Conexión o carga autorizada, confirmación del sistema destino y seguimiento. |
+
+La [petición y ratificación del centro](../../GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
+ya se recorre con dos identidades sintéticas y recibos recuperados tras reinicio.
+Su entrega al expediente de RRHH sigue pendiente; ratificar no equivale a firmar.
+
 ## Antes de actuar
 
 1. Pida al operador el entorno de desarrollo preparado según la guía. Entre

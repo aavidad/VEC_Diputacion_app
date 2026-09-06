@@ -76,6 +76,7 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
+	peticionesCentro                  bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo
 	principalID                       string
@@ -347,15 +348,18 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	capacidad, existe := ctx.Value(
 		claveCapacidadConsultasContratacionTemporalDesarrollo{},
 	).(capacidadConsultaContratacionTemporalDesarrollo)
-	valida := existe && capacidad.sello == s.sello &&
-		principalContratacionTemporalDesarrolloValido(capacidad.principal) &&
+	principalValido := principalContratacionTemporalDesarrolloValido(capacidad.principal)
+	if s.peticionesCentro {
+		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
+	}
+	valida := existe && capacidad.sello == s.sello && principalValido &&
 		capacidad.principal.ID == s.principalID &&
 		capacidad.principal.Attributes["certificate_sha256"] == s.certificadoSHA256
 	return capacidad, valida
 }
 
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
-	return ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+	return rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||
 		ruta == httpinterno.RutaDecisionCobertura ||
@@ -655,6 +659,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 	if s == nil {
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
+	if s.peticionesCentro && rutaPeticionCentroDesarrollo(ruta) {
+		return motivoPeticionCentroDesarrollo(), true
+	}
 	switch ruta {
 	case rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 		return motivoOrganizacionDesarrollo(), true
@@ -698,6 +705,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	ruta string,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
+	if s != nil && s.peticionesCentro && rutaPeticionCentroDesarrollo(ruta) {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), s.instantanea.Validar() == nil
+	}
 	if s == nil {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
@@ -774,7 +784,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
+	if rutaPeticionCentroDesarrollo(ruta) {
+		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+	} else if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 		if !solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}

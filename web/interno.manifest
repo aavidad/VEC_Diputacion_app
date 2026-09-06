@@ -7,6 +7,9 @@ static/portal-empleado/index.html
 static/portal-empleado/organizacion/index.html
 static/portal-empleado/organizacion/organizacion.js
 static/portal-empleado/organizacion/organizacion.css
+static/portal-empleado/peticiones-centro/index.html
+static/portal-empleado/peticiones-centro/peticiones-centro.js
+static/portal-empleado/peticiones-centro/peticiones-centro.css
 static/portal-empleado/modulos/cronos/contrato.js
 static/portal-empleado/modulos/cronos/cronos.css
 static/portal-empleado/modulos/cronos/documentos.js

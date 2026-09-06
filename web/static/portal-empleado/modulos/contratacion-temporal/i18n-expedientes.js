@@ -150,6 +150,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   documento_asociado: "Documento asociado",
   nueva_peticion_titulo: "Nueva petición de personal",
   organizacion_referencia: "Centros y organización de referencia",
+  peticiones_centro: "Peticiones y ratificación · certificado del centro",
   nueva_peticion_descripcion:
     "Indique la necesidad de personal del centro y revise los datos antes de registrar la solicitud.",
   fase_pendiente: "Pendiente",

@@ -491,6 +491,16 @@ export function renderizarAltaContratacionTemporal(estado, {
   </section>`;
 }
 
+// Adaptadores mínimos para el circuito previo: reutilizan el formulario y la
+// revisión del alta sin crear un segundo formulario ni un recibo de expediente.
+export function renderizarFormularioPeticionCentro(estado, opciones = {}) {
+  return formulario(estado, crearTraductorContratacionTemporal(opciones.mensajes));
+}
+
+export function renderizarRevisionPeticionCentro(estado, opciones = {}) {
+  return revision(estado, crearTraductorContratacionTemporal(opciones.mensajes), opciones.locale ?? "es-ES");
+}
+
 function extraerBorrador(formularioDOM) {
   const datos = new FormData(formularioDOM);
   return {
@@ -510,6 +520,10 @@ function extraerBorrador(formularioDOM) {
     documentos_adjuntos: datos.getAll("documentos_adjuntos").map(String),
     observaciones: String(datos.get("observaciones") ?? ""),
   };
+}
+
+export function extraerBorradorPeticionCentro(formularioDOM) {
+  return extraerBorrador(formularioDOM);
 }
 
 function enfocarVisible(elemento) {

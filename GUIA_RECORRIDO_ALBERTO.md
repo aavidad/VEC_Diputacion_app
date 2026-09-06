@@ -1,5 +1,39 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
+## Petición del centro y ratificación
+
+Disponible en la instancia principal preparada, con dos identidades ficticias
+distintas. No utilice el certificado de RRHH para sustituirlas. Con la aplicación
+ya arrancada en8443, abra estas ventanas de Firefox del equipo local:
+
+```sh
+firefox --no-remote --profile "$HOME/snap/firefox/common/navegador-vec-centro-solicitante" --new-window https://localhost:8443/portal-empleado/peticiones-centro/
+firefox --no-remote --profile "$HOME/snap/firefox/common/navegador-vec-centro-ratificador" --new-window https://localhost:8443/portal-empleado/peticiones-centro/
+```
+
+No abra dos procesos sobre el mismo perfil; use la ventana existente.
+
+1. Como solicitante, pulse **Presentar petición**. Complete contacto, categoría,
+   grupo, motivo, detalle y fechas. El centro corresponde a su identidad.
+2. Revise y confirme. Aparece el recibo y la petición pendiente de ratificación.
+3. En la ventana del ratificador, recargue la bandeja y pulse **Revisar**.
+   Compruebe quién solicita, cargo, necesidad, crédito y documentación.
+4. Abra la ratificación, escriba un motivo y marque la confirmación. Se guarda
+   otro recibo y la versión2. El solicitante no puede ratificarse a sí mismo.
+
+Demostrado el6sep: petición `abd01fd9…`, presentación y ratificación `200` desde
+los formularios Firefox. Tras reiniciar aplicación/PostgreSQL, ambos reintentos
+recuperan los recibos originales y sus fechas; bandeja ratificada `200`, una
+petición, dos revisiones y dos eventos, sin alterar los51 expedientes previos.
+Si aparece **Resultado pendiente**, conserve la pestaña y use **Reintentar la
+misma operación**: la clave vive en memoria, no en almacenamiento del navegador.
+
+Esto registra una ratificación; **no firma electrónicamente un documento**.
+Para uso real se conectarán identidad y firma corporativas conforme al circuito
+que se determine. **La entrega a RRHH está pendiente**: no se ha creado todavía
+un expediente desde esta petición. No aumenta el contador de cinco pasos de ocho.
+La edición del organigrama no configura por sí sola quién solicita o ratifica.
+
 ## Centros y organización de referencia
 
 En la bandeja de Contratación, abra **Centros y organización de referencia**,

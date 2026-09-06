@@ -2,6 +2,21 @@
 
 ## Punto operativo vigente — desarrollo local, 6 de septiembre de 2026
 
+Último corte: petición del centro → ratificación por otra identidad sintética,
+en `/portal-empleado/peticiones-centro/`, con formulario real, permisos nominales,
+PostgreSQL y dos recibos conservados tras reiniciar aplicación/base principal.
+Una petición, versiones1/2, dos eventos; 51 expedientes anteriores intactos.
+Autorización23 y Contratación67 instaladas solo en principal: tienen historia,
+NO reaplicar ni revertir. La configuración privada `identidad/centros.json`
+es opcional; el circuito requiere organización PostgreSQL activada. No asignar
+permisos por nombre de cargo ni mezclar solicitante, ratificador y RRHH.
+Siguiente corte: entregar la petición ratificada al alta RRHH existente, sin
+otra implementación de alta; todavía pendiente. No declarar 6/8 por este corte.
+La entrega objetivo es presentación funcional reutilizable, no producción.
+Toda sustitución debe explicar en pantalla qué se hizo y qué falta para uso
+real: identificarse con certificado NO firma documentos. Revisiones sensibles
+cerradas por dos revisores; detalle del recorrido en `GUIA_RECORRIDO_ALBERTO.md`.
+
 Este bloque sustituye las ubicaciones y órdenes históricas inferiores.
 Lea las instrucciones de desatasco del operador y el plan vigente en
 `ESTADO_PROYECTO.md`; solo Contratación temporal y dependencias imprescindibles.

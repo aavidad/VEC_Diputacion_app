@@ -326,6 +326,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	rutas = append(rutas, rutasOrganizacion...)
+	rutasPeticionesCentro, err := nuevasRutasPeticionCentroDesarrollo(cfg, resolvedorDesarrollo, &alta, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, rutasPeticionesCentro...)
 	if comunicacionReal != nil {
 		// La continuación confirma solo después de abrir en Bolsa; no implica
 		// envío de aviso ni aplicación de un plazo legal.
@@ -422,6 +427,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
@@ -480,7 +486,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+	return rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
@@ -518,6 +524,9 @@ func principalContratacionTemporalDesarrolloValidoParaRuta(
 	principal vecdomain.Principal,
 	ruta string,
 ) bool {
+	if rutaPeticionCentroDesarrollo(ruta) {
+		return principalPeticionCentroDesarrolloValido(principal)
+	}
 	if ruta == httpinterno.RutaResultadosFiscalizacion {
 		return principalIntervencionContratacionTemporalDesarrolloValido(principal)
 	}
