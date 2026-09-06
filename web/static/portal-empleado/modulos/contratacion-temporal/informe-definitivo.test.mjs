@@ -23,6 +23,7 @@ function estadoReal() {
 const perfiles = [
   { tipo: "informe_definitivo", accion: "descargar-informe-definitivo", nombre: "informe-definitivo-borrador.pdf" },
   { tipo: "resolucion", accion: "descargar-resolucion", nombre: "resolucion-borrador.pdf" },
+  { tipo: "diligencia", accion: "descargar-diligencia", nombre: "diligencia-borrador.pdf" },
 ];
 
 async function montar(descargar, perfil = perfiles[0]) {
@@ -63,13 +64,15 @@ async function montar(descargar, perfil = perfiles[0]) {
   return { estado, raiz, boton, botones, mensaje, montaje, click, descargas, creados, revocados };
 }
 
-test("dos botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
+test("tres botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
   const estado = estadoReal();
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-informe-definitivo"[^]*<\/section>/u);
   assert.match(html, /Descargar informe · borrador de desarrollo/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-resolucion"[^]*<\/section>/u);
   assert.match(html, /Descargar resolución · borrador de desarrollo/u);
+  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-diligencia"[^]*<\/section>/u);
+  assert.match(html, /Descargar diligencia · borrador de desarrollo/u);
   assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
     expediente_ref: estado.expediente_ref, version_observada: 7,
   });
@@ -86,6 +89,7 @@ test("dos botones de cabecera v7 real sin tareas, nunca fase/versión/consulta p
     assert.equal(solicitudInformeDefinitivoDesdeEstado(otro), null);
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-informe-definitivo"/u);
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-resolucion"/u);
+    assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-diligencia"/u);
   }
 });
 
@@ -145,7 +149,9 @@ test("navegar o desmontar cancela, descarta respuesta tardía y evita doble env�
       assert.equal(vista.boton.disabled, true);
       assert.ok(vista.botones.every((control) => control.disabled === true));
       await vista.click();
-      await vista.click("[data-ct-exp-accion]", vista.botones.find((control) => control !== vista.boton));
+      for (const control of vista.botones.filter((otro) => otro !== vista.boton)) {
+        await vista.click("[data-ct-exp-accion]", control);
+      }
       assert.equal(llamadas, 1);
       if (desmontar) vista.montaje.desmontar();
       else await vista.click("[data-ct-exp-vista]", { dataset: { ctExpVista: "alta" } });

@@ -68,6 +68,7 @@ func TestConsultaRRHHBorradorDescargaTrasLectura(t *testing.T) {
 	}{
 		{ports.BorradorInformeDefinitivo, AcceptInformeDefinitivoRRHH, "informe-definitivo-borrador.pdf"},
 		{ports.BorradorResolucion, AcceptResolucionRRHH, "resolucion-borrador.pdf"},
+		{ports.BorradorDiligencia, AcceptDiligenciaRRHH, "diligencia-borrador.pdf"},
 	} {
 		t.Run(string(caso.tipo), func(t *testing.T) {
 			c := &consultorDetalleRRHHPrueba{detalle: detalleInformeRRHHPrueba()}
@@ -149,6 +150,10 @@ func TestConsultaRRHHBorradorRechazosAntesDeRender(t *testing.T) {
 			r.Header.Set("Accept", AcceptResolucionRRHH)
 			c.err = application.ErrConsultaRRHHNoObservable
 		}, 404, 1},
+		{"diligencia sin permiso", func(r *http.Request, c *consultorDetalleRRHHPrueba) {
+			r.Header.Set("Accept", AcceptDiligenciaRRHH)
+			c.err = application.ErrConsultaRRHHNoObservable
+		}, 404, 1},
 		{"detalle ajeno", func(_ *http.Request, c *consultorDetalleRRHHPrueba) {
 			c.detalle.Resumen.ExpedienteRef = "expediente:ct:otro"
 		}, 502, 1},
@@ -186,7 +191,7 @@ func TestConsultaRRHHBorradorRechazosAntesDeRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, accept := range []string{AcceptInformeDefinitivoRRHH, AcceptResolucionRRHH} {
+	for _, accept := range []string{AcceptInformeDefinitivoRRHH, AcceptResolucionRRHH, AcceptDiligenciaRRHH} {
 		peticion := nuevaPeticionConsultaRRHHPrueba(RutaConsultaCuadroRRHH, cuerpoCuadroRRHHPrueba())
 		peticion.Header.Set("Accept", accept)
 		w := httptest.NewRecorder()

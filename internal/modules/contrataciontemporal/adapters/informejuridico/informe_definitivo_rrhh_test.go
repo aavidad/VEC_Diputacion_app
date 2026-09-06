@@ -77,7 +77,7 @@ func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
 	} {
 		d := detalleInformeDefinitivoPrueba()
 		mutar(&d)
-		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion} {
+		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia} {
 			b, err := r.RenderizarBorrador(context.Background(), tipo, d)
 			if !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
 				t.Fatal("antecedente inválido produjo documento")
@@ -114,5 +114,28 @@ func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 	}
 	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "RESUELVO") {
 		t.Fatal("el borrador expone datos innecesarios o aparenta resolver")
+	}
+}
+
+func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorDiligencia, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := r.RenderizarBorrador(context.Background(), ports.BorradorDiligencia, d)
+	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
+		t.Fatalf("diligencia PDF no determinista o inválida: %v", err)
+	}
+	contenido := contenidoDiligenciaDesarrollo(d)
+	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
+	for _, esperado := range []string{"Diligencia — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "Objeto específico de la diligencia: pendiente", "no la fecha de una comparecencia", "No se afirma que ninguna persona haya comparecido", "SIN EFECTOS ADMINISTRATIVOS"} {
+		if !strings.Contains(texto, esperado) {
+			t.Fatalf("falta %q", esperado)
+		}
+	}
+	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "DOY FE") {
+		t.Fatal("el borrador expone datos innecesarios o aparenta certificar")
 	}
 }

@@ -56,8 +56,10 @@ no queda corregido por esta evidencia.
 Segundo PDF demostrado: resolución `200`, informe original idéntico en la misma sesión;
 seis POST `200` antes y después de reiniciar aplicación/PostgreSQL principal,
 ambos PDF, historial y recibos idénticos; cero errores JS, cookies y almacenamiento web.
-Disponibles **2/6 borradores**;
-quedan cuatro, siguiente diligencia. Sin firmas, nombramiento eficaz ni correo real.
+Tercer borrador demostrado: diligencia `200`, siete POST `200`, informe y resolución
+idénticos; también tras reiniciar aplicación/PostgreSQL principal: siete POST `200`,
+PDF e historial conservados, cero errores JS, cookies y almacenamiento web. Disponibles **3/6 borradores**;
+quedan tres, siguiente toma de posesión. Sin firmas, nombramiento eficaz ni correo real.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
 Navegador acreditado solo en principal.
 
@@ -387,7 +389,7 @@ Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete regis
 Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
 Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
-En aquel corte no había descarga documental. Los dos borradores del objetivo 9
+En aquel corte no había descarga documental. Los tres borradores del objetivo 9
 se obtienen como sigue; no hay firma, nombramiento eficaz ni correo real.
 
 ### Objetivo 9: descargar el primer informe borrador
@@ -403,6 +405,8 @@ Con el perfil RRHH en el recorrido principal ya preparado:
    por POST para descargar; no se necesitan claves ni replays de llamamiento.
 5. Desde la misma cabecera, **Descargar resolución · borrador de desarrollo** obtiene
    `resolucion-borrador.pdf`. Cada botón realiza solo su consulta autorizada del detalle.
+6. **Descargar diligencia · borrador de desarrollo** obtiene `diligencia-borrador.pdf`:
+   misma lectura v7, sin certificar hechos, comparecencia, firma ni notificación.
 
 Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
 SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
@@ -414,6 +418,16 @@ de 390 px con ambos botones. **Reinicio principal de aplicación/PostgreSQL conf
 otros seis POST `200`, resolución de 29770 bytes e informe de 29267 bytes, mismas
 huellas anteriores; historial y recibos previos idénticos. Cero errores JS, cookies
 y almacenamiento web. No se atribuye esta comprobación a secundaria.
+
+Tercera descarga, diligencia: Chrome `200`, **28366 bytes**,
+SHA256 `8fbf9ace709998781435185880b9ecbeedb5ef1e8ff46946eccc173d4c6315b4`.
+Siete POST `200`, informe y resolución con las mismas huellas en esa sesión;
+cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF y pantalla
+estable de 390 px con tres botones. **Reinicio principal de aplicación/PostgreSQL confirmado**:
+otros siete POST `200`, misma diligencia de 28366 bytes y SHA256, informe y resolución
+anteriores idénticos. Historial de dos resoluciones CT, siete registros Bolsa y versiones
+1..6 exactamente igual al previo; cero errores JS, cookies y almacenamiento web.
+Esta evidencia de navegador corresponde solo a principal, no a secundaria.
 
 Antecedente de la primera descarga y su corrección de consultas:
 
@@ -440,8 +454,8 @@ tienen disparadores distintos; no se atribuye una carrera a esa duplicación.
 Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases, no reaplicar; el PDF no añade SQL propio.
 No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar allí SQL ni arrancarlo.
-Ambos son borradores sin firma ni eficacia administrativa. Disponibles **2/6**;
-quedan diligencia, toma de posesión, notificación y comunicación al centro, siguiente diligencia.
+Los tres son borradores sin firma ni eficacia administrativa. Disponibles **3/6**;
+quedan toma de posesión, notificación y comunicación al centro, siguiente toma de posesión.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

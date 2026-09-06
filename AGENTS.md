@@ -98,7 +98,13 @@ y almacenamiento web. Dirección inspeccionó PDF y pantalla estable de 390 px c
 Tras reiniciar aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF
 idénticos en tamaño y SHA256, historial y recibos anteriores conservados;
 cero errores JS, cookies y almacenamiento web. No atribuir este E2E a secundaria.
-Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia. Sin firma ni nombramiento eficaz.
+Tercer borrador demostrado: diligencia, Chrome `200`, 28366 bytes, SHA256 en la guía;
+siete POST `200`, informe y resolución idénticos, cero errores JS, cookies y almacenamiento web.
+Dirección inspeccionó PDF y pantalla estable de 390 px con tres botones.
+Tras reiniciar aplicación/PostgreSQL principal: otros siete POST `200`, tres PDF idénticos;
+historial de dos resoluciones CT, siete registros Bolsa y versiones 1..6 igual al previo.
+Cero errores JS, cookies y almacenamiento web; E2E acreditado solo en principal.
+Disponibles **3/6 borradores**; quedan tres, siguiente toma de posesión. Sin firma ni nombramiento eficaz.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

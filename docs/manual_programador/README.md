@@ -63,7 +63,10 @@ idéntico en la misma sesión; seis POST `200`, cero errores JS, cookies y almac
 Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras reiniciar
 aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
 y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
-almacenamiento web. Disponibles **2/6**, siguiente diligencia.
+almacenamiento web. Tercer borrador, diligencia: 28366 bytes; siete POST `200` antes
+y después de reiniciar aplicación/PostgreSQL principal, los tres PDF e historial previo
+idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF
+y pantalla estable de 390 px con tres botones. Disponibles **3/6**, siguiente toma de posesión.
 
 ## Qué leer y qué mantener
 
@@ -311,29 +314,31 @@ El commit une propuesta, versión integral `7`, actuación y outbox; replay cons
 material/actor/perfil y recibo/fecha. DOWN bloqueado con historia. Sin firma,
 renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
-### Dos borradores desde la misma consulta RRHH
+### Tres borradores desde la misma consulta RRHH
 
 Objetivo 9 reutiliza `POST /api/vec/contratacion-temporal/expedientes/consultas`:
 JSON de dos campos derivados: `expediente_ref` y `version_observada: 7`; `Content-Type: application/json`,
-el tipo solo selecciona una de las dos representaciones cerradas:
+el tipo solo selecciona una de las tres representaciones cerradas:
 
 | Tipo | Accept | Nombre attachment |
 | --- | --- | --- |
 | `informe_definitivo` (predeterminado) | `application/pdf; documento=informe-definitivo-desarrollo` | `informe-definitivo-borrador.pdf` |
 | `resolucion` | `application/pdf; documento=resolucion-desarrollo` | `resolucion-borrador.pdf` |
+| `diligencia` | `application/pdf; documento=diligencia-desarrollo` | `diligencia-borrador.pdf` |
 
 Consulta autorizada/auditada antes del renderizado, detalle `v7/nombramiento/en_curso`
 y hito 7 `registrar_propuesta_formalizacion`; generador PDF existente, sin otra fuente.
 Salida `200 application/pdf`, attachment nominal según tabla, máximo 2 MiB.
 Errores JSON de consulta y `409 documento_no_disponible`; sin PDF parcial ni replay de propuesta.
-Botones de cabecera `data-ct-exp-accion="descargar-informe-definitivo"` y `descargar-resolucion`.
+Botones de cabecera con `data-ct-exp-accion`: `descargar-informe-definitivo`,
+`descargar-resolucion` y `descargar-diligencia`.
 El mismo archivo `cliente-http-informe-definitivo.js` ofrece
 `crearClienteHTTPBorradorRRHH().descargarBorrador(solicitud, {tipo, signal})`.
 Manejador, exclusión de descargas simultáneas, cancelación y revocación de Blob compartidos;
 el error conserva el detalle, sin almacenamiento ni reintento automático. Sin nuevo manifiesto.
 PDF sin SQL propio; AD3-21 corrige la lectura existente. AD3-20/CT61 y AD3-21 instaladas
 en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Disponibles **2/6 borradores**, quedan cuatro, siguiente diligencia;
+Disponibles **3/6 borradores**, quedan tres, siguiente toma de posesión;
 **5/8 más partes del sexto y séptimo**, sin firmas ni otro paso RRHH completo.
 
 ## Arquitectura real y propiedad

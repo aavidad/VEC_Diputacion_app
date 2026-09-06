@@ -83,6 +83,10 @@ Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras r
 aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
 y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
 almacenamiento web. No atribuir este recorrido a secundaria.
+Tercer borrador, diligencia: 28366 bytes; siete POST `200` antes y después de reiniciar
+aplicación/PostgreSQL principal, los tres PDF e historial previo idénticos; cero errores JS,
+cookies y almacenamiento web. Dirección inspeccionó PDF y pantalla estable de 390 px
+con tres botones. Tampoco se atribuye este E2E a secundaria.
 Sin SQL nuevo del objetivo 9: mantener las migraciones instaladas, no reaplicarlas.
 
 ## Alcance y referencias
@@ -389,11 +393,12 @@ La quinta operación abre el siguiente llamamiento solo tras renuncia sintética
 confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
 La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
-Los dos borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
-Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**
-y **Descargar resolución · borrador de desarrollo**. Son lecturas, no actuaciones nuevas.
+Los tres borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
+Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**,
+**Descargar resolución · borrador de desarrollo** y **Descargar diligencia · borrador de desarrollo**.
+Son lecturas, no actuaciones nuevas.
 No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exactos](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Disponibles **2/6 borradores**; quedan cuatro, siguiente diligencia. Siguen pendientes
+Disponibles **3/6 borradores**; quedan tres, siguiente toma de posesión. Siguen pendientes
 vencimiento, aviso al sucesor y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.

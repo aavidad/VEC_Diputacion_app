@@ -57,7 +57,10 @@ idéntico en la misma sesión; seis POST `200`, cero errores JS, cookies y almac
 Dirección inspeccionó PDF y pantalla estable de 390 px con dos botones. Tras reiniciar
 aplicación/PostgreSQL principal: otros seis POST `200`, ambos PDF idénticos en tamaño
 y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
-almacenamiento web. Disponibles **2/6**, siguiente diligencia.
+almacenamiento web. Tercer borrador, diligencia: 28366 bytes; siete POST `200` antes
+y después de reiniciar aplicación/PostgreSQL principal, los tres PDF e historial previo
+idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF
+y pantalla estable de 390 px con tres botones. Disponibles **3/6**, siguiente toma de posesión.
 Las descargas no añaden SQL propio ni otro paso completo.
 
 ## Qué puede hacer hoy
@@ -77,7 +80,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperables tras reinicio. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; informe y resolución borradores descargables. Pendientes otros cuatro borradores y circuito de firmas; no nombramiento eficaz. |
+| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; informe, resolución y diligencia borradores descargables. Pendientes otros tres borradores y circuito de firmas; no nombramiento eficaz. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
@@ -359,15 +362,16 @@ clave de propuesta `018f47a6-5d2b-4c10-8a11-123456789008` del caso de la guía.
 Confirme expresamente, sin otro `.eml`; ante ambigüedad mantenga clave/material.
 Dirección confirmó `201` y recuperación `200` tras reinicio principal, mismo
 recibo y fecha `2026-09-06T01:28:30.697897Z`. Es una propuesta sin firma ni eficacia
-de nombramiento. Objetivo 9: informe y resolución disponibles, otros cuatro pendientes;
-siguiente diligencia.
+de nombramiento. Objetivo 9: informe, resolución y diligencia disponibles, otros tres pendientes;
+siguiente toma de posesión.
 
 Para descargar, vaya a **Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
 Desde el detalle real `v7`, `nombramiento/en_curso`, use en la cabecera
-**Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`) o
-**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`).
-Ambos sin firmas ni eficacia administrativa; no constituyen resolución aprobada ni nombramiento.
+**Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`),
+**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`) o
+**Descargar diligencia · borrador de desarrollo** (`diligencia-borrador.pdf`).
+Sin firmas ni eficacia administrativa; no certifican hechos, comparecencia, resolución aprobada ni nombramiento.
 No recupere la propuesta por POST ni repita el llamamiento para esta lectura.
 Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
 AD3-20/CT61 y AD3-21 instaladas en ambas bases: no reaplicar; el PDF no añade SQL propio.

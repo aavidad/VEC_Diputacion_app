@@ -12,6 +12,10 @@ export const PERFILES_BORRADOR_RRHH = Object.freeze({
     accept: "application/pdf; documento=resolucion-desarrollo",
     nombre: "resolucion-borrador.pdf",
   }),
+  diligencia: Object.freeze({
+    accept: "application/pdf; documento=diligencia-desarrollo",
+    nombre: "diligencia-borrador.pdf",
+  }),
 });
 const MAXIMO_PDF = 2 * 1024 * 1024;
 const PREFIJO_ERROR = "api.contratacion_temporal.consulta_rrhh.error.";

@@ -5,6 +5,11 @@ import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.
 
 const solicitud = { expediente_ref: "expediente:ct:sintetico-009", version_observada: 7 };
 const pdf = "%PDF-1.7\nBorrador sintético\n%%EOF";
+const perfiles = [
+  { tipo: "informe_definitivo", accept: "application/pdf; documento=informe-definitivo-desarrollo", nombre: "informe-definitivo-borrador.pdf" },
+  { tipo: "resolucion", accept: "application/pdf; documento=resolucion-desarrollo", nombre: "resolucion-borrador.pdf" },
+  { tipo: "diligencia", accept: "application/pdf; documento=diligencia-desarrollo", nombre: "diligencia-borrador.pdf" },
+];
 function respuestaPDF(contenido = pdf, cabeceras = {}, status = 200) {
   return new Response(contenido, { status, headers: {
     "Content-Type": "application/pdf",
@@ -54,34 +59,33 @@ test("rechaza contrato alterado antes de red", async () => {
   assert.equal(llamadas, 0);
 });
 
-test("resolución usa la misma consulta y su perfil nominal; no intercambia documentos", async () => {
-  const llamadas = [];
-  const cabeceras = { "Content-Disposition": 'attachment; filename="resolucion-borrador.pdf"' };
-  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
-    llamadas.push({ ruta, opciones });
-    return respuestaPDF(pdf, cabeceras);
-  } });
-  const blob = await http.descargarBorrador(solicitud, { tipo: "resolucion" });
-  assert.equal(await blob.text(), pdf);
-  assert.equal(blob.type, "application/pdf");
-  assert.equal(llamadas.length, 1);
-  assert.equal(llamadas[0].ruta, "/api/vec/contratacion-temporal/expedientes/consultas");
-  assert.equal(llamadas[0].opciones.method, "POST");
-  assert.equal(llamadas[0].opciones.body, JSON.stringify(solicitud));
-  assert.deepEqual(llamadas[0].opciones.headers, {
-    "Content-Type": "application/json", Accept: "application/pdf; documento=resolucion-desarrollo",
-  });
-  await assert.rejects(cliente(respuestaPDF()).descargarBorrador(solicitud, { tipo: "resolucion" }), {
-    codigo: "resultado_no_confiable",
-  });
-  await assert.rejects(cliente(respuestaPDF(pdf, cabeceras)).descargarBorrador(solicitud), {
-    codigo: "resultado_no_confiable",
-  });
+test("tres perfiles nominales usan la misma consulta; no intercambian documentos", async () => {
+  for (const { tipo, accept, nombre } of perfiles) {
+    const llamadas = [];
+    const cabeceras = { "Content-Disposition": `attachment; filename="${nombre}"` };
+    const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
+      llamadas.push({ ruta, opciones });
+      return respuestaPDF(pdf, cabeceras);
+    } });
+    const blob = await http.descargarBorrador(solicitud, { tipo });
+    assert.equal(await blob.text(), pdf);
+    assert.equal(blob.type, "application/pdf");
+    assert.equal(llamadas.length, 1);
+    assert.equal(llamadas[0].ruta, "/api/vec/contratacion-temporal/expedientes/consultas");
+    assert.equal(llamadas[0].opciones.method, "POST");
+    assert.equal(llamadas[0].opciones.body, JSON.stringify(solicitud));
+    assert.deepEqual(llamadas[0].opciones.headers, { "Content-Type": "application/json", Accept: accept });
+    for (const ajeno of perfiles.filter((perfil) => perfil.tipo !== tipo)) {
+      await assert.rejects(cliente(respuestaPDF(pdf, {
+        "Content-Disposition": `attachment; filename="${ajeno.nombre}"`,
+      })).descargarBorrador(solicitud, { tipo }), { codigo: "resultado_no_confiable" });
+    }
+  }
 });
 
 test("no convierte JSON/HTML, nombre ajeno, exceso ni cuerpo truncado en descarga", async () => {
-  for (const tipo of ["informe_definitivo", "resolucion"]) {
-    const nominales = { "Content-Disposition": `attachment; filename="${tipo === "resolucion" ? "resolucion" : "informe-definitivo"}-borrador.pdf"` };
+  for (const { tipo, nombre } of perfiles) {
+    const nominales = { "Content-Disposition": `attachment; filename="${nombre}"` };
     for (const respuesta of [
       respuestaPDF("<html>error</html>", nominales), respuestaPDF(pdf, { ...nominales, "Content-Type": "application/json" }),
       respuestaPDF(pdf, { "Content-Disposition": 'attachment; filename="otro.pdf"' }),
@@ -94,7 +98,7 @@ test("no convierte JSON/HTML, nombre ajeno, exceso ni cuerpo truncado en descarg
 
 test("errores JSON cerrados de consulta, incluido 409; no reintenta", async () => {
   for (const [estado, codigo] of [[403, "acceso_denegado"], [409, "documento_no_disponible"], [503, "servicio_no_disponible"]]) {
-    for (const tipo of ["informe_definitivo", "resolucion"]) {
+    for (const { tipo } of perfiles) {
       const error = { codigo, clave_i18n: `api.contratacion_temporal.consulta_rrhh.error.${codigo}`, correlacion_ref: "corr_" + "a".repeat(32) };
       await assert.rejects(cliente(Response.json({ error }, { status: estado })).descargarBorrador(solicitud, { tipo }), {
         codigo, estado, envelopeValido: true, resultadoIndeterminado: false,

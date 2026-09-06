@@ -43,6 +43,8 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		documento = contenidoInformeDefinitivoDesarrollo(detalle)
 	case ports.BorradorResolucion:
 		documento = contenidoResolucionDesarrollo(detalle)
+	case ports.BorradorDiligencia:
+		documento = contenidoDiligenciaDesarrollo(detalle)
 	default:
 		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
@@ -94,6 +96,23 @@ func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Cont
 		"3. Firma y efectos pendientes",
 		"Número y fecha de resolución, firmas y evidencia de validación: pendientes. La descarga no acredita firma, aprobación, custodia documental, notificación ni toma de posesión; tampoco modifica el expediente o envía comunicaciones.",
 		"BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS. Debe completarse y validarse por el circuito competente antes de cualquier uso real.",
+	}}
+}
+
+func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+	r := d.Resumen
+	return vecdomain.ContenidoDocumento{Titulo: "Diligencia — borrador de desarrollo", Parrafos: []string{
+		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una diligencia extendida por una persona competente ni certifica un hecho administrativo.",
+		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
+		"1. Referencias disponibles para su preparación",
+		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nUnidad asignada (referencia): %s", r.CentroRef, r.CategoriaRef, d.Asignacion.UnidadRef),
+		fmt.Sprintf("El historial del expediente registra la propuesta de formalización, actuación 7, de %s UTC. Es la fecha de esa actuación, no la fecha de una comparecencia, firma o notificación.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		"2. Objeto y hechos pendientes de incorporar",
+		"Objeto específico de la diligencia: pendiente del modelo oficial y de la validación competente. Hechos que deban hacerse constar, documentación que los acredite y fecha y lugar de realización: pendientes. No se infieren de la propuesta de nombramiento.",
+		"Comparecencia e identificación autorizada de las personas intervinientes, cuando correspondan: pendientes. No se afirma que ninguna persona haya comparecido, firmado, recibido una notificación o tomado posesión.",
+		"3. Autoría y validación pendientes",
+		"Órgano y persona competente para extender la diligencia, fecha, firma y evidencia de validación: pendientes. Este documento no sustituye esas comprobaciones ni acredita la custodia de sus justificantes.",
+		"Copia preparatoria obtenida del detalle persistido y autorizado. Su descarga no registra hechos, modifica el expediente ni realiza envíos. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	}}
 }
 

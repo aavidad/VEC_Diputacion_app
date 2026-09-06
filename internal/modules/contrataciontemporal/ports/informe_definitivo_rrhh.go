@@ -12,6 +12,7 @@ type TipoBorradorRRHH string
 const (
 	BorradorInformeDefinitivo TipoBorradorRRHH = "informe_definitivo"
 	BorradorResolucion        TipoBorradorRRHH = "resolucion"
+	BorradorDiligencia        TipoBorradorRRHH = "diligencia"
 )
 
 // ErrBorradorRRHHNoDisponible indica que el detalle autorizado no
