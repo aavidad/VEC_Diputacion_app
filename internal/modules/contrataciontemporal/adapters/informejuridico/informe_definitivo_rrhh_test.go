@@ -77,7 +77,7 @@ func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
 	} {
 		d := detalleInformeDefinitivoPrueba()
 		mutar(&d)
-		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia, ports.BorradorTomaPosesion} {
+		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia, ports.BorradorTomaPosesion, ports.BorradorNotificacion} {
 			b, err := r.RenderizarBorrador(context.Background(), tipo, d)
 			if !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
 				t.Fatal("antecedente inválido produjo documento")
@@ -160,5 +160,28 @@ func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) 
 	}
 	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "HA TOMADO POSESIÓN") {
 		t.Fatal("el borrador expone datos innecesarios o aparenta certificar posesión")
+	}
+}
+
+func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorNotificacion, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := r.RenderizarBorrador(context.Background(), ports.BorradorNotificacion, d)
+	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
+		t.Fatalf("notificación PDF no determinista o inválida: %v", err)
+	}
+	contenido := contenidoNotificacionDesarrollo(d)
+	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
+	for _, esperado := range []string{"Notificación — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "dirección o canal admitido: pendientes", "No se generan plazos", "ni abre un plazo", "SIN EFECTOS ADMINISTRATIVOS"} {
+		if !strings.Contains(texto, esperado) {
+			t.Fatalf("falta %q", esperado)
+		}
+	}
+	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "QUEDA NOTIFICADO") {
+		t.Fatal("el borrador expone datos innecesarios o aparenta acreditar notificación")
 	}
 }

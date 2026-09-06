@@ -47,6 +47,8 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		documento = contenidoDiligenciaDesarrollo(detalle)
 	case ports.BorradorTomaPosesion:
 		documento = contenidoTomaPosesionDesarrollo(detalle)
+	case ports.BorradorNotificacion:
+		documento = contenidoNotificacionDesarrollo(detalle)
 	default:
 		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
@@ -133,6 +135,24 @@ func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Co
 		"3. Firmas e incorporación pendientes",
 		"Firmas, evidencia de validación, fecha efectiva de toma de posesión y confirmación de incorporación: pendientes. Deben completarse mediante el circuito competente, con el modelo oficial y los hechos acreditados.",
 		"Copia preparatoria del detalle persistido y autorizado. Su descarga no registra la posesión, modifica el expediente, da de alta en Personal ni envía información a GINPIX. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
+	}}
+}
+
+func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+	r := d.Resumen
+	return vecdomain.ContenidoDocumento{Titulo: "Notificación — borrador de desarrollo", Parrafos: []string{
+		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una notificación emitida o entregada ni acredita conocimiento de una resolución.",
+		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
+		"1. Referencias del expediente",
+		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nUnidad asignada (referencia): %s", r.CentroRef, r.CategoriaRef, d.Asignacion.UnidadRef),
+		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. No equivale a una resolución aprobada ni fija una fecha de notificación.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		"2. Destinatario y acto a notificar pendientes",
+		"Persona destinataria, identificación autorizada y dirección o canal admitido: pendientes. No se deducen del centro solicitante ni de las referencias técnicas del expediente.",
+		"Resolución aprobada y firmada, órgano competente, número, fecha y contenido íntegro que deba notificarse: pendientes de incorporar y comprobar. Este borrador no contiene una decisión resolutiva ni sustituye el modelo oficial.",
+		"3. Información y expedición pendientes",
+		"Recursos que procedan, órgano ante el que se presenten, plazos y su cómputo: pendientes de la redacción oficial y de la validación competente. No se generan plazos ni instrucciones jurídicas desde esta propuesta.",
+		"Firma y validación de la notificación, canal de expedición, fecha de envío y evidencia de puesta a disposición, recepción o rechazo: pendientes. La descarga no acredita ninguno de estos hechos ni abre un plazo.",
+		"Copia preparatoria del detalle persistido y autorizado. No modifica el expediente, envía un correo, publica una notificación ni registra su entrega. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	}}
 }
 

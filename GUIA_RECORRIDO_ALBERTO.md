@@ -59,9 +59,9 @@ ambos PDF, historial y recibos idénticos; cero errores JS, cookies y almacenami
 Tercer borrador demostrado: diligencia `200`, siete POST `200`, informe y resolución
 idénticos; también tras reiniciar aplicación/PostgreSQL principal: siete POST `200`,
 PDF e historial conservados, cero errores JS, cookies y almacenamiento web.
-Cuarto borrador, toma de posesión, comprobado también tras reinicio principal: ocho POST `200`,
-cuatro PDF e historial idénticos. Disponibles **4/6 borradores**; quedan dos, siguiente notificación.
-Sin firmas, posesión real, nombramiento eficaz ni correo real.
+Quinto borrador, notificación, comprobado también tras reinicio principal: nueve POST `200`,
+cinco PDF e historial idénticos. Disponibles **5/6 borradores**; siguiente comunicación al centro.
+Sin firmas, posesión real, nombramiento eficaz, envío, entrega ni plazo legal.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
 Navegador acreditado solo en principal.
 
@@ -391,7 +391,7 @@ Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete regis
 Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
 Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
-En aquel corte no había descarga documental. Los cuatro borradores del objetivo 9
+En aquel corte no había descarga documental. Los cinco borradores del objetivo 9
 se obtienen como sigue; no hay firma, nombramiento eficaz ni correo real.
 
 ### Objetivo 9: descargar el primer informe borrador
@@ -411,6 +411,8 @@ Con el perfil RRHH en el recorrido principal ya preparado:
    misma lectura v7, sin certificar hechos, comparecencia, firma ni notificación.
 7. **Descargar toma de posesión · borrador de desarrollo** obtiene `toma-posesion-borrador.pdf`;
    no acredita comparecencia, posesión efectiva ni incorporación al puesto.
+8. **Descargar notificación · borrador de desarrollo** obtiene `notificacion-borrador.pdf`;
+   misma lectura v7, sin acreditar envío, entrega ni apertura de plazo legal.
 
 Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
 SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
@@ -440,6 +442,15 @@ principal, mismo PDF y tres anteriores idénticos; historial 2 CT/7 Bolsa/versio
 conservado, cero errores JS, cookies y almacenamiento web. Inspeccionó PDF y pantalla
 estable de 390 px con cuatro botones. No acredita posesión real ni E2E en secundaria.
 
+Quinta descarga, notificación: **28583 bytes**, SHA256
+`35dc1d12dff5bfa6acd1738bd1fddf1b293eb1f1fef0961389b76ef8888cf9f2`.
+Dirección confirmó nueve POST `200` antes y después de reiniciar aplicación/PostgreSQL
+principal: mismo PDF, cuatro anteriores idénticos e historial 2 CT/7 Bolsa/versiones 1..6
+conservado. Cero errores JS, cookies, almacenamiento web y desbordamiento; PDF y pantalla
+estable de 390 px con cinco botones inspeccionados. No acredita E2E en secundaria.
+La primera apertura, antes de que el servidor escuchara, falló en conexión sin alcanzar
+la API; se corrigió la fase de arranque, no un defecto de producto.
+
 Antecedente de la primera descarga y su corrección de consultas:
 
 Rectificación de evidencia: el primer fallo de navegador tras reinicio no capturó
@@ -465,8 +476,8 @@ tienen disparadores distintos; no se atribuye una carrera a esa duplicación.
 Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases, no reaplicar; el PDF no añade SQL propio.
 No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar allí SQL ni arrancarlo.
-Los cuatro son borradores sin firma ni eficacia administrativa. Disponibles **4/6**;
-quedan notificación y comunicación al centro, siguiente notificación.
+Los cinco son borradores sin firma ni eficacia administrativa, envío, entrega ni plazo legal.
+Disponibles **5/6**; queda comunicación al centro, siguiente corte.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
