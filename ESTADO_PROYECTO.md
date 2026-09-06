@@ -2,8 +2,8 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Antecedente publicado: `ed5b68ff4a9f21518c7c9fd5f2ab0d2d93b1c2f3`.
-Esta revisión incorpora el primer documento del objetivo 9; su hash se comprueba en Git.
+Primer PDF del objetivo 9 publicado en `5c57b29f`.
+Esta revisión incorpora la corrección de consultas AD3-21; su hash se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -104,17 +104,20 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
   localmente en el navegador; no se sube.
 - Objetivo 9, primer documento demostrado: informe definitivo, borrador de desarrollo,
-  Chrome `200`, 29267 bytes; PDF y pantalla inspeccionados por dirección. Tras reiniciar
-  app/PostgreSQL principal, cuadro inicial sin filtro (100) `502 resultado_no_confiable`;
-  repetir una vez el recorrido en el mismo proceso, sin modificar producto ni datos
-  del expediente, dio cuadro/detalle/PDF `200` y el mismo SHA256 de la guía.
-  Causa del 502 aún no explicada, no se acredita una corrección. Recorrido final sin
-  errores JS, cookies, almacenamiento web ni desbordamiento DOM; usabilidad móvil
-  no acreditada, superposición observada pendiente de captura estable (posible transición
-  CSS, no defecto confirmado). Cierre solo escritorio/PDF. Sin SQL nuevo ni replay
+  Chrome `200`, 29267 bytes; PDF y pantalla inspeccionados por dirección.
+  Rectificación: primer fallo navegador sin estado HTTP capturado; el `502` era curl
+  con límite 50, paginación separada sin corrección acreditada. Navegador límite 100:
+  sonda `200`, vista `404`, rechazo PostgreSQL `42501` por fechas equivalentes comparadas
+  como texto. AD3-21 corrige las dos funciones de lectura y está instalada en ambas bases,
+  sin reaplicar AD3-20/CT61; UP/DOWN exacto en ROLLBACK en secundaria.
+  Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo tamaño y SHA256,
+  cero errores JS, cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal:
+  dos cuadros iniciales 100, filtrado 100, detalle v7 y PDF, los cinco `200`, sin `404`;
+  mismo PDF e historia CT/Bolsa conservada. Dirección observó pantalla estable de 390 px sin obstrucción
+  del detalle ni botón; captura previa durante transición de 180 ms, sin modificar UI
+  ni validar usabilidad global. Sin SQL propio del PDF ni replay
   de propuesta para descargar. Quedan cinco borradores; siguiente resolución.
-  Antes de ampliarlos, estabilizar la entrada: otra apertura dio 200 en la consulta
-  de disponibilidad y 404 en la de la vista. No atribuir carrera ni pérdida de datos.
+  Corrección temporal confirmada tras reinicio; no se atribuye una carrera ni se cierra la paginación 50.
   Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
   continuación tras renuncia sintética `201` y replay `200` tras reinicio.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
@@ -160,7 +163,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
-| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Primer informe borrador demostrado: PDF `200`, idéntico tras reinicio y reintento del cuadro inicial 502; cinco pendientes, siguiente resolución. Sin firmas |
+| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Primer PDF publicado; tras AD3-21 y reinicio principal, cinco POST `200`, sin `404`, PDF idéntico. Cinco borradores pendientes, siguiente resolución. Sin firmas |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
 | 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |

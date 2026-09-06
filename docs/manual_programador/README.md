@@ -47,13 +47,17 @@ el hash publicado se comprueba en Git.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; E2E acreditado solo en principal.
 
 **Objetivo 9, primer informe borrador demostrado:** Chrome `200`, 29267 bytes.
-Tras reiniciar app/PostgreSQL principal, el cuadro inicial sin filtro (100) dio
-`502 resultado_no_confiable`; un reintento del recorrido, mismo proceso sin editar
-producto ni datos del expediente, dio cuadro/detalle/PDF `200` y el mismo SHA256 de la guía.
-Causa del 502 aún no explicada; no se acredita corrección. Dirección inspeccionó PDF
-y pantalla; recorrido final sin errores JS, cookies, almacenamiento web ni desbordamiento DOM.
-Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
-posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
+Rectificación: primer fallo navegador sin estado capturado; el `502` era curl con
+límite 50, paginación separada sin corrección acreditada. Navegador límite 100:
+sonda `200`, vista `404`; PostgreSQL `42501` por `.999340Z` frente a `.99934Z`.
+AD3-21 corrige las dos comparaciones de lectura heredadas de AD3-3/5 a instantes;
+AD3-14 había corregido mutaciones. No modifica firmas, guardas ni cursor. Instalada
+en ambas bases, no reaplicar; UP/DOWN exacto en ROLLBACK en secundaria.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo PDF y cero errores JS,
+cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal: cinco POST `200`,
+sin `404`, mismo PDF e historia CT/Bolsa conservada; no cierra la paginación con límite 50.
+Dirección inspeccionó PDF y pantalla estable de 390 px sin obstrucción; la captura
+previa era transición CSS de 180 ms, sin cambios de UI ni validación de usabilidad global.
 
 ## Qué leer y qué mantener
 
@@ -312,7 +316,8 @@ Salida `200 application/pdf`, attachment `informe-definitivo-borrador.pdf`, máx
 Errores JSON de consulta y `409 documento_no_disponible`; sin PDF parcial ni replay de propuesta.
 Botón de cabecera `data-ct-exp-accion="descargar-informe-definitivo"`, cliente binario
 nominal en manifiesto activo, cancelación y revocación de Blob; el error conserva el detalle.
-Sin SQL nuevo: AD3-20/CT61 siguen instaladas en ambas bases. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+PDF sin SQL propio; AD3-21 corrige la lectura existente. AD3-20/CT61 y AD3-21 instaladas
+en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
 Quedan otros cinco borradores, siguiente resolución; **5/8 más partes del sexto y séptimo**, sin firmas.
 
 ## Arquitectura real y propiedad

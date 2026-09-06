@@ -43,13 +43,16 @@ Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en 
 [Caso y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
 **Objetivo 9: primer informe borrador descargado**, Chrome `200`, 29267 bytes,
-PDF y pantalla inspeccionados por dirección. Tras reiniciar app/PostgreSQL principal,
-cuadro inicial (100, sin filtro) `502`; un reintento en el mismo proceso, sin cambiar
-producto ni datos del expediente, dio cuadro/detalle/PDF `200` y el mismo PDF.
-Causa del 502 no explicada, sin corrección acreditada. Recorrido final sin errores JS,
-cookies, almacenamiento web ni desbordamiento DOM; usabilidad móvil no acreditada,
-superposición observada pendiente de captura estable, no defecto confirmado.
-Cierre solo escritorio/PDF; no SQL nuevo ni otro paso completo.
+PDF y pantalla inspeccionados por dirección. Rectificación: primer fallo navegador
+sin estado HTTP capturado; el `502` era curl con límite 50, paginación separada sin
+corrección acreditada. Navegador límite 100: sonda `200`, vista `404`, por comparación
+textual de fechas equivalentes. AD3-21 corrige esas dos lecturas, instalada en ambas bases.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo PDF y cero errores JS,
+cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal: cinco POST `200`,
+sin `404`, mismo PDF e historia CT/Bolsa conservada; no cierra la paginación con límite 50.
+Pantalla estable de 390 px observada por dirección sin obstrucción del detalle ni botón;
+captura previa durante transición de 180 ms, sin modificar UI ni validar usabilidad global.
+La descarga no añade SQL propio ni otro paso completo.
 
 ## Qué puede hacer hoy
 
@@ -359,7 +362,7 @@ Desde el detalle real `v7`, `nombramiento/en_curso`, use **Descargar informe · 
 en la cabecera. Archivo `informe-definitivo-borrador.pdf`, sin firmas ni eficacia administrativa.
 No recupere la propuesta por POST ni repita el llamamiento para esta lectura.
 Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-AD3-20/CT61 ya instaladas en ambas bases: no reaplicar; no hay SQL del objetivo 9.
+AD3-20/CT61 y AD3-21 instaladas en ambas bases: no reaplicar; el PDF no añade SQL propio.
 
 El nombramiento completo exige la propuesta y los documentos y firmas que
 correspondan. El conjunto previsto incluye **informe definitivo, resolución,

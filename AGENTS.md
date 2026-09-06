@@ -76,21 +76,25 @@ anterior intacta. Cero errores JS, cookies, almacenamiento web y desbordamiento.
 AD3-20/CT61 instaladas en ambas bases; no reaplicar ni atribuir otro E2E a secundaria.
 Conservar versión esperada `6` y las cinco claves de aceptación/propuesta de la guía.
 Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
-Objetivo 9, primer documento demostrado: informe definitivo como borrador de
-desarrollo, Chrome `200`, 29267 bytes. Tras reiniciar app/PostgreSQL principal,
-el primer cuadro sin filtro (límite 100) dio `502 resultado_no_confiable`;
-un reintento del recorrido, mismo proceso sin editar producto ni datos del expediente,
-obtuvo cuadro/detalle/PDF `200`, mismo SHA256 del PDF de la guía. Causa del 502
-no explicada ni corrección acreditada. Dirección inspeccionó PDF y pantalla;
-cero errores JS, cookies, almacenamiento web y desbordamiento DOM en el recorrido final.
-Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
-posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
+Objetivo 9, primer documento demostrado y publicado en `5c57b29f`: informe definitivo
+como borrador de desarrollo, Chrome `200`, 29267 bytes, SHA256 de la guía.
+Rectificación: el primer fallo de navegador no capturó estado HTTP; el `502` era
+una consulta curl con límite 50, paginación separada sin corrección acreditada.
+El navegador con límite 100 mostró sonda `200` y vista `404`: PostgreSQL rechazaba
+con `42501` fechas equivalentes comparadas como texto. AD3-21 corrige las dos
+funciones de lectura, sin alterar firmas, guardas ni cursor. UP/DOWN exacto en
+ROLLBACK en secundaria; instalada en ambas bases, no reaplicar, AD3-20/CT61 conservadas.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo PDF y cero errores JS,
+cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal, cinco POST `200`
+(dos cuadros iniciales 100, filtrado 100, detalle v7 y PDF), sin `404`, mismo PDF;
+historia CT/Bolsa conservada. No repetir UP/DOWN de AD3-21; remoto apagado, sin aplicar SQL ni arrancar.
+Dirección observó pantalla estable de 390 px sin obstrucción del detalle ni botón;
+captura previa durante transición de 180 ms, sin modificar UI ni validar usabilidad global.
 Descarga desde bandeja y detalle v7, sin recuperar la propuesta por POST.
-No hay SQL nuevo: AD3-20/CT61 siguen instaladas en ambas bases, no reaplicar.
+La descarga no añadió SQL propio; AD3-21 corrige la consulta existente.
 Quedan cinco borradores; siguiente resolución. Sin firma ni nombramiento eficaz.
-Antes de ampliar documentos, resolver la carga inicial intermitente: otra apertura
-devolvió 200 en la consulta de disponibilidad y 404 en la de la vista. Ambas son
-consultas distintas intencionadas; no hay carrera demostrada ni pérdida de datos.
+Corrección temporal de las consultas confirmada tras reinicio; siguiente borrador: resolución.
+Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación
 tras renuncia sintética está cerrada, no el envío del aviso sucesor.
 La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.

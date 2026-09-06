@@ -64,15 +64,19 @@ No atribuir este E2E a secundaria.
 Sin firma ni nombramiento eficaz. [Evidencia y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
 **Objetivo 9, primer informe borrador demostrado:** Chrome `200`, 29267 bytes;
-dirección inspeccionó PDF y pantalla. Tras reiniciar app/PostgreSQL principal,
-el primer cuadro sin filtro (límite 100) dio `502 resultado_no_confiable`.
-Repetir una vez el recorrido en el mismo proceso, sin editar producto ni datos
-del expediente, dio cuadro/detalle/PDF `200`, mismo tamaño y SHA256 de la guía.
-No atribuir causa ni corrección al 502 aún no explicado. Recorrido final sin errores JS,
-cookies, almacenamiento web ni desbordamiento DOM; no se atribuye a secundaria.
-Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
-posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
-Sin SQL nuevo ni reaplicaciones: AD3-20/CT61 siguen instaladas en ambas bases.
+dirección inspeccionó PDF y pantalla. Rectificación: primer fallo navegador sin estado
+HTTP capturado; el `502` era curl con límite 50, paginación separada sin corrección acreditada.
+Navegador límite 100: sonda `200`, vista `404`, PostgreSQL `42501` por fechas equivalentes
+comparadas como texto. AD3-21 corrige dos funciones de lectura, sin cambiar firmas,
+guardas ni cursor. UP/DOWN exacto en ROLLBACK en secundaria (definiciones, propietario,
+configuración y ACL); UP instalada en ambas bases, no reaplicar. AD3-20/CT61 conservadas.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, PDF idéntico y cero errores JS,
+cookies y almacenamiento web; no se atribuye este E2E a secundaria.
+Tras reiniciar app/PostgreSQL principal: cinco POST `200` (dos cuadros iniciales 100,
+filtrado 100, detalle v7 y PDF), sin `404`, mismo PDF e historia CT/Bolsa conservada.
+No repetir UP/DOWN de AD3-21. Remoto apagado, sin aplicar SQL ni arrancarlo.
+Pantalla estable de 390 px observada sin obstrucción del detalle ni del botón; captura
+previa en transición de 180 ms, sin cambios de UI ni validación de usabilidad global.
 
 ## Alcance y referencias
 

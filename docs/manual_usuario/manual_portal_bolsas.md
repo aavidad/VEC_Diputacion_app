@@ -48,14 +48,17 @@ nombramiento eficaz ni correo real. Esta revisión incorpora el cierre funcional
 el hash publicado se comprueba en Git.
 
 **Objetivo 9: primer informe disponible como borrador de desarrollo.** Chrome `200`,
-29267 bytes, PDF y pantalla inspeccionados por dirección. Tras reiniciar app/PostgreSQL
-principal, el cuadro inicial (100, sin filtro) dio `502`; repetir una vez el recorrido
-en el mismo proceso, sin cambiar producto ni datos del expediente, dio cuadro/detalle/PDF
-`200` y PDF idéntico. El 502 sigue sin causa explicada ni corrección acreditada.
-Recorrido final sin errores JS, cookies, almacenamiento web ni desbordamiento DOM;
-usabilidad móvil no acreditada, superposición observada pendiente de captura estable,
-no defecto confirmado. Cierre solo escritorio/PDF.
-No hay SQL nuevo. Quedan cinco borradores; siguiente resolución, sin firma ni eficacia administrativa.
+29267 bytes, PDF y pantalla inspeccionados por dirección. Rectificación: el primer
+fallo navegador no capturó estado HTTP; el `502` era curl con límite 50, paginación
+separada sin corrección acreditada. Navegador límite 100: sonda `200`, vista `404`
+por fechas equivalentes comparadas como texto. AD3-21 corrige las dos consultas y
+está instalada en ambas bases, no reaplicar; AD3-20/CT61 se conservan.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, mismo PDF y cero errores JS,
+cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal: cinco POST `200`,
+sin `404`, mismo PDF e historia CT/Bolsa conservada; no cierra la paginación con límite 50.
+Dirección observó la pantalla estable de 390 px sin obstrucción del detalle ni del botón;
+la captura previa era una transición de 180 ms, sin cambio de UI ni validación de usabilidad global.
+El PDF no añadió SQL propio. Quedan cinco borradores; siguiente resolución, sin firma ni eficacia administrativa.
 
 Para elegir la documentación adecuada:
 

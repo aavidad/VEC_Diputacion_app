@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Antecedente publicado: `ed5b68ff`. El cierre de bandeja,
+Primer PDF publicado: `5c57b29f`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -49,11 +49,13 @@ y propuesta `200`, mismos identificadores/fecha/v7. Cero errores JS, cookies,
 almacenamiento web y desbordamiento. Caso y cinco claves en el apartado objetivo 8.
 Métrica vigente: **5/8 más partes del sexto y séptimo**. Esta revisión incorpora
 el cierre funcional; el hash publicado se comprueba en Git. Objetivo 9: primer informe
-borrador descargado `200`, idéntico tras reinicio principal y reintento del cuadro inicial
-`502`, sin edición de producto ni datos del expediente. El 502 sigue sin causa explicada
-ni corrección acreditada. Quedan cinco borradores; siguiente resolución.
-Sin firmas, nombramiento eficaz ni correo real; no SQL nuevo en este corte.
-AD3-20/CT61 instaladas en ambas bases; no reaplicar. Navegador acreditado solo en principal.
+borrador `200`. Tras corregir con AD3-21 el `404` de consultas por fechas equivalentes,
+cinco POST de bandeja/detalle/PDF `200`, también tras reiniciar app/PostgreSQL principal,
+sin `404`, PDF idéntico e historia CT/Bolsa conservada. El `502` separado de curl con límite 50
+no queda corregido por esta evidencia.
+Quedan cinco borradores; siguiente resolución. Sin firmas, nombramiento eficaz ni correo real.
+AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
+Navegador acreditado solo en principal.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -398,22 +400,29 @@ Con el perfil RRHH en el recorrido principal ya preparado:
 
 Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
 SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
-Tras reiniciar aplicación/PostgreSQL principal, el primer cuadro sin filtro
-(límite 100) devolvió `502 resultado_no_confiable`; repetir una vez el recorrido
-en el mismo proceso, sin editar producto ni datos del expediente, dio todos los
-cuadros/detalle/PDF `200`, PDF idéntico en tamaño y SHA256. No se atribuye causa
-ni corrección al 502 todavía no explicado. Cero errores JS, cookies, almacenamiento
-web y desbordamiento DOM en el recorrido final; no se atribuye este E2E a secundaria.
-Una captura móvil mostró la barra lateral superpuesta y recortada cubriendo la izquierda
-del contenido, posiblemente durante la transición CSS al redimensionar. Queda pendiente
-contrastar una captura estable: **usabilidad móvil no acreditada**, tampoco defecto confirmado.
-Este cierre acredita la descarga en escritorio y el PDF, no una validación visual móvil.
-En otra apertura posterior, la consulta de disponibilidad devolvió 200 y la consulta
-de la vista 404. La carga inicial es intermitente y debe estabilizarse antes de ampliar
-documentos. Las dos consultas tienen disparadores distintos; no se ha demostrado
-una carrera. Este aviso no invalida la descarga obtenida ni acredita una corrección.
+Rectificación de evidencia: el primer fallo de navegador tras reinicio no capturó
+estado HTTP. El `502 resultado_no_confiable` observado era curl con **límite 50**,
+una incidencia de paginación separada y sin corrección acreditada en este corte.
+Otra apertura de navegador, **límite 100**, capturó sonda `200` y vista `404`.
+PostgreSQL rechazaba con `42501` fechas equivalentes (`.999340Z` y `.99934Z`)
+comparadas como texto en dos funciones de lectura de AD3-3/5; AD3-14 había corregido
+mutaciones, no esas lecturas. AD3-21 compara instantes sin alterar bytes firmados,
+guardas ni cursor. Dirección confirmó UP/DOWN exacto de definiciones, propietario,
+configuración y ACL en ROLLBACK en secundaria e instaló UP en ambas bases.
+Tras AD3-21, cinco POST de bandeja/detalle/PDF `200`, PDF idéntico en tamaño y SHA256;
+cero errores JS, cookies y almacenamiento web. **Reinicio principal de aplicación y
+PostgreSQL confirmado**: dos cuadros iniciales con límite 100, cuadro filtrado 100,
+detalle v7 y PDF, los cinco POST `200`, sin `404`; mismos 29267 bytes y SHA256,
+historia CT/Bolsa conservada. Cero errores JS, cookies, almacenamiento web y desbordamiento DOM.
+No se atribuye este E2E a secundaria ni se cierra la incidencia de paginación con límite 50.
+Dirección inspeccionó la captura estable de **390 px**: menú oculto, sin tapar detalle
+ni botón. La superposición de la captura anterior correspondía a la transición CSS
+de 180 ms; no se modificó la UI. Esta observación no acredita usabilidad móvil global.
+La corrección temporal queda confirmada tras reinicio. Las dos consultas iniciales
+tienen disparadores distintos; no se atribuye una carrera a esa duplicación.
 Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
-AD3-20/CT61 siguen instaladas en ambas bases, no reaplicar; objetivo 9 no añade SQL.
+AD3-20/CT61 y AD3-21 instaladas en ambas bases, no reaplicar; el PDF no añade SQL propio.
+No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar allí SQL ni arrancarlo.
 Es un borrador sin firma ni eficacia administrativa. Quedan cinco documentos;
 siguiente resolución. Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 

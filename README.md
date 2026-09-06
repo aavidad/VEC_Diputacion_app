@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 6 de septiembre de 2026. Antecedente publicado: `ed5b68ff`.**
+**Estado funcional: 6 de septiembre de 2026. Primer PDF publicado: `5c57b29f`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -59,14 +59,18 @@ Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en 
 [Caso y cinco claves](GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
 **Objetivo 9: primer informe descargable como borrador de desarrollo**, Chrome `200`,
-29267 bytes, PDF y pantalla inspeccionados por dirección. Tras reiniciar app/PostgreSQL
-principal, cuadro inicial sin filtro (100) `502`; un reintento, mismo proceso sin
-modificar producto ni datos del expediente, dio cuadro/detalle/PDF `200` y PDF idéntico.
-El 502 sigue sin causa explicada ni corrección acreditada; recorrido final sin errores
-JS, cookies, almacenamiento web ni desbordamiento DOM; usabilidad móvil no acreditada,
-superposición observada pendiente de captura estable, no defecto confirmado.
-Cierre solo escritorio/PDF. [Descarga desde bandeja](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador),
-sin recuperar la propuesta por POST ni SQL nuevo. Quedan cinco borradores; siguiente resolución.
+29267 bytes, PDF y pantalla inspeccionados por dirección. Rectificación: primer fallo
+navegador sin estado HTTP capturado; el `502` era curl con límite 50, paginación separada
+sin corrección acreditada. El navegador límite 100 mostró sonda `200` y vista `404`
+por fechas equivalentes comparadas como texto en las consultas. AD3-21 instalada en
+ambas bases corrige esas dos comparaciones; no reaplicar AD3-20/CT61 ni AD3-21.
+Tras el parche, cinco POST de bandeja/detalle/PDF `200`, PDF idéntico y cero errores
+JS, cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal, los cinco
+POST volvieron a `200`, sin `404`, mismo PDF e historia CT/Bolsa conservada.
+Dirección observó pantalla estable de 390 px sin obstrucción del detalle ni botón;
+la captura previa era transición de 180 ms, sin cambiar UI ni validar usabilidad global.
+[Descarga desde bandeja](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador),
+sin recuperar la propuesta por POST ni SQL propio del PDF. Quedan cinco borradores; siguiente resolución.
 No acredita firma, nombramiento eficaz ni correo real.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
