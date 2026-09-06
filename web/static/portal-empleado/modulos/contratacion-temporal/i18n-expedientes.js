@@ -127,6 +127,12 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   descarga: "Descarga",
   descargar: "Descargar",
   descarga_conector_pendiente: "Descarga pendiente de conectar",
+  informe_definitivo_descargar: "Descargar informe · borrador de desarrollo",
+  informe_definitivo_descargando: "Descargando el borrador de desarrollo…",
+  informe_definitivo_listo: "Descarga del borrador de desarrollo iniciada. Sin firma ni nombramiento eficaz.",
+  informe_definitivo_error: "No se pudo descargar el borrador. El detalle se conserva; puede volver a solicitar la descarga.",
+  informe_definitivo_no_disponible: "El borrador no está disponible para la versión consultada. El detalle se conserva.",
+  informe_definitivo_denegado: "No dispone de acceso para descargar el borrador. El detalle se conserva.",
   no_disponible: "No disponible",
   auditoria_titulo: "Cronología y auditoría",
   auditoria_descripcion:

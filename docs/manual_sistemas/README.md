@@ -63,6 +63,17 @@ Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en 
 No atribuir este E2E a secundaria.
 Sin firma ni nombramiento eficaz. [Evidencia y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
+**Objetivo 9, primer informe borrador demostrado:** Chrome `200`, 29267 bytes;
+dirección inspeccionó PDF y pantalla. Tras reiniciar app/PostgreSQL principal,
+el primer cuadro sin filtro (límite 100) dio `502 resultado_no_confiable`.
+Repetir una vez el recorrido en el mismo proceso, sin editar producto ni datos
+del expediente, dio cuadro/detalle/PDF `200`, mismo tamaño y SHA256 de la guía.
+No atribuir causa ni corrección al 502 aún no explicado. Recorrido final sin errores JS,
+cookies, almacenamiento web ni desbordamiento DOM; no se atribuye a secundaria.
+Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
+posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
+Sin SQL nuevo ni reaplicaciones: AD3-20/CT61 siguen instaladas en ambas bases.
+
 ## Alcance y referencias
 
 Este manual sirve para operar **un entorno sintético ya preparado**, no para
@@ -367,7 +378,10 @@ La quinta operación abre el siguiente llamamiento solo tras renuncia sintética
 confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
 La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
-Siguiente objetivo 9: seis descargas de borradores, una por corte. Siguen pendientes
+El primer informe del objetivo 9 se descarga desde **Cuadro de mando → buscar número →
+Abrir expediente → Descargar informe · borrador de desarrollo**, detalle `v7`.
+No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exactos](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Quedan cinco borradores; siguiente resolución. Siguen pendientes
 vencimiento, aviso al sucesor y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.

@@ -2,7 +2,8 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Base publicada del corte actual: `9ccef45b2953f0c95b937b9020e6f9a62da24b9f`.
+Antecedente publicado: `ed5b68ff4a9f21518c7c9fd5f2ab0d2d93b1c2f3`.
+Esta revisión incorpora el primer documento del objetivo 9; su hash se comprueba en Git.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -102,7 +103,18 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   Registrar una declaración de aceptación no resuelve la aceptación ni
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
   localmente en el navegador; no se sube.
-- Siguiente objetivo 9: seis descargas de borradores, un documento por corte.
+- Objetivo 9, primer documento demostrado: informe definitivo, borrador de desarrollo,
+  Chrome `200`, 29267 bytes; PDF y pantalla inspeccionados por dirección. Tras reiniciar
+  app/PostgreSQL principal, cuadro inicial sin filtro (100) `502 resultado_no_confiable`;
+  repetir una vez el recorrido en el mismo proceso, sin modificar producto ni datos
+  del expediente, dio cuadro/detalle/PDF `200` y el mismo SHA256 de la guía.
+  Causa del 502 aún no explicada, no se acredita una corrección. Recorrido final sin
+  errores JS, cookies, almacenamiento web ni desbordamiento DOM; usabilidad móvil
+  no acreditada, superposición observada pendiente de captura estable (posible transición
+  CSS, no defecto confirmado). Cierre solo escritorio/PDF. Sin SQL nuevo ni replay
+  de propuesta para descargar. Quedan cinco borradores; siguiente resolución.
+  Antes de ampliarlos, estabilizar la entrada: otra apertura dio 200 en la consulta
+  de disponibilidad y 404 en la de la vista. No atribuir carrera ni pérdida de datos.
   Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
   continuación tras renuncia sintética `201` y replay `200` tras reinicio.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
@@ -148,7 +160,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
-| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Siguiente: seis borradores de desarrollo, sin firmas |
+| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Primer informe borrador demostrado: PDF `200`, idéntico tras reinicio y reintento del cuadro inicial 502; cinco pendientes, siguiente resolución. Sin firmas |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
 | 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |
@@ -156,8 +168,8 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 14 | Entregar el recorrido completo a Alberto y RRHH | Arranque reproducible, ocho pasos recorribles, manuales al día y lista explícita de dependencias productivas. Una comprobación conjunta final. | Después de los anteriores |
 
 **Documentos del objetivo 9: seis cortes, no un generador nuevo.**
-Informe definitivo, resolución, diligencia, toma de posesión, notificación y
-comunicación al centro. Se reutilizan las piezas escritas. Sin modelo oficial
+Informe definitivo ya descargable como borrador; quedan resolución, diligencia,
+toma de posesión, notificación y comunicación al centro. Se reutilizan las piezas escritas. Sin modelo oficial
 se entrega un borrador de desarrollo claramente marcado, no una redacción
 jurídica validada ni un documento firmado.
 

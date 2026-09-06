@@ -181,7 +181,20 @@ function renderizarFases(expediente, t) {
   </nav>`;
 }
 
-function renderizarCabecera(expediente, t) {
+export function solicitudInformeDefinitivoDesdeEstado(estado) {
+  const expediente = estado.expediente;
+  if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
+    || estado.actualizacion_pendiente || estado.resultado_indeterminado
+    || expediente?.demostracion !== false || expediente.version !== 7
+    || estado.expediente_ref !== expediente.expediente_ref
+    || estado.cuadro?.demostracion !== false) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);
+  if (resumen?.version !== 7 || resumen.fase_clave !== "nombramiento"
+    || resumen.estado_clave !== "en_curso") return null;
+  return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: 7 });
+}
+
+function renderizarCabecera(expediente, t, informeDisponible = false) {
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
@@ -195,6 +208,8 @@ function renderizarCabecera(expediente, t) {
           <div><dt>${escaparHTML(t("flujo_huella"))}</dt><dd><code>${escaparHTML(expediente.flujo_huella)}</code></dd></div>
         </dl>
       </details>
+      ${informeDisponible ? `<button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-informe-definitivo">${escaparHTML(t("informe_definitivo_descargar"))}</button>` : ""}
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div>
       <dt>${escaparHTML(campo.etiqueta)}</dt>
@@ -433,7 +448,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     analisisDisponible,
   )}
     </div>`;
-  return `${renderizarCabecera(expediente, t)}
+  return `${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}`;
 }

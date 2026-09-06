@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Base publicada del corte actual: `9ccef45`. El cierre de bandeja,
+Antecedente publicado: `ed5b68ff`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -48,8 +48,11 @@ Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `20
 y propuesta `200`, mismos identificadores/fecha/v7. Cero errores JS, cookies,
 almacenamiento web y desbordamiento. Caso y cinco claves en el apartado objetivo 8.
 Métrica vigente: **5/8 más partes del sexto y séptimo**. Esta revisión incorpora
-el cierre funcional; el hash publicado se comprueba en Git. Siguiente objetivo 9, seis descargas de borradores,
-un documento por corte. Sin firmas, nombramiento eficaz ni correo real.
+el cierre funcional; el hash publicado se comprueba en Git. Objetivo 9: primer informe
+borrador descargado `200`, idéntico tras reinicio principal y reintento del cuadro inicial
+`502`, sin edición de producto ni datos del expediente. El 502 sigue sin causa explicada
+ni corrección acreditada. Quedan cinco borradores; siguiente resolución.
+Sin firmas, nombramiento eficaz ni correo real; no SQL nuevo en este corte.
 AD3-20/CT61 instaladas en ambas bases; no reaplicar. Navegador acreditado solo en principal.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
@@ -378,8 +381,41 @@ Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete regis
 Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
 Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
-No hay firma, nombramiento eficaz ni descarga documental en este corte: el
-objetivo 9 preparará seis borradores, uno por corte. No equivale a correo real.
+En aquel corte no había descarga documental. El primer borrador del objetivo 9
+se obtiene como sigue; no hay firma, nombramiento eficaz ni correo real.
+
+### Objetivo 9: descargar el primer informe borrador
+
+Con el perfil RRHH en el recorrido principal ya preparado:
+
+1. Abra **Contratación temporal → Cuadro de mando**.
+2. Busque el número `2026/CT-f5a5578760afec875187195d4108606a` y aplique el filtro.
+3. Pulse **Abrir expediente** en esa fila: detalle del expediente `5fe7e60e…`,
+   versión `7`, `nombramiento/en_curso`, sin actualización pendiente.
+4. En la cabecera pulse **Descargar informe · borrador de desarrollo**.
+   Obtendrá `informe-definitivo-borrador.pdf`. No recupere ni registre la propuesta
+   por POST para descargar; no se necesitan claves ni replays de llamamiento.
+
+Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
+SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
+Tras reiniciar aplicación/PostgreSQL principal, el primer cuadro sin filtro
+(límite 100) devolvió `502 resultado_no_confiable`; repetir una vez el recorrido
+en el mismo proceso, sin editar producto ni datos del expediente, dio todos los
+cuadros/detalle/PDF `200`, PDF idéntico en tamaño y SHA256. No se atribuye causa
+ni corrección al 502 todavía no explicado. Cero errores JS, cookies, almacenamiento
+web y desbordamiento DOM en el recorrido final; no se atribuye este E2E a secundaria.
+Una captura móvil mostró la barra lateral superpuesta y recortada cubriendo la izquierda
+del contenido, posiblemente durante la transición CSS al redimensionar. Queda pendiente
+contrastar una captura estable: **usabilidad móvil no acreditada**, tampoco defecto confirmado.
+Este cierre acredita la descarga en escritorio y el PDF, no una validación visual móvil.
+En otra apertura posterior, la consulta de disponibilidad devolvió 200 y la consulta
+de la vista 404. La carga inicial es intermitente y debe estabilizarse antes de ampliar
+documentos. Las dos consultas tienen disparadores distintos; no se ha demostrado
+una carrera. Este aviso no invalida la descarga obtenida ni acredita una corrección.
+Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
+AD3-20/CT61 siguen instaladas en ambas bases, no reaplicar; objetivo 9 no añade SQL.
+Es un borrador sin firma ni eficacia administrativa. Quedan cinco documentos;
+siguiente resolución. Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

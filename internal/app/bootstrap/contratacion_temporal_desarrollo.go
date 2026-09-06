@@ -13,9 +13,11 @@ import (
 	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -274,12 +276,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
+	var informeDefinitivo ports.RenderizadorInformeDefinitivoRRHH
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, derivador, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal = consultasRRHH.cuadro, consultasRRHH.detalle
+		informeDefinitivo = informejuridico.RenderizadorInformeDefinitivoDesarrollo{PDF: pdfvec.Renderizador{}}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -299,6 +303,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorAnalisis:                servicioAnalisis,
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
+			InformeDefinitivoRRHH:           informeDefinitivo,
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,

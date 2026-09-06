@@ -47,6 +47,16 @@ Cero errores JS, cookies, almacenamiento web y desbordamiento. No acredita firma
 nombramiento eficaz ni correo real. Esta revisión incorpora el cierre funcional;
 el hash publicado se comprueba en Git.
 
+**Objetivo 9: primer informe disponible como borrador de desarrollo.** Chrome `200`,
+29267 bytes, PDF y pantalla inspeccionados por dirección. Tras reiniciar app/PostgreSQL
+principal, el cuadro inicial (100, sin filtro) dio `502`; repetir una vez el recorrido
+en el mismo proceso, sin cambiar producto ni datos del expediente, dio cuadro/detalle/PDF
+`200` y PDF idéntico. El 502 sigue sin causa explicada ni corrección acreditada.
+Recorrido final sin errores JS, cookies, almacenamiento web ni desbordamiento DOM;
+usabilidad móvil no acreditada, superposición observada pendiente de captura estable,
+no defecto confirmado. Cierre solo escritorio/PDF.
+No hay SQL nuevo. Quedan cinco borradores; siguiente resolución, sin firma ni eficacia administrativa.
+
 Para elegir la documentación adecuada:
 
 - Este manual: acceso, navegación, resultados visibles y ayuda del portal.
@@ -171,7 +181,7 @@ conservado, use los datos exactos de la
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
 | 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; siguen pendientes seis descargas de borradores, una por corte. |
+| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar el primer informe borrador desde el detalle. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; quedan otros cinco borradores. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 El número de recibos o la versión del expediente no es el número de pasos
@@ -311,6 +321,16 @@ y confirme expresamente, sin otro `.eml`. Si las publicaciones no cargan, no env
 El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
 fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
 sin reintento automático ni otra clave para eludir un `409`.
+
+### Descargar el primer informe borrador
+
+En **Contratación temporal → Cuadro de mando**, busque
+`2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
+En el detalle real `v7`, `nombramiento/en_curso`, pulse el botón de cabecera
+**Descargar informe · borrador de desarrollo**: archivo `informe-definitivo-borrador.pdf`.
+No recupere la propuesta por POST ni repita las operaciones de llamamiento para descargar.
+Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Es un borrador sin firma, no un nombramiento eficaz; la métrica sigue en **5/8 más partes del sexto y séptimo**.
 
 ### Qué ocurre después de un reinicio
 

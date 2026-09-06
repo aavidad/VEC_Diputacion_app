@@ -76,8 +76,21 @@ anterior intacta. Cero errores JS, cookies, almacenamiento web y desbordamiento.
 AD3-20/CT61 instaladas en ambas bases; no reaplicar ni atribuir otro E2E a secundaria.
 Conservar versión esperada `6` y las cinco claves de aceptación/propuesta de la guía.
 Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
-Siguiente: objetivo 9,
-seis descargas de borradores, un documento por corte; sin firma ni nombramiento eficaz.
+Objetivo 9, primer documento demostrado: informe definitivo como borrador de
+desarrollo, Chrome `200`, 29267 bytes. Tras reiniciar app/PostgreSQL principal,
+el primer cuadro sin filtro (límite 100) dio `502 resultado_no_confiable`;
+un reintento del recorrido, mismo proceso sin editar producto ni datos del expediente,
+obtuvo cuadro/detalle/PDF `200`, mismo SHA256 del PDF de la guía. Causa del 502
+no explicada ni corrección acreditada. Dirección inspeccionó PDF y pantalla;
+cero errores JS, cookies, almacenamiento web y desbordamiento DOM en el recorrido final.
+Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
+posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
+Descarga desde bandeja y detalle v7, sin recuperar la propuesta por POST.
+No hay SQL nuevo: AD3-20/CT61 siguen instaladas en ambas bases, no reaplicar.
+Quedan cinco borradores; siguiente resolución. Sin firma ni nombramiento eficaz.
+Antes de ampliar documentos, resolver la carga inicial intermitente: otra apertura
+devolvió 200 en la consulta de disponibilidad y 404 en la de la vista. Ambas son
+consultas distintas intencionadas; no hay carrera demostrada ni pérdida de datos.
 Siguen pendientes vencimiento y correo corporativo; la continuación
 tras renuncia sintética está cerrada, no el envío del aviso sucesor.
 La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.

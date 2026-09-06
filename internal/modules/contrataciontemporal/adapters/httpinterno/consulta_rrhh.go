@@ -1,10 +1,12 @@
 package httpinterno
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -36,7 +38,8 @@ type manejadorConsultaCuadroRRHH struct {
 }
 
 type manejadorConsultaDetalleRRHH struct {
-	consultor ConsultorDetalleRRHH
+	consultor    ConsultorDetalleRRHH
+	renderizador ports.RenderizadorInformeDefinitivoRRHH
 }
 
 var (
@@ -57,11 +60,19 @@ func NuevoManejadorConsultaCuadroRRHH(
 
 func NuevoManejadorConsultaDetalleRRHH(
 	consultor ConsultorDetalleRRHH,
+	renderizadores ...ports.RenderizadorInformeDefinitivoRRHH,
 ) (http.Handler, error) {
-	if dependenciaConsultaRRHHNula(consultor) {
+	if dependenciaConsultaRRHHNula(consultor) || len(renderizadores) > 1 {
 		return nil, ErrManejadorConsultaRRHHInvalido
 	}
-	return &manejadorConsultaDetalleRRHH{consultor: consultor}, nil
+	h := &manejadorConsultaDetalleRRHH{consultor: consultor}
+	if len(renderizadores) == 1 {
+		if dependenciaConsultaRRHHNula(renderizadores[0]) {
+			return nil, ErrManejadorConsultaRRHHInvalido
+		}
+		h.renderizador = renderizadores[0]
+	}
+	return h, nil
 }
 
 func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
@@ -139,7 +150,7 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if problema := validarMetadatosConsultaRRHH(r, MaximoCuerpoConsultaDetalleRRHHBytes); problema != nil {
+	if problema := validarMetadatosConsultaRRHHConPDF(r, MaximoCuerpoConsultaDetalleRRHHBytes, true); problema != nil {
 		responderErrorConsultaRRHH(w, *problema)
 		return
 	}
@@ -165,11 +176,53 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
+	if solicitaInformeDefinitivoRRHH(r.Header) {
+		h.responderInformeDefinitivo(w, r, detalle)
+		return
+	}
 	responderJSONConsultaRRHH(
 		w,
 		http.StatusOK,
 		envoltorioDetalleRRHH{Data: proyectarDetalleRRHH(detalle)},
 	)
+}
+
+func (h *manejadorConsultaDetalleRRHH) responderInformeDefinitivo(
+	w http.ResponseWriter,
+	r *http.Request,
+	detalle ports.DetalleExpedienteRRHH,
+) {
+	if dependenciaConsultaRRHHNula(h.renderizador) {
+		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		return
+	}
+	if err := r.Context().Err(); err != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		return
+	}
+	contenido, err := h.renderizador.RenderizarInforme(r.Context(), detalle.Clonar())
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		return
+	}
+	if errors.Is(err, ports.ErrInformeDefinitivoRRHHNoDisponible) {
+		responderErrorConsultaRRHH(w, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
+		return
+	}
+	if err != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		return
+	}
+	if len(contenido) > MaximoPDFInformeDefinitivoRRHHBytes || !bytes.HasPrefix(contenido, []byte("%PDF-")) {
+		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
+	aplicarCabecerasCobertura(w)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="informe-definitivo-borrador.pdf"`)
+	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(contenido)
 }
 
 func rutaConsultaRRHHExacta(r *http.Request, esperada string) bool {

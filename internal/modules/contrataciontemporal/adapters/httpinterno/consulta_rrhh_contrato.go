@@ -19,6 +19,8 @@ const (
 	MaximoCuerpoConsultaCuadroRRHHBytes  = 4 * 1024
 	MaximoCuerpoConsultaDetalleRRHHBytes = 4 * 1024
 	MaximoRespuestaConsultaRRHHBytes     = 256 * 1024
+	MaximoPDFInformeDefinitivoRRHHBytes  = 2 * 1024 * 1024
+	AcceptInformeDefinitivoRRHH          = "application/pdf; documento=informe-definitivo-desarrollo"
 
 	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
 	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
@@ -58,6 +60,14 @@ func validarMetadatosConsultaRRHH(
 	r *http.Request,
 	maximo int64,
 ) *errorPublicoConsultaRRHH {
+	return validarMetadatosConsultaRRHHConPDF(r, maximo, false)
+}
+
+func validarMetadatosConsultaRRHHConPDF(
+	r *http.Request,
+	maximo int64,
+	permitirPDF bool,
+) *errorPublicoConsultaRRHH {
 	if r != nil && r.ContentLength > maximo {
 		problema := errorCuerpoConsultaRRHHDemasiadoGrande
 		return &problema
@@ -72,7 +82,8 @@ func validarMetadatosConsultaRRHH(
 		problema := errorTipoConsultaRRHHNoAdmitido
 		return &problema
 	}
-	if !cabeceraJSONConsultaRRHHExacta(r.Header, "Accept") {
+	if !cabeceraJSONConsultaRRHHExacta(r.Header, "Accept") &&
+		!(permitirPDF && solicitaInformeDefinitivoRRHH(r.Header)) {
 		problema := errorRepresentacionConsultaRRHHNoAceptable
 		return &problema
 	}
@@ -81,6 +92,11 @@ func validarMetadatosConsultaRRHH(
 		return &problema
 	}
 	return nil
+}
+
+func solicitaInformeDefinitivoRRHH(cabeceras http.Header) bool {
+	valor, unico := cabeceraUnicaAlta(cabeceras, "Accept")
+	return unico && valor == AcceptInformeDefinitivoRRHH
 }
 
 func cabeceraJSONConsultaRRHHExacta(

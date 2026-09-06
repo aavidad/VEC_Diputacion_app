@@ -42,6 +42,15 @@ JS, cookies, almacenamiento web y desbordamiento. Sin firma ni nombramiento efic
 Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
 [Caso y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
+**Objetivo 9: primer informe borrador descargado**, Chrome `200`, 29267 bytes,
+PDF y pantalla inspeccionados por dirección. Tras reiniciar app/PostgreSQL principal,
+cuadro inicial (100, sin filtro) `502`; un reintento en el mismo proceso, sin cambiar
+producto ni datos del expediente, dio cuadro/detalle/PDF `200` y el mismo PDF.
+Causa del 502 no explicada, sin corrección acreditada. Recorrido final sin errores JS,
+cookies, almacenamiento web ni desbordamiento DOM; usabilidad móvil no acreditada,
+superposición observada pendiente de captura estable, no defecto confirmado.
+Cierre solo escritorio/PDF; no SQL nuevo ni otro paso completo.
+
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más partes del sexto
@@ -59,7 +68,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperables tras reinicio. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`. Pendientes seis descargas de borradores y circuito de firmas; no nombramiento eficaz. |
+| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; primer informe borrador descargable. Pendientes otros cinco borradores y circuito de firmas; no nombramiento eficaz. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
@@ -341,7 +350,16 @@ clave de propuesta `018f47a6-5d2b-4c10-8a11-123456789008` del caso de la guía.
 Confirme expresamente, sin otro `.eml`; ante ambigüedad mantenga clave/material.
 Dirección confirmó `201` y recuperación `200` tras reinicio principal, mismo
 recibo y fecha `2026-09-06T01:28:30.697897Z`. Es una propuesta sin firma ni eficacia
-de nombramiento. Siguiente objetivo 9: seis descargas de borradores, una por corte.
+de nombramiento. Objetivo 9: primer informe disponible, otros cinco pendientes;
+siguiente resolución.
+
+Para descargar, vaya a **Cuadro de mando**, busque
+`2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
+Desde el detalle real `v7`, `nombramiento/en_curso`, use **Descargar informe · borrador de desarrollo**
+en la cabecera. Archivo `informe-definitivo-borrador.pdf`, sin firmas ni eficacia administrativa.
+No recupere la propuesta por POST ni repita el llamamiento para esta lectura.
+Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+AD3-20/CT61 ya instaladas en ambas bases: no reaplicar; no hay SQL del objetivo 9.
 
 El nombramiento completo exige la propuesta y los documentos y firmas que
 correspondan. El conjunto previsto incluye **informe definitivo, resolución,

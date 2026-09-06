@@ -46,6 +46,15 @@ almacenamiento web y desbordamiento. Esta revisión incorpora el cierre funciona
 el hash publicado se comprueba en Git.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; E2E acreditado solo en principal.
 
+**Objetivo 9, primer informe borrador demostrado:** Chrome `200`, 29267 bytes.
+Tras reiniciar app/PostgreSQL principal, el cuadro inicial sin filtro (100) dio
+`502 resultado_no_confiable`; un reintento del recorrido, mismo proceso sin editar
+producto ni datos del expediente, dio cuadro/detalle/PDF `200` y el mismo SHA256 de la guía.
+Causa del 502 aún no explicada; no se acredita corrección. Dirección inspeccionó PDF
+y pantalla; recorrido final sin errores JS, cookies, almacenamiento web ni desbordamiento DOM.
+Usabilidad móvil no acreditada: superposición observada pendiente de captura estable,
+posible transición CSS, no defecto confirmado. Cierre solo escritorio/PDF.
+
 ## Qué leer y qué mantener
 
 Este manual puede consultarse desde un clon del repositorio, sin acceder a
@@ -291,8 +300,20 @@ material completo y etapas; CT61 consume V3 fresco antes de lectura/replay.
 El commit une propuesta, versión integral `7`, actuación y outbox; replay conserva
 material/actor/perfil y recibo/fecha. DOWN bloqueado con historia. Sin firma,
 renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
-Siguiente objetivo 9: seis descargas de borradores, un documento por corte,
-reutilizando el generador existente; no una nueva línea documental.
+
+### Primer informe borrador desde la consulta RRHH
+
+Objetivo 9 reutiliza `POST /api/vec/contratacion-temporal/expedientes/consultas`:
+JSON de dos campos derivados: `expediente_ref` y `version_observada: 7`; `Content-Type: application/json`,
+`Accept: application/pdf; documento=informe-definitivo-desarrollo`.
+Consulta autorizada/auditada antes del renderizado, detalle `v7/nombramiento/en_curso`
+y hito 7 `registrar_propuesta_formalizacion`; generador PDF existente, sin otra fuente.
+Salida `200 application/pdf`, attachment `informe-definitivo-borrador.pdf`, máximo 2 MiB.
+Errores JSON de consulta y `409 documento_no_disponible`; sin PDF parcial ni replay de propuesta.
+Botón de cabecera `data-ct-exp-accion="descargar-informe-definitivo"`, cliente binario
+nominal en manifiesto activo, cancelación y revocación de Blob; el error conserva el detalle.
+Sin SQL nuevo: AD3-20/CT61 siguen instaladas en ambas bases. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Quedan otros cinco borradores, siguiente resolución; **5/8 más partes del sexto y séptimo**, sin firmas.
 
 ## Arquitectura real y propiedad
 

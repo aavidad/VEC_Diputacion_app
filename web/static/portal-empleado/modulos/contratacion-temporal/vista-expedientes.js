@@ -11,6 +11,7 @@ import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
+import { crearClienteHTTPInformeDefinitivo, NOMBRE_INFORME_DEFINITIVO } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
   escaparHTML,
@@ -19,6 +20,7 @@ import {
   renderizarDocumentos,
   renderizarEstadoCarga,
   renderizarExpediente,
+  solicitudInformeDefinitivoDesdeEstado,
 } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 
@@ -384,6 +386,8 @@ export async function montarModuloContratacionTemporal({
   analisis = null,
   fiscalizacion = null,
   llamamiento = null,
+  clienteInformeDefinitivo = crearClienteHTTPInformeDefinitivo(),
+  entornoDescarga = globalThis,
   mensajes = {},
   anunciar = () => {},
   confirmarOperacion = () => false,
@@ -426,6 +430,76 @@ export async function montarModuloContratacionTemporal({
   let desmontarInformeJuridico = null;
   let desmontarFiscalizacion = null;
   let sesionAnalisis = null;
+  let descargaInforme = null;
+  let urlInforme = null;
+  let revocacionInforme = null;
+
+  function liberarURLInforme() {
+    clearTimeout(revocacionInforme);
+    revocacionInforme = null;
+    if (urlInforme !== null) entornoDescarga.URL.revokeObjectURL(urlInforme);
+    urlInforme = null;
+  }
+
+  function cancelarDescargaInforme() {
+    descargaInforme?.abort();
+    descargaInforme = null;
+    liberarURLInforme();
+  }
+
+  function informarDescarga(clave, tipo) {
+    const texto = crearTraductorExpedientesContratacion(mensajes)(clave);
+    const mensaje = raiz.querySelector("[data-ct-exp-mensaje]");
+    if (mensaje) {
+      mensaje.textContent = texto;
+      mensaje.setAttribute("role", tipo === "error" ? "alert" : "status");
+    }
+    anunciar(texto, tipo);
+  }
+
+  async function descargarInforme(boton) {
+    const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
+    if (!montada || descargaInforme || !solicitud) return;
+    const controlador = new AbortController();
+    descargaInforme = controlador;
+    boton.disabled = true;
+    informarDescarga("informe_definitivo_descargando", "informacion");
+    try {
+      const { document: documento, URL: urls } = entornoDescarga;
+      if (!documento?.body || typeof urls?.createObjectURL !== "function"
+        || typeof urls?.revokeObjectURL !== "function") throw new TypeError();
+      const blob = await clienteInformeDefinitivo.descargarInformeDefinitivo(solicitud, {
+        signal: controlador.signal,
+      });
+      if (!montada || descargaInforme !== controlador || controlador.signal.aborted
+        || JSON.stringify(solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado()))
+          !== JSON.stringify(solicitud)) return;
+      liberarURLInforme();
+      urlInforme = urls.createObjectURL(blob);
+      const enlace = documento.createElement("a");
+      try {
+        enlace.href = urlInforme;
+        enlace.download = NOMBRE_INFORME_DEFINITIVO;
+        enlace.hidden = true;
+        documento.body.append(enlace);
+        enlace.click();
+      } finally {
+        enlace.remove();
+        revocacionInforme = setTimeout(liberarURLInforme, 0);
+      }
+      informarDescarga("informe_definitivo_listo", "informacion");
+    } catch (error) {
+      if (!montada || descargaInforme !== controlador || controlador.signal.aborted) return;
+      const clave = error?.envelopeValido === true && error.codigo === "documento_no_disponible"
+        ? "informe_definitivo_no_disponible"
+        : error?.envelopeValido === true && ["acceso_denegado", "autenticacion_requerida"].includes(error.codigo)
+          ? "informe_definitivo_denegado" : "informe_definitivo_error";
+      informarDescarga(clave, "error");
+    } finally {
+      if (descargaInforme === controlador) descargaInforme = null;
+      boton.disabled = false;
+    }
+  }
 
   function bloquearControlesAnalisis(sesion) {
     if (sesion.controles === null) {
@@ -789,6 +863,7 @@ export async function montarModuloContratacionTemporal({
 
   function repintar(selectorFoco = "") {
     if (!montada || analisisEstableActivo()) return;
+    cancelarDescargaInforme();
     retirarComponentes();
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -922,7 +997,9 @@ export async function montarModuloContratacionTemporal({
     if (impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
-    if (accion.dataset.ctExpAccion === "limpiar-filtros") {
+    if (accion.dataset.ctExpAccion === "descargar-informe-definitivo") {
+      await descargarInforme(accion);
+    } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });
       repintar("[data-ct-exp-mensaje]");
       await promesa;
@@ -968,6 +1045,7 @@ export async function montarModuloContratacionTemporal({
     desmontar() {
       if (!montada) return;
       montada = false;
+      cancelarDescargaInforme();
       retirarComponentes();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
