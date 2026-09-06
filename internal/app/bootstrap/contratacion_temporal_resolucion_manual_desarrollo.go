@@ -300,6 +300,11 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContexto(ctx context.Context, ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
+	if ruta == rutaEntregaPeticionCentro {
+		if _, ok := altaDePeticionConfiable(ctx); ok {
+			return s.motivo, true
+		}
+	}
 	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {

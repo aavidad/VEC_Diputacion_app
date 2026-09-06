@@ -5,8 +5,10 @@ import { crearBorradorAlta } from "../modulos/contratacion-temporal/contrato.js"
 import {
   pedir,
   renderizarPeticionCentro,
+  renderizarPeticionesCentroRRHH,
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
+  registrarAltaRRHH,
 } from "./peticiones-centro.js";
 
 const catalogos = {
@@ -24,7 +26,7 @@ test("renderer comparte el formulario de alta y deja claro el circuito previo", 
   const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta(), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
   assert.match(html, /data-ct-form/);
   assert.match(html, /Identidades de prueba/);
-  assert.match(html, /pendiente de entrada/);
+  assert.match(html, /RRHH tramita las peticiones ratificadas/);
   assert.match(html, /C2/);
 });
 
@@ -102,4 +104,40 @@ test("un recibo confirmado permite volver a la bandeja sin repetir la presentaci
   assert.match(html, /Operación registrada/);
   assert.match(html, /data-accion="recargar"/);
   assert.match(html, /data-accion="nueva"/);
+});
+
+test("la vista RRHH no usa el contexto de centros y conserva datos, ratificación y recibo", () => {
+  const ratificada = { ...structuredClone(peticion), version: 2, estado: "ratificada", motivo_ratificacion: "Revisión sintética", ratificada_en: "2026-09-06T08:01:00Z" };
+  const entrega = { peticion: ratificada, estado_entrega: "confirmada", recibo_alta: {
+    expediente_ref: "expediente:ct:001", numero_visible: "CT-001", version: 1, recibo_ref: "recibo:alta:001",
+    auditoria_ref: "auditoria:001", evento_ref: "evento:001", confirmada_en: "2026-09-06T08:02:00Z",
+  } };
+  const html = renderizarPeticionesCentroRRHH({ peticiones: [entrega], entrega });
+  assert.match(html, /Necesidad sintética/);
+  assert.match(html, /Revisión sintética/);
+  assert.match(html, /Referencia del expediente/);
+  assert.match(html, /expediente:ct:001/);
+  assert.match(html, /\/portal-empleado\/#contratacion-temporal/);
+  assert.doesNotMatch(html, /Persona de prueba/);
+  const preparada = renderizarPeticionesCentroRRHH({ peticiones: [{ peticion: ratificada, estado_entrega: "preparada" }], entrega: { peticion: ratificada, estado_entrega: "preparada" } });
+  assert.match(preparada, /Completar registro/);
+	const pendiente = renderizarPeticionesCentroRRHH({ entrega: { peticion: ratificada, estado_entrega: "pendiente" } });
+	assert.match(pendiente, /data-accion="abrir-alta-rrhh"/);
+	assert.match(pendiente, /Crear expediente en RRHH/);
+  assert.doesNotMatch(html, /data-accion="abrir-alta-rrhh"/);
+  assert.match(renderizarPeticionesCentroRRHH({ entrega: { peticion: ratificada, estado_entrega: "preparada" }, modo: "confirmar" }), /Crear expediente en RRHH/);
+});
+
+test("alta RRHH envía el contrato exacto y conserva reintento ante resultado incierto", async () => {
+  const enviados = [];
+  const cliente = async (ruta, opciones) => {
+    enviados.push({ ruta, cuerpo: opciones.cuerpo });
+    return { peticion: { referencia: "peticion:centro:001", version: 2 }, estado_entrega: "confirmada", recibo_alta: {
+      expediente_ref: "expediente:ct:001", recibo_ref: "recibo:alta:001", confirmada_en: "2026-09-06T08:02:00Z",
+    } };
+  };
+  await registrarAltaRRHH(cliente, { peticion_ref: "peticion:centro:001", version_esperada: 2, actor_ref: "prohibido" });
+  assert.deepEqual(enviados, [{ ruta: "/api/vec/contratacion-temporal/peticiones-centro/rrhh", cuerpo: { peticion_ref: "peticion:centro:001", version_esperada: 2 } }]);
+  await assert.rejects(registrarAltaRRHH(async () => { throw new TypeError("conexión perdida"); }, { peticion_ref: "peticion:centro:001", version_esperada: 2 }), (error) => error.indeterminado === true);
+  await assert.rejects(registrarAltaRRHH(async () => { throw { status: 409 }; }, { peticion_ref: "peticion:centro:001", version_esperada: 2 }), (error) => error.status === 409 && !error.indeterminado);
 });

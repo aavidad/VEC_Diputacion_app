@@ -165,7 +165,7 @@ export function renderizarCuadro(estado, t) {
     </div>
   </section>`;
   const trabajoOperativo = cuadro.demostracion ? renderizarTrabajoOperativo(cuadro, t) : "";
-  const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centro"))}</a></p>`;
+  const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a></p>`;
   return `${indicadores}${organizacion}${trabajoOperativo}${filtros}${estado.carga === "vacio"
     ? renderizarEstadoCarga(estado, t) : tabla}`;
 }

@@ -1,5 +1,110 @@
 # Instrucciones del repositorio para agentes
 
+## Autoridad operativa OpenClaw — cierre del puente centro→RRHH, 6 de septiembre de 2026
+
+- La única copia canónica es `/workspace/proyectos/VEC_Diputacion_app`, en la
+  rama `trabajo/ct-app-llamamiento-b4a-20260905`, sobre la base publicada en
+  GitHub `integracion/ct-producto-ligero-20260821`@
+  `85cb47ce855a0f737b64e12b534eef38a14c598e`. El entorno local anterior queda
+  congelado. El incremento queda documentado en este corte sobre esa base;
+  preservar cambios e historia y seguir en la misma rama. Antes de presentarlo
+  como publicado, verificar con Git el hash y el estado de publicación.
+  Dirección está autorizada a confirmar y publicar tras su revisión; este
+  bloque no afirma que el `push` ya se haya realizado ni que sea producción.
+- El puente centro→RRHH está cerrado funcionalmente en el entorno privado:
+  Chrome recuperó `GET 200`/`POST 200` tras reiniciar aplicación y PostgreSQL,
+  con el recibo completo idéntico y sin otra alta. El primer `POST 503` sí creó
+  el alta y el reintento la enlazó sin duplicarla. La base conserva 52
+  expedientes, 52 versiones, 2 revisiones de petición, 1 reserva, 1
+  confirmación y 1 evento de entrega; las huellas anteriores siguen intactas.
+  En 1440/1024/390 no hay desbordamiento global, la tabla usa scroll interno y
+  no hubo errores JS, cookies ni almacenamiento web.
+- Artefactos acreditados: CT68 SHA256
+  `6570010b59825c97a24ffcc595be01fe8df42c4367c1454ccaef3d198cb1dcee`,
+  manifiesto estructural SHA256
+  `627d1388c93560dda89126ff59eabac29207ec95581100f4a9a6f0dfae9105d1`
+  y CSS SHA256
+  `9269167835a1894670348ec6f9498843f6fc1459aa18984400d37f20acda94c2`;
+  permanecen vigentes los dos `GO` estáticos.
+- AD3-24 y CT68 ya están instaladas y tienen historia: **NO reaplicar `DOWN` ni
+  `UP`**. La definición SQL estructural se ajustó una sola vez, preservando las
+  tablas. Una restauración requiere, además del dump, las ACL de la base y los
+  43 tipos de fila; el procedimiento y demás detalles privados están fuera de
+  Git.
+- La métrica no cambia: **cinco pasos completos más partes del sexto y
+  séptimo**. La siguiente cola es el objetivo 10, resolución y evidencia según
+  la fuente o circuito que se admita. Dirección está autorizada a continuar
+  sus partes reutilizables para presentación; nunca inventar firma legal ni
+  presentar autenticación, borradores o evidencia sintética como tal firma.
+
+Este bloque sustituye operativamente la recepción y la pausa inmediatas que se
+conservan a continuación como historia del traspaso.
+
+## Recepción OpenClaw — 6 de septiembre de 2026
+
+- Ubicación sandbox: `/workspace/proyectos/VEC_Diputacion_app`; rama
+  `trabajo/ct-app-llamamiento-b4a-20260905`, HEAD
+  `85cb47ce855a0f737b64e12b534eef38a14c598e`.
+- Autorización vigente: importar y preparar VEC para continuar con OpenClaw;
+  conservar el WIP documental y de código, sin presentarlo como terminado.
+- Compilación comprobada con `/workspace/.tools/go1.26.5/bin/go`,
+  `PATH=/workspace/.tools/go1.26.5/bin:$PATH`, `GOMAXPROCS=2`,
+  `GOTOOLCHAIN=local`, `GOCACHE=/workspace/.cache/vec-go/build` y
+  `GOPATH=/workspace/.cache/vec-go/mod`: `go build -buildvcs=false
+  -o /tmp/vec-server ./cmd/vec-server` terminó con código 0. No acredita
+  aplicación, base de datos ni navegador; no se ejecutaron pruebas ni servicios.
+- Próxima tarea del puente centro→RRHH: cerrar las dos revisiones pendientes
+  (SQL24/68 y frontera de autorización), antes de la instalación controlada y
+  del recorrido navegador→recibo con recuperación tras reinicio.
+
+## Pausa para traspaso al servidor — 6 de septiembre de 2026
+
+Orden vigente del operador: guardar y preparar el traslado mínimo al servidor;
+no continuar programando en local. Este bloque prevalece sobre el siguiente
+corte descrito abajo. No se ha ejecutado el traslado ni arrancado otra copia.
+
+- Base publicada y comprobada en GitHub:
+  `85cb47ce855a0f737b64e12b534eef38a14c598e`, rama de producto
+  `integracion/ct-producto-ligero-20260821`. La única línea de trabajo sigue
+  siendo `trabajo/ct-app-llamamiento-b4a-20260905` en su worktree existente.
+- Trabajo pendiente conservado sin commit: entrega de petición ratificada
+  al alta existente de RRHH. Son 21 archivos de implementación/pruebas
+  (9 modificados, 12 nuevos), más este cierre en AGENTS/ESTADO. No confundir
+  esta preparación con una función ya demostrada o publicada.
+- Incluye autorización `000024`, Contratación `000068`, puente de aplicación,
+  adaptador PostgreSQL, composición y vista RRHH de peticiones-centro. Las
+  nuevas migraciones NO están instaladas; no arrancar este código sobre la
+  base conservada como si ya lo estuvieran.
+- Último parche sensible: reservar juntos la clave de alta y su sello antes
+  de llamar al alta original; comprobar ese vínculo al confirmar la entrega.
+  CT68 UP SHA256:
+  `3ffbbd3405fc8cd4e58d705a68e5db60b63f3b8aec3ccebfcb5f3e67ea8df0a1`.
+  Las dos revisiones independientes finales quedaron interrumpidas: ningún
+  dictamen anterior acredita automáticamente este hash. No esperar IDs de
+  agentes cerrados; reanudar únicamente estas revisiones sobre lo conservado.
+- Hay pruebas focales Go y diez comprobaciones web verdes; no hay instalación
+  SQL, recorrido navegador ni reinicio acreditados para esta entrega nueva.
+  El último recorrido terminado sigue siendo petición y ratificación del centro.
+- Los tres subagentes y el navegador automatizado de este corte están cerrados.
+  Las dos aplicaciones y bases locales se conservan; no son dos líneas de
+  desarrollo. La principal tiene 51 expedientes y una petición con dos
+  revisiones. Autorización23/Contratación67 tienen historia: no reaplicar ni DOWN.
+- Traslado mínimo: obtener la base publicada desde GitHub y llevar solamente
+  el parche pendiente, archivos nuevos e instrucciones/bitácora. Base principal
+  y material privado de desarrollo viajan aparte, nunca en Git. No copiar
+  cachés, módulos descargados, binarios, imágenes/volúmenes Docker, perfiles
+  de navegador, base secundaria ni worktrees históricos. Todo eso queda local.
+- Antes de escribir en destino, comprobar su ruta, inventario, cambios ajenos y
+  equivalencias. No reconstruir la antigua carpeta remota ni sobrescribirla a
+  ciegas: el operador la movió. Una sola continuación canónica en el servidor,
+  sin programación local simultánea. Los paquetes privados y pasos exactos
+  de recuperación están anotados en la bitácora fuera de Git.
+
+Después de recuperar el entorno: cerrar las dos revisiones pendientes, instalar
+solo las migraciones nuevas cuando sean válidas y demostrar una entrega desde
+navegador hasta recibo, con recuperación tras reinicio. Conservar la cola de
+Contratación existente; no abrir O3a ni trabajo paralelo sustitutivo.
+
 ## Punto operativo vigente — desarrollo local, 6 de septiembre de 2026
 
 Último corte: petición del centro → ratificación por otra identidad sintética,

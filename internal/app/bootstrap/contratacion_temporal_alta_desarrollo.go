@@ -102,6 +102,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaSiguienteBolsa         dominiovec.InstantaneaAutorizacion
 	instantaneaPropuestaFormalizacion dominiovec.InstantaneaAutorizacion
 	instantaneaOrganizacion           dominiovec.InstantaneaAutorizacion
+	instantaneaEntregaPeticion        dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -335,7 +336,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadAltaValida(
 	ctx context.Context,
 ) bool {
 	capacidad, valida := s.capacidadValida(ctx)
-	return valida && capacidad.ruta == httpinterno.RutaAltaSolicitudes
+	_, desdePeticion := altaDePeticionConfiable(ctx)
+	return valida && (capacidad.ruta == httpinterno.RutaAltaSolicitudes || capacidad.ruta == rutaEntregaPeticionCentro && desdePeticion)
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
@@ -359,7 +361,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 }
 
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
-	return rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+	return ruta == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||
 		ruta == httpinterno.RutaDecisionCobertura ||
@@ -495,9 +497,13 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverFlujo,
 ) (ports.ConfiguracionAltaFlujo, error) {
+	centro := centroAltaContratacionTemporalDesarrollo
+	if e, ok := altaDePeticionConfiable(ctx); ok {
+		centro = e.Peticion.Solicitud.CentroRef
+	}
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.CentroRef != centroAltaContratacionTemporalDesarrollo ||
+		solicitud.CentroRef != centro ||
 		solicitud.CategoriaRef != categoriaAltaContratacionTemporalDesarrollo ||
 		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
@@ -663,6 +669,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoPeticionCentroDesarrollo(), true
 	}
 	switch ruta {
+	case rutaEntregaPeticionCentro:
+		return motivoEntregaPeticionDesarrollo(), true
 	case rutaCambiosOrganizacionContratacionTemporalDesarrollo:
 		return motivoOrganizacionDesarrollo(), true
 	case httpinterno.RutaConsultaCuadroRRHH:
@@ -713,6 +721,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if ruta == rutaEntregaPeticionCentro {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaEntregaPeticion), s.instantaneaEntregaPeticion.Validar() == nil
+	}
 	if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaOrganizacion), s.instantaneaOrganizacion.Validar() == nil
 	}
@@ -779,12 +790,27 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
 	).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 	if !existe {
+		if ruta == rutaEntregaPeticionCentro {
+			if _, ok := altaDePeticionConfiable(ctx); ok {
+				return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), true
+			}
+		}
 		if ruta == httpinterno.RutaAltaSolicitudes {
 			return instantanea, true
 		}
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	if rutaPeticionCentroDesarrollo(ruta) {
+	if ruta == rutaEntregaPeticionCentro {
+		if datos.Accion == ports.AccionCrearSolicitud {
+			if !solicitudAutorizacionAltaDePeticionValida(ctx, datos) {
+				return dominiovec.InstantaneaAutorizacion{}, false
+			}
+			instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea)
+			instantanea.AsignacionPerfil.Ambitos = ambitosLlamamientoDesarrollo(datos.Recurso)
+		} else if !solicitudAutorizacionEntregaPeticionValida(ctx, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+	} else if rutaPeticionCentroDesarrollo(ruta) {
 		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}

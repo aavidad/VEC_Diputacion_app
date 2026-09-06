@@ -15,6 +15,7 @@ const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/bandeja",
   operaciones: "/api/vec/contratacion-temporal/peticiones-centro/operaciones",
+  rrhh: "/api/vec/contratacion-temporal/peticiones-centro/rrhh",
 });
 const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
@@ -23,7 +24,7 @@ const TEXTO = Object.freeze({
   titulo: "Petición del centro y ratificación",
   descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de contratación.",
   ficticio: "Datos ficticios de desarrollo",
-  pendienteEntrada: "Transferencia a RRHH: pendiente de entrada en el circuito siguiente",
+  pendienteEntrada: "RRHH tramita las peticiones ratificadas desde su bandeja",
   solicitante: "Presentar petición",
   ratificador: "Bandeja de ratificación",
   peticiones: "Peticiones del centro",
@@ -51,9 +52,9 @@ const TEXTO = Object.freeze({
   registrado: "Registrado en",
   estado: "Estado",
   solicitanteDatos: "Solicitante y cargo",
-  transferencia: "La transferencia a RRHH todavía no forma parte de este circuito.",
+  transferencia: "El alta se realiza en la bandeja de RRHH. Esta vista no consulta su estado de entrega.",
   identidadAviso: "Identidades de prueba. La ratificación queda registrada; no se firma electrónicamente un documento. Para uso real: identidad y circuito de firma corporativos según el procedimiento que se establezca.",
-  peticionNoEnviada: "Petición previa: todavía no enviada a Recursos Humanos",
+  peticionNoEnviada: "Este recibo acredita la actuación del centro, no el alta del expediente",
   confirmacion: "Confirmo expresamente esta operación",
   volverEditar: "Volver a editar",
   datosNoDisponibles: "No hay detalle seleccionado.",
@@ -65,6 +66,21 @@ const TEXTO = Object.freeze({
   enviando: "Registrando la operación. Espere el recibo antes de cerrar.",
   bandejaNoActualizada: "El registro está confirmado. No se pudo actualizar la bandeja; puede recargarla sin volver a registrar.",
   motivoInvalido: "Escriba el motivo sin saltos de línea (máximo 1000 bytes) y marque la confirmación.",
+  rrhhSobrelinea: "Contratación temporal · Recursos Humanos",
+  rrhhTitulo: "Peticiones de los centros",
+  rrhhDescripcion: "Revise los datos ratificados antes de crear el expediente de contratación. Esta acción no modifica la petición original.",
+  rrhhPendiente: "Pendiente de preparación",
+  rrhhPreparada: "Preparada para crear expediente",
+  rrhhConfirmada: "Expediente creado",
+  rrhhConfirmar: "Crear expediente en RRHH",
+  rrhhCompletar: "Completar registro",
+  rrhhConfirmacion: "Confirmo expresamente la creación del expediente en RRHH con estos datos.",
+  rrhhAviso: "La confirmación crea un único expediente a partir de la petición ratificada. Revise los datos originales antes de continuar.",
+  rrhhRecibo: "Recibo histórico de alta",
+  rrhhExpediente: "Referencia del expediente",
+  rrhhBandeja: "Abrir bandeja de expedientes",
+  rrhhSinPeticiones: "No hay peticiones disponibles para Recursos Humanos.",
+  rrhhError: "No se pudo completar el registro en RRHH.",
 });
 const MENSAJES = Object.freeze({
   ...MENSAJES_CONTRATACION_TEMPORAL_ES,
@@ -179,7 +195,12 @@ function detallePeticion(peticion, contexto) {
       ? `${solicitante.nombre} · ${solicitante.cargo}`
       : `${c?.actor_ref || actor?.referencia || "—"} · ${c?.puesto_ref || "cargo resuelto por identidad"}`],
     ["Creada en", fecha(peticion.creada_en, true)]];
-  if (peticion.estado === "ratificada") filas.push(["Motivo de ratificación", peticion.motivo_ratificacion], ["Ratificada en", fecha(peticion.ratificada_en, true)]);
+  if (peticion.estado === "ratificada") {
+    const rat = peticion.configuracion?.ratificador;
+    const etiquetaRat = contexto?.intervinientes?.[rat?.actor_ref];
+    filas.push(["Ratificador y cargo", etiquetaRat && rat && etiquetaRat.puesto_ref === rat.puesto_ref ? `${etiquetaRat.nombre} · ${etiquetaRat.cargo}` : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`],
+      ["Motivo de ratificación", peticion.motivo_ratificacion], ["Ratificada en", fecha(peticion.ratificada_en, true)]);
+  }
   return `<dl>${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 }
 
@@ -197,6 +218,47 @@ export function validarReciboPeticionCentro(recibo, objetivo) {
     || !recibo.recibo_ref || !recibo.registrado_en || !Number.isFinite(Date.parse(recibo.registrado_en))
     || !["registrado", "replay_confirmado"].includes(recibo.estado_local)) throw new Error(TEXTO.error);
   return recibo;
+}
+
+function textoEstadoEntrega(estado) {
+  return ({ pendiente: TEXTO.rrhhPendiente, preparada: TEXTO.rrhhPreparada, confirmada: TEXTO.rrhhConfirmada })[estado] || "—";
+}
+
+function reciboAltaRRHHHTML(recibo) {
+  if (!recibo) return "";
+  const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], ["Número visible", recibo.numero_visible], [TEXTO.version, recibo.version],
+    [TEXTO.reciboRef, recibo.recibo_ref], ["Referencia de auditoría", recibo.auditoria_ref], ["Referencia de evento", recibo.evento_ref],
+    ["Confirmada en", fecha(recibo.confirmada_en, true)]];
+  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2><dl>${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v || "—")}</dd>`).join("")}</dl>${recibo.expediente_ref ? `<p><a class="boton-primario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
+}
+
+function tablaRRHH(peticiones, seleccionada) {
+  if (!peticiones.length) return `<p>${esc(TEXTO.rrhhSinPeticiones)}</p>`;
+  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>Referencia</th><th>Estado de entrega</th><th>Ratificación</th><th>Acción</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span></td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "" } = {}) {
+  const peticion = entrega?.peticion;
+  const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.ficticio)}</span></div></section>`;
+  const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
+  if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
+  if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc("Reintentar la misma operación")}</button></div></section>`;
+  const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button></div>` : ""}</aside>`;
+  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>Últimas 50 peticiones visibles para Recursos Humanos.</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
+}
+
+export async function registrarAltaRRHH(cliente, comando) {
+  try {
+    const resultado = await cliente(RUTAS.rrhh, { method: "POST", cuerpo: { peticion_ref: comando.peticion_ref, version_esperada: 2 } });
+    const recibo = resultado?.recibo_alta;
+    if (!resultado?.peticion?.referencia || resultado.peticion.referencia !== comando.peticion_ref
+      || resultado.estado_entrega !== "confirmada" || !recibo?.expediente_ref || !recibo.recibo_ref || !recibo.confirmada_en
+      || !Number.isFinite(Date.parse(recibo.confirmada_en))) throw new Error(TEXTO.rrhhError);
+    return resultado;
+  } catch (error) {
+    if ([400, 403, 409].includes(error?.status)) throw error;
+    throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
+  }
 }
 
 function tabla(peticiones, seleccionada) {
@@ -239,7 +301,67 @@ export async function registrarOperacionPeticionCentro(cliente, comando, actorRe
   }
 }
 
+export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelector("#aplicacion"), cliente = pedir } = {}) {
+  if (!raiz) throw new TypeError("falta la raíz de la aplicación");
+  let peticiones = []; let entrega = null; let modo = "bandeja"; let recibo = null; let mensaje = "";
+  let ocupado = false; let operacionPendiente = null; let confirmado = false;
+  const dibujar = () => {
+    raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje });
+    raiz.setAttribute("aria-busy", String(ocupado));
+    if (ocupado) raiz.querySelectorAll("button, input").forEach((control) => { control.disabled = true; });
+  };
+  const cargar = async ({ posterior = false } = {}) => {
+    if ((!posterior && ocupado) || operacionPendiente) return false;
+    if (!posterior) { ocupado = true; mensaje = ""; }
+    try {
+      const bandeja = await cliente(RUTAS.rrhh);
+      if (!bandeja || bandeja.limite !== 50 || !Array.isArray(bandeja.peticiones) || bandeja.peticiones.length > 50
+        || bandeja.peticiones.some((item) => !item?.peticion?.referencia || item.peticion.version !== 2
+          || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
+      peticiones = bandeja.peticiones;
+      entrega = peticiones.find((item) => item.peticion.referencia === entrega?.peticion?.referencia) || peticiones[0] || null;
+      return true;
+    } catch (error) { mensaje = [401, 403].includes(error?.status) ? "Acceso reservado a Recursos Humanos." : TEXTO.rrhhError; return false; }
+    finally { if (!posterior) ocupado = false; dibujar(); }
+  };
+  const ejecutar = async (comando) => {
+    if (ocupado) return;
+    ocupado = true; mensaje = ""; dibujar();
+    try {
+      const resultado = await registrarAltaRRHH(cliente, comando);
+      recibo = resultado.recibo_alta; entrega = { peticion: resultado.peticion, estado_entrega: resultado.estado_entrega, recibo_alta: resultado.recibo_alta };
+      modo = "bandeja"; operacionPendiente = null;
+      // El recibo válido prevalece aunque falle la posterior lectura de bandeja.
+      if (!await cargar({ posterior: true })) mensaje = TEXTO.bandejaNoActualizada;
+    } catch (error) {
+      if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
+      else { modo = "bandeja"; mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.rrhhError; }
+    } finally { ocupado = false; dibujar(); }
+  };
+  raiz.addEventListener("click", async (event) => {
+    const control = event.target.closest?.("[data-accion], [data-seleccionar-rrhh]");
+    if (!control || ocupado || (operacionPendiente && control.dataset.accion !== "reintentar-alta-rrhh")) return;
+    event.preventDefault();
+    if (control.dataset.seleccionarRrhh) { entrega = peticiones.find((item) => item.peticion.referencia === control.dataset.seleccionarRrhh) || null; recibo = null; dibujar(); return; }
+    if (control.dataset.accion === "recargar-rrhh") { await cargar(); return; }
+    if (control.dataset.accion === "abrir-alta-rrhh" && ["pendiente", "preparada"].includes(entrega?.estado_entrega)) { modo = "confirmar"; confirmado = false; recibo = null; dibujar(); return; }
+    if (control.dataset.accion === "cancelar-alta-rrhh") { modo = "bandeja"; dibujar(); return; }
+    if (control.dataset.accion === "reintentar-alta-rrhh" && operacionPendiente) { await ejecutar(operacionPendiente); return; }
+    if (control.dataset.accion === "confirmar-alta-rrhh" && modo === "confirmar") {
+      confirmado = raiz.querySelector("[name=confirmacion-alta-rrhh]")?.checked === true;
+      if (!confirmado || !entrega?.peticion?.referencia) { mensaje = TEXTO.confirmacion; dibujar(); return; }
+      await ejecutar({ peticion_ref: entrega.peticion.referencia, version_esperada: 2 });
+    }
+  });
+  raiz.innerHTML = `<p class="pc-cargando">${esc(TEXTO.cargar)}</p>`;
+  await cargar();
+  return { recargar: cargar };
+}
+
 export async function iniciarPeticionCentro({ raiz = document.querySelector("#aplicacion"), cliente = pedir } = {}) {
+  if (new URLSearchParams(globalThis.location?.search || "").get("vista") === "rrhh") {
+    return iniciarPeticionesCentroRRHH({ raiz, cliente });
+  }
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
   let contexto; let peticiones = []; let peticion = null; let modo = "bandeja";
   let estado = null; let recibo = null; let mensaje = "";

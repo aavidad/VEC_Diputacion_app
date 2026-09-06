@@ -1,17 +1,23 @@
-# Arranque vigente en el equipo local — 5 de septiembre de 2026
+# Acceso vigente en OpenClaw — 6 de septiembre de 2026
+
+El acceso remoto vigente usa el túnel ya abierto por el operador en
+`localhost:18443`. Para la vista de RRHH abra
+`https://localhost:18443/portal-empleado/peticiones-centro/?vista=rrhh` con el
+certificado sintético de identificación/autenticación de RRHH. Ese certificado
+identifica a quien opera la vista; no firma documentos ni acredita firma legal.
+
+El arranque de la aplicación y PostgreSQL privados corresponde a Sistemas. Los
+apartados históricos inferiores que describen un arranque local en el puerto
+`8443` o lanzadores locales se conservan como referencia y **no deben ejecutarse
+para continuar el acceso remoto vigente**. Esta guía no contiene secretos ni la
+ubicación del material privado.
 
 ## Petición del centro y ratificación
 
-Disponible en la instancia principal preparada, con dos identidades ficticias
-distintas. No utilice el certificado de RRHH para sustituirlas. Con la aplicación
-ya arrancada en8443, abra estas ventanas de Firefox del equipo local:
-
-```sh
-firefox --no-remote --profile "$HOME/snap/firefox/common/navegador-vec-centro-solicitante" --new-window https://localhost:8443/portal-empleado/peticiones-centro/
-firefox --no-remote --profile "$HOME/snap/firefox/common/navegador-vec-centro-ratificador" --new-window https://localhost:8443/portal-empleado/peticiones-centro/
-```
-
-No abra dos procesos sobre el mismo perfil; use la ventana existente.
+Disponible en la instancia principal preparada, con identidades ficticias
+separadas para solicitante, ratificador y RRHH. Use para cada actuación la
+identidad y el certificado de autenticación que correspondan; el certificado
+de RRHH no sustituye a las identidades del centro.
 
 1. Como solicitante, pulse **Presentar petición**. Complete contacto, categoría,
    grupo, motivo, detalle y fechas. El centro corresponde a su identidad.
@@ -21,23 +27,61 @@ No abra dos procesos sobre el mismo perfil; use la ventana existente.
 4. Abra la ratificación, escriba un motivo y marque la confirmación. Se guarda
    otro recibo y la versión2. El solicitante no puede ratificarse a sí mismo.
 
-Demostrado el6sep: petición `abd01fd9…`, presentación y ratificación `200` desde
-los formularios Firefox. Tras reiniciar aplicación/PostgreSQL, ambos reintentos
+Demostrado el 6 de septiembre: petición `abd01fd9…`, presentación y ratificación
+`200` desde los formularios. Tras reiniciar aplicación/PostgreSQL, ambos reintentos
 recuperan los recibos originales y sus fechas; bandeja ratificada `200`, una
-petición, dos revisiones y dos eventos, sin alterar los51 expedientes previos.
+petición, dos revisiones y dos eventos, sin alterar los 51 expedientes previos.
 Si aparece **Resultado pendiente**, conserve la pestaña y use **Reintentar la
 misma operación**: la clave vive en memoria, no en almacenamiento del navegador.
 
-Esto registra una ratificación; **no firma electrónicamente un documento**.
-Para uso real se conectarán identidad y firma corporativas conforme al circuito
-que se determine. **La entrega a RRHH está pendiente**: no se ha creado todavía
-un expediente desde esta petición. No aumenta el contador de cinco pasos de ocho.
-La edición del organigrama no configura por sí sola quién solicita o ratifica.
+### Entregar la petición ratificada a RRHH
+
+1. Con la identidad y el certificado de identificación de RRHH, abra
+   `https://localhost:18443/portal-empleado/peticiones-centro/?vista=rrhh`.
+2. Pulse **Revisar** en la petición ratificada y compruebe centro, responsables
+   y necesidad. Si aún no consta el alta, pulse **Crear expediente en RRHH**
+   o **Completar registro**, según el estado.
+3. Marque la confirmación expresa, pulse **Crear expediente en RRHH** y conserve
+   el recibo. Si ya consta **Expediente creado**, **Revisar** muestra el recibo
+   histórico: no hay que crear ni confirmar otra alta.
+4. Ante **Resultado pendiente**, conserve la pestaña y pulse **Reintentar la
+   misma operación**. Si reabre la página, consulte el recibo cuando conste
+   **Expediente creado**; solo si sigue **Preparada para crear expediente** use
+   **Completar registro**. El POST repetido de la comprobación técnica no es
+   un botón de repetición para entregas ya confirmadas.
+
+Caso acreditado: expediente
+`expediente:ct:4ff4285d7ae5d6c4fb34d199a942d7c7d66ba4274ebbaab44fc8296089e8c5cf`,
+número `2026/CT-d06f98d5506ded3ee3b8a7d34d867b1e`, versión `1`; recibo
+`recibo:ct-alta:9e45c28d21cadddc4f0bfd548249c555b0e0e3c55ce04b7d14052a65eec46467`,
+creado `2026-09-06 17:30:26.404646Z`.
+
+Dirección acreditó el caso de recuperación con Chrome: después del reinicio,
+`GET 200` y `POST 200`, recibo entero idéntico. El primer `POST 503` había
+creado el alta; el reintento la enlazó sin duplicar. Quedaron 52 expedientes,
+52 versiones, 2 revisiones de petición, 1 reserva, 1 confirmación y 1 evento de
+entrega, con huellas anteriores intactas. En 1440/1024/390 el ancho de scroll
+coincide con el ancho visible, la tabla desplaza internamente y se observaron
+0 errores JS, cookies o almacenamiento web.
+
+El certificado anterior **identifica y autentica** a RRHH para operar; no es
+una firma electrónica o documental, no firma una resolución y no acredita una
+firma legal. Este puente tampoco aumenta la métrica: siguen cinco pasos
+completos más partes del sexto y séptimo.
+
+AD3-24 y CT68 ya están instaladas con historia: **no reaplique `DOWN` ni `UP`**.
+La definición SQL estructural se ajustó una sola vez sin perder tablas. Para
+restaurar hacen falta también las ACL de base y los 43 tipos de fila, además
+del dump; el procedimiento privado está fuera de Git. No use esta guía para
+reconstruirlo.
+
+La edición del organigrama no configura por sí sola quién solicita, ratifica o
+actúa como RRHH.
 
 ## Centros y organización de referencia
 
 En la bandeja de Contratación, abra **Centros y organización de referencia**,
-o visite `https://localhost:8443/portal-empleado/organizacion/` con el
+o visite `/portal-empleado/organizacion/` por el túnel remoto vigente con el
 navegador de desarrollo ya preparado. Puede buscar por denominación o código,
 filtrar por tipo y consultar la adscripción y página de la fuente.
 
@@ -73,8 +117,9 @@ cabecera Cookie `400`. La edición no está instalada en la base secundaria.
 El [manual de Sistemas](docs/manual_sistemas/README.md#organización-de-referencia-configurable)
 explica la fuente única y la inicialización. En principal ya están instaladas
 las migraciones de autorización22 y Contratación66: **no reaplicar ni revertir**.
-Use el [mismo arranque local](#arranque-vigente-en-el-equipo-local--5-de-septiembre-de-2026)
-descrito abajo; el lanzador activa PostgreSQL solo para `recorrido`.
+Use el [mismo acceso vigente](#acceso-vigente-en-openclaw--6-de-septiembre-de-2026)
+descrito al principio. Los lanzadores locales descritos más abajo son
+históricos y corresponden a Sistemas; no los ejecute para continuar en remoto.
 
 Primer PDF publicado: `5c57b29f`. El cierre de bandeja,
 detalle y análisis corresponde a

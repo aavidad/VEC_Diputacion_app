@@ -1,5 +1,37 @@
 # Estado y plan de ataque del proyecto
 
+**Cierre operativo del 6 de septiembre: puente centro→RRHH demostrado.** La
+única copia canónica está en OpenClaw, rama
+`trabajo/ct-app-llamamiento-b4a-20260905`, sobre la base GitHub `85cb47ce`; el
+entorno local anterior queda congelado y el incremento queda documentado en
+este corte sobre esa base. Se mantiene la misma rama; antes de presentarlo como
+publicado hay que verificar con Git el hash y el estado de publicación.
+Dirección está autorizada a confirmar y publicar tras revisar el corte, sin que
+este estado afirme que el `push` ya se haya realizado. En Chrome, tras reiniciar
+aplicación y PostgreSQL privados, la
+recuperación obtuvo `GET 200`/`POST 200`, recibo completo idéntico y ninguna
+alta nueva: el primer `POST 503` había creado el alta y el reintento la enlazó
+sin duplicar. Se conservan 52 expedientes, 52 versiones, 2 revisiones de
+petición, 1 reserva, 1 confirmación y 1 evento de entrega, con huellas previas
+intactas. El recibo original
+`recibo:ct-alta:9e45c28d21cadddc4f0bfd548249c555b0e0e3c55ce04b7d14052a65eec46467`
+se creó `2026-09-06 17:30:26.404646Z` para el expediente
+`expediente:ct:4ff4285d7ae5d6c4fb34d199a942d7c7d66ba4274ebbaab44fc8296089e8c5cf`,
+número `2026/CT-d06f98d5506ded3ee3b8a7d34d867b1e`, versión 1. Las vistas
+1440/1024/390 no tienen overflow global, la tabla desplaza internamente y no
+hubo errores JS, cookies ni almacenamiento web.
+
+AD3-24/CT68 ya están instaladas con historia: no reaplicar `DOWN`/`UP`. La
+definición SQL estructural se ajustó una vez preservando tablas. Restaurar
+requiere también las ACL de base y 43 tipos de fila además del dump; el detalle
+privado está fuera de Git. CT68, manifiesto estructural y CSS acreditados por
+los SHA256 consignados en `AGENTS.md`, con dos `GO` estáticos vigentes. Esto no
+es producción ni firma legal, no cambia la métrica —cinco pasos completos más
+partes del sexto/séptimo— y deja como siguiente cola el objetivo 10: resolución
+y evidencia conforme a la fuente o circuito admitido. Dirección está autorizada
+a continuar las partes reutilizables para presentación; nunca se inventará una
+firma legal ni se presentará autenticación o evidencia sintética como tal firma.
+
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
 **Entrega solicitada por el operador: aplicación funcional para presentación,

@@ -4,6 +4,7 @@
 .pc-contenido { max-width:1440px; margin:auto; padding:24px clamp(14px,3vw,38px) 40px; }
 .pc-pie { padding:18px; color:var(--portal-muted); text-align:center; font-size:.85rem; }
 .pc-cabecera, .pc-panel { padding:20px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); background:var(--portal-superficie); box-shadow:var(--portal-sombra-sm); }
+.pc-panel { min-width:0; }
 .pc-cabecera { margin-bottom:16px; }
 .pc-cabecera h1 { margin:4px 0 8px; line-height:1.15; }
 .pc-cabecera p { max-width:78ch; margin:0; color:var(--portal-muted); }
@@ -19,6 +20,8 @@
 .pc-tabla button { color:var(--portal-azul-800); font-weight:700; }
 .pc-estado { display:inline-block; padding:4px 8px; border-radius:5px; font-size:.78rem; font-weight:750; }
 .pc-estado-pendiente { background:var(--portal-aviso-suave); color:var(--portal-aviso); }
+.pc-estado-preparada { background:var(--portal-cian-suave); color:var(--portal-azul-800); }
+.pc-estado-confirmada { background:var(--portal-exito-suave); color:var(--portal-exito); }
 .pc-estado-ratificada { background:var(--portal-exito-suave); color:var(--portal-exito); }
 .pc-detalle dl { display:grid; grid-template-columns:minmax(110px,.7fr) minmax(0,1.3fr); gap:8px 12px; }
 .pc-detalle dt { color:var(--portal-muted); font-weight:700; }
@@ -36,7 +39,7 @@
 .pc-recibo dt { font-weight:700; margin-top:8px; }
 .pc-recibo dd { margin-left:0; }
 .pc-cabecera .pc-etiquetas + p { margin-top:12px; }
-@media (max-width:1180px) { .pc-layout { grid-template-columns:1fr; } }
+@media (max-width:1180px) { .pc-layout { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:720px) { .pc-contenido { padding-top:14px; } .pc-panel, .pc-cabecera { padding:15px; } }
 @media (max-width:420px) { .pc-barra { align-items:flex-start; flex-direction:column; gap:3px; } .pc-detalle dl { grid-template-columns:1fr; gap:2px; } .pc-detalle dt { margin-top:8px; } .pc-acciones button { width:100%; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }

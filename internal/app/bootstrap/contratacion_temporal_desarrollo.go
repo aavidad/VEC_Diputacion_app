@@ -331,6 +331,13 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutasPeticionesCentro...)
+	if len(rutasPeticionesCentro) > 0 {
+		rutaEntrega, err := nuevaRutaEntregaPeticionDesarrollo(&alta, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutaEntrega)
+	}
 	if comunicacionReal != nil {
 		// La continuación confirma solo después de abrir en Bolsa; no implica
 		// envío de aviso ni aplicación de un plazo legal.
@@ -427,6 +434,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == rutaEntregaPeticionCentro ||
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
@@ -486,7 +494,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+	return r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
