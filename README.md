@@ -139,6 +139,12 @@ El recorrido acreditado utiliza navegador con certificado de cliente,
 servicios reales de aplicación, autorización de servidor y PostgreSQL.
 No utiliza el adaptador DEMO para afirmar un guardado.
 
+La [organización de referencia](GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia)
+permite consultar centros y preparar altas o cambios de unidades con motivo,
+revisión y recibo persistentes. Alta y edición sintéticas comprobadas tras
+reinicio, sin duplicados. No asigna ocupantes, concede permisos ni habilita
+todavía la ratificación multicientro.
+
 | Paso | Recorrido disponible | Límite |
 |---|---|---|
 | 1. Solicitud | Alta desde formulario y primer recibo del expediente. | Datos y catálogos de desarrollo. |

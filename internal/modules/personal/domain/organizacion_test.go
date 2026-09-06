@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 const referenciaOrganizacionSintetica = "org_0123456789abcdef"
@@ -179,5 +182,44 @@ func TestReferenciaOrganizacionEsComparableInmutableYSinSuperficieAdicional(t *t
 		if metodo := tipo.Method(indice); metodo.Name != esperado {
 			t.Fatalf("metodo exportado %d = %q; esperado %q", indice, metodo.Name, esperado)
 		}
+	}
+}
+
+func catalogoOrganizacionPrueba() vecdomain.CatalogoConfigurable {
+	f := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	return vecdomain.CatalogoConfigurable{ID: "estructura-organizativa-dipgra", Version: 1, Revision: 1, ModuloID: "personal", Nombre: "Estructura", Descripcion: "Estructura", FuenteRef: "datosreserva", MotivoCreacion: "fixture", Estado: vecdomain.EstadoCatalogoBorrador, CreadoPor: "tecnico-estructura-1", CreadoEn: f, Entradas: []vecdomain.EntradaCatalogoConfigurable{{Clave: "director", Etiqueta: "Director", Orden: 0, VigenteDesde: f, Atributos: map[string]string{"tipo": "puesto_responsabilidad"}}}}
+}
+
+func TestPrepararCambioOrganizacionEditaSinMutarYConservaProcedencia(t *testing.T) {
+	a := catalogoOrganizacionPrueba()
+	h, _ := a.HuellaSHA256()
+	ahora := a.CreadoEn.Add(time.Hour)
+	r, err := PrepararCambioEstructuraOrganizativa(a, a.Revision, h, "tecnico-estructura-2", "ajuste de etiqueta", CambioUnidadOrganizativa{Clave: "director", Etiqueta: "Dirección", Tipo: "centro"}, ahora)
+	if err != nil || r.Revision != a.Revision+1 || r.Entradas[0].Atributos["modificada_localmente"] != "si" || r.Entradas[0].VigenteDesde != a.Entradas[0].VigenteDesde {
+		t.Fatalf("resultado=%#v err=%v", r, err)
+	}
+	if a.Entradas[0].Etiqueta != "Director" {
+		t.Fatal("original mutado")
+	}
+}
+
+func TestPrepararCambioOrganizacionAltaDirectorSinNivelFijo(t *testing.T) {
+	a := catalogoOrganizacionPrueba()
+	h, _ := a.HuellaSHA256()
+	r, err := PrepararCambioEstructuraOrganizativa(a, a.Revision, h, "tecnico-estructura-2", "alta unidad", CambioUnidadOrganizativa{Clave: "local-01234567-89ab-4cde-8fab-0123456789ab", Etiqueta: "Unidad nueva", Tipo: "delegacion", AdscripcionClave: "director"}, a.CreadoEn.Add(time.Hour))
+	if err != nil || len(r.Entradas) != 2 || r.Entradas[1].Atributos["codigo_fuente"] != "" || r.Entradas[1].Atributos["pagina_fuente"] != "" || r.Entradas[1].Atributos["adscripcion_clave"] != "director" {
+		t.Fatalf("resultado=%#v err=%v", r, err)
+	}
+}
+
+func TestPrepararCambioOrganizacionConflictoPadreCicloYHash(t *testing.T) {
+	a := catalogoOrganizacionPrueba()
+	h, _ := a.HuellaSHA256()
+	base := CambioUnidadOrganizativa{Clave: "director", Etiqueta: "Director", Tipo: "centro", AdscripcionClave: "no-existe"}
+	if _, err := PrepararCambioEstructuraOrganizativa(a, a.Revision, "bad", "tecnico-estructura-2", "motivo", base, a.CreadoEn.Add(time.Hour)); !errors.Is(err, ErrRevisionOrganizacionEnConflicto) {
+		t.Fatalf("hash err=%v", err)
+	}
+	if _, err := PrepararCambioEstructuraOrganizativa(a, a.Revision, h, "tecnico-estructura-2", "motivo", base, a.CreadoEn.Add(time.Hour)); !errors.Is(err, ErrCambioOrganizacionInvalido) {
+		t.Fatalf("padre err=%v", err)
 	}
 }

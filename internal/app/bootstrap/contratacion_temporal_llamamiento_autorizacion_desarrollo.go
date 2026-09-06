@@ -46,7 +46,8 @@ func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 }
 
 func rutaMutacionDurableContratacionTemporalDesarrollo(ruta string) bool {
-	return rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
+	return ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta)

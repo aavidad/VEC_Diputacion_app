@@ -1,1 +1,294 @@
-.org-shell{max-width:1440px;margin:0 auto;padding:24px clamp(16px,4vw,56px) 40px}.org-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}.org-kicker{color:var(--portal-azul-700);font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:4px 0 8px;font-size:clamp(1.5rem,3vw,2.2rem);line-height:1.1}.org-intro{max-width:760px;margin:0;color:var(--portal-muted)}.org-back{color:var(--portal-azul-700);font-weight:700;white-space:nowrap}.org-notice,.org-panel,.org-meta{background:var(--portal-superficie);border:1px solid var(--portal-borde);border-radius:var(--portal-radio-lg);box-shadow:var(--portal-sombra-sm)}.org-notice{padding:14px 18px;border-left:4px solid var(--portal-naranja);margin-bottom:14px}.org-notice strong{display:block;margin-bottom:4px}.org-notice p{margin:0;color:var(--portal-muted)}.org-meta{display:flex;flex-wrap:wrap;gap:12px 24px;padding:14px 18px;margin:0 0 14px}.org-meta div{min-width:150px}.org-meta dt{color:var(--portal-muted);font-size:.78rem}.org-meta dd{margin:2px 0 0;font-weight:750;overflow-wrap:anywhere}.org-panel{padding:18px}.org-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:14px 0}label{display:block;color:var(--portal-muted);font-size:.85rem;font-weight:700}input,select,button{font:inherit}input,select{display:block;min-height:40px;margin-top:5px;padding:7px 10px;border:1px solid var(--portal-borde);border-radius:var(--portal-radio-md);background:var(--portal-superficie);color:inherit}input{width:min(420px,100%)}button{min-height:40px;padding:7px 14px;border:1px solid var(--portal-azul-700);border-radius:var(--portal-radio-md);background:var(--portal-azul-700);color:#fff;font-weight:750;cursor:pointer}.org-count{margin-left:auto;color:var(--portal-muted);font-size:.9rem}.org-state{padding:16px;border-radius:var(--portal-radio-md);background:var(--portal-azul-100)}.org-state.error{background:var(--portal-peligro-suave);color:var(--portal-peligro)}.org-table-wrap{overflow:auto;border:1px solid var(--portal-borde);border-radius:var(--portal-radio-md)}table{width:100%;min-width:760px;border-collapse:collapse}caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}th,td{padding:10px 12px;border-bottom:1px solid var(--portal-borde);text-align:left;vertical-align:top}th{background:var(--portal-azul-100);color:var(--portal-azul-950);font-size:.78rem;letter-spacing:.03em;text-transform:uppercase}tbody tr:last-child td{border-bottom:0}.org-source,.org-note{margin:12px 0 0;color:var(--portal-muted);font-size:.85rem}.org-source a{color:var(--portal-azul-700)}@media(max-width:600px){.org-shell{padding:18px 14px 32px}.org-top{display:block}.org-back{display:inline-block;margin-bottom:18px}.org-panel{padding:14px}.org-count{width:100%;margin-left:0}.org-toolbar>*,select{width:100%}}
+.org-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 4vw, 56px) 40px;
+}
+.org-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.org-kicker {
+  color: var(--portal-azul-700);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.1;
+}
+.org-intro {
+  max-width: 760px;
+  margin: 0;
+  color: var(--portal-muted);
+}
+.org-back {
+  color: var(--portal-azul-700);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.org-notice,
+.org-panel,
+.org-meta {
+  background: var(--portal-superficie);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  box-shadow: var(--portal-sombra-sm);
+}
+.org-notice {
+  padding: 14px 18px;
+  border-left: 4px solid var(--portal-naranja);
+  margin-bottom: 14px;
+}
+.org-notice strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.org-notice p {
+  margin: 0;
+  color: var(--portal-muted);
+}
+.org-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 14px 18px;
+  margin: 0 0 14px;
+}
+.org-meta div {
+  min-width: 150px;
+}
+.org-meta dt {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+.org-meta dd {
+  margin: 2px 0 0;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.org-panel {
+  padding: 18px;
+}
+.org-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.org-panel-heading h2 {
+  margin-block: 0;
+}
+.org-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 14px 0;
+}
+label {
+  display: block;
+  color: var(--portal-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+input,
+select,
+textarea {
+  display: block;
+  min-height: 40px;
+  margin-top: 5px;
+  padding: 7px 10px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie);
+  color: inherit;
+}
+input {
+  width: min(420px, 100%);
+}
+button {
+  min-height: 40px;
+  padding: 7px 14px;
+  border: 1px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-azul-700);
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+}
+.org-count {
+  margin-left: auto;
+  color: var(--portal-muted);
+  font-size: 0.9rem;
+}
+.org-state {
+  padding: 16px;
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-azul-100);
+}
+.org-state.error {
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+.org-state.success {
+  border-left: 4px solid #287d4f;
+  background: #eaf7ef;
+  color: #175f3a;
+}
+.org-receipt {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.org-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+}
+table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+th,
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--portal-borde);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-950);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+.org-local-change {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border: 1px solid #287d4f;
+  border-radius: 999px;
+  background: #eaf7ef;
+  color: #175f3a;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+.org-source,
+.org-note {
+  margin: 12px 0 0;
+  color: var(--portal-muted);
+  font-size: 0.85rem;
+}
+.org-source a {
+  color: var(--portal-azul-700);
+}
+.org-editor {
+  margin-top: 14px;
+}
+.org-helper {
+  color: var(--portal-muted);
+}
+.org-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.org-form-grid textarea {
+  width: 100%;
+  resize: vertical;
+}
+.org-form-grid > div {
+  min-width: 0;
+}
+.org-form-grid input,
+.org-form-grid select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.org-review {
+  margin-top: 16px;
+  padding: 14px;
+  border: 2px solid var(--portal-naranja);
+  border-radius: var(--portal-radio-md);
+  background: #fff8ed;
+}
+.org-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.org-secondary {
+  background: transparent;
+  color: var(--portal-azul-700);
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #f0a000;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .org-shell {
+    padding: 18px 14px 32px;
+  }
+  .org-top {
+    display: block;
+  }
+  .org-back {
+    display: inline-block;
+    margin-bottom: 18px;
+  }
+  .org-panel {
+    padding: 14px;
+  }
+  .org-count {
+    width: 100%;
+    margin-left: 0;
+  }
+  .org-toolbar > *,
+  select {
+    width: 100%;
+  }
+  .org-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .org-actions {
+    flex-direction: column-reverse;
+  }
+  .org-actions button {
+    width: 100%;
+  }
+}

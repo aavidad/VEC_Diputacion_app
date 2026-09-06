@@ -8,8 +8,10 @@ obligatorios inexistentes. Primer corte: consulta real de los 41 centros de
 la fuente publicada, sus agrupaciones y once puestos cotejados de Transformación
 Digital. API y pantalla conectadas al catálogo versionado de Personal,
 en preparación; no es un organigrama funcional completo ni habilita altas.
-Siguiente: edición durable de la organización conservando versiones; después,
-vinculación de responsables autorizados y ratificación antes de RRHH. No
+Edición durable demostrada: formulario real, autorización, PostgreSQL y recibo;
+alta y edición de un cargo sintético, recuperación tras reiniciar aplicación
+y base, sin duplicados. Conservadas3revisiones/2cambios/2eventos y51expedientes.
+Siguiente: vinculación de responsables autorizados y ratificación antes de RRHH. No
 deducir permisos ni dependencias por el orden de las filas. La categoría
 profesional y el código individual de puesto no son la denominación RPT.
 Este corte no añade un sexto paso completo. Se mantiene la cola inferior,

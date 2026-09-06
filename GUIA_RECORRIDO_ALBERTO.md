@@ -10,13 +10,37 @@ filtrar por tipo y consultar la adscripción y página de la fuente.
 La versión inicial recoge los 41 centros de la RPT fechada el 7 de mayo de
 2026, sus 14 agrupaciones de encabezados y once puestos cotejados de
 Transformación Digital. Es preparación: no contiene el organigrama funcional
-completo, ocupantes ni permisos de ratificación. La edición desde la pantalla
-y la conexión multicientro del alta siguen pendientes. No aumenta los cinco
-pasos completos del procedimiento.
+completo, ocupantes ni permisos de ratificación. La conexión multicientro del
+alta sigue pendiente. Este catálogo no aumenta los cinco pasos completos.
+
+El editor persistente está habilitado en la instancia principal local.
+Seleccione **Nueva unidad** o **Editar**, indique denominación, tipo, adscripción
+y motivo; pulse **Revisar cambio** y después **Confirmar cambio**. Una unidad
+nueva recibe clave técnica, no un código oficial. Los cambios se marcan
+**Cambio local** y no conceden permisos ni alteran expedientes.
+
+Recorrido demostrado el 6 de septiembre: alta de un cargo sintético bajo
+Transformación Digital y edición de su denominación, ambos `200` desde Firefox.
+Se interrumpió de forma sintética la respuesta del segundo guardado, después
+del `200` real. La pantalla mantuvo el cuerpo y bloqueó nuevas operaciones.
+Tras reiniciar aplicación y PostgreSQL principal, **Reintentar el mismo cambio**
+recuperó el recibo original, misma fecha y `replay_confirmado`, sin duplicar.
+Si aparece ese aviso, no cierre ni recargue la pestaña: el pendiente vive en
+memoria, no en almacenamiento web.
+
+Resultado conservado: **67 unidades** —66 de referencia y un cargo sintético—,
+**3 revisiones**, **2 cambios**, **2 eventos** y los **51 expedientes** intactos.
+El recibo de edición es `recibo:c1087e22-e2e4-46e3-9255-78863cbeb12c`,
+fecha `2026-09-06T13:18:41.385823Z`, revisión3; clave de recuperación
+`fc51ace8-5e71-46be-b8c8-e4f91f29b0e1`. La revisión inicial permanece inmutable.
+Una revisión antigua con otra clave devuelve `409`; Intervención `401`;
+cabecera Cookie `400`. La edición no está instalada en la base secundaria.
 
 El [manual de Sistemas](docs/manual_sistemas/README.md#organización-de-referencia-configurable)
-explica cómo seleccionar una versión sin recompilar. No se modifica la
-organización anterior ni se importan puestos individuales desde este catálogo.
+explica la fuente única y la inicialización. En principal ya están instaladas
+las migraciones de autorización22 y Contratación66: **no reaplicar ni revertir**.
+Use el [mismo arranque local](#arranque-vigente-en-el-equipo-local--5-de-septiembre-de-2026)
+descrito abajo; el lanzador activa PostgreSQL solo para `recorrido`.
 
 Primer PDF publicado: `5c57b29f`. El cierre de bandeja,
 detalle y análisis corresponde a

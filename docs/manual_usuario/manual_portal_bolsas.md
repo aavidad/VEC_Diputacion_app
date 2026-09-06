@@ -8,6 +8,17 @@ portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.
 
+**Centros y organización:** en Contratación temporal, el enlace
+«Centros y organización de referencia» permite buscar unidades y consultar
+su procedencia. Los controles de edición solo aparecen cuando Sistemas
+habilita el guardado persistente. Un cambio exige revisar unidad, adscripción
+y motivo antes de confirmarlo; el resultado debe mostrar un recibo.
+Si la conexión falla, no cierre ni recargue la pestaña: reintente la misma
+operación cuando la pantalla lo permita. Los borradores sin confirmar solo
+viven en esa pestaña. Añadir un cargo no asigna una persona ni le concede
+permisos para solicitar o ratificar. Consulte la
+[guía vigente de organización](../../GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia).
+
 **Disponible: cinco pasos completos de Contratación temporal y partes del sexto
 y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.

@@ -16,8 +16,23 @@ de los cargos no son enumeraciones compiladas. Se rechazan ciclos y padres
 ausentes, sin inferir dependencia funcional por el orden del PDF. El lector
 está fijado a versión explícita; no resuelve «la última». El paquete inicial
 está en borrador y conserva las limitaciones de la extracción pública.
-Edición durable, aprobación y conexión al alta/ratificación son trabajo pendiente;
-no reemplazarlo por mutaciones del DOM ni reutilizar esta tabla como autorización.
+El editor reutiliza `CatalogoConfigurable.ActualizarBorrador`: cambia una unidad
+por operación y conserva la identidad del catálogo. El adaptador PostgreSQL
+de Personal es su fuente única cuando la composición lo selecciona; el
+fichero original solo sirve para inicialización explícita.
+
+`POST /api/vec/contratacion-temporal/organizacion/cambios` recibe versión,
+revisión, huella esperada, clave de idempotencia, unidad y motivo. No admite
+identidad ni permisos del cliente. La frontera obtiene el actor del certificado
+y liga una autorización nueva a todo el material de cada petición, incluso
+al recuperar un recibo. La transacción guarda revisión, recibo y evento juntos;
+la misma operación devuelve el recibo original, no otra revisión.
+
+Ante un resultado incierto, el formulario conserva exactamente cuerpo y clave
+en memoria para reintentar. No usa almacenamiento web. Una revisión caducada
+devuelve `409` y requiere recargar antes de preparar otro cambio.
+La aprobación administrativa y conexión al alta/ratificación siguen pendientes;
+no reutilice esta tabla como fuente de permisos.
 
 **Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
 La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/base

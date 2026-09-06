@@ -34,6 +34,7 @@ const (
 	EnvPersonalCatalogPath                   = "VEC_PERSONAL_CATALOG_PATH"
 	EnvPersonalOrganizacionSourcePath        = "VEC_PERSONAL_ORGANIZACION_SOURCE_PATH"
 	EnvPersonalOrganizacionVersion           = "VEC_PERSONAL_ORGANIZACION_VERSION"
+	EnvPersonalOrganizacionPostgreSQL        = "VEC_PERSONAL_ORGANIZACION_POSTGRESQL"
 	EnvBolsaPublicSourcePath                 = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
 	EnvBolsaCategoriesSourcePath             = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
 	EnvBolsaCategoriesCatalogID              = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
@@ -108,6 +109,7 @@ type Config struct {
 	PersonalCatalogInMemory               bool
 	PersonalOrganizacionSourcePath        string
 	PersonalOrganizacionVersion           int
+	PersonalOrganizacionPostgreSQL        bool
 	BolsaPublicSourcePath                 string
 	BolsaCategoriesSourcePath             string
 	BolsaCategoriesCatalogID              string
@@ -156,6 +158,7 @@ func Load() Config {
 		PersonalCatalogPath:                   envFirst(EnvPersonalCatalogPath),
 		PersonalOrganizacionSourcePath:        envFirst(EnvPersonalOrganizacionSourcePath),
 		PersonalOrganizacionVersion:           envPositiveInt(EnvPersonalOrganizacionVersion),
+		PersonalOrganizacionPostgreSQL:        envBool(EnvPersonalOrganizacionPostgreSQL),
 		BolsaPublicSourcePath:                 envFirst(EnvBolsaPublicSourcePath),
 		BolsaCategoriesSourcePath:             envFirst(EnvBolsaCategoriesSourcePath),
 		BolsaCategoriesCatalogID:              envFirst(EnvBolsaCategoriesCatalogID),

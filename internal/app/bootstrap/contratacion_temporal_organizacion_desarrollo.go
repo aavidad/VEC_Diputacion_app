@@ -41,7 +41,8 @@ func nuevaRutaOrganizacionContratacionTemporalDesarrollo(cfg config.Config) (vec
 }
 
 type manejadorOrganizacionContratacionTemporalDesarrollo struct {
-	consulta personalports.ConsultaEstructuraOrganizativa
+	consulta          personalports.ConsultaEstructuraOrganizativa
+	edicionHabilitada bool
 }
 
 func (m *manejadorOrganizacionContratacionTemporalDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -67,8 +68,14 @@ func (m *manejadorOrganizacionContratacionTemporalDesarrollo) ServeHTTP(w http.R
 		return
 	}
 	contenido, err := json.Marshal(struct {
-		Data personalports.EstructuraOrganizativaConsultable `json:"data"`
-	}{Data: datos})
+		Data struct {
+			personalports.EstructuraOrganizativaConsultable
+			EdicionHabilitada bool `json:"edicion_habilitada"`
+		} `json:"data"`
+	}{Data: struct {
+		personalports.EstructuraOrganizativaConsultable
+		EdicionHabilitada bool `json:"edicion_habilitada"`
+	}{datos, m.edicionHabilitada}})
 	if err != nil || len(contenido) > 512*1024 {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return

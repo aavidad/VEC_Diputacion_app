@@ -1,23 +1,178 @@
 <!doctype html>
 <html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <title>Organización · Portal del Empleado</title>
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/portal-empleado/portal.css">
-  <link rel="stylesheet" href="/portal-empleado/portal-componentes.css">
-  <link rel="stylesheet" href="./organizacion.css">
-</head>
-<body class="portal-empleado-app">
-  <main class="org-shell" id="organizacion" tabindex="-1">
-    <div class="org-top"><div><div class="org-kicker" data-i18n="eyebrow"></div><h1 data-i18n="title"></h1><p class="org-intro" data-i18n="intro"></p></div><a class="org-back" href="/portal-empleado/" data-i18n="back"></a></div>
-    <section class="org-notice" aria-label="Estado del módulo"><strong data-i18n="noticeTitle"></strong><p data-i18n="notice"></p><details><summary data-i18n="provenanceDetail"></summary><p id="provenance"></p></details></section>
-    <details class="org-trazabilidad"><summary data-i18n="traceability"></summary><dl class="org-meta" aria-label="Metadatos del catálogo"><div><dt data-i18n="catalogId"></dt><dd id="catalog-id">—</dd></div><div><dt data-i18n="version"></dt><dd id="catalog-version">—</dd></div><div><dt data-i18n="fingerprint"></dt><dd id="catalog-hash">—</dd></div><div><dt data-i18n="status"></dt><dd id="catalog-status">—</dd></div></dl></details>
-    <section class="org-panel" aria-labelledby="table-title"><h2 id="table-title" data-i18n="tableTitle"></h2><div class="org-toolbar"><div><label for="filter-text" data-i18n="filterText"></label><input id="filter-text" type="search" autocomplete="off"></div><div><label for="filter-type" data-i18n="filterType"></label><select id="filter-type"><option value="" data-i18n="allTypes"></option><option value="delegacion" data-i18n="delegacion"></option><option value="centro" data-i18n="centro"></option><option value="puesto_responsabilidad" data-i18n="puesto"></option></select></div><div class="org-count" id="result-count" aria-live="polite"></div></div><div id="state" class="org-state" role="status" aria-live="polite"></div><div class="org-table-wrap" id="table-wrap" tabindex="0" hidden><table><caption data-i18n="tableCaption"></caption><thead><tr><th scope="col" data-i18n="type"></th><th scope="col" data-i18n="code"></th><th scope="col" data-i18n="name"></th><th scope="col" data-i18n="adscription"></th><th scope="col" data-i18n="page"></th></tr></thead><tbody id="rows"></tbody></table></div><p class="org-source"><span data-i18n="sourceLabel"></span> <span id="source-ref"></span> · <a id="source-link" target="_blank" rel="noreferrer noopener" data-i18n="sourceLink"></a></p><p class="org-note" data-i18n="note"></p></section>
-  </main>
-  <script type="module" src="./organizacion.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Organización · Portal del Empleado</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portal-empleado/portal.css" />
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css" />
+    <link rel="stylesheet" href="./organizacion.css" />
+  </head>
+  <body class="portal-empleado-app">
+    <main class="org-shell" id="organizacion" tabindex="-1">
+      <div class="org-top">
+        <div>
+          <div class="org-kicker" data-i18n="eyebrow"></div>
+          <h1 data-i18n="title"></h1>
+          <p class="org-intro" data-i18n="intro"></p>
+        </div>
+        <a class="org-back" href="/portal-empleado/" data-i18n="back"></a>
+      </div>
+      <section class="org-notice" aria-label="Estado del módulo">
+        <strong data-i18n="noticeTitle"></strong>
+        <p data-i18n="notice"></p>
+        <details>
+          <summary data-i18n="provenanceDetail"></summary>
+          <p id="provenance"></p>
+        </details>
+      </section>
+      <details class="org-trazabilidad">
+        <summary data-i18n="traceability"></summary>
+        <dl class="org-meta" aria-label="Metadatos del catálogo">
+          <div>
+            <dt data-i18n="catalogId"></dt>
+            <dd id="catalog-id">—</dd>
+          </div>
+          <div>
+            <dt data-i18n="version"></dt>
+            <dd id="catalog-version">—</dd>
+          </div>
+          <div>
+            <dt data-i18n="fingerprint"></dt>
+            <dd id="catalog-hash">—</dd>
+          </div>
+          <div>
+            <dt data-i18n="status"></dt>
+            <dd id="catalog-status">—</dd>
+          </div>
+        </dl>
+      </details>
+      <section class="org-panel" aria-labelledby="table-title">
+        <div class="org-panel-heading">
+          <h2 id="table-title" data-i18n="tableTitle"></h2>
+          <button type="button" id="new-unit" data-i18n="newUnit" hidden></button>
+        </div>
+        <div class="org-toolbar">
+          <div>
+            <label for="filter-text" data-i18n="filterText"></label
+            ><input id="filter-text" type="search" autocomplete="off" />
+          </div>
+          <div>
+            <label for="filter-type" data-i18n="filterType"></label
+            ><select id="filter-type">
+              <option value="" data-i18n="allTypes"></option>
+              <option value="delegacion" data-i18n="delegacion"></option>
+              <option value="centro" data-i18n="centro"></option>
+              <option
+                value="puesto_responsabilidad"
+                data-i18n="puesto"
+              ></option>
+            </select>
+          </div>
+          <div class="org-count" id="result-count" aria-live="polite"></div>
+        </div>
+        <div
+          id="state"
+          class="org-state"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <div class="org-table-wrap" id="table-wrap" tabindex="0" hidden>
+          <table>
+            <caption data-i18n="tableCaption"></caption>
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="type"></th>
+                <th scope="col" data-i18n="code"></th>
+                <th scope="col" data-i18n="name"></th>
+                <th scope="col" data-i18n="adscription"></th>
+                <th scope="col" data-i18n="page"></th>
+                <th scope="col" data-i18n="actions"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="org-source">
+          <span data-i18n="sourceLabel"></span> <span id="source-ref"></span> ·
+          <a
+            id="source-link"
+            target="_blank"
+            rel="noreferrer noopener"
+            data-i18n="sourceLink"
+          ></a>
+        </p>
+        <p class="org-note" data-i18n="note"></p>
+      </section>
+      <section
+        class="org-panel org-editor"
+        id="editor"
+        aria-labelledby="editor-title"
+        hidden
+      >
+        <h2 id="editor-title" data-i18n="editorTitle"></h2>
+        <p class="org-helper" data-i18n="editorHelper"></p>
+        <form id="unit-form">
+          <input id="unit-key" type="hidden" />
+          <div class="org-form-grid">
+            <div>
+              <label for="unit-label" data-i18n="label"></label
+              ><input id="unit-label" required maxlength="240" />
+            </div>
+            <div>
+              <label for="unit-type" data-i18n="type"></label
+              ><select id="unit-type" required>
+                <option value="delegacion" data-i18n="delegacion"></option>
+                <option value="centro" data-i18n="centro"></option>
+                <option
+                  value="puesto_responsabilidad"
+                  data-i18n="puesto"
+                ></option>
+              </select>
+            </div>
+            <div>
+              <label for="unit-parent" data-i18n="parent"></label
+              ><select id="unit-parent">
+                <option value="" data-i18n="noParent"></option>
+              </select>
+            </div>
+            <div>
+              <label for="unit-reason" data-i18n="reason"></label
+              ><textarea
+                id="unit-reason"
+                required
+                maxlength="1000"
+                rows="3"
+              ></textarea>
+            </div>
+          </div>
+          <div id="review" class="org-review" hidden></div>
+          <div
+            id="save-state"
+            class="org-state"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+          <div class="org-actions">
+            <button
+              type="button"
+              id="cancel-edit"
+              class="org-secondary"
+              data-i18n="cancel"
+            ></button
+            ><button
+              type="submit"
+              id="review-submit"
+              data-i18n="review"
+            ></button>
+          </div>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="./organizacion.js"></script>
+  </body>
 </html>

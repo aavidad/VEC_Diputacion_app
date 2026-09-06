@@ -9,7 +9,13 @@ detalla su cobertura: 41 centros, agrupaciones de la fuente y once puestos de
 Transformación Digital, todavía sin las dependencias funcionales completas.
 Una adscripción no identifica al ocupante ni a quien puede ratificar.
 Consultar este catálogo no amplía los centros admitidos por el formulario
-actual; edición y ratificación multicientro siguen pendientes.
+actual; la ratificación multicientro sigue pendiente.
+En la instancia principal, **Nueva unidad** y **Editar** guardan denominación,
+tipo y adscripción con motivo, revisión y recibo. Puede preparar niveles
+distintos según el área; no se exige que exista director, subdirector o jefe
+de servicio en todas. Un cargo configurado no identifica a su ocupante ni
+autoriza una petición. La guía recoge el alta/edición sintética y la recuperación
+del mismo recibo tras reiniciar, sin duplicados.
 
 **Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
 La base principal conserva 51 solicitudes; bandeja y detalle consultables (`8443` / base

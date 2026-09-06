@@ -4,9 +4,8 @@ Entorno de desarrollo de Contratación temporal · Corte: 6 de septiembre de 202
 
 ## Organización de referencia configurable
 
-La consulta utiliza un catálogo de fichero explícito, conservado fuera de la
-base de expedientes y leído mediante el adaptador existente. Configuración
-para el lanzador de desarrollo:
+La composición selecciona una única fuente. Por defecto utiliza el catálogo
+de fichero en modo consulta, mediante el adaptador existente:
 
 ```sh
 export VEC_PERSONAL_ORGANIZACION_SOURCE_PATH="$PWD/data/catalogos/estructura-organizativa/v1.rpt-publica.json"
@@ -19,12 +18,33 @@ el arranque falla sin escoger otra versión. La página es
 `/portal-empleado/organizacion/`; API de solo lectura:
 `GET /api/vec/contratacion-temporal/organizacion`, con identidad RRHH de desarrollo.
 
-Para una reorganización, prepare otro fichero/versionado conservando el
-anterior, sus claves estables y la referencia a la versión precedente.
-Coteje su fuente y seleccione expresamente la nueva versión antes de
-reiniciar solo la aplicación; no necesita recompilar ni migrar PostgreSQL.
-Esto no publica una organización administrativa ni concede permisos:
-la edición web y la ratificación de solicitudes aún no están conectadas.
+El editor añade el modo PostgreSQL, desactivado por defecto. Requiere las
+migraciones de autorización `000022` y Contratación `000066`, revisadas e
+instaladas en ese orden sobre la base elegida. No las reaplique si existen.
+La semilla inicial se prepara explícitamente:
+
+```sh
+go run ./cmd/vec-organizacion-semilla \
+  --archivo data/catalogos/estructura-organizativa/v1.rpt-publica.json
+```
+
+El comando imprime SQL validado; no abre conexiones ni modifica la base.
+Sistemas debe ejecutarlo con su conexión de migración autorizada, sin poner
+contraseñas en argumentos o documentación. Una semilla diferente no sustituye
+la instalada; repetir la misma tampoco borra revisiones posteriores.
+
+Después, use `VEC_PERSONAL_ORGANIZACION_POSTGRESQL=1` y mantenga la versión
+explícita. El servidor utiliza la conexión nominal existente de ejecución
+de Contratación, sin otra base ni credenciales nuevas. Si falta la instalación
+o la semilla, el arranque falla: no vuelve silenciosamente al fichero.
+En este modo no modifique el JSON para reorganizar: utilice el formulario.
+Cada cambio añade una revisión y un recibo; no altera revisiones anteriores.
+No ejecute la migración de vuelta después de registrar cambios.
+
+La pantalla y su recibo describen preparación, no vigencia administrativa.
+Editar centros o cargos no concede perfiles, no cambia expedientes y no
+habilita ratificación. La comprobación del recorrido instalado se mantiene
+en la guía canónica; tener el código no acredita instalación.
 
 **Cierre anterior publicado:** código
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con desarrollo en el equipo local.
