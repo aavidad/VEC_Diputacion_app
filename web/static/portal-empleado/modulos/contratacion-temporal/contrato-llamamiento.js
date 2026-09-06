@@ -37,6 +37,64 @@ export const CAMPOS_RECIBO_SIGUIENTE = Object.freeze([
   "llamamiento_anterior_ref", "llamamiento_ref", "version_llamamiento", "recibo_bolsa_ref",
   "recibo_ref", "auditoria_ref", "confirmada_en", "estado_intencion", "estado_local",
 ]);
+export const PUBLICACIONES_FORMALIZACION = Object.freeze({
+  tipo_formalizacion: "tipo:ct:propuesta-desarrollo:20260906",
+  plantilla: "plantilla:ct:propuesta-desarrollo:20260906",
+  politica_firma: "politica:ct:firma-pendiente:20260906",
+  plan_firma: "plan:ct:firma-pendiente:20260906",
+});
+export const CAMPOS_PROPUESTA = Object.freeze([
+  "clave_idempotencia", "expediente_ref", "llamamiento_ref", "resolucion_llamamiento_aceptada_ref",
+  "recibo_resolucion_aceptada_ref", "version_esperada", "tipo_formalizacion", "plantilla",
+  "anexos", "politica_firma", "plan_firma",
+]);
+export const CAMPOS_RECIBO_PROPUESTA = Object.freeze([
+  "esquema", "estado_local", "propuesta_ref", "recibo_local_ref", "version_resultante", "confirmada_en",
+]);
+
+export async function snapshotsFormalizacionDesarrollo(entrada, criptografia) {
+  const asset = registro(entrada, ["esquema", "publicaciones"]);
+  exigir(asset.esquema === "vec.ct.propuesta.publicaciones-desarrollo.v1" && criptografia?.subtle?.digest);
+  const publicaciones = registro(asset.publicaciones, Object.keys(PUBLICACIONES_FORMALIZACION));
+  const snapshots = {};
+  for (const [campo, referencia] of Object.entries(PUBLICACIONES_FORMALIZACION)) {
+    const p = registro(publicaciones[campo], ["referencia", "version", "contenido"]);
+    exigir(p.referencia === referencia && p.version === 1 && typeof p.contenido === "string"
+      && p.contenido.trim().length > 0 && !/[\u0000\uD800-\uDFFF]/u.test(p.contenido));
+    const bytes = new TextEncoder().encode(p.contenido);
+    exigir(bytes.length <= 4096);
+    const digest = new Uint8Array(await criptografia.subtle.digest("SHA-256", bytes));
+    exigir(digest.length === 32);
+    const huella_sha256 = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+    exigir(huella_sha256 !== "0".repeat(64));
+    snapshots[campo] = Object.freeze({ referencia, version: 1, huella_sha256 });
+  }
+  return Object.freeze(snapshots);
+}
+export function validarSolicitudPropuestaFormalizacion(entrada) {
+  const valor = solicitud(entrada, CAMPOS_PROPUESTA);
+  exigir(valor.version_esperada === 6 && Array.isArray(valor.anexos) && valor.anexos.length === 0);
+  const snapshots = {};
+  for (const [campo, referencia] of Object.entries(PUBLICACIONES_FORMALIZACION)) {
+    const p = registro(valor[campo], ["referencia", "version", "huella_sha256"]);
+    exigir(p.referencia === referencia && p.version === 1 && typeof p.huella_sha256 === "string"
+      && /^[a-f0-9]{64}$/u.test(p.huella_sha256) && p.huella_sha256 !== "0".repeat(64));
+    snapshots[campo] = p;
+  }
+  // Este recorrido mínimo no adjunta documentos ni crea una orden de firma.
+  return registro({ ...valor, ...snapshots, anexos: Object.freeze([]) }, CAMPOS_PROPUESTA);
+}
+export function validarReciboPropuestaFormalizacion(entrada, solicitudEntrada, aceptadaEn) {
+  const esperada = validarSolicitudPropuestaFormalizacion(solicitudEntrada);
+  const valor = registro(entrada, CAMPOS_RECIBO_PROPUESTA);
+  exigir(valor.esquema === "vec.contratacion-temporal.propuesta-formalizacion-local.v1"
+    && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
+    && valor.version_resultante === esperada.version_esperada + 1
+    && referenciaLlamamientoValida(valor.propuesta_ref) && referenciaLlamamientoValida(valor.recibo_local_ref));
+  const confirmada = instanteRespuesta(valor.confirmada_en);
+  if (aceptadaEn !== undefined) exigir(confirmada >= instanteRespuesta(aceptadaEn));
+  return valor;
+}
 
 function exigir(condicion) {
   if (!condicion) throw new TypeError("contrato de llamamiento no válido");

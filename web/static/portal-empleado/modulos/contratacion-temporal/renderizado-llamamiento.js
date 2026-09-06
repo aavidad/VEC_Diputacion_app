@@ -2,11 +2,19 @@ import { escaparHTML as e } from "./componentes-expedientes.js";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
-  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE } from "./contrato-llamamiento.js";
+  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
+  PUBLICACIONES_FORMALIZACION } from "./contrato-llamamiento.js";
 
 export function renderizarLlamamiento(estado, t, fecha) {
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
+    if (operacion === "propuesta" && nombre === "anexos") return `<p class="ct-ayuda">${e(t("llamamiento_propuesta_sin_anexos"))}</p>`;
+    if (operacion === "propuesta" && Object.hasOwn(PUBLICACIONES_FORMALIZACION, nombre)) {
+      return `<div class="ct-campo"><label for="${id}">${e(t("llamamiento_" + nombre))}</label>
+        <input id="${id}" type="text" readonly autocomplete="off" value="${e(valor?.referencia ? `${valor.referencia} · v${valor.version}` : t("llamamiento_propuesta_cargando"))}">
+        <label for="${id}-huella">${e(t("llamamiento_publicacion_huella"))}</label>
+        <input id="${id}-huella" type="text" readonly autocomplete="off" value="${e(valor?.huella_sha256 ?? "")}"></div>`;
+    }
     if (operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(nombre)) {
       return `<div class="ct-campo"><label for="${id}"><input id="${id}" name="${nombre}"
         type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}
@@ -36,7 +44,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
   }
   function recibo(operacion, datos) {
     if (!datos) return `<p class="ct-ayuda">${e(t("llamamiento_sin_recibo"))}</p>`;
-    const campos = operacion === "siguiente" ? CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo !== "esquema")
+    const campos = operacion === "propuesta" ? CAMPOS_RECIBO_PROPUESTA.filter((campo) => campo !== "esquema")
+      : operacion === "siguiente" ? CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo !== "esquema")
       : operacion === "resolucion"
       ? ["respuesta", "estado_plazo", "estado_local", "resolucion_ref", "recibo_local_ref",
         "auditoria_ref", "version_resultante", "resuelta_en", ...(datos.intencion_siguiente
@@ -50,7 +59,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
           ? ["registrada_en", "intencion_envio_ref"] : ["respuesta_hasta"])];
     return `<section class="ct-recibo" data-ct-llamamiento-recibo="${operacion}"
       aria-labelledby="ct-llamamiento-recibo-${operacion}" tabindex="-1">
-      <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "siguiente" ? "llamamiento_siguiente_recibo" : operacion === "resolucion"
+      <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo" : operacion === "resolucion"
         ? "llamamiento_resolucion_recibo_" + datos.respuesta : operacion === "respuesta"
         ? "llamamiento_respuesta_recibo" : "llamamiento_recibo"))}</h4>
       <p>${e(t("llamamiento_recibo_" + operacion + "_ayuda"))}</p>
@@ -60,7 +69,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
         const intencion = nombre.startsWith("intencion_siguiente_");
         let valor = intencion ? datos.intencion_siguiente[nombre.slice("intencion_siguiente_".length)] : datos[nombre];
         if (["confirmada_en", "respuesta_hasta", "registrada_en", "recibida_en", "resuelta_en", "intencion_siguiente_actualizada_en"].includes(nombre)) {
-          valor = ["respuesta", "resolucion", "siguiente"].includes(operacion) ? valor : fecha.format(new Date(valor));
+          valor = ["respuesta", "resolucion", "siguiente", "propuesta"].includes(operacion) ? valor : fecha.format(new Date(valor));
         } else if (nombre === "intencion_siguiente_estado_local") valor = t("llamamiento_intencion_siguiente_" + valor);
         else if (nombre === "estado_intencion") valor = t("llamamiento_intencion_" + valor);
         else if (nombre === "estado_local" || nombre === "estado") valor = t("llamamiento_" + valor);
@@ -81,7 +90,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
       <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
         <p id="ct-llamamiento-${operacion}-ayuda">${e(t(operacion === "seleccion"
-          ? "llamamiento_clave_ayuda" : operacion === "siguiente" ? "llamamiento_siguiente_ayuda" : operacion === "resolucion" ? "llamamiento_resolucion_ayuda" : operacion === "respuesta"
+          ? "llamamiento_clave_ayuda" : operacion === "propuesta" ? "llamamiento_propuesta_ayuda" : operacion === "siguiente" ? "llamamiento_siguiente_ayuda" : operacion === "resolucion" ? "llamamiento_resolucion_ayuda" : operacion === "respuesta"
             ? "llamamiento_respuesta_ayuda" : "llamamiento_prueba_ayuda"))}</p>
         ${operacion !== "seleccion" ? `<p>${e(t("llamamiento_clave_ayuda"))}</p>` : ""}
         ${operacion === "resolucion" ? `<p id="ct-llamamiento-resolucion-validacion-ayuda" class="ct-ayuda">${e(t("llamamiento_validacion_manual_desarrollo"))}</p>` : ""}
@@ -90,7 +99,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
           <div class="ct-campos">${campos.map((nombre) => campo(
             operacion, nombre, paso.valores[nombre] ?? "", paso.solicitud !== null
               || (paso.claveConservada && nombre === "clave_idempotencia")
-              || (["comunicacion", "resolucion", "siguiente"].includes(operacion) && nombre !== "clave_idempotencia"
+              || (["comunicacion", "resolucion", "siguiente", "propuesta"].includes(operacion) && nombre !== "clave_idempotencia"
                 && !(operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(nombre)))
               || (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(nombre)),
           )).join("")}</div>
@@ -104,13 +113,13 @@ export function renderizarLlamamiento(estado, t, fecha) {
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${paso.solicitud === null && !paso.claveConservada ? `<button class="boton-secundario" type="button"
+        ${paso.solicitud === null && !paso.claveConservada && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
           data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
-        ${!paso.recibo && !paso.bloqueado ? `<button class="boton-primario" type="submit"
+        ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
             ? operacion === "resolucion" ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
             : operacion === "seleccion" ? "llamamiento_seleccionar"
-              : operacion === "siguiente" ? "llamamiento_continuar"
+              : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : operacion === "resolucion" ? "llamamiento_solicitar_resolucion"
                 : operacion === "respuesta" ? "llamamiento_registrar_respuesta" : "llamamiento_registrar"))}</button>` : ""}
         </div>
@@ -144,5 +153,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
     ${estado.resolucion.recibo?.respuesta === "renuncia"
       && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente"
       ? formulario("siguiente", CAMPOS_SIGUIENTE) : ""}
+    ${estado.resolucion.recibo?.respuesta === "aceptacion" && estado.seleccion.solicitud?.version_esperada === 6
+      ? formulario("propuesta", CAMPOS_PROPUESTA) : ""}
   </section>`;
 }

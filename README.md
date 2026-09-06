@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `3d696af`.**
+**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `9ccef45`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -49,6 +49,17 @@ El recibo original de renuncia conserva su intención pendiente histórica; el n
 recibo confirma la continuidad posterior, no envío, entrega ni aceptación.
 Claves y referencias en la [guía canónica](GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
 
+**Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta desde aceptación,
+Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200`
+y propuesta `200`, mismos identificadores, recibo y fecha, versión `7`.
+Una actuación v7 y un outbox nuevos; historia anterior intacta, cero errores JS,
+cookies, almacenamiento web y desbordamiento. AD3-20/CT61 instaladas en ambas
+bases, no reaplicar; no se atribuye a secundaria el recorrido principal.
+Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
+[Caso y cinco claves](GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
+Siguiente: objetivo 9, seis descargas de borradores, un documento por corte.
+No acredita firma, nombramiento eficaz ni correo real.
+
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
 temporal coordina la petición de personal y su tramitación; Bolsa conserva
@@ -57,7 +68,7 @@ Nóminas, Cronos y Dietas son ámbitos diferenciados, no una aplicación ya
 terminada por aparecer en el menú.
 
 **Se pueden recorrer cinco pasos completos de Contratación temporal y una
-parte del sexto, con datos sintéticos, autorización, PostgreSQL y recibos
+parte del sexto y del séptimo, con datos sintéticos, autorización, PostgreSQL y recibos
 persistentes.** El aviso del llamamiento es local: no acredita envío de correo
 corporativo ni entrega a una persona.
 
@@ -93,10 +104,10 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
 | 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas; recibos recuperados tras reinicio sin duplicados. | Faltan vencimiento, aviso al sucesor y correo corporativo. No acredita entrega ni plazo legal aprobado. |
-| 7. Nombramiento | Pendiente enlace desde aceptación sintética (objetivo 8). | No se declaran terminados sus seis documentos, incluida la Diligencia. |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`. | Sin nombramiento eficaz ni firma; pendientes seis descargas de borradores, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
-La métrica es **cinco pasos completos más un tramo del sexto**, no un
+La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un
 porcentaje global ni un recuento de pantallas, contratos o pruebas.
 La bandeja y el detalle ya están conectados en `b2effba`: se demostraron 50
 solicitudes conservadas y un análisis desde una de sus filas, sin otra alta.
@@ -115,7 +126,7 @@ AD3 `000018` / Bolsa `000005` / CT `000059` también están instaladas en ambas
 bases: dirección confirmó UP/DOWN con ACL, funciones y comprobaciones conservadas.
 No reaplicar ni ejecutar DOWN sobre los registros guardados.
 Las preguntas pendientes no detienen la programación independiente ni autorizan
-a inventar plazo o autoridad; continúa **5/8 más parte del sexto**.
+a inventar plazo o autoridad; continúa **5/8 más partes del sexto y séptimo**.
 
 ## Probar el recorrido disponible
 

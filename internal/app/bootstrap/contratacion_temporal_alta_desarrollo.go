@@ -99,6 +99,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaRenunciaBolsa          dominiovec.InstantaneaAutorizacion
 	instantaneaContinuacionCT         dominiovec.InstantaneaAutorizacion
 	instantaneaSiguienteBolsa         dominiovec.InstantaneaAutorizacion
+	instantaneaPropuestaFormalizacion dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -681,6 +682,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoConsultaJustificante, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoConsultaJustificante)
 	case httpinterno.RutaContinuacionLlamamiento:
 		return motivoContinuacionDesarrollo(false), true
+	case httpinterno.RutaPropuestaFormalizacion:
+		return motivoPropuestaFormalizacionDesarrollo(), true
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
 	default:
@@ -722,6 +725,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if ruta == httpinterno.RutaContinuacionLlamamiento {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaContinuacionCT), s.instantaneaContinuacionCT.Validar() == nil
+	}
+	if ruta == httpinterno.RutaPropuestaFormalizacion {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaPropuestaFormalizacion), s.instantaneaPropuestaFormalizacion.Validar() == nil
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil

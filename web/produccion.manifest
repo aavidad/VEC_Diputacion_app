@@ -65,6 +65,7 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-fiscalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
+static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js

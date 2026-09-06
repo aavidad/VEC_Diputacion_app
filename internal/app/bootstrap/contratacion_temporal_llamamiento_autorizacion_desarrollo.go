@@ -41,7 +41,8 @@ func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
-		ruta == httpinterno.RutaContinuacionLlamamiento
+		ruta == httpinterno.RutaContinuacionLlamamiento ||
+		ruta == httpinterno.RutaPropuestaFormalizacion
 }
 
 func rutaMutacionDurableContratacionTemporalDesarrollo(ruta string) bool {
@@ -76,6 +77,9 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		return false
 	}
 	r := datos.Recurso
+	if ruta == httpinterno.RutaPropuestaFormalizacion {
+		return solicitudAutorizacionPropuestaDesarrolloValida(ctx, datos, p)
+	}
 	if ruta == httpinterno.RutaContinuacionLlamamiento {
 		return solicitudAutorizacionContinuacionDesarrolloValida(ctx, datos, p)
 	}
@@ -257,20 +261,24 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	if err := configurarAutoridadResolucionManualDesarrollo(ctx, alta, reloj, desde); err != nil {
 		return err
 	}
-	return configurarAutoridadContinuacionDesarrollo(ctx, alta, reloj, desde)
+	if err := configurarAutoridadContinuacionDesarrollo(ctx, alta, reloj, desde); err != nil {
+		return err
+	}
+	return configurarAutoridadPropuestaFormalizacionDesarrollo(ctx, alta, reloj, desde)
 }
 
 type autorizadorLlamamientoDesarrollo struct {
-	alta                 *dependenciasAltaContratacionTemporalDesarrollo
-	material             *proveedorMaterialAltaContratacionTemporalDesarrollo
-	comunicacion         bool
-	respuestaRecibida    bool
-	consultaJustificante bool
-	resolucionManual     bool
-	aceptacionBolsa      bool
-	renunciaBolsa        bool
-	continuacionCT       bool
-	siguienteBolsa       bool
+	alta                   *dependenciasAltaContratacionTemporalDesarrollo
+	material               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	comunicacion           bool
+	respuestaRecibida      bool
+	consultaJustificante   bool
+	resolucionManual       bool
+	aceptacionBolsa        bool
+	renunciaBolsa          bool
+	continuacionCT         bool
+	siguienteBolsa         bool
+	propuestaFormalizacion bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -282,6 +290,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.propuestaFormalizacion {
+		return motivoPropuestaFormalizacionDesarrollo()
+	}
 	if a.continuacionCT || a.siguienteBolsa {
 		return motivoContinuacionDesarrollo(a.siguienteBolsa)
 	}
@@ -355,6 +366,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		(a.renunciaBolsa && accion != puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo) ||
 		(a.continuacionCT && accion != postgresct.AccionContinuacionLlamamiento) ||
 		(a.siguienteBolsa && accion != puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo) ||
+		(a.propuestaFormalizacion && accion != postgresct.AccionPropuestaFormalizacion) ||
 		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||

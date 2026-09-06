@@ -1,0 +1,25 @@
+{
+  "esquema": "vec.ct.propuesta.publicaciones-desarrollo.v1",
+  "publicaciones": {
+    "tipo_formalizacion": {
+      "referencia": "tipo:ct:propuesta-desarrollo:20260906",
+      "version": 1,
+      "contenido": "Propuesta de nombramiento de desarrollo. Registro local previo a la formalización; no constituye un nombramiento firmado."
+    },
+    "plantilla": {
+      "referencia": "plantilla:ct:propuesta-desarrollo:20260906",
+      "version": 1,
+      "contenido": "BORRADOR DE DESARROLLO — PROPUESTA DE NOMBRAMIENTO\nDocumento sin datos de personas ni expediente. No firmado; no acredita nombramiento ni efectos administrativos."
+    },
+    "politica_firma": {
+      "referencia": "politica:ct:firma-pendiente:20260906",
+      "version": 1,
+      "contenido": "SIN FIRMA EN ESTE CORTE. La propuesta se conserva como borrador de desarrollo. No es una exención legal de firma; el circuito competente está pendiente."
+    },
+    "plan_firma": {
+      "referencia": "plan:ct:firma-pendiente:20260906",
+      "version": 1,
+      "contenido": "Firmantes y circuito de firma pendientes de definición competente. Este plan de desarrollo no asigna personas, órganos ni turnos de firma y no ordena ningún envío."
+    }
+  }
+}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -124,7 +125,7 @@ func validarMetadatosPropuestaFormalizacion(
 		problema := errorPeticionPropuestaFormalizacionNoValida
 		return &problema
 	}
-	if !cabecerasPropuestaFormalizacionPermitidas(r.Header) {
+	if !cabecerasPropuestaFormalizacionPermitidas(r) {
 		problema := errorPeticionPropuestaFormalizacionNoPermitida
 		return &problema
 	}
@@ -139,13 +140,32 @@ func validarMetadatosPropuestaFormalizacion(
 	return nil
 }
 
-func cabecerasPropuestaFormalizacionPermitidas(cabeceras http.Header) bool {
-	// Content-Length y Transfer-Encoding llegan normalizadas en los campos
-	// tipados de Request; su presencia adicional en Header se rechaza.
-	for nombre := range cabeceras {
+func cabecerasPropuestaFormalizacionPermitidas(r *http.Request) bool {
+	// Metadatos de transporte inertes: nunca aportan identidad ni permisos.
+	// net/http puede conservar Content-Length además del campo tipado.
+	for nombre := range r.Header {
 		switch {
 		case strings.EqualFold(nombre, "Content-Type"),
-			strings.EqualFold(nombre, "Accept"):
+			strings.EqualFold(nombre, "Accept"),
+			strings.EqualFold(nombre, "Accept-Encoding"),
+			strings.EqualFold(nombre, "Accept-Language"),
+			strings.EqualFold(nombre, "Cache-Control"),
+			strings.EqualFold(nombre, "Pragma"),
+			strings.EqualFold(nombre, "User-Agent"),
+			strings.EqualFold(nombre, "Origin"),
+			strings.EqualFold(nombre, "Referer"),
+			strings.EqualFold(nombre, "Sec-Fetch-Dest"),
+			strings.EqualFold(nombre, "Sec-Fetch-Mode"),
+			strings.EqualFold(nombre, "Sec-Fetch-Site"),
+			strings.EqualFold(nombre, "Sec-CH-UA"),
+			strings.EqualFold(nombre, "Sec-CH-UA-Mobile"),
+			strings.EqualFold(nombre, "Sec-CH-UA-Platform"),
+			strings.EqualFold(nombre, "Priority"):
+		case strings.EqualFold(nombre, "Content-Length"):
+			valor, unico := cabeceraUnicaAlta(r.Header, "Content-Length")
+			if !unico || r.ContentLength <= 0 || valor != strconv.FormatInt(r.ContentLength, 10) {
+				return false
+			}
 		default:
 			return false
 		}

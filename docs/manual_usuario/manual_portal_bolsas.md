@@ -8,9 +8,8 @@ portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.
 
-**Disponible: cinco pasos completos de Contratación temporal y una parte
-del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH, aceptación y renuncia manuales y continuación tras renuncia sintética.** No están
+**Disponible: cinco pasos completos de Contratación temporal y partes del sexto
+y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La base principal conserva 51 solicitudes, con bandeja y detalle consultables
 en el recorrido local `8443`/base `55433`; no incrementa el contador de pasos.
@@ -27,7 +26,7 @@ navegador. La entrega 3 queda cerrada funcionalmente en desarrollo.
 **Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`;
 tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
 mismo recibo y fecha, sin duplicados. Cierre técnico con servicios y permisos reales,
-no aprobación de un plazo legal. Continúan **5/8 pasos completos más parte del sexto**.
+no aprobación de un plazo legal. Aquel corte mantenía **5/8 pasos completos más parte del sexto**.
 
 **Corte 5 incluido en esta entrega:** renuncia manual sintética registrada desde
 el mismo formulario: navegador real `200/201/201/201` y recuperación
@@ -40,6 +39,13 @@ funcionalmente en desarrollo; criterio provisional sin aval legal ni del operado
 recuperación `200/200/200/200/200` tras reiniciar app/PostgreSQL principal, mismos
 recibos y fecha. Cerrado funcionalmente solo en ese ejercicio sintético, sin
 duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
+
+**Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta visible en Chrome
+con `201`; tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200` y
+propuesta `200`, mismos identificadores, recibo, fecha y versión `7`, sin duplicados.
+Cero errores JS, cookies, almacenamiento web y desbordamiento. No acredita firma,
+nombramiento eficaz ni correo real. Esta revisión incorpora el cierre funcional;
+el hash publicado se comprueba en Git.
 
 Para elegir la documentación adecuada:
 
@@ -165,7 +171,7 @@ conservado, use los datos exactos de la
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
 | 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
+| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; siguen pendientes seis descargas de borradores, una por corte. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 El número de recibos o la versión del expediente no es el número de pasos
@@ -279,7 +285,7 @@ el `409` de validación pendiente, sin efectos: puede corregir casillas con la m
 clave. Ante resultado ambiguo, clave y material quedan congelados, sin reintento automático.
 Dirección confirmó ambas resoluciones `201` y recuperación `200` tras reinicio,
 con sus respectivos recibos y fechas originales; la intención del recibo de renuncia conserva su `pendiente` histórico.
-El enlace a propuesta de nombramiento (objetivo 8) sigue pendiente; no hay política
+La propuesta de desarrollo se describe abajo; no hay política
 legal aprobada, vencimiento ni correo corporativo completos.
 El criterio manual es provisional y exclusivo de desarrollo sintético, no aval del operador.
 
@@ -294,6 +300,17 @@ posterior: no reescribe el recibo de renuncia, ni acredita aviso enviado, entreg
 o aceptación. No reutilice el nuevo llamamiento en el formulario de comunicación.
 Una vez recibido, otro envío queda desactivado; ante ambigüedad conserve clave y
 material, reintento solo explícito. Un `409` no autoriza cambiar de clave.
+
+### Propuesta de nombramiento tras aceptación
+
+El mismo panel ofrece **Propuesta de nombramiento · desarrollo** solo tras
+aceptación confirmada, nunca renuncia. Referencias y publicaciones no son editables;
+la solicitud conserva versión esperada `6`, también para recuperar el expediente ya en `7`.
+Use la clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento)
+y confirme expresamente, sin otro `.eml`. Si las publicaciones no cargan, no envíe.
+El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
+fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
+sin reintento automático ni otra clave para eludir un `409`.
 
 ### Qué ocurre después de un reinicio
 
@@ -315,6 +332,8 @@ y su declaración siguen intactas. La [guía](../../GUIA_RECORRIDO_ALBERTO.md)
 separa las claves de ambos casos. La quinta operación también se recuperó tras
 reiniciar app/PostgreSQL principal: cinco `200`, mismos 14 campos salvo
 `estado_local: replay_confirmado`, sin duplicados; objetivo 7 cerrado solo tras renuncia sintética.
+La propuesta del objetivo 8 también se recuperó tras reiniciar app/PostgreSQL
+principal: `200`, mismos propuesta/recibo/fecha y versión `7`, sin duplicados.
 
 El formulario sin confirmar no se guarda automáticamente en el navegador.
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.

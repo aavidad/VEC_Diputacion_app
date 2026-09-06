@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { createHash, webcrypto } from "node:crypto";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
@@ -9,8 +10,10 @@ import {
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento, CAMPOS_RESOLUCION,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE,
+  snapshotsFormalizacionDesarrollo, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
+  CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
 } from "./contrato-llamamiento.js";
-import { RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
+import { RUTAS_LLAMAMIENTO, RUTA_PUBLICACIONES_FORMALIZACION, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 
 const SELECCION = {
   expediente_ref: "expediente:ct:sintetico:001", version_esperada: 6,
@@ -83,6 +86,87 @@ const CONTINUACION = {
 };
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
+});
+const ASSET_FORMALIZACION = JSON.parse(await readFile(new URL("./formalizacion-desarrollo.json", import.meta.url), "utf8"));
+const SNAPSHOTS_PROPUESTA = await snapshotsFormalizacionDesarrollo(ASSET_FORMALIZACION, webcrypto);
+const PROPUESTA = validarSolicitudPropuestaFormalizacion({
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174005", expediente_ref: SELECCION.expediente_ref,
+  llamamiento_ref: RESOLUCION.llamamiento_ref, resolucion_llamamiento_aceptada_ref: RESOLUCION_CONFIRMADA.resolucion_ref,
+  recibo_resolucion_aceptada_ref: RESOLUCION_CONFIRMADA.recibo_local_ref, version_esperada: 6,
+  ...SNAPSHOTS_PROPUESTA, anexos: [],
+});
+const PROPUESTA_CONFIRMADA = { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1",
+  estado_local: "confirmado", propuesta_ref: "propuesta:sintetica:001", recibo_local_ref: "recibo:propuesta:001",
+  version_resultante: 7, confirmada_en: "2026-09-06T10:00:00.123456Z" };
+
+test("publicaciones: asset real, cuatro huellas UTF-8, GET público sin credenciales ni caché", async () => {
+  const snapshots = await cargarPublicacionesFormalizacionDesarrollo({ criptografia: webcrypto,
+    fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, RUTA_PUBLICACIONES_FORMALIZACION);
+      assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "omit");
+      assert.equal(opciones.mode, "same-origin"); assert.equal(opciones.cache, "no-store");
+      assert.equal(opciones.redirect, "error"); assert.equal(opciones.body, undefined);
+      return respuesta(ASSET_FORMALIZACION, 200);
+    } });
+  assert.deepEqual(snapshots, SNAPSHOTS_PROPUESTA);
+  for (const [campo, p] of Object.entries(ASSET_FORMALIZACION.publicaciones)) {
+    assert.equal(snapshots[campo].huella_sha256, createHash("sha256").update(p.contenido, "utf8").digest("hex"));
+    assert.ok(Object.isFrozen(snapshots[campo]));
+  }
+  for (const fallo of ["404", "esquema", "referencia", "version", "contenido", "extra", "grande", "crypto", "aborto"]) {
+    const asset = structuredClone(ASSET_FORMALIZACION), control = new AbortController();
+    if (fallo === "esquema") asset.esquema = "otro";
+    if (fallo === "referencia") asset.publicaciones.plantilla.referencia = "plantilla:ajena";
+    if (fallo === "version") asset.publicaciones.plan_firma.version = 2;
+    if (fallo === "contenido") asset.publicaciones.tipo_formalizacion.contenido = "";
+    if (fallo === "extra") asset.publicaciones.actor = "persona:ajena";
+    if (fallo === "grande") asset.publicaciones.plantilla.contenido = "a".repeat(17000);
+    if (fallo === "aborto") control.abort();
+    await assert.rejects(cargarPublicacionesFormalizacionDesarrollo({ signal: control.signal,
+      criptografia: fallo === "crypto" ? {} : webcrypto,
+      fetchImpl: async () => respuesta(asset, fallo === "404" ? 404 : 200) }), TypeError, fallo);
+  }
+});
+
+test("propuesta: POST once campos existentes, seis de recibo y versión de expediente 6→7, 201/200", async () => {
+  assert.deepEqual(CAMPOS_PROPUESTA, ["clave_idempotencia", "expediente_ref", "llamamiento_ref",
+    "resolucion_llamamiento_aceptada_ref", "recibo_resolucion_aceptada_ref", "version_esperada",
+    "tipo_formalizacion", "plantilla", "anexos", "politica_firma", "plan_firma"]);
+  assert.equal(CAMPOS_RECIBO_PROPUESTA.length, 6);
+  for (const status of [201, 200]) {
+    const recibo = { ...PROPUESTA_CONFIRMADA, estado_local: status === 201 ? "confirmado" : "replay_confirmado" };
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, "/api/vec/contratacion-temporal/formalizacion/propuestas");
+      assert.equal(opciones.body, JSON.stringify(PROPUESTA)); assert.equal(opciones.method, "POST");
+      return respuesta({ data: recibo }, status);
+    } });
+    assert.deepEqual(await cliente.prepararPropuestaFormalizacion(PROPUESTA), recibo);
+  }
+  for (const mutacion of [{ organizacion_ref: "org:ajena" }, { version_esperada: 3 }, { anexos: null },
+    { anexos: [{}] }, { plantilla: { ...PROPUESTA.plantilla, huella_sha256: "0".repeat(64) } }])
+    assert.throws(() => validarSolicitudPropuestaFormalizacion({ ...PROPUESTA, ...mutacion }), TypeError);
+  for (const mutacion of [{ auditoria_ref: "aud:interna" }, { version_resultante: 4 },
+    { estado_local: "firmada" }, { propuesta_ref: "" }, { confirmada_en: "2026-09-06T10:00:00.1234567Z" }])
+    assert.throws(() => validarReciboPropuestaFormalizacion({ ...PROPUESTA_CONFIRMADA, ...mutacion }, PROPUESTA), TypeError);
+});
+
+test("propuesta: errores con namespace propio y ningún éxito falso ni reintento automático", async () => {
+  for (const [status, codigo] of [[403, "acceso_denegado"], [409, "resolucion_no_aceptada"],
+    [409, "clave_idempotencia_reutilizada"], [409, "version_en_conflicto"], [503, "servicio_no_disponible"]]) {
+    let llamadas = 0;
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => {
+      llamadas += 1;
+      return respuesta({ error: { codigo, clave_i18n: `api.contratacion_temporal.propuesta_formalizacion.error.${codigo}`,
+        correlacion_ref: "corr_0123456789abcdef0123456789abcdef" } }, status);
+    } });
+    await assert.rejects(cliente.prepararPropuestaFormalizacion(PROPUESTA), (e) => e.envelopeValido && e.codigo === codigo);
+    assert.equal(llamadas, 1);
+  }
+  for (const data of [{ ...PROPUESTA_CONFIRMADA, documento_ref: "doc:ajeno" },
+    { ...PROPUESTA_CONFIRMADA, estado_local: "replay_confirmado" }]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data }) });
+    await assert.rejects(cliente.prepararPropuestaFormalizacion(PROPUESTA), (e) => e.resultadoIndeterminado === true);
+  }
 });
 
 test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {

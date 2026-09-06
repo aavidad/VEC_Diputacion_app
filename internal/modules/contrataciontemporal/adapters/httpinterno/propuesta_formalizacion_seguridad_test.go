@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ func TestManejadorPropuestaFormalizacionAplicaListaPositivaDeCabeceras(
 		mutar  func(*http.Request)
 		estado int
 	}{
-		{"desconocida", func(r *http.Request) { r.Header.Set("User-Agent", "cliente") }, http.StatusBadRequest},
+		{"desconocida", func(r *http.Request) { r.Header.Set("Una-Cabecera-Desconocida", "cliente") }, http.StatusBadRequest},
 		{"X-Tenant", func(r *http.Request) { r.Header.Set("x-tEnAnT", "organizacion:forjada") }, http.StatusBadRequest},
 		{"X-Scope", func(r *http.Request) { r.Header.Set("X-Scope", "formalizar") }, http.StatusBadRequest},
 		{"X no permitida", func(r *http.Request) { r.Header.Set("X-Trace-ID", "traza") }, http.StatusBadRequest},
@@ -87,6 +88,9 @@ func TestManejadorPropuestaFormalizacionAplicaListaPositivaDeCabeceras(
 		{"set cookie", func(r *http.Request) { r.Header.Set("Set-Cookie", "sesion=privada") }, http.StatusBadRequest},
 		{"transfer encoding en Header", func(r *http.Request) { r.Header.Set("Transfer-Encoding", "chunked") }, http.StatusBadRequest},
 		{"content length en Header", func(r *http.Request) { r.Header.Set("Content-Length", "1") }, http.StatusBadRequest},
+		{"content length duplicada", func(r *http.Request) {
+			r.Header["Content-Length"] = []string{strconv.FormatInt(r.ContentLength, 10), strconv.FormatInt(r.ContentLength, 10)}
+		}, http.StatusBadRequest},
 		{"desconocida multivalor", func(r *http.Request) { r.Header["X-Interna"] = []string{"una", "dos"} }, http.StatusBadRequest},
 		{"content type multivalor", func(r *http.Request) { r.Header.Add("Content-Type", "application/json") }, http.StatusUnsupportedMediaType},
 		{"content type duplicada por caja", func(r *http.Request) { r.Header["content-type"] = []string{"application/json"} }, http.StatusUnsupportedMediaType},
@@ -121,6 +125,29 @@ func TestManejadorPropuestaFormalizacionAplicaListaPositivaDeCabeceras(
 				)
 			}
 		})
+	}
+}
+
+func TestManejadorPropuestaFormalizacionAceptaMetadatosInertesDeNavegador(t *testing.T) {
+	autoridad := autoridadPropuestaFormalizacionHTTPValidaPrueba()
+	ejecutor := ejecutorPropuestaFormalizacionHTTPValidoPrueba()
+	manejador := nuevoManejadorPropuestaFormalizacionHTTPPrueba(t, autoridad, ejecutor)
+	peticion := peticionPropuestaFormalizacionHTTPPrueba(t)
+	for nombre, valor := range map[string]string{
+		"Accept-Encoding": "gzip, deflate, br", "Accept-Language": "es-ES,es;q=0.9",
+		"Cache-Control": "no-cache", "Pragma": "no-cache",
+		"User-Agent": "navegador-de-prueba", "Origin": "https://localhost:8443",
+		"Referer":        "https://localhost:8443/portal-empleado/",
+		"Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "same-origin", "Sec-Fetch-Site": "same-origin",
+		"Sec-CH-UA": "navegador", "Sec-CH-UA-Mobile": "?0", "Sec-CH-UA-Platform": "Linux",
+		"Priority": "u=1, i", "Content-Length": strconv.FormatInt(peticion.ContentLength, 10),
+	} {
+		peticion.Header.Set(nombre, valor)
+	}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || autoridad.total() != 1 || ejecutor.total() != 1 {
+		t.Fatalf("metadatos inertes rechazados: estado=%d llamadas=%d/%d", respuesta.Code, autoridad.total(), ejecutor.total())
 	}
 }
 

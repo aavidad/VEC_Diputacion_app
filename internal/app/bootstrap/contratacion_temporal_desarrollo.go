@@ -252,6 +252,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	var seleccionReal httpinterno.EjecutorSeleccionLlamamiento = noCompuesta
+	var autoridadPropuestaReal httpinterno.AutoridadServidorPropuestaFormalizacion = noCompuesta
+	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
 	if alta.postgresql.bolsa != nil {
@@ -263,6 +265,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		propuesta, err := nuevasDependenciasPropuestaFormalizacionDesarrollo(&alta, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		autoridadPropuestaReal, propuestaReal = propuesta, propuesta
 	}
 	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
@@ -293,8 +300,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
 			EjecutorSeleccion:               seleccionReal,
-			AutoridadPropuestaFormalizacion: noCompuesta,
-			EjecutorPropuestaFormalizacion:  noCompuesta,
+			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
+			EjecutorPropuestaFormalizacion:  propuestaReal,
 			AutoridadCierreAdministrativo:   noCompuesta,
 			EjecutorCierreAdministrativo:    noCompuesta,
 			AutoridadAsignacion:             alta.soporte,
@@ -366,7 +373,7 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) &&
-		!((a.llamamientoCompuesto && ruta == httpinterno.RutaSeleccionLlamamiento) ||
+		!((a.llamamientoCompuesto && (ruta == httpinterno.RutaSeleccionLlamamiento || ruta == httpinterno.RutaPropuestaFormalizacion)) ||
 			(a.consultasRRHHCompuestas && rutaConsultaRRHHContratacionTemporalDesarrollo(ruta))) {
 		return a.noCompuesta.denegarRuta(ctx, ruta)
 	}

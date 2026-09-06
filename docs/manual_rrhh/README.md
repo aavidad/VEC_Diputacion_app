@@ -7,8 +7,8 @@ La base principal conserva 51 solicitudes; bandeja y detalle consultables (`8443
 `55433`). El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
 recupera el recibo único tras reinicio, mediante lectura independiente de
 PostgreSQL y navegador.
-Se mantienen cinco pasos y parte del sexto; este cierre no incrementa el
-contador. La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) contiene el
+El cierre de bandeja no incrementa el contador de pasos.
+La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) contiene el
 recorrido y comandos exactos.
 
 **Incluido en esta entrega; recuperación demostrada:**
@@ -22,7 +22,7 @@ cerrada funcionalmente en desarrollo; no aumenta el contador.
 **Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`;
 tras reiniciar aplicación y PostgreSQL principal, navegador `200/200/200/200`,
 mismo recibo y fecha, sin duplicados. Cierre técnico, no aprobación de política
-legal ni del procedimiento por RRHH. Continúan **5/8 pasos más parte del 6**.
+legal ni del procedimiento por RRHH. Aquel corte mantenía **5/8 pasos más parte del 6**.
 
 **Corte 5 incluido en esta entrega:** renuncia manual sintética registrada;
 navegador real `200/201/201/201` y, tras reiniciar aplicación y PostgreSQL principal,
@@ -35,10 +35,17 @@ operación `201` real y cinco `200` tras reiniciar app/PostgreSQL principal; mis
 recibos/fecha, sin duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
 Cerrado funcionalmente solo tras renuncia sintética; no acredita aviso al sucesor.
 
+**Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta desde aceptación,
+Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200`
+y propuesta `200`, mismos propuesta/recibo/fecha/v7, sin duplicados. Cero errores
+JS, cookies, almacenamiento web y desbordamiento. Sin firma ni nombramiento eficaz.
+Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
+[Caso y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
+
 ## Qué puede hacer hoy
 
-**Cinco de los ocho pasos están demostrados en desarrollo, más selección,
-aviso local, declaración, aceptación, renuncia y continuación tras renuncia sintéticas del sexto.** Se usa la aplicación
+**Cinco de los ocho pasos están demostrados en desarrollo, más partes del sexto
+y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -52,14 +59,14 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperables tras reinicio. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento / formalización | Pendiente enlace desde aceptación sintética (objetivo 8), modelos y circuito de firmas; no recorrible de extremo a extremo. |
+| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`. Pendientes seis descargas de borradores y circuito de firmas; no nombramiento eficaz. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
 la base principal conserva 51 solicitudes, con bandeja y detalle consultables
 en `8443`/`55433`. Esto no convierte
-los datos sintéticos en expedientes reales ni amplía los cinco pasos y parte
-del sexto. Para recuperar el llamamiento se usan las referencias conservadas
+los datos sintéticos en expedientes reales ni añade otro paso completo.
+Para recuperar el llamamiento se usan las referencias conservadas
 en la guía.
 
 Este manual explica el trabajo funcional. Los comandos de arranque,
@@ -306,8 +313,8 @@ El método es manual provisional solo para desarrollo sintético, no aval del op
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan vencimiento, aviso al sucesor y correo corporativo. El enlace
-al nombramiento (objetivo 8) sigue pendiente; no hay política legal aprobada.
+Faltan vencimiento, aviso al sucesor y correo corporativo. La propuesta de desarrollo
+se describe a continuación; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
 
 #### Operación 5: continuar tras la renuncia sintética
@@ -325,9 +332,18 @@ No acredita envío, entrega ni aceptación; no sustituya la comunicación antece
 por este nuevo llamamiento. El éxito desactiva otro envío. Ante resultado ambiguo
 conserve clave/material, sin reintentos automáticos ni otra clave para eludir `409`.
 
-### 7. Nombramiento: límite actual
+### 7. Nombramiento: propuesta de desarrollo y límites
 
-El objetivo exige una propuesta aceptada y los documentos y firmas que
+Tras recuperar la aceptación confirmada, el mismo panel ofrece registrar la
+propuesta, nunca desde renuncia. Referencias y cuatro publicaciones se derivan;
+no se editan. Conserve versión esperada `6`, aunque el agregado ya sea `7`, y la
+clave de propuesta `018f47a6-5d2b-4c10-8a11-123456789008` del caso de la guía.
+Confirme expresamente, sin otro `.eml`; ante ambigüedad mantenga clave/material.
+Dirección confirmó `201` y recuperación `200` tras reinicio principal, mismo
+recibo y fecha `2026-09-06T01:28:30.697897Z`. Es una propuesta sin firma ni eficacia
+de nombramiento. Siguiente objetivo 9: seis descargas de borradores, una por corte.
+
+El nombramiento completo exige la propuesta y los documentos y firmas que
 correspondan. El conjunto previsto incluye **informe definitivo, resolución,
 diligencia, toma de posesión, notificación y comunicación al centro**.
 

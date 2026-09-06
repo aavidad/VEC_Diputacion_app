@@ -57,11 +57,13 @@ if find "$raiz" -type l -print -quit | grep -q .; then
   exit 1
 fi
 
+# Solo esta publicación JSON nominal; sigue sujeta al manifiesto y demás filtros.
 if find "$estaticos" -type f \( \
   -iname '*presentacion*' -o -iname '*demo*' -o -iname '*fixture*' -o \
   -iname '*.test.js' -o -iname '*.test.mjs' -o \
   -iname '*.md' -o -iname '*.markdown' -o \
-  -iname '*.json' -o -iname '*.jsonl' -o -iname '*.ndjson' -o \
+  \( -iname '*.json' ! -path "$estaticos/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json" \) -o \
+  -iname '*.jsonl' -o -iname '*.ndjson' -o \
   -iname '*.csv' -o -iname '*.tsv' -o -iname '*.db' -o \
   -iname '*.sqlite' -o -iname '*.sqlite3' -o -iname '*.pem' -o -iname '*.key' \
   \) -print -quit | grep -q .; then

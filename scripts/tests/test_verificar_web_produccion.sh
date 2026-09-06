@@ -13,17 +13,20 @@ crear_arbol_valido() {
     "$temporal/web/static/assets" \
     "$temporal/web/static/area-personal" \
     "$temporal/web/static/bolsa" \
-    "$temporal/web/static/portal-empleado" \
+    "$temporal/web/static/portal-empleado/modulos/contratacion-temporal" \
     "$temporal/web/static/verificar"
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/styles.css"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/favicon.svg"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-diputacion-granada.svg"
   printf '%s\n' 'export const iniciar = true;' >"$temporal/web/static/bolsa/bolsa.js"
+  cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
+    "$temporal/web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json"
   printf '%s\n' \
     produccion.manifest \
     static/assets/logo-diputacion-granada.svg \
     static/bolsa/bolsa.js \
     static/favicon.svg \
+    static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     static/styles.css >"$temporal/manifiesto"
   cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
 }
@@ -67,5 +70,17 @@ debe_fallar "una superficie no enumerada"
 crear_arbol_valido
 printf '%s\n' 'export const neutral = true;' >"$temporal/web/static/bolsa/neutral.js"
 debe_fallar "un JavaScript neutral no enumerado"
+
+# Enumerarlos no autoriza otros JSON ni alias del único asset permitido.
+for ruta_json in \
+  static/portal-empleado/modulos/contratacion-temporal/otra.json \
+  static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.JSON \
+  static/bolsa/formalizacion-desarrollo.json; do
+  crear_arbol_valido
+  cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json "$temporal/web/$ruta_json"
+  printf '%s\n' "$ruta_json" >>"$temporal/manifiesto"
+  cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+  debe_fallar "el JSON no autorizado $ruta_json"
+done
 
 echo "Verificador del arbol web productivo probado."

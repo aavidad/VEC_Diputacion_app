@@ -66,14 +66,25 @@ La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transacci
 El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 verificó reversión exacta
 en ROLLBACK, sin modificar autorización ni usar dobles. El navegador actual sí
 usó criptografía real; no confundir las tres comprobaciones.
-Aceptación manual sintética cerrada técnicamente; pendiente el enlace al
-nombramiento (objetivo 8), vencimiento y correo corporativo; la continuación
+Objetivo 8 cerrado funcionalmente en desarrollo: propuesta desde aceptación
+confirmada, Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro
+antecedentes `200` más propuesta `200`, mismos recibo/fecha y versión `7`.
+Propuesta `propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`, recibo
+`recibo:3335969d-3bb5-4258-afcc-1af26b7f7207`, fecha `2026-09-06T01:28:30.697897Z`.
+Agregado `nombramiento/en_curso/v7`, una actuación y un outbox nuevos; historia
+anterior intacta. Cero errores JS, cookies, almacenamiento web y desbordamiento.
+AD3-20/CT61 instaladas en ambas bases; no reaplicar ni atribuir otro E2E a secundaria.
+Conservar versión esperada `6` y las cinco claves de aceptación/propuesta de la guía.
+Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
+Siguiente: objetivo 9,
+seis descargas de borradores, un documento por corte; sin firma ni nombramiento eficaz.
+Siguen pendientes vencimiento y correo corporativo; la continuación
 tras renuncia sintética está cerrada, no el envío del aviso sucesor.
 La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.
 El criterio manual provisional tampoco es una aprobación del operador.
 Orden posterior del operador: las preguntas pendientes no detienen las partes
 independientes; se validarán después. No inventar una regla de plazo ni otra
-línea de implementación. Continúan cinco pasos completos y parte del sexto.
+línea de implementación. Continúan cinco pasos completos y partes del sexto y séptimo.
 No reconstruir bandeja ni análisis ya cerrados. No reabrir O3a.
 
 ## Prioridad vigente

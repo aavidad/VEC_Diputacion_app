@@ -2,7 +2,7 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Base publicada del corte actual: `3d696af91eb49c326aca3aa0963b1fa4e102fa21`.
+Base publicada del corte actual: `9ccef45b2953f0c95b937b9020e6f9a62da24b9f`.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -76,6 +76,16 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   cerrado funcionalmente solo tras renuncia sintética.
   La intención CT original se conserva; el recibo de renuncia permanece histórico.
   No acredita aviso enviado, aceptación del nuevo llamamiento ni plazo legal.
+- Objetivo 8 cerrado funcionalmente en desarrollo: Chrome `201` y recibo visible
+  de propuesta `propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`, recibo
+  `recibo:3335969d-3bb5-4258-afcc-1af26b7f7207`, fecha `2026-09-06T01:28:30.697897Z`.
+  Tras reiniciar app/PostgreSQL principal: cuatro antecedentes `200` y propuesta
+  `200`, mismos identificadores/fecha/v7. Agregado `nombramiento/en_curso/v7`, una
+  actuación v7 y un outbox nuevos; historia previa intacta. Cero errores JS,
+  cookies, almacenamiento web y desbordamiento. AD3-20/CT61 instaladas en ambas
+  bases, no reaplicar; navegador acreditado solo en principal. Sin firma ni
+  nombramiento eficaz. El detalle RRHH por API confirma v7, nombramiento y siete hitos.
+  Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
 - Consulta de justificante conectada con permiso propio V3 real y fresco,
   misma respuesta/recibo y auditoría de acceso. Es interna: no crea DTO HTTP ni expone
   `Seleccion`. AD3 `000016` / CT `000057` instaladas en ambas bases locales,
@@ -88,11 +98,11 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   El roundtrip de aceptación UP/DOWN de las cuatro migraciones comprobó reversión
   exacta en ROLLBACK, sin modificar autorización ni usar dobles. El navegador
   actual sí utilizó criptografía real; son comprobaciones distintas.
-- Métrica sin incremento: **5 de 8 pasos completos más parte del sexto**.
+- Métrica: **5 de 8 pasos completos más partes del sexto y séptimo**, no un 100 %.
   Registrar una declaración de aceptación no resuelve la aceptación ni
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
   localmente en el navegador; no se sube.
-- Pendiente conectar la aceptación a la propuesta de nombramiento (objetivo 8).
+- Siguiente objetivo 9: seis descargas de borradores, un documento por corte.
   Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
   continuación tras renuncia sintética `201` y replay `200` tras reinicio.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
@@ -137,8 +147,8 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Cerrado funcionalmente solo en ejercicio manual sintético: `201` y recuperación `200` tras reinicio, mismos recibo e intención pendiente, sin duplicados. No política legal aprobada |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
-| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Pendiente de enlazar desde la aceptación manual sintética; no acredita nombramiento real |
-| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Después de 8 |
+| 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Esta revisión incorpora el cierre funcional en desarrollo: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
+| 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Siguiente: seis borradores de desarrollo, sin firmas |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
 | 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
 | 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |

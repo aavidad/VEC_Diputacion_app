@@ -42,6 +42,7 @@ func TestServidorIntegradoSirveSoloSuperficiesEnumeradas(t *testing.T) {
 		{path: "/bolsa/", contentType: "text/html", want: "Bolsa y procesos selectivos"},
 		{path: "/area-personal/", contentType: "text/html", want: "Mi área personal"},
 		{path: "/portal-empleado/", contentType: "text/html", want: "Portal del Empleado"},
+		{path: "/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json", contentType: "application/json", want: "tipo:ct:propuesta-desarrollo:20260906"},
 		{path: "/verificar/", contentType: "text/html", want: "Comprobación de documentos"},
 		{path: "/styles.css", contentType: "text/css", want: ".listings"},
 		{path: "/locales/es.json", contentType: "application/json", want: "api.candidate.created"},

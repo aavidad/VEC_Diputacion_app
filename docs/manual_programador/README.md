@@ -8,8 +8,7 @@ Estado funcional de referencia: 6 de septiembre de 2026.
 La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/base
 `55433`; el caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
 recupera un único recibo tras reinicio, mediante lectura independiente de
-PostgreSQL y navegador. Se mantienen cinco pasos y parte del sexto, sin
-incremento.
+PostgreSQL y navegador. La bandeja no añade por sí sola otro paso completo.
 Consultar la [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) para el recorrido
 operativo.
 
@@ -25,7 +24,7 @@ cerrada funcionalmente en desarrollo, sin nuevo paso completo.
 **Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`
 con API/V3/CT58/Bolsa4 reales; tras reiniciar app/PostgreSQL principal,
 `200/200/200/200`, mismo recibo y fecha, sin duplicados. Cierre técnico, no política
-legal aprobada. Continúan **5/8 pasos completos más parte del sexto**.
+legal aprobada. Aquel corte mantenía **5/8 pasos completos más parte del sexto**.
 
 **Corte 5 incluido en esta entrega:** renuncia manual sintética con servicios y
 permisos reales, navegador `200/201/201/201` y recuperación `200/200/200/200`
@@ -38,7 +37,14 @@ criterio manual provisional solo sintético, sin aval legal ni del operador.
 y `200/200/200/200/200` tras reiniciar app/PostgreSQL principal. Mismos 14 campos
 salvo `estado_local: replay_confirmado`, sin duplicados ni errores JS, cookies,
 almacenamiento web o desbordamiento. Cierre funcional solo tras renuncia sintética;
-se mantiene **5/8 más parte del sexto**, sin aviso al sucesor ni plazo legal.
+ese corte mantenía **5/8 más parte del sexto**, sin aviso al sucesor ni plazo legal.
+
+**Objetivo 8 cerrado funcionalmente en desarrollo:** Chrome `201` y, tras reiniciar
+app/PostgreSQL principal, cuatro antecedentes `200` y propuesta `200`, mismos
+identificadores/recibo/fecha/v7; historia previa intacta. Cero errores JS, cookies,
+almacenamiento web y desbordamiento. Esta revisión incorpora el cierre funcional;
+el hash publicado se comprueba en Git.
+AD3-20/CT61 instaladas en ambas bases, no reaplicar; E2E acreditado solo en principal.
 
 ## Qué leer y qué mantener
 
@@ -114,7 +120,7 @@ git diff --stat -- docs/manual_programador
 Revisar el resultado completo: no ejecutar el generador por cada edición de
 este manual ni confiar en sus resúmenes históricos como estado del producto.
 
-## Estado funcional: cinco pasos y parte del sexto
+## Estado funcional: cinco pasos y partes del sexto y séptimo
 
 El recorrido usa navegador, API interna, autorización, PostgreSQL y recibos
 reales con datos sintéticos. La declaración RRHH tiene su comprobación propia
@@ -128,16 +134,17 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
 | 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperadas tras reinicio; mismos recibos, sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo. |
-| 7 y 8 | Nombramiento e incorporación, GINPIX y seguimiento: no declarados completos de extremo a extremo. |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; agregado `nombramiento/en_curso/v7`. Sin firma ni nombramiento eficaz. |
+| 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
 renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
 es un acuse del sistema externo. El contador es **cinco pasos completos más
-un tramo del sexto**, no un porcentaje global de aplicación terminada.
+partes del sexto y séptimo**, no un porcentaje global de aplicación terminada.
 
 La base principal conserva 51 solicitudes, con bandeja y detalle consultables
 en `8443`/`55433`; no implica 51 filas visibles simultáneas. El alcance sigue siendo cinco
-pasos y parte del sexto; la bandeja no se cuenta como paso adicional.
+pasos y partes del sexto y séptimo; la bandeja no se cuenta como paso adicional.
 Un `503` debe explicarse como dependencia no disponible, no sustituirse por
 datos de presentación. Un `404` del panel de Bolsa tampoco demuestra que
 haya fallado la identidad de Contratación temporal.
@@ -247,8 +254,8 @@ confirmados: dos filas CT, seis registros Bolsa (dos órdenes, dos propuestas,
 una aceptación y una renuncia), seis historias/eventos; sin duplicados y con la
 aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobre esos datos.
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
-sintética y funcionalmente la renuncia sintética; pendiente enlazar propuesta de
-nombramiento (objetivo 8). No hay política legal aprobada ni cierre de vencimiento,
+sintética y funcionalmente la renuncia y propuesta de desarrollo. No hay política
+legal aprobada ni cierre de vencimiento,
 aviso al sucesor o correo corporativo.
 
 ### Continuación tras renuncia sintética
@@ -269,6 +276,23 @@ estable. Corrige el rechazo accidental del UUID sin relajar validadores.
 El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
 confirma continuidad posterior. No se conecta automáticamente a la comunicación
 del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
+
+### Propuesta de nombramiento desde aceptación
+
+Operación `data-ct-llamamiento-form="propuesta"`, método `prepararPropuestaFormalizacion`:
+reutiliza `POST /api/vec/contratacion-temporal/formalizacion/propuestas`, once campos
+de solicitud y seis de recibo, sin otro DTO ni autoridad del DOM. Antecedentes
+de aceptación CT y terminal Bolsa real; nunca renuncia. Versión esperada `6`,
+también en replay desde agregado `7`; clave propia y confirmación explícita.
+Las cuatro publicaciones proceden del único asset `formalizacion-desarrollo.json`,
+con SHA256 de contenido UTF-8, carga sin credenciales ni caché y fallo cerrado.
+El permiso propio `contratacion_temporal.formalizacion.propuesta.registrar` liga
+material completo y etapas; CT61 consume V3 fresco antes de lectura/replay.
+El commit une propuesta, versión integral `7`, actuación y outbox; replay conserva
+material/actor/perfil y recibo/fecha. DOWN bloqueado con historia. Sin firma,
+renderizado documental ni nueva aceptación Bolsa. [Claves y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
+Siguiente objetivo 9: seis descargas de borradores, un documento por corte,
+reutilizando el generador existente; no una nueva línea documental.
 
 ## Arquitectura real y propiedad
 

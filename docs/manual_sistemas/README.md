@@ -38,7 +38,7 @@ Los identificadores observados constan en el
 **Corte 4 publicado en `17ea874`:** aceptación manual sintética `201`
 con API/V3/CT58/Bolsa4 reales. Tras reiniciar app/PostgreSQL principal:
 `200/200/200/200`, mismo recibo y fecha, sin duplicados; cierre técnico sintético.
-El alcance continúa en **5/8 pasos completos más parte del sexto**.
+El alcance de aquel corte era **5/8 pasos completos más parte del sexto**.
 
 **Corte 5 incluido en esta entrega:** renuncia manual sintética registrada en
 otro expediente fiscalizado `v6`; la base principal conserva **51 solicitudes**,
@@ -53,7 +53,15 @@ desarrollo sintético; método manual provisional, sin aval legal ni del operado
 `201` real y `200/200/200/200/200` tras reiniciar app/PostgreSQL principal. Mismos
 14 campos salvo `estado_local: replay_confirmado`; recibos CT/Bolsa, auditoría y
 fecha conservados, sin duplicados, errores JS, cookies, almacenamiento web ni
-desbordamiento. Cierre funcional solo de esa continuación; sigue **5/8 más parte del 6**.
+desbordamiento. Cierre funcional solo de esa continuación; aquel corte mantenía **5/8 más parte del 6**.
+
+**Objetivo 8 cerrado funcionalmente en desarrollo:** Chrome `201` y, tras reiniciar
+app/PostgreSQL principal, cuatro antecedentes `200` y propuesta `200`, mismos
+propuesta/recibo/fecha/v7. Una actuación v7 y un outbox nuevos; historia anterior
+intacta. Cero errores JS, cookies, almacenamiento web y desbordamiento.
+Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
+No atribuir este E2E a secundaria.
+Sin firma ni nombramiento eficaz. [Evidencia y claves](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
 
 ## Alcance y referencias
 
@@ -67,8 +75,8 @@ El [manual de preparación de plataforma](../estudio_requisitos/manual_sistemas_
 es **planificación pendiente de aprobación, no la instalación vigente**.
 No hay que desplegar su inventario para realizar estas operaciones.
 
-Alcance funcional acreditado: **cinco pasos completos y parte del sexto**,
-con selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperables.
+Alcance funcional acreditado: **cinco pasos completos y partes del sexto y séptimo**,
+con llamamiento sintético y propuesta de desarrollo recuperables tras reinicio principal.
 La declaración sola no resuelve aceptación ni renuncia. Lista, detalle y
 análisis desde una solicitud existente están comprobados y publicados;
 su persistencia tras reinicio también está contrastada.
@@ -221,6 +229,15 @@ permanece intacto, con su `pendiente` histórico. La [guía](../../GUIA_RECORRID
 incluye las cinco claves originales y la recuperación `200` tras reinicio.
 Sin nuevas conexiones: siguen once LOGIN por aplicación, todos a su única base.
 
+AD3-20/CT61 instaladas en ambas bases por dirección; no reaplicar. La propuesta
+consume permiso propio fresco antes de lecturas/replay y conserva actor, perfil,
+material y recibo. Agregado `nombramiento/en_curso/v7`; una actuación v7 y un outbox.
+Hashes de las dos resoluciones CT, siete registros Bolsa y seis versiones previas
+idénticos antes del `201`, después y tras reinicio principal. DOWN se bloquea con
+historia: conservar backup/avance correctivo, no forzar su retirada.
+Dirección renovó el TLS caducado de PostgreSQL por 30 días, con respaldo y material
+privados; `verify-full` permanece activo. No regenerarlo al arrancar ni rebajar TLS.
+
 Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
 compara instantes y corrige la diferencia de ceros finales entre decisión y
 capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
@@ -348,8 +365,10 @@ Ese rechazo permite corregir casillas conservando la clave; ante resultado ambig
 mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
 La quinta operación abre el siguiente llamamiento solo tras renuncia sintética y
 confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
-Pendiente enlace al nombramiento (objetivo 8), vencimiento, aviso al sucesor y
-correo corporativo; no hay política legal aprobada.
+La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
+versión esperada `6` incluso para replay en `7` y clave original de la guía.
+Siguiente objetivo 9: seis descargas de borradores, una por corte. Siguen pendientes
+vencimiento, aviso al sucesor y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar

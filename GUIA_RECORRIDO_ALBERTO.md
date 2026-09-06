@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Base publicada del corte actual: `3d696af`. El cierre de bandeja,
+Base publicada del corte actual: `9ccef45`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -15,7 +15,7 @@ del segundo reinicio de aplicación y PostgreSQL principal, dirección confirmó
 originales. Se conservan el mismo justificante, recibo y fecha de registro.
 El defecto de comparación de fechas está corregido en ambas bases y el
 diagnóstico temporal retirado. El corte queda cerrado técnicamente.
-La métrica sigue en **5 de 8 pasos completos más parte del sexto**.
+La métrica de aquel corte era **5 de 8 pasos completos más parte del sexto**.
 
 **Corte 4 publicado: aceptación manual sintética registrada.** Dirección comprobó
 `200/200/200/201`: tres antecedentes originales recuperados y aceptación con
@@ -34,7 +34,7 @@ cookies, almacenamiento web y desbordamiento. La base principal conserva
 **51 solicitudes**, con bandeja y detalle consultables;
 AD3-18/Bolsa5/CT59 instaladas en ambas bases. No reaplicar. En aquel corte aún no
 se había ejecutado el siguiente candidato. El criterio manual provisional solo sirve al ejercicio
-sintético: no es aval legal ni aprobación del operador. Sigue **5/8 más parte del 6**.
+sintético: no es aval legal ni aprobación del operador. Aquel corte mantenía **5/8 más parte del 6**.
 
 **Objetivo 7: continuación tras renuncia `201` real desde la quinta operación.**
 Nuevo llamamiento abierto y recibo CT confirmado, sin errores JS, cookies,
@@ -42,6 +42,15 @@ almacenamiento web ni desbordamiento. Tras reiniciar app/PostgreSQL principal:
 **`200/200/200/200/200`, mismos 14 campos salvo `estado_local: replay_confirmado`**.
 Objetivo 7 cerrado funcionalmente solo tras renuncia sintética; quinta clave abajo.
 No implica aviso enviado, entregado ni aceptación del nuevo llamamiento.
+
+**Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta desde aceptación,
+Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200`
+y propuesta `200`, mismos identificadores/fecha/v7. Cero errores JS, cookies,
+almacenamiento web y desbordamiento. Caso y cinco claves en el apartado objetivo 8.
+Métrica vigente: **5/8 más partes del sexto y séptimo**. Esta revisión incorpora
+el cierre funcional; el hash publicado se comprueba en Git. Siguiente objetivo 9, seis descargas de borradores,
+un documento por corte. Sin firmas, nombramiento eficaz ni correo real.
+AD3-20/CT61 instaladas en ambas bases; no reaplicar. Navegador acreditado solo en principal.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -53,7 +62,7 @@ Son conjuntos diferentes: no mezclarlos ni usar uno para rellenar el otro.
 
 | Modalidad del lanzador | Portal local | Base y alcance actual |
 | --- | --- | --- |
-| `recorrido` — principal | `https://localhost:8443/portal-empleado/` | PostgreSQL 55433: cinco pasos y parte del sexto; bandeja, detalle y análisis de una solicitud existente comprobados y publicados. |
+| `recorrido` — principal | `https://localhost:8443/portal-empleado/` | PostgreSQL 55433: cinco pasos y partes del sexto y séptimo; propuesta de desarrollo recuperada tras reinicio. |
 | `consultas` — secundaria | `https://localhost:8444/portal-empleado/` | PostgreSQL 55432: bandeja y detalle reales en el entorno aislado. No ejecutar pruebas simultáneas contra esta base mientras la usa la aplicación. |
 
 Ambas bases tienen instalada la dependencia de consultas. Dirección confirmó
@@ -75,6 +84,8 @@ Las huellas anteriores del historial no son referencias operativas actuales.
 Cada modalidad requiere **once conexiones PostgreSQL separadas**, todas a su
 propia base. Sus variables y funciones están en el
 [manual de sistemas, apartado 2](docs/manual_sistemas/README.md#2-configuración-local-once-conexiones-por-instancia).
+Dirección renovó el TLS caducado de PostgreSQL por 30 días, con respaldo y material
+privados; se conserva `verify-full`. No repetir la renovación como paso de arranque.
 
 El operador conserva fuera de Git el lanzador `arrancar-local.sh`, las bases
 y los certificados. La bitácora local identifica su ruta exacta. Defina
@@ -123,8 +134,8 @@ Abrir otra solicitud para analizarla constituye otra actuación, no una consulta
 
 Si el formulario no aparece, hay una actualización pendiente o se muestra un
 error, no fuerce la versión ni cree otra alta para eludirlo. Una pantalla
-cargada no sustituye al recibo real. Se mantiene el límite de **cinco pasos
-completos y parte del sexto**, con aviso local, no correo corporativo.
+cargada no sustituye al recibo real. El análisis no añade por sí solo otro paso
+completo; el aviso sigue siendo local, no correo corporativo.
 
 **Reinicio confirmado por dirección:** la base principal sigue mostrando
 50 expedientes y el detalle conserva la versión `2`. Una lectura independiente
@@ -246,7 +257,7 @@ La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transacci
 El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 comprobó reversión exacta en
 ROLLBACK, sin modificar autorización ni usar dobles; el navegador usó criptografía real.
 Faltan vencimiento y correo corporativo; la continuación tras renuncia se describe abajo;
-el enlace al nombramiento (objetivo 8) sigue pendiente y no hay política legal
+la propuesta de desarrollo del objetivo 8 se describe abajo y no hay política legal
 aprobada. Véase el [plan vigente](ESTADO_PROYECTO.md).
 
 ### Corte 5: recuperar la renuncia manual sintética
@@ -333,7 +344,42 @@ desbordamiento. **Tras reiniciar app/PostgreSQL principal, cinco POST `200/200/2
 los 14 campos de la continuación se conservan salvo `estado_local: replay_confirmado`,
 incluidos recibos CT/Bolsa, auditoría, fecha y referencias de ambos llamamientos.
 Objetivo 7 cerrado funcionalmente solo tras renuncia sintética, sin duplicados.
-Se mantiene **5/8 más parte del sexto**; no acredita entrega, aceptación ni plazo legal.
+Ese corte mantenía **5/8 más parte del sexto**; no acredita entrega, aceptación ni plazo legal.
+
+### Objetivo 8: recuperar la propuesta de nombramiento
+
+Use el caso de aceptación, no el de renuncia: expediente
+`expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001`.
+Recupere en el mismo panel los cuatro antecedentes descritos arriba; la operación
+`data-ct-llamamiento-form="propuesta"` aparece solo tras aceptación confirmada.
+
+| Operación | Clave original exacta |
+| --- | --- |
+| Selección | `90d52c16-a63d-4ef1-bcf7-62c7c455f9aa` |
+| Comunicación | `d1b5428f-2188-4b8f-98b7-42f82ad88c2a` |
+| Declaración RRHH | `c3e0f431-b274-48fd-a2e8-4b1e6d220056` |
+| Aceptación manual | `018f47a6-5d2b-4c10-8a11-1234567890ef` |
+| Propuesta | `018f47a6-5d2b-4c10-8a11-123456789008` |
+
+Conserve **versión esperada `6`, también al recuperar cuando el agregado ya es `7`**;
+no use la versión `3` de resolución. Las referencias y cuatro publicaciones de
+desarrollo se derivan y no se editan; si no cargan, no se permite enviar.
+Revise y confirme expresamente, sin otro `.eml`. Ante ambigüedad conserve clave
+y material, reintento solo manual; un `409` no autoriza preparar otra clave.
+
+Dirección confirmó Chrome `201`, **Propuesta registrada · ejercicio sintético**:
+`propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`,
+`recibo:3335969d-3bb5-4258-afcc-1af26b7f7207`, fecha UTC
+`2026-09-06T01:28:30.697897Z`, expediente `nombramiento/en_curso/v7`.
+La consulta real del detalle RRHH por API confirma v7, nombramiento y siete hitos.
+Tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200` y propuesta
+`200`, mismos identificadores, recibo, fecha y versión `7`, sin duplicados.
+Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete registros
+Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
+Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
+AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
+No hay firma, nombramiento eficaz ni descarga documental en este corte: el
+objetivo 9 preparará seis borradores, uno por corte. No equivale a correo real.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 
