@@ -10,11 +10,12 @@ import (
 type TipoBorradorRRHH string
 
 const (
-	BorradorInformeDefinitivo TipoBorradorRRHH = "informe_definitivo"
-	BorradorResolucion        TipoBorradorRRHH = "resolucion"
-	BorradorDiligencia        TipoBorradorRRHH = "diligencia"
-	BorradorTomaPosesion      TipoBorradorRRHH = "toma_posesion"
-	BorradorNotificacion      TipoBorradorRRHH = "notificacion"
+	BorradorInformeDefinitivo  TipoBorradorRRHH = "informe_definitivo"
+	BorradorResolucion         TipoBorradorRRHH = "resolucion"
+	BorradorDiligencia         TipoBorradorRRHH = "diligencia"
+	BorradorTomaPosesion       TipoBorradorRRHH = "toma_posesion"
+	BorradorNotificacion       TipoBorradorRRHH = "notificacion"
+	BorradorComunicacionCentro TipoBorradorRRHH = "comunicacion_centro"
 )
 
 // ErrBorradorRRHHNoDisponible indica que el detalle autorizado no

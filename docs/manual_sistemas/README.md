@@ -393,15 +393,16 @@ La quinta operación abre el siguiente llamamiento solo tras renuncia sintética
 confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
 La propuesta se ofrece solo tras aceptación confirmada, con referencias derivadas,
 versión esperada `6` incluso para replay en `7` y clave original de la guía.
-Los cinco borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
+Los seis borradores del objetivo 9 se descargan desde **Cuadro de mando → buscar número →
 Abrir expediente**, detalle `v7`; botones de cabecera **Descargar informe · borrador de desarrollo**,
 **Descargar resolución · borrador de desarrollo**, **Descargar diligencia · borrador de desarrollo**,
-**Descargar toma de posesión · borrador de desarrollo** y **Descargar notificación · borrador de desarrollo**.
+**Descargar toma de posesión · borrador de desarrollo**, **Descargar notificación · borrador de desarrollo**
+y **Descargar comunicación al centro · borrador de desarrollo**.
 Son lecturas, no actuaciones nuevas.
 No recuperar la propuesta por POST para obtener el PDF. [Número y recorrido exactos](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Notificación comprobada también tras reinicio principal: nueve POST `200`, cinco PDF
-e historial idénticos; evidencia en la guía, no atribuida a secundaria, envío, entrega ni plazo legal.
-Disponibles **5/6 borradores**; siguiente comunicación al centro. Siguen pendientes
+Comunicación al centro: diez POST `200` antes y después del reinicio principal, seis PDF e historial
+idénticos. Evidencia en la guía, no atribuida a secundaria ni a envío u orden de incorporación.
+Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida. Siguen pendientes
 vencimiento, aviso al sucesor y correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.

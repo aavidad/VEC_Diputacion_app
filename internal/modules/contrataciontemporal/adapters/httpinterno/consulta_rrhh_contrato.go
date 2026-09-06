@@ -25,6 +25,7 @@ const (
 	AcceptDiligenciaRRHH                 = "application/pdf; documento=diligencia-desarrollo"
 	AcceptTomaPosesionRRHH               = "application/pdf; documento=toma-posesion-desarrollo"
 	AcceptNotificacionRRHH               = "application/pdf; documento=notificacion-desarrollo"
+	AcceptComunicacionCentroRRHH         = "application/pdf; documento=comunicacion-centro-desarrollo"
 
 	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
 	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
@@ -120,6 +121,8 @@ func borradorRRHHSolicitado(cabeceras http.Header) (representacionBorradorRRHH, 
 			return representacionBorradorRRHH{tipo: ports.BorradorTomaPosesion, nombreArchivo: "toma-posesion-borrador.pdf"}, true
 		case AcceptNotificacionRRHH:
 			return representacionBorradorRRHH{tipo: ports.BorradorNotificacion, nombreArchivo: "notificacion-borrador.pdf"}, true
+		case AcceptComunicacionCentroRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorComunicacionCentro, nombreArchivo: "comunicacion-centro-borrador.pdf"}, true
 		}
 	}
 	return representacionBorradorRRHH{}, false

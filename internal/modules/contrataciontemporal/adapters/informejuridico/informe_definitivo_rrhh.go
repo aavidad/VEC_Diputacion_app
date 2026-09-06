@@ -49,6 +49,8 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		documento = contenidoTomaPosesionDesarrollo(detalle)
 	case ports.BorradorNotificacion:
 		documento = contenidoNotificacionDesarrollo(detalle)
+	case ports.BorradorComunicacionCentro:
+		documento = contenidoComunicacionCentroDesarrollo(detalle)
 	default:
 		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
@@ -153,6 +155,25 @@ func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Co
 		"Recursos que procedan, órgano ante el que se presenten, plazos y su cómputo: pendientes de la redacción oficial y de la validación competente. No se generan plazos ni instrucciones jurídicas desde esta propuesta.",
 		"Firma y validación de la notificación, canal de expedición, fecha de envío y evidencia de puesta a disposición, recepción o rechazo: pendientes. La descarga no acredita ninguno de estos hechos ni abre un plazo.",
 		"Copia preparatoria del detalle persistido y autorizado. No modifica el expediente, envía un correo, publica una notificación ni registra su entrega. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
+	}}
+}
+
+func contenidoComunicacionCentroDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+	r, a := d.Resumen, d.Analisis
+	return vecdomain.ContenidoDocumento{Titulo: "Comunicación al centro — borrador de desarrollo", Parrafos: []string{
+		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una comunicación enviada ni una orden de incorporación o autorización para prestar servicios.",
+		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
+		"1. Datos disponibles de la necesidad",
+		fmt.Sprintf("Centro solicitante (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
+		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No fija una fecha efectiva de incorporación ni un horario de prestación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. No acredita que exista nombramiento eficaz o toma de posesión.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		"2. Destino y contenido pendientes de validar",
+		"Unidad o persona destinataria dentro del centro, dirección y canal de comunicación admitido: pendientes de comprobar. La referencia del centro solicitante no es una dirección de envío ni identifica a su responsable.",
+		"Identificación autorizada de la persona nombrada, resolución válida y evidencia de su firma, toma de posesión y fecha efectiva de incorporación: pendientes de incorporar y comprobar. No se completan a partir de la propuesta o de su periodo previsto.",
+		"3. Instrucciones y expedición pendientes",
+		"Instrucciones al centro, puesto concreto, lugar y horario de presentación, persona de contacto y confirmaciones exigibles: pendientes del circuito competente y del modelo oficial. Este borrador no ordena ni autoriza una incorporación.",
+		"Firma y validación de la comunicación, canal y fecha de envío y evidencia de recepción por el centro: pendientes. No se afirma que el centro haya sido informado ni se registra una confirmación de incorporación.",
+		"Copia preparatoria del detalle persistido y autorizado. La descarga no modifica el expediente, envía mensajes ni da de alta en Personal o GINPIX. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	}}
 }
 

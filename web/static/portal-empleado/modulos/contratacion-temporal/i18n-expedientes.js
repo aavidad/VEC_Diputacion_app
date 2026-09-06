@@ -132,6 +132,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   diligencia_descargar: "Descargar diligencia · borrador de desarrollo",
   toma_posesion_descargar: "Descargar toma de posesión · borrador de desarrollo",
   notificacion_descargar: "Descargar notificación · borrador de desarrollo",
+  comunicacion_centro_descargar: "Descargar comunicación al centro · borrador de desarrollo",
   informe_definitivo_descargando: "Descargando el borrador de desarrollo…",
   informe_definitivo_listo: "Descarga del borrador de desarrollo iniciada. Sin firma ni nombramiento eficaz.",
   informe_definitivo_error: "No se pudo descargar el borrador. El detalle se conserva; puede volver a solicitar la descarga.",

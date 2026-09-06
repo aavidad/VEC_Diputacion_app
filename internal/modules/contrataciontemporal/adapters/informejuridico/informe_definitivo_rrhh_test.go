@@ -77,7 +77,7 @@ func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
 	} {
 		d := detalleInformeDefinitivoPrueba()
 		mutar(&d)
-		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia, ports.BorradorTomaPosesion, ports.BorradorNotificacion} {
+		for _, tipo := range []ports.TipoBorradorRRHH{ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia, ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro} {
 			b, err := r.RenderizarBorrador(context.Background(), tipo, d)
 			if !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
 				t.Fatal("antecedente inválido produjo documento")
@@ -183,5 +183,28 @@ func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.
 	}
 	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "QUEDA NOTIFICADO") {
 		t.Fatal("el borrador expone datos innecesarios o aparenta acreditar notificación")
+	}
+}
+
+func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorComunicacionCentro, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := r.RenderizarBorrador(context.Background(), ports.BorradorComunicacionCentro, d)
+	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
+		t.Fatalf("comunicación al centro PDF no determinista o inválida: %v", err)
+	}
+	contenido := contenidoComunicacionCentroDesarrollo(d)
+	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
+	for _, esperado := range []string{"Comunicación al centro — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "no es una dirección de envío", "no ordena ni autoriza una incorporación", "No se afirma que el centro haya sido informado", "SIN EFECTOS ADMINISTRATIVOS"} {
+		if !strings.Contains(texto, esperado) {
+			t.Fatalf("falta %q", esperado)
+		}
+	}
+	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "DEBERÁ INCORPORARSE") {
+		t.Fatal("el borrador expone datos innecesarios o aparenta ordenar incorporación")
 	}
 }

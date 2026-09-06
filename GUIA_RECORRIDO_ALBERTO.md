@@ -59,9 +59,10 @@ ambos PDF, historial y recibos idénticos; cero errores JS, cookies y almacenami
 Tercer borrador demostrado: diligencia `200`, siete POST `200`, informe y resolución
 idénticos; también tras reiniciar aplicación/PostgreSQL principal: siete POST `200`,
 PDF e historial conservados, cero errores JS, cookies y almacenamiento web.
-Quinto borrador, notificación, comprobado también tras reinicio principal: nueve POST `200`,
-cinco PDF e historial idénticos. Disponibles **5/6 borradores**; siguiente comunicación al centro.
-Sin firmas, posesión real, nombramiento eficaz, envío, entrega ni plazo legal.
+Comunicación al centro: diez POST `200` antes y después del reinicio principal,
+seis PDF e historial idénticos. Objetivo 9 cerrado funcionalmente en desarrollo: **6/6 borradores**.
+Siguiente objetivo 10, fuente/circuito de firma admitido; sin firmas, posesión real,
+nombramiento eficaz, envío, entrega, plazo legal ni orden de incorporación.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
 Navegador acreditado solo en principal.
 
@@ -391,7 +392,7 @@ Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete regis
 Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
 Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
-En aquel corte no había descarga documental. Los cinco borradores del objetivo 9
+En aquel corte no había descarga documental. Los seis borradores del objetivo 9
 se obtienen como sigue; no hay firma, nombramiento eficaz ni correo real.
 
 ### Objetivo 9: descargar el primer informe borrador
@@ -413,6 +414,8 @@ Con el perfil RRHH en el recorrido principal ya preparado:
    no acredita comparecencia, posesión efectiva ni incorporación al puesto.
 8. **Descargar notificación · borrador de desarrollo** obtiene `notificacion-borrador.pdf`;
    misma lectura v7, sin acreditar envío, entrega ni apertura de plazo legal.
+9. **Descargar comunicación al centro · borrador de desarrollo** obtiene
+   `comunicacion-centro-borrador.pdf`; no envía una comunicación ni ordena la incorporación.
 
 Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
 SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
@@ -451,6 +454,13 @@ estable de 390 px con cinco botones inspeccionados. No acredita E2E en secundari
 La primera apertura, antes de que el servidor escuchara, falló en conexión sin alcanzar
 la API; se corrigió la fase de arranque, no un defecto de producto.
 
+Sexta descarga, comunicación al centro: **29643 bytes**, SHA256
+`c00c28fbc02d378122a763a088535cc7f6ed6cc1a13ac487f715e716845308b9`.
+Dirección confirmó diez POST `200` antes y después de reiniciar aplicación/PostgreSQL
+principal: mismo PDF y cinco anteriores idénticos; historial 2 CT/7 Bolsa/versiones 1..6
+conservado. Cero errores JS, cookies, almacenamiento web y desbordamiento; PDF y pantalla
+estable de 390 px con seis botones inspeccionados. No se atribuye esta evidencia a secundaria.
+
 Antecedente de la primera descarga y su corrección de consultas:
 
 Rectificación de evidencia: el primer fallo de navegador tras reinicio no capturó
@@ -476,8 +486,10 @@ tienen disparadores distintos; no se atribuye una carrera a esa duplicación.
 Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases, no reaplicar; el PDF no añade SQL propio.
 No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar allí SQL ni arrancarlo.
-Los cinco son borradores sin firma ni eficacia administrativa, envío, entrega ni plazo legal.
-Disponibles **5/6**; queda comunicación al centro, siguiente corte.
+Los seis son borradores sin firma ni eficacia administrativa, envío, entrega, plazo legal
+ni orden de incorporación. Objetivo 9 cerrado funcionalmente en desarrollo: **6/6**;
+siguiente 10, dependiente de fuente/circuito de firma admitido.
+El aviso al llamamiento sucesor sigue pendiente en el paso 6.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

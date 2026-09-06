@@ -104,9 +104,10 @@ Dirección inspeccionó PDF y pantalla estable de 390 px con tres botones.
 Tras reiniciar aplicación/PostgreSQL principal: otros siete POST `200`, tres PDF idénticos;
 historial de dos resoluciones CT, siete registros Bolsa y versiones 1..6 igual al previo.
 Cero errores JS, cookies y almacenamiento web; E2E acreditado solo en principal.
-Quinto borrador, notificación: nueve POST `200` antes y después del reinicio principal;
-cinco PDF e historial conservados. Evidencia y huella en la guía, solo principal.
-Disponibles **5/6 borradores**; siguiente comunicación al centro. Sin firma, envío, entrega ni plazo legal.
+Comunicación al centro: diez POST `200` antes y después del reinicio principal;
+seis PDF e historial conservados. Evidencia y huella en la guía.
+Objetivo 9 cerrado funcionalmente en desarrollo: **6/6 borradores**; siguiente 10, fuente/circuito de firma admitido.
+Sin firma, envío, entrega, plazo legal ni orden de incorporación.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación
