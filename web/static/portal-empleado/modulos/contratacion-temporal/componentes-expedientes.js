@@ -213,7 +213,9 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
       <button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-resolucion">${escaparHTML(t("resolucion_descargar"))}</button>
       <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-diligencia">${escaparHTML(t("diligencia_descargar"))}</button>` : ""}
+        data-ct-exp-accion="descargar-diligencia">${escaparHTML(t("diligencia_descargar"))}</button>
+      <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-toma-posesion">${escaparHTML(t("toma_posesion_descargar"))}</button>` : ""}
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div>
       <dt>${escaparHTML(campo.etiqueta)}</dt>

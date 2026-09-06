@@ -58,8 +58,10 @@ seis POST `200` antes y después de reiniciar aplicación/PostgreSQL principal,
 ambos PDF, historial y recibos idénticos; cero errores JS, cookies y almacenamiento web.
 Tercer borrador demostrado: diligencia `200`, siete POST `200`, informe y resolución
 idénticos; también tras reiniciar aplicación/PostgreSQL principal: siete POST `200`,
-PDF e historial conservados, cero errores JS, cookies y almacenamiento web. Disponibles **3/6 borradores**;
-quedan tres, siguiente toma de posesión. Sin firmas, nombramiento eficaz ni correo real.
+PDF e historial conservados, cero errores JS, cookies y almacenamiento web.
+Cuarto borrador, toma de posesión, comprobado también tras reinicio principal: ocho POST `200`,
+cuatro PDF e historial idénticos. Disponibles **4/6 borradores**; quedan dos, siguiente notificación.
+Sin firmas, posesión real, nombramiento eficaz ni correo real.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases; no reaplicar. La descarga no añadió SQL propio.
 Navegador acreditado solo en principal.
 
@@ -389,7 +391,7 @@ Una actuación v7 y un outbox nuevos; hashes de dos resoluciones CT, siete regis
 Bolsa y seis versiones anteriores idénticos antes, después del `201` y del reinicio.
 Cero errores JS, cookies, almacenamiento web y desbordamiento en móvil.
 AD3-20/CT61 instaladas en ambas bases, no reaplicar; no acredita otro E2E en secundaria.
-En aquel corte no había descarga documental. Los tres borradores del objetivo 9
+En aquel corte no había descarga documental. Los cuatro borradores del objetivo 9
 se obtienen como sigue; no hay firma, nombramiento eficaz ni correo real.
 
 ### Objetivo 9: descargar el primer informe borrador
@@ -407,6 +409,8 @@ Con el perfil RRHH en el recorrido principal ya preparado:
    `resolucion-borrador.pdf`. Cada botón realiza solo su consulta autorizada del detalle.
 6. **Descargar diligencia · borrador de desarrollo** obtiene `diligencia-borrador.pdf`:
    misma lectura v7, sin certificar hechos, comparecencia, firma ni notificación.
+7. **Descargar toma de posesión · borrador de desarrollo** obtiene `toma-posesion-borrador.pdf`;
+   no acredita comparecencia, posesión efectiva ni incorporación al puesto.
 
 Dirección confirmó Chrome `200`, PDF y pantalla inspeccionados: **29267 bytes**,
 SHA256 `a3a7f6e95f00d2040a0978e122ba86499b17c924d08b065523fa24aceba37faa`.
@@ -428,6 +432,13 @@ otros siete POST `200`, misma diligencia de 28366 bytes y SHA256, informe y reso
 anteriores idénticos. Historial de dos resoluciones CT, siete registros Bolsa y versiones
 1..6 exactamente igual al previo; cero errores JS, cookies y almacenamiento web.
 Esta evidencia de navegador corresponde solo a principal, no a secundaria.
+
+Cuarta descarga, toma de posesión: **29289 bytes**, SHA256
+`5956f6a1095a2ba610123388b9176baeaeeca0b69b9d57b9cb2fb2155d29de72`.
+Dirección confirmó ocho POST `200` antes y después de reiniciar aplicación/PostgreSQL
+principal, mismo PDF y tres anteriores idénticos; historial 2 CT/7 Bolsa/versiones 1..6
+conservado, cero errores JS, cookies y almacenamiento web. Inspeccionó PDF y pantalla
+estable de 390 px con cuatro botones. No acredita posesión real ni E2E en secundaria.
 
 Antecedente de la primera descarga y su corrección de consultas:
 
@@ -454,8 +465,8 @@ tienen disparadores distintos; no se atribuye una carrera a esa duplicación.
 Ante error de descarga se conserva el detalle; no repita una actuación para sortearlo.
 AD3-20/CT61 y AD3-21 instaladas en ambas bases, no reaplicar; el PDF no añade SQL propio.
 No repetir UP/DOWN de AD3-21. El desarrollo remoto permanece apagado: no aplicar allí SQL ni arrancarlo.
-Los tres son borradores sin firma ni eficacia administrativa. Disponibles **3/6**;
-quedan toma de posesión, notificación y comunicación al centro, siguiente toma de posesión.
+Los cuatro son borradores sin firma ni eficacia administrativa. Disponibles **4/6**;
+quedan notificación y comunicación al centro, siguiente notificación.
 Métrica sin incremento: **5/8 más partes del sexto y séptimo**.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado

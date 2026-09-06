@@ -9,6 +9,7 @@ const perfiles = [
   { tipo: "informe_definitivo", accept: "application/pdf; documento=informe-definitivo-desarrollo", nombre: "informe-definitivo-borrador.pdf" },
   { tipo: "resolucion", accept: "application/pdf; documento=resolucion-desarrollo", nombre: "resolucion-borrador.pdf" },
   { tipo: "diligencia", accept: "application/pdf; documento=diligencia-desarrollo", nombre: "diligencia-borrador.pdf" },
+  { tipo: "toma_posesion", accept: "application/pdf; documento=toma-posesion-desarrollo", nombre: "toma-posesion-borrador.pdf" },
 ];
 function respuestaPDF(contenido = pdf, cabeceras = {}, status = 200) {
   return new Response(contenido, { status, headers: {
@@ -59,7 +60,7 @@ test("rechaza contrato alterado antes de red", async () => {
   assert.equal(llamadas, 0);
 });
 
-test("tres perfiles nominales usan la misma consulta; no intercambian documentos", async () => {
+test("cuatro perfiles nominales usan la misma consulta; no intercambian documentos", async () => {
   for (const { tipo, accept, nombre } of perfiles) {
     const llamadas = [];
     const cabeceras = { "Content-Disposition": `attachment; filename="${nombre}"` };

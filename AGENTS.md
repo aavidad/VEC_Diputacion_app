@@ -104,7 +104,9 @@ Dirección inspeccionó PDF y pantalla estable de 390 px con tres botones.
 Tras reiniciar aplicación/PostgreSQL principal: otros siete POST `200`, tres PDF idénticos;
 historial de dos resoluciones CT, siete registros Bolsa y versiones 1..6 igual al previo.
 Cero errores JS, cookies y almacenamiento web; E2E acreditado solo en principal.
-Disponibles **3/6 borradores**; quedan tres, siguiente toma de posesión. Sin firma ni nombramiento eficaz.
+Cuarto borrador, toma de posesión: ocho POST `200` antes y después del reinicio principal;
+cuatro PDF e historial conservados, cero errores JS, cookies y almacenamiento web. Huella en la guía.
+Disponibles **4/6 borradores**; quedan dos, siguiente notificación. Sin firma, posesión real ni nombramiento eficaz.
 Corrección temporal de las consultas confirmada tras reinicio en el corte anterior.
 Las dos consultas iniciales tienen disparadores distintos; no se atribuye una carrera.
 Siguen pendientes vencimiento y correo corporativo; la continuación

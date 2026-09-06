@@ -13,6 +13,7 @@ const (
 	BorradorInformeDefinitivo TipoBorradorRRHH = "informe_definitivo"
 	BorradorResolucion        TipoBorradorRRHH = "resolucion"
 	BorradorDiligencia        TipoBorradorRRHH = "diligencia"
+	BorradorTomaPosesion      TipoBorradorRRHH = "toma_posesion"
 )
 
 // ErrBorradorRRHHNoDisponible indica que el detalle autorizado no

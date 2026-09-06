@@ -66,8 +66,9 @@ y SHA256, historial y recibos anteriores conservados; cero errores JS, cookies y
 almacenamiento web. Tercer borrador, diligencia: 28366 bytes; siete POST `200` antes
 y después de reiniciar aplicación/PostgreSQL principal, los tres PDF e historial previo
 idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF
-y pantalla estable de 390 px con tres botones. Disponibles **3/6**, quedan tres,
-siguiente toma de posesión. Sin SQL nuevo, firmas ni eficacia administrativa.
+y pantalla estable de 390 px con tres botones. Toma de posesión comprobada también tras
+reinicio principal: ocho POST `200`, cuatro PDF e historial idénticos; evidencia en la guía.
+Disponibles **4/6**, quedan dos, siguiente notificación. Sin SQL nuevo, firma ni posesión real.
 
 Para elegir la documentación adecuada:
 
@@ -193,7 +194,7 @@ conservado, use los datos exactos de la
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
 | 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar informe, resolución y diligencia borradores desde el detalle. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz ni firma; quedan otros tres borradores. |
+| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar cuatro borradores desde el detalle, incluida toma de posesión. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real ni firma; quedan notificación y comunicación al centro. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 El número de recibos o la versión del expediente no es el número de pasos
@@ -334,17 +335,18 @@ El recibo **Propuesta registrada · ejercicio sintético** conserva referencia y
 fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
 sin reintento automático ni otra clave para eludir un `409`.
 
-### Descargar informe, resolución o diligencia como borrador
+### Descargar informe, resolución, diligencia o toma de posesión como borrador
 
 En **Contratación temporal → Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
 En el detalle real `v7`, `nombramiento/en_curso`, elija un botón de cabecera:
 **Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`),
-**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`) o
-**Descargar diligencia · borrador de desarrollo** (`diligencia-borrador.pdf`).
+**Descargar resolución · borrador de desarrollo** (`resolucion-borrador.pdf`),
+**Descargar diligencia · borrador de desarrollo** (`diligencia-borrador.pdf`) o
+**Descargar toma de posesión · borrador de desarrollo** (`toma-posesion-borrador.pdf`).
 No recupere la propuesta por POST ni repita las operaciones de llamamiento para descargar.
 Ante error se conserva el detalle. [Recorrido y huella comprobada](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Son borradores sin firma: no certifican hechos, comparecencia, resolución aprobada ni nombramiento eficaz;
+Son borradores sin firma: no certifican hechos, comparecencia, posesión real ni nombramiento eficaz;
 la métrica sigue en **5/8 más partes del sexto y séptimo**, sin otro paso RRHH completo.
 
 ### Qué ocurre después de un reinicio

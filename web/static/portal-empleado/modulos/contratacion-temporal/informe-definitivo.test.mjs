@@ -24,6 +24,7 @@ const perfiles = [
   { tipo: "informe_definitivo", accion: "descargar-informe-definitivo", nombre: "informe-definitivo-borrador.pdf" },
   { tipo: "resolucion", accion: "descargar-resolucion", nombre: "resolucion-borrador.pdf" },
   { tipo: "diligencia", accion: "descargar-diligencia", nombre: "diligencia-borrador.pdf" },
+  { tipo: "toma_posesion", accion: "descargar-toma-posesion", nombre: "toma-posesion-borrador.pdf" },
 ];
 
 async function montar(descargar, perfil = perfiles[0]) {
@@ -64,7 +65,7 @@ async function montar(descargar, perfil = perfiles[0]) {
   return { estado, raiz, boton, botones, mensaje, montaje, click, descargas, creados, revocados };
 }
 
-test("tres botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
+test("cuatro botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
   const estado = estadoReal();
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-informe-definitivo"[^]*<\/section>/u);
@@ -73,6 +74,8 @@ test("tres botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
   assert.match(html, /Descargar resolución · borrador de desarrollo/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-diligencia"[^]*<\/section>/u);
   assert.match(html, /Descargar diligencia · borrador de desarrollo/u);
+  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-toma-posesion"[^]*<\/section>/u);
+  assert.match(html, /Descargar toma de posesión · borrador de desarrollo/u);
   assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
     expediente_ref: estado.expediente_ref, version_observada: 7,
   });
@@ -90,6 +93,7 @@ test("tres botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-informe-definitivo"/u);
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-resolucion"/u);
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-diligencia"/u);
+    assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-toma-posesion"/u);
   }
 });
 

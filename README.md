@@ -80,8 +80,10 @@ Tercer borrador: diligencia, Chrome `200`, 28366 bytes; siete POST `200`, los do
 anteriores idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó
 PDF y pantalla estable de 390 px con tres botones. Tras reiniciar aplicación/PostgreSQL principal:
 otros siete POST `200`, tres PDF e historial anterior idénticos; cero errores JS, cookies
-y almacenamiento web. Disponibles **3/6 borradores**; quedan tres, siguiente toma de posesión.
-No acredita firma, nombramiento eficaz ni correo real.
+y almacenamiento web. Cuarto borrador, toma de posesión, comprobado también tras reinicio
+principal: ocho POST `200`, cuatro PDF e historial idénticos. [Evidencia y huella](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
+Disponibles **4/6 borradores**; quedan dos, siguiente notificación.
+No acredita firma, posesión real, nombramiento eficaz ni correo real.
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -127,7 +129,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
 | 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas; recibos recuperados tras reinicio sin duplicados. | Faltan vencimiento, aviso al sucesor y correo corporativo. No acredita entrega ni plazo legal aprobado. |
-| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; informe, resolución y diligencia borradores descargables. | Sin nombramiento eficaz ni firma; pendientes otros tres borradores, siguiente toma de posesión. |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; informe, resolución, diligencia y toma de posesión borradores descargables. | Sin nombramiento eficaz, posesión real ni firma; pendientes notificación y comunicación al centro. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un

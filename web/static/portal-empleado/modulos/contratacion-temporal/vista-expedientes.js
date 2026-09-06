@@ -461,9 +461,10 @@ export async function montarModuloContratacionTemporal({
     const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
     if (!montada || descargaInforme || !solicitud) return;
     const tipo = boton.dataset.ctExpAccion === "descargar-resolucion" ? "resolucion"
-      : boton.dataset.ctExpAccion === "descargar-diligencia" ? "diligencia" : "informe_definitivo";
+      : boton.dataset.ctExpAccion === "descargar-diligencia" ? "diligencia"
+        : boton.dataset.ctExpAccion === "descargar-toma-posesion" ? "toma_posesion" : "informe_definitivo";
     const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"]',
+      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"]',
     )] : [boton];
     const controlador = new AbortController();
     descargaInforme = controlador;
@@ -1002,7 +1003,7 @@ export async function montarModuloContratacionTemporal({
     if (impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
-    if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia"].includes(accion.dataset.ctExpAccion)) {
+    if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });

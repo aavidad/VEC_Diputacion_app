@@ -45,6 +45,8 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		documento = contenidoResolucionDesarrollo(detalle)
 	case ports.BorradorDiligencia:
 		documento = contenidoDiligenciaDesarrollo(detalle)
+	case ports.BorradorTomaPosesion:
+		documento = contenidoTomaPosesionDesarrollo(detalle)
 	default:
 		return nil, ports.ErrBorradorRRHHNoDisponible
 	}
@@ -113,6 +115,24 @@ func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Cont
 		"3. Autoría y validación pendientes",
 		"Órgano y persona competente para extender la diligencia, fecha, firma y evidencia de validación: pendientes. Este documento no sustituye esas comprobaciones ni acredita la custodia de sus justificantes.",
 		"Copia preparatoria obtenida del detalle persistido y autorizado. Su descarga no registra hechos, modifica el expediente ni realiza envíos. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
+	}}
+}
+
+func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+	r, a := d.Resumen, d.Analisis
+	return vecdomain.ContenidoDocumento{Titulo: "Toma de posesión — borrador de desarrollo", Parrafos: []string{
+		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No acredita una toma de posesión, un nombramiento eficaz ni una incorporación al puesto.",
+		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
+		"1. Datos disponibles del expediente",
+		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
+		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No se utiliza este periodo como fecha efectiva de posesión o incorporación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		fmt.Sprintf("Antecedente: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. Esa fecha no acredita comparecencia ni toma de posesión.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		"2. Comparecencia y formalización pendientes",
+		"Identificación autorizada de la persona interesada y de la persona competente que intervenga: pendientes. Resolución de nombramiento válida y su evidencia de firma: pendientes de incorporar y comprobar; una propuesta no las sustituye.",
+		"Lugar, fecha y hora de comparecencia; manifestaciones, juramento o promesa cuando correspondan según el modelo oficial: pendientes. No se afirma que estos hechos hayan ocurrido ni se inventa su redacción.",
+		"3. Firmas e incorporación pendientes",
+		"Firmas, evidencia de validación, fecha efectiva de toma de posesión y confirmación de incorporación: pendientes. Deben completarse mediante el circuito competente, con el modelo oficial y los hechos acreditados.",
+		"Copia preparatoria del detalle persistido y autorizado. Su descarga no registra la posesión, modifica el expediente, da de alta en Personal ni envía información a GINPIX. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	}}
 }
 
