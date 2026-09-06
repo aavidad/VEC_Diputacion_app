@@ -54,6 +54,8 @@ type ejecutorComunicacionLlamamientoDesarrollo struct {
 	lectorJustificante       ports.LectorJustificantesRespuestaRecibida
 	servicio                 httpinterno.EjecutorComunicacionLlamamiento
 	aceptador                aceptadorRespuestaRRHHDesarrollo
+	continuaciones           ports.RegistroContinuacionLlamamiento
+	continuador              continuadorBolsaDesarrollo
 }
 
 var _ httpinterno.EjecutorComunicacionLlamamiento = (*ejecutorComunicacionLlamamientoDesarrollo)(nil)
@@ -95,9 +97,16 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	if err != nil {
 		return nil, err
 	}
+	continuaciones, err := postgresct.NuevoRegistroContinuacionLlamamientoPostgreSQL(poolCT,
+		&proveedorContinuacionLlamamientoDesarrollo{soporte: alta.soporte, reloj: reloj,
+			autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: material, continuacionCT: true}})
+	if err != nil {
+		return nil, err
+	}
 	return &ejecutorComunicacionLlamamientoDesarrollo{
 		directorioComunicaciones: directorioComunicaciones,
 		soporte:                  alta.soporte, lector: lector, lectorJustificante: lectorJustificante, servicio: servicio,
+		continuaciones: continuaciones,
 	}, nil
 }
 

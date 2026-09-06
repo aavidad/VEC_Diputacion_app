@@ -34,6 +34,12 @@ fecha e intención pendiente, sin duplicados ni siguiente ejecutado. Cero errore
 JS, cookies, almacenamiento web y desbordamiento. Objetivo 5 cerrado funcionalmente;
 criterio manual provisional solo sintético, sin aval legal ni del operador.
 
+**Objetivo 7 incluido en esta entrega:** quinta operación `201` real tras renuncia
+y `200/200/200/200/200` tras reiniciar app/PostgreSQL principal. Mismos 14 campos
+salvo `estado_local: replay_confirmado`, sin duplicados ni errores JS, cookies,
+almacenamiento web o desbordamiento. Cierre funcional solo tras renuncia sintética;
+se mantiene **5/8 más parte del sexto**, sin aviso al sucesor ni plazo legal.
+
 ## Qué leer y qué mantener
 
 Este manual puede consultarse desde un clon del repositorio, sin acceder a
@@ -121,7 +127,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 3. Bolsa | Propuesta y decisión de cobertura del expediente. No toda la aplicación Bolsa. |
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperadas tras reinicio; mismos recibos, sin duplicados. Intención de siguiente pendiente; faltan vencimiento, siguiente candidato y correo corporativo. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperadas tras reinicio; mismos recibos, sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo. |
 | 7 y 8 | Nombramiento e incorporación, GINPIX y seguimiento: no declarados completos de extremo a extremo. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
@@ -176,7 +182,7 @@ firmados, hashes, MAC ni permisos. Dirección aplicó el bloque literal
 `DO $fechas$` en ambas bases; sus tres regresiones pasaron. La instrumentación
 de diagnóstico CT56 está retirada. No reaplicar la migración ni reconstruir
 el núcleo; el [manual de Sistemas](../manual_sistemas/README.md) distingue aquel
-corte histórico de la huella actual del núcleo tras AD3-18.
+corte histórico de la huella conservada al cierre de AD3-18.
 
 El [manual de RRHH](../manual_rrhh/README.md) recoge el ejemplo y el recibo
 observado; la [guía](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido vigente.
@@ -243,7 +249,26 @@ aceptación/declaración anteriores intactas. No reaplicar ni ejecutar DOWN sobr
 El [plan canónico](../../ESTADO_PROYECTO.md) cierra técnicamente la aceptación manual
 sintética y funcionalmente la renuncia sintética; pendiente enlazar propuesta de
 nombramiento (objetivo 8). No hay política legal aprobada ni cierre de vencimiento,
-siguiente candidato o correo corporativo.
+aviso al sucesor o correo corporativo.
+
+### Continuación tras renuncia sintética
+
+Quinta operación `data-ct-llamamiento-form="siguiente"`, cliente `continuarLlamamiento`:
+`POST /api/vec/contratacion-temporal/llamamientos/siguientes`, cinco campos canónicos
+en orden: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`, `resolucion_ref`,
+`intencion_ref`. Antecedentes del recibo de renuncia; solo clave propia, confirmación
+explícita y reintento manual con igual material. `409` no permite otra clave.
+HTTP devuelve 14 campos, versión de nuevo llamamiento `1`, intención `despachada`;
+`201 confirmado` o `200 replay_confirmado`, mismos recibos, auditoría y fecha.
+Consulta de justificante, continuación CT y apertura Bolsa mantienen permisos
+separados. Éxito solo tras Bolsa y confirmación CT; un fallo entre ambos no es éxito
+parcial ni autoriza compensación. AD3-19/Bolsa6/CT60 soportan este recorrido.
+El puente deriva una referencia Bolsa alfabética de 256 bits desde org/exp/resolución/
+intención CT y la coteja al retornar; CT conserva su referencia original y operación
+estable. Corrige el rechazo accidental del UUID sin relajar validadores.
+El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
+confirma continuidad posterior. No se conecta automáticamente a la comunicación
+del sucesor ni se expone identidad/posición. [Recuperación exacta](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
 
 ## Arquitectura real y propiedad
 

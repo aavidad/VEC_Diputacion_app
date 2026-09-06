@@ -29,6 +29,14 @@ export const CAMPOS_RESOLUCION = Object.freeze([
   "comunicacion_ref", "version_esperada", "respuesta", "prueba_respuesta_ref",
   ...CAMPOS_REVISION_RESOLUCION, "criterio_validacion_ref",
 ]);
+export const CAMPOS_SIGUIENTE = Object.freeze([
+  "clave_idempotencia", "organizacion_ref", "expediente_ref", "resolucion_ref", "intencion_ref",
+]);
+export const CAMPOS_RECIBO_SIGUIENTE = Object.freeze([
+  "esquema", "organizacion_ref", "expediente_ref", "resolucion_ref", "intencion_ref",
+  "llamamiento_anterior_ref", "llamamiento_ref", "version_llamamiento", "recibo_bolsa_ref",
+  "recibo_ref", "auditoria_ref", "confirmada_en", "estado_intencion", "estado_local",
+]);
 
 function exigir(condicion) {
   if (!condicion) throw new TypeError("contrato de llamamiento no válido");
@@ -56,7 +64,7 @@ function solicitud(entrada, campos, version = "version_esperada") {
   const valor = registro(entrada, campos);
   exigir(typeof valor.clave_idempotencia === "string" && UUID.test(valor.clave_idempotencia)
     && valor.clave_idempotencia !== "00000000-0000-4000-8000-000000000000"
-    && entero(valor[version]) && valor[version] < Number.MAX_SAFE_INTEGER
+    && (version === null || (entero(valor[version]) && valor[version] < Number.MAX_SAFE_INTEGER))
     && campos.filter((campo) => campo.endsWith("_ref")).every(
       (campo) => referenciaLlamamientoValida(valor[campo]),
     ));
@@ -67,6 +75,26 @@ export function validarSolicitudSeleccionLlamamiento(entrada) {
 }
 export function validarSolicitudComunicacionLlamamiento(entrada) {
   return solicitud(entrada, CAMPOS_COMUNICACION);
+}
+export function validarSolicitudContinuacionLlamamiento(entrada) {
+  return solicitud(entrada, CAMPOS_SIGUIENTE, null);
+}
+export function validarReciboContinuacionLlamamiento(entrada, solicitudEntrada, llamamientoAnteriorRef) {
+  const esperada = validarSolicitudContinuacionLlamamiento(solicitudEntrada);
+  const valor = registro(entrada, CAMPOS_RECIBO_SIGUIENTE);
+  exigir(valor.esquema === "vec.contratacion-temporal.continuacion-llamamiento.v1"
+    && CAMPOS_SIGUIENTE.filter((campo) => campo !== "clave_idempotencia").every(
+      (campo) => valor[campo] === esperada[campo])
+    && CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo.endsWith("_ref")).every(
+      (campo) => referenciaLlamamientoValida(valor[campo]))
+    && valor.version_llamamiento === 1 && valor.estado_intencion === "despachada"
+    && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
+    && valor.llamamiento_ref !== valor.llamamiento_anterior_ref);
+  // El formulario conserva este antecedente; no se añade al material HTTP de cinco campos.
+  if (llamamientoAnteriorRef !== undefined) exigir(referenciaLlamamientoValida(llamamientoAnteriorRef)
+    && valor.llamamiento_anterior_ref === llamamientoAnteriorRef);
+  instanteRespuesta(valor.confirmada_en);
+  return valor;
 }
 // Conserva los seis decimales para comparar instantes sin perder microsegundos
 // con Date (milisegundos). Go puede omitir ceros finales en el eco del recibo.

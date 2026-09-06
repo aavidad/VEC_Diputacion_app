@@ -3,6 +3,7 @@ import {
   validarReciboSeleccionLlamamiento, validarReciboComunicacionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
+  validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
 } from "./contrato-llamamiento.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
@@ -10,13 +11,15 @@ export const RUTAS_LLAMAMIENTO = Object.freeze({
   comunicacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
   respuestaRecibida: "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
   resolucionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/resoluciones",
+  continuacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/siguientes",
 });
 export function prefijoErrorLlamamiento(ruta) {
   if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento) {
     return "api.contratacion_temporal.seleccion_llamamiento.error.";
   }
   if (ruta === RUTAS_LLAMAMIENTO.comunicacionLlamamiento
-    || ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento) {
+    || ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
+    || ruta === RUTAS_LLAMAMIENTO.continuacionLlamamiento) {
     return "api.contratacion_temporal.comunicacion_llamamiento.error.";
   }
   if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida) {
@@ -25,6 +28,7 @@ export function prefijoErrorLlamamiento(ruta) {
   return null;
 }
 export function conflictoLlamamientoValido(ruta, codigo) {
+  if (ruta === RUTAS_LLAMAMIENTO.continuacionLlamamiento) return codigo === "clave_idempotencia_reutilizada";
   if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
     && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
@@ -77,6 +81,11 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       const entrada = validarSolicitudResolucionLlamamiento(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.resolucionLlamamiento, entrada, opciones,
         (respuesta) => validarReciboResolucionLlamamiento(respuesta, entrada));
+    },
+    continuarLlamamiento(solicitud, opciones) {
+      const entrada = validarSolicitudContinuacionLlamamiento(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.continuacionLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboContinuacionLlamamiento(respuesta, entrada));
     },
   });
 }

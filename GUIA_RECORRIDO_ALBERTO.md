@@ -1,6 +1,6 @@
 # Arranque vigente en el equipo local — 5 de septiembre de 2026
 
-Base publicada del corte actual: `17ea874`. El cierre de bandeja,
+Base publicada del corte actual: `3d696af`. El cierre de bandeja,
 detalle y análisis corresponde a
 `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`, con el corrector SQL `13f7a92`
 y la interfaz integrados por avance directo. El desarrollo utiliza la misma rama
@@ -32,9 +32,16 @@ y PostgreSQL principal, `200/200/200/200`: mismos recibo, resolución, auditorí
 fecha e intención pendiente con su carga real, sin duplicados. Cero errores JS,
 cookies, almacenamiento web y desbordamiento. La base principal conserva
 **51 solicitudes**, con bandeja y detalle consultables;
-AD3-18/Bolsa5/CT59 instaladas en ambas bases. No reaplicar. No se ha ejecutado
-el siguiente candidato. El criterio manual provisional solo sirve al ejercicio
+AD3-18/Bolsa5/CT59 instaladas en ambas bases. No reaplicar. En aquel corte aún no
+se había ejecutado el siguiente candidato. El criterio manual provisional solo sirve al ejercicio
 sintético: no es aval legal ni aprobación del operador. Sigue **5/8 más parte del 6**.
+
+**Objetivo 7: continuación tras renuncia `201` real desde la quinta operación.**
+Nuevo llamamiento abierto y recibo CT confirmado, sin errores JS, cookies,
+almacenamiento web ni desbordamiento. Tras reiniciar app/PostgreSQL principal:
+**`200/200/200/200/200`, mismos 14 campos salvo `estado_local: replay_confirmado`**.
+Objetivo 7 cerrado funcionalmente solo tras renuncia sintética; quinta clave abajo.
+No implica aviso enviado, entregado ni aceptación del nuevo llamamiento.
 
 Las dos bases y el material de desarrollo se han trasladado sin regenerar
 identidades, claves ni expedientes. Las copias físicas se verificaron antes
@@ -58,8 +65,8 @@ Las migraciones de registro de respuesta `000056` de Contratación temporal y
 reaplicarlas. Dirección aplicó literalmente el bloque `DO $fechas$` de la
 migración `000014` en ambas bases, con sus tres comprobaciones incorporadas
 correctas. El diagnóstico temporal de la función de respuesta también se retiró
-de ambas bases. La huella SHA256 actual del núcleo, tras AD3-18 y comprobada
-igual en ambas bases por dirección, es
+de ambas bases. La huella SHA256 histórica del núcleo al cierre de AD3-18,
+comprobada entonces igual en ambas bases por dirección, fue
 `e6c3d28c27b7cb864916ffe967a8b2fa47611cb3528ad8148302d8bbedd11bf6`.
 La anterior `02453e…` corresponde al corte 4, tras AD3-16/17.
 La anterior `42f67b…` corresponde al corte histórico AD3-14, no al arranque vigente.
@@ -238,7 +245,7 @@ congelados clave y material; no hay reintentos automáticos ni claves sustitutas
 La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional.
 El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 comprobó reversión exacta en
 ROLLBACK, sin modificar autorización ni usar dobles; el navegador usó criptografía real.
-Faltan vencimiento, siguiente candidato y correo corporativo;
+Faltan vencimiento y correo corporativo; la continuación tras renuncia se describe abajo;
 el enlace al nombramiento (objetivo 8) sigue pendiente y no hay política legal
 aprobada. Véase el [plan vigente](ESTADO_PROYECTO.md).
 
@@ -255,6 +262,7 @@ el mismo formulario de llamamiento y recupere, en orden, las cuatro operaciones:
 | Comunicación local | `a77d3f10-a635-46fd-b9eb-a00000000002` |
 | Declaración RRHH | `a77d3f10-a635-46fd-b9eb-a00000000003` |
 | Resolución manual de renuncia | `a77d3f10-a635-46fd-b9eb-a00000000004` |
+| Continuación tras renuncia (objetivo 7, apartado siguiente) | `a77d3f10-a635-46fd-b9eb-a00000000005` |
 
 El recibo de selección identifica
 `llamamiento:nccfkjnioljdeikkpipkcgcpilbogjnociankdfbapmnaekanagbiioaahphbmgj`.
@@ -293,6 +301,39 @@ según dirección y están instaladas en ambas bases. Eso no autoriza DOWN sobre
 estos datos ni atribuye a la secundaria el recorrido realizado en la principal.
 Se cierra el objetivo 5 solo para desarrollo sintético; no el siguiente candidato,
 el vencimiento, el correo corporativo ni el paso 6 completo.
+
+### Objetivo 7: recuperar la continuación tras renuncia
+
+Recupere primero las cuatro operaciones del caso anterior con sus claves originales.
+La quinta operación (`data-ct-llamamiento-form="siguiente"`)
+deriva expediente, resolución e intención de esos recibos; solo admite una clave
+propia. Para este caso conserve **`a77d3f10-a635-46fd-b9eb-a00000000005`**.
+Revise y confirme expresamente que abrirá un único nuevo llamamiento después de
+la renuncia; sin otro `.eml`, sin reintento automático ni cambio de clave ante error.
+El resultado ambiguo congela clave y material; `409` no autoriza evadir la operación.
+
+Dirección confirmó `201` real, **Siguiente llamamiento abierto · ejercicio sintético**:
+
+| Recibo de continuación | Valor conservado |
+| --- | --- |
+| Recibo CT | `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778` |
+| Auditoría CT | `aud_v3_37035fd6958b5b07c1d4847fb1b6db6b` |
+| Confirmada en UTC | `2026-09-05T23:57:11.037866Z` |
+| Nuevo llamamiento, versión `1` | `llamamiento:eipmgkkfjncbalgebihinpeeajhllfmkoikjhiodlbcdlhaohmgpojefdfilcmoe` |
+| Recibo Bolsa | `recibo:ipbencdeoegpleefmcjipdpanjmnbfnheoehlmelcjacjaeglgkliadcmcpehikj` |
+| Confirmación Bolsa UTC | `2026-09-05T23:57:10.99675Z` |
+
+La quinta operación informa intención `despachada`; el recibo original de renuncia
+mantiene sus bytes y su `pendiente` histórico. Tras obtener el nuevo recibo se
+desactiva otro envío. No sustituya el antecedente del formulario de comunicación
+por este nuevo llamamiento: esa continuidad no está conectada ni presume aviso.
+Bolsa conserva siete registros (dos órdenes, tres propuestas, aceptación y renuncia),
+siete historias y siete eventos. Cero errores JS, cookies, almacenamiento web y
+desbordamiento. **Tras reiniciar app/PostgreSQL principal, cinco POST `200/200/200/200/200`**:
+los 14 campos de la continuación se conservan salvo `estado_local: replay_confirmado`,
+incluidos recibos CT/Bolsa, auditoría, fecha y referencias de ambos llamamientos.
+Objetivo 7 cerrado funcionalmente solo tras renuncia sintética, sin duplicados.
+Se mantiene **5/8 más parte del sexto**; no acredita entrega, aceptación ni plazo legal.
 
 ## Recorrido remoto del 4 de septiembre — historial conservado
 

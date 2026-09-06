@@ -155,29 +155,16 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarLlamamiento(ctx con
 		return ports.ReciboLlamamientoDesarrollo{}, err
 	}
 	if existe {
-		if r.Tipo != "propuesta" || r.OrdenOperacionRef != p.OrdenOperacionRef || r.NecesidadRef != p.NecesidadRef {
+		if r.Tipo != "propuesta" || r.OrdenOperacionRef != p.OrdenOperacionRef || r.NecesidadRef != p.NecesidadRef ||
+			r.Propuesta == nil || r.Propuesta.Continuacion != nil {
 			return ports.ReciboLlamamientoDesarrollo{}, ports.ErrIntegracionLlamamientoDesarrollo
 		}
 		return s.confirmar(ctx, r)
 	}
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	evaluaciones := make([]domain.EvaluacionParticipacionLlamamiento, 0, len(orden.Instantanea.Entradas))
-	for _, entrada := range orden.Instantanea.Entradas {
-		peticion, err := nuevaSolicitudMotor(d.Necesidad, orden.Instantanea, d.Politica, entrada, ahora)
-		if err != nil {
-			return ports.ReciboLlamamientoDesarrollo{}, err
-		}
-		e, err := s.fuente.EvaluarParticipacion(ctx, peticion)
-		if err != nil || !evaluacionMotorExacta(e, peticion) {
-			return ports.ReciboLlamamientoDesarrollo{}, ports.ErrEvaluacionMotorNoConfiable
-		}
-		evaluaciones = append(evaluaciones, e)
-		if e.Resultado == domain.ResultadoElegible {
-			break
-		}
-		if e.Resultado != domain.ResultadoNoElegible {
-			return ports.ReciboLlamamientoDesarrollo{}, ports.ErrEvaluacionMotorNoConfiable
-		}
+	evaluaciones, err := s.evaluarOrden(ctx, d, orden.Instantanea, 0, ahora)
+	if err != nil {
+		return ports.ReciboLlamamientoDesarrollo{}, err
 	}
 	propuesta, err := domain.ProponerPrimerLlamamiento(domain.OrdenProponerPrimerLlamamiento{
 		PropuestaRef: referenciaIntegracionDesarrollo("propuesta", p.OperacionRef), Bolsa: d.Bolsa, Necesidad: d.Necesidad,
@@ -186,22 +173,196 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarLlamamiento(ctx con
 	if err != nil {
 		return ports.ReciboLlamamientoDesarrollo{}, err
 	}
-	r = orden
-	r.OperacionRef = p.OperacionRef
-	r.OrdenOperacionRef = p.OrdenOperacionRef
+	r, err = registroPropuestaIntegracion(orden, p.OperacionRef, propuesta)
+	if err != nil {
+		return ports.ReciboLlamamientoDesarrollo{}, err
+	}
+	return s.confirmar(ctx, r)
+}
+
+func (s *ServicioIntegracionLlamamientosDesarrollo) evaluarOrden(ctx context.Context, d ports.DatosAutoritativosLlamamiento, instantanea domain.InstantaneaOrdenBolsa, desde uint64, ahora time.Time) ([]domain.EvaluacionParticipacionLlamamiento, error) {
+	if desde >= uint64(len(instantanea.Entradas)) {
+		return nil, domain.ErrSinParticipacionElegible
+	}
+	evaluaciones := make([]domain.EvaluacionParticipacionLlamamiento, 0, uint64(len(instantanea.Entradas))-desde)
+	for _, entrada := range instantanea.Entradas[desde:] {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		peticion, err := nuevaSolicitudMotor(d.Necesidad, instantanea, d.Politica, entrada, ahora)
+		if err != nil {
+			return nil, err
+		}
+		e, err := s.fuente.EvaluarParticipacion(ctx, peticion)
+		if err != nil || !evaluacionMotorExacta(e, peticion) {
+			return nil, ports.ErrEvaluacionMotorNoConfiable
+		}
+		evaluaciones = append(evaluaciones, e)
+		if e.Resultado == domain.ResultadoElegible {
+			break
+		}
+		if e.Resultado != domain.ResultadoNoElegible {
+			return nil, ports.ErrEvaluacionMotorNoConfiable
+		}
+	}
+	return evaluaciones, nil
+}
+
+func registroPropuestaIntegracion(orden ports.RegistroLlamamientoDesarrollo, operacion string, propuesta domain.PropuestaLlamamiento) (ports.RegistroLlamamientoDesarrollo, error) {
+	canon, err := orden.Canonico()
+	var r ports.RegistroLlamamientoDesarrollo
+	if err != nil || orden.Tipo != "orden" || json.Unmarshal(canon, &r) != nil {
+		return r, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	propuesta, err = propuesta.ClonarCanonica()
+	if err != nil {
+		return ports.RegistroLlamamientoDesarrollo{}, err
+	}
+	r.OperacionRef = operacion
+	r.OrdenOperacionRef = orden.OperacionRef
 	r.Tipo = "propuesta"
 	r.Propuesta = &propuesta
 	abierto, err := domain.NuevoLlamamientoAbierto(domain.DatosLlamamientoAbierto{
-		LlamamientoRef: referenciaIntegracionDesarrollo("llamamiento", p.OperacionRef),
+		LlamamientoRef: referenciaIntegracionDesarrollo("llamamiento", operacion),
 		BolsaRef:       propuesta.BolsaRef, NecesidadRef: propuesta.NecesidadRef, PropuestaRef: propuesta.PropuestaRef, Version: 1,
 	})
 	if err != nil {
-		return ports.ReciboLlamamientoDesarrollo{}, err
+		return ports.RegistroLlamamientoDesarrollo{}, err
 	}
 	llamamiento := abierto.Datos()
 	r.Llamamiento = &llamamiento
 	r.EstadoLlamamiento = abierto.Estado()
-	return s.confirmar(ctx, r)
+	return r, nil
+}
+
+// SolicitarSiguienteLlamamiento solo continúa una renuncia canónica. Reutiliza
+// el orden y la fuente firmada originales; Guardar debe imponer un sucesor único
+// por terminal/intención y consumir autorización fresca también en recuperación.
+func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamiento(ctx context.Context, p ports.PeticionSiguienteLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
+	vacio := ports.ReciboLlamamientoDesarrollo{}
+	if ctx == nil || s == nil || p.Validar() != nil || dependenciaLlamamientoNula(s.repositorio) ||
+		dependenciaLlamamientoNula(s.fuente) || dependenciaLlamamientoNula(s.autorizador) || dependenciaLlamamientoNula(s.reloj) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	terminal, existe, err := s.repositorio.BuscarOperacion(ctx, p.TerminalOperacionRef)
+	if err != nil || !existe || terminal.OperacionRef != p.TerminalOperacionRef || terminal.Tipo != "renuncia_rrhh" {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	canonTerminal, err := terminal.Canonico()
+	if err != nil {
+		return vacio, err
+	}
+	apertura, existe, err := s.repositorio.BuscarOperacion(ctx, terminal.Resolucion.AperturaOperacionRef)
+	if err != nil || !existe || apertura.Tipo != "propuesta" || apertura.OperacionRef != terminal.Resolucion.AperturaOperacionRef {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	canonApertura, err := apertura.Canonico()
+	if err != nil {
+		return vacio, err
+	}
+	orden, existe, err := s.repositorio.BuscarOperacion(ctx, apertura.OrdenOperacionRef)
+	if err != nil || !existe || orden.Tipo != "orden" || orden.OperacionRef != apertura.OrdenOperacionRef || len(orden.Instantanea.Entradas) > 128 {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	// Reconstruir solo para cotejar el canon no escribe nada y no comparte
+	// punteros con los antecedentes. Ningún campo de la fuente puede variar.
+	esperada, err := registroPropuestaIntegracion(orden, apertura.OperacionRef, *apertura.Propuesta)
+	if err != nil {
+		return vacio, err
+	}
+	canonEsperada, err := esperada.Canonico()
+	if err != nil || !bytes.Equal(canonEsperada, canonApertura) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	abierto, err := domain.NuevoLlamamientoAbierto(*esperada.Llamamiento)
+	if err != nil {
+		return vacio, err
+	}
+	cerrado, err := abierto.TransicionarATerminal(1, &domain.TerminalLlamamiento{Estado: domain.EstadoLlamamientoRenunciado, OperacionRef: terminal.OperacionRef})
+	if err != nil {
+		return vacio, err
+	}
+	datosCerrados := cerrado.Datos()
+	esperada.OperacionRef, esperada.Tipo, esperada.EstadoLlamamiento = terminal.OperacionRef, "renuncia_rrhh", cerrado.Estado()
+	esperada.Llamamiento, esperada.Resolucion = &datosCerrados, terminal.Resolucion
+	canonEsperada, err = esperada.Canonico()
+	if err != nil || !bytes.Equal(canonEsperada, canonTerminal) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	d, err := s.datos(ctx, orden.NecesidadRef)
+	if err != nil {
+		return vacio, err
+	}
+	fuente, firma, err := s.fuente.ExportarFuenteFirmada(ctx, orden.NecesidadRef)
+	if err != nil || orden.VersionNecesidad != d.Necesidad.Version || !bytes.Equal(fuente, orden.Fuente) || !bytes.Equal(firma, orden.FirmaFuente) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	h := sha256.Sum256(canonTerminal)
+	continuacion := domain.AntecedenteContinuacionLlamamiento{
+		TerminalOperacionRef: terminal.OperacionRef, TerminalSHA256: hex.EncodeToString(h[:]),
+		PropuestaRef: apertura.Propuesta.PropuestaRef, PropuestaSHA256: apertura.Propuesta.HuellaContenidoSHA256,
+		OrdenAnterior: apertura.Propuesta.OrdenSeleccionado, IntencionRef: p.IntencionRef,
+	}
+	existente, recuperada, err := s.repositorio.BuscarOperacion(ctx, p.OperacionRef)
+	if err != nil {
+		return vacio, err
+	}
+	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	var evaluaciones []domain.EvaluacionParticipacionLlamamiento
+	if recuperada {
+		if existente.Tipo != "propuesta" || existente.OperacionRef != p.OperacionRef || existente.Propuesta == nil ||
+			existente.Propuesta.Continuacion == nil || *existente.Propuesta.Continuacion != continuacion {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+		if ahora.Before(existente.Propuesta.GeneradaEn) {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+		ahora, evaluaciones = existente.Propuesta.GeneradaEn, existente.Propuesta.Evaluaciones
+	} else {
+		evaluaciones, err = s.evaluarOrden(ctx, d, orden.Instantanea, continuacion.OrdenAnterior, ahora)
+		if err != nil {
+			return vacio, err
+		}
+	}
+	if ahora.Before(terminal.Resolucion.ResueltaEn) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	propuesta, err := domain.ProponerSiguienteLlamamiento(domain.OrdenProponerSiguienteLlamamiento{
+		Orden: domain.OrdenProponerPrimerLlamamiento{PropuestaRef: referenciaIntegracionDesarrollo("propuesta", p.OperacionRef),
+			Bolsa: d.Bolsa, Necesidad: d.Necesidad, Instantanea: orden.Instantanea, Politica: d.Politica, Evaluaciones: evaluaciones, GeneradaEn: ahora},
+		Anterior: *apertura.Propuesta, Terminal: cerrado, Continuacion: continuacion,
+	})
+	if err != nil {
+		return vacio, err
+	}
+	r, err := registroPropuestaIntegracion(orden, p.OperacionRef, propuesta)
+	if err != nil {
+		return vacio, err
+	}
+	if recuperada {
+		canon, err := r.Canonico()
+		anterior, errAnterior := existente.Canonico()
+		if err != nil || errAnterior != nil || !bytes.Equal(canon, anterior) {
+			return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return vacio, err
+	}
+	recibo, err := s.confirmar(ctx, r)
+	if ctx.Err() != nil {
+		return vacio, ctx.Err()
+	}
+	if err != nil {
+		return vacio, err
+	}
+	if recibo.ConfirmadaEn.Location() != time.UTC || recibo.ConfirmadaEn.Nanosecond()%1000 != 0 || recibo.ConfirmadaEn.Before(propuesta.GeneradaEn) {
+		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
+	}
+	return recibo, nil
 }
 
 // AceptarLlamamiento solo recibe una evaluación ya reacreditada por la frontera

@@ -721,9 +721,31 @@ func (e EvaluacionParticipacionLlamamiento) clonarCanonica() (EvaluacionParticip
 	return clon, nil
 }
 
-// PropuestaLlamamiento conserva el prefijo completo del orden hasta la primera
-// participacion elegible y la cronologia causal de sus recibos. Asi demuestra
-// que no se ha omitido a nadie anterior sin tratar innecesariamente a quienes
+// AntecedenteContinuacionLlamamiento enlaza una continuación al terminal y la
+// propuesta previos. Su forma no acredita persistencia: el servicio coteja
+// TerminalSHA256 con el canon del registro de renuncia del repositorio.
+type AntecedenteContinuacionLlamamiento struct {
+	TerminalOperacionRef string `json:"terminal_operacion_ref"`
+	TerminalSHA256       string `json:"terminal_sha256"`
+	PropuestaRef         string `json:"propuesta_ref"`
+	PropuestaSHA256      string `json:"propuesta_sha256"`
+	OrdenAnterior        uint64 `json:"orden_anterior"`
+	IntencionRef         string `json:"intencion_ref"`
+}
+
+func (a AntecedenteContinuacionLlamamiento) Validar() error {
+	if !referenciaLlamamientoOpacaValida(a.TerminalOperacionRef) || !referenciaLlamamientoOpacaValida(a.PropuestaRef) ||
+		!referenciaLlamamientoOpacaValida(a.IntencionRef) || !huellaSHA256Valida(a.TerminalSHA256) ||
+		!huellaSHA256Valida(a.PropuestaSHA256) || a.TerminalSHA256 == strings.Repeat("0", 64) ||
+		a.PropuestaSHA256 == strings.Repeat("0", 64) || a.OrdenAnterior == 0 || a.OrdenAnterior > maximoEntradasOrdenBolsa {
+		return ErrPropuestaLlamamientoInvalida
+	}
+	return nil
+}
+
+// PropuestaLlamamiento conserva el tramo contiguo hasta la primera participación
+// elegible: desde el inicio o desde el terminal acreditado en Continuacion.
+// Mantiene la cronología de sus recibos sin reevaluar el tramo previo ni a quienes
 // se encuentran despues.
 type PropuestaLlamamiento struct {
 	PropuestaRef                    string                               `json:"propuesta_ref"`
@@ -748,6 +770,7 @@ type PropuestaLlamamiento struct {
 	OrdenSeleccionado               uint64                               `json:"orden_seleccionado"`
 	GeneradaEn                      time.Time                            `json:"generada_en"`
 	HuellaContenidoSHA256           string                               `json:"huella_contenido_sha256"`
+	Continuacion                    *AntecedenteContinuacionLlamamiento  `json:"continuacion,omitempty"`
 }
 
 type OrdenProponerPrimerLlamamiento struct {
@@ -761,6 +784,42 @@ type OrdenProponerPrimerLlamamiento struct {
 }
 
 func ProponerPrimerLlamamiento(orden OrdenProponerPrimerLlamamiento) (PropuestaLlamamiento, error) {
+	return proponerLlamamiento(orden, nil)
+}
+
+type OrdenProponerSiguienteLlamamiento struct {
+	Orden        OrdenProponerPrimerLlamamiento
+	Anterior     PropuestaLlamamiento
+	Terminal     LlamamientoAbierto
+	Continuacion AntecedenteContinuacionLlamamiento
+}
+
+// ProponerSiguienteLlamamiento conserva la instantánea íntegra y no reevalúa ni
+// convierte en inelegible al renunciante. Solo admite el tramo contiguo posterior.
+func ProponerSiguienteLlamamiento(o OrdenProponerSiguienteLlamamiento) (PropuestaLlamamiento, error) {
+	a, c, d := o.Anterior, o.Continuacion, o.Terminal.Datos()
+	t, terminal := o.Terminal.Terminal()
+	if a.Validar() != nil || c.Validar() != nil || o.Terminal.Validar() != nil || !terminal ||
+		t.Estado != EstadoLlamamientoRenunciado || t.OperacionRef != c.TerminalOperacionRef || d.Version != 2 ||
+		d.PropuestaRef != a.PropuestaRef || d.BolsaRef != a.BolsaRef || d.NecesidadRef != a.NecesidadRef ||
+		c.PropuestaRef != a.PropuestaRef || c.PropuestaSHA256 != a.HuellaContenidoSHA256 || c.OrdenAnterior != a.OrdenSeleccionado ||
+		o.Orden.PropuestaRef == a.PropuestaRef || o.Orden.GeneradaEn.Before(a.GeneradaEn) ||
+		a.InstantaneaRef != o.Orden.Instantanea.InstantaneaRef || a.VersionInstantanea != o.Orden.Instantanea.Version ||
+		a.HuellaInstantaneaSHA256 != o.Orden.Instantanea.HuellaContenidoSHA256 ||
+		a.TotalParticipacionesInstantanea != uint64(len(o.Orden.Instantanea.Entradas)) ||
+		a.NecesidadRef != o.Orden.Necesidad.NecesidadRef || a.VersionNecesidad != o.Orden.Necesidad.Version ||
+		a.PoliticaRef != o.Orden.Politica.PoliticaRef || a.VersionPolitica != o.Orden.Politica.Version ||
+		a.HuellaPoliticaSHA256 != o.Orden.Politica.HuellaSHA256 {
+		return PropuestaLlamamiento{}, ErrPropuestaLlamamientoInvalida
+	}
+	h, err := o.Orden.Necesidad.HuellaCanonicaSHA256()
+	if err != nil || h != a.HuellaNecesidadSHA256 {
+		return PropuestaLlamamiento{}, ErrPropuestaLlamamientoInvalida
+	}
+	return proponerLlamamiento(o.Orden, &c)
+}
+
+func proponerLlamamiento(orden OrdenProponerPrimerLlamamiento, continuacion *AntecedenteContinuacionLlamamiento) (PropuestaLlamamiento, error) {
 	if len(orden.Evaluaciones) == 0 {
 		return PropuestaLlamamiento{}, ErrSinParticipacionElegible
 	}
@@ -805,7 +864,14 @@ func ProponerPrimerLlamamiento(orden OrdenProponerPrimerLlamamiento) (PropuestaL
 	if err != nil {
 		return PropuestaLlamamiento{}, ErrPropuestaLlamamientoInvalida
 	}
-	if len(orden.Evaluaciones) > len(instantanea.Entradas) {
+	desde := uint64(0)
+	if continuacion != nil {
+		if continuacion.Validar() != nil || continuacion.OrdenAnterior >= uint64(len(instantanea.Entradas)) {
+			return PropuestaLlamamiento{}, ErrSinParticipacionElegible
+		}
+		desde = continuacion.OrdenAnterior
+	}
+	if uint64(len(orden.Evaluaciones)) > uint64(len(instantanea.Entradas))-desde {
 		return PropuestaLlamamiento{}, ErrEvaluacionLlamamientoInvalida
 	}
 	evaluaciones := make([]EvaluacionParticipacionLlamamiento, len(orden.Evaluaciones))
@@ -818,7 +884,7 @@ func ProponerPrimerLlamamiento(orden OrdenProponerPrimerLlamamiento) (PropuestaL
 	}
 	sort.Slice(evaluaciones, func(i, j int) bool { return evaluaciones[i].Orden < evaluaciones[j].Orden })
 	if err := validarEvaluacionesContraEntradas(
-		evaluaciones, instantanea, necesidad, huellaNecesidad, politica, generadaEn,
+		evaluaciones, instantanea, necesidad, huellaNecesidad, politica, generadaEn, desde,
 	); err != nil {
 		return PropuestaLlamamiento{}, err
 	}
@@ -843,6 +909,10 @@ func ProponerPrimerLlamamiento(orden OrdenProponerPrimerLlamamiento) (PropuestaL
 		ParticipacionSeleccionadaRef: seleccionada.ParticipacionRef, SujetoSeleccionadoRef: seleccionada.SujetoRef,
 		OrdenSeleccionado: seleccionada.Orden, GeneradaEn: generadaEn,
 	}
+	if continuacion != nil {
+		copia := *continuacion
+		propuesta.Continuacion = &copia
+	}
 	if propuesta.validarContenido(false) != nil {
 		return PropuestaLlamamiento{}, ErrPropuestaLlamamientoInvalida
 	}
@@ -860,18 +930,19 @@ func validarEvaluacionesContraEntradas(
 	huellaNecesidad string,
 	politica ReferenciaPoliticaLlamamiento,
 	generadaEn time.Time,
+	desde uint64,
 ) error {
 	if len(evaluaciones) == 0 {
 		return ErrSinParticipacionElegible
 	}
-	if len(evaluaciones) > len(instantanea.Entradas) {
+	if desde >= uint64(len(instantanea.Entradas)) || uint64(len(evaluaciones)) > uint64(len(instantanea.Entradas))-desde {
 		return ErrEvaluacionLlamamientoInvalida
 	}
 	for indice := range evaluaciones {
 		evaluacion := evaluaciones[indice]
-		entrada := instantanea.Entradas[indice]
+		entrada := instantanea.Entradas[desde+uint64(indice)]
 		situacion, vigente := entrada.Participacion.SituacionVigenteEn(instantanea.ReferidaEn)
-		if !vigente || evaluacion.Validar() != nil || evaluacion.Orden != uint64(indice+1) ||
+		if !vigente || evaluacion.Validar() != nil || evaluacion.Orden != desde+uint64(indice+1) ||
 			evaluacion.Orden != entrada.Orden ||
 			evaluacion.ParticipacionRef != entrada.Participacion.ParticipacionRef ||
 			evaluacion.SujetoRef != entrada.Participacion.SujetoRef ||
@@ -895,6 +966,14 @@ func (p PropuestaLlamamiento) Validar() error {
 }
 
 func (p PropuestaLlamamiento) validarContenido(comprobarHuella bool) error {
+	desde := uint64(0)
+	if p.Continuacion != nil {
+		if p.Continuacion.Validar() != nil || p.Continuacion.OrdenAnterior >= p.TotalParticipacionesInstantanea ||
+			p.Continuacion.PropuestaRef == p.PropuestaRef {
+			return ErrPropuestaLlamamientoInvalida
+		}
+		desde = p.Continuacion.OrdenAnterior
+	}
 	if !referenciaLlamamientoOpacaValida(p.PropuestaRef) ||
 		!referenciaLlamamientoOpacaValida(p.BolsaRef) || p.VersionBolsa == 0 || !huellaSHA256Valida(p.HuellaBolsaSHA256) ||
 		!referenciaLlamamientoOpacaValida(p.NecesidadRef) || p.VersionNecesidad == 0 || !huellaSHA256Valida(p.HuellaNecesidadSHA256) ||
@@ -904,7 +983,7 @@ func (p PropuestaLlamamiento) validarContenido(comprobarHuella bool) error {
 		!instanteLlamamientoCanonico(p.GeneradaEn) || p.InstantaneaGeneradaEn.Before(p.InstanteReferencia) ||
 		p.GeneradaEn.Before(p.InstantaneaGeneradaEn) || p.TotalParticipacionesInstantanea == 0 ||
 		p.TotalParticipacionesInstantanea > maximoEntradasOrdenBolsa ||
-		uint64(len(p.Evaluaciones)) > p.TotalParticipacionesInstantanea || len(p.Evaluaciones) == 0 ||
+		uint64(len(p.Evaluaciones)) > p.TotalParticipacionesInstantanea-desde || len(p.Evaluaciones) == 0 ||
 		len(p.Evaluaciones) > maximoEntradasOrdenBolsa ||
 		!referenciaLlamamientoOpacaValida(p.ParticipacionSeleccionadaRef) ||
 		!referenciaLlamamientoOpacaValida(p.SujetoSeleccionadoRef) || p.OrdenSeleccionado == 0 {
@@ -915,7 +994,7 @@ func (p PropuestaLlamamiento) validarContenido(comprobarHuella bool) error {
 	recibosEvaluacion := make(map[string]struct{}, len(p.Evaluaciones)*2)
 	for indice := range p.Evaluaciones {
 		evaluacion := p.Evaluaciones[indice]
-		if evaluacion.Validar() != nil || evaluacion.Orden != uint64(indice+1) ||
+		if evaluacion.Validar() != nil || evaluacion.Orden != desde+uint64(indice+1) ||
 			evaluacion.NecesidadRef != p.NecesidadRef || evaluacion.VersionNecesidad != p.VersionNecesidad ||
 			evaluacion.HuellaNecesidadSHA256 != p.HuellaNecesidadSHA256 ||
 			evaluacion.InstantaneaRef != p.InstantaneaRef || evaluacion.VersionInstantanea != p.VersionInstantanea ||
@@ -985,13 +1064,14 @@ func (p PropuestaLlamamiento) calcularHuellaContenidoSHA256() (string, error) {
 		SujetoSeleccionadoRef           string                               `json:"sujeto_seleccionado_ref"`
 		OrdenSeleccionado               uint64                               `json:"orden_seleccionado"`
 		GeneradaEn                      time.Time                            `json:"generada_en"`
+		Continuacion                    *AntecedenteContinuacionLlamamiento  `json:"continuacion,omitempty"`
 	}{
 		p.PropuestaRef, p.BolsaRef, p.VersionBolsa, p.HuellaBolsaSHA256,
 		p.NecesidadRef, p.VersionNecesidad, p.HuellaNecesidadSHA256,
 		p.InstantaneaRef, p.VersionInstantanea, p.HuellaInstantaneaSHA256,
 		p.PoliticaRef, p.VersionPolitica, p.HuellaPoliticaSHA256,
 		p.InstanteReferencia, p.InstantaneaGeneradaEn, p.TotalParticipacionesInstantanea, p.Evaluaciones,
-		p.ParticipacionSeleccionadaRef, p.SujetoSeleccionadoRef, p.OrdenSeleccionado, p.GeneradaEn,
+		p.ParticipacionSeleccionadaRef, p.SujetoSeleccionadoRef, p.OrdenSeleccionado, p.GeneradaEn, p.Continuacion,
 	}
 	return huellaJSON(contenido)
 }
@@ -1001,6 +1081,10 @@ func (p PropuestaLlamamiento) ClonarCanonica() (PropuestaLlamamiento, error) {
 		return PropuestaLlamamiento{}, err
 	}
 	clon := p
+	if p.Continuacion != nil {
+		copia := *p.Continuacion
+		clon.Continuacion = &copia
+	}
 	clon.Evaluaciones = make([]EvaluacionParticipacionLlamamiento, len(p.Evaluaciones))
 	for indice := range p.Evaluaciones {
 		evaluacion, err := p.Evaluaciones[indice].clonarCanonica()

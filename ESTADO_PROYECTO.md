@@ -2,7 +2,7 @@
 
 **Plan vigente: 6 de septiembre de 2026. Prioridad exclusiva: Contratación temporal.**
 
-Base publicada del corte actual: `17ea87448c99134b78cd538248a190d33360d668`.
+Base publicada del corte actual: `3d696af91eb49c326aca3aa0963b1fa4e102fa21`.
 
 Este es el único plan operativo. El historial inferior se conserva como
 referencia; sus porcentajes, carriles y órdenes antiguos no dirigen el trabajo.
@@ -65,6 +65,17 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   Aceptación y declaración anteriores intactas. Cierre solo del ejercicio sintético.
   AD3-18/Bolsa5/CT59 instaladas en ambas bases; UP/DOWN con ACL, funciones y
   comprobaciones correctas según dirección. No reaplicar ni revertir estos datos.
+- Objetivo 7 recorrido desde la quinta operación del mismo formulario: HTTP `201`
+  real tras la renuncia `0c5fdea4…`, mismo expediente `fe4934a1…`; un nuevo
+  llamamiento abierto y recibo CT `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778`,
+  fecha `2026-09-05T23:57:11.037866Z`. Bolsa conserva siete registros (dos órdenes,
+  tres propuestas, aceptación y renuncia), siete historias y siete eventos.
+  Tras reiniciar app/PostgreSQL principal, navegador `200/200/200/200/200`:
+  mismos 14 campos salvo `estado_local: replay_confirmado`, sin duplicados.
+  Cero errores JS, cookies, almacenamiento web y desbordamiento. Objetivo 7
+  cerrado funcionalmente solo tras renuncia sintética.
+  La intención CT original se conserva; el recibo de renuncia permanece histórico.
+  No acredita aviso enviado, aceptación del nuevo llamamiento ni plazo legal.
 - Consulta de justificante conectada con permiso propio V3 real y fresco,
   misma respuesta/recibo y auditoría de acceso. Es interna: no crea DTO HTTP ni expone
   `Seleccion`. AD3 `000016` / CT `000057` instaladas en ambas bases locales,
@@ -82,7 +93,8 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
   verifica origen, firma o custodia del correo. El `.eml` se lee y resume
   localmente en el navegador; no se sube.
 - Pendiente conectar la aceptación a la propuesta de nombramiento (objetivo 8).
-  Faltan vencimiento, siguiente candidato y correo corporativo.
+  Faltan vencimiento, aviso del llamamiento sucesor y correo corporativo;
+  continuación tras renuncia sintética `201` y replay `200` tras reinicio.
   La aceptación manual sintética no acredita entrega ni plazo legal aprobado,
   nombramiento, incorporación o producción.
   El criterio manual de desarrollo sigue provisional, no aprobado por el operador.
@@ -124,7 +136,7 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 4 | Registrar una aceptación válida | Permiso específico, comprobación competente de respuesta, plazo, justificante y estado, resolución y mismo recibo recuperable; la declaración del corte 3 no sustituye esa resolución. Habilita la propuesta de nombramiento solo tras aceptación válida. | Cerrado técnicamente solo para ejercicio manual sintético: `201` y replay `200` tras reinicio con API/V3/CT/Bolsa reales, sin duplicados. No política legal aprobada ni habilitación productiva |
 | 5 | Registrar una renuncia válida | Respuesta y motivo conservados; deja de ofrecerse la aceptación de ese llamamiento. | Cerrado funcionalmente solo en ejercicio manual sintético: `201` y recuperación `200` tras reinicio, mismos recibo e intención pendiente, sin duplicados. No política legal aprobada |
 | 6 | Resolver un vencimiento cuando corresponda | Solo con inicio y política de plazo acreditados; no calcula un plazo legal desde el aviso local. | Depende de evidencia y política |
-| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Intención de renuncia conservada como pendiente; todavía no se ha ejecutado la siguiente selección |
+| 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Cerrado funcionalmente solo tras renuncia sintética: `201` y replay `200` tras reinicio, mismos recibos/fecha. No acredita vencimiento ni aviso al sucesor |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Pendiente de enlazar desde la aceptación manual sintética; no acredita nombramiento real |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Después de 8 |
 | 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
@@ -140,7 +152,8 @@ se entrega un borrador de desarrollo claramente marcado, no una redacción
 jurídica validada ni un documento firmado.
 
 El paso 6 no se declara completo por registrar aceptación y renuncia sintéticas:
-faltan vencimiento y continuidad con la selección siguiente.
+faltan vencimiento y correo corporativo; la continuación tras renuncia sintética
+tiene `201` real y recuperación `200` tras reinicio, pero no aviso al sucesor.
 La numeración de esta cola no sustituye los ocho pasos del procedimiento.
 
 ## Dependencias externas sin detener todo el desarrollo

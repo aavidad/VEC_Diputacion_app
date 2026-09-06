@@ -40,7 +40,8 @@ func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaSeleccionLlamamiento ||
 		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
-		ruta == httpinterno.RutaResolucionComunicacionLlamamiento
+		ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
+		ruta == httpinterno.RutaContinuacionLlamamiento
 }
 
 func rutaMutacionDurableContratacionTemporalDesarrollo(ruta string) bool {
@@ -75,6 +76,9 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 		return false
 	}
 	r := datos.Recurso
+	if ruta == httpinterno.RutaContinuacionLlamamiento {
+		return solicitudAutorizacionContinuacionDesarrolloValida(ctx, datos, p)
+	}
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
 		if datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
 			return solicitudAutorizacionResolucionManualDesarrolloValida(ctx, datos, p)
@@ -250,7 +254,10 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
 	s.mu.Unlock()
-	return configurarAutoridadResolucionManualDesarrollo(ctx, alta, reloj, desde)
+	if err := configurarAutoridadResolucionManualDesarrollo(ctx, alta, reloj, desde); err != nil {
+		return err
+	}
+	return configurarAutoridadContinuacionDesarrollo(ctx, alta, reloj, desde)
 }
 
 type autorizadorLlamamientoDesarrollo struct {
@@ -262,6 +269,8 @@ type autorizadorLlamamientoDesarrollo struct {
 	resolucionManual     bool
 	aceptacionBolsa      bool
 	renunciaBolsa        bool
+	continuacionCT       bool
+	siguienteBolsa       bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -273,6 +282,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.continuacionCT || a.siguienteBolsa {
+		return motivoContinuacionDesarrollo(a.siguienteBolsa)
+	}
 	if a.renunciaBolsa {
 		return motivoRenunciaBolsaDesarrollo()
 	}
@@ -336,18 +348,13 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if !valida || !rutaLlamamientoContratacionTemporalDesarrollo(capacidad.ruta) {
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
-	modosResolucion := 0
-	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa, a.renunciaBolsa} {
-		if activo {
-			modosResolucion++
-		}
-	}
-	if (modosResolucion > 0 && (modosResolucion != 1 || a.comunicacion || a.respuestaRecibida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento)) ||
-		(modosResolucion == 0 && capacidad.ruta == httpinterno.RutaResolucionComunicacionLlamamiento) ||
+	if !a.modoResolucionOContinuacionValido(capacidad.ruta) ||
 		(a.consultaJustificante && accion != postgresct.AccionConsultaJustificanteRespuestaRecibida) ||
 		(a.resolucionManual && accion != postgresct.AccionResolucionManualLlamamiento) ||
 		(a.aceptacionBolsa && accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo) ||
 		(a.renunciaBolsa && accion != puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo) ||
+		(a.continuacionCT && accion != postgresct.AccionContinuacionLlamamiento) ||
+		(a.siguienteBolsa && accion != puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo) ||
 		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||

@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   validarSolicitudSeleccionLlamamiento, validarReciboSeleccionLlamamiento,
   validarSolicitudRespuestaRecibida, validarReciboRespuestaRecibida, CAMPOS_RESPUESTA_RECIBIDA,
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento, CAMPOS_RESOLUCION,
+  validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
+  CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE,
 } from "./contrato-llamamiento.js";
 import { RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
 
@@ -63,8 +67,127 @@ const INTENCION_SIGUIENTE = {
   referencia: "intencion:siguiente:001", estado_local: "pendiente",
   actualizada_en: "2026-09-05T09:05:00.12345Z",
 };
+const SIGUIENTE = {
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174004",
+  organizacion_ref: RESOLUCION.organizacion_ref, expediente_ref: RESOLUCION.expediente_ref,
+  resolucion_ref: RESOLUCION_CONFIRMADA.resolucion_ref, intencion_ref: INTENCION_SIGUIENTE.referencia,
+};
+const CONTINUACION = {
+  esquema: "vec.contratacion-temporal.continuacion-llamamiento.v1",
+  organizacion_ref: SIGUIENTE.organizacion_ref, expediente_ref: SIGUIENTE.expediente_ref,
+  resolucion_ref: SIGUIENTE.resolucion_ref, intencion_ref: SIGUIENTE.intencion_ref,
+  llamamiento_anterior_ref: RESOLUCION.llamamiento_ref, llamamiento_ref: "llamamiento:siguiente:002",
+  version_llamamiento: 1, recibo_bolsa_ref: "recibo:bolsa:siguiente:002",
+  recibo_ref: "recibo:ct:siguiente:002", auditoria_ref: "auditoria:siguiente:002",
+  confirmada_en: "2026-09-05T09:06:00.123450Z", estado_intencion: "despachada", estado_local: "confirmado",
+};
 const respuesta = (datos, status = 201) => new Response(JSON.stringify(datos), {
   status, headers: { "content-type": "application/json; charset=utf-8" },
+});
+
+test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {
+  const recursos = [
+    "cliente-http-llamamiento.js", "contrato-llamamiento.js",
+    "formulario-llamamiento.js", "i18n-llamamiento.js", "renderizado-llamamiento.js",
+  ];
+  for (const nombre of ["interno.manifest", "produccion.manifest"]) {
+    const contenido = await readFile(new URL(`../../../../${nombre}`, import.meta.url), "utf8");
+    const rutas = contenido.trim().split(/\r?\n/u);
+    for (const recurso of recursos) {
+      const ruta = `static/portal-empleado/modulos/contratacion-temporal/${recurso}`;
+      assert.doesNotMatch(ruta, /presentacion|demo/iu, "No debe activar la exclusión de material de presentación");
+      assert.equal(rutas.filter((entrada) => entrada === ruta).length, 1, `${nombre}: ${recurso}`);
+      assert.ok((await readFile(new URL(`./${recurso}`, import.meta.url), "utf8")).length > 0);
+    }
+  }
+});
+
+test("la bandeja con error conserva navegación y reintento sin formulario de llamamiento", () => {
+  const html = renderizarModuloContratacionTemporal({
+    vista: "cuadro", carga: "error", cuadro: null, expediente: null,
+    tipo_mensaje: "error", mensaje_clave: "estado_error_carga",
+  }, { llamamientoDisponible: true });
+  assert.match(html, /ct-exp-navegacion/u);
+  assert.match(html, /role="alert"/u);
+  assert.match(html, /data-ct-exp-accion="reintentar"/u);
+  assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
+});
+
+test("siguiente usa POST cinco campos canónicos y recibo exacto catorce campos 201/200", async () => {
+  assert.deepEqual(CAMPOS_SIGUIENTE, ["clave_idempotencia", "organizacion_ref", "expediente_ref", "resolucion_ref", "intencion_ref"]);
+  assert.equal(CAMPOS_RECIBO_SIGUIENTE.length, 14);
+  for (const [status, estado_local] of [[201, "confirmado"], [200, "replay_confirmado"]]) {
+    const eco = { ...CONTINUACION, estado_local };
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+      assert.equal(ruta, "/api/vec/contratacion-temporal/llamamientos/siguientes");
+      assert.equal(opciones.body, JSON.stringify(SIGUIENTE));
+      assert.equal(opciones.method, "POST"); assert.equal(opciones.cache, "no-store");
+      assert.equal(opciones.redirect, "error"); assert.equal(opciones.credentials, "same-origin");
+      assert.deepEqual([...opciones.headers.keys()], ["accept", "content-type"]);
+      return respuesta({ data: eco }, status);
+    } });
+    const recibido = await cliente.continuarLlamamiento(Object.fromEntries(Object.entries(SIGUIENTE).reverse()));
+    assert.deepEqual(recibido, eco); assert.ok(Object.isFrozen(recibido));
+    assert.deepEqual(validarReciboContinuacionLlamamiento(eco, SIGUIENTE, RESOLUCION.llamamiento_ref), eco);
+  }
+});
+
+test("siguiente rechaza campos extra, referencias inválidas, getters y clave no válida antes de HTTP", () => {
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: () => assert.fail("HTTP") });
+  for (const cambio of [{ clave_idempotencia: "otra" },
+    { clave_idempotencia: "00000000-0000-4000-8000-000000000000" }, { version_esperada: 3 },
+    { llamamiento_anterior_ref: RESOLUCION.llamamiento_ref }, { actor_ref: "actor:inventado" },
+    { candidatura_ref: "persona:inventada" }, { respuesta: "renuncia" },
+    ...CAMPOS_SIGUIENTE.filter((campo) => campo.endsWith("_ref")).flatMap((campo) =>
+      ["", "persona@example.invalid", null, "a".repeat(161)].map((valor) => ({ [campo]: valor })))]) {
+    assert.throws(() => cliente.continuarLlamamiento({ ...SIGUIENTE, ...cambio }), TypeError);
+  }
+  for (const campo of CAMPOS_SIGUIENTE) {
+    const incompleta = { ...SIGUIENTE }; delete incompleta[campo];
+    assert.throws(() => validarSolicitudContinuacionLlamamiento(incompleta), TypeError);
+    const getter = { ...SIGUIENTE };
+    Object.defineProperty(getter, campo, { get() { assert.fail("getter"); } });
+    assert.throws(() => validarSolicitudContinuacionLlamamiento(getter), TypeError);
+  }
+});
+
+test("siguiente liga cuatro referencias, anterior distinto de nuevo y fechas UTC sin aceptar recibos inventados", async () => {
+  const cambios = [{ esquema: "otro" }, { version_llamamiento: "1" }, { version_llamamiento: 2 },
+    { estado_intencion: "pendiente" }, { estado_local: "aceptado" }, { Seleccion: {} }, { posicion: 2 },
+    { llamamiento_ref: CONTINUACION.llamamiento_anterior_ref },
+    ...["organizacion_ref", "expediente_ref", "resolucion_ref", "intencion_ref"].map((campo) => ({ [campo]: "ref:ajena" })),
+    ...CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo.endsWith("_ref")).map((campo) => ({ [campo]: "persona@example.invalid" })),
+    ...["0000-01-01T00:00:00Z", "2026-02-30T00:00:00Z", "2026-09-05T09:06:00+00:00",
+      "2026-09-05T09:06:00.1234567Z"].map((confirmada_en) => ({ confirmada_en }))];
+  for (const cambio of cambios) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: { ...CONTINUACION, ...cambio } }) });
+    await assert.rejects(cliente.continuarLlamamiento(SIGUIENTE), (e) => e.resultadoIndeterminado === true);
+  }
+  for (const campo of CAMPOS_RECIBO_SIGUIENTE) {
+    const incompleta = { ...CONTINUACION }; delete incompleta[campo];
+    assert.throws(() => validarReciboContinuacionLlamamiento(incompleta, SIGUIENTE), TypeError);
+    const getter = { ...CONTINUACION };
+    Object.defineProperty(getter, campo, { get() { assert.fail("getter de recibo"); } });
+    assert.throws(() => validarReciboContinuacionLlamamiento(getter, SIGUIENTE), TypeError);
+  }
+  assert.throws(() => validarReciboContinuacionLlamamiento(CONTINUACION, SIGUIENTE, "llamamiento:ajeno"), TypeError);
+  for (const confirmada_en of ["2026-09-05T09:06:00Z", "2026-09-05T09:06:00.12345Z", "2026-09-05T09:06:00.123451Z"]) {
+    assert.equal(validarReciboContinuacionLlamamiento({ ...CONTINUACION, confirmada_en }, SIGUIENTE).confirmada_en, confirmada_en);
+  }
+});
+
+test("siguiente conserva prefijo común y solo rechazos previos conocidos son determinados", async () => {
+  for (const [status, codigo, indeterminado] of [[422, "contenido_no_valido", false], [403, "acceso_denegado", false],
+    [409, "clave_idempotencia_reutilizada", true], [502, "resultado_no_confiable", true], [503, "servicio_no_disponible", true]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ error: {
+      codigo, clave_i18n: `api.contratacion_temporal.comunicacion_llamamiento.error.${codigo}`,
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }, status) });
+    await assert.rejects(cliente.continuarLlamamiento(SIGUIENTE), (e) => {
+      assert.equal(e.codigo, codigo); assert.equal(e.envelopeValido, true);
+      assert.equal(e.resultadoIndeterminado, indeterminado); return true;
+    });
+  }
 });
 
 test("POST canónico selección y comunicación usan el transporte común sin cabeceras de identidad", async () => {

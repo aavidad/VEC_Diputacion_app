@@ -10,7 +10,7 @@ autorizado para tramitar expedientes de personas reales.
 
 **Disponible: cinco pasos completos de Contratación temporal y una parte
 del sexto: selección, apertura de llamamiento, aviso local y declaración de
-respuesta por RRHH, más aceptación y renuncia manuales del ejercicio sintético.** No están
+respuesta por RRHH, aceptación y renuncia manuales y continuación tras renuncia sintética.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La base principal conserva 51 solicitudes, con bandeja y detalle consultables
 en el recorrido local `8443`/base `55433`; no incrementa el contador de pasos.
@@ -35,6 +35,11 @@ el mismo formulario: navegador real `200/201/201/201` y recuperación
 recibo, resolución, auditoría, fecha e intención pendiente, sin duplicados.
 Sin errores JS, cookies, almacenamiento web ni desbordamiento. Objetivo 5 cerrado
 funcionalmente en desarrollo; criterio provisional sin aval legal ni del operador.
+
+**Objetivo 7 incluido en esta entrega:** quinta operación `201` real tras renuncia;
+recuperación `200/200/200/200/200` tras reiniciar app/PostgreSQL principal, mismos
+recibos y fecha. Cerrado funcionalmente solo en ese ejercicio sintético, sin
+duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
 
 Para elegir la documentación adecuada:
 
@@ -159,7 +164,7 @@ conservado, use los datos exactos de la
 | 3. Bolsa: vía de cobertura | Revisar la propuesta y confirmar **Bolsa vigente**. | Decisión de cobertura guardada. No crea por sí sola una bolsa ni publica una convocatoria. |
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
-| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas. | Ambas resoluciones `201` y recuperación `200` tras reinicio, sin duplicados; intención de siguiente pendiente en renuncia. Faltan vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento, parcialmente disponible | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas. | Recibos recuperados tras reinicio sin duplicados. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento | Pendiente como recorrido completo. | No se ofrece una formalización terminada ni sus seis documentos completos. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
@@ -273,10 +278,22 @@ Sin ambas casillas no se envía. La petición antigua sin revisión manual conse
 el `409` de validación pendiente, sin efectos: puede corregir casillas con la misma
 clave. Ante resultado ambiguo, clave y material quedan congelados, sin reintento automático.
 Dirección confirmó ambas resoluciones `201` y recuperación `200` tras reinicio,
-con sus respectivos recibos y fechas originales; la intención de renuncia sigue pendiente.
+con sus respectivos recibos y fechas originales; la intención del recibo de renuncia conserva su `pendiente` histórico.
 El enlace a propuesta de nombramiento (objetivo 8) sigue pendiente; no hay política
-legal aprobada, vencimiento, siguiente candidato ni correo corporativo completos.
+legal aprobada, vencimiento ni correo corporativo completos.
 El criterio manual es provisional y exclusivo de desarrollo sintético, no aval del operador.
+
+### Quinta operación: continuar tras la renuncia sintética
+
+Tras recuperar la renuncia, el mismo panel ofrece continuar; expediente, resolución
+e intención vienen de sus recibos, no se editan. Use la quinta clave original de la
+[guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia)
+y confirme expresamente la apertura de un único nuevo llamamiento, sin otro `.eml`.
+**Siguiente llamamiento abierto · ejercicio sintético** confirma la continuidad
+posterior: no reescribe el recibo de renuncia, ni acredita aviso enviado, entrega
+o aceptación. No reutilice el nuevo llamamiento en el formulario de comunicación.
+Una vez recibido, otro envío queda desactivado; ante ambigüedad conserve clave y
+material, reintento solo explícito. Un `409` no autoriza cambiar de clave.
 
 ### Qué ocurre después de un reinicio
 
@@ -295,7 +312,9 @@ PostgreSQL principal: `200/200/200/200`, mismo recibo CT y fecha, sin duplicados
 La renuncia manual sintética también: `200/200/200/200`, mismos recibo, resolución,
 auditoría, fecha e intención pendiente con su carga real. La aceptación anterior
 y su declaración siguen intactas. La [guía](../../GUIA_RECORRIDO_ALBERTO.md)
-separa las claves de ambos casos; no se ha ejecutado el siguiente candidato.
+separa las claves de ambos casos. La quinta operación también se recuperó tras
+reiniciar app/PostgreSQL principal: cinco `200`, mismos 14 campos salvo
+`estado_local: replay_confirmado`, sin duplicados; objetivo 7 cerrado solo tras renuncia sintética.
 
 El formulario sin confirmar no se guarda automáticamente en el navegador.
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.

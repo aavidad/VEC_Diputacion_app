@@ -50,7 +50,9 @@ func (p *proveedorConsultaJustificanteRespuestaDesarrollo) AutorizarConsultaJust
 	c, valida := p.soporte.capacidadValida(ctx)
 	ligada, existe := ctx.Value(claveConsultaJustificanteRespuestaDesarrollo{}).(ports.SolicitudResolverLlamamiento)
 	preparacion, preparada := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
-	if !valida || c.ruta != httpinterno.RutaResolucionComunicacionLlamamiento || !existe || ligada != s ||
+	rutaValida := c.ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
+		(c.ruta == httpinterno.RutaContinuacionLlamamiento && antecedenteContinuacionDesarrolloValido(ctx, s))
+	if !valida || !rutaValida || !existe || ligada != s ||
 		!preparada || !consultaJustificanteLigadaAlExpedienteDesarrollo(preparacion.expediente, s) {
 		return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
 	}

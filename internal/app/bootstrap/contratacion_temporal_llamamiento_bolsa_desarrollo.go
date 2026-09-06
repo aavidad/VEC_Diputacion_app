@@ -67,6 +67,7 @@ type puenteBolsaLlamamientoDesarrollo struct {
 	// y plazo. Nunca se sustituye por el autorizador de selección o consulta.
 	autorizadorAceptacion puertosbolsa.AutorizadorLlamamientoDesarrollo
 	autorizadorRenuncia   puertosbolsa.AutorizadorLlamamientoDesarrollo
+	autorizadorSiguiente  puertosbolsa.AutorizadorLlamamientoDesarrollo
 	reloj                 ports.Reloj
 	privadaFuente         ed25519.PrivateKey
 	seleccion             selladorPuenteLlamamientoDesarrollo

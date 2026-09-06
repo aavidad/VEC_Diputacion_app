@@ -15,6 +15,7 @@ const (
 		"/api/vec/contratacion-temporal/llamamientos/comunicaciones"
 	RutaResolucionComunicacionLlamamiento = "" +
 		"/api/vec/contratacion-temporal/llamamientos/resoluciones"
+	RutaContinuacionLlamamiento = "/api/vec/contratacion-temporal/llamamientos/siguientes"
 )
 
 var ErrManejadorComunicacionLlamamientoInvalido = errors.New(
@@ -96,6 +97,8 @@ func (h *manejadorComunicacionLlamamiento) ServeHTTP(
 		h.registrar(w, r)
 	case RutaResolucionComunicacionLlamamiento:
 		h.resolver(w, r)
+	case RutaContinuacionLlamamiento:
+		h.continuar(w, r)
 	default:
 		responderErrorComunicacionLlamamiento(
 			w,
@@ -216,7 +219,8 @@ func rutaComunicacionLlamamientoExacta(r *http.Request) bool {
 		r.URL.Host != "" || r.URL.User != nil || r.URL.Opaque != "" ||
 		r.URL.Fragment != "" || r.URL.RawFragment != "" ||
 		(r.URL.Path != RutaRegistroComunicacionLlamamiento &&
-			r.URL.Path != RutaResolucionComunicacionLlamamiento) {
+			r.URL.Path != RutaResolucionComunicacionLlamamiento &&
+			r.URL.Path != RutaContinuacionLlamamiento) {
 		return false
 	}
 	return r.URL.EscapedPath() == r.URL.Path &&

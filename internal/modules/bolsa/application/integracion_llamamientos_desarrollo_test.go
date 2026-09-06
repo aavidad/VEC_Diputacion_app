@@ -51,6 +51,17 @@ func (r *repositorioIntegracionPrueba) Guardar(_ context.Context, d ports.Regist
 	if recibo, existe := r.recibos[d.OperacionRef]; existe {
 		return recibo, nil
 	}
+	// Modela únicamente la unicidad exigida a SQL; no acredita su instalación.
+	if d.Tipo == "propuesta" && d.Propuesta != nil && d.Propuesta.Continuacion != nil {
+		c := d.Propuesta.Continuacion
+		for _, recibo := range r.recibos {
+			p := recibo.Registro.Propuesta
+			if recibo.Registro.Tipo == "propuesta" && p != nil && p.Continuacion != nil &&
+				(p.Continuacion.TerminalOperacionRef == c.TerminalOperacionRef || p.Continuacion.IntencionRef == c.IntencionRef) {
+				return ports.ReciboLlamamientoDesarrollo{}, ports.ErrIntegracionLlamamientoDesarrollo
+			}
+		}
+	}
 	b, err := d.Canonico()
 	if err != nil {
 		return ports.ReciboLlamamientoDesarrollo{}, err
@@ -260,6 +271,104 @@ func aperturaAceptacionIntegracionPrueba(t *testing.T) (*ServicioIntegracionLlam
 		PoliticaRef: "politica:unidad", PoliticaVersion: 1, PoliticaSHA256: strings.Repeat("a", 64), VersionEsperada: 1,
 	}}
 	return s, r, reloj, autorizaciones, p
+}
+
+type fuenteSiguienteObservadaPrueba struct {
+	ports.FuenteFirmadaLlamamientosDesarrollo
+	evaluadas []uint64
+}
+
+func (f *fuenteSiguienteObservadaPrueba) EvaluarParticipacion(ctx context.Context, s ports.SolicitudEvaluarParticipacionLlamamiento) (domain.EvaluacionParticipacionLlamamiento, error) {
+	f.evaluadas = append(f.evaluadas, s.Entrada.Orden)
+	return f.FuenteFirmadaLlamamientosDesarrollo.EvaluarParticipacion(ctx, s)
+}
+
+func escenarioSiguienteIntegracionPrueba(t *testing.T) (*ServicioIntegracionLlamamientosDesarrollo, *repositorioIntegracionPrueba, *relojFijoLlamamiento, *int, ports.PeticionSiguienteLlamamientoDesarrollo) {
+	t.Helper()
+	s, r, reloj, permisos, p := aperturaAceptacionIntegracionPrueba(t)
+	p.OperacionRef = "operacion:renuncia"
+	if _, err := s.RenunciarLlamamiento(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	return s, r, reloj, permisos, ports.PeticionSiguienteLlamamientoDesarrollo{
+		OperacionRef: "operacion:siguiente", IntencionRef: "intencion:siguiente", TerminalOperacionRef: p.OperacionRef}
+}
+
+func TestIntegracionLlamamientosDesarrolloSiguienteConservaOrdenYReplay(t *testing.T) {
+	s, repo, reloj, permisos, p := escenarioSiguienteIntegracionPrueba(t)
+	f := &fuenteSiguienteObservadaPrueba{FuenteFirmadaLlamamientosDesarrollo: s.fuente}
+	s.fuente = f
+	orden, apertura, terminal := bytes.Clone(repo.filas["operacion:orden"]), bytes.Clone(repo.filas["operacion:apertura"]), bytes.Clone(repo.filas[p.TerminalOperacionRef])
+	r, err := s.SolicitarSiguienteLlamamiento(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := r.Registro.Propuesta.Continuacion
+	h := sha256.Sum256(terminal)
+	if r.Registro.Tipo != "propuesta" || r.Registro.Propuesta.OrdenSeleccionado != 3 || r.Registro.Llamamiento.Version != 1 ||
+		r.Registro.EstadoLlamamiento != domain.EstadoLlamamientoAbierto || len(r.Registro.Instantanea.Entradas) != 3 ||
+		len(r.Registro.Propuesta.Evaluaciones) != 1 || r.Registro.Propuesta.Evaluaciones[0].Orden != 3 ||
+		c == nil || c.TerminalSHA256 != hex.EncodeToString(h[:]) || c.IntencionRef != p.IntencionRef ||
+		r.Registro.Accion() != ports.AccionAbrirSiguienteLlamamientoDesarrollo || len(f.evaluadas) != 1 || f.evaluadas[0] != 3 || len(repo.filas) != 4 {
+		t.Fatal("siguiente reeligió, recortó orden o perdió antecedente")
+	}
+	reloj.instante = reloj.instante.Add(time.Minute)
+	s2, err := NuevoServicioIntegracionLlamamientosDesarrollo(s.fuente, repo, s.autorizador, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := s2.SolicitarSiguienteLlamamiento(context.Background(), p)
+	if err != nil || replay.ReciboRef != r.ReciboRef || replay.ConfirmadaEn != r.ConfirmadaEn ||
+		replay.Registro.Propuesta.GeneradaEn != r.Registro.Propuesta.GeneradaEn || *permisos != 5 || repo.guardados != 5 || len(repo.filas) != 4 || len(f.evaluadas) != 1 {
+		t.Fatal("replay cambió fecha, reevaluó o evitó permiso fresco", err)
+	}
+	if !bytes.Equal(orden, repo.filas["operacion:orden"]) || !bytes.Equal(apertura, repo.filas["operacion:apertura"]) || !bytes.Equal(terminal, repo.filas[p.TerminalOperacionRef]) {
+		t.Fatal("antecedentes originales modificados")
+	}
+	// Otra clave no puede crear un segundo sucesor de la misma intención.
+	reloj.instante = instanteAplicacionLlamamientoPrueba
+	otra := p
+	otra.OperacionRef = "operacion:siguiente-duplicada"
+	if rr, err := s.SolicitarSiguienteLlamamiento(context.Background(), otra); err == nil || rr.ReciboRef != "" || len(repo.filas) != 4 {
+		t.Fatal("bifurcación de la continuación")
+	}
+}
+
+func TestIntegracionLlamamientosDesarrolloSiguienteDeniegaCambiosYPermisoPrimero(t *testing.T) {
+	s, repo, _, permisos, p := escenarioSiguienteIntegracionPrueba(t)
+	if _, err := s.SolicitarSiguienteLlamamiento(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	guardados, autorizaciones := repo.guardados, *permisos
+	otra := p
+	otra.IntencionRef += "otra"
+	if r, err := s.SolicitarSiguienteLlamamiento(context.Background(), otra); err == nil || r.ReciboRef != "" || repo.guardados != guardados || *permisos != autorizaciones {
+		t.Fatal("intención cambiada obtuvo replay")
+	}
+	var terminal ports.RegistroLlamamientoDesarrollo
+	if err := json.Unmarshal(repo.filas[p.TerminalOperacionRef], &terminal); err != nil {
+		t.Fatal(err)
+	}
+	terminal.Resolucion.PoliticaVersion++
+	original := repo.filas[p.TerminalOperacionRef]
+	repo.filas[p.TerminalOperacionRef], _ = terminal.Canonico()
+	if r, err := s.SolicitarSiguienteLlamamiento(context.Background(), p); err == nil || r.ReciboRef != "" || repo.guardados != guardados || *permisos != autorizaciones {
+		t.Fatal("huella terminal cambiada obtuvo replay")
+	}
+	repo.filas[p.TerminalOperacionRef] = original
+	s.autorizador = autorizadorIntegracionPrueba(func(_ context.Context, accion string, recurso dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		if accion != ports.AccionAbrirSiguienteLlamamientoDesarrollo {
+			t.Fatal("no pidió permiso siguiente")
+		}
+		return materialIntegracionPrueba(t, ports.AccionAbrirLlamamientoDesarrollo, recurso), nil
+	})
+	if r, err := s.SolicitarSiguienteLlamamiento(context.Background(), p); err == nil || r.ReciboRef != "" || repo.guardados != guardados {
+		t.Fatal("permiso de primer llamamiento habilitó siguiente")
+	}
+	s.autorizador = nil
+	if r, err := s.SolicitarSiguienteLlamamiento(context.Background(), p); err == nil || r.ReciboRef != "" || repo.guardados != guardados {
+		t.Fatal("dependencia nula no denegada")
+	}
 }
 
 type repositorioAperturaCompartidaPrueba struct {

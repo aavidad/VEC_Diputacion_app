@@ -11,6 +11,7 @@ import {
   CAMPOS_RESOLUCION, validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
   CAMPOS_REVISION_RESOLUCION, CRITERIO_VALIDACION_RESOLUCION_DESARROLLO,
   RESPUESTAS_RESOLUCION,
+  CAMPOS_SIGUIENTE, validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
 } from "./contrato-llamamiento.js";
 
 const OPERACIONES = Object.freeze({
@@ -29,6 +30,10 @@ const OPERACIONES = Object.freeze({
   resolucion: {
     campos: CAMPOS_RESOLUCION, validar: validarSolicitudResolucionLlamamiento,
     recibo: validarReciboResolucionLlamamiento, metodo: "resolverLlamamiento",
+  },
+  siguiente: {
+    campos: CAMPOS_SIGUIENTE, validar: validarSolicitudContinuacionLlamamiento,
+    recibo: validarReciboContinuacionLlamamiento, metodo: "continuarLlamamiento",
   },
 });
 function nuevoPaso() {
@@ -56,6 +61,7 @@ export function montarFormularioLlamamiento({
   });
   let montado = true, lecturaCorreo = 0;
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
+    siguiente: { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false },
     resolucion: { ...nuevoPaso(), mensaje: "llamamiento_resolucion_pendiente", claveConservada: false,
       valores: { revision_respuesta_rrhh: false, revision_plazo_rrhh: false,
         criterio_validacion_ref: CRITERIO_VALIDACION_RESOLUCION_DESARROLLO } },
@@ -82,7 +88,7 @@ export function montarFormularioLlamamiento({
       for (const campo of contrato.campos) {
         // Los antecedentes de comunicación proceden del recibo, no de los controles.
         const revision = operacion === "resolucion" && CAMPOS_REVISION_RESOLUCION.includes(campo);
-        if (["comunicacion", "resolucion"].includes(operacion) && campo !== "clave_idempotencia" && !revision) continue;
+        if (["comunicacion", "resolucion", "siguiente"].includes(operacion) && campo !== "clave_idempotencia" && !revision) continue;
         if (paso.claveConservada && campo === "clave_idempotencia") continue;
         if (operacion === "respuesta" && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
         const control = formulario.elements.namedItem(campo);
@@ -147,6 +153,10 @@ export function montarFormularioLlamamiento({
     repintar();
     return true;
   }
+  function puedeContinuar() {
+    return estado.resolucion.recibo?.respuesta === "renuncia"
+      && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente";
+  }
   async function alEnviar(evento) {
     const formulario = evento.target?.closest?.("[data-ct-llamamiento-form]");
     if (!formulario || !raiz.contains(formulario)) return;
@@ -158,9 +168,10 @@ export function montarFormularioLlamamiento({
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
     if (operacion === "respuesta" && estado.comunicacion.recibo?.version_resultante !== 2) return;
     if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
+    if (operacion === "siguiente" && !puedeContinuar()) return;
     guardarBorradores();
     const contrato = OPERACIONES[operacion];
-    const recuperandoRespuesta = ["respuesta", "resolucion"].includes(operacion) && paso.solicitud !== null;
+    const recuperandoRespuesta = ["respuesta", "resolucion", "siguiente"].includes(operacion) && paso.solicitud !== null;
     let solicitud;
     try {
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
@@ -172,12 +183,14 @@ export function montarFormularioLlamamiento({
               : paso.valores[campo],
         ]),
       ));
-      if (operacion === "resolucion" && [estado.seleccion, estado.comunicacion, estado.respuesta]
+      if (["resolucion", "siguiente"].includes(operacion) && [estado.seleccion, estado.comunicacion,
+        estado.respuesta, ...(operacion === "siguiente" ? [estado.resolucion] : [])]
         .some((anterior) => anterior.solicitud?.clave_idempotencia === solicitud.clave_idempotencia)) {
-        throw new TypeError("la resolución necesita su propia clave");
+        throw new TypeError("la operación necesita su propia clave");
       }
     } catch {
-      paso.mensaje = operacion === "resolucion" ? "llamamiento_resolucion_validacion"
+      paso.mensaje = operacion === "siguiente" ? "llamamiento_siguiente_validacion"
+        : operacion === "resolucion" ? "llamamiento_resolucion_validacion"
         : operacion === "respuesta" ? "llamamiento_respuesta_validacion" : "llamamiento_validacion";
       paso.tono = "error";
       repintar(operacion);
@@ -191,6 +204,9 @@ export function montarFormularioLlamamiento({
           version: solicitud.version_esperada,
           justificante: solicitud.prueba_respuesta_ref,
           criterio: solicitud.criterio_validacion_ref,
+          ...(operacion === "siguiente" ? {
+            resolucion: solicitud.resolucion_ref, intencion: solicitud.intencion_ref,
+          } : {}),
           ...(operacion === "resolucion" ? { respuesta: t("llamamiento_resolucion_" + solicitud.respuesta) } : {}),
           ...(operacion === "respuesta" ? {
             respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
@@ -204,6 +220,7 @@ export function montarFormularioLlamamiento({
     } catch { /* La confirmación es obligatoria. */ }
     if (!confirmado || !montado) return;
     paso.solicitud = solicitud;
+    if (operacion === "siguiente") paso.claveConservada = true;
     paso.valores = { ...solicitud };
     paso.ocupado = true;
     paso.controlador = new AbortController();
@@ -216,11 +233,13 @@ export function montarFormularioLlamamiento({
         signal: paso.controlador.signal,
       });
       respuestaRecibida = true;
-      const recibo = contrato.recibo(respuesta, solicitud);
+      const recibo = contrato.recibo(respuesta, solicitud, operacion === "siguiente"
+        ? estado.resolucion.solicitud.llamamiento_ref : undefined);
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
-      paso.mensaje = operacion === "resolucion" ? "llamamiento_resolucion_recibo_" + recibo.respuesta
+      paso.mensaje = operacion === "siguiente" ? "llamamiento_siguiente_recibo"
+        : operacion === "resolucion" ? "llamamiento_resolucion_recibo_" + recibo.respuesta
         : operacion === "respuesta" ? "llamamiento_respuesta_recibo" : "llamamiento_recibo";
       paso.tono = "exito";
       if (operacion === "seleccion") {
@@ -255,6 +274,12 @@ export function montarFormularioLlamamiento({
           respuesta: recibo.respuesta, prueba_respuesta_ref: recibo.justificante_ref,
         };
       }
+      if (operacion === "resolucion" && puedeContinuar()) {
+        estado.siguiente.valores = { ...estado.siguiente.valores,
+          organizacion_ref: solicitud.organizacion_ref, expediente_ref: solicitud.expediente_ref,
+          resolucion_ref: recibo.resolucion_ref, intencion_ref: recibo.intencion_siguiente.referencia };
+      }
+      // La continuación conserva los recibos anteriores: no rearma comunicación ni selección.
     } catch (error) {
       if (!montado) return;
       guardarBorradores();
@@ -290,6 +315,7 @@ export function montarFormularioLlamamiento({
     const operacion = control.dataset.ctLlamamientoClave;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     if (operacion === "resolucion" && !RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)) return;
+    if (operacion === "siguiente" && !puedeContinuar()) return;
     const paso = estado[operacion];
     if (paso.solicitud !== null || paso.claveConservada || paso.ocupado || paso.calculando) return;
     guardarBorradores();

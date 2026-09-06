@@ -310,10 +310,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if comunicacionReal != nil {
-		// La resolución recibe la intención, pero no confirma aceptación sin
-		// validación de respuesta/plazo. Devuelve la condición pendiente exacta.
+		// La continuación confirma solo después de abrir en Bolsa; no implica
+		// envío de aviso ni aplicación de un plazo legal.
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroComunicacionLlamamiento, Manejador: comunicacionReal})
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionComunicacionLlamamiento, Manejador: comunicacionReal})
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaContinuacionLlamamiento, Manejador: comunicacionReal})
 	}
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
@@ -462,6 +463,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	}
 	return r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
+		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||

@@ -1,6 +1,10 @@
 package domain
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -9,6 +13,117 @@ import (
 )
 
 var instanteLlamamientoPrueba = time.Date(2026, time.July, 15, 10, 30, 0, 123_456_000, time.UTC)
+
+func ordenSiguienteLlamamientoPrueba(t *testing.T) OrdenProponerSiguienteLlamamiento {
+	t.Helper()
+	b, n, p, i := escenarioLlamamientoPrueba(t)
+	orden := OrdenProponerPrimerLlamamiento{PropuestaRef: "propuesta:primera", Bolsa: b, Necesidad: n, Instantanea: i, Politica: p,
+		Evaluaciones: []EvaluacionParticipacionLlamamiento{
+			evaluacionLlamamientoPrueba(t, i, n, p, 1, ResultadoNoElegible),
+			evaluacionLlamamientoPrueba(t, i, n, p, 2, ResultadoElegible)}, GeneradaEn: instanteLlamamientoPrueba.Add(2 * time.Minute)}
+	anterior, err := ProponerPrimerLlamamiento(orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abierto, err := NuevoLlamamientoAbierto(DatosLlamamientoAbierto{LlamamientoRef: "llamamiento:primero", BolsaRef: b.BolsaRef,
+		NecesidadRef: n.NecesidadRef, PropuestaRef: anterior.PropuestaRef, Version: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := abierto.TransicionarATerminal(1, &TerminalLlamamiento{Estado: EstadoLlamamientoRenunciado, OperacionRef: "operacion:renuncia"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	orden.PropuestaRef, orden.GeneradaEn = "propuesta:siguiente", orden.GeneradaEn.Add(time.Minute)
+	orden.Evaluaciones = []EvaluacionParticipacionLlamamiento{evaluacionLlamamientoPrueba(t, i, n, p, 3, ResultadoElegible)}
+	return OrdenProponerSiguienteLlamamiento{Orden: orden, Anterior: anterior, Terminal: terminal, Continuacion: AntecedenteContinuacionLlamamiento{
+		TerminalOperacionRef: "operacion:renuncia", TerminalSHA256: strings.Repeat("a", 64), PropuestaRef: anterior.PropuestaRef,
+		PropuestaSHA256: anterior.HuellaContenidoSHA256, OrdenAnterior: 2, IntencionRef: "intencion:siguiente"}}
+}
+
+func TestProponerSiguienteLlamamientoConservaOrdenYCanonLegacy(t *testing.T) {
+	o := ordenSiguienteLlamamientoPrueba(t)
+	anterior, _ := json.Marshal(o.Anterior)
+	// Reproducir la estructura anterior sin Continuacion, manteniendo su orden
+	// de campos; la huella antigua también excluía HuellaContenidoSHA256.
+	for _, sinHuella := range []bool{false, true} {
+		tipo, valor := reflect.TypeOf(o.Anterior), reflect.ValueOf(o.Anterior)
+		var campos []reflect.StructField
+		var valores []reflect.Value
+		for j := 0; j < tipo.NumField(); j++ {
+			if tipo.Field(j).Name == "Continuacion" || (sinHuella && tipo.Field(j).Name == "HuellaContenidoSHA256") {
+				continue
+			}
+			campos, valores = append(campos, tipo.Field(j)), append(valores, valor.Field(j))
+		}
+		legacy := reflect.New(reflect.StructOf(campos)).Elem()
+		for j, v := range valores {
+			legacy.Field(j).Set(v)
+		}
+		b, err := json.Marshal(legacy.Interface())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !sinHuella && !bytes.Equal(b, anterior) {
+			t.Fatal("JSON legacy cambió")
+		}
+		h := sha256.Sum256(b)
+		if sinHuella && hex.EncodeToString(h[:]) != o.Anterior.HuellaContenidoSHA256 {
+			t.Fatal("huella legacy cambió")
+		}
+	}
+	p, err := ProponerSiguienteLlamamiento(o)
+	if err != nil || p.Validar() != nil || p.OrdenSeleccionado != 3 || len(p.Evaluaciones) != 1 || p.Evaluaciones[0].Orden != 3 ||
+		p.TotalParticipacionesInstantanea != 3 || p.HuellaInstantaneaSHA256 != o.Anterior.HuellaInstantaneaSHA256 ||
+		p.Continuacion == nil || *p.Continuacion != o.Continuacion {
+		t.Fatal("continuación recortó/renumeró el orden o perdió antecedentes", err)
+	}
+	despues, _ := json.Marshal(o.Anterior)
+	if !bytes.Equal(anterior, despues) || o.Anterior.Evaluaciones[1].Resultado != ResultadoElegible {
+		t.Fatal("renunciante convertido en inelegible")
+	}
+	clon, err := p.ClonarCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clon.Continuacion.IntencionRef += "otra"
+	if p.Continuacion.IntencionRef != o.Continuacion.IntencionRef || clon.Validar() == nil {
+		t.Fatal("alias o antecedente fuera de huella")
+	}
+	p.Continuacion.OrdenAnterior = 1
+	if o.Continuacion.OrdenAnterior != 2 || p.Validar() == nil {
+		t.Fatal("constructor comparte antecedente o admite salto")
+	}
+}
+
+func TestProponerSiguienteLlamamientoRechazaAntecedentesYSaltos(t *testing.T) {
+	for nombre, cambiar := range map[string]func(*OrdenProponerSiguienteLlamamiento){
+		"sin_terminal": func(o *OrdenProponerSiguienteLlamamiento) { o.Terminal = LlamamientoAbierto{} },
+		"aceptacion": func(o *OrdenProponerSiguienteLlamamiento) {
+			o.Terminal.estado = EstadoLlamamientoAceptado
+			o.Terminal.terminal.Estado = EstadoLlamamientoAceptado
+		},
+		"huella_anterior":     func(o *OrdenProponerSiguienteLlamamiento) { o.Continuacion.PropuestaSHA256 = strings.Repeat("b", 64) },
+		"otra_operacion":      func(o *OrdenProponerSiguienteLlamamiento) { o.Continuacion.TerminalOperacionRef += "otra" },
+		"otra_posicion":       func(o *OrdenProponerSiguienteLlamamiento) { o.Continuacion.OrdenAnterior = 1 },
+		"sin_intencion":       func(o *OrdenProponerSiguienteLlamamiento) { o.Continuacion.IntencionRef = "" },
+		"sin_huella_terminal": func(o *OrdenProponerSiguienteLlamamiento) { o.Continuacion.TerminalSHA256 = strings.Repeat("0", 64) },
+		"renumerada":          func(o *OrdenProponerSiguienteLlamamiento) { o.Orden.Evaluaciones[0].Orden = 1 },
+		"reelegir":            func(o *OrdenProponerSiguienteLlamamiento) { o.Orden.Evaluaciones = o.Anterior.Evaluaciones },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			o := ordenSiguienteLlamamientoPrueba(t)
+			cambiar(&o)
+			if _, err := ProponerSiguienteLlamamiento(o); err == nil {
+				t.Fatal("continuación inválida admitida")
+			}
+		})
+	}
+	o := ordenSiguienteLlamamientoPrueba(t)
+	if _, err := ProponerPrimerLlamamiento(o.Orden); err == nil {
+		t.Fatal("primer llamamiento admitió posiciones posteriores sin antecedente")
+	}
+}
 
 func TestProponerPrimerLlamamientoSeleccionaPrimeraElegibleYExplicaPrefijo(t *testing.T) {
 	bolsa, necesidad, politica, instantanea := escenarioLlamamientoPrueba(t)

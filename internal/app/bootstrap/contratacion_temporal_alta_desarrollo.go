@@ -97,6 +97,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
 	instantaneaAceptacionBolsa        dominiovec.InstantaneaAutorizacion
 	instantaneaRenunciaBolsa          dominiovec.InstantaneaAutorizacion
+	instantaneaContinuacionCT         dominiovec.InstantaneaAutorizacion
+	instantaneaSiguienteBolsa         dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
@@ -677,6 +679,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoComunicacion, true
 	case httpinterno.RutaResolucionComunicacionLlamamiento:
 		return s.motivoConsultaJustificante, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoConsultaJustificante)
+	case httpinterno.RutaContinuacionLlamamiento:
+		return motivoContinuacionDesarrollo(false), true
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
 	default:
@@ -715,6 +719,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if ruta == httpinterno.RutaSeleccionLlamamiento {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaLlamamiento), true
+	}
+	if ruta == httpinterno.RutaContinuacionLlamamiento {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaContinuacionCT), s.instantaneaContinuacionCT.Validar() == nil
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil
@@ -799,9 +806,15 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
-		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
+		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento {
 			s.mu.Lock()
 			switch datos.Accion {
+			case postgrescontratacion.AccionConsultaJustificanteRespuestaRecibida:
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaConsultaJustificante)
+			case postgrescontratacion.AccionContinuacionLlamamiento:
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaContinuacionCT)
+			case "bolsa.llamamiento.siguiente.abrir":
+				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaSiguienteBolsa)
 			case postgrescontratacion.AccionResolucionManualLlamamiento:
 				instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaResolucionManual)
 			case "bolsa.llamamiento.aceptacion_rrhh.registrar":

@@ -49,6 +49,12 @@ fecha e intención pendiente, sin duplicados. Cero errores JS, cookies,
 almacenamiento web y desbordamiento. Objetivo 5 cerrado funcionalmente en
 desarrollo sintético; método manual provisional, sin aval legal ni del operador.
 
+**Objetivo 7 incluido en esta entrega:** siguiente llamamiento tras renuncia sintética,
+`201` real y `200/200/200/200/200` tras reiniciar app/PostgreSQL principal. Mismos
+14 campos salvo `estado_local: replay_confirmado`; recibos CT/Bolsa, auditoría y
+fecha conservados, sin duplicados, errores JS, cookies, almacenamiento web ni
+desbordamiento. Cierre funcional solo de esa continuación; sigue **5/8 más parte del 6**.
+
 ## Alcance y referencias
 
 Este manual sirve para operar **un entorno sintético ya preparado**, no para
@@ -203,15 +209,24 @@ Recuperación de renuncia confirmada tras reiniciar app/PostgreSQL principal:
 misma resolución e intención pendiente con carga real en la misma fila CT.
 Totales: dos filas CT (aceptación y renuncia), seis registros Bolsa (dos órdenes,
 dos propuestas y ambos terminales), seis historias y seis eventos, sin duplicados.
-La aceptación y la declaración previas permanecen intactas. No se ejecutó otro
-candidato ni se acredita ese recorrido en la secundaria por instalar allí SQL.
+La aceptación y la declaración previas permanecen intactas. Esos totales describen
+el cierre de renuncia, antes de la quinta operación; no acreditan otro E2E en secundaria.
+
+Dirección instaló AD3-19/Bolsa6/CT60 en ambas bases, una transacción por base y
+ambos commits confirmados; no reaplicar. El recorrido navegador está acreditado
+solo en la principal. Bolsa conserva allí siete registros
+(dos órdenes, tres propuestas, aceptación y renuncia), siete historias y siete eventos.
+El nuevo recibo confirma intención `despachada`; el recibo original de renuncia
+permanece intacto, con su `pendiente` histórico. La [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia)
+incluye las cinco claves originales y la recuperación `200` tras reinicio.
+Sin nuevas conexiones: siguen once LOGIN por aplicación, todos a su única base.
 
 Dirección aplicó en ambas bases el bloque literal `DO $fechas$` de AD3-14:
 compara instantes y corrige la diferencia de ceros finales entre decisión y
 capacidad, sin cambiar firmas, hashes ni permisos. Sus tres regresiones
 pasaron. Las huellas de AD3-14 y del corte 4 (`02453e…`, tras AD3-16/17) son
-históricas. SHA-256 actual del núcleo tras AD3-18, comprobado igual en ambas bases
-por dirección: `e6c3d28c27b7cb864916ffe967a8b2fa47611cb3528ad8148302d8bbedd11bf6`.
+históricas. SHA-256 al cierre histórico de AD3-18, comprobado entonces igual en ambas
+bases: `e6c3d28c27b7cb864916ffe967a8b2fa47611cb3528ad8148302d8bbedd11bf6`; no es la huella vigente tras AD3-19.
 La instrumentación de diagnóstico CT56 se retiró de ambas bases, que conservan
 la misma función final. No ejecutar de nuevo el bloque ni reinstalar consumidores.
 
@@ -331,8 +346,10 @@ ni avisado. Sin ambas casillas
 no envía; la petición antigua conserva `409 validacion_respuesta_pendiente`, sin efectos.
 Ese rechazo permite corregir casillas conservando la clave; ante resultado ambiguo,
 mantenga congelados clave/material. No conceda permisos ni altere estados a mano.
-Pendiente enlace al nombramiento (objetivo 8), vencimiento, siguiente
-candidato y correo corporativo; no hay política legal aprobada.
+La quinta operación abre el siguiente llamamiento solo tras renuncia sintética y
+confirmación explícita; no envía aviso ni permite reutilizarlo como comunicación.
+Pendiente enlace al nombramiento (objetivo 8), vencimiento, aviso al sucesor y
+correo corporativo; no hay política legal aprobada.
 Un acceso desde otro equipo requiere coordinación de red y certificado;
 mantenga siempre la escucha en bucle local.
 No abra el puerto a Internet, publique un proxy o desactive TLS para facilitar

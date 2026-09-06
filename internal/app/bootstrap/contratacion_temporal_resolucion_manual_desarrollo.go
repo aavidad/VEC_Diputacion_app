@@ -212,7 +212,7 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContexto(ctx context.Context, ruta string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
-	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento && ctx != nil {
+	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
 			return dominiovec.ReferenciaEntradaCatalogo{}, false

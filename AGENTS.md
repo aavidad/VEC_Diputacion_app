@@ -38,6 +38,15 @@ confirmó `200/200/200/200`: mismos recibo, resolución, auditoría, fecha e int
 dos filas CT, seis registros Bolsa, seis historias/eventos, sin duplicados.
 Objetivo 5 cerrado funcionalmente solo en el ejercicio sintético. Aceptación y
 declaración previas intactas. Datos y claves exactos en la guía.
+Objetivo 7: quinta operación recorrida con HTTP `201` real tras esa renuncia;
+un nuevo llamamiento abierto, recibo CT `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778`,
+fecha `2026-09-05T23:57:11.037866Z`. Bolsa conserva siete registros, siete historias
+y siete eventos. Sin errores JS, cookies, almacenamiento web ni desbordamiento.
+Tras reiniciar app/PostgreSQL principal: cinco POST `200/200/200/200/200`, mismos
+14 campos salvo `estado_local: replay_confirmado`, sin duplicados. Objetivo 7
+cerrado funcionalmente solo tras renuncia sintética.
+El recibo original de renuncia no se reescribe: su intención pendiente es histórica;
+la quinta operación confirma la continuidad posterior, sin envío ni aceptación.
 Exige dos revisiones expresas de RRHH y la política fija de desarrollo
 `politica:ct:revision-manual-sintetica:20260906`, no una política legal aprobada.
 Consulta el justificante con permiso propio V3; `Seleccion` permanece interna.
@@ -51,12 +60,15 @@ AD3-15/Bolsa4 y AD3-17/CT58 están instaladas en ambas bases; ambas apps usan
 la compilación corregida. No reaplicar ni recrear bases.
 AD3-18/Bolsa5/CT59 instaladas también en ambas bases; dirección confirmó
 UP/DOWN con ACL, funciones y comprobaciones conservadas. No repetirlas al arrancar.
+AD3-19/Bolsa6/CT60 instaladas por dirección en ambas bases, una transacción por
+base y ambos commits confirmados; no reaplicar. Navegador acreditado solo en principal.
 La prueba aislada anterior de Bolsa4 (`8197db3`) usó un doble privado transaccional.
 El roundtrip de aceptación UP/DOWN AD3-15/Bolsa4/AD3-17/CT58 verificó reversión exacta
 en ROLLBACK, sin modificar autorización ni usar dobles. El navegador actual sí
 usó criptografía real; no confundir las tres comprobaciones.
 Aceptación manual sintética cerrada técnicamente; pendiente el enlace al
-nombramiento (objetivo 8), vencimiento, siguiente candidato y correo corporativo.
+nombramiento (objetivo 8), vencimiento y correo corporativo; la continuación
+tras renuncia sintética está cerrada, no el envío del aviso sucesor.
 La aceptación sintética no acredita entrega, plazo legal ni aprobación de RRHH.
 El criterio manual provisional tampoco es una aprobación del operador.
 Orden posterior del operador: las preguntas pendientes no detienen las partes

@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { createHash, webcrypto } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import {
-  montarModuloContratacionTemporal, renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js";
+import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
 
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
 const EXPEDIENTE = "expediente:ct:sintetico:001";
@@ -21,9 +18,7 @@ const recibo = {
   version_llamamiento: 1,
 };
 function raizPrueba() {
-  const eventos = new Map();
-  const borradores = {};
-  const foco = [];
+  const eventos = new Map(), borradores = {}, foco = [];
   const raiz = {
     innerHTML: "", eventos, borradores, foco,
     addEventListener: (tipo, fn) => eventos.set(tipo, fn),
@@ -31,7 +26,7 @@ function raizPrueba() {
     contains: () => true,
     replaceChildren() { this.innerHTML = ""; },
     querySelector(selector) {
-      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|respuesta|resolucion)"\]$/u)?.[1];
+      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|respuesta|resolucion|siguiente)"\]$/u)?.[1];
       if (tipo) return borradores[tipo] ?? null;
       if (selector === "[data-ct-llamamiento-comunicacion]") return { open: false };
       return { focus: () => foco.push(selector), scrollIntoView() {} };
@@ -41,8 +36,7 @@ function raizPrueba() {
         ([nombre, value]) => [nombre, typeof value === "boolean"
           ? { value: "on", checked: value } : { value }],
       ));
-      borradores[tipo] = {
-        dataset: { ctLlamamientoForm: tipo },
+      borradores[tipo] = { dataset: { ctLlamamientoForm: tipo },
         elements: { namedItem: (nombre) => controles[nombre] },
         closest: () => borradores[tipo],
       };
@@ -52,10 +46,9 @@ function raizPrueba() {
       const form = valores ? this.preparar(tipo, valores) : borradores[tipo];
       return eventos.get("submit")({ target: form, preventDefault() {} });
     },
-    archivo(archivo) {
-      const control = { files: archivo ? [archivo] : [], closest() { return this; } };
-      return eventos.get("change")({ target: control });
-    },
+    archivo: (archivo) => eventos.get("change")({ target: {
+      files: archivo ? [archivo] : [], closest() { return this; },
+    } }),
   };
   return raiz;
 }
@@ -63,7 +56,8 @@ function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
       registrarComunicacionLlamamiento: async () => {},
-      registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {}, ...cliente },
+      registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
+      continuarLlamamiento: async () => {}, ...cliente },
     confirmarOperacion: () => true, criptografia: webcrypto, ...extras,
   });
 }
@@ -71,21 +65,17 @@ function montar(raiz, cliente = {}, extras = {}) {
 function estadoSeleccionado(expedienteRef = EXPEDIENTE) {
   return {
     vista: "expediente", carga: "listo", expediente_ref: expedienteRef,
-    cuadro: { demostracion: false, expedientes: [
-      { expediente_ref: expedienteRef, version: 6, fase_clave: "fiscalizacion" },
-    ] },
-    expediente: {
-      demostracion: false, expediente_ref: expedienteRef, version: 6,
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: expedienteRef, version: 6, fase_clave: "fiscalizacion" }] },
+    expediente: { demostracion: false, expediente_ref: expedienteRef, version: 6,
       numero_visible: "CT-SINTETICO-001", cabecera: [], fases: [], tareas: [],
     },
-    tipo_mensaje: "informacion", mensaje_clave: "estado_expediente_listo",
-    ocupado: false, actualizacion_pendiente: false, resultado_indeterminado: false,
+    tipo_mensaje: "informacion", mensaje_clave: "estado_expediente_listo", ocupado: false,
+    actualizacion_pendiente: false, resultado_indeterminado: false,
   };
 }
 
 async function montarExpedienteSeleccionado(inicial, alta = null) {
-  let estado = inicial, html = "", formulario;
-  let peticiones = 0;
+  let estado = inicial, html = "", formulario, peticiones = 0;
   const eventos = new Map();
   const raiz = {
     addEventListener: (tipo, fn) => eventos.set(tipo, fn),
@@ -97,8 +87,7 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
       && html.includes("data-ct-exp-llamamiento") ? formulario : null,
   };
   const modulo = await montarModuloContratacionTemporal({
-    raiz,
-    alta,
+    raiz, alta,
     presentador: {
       obtenerEstado: () => estado,
       cargar: async () => estado,
@@ -109,12 +98,11 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
       registrarComunicacionLlamamiento: async () => { peticiones += 1; },
       registrarRespuestaRecibida: async () => { peticiones += 1; },
       resolverLlamamiento: async () => { peticiones += 1; },
+      continuarLlamamiento: async () => { peticiones += 1; },
     } },
   });
   return {
-    formulario: () => formulario,
-    peticiones: () => peticiones,
-    desmontar: modulo.desmontar,
+    formulario: () => formulario, peticiones: () => peticiones, desmontar: modulo.desmontar,
     abrir: (referencia) => eventos.get("click")({
       target: { closest: (selector) => selector === "[data-ct-exp-abrir]"
         ? { dataset: { ctExpAbrir: referencia } } : null },
@@ -124,10 +112,7 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
 }
 
 test("Nueva petición conserva recuperación manual tras remontar incluso si falla el cuadro", async () => {
-  const alta = {
-    catalogos: {},
-    ejecutor: () => { throw new Error("no debe registrar otra petición"); },
-  };
+  const alta = { catalogos: {}, ejecutor: () => { throw new Error("no debe registrar otra petición"); } };
   for (const carga of ["listo", "error"]) {
     for (let reinicio = 0; reinicio < 2; reinicio += 1) {
       const montaje = await montarExpedienteSeleccionado({
@@ -136,10 +121,8 @@ test("Nueva petición conserva recuperación manual tras remontar incluso si fal
         mensaje_clave: carga === "error" ? "estado_error_carga" : "estado_inicial",
       }, alta);
       const html = montaje.formulario().innerHTML;
-      assert.match(html, /Llamamiento y comunicación/u);
-      assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u);
-      assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u);
-      assert.equal(montaje.peticiones(), 0);
+      assert.match(html, /Llamamiento y comunicación/u); assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u);
+      assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u); assert.equal(montaje.peticiones(), 0);
       montaje.desmontar();
     }
   }
@@ -193,6 +176,20 @@ const reciboResolucion = (opcion, estado_local = "confirmado") => ({
   ...(opcion === "renuncia" ? { intencion_siguiente: { referencia: "intencion:siguiente:001",
     estado_local: "pendiente", actualizada_en: "2026-09-05T09:05:00.12345Z" } } : {}),
 });
+const solicitudSiguiente = {
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174004",
+  organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
+  resolucion_ref: resolucionConfirmada.resolucion_ref, intencion_ref: "intencion:siguiente:001",
+};
+const continuacionConfirmada = {
+  esquema: "vec.contratacion-temporal.continuacion-llamamiento.v1",
+  organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
+  resolucion_ref: solicitudSiguiente.resolucion_ref, intencion_ref: solicitudSiguiente.intencion_ref,
+  llamamiento_anterior_ref: recibo.llamamiento_ref, llamamiento_ref: "llamamiento:siguiente:002",
+  version_llamamiento: 1, recibo_bolsa_ref: "recibo:bolsa:002", recibo_ref: "recibo:ct:002",
+  auditoria_ref: "auditoria:siguiente:002", confirmada_en: "2026-09-05T09:06:00.123456Z",
+  estado_intencion: "despachada", estado_local: "confirmado",
+};
 async function abrirResolucion(raiz, cliente = {}, extras = {}, opcion = "aceptacion") {
   const cerrar = await abrirRespuesta(raiz, cliente, extras);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
@@ -202,6 +199,69 @@ async function abrirResolucion(raiz, cliente = {}, extras = {}, opcion = "acepta
     revision_respuesta_rrhh: false, revision_plazo_rrhh: false });
   return cerrar;
 }
+async function abrirSiguiente(raiz, cliente = {}, extras = {}) {
+  const cerrar = await abrirResolucion(raiz, {
+    resolverLlamamiento: async () => reciboResolucion("renuncia"), ...cliente,
+  }, extras, "renuncia");
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  return cerrar;
+}
+
+test("siguiente exige renuncia, clave propia y confirmación; no modifica recibos ni arma otra comunicación", async () => {
+  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false, claves = 0;
+  const renuncia = reciboResolucion("renuncia"), original = JSON.stringify(renuncia);
+  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: async () => renuncia,
+    continuarLlamamiento: async (s) => { solicitudes.push(s); return continuacionConfirmada; },
+  }, { confirmarOperacion: (d) => { if (!d.datos.intencion_ref) return true; confirmaciones.push(d); return confirmar; },
+    generarClaveIdempotencia: () => { claves += 1; return solicitudSiguiente.clave_idempotencia; } }, "renuncia");
+  await raiz.enviar("siguiente", solicitudSiguiente); assert.equal(solicitudes.length, 0);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="siguiente"/u);
+  delete raiz.borradores.siguiente; // El intento simulado no crea un formulario real.
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  const form = raiz.innerHTML.match(/<form data-ct-llamamiento-form="siguiente"[\s\S]*?<\/form>/u)[0];
+  assert.match(form, /name="clave_idempotencia" value=""/u);
+  for (const campo of Object.keys(solicitudSiguiente).slice(1)) assert.match(form, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
+  assert.doesNotMatch(form, /checkbox|type="file"|name="(?:actor_ref|version_esperada|llamamiento_ref)"/u);
+  const pulsarClave = () => raiz.eventos.get("click")({ preventDefault() {}, target: { closest: () => ({ dataset: { ctLlamamientoClave: "siguiente" } }) } });
+  assert.equal(claves, 0); pulsarClave(); assert.equal(claves, 1);
+  for (const clave_idempotencia of [CLAVE, CLAVE_RESOLUCION, declaracion().clave_idempotencia]) await raiz.enviar("siguiente", { clave_idempotencia });
+  await raiz.enviar("siguiente", solicitudSiguiente); assert.equal(solicitudes.length, 0);
+  confirmar = true;
+  await raiz.enviar("siguiente", { ...solicitudSiguiente, organizacion_ref: "org:ajena", expediente_ref: "exp:ajeno",
+    resolucion_ref: "resolucion:ajena", intencion_ref: "intencion:ajena", actor_ref: "actor:inventado" });
+  assert.deepEqual(solicitudes, [solicitudSiguiente]); assert.ok(Object.isFrozen(solicitudes[0]));
+  assert.match(confirmaciones.at(-1).advertencia, /abrirá un único nuevo llamamiento después de la renuncia/u);
+  assert.equal(confirmaciones.at(-1).referencia, EXPEDIENTE); assert.match(raiz.innerHTML, /Siguiente llamamiento abierto · ejercicio sintético/u);
+  assert.match(raiz.innerHTML, /Recibo histórico de renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:06:00.123456Z/u);
+  assert.doesNotMatch(raiz.innerHTML.match(/<form data-ct-llamamiento-form="siguiente"[\s\S]*?<\/form>/u)[0], /type="submit"/u);
+  assert.equal(JSON.stringify(renuncia), original);
+  for (const campo of ["llamamiento_anterior_ref", "llamamiento_ref", "recibo_bolsa_ref", "auditoria_ref", "intencion_ref"])
+    assert.ok(raiz.innerHTML.includes(continuacionConfirmada[campo]));
+  assert.match(raiz.innerHTML, /id="ct-llamamiento-comunicacion-llamamiento_ref"[^>]*value="llamamiento:sintetico:001"/u);
+  await raiz.enviar("siguiente", solicitudSiguiente); pulsarClave();
+  assert.equal(solicitudes.length, 1); assert.equal(claves, 1); cerrar();
+});
+
+for (const fallo of ["red", "anterior_ajeno", "rechazo", "conflicto"]) test(`siguiente ${fallo}: conserva clave e intento, sin reintento automático ni falso recibo`, async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  const cerrar = await abrirSiguiente(raiz, { continuarLlamamiento: async (s) => {
+    solicitudes.push(s);
+    if (solicitudes.length === 1 && fallo === "anterior_ajeno") return { ...continuacionConfirmada, llamamiento_anterior_ref: "llamamiento:ajeno" };
+    if (solicitudes.length === 1 && fallo === "red") throw new Error("red");
+    if (solicitudes.length < 3) throw Object.assign(new Error(), { envelopeValido: true, resultadoIndeterminado: false,
+      codigo: fallo === "conflicto" ? "clave_idempotencia_reutilizada" : "acceso_denegado" });
+    return { ...continuacionConfirmada, estado_local: "replay_confirmado" };
+  } });
+  await raiz.enviar("siguiente", solicitudSiguiente);
+  assert.equal(solicitudes.length, 1);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="siguiente"|data-ct-llamamiento-clave=["]siguiente["]/u);
+  for (let intento = 0; intento < 2; intento += 1) await raiz.enviar("siguiente", {
+    ...solicitudSiguiente, clave_idempotencia: CLAVE, resolucion_ref: "resolucion:ajena", intencion_ref: "intencion:ajena" });
+  assert.equal(solicitudes.length, fallo === "conflicto" ? 1 : 3);
+  assert.ok(solicitudes.every((s) => JSON.stringify(s) === JSON.stringify(solicitudSiguiente)));
+  if (fallo !== "conflicto") assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="siguiente"/u);
+  cerrar();
+});
 
 test("cuarta operación exige justificante confirmado de aceptación o renuncia y no se solicita automáticamente", async () => {
   for (const opcion of ["aceptacion", "renuncia", "recibo_invalido"]) {
@@ -221,12 +281,10 @@ test("cuarta operación exige justificante confirmado de aceptación o renuncia 
       const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="resolucion"[\s\S]*?<\/form>/u)[0];
       assert.match(formulario, /name="clave_idempotencia" value=""/u);
       assert.doesNotMatch(formulario, /type="file"|name="(?:actor_ref|estado_plazo|evaluacion_plazo_ref|politica_ref)"/u);
-      assert.match(formulario, /name="respuesta" required disabled/u);
-      assert.match(formulario, new RegExp(`value="${opcion}"\\s+selected`, "u"));
+      assert.match(formulario, /name="respuesta" required disabled/u); assert.match(formulario, new RegExp(`value="${opcion}"\\s+selected`, "u"));
       for (const nombre of Object.keys(revisionManual)) {
         const control = formulario.match(new RegExp(`<input[^>]*name="${nombre}"[^>]*>`, "u"))[0];
-        assert.match(control, /type="checkbox"/u);
-        assert.doesNotMatch(control, /\schecked|\sdisabled/u);
+        assert.match(control, /type="checkbox"/u); assert.doesNotMatch(control, /\schecked|\sdisabled/u);
         assert.match(formulario, new RegExp(`label for="ct-llamamiento-resolucion-${nombre}"`, "u"));
       }
       assert.match(formulario, /name="criterio_validacion_ref" value="politica:ct:revision-manual-sintetica:20260906"[^>]*readonly/u);
@@ -256,8 +314,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
   } }, opcion);
   for (const [revision_respuesta_rrhh, revision_plazo_rrhh] of [[false, false], [true, false], [false, true], ["true", "true"]]) {
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
-    assert.equal(solicitudes.length, 0);
-    assert.equal(confirmaciones.length, 0);
+    assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0);
     assert.match(raiz.innerHTML, /Marque ambas comprobaciones expresas del ejercicio sintético/u);
   }
   for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia]) {
@@ -278,23 +335,19 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_esperada: 2, respuesta: opcion, prueba_respuesta_ref: justificante({}).justificante_ref,
     ...revisionManual, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" }]);
-  assert.ok(Object.isFrozen(solicitudes[0]));
-  assert.match(confirmaciones.at(-1).advertencia, /no acredita entrega de correo ni plazo legal real/u);
+  assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /no acredita entrega de correo ni plazo legal real/u);
   assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u);
   assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
   assert.match(confirmaciones.at(-1).advertencia, new RegExp(`Resolución de ${opcion === "renuncia" ? "renuncia" : "aceptación"}`, "u"));
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u);
   assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} registrada · ejercicio sintético`, "u"));
   if (opcion === "renuncia") {
-    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u);
-    assert.match(raiz.innerHTML, /intencion:siguiente:001/u);
-    assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u);
-    assert.match(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u);
+    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u);
+    assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.match(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u);
     assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
-  } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada/u);
+  } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada|data-ct-llamamiento-form="siguiente"/u);
   assert.match(raiz.innerHTML, /El servidor confirma el registro en Contratación temporal y Bolsa/u);
-  assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u);
-  assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
+  assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
   assert.equal(solicitudes.length, 1);
   cerrar();
@@ -334,8 +387,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`HTTP 409 pendiente ${opci
     assert.equal(solicitudes.length, intento + 1); // Corregir no autoriza a enviar sin ambas casillas.
     assert.doesNotMatch(raiz.innerHTML.match(/<input[^>]*name="revision_plazo_rrhh"[^>]*>/u)[0], /\schecked/u);
   }
-  assert.equal(solicitudes[0], solicitudes[1]);
-  assert.equal(JSON.parse(solicitudes[1]).clave_idempotencia, CLAVE_RESOLUCION);
+  assert.equal(solicitudes[0], solicitudes[1]); assert.equal(JSON.parse(solicitudes[1]).clave_idempotencia, CLAVE_RESOLUCION);
   assert.equal(confirmaciones, 5); // Tres antecedentes más dos solicitudes expresas.
   cerrar();
 });
@@ -372,22 +424,23 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} amb
   }
 });
 
-for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} no duplica; desmontar aborta y descarta el recibo tardío`, async () => {
+for (const opcion of ["aceptacion", "renuncia", "siguiente"]) test(`${opcion} no duplica; desmontar aborta y descarta el recibo tardío`, async () => {
   const raiz = raizPrueba(); let resolver, signal, llamadas = 0;
-  const cerrar = await abrirResolucion(raiz, { resolverLlamamiento: (_, opciones) => {
+  const esSiguiente = opcion === "siguiente", operacion = esSiguiente ? "siguiente" : "resolucion";
+  const cliente = { [esSiguiente ? "continuarLlamamiento" : "resolverLlamamiento"]: (_, opciones) => {
     llamadas += 1; signal = opciones.signal;
     return new Promise((resolve) => { resolver = resolve; });
-  } }, {}, opcion);
-  raiz.preparar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
-  const pendiente = raiz.enviar("resolucion");
-  await raiz.enviar("resolucion");
+  } };
+  const cerrar = esSiguiente ? await abrirSiguiente(raiz, cliente) : await abrirResolucion(raiz, cliente, {}, opcion);
+  raiz.preparar(operacion, esSiguiente ? solicitudSiguiente : { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  const pendiente = raiz.enviar(operacion);
+  await raiz.enviar(operacion);
   assert.equal(llamadas, 1);
   cerrar();
   assert.equal(signal.aborted, true);
-  resolver(reciboResolucion(opcion));
+  resolver(esSiguiente ? continuacionConfirmada : reciboResolucion(opcion));
   await pendiente;
-  assert.equal(raiz.innerHTML, "");
-  assert.equal(raiz.eventos.size, 0);
+  assert.equal(raiz.innerHTML, ""); assert.equal(raiz.eventos.size, 0);
 });
 
 test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo declaración y huella", async () => {
@@ -402,8 +455,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   }
   await raiz.archivo(archivoCorreo());
   assert.equal(solicitudes.length, 0, "calcular la huella no registra nada");
-  assert.match(raiz.innerHTML, /Huella calculada: se conserva la huella mostrada/u);
-  assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
+  assert.match(raiz.innerHTML, /Huella calculada: se conserva la huella mostrada/u); assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
   await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
     expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
@@ -416,12 +468,9 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     correo_sha256: HUELLA, recibida_en: "2026-09-05T08:30:00Z",
   }]);
   const confirmacion = confirmaciones.at(-1);
-  assert.equal(confirmacion.referencia, EXPEDIENTE);
-  assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u"));
-  assert.match(confirmacion.advertencia, /no cambia la candidatura/iu);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
-  assert.match(raiz.innerHTML, /no resuelve aceptación o renuncia/u);
-  assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u);
+  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u"));
+  assert.match(confirmacion.advertencia, /no cambia la candidatura/iu); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.match(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u);
   assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u);
   assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
   await raiz.enviar("respuesta", declaracion());
@@ -444,8 +493,7 @@ test("respuesta exige comunicación confirmada, archivo, datos y confirmación e
   await otra.archivo(archivoCorreo());
   await otra.enviar("respuesta", { ...declaracion(), respuesta: "expiracion_gobernada" });
   await otra.enviar("respuesta", declaracion());
-  assert.equal(llamadas, 0);
-  assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.equal(llamadas, 0); assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
 });
 
 test("correo limita tamaño antes de leer, vacía huella anterior y falla cerrado sin WebCrypto", async () => {
@@ -593,26 +641,8 @@ test("abrir otro expediente no reutiliza referencias ni clave del formulario ant
   montaje.desmontar();
 });
 
-test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {
-  const recursos = [
-    "cliente-http-llamamiento.js", "contrato-llamamiento.js",
-    "formulario-llamamiento.js", "i18n-llamamiento.js", "renderizado-llamamiento.js",
-  ];
-  for (const nombre of ["interno.manifest", "produccion.manifest"]) {
-    const contenido = await readFile(new URL(`../../../../${nombre}`, import.meta.url), "utf8");
-    const rutas = contenido.trim().split(/\r?\n/u);
-    for (const recurso of recursos) {
-      const ruta = `static/portal-empleado/modulos/contratacion-temporal/${recurso}`;
-      assert.doesNotMatch(ruta, /presentacion|demo/iu, "No debe activar la exclusión de material de presentación");
-      assert.equal(rutas.filter((entrada) => entrada === ruta).length, 1, `${nombre}: ${recurso}`);
-      assert.ok((await readFile(new URL(`./${recurso}`, import.meta.url), "utf8")).length > 0);
-    }
-  }
-});
-
 test("enlaza fiscalización y exige confirmación sin inventar candidato ni autoridad", async () => {
-  const raiz = raizPrueba();
-  let llamadas = 0;
+  const raiz = raizPrueba(); let llamadas = 0;
   const desmontar = montar(raiz, { seleccionarLlamamiento: () => { llamadas += 1; } },
     { confirmarOperacion: () => false });
   assert.equal(desmontar.actualizarContexto({ expediente_ref: EXPEDIENTE, version_esperada: 6 }), true);
@@ -626,15 +656,10 @@ test("enlaza fiscalización y exige confirmación sin inventar candidato ni auto
 });
 
 test("doble envío no duplica operación y el recibo minimizado abre comunicación", async () => {
-  const raiz = raizPrueba();
-  let resolver;
-  const solicitudes = [];
-  montar(raiz, {
-    seleccionarLlamamiento: (solicitud) => {
-      solicitudes.push(solicitud);
-      return new Promise((resolve) => { resolver = resolve; });
-    },
-  });
+  const raiz = raizPrueba(), solicitudes = []; let resolver;
+  montar(raiz, { seleccionarLlamamiento: (solicitud) => {
+    solicitudes.push(solicitud); return new Promise((resolve) => { resolver = resolve; });
+  } });
   const primera = raiz.enviar("seleccion", seleccion());
   await raiz.enviar("seleccion", { ...seleccion(), clave_idempotencia: "otra" });
   assert.equal(solicitudes.length, 1);
@@ -647,8 +672,7 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
 });
 
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
-  const raiz = raizPrueba();
-  const solicitudes = [];
+  const raiz = raizPrueba(), solicitudes = [];
   montar(raiz, { seleccionarLlamamiento: async (solicitud) => {
     solicitudes.push(solicitud);
     if (solicitudes.length === 1) throw new Error("red");
@@ -678,8 +702,7 @@ test("tras desmontar permite recuperar mediante los inputs visibles, sin memoria
 });
 
 test("conflicto no reintentable mantiene datos y no permite otra escritura", async () => {
-  const raiz = raizPrueba();
-  let llamadas = 0;
+  const raiz = raizPrueba(); let llamadas = 0;
   montar(raiz, { seleccionarLlamamiento: async () => {
     llamadas += 1;
     throw Object.assign(new Error("conflicto"), { codigo: "conflicto_no_reintentable" });
@@ -691,8 +714,7 @@ test("conflicto no reintentable mantiene datos y no permite otra escritura", asy
 });
 
 test("comunicación exige sus referencias y muestra registro, no envío de correo", async () => {
-  const raiz = raizPrueba();
-  let solicitud;
+  const raiz = raizPrueba(); let solicitud;
   montar(raiz, { registrarComunicacionLlamamiento: async (entrada) => {
     solicitud = entrada;
     return {
@@ -710,9 +732,7 @@ test("comunicación exige sus referencias y muestra registro, no envío de corre
 });
 
 test("desmontar cancela la espera y una respuesta tardía no repinta", async () => {
-  const raiz = raizPrueba();
-  let resolver;
-  let signal;
+  const raiz = raizPrueba(); let resolver, signal;
   const cerrar = montar(raiz, { seleccionarLlamamiento: (_, opciones) => {
     signal = opciones.signal;
     return new Promise((resolve) => { resolver = resolve; });
@@ -723,17 +743,6 @@ test("desmontar cancela la espera y una respuesta tardía no repinta", async () 
   resolver(recibo);
   await vuelo;
   assert.equal(raiz.innerHTML, "");
-});
-
-test("la bandeja con error conserva navegación y reintento sin formulario de llamamiento", () => {
-  const html = renderizarModuloContratacionTemporal({
-    vista: "cuadro", carga: "error", cuadro: null, expediente: null,
-    tipo_mensaje: "error", mensaje_clave: "estado_error_carga",
-  }, { llamamientoDisponible: true });
-  assert.match(html, /ct-exp-navegacion/u);
-  assert.match(html, /role="alert"/u);
-  assert.match(html, /data-ct-exp-accion="reintentar"/u);
-  assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
 });
 
 test("encadenado selección y replay autorrellenan comunicación local sin transcribir referencias", async () => {

@@ -19,6 +19,45 @@ func resolucionIntegracionPrueba() ResolucionLlamamientoDesarrollo {
 	}
 }
 
+func TestIntegracionLlamamientosDesarrolloContratoSiguiente(t *testing.T) {
+	p := PeticionSiguienteLlamamientoDesarrollo{OperacionRef: "operacion:siguiente", IntencionRef: "intencion:ct", TerminalOperacionRef: "operacion:renuncia"}
+	if err := p.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	for _, otra := range []PeticionSiguienteLlamamientoDesarrollo{
+		{}, {OperacionRef: p.TerminalOperacionRef, IntencionRef: p.IntencionRef, TerminalOperacionRef: p.TerminalOperacionRef},
+		{OperacionRef: p.OperacionRef, TerminalOperacionRef: p.TerminalOperacionRef},
+	} {
+		if otra.Validar() == nil {
+			t.Fatal("petición sin antecedente o intención")
+		}
+	}
+	c := domain.AntecedenteContinuacionLlamamiento{TerminalOperacionRef: p.TerminalOperacionRef, TerminalSHA256: strings.Repeat("a", 64),
+		PropuestaRef: "propuesta:anterior", PropuestaSHA256: strings.Repeat("b", 64), OrdenAnterior: 2, IntencionRef: p.IntencionRef}
+	b, _ := json.Marshal(c)
+	var campos map[string]json.RawMessage
+	if c.Validar() != nil || json.Unmarshal(b, &campos) != nil || len(campos) != 6 {
+		t.Fatal("canon de continuación divergente")
+	}
+	for _, k := range []string{"terminal_operacion_ref", "terminal_sha256", "propuesta_ref", "propuesta_sha256", "orden_anterior", "intencion_ref"} {
+		if _, ok := campos[k]; !ok {
+			t.Fatal("campo distinto del contrato SQL", k)
+		}
+	}
+	r := RegistroLlamamientoDesarrollo{Tipo: "propuesta", Propuesta: &domain.PropuestaLlamamiento{}}
+	if r.Accion() != AccionAbrirLlamamientoDesarrollo {
+		t.Fatal("permiso de primera apertura alterado")
+	}
+	r.Propuesta.Continuacion = &c
+	if r.Accion() != AccionAbrirSiguienteLlamamientoDesarrollo {
+		t.Fatal("siguiente reutilizó permiso de primera apertura")
+	}
+	r.Tipo, r.EstadoLlamamiento = "renuncia_rrhh", domain.EstadoLlamamientoRenunciado
+	if r.Accion() != AccionRenunciarLlamamientoRRHHDesarrollo {
+		t.Fatal("continuación alteró el permiso de cierre")
+	}
+}
+
 func TestIntegracionLlamamientosDesarrolloResolucionContratoYFechas(t *testing.T) {
 	r := resolucionIntegracionPrueba()
 	if err := r.Validar(); err != nil {

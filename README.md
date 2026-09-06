@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `17ea874`.**
+**Estado funcional: 6 de septiembre de 2026. Base publicada del corte actual: `3d696af`.**
 
 Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
 se han trasladado al equipo local del operador. La
@@ -38,6 +38,16 @@ Tras reiniciar aplicación y PostgreSQL principal, dirección confirmó
 `200/200/200/200`, mismos recibo, resolución, auditoría, fecha e intención, sin
 duplicados. Objetivo 5 cerrado funcionalmente solo para el ejercicio sintético;
 criterio manual provisional, sin aval legal ni aprobación del operador.
+
+**Objetivo 7: siguiente llamamiento abierto, HTTP `201` real.** Quinta operación
+del mismo formulario, tras recuperar la renuncia y confirmar expresamente.
+Bolsa conserva siete registros, siete historias y siete eventos; cero errores JS,
+cookies, almacenamiento web y desbordamiento. Tras reiniciar app/PostgreSQL
+principal: `200/200/200/200/200`, mismos 14 campos salvo `estado_local` del replay.
+**Objetivo 7 cerrado funcionalmente solo tras renuncia sintética**.
+El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
+recibo confirma la continuidad posterior, no envío, entrega ni aceptación.
+Claves y referencias en la [guía canónica](GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
 
 VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
 para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
@@ -82,7 +92,7 @@ No utiliza el adaptador DEMO para afirmar un guardado.
 | 3. Bolsa | Propuesta y decisión de cobertura por **Bolsa vigente**. | No equivale a gestionar de principio a fin una convocatoria de Bolsa. |
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
-| 6. Llamamiento, parcial | Selección, aviso, declaración RRHH, aceptación y renuncia manuales sintéticas recuperables tras reinicio; intención de siguiente pendiente. | Faltan vencimiento, siguiente candidato y correo corporativo. No acredita entrega ni plazo legal aprobado. |
+| 6. Llamamiento, parcial | Selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas; recibos recuperados tras reinicio sin duplicados. | Faltan vencimiento, aviso al sucesor y correo corporativo. No acredita entrega ni plazo legal aprobado. |
 | 7. Nombramiento | Pendiente enlace desde aceptación sintética (objetivo 8). | No se declaran terminados sus seis documentos, incluida la Diligencia. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 

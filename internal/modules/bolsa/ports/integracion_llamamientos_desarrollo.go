@@ -36,6 +36,7 @@ const (
 	AccionAbrirLlamamientoDesarrollo          = "bolsa.llamamiento.abrir"
 	AccionAceptarLlamamientoRRHHDesarrollo    = "bolsa.llamamiento.aceptacion_rrhh.registrar"
 	AccionRenunciarLlamamientoRRHHDesarrollo  = "bolsa.llamamiento.renuncia_rrhh.registrar"
+	AccionAbrirSiguienteLlamamientoDesarrollo = "bolsa.llamamiento.siguiente.abrir"
 	FinalidadIntegracionLlamamientoDesarrollo = "gestionar_contratacion_temporal"
 )
 
@@ -63,6 +64,22 @@ type PeticionLlamamientoDesarrollo struct {
 	NecesidadRef      string
 	OrdenOperacionRef string
 	MaximoPosiciones  uint32
+}
+
+// PeticionSiguienteLlamamientoDesarrollo procede del despacho autorizado de
+// una intención durable. Cambiar la clave no habilita otra continuación.
+type PeticionSiguienteLlamamientoDesarrollo struct {
+	OperacionRef         string
+	IntencionRef         string
+	TerminalOperacionRef string
+}
+
+func (p PeticionSiguienteLlamamientoDesarrollo) Validar() error {
+	if !ReferenciaOpacaLlamamientoValida(p.OperacionRef) || !ReferenciaOpacaLlamamientoValida(p.IntencionRef) ||
+		!ReferenciaOpacaLlamamientoValida(p.TerminalOperacionRef) || p.OperacionRef == p.TerminalOperacionRef {
+		return ErrIntegracionLlamamientoDesarrollo
+	}
+	return nil
 }
 
 // ResolucionLlamamientoDesarrollo liga la aceptación o renuncia a una evaluación y una
@@ -175,6 +192,9 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 			if r.EstadoLlamamiento != domain.EstadoLlamamientoAbierto || r.Llamamiento.Version != 1 {
 				return nil, ErrIntegracionLlamamientoDesarrollo
 			}
+			if r.Propuesta.Continuacion != nil && r.Propuesta.Continuacion.TerminalOperacionRef == r.OperacionRef {
+				return nil, ErrIntegracionLlamamientoDesarrollo
+			}
 		} else if r.Resolucion == nil || r.Resolucion.Validar() != nil ||
 			r.Resolucion.AperturaOperacionRef == r.OperacionRef ||
 			(r.Tipo == "aceptacion_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoAceptado) ||
@@ -209,6 +229,9 @@ func (r RegistroLlamamientoDesarrollo) Accion() string {
 		return AccionPrepararOrdenDesarrollo
 	}
 	if r.Tipo == "propuesta" {
+		if r.Propuesta != nil && r.Propuesta.Continuacion != nil {
+			return AccionAbrirSiguienteLlamamientoDesarrollo
+		}
 		return AccionAbrirLlamamientoDesarrollo
 	}
 	if r.Tipo == "aceptacion_rrhh" && r.EstadoLlamamiento == domain.EstadoLlamamientoAceptado {

@@ -30,10 +30,15 @@ navegador real `200/201/201/201` y, tras reiniciar aplicación y PostgreSQL prin
 Sin duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
 Objetivo 5 cerrado funcionalmente solo en desarrollo, sin aval legal ni del operador.
 
+**Objetivo 7 incluido en esta entrega:** continuación tras esa renuncia, quinta
+operación `201` real y cinco `200` tras reiniciar app/PostgreSQL principal; mismos
+recibos/fecha, sin duplicados, errores JS, cookies, almacenamiento web ni desbordamiento.
+Cerrado funcionalmente solo tras renuncia sintética; no acredita aviso al sucesor.
+
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más selección,
-aviso local, declaración, aceptación y renuncia manuales sintéticas del sexto.** Se usa la aplicación
+aviso local, declaración, aceptación, renuncia y continuación tras renuncia sintéticas del sexto.** Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -46,7 +51,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 3. Bolsa / vía de cobertura | Demostrado para la decisión de usar Bolsa vigente; no cierra toda la gestión de Bolsa. |
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
-| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación y renuncia manuales sintéticas recuperables tras reinicio; intención de siguiente pendiente. Faltan vencimiento, siguiente candidato y correo corporativo; no acredita entrega ni plazo legal. |
+| 6. Llamamiento | Parcial: selección, aviso, declaración, aceptación, renuncia y continuación tras renuncia sintéticas recuperables tras reinicio. Faltan vencimiento, aviso al sucesor y correo corporativo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Pendiente enlace desde aceptación sintética (objetivo 8), modelos y circuito de firmas; no recorrible de extremo a extremo. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
@@ -301,9 +306,24 @@ El método es manual provisional solo para desarrollo sintético, no aval del op
 Sin ambas casillas no se envía. La petición antigua sin revisión manual sigue en
 `409` pendiente, sin efectos: permite corregir casillas conservando la clave.
 Ante resultado ambiguo, conserve congelados clave y material; no hay reintentos automáticos.
-Faltan vencimiento, siguiente candidato y correo corporativo. El enlace
+Faltan vencimiento, aviso al sucesor y correo corporativo. El enlace
 al nombramiento (objetivo 8) sigue pendiente; no hay política legal aprobada.
 La [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) conserva el recorrido exacto.
+
+#### Operación 5: continuar tras la renuncia sintética
+
+Recupere primero la renuncia. El mismo panel deriva expediente, resolución e
+intención; use la quinta clave original de la [guía](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
+Confirme expresamente que abrirá un único nuevo llamamiento, sin otro `.eml`.
+El `201` muestra **Siguiente llamamiento abierto · ejercicio sintético**:
+recibo CT `recibo:b5bb611f-0126-4806-90c5-85b9f9b63778`, fecha UTC
+`2026-09-05T23:57:11.037866Z`. Tras reiniciar app/PostgreSQL principal, cinco `200`;
+mismos 14 campos salvo `estado_local: replay_confirmado`, sin duplicados.
+La intención `despachada` del nuevo recibo acredita continuidad posterior;
+el `pendiente` del recibo de renuncia queda histórico, sin modificar sus bytes.
+No acredita envío, entrega ni aceptación; no sustituya la comunicación antecedente
+por este nuevo llamamiento. El éxito desactiva otro envío. Ante resultado ambiguo
+conserve clave/material, sin reintentos automáticos ni otra clave para eludir `409`.
 
 ### 7. Nombramiento: límite actual
 
