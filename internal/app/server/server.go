@@ -169,6 +169,7 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 		api = http.NotFoundHandler()
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
+	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
 	estaticos := staticHandler(false)
 
 	mux := http.NewServeMux()
@@ -185,6 +186,31 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
+}
+
+// Firefox anuncia que acepta trailers de respuesta mediante TE: trailers en
+// HTTP/2. No es un trailer de petición ni una credencial. La barrera exterior
+// ya ha rechazado los trailers efectivos antes de llegar a este adaptador.
+func normalizarAnuncioTrailersHTTP2Contratacion(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.HasPrefix(r.URL.Path, "/api/vec/contratacion-temporal/") {
+			nombreTE := ""
+			cantidad := 0
+			for nombre, valores := range r.Header {
+				if strings.EqualFold(nombre, "TE") {
+					cantidad++
+					if len(valores) == 1 && valores[0] == "trailers" {
+						nombreTE = nombre
+					}
+				}
+			}
+			if cantidad == 1 && nombreTE != "" {
+				r = r.Clone(r.Context())
+				delete(r.Header, nombreTE)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // NewHandlerPresentacionWithConfig usa una lista positiva. No publica la SPA

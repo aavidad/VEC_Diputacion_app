@@ -25,7 +25,7 @@ export async function cargarPublicacionesFormalizacionDesarrollo({
   try {
     if (typeof fetchImpl !== "function" || signal?.aborted) throw new TypeError();
     const r = await fetchImpl(RUTA_PUBLICACIONES_FORMALIZACION, {
-      method: "GET", credentials: "omit", mode: "same-origin", cache: "no-store",
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store",
       redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal,
     });
     lector = r?.body?.getReader();

@@ -134,6 +134,36 @@ arrancar. Es desarrollo sintético, no producción ni identidad corporativa.
 
 ### Abrir una solicitud existente y registrar su análisis
 
+Para el acceso local de RRHH no hace falta el certificado personal del operador.
+Con la aplicación principal arrancada, abra una terminal en el worktree activo:
+
+```bash
+bash scripts/abrir_vec_desarrollo.sh "$VEC_MATERIAL_RRHH"
+```
+
+`VEC_MATERIAL_RRHH` es el directorio privado existente que contiene `ca/` y
+`mtls/`, no uno nuevo. El lanzador abre Firefox con un perfil exclusivo y el
+certificado sintético ya conservado. Requiere Firefox, `certutil`, `pk12util`
+y `rg`; comprueba primero que el portal responde. En Firefox Snap el perfil
+queda en `$HOME/snap/firefox/common/navegador-vec-rrhh`; en instalaciones
+nativas, junto al material. No cambia el perfil habitual ni la confianza del
+sistema. No envíe certificados personales, paquetes de claves ni contraseñas.
+Si la ventana ya está abierta, úsela: el lanzador impide otra copia simultánea.
+Un enlace abierto en otro navegador sin preparar no equivale a este acceso.
+
+La API conserva la autenticación por certificado también en las consultas del
+catálogo. El servidor admite exclusivamente el anuncio `TE: trailers` de
+HTTP/2 en Contratación; no admite trailers de petición ni credenciales en
+cabeceras. No se desactiva TLS ni HTTP/2 para entrar.
+
+Comprobación de acceso del 6 de septiembre: Firefox con ese mismo perfil,
+validación TLS activa y HTTP/2 mostró los 51 expedientes; la búsqueda por el
+número `2026/CT-f5a5578760afec875187195d4108606a` devolvió una fila y abrió su
+detalle. Se descargó el informe borrador (29.267 bytes), y se abrió el formulario
+real de nueva petición. Sin certificado inyectado por automatización, sin
+adaptador de muestra y sin registrar otra alta. Esto corrige el acceso local;
+no suma otro paso completo a los ocho de RRHH.
+
 Recorrido confirmado por dirección el 5 de septiembre en **8443**, incluido
 en el código publicado: bandeja de **50 expedientes** → solicitud existente versión `1` →
 formulario real de análisis → respuesta `201` → recibo versión `2`.

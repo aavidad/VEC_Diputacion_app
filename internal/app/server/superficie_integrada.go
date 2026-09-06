@@ -30,6 +30,7 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 func NewHandlerWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
 	cfg = cfg.Normalize()
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
+	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
 	estaticos := staticHandler(false)
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)

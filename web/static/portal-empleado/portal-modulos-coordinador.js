@@ -13,7 +13,7 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260831-ct-catalogo-v1";
+} from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";

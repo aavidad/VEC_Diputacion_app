@@ -173,7 +173,7 @@ test("Bolsa conserva su estado de API y puede abrir Elaboración sin depender de
   assert.doesNotMatch(denegado, /data-vista=/);
 });
 
-test("el catálogo interno consume solo el envelope canónico y omite credenciales y caché", async () => {
+test("el catálogo interno conserva el certificado solo en mismo origen, sin redirecciones ni caché", async () => {
   const llamadas = [];
   const fetchImpl = async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
@@ -197,7 +197,9 @@ test("el catálogo interno consume solo el envelope canónico y omite credencial
   const cabeceraAutoridad = ["Author", "ization"].join("");
   for (const { opciones } of llamadas) {
     assert.equal(opciones.method, "GET");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
+    assert.equal(opciones.mode, "same-origin");
+    assert.equal(opciones.redirect, "error");
     assert.equal(opciones.cache, "no-store");
     assert.deepEqual(opciones.headers, { Accept: "application/json" });
     assert.equal(Object.hasOwn(opciones.headers, cabeceraAutoridad), false);
@@ -767,9 +769,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260904-ct-analisis-v1";
-  const versionPortal = "20260904-ct-analisis-v1";
-  const versionCatalogo = "20260831-ct-catalogo-v1";
+  const versionCoordinador = "20260906-acceso-certificado-v1";
+  const versionPortal = "20260906-acceso-certificado-v1";
+  const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260725-aislamiento-modular-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([

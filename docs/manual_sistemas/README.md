@@ -407,6 +407,18 @@ deban copiarse para operar.**
 En el equipo del operador abra `https://localhost:8443/portal-empleado/`
 (principal) o `https://localhost:8444/portal-empleado/` (secundaria), con su
 certificado de RRHH; no necesita un túnel al remoto detenido.
+Para preparar y abrir ese navegador de desarrollo sin tocar perfiles personales:
+`bash scripts/abrir_vec_desarrollo.sh "$vec_ops_material"`, desde el worktree.
+Requiere Firefox, herramientas NSS (`certutil`, `pk12util`) y `rg`. Comprueba
+el portal con el material existente, exige una sola identidad cliente coincidente
+en PEM y PKCS#12 y la instala en un perfil privado exclusivo (0700).
+En Snap utiliza `$HOME/snap/firefox/common/navegador-vec-rrhh`; en Firefox nativo,
+`navegador-vec-rrhh` dentro del material. `--solo-preparar` no abre una ventana.
+No importa confianza al sistema, no solicita el certificado personal del operador
+y no utiliza opciones de ignorar certificados. Conserve privado también ese perfil.
+HTTP/2 sigue activo: la entrada de Contratación normaliza solo su anuncio
+`TE: trailers`; los trailers efectivos, cookies y cabeceras de autoridad siguen
+rechazándose. Una portada visible sin bandeja operable no valida este acceso.
 Para continuar una solicitud existente, use los controles de su fila en
 la bandeja y el formulario de análisis del detalle, como indica la guía.
 No cree otra alta ni copie referencias de los ejemplos del lanzador.

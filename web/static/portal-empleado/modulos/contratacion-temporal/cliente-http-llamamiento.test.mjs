@@ -106,11 +106,11 @@ const PROPUESTA_CONFIRMADA = { esquema: "vec.contratacion-temporal.propuesta-for
   estado_local: "confirmado", propuesta_ref: "propuesta:sintetica:001", recibo_local_ref: "recibo:propuesta:001",
   version_resultante: 7, confirmada_en: "2026-09-06T10:00:00.123456Z" };
 
-test("publicaciones: asset real, cuatro huellas UTF-8, GET público sin credenciales ni caché", async () => {
+test("publicaciones: asset real, cuatro huellas UTF-8, certificado limitado al mismo origen sin caché", async () => {
   const snapshots = await cargarPublicacionesFormalizacionDesarrollo({ criptografia: webcrypto,
     fetchImpl: async (ruta, opciones) => {
       assert.equal(ruta, RUTA_PUBLICACIONES_FORMALIZACION);
-      assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "omit");
+      assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin");
       assert.equal(opciones.mode, "same-origin"); assert.equal(opciones.cache, "no-store");
       assert.equal(opciones.redirect, "error"); assert.equal(opciones.body, undefined);
       return respuesta(ASSET_FORMALIZACION, 200);

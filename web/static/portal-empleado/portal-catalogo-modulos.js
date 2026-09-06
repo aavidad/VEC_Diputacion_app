@@ -152,12 +152,16 @@ export function validarCatalogoModulosPresentacion(catalogo) {
 
 export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
+  // El servidor interno exige certificado cliente también en estos GET.
+  // Limitarlo al mismo origen y no seguir redirecciones; no usar cookies.
   const [respuestaModulos, respuestaTraducciones] = await Promise.all([
     fetchImpl(RUTA_MANIFIESTOS, {
-      method: "GET", credentials: "omit", cache: "no-store", headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
+      cache: "no-store", headers: { Accept: "application/json" },
     }),
     fetchImpl(RUTA_TRADUCCIONES, {
-      method: "GET", credentials: "omit", cache: "no-store", headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
+      cache: "no-store", headers: { Accept: "application/json" },
     }),
   ]);
   if (!respuestaModulos.ok || !respuestaTraducciones.ok) throw new Error("no se pudo cargar el catálogo interno de módulos");
