@@ -1,5 +1,84 @@
 # Manual de Sistemas — operación diaria de VEC
 
+## Entorno privado vigente
+
+Corte comprobado: 10 de septiembre de 2026. Desarrollo en servidor privado,
+con PostgreSQL real y datos sintéticos. Producto publicado `00558603`;
+runtime con binario `1ac3c115` y web `00558603`. No hay URL pública de VEC.
+El árbol compartido de desarrollo contiene cambios pendientes: no se
+reconstruye ni sustituye automáticamente la aplicación desde su HEAD.
+
+Contenedores existentes bajo el usuario `openclaw`, no bajo Podman de root:
+
+| Recurso | Nombre |
+| --- | --- |
+| Aplicación activa | `vec-aplicacion-resolucion-20260910` |
+| Base conservada | `vec-postgresql-20260906` |
+| Entrada privada | `vec-tunel-privado-20260906` |
+| Aplicación anterior, detenida | `vec-aplicacion-20260906` |
+
+Desde una sesión administrativa autorizada en el servidor, consulta sin cambios:
+
+```sh
+sudo -iu openclaw podman inspect \
+  --format '{{.Name}} {{.State.Status}}' \
+  vec-aplicacion-resolucion-20260910 vec-postgresql-20260906 \
+  vec-tunel-privado-20260906
+```
+
+El portal comprobado es `https://localhost:8443/portal-empleado/` **desde
+el servidor**. Para verlo desde otro equipo hace falta acceso privado
+preparado por Sistemas y un navegador con la confianza del servidor y el
+certificado cliente de pruebas correspondiente. No basta con copiar esa URL.
+No se publica el puerto ni se omite TLS para facilitar la presentación.
+Los destinos SSH y rutas del material privado se entregan por canal operativo,
+no se incorporan al repositorio.
+
+Para reanudar únicamente estos contenedores existentes si están detenidos,
+tras comprobar que no hay otra aplicación ocupando el mismo puerto:
+
+```sh
+sudo -iu openclaw podman start vec-postgresql-20260906
+sudo -iu openclaw podman exec vec-postgresql-20260906 \
+  pg_isready -U postgres -d postgres
+```
+
+Continúe con la aplicación solo si `pg_isready` devuelve código `0`
+y confirma que PostgreSQL acepta conexiones. Si todavía no está disponible,
+no arranque la aplicación; compruebe el estado de la base antes de continuar.
+
+```sh
+sudo -iu openclaw podman start vec-aplicacion-resolucion-20260910
+sudo -iu openclaw podman start vec-tunel-privado-20260906
+```
+
+Es una reanudación de recursos conservados, no una instalación desde cero.
+No arranque la aplicación anterior simultáneamente. No regenere certificados,
+recree volúmenes ni reaplique migraciones para arrancar. Autorización25 y
+Contratación69 ya tienen historia; no ejecutar sus UP ni DOWN otra vez.
+Las piezas de incorporación todavía no acreditan instalación en esta base.
+
+La comprobación funcional ya realizada registró una resolución manual
+sintética en navegador (`201`), recuperó el recibo después de reiniciar
+aplicación/PostgreSQL y repitió la misma clave (`200`) sin duplicados.
+Se conservan 52 expedientes; un caso está validado en `v8` y el original
+permanece en `v7`. Los seis PDF históricos siguen accesibles.
+No repetir escrituras como sonda de disponibilidad.
+
+Para detener por mantenimiento: avisar a quienes usan la instancia, conservar
+las referencias de operaciones pendientes y parar únicamente la aplicación
+activa. La base y el material permanecen conservados. Actualizar requiere
+artefacto aprobado y compatibilidad del esquema; una copia de base debe
+incluir permisos y material de seguridad por canal privado. No restaurar
+encima de escrituras posteriores ni arrancar una versión incompatible.
+
+## Instalación local anterior — referencia histórica
+
+Los apartados inferiores conservan recetas y evidencia del antiguo equipo
+local. Los nombres Docker, puertos secundarios y afirmaciones de remoto
+detenido no describen el entorno remoto vigente. No ejecutarlos como receta
+de instalación del servidor; prevalece el apartado superior.
+
 Entorno de desarrollo de Contratación temporal · Corte: 6 de septiembre de 2026.
 
 ## Organización de referencia configurable

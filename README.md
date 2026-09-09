@@ -4,120 +4,36 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-**Estado funcional: 6 de septiembre de 2026. Primer PDF publicado: `5c57b29f`.**
+## Estado funcional — 10 de septiembre de 2026
 
-Cierre de bandeja y análisis: `b2effba`. El desarrollo y las bases sintéticas
-se han trasladado al equipo local del operador. La
-[guía de arranque vigente](GUIA_RECORRIDO_ALBERTO.md) permite abrir expedientes
-en la bandeja principal y registrar el análisis de una solicitud existente,
-con recibo conservado tras reiniciar. El servidor remoto queda detenido y conservado.
+Base publicada: `00558603dbd3040eacb03cb511f3b840be241b10`, rama
+`integracion/ct-producto-ligero-20260821`. El desarrollo activo y la base
+sintética están en el servidor; las instrucciones antiguas de arranque local
+no describen la instancia actual.
+Este entorno usa exclusivamente datos sintéticos y no está autorizado para
+producción ni para tratar datos reales.
 
-**Corte 3 incluido en esta entrega; recuperación demostrada:** el navegador registró
-una respuesta declarada por RRHH (`201`), con referencia y huella del correo,
-actor y justificante persistentes. Tras el parche y segundo reinicio de
-aplicación y PostgreSQL, selección, comunicación y respuesta se recuperaron
-con `200/200/200`, conservando el mismo justificante, recibo y fecha.
-Los rechazos intermitentes por comparar como texto fechas equivalentes están
-corregidos mediante comparación de instantes; el diagnóstico se retiró.
-También se comprobó un conflicto `409` desde el navegador, sin duplicado.
+Se pueden enseñar **cinco pasos completos y partes del sexto y séptimo**.
+El último avance permite registrar la validación manual sintética de la
+resolución, recuperar su recibo tras reiniciar aplicación y PostgreSQL y
+seguir descargando los seis borradores desde el expediente validado.
 
-**Corte 4 publicado: aceptación manual sintética.** El cuarto
-formulario reutiliza antecedentes y justificante, exige dos revisiones expresas
-con política fija de desarrollo y devuelve éxito solo tras confirmar CT y Bolsa.
-Navegador real `200/200/200/201`; tras reiniciar aplicación y PostgreSQL principal,
-`200/200/200/200`, mismo recibo CT y fecha, sin duplicados ni errores JS, cookies,
-almacenamiento web o desbordamiento. Cierre técnico, no aprobación de política legal.
+La comprobación utilizó Chromium, certificado de pruebas, autorización del
+servidor y PostgreSQL reales: alta `201`, recuperación y repetición con la
+misma clave `200`, mismo recibo y sin duplicado. El caso avanza de versión
+`7` a `8`; eso **no significa ocho pasos terminados**. Se conservan 52
+expedientes y una nueva resolución de ejercicio; el caso original en versión
+`7` permanece disponible.
 
-**Corte 5: renuncia manual sintética registrada.** Navegador real
-`200/201/201/201` sobre otro expediente creado desde la UI, fiscalizado en `v6`;
-la base principal conserva **51 solicitudes**, con bandeja y detalle consultables.
-El mismo cuarto formulario
-conserva resolución e intención de siguiente candidato **pendiente**, sin ejecutar
-otro llamamiento. Sin errores JS, cookies, almacenamiento web ni desbordamiento.
-Tras reiniciar aplicación y PostgreSQL principal, dirección confirmó
-`200/200/200/200`, mismos recibo, resolución, auditoría, fecha e intención, sin
-duplicados. Objetivo 5 cerrado funcionalmente solo para el ejercicio sintético;
-criterio manual provisional, sin aval legal ni aprobación del operador.
+**No hay firma oficial, eficacia administrativa ni envío.** La incorporación
+está en desarrollo: sus piezas aún necesitan conexión al servidor y base
+real, recorrido integrado y recibo. No se presenta como disponible.
 
-**Objetivo 7: siguiente llamamiento abierto, HTTP `201` real.** Quinta operación
-del mismo formulario, tras recuperar la renuncia y confirmar expresamente.
-Bolsa conserva siete registros, siete historias y siete eventos; cero errores JS,
-cookies, almacenamiento web y desbordamiento. Tras reiniciar app/PostgreSQL
-principal: `200/200/200/200/200`, mismos 14 campos salvo `estado_local` del replay.
-**Objetivo 7 cerrado funcionalmente solo tras renuncia sintética**.
-El recibo original de renuncia conserva su intención pendiente histórica; el nuevo
-recibo confirma la continuidad posterior, no envío, entrega ni aceptación.
-Claves y referencias en la [guía canónica](GUIA_RECORRIDO_ALBERTO.md#objetivo-7-recuperar-la-continuación-tras-renuncia).
-
-**Objetivo 8 cerrado funcionalmente en desarrollo:** propuesta desde aceptación,
-Chrome `201` y, tras reiniciar app/PostgreSQL principal, cuatro antecedentes `200`
-y propuesta `200`, mismos identificadores, recibo y fecha, versión `7`.
-Una actuación v7 y un outbox nuevos; historia anterior intacta, cero errores JS,
-cookies, almacenamiento web y desbordamiento. AD3-20/CT61 instaladas en ambas
-bases, no reaplicar; no se atribuye a secundaria el recorrido principal.
-Esta revisión incorpora el cierre funcional; el hash publicado se comprueba en Git.
-[Caso y cinco claves](GUIA_RECORRIDO_ALBERTO.md#objetivo-8-recuperar-la-propuesta-de-nombramiento).
-
-**Objetivo 9: primer informe descargable como borrador de desarrollo**, Chrome `200`,
-29267 bytes, PDF y pantalla inspeccionados por dirección. Rectificación: primer fallo
-navegador sin estado HTTP capturado; el `502` era curl con límite 50, paginación separada
-sin corrección acreditada. El navegador límite 100 mostró sonda `200` y vista `404`
-por fechas equivalentes comparadas como texto en las consultas. AD3-21 instalada en
-ambas bases corrige esas dos comparaciones; no reaplicar AD3-20/CT61 ni AD3-21.
-Tras el parche, cinco POST de bandeja/detalle/PDF `200`, PDF idéntico y cero errores
-JS, cookies y almacenamiento web. Tras reiniciar app/PostgreSQL principal, los cinco
-POST volvieron a `200`, sin `404`, mismo PDF e historia CT/Bolsa conservada.
-Dirección observó pantalla estable de 390 px sin obstrucción del detalle ni botón;
-la captura previa era transición de 180 ms, sin cambiar UI ni validar usabilidad global.
-[Descarga desde bandeja](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador),
-sin recuperar la propuesta por POST ni SQL propio del PDF. Esta revisión añade resolución:
-Chrome `200`, 29770 bytes, informe original idéntico en la misma sesión; seis POST `200`,
-cero errores JS, cookies y almacenamiento web. Dirección inspeccionó PDF y pantalla
-estable de 390 px con ambos botones. Tras reiniciar aplicación/PostgreSQL principal:
-otros seis POST `200`, ambos PDF idénticos en tamaño y SHA256, historial y recibos
-anteriores conservados; cero errores JS, cookies y almacenamiento web.
-Tercer borrador: diligencia, Chrome `200`, 28366 bytes; siete POST `200`, los dos PDF
-anteriores idénticos, cero errores JS, cookies y almacenamiento web. Dirección inspeccionó
-PDF y pantalla estable de 390 px con tres botones. Tras reiniciar aplicación/PostgreSQL principal:
-otros siete POST `200`, tres PDF e historial anterior idénticos; cero errores JS, cookies
-y almacenamiento web. Comunicación al centro: diez POST `200` antes y después del reinicio
-principal, seis PDF e historial idénticos. [Evidencia y huella](GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Disponibles **6/6 borradores**; siguiente objetivo 10, circuito de firma/evidencia admitida.
-No acredita firma, posesión real, nombramiento eficaz, envío, entrega, plazo legal ni orden de incorporación.
-Aviso local al sucesor CT60 cerrado: `201` y seis operaciones `200` tras reinicio principal,
-mismo recibo/fecha/v2/outbox. CT62 instalada en ambas bases, no reaplicar ni ejecutar DOWN.
-[Clave, recibo y límites](GUIA_RECORRIDO_ALBERTO.md#aviso-local-al-sucesor-ct62); no envío ni plazo.
-Declaración del sucesor CT63: `201` y siete operaciones `200` tras reinicio principal;
-mismos justificante/recibo/auditoría/fecha e historia, sin duplicados.
-CT63 instalada en ambas bases, no reaplicar ni DOWN con historial. [Séptima operación](GUIA_RECORRIDO_ALBERTO.md#declaración-de-respuesta-del-sucesor-ct63).
-CT64: aceptación manual sintética del sucesor confirmada CT+Bolsa, recuperando la misma clave tras
-un `503` con CT persistido y Bolsa pendiente. Ocho POST `200` antes y después del reinicio principal;
-mismos recibo/fecha/evaluación/auditoría, tres resoluciones CT y ocho operaciones Bolsa, sin duplicados.
-CT64 instalada en ambas bases; no reaplicar ni DOWN con resolución sucesora.
-[Octava operación](GUIA_RECORRIDO_ALBERTO.md#resolución-manual-del-sucesor-ct64):
-expediente `6` en CT64, versión resultante de resolución `3`.
-CT65: propuesta del sucesor recorrida, ocho antecedentes `200` y propuesta `201`;
-tras reinicio principal app/PostgreSQL, nueve `200`, mismos recibo/fecha/v7 e historia.
-Expediente `fe4934a1…` ahora `nombramiento/en_curso/v7`; solicitud conserva versión esperada `6`.
-CT65 instalada en ambas bases, no reaplicar ni DOWN con propuesta sucesora.
-[Novena operación del panel](GUIA_RECORRIDO_ALBERTO.md#propuesta-desde-la-aceptación-del-sucesor-ct65),
-sin otro paso RRHH completo, firma, envío, plazo legal ni incorporación. Propuesta original intacta.
-
-VEC, Ventanilla Electrónica del Empleado Público, es un portal modular en Go
-para la gestión de Recursos Humanos de la Diputación de Granada. Contratación
-temporal coordina la petición de personal y su tramitación; Bolsa conserva
-las capacidades de convocatorias, baremación, orden y llamamientos. Personal,
-Nóminas, Cronos y Dietas son ámbitos diferenciados, no una aplicación ya
-terminada por aparecer en el menú.
-
-**Se pueden recorrer cinco pasos completos de Contratación temporal y una
-parte del sexto y del séptimo, con datos sintéticos, autorización, PostgreSQL y recibos
-persistentes.** El aviso del llamamiento es local: no acredita envío de correo
-corporativo ni entrega a una persona.
-
-Este repositorio no está autorizado para producción ni para tratar datos
-reales. Publicar código, superar pruebas o mostrar una pantalla no certifica
-cumplimiento normativo ni sustituye la aceptación de Recursos Humanos.
+El portal está servido de forma **privada**, no en una URL pública.
+`https://localhost:8443/portal-empleado/` corresponde al servidor remoto;
+no funciona directamente en el equipo del visitante sin acceso preparado.
+Consulte [acceso y operación actuales](docs/manual_sistemas/README.md#entorno-privado-vigente).
+El certificado identifica al usuario de pruebas: no firma los documentos.
 
 ## Empiece por su perfil
 
@@ -129,9 +45,9 @@ cumplimiento normativo ni sustituye la aceptación de Recursos Humanos.
 | Sistemas | [Manual de Sistemas](docs/manual_sistemas/README.md) | Preparación del entorno, configuración, certificados, persistencia y operación. |
 
 La [Guía de recorrido de Alberto](GUIA_RECORRIDO_ALBERTO.md) es la referencia
-canónica para los **comandos exactos de arranque**, el acceso desde el
-navegador, los datos sintéticos conservados y la repetición después de
-reiniciar. No hay una segunda receta de instalación en este README.
+de los datos sintéticos conservados y de los recorridos anteriores. Para
+el arranque y acceso al servidor actual, use el manual de Sistemas; no ejecute
+las recetas locales históricas como si describieran esta instalación.
 
 ## Qué funciona de extremo a extremo
 
@@ -148,8 +64,9 @@ todavía la ratificación multicientro.
 El [circuito previo del centro](GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
 permite presentar y ratificar una petición con dos identidades sintéticas
 configuradas, formularios reales y recibos persistentes tras reinicio.
-La entrega posterior al alta de RRHH sigue pendiente; no es firma documental
-ni habilita automáticamente a todos los centros del catálogo.
+La entrega posterior al alta de RRHH ya se comprobó en el entorno privado,
+con recibo conservado tras reinicio. No es firma documental ni habilita
+automáticamente a todos los centros del catálogo.
 
 | Paso | Recorrido disponible | Límite |
 |---|---|---|
@@ -159,7 +76,7 @@ ni habilita automáticamente a todos los centros del catálogo.
 | 4. Asignación | Registro de unidad y persona responsable referenciada. | Destino sintético configurado. |
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
 | 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal, sin duplicados. | Faltan vencimiento, envío corporativo y plazo. No acredita entrega ni plazo legal aprobado. |
-| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. | Sin nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética con recibo `7→8`. | Sin nombramiento eficaz, posesión real, firma, envío ni entrega; validación manual sintética disponible, no firma oficial. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un

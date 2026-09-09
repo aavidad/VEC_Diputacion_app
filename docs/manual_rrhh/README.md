@@ -1,5 +1,42 @@
 # Manual funcional del técnico de Recursos Humanos
 
+## Corte vigente para presentación — 10 de septiembre de 2026
+
+Producto `00558603`: cinco pasos completos y partes del sexto y séptimo.
+Se conservan 52 expedientes sintéticos en el servidor privado. El
+[manual de Sistemas](../manual_sistemas/README.md#entorno-privado-vigente)
+describe el acceso; los puertos locales del historial inferior no son una
+dirección operativa en el equipo del visitante.
+
+La resolución tiene ahora **validación manual de ejercicio con recibo**.
+Desde el detalle del expediente con propuesta, RRHH revisa el material,
+marca las dos comprobaciones y confirma expresamente. El caso demostrado
+pasa de propuesta `v7` a resolución de ejercicio `v8`; recuperación tras
+reinicio y repetición con la misma clave conservan recibo, fecha y actuación.
+
+En un expediente ya validado, enseñe su recibo y descargue los seis documentos
+desde el detalle. Son los borradores históricos de la propuesta, que se
+mantienen accesibles; la validación no los transforma en documentos oficiales.
+El expediente original sin esa validación se ha conservado.
+
+Para la presentación distinga siempre:
+
+- Identificación por certificado de pruebas: permite acceder según permisos;
+  no equivale a firma documental.
+- Validación manual: registra una actuación sintética; no constituye firma,
+  nombramiento eficaz, envío ni orden de incorporación.
+- Incorporación: trabajo pendiente de conexión y demostración integrada;
+  todavía no hay un recibo nuevo que cierre el octavo paso.
+
+Para uso real siguen pendientes los modelos y circuito de firma admitidos,
+la comunicación corporativa, las reglas de plazo y las autorizaciones de
+datos y operación. No se asignan esos efectos a una casilla de la presentación.
+
+## Antecedentes hasta el 6 de septiembre
+
+Las cifras e instalaciones siguientes son históricas. El corte anterior
+describe lo vigente; no hay que repetir actuaciones para actualizarlo.
+
 Contratación temporal · VEC Diputación · Corte: 6 de septiembre de 2026.
 
 **Consulta de centros:** desde la bandeja, **Centros y organización de
@@ -99,7 +136,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 4. Asignación | Demostrado: unidad, responsable y recibo. |
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables, incluida comunicación al centro. Pendiente circuito de firma/evidencia admitida (10); no posesión real, nombramiento eficaz, envío ni entrega. |
+| 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética `7→8` con recibo recuperable. Sigue pendiente el circuito de firma oficial; no posesión real, nombramiento eficaz, envío ni entrega. |
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:

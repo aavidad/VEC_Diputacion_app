@@ -1,5 +1,41 @@
 # Manual mantenido del programador de VEC
 
+## Continuación técnica vigente — 10 de septiembre de 2026
+
+Base publicada `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
+`trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
+`integracion/ct-producto-ligero-20260821`. El desarrollo activo está en el
+servidor y conserva trabajo pendiente ajeno. No programe en la raíz histórica
+local ni copie implementaciones entre ramas. Antes de integrar, inventaríe
+ramas, worktrees, diferencias y equivalencias de parches.
+
+La capacidad cerrada es resolución manual sintética y acceso posterior a
+los documentos. La API registra con autorización y PostgreSQL, devuelve
+`201` al crear y recupera con `200`; repetir la misma clave no crea otro
+recibo. La prueba integrada conservó resultado tras reiniciar app/base.
+Los campos `firma_oficial` y `eficacia_administrativa` permanecen en `false`.
+
+La interfaz permite descargar desde el detalle `v8` los seis PDF de la
+propuesta histórica `v7`. No debe solicitar el documento con la versión
+actual ni inventar otra propuesta. La resolución descargada conserva SHA256
+`e9b53a1e2196b3719770cf7db9f563077d75f457669e84cb7bb3c32fd1de4130`.
+
+Incorporación continúa pendiente: preparador durable, lectores y cliente/
+formulario son trabajo en curso, no un recorrido instalado. Reutilizar las
+piezas existentes; aún faltan composición del servidor, conexión a la base
+real y comprobación del recibo. No declarar cierre por pruebas de paquete.
+
+Consulte [operación actual](../manual_sistemas/README.md#entorno-privado-vigente).
+El runtime comprobado combina binario `1ac3c115` y recursos web `00558603`;
+el HEAD del árbol compartido con trabajo pendiente no identifica por sí solo
+lo servido. Pruebas focales al terminar el hito; documentación no requiere
+repetir pruebas de producto ya acreditadas.
+
+## Contexto y recorridos anteriores
+
+Las ubicaciones locales y cifras del 6 de septiembre conservadas a
+continuación son antecedentes, no instrucciones para el servidor actual.
+
 Guía práctica para continuar el desarrollo sin reconstruir piezas existentes.
 Se mantiene a mano; no es el catálogo de firmas ni un certificado de despliegue.
 Estado funcional de referencia: 6 de septiembre de 2026.
@@ -190,7 +226,7 @@ de recuperación tras el segundo reinicio, además del cierre anterior:
 | 4. Asignación | Envío del expediente a la unidad. |
 | 5. Informe jurídico y fiscalización | Registro durable y resultados de fiscalización; devolución a unidad cuando corresponde. |
 | 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo. |
-| 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; agregado `nombramiento/en_curso/v7`. Sin firma ni nombramiento eficaz. |
+| 7. Nombramiento, parcial | Propuesta desde aceptación sintética `201` y replay `200` tras reinicio; propuesta `v7` y resolución manual sintética `v8` con recibo recuperable. Los PDF conservan la versión documental `7`. Sin firma ni nombramiento eficaz. |
 | 8. Incorporación y seguimiento | No declarados completos de extremo a extremo; GINPIX sigue pendiente. |
 
 El aviso local no demuestra correo enviado, entrega al destinatario, aceptación,
@@ -502,7 +538,7 @@ Conservar el shell y el tema compartidos: contexto del expediente, etiquetas,
 confirmación explícita, estados de espera/error y recibo. No duplicar helpers,
 CSS estructural ni reglas funcionales en la vista.
 
-## Preparar y arrancar desarrollo
+## Preparar y arrancar desarrollo local — referencia histórica
 
 Desde la raíz del worktree canónico asignado, no desde la raíz histórica ni
 desde el producto publicado mientras otra persona lo está validando.
@@ -556,7 +592,8 @@ scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
 
 Abrir `https://localhost:8443/portal-empleado/` con el certificado de RRHH;
 Intervención usa su certificado y perfil de navegador separados.
-El desarrollo remoto permanece detenido; el recorrido local no necesita túnel.
+Esta receta corresponde al antiguo entorno local. Para la instancia remota
+activa use el apartado vigente de Sistemas; no arranque una segunda copia.
 La importación protegida de certificados se describe en la guía; no publicar
 claves, contraseñas ni cadenas de conexión en Git, capturas o mensajes.
 

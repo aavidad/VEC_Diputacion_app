@@ -1,5 +1,39 @@
 # Manual de usuario · Portal VEC y Bolsas de trabajo
 
+## Disponible para enseñar — 10 de septiembre de 2026
+
+Cinco pasos completos y partes del sexto y séptimo, con datos inventados
+guardados de verdad. El ciclo completo, incluida incorporación, sigue pendiente.
+Esta actualización corresponde al producto `00558603`.
+
+Sistemas debe preparar el acceso privado al servidor y el certificado de
+pruebas. No hay enlace público; `localhost:8443` no apunta al servidor desde
+su ordenador. Consulte [acceso actual](../manual_sistemas/README.md#entorno-privado-vigente).
+
+### Consultar la validación y los documentos
+
+1. Entre en **Contratación temporal**, localice el expediente sintético
+   indicado por quien presenta y abra su detalle.
+2. En un caso con propuesta pendiente de validación, revise el formulario de
+   resolución y marque sus dos comprobaciones solo después de leerlas.
+   Confirme únicamente si desea registrar una nueva actuación del ejercicio.
+3. Espere al recibo. Si el caso ya está validado, consulte el recibo existente;
+   no cree otra petición para enseñarlo.
+4. Los seis botones de descarga siguen disponibles después de validar.
+   Descargan los borradores de la propuesta anterior, no documentos firmados.
+
+El caso comprobado conserva el mismo recibo después de reiniciar aplicación
+y base. Una conexión interrumpida no demuestra que se haya perdido el registro:
+mantenga los datos y la clave originales y consulte al operador antes de repetir.
+El certificado de acceso no firma; la validación manual no es nombramiento
+eficaz ni envía notificaciones. La incorporación aún no se puede enseñar
+como un recorrido guardado y completo.
+
+## Historial funcional conservado hasta el 6 de septiembre
+
+Las cifras y ubicaciones de este historial describen aquellos cortes, no el
+acceso actual. Para operar prevalece el apartado anterior.
+
 Diputación de Granada · Ventanilla Electrónica del Empleado Público
 
 **Edición: 6 de septiembre de 2026.** Cierre anterior publicado: versión
@@ -127,8 +161,9 @@ correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
 1. Pida a Sistemas la dirección del entorno, su certificado de desarrollo y
    el perfil de navegador preparado. No comparta certificados ni contraseñas.
 2. Abra la dirección indicada y entre en `/portal-empleado/`, sin seleccionar
-   el modo de presentación. El recorrido principal local de la guía está en
-   `https://localhost:8443/portal-empleado/`, sin túnel al remoto detenido.
+   el modo de presentación. La instancia está en el servidor privado;
+   [Sistemas prepara el acceso](../manual_sistemas/README.md#entorno-privado-vigente)
+   antes de abrirla desde otro equipo.
 3. Utilice el certificado correspondiente a su función. Recursos Humanos e
    Intervención usan certificados y perfiles de navegador separados.
 4. Espere a que el portal compruebe los módulos disponibles. Entre desde
@@ -207,7 +242,7 @@ conservado, use los datos exactos de la
 | 4. Asignación | Confirmar la unidad y la persona responsable referenciada. | Asignación y recibo guardados. |
 | 5. Informe jurídico y Fiscalización | Preparar el informe de desarrollo; Intervención registra el resultado. | Documento sin firma ni validez jurídica y resultado de fiscalización guardados. El desfavorable registra la devolución a la unidad. |
 | 6. Llamamiento, parcialmente disponible | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. | Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
-| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores desde el detalle, incluida comunicación al centro. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; pendiente circuito de firma/evidencia admitida (10). |
+| 7. Nombramiento, parcialmente disponible | Registrar y recuperar la propuesta desde aceptación sintética; expediente `6→7`; descargar seis borradores y consultar la validación manual sintética con su recibo. | Recibo recuperado tras reinicio principal. No hay nombramiento eficaz, posesión real, firma, envío ni entrega; validación manual sintética disponible, no firma oficial. |
 | 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
 
 El número de recibos o la versión del expediente no es el número de pasos
