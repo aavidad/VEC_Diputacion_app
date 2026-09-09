@@ -15,6 +15,7 @@ import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-ht
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO, prefijoErrorLlamamiento, conflictoLlamamientoValido } from "./cliente-http-llamamiento.js";
+import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -29,6 +30,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     ...RUTAS_CONSULTA_RRHH,
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
     ...RUTAS_LLAMAMIENTO,
+    resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -410,7 +412,9 @@ function claveI18nValida(ruta, codigo, clave) {
       "servicio_no_disponible",
     ].includes(codigo);
   }
-  const prefijo = prefijoErrorLlamamiento(ruta) ?? (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
+  const prefijo = ruta.split("?")[0] === RUTA_RESOLUCION_FORMALIZACION
+    ? "api.contratacion_temporal.resolucion_formalizacion.error."
+    : prefijoErrorLlamamiento(ruta) ?? (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
     ? "api.contratacion_temporal.alta.error."
     : ruta === RUTA_ASIGNACION_CONTRATACION_TEMPORAL
       ? "api.contratacion_temporal.asignacion.error."
@@ -424,6 +428,9 @@ function claveI18nValida(ruta, codigo, clave) {
 }
 
 function codigoValidoParaRuta(ruta, estado, codigo) {
+  if (ruta === RUTA_RESOLUCION_FORMALIZACION && estado === 409) {
+    return ["conflicto", "version_en_conflicto", "clave_idempotencia_reutilizada"].includes(codigo);
+  }
   if (prefijoErrorLlamamiento(ruta) && estado === 409) {
     return conflictoLlamamientoValido(ruta, codigo);
   }
@@ -803,6 +810,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
+    ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });
