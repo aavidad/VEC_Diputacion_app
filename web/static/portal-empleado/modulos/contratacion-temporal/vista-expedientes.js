@@ -11,6 +11,7 @@ import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -305,6 +306,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
   llamamientoDisponible = false,
+  resolucionFormalizacionDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -339,7 +341,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       ? '<div data-ct-exp-informe-juridico></div>'
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
-      : ""}`;
+      : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
   } else if (estado.vista === "auditoria") {
@@ -421,7 +423,11 @@ export async function montarModuloContratacionTemporal({
     ?? composicionAnalisis?.cliente;
   const llamamientoDisponible = typeof clienteLlamamiento?.seleccionarLlamamiento === "function"
     && typeof clienteLlamamiento?.registrarComunicacionLlamamiento === "function";
+  const resolucionFormalizacionDisponible = typeof clienteLlamamiento?.registrarResolucionFormalizacion === "function"
+    && typeof clienteLlamamiento?.prepararResolucionFormalizacion === "function";
   let desmontarLlamamiento = null;
+  let desmontarResolucionFormalizacion = null;
+  let consultaResolucionFormalizacion = null;
   let montada = true;
   let desmontarAlta = null;
   let desmontarAnalisis = null;
@@ -598,8 +604,12 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarAsignacion() {
+    consultaResolucionFormalizacion?.abort();
+    consultaResolucionFormalizacion = null;
     desmontarLlamamiento?.();
     desmontarLlamamiento = null;
+    desmontarResolucionFormalizacion?.();
+    desmontarResolucionFormalizacion = null;
     if (typeof desmontarFiscalizacion === "function") desmontarFiscalizacion();
     desmontarFiscalizacion = null;
     if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
@@ -667,6 +677,53 @@ export async function montarModuloContratacionTemporal({
       raiz: contenedor, cliente: clienteLlamamiento, contexto,
       confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
     });
+  }
+
+  async function montarResolucionFormalizacion() {
+    const estado = presentador.obtenerEstado();
+    if (!montada || !resolucionFormalizacionDisponible || desmontarResolucionFormalizacion || consultaResolucionFormalizacion
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado?.vista !== "expediente" || ![7, 8].includes(estado?.expediente?.version)) return;
+    const contenedor = raiz.querySelector("[data-ct-exp-resolucion-formalizacion]");
+    if (!contenedor) return;
+    const expedienteRef = estado.expediente.expediente_ref;
+    const version = estado.expediente.version;
+    const controlador = new AbortController();
+    consultaResolucionFormalizacion = controlador;
+    const vigente = () => {
+      const actual = presentador.obtenerEstado();
+      return montada && consultaResolucionFormalizacion === controlador
+        && !controlador.signal.aborted && raiz.contains?.(contenedor)
+        && raiz.querySelector("[data-ct-exp-resolucion-formalizacion]") === contenedor
+        && actual?.vista === "expediente" && actual.carga === "listo"
+        && actual.expediente?.expediente_ref === expedienteRef
+        && actual.expediente?.version === version;
+    };
+    const t = crearTraductorExpedientesContratacion(mensajes);
+    contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("resolucion_preparacion_cargando"))}</p>`;
+    try {
+      const preparacion = await clienteLlamamiento.prepararResolucionFormalizacion(
+        expedienteRef, { signal: controlador.signal },
+      );
+      if (!vigente()) return;
+      const promocionAutorizada = version === 7 && preparacion.version_actual === 8
+        && preparacion.recibo !== null;
+      if (preparacion.expediente_ref !== expedienteRef
+        || (preparacion.version_actual !== version && !promocionAutorizada)) throw new TypeError("preparación no ligada");
+      desmontarResolucionFormalizacion = montarFormularioResolucionFormalizacion({
+        raiz: contenedor, cliente: clienteLlamamiento, confirmarOperacion, mensajes, locale, zonaHoraria,
+        preparacion,
+      });
+    } catch (error) {
+      if (!vigente()) return;
+      const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);
+      contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t(denegada
+        ? "resolucion_preparacion_denegada" : "resolucion_preparacion_no_disponible"))}</p>
+        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-resolucion">${escaparHTML(t("resolucion_preparacion_reintentar"))}</button>`}`;
+      desmontarResolucionFormalizacion = null;
+    } finally {
+      if (consultaResolucionFormalizacion === controlador) consultaResolucionFormalizacion = null;
+    }
   }
 
   function montarInformeDesdeAsignacion(recibo) {
@@ -885,9 +942,11 @@ export async function montarModuloContratacionTemporal({
       informeJuridicoDisponible,
       fiscalizacionDisponible,
       llamamientoDisponible,
+      resolucionFormalizacionDisponible,
     });
     montarAltaSiProcede();
     montarLlamamiento(contextoLlamamientoDesdeEstado(estado));
+    montarResolucionFormalizacion();
     if (montarAnalisisSiProcede() === false) {
       retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -1005,7 +1064,15 @@ export async function montarModuloContratacionTemporal({
     if (impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
-    if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
+    if (accion.dataset.ctExpAccion === "volver-cuadro-actualizado") {
+      presentador.cambiarVista("cuadro");
+      const promesa = presentador.cargar();
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar(["[data-ct-exp-filtros]", ".ct-exp-estado-global"]);
+    } else if (accion.dataset.ctExpAccion === "reintentar-resolucion") {
+      await montarResolucionFormalizacion();
+    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });
