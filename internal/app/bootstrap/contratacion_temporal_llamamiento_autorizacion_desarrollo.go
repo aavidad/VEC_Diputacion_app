@@ -37,7 +37,7 @@ type preparacionLlamamientoDesarrollo struct {
 }
 
 func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
-	return ruta == httpinterno.RutaSeleccionLlamamiento ||
+	return ruta == httpinterno.RutaResolucionFormalizacion || ruta == httpinterno.RutaSeleccionLlamamiento ||
 		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
@@ -69,6 +69,9 @@ func ambitosLlamamientoDesarrollo(recurso dominiovec.RecursoAutorizable) []domin
 func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || datos.Finalidad != "gestionar_contratacion_temporal" {
 		return false
+	}
+	if ruta == httpinterno.RutaResolucionFormalizacion {
+		return solicitudAutorizacionResolucionFormalizacionValida(ctx, datos)
 	}
 	p, ok := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	if !ok || p.expediente.Fiscalizado.Validar() != nil ||
@@ -265,21 +268,25 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	if err := configurarAutoridadContinuacionDesarrollo(ctx, alta, reloj, desde); err != nil {
 		return err
 	}
-	return configurarAutoridadPropuestaFormalizacionDesarrollo(ctx, alta, reloj, desde)
+	if err := configurarAutoridadPropuestaFormalizacionDesarrollo(ctx, alta, reloj, desde); err != nil {
+		return err
+	}
+	return configurarAutoridadResolucionFormalizacionDesarrollo(ctx, alta, reloj, desde)
 }
 
 type autorizadorLlamamientoDesarrollo struct {
-	alta                   *dependenciasAltaContratacionTemporalDesarrollo
-	material               *proveedorMaterialAltaContratacionTemporalDesarrollo
-	comunicacion           bool
-	respuestaRecibida      bool
-	consultaJustificante   bool
-	resolucionManual       bool
-	aceptacionBolsa        bool
-	renunciaBolsa          bool
-	continuacionCT         bool
-	siguienteBolsa         bool
-	propuestaFormalizacion bool
+	alta                    *dependenciasAltaContratacionTemporalDesarrollo
+	material                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	comunicacion            bool
+	respuestaRecibida       bool
+	consultaJustificante    bool
+	resolucionManual        bool
+	aceptacionBolsa         bool
+	renunciaBolsa           bool
+	continuacionCT          bool
+	siguienteBolsa          bool
+	propuestaFormalizacion  bool
+	resolucionFormalizacion bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -291,6 +298,9 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 }
 
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.resolucionFormalizacion {
+		return motivoResolucionFormalizacionDesarrollo()
+	}
 	if a.propuestaFormalizacion {
 		return motivoPropuestaFormalizacionDesarrollo()
 	}
@@ -368,6 +378,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		(a.continuacionCT && accion != postgresct.AccionContinuacionLlamamiento) ||
 		(a.siguienteBolsa && accion != puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo) ||
 		(a.propuestaFormalizacion && accion != postgresct.AccionPropuestaFormalizacion) ||
+		(a.resolucionFormalizacion && accion != postgresct.AccionResolucionFormalizacion) ||
 		(a.comunicacion && a.respuestaRecibida) ||
 		(a.respuestaRecibida && capacidad.ruta != httpinterno.RutaRegistroRespuestaRecibida) ||
 		(!a.respuestaRecibida && capacidad.ruta == httpinterno.RutaRegistroRespuestaRecibida) ||

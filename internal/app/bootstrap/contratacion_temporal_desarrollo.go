@@ -325,6 +325,17 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorRRHH != nil {
+		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		h, err := httpinterno.NuevoManejadorResolucionFormalizacion(resolucion, resolucion)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
+	}
 	rutas = append(rutas, rutasOrganizacion...)
 	rutasPeticionesCentro, err := nuevasRutasPeticionCentroDesarrollo(cfg, resolvedorDesarrollo, &alta, reloj)
 	if err != nil {
@@ -434,6 +445,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == httpinterno.RutaResolucionFormalizacion ||
 			capacidad.ruta == rutaEntregaPeticionCentro ||
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
@@ -494,7 +506,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+	return r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||

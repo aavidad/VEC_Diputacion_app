@@ -201,6 +201,26 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
+	// Los seis borradores siguen representando el original de propuesta v7.
+	// La nueva actuación de ejercicio no reescribe ni firma esos documentos.
+	if detalle.Resumen.Version == 8 && len(detalle.Hitos) == 8 &&
+		detalle.Hitos[7].AccionClave == "registrar_resolucion_formalizacion" {
+		solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
+		if err != nil {
+			responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+			return
+		}
+		original, err := h.consultor.Consultar(r.Context(), solicitud)
+		if r.Context().Err() != nil {
+			responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(r.Context().Err()))
+			return
+		}
+		if err != nil || original.ValidarContenidoPublicablePara(solicitud) != nil {
+			responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+			return
+		}
+		detalle = original
+	}
 	contenido, err := h.renderizador.RenderizarBorrador(r.Context(), borrador.tipo, detalle.Clonar())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))

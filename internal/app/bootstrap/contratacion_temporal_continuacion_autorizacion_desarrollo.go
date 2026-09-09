@@ -13,13 +13,18 @@ import (
 )
 
 func (a *autorizadorLlamamientoDesarrollo) modoResolucionOContinuacionValido(ruta string) bool {
+	if a == nil || (a.resolucionFormalizacion && ruta != httpinterno.RutaResolucionFormalizacion) {
+		return false
+	}
 	cuenta := 0
-	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa, a.renunciaBolsa, a.continuacionCT, a.siguienteBolsa, a.propuestaFormalizacion} {
+	for _, activo := range []bool{a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa, a.renunciaBolsa, a.continuacionCT, a.siguienteBolsa, a.propuestaFormalizacion, a.resolucionFormalizacion} {
 		if activo {
 			cuenta++
 		}
 	}
 	switch ruta {
+	case httpinterno.RutaResolucionFormalizacion:
+		return cuenta == 1 && a.resolucionFormalizacion && !a.comunicacion && !a.respuestaRecibida
 	case httpinterno.RutaResolucionComunicacionLlamamiento:
 		return cuenta == 1 && !a.comunicacion && !a.respuestaRecibida && !a.continuacionCT && !a.siguienteBolsa && !a.propuestaFormalizacion
 	case httpinterno.RutaContinuacionLlamamiento:

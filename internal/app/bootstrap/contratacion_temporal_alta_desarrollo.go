@@ -76,53 +76,54 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
-	peticionesCentro                  bool
-	mu                                sync.Mutex
-	sello                             *selloConsultasContratacionTemporalDesarrollo
-	principalID                       string
-	certificadoSHA256                 string
-	contexto                          ports.ContextoAutorizacionAltaV3
-	flujo                             ports.ConfiguracionAltaFlujo
-	motivo                            dominiovec.ReferenciaEntradaCatalogo
-	instantanea                       dominiovec.InstantaneaAutorizacion
-	instantaneaAnalisis               dominiovec.InstantaneaAutorizacion
-	motivoRegistroAnalisis            dominiovec.ReferenciaEntradaCatalogo
-	instantaneaCobertura              dominiovec.InstantaneaAutorizacion
-	instantaneaAsignacion             dominiovec.InstantaneaAutorizacion
-	instantaneaInformeJuridico        dominiovec.InstantaneaAutorizacion
-	instantaneaLlamamiento            dominiovec.InstantaneaAutorizacion
-	instantaneaReanudacionLlamamiento dominiovec.InstantaneaAutorizacion
-	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
-	instantaneaRespuestaRecibida      dominiovec.InstantaneaAutorizacion
-	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
-	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
-	instantaneaAceptacionBolsa        dominiovec.InstantaneaAutorizacion
-	instantaneaRenunciaBolsa          dominiovec.InstantaneaAutorizacion
-	instantaneaContinuacionCT         dominiovec.InstantaneaAutorizacion
-	instantaneaSiguienteBolsa         dominiovec.InstantaneaAutorizacion
-	instantaneaPropuestaFormalizacion dominiovec.InstantaneaAutorizacion
-	instantaneaOrganizacion           dominiovec.InstantaneaAutorizacion
-	instantaneaEntregaPeticion        dominiovec.InstantaneaAutorizacion
-	instantaneaCuadroRRHH             dominiovec.InstantaneaAutorizacion
-	instantaneaDetalleRRHH            dominiovec.InstantaneaAutorizacion
-	motivoCuadroRRHH                  dominiovec.ReferenciaEntradaCatalogo
-	motivoDetalleRRHH                 dominiovec.ReferenciaEntradaCatalogo
-	motivoLlamamiento                 dominiovec.ReferenciaEntradaCatalogo
-	motivoComunicacion                dominiovec.ReferenciaEntradaCatalogo
-	motivoRespuestaRecibida           dominiovec.ReferenciaEntradaCatalogo
-	motivoConsultaJustificante        dominiovec.ReferenciaEntradaCatalogo
-	motivoPropuestaCobertura          dominiovec.ReferenciaEntradaCatalogo
-	motivoDecisionCobertura           dominiovec.ReferenciaEntradaCatalogo
-	motivoRectificacionCobertura      dominiovec.ReferenciaEntradaCatalogo
-	motivoResultadoCobertura          dominiovec.ReferenciaEntradaCatalogo
-	motivoAsignacion                  dominiovec.ReferenciaEntradaCatalogo
-	motivoInformeJuridico             dominiovec.ReferenciaEntradaCatalogo
-	ambitos                           ports.SelladorAmbitoIdempotencia
-	reloj                             relojContratacionTemporalDesarrollo
-	concesiones                       map[string]struct{}
-	autoridadAsignaciones             autoridadAsignacionesContratacionTemporalDesarrollo
-	registroDecisionesAnalisis        registroDecisionesAnalisisContratacionTemporalDesarrollo
-	instantaneasPorSolicitud          map[string]dominiovec.InstantaneaAutorizacion
+	peticionesCentro                   bool
+	mu                                 sync.Mutex
+	sello                              *selloConsultasContratacionTemporalDesarrollo
+	principalID                        string
+	certificadoSHA256                  string
+	contexto                           ports.ContextoAutorizacionAltaV3
+	flujo                              ports.ConfiguracionAltaFlujo
+	motivo                             dominiovec.ReferenciaEntradaCatalogo
+	instantanea                        dominiovec.InstantaneaAutorizacion
+	instantaneaAnalisis                dominiovec.InstantaneaAutorizacion
+	motivoRegistroAnalisis             dominiovec.ReferenciaEntradaCatalogo
+	instantaneaCobertura               dominiovec.InstantaneaAutorizacion
+	instantaneaAsignacion              dominiovec.InstantaneaAutorizacion
+	instantaneaInformeJuridico         dominiovec.InstantaneaAutorizacion
+	instantaneaLlamamiento             dominiovec.InstantaneaAutorizacion
+	instantaneaReanudacionLlamamiento  dominiovec.InstantaneaAutorizacion
+	instantaneaComunicacion            dominiovec.InstantaneaAutorizacion
+	instantaneaRespuestaRecibida       dominiovec.InstantaneaAutorizacion
+	instantaneaConsultaJustificante    dominiovec.InstantaneaAutorizacion
+	instantaneaResolucionManual        dominiovec.InstantaneaAutorizacion
+	instantaneaAceptacionBolsa         dominiovec.InstantaneaAutorizacion
+	instantaneaRenunciaBolsa           dominiovec.InstantaneaAutorizacion
+	instantaneaContinuacionCT          dominiovec.InstantaneaAutorizacion
+	instantaneaSiguienteBolsa          dominiovec.InstantaneaAutorizacion
+	instantaneaPropuestaFormalizacion  dominiovec.InstantaneaAutorizacion
+	instantaneaResolucionFormalizacion dominiovec.InstantaneaAutorizacion
+	instantaneaOrganizacion            dominiovec.InstantaneaAutorizacion
+	instantaneaEntregaPeticion         dominiovec.InstantaneaAutorizacion
+	instantaneaCuadroRRHH              dominiovec.InstantaneaAutorizacion
+	instantaneaDetalleRRHH             dominiovec.InstantaneaAutorizacion
+	motivoCuadroRRHH                   dominiovec.ReferenciaEntradaCatalogo
+	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
+	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo
+	motivoComunicacion                 dominiovec.ReferenciaEntradaCatalogo
+	motivoRespuestaRecibida            dominiovec.ReferenciaEntradaCatalogo
+	motivoConsultaJustificante         dominiovec.ReferenciaEntradaCatalogo
+	motivoPropuestaCobertura           dominiovec.ReferenciaEntradaCatalogo
+	motivoDecisionCobertura            dominiovec.ReferenciaEntradaCatalogo
+	motivoRectificacionCobertura       dominiovec.ReferenciaEntradaCatalogo
+	motivoResultadoCobertura           dominiovec.ReferenciaEntradaCatalogo
+	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
+	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
+	ambitos                            ports.SelladorAmbitoIdempotencia
+	reloj                              relojContratacionTemporalDesarrollo
+	concesiones                        map[string]struct{}
+	autoridadAsignaciones              autoridadAsignacionesContratacionTemporalDesarrollo
+	registroDecisionesAnalisis         registroDecisionesAnalisisContratacionTemporalDesarrollo
+	instantaneasPorSolicitud           map[string]dominiovec.InstantaneaAutorizacion
 }
 
 var _ httpinterno.AutoridadContextoCanalAnalisisRRHH = (*soporteAltaContratacionTemporalDesarrollo)(nil)
@@ -703,6 +704,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoContinuacionDesarrollo(false), true
 	case httpinterno.RutaPropuestaFormalizacion:
 		return motivoPropuestaFormalizacionDesarrollo(), true
+	case httpinterno.RutaResolucionFormalizacion:
+		return motivoResolucionFormalizacionDesarrollo(), true
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
 	default:
@@ -756,6 +759,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if ruta == httpinterno.RutaPropuestaFormalizacion {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaPropuestaFormalizacion), s.instantaneaPropuestaFormalizacion.Validar() == nil
+	}
+	if ruta == httpinterno.RutaResolucionFormalizacion {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaResolucionFormalizacion), s.instantaneaResolucionFormalizacion.Validar() == nil
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil

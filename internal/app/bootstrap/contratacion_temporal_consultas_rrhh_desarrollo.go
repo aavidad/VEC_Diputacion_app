@@ -16,9 +16,10 @@ import (
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
-	cuadro  httpinterno.ConsultorCuadroRRHH
-	detalle httpinterno.ConsultorDetalleRRHH
-	cerrar  func()
+	cuadro                httpinterno.ConsultorCuadroRRHH
+	detalle               httpinterno.ConsultorDetalleRRHH
+	preparacionResolucion ports.ConsultorPreparacionResolucionFormalizacion
+	cerrar                func()
 }
 
 // Compone las rutas, el guardián y los dos adaptadores existentes. No aplica
@@ -143,7 +144,11 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
+	preparacion, err := application.NuevoServicioPreparacionResolucionFormalizacion(autoridad, emisor, sesion, reloj)
+	if err != nil {
+		return vacio, err
+	}
 	completa = true
 	identidadCompuesta = true
-	return dependenciasConsultasRRHHDesarrollo{cuadro: cuadro, detalle: detalle, cerrar: cerrar}, nil
+	return dependenciasConsultasRRHHDesarrollo{cuadro: cuadro, detalle: detalle, preparacionResolucion: preparacion, cerrar: cerrar}, nil
 }
