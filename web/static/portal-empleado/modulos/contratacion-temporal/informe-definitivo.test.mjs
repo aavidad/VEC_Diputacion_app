@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { montarModuloContratacionTemporal, renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
+import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js";
 
 function estadoReal() {
   const expediente = {
@@ -29,8 +34,7 @@ const perfiles = [
   { tipo: "comunicacion_centro", accion: "descargar-comunicacion-centro", nombre: "comunicacion-centro-borrador.pdf" },
 ];
 
-async function montar(descargar, perfil = perfiles[0]) {
-  const estado = estadoReal();
+async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const eventos = new Map();
   const mensaje = { textContent: "", setAttribute() {} };
   const descargas = [], creados = [], revocados = [];
@@ -103,6 +107,134 @@ test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-notificacion"/u);
     assert.doesNotMatch(renderizarModuloContratacionTemporal(otro), /data-ct-exp-accion="descargar-comunicacion-centro"/u);
   }
+});
+
+async function estadoResolucionDesdeHTTP(modificar = () => {}) {
+  const resumen = {
+    expediente_ref: "expediente:ct:pdf-historico", numero_visible: "2026/CT-009", version: 8,
+    flujo_ref: "flujo:ct:desarrollo", flujo_version: 1, flujo_huella_sha256: "a".repeat(64),
+    fase_clave: "nombramiento", estado_clave: "en_curso", centro_ref: "centro:prueba",
+    categoria_ref: "categoria:prueba", creado_en: "2026-09-03T08:00:00Z",
+    actualizado_en: "2026-09-09T22:27:12Z",
+  };
+  const acciones = ["registrar_solicitud", "registrar_analisis", "registrar_cobertura",
+    "registrar_asignacion", "registrar_informe_juridico", "registrar_fiscalizacion",
+    "registrar_propuesta_formalizacion", "registrar_resolucion_formalizacion"];
+  const detalle = {
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1", resumen,
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: acciones.map((accion_clave, indice) => ({
+      secuencia: indice + 1, version_expediente: indice + 1, accion_clave,
+      realizada_en: "2026-09-09T22:27:12Z", fase_origen: "nombramiento",
+      fase_destino: "nombramiento", estado_origen: "en_curso", estado_destino: "en_curso",
+    })),
+  };
+  modificar(detalle);
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta) => {
+    assert.ok([RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH,
+      RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH].includes(ruta));
+    const data = ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.cuadroRRHH
+      ? { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1", generada_en: resumen.actualizado_en,
+        expedientes: [resumen], hay_mas: false } : detalle;
+    return new Response(JSON.stringify({ data }), {
+      status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  } });
+  const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await fuente.listar();
+  const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades: fuente.capacidades });
+  await presentador.cargar();
+  await presentador.seleccionarExpediente(resumen.expediente_ref);
+  const estado = presentador.obtenerEstado();
+  assert.equal(estado.carga, "listo");
+  return estado;
+}
+
+test("resolución v8 proyectada desde HTTP conserva los seis PDF de la propuesta v7", async () => {
+  const estado = await estadoResolucionDesdeHTTP();
+  assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
+    expediente_ref: estado.expediente_ref, version_observada: 7,
+  });
+  const html = renderizarModuloContratacionTemporal(estado);
+  for (const perfil of perfiles) assert.ok(html.includes(`data-ct-exp-accion="${perfil.accion}"`));
+});
+
+test("una v8 sin propuesta/resolución histórica exacta no muestra descargas", async () => {
+  for (const modificar of [
+    (d) => { d.hitos = []; },
+    (d) => { d.hitos.pop(); },
+    (d) => { d.hitos[6].accion_clave = "otra_propuesta"; },
+    (d) => { d.hitos[7].accion_clave = "otra_resolucion"; },
+    (d) => { d.hitos[6].version_expediente = 6; },
+    (d) => { d.hitos[7].version_expediente = 9; },
+    (d) => { d.hitos[7].secuencia = 9; },
+    (d) => { d.hitos[0].secuencia = 2; },
+    (d) => { d.hitos[6].fase_destino = "fiscalizacion"; },
+    (d) => { d.hitos[6].estado_destino = "completado"; },
+    (d) => { d.hitos[7].fase_origen = "fiscalizacion"; },
+    (d) => { d.hitos[7].fase_destino = "fiscalizacion"; },
+    (d) => { d.hitos[7].estado_origen = "pendiente"; },
+    (d) => { d.hitos[7].estado_destino = "completado"; },
+    (d) => { d.hitos.push({ ...d.hitos[7] }); },
+    (d) => { d.resumen.fase_clave = "fiscalizacion"; },
+    (d) => { d.resumen.estado_clave = "completado"; },
+    (d) => { d.resumen.version = 9; },
+  ]) {
+    const estado = await estadoResolucionDesdeHTTP(modificar);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
+    const html = renderizarModuloContratacionTemporal(estado);
+    for (const perfil of perfiles) assert.ok(!html.includes(`data-ct-exp-accion="${perfil.accion}"`));
+  }
+});
+
+test("indicador documental cerrado a7 en v8 real, sin conceder descarga con estado cruzado", async () => {
+  const estado = await estadoResolucionDesdeHTTP();
+  assert.equal(estado.expediente.version_propuesta_documental, 7);
+  assert.deepEqual(validarExpedienteContratacionTemporal(estado.expediente), estado.expediente);
+  assert.ok(Object.isFrozen(estado.expediente));
+  for (const cambio of [
+    ...[null, true, "7", 6, 8].map(version_propuesta_documental => ({ version_propuesta_documental })),
+    { version: 7 }, { version: 9 }, { demostracion: true }, { campo_desconocido: 7 },
+  ]) assert.throws(() => validarExpedienteContratacionTemporal({ ...estado.expediente, ...cambio }), TypeError);
+  for (const modificar of [
+    (e) => { delete e.expediente.version_propuesta_documental; },
+    (e) => { e.cuadro.expedientes[0].version = 7; },
+    (e) => { e.expediente_ref = "expediente:otro"; },
+    (e) => { e.expediente.demostracion = true; },
+    (e) => { e.cuadro.demostracion = true; },
+    (e) => { e.actualizacion_pendiente = true; },
+  ]) {
+    const otro = structuredClone(estado); modificar(otro);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado(otro), null);
+  }
+});
+
+test("un click en resolución v8 usa el cliente PDF existente y solicita exclusivamente7", async () => {
+  const estado = await estadoResolucionDesdeHTTP(), llamadas = [];
+  const pdf = "%PDF-1.7\nPrueba aislada de transporte\n%%EOF";
+  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return new Response(pdf, { headers: { "Content-Type": "application/pdf",
+      "Content-Disposition": 'attachment; filename="resolucion-borrador.pdf"' } });
+  } });
+  const vista = await montar(http.descargarBorrador, perfiles[1], estado);
+  try {
+    assert.equal(llamadas.length, 0);
+    await vista.click();
+    assert.equal(llamadas.length, 1);
+    assert.equal(llamadas[0].ruta, RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH);
+    assert.equal(llamadas[0].opciones.method, "POST");
+    assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
+      expediente_ref: estado.expediente_ref, version_observada: 7,
+    });
+    assert.equal(llamadas[0].opciones.headers.Accept, "application/pdf; documento=resolucion-desarrollo");
+    assert.equal(vista.creados.length, 1);
+    assert.equal(await vista.creados[0].text(), pdf);
+    await assert.rejects(http.descargarBorrador({ expediente_ref: estado.expediente_ref, version_observada: 8 }),
+      { codigo: "solicitud_no_valida" });
+    assert.equal(llamadas.length, 1);
+  } finally { vista.montaje.desmontar(); }
 });
 
 test("solo click explícito, payload desde estado no DOM; Blob nominal y revocación al desmontar", async () => {

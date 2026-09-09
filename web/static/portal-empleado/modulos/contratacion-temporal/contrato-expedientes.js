@@ -434,14 +434,18 @@ function validarActuacion(entrada, nombre) {
 }
 
 export function validarExpedienteContratacionTemporal(entrada) {
+  const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   exigirCamposExactos(entrada, [
     "esquema", "demostracion", "expediente_ref", "numero_visible", "version",
     "flujo_ref", "flujo_version", "flujo_huella", "cabecera", "fases", "tareas",
+    ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
+    || (propuestaHistorica && (entrada.demostracion !== false || entrada.version !== 8
+      || entrada.version_propuesta_documental !== 7))
     || typeof entrada.flujo_huella !== "string" || !PATRON_HUELLA.test(entrada.flujo_huella)) {
     throw new TypeError("expediente de contratación temporal no válido");
   }
@@ -483,6 +487,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ), "clave", "cabecera"),
     fases,
     tareas,
+    ...(propuestaHistorica ? { version_propuesta_documental: 7 } : {}),
   });
 }
 

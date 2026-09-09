@@ -123,6 +123,20 @@ function cabeceraDetalle(detalle) {
 }
 
 
+function resolucionConPropuestaHistorica(detalle) {
+  const { resumen, hitos } = detalle;
+  if (resumen.version !== 8 || resumen.fase_clave !== "nombramiento"
+    || resumen.estado_clave !== "en_curso" || !Array.isArray(hitos) || hitos.length !== 8
+    || !hitos.every((hito, indice) => hito?.secuencia === indice + 1
+      && hito.version_expediente === indice + 1)) return false;
+  const propuesta = hitos[6], resolucion = hitos[7];
+  return propuesta.accion_clave === "registrar_propuesta_formalizacion"
+    && propuesta.fase_destino === "nombramiento" && propuesta.estado_destino === "en_curso"
+    && resolucion.accion_clave === "registrar_resolucion_formalizacion"
+    && resolucion.fase_origen === "nombramiento" && resolucion.fase_destino === "nombramiento"
+    && resolucion.estado_origen === "en_curso" && resolucion.estado_destino === "en_curso";
+}
+
 function proyectarExpediente(detalle) {
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
@@ -136,6 +150,8 @@ function proyectarExpediente(detalle) {
     cabecera: cabeceraDetalle(detalle),
     fases: [],
     tareas: [],
+    // Sólo selección documental histórica; cada descarga exige autorización vigente.
+    ...(resolucionConPropuestaHistorica(detalle) ? { version_propuesta_documental: 7 } : {}),
   });
 }
 
