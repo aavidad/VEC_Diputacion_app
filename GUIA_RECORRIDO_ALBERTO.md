@@ -2,6 +2,25 @@
 
 ## Recorrido vigente — 10 de septiembre de 2026
 
+### Cierre administrativo: persistencia integrada en código
+
+CT87/AD3-31 conservan la raíz y la fundación v1 al adoptar la definición
+sucesora v2 para el cierre. El cierre nominal no registra un cese ni cambia
+periodos. Sólo admite el inventario de las dos tareas antecedentes,
+incorporación CT75 y primera anotación CT86, sin crear documentos inexistentes.
+La escritura conserva actuación, snapshot, recibo y outbox en una transacción y
+exige autorización V3 también en replay.
+
+Dos revisiones independientes emitieron `GO` sobre los dieciséis hashes
+finales. La candidata aislada verificó ese inventario y pasó las pruebas Go del
+adaptador PostgreSQL con dobles transaccionales: diez casos principales y siete
+subcasos en `0.034 s`. Dominio y puertos pasaron cuatro pruebas adicionales.
+
+Esta validación no instala ni ejecuta CT87/AD3-31 en la base conservada. Faltan
+configuración, `GET` HTTP y montaje principal de runtime. No existe formulario
+integrado, cierre visible ni cierre completo del objetivo 13.
+
+
 ### Anotación administrativa integrada en código; recorrido pendiente
 
 Servicio, puertos y adaptador PostgreSQL ya incorporan la primera anotación

@@ -1,5 +1,26 @@
 # Estado y plan de ataque del proyecto
 
+## Cierre administrativo: persistencia integrada en código
+
+La candidata de dieciséis archivos conserva la raíz y la fundación v1 al
+adoptar la definición sucesora v2 para el cierre. El cierre es nominal: no
+registra cese ni altera periodos. El inventario exige exactamente las dos tareas
+antecedentes —incorporación CT75 y primera anotación CT86— y no inventa un
+`Documento`. La autorización V3 fresca se exige al crear y en replay.
+Actuación, snapshot, recibo y outbox se escriben en una sola transacción.
+
+Dos revisiones independientes emitieron `GO` sobre los dieciséis hashes
+finales. La candidata aislada verificó esos dieciséis hashes y pasó las pruebas
+Go del adaptador PostgreSQL, con dobles transaccionales, en diez casos
+principales y siete subcasos, `0.034 s`. Las cuatro pruebas de dominio y
+puertos también pasaron, en `0.019 s` y `0.022 s`.
+
+CT87 y AD3-31 no se han ejecutado ni instalado en la base conservada. La
+configuración, el `GET` HTTP y el montaje principal de runtime siguen
+pendientes. El formulario no está integrado, no existe cierre visible y el
+objetivo 13 continúa abierto.
+
+
 La anotación administrativa ya está integrada en código en servicio, puertos y
 adaptador PostgreSQL, con los scripts CT86 y AD3-30 como artefactos. El primer
 asiento es neutro: conserva fase, estado, raíz y contexto completo, incluidas

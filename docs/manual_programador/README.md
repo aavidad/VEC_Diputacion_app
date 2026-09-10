@@ -1,5 +1,39 @@
 # Manual mantenido del programador de VEC
 
+## Cierre administrativo: persistencia integrada en código
+
+Los dieciséis archivos conservan la raíz y la fundación v1 al adoptar la
+definición sucesora v2 para el cierre. El cierre es nominal: no inserta un cese
+ni modifica los periodos. Antes de escribir exige un inventario exacto de dos
+tareas, la incorporación CT75 y la primera anotación CT86; no sintetiza un
+`Documento` para completar el contrato.
+
+AD3-31 exige autorización V3 fresca tanto en consumo como en replay. La
+transacción une actuación, snapshot, recibo y outbox. El lector privado de
+preparación es de sólo lectura; no concede ni sustituye la autorización del
+`POST`.
+
+Dos revisiones independientes emitieron `GO` sobre los dieciséis hashes
+finales, conservados en `ct87-reviewed-hashes.json`. La candidata aislada
+volvió a verificar los dieciséis y produjo la evidencia final:
+
+```text
+candidata-cierre-pg-final-go.log
+Pruebas Go del adaptador PostgreSQL con dobles transaccionales:
+10 casos principales + 7 subcasos
+PASS (0.034 s)
+
+Dominio y puertos: 4 pruebas
+PASS (0.019 s / 0.022 s)
+```
+
+Las pruebas focales de fuente del productor —diez casos principales y siete
+subcasos— siguen vigentes. CT87/AD3-31 no se ejecutaron ni instalaron en la base
+conservada. Configuración, `GET` HTTP y montaje principal de runtime quedan
+pendientes. No hay formulario integrado, cierre visible ni objetivo 13
+completo.
+
+
 La anotación administrativa está integrada en código en servicio, puertos y
 adaptador PostgreSQL. CT86 prepara el primer asiento neutro sin cambiar fase,
 estado, periodos ni raíz y conserva el contexto completo, incluidas
