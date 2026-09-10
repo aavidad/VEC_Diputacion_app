@@ -6,7 +6,7 @@ Provincial de Granada. Publicado bajo la
 
 ## Estado funcional — 10 de septiembre de 2026
 
-Base publicada: `00558603dbd3040eacb03cb511f3b840be241b10`, rama
+Base del cierre funcional: `00558603dbd3040eacb03cb511f3b840be241b10`, rama
 `integracion/ct-producto-ligero-20260821`. El desarrollo activo y la base
 sintética están en el servidor; las instrucciones antiguas de arranque local
 no describen la instancia actual.
@@ -14,9 +14,10 @@ Este entorno usa exclusivamente datos sintéticos y no está autorizado para
 producción ni para tratar datos reales.
 
 Se pueden enseñar **cinco pasos completos y partes del sexto y séptimo**.
-El último avance permite registrar la validación manual sintética de la
-resolución, recuperar su recibo tras reiniciar aplicación y PostgreSQL y
-seguir descargando los seis borradores desde el expediente validado.
+Además, el 10 de septiembre se registró de forma real en desarrollo una
+incorporación sintética: formulario `GET 200`/`POST 200`, dos confirmaciones
+expresas, recibo registrado y alta sintética en Personal. Esta capacidad pertenece al
+octavo paso, pero todavía no puede enseñarse como ciclo recuperado completo.
 
 La comprobación utilizó Chromium, certificado de pruebas, autorización del
 servidor y PostgreSQL reales: alta `201`, recuperación y repetición con la
@@ -26,8 +27,16 @@ expedientes y una nueva resolución de ejercicio; el caso original en versión
 `7` permanece disponible.
 
 **No hay firma oficial, eficacia administrativa ni envío.** La incorporación
-está en desarrollo: sus piezas aún necesitan conexión al servidor y base
-real, recorrido integrado y recibo. No se presenta como disponible.
+ya está integrada y tuvo escritura visible en navegador, pero su recuperación
+después del reinicio aún no está acreditada: la lectura devolvió `GET 503` por
+la restauración histórica de Auth12. Auth13 conserva dos dictámenes `GO` y
+regresión verde en `ef6704a6`, pero sigue pendiente de instalación. Por eso no
+se declara todavía recorrible de extremo a extremo ni se eleva la métrica.
+
+CT70–85, trece pools y las tres capacidades con sus catálogos y definición ya
+están provisionados; no son trabajo pendiente ni deben reaplicarse. No hubo
+precargas de negocio. El siguiente corte continúa siendo el cierre de GINPIX,
+cuyos modelo, mapeo y codificador existen; la descarga V2 aún no está montada.
 
 El portal está servido de forma **privada**, no en una URL pública.
 `https://localhost:8443/portal-empleado/` corresponde al servidor remoto;
@@ -81,6 +90,13 @@ automáticamente a todos los centros del catálogo.
 
 La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un
 porcentaje global ni un recuento de pantallas, contratos o pruebas.
+
+### Antecedentes de los recorridos, no inventario de la instancia actual
+
+Los párrafos siguientes conservan cifras y pruebas de sus cortes originales.
+El inventario actual es de 52 expedientes sintéticos en el servidor privado;
+las referencias a dos bases y aplicaciones corresponden al entorno anterior.
+
 La bandeja y el detalle ya están conectados en `b2effba`: se demostraron 50
 solicitudes conservadas y un análisis desde una de sus filas, sin otra alta.
 Esto mejora la continuidad del trabajo; no cierra por sí solo otro paso del flujo.
@@ -106,8 +122,9 @@ a inventar plazo o autoridad; continúa **5/8 más partes del sexto y séptimo**
    Sistemas prepara el servidor, la base y el acceso del navegador.
 2. Abra `/portal-empleado/` en el entorno autorizado, con el certificado de
    desarrollo correspondiente. RRHH e Intervención usan perfiles separados.
-3. Entre en **Contratación temporal → Nueva petición**. Use exclusivamente
-   las entradas sintéticas de los catálogos y los ejemplos de la guía.
+3. Para enseñar el trabajo conservado, entre en **Contratación temporal**,
+   localice el expediente indicado por el operador y abra su detalle.
+   Use **Nueva petición** solo si se ha acordado crear otro caso sintético.
 4. Confirme una sola vez cada actuación y conserve la referencia del
    expediente, su versión, la clave de operación cuando corresponda y el
    recibo. Un error de conexión no demuestra que no se haya guardado nada.
@@ -117,9 +134,9 @@ a inventar plazo o autoridad; continúa **5/8 más partes del sexto y séptimo**
    el `.eml` sintético de aceptación que debe cargarse sin cambios. El caso de
    renuncia usa su propio material y claves; su recuperación tras reinicio también está confirmada.
    No eluda un rechazo cambiando claves o repitiendo el registro.
-6. Para verificar un reinicio, siga la guía conservando PostgreSQL y el
-   material de seguridad. El resultado recuperado mantiene recibo y fecha;
-   no debe duplicar el efecto.
+6. La recuperación tras reinicio ya está acreditada. No la repita para leer
+   esta documentación o presentar el caso. Si Sistemas acuerda una nueva
+   comprobación, conservará base, material, clave, recibo y fecha originales.
 
 **Registrada localmente · Sin entrega acreditada** significa que se ha
 guardado un aviso en el servidor de desarrollo. No es un correo enviado,
@@ -129,7 +146,7 @@ una notificación recibida ni una aceptación de candidatura.
 
 | Área | Qué existe | Qué no debe darse por terminado |
 |---|---|---|
-| Contratación temporal | Recorrido real descrito arriba y pantallas de tramitación. | Bandeja completa en la base de referencia, resto del paso 6 y pasos 7–8. |
+| Contratación temporal | Bandeja, detalle y recorrido real descrito arriba. | Resto del paso 6, formalización oficial e incorporación/seguimiento completos. |
 | Bolsa interna | Dominio, servicios, persistencia y pantallas reutilizables; proveedor durable conectado al llamamiento de Contratación temporal. | Gestión completa de convocatorias, borradores, méritos, alegaciones, contratos, firma y notificaciones desde el portal. |
 | Bolsa pública | Consulta de convocatorias, categorías, detalle y documentos; composición pública separada. | Inscripción personal, consulta privada de posición y tramitación administrativa completas. Su disponibilidad depende del entorno configurado. |
 | Personal y Nóminas | Módulo, contratos y material funcional de desarrollo/presentación. | Maestro de personal, nómina y procedimientos corporativos completos. |
@@ -177,9 +194,9 @@ no deben intercambiarse como atajo para habilitar operaciones.
 - El recorrido real requiere PostgreSQL, conexiones nominales separadas y
   certificados de desarrollo; su preparación está en la guía y el manual
   de Sistemas. No basta con arrancar una pantalla estática.
-- Docker, las instancias de base y los materiales ya conservados se operan
-  según la [guía de recorrido](GUIA_RECORRIDO_ALBERTO.md), sin recrearlos
-  para repetir una operación.
+- La instancia y el material conservados se operan según el
+  [entorno privado vigente](docs/manual_sistemas/README.md#entorno-privado-vigente).
+  Las recetas Docker locales de la guía son históricas; no crean otra instancia.
 - La referencia de [procesos y configuración](docs/manual_programador/cmd_y_configuracion.md)
   complementa el [código de configuración](config). Use los valores del
   entorno autorizado; no copie secretos ni conexiones a Git.
@@ -190,6 +207,12 @@ producción.
 
 ## Documentación de referencia
 
+Para uso actual, empiece por los cuatro manuales anteriores. En GitHub,
+la rama de producto es `integracion/ct-producto-ligero-20260821`; la rama
+predeterminada `vec-orquesta-20260619` puede mostrar el corte del 31 de julio.
+Esta actualización no cambia la rama predeterminada ni acredita su publicación.
+La verificación y cualquier cambio de esa selección corresponden a dirección.
+
 - [Especificación del expediente remitido por RRHH](docs/portal_vec/expediente_contratacion_temporal_rrhh.md).
 - [Arquitectura técnica modular](docs/portal_vec/arquitectura_tecnica.md).
 - [Catálogo de contratos de API por módulo](docs/portal_vec/contratos_api_modulos.md).
@@ -198,8 +221,14 @@ producción.
 - [Historial de decisiones](docs/portal_vec/registro_decisiones.md).
   Conserva antecedentes con su fecha y alcance, no una orden de trabajo
   vigente por el mero hecho de estar enlazado.
-- [Documentación del proyecto](docs/): requisitos, referencias y material
-  técnico conservado.
+- [Índice de requisitos históricos](docs/estudio_requisitos/README.md):
+  estudio de julio, no guía de arranque ni plan operativo actual.
+- [Referencias externas archivadas](docs/referencias_portales_aapp/README.md).
+- [Paquete de cumplimiento pendiente de validación](docs/cumplimiento/LEEME.md)
+  e [informe histórico del Comité de Seguridad](docs/comite_seguridad/LEEME.md).
+- [Documentación del proyecto](docs/): archivo técnico; sus actas, revisiones,
+  decisiones y relevos fechados mantienen su alcance original, no son el
+  punto de arranque actual. No se reescriben ni se renuevan sus fechas.
 
 Los manuales explican el uso; la guía conserva los comandos y datos del
 recorrido. Los documentos históricos y las exportaciones anteriores deben

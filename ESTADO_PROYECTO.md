@@ -1,5 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+**Estado comprobado y recuperación pendiente — 10 de septiembre de 2026.** El formulario de
+incorporación registró una operación real de desarrollo a las
+`2026-09-10T13:07:06.614186Z`: `GET 200` y `POST 200`, dos confirmaciones
+expresas, sin errores JavaScript ni desbordamiento en 1440/390 px. Conserva
+recibo `ref:2bc3d281379b33ed532825768a29001d19cc7af96c58cead9badb4d13fa6290b`,
+solicitud `7`, expediente `8`, seguimiento `0→1` y periodo `2027Q1`, con
+`firma_oficial=false` y `eficacia_administrativa=false`.
+
+La escritura produjo una alta de Personal, una relación, una ocupación, una
+auditoría y un outbox; en Contratación temporal, una incorporación, una
+auditoría, un outbox, una raíz y dos estados. No hubo precargas de negocio.
+CT70–85, trece pools y tres capacidades con catálogos y definición constan ya
+provisionados; no reaplicar. Tras reiniciar aplicación y PostgreSQL, la lectura
+de recuperación devolvió `GET 503` por la restauración histórica Auth12. Auth13
+tiene dos dictámenes `GO` y regresión verde en `ef6704a6`, pero sigue pendiente
+de instalación. Por tanto, no hay ciclo recuperado completo ni debe repetirse
+la escritura. Se mantienen cinco pasos completos y partes de 6/7/8 únicamente
+como avance parcial; GINPIX es el siguiente corte existente aún sin cierre
+visible. Integración escrita y evidencia visible deben comunicarse por separado.
+
 **Cierre operativo del 6 de septiembre: puente centro→RRHH demostrado.** La
 única copia canónica está en OpenClaw, rama
 `trabajo/ct-app-llamamiento-b4a-20260905`, sobre la base GitHub `85cb47ce`; el

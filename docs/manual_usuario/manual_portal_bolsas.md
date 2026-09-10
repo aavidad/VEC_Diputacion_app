@@ -3,8 +3,12 @@
 ## Disponible para enseñar — 10 de septiembre de 2026
 
 Cinco pasos completos y partes del sexto y séptimo, con datos inventados
-guardados de verdad. El ciclo completo, incluida incorporación, sigue pendiente.
-Esta actualización corresponde al producto `00558603`.
+guardados de verdad. También se ha registrado una incorporación sintética real
+del octavo paso, pero su recuperación posterior al reinicio sigue pendiente;
+por tanto, el ciclo completo no se presenta aún como disponible.
+El cierre funcional de referencia corresponde a `00558603`; no identifica
+por sí solo la aplicación servida actualmente. Se conservan 52 expedientes
+sintéticos, sin crear otros para presentar el recorrido.
 
 Sistemas debe preparar el acceso privado al servidor y el certificado de
 pruebas. No hay enlace público; `localhost:8443` no apunta al servidor desde
@@ -26,8 +30,11 @@ El caso comprobado conserva el mismo recibo después de reiniciar aplicación
 y base. Una conexión interrumpida no demuestra que se haya perdido el registro:
 mantenga los datos y la clave originales y consulte al operador antes de repetir.
 El certificado de acceso no firma; la validación manual no es nombramiento
-eficaz ni envía notificaciones. La incorporación aún no se puede enseñar
-como un recorrido guardado y completo.
+eficaz ni envía notificaciones. La incorporación registrada conserva
+`firma_oficial=false` y `eficacia_administrativa=false`. No se debe repetir:
+la consulta de recuperación devolvió `503` y Sistemas debe cerrar primero la
+restauración de autorización. La integración con GINPIX tampoco está cerrada
+como evidencia visible.
 
 ## Historial funcional conservado hasta el 6 de septiembre
 
@@ -123,10 +130,10 @@ Para elegir la documentación adecuada:
 - [Manual de Recursos Humanos](../manual_rrhh/README.md): procedimiento,
   responsabilidades y recorrido de tramitación por perfiles.
 - [Guía de recorrido de Alberto](../../GUIA_RECORRIDO_ALBERTO.md): comandos
-  exactos de preparación y arranque, datos sintéticos conservados y
-  comprobación del recorrido después de reiniciar. La preparación del
-  servidor corresponde a Sistemas; no necesita ejecutar sus comandos para
-  utilizar un entorno que ya le hayan preparado.
+  y datos sintéticos conservados, con las pruebas de recuperación de cada
+  corte. Sus arranques locales antiguos son históricos. El acceso actual
+  corresponde a [Sistemas](../manual_sistemas/README.md#entorno-privado-vigente);
+  no necesita ejecutar comandos para utilizar el entorno preparado.
 
 ## 1. Antes de empezar: real, demostración y pendiente
 
@@ -146,7 +153,7 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.
 | Zona | Qué puede esperar en esta edición |
 |---|---|
 | Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
-| Cuadro y detalle de expedientes de Contratación temporal | La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/`55433`, con datos sintéticos. |
+| Cuadro y detalle de expedientes de Contratación temporal | La base del servidor conserva 52 expedientes sintéticos; bandeja y detalle consultables mediante el acceso privado preparado por Sistemas. |
 | Gestión interna de Bolsas | Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5. |
 | Consulta pública de convocatorias | Listado, filtros, detalle y documentos cuando el servicio público esté habilitado. Compruebe el aviso de la fuente; no permite tramitar una candidatura personal. |
 | Otros módulos del portal | Solo están disponibles si el servidor los habilita para su perfil. No se consideran terminados por aparecer en la portada. |
@@ -167,8 +174,9 @@ correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
 3. Utilice el certificado correspondiente a su función. Recursos Humanos e
    Intervención usan certificados y perfiles de navegador separados.
 4. Espere a que el portal compruebe los módulos disponibles. Entre desde
-   **Inicio del portal** en **Contratación temporal** y, para iniciar el
-   recorrido, en **Nueva petición**.
+   **Inicio del portal** en **Contratación temporal**. Abra el expediente
+   existente para consultar o presentar el caso; use **Nueva petición**
+   únicamente cuando se haya acordado crear otro caso sintético.
 
 La conexión exige un certificado de cliente válido. Si el navegador indica
 que falta el certificado o no reconoce el servidor, pida ayuda a Sistemas:
@@ -426,6 +434,10 @@ fecha; no es un nombramiento firmado. Ante ambigüedad mantenga clave/material:
 sin reintento automático ni otra clave para eludir un `409`.
 
 ### Descargar los seis borradores de desarrollo
+
+En el caso ya validado `v8` también están disponibles: los botones recuperan
+los borradores de su propuesta `v7`, no documentos nuevos ni firmados.
+El ejemplo original siguiente permanece conservado sin esa validación.
 
 En **Contratación temporal → Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.

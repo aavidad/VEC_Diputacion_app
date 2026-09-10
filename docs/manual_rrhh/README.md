@@ -2,7 +2,7 @@
 
 ## Corte vigente para presentación — 10 de septiembre de 2026
 
-Producto `00558603`: cinco pasos completos y partes del sexto y séptimo.
+Cierre funcional `00558603`: 5/8 pasos completos más partes del sexto y séptimo.
 Se conservan 52 expedientes sintéticos en el servidor privado. El
 [manual de Sistemas](../manual_sistemas/README.md#entorno-privado-vigente)
 describe el acceso; los puertos locales del historial inferior no son una
@@ -25,8 +25,16 @@ Para la presentación distinga siempre:
   no equivale a firma documental.
 - Validación manual: registra una actuación sintética; no constituye firma,
   nombramiento eficaz, envío ni orden de incorporación.
-- Incorporación: trabajo pendiente de conexión y demostración integrada;
-  todavía no hay un recibo nuevo que cierre el octavo paso.
+- Incorporación: registro real de desarrollo ya logrado mediante formulario,
+  con dos confirmaciones, recibo y persistencia en CT y Personal; la recuperación
+  tras reinicio sigue pendiente y todavía no cierra el octavo paso.
+
+El caso sintético registrado corresponde a solicitud `7`, expediente `8`,
+periodo `2027Q1` y seguimiento `0→1`; no tiene firma oficial ni eficacia
+administrativa. Tras reiniciar aplicación y PostgreSQL, la lectura quedó en
+`GET 503` durante la restauración histórica de autorización, por lo que no se
+debe crear otra incorporación para probarla. GINPIX sigue como siguiente corte
+sin cierre visible.
 
 Para uso real siguen pendientes los modelos y circuito de firma admitidos,
 la comunicación corporativa, las reglas de plazo y las autorizaciones de
@@ -122,7 +130,7 @@ Las descargas no añaden SQL propio ni otro paso completo.
 ## Qué puede hacer hoy
 
 **Cinco de los ocho pasos están demostrados en desarrollo, más partes del sexto
-y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** Se usa la aplicación
+y séptimo: llamamiento sintético, propuesta y validación manual de resolución.** Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -140,15 +148,18 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
-la base principal conserva 51 solicitudes, con bandeja y detalle consultables
-en `8443`/`55433`. Esto no convierte
+la base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
+consultables por el acceso privado preparado por Sistemas. Esto no convierte
 los datos sintéticos en expedientes reales ni añade otro paso completo.
 Para recuperar el llamamiento se usan las referencias conservadas
 en la guía.
 
-Este manual explica el trabajo funcional. Los comandos de arranque,
-certificados, datos sintéticos de ejemplo y comprobaciones de persistencia
-están en la [guía del recorrido manual](../../GUIA_RECORRIDO_ALBERTO.md).
+Este manual explica el trabajo funcional. El
+[manual de Sistemas](../manual_sistemas/README.md#entorno-privado-vigente)
+describe el acceso y operación actuales. La
+[guía del recorrido manual](../../GUIA_RECORRIDO_ALBERTO.md) conserva los
+datos sintéticos, recibos y pruebas anteriores; sus recetas locales no son
+instrucciones de arranque del servidor.
 El [manual de usuario de Bolsa](../manual_usuario/manual_portal_bolsas.md)
 complementa la navegación de ese módulo; sus pantallas de demostración no
 acreditan funciones reales de Contratación temporal.
@@ -162,11 +173,14 @@ La presentación se recorre en la misma aplicación final, con perfiles y datos 
 | Acceso con certificado | Autentica el perfil de desarrollo frente a la aplicación; **no es firma de documento**. | Identidad corporativa y permisos del personal real. |
 | Aviso local | Persiste un aviso e intención recuperables en VEC; no envía correo ni acredita entrega o plazo. | Canal corporativo admitido, entrega acreditada y reglas de plazo. |
 | Descarga de borradores | Genera documentos preparatorios para revisar; no son documentos oficiales ni nombramiento eficaz. | Plantillas oficiales y firma con certificado o servicio corporativo admitido, según el circuito que se determine. |
-| Salida GINPIX | Puede dejar un fichero de desarrollo; no conecta ni transmite automáticamente a GINPIX. | Conexión o carga autorizada, confirmación del sistema destino y seguimiento. |
+| Salida GINPIX | Hay piezas de exportación, pero no se acredita aquí una salida completa desde el portal ni una transmisión. | Conexión o carga autorizada, confirmación del sistema destino y seguimiento. |
 
 La [petición y ratificación del centro](../../GUIA_RECORRIDO_ALBERTO.md#petición-del-centro-y-ratificación)
 ya se recorre con dos identidades sintéticas y recibos recuperados tras reinicio.
-Su entrega al expediente de RRHH sigue pendiente; ratificar no equivale a firmar.
+La [entrega al expediente de RRHH](../../GUIA_RECORRIDO_ALBERTO.md#entregar-la-petición-ratificada-a-rrhh)
+también está demostrada, con el mismo recibo tras reiniciar aplicación y base,
+sin otra alta. Ratificar no equivale a firmar. Si consta **Expediente creado**,
+consulte ese recibo; no repita la entrega para presentar el caso.
 
 ## Antes de actuar
 
@@ -475,8 +489,9 @@ clave de propuesta `018f47a6-5d2b-4c10-8a11-123456789008` del caso de la guía.
 Confirme expresamente, sin otro `.eml`; ante ambigüedad mantenga clave/material.
 Dirección confirmó `201` y recuperación `200` tras reinicio principal, mismo
 recibo y fecha `2026-09-06T01:28:30.697897Z`. Es una propuesta sin firma ni eficacia
-de nombramiento. Objetivo 9: los seis borradores disponibles, incluida comunicación al centro;
-siguiente objetivo 10, circuito de firma/evidencia admitida.
+de nombramiento. Objetivo 9: los seis borradores disponibles, incluida comunicación al centro.
+El objetivo 10 ya permite validación manual sintética de resolución; el circuito
+de firma oficial sigue pendiente.
 
 Para descargar, vaya a **Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
@@ -490,6 +505,8 @@ Desde el detalle real `v7`, `nombramiento/en_curso`, use en la cabecera
 Sin firmas ni eficacia administrativa; no certifican hechos, comparecencia, posesión real ni nombramiento.
 La notificación es solo un borrador: no acredita envío, entrega ni apertura de plazo legal.
 La comunicación al centro no envía un aviso ni ordena la incorporación.
+En el caso validado `v8`, los mismos botones descargan los borradores de la
+propuesta anterior `v7`: no hay que crear otra propuesta ni cambiar su versión.
 No recupere la propuesta por POST ni repita el llamamiento para esta lectura.
 Ante error se conserva el detalle. [Instrucciones y SHA256](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
 AD3-20/CT61 y AD3-21 instaladas en ambas bases: no reaplicar; el PDF no añade SQL propio.
@@ -503,6 +520,19 @@ Los modelos de desarrollo o un catálogo de demostración no son modelos
 oficiales aprobados por RRHH. El informe sin firma del paso 5 no sustituye
 al paquete de formalización. No marque aceptación, firma o notificación para
 desbloquear artificialmente este paso.
+
+#### Validación manual de la resolución, solo ejercicio sintético
+
+Desde el detalle de un caso con propuesta, revise número, fecha y motivo de
+la resolución. Lea y marque las dos comprobaciones del formulario; pulse
+**Registrar validación manual** y confirme expresamente solo si procede
+crear esa actuación sintética. Espere el recibo antes de darla por guardada.
+
+En el caso ya demostrado `v8`, consulte el recibo existente. La recuperación
+tras reiniciar aplicación y PostgreSQL conservó recibo, fecha y actuación;
+no se necesita repetir esa prueba ni validar el caso original `v7` para
+enseñarlo. Una respuesta incierta obliga a conservar los datos y la misma
+clave, no a crear otra resolución. No acredita firma ni eficacia administrativa.
 
 ### 8. Incorporación, GINPIX y seguimiento: límite actual
 
@@ -548,7 +578,7 @@ expreso con la misma clave, sin repetir la selección.
 | Acceso denegado | Compruebe perfil, certificado y ámbito con el operador. RRHH no sustituye a Intervención ni a un firmante. |
 | Conflicto de versión o duplicado (`409`) | No fuerce otra versión ni otra clave. Conserve la referencia y pida consultar el estado actual; un conflicto no implica siempre el mismo motivo. |
 | Operación ocupada o resultado indeterminado | No dé por hecho éxito ni ausencia de efectos. Evite envíos repetidos y siga la recuperación anterior. |
-| Servicio o bandeja no disponible (`503`) | No significa «no hay expedientes». La bandeja sigue pendiente de cierre; comunique la incidencia sin volver a registrar el expediente. |
+| Servicio o bandeja no disponible (`503`) | No significa «no hay expedientes». Comuníquelo a Sistemas sin volver a registrar el expediente; no convierta un fallo de consulta en una nueva alta. |
 | Fiscalización desfavorable | Tramite la devolución a la unidad competente; no continúe al llamamiento. |
 | Documento sin firma, aviso local o entrega pendiente | Conserve el alcance indicado. No los convierta en firma, aceptación ni inicio de plazo. |
 
@@ -561,7 +591,8 @@ con datos personales ni material de autenticación.
 - [Procedimiento normalizado de contratación temporal](../portal_vec/expediente_contratacion_temporal_rrhh.md).
 - [Petición de RRHH: transcripción y lectura funcional](../estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md).
 - [Requisitos de acceso interno y separación de perfiles](../estudio_requisitos/acceso_interno_tecnicos_administracion.md).
-- [Guía técnica para arrancar, recorrer y recuperar el caso sintético](../../GUIA_RECORRIDO_ALBERTO.md).
+- [Acceso y operación actuales por Sistemas](../manual_sistemas/README.md#entorno-privado-vigente).
+- [Guía de casos sintéticos y recibos conservados](../../GUIA_RECORRIDO_ALBERTO.md).
 - [Manual de usuario del módulo Bolsa](../manual_usuario/manual_portal_bolsas.md).
 
 El registro de la declaración no completa la resolución de respuesta del sexto

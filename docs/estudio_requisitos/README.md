@@ -1,8 +1,28 @@
 # Estudio de requisitos del portal transversal de RRHH
 
+## Orientación documental — 10 de septiembre de 2026
+
+Este índice reúne el estudio histórico de julio y sus fuentes. No es la guía
+de uso, el inventario del servidor ni una orden de retomar planes antiguos.
+Se mantienen las fechas y el contenido de los estudios, decisiones y auditorías.
+Para el producto actual, consulte:
+
+- [Entrada general y estado funcional](../../README.md).
+- [Uso del portal](../manual_usuario/manual_portal_bolsas.md) y
+  [procedimiento para RRHH](../manual_rrhh/README.md).
+- [Desarrollo y composición](../manual_programador/README.md).
+- [Sistemas: entorno privado vigente](../manual_sistemas/README.md#entorno-privado-vigente).
+
+El Manual 00 y los planes de plataforma enlazados más abajo son preparación
+pendiente de aprobación, no instrucciones de instalación de la instancia
+privada. Los relevos, cifras y bloqueos de julio/agosto describen sus cortes;
+no sustituyen las órdenes actuales ni autorizan datos reales.
+
+## Estudio conservado — corte del 17 de julio de 2026
+
 Estado: **documentación de trabajo; todavía no es el pliego ni la especificación final**.
 
-Fecha de corte actual: 17 de julio de 2026.
+Fecha de corte del estudio: 17 de julio de 2026.
 
 ## Orden de las fuentes
 
@@ -81,7 +101,7 @@ Diputación.
 - [Convocatorias de Bolsa gobernadas y versionadas](../portal_vec/convocatorias_gobernadas.md).
 - [Registro versionado de fuentes de autoridad](../portal_vec/registro_fuentes_autoridad.md).
 
-El `README` actua como indice de la memoria viva. El registro de decisiones
+Este `README` conserva el índice de la memoria histórica. El registro de decisiones
 explica el por que; las especificaciones de capacidad describen el que y el
 como; las pruebas y el codigo acreditan que parte esta ya implantada. En el
 documento final no se confundira una decision, un prototipo y una capacidad

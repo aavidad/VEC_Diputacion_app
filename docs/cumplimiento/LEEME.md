@@ -1,5 +1,12 @@
 # Paquete de cumplimiento para las mesas de validación
 
+Orientación documental del 10 de septiembre de 2026: **paquete histórico
+pendiente de validación**, no certificación del producto actual. Sus borradores,
+exportaciones, fechas y resultados permanecen intactos. Para estado y uso,
+consulte la [entrada vigente](../../README.md), el
+[manual de RRHH](../manual_rrhh/README.md) y el
+[manual de Sistemas](../manual_sistemas/README.md#entorno-privado-vigente).
+
 **Estado: BORRADOR TÉCNICO PARA VALIDACIÓN. Ningún documento de este
 directorio está aprobado ni surte efecto hasta su validación formal.**
 
@@ -19,7 +26,7 @@ Existe una versión imprimible conjunta en
 
 ## Método
 
-Los tres documentos describen el sistema **tal y como está construido**, con
+Los tres documentos describen el sistema **en su corte del 17 de julio**, con
 la evidencia técnica citada (paquete de código, decisión DEC o documento del
 repositorio), y separan de forma expresa:
 

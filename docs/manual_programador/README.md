@@ -2,7 +2,7 @@
 
 ## Continuación técnica vigente — 10 de septiembre de 2026
 
-Base publicada `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
+Base del cierre funcional `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
 `trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
 `integracion/ct-producto-ligero-20260821`. El desarrollo activo está en el
 servidor y conserva trabajo pendiente ajeno. No programe en la raíz histórica
@@ -20,15 +20,26 @@ propuesta histórica `v7`. No debe solicitar el documento con la versión
 actual ni inventar otra propuesta. La resolución descargada conserva SHA256
 `e9b53a1e2196b3719770cf7db9f563077d75f457669e84cb7bb3c32fd1de4130`.
 
-Incorporación continúa pendiente: preparador durable, lectores y cliente/
-formulario son trabajo en curso, no un recorrido instalado. Reutilizar las
-piezas existentes; aún faltan composición del servidor, conexión a la base
-real y comprobación del recibo. No declarar cierre por pruebas de paquete.
+La canónica `c6359f98` ya integra el preparador durable, lectores, montaje y
+carga de configuración; no reconstruir esas piezas. CT70–85, trece pools y
+tres capacidades con catálogos y definición están provisionados, sin precargas
+de negocio. El formulario real registró solicitud `7`/expediente `8`, periodo
+`2027Q1`, seguimiento `0→1` y un recibo persistente. La transacción dejó una
+alta, relación y ocupación en Personal, y una incorporación, raíz y dos estados
+en CT, con auditorías y outbox en ambos lados.
+
+Separar integración de evidencia visible: tras reiniciar aplicación y
+PostgreSQL, la recuperación quedó bloqueada por `GET 503` en la restauración
+histórica Auth12. Auth13 tiene dos revisiones `GO` y regresión verde en
+`ef6704a6`, pero no está instalada. No hay ciclo completo acreditado ni debe
+repetirse la escritura. `firma_oficial` y `eficacia_administrativa` siguen en
+`false`; la métrica queda en cinco pasos completos y partes de 6/7/8 hasta la
+recuperación. GINPIX es el siguiente corte existente aún sin cierre visible.
 
 Consulte [operación actual](../manual_sistemas/README.md#entorno-privado-vigente).
-El runtime comprobado combina binario `1ac3c115` y recursos web `00558603`;
-el HEAD del árbol compartido con trabajo pendiente no identifica por sí solo
-lo servido. Pruebas focales al terminar el hito; documentación no requiere
+El cierre funcional citado no identifica por sí solo el artefacto servido
+actualmente, ni lo hace el HEAD del árbol compartido con trabajo pendiente.
+Pruebas focales al terminar el hito; documentación no requiere
 repetir pruebas de producto ya acreditadas.
 
 ## Contexto y recorridos anteriores
@@ -234,8 +245,9 @@ renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
 es un acuse del sistema externo. El contador es **cinco pasos completos más
 partes del sexto y séptimo**, no un porcentaje global de aplicación terminada.
 
-La base principal conserva 51 solicitudes, con bandeja y detalle consultables
-en `8443`/`55433`; no implica 51 filas visibles simultáneas. El alcance sigue siendo cinco
+La base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
+consultables por el acceso privado de Sistemas; no implica 52 filas visibles
+simultáneas. El alcance sigue siendo cinco
 pasos y partes del sexto y séptimo; la bandeja no se cuenta como paso adicional.
 Un `503` debe explicarse como dependencia no disponible, no sustituirse por
 datos de presentación. Un `404` del panel de Bolsa tampoco demuestra que
@@ -269,9 +281,10 @@ declaración, sin verificar origen, firma o custodia del correo, envío, entrega
 ni aceptación o renuncia terminal. El original sigue en el sistema de correo.
 
 CT `000056_respuesta_recibida_rrhh` y AD3
-`000014_consumidor_respuesta_recibida_rrhh` ya están instaladas en **ambas bases
-locales**. No reaplicarlas ni recrear bases: se mantienen las once DSN nominales
-por aplicación contra su única base. Los DOWN bloquean la reversión cuando
+`000014_consumidor_respuesta_recibida_rrhh` ya estaban instaladas en **ambas bases
+locales en el corte histórico**. No reaplicarlas ni recrear bases. Las once DSN
+de aquel corte no completan la configuración de incorporación actual.
+Los DOWN bloquean la reversión cuando
 hay registros o dependencias; no eliminan la declaración conservada.
 
 La corrección puntual de AD3-14 compara `valida_hasta` y
@@ -463,8 +476,30 @@ Manejador, exclusión de descargas simultáneas, cancelación y revocación de B
 el error conserva el detalle, sin almacenamiento ni reintento automático. Sin nuevo manifiesto.
 PDF sin SQL propio; AD3-21 corrige la lectura existente. AD3-20/CT61 y AD3-21 instaladas
 en ambas bases, no reaplicar. [Recorrido y evidencia](../../GUIA_RECORRIDO_ALBERTO.md#objetivo-9-descargar-el-primer-informe-borrador).
-Disponibles **6/6 borradores**, siguiente objetivo 10, circuito de firma/evidencia admitida;
+Disponibles **6/6 borradores**; la resolución manual sintética del objetivo 10
+ya es recuperable, pero su circuito de firma oficial sigue pendiente;
 **5/8 más partes del sexto y séptimo**, sin firmas ni otro paso RRHH completo.
+
+### Resolución de ejercicio y versión documental
+
+El detalle validado `v8` no sustituye la propuesta documental `v7`. El cliente
+debe obtener de la consulta los antecedentes originales, mantener esa versión
+para los seis PDF y mostrar el recibo histórico sin registrar otra resolución.
+La prueba cerrada conserva el recibo tras reiniciar aplicación y PostgreSQL;
+no se repite por esta actualización documental.
+
+Antes de extender incorporación, inspeccionar las piezas de la misma canónica:
+
+| Responsabilidad | Código existente que se reutiliza |
+| --- | --- |
+| Preparar y cargar configuración de ejercicio | [Configuración](../../internal/app/bootstrap/contratacion_temporal_incorporacion_configuracion.go). |
+| Conectar dependencias reales | [Composición](../../internal/app/bootstrap/contratacion_temporal_incorporacion_v2.go). |
+| Registrar la ruta | [Ruta interna](../../internal/app/composicion/interna/contrataciontemporal/ruta_incorporacion_v2.go). |
+| Coordinar Personal y Contratación | [Aplicación](../../internal/app/incorporacionejercicio/). |
+
+Su existencia no acredita activación, recorrido en navegador ni incorporación
+registrada. Comparar diferencias con `c6359f98` y el trabajo pendiente antes
+de tocar esos archivos; no copiar una rama o worktree sobre el árbol compartido.
 
 ## Arquitectura real y propiedad
 
@@ -562,7 +597,7 @@ No usar `arrancar_presentacion_rrhh.sh` para demostrar efectos persistentes.
 
 Para el recorrido ya conservado, preparar las once conexiones DSN en las dos
 instancias PostgreSQL locales según el
-[bloque de arranque vigente de la guía](../../GUIA_RECORRIDO_ALBERTO.md).
+[bloque histórico de la guía](../../GUIA_RECORRIDO_ALBERTO.md).
 Cada aplicación usa sus once logins contra una sola base; no se mezclan entre
 instancias, ni son conexiones a un remoto de desarrollo. No copiar DSN,
 credenciales ni rutas privadas en este manual:

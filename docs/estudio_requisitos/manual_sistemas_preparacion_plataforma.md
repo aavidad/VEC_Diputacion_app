@@ -1,5 +1,11 @@
 # Manual 00 para Sistemas: preparación e instalación de la plataforma
 
+> Referencia de planificación de julio, no receta de arranque actual.
+> Para operar la instancia privada conservada, consulte el
+> [Manual de Sistemas vigente](../manual_sistemas/README.md#entorno-privado-vigente).
+> Esta orientación documental del 10 de septiembre no actualiza ni aprueba
+> la plataforma propuesta, y conserva la versión y fecha originales.
+
 Estado: **borrador para revisión conjunta de Sistemas, Seguridad, Arquitectura, DPD y
 equipo de desarrollo; no autoriza todavía una instalación productiva**.
 

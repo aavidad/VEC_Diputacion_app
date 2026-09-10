@@ -3,8 +3,12 @@
 ## Entorno privado vigente
 
 Corte comprobado: 10 de septiembre de 2026. Desarrollo en servidor privado,
-con PostgreSQL real y datos sintéticos. Producto publicado `00558603`;
-runtime con binario `1ac3c115` y web `00558603`. No hay URL pública de VEC.
+con PostgreSQL real y datos sintéticos. Base del cierre funcional `00558603`;
+no identifica por sí sola el artefacto servido actualmente.
+No hay URL pública de VEC.
+La escucha privada es `127.0.0.1:8443`, con certificado de cliente (mTLS).
+Dirección comunicó `GET 200` del portal el 10 de septiembre a las 10:08 UTC;
+es una comprobación de acceso, no una nueva prueba de escritura o incorporación.
 El árbol compartido de desarrollo contiene cambios pendientes: no se
 reconstruye ni sustituye automáticamente la aplicación desde su HEAD.
 
@@ -56,14 +60,43 @@ Es una reanudación de recursos conservados, no una instalación desde cero.
 No arranque la aplicación anterior simultáneamente. No regenere certificados,
 recree volúmenes ni reaplique migraciones para arrancar. Autorización25 y
 Contratación69 ya tienen historia; no ejecutar sus UP ni DOWN otra vez.
-Las piezas de incorporación todavía no acreditan instalación en esta base.
+CT70–85 constan instaladas; también están provisionados trece pools y tres
+capacidades con sus catálogos y definición. No reaplicar estos UP ni ejecutar
+DOWN sobre el historial. No hubo precargas de negocio. Auth13 es la excepción:
+tiene dos revisiones `GO` y regresión verde en `ef6704a6`, pero sigue pendiente
+de instalación.
+
+Dirección recuperó las consultas API (`200`) al reiniciar únicamente la
+aplicación existente tras caducar la confianza diaria de desarrollo.
+Ese reinicio es una medida provisional de desarrollo, NO una solución definitiva
+a la caducidad ni una instrucción para regenerar identidades/certificados.
+No reiniciar la base ni repetir escrituras por esta incidencia; no confundir
+la consulta disponible con una incorporación registrada.
 
 La comprobación funcional ya realizada registró una resolución manual
 sintética en navegador (`201`), recuperó el recibo después de reiniciar
 aplicación/PostgreSQL y repitió la misma clave (`200`) sin duplicados.
 Se conservan 52 expedientes; un caso está validado en `v8` y el original
 permanece en `v7`. Los seis PDF históricos siguen accesibles.
+Se mantienen cinco pasos completos más partes del sexto, séptimo y octavo;
+`firma_oficial=false` y `eficacia_administrativa=false`.
 No repetir escrituras como sonda de disponibilidad.
+
+El formulario de incorporación obtuvo `GET 200`/`POST 200` reales a las
+`13:07:06.614186Z`, con dos confirmaciones, sin errores JS ni desbordamiento a
+1440/390 px. Persistió el caso sintético `solicitud 7`/`expediente 8`, periodo
+`2027Q1`, seguimiento `0→1`, recibo
+`2bc3d281379b33ed532825768a29001d19cc7af96c58cead9badb4d13fa6290b`,
+una alta/relación/ocupación de Personal y la incorporación/raíz/dos estados CT,
+con auditorías y outbox. Firma y eficacia permanecen en `false`.
+
+Aplicación y PostgreSQL se reiniciaron, pero la recuperación devolvió `GET 503`
+por restauración histórica Auth12. No se ha acreditado aún un ciclo completo y
+no debe repetirse el POST. La instalación de Auth13 requiere acceso operativo
+al host; el intento del 10 de septiembre quedó bloqueado porque la elevación no
+está habilitada en este runtime. Esto no acredita ausencia ni pérdida de
+PostgreSQL. Tras recuperar, bastará una comprobación acotada; GINPIX seguirá
+como siguiente corte aún sin cierre visible.
 
 Para detener por mantenimiento: avisar a quienes usan la instancia, conservar
 las referencias de operaciones pendientes y parar únicamente la aplicación
@@ -71,6 +104,42 @@ activa. La base y el material permanecen conservados. Actualizar requiere
 artefacto aprobado y compatibilidad del esquema; una copia de base debe
 incluir permisos y material de seguridad por canal privado. No restaurar
 encima de escrituras posteriores ni arrancar una versión incompatible.
+
+### Recuperación de incorporación todavía pendiente
+
+La canónica `c6359f98` conserva el montaje y la carga de configuración. Los
+trece pools, capacidades y catálogos ya están preparados; el bloqueo actual es
+la recuperación histórica de autorización mediante Auth13, no su provisión.
+
+Sistemas debe cotejar los nombres y separación de conexiones con la
+configuración de la entrega aprobada, sin mostrar sus valores ni usar una
+cuenta de administración como sustituto. Comprobar presencia no demuestra
+permisos, conectividad ni que el catálogo esté instalado y publicado.
+No completar esta preparación ejecutando SQL o copiando material histórico
+por instrucciones de un manual. Requiere su propia actuación autorizada.
+
+### Secuencia del operador en la instancia conservada
+
+1. Identificar la aplicación servida y la base conservada con la consulta
+   anterior. El HEAD del árbol compartido no identifica el binario en ejecución.
+2. Preparar el acceso privado y el certificado del perfil adecuado. Un puerto
+   de túnel en el equipo del visitante solo es válido si Sistemas lo ha
+   preparado; `18443` es un ejemplo del acceso anterior, no una URL vigente.
+3. Consultar el portal y un expediente sintético existente. Enseñar recibo
+   de resolución `v8` y borradores `v7`, sin otra alta ni otra validación.
+4. Si falla una lectura, conservar estado y mensaje saneado. Una confianza
+   diaria caducada se diagnostica antes de un reinicio autorizado de la app;
+   no exige reiniciar PostgreSQL ni regenerar certificados.
+5. Antes de una actualización, conservar copia nativa de la base, roles,
+   permisos y tipos de fila, material de seguridad y avisos locales por canal
+   privado. El respaldo previo a CT84 existe según dirección; no se ha hecho
+   otro respaldo ni ensayo de restauración durante esta revisión documental.
+6. La incorporación escrita permanece pendiente de recuperación con el mismo
+   recibo; no repetir el POST ni las campañas ya cerradas de resolución, PDF
+   o migraciones.
+
+Para los casos y sus recibos, consulte la
+[guía del operador](../../GUIA_RECORRIDO_ALBERTO.md#recorrido-vigente--10-de-septiembre-de-2026).
 
 ## Instalación local anterior — referencia histórica
 
@@ -82,6 +151,9 @@ de instalación del servidor; prevalece el apartado superior.
 Entorno de desarrollo de Contratación temporal · Corte: 6 de septiembre de 2026.
 
 ## Organización de referencia configurable
+
+Referencia del entorno local anterior. Para operar el servidor conservado,
+use [Entorno privado vigente](#entorno-privado-vigente); no reinicialice su catálogo.
 
 La composición selecciona una única fuente. Por defecto utiliza el catálogo
 de fichero en modo consulta, mediante el adaptador existente:
@@ -267,6 +339,10 @@ reiniciar; no conceda permisos a partir de denominaciones del organigrama.
 
 ## 1. Comprobaciones al comenzar
 
+Receta histórica local, no comprobaciones de arranque del servidor actual.
+La [secuencia vigente](#secuencia-del-operador-en-la-instancia-conservada)
+no requiere Docker local ni una segunda base.
+
 | Requisito | Comprobación y límite |
 | --- | --- |
 | Código aprobado | Hash y árbol de producto identificados por dirección, sin cambios pendientes. No arrancar el trabajo compartido como si estuviera publicado. |
@@ -305,6 +381,9 @@ dato y deténgase antes de arrancar. No limpie trabajo ajeno ni cambie de rama
 para hacer coincidir el resultado.
 
 ## 2. Configuración local: once conexiones por instancia
+
+Referencia histórica: no es la configuración de incorporación actual.
+Véase [configuración pendiente](#configuración-de-incorporación-todavía-pendiente).
 
 Cada variable contiene una cadena de conexión PostgreSQL, también llamada
 DSN. Deben llegar por el mecanismo privado aprobado para el entorno, nunca
@@ -514,6 +593,9 @@ local, sin mostrarlo en consola. No copie `ca.key`, claves de idempotencia
 o el directorio completo al navegador.
 
 ## 4. Arrancar y comprobar sin confundir salud con funcionalidad
+
+Receta del antiguo entorno local. No ejecutarla sobre el servidor activo ni
+en el ordenador del visitante para abrir otra copia; use el apartado vigente.
 
 Use preferentemente el lanzador local conservado fuera de Git, indicado en
 la guía: `recorrido` para 8443 y `consultas` para 8444. El comando inferior es

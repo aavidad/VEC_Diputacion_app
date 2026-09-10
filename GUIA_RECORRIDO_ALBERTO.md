@@ -1,6 +1,67 @@
-# Acceso vigente en OpenClaw — 6 de septiembre de 2026
+# Guía de recorrido y recibos conservados de VEC
 
-El acceso remoto vigente usa el túnel ya abierto por el operador en
+## Recorrido vigente — 10 de septiembre de 2026
+
+El servidor privado conserva 52 expedientes sintéticos. Se pueden recorrer
+cinco pasos completos y partes del sexto y séptimo; no es la aplicación
+completa ni un entorno de producción. El
+[manual de Sistemas](docs/manual_sistemas/README.md#entorno-privado-vigente)
+es la referencia de acceso: escucha `127.0.0.1:8443`, con certificado cliente
+de pruebas. Dirección comunicó `GET 200` del portal a las 10:08 UTC.
+No hay URL externa; un túnel anterior en `18443` no acredita acceso actual.
+
+Para presentar el trabajo conservado:
+
+1. Sistemas prepara el acceso privado y el perfil de pruebas. Abra
+   `/portal-empleado/` en ese acceso, no en un `localhost` sin preparar.
+2. En Contratación temporal, busque el expediente indicado por el operador
+   y abra su detalle. No cree otra solicitud para volver al caso.
+3. El caso de resolución manual sintética está en `v8`: consulte el recibo
+   ya confirmado. Su registro `201` y recuperación `200` con la misma clave
+   tras reiniciar aplicación y PostgreSQL ya están acreditados, sin duplicado.
+4. Los seis botones descargan los borradores de la propuesta histórica `v7`:
+   informe definitivo, resolución, diligencia, toma de posesión, notificación
+   y comunicación al centro. No son documentos firmados. El caso original
+   `v7` permanece intacto; no hay que validarlo para enseñar el avance.
+5. Si la respuesta es incierta, conserve pestaña, datos y clave originales
+   y pida comprobar el resultado. No repita campañas de reinicio, PDF o SQL
+   para seguir esta guía.
+
+La canónica `c6359f98` contiene piezas de incorporación ya ensambladas;
+no reconstruirlas. CT70–85, trece pools y tres capacidades con catálogos y
+definición están provisionados, sin precargas de negocio. El 10 de septiembre,
+a las `13:07:06.614186Z`, el formulario obtuvo `GET 200` y `POST 200` reales
+con sus dos casillas confirmadas, sin errores JS ni desbordamiento a 1440 o
+390 px. Registró solicitud `7`, expediente `8`, seguimiento `0→1`, periodo
+`2027Q1` y recibo
+`2bc3d281379b33ed532825768a29001d19cc7af96c58cead9badb4d13fa6290b`.
+
+La escritura dejó una alta de Personal, una relación, una ocupación, una
+auditoría y un outbox; en CT, una incorporación, una auditoría, un outbox, una
+raíz y dos estados. `firma_oficial=false` y
+`eficacia_administrativa=false`. Tras reiniciar aplicación y PostgreSQL, la
+lectura devolvió `GET 503` por restauración histórica Auth12: la recuperación
+no está acreditada y todavía no hay ciclo completo. Auth13 tiene dos `GO` y
+regresión verde en `ef6704a6`, pendiente de instalación. No repetir ahora el
+registro. El siguiente corte sigue siendo GINPIX: modelo, mapeo y codificador
+existentes; descarga V2 y cierre visible pendientes.
+
+### Cómo leer los antecedentes
+
+Los apartados fechados siguientes conservan hechos, recibos y cifras de cada
+prueba. No cambian de fecha ni se convierten en pruebas del 10 de septiembre.
+Las recetas locales/remotas antiguas y el apéndice de recreación no son
+instrucciones para operar o reconstruir la instancia conservada.
+Para uso funcional, siga los manuales de
+[usuario](docs/manual_usuario/manual_portal_bolsas.md) y
+[RRHH](docs/manual_rrhh/README.md); para continuar el código, el
+[manual del programador](docs/manual_programador/README.md).
+
+<a id="acceso-vigente-en-openclaw--6-de-septiembre-de-2026"></a>
+
+## Acceso en OpenClaw — referencia histórica del 6 de septiembre de 2026
+
+El acceso remoto de aquel corte usaba el túnel abierto por el operador en
 `localhost:18443`. Para la vista de RRHH abra
 `https://localhost:18443/portal-empleado/peticiones-centro/?vista=rrhh` con el
 certificado sintético de identificación/autenticación de RRHH. Ese certificado
@@ -11,6 +72,81 @@ apartados históricos inferiores que describen un arranque local en el puerto
 `8443` o lanzadores locales se conservan como referencia y **no deben ejecutarse
 para continuar el acceso remoto vigente**. Esta guía no contiene secretos ni la
 ubicación del material privado.
+
+## Bandeja de expedientes — incremento web del 7 de septiembre
+
+Antecedente de esa prueba: su alcance local no describe el estado del servidor
+del 10 de septiembre. No se repite ni se amplía aquí su evidencia visual.
+
+Este incremento está preparado y probado en sandbox; aún no está acreditado
+en el navegador servido. No requiere publicar una URL externa. Se conserva el
+acceso privado anterior bajo Sistemas; no arranque los lanzadores históricos.
+
+En **Contratación temporal**, consulte la bandeja de expedientes (distinta de
+la bandeja de peticiones del centro):
+
+El detalle del incremento local muestra **Período previsto** como fechas legibles
+(por ejemplo, «4 sept 2026 — 31 dic 2026»), sin desplazar el día por la zona
+horaria del navegador. Esta presentación está comprobada localmente; no afirma
+que se haya instalado aún en la aplicación servida.
+
+1. Aplique los filtros de búsqueda, estado y fase. El número mostrado corresponde
+   a esa página, de hasta 100 expedientes; no representa un total global.
+   Sin coincidencias, **Mantener la fase aplicada** conserva la fase elegida.
+   Seleccione **Todos** o pulse **Limpiar** para retirarla expresamente.
+2. Pulse **Página siguiente** para consultar más resultados. Los filtros se
+   mantienen. Abra un expediente desde la página en la que aparece.
+3. Use **Reiniciar consulta** para volver a la primera página con los mismos
+   filtros. Actualizar también comienza de nuevo; no hay navegación hacia atrás
+   dentro de una consulta anterior.
+4. Si se interrumpe la consulta, no significa que no haya más expedientes.
+   **Reiniciar consulta** o **Reintentar** comienza desde la primera página;
+   no reenvía la continuación interrumpida. Reaplique filtros si desea cambiarlos.
+5. Si el expediente cambia de versión al actualizar, se cierra el detalle anterior
+   y aparece un aviso. Vuelva a abrirlo desde la bandeja para consultar sus datos
+   actualizados. Si la versión no cambia, se conserva la selección. Un aviso de
+   resultado indeterminado sigue vigente: el refresco no confirma una actuación.
+
+La consulta no crea altas ni resoluciones. El 8 de septiembre se comprobó
+también la interfaz en Chromium local a 1440 y 390 píxeles, con transporte
+sintético; no es el recorrido de la instancia privada. Con teclado, al paginar
+o aplicar filtros el foco vuelve al formulario de filtros; Tab permite seguir
+desde el buscador. Al abrir un detalle se enfoca la tarea, si existe, o su
+encabezado. Tras un error de continuación permanecen visibles las filas
+anteriores y el aviso; use Reiniciar consulta para obtener una lectura nueva.
+El recorrido funcional del objetivo 10 sigue pendiente y ningún certificado
+de autenticación equivale a firma legal.
+
+## Resolución manual de ejercicio — formulario comprobado localmente el 8 de septiembre
+
+Antecedente local conservado. La comprobación privada posterior del
+[corte vigente](#recorrido-vigente--10-de-septiembre-de-2026) ya acreditó
+registro y recuperación; el resultado de aquella prueba local no se reescribe.
+
+Preparado en el código de trabajo, **todavía no validado en la instancia privada**.
+No se presenta como firma oficial, eficacia administrativa ni incorporación en
+Personal. La publicación de una URL no es requisito para esta comprobación local.
+
+1. Abra un expediente que tenga propuesta de formalización. El formulario carga
+   sus referencias y versiones desde la consulta de preparación; no las invente.
+2. Revise número, fecha y motivo de la resolución y las dos confirmaciones de
+   revisión y ejercicio manual. Pulse **Registrar validación manual** y confirme
+   expresamente la operación.
+3. Si el servidor permite corregir los datos, estos se conservan y el foco vuelve
+   al formulario. Si movió el foco fuera mientras esperaba, permanece allí.
+4. Ante resultado incierto, conserve la pestaña y los datos originales. El reintento
+   conserva la misma operación; un conflicto consulta el recibo histórico, sin
+   registrar automáticamente otra resolución. No interprete ese recibo como
+   confirmación de un contenido distinto enviado por error.
+5. Con recibo confirmado, la reapertura muestra la historia en solo lectura. Una
+   resolución manual de ejercicio no habilita por sí sola una incorporación legal.
+
+Comprobado en Chromium a 1440/390 con módulos reales y transporte sintético:
+validación HTML, 422 corregible, recibo/reapertura, red incierta, recuperación de
+409 y cambio de expediente sin mezclar respuestas. Sin errores JavaScript ni
+almacenamiento del navegador. Quedan pendientes identidad nominal, PostgreSQL
+y recuperación tras reinicio en el entorno privado; no ejecute los lanzadores
+históricos para suplir esas comprobaciones.
 
 ## Petición del centro y ratificación
 
@@ -37,7 +173,8 @@ misma operación**: la clave vive en memoria, no en almacenamiento del navegador
 ### Entregar la petición ratificada a RRHH
 
 1. Con la identidad y el certificado de identificación de RRHH, abra
-   `https://localhost:18443/portal-empleado/peticiones-centro/?vista=rrhh`.
+   `/portal-empleado/peticiones-centro/?vista=rrhh` en el acceso privado
+   preparado por Sistemas para esta sesión.
 2. Pulse **Revisar** en la petición ratificada y compruebe centro, responsables
    y necesidad. Si aún no consta el alta, pulse **Crear expediente en RRHH**
    o **Completar registro**, según el estado.
@@ -91,7 +228,7 @@ Transformación Digital. Es preparación: no contiene el organigrama funcional
 completo, ocupantes ni permisos de ratificación. La conexión multicientro del
 alta sigue pendiente. Este catálogo no aumenta los cinco pasos completos.
 
-El editor persistente está habilitado en la instancia principal local.
+El editor persistente se demostró en la instancia principal del corte siguiente.
 Seleccione **Nueva unidad** o **Editar**, indique denominación, tipo, adscripción
 y motivo; pulse **Revisar cambio** y después **Confirmar cambio**. Una unidad
 nueva recibe clave técnica, no un código oficial. Los cambios se marcan
@@ -117,9 +254,14 @@ cabecera Cookie `400`. La edición no está instalada en la base secundaria.
 El [manual de Sistemas](docs/manual_sistemas/README.md#organización-de-referencia-configurable)
 explica la fuente única y la inicialización. En principal ya están instaladas
 las migraciones de autorización22 y Contratación66: **no reaplicar ni revertir**.
-Use el [mismo acceso vigente](#acceso-vigente-en-openclaw--6-de-septiembre-de-2026)
+Use el [acceso vigente](#recorrido-vigente--10-de-septiembre-de-2026)
 descrito al principio. Los lanzadores locales descritos más abajo son
 históricos y corresponden a Sistemas; no los ejecute para continuar en remoto.
+
+## Recorridos locales del 5 y 6 de septiembre — historial conservado
+
+No ejecutar sus arranques ni sus pruebas de escritura para operar el servidor
+actual. Los recibos, cifras y huellas siguientes mantienen su fecha original.
 
 Primer PDF publicado: `5c57b29f`. El cierre de bandeja,
 detalle y análisis corresponde a
