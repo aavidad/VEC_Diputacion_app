@@ -110,6 +110,7 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 	}
 	// El localizador Personal sólo aporta selectores. El consumidor V2 relee
 	// y acredita el original con su permiso propio antes de reutilizarlo.
+	var registradoPersonal time.Time
 	local, parcial, err := p.c.LocalizadorPersonal.Localizar(ctx, a.OrganizacionRef, exp, plan.SolicitudPersonal.SolicitudRef)
 	if ctx.Err() != nil {
 		return lecturaPreparacionV2{}, ctx.Err()
@@ -140,6 +141,7 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 			return lecturaPreparacionV2{}, ct.ErrComposicionIncorporacionAplicacion
 		}
 		z.ultimo = ahora
+		registradoPersonal = original.Registro.RegistradoEn
 	} else if local.Solicitud != (ct.SolicitudAltaPersonalRPT{}) || local.Selector.SolicitudRef != "" {
 		return lecturaPreparacionV2{}, ct.ErrComposicionIncorporacionAplicacion
 	}
@@ -162,6 +164,20 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 	if vinculo.CentroRef != d.Resumen.CentroRef || plan.Periodo.Desde.Format("2006-01-02") != vinculo.Desde || plan.Periodo.Hasta.Format("2006-01-02") != vinculo.Hasta {
 		return lecturaPreparacionV2{}, ct.ErrConflictoIncorporacionAplicacion
 	}
+	if plan.PublicacionInicial.Referencia != "" {
+		// La relación no existe hasta el alta Personal. GET sólo valida la
+		// definición fijada; no fabrica un estado/raíz ni llama al escritor.
+		ahora := p.c.Reloj.Ahora()
+		def, e := dom.RestaurarDefinicionSeguimiento(plan.PublicacionInicial)
+		if e != nil || !dom.InstanteUTCCanonico(ahora) || ahora.Before(z.ultimo) || !def.VigenteEn(ahora) ||
+			!registradoPersonal.IsZero() && !def.VigenteEn(registradoPersonal) ||
+			plan.VersionExpedienteRaiz != d.Resumen.Version || validarTransicionInicialPreparacion(plan, def, def.Publicacion().EstadoInicial) != nil {
+			return lecturaPreparacionV2{}, ct.ErrConflictoIncorporacionAplicacion
+		}
+		z.ultimo = ahora
+		z.preparacion = preparacionDesdePlanV2(plan, d.Resumen.Version)
+		return z, nil
+	}
 	pub, estado, versionRaiz, err := p.c.Inicial.LeerPreparacionInicial(ctx, plan.OrganizacionRef, exp, plan.RelacionRef)
 	if ctx.Err() != nil {
 		return lecturaPreparacionV2{}, ctx.Err()
@@ -180,10 +196,14 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 	if err = validarInicialPreparacion(plan, pub, estado, versionRaiz, ahora); err != nil {
 		return lecturaPreparacionV2{}, err
 	}
-	z.preparacion = ct.PreparacionIncorporacionAplicacionV2{SolicitudPersonal: plan.SolicitudPersonal,
-		VersionActualExpediente: d.Resumen.Version, VersionSeguimientoEsperada: estado.Version,
-		Periodo: plan.Periodo, MotivoClave: plan.MotivoClave, Documentos: append([]dom.DocumentoSeguimiento(nil), plan.Documentos...), MotivoV3: plan.MotivoV3}
+	z.preparacion = preparacionDesdePlanV2(plan, d.Resumen.Version)
 	return z, nil
+}
+
+func preparacionDesdePlanV2(plan PlanPreparacionDurableV2, version uint64) ct.PreparacionIncorporacionAplicacionV2 {
+	return ct.PreparacionIncorporacionAplicacionV2{SolicitudPersonal: plan.SolicitudPersonal,
+		VersionActualExpediente: version, VersionSeguimientoEsperada: plan.VersionSeguimientoEsperada,
+		Periodo: plan.Periodo, MotivoClave: plan.MotivoClave, Documentos: append([]dom.DocumentoSeguimiento(nil), plan.Documentos...), MotivoV3: plan.MotivoV3}
 }
 
 func (p *PreparadorDurableV2) finalizar(ctx context.Context, previo time.Time) (time.Time, error) {

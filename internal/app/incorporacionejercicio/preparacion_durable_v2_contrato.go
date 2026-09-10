@@ -15,23 +15,29 @@ import (
 // servidor. RelacionRef selecciona una raíz propietaria: NO acredita un alta.
 // No contiene autoridad ni datos generados durante una consulta/reintento.
 type PlanPreparacionDurableV2 struct {
-	OrganizacionRef            string                              `json:"organizacion_ref"`
-	UnidadRef                  string                              `json:"unidad_ref"`
-	SolicitudPersonal          ct.SolicitudAltaPersonalRPT         `json:"solicitud_personal"`
-	FuentePersonal             fuenteejercicio.TernaEsperada       `json:"fuente_personal"`
-	SeguimientoRef             string                              `json:"seguimiento_ref"`
-	RelacionRef                string                              `json:"relacion_ref"`
-	Definicion                 dom.ReferenciaDefinicionSeguimiento `json:"definicion"`
-	VersionExpedienteRaiz      uint64                              `json:"version_expediente_raiz"`
-	VersionSeguimientoEsperada uint64                              `json:"version_seguimiento_esperada"`
-	Periodo                    dom.IntervaloSeguimiento            `json:"periodo"`
-	MotivoClave                dom.ClaveCatalogo                   `json:"motivo_clave"`
-	Documentos                 []dom.DocumentoSeguimiento          `json:"documentos"`
-	MotivoV3                   core.ReferenciaEntradaCatalogo      `json:"motivo_v3"`
+	// Sólo una definición ya publicada, fijada por el mismo documento sellado.
+	// Sin RelacionRef: ésta procede exclusivamente del alta Personal real.
+	PublicacionInicial         dom.PublicacionDefinicionSeguimiento `json:"publicacion_inicial,omitzero"`
+	OrganizacionRef            string                               `json:"organizacion_ref"`
+	UnidadRef                  string                               `json:"unidad_ref"`
+	SolicitudPersonal          ct.SolicitudAltaPersonalRPT          `json:"solicitud_personal"`
+	FuentePersonal             fuenteejercicio.TernaEsperada        `json:"fuente_personal"`
+	SeguimientoRef             string                               `json:"seguimiento_ref"`
+	RelacionRef                string                               `json:"relacion_ref"`
+	Definicion                 dom.ReferenciaDefinicionSeguimiento  `json:"definicion"`
+	VersionExpedienteRaiz      uint64                               `json:"version_expediente_raiz"`
+	VersionSeguimientoEsperada uint64                               `json:"version_seguimiento_esperada"`
+	Periodo                    dom.IntervaloSeguimiento             `json:"periodo"`
+	MotivoClave                dom.ClaveCatalogo                    `json:"motivo_clave"`
+	Documentos                 []dom.DocumentoSeguimiento           `json:"documentos"`
+	MotivoV3                   core.ReferenciaEntradaCatalogo       `json:"motivo_v3"`
 }
 
 func (p PlanPreparacionDurableV2) Copia() PlanPreparacionDurableV2 {
 	p.Documentos = append([]dom.DocumentoSeguimiento(nil), p.Documentos...)
+	if d, err := dom.RestaurarDefinicionSeguimiento(p.PublicacionInicial); err == nil {
+		p.PublicacionInicial = d.Publicacion()
+	}
 	return p
 }
 

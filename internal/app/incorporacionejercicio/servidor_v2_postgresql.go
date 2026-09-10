@@ -142,7 +142,8 @@ func (p *PeticionV2PostgreSQL) servicioConfirmacion() (*Servicio, error) {
 	if err != nil {
 		return nil, err
 	}
-	txCT, err := pgct.NuevaTransaccionRegistroIncorporacionV2PostgreSQL(c.RegistroCT, p.autoridad, r, p.preparador.c.Restaurador, reloj)
+	raices := &resolutorRaizPlanV2{planes: p.preparador.c.Planes, previo: r, reloj: reloj}
+	txCT, err := pgct.NuevaTransaccionRegistroIncorporacionV2PostgreSQL(c.RegistroCT, p.autoridad, raices, p.preparador.c.Restaurador, reloj)
 	if err != nil {
 		return nil, err
 	}

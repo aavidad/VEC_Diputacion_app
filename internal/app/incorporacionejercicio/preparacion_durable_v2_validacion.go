@@ -1,8 +1,10 @@
 package incorporacionejercicio
 
 import (
+	"reflect"
 	"time"
 	hist "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/historiaincorporacion"
+	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	lector "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
@@ -10,7 +12,20 @@ import (
 )
 
 func (p PlanPreparacionDurableV2) Validar() error {
-	for _, ref := range []string{p.OrganizacionRef, p.UnidadRef, p.SeguimientoRef, p.RelacionRef} {
+	referencias := []string{p.OrganizacionRef, p.UnidadRef, p.SeguimientoRef}
+	if p.PublicacionInicial.Referencia != "" {
+		d, err := dom.RestaurarDefinicionSeguimiento(p.PublicacionInicial)
+		_, raizErr := pgct.RaizIncorporacionV2Existente(p.SeguimientoRef)
+		if err != nil || raizErr != nil || p.RelacionRef != "" || !d.Referencia().Coincide(p.Definicion) {
+			return ct.ErrComposicionIncorporacionAplicacion
+		}
+	} else {
+		if !reflect.ValueOf(p.PublicacionInicial).IsZero() {
+			return ct.ErrComposicionIncorporacionAplicacion
+		}
+		referencias = append(referencias, p.RelacionRef)
+	}
+	for _, ref := range referencias {
 		if !dom.ReferenciaOpacaValida(ref) {
 			return ct.ErrComposicionIncorporacionAplicacion
 		}
@@ -47,13 +62,17 @@ func validarInicialPreparacion(p PlanPreparacionDurableV2, pub dom.PublicacionDe
 		p.Periodo.Desde.Before(estado.PeriodoPrevisto.Desde) || p.Periodo.Hasta.After(estado.PeriodoPrevisto.Hasta) {
 		return ct.ErrConflictoIncorporacionAplicacion
 	}
+	return validarTransicionInicialPreparacion(p, def, s.EstadoActual())
+}
+
+func validarTransicionInicialPreparacion(p PlanPreparacionDurableV2, def dom.DefinicionSeguimiento, inicial dom.ClaveCatalogo) error {
 	// Leer el catálogo existente, sin aplicar una transición con recibos o
 	// actuaciones inventadas para "ensayar" dentro de una consulta.
 	for _, tr := range def.Publicacion().Transiciones {
 		if tr.Clave != ct.TransicionConfirmarIncorporacion {
 			continue
 		}
-		if tr.Origen != s.EstadoActual() || tr.EfectoPeriodo != dom.EfectoPeriodoAbrir || !tr.RequierePeriodo || tr.Calendario != nil {
+		if tr.Origen != inicial || tr.EfectoPeriodo != dom.EfectoPeriodoAbrir || !tr.RequierePeriodo || tr.Calendario != nil {
 			return ct.ErrConflictoIncorporacionAplicacion
 		}
 		permitido := false
@@ -110,7 +129,7 @@ func documentosIntencionExactos(documentos []dom.DocumentoSeguimiento, refs []st
 
 func selectorPersonalDelPlan(s lector.Selector, p PlanPreparacionDurableV2) bool {
 	return s.OrganizacionRef == p.OrganizacionRef && s.ExpedienteRef == p.SolicitudPersonal.ExpedienteRef && s.SolicitudRef == p.SolicitudPersonal.SolicitudRef &&
-		s.VersionExpediente == p.SolicitudPersonal.VersionExpediente && s.RelacionRef == p.RelacionRef
+		s.VersionExpediente == p.SolicitudPersonal.VersionExpediente && (s.RelacionRef == p.RelacionRef || p.RelacionRef == "" && p.PublicacionInicial.Referencia != "")
 }
 
 func originalPersonalDelPlan(r lector.Resultado, s lector.Selector, p PlanPreparacionDurableV2, t time.Time) bool {
