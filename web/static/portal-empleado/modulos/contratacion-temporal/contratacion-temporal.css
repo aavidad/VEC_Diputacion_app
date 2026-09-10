@@ -445,6 +445,16 @@
   font-weight: 700;
 }
 
+[data-ct-seguimiento-incorporacion] {
+  min-width: 0;
+}
+
+[data-ct-seguimiento-incorporacion] dd,
+[data-ct-seguimiento-incorporacion] code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .ct-resumen-documentos {
   padding: 12px;
   border: 1px solid var(--portal-borde);

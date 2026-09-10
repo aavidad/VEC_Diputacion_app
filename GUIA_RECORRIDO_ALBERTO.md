@@ -22,10 +22,41 @@ ni referencias privadas.
 
 La evidencia actual es de código: dos revisiones independientes Astra/high
 emitieron `GO`; seis pruebas focales Go están verdes en cinco paquetes; Node
-está verde `7/7`, incluido el montaje principal; y Chromium comprobó el
-transporte sintético en 1440/390 px sin desbordamiento, errores JavaScript ni
-almacenamiento web, con destrucción limpia. La captura móvil observada por
-Dirección corresponde a ese arnés sintético. No es un E2E de runtime. La
+está verde `7/7`, incluido el montaje principal.
+
+El primer arnés Chromium usó CSS inventado y no acreditaba el CSS de producto.
+Con el índice candidato de `1385b134`, los doce CSS reales y referencias
+hexadecimales completas de 64 caracteres, la siguiente ejecución detectó
+`scrollWidth=834` en el viewport de 390 px; escritorio quedó correcto. El
+hunk único del snapshot CSS
+`752b025e99ca05335cd1053b7c8bd2dc3780358977d3191ddfd4d5a896013583`
+corrigió el ancho. `cssfix3` midió `1440/1440` y `390/390`, pero contenía
+una navegación inventada superpuesta, por lo que no acreditaba ausencia de
+obstrucción.
+
+El arnés final `cssfix4` usa el wrapper mínimo real del componente CT, sin
+`nav` ni `aside`, los doce CSS reales y transporte interceptado. El
+resultado fue `PASS`: ancho de documento igual al viewport a 1440 y 390 px,
+una consulta, referencias completas y cero errores JavaScript, consola,
+almacenamiento o hijos tras destruir la raíz. En ambos anchos,
+`elementFromPoint` devolvió `H3` sobre el título y `BUTTON` sobre el
+botón; los dos figuran visibles y sin obstrucción. Dirección inspeccionó la
+captura de 390 px: es legible, no muestra superposición y conserva el botón
+completo.
+
+Artefactos:
+
+- `arnes-seguimiento-candidata-cssfix4.mjs`, SHA256
+  `cd68fe9accce94267e2d5829546ef197a8c1d12c38ac8ba59a3861aea6338fad`.
+- `resultado-candidata-cssfix4.json`, SHA256
+  `149ae2ab956667d624834169b66dd987f18b2f6d60dc821dfff69dea49e937e2`.
+- `seguimiento-candidata-cssfix4-390.png`, SHA256
+  `38b3f50681b7f39fdb0c41c6f40207f81df7c44dfd252cb3d658903a292a2c66`.
+- `seguimiento-candidata-cssfix4-1440.png`, SHA256
+  `8f92badaa69f1b2c0b344a0b218c12d0a53d8f942f9225fc0576ce1a2311b91c`.
+
+Esta evidencia acredita el componente CT con transporte sintético interceptado.
+No acredita el shell completo ni un E2E de runtime. La
 campaña global `go test ./...` no se ejecutó porque la revisión automática
 rechazó su alcance masivo.
 

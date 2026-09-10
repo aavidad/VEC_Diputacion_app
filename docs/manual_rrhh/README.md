@@ -18,10 +18,13 @@ servicio devuelve indisponibilidad, conserve la referencia y comuníquelo a
 Sistemas; no cambie datos o permisos para forzar la consulta.
 
 La evidencia actual es focal: seis pruebas Go verdes en cinco paquetes y Node
-`7/7`, incluido el montaje principal. Chromium comprobó el transporte
-sintético a 1440/390 px sin desbordamiento, errores JavaScript ni almacenamiento
-web, y con destrucción limpia. La captura móvil observada por Dirección
-corresponde a ese arnés sintético; no es un E2E de runtime. La campaña global
+`7/7`, incluido el montaje principal.
+
+La prueba aislada del componente de seguimiento, con los estilos de producto y
+transporte sintético interceptado, mostró las referencias completas y el botón
+visible sin desbordamiento a 1440 y 390 px. Dirección inspeccionó la captura
+móvil, legible y sin superposición. Esta comprobación no abarca el shell
+completo ni el runtime. La campaña global
 `go test ./...` no se ejecutó porque la revisión automática rechazó su alcance
 masivo.
 

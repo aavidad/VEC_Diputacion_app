@@ -24,11 +24,26 @@ que originó el seguimiento; no representa el estado actual del expediente.
 
 Dos revisiones independientes con Astra/high emitieron `GO` para el backend y
 sus dos dependencias. Seis pruebas focales Go están verdes en cinco paquetes.
-Node está verde `7/7`, incluido el montaje principal. Chromium comprobó el
-transporte sintético a 1440/390 px, sin desbordamiento, errores JavaScript ni
-almacenamiento web, y con destrucción limpia. La captura móvil observada por
-Dirección corresponde a ese arnés sintético. Estas pruebas no acreditan un E2E
-de runtime. La campaña global `go test ./...` no se ejecutó porque la revisión
+Node está verde `7/7`, incluido el montaje principal.
+
+El primer arnés Chromium usó CSS inventado y no acreditaba el CSS de producto.
+El arnés siguiente cargó el índice candidato de `1385b134`, los doce CSS
+reales y referencias de 64 caracteres: detectó `scrollWidth=834` en 390 px,
+con escritorio correcto. Tras el hunk CSS único, `cssfix3` midió
+`1440/1440` y `390/390`, pero superponía una navegación inventada y no
+acreditaba ausencia de obstrucción.
+
+La repetición final `cssfix4` usa el wrapper mínimo real del componente CT,
+sin `nav` ni `aside`, los doce CSS reales y transporte interceptado. Dio
+`PASS`: ancho de documento igual al viewport a 1440 y 390 px; una consulta;
+referencias completas; cero errores JavaScript, consola, almacenamiento o hijos
+tras destruir la raíz. En ambos anchos, `elementFromPoint` devolvió `H3`
+para el título y `BUTTON` para el botón, ambos visibles y sin obstrucción.
+Dirección inspeccionó la captura móvil, legible y sin superposición, con el
+botón completo. El resultado tiene SHA256
+`149ae2ab956667d624834169b66dd987f18b2f6d60dc821dfff69dea49e937e2`.
+Esta evidencia acredita sólo el componente con transporte sintético
+interceptado; no prueba el shell completo ni un E2E de runtime. La campaña global `go test ./...` no se ejecutó porque la revisión
 automática rechazó su alcance masivo.
 
 Auth13 `ef6704a6` no está instalado y la recuperación `GET` continúa bloqueada
