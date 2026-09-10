@@ -1,5 +1,62 @@
 # Estado y plan de ataque del proyecto
 
+## Cierre por cuota — orden de Alberto, 10 de septiembre de 2026
+
+Sesión cerrada por orden expresa del operador. No reactivar agentes ni continuar
+el desarrollo automáticamente. Al comprobar el runtime sólo figuraba el director;
+no había subagentes ni descendientes activos disponibles. No se iniciaron nuevas
+campañas, instalaciones, migraciones ni cambios de cuenta para este cierre.
+
+Quedan confirmados en la canónica los cortes `76a2b7c1` (consulta original),
+`1385b134` (panel), `8b3d1ee2` (continuidad del cierre), `52d4862f` (dominio de
+anotación), `a063eac1` (referencias móviles), `2ba4b86e` (persistencia de anotación)
+y `9fb12560` (persistencia de cierre). Este corte añade únicamente los dos
+archivos de sellado HMAC de anotación ya revisados por dos especialistas y
+comprobados con pruebas focales; conserva generaciones, dominios separados y
+rechazo de cancelación después del último conector. No se repitieron pruebas
+para cerrar. Ningún commit de esta sesión se presenta como publicado.
+
+Pendientes conservados, sin integrar como terminados:
+
+- HTTP de anotación: última reparación Astra en cuatro archivos, diez pruebas
+  focales aprobadas; faltan los dos dictámenes sobre sus hashes finales. Los
+  NO-GO anteriores no se convierten automáticamente en GO por el parche.
+- Composición nominal: doce archivos propios y cuatro dependencias congelados
+  en `composicion-nominal/manifest-review16.json`; consta GO estático de identidad.
+  Falta recoger/cerrar la segunda revisión y validar la candidata conjunta.
+- Interfaz: formularios y cliente conservados; pruebas aisladas de anotación y
+  cierre con transporte sintético. El montaje tras anotación incorpora un callback
+  y una guarda de vigencia corregida, pero falta el caso DOM conjunto v8→v9 que
+  demuestre el nuevo GET de preparación y el cierre habilitado. No atribuir al
+  montaje final las pruebas de versiones anteriores de los componentes.
+- Los cambios de paginación/foco y las bajas ajenas del manifiesto siguen como
+  WIP separado. Para inventariar usar bytes de `git show` de la canónica frente
+  a archivos reales: el índice ajeno no representa lo pendiente de esta rama.
+
+La copia privada está en
+`/root/.local/state/vec-codex-director-20260910/cierre-cuota/`: inventario de 179
+archivos sobre `9fb12560`, copia del WIP, parche y entregas temporales. Incluye
+material ajeno conservado dentro del alcance; no atribuye su autoría. Las demás
+candidatas, manifiestos y evidencias permanecen en el directorio privado padre.
+No se copiaron credenciales ni bases y no se modificaron documentos WIP del árbol.
+
+Punto de reanudación: inventariar esa copia y los hashes finales; cerrar revisión
+HTTP de anotación y segunda revisión de composición; comprobar únicamente la
+candidata conjunta y el caso DOM pendiente; integrar hunks propios sin paginación,
+foco o bajas ajenas. Después, con canal operativo autorizado, resolver Auth13 y
+la configuración nominal/publicaciones conservadas, comprobar GET de incorporación,
+GINPIX y el recorrido anotación→cierre con recuperación e historia sin duplicados.
+
+Auth13 `ef6704a6` sigue revisada pero no instalada; CT70–85 ya tienen historia y
+no deben reaplicarse. CT86/AD3-30 y CT87/AD3-31 están integradas como scripts,
+sin ejecución SQL ni instalación acreditadas. No repetir el POST de incorporación.
+Los objetivos 11–14 permanecen pendientes de cierre conjunto en runtime; el
+objetivo 6 aún requiere inicio y política acreditados. No hay aplicación terminada.
+
+HEAD ajeno conservado: `d25861ff34670498b1c7825e753c36de4ca859d0`. SHA256 del
+índice real: `b46876aa1fa9d138e1dae28f4c406c4712f9eb9e44bcda98c7df334558ae62db`.
+Sin stash, reset, limpieza, reinicios ni cambios en bases o recibos.
+
 ## Cierre administrativo: persistencia integrada en código
 
 La candidata de dieciséis archivos conserva la raíz y la fundación v1 al

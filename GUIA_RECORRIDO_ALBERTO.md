@@ -1,5 +1,24 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Pausa por cuota — 10 de septiembre de 2026
+
+El operador ordenó cerrar y guardar. Los siete cortes hasta `9fb12560` quedan
+confirmados en la canónica; se añaden sólo los sellos HMAC de anotación ya
+revisados y probados. El runtime de colaboración no mostraba subagentes activos.
+No se declara terminado el recorrido de RRHH.
+
+La incorporación original y su recibo deben recuperarse por GET, sin repetir
+el alta. Auth13 sigue pendiente de instalación por el canal autorizado; después
+faltan la descarga GINPIX y la anotación/cierre con recuperación durable conjunta.
+Los scripts nuevos CT86/AD3-30 y CT87/AD3-31 no se han instalado. No reaplicar
+CT70–85 ni reconstruir historia. El vencimiento continúa sin inicio y política
+acreditados; no se presume firma, eficacia, correo o transmisión externa.
+
+La reparación HTTP de anotación y el montaje nominal siguen sin integración
+final. Los formularios tienen evidencia sintética aislada; falta el caso DOM
+v8→v9 del montaje final y el recorrido real. Consultar el bloque de cierre en
+`ESTADO_PROYECTO.md` y la copia privada `cierre-cuota/` antes de reanudar.
+
 ## Recorrido vigente — 10 de septiembre de 2026
 
 ### Cierre administrativo: persistencia integrada en código

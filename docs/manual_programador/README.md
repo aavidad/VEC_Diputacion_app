@@ -1,5 +1,42 @@
 # Manual mantenido del programador de VEC
 
+## Pausa y entrega conservada por cuota — 10 de septiembre de 2026
+
+Se conserva el código hasta `9fb12560` y se confirman únicamente los sellos
+HMAC de anotación ya comprobados. Implementación SHA256
+`042dc81583f35296daece4d2b03ef77b50dc48a9ef4eb1f8d2c99af8369fb35f`;
+prueba `ac3863bb098432dc02ac75ebe6055c17566407e1e1301fade823dd680be5c9ea`.
+Dos revisores independientes dieron GO; la focal de seguridad pasó también en
+la candidata aislada. No se repitió para el cierre. La cancelación tras el último
+conector devuelve error sin colección; se conservan generaciones y dominios.
+
+Última reparación HTTP no integrada: `anotacion_administrativa.go`
+`0da3d3908b95bcb4b34eff824c4ead81443299513b2b690d215743a3fd142e4e`,
+contrato `520648d34db7df78dea8a090978d8e38b3bd438540cc2785416e6ce564fbc534`,
+prueba `b5c87045bea33e82f8a9eb0cd1d97b913f0583d7e28f23260b6f9d413ae16cc0`
+y prueba de errores `5b05d9a79d14358553997b30155b8dd57d65a7eb03aa7212656ce65fd62f327a`.
+Diez pruebas focales pasaron; faltan los dos dictámenes sobre esta versión.
+
+La composición conserva doce archivos propios y cuatro dependencias en
+`composicion-nominal/manifest-review16.json`, con GO de identidad disponible y
+segunda revisión pendiente de recoger/cerrar. Su plantilla es NO_INSTALAR y
+no constituye configuración privada publicada. La fuente exige permisos nominales
+propios, rechaza carreras de rol/asignación y consulta el detalle autorizado
+antes del lector de preparación; falta validar la candidata conjunta final.
+
+El montaje web aún requiere la prueba DOM v8→v9 tras callback de anotación.
+Los artefactos de componentes no prueban por sí solos el montaje ni el runtime.
+Para integrar después, comparar `git show <canónica>:<ruta>` con los bytes
+reales, usando índice temporal y CAS. Conservar el WIP ajeno de paginación/foco
+y las entradas existentes del manifiesto. No reutilizar el índice real para
+inventariar esta línea.
+
+Copia privada: `cierre-cuota/inventario-wip.json`, `wip/`,
+`wip-contra-canonica.patch` y `entregas-tmp/`, dentro de
+`/root/.local/state/vec-codex-director-20260910`. La copia corresponde a la base
+`9fb12560`; no atribuye autoría al material ajeno. No ejecutar SQL ni reiniciar
+servicios al recuperar esta pausa. Auth13 y el recorrido durable siguen pendientes.
+
 ## Cierre administrativo: persistencia integrada en código
 
 Los dieciséis archivos conservan la raíz y la fundación v1 al adoptar la
