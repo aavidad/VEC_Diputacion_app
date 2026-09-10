@@ -1,0 +1,4 @@
+interface:
+  display_name: "Programar interfaz VEC"
+  short_description: "Pantallas administrativas conectadas a datos reales"
+  default_prompt: "Usa $programar-interfaz-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

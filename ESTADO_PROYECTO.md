@@ -266,9 +266,24 @@ contratación. No se reabren los cinco primeros pasos ya recorridos.
 
 ## Cómo trabajamos desde ahora
 
-1. Un objetivo funcional en curso por línea canónica. Dirección integra;
-   tres subagentes ayudan con archivos separados, componentes necesarios o
-   documentación. No se crean ramas equivalentes ni se copia código entre ellas.
+Configuración de equipo preparada el 10 de septiembre de 2026 en
+`.codex/config.toml`: director Astra/high, doce perfiles iniciales con modelo y
+esfuerzo explícitos, y siete skills de proyecto bajo `.agents/skills/`.
+Se autoriza delegación recursiva dentro del encargo y los permisos recibidos.
+Carga comprobada en Codex 0.147 con `initialize`, `config/read` y `skills/list`:
+doce perfiles sin error y siete skills detectadas. No se han iniciado modelos
+con este paquete; el usuario nativo `openclaw` aún requiere inicio de sesión.
+Las cuatro raíces anteriores de OpenClaw se han archivado, con código y WIP
+conservados. Este corte cambia la coordinación, no añade un paso RRHH recorrido.
+Comprobar instalación con `codex --version` y `codex login status` como `openclaw`
+desde el repositorio remoto; el segundo consulta la autenticación, no la inicia.
+
+1. Un objetivo funcional en curso por línea canónica. Un director Codex nativo
+   integra; los agentes crean y gestionan subagentes a demanda, también anidados,
+   con archivos exclusivos y responsabilidad de cada padre sobre sus entregas.
+   No hay árbol fijo ni cuota total de especialistas. La concurrencia inicial
+   configurada es doce; se respeta el límite efectivo del runtime. Los perfiles
+   pueden ampliarse cuando una tarea requiera otra especialidad.
 2. Cada corte debe dejar algo que se pueda enseñar desde el navegador.
    Se busca un tamaño de **una sesión corta, unas 1–4 horas de trabajo**:
    es un límite para dividir el trabajo, no una promesa de duración.

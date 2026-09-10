@@ -1,0 +1,4 @@
+interface:
+  display_name: "Revisar cambios VEC"
+  short_description: "Revisión independiente de cambios y permisos"
+  default_prompt: "Usa $revisar-cambios-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

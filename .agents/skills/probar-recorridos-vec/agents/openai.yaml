@@ -1,0 +1,4 @@
+interface:
+  display_name: "Probar recorridos VEC"
+  short_description: "Validación funcional proporcionada al cambio"
+  default_prompt: "Usa $probar-recorridos-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

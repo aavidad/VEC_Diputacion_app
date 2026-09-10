@@ -1,0 +1,4 @@
+interface:
+  display_name: "Programar backend VEC"
+  short_description: "Casos de uso y contratos de contratación"
+  default_prompt: "Usa $programar-backend-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

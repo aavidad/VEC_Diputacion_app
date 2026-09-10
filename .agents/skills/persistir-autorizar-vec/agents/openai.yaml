@@ -1,0 +1,4 @@
+interface:
+  display_name: "Persistir y autorizar VEC"
+  short_description: "SQL e identidad con historial conservado"
+  default_prompt: "Usa $persistir-autorizar-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

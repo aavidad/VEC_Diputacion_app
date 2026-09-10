@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coordinar agentes VEC"
+  short_description: "Delegación recursiva según el trabajo pendiente"
+  default_prompt: "Usa $orquestar-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Documentar y entregar VEC"
+  short_description: "Manuales y entregas basados en evidencia real"
+  default_prompt: "Usa $documentar-entregar-vec para resolver la tarea asignada de VEC y entregar evidencia concreta."
