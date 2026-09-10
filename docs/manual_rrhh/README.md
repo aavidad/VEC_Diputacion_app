@@ -2,6 +2,38 @@
 
 ## Corte vigente para presentación — 10 de septiembre de 2026
 
+### Panel integrado en código; runtime pendiente
+
+El panel `ORIGINAL` integra la consulta por referencia de expediente sobre el
+backend confirmado
+`76a2b7c13309bc0526e45d585c2fdf7ca77aecf6`. Su contrato es
+`GET /api/vec/contratacion-temporal/incorporaciones-ejercicio/seguimiento?expediente_ref=<referencia>`.
+La respuesta muestra `original_incorporacion`, que es la incorporación
+histórica de origen. No indica por sí sola el estado actual del expediente.
+
+Cuando la ruta esté disponible en runtime, RRHH abrirá el panel con su perfil
+autorizado, introducirá una referencia sintética existente y consultará el
+seguimiento. No debe crear otra incorporación para recuperar el caso. Si el
+servicio devuelve indisponibilidad, conserve la referencia y comuníquelo a
+Sistemas; no cambie datos o permisos para forzar la consulta.
+
+La evidencia actual es focal: seis pruebas Go verdes en cinco paquetes y Node
+`7/7`, incluido el montaje principal. Chromium comprobó el transporte
+sintético a 1440/390 px sin desbordamiento, errores JavaScript ni almacenamiento
+web, y con destrucción limpia. La captura móvil observada por Dirección
+corresponde a ese arnés sintético; no es un E2E de runtime. La campaña global
+`go test ./...` no se ejecutó porque la revisión automática rechazó su alcance
+masivo.
+
+Auth13 `ef6704a6` no está instalado y la recuperación `GET` sigue bloqueada
+en runtime. GINPIX `e2831250` está integrado, sin prueba sobre un recibo
+recuperado. No hay nueva respuesta de GINPIX, anotación, cierre ni recorrido
+conjunto acreditados.
+
+Siguen abiertos los objetivos 11 (recuperación), 12 (GINPIX en runtime), 13
+(anotación y cierre) y 14 (conjunto). En el objetivo 6, el inicio y la política
+siguen pendientes de elección y acreditación. Esta copia parte de `3375d527`.
+
 Cierre funcional `00558603`: 5/8 pasos completos más partes del sexto y séptimo.
 Se conservan 52 expedientes sintéticos en el servidor privado. El
 [manual de Sistemas](../manual_sistemas/README.md#entorno-privado-vigente)

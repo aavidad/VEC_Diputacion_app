@@ -1,5 +1,32 @@
 # Estado y plan de ataque del proyecto
 
+## Backend y panel integrados en código; runtime pendiente
+
+El backend confirmado es
+`76a2b7c13309bc0526e45d585c2fdf7ca77aecf6`. Este corte reúne sobre la base
+`3375d527` las entregas de consulta, proyección, HTTP y panel `ORIGINAL`.
+
+El contrato de lectura es
+`GET /api/vec/contratacion-temporal/incorporaciones-ejercicio/seguimiento?expediente_ref=<referencia>`.
+La respuesta `original_incorporacion` representa la incorporación histórica
+que originó el seguimiento; no representa el estado actual del expediente.
+
+Dos revisiones independientes con Astra/high emitieron `GO` para el backend y
+sus dos dependencias. Seis pruebas focales Go están verdes en cinco paquetes.
+Node está verde `7/7`, incluido el montaje principal. Chromium comprobó el
+transporte sintético a 1440/390 px, sin desbordamiento, errores JavaScript ni
+almacenamiento web, y con destrucción limpia. La captura móvil observada por
+Dirección corresponde a ese arnés sintético. Estas pruebas no acreditan un E2E
+de runtime. La campaña global `go test ./...` no se ejecutó porque la revisión
+automática rechazó su alcance masivo.
+
+Auth13 `ef6704a6` no está instalado y la recuperación `GET` continúa bloqueada
+en runtime. GINPIX `e2831250` está integrado, pero no se ha probado sobre un
+recibo recuperado; no hay un resultado nuevo de GINPIX que comunicar. Siguen
+abiertos el objetivo 11 (recuperación), el 12 (GINPIX en runtime), el 13
+(anotación y cierre) y el 14 (recorrido conjunto). En el objetivo 6, tanto el
+inicio como la política siguen pendientes de elección y acreditación.
+
 **Estado comprobado y recuperación pendiente — 10 de septiembre de 2026.** El formulario de
 incorporación registró una operación real de desarrollo a las
 `2026-09-10T13:07:06.614186Z`: `GET 200` y `POST 200`, dos confirmaciones

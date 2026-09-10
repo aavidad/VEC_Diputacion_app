@@ -14,6 +14,7 @@ import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
 import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
 import { montarFichaGINPIX } from "./ficha-ginpix.js";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -795,6 +796,19 @@ export async function montarModuloContratacionTemporal({
         });
         desmontarIncorporacionEjercicio = () => {
           desmontarFicha(); liberarFicha(); desmontarFormulario();
+        };
+      }
+      if (preparacion.recibo !== null && typeof clienteLlamamiento.seguimientoIncorporacion?.consultar === "function") {
+        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
+        const bloque = documento.createElement("div");
+        contenedor.append(bloque);
+        const desmontarAnterior = desmontarIncorporacionEjercicio;
+        const desmontarSeguimiento = montarSeguimientoIncorporacion({
+          raiz: bloque, cliente: clienteLlamamiento.seguimientoIncorporacion,
+          recibo: preparacion.recibo, mensajes,
+        });
+        desmontarIncorporacionEjercicio = () => {
+          desmontarSeguimiento(); desmontarAnterior();
         };
       }
     } catch (error) {

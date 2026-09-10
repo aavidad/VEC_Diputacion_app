@@ -2,6 +2,41 @@
 
 ## Recorrido vigente — 10 de septiembre de 2026
 
+### Backend y panel integrados en código; runtime pendiente
+
+El backend confirmado es
+`76a2b7c13309bc0526e45d585c2fdf7ca77aecf6`. Sobre la base `3375d527`, este
+corte conecta consulta, proyección, HTTP y panel `ORIGINAL`.
+
+Cuando el montaje y la autorización de runtime estén disponibles, la consulta
+prevista será:
+
+```text
+GET /api/vec/contratacion-temporal/incorporaciones-ejercicio/seguimiento?expediente_ref=<referencia_sintetica>
+```
+
+El campo `original_incorporacion` identifica el alta histórica que abrió el
+seguimiento. No debe interpretarse como el estado actual. Use una referencia
+sintética existente y un perfil autorizado; esta guía no publica credenciales
+ni referencias privadas.
+
+La evidencia actual es de código: dos revisiones independientes Astra/high
+emitieron `GO`; seis pruebas focales Go están verdes en cinco paquetes; Node
+está verde `7/7`, incluido el montaje principal; y Chromium comprobó el
+transporte sintético en 1440/390 px sin desbordamiento, errores JavaScript ni
+almacenamiento web, con destrucción limpia. La captura móvil observada por
+Dirección corresponde a ese arnés sintético. No es un E2E de runtime. La
+campaña global `go test ./...` no se ejecutó porque la revisión automática
+rechazó su alcance masivo.
+
+Auth13 `ef6704a6` no está instalado, por lo que la recuperación `GET` sigue
+bloqueada en runtime. GINPIX `e2831250` está integrado sin prueba sobre un
+recibo recuperado. No registre otra incorporación ni atribuya una respuesta
+nueva a GINPIX. Permanecen abiertos los objetivos 11, 12, 13 y 14:
+recuperación, GINPIX en runtime, anotación/cierre y recorrido conjunto. En el
+objetivo 6, el inicio y la política siguen pendientes de elección y
+acreditación.
+
 El servidor privado conserva 52 expedientes sintéticos. Se pueden recorrer
 cinco pasos completos y partes del sexto y séptimo; no es la aplicación
 completa ni un entorno de producción. El

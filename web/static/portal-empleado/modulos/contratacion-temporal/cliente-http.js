@@ -18,6 +18,7 @@ import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO, prefijoErrorLlamamiento
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
+import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -35,6 +36,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
     incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
     fichaGINPIX: RUTA_FICHA_GINPIX,
+    seguimientoIncorporacion: RUTA_SEGUIMIENTO_INCORPORACION,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -419,7 +421,7 @@ function claveI18nValida(ruta, codigo, clave) {
   }
   const prefijo = ruta.split("?")[0] === RUTA_FICHA_GINPIX
     ? "api.contratacion_temporal.ficha_ginpix.error."
-    : ruta.split("?")[0] === RUTA_INCORPORACION_EJERCICIO
+    : [RUTA_INCORPORACION_EJERCICIO, RUTA_SEGUIMIENTO_INCORPORACION].includes(ruta.split("?")[0])
     ? "api.contratacion_temporal.incorporacion_ejercicio.error."
     : ruta.split("?")[0] === RUTA_RESOLUCION_FORMALIZACION
     ? "api.contratacion_temporal.resolucion_formalizacion.error."
@@ -833,6 +835,15 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones }),
+    seguimientoIncorporacion: crearClienteSeguimientoIncorporacion({
+      validarOpciones,
+      consultar: (expedienteRef, { signal }) => ejecutar({
+        metodo: "GET",
+        ruta: `${RUTA_SEGUIMIENTO_INCORPORACION}?expediente_ref=${encodeURIComponent(expedienteRef)}`,
+        signal, estadoEsperado: 200, maximoRespuesta: 512 * 1024, efecto: false,
+        validarRespuesta: (datos) => datos,
+      }),
+    }),
     ...crearFichaGINPIXClienteHTTP({ validarOpciones, descargar: ({ ruta, signal, maximoRespuesta }) => ejecutar({
       metodo: "GET", ruta, signal, maximoRespuesta, estadoEsperado: 200, efecto: false, fichero: true,
       validarRespuesta: (json, _estado, contenido) => ({
