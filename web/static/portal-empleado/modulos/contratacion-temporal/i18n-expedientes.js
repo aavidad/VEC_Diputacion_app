@@ -1,6 +1,10 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+  incorporacion_preparacion_cargando: "Consultando la preparación de incorporación guardada en el servidor.",
+  incorporacion_preparacion_denegada: "No dispone de permiso para consultar la incorporación de este expediente.",
+  incorporacion_preparacion_no_disponible: "La incorporación no está preparada o la consulta no está disponible. Esta consulta no registra incorporaciones.",
+  incorporacion_preparacion_reintentar: "Consultar de nuevo la incorporación",
   sobrelinea: "Gestión de contratación temporal",
   titulo: "Expedientes de contratación",
   descripcion:

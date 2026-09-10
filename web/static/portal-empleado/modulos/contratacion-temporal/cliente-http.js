@@ -16,6 +16,7 @@ import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } fr
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO, prefijoErrorLlamamiento, conflictoLlamamientoValido } from "./cliente-http-llamamiento.js";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
+import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -31,6 +32,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
     ...RUTAS_LLAMAMIENTO,
     resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
+    incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -412,7 +414,9 @@ function claveI18nValida(ruta, codigo, clave) {
       "servicio_no_disponible",
     ].includes(codigo);
   }
-  const prefijo = ruta.split("?")[0] === RUTA_RESOLUCION_FORMALIZACION
+  const prefijo = ruta.split("?")[0] === RUTA_INCORPORACION_EJERCICIO
+    ? "api.contratacion_temporal.incorporacion_ejercicio.error."
+    : ruta.split("?")[0] === RUTA_RESOLUCION_FORMALIZACION
     ? "api.contratacion_temporal.resolucion_formalizacion.error."
     : prefijoErrorLlamamiento(ruta) ?? (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.alta
     ? "api.contratacion_temporal.alta.error."
@@ -811,6 +815,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
+    ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });

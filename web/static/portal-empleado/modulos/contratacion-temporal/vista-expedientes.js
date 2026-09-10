@@ -12,6 +12,7 @@ import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.j
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -307,6 +308,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   fiscalizacionDisponible = false,
   llamamientoDisponible = false,
   resolucionFormalizacionDisponible = false,
+  incorporacionEjercicioDisponible = false,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -341,7 +343,8 @@ export function renderizarModuloContratacionTemporal(estado, {
       ? '<div data-ct-exp-informe-juridico></div>'
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
-      : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}`;
+      : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
+      ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
   } else if (estado.vista === "auditoria") {
@@ -425,6 +428,10 @@ export async function montarModuloContratacionTemporal({
     && typeof clienteLlamamiento?.registrarComunicacionLlamamiento === "function";
   const resolucionFormalizacionDisponible = typeof clienteLlamamiento?.registrarResolucionFormalizacion === "function"
     && typeof clienteLlamamiento?.prepararResolucionFormalizacion === "function";
+  const incorporacionEjercicioDisponible = typeof clienteLlamamiento?.prepararIncorporacionEjercicio === "function"
+    && typeof clienteLlamamiento?.confirmarIncorporacionEjercicio === "function";
+  let desmontarIncorporacionEjercicio = null;
+  let consultaIncorporacionEjercicio = null;
   let desmontarLlamamiento = null;
   let desmontarResolucionFormalizacion = null;
   let consultaResolucionFormalizacion = null;
@@ -726,6 +733,48 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
+  async function montarIncorporacionEjercicio() {
+    const estado = presentador.obtenerEstado();
+    if (!montada || !incorporacionEjercicioDisponible || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio
+      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
+      || estado.vista !== "expediente" || !Number.isSafeInteger(estado.expediente?.version)
+      || estado.expediente.version < 8) return;
+    const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
+    if (!contenedor) return;
+    const expedienteRef = estado.expediente.expediente_ref;
+    const version = estado.expediente.version;
+    const controlador = new AbortController();
+    consultaIncorporacionEjercicio = controlador;
+    const vigente = () => {
+      const actual = presentador.obtenerEstado();
+      return montada && consultaIncorporacionEjercicio === controlador && !controlador.signal.aborted
+        && raiz.contains?.(contenedor) && raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") === contenedor
+        && actual?.vista === "expediente" && actual.carga === "listo"
+        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
+    };
+    const t = crearTraductorExpedientesContratacion(mensajes);
+    contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
+    try {
+      const preparacion = await clienteLlamamiento.prepararIncorporacionEjercicio(expedienteRef, { signal: controlador.signal });
+      if (!vigente()) return;
+      if (preparacion.expediente_ref !== expedienteRef || preparacion.version_actual_expediente !== version) {
+        throw new TypeError("preparación de incorporación no ligada al detalle actual");
+      }
+      desmontarIncorporacionEjercicio = montarFormularioIncorporacionEjercicio({
+        raiz: contenedor, cliente: clienteLlamamiento, preparacion,
+        confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+      });
+    } catch (error) {
+      if (!vigente()) return;
+      const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);
+      contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t(denegada
+        ? "incorporacion_preparacion_denegada" : "incorporacion_preparacion_no_disponible"))}</p>
+        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-incorporacion">${escaparHTML(t("incorporacion_preparacion_reintentar"))}</button>`}`;
+    } finally {
+      if (consultaIncorporacionEjercicio === controlador) consultaIncorporacionEjercicio = null;
+    }
+  }
+
   function montarInformeDesdeAsignacion(recibo) {
     if (!montada || !informeJuridicoDisponible || desmontarInformeJuridico !== null) {
       return desmontarInformeJuridico !== null;
@@ -767,6 +816,10 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarComponentes() {
+    consultaIncorporacionEjercicio?.abort();
+    consultaIncorporacionEjercicio = null;
+    desmontarIncorporacionEjercicio?.();
+    desmontarIncorporacionEjercicio = null;
     retirarAsignacion();
     retirarCobertura();
     retirarAlta();
@@ -943,10 +996,12 @@ export async function montarModuloContratacionTemporal({
       fiscalizacionDisponible,
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
+      incorporacionEjercicioDisponible,
     });
     montarAltaSiProcede();
     montarLlamamiento(contextoLlamamientoDesdeEstado(estado));
-    montarResolucionFormalizacion();
+    // Las dos lecturas comparten la identidad nominal; se encadenan.
+    montarResolucionFormalizacion().then(montarIncorporacionEjercicio);
     if (montarAnalisisSiProcede() === false) {
       retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -1072,6 +1127,8 @@ export async function montarModuloContratacionTemporal({
       repintar(["[data-ct-exp-filtros]", ".ct-exp-estado-global"]);
     } else if (accion.dataset.ctExpAccion === "reintentar-resolucion") {
       await montarResolucionFormalizacion();
+    } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion") {
+      await montarIncorporacionEjercicio();
     } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
