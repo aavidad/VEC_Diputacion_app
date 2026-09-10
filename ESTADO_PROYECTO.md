@@ -273,8 +273,17 @@ Se autoriza delegación recursiva dentro del encargo y los permisos recibidos.
 El director puede elevar modelo o esfuerzo ante dificultad o fallo, sin nueva
 confirmación del operador, conservando el trabajo y verificando la sesión de relevo.
 Carga comprobada en Codex 0.147 con `initialize`, `config/read` y `skills/list`:
-doce perfiles sin error y siete skills detectadas. No se han iniciado modelos
-con este paquete; el usuario nativo `openclaw` aún requiere inicio de sesión.
+doce perfiles sin error y siete skills detectadas. Arranque nativo solicitado
+el 10 de septiembre: Codex 0.147 fue rechazado por versión insuficiente para Astra.
+Instalada copia independiente 0.154 en `/opt/vec-codex/0.154.0`, conservando la anterior.
+La autenticación ChatGPT nativa de root es aceptada; el segundo intento termina por
+cuota agotada de la cuenta. La API indica renovación el 15 de septiembre a las 14:30
+(sin zona horaria declarada en el error). No hay director ni subagentes nativos activos.
+La unidad `vec-codex-director-20260910.service` y su encargo quedan preparados;
+el arranque es directo con Codex CLI y no utiliza el coordinador OpenClaw.
+Estado consultable con `systemctl show vec-codex-director-20260910.service
+-p ActiveState -p SubState -p MainPID -p ExecMainStatus`. La cuota debe estar
+restablecida antes de reanudar; un nuevo OAuth de la misma cuenta no amplía el cupo.
 Las cuatro raíces anteriores de OpenClaw se han archivado, con código y WIP
 conservados. Este corte cambia la coordinación, no añade un paso RRHH recorrido.
 Comprobar instalación con `codex --version` y `codex login status` como `openclaw`
