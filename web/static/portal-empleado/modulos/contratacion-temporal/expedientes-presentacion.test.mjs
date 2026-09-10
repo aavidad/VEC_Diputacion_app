@@ -812,3 +812,37 @@ test("presentación queda aislada de red, cookies, storage y manifiestos product
     assert.match(produccion, new RegExp(neutro.replace(".", "\\.")));
   }
 });
+
+test("la presentación no transmite GINPIX ni altera el expediente al llegar al envío", async () => {
+  const fuente = adaptador();
+  const referencia = "exp-demo-contratacion-005487";
+  let expediente = await fuente.obtener(referencia);
+
+  async function completar(tareaRef, accionRef) {
+    const tarea = expediente.tareas.find(({ tarea_ref: actual }) => actual === tareaRef);
+    const accion = tarea.acciones.find(({ accion_ref: actual }) => actual === accionRef);
+    await fuente.ejecutar(comandoDe(expediente, tarea, accion));
+    expediente = await fuente.obtener(referencia);
+  }
+
+  await completar("tarea-formalizacion", "generar_documentos_formalizacion");
+  await completar("tarea-formalizacion", "enviar_firma_formalizacion");
+  await completar("tarea-incorporacion", "confirmar_incorporacion");
+  await completar("tarea-ginpix", "generar_fichero_ginpix");
+
+  const tareaEnvio = expediente.tareas.find(({ tarea_ref: actual }) => actual === "tarea-envio-ginpix");
+  const accionEnvio = tareaEnvio.acciones.find(({ accion_ref: actual }) => actual === "enviar_ginpix");
+  assert.equal(accionEnvio.capacidad, CAP.enviarGinpix);
+  assert.equal(accionEnvio.disponible, false);
+  const versionAntes = expediente.version;
+  const auditoriaAntes = await fuente.obtenerAuditoria(referencia);
+
+  await assert.rejects(
+    fuente.ejecutar(comandoDe(expediente, tareaEnvio, accionEnvio)),
+    /no está disponible|conector corporativo/u,
+  );
+
+  const despues = await fuente.obtener(referencia);
+  assert.equal(despues.version, versionAntes);
+  assert.deepEqual(await fuente.obtenerAuditoria(referencia), auditoriaAntes);
+});

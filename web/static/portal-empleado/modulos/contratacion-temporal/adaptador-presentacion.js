@@ -121,14 +121,20 @@ function expedienteDerivado(base, resumen) {
       recibo_ref: completada ? (tarea.recibo_ref || `rec-demo-${resumen.version}-${tarea.orden}`) : "",
       decision_ref: completada
         ? (tarea.decision_ref || `dec-demo-${resumen.version}-${tarea.orden}`) : "",
-      acciones: tarea.acciones.map((accion) => ({
-        ...accion,
-        disponible: accionesDisponibles,
-        motivo_no_disponible: accionesDisponibles
-          ? "" : (completada
-            ? "La tarea forma parte del histórico cerrado."
-            : "La actuación aún no está disponible en esta fase."),
-      })),
+      acciones: tarea.acciones.map((accion) => {
+        const requiereConectorExterno = accion.accion_ref === "enviar_ginpix";
+        const disponible = accionesDisponibles && !requiereConectorExterno;
+        return {
+          ...accion,
+          disponible,
+          motivo_no_disponible: requiereConectorExterno
+            ? "La transmisión requiere un conector corporativo configurado."
+            : (disponible
+              ? "" : (completada
+                ? "La tarea forma parte del histórico cerrado."
+                : "La actuación aún no está disponible en esta fase.")),
+        };
+      }),
     };
   });
   return {
@@ -207,11 +213,16 @@ function aplicarEfectoEnDetalle(detalle, comando, reciboRef, decisionRef) {
       estado: "En tramitación",
       entrada: "23/07/2026 11:35",
       tiempo: "En curso",
-      acciones: siguiente.acciones.map((accion) => ({
-        ...copiar(accion),
-        disponible: true,
-        motivo_no_disponible: "",
-      })),
+      acciones: siguiente.acciones.map((accion) => {
+        const requiereConectorExterno = accion.accion_ref === "enviar_ginpix";
+        return {
+          ...copiar(accion),
+          disponible: !requiereConectorExterno,
+          motivo_no_disponible: requiereConectorExterno
+            ? "La transmisión requiere un conector corporativo configurado."
+            : "",
+        };
+      }),
     };
   }
   return {
@@ -345,6 +356,9 @@ export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor }
     if (!capacidades.includes(actuacion.capacidad)) throw new Error("Acceso denegado.");
     if (actuacion.accion_ref === "cerrar_expediente") {
       throw new Error("El expediente mantiene tareas pendientes.");
+    }
+    if (actuacion.accion_ref === "enviar_ginpix") {
+      throw new Error("La transmisión requiere un conector corporativo configurado.");
     }
     await Promise.resolve();
     abortarSiProcede(signal);

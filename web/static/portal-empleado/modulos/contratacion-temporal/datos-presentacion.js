@@ -556,7 +556,7 @@ const TAREAS = enriquecerTareasPresentacion([
     referencia: "tarea-envio-ginpix", orden: 17, fase: "fase-incorporacion",
     etiqueta: "Resumen final y envío a GINPIX",
     descripcion: "Revisión final del expediente, documentos y proyección antes de transmitir.",
-    estadoClave: "pendiente", estado: "Listo para envío", responsable: "Operación GINPIX",
+    estadoClave: "pendiente", estado: "Pendiente de circuito externo", responsable: "Operación GINPIX",
     entrada: "Pendiente", tiempo: "Sin iniciar",
     paneles: [
       panel("panel-envio-ginpix-resumen", "datos", "Resumen del expediente", "Proyección mínima previa al envío.", {
@@ -566,7 +566,7 @@ const TAREAS = enriquecerTareasPresentacion([
           campo("modalidad", "Modalidad", "Sustitución"),
           campo("candidatura", "Candidatura", "CAND-DEMO-001"),
           campo("fecha_inicio", "Fecha prevista de inicio", "15/08/2026"),
-          campo("estado", "Estado", "Listo para envío", { tono: "exito" }),
+          campo("estado", "Estado", "Pendiente de circuito externo", { tono: "aviso" }),
         ],
       }),
       panel("panel-envio-ginpix-documentos", "tabla", "Documentación generada", "Índice y estado de las piezas necesarias.", {
@@ -576,8 +576,8 @@ const TAREAS = enriquecerTareasPresentacion([
           columna("firma", "Firma"),
         ],
         filas: [
-          fila("fila-envio-ginpix-001", ["Informe definitivo", "Generado", "Firmado"]),
-          fila("fila-envio-ginpix-002", ["Resolución de nombramiento", "Generada", "Firmada"]),
+          fila("fila-envio-ginpix-001", ["Informe definitivo", "Borrador", "Sin firma"]),
+          fila("fila-envio-ginpix-002", ["Resolución de nombramiento", "Borrador", "Sin firma"]),
           fila("fila-envio-ginpix-003", ["Toma de posesión", "Generada", "Pendiente"]),
           fila("fila-envio-ginpix-004", ["Ficha estructurada GINPIX", "Generada", "No requiere firma"]),
         ],
@@ -594,7 +594,9 @@ const TAREAS = enriquecerTareasPresentacion([
     acciones: [
       accion("enviar_ginpix", "Enviar a GINPIX", {
         capacidad: CAP.enviarGinpix,
-        confirmacion: "En presentación no se contactará con GINPIX; se emitirá solo un recibo sintético.",
+        disponible: false,
+        motivoNoDisponible: "La transmisión requiere un conector corporativo configurado.",
+        confirmacion: "La transmisión requiere configurar el conector corporativo.",
       }),
     ],
   }),
