@@ -21,6 +21,8 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
+	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
@@ -694,7 +696,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -722,6 +724,11 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		// Incorporación opt-in usa el mismo gobierno, con tres audiencias
+		// nominales separadas. No cambia raíz, actos propietarios ni permisos.
+		altapersonal.AudienciaAltaEjercicio,
+		lecturapersonal.AudienciaV2,
+		ports.AudienciaConfirmacionIncorporacionV2,
 	).Scan(&propio)
 	return propio, err
 }
@@ -862,7 +869,10 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		(material.audienciaConsumo != audienciaConsumoAltaContratacionTemporal &&
 			material.audienciaConsumo != puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo &&
 			material.audienciaConsumo != ports.AudienciaConsumoConsultaCuadroRRHHV3 &&
-			material.audienciaConsumo != ports.AudienciaConsumoConsultaDetalleRRHHV3) {
+			material.audienciaConsumo != ports.AudienciaConsumoConsultaDetalleRRHHV3 &&
+			material.audienciaConsumo != altapersonal.AudienciaAltaEjercicio &&
+			material.audienciaConsumo != lecturapersonal.AudienciaV2 &&
+			material.audienciaConsumo != ports.AudienciaConfirmacionIncorporacionV2) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	conexion, err := pool.Acquire(ctx)
