@@ -505,6 +505,33 @@ func referenciaOpacaSeguimientoValida(valor string) bool {
 func referenciaExpedienteSeguimientoValida(valor string) bool {
 	return referenciaOpacaSeguimientoValida(valor) || strings.HasPrefix(valor, "expediente:ct:") && huellaSeguimientoValida(valor[len("expediente:ct:"):])
 }
+
+// UnidadSeguimientoValida admite la unidad original del expediente, sin alias.
+// Su existencia y el ámbito autorizado se cotejan por separado y exactamente.
+func UnidadSeguimientoValida(valor string) bool {
+	return referenciaOpacaSeguimientoValida(valor) || strings.HasPrefix(valor, "unidad:") && len(valor) > len("unidad:") && ReferenciaOpacaValida(valor)
+}
+
+// ActorSeguimientoValido conserva el identificador nominal de desarrollo.
+// Validar su forma no acredita identidad ni convierte al actor en un permiso.
+func ActorSeguimientoValido(valor string) bool {
+	if referenciaOpacaSeguimientoValida(valor) {
+		return true
+	}
+	if len(valor) != len("per_")+32 || !strings.HasPrefix(valor, "per_") || valor == "per_"+strings.Repeat("0", 32) {
+		return false
+	}
+	for _, c := range valor[len("per_"):] {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func referenciaDocumentoSeguimientoValida(valor string) bool {
+	return referenciaOpacaSeguimientoValida(valor) || strings.HasPrefix(valor, "documento-resolucion:") && huellaSeguimientoValida(valor[len("documento-resolucion:"):])
+}
 func (c ClaseTransicionSeguimiento) valida() bool {
 	return c == TransicionOrdinaria || c == TransicionRectificacion || c == TransicionReapertura
 }

@@ -43,7 +43,10 @@ func (r ReferenciasCTIncorporacionDesarrollo) valida() bool {
 	if r.PrincipalV3Ref == "" || r.PerfilV3Ref == "" {
 		return false
 	}
-	refs := []string{r.UnidadRef, r.ActorRef}
+	if !domct.UnidadSeguimientoValida(r.UnidadRef) || !domct.ActorSeguimientoValido(r.ActorRef) {
+		return false
+	}
+	var refs []string
 	// CT82 conserva la organización original: nunca normalizarla a un hash.
 	if strings.HasPrefix(r.OrganizacionRef, "organizacion:") && len(r.OrganizacionRef) > len("organizacion:") && domct.ReferenciaOpacaValida(r.OrganizacionRef) {
 		// La consulta y el PDP cotejan el ámbito exacto del expediente.

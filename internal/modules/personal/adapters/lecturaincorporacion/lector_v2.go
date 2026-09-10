@@ -37,7 +37,10 @@ func NuevoMaterialV2(selector Selector, unidadRef string, contexto ct.ContextoAu
 }
 
 func unidadLecturaV2Valida(ref string) bool {
-	return strings.HasPrefix(ref, "ref:") && huellaSHA256.MatchString(strings.TrimPrefix(ref, "ref:"))
+	// Se conserva la gramática legacy del lector. La unidad del expediente
+	// se transporta literalmente, sin cambiar selector, contexto ni audiencia.
+	return ctdomain.UnidadSeguimientoValida(ref) ||
+		strings.HasPrefix(ref, "ref:") && huellaSHA256.MatchString(strings.TrimPrefix(ref, "ref:"))
 }
 func (m MaterialV2) Selector() Selector                               { return m.base.Selector() }
 func (m MaterialV2) UnidadRef() string                                { return m.unidadRef }

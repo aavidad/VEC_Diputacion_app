@@ -521,8 +521,8 @@ func normalizarDatosTransicionSeguimiento(
 ) (DatosTransicionSeguimiento, error) {
 	if !referenciaOpacaSeguimientoValida(d.ActuacionRef) ||
 		!d.TransicionClave.Valida() ||
-		!referenciaOpacaSeguimientoValida(d.ActorRef) ||
-		!referenciaOpacaSeguimientoValida(d.UnidadRef) ||
+		!ActorSeguimientoValido(d.ActorRef) ||
+		!UnidadSeguimientoValida(d.UnidadRef) ||
 		!instanteSeguimientoValido(d.EfectivoEn) ||
 		!instanteSeguimientoValido(d.RegistradaEn) ||
 		!referenciaOpacaSeguimientoValida(d.ReciboRef) ||
@@ -545,7 +545,7 @@ func normalizarDatosTransicionSeguimiento(
 	referencias := make(map[string]struct{}, len(n.Documentos))
 	for _, documento := range n.Documentos {
 		if !documento.TipoClave.Valida() ||
-			!referenciaOpacaSeguimientoValida(documento.Referencia) {
+			!referenciaDocumentoSeguimientoValida(documento.Referencia) {
 			return DatosTransicionSeguimiento{}, ErrTransicionInvalida
 		}
 		if _, repetida := referencias[documento.Referencia]; repetida {
