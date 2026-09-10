@@ -11,6 +11,7 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -22,6 +23,8 @@ import (
 // publica capacidades ni transforma el rol técnico RRHH en permiso Personal.
 // Autoridad/Detalle/Reloj de Preparacion se ligan aquí, no desde configuración.
 type ConfiguracionIncorporacionDesarrollo struct {
+	// Sólo la carga nominal de arranque compone este detalle con el PDP real.
+	detalleNominal            *appct.ServicioConsultaDetalleRRHH
 	Referencias               ReferenciasCTIncorporacionDesarrollo
 	Preparacion               inc.ConfiguracionPreparacionDurableV2PostgreSQL
 	Cadena                    *inc.CadenaAutorizacionAplicacion
@@ -40,8 +43,15 @@ func (r ReferenciasCTIncorporacionDesarrollo) valida() bool {
 	if r.PrincipalV3Ref == "" || r.PerfilV3Ref == "" {
 		return false
 	}
-	for _, ref := range []string{r.OrganizacionRef, r.UnidadRef, r.ActorRef} {
-		if len(ref) != 68 || !strings.HasPrefix(ref, "ref:") || strings.ToLower(ref) != ref {
+	refs := []string{r.UnidadRef, r.ActorRef}
+	// CT82 conserva la organización original: nunca normalizarla a un hash.
+	if strings.HasPrefix(r.OrganizacionRef, "organizacion:") && len(r.OrganizacionRef) > len("organizacion:") && domct.ReferenciaOpacaValida(r.OrganizacionRef) {
+		// La consulta y el PDP cotejan el ámbito exacto del expediente.
+	} else {
+		refs = append(refs, r.OrganizacionRef)
+	}
+	for _, ref := range refs {
+		if len(ref) != 68 || !strings.HasPrefix(ref, "ref:") || strings.ToLower(ref) != ref || ref == "ref:"+strings.Repeat("0", 64) {
 			return false
 		}
 		if _, err := hex.DecodeString(ref[4:]); err != nil {
@@ -102,6 +112,9 @@ func nuevasDependenciasIncorporacionV2Desarrollo(c ConfiguracionIncorporacionDes
 		return nil, f
 	}
 	detalle, ok := consultas.detalle.(*appct.ServicioConsultaDetalleRRHH)
+	if c.detalleNominal != nil {
+		detalle, ok = c.detalleNominal, true
+	}
 	if !ok || detalle == nil {
 		return nil, f
 	}

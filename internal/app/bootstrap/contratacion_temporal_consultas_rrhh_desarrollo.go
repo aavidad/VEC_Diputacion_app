@@ -16,6 +16,10 @@ import (
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
+	emisorCuadro          *confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3
+	materialDetalle       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	sesion                ports.SesionConsultaRRHH
+	motivos               ports.ResolutorMotivoConsultaRRHH
 	identidad             *proveedorSesionConsultaRRHHDesarrollo
 	autoridad             *autoridadConsultasRRHHDesarrollo
 	cuadro                httpinterno.ConsultorCuadroRRHH
@@ -152,5 +156,5 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	}
 	completa = true
 	identidadCompuesta = true
-	return dependenciasConsultasRRHHDesarrollo{cuadro: cuadro, detalle: detalle, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}, nil
+	return dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}, nil
 }

@@ -59,6 +59,9 @@ func NewHTTPServer() (*http.Server, error) {
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
 	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
 		return nil, err
 	}
@@ -90,6 +93,9 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // componer la superficie interna, la autenticacion de demostracion ni la API
 // heredada de candidatos.
 func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
+	if strings.TrimSpace(cfg.IncorporacionV2File) != "" {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
 	fuenteConvocatorias := strings.TrimSpace(cfg.BolsaPublicSourcePath)
 	fuenteCategorias := strings.TrimSpace(cfg.BolsaCategoriesSourcePath)
 	catalogoCategorias := strings.TrimSpace(cfg.BolsaCategoriesCatalogID)

@@ -173,7 +173,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
-	if len(incorporacion) > 1 {
+	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
 	cfg = cfg.Normalize()
@@ -300,6 +300,20 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 	}()
 	var incorporacionV2 *inc.ServidorV2PostgreSQL
+	cerrarIncorporacion := func() {}
+	if cfg.IncorporacionV2File != "" {
+		var preparada ConfiguracionIncorporacionDesarrollo
+		preparada, cerrarIncorporacion, err = cargarIncorporacionV2Desarrollo(cfg, &alta, consultasRRHH, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		incorporacion = []ConfiguracionIncorporacionDesarrollo{preparada}
+	}
+	defer func() {
+		if cerrarAlta {
+			cerrarIncorporacion()
+		}
+	}()
 	if len(incorporacion) == 1 {
 		incorporacionV2, err = nuevasDependenciasIncorporacionV2Desarrollo(incorporacion[0], &alta, consultasRRHH, reloj)
 		if err != nil {
@@ -389,6 +403,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var cierre sync.Once
 	cerrar := func() {
 		cierre.Do(func() {
+			cerrarIncorporacion()
 			consultasRRHH.cerrar()
 			coberturaReal.cerrar()
 			alta.cerrar()

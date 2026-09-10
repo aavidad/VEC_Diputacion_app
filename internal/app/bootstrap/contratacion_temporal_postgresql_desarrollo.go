@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	gocose "github.com/veraison/go-cose"
 
@@ -356,6 +357,13 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 		return nil, "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	configuracion.MaxConns = 4
+	if rolPoolIncorporacionV2(rolEsperado) {
+		configuracion.AfterConnect = func(_ context.Context, c *pgx.Conn) error {
+			c.TypeMap().RegisterType(&pgtype.Type{Name: "timestamptz", OID: pgtype.TimestamptzOID, Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC}})
+			c.TypeMap().RegisterType(&pgtype.Type{Name: "timestamp", OID: pgtype.TimestampOID, Codec: &pgtype.TimestampCodec{ScanLocation: time.UTC}})
+			return nil
+		}
+	}
 	configuracion.MinConns = 0
 	configuracion.ConnConfig.ConnectTimeout = 5 * time.Second
 	if configuracion.ConnConfig.RuntimeParams == nil {
@@ -400,7 +408,8 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolRegistroIdentidadConsultasDesarrollo &&
 			rolEsperado != rolRevalidacionIdentidadConsultasDesarrollo &&
 			rolEsperado != rolContextoActorConsultasDesarrollo &&
-			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo) {
+			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo &&
+			!rolPoolIncorporacionV2(rolEsperado)) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	var usuario string

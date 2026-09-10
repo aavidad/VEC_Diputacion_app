@@ -32,6 +32,7 @@ const (
 	EnvTLSCertFile                           = "VEC_TLS_CERT_FILE"
 	EnvTLSKeyFile                            = "VEC_TLS_KEY_FILE"
 	EnvPersonalCatalogPath                   = "VEC_PERSONAL_CATALOG_PATH"
+	EnvIncorporacionV2File                   = "VEC_CT_INCORPORACION_V2_FILE"
 	EnvPersonalOrganizacionSourcePath        = "VEC_PERSONAL_ORGANIZACION_SOURCE_PATH"
 	EnvPersonalOrganizacionVersion           = "VEC_PERSONAL_ORGANIZACION_VERSION"
 	EnvPersonalOrganizacionPostgreSQL        = "VEC_PERSONAL_ORGANIZACION_POSTGRESQL"
@@ -97,6 +98,7 @@ type Config struct {
 	ExecutionProfile                      string
 	DevelopmentGuard                      string
 	DevelopmentMaterialDir                string
+	IncorporacionV2File                   string
 	FakeCredentialsPath                   string
 	TrustedHeaderSubject                  string
 	TrustedHeaderRoles                    string
@@ -147,6 +149,7 @@ func Load() Config {
 		ExecutionProfile:                      envFirst(EnvExecutionProfile),
 		DevelopmentGuard:                      envFirst(EnvDevelopmentGuard),
 		DevelopmentMaterialDir:                envFirst(EnvDevelopmentMaterialDir),
+		IncorporacionV2File:                   envFirst(EnvIncorporacionV2File),
 		FakeCredentialsPath:                   envFirst(EnvFakeCredentialsPath),
 		TrustedHeaderSubject:                  envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
 		TrustedHeaderRoles:                    envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
@@ -232,6 +235,7 @@ func (c Config) Normalize() Config {
 	c.ExecutionProfile = normalizeExecutionProfile(c.ExecutionProfile)
 	c.DevelopmentGuard = strings.TrimSpace(c.DevelopmentGuard)
 	c.DevelopmentMaterialDir = strings.TrimSpace(c.DevelopmentMaterialDir)
+	c.IncorporacionV2File = strings.TrimSpace(c.IncorporacionV2File)
 	if c.ExecutionProfile == ExecutionProfileDevelopment && c.AuthMode == AuthModeDevelopment &&
 		c.DevelopmentGuard == DevelopmentGuardAcknowledgement && c.DevelopmentMaterialDir != "" {
 		rutas := c.DevelopmentPaths()
