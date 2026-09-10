@@ -151,7 +151,8 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	if _, err = inc.NuevaFuentePlanesPreparacionV2(planes, c.TernaPlanes); err != nil {
+	fuentePlanes, err := inc.NuevaFuentePlanesPreparacionV2(planes, c.TernaPlanes)
+	if err != nil {
 		return vacia, nil, f
 	}
 	// La fuente actual no se interpreta aquí: recuperar originales no depende
@@ -214,7 +215,11 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	motivos, err := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(pools["motivos_autorizacion"], c.MotivoAlta.CatalogoID)
+	motivoDetalle, err := consultas.motivos.ResolverMotivoDetalleRRHH(ctx, reloj.Ahora())
+	if err != nil {
+		return vacia, nil, f
+	}
+	motivos, motivosDetalle, err := validadoresMotivosIncorporacionV2(pools["motivos_autorizacion"], c.MotivoAlta, motivoDetalle)
 	if err != nil {
 		return vacia, nil, f
 	}
@@ -222,11 +227,23 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	cadena, err := inc.NuevaCadenaAutorizacionAplicacion(pdp, material.atestador, material.confianza, emisiones)
+	autoridadOperacion, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdp, c, fuentePlanes, personal, motivoDetalle, reloj)
 	if err != nil {
 		return vacia, nil, f
 	}
-	emisorDetalle, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdp, material.atestador, material.confianza, material.emisor)
+	cadena, err := inc.NuevaCadenaAutorizacionAplicacion(autoridadOperacion, material.atestador, material.confianza, emisiones)
+	if err != nil {
+		return vacia, nil, f
+	}
+	pdpDetalle, err := app.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registro, registro, motivosDetalle, reloj, seg.GeneradorReferenciasCriptograficas{}, app.ConfiguracionServicioAutorizacion{})
+	if err != nil {
+		return vacia, nil, f
+	}
+	autoridadDetalle, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdpDetalle, c, fuentePlanes, personal, motivoDetalle, reloj)
+	if err != nil {
+		return vacia, nil, f
+	}
+	emisorDetalle, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(autoridadDetalle, material.atestador, material.confianza, material.emisor)
 	if err != nil {
 		return vacia, nil, f
 	}
@@ -246,6 +263,25 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 		MotivoAlta: c.MotivoAlta, MotivoLectura: c.MotivoLectura, AltaPersonal: pools["alta_personal"], RegistroCT: pools["registro_ct"],
 		Preparacion: inc.ConfiguracionPreparacionDurableV2PostgreSQL{Planes: planes, TernaPlanes: c.TernaPlanes, FuentePersonal: personal, TernaPersonal: c.TernaPersonal,
 			Pools: inc.PoolsPreparacionDurableV2{InicialCT: pools["raices_ct"], LocalizadorCT: pools["localizador_ct"], LocalizadorPersonal: pools["localizador_personal"], LecturaPersonal: pools["lector_personal"], Historia: pgct.PoolsHistoriaIncorporacionV2{RegistroCT: pools["historia_ct"], Autenticacion: pools["historia_autenticacion"], Contexto: pools["historia_contexto"], Evaluacion: pools["historia_evaluacion"], Concesion: pools["historia_concesion"]}}}}, cerrar, nil
+}
+
+// Cada PDP conserva su catálogo cerrado y comprueba la terna publicada en el
+// mismo lector PostgreSQL. El motivo de detalle procede del resolutor RRHH,
+// no de la configuración de alta ni de una lista de catálogos intercambiables.
+func validadoresMotivosIncorporacionV2(pool *pgxpool.Pool, alta, detalle core.ReferenciaEntradaCatalogo) (*pgvec.ValidadorReferenciaMotivoPostgreSQLV2, *pgvec.ValidadorReferenciaMotivoPostgreSQLV2, error) {
+	f := ct.ErrComposicionIncorporacionAplicacion
+	if !core.ReferenciaMotivoAutorizacionV2Valida(alta) || !core.ReferenciaMotivoAutorizacionV2Valida(detalle) {
+		return nil, nil, f
+	}
+	a, err := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(pool, alta.CatalogoID)
+	if err != nil {
+		return nil, nil, f
+	}
+	d, err := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(pool, detalle.CatalogoID)
+	if err != nil {
+		return nil, nil, f
+	}
+	return a, d, nil
 }
 
 type contextoDetalleNominalIncorporacionV2 struct {

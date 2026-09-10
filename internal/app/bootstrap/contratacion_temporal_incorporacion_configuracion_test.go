@@ -14,12 +14,54 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestIncorporacionV2CatalogosDetalleYAltaSeparados(t *testing.T) {
+	alta := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_ct_incorporacion_rrhh_desarrollo", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_e119478e5612eabbbed307852683ec98"}
+	detalle := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_ct_consultas_rrhh_desarrollo", CatalogoVersion: 1, CatalogoHuellaSHA256: "2ef60b429752d603a90d15010f45e4323f44d5fd7514cb94810ababc9bba756f", EntradaClave: "motivo_7b05a280dd7076272ab41d0d4f1b14ad"}
+	// Contexto cancelado: permite comprobar la selección en los validadores
+	// PostgreSQL reales sin conexión, publicación ficticia ni concesión.
+	pool := &pgxpool.Pool{}
+	a, d, err := validadoresMotivosIncorporacionV2(pool, alta, detalle)
+	if err != nil || a == nil || d == nil || a == d {
+		t.Fatal("catálogos distintos no compuestos separadamente")
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	ahora := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	for nombre, c := range map[string]struct {
+		validar       func(context.Context, core.ReferenciaEntradaCatalogo, time.Time) error
+		propio, ajeno core.ReferenciaEntradaCatalogo
+	}{
+		"incorporacion": {a.ValidarReferenciaMotivoAutorizacionV2, alta, detalle},
+		"detalle":       {d.ValidarReferenciaMotivoAutorizacionV2, detalle, alta},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if err := c.validar(ctx, c.propio, ahora); !errors.Is(err, context.Canceled) {
+				t.Fatal("el catálogo propio fue rechazado antes de atender la cancelación")
+			}
+			if err := c.validar(ctx, c.ajeno, ahora); !errors.Is(err, core.ErrSolicitudAutorizacionInvalida) || errors.Is(err, context.Canceled) {
+				t.Fatal("el catálogo cruzado alcanzó la frontera de lectura")
+			}
+		})
+	}
+	for _, c := range []struct {
+		pool    *pgxpool.Pool
+		detalle core.ReferenciaEntradaCatalogo
+	}{
+		{nil, detalle}, {pool, core.ReferenciaEntradaCatalogo{}},
+	} {
+		if a, d, err := validadoresMotivosIncorporacionV2(c.pool, alta, c.detalle); err == nil || a != nil || d != nil {
+			t.Fatal("configuración incompleta dejó un validador utilizable")
+		}
+	}
+}
 
 func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
 	dir := t.TempDir()
