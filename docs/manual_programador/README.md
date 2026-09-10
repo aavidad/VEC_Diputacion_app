@@ -1,6 +1,34 @@
 # Manual mantenido del programador de VEC
 
-La primera anotación administrativa ya tiene dominio probado: añade una actuación con observaciones y vínculo al seguimiento original, conserva fase y estado y rechaza duplicados o anotaciones sobre estados terminales. Dos revisiones independientes y la prueba focal de anotación han pasado. La escritura PostgreSQL, autorización y conexión del formulario siguen pendientes; este corte no acredita una anotación registrada en runtime.
+La anotación administrativa está integrada en código en servicio, puertos y
+adaptador PostgreSQL. CT86 prepara el primer asiento neutro sin cambiar fase,
+estado, periodos ni raíz y conserva el contexto completo, incluidas
+observaciones Unicode. AD3-30 exige la autorización nueva en escritura y
+replay. El servicio exige una fuente autorizada para recuperar el material
+histórico; el puente mediante `ConsultaDetalleRRHH` pertenece al montaje pendiente.
+
+Dos revisiones independientes emitieron `GO` sobre los siete archivos finales
+de producto, una para identidad y otra para SQL. El harness SQL recibió otro
+`GO` para su alcance potencial de 22 tablas listadas. La candidata aislada se
+compuso con la canónica `a063eac1` y diez archivos exactos; su inventario
+conservó los nueve SHA del productor y el test de aplicación con SHA256
+`4bccc3d8c3133def94f0d1160351156ba963e015e30b73a896575bc666fa5136`.
+
+Las dos pruebas focales observadas fueron:
+
+```text
+go test -p 1 ./internal/modules/contrataciontemporal/application -run Anotacion
+PASS (0.747 s)
+
+go test -p 1 ./internal/modules/contrataciontemporal/adapters/postgres -run Anotacion
+PASS (0.024 s)
+```
+
+No hubo dependencias ausentes. CT86 y AD3-30 permanecen como scripts añadidos:
+no se ejecutaron ni instalaron. API, HTTP, frontend y montaje nominal quedan
+fuera de este corte. La dependencia raíz y fuente nominal, su configuración y
+Auth13 en runtime siguen pendientes. No hay anotación visible ni cierre
+completo del objetivo 13.
 
 ## Continuación técnica vigente — 10 de septiembre de 2026
 

@@ -1,6 +1,22 @@
 # Estado y plan de ataque del proyecto
 
-La primera anotación administrativa ya tiene dominio probado: añade una actuación con observaciones y vínculo al seguimiento original, conserva fase y estado y rechaza duplicados o anotaciones sobre estados terminales. Dos revisiones independientes y la prueba focal de anotación han pasado. La escritura PostgreSQL, autorización y conexión del formulario siguen pendientes; este corte no acredita una anotación registrada en runtime.
+La anotación administrativa ya está integrada en código en servicio, puertos y
+adaptador PostgreSQL, con los scripts CT86 y AD3-30 como artefactos. El primer
+asiento es neutro: conserva fase, estado, raíz y contexto completo, incluidas
+observaciones Unicode. La autorización nueva se exige al crear y recuperar; el
+servicio exige una fuente de recuperación autorizada. El puente mediante
+`ConsultaDetalleRRHH` pertenece al montaje pendiente.
+
+Dos revisiones independientes emitieron `GO` sobre los siete archivos finales
+de producto —identidad y SQL—, y la revisión del harness SQL emitió `GO` sobre
+su alcance potencial de 22 tablas listadas. La candidata aislada, formada por
+la canónica `a063eac1` y diez archivos exactos, pasó las pruebas focales de
+aplicación y adaptador PostgreSQL, sin dependencias ausentes. Los scripts SQL
+no se han ejecutado ni instalado.
+
+API, HTTP, frontend y montaje nominal quedan fuera de este corte. La dependencia
+raíz y fuente nominal y su configuración siguen pendientes, igual que Auth13
+en runtime. No existe anotación visible ni está completo el objetivo 13.
 
 La continuidad de incorporación ya está integrada en dominio y servicio para una
 única adopción sucesora publicada, conservando fundación v1, raíz y cadena y

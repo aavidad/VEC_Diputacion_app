@@ -2,6 +2,27 @@
 
 ## Recorrido vigente — 10 de septiembre de 2026
 
+### Anotación administrativa integrada en código; recorrido pendiente
+
+Servicio, puertos y adaptador PostgreSQL ya incorporan la primera anotación
+administrativa. El asiento es neutro: añade observaciones Unicode y conserva
+fase, estado, raíz y contexto íntegro. La autorización nueva se comprueba
+también en replay; la recuperación exige una fuente autorizada. El puente mediante
+`ConsultaDetalleRRHH` pertenece al montaje pendiente.
+
+Dos revisiones independientes emitieron `GO` sobre los siete archivos finales
+de identidad y SQL. La revisión del harness SQL emitió también `GO` sobre su
+alcance potencial, con 22 tablas listadas. Sobre la canónica `a063eac1` más
+diez archivos exactos, las pruebas focales de aplicación y adaptador PostgreSQL
+terminaron en `PASS`, sin dependencias ausentes. Los scripts CT86 y AD3-30 son
+artefactos: no se han ejecutado ni instalado.
+
+API, HTTP, frontend y montaje nominal quedan fuera de este corte. La dependencia
+raíz y fuente nominal, su configuración y Auth13 en runtime siguen pendientes.
+Este corte no integra formulario, recibo visible, recuperación de navegador ni cierre del
+objetivo 13.
+
+
 ### Backend y panel integrados en código; runtime pendiente
 
 El backend confirmado es
