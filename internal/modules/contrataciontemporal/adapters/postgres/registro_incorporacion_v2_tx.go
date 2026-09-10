@@ -63,17 +63,18 @@ func errorRegistroTX(ctx context.Context) error {
 // Cada operación retiene su propia TX/resultado. El consumidor privado valida
 // Personal ANTES del commit; ningún DTO intermedio sale del método exterior.
 type operacionRegistroTX struct {
-	adapter    *TransaccionRegistroIncorporacionV2PostgreSQL
-	ctx        context.Context
-	actual     ct.OrdenConfirmacionIncorporacionV2
-	lectura    *lector.OrdenV2
-	ultimo     time.Time
-	relojErr   error
-	raiz       string
-	tx         pgx.Tx
-	confirmado bool
-	resultado  ct.ResultadoRegistroIncorporacionV2
-	invocada   bool
+	adapter     *TransaccionRegistroIncorporacionV2PostgreSQL
+	ctx         context.Context
+	actual      ct.OrdenConfirmacionIncorporacionV2
+	lectura     *lector.OrdenV2
+	ultimo      time.Time
+	relojErr    error
+	raiz        string
+	raizInicial PreparacionRaizIncorporacionV2
+	tx          pgx.Tx
+	confirmado  bool
+	resultado   ct.ResultadoRegistroIncorporacionV2
+	invocada    bool
 }
 
 func (o *operacionRegistroTX) Ahora() time.Time {
@@ -133,7 +134,12 @@ func (a *TransaccionRegistroIncorporacionV2PostgreSQL) RegistrarORecuperarIncorp
 	if e = op.validar(); e != nil {
 		return cero, e
 	}
-	op.raiz, e = a.raices.ResolverSeguimientoIncorporacionV2(ctx, actual)
+	if inicial, ok := a.raices.(ResolverRaizInicialIncorporacionV2); ok {
+		op.raizInicial, e = inicial.ResolverRaizInicialIncorporacionV2(ctx, actual)
+		op.raiz = op.raizInicial.seguimiento
+	} else {
+		op.raiz, e = a.raices.ResolverSeguimientoIncorporacionV2(ctx, actual)
+	}
 	if e != nil {
 		return cero, errorRegistroTX(ctx)
 	}
@@ -207,6 +213,17 @@ func (o *operacionRegistroTX) LeerRegistroPersonalV2(ctx context.Context, s lect
 			}
 		}
 	}()
+	if len(o.raizInicial.estado) != 0 {
+		original, ok := params[22].([]byte)
+		if !ok {
+			return cero, errorRegistroTX(ctx)
+		}
+		params[22], e = o.raizInicial.envolverEvidencia(original)
+		clear(original)
+		if e != nil {
+			return cero, errorRegistroTX(ctx)
+		}
+	}
 	o.tx, e = o.adapter.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if e != nil || nuloRegistroTX(o.tx) {
 		return cero, errorRegistroTX(ctx)
