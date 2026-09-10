@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -42,6 +43,9 @@ var (
 	)
 	ErrReciboConfirmacionIncorporacionInvalido = errors.New(
 		"contratacion temporal: recibo de confirmacion de incorporacion invalido",
+	)
+	ErrRecuperacionIncorporacionInvalida = errors.New(
+		"contratacion temporal: recuperacion de incorporacion invalida",
 	)
 )
 
@@ -329,6 +333,96 @@ func (r ReciboConfirmacionIncorporacion) ValidarPara(
 		return ErrReciboConfirmacionIncorporacionInvalido
 	}
 	return nil
+}
+
+// EvidenciaRegistroIncorporacion conserva una copia nominal del registro
+// original, no una nueva concesión ni una prueba de persistencia por sí sola.
+// El adaptador durable debe obtener orden y recibo del mismo commit verificado,
+// nunca reconstruir autoridad desde JSON ni aceptar un recibo del navegador.
+type EvidenciaRegistroIncorporacion struct {
+	original OrdenConfirmarIncorporacion
+	recibo   ReciboConfirmacionIncorporacion
+}
+
+func NuevaEvidenciaRegistroIncorporacion(
+	original OrdenConfirmarIncorporacion,
+	recibo ReciboConfirmacionIncorporacion,
+) (EvidenciaRegistroIncorporacion, error) {
+	if recibo.ValidarPara(original) != nil {
+		return EvidenciaRegistroIncorporacion{}, ErrRecuperacionIncorporacionInvalida
+	}
+	datos, err := original.Datos()
+	if err != nil {
+		return EvidenciaRegistroIncorporacion{}, ErrRecuperacionIncorporacionInvalida
+	}
+	datos.Contexto.ContextoAutorizacion.Resultado, err = datos.Contexto.ContextoAutorizacion.Resultado.Clonar()
+	if err != nil {
+		return EvidenciaRegistroIncorporacion{}, ErrRecuperacionIncorporacionInvalida
+	}
+	clon, err := NuevaOrdenConfirmarIncorporacion(datos.Contexto, datos.Confirmacion, datos.EvaluadaEn)
+	if err != nil {
+		return EvidenciaRegistroIncorporacion{}, ErrRecuperacionIncorporacionInvalida
+	}
+	recibo.Documentos = append([]domain.DocumentoSeguimiento(nil), recibo.Documentos...)
+	return EvidenciaRegistroIncorporacion{original: clon, recibo: recibo}, nil
+}
+
+// ValidarRecuperacion no ejecuta efectos ni cambia ValidarPara de registro.
+// Coteja el recibo contra la evidencia histórica y el permiso de entonces;
+// exige otra decisión nominal para el mismo efecto, vigente en ahora (reloj
+// autoritativo del futuro adaptador). Reutiliza la acción existente, sin crear
+// una política de lectura ni permitir recuperar con identidad/ámbitos ajenos.
+func (r ReciboConfirmacionIncorporacion) ValidarRecuperacion(
+	historia EvidenciaRegistroIncorporacion,
+	actual OrdenConfirmarIncorporacion,
+	ahora time.Time,
+) error {
+	if !domain.InstanteUTCCanonico(ahora) || historia.recibo.ValidarPara(historia.original) != nil ||
+		r.ValidarPara(historia.original) != nil || r.ReciboRef != historia.recibo.ReciboRef ||
+		r.ActuacionRef != historia.recibo.ActuacionRef || !r.ConfirmadaEn.Equal(historia.recibo.ConfirmadaEn) ||
+		actual.ValidarDentroDeTransaccion(ahora) != nil {
+		return ErrRecuperacionIncorporacionInvalida
+	}
+	origen, errOrigen := historia.original.Datos()
+	fresca, errFresca := actual.Datos()
+	if errOrigen != nil || errFresca != nil || fresca.EvaluadaEn.After(ahora) ||
+		r.ConfirmadaEn.After(fresca.EvaluadaEn) ||
+		!mismosDatosRecuperacionIncorporacion(origen.Confirmacion, fresca.Confirmacion) ||
+		origen.Contexto.PreparacionSeguimiento != fresca.Contexto.PreparacionSeguimiento ||
+		!mismaAutoridadRecuperacionIncorporacion(origen.Contexto, fresca.Contexto) {
+		return ErrRecuperacionIncorporacionInvalida
+	}
+	concesion, err := fresca.Contexto.ConfirmacionRegistroV3.Datos()
+	if err != nil || concesion.DecisionRef == r.DecisionAutorizacionRef ||
+		concesion.EmitidaEn.Before(r.ConfirmadaEn) || concesion.EmitidaEn.After(ahora) {
+		return ErrRecuperacionIncorporacionInvalida
+	}
+	return nil
+}
+
+func mismosDatosRecuperacionIncorporacion(a, b DatosConfirmacionIncorporacion) bool {
+	return a.SolicitudPersonal == b.SolicitudPersonal && a.ResultadoPersonal == b.ResultadoPersonal &&
+		a.VersionSeguimientoEsperada == b.VersionSeguimientoEsperada && a.MotivoClave == b.MotivoClave &&
+		a.PeriodoIncorporacion.Desde.Equal(b.PeriodoIncorporacion.Desde) &&
+		a.PeriodoIncorporacion.Hasta.Equal(b.PeriodoIncorporacion.Hasta) && slices.Equal(a.Documentos, b.Documentos)
+}
+
+func mismaAutoridadRecuperacionIncorporacion(a, b ContextoConfirmacionIncorporacion) bool {
+	x, errX := a.SolicitudAutorizacionV3.Datos()
+	y, errY := b.SolicitudAutorizacionV3.Datos()
+	vx, errVX := x.VinculoAutenticacionActor.Datos()
+	vy, errVY := y.VinculoAutenticacionActor.Datos()
+	// Autenticación, sesión y versiones pueden renovarse; identidad, perfil,
+	// superficie, procedencia, motivo completo y recurso no se reinterpretan.
+	return errX == nil && errY == nil && errVX == nil && errVY == nil &&
+		vx.PrincipalID == vy.PrincipalID && vx.PerfilActivoRef == vy.PerfilActivoRef &&
+		vx.CuentaRef == vy.CuentaRef && vx.CuentaOrdinariaRef == vy.CuentaOrdinariaRef &&
+		vx.CuentaPrivilegiada == vy.CuentaPrivilegiada && vx.Superficie == vy.Superficie &&
+		vx.AutoridadEfectiva == vy.AutoridadEfectiva && x.ReferenciaMotivo == y.ReferenciaMotivo &&
+		x.Accion == y.Accion && x.Finalidad == y.Finalidad &&
+		x.Recurso.Referencia == y.Recurso.Referencia && x.Recurso.ModuloID == y.Recurso.ModuloID &&
+		x.Recurso.Tipo == y.Recurso.Tipo && maps.Equal(x.Recurso.Ambitos, y.Recurso.Ambitos) &&
+		maps.Equal(x.Recurso.Atributos, y.Recurso.Atributos)
 }
 
 // TransaccionConfirmacionIncorporacion es la unica frontera de efecto. En un

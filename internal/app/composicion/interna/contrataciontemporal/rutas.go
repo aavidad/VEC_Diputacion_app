@@ -2,6 +2,7 @@ package contrataciontemporal
 
 import (
 	"errors"
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -16,6 +17,7 @@ var ErrRutasContratacionTemporalInvalidas = errors.New(
 // La identidad corporativa, PostgreSQL y los proveedores criptograficos
 // pertenecen a fronteras anteriores de la raiz de composicion.
 type DependenciasRutas struct {
+	IncorporacionV2                 *inc.ServidorV2PostgreSQL
 	AutoridadAlta                   httpinterno.AutoridadContextoCanal
 	EjecutorAlta                    httpinterno.EjecutorAlta
 	Reloj                           ports.Reloj
@@ -132,7 +134,7 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
-	return []httpapi.RutaExacta{
+	rutas := []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
 			Manejador: alta,
@@ -201,5 +203,13 @@ func NuevasRutas(
 			Ruta:      httpinterno.RutaReasignaciones,
 			Manejador: asignacion,
 		},
-	}, nil
+	}
+	if dependencias.IncorporacionV2 != nil {
+		ruta, err := NuevaRutaIncorporacionV2(dependencias.IncorporacionV2)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
+		rutas = append(rutas, ruta)
+	}
+	return rutas, nil
 }

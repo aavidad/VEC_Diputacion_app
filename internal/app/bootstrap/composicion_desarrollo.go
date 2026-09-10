@@ -195,7 +195,11 @@ func (c *ComposicionSeguridadDesarrollo) DerivadorIdentidadesBorrador() (
 func NewHTTPServerDesarrolloWithConfig(
 	cfg config.Config,
 	registro io.Writer,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+	if len(incorporacion) > 1 {
+		return nil, nil, ErrComposicionDesarrolloIncompleta
+	}
 	cfg = cfg.Normalize()
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
@@ -210,7 +214,7 @@ func NewHTTPServerDesarrolloWithConfig(
 		return nil, nil, err
 	}
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, registro,
+		cfg, resolvedor, composicion.derivadorIdempotencia, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err

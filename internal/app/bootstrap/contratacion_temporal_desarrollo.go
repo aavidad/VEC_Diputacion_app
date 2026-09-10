@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -165,12 +166,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	registro io.Writer,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (
 	[]vechttp.RutaExacta,
 	*autoridadConsultasContratacionTemporalDesarrollo,
 	func(),
 	error,
 ) {
+	if len(incorporacion) > 1 {
+		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
+	}
 	cfg = cfg.Normalize()
 	resolvedorDesarrollo, esDesarrollo := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil ||
@@ -294,8 +299,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			consultasRRHH.cerrar()
 		}
 	}()
+	var incorporacionV2 *inc.ServidorV2PostgreSQL
+	if len(incorporacion) == 1 {
+		incorporacionV2, err = nuevasDependenciasIncorporacionV2Desarrollo(incorporacion[0], &alta, consultasRRHH, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
+			IncorporacionV2:                 incorporacionV2,
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,
 			Reloj:                           reloj,
@@ -325,6 +338,13 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
+	if incorporacionV2 != nil {
+		for i := range rutas {
+			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 {
+				rutas[i].Manejador = ligarContextoIncorporacionV2Desarrollo(rutas[i].Manejador, alta.soporte)
+			}
+		}
+	}
 	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorRRHH != nil {
 		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion)
 		if err != nil {
@@ -445,6 +465,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaResolucionFormalizacion ||
 			capacidad.ruta == rutaEntregaPeticionCentro ||
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
@@ -506,7 +527,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+	return r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||

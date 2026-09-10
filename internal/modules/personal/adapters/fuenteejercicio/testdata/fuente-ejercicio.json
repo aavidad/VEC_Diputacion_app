@@ -1,0 +1,34 @@
+{
+  "esquema": "vec.personal.fuente-ejercicio.v1",
+  "referencia": "fuente:personal:ejercicio:20260908",
+  "version": 1,
+  "fuente_rpt": {
+    "referencia": "rpt:ejercicio:20260908",
+    "version": 3,
+    "parejas": [
+      {
+        "puesto_ref": "puesto:ejercicio:0001",
+        "plaza_ref": "plaza:ejercicio:0001",
+        "centro_ref": "centro:ejercicio:0001"
+      }
+    ]
+  },
+  "registros": [
+    {
+      "expediente_ref": "expediente:ejercicio:ct:0001",
+      "version_expediente": 7,
+      "persona_sintetica_ref": "persona:ejercicio:0001",
+      "centro_ref": "centro:ejercicio:0001",
+      "puesto_ref": "puesto:ejercicio:0001",
+      "plaza_ref": "plaza:ejercicio:0001",
+      "fuente_rpt": {
+        "referencia": "rpt:ejercicio:20260908",
+        "version": 3,
+        "huella_sha256": "a81229be023f01b99c16b76c9d4f6283dc6efaf5177340b063d36ab30dc654ac"
+      },
+      "desde": "2026-09-08",
+      "hasta": "2026-12-31",
+      "antecedente_ejercicio_ref": "antecedente:ejercicio:0001"
+    }
+  ]
+}
