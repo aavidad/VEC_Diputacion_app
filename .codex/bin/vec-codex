@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'HELP'
+Uso: vec-codex <aavidad|alberto> [argumentos de Codex]
+
+Cuentas independientes, seleccionadas de forma expresa:
+  aavidad  aavidad@gmail.com   /root/.codex
+  alberto  alberto@avidad.com  /root/.local/share/codex/perfiles/alberto-avidad
+
+Ejemplos:
+  vec-codex aavidad login status
+  vec-codex alberto login --device-auth
+  vec-codex alberto login status
+
+El alias indica la cuenta prevista; el acceso OAuth determina la cuenta real.
+No cambia de cuenta ni reintenta automáticamente cuando una ejecución falla.
+HELP
+}
+
+case "${1-}" in
+  aavidad|aavidad@gmail.com)
+    vec_profile_home=/root/.codex
+    ;;
+  alberto|alberto@avidad.com)
+    vec_profile_home=/root/.local/share/codex/perfiles/alberto-avidad
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac
+shift
+exec env CODEX_HOME="$vec_profile_home" \
+  /opt/vec-codex/0.154.0/node_modules/.bin/codex \
+  -c 'cli_auth_credentials_store="file"' "$@"

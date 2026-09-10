@@ -276,18 +276,24 @@ Carga comprobada en Codex 0.147 con `initialize`, `config/read` y `skills/list`:
 doce perfiles sin error y siete skills detectadas. Arranque nativo solicitado
 el 10 de septiembre: Codex 0.147 fue rechazado por versión insuficiente para Astra.
 Instalada copia independiente 0.154 en `/opt/vec-codex/0.154.0`, conservando la anterior.
-La autenticación ChatGPT nativa de root es aceptada; el segundo intento termina por
-cuota agotada de la cuenta. La API indica renovación el 15 de septiembre a las 14:30
-(sin zona horaria declarada en el error). No hay director ni subagentes nativos activos.
-La unidad `vec-codex-director-20260910.service` y su encargo quedan preparados;
+La sesión de aavidad@gmail.com terminó por cuota agotada; el error indicaba
+renovación el 15 de septiembre a las 14:30, sin zona horaria declarada.
+El operador ha elegido expresamente alberto@avidad.com y completado OAuth.
+Autenticación confirmada con `login status` y correo del ID token, sin copiar
+ni mostrar credenciales. Cada cuenta conserva su CODEX_HOME independiente.
+Selector instalado en `/opt/vec-codex/bin/vec-codex`, versionado en
+`.codex/bin/vec-codex`; acepta `aavidad` o `alberto`, sin alternancia automática.
+Comprobar con `/opt/vec-codex/bin/vec-codex alberto login status` y
+`/opt/vec-codex/bin/vec-codex aavidad login status` como root.
+El nuevo acceso no acredita cuota ni agentes activos por sí mismo. El operador
+ha ordenado arrancar el director con alberto; se verificará el proceso y sus
+sesiones reales antes de declarar el equipo trabajando.
+La unidad `vec-codex-director-20260910.service` y su encargo están preparados;
 el arranque es directo con Codex CLI y no utiliza el coordinador OpenClaw.
 Estado consultable con `systemctl show vec-codex-director-20260910.service
--p ActiveState -p SubState -p MainPID -p ExecMainStatus`. La cuota debe estar
-restablecida antes de reanudar; un nuevo OAuth de la misma cuenta no amplía el cupo.
-Las cuatro raíces anteriores de OpenClaw se han archivado, con código y WIP
+-p ActiveState -p SubState -p MainPID -p ExecMainStatus`.
+Las cuatro raíces anteriores de OpenClaw están archivadas, con código y WIP
 conservados. Este corte cambia la coordinación, no añade un paso RRHH recorrido.
-Comprobar instalación con `codex --version` y `codex login status` como `openclaw`
-desde el repositorio remoto; el segundo consulta la autenticación, no la inicia.
 
 1. Un objetivo funcional en curso por línea canónica. Un director Codex nativo
    integra; los agentes crean y gestionan subagentes a demanda, también anidados,
