@@ -331,6 +331,8 @@ type AltaSeguimiento struct {
 	CreadoEn        time.Time
 }
 type EstadoPersistidoSeguimiento struct {
+	// Continuacion conserva la adopcion posterior; Definicion sigue siendo fundacional.
+	Continuacion        *ContinuacionSeguimiento        `json:"continuacion,omitempty"`
 	Referencia          string                          `json:"referencia"`
 	OrganizacionRef     string                          `json:"organizacion_ref"`
 	ExpedienteRef       string                          `json:"expediente_ref"`
@@ -348,6 +350,10 @@ type EstadoPersistidoSeguimiento struct {
 }
 
 func (e EstadoPersistidoSeguimiento) clonar() EstadoPersistidoSeguimiento {
+	if e.Continuacion != nil {
+		continuacion := *e.Continuacion
+		e.Continuacion = &continuacion
+	}
 	e.PeriodosResultantes = append(
 		[]PeriodoResultanteSeguimiento(nil),
 		e.PeriodosResultantes...,
@@ -483,6 +489,18 @@ func (s Seguimiento) aplicarSinRehidratar(
 		) != nil {
 		return Seguimiento{}, ErrTransicionInvalida
 	}
+	return s.aplicarTransicionValidada(definicion.Referencia(), transicion, normalizados, huellaPeticion, indice)
+}
+
+// aplicarTransicionValidada comparte el efecto y encadenado tras validar la
+// definicion fundacional o una continuacion nominal explicita.
+func (s Seguimiento) aplicarTransicionValidada(
+	definicion ReferenciaDefinicionSeguimiento,
+	transicion TransicionDefinidaSeguimiento,
+	normalizados DatosTransicionSeguimiento,
+	huellaPeticion string,
+	indice *indiceReplaySeguimiento,
+) (Seguimiento, error) {
 	siguiente := s.estado
 	if aplicarEfectoPeriodoSeguimiento(
 		&siguiente, transicion, normalizados, indice,
@@ -495,7 +513,7 @@ func (s Seguimiento) aplicarSinRehidratar(
 	}
 	actuacion := ActuacionSeguimiento{
 		Secuencia: siguiente.Version + 1, VersionSeguimiento: siguiente.Version + 1,
-		Definicion: siguiente.Definicion, ActuacionRef: normalizados.ActuacionRef,
+		Definicion: definicion, ActuacionRef: normalizados.ActuacionRef,
 		TransicionClave: transicion.Clave, Clase: transicion.Clase,
 		EstadoOrigen: transicion.Origen, EstadoDestino: transicion.Destino,
 		MotivoClave: normalizados.MotivoClave, ActorRef: normalizados.ActorRef,
@@ -506,6 +524,7 @@ func (s Seguimiento) aplicarSinRehidratar(
 		RectificaActuacionRef: normalizados.RectificaActuacionRef,
 		HuellaPeticionSHA256:  huellaPeticion, HuellaAnteriorSHA256: anterior,
 	}
+	var err error
 	actuacion.HuellaActuacionSHA256, err = calcularHuellaActuacionSeguimiento(actuacion)
 	if err != nil {
 		return Seguimiento{}, ErrSeguimientoInvalido
@@ -739,7 +758,8 @@ func rehidratarSeguimiento(
 	estado EstadoPersistidoSeguimiento,
 	validarDefinicion func() error,
 ) (Seguimiento, error) {
-	if len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
+	if estado.Continuacion != nil ||
+		len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
 		len(estado.PeriodosResultantes) > maximoActuacionesSeguimiento ||
 		len(estado.PeriodosResultantes) > len(estado.Actuaciones) ||
 		validarDefinicion() != nil ||

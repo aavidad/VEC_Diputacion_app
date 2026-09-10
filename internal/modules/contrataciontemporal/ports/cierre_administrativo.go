@@ -56,11 +56,16 @@ type OperacionCierreAdministrativo string
 
 const (
 	OperacionCerrarAdministrativamente OperacionCierreAdministrativo = "cerrar_administrativamente"
-	OperacionReabrirExcepcionalmente   OperacionCierreAdministrativo = "reabrir_excepcionalmente"
+	// OperacionCerrarAdministrativamenteSinCese cierra la actuación
+	// administrativa posterior sobre una continuidad publicada. No materializa
+	// un cese efectivo de la relación.
+	OperacionCerrarAdministrativamenteSinCese OperacionCierreAdministrativo = "cerrar_administrativamente_sin_cese"
+	OperacionReabrirExcepcionalmente          OperacionCierreAdministrativo = "reabrir_excepcionalmente"
 )
 
 func (o OperacionCierreAdministrativo) Valida() bool {
 	return o == OperacionCerrarAdministrativamente ||
+		o == OperacionCerrarAdministrativamenteSinCese ||
 		o == OperacionReabrirExcepcionalmente
 }
 
@@ -134,8 +139,14 @@ func (i InventarioTareasCierreAdministrativo) ValidarPara(
 // coteja y consume en la misma transacción si el callback devuelve un estado
 // nuevo.
 type PreparacionTransaccionCierreAdministrativo struct {
-	Solicitud                  SolicitudTransaccionCierreAdministrativo
-	Definicion                 domain.DefinicionSeguimiento
+	Solicitud  SolicitudTransaccionCierreAdministrativo
+	Definicion domain.DefinicionSeguimiento
+	// DefinicionSucesora y Continuacion sólo existen para el cierre
+	// administrativo sin cese. La definición original sigue siendo la raíz y
+	// el prefijo histórico; el adaptador durable adopta la sucesora ya
+	// publicada, nunca una definición llegada del canal.
+	DefinicionSucesora         *domain.DefinicionSeguimiento
+	Continuacion               *domain.ContinuacionSeguimiento
 	Seguimiento                domain.Seguimiento
 	Inventario                 InventarioTareasCierreAdministrativo
 	ContextoAutorizacionV3     ContextoAutorizacionAltaV3
@@ -158,6 +169,7 @@ func (p PreparacionTransaccionCierreAdministrativo) ValidarPara(
 	solicitud SolicitudTransaccionCierreAdministrativo,
 ) error {
 	estado := p.Seguimiento.Estado()
+	esCierreSinCese := solicitud.Operacion == OperacionCerrarAdministrativamenteSinCese
 	if solicitud.Validar() != nil || p.Solicitud != solicitud ||
 		!domain.ReferenciaOpacaValida(p.ActorRef) ||
 		!domain.ReferenciaOpacaValida(p.PerfilRef) ||
@@ -175,6 +187,14 @@ func (p PreparacionTransaccionCierreAdministrativo) ValidarPara(
 		estado.ExpedienteRef != solicitud.ExpedienteRef ||
 		estado.Referencia != solicitud.SeguimientoRef ||
 		validarAutorizacionCierreAdministrativoV3(p, solicitud) != nil {
+		return ErrPreparacionCierreAdministrativoInvalida
+	}
+	if esCierreSinCese {
+		if p.DefinicionSucesora == nil || p.Continuacion == nil ||
+			p.DefinicionSucesora.Validar() != nil {
+			return ErrPreparacionCierreAdministrativoInvalida
+		}
+	} else if p.DefinicionSucesora != nil || p.Continuacion != nil {
 		return ErrPreparacionCierreAdministrativoInvalida
 	}
 	return nil
@@ -235,7 +255,8 @@ func parametrosAutorizacionCierreAdministrativo(
 	operacion OperacionCierreAdministrativo,
 ) (string, string) {
 	switch operacion {
-	case OperacionCerrarAdministrativamente:
+	case OperacionCerrarAdministrativamente,
+		OperacionCerrarAdministrativamenteSinCese:
 		return AccionAutorizacionCerrarAdministrativamente,
 			FinalidadAutorizacionCerrarAdministrativamente
 	case OperacionReabrirExcepcionalmente:

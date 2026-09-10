@@ -1,5 +1,14 @@
 # Estado y plan de ataque del proyecto
 
+La continuidad de incorporación ya está integrada en dominio y servicio para una
+única adopción sucesora publicada, conservando fundación v1, raíz y cadena y
+permitiendo cierre nominal sin cese ni cambio de periodos; dos revisiones
+independientes emitieron `GO` y la prueba focal aislada quedó verde en dominio,
+aplicación y puertos, incluido el golden V1, mientras SQL, adaptador, HTTP,
+composición, autoridad, publicación y libro de runtime continúan pendientes,
+por lo que no existe cierre visible ni está completo el objetivo 13.
+
+
 ## Backend y panel integrados en código; runtime pendiente
 
 El backend confirmado es

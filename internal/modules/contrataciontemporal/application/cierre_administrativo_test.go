@@ -582,8 +582,10 @@ func preparacionCierreAdministrativoPrueba(
 		EfectivoEn: instante, RegistradaEn: instante,
 	}
 	prepararAutorizacionCierreAdministrativoPrueba(t, &preparacion, solicitud, instante)
-	if err := preparacion.ValidarPara(solicitud); err != nil {
-		t.Fatalf("preparación base de cierre inválida: %v", err)
+	if solicitud.Operacion != ports.OperacionCerrarAdministrativamenteSinCese {
+		if err := preparacion.ValidarPara(solicitud); err != nil {
+			t.Fatalf("preparación base de cierre inválida: %v", err)
+		}
 	}
 	return preparacion
 }
@@ -789,6 +791,152 @@ func escenarioSeguimientoConEfectoCierre(
 		t.Fatalf("confirmar incorporación: %v", err)
 	}
 	return definicion, seguimiento
+}
+
+func TestCierreAdministrativoSinCeseConservaRelacionYPrefijo(t *testing.T) {
+	original, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamenteSinCesePrueba(seguimiento.Version())
+	preparacion := preparacionCierreAdministrativoPrueba(
+		t, solicitud, original, seguimiento, instanteCierreAdministrativoPrueba,
+	)
+	sucesora := definicionSucesoraCierreSinCesePrueba(t, original)
+	continuacion, err := domain.NuevaContinuacionSeguimiento(
+		original, sucesora, seguimiento, datosCierreAdministrativoPrueba(preparacion, solicitud),
+	)
+	if err != nil {
+		t.Fatalf("crear continuidad: %v", err)
+	}
+	preparacion.DefinicionSucesora = &sucesora
+	preparacion.Continuacion = &continuacion
+	if err := preparacion.ValidarPara(solicitud); err != nil {
+		t.Fatalf("preparación continuada inválida: %v", err)
+	}
+	transaccion := &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
+	resultado, err := nuevoServicioCierreAdministrativoPrueba(t, transaccion).
+		CerrarSinCese(context.Background(), solicitudAplicacionCierreSinCesePrueba(solicitud))
+	if err != nil {
+		t.Fatalf("cerrar sin cese: %v", err)
+	}
+	if !transaccion.confirmada || resultado.VersionSeguimiento() != seguimiento.Version()+1 ||
+		transaccion.siguiente.EstadoActual() != domain.EstadoCerradoAdministrativamenteSeguimiento ||
+		transaccion.siguiente.CeseEfectivo() != nil || seguimiento.CeseEfectivo() != nil ||
+		!reflect.DeepEqual(seguimiento.PeriodosResultantes(), transaccion.siguiente.PeriodosResultantes()) {
+		t.Fatalf("el cierre sin cese alteró la relación: resultado=%#v", transaccion.siguiente.Estado())
+	}
+	antes, despues := seguimiento.Actuaciones(), transaccion.siguiente.Actuaciones()
+	if len(despues) != len(antes)+1 ||
+		despues[len(despues)-1].Definicion != sucesora.Referencia() ||
+		despues[len(despues)-1].TransicionClave != domain.TransicionCerrarAdministrativamenteSinCese ||
+		antes[0].HuellaActuacionSHA256 != despues[0].HuellaActuacionSHA256 {
+		t.Fatalf("el cierre sin cese no preservó el prefijo original")
+	}
+}
+
+func TestCierreAdministrativoSinCeseDeniegaInventarioPendienteYReapertura(t *testing.T) {
+	original, seguimiento := escenarioSeguimientoVigente(t)
+	solicitud := solicitudCerrarAdministrativamenteSinCesePrueba(seguimiento.Version())
+	preparacion := preparacionCierreAdministrativoPrueba(
+		t, solicitud, original, seguimiento, instanteCierreAdministrativoPrueba,
+	)
+	sucesora := definicionSucesoraCierreSinCesePrueba(t, original)
+	continuacion, err := domain.NuevaContinuacionSeguimiento(
+		original, sucesora, seguimiento, datosCierreAdministrativoPrueba(preparacion, solicitud),
+	)
+	if err != nil {
+		t.Fatalf("crear continuidad: %v", err)
+	}
+	preparacion.DefinicionSucesora = &sucesora
+	preparacion.Continuacion = &continuacion
+	preparacion.Inventario.Pendientes = 1
+	transaccion := &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
+	servicio := nuevoServicioCierreAdministrativoPrueba(t, transaccion)
+	if _, err := servicio.CerrarSinCese(context.Background(), solicitudAplicacionCierreSinCesePrueba(solicitud)); !errors.Is(err, ErrCierreAdministrativoNoPermitido) || transaccion.confirmada {
+		t.Fatalf("se aceptó continuidad con inventario pendiente: %v", err)
+	}
+
+	preparacion.Inventario.Pendientes = 0
+	transaccion = &transaccionCierreAdministrativoPrueba{preparacion: preparacion}
+	servicio = nuevoServicioCierreAdministrativoPrueba(t, transaccion)
+	reapertura := SolicitudReabrirExcepcionalmente{
+		OrganizacionRef: solicitud.OrganizacionRef, ExpedienteRef: solicitud.ExpedienteRef,
+		SeguimientoRef: solicitud.SeguimientoRef, VersionEsperada: solicitud.VersionEsperada,
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5c",
+		TransicionClave:   "reabrir_excepcionalmente", MotivoClave: "subsanacion_excepcional",
+	}
+	if _, err := servicio.ReabrirExcepcionalmente(context.Background(), reapertura); !errors.Is(err, ErrCierreAdministrativoNoPermitido) || transaccion.confirmada {
+		t.Fatalf("la reapertura aceptó una continuidad sin cese: %v", err)
+	}
+}
+
+func solicitudCerrarAdministrativamenteSinCesePrueba(
+	version uint64,
+) ports.SolicitudTransaccionCierreAdministrativo {
+	base := solicitudCerrarAdministrativamentePrueba(version)
+	return ports.SolicitudTransaccionCierreAdministrativo{
+		Operacion:       ports.OperacionCerrarAdministrativamenteSinCese,
+		OrganizacionRef: base.OrganizacionRef, ExpedienteRef: base.ExpedienteRef,
+		SeguimientoRef: base.SeguimientoRef, VersionEsperada: base.VersionEsperada,
+		ClaveIdempotencia: base.ClaveIdempotencia,
+		TransicionClave:   domain.TransicionCerrarAdministrativamenteSinCese,
+		MotivoClave:       base.MotivoClave,
+	}
+}
+
+func solicitudAplicacionCierreSinCesePrueba(
+	solicitud ports.SolicitudTransaccionCierreAdministrativo,
+) SolicitudCerrarAdministrativamente {
+	return SolicitudCerrarAdministrativamente{
+		OrganizacionRef: solicitud.OrganizacionRef, ExpedienteRef: solicitud.ExpedienteRef,
+		SeguimientoRef: solicitud.SeguimientoRef, VersionEsperada: solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia, TransicionClave: solicitud.TransicionClave,
+		MotivoClave: solicitud.MotivoClave,
+	}
+}
+
+func datosCierreAdministrativoPrueba(
+	preparacion ports.PreparacionTransaccionCierreAdministrativo,
+	solicitud ports.SolicitudTransaccionCierreAdministrativo,
+) domain.DatosTransicionSeguimiento {
+	return domain.DatosTransicionSeguimiento{
+		ActuacionRef: preparacion.ActuacionRef, TransicionClave: solicitud.TransicionClave,
+		MotivoClave: solicitud.MotivoClave, ActorRef: preparacion.ActorRef,
+		UnidadRef: preparacion.UnidadRef, EfectivoEn: preparacion.EfectivoEn,
+		RegistradaEn: preparacion.RegistradaEn, Documentos: preparacion.Documentos,
+		ReciboRef: preparacion.ReciboRef, CorrelacionRef: preparacion.CorrelacionRef,
+	}
+}
+
+func definicionSucesoraCierreSinCesePrueba(
+	t *testing.T,
+	original domain.DefinicionSeguimiento,
+) domain.DefinicionSeguimiento {
+	t.Helper()
+	publicacion := original.Publicacion()
+	publicacion.Version++
+	publicacion.PublicadoEn = instanteCierreAdministrativoPrueba.Add(-time.Hour)
+	publicacion.Vigencia.Desde = publicacion.PublicadoEn
+	publicacion.Estados = append(publicacion.Estados, domain.EstadoDefinidoSeguimiento{
+		Clave: domain.EstadoCerradoAdministrativamenteSeguimiento, Final: true,
+	})
+	publicacion.Transiciones = append(publicacion.Transiciones, domain.TransicionDefinidaSeguimiento{
+		Clave: domain.TransicionCerrarAdministrativamenteSinCese, Origen: "vigente",
+		Destino:           domain.EstadoCerradoAdministrativamenteSeguimiento,
+		Clase:             domain.TransicionOrdinaria,
+		MotivosPermitidos: []domain.ClaveCatalogo{"fin_expediente"},
+		MotivoObligatorio: true, EfectoPeriodo: domain.EfectoPeriodoNinguno,
+	})
+	sucesora, err := domain.PublicarDefinicionSeguimiento(domain.BorradorDefinicionSeguimiento{
+		Referencia: publicacion.Referencia, Version: publicacion.Version,
+		PublicadoEn: publicacion.PublicadoEn, Vigencia: publicacion.Vigencia,
+		EstadoInicial:            publicacion.EstadoInicial,
+		ProhibeCiclosSilenciosos: publicacion.ProhibeCiclosSilenciosos,
+		Estados:                  publicacion.Estados, Motivos: publicacion.Motivos,
+		Transiciones: publicacion.Transiciones,
+	})
+	if err != nil {
+		t.Fatalf("publicar sucesora de cierre sin cese: %v", err)
+	}
+	return sucesora
 }
 
 func referenciaCierreAdministrativoPrueba(etiqueta string) string {

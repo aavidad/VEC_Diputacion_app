@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -102,6 +103,24 @@ func (s *ServicioCierreAdministrativo) Cerrar(
 	})
 }
 
+// CerrarSinCese registra el cierre administrativo posterior sobre la sucesora
+// publicada. No es un cese de la relación ni admite el cierre heredado.
+func (s *ServicioCierreAdministrativo) CerrarSinCese(
+	ctx context.Context,
+	solicitud SolicitudCerrarAdministrativamente,
+) (ports.ResultadoCierreAdministrativo, error) {
+	return s.ejecutar(ctx, ports.SolicitudTransaccionCierreAdministrativo{
+		Operacion:         ports.OperacionCerrarAdministrativamenteSinCese,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ExpedienteRef:     solicitud.ExpedienteRef,
+		SeguimientoRef:    solicitud.SeguimientoRef,
+		VersionEsperada:   solicitud.VersionEsperada,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		TransicionClave:   solicitud.TransicionClave,
+		MotivoClave:       solicitud.MotivoClave,
+	})
+}
+
 func (s *ServicioCierreAdministrativo) ReabrirExcepcionalmente(
 	ctx context.Context,
 	solicitud SolicitudReabrirExcepcionalmente,
@@ -159,31 +178,49 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 			if preparacion.ValidarPara(solicitud) != nil ||
 				!transicionCierreAdministrativoValida(
 					preparacion.Definicion,
+					preparacion.DefinicionSucesora,
 					preparacion.Seguimiento.EstadoActual(),
 					solicitud,
 				) ||
-				solicitud.Operacion == ports.OperacionCerrarAdministrativamente &&
+				(solicitud.Operacion == ports.OperacionCerrarAdministrativamente ||
+					solicitud.Operacion == ports.OperacionCerrarAdministrativamenteSinCese) &&
 					preparacion.Inventario.Pendientes != 0 {
 				return domain.Seguimiento{},
 					errDecisionCierreAdministrativoNoPermitida
 			}
-			siguiente, errAplicar := s.aplicarTransicion(
-				preparacion.Seguimiento,
-				preparacion.Definicion,
-				solicitud.VersionEsperada,
-				domain.DatosTransicionSeguimiento{
-					ActuacionRef:    preparacion.ActuacionRef,
-					TransicionClave: solicitud.TransicionClave,
-					MotivoClave:     solicitud.MotivoClave,
-					ActorRef:        preparacion.ActorRef,
-					UnidadRef:       preparacion.UnidadRef,
-					EfectivoEn:      preparacion.EfectivoEn,
-					RegistradaEn:    preparacion.RegistradaEn,
-					Documentos:      preparacion.Documentos,
-					ReciboRef:       preparacion.ReciboRef,
-					CorrelacionRef:  preparacion.CorrelacionRef,
-				},
-			)
+			datos := domain.DatosTransicionSeguimiento{
+				ActuacionRef:    preparacion.ActuacionRef,
+				TransicionClave: solicitud.TransicionClave,
+				MotivoClave:     solicitud.MotivoClave,
+				ActorRef:        preparacion.ActorRef,
+				UnidadRef:       preparacion.UnidadRef,
+				EfectivoEn:      preparacion.EfectivoEn,
+				RegistradaEn:    preparacion.RegistradaEn,
+				Documentos:      preparacion.Documentos,
+				ReciboRef:       preparacion.ReciboRef,
+				CorrelacionRef:  preparacion.CorrelacionRef,
+			}
+			var siguiente domain.Seguimiento
+			var errAplicar error
+			if solicitud.Operacion == ports.OperacionCerrarAdministrativamenteSinCese {
+				if preparacion.DefinicionSucesora == nil || preparacion.Continuacion == nil ||
+					domain.ValidarContinuacionSeguimiento(
+						preparacion.Definicion, *preparacion.DefinicionSucesora,
+						preparacion.Seguimiento, *preparacion.Continuacion, datos,
+					) != nil {
+					return domain.Seguimiento{}, errDecisionCierreAdministrativoNoPermitida
+				}
+				siguiente, errAplicar = domain.AplicarCierreConContinuacion(
+					preparacion.Seguimiento, preparacion.Definicion,
+					*preparacion.DefinicionSucesora, *preparacion.Continuacion,
+					solicitud.VersionEsperada, datos,
+				)
+			} else {
+				siguiente, errAplicar = s.aplicarTransicion(
+					preparacion.Seguimiento, preparacion.Definicion,
+					solicitud.VersionEsperada, datos,
+				)
+			}
 			if errAplicar != nil {
 				return domain.Seguimiento{}, errAplicar
 			}
@@ -191,6 +228,7 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 				return domain.Seguimiento{}, errContexto
 			}
 			if !actuacionCierreAdministrativoValida(
+				preparacion.Seguimiento,
 				siguiente,
 				solicitud,
 				preparacion,
@@ -226,9 +264,31 @@ func (s *ServicioCierreAdministrativo) ejecutar(
 
 func transicionCierreAdministrativoValida(
 	definicion domain.DefinicionSeguimiento,
+	definicionSucesora *domain.DefinicionSeguimiento,
 	estadoActual domain.ClaveCatalogo,
 	solicitud ports.SolicitudTransaccionCierreAdministrativo,
 ) bool {
+	if solicitud.Operacion == ports.OperacionCerrarAdministrativamenteSinCese {
+		if definicionSucesora == nil ||
+			solicitud.TransicionClave != domain.TransicionCerrarAdministrativamenteSinCese ||
+			estadoActual != "vigente" {
+			return false
+		}
+		for _, transicion := range definicionSucesora.Publicacion().Transiciones {
+			if transicion.Clave == domain.TransicionCerrarAdministrativamenteSinCese {
+				return transicion.Origen == estadoActual &&
+					transicion.Destino == domain.EstadoCerradoAdministrativamenteSeguimiento &&
+					transicion.Clase == domain.TransicionOrdinaria &&
+					transicion.EfectoPeriodo == domain.EfectoPeriodoNinguno &&
+					transicion.MotivoObligatorio &&
+					contieneMotivoCierreAdministrativo(transicion.MotivosPermitidos, solicitud.MotivoClave)
+			}
+		}
+		return false
+	}
+	if definicionSucesora != nil {
+		return false
+	}
 	publicacion := definicion.Publicacion()
 	estados := make(map[domain.ClaveCatalogo]bool, len(publicacion.Estados))
 	for _, estado := range publicacion.Estados {
@@ -278,6 +338,7 @@ func contieneMotivoCierreAdministrativo(
 }
 
 func actuacionCierreAdministrativoValida(
+	anterior domain.Seguimiento,
 	seguimiento domain.Seguimiento,
 	solicitud ports.SolicitudTransaccionCierreAdministrativo,
 	preparacion ports.PreparacionTransaccionCierreAdministrativo,
@@ -308,11 +369,25 @@ func actuacionCierreAdministrativoValida(
 		return cese != nil &&
 			cese.ActuacionRef == preparacion.ActuacionRef &&
 			cese.EfectivoEn.Equal(preparacion.EfectivoEn)
+	case ports.OperacionCerrarAdministrativamenteSinCese:
+		return seguimiento.EstadoActual() == domain.EstadoCerradoAdministrativamenteSeguimiento &&
+			reflect.DeepEqual(anterior.PeriodosResultantes(), seguimiento.PeriodosResultantes()) &&
+			ceseEfectivoCierreAdministrativoIgual(anterior.CeseEfectivo(), cese)
 	case ports.OperacionReabrirExcepcionalmente:
-		return preparacion.Seguimiento.CeseEfectivo() != nil && cese == nil
+		return anterior.CeseEfectivo() != nil && cese == nil
 	default:
 		return false
 	}
+}
+
+func ceseEfectivoCierreAdministrativoIgual(
+	izquierdo, derecho *domain.CeseEfectivoSeguimiento,
+) bool {
+	if izquierdo == nil || derecho == nil {
+		return izquierdo == nil && derecho == nil
+	}
+	return izquierdo.ActuacionRef == derecho.ActuacionRef &&
+		izquierdo.EfectivoEn.Equal(derecho.EfectivoEn)
 }
 
 func clasificarErrorCierreAdministrativo(
@@ -331,6 +406,7 @@ func clasificarErrorCierreAdministrativo(
 		errors.Is(err, ports.ErrCierreAdministrativoDenegado),
 		errors.Is(err, domain.ErrTransicionInvalida),
 		errors.Is(err, domain.ErrSeguimientoInvalido),
+		errors.Is(err, domain.ErrContinuacionSeguimientoInvalida),
 		errors.Is(err, domain.ErrActuacionSeguimientoEnConflicto):
 		return ErrCierreAdministrativoNoPermitido
 	default:

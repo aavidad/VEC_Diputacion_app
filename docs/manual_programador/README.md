@@ -2,6 +2,32 @@
 
 ## Continuación técnica vigente — 10 de septiembre de 2026
 
+### Continuidad de incorporación integrada en dominio y servicio
+
+La extensión admite una única adopción sucesora publicada y conserva la
+fundación v1, la raíz y la cadena de continuidad. El cierre nominal no registra
+un cese ni altera periodos. Dos revisiones independientes emitieron `GO` sobre
+los hashes finales de dominio y servicio.
+
+La codificación de continuidad es explícita y está separada del codec V1. Los
+lectores legacy rechazan continuaciones en lugar de interpretarlas como datos
+V1. La entrada exige inventario y autoridad V3; su ausencia debe producir
+denegación, no una reconstrucción implícita.
+
+Dirección comprobó sobre un overlay de siete archivos revisados de la base
+`1385b134`, sin incorporar la anotación en curso, esta prueba focal aislada:
+
+```text
+Go 1.26.5
+go test -p 1 ./internal/modules/contrataciontemporal/{domain,application,ports} -run 'Seguimiento|Continuacion|Cierre'
+```
+
+Terminó verde en los tres paquetes e incluyó el golden V1 conservado y las
+pruebas nuevas. SQL, adaptador, HTTP, composición, autoridad, publicación y
+libro de runtime quedan fuera de este commit. Esta integración de código no
+acredita un cierre visible ni completa el objetivo 13.
+
+
 Base del cierre funcional `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
 `trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
 `integracion/ct-producto-ligero-20260821`. El desarrollo activo está en el
