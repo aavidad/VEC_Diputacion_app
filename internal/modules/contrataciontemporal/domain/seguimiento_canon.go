@@ -76,8 +76,8 @@ func calcularHuellaRaizSeguimiento(
 	e.intervalo(estado.PeriodoPrevisto)
 	e.instante(estado.CreadoEn)
 	if e.err != nil || !referenciaOpacaSeguimientoValida(estado.Referencia) ||
-		!referenciaOpacaSeguimientoValida(estado.OrganizacionRef) ||
-		!referenciaOpacaSeguimientoValida(estado.ExpedienteRef) ||
+		!referenciaOrganizacionSeguimientoValida(estado.OrganizacionRef) ||
+		!referenciaExpedienteSeguimientoValida(estado.ExpedienteRef) ||
 		!referenciaOpacaSeguimientoValida(estado.RelacionRef) ||
 		estado.Definicion.Validar() != nil ||
 		!estado.EstadoActual.Valida() ||
@@ -248,8 +248,8 @@ func validarEstadoCanonicoSeguimiento(
 		len(estado.PeriodosResultantes) > maximoActuacionesSeguimiento ||
 		len(estado.PeriodosResultantes) > len(estado.Actuaciones) ||
 		!referenciaOpacaSeguimientoValida(estado.Referencia) ||
-		!referenciaOpacaSeguimientoValida(estado.OrganizacionRef) ||
-		!referenciaOpacaSeguimientoValida(estado.ExpedienteRef) ||
+		!referenciaOrganizacionSeguimientoValida(estado.OrganizacionRef) ||
+		!referenciaExpedienteSeguimientoValida(estado.ExpedienteRef) ||
 		!referenciaOpacaSeguimientoValida(estado.RelacionRef) ||
 		estado.Definicion.Validar() != nil || !estado.EstadoActual.Valida() ||
 		estado.PeriodoPrevisto.Validar() != nil ||
@@ -501,6 +501,9 @@ func referenciaOpacaSeguimientoValida(valor string) bool {
 	return len(valor) == len("ref:")+sha256.Size*2 &&
 		strings.HasPrefix(valor, "ref:") &&
 		huellaSeguimientoValida(valor[len("ref:"):])
+}
+func referenciaExpedienteSeguimientoValida(valor string) bool {
+	return referenciaOpacaSeguimientoValida(valor) || strings.HasPrefix(valor, "expediente:ct:") && huellaSeguimientoValida(valor[len("expediente:ct:"):])
 }
 func (c ClaseTransicionSeguimiento) valida() bool {
 	return c == TransicionOrdinaria || c == TransicionRectificacion || c == TransicionReapertura

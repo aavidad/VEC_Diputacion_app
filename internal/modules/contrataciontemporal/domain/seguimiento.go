@@ -369,6 +369,10 @@ func NuevoSeguimiento(
 ) (Seguimiento, error) {
 	return nuevoSeguimiento(definicion, alta, true)
 }
+
+func referenciaOrganizacionSeguimientoValida(valor string) bool {
+	return referenciaOpacaSeguimientoValida(valor) || len(valor) > len("organizacion:") && valor[:len("organizacion:")] == "organizacion:" && ReferenciaOpacaValida(valor)
+}
 func nuevoSeguimiento(
 	definicion DefinicionSeguimiento,
 	alta AltaSeguimiento,
@@ -377,8 +381,8 @@ func nuevoSeguimiento(
 	if validarDefinicion && definicion.Validar() != nil ||
 		!definicion.publicacion.Vigencia.contiene(alta.CreadoEn) ||
 		!referenciaOpacaSeguimientoValida(alta.Referencia) ||
-		!referenciaOpacaSeguimientoValida(alta.OrganizacionRef) ||
-		!referenciaOpacaSeguimientoValida(alta.ExpedienteRef) ||
+		!referenciaOrganizacionSeguimientoValida(alta.OrganizacionRef) ||
+		!referenciaExpedienteSeguimientoValida(alta.ExpedienteRef) ||
 		!referenciaOpacaSeguimientoValida(alta.RelacionRef) ||
 		alta.PeriodoPrevisto.Validar() != nil ||
 		!instanteSeguimientoValido(alta.CreadoEn) {
