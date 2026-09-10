@@ -39,6 +39,9 @@ type Actuacion struct {
 	EstadoDestino     EstadoOperativo `json:"estado_destino"`
 	Observaciones     string          `json:"observaciones,omitempty"`
 	DocumentosRef     []string        `json:"documentos_ref,omitempty"`
+	// SeguimientoOriginal solo se informa en la primera anotación administrativa.
+	// Es un antecedente inmutable, no una transición del seguimiento.
+	SeguimientoOriginal *VinculoSeguimientoOriginal `json:"seguimiento_original,omitempty"`
 }
 
 type Expediente struct {
@@ -345,6 +348,52 @@ func (e Expediente) ReasignarUnidad(
 	clon.ActuacionRegistro = &vinculo
 	siguiente.Asignacion = &clon
 	return siguiente.confirmarTransicion(actuacion)
+}
+
+// RegistrarAnotacionAdministrativa agrega la única anotación administrativa
+// prevista para una incorporación ya registrada. Conserva fase y estado: la
+// anotación documenta el expediente, no lo hace avanzar ni muta Seguimiento.
+func (e Expediente) RegistrarAnotacionAdministrativa(
+	versionEsperada uint64,
+	seguimientoOriginal VinculoSeguimientoOriginal,
+	actuacion DatosActuacion,
+) (Expediente, error) {
+	if e.Validar() != nil || seguimientoOriginal.Validar() != nil ||
+		actuacion.validar() != nil ||
+		actuacion.AccionClave != AccionRegistrarAnotacionAdministrativa ||
+		!textoValido(actuacion.Observaciones, 2000, false) ||
+		actuacion.FaseDestino != e.FaseActual ||
+		actuacion.EstadoDestino != e.EstadoActual ||
+		e.tieneAnotacionAdministrativa() {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
+	if err != nil {
+		return Expediente{}, err
+	}
+	origenFase, origenEstado := siguiente.FaseActual, siguiente.EstadoActual
+	siguiente.Version++
+	siguiente.FaseActual = actuacion.FaseDestino
+	siguiente.EstadoActual = actuacion.EstadoDestino
+	siguiente.ActualizadoEn = actuacion.RealizadaEn
+	siguiente.Actuaciones = append(siguiente.Actuaciones, siguiente.nuevaActuacion(
+		origenFase, origenEstado, actuacion, siguiente.Version,
+	))
+	vinculo := seguimientoOriginal
+	siguiente.Actuaciones[len(siguiente.Actuaciones)-1].SeguimientoOriginal = &vinculo
+	if siguiente.Validar() != nil {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	return siguiente, nil
+}
+
+func (e Expediente) tieneAnotacionAdministrativa() bool {
+	for _, actuacion := range e.Actuaciones {
+		if actuacion.AccionClave == AccionRegistrarAnotacionAdministrativa {
+			return true
+		}
+	}
+	return false
 }
 
 func (e Expediente) prepararTransicion(

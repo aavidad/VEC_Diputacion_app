@@ -1,5 +1,7 @@
 # Manual mantenido del programador de VEC
 
+La primera anotación administrativa ya tiene dominio probado: añade una actuación con observaciones y vínculo al seguimiento original, conserva fase y estado y rechaza duplicados o anotaciones sobre estados terminales. Dos revisiones independientes y la prueba focal de anotación han pasado. La escritura PostgreSQL, autorización y conexión del formulario siguen pendientes; este corte no acredita una anotación registrada en runtime.
+
 ## Continuación técnica vigente — 10 de septiembre de 2026
 
 ### Continuidad de incorporación integrada en dominio y servicio

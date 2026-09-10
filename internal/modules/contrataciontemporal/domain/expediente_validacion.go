@@ -38,7 +38,11 @@ func (e Expediente) Validar() error {
 					e.Fiscalizacion.Retorno.ResponsableRef != e.Asignacion.ResponsableRef))) {
 		return ErrExpedienteInvalido
 	}
+	anotacionesAdministrativas := 0
 	for indice, actuacion := range e.Actuaciones {
+		if actuacion.AccionClave == AccionRegistrarAnotacionAdministrativa {
+			anotacionesAdministrativas++
+		}
 		if !actuacionValida(actuacion, uint64(indice+1)) {
 			return ErrExpedienteInvalido
 		}
@@ -55,6 +59,9 @@ func (e Expediente) Validar() error {
 			actuacion.RealizadaEn.Before(anterior.RealizadaEn) {
 			return ErrExpedienteInvalido
 		}
+	}
+	if anotacionesAdministrativas > 1 {
+		return ErrExpedienteInvalido
 	}
 	if e.Analisis != nil && !analisisLigadoAActuacion(e.Analisis, e.Actuaciones) {
 		return ErrExpedienteInvalido
@@ -166,14 +173,23 @@ func analisisLigadoAActuacion(analisis *AnalisisRRHH, actuaciones []Actuacion) b
 }
 
 func actuacionValida(a Actuacion, secuencia uint64) bool {
-	return a.Secuencia == secuencia && a.VersionExpediente == secuencia &&
-		a.AccionClave.Valida() && referenciaValida(a.ActorRef) &&
-		referenciaValida(a.UnidadRef) && referenciaValida(a.ReciboRef) &&
-		instanteCanonico(a.RealizadaEn) && a.FaseDestino.Valida() &&
-		a.EstadoOrigen.Valido() && a.EstadoDestino.Valido() &&
-		!(!a.FaseOrigen.Valida() && a.FaseOrigen != "") &&
-		textoValido(a.Observaciones, 2000, true) &&
-		referenciasUnicasValidas(a.DocumentosRef, 64)
+	if a.Secuencia != secuencia || a.VersionExpediente != secuencia ||
+		!a.AccionClave.Valida() || !referenciaValida(a.ActorRef) ||
+		!referenciaValida(a.UnidadRef) || !referenciaValida(a.ReciboRef) ||
+		!instanteCanonico(a.RealizadaEn) || !a.FaseDestino.Valida() ||
+		!a.EstadoOrigen.Valido() || !a.EstadoDestino.Valido() ||
+		(!a.FaseOrigen.Valida() && a.FaseOrigen != "") ||
+		!textoValido(a.Observaciones, 2000, true) ||
+		!referenciasUnicasValidas(a.DocumentosRef, 64) {
+		return false
+	}
+	if a.AccionClave == AccionRegistrarAnotacionAdministrativa {
+		return a.SeguimientoOriginal != nil && a.SeguimientoOriginal.Validar() == nil &&
+			a.Observaciones != "" && a.FaseOrigen == a.FaseDestino &&
+			a.EstadoOrigen == a.EstadoDestino &&
+			a.EstadoDestino != EstadoCompletado && a.EstadoDestino != EstadoCancelado
+	}
+	return a.SeguimientoOriginal == nil
 }
 
 func (e Expediente) Clonar() Expediente {
@@ -211,6 +227,10 @@ func (e Expediente) Clonar() Expediente {
 		e.Actuaciones[indice].DocumentosRef = append(
 			[]string(nil), e.Actuaciones[indice].DocumentosRef...,
 		)
+		if e.Actuaciones[indice].SeguimientoOriginal != nil {
+			vinculo := *e.Actuaciones[indice].SeguimientoOriginal
+			e.Actuaciones[indice].SeguimientoOriginal = &vinculo
+		}
 	}
 	return e
 }

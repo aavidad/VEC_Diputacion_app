@@ -1,5 +1,7 @@
 # Estado y plan de ataque del proyecto
 
+La primera anotación administrativa ya tiene dominio probado: añade una actuación con observaciones y vínculo al seguimiento original, conserva fase y estado y rechaza duplicados o anotaciones sobre estados terminales. Dos revisiones independientes y la prueba focal de anotación han pasado. La escritura PostgreSQL, autorización y conexión del formulario siguen pendientes; este corte no acredita una anotación registrada en runtime.
+
 La continuidad de incorporación ya está integrada en dominio y servicio para una
 única adopción sucesora publicada, conservando fundación v1, raíz y cadena y
 permitiendo cierre nominal sin cese ni cambio de periodos; dos revisiones
