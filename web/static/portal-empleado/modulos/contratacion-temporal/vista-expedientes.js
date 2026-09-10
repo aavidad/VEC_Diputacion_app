@@ -13,6 +13,7 @@ import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
 import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
+import { montarFichaGINPIX } from "./ficha-ginpix.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -764,6 +765,38 @@ export async function montarModuloContratacionTemporal({
         raiz: contenedor, cliente: clienteLlamamiento, preparacion,
         confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
       });
+      // Sólo una incorporación recuperada y validada habilita la ficha. La
+      // descarga vuelve a consultar al servidor; el recibo del DOM no autoriza.
+      if (preparacion.recibo !== null && typeof clienteLlamamiento.descargarFichaGINPIX === "function") {
+        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
+        const bloque = documento.createElement("div");
+        contenedor.append(bloque);
+        const desmontarFormulario = desmontarIncorporacionEjercicio;
+        let urlFicha = null;
+        const liberarFicha = () => {
+          if (urlFicha !== null) entornoDescarga.URL.revokeObjectURL(urlFicha);
+          urlFicha = null;
+        };
+        const desmontarFicha = montarFichaGINPIX({
+          raiz: bloque, cliente: clienteLlamamiento, recibo: preparacion.recibo, mensajes,
+          descargarArchivo: (archivo, nombre) => {
+            if (!montada || !raiz.contains(contenedor)) return;
+            const BlobImpl = entornoDescarga.Blob ?? globalThis.Blob;
+            const enlace = documento.createElement("a");
+            liberarFicha();
+            urlFicha = entornoDescarga.URL.createObjectURL(new BlobImpl([archivo.contenido], { type: "application/json" }));
+            try {
+              enlace.href = urlFicha; enlace.download = nombre; enlace.hidden = true;
+              documento.body.append(enlace); enlace.click();
+            } finally {
+              enlace.remove(); setTimeout(liberarFicha, 0);
+            }
+          },
+        });
+        desmontarIncorporacionEjercicio = () => {
+          desmontarFicha(); liberarFicha(); desmontarFormulario();
+        };
+      }
     } catch (error) {
       if (!vigente()) return;
       const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);

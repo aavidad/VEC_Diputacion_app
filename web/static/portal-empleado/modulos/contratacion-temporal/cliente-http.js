@@ -17,6 +17,7 @@ import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO, prefijoErrorLlamamiento, conflictoLlamamientoValido } from "./cliente-http-llamamiento.js";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
+import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -33,6 +34,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     ...RUTAS_LLAMAMIENTO,
     resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
     incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
+    fichaGINPIX: RUTA_FICHA_GINPIX,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -295,6 +297,7 @@ async function leerJSONAcotado(
   signal,
   maximoBytes,
   maximoFragmentos,
+  conservarBytes = false,
 ) {
   validarTipoJSON(respuesta);
   const declarada = longitudDeclarada(respuesta, maximoBytes);
@@ -364,7 +367,7 @@ async function leerJSONAcotado(
       if (JSON.stringify(valor) !== texto) {
         throw new TypeError("JSON no canónico");
       }
-      return valor;
+      return conservarBytes ? { valor, bytes } : valor;
     } catch (error) {
       throw errorCliente("respuesta_json_no_valida", {
         estado: respuesta.status,
@@ -414,7 +417,9 @@ function claveI18nValida(ruta, codigo, clave) {
       "servicio_no_disponible",
     ].includes(codigo);
   }
-  const prefijo = ruta.split("?")[0] === RUTA_INCORPORACION_EJERCICIO
+  const prefijo = ruta.split("?")[0] === RUTA_FICHA_GINPIX
+    ? "api.contratacion_temporal.ficha_ginpix.error."
+    : ruta.split("?")[0] === RUTA_INCORPORACION_EJERCICIO
     ? "api.contratacion_temporal.incorporacion_ejercicio.error."
     : ruta.split("?")[0] === RUTA_RESOLUCION_FORMALIZACION
     ? "api.contratacion_temporal.resolucion_formalizacion.error."
@@ -432,6 +437,9 @@ function claveI18nValida(ruta, codigo, clave) {
 }
 
 function codigoValidoParaRuta(ruta, estado, codigo) {
+  if (ruta.split("?")[0] === RUTA_FICHA_GINPIX && estado === 409) {
+    return codigo === "recibo_no_confirmado";
+  }
   if (ruta === RUTA_RESOLUCION_FORMALIZACION && estado === 409) {
     return ["conflicto", "version_en_conflicto", "clave_idempotencia_reutilizada"].includes(codigo);
   }
@@ -546,8 +554,12 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     efecto,
     rechazoDeterminado,
     tipoContenido,
+    fichero = false,
   }) {
     if (metodo !== "GET" && metodo !== "POST") {
+      throw errorCliente("metodo_no_valido");
+    }
+    if (fichero && (metodo !== "GET" || ruta.split("?")[0] !== RUTA_FICHA_GINPIX)) {
       throw errorCliente("metodo_no_valido");
     }
     const conCuerpo = metodo === "POST";
@@ -608,14 +620,19 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       }
       let validada;
       try {
+        if (fichero && ![
+          `attachment; filename=${NOMBRE_FICHA_GINPIX}`,
+          `attachment; filename="${NOMBRE_FICHA_GINPIX}"`,
+        ].includes(respuesta.headers?.get?.("content-disposition"))) {
+          throw errorCliente("respuesta_incompatible");
+        }
+        const leida = await leerJSONAcotado(
+          respuesta, signal, maximoRespuesta, MAXIMO_FRAGMENTOS, fichero,
+        );
         validada = validarRespuesta(
-          extraerDatos(await leerJSONAcotado(
-            respuesta,
-            signal,
-            maximoRespuesta,
-            MAXIMO_FRAGMENTOS,
-          )),
+          fichero ? leida.valor : extraerDatos(leida),
           respuesta.status,
+          fichero ? leida.bytes : undefined,
         );
       } catch (error) {
         if (error instanceof ErrorClienteHTTPContratacionTemporal) throw error;
@@ -816,6 +833,12 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones }),
+    ...crearFichaGINPIXClienteHTTP({ validarOpciones, descargar: ({ ruta, signal, maximoRespuesta }) => ejecutar({
+      metodo: "GET", ruta, signal, maximoRespuesta, estadoEsperado: 200, efecto: false, fichero: true,
+      validarRespuesta: (json, _estado, contenido) => ({
+        tipo: "application/json", nombre: NOMBRE_FICHA_GINPIX, json, contenido,
+      }),
+    }) }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
   });
