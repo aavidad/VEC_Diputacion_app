@@ -33,6 +33,8 @@ type lecturaPreparacionV2 struct {
 	detalle     ct.DetalleExpedienteRRHH
 	preparacion ct.PreparacionIncorporacionAplicacionV2
 	recibo      *ct.ReciboIncorporacionAplicacionV2
+	publicacion dom.PublicacionDefinicionSeguimiento
+	posterior   dom.EstadoPersistidoSeguimiento
 	ultimo      time.Time
 }
 
@@ -98,6 +100,9 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		if err != nil {
 			return lecturaPreparacionV2{}, err
 		}
+		// La historia ya fue validada al restaurar el recibo original. Se
+		// conserva su evidencia para la consulta de seguimiento sin releerla.
+		z.publicacion, _, z.posterior = h.Historia.EvidenciaSeguimiento()
 		// La versión del recibo sigue siendo la del commit original, incluso
 		// si el expediente observado ha continuado por otro trámite.
 		return z, nil

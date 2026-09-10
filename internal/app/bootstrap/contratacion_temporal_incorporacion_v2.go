@@ -145,7 +145,7 @@ func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *sopo
 		return nil, err
 	}
 	c, ok := soporte.capacidadValida(ctx)
-	if !ok || (c.ruta != httpinterno.RutaIncorporacionEjercicioV2 && c.ruta != httpinterno.RutaFichaGINPIXV2) {
+	if !ok || (c.ruta != httpinterno.RutaIncorporacionEjercicioV2 && c.ruta != httpinterno.RutaFichaGINPIXV2 && c.ruta != httpinterno.RutaConsultaSeguimientoV2) {
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
 	c.ruta = httpinterno.RutaConsultaDetalleRRHH
