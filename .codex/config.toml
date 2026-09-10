@@ -63,7 +63,21 @@ Documentación y síntesis sustancial: gpt-5.6-sol, medium.
 Tareas mecánicas breves: gpt-5.6-luna, low.
 Arquitectura difícil, SQL/identidad sensibles y bloqueos complejos: gpt-6-astra, high.
 Usa xhigh sólo si una dificultad concreta o una revisión intensa lo justifica.
-El perfil fija modelo y esfuerzo; comprueba que la sesión realmente los utiliza.
+El modelo y el esfuerzo de cada perfil son valores iniciales, no techos.
+El director tiene autorización expresa del operador para elevar esfuerzo o modelo
+sin volver a pedir permiso si detecta razonamiento insuficiente, errores persistentes,
+revisión fallida o dificultad superior a la prevista. Elegir el salto proporcionado:
+Terra/medium a Terra/high si lo admite, y a Astra/high ante dificultad compleja;
+Astra/xhigh si el fallo o la revisión intensa justifican esfuerzo adicional.
+No exigir varios fallos si la dificultad ya es evidente. Un fallo de permisos,
+credenciales, dependencia externa o cuota se resuelve por su causa, no cambiando modelo.
+Registrar brevemente el motivo y comprobar el modelo y esfuerzo reales de la sesión.
+Un perfil con modelo/esfuerzo explícitos puede prevalecer sobre los parámetros de
+creación: actualizar el perfil que se vaya a cargar o usar un especialista con
+configuración explícita que no vuelva a imponer los valores anteriores.
+Una edición de TOML no cambia una sesión que ya está trabajando. Para sustituirla,
+conservar su entrega y archivos, detener al escritor anterior y continuar en una
+sesión con la nueva configuración y contexto suficiente. Mantener un único escritor.
 
 INTEGRACIÓN Y COMMITS
 Sólo este director integra y confirma cambios. Conserva HEAD, índice y WIP ajenos.
@@ -108,7 +122,7 @@ default_subagent_reasoning_effort = "medium"
 [features.multi_agent_v2]
 enabled = true
 max_concurrent_threads_per_session = 12
-subagent_developer_instructions = "Puedes crear subagentes a demanda y transmitir esa capacidad a tus descendientes. Lee .agents/skills/orquestar-vec/SKILL.md; asigna modelo, esfuerzo y archivos sin solaparlos. Conserva las restricciones y permisos recibidos. Sólo el director principal integra en la rama canónica."
+subagent_developer_instructions = "Puedes crear subagentes a demanda y transmitir esa capacidad a tus descendientes. Lee .agents/skills/orquestar-vec/SKILL.md; asigna modelo, esfuerzo y archivos sin solaparlos. Conserva las restricciones y permisos recibidos. El director puede elevar tu modelo o esfuerzo cuando la dificultad lo requiera, sin consultar de nuevo al operador. Sólo el director principal integra en la rama canónica."
 
 [agents.backend_expedientes]
 description = "Casos de uso y contratos del expediente de Contratación temporal."

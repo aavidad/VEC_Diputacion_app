@@ -270,6 +270,8 @@ Configuración de equipo preparada el 10 de septiembre de 2026 en
 `.codex/config.toml`: director Astra/high, doce perfiles iniciales con modelo y
 esfuerzo explícitos, y siete skills de proyecto bajo `.agents/skills/`.
 Se autoriza delegación recursiva dentro del encargo y los permisos recibidos.
+El director puede elevar modelo o esfuerzo ante dificultad o fallo, sin nueva
+confirmación del operador, conservando el trabajo y verificando la sesión de relevo.
 Carga comprobada en Codex 0.147 con `initialize`, `config/read` y `skills/list`:
 doce perfiles sin error y siete skills detectadas. No se han iniciado modelos
 con este paquete; el usuario nativo `openclaw` aún requiere inicio de sesión.

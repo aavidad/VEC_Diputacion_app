@@ -41,6 +41,30 @@ y parámetros explícitos. Pedir al director que conserve un perfil o skill reut
 cuando aporte conocimiento que todavía no exista. Un revisor de sólo lectura conserva
 esa restricción en todos sus hijos. No ampliar permisos para delegar una acción denegada.
 
+## Elevar capacidad cuando haga falta
+
+Tratar los modelos de los perfiles como puntos de partida. El director está autorizado
+para subir el esfuerzo o cambiar a un modelo más capaz sin nueva confirmación del usuario.
+Escalar ante razonamiento insuficiente, errores persistentes, hallazgos no resueltos o
+una complejidad que ya sea evidente; no imponer una cuota de intentos fallidos.
+
+Elegir una mejora proporcionada: Terra/medium a Terra/high cuando esté disponible;
+Astra/high para arquitectura o problemas complejos; Astra/xhigh ante dificultad
+concreta o revisión intensa. Verificar que el modelo elegido admite ese esfuerzo.
+Una falta de permisos, credenciales, datos o cuota necesita resolver su causa.
+
+Conservar archivos y conclusiones antes del relevo. Detener al escritor anterior antes
+de asignar esos archivos a su sustituto. Pasar objetivo, contexto mínimo, evidencia
+del fallo y aceptación. Comprobar en la nueva sesión qué modelo/esfuerzo se aplicaron.
+
+El TOML de un perfil puede prevalecer sobre opciones explícitas al crear el agente.
+Cambiar el perfil antes de cargarlo o usar una configuración especializada adecuada.
+No afirmar que editar el fichero haya modificado una sesión existente. Si la herramienta
+requiere contexto aislado para cambiar de modelo, proporcionar sólo el contexto necesario.
+Registrar el motivo del cambio y revisar el resultado; el nuevo modelo conserva los
+permisos y el ámbito del anterior. Volver a un modelo menor para encargos posteriores
+que sean más sencillos cuando resulte conveniente.
+
 ## Reunir e integrar
 
 El padre responde por sus hijos. El director principal integra en la única rama
