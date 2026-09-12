@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -98,6 +99,7 @@ func (s *ServicioContactoUsuario) Guardar(ctx context.Context, solicitud ports.S
 	if err != nil || !reciboValido(recibo, preparacion, material.ResumenCapacidad().DecisionRef()) {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioNoDisponible
 	}
+	recibo.EvidenciaCentral.JSONOriginal = bytes.Clone(recibo.EvidenciaCentral.JSONOriginal)
 	return recibo, nil
 }
 
@@ -389,18 +391,199 @@ func concesionContactoValida(m ports.ExportacionMaterialConsumoAutorizacionAtest
 func materialAccesoLigado(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, s ports.SolicitudAccesoContactoUsuario, ahora time.Time) bool {
 	return concesionContactoValida(m, s.Solicitud, s.Decision, s.Confirmacion, s.ResultadoContexto, s.ContextoActor, AccionConsultarContactoUsuario, s.Recurso, s.Audiencia, s.FinalidadRef, ahora)
 }
+
+// proyeccionCentralContacto sólo se usa para cotejar campos; nunca se
+// reserializa ni se convierte en una AuditEntry con firma trasladada.
+type proyeccionCentralContacto struct {
+	ID                   string            `json:"id"`
+	Seq                  uint64            `json:"seq"`
+	IntegrityAlgorithm   string            `json:"integrity_algorithm"`
+	PrevSignature        string            `json:"prev_signature"`
+	Signature            string            `json:"signature"`
+	ActorID              string            `json:"actor_id"`
+	ActorProfile         string            `json:"actor_profile"`
+	ActorRoles           []string          `json:"actor_roles"`
+	RepresentedSubjectID string            `json:"represented_subject_id"`
+	AuthMethod           string            `json:"auth_method"`
+	AuthAssurance        string            `json:"auth_assurance"`
+	AuthorizationRef     string            `json:"authorization_ref"`
+	Purpose              string            `json:"purpose"`
+	Action               string            `json:"action"`
+	ModuleID             string            `json:"module_id"`
+	SubjectRef           string            `json:"subject_ref"`
+	ObjectVersion        uint64            `json:"object_version"`
+	ExpedienteRef        string            `json:"expediente_ref"`
+	DocumentRef          string            `json:"document_ref"`
+	RuleRef              string            `json:"rule_ref"`
+	Reason               string            `json:"reason"`
+	Result               string            `json:"result"`
+	BeforeHash           string            `json:"before_hash"`
+	AfterHash            string            `json:"after_hash"`
+	CorrelationRef       string            `json:"correlation_ref"`
+	Metadata             map[string]string `json:"metadata"`
+	OccurredAt           string            `json:"occurred_at"`
+}
+
 func reciboValido(r ports.ReciboContactoUsuario, p ports.PreparacionRegistroContactoUsuario, decisionRef string) bool {
-	a := clonarAuditoria(r.Auditoria)
-	if r.SujetoRef != p.SujetoRef || r.Version != p.VersionNueva || a.ID == "" || a.Seq <= 0 || a.Signature == "" || a.IntegrityAlgorithm == "" || !textoSeguro(decisionRef) || a.AuthorizationRef != decisionRef {
+	negocio, err := PayloadNegocioContactoUsuario(p)
+	if err != nil || !bytes.Equal(negocio, p.PayloadNegocio) {
 		return false
 	}
-	a.AuthorizationRef = ""
-	a.ID = ""
-	a.Seq = 0
-	a.Signature = ""
-	a.IntegrityAlgorithm = ""
-	a.PrevSignature = ""
-	return reflect.DeepEqual(a, p.Auditoria)
+	return evidenciaCentralEsperadaContacto(r, p.SujetoRef, p.VersionNueva, p.Auditoria, p.PayloadNegocio, p.Recurso, decisionRef)
+}
+
+// ValidarEvidenciaCentralRegistroContactoUsuario coteja el recibo original
+// ANTES del COMMIT del adaptador; no acredita por sí mismo I/O ni cadena.
+func ValidarEvidenciaCentralRegistroContactoUsuario(raw []byte, p ports.PreparacionRegistroContactoUsuario, decisionRef, consumoRef, consumoHuella string) (ports.EvidenciaAuditoriaCentralContactoUsuario, error) {
+	e, err := envolverEvidenciaCentralContacto(raw)
+	if err != nil {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, err
+	}
+	r := ports.ReciboContactoUsuario{SujetoRef: p.SujetoRef, Version: p.VersionNueva, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella, EvidenciaCentral: e}
+	if !reciboValido(r, p, decisionRef) {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, ErrContactoUsuarioNoDisponible
+	}
+	return e, nil
+}
+
+// ValidarEvidenciaCentralConsultaContactoUsuario exige el resultado auditado
+// del selector exacto antes de confirmar la lectura y abrir el sobre. La
+// revocación fresca posterior al descifrado sigue perteneciendo al adaptador.
+func ValidarEvidenciaCentralConsultaContactoUsuario(raw []byte, s ports.SolicitudAccesoContactoUsuario, consumoRef, consumoHuella string) (ports.EvidenciaAuditoriaCentralContactoUsuario, error) {
+	if s.Material.ValidarEstructura() != nil || !payloadConsultaValido(s) {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, ErrContactoUsuarioNoDisponible
+	}
+	e, err := envolverEvidenciaCentralContacto(raw)
+	if err != nil {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, err
+	}
+	r := ports.ReciboContactoUsuario{SujetoRef: s.SujetoRef, Version: s.Version, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella, EvidenciaCentral: e}
+	if !evidenciaCentralEsperadaContacto(r, s.SujetoRef, s.Version, s.Auditoria, s.PayloadNegocio, s.Recurso, s.Material.ResumenCapacidad().DecisionRef()) {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, ErrContactoUsuarioNoDisponible
+	}
+	return e, nil
+}
+func envolverEvidenciaCentralContacto(raw []byte) (ports.EvidenciaAuditoriaCentralContactoUsuario, error) {
+	if len(raw) < 2 || len(raw) > 16384 {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, ErrContactoUsuarioNoDisponible
+	}
+	campos, err := objetoCentralContacto(raw)
+	var ref string
+	if err != nil || json.Unmarshal(campos["id"], &ref) != nil {
+		return ports.EvidenciaAuditoriaCentralContactoUsuario{}, ErrContactoUsuarioNoDisponible
+	}
+	h := sha256.Sum256(raw)
+	return ports.EvidenciaAuditoriaCentralContactoUsuario{JSONOriginal: bytes.Clone(raw), Referencia: ref, HuellaJSONSHA256: hex.EncodeToString(h[:])}, nil
+}
+func evidenciaCentralEsperadaContacto(r ports.ReciboContactoUsuario, sujeto string, version uint64, a domain.AuditEntry, negocio []byte, recursoEsperado domain.RecursoAutorizable, decisionRef string) bool {
+	if r.SujetoRef != sujeto || r.Version != version || !textoSeguro(decisionRef) || !hexContacto(r.ConsumoHuellaSHA256, 64) || r.ConsumoHuellaSHA256 == strings.Repeat("0", 64) || r.ConsumoRef != "aud_v3_"+r.ConsumoHuellaSHA256[:32] {
+		return false
+	}
+	original := r.EvidenciaCentral.JSONOriginal
+	if len(original) < 2 || len(original) > 16384 || !hexContacto(r.EvidenciaCentral.HuellaJSONSHA256, 64) {
+		return false
+	}
+	h := sha256.Sum256(original)
+	if hex.EncodeToString(h[:]) != r.EvidenciaCentral.HuellaJSONSHA256 {
+		return false
+	}
+	campos, err := objetoCentralContacto(original)
+	tipo := reflect.TypeOf(proyeccionCentralContacto{})
+	if err != nil || len(campos) != tipo.NumField() {
+		return false
+	}
+	for i := 0; i < tipo.NumField(); i++ {
+		if _, ok := campos[tipo.Field(i).Tag.Get("json")]; !ok {
+			return false
+		}
+	}
+	var c proyeccionCentralContacto
+	decoder := json.NewDecoder(bytes.NewReader(original))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&c) != nil {
+		return false
+	}
+	metadata, err := objetoCentralContacto(campos["metadata"])
+	if err != nil || len(metadata) != 4 {
+		return false
+	}
+	for _, v := range campos {
+		if bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+			return false
+		}
+	}
+	for _, v := range metadata {
+		if bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+			return false
+		}
+	}
+	if !strings.HasPrefix(c.ID, "acc_") || !hexContacto(strings.TrimPrefix(c.ID, "acc_"), 40) || c.ID != r.EvidenciaCentral.Referencia || c.Seq == 0 || c.Seq > 1<<53-1 || c.IntegrityAlgorithm != "sha256-chain-v1" || !hexContacto(c.Signature, 64) || !hexContacto(c.PrevSignature, 64) {
+		return false
+	}
+	material := sha256.Sum256(negocio)
+	recurso, err := recursoEsperado.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		return false
+	}
+	// Se coteja la semántica de la preparación con las transformaciones exactas
+	// que T13/6 realiza antes de encadenar. No se retoca la evidencia recibida.
+	return a.AuthorizationRef == "" && a.Result == "accepted" &&
+		c.ActorID == a.ActorID && c.ActorProfile == a.ActorProfile && reflect.DeepEqual(c.ActorRoles, a.ActorRoles) &&
+		c.RepresentedSubjectID == "" && c.AuthMethod == string(a.AuthMethod) && c.AuthAssurance == string(a.AuthAssurance) &&
+		c.AuthorizationRef == decisionRef && c.Purpose == a.Purpose && c.Action == a.Action && c.ModuleID == a.ModuleID &&
+		c.SubjectRef == sujeto && c.ObjectVersion == version && c.ExpedienteRef == "" && c.DocumentRef == "" && c.RuleRef == "" && c.Reason == "" &&
+		c.Result == "permitido" && c.BeforeHash == "" && c.AfterHash == hex.EncodeToString(material[:]) && c.CorrelationRef == a.CorrelationRef &&
+		c.OccurredAt == a.OccurredAt.UTC().Format("2006-01-02T15:04:05.000000Z") &&
+		c.Metadata["consumo_ref"] == r.ConsumoRef && c.Metadata["consumo_huella_sha256"] == r.ConsumoHuellaSHA256 &&
+		c.Metadata["material_sha256"] == c.AfterHash && c.Metadata["contexto_recurso_sha256"] == recurso
+}
+
+// objetoCentralContacto rechaza claves duplicadas, objetos incompletos,
+// valores exteriores y entradas sobrantes sin normalizar los bytes originales.
+func objetoCentralContacto(b []byte) (map[string]json.RawMessage, error) {
+	d := json.NewDecoder(bytes.NewReader(b))
+	t, err := d.Token()
+	if err != nil || t != json.Delim('{') {
+		return nil, ErrContactoUsuarioNoDisponible
+	}
+	campos := make(map[string]json.RawMessage)
+	for d.More() {
+		t, err := d.Token()
+		if err != nil {
+			return nil, ErrContactoUsuarioNoDisponible
+		}
+		k, ok := t.(string)
+		if !ok {
+			return nil, ErrContactoUsuarioNoDisponible
+		}
+		if _, existe := campos[k]; existe {
+			return nil, ErrContactoUsuarioNoDisponible
+		}
+		var v json.RawMessage
+		if d.Decode(&v) != nil {
+			return nil, ErrContactoUsuarioNoDisponible
+		}
+		campos[k] = v
+	}
+	t, err = d.Token()
+	if err != nil || t != json.Delim('}') {
+		return nil, ErrContactoUsuarioNoDisponible
+	}
+	if _, err = d.Token(); err != io.EOF {
+		return nil, ErrContactoUsuarioNoDisponible
+	}
+	return campos, nil
+}
+func hexContacto(s string, n int) bool {
+	if len(s) != n {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func clonarAccesoContacto(s ports.SolicitudAccesoContactoUsuario) ports.SolicitudAccesoContactoUsuario {

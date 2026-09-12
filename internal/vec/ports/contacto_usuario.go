@@ -43,10 +43,25 @@ type OrdenRegistroContactoUsuario struct {
 	Material    ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
+// EvidenciaAuditoriaCentralContactoUsuario conserva la respuesta central
+// original. Signature pertenece a la cadena central y NO firma estos bytes
+// JSON ni la AuditEntry preparada. HuellaJSONSHA256 sólo protege el transporte;
+// verificar la cadena exige el registro canónico y su ancla en la autoridad.
+type EvidenciaAuditoriaCentralContactoUsuario struct {
+	JSONOriginal     []byte
+	Referencia       string
+	HuellaJSONSHA256 string
+}
+
+// ReciboContactoUsuario mantiene separados el resultado central original y
+// la preparación previa. Los datos de consumo proceden de la misma transacción
+// autoritativa que registra el contacto y su evidencia central.
 type ReciboContactoUsuario struct {
-	SujetoRef string
-	Version   uint64
-	Auditoria domain.AuditEntry
+	SujetoRef           string
+	Version             uint64
+	ConsumoRef          string
+	ConsumoHuellaSHA256 string
+	EvidenciaCentral    EvidenciaAuditoriaCentralContactoUsuario
 }
 
 type SobreContactoUsuario struct {
