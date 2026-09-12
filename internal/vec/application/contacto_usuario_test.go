@@ -542,3 +542,51 @@ func TestContactoValidadoresCentralesAntesDeConfirmarRegistroYLectura(t *testing
 		})
 	}
 }
+
+func TestContactoConstructorConservaRelojNativoCanonicoParaVinculoV2(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	// Nueva instancia normal: no se sustituye ni inyecta s.ahora. El emisor V3
+	// real del entorno conserva su prueba positiva separada con fecha fija.
+	s, err := NuevoServicioContactoUsuario(e.servicio.auditoria, e.servicio.protector, e.servicio.autorizador, e.servicio.registro)
+	contactoExigir(t, err)
+	ahora := s.ahora()
+	if ahora.Location() != time.UTC || ahora.Nanosecond()%1000 != 0 {
+		t.Fatal("reloj nativo fuera del contrato UTC/microsegundos")
+	}
+	resultado := resultadoContextoAutorizacionV3AlternativoPrueba(t, ahora)
+	solicitudContexto := solicitudServicioContextoActorPrueba()
+	solicitudContexto.PerfilActivoRef = resultado.Contexto.PerfilActivoRef
+	autenticacion := domain.AutenticacionRevalidadaV1{
+		AutenticacionRef:             referenciaServicioContextoActorPrueba("aut_", "a"),
+		AutenticacionHuellaSHA256:    strings.Repeat("1", 64),
+		AsercionRef:                  referenciaServicioContextoActorPrueba("ase_", "s"),
+		SesionRef:                    referenciaServicioContextoActorPrueba("ses_", "e"),
+		ControlSesionRef:             referenciaServicioContextoActorPrueba("cse_", "c"),
+		ControlSesionRevision:        2,
+		ControlSesionHuellaSHA256:    strings.Repeat("2", 64),
+		CuentaRef:                    solicitudContexto.Cuenta.CuentaRef,
+		CuentaOrdinariaRef:           solicitudContexto.Cuenta.CuentaRef,
+		Superficie:                   domain.SuperficieAutenticacionInternaCorporativaV1,
+		MetodoObservado:              solicitudContexto.Cuenta.Metodo,
+		GarantiaObservada:            solicitudContexto.Cuenta.Garantia,
+		PoliticaGarantiaRef:          referenciaServicioContextoActorPrueba("pga_", "g"),
+		PoliticaGarantiaHuellaSHA256: strings.Repeat("3", 64),
+		AutenticacionVerificadaEn:    ahora.Add(-10 * time.Minute),
+		SesionEmitidaEn:              ahora.Add(-9 * time.Minute),
+		SesionRevalidadaEn:           ahora.Add(-3 * time.Minute),
+		SesionValidaHasta:            ahora.Add(20 * time.Minute),
+	}
+	vinculo, err := domain.CrearVinculoAutenticacionActorV2(context.Background(), &revalidadorVinculoAplicacionAdversarial{resultado: autenticacion}, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: autenticacion.AutenticacionRef, SesionRef: autenticacion.SesionRef}, resolutorContextoAutorizacionV3Prueba{resultado: resultado}, solicitudContexto, &relojAutorizacionServicioPrueba{ahora: ahora})
+	contactoExigir(t, err)
+	base := e.solicitud.SolicitudBase
+	base.VinculoAutenticacionActor = vinculo
+	nominal, err := domain.NuevaSolicitudAutorizacionLigadaV3(base)
+	contactoExigir(t, err)
+	if !contextoContactoValido(nominal, resultado, resultado.Contexto, s.ahora()) {
+		t.Fatal("reloj del constructor no alcanza la validación nominal del servicio")
+	}
+	// La aceptación anterior depende del contrato, no de relajar el dominio.
+	if vinculo.VigenteEn(ahora.Add(time.Nanosecond), resultado) || vinculo.VigenteEn(ahora.In(time.FixedZone("local-prueba", 3600)), resultado) {
+		t.Fatal("el dominio admitió un instante no canónico")
+	}
+}

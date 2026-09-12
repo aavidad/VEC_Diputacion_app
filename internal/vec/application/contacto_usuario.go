@@ -39,7 +39,7 @@ func NuevoServicioContactoUsuario(auditoria ports.PreparadorAuditoriaContactoUsu
 	if nulo(auditoria) || nulo(protector) || nulo(autorizador) || nulo(registro) {
 		return nil, ErrContactoUsuarioNoDisponible
 	}
-	return &ServicioContactoUsuario{auditoria: auditoria, protector: protector, autorizador: autorizador, registro: registro, ahora: time.Now}, nil
+	return &ServicioContactoUsuario{auditoria: auditoria, protector: protector, autorizador: autorizador, registro: registro, ahora: func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }}, nil
 }
 
 func NuevoServicioContactoUsuarioConLectura(auditoria ports.PreparadorAuditoriaContactoUsuario, protector ports.ProtectorContactoUsuario, autorizador ports.AutorizadorContactoUsuario, registro ports.RegistroContactoUsuario, lector ports.ResolutorContactoUsuarioAutorizado) (*ServicioContactoUsuario, error) {
