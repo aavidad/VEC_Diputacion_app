@@ -447,6 +447,13 @@ export function crearCoordinadorModulosPortal({
               artefacto_ref: configuracionAnalisis.artefacto_ref,
             }),
             analisisInicial: null,
+            ...(configuracionAnalisis.motivos_rectificacion.length > 0 ? {
+              rectificacion: Object.freeze({
+                operacion: "rectificar",
+                artefacto_ref: configuracionAnalisis.artefacto_ref,
+                analisisInicial: null,
+              }),
+            } : {}),
           });
         } catch {
           if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");

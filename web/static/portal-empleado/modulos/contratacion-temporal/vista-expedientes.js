@@ -32,12 +32,18 @@ import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_COMPOSICION_ANALISIS = Object.freeze([
+  "cliente", "catalogos", "contexto", "analisisInicial", "rectificacion",
+]);
+const CAMPOS_COMPOSICION_ANALISIS_OBLIGATORIOS = Object.freeze([
   "cliente", "catalogos", "contexto", "analisisInicial",
 ]);
 const CAMPOS_CONTEXTO_ANALISIS = Object.freeze(["operacion", "artefacto_ref"]);
+const CAMPOS_RECTIFICACION_ANALISIS = Object.freeze([
+  "operacion", "artefacto_ref", "analisisInicial",
+]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
-function descriptoresCerrados(entrada, campos, nombre) {
+function descriptoresCerrados(entrada, campos, nombre, obligatorios = campos) {
   if (entrada === null || typeof entrada !== "object" || Array.isArray(entrada)
     || Object.getPrototypeOf(entrada) !== Object.prototype) {
     throw new TypeError(`${nombre} no válida`);
@@ -50,7 +56,7 @@ function descriptoresCerrados(entrada, campos, nombre) {
       || descriptores[clave].enumerable !== true)) {
     throw new TypeError(`${nombre} no válida`);
   }
-  if (campos.some((campo) => !Object.hasOwn(descriptores, campo))) return null;
+  if (obligatorios.some((campo) => !Object.hasOwn(descriptores, campo))) return null;
   return descriptores;
 }
 
@@ -60,6 +66,7 @@ function prepararComposicionAnalisis(entrada) {
     entrada,
     CAMPOS_COMPOSICION_ANALISIS,
     "composición del análisis",
+    CAMPOS_COMPOSICION_ANALISIS_OBLIGATORIOS,
   );
   if (descriptores === null) return null;
   const contextoEntrada = descriptores.contexto.value;
@@ -75,6 +82,28 @@ function prepararComposicionAnalisis(entrada) {
   const artefactoRef = contextoDescriptores.artefacto_ref.value;
   const cliente = descriptores.cliente.value;
   const catalogos = descriptores.catalogos.value;
+  let rectificacion = null;
+  if (Object.hasOwn(descriptores, "rectificacion")) {
+    const entradaRectificacion = descriptores.rectificacion.value;
+    const descriptoresRectificacion = descriptoresCerrados(
+      entradaRectificacion,
+      CAMPOS_RECTIFICACION_ANALISIS,
+      "composición de rectificación del análisis",
+    );
+    if (descriptoresRectificacion === null
+      || descriptoresRectificacion.operacion.value !== "rectificar"
+      || descriptoresRectificacion.artefacto_ref.value !== artefactoRef
+      || descriptoresRectificacion.analisisInicial.value !== null) return null;
+    let metodoRectificacion;
+    try { metodoRectificacion = cliente?.rectificarAnalisis; } catch { return null; }
+    if (typeof metodoRectificacion !== "function") return null;
+    rectificacion = Object.freeze({
+      operacion: "rectificar",
+      artefacto_ref: artefactoRef,
+      analisisInicial: null,
+      metodoCliente: metodoRectificacion,
+    });
+  }
   const metodo = operacion === "rectificar" ? "rectificarAnalisis" : "registrarAnalisis";
   let metodoCliente;
   try { metodoCliente = cliente?.[metodo]; } catch { return null; }
@@ -91,6 +120,7 @@ function prepararComposicionAnalisis(entrada) {
     catalogos,
     contexto: Object.freeze({ operacion, artefacto_ref: artefactoRef }),
     analisisInicial: descriptores.analisisInicial.value,
+    rectificacion,
   });
 }
 
@@ -128,13 +158,21 @@ function crearClienteAnalisisCercado(
   alConfirmar,
   alErrorConfirmado = () => {},
 ) {
+  const nombreMetodo = contexto.operacion === "rectificar"
+    ? "rectificarAnalisis" : "registrarAnalisis";
+  const metodoCliente = contexto.operacion === composicion.contexto.operacion
+    ? composicion.metodoCliente
+    : composicion.rectificacion?.metodoCliente;
+  if (typeof metodoCliente !== "function") {
+    throw new TypeError("método de análisis no disponible");
+  }
   const invocar = function invocarAnalisis(solicitud, opciones) {
     const vuelo = Object.freeze({});
     cambiarEtapa("transmitiendo", vuelo);
     let resultado;
     try {
       resultado = Reflect.apply(
-        composicion.metodoCliente,
+        metodoCliente,
         composicion.cliente,
         [solicitud, opciones],
       );
@@ -168,7 +206,7 @@ function crearClienteAnalisisCercado(
       throw clasificado.error;
     });
   };
-  return Object.freeze({ [composicion.nombreMetodo]: invocar });
+  return Object.freeze({ [nombreMetodo]: invocar });
 }
 
 function renderizarNavegacion(estado, t) {
@@ -339,6 +377,31 @@ function contextoCoberturaDesdeEstado(estado) {
   });
 }
 
+function contextoRectificacionAnalisisDesdeEstado(estado) {
+  if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
+    || estado.cuadro?.demostracion !== false || !Array.isArray(estado.cuadro.expedientes)
+    || estado.expediente.demostracion !== false || estado.expediente.version < 2
+    || !Array.isArray(estado.expediente.cabecera)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === estado.expediente.expediente_ref
+  ));
+  const analisisConfirmado = estado.expediente.cabecera.some(({ clave, valor }) => (
+    clave === "resultado_rc" && typeof valor === "string" && valor !== ""
+  ));
+  if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
+    || resumen.version !== estado.expediente.version || !analisisConfirmado) {
+    return null;
+  }
+  const claves = new Set(estado.expediente.cabecera.map(({ clave }) => clave));
+  if (!claves.has("resultado_rc") || claves.has("via_cobertura")
+    || claves.has("decision_gobernada") || claves.has("unidad")) return null;
+  return Object.freeze({
+    operacion: "rectificar",
+    expediente_ref: estado.expediente.expediente_ref,
+    version_esperada: estado.expediente.version,
+  });
+}
+
 export function renderizarModuloContratacionTemporal(estado, {
   mensajes = {},
   locale = "es-ES",
@@ -388,10 +451,15 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoCobertura = coberturaDisponible
       ? contextoCoberturaDesdeEstado(estado)
       : null;
+    const contextoRectificacion = analisisDisponible
+      ? contextoRectificacionAnalisisDesdeEstado(estado)
+      : null;
     const contextoFiscalizacion = fiscalizacionDisponible
       ? contextoFiscalizacionDesdeEstado(estado)
       : null;
-    contenido = `${detalle}${contextoCobertura
+    contenido = `${detalle}${contextoRectificacion
+      ? '<div data-ct-exp-rectificacion></div>'
+      : ""}${contextoCobertura
       ? '<div data-ct-exp-cobertura></div>'
       : ""}${contextoAsignacion
       ? '<div data-ct-exp-asignacion></div>'
@@ -465,6 +533,11 @@ export async function montarModuloContratacionTemporal({
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
   const composicionAnalisis = prepararComposicionAnalisis(analisis);
+  const rectificacionDisponible = composicionAnalisis !== null
+    && composicionAnalisis.rectificacion !== null
+    && Array.isArray(composicionAnalisis.catalogos.motivos_rectificacion)
+    && composicionAnalisis.catalogos.motivos_rectificacion.length > 0
+    && typeof composicionAnalisis.rectificacion.metodoCliente === "function";
   const coberturaDisponible = composicionAnalisis !== null
     && typeof composicionAnalisis.cliente.proponerCobertura === "function"
     && typeof composicionAnalisis.cliente.decidirCobertura === "function"
@@ -1334,6 +1407,27 @@ export async function montarModuloContratacionTemporal({
     const estado = presentador.obtenerEstado();
     if (!montada || estado.vista !== "expediente" || composicionAnalisis === null
       || estado.carga !== "listo" || estado.expediente === null) return null;
+    const rectificacion = contextoRectificacionAnalisisDesdeEstado(estado);
+    if (rectificacion !== null) {
+      const contenedor = raiz.querySelector("[data-ct-exp-rectificacion]");
+      if (!contenedor) return null;
+      if (!rectificacionDisponible) {
+        const t = crearTraductorContratacionTemporal(mensajes);
+        contenedor.innerHTML = `<section class="ct-alcance" role="status" aria-live="polite">
+          <h3>${escaparHTML(t("analisis_rectificacion_configuracion_pendiente_titulo"))}</h3>
+          <p>${escaparHTML(t("analisis_rectificacion_configuracion_pendiente_descripcion"))}</p>
+        </section>`;
+        return true;
+      }
+      return montarAnalisisEnContenedor(
+        contenedor,
+        Object.freeze({
+          ...rectificacion,
+          artefacto_ref: composicionAnalisis.rectificacion.artefacto_ref,
+        }),
+        null,
+      );
+    }
     const contexto = Object.freeze({
       operacion: composicionAnalisis.contexto.operacion,
       expediente_ref: estado.expediente.expediente_ref,
