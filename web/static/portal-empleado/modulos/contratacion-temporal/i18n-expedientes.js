@@ -22,6 +22,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   estado_listo: "Cuadro de contratación temporal actualizado.",
   estado_vacio: "No hay expedientes que coincidan con los filtros.",
   estado_error_carga: "No se pudo cargar el cuadro. Reintente o contacte con soporte.",
+  estado_error_filtros: "Revise los filtros: el texto admite hasta 80 caracteres. Use letras, números, espacios o los signos / . _ -.",
   estado_error_paginacion: "La consulta se ha interrumpido; no es el final de la lista. Reiniciar consulta o Reintentar vuelve a la primera página y conserva los filtros.",
   estado_denegado: "No dispone de acceso a esta superficie.",
   estado_denegado_expediente: "No dispone de acceso al detalle del expediente.",

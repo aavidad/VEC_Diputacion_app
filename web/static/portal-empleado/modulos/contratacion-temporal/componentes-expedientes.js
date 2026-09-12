@@ -112,7 +112,7 @@ export function renderizarCuadro(estado, t) {
     <label>
       <span>${escaparHTML(t("filtro_texto"))}</span>
       <input type="search" name="texto" value="${escaparHTML(estado.filtros.texto)}"
-        placeholder="${escaparHTML(t("filtro_texto_placeholder"))}">
+        maxlength="80" placeholder="${escaparHTML(t("filtro_texto_placeholder"))}">
     </label>
     <label>
       <span>${escaparHTML(t("filtro_estado"))}</span>

@@ -6,7 +6,10 @@ import { renderizarCuadro } from "./componentes-expedientes.js";
 import { validarCuadroContratacionTemporal } from "./contrato-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
-import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
+import {
+  montarModuloContratacionTemporal,
+  renderizarModuloContratacionTemporal,
+} from "./vista-expedientes.js";
 
 const CURSOR_B = "A".repeat(43);
 const CURSOR_C = "B".repeat(42) + "E";
@@ -319,4 +322,40 @@ test("cancelar una continuación impide reutilizar su cursor y no altera version
   const html = renderizarCuadro(presentador.obtenerEstado(), crearTraductorExpedientesContratacion());
   assert.match(html, /data-ct-exp-pagina="siguiente"\s+disabled/u);
   assert.match(html, /Reiniciar consulta/u);
+});
+
+test("el envío de filtro inválido conserva el cuadro y se presenta sin rechazar", async () => {
+  const eventos = new Map();
+  const mensaje = { textContent: "", setAttribute() {} };
+  const raiz = {
+    innerHTML: "",
+    addEventListener: (tipo, fn) => eventos.set(tipo, fn),
+    removeEventListener: (tipo) => eventos.delete(tipo),
+    querySelector: () => mensaje,
+    contains: () => true,
+  };
+  let consultas = 0;
+  const fuente = {
+    async listar() { consultas += 1; return cuadro({ pagina: 1, cursor: "", sufijo: "1" }); },
+    async obtener() { throw new Error("no se debe abrir detalle"); },
+    async ejecutar() { throw new Error("no se debe ejecutar efecto"); },
+  };
+  const presentador = crearPresentadorExpedientesContratacionTemporal({
+    fuente, capacidades: ["contratacion_temporal.cuadro.consultar"],
+  });
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.formulario = formulario; } get(campo) { return this.formulario.valores[campo]; } };
+  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
+  try {
+    await eventos.get("submit")({
+      preventDefault() {},
+      target: { closest: () => ({ valores: { texto: "A".repeat(81), estado: "", fase: "" } }) },
+    });
+    assert.equal(consultas, 1);
+    assert.equal(presentador.obtenerEstado().cuadro.expedientes[0].expediente_ref, "expediente:ct:pag-1");
+    assert.match(mensaje.textContent, /hasta 80 caracteres/u);
+  } finally {
+    montaje.desmontar();
+    globalThis.FormData = anterior;
+  }
 });

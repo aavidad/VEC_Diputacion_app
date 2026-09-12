@@ -1358,14 +1358,23 @@ export async function montarModuloContratacionTemporal({
     evento.preventDefault();
     if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
     const datos = new FormData(formulario);
-    const promesa = presentador.cargar({
-      texto: String(datos.get("texto") ?? "").trim(),
-      estado: String(datos.get("estado") ?? ""),
-      fase: String(datos.get("fase") ?? ""),
-    });
-    repintar("[data-ct-exp-mensaje]");
-    await promesa;
-    repintar("[data-ct-exp-filtros]");
+    try {
+      const promesa = presentador.cargar({
+        texto: String(datos.get("texto") ?? "").trim(),
+        estado: String(datos.get("estado") ?? ""),
+        fase: String(datos.get("fase") ?? ""),
+      });
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar("[data-ct-exp-filtros]");
+    } catch {
+      const mensaje = crearTraductorExpedientesContratacion(mensajes)("estado_error_filtros");
+      const destino = raiz.querySelector("[data-ct-exp-mensaje]");
+      destino?.setAttribute?.("role", "alert");
+      destino?.setAttribute?.("aria-live", "polite");
+      if (destino) destino.textContent = mensaje;
+      anunciar(mensaje, "error");
+    }
   }
 
   raiz.addEventListener("click", manejarClick);
