@@ -319,12 +319,20 @@ function contextoAsignacionDesdeEstado(estado) {
 
 function contextoCoberturaDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
-    || estado.cuadro?.demostracion !== false || !Array.isArray(estado.cuadro.expedientes)) return null;
+    || estado.cuadro?.demostracion !== false || estado.expediente.demostracion !== false
+    || !Array.isArray(estado.cuadro.expedientes) || !Array.isArray(estado.expediente.cabecera)) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === estado.expediente.expediente_ref
   ));
-  if (resumen?.fase_clave !== "analisis" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version || resumen.version < 2) return null;
+  const analisisConfirmado = estado.expediente.cabecera.some(({ clave, valor }) => (
+    clave === "resultado_rc" && typeof valor === "string" && valor !== ""
+  ));
+  const coberturaOAsignacionExistente = estado.expediente.cabecera.some(({ clave }) => (
+    clave === "via_cobertura" || clave === "decision_gobernada" || clave === "unidad"
+  ));
+  if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
+    || resumen.version !== estado.expediente.version || resumen.version < 2
+    || !analisisConfirmado || coberturaOAsignacionExistente) return null;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
