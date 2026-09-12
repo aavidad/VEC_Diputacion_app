@@ -272,6 +272,8 @@ function crearRaizModulo() {
   let contenedorAnalisis = null;
   let contenedorRectificacion = null;
   let contenedorCobertura = null;
+  let contenedorAsignacion = null;
+  let contenedorInformeJuridico = null;
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
@@ -286,6 +288,10 @@ function crearRaizModulo() {
         ? crearContenedorAnalisis() : null;
       contenedorCobertura = valor.includes("data-ct-exp-cobertura")
         ? crearContenedorAnalisis({ fallarAlPintar: raiz.fallarMontajeCobertura === true }) : null;
+      contenedorAsignacion = valor.includes("data-ct-exp-asignacion")
+        ? crearContenedorAnalisis() : null;
+      contenedorInformeJuridico = valor.includes("data-ct-exp-informe-juridico")
+        ? crearContenedorAnalisis() : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
       controles = Array.from({ length: 3 }, () => {
         const propios = new Map();
@@ -311,6 +317,8 @@ function crearRaizModulo() {
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       if (selector === "[data-ct-exp-rectificacion]") return contenedorRectificacion;
       if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
+      if (selector === "[data-ct-exp-asignacion]") return contenedorAsignacion;
+      if (selector === "[data-ct-exp-informe-juridico]") return contenedorInformeJuridico;
       return { focus() {}, scrollIntoView() {} };
     },
   };
@@ -321,6 +329,8 @@ function crearRaizModulo() {
     obtenerAnalisis() { return contenedorAnalisis; },
     obtenerRectificacion() { return contenedorRectificacion; },
     obtenerCobertura() { return contenedorCobertura; },
+    obtenerAsignacion() { return contenedorAsignacion; },
+    obtenerInformeJuridico() { return contenedorInformeJuridico; },
     activarFalloCobertura() {
       raiz.fallarMontajeCobertura = true;
       contenedorCobertura = crearContenedorAnalisis({ fallarAlPintar: true });
@@ -472,6 +482,65 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   assert.equal(solicitudes[0].version_esperada, expedienteConAnalisis.version);
   assert.equal(solicitudes[0].motivo_rectificacion_clave, "correccion_datos");
   escenario.modulo.desmontar();
+
+  const casosSinRectificacion = [
+    {
+      nombre: "fase distinta",
+      estado: crearEstado(expedienteConAnalisis, tareaRef, {
+        cuadro: { ...cuadro, expedientes: [{ ...cuadro.expedientes[0], fase_clave: "gestion_bolsa" }] },
+      }),
+    },
+    {
+      nombre: "versión no coincidente",
+      estado: crearEstado(expedienteConAnalisis, tareaRef, {
+        cuadro: { ...cuadro, expedientes: [{ ...cuadro.expedientes[0], version: 8 }] },
+      }),
+    },
+    {
+      nombre: "RC vacía",
+      expediente: validarExpedienteContratacionTemporal({
+        ...expedienteConAnalisis,
+        cabecera: expedienteConAnalisis.cabecera.map((campo) => (
+          campo.clave === "resultado_rc" ? { ...campo, valor: "" } : campo
+        )),
+      }),
+    },
+    {
+      nombre: "cobertura ya decidida",
+      expediente: validarExpedienteContratacionTemporal({
+        ...expedienteConAnalisis,
+        cabecera: [...expedienteConAnalisis.cabecera, {
+          clave: "via_cobertura", etiqueta: "Vía", valor: "bolsa", tono: "neutro",
+          control: "solo_lectura", obligatorio: false, opciones: [],
+        }],
+      }),
+    },
+  ];
+  for (const caso of casosSinRectificacion) {
+    const expedienteCaso = caso.expediente ?? expedienteConAnalisis;
+    const escenarioNoRectificable = await montarEscenario({
+      expediente: expedienteCaso,
+      tareaRef,
+      estado: caso.estado ?? crearEstado(expedienteCaso, tareaRef, {
+        cuadro: {
+          ...cuadro,
+          expedientes: [{ ...cuadro.expedientes[0],
+            expediente_ref: expedienteCaso.expediente_ref, version: expedienteCaso.version }],
+        },
+      }),
+      analisis: crearComposicion(cliente, {
+        analisisInicial: null,
+        rectificacion: {
+          operacion: "rectificar",
+          artefacto_ref: "artefacto:opaco:001",
+          analisisInicial: null,
+        },
+      }),
+    });
+    assert.equal(escenarioNoRectificable.raiz.obtenerRectificacion(), null, caso.nombre);
+    escenarioNoRectificable.modulo.desmontar();
+  }
+  assert.equal(solicitudes.length, 1);
 
   const sinMotivos = crearComposicion(cliente, {
     analisisInicial: null,
@@ -923,6 +992,53 @@ test("el desmontaje explícito aborta y limpia exactamente una vez sin presentar
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
   assert.equal(escenario.presentador.obtenerDesmontajes(), 1);
+});
+
+test("el informe jurídico exige la asignación proyectada para la misma versión", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const crearExpedienteAsignacion = (version, unidad) => validarExpedienteContratacionTemporal({
+    ...base,
+    demostracion: false,
+    version,
+    cabecera: unidad === null ? base.cabecera : [...base.cabecera, {
+      clave: "unidad", etiqueta: "Unidad asignada", valor: unidad,
+      tono: "neutro", control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const cliente = {
+    registrarAnalisis() {},
+    proponerCobertura() {}, decidirCobertura() {}, consultarResultadoCobertura() {},
+    asignarUnidad() {}, prepararInformeJuridico() {}, consultarDetalleRRHH() {},
+  };
+  const montar = async (version, unidad, versionCuadro = version) => {
+    const expediente = crearExpedienteAsignacion(version, unidad);
+    const cuadro = { demostracion: false, expedientes: [{
+      expediente_ref: expediente.expediente_ref,
+      fase_clave: "asignacion_unidad", estado_clave: "en_curso", version: versionCuadro,
+    }] };
+    return montarEscenario({
+      expediente, tareaRef, estado: crearEstado(expediente, tareaRef, { cuadro }),
+      analisis: crearComposicion(cliente),
+    });
+  };
+
+  const pendiente = await montar(3, null);
+  assert.ok(pendiente.raiz.obtenerAsignacion());
+  assert.equal(pendiente.raiz.obtenerInformeJuridico(), null);
+  pendiente.modulo.desmontar();
+
+  for (const unidad of ["unidad:desarrollo:rrhh", "unidad:otra:rrhh"]) {
+    const confirmada = await montar(4, unidad);
+    assert.equal(confirmada.raiz.obtenerAsignacion(), null);
+    assert.ok(confirmada.raiz.obtenerInformeJuridico());
+    assert.match(confirmada.raiz.obtenerInformeJuridico().innerHTML, /data-ct-informe-form/u);
+    confirmada.modulo.desmontar();
+  }
+
+  const discordante = await montar(4, "unidad:desarrollo:rrhh", 3);
+  assert.equal(discordante.raiz.obtenerAsignacion(), null);
+  assert.equal(discordante.raiz.obtenerInformeJuridico(), null);
+  discordante.modulo.desmontar();
 });
 
 test("el montaje no hardcodea tarea o etiqueta ni incorpora autoridad de navegador", async () => {

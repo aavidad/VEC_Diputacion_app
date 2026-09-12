@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -13,9 +14,10 @@ import (
 )
 
 const (
-	RutaPropuestaCobertura     = "/api/vec/contratacion-temporal/cobertura/propuesta"
-	RutaDecisionCobertura      = "/api/vec/contratacion-temporal/cobertura/decisiones"
-	RutaRectificacionCobertura = "/api/vec/contratacion-temporal/cobertura/rectificaciones"
+	RutaPropuestaCobertura                           = "/api/vec/contratacion-temporal/cobertura/propuesta"
+	RutaDecisionCobertura                            = "/api/vec/contratacion-temporal/cobertura/decisiones"
+	RutaRectificacionCobertura                       = "/api/vec/contratacion-temporal/cobertura/rectificaciones"
+	mensajeDiagnosticoPropuestaCoberturaNoDisponible = "indisponibilidad al presentar propuesta de cobertura"
 )
 
 var ErrManejadorCoberturaInvalido = errors.New(
@@ -134,6 +136,7 @@ func (h *manejadorCobertura) servirPropuesta(w http.ResponseWriter, r *http.Requ
 		ExpedienteRef: entrada.ExpedienteRef, VersionEsperada: entrada.VersionEsperada,
 	})
 	if err != nil {
+		registrarDiagnosticoPropuestaCoberturaNoDisponible(err)
 		responderErrorCobertura(w, clasificarErrorCobertura(err))
 		return
 	}
@@ -143,6 +146,14 @@ func (h *manejadorCobertura) servirPropuesta(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	responderJSONCobertura(w, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
+}
+
+func registrarDiagnosticoPropuestaCoberturaNoDisponible(err error) {
+	etapa, ok := application.EtapaDiagnosticoDePresentacionPropuestaCobertura(err)
+	if !ok {
+		return
+	}
+	slog.Error(mensajeDiagnosticoPropuestaCoberturaNoDisponible, "etapa", string(etapa))
 }
 
 func (h *manejadorCobertura) servirDecision(w http.ResponseWriter, r *http.Request, contexto ContextoCanalCobertura) {

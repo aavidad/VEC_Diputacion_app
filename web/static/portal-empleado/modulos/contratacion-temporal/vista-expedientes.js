@@ -351,6 +351,13 @@ function contextoSubsanacionDesdeEstado(estado) {
     version_esperada: estado.expediente.version });
 }
 
+function asignacionConfirmadaEnDetalle(expediente) {
+  return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
+    ({ clave, valor }) => clave === "unidad"
+      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
+  );
+}
+
 function contextoInformeJuridicoDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.expediente === null
     || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
@@ -358,7 +365,9 @@ function contextoInformeJuridicoDesdeEstado(estado) {
     referencia === estado.expediente.expediente_ref
   ));
   if (resumen?.fase_clave !== "asignacion_unidad"
-    || resumen.version !== estado.expediente.version) return null;
+    || resumen.estado_clave !== "en_curso"
+    || resumen.version !== estado.expediente.version
+    || !asignacionConfirmadaEnDetalle(estado.expediente)) return null;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
@@ -372,7 +381,8 @@ function contextoAsignacionDesdeEstado(estado) {
     referencia === estado.expediente.expediente_ref
   ));
   if (resumen?.fase_clave !== "asignacion_unidad" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version) return null;
+    || resumen.version !== estado.expediente.version
+    || asignacionConfirmadaEnDetalle(estado.expediente)) return null;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
@@ -409,7 +419,11 @@ function contextoRectificacionAnalisisDesdeEstado(estado) {
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === estado.expediente.expediente_ref
   ));
-  if (resumen?.estado_clave !== "en_curso" || resumen.version !== estado.expediente.version) {
+  const analisisConfirmado = estado.expediente.cabecera.some(({ clave, valor }) => (
+    clave === "resultado_rc" && typeof valor === "string" && valor !== ""
+  ));
+  if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
+    || resumen.version !== estado.expediente.version || !analisisConfirmado) {
     return null;
   }
   const claves = new Set(estado.expediente.cabecera.map(({ clave }) => clave));

@@ -1,5 +1,40 @@
 # Estado y plan de ataque del proyecto
 
+El detalle muestra ocho fases del procedimiento y el historial de actuaciones
+ya registrado. Solo destaca la fase actual; las demás permanecen **Sin confirmar**.
+El rail enlaza la fuente RRHH y el flujo declarado mediante sus huellas, sin
+crear estados ni dar por completadas fases anteriores.
+
+La comprobación real de Unidad y del expediente `fe493…v9` pasó a 1440 y
+390 px, sin desbordamiento ni errores JavaScript. Las consultas respondieron
+`200`: Gestión de bolsa y Nombramiento fueron sus respectivas fases activas;
+el historial abierto mostró 3 y 9 actuaciones. El CSS móvil corrige los mínimos
+de las cuadrículas y del formulario, conservando el desplazamiento interno del
+rail. No hubo nuevas escrituras de negocio ni descargas documentales en esta
+comprobación; tampoco se mostró un recibo que permitiera volver a cotejarlo.
+
+Propuesta publicada en `1ce29f875df764f47b9144ab55ee96c27c68109f` y rail en
+`da17727bfbdbb4d74afd6f2a57bf2c418da58fdf`. El binario de esta prueba fue
+`a1a721201edccfa9711bb145f18377d8bc0cfaabda6b880b790d764b26c9a009`;
+se conservaron la misma aplicación y PostgreSQL, sin reinicio de la base.
+El resumen de aceptación reutiliza CT65; asset disponible, recorrido completo
+pendiente. Las revisiones y pruebas focales del rail, propuesta e historial
+pasaron. El ensayo real descrito no repitió operaciones de incorporación,
+anotación o cierre. El contador conserva 6 de 19 pantallas terminadas en
+el ejercicio de desarrollo; estos commits no incrementan esa cifra.
+
+La apertura de formularios exige ahora la asignación que proyecta el detalle:
+el caso Unidad v3 presenta Asignación y no ofrece todavía Informe jurídico.
+La prueba real confirmó esa secuencia y la legibilidad del aviso de rectificación
+a 390 px, sin escrituras de negocio. Con el catálogo actual la interfaz indica
+«Rectificación no disponible» y no monta controles de envío.
+
+El diagnóstico revisado identifica la indisponibilidad de cobertura en
+`cobertura.presentacion.preparador`. El binario observado tras reiniciar solo
+la aplicación tiene SHA256 `783c051a6ee1d81fb4925aed99615dbe3cabbc39ee3ed53c316e2620de9ea66f`.
+No registra causas privadas ni cambia el 503 público; la corrección del
+preparador sigue pendiente de comprobación real.
+
 El detalle reúne ahora el resumen final para GINPIX: centro y categoría del expediente consultado, periodo, fecha y recibo original de incorporación. La ficha de carga manual se descarga por GET 200 con la misma huella `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`; el seguimiento responde 200. El envío externo figura como no conectado. Comprobado a 1440/390 px sin errores JavaScript ni desbordamiento. Los indicadores del cuadro precisan que cuentan los expedientes de la página actual.
 
 La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
@@ -31,9 +66,9 @@ Corrección de recuperación de Cobertura: el análisis registrado conserva la f
 
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.
 
-Bandeja y detalle muestran los nombres del catálogo de centros y categorías ya cargado; conservan las referencias originales si falta una etiqueta. Comprobación real: «Centro solicitante» y «Categoría C2», sin errores JavaScript ni desbordamiento a 1440/390 px. La descarga de borradores desde la historia v9 sigue pendiente: el lector histórico respondió 404 y ese parche no se incorporó.
+Bandeja y detalle muestran los nombres del catálogo de centros y categorías ya cargado; conservan las referencias originales si falta una etiqueta. Comprobación real: «Centro solicitante» y «Categoría C2», sin errores JavaScript ni desbordamiento a 1440/390 px. El 404 del lector histórico y la descarga pendiente desde v9 describen un corte anterior; el corte D posterior cerró la recuperación desde la propuesta original v7 con descargas representativas PDF y DOCX.
 
-El detalle muestra la jornada como porcentaje (10000 → 100 %) y agrupa sus datos en dos columnas en móvil; la navegación tiene botones de al menos 44 px. Pantalla real comprobada a 1440/390 px sin desbordamiento ni errores JavaScript.
+El detalle muestra la jornada como porcentaje (10000 → 100 %). La pantalla anterior se comprobó a 1440/390 px sin desbordamiento ni errores JavaScript y usaba dos columnas en móvil. El CSS vigente la cambia a una columna por debajo de 620 px y conserva botones de navegación de al menos 44 px; el QA actual detectó un ancho desplazable de 788 px en viewport de 390 px, por lo que el ajuste móvil sigue abierto.
 
 Si falla la apertura de Análisis o del siguiente formulario de Cobertura, Asignación o Informe jurídico, aparece un aviso con reintento de apertura. El reintento conserva el recibo y no repite el POST confirmado; la prueba focal cubre dos fallos consecutivos sin duplicar avisos. Bandeja y detalle reales comprobados a 1440/390 px, sin errores JavaScript ni desbordamiento.
 
