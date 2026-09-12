@@ -17,3 +17,6 @@ c1eeb30f63bd67e6ec316fc1f852405e7f093869:internal/vec/ports/ejecuciones_document
 c1eeb30f63bd67e6ec316fc1f852405e7f093869:internal/vec/ports/ejecuciones_documentales_v3_test.go:vault-service-token:824
 c2b4d90d433c8c5de1262081d88661ed2e025db9:web/static/app.js:generic-api-key:10800
 f9460b55b050169eeb8449e71e5d186d01ef6b28:internal/app/bootstrap/bootstrap_test.go:generic-api-key:23
+
+# CT91: el valor otra_anotacion del campo accion_clave es un identificador funcional de prueba.
+4fc058f51658f23a7fb461bee7d16eb4430aafdf:web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs:vep-clave-castellana-asignada:223
