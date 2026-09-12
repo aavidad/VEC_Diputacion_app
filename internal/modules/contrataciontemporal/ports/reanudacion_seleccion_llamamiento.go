@@ -19,7 +19,7 @@ const (
 // autorización nueva a la intención durable íntegra mediante su huella validada.
 // El consumidor SQL contrasta además la solicitud exacta y la ventana caducada.
 func NuevoRecursoReanudacionSeleccionLlamamiento(s SolicitudReservaEjecucionSeleccionLlamamiento) (dominiovec.RecursoAutorizable, error) {
-	if s.Validar() != nil || s.VersionExpediente != 6 {
+	if s.Validar() != nil || s.VersionExpediente < 6 {
 		return dominiovec.RecursoAutorizable{}, ErrEjecucionSeleccionLlamamientoInvalida
 	}
 	// El orden y los nombres son el canon compartido con CT 000055.

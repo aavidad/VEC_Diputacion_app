@@ -391,8 +391,8 @@ func (a *autorizadorLlamamientoDesarrollo) modoCorreoExclusivo() bool {
 
 func reservaReanudacionLigadaAPreparacionDesarrollo(p preparacionLlamamientoDesarrollo, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) bool {
 	canonica, err := prepararReferenciasLlamamientoDesarrollo(p.expediente, p.clave)
-	return err == nil && p.expediente.VersionActual == 6 && s.Validar() == nil &&
-		s.ClaveIdempotencia == p.clave && s.VersionExpediente == 6 &&
+	return err == nil && p.expediente.VersionActual == s.VersionExpediente && s.Validar() == nil &&
+		s.ClaveIdempotencia == p.clave && s.VersionExpediente == p.expediente.Fiscalizado.Version &&
 		s.OrganizacionRef == p.expediente.Fiscalizado.OrganizacionRef &&
 		s.ExpedienteRef == p.expediente.Fiscalizado.Referencia &&
 		s.Necesidad.Referencia == canonica.necesidad &&

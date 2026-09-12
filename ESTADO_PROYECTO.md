@@ -1,5 +1,16 @@
 # Estado y plan de ataque del proyecto
 
+La selección del llamamiento se prepara ahora con la versión CT fiscalizada
+vigente, conservando la versión independiente de Bolsa y las funciones originales
+para v6. CT94 añade lectores para versiones posteriores; permanece pendiente
+de ensayo PostgreSQL e instalación, y no se ha abierto otro llamamiento real.
+
+La prueba de montaje confirma que un resultado favorable v8 rellena la selección
+con v8 sin ejecutar selección, comunicación ni respuesta. Pasaron 97 pruebas
+web del recorrido existente y 10 de fiscalización, las pruebas Go focales, vet
+y compilación. La comunicación y la propuesta posteriores a nuevas versiones
+conservan sus dependencias; esta integración no acredita ese circuito completo.
+
 La continuidad de fiscalización tras subsanar reutiliza el mismo formulario,
 API y permiso de Intervención. Exige la corrección ligada al retorno vigente,
 conserva las instantáneas anteriores y permite registrar un nuevo resultado;

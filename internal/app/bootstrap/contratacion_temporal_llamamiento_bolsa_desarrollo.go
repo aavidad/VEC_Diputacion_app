@@ -37,7 +37,7 @@ func prepararReferenciasLlamamientoDesarrollo(expediente ports.ExpedienteParaSel
 	e := expediente.Fiscalizado
 	if !ports.ClaveIdempotenciaValida(clave) || e.Validar() != nil ||
 		e.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		e.Version != 6 || expediente.VersionActual < 6 ||
+		e.Version < 6 || expediente.VersionActual < e.Version ||
 		expediente.VersionActual > ports.MaximoEnteroSeguroIntegracionBolsa ||
 		e.FaseActual != domain.FaseFiscalizacion || e.EstadoActual != domain.EstadoEnCurso ||
 		e.Fiscalizacion == nil || e.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable ||
@@ -227,7 +227,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) contexto(ctx context.Context, prepara
 	// Excluye la sesión/decisión efímera: compromete el vínculo/perfil y la
 	// intención. La autorización fresca de la raíz no se sustituye por este MAC.
 	material, err := json.Marshal([]string{v.ContextoActorRef, strconv.FormatUint(v.ContextoActorVersion, 10),
-		v.PerfilActivoRef, e.OrganizacionRef, e.Referencia, "6", preparacion.clave})
+		v.PerfilActivoRef, e.OrganizacionRef, e.Referencia, strconv.FormatUint(e.Version, 10), preparacion.clave})
 	if err != nil {
 		return ports.ContextoPeticionIntegracionBolsa{}, err
 	}
@@ -235,7 +235,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) contexto(ctx context.Context, prepara
 	ahora := p.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	d := ports.DatosContextoPeticionIntegracionBolsa{
 		OperacionRef: operacion, OrganizacionRef: e.OrganizacionRef, ExpedienteRef: e.Referencia,
-		VersionExpediente: 6, CorrelacionRef: referenciaPuenteLlamamientoDesarrollo("correlacion", preparacion.necesidad, preparacion.clave),
+		VersionExpediente: e.Version, CorrelacionRef: referenciaPuenteLlamamientoDesarrollo("correlacion", preparacion.necesidad, preparacion.clave),
 		ContratoVersion: 1, AutoridadSolicitante: autoridadPeticionLlamamientoDesarrollo,
 		Autorizacion: referenciaVersionadaPuenteLlamamientoDesarrollo(puertosbolsa.ReferenciaDesdeHuellaLlamamientoDesarrollo("intencion-certificada", h), 1, h),
 		Accion:       referenciaCatalogoPuenteLlamamientoDesarrollo(accion), Recurso: recurso,
@@ -370,7 +370,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) PrepararConsultaDisponibilidad(ctx co
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrdenCompleto(ctx context.Context, clave string, resultado ports.ResultadoDisponibilidadBolsa) (ports.ComandoPrepararOrdenBolsa, error) {
 	vacio := ports.ComandoPrepararOrdenBolsa{}
 	d, err := p.preparacion(ctx, clave)
-	if err != nil || d.expediente.VersionActual != 6 {
+	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	_, f, err := p.fuente(d)
@@ -391,7 +391,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrdenCompleto(ctx context.Con
 
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararContextoLlamamiento(ctx context.Context, clave string, recibo ports.ReciboOrdenBolsa) (ports.ContextoPeticionIntegracionBolsa, error) {
 	d, err := p.preparacion(ctx, clave)
-	if err != nil || d.expediente.VersionActual != 6 || recibo.OperacionRef != d.operacionOrden ||
+	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version || recibo.OperacionRef != d.operacionOrden ||
 		!recibo.OrdenGenerada || !recibo.OrdenCompleta || recibo.TotalPosiciones != posicionesFuenteLlamamientoDesarrollo ||
 		recibo.AccionLlamamiento != referenciaCatalogoPuenteLlamamientoDesarrollo(puertosbolsa.AccionAbrirLlamamientoDesarrollo) {
 		return ports.ContextoPeticionIntegracionBolsa{}, ports.ErrPeticionIntegracionBolsaInvalida
@@ -427,7 +427,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) verificarPeticion(ctx context.Context
 	e := registroEsperado.Datos
 	r, err := c.DatosEn(ahora)
 	if err != nil || r.OperacionRef != operacion || r.OrganizacionRef != e.OrganizacionRef ||
-		r.ExpedienteRef != e.ExpedienteRef || r.VersionExpediente != 6 || r.CorrelacionRef != e.CorrelacionRef ||
+		r.ExpedienteRef != e.ExpedienteRef || r.VersionExpediente != e.VersionExpediente || r.CorrelacionRef != e.CorrelacionRef ||
 		r.Autorizacion != e.Autorizacion || r.Accion != e.Accion || r.Recurso != recurso || r.Finalidad != e.Finalidad {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
@@ -449,7 +449,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) procedencia(c ports.DatosContextoPeti
 func (p *puenteBolsaLlamamientoDesarrollo) ConsultarDisponibilidad(ctx context.Context, solicitud ports.SolicitudDisponibilidadBolsa) (ports.ResultadoDisponibilidadBolsa, error) {
 	vacio := ports.ResultadoDisponibilidadBolsa{}
 	d, err := p.preparacion(ctx, "")
-	if err != nil || d.expediente.VersionActual != 6 {
+	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	s, f, err := p.servicio(d)
@@ -470,7 +470,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) ConsultarDisponibilidad(ctx context.C
 	material, _ := json.Marshal(resultado)
 	r := ports.ResultadoDisponibilidadBolsa{
 		OperacionRef: c.OperacionRef, OrganizacionRef: c.OrganizacionRef, ExpedienteRef: c.ExpedienteRef,
-		VersionExpediente: 6, CorrelacionRef: c.CorrelacionRef, Necesidad: n, CategoriaRef: d.categoria,
+		VersionExpediente: c.VersionExpediente, CorrelacionRef: c.CorrelacionRef, Necesidad: n, CategoriaRef: d.categoria,
 		Resultado:       referenciaVersionadaPuenteLlamamientoDesarrollo(referenciaPuenteLlamamientoDesarrollo("resultado-disponibilidad", c.OperacionRef), 1, huellaPuenteLlamamientoDesarrollo(material)),
 		BolsaEncontrada: true, Bolsa: b, Disponible: resultado.CantidadDisponible > 0,
 		CantidadDisponible: resultado.CantidadDisponible, CantidadExacta: resultado.CantidadExacta,
@@ -482,7 +482,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) ConsultarDisponibilidad(ctx context.C
 func (p *puenteBolsaLlamamientoDesarrollo) PrepararOrden(ctx context.Context, comando ports.ComandoPrepararOrdenBolsa) (ports.ReciboOrdenBolsa, error) {
 	vacio := ports.ReciboOrdenBolsa{}
 	d, err := p.preparacion(ctx, "")
-	if err != nil || d.expediente.VersionActual != 6 {
+	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	s, f, err := p.servicio(d)
@@ -513,7 +513,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarOrdenPersistida(ctx context.Con
 	ahora := p.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	recibo := ports.ReciboOrdenBolsa{
 		OperacionRef: c.OperacionRef, OrganizacionRef: c.OrganizacionRef, ExpedienteRef: c.ExpedienteRef,
-		VersionExpediente: 6, CorrelacionRef: c.CorrelacionRef, Necesidad: comando.Necesidad, Bolsa: comando.Bolsa, Politica: comando.Politica,
+		VersionExpediente: c.VersionExpediente, CorrelacionRef: c.CorrelacionRef, Necesidad: comando.Necesidad, Bolsa: comando.Bolsa, Politica: comando.Politica,
 		Resultado:     referenciaVersionadaPuenteLlamamientoDesarrollo(r.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canonico)),
 		OrdenGenerada: true, OrdenCompleta: true,
 		// El servicio ya consumió autorización fresca, también al leer la
@@ -530,7 +530,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarOrdenPersistida(ctx context.Con
 func (p *puenteBolsaLlamamientoDesarrollo) SolicitarLlamamiento(ctx context.Context, comando ports.ComandoSolicitarLlamamientoBolsa) (ports.ReciboSolicitudLlamamientoBolsa, error) {
 	vacio := ports.ReciboSolicitudLlamamientoBolsa{}
 	d, err := p.preparacion(ctx, "")
-	if err != nil || d.expediente.VersionActual != 6 {
+	if err != nil || d.expediente.VersionActual != d.expediente.Fiscalizado.Version {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	s, f, err := p.servicio(d)
@@ -594,7 +594,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) firmarLlamamientoPersistido(ctx conte
 	}
 	recibo := ports.ReciboSolicitudLlamamientoBolsa{
 		OperacionRef: c.OperacionRef, OrganizacionRef: c.OrganizacionRef, ExpedienteRef: c.ExpedienteRef,
-		VersionExpediente: 6, CorrelacionRef: c.CorrelacionRef, Necesidad: datos.Necesidad, Bolsa: datos.Bolsa, Orden: datos.Orden, Politica: datos.Politica,
+		VersionExpediente: c.VersionExpediente, CorrelacionRef: c.CorrelacionRef, Necesidad: datos.Necesidad, Bolsa: datos.Bolsa, Orden: datos.Orden, Politica: datos.Politica,
 		Resultado:         referenciaVersionadaPuenteLlamamientoDesarrollo(r.ReciboRef, 1, huellaPuenteLlamamientoDesarrollo(canonico)),
 		PropuestaGenerada: true,
 		Propuesta:         referenciaVersionadaPuenteLlamamientoDesarrollo(propuesta.PropuestaRef, 1, propuesta.HuellaContenidoSHA256),

@@ -95,7 +95,7 @@ func (e *ejecutorSeleccionLlamamientoDesarrollo) SeleccionarYLlamarParaAdaptador
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
-	if !domain.ReferenciaOpacaValida(solicitud.ExpedienteRef) || solicitud.VersionEsperada != 6 ||
+	if !domain.ReferenciaOpacaValida(solicitud.ExpedienteRef) || (solicitud.VersionEsperada < 6 || solicitud.VersionEsperada > ports.MaximoEnteroSeguroIntegracionBolsa) ||
 		!ports.ClaveIdempotenciaValida(solicitud.ClaveIdempotencia) {
 		return vacio, application.ErrSolicitudSeleccionLlamamientoInvalida
 	}

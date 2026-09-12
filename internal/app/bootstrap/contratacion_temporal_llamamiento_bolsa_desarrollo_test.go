@@ -762,3 +762,92 @@ func TestPuenteBolsaLlamamientoDesarrolloAceptacionNoFabricaExito(t *testing.T) 
 		t.Fatal(err)
 	}
 }
+
+func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
+	p, ctx, legado, _ := puenteBolsaPrueba(t)
+	e := legado.expediente.Fiscalizado.Clonar()
+	anterior := e.Actuaciones[4]
+	e.Actuaciones = e.Actuaciones[:5]
+	e.Version, e.FaseActual, e.EstadoActual, e.Fiscalizacion = 5, domain.FaseInformeJuridico, domain.EstadoEnCurso, nil
+	e.ActualizadoEn = anterior.RealizadaEn
+	instante := anterior.RealizadaEn.Add(time.Minute)
+	actuar := func(accion domain.ClaveCatalogo, fase domain.ClaveFase, estado domain.EstadoOperativo, recibo string) domain.DatosActuacion {
+		return domain.DatosActuacion{AccionClave: accion, ActorRef: "actor:rrhh:sintetico", UnidadRef: e.Asignacion.UnidadRef, ReciboRef: recibo, RealizadaEn: instante, FaseDestino: fase, EstadoDestino: estado}
+	}
+	a := actuar(domain.AccionRegistrarFiscalizacion, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:reparo:version")
+	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
+	a.Observaciones = "Reparo sintético."
+	var err error
+	e, err = e.RegistrarFiscalizacion(5, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:reparo:version", Resultado: domain.FiscalizacionDesfavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante, Observaciones: a.Observaciones, RetornoRef: "retorno:version:uno"}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante = instante.Add(time.Minute)
+	a = actuar(domain.AccionRegistrarSubsanacionReparo, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:subsanacion:version")
+	a.RetornoRef = "retorno:version:uno"
+	a.Observaciones = "Corrección sintética."
+	e, err = e.RegistrarSubsanacionReparo(6, domain.DatosSubsanacionReparo{RetornoRef: a.RetornoRef, Observaciones: a.Observaciones}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante = instante.Add(time.Minute)
+	a = actuar(domain.AccionRegistrarFiscalizacion, domain.FaseFiscalizacion, domain.EstadoEnCurso, "recibo:favorable:version")
+	a.RetornoRef = "retorno:version:uno"
+	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
+	e, err = e.RegistrarFiscalizacion(7, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:nueva:version", Resultado: domain.FiscalizacionFavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nuevo, err := prepararReferenciasLlamamientoDesarrollo(ports.ExpedienteParaSeleccion{Fiscalizado: e, VersionActual: 8}, legado.clave)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, nuevo)
+	q, err := p.PrepararConsultaDisponibilidad(ctx, nuevo.clave)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registro, err := q.Contexto.Registro()
+	if err != nil || registro.Datos.VersionExpediente != 8 {
+		t.Fatal("la intención pierde la versión CT", err)
+	}
+	_, fuente, err := p.fuente(nuevo)
+	if err != nil || fuente.Datos.Necesidad.Version != 6 || nuevo.necesidad != legado.necesidad {
+		t.Fatal("se mezclaron versiones CT y Bolsa", err)
+	}
+
+	resultado, err := p.ConsultarDisponibilidad(ctx, q)
+	if err != nil || resultado.VersionExpediente != 8 {
+		t.Fatal("disponibilidad N vigente denegada", err)
+	}
+	if _, _, err = p.Verificador().VerificarDisponibilidad(ctx, q, resultado, p.reloj.Ahora()); err != nil {
+		t.Fatal("respuesta N no autentica", err)
+	}
+	orden, err := p.PrepararOrdenCompleto(ctx, nuevo.clave, resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := ports.NuevaConsultaTerminalAutorizada(nuevo.clave, q.Contexto, p.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reserva, err := ports.NuevaSolicitudReservaEjecucionSeleccionLlamamiento(terminal, orden, resultado.CantidadDisponible, p.reloj.Ahora())
+	if err != nil || !reservaReanudacionLigadaAPreparacionDesarrollo(nuevo, reserva) {
+		t.Fatal("reanudación N ligada denegada", err)
+	}
+	cruzado := context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, legado)
+	if _, err = p.ConsultarDisponibilidad(cruzado, q); err == nil {
+		t.Fatal("contexto N admitido con preparación v6")
+	}
+	nuevo.expediente.VersionActual = 9
+	if reservaReanudacionLigadaAPreparacionDesarrollo(nuevo, reserva) {
+		t.Fatal("reanudación con cabeza posterior admitida")
+	}
+	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, nuevo)
+	if _, err = p.ConsultarDisponibilidad(ctx, q); err == nil {
+		t.Fatal("cabeza posterior inició efecto")
+	}
+	if p.repositorio.(*repositorioPuenteBolsaFallido).llamadas != 0 {
+		t.Fatal("se tocó Bolsa tras cambiar cabeza")
+	}
+}
