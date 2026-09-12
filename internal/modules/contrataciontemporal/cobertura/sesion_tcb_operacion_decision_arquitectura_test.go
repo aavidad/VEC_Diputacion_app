@@ -405,6 +405,9 @@ func TestArquitecturaNingunIntermediarioReexportaSimbolosTCB(t *testing.T) {
 			if !objetoEsSimboloTCB(objeto, analisis.simbolosTCB) {
 				continue
 			}
+			if constructorEnComposicionPrivadaSesionTCB(analisis, paquete, identificador, objeto) {
+				continue
+			}
 			t.Errorf(
 				"%s usa el símbolo TCB %s fuera de la allowlist en %s",
 				ruta,

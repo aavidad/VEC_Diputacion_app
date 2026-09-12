@@ -158,7 +158,10 @@ func (e *ejecutorSeleccionComposicionPrueba) SeleccionarYLlamarParaAdaptador(
 ) (application.DatosReciboSeleccionLlamamientoParaAdaptador, error) {
 	e.ejecuciones++
 	return application.DatosReciboSeleccionLlamamientoParaAdaptador{
-		ReciboRef: "recibo:llamamiento:http:001",
+		ReciboRef:          "recibo:llamamiento:http:001",
+		OrganizacionRef:    "organizacion:http:001",
+		LlamamientoRef:     "llamamiento:http:001",
+		VersionLlamamiento: 1,
 		ConfirmadaEn: time.Date(
 			2026, 8, 31, 10, 0, 0, 123000000, time.UTC,
 		),
@@ -372,7 +375,8 @@ func TestRutaSeleccionLlamamientoCompuestaDelegaUnaVez(t *testing.T) {
 		http.MethodPost,
 		httpinterno.RutaSeleccionLlamamiento,
 		strings.NewReader(
-			`{"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"}`,
+			`{"expediente_ref":"expediente:ct:0001","version_esperada":6,`+
+				`"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"}`,
 		),
 	)
 	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")

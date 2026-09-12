@@ -7,7 +7,7 @@ import (
 )
 
 func entradaInventarioCierrePrueba() EntradaInventarioTareasCierreAdministrativoEjercicio {
-	libro := domain.PublicacionLibroTareasCierreAdministrativoEjercicio{Referencia: "libro:tareas:cierre:ejercicio", Version: 1, Ambito: domain.AmbitoLibroTareasCierreAdministrativoEjercicio, Tareas: []domain.TareaLibroCierreAdministrativoEjercicio{{domain.TareaIncorporacionOriginalAcreditada, domain.EvidenciaIncorporacionOriginal}, {domain.TareaPrimeraAnotacionAcreditada, domain.EvidenciaPrimeraAnotacion}}}
+	libro := domain.PublicacionLibroTareasCierreAdministrativoEjercicio{Referencia: "libro:tareas:cierre:ejercicio", Version: 1, Ambito: domain.AmbitoLibroTareasCierreAdministrativoEjercicio, Tareas: []domain.TareaLibroCierreAdministrativoEjercicio{{Clave: domain.TareaIncorporacionOriginalAcreditada, Evidencia: domain.EvidenciaIncorporacionOriginal}, {Clave: domain.TareaPrimeraAnotacionAcreditada, Evidencia: domain.EvidenciaPrimeraAnotacion}}}
 	f := func(tipo domain.TipoEvidenciaTareaCierreAdministrativoEjercicio, ref string, v uint64, h string) domain.EvidenciaTareaCierreAdministrativoEjercicio {
 		return domain.EvidenciaTareaCierreAdministrativoEjercicio{Tipo: tipo, Referencia: ref, OrganizacionRef: "organizacion:ejercicio:rrhh", ExpedienteRef: "expediente:ejercicio:001", SeguimientoRef: "seguimiento:ejercicio:001", VersionSeguimientoOriginal: 1, HuellaRaizSeguimientoSHA256: strings.Repeat("a", 64), VersionEvidencia: v, HuellaEvidenciaSHA256: h}
 	}

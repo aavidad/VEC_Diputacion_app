@@ -119,6 +119,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
       registrarResultadoFiscalizacion: async () => recibo("favorable"),
       seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
       registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
+      continuarLlamamiento: async () => { assert.fail("el montaje no solicita otro llamamiento"); },
     },
     confirmarOperacion: () => true,
   });
