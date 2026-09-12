@@ -61,6 +61,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .ct-exp-cabecera-expediente dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .ct-exp-tareas ol {
     grid-template-columns: minmax(0, 1fr);
   }
