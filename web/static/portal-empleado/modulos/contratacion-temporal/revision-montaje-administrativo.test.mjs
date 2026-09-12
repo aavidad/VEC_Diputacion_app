@@ -28,7 +28,7 @@ function domMontaje() {
 }
 const esperar = () => new Promise((resolver) => setImmediate(resolver));
 
-async function montarPanel({ cierre, registrar, versionCuadro = 8, mensajes = {} } = {}) {
+async function montarPanel({ cierre, registrar, cerrar = () => { assert.fail("no debe cerrar"); }, versionCuadro = 8, mensajes = {} } = {}) {
   const dom = domMontaje();
   const clienteLectura = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
     const entrada = JSON.parse(opciones.body);
@@ -37,7 +37,7 @@ async function montarPanel({ cierre, registrar, versionCuadro = 8, mensajes = {}
   } });
   const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteLectura }); await fuente.listar();
   const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades: fuente.capacidades });
-  const cliente = { async prepararIncorporacionEjercicio() { return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref, version_actual_expediente: 8, preparacion: null, recibo }; }, confirmarIncorporacionEjercicio() { assert.fail("no debe enviar incorporación"); }, anotacionAdministrativa: { registrar, recuperar() { assert.fail("no debe recuperar"); } }, consultarPreparacionCierreSinCese: cierre, cerrar() { assert.fail("no debe cerrar"); } };
+  const cliente = { async prepararIncorporacionEjercicio() { return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref, version_actual_expediente: 8, preparacion: null, recibo }; }, confirmarIncorporacionEjercicio() { assert.fail("no debe enviar incorporación"); }, anotacionAdministrativa: { registrar, recuperar() { assert.fail("no debe recuperar"); } }, consultarPreparacionCierreSinCese: cierre, cerrar };
   const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador, llamamiento: { cliente }, confirmarOperacion: () => true, mensajes });
   await dom.abrir(); await esperar(); await esperar();
   return { dom, modulo, presentador };
@@ -134,6 +134,35 @@ test("montaje: doble clic de recuperación comparte una única lectura pendiente
   await Promise.all([primera, segunda]); await esperar();
   assert.equal(lecturas, 2);
   assert.match(panel.dom.hijos[1].innerHTML, /data-ct-cierre-administrativo-form/u);
+  panel.modulo.desmontar();
+});
+
+test("montaje: acciones vacías conserva el estado cerrado explícito", async () => {
+  const panel = await montarPanel({ cierre: async () => ({ estado_actual: "cerrado", preparada_en: "2026-09-12T10:00:00Z", preparacion: null }), registrar: async () => { assert.fail("no debe anotar"); } });
+  assert.match(panel.dom.hijos[1].innerHTML, /Estado actual del seguimiento: Cerrado/u);
+  assert.doesNotMatch(panel.dom.hijos[1].innerHTML, /data-ct-cierre-administrativo-form/u);
+  panel.modulo.desmontar();
+});
+
+test("montaje: tras el POST confirmado relee sólo cierre y presenta su estado persistido", async () => {
+  let lecturas = 0, cierres = 0;
+  const panel = await montarPanel({
+    cierre: async () => {
+      lecturas++;
+      return lecturas === 1
+        ? { estado_actual: "vigente", preparada_en: "2026-09-12T10:00:00Z", preparacion: { expediente_ref, seguimiento_ref: recibo.seguimiento_ref, version_esperada: 1, motivos: ["sin_cese"] } }
+        : { estado_actual: "cerrado", preparada_en: "2026-09-12T10:01:00Z", preparacion: null };
+    },
+    cerrar: async () => { cierres++; return { recibo_ref: "recibo:cierre:2", version_seguimiento: 2 }; },
+    registrar: async () => { assert.fail("no debe anotar"); },
+  });
+  await panel.dom.hijos[1].eventos.get("submit")({ type: "submit", preventDefault() {}, target: { matches: (s) => s === "[data-ct-cierre-administrativo-form]", elements: { motivo_clave: { value: "sin_cese" } } } });
+  assert.match(panel.dom.hijos[1].innerHTML, /Cerrar administrativamente/u);
+  await panel.dom.hijos[1].eventos.get("submit")({ type: "submit", preventDefault() {}, target: { matches: (s) => s === "[data-ct-cierre-continuar-form]" } });
+  assert.equal(cierres, 1); assert.equal(lecturas, 2);
+  assert.match(panel.dom.hijos[1].innerHTML, /Estado actual del seguimiento: Cerrado/u);
+  assert.match(panel.dom.hijos[1].innerHTML, /recibo:cierre:2/u);
+  assert.match(panel.dom.hijos[1].innerHTML, /Guardar datos de recuperación/u);
   panel.modulo.desmontar();
 });
 
