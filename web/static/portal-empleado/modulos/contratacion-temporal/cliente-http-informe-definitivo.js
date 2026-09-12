@@ -5,31 +5,32 @@ import { RUTAS_CONSULTA_RRHH } from "./cliente-http-consultas-rrhh.js";
 // Perfiles de representación, no de identidad ni autorización.
 export const PERFILES_BORRADOR_RRHH = Object.freeze({
   informe_definitivo: Object.freeze({
-    accept: "application/pdf; documento=informe-definitivo-desarrollo",
-    nombre: "informe-definitivo-borrador.pdf",
+    documento: "informe-definitivo-desarrollo", nombre: "informe-definitivo-borrador.pdf", accept: "application/pdf; documento=informe-definitivo-desarrollo",
   }),
   resolucion: Object.freeze({
-    accept: "application/pdf; documento=resolucion-desarrollo",
-    nombre: "resolucion-borrador.pdf",
+    documento: "resolucion-desarrollo", nombre: "resolucion-borrador.pdf", accept: "application/pdf; documento=resolucion-desarrollo",
   }),
   diligencia: Object.freeze({
-    accept: "application/pdf; documento=diligencia-desarrollo",
-    nombre: "diligencia-borrador.pdf",
+    documento: "diligencia-desarrollo", nombre: "diligencia-borrador.pdf", accept: "application/pdf; documento=diligencia-desarrollo",
   }),
   toma_posesion: Object.freeze({
-    accept: "application/pdf; documento=toma-posesion-desarrollo",
-    nombre: "toma-posesion-borrador.pdf",
+    documento: "toma-posesion-desarrollo", nombre: "toma-posesion-borrador.pdf", accept: "application/pdf; documento=toma-posesion-desarrollo",
   }),
   notificacion: Object.freeze({
-    accept: "application/pdf; documento=notificacion-desarrollo",
-    nombre: "notificacion-borrador.pdf",
+    documento: "notificacion-desarrollo", nombre: "notificacion-borrador.pdf", accept: "application/pdf; documento=notificacion-desarrollo",
   }),
   comunicacion_centro: Object.freeze({
-    accept: "application/pdf; documento=comunicacion-centro-desarrollo",
-    nombre: "comunicacion-centro-borrador.pdf",
+    documento: "comunicacion-centro-desarrollo", nombre: "comunicacion-centro-borrador.pdf", accept: "application/pdf; documento=comunicacion-centro-desarrollo",
   }),
 });
 const MAXIMO_PDF = 2 * 1024 * 1024;
+const FORMATOS_BORRADOR = Object.freeze({
+  pdf: Object.freeze({ mime: "application/pdf", extension: ".pdf", prefijo: "%PDF-" }),
+  docx: Object.freeze({
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    extension: ".docx", prefijo: "PK\x03\x04",
+  }),
+});
 const PREFIJO_ERROR = "api.contratacion_temporal.consulta_rrhh.error.";
 const CODIGOS = Object.freeze({
   400: ["peticion_no_valida", "peticion_no_permitida"],
@@ -126,11 +127,13 @@ async function errorConsulta(respuesta, signal) {
 
 export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = {}) {
   return Object.freeze({
-    async descargarBorrador(solicitud, { tipo = "informe_definitivo", signal } = {}) {
-      if (typeof tipo !== "string" || !Object.hasOwn(PERFILES_BORRADOR_RRHH, tipo)) {
+    async descargarBorrador(solicitud, { tipo = "informe_definitivo", formato = "pdf", signal } = {}) {
+      if (typeof tipo !== "string" || !Object.hasOwn(PERFILES_BORRADOR_RRHH, tipo)
+        || typeof formato !== "string" || !Object.hasOwn(FORMATOS_BORRADOR, formato)) {
         throw errorCliente("solicitud_no_valida");
       }
       const perfil = PERFILES_BORRADOR_RRHH[tipo];
+      const representacion = FORMATOS_BORRADOR[formato];
       if (!camposExactos(solicitud, ["expediente_ref", "version_observada"])
         || typeof solicitud.expediente_ref !== "string"
         || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(solicitud.expediente_ref)
@@ -148,7 +151,7 @@ export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = 
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Accept: perfil.accept,
+            Accept: `${representacion.mime}; documento=${perfil.documento}`,
           },
           body: JSON.stringify({ expediente_ref: solicitud.expediente_ref, version_observada: 7 }),
           signal: controlador.signal, mode: "same-origin", credentials: "same-origin",
@@ -160,16 +163,16 @@ export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = 
         respuesta = await esperar(pendiente, controlador.signal);
         if (respuesta.redirected) throw errorCliente("resultado_no_confiable");
         if (respuesta.status !== 200) throw await errorConsulta(respuesta, controlador.signal);
-        if (respuesta.headers.get("Content-Type") !== "application/pdf"
-          || respuesta.headers.get("Content-Disposition") !== `attachment; filename="${perfil.nombre}"`) {
+        if (respuesta.headers.get("Content-Type") !== representacion.mime
+          || respuesta.headers.get("Content-Disposition") !== `attachment; filename="${formato === "pdf" ? perfil.nombre : perfil.nombre.replace(/\.pdf$/u, ".docx")}"`) {
           throw errorCliente("resultado_no_confiable");
         }
         const bytes = await leerAcotado(respuesta, controlador.signal, MAXIMO_PDF);
         if (controlador.signal.aborted) throw errorCliente("operacion_abortada");
-        if (new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") {
+        if (new TextDecoder().decode(bytes.subarray(0, representacion.prefijo.length)) !== representacion.prefijo) {
           throw errorCliente("resultado_no_confiable");
         }
-        return new Blob([bytes], { type: "application/pdf" });
+        return new Blob([bytes], { type: representacion.mime });
       } catch (error) {
         if (controlador.signal.aborted) throw errorCliente("operacion_abortada");
         if (error instanceof ErrorClienteHTTPContratacionTemporal) throw error;

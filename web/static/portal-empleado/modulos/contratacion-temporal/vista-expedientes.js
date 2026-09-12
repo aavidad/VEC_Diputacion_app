@@ -477,13 +477,15 @@ export async function montarModuloContratacionTemporal({
   async function descargarBorrador(boton) {
     const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
     if (!montada || descargaInforme || !solicitud) return;
-    const tipo = boton.dataset.ctExpAccion === "descargar-resolucion" ? "resolucion"
-      : boton.dataset.ctExpAccion === "descargar-diligencia" ? "diligencia"
-        : boton.dataset.ctExpAccion === "descargar-toma-posesion" ? "toma_posesion"
-          : boton.dataset.ctExpAccion === "descargar-notificacion" ? "notificacion"
-            : boton.dataset.ctExpAccion === "descargar-comunicacion-centro" ? "comunicacion_centro" : "informe_definitivo";
+    const accionDocumento = boton.dataset.ctExpAccion.replace("descargar-docx-", "descargar-");
+    const formato = boton.dataset.ctExpAccion.startsWith("descargar-docx-") ? "docx" : "pdf";
+    const tipo = accionDocumento === "descargar-resolucion" ? "resolucion"
+      : accionDocumento === "descargar-diligencia" ? "diligencia"
+        : accionDocumento === "descargar-toma-posesion" ? "toma_posesion"
+          : accionDocumento === "descargar-notificacion" ? "notificacion"
+            : accionDocumento === "descargar-comunicacion-centro" ? "comunicacion_centro" : "informe_definitivo";
     const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"], [data-ct-exp-accion="descargar-notificacion"], [data-ct-exp-accion="descargar-comunicacion-centro"]',
+      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"], [data-ct-exp-accion="descargar-notificacion"], [data-ct-exp-accion="descargar-comunicacion-centro"], [data-ct-exp-accion="descargar-docx-informe-definitivo"], [data-ct-exp-accion="descargar-docx-resolucion"], [data-ct-exp-accion="descargar-docx-diligencia"], [data-ct-exp-accion="descargar-docx-toma-posesion"], [data-ct-exp-accion="descargar-docx-notificacion"], [data-ct-exp-accion="descargar-docx-comunicacion-centro"]',
     )] : [boton];
     const controlador = new AbortController();
     descargaInforme = controlador;
@@ -494,7 +496,7 @@ export async function montarModuloContratacionTemporal({
       if (!documento?.body || typeof urls?.createObjectURL !== "function"
         || typeof urls?.revokeObjectURL !== "function") throw new TypeError();
       const blob = await clienteBorradorRRHH.descargarBorrador(solicitud, {
-        tipo, signal: controlador.signal,
+      tipo, formato, signal: controlador.signal,
       });
       if (!montada || descargaInforme !== controlador || controlador.signal.aborted
         || JSON.stringify(solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado()))
@@ -504,7 +506,8 @@ export async function montarModuloContratacionTemporal({
       const enlace = documento.createElement("a");
       try {
         enlace.href = urlInforme;
-        enlace.download = PERFILES_BORRADOR_RRHH[tipo].nombre;
+        enlace.download = formato === "pdf" ? PERFILES_BORRADOR_RRHH[tipo].nombre
+          : PERFILES_BORRADOR_RRHH[tipo].nombre.replace(/\.pdf$/u, ".docx");
         enlace.hidden = true;
         documento.body.append(enlace);
         enlace.click();
@@ -1321,7 +1324,7 @@ export async function montarModuloContratacionTemporal({
       await montarResolucionFormalizacion();
     } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion") {
       await montarIncorporacionEjercicio();
-    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
+    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });

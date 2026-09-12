@@ -26,6 +26,13 @@ const (
 	AcceptTomaPosesionRRHH               = "application/pdf; documento=toma-posesion-desarrollo"
 	AcceptNotificacionRRHH               = "application/pdf; documento=notificacion-desarrollo"
 	AcceptComunicacionCentroRRHH         = "application/pdf; documento=comunicacion-centro-desarrollo"
+	MIMEDOCXBorradorRRHH                 = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	AcceptInformeDefinitivoDOCXRRHH      = MIMEDOCXBorradorRRHH + "; documento=informe-definitivo-desarrollo"
+	AcceptResolucionDOCXRRHH             = MIMEDOCXBorradorRRHH + "; documento=resolucion-desarrollo"
+	AcceptDiligenciaDOCXRRHH             = MIMEDOCXBorradorRRHH + "; documento=diligencia-desarrollo"
+	AcceptTomaPosesionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=toma-posesion-desarrollo"
+	AcceptNotificacionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=notificacion-desarrollo"
+	AcceptComunicacionCentroDOCXRRHH     = MIMEDOCXBorradorRRHH + "; documento=comunicacion-centro-desarrollo"
 
 	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
 	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
@@ -103,6 +110,7 @@ func validarMetadatosConsultaRRHHConPDF(
 type representacionBorradorRRHH struct {
 	tipo          ports.TipoBorradorRRHH
 	nombreArchivo string
+	tipoContenido string
 }
 
 // Correspondencia cerrada e inmutable: ni el tipo ni el nombre del archivo
@@ -112,17 +120,29 @@ func borradorRRHHSolicitado(cabeceras http.Header) (representacionBorradorRRHH, 
 	if unico {
 		switch valor {
 		case AcceptInformeDefinitivoRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorInformeDefinitivo, nombreArchivo: "informe-definitivo-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorInformeDefinitivo, nombreArchivo: "informe-definitivo-borrador.pdf", tipoContenido: "application/pdf"}, true
 		case AcceptResolucionRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorResolucion, nombreArchivo: "resolucion-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorResolucion, nombreArchivo: "resolucion-borrador.pdf", tipoContenido: "application/pdf"}, true
 		case AcceptDiligenciaRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorDiligencia, nombreArchivo: "diligencia-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorDiligencia, nombreArchivo: "diligencia-borrador.pdf", tipoContenido: "application/pdf"}, true
 		case AcceptTomaPosesionRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorTomaPosesion, nombreArchivo: "toma-posesion-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorTomaPosesion, nombreArchivo: "toma-posesion-borrador.pdf", tipoContenido: "application/pdf"}, true
 		case AcceptNotificacionRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorNotificacion, nombreArchivo: "notificacion-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorNotificacion, nombreArchivo: "notificacion-borrador.pdf", tipoContenido: "application/pdf"}, true
 		case AcceptComunicacionCentroRRHH:
-			return representacionBorradorRRHH{tipo: ports.BorradorComunicacionCentro, nombreArchivo: "comunicacion-centro-borrador.pdf"}, true
+			return representacionBorradorRRHH{tipo: ports.BorradorComunicacionCentro, nombreArchivo: "comunicacion-centro-borrador.pdf", tipoContenido: "application/pdf"}, true
+		case AcceptInformeDefinitivoDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorInformeDefinitivo, nombreArchivo: "informe-definitivo-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptResolucionDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorResolucion, nombreArchivo: "resolucion-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptDiligenciaDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorDiligencia, nombreArchivo: "diligencia-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptTomaPosesionDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorTomaPosesion, nombreArchivo: "toma-posesion-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptNotificacionDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorNotificacion, nombreArchivo: "notificacion-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptComunicacionCentroDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorComunicacionCentro, nombreArchivo: "comunicacion-centro-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
 		}
 	}
 	return representacionBorradorRRHH{}, false

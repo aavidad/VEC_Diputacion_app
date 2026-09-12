@@ -33,13 +33,20 @@ type ConsultorDetalleRRHH interface {
 	Consultar(context.Context, ports.SolicitudDetalleRRHH) (ports.DetalleExpedienteRRHH, error)
 }
 
+// RenderizadorBorradorRRHHDOCX recibe sólo el detalle que ya superó la misma
+// consulta autorizada que PDF. La representación no amplía la autoridad.
+type RenderizadorBorradorRRHHDOCX interface {
+	RenderizarBorradorDOCX(context.Context, ports.TipoBorradorRRHH, ports.DetalleExpedienteRRHH) ([]byte, error)
+}
+
 type manejadorConsultaCuadroRRHH struct {
 	consultor ConsultorCuadroRRHH
 }
 
 type manejadorConsultaDetalleRRHH struct {
-	consultor    ConsultorDetalleRRHH
-	renderizador ports.RenderizadorBorradorRRHH
+	consultor        ConsultorDetalleRRHH
+	renderizador     ports.RenderizadorBorradorRRHH
+	renderizadorDOCX RenderizadorBorradorRRHHDOCX
 }
 
 var (
@@ -73,6 +80,29 @@ func NuevoManejadorConsultaDetalleRRHH(
 		h.renderizador = renderizadores[0]
 	}
 	return h, nil
+}
+
+// NuevoManejadorConsultaDetalleRRHHConDOCX conserva el constructor PDF para
+// consumidores existentes y añade DOCX como otra representación de la misma
+// lectura ya autorizada.
+func NuevoManejadorConsultaDetalleRRHHConDOCX(
+	consultor ConsultorDetalleRRHH,
+	pdf ports.RenderizadorBorradorRRHH,
+	docx RenderizadorBorradorRRHHDOCX,
+) (http.Handler, error) {
+	if dependenciaConsultaRRHHNula(docx) {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	h, err := NuevoManejadorConsultaDetalleRRHH(consultor, pdf)
+	if err != nil {
+		return nil, err
+	}
+	manejador, ok := h.(*manejadorConsultaDetalleRRHH)
+	if !ok {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	manejador.renderizadorDOCX = docx
+	return manejador, nil
 }
 
 func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
@@ -193,7 +223,17 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	detalle ports.DetalleExpedienteRRHH,
 	borrador representacionBorradorRRHH,
 ) {
-	if dependenciaConsultaRRHHNula(h.renderizador) {
+	tipoContenido := borrador.tipoContenido
+	// Las pruebas y llamadas internas anteriores construyen la representación
+	// PDF directamente; la ausencia de formato conserva esa semántica.
+	if tipoContenido == "" {
+		tipoContenido = "application/pdf"
+	}
+	if tipoContenido == MIMEDOCXBorradorRRHH && dependenciaConsultaRRHHNula(h.renderizadorDOCX) {
+		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		return
+	}
+	if tipoContenido == "application/pdf" && dependenciaConsultaRRHHNula(h.renderizador) {
 		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
@@ -221,7 +261,17 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		}
 		detalle = original
 	}
-	contenido, err := h.renderizador.RenderizarBorrador(r.Context(), borrador.tipo, detalle.Clonar())
+	var contenido []byte
+	var err error
+	switch tipoContenido {
+	case "application/pdf":
+		contenido, err = h.renderizador.RenderizarBorrador(r.Context(), borrador.tipo, detalle.Clonar())
+	case MIMEDOCXBorradorRRHH:
+		contenido, err = h.renderizadorDOCX.RenderizarBorradorDOCX(r.Context(), borrador.tipo, detalle.Clonar())
+	default:
+		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+		return
+	}
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
 		return
@@ -234,12 +284,14 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if len(contenido) > MaximoPDFBorradorRRHHBytes || !bytes.HasPrefix(contenido, []byte("%PDF-")) {
+	if len(contenido) > MaximoPDFBorradorRRHHBytes ||
+		(tipoContenido == "application/pdf" && !bytes.HasPrefix(contenido, []byte("%PDF-"))) ||
+		(tipoContenido == MIMEDOCXBorradorRRHH && !bytes.HasPrefix(contenido, []byte("PK\x03\x04"))) {
 		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	aplicarCabecerasCobertura(w)
-	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Type", tipoContenido)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+borrador.nombreArchivo+`"`)
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(http.StatusOK)

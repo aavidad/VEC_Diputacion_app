@@ -22,7 +22,20 @@ fecha `2026-09-10T13:07:06.614186Z` e historia CT intacta. No se han comprobado
 aún en navegador ni después de reiniciar; anotación y cierre tampoco tienen E2E.
 
 El CSS `52c6284e…` fue revisado con renderer sintético a 1440/1024/390; no es
-E2E. CT86/87 y AD3-30/31 siguen sin instalar y DOCX continúa en revisión.
+E2E. CT86/87 y AD3-30/31 siguen sin instalar.
+
+Los seis Word están implementados y probados sobre la misma consulta autorizada
+que los PDF: `informe-definitivo-borrador.docx`, `resolucion-borrador.docx`,
+`diligencia-borrador.docx`, `toma-posesion-borrador.docx`,
+`notificacion-borrador.docx` y `comunicacion-centro-borrador.docx`. La API usa
+MIME DOCX y un selector `documento` cerrado. Son borradores de desarrollo, sin
+firma, eficacia, envío o SQL nuevo.
+
+Todavía no intente descargarlos en el servidor: continúa con `4178cfd7…`, sin
+DOCX, y el primer intento de navegador encontró cuatro assets `404` aunque el
+portal respondió `200`. La corrección del manifiesto está integrada en código,
+con focal y `GO`, pero aún no desplegada. Los seis PDF anteriores permanecen
+acreditados y no deben repetirse para este corte.
 
 Cuando se instalen CT86/87 con AD3-30/31, RRHH abrirá el
 expediente sintético conservado, recuperará la incorporación sin repetir su

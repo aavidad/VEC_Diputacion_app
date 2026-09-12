@@ -32,11 +32,28 @@ lo que no hay anotación o cierre acreditados en runtime.
 
 El apoyo CSS `52c6284e…` cambia cuatro líneas en dos archivos: franja y
 agrupación fueron revisadas con renderer sintético a 1440/1024/390, sin E2E.
-La candidata DOCX tiene pruebas y revisión en curso; no se presenta terminada.
+
+Backend y frontend implementan seis DOCX como otra representación de la misma
+consulta RRHH autorizada que genera los PDF. El `Accept` usa MIME DOCX y el
+selector `documento` cerrado; las respuestas se nombran `<tipo>-borrador.docx`,
+validan cabeceras y ZIP y quedan limitadas a 2 MiB. El correctivo backend
+`cb597a` preserva la base; las revisiones backend, frontend e identidad dieron
+`GO`. Go global, vet, build y la suite web 337/337 pasaron; los manifiestos
+inventariaron 111/11/3/1. No hay SQL nuevo.
+
+El runtime sigue en `bc80cddf` con binario `4178cfd7…`, sin DOCX. El primer
+intento de navegador obtuvo portal `200`, pero cuatro assets devolvieron `404`
+porque `web/produccion.manifest` estaba incompleto. La candidata añade seis
+entradas y una prueba HTTP; ya están integradas en código, con focal `PASS` y
+`GO` estático: seis JS `200` y un fichero no publicado `404`. No están
+desplegadas, no acreditan Word en navegador ni cierran el GET de incorporación
+en UI. Los seis PDF previos siguen acreditados y no se repiten; CT86/87
+continúan sin ensayo ni instalación.
 
 El contraste con RRHH mantiene ocho hitos; las 17 pantallas son maquetas, no
-otras fases. Faltan Word de los mismos seis borradores PDF, correo efectivo y
-verificación de la bandeja destinataria en la transferencia de responsabilidad.
+otras fases. Los Word de los seis PDF están en código y pendientes de runtime;
+faltan correo efectivo y verificación de la bandeja destinataria en la
+transferencia de responsabilidad.
 La ficha GINPIX manual es un resultado admitido. Las discrepancias entre texto
 y capturas sobre documentos y segunda Intervención siguen pendientes de aclarar;
 no se convierten en aprobaciones ni amplían este recorrido.

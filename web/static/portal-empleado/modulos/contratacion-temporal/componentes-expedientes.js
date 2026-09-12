@@ -213,15 +213,27 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
       ${informeDisponible ? `<button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-informe-definitivo">${escaparHTML(t("informe_definitivo_descargar"))}</button>
       <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-docx-informe-definitivo">${escaparHTML(t("informe_definitivo_descargar_docx"))}</button>
+      <button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-resolucion">${escaparHTML(t("resolucion_descargar"))}</button>
+      <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-docx-resolucion">${escaparHTML(t("resolucion_descargar_docx"))}</button>
       <button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-diligencia">${escaparHTML(t("diligencia_descargar"))}</button>
       <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-docx-diligencia">${escaparHTML(t("diligencia_descargar_docx"))}</button>
+      <button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-toma-posesion">${escaparHTML(t("toma_posesion_descargar"))}</button>
+      <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-docx-toma-posesion">${escaparHTML(t("toma_posesion_descargar_docx"))}</button>
       <button type="button" class="boton-secundario"
         data-ct-exp-accion="descargar-notificacion">${escaparHTML(t("notificacion_descargar"))}</button>
       <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-comunicacion-centro">${escaparHTML(t("comunicacion_centro_descargar"))}</button>` : ""}
+        data-ct-exp-accion="descargar-docx-notificacion">${escaparHTML(t("notificacion_descargar_docx"))}</button>
+      <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-comunicacion-centro">${escaparHTML(t("comunicacion_centro_descargar"))}</button>
+      <button type="button" class="boton-secundario"
+        data-ct-exp-accion="descargar-docx-comunicacion-centro">${escaparHTML(t("comunicacion_centro_descargar_docx"))}</button>` : ""}
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div>
       <dt>${escaparHTML(campo.etiqueta)}</dt>

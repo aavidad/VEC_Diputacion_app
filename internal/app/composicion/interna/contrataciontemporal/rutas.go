@@ -2,6 +2,7 @@ package contrataciontemporal
 
 import (
 	"errors"
+	"net/http"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -30,6 +31,7 @@ type DependenciasRutas struct {
 	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
 	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
 	BorradorRRHH                    ports.RenderizadorBorradorRRHH
+	BorradorRRHHDOCX                httpinterno.RenderizadorBorradorRRHHDOCX
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
 	AutoridadPropuestaFormalizacion httpinterno.AutoridadServidorPropuestaFormalizacion
 	EjecutorPropuestaFormalizacion  httpinterno.EjecutorPropuestaFormalizacion
@@ -103,13 +105,21 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
-	var renderizadoresBorrador []ports.RenderizadorBorradorRRHH
-	if dependencias.BorradorRRHH != nil {
-		renderizadoresBorrador = append(renderizadoresBorrador, dependencias.BorradorRRHH)
+	var detalleRRHH http.Handler
+	if dependencias.BorradorRRHHDOCX != nil {
+		detalleRRHH, err = httpinterno.NuevoManejadorConsultaDetalleRRHHConDOCX(
+			dependencias.ConsultorDetalleRRHH, dependencias.BorradorRRHH,
+			dependencias.BorradorRRHHDOCX,
+		)
+	} else {
+		var renderizadoresBorrador []ports.RenderizadorBorradorRRHH
+		if dependencias.BorradorRRHH != nil {
+			renderizadoresBorrador = append(renderizadoresBorrador, dependencias.BorradorRRHH)
+		}
+		detalleRRHH, err = httpinterno.NuevoManejadorConsultaDetalleRRHH(
+			dependencias.ConsultorDetalleRRHH, renderizadoresBorrador...,
+		)
 	}
-	detalleRRHH, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(
-		dependencias.ConsultorDetalleRRHH, renderizadoresBorrador...,
-	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}

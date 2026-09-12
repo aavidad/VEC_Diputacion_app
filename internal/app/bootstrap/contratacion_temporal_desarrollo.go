@@ -18,6 +18,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
 	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -286,6 +287,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
 	var borradorRRHH ports.RenderizadorBorradorRRHH
+	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, derivador, reloj)
 		if err != nil {
@@ -293,6 +295,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 		cuadroReal, detalleReal = consultasRRHH.cuadro, consultasRRHH.detalle
 		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -335,6 +338,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
 			BorradorRRHH:                    borradorRRHH,
+			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,
 			AutoridadPropuestaFormalizacion: autoridadPropuestaReal,
 			EjecutorPropuestaFormalizacion:  propuestaReal,

@@ -26,33 +26,9 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
-	if err != nil || detalle.ValidarContenidoPublicablePara(solicitud) != nil ||
-		detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso ||
-		detalle.Analisis == nil || detalle.Cobertura == nil || detalle.Asignacion == nil || len(detalle.Hitos) != 7 {
-		return nil, ports.ErrBorradorRRHHNoDisponible
-	}
-	hito := detalle.Hitos[6]
-	if hito.VersionExpediente != 7 || hito.AccionClave != "registrar_propuesta_formalizacion" ||
-		hito.FaseDestino != "nombramiento" || hito.EstadoDestino != domain.EstadoEnCurso {
-		return nil, ports.ErrBorradorRRHHNoDisponible
-	}
-	var documento vecdomain.ContenidoDocumento
-	switch tipo {
-	case ports.BorradorInformeDefinitivo:
-		documento = contenidoInformeDefinitivoDesarrollo(detalle)
-	case ports.BorradorResolucion:
-		documento = contenidoResolucionDesarrollo(detalle)
-	case ports.BorradorDiligencia:
-		documento = contenidoDiligenciaDesarrollo(detalle)
-	case ports.BorradorTomaPosesion:
-		documento = contenidoTomaPosesionDesarrollo(detalle)
-	case ports.BorradorNotificacion:
-		documento = contenidoNotificacionDesarrollo(detalle)
-	case ports.BorradorComunicacionCentro:
-		documento = contenidoComunicacionCentroDesarrollo(detalle)
-	default:
-		return nil, ports.ErrBorradorRRHHNoDisponible
+	documento, err := contenidoBorradorDesarrollo(tipo, detalle)
+	if err != nil {
+		return nil, err
 	}
 	contenido, err := r.PDF.Renderizar(ctx, documento)
 	if err != nil {
@@ -62,6 +38,41 @@ func (r RenderizadorBorradorDesarrollo) RenderizarBorrador(
 		return nil, err
 	}
 	return contenido, ctx.Err()
+}
+
+// contenidoBorradorDesarrollo mantiene una única fuente para los seis textos
+// preparatorios. PDF y DOCX sólo difieren en la representación final.
+func contenidoBorradorDesarrollo(
+	tipo ports.TipoBorradorRRHH,
+	detalle ports.DetalleExpedienteRRHH,
+) (vecdomain.ContenidoDocumento, error) {
+	solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
+	if err != nil || detalle.ValidarContenidoPublicablePara(solicitud) != nil ||
+		detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso ||
+		detalle.Analisis == nil || detalle.Cobertura == nil || detalle.Asignacion == nil || len(detalle.Hitos) != 7 {
+		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
+	}
+	hito := detalle.Hitos[6]
+	if hito.VersionExpediente != 7 || hito.AccionClave != "registrar_propuesta_formalizacion" ||
+		hito.FaseDestino != "nombramiento" || hito.EstadoDestino != domain.EstadoEnCurso {
+		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
+	}
+	switch tipo {
+	case ports.BorradorInformeDefinitivo:
+		return contenidoInformeDefinitivoDesarrollo(detalle), nil
+	case ports.BorradorResolucion:
+		return contenidoResolucionDesarrollo(detalle), nil
+	case ports.BorradorDiligencia:
+		return contenidoDiligenciaDesarrollo(detalle), nil
+	case ports.BorradorTomaPosesion:
+		return contenidoTomaPosesionDesarrollo(detalle), nil
+	case ports.BorradorNotificacion:
+		return contenidoNotificacionDesarrollo(detalle), nil
+	case ports.BorradorComunicacionCentro:
+		return contenidoComunicacionCentroDesarrollo(detalle), nil
+	default:
+		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
+	}
 }
 
 func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {

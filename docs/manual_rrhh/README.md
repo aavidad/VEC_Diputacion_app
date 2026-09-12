@@ -1,5 +1,30 @@
 # Manual funcional del técnico de Recursos Humanos
 
+## Borradores Word integrados en código; runtime pendiente — 12 de septiembre de 2026
+
+Los seis documentos ya disponibles como PDF tienen también representación DOCX
+implementada: informe definitivo, resolución, diligencia, toma de posesión,
+notificación y comunicación al centro. Reutilizan la misma consulta y
+autorización del detalle; no crean otro expediente, documento persistente ni SQL.
+
+La petición usa `POST /api/vec/contratacion-temporal/expedientes/consultas` con
+`Accept: application/vnd.openxmlformats-officedocument.wordprocessingml.document;
+documento=<selector>-desarrollo`. La descarga se llama `<tipo>-borrador.docx`,
+valida la representación DOCX y admite hasta 2 MiB. Go global, vet, build y 337
+pruebas web pasaron; las revisiones aplicables dieron `GO`.
+
+El servidor sigue usando `4178cfd7…`, sin esta capacidad. Un intento de
+navegador abrió el portal con `200`, pero cuatro assets devolvieron `404` por un
+manifiesto de producción incompleto. La corrección de seis entradas está
+integrada en código y su prueba HTTP y revisión pasaron, pero aún no está
+desplegada. No presente Word como descargado en navegador todavía.
+
+Los seis PDF ya acreditados se conservan: no los repita para probar DOCX. Ambos
+formatos son borradores de desarrollo, sin firma, eficacia administrativa,
+envío, entrega o modelo oficial aprobado. CT86/87 siguen sin ensayo ni
+instalación. La incorporación y GINPIX están comprobadas por `curl` mTLS con el
+mismo recibo y fecha, pero no en UI ni después de reiniciar.
+
 ## Corte vigente para presentación — 10 de septiembre de 2026
 
 ### Panel integrado en código; runtime pendiente

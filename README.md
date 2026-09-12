@@ -24,10 +24,19 @@ mismo contenedor con binario `4178cfd7…`; CT86/87 y AD3-30/31 siguen sin insta
 El apoyo CSS `52c6284e…`, dos archivos y cuatro líneas, fue revisado con renderer
 sintético a 1440/1024/390; no acredita navegador ni E2E.
 
-El alcance RRHH conserva ocho hitos. Siguen pendientes los seis borradores en
-Word, correo efectivo y apertura de la bandeja destinataria. La candidata DOCX
-tiene pruebas, con revisión aún en curso. Las maquetas no
-añaden fases ni documentos aprobados; GINPIX admite ficha manual.
+Los seis borradores Word están implementados junto a los PDF, reutilizando la
+misma consulta y autorización. La API selecciona DOCX con `Accept` MIME y uno
+de seis valores `documento`; devuelve nombres `<tipo>-borrador.docx`, hasta
+2 MiB. Go global, vet, build y 337 pruebas web pasaron; las revisiones dieron
+`GO`. El runtime conserva aún el binario `4178cfd7…`, sin Word. Un intento de
+navegador obtuvo portal `200` y cuatro assets `404` por el manifiesto de
+producción incompleto. La corrección de seis entradas está integrada en código:
+su focal sirve los seis JS con `200`, conserva `404` para lo no publicado y
+tiene `GO`; todavía no está desplegada.
+
+Los seis PDF acreditados se conservan y no necesitan repetirse. DOCX no añade
+SQL, firma, eficacia, envío ni modelos oficiales. CT86/87 siguen pendientes de
+ensayo e instalación; GINPIX admite la ficha manual ya comprobada por `curl`.
 
 ## Estado funcional y continuación — 12 de septiembre de 2026
 
