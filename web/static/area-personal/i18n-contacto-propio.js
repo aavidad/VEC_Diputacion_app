@@ -11,7 +11,12 @@ export const textosContactoPropio = Object.freeze({
   correctoAnterior: "Correo de contacto guardado. Referencia de recibo: {recibo}.",
   errorEntrada: "Revise el correo de contacto antes de enviarlo.",
   errorPermiso: "No dispone de permiso para actualizar el correo de contacto.",
-  errorServicio: "No se pudo guardar el correo de contacto. No se ha repetido la operación.",
+  errorServicio: "No se pudo confirmar el guardado del correo de contacto. No se ha repetido la operación.",
+  consultarRecibo: "Consultar recibo",
+  consultando: "Consultando recibo…",
+  consultaNoDisponible: "La consulta del recibo no está disponible para este intento.",
+  consultaSinConfirmacion: "No se ha podido recuperar el recibo. El guardado anterior podría haberse completado; esta consulta no lo confirma ni lo descarta.",
+  reciboConsultado: "Recibo de la versión {version}: {recibo}. Esta consulta no confirma que el correo del último intento coincida con el guardado. El formulario no se ha actualizado.",
 });
 
 export function textoContactoPropio(clave, valores = {}) {

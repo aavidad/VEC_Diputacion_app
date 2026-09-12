@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { capturarCorreoEnviado, crearControladorContactoPropio, RUTA_CONTACTO_PROPIO } from "./contacto-propio.js";
+import { capturarCorreoEnviado, crearControladorContactoPropio, RUTA_CONTACTO_PROPIO, RUTA_RECIBO_CONTACTO_PROPIO } from "./contacto-propio.js";
 import { conservarResultadoContactoPropio } from "./aplicacion.js";
 
 function respuesta(estado, cuerpo = {}) {
@@ -44,7 +44,7 @@ test("rechaza una versión de respuesta que no sea la sucesora exacta", async ()
     autorizacionServidor: { capacidad: true, version: 7 },
     fetchImpl: async () => respuesta(201, { recibo_ref: "recibo-opaco", version: 10 }),
   });
-  await assert.rejects(() => controlador.guardar("persona@ejemplo.test"), /No se pudo guardar/iu);
+  await assert.rejects(() => controlador.guardar("persona@ejemplo.test"), /No se pudo confirmar/iu);
 });
 
 test("conserva recibo y versión al reconstruir la pantalla en memoria", () => {
@@ -108,4 +108,83 @@ test("no duplica un envío mientras el primero sigue pendiente", async () => {
   assert.equal(llamadas, 1);
   resolver(respuesta(201, { recibo_ref: "recibo-inicial", version: 1 }));
   await primero;
+});
+
+test("recupera recibo tras respuesta perdida sin confirmar el correo ni avanzar su versión", async () => {
+  const peticiones = [];
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, consultarRecibo: true, version: 7 },
+    fetchImpl: async (ruta, opciones) => {
+      peticiones.push([ruta, opciones]);
+      if (ruta === RUTA_CONTACTO_PROPIO) throw new TypeError("respuesta perdida");
+      return respuesta(200, { recibo_ref: "recibo-original", version: 8 });
+    },
+  });
+  assert.equal(controlador.puedeConsultarRecibo, false);
+  await assert.rejects(() => controlador.guardar("primero@ejemplo.test"));
+  assert.equal(controlador.puedeConsultarRecibo, true);
+  assert.deepEqual(await controlador.consultarRecibo(), { reciboRef: "recibo-original", version: 8 });
+  assert.equal(controlador.recibo, null);
+  assert.equal(peticiones[1][0], RUTA_RECIBO_CONTACTO_PROPIO);
+  assert.deepEqual(JSON.parse(peticiones[1][1].body), { version: 8 });
+  for (const [clave, valor] of Object.entries({ method: "POST", credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" })) {
+    assert.equal(peticiones[1][1][clave], valor);
+  }
+  await assert.rejects(() => controlador.guardar("distinto@ejemplo.test"));
+  assert.deepEqual(JSON.parse(peticiones[2][1].body), { correo: "distinto@ejemplo.test", version_esperada: 7 });
+});
+
+test("consultar exige permiso separado y un intento previo, incluso en presentación", async () => {
+  for (const opciones of [
+    { autorizacionServidor: { capacidad: true, version: 0 } },
+    { autorizacionServidor: { capacidad: true, consultarRecibo: true, version: 0 }, presentacion: true },
+    { autorizacionServidor: { capacidad: true, consultarRecibo: true, version: 0 } },
+  ]) {
+    const controlador = crearControladorContactoPropio({ ...opciones, fetchImpl: async () => assert.fail("sin red") });
+    await assert.rejects(() => controlador.consultarRecibo(), /no está disponible/iu);
+  }
+  let llamadas = 0;
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, version: 0 },
+    fetchImpl: async () => { llamadas++; throw new Error(); },
+  });
+  await assert.rejects(() => controlador.guardar("persona@ejemplo.test"));
+  await assert.rejects(() => controlador.consultarRecibo(), /no está disponible/iu);
+  assert.equal(llamadas, 1);
+});
+
+test("una consulta sin recibo o con otra versión conserva el resultado incierto", async () => {
+  for (const resultado of [respuesta(404), respuesta(403), respuesta(200, { recibo_ref: "ajeno", version: 9 })]) {
+    const controlador = crearControladorContactoPropio({
+      autorizacionServidor: { capacidad: true, consultarRecibo: true, version: 7 },
+      fetchImpl: async (ruta) => {
+        if (ruta === RUTA_CONTACTO_PROPIO) throw new Error();
+        return resultado;
+      },
+    });
+    await assert.rejects(() => controlador.guardar("persona@ejemplo.test"));
+    await assert.rejects(() => controlador.consultarRecibo(), /no lo confirma ni lo descarta/iu);
+    assert.equal(controlador.recibo, null);
+    assert.equal(controlador.puedeConsultarRecibo, true);
+  }
+});
+
+test("una consulta pendiente impide solapar guardado y otra consulta", async () => {
+  let resolver;
+  let llamadas = 0;
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, consultarRecibo: true, version: 7 },
+    fetchImpl: async (ruta) => {
+      llamadas++;
+      if (ruta === RUTA_CONTACTO_PROPIO) throw new Error();
+      return new Promise((resolve) => { resolver = resolve; });
+    },
+  });
+  await assert.rejects(() => controlador.guardar("persona@ejemplo.test"));
+  const consulta = controlador.consultarRecibo();
+  await assert.rejects(() => controlador.guardar("otro@ejemplo.test"));
+  await assert.rejects(() => controlador.consultarRecibo());
+  assert.equal(llamadas, 2);
+  resolver(respuesta(200, { recibo_ref: "original", version: 8 }));
+  await consulta;
 });

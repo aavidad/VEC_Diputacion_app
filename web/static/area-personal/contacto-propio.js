@@ -1,6 +1,7 @@
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 
 export const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
+export const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
 
 export function capturarCorreoEnviado(entrada) {
   return String(entrada?.value ?? "").trim();
@@ -33,6 +34,8 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
   let enviando = false;
   let recibo = null;
   let versionEsperada = autorizacionServidor?.version;
+  let versionIntentada = null;
+  let consultando = false;
 
   async function guardar(correo) {
     if (presentacion === true || !esContextoAutorizado(autorizacionServidor)) {
@@ -43,9 +46,10 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
     if (!correoNormalizado || correoNormalizado.length > 254) {
       throw new Error(textoContactoPropio("errorEntrada"));
     }
-    if (enviando) throw new Error(textoContactoPropio("preparando"));
+    if (enviando || consultando) throw new Error(textoContactoPropio("preparando"));
     enviando = true;
     try {
+      versionIntentada = versionEsperada + 1;
       const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
         method: "POST",
         credentials: "omit",
@@ -59,6 +63,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
       const resultado = validarRespuesta(await respuesta.json(), versionEsperada);
       recibo = resultado;
       versionEsperada = resultado.version;
+      versionIntentada = null;
       return resultado;
     } catch (error) {
       if (error instanceof Error && Object.values({
@@ -72,9 +77,41 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
     }
   }
 
+  async function consultarRecibo() {
+    if (presentacion === true || !esContextoAutorizado(autorizacionServidor)
+      || autorizacionServidor.consultarRecibo !== true || versionIntentada === null) {
+      throw new Error(textoContactoPropio("consultaNoDisponible"));
+    }
+    if (enviando || consultando) throw new Error(textoContactoPropio("consultando"));
+    const version = versionIntentada;
+    consultando = true;
+    try {
+      const respuesta = await fetchImpl(RUTA_RECIBO_CONTACTO_PROPIO, {
+        method: "POST", credentials: "omit", cache: "no-store", redirect: "error",
+        referrerPolicy: "no-referrer",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ version }),
+      });
+      if (respuesta?.status !== 200) throw new Error();
+      // La consulta acredita una versión histórica, no el correo del intento.
+      // No modifica recibo, versión esperada ni el estado del guardado.
+      return validarRespuesta(await respuesta.json(), version - 1);
+    } catch {
+      throw new Error(textoContactoPropio("consultaSinConfirmacion"));
+    } finally {
+      consultando = false;
+    }
+  }
+
   return Object.freeze({
     autorizado: presentacion !== true && esContextoAutorizado(autorizacionServidor),
     guardar,
+    consultarRecibo,
+    get puedeConsultarRecibo() {
+      return presentacion !== true && esContextoAutorizado(autorizacionServidor)
+        && autorizacionServidor.consultarRecibo === true && versionIntentada !== null;
+    },
+    get consultando() { return consultando; },
     get enviando() { return enviando; },
     get recibo() { return recibo; },
   });
@@ -113,7 +150,12 @@ export function montarContactoPropio({
   boton.type = "submit";
   boton.className = "boton-primario";
   boton.textContent = textoContactoPropio("guardar");
-  formulario.append(campo, boton, estado);
+  const consultar = documento.createElement("button");
+  consultar.type = "button";
+  consultar.className = "boton-secundario";
+  consultar.textContent = textoContactoPropio("consultarRecibo");
+  consultar.hidden = true;
+  formulario.append(campo, boton, consultar, estado);
   const habilitado = controlador.autorizado && presentacion !== true;
   if (!habilitado) {
     entrada.disabled = true;
@@ -135,10 +177,11 @@ export function montarContactoPropio({
       entrada.focus();
       return;
     }
-    if (controlador.enviando) return;
+    if (controlador.enviando || controlador.consultando) return;
     const correoEnviado = capturarCorreoEnviado(entrada);
     boton.disabled = true;
     entrada.disabled = true;
+    consultar.disabled = true;
     estado.hidden = false;
     estado.className = "nota";
     estado.textContent = textoContactoPropio("preparando");
@@ -151,6 +194,30 @@ export function montarContactoPropio({
       estado.className = "nota error";
       estado.textContent = error instanceof Error ? error.message : textoContactoPropio("errorServicio");
     } finally {
+      boton.disabled = !habilitado;
+      entrada.disabled = !habilitado;
+      consultar.hidden = !controlador.puedeConsultarRecibo;
+      consultar.disabled = false;
+    }
+  });
+  consultar.addEventListener("click", async () => {
+    if (controlador.enviando || controlador.consultando) return;
+    consultar.disabled = true;
+    boton.disabled = true;
+    entrada.disabled = true;
+    estado.hidden = false;
+    estado.className = "nota";
+    estado.textContent = textoContactoPropio("consultando");
+    try {
+      const resultado = await controlador.consultarRecibo();
+      estado.textContent = textoContactoPropio("reciboConsultado", {
+        recibo: resultado.reciboRef, version: resultado.version,
+      });
+    } catch {
+      estado.className = "nota aviso";
+      estado.textContent = textoContactoPropio("consultaSinConfirmacion");
+    } finally {
+      consultar.disabled = false;
       boton.disabled = !habilitado;
       entrada.disabled = !habilitado;
     }
