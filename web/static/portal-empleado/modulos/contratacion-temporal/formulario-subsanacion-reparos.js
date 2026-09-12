@@ -5,11 +5,19 @@ const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", 
 function contextoValido(c) { return c && Object.getPrototypeOf(c) === Object.prototype && Object.keys(c).length === 2 && REF.test(c.expediente_ref) && Number.isSafeInteger(c.version_esperada) && c.version_esperada > 0; }
 function indeterminado(error) { try { return error?.resultadoIndeterminado !== false; } catch { return true; } }
 
-export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, traducir, confirmarOperacion = () => false, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(), anunciar = () => {} } = {}) {
-  if (!raiz || typeof raiz.addEventListener !== "function" || typeof raiz.removeEventListener !== "function" || typeof raiz.contains !== "function" || typeof raiz.querySelector !== "function" || typeof raiz.replaceChildren !== "function" || !contextoValido(contexto) || typeof cliente?.registrarSubsanacionReparos !== "function" || typeof traducir !== "function" || typeof confirmarOperacion !== "function" || typeof generarClaveIdempotencia !== "function" || typeof anunciar !== "function") throw new TypeError("dependencias de subsanación no válidas");
+export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, reciboConfirmado = null, traducir, confirmarOperacion = () => false, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(), anunciar = () => {}, alConfirmar = () => {} } = {}) {
+  if (!raiz || typeof raiz.addEventListener !== "function" || typeof raiz.removeEventListener !== "function" || typeof raiz.contains !== "function" || typeof raiz.querySelector !== "function" || typeof raiz.replaceChildren !== "function" || !contextoValido(contexto) || typeof cliente?.registrarSubsanacionReparos !== "function" || typeof traducir !== "function" || typeof confirmarOperacion !== "function" || typeof generarClaveIdempotencia !== "function" || typeof anunciar !== "function" || typeof alConfirmar !== "function") throw new TypeError("dependencias de subsanación no válidas");
   contexto = Object.freeze({ expediente_ref: contexto.expediente_ref, version_esperada: contexto.version_esperada });
+  let reciboInicial = null;
+  if (reciboConfirmado !== null) {
+    if (!reciboConfirmado || Object.getPrototypeOf(reciboConfirmado) !== Object.prototype
+      || !contextoValido(reciboConfirmado.contexto)) throw new TypeError("recibo confirmado de subsanación no válido");
+    reciboInicial = validarReciboSubsanacionReparos(reciboConfirmado.recibo, reciboConfirmado.contexto);
+    if (reciboInicial.expediente_ref !== contexto.expediente_ref
+      || ![reciboConfirmado.contexto.version_esperada, reciboInicial.version_resultante].includes(contexto.version_esperada)) throw new TypeError("recibo ajeno al contexto de subsanación");
+  }
   let montado = true, controlador = null, solicitud = null;
-  const estado = { observaciones: "", recibo: null, ocupado: false, bloqueado: false, mensaje: "subsanacion_lista", tono: "informacion" };
+  const estado = { observaciones: "", recibo: reciboInicial, ocupado: false, bloqueado: reciboInicial !== null, mensaje: reciboInicial ? "subsanacion_confirmada" : "subsanacion_lista", tono: reciboInicial ? "exito" : "informacion" };
   function pintar() {
     if (!montado) return;
     const t = traducir;
@@ -25,7 +33,7 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, tr
     solicitud=q; estado.observaciones=observaciones; estado.ocupado=true; estado.mensaje="subsanacion_enviando"; estado.tono="informacion"; controlador=new AbortController(); pintar();
     try { const respuesta=await cliente.registrarSubsanacionReparos(q,{signal:controlador.signal}); if(!montado)return; estado.recibo=validarReciboSubsanacionReparos(respuesta,q); estado.mensaje="subsanacion_confirmada"; estado.tono="exito"; }
     catch(error) { if(!montado)return; estado.bloqueado=indeterminado(error); if (!estado.bloqueado) solicitud=null; estado.mensaje=estado.bloqueado?"subsanacion_indeterminada":error?.envelopeValido && error.estado === 403 ? "subsanacion_sin_permiso" : error?.envelopeValido && error.estado === 409 ? "subsanacion_conflicto" : error?.envelopeValido ? "subsanacion_rechazada" : "subsanacion_error"; estado.tono="error"; }
-    finally { if(montado){estado.ocupado=false; controlador=null; pintar(); if (estado.recibo) raiz.querySelector("[data-ct-subsanacion-recibo]")?.focus?.(); anunciar(traducir(estado.mensaje),estado.tono);} }
+    finally { if(montado){estado.ocupado=false; controlador=null; pintar(); if (estado.recibo) { raiz.querySelector("[data-ct-subsanacion-recibo]")?.focus?.(); void Promise.resolve().then(() => { if (montado) return alConfirmar(estado.recibo, contexto); }).catch(() => {}); } anunciar(traducir(estado.mensaje),estado.tono);} }
   }
   raiz.addEventListener("submit",enviar); pintar();
   return () => { if(!montado)return; montado=false; controlador?.abort(); controlador=null; raiz.removeEventListener("submit",enviar); raiz.replaceChildren(); };

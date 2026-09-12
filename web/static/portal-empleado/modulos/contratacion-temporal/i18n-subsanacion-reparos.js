@@ -8,6 +8,7 @@ export const MENSAJES_SUBSANACION_REPAROS_ES = Object.freeze({
   subsanacion_confirmacion: "Se registrará la subsanación y el expediente continuará en el circuito de reparos. No aprueba la fiscalización.",
   subsanacion_lista: "Revise las observaciones antes de confirmar.",
   subsanacion_enviando: "Enviando una única petición. Espere la confirmación.",
+  subsanacion_actualizacion_pendiente: "La subsanación está confirmada y conserva su recibo. Falta actualizar el detalle y el historial; vuelva a consultar el expediente.",
   subsanacion_confirmada: "Subsanación confirmada por el servidor.",
   subsanacion_indeterminada: "El resultado no puede determinarse. No repita la operación automáticamente.",
   subsanacion_montaje_error: "No se pudo cargar el formulario de subsanación. Vuelva a abrir el expediente.",

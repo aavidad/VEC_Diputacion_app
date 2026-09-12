@@ -596,6 +596,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarInformeJuridico = null;
   let desmontarFiscalizacion = null;
   let desmontarSubsanacion = null;
+  let reciboSubsanacionConfirmado = null;
   let sesionAnalisis = null;
   let descargaInforme = null;
   let urlInforme = null;
@@ -886,16 +887,55 @@ export async function montarModuloContratacionTemporal({
     const contexto = contextoSubsanacionDesdeEstado(presentador.obtenerEstado());
     const contenedor = raiz.querySelector("[data-ct-exp-subsanacion]");
     if (!contexto || !contenedor) return;
+    const reciboConfirmado = reciboSubsanacionConfirmado?.recibo?.expediente_ref === contexto.expediente_ref
+      && [reciboSubsanacionConfirmado.contexto.version_esperada, reciboSubsanacionConfirmado.recibo.version_resultante].includes(contexto.version_esperada)
+      ? reciboSubsanacionConfirmado : null;
     try {
       desmontarSubsanacion = montarFormularioSubsanacionReparos({
         raiz: contenedor, cliente: clienteSubsanacion, contexto,
         traducir: crearTraductorContratacionTemporal(mensajes), confirmarOperacion,
-        anunciar,
+        anunciar, reciboConfirmado,
+        alConfirmar: refrescarDetalleTrasSubsanacion,
       });
     } catch {
       desmontarSubsanacion = null;
       const t = crearTraductorContratacionTemporal(mensajes);
       contenedor.innerHTML = `<p role="alert">${escaparHTML(t("subsanacion_montaje_error"))}</p>`;
+    }
+  }
+
+  async function refrescarDetalleTrasSubsanacion(recibo, contextoOriginal) {
+    if (!montada || recibo?.expediente_ref !== contextoOriginal?.expediente_ref
+      || recibo.version_resultante <= contextoOriginal.version_esperada) return;
+    reciboSubsanacionConfirmado = Object.freeze({ recibo, contexto: contextoOriginal });
+    const seleccionado = presentador.obtenerEstado();
+    if (seleccionado.vista !== "expediente"
+      || seleccionado.expediente?.expediente_ref !== contextoOriginal.expediente_ref) return;
+    const panel = raiz.querySelector("[data-ct-exp-subsanacion]");
+    // cargar descarta la selección antigua cuando cambia la versión; el panel
+    // identifica la navegación del usuario mientras se recupera la nueva.
+    const sigueSeleccionado = () => montada && panel !== null
+      && raiz.querySelector("[data-ct-exp-subsanacion]") === panel;
+    const avisarPendiente = () => {
+      if (sigueSeleccionado()) anunciar(
+        crearTraductorContratacionTemporal(mensajes)("subsanacion_actualizacion_pendiente"), "aviso",
+      );
+    };
+    try {
+      await presentador.cargar();
+      if (!sigueSeleccionado()) return;
+      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+        ({ expediente_ref: referencia }) => referencia === contextoOriginal.expediente_ref,
+      );
+      if (!resumen || resumen.version < recibo.version_resultante) { avisarPendiente(); return; }
+      await presentador.seleccionarExpediente(contextoOriginal.expediente_ref, "expediente");
+      if (!sigueSeleccionado()) return;
+      const actualizado = presentador.obtenerEstado().expediente;
+      if (actualizado?.expediente_ref !== contextoOriginal.expediente_ref
+        || actualizado.version < recibo.version_resultante) { avisarPendiente(); return; }
+      repintar("[data-ct-subsanacion-recibo]");
+    } catch {
+      avisarPendiente();
     }
   }
 
