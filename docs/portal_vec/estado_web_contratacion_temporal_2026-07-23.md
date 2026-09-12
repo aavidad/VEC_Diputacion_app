@@ -1,10 +1,11 @@
 # Estado de la web de contratación temporal para RRHH
 
-## Contador vigente de pantallas — 12 de septiembre de 2026
+## Contador vigente de pantallas — 13 de septiembre de 2026
 
-**6 de 19 terminadas en desarrollo; 11 parciales; 2 pendientes de pantalla real.**
-Hay superficie real publicada para **15 de 19 (79 %)**. Dos superficies más
-están preparadas en código y pendientes de integración. Visible no significa terminada.
+**6 de 19 terminadas en desarrollo; 12 parciales; 1 pendiente de pantalla real.**
+Hay superficie real publicada para **15 de 19 (79 %)**. Las superficies preparadas en código se distinguen de las activadas en la aplicación.
+La subsanación cuenta como parcial programada, pendiente de instalación y recorrido;
+no como pantalla todavía inexistente. Visible no significa terminada.
 El denominador queda fijo: 17 referencias de RRHH y 2 tareas adicionales ya
 incluidas en el alcance (incorporación y seguimiento). No son 19 URL distintas:
 varias se presentan como paneles del expediente. Los seis documentos no suman
@@ -16,26 +17,24 @@ Cero significa recorrido funcional de desarrollo documentado, no producción ni
 validación final de RRHH. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
-**Disponibilidad transversal:** recuperación documental publicada en `4fc058f5`:
-PDF y DOCX reales con HTTP 200 desde expediente avanzado, vista 390 px comprobada
-y conservación del historial verificada por el remoto. Producto `d4cae9f2` integrado
-localmente; búsqueda y cierre táctil ya publicados. Indicadores, resumen GINPIX,
-orientación de candidatura y reapertura de cobertura están entregados al remoto.
-La línea de ocho fases se conecta en este corte a la consulta autorizada del detalle;
-composición y pruebas focales correctas, pendiente comprobación en navegador real.
-No se incrementa el contador por esta integración.
+**Corte de integración comprobado:** producto remoto `e99c1c82` publica fases RRHH,
+historial y ajustes móviles; asignación e informe se distinguen por evidencia real.
+Subsanación `4996034d`, refresco `6257b6f6`, catálogo `64aeec4f` y refiscalización
+`60e0c7a1` recibidos por el director remoto, que confirma que CT92/AD3-38/CT93 aún
+no están instaladas. Estos paquetes no aumentan el número de recorridos cerrados.
+Se conserva la recuperación documental PDF/DOCX y el historial anteriores.
 
 | N.º | Pantalla | Estado | Falta estimada | Responsable / dependencia | Pendiente concreto o evidencia |
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Parcial | 25 % | Director local; integración del parche entregado | Ámbito de indicadores; línea de progreso depende de definición de flujo publicada. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Local: web_rectificacion y web_politica_rectificacion | Formulario de rectificación compuesto y comprobado; con catálogo vacío informa indisponibilidad sin POST. Falta política y motivo gobernados para habilitar el recorrido real. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Director remoto: activar entrega local 64aeec4f | Formulario y catálogo configurable conectados; falta fuente de motivos válida e instalación/recorrido. Catálogo vacío sigue sin permitir POST. |
 | 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Remoto: preparacion_continuidad | Reapertura integrada; comprobar recorrido de cobertura desde análisis existente. |
 | 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Remoto: preparacion_continuidad | Asignación persistida; falta recorrido de bandeja con lectores nominales. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Espera circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma/envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Remoto: preparacion_continuidad | Conexión normal integrada; comprobar formulario con expediente en su fase. |
-| 9 | Subsanación de reparos | Pendiente | 100 % | Local: web_subsanacion y web_revision_subsanacion | Comando en revisión; faltan persistencia durable y formulario conectado. |
+| 9 | Subsanación de reparos | Parcial, programada sin activar | Por verificar | Director remoto: instalación de paquetes revisados | Formulario, API, permisos, persistencia y refresco del historial entregados en 4996034d/6257b6f6; nueva fiscalización tras corrección en 60e0c7a1. SQL CT92/AD3-38 y CT93 con doble revisión. Ninguna instalada según ACK remoto 13 septiembre 01:22 CEST; falta recorrido real. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Espera contacto/SMTP operativo | Selección y aviso local existen; envío efectivo depende de correo. Completar dependencia si impide avanzar, autorizado por operador. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Espera política de plazo admitida | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio/plazo acreditados. |
