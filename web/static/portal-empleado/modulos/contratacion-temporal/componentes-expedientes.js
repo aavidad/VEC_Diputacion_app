@@ -214,8 +214,10 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
   const expediente = estado.expediente;
   if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
     || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    || expediente?.demostracion !== false || ![7, 8, 9].includes(expediente.version)
-    || (expediente.version >= 8 && expediente.version_propuesta_documental !== 7)
+    || expediente?.demostracion !== false || !Number.isSafeInteger(expediente.version) || expediente.version < 7
+    || (expediente.version >= 8
+      && !(([8, 9].includes(expediente.version) && expediente.version_propuesta_documental === 7)
+        || expediente.version_propuesta_documental === expediente.version))
     || estado.expediente_ref !== expediente.expediente_ref
     || estado.cuadro?.demostracion !== false) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);

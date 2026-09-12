@@ -496,8 +496,13 @@ export function validarExpedienteContratacionTemporal(entrada) {
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
-    || (propuestaHistorica && (entrada.demostracion !== false || ![8, 9].includes(entrada.version)
-      || entrada.version_propuesta_documental !== 7))
+    || (propuestaHistorica && (entrada.demostracion !== false
+      || !(([8, 9].includes(entrada.version) && entrada.version_propuesta_documental === 7)
+        || (entrada.version > 7 && entrada.version_propuesta_documental === entrada.version
+          && Array.isArray(entrada.historial) && entrada.historial.length === entrada.version
+          && entrada.historial.every((h, i) => h?.secuencia === i + 1 && h?.version_expediente === i + 1)
+          && entrada.historial.at(-1)?.accion_clave === "registrar_propuesta_formalizacion"
+          && entrada.historial.at(-1)?.version_expediente === entrada.version)) ))
     || typeof entrada.flujo_huella !== "string" || !PATRON_HUELLA.test(entrada.flujo_huella)) {
     throw new TypeError("expediente de contratación temporal no válido");
   }
@@ -549,7 +554,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     fases,
     ...(tieneHistorial ? { historial } : {}),
     tareas,
-    ...(propuestaHistorica ? { version_propuesta_documental: 7 } : {}),
+    ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),
   });
 }
 

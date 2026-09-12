@@ -109,7 +109,7 @@ test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
   }
 });
 
-async function estadoResolucionDesdeHTTP(modificar = () => {}) {
+async function estadoResolucionDesdeHTTP(modificar = () => {}, cargaEsperada = "listo") {
   const resumen = {
     expediente_ref: "expediente:ct:pdf-historico", numero_visible: "2026/CT-009", version: 8,
     flujo_ref: "flujo:ct:desarrollo", flujo_version: 1, flujo_huella_sha256: "a".repeat(64),
@@ -147,7 +147,7 @@ async function estadoResolucionDesdeHTTP(modificar = () => {}) {
   await presentador.cargar();
   await presentador.seleccionarExpediente(resumen.expediente_ref);
   const estado = presentador.obtenerEstado();
-  assert.equal(estado.carga, "listo");
+  assert.equal(estado.carga, cargaEsperada);
   return estado;
 }
 
@@ -186,14 +186,12 @@ test("una v8 sin propuesta/resolución histórica exacta no muestra descargas", 
     (d) => { d.hitos[6].version_expediente = 6; },
     (d) => { d.hitos[7].version_expediente = 9; },
     (d) => { d.hitos[7].secuencia = 9; },
-    (d) => { d.hitos[0].secuencia = 2; },
     (d) => { d.hitos[6].fase_destino = "fiscalizacion"; },
     (d) => { d.hitos[6].estado_destino = "completado"; },
     (d) => { d.hitos[7].fase_origen = "fiscalizacion"; },
     (d) => { d.hitos[7].fase_destino = "fiscalizacion"; },
     (d) => { d.hitos[7].estado_origen = "pendiente"; },
     (d) => { d.hitos[7].estado_destino = "completado"; },
-    (d) => { d.hitos.push({ ...d.hitos[7] }); },
     (d) => { d.resumen.fase_clave = "fiscalizacion"; },
     (d) => { d.resumen.estado_clave = "completado"; },
     (d) => { d.resumen.version = 9; },
@@ -322,5 +320,14 @@ test("navegar o desmontar cancela, descarta respuesta tardía y evita doble env�
       assert.deepEqual(vista.descargas, []);
       vista.montaje.desmontar();
     }
+  }
+});
+
+
+test("historial con secuencias duplicadas muestra error sin habilitar documentos", async () => {
+  for (const alterar of [(d) => { d.hitos[0].secuencia = 2; }, (d) => { d.hitos.push({ ...d.hitos[7] }); }]) {
+    const estado = await estadoResolucionDesdeHTTP(alterar, "error");
+    assert.equal(estado.expediente, null);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
   }
 });

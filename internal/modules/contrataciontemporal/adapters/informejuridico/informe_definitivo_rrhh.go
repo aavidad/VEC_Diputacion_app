@@ -46,36 +46,39 @@ func contenidoBorradorDesarrollo(
 	tipo ports.TipoBorradorRRHH,
 	detalle ports.DetalleExpedienteRRHH,
 ) (vecdomain.ContenidoDocumento, error) {
-	solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
+	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
+		detalle.Resumen.ExpedienteRef, detalle.Resumen.Version,
+	)
 	if err != nil || detalle.ValidarContenidoPublicablePara(solicitud) != nil ||
 		detalle.Resumen.FaseClave != "nombramiento" || detalle.Resumen.EstadoClave != domain.EstadoEnCurso ||
-		detalle.Analisis == nil || detalle.Cobertura == nil || detalle.Asignacion == nil || len(detalle.Hitos) != 7 {
+		detalle.Analisis == nil || detalle.Cobertura == nil || detalle.Asignacion == nil {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
-	hito := detalle.Hitos[6]
-	if hito.VersionExpediente != 7 || hito.AccionClave != "registrar_propuesta_formalizacion" ||
+	hito := detalle.Hitos[len(detalle.Hitos)-1]
+	if hito.VersionExpediente != detalle.Resumen.Version ||
+		hito.AccionClave != "registrar_propuesta_formalizacion" ||
 		hito.FaseDestino != "nombramiento" || hito.EstadoDestino != domain.EstadoEnCurso {
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
 	switch tipo {
 	case ports.BorradorInformeDefinitivo:
-		return contenidoInformeDefinitivoDesarrollo(detalle), nil
+		return contenidoInformeDefinitivoDesarrollo(detalle, hito), nil
 	case ports.BorradorResolucion:
-		return contenidoResolucionDesarrollo(detalle), nil
+		return contenidoResolucionDesarrollo(detalle, hito), nil
 	case ports.BorradorDiligencia:
-		return contenidoDiligenciaDesarrollo(detalle), nil
+		return contenidoDiligenciaDesarrollo(detalle, hito), nil
 	case ports.BorradorTomaPosesion:
-		return contenidoTomaPosesionDesarrollo(detalle), nil
+		return contenidoTomaPosesionDesarrollo(detalle, hito), nil
 	case ports.BorradorNotificacion:
-		return contenidoNotificacionDesarrollo(detalle), nil
+		return contenidoNotificacionDesarrollo(detalle, hito), nil
 	case ports.BorradorComunicacionCentro:
-		return contenidoComunicacionCentroDesarrollo(detalle), nil
+		return contenidoComunicacionCentroDesarrollo(detalle, hito), nil
 	default:
 		return vecdomain.ContenidoDocumento{}, ports.ErrBorradorRRHHNoDisponible
 	}
 }
 
-func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
 	parrafos := []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una resolución, un nombramiento efectivo ni una redacción jurídica aprobada por Recursos Humanos.",
@@ -90,7 +93,7 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH) vecdoma
 	parrafos = append(parrafos,
 		"2. Tramitación registrada",
 		fmt.Sprintf("Vía de cobertura (clave registrada): %s. Unidad asignada (referencia): %s. Asignación registrada el %s UTC.", d.Cobertura.ViaClave, d.Asignacion.UnidadRef, d.Asignacion.AsignadaEn.UTC().Format(time.RFC3339Nano)),
-		fmt.Sprintf("El historial del expediente contiene el registro de la propuesta de formalización, actuación 7, de %s UTC. Esta consulta no incorpora identidad de la candidatura, contenido del correo, recibos internos ni documentos firmados.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("El historial del expediente contiene el registro de la propuesta de formalización, actuación %d, de %s UTC. Esta consulta no incorpora identidad de la candidatura, contenido del correo, recibos internos ni documentos firmados.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"3. Pendiente de completar y validar",
 		"Deben incorporarse el modelo oficial y la redacción jurídica competente, las comprobaciones y referencias documentales que correspondan, la identificación autorizada de la persona propuesta y las firmas requeridas. Los campos ausentes no se han inventado. No se certifica el resultado jurídico o de fiscalización mediante esta descarga.",
 		"Esta copia se regenera desde el detalle persistido y autorizado del expediente. No guarda un documento firmado, no acredita custodia documental, no modifica el expediente y no realiza ningún envío. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
@@ -98,13 +101,13 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH) vecdoma
 	return vecdomain.ContenidoDocumento{Titulo: "Informe definitivo — borrador de desarrollo", Parrafos: parrafos}
 }
 
-func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
 	return vecdomain.ContenidoDocumento{Titulo: "Resolución — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No constituye una resolución aprobada, un nombramiento efectivo ni una orden de incorporación.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Antecedentes disponibles",
-		fmt.Sprintf("La propuesta de formalización figura en el historial del expediente, actuación 7, de %s UTC. Este borrador se prepara desde ese detalle persistido y autorizado; no añade una nueva propuesta.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("La propuesta de formalización figura en el historial del expediente, actuación %d, de %s UTC. Este borrador se prepara desde ese detalle persistido y autorizado; no añade una nueva propuesta.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
 		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. Estos datos no fijan la fecha de efectos de un nombramiento.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
 		"2. Contenido resolutivo pendiente",
@@ -116,14 +119,14 @@ func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Cont
 	}}
 }
 
-func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r := d.Resumen
 	return vecdomain.ContenidoDocumento{Titulo: "Diligencia — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una diligencia extendida por una persona competente ni certifica un hecho administrativo.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Referencias disponibles para su preparación",
 		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nUnidad asignada (referencia): %s", r.CentroRef, r.CategoriaRef, d.Asignacion.UnidadRef),
-		fmt.Sprintf("El historial del expediente registra la propuesta de formalización, actuación 7, de %s UTC. Es la fecha de esa actuación, no la fecha de una comparecencia, firma o notificación.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("El historial del expediente registra la propuesta de formalización, actuación %d, de %s UTC. Es la fecha de esa actuación, no la fecha de una comparecencia, firma o notificación.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Objeto y hechos pendientes de incorporar",
 		"Objeto específico de la diligencia: pendiente del modelo oficial y de la validación competente. Hechos que deban hacerse constar, documentación que los acredite y fecha y lugar de realización: pendientes. No se infieren de la propuesta de nombramiento.",
 		"Comparecencia e identificación autorizada de las personas intervinientes, cuando correspondan: pendientes. No se afirma que ninguna persona haya comparecido, firmado, recibido una notificación o tomado posesión.",
@@ -133,7 +136,7 @@ func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Cont
 	}}
 }
 
-func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
 	return vecdomain.ContenidoDocumento{Titulo: "Toma de posesión — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No acredita una toma de posesión, un nombramiento eficaz ni una incorporación al puesto.",
@@ -141,7 +144,7 @@ func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Co
 		"1. Datos disponibles del expediente",
 		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
 		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No se utiliza este periodo como fecha efectiva de posesión o incorporación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
-		fmt.Sprintf("Antecedente: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. Esa fecha no acredita comparecencia ni toma de posesión.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("Antecedente: propuesta de formalización registrada en el historial, actuación %d, de %s UTC. Esa fecha no acredita comparecencia ni toma de posesión.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Comparecencia y formalización pendientes",
 		"Identificación autorizada de la persona interesada y de la persona competente que intervenga: pendientes. Resolución de nombramiento válida y su evidencia de firma: pendientes de incorporar y comprobar; una propuesta no las sustituye.",
 		"Lugar, fecha y hora de comparecencia; manifestaciones, juramento o promesa cuando correspondan según el modelo oficial: pendientes. No se afirma que estos hechos hayan ocurrido ni se inventa su redacción.",
@@ -151,14 +154,14 @@ func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Co
 	}}
 }
 
-func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r := d.Resumen
 	return vecdomain.ContenidoDocumento{Titulo: "Notificación — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una notificación emitida o entregada ni acredita conocimiento de una resolución.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Referencias del expediente",
 		fmt.Sprintf("Centro (referencia): %s\nCategoría (referencia): %s\nUnidad asignada (referencia): %s", r.CentroRef, r.CategoriaRef, d.Asignacion.UnidadRef),
-		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. No equivale a una resolución aprobada ni fija una fecha de notificación.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación %d, de %s UTC. No equivale a una resolución aprobada ni fija una fecha de notificación.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Destinatario y acto a notificar pendientes",
 		"Persona destinataria, identificación autorizada y dirección o canal admitido: pendientes. No se deducen del centro solicitante ni de las referencias técnicas del expediente.",
 		"Resolución aprobada y firmada, órgano competente, número, fecha y contenido íntegro que deba notificarse: pendientes de incorporar y comprobar. Este borrador no contiene una decisión resolutiva ni sustituye el modelo oficial.",
@@ -169,7 +172,7 @@ func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.Co
 	}}
 }
 
-func contenidoComunicacionCentroDesarrollo(d ports.DetalleExpedienteRRHH) vecdomain.ContenidoDocumento {
+func contenidoComunicacionCentroDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
 	return vecdomain.ContenidoDocumento{Titulo: "Comunicación al centro — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una comunicación enviada ni una orden de incorporación o autorización para prestar servicios.",
@@ -177,7 +180,7 @@ func contenidoComunicacionCentroDesarrollo(d ports.DetalleExpedienteRRHH) vecdom
 		"1. Datos disponibles de la necesidad",
 		fmt.Sprintf("Centro solicitante (referencia): %s\nCategoría (referencia): %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", r.CentroRef, r.CategoriaRef, d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
 		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No fija una fecha efectiva de incorporación ni un horario de prestación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
-		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación 7, de %s UTC. No acredita que exista nombramiento eficaz o toma de posesión.", d.Hitos[6].RealizadaEn.UTC().Format(time.RFC3339Nano)),
+		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación %d, de %s UTC. No acredita que exista nombramiento eficaz o toma de posesión.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Destino y contenido pendientes de validar",
 		"Unidad o persona destinataria dentro del centro, dirección y canal de comunicación admitido: pendientes de comprobar. La referencia del centro solicitante no es una dirección de envío ni identifica a su responsable.",
 		"Identificación autorizada de la persona nombrada, resolución válida y evidencia de su firma, toma de posesión y fecha efectiva de incorporación: pendientes de incorporar y comprobar. No se completan a partir de la propuesta o de su periodo previsto.",
