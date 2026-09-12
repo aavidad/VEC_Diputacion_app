@@ -880,14 +880,16 @@ export async function montarModuloContratacionTemporal({
             desmontarCierre?.();
             desmontarCierre = null;
             bloqueCierre.replaceChildren();
-            if (cierre.preparacion !== null) {
-              desmontarCierre = montarFormularioCierreAdministrativo({
-                raiz: bloqueCierre,
-                cliente: clienteLlamamiento,
-                preparacion: cierre.preparacion,
-                confirmarOperacion,
-              });
-            }
+            desmontarCierre = montarFormularioCierreAdministrativo({
+              raiz: bloqueCierre,
+              cliente: clienteLlamamiento,
+              preparacion: cierre.preparacion,
+              contextoRecuperacion: {
+                expediente_ref: expedienteRef,
+                seguimiento_ref: preparacion.recibo.seguimiento_ref,
+              },
+              confirmarOperacion,
+            });
           } catch {
             if (vigenteMontaje()) {
               mostrarCierreNoDisponible(

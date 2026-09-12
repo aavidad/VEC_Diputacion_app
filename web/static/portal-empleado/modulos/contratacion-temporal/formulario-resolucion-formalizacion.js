@@ -3,6 +3,15 @@ import { validarSolicitudResolucionFormalizacion, validarReciboResolucionFormali
 import { escaparHTML as e } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 
+const textosRecibo = Object.freeze({
+  resolucion_formalizacion_estado: "Estado del registro",
+  resolucion_formalizacion_tipo_validacion: "Naturaleza de la validación",
+  resolucion_formalizacion_firma_oficial: "Firma oficial",
+  resolucion_formalizacion_eficacia_administrativa: "Eficacia administrativa",
+  resolucion_formalizacion_esquema: "Esquema del recibo",
+  resolucion_formalizacion_detalles_trazabilidad: "Detalles de trazabilidad",
+});
+
 export function montarFormularioResolucionFormalizacion({
   raiz, cliente, preparacion, confirmarOperacion = () => false,
   generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
@@ -13,7 +22,7 @@ export function montarFormularioResolucionFormalizacion({
     throw new TypeError("dependencias de resolución de formalización no válidas");
   }
   const contexto = validarPreparacionResolucionFormalizacion(preparacion, preparacion?.expediente_ref);
-  const t = crearTraductorContratacionTemporal(mensajes);
+  const t = crearTraductorContratacionTemporal({ ...textosRecibo, ...mensajes });
   const fecha = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
@@ -30,11 +39,14 @@ export function montarFormularioResolucionFormalizacion({
   };
   const texto = (clave) => e(t("resolucion_formalizacion_" + clave));
   const fila = (clave, valor) => `<div><dt>${texto(clave)}</dt><dd>${e(String(valor))}</dd></div>`;
+  const siNo = (valor) => valor ? "Sí" : "No";
+  const estadoLegible = (estado) => estado === "registrada" ? "Registrada" : "Recibo recuperado";
+  const validacionLegible = () => "Validación manual de ejercicio sintético";
 
   function pintar(mensaje = "", focoCorreccion = false) {
     if (!montado) return;
     const v = valores;
-    const camposRecibo = ["recibo_ref", "resolucion_formalizacion_ref", "documento_resolucion_ref",
+    const camposRecibo = ["esquema", "estado", "tipo_validacion", "expediente_ref", "propuesta_ref", "resolucion_formalizacion_ref", "documento_resolucion_ref",
       "documento_resolucion_version", "documento_resolucion_sha256", "version_resultante",
       "actuacion_ref", "auditoria_ref", "outbox_ref"];
     raiz.innerHTML = `<section class="ct-alta" data-ct-resolucion-formalizacion>
@@ -48,8 +60,10 @@ export function montarFormularioResolucionFormalizacion({
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status">
         <h4>${texto("recibo_titulo")}</h4><p>${texto("limites")}</p>
-        <dl>${camposRecibo.map((campo) => fila(campo, recibo[campo])).join("")}
-          ${fila("registrada_en", fecha.format(new Date(recibo.registrada_en)))}</dl>
+        <dl>${fila("recibo_ref", recibo.recibo_ref)}${fila("registrada_en", `${fecha.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
+          ${fila("estado", estadoLegible(recibo.estado))}${fila("tipo_validacion", validacionLegible())}
+          ${fila("firma_oficial", siNo(recibo.firma_oficial))}${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}</dl>
+        <details><summary>${texto("detalles_trazabilidad")}</summary><dl>${camposRecibo.map((campo) => fila(campo, recibo[campo])).join("")}</dl></details>
         <button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver_cuadro")}</button>
       </section>` : `<form data-ct-resolucion-formalizacion-form aria-busy="${ocupado}">
         <fieldset${ocupado || reintentoInmutable ? " disabled" : ""} aria-describedby="ct-rf-ayuda">

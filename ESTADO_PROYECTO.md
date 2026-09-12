@@ -59,6 +59,25 @@ fin de fichero de originales CT70/80 se mantienen intencionadamente para
 preservar igualdad byte a byte. Dos clústeres aislados se restauraron con
 `PASS`; el siguiente paso es el harness real sobre aislamiento propio.
 
+La recuperación del cierre administrativo está integrada en nueve archivos de
+producto y pruebas. Los cinco de recuperación recibieron dos revisiones `GO`;
+los otros cuatro, de trazabilidad, tuvieron revisión proporcional de dirección.
+**Preparar cierre** crea y muestra una solicitud inmutable y ofrece guardar su
+JSON sin ejecutar el `POST`; **Guardar datos de recuperación** permite conservar
+el archivo antes de confirmar. Solo la segunda acción, confirmada expresamente,
+envía el cierre. La importación coteja expediente y seguimiento contra el
+recibo obtenido por el `GET` original. Recuperar o completar reutiliza la
+solicitud exacta y puede concluir una operación pendiente, sin repetir el
+`POST` de incorporación. Los detalles de trazabilidad plegados mantienen
+visibles recibo, fecha, estado, límites y período.
+
+La validación global terminó 378/378 pruebas web `PASS` y los manifiestos 111/11/3/1
+pasaron. Esta UI todavía no está en runtime. Los objetivos 11 y 12 conservan la
+acreditación del reinicio anterior. Los cuatro `UP` de CT86/87 pasaron solo en
+dos clones separados; no se instalaron en la principal. La instrumentación de
+CT87 fue bloqueada automáticamente y quedó congelada, por lo que no constituye
+un ensayo funcional de cierre.
+
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones
 `GO`, se archivó su evidencia y se retiró solamente el clon propio. La base

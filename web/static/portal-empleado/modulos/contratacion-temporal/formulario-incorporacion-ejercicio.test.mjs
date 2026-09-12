@@ -86,7 +86,16 @@ test("GET sin recibo mantiene intención inmutable para reintento", async () => 
 test("historia inicial solo muestra recibo; sin efectos", async () => {
   const x = montar({ prepararIncorporacionEjercicio() { assert.fail(); },
     confirmarIncorporacionEjercicio() { assert.fail(); } }, historia());
-  await x.raiz.enviar(); assert.match(x.raiz.innerHTML, /recibo:ct:original/u); x.desmontar();
+  await x.raiz.enviar(); assert.match(x.raiz.innerHTML, /recibo:ct:original/u);
+  assert.match(x.raiz.innerHTML, /<summary>Detalles de trazabilidad<\/summary>/u);
+  assert.doesNotMatch(x.raiz.innerHTML, /<details open/u);
+  assert.ok(x.raiz.innerHTML.indexOf("Inicio del período") < x.raiz.innerHTML.indexOf("<details"));
+  assert.ok(x.raiz.innerHTML.indexOf("Fin del período") < x.raiz.innerHTML.indexOf("<details"));
+  for (const valor of ["2026-09-09T01:00:00Z", "Sí", "Firma oficial", "Eficacia administrativa",
+    "solicitud:personal:1", "auditoria:ct:1", "Versión resultante del seguimiento"]) {
+    assert.match(x.raiz.innerHTML, new RegExp(valor, "u"));
+  }
+  x.desmontar();
 });
 test("desmontaje aborta POST o GET y descarta respuesta tardía", async () => {
   for (const fase of ["POST", "GET"]) {

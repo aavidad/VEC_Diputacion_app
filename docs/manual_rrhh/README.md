@@ -43,6 +43,23 @@ no se han ejecutado ni se debe aplicar `DOWN`. CT70–85 y Auth13 conservan su
 historia instalada. Los próximos ensayos usarán un clúster aislado y después el
 harness real; CT86/87 siguen pendientes.
 
+La nueva recuperación de cierre está integrada en código y revisada, pero aún
+no está en runtime. **Preparar cierre** crea y muestra una solicitud inmutable y
+ofrece descargar el archivo JSON sin enviar `POST`. Pulse **Guardar datos de
+recuperación** para conservarlo antes de confirmar. Solo la segunda acción,
+confirmada expresamente, registra el cierre. Para reanudar, importe el mismo
+JSON: la pantalla coteja expediente y seguimiento contra el recibo del `GET`
+original. **Recuperar** o **Completar** reutilizan exactamente la solicitud y
+pueden terminar una operación pendiente. Nunca repiten la incorporación.
+
+Los detalles de trazabilidad plegados mantienen visibles recibo, fecha, estado,
+límites y período. Los cinco archivos de recuperación recibieron dos `GO`; los
+otros cuatro, de trazabilidad, tuvieron revisión proporcional de dirección.
+Las 378/378 pruebas web y los manifiestos 111/11/3/1 están verdes. CT86/87 solo
+pasaron cuatro `UP` en dos clones aislados; la base principal sigue pendiente y
+la instrumentación CT87 bloqueada quedó congelada, sin acreditar un ensayo de
+cierre.
+
 ## Historia del corte para presentación — 10 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;
@@ -210,8 +227,9 @@ Las descargas no añaden SQL propio ni otro paso completo.
 
 ## Qué puede hacer hoy
 
-**Cinco de los ocho pasos están demostrados en desarrollo, más partes del sexto
-y séptimo: llamamiento sintético, propuesta y validación manual de resolución.** Se usa la aplicación
+**El último recuento formal conserva cinco de los ocho pasos demostrados en
+desarrollo, más partes del sexto y séptimo.** Las partes acreditadas del octavo
+se describen debajo sin recalcular ese recuento. Se usa la aplicación
 conectada a PostgreSQL:
 los recibos descritos son persistentes, pero los datos, catálogos y fuentes
 del recorrido son sintéticos. No es una habilitación para tramitar datos
@@ -226,7 +244,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética `7→8` con recibo recuperable. Sigue pendiente el circuito de firma oficial; no posesión real, nombramiento eficaz, envío ni entrega. |
-| 8. Incorporación, GINPIX y seguimiento | No recorrible de extremo a extremo: pendientes confirmaciones y conexión funcional de la salida. |
+| 8. Incorporación, GINPIX y seguimiento | Parcial comprobado: la incorporación y Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX responde `200` y conserva seis campos y SHA256. No acredita transmisión o confirmación del destino; anotación y cierre siguen pendientes de instalar y recorrer. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
 la base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
@@ -617,15 +635,20 @@ clave, no a crear otra resolución. No acredita firma ni eficacia administrativa
 
 ### 8. Incorporación, GINPIX y seguimiento: límite actual
 
-El objetivo es confirmar la incorporación efectiva, registrar la relación en
-Personal y conservar la respuesta de GINPIX, además de los hechos posteriores
-y el cierre. No basta con una fecha prevista ni con que exista un exportador.
+Para presentar el caso ya conservado, abra su detalle `v8` y use **Recibo
+original**. Compruebe y guarde la referencia del recibo y su fecha antes de
+continuar. **Descargar ficha GINPIX** obtiene por `GET` la ficha manual admitida;
+**Consultar seguimiento** recupera el vínculo original. Estas consultas nunca
+deben sustituirse por otro `POST` de incorporación. Si un `GET` falla, conserve
+las referencias y comunique el error sin crear otra alta.
 
-La ficha descargable para carga manual es la salida mínima prevista, pero
-todavía no se acredita aquí como recorrido completo disponible. Un fichero
-generado no demuestra una carga ni un alta en GINPIX. Faltan las conexiones,
-confirmaciones y evidencias del recorrido; no registre incorporaciones o
-cargas ficticias para darlo por terminado.
+La recuperación de incorporación, el asiento de Personal y la ficha GINPIX se
+comprobaron después de reiniciar aplicación y PostgreSQL, con recibo, fecha,
+seis campos y SHA256 conservados. La ficha es una salida para carga manual: no
+demuestra transmisión, alta ni confirmación del sistema GINPIX. La primera
+anotación y el cierre administrativo continúan pendientes del ensayo e
+instalación de CT86/87 y AD3-30/31; estos botones de consulta no registran esos
+efectos ni completan el octavo paso.
 
 ## Recibos, interrupciones y reanudación
 

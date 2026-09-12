@@ -46,6 +46,21 @@ su historia. Los avisos de fin de fichero de cuatro originales CT70/80 se
 mantienen para preservar su igualdad byte a byte. Dos clústeres aislados ya se
 restauraron; el siguiente paso es el harness real, sin tocar la base principal.
 
+La siguiente UI de cierre está revisada e integrada en código, todavía fuera
+del runtime. **Preparar cierre** crea y muestra una solicitud inmutable y ofrece
+guardar su JSON sin enviar `POST`; **Guardar datos de recuperación** conserva el
+archivo antes de confirmar. Una segunda acción confirmada ejecuta el cierre.
+Importar coteja expediente y seguimiento contra el recibo del `GET` original;
+recuperar o completar reutiliza exactamente esa solicitud, incluso si quedó
+pendiente. Los cinco archivos de recuperación recibieron dos `GO`; los otros
+cuatro, de trazabilidad, tuvieron revisión proporcional de dirección. La web
+terminó 378/378 `PASS` y los manifiestos 111/11/3/1 pasaron. No se envía ningún
+`POST` de incorporación.
+
+Los cuatro `UP` de CT86/87 pasaron solamente en dos clones aislados. La base
+principal sigue pendiente y la instrumentación de CT87 quedó bloqueada de
+forma automática y congelada; esto no acredita un ensayo de anotación o cierre.
+
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;
@@ -142,10 +157,12 @@ automáticamente a todos los centros del catálogo.
 | 5. Informe jurídico y Fiscalización | Documento de desarrollo y resultado favorable, favorable con observaciones o desfavorable; este último registra devolución a la unidad. | El documento no tiene firma ni validez jurídica. Fiscalización corresponde al perfil de Intervención. |
 | 6. Llamamiento, parcial | Recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal, sin duplicados. | Faltan vencimiento, envío corporativo y plazo. No acredita entrega ni plazo legal aprobado. |
 | 7. Nombramiento, parcial | Propuesta desde aceptación sintética, `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética con recibo `7→8`. | Sin nombramiento eficaz, posesión real, firma, envío ni entrega; validación manual sintética disponible, no firma oficial. |
-| 8. Incorporación y seguimiento | Pendiente como recorrido completo. | No se acredita incorporación, integración con GINPIX ni cierre del seguimiento. |
+| 8. Incorporación y seguimiento, parcial | La incorporación y su asiento en Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX devuelve `200` y conserva sus seis campos y SHA256. | La ficha admitida para carga manual no acredita transmisión ni confirmación de GINPIX. Anotación y cierre siguen pendientes de instalar y recorrer. |
 
-La métrica es **cinco pasos completos más partes del sexto y séptimo**, no un
-porcentaje global ni un recuento de pantallas, contratos o pruebas.
+El último recuento formal se conserva en **cinco pasos completos más partes del
+sexto y séptimo**. Las partes del octavo acreditadas arriba no se usan aquí para
+recalcularlo; tampoco es un porcentaje global ni un recuento de pantallas,
+contratos o pruebas.
 
 ### Antecedentes de los recorridos, no inventario de la instancia actual
 

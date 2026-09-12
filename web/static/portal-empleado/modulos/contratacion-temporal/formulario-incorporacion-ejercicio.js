@@ -20,6 +20,9 @@ const textos = Object.freeze({
   seguimiento_ref: "Seguimiento", actuacion_ref: "Actuación", auditoria_ref: "Auditoría", outbox_ref: "Evento de salida",
   version_seguimiento_anterior: "Versión anterior del seguimiento",
   version_seguimiento_resultante: "Versión resultante del seguimiento", registrada_en: "Fecha original de registro",
+  esquema: "Esquema del recibo", ejercicio_sintetico: "Naturaleza sintética",
+  firma_oficial: "Firma oficial", eficacia_administrativa: "Eficacia administrativa",
+  detalles_trazabilidad: "Detalles de trazabilidad",
   pendiente: "Revise los datos y marque las dos confirmaciones antes de continuar.",
   no_disponible: "La preparación no está disponible para confirmar.",
   validacion: "Revise el motivo y las dos confirmaciones obligatorias.",
@@ -48,6 +51,7 @@ export function montarFormularioIncorporacionEjercicio({
   });
   const texto = (k) => e(t("incorporacion_ejercicio_" + k));
   const fila = (k, v) => `<div><dt>${texto(k)}</dt><dd>${e(String(v))}</dd></div>`;
+  const siNo = (valor) => valor ? "Sí" : "No";
   const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria });
   const periodo = (p) => fila("desde", fecha.format(new Date(p.desde))) + fila("hasta", fecha.format(new Date(p.hasta)));
   let montado = true, ocupado = false, inmutable = false, controlador = null;
@@ -63,12 +67,17 @@ export function montarFormularioIncorporacionEjercicio({
         ${fila("expediente_ref", contexto.expediente_ref)}${fila("version_actual", versionActual)}
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status"><h4>${texto("recibo")}</h4><dl>
-        ${["recibo_ref", "solicitud_personal_ref", "relacion_ref", "seguimiento_ref", "actuacion_ref",
+        ${fila("recibo_ref", recibo.recibo_ref)}
+        ${fila("registrada_en", `${fecha.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
+        ${fila("ejercicio_sintetico", siNo(recibo.ejercicio_sintetico))}
+        ${fila("firma_oficial", siNo(recibo.firma_oficial))}
+        ${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}
+        ${periodo(recibo.periodo_incorporacion)}</dl><details><summary>${texto("detalles_trazabilidad")}</summary><dl>
+        ${["esquema", "expediente_ref", "solicitud_personal_ref", "relacion_ref", "seguimiento_ref", "actuacion_ref",
           "auditoria_ref", "outbox_ref", "version_solicitud_personal", "version_seguimiento_anterior",
           "version_seguimiento_resultante"].map((k) => fila(k, recibo[k])).join("")}
         ${fila("version_original", recibo.version_actual_expediente)}
-        ${fila("registrada_en", `${fecha.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}${periodo(recibo.periodo_incorporacion)}
-        </dl><button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver")}</button>
+        </dl></details><button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver")}</button>
       </section>` : `<dl class="ct-resumen">
         ${fila("solicitud_personal_ref", p.solicitud_personal_ref)}${fila("version_solicitud_personal", p.version_solicitud_personal)}
         ${fila("version_seguimiento_esperada", p.version_seguimiento_esperada)}${periodo(p.periodo_incorporacion)}

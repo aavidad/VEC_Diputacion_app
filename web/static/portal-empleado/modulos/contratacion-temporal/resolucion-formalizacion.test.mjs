@@ -209,6 +209,12 @@ test("formulario: 201 muestra recibo válido y sus límites", async () => {
     confirmarOperacion: () => true, cliente: { registrarResolucionFormalizacion(x) { llamadas += 1; return Promise.resolve({ ...recibo, expediente_ref: x.expediente_ref, propuesta_ref: x.propuesta_ref }); } } });
   await raiz.enviar(valoresFormulario);
   assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /recibo:ct:001/u); assert.match(raiz.innerHTML, /Firma oficial: no/u);
+  assert.match(raiz.innerHTML, /<summary>Detalles de trazabilidad<\/summary>/u);
+  assert.doesNotMatch(raiz.innerHTML, /<details open/u);
+  for (const valor of ["2026-09-06T12:00:00Z", "Registrada", "manual_de_ejercicio", "Firma oficial",
+    "Eficacia administrativa", "a".repeat(64), "auditoria:ct:001"]) {
+    assert.match(raiz.innerHTML, new RegExp(valor, "u"));
+  }
 });
 
 test("formulario: 422 determinado permite corregir motivo y conserva clave", async () => {

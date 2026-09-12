@@ -49,6 +49,26 @@ en esta prueba. La evidencia está en
 `/root/.local/state/vec-reactivacion-20260912/docx-navegador/paginacion-director-estable-75157434.informe.json`.
 No se acredita avanzar con cursor porque las 52 filas caben en una página.
 
+La recuperación del cierre está integrada en código: sus cinco archivos
+recibieron dos `GO` y los otros cuatro archivos de trazabilidad tuvieron
+revisión proporcional de dirección. Las 378/378 pruebas web y los manifiestos
+111/11/3/1 están verdes; todavía no está disponible en runtime. El recorrido
+previsto separa claramente preparación y escritura:
+
+1. Pulse **Preparar cierre** para crear y mostrar una solicitud inmutable. Esta
+   acción ofrece descargar el JSON y no ejecuta `POST`.
+2. Pulse **Guardar datos de recuperación** para conservar el archivo antes del
+   `POST` y revise la solicitud.
+3. Use la segunda acción confirmada para enviar el cierre.
+4. Para reanudar, importe el mismo archivo. La vista coteja expediente y
+   seguimiento contra el recibo recuperado por el `GET` original.
+5. Use recuperar o completar con la solicitud exacta; puede concluir una
+   operación pendiente. No repita el `POST` de incorporación.
+
+Los detalles plegados conservan visibles recibo, fecha, estado, límites y
+período. CT86/87 solo tienen cuatro `UP` verdes en dos clones aislados; la base
+principal sigue pendiente y la instrumentación CT87 bloqueada no fue un ensayo.
+
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;
