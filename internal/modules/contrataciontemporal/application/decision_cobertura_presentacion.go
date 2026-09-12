@@ -39,6 +39,59 @@ var (
 	)
 )
 
+// EtapaDiagnosticoPresentacionPropuestaCobertura identifica el punto de
+// aplicación que devolvió una indisponibilidad. Es un código estable para el
+// registro interno; no representa la causa del fallo ni material del
+// expediente.
+type EtapaDiagnosticoPresentacionPropuestaCobertura string
+
+const (
+	EtapaDiagnosticoPresentacionContexto                 EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.contexto"
+	EtapaDiagnosticoPresentacionVerificacionAutorizacion EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.verificacion_autorizacion"
+	EtapaDiagnosticoPresentacionReloj                    EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.reloj"
+	EtapaDiagnosticoPresentacionAutorizacion             EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.autorizacion"
+	EtapaDiagnosticoPresentacionLectorO3                 EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.lector_o3"
+	EtapaDiagnosticoPresentacionGobierno                 EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.gobierno"
+	EtapaDiagnosticoPresentacionVerificacionGobierno     EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.verificacion_gobierno"
+	EtapaDiagnosticoPresentacionPreparador               EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador"
+)
+
+type errorEtapaDiagnosticoPresentacionPropuestaCobertura struct {
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura
+}
+
+func (e errorEtapaDiagnosticoPresentacionPropuestaCobertura) Error() string {
+	return ErrPresentacionPropuestaCoberturaNoDisponible.Error()
+}
+
+func (e errorEtapaDiagnosticoPresentacionPropuestaCobertura) Unwrap() error {
+	return ErrPresentacionPropuestaCoberturaNoDisponible
+}
+
+func (e errorEtapaDiagnosticoPresentacionPropuestaCobertura) LogValue() slog.Value {
+	return slog.StringValue(string(e.etapa))
+}
+
+// EtapaDiagnosticoDePresentacionPropuestaCobertura devuelve exclusivamente el
+// código fijo que puede incluirse en el registro interno de la petición. La
+// causa original se descarta antes de construir el error y nunca puede cruzar
+// esta frontera.
+func EtapaDiagnosticoDePresentacionPropuestaCobertura(
+	err error,
+) (EtapaDiagnosticoPresentacionPropuestaCobertura, bool) {
+	var diagnostico errorEtapaDiagnosticoPresentacionPropuestaCobertura
+	if !errors.As(err, &diagnostico) {
+		return "", false
+	}
+	return diagnostico.etapa, true
+}
+
+func nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
+) error {
+	return errorEtapaDiagnosticoPresentacionPropuestaCobertura{etapa: etapa}
+}
+
 // SolicitudProponerCobertura contiene solo coordenadas opacas del canal. El
 // perfil es una petición de activación que las autoridades VEC deben resolver;
 // nunca se interpreta como actor, rol ni permiso efectivo.
@@ -184,13 +237,13 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloContexto(operacion, err)
+			s.clasificarFalloContexto(operacion, err, EtapaDiagnosticoPresentacionContexto)
 	}
 	instanteAcceso, err := s.ahora(operacion)
 	if err != nil ||
 		contexto.ValidarPara(solicitudContexto, instanteAcceso) != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloContexto(operacion, err)
+			s.clasificarFalloContexto(operacion, err, EtapaDiagnosticoPresentacionVerificacionAutorizacion)
 	}
 	if err := s.autorizar(
 		operacion, solicitudContexto, contexto, solicitudAnalisis,
@@ -206,7 +259,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloDependencia(operacion, err)
+			s.clasificarFalloDependencia(operacion, err, EtapaDiagnosticoPresentacionLectorO3)
 	}
 	expediente, analisisRef, analisisHuella, err :=
 		instantanea.DesplegarPara(solicitudAnalisis)
@@ -227,7 +280,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloDependencia(operacion, err)
+			s.clasificarFalloDependencia(operacion, err, EtapaDiagnosticoPresentacionGobierno)
 	}
 	datosGobierno, err := gobierno.DesplegarPara(
 		operacion,
@@ -236,7 +289,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloDependencia(operacion, err)
+			s.clasificarFalloDependencia(operacion, err, EtapaDiagnosticoPresentacionVerificacionGobierno)
 	}
 	if expediente.Analisis == nil {
 		return PresentacionPropuestaCobertura{},
@@ -260,14 +313,14 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	preparacion, err := s.coberturas.Preparar(operacion, datosGlobales)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloDependencia(operacion, err)
+			s.clasificarFalloDependencia(operacion, err, EtapaDiagnosticoPresentacionPreparador)
 	}
 	// Resolver los motivos puede consultar la publicación durable. Se hace
 	// antes de la revalidación final, para que ésta cubra también esa E/S.
 	instanteMotivos, err := s.ahora(operacion)
 	if err != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloContexto(operacion, err)
+			s.clasificarFalloContexto(operacion, err, EtapaDiagnosticoPresentacionReloj)
 	}
 	datosMotivos, err := preparacion.DatosCrearPropuestaEn(instanteMotivos)
 	if err != nil {
@@ -295,7 +348,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 			instantePresentacion,
 		) != nil {
 		return PresentacionPropuestaCobertura{},
-			s.clasificarFalloContexto(operacion, err)
+			s.clasificarFalloContexto(operacion, err, EtapaDiagnosticoPresentacionVerificacionAutorizacion)
 	}
 	if err := s.autorizar(
 		operacion, solicitudContexto, contexto, solicitudAnalisis,
@@ -472,7 +525,9 @@ func (s *ServicioPresentacionPropuestaCobertura) ahora(
 		return time.Time{}, errContexto
 	}
 	if err != nil || !domain.InstanteUTCCanonico(instante) {
-		return time.Time{}, ErrPresentacionPropuestaCoberturaNoDisponible
+		return time.Time{}, nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(
+			EtapaDiagnosticoPresentacionReloj,
+		)
 	}
 	return instante, nil
 }
@@ -498,7 +553,9 @@ func (s *ServicioPresentacionPropuestaCobertura) autorizar(
 		return ErrPresentacionPropuestaCoberturaDenegada
 	}
 	if err != nil {
-		return ErrPresentacionPropuestaCoberturaNoDisponible
+		return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(
+			EtapaDiagnosticoPresentacionAutorizacion,
+		)
 	}
 	return nil
 }
@@ -506,6 +563,7 @@ func (s *ServicioPresentacionPropuestaCobertura) autorizar(
 func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloContexto(
 	ctx context.Context,
 	causa error,
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
 ) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -513,15 +571,22 @@ func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloContexto(
 	if errors.Is(causa, ErrPresentacionPropuestaCoberturaDenegada) {
 		return ErrPresentacionPropuestaCoberturaDenegada
 	}
-	return ErrPresentacionPropuestaCoberturaNoDisponible
+	if etapaReconocida, ok := EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
+		return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapaReconocida)
+	}
+	return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapa)
 }
 
 func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloDependencia(
 	ctx context.Context,
-	_ error,
+	causa error,
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
 ) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return ErrPresentacionPropuestaCoberturaNoDisponible
+	if etapaReconocida, ok := EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
+		return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapaReconocida)
+	}
+	return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapa)
 }
