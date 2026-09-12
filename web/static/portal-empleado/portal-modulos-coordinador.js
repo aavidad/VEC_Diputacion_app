@@ -376,8 +376,11 @@ export function crearCoordinadorModulosPortal({
             ? entorno.fetch.bind(entorno) : undefined,
           HeadersImpl: entorno.Headers,
         });
+        let alta = null;
         const fuente = recursos.adaptador
-          .crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+          .crearAdaptadorHTTPExpedientesContratacionTemporal({
+            cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
+          });
         const controladorConsulta = new AbortController();
         controladorCargaInterna = controladorConsulta;
         let cuadroDisponible = false;
@@ -395,7 +398,6 @@ export function crearCoordinadorModulosPortal({
           if (controladorCargaInterna === controladorConsulta) controladorCargaInterna = null;
         }
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        let alta = null;
         const controladorCatalogos = new AbortController();
         controladorCargaInterna = controladorCatalogos;
         try {

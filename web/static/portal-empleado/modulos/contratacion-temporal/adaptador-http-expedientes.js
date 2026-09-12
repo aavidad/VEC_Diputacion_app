@@ -3,6 +3,7 @@ import {
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
+import { validarCatalogosAlta } from "./contrato.js";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -48,13 +49,29 @@ function campo(clave, titulo, valor) {
   };
 }
 
-function resumenVisual(entrada) {
+function etiquetasCatalogos(obtenerCatalogos) {
+  try {
+    const { centros, categorias } = validarCatalogosAlta(obtenerCatalogos());
+    return {
+      centros: new Map(centros.map(({ referencia, etiqueta: texto }) => [referencia, texto])),
+      categorias: new Map(categorias.map(({ referencia, etiqueta: texto }) => [referencia, texto])),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function referenciaVisible(catalogos, tipo, referencia) {
+  return catalogos?.[tipo].get(referencia) ?? referencia;
+}
+
+function resumenVisual(entrada, catalogos) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
     expediente_ref: entrada.expediente_ref,
     numero_visible: entrada.numero_visible,
-    centro: entrada.centro_ref,
-    categoria: entrada.categoria_ref,
+    centro: referenciaVisible(catalogos, "centros", entrada.centro_ref),
+    categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref),
     modalidad: etiqueta(entrada.modalidad_clave, "—"),
     estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave),
@@ -81,8 +98,8 @@ function indicadores(expedientes) {
   }));
 }
 
-function proyectarCuadro(pagina, { cursor, numeroPagina }) {
-  const expedientes = pagina.expedientes.map(resumenVisual);
+function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos }) {
+  const expedientes = pagina.expedientes.map((entrada) => resumenVisual(entrada, catalogos));
   return validarCuadroContratacionTemporal({
     esquema: "vec.contratacion_temporal.cuadro.v1",
     demostracion: false,
@@ -114,11 +131,11 @@ function fechaCivil(instante, locale) {
   }).format(fecha);
 }
 
-function cabeceraDetalle(detalle, locale) {
+function cabeceraDetalle(detalle, locale, catalogos) {
   const { resumen, solicitud } = detalle;
   const campos = [
-    campo("centro", "Centro", resumen.centro_ref),
-    campo("categoria", "Categoría", resumen.categoria_ref),
+    campo("centro", "Centro", referenciaVisible(catalogos, "centros", resumen.centro_ref)),
+    campo("categoria", "Categoría", referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
     campo("modalidad", "Modalidad", etiqueta(resumen.modalidad_clave)),
     campo("fase", "Fase actual", etiqueta(resumen.fase_clave)),
     campo("estado", "Estado", etiqueta(resumen.estado_clave)),
@@ -162,7 +179,7 @@ function resolucionConPropuestaHistorica(detalle) {
     && resolucion.estado_origen === "en_curso" && resolucion.estado_destino === "en_curso";
 }
 
-function proyectarExpediente(detalle, locale) {
+function proyectarExpediente(detalle, locale, catalogos) {
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -172,7 +189,7 @@ function proyectarExpediente(detalle, locale) {
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
-    cabecera: cabeceraDetalle(detalle, locale),
+    cabecera: cabeceraDetalle(detalle, locale, catalogos),
     fases: [],
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
@@ -180,13 +197,18 @@ function proyectarExpediente(detalle, locale) {
   });
 }
 
-export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, locale = "es-ES" } = {}) {
+export function crearAdaptadorHTTPExpedientesContratacionTemporal({
+  cliente, locale = "es-ES", obtenerCatalogos = () => null,
+} = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
     throw new TypeError("cliente de expedientes de contratación temporal no disponible");
   }
   if (typeof locale !== "string" || locale.trim() === "") {
     throw new TypeError("locale de expedientes no válido");
+  }
+  if (typeof obtenerCatalogos !== "function") {
+    throw new TypeError("obtener catálogos de expedientes no válido");
   }
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
@@ -208,7 +230,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, loc
         },
         paginacion: { limite: 100, cursor },
       }, { signal });
-      const cuadro = proyectarCuadro(pagina, { cursor, numeroPagina });
+      const cuadro = proyectarCuadro(pagina, {
+        cursor, numeroPagina, catalogos: etiquetasCatalogos(obtenerCatalogos),
+      });
       if (operacion === secuenciaCuadro && !signal?.aborted) {
         versiones.clear();
         pagina.expedientes.forEach(({ expediente_ref: referencia, version }) => versiones.set(referencia, version));
@@ -225,7 +249,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, loc
         expediente_ref: expedienteRef,
         version_observada: version,
       }, { signal });
-      const expediente = proyectarExpediente(detalle, locale);
+      const expediente = proyectarExpediente(detalle, locale, etiquetasCatalogos(obtenerCatalogos));
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
     },
