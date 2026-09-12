@@ -107,6 +107,8 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
       accion: "Solicitud registrada",
       estado_clave: "pendiente",
       estado: "Pendiente",
+      accion_clave: "registrar_solicitud",
+      version_expediente: 1,
     },
     {
       secuencia: 2,
@@ -115,6 +117,8 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
       accion: "Iniciar analisis",
       estado_clave: "en_curso",
       estado: "En curso",
+      accion_clave: "iniciar_analisis",
+      version_expediente: 2,
     },
   ]);
   assert.deepEqual(detalle.tareas, []);

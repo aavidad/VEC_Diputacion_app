@@ -149,9 +149,9 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverPoliticaFis
 	s.mu.Unlock()
 	vinculo, err := contexto.Vinculo.Datos()
 	if err != nil || solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.VersionExpediente != 5 ||
-		solicitud.FaseActual != domain.FaseInformeJuridico ||
-		solicitud.EstadoActual != domain.EstadoEnCurso ||
+		!origenFiscalizacionContratacionTemporalDesarrolloValido(
+			solicitud.VersionExpediente, solicitud.FaseActual, solicitud.EstadoActual,
+		) ||
 		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo ||
 		solicitud.ResponsableAsignadoRef != responsableAsignacionContratacionTemporalDesarrollo ||
 		solicitud.ActorRef != vinculo.PrincipalID ||
@@ -181,6 +181,19 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverPoliticaFis
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	return politica, nil
+}
+
+// La primera fiscalización sólo parte del hito inicial v5. Una
+// refiscalización no se autoriza por una comparación de versión: su fase y
+// estado proceden de la preimagen persistida, que el preparador valida contra
+// la fiscalización desfavorable y su subsanación ligada al mismo retorno.
+func origenFiscalizacionContratacionTemporalDesarrolloValido(
+	version uint64,
+	fase domain.ClaveFase,
+	estado domain.EstadoOperativo,
+) bool {
+	return version == 5 && fase == domain.FaseInformeJuridico && estado == domain.EstadoEnCurso ||
+		fase == domain.FaseSubsanacionUnidad && estado == domain.EstadoIncidencia
 }
 
 type autorizadorFiscalizacionContratacionTemporalDesarrollo struct {
@@ -559,8 +572,8 @@ func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 		[]dominiovec.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
 			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{string(domain.FaseInformeJuridico)}},
-			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso)}},
+			{Clave: "fase_previa", Valores: []string{string(domain.FaseInformeJuridico), string(domain.FaseSubsanacionUnidad)}},
+			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso), string(domain.EstadoIncidencia)}},
 		},
 	)
 }
@@ -581,6 +594,12 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
 	ambitos := datos.Recurso.Ambitos
+	origenInicial := ambitos["fase_previa"] == string(domain.FaseInformeJuridico) &&
+		ambitos["estado_previo"] == string(domain.EstadoEnCurso)
+	origenRefiscalizacion := ambitos["fase_previa"] == string(domain.FaseSubsanacionUnidad) &&
+		ambitos["estado_previo"] == string(domain.EstadoIncidencia) &&
+		domain.ReferenciaOpacaValida(datos.Recurso.Atributos["retorno_previo_ref"]) &&
+		domain.ReferenciaOpacaValida(datos.Recurso.Atributos["subsanacion_recibo_ref"])
 	return datos.Accion == contrataciontemporal.PermisoRegistrarFiscalizacion &&
 		datos.ReferenciaMotivo == referenciaMotivoAutorizacionFiscalizacionDesarrollo() &&
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
@@ -589,6 +608,6 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 		datos.Finalidad == finalidadFiscalizacionContratacionTemporalDesarrollo &&
 		len(ambitos) == 4 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		ambitos["fase_previa"] == string(domain.FaseInformeJuridico) &&
-		ambitos["estado_previo"] == string(domain.EstadoEnCurso)
+		((origenInicial && datos.Recurso.Atributos["retorno_previo_ref"] == "" &&
+			datos.Recurso.Atributos["subsanacion_recibo_ref"] == "") || origenRefiscalizacion)
 }

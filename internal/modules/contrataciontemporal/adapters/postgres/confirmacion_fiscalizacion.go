@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -21,12 +22,24 @@ import (
 )
 
 const (
-	funcionConfirmarFiscalizacion        = "vec_contratacion_temporal.confirmar_fiscalizacion_v1"
-	esquemaConfirmarFiscalizacion        = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
-	audienciaConfirmarFiscalizacionV1    = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
-	maximoIntentosConfirmarFiscalizacion = 3
-	maximoCargaConfirmarFiscalizacion    = 3 * 1024 * 1024
+	funcionConfirmarFiscalizacion                = "vec_contratacion_temporal.confirmar_fiscalizacion_v1"
+	funcionConfirmarFiscalizacionTrasSubsanacion = "vec_contratacion_temporal.confirmar_fiscalizacion_tras_subsanacion_v1"
+	esquemaConfirmarFiscalizacion                = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
+	audienciaConfirmarFiscalizacionV1            = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
+	maximoIntentosConfirmarFiscalizacion         = 3
+	maximoCargaConfirmarFiscalizacion            = 3 * 1024 * 1024
 )
+
+func funcionConfirmarFiscalizacionParaVersion(version uint64) (string, error) {
+	switch {
+	case version == 5:
+		return funcionConfirmarFiscalizacion, nil
+	case version >= 7:
+		return funcionConfirmarFiscalizacionTrasSubsanacion, nil
+	default:
+		return "", ports.ErrPreparacionFiscalizacionInvalida
+	}
+}
 
 var _ ports.TransaccionFiscalizaciones = (*TransaccionFiscalizacionesPostgreSQL)(nil)
 
@@ -155,6 +168,9 @@ func (t *TransaccionFiscalizacionesPostgreSQL) ConfirmarFiscalizacion(
 		}
 		if ctx.Err() != nil {
 			return ports.ReciboFiscalizacion{}, ctx.Err()
+		}
+		if confirmacionFiscalizacionYaRecuperable(causa) {
+			return ports.ReciboFiscalizacion{}, ports.ErrClaveIdempotenciaUsada
 		}
 		if !errorPostgreSQLReintentable(causa) ||
 			intento == maximoIntentosConfirmarFiscalizacion {
@@ -286,6 +302,12 @@ func (t *TransaccionFiscalizacionesPostgreSQL) confirmarEnTransaccion(
 	orden ports.OrdenConfirmarFiscalizacion,
 	entradas entradasConfirmarFiscalizacion,
 ) (ports.ReciboFiscalizacion, error) {
+	funcion, err := funcionConfirmarFiscalizacionParaVersion(
+		orden.Preparacion.Material.VersionExpediente,
+	)
+	if err != nil {
+		return ports.ReciboFiscalizacion{}, err
+	}
 	tx, err := t.pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite,
 	})
@@ -317,7 +339,7 @@ func (t *TransaccionFiscalizacionesPostgreSQL) confirmarEnTransaccion(
 	}
 	var reciboJSON string
 	err = tx.QueryRow(ctx, `SELECT recibo_json::text FROM `+
-		funcionConfirmarFiscalizacion+`($1::jsonb,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		funcion+`($1::jsonb,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		entradas.contenido, entradas.capacidad, entradas.decision, entradas.motivo,
 		entradas.contextoActor, entradas.personaVersion, entradas.perfilVersion,
 		entradas.payloadVECAD3, entradas.sobreCOSESign1, entradas.evidencia,
@@ -365,8 +387,8 @@ func validarOrdenConfirmarFiscalizacion(
 		material.Validar() != nil || anterior.Validar() != nil ||
 		anterior.Referencia != material.ExpedienteRef ||
 		anterior.OrganizacionRef != material.OrganizacionRef ||
-		anterior.Version != 5 || anterior.Asignacion == nil ||
-		anterior.InformeJuridico == nil || anterior.Fiscalizacion != nil ||
+		anterior.Version != material.VersionExpediente ||
+		origenFiscalizacionPostgreSQL(anterior) != nil ||
 		!ports.SelloHMACSHA256Valido(p.AmbitoIdempotenciaHMAC) ||
 		!ports.SelloHMACSHA256Valido(p.HuellaPeticionHMAC) ||
 		orden.ExpedienteSiguiente.Validar() != nil ||
@@ -382,8 +404,9 @@ func validarOrdenConfirmarFiscalizacion(
 	if material.Resultado == domain.FiscalizacionDesfavorable {
 		retornoRef = p.Referencias.RetornoRef
 	}
+	retornoAnteriorRef, _ := referenciasAntecedenteRefiscalizacionPostgreSQL(anterior)
 	esperado, err := anterior.RegistrarFiscalizacion(
-		5,
+		anterior.Version,
 		domain.DatosRegistrarFiscalizacion{
 			FiscalizacionRef:       p.Referencias.FiscalizacionRef,
 			Resultado:              material.Resultado,
@@ -398,6 +421,7 @@ func validarOrdenConfirmarFiscalizacion(
 			FaseDestino: fase, EstadoDestino: estado,
 			Observaciones: material.Observaciones,
 			DocumentosRef: []string{anterior.InformeJuridico.DocumentoRef},
+			RetornoRef:    retornoAnteriorRef,
 		},
 	)
 	if err != nil || !reflect.DeepEqual(esperado, orden.ExpedienteSiguiente) {
@@ -422,6 +446,11 @@ func validarAutorizacionFiscalizacion(
 	recurso := solicitud.Recurso
 	huellaObservaciones := sha256.Sum256([]byte(material.Observaciones))
 	anterior := orden.Preparacion.Expediente
+	retornoPrevioRef, reciboSubsanacionRef := referenciasAntecedenteRefiscalizacionPostgreSQL(anterior)
+	numeroAtributos := 13
+	if retornoPrevioRef != "" {
+		numeroAtributos = 15
+	}
 	if errSolicitud != nil || errVinculo != nil || errContexto != nil ||
 		errDecision != nil || errHuella != nil || errConfirmacion != nil ||
 		!concedida || orden.Evidencia.Contexto.Resultado.Validar() != nil ||
@@ -437,12 +466,12 @@ func validarAutorizacionFiscalizacion(
 		recurso.Referencia != material.ExpedienteRef ||
 		recurso.ModuloID != ports.ModuloContratacion ||
 		recurso.Tipo != ports.TipoRecursoFiscalizacion ||
-		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != 13 ||
+		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != numeroAtributos ||
 		recurso.Ambitos["organizacion_ref"] != material.OrganizacionRef ||
 		recurso.Ambitos["expediente_ref"] != material.ExpedienteRef ||
 		recurso.Ambitos["fase_previa"] != string(anterior.FaseActual) ||
 		recurso.Ambitos["estado_previo"] != string(anterior.EstadoActual) ||
-		recurso.Atributos["version_expediente"] != "5" ||
+		recurso.Atributos["version_expediente"] != strconv.FormatUint(anterior.Version, 10) ||
 		recurso.Atributos["resultado"] != string(material.Resultado) ||
 		recurso.Atributos["observaciones_huella_sha256"] != hex.EncodeToString(huellaObservaciones[:]) ||
 		recurso.Atributos["informe_juridico_ref"] != anterior.InformeJuridico.InformeRef ||
@@ -455,11 +484,35 @@ func validarAutorizacionFiscalizacion(
 		recurso.Atributos["politica_huella_sha256"] != orden.Politica.DefinicionHuellaSHA256 ||
 		recurso.Atributos["ambito_idempotencia_hmac"] != orden.Preparacion.AmbitoIdempotenciaHMAC ||
 		recurso.Atributos["huella_peticion_hmac"] != orden.Preparacion.HuellaPeticionHMAC ||
+		(retornoPrevioRef != "" &&
+			(recurso.Atributos["retorno_previo_ref"] != retornoPrevioRef ||
+				recurso.Atributos["subsanacion_recibo_ref"] != reciboSubsanacionRef)) ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
 		!orden.Evidencia.ConfirmacionV3.DentroDeVentanaEn(instante) {
 		return ports.ErrPreparacionFiscalizacionInvalida
 	}
 	return nil
+}
+
+func referenciasAntecedenteRefiscalizacionPostgreSQL(
+	expediente domain.Expediente,
+) (string, string) {
+	if expediente.Fiscalizacion == nil || expediente.Fiscalizacion.Retorno == nil ||
+		expediente.Fiscalizacion.ActuacionRegistro == nil {
+		return "", ""
+	}
+	retornoRef := expediente.Fiscalizacion.Retorno.RetornoRef
+	secuenciaFiscalizacion := expediente.Fiscalizacion.ActuacionRegistro.Secuencia
+	for _, actuacion := range expediente.Actuaciones {
+		if actuacion.AccionClave == domain.AccionRegistrarSubsanacionReparo &&
+			actuacion.RetornoRef == retornoRef &&
+			actuacion.Secuencia > secuenciaFiscalizacion &&
+			actuacion.FaseDestino == domain.FaseSubsanacionUnidad &&
+			actuacion.EstadoDestino == domain.EstadoIncidencia {
+			return retornoRef, actuacion.ReciboRef
+		}
+	}
+	return "", ""
 }
 
 func destinoFiscalizacionPostgreSQL(
@@ -490,4 +543,14 @@ func normalizarErrorConfirmacionFiscalizacion(ctx context.Context, causa error) 
 		return causa
 	}
 	return ports.ErrPersistenciaFiscalizacionNoDisponible
+}
+
+// confirmacionFiscalizacionYaRecuperable identifica el conflicto terminal que
+// emite la función v2 cuando otra transacción ya confirmó la misma reserva.
+// No se reintenta la escritura: el siguiente recorrido prepara de nuevo y
+// revalida la autorización vigente antes de devolver el recibo conservado.
+func confirmacionFiscalizacionYaRecuperable(causa error) bool {
+	var postgres *pgconn.PgError
+	return errors.As(causa, &postgres) && postgres.Code == "40001" &&
+		postgres.Message == "recuperar preparación de fiscalización confirmada"
 }
