@@ -108,12 +108,15 @@ function versionConIncrementoValida(valor) {
 }
 
 export function validarConfiguracionAnalisis(configuracion) {
+  const tieneSubsanacion = esRegistro(configuracion) && Object.hasOwn(configuracion, "subsanacion_disponible");
   exigirCamposExactos(configuracion, [
     "esquema", "artefacto_ref", "modalidades", "categorias", "causas",
     "entradas_rc", "motivos_rectificacion",
+    ...(tieneSubsanacion ? ["subsanacion_disponible"] : []),
   ], "configuración del análisis");
   if (configuracion.esquema !== ESQUEMA_CONFIGURACION
-    || !referenciaValida(configuracion.artefacto_ref)) {
+    || !referenciaValida(configuracion.artefacto_ref)
+    || (tieneSubsanacion && typeof configuracion.subsanacion_disponible !== "boolean")) {
     throw new TypeError("configuración del análisis no válida");
   }
   const modalidades = normalizarOpciones(configuracion.modalidades, {
@@ -180,6 +183,7 @@ export function validarConfiguracionAnalisis(configuracion) {
     causas,
     entradas_rc: entradasRC,
     motivos_rectificacion: motivos,
+    ...(tieneSubsanacion ? { subsanacion_disponible: configuracion.subsanacion_disponible } : {}),
   });
 }
 

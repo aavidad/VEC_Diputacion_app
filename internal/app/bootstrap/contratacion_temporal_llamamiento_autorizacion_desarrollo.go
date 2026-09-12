@@ -51,6 +51,7 @@ func rutaMutacionDurableContratacionTemporalDesarrollo(ruta string) bool {
 		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
+		ruta == httpinterno.RutaSubsanacionReparos ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta)
 }
 

@@ -43,6 +43,10 @@ type DependenciasRutas struct {
 	EjecutorInformeJuridico         httpinterno.EjecutorInformeJuridico
 	AutoridadFiscalizacion          httpinterno.AutoridadContextoCanalFiscalizacion
 	EjecutorFiscalizacion           httpinterno.EjecutorFiscalizacion
+	// Subsanacion se registra sólo cuando la composición ha aportado las dos
+	// dependencias reales. La ausencia no publica una ruta parcialmente capaz.
+	AutoridadSubsanacionReparos httpinterno.AutoridadContextoCanalSubsanacionReparos
+	EjecutorSubsanacionReparos  httpinterno.EjecutorSubsanacionReparos
 }
 
 // NuevasRutas construye el conjunto de forma atomica. No devuelve una API
@@ -144,6 +148,16 @@ func NuevasRutas(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	var subsanacion http.Handler
+	if dependencias.AutoridadSubsanacionReparos != nil || dependencias.EjecutorSubsanacionReparos != nil {
+		subsanacion, err = httpinterno.NuevoManejadorSubsanacionReparos(
+			dependencias.AutoridadSubsanacionReparos,
+			dependencias.EjecutorSubsanacionReparos,
+		)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
+	}
 	rutas := []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -213,6 +227,11 @@ func NuevasRutas(
 			Ruta:      httpinterno.RutaReasignaciones,
 			Manejador: asignacion,
 		},
+	}
+	if subsanacion != nil {
+		rutas = append(rutas, httpapi.RutaExacta{
+			Ruta: httpinterno.RutaSubsanacionReparos, Manejador: subsanacion,
+		})
 	}
 	if dependencias.IncorporacionV2 != nil {
 		ruta, err := NuevaRutaIncorporacionV2(dependencias.IncorporacionV2)

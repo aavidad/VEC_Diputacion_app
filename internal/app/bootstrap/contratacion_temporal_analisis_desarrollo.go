@@ -72,13 +72,14 @@ type entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo struct {
 }
 
 type configuracionAnalisisContratacionTemporalDesarrollo struct {
-	Esquema              string                                                         `json:"esquema"`
-	ArtefactoRef         string                                                         `json:"artefacto_ref"`
-	Modalidades          []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"modalidades"`
-	Categorias           []categoriaCatalogosAltaContratacionTemporalDesarrollo         `json:"categorias"`
-	Causas               []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"causas"`
-	EntradasRC           []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo `json:"entradas_rc"`
-	MotivosRectificacion []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"motivos_rectificacion"`
+	SubsanacionDisponible bool                                                           `json:"subsanacion_disponible,omitempty"`
+	Esquema               string                                                         `json:"esquema"`
+	ArtefactoRef          string                                                         `json:"artefacto_ref"`
+	Modalidades           []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"modalidades"`
+	Categorias            []categoriaCatalogosAltaContratacionTemporalDesarrollo         `json:"categorias"`
+	Causas                []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"causas"`
+	EntradasRC            []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo `json:"entradas_rc"`
+	MotivosRectificacion  []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"motivos_rectificacion"`
 }
 
 type respuestaConfiguracionAnalisisContratacionTemporalDesarrollo struct {
@@ -89,15 +90,19 @@ func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo() (
 	vechttp.RutaExacta,
 	error,
 ) {
+	return nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(false)
+}
+
+func nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(disponible bool) (vechttp.RutaExacta, error) {
 	return vechttp.RutaExacta{
 		Ruta:      rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
-		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{},
+		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{subsanacionDisponible: disponible},
 	}, nil
 }
 
-type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct{}
+type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct{ subsanacionDisponible bool }
 
-func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
+func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -124,9 +129,11 @@ func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
+	configuracion := nuevaConfiguracionAnalisisContratacionTemporalDesarrollo()
+	configuracion.SubsanacionDisponible = m.subsanacionDisponible
 	contenido, err := json.Marshal(
 		respuestaConfiguracionAnalisisContratacionTemporalDesarrollo{
-			Data: nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(),
+			Data: configuracion,
 		},
 	)
 	if err != nil {

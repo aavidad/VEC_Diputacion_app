@@ -567,3 +567,11 @@ test("el contrato y cliente no crean autoridad ni almacenamiento de navegador", 
     true,
   );
 });
+
+test("la disponibilidad de subsanación es opcional y booleana", () => {
+  assert.equal(validarConfiguracionAnalisis(configuracionAnalisis()).subsanacion_disponible, undefined);
+  for (const disponible of [false, true]) {
+    assert.equal(validarConfiguracionAnalisis(configuracionAnalisis({ subsanacion_disponible: disponible })).subsanacion_disponible, disponible);
+  }
+  assert.throws(() => validarConfiguracionAnalisis(configuracionAnalisis({ subsanacion_disponible: "true" })));
+});

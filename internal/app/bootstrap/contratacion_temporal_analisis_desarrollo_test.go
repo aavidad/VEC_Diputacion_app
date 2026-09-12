@@ -239,3 +239,27 @@ func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
 		t.Fatal("la rectificacion sin motivo configurado quedo abierta")
 	}
 }
+
+func TestConfiguracionAnalisisAnunciaSubsanacionSoloCompuesta(t *testing.T) {
+	for _, disponible := range []bool{false, true} {
+		ruta, err := nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(disponible)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		ruta.Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta.Ruta, nil))
+		var respuesta struct {
+			Data map[string]json.RawMessage `json:"data"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &respuesta) != nil {
+			t.Fatal("configuración no disponible")
+		}
+		valor, existe := respuesta.Data["subsanacion_disponible"]
+		if disponible && (!existe || string(valor) != "true") {
+			t.Fatal("composición no anunciada")
+		}
+		if !disponible && existe {
+			t.Fatal("contrato anterior alterado sin subsanación")
+		}
+	}
+}
