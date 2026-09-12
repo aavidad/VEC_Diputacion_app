@@ -30,6 +30,19 @@ test("recibo confirmado conserva recuperación y avisa si el refresco GET falla"
   assert.match(x.innerHTML, /actualización del estado sigue pendiente/u);
   assert.match(x.innerHTML, /Guardar datos de recuperación/u);
 });
+test("el recibo invalida el estado anterior mientras espera y si falla el GET", async () => {
+  const x = raiz(); let resolver;
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
+    estadoActual: "vigente", confirmarOperacion: () => true, generarClaveIdempotencia: () => id,
+    alConfirmar: () => new Promise((resolve) => { resolver = resolve; }) });
+  await x.preparar(); const envio = x.continuar(); await new Promise((resolve) => setImmediate(resolve));
+  assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+  assert.doesNotMatch(x.innerHTML, /Estado actual del seguimiento: Vigente/u);
+  resolver(false); await envio;
+  assert.match(x.innerHTML, /actualización del estado sigue pendiente/u);
+  assert.doesNotMatch(x.innerHTML, /Estado actual del seguimiento: Vigente/u);
+  assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+});
 test("GET posterior confirmado actualiza el estado y conserva recibo e intención descargable", async () => {
   const x = raiz();
   montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
