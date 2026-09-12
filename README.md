@@ -6,31 +6,45 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
-El runtime continúa en `e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
-Chrome obtuvo `200` al recuperar la incorporación y la ficha GINPIX, sin
+El código publicado y el runtime están en
+`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
+y PostgreSQL a las 13:51 UTC, Chrome obtuvo `200` al recuperar la incorporación
+y la ficha GINPIX, sin
 repetir el `POST`: se conservaron el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX
 descargada tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Los seis borradores Word se descargaron con HTTP `200` y son ZIP válidos. El
-recorrido no produjo errores JavaScript ni datos en cookies o almacenamiento;
-la incorporación no mostró desbordamiento a 1440, 1024 o 390 px. Son
-borradores de desarrollo: no acreditan firma, eficacia, envío ni transmisión.
+Los seis borradores Word se descargaron con HTTP `200` y son ZIP válidos. Su
+informe registró cero errores JavaScript. El recorrido de incorporación registró
+además cero cookies y almacenamiento, y no mostró desbordamiento a 1440, 1024
+o 390 px. Son borradores de desarrollo: no acreditan firma, eficacia, envío ni
+transmisión.
 
-La agrupación a ancho completo de los seis pares PDF/Word está integrada en
-código y revisada, pero aún no está desplegada. Faltan comprobar esa agrupación
-en runtime y la recuperación después de reiniciar PostgreSQL. Auth13 está
-instalada una sola vez; CT86/87 y AD3-30/31 siguen sin ensayo ni instalación.
+La agrupación a ancho completo de los seis pares PDF/Word está desplegada y
+visible. La recuperación tras el reinicio conservó sus nombres, bytes y SHA256;
+también mantuvo idénticas cinco huellas de Personal y seis contadores más la
+fila de incorporación de CT. Los objetivos 11, recuperación, y 12, ficha manual
+GINPIX, quedan acreditados funcionalmente. Esto no completa Contratación ni
+ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31 siguen sin
+ensayo ni instalación.
 
-El siguiente corte frontend integra fechas civiles UTC legibles sin desplazar
+El frontend publicado integra fechas civiles UTC legibles sin desplazar
 el día, paginación mediante cursor opaco de un solo uso y validación accesible
 del filtro de hasta 80 caracteres. Los errores recuperables conservan el
 cuadro y no lanzan otra consulta por una entrada inválida. Sus dos revisiones
-estáticas dieron `GO` y la suite web terminó 351/351. El despliegue y el E2E de
-paginación siguen pendientes.
+estáticas dieron `GO` y la suite web terminó 351/351. En navegador, 52 filas
+con límite 100 dejaron **Siguiente** correctamente inactivo; un filtro válido
+redujo el cuadro a una fila y 81 caracteres mostraron aviso accesible sin otra
+consulta ni perderla. No queda acreditado avanzar con cursor porque el conjunto
+no supera una página.
+
+Este corte añade al repositorio 60 fuentes SQL históricas exactas, con 60/60
+entradas de manifiesto y 30/30 scripts `UP` cotejados con el registro privado.
+No se ejecutaron SQL ni `DOWN`. CT70–85 y la instalación de Auth13 conservan
+su historia. Los avisos de fin de fichero de cuatro originales CT70/80 se
+mantienen para preservar su igualdad byte a byte. Dos clústeres aislados ya se
+restauraron; el siguiente paso es el harness real, sin tocar la base principal.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

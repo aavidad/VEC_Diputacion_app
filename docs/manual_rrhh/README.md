@@ -2,35 +2,46 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
-El runtime sigue en `e4ffa72de593b9500ee155e8dd3256474984d831`, binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`,
-permite recuperar en Chrome la incorporación y la ficha GINPIX con HTTP `200`.
+El código publicado y el runtime están en
+`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
+y PostgreSQL, Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`.
 No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
 Los seis documentos disponibles como PDF se descargaron también en Word con
 HTTP `200`: informe definitivo, resolución, diligencia, toma de posesión,
-notificación y comunicación al centro. Los seis ficheros DOCX son ZIP válidos.
-El recorrido no produjo errores JavaScript ni datos en cookies o almacenamiento;
-la incorporación no mostró desbordamiento a 1440, 1024 o 390 px.
+notificación y comunicación al centro. Los seis ficheros DOCX son ZIP válidos y
+su informe registró cero errores JavaScript. El recorrido de incorporación
+registró además cero cookies y almacenamiento, y no mostró desbordamiento a
+1440, 1024 o 390 px.
 
 Los PDF y Word son borradores de desarrollo, sin firma, eficacia
 administrativa, envío, entrega, transmisión o modelo oficial aprobado. La
-agrupación a ancho completo de los seis pares está integrada y revisada, pero
-aún no está desplegada ni comprobada en runtime. También falta la recuperación
-después de reiniciar PostgreSQL. Auth13 está instalada una sola vez; CT86/87 y
-AD3-30/31 continúan sin ensayo ni instalación.
+agrupación a ancho completo de los seis pares está desplegada y visible. La
+recuperación conservó los seis nombres, tamaños y SHA256, además de las huellas
+de Personal y CT, sin repetir el `POST` de incorporación. Los objetivos 11 y
+12 quedan acreditados funcionalmente tras reinicio, sin completar Contratación
+ni los ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31
+continúan sin ensayo ni instalación.
 
-El siguiente corte añade controles de paginación. **Siguiente** usa una vez el
+El frontend publicado añade controles de paginación. **Siguiente** usa una vez el
 cursor opaco recibido; **Reiniciar** vuelve a la primera página. El chip indica
 los expedientes de esta página, no un total general. Si una lectura recuperable
 falla, el cuadro visible se conserva. Las fechas civiles UTC se muestran sin
 cambiar de día. El filtro admite como máximo 80 caracteres; si la entrada no
 es válida aparece un aviso accesible y no se envía otra consulta. Esta mejora
-superó 351 pruebas web y dos revisiones estáticas, pero su despliegue y recorrido
-en navegador todavía están pendientes.
+superó 351 pruebas web y dos revisiones estáticas. En navegador, las 52 filas
+cabían en el límite 100 y **Siguiente** quedó correctamente deshabilitado. El
+filtro válido dejó una fila; una entrada de 81 caracteres mostró el aviso sin
+otra consulta ni perder el cuadro, y limpiar volvió a responder `200`. No se ha
+demostrado todavía el avance con cursor porque este conjunto ocupa una sola
+página.
+
+Las 60 fuentes SQL históricas añadidas en este corte quedan solo versionadas;
+no se han ejecutado ni se debe aplicar `DOWN`. CT70–85 y Auth13 conservan su
+historia instalada. Los próximos ensayos usarán un clúster aislado y después el
+harness real; CT86/87 siguen pendientes.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

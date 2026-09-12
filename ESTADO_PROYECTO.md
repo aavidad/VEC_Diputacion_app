@@ -2,11 +2,10 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado en `integracion/ct-producto-ligero-20260821` avanzó a
-`7211ac973306b067525a45d05d7914a9a4a710f5`. El runtime continúa en
-`e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
-Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
+El código publicado y el runtime de `integracion/ct-producto-ligero-20260821`
+están en `75157434dc0b06ab90d02a2a3822a36a740fd27c`. Tras reiniciar aplicación
+y PostgreSQL a las 13:51 UTC, Chrome recuperó la incorporación y la ficha
+GINPIX con HTTP `200`, sin repetir
 el `POST`. Coincidieron los seis campos cotejados, el recibo
 `ref:2bc3d281…` y la fecha `2026-09-10T13:07:06.614186Z`; la ficha descargada
 tiene SHA256
@@ -18,16 +17,23 @@ almacenamiento web. La pantalla de incorporación no tuvo desbordamiento a
 1440, 1024 ni 390 px. Los Word conservan su carácter de borradores: no
 constituyen firma, eficacia, envío, entrega o transmisión.
 
-La agrupación a ancho completo de los seis pares PDF/Word está integrada en
-código mediante tres assets y cuenta con un `GO` de revisión UI. Dirección
-comprobó sus 10 pruebas focales. El corte DOCX conserva `PASS` en Go global,
-`go vet`, build y 337 pruebas web, con inventario de manifiestos 111/11/3/1.
-Aún falta desplegar la agrupación, comprobarla en runtime y recuperar el
-recorrido después de reiniciar PostgreSQL. Auth13 continúa instalada una sola
-vez. CT86/87 y AD3-30/31 no se han ensayado ni instalado; anotación y cierre
-siguen sin recorrido real.
+La agrupación a ancho completo de los seis pares PDF/Word está desplegada y
+visible. Tras el reinicio, los seis DOCX devolvieron `200` con nombres, bytes y
+SHA256 idénticos a la evidencia anterior. Dirección inspeccionó 1440 y 390 px;
+la incorporación mantuvo desbordamiento cero a 1440, 1024 y 390 px. El informe
+de incorporación registró cero errores JavaScript, cookies y almacenamiento;
+el informe Word acredita por separado cero errores JavaScript.
 
-El candidato frontend actual integra seis JS y dos pruebas a
+La comparación privada
+`/root/.local/state/vec-reactivacion-20260912/reinicio-75157434/comparacion.json`
+confirma cinco huellas de Personal idénticas y seis contadores más la fila de
+incorporación CT idénticos, sin `POST` de incorporación. Se conservan respaldos
+privados de Auth13 de las 13:42:35 y 13:51:46 UTC. Los objetivos 11,
+recuperación, y 12, ficha manual GINPIX, quedan funcionalmente acreditados tras
+reinicio; no completan Contratación ni convierten los ocho hitos en completos.
+CT86/87 y AD3-30/31 siguen sin ensayo ni instalación.
+
+El frontend publicado integra seis JS y dos pruebas a
 partir de tres hunks revisados, sin conflictos y conservando DOCX y la
 agrupación. Presenta fechas civiles UTC sin desplazar el día; consume una sola
 vez cada cursor opaco con controles **Siguiente** y **Reiniciar**; mantiene el
@@ -37,7 +43,21 @@ un aviso accesible sin `TypeError` ni nueva consulta. Dos revisiones estáticas
 dieron `GO`. La validación terminó 351/351 en Contratación temporal y 23/23 en
 el coordinador, 374 comprobaciones en total; los manifiestos 11 públicos, 111
 internos, 3 compartidos y 1 traducción también pasaron. No se ejecutó una nueva
-campaña Go. El despliegue y el E2E de paginación siguen pendientes.
+campaña Go. En navegador, la página única mostró 52 filas con límite 100 y
+**Siguiente** deshabilitado; el filtro válido devolvió HTTP `200` y una fila.
+Una entrada de 81 caracteres mostró el aviso accesible, mantuvo esa fila y no
+envió otra consulta; limpiar el filtro volvió a obtener HTTP `200`. No hubo
+errores JavaScript. El detalle respondió `200` y mostró doce botones sin
+pulsarlos. No se acredita avanzar con cursor porque el conjunto no supera una
+página; la prueba controlada sigue cubriendo ese contrato.
+
+También se incorporan únicamente al versionado 60 fuentes SQL históricas
+exactas: manifiesto 60/60 y 30/30 scripts `UP` cotejados con el registro privado
+de instalación. Dos revisiones de apoyo dieron `GO`. No se ejecutaron SQL ni
+`DOWN`; CT70–85 y Auth13 conservan su historia instalada. Los cuatro avisos de
+fin de fichero de originales CT70/80 se mantienen intencionadamente para
+preservar igualdad byte a byte. Dos clústeres aislados se restauraron con
+`PASS`; el siguiente paso es el harness real sobre aislamiento propio.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones

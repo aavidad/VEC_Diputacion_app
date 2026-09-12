@@ -2,43 +2,52 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
-El runtime sigue en `e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
-Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
+El código publicado y el runtime están en
+`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
+y PostgreSQL, Chrome recuperó la incorporación y la ficha GINPIX con HTTP
+`200`, sin repetir
 el alta. Conservó el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Desde el detalle se descargaron con HTTP `200` estos seis ZIP DOCX válidos:
+Desde el detalle se descargaron con HTTP `200` estos seis ZIP DOCX válidos;
+tras el reinicio conservaron exactamente nombre, tamaño y SHA256:
 
-- `informe-definitivo-borrador.docx`
-- `resolucion-borrador.docx`
-- `diligencia-borrador.docx`
-- `toma-posesion-borrador.docx`
-- `notificacion-borrador.docx`
-- `comunicacion-centro-borrador.docx`
+| Borrador | Bytes | SHA256 |
+| --- | ---: | --- |
+| `informe-definitivo-borrador.docx` | 3378 | `7141cbc60e586086494cb4bc609ef9748c6f09675cb1f172ae4649f3f1944577` |
+| `resolucion-borrador.docx` | 3329 | `3eab5eb0a0ce46bc3d171b5e3f57fd79701a9e3e48ec0217ce469cf49cb00485` |
+| `diligencia-borrador.docx` | 3247 | `aa84b8f01a7a0fa579082e8650563b3250dc075d19f49c621e60a9c78c390731` |
+| `toma-posesion-borrador.docx` | 3323 | `2aae20ec637e4f8486467004e350de38bb3ed9a6584f736b369d8a2a995e0d95` |
+| `notificacion-borrador.docx` | 3330 | `0fc8a78c3aaeb97d8cb6708e805a7248e7ea3f8c9a11c02fa9ff8db1ccdac79b` |
+| `comunicacion-centro-borrador.docx` | 3424 | `9dbedbba59140d5548193321c83de6d123310eec9b119bd91daafb3349b920f9` |
 
-No hubo errores JavaScript ni datos en cookies o almacenamiento web. La
-incorporación quedó sin desbordamiento a 1440, 1024 y 390 px. La evidencia
-privada se conserva en
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-visible-1324.*`
-y
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/word-seis-1324.informe.json`.
+El informe Word registró cero errores JavaScript. El recorrido de incorporación
+registró además cero cookies y almacenamiento web, y quedó sin desbordamiento
+a 1440, 1024 y 390 px. La evidencia posterior al reinicio se conserva en
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-posreinicio-75157434.informe.json`,
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/word-posreinicio-75157434.informe.json`
+y `/root/.local/state/vec-reactivacion-20260912/reinicio-75157434/comparacion.json`.
 
 Los Word son borradores de desarrollo y no acreditan firma, eficacia, envío o
 transmisión. La agrupación a ancho completo de los seis pares PDF/Word está
-integrada y revisada, pero queda pendiente de despliegue y comprobación en
-runtime. Sus 10 pruebas focales pasaron; el corte conserva 337 pruebas web y
-las comprobaciones Go, vet y build. También falta recuperar el recorrido
-después de reiniciar PostgreSQL. Auth13 está instalada una vez; CT86/87 y
+desplegada y visible. La recuperación posterior al reinicio conserva cinco
+huellas de Personal, seis contadores y la fila de incorporación CT, sin nuevo
+`POST`. Los objetivos 11 y 12 quedan funcionalmente acreditados; no completan
+Contratación ni ocho hitos. Auth13 está instalada una vez; CT86/87 y
 AD3-30/31 siguen sin ensayo ni instalación, por lo que anotación y cierre no
 deben recorrerse todavía.
 
-El siguiente corte frontend incorpora fechas civiles UTC legibles, paginación
+El frontend publicado incorpora fechas civiles UTC legibles, paginación
 con cursor opaco de un solo uso y validación accesible del filtro. Dos
-revisiones dieron `GO` y la suite web terminó 351/351. Hasta desplegarlo y
-comprobarlo en navegador, no se presenta como E2E de paginación.
+revisiones dieron `GO` y la suite web terminó 351/351. En navegador, 52 filas
+con límite 100 dejaron **Siguiente** deshabilitado; el filtro válido redujo el
+cuadro a una fila y una entrada de 81 caracteres mostró aviso accesible sin
+nueva consulta ni perder esa fila. Limpiar el filtro devolvió `200`, sin errores
+JavaScript. El detalle respondió `200` y mostró doce botones, que no se pulsaron
+en esta prueba. La evidencia está en
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/paginacion-director-estable-75157434.informe.json`.
+No se acredita avanzar con cursor porque las 52 filas caben en una página.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 
