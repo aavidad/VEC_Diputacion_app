@@ -673,7 +673,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) resolverRespuestaRRHH(ctx context.Con
 	}
 	if solicitud.Validar() != nil || solicitud.VersionEsperada != 2 || solicitud.Respuesta != respuesta ||
 		seleccion.OrganizacionRef != solicitud.OrganizacionRef || seleccion.ExpedienteRef != solicitud.ExpedienteRef ||
-		llamamiento != solicitud.LlamamientoRef || seleccion.VersionExpediente != 6 || !seleccion.PropuestaGenerada ||
+		llamamiento != solicitud.LlamamientoRef || seleccion.VersionExpediente < 6 ||
+		seleccion.VersionExpediente > ports.MaximoEnteroSeguroIntegracionBolsa || !seleccion.PropuestaGenerada ||
 		resolucion.AperturaOperacionRef != operacionApertura || resolucion.JustificanteRef != solicitud.PruebaRespuestaRef {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}

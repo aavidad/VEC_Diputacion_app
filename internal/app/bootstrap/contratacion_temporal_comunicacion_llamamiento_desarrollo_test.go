@@ -184,10 +184,19 @@ func TestComunicacionLlamamientoDesarrolloRechazaMaterialAjeno(t *testing.T) {
 	}
 }
 
-type lectorComunicacionLlamamientoDesarrolloPrueba struct{ llamadas int }
+type lectorComunicacionLlamamientoDesarrolloPrueba struct {
+	llamadas                                             int
+	organizacionAviso, expedienteAviso, llamamientoAviso string
+}
 
 func (l *lectorComunicacionLlamamientoDesarrolloPrueba) LeerExpedienteParaSeleccion(context.Context, string, string, uint64) (ports.ExpedienteParaSeleccion, error) {
 	l.llamadas++
+	return ports.ExpedienteParaSeleccion{}, errors.New("fallo interno sintético")
+}
+
+func (l *lectorComunicacionLlamamientoDesarrolloPrueba) LeerExpedienteParaAvisoConfirmado(_ context.Context, organizacion, expediente, llamamiento string) (ports.ExpedienteParaSeleccion, error) {
+	l.llamadas++
+	l.organizacionAviso, l.expedienteAviso, l.llamamientoAviso = organizacion, expediente, llamamiento
 	return ports.ExpedienteParaSeleccion{}, errors.New("fallo interno sintético")
 }
 
@@ -220,6 +229,7 @@ func TestComunicacionLlamamientoDesarrolloEjecutorFallaCerrado(t *testing.T) {
 	r, err := e.Registrar(ctx, s)
 	if !errors.Is(err, application.ErrComunicacionLlamamientoNoDisponible) ||
 		r != (ports.ComunicacionProbatoria{}) || servicio.llamadas != 0 || lector.llamadas != 1 ||
+		lector.organizacionAviso != s.OrganizacionRef || lector.expedienteAviso != s.ExpedienteRef || lector.llamamientoAviso != s.LlamamientoRef ||
 		strings.Contains(err.Error(), "interno") {
 		t.Fatal("fallo de lectura convertido en efecto o expuesto")
 	}
@@ -230,6 +240,26 @@ func TestComunicacionLlamamientoDesarrolloEjecutorFallaCerrado(t *testing.T) {
 	}
 	if ejecutor, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(nil, nil, nil, nil, nil, ""); err == nil || ejecutor != nil {
 		t.Fatal("constructor incompleto admitido")
+	}
+}
+
+func TestExpedienteComunicacionLlamamientoDesarrolloConservaVersionNominal(t *testing.T) {
+	s := solicitudComunicacionLlamamientoDesarrolloPrueba()
+	e := ports.ExpedienteParaSeleccion{Fiscalizado: domain.Expediente{
+		Referencia: s.ExpedienteRef, OrganizacionRef: s.OrganizacionRef, Version: 7,
+		FaseActual: domain.FaseFiscalizacion, EstadoActual: domain.EstadoEnCurso,
+		Fiscalizacion: &domain.FiscalizacionRegistrada{Resultado: domain.FiscalizacionFavorable},
+	}, VersionActual: 8}
+	if !expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+		t.Fatal("la recuperación tras avance CT perdió la fiscalización nominal")
+	}
+	e.VersionActual = 6
+	if expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+		t.Fatal("la cabeza anterior a la fiscalización nominal fue admitida")
+	}
+	e.Fiscalizado.Version, e.VersionActual = 5, 8
+	if expedienteComunicacionLlamamientoDesarrolloValido(e, s) {
+		t.Fatal("fiscalización previa a selección admitida")
 	}
 }
 
