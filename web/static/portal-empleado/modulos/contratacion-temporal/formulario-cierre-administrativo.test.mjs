@@ -61,6 +61,17 @@ test("estado cerrado explícito no se deduce de acciones y no habilita un POST",
   assert.doesNotMatch(x.innerHTML, /data-ct-cierre-administrativo-form/u);
   assert.equal(cierres, 0);
 });
+test("DTO real tras replay muestra cierre administrativo confirmado sin POST", () => {
+  const dto = { expediente_ref: p.expediente_ref, seguimiento_ref: p.seguimiento_ref, version_actual: 2, estado_actual: "cerrado_administrativamente", acciones: [], preparada_en: "2026-09-12T19:16:48.462825Z" };
+  const x = raiz(); let cierres = 0;
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { cerrar() { cierres++; } }, preparacion: null,
+    estadoActual: dto.estado_actual, contextoRecuperacion: { expediente_ref: dto.expediente_ref, seguimiento_ref: dto.seguimiento_ref } });
+  assert.match(x.innerHTML, /Estado actual del seguimiento: Cerrado/u);
+  assert.match(x.innerHTML, /ya consta registrado/u);
+  assert.doesNotMatch(x.innerHTML, /No disponible para esta pantalla/u);
+  assert.doesNotMatch(x.innerHTML, /data-ct-cierre-administrativo-form/u);
+  assert.equal(cierres, 0);
+});
 test("preparación ausente sin contexto queda inactiva", () => { const x = raiz(); const d = montarFormularioCierreAdministrativo({ raiz: x, cliente: { cerrar() { assert.fail("POST"); } }, preparacion: null }); assert.match(x.innerHTML, /no está disponible/); d(); assert.equal(x.innerHTML, ""); });
 
 test("las seis etiquetas y el motivo se traducen, se escapan y conservan la clave exacta del POST", async () => {
