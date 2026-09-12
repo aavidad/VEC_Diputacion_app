@@ -252,6 +252,24 @@ Este incremento está preparado y probado en sandbox; aún no está acreditado
 en el navegador servido. No requiere publicar una URL externa. Se conserva el
 acceso privado anterior bajo Sistemas; no arranque los lanzadores históricos.
 
+La candidata de separación por unidad usa, si Sistemas lo aporta, el manifiesto
+`identidad/consultas-rrhh.json` del material de desarrollo. Sus campos y límites
+se describen en el [manual de RRHH](docs/manual_rrhh/README.md#lectura-nominal-de-bandeja-y-detalle-por-unidad).
+No copie certificados ni invente sujetos para prepararlo. Un lector nominal con
+rol único `lector_rrhh` queda fijado a una organización y una unidad; el técnico
+solo se reutiliza cuando coincide exactamente con la identidad `tecnico_rrhh`
+existente. Si el manifiesto está ausente continúa el montaje anterior.
+
+Este cambio alcanza las lecturas HTTP de cuadro y detalle. Las operaciones
+internas conservan la identidad y autorización del técnico existente. No está
+desplegado, no instala SQL y no acredita aún el cambio de bandeja solicitado por
+RRHH. Antes de declararlo recorrible faltan dos lectores reales de desarrollo y
+una comprobación conjunta, también después de reiniciar aplicación y PostgreSQL:
+
+```bash
+go test ./internal/app/bootstrap -run 'Test(CargarIdentidadesConsultasRRHHDesarrollo|MultiplexoresLectoresRRHHDesarrollo|AsignacionConsultaLectorRRHHCompatible|SemillaInicialLectorRRHH)' -count=1
+```
+
 En **Contratación temporal**, consulte la bandeja de expedientes (distinta de
 la bandeja de peticiones del centro):
 

@@ -100,6 +100,38 @@ Para uso real siguen pendientes los modelos y circuito de firma admitidos,
 la comunicación corporativa, las reglas de plazo y las autorizaciones de
 datos y operación. No se asignan esos efectos a una casilla de la presentación.
 
+### Lectura nominal de bandeja y detalle por unidad
+
+El montaje candidato admite el fichero opcional
+`identidad/consultas-rrhh.json` dentro del material de desarrollo. No contiene
+claves ni contraseñas: referencia certificados e identidades ya preparados por
+Sistemas. La cabecera exige `version: 1`, `autoridad: "no_autoritativo"` y una
+lista no vacía `entradas`. Cada entrada declara exactamente `certificate`,
+`identity`, `subject`, `perfil_ref`, `organizacion_ref`, `clase_ambito` y
+`ambito_ref`; no se admiten otros campos, rutas externas al material ni
+identidades repetidas.
+
+Para separar las bandejas de este recorrido, cada lector usa el único rol
+`lector_rrhh`, la misma organización sintética ya configurada,
+`clase_ambito: "unidad_gestion"` y una `ambito_ref` fija para su unidad. El
+técnico de RRHH solo puede figurar si certificado, sujeto, identidad y rol
+`tecnico_rrhh` coinciden exactamente con el técnico ya cargado. El lector puro
+puede consultar únicamente `/cuadro/consultas` y `/expedientes/consultas`; no
+recibe análisis, asignación ni las demás operaciones internas del técnico.
+
+Si el fichero no existe se conserva expresamente el montaje anterior, sin crear
+lectores adicionales. Esta candidata no está desplegada, no añade SQL y no
+acredita todavía el traslado entre dos bandejas. Su comprobación focal es:
+
+```bash
+go test ./internal/app/bootstrap -run 'Test(CargarIdentidadesConsultasRRHHDesarrollo|MultiplexoresLectoresRRHHDesarrollo|AsignacionConsultaLectorRRHHCompatible|SemillaInicialLectorRRHH)' -count=1
+```
+
+Queda pendiente el recorrido con dos lectores nominales: abrir con cada
+certificado ya autorizado, comprobar cuadro y detalle limitados a su unidad,
+asignar con el técnico exacto, reiniciar aplicación y PostgreSQL y verificar que
+el expediente desaparece de la bandeja de origen y se recupera en la de destino.
+
 ## Antecedentes hasta el 6 de septiembre
 
 Las cifras e instalaciones siguientes son históricas. El corte anterior

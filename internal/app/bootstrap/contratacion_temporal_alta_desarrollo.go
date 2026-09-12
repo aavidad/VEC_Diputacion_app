@@ -81,6 +81,11 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	sello                              *selloConsultasContratacionTemporalDesarrollo
 	principalID                        string
 	certificadoSHA256                  string
+	lectorConsultasRRHH                bool
+	tecnicoConsultaRRHH                bool
+	organizacionConsultaRRHH           string
+	claseAmbitoConsultaRRHH            ports.ClaseAmbitoConsultaRRHH
+	ambitoConsultaRRHH                 string
 	contexto                           ports.ContextoAutorizacionAltaV3
 	flujo                              ports.ConfiguracionAltaFlujo
 	motivo                             dominiovec.ReferenciaEntradaCatalogo
@@ -352,6 +357,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 		claveCapacidadConsultasContratacionTemporalDesarrollo{},
 	).(capacidadConsultaContratacionTemporalDesarrollo)
 	principalValido := principalContratacionTemporalDesarrolloValido(capacidad.principal)
+	if s.lectorConsultasRRHH {
+		principalValido = rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) &&
+			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal)
+	}
 	if s.peticionesCentro {
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}

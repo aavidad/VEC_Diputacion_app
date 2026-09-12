@@ -215,13 +215,30 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	lectoresRRHH, manifiestoLectoresActivo, err := cargarIdentidadesConsultasRRHHDesarrollo(
+		cfg.DevelopmentMaterialDir, ca, identidadRRHH,
+	)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
 	identidades := append([]identidadCertificadoDesarrollo{identidadRRHH, identidadIntervencion}, adscripciones.Identidades...)
+	for _, lector := range lectoresRRHH {
+		if lector.identidad.huella == identidadRRHH.huella {
+			continue
+		}
+		identidades = append(identidades, lector.identidad)
+	}
 	identidad, err = nuevoResolvedorIdentidadDesarrollo(identidades...)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
 	for subject, adscripcion := range adscripciones.Adscripciones {
 		identidad.porSujeto[subject] = adscripcion
+	}
+	if manifiestoLectoresActivo {
+		if err := identidad.registrarLectoresRRHH(lectoresRRHH); err != nil {
+			return materialSeguridadDesarrollo{}, err
+		}
 	}
 
 	firmaAtestacionKMS, verificadorAtestacionKMS, huellaPublicaAtestacionKMS, err := cargarFirmaKMSDesarrollo(
