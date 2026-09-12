@@ -8,6 +8,7 @@ type DatosPropuestaCoberturaParaAdaptador struct {
 	Estado             domain.EstadoPropuestaDecisionCobertura
 	ViaRecomendada     domain.ClaveCatalogo
 	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
+	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
 	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
 }
 
@@ -24,6 +25,7 @@ func nuevaResultadoPropuestaCoberturaParaAdaptador(
 	datos := DatosPropuestaCoberturaParaAdaptador{
 		Estado: p.Estado, ViaRecomendada: p.ViaRecomendada,
 		Evaluaciones:       copiarEvaluacionesCobertura(p.Evaluaciones),
+		MotivosAlternativa: copiarMotivosAlternativaCobertura(p.MotivosAlternativa),
 		IdentidadSemantica: p.IdentidadSemantica,
 	}
 	if !datosPropuestaCoberturaAdaptadorValidos(datos) {
@@ -37,6 +39,7 @@ func (r ResultadoPropuestaCoberturaParaAdaptador) DatosParaAdaptador() (DatosPro
 		return DatosPropuestaCoberturaParaAdaptador{}, false
 	}
 	r.datos.Evaluaciones = copiarEvaluacionesCobertura(r.datos.Evaluaciones)
+	r.datos.MotivosAlternativa = copiarMotivosAlternativaCobertura(r.datos.MotivosAlternativa)
 	return r.datos, true
 }
 
@@ -77,7 +80,30 @@ func datosPropuestaCoberturaAdaptadorValidos(p DatosPropuestaCoberturaParaAdapta
 			return false
 		}
 	}
+	if len(p.MotivosAlternativa) > 64 {
+		return false
+	}
+	motivosPorVia := make(map[domain.ClaveCatalogo]struct{}, len(p.MotivosAlternativa))
+	for _, motivo := range p.MotivosAlternativa {
+		if !motivo.Clave.Valida() || !motivo.ViaClave.Valida() ||
+			!motivo.EtiquetaI18n.Valida() {
+			return false
+		}
+		if _, repetido := motivosPorVia[motivo.ViaClave]; repetido {
+			return false
+		}
+		if _, publicada := vias[motivo.ViaClave]; !publicada {
+			return false
+		}
+		motivosPorVia[motivo.ViaClave] = struct{}{}
+	}
 	return true
+}
+
+func copiarMotivosAlternativaCobertura(
+	entrada []MotivoAlternativaPropuestaCobertura,
+) []MotivoAlternativaPropuestaCobertura {
+	return append([]MotivoAlternativaPropuestaCobertura(nil), entrada...)
 }
 
 func copiarEvaluacionesCobertura(entrada []domain.EvaluacionViaPropuestaCobertura) []domain.EvaluacionViaPropuestaCobertura {

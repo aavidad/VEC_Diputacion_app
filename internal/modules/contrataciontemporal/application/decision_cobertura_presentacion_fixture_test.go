@@ -145,6 +145,61 @@ type resolutorGobiernoPresentacionPrueba struct {
 	cancelar context.CancelFunc
 }
 
+type consultaMotivoPresentacionPrueba struct {
+	despues func()
+}
+
+func (c *consultaMotivoPresentacionPrueba) ConsultarMotivoDecisionCobertura(
+	_ context.Context,
+	catalogoID string,
+	moduloID string,
+	clave domain.ClaveCatalogo,
+	_ time.Time,
+) (domain.MotivoGobernadoDecisionCobertura, error) {
+	if catalogoID != "motivos_cobertura" || moduloID != "contratacion_temporal" ||
+		!clave.Valida() {
+		return domain.MotivoGobernadoDecisionCobertura{}, errors.New("motivo no disponible")
+	}
+	motivo := domain.MotivoGobernadoDecisionCobertura{
+		ReferenciaCatalogo: dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID: catalogoID, CatalogoVersion: 1,
+			CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: string(clave),
+		},
+		ClaveI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh",
+	}
+	if c.despues != nil {
+		c.despues()
+	}
+	return motivo, nil
+}
+
+func motivosPresentacionCoberturaPrueba(t *testing.T) (
+	*cobertura.ResolutorMotivoDecisionCobertura,
+	*consultaMotivoPresentacionPrueba,
+) {
+	t.Helper()
+	consulta := &consultaMotivoPresentacionPrueba{}
+	resolutor, err := cobertura.NuevoResolutorMotivoDecisionCoberturaAcotado(
+		consulta, "motivos_cobertura", "contratacion_temporal",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolutor, consulta
+}
+
+func alternativasPresentacionCoberturaPrueba(
+	vias []domain.DefinicionViaCobertura,
+) []MotivoAlternativaCobertura {
+	if len(vias) == 0 {
+		return nil
+	}
+	return []MotivoAlternativaCobertura{{
+		ViaClave: vias[0].Clave, Clave: "motivo_eleccion_procedimiento_rrhh",
+		EtiquetaI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh",
+	}}
+}
+
 func (r *resolutorGobiernoPresentacionPrueba) ResolverGobiernoOperacionCobertura(
 	_ context.Context,
 	solicitud cobertura.SolicitudResolucionGobiernoOperacionCobertura,
@@ -215,6 +270,7 @@ type escenarioPresentacionCobertura struct {
 	analisis   *lectorAnalisisPresentacionPrueba
 	reloj      *relojGobiernoPresentacionPrueba
 	gobierno   *resolutorGobiernoPresentacionPrueba
+	motivos    *consultaMotivoPresentacionPrueba
 	servicio   *ServicioPresentacionPropuestaCobertura
 	solicitud  SolicitudProponerCobertura
 	expediente domain.Expediente
@@ -292,6 +348,8 @@ func nuevoEscenarioPresentacionCobertura(
 		},
 		expediente: expediente,
 	}
+	resolutorMotivos, consultaMotivos := motivosPresentacionCoberturaPrueba(t)
+	escenario.motivos = consultaMotivos
 	escenario.servicio, err =
 		NuevoServicioPresentacionPropuestaCobertura(
 			escenario.contextos,
@@ -299,6 +357,8 @@ func nuevoEscenarioPresentacionCobertura(
 			escenario.analisis,
 			escenario.reloj,
 			escenario.gobierno,
+			resolutorMotivos,
+			alternativasPresentacionCoberturaPrueba(vias),
 			global.preparador,
 		)
 	if err != nil {

@@ -75,6 +75,9 @@ func (p *presentadorAutoridadFuenteAnalisisDesarrollo) PresentarAutoridadFuenteA
 type registroCoberturaSinteticaDesarrollo struct {
 	categoriaRef string
 	periodo      domain.PeriodoPrevisto
+	viaClave     domain.ClaveCatalogo
+	comprobacion domain.ClaveCatalogo
+	procedencia  domain.ClaveCatalogo
 	resultado    domain.ResultadoComprobacion
 }
 
@@ -97,15 +100,19 @@ func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
 		f.generacion == 0 || contextoInterfazNulo(ctx) ||
 		solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.ViaClave != domain.ClaveCatalogo("bolsa_vigente") ||
-		solicitud.Comprobacion != comprobacionFuenteCoberturaDesarrollo(f.backendRef) {
+		!comprobacionFuenteCoberturaDesarrolloValida(
+			solicitud.ViaClave, solicitud.Comprobacion, f.backendRef,
+		) {
 		return ports.ResultadoConsultaCobertura{},
 			ports.ErrPeticionFuenteCoberturaInvalida
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.ResultadoConsultaCobertura{}, err
 	}
-	resultado, existe := f.resultadoPara(solicitud.CategoriaRef, solicitud.Periodo)
+	resultado, existe := f.resultadoPara(
+		solicitud.CategoriaRef, solicitud.Periodo, solicitud.ViaClave,
+		solicitud.Comprobacion.Clave, solicitud.Comprobacion.Procedencia.Clave,
+	)
 	if !existe {
 		return ports.ResultadoConsultaCobertura{},
 			ports.ErrPeticionFuenteCoberturaInvalida
@@ -193,14 +200,44 @@ func comprobacionFuenteCoberturaDesarrollo(
 	}
 }
 
+func comprobacionFuenteCoberturaDesarrolloValida(
+	via domain.ClaveCatalogo,
+	comprobacion domain.ComprobacionExigibleCobertura,
+	backendRef string,
+) bool {
+	if !comprobacion.Obligatoria ||
+		comprobacion.Procedencia.DefinicionFuenteRef != backendRef {
+		return false
+	}
+	switch via {
+	case "bolsa_vigente":
+		return ((comprobacion.Clave == "existe_bolsa_vigente" && comprobacion.Orden == 1) ||
+			(comprobacion.Clave == "hay_candidaturas_disponibles" && comprobacion.Orden == 2)) &&
+			comprobacion.Procedencia.Clave == "bolsa"
+	case "oferta_sae":
+		return comprobacion.Clave == "oferta_sae_disponible" && comprobacion.Orden == 1 &&
+			comprobacion.Procedencia.Clave == "sae"
+	case "nueva_convocatoria_bolsa":
+		return comprobacion.Clave == "requiere_nueva_convocatoria" && comprobacion.Orden == 1 &&
+			comprobacion.Procedencia.Clave == "bolsa"
+	}
+	return false
+}
+
 func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 	categoriaRef string,
 	periodo domain.PeriodoPrevisto,
+	viaClave domain.ClaveCatalogo,
+	comprobacion domain.ClaveCatalogo,
+	procedencia domain.ClaveCatalogo,
 ) (domain.ResultadoComprobacion, bool) {
 	for _, registro := range f.registros {
 		if registro.categoriaRef == categoriaRef &&
 			registro.periodo.Inicio.Equal(periodo.Inicio) &&
-			registro.periodo.Fin.Equal(periodo.Fin) {
+			registro.periodo.Fin.Equal(periodo.Fin) &&
+			registro.viaClave == viaClave &&
+			registro.comprobacion == comprobacion &&
+			registro.procedencia == procedencia {
 			return registro.resultado, true
 		}
 	}
@@ -496,32 +533,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 			claveRespuesta: respuestaFuente,
 			claveRecibo:    material.recibo,
 			reloj:          reloj,
-			registros: []registroCoberturaSinteticaDesarrollo{
-				{
-					categoriaRef: categoriaAltaContratacionTemporalDesarrollo,
-					periodo: domain.PeriodoPrevisto{
-						Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC),
-						Fin:    time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
-					},
-					resultado: domain.ComprobacionAfirmativa,
-				},
-				{
-					categoriaRef: categoriaAltaContratacionTemporalDesarrollo,
-					periodo: domain.PeriodoPrevisto{
-						Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-						Fin:    time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC),
-					},
-					resultado: domain.ComprobacionAfirmativa,
-				},
-				{
-					categoriaRef: "categoria:desarrollo:sin-cobertura",
-					periodo: domain.PeriodoPrevisto{
-						Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC),
-						Fin:    time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
-					},
-					resultado: domain.ComprobacionNegativa,
-				},
-			},
+			registros:      registrosCoberturaSinteticosDesarrollo(),
 		},
 		verificador: &verificadorRespuestaCoberturaDesarrollo{
 			presentadorAutoridadFuenteAnalisisDesarrollo: presentadorVerificador,
@@ -554,6 +566,35 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 	}
 	completo = true
 	return dependencias, nil
+}
+
+func registrosCoberturaSinteticosDesarrollo() []registroCoberturaSinteticaDesarrollo {
+	periodos := []struct {
+		categoria string
+		periodo   domain.PeriodoPrevisto
+		resultado domain.ResultadoComprobacion
+	}{
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
+		{"categoria:desarrollo:sin-cobertura", domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
+	}
+	plantillas := []struct{ via, comprobacion, procedencia domain.ClaveCatalogo }{
+		{"bolsa_vigente", "existe_bolsa_vigente", "bolsa"},
+		{"bolsa_vigente", "hay_candidaturas_disponibles", "bolsa"},
+		{"oferta_sae", "oferta_sae_disponible", "sae"},
+		{"nueva_convocatoria_bolsa", "requiere_nueva_convocatoria", "bolsa"},
+	}
+	registros := make([]registroCoberturaSinteticaDesarrollo, 0, len(periodos)*len(plantillas))
+	for _, periodo := range periodos {
+		for _, plantilla := range plantillas {
+			registros = append(registros, registroCoberturaSinteticaDesarrollo{
+				categoriaRef: periodo.categoria, periodo: periodo.periodo,
+				viaClave: plantilla.via, comprobacion: plantilla.comprobacion,
+				procedencia: plantilla.procedencia, resultado: periodo.resultado,
+			})
+		}
+	}
+	return registros
 }
 
 func derivarMaterialFuentesCoberturaDesarrollo(

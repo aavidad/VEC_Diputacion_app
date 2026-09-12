@@ -6,8 +6,11 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
+La base publicada de este corte es `5892df317d870708a15079a1886506cdc52cbf9f`.
 El último runtime comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome obtuvo `200` al recuperar
+`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome obtuvo `200` al recuperar
 la incorporación y la ficha GINPIX, sin repetir el `POST`: se conservaron el
 recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX
@@ -32,8 +35,9 @@ visible. La recuperación tras el reinicio conservó sus nombres, bytes y SHA256
 también mantuvo idénticas cinco huellas de Personal y seis contadores más la
 fila de incorporación de CT. Los objetivos 11, recuperación, y 12, ficha manual
 GINPIX, quedan acreditados funcionalmente. Esto no completa Contratación ni
-ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31 siguen sin
-ensayo ni instalación.
+ocho hitos. Auth13 está instalada una sola vez. CT86/87 y AD3-30/31 están
+instaladas sólo en los dos clones; la instalación principal y el recorrido
+completo de anotación/cierre siguen pendientes.
 
 El frontend publicado integra fechas civiles UTC legibles sin desplazar
 el día, paginación mediante cursor opaco de un solo uso y validación accesible
@@ -45,7 +49,7 @@ redujo el cuadro a una fila y 81 caracteres mostraron aviso accesible sin otra
 consulta ni perderla. No queda acreditado avanzar con cursor porque el conjunto
 no supera una página.
 
-Este corte añade al repositorio 60 fuentes SQL históricas exactas, con 60/60
+Durante esta reactivación se incorporaron 60 fuentes SQL históricas exactas, con 60/60
 entradas de manifiesto y 30/30 scripts `UP` cotejados con el registro privado.
 No se ejecutaron SQL ni `DOWN`. CT70–85 y la instalación de Auth13 conservan
 su historia. Los avisos de fin de fichero de cuatro originales CT70/80 se
@@ -76,6 +80,26 @@ Las focales de puertos/bootstrap y la campaña conjunta `go test ./...`,
 cuenta remitente todavía por crear sobre una IP interna de la Diputación; el
 destino es el correo obligatorio de un alta VEC existente. Faltan concretar
 servidor, puerto, TLS y credencial reales.
+
+El corte de Cobertura incorpora 20 fuentes revisadas con dos `GO`. RRHH debe
+elegir expresamente entre **Bolsa**, **SAE** y **Nueva convocatoria**; la
+recomendación visible incluye su motivo ligado y no sustituye esa decisión. La
+v1 histórica se preserva y la v2 corrige las secuencias 3/4 con el DTO y
+traductor reales. Tras recargar, se recupera el formulario de asignación ya
+existente, sin crear otra reasignación. Todavía no está en runtime ni tiene E2E
+de las tres vías. Web 385/385, manifiestos 111/11/3/1, Go global, vet y build
+pasaron. El binario candidato
+`a86116def448a1bae7193bcc86cc7bf3a482c78ec98d3b8f4ddae9450fc29e06`
+está preparado, sin desplegar.
+
+El lector legítimo actual está limitado a la unidad RRHH y al técnico de su
+organización; no se han probado dos unidades ni cambiar el centro. En un clon,
+CT87 arrancó con HTTP `200`, pero la publicación técnica falló por una
+precedencia JSON incorrecta. El preflight posterior y cinco snapshots quedaron
+idénticos al estado inmediatamente anterior al intento, sin tres `INSERT`
+persistidos. CT90 queda **EN PREPARACIÓN** para corregirla. CT87 ya está instalada: no
+reaplique sus cuatro `UP`; el bloqueo de instrumentación es separado y no hay
+rollback acreditado todavía.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

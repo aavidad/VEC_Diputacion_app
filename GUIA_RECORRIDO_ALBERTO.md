@@ -2,8 +2,11 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
+La base publicada de este corte es `5892df317d870708a15079a1886506cdc52cbf9f`.
 El último runtime comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la incorporación
+`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome recuperó la incorporación
 y la ficha GINPIX con HTTP `200`, sin repetir el alta. Conservó el recibo
 `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
@@ -85,6 +88,25 @@ Sus 16 archivos tienen dos `GO` estáticos; las focales de puertos/bootstrap,
 con dos lectores. Para SMTP se usará una cuenta remitente todavía por crear sobre una
 IP interna de la Diputación; el destino es el correo obligatorio de un alta VEC
 existente. Faltan concretar servidor, puerto, TLS y credencial.
+
+El siguiente corte de Cobertura todavía no se recorre en runtime. Cuando esté
+disponible, RRHH deberá elegir expresamente **Bolsa**, **SAE** o **Nueva
+convocatoria** después de leer la recomendación y su motivo. La v1 queda como
+historia y la v2 usa las secuencias 3/4 con el diccionario, DTO y traductor
+reales. Tras recargar, continúe desde el formulario de asignación recuperado;
+no registre una reasignación nueva.
+
+Las 20 fuentes tienen dos `GO`; la web terminó 385/385 `PASS` y los manifiestos
+111/11/3/1 pasaron; Go global, vet y build terminaron con código 0. El binario
+candidato `a86116def448a1bae7193bcc86cc7bf3a482c78ec98d3b8f4ddae9450fc29e06`
+no está desplegado y el E2E de las tres vías sigue pendiente. El lector actual
+solo combina unidad RRHH y
+técnico de su organización; no prueba dos unidades ni permite cambiar centro.
+CT87 ya está instalada y no se reaplica: su publicación en clon falló por
+precedencia JSON. El cotejo posterior conservó cinco snapshots idénticos al
+estado inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90
+queda **EN PREPARACIÓN** y aún no tiene rollback acreditado; el bloqueo de
+instrumentación fue otra comprobación.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

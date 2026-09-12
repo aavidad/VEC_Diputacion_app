@@ -191,11 +191,17 @@ type envoltorioPropuestaCobertura struct {
 	Data propuestaCoberturaSalidaJSON `json:"data"`
 }
 type propuestaCoberturaSalidaJSON struct {
-	Esquema            string                          `json:"esquema"`
-	Estado             string                          `json:"estado"`
-	ViaRecomendada     string                          `json:"via_recomendada"`
-	Evaluaciones       []evaluacionCoberturaJSON       `json:"evaluaciones"`
-	IdentidadSemantica identidadSemanticaCoberturaJSON `json:"identidad_semantica"`
+	Esquema            string                           `json:"esquema"`
+	Estado             string                           `json:"estado"`
+	ViaRecomendada     string                           `json:"via_recomendada"`
+	Evaluaciones       []evaluacionCoberturaJSON        `json:"evaluaciones"`
+	MotivosAlternativa []motivoAlternativaCoberturaJSON `json:"motivos_alternativa,omitempty"`
+	IdentidadSemantica identidadSemanticaCoberturaJSON  `json:"identidad_semantica"`
+}
+type motivoAlternativaCoberturaJSON struct {
+	Clave        string `json:"clave"`
+	ViaClave     string `json:"via_clave"`
+	EtiquetaI18n string `json:"etiqueta_i18n"`
 }
 type evaluacionCoberturaJSON struct {
 	ViaClave             string   `json:"via_clave"`
@@ -231,6 +237,11 @@ func proyectarPropuestaCobertura(entrada application.ResultadoPropuestaCobertura
 		noHabilitantes := clavesCobertura(evaluacion.NoHabilitantes)
 		conflictos := clavesCobertura(evaluacion.Conflictos)
 		salida.Evaluaciones = append(salida.Evaluaciones, evaluacionCoberturaJSON{ViaClave: string(evaluacion.ViaClave), Prioridad: evaluacion.Prioridad, Estado: string(evaluacion.Estado), ResultadosOmitidos: resultadosOmitidos, AusenciasBloqueantes: ausenciasBloqueantes, AusenciasAdmitidas: ausenciasAdmitidas, NoHabilitantes: noHabilitantes, Conflictos: conflictos})
+	}
+	for _, motivo := range datos.MotivosAlternativa {
+		salida.MotivosAlternativa = append(salida.MotivosAlternativa,
+			motivoAlternativaCoberturaJSON{Clave: string(motivo.Clave),
+				ViaClave: string(motivo.ViaClave), EtiquetaI18n: string(motivo.EtiquetaI18n)})
 	}
 	return salida, true
 }

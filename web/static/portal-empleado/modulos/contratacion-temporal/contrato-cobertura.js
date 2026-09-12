@@ -225,6 +225,20 @@ function validarEvaluacion(evaluacion, indice) {
   return salida;
 }
 
+function validarMotivoAlternativa(motivo, indice) {
+  const nombre = `motivos_alternativa[${indice}]`;
+  exigirCamposExactos(motivo, ["clave", "via_clave", "etiqueta_i18n"], nombre);
+  if (!claveValida(motivo.clave) || !claveValida(motivo.via_clave)
+    || !claveValida(motivo.etiqueta_i18n)) {
+    throw new TypeError(`${nombre} no válido`);
+  }
+  return {
+    clave: motivo.clave,
+    via_clave: motivo.via_clave,
+    etiqueta_i18n: motivo.etiqueta_i18n,
+  };
+}
+
 export function validarSolicitudPropuestaCobertura(solicitud) {
   exigirCamposExactos(
     solicitud,
@@ -306,13 +320,17 @@ export function validarSolicitudRectificacionCobertura(rectificacion) {
 }
 
 export function validarPropuestaCobertura(propuesta) {
-  exigirCamposExactos(propuesta, [
+  const camposV1 = [
     "esquema",
     "estado",
     "via_recomendada",
     "evaluaciones",
     "identidad_semantica",
-  ], "propuesta de cobertura");
+  ];
+  const campos = Object.hasOwn(propuesta ?? {}, "motivos_alternativa")
+    ? [...camposV1, "motivos_alternativa"]
+    : camposV1;
+  exigirCamposExactos(propuesta, campos, "propuesta de cobertura");
   if (propuesta.esquema
       !== "vec.contratacion-temporal.propuesta-cobertura.v1"
     || !ESTADOS_PROPUESTA.has(propuesta.estado)
@@ -335,7 +353,7 @@ export function validarPropuestaCobertura(propuesta) {
       )) {
     throw new TypeError("propuesta de cobertura no válida");
   }
-  return clonarYCongelar({
+  const salida = {
     esquema: propuesta.esquema,
     estado: propuesta.estado,
     via_recomendada: propuesta.via_recomendada,
@@ -343,7 +361,23 @@ export function validarPropuestaCobertura(propuesta) {
     identidad_semantica: validarIdentidadSemantica(
       propuesta.identidad_semantica,
     ),
-  });
+  };
+  if (Object.hasOwn(propuesta, "motivos_alternativa")) {
+    if (!esListaPlana(propuesta.motivos_alternativa, MAXIMAS_VIAS)) {
+      throw new TypeError("propuesta de cobertura no válida");
+    }
+    const motivos = propuesta.motivos_alternativa.map(validarMotivoAlternativa);
+    const viasMotivo = motivos.map(({ via_clave: via }) => via);
+    if (new Set(viasMotivo).size !== viasMotivo.length
+      || !motivos.every(({ via_clave: via }) => evaluaciones.some(
+        (evaluacion) => evaluacion.via_clave === via
+          && evaluacion.estado === "viable",
+      ))) {
+      throw new TypeError("propuesta de cobertura no válida");
+    }
+    salida.motivos_alternativa = motivos;
+  }
+  return clonarYCongelar(salida);
 }
 
 export function validarReciboCobertura(recibo) {

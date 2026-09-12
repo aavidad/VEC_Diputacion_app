@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const EXPEDIENTE = "expediente:ct:prueba:cobertura:001";
 const CLAVE = "11111111-1111-4111-8111-111111111111";
 const HUELLA = "a".repeat(64);
+
+test("la etiqueta de motivo proyectada por cobertura tiene texto RRHH real", () => {
+  const t = crearTraductorContratacionTemporal();
+  assert.equal(t("contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh"),
+    "Elección del procedimiento de cobertura por RRHH");
+});
 
 function propuesta() {
   return {
@@ -44,6 +51,8 @@ function raizFalsa() {
   const eventos = new Map();
   return {
     innerHTML: "",
+    viaElegida: "bolsa_vigente",
+    motivoClave: "",
     eventos,
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
     removeEventListener(tipo, manejador) {
@@ -53,9 +62,15 @@ function raizFalsa() {
     querySelector() { return { focus() {}, scrollIntoView() {} }; },
     replaceChildren() { this.innerHTML = ""; },
     enviar() {
+      const raiz = this;
       const formulario = {
         closest(selector) {
           return selector === "[data-ct-cobertura-form]" ? this : null;
+        },
+        querySelector(selector) {
+          if (selector === "[name=via_elegida]:checked") return { value: raiz.viaElegida };
+          if (selector === "[name=motivo_clave]") return { value: raiz.motivoClave };
+          return null;
         },
       };
       return eventos.get("submit")({ target: formulario, preventDefault() {} });
@@ -107,7 +122,7 @@ test("propuesta y decisión usan el recibo de Análisis y una sola clave", async
   });
   await estabilizar();
   assert.deepEqual(propuestas, [{ expediente_ref: EXPEDIENTE, version_esperada: 2 }]);
-  assert.match(raiz.innerHTML, /data-ct-cobertura-via="bolsa_vigente"/);
+  assert.match(raiz.innerHTML, /data-ct-cobertura-evaluacion="bolsa_vigente"/);
 
   await Promise.all([raiz.enviar(), raiz.enviar()]);
   assert.equal(confirmaciones, 1);
@@ -203,4 +218,82 @@ test("conserva el recibo y avisa si la asignación no puede montarse", async () 
 
   assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/u);
   assert.match(raiz.innerHTML, /La cobertura está confirmada, pero la asignación no está disponible/u);
+});
+
+test("exige selección y motivo ligado, y conserva la carga ante resultado indeterminado", async () => {
+  const propuestaConAlternativas = () => ({
+    ...propuesta(),
+    evaluaciones: [
+      propuesta().evaluaciones[0],
+      { ...propuesta().evaluaciones[0], via_clave: "oferta_sae", prioridad: 2 },
+      { ...propuesta().evaluaciones[0], via_clave: "nueva_convocatoria_bolsa", prioridad: 3 },
+    ],
+    motivos_alternativa: [
+      { clave: "motivo.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", via_clave: "oferta_sae", etiqueta_i18n: "motivo_sae" },
+      { clave: "motivo.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", via_clave: "nueva_convocatoria_bolsa", etiqueta_i18n: "motivo_nueva" },
+    ],
+  });
+  const raiz = raizFalsa();
+  const decisiones = [];
+  const indeterminado = new Error("indeterminado");
+  indeterminado.resultadoIndeterminado = true;
+  montarFormularioCobertura({
+    raiz,
+    cliente: {
+      async proponerCobertura() { return propuestaConAlternativas(); },
+      async decidirCobertura(solicitud) { decisiones.push(solicitud); throw indeterminado; },
+      async consultarResultadoCobertura() { throw new Error("no procede"); },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
+    generarClaveIdempotencia: () => CLAVE,
+    confirmarOperacion: () => true,
+    mensajes: { motivo_sae: "Elección SAE", motivo_nueva: "Nueva convocatoria" },
+  });
+  await estabilizar();
+  assert.match(raiz.innerHTML, /oferta_sae/);
+  assert.match(raiz.innerHTML, /nueva_convocatoria_bolsa/);
+
+  raiz.viaElegida = "";
+  await raiz.enviar();
+  assert.equal(decisiones.length, 0);
+  raiz.viaElegida = "oferta_sae";
+  raiz.motivoClave = "motivo.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  await raiz.enviar();
+  assert.equal(decisiones.length, 0);
+
+  raiz.motivoClave = "motivo.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  await raiz.enviar();
+  assert.equal(decisiones.length, 1);
+  assert.equal(decisiones[0].via_elegida, "oferta_sae");
+  assert.equal(decisiones[0].motivo_clave, "motivo.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  const carga = structuredClone(decisiones[0]);
+  raiz.viaElegida = "nueva_convocatoria_bolsa";
+  raiz.motivoClave = "motivo.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  await raiz.enviar();
+  assert.equal(decisiones.length, 1);
+  assert.deepEqual(decisiones[0], carga);
+});
+
+test("envía nueva convocatoria con su motivo gobernado", async () => {
+  const raiz = raizFalsa();
+  raiz.viaElegida = "nueva_convocatoria_bolsa";
+  raiz.motivoClave = "motivo.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const decisiones = [];
+  const base = propuesta();
+  montarFormularioCobertura({
+    raiz,
+    cliente: {
+      async proponerCobertura() {
+        return { ...base, evaluaciones: [base.evaluaciones[0],
+          { ...base.evaluaciones[0], via_clave: "nueva_convocatoria_bolsa", prioridad: 2 }],
+        motivos_alternativa: [{ clave: raiz.motivoClave, via_clave: raiz.viaElegida, etiqueta_i18n: "motivo_nueva" }] };
+      },
+      async decidirCobertura(s) { decisiones.push(s); return recibo(); },
+      async consultarResultadoCobertura() { throw new Error("no procede"); },
+    }, contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
+    generarClaveIdempotencia: () => CLAVE, confirmarOperacion: () => true,
+    mensajes: { motivo_nueva: "Nueva convocatoria" },
+  });
+  await estabilizar(); await raiz.enviar();
+  assert.deepEqual(decisiones.map(({ via_elegida, motivo_clave }) => ({ via_elegida, motivo_clave })), [{ via_elegida: raiz.viaElegida, motivo_clave: raiz.motivoClave }]);
 });

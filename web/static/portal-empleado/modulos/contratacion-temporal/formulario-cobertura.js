@@ -74,25 +74,44 @@ function renderizarRecibo(recibo, contexto, t, formateador) {
   </section>`;
 }
 
+function etiquetaVia(t, via) {
+  const etiquetas = {
+    bolsa_vigente: "cobertura_via_bolsa_vigente",
+    oferta_sae: "cobertura_via_oferta_sae",
+    nueva_convocatoria_bolsa: "cobertura_via_nueva_convocatoria_bolsa",
+  };
+  return etiquetas[via] ? t(etiquetas[via]) : via;
+}
+
 function renderizarPropuesta(propuesta, estado, t) {
-  const evaluacion = propuesta.evaluaciones.find(
-    ({ via_clave: via }) => via === propuesta.via_recomendada,
-  );
-  const etiquetaVia = propuesta.via_recomendada === "bolsa_vigente"
-    ? t("cobertura_via_bolsa_vigente")
-    : propuesta.via_recomendada;
+  const motivosUnicos = [...new Map((propuesta.motivos_alternativa ?? []).map(
+    (motivo) => [motivo.clave, motivo],
+  )).values()];
+  const motivos = motivosUnicos.map(({ clave, etiqueta_i18n }) =>
+    `<option value="${escaparHTML(clave)}">${escaparHTML(t(etiqueta_i18n))}</option>`,
+  ).join("");
+  const evaluaciones = propuesta.evaluaciones.map((evaluacion) => {
+    const viable = evaluacion.estado === "viable";
+    return `<label class="ct-opcion-cobertura" data-ct-cobertura-evaluacion="${escaparHTML(evaluacion.via_clave)}">
+      <input type="radio" name="via_elegida" value="${escaparHTML(evaluacion.via_clave)}"${
+  !viable || estado.ocupado ? " disabled" : ""}>
+      <span>${escaparHTML(etiquetaVia(t, evaluacion.via_clave))}</span>
+      <small>${escaparHTML(t(`cobertura_evaluacion_${evaluacion.estado}`))}</small>
+    </label>`;
+  }).join("");
   return `<section class="ct-bloque" data-ct-cobertura-propuesta
     aria-labelledby="ct-cobertura-propuesta-titulo">
     <h3 id="ct-cobertura-propuesta-titulo">${escaparHTML(t("cobertura_propuesta_titulo"))}</h3>
-    <dl class="ct-resumen">
-      <div><dt>${escaparHTML(t("cobertura_via_recomendada"))}</dt>
-      <dd><strong data-ct-cobertura-via="${escaparHTML(propuesta.via_recomendada)}">${
-  escaparHTML(etiquetaVia)}</strong></dd></div>
-      <div><dt>${escaparHTML(t("cobertura_evaluacion"))}</dt><dd>${escaparHTML(
-  t(`cobertura_evaluacion_${evaluacion?.estado ?? propuesta.estado}`),
-)}</dd></div>
-    </dl>
+    <p>${escaparHTML(t("cobertura_via_recomendada"))}: <strong>${escaparHTML(etiquetaVia(t, propuesta.via_recomendada))}</strong></p>
     <form data-ct-cobertura-form>
+      <fieldset><legend>${escaparHTML(t("cobertura_via_elegida"))}</legend>
+        <p>${escaparHTML(t("cobertura_via_ayuda"))}</p>${evaluaciones}
+      </fieldset>
+      <label>${escaparHTML(t("cobertura_motivo_alternativa"))}
+        <select name="motivo_clave"${estado.ocupado ? " disabled" : ""}>
+          <option value="">${escaparHTML(t("seleccionar"))}</option>${motivos}
+        </select>
+      </label>
       <p>${escaparHTML(t("cobertura_confirmacion_ayuda"))}</p>
       <div class="ct-acciones"><button class="boton-primario" type="submit"${
   estado.ocupado ? " disabled" : ""}>${escaparHTML(t("cobertura_confirmar"))}</button></div>
@@ -274,10 +293,28 @@ export function montarFormularioCobertura(configuracion = {}) {
     return tarea;
   }
 
-  function confirmarDecision() {
+  function confirmarDecision(formulario) {
     if (!montado || vuelo !== null || estado.ocupado || estado.indeterminado
       || estado.recibo || estado.propuesta?.estado !== "viable") {
       return vuelo ?? Promise.resolve(null);
+    }
+    const viaElegida = formulario?.querySelector?.("[name=via_elegida]:checked")?.value ?? "";
+    const evaluacion = estado.propuesta.evaluaciones.find(
+      ({ via_clave, estado: estadoVia }) => via_clave === viaElegida && estadoVia === "viable",
+    );
+    if (!evaluacion) {
+      fijarError("cobertura_estado_via_obligatoria");
+      repintar("[data-ct-cobertura-estado]");
+      return Promise.resolve(null);
+    }
+    const motivoClave = formulario?.querySelector?.("[name=motivo_clave]")?.value ?? "";
+    if (viaElegida !== estado.propuesta.via_recomendada
+      && !(estado.propuesta.motivos_alternativa ?? []).some(
+        ({ clave, via_clave }) => clave === motivoClave && via_clave === viaElegida,
+      )) {
+      fijarError("cobertura_estado_motivo_obligatorio");
+      repintar("[data-ct-cobertura-estado]");
+      return Promise.resolve(null);
     }
     let confirmada = false;
     try {
@@ -298,8 +335,8 @@ export function montarFormularioCobertura(configuracion = {}) {
         version_esperada: contexto.version_esperada,
         clave_idempotencia: claveIntento,
         identidad_semantica: estado.propuesta.identidad_semantica,
-        via_elegida: estado.propuesta.via_recomendada,
-        motivo_clave: "",
+        via_elegida: viaElegida,
+        motivo_clave: viaElegida === estado.propuesta.via_recomendada ? "" : motivoClave,
       });
     } catch {
       fijarError();
@@ -437,7 +474,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     const formulario = evento.target?.closest?.("[data-ct-cobertura-form]");
     if (!formulario || !raizActual.contains(formulario)) return undefined;
     evento.preventDefault();
-    return confirmarDecision();
+    return confirmarDecision(formulario);
   }
 
   function alPulsar(evento) {

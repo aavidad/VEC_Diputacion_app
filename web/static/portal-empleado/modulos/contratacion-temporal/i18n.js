@@ -217,6 +217,17 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_propuesta_titulo: "Propuesta calculada",
   cobertura_via_recomendada: "Vía recomendada",
   cobertura_via_bolsa_vigente: "Bolsa vigente",
+  cobertura_via_oferta_sae: "Oferta SAE",
+  cobertura_via_nueva_convocatoria_bolsa: "Nueva convocatoria de Bolsa",
+  cobertura_via_elegida: "Vía elegida por RRHH",
+  cobertura_via_ayuda:
+    "Seleccione expresamente una vía viable.",
+  cobertura_motivo_alternativa: "Motivo gobernado para una vía alternativa",
+  "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh":
+    "Elección del procedimiento de cobertura por RRHH",
+  cobertura_estado_via_obligatoria: "Seleccione una vía viable antes de confirmar.",
+  cobertura_estado_motivo_obligatorio:
+    "Seleccione un motivo gobernado vinculado a la vía alternativa.",
   cobertura_evaluacion: "Evaluación",
   cobertura_evaluacion_viable: "Viable",
   cobertura_evaluacion_incompleta: "Incompleta",

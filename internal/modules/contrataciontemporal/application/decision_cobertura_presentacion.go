@@ -72,7 +72,36 @@ type PresentacionPropuestaCobertura struct {
 	Estado             domain.EstadoPropuestaDecisionCobertura
 	ViaRecomendada     domain.ClaveCatalogo
 	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
+	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
 	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
+}
+
+// MotivoAlternativaPropuestaCobertura es la única vista transportable del
+// motivo vigente que habilita escoger una vía distinta de la recomendada.
+// La clave procede de la publicación que el resolutor acaba de verificar; la
+// etiqueta es una clave i18n nominal de la composición. No transporta una
+// autorización ni una referencia de catálogo.
+type MotivoAlternativaPropuestaCobertura struct {
+	Clave        domain.ClaveCatalogo
+	ViaClave     domain.ClaveCatalogo
+	EtiquetaI18n domain.ClaveCatalogo
+}
+
+// MotivoAlternativaCobertura identifica una alternativa configurada por la
+// composición. Su mera presencia no la autoriza: cada propuesta la resuelve
+// contra la publicación vigente antes de exponerla.
+type MotivoAlternativaCobertura struct {
+	ViaClave     domain.ClaveCatalogo
+	Clave        domain.ClaveCatalogo
+	EtiquetaI18n domain.ClaveCatalogo
+}
+
+type resolutorClaveMotivoPresentacionCobertura interface {
+	ResolverClave(
+		context.Context,
+		domain.ClaveCatalogo,
+		time.Time,
+	) (cobertura.ResolucionMotivoDecisionCobertura, error)
 }
 
 // AutorizadorPresentacionPropuestaCobertura es la puerta de lectura dinámica.
@@ -92,12 +121,14 @@ type AutorizadorPresentacionPropuestaCobertura interface {
 }
 
 type ServicioPresentacionPropuestaCobertura struct {
-	contextos  ports.ResolutorContextoAutorizacionAltaV3
-	accesos    AutorizadorPresentacionPropuestaCobertura
-	analisis   cobertura.LectorExpedienteAnalisisDurableO3
-	reloj      cobertura.RelojGobiernoOperacionCobertura
-	gobierno   cobertura.ResolutorGobiernoOperacionCobertura
-	coberturas *PreparadorGlobalCobertura
+	contextos    ports.ResolutorContextoAutorizacionAltaV3
+	accesos      AutorizadorPresentacionPropuestaCobertura
+	analisis     cobertura.LectorExpedienteAnalisisDurableO3
+	reloj        cobertura.RelojGobiernoOperacionCobertura
+	gobierno     cobertura.ResolutorGobiernoOperacionCobertura
+	motivos      resolutorClaveMotivoPresentacionCobertura
+	alternativas []MotivoAlternativaCobertura
+	coberturas   *PreparadorGlobalCobertura
 }
 
 func NuevoServicioPresentacionPropuestaCobertura(
@@ -106,16 +137,21 @@ func NuevoServicioPresentacionPropuestaCobertura(
 	analisis cobertura.LectorExpedienteAnalisisDurableO3,
 	reloj cobertura.RelojGobiernoOperacionCobertura,
 	gobierno cobertura.ResolutorGobiernoOperacionCobertura,
+	motivos resolutorClaveMotivoPresentacionCobertura,
+	alternativas []MotivoAlternativaCobertura,
 	coberturas *PreparadorGlobalCobertura,
 ) (*ServicioPresentacionPropuestaCobertura, error) {
 	if dependenciaNula(contextos) || dependenciaNula(accesos) ||
 		dependenciaNula(analisis) || dependenciaNula(reloj) ||
-		dependenciaNula(gobierno) || dependenciaNula(coberturas) {
+		dependenciaNula(gobierno) || dependenciaNula(motivos) ||
+		!alternativasCoberturaValidas(alternativas) || dependenciaNula(coberturas) {
 		return nil, ErrServicioPresentacionPropuestaCoberturaInvalido
 	}
 	return &ServicioPresentacionPropuestaCobertura{
 		contextos: contextos, accesos: accesos, analisis: analisis,
-		reloj: reloj, gobierno: gobierno, coberturas: coberturas,
+		reloj: reloj, gobierno: gobierno, motivos: motivos,
+		alternativas: append([]MotivoAlternativaCobertura(nil), alternativas...),
+		coberturas:   coberturas,
 	}, nil
 }
 
@@ -226,6 +262,32 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 		return PresentacionPropuestaCobertura{},
 			s.clasificarFalloDependencia(operacion, err)
 	}
+	// Resolver los motivos puede consultar la publicación durable. Se hace
+	// antes de la revalidación final, para que ésta cubra también esa E/S.
+	instanteMotivos, err := s.ahora(operacion)
+	if err != nil {
+		return PresentacionPropuestaCobertura{},
+			s.clasificarFalloContexto(operacion, err)
+	}
+	datosMotivos, err := preparacion.DatosCrearPropuestaEn(instanteMotivos)
+	if err != nil {
+		return PresentacionPropuestaCobertura{},
+			ErrPresentacionPropuestaCoberturaNoConfiable
+	}
+	propuestaMotivos, err := domain.CrearPropuestaDecisionCobertura(datosMotivos)
+	if err != nil {
+		return PresentacionPropuestaCobertura{},
+			ErrPresentacionPropuestaCoberturaNoConfiable
+	}
+	motivosAlternativa, err := s.proyectarMotivosAlternativa(
+		operacion,
+		instanteMotivos,
+		propuestaMotivos.Evaluaciones(),
+	)
+	if err != nil {
+		return PresentacionPropuestaCobertura{}, err
+	}
+
 	instantePresentacion, err := s.ahora(operacion)
 	if err != nil ||
 		contexto.ValidarPara(
@@ -262,6 +324,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 		Estado:             propuesta.Estado(),
 		ViaRecomendada:     propuesta.ViaPropuesta(),
 		Evaluaciones:       propuesta.Evaluaciones(),
+		MotivosAlternativa: motivosAlternativa,
 		IdentidadSemantica: identidad,
 	}, nil
 }
@@ -284,7 +347,63 @@ func (s *ServicioPresentacionPropuestaCobertura) dependenciasValidas() bool {
 	return s != nil && !dependenciaNula(s.contextos) &&
 		!dependenciaNula(s.accesos) && !dependenciaNula(s.analisis) &&
 		!dependenciaNula(s.reloj) && !dependenciaNula(s.gobierno) &&
+		!dependenciaNula(s.motivos) && alternativasCoberturaValidas(s.alternativas) &&
 		!dependenciaNula(s.coberturas)
+}
+
+func alternativasCoberturaValidas(
+	alternativas []MotivoAlternativaCobertura,
+) bool {
+	if len(alternativas) == 0 || len(alternativas) > 64 {
+		return false
+	}
+	vias := make(map[domain.ClaveCatalogo]struct{}, len(alternativas))
+	for _, alternativa := range alternativas {
+		if !alternativa.ViaClave.Valida() || !alternativa.Clave.Valida() ||
+			!alternativa.EtiquetaI18n.Valida() {
+			return false
+		}
+		if _, repetida := vias[alternativa.ViaClave]; repetida {
+			return false
+		}
+		vias[alternativa.ViaClave] = struct{}{}
+	}
+	return true
+}
+
+func (s *ServicioPresentacionPropuestaCobertura) proyectarMotivosAlternativa(
+	ctx context.Context,
+	instante time.Time,
+	evaluaciones []domain.EvaluacionViaPropuestaCobertura,
+) ([]MotivoAlternativaPropuestaCobertura, error) {
+	viables := make(map[domain.ClaveCatalogo]struct{}, len(evaluaciones))
+	for _, evaluacion := range evaluaciones {
+		if evaluacion.Estado == domain.EvaluacionViaCoberturaViable {
+			viables[evaluacion.ViaClave] = struct{}{}
+		}
+	}
+	salida := make([]MotivoAlternativaPropuestaCobertura, 0, len(s.alternativas))
+	for _, alternativa := range s.alternativas {
+		if _, viable := viables[alternativa.ViaClave]; !viable {
+			continue
+		}
+		resolucion, err := s.motivos.ResolverClave(ctx, alternativa.Clave, instante)
+		if err != nil {
+			if errContexto := ctx.Err(); errContexto != nil {
+				return nil, errContexto
+			}
+			return nil, ErrPresentacionPropuestaCoberturaNoConfiable
+		}
+		motivo, err := resolucion.Motivo()
+		if err != nil || motivo.ReferenciaCatalogo.EntradaClave != string(alternativa.Clave) {
+			return nil, ErrPresentacionPropuestaCoberturaNoConfiable
+		}
+		salida = append(salida, MotivoAlternativaPropuestaCobertura{
+			Clave: alternativa.Clave, ViaClave: alternativa.ViaClave,
+			EtiquetaI18n: alternativa.EtiquetaI18n,
+		})
+	}
+	return salida, nil
 }
 
 func solicitudesPresentacionPropuestaCobertura(

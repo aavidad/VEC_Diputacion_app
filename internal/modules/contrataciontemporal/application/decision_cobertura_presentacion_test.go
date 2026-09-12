@@ -40,6 +40,11 @@ func TestProponerCoberturaPresentaVistaDinamicaSinEfectos(
 	if presentacion.Estado != domain.PropuestaCoberturaViable ||
 		presentacion.ViaRecomendada != "via_global_01" ||
 		len(presentacion.Evaluaciones) != 3 ||
+		len(presentacion.MotivosAlternativa) != 1 ||
+		presentacion.MotivosAlternativa[0].ViaClave != "via_global_01" ||
+		presentacion.MotivosAlternativa[0].Clave != "motivo_eleccion_procedimiento_rrhh" ||
+		presentacion.MotivosAlternativa[0].EtiquetaI18n !=
+			"contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh" ||
 		presentacion.IdentidadSemantica.Validar() != nil {
 		t.Fatalf("presentación dinámica incompleta: %+v", presentacion)
 	}
@@ -319,6 +324,38 @@ func TestProponerCoberturaEntregaCopiasYRedactaSolicitud(t *testing.T) {
 	}
 }
 
+func TestProponerCoberturaRevalidaDespuesDeResolverMotivo(t *testing.T) {
+	t.Run("cancelación", func(t *testing.T) {
+		escenario := nuevoEscenarioPresentacionCobertura(t, viasPresentacionCoberturaPrueba(1))
+		ctx, cancelar := context.WithCancel(context.Background())
+		escenario.motivos.despues = cancelar
+		resultado, err := escenario.servicio.Proponer(ctx, escenario.solicitud)
+		if !errors.Is(err, context.Canceled) || !presentacionCoberturaVacia(resultado) {
+			t.Fatalf("retornó tras cancelación del resolutor: resultado=%+v err=%v", resultado, err)
+		}
+	})
+	t.Run("caducidad", func(t *testing.T) {
+		escenario := nuevoEscenarioPresentacionCobertura(t, viasPresentacionCoberturaPrueba(1))
+		escenario.motivos.despues = func() {
+			escenario.global.entorno.reloj.fijar(
+				escenario.global.entorno.reloj.Ahora().Add(2 * time.Hour),
+			)
+		}
+		resultado, err := escenario.servicio.Proponer(context.Background(), escenario.solicitud)
+		if !errors.Is(err, ErrPresentacionPropuestaCoberturaNoDisponible) ||
+			!presentacionCoberturaVacia(resultado) {
+			t.Fatalf("retornó tras caducar durante el resolutor: resultado=%+v err=%v", resultado, err)
+		}
+	})
+}
+
+func presentacionCoberturaVacia(resultado PresentacionPropuestaCobertura) bool {
+	return resultado.Estado == "" && resultado.ViaRecomendada == "" &&
+		len(resultado.Evaluaciones) == 0 && len(resultado.MotivosAlternativa) == 0 &&
+		resultado.IdentidadSemantica ==
+			(domain.IdentidadSemanticaPropuestaDecisionCobertura{})
+}
+
 func TestProponerCoberturaEsConcurrenteYDeterminista(t *testing.T) {
 	escenario := nuevoEscenarioPresentacionCobertura(
 		t,
@@ -391,6 +428,11 @@ func TestServicioPresentacionCoberturaRechazaNulosTipados(t *testing.T) {
 		escenario.analisis,
 		escenario.reloj,
 		escenario.gobierno,
+		func() resolutorClaveMotivoPresentacionCobertura {
+			motivos, _ := motivosPresentacionCoberturaPrueba(t)
+			return motivos
+		}(),
+		alternativasPresentacionCoberturaPrueba(viasPresentacionCoberturaPrueba(1)),
 		escenario.global.preparador,
 	); !errors.Is(
 		err,
@@ -422,7 +464,7 @@ func TestServicioPresentacionCoberturaRechazaNulosTipados(t *testing.T) {
 func exigirServicioPresentacionSinPuertosMutantes(t *testing.T) {
 	t.Helper()
 	tipo := reflect.TypeOf(ServicioPresentacionPropuestaCobertura{})
-	if tipo.NumField() != 6 {
+	if tipo.NumField() != 8 {
 		t.Fatalf("aparecieron dependencias no revisadas: %d", tipo.NumField())
 	}
 	for indice := 0; indice < tipo.NumField(); indice++ {
@@ -443,7 +485,8 @@ func exigirVistaPresentacionMinimizada(t *testing.T) {
 	tipo := reflect.TypeOf(PresentacionPropuestaCobertura{})
 	permitidos := map[string]bool{
 		"Estado": true, "ViaRecomendada": true,
-		"Evaluaciones": true, "IdentidadSemantica": true,
+		"Evaluaciones": true, "MotivosAlternativa": true,
+		"IdentidadSemantica": true,
 	}
 	if tipo.NumField() != len(permitidos) {
 		t.Fatalf("la vista amplió su superficie: %d campos", tipo.NumField())

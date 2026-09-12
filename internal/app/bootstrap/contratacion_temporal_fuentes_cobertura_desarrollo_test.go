@@ -84,6 +84,58 @@ func TestFuentesCoberturaDesarrolloFirmanVerificanYSeRecuperanTrasReinicio(
 	}
 }
 
+func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.T) {
+	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
+	t.Cleanup(dependencias.cerrar)
+	fuente := dependencias.fuente.(*fuenteComprobacionCoberturaDesarrollo)
+	periodo := domain.PeriodoPrevisto{
+		Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC),
+		Fin:    time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC),
+	}
+	casos := []struct {
+		via, comprobacion, procedencia domain.ClaveCatalogo
+		orden                          uint16
+	}{
+		{"bolsa_vigente", "existe_bolsa_vigente", "bolsa", 1},
+		{"bolsa_vigente", "hay_candidaturas_disponibles", "bolsa", 2},
+		{"oferta_sae", "oferta_sae_disponible", "sae", 1},
+		{"nueva_convocatoria_bolsa", "requiere_nueva_convocatoria", "bolsa", 1},
+	}
+	for _, caso := range casos {
+		comprobacion := domain.ComprobacionExigibleCobertura{
+			Clave: caso.comprobacion, Orden: caso.orden, Obligatoria: true,
+			Procedencia: domain.ProcedenciaComprobacionCobertura{
+				Clave: caso.procedencia, DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+			},
+		}
+		if !comprobacionFuenteCoberturaDesarrolloValida(caso.via, comprobacion, fuente.backendRef) {
+			t.Fatalf("tupla v2 rechazada: %#v", caso)
+		}
+		resultado, existe := fuente.resultadoPara(
+			categoriaAltaContratacionTemporalDesarrollo, periodo, caso.via,
+			caso.comprobacion, caso.procedencia,
+		)
+		if !existe || resultado != domain.ComprobacionAfirmativa {
+			t.Fatalf("sin resultado explícito para %#v: %q, %t", caso, resultado, existe)
+		}
+	}
+	incorrecta := domain.ComprobacionExigibleCobertura{
+		Clave: "oferta_sae_disponible", Orden: 1, Obligatoria: true,
+		Procedencia: domain.ProcedenciaComprobacionCobertura{
+			Clave: "bolsa", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+		},
+	}
+	if comprobacionFuenteCoberturaDesarrolloValida("oferta_sae", incorrecta, fuente.backendRef) {
+		t.Fatal("se aceptó el cruce de procedencia SAE/Bolsa")
+	}
+	if _, existe := fuente.resultadoPara(
+		categoriaAltaContratacionTemporalDesarrollo, periodo, "oferta_sae",
+		"oferta_sae_disponible", "bolsa",
+	); existe {
+		t.Fatal("se filtró un resultado por cruce de tupla")
+	}
+}
+
 func TestFuenteCoberturaDesarrolloAdmitePeriodoDelRecorridoRRHH(t *testing.T) {
 	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
 	t.Cleanup(dependencias.cerrar)

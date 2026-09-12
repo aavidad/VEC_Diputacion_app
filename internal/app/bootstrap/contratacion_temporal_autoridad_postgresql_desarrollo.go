@@ -44,6 +44,9 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	if err := publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx, pool, soporte.reloj.Ahora()); err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
 	return nil
 }
 
@@ -695,6 +698,80 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 		}
 	}
 	return nil
+}
+
+type entradaMotivoCoberturaPostgreSQLDesarrollo struct {
+	Clave        string  `json:"clave"`
+	ClaveI18n    string  `json:"clave_i18n"`
+	VigenteDesde string  `json:"vigente_desde"`
+	VigenteHasta *string `json:"vigente_hasta"`
+}
+
+func publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx context.Context, pool *pgxpool.Pool, ahora time.Time) error {
+	motivo := motivoEleccionProcedimientoRRHHDesarrollo()
+	if ctx == nil || pool == nil || motivo.Validar() != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	_ = ahora
+	publicadoEn := instantePublicacionMotivoEleccionProcedimientoRRHHDesarrollo()
+	contenido, err := json.Marshal([]entradaMotivoCoberturaPostgreSQLDesarrollo{{
+		Clave: motivo.EntradaClave, ClaveI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh",
+		VigenteDesde: publicadoEn.Format("2006-01-02T15:04:05.000000Z"),
+	}})
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionContratacionTemporalDesarrollo); err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	var secuencia int64
+	var huellaExistente string
+	err = tx.QueryRow(ctx, `SELECT secuencia_origen, catalogo_huella_publicada_sha256 FROM vec_autorizacion.motivo_cobertura_v1_catalogo_publicado WHERE catalogo_id=$1 AND catalogo_version=$2`, motivo.CatalogoID, motivo.CatalogoVersion).Scan(&secuencia, &huellaExistente)
+	if err == nil && huellaExistente != motivo.CatalogoHuellaSHA256 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `SELECT ultima_secuencia+1 FROM vec_autorizacion.motivo_cobertura_v1_checkpoint_origen WHERE control_id FOR UPDATE`).Scan(&secuencia)
+	}
+	if err != nil || tx.Commit(ctx) != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	tx, err = pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolProyectorMotivosContratacionTemporalDesarrollo); err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	var publicada bool
+	err = tx.QueryRow(ctx, `SELECT vec_autorizacion.publicar_motivos_cobertura_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
+		referenciaAltaContratacionTemporalDesarrollo("evento_", "motivo-cobertura-eleccion-procedimiento-rrhh"), secuencia,
+		huellaAltaContratacionTemporalDesarrollo("motivo-cobertura-eleccion-procedimiento-rrhh"), motivo.CatalogoID, motivo.CatalogoVersion,
+		motivo.CatalogoHuellaSHA256, moduloMotivosDecisionCoberturaDesarrollo, publicadoEn, contenido).Scan(&publicada)
+	if err != nil || !publicada || tx.Commit(ctx) != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return nil
+}
+
+func instantePublicacionMotivoEleccionProcedimientoRRHHDesarrollo() time.Time {
+	// Es parte de la preimagen idempotente: no depende del instante de arranque.
+	return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+}
+
+func motivoEleccionProcedimientoRRHHDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID:           catalogoMotivosDecisionCoberturaDesarrollo,
+		CatalogoVersion:      1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("motivos-cobertura-eleccion-procedimiento-rrhh-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "eleccion-procedimiento-rrhh"),
+	}
 }
 
 func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(

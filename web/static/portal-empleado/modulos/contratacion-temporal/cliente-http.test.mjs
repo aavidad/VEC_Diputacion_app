@@ -100,6 +100,30 @@ function propuesta() {
   };
 }
 
+test("la propuesta admite v1 sin motivos alternativos", () => {
+  const validada = validarPropuestaCobertura(propuesta());
+  assert.equal(Object.hasOwn(validada, "motivos_alternativa"), false);
+});
+
+test("la propuesta valida motivos alternativos gobernados", () => {
+  const validada = validarPropuestaCobertura({
+    ...propuesta(),
+    motivos_alternativa: [{
+      clave: "motivo_eleccion_procedimiento_rrhh",
+      via_clave: "bolsa_vigente",
+      etiqueta_i18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh",
+    }],
+  });
+  assert.equal(Object.isFrozen(validada.motivos_alternativa), true);
+  assert.throws(() => validarPropuestaCobertura({
+    ...propuesta(),
+    motivos_alternativa: [{
+      clave: "motivo_eleccion_procedimiento_rrhh", via_clave: "ausente",
+      etiqueta_i18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh",
+    }],
+  }), /propuesta de cobertura/u);
+});
+
 function decision() {
   return {
     expediente_ref: "expediente:ct:0001",

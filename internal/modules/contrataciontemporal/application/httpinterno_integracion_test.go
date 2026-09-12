@@ -23,8 +23,15 @@ type propuestaHTTPAplicacionPrueba struct {
 		Estado             string                                              `json:"estado"`
 		ViaRecomendada     string                                              `json:"via_recomendada"`
 		Evaluaciones       []evaluacionHTTPAplicacionPrueba                    `json:"evaluaciones"`
+		MotivosAlternativa []motivoAlternativaHTTPAplicacionPrueba             `json:"motivos_alternativa"`
 		IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura `json:"identidad_semantica"`
 	} `json:"data"`
+}
+
+type motivoAlternativaHTTPAplicacionPrueba struct {
+	Clave        string `json:"clave"`
+	ViaClave     string `json:"via_clave"`
+	EtiquetaI18n string `json:"etiqueta_i18n"`
 }
 
 type evaluacionHTTPAplicacionPrueba struct {

@@ -52,6 +52,14 @@ func TestResultadoPropuestaParaAdaptadorReplicaCoherenciaDominioEstadoVia(t *tes
 			if !ok || datos.Estado != caso.esperado || (datos.Estado == domain.PropuestaCoberturaViable) != datos.ViaRecomendada.Valida() {
 				t.Fatalf("estado/vía no coherentes: %+v", datos)
 			}
+			if caso.esperado == domain.PropuestaCoberturaViable &&
+				len(datos.MotivosAlternativa) != 1 {
+				t.Fatalf("no proyectó motivo vigente: %+v", datos)
+			}
+			if caso.esperado != domain.PropuestaCoberturaViable &&
+				len(datos.MotivosAlternativa) != 0 {
+				t.Fatalf("proyectó motivo para vía no viable: %+v", datos)
+			}
 		})
 	}
 	base := nuevoEscenarioPresentacionCobertura(t, viasPresentacionCoberturaPrueba(1))

@@ -2,8 +2,11 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
+La base publicada de este corte es `5892df317d870708a15079a1886506cdc52cbf9f`.
 El último runtime comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la incorporación
+`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome recuperó la incorporación
 y la ficha GINPIX con HTTP `200`.
 No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX tiene
@@ -75,6 +78,24 @@ con dos lectores. No añade SQL. Para el futuro correo se usará una cuenta remi
 por crear sobre una IP interna de la Diputación; el destino es el correo
 obligatorio de un alta VEC existente. Faltan configurar servidor, puerto, TLS y
 credencial reales.
+
+El corte de Cobertura aún no está disponible en runtime. Su formulario exige
+que RRHH elija **Bolsa**, **SAE** o **Nueva convocatoria**. La recomendación y
+su motivo se muestran para apoyar la decisión, pero no eligen por el técnico.
+Después de recargar, continúe con el formulario de asignación recuperado; no
+registre una nueva reasignación. La v1 se conserva como historia y la v2 corrige
+las secuencias 3/4 con el diccionario, DTO y traductor reales.
+
+Las 20 fuentes recibieron dos `GO`; la web terminó 385/385 `PASS` y los
+manifiestos 111/11/3/1 pasaron; Go global, vet y build terminaron con código 0.
+El binario candidato no está desplegado y el E2E de las tres vías sigue
+pendiente. El lector actual solo admite la unidad RRHH y al
+técnico de su organización, sin prueba de dos unidades ni cambio de centro.
+CT87 ya está instalada y no se reaplica. Su publicación en clon falló por
+precedencia JSON; cinco snapshots posteriores quedaron idénticos al estado
+inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90 está
+**EN PREPARACIÓN**, sin rollback acreditado. El bloqueo de instrumentación
+fue una comprobación separada.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

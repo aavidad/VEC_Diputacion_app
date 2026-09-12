@@ -300,6 +300,20 @@ function contextoInformeJuridicoDesdeEstado(estado) {
   });
 }
 
+function contextoAsignacionDesdeEstado(estado) {
+  if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
+    || estado.cuadro == null || !Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === estado.expediente.expediente_ref
+  ));
+  if (resumen?.fase_clave !== "asignacion_unidad" || resumen.estado_clave !== "en_curso"
+    || resumen.version !== estado.expediente.version) return null;
+  return Object.freeze({
+    expediente_ref: estado.expediente.expediente_ref,
+    version_esperada: estado.expediente.version,
+  });
+}
+
 export function renderizarModuloContratacionTemporal(estado, {
   mensajes = {},
   locale = "es-ES",
@@ -343,10 +357,15 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)
       : null;
+    const contextoAsignacion = asignacionDisponible
+      ? contextoAsignacionDesdeEstado(estado)
+      : null;
     const contextoFiscalizacion = fiscalizacionDisponible
       ? contextoFiscalizacionDesdeEstado(estado)
       : null;
-    contenido = `${detalle}${contextoInforme
+    contenido = `${detalle}${contextoAsignacion
+      ? '<div data-ct-exp-asignacion></div>'
+      : ""}${contextoInforme
       ? '<div data-ct-exp-informe-juridico></div>'
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
@@ -1053,6 +1072,14 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
+  function montarAsignacionDesdeEstado() {
+    const contexto = contextoAsignacionDesdeEstado(presentador.obtenerEstado());
+    if (contexto === null) return false;
+    return montarAsignacionDesdeCobertura(contexto.expediente_ref, {
+      version_resultante: contexto.version_esperada,
+    });
+  }
+
   function montarCoberturaDesdeAnalisis(recibo) {
     if (!montada || !coberturaDisponible || desmontarCobertura !== null) return null;
     const contenedor = raiz.querySelector("[data-ct-exp-cobertura]");
@@ -1216,6 +1243,7 @@ export async function montarModuloContratacionTemporal({
         fiscalizacionDisponible: false,
       });
     } else {
+      montarAsignacionDesdeEstado();
       montarInformeDesdeExpedienteActual();
       montarFiscalizacionDesdeExpedienteActual();
     }

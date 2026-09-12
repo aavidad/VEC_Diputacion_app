@@ -137,6 +137,95 @@ func nuevasPublicacionesGobiernoCoberturaDesarrollo(
 			Actuacion: actuacion,
 		})
 	}
+	// La v2 añade alternativas explícitas sin reescribir la publicación v1,
+	// que permanece como antecedente verificable de las decisiones ya emitidas.
+	comprobacionesV2 := []domain.ComprobacionExigibleCobertura{
+		{
+			Clave: "existe_bolsa_vigente", Orden: 1, Obligatoria: true,
+			Procedencia: domain.ProcedenciaComprobacionCobertura{
+				Clave: "bolsa", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+			},
+		},
+		{
+			Clave: "hay_candidaturas_disponibles", Orden: 2, Obligatoria: true,
+			Procedencia: domain.ProcedenciaComprobacionCobertura{
+				Clave: "bolsa", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+			},
+		},
+		{
+			Clave: "oferta_sae_disponible", Orden: 1, Obligatoria: true,
+			Procedencia: domain.ProcedenciaComprobacionCobertura{
+				Clave: "sae", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+			},
+		},
+		{
+			Clave: "requiere_nueva_convocatoria", Orden: 1, Obligatoria: true,
+			Procedencia: domain.ProcedenciaComprobacionCobertura{
+				Clave: "bolsa", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+			},
+		},
+	}
+	catalogoV2, err := domain.PublicarCatalogoViasCobertura(
+		domain.BorradorCatalogoViasCobertura{
+			Referencia: "catalogo:ct:desarrollo:cobertura:v2", Version: 2,
+			PublicadoEn: publicadaEn, Vigencia: vigencia,
+			ProcedenciaRef: "procedencia:ct:desarrollo:cobertura:v2",
+			Vias: []domain.DefinicionViaCobertura{
+				{Clave: "bolsa_vigente", Orden: 1, Comprobaciones: comprobacionesV2[:2]},
+				{Clave: "oferta_sae", Orden: 2, Comprobaciones: comprobacionesV2[2:3]},
+				{Clave: "nueva_convocatoria_bolsa", Orden: 3, Comprobaciones: comprobacionesV2[3:]},
+			},
+		},
+	)
+	if err != nil {
+		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	politicaV2, err := domain.PublicarPoliticaDecisionCobertura(
+		domain.BorradorPoliticaDecisionCobertura{
+			Referencia: "politica:ct:desarrollo:cobertura:v2", Version: 2,
+			Catalogo: catalogoV2.Identidad(), OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+			FinalidadClave: "gestionar_cobertura_temporal", FinalidadRef: "finalidad:ct:desarrollo:cobertura",
+			PublicadaEn: publicadaEn, Vigencia: vigencia,
+			ProcedenciaRef: "procedencia:ct:desarrollo:politica-cobertura:v2",
+			Vias: []domain.ReglaViaDecisionCobertura{
+				{ViaClave: "bolsa_vigente", Prioridad: 1, Comprobaciones: []domain.ReglaComprobacionDecisionCobertura{
+					{Clave: comprobacionesV2[0].Clave, ResultadosHabilitantes: []domain.ResultadoComprobacion{domain.ComprobacionAfirmativa}, TratamientoAusencia: domain.AusenciaCoberturaBloquea},
+					{Clave: comprobacionesV2[1].Clave, ResultadosHabilitantes: []domain.ResultadoComprobacion{domain.ComprobacionAfirmativa}, TratamientoAusencia: domain.AusenciaCoberturaBloquea},
+				}},
+				{ViaClave: "oferta_sae", Prioridad: 2, Comprobaciones: []domain.ReglaComprobacionDecisionCobertura{{Clave: comprobacionesV2[2].Clave, ResultadosHabilitantes: []domain.ResultadoComprobacion{domain.ComprobacionAfirmativa}, TratamientoAusencia: domain.AusenciaCoberturaBloquea}}},
+				{ViaClave: "nueva_convocatoria_bolsa", Prioridad: 3, Comprobaciones: []domain.ReglaComprobacionDecisionCobertura{{Clave: comprobacionesV2[3].Clave, ResultadosHabilitantes: []domain.ResultadoComprobacion{domain.ComprobacionAfirmativa}, TratamientoAusencia: domain.AusenciaCoberturaBloquea}}},
+			},
+		}, catalogoV2,
+	)
+	if err != nil {
+		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	for indice, configuracion := range []struct {
+		accion             domain.ClaveCatalogo
+		referencia, evento string
+	}{
+		{domain.AccionDecidirCoberturaGobernada, "actuacion:ct:desarrollo:cobertura:decidir:v2", "evento_gobi_o404b_00000000000000000000000000000003"},
+		{domain.AccionRectificarCoberturaGobernada, "actuacion:ct:desarrollo:cobertura:rectificar:v2", "evento_gobi_o404b_00000000000000000000000000000004"},
+	} {
+		actuacion := cobertura.PublicacionPoliticaActuacionCobertura{
+			Referencia: configuracion.referencia, Version: 2, Canon: cobertura.CanonHuellaPoliticaActuacionCoberturaV1(),
+			OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, Accion: configuracion.accion,
+			Catalogo: catalogoV2.Identidad(), Politica: politicaV2.Identidad(),
+			FinalidadContratacionClave: "gestionar_cobertura_temporal", FinalidadContratacionRef: "finalidad:ct:desarrollo:cobertura",
+			FinalidadAutorizacionVEC: domain.ClaveCatalogo(finalidadDecisionCoberturaDesarrollo), UnidadEjecutoraRef: unidadCoberturaContratacionTemporalDesarrollo,
+			FaseDestino: "asignacion_unidad", EstadoDestino: domain.EstadoEnCurso,
+			MotivoAutorizacionDecidir: soporte.motivoDecisionCobertura, MotivoAutorizacionRectificar: soporte.motivoRectificacionCobertura,
+			PublicadaEn: publicadaEn, Vigencia: vigencia,
+		}
+		actuacion.HuellaSHA256, err = cobertura.CalcularHuellaSHA256PoliticaActuacionCobertura(actuacion)
+		if err != nil || actuacion.Validar() != nil {
+			return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		publicaciones = append(publicaciones, publicacionGobiernoCoberturaDesarrollo{
+			Esquema: esquemaGobiernoCoberturaDesarrollo, Secuencia: uint64(indice + 3), EventoRef: configuracion.evento,
+			Catalogo: catalogoV2.Publicacion(), Politica: politicaV2.Publicacion(), Actuacion: actuacion,
+		})
+	}
 	return publicaciones, nil
 }
 

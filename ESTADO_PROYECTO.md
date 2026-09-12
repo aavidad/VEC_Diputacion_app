@@ -2,8 +2,11 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El último runtime comprobado de `integracion/ct-producto-ligero-20260821` usa
-la web `037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la
+La base publicada de este corte en `integracion/ct-producto-ligero-20260821` es
+`5892df317d870708a15079a1886506cdc52cbf9f`. El último runtime comprobado usa
+la web `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome recuperó la
 incorporación y la ficha GINPIX con HTTP `200`, sin repetir el `POST`.
 Coincidieron los seis campos cotejados, el recibo
 `ref:2bc3d281…` y la fecha `2026-09-10T13:07:06.614186Z`; la ficha descargada
@@ -98,6 +101,35 @@ El operador resolvió la fuente SMTP como una cuenta remitente todavía por crea
 sobre una IP interna de la Diputación. El destino es el correo obligatorio de
 un alta VEC existente. Ya no está pendiente elegir el canal; faltan crear la
 cuenta remitente y fijar servidor, puerto, TLS y credencial reales.
+
+El candidato de Cobertura reúne 20 fuentes de producto y pruebas con dos `GO`.
+La decisión humana es obligatoria y cerrada a **Bolsa**, **SAE** o **Nueva
+convocatoria**. La recomendación y su motivo ligado se muestran como ayuda, sin
+elegir automáticamente. Se conserva la v1 histórica; la v2 corrige las
+secuencias 3/4 y alinea diccionario, DTO y traductor reales. Después de recargar,
+la vista recupera el formulario de asignación existente y no crea una nueva
+reasignación.
+
+Este corte todavía no está en runtime ni tiene E2E de las tres vías. La campaña
+web terminó 385/385 `PASS` y los manifiestos 111/11/3/1 pasaron. Go global
+`77665`, vet `98315` y build `31874` terminaron con código 0. El binario
+candidato SHA256
+`a86116def448a1bae7193bcc86cc7bf3a482c78ec98d3b8f4ddae9450fc29e06`
+está preparado y no desplegado. El único lector legítimo actual
+combina unidad RRHH y técnico de la organización; no se han comprobado dos
+unidades ni la modificación del centro. El material adicional para ese alcance
+continúa en revisión.
+
+En el clon normal, CT87 llegó a HTTP `200`, pero la publicación técnica falló
+por un P1 de precedencia JSON en su función. El lector SQL cotejó el preflight
+posterior `69115647718ec3287262c320887e8d3ff660a566dd1fc6099e0e7f28d4f743af`
+y cinco snapshots que cotejan contenido, tres tablas, roles, ACL y esquema,
+idénticos byte a byte al estado inmediatamente anterior al intento. No se persistieron los
+tres `INSERT`; esta comparación no se atribuye al preflight anterior del
+arranque de las 15:18. La nueva CT90 queda **EN PREPARACIÓN**. CT87 está
+instalada y no deben reaplicarse sus cuatro `UP`; el bloqueo automático de
+instrumentación pertenece a otra comprobación. No hay rollback `PASS`
+acreditado para este correctivo.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones
