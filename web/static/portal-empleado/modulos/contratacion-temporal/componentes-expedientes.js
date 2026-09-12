@@ -197,6 +197,11 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
 }
 
 function renderizarCabecera(expediente, t, informeDisponible = false) {
+  const borradores = [
+    ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
+    ["diligencia", "diligencia"], ["toma_posesion", "toma-posesion"],
+    ["notificacion", "notificacion"], ["comunicacion_centro", "comunicacion-centro"],
+  ];
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
@@ -210,35 +215,21 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
           <div><dt>${escaparHTML(t("flujo_huella"))}</dt><dd><code>${escaparHTML(expediente.flujo_huella)}</code></dd></div>
         </dl>
       </details>
-      ${informeDisponible ? `<button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-informe-definitivo">${escaparHTML(t("informe_definitivo_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-informe-definitivo">${escaparHTML(t("informe_definitivo_descargar_docx"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-resolucion">${escaparHTML(t("resolucion_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-resolucion">${escaparHTML(t("resolucion_descargar_docx"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-diligencia">${escaparHTML(t("diligencia_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-diligencia">${escaparHTML(t("diligencia_descargar_docx"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-toma-posesion">${escaparHTML(t("toma_posesion_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-toma-posesion">${escaparHTML(t("toma_posesion_descargar_docx"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-notificacion">${escaparHTML(t("notificacion_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-notificacion">${escaparHTML(t("notificacion_descargar_docx"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-comunicacion-centro">${escaparHTML(t("comunicacion_centro_descargar"))}</button>
-      <button type="button" class="boton-secundario"
-        data-ct-exp-accion="descargar-docx-comunicacion-centro">${escaparHTML(t("comunicacion_centro_descargar_docx"))}</button>` : ""}
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div>
       <dt>${escaparHTML(campo.etiqueta)}</dt>
       <dd class="ct-tono-${escaparHTML(campo.tono)}">${escaparHTML(campo.valor)}</dd>
     </div>`).join("")}</dl>
+    ${informeDisponible ? `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
+      <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
+      <ul>${borradores.map(([clave, accion]) => `<li>
+        <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
+        <div class="ct-exp-borradores-acciones">
+          <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
+          <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
+        </div>
+      </li>`).join("")}</ul>
+    </section>` : ""}
   </section>`;
 }
 

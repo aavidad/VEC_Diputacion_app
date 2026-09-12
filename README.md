@@ -4,41 +4,31 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-## Anotación y cierre conectados en código — 12 de septiembre de 2026
+## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit publicado `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac` conecta en el
-detalle de RRHH la primera anotación administrativa con su recuperación, el refresco del
-detalle v8→v9 y el cierre administrativo sin cese. Conserva el recibo visible,
-no habilita el cierre sobre datos obsoletos y no repite ningún `POST`
-automáticamente. Se recuperaron once pruebas preservadas de los formularios y
-la suite web quedó 335/335; dos revisiones independientes dieron `GO` sobre
-los nueve hashes del montaje.
+El commit `e4ffa72de593b9500ee155e8dd3256474984d831` está publicado y
+desplegado con el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome obtuvo `200` al recuperar la incorporación y la ficha GINPIX, sin
+repetir el `POST`: se conservaron el recibo `ref:2bc3d281…`, la fecha
+`2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX
+descargada tiene SHA256
+`4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Auth13 está instalada con postimagen exacta y respaldo privado. Los GET de
-incorporación y ficha GINPIX pasaron por `curl` con mTLS: mismo recibo
-`ref:2bc3d281…`, fecha `2026-09-10T13:07:06.614186Z` y negocio CT intacto.
-El navegador y la recuperación tras reinicio siguen pendientes; no repita el POST.
+Los seis borradores Word se descargaron con HTTP `200` y son ZIP válidos. El
+recorrido no produjo errores JavaScript ni datos en cookies o almacenamiento;
+la incorporación no mostró desbordamiento a 1440, 1024 o 390 px. Son
+borradores de desarrollo: no acreditan firma, eficacia, envío ni transmisión.
 
-El gobierno de dos audiencias está publicado en `bc80cddf` y desplegado en el
-mismo contenedor con binario `4178cfd7…`; CT86/87 y AD3-30/31 siguen sin instalar.
-El apoyo CSS `52c6284e…`, dos archivos y cuatro líneas, fue revisado con renderer
-sintético a 1440/1024/390; no acredita navegador ni E2E.
+La agrupación a ancho completo de los seis pares PDF/Word está integrada en
+código y revisada, pero aún no está desplegada. Faltan comprobar esa agrupación
+en runtime y la recuperación después de reiniciar PostgreSQL. Auth13 está
+instalada una sola vez; CT86/87 y AD3-30/31 siguen sin ensayo ni instalación.
 
-Los seis borradores Word están implementados junto a los PDF, reutilizando la
-misma consulta y autorización. La API selecciona DOCX con `Accept` MIME y uno
-de seis valores `documento`; devuelve nombres `<tipo>-borrador.docx`, hasta
-2 MiB. Go global, vet, build y 337 pruebas web pasaron; las revisiones dieron
-`GO`. El runtime conserva aún el binario `4178cfd7…`, sin Word. Un intento de
-navegador obtuvo portal `200` y cuatro assets `404` por el manifiesto de
-producción incompleto. La corrección de seis entradas está integrada en código:
-su focal sirve los seis JS con `200`, conserva `404` para lo no publicado y
-tiene `GO`; todavía no está desplegada.
+## Historia del estado funcional anterior — 12 de septiembre de 2026
 
-Los seis PDF acreditados se conservan y no necesitan repetirse. DOCX no añade
-SQL, firma, eficacia, envío ni modelos oficiales. CT86/87 siguen pendientes de
-ensayo e instalación; GINPIX admite la ficha manual ya comprobada por `curl`.
-
-## Estado funcional y continuación — 12 de septiembre de 2026
+Este apartado y los bloques cronológicos inferiores se conservan como historia;
+el estado vivo es el descrito al inicio de este documento.
 
 Base del cierre funcional: `00558603dbd3040eacb03cb511f3b840be241b10`, rama
 `integracion/ct-producto-ligero-20260821`. El desarrollo activo y la base

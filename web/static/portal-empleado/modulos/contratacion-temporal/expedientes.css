@@ -383,6 +383,51 @@
   background: var(--portal-fondo);
 }
 
+.ct-exp-borradores {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid var(--portal-borde);
+}
+
+.ct-exp-borradores h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.ct-exp-borradores ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-exp-borradores li {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 5px;
+  background: var(--portal-fondo);
+}
+
+.ct-exp-borradores h5 {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+}
+
+.ct-exp-borradores-acciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ct-exp-borradores-acciones .boton-secundario {
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
 .ct-exp-cabecera-expediente dt,
 .ct-exp-metadata dt,
 .ct-exp-datos dt,

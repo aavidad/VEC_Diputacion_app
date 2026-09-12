@@ -1,51 +1,44 @@
 # Guía de recorrido y recibos conservados de VEC
 
-## Anotación y cierre conectados en código — 12 de septiembre de 2026
+## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit publicado `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac` conecta estas operaciones:
+El commit publicado `e4ffa72de593b9500ee155e8dd3256474984d831` está en el
+runtime con el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
+el alta. Conservó el recibo `ref:2bc3d281…`, la fecha
+`2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
+SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-```text
-POST /api/vec/contratacion-temporal/expedientes/anotaciones-administrativas
-GET  /api/vec/contratacion-temporal/expedientes/anotaciones-administrativas/recuperacion
-GET  /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion
-POST /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese
-```
+Desde el detalle se descargaron con HTTP `200` estos seis ZIP DOCX válidos:
 
-Se recuperaron once pruebas preservadas de los formularios y la suite web quedó
-335/335; dos revisiones dieron `GO` sobre nueve hashes. Estas pruebas
-son sintéticas y no acreditan el recorrido de navegador.
+- `informe-definitivo-borrador.docx`
+- `resolucion-borrador.docx`
+- `diligencia-borrador.docx`
+- `toma-posesion-borrador.docx`
+- `notificacion-borrador.docx`
+- `comunicacion-centro-borrador.docx`
 
-El gobierno está publicado en `bc80cddf` y el binario `4178cfd7…` desplegado en
-el mismo contenedor. Auth13 quedó instalada una vez. Los GET de incorporación
-y ficha GINPIX pasaron por `curl` mTLS con el mismo recibo `ref:2bc3d281…`,
-fecha `2026-09-10T13:07:06.614186Z` e historia CT intacta. No se han comprobado
-aún en navegador ni después de reiniciar; anotación y cierre tampoco tienen E2E.
+No hubo errores JavaScript ni datos en cookies o almacenamiento web. La
+incorporación quedó sin desbordamiento a 1440, 1024 y 390 px. La evidencia
+privada se conserva en
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-visible-1324.*`
+y
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/word-seis-1324.informe.json`.
 
-El CSS `52c6284e…` fue revisado con renderer sintético a 1440/1024/390; no es
-E2E. CT86/87 y AD3-30/31 siguen sin instalar.
+Los Word son borradores de desarrollo y no acreditan firma, eficacia, envío o
+transmisión. La agrupación a ancho completo de los seis pares PDF/Word está
+integrada y revisada, pero queda pendiente de despliegue y comprobación en
+runtime. Sus 10 pruebas focales pasaron; el corte conserva 337 pruebas web y
+las comprobaciones Go, vet y build. También falta recuperar el recorrido
+después de reiniciar PostgreSQL. Auth13 está instalada una vez; CT86/87 y
+AD3-30/31 siguen sin ensayo ni instalación, por lo que anotación y cierre no
+deben recorrerse todavía.
 
-Los seis Word están implementados y probados sobre la misma consulta autorizada
-que los PDF: `informe-definitivo-borrador.docx`, `resolucion-borrador.docx`,
-`diligencia-borrador.docx`, `toma-posesion-borrador.docx`,
-`notificacion-borrador.docx` y `comunicacion-centro-borrador.docx`. La API usa
-MIME DOCX y un selector `documento` cerrado. Son borradores de desarrollo, sin
-firma, eficacia, envío o SQL nuevo.
+## Historia: pausa por cuota — 10 de septiembre de 2026
 
-Todavía no intente descargarlos en el servidor: continúa con `4178cfd7…`, sin
-DOCX, y el primer intento de navegador encontró cuatro assets `404` aunque el
-portal respondió `200`. La corrección del manifiesto está integrada en código,
-con focal y `GO`, pero aún no desplegada. Los seis PDF anteriores permanecen
-acreditados y no deben repetirse para este corte.
-
-Cuando se instalen CT86/87 con AD3-30/31, RRHH abrirá el
-expediente sintético conservado, recuperará la incorporación sin repetir su
-POST, registrará una única anotación y conservará recibo y clave. La vista debe
-refrescar v8→v9 antes de ofrecer la preparación y el cierre. Un resultado
-incierto se recupera con la misma clave; un error de lectura permite reintentar
-el GET sin duplicar formularios ni POST. El cierre no registra cese, no cambia
-periodos y no acredita firma, eficacia administrativa, envío ni GINPIX.
-
-## Pausa por cuota — 10 de septiembre de 2026
+Este apartado y los bloques cronológicos inferiores se conservan como historia;
+el recorrido vigente es el descrito al inicio de esta guía.
 
 El operador ordenó cerrar y guardar. Los siete cortes hasta `9fb12560` quedan
 confirmados en la canónica; se añaden sólo los sellos HMAC de anotación ya

@@ -1,31 +1,31 @@
 # Manual funcional del técnico de Recursos Humanos
 
-## Borradores Word integrados en código; runtime pendiente — 12 de septiembre de 2026
+## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-Los seis documentos ya disponibles como PDF tienen también representación DOCX
-implementada: informe definitivo, resolución, diligencia, toma de posesión,
-notificación y comunicación al centro. Reutilizan la misma consulta y
-autorización del detalle; no crean otro expediente, documento persistente ni SQL.
+El runtime publicado `e4ffa72de593b9500ee155e8dd3256474984d831`, binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`,
+permite recuperar en Chrome la incorporación y la ficha GINPIX con HTTP `200`.
+No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
+`2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX tiene
+SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-La petición usa `POST /api/vec/contratacion-temporal/expedientes/consultas` con
-`Accept: application/vnd.openxmlformats-officedocument.wordprocessingml.document;
-documento=<selector>-desarrollo`. La descarga se llama `<tipo>-borrador.docx`,
-valida la representación DOCX y admite hasta 2 MiB. Go global, vet, build y 337
-pruebas web pasaron; las revisiones aplicables dieron `GO`.
+Los seis documentos disponibles como PDF se descargaron también en Word con
+HTTP `200`: informe definitivo, resolución, diligencia, toma de posesión,
+notificación y comunicación al centro. Los seis ficheros DOCX son ZIP válidos.
+El recorrido no produjo errores JavaScript ni datos en cookies o almacenamiento;
+la incorporación no mostró desbordamiento a 1440, 1024 o 390 px.
 
-El servidor sigue usando `4178cfd7…`, sin esta capacidad. Un intento de
-navegador abrió el portal con `200`, pero cuatro assets devolvieron `404` por un
-manifiesto de producción incompleto. La corrección de seis entradas está
-integrada en código y su prueba HTTP y revisión pasaron, pero aún no está
-desplegada. No presente Word como descargado en navegador todavía.
+Los PDF y Word son borradores de desarrollo, sin firma, eficacia
+administrativa, envío, entrega, transmisión o modelo oficial aprobado. La
+agrupación a ancho completo de los seis pares está integrada y revisada, pero
+aún no está desplegada ni comprobada en runtime. También falta la recuperación
+después de reiniciar PostgreSQL. Auth13 está instalada una sola vez; CT86/87 y
+AD3-30/31 continúan sin ensayo ni instalación.
 
-Los seis PDF ya acreditados se conservan: no los repita para probar DOCX. Ambos
-formatos son borradores de desarrollo, sin firma, eficacia administrativa,
-envío, entrega o modelo oficial aprobado. CT86/87 siguen sin ensayo ni
-instalación. La incorporación y GINPIX están comprobadas por `curl` mTLS con el
-mismo recibo y fecha, pero no en UI ni después de reiniciar.
+## Historia del corte para presentación — 10 de septiembre de 2026
 
-## Corte vigente para presentación — 10 de septiembre de 2026
+Este apartado y los bloques cronológicos inferiores se conservan como historia;
+el recorrido vigente es el descrito al inicio de este manual.
 
 ### Panel integrado en código; runtime pendiente
 

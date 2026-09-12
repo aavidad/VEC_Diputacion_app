@@ -1,64 +1,45 @@
 # Estado y plan de ataque del proyecto
 
-## Anotación y cierre conectados en código — 12 de septiembre de 2026
+## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac`, publicado en
-`integracion/ct-producto-ligero-20260821`, integra el cliente y montaje frontend
-de la primera anotación administrativa y el cierre sin cese. La vista
-conserva el recibo, refresca v8→v9 antes de habilitar el cierre, descarta
-respuestas tardías al desmontar, mantiene monotónica la preparación y serializa
-los reintentos GET. No ejecuta automáticamente los POST de anotación, cierre o
-incorporación.
+El commit `e4ffa72de593b9500ee155e8dd3256474984d831` está publicado en
+`integracion/ct-producto-ligero-20260821` y desplegado con el binario
+`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
+el `POST`. Coincidieron los seis campos cotejados, el recibo
+`ref:2bc3d281…` y la fecha `2026-09-10T13:07:06.614186Z`; la ficha descargada
+tiene SHA256
+`4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Se recuperaron once pruebas preservadas de los formularios; la suite web
-terminó 335/335 y `git diff --check` pasó.
-Dos revisiones independientes emitieron `GO` sobre los nueve hashes finales.
-El alcance usa Node, DOM y `fetch` sintéticos: el E2E de anotación y cierre en
-navegador sigue pendiente.
+Los seis DOCX se descargaron con HTTP `200` y validación ZIP correcta. El
+recorrido registró cero errores JavaScript y cero datos en cookies o
+almacenamiento web. La pantalla de incorporación no tuvo desbordamiento a
+1440, 1024 ni 390 px. Los Word conservan su carácter de borradores: no
+constituyen firma, eficacia, envío, entrega o transmisión.
 
-Auth13 `ef6704a6` quedó instalada una sola vez el 12 de septiembre, con respaldo
-privado y suplemento restaurable de ACL de base y 177 tipos de fila. Su postimagen
-exacta y la regresión SQL están comprobadas. Por `curl` con mTLS, los GET de
-incorporación y ficha GINPIX pasaron con el recibo `ref:2bc3d281…` y la fecha
-`2026-09-10T13:07:06.614186Z`; las huellas de negocio CT antes y después son
-idénticas y también se conservaron las cinco huellas de Personal. No se repitió
-el POST. Navegador y reinicio siguen pendientes.
+La agrupación a ancho completo de los seis pares PDF/Word está integrada en
+código mediante tres assets y cuenta con un `GO` de revisión UI. Dirección
+comprobó sus 10 pruebas focales. El corte DOCX conserva `PASS` en Go global,
+`go vet`, build y 337 pruebas web, con inventario de manifiestos 111/11/3/1.
+Aún falta desplegar la agrupación, comprobarla en runtime y recuperar el
+recorrido después de reiniciar PostgreSQL. Auth13 continúa instalada una sola
+vez. CT86/87 y AD3-30/31 no se han ensayado ni instalado; anotación y cierre
+siguen sin recorrido real.
 
-El gobierno que admite exactamente las dos audiencias de AD3-30/31 y conserva
-las siete anteriores está publicado en `bc80cddf`; el binario desplegado en el
-mismo contenedor es `4178cfd7…`. La candidata tuvo dos `GO`; el build y las
-campañas `go test -p 1 ./...` y `go vet -p 1 ./...` pasaron. CT86/87 y AD3-30/31 siguen sin instalar, por
-lo que no hay anotación o cierre acreditados en runtime.
-
-El apoyo CSS `52c6284e…` cambia cuatro líneas en dos archivos: franja y
-agrupación fueron revisadas con renderer sintético a 1440/1024/390, sin E2E.
-
-Backend y frontend implementan seis DOCX como otra representación de la misma
-consulta RRHH autorizada que genera los PDF. El `Accept` usa MIME DOCX y el
-selector `documento` cerrado; las respuestas se nombran `<tipo>-borrador.docx`,
-validan cabeceras y ZIP y quedan limitadas a 2 MiB. El correctivo backend
-`cb597a` preserva la base; las revisiones backend, frontend e identidad dieron
-`GO`. Go global, vet, build y la suite web 337/337 pasaron; los manifiestos
-inventariaron 111/11/3/1. No hay SQL nuevo.
-
-El runtime sigue en `bc80cddf` con binario `4178cfd7…`, sin DOCX. El primer
-intento de navegador obtuvo portal `200`, pero cuatro assets devolvieron `404`
-porque `web/produccion.manifest` estaba incompleto. La candidata añade seis
-entradas y una prueba HTTP; ya están integradas en código, con focal `PASS` y
-`GO` estático: seis JS `200` y un fichero no publicado `404`. No están
-desplegadas, no acreditan Word en navegador ni cierran el GET de incorporación
-en UI. Los seis PDF previos siguen acreditados y no se repiten; CT86/87
-continúan sin ensayo ni instalación.
+Un clon SQL creado en el mismo clúster compartió dependencias y activó la
+guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones
+`GO`, se archivó su evidencia y se retiró solamente el clon propio. La base
+principal quedó intacta y el runtime se recuperó. Las próximas pruebas de este
+tipo usarán un clúster aislado.
 
 El contraste con RRHH mantiene ocho hitos; las 17 pantallas son maquetas, no
-otras fases. Los Word de los seis PDF están en código y pendientes de runtime;
-faltan correo efectivo y verificación de la bandeja destinataria en la
-transferencia de responsabilidad.
-La ficha GINPIX manual es un resultado admitido. Las discrepancias entre texto
-y capturas sobre documentos y segunda Intervención siguen pendientes de aclarar;
-no se convierten en aprobaciones ni amplían este recorrido.
+otras fases. Siguen pendientes el correo efectivo, la bandeja destinataria y
+las decisiones sobre firma y modelos oficiales.
 
-## Recuperación del trabajo — 12 de septiembre de 2026
+## Historia de la recuperación del trabajo — 12 de septiembre de 2026
+
+Este apartado y los bloques cronológicos inferiores se conservan como historia;
+el estado vivo es el descrito al inicio de este documento.
 
 Orden vigente del operador: revisar y conservar el trabajo, ordenar las ramas y
 publicar lo válido y reactivar el director remoto sobre ramas limpias. Este bloque sustituye
