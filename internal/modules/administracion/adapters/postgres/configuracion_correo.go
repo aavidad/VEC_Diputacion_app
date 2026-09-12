@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	adminapp "vec-diputacion-granada/internal/modules/administracion/application"
 	admindomain "vec-diputacion-granada/internal/modules/administracion/domain"
 	adminports "vec-diputacion-granada/internal/modules/administracion/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -138,7 +139,7 @@ func (r *RegistroConfiguracionCorreoPostgreSQL) PrepararConfiguracionCorreo(ctx 
 	// posterior recibe siquiera el wrapper que podría retenerlo.
 	entradaPreparada.SecretoNuevo = nil
 	preparacion := adminports.PreparacionConfiguracionCorreo{Entrada: entradaPreparada, SobreNuevo: adminports.SobreSecretoConfiguracionCorreo{Version: sobre.Version, ClaveRef: sobre.ClaveRef, Nonce: append([]byte(nil), sobre.Nonce...), Cifrado: append([]byte(nil), sobre.Cifrado...)}, Sustituir: sustituir, HuellaAADSHA256: huellaAAD}
-	payload, e := adminports.PayloadNegocioConfiguracionCorreo(preparacion, auditoria)
+	payload, e := adminapp.PayloadNegocioConfiguracionCorreo(preparacion, auditoria)
 	if e != nil {
 		return adminports.PreparacionConfiguracionCorreo{}, ErrConfiguracionCorreoNoDisponible
 	}

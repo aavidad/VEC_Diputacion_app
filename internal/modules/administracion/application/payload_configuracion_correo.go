@@ -1,16 +1,17 @@
-package ports
+package application
 
 import (
 	"encoding/json"
 	"errors"
 
 	admindomain "vec-diputacion-granada/internal/modules/administracion/domain"
+	adminports "vec-diputacion-granada/internal/modules/administracion/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// PayloadNegocioConfiguracionCorreo es la única preimagen admitida por la
-// preparación, la autorización V3 y ADM1. No contiene secreto claro.
-func PayloadNegocioConfiguracionCorreo(p PreparacionConfiguracionCorreo, auditoria vecdomain.AuditEntry) ([]byte, error) {
+// PayloadNegocioConfiguracionCorreo construye la preimagen canónica durable.
+// El secreto claro ya debe haberse eliminado antes de invocarla.
+func PayloadNegocioConfiguracionCorreo(p adminports.PreparacionConfiguracionCorreo, auditoria vecdomain.AuditEntry) ([]byte, error) {
 	if p.Entrada.SecretoNuevo != nil || p.Entrada.Validar() != nil || auditoria.ActorID == "" || auditoria.Action == "" || auditoria.ModuleID == "" || auditoria.SubjectRef == "" || auditoria.Result == "" || auditoria.OccurredAt.IsZero() {
 		return nil, errors.New("preparacion correo invalida")
 	}
