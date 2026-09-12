@@ -228,6 +228,15 @@ acreditan funciones reales de Contratación temporal.
 
 La presentación se recorre en la misma aplicación final, con perfiles y datos sintéticos; no se bloquea por correo corporativo, firma o GINPIX.
 
+El requisito confirmado exige correo obligatorio en el alta de usuario VEC;
+ese dato será el destinatario del llamamiento. El envío usará el SMTP interno
+de la Diputación y una cuenta emisora pendiente de crear. La conexión con la
+ficha del candidato y el envío todavía no están disponibles en el recorrido.
+Sistemas gestionará la configuración del correo desde la zona ADMIN, separada
+del portal de RRHH. Para las pruebas se ha previsto `admin.cidonia.cloud`,
+con DNIe o certificado FNMT y autorización individual; el acceso todavía no
+está operativo. En producción, ADMIN quedará restringida a la intranet.
+
 | Operación de presentación | Qué hace realmente | Qué falta para uso real |
 | --- | --- | --- |
 | Acceso con certificado | Autentica el perfil de desarrollo frente a la aplicación; **no es firma de documento**. | Identidad corporativa y permisos del personal real. |

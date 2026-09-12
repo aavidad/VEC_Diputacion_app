@@ -372,6 +372,25 @@ renuncia ni inicio de plazo. Una intención pendiente de salida (`outbox`) no
 es un acuse del sistema externo. El contador es **cinco pasos completos más
 partes del sexto y séptimo**, no un porcentaje global de aplicación terminada.
 
+Según el requisito confirmado, el correo debe ser obligatorio al dar de alta
+una cuenta VEC. El envío usará el SMTP interno de la Diputación por IP interna. La
+cuenta emisora todavía no está creada. El servicio Go (`eee13709`) y el adaptador
+SMTP (`5203c986`) están disponibles en código, pero aún no están integrados en
+runtime ni acreditan entrega. No se han fijado todavía servidor, puerto, TLS ni
+credenciales concretos, y no existe conexión externa habilitada. El registro
+moderno de contacto y su vínculo con el candidato están pendientes de ensamblar.
+La configuración se administrará en la superficie segregada `/administracion/`,
+mediante variables explícitas `VEC_ADMIN_*`, certificado y permiso administrativo
+fresco; SSH queda reservado al acceso de terminal. En producción ADMIN exige
+intranet. Para las pruebas, el operador autorizó `admin.cidonia.cloud` por
+Internet, exclusivamente con DNIe o certificado FNMT y vinculación al DNI
+permitido en configuración privada externa a Git. El montaje actual de
+desarrollo no acredita esa identidad real ni debe exponerse para suplirla.
+La consulta SMTP (`eaf76437`) dispone de autorización separada y recibo T13/3;
+el guardado conserva auditoría T13/2 y outbox atómico. Faltan instalación SQL,
+material de autorización gobernado y recorrido real; ninguna de estas fuentes
+habilita por sí sola el subdominio.
+
 La base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
 consultables por el acceso privado de Sistemas; no implica 52 filas visibles
 simultáneas. El alcance sigue siendo cinco
