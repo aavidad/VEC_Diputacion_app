@@ -1,3 +1,11 @@
+## Lectura obligatoria de especificaciones — 12 de septiembre de 2026
+
+Antes de asignar, implementar, revisar o integrar trabajo, leer
+[ESPECIFICACIONES_AGENTES.md](ESPECIFICACIONES_AGENTES.md) y los apartados de
+sus fuentes que afecten a la tarea. Dirección debe incluir requisitos concretos
+en cada encargo y transmitirlos a todos los subagentes. Esta obligación procede
+de la petición expresa del operador; no sustituye las instrucciones vigentes.
+
 # Instrucciones del repositorio para agentes
 
 ## Autoridad operativa OpenClaw — cierre del puente centro→RRHH, 6 de septiembre de 2026
