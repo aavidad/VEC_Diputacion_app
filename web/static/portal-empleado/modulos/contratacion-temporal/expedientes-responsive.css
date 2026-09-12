@@ -82,6 +82,11 @@
     overflow-wrap: anywhere;
   }
 
+  .ct-expedientes [data-ct-exp-rectificacion] .ct-alcance {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .ct-exp-tareas ol {
     grid-template-columns: minmax(0, 1fr);
   }

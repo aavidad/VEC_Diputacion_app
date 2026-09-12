@@ -272,6 +272,8 @@ function crearRaizModulo() {
   let contenedorAnalisis = null;
   let contenedorRectificacion = null;
   let contenedorCobertura = null;
+  let contenedorAsignacion = null;
+  let contenedorInformeJuridico = null;
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
@@ -286,6 +288,10 @@ function crearRaizModulo() {
         ? crearContenedorAnalisis() : null;
       contenedorCobertura = valor.includes("data-ct-exp-cobertura")
         ? crearContenedorAnalisis({ fallarAlPintar: raiz.fallarMontajeCobertura === true }) : null;
+      contenedorAsignacion = valor.includes("data-ct-exp-asignacion")
+        ? crearContenedorAnalisis() : null;
+      contenedorInformeJuridico = valor.includes("data-ct-exp-informe-juridico")
+        ? crearContenedorAnalisis() : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
       controles = Array.from({ length: 3 }, () => {
         const propios = new Map();
@@ -311,6 +317,8 @@ function crearRaizModulo() {
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       if (selector === "[data-ct-exp-rectificacion]") return contenedorRectificacion;
       if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
+      if (selector === "[data-ct-exp-asignacion]") return contenedorAsignacion;
+      if (selector === "[data-ct-exp-informe-juridico]") return contenedorInformeJuridico;
       return { focus() {}, scrollIntoView() {} };
     },
   };
@@ -321,6 +329,8 @@ function crearRaizModulo() {
     obtenerAnalisis() { return contenedorAnalisis; },
     obtenerRectificacion() { return contenedorRectificacion; },
     obtenerCobertura() { return contenedorCobertura; },
+    obtenerAsignacion() { return contenedorAsignacion; },
+    obtenerInformeJuridico() { return contenedorInformeJuridico; },
     activarFalloCobertura() {
       raiz.fallarMontajeCobertura = true;
       contenedorCobertura = crearContenedorAnalisis({ fallarAlPintar: true });
@@ -982,6 +992,53 @@ test("el desmontaje explícito aborta y limpia exactamente una vez sin presentar
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
   assert.equal(escenario.presentador.obtenerDesmontajes(), 1);
+});
+
+test("el informe jurídico exige la asignación proyectada para la misma versión", async () => {
+  const { expediente: base, tareaRef } = crearExpediente();
+  const crearExpedienteAsignacion = (version, unidad) => validarExpedienteContratacionTemporal({
+    ...base,
+    demostracion: false,
+    version,
+    cabecera: unidad === null ? base.cabecera : [...base.cabecera, {
+      clave: "unidad", etiqueta: "Unidad asignada", valor: unidad,
+      tono: "neutro", control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const cliente = {
+    registrarAnalisis() {},
+    proponerCobertura() {}, decidirCobertura() {}, consultarResultadoCobertura() {},
+    asignarUnidad() {}, prepararInformeJuridico() {}, consultarDetalleRRHH() {},
+  };
+  const montar = async (version, unidad, versionCuadro = version) => {
+    const expediente = crearExpedienteAsignacion(version, unidad);
+    const cuadro = { demostracion: false, expedientes: [{
+      expediente_ref: expediente.expediente_ref,
+      fase_clave: "asignacion_unidad", estado_clave: "en_curso", version: versionCuadro,
+    }] };
+    return montarEscenario({
+      expediente, tareaRef, estado: crearEstado(expediente, tareaRef, { cuadro }),
+      analisis: crearComposicion(cliente),
+    });
+  };
+
+  const pendiente = await montar(3, null);
+  assert.ok(pendiente.raiz.obtenerAsignacion());
+  assert.equal(pendiente.raiz.obtenerInformeJuridico(), null);
+  pendiente.modulo.desmontar();
+
+  for (const unidad of ["unidad:desarrollo:rrhh", "unidad:otra:rrhh"]) {
+    const confirmada = await montar(4, unidad);
+    assert.equal(confirmada.raiz.obtenerAsignacion(), null);
+    assert.ok(confirmada.raiz.obtenerInformeJuridico());
+    assert.match(confirmada.raiz.obtenerInformeJuridico().innerHTML, /data-ct-informe-form/u);
+    confirmada.modulo.desmontar();
+  }
+
+  const discordante = await montar(4, "unidad:desarrollo:rrhh", 3);
+  assert.equal(discordante.raiz.obtenerAsignacion(), null);
+  assert.equal(discordante.raiz.obtenerInformeJuridico(), null);
+  discordante.modulo.desmontar();
 });
 
 test("el montaje no hardcodea tarea o etiqueta ni incorpora autoridad de navegador", async () => {
