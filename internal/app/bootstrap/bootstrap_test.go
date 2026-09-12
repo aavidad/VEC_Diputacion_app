@@ -419,6 +419,7 @@ func TestNewHTTPServerExposesUnifiedVECShellModules(t *testing.T) {
 		{method: http.MethodGet, path: "/api/vec/modules", want: "vec.module.dietas", status: http.StatusOK},
 		{method: http.MethodGet, path: "/api/vec/modules", want: "vec.module.bolsa", status: http.StatusOK},
 		{method: http.MethodGet, path: "/api/vec/modules", want: "vec.module.administracion", status: http.StatusOK},
+		{method: http.MethodGet, path: "/api/vec/modules", want: "vec.module.usuarios", status: http.StatusOK},
 		{method: http.MethodGet, path: "/api/vec/workspace", want: "vec permission denied", status: http.StatusForbidden},
 		{method: http.MethodGet, path: "/api/vec/menu", want: "admin.catalogos", forbidden: []string{"personal.", "cronos.", "dietas.", "bolsa."}, status: http.StatusOK},
 		{method: http.MethodPost, path: "/api/vec/modules/cronos/action", want: "vec permission denied", status: http.StatusForbidden},
