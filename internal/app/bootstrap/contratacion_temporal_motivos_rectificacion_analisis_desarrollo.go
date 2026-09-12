@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -16,6 +18,8 @@ import (
 const (
 	atributoClaveI18nMotivoRectificacionAnalisisDesarrollo = "clave_i18n"
 	prefijoClaveI18nMotivoRectificacionAnalisisDesarrollo  = "contratacion_temporal.analisis.rectificacion."
+	catalogoIDMotivosRectificacionAnalisisDesarrollo       = "motivos_rectificacion_analisis"
+	moduloIDMotivosRectificacionAnalisisDesarrollo         = "contratacion_temporal"
 )
 
 // fuenteMotivosRectificacionAnalisisDesarrollo lee únicamente una publicación
@@ -37,6 +41,29 @@ func nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 	return fuenteMotivosRectificacionAnalisisDesarrollo{
 		consulta: consulta, catalogoID: catalogoID, moduloID: moduloID, reloj: reloj,
 	}
+}
+
+// nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada compone solo
+// una fuente DEMO explícitamente declarada. El adaptador valida el paquete al
+// arrancar; su ausencia mantiene la rectificación sin motivos publicados.
+func nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
+	cfg config.Config,
+	reloj ports.Reloj,
+) (fuenteMotivosRectificacionAnalisisDesarrollo, error) {
+	ruta := strings.TrimSpace(cfg.CTAnalisisMotivosSourcePath)
+	if ruta == "" {
+		return fuenteMotivosRectificacionAnalisisDesarrollo{}, nil
+	}
+	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	if err != nil {
+		return fuenteMotivosRectificacionAnalisisDesarrollo{}, err
+	}
+	return nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+		consulta,
+		catalogoIDMotivosRectificacionAnalisisDesarrollo,
+		moduloIDMotivosRectificacionAnalisisDesarrollo,
+		reloj,
+	), nil
 }
 
 func (f fuenteMotivosRectificacionAnalisisDesarrollo) opciones(
