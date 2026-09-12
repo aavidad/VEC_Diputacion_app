@@ -39,6 +39,7 @@ export const LIMITES_EXPEDIENTES_PRESENTACION = Object.freeze({
   indicadores: 32,
   expedientes: 500,
   fases: 32,
+  hitos: 2_000,
   tareas: 128,
   paneles: 32,
   campos: 128,
@@ -258,6 +259,24 @@ function validarFase(entrada, nombre) {
   };
 }
 
+function validarHitoHistorial(entrada, nombre) {
+  exigirCamposExactos(entrada, [
+    "secuencia", "fecha", "fase", "accion", "estado_clave", "estado",
+  ], nombre);
+  if (!Number.isSafeInteger(entrada.secuencia) || entrada.secuencia < 1
+    || !ESTADOS.has(entrada.estado_clave)) {
+    throw new TypeError(`${nombre} no válido`);
+  }
+  return {
+    secuencia: entrada.secuencia,
+    fecha: cadenaNoVacia(entrada.fecha, `${nombre}.fecha`, 80),
+    fase: cadenaNoVacia(entrada.fase, `${nombre}.fase`),
+    accion: cadenaNoVacia(entrada.accion, `${nombre}.accion`),
+    estado_clave: entrada.estado_clave,
+    estado: cadenaNoVacia(entrada.estado, `${nombre}.estado`, 80),
+  };
+}
+
 function validarOpcion(entrada, nombre) {
   exigirCamposExactos(entrada, ["clave", "etiqueta"], nombre);
   return {
@@ -456,9 +475,11 @@ function validarActuacion(entrada, nombre) {
 
 export function validarExpedienteContratacionTemporal(entrada) {
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
+  const tieneHistorial = esRegistro(entrada) && Object.hasOwn(entrada, "historial");
   exigirCamposExactos(entrada, [
     "esquema", "demostracion", "expediente_ref", "numero_visible", "version",
     "flujo_ref", "flujo_version", "flujo_huella", "cabecera", "fases", "tareas",
+    ...(tieneHistorial ? ["historial"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
@@ -477,6 +498,15 @@ export function validarExpedienteContratacionTemporal(entrada) {
     validarFase,
   ), "fase_ref", "fases");
   const referenciasFases = new Set(fases.map(({ fase_ref: valor }) => valor));
+  const historial = tieneHistorial ? lista(
+    entrada.historial,
+    "historial",
+    LIMITES_EXPEDIENTES_PRESENTACION.hitos,
+    validarHitoHistorial,
+  ) : [];
+  if (historial.some((hito, indice) => indice > 0 && hito.secuencia <= historial[indice - 1].secuencia)) {
+    throw new TypeError("historial de hitos desordenado");
+  }
   const tareas = unicos(lista(
     entrada.tareas,
     "tareas",
@@ -507,6 +537,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
       validarCampo,
     ), "clave", "cabecera"),
     fases,
+    ...(tieneHistorial ? { historial } : {}),
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: 7 } : {}),
   });

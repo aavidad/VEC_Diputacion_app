@@ -189,6 +189,27 @@ function renderizarFases(expediente, t) {
   </nav>`;
 }
 
+function renderizarHistorialHitos(expediente, t) {
+  if (!Array.isArray(expediente.historial) || expediente.historial.length === 0) return "";
+  return `<details class="ct-exp-detalle-tecnico ct-exp-historial">
+    <summary>${escaparHTML(t("historial_hitos_titulo"))} (${expediente.historial.length})</summary>
+    <p>${escaparHTML(t("historial_hitos_descripcion"))}</p>
+    <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(t("historial_hitos_titulo"))}">
+      <table class="tabla-datos ct-exp-tabla-panel">
+        <thead><tr><th scope="col">${escaparHTML(t("historial_hito_secuencia"))}</th>
+          <th scope="col">${escaparHTML(t("fecha"))}</th>
+          <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
+          <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
+          <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>
+        <tbody>${expediente.historial.map((hito) => `<tr>
+          <td>${hito.secuencia}</td><td>${escaparHTML(hito.fecha)}</td>
+          <td>${escaparHTML(hito.accion)}</td><td>${escaparHTML(hito.fase)}</td>
+          <td>${escaparHTML(hito.estado)}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>
+  </details>`;
+}
+
 export function solicitudInformeDefinitivoDesdeEstado(estado) {
   const expediente = estado.expediente;
   if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
@@ -472,7 +493,8 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     </div>`;
   return `${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
     ${renderizarFases(expediente, t)}
-    ${tramitacion}`;
+    ${tramitacion}
+    ${renderizarHistorialHitos(expediente, t)}`;
 }
 
 export function renderizarDocumentos(estado, t) {

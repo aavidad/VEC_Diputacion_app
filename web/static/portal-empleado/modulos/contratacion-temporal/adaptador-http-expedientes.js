@@ -5,6 +5,7 @@ import {
 } from "./contrato-expedientes.js";
 import { validarCatalogosAlta } from "./contrato.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -132,6 +133,27 @@ function fechaCivil(instante, locale) {
   }).format(fecha);
 }
 
+function etiquetaAccionHito(clave, t) {
+  if (clave === "contratacion_temporal.subsanacion_reparos.registrar") {
+    return t("hito_subsanacion_reparo");
+  }
+  return etiqueta(clave);
+}
+
+// El detalle RRHH ya llega autorizado y validado por el cliente HTTP. Los
+// hitos son historia, no fases del flujo de presentación: conservarlos en un
+// bloque separado impide deducir estados o completar fases por su orden.
+function historialDesdeHitos(hitos, locale, t) {
+  return hitos.map((hito) => ({
+    secuencia: hito.secuencia,
+    fecha: fechaCivil(hito.realizada_en, locale),
+    fase: etiqueta(hito.fase_destino),
+    accion: etiquetaAccionHito(hito.accion_clave, t),
+    estado_clave: estadoVisual(hito.estado_destino),
+    estado: etiqueta(hito.estado_destino),
+  }));
+}
+
 function cabeceraDetalle(detalle, locale, catalogos) {
   const { resumen, solicitud } = detalle;
   const campos = [
@@ -186,7 +208,7 @@ function resolucionConPropuestaHistorica(detalle) {
     && anotacion.estado_origen === "en_curso" && anotacion.estado_destino === "en_curso";
 }
 
-function proyectarExpediente(detalle, locale, catalogos) {
+function proyectarExpediente(detalle, locale, catalogos, t) {
   const traducir = crearTraductorContratacionTemporal();
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
@@ -206,6 +228,7 @@ function proyectarExpediente(detalle, locale, catalogos) {
         && detalle.presentacion_flujo.fase_actual === fase.clave
         ? "en_curso" : "sin_confirmar",
     })),
+    historial: historialDesdeHitos(detalle.hitos, locale, t),
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(resolucionConPropuestaHistorica(detalle) ? { version_propuesta_documental: 7 } : {}),
@@ -213,7 +236,7 @@ function proyectarExpediente(detalle, locale, catalogos) {
 }
 
 export function crearAdaptadorHTTPExpedientesContratacionTemporal({
-  cliente, locale = "es-ES", obtenerCatalogos = () => null,
+  cliente, locale = "es-ES", obtenerCatalogos = () => null, mensajes = {},
 } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
@@ -225,6 +248,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   if (typeof obtenerCatalogos !== "function") {
     throw new TypeError("obtener catálogos de expedientes no válido");
   }
+  const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
   let secuenciaCuadro = 0;
@@ -264,7 +288,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         expediente_ref: expedienteRef,
         version_observada: version,
       }, { signal });
-      const expediente = proyectarExpediente(detalle, locale, etiquetasCatalogos(obtenerCatalogos));
+      const expediente = proyectarExpediente(
+        detalle, locale, etiquetasCatalogos(obtenerCatalogos), t,
+      );
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
     },
