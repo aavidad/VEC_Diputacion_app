@@ -3265,3 +3265,33 @@ null y reconstruye la Sig_structure con los bytes exactos aportados por el
 protocolo consumidor. Permite firmar mensajes grandes sin duplicarlos en el
 sobre. Un bstr vacio o un payload incrustado no se reinterpretan como modo
 separado.
+
+### Consulta del recibo propio del contacto VEC
+
+El adaptador `internal/app/contactopropio` permite consultar una versión
+histórica exacta mediante `POST /api/vec/usuarios/contacto-propio/recibo`
+con el cuerpo cerrado `{"version": 2}`. El sujeto procede exclusivamente de
+la cápsula personal y del contexto V2 registrado. No admite un sujeto declarado
+por el cliente ni descifra el correo. Un `200` devuelve `recibo_ref` y `version`;
+un `404` solo indica que esta consulta no encontró recibo, sin descartar que
+una escritura concurrente termine después.
+
+El montaje es explícito: `NuevoServicioConRecibos` recibe el servicio de
+guardado y `DependenciasConsultaRecibo` con pool nominal, emisor V3 de audiencia
+`vec.contacto_usuario.recibo.v1` y motivo gobernado. `NuevasRutasConRecibos`
+declara las dos rutas. Requiere las fuentes AD3-36, T13-7 y contacto-2, sobre
+sus dependencias previas; no concede permisos ni instala migraciones al arrancar.
+La consulta usa `gestion_contacto_propio`, separada de `envio_llamamiento`.
+
+El recibo original conserva sus bytes y consumo. La lectura genera otra
+auditoría que enlaza su referencia y huella; se validan ambas evidencias antes
+del commit y la vigencia antes de exponer el resultado. Esto no verifica por sí
+solo la cadena criptográfica histórica ni implementa el replay de `Guardar`.
+Encontrar un recibo no demuestra que el correo de un reintento coincida con
+el guardado. La interfaz exige `consultarRecibo: true`, conserva el resultado
+incierto en memoria y no actualiza el correo al consultar.
+
+Estado del corte: fuentes revisadas, pruebas Go/vet y web superadas, con DOM
+aislado comprobado. Faltan instalación y ensayo PostgreSQL integral, montaje
+con la autoridad personal admitida y recorrido completo del alta. No hay una
+ruta ciudadana operativa acreditada por estas pruebas.
