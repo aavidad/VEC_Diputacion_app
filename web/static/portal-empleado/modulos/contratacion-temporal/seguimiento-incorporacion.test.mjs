@@ -52,7 +52,28 @@ test("seguimiento: consulta y muestra solo el vínculo original del recibo confi
   assert.ok(llamadas[0][1].signal instanceof AbortSignal);
   assert.match(raiz.innerHTML, /documento:ct:001/u);
   assert.match(raiz.innerHTML, /pendiente → incorporada/u);
+  assert.match(raiz.innerHTML, /<time datetime="2026-09-10T10:00:00Z">10 sept 2026, 12:00:00<\/time>/u);
   assert.doesNotMatch(raiz.innerHTML, /No se ha podido consultar el seguimiento original/u);
+  destruir();
+});
+
+test("seguimiento: el período conserva sus fechas civiles UTC y los instantes usan Europe/Madrid", async () => {
+  const reciboCambioDia = Object.freeze({
+    ...recibo,
+    registrada_en: "2026-01-10T23:00:00Z",
+    periodo_incorporacion: { desde: "2026-01-10T23:00:00Z", hasta: "2026-01-11T23:00:00Z" },
+  });
+  const datos = seguimiento();
+  datos.periodo = reciboCambioDia.periodo_incorporacion;
+  datos.registrado_en = reciboCambioDia.registrada_en;
+  datos.actuaciones[0].efectivo_en = reciboCambioDia.periodo_incorporacion.desde;
+  datos.actuaciones[0].registrada_en = reciboCambioDia.registrada_en;
+  const raiz = crearRaiz();
+  const destruir = montarSeguimientoIncorporacion({ raiz, recibo: reciboCambioDia, mensajes: {}, cliente: { async consultar() { return datos; } } });
+  await raiz.pulsarConsulta();
+  assert.match(raiz.innerHTML, /10\/01\/2026<\/time> — <time datetime="2026-01-11T23:00:00Z">11\/01\/2026/u);
+  assert.match(raiz.innerHTML, /<time datetime="2026-01-10T23:00:00Z">10\/01\/2026<\/time>/u);
+  assert.match(raiz.innerHTML, /<time datetime="2026-01-10T23:00:00Z">11 ene 2026, 0:00:00<\/time>/u);
   destruir();
 });
 

@@ -1,5 +1,9 @@
 # VEC Diputación de Granada
 
+El detalle muestra la jornada como porcentaje (10000 → 100 %) y agrupa sus datos en dos columnas en móvil; la navegación tiene botones de al menos 44 px. Pantalla real comprobada a 1440/390 px sin desbordamiento ni errores JavaScript.
+
+Si falla la apertura de Análisis o del siguiente formulario de Cobertura, Asignación o Informe jurídico, aparece un aviso con reintento de apertura. El reintento conserva el recibo y no repite el POST confirmado; la prueba focal cubre dos fallos consecutivos sin duplicar avisos. Bandeja y detalle reales comprobados a 1440/390 px, sin errores JavaScript ni desbordamiento.
+
 Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
@@ -20,6 +24,12 @@ recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX
 descargada tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
+
+El corte B muestra en la ficha GINPIX el recibo de incorporación y el nombre
+del archivo. Las fechas del seguimiento son legibles y conservan el valor ISO;
+la descarga real respondió `GET 200` con ese mismo SHA256, el seguimiento
+respondió `GET 200` y no hubo errores JavaScript. La revisión móvil de este
+corte terminó sin desbordamiento a 1440 ni 390 px.
 
 En el runtime anterior `75157434…`, los seis borradores Word se descargaron con
 HTTP `200` y son ZIP válidos. Su

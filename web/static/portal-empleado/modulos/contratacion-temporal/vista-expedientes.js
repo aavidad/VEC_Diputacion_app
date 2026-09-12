@@ -126,6 +126,7 @@ function crearClienteAnalisisCercado(
   contexto,
   cambiarEtapa,
   alConfirmar,
+  alErrorConfirmado = () => {},
 ) {
   const invocar = function invocarAnalisis(solicitud, opciones) {
     const vuelo = Object.freeze({});
@@ -158,6 +159,7 @@ function crearClienteAnalisisCercado(
       cambiarEtapa("confirmado", vuelo);
       try { alConfirmar(recibo); } catch {
         // El recibo de Análisis prevalece si el siguiente paso no puede montarse.
+        alErrorConfirmado(recibo);
       }
       return recibo;
     }, (error) => {
@@ -457,6 +459,7 @@ export async function montarModuloContratacionTemporal({
     && typeof clienteLlamamiento?.prepararResolucionFormalizacion === "function";
   const incorporacionEjercicioDisponible = typeof clienteLlamamiento?.prepararIncorporacionEjercicio === "function"
     && typeof clienteLlamamiento?.confirmarIncorporacionEjercicio === "function";
+  const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarIncorporacionEjercicio = null;
   let consultaIncorporacionEjercicio = null;
   let desmontarLlamamiento = null;
@@ -473,6 +476,62 @@ export async function montarModuloContratacionTemporal({
   let descargaInforme = null;
   let urlInforme = null;
   let revocacionInforme = null;
+  const desmontarEstadosMontaje = new Set();
+  const estadosMontajePorContenedor = new Map();
+
+  function mostrarErrorMontaje(contenedor, etapa, reintentar) {
+    if (!montada || !contenedor || typeof reintentar !== "function") return;
+    const existentes = estadosMontajePorContenedor.get(contenedor);
+    if (existentes?.has(etapa)) return;
+    const documento = contenedor.ownerDocument ?? raiz.ownerDocument;
+    if (!documento?.createElement || typeof contenedor.append !== "function") {
+      anunciar(tExpedientes("montaje_siguiente_pendiente"), "error");
+      return;
+    }
+    const bloque = documento.createElement("section");
+    const boton = documento.createElement("button");
+    const limpiar = () => {
+      boton.removeEventListener?.("click", manejarReintento);
+      bloque.remove?.();
+      desmontarEstadosMontaje.delete(limpiar);
+      const restantes = estadosMontajePorContenedor.get(contenedor);
+      restantes?.delete(etapa);
+      if (restantes?.size === 0) estadosMontajePorContenedor.delete(contenedor);
+    };
+    const manejarReintento = () => {
+      if (!montada) return;
+      limpiar();
+      try {
+        if (!reintentar()) mostrarErrorMontaje(contenedor, etapa, reintentar);
+      } catch {
+        mostrarErrorMontaje(contenedor, etapa, reintentar);
+      }
+    };
+    bloque.setAttribute?.("class", "ct-estado ct-estado-aviso");
+    bloque.setAttribute?.("role", "alert");
+    bloque.setAttribute?.("aria-live", "assertive");
+    bloque.setAttribute?.("data-ct-exp-montaje-pendiente", etapa);
+    const titulo = documento.createElement("p");
+    titulo.textContent = tExpedientes("montaje_siguiente_pendiente");
+    const detalle = documento.createElement("p");
+    detalle.textContent = tExpedientes("montaje_siguiente_pendiente_detalle");
+    boton.type = "button";
+    boton.className = "boton-secundario";
+    boton.textContent = tExpedientes("montaje_siguiente_reintentar");
+    boton.setAttribute?.("data-ct-exp-reintentar-montaje", etapa);
+    boton.addEventListener?.("click", manejarReintento);
+    bloque.append(titulo, detalle, boton);
+    contenedor.append(bloque);
+    desmontarEstadosMontaje.add(limpiar);
+    const porEtapa = estadosMontajePorContenedor.get(contenedor) ?? new Map();
+    porEtapa.set(etapa, limpiar);
+    estadosMontajePorContenedor.set(contenedor, porEtapa);
+    anunciar(titulo.textContent, "error");
+  }
+
+  function limpiarEstadosMontaje() {
+    for (const desmontar of [...desmontarEstadosMontaje]) desmontar();
+  }
 
   function liberarURLInforme() {
     clearTimeout(revocacionInforme);
@@ -1028,6 +1087,11 @@ export async function montarModuloContratacionTemporal({
       return true;
     } catch {
       desmontarInformeJuridico = null;
+      mostrarErrorMontaje(
+        raiz.querySelector("[data-ct-exp-asignacion]"),
+        "informe-juridico",
+        () => montarInformeDesdeAsignacion(recibo),
+      );
       return false;
     }
   }
@@ -1050,6 +1114,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   function retirarComponentes() {
+    limpiarEstadosMontaje();
     consultaIncorporacionEjercicio?.abort();
     consultaIncorporacionEjercicio = null;
     desmontarIncorporacionEjercicio?.();
@@ -1083,6 +1148,11 @@ export async function montarModuloContratacionTemporal({
       return true;
     } catch {
       desmontarAsignacion = null;
+      mostrarErrorMontaje(
+        raiz.querySelector("[data-ct-exp-cobertura]"),
+        "asignacion",
+        () => montarAsignacionDesdeCobertura(expedienteRef, recibo),
+      );
       return false;
     }
   }
@@ -1120,6 +1190,11 @@ export async function montarModuloContratacionTemporal({
       return true;
     } catch {
       desmontarCobertura = null;
+      mostrarErrorMontaje(
+        raiz.querySelector("[data-ct-exp-analisis]"),
+        "cobertura",
+        () => montarCoberturaDesdeAnalisis(recibo),
+      );
       return false;
     }
   }
@@ -1164,6 +1239,11 @@ export async function montarModuloContratacionTemporal({
       contexto,
       (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
       montarCoberturaDesdeAnalisis,
+      (recibo) => mostrarErrorMontaje(
+        contenedor,
+        "cobertura",
+        () => montarCoberturaDesdeAnalisis(recibo),
+      ),
     );
     sesionAnalisis = sesion;
     try {
@@ -1183,7 +1263,12 @@ export async function montarModuloContratacionTemporal({
       desmontarAnalisis = null;
       restaurarControlesAnalisis(sesion);
       if (sesionAnalisis === sesion) sesionAnalisis = null;
-      return false;
+      mostrarErrorMontaje(
+        contenedor,
+        "analisis",
+        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial),
+      );
+      return null;
     }
   }
 

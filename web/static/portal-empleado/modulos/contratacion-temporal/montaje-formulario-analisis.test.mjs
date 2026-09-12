@@ -176,14 +176,37 @@ function crearPresentador(estadoInicial, fallarCarga = false) {
   };
 }
 
-function crearContenedorAnalisis() {
+function crearContenedorAnalisis({ fallarAlPintar = false } = {}) {
   const eventos = new Map();
   const retirados = [];
+  const anexos = [];
+  let contenido = "";
   let limpiezas = 0;
+  const crearNodo = () => {
+    const atributos = new Map();
+    const eventosNodo = new Map();
+    return {
+      atributos,
+      eventos: eventosNodo,
+      hijos: [],
+      setAttribute(nombre, valor) { atributos.set(nombre, valor); },
+      addEventListener(tipo, manejador) { eventosNodo.set(tipo, manejador); },
+      removeEventListener(tipo, manejador) { eventosNodo.delete(tipo); },
+      append(...hijos) { this.hijos.push(...hijos); },
+      remove() { this.retirado = true; },
+    };
+  };
   return {
-    innerHTML: "",
+    get innerHTML() { return contenido; },
+    set innerHTML(valor) {
+      if (fallarAlPintar) throw new Error("montaje sintético no disponible");
+      contenido = valor;
+    },
     eventos,
     retirados,
+    anexos,
+    ownerDocument: { createElement: crearNodo },
+    append(...nodos) { anexos.push(...nodos); },
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
     removeEventListener(tipo, manejador) {
       if (eventos.get(tipo) === manejador) eventos.delete(tipo);
@@ -247,6 +270,7 @@ function crearRaizModulo() {
   let html = "";
   let contenedorAlta = null;
   let contenedorAnalisis = null;
+  let contenedorCobertura = null;
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
@@ -257,6 +281,8 @@ function crearRaizModulo() {
         ? crearContenedorAlta() : null;
       contenedorAnalisis = valor.includes("data-ct-exp-analisis")
         ? crearContenedorAnalisis() : null;
+      contenedorCobertura = valor.includes("data-ct-exp-cobertura")
+        ? crearContenedorAnalisis({ fallarAlPintar: raiz.fallarMontajeCobertura === true }) : null;
       if (contenedorAnalisis) montajesAnalisis += 1;
       controles = Array.from({ length: 3 }, () => {
         const propios = new Map();
@@ -280,6 +306,7 @@ function crearRaizModulo() {
     querySelector(selector) {
       if (selector === "[data-ct-exp-alta]") return contenedorAlta;
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
+      if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
       return { focus() {}, scrollIntoView() {} };
     },
   };
@@ -288,6 +315,15 @@ function crearRaizModulo() {
     eventos,
     obtenerAlta() { return contenedorAlta; },
     obtenerAnalisis() { return contenedorAnalisis; },
+    obtenerCobertura() { return contenedorCobertura; },
+    activarFalloCobertura() {
+      raiz.fallarMontajeCobertura = true;
+      contenedorCobertura = crearContenedorAnalisis({ fallarAlPintar: true });
+    },
+    desactivarFalloCobertura() {
+      raiz.fallarMontajeCobertura = false;
+      contenedorCobertura = crearContenedorAnalisis();
+    },
     obtenerMontajesAnalisis() { return montajesAnalisis; },
     obtenerControles() { return controles; },
     obtenerAtributo(nombre) { return atributos.get(nombre) ?? null; },
@@ -686,6 +722,47 @@ test("el éxito conserva el recibo visible y no reenvía desde la versión obsol
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
 
   escenario.modulo.desmontar();
+});
+
+test("un recibo de análisis conserva el formulario y permite reintentar solo el montaje de cobertura", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  let analisisRegistrados = 0;
+  const cliente = {
+    registrarAnalisis() {
+      analisisRegistrados += 1;
+      return Promise.resolve(crearRecibo(expediente));
+    },
+    proponerCobertura() { assert.fail("el reintento no propone cobertura"); },
+    decidirCobertura() { assert.fail("el reintento no decide cobertura"); },
+    consultarResultadoCobertura() { assert.fail("el reintento no consulta cobertura"); },
+  };
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    analisis: crearComposicion(cliente),
+  });
+  escenario.raiz.activarFalloCobertura();
+  const formulario = escenario.raiz.obtenerAnalisis();
+  await formulario.enviar();
+
+  assert.match(formulario.innerHTML, /data-ct-analisis-recibo/u);
+  assert.equal(analisisRegistrados, 1);
+  const aviso = formulario.anexos.at(-1);
+  assert.equal(aviso.atributos.get("role"), "alert");
+  assert.equal(aviso.atributos.get("data-ct-exp-montaje-pendiente"), "cobertura");
+  const reintentar = aviso.hijos.at(-1);
+  reintentar.eventos.get("click")();
+  const segundoAviso = formulario.anexos.at(-1);
+  assert.notStrictEqual(segundoAviso, aviso);
+  assert.equal(formulario.anexos.filter((nodo) => !nodo.retirado).length, 1);
+  assert.equal(analisisRegistrados, 1);
+  escenario.raiz.desactivarFalloCobertura();
+  segundoAviso.hijos.at(-1).eventos.get("click")();
+  assert.equal(analisisRegistrados, 1);
+  assert.match(escenario.raiz.obtenerCobertura().innerHTML, /data-ct-cobertura/u);
+
+  escenario.modulo.desmontar();
+  assert.equal(segundoAviso.hijos.at(-1).eventos.size, 0);
 });
 
 test("el desmontaje explícito aborta y limpia exactamente una vez sin presentar otro formulario", async () => {

@@ -1,5 +1,9 @@
 # Guía de recorrido y recibos conservados de VEC
 
+El detalle muestra la jornada como porcentaje (10000 → 100 %) y agrupa sus datos en dos columnas en móvil; la navegación tiene botones de al menos 44 px. Pantalla real comprobada a 1440/390 px sin desbordamiento ni errores JavaScript.
+
+Si falla la apertura de Análisis o del siguiente formulario de Cobertura, Asignación o Informe jurídico, aparece un aviso con reintento de apertura. El reintento conserva el recibo y no repite el POST confirmado; la prueba focal cubre dos fallos consecutivos sin duplicar avisos. Bandeja y detalle reales comprobados a 1440/390 px, sin errores JavaScript ni desbordamiento.
+
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
 La base de este corte es `2eb94c1c8277a7bb93393d7ed41e66580590182f` y sus
@@ -15,6 +19,12 @@ y la ficha GINPIX con HTTP `200`, sin repetir el alta. Conservó el recibo
 `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
+
+En el corte B, la ficha muestra el recibo de incorporación y el nombre del
+archivo descargable. El seguimiento presenta fechas legibles y conserva el
+valor ISO. La descarga real y la consulta de seguimiento devolvieron `GET 200`,
+la ficha mantuvo el mismo SHA256 y no hubo errores JavaScript. La comprobación
+visual terminó sin desbordamiento a 1440 ni 390 px.
 
 El detalle de trazabilidad mantuvo visibles recibo y fecha y se abrió y cerró.
 No hubo errores JavaScript, cookies, almacenamiento ni desbordamiento a 1440,

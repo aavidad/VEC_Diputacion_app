@@ -44,6 +44,11 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
     "El resultado de la actuación no puede determinarse todavía. No la repita; consulte su recibo mediante la recuperación protegida o contacte con soporte.",
   estado_error_actuacion:
     "No se pudo confirmar la actuación. El expediente se conserva sin cambios visibles.",
+  montaje_siguiente_pendiente:
+    "La actuación ya está registrada, pero no se pudo mostrar el siguiente paso.",
+  montaje_siguiente_pendiente_detalle:
+    "Puede volver a cargar ese formulario. Esta acción no repite la actuación ni genera una nueva operación.",
+  montaje_siguiente_reintentar: "Volver a mostrar el siguiente paso",
   estado_cancelado:
     "Se canceló la espera. El resultado puede ser indeterminado; recargue antes de repetir.",
   estado_lectura_cancelada:

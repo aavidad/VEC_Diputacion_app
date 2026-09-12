@@ -50,7 +50,28 @@ function fila(etiqueta, valor) {
   return `<div><dt>${escapar(etiqueta)}</dt><dd><code>${escapar(String(valor))}</code></dd></div>`;
 }
 
-function renderizarSeguimiento(datos, mensajes) {
+function filaFecha(etiqueta, valor, formatear) {
+  return `<div><dt>${escapar(etiqueta)}</dt><dd><time datetime="${escapar(valor)}">${escapar(formatear(valor))}</time></dd></div>`;
+}
+
+function filaPeriodo(etiqueta, periodo, formatear) {
+  return `<div><dt>${escapar(etiqueta)}</dt><dd><time datetime="${escapar(periodo.desde)}">${escapar(formatear(periodo.desde))}</time> — <time datetime="${escapar(periodo.hasta)}">${escapar(formatear(periodo.hasta))}</time></dd></div>`;
+}
+
+function crearFormateadoresFechas(locale, zonaHoraria) {
+  const fechaCivil = new Intl.DateTimeFormat(locale, {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC",
+  });
+  const instante = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
+  });
+  return Object.freeze({
+    fechaCivil: (valor) => fechaCivil.format(new Date(valor)),
+    instante: (valor) => instante.format(new Date(valor)),
+  });
+}
+
+function renderizarSeguimiento(datos, mensajes, fechas) {
   const hitos = datos.actuaciones.length === 0
     ? `<p>${escapar(texto(mensajes, "seguimiento_incorporacion_sin_hitos"))}</p>`
     : `<ol>${datos.actuaciones.map((actuacion) => {
@@ -61,7 +82,7 @@ function renderizarSeguimiento(datos, mensajes) {
       return `<li><dl>${fila(texto(mensajes, "seguimiento_incorporacion_referencia"), actuacion.actuacion_ref)}
         ${fila(texto(mensajes, "seguimiento_incorporacion_transicion"), actuacion.transicion_clave)}
         ${fila(texto(mensajes, "seguimiento_incorporacion_estado"), `${actuacion.estado_origen} → ${actuacion.estado_destino}`)}
-        ${fila(texto(mensajes, "seguimiento_incorporacion_efectiva"), actuacion.efectivo_en)}${fila(texto(mensajes, "seguimiento_incorporacion_registrado"), actuacion.registrada_en)}
+        ${filaFecha(texto(mensajes, "seguimiento_incorporacion_efectiva"), actuacion.efectivo_en, fechas.instante)}${filaFecha(texto(mensajes, "seguimiento_incorporacion_registrado"), actuacion.registrada_en, fechas.instante)}
         </dl><h5>${escapar(texto(mensajes, "seguimiento_incorporacion_documentos"))}</h5><ul>${documentos}</ul></li>`;
     }).join("")}</ol>`;
   return `<dl class="ct-resumen">${fila(texto(mensajes, "seguimiento_incorporacion_expediente"), datos.expediente_ref)}
@@ -69,12 +90,12 @@ function renderizarSeguimiento(datos, mensajes) {
     ${fila(texto(mensajes, "seguimiento_incorporacion_seguimiento"), datos.seguimiento_ref)}
     ${fila(texto(mensajes, "seguimiento_incorporacion_version_seguimiento"), datos.version_seguimiento)}
     ${fila(texto(mensajes, "seguimiento_incorporacion_estado"), datos.estado_clave)}
-    ${fila(texto(mensajes, "seguimiento_incorporacion_periodo"), `${datos.periodo.desde} — ${datos.periodo.hasta}`)}
-    ${fila(texto(mensajes, "seguimiento_incorporacion_registrado"), datos.registrado_en)}</dl>
+    ${filaPeriodo(texto(mensajes, "seguimiento_incorporacion_periodo"), datos.periodo, fechas.fechaCivil)}
+    ${filaFecha(texto(mensajes, "seguimiento_incorporacion_registrado"), datos.registrado_en, fechas.instante)}</dl>
     <h4>${escapar(texto(mensajes, "seguimiento_incorporacion_hitos"))}</h4>${hitos}`;
 }
 
-export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes = {} } = {}) {
+export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
   if (!raiz?.addEventListener || !raiz?.removeEventListener || !raiz?.replaceChildren
     || typeof cliente?.consultar !== "function") {
     throw new TypeError("dependencias de seguimiento de incorporación no válidas");
@@ -89,12 +110,13 @@ export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes
     }, recibo?.expediente_ref);
     reciboConfirmado = preparado.recibo;
   } catch { /* Sin recibo V2 confirmado, la consulta queda deshabilitada. */ }
+  const fechas = crearFormateadoresFechas(locale, zonaHoraria);
   let activo = true, controlador = null, estado = "inicial", datos = null;
 
   function pintar() {
     if (!activo) return;
     const cargando = estado === "cargando";
-    const contenido = estado === "listo" ? renderizarSeguimiento(datos, mensajes)
+    const contenido = estado === "listo" ? renderizarSeguimiento(datos, mensajes, fechas)
       : estado === "error" ? `<p role="status">${escapar(texto(mensajes, "seguimiento_incorporacion_error"))}</p>` : "";
     raiz.innerHTML = `<section data-ct-seguimiento-incorporacion>
       <h3>${escapar(texto(mensajes, "seguimiento_incorporacion_titulo"))}</h3>
