@@ -3,7 +3,7 @@
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
 La base publicada de este corte es
-`eb467ee704a358efc08077af1e88ea6d41d6c050`. El runtime principal comprobado usa
+`069d399b5ece9c8602253579aa31317c0fccc75c`. El runtime principal comprobado usa
 la web `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la
@@ -227,7 +227,22 @@ cookies ni relaja el TTL SQL. Un cambio TLS, expulsión, reinicio o fallo tras l
 reserva obliga a solicitar otra primera página. CT89 no está instalada; no se
 han acreditado PostgreSQL 50→2 ni recuperación del cursor, así que no hay E2E.
 Go global y vet terminaron en `PASS`. La autoridad y roles normales
-no cambian. Contacto13 tiene dos `GO`, pero todavía no está integrado.
+no cambian. Contacto13 se aplicó después, como se detalla debajo.
+
+Contacto13 (`3191e8c3…`) queda aplicado en fuente mediante hunks revisados, con
+dos `GO` nativos adicionales y dos de apoyo. La API interna Go de VEC, todavía
+sin exposición HTTP, ofrece alta, cambio y consulta del contacto usando emisor
+V3 real. Cifra con subclave
+KMS, AES-GCM, AAD por persona y versión y buffer efímero. El nuevo módulo
+`usuarios` declara permisos sin concederlos. Las pruebas V3/PDP/COSE usan
+material real; gobierno y persistencia usan dobles. El catálogo incorpora cinco
+claves y conserva las dos de correo. `roles_up.sql` es solo fuente y no debe
+instalarse. Tampoco hay SMTP ni dirección heredada inferida. Quedan pendientes
+el preparador HMAC central y su composición, almacén AD3-35/T13-6, gobierno,
+alta web, vínculo Bolsa y replay durable. Go global y vet terminaron en `PASS`.
+JavaScript quedó intacto; los manifiestos 11/111/3/1 pasaron y el catálogo de
+dos claves de correo más cinco de contacto conserva SHA256 `d22f70a…`. No hay
+runtime de este corte.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones

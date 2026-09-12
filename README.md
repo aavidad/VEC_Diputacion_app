@@ -6,7 +6,7 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base publicada de este corte es `eb467ee704a358efc08077af1e88ea6d41d6c050`.
+La base publicada de este corte es `069d399b5ece9c8602253579aa31317c0fccc75c`.
 El runtime principal comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
@@ -190,7 +190,19 @@ y TTL límite. No usa cookies ni relaja el TTL SQL. Cambio TLS, expulsión,
 reinicio o fallo tras reservar exigen empezar una primera página nueva. CT89 no
 está instalada; faltan el ensayo PostgreSQL 50→2 y la recuperación del cursor,
 por lo que no hay E2E. Go global y vet terminaron en `PASS`. Los roles
-normales no cambian y Contacto13, aunque tiene dos `GO`, aún no está integrado.
+normales no cambian. Contacto13 se aplicó después, como se detalla debajo.
+
+Contacto13 (`3191e8c3…`) está aplicado en fuente con dos `GO` nativos adicionales
+y dos de apoyo. Su API interna en Go, aún no expuesta por HTTP, permite alta,
+cambio y consulta del contacto VEC con emisor V3 real; cifra mediante subclave KMS y AES-GCM, AAD por
+persona y versión, y buffer efímero. El nuevo módulo de usuarios declara
+permisos, pero no los concede. Las pruebas de V3/PDP/COSE usan material real;
+gobierno y persistencia usan dobles. El catálogo añade cinco claves y conserva
+las dos de correo. No instala `roles_up.sql`, no infiere direcciones heredadas
+ni envía SMTP. Siguen pendientes preparador HMAC central, almacén, AD3-35,
+T13-6, gobierno, alta web, vínculo Bolsa y replay durable. Go global y vet
+terminaron en `PASS`; JavaScript quedó intacto y los manifiestos 11/111/3/1
+pasaron. El catálogo 2+5 conserva SHA256 `d22f70a…`. No hay runtime.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

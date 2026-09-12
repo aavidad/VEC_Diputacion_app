@@ -2,7 +2,7 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base publicada de este corte es `eb467ee704a358efc08077af1e88ea6d41d6c050`.
+La base publicada de este corte es `069d399b5ece9c8602253579aa31317c0fccc75c`.
 El runtime principal comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
@@ -172,7 +172,17 @@ TLS, certificado y lector, tras revalidar una autoridad fresca y consumirla una
 vez. No usa cookies ni amplía el TTL SQL. Si cambia TLS, se expulsa la sesión, se
 reinicia o falla tras reservar, vuelva a la primera página: no intente recuperar
 ese cursor. CT89 aún no está instalada y faltan el ensayo PostgreSQL 50→2 y la
-recuperación real; Go global y vet terminaron en `PASS`. Contacto13 no está integrado.
+recuperación real; Go global y vet terminaron en `PASS`.
+
+Contacto13 está aplicado solo en fuente y revisado. La API interna Go, aún sin
+exposición HTTP, permite alta, cambio y consulta con emisor V3 real y cifra con subclave KMS, AES-GCM y AAD por
+persona y versión; el buffer es efímero. El módulo de usuarios solo declara
+permisos, no los concede. No instale `roles_up.sql`, no infiera una dirección
+heredada y no intente SMTP. Faltan preparador HMAC central y su composición,
+almacén AD3-35/T13-6, gobierno, alta web, vínculo Bolsa y replay durable. Go
+global y vet pasaron; no hubo JavaScript nuevo y los manifiestos 11/111/3/1
+pasaron. El catálogo de dos claves de correo más cinco de contacto conserva
+SHA256 `d22f70a…`. No hay runtime.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

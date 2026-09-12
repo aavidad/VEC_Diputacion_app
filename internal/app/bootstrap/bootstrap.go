@@ -31,6 +31,7 @@ import (
 	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	usuariosmodule "vec-diputacion-granada/internal/modules/usuarios"
 	"vec-diputacion-granada/internal/shared/i18n"
 	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -256,6 +257,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		bolsamodule.Manifest(),
 		contrataciontemporal.Manifest(),
 		adminmodule.Manifest(),
+		usuariosmodule.Manifest(),
 	} {
 		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
 			return nil, err
