@@ -62,6 +62,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   reintentar: "Reintentar",
   volver_cuadro: "Volver al cuadro",
   indicadores: "Resumen de expedientes",
+  indicadores_pagina: "Resumen de expedientes de esta página",
+  indicador_ambito_pagina: "{indicador} en esta página",
   trabajo_sobrelinea: "Espacio de trabajo",
   trabajo_titulo: "Prioridades de contratación temporal",
   trabajo_descripcion:

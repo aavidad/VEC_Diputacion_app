@@ -20,6 +20,24 @@ test("controlador: identifica la ficha con su recibo y nombre antes de descargar
   montarFichaGINPIX({ raiz, recibo, mensajes: { ficha_ginpix_aviso: "<aviso>" }, cliente: { descargarFichaGINPIX: async () => ({ json: ficha(), contenido: new Uint8Array([123, 125]) }) }, descargarArchivo: async (archivo, nombre) => { descargado = [archivo, nombre]; } });
   assert.match(raiz.innerHTML, /<h3>Ficha GINPIX<\/h3>/u); assert.match(raiz.innerHTML, /<dl class="ct-resumen">/u); assert.match(raiz.innerHTML, /<dt>Recibo de incorporación confirmado<\/dt><dd><code>recibo:001<\/code><\/dd>/u); assert.match(raiz.innerHTML, /<dt>Nombre de archivo<\/dt><dd><code>ficha-ginpix-ejercicio\.json<\/code><\/dd>/u); assert.match(raiz.innerHTML, /&lt;aviso&gt;/u); await eventos.get("click")({ target: { matches: () => true } }); assert.equal(descargado[1], "ficha-ginpix-ejercicio.json"); assert.ok(descargado[0].contenido instanceof Uint8Array);
 });
+test("controlador: el resumen final agrupa sólo centro y categoría ya validados con el recibo", () => {
+  const eventos = new Map(); const raiz = { innerHTML: "", addEventListener: (k, v) => eventos.set(k, v), removeEventListener() {}, replaceChildren() {} };
+  montarFichaGINPIX({ raiz, recibo, resumen: { centro: "Centro sintético", categoria: "Categoría sintética" },
+    cliente: { descargarFichaGINPIX: async () => ({ json: ficha(), contenido: new Uint8Array([123, 125]) }) }, descargarArchivo: async () => {}, locale: "es-ES", zonaHoraria: "UTC" });
+  assert.match(raiz.innerHTML, /Resumen final para GINPIX/u);
+  assert.match(raiz.innerHTML, /<dt>Destino<\/dt><dd>Centro sintético<\/dd>/u);
+  assert.match(raiz.innerHTML, /<dt>Categoría<\/dt><dd>Categoría sintética<\/dd>/u);
+  assert.match(raiz.innerHTML, /Inicio de incorporación/u);
+  assert.match(raiz.innerHTML, /recibo:001/u);
+  assert.match(raiz.innerHTML, /Envío externo no conectado; la ficha de carga manual está disponible\./u);
+  assert.doesNotMatch(raiz.innerHTML, /enviado a GINPIX/u);
+});
+test("controlador: rechaza un resumen ajeno o incompleto antes de montar", () => {
+  const raiz = { addEventListener() {}, removeEventListener() {}, replaceChildren() {} };
+  for (const resumen of [null, { centro: "Centro" }, { centro: "Centro", categoria: "Categoría", extra: true }]) {
+    assert.throws(() => montarFichaGINPIX({ raiz, recibo, resumen, cliente: { descargarFichaGINPIX() {} }, descargarArchivo() {} }), /contexto de resumen GINPIX/u);
+  }
+});
 test("controlador: el desmontaje conserva la cancelación aunque falle la descarga", async () => {
   const eventos = new Map(); const raiz = { innerHTML: "", addEventListener: (k, v) => eventos.set(k, v), removeEventListener() {}, replaceChildren() { this.innerHTML = ""; } }; let rechazar, marcarInicio; const iniciado = new Promise((resolve) => { marcarInicio = resolve; });
   const desmontar = montarFichaGINPIX({ raiz, recibo, cliente: { descargarFichaGINPIX: async () => ({ json: ficha(), contenido: new Uint8Array([123, 125]) }) }, descargarArchivo: () => new Promise((_, reject) => { rechazar = reject; marcarInicio(); }) });

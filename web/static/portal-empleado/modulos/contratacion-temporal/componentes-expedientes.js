@@ -102,9 +102,9 @@ export function renderizarCuadro(estado, t) {
     expediente.fase_actual,
   ])).entries()].map(([clave, etiqueta]) => ({ clave, etiqueta }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
-  const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t("indicadores"))}">
+  const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t(cuadro.paginacion ? "indicadores_pagina" : "indicadores"))}">
     ${cuadro.indicadores.map((indicador) => `<article class="ct-exp-indicador ct-tono-${escaparHTML(indicador.tono)}">
-      <span>${escaparHTML(indicador.etiqueta)}</span>
+      <span>${escaparHTML(cuadro.paginacion ? t("indicador_ambito_pagina", { indicador: indicador.etiqueta }) : indicador.etiqueta)}</span>
       <strong>${escaparHTML(indicador.valor)}</strong>
     </article>`).join("")}
   </section>`;
