@@ -2,8 +2,9 @@
 
 ## Contador vigente de pantallas — 12 de septiembre de 2026
 
-**6 de 19 terminadas en desarrollo; 9 parciales; 4 pendientes de pantalla real.**
-Hay superficie real para **15 de 19 (79 %)**. Visible no significa terminada.
+**6 de 19 terminadas en desarrollo; 11 parciales; 2 pendientes de pantalla real.**
+Hay superficie real publicada para **15 de 19 (79 %)**. Dos superficies más
+están preparadas en código y pendientes de integración. Visible no significa terminada.
 El denominador queda fijo: 17 referencias de RRHH y 2 tareas adicionales ya
 incluidas en el alcance (incorporación y seguimiento). No son 19 URL distintas:
 varias se presentan como paneles del expediente. Los seis documentos no suman
@@ -15,17 +16,18 @@ Cero significa recorrido funcional de desarrollo documentado, no producción ni
 validación final de RRHH. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
-**Disponibilidad transversal:** la app remota está detenida por fallo de arranque
-al registrar este corte. Esto impide probarla ahora, pero no borra las entregas
-conservadas. Primero recuperar el arranque y confirmar el PDF. No afirmar
+**Disponibilidad transversal:** el remoto confirmó recuperación del arranque
+con binario `9abf2c6d` a las 21:44 UTC. Falta confirmar la descarga PDF y
+el despliegue de las entregas locales; no se han repetido recorridos cerrados. No afirmar
 19 pantallas disponibles hasta comprobarlo. Último producto publicado de referencia:
-`e8d3a2a6`; locales `10bf299e` y `f7ab1036` entregados, pendientes de integración.
+`e8d3a2a6`; locales `10bf299e`, `f7ab1036`, `a28f5432` y `450cea84`
+entregados, pendientes de integración. El resumen de candidatura se añade en este corte.
 
 | N.º | Pantalla | Estado | Falta estimada | Responsable / dependencia | Pendiente concreto o evidencia |
 |---:|---|---|---:|---|---|
-| 1 | Inicio y cuadro de mando | Parcial | 25 % | Local: web_cuadro_final | Ámbito de indicadores; línea de progreso depende de definición de flujo publicada. |
+| 1 | Inicio y cuadro de mando | Parcial | 25 % | Director local; integración del parche entregado | Ámbito de indicadores; línea de progreso depende de definición de flujo publicada. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | En espera de catálogo/política de rectificación | Registro existente; falta rectificación habilitada por política y motivo gobernados. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Local: web_rectificacion y web_politica_rectificacion | Registro existente; falta rectificación habilitada por política y motivo gobernados. |
 | 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Director local; espera arranque | Reapertura integrada; comprobar recorrido de cobertura desde análisis existente. |
 | 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Director local; espera arranque | Asignación persistida; falta recorrido de bandeja con lectores nominales. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Preparación real y recibo; documento de desarrollo sin firma. |
@@ -35,10 +37,10 @@ conservadas. Primero recuperar el arranque y confirmar el PDF. No afirmar
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Espera contacto/SMTP operativo | Selección y aviso local existen; envío efectivo depende de correo. Completar dependencia si impide avanzar, autorizado por operador. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Espera política de plazo admitida | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio/plazo acreditados. |
-| 13 | Traslado de candidatura | Pendiente | 100 % | Local: web_traslado | Conectar acción real de traslado; no equiparar propuesta a envío sin contrato. |
+| 13 | Traslado de candidatura | Parcial | 25 % | Director local; integración UI entregada | Fuente Word pide generar documentos tras selección. Resumen de aceptación conectado a CT65; falta publicación/recorrido. No hace falta crear otro traslado. |
 | 14 | Documentación para formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Recuperación de documentos históricos D/CT91; arranque y descarga pendientes. |
 | 15 | Generación de datos GINPIX | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Ficha manual real recuperada; no representa envío externo. |
-| 16 | Resumen final y envío a GINPIX | Pendiente | 100 % | Local: web_resumen_ginpix | Montar resumen real y salida manual admitida; envío externo depende de conector. |
+| 16 | Resumen final y envío a GINPIX | Parcial | 25 % | Director local/remoto; integración de 450cea84 | Resumen real y ficha manual conectados en código; falta publicación/recorrido. La alternativa manual está admitida por Word, envío automático sigue separado. |
 | 17 | Generación documental de formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Seis PDF/DOCX ya generados; recuperar descarga desde expediente avanzado. |
 | 18 | Incorporación | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Incorporación y recuperación documentadas con mismo recibo. |
 | 19 | Seguimiento y cierre administrativo | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Anotación/cierre y estado recuperados; no es cese ni cierre jurídico. |
