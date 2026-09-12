@@ -15,6 +15,7 @@ const ESTADOS_SERVIDOR_A_VISUAL = new Map([
 const ESTADOS_VISUAL_A_SERVIDOR = new Map(
   [...ESTADOS_SERVIDOR_A_VISUAL].map(([servidor, visual]) => [visual, servidor]),
 );
+const PATRON_INSTANTE_CIVIL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/u;
 
 function etiqueta(clave, alternativa = "No consta") {
   if (typeof clave !== "string" || clave === "") return alternativa;
@@ -91,7 +92,24 @@ function proyectarCuadro(pagina) {
   });
 }
 
-function cabeceraDetalle(detalle) {
+function fechaCivil(instante, locale) {
+  const coincidencia = typeof instante === "string" && PATRON_INSTANTE_CIVIL.exec(instante);
+  if (!coincidencia) return instante;
+  const [ano, mes, dia, hora, minuto, segundo] = coincidencia.slice(1, 7).map(Number);
+  if (hora > 23 || minuto > 59 || segundo > 59) return instante;
+  const fraccion = (coincidencia[7] ?? "").padEnd(3, "0").slice(0, 3);
+  const fecha = new Date(0);
+  fecha.setUTCFullYear(ano, mes - 1, dia);
+  fecha.setUTCHours(hora, minuto, segundo, Number(fraccion));
+  if (fecha.getUTCFullYear() !== ano || fecha.getUTCMonth() !== mes - 1
+    || fecha.getUTCDate() !== dia || fecha.getUTCHours() !== hora
+    || fecha.getUTCMinutes() !== minuto || fecha.getUTCSeconds() !== segundo) return instante;
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium", timeZone: "UTC",
+  }).format(fecha);
+}
+
+function cabeceraDetalle(detalle, locale) {
   const { resumen, solicitud } = detalle;
   const campos = [
     campo("centro", "Centro", resumen.centro_ref),
@@ -101,7 +119,7 @@ function cabeceraDetalle(detalle) {
     campo("estado", "Estado", etiqueta(resumen.estado_clave)),
     campo("grupo_subgrupo", "Grupo/Subgrupo", solicitud.grupo_subgrupo),
     campo("motivo", "Motivo", etiqueta(solicitud.motivo_clave)),
-    campo("periodo", "Periodo previsto", `${solicitud.periodo_inicio} — ${solicitud.periodo_fin}`),
+    campo("periodo", "Periodo previsto", `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
   ];
   if (detalle.analisis) {
     campos.push(
@@ -137,7 +155,7 @@ function resolucionConPropuestaHistorica(detalle) {
     && resolucion.estado_origen === "en_curso" && resolucion.estado_destino === "en_curso";
 }
 
-function proyectarExpediente(detalle) {
+function proyectarExpediente(detalle, locale) {
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -147,7 +165,7 @@ function proyectarExpediente(detalle) {
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
-    cabecera: cabeceraDetalle(detalle),
+    cabecera: cabeceraDetalle(detalle, locale),
     fases: [],
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
@@ -155,10 +173,13 @@ function proyectarExpediente(detalle) {
   });
 }
 
-export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente } = {}) {
+export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, locale = "es-ES" } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
     throw new TypeError("cliente de expedientes de contratación temporal no disponible");
+  }
+  if (typeof locale !== "string" || locale.trim() === "") {
+    throw new TypeError("locale de expedientes no válido");
   }
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
@@ -192,7 +213,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente } = 
         expediente_ref: expedienteRef,
         version_observada: version,
       }, { signal });
-      const expediente = proyectarExpediente(detalle);
+      const expediente = proyectarExpediente(detalle, locale);
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
     },
