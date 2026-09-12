@@ -72,13 +72,14 @@ type entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo struct {
 }
 
 type configuracionAnalisisContratacionTemporalDesarrollo struct {
-	Esquema              string                                                         `json:"esquema"`
-	ArtefactoRef         string                                                         `json:"artefacto_ref"`
-	Modalidades          []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"modalidades"`
-	Categorias           []categoriaCatalogosAltaContratacionTemporalDesarrollo         `json:"categorias"`
-	Causas               []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"causas"`
-	EntradasRC           []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo `json:"entradas_rc"`
-	MotivosRectificacion []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"motivos_rectificacion"`
+	SubsanacionDisponible bool                                                           `json:"subsanacion_disponible,omitempty"`
+	Esquema               string                                                         `json:"esquema"`
+	ArtefactoRef          string                                                         `json:"artefacto_ref"`
+	Modalidades           []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"modalidades"`
+	Categorias            []categoriaCatalogosAltaContratacionTemporalDesarrollo         `json:"categorias"`
+	Causas                []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"causas"`
+	EntradasRC            []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo `json:"entradas_rc"`
+	MotivosRectificacion  []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"motivos_rectificacion"`
 }
 
 type respuestaConfiguracionAnalisisContratacionTemporalDesarrollo struct {
@@ -89,15 +90,44 @@ func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo() (
 	vechttp.RutaExacta,
 	error,
 ) {
+	return nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+		false,
+		fuenteMotivosRectificacionAnalisisDesarrollo{},
+	)
+}
+
+func nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(disponible bool) (vechttp.RutaExacta, error) {
+	return nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+		disponible,
+		fuenteMotivosRectificacionAnalisisDesarrollo{},
+	)
+}
+
+func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+) (vechttp.RutaExacta, error) {
+	return nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(false, motivos)
+}
+
+func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+	subsanacionDisponible bool,
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+) (vechttp.RutaExacta, error) {
 	return vechttp.RutaExacta{
-		Ruta:      rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
-		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{},
+		Ruta: rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
+		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{
+			subsanacionDisponible: subsanacionDisponible,
+			motivos:               motivos,
+		},
 	}, nil
 }
 
-type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct{}
+type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct {
+	subsanacionDisponible bool
+	motivos               fuenteMotivosRectificacionAnalisisDesarrollo
+}
 
-func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
+func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -124,9 +154,13 @@ func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		return
 	}
+	configuracion := nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
+		m.motivos.opciones(r.Context()),
+	)
+	configuracion.SubsanacionDisponible = m.subsanacionDisponible
 	contenido, err := json.Marshal(
 		respuestaConfiguracionAnalisisContratacionTemporalDesarrollo{
-			Data: nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(),
+			Data: configuracion,
 		},
 	)
 	if err != nil {
@@ -142,7 +176,9 @@ func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	}
 }
 
-func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo() configuracionAnalisisContratacionTemporalDesarrollo {
+func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
+	motivos []opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
+) configuracionAnalisisContratacionTemporalDesarrollo {
 	modalidades := make(
 		[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
 		0,
@@ -183,10 +219,7 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo() configuracionAna
 			HuellaSHA256: huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
 			Etiqueta:     "Retención de crédito sintética 001",
 		}},
-		MotivosRectificacion: make(
-			[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
-			0,
-		),
+		MotivosRectificacion: motivos,
 	}
 }
 

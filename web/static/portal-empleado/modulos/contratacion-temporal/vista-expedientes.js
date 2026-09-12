@@ -10,6 +10,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
+import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
 import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
@@ -334,6 +335,22 @@ function asignacionConfirmadaEnDetalle(expediente) {
   );
 }
 
+// La fase y el reparo proyectado solo acotan el contenedor. La disponibilidad
+// efectiva llega como dependencia de composición y el servidor la revalida al
+// registrar; la vista nunca la deduce de este estado.
+function contextoSubsanacionDesdeEstado(estado) {
+  if (estado?.vista !== "expediente" || estado.carga !== "listo"
+    || estado.expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
+    || !Array.isArray(estado.cuadro?.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
+    referencia === estado.expediente.expediente_ref
+  ));
+  if (resumen?.fase_clave !== "subsanacion_unidad" || resumen.estado_clave !== "incidencia"
+    || resumen.version !== estado.expediente.version) return null;
+  return Object.freeze({ expediente_ref: estado.expediente.expediente_ref,
+    version_esperada: estado.expediente.version });
+}
+
 function contextoInformeJuridicoDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.expediente === null
     || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
@@ -422,6 +439,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   asignacionDisponible = false,
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
+  subsanacionDisponible = false,
   llamamientoDisponible = false,
   resolucionFormalizacionDisponible = false,
   incorporacionEjercicioDisponible = false,
@@ -467,6 +485,9 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoFiscalizacion = fiscalizacionDisponible
       ? contextoFiscalizacionDesdeEstado(estado)
       : null;
+    const contextoSubsanacion = subsanacionDisponible
+      ? contextoSubsanacionDesdeEstado(estado)
+      : null;
     contenido = `${detalle}${contextoRectificacion
       ? '<div data-ct-exp-rectificacion></div>'
       : ""}${contextoCobertura
@@ -477,7 +498,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       ? '<div data-ct-exp-informe-juridico></div>'
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
-      : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
+      : ""}${contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
       ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
@@ -524,6 +545,7 @@ export async function montarModuloContratacionTemporal({
   alta = null,
   analisis = null,
   fiscalizacion = null,
+  subsanacion = null,
   llamamiento = null,
   clienteBorradorRRHH = crearClienteHTTPBorradorRRHH(),
   entornoDescarga = globalThis,
@@ -561,6 +583,11 @@ export async function montarModuloContratacionTemporal({
     && typeof fiscalizacion.cliente?.registrarResultadoFiscalizacion === "function"
     ? fiscalizacion.cliente : null;
   const fiscalizacionDisponible = clienteFiscalizacion !== null;
+  const clienteSubsanacion = subsanacion !== null && typeof subsanacion === "object"
+    && subsanacion.disponible === true
+    && typeof subsanacion.cliente?.registrarSubsanacionReparos === "function"
+    ? subsanacion.cliente : null;
+  const subsanacionDisponible = clienteSubsanacion !== null;
   const clienteLlamamiento = llamamiento?.cliente ?? clienteFiscalizacion
     ?? composicionAnalisis?.cliente;
   const llamamientoDisponible = typeof clienteLlamamiento?.seleccionarLlamamiento === "function"
@@ -582,6 +609,8 @@ export async function montarModuloContratacionTemporal({
   let desmontarAsignacion = null;
   let desmontarInformeJuridico = null;
   let desmontarFiscalizacion = null;
+  let desmontarSubsanacion = null;
+  let reciboSubsanacionConfirmado = null;
   let sesionAnalisis = null;
   let descargaInforme = null;
   let urlInforme = null;
@@ -818,6 +847,8 @@ export async function montarModuloContratacionTemporal({
     desmontarResolucionFormalizacion = null;
     if (typeof desmontarFiscalizacion === "function") desmontarFiscalizacion();
     desmontarFiscalizacion = null;
+    desmontarSubsanacion?.();
+    desmontarSubsanacion = null;
     if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
     desmontarInformeJuridico = null;
     if (typeof desmontarAsignacion === "function") desmontarAsignacion();
@@ -863,6 +894,63 @@ export async function montarModuloContratacionTemporal({
       fase_clave: "informe_juridico",
       informe_ref: recibo.informe_ref,
     }));
+  }
+
+  function montarSubsanacionDesdeExpedienteActual() {
+    if (!montada || !subsanacionDisponible || desmontarSubsanacion !== null) return;
+    const contexto = contextoSubsanacionDesdeEstado(presentador.obtenerEstado());
+    const contenedor = raiz.querySelector("[data-ct-exp-subsanacion]");
+    if (!contexto || !contenedor) return;
+    const reciboConfirmado = reciboSubsanacionConfirmado?.recibo?.expediente_ref === contexto.expediente_ref
+      && [reciboSubsanacionConfirmado.contexto.version_esperada, reciboSubsanacionConfirmado.recibo.version_resultante].includes(contexto.version_esperada)
+      ? reciboSubsanacionConfirmado : null;
+    try {
+      desmontarSubsanacion = montarFormularioSubsanacionReparos({
+        raiz: contenedor, cliente: clienteSubsanacion, contexto,
+        traducir: crearTraductorContratacionTemporal(mensajes), confirmarOperacion,
+        anunciar, reciboConfirmado,
+        alConfirmar: refrescarDetalleTrasSubsanacion,
+      });
+    } catch {
+      desmontarSubsanacion = null;
+      const t = crearTraductorContratacionTemporal(mensajes);
+      contenedor.innerHTML = `<p role="alert">${escaparHTML(t("subsanacion_montaje_error"))}</p>`;
+    }
+  }
+
+  async function refrescarDetalleTrasSubsanacion(recibo, contextoOriginal) {
+    if (!montada || recibo?.expediente_ref !== contextoOriginal?.expediente_ref
+      || recibo.version_resultante <= contextoOriginal.version_esperada) return;
+    reciboSubsanacionConfirmado = Object.freeze({ recibo, contexto: contextoOriginal });
+    const seleccionado = presentador.obtenerEstado();
+    if (seleccionado.vista !== "expediente"
+      || seleccionado.expediente?.expediente_ref !== contextoOriginal.expediente_ref) return;
+    const panel = raiz.querySelector("[data-ct-exp-subsanacion]");
+    // cargar descarta la selección antigua cuando cambia la versión; el panel
+    // identifica la navegación del usuario mientras se recupera la nueva.
+    const sigueSeleccionado = () => montada && panel !== null
+      && raiz.querySelector("[data-ct-exp-subsanacion]") === panel;
+    const avisarPendiente = () => {
+      if (sigueSeleccionado()) anunciar(
+        crearTraductorContratacionTemporal(mensajes)("subsanacion_actualizacion_pendiente"), "aviso",
+      );
+    };
+    try {
+      await presentador.cargar();
+      if (!sigueSeleccionado()) return;
+      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+        ({ expediente_ref: referencia }) => referencia === contextoOriginal.expediente_ref,
+      );
+      if (!resumen || resumen.version < recibo.version_resultante) { avisarPendiente(); return; }
+      await presentador.seleccionarExpediente(contextoOriginal.expediente_ref, "expediente");
+      if (!sigueSeleccionado()) return;
+      const actualizado = presentador.obtenerEstado().expediente;
+      if (actualizado?.expediente_ref !== contextoOriginal.expediente_ref
+        || actualizado.version < recibo.version_resultante) { avisarPendiente(); return; }
+      repintar("[data-ct-subsanacion-recibo]");
+    } catch {
+      avisarPendiente();
+    }
   }
 
   function montarLlamamiento(contexto = null) {
@@ -1466,6 +1554,7 @@ export async function montarModuloContratacionTemporal({
       asignacionDisponible,
       informeJuridicoDisponible,
       fiscalizacionDisponible,
+      subsanacionDisponible,
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
       incorporacionEjercicioDisponible,
@@ -1492,6 +1581,7 @@ export async function montarModuloContratacionTemporal({
       montarAsignacionDesdeEstado();
       montarInformeDesdeExpedienteActual();
       montarFiscalizacionDesdeExpedienteActual();
+      montarSubsanacionDesdeExpedienteActual();
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     anunciar(

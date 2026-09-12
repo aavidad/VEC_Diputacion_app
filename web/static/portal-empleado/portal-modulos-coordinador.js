@@ -423,6 +423,7 @@ export function crearCoordinadorModulosPortal({
           }
         }
         let analisis = null;
+        let subsanacion = null;
         const controladorAnalisis = new AbortController();
         controladorCargaInterna = controladorAnalisis;
         try {
@@ -433,6 +434,10 @@ export function crearCoordinadorModulosPortal({
             temporizadores,
           );
           if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+          if (configuracionAnalisis.subsanacion_disponible === true
+            && typeof cliente.registrarSubsanacionReparos === "function") {
+            subsanacion = Object.freeze({ disponible: true, cliente });
+          }
           analisis = Object.freeze({
             cliente,
             catalogos: Object.freeze({
@@ -478,6 +483,7 @@ export function crearCoordinadorModulosPortal({
           alta,
           analisis,
           fiscalizacion,
+          subsanacion,
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
@@ -605,6 +611,7 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
+          subsanacion: composicion.contratacionTemporal.subsanacion,
           confirmarOperacion,
           anunciar,
         });

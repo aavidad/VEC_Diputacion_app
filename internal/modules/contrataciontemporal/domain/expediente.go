@@ -12,6 +12,7 @@ type DatosActuacion struct {
 	EstadoDestino EstadoOperativo `json:"estado_destino"`
 	Observaciones string          `json:"observaciones,omitempty"`
 	DocumentosRef []string        `json:"documentos_ref,omitempty"`
+	RetornoRef    string          `json:"retorno_ref,omitempty"`
 }
 
 func (d DatosActuacion) validar() error {
@@ -19,7 +20,8 @@ func (d DatosActuacion) validar() error {
 		!referenciaValida(d.UnidadRef) || !referenciaValida(d.ReciboRef) ||
 		!instanteCanonico(d.RealizadaEn) || !d.FaseDestino.Valida() ||
 		!d.EstadoDestino.Valido() || !textoValido(d.Observaciones, 2000, true) ||
-		!referenciasUnicasValidas(d.DocumentosRef, 64) {
+		!referenciasUnicasValidas(d.DocumentosRef, 64) ||
+		(d.RetornoRef != "" && !referenciaValida(d.RetornoRef)) {
 		return ErrDatoInvalido
 	}
 	return nil
@@ -39,6 +41,7 @@ type Actuacion struct {
 	EstadoDestino     EstadoOperativo `json:"estado_destino"`
 	Observaciones     string          `json:"observaciones,omitempty"`
 	DocumentosRef     []string        `json:"documentos_ref,omitempty"`
+	RetornoRef        string          `json:"retorno_ref,omitempty"`
 	// SeguimientoOriginal solo se informa en la primera anotación administrativa.
 	// Es un antecedente inmutable, no una transición del seguimiento.
 	SeguimientoOriginal *VinculoSeguimientoOriginal `json:"seguimiento_original,omitempty"`
@@ -438,6 +441,6 @@ func (e Expediente) nuevaActuacion(
 		RealizadaEn: datos.RealizadaEn, FaseOrigen: faseOrigen,
 		FaseDestino: datos.FaseDestino, EstadoOrigen: estadoOrigen,
 		EstadoDestino: datos.EstadoDestino, Observaciones: datos.Observaciones,
-		DocumentosRef: append([]string(nil), datos.DocumentosRef...),
+		DocumentosRef: append([]string(nil), datos.DocumentosRef...), RetornoRef: datos.RetornoRef,
 	}
 }

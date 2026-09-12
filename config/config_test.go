@@ -144,6 +144,19 @@ func TestCargaRutaCredencialesFakeSinInventarValor(t *testing.T) {
 	}
 }
 
+func TestFuenteMotivosRectificacionAnalisisEsOpcionalYExplicita(t *testing.T) {
+	if (Config{}).Normalize().CTAnalisisMotivosSourcePath != "" {
+		t.Fatal("la fuente de rectificación no debe configurarse por defecto")
+	}
+	t.Setenv(
+		EnvCTAnalisisMotivosSourcePath,
+		" /estado/desarrollo/motivos-rectificacion.json ",
+	)
+	if obtenida := Load().CTAnalisisMotivosSourcePath; obtenida != "/estado/desarrollo/motivos-rectificacion.json" {
+		t.Fatalf("fuente configurada = %q", obtenida)
+	}
+}
+
 func TestPresentacionRRHHParteDeshabilitadaYExigeActivacionExpresa(t *testing.T) {
 	if Load().RRHHPresentationEnabled {
 		t.Fatal("la presentacion RRHH se activo sin configuracion expresa")

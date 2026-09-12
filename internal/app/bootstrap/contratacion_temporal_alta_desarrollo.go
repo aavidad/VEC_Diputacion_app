@@ -112,6 +112,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaEntregaPeticion         dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH              dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH             dominiovec.InstantaneaAutorizacion
+	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                   dominiovec.ReferenciaEntradaCatalogo
 	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo
@@ -126,6 +127,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoResultadoCobertura           dominiovec.ReferenciaEntradaCatalogo
 	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
 	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
+	motivoSubsanacion                  dominiovec.ReferenciaEntradaCatalogo
 	ambitos                            ports.SelladorAmbitoIdempotencia
 	reloj                              relojContratacionTemporalDesarrollo
 	concesiones                        map[string]struct{}
@@ -367,10 +369,25 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	if s.peticionesCentro {
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
+	if capacidad.ruta == httpinterno.RutaSubsanacionReparos {
+		ahora := s.reloj.Ahora()
+		if !domain.InstanteUTCCanonico(ahora) ||
+			!domain.InstanteUTCCanonico(capacidad.certificadoVerificadoEn) ||
+			!domain.InstanteUTCCanonico(capacidad.certificadoValidoHasta) ||
+			capacidad.certificadoVerificadoEn.After(ahora) ||
+			!ahora.Before(capacidad.certificadoValidoHasta) {
+			principalValido = false
+		}
+	}
 	valida := existe && capacidad.sello == s.sello && principalValido &&
 		capacidad.principal.ID == s.principalID &&
 		capacidad.principal.Attributes["certificate_sha256"] == s.certificadoSHA256
 	return capacidad, valida
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) capacidadSubsanacionVigente(ctx context.Context) bool {
+	capacidad, valida := s.capacidadValida(ctx)
+	return valida && capacidad.ruta == httpinterno.RutaSubsanacionReparos
 }
 
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
@@ -382,6 +399,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaRegistroAnalisisRRHH ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
+		ruta == httpinterno.RutaSubsanacionReparos ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
@@ -720,6 +738,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoResolucionFormalizacionDesarrollo(), true
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
+	case httpinterno.RutaSubsanacionReparos:
+		return s.motivoSubsanacion, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoSubsanacion)
 	default:
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
@@ -778,6 +798,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil
 	}
+	if ruta == httpinterno.RutaSubsanacionReparos {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaSubsanacion), s.instantaneaSubsanacion.Validar() == nil
+	}
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaConsultaJustificante), s.instantaneaConsultaJustificante.Validar() == nil
 	}
@@ -798,6 +821,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
+	if ruta == httpinterno.RutaSubsanacionReparos {
+		dinamica = true
+	}
 	if !valida || !dinamica {
 		return instantanea, valida
 	}
@@ -870,6 +896,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			ruta,
 			datos,
 		) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
+			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
+			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
+			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
+			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
+		}
+	} else if ruta == httpinterno.RutaSubsanacionReparos {
+		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{

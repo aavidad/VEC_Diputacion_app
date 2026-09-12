@@ -1,5 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+Subsanación de reparos queda compuesta como capacidad opcional: formulario,
+cliente y `POST /api/vec/contratacion-temporal/subsanacion-reparos`, sobre el
+retorno existente. El recibo confirmado se conserva mientras se recuperan
+el detalle y su historial; la corrección mantiene la incidencia y no acredita
+una nueva fiscalización favorable. La disponibilidad procede del servidor.
+
+CT92 y AD3-38 conservan las huellas con dos revisiones favorables. Su ensayo
+PostgreSQL e instalación principal siguen pendientes en este corte; no reaplicar
+migraciones históricas. La política privada se configura con
+`VEC_CT_SUBSANACION_POLITICA_FILE`, sin actor ni perfil suministrados por la web.
+El catálogo opcional de rectificación se conecta mediante
+`VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH`: exige publicación vigente;
+sin fuente mantiene la indisponibilidad. No se han aprobado motivos legales.
+
+Comprobaciones de integración: 31 pruebas web focales, pruebas Go de los
+paquetes afectados, vet del ámbito CT/composición y compilación de aplicación.
+Revisión independiente de montaje favorable. No acredita todavía un registro
+de subsanación desde navegador. Cobertura continúa en `503`; el candidato de
+concurrencia se descartó de producto tras medir el mismo fallo en 626 ms.
+
 El detalle muestra ocho fases del procedimiento y el historial de actuaciones
 ya registrado. Solo destaca la fase actual; las demás permanecen **Sin confirmar**.
 El rail enlaza la fuente RRHH y el flujo declarado mediante sus huellas, sin

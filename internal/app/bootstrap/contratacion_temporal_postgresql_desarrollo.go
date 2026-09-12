@@ -1254,6 +1254,29 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialCon
 	return material, nil
 }
 
+// ProveerMaterialConfirmacionSubsanacionReparo entrega al confirmador sólo el
+// material atestado de la autorización ya ligada. No reutiliza la capacidad de
+// alta como autorización: conserva el motivo y contexto que validó el caso de
+// uso en la misma operación durable.
+func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialConfirmacionSubsanacionReparo(
+	ctx context.Context,
+	orden ports.OrdenConfirmarSubsanacionReparo,
+) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	material, err := p.proveerMaterialConfirmacion(
+		ctx,
+		orden.Evidencia.SolicitudV3,
+		orden.Evidencia.DecisionV3,
+		orden.Evidencia.ConfirmacionV3,
+		orden.Politica.MotivoAutorizacion,
+		orden.Evidencia.Contexto.Resultado,
+	)
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+			ports.ErrPersistenciaFiscalizacionNoDisponible
+	}
+	return material, nil
+}
+
 func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) proveerMaterialConfirmacion(
 	ctx context.Context,
 	solicitud dominiovec.SolicitudAutorizacionLigadaV3,

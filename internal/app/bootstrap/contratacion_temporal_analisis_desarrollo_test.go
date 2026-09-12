@@ -1,16 +1,70 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type consultaCatalogoRectificacionAnalisisPrueba struct {
+	resultado vecports.ResultadoConsultaCatalogosAcotada
+	err       error
+}
+
+func (c consultaCatalogoRectificacionAnalisisPrueba) ObtenerCatalogoAcotado(
+	context.Context,
+	string,
+	int,
+	vecports.LimitesConsultaCatalogosAcotada,
+) (vecports.ResultadoConsultaCatalogoAcotado, error) {
+	return vecports.ResultadoConsultaCatalogoAcotado{}, vecports.ErrCatalogoNoEncontrado
+}
+
+func (c consultaCatalogoRectificacionAnalisisPrueba) ListarVersionesCatalogoAcotado(
+	context.Context,
+	string,
+	vecports.LimitesConsultaCatalogosAcotada,
+) (vecports.ResultadoConsultaCatalogosAcotada, error) {
+	return c.resultado, c.err
+}
+
+func catalogoMotivosRectificacionAnalisisPrueba(t *testing.T) vecdomain.CatalogoConfigurable {
+	t.Helper()
+	creadoEn := time.Date(2026, 9, 13, 9, 0, 0, 0, time.UTC)
+	borrador := vecdomain.CatalogoConfigurable{
+		ID: "motivos_rectificacion_analisis", Version: 1, Revision: 1,
+		ModuloID: "contratacion_temporal", Nombre: "Motivos de rectificación",
+		FuenteRef: "fuente_rrhh_sintetica_001", MotivoCreacion: "Alta de prueba.",
+		Entradas: []vecdomain.EntradaCatalogoConfigurable{{
+			Clave: "rectificacion_coste", Etiqueta: "Ajuste de coste", Orden: 1,
+			VigenteDesde: creadoEn,
+			Atributos: map[string]string{
+				"clave_i18n": "contratacion_temporal.analisis.rectificacion.ajuste_coste",
+			},
+		}},
+		Estado:    vecdomain.EstadoCatalogoBorrador,
+		CreadoPor: "gestor_catalogo_001", CreadoEn: creadoEn,
+	}
+	publicado, err := borrador.Publicar(
+		"revisor_catalogo_001", "aprobacion_catalogo_001", "Publicación de prueba.", creadoEn,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return publicado
+}
 
 func TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado(t *testing.T) {
 	ruta, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo()
@@ -174,6 +228,132 @@ func TestRutaConfiguracionAnalisisDesarrolloFallaCerrada(t *testing.T) {
 	}
 }
 
+func TestRutaConfiguracionAnalisisDesarrolloCargaSoloMotivosPublicadosVigentes(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	fuente := nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+		consultaCatalogoRectificacionAnalisisPrueba{
+			resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{catalogo},
+			},
+		},
+		catalogo.ID,
+		catalogo.ModuloID,
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	)
+	ruta, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(fuente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	ruta.Manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, ruta.Ruta, nil))
+	if respuesta.Code != http.StatusOK {
+		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+	}
+	var contenido struct {
+		Data configuracionAnalisisContratacionTemporalDesarrollo `json:"data"`
+	}
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &contenido); err != nil {
+		t.Fatal(err)
+	}
+	if len(contenido.Data.MotivosRectificacion) != 1 ||
+		contenido.Data.MotivosRectificacion[0].Clave != "rectificacion_coste" ||
+		contenido.Data.MotivosRectificacion[0].Etiqueta != "Ajuste de coste" {
+		t.Fatalf("motivos inesperados: %+v", contenido.Data.MotivosRectificacion)
+	}
+}
+
+func TestFuenteMotivosRectificacionAnalisisConfiguradaLeeSoloPaqueteValidado(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	paquete, err := json.Marshal(struct {
+		VersionEsquema int `json:"version_esquema"`
+		Fuente         struct {
+			Revision      string    `json:"revision"`
+			ActualizadaEn time.Time `json:"actualizada_en"`
+			Demostracion  bool      `json:"demostracion"`
+			Aviso         string    `json:"aviso"`
+			OrigenSHA256  string    `json:"origen_sha256"`
+		} `json:"fuente"`
+		Catalogo vecdomain.CatalogoConfigurable `json:"catalogo"`
+	}{
+		VersionEsquema: 1,
+		Fuente: struct {
+			Revision      string    `json:"revision"`
+			ActualizadaEn time.Time `json:"actualizada_en"`
+			Demostracion  bool      `json:"demostracion"`
+			Aviso         string    `json:"aviso"`
+			OrigenSHA256  string    `json:"origen_sha256"`
+		}{
+			Revision: "rectificacion-v1", ActualizadaEn: catalogo.PublicadoEn,
+			Demostracion: true, Aviso: "DEMOSTRACIÓN con datos sintéticos.",
+			OrigenSHA256: strings.Repeat("a", 64),
+		},
+		Catalogo: catalogo,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(t.TempDir(), "motivos-rectificacion.demo.json")
+	if err := os.WriteFile(ruta, paquete, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fuente, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
+		config.Config{CTAnalisisMotivosSourcePath: ruta},
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opciones := fuente.opciones(t.Context()); len(opciones) != 1 || opciones[0].Clave != "rectificacion_coste" {
+		t.Fatalf("la fuente configurada no publicó el catálogo validado: %+v", opciones)
+	}
+	rutaConfiguracion, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(true, fuente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	rutaConfiguracion.Manejador.ServeHTTP(
+		respuesta,
+		httptest.NewRequest(http.MethodGet, rutaConfiguracion.Ruta, nil),
+	)
+	var contenido struct {
+		Data configuracionAnalisisContratacionTemporalDesarrollo `json:"data"`
+	}
+	if respuesta.Code != http.StatusOK || json.Unmarshal(respuesta.Body.Bytes(), &contenido) != nil ||
+		!contenido.Data.SubsanacionDisponible || len(contenido.Data.MotivosRectificacion) != 1 {
+		t.Fatalf("la composición no preservó subsanación y motivos: estado=%d datos=%+v", respuesta.Code, contenido.Data)
+	}
+	if _, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
+		config.Config{CTAnalisisMotivosSourcePath: ruta + ".ausente"},
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	); err == nil {
+		t.Fatal("una fuente configurada pero inexistente se aceptó")
+	}
+}
+
+func TestFuenteMotivosRectificacionAnalisisFallaCerrada(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	catalogo.Entradas[0].Atributos["clave_i18n"] = "motivo_sin_espacio_i18n"
+	casos := []struct {
+		nombre    string
+		resultado vecports.ResultadoConsultaCatalogosAcotada
+	}{
+		{"truncada", vecports.ResultadoConsultaCatalogosAcotada{Truncado: true}},
+		{"atributo_i18n_ajeno", vecports.ResultadoConsultaCatalogosAcotada{Catalogos: []vecdomain.CatalogoConfigurable{catalogo}}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			fuente := nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+				consultaCatalogoRectificacionAnalisisPrueba{resultado: caso.resultado},
+				"motivos_rectificacion_analisis", "contratacion_temporal",
+				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+			)
+			if opciones := fuente.opciones(t.Context()); len(opciones) != 0 {
+				t.Fatalf("la fuente no confiable expuso motivos: %+v", opciones)
+			}
+		})
+	}
+}
+
 func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
 	instante := time.Now().UTC().Truncate(time.Microsecond)
 	solicitud := ports.SolicitudResolverPoliticaOperacionAnalisis{
@@ -237,5 +417,29 @@ func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
 	if _, err := (resolutorPoliticaOperacionAnalisisDesarrollo{}).
 		ResolverPoliticaOperacionAnalisis(t.Context(), solicitud); err == nil {
 		t.Fatal("la rectificacion sin motivo configurado quedo abierta")
+	}
+}
+
+func TestConfiguracionAnalisisAnunciaSubsanacionSoloCompuesta(t *testing.T) {
+	for _, disponible := range []bool{false, true} {
+		ruta, err := nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(disponible)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		ruta.Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta.Ruta, nil))
+		var respuesta struct {
+			Data map[string]json.RawMessage `json:"data"`
+		}
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &respuesta) != nil {
+			t.Fatal("configuración no disponible")
+		}
+		valor, existe := respuesta.Data["subsanacion_disponible"]
+		if disponible && (!existe || string(valor) != "true") {
+			t.Fatal("composición no anunciada")
+		}
+		if !disponible && existe {
+			t.Fatal("contrato anterior alterado sin subsanación")
+		}
 	}
 }

@@ -2,7 +2,7 @@
 
 ## Contador vigente de pantallas — 12 de septiembre de 2026
 
-**6 de 19 terminadas en desarrollo; 11 parciales; 2 pendientes de pantalla real.**
+**6 de 19 terminadas en desarrollo; 12 parciales; 1 pendiente de pantalla real.**
 El contador conserva la evidencia de las **15 superficies reales** anteriores.
 La línea de fases y el resumen de propuesta ya están publicados; su publicación
 no incrementa por sí sola las pantallas terminadas. Visible no significa terminada.
@@ -39,12 +39,12 @@ cobertura en su preparador; todavía no declara resuelto el `503`.
 | 1 | Inicio y cuadro de mando | Parcial | 25 % | Dirección y `qa_rail_unidad` | Rail e historial publicados y observados en ambos casos a 1440/390; no acredita cierre funcional del cuadro completo. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
 | 3 | Análisis de RRHH | Parcial | 25 % | Apoyo local: rectificación `90e92` | Con catálogo vacío informa indisponibilidad sin `POST`; faltan política y motivo gobernados. |
-| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Dirección: integrar candidato de `corregir_preparador_cobertura` | Caso `b50fa…` v2 RC validada: detalle `200`; la propuesta devuelve `503` en el preparador; candidato de concurrencia pendiente de medición real. |
+| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Dirección: integrar candidato de `corregir_preparador_cobertura` | Caso `b50fa…` v2 RC validada: detalle `200`; la propuesta devuelve `503` en el preparador; concurrencia ensayada sin resolver503(626ms), candidato preservado fuera de producto. |
 | 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Dirección: continuar desde Unidad existente | Detalle v3 `200`, móvil corregido y referencia exacta. Solo ofrece Asignación; Informe exige asignación proyectada. Pendiente confirmar la asignación del ejercicio. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Dirección: continuidad desde Unidad | Conexión integrada. El caso Unidad debe confirmar asignación y preparar informe antes de fiscalizar; Intervención requiere identidad y resultado explícitos. |
-| 9 | Subsanación de reparos | Pendiente | 100 % | Dirección: integrar entrega revisada del apoyo | CT92/AD3-38, composición y formulario entregados con doble revisión; pendientes ensayo PostgreSQL, instalación y recorrido desde un reparo real. |
+| 9 | Subsanación de reparos | Parcial | 50 % | Dirección: ensayo e instalación de entrega revisada | CT92/AD3-38, composición y formulario entregados con doble revisión; pendientes ensayo PostgreSQL, instalación y recorrido desde un reparo real. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Remoto: `ensayo_contacto_aislado`; Dirección: gobierno Usuarios/SMTP | Fuente revisada; ensayo aislado en curso, sin instalación principal. Falta composición/gobierno nominal Usuarios y operación positiva; SMTP pendiente. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
