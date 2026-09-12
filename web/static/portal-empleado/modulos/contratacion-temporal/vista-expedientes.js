@@ -316,7 +316,10 @@ export function renderizarModuloContratacionTemporal(estado, {
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
+  const errorPaginadoRecuperable = estado.vista === "cuadro" && estado.carga === "error"
+    && estado.cuadro?.paginacion && estado.paginacion_requiere_reinicio === true;
   if (["cargando", "error", "denegado"].includes(estado.carga)
+    && !errorPaginadoRecuperable
     && estado.vista !== "alta") {
     contenido = renderizarEstadoCarga(estado, t);
   } else if (estado.vista === "alta") {
@@ -1270,6 +1273,16 @@ export async function montarModuloContratacionTemporal({
         );
         repintar("[data-ct-exp-mensaje]");
       }
+      return;
+    }
+    const pagina = evento.target?.closest?.("[data-ct-exp-pagina]");
+    if (pagina && raiz.contains(pagina)) {
+      evento.preventDefault();
+      if (pagina.disabled || impedirCambioPorAnalisis()) return;
+      const promesa = presentador.navegarPagina(pagina.dataset.ctExpPagina);
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar("[data-ct-exp-filtros]");
       return;
     }
     const tareaControl = evento.target?.closest?.("[data-ct-exp-tarea]");

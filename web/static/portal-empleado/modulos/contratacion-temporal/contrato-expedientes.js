@@ -60,6 +60,7 @@ const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_NUMERO = /^[0-9]{4}\/[A-Za-z0-9._-]{1,40}$/u;
 const PATRON_HUELLA = /^[a-f0-9]{64}$/u;
+const PATRON_CURSOR_RRHH = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const TONOS = new Set(["neutro", "informacion", "exito", "aviso", "peligro"]);
 const ESTADOS = new Set([
   "pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado",
@@ -196,9 +197,12 @@ function validarResumen(entrada, nombre) {
 }
 
 export function validarCuadroContratacionTemporal(entrada) {
+  const tienePaginacion = Object.hasOwn(entrada ?? {}, "paginacion");
   exigirCamposExactos(
     entrada,
-    ["esquema", "demostracion", "generado_en", "indicadores", "expedientes"],
+    ["esquema", "demostracion", "generado_en", "indicadores", "expedientes"].concat(
+      tienePaginacion ? ["paginacion"] : [],
+    ),
     "cuadro de contratación temporal",
   );
   if (entrada.esquema !== ESQUEMA_CUADRO || typeof entrada.demostracion !== "boolean") {
@@ -216,12 +220,29 @@ export function validarCuadroContratacionTemporal(entrada) {
     LIMITES_EXPEDIENTES_PRESENTACION.expedientes,
     validarResumen,
   ), "expediente_ref", "expedientes");
+  let paginacion;
+  if (tienePaginacion) {
+    const campos = ["pagina", "cursor_actual"];
+    if (Object.hasOwn(entrada.paginacion ?? {}, "cursor_siguiente")) campos.push("cursor_siguiente");
+    exigirCamposExactos(entrada.paginacion, campos, "paginación del cuadro");
+    if (!Number.isSafeInteger(entrada.paginacion.pagina) || entrada.paginacion.pagina < 1
+      || typeof entrada.paginacion.cursor_actual !== "string"
+      || (entrada.paginacion.cursor_actual !== "" && !PATRON_CURSOR_RRHH.test(entrada.paginacion.cursor_actual))
+      || (entrada.paginacion.pagina === 1) !== (entrada.paginacion.cursor_actual === "")
+      || (Object.hasOwn(entrada.paginacion, "cursor_siguiente")
+        && (typeof entrada.paginacion.cursor_siguiente !== "string"
+          || (entrada.paginacion.cursor_siguiente !== "" && !PATRON_CURSOR_RRHH.test(entrada.paginacion.cursor_siguiente))))) {
+      throw new TypeError("paginación del cuadro no válida");
+    }
+    paginacion = entrada.paginacion;
+  }
   return congelar({
     esquema: ESQUEMA_CUADRO,
     demostracion: entrada.demostracion,
     generado_en: instante(entrada.generado_en, "generado_en"),
     indicadores,
     expedientes,
+    ...(paginacion ? { paginacion } : {}),
   });
 }
 

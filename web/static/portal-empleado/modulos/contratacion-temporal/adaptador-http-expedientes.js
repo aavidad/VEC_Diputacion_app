@@ -81,7 +81,7 @@ function indicadores(expedientes) {
   }));
 }
 
-function proyectarCuadro(pagina) {
+function proyectarCuadro(pagina, { cursor, numeroPagina }) {
   const expedientes = pagina.expedientes.map(resumenVisual);
   return validarCuadroContratacionTemporal({
     esquema: "vec.contratacion_temporal.cuadro.v1",
@@ -89,6 +89,11 @@ function proyectarCuadro(pagina) {
     generado_en: pagina.generada_en,
     indicadores: indicadores(expedientes),
     expedientes,
+    paginacion: {
+      pagina: numeroPagina,
+      cursor_actual: cursor,
+      cursor_siguiente: pagina.hay_mas ? pagina.cursor_siguiente : "",
+    },
   });
 }
 
@@ -183,25 +188,30 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, loc
   }
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
+  let secuenciaCuadro = 0;
   const adaptador = {
     get capacidades() {
       return Object.freeze([...capacidadesConsultadas]);
     },
-    async listar({ filtros = { texto: "", estado: "", fase: "" }, signal } = {}) {
+    async listar({ filtros = { texto: "", estado: "", fase: "" }, cursor = "", numeroPagina = 1, signal } = {}) {
+      if (typeof cursor !== "string" || (cursor !== "" && !/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u.test(cursor))
+        || !Number.isSafeInteger(numeroPagina) || numeroPagina < 1
+        || (numeroPagina === 1) !== (cursor === "")) throw new TypeError("paginación de cuadro no válida");
+      const operacion = ++secuenciaCuadro;
       const pagina = await cliente.consultarCuadroRRHH({
         filtros: {
           texto: filtros.texto,
           estado_clave: estadoServidor(filtros.estado),
           fase_clave: filtros.fase,
         },
-        paginacion: { limite: 100, cursor: "" },
+        paginacion: { limite: 100, cursor },
       }, { signal });
-      const cuadro = proyectarCuadro(pagina);
-      versiones.clear();
-      pagina.expedientes.forEach(({ expediente_ref: referencia, version }) => {
-        versiones.set(referencia, version);
-      });
-      capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
+      const cuadro = proyectarCuadro(pagina, { cursor, numeroPagina });
+      if (operacion === secuenciaCuadro && !signal?.aborted) {
+        versiones.clear();
+        pagina.expedientes.forEach(({ expediente_ref: referencia, version }) => versiones.set(referencia, version));
+        capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarCuadro);
+      }
       return cuadro;
     },
     async obtener(expedienteRef, { signal } = {}) {
