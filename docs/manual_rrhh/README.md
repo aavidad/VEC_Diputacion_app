@@ -16,6 +16,12 @@ No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
+En el corte B, compruebe en la ficha el recibo de incorporación y el nombre del
+archivo antes de descargar. El seguimiento muestra fechas legibles y mantiene
+el valor ISO. La descarga real y la consulta respondieron `GET 200`, la ficha
+conservó el mismo SHA256 y no hubo errores JavaScript. La comprobación móvil de
+este corte terminó sin desbordamiento a 1440 ni 390 px.
+
 El detalle de trazabilidad conserva recibo y fecha visibles y puede abrirse y
 cerrarse. El recorrido no tuvo errores JavaScript, cookies, almacenamiento ni
 desbordamiento a 1440, 1024 o 390 px. No se repitieron los seis Word. En aquel

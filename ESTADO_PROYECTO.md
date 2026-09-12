@@ -17,6 +17,12 @@ Coincidieron los seis campos cotejados, el recibo
 tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
+El corte B presenta en la ficha GINPIX el recibo de incorporación y el nombre
+del archivo, y muestra las fechas del seguimiento en formato legible sin perder
+su valor ISO. La descarga real y la consulta de seguimiento respondieron
+`GET 200`; la ficha conservó el mismo SHA256 y no hubo errores JavaScript. La
+revisión visual terminó sin desbordamiento a 1440 ni 390 px.
+
 En el runtime anterior `75157434…`, los seis DOCX se descargaron con HTTP `200`
 y validación ZIP correcta. El
 recorrido registró cero errores JavaScript y cero datos en cookies o

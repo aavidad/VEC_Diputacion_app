@@ -21,6 +21,12 @@ recibo `ref:2bc3d281…`, la fecha
 descargada tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
+El corte B muestra en la ficha GINPIX el recibo de incorporación y el nombre
+del archivo. Las fechas del seguimiento son legibles y conservan el valor ISO;
+la descarga real respondió `GET 200` con ese mismo SHA256, el seguimiento
+respondió `GET 200` y no hubo errores JavaScript. La revisión móvil de este
+corte terminó sin desbordamiento a 1440 ni 390 px.
+
 En el runtime anterior `75157434…`, los seis borradores Word se descargaron con
 HTTP `200` y son ZIP válidos. Su
 informe registró cero errores JavaScript. El recorrido de incorporación registró

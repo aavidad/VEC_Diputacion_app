@@ -16,6 +16,12 @@ y la ficha GINPIX con HTTP `200`, sin repetir el alta. Conservó el recibo
 `2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
+En el corte B, la ficha muestra el recibo de incorporación y el nombre del
+archivo descargable. El seguimiento presenta fechas legibles y conserva el
+valor ISO. La descarga real y la consulta de seguimiento devolvieron `GET 200`,
+la ficha mantuvo el mismo SHA256 y no hubo errores JavaScript. La comprobación
+visual terminó sin desbordamiento a 1440 ni 390 px.
+
 El detalle de trazabilidad mantuvo visibles recibo y fecha y se abrió y cerró.
 No hubo errores JavaScript, cookies, almacenamiento ni desbordamiento a 1440,
 1024 o 390 px. No se repitieron los seis Word. La evidencia privada está
