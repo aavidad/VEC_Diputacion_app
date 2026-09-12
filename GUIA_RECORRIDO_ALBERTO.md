@@ -2,7 +2,7 @@
 
 ## Anotación y cierre conectados en código — 12 de septiembre de 2026
 
-Sobre la base `cad0a44c`, este corte conecta estas operaciones:
+El commit publicado `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac` conecta estas operaciones:
 
 ```text
 POST /api/vec/contratacion-temporal/expedientes/anotaciones-administrativas
@@ -13,10 +13,15 @@ POST /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese
 
 Node/DOM quedó verde 10/10, el inventario HTTP 1/1 y la suite web 324/324 sin
 casos omitidos; dos revisiones dieron `GO` sobre nueve hashes. Estas pruebas
-son sintéticas y no acreditan navegador, API, PostgreSQL, instalación o
-publicación.
+son sintéticas y no acreditan navegador, API, PostgreSQL o instalación.
 
-Cuando estén disponibles Auth13 y CT86/87 con AD3-30/31, RRHH abrirá el
+Este corte sobre `f9230d2a` admite solo las dos audiencias de AD3-30/31 y
+conserva las siete anteriores y sus guardas. Tiene dos `GO`, focal Go `PASS` en
+`0.020 s`, build y campañas globales Go verdes. AD3-30/31 no están instaladas.
+Auth13 sí quedó instalada una vez, con postimagen y respaldo comprobados, pero
+el GET de incorporación continúa en 503. Se conservan recibo e historia de negocio.
+
+Cuando se resuelva el GET y se instalen CT86/87 con AD3-30/31, RRHH abrirá el
 expediente sintético conservado, recuperará la incorporación sin repetir su
 POST, registrará una única anotación y conservará recibo y clave. La vista debe
 refrescar v8→v9 antes de ofrecer la preparación y el cierre. Un resultado

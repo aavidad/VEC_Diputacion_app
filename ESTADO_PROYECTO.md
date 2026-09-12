@@ -2,8 +2,9 @@
 
 ## Anotación y cierre conectados en código — 12 de septiembre de 2026
 
-Sobre la base publicada `cad0a44c`, este corte integra el cliente y montaje
-frontend de la primera anotación administrativa y el cierre sin cese. La vista
+El commit `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac`, publicado en
+`integracion/ct-producto-ligero-20260821`, integra el cliente y montaje frontend
+de la primera anotación administrativa y el cierre sin cese. La vista
 conserva el recibo, refresca v8→v9 antes de habilitar el cierre, descarta
 respuestas tardías al desmontar, mantiene monotónica la preparación y serializa
 los reintentos GET. No ejecuta automáticamente los POST de anotación, cierre o
@@ -13,12 +14,27 @@ La validación focal terminó 10/10 en Node/DOM y 1/1 para el inventario HTTP;
 la suite web terminó 324/324, sin casos omitidos, y `git diff --check` pasó.
 Dos revisiones independientes emitieron `GO` sobre los nueve hashes finales.
 El alcance usa Node, DOM y `fetch` sintéticos: el recorrido con navegador, API
-y PostgreSQL sigue pendiente, al igual que la verificación de publicación.
+y PostgreSQL sigue pendiente.
 
-Auth13 `ef6704a6` sigue sin instalación acreditada. CT86/87 y AD3-30/31 existen
-como scripts, pero no constan instaladas; GINPIX `e2831250` continúa sin prueba
-sobre el recibo recuperado. Los objetivos 11–14 y la métrica funcional no
-cambian.
+Auth13 `ef6704a6` quedó instalada una sola vez el 12 de septiembre, con respaldo
+privado y suplemento restaurable de ACL de base y 177 tipos de fila. Su postimagen
+exacta y la regresión SQL están comprobadas. El GET de incorporación sigue en
+503 y requiere diagnóstico; no se repitió el POST. Las cinco tablas de negocio
+Personal conservan sus huellas, igual que el recibo original y los seis conteos CT
+comprobados. CT86/87 y AD3-30/31 siguen sin instalar; GINPIX aún no se ha probado
+sobre el recibo recuperado. Los objetivos 11–14 y la métrica funcional no cambian.
+
+Este corte sobre `f9230d2a` tiene dos revisiones independientes `GO`: admite
+exactamente las dos audiencias de AD3-30/31 y preserva las siete anteriores y sus guardas.
+La focal Go pasó en `0.020 s`; build, `go test -p 1 ./...` y `go vet -p 1 ./...` pasaron.
+AD3-30/31 y su gobierno nominal aún no están instalados en runtime.
+
+El contraste con RRHH mantiene ocho hitos; las 17 pantallas son maquetas, no
+otras fases. Faltan Word de los mismos seis borradores PDF, correo efectivo y
+verificación de la bandeja destinataria en la transferencia de responsabilidad.
+La ficha GINPIX manual es un resultado admitido. Las discrepancias entre texto
+y capturas sobre documentos y segunda Intervención siguen pendientes de aclarar;
+no se convierten en aprobaciones ni amplían este recorrido.
 
 ## Recuperación del trabajo — 12 de septiembre de 2026
 

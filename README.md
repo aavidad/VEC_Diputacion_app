@@ -6,18 +6,25 @@ Provincial de Granada. Publicado bajo la
 
 ## Anotación y cierre conectados en código — 12 de septiembre de 2026
 
-Sobre la base `cad0a44c`, este corte conecta en el detalle de
-RRHH la primera anotación administrativa con su recuperación, el refresco del
+El commit publicado `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac` conecta en el
+detalle de RRHH la primera anotación administrativa con su recuperación, el refresco del
 detalle v8→v9 y el cierre administrativo sin cese. Conserva el recibo visible,
 no habilita el cierre sobre datos obsoletos y no repite ningún `POST`
 automáticamente. Diez pruebas Node/DOM focales, una del inventario HTTP y las
 324 pruebas web están verdes; dos revisiones independientes dieron `GO` sobre
 los nueve hashes.
 
-La comprobación en navegador, API y PostgreSQL queda pendiente. Auth13 y
-CT86/87 con AD3-30/31 no constan instaladas; GINPIX no se ha probado sobre el
-recibo recuperado. Este texto no acredita publicación del commit. No repita el
-`POST` de incorporación conservado.
+Auth13 está instalada con postimagen exacta y respaldo privado. El GET de
+incorporación continúa en 503; no se ha acreditado todavía la recuperación ni
+GINPIX. CT86/87 y AD3-30/31 siguen sin instalar. No repita el POST de incorporación.
+
+Sobre `f9230d2a`, este corte admite solo las dos audiencias de
+AD3-30/31 y conserva las siete anteriores y sus guardas. Tiene dos `GO`, focal
+Go `PASS` en `0.020 s`, build, `go test -p 1 ./...` y `go vet -p 1 ./...` verdes; no hay instalación en runtime.
+
+El alcance RRHH conserva ocho hitos. Siguen pendientes los seis borradores en
+Word, correo efectivo y apertura de la bandeja destinataria. Las maquetas no
+añaden fases ni documentos aprobados; GINPIX admite ficha manual.
 
 ## Estado funcional y continuación — 12 de septiembre de 2026
 

@@ -696,7 +696,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -729,8 +729,31 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		altapersonal.AudienciaAltaEjercicio,
 		lecturapersonal.AudienciaV2,
 		ports.AudienciaConfirmacionIncorporacionV2,
+		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
+		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
 	).Scan(&propio)
 	return propio, err
+}
+
+// Las audiencias publicables se mantienen nominales: extender el gobierno de
+// anotación y cierre no concede una capacidad a otro consumidor.
+func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
+	audiencia string,
+) bool {
+	switch audiencia {
+	case audienciaConsumoAltaContratacionTemporal,
+		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
+		ports.AudienciaConsumoConsultaCuadroRRHHV3,
+		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		altapersonal.AudienciaAltaEjercicio,
+		lecturapersonal.AudienciaV2,
+		ports.AudienciaConfirmacionIncorporacionV2,
+		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
+		postgrescontratacion.AudienciaCierreAdministrativoSinCese:
+		return true
+	default:
+		return false
+	}
 }
 
 func reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(
@@ -866,13 +889,9 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 ) error {
 	if ctx == nil || pool == nil || material == nil ||
 		len(material.claveHMAC) == 0 || len(material.spki) == 0 ||
-		(material.audienciaConsumo != audienciaConsumoAltaContratacionTemporal &&
-			material.audienciaConsumo != puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo &&
-			material.audienciaConsumo != ports.AudienciaConsumoConsultaCuadroRRHHV3 &&
-			material.audienciaConsumo != ports.AudienciaConsumoConsultaDetalleRRHHV3 &&
-			material.audienciaConsumo != altapersonal.AudienciaAltaEjercicio &&
-			material.audienciaConsumo != lecturapersonal.AudienciaV2 &&
-			material.audienciaConsumo != ports.AudienciaConfirmacionIncorporacionV2) {
+		!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
+			material.audienciaConsumo,
+		) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	conexion, err := pool.Acquire(ctx)
