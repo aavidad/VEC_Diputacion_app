@@ -89,15 +89,25 @@ func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo() (
 	vechttp.RutaExacta,
 	error,
 ) {
+	return nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(
+		fuenteMotivosRectificacionAnalisisDesarrollo{},
+	)
+}
+
+func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+) (vechttp.RutaExacta, error) {
 	return vechttp.RutaExacta{
 		Ruta:      rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
-		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{},
+		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{motivos: motivos},
 	}, nil
 }
 
-type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct{}
+type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct {
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo
+}
 
-func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
+func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
@@ -126,7 +136,9 @@ func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	}
 	contenido, err := json.Marshal(
 		respuestaConfiguracionAnalisisContratacionTemporalDesarrollo{
-			Data: nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(),
+			Data: nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
+				m.motivos.opciones(r.Context()),
+			),
 		},
 	)
 	if err != nil {
@@ -142,7 +154,9 @@ func (manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	}
 }
 
-func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo() configuracionAnalisisContratacionTemporalDesarrollo {
+func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
+	motivos []opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
+) configuracionAnalisisContratacionTemporalDesarrollo {
 	modalidades := make(
 		[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
 		0,
@@ -183,10 +197,7 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo() configuracionAna
 			HuellaSHA256: huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
 			Etiqueta:     "Retención de crédito sintética 001",
 		}},
-		MotivosRectificacion: make(
-			[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
-			0,
-		),
+		MotivosRectificacion: motivos,
 	}
 }
 
