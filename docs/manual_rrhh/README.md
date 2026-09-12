@@ -1,5 +1,7 @@
 # Manual funcional del técnico de Recursos Humanos
 
+El detalle reúne ahora el resumen final para GINPIX: centro y categoría del expediente consultado, periodo, fecha y recibo original de incorporación. La ficha de carga manual se descarga por GET 200 con la misma huella `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`; el seguimiento responde 200. El envío externo figura como no conectado. Comprobado a 1440/390 px sin errores JavaScript ni desbordamiento. Los indicadores del cuadro precisan que cuentan los expedientes de la página actual.
+
 La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
 
 El corte D prepara la reutilización de los seis borradores de la propuesta
