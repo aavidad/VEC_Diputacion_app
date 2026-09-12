@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
@@ -11,6 +15,14 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if cfg.Normalize().ExecutionProfile == config.ExecutionProfileDevelopment {
+		ctx, detener := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer detener()
+		if err := bootstrap.ServeDesarrollo(ctx, cfg, log.Writer()); err != nil {
+			log.Fatalf("serve desarrollo: %v", err)
+		}
+		return
+	}
 	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
 	if err != nil {
 		log.Fatalf("bootstrap server: %v", err)

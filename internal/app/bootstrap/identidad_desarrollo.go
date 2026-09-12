@@ -18,8 +18,9 @@ type identidadCertificadoDesarrollo struct {
 }
 
 type resolvedorIdentidadDesarrollo struct {
-	porHuella map[[sha256.Size]byte]vecdomain.Principal
-	porSujeto map[string]adscripcionCentroDesarrollo
+	porHuella      map[[sha256.Size]byte]vecdomain.Principal
+	porSujeto      map[string]adscripcionCentroDesarrollo
+	administracion *identidadAdministracionDesarrollo
 }
 
 func nuevoResolvedorIdentidadDesarrollo(

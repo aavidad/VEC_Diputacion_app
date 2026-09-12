@@ -696,7 +696,8 @@ func normalizarYValidarAsercion(
 		return estado, err
 	}
 	factores, err := normalizarYValidarFactores(a.Factores, c, estado.sujetoID, a.EmitidaEn, a.ExpiraEn, ahora)
-	if err != nil || !factoresContienenMetodo(factores, a.MetodoPrimario) {
+	if err != nil || !factoresContienenMetodo(factores, a.MetodoPrimario) ||
+		!metodoPrimarioPermitidoEnSuperficie(a.MetodoPrimario, c.Superficie) {
 		return estado, ErrAsercionNoValida
 	}
 	estado.emisor = a.Emisor
@@ -748,10 +749,16 @@ func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie
 		return ErrSesionNoValida
 	}
 	factores, err := normalizarYValidarFactores(estado.factores, c, estado.sujetoID, estado.emitidaEn, estado.expiraEn, ahora)
-	if err != nil || !factoresContienenMetodo(factores, estado.metodoPrimario) || !factoresIguales(factores, estado.factores) {
+	if err != nil || !factoresContienenMetodo(factores, estado.metodoPrimario) || !factoresIguales(factores, estado.factores) ||
+		!metodoPrimarioPermitidoEnSuperficie(estado.metodoPrimario, c.Superficie) {
 		return ErrSesionNoValida
 	}
 	return nil
+}
+
+func metodoPrimarioPermitidoEnSuperficie(metodo MetodoAutenticacion, superficie Superficie) bool {
+	return superficie != SuperficieAdministracionPrivilegiada ||
+		metodo == MetodoCertificado || metodo == MetodoDNIe
 }
 
 func validarTiempos(estado estadoIdentidadSesion, c ConfiguracionSuperficie, ahora time.Time) error {

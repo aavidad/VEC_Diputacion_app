@@ -21,7 +21,7 @@ import {
 } from "./portal-modulos-coordinador.js?v=20260906-acceso-certificado-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260912-admin-correo-i18n-v1";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -33,6 +33,7 @@ import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1"
  * docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
  */
 const API_PANEL_BOLSA = "/api/vec/bolsa/panel";
+
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
   demostracion: false,
@@ -527,7 +528,6 @@ function renderizar() {
     void superficie.activar();
     return;
   }
-
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;

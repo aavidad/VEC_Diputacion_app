@@ -158,11 +158,20 @@ func (c ConfiguracionSuperficie) Validar() error {
 		if !dominiovec.CumpleGarantiaAutenticacion(c.GarantiaMinima, dominiovec.AuthAssuranceSubstantial) {
 			return fmt.Errorf("%w: el area personal exige garantia sustancial o superior", ErrConfiguracionSuperficie)
 		}
-	case SuperficieInternaCorporativa, SuperficieAdministracionPrivilegiada:
+	case SuperficieInternaCorporativa:
 		if !contieneMetodo(c.FactoresRequeridos, MetodoKerberos) ||
 			!contieneMetodo(c.FactoresRequeridos, MetodoCertificado) ||
 			c.MinimoGruposCriptograficosDistintos < 2 || c.GarantiaMinima != dominiovec.AuthAssuranceHigh {
 			return fmt.Errorf("%w: el acceso interno exige Kerberos y certificado con grupos criptograficos distintos", ErrConfiguracionSuperficie)
+		}
+	case SuperficieAdministracionPrivilegiada:
+		// La administración web usa certificado o DNIe. SSH pertenece al
+		// acceso al terminal y no es un factor de esta superficie. La
+		// evidencia concreta se exige también al resolver y revalidar la
+		// sesión; admitir otro método nunca crea una alternativa sin certificado.
+		if (!contieneMetodo(c.MetodosAdmitidos, MetodoCertificado) &&
+			!contieneMetodo(c.MetodosAdmitidos, MetodoDNIe)) || c.GarantiaMinima != dominiovec.AuthAssuranceHigh {
+			return fmt.Errorf("%w: administracion exige certificado o DNIe y garantia alta", ErrConfiguracionSuperficie)
 		}
 	}
 	if c.Superficie == SuperficieAdministracionPrivilegiada && !c.RequiereCuentaPrivilegiada {

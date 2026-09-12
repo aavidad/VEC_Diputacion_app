@@ -105,6 +105,7 @@ type Config struct {
 	TrustedHeaderMechanism                string
 	TrustedProxyCIDRs                     []string
 	HTTPAllowedCIDRs                      []string
+	HTTPAllowedOrigins                    []string
 	TLSCertFile                           string
 	TLSKeyFile                            string
 	PersonalCatalogPath                   string
@@ -130,6 +131,8 @@ type Config struct {
 	RRHHPresentationGuardTwo              string
 	BolsaBorradoresPostgreSQL             ConfiguracionPostgreSQLBorradores
 	ContratacionTemporalPostgreSQL        ConfiguracionPostgreSQLContratacionTemporal
+	AdministracionPostgreSQL              ConfiguracionPostgreSQLAdministracion
+	TransporteAdministracion              ConfiguracionTransporteAdministracion
 }
 
 func Load() Config {
@@ -200,6 +203,21 @@ func Load() Config {
 			dsnRevalidacionIdentidad: envFirst(EnvContratacionTemporalRevalidacionIdentidadDatabaseURL),
 			dsnContextoActor:         envFirst(EnvContratacionTemporalContextoActorDatabaseURL),
 		},
+		AdministracionPostgreSQL: ConfiguracionPostgreSQLAdministracion{
+			dsnCorreo:               envFirst(EnvAdministracionCorreoDatabaseURL),
+			dsnRegistroAutorizacion: envFirst(EnvAdministracionRegistroAutorizacionDatabaseURL),
+			dsnRegistroIdentidad:    envFirst(EnvAdministracionRegistroIdentidadDatabaseURL),
+			dsnRevalidacion:         envFirst(EnvAdministracionRevalidacionIdentidadDatabaseURL),
+			dsnContextoActor:        envFirst(EnvAdministracionContextoActorDatabaseURL),
+		},
+		TransporteAdministracion: ConfiguracionTransporteAdministracion{
+			Address:          envFirst(EnvAdministracionHTTPAddress),
+			HTTPAllowedCIDRs: splitCSV(envFirst(EnvAdministracionHTTPAllowedCIDRs)),
+			AllowedOrigins:   splitCSV(envFirst(EnvAdministracionAllowedOrigins)),
+			TLSCertFile:      envFirst(EnvAdministracionTLSCertFile),
+			TLSKeyFile:       envFirst(EnvAdministracionTLSKeyFile),
+			TLSClientCAFile:  envFirst(EnvAdministracionTLSClientCAFile),
+		},
 	}.Normalize()
 }
 
@@ -254,6 +272,7 @@ func (c Config) Normalize() Config {
 	// El listener general arranca limitado a loopback. Exponerlo a otra red,
 	// incluida Internet, exige enumerarla de forma expresa.
 	c.HTTPAllowedCIDRs = normalizeCIDRs(c.HTTPAllowedCIDRs)
+	c.HTTPAllowedOrigins = normalizarOrigenesAdministracion(c.HTTPAllowedOrigins)
 	c.TLSCertFile = strings.TrimSpace(c.TLSCertFile)
 	c.TLSKeyFile = strings.TrimSpace(c.TLSKeyFile)
 	if c.PersonalCatalogInMemory || isMemoryPath(c.PersonalCatalogPath) {
@@ -289,6 +308,7 @@ func (c Config) Normalize() Config {
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
+	c.TransporteAdministracion = c.TransporteAdministracion.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)
 	return c
 }

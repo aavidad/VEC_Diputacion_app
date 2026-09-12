@@ -30,6 +30,7 @@ const tamanoMaximoFicheroMaterialDesarrollo = 256 << 10
 type materialSeguridadDesarrollo struct {
 	configuracionTLS             *tls.Config
 	identidad                    *resolvedorIdentidadDesarrollo
+	identidadAdministracion      *resolvedorIdentidadDesarrollo
 	claveKMS                     [sha256.Size]byte
 	firmaAtestacionKMS           ed25519.PrivateKey
 	verificadorAtestacionKMS     ed25519.PublicKey
@@ -216,6 +217,14 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		return materialSeguridadDesarrollo{}, err
 	}
 	identidades := append([]identidadCertificadoDesarrollo{identidadRRHH, identidadIntervencion}, adscripciones.Identidades...)
+	administracion, err := cargarIdentidadAdministracionDesarrollo(cfg.DevelopmentMaterialDir, ca, identidades...)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	resolvedorAdministracion, err := nuevoResolvedorAdministracionDesarrollo(administracion)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
 	identidad, err = nuevoResolvedorIdentidadDesarrollo(identidades...)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
@@ -258,6 +267,7 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 			MaxVersion:   tls.VersionTLS13,
 		},
 		identidad:                    identidad,
+		identidadAdministracion:      resolvedorAdministracion,
 		claveKMS:                     claveKMS,
 		firmaAtestacionKMS:           append(ed25519.PrivateKey(nil), firmaAtestacionKMS...),
 		verificadorAtestacionKMS:     append(ed25519.PublicKey(nil), verificadorAtestacionKMS...),

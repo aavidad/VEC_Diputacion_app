@@ -1,12 +1,14 @@
 package bootstrap
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
@@ -20,15 +22,18 @@ import (
 // Los campos privados impiden extraer las claves locales; solo se entregan las
 // interfaces existentes y la marca obligatoria para persistencia.
 type ComposicionSeguridadDesarrollo struct {
-	metadatos             MetadatosNoAutoritativos
-	procedencia           gobiernoconvocatorias.ProcedenciaActoBorrador
-	tls                   *tls.Config
-	identidad             vechttp.DemoIdentityResolver
-	emisorKMS             *emisorKMSDesarrollo
-	revalidadorKMS        *revalidadorKMSDesarrollo
-	verificadorFirmasKMS  *verificadorFirmasKMSDesarrollo
-	tsa                   vecports.TimestampPort
-	derivadorIdempotencia *derivadorIdentidadOperacionDesarrollo
+	cerrarContratacion            func()
+	metadatos                     MetadatosNoAutoritativos
+	procedencia                   gobiernoconvocatorias.ProcedenciaActoBorrador
+	tls                           *tls.Config
+	identidad                     vechttp.DemoIdentityResolver
+	emisorKMS                     *emisorKMSDesarrollo
+	revalidadorKMS                *revalidadorKMSDesarrollo
+	verificadorFirmasKMS          *verificadorFirmasKMSDesarrollo
+	tsa                           vecports.TimestampPort
+	derivadorIdempotencia         *derivadorIdentidadOperacionDesarrollo
+	protectorCorreoAdministracion *protectorSecretoCorreoDesarrollo
+	identidadAdministracion       *resolvedorIdentidadDesarrollo
 }
 
 func NuevaComposicionSeguridadDesarrollo(
@@ -89,16 +94,25 @@ func NuevaComposicionSeguridadDesarrollo(
 	if err != nil {
 		return nil, err
 	}
+	var protectorCorreo *protectorSecretoCorreoDesarrollo
+	if cfg.AdministracionPostgreSQL.Configurada() {
+		protectorCorreo, err = nuevoProtectorSecretoCorreoDesarrollo(material.claveKMS, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+	}
 	resultado := &ComposicionSeguridadDesarrollo{
-		metadatos:             metadatos,
-		procedencia:           procedencia,
-		tls:                   material.configuracionTLS.Clone(),
-		identidad:             material.identidad,
-		emisorKMS:             emisorKMS,
-		revalidadorKMS:        revalidadorKMS,
-		verificadorFirmasKMS:  verificadorFirmasKMS,
-		tsa:                   selladorTSA,
-		derivadorIdempotencia: derivadorIdempotencia,
+		metadatos:                     metadatos,
+		procedencia:                   procedencia,
+		tls:                           material.configuracionTLS.Clone(),
+		identidad:                     material.identidad,
+		emisorKMS:                     emisorKMS,
+		revalidadorKMS:                revalidadorKMS,
+		verificadorFirmasKMS:          verificadorFirmasKMS,
+		tsa:                           selladorTSA,
+		derivadorIdempotencia:         derivadorIdempotencia,
+		protectorCorreoAdministracion: protectorCorreo,
+		identidadAdministracion:       material.identidadAdministracion,
 	}
 	derivadorEntregado = true
 	return resultado, nil
@@ -219,6 +233,8 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
+	cerrarContratacion = sync.OnceFunc(cerrarContratacion)
+	composicion.cerrarContratacion = cerrarContratacion
 	completa := false
 	defer func() {
 		if !completa {
