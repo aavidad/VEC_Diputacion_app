@@ -29,6 +29,7 @@ import (
 // JSON de respuesta o errores. Las coordenadas no son concesiones; el PDP,
 // consumidores y lectores PostgreSQL revalidan el gobierno efectivo.
 type archivoIncorporacionV2 struct {
+	Continuidad   *archivoContinuidadNominal           `json:"continuidad_nominal,omitempty"`
 	Esquema       string                               `json:"esquema"`
 	Referencias   ReferenciasCTIncorporacionDesarrollo `json:"referencias"`
 	Planes        string                               `json:"planes_file"`
@@ -258,8 +259,12 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
+	continuidad, err := cargarContinuidadNominal(raiz, c.Continuidad, c.Referencias, pools, alta, consultas, fuentePlanes, detalle, reloj)
+	if err != nil {
+		return vacia, nil, f
+	}
 	completa = true
-	return ConfiguracionIncorporacionDesarrollo{detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
+	return ConfiguracionIncorporacionDesarrollo{continuidad: continuidad, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
 		MotivoAlta: c.MotivoAlta, MotivoLectura: c.MotivoLectura, AltaPersonal: pools["alta_personal"], RegistroCT: pools["registro_ct"],
 		Preparacion: inc.ConfiguracionPreparacionDurableV2PostgreSQL{Planes: planes, TernaPlanes: c.TernaPlanes, FuentePersonal: personal, TernaPersonal: c.TernaPersonal,
 			Pools: inc.PoolsPreparacionDurableV2{InicialCT: pools["raices_ct"], LocalizadorCT: pools["localizador_ct"], LocalizadorPersonal: pools["localizador_personal"], LecturaPersonal: pools["lector_personal"], Historia: pgct.PoolsHistoriaIncorporacionV2{RegistroCT: pools["historia_ct"], Autenticacion: pools["historia_autenticacion"], Contexto: pools["historia_contexto"], Evaluacion: pools["historia_evaluacion"], Concesion: pools["historia_concesion"]}}}}, cerrar, nil

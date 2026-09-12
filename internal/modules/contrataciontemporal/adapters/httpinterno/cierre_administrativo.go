@@ -14,6 +14,8 @@ import (
 const (
 	RutaCerrarAdministrativamente = "" +
 		"/api/vec/contratacion-temporal/seguimiento/cerrar"
+	RutaCerrarAdministrativamenteSinCese = "" +
+		"/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese"
 	RutaReabrirExcepcionalmente = "" +
 		"/api/vec/contratacion-temporal/seguimiento/reabrir-excepcionalmente"
 )
@@ -41,6 +43,16 @@ type EjecutorCierreAdministrativo interface {
 	) (ports.ResultadoCierreAdministrativo, error)
 }
 
+// EjecutorCierreAdministrativoSinCese es opcional para conservar los
+// consumidores existentes del constructor. La nueva ruta falla cerrada si la
+// composición todavía no entrega esta capacidad nominal.
+type EjecutorCierreAdministrativoSinCese interface {
+	CerrarSinCese(
+		context.Context,
+		application.SolicitudCerrarAdministrativamente,
+	) (ports.ResultadoCierreAdministrativo, error)
+}
+
 type manejadorCierreAdministrativo struct {
 	autoridad AutoridadServidorCierreAdministrativo
 	ejecutor  EjecutorCierreAdministrativo
@@ -48,6 +60,7 @@ type manejadorCierreAdministrativo struct {
 
 var _ http.Handler = (*manejadorCierreAdministrativo)(nil)
 var _ EjecutorCierreAdministrativo = (*application.ServicioCierreAdministrativo)(nil)
+var _ EjecutorCierreAdministrativoSinCese = (*application.ServicioCierreAdministrativo)(nil)
 
 // NuevoManejadorCierreAdministrativo no registra rutas, compone identidad ni
 // crea otra autoridad. La composicion exterior conserva esas responsabilidades.
@@ -217,6 +230,8 @@ func operacionCierreAdministrativoHTTP(
 	switch r.URL.Path {
 	case RutaCerrarAdministrativamente:
 		return ports.OperacionCerrarAdministrativamente, true
+	case RutaCerrarAdministrativamenteSinCese:
+		return ports.OperacionCerrarAdministrativamenteSinCese, true
 	case RutaReabrirExcepcionalmente:
 		return ports.OperacionReabrirExcepcionalmente, true
 	default:
@@ -234,6 +249,21 @@ func ejecutarCierreAdministrativoHTTP(
 	switch operacion {
 	case ports.OperacionCerrarAdministrativamente:
 		return ejecutor.Cerrar(ctx, application.SolicitudCerrarAdministrativamente{
+			OrganizacionRef:   organizacionRef,
+			ExpedienteRef:     entrada.ExpedienteRef,
+			SeguimientoRef:    entrada.SeguimientoRef,
+			VersionEsperada:   *entrada.VersionEsperada,
+			ClaveIdempotencia: entrada.ClaveIdempotencia,
+			TransicionClave:   domain.ClaveCatalogo(entrada.TransicionClave),
+			MotivoClave:       domain.ClaveCatalogo(entrada.MotivoClave),
+		})
+	case ports.OperacionCerrarAdministrativamenteSinCese:
+		sinCese, disponible := ejecutor.(EjecutorCierreAdministrativoSinCese)
+		if !disponible || dependenciaNula(sinCese) {
+			return ports.ResultadoCierreAdministrativo{},
+				application.ErrCierreAdministrativoNoDisponible
+		}
+		return sinCese.CerrarSinCese(ctx, application.SolicitudCerrarAdministrativamente{
 			OrganizacionRef:   organizacionRef,
 			ExpedienteRef:     entrada.ExpedienteRef,
 			SeguimientoRef:    entrada.SeguimientoRef,

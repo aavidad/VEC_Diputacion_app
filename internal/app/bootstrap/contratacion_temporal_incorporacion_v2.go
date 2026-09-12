@@ -23,6 +23,7 @@ import (
 // publica capacidades ni transforma el rol técnico RRHH en permiso Personal.
 // Autoridad/Detalle/Reloj de Preparacion se ligan aquí, no desde configuración.
 type ConfiguracionIncorporacionDesarrollo struct {
+	continuidad *continuidadNominalDesarrollo
 	// Sólo la carga nominal de arranque compone este detalle con el PDP real.
 	detalleNominal            *appct.ServicioConsultaDetalleRRHH
 	Referencias               ReferenciasCTIncorporacionDesarrollo
@@ -80,7 +81,7 @@ func (f *fuenteAutoridadIncorporacionV2Desarrollo) PeticionVerificada(ctx contex
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
 	}
-	if ctx.Value(claveIncorporacionV2Desarrollo{}) != f.soporte.sello {
+	if ctx.Value(claveIncorporacionV2Desarrollo{}) != f.soporte.sello || ctx.Value(claveRutaContinuidadNominal{}) != nil {
 		return cero, ct.ErrDenegadaIncorporacionAplicacion
 	}
 	c, err := f.consultas.contextoConsultaRRHHDesarrollo(ctx)
@@ -145,7 +146,7 @@ func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *sopo
 		return nil, err
 	}
 	c, ok := soporte.capacidadValida(ctx)
-	if !ok || (c.ruta != httpinterno.RutaIncorporacionEjercicioV2 && c.ruta != httpinterno.RutaFichaGINPIXV2 && c.ruta != httpinterno.RutaConsultaSeguimientoV2) {
+	if !ok || (c.ruta != httpinterno.RutaIncorporacionEjercicioV2 && c.ruta != httpinterno.RutaFichaGINPIXV2 && c.ruta != httpinterno.RutaConsultaSeguimientoV2 && !rutaContinuidadNominal(c.ruta)) {
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
 	c.ruta = httpinterno.RutaConsultaDetalleRRHH
