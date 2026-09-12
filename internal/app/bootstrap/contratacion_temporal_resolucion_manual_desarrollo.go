@@ -305,6 +305,22 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContex
 			return s.motivo, true
 		}
 	}
+	if ruta == httpinterno.RutaRegistroComunicacionLlamamiento && ctx != nil {
+		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
+		if ok && accionCorreoLlamamientoDesarrollo(d.Accion) {
+			if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+				return dominiovec.ReferenciaEntradaCatalogo{}, false
+			}
+			switch d.Accion {
+			case application.AccionDespacharCorreoLlamamiento:
+				return s.motivoDespachoCorreo, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoDespachoCorreo)
+			case application.AccionRegistrarResultadoCorreoLlamamiento:
+				return s.motivoResultadoCorreo, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoResultadoCorreo)
+			default:
+				return dominiovec.ReferenciaEntradaCatalogo{}, false
+			}
+		}
+	}
 	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {

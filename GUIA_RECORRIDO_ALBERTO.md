@@ -184,6 +184,12 @@ global y vet pasaron; no hubo JavaScript nuevo y los manifiestos 11/111/3/1
 pasaron. El catálogo de dos claves de correo más cinco de contacto conserva
 SHA256 `d22f70a…`. No hay runtime.
 
+Correo14 está preparado solo en fuente y tiene dos `GO`. Declara un rol de
+correo con exactamente dos concesiones y prueba autoridad PDP/COSE/HMAC real,
+con correlación audit17 conservada y CT54 sin interceptar. Go global y vet
+terminaron con código 0. No intente usarlo: aún no hay HTTP compuesto,
+PostgreSQL, SMTP, runtime ni E2E nuevo.
+
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;

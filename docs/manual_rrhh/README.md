@@ -178,6 +178,12 @@ composición, almacén AD3-35/T13-6, gobierno, alta web, vínculo Bolsa y replay
 durable. Go global y vet pasaron; no cambió JavaScript y los manifiestos
 11/111/3/1 pasaron. No hay runtime.
 
+Correo14 está preparado y revisado solo en fuente. Declara un rol de correo con
+exactamente dos concesiones y prueba la autoridad real PDP/COSE/HMAC, sin
+interceptar CT54. Go global y vet terminaron con código 0. Para RRHH no cambia
+todavía el recorrido: faltan HTTP compuesto, PostgreSQL, SMTP y runtime, y no
+hay un E2E nuevo de correo.
+
 ## Historia del corte para presentación — 10 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;

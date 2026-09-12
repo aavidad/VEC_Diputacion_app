@@ -1,11 +1,14 @@
 package domain
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
+	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 func solicitudCorreoLlamamientoPrueba() SolicitudDespacharCorreoLlamamiento {
@@ -71,7 +74,11 @@ func TestAuditoriaResultadoCorreoLlamamientoCanonizaAuditEntry17(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditoria, err := NuevaAuditoriaResultadoCorreoLlamamiento(DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", CorrelationRef: "correlacion-resultado-prueba", Solicitud: resultado, OcurridoEn: time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)})
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditoria, err := NuevaAuditoriaResultadoCorreoLlamamiento(DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", Correlacion: correlacion, Solicitud: resultado, OcurridoEn: time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +86,34 @@ func TestAuditoriaResultadoCorreoLlamamientoCanonizaAuditEntry17(t *testing.T) {
 	if err != nil || !strings.Contains(string(contenido), `"actor_roles":["rol-version-rrhh-1"]`) || !strings.Contains(string(contenido), `"occurred_at":"2026-09-12T12:00:00.000000Z"`) {
 		t.Fatalf("AuditEntry17=%s err=%v", contenido, err)
 	}
-	if _, err := NuevaAuditoriaResultadoCorreoLlamamiento(DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "actor-declarado", ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", CorrelationRef: "correlacion-resultado-prueba", Solicitud: resultado, OcurridoEn: time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)}); err == nil {
+
+	texto, err := correlacion.ValorCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperado := `{"id":"","seq":0,"signature":"","actor_id":"hmac-sha256:prueba:` + strings.Repeat("a", 64) + `","actor_profile":"perfil-rrhh","actor_roles":["rol-version-rrhh-1"],"auth_method":"certificado","auth_assurance":"alto","purpose":"gestionar_contratacion_temporal","action":"contratacion_temporal.llamamiento.correo.registrar_resultado","module_id":"vec.module.contratacion_temporal","subject_ref":"intento-correo-prueba","object_version":2,"expediente_ref":"exp-001","result":"accepted","correlation_ref":"` + texto + `","occurred_at":"2026-09-12T12:00:00.000000Z"}`
+	if string(contenido) != esperado {
+		t.Fatal("cambió el contrato de bytes Audit17")
+	}
+	hash, err := auditoria.HuellaSHA256()
+	if err != nil || hash != sha256HexCorreoPrueba([]byte(esperado)) {
+		t.Fatal("huella distinta de Audit17 original")
+	}
+	original, err := auditoria.CorrelacionPara(resultado)
+	if err != nil || original != correlacion {
+		t.Fatal("capacidad nominal original no conservada")
+	}
+	otra := resultado
+	otra.IntentoRef = "intento-ajeno"
+	if _, err := auditoria.CorrelacionPara(otra); err == nil {
+		t.Fatal("correlación transportada para otra solicitud")
+	}
+	sinCorrelacion := auditoria.datos
+	sinCorrelacion.Correlacion = vecdomain.ReferenciaCorrelacionAutorizacionV2{}
+	if _, err := NuevaAuditoriaResultadoCorreoLlamamiento(sinCorrelacion); err == nil {
+		t.Fatal("auditoría sin correlación nominal aceptada")
+	}
+	if _, err := NuevaAuditoriaResultadoCorreoLlamamiento(DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "actor-declarado", ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", Correlacion: correlacion, Solicitud: resultado, OcurridoEn: time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)}); err == nil {
 		t.Fatal("actor sin HMAC aceptado")
 	}
 }

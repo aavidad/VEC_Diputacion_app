@@ -204,6 +204,13 @@ T13-6, gobierno, alta web, vínculo Bolsa y replay durable. Go global y vet
 terminaron en `PASS`; JavaScript quedó intacto y los manifiestos 11/111/3/1
 pasaron. El catálogo 2+5 conserva SHA256 `d22f70a…`. No hay runtime.
 
+Correo14 incorpora cambios en 14 archivos Go en fuente, con dos `GO` sobre el manifiesto
+`d23a5d307014b791bdca2dfdbf109ec955f64bc663f4ca749b9d5a8db71d3cc8`.
+Declara un rol de correo con exactamente dos concesiones. La autoridad real
+PDP/COSE/HMAC está probada, conserva la correlación nominal de audit17 y no
+intercepta CT54. Go global y vet terminaron con código 0. Todavía no hay HTTP
+compuesto, PostgreSQL, SMTP, runtime ni E2E nuevo.
+
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 
 Este apartado y los bloques cronológicos inferiores se conservan como historia;

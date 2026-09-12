@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -126,8 +128,12 @@ func capacidadCorreoLlamamientoPGPrueba(t *testing.T, s ports.SolicitudDespachar
 
 func auditoriaResultadoCorreoLlamamientoPGPrueba(t *testing.T, s ports.SolicitudRegistrarResultadoCorreoLlamamiento) ports.AuditoriaResultadoCorreoLlamamiento {
 	t.Helper()
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	a, err := ctdomain.NuevaAuditoriaResultadoCorreoLlamamiento(ctdomain.DatosAuditoriaResultadoCorreoLlamamiento{
-		ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", CorrelationRef: "correlacion-resultado-nueva", Solicitud: s, OcurridoEn: time.Date(2026, 9, 12, 10, 0, 0, 0, time.UTC),
+		ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", Correlacion: correlacion, Solicitud: s, OcurridoEn: time.Date(2026, 9, 12, 10, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatal(err)

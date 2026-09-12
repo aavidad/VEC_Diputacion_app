@@ -98,6 +98,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaLlamamiento             dominiovec.InstantaneaAutorizacion
 	instantaneaReanudacionLlamamiento  dominiovec.InstantaneaAutorizacion
 	instantaneaComunicacion            dominiovec.InstantaneaAutorizacion
+	instantaneaCorreo                  dominiovec.InstantaneaAutorizacion
 	instantaneaRespuestaRecibida       dominiovec.InstantaneaAutorizacion
 	instantaneaConsultaJustificante    dominiovec.InstantaneaAutorizacion
 	instantaneaResolucionManual        dominiovec.InstantaneaAutorizacion
@@ -115,6 +116,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo
 	motivoComunicacion                 dominiovec.ReferenciaEntradaCatalogo
+	motivoDespachoCorreo               dominiovec.ReferenciaEntradaCatalogo
+	motivoResultadoCorreo              dominiovec.ReferenciaEntradaCatalogo
 	motivoRespuestaRecibida            dominiovec.ReferenciaEntradaCatalogo
 	motivoConsultaJustificante         dominiovec.ReferenciaEntradaCatalogo
 	motivoPropuestaCobertura           dominiovec.ReferenciaEntradaCatalogo
@@ -879,6 +882,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
+		if ruta == httpinterno.RutaRegistroComunicacionLlamamiento && accionCorreoLlamamientoDesarrollo(datos.Accion) {
+			s.mu.Lock()
+			instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaCorreo)
+			s.mu.Unlock()
+			if instantanea.Validar() != nil {
+				return dominiovec.InstantaneaAutorizacion{}, false
+			}
+		}
 		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento {
 			s.mu.Lock()
 			switch datos.Accion {
@@ -908,7 +919,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				return dominiovec.InstantaneaAutorizacion{}, false
 			}
 		}
-		instantanea.AsignacionPerfil.Ambitos = ambitosLlamamientoDesarrollo(datos.Recurso)
+		// Correo conserva la asignación publicada. El recurso no amplía sus ámbitos.
+		if !accionCorreoLlamamientoDesarrollo(datos.Accion) {
+			instantanea.AsignacionPerfil.Ambitos = ambitosLlamamientoDesarrollo(datos.Recurso)
+		}
 	} else if ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura {
 		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
@@ -35,11 +36,11 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[1].(*int64) = 1
 			return nil
 		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 10 {
+			if len(args) != 12 {
 				return errors.New("numero de audiencias de gobierno inesperado")
 			}
 			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9} {
+			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11} {
 				if args[indice] == tx.audienciaActual {
 					admitida = true
 				}
@@ -63,6 +64,8 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 		puertosct.AudienciaConfirmacionIncorporacionV2,
 		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
 		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
+		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
+		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 	}
 	for _, audiencia := range audienciasPropias {
 		t.Run(audiencia, func(t *testing.T) {

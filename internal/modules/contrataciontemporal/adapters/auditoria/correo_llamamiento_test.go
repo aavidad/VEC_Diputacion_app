@@ -102,6 +102,20 @@ func TestPreparadorAuditoriaResultadoCorreoLlamamientoUsaHMACComunYCorrelacionNu
 	if err != nil || correlacion == "correlacion_despacho_0123456789abcdef0123456789abcdef" || !strings.HasPrefix(correlacion, "correlacion_") {
 		t.Fatalf("correlacion=%q err=%v", correlacion, err)
 	}
+
+	nominal, err := auditoria.CorrelacionPara(resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := nominal.ValorCanonico()
+	if err != nil || original != correlacion {
+		t.Fatal("correlación nominal distinta del JSON")
+	}
+	otra := resultado
+	otra.IntentoRef = "intento-ajeno"
+	if _, err := auditoria.CorrelacionPara(otra); err == nil {
+		t.Fatal("auditoría no ligada a solicitud")
+	}
 	if _, err := auditoria.HuellaSHA256(); err != nil {
 		t.Fatal(err)
 	}

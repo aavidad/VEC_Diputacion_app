@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -60,8 +62,12 @@ func (p *preparadorAuditoriaCorreoPrueba) PrepararAuditoriaResultadoCorreoLlamam
 	if p.err != nil {
 		return ports.AuditoriaResultadoCorreoLlamamiento{}, p.err
 	}
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		return ports.AuditoriaResultadoCorreoLlamamiento{}, err
+	}
 	return ctdomain.NuevaAuditoriaResultadoCorreoLlamamiento(ctdomain.DatosAuditoriaResultadoCorreoLlamamiento{
-		ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", CorrelationRef: "correlacion-resultado-nueva", Solicitud: s, OcurridoEn: ocurrido,
+		ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", Correlacion: correlacion, Solicitud: s, OcurridoEn: ocurrido,
 	})
 }
 
@@ -599,14 +605,18 @@ func TestRecursoResultadoCorreoLigaSolicitudYAuditoriaSeparadamente(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	crear := func(correlacion string) ports.AuditoriaResultadoCorreoLlamamiento {
-		a, e := ctdomain.NuevaAuditoriaResultadoCorreoLlamamiento(ctdomain.DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", CorrelationRef: correlacion, Solicitud: resultado, OcurridoEn: instanteCorreoPrueba})
+	crear := func() ports.AuditoriaResultadoCorreoLlamamiento {
+		correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), seguridadvec.GeneradorReferenciasCriptograficas{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, e := ctdomain.NuevaAuditoriaResultadoCorreoLlamamiento(ctdomain.DatosAuditoriaResultadoCorreoLlamamiento{ActorID: "hmac-sha256:prueba:" + strings.Repeat("a", 64), ActorProfile: "perfil-rrhh", VersionRolRef: "rol-version-rrhh-1", AuthMethod: "certificado", AuthAssurance: "alto", Correlacion: correlacion, Solicitud: resultado, OcurridoEn: instanteCorreoPrueba})
 		if e != nil {
 			t.Fatal(e)
 		}
 		return a
 	}
-	primera, segunda := crear("correlacion-resultado-001"), crear("correlacion-resultado-002")
+	primera, segunda := crear(), crear()
 	recurso, err := RecursoResultadoCorreoLlamamiento(resultado, primera)
 	if err != nil || recurso.Atributos["material_sha256"] == "" || recurso.Atributos["auditoria_sha256"] == "" {
 		t.Fatalf("recurso=%#v err=%v", recurso, err)

@@ -6,19 +6,22 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 type DatosAuditoriaResultadoCorreoLlamamiento struct {
-	ActorID, ActorProfile, VersionRolRef, AuthMethod, AuthAssurance, CorrelationRef string
-	Solicitud                                                                       SolicitudRegistrarResultadoCorreoLlamamiento
-	OcurridoEn                                                                      time.Time
+	ActorID, ActorProfile, VersionRolRef, AuthMethod, AuthAssurance string
+	Correlacion                                                     vecdomain.ReferenciaCorrelacionAutorizacionV2
+	Solicitud                                                       SolicitudRegistrarResultadoCorreoLlamamiento
+	OcurridoEn                                                      time.Time
 }
 type AuditoriaResultadoCorreoLlamamiento struct {
 	datos DatosAuditoriaResultadoCorreoLlamamiento
 }
 
 func NuevaAuditoriaResultadoCorreoLlamamiento(d DatosAuditoriaResultadoCorreoLlamamiento) (AuditoriaResultadoCorreoLlamamiento, error) {
-	if d.Solicitud.Validar() != nil || !seudonimoHMACAuditoriaValido(d.ActorID) || !ReferenciaOpacaValida(d.ActorProfile) || !ReferenciaOpacaValida(d.VersionRolRef) || !ReferenciaOpacaValida(d.CorrelationRef) || d.AuthMethod == "" || d.AuthAssurance == "" || !InstanteUTCCanonico(d.OcurridoEn) {
+	if d.Solicitud.Validar() != nil || !seudonimoHMACAuditoriaValido(d.ActorID) || !ReferenciaOpacaValida(d.ActorProfile) || !ReferenciaOpacaValida(d.VersionRolRef) || d.Correlacion.Validar() != nil || d.AuthMethod == "" || d.AuthAssurance == "" || !InstanteUTCCanonico(d.OcurridoEn) {
 		return AuditoriaResultadoCorreoLlamamiento{}, ErrResultadoCorreoLlamamientoNoConfiable
 	}
 	return AuditoriaResultadoCorreoLlamamiento{d}, nil
@@ -37,6 +40,10 @@ func (a AuditoriaResultadoCorreoLlamamiento) SerializarCanonico() ([]byte, error
 		return nil, e
 	}
 	d := a.datos
+	correlacion, err := d.Correlacion.ValorCanonico()
+	if err != nil {
+		return nil, ErrResultadoCorreoLlamamientoNoConfiable
+	}
 	return json.Marshal(struct {
 		ID             string   `json:"id"`
 		Seq            uint64   `json:"seq"`
@@ -55,7 +62,7 @@ func (a AuditoriaResultadoCorreoLlamamiento) SerializarCanonico() ([]byte, error
 		Result         string   `json:"result"`
 		CorrelationRef string   `json:"correlation_ref"`
 		OccurredAt     string   `json:"occurred_at"`
-	}{"", 0, "", d.ActorID, d.ActorProfile, []string{d.VersionRolRef}, d.AuthMethod, d.AuthAssurance, "gestionar_contratacion_temporal", "contratacion_temporal.llamamiento.correo.registrar_resultado", "vec.module.contratacion_temporal", d.Solicitud.IntentoRef, 2, d.Solicitud.ExpedienteRef, "accepted", d.CorrelationRef, d.OcurridoEn.Format("2006-01-02T15:04:05.000000Z")})
+	}{"", 0, "", d.ActorID, d.ActorProfile, []string{d.VersionRolRef}, d.AuthMethod, d.AuthAssurance, "gestionar_contratacion_temporal", "contratacion_temporal.llamamiento.correo.registrar_resultado", "vec.module.contratacion_temporal", d.Solicitud.IntentoRef, 2, d.Solicitud.ExpedienteRef, "accepted", correlacion, d.OcurridoEn.Format("2006-01-02T15:04:05.000000Z")})
 }
 func (a AuditoriaResultadoCorreoLlamamiento) HuellaSHA256() (string, error) {
 	b, e := a.SerializarCanonico()
@@ -73,5 +80,14 @@ func (a AuditoriaResultadoCorreoLlamamiento) CorrelacionRef() (string, error) {
 	if _, err := NuevaAuditoriaResultadoCorreoLlamamiento(a.datos); err != nil {
 		return "", err
 	}
-	return a.datos.CorrelationRef, nil
+	return a.datos.Correlacion.ValorCanonico()
+}
+
+// CorrelacionPara transporta la capacidad nominal original, acuñada por la
+// autoridad común. Nunca reconstruye una capacidad a partir del JSON Audit17.
+func (a AuditoriaResultadoCorreoLlamamiento) CorrelacionPara(s SolicitudRegistrarResultadoCorreoLlamamiento) (vecdomain.ReferenciaCorrelacionAutorizacionV2, error) {
+	if _, err := NuevaAuditoriaResultadoCorreoLlamamiento(a.datos); err != nil || a.datos.Solicitud != s {
+		return vecdomain.ReferenciaCorrelacionAutorizacionV2{}, ErrResultadoCorreoLlamamientoNoConfiable
+	}
+	return a.datos.Correlacion, nil
 }

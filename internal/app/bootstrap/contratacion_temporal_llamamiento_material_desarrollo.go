@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	puertosct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -30,6 +31,10 @@ func nuevoProveedorMaterialConsumidorDesarrollo(ctx context.Context, gobierno *p
 		dominio, prefijo = "vec.ct.cuadro-rrhh.desarrollo.capacidad-v3", "clave:capacidad:ct-cuadro:"
 	case puertosct.AudienciaConsumoConsultaDetalleRRHHV3:
 		dominio, prefijo = "vec.ct.detalle-rrhh.desarrollo.capacidad-v3", "clave:capacidad:ct-detalle:"
+	case ctapplication.AudienciaDespachoCorreoLlamamientoV3:
+		dominio, prefijo = "vec.ct.despacho-correo-llamamiento.desarrollo.capacidad-v3", "clave:capacidad:ct-despacho-correo:"
+	case ctapplication.AudienciaResultadoCorreoLlamamientoV3:
+		dominio, prefijo = "vec.ct.resultado-correo-llamamiento.desarrollo.capacidad-v3", "clave:capacidad:ct-resultado-correo:"
 	default:
 		return nil, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}

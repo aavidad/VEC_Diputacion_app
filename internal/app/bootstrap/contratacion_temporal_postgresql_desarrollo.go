@@ -20,6 +20,7 @@ import (
 	"vec-diputacion-granada/config"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
@@ -83,17 +84,19 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion              *pgxpool.Pool
-	bolsa                  *pgxpool.Pool
-	gobierno               *pgxpool.Pool
-	registroAutorizacion   *pgxpool.Pool
-	confirmador            *pgxpool.Pool
-	lectorResultado        *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	candidaturas           ports.ResolutorCandidaturaAlta
-	transaccionAlta        ports.TransaccionAltasCandidata
-	proveedorMaterial      *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
-	cerrarUnaVez           func()
+	ejecucion                        *pgxpool.Pool
+	bolsa                            *pgxpool.Pool
+	gobierno                         *pgxpool.Pool
+	registroAutorizacion             *pgxpool.Pool
+	confirmador                      *pgxpool.Pool
+	lectorResultado                  *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	candidaturas                     ports.ResolutorCandidaturaAlta
+	transaccionAlta                  ports.TransaccionAltasCandidata
+	proveedorMaterial                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo *proveedorMaterialAltaContratacionTemporalDesarrollo
+	cerrarUnaVez                     func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -261,6 +264,20 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	proveedorDespachoCorreo, err := nuevoProveedorMaterialConsumidorDesarrollo(
+		ctx, gobierno, material, soporte, reloj,
+		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
+	)
+	if err != nil {
+		return vacias, err
+	}
+	proveedorResultadoCorreo, err := nuevoProveedorMaterialConsumidorDesarrollo(
+		ctx, gobierno, material, soporte, reloj,
+		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
+	)
+	if err != nil {
+		return vacias, err
+	}
 	if configuracion.BolsaLlamamientosConfigurada() {
 		bolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
 		if err != nil {
@@ -322,6 +339,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.candidaturas = resolver
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
+	dependencias.proveedorMaterialDespachoCorreo = proveedorDespachoCorreo
+	dependencias.proveedorMaterialResultadoCorreo = proveedorResultadoCorreo
 	completa = true
 	return dependencias, nil
 }
@@ -696,7 +715,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -731,6 +750,8 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		ports.AudienciaConfirmacionIncorporacionV2,
 		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
 		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
+		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
+		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 	).Scan(&propio)
 	return propio, err
 }
@@ -749,7 +770,9 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		lecturapersonal.AudienciaV2,
 		ports.AudienciaConfirmacionIncorporacionV2,
 		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
-		postgrescontratacion.AudienciaCierreAdministrativoSinCese:
+		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
+		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
+		ctapplication.AudienciaResultadoCorreoLlamamientoV3:
 		return true
 	default:
 		return false

@@ -244,6 +244,13 @@ JavaScript quedó intacto; los manifiestos 11/111/3/1 pasaron y el catálogo de
 dos claves de correo más cinco de contacto conserva SHA256 `d22f70a…`. No hay
 runtime de este corte.
 
+Correo14 añade cambios en 14 archivos Go en fuente. El manifiesto final
+`d23a5d307014b791bdca2dfdbf109ec955f64bc663f4ca749b9d5a8db71d3cc8`
+recibió dos `GO`. El rol nuevo de correo tiene exactamente dos concesiones; la
+autoridad real PDP/COSE/HMAC está probada, conserva la correlación nominal de
+audit17 y deja CT54 sin interceptar. Go global y vet terminaron con código 0.
+Este corte no compone HTTP, PostgreSQL o SMTP y no acredita runtime ni otro E2E.
+
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones
 `GO`, se archivó su evidencia y se retiró solamente el clon propio. La base

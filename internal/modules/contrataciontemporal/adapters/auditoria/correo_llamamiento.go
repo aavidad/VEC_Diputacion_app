@@ -102,7 +102,7 @@ func (p *PreparadorResultadoCorreoLlamamiento) PrepararAuditoriaResultadoCorreoL
 	auditoria, err := ctdomain.NuevaAuditoriaResultadoCorreoLlamamiento(ctdomain.DatosAuditoriaResultadoCorreoLlamamiento{
 		ActorID: actorID, ActorProfile: actor.PerfilActivoRef, VersionRolRef: versionRol,
 		AuthMethod: string(actor.Principal.AuthMethod), AuthAssurance: string(actor.Principal.AuthAssurance),
-		CorrelationRef: correlacionNueva, Solicitud: solicitud, OcurridoEn: ocurridoEn,
+		Correlacion: correlacion, Solicitud: solicitud, OcurridoEn: ocurridoEn,
 	})
 	if err != nil {
 		return ports.AuditoriaResultadoCorreoLlamamiento{}, ErrPreparacionAuditoriaResultadoCorreoLlamamiento
