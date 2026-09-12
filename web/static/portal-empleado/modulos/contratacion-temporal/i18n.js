@@ -1,5 +1,6 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
+import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_LLAMAMIENTO_ES,
@@ -12,6 +13,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   "contratacion_temporal.fase.nombramiento": "Nombramiento",
   "contratacion_temporal.fase.incorporacion": "Incorporación",
   "contratacion_temporal.fase.seguimiento": "Seguimiento",
+  ...MENSAJES_SUBSANACION_REPAROS_ES,
   sobrelinea: "Contratación temporal · Solicitud del centro",
   titulo: "Nueva solicitud de contratación temporal",
   descripcion:

@@ -10,6 +10,7 @@ export const MENSAJES_SUBSANACION_REPAROS_ES = Object.freeze({
   subsanacion_enviando: "Enviando una única petición. Espere la confirmación.",
   subsanacion_confirmada: "Subsanación confirmada por el servidor.",
   subsanacion_indeterminada: "El resultado no puede determinarse. No repita la operación automáticamente.",
+  subsanacion_montaje_error: "No se pudo cargar el formulario de subsanación. Vuelva a abrir el expediente.",
   subsanacion_error: "No se pudo confirmar la subsanación. El resultado puede requerir comprobación autorizada.",
   subsanacion_sin_permiso: "Su perfil no permite registrar esta subsanación. Consulte con la persona responsable de la unidad.",
   subsanacion_conflicto: "El expediente o la operación han cambiado. Vuelva a consultar el expediente antes de continuar.",

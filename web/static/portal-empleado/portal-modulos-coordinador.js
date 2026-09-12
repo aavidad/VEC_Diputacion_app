@@ -478,6 +478,9 @@ export function crearCoordinadorModulosPortal({
           alta,
           analisis,
           fiscalizacion,
+          // Se mantiene nulo hasta que el arranque reciba una disponibilidad
+          // efectiva del servidor para esta operación, separada de la fase.
+          subsanacion: null,
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
@@ -605,6 +608,7 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
+          subsanacion: composicion.contratacionTemporal.subsanacion,
           confirmarOperacion,
           anunciar,
         });
