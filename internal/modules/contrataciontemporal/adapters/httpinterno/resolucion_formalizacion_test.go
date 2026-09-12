@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -340,9 +342,28 @@ func TestResolucionFormalizacionHTTPErroresContratoDelta2(t *testing.T) {
 }
 
 type consultaResolucionPDFPrueba struct {
-	original ports.DetalleExpedienteRRHH
+	detalles map[uint64]ports.DetalleExpedienteRRHH
 	llamadas []uint64
 	fallo    bool
+}
+
+func tipoAcceptBorradorRRHHPrueba(tipo ports.TipoBorradorRRHH) string {
+	switch tipo {
+	case ports.BorradorInformeDefinitivo:
+		return AcceptInformeDefinitivoRRHH
+	case ports.BorradorResolucion:
+		return AcceptResolucionRRHH
+	case ports.BorradorDiligencia:
+		return AcceptDiligenciaRRHH
+	case ports.BorradorTomaPosesion:
+		return AcceptTomaPosesionRRHH
+	case ports.BorradorNotificacion:
+		return AcceptNotificacionRRHH
+	case ports.BorradorComunicacionCentro:
+		return AcceptComunicacionCentroRRHH
+	default:
+		return ""
+	}
 }
 
 func (c *consultaResolucionPDFPrueba) Consultar(_ context.Context, s ports.SolicitudDetalleRRHH) (ports.DetalleExpedienteRRHH, error) {
@@ -350,9 +371,13 @@ func (c *consultaResolucionPDFPrueba) Consultar(_ context.Context, s ports.Solic
 	if c.fallo {
 		return ports.DetalleExpedienteRRHH{}, errors.New("dependencia")
 	}
-	return c.original, nil
+	detalle, ok := c.detalles[s.VersionObservada()]
+	if !ok {
+		return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoObservable
+	}
+	return detalle.Clonar(), nil
 }
-func TestResolucionFormalizacionHTTPSeisPDFDesdeV8ConOriginalV7(t *testing.T) {
+func TestResolucionFormalizacionHTTPSeisPDFDesdeActual7A9ConOriginalV7(t *testing.T) {
 	for _, perfil := range []struct {
 		tipo   ports.TipoBorradorRRHH
 		nombre string
@@ -363,38 +388,66 @@ func TestResolucionFormalizacionHTTPSeisPDFDesdeV8ConOriginalV7(t *testing.T) {
 	} {
 		t.Run(string(perfil.tipo), func(t *testing.T) {
 			original := detalleInformeRRHHPrueba()
-			actual := original.Clonar()
-			actual.Resumen.Version = 8
-			ultimo := actual.Hitos[6]
+			actual8 := original.Clonar()
+			ultimo := actual8.Hitos[6]
 			ultimo.Secuencia = 8
 			ultimo.VersionExpediente = 8
 			ultimo.AccionClave = "registrar_resolucion_formalizacion"
 			ultimo.RealizadaEn = ultimo.RealizadaEn.Add(time.Minute)
 			ultimo.FaseOrigen = "nombramiento"
-			actual.Hitos = append(actual.Hitos, ultimo)
-			actual.Resumen.ActualizadoEn = ultimo.RealizadaEn
-			consulta := &consultaResolucionPDFPrueba{original: original}
+			actual8.Hitos = append(actual8.Hitos, ultimo)
+			actual8.Resumen.Version, actual8.Resumen.ActualizadoEn = 8, ultimo.RealizadaEn
+			actual9 := actual8.Clonar()
+			ultimo = actual9.Hitos[7]
+			ultimo.Secuencia = 9
+			ultimo.VersionExpediente = 9
+			ultimo.AccionClave = "contratacion_temporal.anotacion_administrativa.registrar"
+			ultimo.RealizadaEn = ultimo.RealizadaEn.Add(time.Minute)
+			actual9.Hitos = append(actual9.Hitos, ultimo)
+			actual9.Resumen.Version, actual9.Resumen.ActualizadoEn = 9, ultimo.RealizadaEn
+			consultaActual := &consultaResolucionPDFPrueba{detalles: map[uint64]ports.DetalleExpedienteRRHH{7: original, 8: actual8, 9: actual9}}
+			consultaOriginal := &consultaResolucionPDFPrueba{detalles: map[uint64]ports.DetalleExpedienteRRHH{7: original}}
 			render := &renderizadorBorradorRRHHPrueba{contenido: []byte("%PDF-1.4\nfixture de transporte")}
 			render.alRenderizar = func(_ context.Context, d ports.DetalleExpedienteRRHH) {
 				if d.Resumen.Version != 7 || len(d.Hitos) != 7 {
 					t.Fatal("PDF reescrito desde v8")
 				}
 			}
-			h := &manejadorConsultaDetalleRRHH{consultor: consulta, renderizador: render}
+			h, err := NuevoManejadorConsultaDetalleRRHHConOriginalPropuesta(consultaActual, consultaOriginal, render)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, version := range []uint64{7, 8, 9} {
+				w := httptest.NewRecorder()
+				r := nuevaPeticionConsultaRRHHPrueba(RutaConsultaDetalleRRHH, `{"expediente_ref":"expediente:ct:0001","version_observada":`+strconv.FormatUint(version, 10)+`}`)
+				r.Header.Set("Accept", tipoAcceptBorradorRRHHPrueba(perfil.tipo))
+				h.ServeHTTP(w, r)
+				if w.Code != 200 || w.Header().Get("Content-Disposition") != `attachment; filename="`+perfil.nombre+`"` {
+					t.Fatalf("v%d: %d %s", version, w.Code, w.Body.String())
+				}
+			}
+			if got := consultaActual.llamadas; !reflect.DeepEqual(got, []uint64{7, 8, 7, 9}) || !reflect.DeepEqual(consultaOriginal.llamadas, []uint64{7}) || render.llamadas != 3 {
+				t.Fatalf("lecturas no separadas: actual=%v original=%v render=%d", got, consultaOriginal.llamadas, render.llamadas)
+			}
+			consultaOriginal.fallo = true
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest("POST", RutaConsultaDetalleRRHH, nil)
-			h.responderBorrador(w, r, actual, representacionBorradorRRHH{tipo: perfil.tipo, nombreArchivo: perfil.nombre})
-			if w.Code != 200 || len(consulta.llamadas) != 1 || consulta.llamadas[0] != 7 || render.llamadas != 1 {
-				t.Fatal(w.Code, w.Body.String())
+			r := nuevaPeticionConsultaRRHHPrueba(RutaConsultaDetalleRRHH, `{"expediente_ref":"expediente:ct:0001","version_observada":9}`)
+			r.Header.Set("Accept", tipoAcceptBorradorRRHHPrueba(perfil.tipo))
+			h.ServeHTTP(w, r)
+			if w.Code != 503 || render.llamadas != 3 {
+				t.Fatal("fallo de antecedente histórico ocultado", w.Code)
 			}
-			if w.Header().Get("Content-Disposition") != `attachment; filename="`+perfil.nombre+`"` {
-				t.Fatal("nombre cambiado")
+			consultaOriginal.fallo = false
+			sinOriginal, err := NuevoManejadorConsultaDetalleRRHH(consultaActual, render)
+			if err != nil {
+				t.Fatal(err)
 			}
-			consulta.fallo = true
 			w = httptest.NewRecorder()
-			h.responderBorrador(w, r, actual, representacionBorradorRRHH{tipo: perfil.tipo, nombreArchivo: perfil.nombre})
-			if w.Code != 503 || render.llamadas != 1 {
-				t.Fatal("fallo de antecedente ocultado", w.Code)
+			r = nuevaPeticionConsultaRRHHPrueba(RutaConsultaDetalleRRHH, `{"expediente_ref":"expediente:ct:0001","version_observada":9}`)
+			r.Header.Set("Accept", tipoAcceptBorradorRRHHPrueba(perfil.tipo))
+			sinOriginal.ServeHTTP(w, r)
+			if w.Code != 503 || render.llamadas != 3 {
+				t.Fatal("ausencia de fachada histórica alteró o representó el PDF", w.Code)
 			}
 		})
 	}

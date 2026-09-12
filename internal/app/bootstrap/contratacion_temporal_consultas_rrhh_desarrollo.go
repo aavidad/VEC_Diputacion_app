@@ -27,8 +27,10 @@ type dependenciasConsultasRRHHDesarrollo struct {
 	autoridad             *autoridadConsultasRRHHDesarrollo
 	cuadro                httpinterno.ConsultorCuadroRRHH
 	detalle               httpinterno.ConsultorDetalleRRHH
+	originalPropuesta     httpinterno.ConsultorDetalleRRHH
 	cuadroHTTP            httpinterno.ConsultorCuadroRRHH
 	detalleHTTP           httpinterno.ConsultorDetalleRRHH
+	originalPropuestaHTTP httpinterno.ConsultorDetalleRRHH
 	preparacionResolucion ports.ConsultorPreparacionResolucionFormalizacion
 	cerrar                func()
 }
@@ -121,13 +123,21 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		detalle, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesion, reloj)
-		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP, detalle) {
+		if err != nil {
+			return vacio, err
+		}
+		sesionOriginal, err := postgresct.NuevaSesionConsultaOriginalPropuestaRRHHPostgreSQL(poolConsultas)
+		if err != nil {
+			return vacio, err
+		}
+		originalPropuesta, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesionOriginal, reloj)
+		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP, detalle, originalPropuesta) {
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 	}
 	completo = true
 	var unaVez sync.Once
-	return dependenciasConsultasRRHHDesarrollo{cuadroHTTP: mux, detalleHTTP: multiplexorDetalleLectoresRRHHDesarrollo{mux}, cerrar: func() {
+	return dependenciasConsultasRRHHDesarrollo{cuadroHTTP: mux, detalleHTTP: multiplexorDetalleLectoresRRHHDesarrollo{mux}, originalPropuestaHTTP: multiplexorOriginalPropuestaLectoresRRHHDesarrollo{mux}, cerrar: func() {
 		unaVez.Do(func() {
 			for _, cerrar := range cierres {
 				cerrar()
@@ -374,17 +384,25 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
+	sesionOriginal, err := postgresct.NuevaSesionConsultaOriginalPropuestaRRHHPostgreSQL(poolConsultas)
+	if err != nil {
+		return vacio, err
+	}
+	originalPropuesta, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesionOriginal, reloj)
+	if err != nil {
+		return vacio, err
+	}
 	preparacion, err := application.NuevoServicioPreparacionResolucionFormalizacion(autoridad, emisor, sesion, reloj)
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base)
 		if err != nil {
 			return vacio, err
 		}
-		base.cuadroHTTP, base.detalleHTTP, base.cerrar = lectoresDependencias.cuadroHTTP, lectoresDependencias.detalleHTTP, lectoresDependencias.cerrar
+		base.cuadroHTTP, base.detalleHTTP, base.originalPropuestaHTTP, base.cerrar = lectoresDependencias.cuadroHTTP, lectoresDependencias.detalleHTTP, lectoresDependencias.originalPropuestaHTTP, lectoresDependencias.cerrar
 	}
 	completa = true
 	identidadCompuesta = true

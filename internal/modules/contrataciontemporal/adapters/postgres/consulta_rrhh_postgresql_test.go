@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -201,6 +202,27 @@ func TestArgumentosSQLConsultaRRHHTienenValorYOrdenExactos(t *testing.T) {
 	)
 	if !reflect.DeepEqual(detalleActual, detalleEsperado) {
 		t.Fatalf("argumentos de detalle fuera de contrato:\n%#v", detalleActual)
+	}
+}
+
+func TestConsultaOriginalPropuestaRRHHTieneFachadaFijaYNoAdmiteOtroUso(t *testing.T) {
+	if !strings.Contains(consultaOriginalPropuestaRRHHPostgreSQL,
+		"vec_contratacion_temporal.consultar_original_propuesta_rrhh_atestado_v1(") ||
+		strings.Contains(consultaOriginalPropuestaRRHHPostgreSQL,
+			"consultar_detalle_rrhh_atestado_v1(") ||
+		strings.Count(consultaOriginalPropuestaRRHHPostgreSQL, "$15::bytea") != 1 {
+		t.Fatal("fachada histórica no fija o contrato de argumentos alterado")
+	}
+	sesion := &SesionConsultaRRHHPostgreSQL{
+		pool:       &iniciadorConsultaRRHHPrueba{},
+		analizador: analizadorCanonConsultaRRHHPostgreSQL{},
+		modo:       modoConsultaDetalleRRHHOriginalPropuesta,
+	}
+	if _, err := sesion.ConsultarCuadroYRegistrar(context.Background(), ports.OrdenConsultaCuadroRRHH{}); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("sesión histórica admitió cuadro: %v", err)
+	}
+	if _, err := sesion.ConsultarDetalleYRegistrar(context.Background(), ports.OrdenConsultaDetalleRRHH{}); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("sesión histórica admitió una versión distinta de v7: %v", err)
 	}
 }
 

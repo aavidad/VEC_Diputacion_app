@@ -167,16 +167,22 @@ function cabeceraDetalle(detalle, locale, catalogos) {
 
 function resolucionConPropuestaHistorica(detalle) {
   const { resumen, hitos } = detalle;
-  if (resumen.version !== 8 || resumen.fase_clave !== "nombramiento"
-    || resumen.estado_clave !== "en_curso" || !Array.isArray(hitos) || hitos.length !== 8
+  if (![8, 9].includes(resumen.version) || resumen.fase_clave !== "nombramiento"
+    || resumen.estado_clave !== "en_curso" || !Array.isArray(hitos) || hitos.length !== resumen.version
     || !hitos.every((hito, indice) => hito?.secuencia === indice + 1
       && hito.version_expediente === indice + 1)) return false;
   const propuesta = hitos[6], resolucion = hitos[7];
-  return propuesta.accion_clave === "registrar_propuesta_formalizacion"
+  const predecesores = propuesta.accion_clave === "registrar_propuesta_formalizacion"
     && propuesta.fase_destino === "nombramiento" && propuesta.estado_destino === "en_curso"
     && resolucion.accion_clave === "registrar_resolucion_formalizacion"
     && resolucion.fase_origen === "nombramiento" && resolucion.fase_destino === "nombramiento"
     && resolucion.estado_origen === "en_curso" && resolucion.estado_destino === "en_curso";
+  if (!predecesores) return false;
+  if (resumen.version === 8) return true;
+  const anotacion = hitos[8];
+  return anotacion.accion_clave === "contratacion_temporal.anotacion_administrativa.registrar"
+    && anotacion.fase_origen === "nombramiento" && anotacion.fase_destino === "nombramiento"
+    && anotacion.estado_origen === "en_curso" && anotacion.estado_destino === "en_curso";
 }
 
 function proyectarExpediente(detalle, locale, catalogos) {

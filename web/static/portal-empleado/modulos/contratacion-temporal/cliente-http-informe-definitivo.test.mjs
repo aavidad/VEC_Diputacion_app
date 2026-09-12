@@ -49,11 +49,21 @@ test("POST de consulta: dos campos ordenados, representación nominal y PDF acot
   assert.equal(opciones.referrerPolicy, "no-referrer");
 });
 
+test("acepta la versión actual v9 y conserva ambos campos en el POST", async () => {
+  const llamadas = [];
+  const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return respuestaPDF();
+  } });
+  await http.descargarBorrador({ ...solicitud, version_observada: 9 });
+  assert.equal(llamadas[0].opciones.body, JSON.stringify({ ...solicitud, version_observada: 9 }));
+});
+
 test("rechaza contrato alterado antes de red", async () => {
   let llamadas = 0;
   const http = crearClienteHTTPBorradorRRHH({ fetchImpl: () => { llamadas += 1; } });
   for (const entrada of [
-    { ...solicitud, version_observada: 6 }, { ...solicitud, actor: "rrhh" },
+    { ...solicitud, version_observada: 6 }, { ...solicitud, version_observada: 10 }, { ...solicitud, actor: "rrhh" },
     { ...solicitud, expediente_ref: "no válido" }, { expediente_ref: solicitud.expediente_ref },
   ]) await assert.rejects(http.descargarBorrador(entrada), { codigo: "solicitud_no_valida" });
   for (const tipo of ["", "otro", "constructor", "__proto__", null, {}, new String("resolucion")]) {

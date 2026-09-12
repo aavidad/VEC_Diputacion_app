@@ -48,11 +48,16 @@ function validarManifiesto(manifiesto) {
   cadena(manifiesto.group, "grupo", /^[a-z][a-z0-9_.-]+$/);
   cadena(manifiesto.base_path, "ruta base", /^\/modules\/[a-z][a-z0-9/_-]*$/);
   if (!Array.isArray(manifiesto.permissions) || manifiesto.permissions.length < 1
-    || manifiesto.permissions.length > 512 || !Array.isArray(manifiesto.menu)
-    || manifiesto.menu.length > 512) throw new TypeError("colecciones del manifiesto no válidas");
+    || manifiesto.permissions.length > 512 || (manifiesto.menu !== null
+      && (!Array.isArray(manifiesto.menu) || manifiesto.menu.length > 512))) {
+    throw new TypeError("colecciones del manifiesto no válidas");
+  }
+  const permisosDeclarados = manifiesto.permissions;
+  // Go serializa una porción nil como null: usuarios declara permisos, pero no menú.
+  const menuDeclarado = manifiesto.menu === null ? [] : manifiesto.menu;
 
   const permisos = new Set();
-  for (const permiso of manifiesto.permissions) {
+  for (const permiso of permisosDeclarados) {
     if (!objetoCerrado(permiso, CAMPOS_PERMISO, CAMPOS_PERMISO_OPCIONALES)) {
       throw new TypeError("permiso de módulo no válido");
     }
@@ -65,7 +70,7 @@ function validarManifiesto(manifiesto) {
 
   const entradas = new Set();
   const rutas = new Set();
-  for (const entrada of manifiesto.menu) {
+  for (const entrada of menuDeclarado) {
     if (!objetoCerrado(entrada, CAMPOS_MENU)) throw new TypeError("entrada de menú no válida");
     const entradaID = cadena(entrada.id, "id de entrada", /^[a-z][a-z0-9_.-]+$/);
     if (entrada.module_id !== id) throw new TypeError("módulo de entrada no válido");

@@ -1,5 +1,30 @@
 # Manual funcional del técnico de Recursos Humanos
 
+La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
+
+El corte D prepara la reutilización de los seis borradores de la propuesta
+original v7 desde un expediente que ya está en v9. CT91, SHA256
+`8759adf01dfe2d14a583ee051527367423ff5fe6ad147953be2b0dc3a0181a34`, está
+instalada una sola vez y recibió dos `GO`; pasaron el ensayo PostgreSQL del
+catálogo en `ROLLBACK`, la comprobación del catálogo instalado y las pruebas
+focales Go de HTTP, adaptador PostgreSQL y composición. La descarga desde la
+aplicación se comprobó con dos representaciones del informe definitivo. El PDF
+tiene 29280 bytes y SHA256
+`f6bd9fd9f61dc266621e9a72ab4ec0f5e24f0c55073a1de403d59cd7d9531810`.
+El DOCX es OOXML válido, tiene 3378 bytes y SHA256
+`7141cbc60e586086494cb4bc609ef9748c6f09675cb1f172ae4649f3f1944577`.
+Dos cuadros, el detalle y el PDF respondieron `POST 200`; incorporación y
+preparación de cierre dieron `GET 200`, y el DOCX respondió `200`. Son un PDF y
+un DOCX representativos de seis borradores, no doce descargas. La comprobación
+de solo lectura conservó sin cambios la historia CT en 12 tablas, su estado y
+las cinco tablas de Personal, sin escrituras de negocio. No hubo errores
+JavaScript ni desbordamiento a 1440/390 px; los dos `404` heredados de Bolsa son
+ajenos. El parser admite `menu: null` sin habilitar acciones y están desplegadas
+las siete claves locales canónicas. No reaplique CT91. El binario compilado
+desacopla la preparación E06 de sus proveedores y restaura la publicación de
+los dos motivos del catálogo de llamamiento; conserva los auxiliares de correo, pero ese circuito sigue
+pendiente. No se instaló AD3-32 ni se cambiaron permisos para arrancarlo.
+
 Al reabrir un expediente en Análisis y en curso, Cobertura recupera el formulario existente con la versión coincidente de bandeja y detalle, sin registrar de nuevo el análisis. Montaje focal comprobado; la pantalla real sigue sin errores JavaScript ni desbordamiento a 1440/390 px. No hay actualmente un expediente en Análisis en la bandeja conservada para acreditar esa apertura concreta.
 
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.

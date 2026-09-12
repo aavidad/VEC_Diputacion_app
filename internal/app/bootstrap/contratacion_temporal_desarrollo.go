@@ -286,6 +286,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	var cuadroReal httpinterno.ConsultorCuadroRRHH = &consultorCuadroNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	var detalleReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
+	var originalPropuestaReal httpinterno.ConsultorDetalleRRHH = &consultorDetalleNoCompuestoContratacionTemporalDesarrollo{noCompuesta}
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
 	var borradorRRHH ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
@@ -294,7 +295,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		cuadroReal, detalleReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP
+		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}}
 	}
@@ -338,6 +339,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorAnalisis:                servicioAnalisis,
 			ConsultorCuadroRRHH:             cuadroReal,
 			ConsultorDetalleRRHH:            detalleReal,
+			ConsultorOriginalPropuestaRRHH:  originalPropuestaReal,
 			BorradorRRHH:                    borradorRRHH,
 			BorradorRRHHDOCX:                borradorRRHHDOCX,
 			EjecutorSeleccion:               seleccionReal,

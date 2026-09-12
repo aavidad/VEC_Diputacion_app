@@ -154,7 +154,24 @@ async function estadoResolucionDesdeHTTP(modificar = () => {}) {
 test("resolución v8 proyectada desde HTTP conserva los seis PDF de la propuesta v7", async () => {
   const estado = await estadoResolucionDesdeHTTP();
   assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
-    expediente_ref: estado.expediente_ref, version_observada: 7,
+    expediente_ref: estado.expediente_ref, version_observada: 8,
+  });
+  const html = renderizarModuloContratacionTemporal(estado);
+  for (const perfil of perfiles) assert.ok(html.includes(`data-ct-exp-accion="${perfil.accion}"`));
+});
+
+test("anotación v9 conserva los seis borradores de la propuesta v7", async () => {
+  const estado = await estadoResolucionDesdeHTTP((detalle) => {
+    detalle.resumen.version = 9;
+    detalle.hitos.push({
+      secuencia: 9, version_expediente: 9,
+      accion_clave: "contratacion_temporal.anotacion_administrativa.registrar",
+      realizada_en: "2026-09-12T10:00:00Z", fase_origen: "nombramiento",
+      fase_destino: "nombramiento", estado_origen: "en_curso", estado_destino: "en_curso",
+    });
+  });
+  assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
+    expediente_ref: estado.expediente_ref, version_observada: 9,
   });
   const html = renderizarModuloContratacionTemporal(estado);
   for (const perfil of perfiles) assert.ok(html.includes(`data-ct-exp-accion="${perfil.accion}"`));
@@ -195,7 +212,7 @@ test("indicador documental cerrado a7 en v8 real, sin conceder descarga con esta
   assert.ok(Object.isFrozen(estado.expediente));
   for (const cambio of [
     ...[null, true, "7", 6, 8].map(version_propuesta_documental => ({ version_propuesta_documental })),
-    { version: 7 }, { version: 9 }, { demostracion: true }, { campo_desconocido: 7 },
+    { version: 7 }, { version: 10 }, { demostracion: true }, { campo_desconocido: 7 },
   ]) assert.throws(() => validarExpedienteContratacionTemporal({ ...estado.expediente, ...cambio }), TypeError);
   for (const modificar of [
     (e) => { delete e.expediente.version_propuesta_documental; },
@@ -210,7 +227,7 @@ test("indicador documental cerrado a7 en v8 real, sin conceder descarga con esta
   }
 });
 
-test("un click en resolución v8 usa el cliente PDF existente y solicita exclusivamente7", async () => {
+test("un click en resolución v8 usa el cliente PDF existente y solicita la versión actual", async () => {
   const estado = await estadoResolucionDesdeHTTP(), llamadas = [];
   const pdf = "%PDF-1.7\nPrueba aislada de transporte\n%%EOF";
   const http = crearClienteHTTPBorradorRRHH({ fetchImpl: async (ruta, opciones) => {
@@ -226,14 +243,13 @@ test("un click en resolución v8 usa el cliente PDF existente y solicita exclusi
     assert.equal(llamadas[0].ruta, RUTAS_HTTP_CONTRATACION_TEMPORAL.detalleRRHH);
     assert.equal(llamadas[0].opciones.method, "POST");
     assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
-      expediente_ref: estado.expediente_ref, version_observada: 7,
+      expediente_ref: estado.expediente_ref, version_observada: 8,
     });
     assert.equal(llamadas[0].opciones.headers.Accept, "application/pdf; documento=resolucion-desarrollo");
     assert.equal(vista.creados.length, 1);
     assert.equal(await vista.creados[0].text(), pdf);
-    await assert.rejects(http.descargarBorrador({ expediente_ref: estado.expediente_ref, version_observada: 8 }),
-      { codigo: "solicitud_no_valida" });
-    assert.equal(llamadas.length, 1);
+    await http.descargarBorrador({ expediente_ref: estado.expediente_ref, version_observada: 8 }, { tipo: "resolucion" });
+    assert.equal(llamadas.length, 2);
   } finally { vista.montaje.desmontar(); }
 });
 
@@ -247,7 +263,7 @@ test("solo click explícito, payload desde estado no DOM; Blob nominal y revocac
     assert.equal(llamadas.length, 0);
     const detalle = vista.raiz.innerHTML;
     await vista.click();
-    assert.deepEqual(llamadas[0].solicitud, { expediente_ref: vista.estado.expediente_ref, version_observada: 7 });
+    assert.deepEqual(llamadas[0].solicitud, { expediente_ref: vista.estado.expediente_ref, version_observada: vista.estado.expediente.version });
     assert.equal(llamadas.length, 1);
     assert.equal(llamadas[0].opciones.tipo, perfil.tipo);
     assert.equal(vista.raiz.innerHTML, detalle);

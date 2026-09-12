@@ -227,10 +227,6 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		return dominiovec.ConcesionRol{Accion: accion, ModuloID: modulo, TipoRecurso: tipo,
 			Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh}
 	}
-	correo, err := nuevaInstantaneaCorreoLlamamientoDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora())
-	if err != nil {
-		return err
-	}
 	seleccion, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"llamamiento_desarrollo", "Llamamiento de desarrollo", "llamamiento-desarrollo",
@@ -270,7 +266,7 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		return ports.ErrIntegracionBolsaNoDisponible
 	}
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
-		[]dominiovec.ReferenciaEntradaCatalogo{motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true), motivoDespachoCorreoLlamamientoDesarrollo(), motivoResultadoCorreoLlamamientoDesarrollo()}, desde); err != nil {
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)}, desde); err != nil {
 		return err
 	}
 	respuesta, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
@@ -301,10 +297,8 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 	}
 	s.mu.Lock()
 	s.instantaneaLlamamiento, s.instantaneaComunicacion = seleccion, comunicacion
-	s.instantaneaCorreo = correo
 	s.instantaneaReanudacionLlamamiento = reanudacion
 	s.motivoLlamamiento, s.motivoComunicacion = motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)
-	s.motivoDespachoCorreo, s.motivoResultadoCorreo = motivoDespachoCorreoLlamamientoDesarrollo(), motivoResultadoCorreoLlamamientoDesarrollo()
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
 	s.mu.Unlock()

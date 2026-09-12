@@ -1,5 +1,26 @@
 # VEC Diputación de Granada
 
+La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
+
+El corte D permite reutilizar los seis borradores de la propuesta original v7
+desde el expediente ya avanzado a v9. CT91, SHA256
+`8759adf01dfe2d14a583ee051527367423ff5fe6ad147953be2b0dc3a0181a34`, se
+instaló una sola vez; recibió dos `GO`, y pasaron el ensayo PostgreSQL del
+catálogo en `ROLLBACK`, la comprobación del catálogo instalado y las pruebas
+focales Go de HTTP, adaptador PostgreSQL y composición. En runtime se descargaron
+dos representaciones del informe definitivo: el PDF, 29280 bytes y SHA256
+`f6bd9fd9f61dc266621e9a72ab4ec0f5e24f0c55073a1de403d59cd7d9531810`.
+El DOCX, OOXML válido, tiene 3378 bytes y SHA256
+`7141cbc60e586086494cb4bc609ef9748c6f09675cb1f172ae4649f3f1944577`.
+Cuadro, detalle y PDF respondieron con cuatro `POST 200`; incorporación y
+preparación de cierre dieron `GET 200`, y el DOCX respondió `200`. Son un PDF y
+un DOCX representativos de los seis borradores, no doce descargas. La comparación
+de solo lectura conservó sin cambios la historia CT en 12 tablas, su estado y
+las cinco tablas de Personal. No hubo escrituras de negocio, errores JavaScript
+ni desbordamiento a 1440/390 px; dos `404` heredados de Bolsa son ajenos al
+corte. El parser admite `menu: null` sin habilitar acciones y están desplegadas
+las siete claves locales canónicas. No reaplique CT91.
+
 Al reabrir un expediente en Análisis y en curso, Cobertura recupera el formulario existente con la versión coincidente de bandeja y detalle, sin registrar de nuevo el análisis. Montaje focal comprobado; la pantalla real sigue sin errores JavaScript ni desbordamiento a 1440/390 px. No hay actualmente un expediente en Análisis en la bandeja conservada para acreditar esa apertura concreta.
 
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.

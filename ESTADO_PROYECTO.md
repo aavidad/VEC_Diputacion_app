@@ -1,5 +1,30 @@
 # Estado y plan de ataque del proyecto
 
+La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
+
+El corte D conecta la lectura de la propuesta original v7 para reutilizar sus
+seis borradores desde un expediente que ya está en v9. CT91, SHA256
+`8759adf01dfe2d14a583ee051527367423ff5fe6ad147953be2b0dc3a0181a34`, está
+instalada una sola vez y obtuvo dos `GO`. El catálogo pasó un ensayo PostgreSQL
+DDL en `ROLLBACK`, su comprobación instalada terminó en `PASS` y las pruebas
+focales Go de HTTP, adaptador PostgreSQL y composición pasaron. El runtime
+descargó dos representaciones del informe definitivo: PDF de 29280 bytes y SHA256
+`f6bd9fd9f61dc266621e9a72ab4ec0f5e24f0c55073a1de403d59cd7d9531810`.
+El DOCX es OOXML válido, tiene 3378 bytes y SHA256
+`7141cbc60e586086494cb4bc609ef9748c6f09675cb1f172ae4649f3f1944577`.
+Dos lecturas de cuadro, detalle y PDF dieron cuatro `POST 200`; incorporación y
+preparación de cierre dieron `GET 200`, y el DOCX respondió `200`. Es una prueba
+representativa de un PDF y un DOCX entre seis borradores, no doce descargas. La
+comparación de solo lectura conservó sin cambios la historia CT en 12 tablas,
+su estado y las cinco tablas de Personal, sin escrituras de negocio. No hubo errores
+JavaScript ni desbordamiento a 1440/390 px; los dos `404` heredados de Bolsa no
+pertenecen al corte. El parser admite `menu: null` sin habilitar acciones y las
+siete claves locales canónicas están desplegadas. No reaplique CT91. El binario
+compilado desacopla la preparación E06 de sus proveedores y restaura la
+publicación de los dos motivos del catálogo de llamamiento. Conserva los
+auxiliares de correo, cuyo circuito sigue pendiente;
+para arrancarlo no se instaló AD3-32 ni se cambiaron permisos.
+
 Al reabrir un expediente en Análisis y en curso, Cobertura recupera el formulario existente con la versión coincidente de bandeja y detalle, sin registrar de nuevo el análisis. Montaje focal comprobado; la pantalla real sigue sin errores JavaScript ni desbordamiento a 1440/390 px. No hay actualmente un expediente en Análisis en la bandeja conservada para acreditar esa apertura concreta.
 
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.
