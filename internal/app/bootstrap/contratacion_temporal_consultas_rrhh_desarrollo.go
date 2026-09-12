@@ -112,8 +112,16 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
+		continuador, err := nuevoContinuadorSesionCursorRRHHDesarrollo(autoridad, reloj)
+		if err != nil {
+			return vacio, err
+		}
+		cuadroHTTP, err := nuevoConsultorCuadroConSesionCursorRRHHDesarrollo(cuadro, continuador)
+		if err != nil {
+			return vacio, err
+		}
 		detalle, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesion, reloj)
-		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadro, detalle) {
+		if err != nil || !mux.registrar(lector.identidad.principal.ID, soporte, cuadroHTTP, detalle) {
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 	}
@@ -354,6 +362,14 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
+	continuador, err := nuevoContinuadorSesionCursorRRHHDesarrollo(autoridad, reloj)
+	if err != nil {
+		return vacio, err
+	}
+	cuadroHTTP, err := nuevoConsultorCuadroConSesionCursorRRHHDesarrollo(cuadro, continuador)
+	if err != nil {
+		return vacio, err
+	}
 	detalle, err := application.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, sesion, reloj)
 	if err != nil {
 		return vacio, err
@@ -362,7 +378,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, cuadroHTTP: cuadro, detalleHTTP: detalle, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base)
 		if err != nil {

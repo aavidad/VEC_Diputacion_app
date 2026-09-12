@@ -2,8 +2,8 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base actual de este corte es `5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`.
-El último runtime comprobado usa la web
+La base publicada de este corte es `eb467ee704a358efc08077af1e88ea6d41d6c050`.
+El runtime principal comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la incorporación
@@ -165,6 +165,14 @@ instaladas. Faltan el contacto VEC candidato y acreditado, la cuenta y
 configuración SMTP internas, composición y ensayo PostgreSQL. No intente el
 envío: no hay SQL instalado ni runtime. Go global y vet pasaron; la web no se
 repitió: no cambió JavaScript; catálogo y manifiestos verificados. El autorizador de bootstrap sigue pendiente.
+
+Cursor9 está integrado en fuente y revisado. Distingue el SHA ASCII del
+localizador del SHA raw32 de la evidencia y solo conserva la sesión con el mismo
+TLS, certificado y lector, tras revalidar una autoridad fresca y consumirla una
+vez. No usa cookies ni amplía el TTL SQL. Si cambia TLS, se expulsa la sesión, se
+reinicia o falla tras reservar, vuelva a la primera página: no intente recuperar
+ese cursor. CT89 aún no está instalada y faltan el ensayo PostgreSQL 50→2 y la
+recuperación real; Go global y vet terminaron en `PASS`. Contacto13 no está integrado.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

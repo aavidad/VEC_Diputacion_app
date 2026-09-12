@@ -2,8 +2,8 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base actual de este corte es
-`5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`. El último runtime comprobado usa
+La base publicada de este corte es
+`eb467ee704a358efc08077af1e88ea6d41d6c050`. El runtime principal comprobado usa
 la web `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la
@@ -216,6 +216,18 @@ composición real y el ensayo PostgreSQL. No hay runtime ni envío. La campaña
 global Go y vet terminó en `PASS`; no se repitió la suite web: no cambió JavaScript; catálogo y manifiestos
 verificados. El nuevo autorizador de bootstrap sigue pendiente y estos hechos de
 fuente no acreditan conformidad.
+
+Cursor9 queda integrado en fuente mediante seis Go (`3e189e10…`) con dos `GO`
+de apoyo y un `GO` independiente, más tres SQL CT89 (`9b9b559…`; `UP
+1f27d896…`, `DOWN 85853ed…`, focal `89b2be…`) con dos `GO`. Resuelve dos causas:
+separa el SHA ASCII del localizador del SHA raw32 de la evidencia, y mantiene la
+sesión solo para el mismo TLS, certificado y lector, con autoridad fresca
+revalidada y consumo único antes de delegar, bajo mapa de hasta 64 cursores y TTL límite. No añade
+cookies ni relaja el TTL SQL. Un cambio TLS, expulsión, reinicio o fallo tras la
+reserva obliga a solicitar otra primera página. CT89 no está instalada; no se
+han acreditado PostgreSQL 50→2 ni recuperación del cursor, así que no hay E2E.
+Go global y vet terminaron en `PASS`. La autoridad y roles normales
+no cambian. Contacto13 tiene dos `GO`, pero todavía no está integrado.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones

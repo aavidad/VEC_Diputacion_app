@@ -6,8 +6,8 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base actual de este corte es `5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`.
-El último runtime comprobado usa la web
+La base publicada de este corte es `eb467ee704a358efc08077af1e88ea6d41d6c050`.
+El runtime principal comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome obtuvo `200` al recuperar
@@ -36,8 +36,8 @@ también mantuvo idénticas cinco huellas de Personal y seis contadores más la
 fila de incorporación de CT. Los objetivos 11, recuperación, y 12, ficha manual
 GINPIX, quedan acreditados funcionalmente. Esto no completa Contratación ni
 ocho hitos. Auth13 está instalada una sola vez. CT86/87 y AD3-30/31 están
-instaladas sólo en los dos clones; la instalación principal y el recorrido
-completo de anotación/cierre siguen pendientes.
+instaladas sólo en los dos clones; anotación y cierre se demostraron en clon87
+con reinicio y mismos recibos, mientras la instalación principal sigue pendiente.
 
 El frontend publicado integra fechas civiles UTC legibles sin desplazar
 el día, paginación mediante cursor opaco de un solo uso y validación accesible
@@ -179,6 +179,18 @@ No hay SQL instalado, runtime ni envío. Go global y vet terminaron en `PASS`;
 no se repitió la suite web: no cambió JavaScript; el catálogo y los manifiestos
 fueron verificados. El nuevo autorizador
 de bootstrap todavía no está incluido.
+
+Cursor9 está integrado en fuente con seis archivos Go (`3e189e10…`) y el
+paquete SQL CT89 (`9b9b559…`; `UP 1f27d896…`, `DOWN 85853ed…`, focal
+`89b2be…`). Los Go recibieron dos `GO` de apoyo y uno independiente; los tres
+SQL, dos `GO`. Corrige la confusión entre SHA ASCII del localizador y SHA raw32
+de la evidencia. La sesión solo continúa con el mismo TLS, certificado y lector,
+autoridad fresca revalidada y consumo único antes de delegar, dentro del mapa de hasta 64 cursores
+y TTL límite. No usa cookies ni relaja el TTL SQL. Cambio TLS, expulsión,
+reinicio o fallo tras reservar exigen empezar una primera página nueva. CT89 no
+está instalada; faltan el ensayo PostgreSQL 50→2 y la recuperación del cursor,
+por lo que no hay E2E. Go global y vet terminaron en `PASS`. Los roles
+normales no cambian y Contacto13, aunque tiene dos `GO`, aún no está integrado.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

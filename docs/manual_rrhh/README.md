@@ -2,8 +2,8 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-La base actual de este corte es `5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`.
-El último runtime comprobado usa la web
+La base publicada de este corte es `eb467ee704a358efc08077af1e88ea6d41d6c050`.
+El runtime principal comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la incorporación
@@ -159,6 +159,15 @@ acreditado, la cuenta remitente y configuración SMTP internas, composición y
 ensayo PostgreSQL. No hay runtime ni envío. Go global y vet pasaron; no se
 repitió la suite web: no cambió JavaScript; catálogo y manifiestos verificados. El autorizador de bootstrap sigue
 pendiente.
+
+Cursor9 está integrado y revisado en fuente. La sesión de paginación solo se
+mantiene con el mismo TLS, certificado y lector, después de revalidar autoridad
+fresca y consumirla una vez. No usa cookies ni amplía el TTL SQL. Si cambia TLS,
+se expulsa la sesión, se reinicia o falla después de reservar, vuelva a la
+primera página; no reutilice el cursor. CT89 no está instalada y faltan el
+ensayo PostgreSQL 50→2 y la recuperación real, por lo que aún no es un E2E. Go
+global y vet terminaron en `PASS`. Los roles normales no cambian y Contacto13 no
+está integrado.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 
@@ -344,7 +353,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética `7→8` con recibo recuperable. Sigue pendiente el circuito de firma oficial; no posesión real, nombramiento eficaz, envío ni entrega. |
-| 8. Incorporación, GINPIX y seguimiento | Parcial comprobado: la incorporación y Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX responde `200` y conserva seis campos y SHA256. No acredita transmisión o confirmación del destino; anotación y cierre siguen pendientes de instalar y recorrer. |
+| 8. Incorporación, GINPIX y seguimiento | Parcial comprobado: la incorporación y Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX responde `200` y conserva seis campos y SHA256. Anotación y cierre se demostraron en clon87 tras reinicio, con los mismos recibos y sin duplicados; siguen pendientes de instalar en principal. No acredita transmisión o confirmación del destino ni cierra 8/8. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
 la base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
