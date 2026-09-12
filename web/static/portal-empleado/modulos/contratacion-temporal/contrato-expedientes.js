@@ -465,7 +465,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
-    || (propuestaHistorica && (entrada.demostracion !== false || entrada.version !== 8
+    || (propuestaHistorica && (entrada.demostracion !== false || ![8, 9].includes(entrada.version)
       || entrada.version_propuesta_documental !== 7))
     || typeof entrada.flujo_huella !== "string" || !PATRON_HUELLA.test(entrada.flujo_huella)) {
     throw new TypeError("expediente de contratación temporal no válido");

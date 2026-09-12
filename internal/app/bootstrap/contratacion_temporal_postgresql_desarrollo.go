@@ -264,20 +264,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	proveedorDespachoCorreo, err := nuevoProveedorMaterialConsumidorDesarrollo(
-		ctx, gobierno, material, soporte, reloj,
-		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
-	)
-	if err != nil {
-		return vacias, err
-	}
-	proveedorResultadoCorreo, err := nuevoProveedorMaterialConsumidorDesarrollo(
-		ctx, gobierno, material, soporte, reloj,
-		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
-	)
-	if err != nil {
-		return vacias, err
-	}
 	if configuracion.BolsaLlamamientosConfigurada() {
 		bolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
 		if err != nil {
@@ -339,8 +325,6 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.candidaturas = resolver
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
-	dependencias.proveedorMaterialDespachoCorreo = proveedorDespachoCorreo
-	dependencias.proveedorMaterialResultadoCorreo = proveedorResultadoCorreo
 	completa = true
 	return dependencias, nil
 }

@@ -193,14 +193,14 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
   const expediente = estado.expediente;
   if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
     || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    || expediente?.demostracion !== false || ![7, 8].includes(expediente.version)
-    || (expediente.version === 8 && expediente.version_propuesta_documental !== 7)
+    || expediente?.demostracion !== false || ![7, 8, 9].includes(expediente.version)
+    || (expediente.version >= 8 && expediente.version_propuesta_documental !== 7)
     || estado.expediente_ref !== expediente.expediente_ref
     || estado.cuadro?.demostracion !== false) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);
   if (resumen?.version !== expediente.version || resumen.fase_clave !== "nombramiento"
     || resumen.estado_clave !== "en_curso") return null;
-  return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: 7 });
+  return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
 function renderizarCabecera(expediente, t, informeDisponible = false) {

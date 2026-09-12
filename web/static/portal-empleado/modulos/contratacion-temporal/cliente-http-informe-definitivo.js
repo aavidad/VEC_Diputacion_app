@@ -137,7 +137,7 @@ export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = 
       if (!camposExactos(solicitud, ["expediente_ref", "version_observada"])
         || typeof solicitud.expediente_ref !== "string"
         || !/^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u.test(solicitud.expediente_ref)
-        || solicitud.version_observada !== 7) throw errorCliente("solicitud_no_valida");
+        || ![7, 8, 9].includes(solicitud.version_observada)) throw errorCliente("solicitud_no_valida");
       if (typeof fetchImpl !== "function") throw errorCliente("servicio_no_disponible");
       const controlador = new AbortController();
       const cancelar = () => controlador.abort();
@@ -153,7 +153,7 @@ export function crearClienteHTTPBorradorRRHH({ fetchImpl = globalThis.fetch } = 
             "Content-Type": "application/json",
             Accept: `${representacion.mime}; documento=${perfil.documento}`,
           },
-          body: JSON.stringify({ expediente_ref: solicitud.expediente_ref, version_observada: 7 }),
+          body: JSON.stringify(solicitud),
           signal: controlador.signal, mode: "same-origin", credentials: "same-origin",
           cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         }));

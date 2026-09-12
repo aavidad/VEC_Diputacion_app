@@ -239,6 +239,44 @@ test("el catálogo rechaza manifiestos y colecciones internas no canónicos", ()
   ), /entrada de menú no válida/);
 });
 
+test("el catálogo admite el manifiesto real de usuarios con menú nil sin atribuir acciones", () => {
+  const usuarios = {
+    id: "vec.module.usuarios",
+    name_key: "ui.vec.module.usuarios.name",
+    description_key: "ui.vec.module.usuarios.description",
+    version: "v0.1.0",
+    group: "usuarios_vec",
+    base_path: "/modules/usuarios",
+    permissions: [
+      { key: "vec.contacto_usuario.alta", label_key: "ui.permission.usuarios.contacto_alta" },
+      { key: "vec.contacto_usuario.actualizar", label_key: "ui.permission.usuarios.contacto_actualizar" },
+      { key: "vec.contacto_usuario.consultar", label_key: "ui.permission.usuarios.contacto_consultar" },
+    ],
+    menu: null,
+  };
+  const traducciones = {
+    ...TRADUCCIONES_CONTRATACION_TEMPORAL,
+    "ui.vec.module.usuarios.name": "Usuarios",
+    "ui.vec.module.usuarios.description": "Contacto VEC",
+  };
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [usuarios, manifiestoContratacionTemporal()],
+    traducciones,
+  );
+  assert.deepEqual(catalogo.map(({ clave }) => clave), ["usuarios", "contratacion_temporal"]);
+  assert.deepEqual(Object.keys(catalogo[0]).sort(), [
+    "clave", "grupo", "rutaBase", "sigla", "texto", "titulo", "version",
+  ]);
+  for (const coleccionesInvalidas of [
+    { permissions: null, menu: null },
+    { permissions: [], menu: null },
+    { permissions: usuarios.permissions, menu: {} },
+  ]) assert.throws(() => crearCatalogoModulosDesdeManifiestos(
+    [{ ...usuarios, ...coleccionesInvalidas }],
+    traducciones,
+  ), /colecciones del manifiesto no válidas/);
+});
+
 test("CT inventariado queda visible no_disponible si falla su carga real", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];

@@ -19,7 +19,15 @@ var _ ports.SesionConsultaRRHH = (*SesionConsultaRRHHPostgreSQL)(nil)
 type SesionConsultaRRHHPostgreSQL struct {
 	pool       iniciadorTransacciones
 	analizador analizadorCanonConsultaRRHH
+	modo       modoConsultaDetalleRRHHPostgreSQL
 }
+
+type modoConsultaDetalleRRHHPostgreSQL uint8
+
+const (
+	modoConsultaDetalleRRHHOrdinaria modoConsultaDetalleRRHHPostgreSQL = iota
+	modoConsultaDetalleRRHHOriginalPropuesta
+)
 
 // NuevaSesionConsultaRRHHPostgreSQL sólo acepta el pool nominal exclusivo de
 // consultas RRHH. Otros adaptadores no pueden reutilizar accidentalmente sus
@@ -34,6 +42,26 @@ func NuevaSesionConsultaRRHHPostgreSQL(
 		pool.iniciador,
 		analizadorCanonConsultaRRHHPostgreSQL{},
 	)
+}
+
+// NuevaSesionConsultaOriginalPropuestaRRHHPostgreSQL reserva la fachada
+// histórica para representar los borradores de la propuesta v7. No sirve la
+// lectura ordinaria: la selección de la función SQL no procede del cliente.
+func NuevaSesionConsultaOriginalPropuestaRRHHPostgreSQL(
+	pool *PoolConsultasRRHHPostgreSQL,
+) (*SesionConsultaRRHHPostgreSQL, error) {
+	if pool == nil || pool.iniciador == nil {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	sesion, err := nuevaSesionConsultaRRHHPostgreSQL(
+		pool.iniciador,
+		analizadorCanonConsultaRRHHPostgreSQL{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	sesion.modo = modoConsultaDetalleRRHHOriginalPropuesta
+	return sesion, nil
 }
 
 func nuevaSesionConsultaRRHHPostgreSQL(
@@ -54,6 +82,9 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 ) (ports.PaginaCuadroRRHH, error) {
 	if err := s.validarContexto(ctx); err != nil {
 		return ports.PaginaCuadroRRHH{}, err
+	}
+	if s.modo != modoConsultaDetalleRRHHOrdinaria {
+		return ports.PaginaCuadroRRHH{}, ports.ErrConsultaRRHHNoDisponible
 	}
 	material, err := orden.ExportacionParaSQL()
 	if err != nil || material.ValidarEstructura() != nil {
@@ -124,6 +155,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	if err := s.validarContexto(ctx); err != nil {
 		return ports.DetalleExpedienteRRHH{}, err
 	}
+	consulta := consultaDetalleRRHHPostgreSQL
+	if s.modo == modoConsultaDetalleRRHHOriginalPropuesta {
+		if orden.Solicitud().VersionObservada() != 7 {
+			return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoDisponible
+		}
+		consulta = consultaOriginalPropuestaRRHHPostgreSQL
+	}
 	material, err := orden.ExportacionParaSQL()
 	if err != nil || material.ValidarEstructura() != nil {
 		return ports.DetalleExpedienteRRHH{}, ports.ErrConsultaRRHHNoDisponible
@@ -148,7 +186,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
-		consultaDetalleRRHHPostgreSQL,
+		consulta,
 		argumentosSQL,
 		destinosDetalleConsultaRRHH(&salida),
 		func() (ports.DetalleExpedienteRRHH, error) {
@@ -220,7 +258,9 @@ func (s *SesionConsultaRRHHPostgreSQL) validarContexto(
 	ctx context.Context,
 ) error {
 	if ctx == nil || s == nil || dependenciaNula(s.pool) ||
-		dependenciaNula(s.analizador) {
+		dependenciaNula(s.analizador) ||
+		(s.modo != modoConsultaDetalleRRHHOrdinaria &&
+			s.modo != modoConsultaDetalleRRHHOriginalPropuesta) {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	if err := ctx.Err(); err != nil {

@@ -30,6 +30,7 @@ type DependenciasRutas struct {
 	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
 	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
 	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
+	ConsultorOriginalPropuestaRRHH  httpinterno.ConsultorDetalleRRHH
 	BorradorRRHH                    ports.RenderizadorBorradorRRHH
 	BorradorRRHHDOCX                httpinterno.RenderizadorBorradorRRHHDOCX
 	EjecutorSeleccion               httpinterno.EjecutorSeleccionLlamamiento
@@ -106,10 +107,25 @@ func NuevasRutas(
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
 	var detalleRRHH http.Handler
-	if dependencias.BorradorRRHHDOCX != nil {
+	if dependencias.BorradorRRHHDOCX != nil && dependencias.ConsultorOriginalPropuestaRRHH != nil {
+		detalleRRHH, err = httpinterno.NuevoManejadorConsultaDetalleRRHHConOriginalPropuestaYDOCX(
+			dependencias.ConsultorDetalleRRHH, dependencias.ConsultorOriginalPropuestaRRHH,
+			dependencias.BorradorRRHH, dependencias.BorradorRRHHDOCX,
+		)
+	} else if dependencias.BorradorRRHHDOCX != nil {
 		detalleRRHH, err = httpinterno.NuevoManejadorConsultaDetalleRRHHConDOCX(
 			dependencias.ConsultorDetalleRRHH, dependencias.BorradorRRHH,
 			dependencias.BorradorRRHHDOCX,
+		)
+	} else if dependencias.ConsultorOriginalPropuestaRRHH != nil {
+		var renderizadoresBorrador []ports.RenderizadorBorradorRRHH
+		if dependencias.BorradorRRHH != nil {
+			renderizadoresBorrador = append(renderizadoresBorrador, dependencias.BorradorRRHH)
+		}
+		detalleRRHH, err = httpinterno.NuevoManejadorConsultaDetalleRRHHConOriginalPropuesta(
+			dependencias.ConsultorDetalleRRHH,
+			dependencias.ConsultorOriginalPropuestaRRHH,
+			renderizadoresBorrador...,
 		)
 	} else {
 		var renderizadoresBorrador []ports.RenderizadorBorradorRRHH

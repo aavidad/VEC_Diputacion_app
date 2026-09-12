@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -44,9 +45,10 @@ type manejadorConsultaCuadroRRHH struct {
 }
 
 type manejadorConsultaDetalleRRHH struct {
-	consultor        ConsultorDetalleRRHH
-	renderizador     ports.RenderizadorBorradorRRHH
-	renderizadorDOCX RenderizadorBorradorRRHHDOCX
+	consultor                  ConsultorDetalleRRHH
+	consultorOriginalPropuesta ConsultorDetalleRRHH
+	renderizador               ports.RenderizadorBorradorRRHH
+	renderizadorDOCX           RenderizadorBorradorRRHHDOCX
 }
 
 var (
@@ -82,6 +84,27 @@ func NuevoManejadorConsultaDetalleRRHH(
 	return h, nil
 }
 
+// NuevoManejadorConsultaDetalleRRHHConOriginalPropuesta añade la segunda
+// lectura autorizada para representar la propuesta v7 cuando la anotación ya
+// llevó el expediente a v9. Conserva la consulta ordinaria para la petición
+// inicial y para cualquier detalle no histórico.
+func NuevoManejadorConsultaDetalleRRHHConOriginalPropuesta(
+	consultor ConsultorDetalleRRHH,
+	originalPropuesta ConsultorDetalleRRHH,
+	renderizadores ...ports.RenderizadorBorradorRRHH,
+) (http.Handler, error) {
+	h, err := NuevoManejadorConsultaDetalleRRHH(consultor, renderizadores...)
+	if err != nil || dependenciaConsultaRRHHNula(originalPropuesta) {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	manejador, ok := h.(*manejadorConsultaDetalleRRHH)
+	if !ok {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	manejador.consultorOriginalPropuesta = originalPropuesta
+	return manejador, nil
+}
+
 // NuevoManejadorConsultaDetalleRRHHConDOCX conserva el constructor PDF para
 // consumidores existentes y añade DOCX como otra representación de la misma
 // lectura ya autorizada.
@@ -94,6 +117,32 @@ func NuevoManejadorConsultaDetalleRRHHConDOCX(
 		return nil, ErrManejadorConsultaRRHHInvalido
 	}
 	h, err := NuevoManejadorConsultaDetalleRRHH(consultor, pdf)
+	if err != nil {
+		return nil, err
+	}
+	manejador, ok := h.(*manejadorConsultaDetalleRRHH)
+	if !ok {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	manejador.renderizadorDOCX = docx
+	return manejador, nil
+}
+
+// NuevoManejadorConsultaDetalleRRHHConOriginalPropuestaYDOCX conserva las
+// representaciones ya publicadas y entrega la recuperación v7 sólo al
+// consultor de fachada histórica.
+func NuevoManejadorConsultaDetalleRRHHConOriginalPropuestaYDOCX(
+	consultor ConsultorDetalleRRHH,
+	originalPropuesta ConsultorDetalleRRHH,
+	pdf ports.RenderizadorBorradorRRHH,
+	docx RenderizadorBorradorRRHHDOCX,
+) (http.Handler, error) {
+	if dependenciaConsultaRRHHNula(docx) {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	h, err := NuevoManejadorConsultaDetalleRRHHConOriginalPropuesta(
+		consultor, originalPropuesta, pdf,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -242,15 +291,24 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		return
 	}
 	// Los seis borradores siguen representando el original de propuesta v7.
-	// La nueva actuación de ejercicio no reescribe ni firma esos documentos.
-	if detalle.Resumen.Version == 8 && len(detalle.Hitos) == 8 &&
-		detalle.Hitos[7].AccionClave == "registrar_resolucion_formalizacion" {
+	// La resolución v8 conserva la recuperación histórica ya publicada; la
+	// anotación v9 exige la segunda fachada, que no es alcanzable por la lectura
+	// ordinaria ni por una versión enviada de nuevo por el navegador.
+	if requiereOriginalPropuestaRRHH(detalle) {
 		solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
 		if err != nil {
 			responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 			return
 		}
-		original, err := h.consultor.Consultar(r.Context(), solicitud)
+		consultorOriginal := h.consultor
+		if detalle.Resumen.Version == 9 {
+			if dependenciaConsultaRRHHNula(h.consultorOriginalPropuesta) {
+				responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+				return
+			}
+			consultorOriginal = h.consultorOriginalPropuesta
+		}
+		original, err := consultorOriginal.Consultar(r.Context(), solicitud)
 		if r.Context().Err() != nil {
 			responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(r.Context().Err()))
 			return
@@ -296,6 +354,15 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(contenido)
+}
+
+func requiereOriginalPropuestaRRHH(detalle ports.DetalleExpedienteRRHH) bool {
+	if detalle.Resumen.Version == 8 && len(detalle.Hitos) == 8 {
+		return detalle.Hitos[7].AccionClave == "registrar_resolucion_formalizacion"
+	}
+	return detalle.Resumen.Version == 9 && len(detalle.Hitos) == 9 &&
+		detalle.Hitos[7].AccionClave == "registrar_resolucion_formalizacion" &&
+		detalle.Hitos[8].AccionClave == domain.AccionRegistrarAnotacionAdministrativa
 }
 
 func rutaConsultaRRHHExacta(r *http.Request, esperada string) bool {

@@ -195,3 +195,36 @@ test("rechaza estados desconocidos sin degradarlos a pendiente", async () => {
   );
   assert.equal(consultas, 1);
 });
+
+function detalleV9() {
+  const resumenV9 = { expediente_ref: "expediente:ct:historia-v9", numero_visible: "2026/CT-0009", version: 9,
+    flujo_ref: "flujo:ct:desarrollo", flujo_version: 1, flujo_huella_sha256: "a".repeat(64), fase_clave: "nombramiento", estado_clave: "en_curso", centro_ref: "centro:prueba", categoria_ref: "categoria:prueba", creado_en: "2026-09-12T09:00:00Z", actualizado_en: "2026-09-12T10:00:00Z" };
+  const acciones = ["registrar_solicitud", "registrar_analisis", "registrar_cobertura", "registrar_asignacion", "registrar_informe_juridico", "registrar_fiscalizacion", "registrar_propuesta_formalizacion", "registrar_resolucion_formalizacion", "contratacion_temporal.anotacion_administrativa.registrar"];
+  return { esquema: "vec.contratacion-temporal.detalle-rrhh.v1", resumen: resumenV9,
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion", periodo_inicio: "2026-09-12T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    hitos: acciones.map((accion_clave, indice) => ({ secuencia: indice + 1, version_expediente: indice + 1, accion_clave, realizada_en: "2026-09-12T10:00:00Z", fase_origen: "nombramiento", fase_destino: "nombramiento", estado_origen: "en_curso", estado_destino: "en_curso" })),
+  };
+}
+
+function clienteHistoria(detalle) {
+  return { async consultarCuadroRRHH() { return { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1", generada_en: detalle.resumen.actualizado_en, expedientes: [detalle.resumen], hay_mas: false }; }, async consultarDetalleRRHH() { return detalle; } };
+}
+
+test("proyecta los borradores de propuesta v7 desde la anotación coherente v9", async () => {
+  const detalle = detalleV9();
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
+  assert.equal(expediente.version, 9);
+  assert.equal(expediente.version_propuesta_documental, 7);
+});
+
+test("no proyecta borradores ante historia hueca, cruzada o anotación distinta", async () => {
+  for (const alterar of [(d) => { d.hitos[8].secuencia = 10; }, (d) => { d.hitos[8].version_expediente = 8; }, (d) => { d.hitos[7].fase_origen = "fiscalizacion"; }, (d) => { d.hitos[8].accion_clave = "otra_anotacion"; }, (d) => { d.hitos[8].estado_destino = "completado"; }]) {
+    const detalle = detalleV9(); alterar(detalle);
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+    await adaptador.listar();
+    const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
+    assert.equal(Object.hasOwn(expediente, "version_propuesta_documental"), false);
+  }
+});
