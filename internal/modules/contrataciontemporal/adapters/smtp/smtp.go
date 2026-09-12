@@ -65,19 +65,32 @@ const (
 	STARTTLSObligatorio
 )
 
+// ModoAutenticacion selecciona de forma explícita el mecanismo SMTP. El
+// transporte no deduce nunca el mecanismo de la presencia de credenciales.
+type ModoAutenticacion string
+
+const (
+	ModoAutenticacionNinguna ModoAutenticacion = "ninguna"
+	ModoAutenticacionPlain   ModoAutenticacion = "plain"
+	ModoAutenticacionXOAUTH2 ModoAutenticacion = "xoauth2"
+)
+
 // Configuracion contiene solo parámetros de transporte. Secreto se recibe en
 // memoria; nunca se serializa, registra ni se incluye en errores.
 type Configuracion struct {
-	Host           string
-	Puerto         uint16
-	ServerName     string
-	CertificadosCA *x509.CertPool
-	RemitenteFijo  string
-	ModoTLS        ModoTLS
-	Usuario        string
-	Secreto        []byte
-	ModoOAuth      bool
-	TiempoMaximo   time.Duration
+	Host              string
+	Puerto            uint16
+	ServerName        string
+	CertificadosCA    *x509.CertPool
+	RemitenteFijo     string
+	ModoTLS           ModoTLS
+	Usuario           string
+	Secreto           []byte
+	ModoAutenticacion ModoAutenticacion
+	// ModoOAuth se conserva para configuraciones anteriores al selector
+	// explícito. Solo tiene efecto si ModoAutenticacion es cero.
+	ModoOAuth    bool
+	TiempoMaximo time.Duration
 }
 
 func (Configuracion) String() string   { return "smtp.Configuracion{redactada}" }
@@ -99,11 +112,13 @@ func (Adaptador) MarshalJSON() ([]byte, error) {
 }
 
 func Nuevo(c Configuracion) (*Adaptador, error) {
+	modo, ok := normalizarModoAutenticacion(c)
 	if c.Host == "" || c.Puerto == 0 || c.ServerName == "" || c.CertificadosCA == nil ||
 		c.RemitenteFijo == "" || (c.ModoTLS != TLSImplicito && c.ModoTLS != STARTTLSObligatorio) ||
 		c.TiempoMaximo <= 0 || contieneCRLF(c.Host) || contieneCRLF(c.ServerName) || contieneCRLF(c.RemitenteFijo) ||
-		(c.ModoOAuth && (c.Usuario == "" || len(c.Secreto) == 0)) ||
-		(!c.ModoOAuth && (c.Usuario != "" || len(c.Secreto) != 0)) {
+		!ok ||
+		(modo != ModoAutenticacionNinguna && (c.Usuario == "" || len(c.Secreto) == 0)) ||
+		(modo == ModoAutenticacionNinguna && (c.Usuario != "" || len(c.Secreto) != 0)) {
 		return nil, ErrConfiguracionInvalida
 	}
 	remitente, ok := direccionSobre(c.RemitenteFijo)
@@ -111,9 +126,31 @@ func Nuevo(c Configuracion) (*Adaptador, error) {
 		return nil, ErrConfiguracionInvalida
 	}
 	c.RemitenteFijo = remitente
+	c.ModoAutenticacion = modo
 	c.Secreto = append([]byte(nil), c.Secreto...)
 	c.CertificadosCA = c.CertificadosCA.Clone()
 	return &Adaptador{configuracion: c}, nil
+}
+
+func normalizarModoAutenticacion(c Configuracion) (ModoAutenticacion, bool) {
+	switch c.ModoAutenticacion {
+	case "":
+		if c.ModoOAuth {
+			return ModoAutenticacionXOAUTH2, true
+		}
+		return ModoAutenticacionNinguna, true
+	case ModoAutenticacionNinguna:
+		return ModoAutenticacionNinguna, !c.ModoOAuth
+	case ModoAutenticacionPlain:
+		return ModoAutenticacionPlain, !c.ModoOAuth
+	case ModoAutenticacionXOAUTH2:
+		// false también representa el valor cero de configuraciones nuevas;
+		// true es la representación heredada equivalente, no una selección
+		// alternativa.
+		return ModoAutenticacionXOAUTH2, true
+	default:
+		return "", false
+	}
 }
 
 func (a *Adaptador) Enviar(ctx context.Context, m Mensaje) Resultado {
@@ -166,8 +203,15 @@ func (a *Adaptador) Enviar(ctx context.Context, m Mensaje) Resultado {
 			return Resultado{Estado: NoAceptadoTransitorio}
 		}
 	}
-	if cfg.ModoOAuth {
+	if cfg.ModoAutenticacion == ModoAutenticacionXOAUTH2 {
 		if err := cliente.Auth(&xoauth2Auth{usuario: cfg.Usuario, secreto: cfg.Secreto}); err != nil {
+			return resultadoAntesDeData(err)
+		}
+	}
+	if cfg.ModoAutenticacion == ModoAutenticacionPlain {
+		// Este punto sólo se alcanza después del handshake implícito o de
+		// STARTTLS; nunca se transmite una credencial sobre la sesión inicial.
+		if err := cliente.Auth(stdsmtp.PlainAuth("", cfg.Usuario, string(cfg.Secreto), cfg.ServerName)); err != nil {
 			return resultadoAntesDeData(err)
 		}
 	}

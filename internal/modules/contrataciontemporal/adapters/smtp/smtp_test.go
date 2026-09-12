@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -89,9 +90,98 @@ func TestEnviarSTARTTLSObligatorioYAuth(t *testing.T) {
 		transaccionSMTP(t, r, w, nil, false)
 	}()
 	a := nuevoParaPrueba(t, ln.Addr().String(), roots, STARTTLSObligatorio)
-	a.configuracion.ModoOAuth, a.configuracion.Usuario, a.configuracion.Secreto = true, "sintetico", []byte("secreto-sintetico")
+	a.configuracion.ModoAutenticacion, a.configuracion.ModoOAuth, a.configuracion.Usuario, a.configuracion.Secreto = ModoAutenticacionXOAUTH2, true, "sintetico", []byte("secreto-sintetico")
 	if r := a.Enviar(context.Background(), mensajePrueba()); r.Estado != AceptadoPorRelay {
 		t.Fatalf("estado=%v", r.Estado)
+	}
+}
+
+func TestEnviarSTARTTLSObligatorioAuthPlainSoloTrasTLS(t *testing.T) {
+	cert, roots := certificado(t, "smtp.prueba.local")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		r, w := bufio.NewReader(c), bufio.NewWriter(c)
+		escribir := func(s string) { _, _ = w.WriteString(s); _ = w.Flush() }
+		escribir("220 prueba\r\n")
+		_, _ = r.ReadString('\n')
+		// Un relay no fiable puede anunciar PLAIN antes de TLS. El cliente debe
+		// elegir STARTTLS y no enviar credenciales en esa fase.
+		escribir("250-prueba\r\n250-STARTTLS\r\n250 AUTH PLAIN\r\n")
+		if orden, _ := r.ReadString('\n'); !strings.HasPrefix(orden, "STARTTLS") {
+			t.Errorf("orden previa a TLS=%q", orden)
+			return
+		}
+		escribir("220 siga\r\n")
+		tlsConn := tls.Server(c, &tls.Config{Certificates: []tls.Certificate{cert}})
+		if err := tlsConn.Handshake(); err != nil {
+			t.Errorf("handshake: %v", err)
+			return
+		}
+		r, w = bufio.NewReader(tlsConn), bufio.NewWriter(tlsConn)
+		_, _ = r.ReadString('\n')
+		escribir("250-prueba\r\n250 AUTH PLAIN\r\n")
+		orden, _ := r.ReadString('\n')
+		const prefijo = "AUTH PLAIN "
+		if !strings.HasPrefix(orden, prefijo) {
+			t.Errorf("auth=%q", orden)
+			return
+		}
+		material, err := base64.StdEncoding.DecodeString(strings.TrimSpace(strings.TrimPrefix(orden, prefijo)))
+		if err != nil || string(material) != "\x00usuario-prueba\x00secreto-prueba" {
+			t.Error("AUTH PLAIN no contiene la credencial esperada")
+			return
+		}
+		escribir("235 ok\r\n")
+		transaccionSMTP(t, r, w, nil, false)
+	}()
+	a := nuevoParaPrueba(t, ln.Addr().String(), roots, STARTTLSObligatorio)
+	a.configuracion.ModoAutenticacion, a.configuracion.Usuario, a.configuracion.Secreto = ModoAutenticacionPlain, "usuario-prueba", []byte("secreto-prueba")
+	if r := a.Enviar(context.Background(), mensajePrueba()); r.Estado != AceptadoPorRelay {
+		t.Fatalf("estado=%v", r.Estado)
+	}
+}
+
+func TestNuevoNormalizaModoAutenticacionYRechazaAmbiguedad(t *testing.T) {
+	_, roots := certificado(t, "smtp.prueba.local")
+	base := Configuracion{Host: "smtp.prueba.local", Puerto: 465, ServerName: "smtp.prueba.local", CertificadosCA: roots, RemitenteFijo: "rrhh@prueba.local", ModoTLS: TLSImplicito, TiempoMaximo: time.Second}
+	pruebas := []struct {
+		nombre   string
+		modo     ModoAutenticacion
+		oauth    bool
+		usuario  string
+		secreto  []byte
+		valido   bool
+		esperado ModoAutenticacion
+	}{
+		{"legacy-anonimo", "", false, "", nil, true, ModoAutenticacionNinguna},
+		{"legacy-xoauth2", "", true, "usuario", []byte("secreto"), true, ModoAutenticacionXOAUTH2},
+		{"plain-explicito", ModoAutenticacionPlain, false, "usuario", []byte("secreto"), true, ModoAutenticacionPlain},
+		{"plain-oauth-ambiguo", ModoAutenticacionPlain, true, "usuario", []byte("secreto"), false, ""},
+		{"ninguna-oauth-ambiguo", ModoAutenticacionNinguna, true, "", nil, false, ""},
+		{"desconocido", ModoAutenticacion("cram-md5"), false, "usuario", []byte("secreto"), false, ""},
+		{"plain-sin-credencial", ModoAutenticacionPlain, false, "", nil, false, ""},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			cfg := base
+			cfg.ModoAutenticacion, cfg.ModoOAuth, cfg.Usuario, cfg.Secreto = prueba.modo, prueba.oauth, prueba.usuario, prueba.secreto
+			a, err := Nuevo(cfg)
+			if prueba.valido != (err == nil) {
+				t.Fatalf("err=%v", err)
+			}
+			if prueba.valido && a.configuracion.ModoAutenticacion != prueba.esperado {
+				t.Fatalf("modo=%q", a.configuracion.ModoAutenticacion)
+			}
+		})
 	}
 }
 
@@ -188,7 +278,7 @@ func TestEnviarAuthRechazadoNoRepiteSecreto(t *testing.T) {
 	})
 	defer cerrar()
 	a := nuevoParaPrueba(t, direccion, roots, TLSImplicito)
-	a.configuracion.ModoOAuth, a.configuracion.Usuario, a.configuracion.Secreto = true, "usuario", []byte("secreto-sintetico")
+	a.configuracion.ModoAutenticacion, a.configuracion.ModoOAuth, a.configuracion.Usuario, a.configuracion.Secreto = ModoAutenticacionXOAUTH2, true, "usuario", []byte("secreto-sintetico")
 	if got := a.Enviar(context.Background(), mensajePrueba()).Estado; got != NoAceptadoPermanente {
 		t.Fatalf("estado=%v", got)
 	}
