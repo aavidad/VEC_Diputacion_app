@@ -7,7 +7,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -83,7 +85,7 @@ func validarMetadatosCierreAdministrativo(
 		problema := errorPeticionCierreAdministrativoNoValida
 		return &problema
 	}
-	if !cabecerasCierreAdministrativoPermitidas(r.Header) {
+	if !cabecerasCierreAdministrativoPermitidas(r) {
 		problema := errorPeticionCierreAdministrativoNoPermitida
 		return &problema
 	}
@@ -106,16 +108,59 @@ func transferenciaCierreAdministrativoPermitida(r *http.Request) bool {
 		strings.EqualFold(r.TransferEncoding[0], "chunked")
 }
 
-func cabecerasCierreAdministrativoPermitidas(cabeceras http.Header) bool {
-	for nombre := range cabeceras {
+func cabecerasCierreAdministrativoPermitidas(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	for nombre := range r.Header {
 		switch {
 		case strings.EqualFold(nombre, "Content-Type"),
 			strings.EqualFold(nombre, "Accept"):
+		case cabeceraNavegadorInerteCierreAdministrativo(nombre):
+			if !valorUnicoInerteCierreAdministrativo(
+				valoresCabeceraAlta(r.Header, nombre),
+			) {
+				return false
+			}
+		case strings.EqualFold(nombre, "Content-Length"):
+			valor, unico := cabeceraUnicaAlta(r.Header, "Content-Length")
+			if !unico || r.ContentLength <= 0 || valor != strconv.FormatInt(r.ContentLength, 10) {
+				return false
+			}
 		default:
 			return false
 		}
 	}
 	return true
+}
+
+func cabeceraNavegadorInerteCierreAdministrativo(nombre string) bool {
+	switch {
+	case strings.EqualFold(nombre, "Accept-Encoding"),
+		strings.EqualFold(nombre, "Accept-Language"),
+		strings.EqualFold(nombre, "Cache-Control"),
+		strings.EqualFold(nombre, "Pragma"),
+		strings.EqualFold(nombre, "User-Agent"),
+		strings.EqualFold(nombre, "Origin"),
+		strings.EqualFold(nombre, "Referer"),
+		strings.EqualFold(nombre, "Sec-Fetch-Dest"),
+		strings.EqualFold(nombre, "Sec-Fetch-Mode"),
+		strings.EqualFold(nombre, "Sec-Fetch-Site"),
+		strings.EqualFold(nombre, "Sec-CH-UA"),
+		strings.EqualFold(nombre, "Sec-CH-UA-Mobile"),
+		strings.EqualFold(nombre, "Sec-CH-UA-Platform"),
+		strings.EqualFold(nombre, "Priority"):
+		return true
+	default:
+		return false
+	}
+}
+
+func valorUnicoInerteCierreAdministrativo(valores []string) bool {
+	if len(valores) != 1 || valores[0] == "" || valores[0] != strings.TrimSpace(valores[0]) {
+		return false
+	}
+	return !strings.ContainsFunc(valores[0], unicode.IsControl)
 }
 
 func cierreAdministrativoDesdePeticion(

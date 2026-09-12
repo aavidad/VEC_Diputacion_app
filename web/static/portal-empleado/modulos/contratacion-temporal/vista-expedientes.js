@@ -885,10 +885,10 @@ export async function montarModuloContratacionTemporal({
           </section>`;
           if (recuperable) {
             const boton = bloqueCierre.querySelector?.("[data-ct-exp-reintentar-cierre]");
-            boton?.addEventListener?.("click", refrescarCierre);
+            boton?.addEventListener?.("click", () => refrescarCierre());
           }
         };
-        async function refrescarCierre() {
+        async function refrescarCierre(trasConfirmacion = false) {
           if (!vigenteMontaje() || typeof clienteLlamamiento.consultarPreparacionCierreSinCese !== "function"
             || typeof clienteLlamamiento.cerrar !== "function" || lecturaCierreEnCurso) return;
           lecturaCierreEnCurso = true;
@@ -898,6 +898,7 @@ export async function montarModuloContratacionTemporal({
               seguimiento_ref: preparacion.recibo.seguimiento_ref,
             }, { signal: controlador.signal });
             if (!vigenteMontaje()) return;
+            if (trasConfirmacion) return { estadoActual: cierre.estado_actual };
             desmontarCierre?.();
             desmontarCierre = null;
             bloqueCierre.replaceChildren();
@@ -905,20 +906,24 @@ export async function montarModuloContratacionTemporal({
               raiz: bloqueCierre,
               cliente: clienteLlamamiento,
               preparacion: cierre.preparacion,
+              estadoActual: cierre.estado_actual,
               contextoRecuperacion: {
                 expediente_ref: expedienteRef,
                 seguimiento_ref: preparacion.recibo.seguimiento_ref,
               },
               confirmarOperacion,
+              alConfirmar: () => refrescarCierre(true),
               t: tCT,
             });
+            return true;
           } catch {
-            if (vigenteMontaje()) {
+            if (vigenteMontaje() && !trasConfirmacion) {
               mostrarCierreNoDisponible(
                 tCT("cierre_lectura_error"),
                 true,
               );
             }
+            return false;
           } finally {
             lecturaCierreEnCurso = false;
           }

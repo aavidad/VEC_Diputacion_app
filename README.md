@@ -125,13 +125,25 @@ comparación SQL de solo lectura conservó toda la historia
 anterior y encontró una anotación, una versión, una actuación y un outbox; las
 cinco tablas de Personal y la incorporación permanecieron iguales. Preparar
 cierre respondió `GET 200`; se guardó el JSON y un único `POST` de cierre
-devolvió `400`. La solicitud original, clave `aed453da…`, queda preservada para
-un eventual replay exacto. La lectura SQL cotejó 14 filas de negocio idénticas
-al estado posterior a la anotación y cero cierres. El diagnóstico Go del `400`
-confirmó que la allowlist HTTP del cierre admite solo `Accept` y `Content-Type`
-y rechaza el `User-Agent` de Chrome; los campos y la clave previos son válidos.
-La corrección aislada aún espera sus dos revisiones y el reinicio posterior a
-la anotación sigue pendiente. El `503` previo queda como antecedente.
+devolvió `400`. Tras corregir la allowlist HTTP, se recuperó exactamente el JSON
+y la clave original `aed453da…`: un único replay respondió `201` a las
+`17:35:57.825562Z`, recibo
+`ref:2db8cfe02f7f97bc99b183ac66d579b83698981e78220f301e39f873f8b36f7c`,
+seguimiento resultante 2 y expediente v9 intacto. El recibo procede de
+`respuesta_json`. La lectura SQL conservó las filas previas de las 12 tablas históricas y añadió solo
+preparación, registro, auditoría y outbox de CT87; las cinco tablas de Personal
+permanecieron exactas. No hubo errores JS, cookies, almacenamiento ni overflow
+a 1440/1024/390. Tras reiniciar la misma app y PostgreSQL del clon87, Chrome
+recuperó la anotación con `GET 200` y el mismo recibo/v9, y el cierre con replay
+`POST 200`, el mismo recibo y seguimiento 2. No duplicó negocio: se conservaron
+registro, preparación y outbox; solo añadió la auditoría prevista de recuperación
+`recuperado=true`, manteniendo la auditoría original. Personal siguió exacto.
+
+Los dos archivos Go HTTP `7231…` y `d2bfc1d8…` tienen `GO`; Go global y vet
+pasaron. El binario mínimo `bc65…` reinició el mismo clon87 con salud `200`, sin
+tocar principal ni material web. La anotación se recuperó tras reiniciar la app
+con el mismo recibo, fecha y v9. Este cierre no acredita firma, cese, eficacia,
+envío ni GINPIX externo.
 
 El corte E08 incorpora traducciones comunes de anotación y cierre en siete
 archivos JS y pruebas revisados; 21 focales pasaron. Muestra un motivo humano
@@ -140,6 +152,12 @@ dos fases y el replay permanecen intactos. E08 aún no está desplegado en runti
 la campaña global terminó 365/365 pruebas CT y 23/23 del coordinador, 388 en
 total, con manifiestos 11/111/3/1 en `PASS`. Este corte no cambió Go ni repitió
 su campaña ya cerrada.
+
+La corrección UI5 `f39…`/`37da…` recibió `GO` y quedó aplicada en integración:
+invalida el estado anterior al confirmar el cierre, conserva el recibo y refresca
+la lectura mediante GET. La raíz pasó 395 pruebas web y los
+manifiestos 11/111/3/1. Esta corrección de interfaz aún no está en runtime; la
+evidencia de navegador corresponde a la web `037b…` con el binario `bc65…`.
 
 La prueba de CT86 quedó en `NO-GO`: la guarda requiere 10 s y la capacidad real
 es 5 s. No se ejecutó el arnés SQL y el negocio quedó intacto.

@@ -38,10 +38,21 @@ func TestManejadorCierreAdministrativoRechazaSuperficieAntesDeAutoridad(
 		{"OPTIONS", func(r *http.Request) { r.Method = http.MethodOptions }, http.StatusMethodNotAllowed},
 		{"cabecera X", func(r *http.Request) { r.Header.Set("X-Vec-Actor", "forjado") }, http.StatusBadRequest},
 		{"authorization", func(r *http.Request) { r.Header.Set("Authorization", "Bearer privado") }, http.StatusBadRequest},
+		{"proxy authorization", func(r *http.Request) { r.Header.Set("Proxy-Authorization", "Basic privado") }, http.StatusBadRequest},
 		{"cookie", func(r *http.Request) { r.Header.Set("Cookie", "sesion=privada") }, http.StatusBadRequest},
 		{"set cookie", func(r *http.Request) { r.Header.Set("Set-Cookie", "sesion=privada") }, http.StatusBadRequest},
+		{"forwarded", func(r *http.Request) { r.Header.Set("Forwarded", "for=privado") }, http.StatusBadRequest},
+		{"identidad heredada", func(r *http.Request) { r.Header.Set("X-Identidad", "persona:privada") }, http.StatusBadRequest},
+		{"user agent ambiguo", func(r *http.Request) {
+			r.Header.Add("User-Agent", "navegador-a")
+			r.Header.Add("User-Agent", "navegador-b")
+		}, http.StatusBadRequest},
+		{"user agent ambiguo con caja distinta", func(r *http.Request) {
+			r.Header.Set("User-Agent", "navegador-a")
+			r.Header["user-agent"] = []string{"navegador-b"}
+		}, http.StatusBadRequest},
+		{"user agent con control", func(r *http.Request) { r.Header.Set("User-Agent", "navegador\x01") }, http.StatusBadRequest},
 		{"host cabecera", func(r *http.Request) { r.Header.Set("Host", "interno.invalid") }, http.StatusBadRequest},
-		{"user agent", func(r *http.Request) { r.Header.Set("User-Agent", "cliente") }, http.StatusBadRequest},
 		{"transfer encoding cabecera", func(r *http.Request) { r.Header.Set("Transfer-Encoding", "chunked") }, http.StatusBadRequest},
 		{"content length cabecera", func(r *http.Request) { r.Header.Set("Content-Length", "1") }, http.StatusBadRequest},
 		{"content encoding", func(r *http.Request) { r.Header.Set("Content-Encoding", "gzip") }, http.StatusBadRequest},
@@ -128,6 +139,33 @@ func TestManejadorCierreAdministrativoAdmiteSoloCabecerasPositivas(
 	).ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusCreated {
 		t.Fatalf("chunked no ambiguo: estado=%d cuerpo=%s", respuesta.Code, respuesta.Body)
+	}
+}
+
+func TestManejadorCierreAdministrativoAceptaMetadatosInertesDeChrome(
+	t *testing.T,
+) {
+	autoridad := autoridadCierreAdministrativoHTTPValidaPrueba()
+	ejecutor := &ejecutorCierreSinCeseHTTPPrueba{ejecutorCierreAdministrativoHTTPPrueba: &ejecutorCierreAdministrativoHTTPPrueba{}}
+	peticion := peticionCierreAdministrativoHTTPPrueba(
+		t,
+		RutaCerrarAdministrativamenteSinCese,
+	)
+	for nombre, valor := range map[string]string{
+		"Accept-Encoding": "gzip, deflate, br", "Accept-Language": "es-ES,es;q=0.9",
+		"Cache-Control": "no-cache", "Pragma": "no-cache",
+		"User-Agent": "navegador-de-prueba", "Origin": "https://localhost:8443",
+		"Referer":        "https://localhost:8443/portal-empleado/",
+		"Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "same-origin", "Sec-Fetch-Site": "same-origin",
+		"Sec-CH-UA": "navegador", "Sec-CH-UA-Mobile": "?0", "Sec-CH-UA-Platform": "Linux",
+		"Priority": "u=1, i", "Content-Length": strconv.FormatInt(peticion.ContentLength, 10),
+	} {
+		peticion.Header.Set(nombre, valor)
+	}
+	respuesta := httptest.NewRecorder()
+	nuevoManejadorCierreAdministrativoHTTPPrueba(t, autoridad, ejecutor).ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || autoridad.llamadas != 1 || ejecutor.llamadasSinCese != 1 || ejecutor.llamadasCerrar != 0 || ejecutor.llamadasReabrir != 0 {
+		t.Fatalf("metadatos Chrome rechazados: estado=%d llamadas=%d/%d/%d/%d", respuesta.Code, autoridad.llamadas, ejecutor.llamadasSinCese, ejecutor.llamadasCerrar, ejecutor.llamadasReabrir)
 	}
 }
 

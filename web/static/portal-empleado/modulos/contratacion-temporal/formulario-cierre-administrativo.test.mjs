@@ -11,7 +11,56 @@ test("continuar confirma y POST contiene intención exacta", async () => { let c
 test("cancelar confirmación no hace POST y permite continuar la misma intención", async () => { const a = []; let confirma = false; const x = monta({ async cerrar(q) { a.push(q); return r; } }, () => confirma); await x.x.preparar(); await x.x.continuar(); assert.deepEqual(a, []); assert.match(x.x.innerHTML, /Cerrar administrativamente/); confirma = true; await x.x.continuar(); assert.deepEqual(a, [s]); });
 test("incertidumbre conserva datos de recuperación y no reintenta", async () => { const a = []; const x = monta({ async cerrar(q) { a.push(q); throw Object.assign(new Error(), { estado: 503 }); } }); await x.x.preparar(); await x.x.continuar(); assert.deepEqual(a, [s]); assert.match(x.x.innerHTML, /Guardar datos de recuperación/); });
 test("401,403,409 son claros y no cambian intención", async () => { for (const estado of [401, 403, 409]) { const a = []; const x = monta({ async cerrar(q) { a.push(q); throw Object.assign(new Error(), { estado }); } }); await x.x.preparar(); await x.x.continuar(); assert.equal(a.length, 1); assert.match(x.x.innerHTML, estado === 401 ? /identificarse/ : estado === 403 ? /permiso/ : /conflicto/); } });
+test("401, 403 y 409 no anuncian éxito ni lanzan el refresco", async () => {
+  for (const estado of [401, 403, 409]) {
+    const x = raiz(); let refrescos = 0;
+    montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { throw Object.assign(new Error(), { estado }); } }, preparacion: p, confirmarOperacion: () => true, generarClaveIdempotencia: () => id, alConfirmar: () => { refrescos++; return true; } });
+    await x.preparar(); await x.continuar();
+    assert.equal(refrescos, 0); assert.doesNotMatch(x.innerHTML, /Recibo verificado/u);
+  }
+});
 test("desmontar aborta y descarta respuesta tardía", async () => { let resolver, signal; const x = monta({ cerrar(_q, o) { signal = o.signal; return new Promise(z => resolver = z); } }); await x.x.preparar(); const v = x.x.continuar(); await new Promise(z => setImmediate(z)); x.d(); assert.equal(signal.aborted, true); resolver(r); await v; assert.equal(x.x.innerHTML, ""); });
+test("recibo confirmado conserva recuperación y avisa si el refresco GET falla", async () => {
+  const x = raiz(); let refrescos = 0;
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
+    estadoActual: "vigente", confirmarOperacion: () => true, generarClaveIdempotencia: () => id,
+    alConfirmar: async () => { refrescos++; return false; } });
+  await x.preparar(); await x.continuar();
+  assert.equal(refrescos, 1); assert.match(x.innerHTML, /recibo:1/u);
+  assert.match(x.innerHTML, /actualización del estado sigue pendiente/u);
+  assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+});
+test("el recibo invalida el estado anterior mientras espera y si falla el GET", async () => {
+  const x = raiz(); let resolver;
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
+    estadoActual: "vigente", confirmarOperacion: () => true, generarClaveIdempotencia: () => id,
+    alConfirmar: () => new Promise((resolve) => { resolver = resolve; }) });
+  await x.preparar(); const envio = x.continuar(); await new Promise((resolve) => setImmediate(resolve));
+  assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+  assert.doesNotMatch(x.innerHTML, /Estado actual del seguimiento: Vigente/u);
+  resolver(false); await envio;
+  assert.match(x.innerHTML, /actualización del estado sigue pendiente/u);
+  assert.doesNotMatch(x.innerHTML, /Estado actual del seguimiento: Vigente/u);
+  assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+});
+test("GET posterior confirmado actualiza el estado y conserva recibo e intención descargable", async () => {
+  const x = raiz();
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
+    estadoActual: "vigente", confirmarOperacion: () => true, generarClaveIdempotencia: () => id,
+    alConfirmar: async () => ({ estadoActual: "cerrado" }) });
+  await x.preparar(); await x.continuar();
+  assert.match(x.innerHTML, /Estado actual del seguimiento: Cerrado/u);
+  assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
+});
+test("estado cerrado explícito no se deduce de acciones y no habilita un POST", () => {
+  const x = raiz(); let cierres = 0;
+  montarFormularioCierreAdministrativo({ raiz: x, cliente: { cerrar() { cierres++; } }, preparacion: null,
+    estadoActual: "cerrado", contextoRecuperacion: { expediente_ref: p.expediente_ref, seguimiento_ref: p.seguimiento_ref } });
+  assert.match(x.innerHTML, /Estado actual del seguimiento: Cerrado/u);
+  assert.match(x.innerHTML, /ya consta registrado/u);
+  assert.doesNotMatch(x.innerHTML, /data-ct-cierre-administrativo-form/u);
+  assert.equal(cierres, 0);
+});
 test("preparación ausente sin contexto queda inactiva", () => { const x = raiz(); const d = montarFormularioCierreAdministrativo({ raiz: x, cliente: { cerrar() { assert.fail("POST"); } }, preparacion: null }); assert.match(x.innerHTML, /no está disponible/); d(); assert.equal(x.innerHTML, ""); });
 
 test("las seis etiquetas y el motivo se traducen, se escapan y conservan la clave exacta del POST", async () => {

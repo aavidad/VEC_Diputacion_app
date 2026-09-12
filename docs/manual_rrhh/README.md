@@ -111,13 +111,22 @@ original v1. **Recuperar** respondió `GET 200` con el mismo recibo. La lectura
 SQL confirmó una anotación, una versión, una actuación y
 un outbox, sin pérdida de historia ni cambios en Personal o incorporación.
 **Preparar cierre** respondió `GET 200`; se guardó el JSON y un único `POST` de
-cierre devolvió `400`. Conserve la solicitud original y la clave `aed453da…`
-para un eventual replay exacto; no repita el envío mientras continúa el
-diagnóstico. La lectura SQL encontró las 14 filas de negocio iguales al estado
-posterior a la anotación y cero cierres. La allowlist HTTP admite solo `Accept`
-y `Content-Type` y rechazó el `User-Agent` de Chrome; los campos y la clave son
-válidos, pero la corrección espera dos revisiones. El reinicio posterior sigue
-pendiente; el `503` anterior queda solo como antecedente.
+cierre devolvió `400`. Tras corregir la allowlist HTTP, se importaron exactamente
+el JSON y la clave `aed453da…`; un único replay respondió `201`, generó el
+recibo `ref:2db8cfe02f7f97bc99b183ac66d579b83698981e78220f301e39f873f8b36f7c`
+y llevó el seguimiento a 2 sin cambiar el expediente v9. La lectura SQL
+conservó 12 tablas históricas y añadió solo preparación, registro, auditoría y
+outbox; Personal quedó exacto. La pantalla no tuvo errores JS, cookies,
+almacenamiento ni overflow a 1440/1024/390. No repita el replay.
+
+La corrección HTTP de dos archivos Go tiene `GO`; Go global y vet pasaron. El
+mismo clon87 reinició con salud `200`, sin tocar principal ni material web, y la
+anotación se recuperó con el mismo recibo, fecha y v9. Tras reiniciar también
+PostgreSQL y la app del clon87, **Recuperar anotación** devolvió `GET 200` con el
+mismo recibo/v9 y el replay del cierre devolvió `POST 200` con el mismo recibo
+y seguimiento 2. No duplicó registro, preparación ni outbox; solo añadió la
+auditoría prevista de recuperación y conservó la original. Personal permaneció
+exacto. Este cierre no firma, cesa, da eficacia, envía ni confirma GINPIX externo.
 
 E08 aporta traducciones comunes de anotación y cierre. El motivo comprensible
 se muestra sin cambiar el payload, y los mensajes configurados se propagan
@@ -126,6 +135,11 @@ pruebas fueron revisados y 21 focales pasaron, pero esta mejora todavía no est�
 desplegada. La campaña global terminó 365/365 pruebas CT más 23/23 del
 coordinador, 388 en total, y manifiestos 11/111/3/1 en `PASS`. No hubo cambios
 Go ni se repitió su campaña global.
+
+La corrección UI5 del estado mostrado al refrescar un `GET` tiene `GO`, está
+aplicada en integración y pasó dentro de 395 pruebas web y manifiestos
+11/111/3/1. Aún no está en runtime; este recorrido usó la web `037b…` y el
+binario `bc65…`.
 
 La prueba CT86 quedó en `NO-GO`: la guarda exige 10 s y la capacidad real es 5
 s. No se ejecutó el arnés SQL y el negocio permaneció intacto.

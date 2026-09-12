@@ -156,13 +156,28 @@ Chrome quedó sin errores JS, cookies, almacenamiento ni desbordamiento a
 1440/1024/390, con inspección de dirección a 390 px. En el intento ordinario
 posterior, incorporación y preparación devolvieron `GET 200`, se guardó el JSON
 y un único `POST` de cierre devolvió `400`. La solicitud original con clave
-`aed453da…` queda preservada para eventual replay exacto. Una consulta SQL de
-solo lectura cotejó 14 filas de negocio idénticas al estado posterior a la
-anotación y cero cierres. El `400` procede de la allowlist HTTP del cierre, que
-admite solo `Accept` y `Content-Type` y rechaza el `User-Agent` de Chrome; los
-campos y la clave previos son válidos. La corrección aislada aún espera dos
-revisiones. El reinicio posterior sigue pendiente y el `503` previo queda como
-antecedente.
+`aed453da…` se recuperó después de corregir la allowlist HTTP. El replay exacto
+respondió una sola vez `201` a las `17:35:57.825562Z`, recibo
+`ref:2db8cfe02f7f97bc99b183ac66d579b83698981e78220f301e39f873f8b36f7c`,
+seguimiento resultante 2 y expediente v9 preservado; `fuente_recibo` es
+`respuesta_json`. SQL de solo lectura confirmó las filas previas de las 12 tablas de historia
+conservadas y solo una preparación, un registro, una auditoría y un outbox nuevos
+de CT87; las cinco tablas de Personal quedaron exactas. Chrome terminó sin JS,
+cookies, almacenamiento ni overflow a 1440/1024/390.
+
+La corrección HTTP consta de los dos archivos Go `7231…` y `d2bfc1d8…` con `GO`;
+Go global y vet pasaron. El binario mínimo `bc65…`, sobre la base e4 y esos dos
+parches, reinició el mismo clon87 con salud `200`, sin tocar principal ni
+material web. Tras reiniciar la app, la anotación recuperó `GET 200` con el
+mismo recibo, fecha y v9. Después se reiniciaron conjuntamente esa app y
+PostgreSQL del clon87: Chrome recuperó la anotación con `GET 200` y el mismo
+recibo/v9, y el cierre con replay `POST 200`, mismo recibo y seguimiento 2. La
+comparación conservó 15 líneas CT y estado, salvo una auditoría adicional
+prevista de recuperación (`recuperado=true`, `17:51:33.617742`), sin sustituir
+la auditoría original. Registro, preparación y outbox quedaron únicos; las
+cinco tablas de Personal conservaron SHA256 `35c081…`. No hubo duplicados.
+El resultado no acredita firma, cese, eficacia, envío ni GINPIX externo. Los
+`404` observados en módulos Bolsa no relacionados quedan fuera de este cierre.
 
 E08 incorpora traducciones comunes de anotación y cierre en siete archivos JS
 y pruebas revisados. Las 21 focales pasaron. El motivo visible para la persona
@@ -171,6 +186,11 @@ conservan las dos fases y el replay. E08 todavía no está desplegado en runtime
 La campaña global terminó 365/365 pruebas CT más 23/23 del coordinador, 388 en
 total, y manifiestos 11/111/3/1 en `PASS`. E08 no cambió Go ni repitió la
 campaña global Go y vet ya cerrada.
+
+UI5 `f39…`/`37da…` corrige en fuente el P2 del estado mostrado al refrescar un
+`GET`; recibió `GO` y quedó aplicada en integración. La raíz terminó 395 pruebas
+web y manifiestos 11/111/3/1 en `PASS`. Aún no está en runtime: la evidencia de
+navegador usa la web `037b…` y el binario mínimo `bc65…`.
 
 La prueba de CT86 recibió `NO-GO`: su guarda exige 10 s frente a una capacidad
 real de 5 s. El arnés SQL no se ejecutó y el negocio permaneció intacto.
@@ -744,10 +764,10 @@ Antes de cada edición se comprueba qué implementación ya está disponible.
 | 7 | Continuar con la siguiente persona tras renuncia o vencimiento | Reutiliza el orden entregado por Bolsa y abre un único nuevo llamamiento; no crea otro motor de selección. | Continuación, aviso CT62, declaración CT63 y aceptación manual sintética CT64 recuperados tras reinicio principal: ocho `200`, recibos e historia intactos. Sin tercer llamamiento, envío, entrega ni vencimiento |
 | 8 | Guardar y recuperar una propuesta de nombramiento | Parte de la aceptación real registrada; muestra datos, estado de propuesta y recibo, sin fingir nombramiento firmado. | Caso original y sucesor CT65 recorridos: `201` y replay `200` tras reinicio principal, misma propuesta/recibo/fecha/v7 en cada caso; solicitud conserva versión esperada `6`. Hash publicado comprobable en Git |
 | 9 | Descargar los documentos de la propuesta | Un documento por corte, usando el generador existente; campos del expediente y descarga real. Véase desglose siguiente. | Cerrado funcionalmente en desarrollo: 6/6 borradores; diez POST `200` antes/después del reinicio principal, PDF e historial idénticos. Siguiente 10, sujeto a fuente/circuito de firma admitido. Sin firmas, envío, entrega, plazo legal, incorporación ni otro paso RRHH completo |
-| 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Depende del circuito admitido |
-| 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Después de nombramiento válido |
-| 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Después de 11 |
-| 13 | Registrar seguimiento y cerrar el expediente | Una anotación y después el cierre, en cortes separados; historial y estado final conservados. | Después de 11 |
+| 10 | Incorporar la resolución y su evidencia de firma o validación | Documento y estado vinculados al expediente según la autoridad admitida. Una firma pendiente no se presenta como completada. | Los seis borradores no acreditan firma o validación; depende del circuito admitido |
+| 11 | Confirmar la incorporación | Fecha, centro y relación de personal conservados y recuperables; solo la integración mínima de Personal necesaria para contratación. | Acreditado funcionalmente tras reinicio, sin repetir el `POST`; no firma ni completa Contratación |
+| 12 | Descargar la ficha para GINPIX | Fichero de incorporación utilizable para la grabación manual prevista; no exige construir la conexión automática. | Acreditado como ficha manual recuperada tras reinicio; no confirma GINPIX externo |
+| 13 | Registrar seguimiento y cerrar el expediente | Una anotación y después el cierre, en cortes separados; historial y estado final conservados. | Acreditado en clon87: anotación y cierre recuperados tras reiniciar app/PostgreSQL, mismos recibos y sin duplicados. SQL no instalado en principal |
 | 14 | Entregar el recorrido completo a Alberto y RRHH | Arranque reproducible, ocho pasos recorribles, manuales al día y lista explícita de dependencias productivas. Una comprobación conjunta final. | Después de los anteriores |
 
 **Documentos del objetivo 9: seis cortes, no un generador nuevo.**

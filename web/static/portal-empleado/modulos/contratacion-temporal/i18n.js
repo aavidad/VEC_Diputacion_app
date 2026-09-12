@@ -448,6 +448,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cierre_confirmar_replay: "Esta acción puede completar una intención pendiente sin cese ni eficacia jurídica.", cierre_confirmar_nuevo: "Esta acción registra el cierre preparado, sin cese ni eficacia jurídica.",
   cierre_error_401: "Debe identificarse para cerrar.", cierre_error_403: "No dispone de permiso para cerrar.", cierre_error_409: "El cierre entra en conflicto; no se ha repetido.",
   cierre_incierto: "Resultado incierto: guarde los datos de recuperación; no se ha repetido automáticamente.",
+  cierre_estado_actual: "Estado actual del seguimiento: {estado}.", cierre_estado_vigente: "Vigente", cierre_estado_cerrado: "Cerrado", cierre_estado_desconocido: "No disponible para esta pantalla",
+  cierre_estado_cerrado_confirmado: "El cierre administrativo ya consta registrado.", cierre_actualizando_estado: "Recibo verificado. Actualizando el estado del seguimiento.", cierre_actualizacion_pendiente: "Recibo verificado. La actualización del estado sigue pendiente; conserve los datos de recuperación.",
   cierre_estado_con_preparacion: "Seleccione un motivo publicado por el servidor.", cierre_estado_sin_preparacion: "No hay nueva preparación autorizada; puede cargar una solicitud original.",
   cierre_lectura_error: "No se pudo recuperar la preparación del cierre. El cierre no está habilitado; puede reintentar la lectura.",
   cierre_reintentar_lectura: "Reintentar la lectura de cierre", cierre_detalle_obsoleto: "La anotación se registró en la versión {version}. El detalle mostrado (v{version_anterior}) está obsoleto y el cierre permanece deshabilitado hasta actualizarlo.",
