@@ -1,5 +1,7 @@
 # Estado y plan de ataque del proyecto
 
+Si falla la apertura de Análisis o del siguiente formulario de Cobertura, Asignación o Informe jurídico, aparece un aviso con reintento de apertura. El reintento conserva el recibo y no repite el POST confirmado; la prueba focal cubre dos fallos consecutivos sin duplicar avisos. Bandeja y detalle reales comprobados a 1440/390 px, sin errores JavaScript ni desbordamiento.
+
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
 La base de este corte es `2eb94c1c8277a7bb93393d7ed41e66580590182f` y sus
