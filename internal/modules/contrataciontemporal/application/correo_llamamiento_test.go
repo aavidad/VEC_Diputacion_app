@@ -103,36 +103,60 @@ func (r *resolutorCorreoPrueba) ConDestinoCorreoLlamamiento(_ context.Context, s
 type registroCorreoPrueba struct {
 	mu                   sync.Mutex
 	reserva              ports.ReservaIntentoCorreoLlamamiento
+	finalizacion         ports.CapacidadFinalizacionIntentoCorreoLlamamiento
+	modoFinalizacion     string
 	reservas, resultados int
 	falloResultado       error
 	estado               ports.EstadoCorreoLlamamiento
 	contextoValido       bool
+	finalizacionValida   bool
 	bloquear             bool
 }
 
-func (r *registroCorreoPrueba) ConsultarIntentoCorreoLlamamiento(_ context.Context, _ ports.SolicitudDespacharCorreoLlamamiento, _ ports.CapacidadDespachoCorreoLlamamiento) (ports.ReservaIntentoCorreoLlamamiento, ports.EstadoCorreoLlamamiento, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.reserva, r.estado, nil
-}
-
-func (r *registroCorreoPrueba) ReservarIntentoCorreoLlamamiento(_ context.Context, solicitud ports.SolicitudDespacharCorreoLlamamiento, _ ports.CapacidadDespachoCorreoLlamamiento) (ports.ReservaIntentoCorreoLlamamiento, error) {
+func (r *registroCorreoPrueba) ReservarIntentoCorreoLlamamiento(_ context.Context, solicitud ports.SolicitudDespacharCorreoLlamamiento, _ ports.CapacidadDespachoCorreoLlamamiento) (ports.ReservaIntentoCorreoLlamamiento, ports.CapacidadFinalizacionIntentoCorreoLlamamiento, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.reservas++
 	if r.reserva.IntentoRef != "" {
 		v := r.reserva
 		v.YaReservado = true
-		return v, nil
+		if r.modoFinalizacion == "replay" {
+			return v, r.finalizacion, nil
+		}
+		return v, ports.CapacidadFinalizacionIntentoCorreoLlamamiento{}, nil
 	}
 	b, _ := json.Marshal(solicitud)
 	r.reserva = ports.ReservaIntentoCorreoLlamamiento{IntentoRef: "intento-001", MessageID: "<intento-001@vec.invalid>", FechaOrigen: instanteCorreoPrueba, SolicitudHuella: fmt.Sprintf("%x", sha256.Sum256(b)), Estado: ports.CorreoLlamamientoIniciado}
-	return r.reserva, nil
+	var err error
+	r.finalizacion, err = ports.NuevaCapacidadFinalizacionIntentoCorreoLlamamiento(r.reserva, bytes.Repeat([]byte{1}, 32))
+	if err != nil {
+		return ports.ReservaIntentoCorreoLlamamiento{}, ports.CapacidadFinalizacionIntentoCorreoLlamamiento{}, err
+	}
+	if r.modoFinalizacion == "cero" {
+		r.finalizacion = ports.CapacidadFinalizacionIntentoCorreoLlamamiento{}
+	}
+	if r.modoFinalizacion == "otro" || r.modoFinalizacion == "huella" {
+		o := r.reserva
+		if r.modoFinalizacion == "otro" {
+			o.IntentoRef = "intento-otro"
+		} else {
+			o.SolicitudHuella = strings.Repeat("b", 64)
+		}
+		r.finalizacion, err = ports.NuevaCapacidadFinalizacionIntentoCorreoLlamamiento(o, bytes.Repeat([]byte{1}, 32))
+		if err != nil {
+			return ports.ReservaIntentoCorreoLlamamiento{}, ports.CapacidadFinalizacionIntentoCorreoLlamamiento{}, err
+		}
+	}
+	return r.reserva, r.finalizacion, nil
 }
-func (r *registroCorreoPrueba) RegistrarResultadoIntentoCorreoLlamamiento(ctx context.Context, _ ports.ReservaIntentoCorreoLlamamiento, estado ports.EstadoCorreoLlamamiento, _ string) error {
+func (r *registroCorreoPrueba) RegistrarResultadoIntentoCorreoLlamamiento(ctx context.Context, reserva ports.ReservaIntentoCorreoLlamamiento, finalizacion ports.CapacidadFinalizacionIntentoCorreoLlamamiento, estado ports.EstadoCorreoLlamamiento, _ string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resultados++
+	if finalizacion.ValidarPara(reserva) != nil || !bytes.Equal(finalizacion.ExportarSecretoParaConsumidor(), r.finalizacion.ExportarSecretoParaConsumidor()) {
+		return errors.New("capacidad final invalida")
+	}
+	r.finalizacionValida = true
 	limite, ok := ctx.Deadline()
 	r.contextoValido = ctx.Err() == nil && ok && time.Until(limite) > 0 && time.Until(limite) <= tiempoMaximoRegistroResultadoCorreoLlamamiento
 	if !r.contextoValido {
@@ -302,6 +326,62 @@ func TestCorreoLlamamientoEnumSMTPInvalidoSeVuelveIndeterminado(t *testing.T) {
 		t.Fatalf("error=%v estado=%d", e, registro.estado)
 	}
 }
+func TestCorreoLlamamientoNiegaCapacidadFinalizacionAntesSMTP(t *testing.T) {
+	for _, m := range []string{"cero", "otro", "huella", "replay"} {
+		t.Run(m, func(t *testing.T) {
+			a := &autorizadorCorreoPrueba{}
+			r := &resolutorCorreoPrueba{}
+			g := &registroCorreoPrueba{modoFinalizacion: m}
+			if m == "replay" {
+				// El primer acceso construye una capacidad válida para la reserva
+				// nueva; el servicio recibe luego un replay con ese secreto indebido.
+				reserva, capacidad, err := g.ReservarIntentoCorreoLlamamiento(context.Background(), solicitudCorreoPrueba(), ports.CapacidadDespachoCorreoLlamamiento{})
+				if err != nil || capacidad.ValidarPara(reserva) != nil {
+					t.Fatal("el control de replay no tiene capacidad válida")
+				}
+			}
+			tr := &transporteCorreoPrueba{estado: ports.CorreoLlamamientoAceptadoPorRelay}
+			_, e := servicioCorreoPrueba(t, a, r, g, tr).Despachar(context.Background(), solicitudCorreoPrueba())
+			if g.reserva.ValidarPara(solicitudCorreoPrueba()) != nil || (m != "cero" && g.finalizacion.EsCero()) {
+				t.Fatal("el negativo no alcanzó la frontera con reserva y capacidad controladas")
+			}
+			if !errors.Is(e, ErrResultadoCorreoLlamamientoNoConfiable) || r.llamadas != 0 || tr.total() != 0 || g.resultados != 0 {
+				t.Fatalf("error=%v resoluciones=%d envíos=%d resultados=%d", e, r.llamadas, tr.total(), g.resultados)
+			}
+		})
+	}
+}
+
+func TestCorreoLlamamientoDevuelveReservaSinCapacidadFinalizacion(t *testing.T) {
+	a := &autorizadorCorreoPrueba{}
+	registro := &registroCorreoPrueba{}
+	servicio := servicioCorreoPrueba(t, a, &resolutorCorreoPrueba{}, registro, &transporteCorreoPrueba{estado: ports.CorreoLlamamientoAceptadoPorRelay})
+	reserva, err := servicio.Despachar(context.Background(), solicitudCorreoPrueba())
+	if err != nil || !registro.finalizacionValida || a.llamadas != 1 {
+		t.Fatal("el control positivo no finalizó con su capacidad")
+	}
+	b, err := json.Marshal(reserva)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(b, &campos); err != nil {
+		t.Fatal(err)
+	}
+	publicos := []string{"IntentoRef", "MessageID", "FechaOrigen", "YaReservado", "SolicitudHuella", "Estado"}
+	if len(campos) != len(publicos) {
+		t.Fatal("el recibo contiene campos ajenos al contrato público")
+	}
+	for _, nombre := range publicos {
+		if _, ok := campos[nombre]; !ok {
+			t.Fatalf("falta el campo público %s", nombre)
+		}
+	}
+	texto := strings.ToLower(fmt.Sprintf("%v %+v %#v", reserva, reserva, reserva))
+	if strings.Contains(texto, "finalizacion") || strings.Contains(texto, "secreto") || strings.Contains(texto, fmt.Sprintf("%x", registro.finalizacion.ExportarSecretoParaConsumidor())) {
+		t.Fatal("el recibo expone material de finalización al formatearse")
+	}
+}
 
 func TestCorreoLlamamientoRegistraTrasCancelacionYNoMutaCT54(t *testing.T) {
 	a := &autorizadorCorreoPrueba{}
@@ -313,7 +393,7 @@ func TestCorreoLlamamientoRegistraTrasCancelacionYNoMutaCT54(t *testing.T) {
 	solicitud := solicitudCorreoPrueba()
 	original := solicitud
 	_, e := s.Despachar(ctx, solicitud)
-	if !errors.Is(e, context.Canceled) || !registro.contextoValido || registro.resultados != 1 || registro.estado != ports.CorreoLlamamientoIndeterminado || solicitud != original {
+	if !errors.Is(e, context.Canceled) || !registro.contextoValido || !registro.finalizacionValida || a.llamadas != 1 || registro.resultados != 1 || registro.estado != ports.CorreoLlamamientoIndeterminado || solicitud != original {
 		t.Fatalf("error=%v resultados=%d estado=%d mutada=%v", e, registro.resultados, registro.estado, solicitud != original)
 	}
 	if got := fmt.Sprintf("%v", transporte.ultimo); got != "MensajeCorreoLlamamiento{redactado}" {

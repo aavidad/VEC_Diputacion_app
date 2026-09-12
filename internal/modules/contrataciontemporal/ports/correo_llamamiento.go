@@ -4,9 +4,11 @@ package ports
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -176,6 +178,63 @@ type ReservaIntentoCorreoLlamamiento struct {
 	Estado          EstadoCorreoLlamamiento
 }
 
+// CapacidadFinalizacionIntentoCorreoLlamamiento es efímera y sólo acompaña a
+// una reserva nueva. Permite registrar el resultado sin otra autorización ni
+// caducidad de reloj tras SMTP; nunca forma parte del recibo público.
+type CapacidadFinalizacionIntentoCorreoLlamamiento struct {
+	intentoRef, solicitudHuella string
+	secreto                     [32]byte
+}
+
+func NuevaCapacidadFinalizacionIntentoCorreoLlamamiento(r ReservaIntentoCorreoLlamamiento, secreto []byte) (CapacidadFinalizacionIntentoCorreoLlamamiento, error) {
+	var c CapacidadFinalizacionIntentoCorreoLlamamiento
+	decodificada, errorHuella := hex.DecodeString(r.SolicitudHuella)
+	if r.Validar() != nil || r.YaReservado || r.Estado != CorreoLlamamientoIniciado || len(r.SolicitudHuella) != 64 || errorHuella != nil || hex.EncodeToString(decodificada) != r.SolicitudHuella || r.SolicitudHuella == strings.Repeat("0", 64) || len(secreto) != 32 {
+		return c, ErrResultadoCorreoLlamamientoNoConfiable
+	}
+	copy(c.secreto[:], secreto)
+	todo := true
+	for _, v := range c.secreto {
+		todo = todo && v == 0
+	}
+	if todo {
+		return CapacidadFinalizacionIntentoCorreoLlamamiento{}, ErrResultadoCorreoLlamamientoNoConfiable
+	}
+	c.intentoRef = r.IntentoRef
+	c.solicitudHuella = r.SolicitudHuella
+	return c, nil
+}
+func (c CapacidadFinalizacionIntentoCorreoLlamamiento) EsCero() bool {
+	return c == (CapacidadFinalizacionIntentoCorreoLlamamiento{})
+}
+func (c CapacidadFinalizacionIntentoCorreoLlamamiento) ValidarPara(r ReservaIntentoCorreoLlamamiento) error {
+	if c.EsCero() || r.Validar() != nil || r.YaReservado || r.Estado != CorreoLlamamientoIniciado || r.IntentoRef != c.intentoRef || r.SolicitudHuella != c.solicitudHuella {
+		return ErrResultadoCorreoLlamamientoNoConfiable
+	}
+	todo := true
+	for _, v := range c.secreto {
+		todo = todo && v == 0
+	}
+	if todo {
+		return ErrResultadoCorreoLlamamientoNoConfiable
+	}
+	return nil
+}
+func (c CapacidadFinalizacionIntentoCorreoLlamamiento) ExportarSecretoParaConsumidor() []byte {
+	return append([]byte(nil), c.secreto[:]...)
+}
+func (CapacidadFinalizacionIntentoCorreoLlamamiento) String() string {
+	return "CapacidadFinalizacionIntentoCorreoLlamamiento{redactada}"
+}
+func (CapacidadFinalizacionIntentoCorreoLlamamiento) GoString() string {
+	return "CapacidadFinalizacionIntentoCorreoLlamamiento{redactada}"
+}
+func (CapacidadFinalizacionIntentoCorreoLlamamiento) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Redactado bool `json:"redactado"`
+	}{true})
+}
+
 func (r ReservaIntentoCorreoLlamamiento) ValidarPara(s SolicitudDespacharCorreoLlamamiento) error {
 	b, e := json.Marshal(s)
 	if e != nil || r.Validar() != nil || r.SolicitudHuella != fmt.Sprintf("%x", sha256.Sum256(b)) || !r.Estado.Valido() || (!r.YaReservado && r.Estado != CorreoLlamamientoIniciado) {
@@ -192,7 +251,6 @@ func (r ReservaIntentoCorreoLlamamiento) Validar() error {
 }
 
 type RegistroIntentosCorreoLlamamiento interface {
-	ReservarIntentoCorreoLlamamiento(context.Context, SolicitudDespacharCorreoLlamamiento, CapacidadDespachoCorreoLlamamiento) (ReservaIntentoCorreoLlamamiento, error)
-	RegistrarResultadoIntentoCorreoLlamamiento(context.Context, ReservaIntentoCorreoLlamamiento, EstadoCorreoLlamamiento, string) error
-	ConsultarIntentoCorreoLlamamiento(context.Context, SolicitudDespacharCorreoLlamamiento, CapacidadDespachoCorreoLlamamiento) (ReservaIntentoCorreoLlamamiento, EstadoCorreoLlamamiento, error)
+	ReservarIntentoCorreoLlamamiento(context.Context, SolicitudDespacharCorreoLlamamiento, CapacidadDespachoCorreoLlamamiento) (ReservaIntentoCorreoLlamamiento, CapacidadFinalizacionIntentoCorreoLlamamiento, error)
+	RegistrarResultadoIntentoCorreoLlamamiento(context.Context, ReservaIntentoCorreoLlamamiento, CapacidadFinalizacionIntentoCorreoLlamamiento, EstadoCorreoLlamamiento, string) error
 }

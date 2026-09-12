@@ -53,7 +53,7 @@ func (s *ServicioCorreoLlamamiento) Despachar(ctx context.Context, solicitud por
 	if err != nil || capacidad.ValidarPara(solicitud, s.reloj.Ahora()) != nil {
 		return cero, ErrCorreoLlamamientoDenegado
 	}
-	reserva, err := s.registro.ReservarIntentoCorreoLlamamiento(ctx, solicitud, capacidad)
+	reserva, finalizacion, err := s.registro.ReservarIntentoCorreoLlamamiento(ctx, solicitud, capacidad)
 	if ctx.Err() != nil {
 		return cero, ctx.Err()
 	}
@@ -64,7 +64,13 @@ func (s *ServicioCorreoLlamamiento) Despachar(ctx context.Context, solicitud por
 		return cero, ErrResultadoCorreoLlamamientoNoConfiable
 	}
 	if reserva.YaReservado {
+		if !finalizacion.EsCero() {
+			return cero, ErrResultadoCorreoLlamamientoNoConfiable
+		}
 		return reserva, nil
+	}
+	if finalizacion.ValidarPara(reserva) != nil {
+		return cero, ErrResultadoCorreoLlamamientoNoConfiable
 	}
 	estado := ports.CorreoLlamamientoNoAceptadoTransitorio
 	callbacks := 0
@@ -99,7 +105,7 @@ func (s *ServicioCorreoLlamamiento) Despachar(ctx context.Context, solicitud por
 	// Conserva el vínculo del request sin su cancelación; el límite evita una
 	// escritura huérfana y deja la reserva como barrera frente al reenvío ciego.
 	registroCtx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), tiempoMaximoRegistroResultadoCorreoLlamamiento)
-	errRegistro := s.registro.RegistrarResultadoIntentoCorreoLlamamiento(registroCtx, reserva, estado, ports.PlantillaCorreoLlamamientoV1)
+	errRegistro := s.registro.RegistrarResultadoIntentoCorreoLlamamiento(registroCtx, reserva, finalizacion, estado, ports.PlantillaCorreoLlamamientoV1)
 	cancelar()
 	if errRegistro != nil {
 		return reserva, ErrCorreoLlamamientoNoDisponible
