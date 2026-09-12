@@ -21,6 +21,7 @@ import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } f
 import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
+import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -43,6 +44,7 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     recuperacionAnotacionAdministrativa: RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA,
     preparacionCierreSinCese: "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion",
     cierreAdministrativo: RUTA_CIERRE_ADMINISTRATIVO,
+    subsanacionReparos: RUTA_SUBSANACION_REPAROS,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -486,6 +488,8 @@ function claveI18nValida(ruta, codigo, clave) {
     RUTA_CIERRE_ADMINISTRATIVO,
   ].includes(rutaBase)
     ? "api.contratacion_temporal.cierre_administrativo.error."
+    : rutaBase === RUTA_SUBSANACION_REPAROS
+    ? "api.contratacion_temporal.subsanacion_reparos.error."
     : rutaBase === RUTA_ANOTACION_ADMINISTRATIVA
     || rutaBase === RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA
     ? "api.contratacion_temporal.anotacion_administrativa.error."
@@ -922,6 +926,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones, serializarAcotado }),
+    ...crearClienteSubsanacionReparosHTTP({ ejecutar, validarOpciones, serializarAcotado }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones }),
