@@ -40,6 +40,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 	ruta                    string
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
+	vinculoCanalTLS         [32]byte
 	certificadoVerificadoEn time.Time
 	certificadoValidoHasta  time.Time
 }
@@ -525,6 +526,14 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.certificadoVerificadoEn = observado
 			capacidad.certificadoValidoHasta = certificado.NotAfter.UTC()
 			capacidad.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
+			if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
+				vinculo, ok := vinculoCanalTLSCursorRRHHDesarrollo(r.TLS)
+				if !ok {
+					m.siguiente.ServeHTTP(w, r)
+					return
+				}
+				capacidad.vinculoCanalTLS = vinculo
+			}
 		}
 		r = r.WithContext(context.WithValue(
 			r.Context(),

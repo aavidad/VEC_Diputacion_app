@@ -163,7 +163,14 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	defer peticion.mu.Unlock()
 	if peticion.autoridad == nil {
 		peticion.autoridad = a
-		peticion.contexto, peticion.err = proveedor.ResolverContexto(ctx)
+		if continuidad, ok := ctx.Value(claveContinuidadCursorRRHHDesarrollo{}).(continuidadCursorRRHHDesarrollo); ok {
+			peticion.contexto, ok = continuidad.dueno.contextoContinuado(ctx)
+			if !ok {
+				peticion.err = ports.ErrAutorizacionDenegada
+			}
+		} else {
+			peticion.contexto, peticion.err = proveedor.ResolverContexto(ctx)
+		}
 		if peticion.err != nil || !a.contextoConsultaRRHHConservaActor(peticion.contexto) {
 			peticion.contexto = ports.ContextoAutorizacionAltaV3{}
 			peticion.err = ports.ErrAutorizacionDenegada

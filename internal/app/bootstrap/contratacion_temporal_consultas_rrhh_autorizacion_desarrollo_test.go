@@ -553,7 +553,8 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 				siguiente: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 					llamadas++
 					capacidad, existe := r.Context().Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-					if existe != caso.emite {
+					esperaCapacidad := caso.emite && !rutaConsultaRRHHContratacionTemporalDesarrollo(caso.ruta)
+					if existe != esperaCapacidad {
 						t.Fatal("emisión de capacidad incorrecta")
 					}
 					if existe && (rutaConsultaRRHHContratacionTemporalDesarrollo(caso.ruta) || caso.ruta == rutaOrganizacionContratacionTemporalDesarrollo || caso.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo) {
@@ -573,4 +574,30 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 			}
 		})
 	}
+	t.Run("consulta_rrhh_conexion_TLS_real", func(t *testing.T) {
+		conexiones := nuevaConexionTLSCursorRRHHReal(t)
+		huella := sha256.Sum256(conexiones.certificadoCliente.Raw)
+		principalReal := clonarPrincipalDesarrollo(principal)
+		principalReal.Attributes["certificate_sha256"] = hex.EncodeToString(huella[:])
+		resolvedorReal, err := nuevoResolvedorIdentidadDesarrollo(identidadCertificadoDesarrollo{huella: huella, principal: principalReal})
+		if err != nil {
+			t.Fatal(err)
+		}
+		peticion := httptest.NewRequest(http.MethodPost, "https://localhost"+httpinterno.RutaConsultaCuadroRRHH, nil)
+		peticion.RemoteAddr = "127.0.0.1:41001"
+		estado := conexiones.nuevaConexion()
+		peticion.TLS = &estado
+		llamadas := 0
+		middleware := &revalidadorConsultasContratacionTemporalDesarrollo{autoridad: &autoridadConsultasContratacionTemporalDesarrollo{sello: alta.soporte.sello, resolvedor: resolvedorReal}, siguiente: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			llamadas++
+			capacidad, existe := r.Context().Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+			if !existe || capacidad.consultaRRHH == nil || capacidad.vinculoCanalTLS == ([32]byte{}) {
+				t.Fatal("una conexión TLS real no emitió capacidad ligada")
+			}
+		})}
+		middleware.ServeHTTP(httptest.NewRecorder(), peticion)
+		if llamadas != 1 {
+			t.Fatal("el middleware no entregó la capacidad de canal real")
+		}
+	})
 }
