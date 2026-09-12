@@ -8,10 +8,11 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_administracion:configuracion_
 SET LOCAL ROLE vec_administracion_propietario;
 
 -- Dependencia deliberada: AD3-33 ha de instalar primero el consumidor V3
--- nominal. El actor incluido en la auditoría no es una autoridad suficiente.
+-- nominal, seguido de T13/2. El actor incluido en la auditoría no es autoridad.
 DO $dependencia$
 BEGIN
-    IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_configuracion_correo_admin_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
+    IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_configuracion_correo_admin_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+       OR to_regprocedure('vec_bolsa_registro_accesos.registrar_cambio_configuracion_correo_admin_v1(jsonb,text,text,bigint)') IS NULL THEN
         RAISE EXCEPTION 'falta consumidor V3 nominal de configuracion de correo' USING ERRCODE = '55000';
     END IF;
 END
@@ -55,9 +56,46 @@ CREATE TABLE vec_administracion.auditoria_configuracion_correo (
     version_configuracion bigint NOT NULL CHECK (version_configuracion > 0),
     consumo_ref text NOT NULL UNIQUE,
     auditoria jsonb NOT NULL,
-    registrada_en timestamptz NOT NULL DEFAULT clock_timestamp()
+    registrada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
+    UNIQUE (consumo_ref, version_configuracion)
 );
 ALTER TABLE vec_administracion.auditoria_configuracion_correo OWNER TO vec_administracion_propietario;
+
+-- Intención durable del cambio de configuración. La carga no contiene los
+-- parámetros SMTP ni el sobre: enlaza la operación autorizada, su versión y
+-- la huella del material que ya validó el consumidor V3.
+CREATE TABLE vec_administracion.outbox_configuracion_correo (
+    evento_ref text PRIMARY KEY CHECK (evento_ref ~ '^outbox:administracion:configuracion-correo:[1-9][0-9]*$'),
+    operacion_ref text NOT NULL UNIQUE,
+    version_configuracion bigint NOT NULL CHECK (version_configuracion > 0),
+    tipo_evento text NOT NULL CHECK (tipo_evento = 'administracion.configuracion_correo.actualizada'),
+    carga_json jsonb NOT NULL CHECK (jsonb_typeof(carga_json) = 'object'),
+    creada_en timestamptz NOT NULL DEFAULT clock_timestamp(),
+    FOREIGN KEY (operacion_ref, version_configuracion)
+        REFERENCES vec_administracion.auditoria_configuracion_correo(consumo_ref, version_configuracion)
+);
+ALTER TABLE vec_administracion.outbox_configuracion_correo OWNER TO vec_administracion_propietario;
+ALTER TABLE vec_administracion.outbox_configuracion_correo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_administracion.outbox_configuracion_correo FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_outbox_configuracion_correo
+    ON vec_administracion.outbox_configuracion_correo
+    TO vec_administracion_propietario
+    USING (true) WITH CHECK (true);
+
+CREATE FUNCTION vec_administracion.rechazar_mutacion_outbox_configuracion_correo_v1()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+BEGIN
+    RAISE EXCEPTION 'outbox de configuracion de correo inmutable' USING ERRCODE = '55000';
+    RETURN NULL;
+END
+$funcion$;
+ALTER FUNCTION vec_administracion.rechazar_mutacion_outbox_configuracion_correo_v1() OWNER TO vec_administracion_propietario;
+REVOKE ALL ON FUNCTION vec_administracion.rechazar_mutacion_outbox_configuracion_correo_v1() FROM PUBLIC;
+CREATE TRIGGER outbox_configuracion_correo_inmutable
+    BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_administracion.outbox_configuracion_correo
+    FOR EACH STATEMENT EXECUTE FUNCTION vec_administracion.rechazar_mutacion_outbox_configuracion_correo_v1();
 REVOKE ALL ON ALL TABLES IN SCHEMA vec_administracion FROM PUBLIC, vec_administracion_ejecutor, vec_administracion_migrador;
 
 CREATE FUNCTION vec_administracion.leer_configuracion_correo_v1()
@@ -97,6 +135,7 @@ SET search_path = pg_catalog SET lock_timeout = '2s' SET row_security = on
 AS $funcion$
 DECLARE v_consumo record; v_actual vec_administracion.configuracion_correo%ROWTYPE;
         v_version_nueva bigint; v_secreto_version bigint; v_huella_aad text;
+        v_evento_ref text; v_material_huella text;
         v jsonb; c jsonb; s jsonb; a jsonb; p_host text; p_puerto integer; p_nombre_servidor text; p_referencia_ca text; p_remitente_fijo text; p_usuario text; p_modo_tls text; p_modo_autenticacion text; p_tiempo_maximo_ms bigint; p_version_esperada bigint;
 BEGIN
     v := convert_from(p_negocio,'UTF8')::jsonb; c := v->'configuracion'; s := NULLIF(v->'sobre_secreto','null'::jsonb); a := v->'auditoria';
@@ -104,11 +143,12 @@ BEGIN
     IF jsonb_typeof(v) IS DISTINCT FROM 'object' OR v->>'esquema' IS DISTINCT FROM 'vec.administracion.configuracion-correo.persistencia.v1' OR jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(a) IS DISTINCT FROM 'object' OR p_host IS NULL OR p_puerto NOT BETWEEN 1 AND 65535 OR p_nombre_servidor IS NULL OR p_referencia_ca IS NULL OR p_remitente_fijo IS NULL OR p_usuario IS NULL OR p_modo_tls NOT IN ('tls_implicito','starttls_obligatorio') OR p_modo_autenticacion NOT IN ('ninguna','plain','xoauth2') OR p_tiempo_maximo_ms NOT BETWEEN 1 AND 3600000 OR p_version_esperada IS NULL OR p_version_esperada < 0 OR a->>'subject_ref' IS DISTINCT FROM 'configuracion:smtp:diputacion' OR a->>'action' IS DISTINCT FROM 'administracion.configuracion_correo.actualizar' OR a->>'module_id' IS DISTINCT FROM 'vec.module.administracion' OR a->>'result' IS DISTINCT FROM 'accepted' OR nullif(a->>'actor_id','') IS NULL OR nullif(a->>'occurred_at','') IS NULL THEN
         RAISE EXCEPTION 'configuracion administrativa invalida' USING ERRCODE = '22023';
     END IF;
+    v_material_huella := encode(sha256(p_negocio), 'hex');
     SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_configuracion_correo_admin_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre_cose,p_evidencia,p_raiz);
     IF v_consumo.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'consumo no nuevo' USING ERRCODE='P0409'; END IF;
     IF v_consumo.efecto_ref IS DISTINCT FROM 'configuracion:smtp:diputacion'
        OR v_consumo.huella_efecto_sha256 IS DISTINCT FROM encode(sha256(convert_to(
-          '{"ambitos":{},"atributos":{"material_sha256":"'||encode(sha256(p_negocio),'hex')||'"}}','UTF8')),'hex') THEN
+          '{"ambitos":{"organizacion_ref":"organizacion:dipgra"},"atributos":{"material_sha256":"'||v_material_huella||'"}}','UTF8')),'hex') THEN
         RAISE EXCEPTION 'contexto autorizado no ligado al payload' USING ERRCODE='42501';
     END IF;
     SELECT * INTO v_actual FROM vec_administracion.configuracion_correo WHERE singleton FOR UPDATE;
@@ -126,7 +166,24 @@ BEGIN
     IF s IS NOT NULL AND v_huella_aad IS DISTINCT FROM encode(sha256(convert_to('{"Esquema":"vec.administracion.configuracion-correo.secreto.v1","Referencia":"configuracion:smtp:diputacion","Version":'||v_secreto_version||'}','UTF8')),'hex') THEN RAISE EXCEPTION 'AAD de secreto no ligada a versión' USING ERRCODE='22023'; END IF;
     INSERT INTO vec_administracion.configuracion_correo(singleton,version,host,puerto,nombre_servidor,referencia_ca,remitente_fijo,usuario,modo_tls,modo_autenticacion,tiempo_maximo_ms,version_secreto) VALUES(true,v_version_nueva,p_host,p_puerto,p_nombre_servidor,p_referencia_ca,p_remitente_fijo,p_usuario,p_modo_tls,p_modo_autenticacion,p_tiempo_maximo_ms,v_secreto_version) ON CONFLICT(singleton) DO UPDATE SET version=excluded.version,host=excluded.host,puerto=excluded.puerto,nombre_servidor=excluded.nombre_servidor,referencia_ca=excluded.referencia_ca,remitente_fijo=excluded.remitente_fijo,usuario=excluded.usuario,modo_tls=excluded.modo_tls,modo_autenticacion=excluded.modo_autenticacion,tiempo_maximo_ms=excluded.tiempo_maximo_ms,version_secreto=excluded.version_secreto,actualizada_en=clock_timestamp();
     IF s IS NOT NULL THEN INSERT INTO vec_administracion.sobre_configuracion_correo(singleton,version_secreto,clave_ref,nonce,secreto_cifrado,huella_aad_sha256) VALUES(true,v_secreto_version,s->>'clave_ref',decode(s->>'nonce','base64'),decode(s->>'cifrado','base64'),v_huella_aad) ON CONFLICT(singleton) DO UPDATE SET version_secreto=excluded.version_secreto,clave_ref=excluded.clave_ref,nonce=excluded.nonce,secreto_cifrado=excluded.secreto_cifrado,huella_aad_sha256=excluded.huella_aad_sha256,creada_en=clock_timestamp(); END IF;
+    -- El registro central participa en esta misma transacción. Un fallo
+    -- revierte consumo V3, configuración, sobre e historia/outbox local.
+    PERFORM vec_bolsa_registro_accesos.registrar_cambio_configuracion_correo_admin_v1(
+        a, v_consumo.decision_ref, v_consumo.auditoria_ref, v_version_nueva);
     INSERT INTO vec_administracion.auditoria_configuracion_correo(version_configuracion,consumo_ref,auditoria) VALUES(v_version_nueva,v_consumo.auditoria_ref,a);
+    v_evento_ref := 'outbox:administracion:configuracion-correo:' || v_version_nueva;
+    INSERT INTO vec_administracion.outbox_configuracion_correo(
+        evento_ref, operacion_ref, version_configuracion, tipo_evento, carga_json
+    ) VALUES (
+        v_evento_ref, v_consumo.auditoria_ref, v_version_nueva,
+        'administracion.configuracion_correo.actualizada',
+        jsonb_build_object(
+            'subject_ref', 'configuracion:smtp:diputacion',
+            'version_configuracion', v_version_nueva,
+            'operacion_ref', v_consumo.auditoria_ref,
+            'material_sha256', v_material_huella
+        )
+    );
     RETURN jsonb_build_object('configurada',true,'host',p_host,'puerto',p_puerto,'server_name',p_nombre_servidor,'referencia_ca',p_referencia_ca,'remitente_fijo',p_remitente_fijo,'usuario',p_usuario,'modo_tls',p_modo_tls,'modo_autenticacion',p_modo_autenticacion,'tiempo_maximo_ms',p_tiempo_maximo_ms,'secreto_configurado',(p_modo_autenticacion <> 'ninguna' AND v_secreto_version IS NOT NULL),'version',v_version_nueva);
 END
 $funcion$;
