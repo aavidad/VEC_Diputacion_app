@@ -177,6 +177,15 @@ y confirmar.
 - calendario hábil;
 - auditoría y sellado de tiempo.
 
+Como ampliación confirmada posteriormente por el operador, y no procedente del
+documento original de RRHH, el correo obligatorio declarado en el alta propia
+de cada usuario de VEC será la fuente del destinatario de los llamamientos. El
+envío utilizará el SMTP interno de la Diputación, cuya configuración se
+gestionará desde Administración exclusivamente en intranet, con DNIe o
+certificado digital y permiso administrativo explícito; SSH no forma parte del
+acceso web funcional. Esta ampliación queda pendiente de implementación
+completa y validación operativa.
+
 GINPIX se implementará como puerto. La salida automática y la ficha de carga
 manual usarán el mismo modelo canónico y una versión explícita del mapeo.
 
