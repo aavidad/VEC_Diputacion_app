@@ -2,7 +2,7 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-La base publicada de este corte es `5892df317d870708a15079a1886506cdc52cbf9f`.
+La base actual de este corte es `5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`.
 El último runtime comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
@@ -14,9 +14,9 @@ SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
 El detalle de trazabilidad conserva recibo y fecha visibles y puede abrirse y
 cerrarse. El recorrido no tuvo errores JavaScript, cookies, almacenamiento ni
-desbordamiento a 1440, 1024 o 390 px. No se repitieron los seis Word. El `GET`
-de preparación del cierre devolvió `404` porque aún faltan configuración y
-migraciones; los botones nuevos no acreditan que el cierre esté disponible.
+desbordamiento a 1440, 1024 o 390 px. No se repitieron los seis Word. En aquel
+recorrido, el `GET` de preparación devolvió `404`; la comprobación vigente
+aparece debajo y tampoco acredita que el cierre esté disponible.
 
 En el runtime anterior `75157434…`, los seis documentos disponibles como PDF
 se descargaron también en Word con HTTP `200`: informe definitivo, resolución, diligencia, toma de posesión,
@@ -31,8 +31,8 @@ agrupación a ancho completo de los seis pares está desplegada y visible. La
 recuperación conservó los seis nombres, tamaños y SHA256, además de las huellas
 de Personal y CT, sin repetir el `POST` de incorporación. Los objetivos 11 y
 12 quedan acreditados funcionalmente tras reinicio, sin completar Contratación
-ni los ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31
-continúan sin ensayo ni instalación.
+ni los ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31 se
+instalaron después solo en los dos clones. La principal no recibió ese SQL.
 
 El frontend publicado añade controles de paginación. **Siguiente** usa una vez el
 cursor opaco recibido; **Reiniciar** vuelve a la primera página. El chip indica
@@ -49,12 +49,12 @@ página.
 
 Las 60 fuentes SQL históricas añadidas en este corte quedan solo versionadas;
 no se han ejecutado ni se debe aplicar `DOWN`. CT70–85 y Auth13 conservan su
-historia instalada. Los próximos ensayos usarán un clúster aislado y después el
-harness real; CT86/87 siguen pendientes.
+historia instalada. Los ensayos posteriores de CT86/87 y la instalación de
+CT90 se detallan debajo; la principal permaneció fuera de ese SQL.
 
-La recuperación de cierre está integrada, revisada y visible en el último
-runtime, aunque el `GET` de preparación sigue en `404` por configuración y
-migraciones pendientes. **Preparar cierre** crea y muestra una solicitud inmutable y
+La recuperación de cierre está integrada, revisada y visible. En el runtime
+`037b…`, el `GET` de preparación daba `404`; la comprobación posterior descrita
+debajo obtuvo `200` sin llegar al `POST`. **Preparar cierre** crea y muestra una solicitud inmutable y
 ofrece descargar el archivo JSON sin enviar `POST`. Pulse **Guardar datos de
 recuperación** para conservarlo antes de confirmar. Solo la segunda acción,
 confirmada expresamente, registra el cierre. Para reanudar, importe el mismo
@@ -65,8 +65,8 @@ pueden terminar una operación pendiente. Nunca repiten la incorporación.
 Los detalles de trazabilidad plegados mantienen visibles recibo, fecha, estado,
 límites y período. Los cinco archivos de recuperación recibieron dos `GO`; los
 otros cuatro, de trazabilidad, tuvieron revisión proporcional de dirección.
-Las 378/378 pruebas web y los manifiestos 111/11/3/1 están verdes. CT86/87 solo
-pasaron cuatro `UP` en dos clones aislados; la base principal sigue pendiente y
+Las 378/378 pruebas web y los manifiestos 111/11/3/1 están verdes. CT86/87 se
+instalaron solo en dos clones aislados; la base principal sigue pendiente y
 la instrumentación CT87 bloqueada quedó congelada, sin acreditar un ensayo de
 cierre.
 
@@ -93,9 +93,38 @@ pendiente. El lector actual solo admite la unidad RRHH y al
 técnico de su organización, sin prueba de dos unidades ni cambio de centro.
 CT87 ya está instalada y no se reaplica. Su publicación en clon falló por
 precedencia JSON; cinco snapshots posteriores quedaron idénticos al estado
-inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90 está
-**EN PREPARACIÓN**, sin rollback acreditado. El bloqueo de instrumentación
+inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90 se
+instaló después únicamente en los dos clones, como se detalla debajo. El bloqueo de instrumentación
 fue una comprobación separada.
+
+CT90 corrige únicamente tres paréntesis de `cierre87_validar_sucesora`. Sus dos
+revisiones y la prueba real —un positivo, nueve negativos y la sucesora
+operativa— pasaron. Está instalada una sola vez en cada clon, no en la base
+principal. Los recibos CT86 y CT87 conservan sus SHA256; no reaplique CT86,
+CT87 ni CT90. La recuperación `e359…` dejó tres filas correctas. Go global y vet
+de continuidad terminaron en `PASS`; la evidencia privada queda custodiada sin
+exponer rutas.
+
+En la comprobación posterior, la anotación administrativa respondió `201`,
+mostró su recibo y actualizó el expediente de v8 a v9 conservando el seguimiento
+original v1. **Recuperar** respondió `GET 200` con el mismo recibo. La lectura
+SQL confirmó una anotación, una versión, una actuación y
+un outbox, sin pérdida de historia ni cambios en Personal o incorporación.
+**Preparar cierre** respondió `GET 200`, pero no se emitió el `POST`: otra
+lectura de incorporación devolvió `503` repetido y está en diagnóstico. El
+reinicio posterior a la anotación sigue pendiente. La pantalla quedó estable a
+1440/1024/390, sin errores JS, cookies ni almacenamiento.
+
+La prueba CT86 quedó en `NO-GO`: la guarda exige 10 s y la capacidad real es 5
+s. No se ejecutó el arnés SQL y el negocio permaneció intacto.
+
+El lector DER también permanece desactivado. Su bootstrap completo y vet
+pasaron, pero la activación principal de las 16:00 rechazó el perfil PEM previo
+al bootstrap. Sistemas restauró solo el binario y material propios y recuperó
+salud `200`, sin restaurar la base. El material corregido pasó 11 pruebas y el
+cargador real; el reintento está pausado por material compartido. El correo
+`78c209…` permanece privado por `NO-GO`. Siguen pendientes roles completos,
+auditoría, hexagonalidad e i18n; estos verdes no acreditan conformidad ni E2E.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

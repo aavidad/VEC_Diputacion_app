@@ -74,6 +74,25 @@ func TestCargarIdentidadesConsultasRRHHDesarrolloRechazaMaterialNoNominal(t *tes
 		rechaza(t)
 		escribirIdentidad(t, "lector_rrhh")
 	})
+	t.Run("perfil derivado de PEM", func(t *testing.T) {
+		pem, err := os.ReadFile(filepath.Join(raiz, "identidad", "lector.crt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		huellaPEM := sha256.Sum256(pem)
+		e := entrada
+		e.PerfilRef = referenciaAltaContratacionTemporalDesarrollo(
+			"prf_", e.Subject+"\x00"+hex.EncodeToString(huellaPEM[:])+"\x00perfil",
+		)
+		guardar(t, []archivoEntradaConsultaRRHHDesarrollo{e})
+		rechaza(t)
+	})
+	t.Run("perfil distinto", func(t *testing.T) {
+		e := entrada
+		e.PerfilRef = referenciaAltaContratacionTemporalDesarrollo("prf_", "otro-perfil")
+		guardar(t, []archivoEntradaConsultaRRHHDesarrollo{e})
+		rechaza(t)
+	})
 	t.Run("duplicado huella y sujeto", func(t *testing.T) { guardar(t, []archivoEntradaConsultaRRHHDesarrollo{entrada, entrada}); rechaza(t) })
 	t.Run("certificado de otra CA", func(t *testing.T) {
 		escribirCertificado(t)
@@ -106,6 +125,9 @@ func TestCargarIdentidadesConsultasRRHHDesarrolloRegistraTecnicoExistente(t *tes
 		t.Fatal(err)
 	}
 	entrada.Subject = sujeto
+	entrada.PerfilRef = referenciaAltaContratacionTemporalDesarrollo(
+		"prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00perfil",
+	)
 	escribir(t, archivoManifiestoConsultasRRHHDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Entradas: []archivoEntradaConsultaRRHHDesarrollo{entrada}})
 	lectores, activo, err := cargarIdentidadesConsultasRRHHDesarrollo(raiz, ca, tecnico)
 	if err != nil || !activo || len(lectores) != 1 || lectores[0].identidad.huella != tecnico.huella || lectores[0].identidad.principal.ID != tecnico.principal.ID {
@@ -205,5 +227,7 @@ func fixtureConsultaRRHHDesarrollo(t *testing.T) (string, *x509.Certificate, arc
 		}
 		cert(crear(caOtra, priv))
 	}
-	return raiz, ca, archivoEntradaConsultaRRHHDesarrollo{Certificate: "identidad/lector.crt", Identity: "identidad/lector.json", Subject: "lector:unidad", PerfilRef: "perfil:rrhh", OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ClaseAmbito: string(ports.AmbitoUnidadGestionRRHH), AmbitoRef: "unidad:rrhh:prueba"}, escribir, escribirIdentidad, incorrecto
+	huella := sha256.Sum256(der)
+	sujeto := "lector:unidad"
+	return raiz, ca, archivoEntradaConsultaRRHHDesarrollo{Certificate: "identidad/lector.crt", Identity: "identidad/lector.json", Subject: sujeto, PerfilRef: referenciaAltaContratacionTemporalDesarrollo("prf_", sujeto+"\x00"+hex.EncodeToString(huella[:])+"\x00perfil"), OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ClaseAmbito: string(ports.AmbitoUnidadGestionRRHH), AmbitoRef: "unidad:rrhh:prueba"}, escribir, escribirIdentidad, incorrecto
 }

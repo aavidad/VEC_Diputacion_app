@@ -2,7 +2,7 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base publicada de este corte es `5892df317d870708a15079a1886506cdc52cbf9f`.
+La base actual de este corte es `5ccfb967b75ad8ee604cd62f6648c61ab48b5f9b`.
 El último runtime comprobado usa la web
 `037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
@@ -14,11 +14,9 @@ SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
 El detalle de trazabilidad mantuvo visibles recibo y fecha y se abrió y cerró.
 No hubo errores JavaScript, cookies, almacenamiento ni desbordamiento a 1440,
-1024 o 390 px. No se repitieron los seis Word. La evidencia se conserva en
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-traza-037b4226.informe.json`.
-El `GET` de preparación del cierre devolvió `404` por configuración y
-migraciones pendientes; no use la presencia de los nuevos botones como prueba
-de cierre.
+1024 o 390 px. No se repitieron los seis Word. La evidencia privada está
+custodiada. En aquel recorrido, el `GET` de preparación devolvió `404`; la
+comprobación vigente aparece debajo y tampoco acredita el cierre.
 
 En el runtime anterior `75157434…` se descargaron desde el detalle con HTTP
 `200` estos seis ZIP DOCX válidos;
@@ -35,19 +33,17 @@ tras el reinicio conservaron exactamente nombre, tamaño y SHA256:
 
 El informe Word registró cero errores JavaScript. El recorrido de incorporación
 registró además cero cookies y almacenamiento web, y quedó sin desbordamiento
-a 1440, 1024 y 390 px. La evidencia posterior al reinicio se conserva en
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-posreinicio-75157434.informe.json`,
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/word-posreinicio-75157434.informe.json`
-y `/root/.local/state/vec-reactivacion-20260912/reinicio-75157434/comparacion.json`.
+a 1440, 1024 y 390 px. La evidencia posterior al reinicio está custodiada de
+forma privada.
 
 Los Word son borradores de desarrollo y no acreditan firma, eficacia, envío o
 transmisión. La agrupación a ancho completo de los seis pares PDF/Word está
 desplegada y visible. La recuperación posterior al reinicio conserva cinco
 huellas de Personal, seis contadores y la fila de incorporación CT, sin nuevo
 `POST`. Los objetivos 11 y 12 quedan funcionalmente acreditados; no completan
-Contratación ni ocho hitos. Auth13 está instalada una vez; CT86/87 y
-AD3-30/31 siguen sin ensayo ni instalación, por lo que anotación y cierre no
-deben recorrerse todavía.
+Contratación ni ocho hitos. Auth13 está instalada una vez; CT86/87 y AD3-30/31
+se instalaron después solo en los dos clones. La base principal no recibió ese
+SQL.
 
 El frontend publicado incorpora fechas civiles UTC legibles, paginación
 con cursor opaco de un solo uso y validación accesible del filtro. Dos
@@ -56,16 +52,15 @@ con límite 100 dejaron **Siguiente** deshabilitado; el filtro válido redujo el
 cuadro a una fila y una entrada de 81 caracteres mostró aviso accesible sin
 nueva consulta ni perder esa fila. Limpiar el filtro devolvió `200`, sin errores
 JavaScript. El detalle respondió `200` y mostró doce botones, que no se pulsaron
-en esta prueba. La evidencia está en
-`/root/.local/state/vec-reactivacion-20260912/docx-navegador/paginacion-director-estable-75157434.informe.json`.
+en esta prueba. La evidencia privada está custodiada.
 No se acredita avanzar con cursor porque las 52 filas caben en una página.
 
 La recuperación del cierre está integrada en código: sus cinco archivos
 recibieron dos `GO` y los otros cuatro archivos de trazabilidad tuvieron
 revisión proporcional de dirección. Las 378/378 pruebas web y los manifiestos
-111/11/3/1 están verdes. La UI ya está visible en el runtime `037b4226…`, pero
-el `GET` de preparación devuelve `404` por configuración y migraciones
-pendientes. El recorrido previsto separa claramente preparación y escritura:
+111/11/3/1 están verdes. La UI ya estaba visible en el runtime `037b4226…`,
+donde el `GET` devolvía `404`; el recorrido posterior descrito debajo obtuvo
+`200` sin llegar al `POST`. El recorrido separa preparación y escritura:
 
 1. Pulse **Preparar cierre** para crear y mostrar una solicitud inmutable. Esta
    acción ofrece descargar el JSON y no ejecuta `POST`.
@@ -78,8 +73,8 @@ pendientes. El recorrido previsto separa claramente preparación y escritura:
    operación pendiente. No repita el `POST` de incorporación.
 
 Los detalles plegados conservan visibles recibo, fecha, estado, límites y
-período. CT86/87 solo tienen cuatro `UP` verdes en dos clones aislados; la base
-principal sigue pendiente y la instrumentación CT87 bloqueada no fue un ensayo.
+período. CT86/87 se instalaron solo en dos clones aislados; la base principal
+sigue pendiente y la instrumentación CT87 bloqueada no fue un ensayo.
 
 La bandeja nominal permanece en código: técnico explícito y lectores para dos
 consultas con ámbito de organización y unidad a la vez, sin fallback ni SQL.
@@ -105,8 +100,37 @@ técnico de su organización; no prueba dos unidades ni permite cambiar centro.
 CT87 ya está instalada y no se reaplica: su publicación en clon falló por
 precedencia JSON. El cotejo posterior conservó cinco snapshots idénticos al
 estado inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90
-queda **EN PREPARACIÓN** y aún no tiene rollback acreditado; el bloqueo de
+se instaló después únicamente en los dos clones, como se detalla debajo; el bloqueo de
 instrumentación fue otra comprobación.
+
+CT90 corrigió con tres paréntesis `cierre87_validar_sucesora` y pasó la focal
+real de un positivo, nueve negativos y la sucesora operativa. Tiene dos `GO` y
+está instalada una vez en cada clon, nunca en la principal. Los recibos CT86 y
+CT87 conservan sus huellas; no reaplique CT86, CT87 o CT90. La publicación
+`e359…` dejó tres filas correctas. Go global y vet de continuidad pasaron; la
+evidencia privada queda custodiada sin exponer su ubicación.
+
+Chrome registró una anotación administrativa `201`, recibo
+`recibo:56756272-1842-4778-b857-e0ae59b322db`, y llevó el expediente de v8 a
+v9 conservando fase, estado y seguimiento original v1. **Recuperar** respondió
+`GET 200` con el mismo recibo. La lectura SQL confirmó
+una anotación, una versión, una actuación y un outbox sin perder historia;
+Personal e incorporación quedaron iguales. **Preparar cierre** respondió
+`GET 200`, pero no pulse **Confirmar cierre**: otra lectura de incorporación
+devolvió `503` repetido y el diagnóstico continúa. No hubo `POST` de cierre y el
+reinicio posterior a la anotación sigue pendiente. El recorrido quedó sin JS,
+cookies, almacenamiento ni overflow a 1440/1024/390.
+
+La prueba CT86 quedó en `NO-GO`: la guarda necesita 10 s y la capacidad real es
+5 s. No se ejecutó el arnés SQL y el negocio permaneció intacto.
+
+El lector DER pasó bootstrap completo en 23,254 s, vet, 11 pruebas del material
+corregido y el cargador con contexto real. Rechaza el perfil PEM calculado antes
+de bootstrap y no crea otra autoridad. El intento principal con binario `7d90…`
+falló a las 16:00; el rollback de binario y material propios recuperó salud
+`200` sin restaurar la base. El reintento está pausado por el material compartido
+con normal87 y el lector no está activado. El correo `78c209…` permanece privado
+por `NO-GO`; roles completos, auditoría, hexagonalidad e i18n siguen pendientes.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

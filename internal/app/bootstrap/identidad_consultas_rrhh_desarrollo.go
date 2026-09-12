@@ -130,6 +130,16 @@ func cargarIdentidadesConsultasRRHHDesarrollo(
 		if err != nil || identidad.principal.ID != entrada.Subject {
 			return nil, false, ErrMaterialDesarrolloInvalido
 		}
+		// El perfil que sostendrá la asignación nominal se deriva de la misma
+		// huella DER que el resolvedor mTLS pone en el principal. Admitir una
+		// referencia sólo sintácticamente válida desplaza el fallo al bootstrap.
+		perfilEsperado := referenciaAltaContratacionTemporalDesarrollo(
+			"prf_", identidad.principal.ID+"\x00"+
+				identidad.principal.Attributes["certificate_sha256"]+"\x00perfil",
+		)
+		if entrada.PerfilRef != perfilEsperado {
+			return nil, false, ErrMaterialDesarrolloInvalido
+		}
 		if tecnico != nil && (identidad.huella != tecnico.huella ||
 			identidad.principal.ID != tecnico.principal.ID) {
 			return nil, false, ErrMaterialDesarrolloInvalido
