@@ -104,7 +104,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
       secuencia: 1,
       fecha: "3 sept 2026",
       fase: "Solicitud",
-      accion: "Registrar solicitud",
+      accion: "Solicitud registrada",
       estado_clave: "pendiente",
       estado: "Pendiente",
     },

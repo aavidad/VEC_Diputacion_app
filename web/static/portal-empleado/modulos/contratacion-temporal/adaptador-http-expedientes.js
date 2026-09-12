@@ -133,11 +133,31 @@ function fechaCivil(instante, locale) {
   }).format(fecha);
 }
 
+const MENSAJES_ACCIONES_HISTORIAL = new Map([
+  ["contratacion_temporal.solicitud.crear", "hito_solicitud"],
+  ["contratacion_temporal.analisis.registrar", "hito_analisis"],
+  ["contratacion_temporal.analisis.rectificar", "hito_rectificacion_analisis"],
+  ["contratacion_temporal.cobertura.decidir", "hito_cobertura"],
+  ["contratacion_temporal.cobertura.rectificar", "hito_rectificacion_cobertura"],
+  ["contratacion_temporal.unidad.asignar", "hito_asignacion"],
+  ["contratacion_temporal.unidad.reasignar", "hito_reasignacion"],
+  ["contratacion_temporal.informe_juridico.generar", "hito_informe_juridico"],
+  ["contratacion_temporal.fiscalizacion.registrar", "hito_fiscalizacion"],
+  ["contratacion_temporal.subsanacion_reparos.registrar", "hito_subsanacion_reparo"],
+  ["contratacion_temporal.anotacion_administrativa.registrar", "hito_anotacion"],
+  ["contratacion_temporal.incorporacion.confirmar", "hito_incorporacion"],
+  ["contratacion_temporal.seguimiento.cerrar", "hito_cierre"],
+  ["registrar_solicitud", "hito_solicitud"],
+  ["registrar_analisis", "hito_analisis"],
+  ["registrar_cobertura", "hito_cobertura"],
+  ["registrar_asignacion", "hito_asignacion"],
+  ["registrar_informe_juridico", "hito_informe_juridico"],
+  ["registrar_fiscalizacion", "hito_fiscalizacion"],
+]);
+
 function etiquetaAccionHito(clave, t) {
-  if (clave === "contratacion_temporal.subsanacion_reparos.registrar") {
-    return t("hito_subsanacion_reparo");
-  }
-  return etiqueta(clave);
+  const mensaje = MENSAJES_ACCIONES_HISTORIAL.get(clave);
+  return mensaje ? t(mensaje) : etiqueta(clave);
 }
 
 // El detalle RRHH ya llega autorizado y validado por el cliente HTTP. Los
