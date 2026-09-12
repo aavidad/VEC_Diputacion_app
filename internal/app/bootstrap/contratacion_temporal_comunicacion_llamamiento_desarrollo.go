@@ -51,7 +51,7 @@ var _ postgresct.ProveedorRegistroComunicacionLlamamiento = (*proveedorComunicac
 type ejecutorComunicacionLlamamientoDesarrollo struct {
 	directorioComunicaciones string
 	soporte                  *soporteAltaContratacionTemporalDesarrollo
-	lector                   ports.LectorExpedienteSeleccionLlamamiento
+	lector                   ports.LectorExpedienteLlamamiento
 	lectorJustificante       ports.LectorJustificantesRespuestaRecibida
 	servicio                 httpinterno.EjecutorComunicacionLlamamiento
 	aceptador                aceptadorRespuestaRRHHDesarrollo
@@ -69,7 +69,7 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo,
 	reloj ports.Reloj,
-	lector ports.LectorExpedienteSeleccionLlamamiento,
+	lector ports.LectorExpedienteLlamamiento,
 	directorioComunicaciones string,
 ) (*ejecutorComunicacionLlamamientoDesarrollo, error) {
 	if poolCT == nil || alta == nil || alta.soporte == nil || material == nil ||
@@ -133,8 +133,9 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Registrar(ctx context.Contex
 		return vacio, application.ErrComunicacionLlamamientoDenegada
 	}
 	// Preparación interna: identidad/ámbito antes de leer, V3 antes de cualquier
-	// efecto o replay. El lector verifica el agregado propio fiscalizado v6.
-	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, 6)
+	// efecto o replay. El lector deriva la fiscalización original desde la
+	// selección CT confirmada ligada al llamamiento.
+	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, solicitud.LlamamientoRef)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
@@ -178,7 +179,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.lector) || dependenciaEsNulaContratacionTemporalDesarrollo(e.lectorJustificante) {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
-	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, 6)
+	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, solicitud.LlamamientoRef)
 	if ctx.Err() != nil {
 		return ports.ResultadoResolucionLlamamiento{}, ctx.Err()
 	}
@@ -206,8 +207,8 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 func expedienteComunicacionLlamamientoDesarrolloValido(expediente ports.ExpedienteParaSeleccion, s ports.SolicitudRegistrarComunicacionLlamamiento) bool {
 	e := expediente.Fiscalizado
 	return e.Referencia == s.ExpedienteRef && e.OrganizacionRef == s.OrganizacionRef &&
-		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo && e.Version == 6 &&
-		expediente.VersionActual >= 6 && expediente.VersionActual <= ports.MaximoEnteroSeguroIntegracionBolsa &&
+		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo && e.Version >= 6 &&
+		expediente.VersionActual >= e.Version && expediente.VersionActual <= ports.MaximoEnteroSeguroIntegracionBolsa &&
 		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&
 		e.Fiscalizacion != nil && (e.Fiscalizacion.Resultado == domain.FiscalizacionFavorable ||
 		e.Fiscalizacion.Resultado == domain.FiscalizacionFavorableConObservaciones)

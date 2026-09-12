@@ -678,6 +678,24 @@ func TestPuenteBolsaLlamamientoDesarrolloAceptacionReutilizaAperturaYReplay(t *t
 	}
 }
 
+func TestPuenteBolsaLlamamientoDesarrolloAceptaReciboSeleccionPosteriorSinCambiarBolsa(t *testing.T) {
+	p, ctx, s, seleccion, resolucion, repo, _ := escenarioAceptacionPuentePrueba(t)
+	seleccion.VersionExpediente = 7
+	r, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion)
+	if err != nil || r.Registro.Llamamiento.Version != 2 ||
+		repo.filas[seleccion.OperacionRef].Registro.VersionNecesidad != 6 {
+		t.Fatal("la respuesta posterior alteró la apertura o la necesidad de Bolsa", err)
+	}
+}
+
+func TestPuenteBolsaLlamamientoDesarrolloRechazaVersionSeleccionFueraDeRango(t *testing.T) {
+	p, ctx, s, seleccion, resolucion, repo, _ := escenarioAceptacionPuentePrueba(t)
+	seleccion.VersionExpediente = ^uint64(0)
+	if _, err := p.AceptarRespuestaRRHH(ctx, s, seleccion, resolucion); !errors.Is(err, ports.ErrPeticionIntegracionBolsaInvalida) || len(repo.filas) != 2 {
+		t.Fatal("la versión CT fuera de rango alcanzó Bolsa", err)
+	}
+}
+
 func TestPuenteBolsaLlamamientoDesarrolloRenunciaExigePermisoYRespuestaPropios(t *testing.T) {
 	p, ctx, s, seleccion, resolucion, repo, a := escenarioAceptacionPuentePrueba(t)
 	s.Respuesta = ports.RespuestaLlamamientoRenunciada

@@ -24,7 +24,8 @@ func (j JustificanteRespuestaRecibida) ValidarPara(s SolicitudResolverLlamamient
 		r.Solicitud.OrganizacionRef != s.OrganizacionRef || r.Solicitud.ExpedienteRef != s.ExpedienteRef ||
 		r.Solicitud.LlamamientoRef != s.LlamamientoRef || r.Solicitud.ComunicacionRef != s.ComunicacionRef ||
 		r.Solicitud.VersionComunicacionEsperada != s.VersionEsperada ||
-		!seleccion.PropuestaGenerada || seleccion.VersionExpediente != 6 ||
+		!seleccion.PropuestaGenerada || seleccion.VersionExpediente < 6 ||
+		seleccion.VersionExpediente > MaximoEnteroSeguroIntegracionBolsa ||
 		seleccion.OrganizacionRef != s.OrganizacionRef || seleccion.ExpedienteRef != s.ExpedienteRef ||
 		seleccion.SeleccionRef.Validar() != nil ||
 		seleccion.OrdenSeleccionado == 0 || seleccion.OrdenSeleccionado > MaximoElementosIntegracionBolsa ||

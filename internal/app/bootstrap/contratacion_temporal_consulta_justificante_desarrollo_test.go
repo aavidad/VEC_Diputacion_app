@@ -89,6 +89,11 @@ func (l *lectorExpedienteConsultaJustificantePrueba) LeerExpedienteParaSeleccion
 	return l.expediente, nil
 }
 
+func (l *lectorExpedienteConsultaJustificantePrueba) LeerExpedienteParaAvisoConfirmado(context.Context, string, string, string) (ports.ExpedienteParaSeleccion, error) {
+	l.llamadas++
+	return l.expediente, nil
+}
+
 type lectorJustificanteDenegadoPrueba struct{ llamadas int }
 
 func (l *lectorJustificanteDenegadoPrueba) ConsultarJustificanteRespuestaRecibida(context.Context, ports.SolicitudResolverLlamamiento) (ports.JustificanteRespuestaRecibida, error) {

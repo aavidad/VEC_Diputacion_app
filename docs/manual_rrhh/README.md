@@ -1,5 +1,16 @@
 # Manual funcional del técnico de Recursos Humanos
 
+Aviso, declaración de respuesta y consulta del justificante pueden recuperar
+la versión fiscalizada que originó su selección confirmada. El lector deriva
+ese vínculo del llamamiento persistido y conserva autorización nueva en cada
+operación; la versión no se toma de la cabecera actual ni de un campo del usuario.
+
+CT95 y su código mantienen la entrega con dos revisiones favorables. Pruebas
+Go focales y vet del ámbito afectados completados. No está instalada CT95;
+el binario que la utiliza no debe desplegarse antes de su ensayo e instalación,
+pues el nuevo lector también atiende operaciones del recorrido original.
+Este corte no acredita envío de correo ni otro registro real de comunicación.
+
 Los seis borradores pueden representar una propuesta actual posterior a una
 subsanación, usando el hito y la versión reales del detalle autorizado. Se
 conserva la recuperación de la propuesta original v7 desde resolución v8 o

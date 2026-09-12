@@ -18,3 +18,19 @@ type ExpedienteParaSeleccion struct {
 type LectorExpedienteSeleccionLlamamiento interface {
 	LeerExpedienteParaSeleccion(context.Context, string, string, uint64) (ExpedienteParaSeleccion, error)
 }
+
+// LectorExpedienteAvisoLlamamiento recupera la fiscalización que originó una
+// selección ya confirmada. La versión se deriva de la ejecución durable ligada
+// al llamamiento; nunca procede de HTTP ni de la cabeza actual del expediente.
+// El llamador conserva la autorización fresca de cada efecto posterior.
+type LectorExpedienteAvisoLlamamiento interface {
+	LeerExpedienteParaAvisoConfirmado(context.Context, string, string, string) (ExpedienteParaSeleccion, error)
+}
+
+// LectorExpedienteLlamamiento reúne las dos lecturas internas que necesita la
+// composición del llamamiento. Mantiene separado el contrato de selección
+// inicial del que deriva el snapshot de un aviso ya confirmado.
+type LectorExpedienteLlamamiento interface {
+	LectorExpedienteSeleccionLlamamiento
+	LectorExpedienteAvisoLlamamiento
+}
