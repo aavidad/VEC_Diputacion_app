@@ -29,7 +29,7 @@ No se incrementa el contador por esta integración.
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Parcial | 25 % | Director local; integración del parche entregado | Ámbito de indicadores; línea de progreso depende de definición de flujo publicada. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Local: web_rectificacion y web_politica_rectificacion | Registro existente; falta rectificación habilitada por política y motivo gobernados. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Local: web_rectificacion y web_politica_rectificacion | Formulario de rectificación compuesto y comprobado; con catálogo vacío informa indisponibilidad sin POST. Falta política y motivo gobernados para habilitar el recorrido real. |
 | 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Remoto: preparacion_continuidad | Reapertura integrada; comprobar recorrido de cobertura desde análisis existente. |
 | 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Remoto: preparacion_continuidad | Asignación persistida; falta recorrido de bandeja con lectores nominales. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Preparación real y recibo; documento de desarrollo sin firma. |

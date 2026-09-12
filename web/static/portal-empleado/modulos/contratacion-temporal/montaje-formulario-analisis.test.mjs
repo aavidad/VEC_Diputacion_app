@@ -270,6 +270,7 @@ function crearRaizModulo() {
   let html = "";
   let contenedorAlta = null;
   let contenedorAnalisis = null;
+  let contenedorRectificacion = null;
   let contenedorCobertura = null;
   let montajesAnalisis = 0;
   let controles = [];
@@ -280,6 +281,8 @@ function crearRaizModulo() {
       contenedorAlta = valor.includes("data-ct-exp-alta")
         ? crearContenedorAlta() : null;
       contenedorAnalisis = valor.includes("data-ct-exp-analisis")
+        ? crearContenedorAnalisis() : null;
+      contenedorRectificacion = valor.includes("data-ct-exp-rectificacion")
         ? crearContenedorAnalisis() : null;
       contenedorCobertura = valor.includes("data-ct-exp-cobertura")
         ? crearContenedorAnalisis({ fallarAlPintar: raiz.fallarMontajeCobertura === true }) : null;
@@ -306,6 +309,7 @@ function crearRaizModulo() {
     querySelector(selector) {
       if (selector === "[data-ct-exp-alta]") return contenedorAlta;
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
+      if (selector === "[data-ct-exp-rectificacion]") return contenedorRectificacion;
       if (selector === "[data-ct-exp-cobertura]") return contenedorCobertura;
       return { focus() {}, scrollIntoView() {} };
     },
@@ -315,6 +319,7 @@ function crearRaizModulo() {
     eventos,
     obtenerAlta() { return contenedorAlta; },
     obtenerAnalisis() { return contenedorAnalisis; },
+    obtenerRectificacion() { return contenedorRectificacion; },
     obtenerCobertura() { return contenedorCobertura; },
     activarFalloCobertura() {
       raiz.fallarMontajeCobertura = true;
@@ -408,6 +413,123 @@ test("la capacidad nominal disponible monta el formulario con expediente y versi
   assert.equal(solicitudes[0].expediente_ref, expediente.expediente_ref);
   assert.equal(solicitudes[0].version_esperada, expediente.version);
   assert.equal(solicitudes[0].artefacto_ref, "artefacto:opaco:001");
+  escenario.modulo.desmontar();
+});
+
+test("la rectificación exige análisis vigente, misma versión y un motivo publicado", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  const expedienteConAnalisis = validarExpedienteContratacionTemporal({
+    ...expediente,
+    demostracion: false,
+    cabecera: [...expediente.cabecera, {
+      clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
+      control: "solo_lectura", obligatorio: false, opciones: [],
+    }],
+  });
+  const cuadro = {
+    demostracion: false,
+    expedientes: [{
+      expediente_ref: expedienteConAnalisis.expediente_ref,
+      fase_clave: "solicitud",
+      estado_clave: "en_curso",
+      version: expedienteConAnalisis.version,
+    }],
+  };
+  const solicitudes = [];
+  const cliente = {
+    rectificarAnalisis(solicitud) {
+      solicitudes.push(solicitud);
+      return Promise.resolve({
+        ...crearRecibo(expedienteConAnalisis),
+        operacion: "rectificar",
+      });
+    },
+    registrarAnalisis() { throw new Error("no debe registrar un análisis existente"); },
+  };
+  const escenario = await montarEscenario({
+    expediente: expedienteConAnalisis,
+    tareaRef,
+    estado: crearEstado(expedienteConAnalisis, tareaRef, { cuadro }),
+    analisis: crearComposicion(cliente, {
+      analisisInicial: null,
+      rectificacion: {
+        operacion: "rectificar",
+        artefacto_ref: "artefacto:opaco:001",
+        analisisInicial: null,
+      },
+    }),
+  });
+  const formulario = escenario.raiz.obtenerRectificacion();
+  assert.ok(formulario);
+  assert.match(formulario.innerHTML, /Rectificar análisis de RRHH/u);
+  cliente.rectificarAnalisis = () => {
+    throw new Error("la composición debe usar el método de rectificación capturado");
+  };
+  await formulario.enviar({
+    ...crearValoresFormulario(), motivo_rectificacion_clave: "correccion_datos",
+  });
+  assert.equal(solicitudes.length, 1);
+  assert.equal(solicitudes[0].version_esperada, expedienteConAnalisis.version);
+  assert.equal(solicitudes[0].motivo_rectificacion_clave, "correccion_datos");
+  escenario.modulo.desmontar();
+
+  const sinMotivos = crearComposicion(cliente, {
+    analisisInicial: null,
+    catalogos: { ...crearCatalogos(), motivos_rectificacion: [] },
+    rectificacion: {
+      operacion: "rectificar",
+      artefacto_ref: "artefacto:opaco:001",
+      analisisInicial: null,
+    },
+  });
+  const ausente = await montarEscenario({
+    expediente: expedienteConAnalisis,
+    tareaRef,
+    estado: crearEstado(expedienteConAnalisis, tareaRef, { cuadro }),
+    analisis: sinMotivos,
+  });
+  const bloqueado = ausente.raiz.obtenerRectificacion();
+  assert.ok(bloqueado);
+  assert.match(bloqueado.innerHTML, /No hay un motivo de rectificación vigente publicado/u);
+  assert.equal(bloqueado.eventos.has("submit"), false);
+  ausente.modulo.desmontar();
+
+  const noReal = await montarEscenario({
+    expediente: { ...expedienteConAnalisis, demostracion: true },
+    tareaRef,
+    estado: crearEstado({ ...expedienteConAnalisis, demostracion: true }, tareaRef, { cuadro }),
+    analisis: sinMotivos,
+  });
+  assert.equal(noReal.raiz.obtenerRectificacion(), null);
+  noReal.modulo.desmontar();
+});
+
+test("la composición principal de rectificación conserva su método capturado", async () => {
+  const { expediente, tareaRef } = crearExpediente();
+  const solicitudes = [];
+  const cliente = {
+    rectificarAnalisis(solicitud) {
+      solicitudes.push(solicitud);
+      return Promise.resolve({ ...crearRecibo(expediente), operacion: "rectificar" });
+    },
+  };
+  const escenario = await montarEscenario({
+    expediente,
+    tareaRef,
+    analisis: crearComposicion(cliente, {
+      contexto: { operacion: "rectificar", artefacto_ref: "artefacto:opaco:001" },
+      analisisInicial: null,
+    }),
+  });
+  const formulario = escenario.raiz.obtenerAnalisis();
+  assert.ok(formulario);
+  cliente.rectificarAnalisis = () => {
+    throw new Error("el método principal fue sustituido después de componer");
+  };
+  await formulario.enviar({
+    ...crearValoresFormulario(), motivo_rectificacion_clave: "correccion_datos",
+  });
+  assert.equal(solicitudes.length, 1);
   escenario.modulo.desmontar();
 });
 

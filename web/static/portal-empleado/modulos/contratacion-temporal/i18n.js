@@ -175,6 +175,9 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "La rectificación exige un motivo del catálogo gobernado.",
   analisis_registrar: "Registrar análisis",
   analisis_rectificar: "Rectificar análisis",
+  analisis_rectificacion_configuracion_pendiente_titulo: "Rectificación no disponible",
+  analisis_rectificacion_configuracion_pendiente_descripcion:
+    "No hay un motivo de rectificación vigente publicado. La operación permanece bloqueada hasta que exista configuración gobernada.",
   analisis_cancelar: "Cancelar espera",
   analisis_errores_titulo: "Revise los errores del análisis",
   analisis_errores_descripcion:
