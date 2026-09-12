@@ -21,6 +21,7 @@ import (
 	"github.com/veraison/go-cose"
 	"vec-diputacion-granada/config"
 	admin "vec-diputacion-granada/internal/modules/administracion"
+	adminapp "vec-diputacion-granada/internal/modules/administracion/application"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -60,14 +61,16 @@ type archivoEmisorAdministracionDesarrollo struct {
 		ExpiraEn     time.Time `json:"expira_en"`
 		HuellaSHA256 string    `json:"huella_sha256"`
 	} `json:"confianza"`
-	Capacidad archivoCapacidadIncorporacionV2 `json:"capacidad"`
+	Capacidad         archivoCapacidadIncorporacionV2 `json:"capacidad"`
+	CapacidadConsulta archivoCapacidadIncorporacionV2 `json:"capacidad_consulta"`
 }
 
 type dependenciasEmisorAdministracionDesarrollo struct {
-	emisor *confianza.EmisorMaterialAutorizacionAtestadaV3
-	pdp    vp.AutorizadorSolicitudLigadaV3
-	motivo core.ReferenciaEntradaCatalogo
-	cerrar func()
+	emisor         *confianza.EmisorMaterialAutorizacionAtestadaV3
+	emisorConsulta *confianza.EmisorMaterialAutorizacionAtestadaV3
+	pdp            vp.AutorizadorSolicitudLigadaV3
+	motivo         core.ReferenciaEntradaCatalogo
+	cerrar         func()
 }
 
 func nuevasDependenciasEmisorAdministracionDesarrollo(ctx context.Context, cfg config.Config, identidad *identidadAdministracionDesarrollo, registro *pgxpool.Pool, reloj vp.Reloj) (*dependenciasEmisorAdministracionDesarrollo, error) {
@@ -96,6 +99,15 @@ func nuevasDependenciasEmisorAdministracionDesarrollo(ctx context.Context, cfg c
 		return nil, f
 	}
 	defer borrarBytes(secreto)
+	secretoConsulta, err := leerArchivoIncorporacionV2(raiz, c.CapacidadConsulta.File, 32)
+	if err != nil {
+		return nil, f
+	}
+	defer borrarBytes(secretoConsulta)
+	capacidadesConsulta, err := materialCapacidadConsultaAdministracionDesarrollo(c, semilla, secreto, secretoConsulta, reloj)
+	if err != nil {
+		return nil, f
+	}
 	atestador, verificador, capacidades, firmante, err := materialEmisorAdministracionDesarrollo(c, semilla, secreto, reloj)
 	if err != nil {
 		return nil, f
@@ -178,14 +190,32 @@ func nuevasDependenciasEmisorAdministracionDesarrollo(ctx context.Context, cfg c
 	nominal := *identidad
 	nominal.identidad.principal = clonarPrincipalDesarrollo(identidad.identidad.principal)
 	autoridad := &autoridadEmisorAdministracionDesarrollo{delegado: pdp, identidad: nominal, motivo: c.Motivo, reloj: reloj}
-	escritura := *autoridad
-	escritura.soloEscritura = true
-	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(&escritura, atestador, verificador, capacidades)
+	emisor, emisorConsulta, err := nuevosEmisoresMaterialAdministracionDesarrollo(autoridad, atestador, verificador, capacidades, capacidadesConsulta)
 	if err != nil {
 		return nil, f
 	}
 	completa = true
-	return &dependenciasEmisorAdministracionDesarrollo{emisor: emisor, pdp: autoridad, motivo: c.Motivo, cerrar: cerrar}, nil
+	return &dependenciasEmisorAdministracionDesarrollo{emisor: emisor, emisorConsulta: emisorConsulta, pdp: autoridad, motivo: c.Motivo, cerrar: cerrar}, nil
+}
+
+// La autoridad común conserva la identidad y el PDP. Cada emisor recibe una
+// copia restringida a una única acción y su capacidad de consumo ya gobernada.
+func nuevosEmisoresMaterialAdministracionDesarrollo(autoridad *autoridadEmisorAdministracionDesarrollo, atestador *appvec.ServicioAtestacionesAutorizacionV3, verificador *confianza.ServicioConfianzaAtestacionAutorizacionV3, capacidades, capacidadesConsulta *confianza.EmisorCapacidadesAtestacionAutorizacionV3) (*confianza.EmisorMaterialAutorizacionAtestadaV3, *confianza.EmisorMaterialAutorizacionAtestadaV3, error) {
+	if autoridad == nil {
+		return nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	escritura, lectura := *autoridad, *autoridad
+	escritura.accionPermitida = accionConfiguracionCorreoAdministracionV3
+	lectura.accionPermitida = adminapp.AccionConsultarConfiguracionCorreo
+	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(&escritura, atestador, verificador, capacidades)
+	if err != nil {
+		return nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	emisorConsulta, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(&lectura, atestador, verificador, capacidadesConsulta)
+	if err != nil {
+		return nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	return emisor, emisorConsulta, nil
 }
 
 func leerEmisorAdministracionDesarrollo(directorio string) (archivoEmisorAdministracionDesarrollo, *os.Root, error) {
@@ -223,12 +253,14 @@ func leerEmisorAdministracionDesarrollo(directorio string) (archivoEmisorAdminis
 	if validarClavesJSONUnicas(b) != nil || d.Decode(&c) != nil || !errors.Is(d.Decode(new(any)), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa || !core.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Motivo.CatalogoID != catalogoMotivosAdministracionDesarrollo {
 		return archivoEmisorAdministracionDesarrollo{}, nil, f
 	}
-	for _, ruta := range []string{c.FuenteDSNFile, c.MotivosDSNFile, c.Firma.File, c.Capacidad.File} {
-		if !filepath.IsLocal(ruta) {
+	rutas := map[string]bool{}
+	for _, ruta := range []string{c.FuenteDSNFile, c.MotivosDSNFile, c.Firma.File, c.Capacidad.File, c.CapacidadConsulta.File} {
+		if !filepath.IsLocal(ruta) || rutas[filepath.Clean(ruta)] {
 			return archivoEmisorAdministracionDesarrollo{}, nil, f
 		}
+		rutas[filepath.Clean(ruta)] = true
 	}
-	if c.FuenteDSNFile == c.MotivosDSNFile || c.Firma.File == c.Capacidad.File {
+	if c.CapacidadConsulta.ClaveID == c.Capacidad.ClaveID || c.CapacidadConsulta.SHA256 == c.Capacidad.SHA256 || c.CapacidadConsulta.HuellaGobierno == c.Capacidad.HuellaGobierno {
 		return archivoEmisorAdministracionDesarrollo{}, nil, f
 	}
 	ok = true
@@ -299,12 +331,36 @@ func materialEmisorAdministracionDesarrollo(c archivoEmisorAdministracionDesarro
 	return atestador, verificador, capacidades, firmante, nil
 }
 
+// Consume material de consulta suministrado expresamente. La revisión y huella
+// de gobierno se conservan; esta carga no publica ni deriva una concesión nueva.
+func materialCapacidadConsultaAdministracionDesarrollo(c archivoEmisorAdministracionDesarrollo, semilla, secretoEscritura, secretoConsulta []byte, reloj vp.Reloj) (*confianza.EmisorCapacidadesAtestacionAutorizacionV3, error) {
+	f := ErrConfiguracionCorreoAdministracionNoDisponible
+	capacidad := c.CapacidadConsulta
+	if dependenciaAdministracionNula(reloj) || len(secretoConsulta) != 32 || bytes.Equal(secretoConsulta, make([]byte, 32)) || bytes.Equal(secretoConsulta, semilla) || bytes.Equal(secretoConsulta, secretoEscritura) || capacidad.ClaveID == c.Capacidad.ClaveID || capacidad.SHA256 == c.Capacidad.SHA256 || capacidad.HuellaGobierno == c.Capacidad.HuellaGobierno || !strings.HasPrefix(capacidad.ClaveID, "clave:capacidad:administracion:") || !strings.HasPrefix(capacidad.EmisorID, "emisor:administracion:") {
+		return nil, f
+	}
+	h := sha256.Sum256(secretoConsulta)
+	ahora := reloj.Ahora()
+	if hex.EncodeToString(h[:]) != capacidad.SHA256 || ahora.Before(capacidad.Desde) || !ahora.Before(capacidad.Hasta) {
+		return nil, f
+	}
+	clave, err := confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(capacidad.ClaveID, capacidad.Version, secretoConsulta, capacidad.EmisorID, audienciaConsultaConfiguracionCorreoAdministracionV3, confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, capacidad.Desde, capacidad.Hasta, time.Time{}, capacidad.RevisionGobierno, capacidad.HuellaGobierno)
+	if err != nil {
+		return nil, f
+	}
+	emisor, err := confianza.NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, reloj)
+	if err != nil {
+		return nil, f
+	}
+	return emisor, nil
+}
+
 type autoridadEmisorAdministracionDesarrollo struct {
-	delegado      vp.AutorizadorSolicitudLigadaV3
-	identidad     identidadAdministracionDesarrollo
-	motivo        core.ReferenciaEntradaCatalogo
-	reloj         vp.Reloj
-	soloEscritura bool
+	delegado        vp.AutorizadorSolicitudLigadaV3
+	identidad       identidadAdministracionDesarrollo
+	motivo          core.ReferenciaEntradaCatalogo
+	reloj           vp.Reloj
+	accionPermitida string
 }
 
 func (a *autoridadEmisorAdministracionDesarrollo) ExigirSolicitudLigadaV3(ctx context.Context, solicitud core.SolicitudAutorizacionLigadaV3, resultado core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vp.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
@@ -318,13 +374,21 @@ func (a *autoridadEmisorAdministracionDesarrollo) ExigirSolicitudLigadaV3(ctx co
 	if err != nil || !contextoPermisoAdministracionGobernadoValido(ctx, d.VinculoAutenticacionActor, resultado, a.reloj.Ahora()) || d.ReferenciaMotivo != a.motivo || resultado.Contexto.Principal.ID != a.identidad.personaRef || resultado.Contexto.PersonaRef != a.identidad.personaRef || resultado.Contexto.PerfilActivoRef != a.identidad.perfilRef || resultado.Contexto.Instantanea.CuentaRef != a.identidad.cuentaRef || d.Recurso.Referencia != referenciaConfiguracionCorreoAdministracionV3 || d.Recurso.ModuloID != admin.ModuleID || d.Recurso.Tipo != tipoRecursoConfiguracionCorreoAdministracion || d.Finalidad != finalidadConfiguracionCorreoAdministracionV3 || len(d.Recurso.Ambitos) != 1 || d.Recurso.Ambitos["organizacion_ref"] != organizacionConfiguracionCorreoAdministracionV3 {
 		return fallo()
 	}
-	if d.Accion != accionConfiguracionCorreoAdministracionV3 && (a.soloEscritura || d.Accion != admin.PermissionIntegrationsManage) {
+	accionPermitida := a.accionPermitida
+	if accionPermitida == "" {
+		accionPermitida = admin.PermissionIntegrationsManage
+	}
+	if d.Accion != accionPermitida || (accionPermitida != admin.PermissionIntegrationsManage && accionPermitida != accionConfiguracionCorreoAdministracionV3 && accionPermitida != adminapp.AccionConsultarConfiguracionCorreo) {
 		return fallo()
 	}
 	if d.Accion == admin.PermissionIntegrationsManage && len(d.Recurso.Atributos) != 0 {
 		return fallo()
 	}
-	if d.Accion == accionConfiguracionCorreoAdministracionV3 {
+	if d.Accion == accionConfiguracionCorreoAdministracionV3 || d.Accion == adminapp.AccionConsultarConfiguracionCorreo {
+		capacidad, ok := capacidadAdministracionDesdeContexto(ctx)
+		if !ok || capacidad.ruta != "/api/vec/administracion/configuracion-correo" || (d.Accion == accionConfiguracionCorreoAdministracionV3 && capacidad.metodo != "PUT") || (d.Accion == adminapp.AccionConsultarConfiguracionCorreo && capacidad.metodo != "GET") {
+			return fallo()
+		}
 		h := d.Recurso.Atributos["material_sha256"]
 		b, e := hex.DecodeString(h)
 		if e != nil || len(b) != 32 || hex.EncodeToString(b) != h || h == strings.Repeat("0", 64) || len(d.Recurso.Atributos) != 1 {

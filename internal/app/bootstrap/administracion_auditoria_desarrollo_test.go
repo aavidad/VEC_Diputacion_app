@@ -83,6 +83,11 @@ func nuevaAuditoriaAdministracionPrueba(t *testing.T) escenarioAuditoriaAdminist
 
 func comprobarAuditoriaAdministracionTLS(t *testing.T, e escenarioAuditoriaAdministracionPrueba, comprobar func(context.Context) error) {
 	t.Helper()
+	comprobarAuditoriaAdministracionTLSMetodo(t, e, http.MethodPut, comprobar)
+}
+
+func comprobarAuditoriaAdministracionTLSMetodo(t *testing.T, e escenarioAuditoriaAdministracionPrueba, metodo string, comprobar func(context.Context) error) {
+	t.Helper()
 	observacion := make(chan error, 1)
 	url := iniciarServidorAdministracionPrueba(t, e.transporte, e.cfg, e.material, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		observacion <- comprobar(r.Context())
@@ -90,7 +95,7 @@ func comprobarAuditoriaAdministracionTLS(t *testing.T, e escenarioAuditoriaAdmin
 	}))
 	cliente := clienteAdministracionPrueba(e.material, &e.material.admin)
 	defer cliente.CloseIdleConnections()
-	peticion, err := http.NewRequest(http.MethodPut, url+adminhttp.RutaConfiguracionCorreo, nil)
+	peticion, err := http.NewRequest(metodo, url+adminhttp.RutaConfiguracionCorreo, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +110,41 @@ func comprobarAuditoriaAdministracionTLS(t *testing.T, e escenarioAuditoriaAdmin
 	if err := <-observacion; err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestAuditoriaAdministracionConsultaGETConservaQuinceCamposYSeparaPUT(t *testing.T) {
+	e := nuevaAuditoriaAdministracionPrueba(t)
+	comprobarAuditoriaAdministracionTLSMetodo(t, e, http.MethodGet, func(ctx context.Context) error {
+		a, err := e.preparador.PrepararAuditoriaConsultaConfiguracionCorreo(ctx, e.sesion.valor.Principal)
+		if err != nil {
+			return err
+		}
+		if err := e.preparador.ValidarAuditoriaConsultaParaSesion(ctx, a, e.sesion.valor); err != nil {
+			return err
+		}
+		b, err := json.Marshal(a)
+		if err != nil {
+			return err
+		}
+		var campos map[string]json.RawMessage
+		if json.Unmarshal(b, &campos) != nil || len(campos) != 15 || campos["object_version"] != nil || a.Action != accionConsultaConfiguracionCorreoAdministracionV3 || a.Result != "permitido" || a.ObjectVersion != 0 {
+			return errors.New("DTO GET ajeno al contrato T13/3")
+		}
+		if _, err := e.preparador.PrepararAuditoriaConfiguracionCorreo(ctx, e.sesion.valor.Principal, 1); err == nil {
+			return errors.New("GET preparó auditoría PUT")
+		}
+		if err := e.preparador.ValidarAuditoriaParaSesion(ctx, a, e.sesion.valor, 1); err == nil {
+			return errors.New("GET validó auditoría PUT")
+		}
+		return nil
+	})
+	e = nuevaAuditoriaAdministracionPrueba(t)
+	comprobarAuditoriaAdministracionTLS(t, e, func(ctx context.Context) error {
+		if _, err := e.preparador.PrepararAuditoriaConsultaConfiguracionCorreo(ctx, e.sesion.valor.Principal); err == nil {
+			return errors.New("PUT preparó auditoría GET")
+		}
+		return nil
+	})
 }
 
 func TestAuditoriaAdministracionPreparaT13ConSesionYHMACReales(t *testing.T) {

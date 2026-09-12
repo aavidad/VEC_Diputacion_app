@@ -131,7 +131,19 @@ func nuevaRutaAdministracionCorreoDesarrollo(ctx context.Context, cfg config.Con
 	if e != nil {
 		return nil, nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
 	}
-	r, e := NuevaRutaConfiguracionCorreoAdministracion(autoridad, servicio)
+	autorizadorConsulta, e := nuevoAutorizadorConsultaConfiguracionCorreoV3(sesion, preparadorAuditoria, deps.emisorConsulta, deps.motivo, seguridadvec.GeneradorReferenciasCriptograficas{}, reloj)
+	if e != nil {
+		return nil, nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	registroConsulta, e := adminpg.NuevaConsultaConfiguracionCorreoPostgreSQL(poolCorreo)
+	if e != nil {
+		return nil, nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	consulta, e := adminapp.NuevoServicioConsultaConfiguracionCorreo(autoridad, preparadorAuditoria, autorizadorConsulta, registroConsulta)
+	if e != nil {
+		return nil, nil, nil, ErrConfiguracionCorreoAdministracionNoDisponible
+	}
+	r, e := NuevaRutaConfiguracionCorreoAdministracion(autoridad, &servicioConfiguracionCorreoCompuesto{consulta: consulta, cambio: servicio})
 	if e != nil {
 		return nil, nil, nil, e
 	}

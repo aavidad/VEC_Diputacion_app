@@ -59,6 +59,9 @@ func materialEmisorAdministracionPrueba(t *testing.T) (archivoEmisorAdministraci
 	}
 	h = sha256.Sum256(secreto)
 	c.Capacidad = archivoCapacidadIncorporacionV2{ClaveID: "clave:capacidad:administracion:desarrollo:v1", Version: 1, File: "capacidad.key", SHA256: hex.EncodeToString(h[:]), EmisorID: "emisor:administracion:desarrollo:v1", Desde: c.Firma.Desde, Hasta: c.Firma.Hasta, RevisionGobierno: 1, HuellaGobierno: strings.Repeat("b", 64)}
+	consulta := bytes.Repeat([]byte{11}, 32)
+	h = sha256.Sum256(consulta)
+	c.CapacidadConsulta = archivoCapacidadIncorporacionV2{ClaveID: "clave:capacidad:administracion:consulta:desarrollo:v1", Version: 1, File: "capacidad-consulta.key", SHA256: hex.EncodeToString(h[:]), EmisorID: "emisor:administracion:desarrollo:v1", Desde: c.Firma.Desde, Hasta: c.Firma.Hasta, RevisionGobierno: 2, HuellaGobierno: strings.Repeat("c", 64)}
 	return c, semilla, secreto, reloj
 }
 
@@ -161,7 +164,7 @@ func TestEmisorAdministracionCargaConfiguracionPrivadaCerrada(t *testing.T) {
 		t.Fatalf("configuración válida rechazada: %v", err)
 	}
 	raiz.Close()
-	for _, nombre := range []string{"campo_ajeno", "clave_duplicada", "catalogo_ct", "ruta_fuera", "permisos_publicos"} {
+	for _, nombre := range []string{"campo_ajeno", "clave_duplicada", "catalogo_ct", "ruta_fuera", "permisos_publicos", "consulta_ausente", "consulta_archivo_put", "consulta_clave_put", "consulta_huella_put", "consulta_gobierno_put", "consulta_ruta_fuera"} {
 		t.Run(nombre, func(t *testing.T) {
 			escribir(contenido)
 			switch nombre {
@@ -184,6 +187,24 @@ func TestEmisorAdministracionCargaConfiguracionPrivadaCerrada(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer os.Chmod(ruta, 0600)
+			default:
+				otro := c
+				switch nombre {
+				case "consulta_ausente":
+					otro.CapacidadConsulta = archivoCapacidadIncorporacionV2{}
+				case "consulta_archivo_put":
+					otro.CapacidadConsulta.File = "./" + otro.Capacidad.File
+				case "consulta_clave_put":
+					otro.CapacidadConsulta.ClaveID = otro.Capacidad.ClaveID
+				case "consulta_huella_put":
+					otro.CapacidadConsulta.SHA256 = otro.Capacidad.SHA256
+				case "consulta_gobierno_put":
+					otro.CapacidadConsulta.HuellaGobierno = otro.Capacidad.HuellaGobierno
+				case "consulta_ruta_fuera":
+					otro.CapacidadConsulta.File = "../capacidad.key"
+				}
+				b, _ := json.Marshal(otro)
+				escribir(b)
 			}
 			_, raiz, err := leerEmisorAdministracionDesarrollo(directorio)
 			if raiz != nil {
@@ -191,6 +212,53 @@ func TestEmisorAdministracionCargaConfiguracionPrivadaCerrada(t *testing.T) {
 			}
 			if err == nil {
 				t.Fatal("cargador acepta configuración fuera del contrato")
+			}
+		})
+	}
+}
+
+func TestMaterialCapacidadConsultaAdministracionExigeClaveYGobiernoPropios(t *testing.T) {
+	for _, caso := range []string{"valida", "secreto_put", "semilla_firma", "secreto_cero", "hash_ajeno", "clave_put", "gobierno_put", "gobierno_ausente", "version_ausente", "caducada", "clave_ct", "emisor_ct"} {
+		t.Run(caso, func(t *testing.T) {
+			c, semilla, escritura, reloj := materialEmisorAdministracionPrueba(t)
+			consulta := bytes.Repeat([]byte{11}, 32)
+			switch caso {
+			case "secreto_put":
+				consulta = bytes.Clone(escritura)
+			case "semilla_firma":
+				consulta = bytes.Clone(semilla)
+			case "secreto_cero":
+				consulta = make([]byte, 32)
+			case "hash_ajeno":
+				c.CapacidadConsulta.SHA256 = strings.Repeat("e", 64)
+			case "clave_put":
+				c.CapacidadConsulta.ClaveID = c.Capacidad.ClaveID
+			case "gobierno_put":
+				c.CapacidadConsulta.HuellaGobierno = c.Capacidad.HuellaGobierno
+			case "gobierno_ausente":
+				c.CapacidadConsulta.HuellaGobierno = ""
+			case "version_ausente":
+				c.CapacidadConsulta.Version = 0
+			case "caducada":
+				c.CapacidadConsulta.Hasta = reloj.ahora
+			case "clave_ct":
+				c.CapacidadConsulta.ClaveID = "clave:capacidad:ct:consulta:v1"
+			case "emisor_ct":
+				c.CapacidadConsulta.EmisorID = "emisor:ct:desarrollo:v1"
+			}
+			// Estos tres negativos tienen hash correcto: deben fallar por la
+			// separación de material, no por una fixture de hash incoherente.
+			if caso == "secreto_put" || caso == "semilla_firma" || caso == "secreto_cero" {
+				h := sha256.Sum256(consulta)
+				c.CapacidadConsulta.SHA256 = hex.EncodeToString(h[:])
+			}
+			emisor, err := materialCapacidadConsultaAdministracionDesarrollo(c, semilla, escritura, consulta, reloj)
+			if caso == "valida" {
+				if err != nil || emisor == nil {
+					t.Fatal("consulta propia rechazada", err)
+				}
+			} else if err != ErrConfiguracionCorreoAdministracionNoDisponible || emisor != nil {
+				t.Fatal("material ajeno o incompleto permite emitir")
 			}
 		})
 	}
@@ -336,7 +404,7 @@ func TestEmisorAdministracionAutorizaPersonaConSujetoCertificadoDistinto(t *test
 	transporte.identidad.cuentaRef, transporte.identidad.cuentaOrdinariaRef = c.CuentaRef, c.CuentaOrdinariaRef
 	transporte.identidad.personaRef, transporte.identidad.perfilRef = c.PersonaRef, c.PerfilRef
 	delegado := &autorizadorPermisoAdministracionPrueba{}
-	a := &autoridadEmisorAdministracionDesarrollo{delegado: delegado, identidad: *transporte.identidad, motivo: c.Motivo, reloj: reloj, soloEscritura: true}
+	a := &autoridadEmisorAdministracionDesarrollo{delegado: delegado, identidad: *transporte.identidad, motivo: c.Motivo, reloj: reloj, accionPermitida: accionConfiguracionCorreoAdministracionV3}
 	observacion := make(chan error, 1)
 	url := iniciarServidorAdministracionPrueba(t, transporte, cfg, m, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _, err := a.ExigirSolicitudLigadaV3(r.Context(), solicitud, resultado)

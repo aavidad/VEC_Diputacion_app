@@ -31,6 +31,7 @@ type preparacionAuditoriaAdministracionDesarrollo struct {
 }
 
 var _ adminports.PreparadorAuditoriaConfiguracionCorreo = (*preparacionAuditoriaAdministracionDesarrollo)(nil)
+var _ adminports.PreparadorAuditoriaConsultaConfiguracionCorreo = (*preparacionAuditoriaAdministracionDesarrollo)(nil)
 
 func nuevaPreparacionAuditoriaAdministracionDesarrollo(sesion sesionDurableAdministracionCorreoV3, seudonimizador vp.SeudonimizadorSujetoAlmacen, referencias vp.GeneradorReferenciasAutorizacionV2, reloj vp.Reloj) (*preparacionAuditoriaAdministracionDesarrollo, error) {
 	if dependenciaAdministracionNula(sesion) || dependenciaAdministracionNula(seudonimizador) || dependenciaAdministracionNula(referencias) || dependenciaAdministracionNula(reloj) {
@@ -50,12 +51,20 @@ func (preparacionAuditoriaAdministracionDesarrollo) MarshalJSON() ([]byte, error
 }
 
 func (p *preparacionAuditoriaAdministracionDesarrollo) PrepararAuditoriaConfiguracionCorreo(ctx context.Context, principal core.Principal, versionNueva uint64) (core.AuditEntry, error) {
+	return p.prepararAuditoria(ctx, principal, versionNueva, "PUT")
+}
+
+func (p *preparacionAuditoriaAdministracionDesarrollo) PrepararAuditoriaConsultaConfiguracionCorreo(ctx context.Context, principal core.Principal) (core.AuditEntry, error) {
+	return p.prepararAuditoria(ctx, principal, 0, "GET")
+}
+
+func (p *preparacionAuditoriaAdministracionDesarrollo) prepararAuditoria(ctx context.Context, principal core.Principal, versionNueva uint64, metodo string) (core.AuditEntry, error) {
 	fallo := func() (core.AuditEntry, error) { return core.AuditEntry{}, errPreparacionAuditoriaAdministracion }
-	if p == nil || ctx == nil || ctx.Err() != nil || dependenciaAdministracionNula(p.sesion) || dependenciaAdministracionNula(p.seudonimizador) || dependenciaAdministracionNula(p.referencias) || dependenciaAdministracionNula(p.reloj) || versionNueva == 0 || versionNueva > maximaVersionAuditoriaAdministracion || principal.Validate() != nil || !principal.HasPermission(admin.PermissionIntegrationsManage) {
+	if p == nil || ctx == nil || ctx.Err() != nil || dependenciaAdministracionNula(p.sesion) || dependenciaAdministracionNula(p.seudonimizador) || dependenciaAdministracionNula(p.referencias) || dependenciaAdministracionNula(p.reloj) || !versionAuditoriaAdministracionValidaParaMetodo(versionNueva, metodo) || principal.Validate() != nil || !principal.HasPermission(admin.PermissionIntegrationsManage) {
 		return fallo()
 	}
 	capacidad, ok := capacidadAdministracionDesdeContexto(ctx)
-	if !ok || capacidad.metodo != "PUT" {
+	if !ok || capacidad.metodo != metodo {
 		return fallo()
 	}
 	sesion, err := p.sesion.ResolverSesionAdministracionCorreoV3(ctx)
@@ -85,7 +94,7 @@ func (p *preparacionAuditoriaAdministracionDesarrollo) PrepararAuditoriaConfigur
 	if ahora.IsZero() || !p.sesionValida(ctx, sesion) {
 		return fallo()
 	}
-	a := entradaAuditoriaAdministracion(sesion, seudonimo, roles, versionNueva, referencia, ahora)
+	a := entradaAuditoriaAdministracionParaMetodo(sesion, seudonimo, roles, versionNueva, referencia, ahora, metodo)
 	return a, nil
 }
 
@@ -93,11 +102,19 @@ func (p *preparacionAuditoriaAdministracionDesarrollo) PrepararAuditoriaConfigur
 // emisor. El HMAC se recalcula: ActorID no se acepta por su forma ni por ser
 // distinto del identificador nominal, y no se vuelve a resolver otra sesión.
 func (p *preparacionAuditoriaAdministracionDesarrollo) ValidarAuditoriaParaSesion(ctx context.Context, auditoria core.AuditEntry, sesion contextoSesionAdministracionCorreoV3, versionNueva uint64) error {
-	if p == nil || ctx == nil || ctx.Err() != nil || dependenciaAdministracionNula(p.seudonimizador) || dependenciaAdministracionNula(p.reloj) || versionNueva == 0 || versionNueva > maximaVersionAuditoriaAdministracion || !p.sesionValida(ctx, sesion) || !core.ReferenciaCorrelacionAutorizacionV2Valida(auditoria.CorrelationRef) || auditoria.OccurredAt.IsZero() || auditoria.OccurredAt != auditoria.OccurredAt.UTC().Truncate(time.Microsecond) {
+	return p.validarAuditoriaParaSesion(ctx, auditoria, sesion, versionNueva, "PUT")
+}
+
+func (p *preparacionAuditoriaAdministracionDesarrollo) ValidarAuditoriaConsultaParaSesion(ctx context.Context, auditoria core.AuditEntry, sesion contextoSesionAdministracionCorreoV3) error {
+	return p.validarAuditoriaParaSesion(ctx, auditoria, sesion, 0, "GET")
+}
+
+func (p *preparacionAuditoriaAdministracionDesarrollo) validarAuditoriaParaSesion(ctx context.Context, auditoria core.AuditEntry, sesion contextoSesionAdministracionCorreoV3, versionNueva uint64, metodo string) error {
+	if p == nil || ctx == nil || ctx.Err() != nil || dependenciaAdministracionNula(p.seudonimizador) || dependenciaAdministracionNula(p.reloj) || !versionAuditoriaAdministracionValidaParaMetodo(versionNueva, metodo) || !p.sesionValida(ctx, sesion) || !core.ReferenciaCorrelacionAutorizacionV2Valida(auditoria.CorrelationRef) || auditoria.OccurredAt.IsZero() || auditoria.OccurredAt != auditoria.OccurredAt.UTC().Truncate(time.Microsecond) {
 		return errPreparacionAuditoriaAdministracion
 	}
 	capacidad, ok := capacidadAdministracionDesdeContexto(ctx)
-	if !ok || capacidad.metodo != "PUT" || auditoria.OccurredAt.Before(capacidad.certificadoVerificadoEn.UTC().Truncate(time.Microsecond)) || auditoria.OccurredAt.After(p.reloj.Ahora()) {
+	if !ok || capacidad.metodo != metodo || auditoria.OccurredAt.Before(capacidad.certificadoVerificadoEn.UTC().Truncate(time.Microsecond)) || auditoria.OccurredAt.After(p.reloj.Ahora()) {
 		return errPreparacionAuditoriaAdministracion
 	}
 	seudonimo, err := p.seudonimoParaSesion(ctx, sesion)
@@ -106,7 +123,7 @@ func (p *preparacionAuditoriaAdministracionDesarrollo) ValidarAuditoriaParaSesio
 	}
 	roles := append([]string(nil), sesion.Principal.Roles...)
 	sort.Strings(roles)
-	esperada := entradaAuditoriaAdministracion(sesion, seudonimo, roles, versionNueva, auditoria.CorrelationRef, auditoria.OccurredAt)
+	esperada := entradaAuditoriaAdministracionParaMetodo(sesion, seudonimo, roles, versionNueva, auditoria.CorrelationRef, auditoria.OccurredAt, metodo)
 	if !reflect.DeepEqual(auditoria, esperada) || !p.sesionValida(ctx, sesion) {
 		return errPreparacionAuditoriaAdministracion
 	}
@@ -127,7 +144,7 @@ func (p *preparacionAuditoriaAdministracionDesarrollo) sesionValida(ctx context.
 		}
 	}
 	capacidad, ok := capacidadAdministracionDesdeContexto(ctx)
-	return ok && capacidad.metodo == "PUT" && sesion.Principal.ID == sesion.Resultado.Contexto.PersonaRef && sesion.Principal.AuthMethod == sesion.Resultado.Contexto.Principal.AuthMethod && sesion.Principal.AuthAssurance == sesion.Resultado.Contexto.Principal.AuthAssurance
+	return ok && (capacidad.metodo == "PUT" || capacidad.metodo == "GET") && sesion.Principal.ID == sesion.Resultado.Contexto.PersonaRef && sesion.Principal.AuthMethod == sesion.Resultado.Contexto.Principal.AuthMethod && sesion.Principal.AuthAssurance == sesion.Resultado.Contexto.Principal.AuthAssurance
 }
 
 func (p *preparacionAuditoriaAdministracionDesarrollo) seudonimoParaSesion(ctx context.Context, sesion contextoSesionAdministracionCorreoV3) (string, error) {
@@ -147,4 +164,17 @@ func (p *preparacionAuditoriaAdministracionDesarrollo) seudonimoParaSesion(ctx c
 
 func entradaAuditoriaAdministracion(sesion contextoSesionAdministracionCorreoV3, seudonimo string, roles []string, versionNueva uint64, correlacion string, ahora time.Time) core.AuditEntry {
 	return core.AuditEntry{ActorID: seudonimo, ActorProfile: sesion.Resultado.Contexto.PerfilActivoRef, ActorRoles: roles, AuthMethod: sesion.Principal.AuthMethod, AuthAssurance: sesion.Principal.AuthAssurance, Purpose: finalidadConfiguracionCorreoAdministracionV3, Action: accionConfiguracionCorreoAdministracionV3, ModuleID: admin.ModuleID, SubjectRef: referenciaConfiguracionCorreoAdministracionV3, ObjectVersion: int(versionNueva), Result: "accepted", CorrelationRef: correlacion, OccurredAt: ahora}
+}
+
+func versionAuditoriaAdministracionValidaParaMetodo(version uint64, metodo string) bool {
+	return (metodo == "GET" && version == 0) || (metodo == "PUT" && version > 0 && version <= maximaVersionAuditoriaAdministracion)
+}
+
+func entradaAuditoriaAdministracionParaMetodo(sesion contextoSesionAdministracionCorreoV3, seudonimo string, roles []string, version uint64, correlacion string, ahora time.Time, metodo string) core.AuditEntry {
+	a := entradaAuditoriaAdministracion(sesion, seudonimo, roles, version, correlacion, ahora)
+	if metodo == "GET" {
+		a.Action = accionConsultaConfiguracionCorreoAdministracionV3
+		a.Result = "permitido"
+	}
+	return a
 }
