@@ -1,0 +1,36 @@
+{
+  "esquema": "vec.contratacion_temporal.manifest_flujo_visual_rrhh.v1",
+  "fuente": {
+    "referencia": "fuente:rrhh:procedimiento-20260723",
+    "huella_sha256": "5de8baf8e7622dda695b5fcca0e326e3b7c4c5b96aee71b81433d8d9d06b3c8b"
+  },
+  "flujo_origen": {
+    "referencia": "flujo:ct:desarrollo",
+    "version": 1,
+    "huella_sha256": "d0b1d05c902fab11f2ffa482eda8bfd0598ffb77ef3824e93fa301cdd06cd47a"
+  },
+  "presentacion": {
+    "esquema": "vec.contratacion_temporal.presentacion_flujo_rrhh.v1",
+    "referencia": "flujo:ct:rrhh:presentacion",
+    "version": 1,
+    "huella_sha256": "4c0c91dad747199168610639d0840be5ed3e3df19a831583e32c408ebda23650",
+    "vinculo_huella_sha256": "89161b8482094a7df632371b3559ad999ea48e4fde87f90af954ed16c1b23fb9",
+    "clave_i18n": "contratacion_temporal.flujo.rrhh",
+    "fases": [
+      { "clave": "solicitud", "orden": 1, "clave_i18n": "contratacion_temporal.fase.solicitud" },
+      { "clave": "analisis_rrhh", "orden": 2, "clave_i18n": "contratacion_temporal.fase.analisis_rrhh" },
+      { "clave": "gestion_bolsa", "orden": 3, "clave_i18n": "contratacion_temporal.fase.gestion_bolsa" },
+      { "clave": "fiscalizacion", "orden": 4, "clave_i18n": "contratacion_temporal.fase.fiscalizacion" },
+      { "clave": "obtencion_candidato", "orden": 5, "clave_i18n": "contratacion_temporal.fase.obtencion_candidato" },
+      { "clave": "nombramiento", "orden": 6, "clave_i18n": "contratacion_temporal.fase.nombramiento" },
+      { "clave": "incorporacion", "orden": 7, "clave_i18n": "contratacion_temporal.fase.incorporacion" },
+      { "clave": "seguimiento", "orden": 8, "clave_i18n": "contratacion_temporal.fase.seguimiento" }
+    ]
+  },
+  "mapeos_fase_origen": [
+    { "fase_origen": "analisis", "fase_presentacion": "analisis_rrhh" },
+    { "fase_origen": "asignacion", "fase_presentacion": "gestion_bolsa" },
+    { "fase_origen": "asignacion_unidad", "fase_presentacion": "gestion_bolsa" },
+    { "fase_origen": "nombramiento", "fase_presentacion": "nombramiento" }
+  ]
+}

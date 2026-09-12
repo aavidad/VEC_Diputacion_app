@@ -3,6 +3,15 @@ import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_LLAMAMIENTO_ES,
+  "contratacion_temporal.flujo.rrhh": "Gestión de expedientes de personal temporal",
+  "contratacion_temporal.fase.solicitud": "Solicitud",
+  "contratacion_temporal.fase.analisis_rrhh": "Análisis RRHH",
+  "contratacion_temporal.fase.gestion_bolsa": "Gestión de bolsa",
+  "contratacion_temporal.fase.fiscalizacion": "Fiscalización",
+  "contratacion_temporal.fase.obtencion_candidato": "Obtención del candidato",
+  "contratacion_temporal.fase.nombramiento": "Nombramiento",
+  "contratacion_temporal.fase.incorporacion": "Incorporación",
+  "contratacion_temporal.fase.seguimiento": "Seguimiento",
   sobrelinea: "Contratación temporal · Solicitud del centro",
   titulo: "Nueva solicitud de contratación temporal",
   descripcion:

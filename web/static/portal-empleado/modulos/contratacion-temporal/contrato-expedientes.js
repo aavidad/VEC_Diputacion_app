@@ -63,7 +63,7 @@ const PATRON_HUELLA = /^[a-f0-9]{64}$/u;
 const PATRON_CURSOR_RRHH = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u;
 const TONOS = new Set(["neutro", "informacion", "exito", "aviso", "peligro"]);
 const ESTADOS = new Set([
-  "pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado",
+  "pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado", "sin_confirmar",
 ]);
 const TIPOS_PANEL = new Set([
   "datos", "formulario", "comprobaciones", "tabla", "documentos", "aviso",
