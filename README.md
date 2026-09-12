@@ -4,7 +4,7 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
-## Estado funcional — 10 de septiembre de 2026
+## Estado funcional y continuación — 12 de septiembre de 2026
 
 Base del cierre funcional: `00558603dbd3040eacb03cb511f3b840be241b10`, rama
 `integracion/ct-producto-ligero-20260821`. El desarrollo activo y la base
@@ -13,15 +13,15 @@ no describen la instancia actual.
 Este entorno usa exclusivamente datos sintéticos y no está autorizado para
 producción ni para tratar datos reales.
 
-Se pueden enseñar **cinco pasos completos y partes del sexto y séptimo**.
-Además, el 10 de septiembre se registró de forma real en desarrollo una
+Se pueden enseñar **cinco pasos completos y partes del sexto, séptimo y octavo**.
+El 10 de septiembre se registró de forma real en desarrollo una
 incorporación sintética: formulario `GET 200`/`POST 200`, dos confirmaciones
 expresas, recibo registrado y alta sintética en Personal. Esta capacidad pertenece al
 octavo paso, pero todavía no puede enseñarse como ciclo recuperado completo.
 
-La comprobación utilizó Chromium, certificado de pruebas, autorización del
-servidor y PostgreSQL reales: alta `201`, recuperación y repetición con la
-misma clave `200`, mismo recibo y sin duplicado. El caso avanza de versión
+La resolución manual de ejercicio se comprobó con Chromium, certificado de
+pruebas, autorización del servidor y PostgreSQL reales: alta `201`,
+recuperación y repetición con la misma clave `200`, mismo recibo y sin duplicado. El caso avanza de versión
 `7` a `8`; eso **no significa ocho pasos terminados**. Se conservan 52
 expedientes y una nueva resolución de ejercicio; el caso original en versión
 `7` permanece disponible.
@@ -35,14 +35,25 @@ se declara todavía recorrible de extremo a extremo ni se eleva la métrica.
 
 CT70–85, trece pools y las tres capacidades con sus catálogos y definición ya
 están provisionados; no son trabajo pendiente ni deben reaplicarse. No hubo
-precargas de negocio. El siguiente corte continúa siendo el cierre de GINPIX,
-cuyos modelo, mapeo y codificador existen; la descarga V2 aún no está montada.
+precargas de negocio. GINPIX ya tiene preparación, montaje y descarga V2
+integrados en código; falta comprobarlos desde el recibo recuperado en el
+servidor. La anotación y el cierre también tienen piezas de dominio y
+persistencia integradas, pendientes de su recorrido conjunto.
 
 El portal está servido de forma **privada**, no en una URL pública.
 `https://localhost:8443/portal-empleado/` corresponde al servidor remoto;
 no funciona directamente en el equipo del visitante sin acceso preparado.
 Consulte [acceso y operación actuales](docs/manual_sistemas/README.md#entorno-privado-vigente).
 El certificado identifica al usuario de pruebas: no firma los documentos.
+
+El 12 de septiembre se inventarió y conservó el trabajo local y remoto. El
+backend pendiente de anotación y cierre está revisado y se ha corregido el error
+que presentaba observaciones inválidas como indisponibilidad. La base conjunta
+supera las pruebas Go, `go vet`, 314 pruebas web y los manifiestos. El director
+remoto y sus agentes continúan la corrección del frontend, la preparación
+operativa y la documentación; todavía no se acredita un nuevo recorrido
+en la aplicación servida. El
+[estado y plan vigentes](ESTADO_PROYECTO.md) conservan la continuación exacta.
 
 ## Empiece por su perfil
 

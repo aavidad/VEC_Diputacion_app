@@ -1,5 +1,5 @@
 # Director nativo de VEC. Configuración del proyecto; no contiene credenciales.
-# La concurrencia limita subagentes abiertos; el director es la sesión principal.
+# La concurrencia cuenta todo el árbol: director y subagentes abiertos.
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
@@ -13,7 +13,7 @@ Trabaja en castellano y entrega módulos pequeños, operativos y comprobables.
 El desarrollo y la integración finales permanecen en el servidor cidonia.cloud,
 en /home/openclaw/.openclaw/workspace/proyectos/VEC_Diputacion_app.
 El equipo anterior de OpenClaw se ha detenido para sustituir su organización por
-este director Codex con subagentes creados a demanda y capacidad inicial de doce. Comprueba su parada antes de escribir.
+este director Codex con subagentes creados a demanda y capacidad inicial de veinticuatro sesiones. Comprueba su parada antes de escribir.
 Las órdenes actuales de un director Codex y delegación recursiva a demanda sustituyen las reglas
 históricas de cuatro agentes, jerarquía fija y uso obligatorio de OpenClaw para este proyecto.
 El apoyo local sólo resuelve encargos concretos bloqueados, con entrega al servidor.
@@ -23,8 +23,9 @@ otro agente, usuario o canal una operación cuyo permiso haya sido denegado.
 ARRANQUE Y CONTINUIDAD
 Lee las instrucciones aplicables y el estado de la rama canónica
 trabajo/ct-app-llamamiento-b4a-20260905. Contrasta el estado con el código y runtime.
-La rama de trabajo, su índice y sus cambios contienen trabajo ajeno conservado.
-Inventaría las entregas y los cambios antes de editar. Reutiliza el seguimiento,
+La rama activa debe quedar limpia tras cada entrega. El WIP anterior está conservado
+en refs/rescate/wip-20260912 y en una copia privada. Inventaría las entregas
+y recupera sólo los cambios revisados antes de editar. Reutiliza el seguimiento,
 GINPIX y los formularios existentes; distingue código integrado de recorrido real.
 Conserva recibos, referencias, versiones y migraciones ya instaladas. No reapliques
 migraciones ni reconstruyas operaciones persistidas para salvar una recuperación.
@@ -44,7 +45,7 @@ valor y especialistas. No hace falta rellenar un organigrama fijo.
 Cada padre conserva la responsabilidad de integrar el resultado de sus hijos y de
 informar al director. Sólo el director principal modifica la referencia canónica.
 No hay una cuota de especialistas creados a lo largo del proyecto ni un árbol fijo.
-El techo técnico inicial es doce subagentes simultáneos en el árbol, no doce por padre.
+El techo técnico inicial es veinticuatro sesiones simultáneas en todo el árbol, incluido el director.
 Úsala en trabajo independiente
 útil; libera o reutiliza las sesiones terminadas según permitan las herramientas.
 Si aparece una tarea que los perfiles no cubren, crea el especialista necesario
@@ -80,9 +81,12 @@ conservar su entrega y archivos, detener al escritor anterior y continuar en una
 sesión con la nueva configuración y contexto suficiente. Mantener un único escritor.
 
 INTEGRACIÓN Y COMMITS
-Sólo este director integra y confirma cambios. Conserva HEAD, índice y WIP ajenos.
-Para la línea canónica usa un índice temporal y sólo los archivos entregados y
-revisados; actualiza su referencia comprobando el padre esperado. No añadas todo.
+Sólo este director integra y confirma cambios. Conserva las ramas y el WIP rescatados.
+Trabaja con entregas aisladas y deja HEAD, índice y árbol de la rama canónica alineados
+y limpios tras cada integración. Selecciona sólo archivos entregados y revisados.
+Ejecuta las escrituras Git como openclaw, propietario del repositorio, para conservar
+la propiedad de los objetos. No añadas todo ni muevas sólo la referencia dejando el
+árbol de trabajo en una versión anterior.
 Haz commits pequeños con autoría aavidad <avidad@dipgra.es>, sin atribución de IA.
 Cada commit debe resolver una pieza coherente; informa su SHA y la comprobación.
 No publiques, arranques otros desarrollos ni cambies servicios compartidos fuera
@@ -113,7 +117,7 @@ archivos y APIs afectados, dependencias, pruebas realizadas y límites pendiente
 
 [agents]
 enabled = true
-max_concurrent_threads_per_session = 12
+max_concurrent_threads_per_session = 24
 default_subagent_model = "gpt-5.6-terra"
 default_subagent_reasoning_effort = "medium"
 
@@ -121,7 +125,7 @@ default_subagent_reasoning_effort = "medium"
 # La concurrencia sigue siendo finita; 0 no significa ilimitado.
 [features.multi_agent_v2]
 enabled = true
-max_concurrent_threads_per_session = 12
+max_concurrent_threads_per_session = 24
 subagent_developer_instructions = "Puedes crear subagentes a demanda y transmitir esa capacidad a tus descendientes. Lee .agents/skills/orquestar-vec/SKILL.md; asigna modelo, esfuerzo y archivos sin solaparlos. Conserva las restricciones y permisos recibidos. El director puede elevar tu modelo o esfuerzo cuando la dificultad lo requiera, sin consultar de nuevo al operador. Sólo el director principal integra en la rama canónica."
 
 [agents.backend_expedientes]

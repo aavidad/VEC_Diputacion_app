@@ -1,5 +1,64 @@
 # Estado y plan de ataque del proyecto
 
+## Recuperación del trabajo — 12 de septiembre de 2026
+
+Orden vigente del operador: revisar y conservar el trabajo, ordenar las ramas y
+publicar lo válido y reactivar el director remoto sobre ramas limpias. Este bloque sustituye
+la pausa operativa del 10 de septiembre que se conserva debajo como historia.
+El apoyo integra esta recuperación; el director remoto ya trabaja en las entregas
+siguientes en ramas propias y toma la integración tras recibir la base publicada.
+
+La raíz remota se llevó a la canónica limpia `1b28079c`. Sus 268 diferencias
+pendientes quedaron preservadas en `refs/rescate/wip-20260912`
+(`stash 7aa50c3c`) y en una copia privada; no se descartó trabajo por estar
+sin confirmar. El cotejo de 319 archivos locales encontró 309 idénticos a lo
+conservado en remoto, diez divergentes y ninguno ausente. Las divergencias
+requieren revisión; no justifican reconstruir ni sobrescribir la canónica.
+
+Los veinte archivos de backend de anotación, cierre y composición nominal
+tienen dos revisiones independientes. Se corrigió el P2 de observaciones: la entrada
+reutiliza la validación del servicio y devuelve `422` antes del ejecutor,
+conservando el texto para corregirlo. La regresión focal, carrera y `go vet`
+de HTTP están verdes. La candidata conjunta supera `go test ./...`, `go vet ./...`,
+las 314 pruebas web de Contratación y el verificador de manifiestos. El rango
+canónico anterior y los 29 archivos seleccionados superan la detección de secretos.
+La publicación se comprueba por el hash de la referencia remota después del envío.
+
+También se corrigen cuatro pruebas desactualizadas: tres fixtures y la
+comprobación de arquitectura que omitía las tres llamadas a constructores TCB
+ya integradas en la función privada de composición desde `28b14bba`.
+La excepción queda limitada a esos constructores, archivo y función; no
+autoriza reexportaciones ni modifica código productivo. `go vet` también detectó
+dos literales de prueba sin nombres de campos; se corrigieron conservando sus valores.
+
+El frontend conserva un `NO-GO` con hallazgos concretos pendientes de corrección;
+no se presenta como integrado por las pruebas aisladas de sus componentes.
+Faltan su revisión final y el caso DOM conjunto `v8→v9`, incluida la nueva
+preparación del cierre después de anotar. El acceso Codex nativo con el perfil
+`aavidad` está comprobado y se corrigió la confianza del proyecto que impedía
+cargar su configuración. El director y sus agentes ya trabajan en programación,
+pruebas, revisión, documentación y preparación operativa. El techo es 24 sesiones
+en todo el árbol, incluido el director; no supone 24 sesiones siempre ocupadas.
+Terra/medium para código y pruebas, Sol/medium para documentación, Luna/low
+para tareas mecánicas y Astra/high para dirección o revisión sensible. `xhigh`
+requiere una dificultad concreta justificada, nunca una tarea mecánica.
+
+Este corte no ha instalado SQL ni cambiado la aplicación servida, la base o los
+recibos. Auth13 sigue pendiente de instalación; CT86/AD3-30 y CT87/AD3-31
+requieren validación e instalación propias. No reaplicar CT70–85 ni repetir
+el POST de incorporación. Tras integrar y publicar lo válido, continúan la
+recuperación por GET, GINPIX, anotación/cierre y recorrido conjunto
+(objetivos 11–14); el vencimiento sigue condicionado a inicio y política
+acreditados. La métrica funcional no aumenta.
+
+Para comprobar el estado de código desde el repositorio remoto:
+
+```sh
+git status --short
+git rev-parse trabajo/ct-app-llamamiento-b4a-20260905
+git show --no-patch --oneline refs/rescate/wip-20260912
+```
+
 ## Cierre por cuota — orden de Alberto, 10 de septiembre de 2026
 
 Sesión cerrada por orden expresa del operador. No reactivar agentes ni continuar
