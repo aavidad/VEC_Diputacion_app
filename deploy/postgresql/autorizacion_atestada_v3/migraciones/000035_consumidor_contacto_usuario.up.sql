@@ -304,9 +304,9 @@ BEGIN
         INTO dependencias FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
         OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f);
     nueva:=overlay(definicion placing
-        E'/* AD3-35 GUARDA INICIO */ CASE WHEN p_perfil_mutacion IN (''contacto_usuario_alta'',''contacto_usuario_actualizar'',''contacto_usuario_consultar'')\n'
+        E'/* AD3-35 GUARDA INICIO */ (CASE WHEN p_perfil_mutacion IN (''contacto_usuario_alta'',''contacto_usuario_actualizar'',''contacto_usuario_consultar'')\n'
         ||E'        THEN vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1(p_perfil_mutacion) IS NOT TRUE\n'
-        ||E'        ELSE (/* AD3-35 GUARDA ORIGINAL */'||guarda||E') END /* AD3-35 GUARDA FIN */'
+        ||E'        ELSE (/* AD3-35 GUARDA ORIGINAL */'||guarda||E') END) /* AD3-35 GUARDA FIN */'
         FROM inicio+13 FOR fin-inicio-13);
     nueva:=replace(nueva,marca,extension||marca);
     EXECUTE nueva;
@@ -431,7 +431,7 @@ BEGIN
     FOR f IN SELECT oid::regprocedure FROM pg_proc WHERE pronamespace='vec_autorizacion_atestada_v3'::regnamespace
         AND (proname LIKE 'contacto_%_v1' OR proname IN (
             'registrar_y_consumir_alta_contacto_usuario_v3_atestada','registrar_y_consumir_actualizar_contacto_usuario_v3_atestada',
-            'registrar_y_consumir_consultar_contacto_usuario_v3_atestada','revalidar_consulta_contacto_usuario_v3_atestada')) LOOP
+            'registrar_y_consumir_consultar_contacto_usuario_v3_atestada','revalidar_consulta_contacto_usuario_v3_atestada','revalidar_alta_contacto_usuario_v3_atestada','revalidar_actualizar_contacto_usuario_v3_atestada')) LOOP
         EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f);
         FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
             WHERE p.oid=f AND x.grantee<>0 AND x.grantee<>p.proowner LOOP
@@ -480,21 +480,33 @@ BEGIN
         RAISE EXCEPTION 'AD3-35: revalidación previa incompatible' USING ERRCODE='55000';
     END IF;
     guarda:=substring(def FROM inicio FOR fin-inicio);
-    nueva:=overlay(def placing $inicio$/* AD3-35 RV INICIO */ CASE WHEN p_perfil_consulta='contacto_usuario'
-        THEN vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1('contacto_usuario_consultar') IS NOT TRUE OR pg_catalog.pg_is_in_recovery()
-        ELSE (/* AD3-35 RV ORIGINAL */$inicio$||guarda||') END /* AD3-35 RV FIN */' FROM inicio FOR fin-inicio);
-    nueva:=replace(nueva,$antes$p_perfil_consulta NOT IN ('cuadro', 'detalle')$antes$,$despues$p_perfil_consulta NOT IN ('cuadro', 'detalle', 'contacto_usuario')$despues$);
-    nueva:=replace(nueva,$antes$IF p_perfil_consulta = 'cuadro' THEN$antes$,$despues$IF p_perfil_consulta = 'contacto_usuario' THEN
+    nueva:=overlay(def placing $inicio$/* AD3-35 RV INICIO */ (CASE WHEN p_perfil_consulta IN ('contacto_usuario','contacto_usuario_alta','contacto_usuario_actualizar')
+        THEN vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1(
+            CASE WHEN p_perfil_consulta='contacto_usuario' THEN 'contacto_usuario_consultar' ELSE p_perfil_consulta END
+        ) IS NOT TRUE OR pg_catalog.pg_is_in_recovery()
+        ELSE (/* AD3-35 RV ORIGINAL */$inicio$||guarda||') END) /* AD3-35 RV FIN */' FROM inicio FOR fin-inicio);
+    nueva:=replace(nueva,$antes$p_perfil_consulta NOT IN ('cuadro', 'detalle')$antes$,$despues$p_perfil_consulta NOT IN ('cuadro', 'detalle', 'contacto_usuario', 'contacto_usuario_alta', 'contacto_usuario_actualizar')$despues$);
+    nueva:=replace(nueva,$antes$IF p_perfil_consulta = 'cuadro' THEN$antes$,$despues$IF p_perfil_consulta = 'contacto_usuario_alta' THEN
+        v_audiencia := 'vec.contacto_usuario.registro.v1';
+        v_operacion := 'vec.contacto_usuario.alta';
+        v_tipo_recurso := 'contacto_usuario';
+        v_finalidad := 'gestion_contacto_propio';
+    ELSIF p_perfil_consulta = 'contacto_usuario_actualizar' THEN
+        v_audiencia := 'vec.contacto_usuario.registro.v1';
+        v_operacion := 'vec.contacto_usuario.actualizar';
+        v_tipo_recurso := 'contacto_usuario';
+        v_finalidad := 'gestion_contacto_propio';
+    ELSIF p_perfil_consulta = 'contacto_usuario' THEN
         v_audiencia := 'vec.contacto_usuario.consulta.v1';
         v_operacion := 'vec.contacto_usuario.consultar';
         v_tipo_recurso := 'contacto_usuario';
         v_finalidad := 'envio_llamamiento';
     ELSIF p_perfil_consulta = 'cuadro' THEN$despues$);
-    nueva:=replace(nueva,$antes$d ->> 'modulo_id' <> 'contratacion_temporal'$antes$,$despues$d ->> 'modulo_id' IS DISTINCT FROM CASE WHEN p_perfil_consulta='contacto_usuario'
-           THEN 'vec.module.usuarios' ELSE 'contratacion_temporal' END$despues$);
+    nueva:=replace(nueva,$antes$d ->> 'modulo_id' <> 'contratacion_temporal'$antes$,$despues$d ->> 'modulo_id' IS DISTINCT FROM (CASE WHEN p_perfil_consulta IN ('contacto_usuario','contacto_usuario_alta','contacto_usuario_actualizar')
+           THEN 'vec.module.usuarios' ELSE 'contratacion_temporal' END)$despues$);
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '2f15b9ca8b64d453e79063fe706a5ac87ec3453e5c9451e071ecfc6bc30b2ff0'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '7b93dd88a453fc052344825762a8ea0d46a8072fe6e058db09186c3bd50bde80'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -531,14 +543,70 @@ BEGIN
 END $acl_revalidacion$;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.revalidar_consulta_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
 
+-- Revalidación final tras todas las escrituras y esperas: no genera otro consumo.
+CREATE FUNCTION vec_autorizacion_atestada_v3.revalidar_alta_contacto_usuario_v3_atestada(
+    p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+    p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,
+    p_negocio bytea,p_recurso bytea,p_auditoria bytea)
+RETURNS TABLE(decision_ref text,consumo_huella_sha256 text,revalidada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='1s'
+AS $f$
+BEGIN
+    IF vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1('contacto_usuario_alta') IS NOT TRUE THEN
+        RAISE EXCEPTION 'AD3-35: revalidación contacto denegada' USING ERRCODE='42501';
+    END IF;
+    PERFORM vec_autorizacion_atestada_v3.contacto_validar_material_v1(
+        'vec.contacto_usuario.alta',p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
+    RETURN QUERY SELECT * FROM vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(
+        'contacto_usuario_alta',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+        p_payload,p_sobre,p_evidencia,p_raiz);
+END $f$;
+DO $acl_revalidacion$
+DECLARE f regprocedure:='vec_autorizacion_atestada_v3.revalidar_alta_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'::regprocedure; a record;
+BEGIN
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f);
+    FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
+        WHERE p.oid=f AND x.grantee<>0 AND x.grantee<>p.proowner LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',f,pg_get_userbyid(a.grantee));
+    END LOOP;
+END $acl_revalidacion$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.revalidar_alta_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
+CREATE FUNCTION vec_autorizacion_atestada_v3.revalidar_actualizar_contacto_usuario_v3_atestada(
+    p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+    p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,
+    p_negocio bytea,p_recurso bytea,p_auditoria bytea)
+RETURNS TABLE(decision_ref text,consumo_huella_sha256 text,revalidada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='1s'
+AS $f$
+BEGIN
+    IF vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1('contacto_usuario_actualizar') IS NOT TRUE THEN
+        RAISE EXCEPTION 'AD3-35: revalidación contacto denegada' USING ERRCODE='42501';
+    END IF;
+    PERFORM vec_autorizacion_atestada_v3.contacto_validar_material_v1(
+        'vec.contacto_usuario.actualizar',p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
+    RETURN QUERY SELECT * FROM vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(
+        'contacto_usuario_actualizar',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+        p_payload,p_sobre,p_evidencia,p_raiz);
+END $f$;
+DO $acl_revalidacion$
+DECLARE f regprocedure:='vec_autorizacion_atestada_v3.revalidar_actualizar_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'::regprocedure; a record;
+BEGIN
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f);
+    FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
+        WHERE p.oid=f AND x.grantee<>0 AND x.grantee<>p.proowner LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',f,pg_get_userbyid(a.grantee));
+    END LOOP;
+END $acl_revalidacion$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.revalidar_actualizar_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
+
 DO $post$
 DECLARE f record; esperado oid; a record;
 BEGIN
     FOR f IN SELECT * FROM pg_proc WHERE pronamespace='vec_autorizacion_atestada_v3'::regnamespace AND
         (proname LIKE 'contacto_%_v1' OR proname IN ('registrar_y_consumir_alta_contacto_usuario_v3_atestada',
-            'registrar_y_consumir_actualizar_contacto_usuario_v3_atestada','registrar_y_consumir_consultar_contacto_usuario_v3_atestada','revalidar_consulta_contacto_usuario_v3_atestada')) LOOP
+            'registrar_y_consumir_actualizar_contacto_usuario_v3_atestada','registrar_y_consumir_consultar_contacto_usuario_v3_atestada','revalidar_consulta_contacto_usuario_v3_atestada','revalidar_alta_contacto_usuario_v3_atestada','revalidar_actualizar_contacto_usuario_v3_atestada')) LOOP
         esperado:=CASE WHEN f.proname='contacto_material_auditoria_v1' THEN 'vec_bolsa_accesos_propietario'::regrole
-            WHEN f.proname LIKE 'registrar_y_consumir_%' OR f.proname='revalidar_consulta_contacto_usuario_v3_atestada' THEN 'vec_contacto_usuario_owner'::regrole ELSE f.proowner END;
+            WHEN f.proname LIKE 'registrar_y_consumir_%' OR f.proname IN ('revalidar_consulta_contacto_usuario_v3_atestada','revalidar_alta_contacto_usuario_v3_atestada','revalidar_actualizar_contacto_usuario_v3_atestada') THEN 'vec_contacto_usuario_owner'::regrole ELSE f.proowner END;
         IF f.proowner<>'vec_autorizacion_atestada_v3_propietario'::regrole
            OR NOT COALESCE((SELECT count(*)=CASE WHEN esperado=f.proowner THEN 1 ELSE 2 END
                AND count(DISTINCT x.grantee)=count(*)
