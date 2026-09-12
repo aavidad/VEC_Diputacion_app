@@ -96,6 +96,7 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
+static/portal-empleado/modulos/contratacion-temporal/formulario-propuesta-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/vista.js

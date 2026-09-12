@@ -1,4 +1,5 @@
 import { escaparHTML as e } from "./componentes-expedientes.js";
+import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
@@ -165,6 +166,6 @@ export function renderizarLlamamiento(estado, t, fecha) {
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
     ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && estado.seleccion.solicitud?.version_esperada === 6
-      ? formulario("propuesta", CAMPOS_PROPUESTA) : ""}
+      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
   </section>`;
 }
