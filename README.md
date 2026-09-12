@@ -6,8 +6,8 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit `e4ffa72de593b9500ee155e8dd3256474984d831` está publicado y
-desplegado con el binario
+El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
+El runtime continúa en `e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome obtuvo `200` al recuperar la incorporación y la ficha GINPIX, sin
 repetir el `POST`: se conservaron el recibo `ref:2bc3d281…`, la fecha
@@ -24,6 +24,13 @@ La agrupación a ancho completo de los seis pares PDF/Word está integrada en
 código y revisada, pero aún no está desplegada. Faltan comprobar esa agrupación
 en runtime y la recuperación después de reiniciar PostgreSQL. Auth13 está
 instalada una sola vez; CT86/87 y AD3-30/31 siguen sin ensayo ni instalación.
+
+El siguiente corte frontend integra fechas civiles UTC legibles sin desplazar
+el día, paginación mediante cursor opaco de un solo uso y validación accesible
+del filtro de hasta 80 caracteres. Los errores recuperables conservan el
+cuadro y no lanzan otra consulta por una entrada inválida. Sus dos revisiones
+estáticas dieron `GO` y la suite web terminó 351/351. El despliegue y el E2E de
+paginación siguen pendientes.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

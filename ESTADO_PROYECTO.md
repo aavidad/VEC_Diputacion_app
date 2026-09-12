@@ -2,8 +2,9 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit `e4ffa72de593b9500ee155e8dd3256474984d831` está publicado en
-`integracion/ct-producto-ligero-20260821` y desplegado con el binario
+El código publicado en `integracion/ct-producto-ligero-20260821` avanzó a
+`7211ac973306b067525a45d05d7914a9a4a710f5`. El runtime continúa en
+`e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
 el `POST`. Coincidieron los seis campos cotejados, el recibo
@@ -25,6 +26,18 @@ Aún falta desplegar la agrupación, comprobarla en runtime y recuperar el
 recorrido después de reiniciar PostgreSQL. Auth13 continúa instalada una sola
 vez. CT86/87 y AD3-30/31 no se han ensayado ni instalado; anotación y cierre
 siguen sin recorrido real.
+
+El candidato frontend actual integra seis JS y dos pruebas a
+partir de tres hunks revisados, sin conflictos y conservando DOCX y la
+agrupación. Presenta fechas civiles UTC sin desplazar el día; consume una sola
+vez cada cursor opaco con controles **Siguiente** y **Reiniciar**; mantiene el
+cuadro ante errores recuperables; y aclara que el chip cuenta esta página, no
+el total. El filtro admite hasta 80 caracteres y una entrada inválida muestra
+un aviso accesible sin `TypeError` ni nueva consulta. Dos revisiones estáticas
+dieron `GO`. La validación terminó 351/351 en Contratación temporal y 23/23 en
+el coordinador, 374 comprobaciones en total; los manifiestos 11 públicos, 111
+internos, 3 compartidos y 1 traducción también pasaron. No se ejecutó una nueva
+campaña Go. El despliegue y el E2E de paginación siguen pendientes.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones

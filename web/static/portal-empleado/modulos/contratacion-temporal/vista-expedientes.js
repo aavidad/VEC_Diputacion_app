@@ -316,7 +316,10 @@ export function renderizarModuloContratacionTemporal(estado, {
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
+  const errorPaginadoRecuperable = estado.vista === "cuadro" && estado.carga === "error"
+    && estado.cuadro?.paginacion && estado.paginacion_requiere_reinicio === true;
   if (["cargando", "error", "denegado"].includes(estado.carga)
+    && !errorPaginadoRecuperable
     && estado.vista !== "alta") {
     contenido = renderizarEstadoCarga(estado, t);
   } else if (estado.vista === "alta") {
@@ -1275,6 +1278,16 @@ export async function montarModuloContratacionTemporal({
       }
       return;
     }
+    const pagina = evento.target?.closest?.("[data-ct-exp-pagina]");
+    if (pagina && raiz.contains(pagina)) {
+      evento.preventDefault();
+      if (pagina.disabled || impedirCambioPorAnalisis()) return;
+      const promesa = presentador.navegarPagina(pagina.dataset.ctExpPagina);
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar("[data-ct-exp-filtros]");
+      return;
+    }
     const tareaControl = evento.target?.closest?.("[data-ct-exp-tarea]");
     if (tareaControl && raiz.contains(tareaControl)) {
       evento.preventDefault();
@@ -1348,14 +1361,23 @@ export async function montarModuloContratacionTemporal({
     evento.preventDefault();
     if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
     const datos = new FormData(formulario);
-    const promesa = presentador.cargar({
-      texto: String(datos.get("texto") ?? "").trim(),
-      estado: String(datos.get("estado") ?? ""),
-      fase: String(datos.get("fase") ?? ""),
-    });
-    repintar("[data-ct-exp-mensaje]");
-    await promesa;
-    repintar("[data-ct-exp-filtros]");
+    try {
+      const promesa = presentador.cargar({
+        texto: String(datos.get("texto") ?? "").trim(),
+        estado: String(datos.get("estado") ?? ""),
+        fase: String(datos.get("fase") ?? ""),
+      });
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar("[data-ct-exp-filtros]");
+    } catch {
+      const mensaje = crearTraductorExpedientesContratacion(mensajes)("estado_error_filtros");
+      const destino = raiz.querySelector("[data-ct-exp-mensaje]");
+      destino?.setAttribute?.("role", "alert");
+      destino?.setAttribute?.("aria-live", "polite");
+      if (destino) destino.textContent = mensaje;
+      anunciar(mensaje, "error");
+    }
   }
 
   raiz.addEventListener("click", manejarClick);

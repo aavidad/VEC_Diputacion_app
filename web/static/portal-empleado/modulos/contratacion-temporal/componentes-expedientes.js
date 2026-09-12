@@ -112,7 +112,7 @@ export function renderizarCuadro(estado, t) {
     <label>
       <span>${escaparHTML(t("filtro_texto"))}</span>
       <input type="search" name="texto" value="${escaparHTML(estado.filtros.texto)}"
-        placeholder="${escaparHTML(t("filtro_texto_placeholder"))}">
+        maxlength="80" placeholder="${escaparHTML(t("filtro_texto_placeholder"))}">
     </label>
     <label>
       <span>${escaparHTML(t("filtro_estado"))}</span>
@@ -145,7 +145,7 @@ export function renderizarCuadro(estado, t) {
   const tabla = `<section class="panel ct-exp-listado">
     <div class="cabecera-panel">
       <h3>${escaparHTML(t("tabla_expedientes"))}</h3>
-      <span class="estado-chip info">${escaparHTML(t("resultados", { total: cuadro.expedientes.length }))}</span>
+      <span class="estado-chip info">${escaparHTML(t(cuadro.paginacion ? "resultados_pagina" : "resultados", { total: cuadro.expedientes.length }))}</span>
     </div>
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria">
@@ -164,10 +164,17 @@ export function renderizarCuadro(estado, t) {
       </table>
     </div>
   </section>`;
+  const paginacion = cuadro.paginacion ? `<nav class="ct-exp-paginacion" aria-label="${escaparHTML(t("paginacion"))}">
+    <span>${escaparHTML(t("pagina_actual", { pagina: cuadro.paginacion.pagina }))}</span>
+    <button type="button" class="boton-secundario" data-ct-exp-pagina="primera"
+      ${cuadro.paginacion.pagina === 1 && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "disabled" : ""}>${escaparHTML(t("pagina_primera"))}</button>
+    <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
+      ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
+  </nav>` : "";
   const trabajoOperativo = cuadro.demostracion ? renderizarTrabajoOperativo(cuadro, t) : "";
   const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a></p>`;
   return `${indicadores}${organizacion}${trabajoOperativo}${filtros}${estado.carga === "vacio"
-    ? renderizarEstadoCarga(estado, t) : tabla}`;
+    ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}`;
 }
 
 function renderizarFases(expediente, t) {

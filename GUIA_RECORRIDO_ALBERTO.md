@@ -2,8 +2,8 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El commit publicado `e4ffa72de593b9500ee155e8dd3256474984d831` está en el
-runtime con el binario
+El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
+El runtime sigue en `e4ffa72de593b9500ee155e8dd3256474984d831`, con el binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
 Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`, sin repetir
 el alta. Conservó el recibo `ref:2bc3d281…`, la fecha
@@ -34,6 +34,11 @@ las comprobaciones Go, vet y build. También falta recuperar el recorrido
 después de reiniciar PostgreSQL. Auth13 está instalada una vez; CT86/87 y
 AD3-30/31 siguen sin ensayo ni instalación, por lo que anotación y cierre no
 deben recorrerse todavía.
+
+El siguiente corte frontend incorpora fechas civiles UTC legibles, paginación
+con cursor opaco de un solo uso y validación accesible del filtro. Dos
+revisiones dieron `GO` y la suite web terminó 351/351. Hasta desplegarlo y
+comprobarlo en navegador, no se presenta como E2E de paginación.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

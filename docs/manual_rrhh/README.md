@@ -2,7 +2,8 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-El runtime publicado `e4ffa72de593b9500ee155e8dd3256474984d831`, binario
+El código publicado avanzó a `7211ac973306b067525a45d05d7914a9a4a710f5`.
+El runtime sigue en `e4ffa72de593b9500ee155e8dd3256474984d831`, binario
 `1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`,
 permite recuperar en Chrome la incorporación y la ficha GINPIX con HTTP `200`.
 No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
@@ -21,6 +22,15 @@ agrupación a ancho completo de los seis pares está integrada y revisada, pero
 aún no está desplegada ni comprobada en runtime. También falta la recuperación
 después de reiniciar PostgreSQL. Auth13 está instalada una sola vez; CT86/87 y
 AD3-30/31 continúan sin ensayo ni instalación.
+
+El siguiente corte añade controles de paginación. **Siguiente** usa una vez el
+cursor opaco recibido; **Reiniciar** vuelve a la primera página. El chip indica
+los expedientes de esta página, no un total general. Si una lectura recuperable
+falla, el cuadro visible se conserva. Las fechas civiles UTC se muestran sin
+cambiar de día. El filtro admite como máximo 80 caracteres; si la entrada no
+es válida aparece un aviso accesible y no se envía otra consulta. Esta mejora
+superó 351 pruebas web y dos revisiones estáticas, pero su despliegue y recorrido
+en navegador todavía están pendientes.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

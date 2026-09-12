@@ -67,6 +67,7 @@ function fuenteValida(fuente) {
 function filtrosIniciales() {
   return { texto: "", estado: "", fase: "" };
 }
+function paginaInicial() { return { cursor: "", numero: 1 }; }
 
 function estadoInicial(disponible) {
   return {
@@ -79,6 +80,8 @@ function estadoInicial(disponible) {
     expediente_ref: "",
     tarea_ref: "",
     filtros: filtrosIniciales(),
+    paginacion: null,
+    paginacion_requiere_reinicio: false,
     ocupado: false,
     actualizacion_pendiente: false,
     resultado_indeterminado: false,
@@ -174,7 +177,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
     if (estado.ocupado) throw errorPublico("actuacion_en_curso");
   }
 
-  async function cargar(filtros = estado.filtros) {
+  async function cargar(filtros = estado.filtros, paginaSolicitada = paginaInicial()) {
     exigirSinEfectoEnCurso();
     if (!disponible || desmontado) {
       reemplazar({
@@ -185,12 +188,18 @@ export function crearPresentadorExpedientesContratacionTemporal({
       return estado;
     }
     const filtrosCerrados = filtrosValidos(filtros);
+    if (paginaSolicitada === null || typeof paginaSolicitada !== "object"
+      || typeof paginaSolicitada.cursor !== "string" || !Number.isSafeInteger(paginaSolicitada.numero)
+      || paginaSolicitada.numero < 1) throw new TypeError("página de cuadro no válida");
+    const pagina = paginaSolicitada;
+    const estadoAntesCarga = estado;
     cancelarEnCurso();
     const operacion = secuencia;
     controlador = new AbortController();
     reemplazar({
       carga: "cargando",
       filtros: filtrosCerrados,
+      paginacion_requiere_reinicio: Boolean(estado.cuadro?.paginacion),
       recibo: null,
       mensaje_clave: "estado_cargando",
       tipo_mensaje: "informacion",
@@ -198,23 +207,30 @@ export function crearPresentadorExpedientesContratacionTemporal({
     try {
       const cuadro = validarCuadroContratacionTemporal(await fuente.listar({
         filtros: filtrosCerrados,
+        cursor: pagina.cursor,
+        numeroPagina: pagina.numero,
         signal: controlador.signal,
       }));
       if (desmontado || operacion !== secuencia) return estado;
-      const seleccionVisible = cuadro.expedientes.some(
+      const resumenSeleccionado = cuadro.expedientes.find(
         ({ expediente_ref: referencia }) => referencia === estado.expediente_ref,
       );
+      const seleccionVisible = resumenSeleccionado !== undefined;
+      const conservarSeleccion = seleccionVisible && (estado.expediente === null
+        || resumenSeleccionado.version === estado.expediente.version);
       reemplazar({
         carga: cuadro.expedientes.length === 0 ? "vacio" : "listo",
-        vista: seleccionVisible || estado.vista === "alta"
+        vista: conservarSeleccion || estado.vista === "alta"
           ? estado.vista
           : "cuadro",
         cuadro,
-        expediente: seleccionVisible ? estado.expediente : null,
-        documentos: seleccionVisible ? estado.documentos : null,
-        auditoria: seleccionVisible ? estado.auditoria : null,
-        expediente_ref: seleccionVisible ? estado.expediente_ref : "",
-        tarea_ref: seleccionVisible ? estado.tarea_ref : "",
+        paginacion: cuadro.paginacion ?? null,
+        paginacion_requiere_reinicio: false,
+        expediente: conservarSeleccion ? estado.expediente : null,
+        documentos: conservarSeleccion ? estado.documentos : null,
+        auditoria: conservarSeleccion ? estado.auditoria : null,
+        expediente_ref: conservarSeleccion ? estado.expediente_ref : "",
+        tarea_ref: conservarSeleccion ? estado.tarea_ref : "",
         mensaje_clave: estado.resultado_indeterminado
           ? "estado_resultado_indeterminado"
           : (cuadro.expedientes.length === 0 ? "estado_vacio" : "estado_listo"),
@@ -223,17 +239,30 @@ export function crearPresentadorExpedientesContratacionTemporal({
           : "informacion",
       });
     } catch (error) {
-      if (desmontado || operacion !== secuencia || error?.name === "AbortError") return estado;
+      if (desmontado || operacion !== secuencia) return estado;
+      if (estadoAntesCarga.cuadro !== null) estado = estadoAntesCarga;
       reemplazar({
         carga: "error",
-        cuadro: null,
-        mensaje_clave: "estado_error_carga",
+        cuadro: estadoAntesCarga.cuadro,
+        paginacion: estadoAntesCarga.paginacion,
+        paginacion_requiere_reinicio: Boolean(estadoAntesCarga.cuadro?.paginacion),
+        mensaje_clave: estadoAntesCarga.cuadro === null ? "estado_error_carga" : "estado_error_paginacion",
         tipo_mensaje: "error",
       });
     } finally {
       if (operacion === secuencia) controlador = null;
     }
     return estado;
+  }
+
+  async function navegarPagina(destino) {
+    if (!new Set(["primera", "siguiente"]).has(destino)) throw new TypeError("navegación de página no válida");
+    const actual = estado.cuadro?.paginacion;
+    if (!actual || !["listo", "error"].includes(estado.carga)
+      || ((estado.carga === "error" || estado.paginacion_requiere_reinicio) && destino !== "primera")) return estado;
+    if (destino === "primera") return cargar(estado.filtros);
+    if (typeof actual.cursor_siguiente !== "string" || actual.cursor_siguiente === "") return estado;
+    return cargar(estado.filtros, { cursor: actual.cursor_siguiente, numero: actual.pagina + 1 });
   }
 
   async function seleccionarExpediente(expedienteRef, vista = "expediente") {
@@ -521,6 +550,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
 
   return Object.freeze({
     cargar,
+    navegarPagina,
     seleccionarExpediente,
     cambiarVista,
     seleccionarTarea,
