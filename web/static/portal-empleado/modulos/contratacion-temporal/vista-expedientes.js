@@ -911,8 +911,13 @@ export async function montarModuloContratacionTemporal({
           if (urlFicha !== null) entornoDescarga.URL.revokeObjectURL(urlFicha);
           urlFicha = null;
         };
+        const resumenFicha = presentador.obtenerEstado().cuadro?.expedientes?.find(
+          (fila) => fila.expediente_ref === expedienteRef && fila.version === version,
+        );
         const desmontarFicha = montarFichaGINPIX({
           raiz: bloque, cliente: clienteLlamamiento, recibo: preparacion.recibo, mensajes,
+          locale,
+          resumen: resumenFicha ? { centro: resumenFicha.centro, categoria: resumenFicha.categoria } : undefined,
           descargarArchivo: (archivo, nombre) => {
             if (!montada || !raiz.contains(contenedor)) return;
             const BlobImpl = entornoDescarga.Blob ?? globalThis.Blob;
