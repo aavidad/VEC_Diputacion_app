@@ -2,15 +2,21 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-El código publicado y el runtime están en
-`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
-y PostgreSQL, Chrome recuperó la incorporación y la ficha GINPIX con HTTP `200`.
+El último runtime comprobado usa la web
+`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la incorporación
+y la ficha GINPIX con HTTP `200`.
 No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Los seis documentos disponibles como PDF se descargaron también en Word con
-HTTP `200`: informe definitivo, resolución, diligencia, toma de posesión,
+El detalle de trazabilidad conserva recibo y fecha visibles y puede abrirse y
+cerrarse. El recorrido no tuvo errores JavaScript, cookies, almacenamiento ni
+desbordamiento a 1440, 1024 o 390 px. No se repitieron los seis Word. El `GET`
+de preparación del cierre devolvió `404` porque aún faltan configuración y
+migraciones; los botones nuevos no acreditan que el cierre esté disponible.
+
+En el runtime anterior `75157434…`, los seis documentos disponibles como PDF
+se descargaron también en Word con HTTP `200`: informe definitivo, resolución, diligencia, toma de posesión,
 notificación y comunicación al centro. Los seis ficheros DOCX son ZIP válidos y
 su informe registró cero errores JavaScript. El recorrido de incorporación
 registró además cero cookies y almacenamiento, y no mostró desbordamiento a
@@ -43,8 +49,9 @@ no se han ejecutado ni se debe aplicar `DOWN`. CT70–85 y Auth13 conservan su
 historia instalada. Los próximos ensayos usarán un clúster aislado y después el
 harness real; CT86/87 siguen pendientes.
 
-La nueva recuperación de cierre está integrada en código y revisada, pero aún
-no está en runtime. **Preparar cierre** crea y muestra una solicitud inmutable y
+La recuperación de cierre está integrada, revisada y visible en el último
+runtime, aunque el `GET` de preparación sigue en `404` por configuración y
+migraciones pendientes. **Preparar cierre** crea y muestra una solicitud inmutable y
 ofrece descargar el archivo JSON sin enviar `POST`. Pulse **Guardar datos de
 recuperación** para conservarlo antes de confirmar. Solo la segunda acción,
 confirmada expresamente, registra el cierre. Para reanudar, importe el mismo
@@ -59,6 +66,15 @@ Las 378/378 pruebas web y los manifiestos 111/11/3/1 están verdes. CT86/87 solo
 pasaron cuatro `UP` en dos clones aislados; la base principal sigue pendiente y
 la instrumentación CT87 bloqueada quedó congelada, sin acreditar un ensayo de
 cierre.
+
+La bandeja nominal en código exige identificar al técnico y limita sus dos
+consultas a la intersección de organización y unidad, sin fallback. Sus 16
+archivos recibieron dos `GO` estáticos; las focales de puertos/bootstrap,
+`go vet ./...`, compilación y `go test ./...` global pasaron. Falta un E2E
+con dos lectores. No añade SQL. Para el futuro correo se usará una cuenta remitente aún
+por crear sobre una IP interna de la Diputación; el destino es el correo
+obligatorio de un alta VEC existente. Faltan configurar servidor, puerto, TLS y
+credencial reales.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

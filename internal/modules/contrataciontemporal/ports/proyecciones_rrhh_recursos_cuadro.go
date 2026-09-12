@@ -23,13 +23,13 @@ func NuevosRecursosConsultaCuadroRRHH(
 	}
 	recursos := RecursosConsultaRRHH{
 		recurso: dominiovec.RecursoAutorizable{
-			Referencia: contexto.organizacionRef,
+			Referencia: contexto.ambitoRef,
 			ModuloID:   ModuloContratacion,
 			Tipo:       TipoRecursoCuadroRRHH,
 			Ambitos: map[string]string{
 				ambitoOrganizacionRecursoRRHH: contexto.organizacionRef,
-				ambitoClaseRecursoRRHH:        string(AmbitoOrganizacionRRHH),
-				ambitoReferenciaRecursoRRHH:   contexto.organizacionRef,
+				ambitoClaseRecursoRRHH:        string(contexto.claseAmbito),
+				ambitoReferenciaRecursoRRHH:   contexto.ambitoRef,
 			},
 			Atributos: map[string]string{
 				atributoDominioConsultaRRHH: DominioHuellaConsultaCuadroRRHH,
@@ -63,8 +63,8 @@ func (r RecursosConsultaRRHH) validarParaCuadro(
 		AccionConsultarCuadroRRHH,
 		"",
 	)
-	if err != nil || clase != AmbitoOrganizacionRRHH ||
-		ambitoRef != contexto.organizacionRef {
+	if err != nil || clase != contexto.claseAmbito ||
+		ambitoRef != contexto.ambitoRef {
 		return ErrCapacidadConsultaRRHHInvalida
 	}
 	return nil

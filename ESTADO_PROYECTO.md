@@ -2,20 +2,28 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado y el runtime de `integracion/ct-producto-ligero-20260821`
-están en `75157434dc0b06ab90d02a2a3822a36a740fd27c`. Tras reiniciar aplicación
-y PostgreSQL a las 13:51 UTC, Chrome recuperó la incorporación y la ficha
-GINPIX con HTTP `200`, sin repetir
-el `POST`. Coincidieron los seis campos cotejados, el recibo
+El último runtime comprobado de `integracion/ct-producto-ligero-20260821` usa
+la web `037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la
+incorporación y la ficha GINPIX con HTTP `200`, sin repetir el `POST`.
+Coincidieron los seis campos cotejados, el recibo
 `ref:2bc3d281…` y la fecha `2026-09-10T13:07:06.614186Z`; la ficha descargada
 tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Los seis DOCX se descargaron con HTTP `200` y validación ZIP correcta. El
+En el runtime anterior `75157434…`, los seis DOCX se descargaron con HTTP `200`
+y validación ZIP correcta. El
 recorrido registró cero errores JavaScript y cero datos en cookies o
 almacenamiento web. La pantalla de incorporación no tuvo desbordamiento a
 1440, 1024 ni 390 px. Los Word conservan su carácter de borradores: no
 constituyen firma, eficacia, envío, entrega o transmisión.
+
+La trazabilidad mantuvo visibles recibo y fecha y permitió abrir y cerrar el
+detalle. No hubo errores JavaScript, cookies, almacenamiento ni desbordamiento
+a 1440, 1024 o 390 px. No se repitieron las seis descargas Word. La evidencia
+está en
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-traza-037b4226.informe.json`.
+La preparación de cierre devolvió `GET 404` por configuración y migraciones
+pendientes. Los botones de la nueva UI están presentes, sin cierre acreditado.
 
 La agrupación a ancho completo de los seis pares PDF/Word está desplegada y
 visible. Tras el reinicio, los seis DOCX devolvieron `200` con nombres, bytes y
@@ -72,11 +80,24 @@ solicitud exacta y puede concluir una operación pendiente, sin repetir el
 visibles recibo, fecha, estado, límites y período.
 
 La validación global terminó 378/378 pruebas web `PASS` y los manifiestos 111/11/3/1
-pasaron. Esta UI todavía no está en runtime. Los objetivos 11 y 12 conservan la
+pasaron. Esta UI ya estaba visible en el runtime `037b4226…`; el cierre sigue
+bloqueado por el `GET 404` de configuración y migraciones. Los objetivos 11 y 12 conservan la
 acreditación del reinicio anterior. Los cuatro `UP` de CT86/87 pasaron solo en
 dos clones separados; no se instalaron en la principal. La instrumentación de
 CT87 fue bloqueada automáticamente y quedó congelada, por lo que no constituye
 un ensayo funcional de cierre.
+
+La nueva bandeja nominal consta de 16 archivos Go y no añade SQL. Exige técnico
+explícito y aporta lectores nominales a las dos consultas con intersección de
+organización y unidad, sin fallback. Dos revisiones estáticas dieron `GO` sobre
+el manifiesto `9e65…`; las pruebas focales de puertos y bootstrap, `go vet` y
+compilación y `go test ./...` global pasaron. El E2E con dos lectores sigue
+pendiente, por lo que aún no hay `GO` funcional.
+
+El operador resolvió la fuente SMTP como una cuenta remitente todavía por crear
+sobre una IP interna de la Diputación. El destino es el correo obligatorio de
+un alta VEC existente. Ya no está pendiente elegir el canal; faltan crear la
+cuenta remitente y fijar servidor, puerto, TLS y credencial reales.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones

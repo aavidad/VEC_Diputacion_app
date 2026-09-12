@@ -31,7 +31,7 @@ const (
 	rolIntervencionContratacionTemporalDesarrollo = "intervencion"
 )
 
-type selloConsultasContratacionTemporalDesarrollo struct{}
+type selloConsultasContratacionTemporalDesarrollo struct{ _ byte }
 
 type claveCapacidadConsultasContratacionTemporalDesarrollo struct{}
 
@@ -289,11 +289,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var borradorRRHH ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
-		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, derivador, reloj)
+		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, resolvedorDesarrollo, derivador, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		cuadroReal, detalleReal = consultasRRHH.cuadro, consultasRRHH.detalle
+		cuadroReal, detalleReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP
 		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
 		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}}
 	}
@@ -495,10 +495,11 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 	principal, err := m.autoridad.resolvedor.ResolveDemoIdentity(
 		r.Context(), r,
 	)
-	if err == nil && principalContratacionTemporalDesarrolloValidoParaRuta(
-		principal,
-		r.URL.Path,
-	) {
+	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
+	if rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
+		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
+	}
+	if err == nil && validoRuta {
 		capacidad := capacidadConsultaContratacionTemporalDesarrollo{
 			sello:     m.autoridad.sello,
 			ruta:      r.URL.Path,

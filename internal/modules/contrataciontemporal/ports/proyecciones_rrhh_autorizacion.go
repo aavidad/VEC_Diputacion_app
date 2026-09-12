@@ -127,7 +127,8 @@ func validarRecursoCapacidadConsultaRRHH(
 	clase := ClaseAmbitoConsultaRRHH(recurso.Ambitos[ambitoClaseRecursoRRHH])
 	ambitoRef := recurso.Ambitos[ambitoReferenciaRecursoRRHH]
 	if !clase.valida() || !domain.ReferenciaOpacaValida(ambitoRef) ||
-		(clase == AmbitoOrganizacionRRHH && ambitoRef != contexto.organizacionRef) {
+		(clase == AmbitoOrganizacionRRHH && ambitoRef != contexto.organizacionRef) ||
+		clase != contexto.claseAmbito || ambitoRef != contexto.ambitoRef {
 		return "", "", ErrCapacidadConsultaRRHHInvalida
 	}
 	esCuadro := accion == AccionConsultarCuadroRRHH &&
@@ -189,6 +190,8 @@ func (c CapacidadConsultaRRHH) validaPara(
 		c.sesionRef != contexto.sesionRef || c.principalRef != contexto.actorRef ||
 		c.perfilRef != contexto.perfilRef ||
 		c.organizacionRef != contexto.organizacionRef ||
+		c.claseAmbito != contexto.claseAmbito ||
+		c.ambitoRef != contexto.ambitoRef ||
 		c.consultaDominio != dominio || c.consultaHuella != huella ||
 		c.accion != accion || c.finalidad != finalidad ||
 		c.expedienteRef != expedienteRef ||

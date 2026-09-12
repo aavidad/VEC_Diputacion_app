@@ -18,6 +18,8 @@ type autoridadConsultasRRHHDesarrollo struct {
 	soporte   *soporteAltaContratacionTemporalDesarrollo
 	delegado  puertosvec.AutorizadorSolicitudLigadaV3
 	reloj     ports.Reloj
+	clase     ports.ClaseAmbitoConsultaRRHH
+	ambitoRef string
 	mu        sync.Mutex
 	proveedor proveedorContextoConsultaRRHHDesarrollo
 }
@@ -62,6 +64,21 @@ func configurarAutoridadConsultasRRHHDesarrollo(
 	reloj ports.Reloj,
 	motivoCuadro, motivoDetalle dominiovec.ReferenciaEntradaCatalogo,
 ) (*autoridadConsultasRRHHDesarrollo, error) {
+	return configurarAutoridadConsultasRRHHDesarrolloConAmbito(
+		alta, reloj, motivoCuadro, motivoDetalle,
+		ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo,
+	)
+}
+
+// configurarAutoridadConsultasRRHHDesarrolloConAmbito fija el alcance antes
+// de publicar las instantáneas. La petición nunca lo elige.
+func configurarAutoridadConsultasRRHHDesarrolloConAmbito(
+	alta *dependenciasAltaContratacionTemporalDesarrollo,
+	reloj ports.Reloj,
+	motivoCuadro, motivoDetalle dominiovec.ReferenciaEntradaCatalogo,
+	clase ports.ClaseAmbitoConsultaRRHH,
+	ambitoRef string,
+) (*autoridadConsultasRRHHDesarrollo, error) {
 	if alta == nil || alta.soporte == nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(alta.autorizador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) ||
@@ -80,7 +97,7 @@ func configurarAutoridadConsultasRRHHDesarrollo(
 		dependenciaEsNulaContratacionTemporalDesarrollo(s.registroDecisionesAnalisis) {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	if _, err := ports.NuevoContextoConsultaRRHH(s.contexto, organizacionAltaContratacionTemporalDesarrollo, instante); err != nil {
+	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(s.contexto, organizacionAltaContratacionTemporalDesarrollo, clase, ambitoRef, instante); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	nueva := func(rol, nombre, accion, finalidad, tipo string) (dominiovec.InstantaneaAutorizacion, error) {
@@ -90,8 +107,8 @@ func configurarAutoridadConsultasRRHHDesarrollo(
 				TipoRecurso: tipo, Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
 			[]dominiovec.AmbitoPerfil{
 				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-				{Clave: "clase_ambito", Valores: []string{string(ports.AmbitoOrganizacionRRHH)}},
-				{Clave: "ambito_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "clase_ambito", Valores: []string{string(clase)}},
+				{Clave: "ambito_ref", Valores: []string{ambitoRef}},
 			})
 	}
 	cuadro, err := nueva("consulta_cuadro_rrhh_desarrollo", "Consulta de bandeja de desarrollo",
@@ -112,7 +129,7 @@ func configurarAutoridadConsultasRRHHDesarrollo(
 	}
 	s.instantaneaCuadroRRHH, s.instantaneaDetalleRRHH = cuadro, detalle
 	s.motivoCuadroRRHH, s.motivoDetalleRRHH = motivoCuadro, motivoDetalle
-	return &autoridadConsultasRRHHDesarrollo{soporte: s, delegado: alta.autorizador, reloj: reloj}, nil
+	return &autoridadConsultasRRHHDesarrollo{soporte: s, delegado: alta.autorizador, reloj: reloj, clase: clase, ambitoRef: ambitoRef}, nil
 }
 
 func rutaConsultaRRHHContratacionTemporalDesarrollo(ruta string) bool {
@@ -124,7 +141,7 @@ func (a *autoridadConsultasRRHHDesarrollo) ResolverContextoConsultaRRHH(ctx cont
 	if err != nil {
 		return ports.ContextoConsultaRRHH{}, err
 	}
-	return ports.NuevoContextoConsultaRRHH(contexto, organizacionAltaContratacionTemporalDesarrollo, a.reloj.Ahora())
+	return ports.NuevoContextoConsultaRRHHConAmbito(contexto, organizacionAltaContratacionTemporalDesarrollo, a.clase, a.ambitoRef, a.reloj.Ahora())
 }
 
 func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
@@ -159,7 +176,7 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	}
 	// Cada consumidor vuelve a comprobar la vigencia; la caché de petición no
 	// prolonga una sesión vencida ni permite registrar otra para el mismo flujo.
-	if _, err := ports.NuevoContextoConsultaRRHH(peticion.contexto, organizacionAltaContratacionTemporalDesarrollo, a.reloj.Ahora()); err != nil {
+	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(peticion.contexto, organizacionAltaContratacionTemporalDesarrollo, a.clase, a.ambitoRef, a.reloj.Ahora()); err != nil {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
 	contexto := peticion.contexto
@@ -204,7 +221,7 @@ func (a *autoridadConsultasRRHHDesarrollo) ExigirSolicitudLigadaV3(
 	if err != nil || !valida || dependenciaEsNulaContratacionTemporalDesarrollo(a.delegado) ||
 		!datos.VinculoAutenticacionActor.CoincideExactamenteCon(contexto.Vinculo) ||
 		datos.VinculoAutenticacionActor.ValidarPara(resultado) != nil ||
-		!a.soporte.solicitudAutorizacionConsultaRRHHDesarrolloValida(capacidad.ruta, datos) {
+		!a.solicitudAutorizacionConsultaRRHHDesarrolloValida(capacidad.ruta, datos) {
 		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, ports.ErrAutorizacionDenegada
 	}
 	// Misma clave privada usada por el soporte V3 para preparar y publicar la
@@ -213,23 +230,56 @@ func (a *autoridadConsultasRRHHDesarrollo) ExigirSolicitudLigadaV3(
 	return a.delegado.ExigirSolicitudLigadaV3(ctx, solicitud, resultado)
 }
 
-func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsultaRRHHDesarrolloValida(
+func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesarrolloValida(
 	ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
-	motivo, valido := s.motivoAutorizacionParaRuta(ruta)
+	if a == nil || a.soporte == nil {
+		return false
+	}
+	motivo, valido := a.soporte.motivoAutorizacionParaRuta(ruta)
 	r := datos.Recurso
 	if !valido || datos.ReferenciaMotivo != motivo || r.Validar() != nil ||
 		r.ModuloID != ports.ModuloContratacion || len(r.Ambitos) != 3 ||
 		r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
-		r.Ambitos["clase_ambito"] != string(ports.AmbitoOrganizacionRRHH) ||
-		r.Ambitos["ambito_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
+		r.Ambitos["clase_ambito"] != string(a.clase) || r.Ambitos["ambito_ref"] != a.ambitoRef ||
 		len(r.Atributos) != 2 || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["consulta_huella_sha256"]) {
 		return false
 	}
 	switch ruta {
 	case httpinterno.RutaConsultaCuadroRRHH:
 		return datos.Accion == ports.AccionConsultarCuadroRRHH && datos.Finalidad == ports.FinalidadConsultarCuadroRRHH &&
-			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == organizacionAltaContratacionTemporalDesarrollo &&
+			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == a.ambitoRef &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
+	case httpinterno.RutaConsultaDetalleRRHH:
+		return datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
+			r.Tipo == ports.TipoRecursoExpediente && domain.ReferenciaOpacaValida(r.Referencia) &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
+	default:
+		return false
+	}
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionConsultaRRHHDesarrolloValida(
+	ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+) bool {
+	motivo, valido := s.motivoAutorizacionParaRuta(ruta)
+	r := datos.Recurso
+	organizacion, clase, ambito := organizacionAltaContratacionTemporalDesarrollo, ports.AmbitoOrganizacionRRHH, organizacionAltaContratacionTemporalDesarrollo
+	if s.lectorConsultasRRHH {
+		organizacion, clase, ambito = s.organizacionConsultaRRHH, s.claseAmbitoConsultaRRHH, s.ambitoConsultaRRHH
+	}
+	if !valido || datos.ReferenciaMotivo != motivo || r.Validar() != nil ||
+		r.ModuloID != ports.ModuloContratacion || len(r.Ambitos) != 3 ||
+		r.Ambitos["organizacion_ref"] != organizacion ||
+		r.Ambitos["clase_ambito"] != string(clase) ||
+		r.Ambitos["ambito_ref"] != ambito ||
+		len(r.Atributos) != 2 || !huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["consulta_huella_sha256"]) {
+		return false
+	}
+	switch ruta {
+	case httpinterno.RutaConsultaCuadroRRHH:
+		return datos.Accion == ports.AccionConsultarCuadroRRHH && datos.Finalidad == ports.FinalidadConsultarCuadroRRHH &&
+			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == ambito &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
 		return datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&

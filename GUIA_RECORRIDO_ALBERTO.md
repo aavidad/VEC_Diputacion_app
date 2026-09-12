@@ -2,15 +2,23 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado y el runtime están en
-`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
-y PostgreSQL, Chrome recuperó la incorporación y la ficha GINPIX con HTTP
-`200`, sin repetir
-el alta. Conservó el recibo `ref:2bc3d281…`, la fecha
+El último runtime comprobado usa la web
+`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome recuperó la incorporación
+y la ficha GINPIX con HTTP `200`, sin repetir el alta. Conservó el recibo
+`ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y seis campos coincidentes. La ficha GINPIX tiene
 SHA256 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Desde el detalle se descargaron con HTTP `200` estos seis ZIP DOCX válidos;
+El detalle de trazabilidad mantuvo visibles recibo y fecha y se abrió y cerró.
+No hubo errores JavaScript, cookies, almacenamiento ni desbordamiento a 1440,
+1024 o 390 px. No se repitieron los seis Word. La evidencia se conserva en
+`/root/.local/state/vec-reactivacion-20260912/docx-navegador/incorporacion-traza-037b4226.informe.json`.
+El `GET` de preparación del cierre devolvió `404` por configuración y
+migraciones pendientes; no use la presencia de los nuevos botones como prueba
+de cierre.
+
+En el runtime anterior `75157434…` se descargaron desde el detalle con HTTP
+`200` estos seis ZIP DOCX válidos;
 tras el reinicio conservaron exactamente nombre, tamaño y SHA256:
 
 | Borrador | Bytes | SHA256 |
@@ -52,8 +60,9 @@ No se acredita avanzar con cursor porque las 52 filas caben en una página.
 La recuperación del cierre está integrada en código: sus cinco archivos
 recibieron dos `GO` y los otros cuatro archivos de trazabilidad tuvieron
 revisión proporcional de dirección. Las 378/378 pruebas web y los manifiestos
-111/11/3/1 están verdes; todavía no está disponible en runtime. El recorrido
-previsto separa claramente preparación y escritura:
+111/11/3/1 están verdes. La UI ya está visible en el runtime `037b4226…`, pero
+el `GET` de preparación devuelve `404` por configuración y migraciones
+pendientes. El recorrido previsto separa claramente preparación y escritura:
 
 1. Pulse **Preparar cierre** para crear y mostrar una solicitud inmutable. Esta
    acción ofrece descargar el JSON y no ejecuta `POST`.
@@ -68,6 +77,14 @@ previsto separa claramente preparación y escritura:
 Los detalles plegados conservan visibles recibo, fecha, estado, límites y
 período. CT86/87 solo tienen cuatro `UP` verdes en dos clones aislados; la base
 principal sigue pendiente y la instrumentación CT87 bloqueada no fue un ensayo.
+
+La bandeja nominal permanece en código: técnico explícito y lectores para dos
+consultas con ámbito de organización y unidad a la vez, sin fallback ni SQL.
+Sus 16 archivos tienen dos `GO` estáticos; las focales de puertos/bootstrap,
+`go vet ./...`, compilación y `go test ./...` global pasaron. Falta el E2E
+con dos lectores. Para SMTP se usará una cuenta remitente todavía por crear sobre una
+IP interna de la Diputación; el destino es el correo obligatorio de un alta VEC
+existente. Faltan concretar servidor, puerto, TLS y credencial.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

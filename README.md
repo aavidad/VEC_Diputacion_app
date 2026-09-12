@@ -6,20 +6,26 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-El código publicado y el runtime están en
-`75157434dc0b06ab90d02a2a3822a36a740fd27c`. Después de reiniciar aplicación
-y PostgreSQL a las 13:51 UTC, Chrome obtuvo `200` al recuperar la incorporación
-y la ficha GINPIX, sin
-repetir el `POST`: se conservaron el recibo `ref:2bc3d281…`, la fecha
+El último runtime comprobado usa la web
+`037b4226e979c755d47cb28591857ec03ca4d63c`. Chrome obtuvo `200` al recuperar
+la incorporación y la ficha GINPIX, sin repetir el `POST`: se conservaron el
+recibo `ref:2bc3d281…`, la fecha
 `2026-09-10T13:07:06.614186Z` y los seis campos cotejados. La ficha GINPIX
 descargada tiene SHA256
 `4f56c3dd607a1495852ac5e88a3b15340a50481c87a46a6fe078e3350afd4057`.
 
-Los seis borradores Word se descargaron con HTTP `200` y son ZIP válidos. Su
+En el runtime anterior `75157434…`, los seis borradores Word se descargaron con
+HTTP `200` y son ZIP válidos. Su
 informe registró cero errores JavaScript. El recorrido de incorporación registró
 además cero cookies y almacenamiento, y no mostró desbordamiento a 1440, 1024
 o 390 px. Son borradores de desarrollo: no acreditan firma, eficacia, envío ni
 transmisión.
+
+La trazabilidad conserva recibo y fecha visibles; su detalle se abrió y cerró.
+No hubo errores JavaScript, cookies ni almacenamiento, ni desbordamiento a
+1440, 1024 o 390 px. No se repitieron los seis Word. El `GET` de preparación
+del cierre devolvió `404` porque faltan configuración y migraciones: los botones
+de la nueva UI existen, pero todavía no acreditan un cierre.
 
 La agrupación a ancho completo de los seis pares PDF/Word está desplegada y
 visible. La recuperación tras el reinicio conservó sus nombres, bytes y SHA256;
@@ -46,8 +52,9 @@ su historia. Los avisos de fin de fichero de cuatro originales CT70/80 se
 mantienen para preservar su igualdad byte a byte. Dos clústeres aislados ya se
 restauraron; el siguiente paso es el harness real, sin tocar la base principal.
 
-La siguiente UI de cierre está revisada e integrada en código, todavía fuera
-del runtime. **Preparar cierre** crea y muestra una solicitud inmutable y ofrece
+La UI de recuperación del cierre ya está visible en el último runtime, pero el
+`GET` de preparación continúa bloqueado por configuración y migraciones
+pendientes. **Preparar cierre** crea y muestra una solicitud inmutable y ofrece
 guardar su JSON sin enviar `POST`; **Guardar datos de recuperación** conserva el
 archivo antes de confirmar. Una segunda acción confirmada ejecuta el cierre.
 Importar coteja expediente y seguimiento contra el recibo del `GET` original;
@@ -60,6 +67,15 @@ terminó 378/378 `PASS` y los manifiestos 111/11/3/1 pasaron. No se envía ning�
 Los cuatro `UP` de CT86/87 pasaron solamente en dos clones aislados. La base
 principal sigue pendiente y la instrumentación de CT87 quedó bloqueada de
 forma automática y congelada; esto no acredita un ensayo de anotación o cierre.
+
+La candidata de bandeja nominal añade 16 archivos Go sin SQL: técnico explícito
+y lectores nominales para dos consultas, con ámbito conjunto de organización y
+unidad y sin fallback. Recibió dos `GO` estáticos sobre el manifiesto `9e65…` y
+Las focales de puertos/bootstrap y la campaña conjunta `go test ./...`,
+`go vet ./...` y compilación pasaron. El E2E con dos lectores sigue pendiente. La fuente SMTP será una
+cuenta remitente todavía por crear sobre una IP interna de la Diputación; el
+destino es el correo obligatorio de un alta VEC existente. Faltan concretar
+servidor, puerto, TLS y credencial reales.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

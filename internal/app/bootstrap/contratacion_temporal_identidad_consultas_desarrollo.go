@@ -21,11 +21,11 @@ const (
 func nuevasDependenciasIdentidadConsultasDesarrollo(
 	ctx context.Context, c config.ConfiguracionPostgreSQLContratacionTemporal,
 	alta *dependenciasAltaContratacionTemporalDesarrollo, derivador *derivadorIdentidadOperacionDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
+	reloj relojContratacionTemporalDesarrollo, soporte *soporteAltaContratacionTemporalDesarrollo,
 ) (*proveedorSesionConsultaRRHHDesarrollo, func(), error) {
 	fallo := ports.ErrConsultaRRHHNoDisponible
 	registroDSN, revalidacionDSN, err := c.DSNIdentidadConsultasSeparados()
-	if err != nil || alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || derivador == nil || !derivador.valido() {
+	if err != nil || alta == nil || soporte == nil || alta.postgresql.gobierno == nil || derivador == nil || !derivador.valido() {
 		return nil, nil, fallo
 	}
 	consultaDSN, motivosDSN, _ := c.DSNConsultasRRHHSeparados()
@@ -87,7 +87,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
-	vinculo, err := alta.soporte.contexto.Vinculo.Datos()
+	vinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return nil, nil, fallo
 	}
@@ -101,7 +101,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
-	if err = prepararCuentaNominalConsultasDesarrollo(ctx, alta.postgresql.gobierno, alta.soporte, seudonimos); err != nil {
+	if err = prepararCuentaNominalConsultasDesarrollo(ctx, alta.postgresql.gobierno, soporte, seudonimos); err != nil {
 		return nil, nil, fallo
 	}
 	resolutor, err := postgrescontexto.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, poolContexto)
@@ -116,7 +116,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
-	proveedor, err := nuevoProveedorSesionConsultaRRHHDesarrollo(alta.soporte, registro, revalidador, reloj, autoridadContexto)
+	proveedor, err := nuevoProveedorSesionConsultaRRHHDesarrollo(soporte, registro, revalidador, reloj, autoridadContexto)
 	if err != nil {
 		return nil, nil, fallo
 	}

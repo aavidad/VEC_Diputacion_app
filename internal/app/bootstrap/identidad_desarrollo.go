@@ -18,8 +18,9 @@ type identidadCertificadoDesarrollo struct {
 }
 
 type resolvedorIdentidadDesarrollo struct {
-	porHuella map[[sha256.Size]byte]vecdomain.Principal
-	porSujeto map[string]adscripcionCentroDesarrollo
+	porHuella    map[[sha256.Size]byte]vecdomain.Principal
+	porSujeto    map[string]adscripcionCentroDesarrollo
+	lectoresRRHH map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
 }
 
 func nuevoResolvedorIdentidadDesarrollo(
@@ -38,7 +39,53 @@ func nuevoResolvedorIdentidadDesarrollo(
 		}
 		porHuella[identidad.huella] = clonarPrincipalDesarrollo(identidad.principal)
 	}
-	return &resolvedorIdentidadDesarrollo{porHuella: porHuella, porSujeto: make(map[string]adscripcionCentroDesarrollo)}, nil
+	return &resolvedorIdentidadDesarrollo{porHuella: porHuella, porSujeto: make(map[string]adscripcionCentroDesarrollo), lectoresRRHH: make(map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo)}, nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) registrarLectoresRRHH(lectores []identidadConsultaRRHHDesarrollo) error {
+	if r == nil {
+		return ErrMaterialDesarrolloInvalido
+	}
+	for _, lector := range lectores {
+		if lector.identidad.principal.Validate() != nil || lector.identidad.huella == ([sha256.Size]byte{}) ||
+			lector.identidad.principal.ID == "" || len(lector.identidad.principal.Roles) != 1 ||
+			(lector.identidad.principal.Roles[0] != "lector_rrhh" &&
+				lector.identidad.principal.Roles[0] != rolTecnicoRRHHContratacionTemporalDesarrollo) {
+			return ErrMaterialDesarrolloInvalido
+		}
+		principal, existe := r.porHuella[lector.identidad.huella]
+		if !existe || principal.ID != lector.identidad.principal.ID {
+			return ErrMaterialDesarrolloInvalido
+		}
+		if _, repetido := r.lectoresRRHH[lector.identidad.huella]; repetido {
+			return ErrMaterialDesarrolloInvalido
+		}
+		r.lectoresRRHH[lector.identidad.huella] = lector
+	}
+	return nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) lectorConsultaRRHH(principal vecdomain.Principal) (identidadConsultaRRHHDesarrollo, bool) {
+	if r == nil || !principalSinteticoContratacionTemporalDesarrolloValido(principal) || len(principal.Roles) != 1 {
+		return identidadConsultaRRHHDesarrollo{}, false
+	}
+	for huella, lector := range r.lectoresRRHH {
+		if r.porHuella[huella].ID == principal.ID && lector.identidad.principal.Attributes["certificate_sha256"] == principal.Attributes["certificate_sha256"] {
+			return lector, true
+		}
+	}
+	return identidadConsultaRRHHDesarrollo{}, false
+}
+
+func (r *resolvedorIdentidadDesarrollo) lectoresConsultaRRHH() []identidadConsultaRRHHDesarrollo {
+	if r == nil {
+		return nil
+	}
+	lectores := make([]identidadConsultaRRHHDesarrollo, 0, len(r.lectoresRRHH))
+	for _, lector := range r.lectoresRRHH {
+		lectores = append(lectores, lector)
+	}
+	return lectores
 }
 
 func (r *resolvedorIdentidadDesarrollo) adscripcionCentro(subject string) (adscripcionCentroDesarrollo, bool) {
