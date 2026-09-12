@@ -30,7 +30,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 	vacio := ports.ExpedienteParaSeleccion{}
 	if ctx == nil || l == nil || dependenciaNula(l.pool) ||
 		!domain.ReferenciaOpacaValida(organizacion) ||
-		!domain.ReferenciaOpacaValida(referencia) || version != 6 {
+		!domain.ReferenciaOpacaValida(referencia) || (version < 6 || version > ports.MaximoEnteroSeguroIntegracionBolsa) {
 		return vacio, ports.ErrPeticionIntegracionBolsaInvalida
 	}
 	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
@@ -42,12 +42,15 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 	defer revertirTransaccion(tx)
 	var contenido []byte
 	var actual int64
-	err = tx.QueryRow(ctx, `SELECT expediente_json, version_actual FROM
-		vec_contratacion_temporal.leer_expediente_seleccion_v1($1,$2,$3)`,
+	lector := "vec_contratacion_temporal.leer_expediente_seleccion_v1"
+	if version != 6 {
+		lector = "vec_contratacion_temporal.leer_expediente_seleccion_v2"
+	}
+	err = tx.QueryRow(ctx, `SELECT expediente_json, version_actual FROM `+lector+`($1,$2,$3)`,
 		organizacion, referencia, int64(version)).Scan(&contenido, &actual)
 	defer borrarBytes(contenido)
 	var expediente domain.Expediente
-	if err != nil || actual < 6 ||
+	if err != nil || actual < int64(version) ||
 		actual > int64(ports.MaximoEnteroSeguroIntegracionBolsa) ||
 		len(contenido) > 3*1024*1024 ||
 		decodificarJSONEstricto(contenido, &expediente) != nil ||

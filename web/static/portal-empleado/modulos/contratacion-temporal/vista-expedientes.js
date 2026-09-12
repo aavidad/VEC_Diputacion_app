@@ -864,7 +864,7 @@ export async function montarModuloContratacionTemporal({
         zonaHoraria,
         anunciar,
         alConfirmar: (recibo) => {
-          if (recibo.resultado !== "desfavorable" && recibo.version_resultante === 6) {
+          if (recibo.resultado !== "desfavorable" && recibo.version_resultante >= 6) {
             montarLlamamiento({
               expediente_ref: recibo.expediente_ref,
               version_esperada: recibo.version_resultante,
@@ -1805,7 +1805,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
       zonaHoraria,
       anunciar,
       alConfirmar: (recibo) => {
-        if (recibo.resultado === "desfavorable" || recibo.version_resultante !== 6
+        if (recibo.resultado === "desfavorable" || recibo.version_resultante < 6
           || desmontarLlamamiento !== null
           || typeof cliente.seleccionarLlamamiento !== "function"
           || typeof cliente.registrarComunicacionLlamamiento !== "function") return;

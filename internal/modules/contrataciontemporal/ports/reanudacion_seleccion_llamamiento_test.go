@@ -57,9 +57,15 @@ func TestReanudacionSeleccionRecursoLigaIntencionCompleta(t *testing.T) {
 			t.Fatal("intención diferente no ligada")
 		}
 	}
-	s.VersionExpediente = 7
+	s.VersionExpediente = 8
+	s.HuellaSemantica = s.huellaEsperada()
+	nuevo, err := NuevoRecursoReanudacionSeleccionLlamamiento(s)
+	if err != nil || nuevo.Atributos["material_sha256"] == r.Atributos["material_sha256"] {
+		t.Fatal("la nueva versión debe quedar ligada a su propia intención")
+	}
+	s.VersionExpediente = 5
 	s.HuellaSemantica = s.huellaEsperada()
 	if _, err := NuevoRecursoReanudacionSeleccionLlamamiento(s); err == nil {
-		t.Fatal("admitió versión fuera del corte")
+		t.Fatal("admitió versión anterior a fiscalización")
 	}
 }

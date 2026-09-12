@@ -44,8 +44,12 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 	}
 	defer revertirTransaccion(tx)
 	var fila filaEjecucionSeleccionO6
+	funcion := funcionReanudarPreparacionOrdenSeleccion
+	if solicitud.VersionExpediente != 6 {
+		funcion = "vec_contratacion_temporal.reanudar_preparacion_orden_seleccion_v2"
+	}
 	err = tx.QueryRow(ctx, `SELECT situacion, solicitud_json, reserva_ref,
-		efecto, recibo_json, artefacto_json FROM `+funcionReanudarPreparacionOrdenSeleccion+`(
+		efecto, recibo_json, artefacto_json FROM `+funcion+`(
 		$1::text,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`,
 		string(contenido), material.CapacidadCanonica(), material.DecisionCanonica(),
 		material.MotivoCanonico(), material.ContextoActorCanonico(), material.PersonaVersion(),
@@ -69,7 +73,7 @@ func (e *EjecucionesSeleccionLlamamientoPostgreSQL) ReanudarPreparacionOrden(
 
 func estadoReanudacionSeleccionDesdeFila(f filaEjecucionSeleccionO6, s ports.SolicitudReservaEjecucionSeleccionLlamamiento) (ports.EstadoEjecucionSeleccionLlamamiento, error) {
 	var dto solicitudEjecucionSeleccionO6
-	if s.Validar() != nil || s.VersionExpediente != 6 ||
+	if s.Validar() != nil || s.VersionExpediente < 6 ||
 		f.Situacion != string(ports.EjecucionSeleccionLlamamientoPropietaria) ||
 		f.Efecto != string(ports.EfectoPrepararOrdenSeleccionLlamamiento) ||
 		!referenciaReservaSeleccionO6Valida(f.ReservaRef) ||
