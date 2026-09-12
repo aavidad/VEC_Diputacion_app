@@ -592,6 +592,10 @@ export function crearCoordinadorModulosPortal({
           presentador: composicion.contratacionTemporal.crearPresentador(),
           alta: composicion.contratacionTemporal.alta,
           analisis: composicion.contratacionTemporal.analisis,
+          fiscalizacion: typeof composicion.contratacionTemporal.analisis?.cliente
+            ?.registrarResultadoFiscalizacion === "function"
+            ? { cliente: composicion.contratacionTemporal.analisis.cliente }
+            : null,
           confirmarOperacion,
           anunciar,
         });
