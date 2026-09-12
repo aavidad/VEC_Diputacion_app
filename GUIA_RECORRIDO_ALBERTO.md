@@ -24,7 +24,7 @@ errores JavaScript ni desbordamiento a 1440/390 px; persistieron dos `404` de
 Bolsa heredados y ajenos. El parser admite `menu: null` sin habilitar acciones
 y usa las siete claves locales canónicas desplegadas. No reaplique CT91.
 
-Al reabrir un expediente en Análisis y en curso, Cobertura recupera el formulario existente con la versión coincidente de bandeja y detalle, sin registrar de nuevo el análisis. Montaje focal comprobado; la pantalla real sigue sin errores JavaScript ni desbordamiento a 1440/390 px. No hay actualmente un expediente en Análisis en la bandeja conservada para acreditar esa apertura concreta.
+Corrección de recuperación de Cobertura: el análisis registrado conserva la fase Solicitud. La vista exige resultado RC, la misma referencia y versión en cuadro/detalle, y ausencia de cobertura o asignación. El expediente existente `b50fa719…`, v2 y RC validada, abre ahora el formulario sin repetir el análisis. Cuadro y detalle responden 200; su consulta automática de propuesta devuelve 503 y sigue en corrección del backend. Esta comprobación acredita el montaje recuperado, no una decisión de cobertura ni el cierre de la pantalla 4.
 
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.
 
