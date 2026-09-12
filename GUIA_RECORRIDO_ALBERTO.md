@@ -1,5 +1,7 @@
 # Guía de recorrido y recibos conservados de VEC
 
+La búsqueda del cuadro indica su criterio real: inicio del número de expediente. El botón de cierre amplía su área a 44 × 44 px. La lectura nominal de la bandeja conserva las mismas 52 referencias y fases, sin errores JavaScript ni desbordamiento en 1440/390 px.
+
 El corte D prepara la descarga de los seis borradores asociados a la propuesta
 original v7 aunque el expediente visible ya esté en v9. CT91, SHA256
 `8759adf01dfe2d14a583ee051527367423ff5fe6ad147953be2b0dc3a0181a34`, se
