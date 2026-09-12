@@ -171,7 +171,7 @@ const TAREAS = enriquecerTareasPresentacion([
         campos: [
           campo("modalidad", "Modalidad", "sustitucion", {
             control: "seleccion", obligatorio: true,
-            opciones: [opcion("sustitucion", "Sustitución"), opcion("vacante", "Vacante"), opcion("programa", "Programa")],
+            opciones: [opcion("sustitucion", "Sustitución"), opcion("vacante", "Vacante"), opcion("acumulacion_tareas", "Acumulación de tareas"), opcion("programa", "Programa temporal"), opcion("relevo", "Relevo")],
           }),
           campo("motivo", "Motivo", "Sustitución durante una ausencia prevista.", { control: "texto", obligatorio: true }),
           campo("duracion", "Duración prevista", "8 meses", { control: "texto", obligatorio: true }),
@@ -453,28 +453,27 @@ const TAREAS = enriquecerTareasPresentacion([
   tarea({
     referencia: "tarea-formalizacion", orden: 14, fase: "fase-nombramiento",
     etiqueta: "Formalización y firmas",
-    descripcion: "Informe, resolución, notificación, toma de posesión y comunicación al centro.",
+    descripcion: "Seis borradores: informe, resolución, diligencia, toma de posesión, notificación y comunicación al centro.",
     estadoClave: "en_curso", estado: "Firmas pendientes", responsable: "Servicio de Personal",
     entrada: "13/07/2026 10:15", tiempo: "En curso",
     paneles: [
-      panel("panel-documentos-formalizacion", "tabla", "Documentos para formalización", "Cada pieza conserva plantilla, versión y estado de firma.", {
+      panel("panel-documentos-formalizacion", "tabla", "Documentos para formalización", "Borradores preparatorios DEMO, sin firma ni eficacia jurídica. La ficha GINPIX se prepara en Incorporación.", {
         columnas: [
           columna("orden", "Orden"), columna("documento", "Documento"),
           columna("estado", "Estado"), columna("firma", "Firma"),
         ],
         filas: [
-          fila("fila-form-001", ["1", "Informe definitivo", "Generado", "Firmado"]),
-          fila("fila-form-002", ["2", "Resolución de nombramiento", "Generada", "Pendiente de firma"]),
-          fila("fila-form-003", ["3", "Notificación a la persona interesada", "Generada", "Pendiente de firma"]),
-          fila("fila-form-004", ["4", "Toma de posesión", "Pendiente", "No iniciada"]),
-          fila("fila-form-005", ["5", "Comunicación al centro", "Pendiente", "No iniciada"]),
-          fila("fila-form-006", ["6", "Ficha de alta GINPIX", "Generada", "No requiere firma"]),
-          fila("fila-form-007", ["7", "Índice del expediente", "Pendiente", "Pendiente"]),
+          fila("fila-form-001", ["1", "Informe definitivo", "Borrador DEMO", "Sin firma"]),
+          fila("fila-form-002", ["2", "Resolución de nombramiento", "Borrador DEMO", "Sin firma"]),
+          fila("fila-form-003", ["3", "Diligencia", "Borrador DEMO", "Sin firma"]),
+          fila("fila-form-004", ["4", "Toma de posesión", "Borrador DEMO", "Sin firma"]),
+          fila("fila-form-005", ["5", "Notificación a la persona interesada", "Borrador DEMO", "Sin firma"]),
+          fila("fila-form-006", ["6", "Comunicación al centro", "Borrador DEMO", "Sin firma"]),
         ],
       }),
-      panel("panel-firmas", "comprobaciones", "Circuito de firmas", "Los firmantes y el orden proceden de configuración gobernada.", {
+      panel("panel-firmas", "comprobaciones", "Circuito de firmas", "Simulación del circuito pendiente de validar; no conecta con un portafirmas ni acredita una firma.", {
         campos: [
-          campo("jefatura", "Jefatura de Servicio", "Firmado", { tono: "exito" }),
+          campo("jefatura", "Jefatura de Servicio", "Simulación pendiente", { tono: "aviso" }),
           campo("organo", "Órgano competente", "Pendiente de firma", { tono: "aviso" }),
           campo("intervencion", "Intervención", "Fiscalización favorable", { tono: "exito" }),
         ],
@@ -486,11 +485,11 @@ const TAREAS = enriquecerTareasPresentacion([
         disponible: true,
         confirmacion: "Se crearán únicamente las piezas pendientes con su versión de plantilla.",
       }),
-      accion("enviar_firma_formalizacion", "Enviar a firma electrónica", {
+      accion("enviar_firma_formalizacion", "Simular circuito de firma", {
         variante: "secundaria",
         capacidad: CAP.firmarFormalizacion,
         disponible: true,
-        confirmacion: "Se enviarán las piezas seleccionadas al portafirmas configurado.",
+        confirmacion: "Se simulará el circuito de firma con datos DEMO. No se enviará ningún documento ni se generará una firma electrónica.",
       }),
     ],
   }),
@@ -592,6 +591,10 @@ const TAREAS = enriquecerTareasPresentacion([
       }),
     ],
     acciones: [
+      accion("continuar_seguimiento_manual", "Continuar por vía manual DEMO", {
+        capacidad: CAP.registrarSeguimiento,
+        confirmacion: "Se registrará una continuación manual sintética para recorrer Seguimiento. No se transmitirá a GINPIX ni se acreditará incorporación o eficacia jurídica.",
+      }),
       accion("enviar_ginpix", "Enviar a GINPIX", {
         capacidad: CAP.enviarGinpix,
         disponible: false,

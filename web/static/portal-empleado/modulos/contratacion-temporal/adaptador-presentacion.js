@@ -256,6 +256,10 @@ function documentosTrasEfecto(indice, accionRef, version) {
   };
 }
 
+function esContinuidadManualGINPIX(accionRef) {
+  return accionRef === "continuar_seguimiento_manual";
+}
+
 export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor } = {}) {
   const contexto = exigirContextoParaModulo(contextoActor, "contratacion_temporal");
   if (contexto.demostracion !== true) {
@@ -363,6 +367,7 @@ export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor }
     await Promise.resolve();
     abortarSiProcede(signal);
 
+    const continuidadManualGINPIX = esContinuidadManualGINPIX(actuacion.accion_ref);
     const version = resumen.version + 1;
     const secuencia = String(secuenciaRecibos).padStart(6, "0");
     const reciboRef = `rec-demo-actuacion-${secuencia}`;
@@ -409,7 +414,9 @@ export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor }
           actor: contexto.actor.nombre_visible,
           unidad: tarea.unidad,
           estado: "Registrado",
-          observaciones: "Actuación sintética sin efectos administrativos.",
+          observaciones: continuidadManualGINPIX
+            ? "Continuidad manual sintética registrada sin transmisión externa ni efectos administrativos."
+            : "Actuación sintética sin efectos administrativos.",
           documento_ref: "",
         },
       ],
@@ -421,7 +428,9 @@ export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor }
       numero_visible: resumen.numero_visible,
       version,
       actuacion: actuacion.etiqueta,
-      estado_resultante: "Actuación DEMO registrada sin efectos reales",
+      estado_resultante: continuidadManualGINPIX
+        ? "Continuidad manual DEMO registrada sin transmisión externa ni efectos reales"
+        : "Actuación DEMO registrada sin efectos reales",
       registrada_en: "2026-07-23T09:35:00Z",
     });
     secuenciaRecibos += 1;

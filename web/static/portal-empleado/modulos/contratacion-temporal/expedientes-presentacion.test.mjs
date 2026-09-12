@@ -327,7 +327,7 @@ test("RBAC se proyecta en HTML y vuelve a imponerse dentro del adaptador", async
   const htmlTecnica = renderizarExpediente(
     presentadorTecnica.obtenerEstado(), t, "es-ES", "Europe/Madrid",
   );
-  assert.match(htmlAdmin, /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]*?>Enviar a firma electrónica/);
+  assert.match(htmlAdmin, /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]*?>Simular circuito de firma/);
   assert.doesNotMatch(
     htmlAdmin,
     /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]{0,300}?disabled/,
@@ -737,10 +737,10 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
     ["tarea-traslado-intervencion", "Tarjeta minimizada de candidatura"],
     ["tarea-informe-definitivo", "Candidatura, observaciones e historial"],
     ["tarea-formalizacion", "Subpasos de formalización"],
-    ["tarea-incorporacion", "Proyección autorizada para incorporación"],
+    ["tarea-incorporacion", "Preparación sintética de incorporación"],
     ["tarea-ginpix", "Historial GINPIX"],
     ["tarea-envio-ginpix", "Envío a GINPIX"],
-    ["tarea-seguimiento", "Histórico de relación, prórroga y cese"],
+    ["tarea-seguimiento", "Seguimiento y cierre administrativo"],
   ];
   assert.equal(expediente.tareas.length, matriz.length);
   for (const [referencia, evidencia] of matriz) {
