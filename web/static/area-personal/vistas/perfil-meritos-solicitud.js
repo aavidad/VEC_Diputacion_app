@@ -4,27 +4,28 @@ import {
 } from "./comunes.js";
 import { estadoActosSolicitud, localizarSolicitudEdicion } from "../flujo-solicitud.js";
 import { calcularAutobaremo } from "../calculo-autobaremo.js";
+import { textoContactoPropio } from "../i18n-contacto-propio.js";
 
 export function renderizarPerfil(datos) {
   const perfil = datos.perfil;
   const preferenciasAviso = datos.preferencias_notificacion || {};
   const formularioContacto = `<form id="formulario-contacto" data-operacion="actualizar_contacto">
     <div class="formulario-rejilla">
-      <div class="campo"><label for="perfil-correo">Correo de avisos</label><input id="perfil-correo" name="correo" type="email" autocomplete="email" value="${escaparAtributo(perfil.correo)}" required><small>Los actos que requieran notificación fehaciente usarán el canal administrativo configurado.</small></div>
+      <input name="correo" type="hidden" value="${escaparAtributo(perfil.correo)}">
       <div class="campo"><label for="perfil-telefono">Teléfono de contacto</label><input id="perfil-telefono" name="telefono" type="tel" autocomplete="tel" value="${escaparAtributo(perfil.telefono)}" required></div>
       <div class="campo ancho-completo"><label for="perfil-domicilio">Domicilio a efectos de contacto</label><textarea id="perfil-domicilio" name="domicilio" autocomplete="street-address" required>${escaparHTML(perfil.domicilio)}</textarea></div>
-    </div><div class="fila-acciones"><button type="submit" class="boton-primario">Revisar y guardar cambios</button></div></form>`;
+    </div><div class="fila-acciones"><button type="submit" class="boton-primario">${textoContactoPropio("guardarTelefonoDomicilio")}</button></div></form><div id="contacto-propio"></div>`;
   const preferencias = `<form id="formulario-notificaciones" data-operacion="actualizar_notificaciones"><fieldset><legend>Canales de aviso voluntarios</legend><label class="opcion-check"><input type="checkbox" name="correo" ${preferenciasAviso.correo ? "checked" : ""}><span><strong>Correo electrónico</strong><small>Avisos de plazos, cambios y llamamientos.</small></span></label><label class="opcion-check"><input type="checkbox" name="telegram" ${preferenciasAviso.telegram ? "checked" : ""}><span><strong>Telegram</strong><small>Se activará cuando el conector y el consentimiento estén disponibles.</small></span></label><label class="opcion-check"><input type="checkbox" name="interno" ${preferenciasAviso.interno ? "checked" : ""}><span><strong>Bandeja interna</strong><small>Siempre disponible dentro del área personal.</small></span></label></fieldset><p class="nota">Los avisos complementan, pero no sustituyen, una notificación administrativa cuando esta sea exigible.</p><button type="submit" class="boton-secundario">Guardar preferencias</button></form>`;
 
   return `${encabezadoVista("Perfil, identidad y contacto", "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.")}
     ${datos.meta.presentacion ? notaDemostracion() : ""}
-    <div class="rejilla-principal"><div>
+    <div class="rejilla-principal perfil"><div>
       ${panel("Datos de identidad", "La identidad principal procede del sistema de autenticación", listaDatos([
         ["Nombre visible", escaparHTML(perfil.nombre_visible)], ["Identificador", escaparHTML(perfil.identificador_visible)],
         ["Referencia interna", escaparHTML(perfil.referencia)], ["Verificación", chip(perfil.estado_verificacion)],
         ["Provincia", escaparHTML(perfil.provincia)], ["Idioma", escaparHTML(perfil.idioma)],
       ]), { estado: perfil.estado_verificacion })}
-      ${panel("Datos de contacto", "Puede proponer cambios; el servidor aplicará las validaciones y permisos", formularioContacto)}
+      ${panel(textoContactoPropio("titulo"), textoContactoPropio("subtitulo"), formularioContacto)}
     </div><aside>
       ${panel("Preferencias de comunicación", "Seleccione los avisos que desea recibir", preferencias)}
       ${panel("Privacidad y trazabilidad", "Control sobre el uso de sus datos", `<p>Los accesos y cambios relevantes quedan sujetos a registro de auditoría. Desde esta área podrá consultar el origen de los datos, rectificarlos cuando proceda y conocer qué documentos se reutilizan.</p>${enlaceRuta("ayuda", "Consultar protección de datos", "enlace-boton")}`)}

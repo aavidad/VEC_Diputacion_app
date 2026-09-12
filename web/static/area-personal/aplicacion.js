@@ -9,6 +9,7 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { montarContactoPropio } from "./contacto-propio.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -50,6 +51,13 @@ const TITULOS_OPERACION = Object.freeze({
 });
 
 const porId = (id) => document.getElementById(id);
+
+export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
+  estado.contactoPropio = { ...estado.contactoPropio, version };
+  estado.contactoPropioRecibo = { reciboRef, version };
+  estado.datos = structuredClone(estado.datos);
+  estado.datos.perfil.correo = correo;
+}
 
 function rutaDesdeURL() {
   const parametros = new URLSearchParams(window.location.search);
@@ -180,6 +188,20 @@ function renderizar(estado, { enfocar = false } = {}) {
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
+  if (estado.vista === "perfil") {
+    montarContactoPropio({
+      contenedor: porId("contacto-propio"),
+      correo: estado.datos.perfil.correo,
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      reciboAnterior: estado.contactoPropioRecibo,
+      alGuardar: (resultado) => {
+        conservarResultadoContactoPropio(estado, resultado);
+        renderizar(estado);
+      },
+    });
+  }
   if (enfocar) {
     porId("contenido-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -620,7 +642,7 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, contactoPropio = null, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -642,6 +664,9 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
+    contactoPropio,
+    contactoPropioRecibo: null,
+    fetchImpl,
   };
   if (presentacionSolicitada) porId("aviso-presentacion").hidden = false;
   conectarEventos(estado);

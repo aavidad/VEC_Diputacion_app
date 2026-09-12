@@ -442,6 +442,8 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .contexto-cabecera h1 { font-size: 1.2rem; }
   .contenido-principal { padding: 12px 10px; }
   .encabezado-vista { align-items: stretch; flex-direction: column; }
+  .perfil .panel > header { flex-wrap: wrap; }
+  .perfil .panel > header .estado-chip { max-width: 100%; flex-shrink: 1; overflow-wrap: anywhere; }
   .resumen-cifras, .rejilla-dos, .formulario-rejilla { grid-template-columns: 1fr; }
   .formulario-rejilla .ancho-completo { grid-column: auto; }
   .filtros { grid-template-columns: 1fr; }
