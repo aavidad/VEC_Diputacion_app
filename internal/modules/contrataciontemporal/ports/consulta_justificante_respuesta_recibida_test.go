@@ -103,6 +103,11 @@ func TestConsultaJustificanteRespuestaRecibidaOriginalSinEvaluarPlazo(t *testing
 
 func TestConsultaJustificanteRespuestaRecibidaRechazaAntecedentesDesligados(t *testing.T) {
 	s, original := justificanteRespuestaRecibidaPrueba(t)
+	versionPosterior := original
+	versionPosterior.Seleccion.VersionExpediente = 7
+	if err := versionPosterior.ValidarPara(s); err != nil {
+		t.Fatal("el justificante de una selección posterior fue rechazado", err)
+	}
 	for nombre, cambiar := range map[string]func(*JustificanteRespuestaRecibida){
 		"justificante": func(j *JustificanteRespuestaRecibida) { j.Respuesta.JustificanteRef += "otro" },
 		"respuesta": func(j *JustificanteRespuestaRecibida) {
@@ -115,7 +120,8 @@ func TestConsultaJustificanteRespuestaRecibidaRechazaAntecedentesDesligados(t *t
 		"recibo_respuesta":           func(j *JustificanteRespuestaRecibida) { j.Respuesta.ReciboRef = "" },
 		"replay_no_es_original":      func(j *JustificanteRespuestaRecibida) { j.Respuesta.Estado = EstadoRespuestaRecibidaReplay },
 		"sin_propuesta":              func(j *JustificanteRespuestaRecibida) { j.Seleccion.PropuestaGenerada = false },
-		"version_seleccion":          func(j *JustificanteRespuestaRecibida) { j.Seleccion.VersionExpediente = 7 },
+		"version_seleccion_baja":     func(j *JustificanteRespuestaRecibida) { j.Seleccion.VersionExpediente = 5 },
+		"version_seleccion_alta":     func(j *JustificanteRespuestaRecibida) { j.Seleccion.VersionExpediente = ^uint64(0) },
 		"seleccion_otra_org":         func(j *JustificanteRespuestaRecibida) { j.Seleccion.OrganizacionRef += "otra" },
 		"seleccion_otro_exp":         func(j *JustificanteRespuestaRecibida) { j.Seleccion.ExpedienteRef += "otro" },
 		"seleccion_otro_llamamiento": func(j *JustificanteRespuestaRecibida) { j.Seleccion.LlamamientoRef += "otro" },

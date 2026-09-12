@@ -18,7 +18,7 @@ type claveSolicitudRespuestaRecibidaDesarrollo struct{}
 // registro de aviso local en evidencia de entrega. Solo registra su respuesta.
 type ejecutorRespuestaRecibidaDesarrollo struct {
 	soporte  *soporteAltaContratacionTemporalDesarrollo
-	lector   ports.LectorExpedienteSeleccionLlamamiento
+	lector   ports.LectorExpedienteLlamamiento
 	servicio httpinterno.EjecutorRespuestaRecibida
 }
 
@@ -66,7 +66,7 @@ func (e *ejecutorRespuestaRecibidaDesarrollo) Registrar(ctx context.Context, s p
 	if !valida || c.ruta != httpinterno.RutaRegistroRespuestaRecibida || s.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
 		return vacio, application.ErrRespuestaRecibidaDenegada
 	}
-	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, s.OrganizacionRef, s.ExpedienteRef, 6)
+	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, s.OrganizacionRef, s.ExpedienteRef, s.LlamamientoRef)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
