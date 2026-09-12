@@ -15,10 +15,26 @@ import (
 )
 
 const (
-	funcionPrepararFiscalizacion        = "vec_contratacion_temporal.preparar_fiscalizacion_v1"
-	esquemaPrepararFiscalizacion        = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
-	maximoIntentosPrepararFiscalizacion = 3
+	funcionPrepararFiscalizacion                = "vec_contratacion_temporal.preparar_fiscalizacion_v1"
+	funcionPrepararFiscalizacionTrasSubsanacion = "vec_contratacion_temporal.preparar_fiscalizacion_tras_subsanacion_v1"
+	esquemaPrepararFiscalizacion                = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
+	maximoIntentosPrepararFiscalizacion         = 3
 )
+
+// funcionPrepararFiscalizacionParaVersion conserva la función original para
+// la primera fiscalización del expediente v5. La segunda función sólo recibe
+// candidatos desde v7; PostgreSQL comprueba la cabeza completa (retorno
+// desfavorable y subsanación ligada) dentro de la misma lectura serializable.
+func funcionPrepararFiscalizacionParaVersion(version uint64) (string, error) {
+	switch {
+	case version == 5:
+		return funcionPrepararFiscalizacion, nil
+	case version >= 7:
+		return funcionPrepararFiscalizacionTrasSubsanacion, nil
+	default:
+		return "", ports.ErrPreparacionFiscalizacionInvalida
+	}
+}
 
 var _ ports.PreparadorFiscalizacionIdempotente = (*PreparadorFiscalizacionPostgreSQL)(nil)
 
@@ -115,6 +131,11 @@ func (p *PreparadorFiscalizacionPostgreSQL) PrepararFiscalizacion(
 	if err := ctx.Err(); err != nil {
 		return ports.PreparacionFiscalizacion{}, err
 	}
+	if _, err := funcionPrepararFiscalizacionParaVersion(
+		solicitud.Material.VersionExpediente,
+	); err != nil {
+		return ports.PreparacionFiscalizacion{}, err
+	}
 	referencias, err := p.generador.GenerarReferenciasFiscalizacion(
 		ctx, solicitud.Material.Resultado,
 	)
@@ -154,6 +175,12 @@ func (p *PreparadorFiscalizacionPostgreSQL) prepararEnTransaccion(
 	operacion operacionPrepararFiscalizacionV1,
 	contenido []byte,
 ) (ports.PreparacionFiscalizacion, error) {
+	funcion, err := funcionPrepararFiscalizacionParaVersion(
+		operacion.VersionExpediente,
+	)
+	if err != nil {
+		return ports.PreparacionFiscalizacion{}, err
+	}
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.Serializable, AccessMode: pgx.ReadOnly,
 	})
@@ -177,7 +204,7 @@ func (p *PreparadorFiscalizacionPostgreSQL) prepararEnTransaccion(
 		huella_peticion_hmac, organizacion_ref, expediente_ref,
 		version_expediente, actor_ref, perfil_ref, resultado_fiscalizacion,
 		observaciones, estado, recibo_json::text
-		FROM `+funcionPrepararFiscalizacion+`($1::jsonb)`, contenido).Scan(
+		FROM `+funcion+`($1::jsonb)`, contenido).Scan(
 		&fila.resultado, &fila.expedienteJSON, &fila.reservaRef,
 		&fila.fiscalizacionRef, &fila.reciboRef, &fila.eventoRef,
 		&fila.retornoRef, &fila.ambitoHMAC, &fila.huellaPeticionHMAC,
@@ -225,17 +252,53 @@ type filaPreparacionFiscalizacion struct {
 	reciboJSON             pgtype.Text
 }
 
+// origenFiscalizacionPostgreSQL delimita las dos únicas instantáneas que el
+// adaptador puede aceptar de PostgreSQL. La función v2 vuelve a comprobar esta
+// segunda forma frente a la cabeza persistida, de modo que una versión alta por
+// sí sola nunca habilita la refiscalización.
+func origenFiscalizacionPostgreSQL(expediente domain.Expediente) error {
+	if expediente.Version == 5 && expediente.Fiscalizacion == nil &&
+		expediente.FaseActual == domain.FaseInformeJuridico &&
+		expediente.EstadoActual == domain.EstadoEnCurso &&
+		expediente.Asignacion != nil && expediente.InformeJuridico != nil {
+		return nil
+	}
+	if expediente.Version < 7 || expediente.Fiscalizacion == nil ||
+		expediente.Fiscalizacion.Resultado != domain.FiscalizacionDesfavorable ||
+		expediente.Fiscalizacion.Retorno == nil ||
+		expediente.Fiscalizacion.ActuacionRegistro == nil ||
+		expediente.FaseActual != domain.FaseSubsanacionUnidad ||
+		expediente.EstadoActual != domain.EstadoIncidencia ||
+		expediente.Asignacion == nil || expediente.InformeJuridico == nil {
+		return ports.ErrPreparacionFiscalizacionInvalida
+	}
+	retornoRef := expediente.Fiscalizacion.Retorno.RetornoRef
+	secuenciaFiscalizacion := expediente.Fiscalizacion.ActuacionRegistro.Secuencia
+	for _, actuacion := range expediente.Actuaciones {
+		if actuacion.AccionClave == domain.AccionRegistrarSubsanacionReparo &&
+			actuacion.RetornoRef == retornoRef &&
+			actuacion.Secuencia > secuenciaFiscalizacion &&
+			actuacion.FaseDestino == domain.FaseSubsanacionUnidad &&
+			actuacion.EstadoDestino == domain.EstadoIncidencia {
+			return nil
+		}
+	}
+	return ports.ErrPreparacionFiscalizacionInvalida
+}
+
 func (f filaPreparacionFiscalizacion) restaurar(
 	solicitud ports.SolicitudPrepararFiscalizacion,
 	operacion operacionPrepararFiscalizacionV1,
 ) (ports.PreparacionFiscalizacion, error) {
-	if f.versionExpediente != 5 ||
+	if f.versionExpediente <= 0 ||
+		uint64(f.versionExpediente) != solicitud.Material.VersionExpediente ||
 		!operacion.SellosHMAC.contienePar(f.ambitoHMAC, f.huellaPeticionHMAC) {
 		return ports.PreparacionFiscalizacion{}, ports.ErrPersistenciaFiscalizacionNoDisponible
 	}
 	var expediente domain.Expediente
 	if decodificarJSONEstricto([]byte(f.expedienteJSON), &expediente) != nil ||
-		expediente.Validar() != nil {
+		expediente.Validar() != nil ||
+		origenFiscalizacionPostgreSQL(expediente) != nil {
 		return ports.PreparacionFiscalizacion{}, ports.ErrPersistenciaFiscalizacionNoDisponible
 	}
 	preparacion := ports.PreparacionFiscalizacion{

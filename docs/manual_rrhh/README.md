@@ -1,5 +1,19 @@
 # Manual funcional del técnico de Recursos Humanos
 
+La continuidad de fiscalización tras subsanar reutiliza el mismo formulario,
+API y permiso de Intervención. Exige la corrección ligada al retorno vigente,
+conserva las instantáneas anteriores y permite registrar un nuevo resultado;
+no lo presupone favorable. La fuente CT93 está revisada, pero su ensayo
+PostgreSQL e instalación todavía no se han realizado. La primera fiscalización
+conserva sus funciones v1 y el circuito original.
+
+Go, SQL y formulario coinciden con la entrega revisada del apoyo. En integración
+se mantuvieron las guardas actuales de la vista y se actualizó una prueba que
+omitía la asignación real exigida antes de preparar informe. Los 33 casos web
+focales quedaron verdes tras ese ajuste; pruebas Go, vet del ámbito y compilación
+completados. Esta evidencia no acredita una refiscalización de navegador ni
+la continuación posterior del llamamiento desde nuevas versiones.
+
 Subsanación de reparos queda compuesta como capacidad opcional: formulario,
 cliente y `POST /api/vec/contratacion-temporal/subsanacion-reparos`, sobre el
 retorno existente. El recibo confirmado se conserva mientras se recuperan

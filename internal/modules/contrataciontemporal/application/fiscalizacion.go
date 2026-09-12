@@ -48,7 +48,7 @@ func (s SolicitudRegistrarResultadoFiscalizacion) Validar() error {
 		PerfilRef:        s.PerfilRef,
 	}).Validar() != nil || !domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
-		s.VersionEsperada != 5 ||
+		s.VersionEsperada == 0 || s.VersionEsperada > 9007199254740990 ||
 		!ports.ClaveIdempotenciaValida(s.ClaveIdempotencia) ||
 		ports.ValidarResultadoFiscalizacion(s.Resultado, s.Observaciones) != nil {
 		return ErrSolicitudFiscalizacionInvalida
@@ -162,10 +162,6 @@ func (s *ServicioFiscalizaciones) Registrar(
 	if preparacion.ValidarPara(preparar) != nil {
 		return ports.ReciboFiscalizacion{}, ErrResultadoFiscalizacionNoConfiable
 	}
-	if preparacion.Estado == ports.PreparacionFiscalizacionConfirmada {
-		return *preparacion.ReciboConfirmado, nil
-	}
-
 	instantePolitica := instanteCanonico(s.reloj.Ahora())
 	solicitudPolitica := nuevaSolicitudPoliticaFiscalizacion(
 		material, preparacion.Expediente, instantePolitica,
@@ -192,6 +188,9 @@ func (s *ServicioFiscalizaciones) Registrar(
 		!autorizacionV3ValidaEn(solicitudV3, decisionV3, confirmacionV3, instanteEfecto) {
 		return ports.ReciboFiscalizacion{}, ErrFiscalizacionDenegada
 	}
+	if preparacion.Estado == ports.PreparacionFiscalizacionConfirmada {
+		return *preparacion.ReciboConfirmado, nil
+	}
 
 	faseDestino, estadoDestino := destinoFiscalizacion(material.Resultado)
 	retornoRef := ""
@@ -215,6 +214,7 @@ func (s *ServicioFiscalizaciones) Registrar(
 			RealizadaEn: instanteEfecto, FaseDestino: faseDestino,
 			EstadoDestino: estadoDestino, Observaciones: material.Observaciones,
 			DocumentosRef: []string{preparacion.Expediente.InformeJuridico.DocumentoRef},
+			RetornoRef:    retornoPrevioRef(preparacion.Expediente),
 		},
 	)
 	if err != nil {
@@ -287,6 +287,25 @@ func (s *ServicioFiscalizaciones) nuevaSolicitudAutorizacion(
 	}
 	huellaObservaciones := sha256.Sum256([]byte(material.Observaciones))
 	anterior := preparacion.Expediente
+	atributos := map[string]string{
+		"version_expediente":          strconv.FormatUint(material.VersionExpediente, 10),
+		"resultado":                   string(material.Resultado),
+		"observaciones_huella_sha256": hex.EncodeToString(huellaObservaciones[:]),
+		"informe_juridico_ref":        anterior.InformeJuridico.InformeRef,
+		"documento_informe_ref":       anterior.InformeJuridico.DocumentoRef,
+		"unidad_asignada_ref":         anterior.Asignacion.UnidadRef,
+		"responsable_asignado_ref":    anterior.Asignacion.ResponsableRef,
+		"unidad_fiscalizadora_ref":    politica.UnidadFiscalizadoraRef,
+		"politica_ref":                politica.DefinicionRef,
+		"politica_version":            strconv.FormatUint(politica.DefinicionVersion, 10),
+		"politica_huella_sha256":      politica.DefinicionHuellaSHA256,
+		"ambito_idempotencia_hmac":    ambitoActivo,
+		"huella_peticion_hmac":        huellaActiva,
+	}
+	if retornoRef, reciboSubsanacion := antecedentesRefiscalizacion(anterior); retornoRef != "" {
+		atributos["retorno_previo_ref"] = retornoRef
+		atributos["subsanacion_recibo_ref"] = reciboSubsanacion
+	}
 	return dominiovec.NuevaSolicitudAutorizacionLigadaV3(
 		dominiovec.DatosSolicitudAutorizacionLigadaV3{
 			VinculoAutenticacionActor: contexto.Vinculo,
@@ -302,25 +321,31 @@ func (s *ServicioFiscalizaciones) nuevaSolicitudAutorizacion(
 					"fase_previa":      string(anterior.FaseActual),
 					"estado_previo":    string(anterior.EstadoActual),
 				},
-				Atributos: map[string]string{
-					"version_expediente":          strconv.FormatUint(material.VersionExpediente, 10),
-					"resultado":                   string(material.Resultado),
-					"observaciones_huella_sha256": hex.EncodeToString(huellaObservaciones[:]),
-					"informe_juridico_ref":        anterior.InformeJuridico.InformeRef,
-					"documento_informe_ref":       anterior.InformeJuridico.DocumentoRef,
-					"unidad_asignada_ref":         anterior.Asignacion.UnidadRef,
-					"responsable_asignado_ref":    anterior.Asignacion.ResponsableRef,
-					"unidad_fiscalizadora_ref":    politica.UnidadFiscalizadoraRef,
-					"politica_ref":                politica.DefinicionRef,
-					"politica_version":            strconv.FormatUint(politica.DefinicionVersion, 10),
-					"politica_huella_sha256":      politica.DefinicionHuellaSHA256,
-					"ambito_idempotencia_hmac":    ambitoActivo,
-					"huella_peticion_hmac":        huellaActiva,
-				},
+				Atributos: atributos,
 			},
 			Finalidad: string(politica.Finalidad), Correlacion: correlacion,
 		},
 	)
+}
+
+func retornoPrevioRef(expediente domain.Expediente) string {
+	retornoRef, _ := antecedentesRefiscalizacion(expediente)
+	return retornoRef
+}
+
+func antecedentesRefiscalizacion(expediente domain.Expediente) (string, string) {
+	if expediente.Fiscalizacion == nil || expediente.Fiscalizacion.Retorno == nil {
+		return "", ""
+	}
+	retornoRef := expediente.Fiscalizacion.Retorno.RetornoRef
+	secuenciaFiscalizacion := expediente.Fiscalizacion.ActuacionRegistro.Secuencia
+	for _, actuacion := range expediente.Actuaciones {
+		if actuacion.AccionClave == domain.AccionRegistrarSubsanacionReparo &&
+			actuacion.RetornoRef == retornoRef && actuacion.Secuencia > secuenciaFiscalizacion {
+			return retornoRef, actuacion.ReciboRef
+		}
+	}
+	return "", ""
 }
 
 func destinoFiscalizacion(

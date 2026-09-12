@@ -41,7 +41,8 @@ function normalizarContexto(contexto) {
     || !PATRON_REFERENCIA.test(contexto.expediente_ref)
     || !Number.isSafeInteger(contexto.version_esperada)
     || contexto.version_esperada < 1 || contexto.version_esperada >= Number.MAX_SAFE_INTEGER
-    || contexto.fase_clave !== "informe_juridico"
+    || !["informe_juridico", "subsanacion_unidad"].includes(contexto.fase_clave)
+    || (contexto.fase_clave === "subsanacion_unidad" && contexto.informe_ref !== "")
     || (contexto.informe_ref !== "" && !PATRON_REFERENCIA.test(contexto.informe_ref))) {
     throw new TypeError("contexto de fiscalización no válido");
   }
@@ -69,6 +70,7 @@ function etiquetaResultado(resultado, t) {
 }
 
 function renderizarContexto(contexto, t) {
+  const esNuevaFiscalizacion = contexto.fase_clave === "subsanacion_unidad";
   const informe = contexto.informe_ref === ""
     ? t("fiscalizacion_informe_registrado", { version: contexto.version_esperada })
     : contexto.informe_ref;
@@ -78,9 +80,13 @@ function renderizarContexto(contexto, t) {
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_version"))}</dt><dd>${
   contexto.version_esperada}</dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_fase"))}</dt><dd>${
-  escaparHTML(t("fiscalizacion_fase_informe_juridico"))}</dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_contexto_informe"))}</dt><dd><code>${
-  escaparHTML(informe)}</code></dd></div>
+  escaparHTML(t(esNuevaFiscalizacion
+    ? "fiscalizacion_fase_subsanacion_unidad" : "fiscalizacion_fase_informe_juridico"))}</dd></div>
+    <div><dt>${escaparHTML(t(esNuevaFiscalizacion
+      ? "fiscalizacion_contexto_subsanacion" : "fiscalizacion_contexto_informe"))}</dt><dd><code>${
+  escaparHTML(esNuevaFiscalizacion ? t("fiscalizacion_subsanacion_registrada", {
+    version: contexto.version_esperada,
+  }) : informe)}</code></dd></div>
   </dl>`;
 }
 
@@ -234,8 +240,10 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
       aria-labelledby="ct-fiscalizacion-titulo">
       <header class="ct-cabecera"><div>
         <p class="sobrelinea">${escaparHTML(t("fiscalizacion_sobrelinea"))}</p>
-        <h2 id="ct-fiscalizacion-titulo">${escaparHTML(t("fiscalizacion_titulo"))}</h2>
-        <p>${escaparHTML(t("fiscalizacion_descripcion"))}</p>
+        <h2 id="ct-fiscalizacion-titulo">${escaparHTML(t(contexto.fase_clave === "subsanacion_unidad"
+          ? "fiscalizacion_titulo_tras_subsanacion" : "fiscalizacion_titulo"))}</h2>
+        <p>${escaparHTML(t(contexto.fase_clave === "subsanacion_unidad"
+          ? "fiscalizacion_descripcion_tras_subsanacion" : "fiscalizacion_descripcion"))}</p>
       </div><aside class="ct-alcance" aria-label="${
   escaparHTML(t("fiscalizacion_alcance_etiqueta"))}">${
   escaparHTML(t("fiscalizacion_alcance"))}</aside></header>

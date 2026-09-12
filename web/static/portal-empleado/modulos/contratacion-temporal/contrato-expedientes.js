@@ -260,11 +260,17 @@ function validarFase(entrada, nombre) {
 }
 
 function validarHitoHistorial(entrada, nombre) {
+  const tieneIdentidadAutorizada = esRegistro(entrada)
+    && (Object.hasOwn(entrada, "accion_clave") || Object.hasOwn(entrada, "version_expediente"));
   exigirCamposExactos(entrada, [
     "secuencia", "fecha", "fase", "accion", "estado_clave", "estado",
+    ...(tieneIdentidadAutorizada ? ["accion_clave", "version_expediente"] : []),
   ], nombre);
   if (!Number.isSafeInteger(entrada.secuencia) || entrada.secuencia < 1
-    || !ESTADOS.has(entrada.estado_clave)) {
+    || !ESTADOS.has(entrada.estado_clave)
+    || (tieneIdentidadAutorizada && (!clave(entrada.accion_clave, `${nombre}.accion_clave`)
+      || !Number.isSafeInteger(entrada.version_expediente)
+      || entrada.version_expediente < 1))) {
     throw new TypeError(`${nombre} no válido`);
   }
   return {
@@ -274,6 +280,10 @@ function validarHitoHistorial(entrada, nombre) {
     accion: cadenaNoVacia(entrada.accion, `${nombre}.accion`),
     estado_clave: entrada.estado_clave,
     estado: cadenaNoVacia(entrada.estado, `${nombre}.estado`, 80),
+    ...(tieneIdentidadAutorizada ? {
+      accion_clave: entrada.accion_clave,
+      version_expediente: entrada.version_expediente,
+    } : {}),
   };
 }
 
