@@ -146,7 +146,7 @@ type preparadorAuditoria struct {
 
 func (p preparadorAuditoria) PrepararAuditoriaContactoUsuario(ctx context.Context, actor domain.ContextoActor, accion, modulo, sujeto string, version uint64) (domain.AuditEntry, error) {
 	vacio := domain.AuditEntry{}
-	if ctx == nil || ctx.Err() != nil || actor.Validar() != nil || actor.PersonaRef != sujeto || modulo != usuarios.ModuleID || p.recurso.Referencia != sujeto || p.recurso.ModuloID != modulo || (accion != application.AccionAltaContactoUsuario && accion != application.AccionActualizarContactoUsuario) || version == 0 || version > 1<<53-1 || p.correlacion == "" {
+	if ctx == nil || ctx.Err() != nil || actor.Validar() != nil || actor.PersonaRef != sujeto || modulo != usuarios.ModuleID || p.recurso.Referencia != sujeto || p.recurso.ModuloID != modulo || (accion != application.AccionAltaContactoUsuario && accion != application.AccionActualizarContactoUsuario && accion != application.AccionConsultarContactoUsuario) || version == 0 || version > 1<<53-1 || p.correlacion == "" {
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	instantanea, err := p.fuente.ObtenerInstantaneaAutorizacion(ctx, actor.Principal.ID, actor.PerfilActivoRef)

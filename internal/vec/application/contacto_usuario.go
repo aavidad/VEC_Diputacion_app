@@ -476,6 +476,10 @@ func envolverEvidenciaCentralContacto(raw []byte) (ports.EvidenciaAuditoriaCentr
 	return ports.EvidenciaAuditoriaCentralContactoUsuario{JSONOriginal: bytes.Clone(raw), Referencia: ref, HuellaJSONSHA256: hex.EncodeToString(h[:])}, nil
 }
 func evidenciaCentralEsperadaContacto(r ports.ReciboContactoUsuario, sujeto string, version uint64, a domain.AuditEntry, negocio []byte, recursoEsperado domain.RecursoAutorizable, decisionRef string) bool {
+	return evidenciaCentralEsperadaContactoConMetadata(r, sujeto, version, a, negocio, recursoEsperado, decisionRef, nil)
+}
+
+func evidenciaCentralEsperadaContactoConMetadata(r ports.ReciboContactoUsuario, sujeto string, version uint64, a domain.AuditEntry, negocio []byte, recursoEsperado domain.RecursoAutorizable, decisionRef string, adicionales map[string]string) bool {
 	if r.SujetoRef != sujeto || r.Version != version || !textoSeguro(decisionRef) || !hexContacto(r.ConsumoHuellaSHA256, 64) || r.ConsumoHuellaSHA256 == strings.Repeat("0", 64) || r.ConsumoRef != "aud_v3_"+r.ConsumoHuellaSHA256[:32] {
 		return false
 	}
@@ -504,8 +508,14 @@ func evidenciaCentralEsperadaContacto(r ports.ReciboContactoUsuario, sujeto stri
 		return false
 	}
 	metadata, err := objetoCentralContacto(campos["metadata"])
-	if err != nil || len(metadata) != 4 {
+	if err != nil || len(metadata) != 4+len(adicionales) {
 		return false
+	}
+	for clave, esperado := range adicionales {
+		_, presente := metadata[clave]
+		if !presente || clave == "consumo_ref" || clave == "consumo_huella_sha256" || clave == "material_sha256" || clave == "contexto_recurso_sha256" || c.Metadata[clave] != esperado {
+			return false
+		}
 	}
 	for _, v := range campos {
 		if bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
