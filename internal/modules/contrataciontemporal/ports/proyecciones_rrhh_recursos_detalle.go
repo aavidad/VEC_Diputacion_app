@@ -28,8 +28,8 @@ func NuevosRecursosConsultaDetalleRRHH(
 			Tipo:       TipoRecursoExpediente,
 			Ambitos: map[string]string{
 				ambitoOrganizacionRecursoRRHH: contexto.organizacionRef,
-				ambitoClaseRecursoRRHH:        string(AmbitoOrganizacionRRHH),
-				ambitoReferenciaRecursoRRHH:   contexto.organizacionRef,
+				ambitoClaseRecursoRRHH:        string(contexto.claseAmbito),
+				ambitoReferenciaRecursoRRHH:   contexto.ambitoRef,
 			},
 			Atributos: map[string]string{
 				atributoDominioConsultaRRHH: DominioHuellaConsultaDetalleRRHH,
@@ -63,8 +63,8 @@ func (r RecursosConsultaRRHH) validarParaDetalle(
 		AccionConsultarDetalleRRHH,
 		solicitud.expedienteRef,
 	)
-	if err != nil || clase != AmbitoOrganizacionRRHH ||
-		ambitoRef != contexto.organizacionRef {
+	if err != nil || clase != contexto.claseAmbito ||
+		ambitoRef != contexto.ambitoRef {
 		return ErrCapacidadConsultaRRHHInvalida
 	}
 	return nil

@@ -91,6 +91,8 @@ type ContextoConsultaRRHH struct {
 	registroContextoRef       string
 	contextoActorHuella       string
 	organizacionRef           string
+	claseAmbito               ClaseAmbitoConsultaRRHH
+	ambitoRef                 string
 	resueltoEn                time.Time
 	validoHasta               time.Time
 }
@@ -100,6 +102,21 @@ func NuevoContextoConsultaRRHH(
 	organizacionRef string,
 	instante time.Time,
 ) (ContextoConsultaRRHH, error) {
+	return NuevoContextoConsultaRRHHConAmbito(
+		autoridad, organizacionRef, AmbitoOrganizacionRRHH,
+		organizacionRef, instante,
+	)
+}
+
+// NuevoContextoConsultaRRHHConAmbito fija el alcance nominal de una consulta
+// antes de que se construyan recurso, material o capacidad autorizable.
+func NuevoContextoConsultaRRHHConAmbito(
+	autoridad ContextoAutorizacionAltaV3,
+	organizacionRef string,
+	clase ClaseAmbitoConsultaRRHH,
+	ambitoRef string,
+	instante time.Time,
+) (ContextoConsultaRRHH, error) {
 	datosVinculo, err := autoridad.Vinculo.Datos()
 	solicitud := SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: datosVinculo.AutenticacionRef,
@@ -107,7 +124,9 @@ func NuevoContextoConsultaRRHH(
 		PerfilRef:        datosVinculo.PerfilActivoRef,
 	}
 	if err != nil || autoridad.ValidarPara(solicitud, instante) != nil ||
-		!domain.ReferenciaOpacaValida(organizacionRef) {
+		!domain.ReferenciaOpacaValida(organizacionRef) ||
+		!clase.valida() || !domain.ReferenciaOpacaValida(ambitoRef) ||
+		(clase == AmbitoOrganizacionRRHH && ambitoRef != organizacionRef) {
 		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
 	}
 	resultado, err := autoridad.Resultado.Clonar()
@@ -138,6 +157,8 @@ func NuevoContextoConsultaRRHH(
 		registroContextoRef:       resultado.RegistroContextoRef,
 		contextoActorHuella:       resultado.HuellaSHA256,
 		organizacionRef:           organizacionRef,
+		claseAmbito:               clase,
+		ambitoRef:                 ambitoRef,
 		resueltoEn:                resueltoEn,
 		validoHasta:               validoHasta,
 	}
@@ -201,6 +222,10 @@ func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 		!domain.ReferenciaOpacaValida(c.registroContextoRef) ||
 		!patronHuellaRRHH.MatchString(c.contextoActorHuella) ||
 		!domain.ReferenciaOpacaValida(c.organizacionRef) ||
+		!c.claseAmbito.valida() ||
+		!domain.ReferenciaOpacaValida(c.ambitoRef) ||
+		(c.claseAmbito == AmbitoOrganizacionRRHH &&
+			c.ambitoRef != c.organizacionRef) ||
 		!domain.InstanteUTCCanonico(c.resueltoEn) ||
 		!domain.InstanteUTCCanonico(c.validoHasta) ||
 		!domain.InstanteUTCCanonico(instante) ||
