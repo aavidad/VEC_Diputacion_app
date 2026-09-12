@@ -1,5 +1,7 @@
 # Estado y plan de ataque del proyecto
 
+El detalle muestra la jornada como porcentaje (10000 → 100 %) y agrupa sus datos en dos columnas en móvil; la navegación tiene botones de al menos 44 px. Pantalla real comprobada a 1440/390 px sin desbordamiento ni errores JavaScript.
+
 Si falla la apertura de Análisis o del siguiente formulario de Cobertura, Asignación o Informe jurídico, aparece un aviso con reintento de apertura. El reintento conserva el recibo y no repite el POST confirmado; la prueba focal cubre dos fallos consecutivos sin duplicar avisos. Bandeja y detalle reales comprobados a 1440/390 px, sin errores JavaScript ni desbordamiento.
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026

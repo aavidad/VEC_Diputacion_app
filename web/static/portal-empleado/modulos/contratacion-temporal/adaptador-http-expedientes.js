@@ -129,7 +129,9 @@ function cabeceraDetalle(detalle, locale) {
   if (detalle.analisis) {
     campos.push(
       campo("causa", "Causa analizada", etiqueta(detalle.analisis.causa_clave)),
-      campo("jornada", "Jornada (diezmilésimas)", detalle.analisis.porcentaje_jornada),
+      campo("jornada", "Jornada", new Intl.NumberFormat(locale, {
+        style: "percent", maximumFractionDigits: 2,
+      }).format(detalle.analisis.porcentaje_jornada / 10_000)),
       campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc)),
     );
   }
