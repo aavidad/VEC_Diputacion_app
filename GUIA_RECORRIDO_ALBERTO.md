@@ -2,10 +2,14 @@
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base publicada de este corte es `069d399b5ece9c8602253579aa31317c0fccc75c`.
-El runtime principal comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+La base de este corte es `2eb94c1c8277a7bb93393d7ed41e66580590182f` y sus
+cambios son `f1512fdbe85a891d425a1d453993c512a5f420b4` y
+`cfa4d70fa14a23827f8cd15420975fe5d5d82fd3`. El runtime principal comprobado
+usa el binario SHA256
+`bc65b1d6213cf1da31d58fd23c96acb27b4b54c8f99ef9cbc7948d30c21b4122`, un
+asset SHA256 `f0fa62246a8dbeb5b3dcc8e56e68e7e3d9ace4511f1ba813619764130c63ceb4`
+y el árbol web SHA256
+`b3a18ba8556946dd7b33c1e9cccbfe95c4a37f6a2c219db815a5e8ab43dd1215`.
 Chrome recuperó la incorporación
 y la ficha GINPIX con HTTP `200`, sin repetir el alta. Conservó el recibo
 `ref:2bc3d281…`, la fecha
@@ -41,9 +45,9 @@ transmisión. La agrupación a ancho completo de los seis pares PDF/Word está
 desplegada y visible. La recuperación posterior al reinicio conserva cinco
 huellas de Personal, seis contadores y la fila de incorporación CT, sin nuevo
 `POST`. Los objetivos 11 y 12 quedan funcionalmente acreditados; no completan
-Contratación ni ocho hitos. Auth13 está instalada una vez; CT86/87 y AD3-30/31
-se instalaron después solo en los dos clones. La base principal no recibió ese
-SQL.
+Contratación ni ocho hitos. Auth13 está instalada una vez. AD3-30/CT86,
+AD3-31/CT87 y CT90 se instalaron después una sola vez en principal; la
+recuperación del recorrido tras reinicio ya está acreditada.
 
 El frontend publicado incorpora fechas civiles UTC legibles, paginación
 con cursor opaco de un solo uso y validación accesible del filtro. Dos
@@ -73,8 +77,9 @@ donde el `GET` devolvía `404`; el recorrido posterior descrito debajo obtuvo
    operación pendiente. No repita el `POST` de incorporación.
 
 Los detalles plegados conservan visibles recibo, fecha, estado, límites y
-período. CT86/87 se instalaron solo en dos clones aislados; la base principal
-sigue pendiente y la instrumentación CT87 bloqueada no fue un ensayo.
+período. CT86/87 se probaron primero en dos clones aislados y después se
+instalaron una vez en principal junto con CT90. La instrumentación CT87 bloqueada
+quedó congelada y no acredita un ensayo funcional.
 
 La bandeja nominal permanece en código: técnico explícito y lectores para dos
 consultas con ámbito de organización y unidad a la vez, sin fallback ni SQL.
@@ -100,8 +105,9 @@ técnico de su organización; no prueba dos unidades ni permite cambiar centro.
 CT87 ya está instalada y no se reaplica: su publicación en clon falló por
 precedencia JSON. El cotejo posterior conservó cinco snapshots idénticos al
 estado inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90
-se instaló después únicamente en los dos clones, como se detalla debajo; el bloqueo de
-instrumentación fue otra comprobación.
+se instaló primero únicamente en los dos clones y después en principal, como se
+detalla debajo; el bloqueo de
+instrumentación quedó congelado y no acredita un ensayo funcional.
 
 CT90 corrigió con tres paréntesis `cierre87_validar_sucesora` y pasó la focal
 real de un positivo, nueve negativos y la sucesora operativa. Tiene dos `GO` y
@@ -121,8 +127,8 @@ Tras corregir la allowlist HTTP, se importaron exactamente la solicitud y clave
 `aed453da…`. Un solo replay respondió `201` a las `17:35:57.825562Z`, recibo
 `ref:2db8cfe02f7f97bc99b183ac66d579b83698981e78220f301e39f873f8b36f7c`,
 seguimiento 2 y expediente v9 intacto. El recibo procede de `respuesta_json`.
-SQL confirmó 12 tablas históricas intactas y solo una preparación, un registro,
-una auditoría y un outbox nuevos; Personal quedó exacto. El recorrido no tuvo
+SQL conservó las filas anteriores de las 12 tablas y añadió solo una preparación,
+un registro, una auditoría y un outbox; Personal quedó exacto. El recorrido no tuvo
 JS, cookies, almacenamiento ni overflow a 1440/1024/390. Tras reiniciar la
 misma app y PostgreSQL del clon87, **Recuperar anotación** devolvió `GET 200` con
 el mismo recibo/v9 y el replay del cierre devolvió `POST 200` con el mismo
@@ -189,6 +195,29 @@ correo con exactamente dos concesiones y prueba autoridad PDP/COSE/HMAC real,
 con correlación audit17 conservada y CT54 sin interceptar. Go global y vet
 terminaron con código 0. No intente usarlo: aún no hay HTTP compuesto,
 PostgreSQL, SMTP, runtime ni E2E nuevo.
+
+En principal ya se instalaron una vez AD3-30/CT86, AD3-31/CT87 y CT90, con
+Auth13 intacta. Chrome creó una anotación `201`, recibo
+`430b3ba1-da78-4743-951c-bf5a89737f10`, y pasó el expediente v8→v9. Después
+cerró con `201`, recibo `cbbc4406…2a3f6`, clave
+`3a9924a3-1944-4fc8-b510-2566f6767504`. El seguimiento queda
+`cerrado_administrativamente/v2`; el expediente conserva
+`nombramiento/en_curso/v9`. Conserve ambos recibos:
+las filas previas de las 12 tablas y Personal permanecieron intactos y no hubo duplicados. La
+pantalla mostró `cerrado_administrativamente`, sin JS, cookies, almacenamiento
+ni overflow a 1440/1024/390. Los dos `404` de Bolsa eran ajenos. Tras reiniciar
+la misma app y PostgreSQL principal, **Recuperar anotación** devolvió `GET 200`
+con el mismo recibo, fecha y v9. El replay exacto del cierre devolvió `POST 200`
+con el mismo recibo y seguimiento 2; el `GET` posterior devolvió `200` y la UI
+mostró **Cerrado**. Incorporación y ficha GINPIX conservaron recibo, fecha y SHA.
+SQL mantuvo preparación, registro y outbox únicos y añadió solo una auditoría
+`recuperado=true`, sin alterar la original. Dirección inspeccionó a 390 px el
+recibo original y el estado **Cerrado** visibles. Tampoco acredita cese ni cierre jurídico del expediente,
+firma, correo, efecto legal o confirmación GINPIX externa.
+
+El cambio UI `cfa4d70fa14a23827f8cd15420975fe5d5d82fd3`, revisado sin secretos,
+pasó 396/396 pruebas web y manifiestos 11/111/3/1. No se repitieron Go global ni
+vet por este cambio JavaScript.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

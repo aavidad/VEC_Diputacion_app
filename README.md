@@ -6,10 +6,14 @@ Provincial de Granada. Publicado bajo la
 
 ## Incorporación, GINPIX y Word comprobados en navegador — 12 de septiembre de 2026
 
-La base publicada de este corte es `069d399b5ece9c8602253579aa31317c0fccc75c`.
-El runtime principal comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+La base de este corte es `2eb94c1c8277a7bb93393d7ed41e66580590182f` y sus
+cambios son `f1512fdbe85a891d425a1d453993c512a5f420b4` y
+`cfa4d70fa14a23827f8cd15420975fe5d5d82fd3`. El runtime principal comprobado
+usa el binario SHA256
+`bc65b1d6213cf1da31d58fd23c96acb27b4b54c8f99ef9cbc7948d30c21b4122`, un
+asset SHA256 `f0fa62246a8dbeb5b3dcc8e56e68e7e3d9ace4511f1ba813619764130c63ceb4`
+y el árbol web SHA256
+`b3a18ba8556946dd7b33c1e9cccbfe95c4a37f6a2c219db815a5e8ab43dd1215`.
 Chrome obtuvo `200` al recuperar
 la incorporación y la ficha GINPIX, sin repetir el `POST`: se conservaron el
 recibo `ref:2bc3d281…`, la fecha
@@ -35,9 +39,9 @@ visible. La recuperación tras el reinicio conservó sus nombres, bytes y SHA256
 también mantuvo idénticas cinco huellas de Personal y seis contadores más la
 fila de incorporación de CT. Los objetivos 11, recuperación, y 12, ficha manual
 GINPIX, quedan acreditados funcionalmente. Esto no completa Contratación ni
-ocho hitos. Auth13 está instalada una sola vez. CT86/87 y AD3-30/31 están
-instaladas sólo en los dos clones; anotación y cierre se demostraron en clon87
-con reinicio y mismos recibos, mientras la instalación principal sigue pendiente.
+ocho hitos. Auth13 está instalada una sola vez. AD3-30/CT86, AD3-31/CT87 y
+CT90 se instalaron después una sola vez en principal; el recorrido se detalla
+debajo y su recuperación tras reinicio ya está acreditada.
 
 El frontend publicado integra fechas civiles UTC legibles sin desplazar
 el día, paginación mediante cursor opaco de un solo uso y validación accesible
@@ -54,8 +58,8 @@ entradas de manifiesto y 30/30 scripts `UP` cotejados con el registro privado.
 No se ejecutaron SQL ni `DOWN`. CT70–85 y la instalación de Auth13 conservan
 su historia. Los avisos de fin de fichero de cuatro originales CT70/80 se
 mantienen para preservar su igualdad byte a byte. Dos clústeres aislados se
-restauraron. Los ensayos posteriores de CT86/87 y la instalación de CT90 se
-detallan debajo; la base principal no recibió ese SQL.
+restauraron. Los ensayos posteriores de CT86/87 y la instalación principal de
+CT90 se detallan debajo.
 
 La UI de recuperación del cierre ya está visible. En el runtime `037b…`, el
 `GET` de preparación estaba bloqueado; el recorrido posterior descrito debajo
@@ -69,10 +73,9 @@ cuatro, de trazabilidad, tuvieron revisión proporcional de dirección. La web
 terminó 378/378 `PASS` y los manifiestos 111/11/3/1 pasaron. No se envía ningún
 `POST` de incorporación.
 
-Los cuatro `UP` de CT86/87 pasaron solamente en dos clones aislados. La base
-principal sigue pendiente y la instrumentación de CT87 quedó bloqueada de
-forma automática y congelada. El ensayo posterior acredita la anotación, pero
-no el cierre.
+Los cuatro `UP` de CT86/87 pasaron primero en dos clones aislados. Después se
+instalaron una sola vez en principal junto con CT90. La instrumentación separada
+de CT87 quedó bloqueada y congelada; no acredita un ensayo funcional.
 
 La candidata de bandeja nominal añade 16 archivos Go sin SQL: técnico explícito
 y lectores nominales para dos consultas, con ámbito conjunto de organización y
@@ -99,9 +102,10 @@ organización; no se han probado dos unidades ni cambiar el centro. En un clon,
 CT87 arrancó con HTTP `200`, pero la publicación técnica falló por una
 precedencia JSON incorrecta. El preflight posterior y cinco snapshots quedaron
 idénticos al estado inmediatamente anterior al intento, sin tres `INSERT`
-persistidos. CT90 se instaló después únicamente en los dos clones, como se
-detalla debajo. CT87 ya está instalada: no
-reaplique sus cuatro `UP`; el bloqueo de instrumentación es separado y no hay
+persistidos. CT90 se instaló primero únicamente en los dos clones y después en
+principal, como se detalla debajo. CT87 ya está instalada: no
+reaplique sus cuatro `UP`; la instrumentación bloqueada quedó congelada, no
+acredita un ensayo funcional y no hay
 rollback acreditado todavía.
 
 CT90, SHA `581c69…`, y su focal final `c731…` recibieron dos `GO` estáticos y
@@ -210,6 +214,32 @@ Declara un rol de correo con exactamente dos concesiones. La autoridad real
 PDP/COSE/HMAC está probada, conserva la correlación nominal de audit17 y no
 intercepta CT54. Go global y vet terminaron con código 0. Todavía no hay HTTP
 compuesto, PostgreSQL, SMTP, runtime ni E2E nuevo.
+
+En principal, Auth13 quedó intacta y AD3-30/CT86, AD3-31/CT87 y CT90 se
+instalaron una vez (`a65ba4…`). Con el mismo contenedor, `GET` mTLS devolvió
+`200`; incorporación y ficha GINPIX conservaron recibo, fecha y SHA256, sin
+`POST`. Chrome registró la anotación `201`, recibo
+`430b3ba1-da78-4743-951c-bf5a89737f10`, a las
+`2026-09-12T19:22:55.043368Z`, y llevó el expediente v8→v9. El cierre respondió
+`201`, recibo `cbbc4406…2a3f6`, clave `3a9924a3-1944-4fc8-b510-2566f6767504`
+y seguimiento `cerrado_administrativamente/v2`; el expediente conserva
+`nombramiento/en_curso/v9`. Las filas anteriores se conservaron en las 12 tablas
+y las cinco de Personal quedaron intactas, sin duplicar incorporación
+o raíz. No hubo JS, cookies, almacenamiento ni overflow a 1440/1024/390. Dos
+`404` ajenos de Bolsa no forman parte del recorrido. Tras reiniciar la misma app
+y PostgreSQL principal, Chrome recuperó la anotación con `GET 200`, mismo
+recibo, fecha y v9; el replay exacto del cierre devolvió `POST 200`, mismo recibo
+y seguimiento 2, seguido de `GET 200` y UI **Cerrado**. Incorporación y ficha
+GINPIX volvieron a dar `200` con recibo, fecha y SHA intactos. La comparación
+final conservó once tablas CT, estados y Personal; solo añadió una auditoría
+`recuperado=true`, manteniendo preparación, registro y outbox únicos.
+
+El cambio UI `cfa4d70fa14a23827f8cd15420975fe5d5d82fd3` tiene dos archivos,
+focal 14 y `GO`, y fue revisado sin secretos.
+La web terminó 396/396 y los manifiestos 11/111/3/1 pasaron. No se repitieron Go
+global ni vet por esta etiqueta JS. El navegador usó el asset `f0fa…`. Este
+recorrido no acredita cese ni cierre jurídico del expediente, firma, eficacia,
+correo, efecto legal o confirmación externa de GINPIX.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

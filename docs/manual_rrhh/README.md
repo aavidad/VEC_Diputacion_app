@@ -2,10 +2,14 @@
 
 ## Incorporación, GINPIX y borradores Word comprobados — 12 de septiembre de 2026
 
-La base publicada de este corte es `069d399b5ece9c8602253579aa31317c0fccc75c`.
-El runtime principal comprobado usa la web
-`037b4226e979c755d47cb28591857ec03ca4d63c` y el binario
-`1b21f31d299b94133e1e5b14b313d2e8fff0aef9909824813abfbd4a609d766e`.
+La base de este corte es `2eb94c1c8277a7bb93393d7ed41e66580590182f` y sus
+cambios son `f1512fdbe85a891d425a1d453993c512a5f420b4` y
+`cfa4d70fa14a23827f8cd15420975fe5d5d82fd3`. El runtime principal comprobado
+usa el binario SHA256
+`bc65b1d6213cf1da31d58fd23c96acb27b4b54c8f99ef9cbc7948d30c21b4122`, un
+asset SHA256 `f0fa62246a8dbeb5b3dcc8e56e68e7e3d9ace4511f1ba813619764130c63ceb4`
+y el árbol web SHA256
+`b3a18ba8556946dd7b33c1e9cccbfe95c4a37f6a2c219db815a5e8ab43dd1215`.
 Chrome recuperó la incorporación
 y la ficha GINPIX con HTTP `200`.
 No se repitió el alta: coinciden el recibo `ref:2bc3d281…`, la fecha
@@ -31,8 +35,9 @@ agrupación a ancho completo de los seis pares está desplegada y visible. La
 recuperación conservó los seis nombres, tamaños y SHA256, además de las huellas
 de Personal y CT, sin repetir el `POST` de incorporación. Los objetivos 11 y
 12 quedan acreditados funcionalmente tras reinicio, sin completar Contratación
-ni los ocho hitos. Auth13 está instalada una sola vez; CT86/87 y AD3-30/31 se
-instalaron después solo en los dos clones. La principal no recibió ese SQL.
+ni los ocho hitos. Auth13 está instalada una sola vez. AD3-30/CT86,
+AD3-31/CT87 y CT90 se instalaron después una sola vez en principal; la
+recuperación del recorrido tras reinicio ya está acreditada.
 
 El frontend publicado añade controles de paginación. **Siguiente** usa una vez el
 cursor opaco recibido; **Reiniciar** vuelve a la primera página. El chip indica
@@ -66,9 +71,9 @@ Los detalles de trazabilidad plegados mantienen visibles recibo, fecha, estado,
 límites y período. Los cinco archivos de recuperación recibieron dos `GO`; los
 otros cuatro, de trazabilidad, tuvieron revisión proporcional de dirección.
 Las 378/378 pruebas web y los manifiestos 111/11/3/1 están verdes. CT86/87 se
-instalaron solo en dos clones aislados; la base principal sigue pendiente y
-la instrumentación CT87 bloqueada quedó congelada, sin acreditar un ensayo de
-cierre.
+probaron primero en dos clones y después se instalaron una vez en principal
+junto con CT90. La instrumentación CT87 bloqueada quedó congelada y no acredita
+un ensayo funcional.
 
 La bandeja nominal en código exige identificar al técnico y limita sus dos
 consultas a la intersección de organización y unidad, sin fallback. Sus 16
@@ -94,8 +99,9 @@ técnico de su organización, sin prueba de dos unidades ni cambio de centro.
 CT87 ya está instalada y no se reaplica. Su publicación en clon falló por
 precedencia JSON; cinco snapshots posteriores quedaron idénticos al estado
 inmediatamente anterior al intento, sin tres `INSERT` persistidos. CT90 se
-instaló después únicamente en los dos clones, como se detalla debajo. El bloqueo de instrumentación
-fue una comprobación separada.
+instaló primero únicamente en los dos clones y después en principal, como se
+detalla debajo. La instrumentación bloqueada quedó congelada y no acredita un
+ensayo funcional.
 
 CT90 corrige únicamente tres paréntesis de `cierre87_validar_sucesora`. Sus dos
 revisiones y la prueba real —un positivo, nueve negativos y la sucesora
@@ -115,8 +121,8 @@ cierre devolvió `400`. Tras corregir la allowlist HTTP, se importaron exactamen
 el JSON y la clave `aed453da…`; un único replay respondió `201`, generó el
 recibo `ref:2db8cfe02f7f97bc99b183ac66d579b83698981e78220f301e39f873f8b36f7c`
 y llevó el seguimiento a 2 sin cambiar el expediente v9. La lectura SQL
-conservó 12 tablas históricas y añadió solo preparación, registro, auditoría y
-outbox; Personal quedó exacto. La pantalla no tuvo errores JS, cookies,
+conservó las filas anteriores de las 12 tablas y añadió solo preparación,
+registro, auditoría y outbox; Personal quedó exacto. La pantalla no tuvo errores JS, cookies,
 almacenamiento ni overflow a 1440/1024/390. No repita el replay.
 
 La corrección HTTP de dos archivos Go tiene `GO`; Go global y vet pasaron. El
@@ -183,6 +189,27 @@ exactamente dos concesiones y prueba la autoridad real PDP/COSE/HMAC, sin
 interceptar CT54. Go global y vet terminaron con código 0. Para RRHH no cambia
 todavía el recorrido: faltan HTTP compuesto, PostgreSQL, SMTP y runtime, y no
 hay un E2E nuevo de correo.
+
+En principal se instalaron una vez AD3-30/CT86, AD3-31/CT87 y CT90, conservando
+Auth13. RRHH registró una anotación `201`, recibo
+`430b3ba1-da78-4743-951c-bf5a89737f10`, y el expediente pasó v8→v9. El cierre
+respondió `201`, recibo `cbbc4406…2a3f6`, clave
+`3a9924a3-1944-4fc8-b510-2566f6767504`. El seguimiento mostró
+`cerrado_administrativamente/v2`; el expediente conservó
+`nombramiento/en_curso/v9`. Personal y la historia previa quedaron intactos,
+sin duplicar incorporación o raíz. No hubo JS, cookies, almacenamiento ni
+overflow a 1440/1024/390. Conserve los dos recibos y no repita las escrituras.
+Tras reiniciar la misma app y PostgreSQL principal, **Recuperar anotación**
+devolvió `GET 200` con el mismo recibo, fecha y v9. El replay exacto del cierre
+devolvió `POST 200` con el mismo recibo y seguimiento 2; el `GET` posterior
+devolvió `200` y la pantalla mostró **Cerrado**. Solo se añadió la auditoría
+prevista `recuperado=true`; preparación, registro y outbox siguen únicos.
+No acredita cese ni cierre jurídico del expediente, firma, eficacia, envío,
+efecto legal o GINPIX externo.
+
+El cambio UI `cfa4d70fa14a23827f8cd15420975fe5d5d82fd3`, revisado sin secretos,
+pasó 396/396 pruebas web y manifiestos 11/111/3/1. No se repitieron Go global ni
+vet por este cambio JavaScript.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 
@@ -368,7 +395,7 @@ reales ni una aceptación funcional de Recursos Humanos.
 | 5. Informe jurídico y Fiscalización | Demostrado: documento de desarrollo sin firma, resultado de Intervención y devolución a la unidad cuando es desfavorable. |
 | 6. Llamamiento | Parcial: recorridos sintéticos, aviso CT62, declaración CT63 y aceptación manual del sucesor CT64 recuperables tras reinicio principal. Faltan vencimiento, envío corporativo y plazo; no acredita entrega ni plazo legal. |
 | 7. Nombramiento / formalización | Parcial: propuesta desde aceptación sintética `201` y recuperación `200` tras reinicio, expediente `6→7`; seis borradores descargables y validación manual sintética `7→8` con recibo recuperable. Sigue pendiente el circuito de firma oficial; no posesión real, nombramiento eficaz, envío ni entrega. |
-| 8. Incorporación, GINPIX y seguimiento | Parcial comprobado: la incorporación y Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX responde `200` y conserva seis campos y SHA256. Anotación y cierre se demostraron en clon87 tras reinicio, con los mismos recibos y sin duplicados; siguen pendientes de instalar en principal. No acredita transmisión o confirmación del destino ni cierra 8/8. |
+| 8. Incorporación, GINPIX y seguimiento | Parcial comprobado: la incorporación y Personal se recuperan por `GET` tras reiniciar aplicación y PostgreSQL, con recibo y fecha originales; la ficha manual GINPIX responde `200` y conserva seis campos y SHA256. El cierre administrativo del seguimiento se recuperó en principal con los mismos recibos y una sola auditoría nueva. No es cese ni cierre jurídico del expediente, no acredita transmisión o confirmación del destino y no cierra 8/8. |
 
 La **bandeja de expedientes está cerrada para este alcance de desarrollo**:
 la base del servidor conserva 52 expedientes sintéticos, con bandeja y detalle
