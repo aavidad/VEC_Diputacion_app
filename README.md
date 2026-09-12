@@ -4,6 +4,21 @@ Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
 Provincial de Granada. Publicado bajo la
 [Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
 
+## Anotación y cierre conectados en código — 12 de septiembre de 2026
+
+Sobre la base `cad0a44c`, este corte conecta en el detalle de
+RRHH la primera anotación administrativa con su recuperación, el refresco del
+detalle v8→v9 y el cierre administrativo sin cese. Conserva el recibo visible,
+no habilita el cierre sobre datos obsoletos y no repite ningún `POST`
+automáticamente. Diez pruebas Node/DOM focales, una del inventario HTTP y las
+324 pruebas web están verdes; dos revisiones independientes dieron `GO` sobre
+los nueve hashes.
+
+La comprobación en navegador, API y PostgreSQL queda pendiente. Auth13 y
+CT86/87 con AD3-30/31 no constan instaladas; GINPIX no se ha probado sobre el
+recibo recuperado. Este texto no acredita publicación del commit. No repita el
+`POST` de incorporación conservado.
+
 ## Estado funcional y continuación — 12 de septiembre de 2026
 
 Base del cierre funcional: `00558603dbd3040eacb03cb511f3b840be241b10`, rama

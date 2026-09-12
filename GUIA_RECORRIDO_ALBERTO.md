@@ -1,5 +1,29 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Anotación y cierre conectados en código — 12 de septiembre de 2026
+
+Sobre la base `cad0a44c`, este corte conecta estas operaciones:
+
+```text
+POST /api/vec/contratacion-temporal/expedientes/anotaciones-administrativas
+GET  /api/vec/contratacion-temporal/expedientes/anotaciones-administrativas/recuperacion
+GET  /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion
+POST /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese
+```
+
+Node/DOM quedó verde 10/10, el inventario HTTP 1/1 y la suite web 324/324 sin
+casos omitidos; dos revisiones dieron `GO` sobre nueve hashes. Estas pruebas
+son sintéticas y no acreditan navegador, API, PostgreSQL, instalación o
+publicación.
+
+Cuando estén disponibles Auth13 y CT86/87 con AD3-30/31, RRHH abrirá el
+expediente sintético conservado, recuperará la incorporación sin repetir su
+POST, registrará una única anotación y conservará recibo y clave. La vista debe
+refrescar v8→v9 antes de ofrecer la preparación y el cierre. Un resultado
+incierto se recupera con la misma clave; un error de lectura permite reintentar
+el GET sin duplicar formularios ni POST. El cierre no registra cese, no cambia
+periodos y no acredita firma, eficacia administrativa, envío ni GINPIX.
+
 ## Pausa por cuota — 10 de septiembre de 2026
 
 El operador ordenó cerrar y guardar. Los siete cortes hasta `9fb12560` quedan

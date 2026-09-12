@@ -19,6 +19,8 @@ import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION 
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
 import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
+import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
+import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
     propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
@@ -37,6 +39,10 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
     fichaGINPIX: RUTA_FICHA_GINPIX,
     seguimientoIncorporacion: RUTA_SEGUIMIENTO_INCORPORACION,
+    anotacionAdministrativa: RUTA_ANOTACION_ADMINISTRATIVA,
+    recuperacionAnotacionAdministrativa: RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA,
+    preparacionCierreSinCese: "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion",
+    cierreAdministrativo: RUTA_CIERRE_ADMINISTRATIVO,
 });
 const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
 const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
@@ -47,6 +53,9 @@ const MAXIMO_ERROR_BYTES = 16 * 1024;
 const MAXIMO_FRAGMENTOS = 4096;
 const MAXIMO_FRAGMENTOS_ERROR = 256;
 const PATRON_CORRELACION = /^corr_(?:[0-9a-f]{32}|no_disponible)$/u;
+const PATRON_REFERENCIA_OPACA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+const PATRON_CLAVE_CATALOGO = /^[a-z][a-z0-9._-]{1,79}$/u;
+const PATRON_INSTANTE_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const CODIGOS_POR_ESTADO = new Map([
   [400, new Set(["peticion_no_valida", "peticion_no_permitida"])],
   [401, new Set(["autenticacion_requerida"])],
@@ -170,6 +179,58 @@ function exigirCamposExactos(valor, campos) {
   return recibidos.length === campos.length
     && recibidos.every((campo) => campos.includes(campo))
     && campos.every((campo) => Object.hasOwn(valor, campo));
+}
+
+function validarConsultaPreparacionCierreSinCese(consulta) {
+  if (!exigirCamposExactos(consulta, ["expediente_ref", "seguimiento_ref"])
+    || !PATRON_REFERENCIA_OPACA.test(consulta.expediente_ref)
+    || !PATRON_REFERENCIA_OPACA.test(consulta.seguimiento_ref)) {
+    throw new TypeError("consulta de preparación de cierre sin cese no válida");
+  }
+  return Object.freeze({ ...consulta });
+}
+
+function adaptarPreparacionCierreSinCese(dto, consulta) {
+  if (!exigirCamposExactos(dto, [
+    "expediente_ref", "seguimiento_ref", "version_actual", "estado_actual", "acciones", "preparada_en",
+  ]) || dto.expediente_ref !== consulta.expediente_ref
+    || dto.seguimiento_ref !== consulta.seguimiento_ref
+    || !PATRON_REFERENCIA_OPACA.test(dto.expediente_ref)
+    || !PATRON_REFERENCIA_OPACA.test(dto.seguimiento_ref)
+    || !Number.isSafeInteger(dto.version_actual) || dto.version_actual < 1
+    || !PATRON_CLAVE_CATALOGO.test(dto.estado_actual)
+    || typeof dto.preparada_en !== "string" || !PATRON_INSTANTE_UTC.test(dto.preparada_en)
+    || Number.isNaN(Date.parse(dto.preparada_en))
+    || !Array.isArray(dto.acciones) || dto.acciones.length > 1) {
+    throw new TypeError("preparación de cierre sin cese incompatible");
+  }
+  let preparacion = null;
+  if (dto.acciones.length === 1) {
+    const accion = dto.acciones[0];
+    if (!exigirCamposExactos(accion, ["transicion_clave", "motivos"])
+      || accion.transicion_clave !== "cerrar_administrativamente_sin_cese"
+      || !Array.isArray(accion.motivos) || accion.motivos.length < 1 || accion.motivos.length > 256
+      || dto.version_actual !== 1 || dto.estado_actual !== "vigente") {
+      throw new TypeError("preparación de cierre sin cese incompatible");
+    }
+    const motivos = accion.motivos.map((motivo) => {
+      if (!exigirCamposExactos(motivo, ["motivo_clave"])
+        || !PATRON_CLAVE_CATALOGO.test(motivo.motivo_clave)) {
+        throw new TypeError("preparación de cierre sin cese incompatible");
+      }
+      return motivo.motivo_clave;
+    });
+    if (new Set(motivos).size !== motivos.length) {
+      throw new TypeError("preparación de cierre sin cese incompatible");
+    }
+    preparacion = Object.freeze({
+      expediente_ref: dto.expediente_ref,
+      seguimiento_ref: dto.seguimiento_ref,
+      version_esperada: dto.version_actual,
+      motivos: Object.freeze(motivos),
+    });
+  }
+  return Object.freeze({ estado_actual: dto.estado_actual, preparada_en: dto.preparada_en, preparacion });
 }
 
 function validarSignal(signal) {
@@ -419,7 +480,16 @@ function claveI18nValida(ruta, codigo, clave) {
       "servicio_no_disponible",
     ].includes(codigo);
   }
-  const prefijo = ruta.split("?")[0] === RUTA_FICHA_GINPIX
+  const rutaBase = ruta.split("?")[0];
+  const prefijo = [
+    RUTAS_HTTP_CONTRATACION_TEMPORAL.preparacionCierreSinCese,
+    RUTA_CIERRE_ADMINISTRATIVO,
+  ].includes(rutaBase)
+    ? "api.contratacion_temporal.cierre_administrativo.error."
+    : rutaBase === RUTA_ANOTACION_ADMINISTRATIVA
+    || rutaBase === RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA
+    ? "api.contratacion_temporal.anotacion_administrativa.error."
+    : rutaBase === RUTA_FICHA_GINPIX
     ? "api.contratacion_temporal.ficha_ginpix.error."
     : [RUTA_INCORPORACION_EJERCICIO, RUTA_SEGUIMIENTO_INCORPORACION].includes(ruta.split("?")[0])
     ? "api.contratacion_temporal.incorporacion_ejercicio.error."
@@ -439,6 +509,15 @@ function claveI18nValida(ruta, codigo, clave) {
 }
 
 function codigoValidoParaRuta(ruta, estado, codigo) {
+  if (ruta.split("?")[0] === RUTA_CIERRE_ADMINISTRATIVO) {
+    if ((estado === 401 && codigo === "autenticacion_requerida")
+      || (estado === 403 && codigo === "acceso_denegado")
+      || (estado === 409 && [
+        "version_en_conflicto",
+        "clave_idempotencia_reutilizada",
+      ].includes(codigo))) return true;
+    return estado !== 409 && CODIGOS_POR_ESTADO.get(estado)?.has(codigo) === true;
+  }
   if (ruta.split("?")[0] === RUTA_FICHA_GINPIX && estado === 409) {
     return codigo === "recibo_no_confirmado";
   }
@@ -825,6 +904,17 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     return compartida;
   }
 
+  async function consultarPreparacionCierreSinCese(consulta, opciones) {
+    const entrada = validarConsultaPreparacionCierreSinCese(consulta);
+    const { signal } = validarOpciones(opciones);
+    const ruta = `${RUTAS_HTTP_CONTRATACION_TEMPORAL.preparacionCierreSinCese}?expediente_ref=${encodeURIComponent(entrada.expediente_ref)}&seguimiento_ref=${encodeURIComponent(entrada.seguimiento_ref)}`;
+    return ejecutar({
+      metodo: "GET", ruta, signal, estadoEsperado: 200, maximoRespuesta: 16 * 1024,
+      efecto: false,
+      validarRespuesta: (respuesta) => adaptarPreparacionCierreSinCese(respuesta, entrada),
+    });
+  }
+
   return Object.freeze({
     modo: "http",
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones }),
@@ -835,6 +925,8 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones }),
+    anotacionAdministrativa: crearClienteAnotacionAdministrativaHTTP({ ejecutar, validarOpciones }),
+    ...crearClienteCierreAdministrativoHTTP({ ejecutar, validarOpciones }),
     seguimientoIncorporacion: crearClienteSeguimientoIncorporacion({
       validarOpciones,
       consultar: (expedienteRef, { signal }) => ejecutar({
@@ -852,5 +944,6 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     }) }),
     proponerCobertura, decidirCobertura, rectificarCobertura,
     consultarResultadoCobertura, obtenerConfiguracionAnalisis, registrarAnalisis, rectificarAnalisis,
+    consultarPreparacionCierreSinCese,
   });
 }

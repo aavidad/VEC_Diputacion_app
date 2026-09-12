@@ -1,5 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+## Anotación y cierre conectados en código — 12 de septiembre de 2026
+
+Sobre la base publicada `cad0a44c`, este corte integra el cliente y montaje
+frontend de la primera anotación administrativa y el cierre sin cese. La vista
+conserva el recibo, refresca v8→v9 antes de habilitar el cierre, descarta
+respuestas tardías al desmontar, mantiene monotónica la preparación y serializa
+los reintentos GET. No ejecuta automáticamente los POST de anotación, cierre o
+incorporación.
+
+La validación focal terminó 10/10 en Node/DOM y 1/1 para el inventario HTTP;
+la suite web terminó 324/324, sin casos omitidos, y `git diff --check` pasó.
+Dos revisiones independientes emitieron `GO` sobre los nueve hashes finales.
+El alcance usa Node, DOM y `fetch` sintéticos: el recorrido con navegador, API
+y PostgreSQL sigue pendiente, al igual que la verificación de publicación.
+
+Auth13 `ef6704a6` sigue sin instalación acreditada. CT86/87 y AD3-30/31 existen
+como scripts, pero no constan instaladas; GINPIX `e2831250` continúa sin prueba
+sobre el recibo recuperado. Los objetivos 11–14 y la métrica funcional no
+cambian.
+
 ## Recuperación del trabajo — 12 de septiembre de 2026
 
 Orden vigente del operador: revisar y conservar el trabajo, ordenar las ramas y

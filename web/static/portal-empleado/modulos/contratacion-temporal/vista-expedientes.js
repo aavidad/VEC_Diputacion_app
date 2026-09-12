@@ -15,6 +15,8 @@ import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion
 import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
 import { montarFichaGINPIX } from "./ficha-ginpix.js";
 import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
 import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
 import {
@@ -759,7 +761,33 @@ export async function montarModuloContratacionTemporal({
     try {
       const preparacion = await clienteLlamamiento.prepararIncorporacionEjercicio(expedienteRef, { signal: controlador.signal });
       if (!vigente()) return;
-      if (preparacion.expediente_ref !== expedienteRef || preparacion.version_actual_expediente !== version) {
+      if (preparacion.expediente_ref !== expedienteRef) {
+        throw new TypeError("preparación de incorporación no ligada al detalle actual");
+      }
+      if (preparacion.version_actual_expediente !== version) {
+        if (preparacion.recibo !== null && preparacion.recibo.expediente_ref === expedienteRef
+          && preparacion.version_actual_expediente > version) {
+          // El recibo acredita una versión posterior; no se presenta el detalle
+          // v8 como vigente ni se monta una acción sobre esa proyección.
+          await presentador.cargar();
+          if (!montada || controlador.signal.aborted) return;
+          const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+            ({ expediente_ref: referencia }) => referencia === expedienteRef,
+          );
+          if (!resumen || resumen.version < preparacion.version_actual_expediente) {
+            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
+            return;
+          }
+          await presentador.seleccionarExpediente(expedienteRef, "expediente");
+          if (!montada || controlador.signal.aborted) return;
+          const actualizado = presentador.obtenerEstado().expediente;
+          if (actualizado?.version < preparacion.version_actual_expediente) {
+            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
+            return;
+          }
+          repintar("[data-ct-exp-mensaje]");
+          return;
+        }
         throw new TypeError("preparación de incorporación no ligada al detalle actual");
       }
       desmontarIncorporacionEjercicio = montarFormularioIncorporacionEjercicio({
@@ -797,6 +825,123 @@ export async function montarModuloContratacionTemporal({
         desmontarIncorporacionEjercicio = () => {
           desmontarFicha(); liberarFicha(); desmontarFormulario();
         };
+      }
+      if (preparacion.recibo !== null && preparacion.recibo.expediente_ref === expedienteRef
+        && typeof clienteLlamamiento.anotacionAdministrativa?.registrar === "function"
+        && typeof clienteLlamamiento.anotacionAdministrativa?.recuperar === "function") {
+        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
+        const bloque = documento.createElement("div");
+        const bloqueCierre = documento.createElement("div");
+        contenedor.append(bloque);
+        contenedor.append(bloqueCierre);
+        let panelActivo = true;
+        let versionObsoleta = null;
+        let desmontarCierre = null;
+        let lecturaCierreEnCurso = false;
+        const panelSigueMontado = () => panelActivo && montada && !controlador.signal.aborted
+          && raiz.contains?.(contenedor);
+        const vigenteMontaje = () => {
+          const actual = presentador.obtenerEstado();
+          return versionObsoleta === null && panelSigueMontado()
+            && actual?.vista === "expediente" && actual.carga === "listo"
+            && actual.expediente?.expediente_ref === expedienteRef
+            && actual.expediente?.version === version;
+        };
+        const mostrarCierreNoDisponible = (mensaje, recuperable = false) => {
+          if (!panelSigueMontado()) return;
+          desmontarCierre?.();
+          desmontarCierre = null;
+          bloqueCierre.innerHTML = `<section class="ct-alta" data-ct-cierre-administrativo>
+            <h3>Cierre administrativo sin cese</h3>
+            <p class="ct-ayuda" role="status">${escaparHTML(mensaje)}</p>
+            ${recuperable ? '<button type="button" class="boton-secundario" data-ct-exp-reintentar-cierre>Reintentar la lectura de cierre</button>' : ""}
+          </section>`;
+          if (recuperable) {
+            const boton = bloqueCierre.querySelector?.("[data-ct-exp-reintentar-cierre]");
+            boton?.addEventListener?.("click", refrescarCierre);
+          }
+        };
+        async function refrescarCierre() {
+          if (!vigenteMontaje() || typeof clienteLlamamiento.consultarPreparacionCierreSinCese !== "function"
+            || typeof clienteLlamamiento.cerrar !== "function" || lecturaCierreEnCurso) return;
+          lecturaCierreEnCurso = true;
+          try {
+            const cierre = await clienteLlamamiento.consultarPreparacionCierreSinCese({
+              expediente_ref: expedienteRef,
+              seguimiento_ref: preparacion.recibo.seguimiento_ref,
+            }, { signal: controlador.signal });
+            if (!vigenteMontaje()) return;
+            desmontarCierre?.();
+            desmontarCierre = null;
+            bloqueCierre.replaceChildren();
+            if (cierre.preparacion !== null) {
+              desmontarCierre = montarFormularioCierreAdministrativo({
+                raiz: bloqueCierre,
+                cliente: clienteLlamamiento,
+                preparacion: cierre.preparacion,
+                confirmarOperacion,
+              });
+            }
+          } catch {
+            if (vigenteMontaje()) {
+              mostrarCierreNoDisponible(
+                "No se pudo recuperar la preparación del cierre. El cierre no está habilitado; puede reintentar la lectura.",
+                true,
+              );
+            }
+          } finally {
+            lecturaCierreEnCurso = false;
+          }
+        }
+        async function refrescarDetalleTrasAnotacion(reciboAnotacion) {
+          if (!panelSigueMontado() || reciboAnotacion.expediente_ref !== expedienteRef
+            || reciboAnotacion.version_resultante <= version) return;
+          versionObsoleta = reciboAnotacion.version_resultante;
+          mostrarCierreNoDisponible(
+            `La anotación se registró en la versión ${reciboAnotacion.version_resultante}. El detalle mostrado (v${version}) está obsoleto y el cierre permanece deshabilitado hasta actualizarlo.`,
+          );
+          try {
+            await presentador.cargar();
+            if (!panelSigueMontado()) return;
+            const cuadro = presentador.obtenerEstado().cuadro;
+            const resumen = cuadro?.expedientes?.find(({ expediente_ref: referencia }) => referencia === expedienteRef);
+            if (!resumen || resumen.version < reciboAnotacion.version_resultante) return;
+            await presentador.seleccionarExpediente(expedienteRef, "expediente");
+            if (!panelSigueMontado()) return;
+            const actualizado = presentador.obtenerEstado().expediente;
+            if (actualizado?.expediente_ref !== expedienteRef
+              || actualizado.version < reciboAnotacion.version_resultante) return;
+            repintar("[data-ct-exp-mensaje]");
+            const mensaje = raiz.querySelector("[data-ct-exp-mensaje]");
+            const confirmacion = `Anotación administrativa registrada. Recibo original: ${reciboAnotacion.recibo_ref}. El detalle se ha actualizado a la versión ${actualizado.version}.`;
+            if (mensaje) {
+              mensaje.textContent = confirmacion;
+              mensaje.setAttribute("role", "status");
+            }
+            anunciar(confirmacion, "exito");
+          } catch {
+            // El aviso de obsolescencia conserva el recibo; una lectura posterior puede recuperarlo.
+          }
+        }
+        const desmontarAnotacion = montarFormularioAnotacionAdministrativa({
+          raiz: bloque,
+          cliente: clienteLlamamiento.anotacionAdministrativa,
+          expediente: { expediente_ref: expedienteRef, version },
+          confirmarOperacion,
+          locale,
+          zonaHoraria,
+          alConfirmar: refrescarDetalleTrasAnotacion,
+        });
+        const desmontarAntesAnotacion = desmontarIncorporacionEjercicio;
+        desmontarIncorporacionEjercicio = () => {
+          panelActivo = false;
+          desmontarCierre?.();
+          desmontarAnotacion();
+          bloqueCierre.replaceChildren();
+          desmontarAntesAnotacion();
+        };
+        await refrescarCierre();
+        if (!vigente()) return;
       }
       if (preparacion.recibo !== null && typeof clienteLlamamiento.seguimientoIncorporacion?.consultar === "function") {
         const documento = contenedor.ownerDocument ?? entornoDescarga.document;

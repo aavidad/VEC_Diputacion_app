@@ -455,6 +455,10 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
     "/api/vec/contratacion-temporal/incorporaciones-ejercicio",
     "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix",
     "/api/vec/contratacion-temporal/incorporaciones-ejercicio/seguimiento",
+    "/api/vec/contratacion-temporal/expedientes/anotaciones-administrativas",
+    "/api/vec/contratacion-temporal/expedientes/anotaciones-administrativas/recuperacion",
+    "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion",
+    "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese",
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
