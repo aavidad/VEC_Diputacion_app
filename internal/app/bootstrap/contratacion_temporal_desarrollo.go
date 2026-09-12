@@ -54,6 +54,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	noCompuesta             *capacidadNoCompuestaContratacionTemporalDesarrollo
 	llamamientoCompuesto    bool
 	consultasRRHHCompuestas bool
+	subsanacionCompuesta    bool
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -95,7 +96,8 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigad
 	if datos.Accion == ports.AccionRegistrarAnalisis ||
 		datos.Accion == ports.AccionCrearSolicitud ||
 		datos.Accion == ports.AccionRegistrarAsignacion ||
-		datos.Accion == ports.AccionEmitirInformeJuridico {
+		datos.Accion == ports.AccionEmitirInformeJuridico ||
+		datos.Accion == string(domain.AccionRegistrarSubsanacionReparo) {
 		if ctx == nil {
 			return vecdomain.DecisionAutorizacionLigadaV3{},
 				puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
@@ -246,6 +248,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	var subsanacionReal dependenciasSubsanacionReparosContratacionTemporalDesarrollo
+	if strings.TrimSpace(cfg.ContratacionTemporalSubsanacionPoliticaFile) != "" {
+		politica, causa := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg)
+		if causa == nil {
+			fuente := fuentePoliticaSubsanacionReparosDesarrollo{soporte: alta.soporte, configuracion: politica}
+			if fuente.configurar(&alta) == nil {
+				subsanacionReal, _ = nuevasDependenciasSubsanacionReparosContratacionTemporalDesarrollo(derivador, &alta, fuente, reloj)
+			}
+		}
+	}
 	cerrarCobertura := true
 	defer func() {
 		if cerrarCobertura {
@@ -256,7 +268,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo()
+	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(subsanacionReal.servicio != nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -331,6 +343,12 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	var autoridadSubsanacion httpinterno.AutoridadContextoCanalSubsanacionReparos
+	var ejecutorSubsanacion httpinterno.EjecutorSubsanacionReparos
+	if subsanacionReal.servicio != nil && subsanacionReal.autoridad != nil {
+		autoridadSubsanacion = subsanacionReal.autoridad
+		ejecutorSubsanacion = subsanacionReal.servicio
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
 			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
@@ -360,6 +378,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			EjecutorInformeJuridico:         informeJuridicoReal,
 			AutoridadFiscalizacion:          fiscalizacionReal.soporte,
 			EjecutorFiscalizacion:           fiscalizacionReal.servicio,
+			AutoridadSubsanacionReparos:     autoridadSubsanacion,
+			EjecutorSubsanacionReparos:      ejecutorSubsanacion,
 		},
 	)
 	if err != nil {
@@ -434,6 +454,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		noCompuesta:             noCompuesta,
 		llamamientoCompuesto:    comunicacionReal != nil,
 		consultasRRHHCompuestas: consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
+		subsanacionCompuesta:    subsanacionReal.servicio != nil,
 	}
 	var cierre sync.Once
 	cerrar := func() {
@@ -477,7 +498,8 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 	}
 	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) &&
 		!((a.llamamientoCompuesto && (ruta == httpinterno.RutaSeleccionLlamamiento || ruta == httpinterno.RutaPropuestaFormalizacion)) ||
-			(a.consultasRRHHCompuestas && rutaConsultaRRHHContratacionTemporalDesarrollo(ruta))) {
+			(a.consultasRRHHCompuestas && rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)) ||
+			(a.subsanacionCompuesta && ruta == httpinterno.RutaSubsanacionReparos)) {
 		return a.noCompuesta.denegarRuta(ctx, ruta)
 	}
 	return nil
@@ -520,6 +542,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
 			capacidad.ruta == httpinterno.RutaConsultaSeguimientoV2 ||
 			capacidad.ruta == httpinterno.RutaResolucionFormalizacion ||
+			capacidad.ruta == httpinterno.RutaSubsanacionReparos ||
 			capacidad.ruta == rutaEntregaPeticionCentro ||
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
@@ -594,6 +617,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||
 		r.URL.Path == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaResultadosFiscalizacion ||
+		r.URL.Path == httpinterno.RutaSubsanacionReparos ||
 		r.URL.Path == httpinterno.RutaAltaSolicitudes ||
 		r.URL.Path == httpinterno.RutaPropuestaCobertura ||
 		r.URL.Path == httpinterno.RutaDecisionCobertura ||
