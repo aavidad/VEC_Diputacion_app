@@ -325,8 +325,15 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			return nil, nil, nil, err
 		}
 	}
+	presentacionFlujoRRHH, err := LeerLectorFlujoVisualRRHH(
+		strings.NewReader(config.PresentacionFlujoRRHHDesarrollo()),
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	rutas, err := contratacioncomposicion.NuevasRutas(
 		contratacioncomposicion.DependenciasRutas{
+			PresentacionFlujoRRHH:           presentacionFlujoRRHH,
 			IncorporacionV2:                 incorporacionV2,
 			AutoridadAlta:                   alta.soporte,
 			EjecutorAlta:                    alta.servicio,

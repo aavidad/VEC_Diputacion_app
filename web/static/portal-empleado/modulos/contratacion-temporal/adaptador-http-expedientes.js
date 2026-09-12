@@ -4,6 +4,7 @@ import {
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
 import { validarCatalogosAlta } from "./contrato.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -186,6 +187,7 @@ function resolucionConPropuestaHistorica(detalle) {
 }
 
 function proyectarExpediente(detalle, locale, catalogos) {
+  const traducir = crearTraductorContratacionTemporal();
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -196,7 +198,14 @@ function proyectarExpediente(detalle, locale, catalogos) {
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
     cabecera: cabeceraDetalle(detalle, locale, catalogos),
-    fases: [],
+    fases: (detalle.presentacion_flujo?.fases ?? []).map((fase) => ({
+      fase_ref: `presentacion:${detalle.presentacion_flujo.referencia}:${fase.clave}`,
+      orden: fase.orden,
+      etiqueta: traducir(fase.clave_i18n),
+      estado_clave: detalle.resumen.estado_clave === "en_curso"
+        && detalle.presentacion_flujo.fase_actual === fase.clave
+        ? "en_curso" : "sin_confirmar",
+    })),
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(resolucionConPropuestaHistorica(detalle) ? { version_propuesta_documental: 7 } : {}),

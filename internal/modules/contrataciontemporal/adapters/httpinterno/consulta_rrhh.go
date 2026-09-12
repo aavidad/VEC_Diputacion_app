@@ -33,6 +33,9 @@ type ConsultorCuadroRRHH interface {
 type ConsultorDetalleRRHH interface {
 	Consultar(context.Context, ports.SolicitudDetalleRRHH) (ports.DetalleExpedienteRRHH, error)
 }
+type ResolutorPresentacionFlujoRRHH interface {
+	Resolver(context.Context, domain.ReferenciaFlujo, domain.ClaveFase) (ports.PresentacionFlujoRRHH, error)
+}
 
 // RenderizadorBorradorRRHHDOCX recibe sólo el detalle que ya superó la misma
 // consulta autorizada que PDF. La representación no amplía la autoridad.
@@ -49,6 +52,28 @@ type manejadorConsultaDetalleRRHH struct {
 	consultorOriginalPropuesta ConsultorDetalleRRHH
 	renderizador               ports.RenderizadorBorradorRRHH
 	renderizadorDOCX           RenderizadorBorradorRRHHDOCX
+	presentacion               ResolutorPresentacionFlujoRRHH
+}
+
+func NuevoManejadorConsultaDetalleRRHHConPresentacion(consultor ConsultorDetalleRRHH, presentacion ResolutorPresentacionFlujoRRHH, renderizadores ...ports.RenderizadorBorradorRRHH) (http.Handler, error) {
+	h, err := NuevoManejadorConsultaDetalleRRHH(consultor, renderizadores...)
+	if err != nil || dependenciaConsultaRRHHNula(presentacion) {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	h.(*manejadorConsultaDetalleRRHH).presentacion = presentacion
+	return h, nil
+}
+
+// ConfigurarPresentacionConsultaDetalleRRHH añade el rail a un manejador de detalle ya
+// construido, conservando exactamente sus variantes PDF, DOCX y propuesta.
+func ConfigurarPresentacionConsultaDetalleRRHH(handler http.Handler, presentacion ResolutorPresentacionFlujoRRHH) (http.Handler, error) {
+	h, ok := handler.(*manejadorConsultaDetalleRRHH)
+	if !ok || h == nil || dependenciaConsultaRRHHNula(presentacion) {
+		return nil, ErrManejadorConsultaRRHHInvalido
+	}
+	copia := *h
+	copia.presentacion = presentacion
+	return &copia, nil
 }
 
 var (
@@ -259,10 +284,17 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		h.responderBorrador(w, r, detalle, borrador)
 		return
 	}
+	proyeccion := proyectarDetalleRRHH(detalle)
+	if h.presentacion != nil {
+		origen := domain.ReferenciaFlujo{DefinicionRef: detalle.Resumen.FlujoRef, Version: detalle.Resumen.FlujoVersion, HuellaSHA256: detalle.Resumen.FlujoHuella}
+		if presentacion, err := h.presentacion.Resolver(r.Context(), origen, detalle.Resumen.FaseClave); err == nil && presentacion.Validar() == nil {
+			proyeccion.PresentacionFlujo = proyectarPresentacionFlujoRRHH(presentacion)
+		}
+	}
 	responderJSONConsultaRRHH(
 		w,
 		http.StatusOK,
-		envoltorioDetalleRRHH{Data: proyectarDetalleRRHH(detalle)},
+		envoltorioDetalleRRHH{Data: proyeccion},
 	)
 }
 

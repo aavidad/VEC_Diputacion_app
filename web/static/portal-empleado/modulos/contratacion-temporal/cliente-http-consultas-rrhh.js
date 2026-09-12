@@ -15,6 +15,7 @@ const PATRON_INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const ESTADOS_OPERATIVOS = new Set([
   "pendiente", "en_curso", "espera_externa", "completado", "incidencia", "cancelado",
 ]);
+const ESQUEMA_PRESENTACION_FLUJO = "vec.contratacion_temporal.presentacion_flujo_rrhh.v1";
 
 export const RUTAS_CONSULTA_RRHH = Object.freeze({
   cuadroRRHH: RUTA_CUADRO,
@@ -236,7 +237,7 @@ function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -250,8 +251,10 @@ function validarDetalle(entrada) {
   if (Object.hasOwn(entrada, "analisis")) salida.analisis = validarAnalisis(entrada.analisis);
   if (Object.hasOwn(entrada, "cobertura")) salida.cobertura = validarCobertura(entrada.cobertura);
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);
+  if (Object.hasOwn(entrada, "presentacion_flujo")) salida.presentacion_flujo = validarPresentacionFlujo(entrada.presentacion_flujo);
   return Object.freeze(salida);
 }
+function validarPresentacionFlujo(v) { if (!camposCerrados(v,["esquema","referencia","version","huella_sha256","vinculo_huella_sha256","clave_i18n","fases"],["fase_actual"]) || v.esquema !== ESQUEMA_PRESENTACION_FLUJO || !referencia(v.referencia) || !entero(v.version,1) || !/^[a-f0-9]{64}$/u.test(v.huella_sha256) || !/^[a-f0-9]{64}$/u.test(v.vinculo_huella_sha256) || !clave(v.clave_i18n) || !Array.isArray(v.fases) || v.fases.length < 1 || v.fases.length > 32 || (Object.hasOwn(v,"fase_actual") && !clave(v.fase_actual,true))) throw new TypeError("presentación de flujo RRHH no válida"); const fases=v.fases.map((f)=>{if(!camposCerrados(f,["clave","orden","clave_i18n"])||!clave(f.clave)||!entero(f.orden,1)||!clave(f.clave_i18n))throw new TypeError("fase de presentación RRHH no válida");return structuredClone(f)}); if(new Set(fases.map(f=>f.clave)).size!==fases.length||new Set(fases.map(f=>f.orden)).size!==fases.length||v.fase_actual&&!fases.some(f=>f.clave===v.fase_actual))throw new TypeError("presentación de flujo RRHH incoherente"); return Object.freeze({...structuredClone(v),fases}); }
 
 export function crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones } = {}) {
   if (typeof ejecutar !== "function" || typeof validarOpciones !== "function") {

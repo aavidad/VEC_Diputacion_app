@@ -190,6 +190,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   nueva_peticion_descripcion:
     "Indique la necesidad de personal del centro y revise los datos antes de registrar la solicitud.",
   fase_pendiente: "Pendiente",
+  fase_sin_confirmar: "Sin confirmar",
   fase_en_curso: "En tramitación",
   fase_espera: "Pendiente de otro departamento",
   fase_completado: "Completado",

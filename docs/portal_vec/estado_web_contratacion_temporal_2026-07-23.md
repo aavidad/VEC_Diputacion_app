@@ -16,32 +16,34 @@ Cero significa recorrido funcional de desarrollo documentado, no producción ni
 validación final de RRHH. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
-**Disponibilidad transversal:** el remoto confirmó recuperación del arranque
-con binario `9abf2c6d` a las 21:44 UTC. Falta confirmar la descarga PDF y
-el despliegue de las entregas locales; no se han repetido recorridos cerrados. No afirmar
-19 pantallas disponibles hasta comprobarlo. Último producto publicado de referencia:
-`e8d3a2a6`; locales `10bf299e`, `f7ab1036`, `a28f5432` y `450cea84`
-entregados, pendientes de integración. El resumen de candidatura se añade en este corte.
+**Disponibilidad transversal:** recuperación documental publicada en `4fc058f5`:
+PDF y DOCX reales con HTTP 200 desde expediente avanzado, vista 390 px comprobada
+y conservación del historial verificada por el remoto. Producto `d4cae9f2` integrado
+localmente; búsqueda y cierre táctil ya publicados. Indicadores, resumen GINPIX,
+orientación de candidatura y reapertura de cobertura están entregados al remoto.
+La línea de ocho fases se conecta en este corte a la consulta autorizada del detalle;
+composición y pruebas focales correctas, pendiente comprobación en navegador real.
+No se incrementa el contador por esta integración.
 
 | N.º | Pantalla | Estado | Falta estimada | Responsable / dependencia | Pendiente concreto o evidencia |
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Parcial | 25 % | Director local; integración del parche entregado | Ámbito de indicadores; línea de progreso depende de definición de flujo publicada. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Alta real y recibo persistido; guía de recorrido. |
 | 3 | Análisis de RRHH | Parcial | 25 % | Local: web_rectificacion y web_politica_rectificacion | Registro existente; falta rectificación habilitada por política y motivo gobernados. |
-| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Director local; espera arranque | Reapertura integrada; comprobar recorrido de cobertura desde análisis existente. |
-| 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Director local; espera arranque | Asignación persistida; falta recorrido de bandeja con lectores nominales. |
+| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Remoto: preparacion_continuidad | Reapertura integrada; comprobar recorrido de cobertura desde análisis existente. |
+| 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Remoto: preparacion_continuidad | Asignación persistida; falta recorrido de bandeja con lectores nominales. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Espera circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma/envío por simulación. |
-| 8 | Fiscalización por Intervención | Parcial | 25 % | Director local; espera arranque | Conexión normal integrada; comprobar formulario con expediente en su fase. |
-| 9 | Subsanación de reparos | Pendiente | 100 % | Local: web_subsanacion | Conectar corrección real desde reparo; localizar comando reutilizable o dependencia exacta. |
+| 8 | Fiscalización por Intervención | Parcial | 25 % | Remoto: preparacion_continuidad | Conexión normal integrada; comprobar formulario con expediente en su fase. |
+| 9 | Subsanación de reparos | Pendiente | 100 % | Local: web_subsanacion y web_revision_subsanacion | Comando en revisión; faltan persistencia durable y formulario conectado. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Espera contacto/SMTP operativo | Selección y aviso local existen; envío efectivo depende de correo. Completar dependencia si impide avanzar, autorizado por operador. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Espera política de plazo admitida | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio/plazo acreditados. |
 | 13 | Traslado de candidatura | Parcial | 25 % | Director local; integración UI entregada | Fuente Word pide generar documentos tras selección. Resumen de aceptación conectado a CT65; falta publicación/recorrido. No hace falta crear otro traslado. |
-| 14 | Documentación para formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Recuperación de documentos históricos D/CT91; arranque y descarga pendientes. |
+| 14 | Documentación para formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Recuperación histórica D/CT91 publicada: PDF/DOCX 200; falta cierre visual del conjunto documental. |
 | 15 | Generación de datos GINPIX | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Ficha manual real recuperada; no representa envío externo. |
 | 16 | Resumen final y envío a GINPIX | Parcial | 25 % | Director local/remoto; integración de 450cea84 | Resumen real y ficha manual conectados en código; falta publicación/recorrido. La alternativa manual está admitida por Word, envío automático sigue separado. |
-| 17 | Generación documental de formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Seis PDF/DOCX ya generados; recuperar descarga desde expediente avanzado. |
+| 17 | Generación documental de formalización | Parcial | 25 % | Remoto: director y correccion_arnes_ordinario | Seis PDF/DOCX existentes; recuperación desde expediente avanzado corregida y publicada. Pendiente revisión visual final del conjunto. |
 | 18 | Incorporación | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Incorporación y recuperación documentadas con mismo recibo. |
 | 19 | Seguimiento y cierre administrativo | Terminada en desarrollo | 0 % | Sin trabajo pendiente | Anotación/cierre y estado recuperados; no es cese ni cierre jurídico. |
 
@@ -50,7 +52,7 @@ Fuentes: matriz exacta histórica inferior; `GUIA_RECORRIDO_ALBERTO.md`
 `ESTADO_PROYECTO.md` (cola de entregas y dependencias); composición real de
 `vista-expedientes.js`. El inventario no usa el adaptador DEMO como evidencia.
 Responsables locales activos trabajan en ramas separadas; el director local
-integra y comprueba los recorridos pendientes cuando el arranque esté disponible.
+integra y coordina la comprobación de los recorridos pendientes con el remoto activo.
 Los estados de responsables deben actualizarse al acabar o reasignar cada tarea.
 
 ## Corte histórico de julio (no es el contador vigente)
