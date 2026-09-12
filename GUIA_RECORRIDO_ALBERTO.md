@@ -1,5 +1,7 @@
 # Guía de recorrido y recibos conservados de VEC
 
+Al reabrir un expediente en Análisis y en curso, Cobertura recupera el formulario existente con la versión coincidente de bandeja y detalle, sin registrar de nuevo el análisis. Montaje focal comprobado; la pantalla real sigue sin errores JavaScript ni desbordamiento a 1440/390 px. No hay actualmente un expediente en Análisis en la bandeja conservada para acreditar esa apertura concreta.
+
 El montaje normal de RRHH recibe ahora el cliente existente de Fiscalización para continuar desde Informe jurídico. La bandeja real respondió 200 sin errores JavaScript; no contiene actualmente expedientes en esa fase, por lo que este corte acredita la conexión y sus comprobaciones focales, no un nuevo registro de fiscalización.
 
 Bandeja y detalle muestran los nombres del catálogo de centros y categorías ya cargado; conservan las referencias originales si falta una etiqueta. Comprobación real: «Centro solicitante» y «Categoría C2», sin errores JavaScript ni desbordamiento a 1440/390 px. La descarga de borradores desde la historia v9 sigue pendiente: el lector histórico respondió 404 y ese parche no se incorporó.
