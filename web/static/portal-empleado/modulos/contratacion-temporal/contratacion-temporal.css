@@ -25,6 +25,7 @@
   align-items: stretch;
   padding: 18px 20px;
   border: 1px solid var(--portal-borde);
+  border-top: 4px solid var(--portal-azul-700);
   border-radius: var(--portal-radio);
   background: var(--portal-superficie);
   box-shadow: var(--portal-sombra);

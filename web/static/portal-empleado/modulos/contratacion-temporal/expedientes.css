@@ -318,6 +318,7 @@
   gap: 14px;
   padding: 13px 15px;
   border: 1px solid var(--portal-borde);
+  border-top: 4px solid var(--ct-acento);
   border-radius: var(--portal-radio);
   background: var(--portal-superficie);
 }
@@ -601,10 +602,12 @@
 
 .ct-exp-panel-documentos {
   border-top: 4px solid var(--portal-cian-fuerte);
+  background: linear-gradient(180deg, var(--portal-cian-suave), var(--portal-superficie) 68px);
 }
 
 .ct-exp-panel-comprobaciones {
   border-top: 4px solid var(--portal-exito);
+  background: linear-gradient(180deg, var(--portal-exito-suave), var(--portal-superficie) 68px);
 }
 
 .ct-exp-panel-formulario {

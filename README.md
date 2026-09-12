@@ -10,20 +10,23 @@ El commit publicado `f9230d2a7ef7ede2aa9836c9eac28c8382a01aac` conecta en el
 detalle de RRHH la primera anotación administrativa con su recuperación, el refresco del
 detalle v8→v9 y el cierre administrativo sin cese. Conserva el recibo visible,
 no habilita el cierre sobre datos obsoletos y no repite ningún `POST`
-automáticamente. Diez pruebas Node/DOM focales, una del inventario HTTP y las
-324 pruebas web están verdes; dos revisiones independientes dieron `GO` sobre
-los nueve hashes.
+automáticamente. Se recuperaron once pruebas preservadas de los formularios y
+la suite web quedó 335/335; dos revisiones independientes dieron `GO` sobre
+los nueve hashes del montaje.
 
-Auth13 está instalada con postimagen exacta y respaldo privado. El GET de
-incorporación continúa en 503; no se ha acreditado todavía la recuperación ni
-GINPIX. CT86/87 y AD3-30/31 siguen sin instalar. No repita el POST de incorporación.
+Auth13 está instalada con postimagen exacta y respaldo privado. Los GET de
+incorporación y ficha GINPIX pasaron por `curl` con mTLS: mismo recibo
+`ref:2bc3d281…`, fecha `2026-09-10T13:07:06.614186Z` y negocio CT intacto.
+El navegador y la recuperación tras reinicio siguen pendientes; no repita el POST.
 
-Sobre `f9230d2a`, este corte admite solo las dos audiencias de
-AD3-30/31 y conserva las siete anteriores y sus guardas. Tiene dos `GO`, focal
-Go `PASS` en `0.020 s`, build, `go test -p 1 ./...` y `go vet -p 1 ./...` verdes; no hay instalación en runtime.
+El gobierno de dos audiencias está publicado en `bc80cddf` y desplegado en el
+mismo contenedor con binario `4178cfd7…`; CT86/87 y AD3-30/31 siguen sin instalar.
+El apoyo CSS `52c6284e…`, dos archivos y cuatro líneas, fue revisado con renderer
+sintético a 1440/1024/390; no acredita navegador ni E2E.
 
 El alcance RRHH conserva ocho hitos. Siguen pendientes los seis borradores en
-Word, correo efectivo y apertura de la bandeja destinataria. Las maquetas no
+Word, correo efectivo y apertura de la bandeja destinataria. La candidata DOCX
+tiene pruebas, con revisión aún en curso. Las maquetas no
 añaden fases ni documentos aprobados; GINPIX admite ficha manual.
 
 ## Estado funcional y continuación — 12 de septiembre de 2026

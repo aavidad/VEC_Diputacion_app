@@ -11,17 +11,20 @@ GET  /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion
 POST /api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese
 ```
 
-Node/DOM quedó verde 10/10, el inventario HTTP 1/1 y la suite web 324/324 sin
-casos omitidos; dos revisiones dieron `GO` sobre nueve hashes. Estas pruebas
-son sintéticas y no acreditan navegador, API, PostgreSQL o instalación.
+Se recuperaron once pruebas preservadas de los formularios y la suite web quedó
+335/335; dos revisiones dieron `GO` sobre nueve hashes. Estas pruebas
+son sintéticas y no acreditan el recorrido de navegador.
 
-Este corte sobre `f9230d2a` admite solo las dos audiencias de AD3-30/31 y
-conserva las siete anteriores y sus guardas. Tiene dos `GO`, focal Go `PASS` en
-`0.020 s`, build y campañas globales Go verdes. AD3-30/31 no están instaladas.
-Auth13 sí quedó instalada una vez, con postimagen y respaldo comprobados, pero
-el GET de incorporación continúa en 503. Se conservan recibo e historia de negocio.
+El gobierno está publicado en `bc80cddf` y el binario `4178cfd7…` desplegado en
+el mismo contenedor. Auth13 quedó instalada una vez. Los GET de incorporación
+y ficha GINPIX pasaron por `curl` mTLS con el mismo recibo `ref:2bc3d281…`,
+fecha `2026-09-10T13:07:06.614186Z` e historia CT intacta. No se han comprobado
+aún en navegador ni después de reiniciar; anotación y cierre tampoco tienen E2E.
 
-Cuando se resuelva el GET y se instalen CT86/87 con AD3-30/31, RRHH abrirá el
+El CSS `52c6284e…` fue revisado con renderer sintético a 1440/1024/390; no es
+E2E. CT86/87 y AD3-30/31 siguen sin instalar y DOCX continúa en revisión.
+
+Cuando se instalen CT86/87 con AD3-30/31, RRHH abrirá el
 expediente sintético conservado, recuperará la incorporación sin repetir su
 POST, registrará una única anotación y conservará recibo y clave. La vista debe
 refrescar v8→v9 antes de ofrecer la preparación y el cierre. Un resultado

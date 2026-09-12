@@ -10,24 +10,29 @@ respuestas tardías al desmontar, mantiene monotónica la preparación y seriali
 los reintentos GET. No ejecuta automáticamente los POST de anotación, cierre o
 incorporación.
 
-La validación focal terminó 10/10 en Node/DOM y 1/1 para el inventario HTTP;
-la suite web terminó 324/324, sin casos omitidos, y `git diff --check` pasó.
+Se recuperaron once pruebas preservadas de los formularios; la suite web
+terminó 335/335 y `git diff --check` pasó.
 Dos revisiones independientes emitieron `GO` sobre los nueve hashes finales.
-El alcance usa Node, DOM y `fetch` sintéticos: el recorrido con navegador, API
-y PostgreSQL sigue pendiente.
+El alcance usa Node, DOM y `fetch` sintéticos: el E2E de anotación y cierre en
+navegador sigue pendiente.
 
 Auth13 `ef6704a6` quedó instalada una sola vez el 12 de septiembre, con respaldo
 privado y suplemento restaurable de ACL de base y 177 tipos de fila. Su postimagen
-exacta y la regresión SQL están comprobadas. El GET de incorporación sigue en
-503 y requiere diagnóstico; no se repitió el POST. Las cinco tablas de negocio
-Personal conservan sus huellas, igual que el recibo original y los seis conteos CT
-comprobados. CT86/87 y AD3-30/31 siguen sin instalar; GINPIX aún no se ha probado
-sobre el recibo recuperado. Los objetivos 11–14 y la métrica funcional no cambian.
+exacta y la regresión SQL están comprobadas. Por `curl` con mTLS, los GET de
+incorporación y ficha GINPIX pasaron con el recibo `ref:2bc3d281…` y la fecha
+`2026-09-10T13:07:06.614186Z`; las huellas de negocio CT antes y después son
+idénticas y también se conservaron las cinco huellas de Personal. No se repitió
+el POST. Navegador y reinicio siguen pendientes.
 
-Este corte sobre `f9230d2a` tiene dos revisiones independientes `GO`: admite
-exactamente las dos audiencias de AD3-30/31 y preserva las siete anteriores y sus guardas.
-La focal Go pasó en `0.020 s`; build, `go test -p 1 ./...` y `go vet -p 1 ./...` pasaron.
-AD3-30/31 y su gobierno nominal aún no están instalados en runtime.
+El gobierno que admite exactamente las dos audiencias de AD3-30/31 y conserva
+las siete anteriores está publicado en `bc80cddf`; el binario desplegado en el
+mismo contenedor es `4178cfd7…`. La candidata tuvo dos `GO`; el build y las
+campañas `go test -p 1 ./...` y `go vet -p 1 ./...` pasaron. CT86/87 y AD3-30/31 siguen sin instalar, por
+lo que no hay anotación o cierre acreditados en runtime.
+
+El apoyo CSS `52c6284e…` cambia cuatro líneas en dos archivos: franja y
+agrupación fueron revisadas con renderer sintético a 1440/1024/390, sin E2E.
+La candidata DOCX tiene pruebas y revisión en curso; no se presenta terminada.
 
 El contraste con RRHH mantiene ocho hitos; las 17 pantallas son maquetas, no
 otras fases. Faltan Word de los mismos seis borradores PDF, correo efectivo y
