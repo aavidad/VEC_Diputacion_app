@@ -125,7 +125,8 @@ func (f FiscalizacionRegistrada) Validar() error {
 }
 
 func (v VinculoActuacionFiscalizacion) validar() error {
-	if v.Secuencia != 6 || v.VersionExpediente != 6 ||
+	if v.Secuencia == 0 || v.VersionExpediente == 0 ||
+		v.Secuencia != v.VersionExpediente ||
 		v.AccionClave != AccionRegistrarFiscalizacion ||
 		!v.Resultado.Valido() || !referenciaValida(v.ReciboRef) ||
 		!referenciaValida(v.FiscalizacionRef) ||
@@ -185,9 +186,8 @@ func (e Expediente) RegistrarFiscalizacion(
 	datos DatosRegistrarFiscalizacion,
 	actuacion DatosActuacion,
 ) (Expediente, error) {
-	if e.Validar() != nil || versionEsperada != 5 || e.Version != 5 ||
-		e.Asignacion == nil || e.InformeJuridico == nil || e.Fiscalizacion != nil ||
-		e.FaseActual != FaseInformeJuridico || e.EstadoActual != EstadoEnCurso ||
+	if e.Validar() != nil || versionEsperada != e.Version ||
+		e.Asignacion == nil || e.InformeJuridico == nil ||
 		!referenciaValida(datos.FiscalizacionRef) || !datos.Resultado.Valido() ||
 		!referenciaValida(datos.UnidadFiscalizadoraRef) ||
 		!textoValido(datos.Observaciones, 2000, true) ||
@@ -198,6 +198,18 @@ func (e Expediente) RegistrarFiscalizacion(
 		actuacion.Observaciones != datos.Observaciones ||
 		len(actuacion.DocumentosRef) != 1 ||
 		actuacion.DocumentosRef[0] != e.InformeJuridico.DocumentoRef {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	esRefiscalizacion := e.esAntecedenteRefiscalizable()
+	esFiscalizacionInicial := e.Version == 5 && e.Fiscalizacion == nil &&
+		e.FaseActual == FaseInformeJuridico && e.EstadoActual == EstadoEnCurso
+	if !esFiscalizacionInicial && !esRefiscalizacion {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	if esRefiscalizacion && actuacion.RetornoRef != e.Fiscalizacion.Retorno.RetornoRef {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	if esFiscalizacionInicial && actuacion.RetornoRef != "" {
 		return Expediente{}, ErrTransicionInvalida
 	}
 
@@ -223,7 +235,7 @@ func (e Expediente) RegistrarFiscalizacion(
 		}
 	} else {
 		if !textoValido(datos.Observaciones, 2000, false) ||
-			!referenciaValida(datos.RetornoRef) {
+			!referenciaValida(datos.RetornoRef) || e.retornoFiscalizacionYaUsado(datos.RetornoRef) {
 			return Expediente{}, ErrTransicionInvalida
 		}
 		faseDestino = FaseSubsanacionUnidad
@@ -243,18 +255,38 @@ func (e Expediente) RegistrarFiscalizacion(
 	if err != nil {
 		return Expediente{}, err
 	}
-	vinculo := nuevoVinculoActuacionFiscalizacion(actuacion, fiscalizacion)
+	vinculo := nuevoVinculoActuacionFiscalizacion(
+		e.Version+1, uint64(len(e.Actuaciones)+1), actuacion, fiscalizacion,
+	)
 	fiscalizacion.ActuacionRegistro = &vinculo
 	siguiente.Fiscalizacion = &fiscalizacion
 	return siguiente.confirmarTransicion(actuacion)
 }
 
+// retornoFiscalizacionYaUsado protege la unicidad del terminal de cada reparo
+// frente a replays manipulados y conserva transitables las subsanaciones
+// posteriores. Las actuaciones contienen las referencias de retornos ya
+// abiertos, incluso cuando la proyección vigente ya fue sustituida.
+func (e Expediente) retornoFiscalizacionYaUsado(retornoRef string) bool {
+	if e.Fiscalizacion != nil && e.Fiscalizacion.Retorno != nil &&
+		e.Fiscalizacion.Retorno.RetornoRef == retornoRef {
+		return true
+	}
+	for _, actuacion := range e.Actuaciones {
+		if actuacion.RetornoRef == retornoRef {
+			return true
+		}
+	}
+	return false
+}
+
 func nuevoVinculoActuacionFiscalizacion(
+	versionExpediente, secuencia uint64,
 	actuacion DatosActuacion,
 	fiscalizacion FiscalizacionRegistrada,
 ) VinculoActuacionFiscalizacion {
 	vinculo := VinculoActuacionFiscalizacion{
-		Secuencia: 6, VersionExpediente: 6,
+		Secuencia: secuencia, VersionExpediente: versionExpediente,
 		AccionClave: actuacion.AccionClave, FaseDestino: actuacion.FaseDestino,
 		EstadoDestino: actuacion.EstadoDestino, ReciboRef: actuacion.ReciboRef,
 		FiscalizacionRef:       fiscalizacion.FiscalizacionRef,
@@ -269,6 +301,27 @@ func nuevoVinculoActuacionFiscalizacion(
 		vinculo.ResponsableRetornoRef = fiscalizacion.Retorno.ResponsableRef
 	}
 	return vinculo
+}
+
+// esAntecedenteRefiscalizable acepta exclusivamente el retorno vigente que la
+// propia fiscalización desfavorable abrió y cuya subsanación ya se registró.
+// Las instantáneas anteriores se preservan en persistencia; el agregado solo
+// proyecta el resultado vigente.
+func (e Expediente) esAntecedenteRefiscalizable() bool {
+	if e.Fiscalizacion == nil || e.Fiscalizacion.Resultado != FiscalizacionDesfavorable ||
+		e.Fiscalizacion.Retorno == nil || e.FaseActual != FaseSubsanacionUnidad ||
+		e.EstadoActual != EstadoIncidencia {
+		return false
+	}
+	retornoRef := e.Fiscalizacion.Retorno.RetornoRef
+	secuenciaFiscalizacion := e.Fiscalizacion.ActuacionRegistro.Secuencia
+	for _, actuacion := range e.Actuaciones {
+		if actuacion.AccionClave == AccionRegistrarSubsanacionReparo &&
+			actuacion.RetornoRef == retornoRef && actuacion.Secuencia > secuenciaFiscalizacion {
+			return true
+		}
+	}
+	return false
 }
 
 func fiscalizacionLigadaAActuacion(

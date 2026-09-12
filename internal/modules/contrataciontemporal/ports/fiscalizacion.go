@@ -48,7 +48,7 @@ type MaterialHuellaFiscalizacion struct {
 func (m MaterialHuellaFiscalizacion) Validar() error {
 	if !domain.ReferenciaOpacaValida(m.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(m.ExpedienteRef) ||
-		m.VersionExpediente != 5 ||
+		m.VersionExpediente == 0 || m.VersionExpediente > 9007199254740990 ||
 		!domain.ReferenciaOpacaValida(m.ActorRef) ||
 		!domain.ReferenciaOpacaValida(m.PerfilRef) ||
 		ValidarResultadoFiscalizacion(m.Resultado, m.Observaciones) != nil {
@@ -166,10 +166,8 @@ func (p PreparacionFiscalizacion) ValidarPara(
 		p.Material != solicitud.Material ||
 		p.Expediente.Referencia != p.Material.ExpedienteRef ||
 		p.Expediente.OrganizacionRef != p.Material.OrganizacionRef ||
-		p.Expediente.Version != 5 || p.Expediente.FaseActual != domain.FaseInformeJuridico ||
-		p.Expediente.EstadoActual != domain.EstadoEnCurso ||
-		p.Expediente.Asignacion == nil || p.Expediente.InformeJuridico == nil ||
-		p.Expediente.Fiscalizacion != nil ||
+		p.Expediente.Version != p.Material.VersionExpediente ||
+		!antecedenteFiscalizacionValido(p.Expediente) ||
 		!ColeccionesHMACContienenPar(
 			solicitud.AmbitosHMAC, DominioAmbitoIdempotenciaFiscalizacion,
 			solicitud.HuellasPeticionHMAC, DominioHuellaPeticionFiscalizacion,
@@ -187,6 +185,31 @@ func (p PreparacionFiscalizacion) ValidarPara(
 		return ErrPreparacionFiscalizacionInvalida
 	}
 	return nil
+}
+
+func antecedenteFiscalizacionValido(expediente domain.Expediente) bool {
+	if expediente.Asignacion == nil || expediente.InformeJuridico == nil {
+		return false
+	}
+	if expediente.Version == 5 && expediente.FaseActual == domain.FaseInformeJuridico &&
+		expediente.EstadoActual == domain.EstadoEnCurso && expediente.Fiscalizacion == nil {
+		return true
+	}
+	if expediente.FaseActual != domain.FaseSubsanacionUnidad ||
+		expediente.EstadoActual != domain.EstadoIncidencia || expediente.Fiscalizacion == nil ||
+		expediente.Fiscalizacion.Resultado != domain.FiscalizacionDesfavorable ||
+		expediente.Fiscalizacion.Retorno == nil || expediente.Fiscalizacion.ActuacionRegistro == nil {
+		return false
+	}
+	retornoRef := expediente.Fiscalizacion.Retorno.RetornoRef
+	for _, actuacion := range expediente.Actuaciones {
+		if actuacion.AccionClave == domain.AccionRegistrarSubsanacionReparo &&
+			actuacion.RetornoRef == retornoRef &&
+			actuacion.Secuencia > expediente.Fiscalizacion.ActuacionRegistro.Secuencia {
+			return true
+		}
+	}
+	return false
 }
 
 type PreparadorFiscalizacionIdempotente interface {
@@ -219,8 +242,9 @@ func (s SolicitudResolverPoliticaFiscalizacion) Validar() error {
 		VersionExpediente: s.VersionExpediente, ActorRef: s.ActorRef,
 		PerfilRef: s.PerfilRef, Resultado: s.Resultado,
 		Observaciones: s.Observaciones,
-	}).Validar() != nil || s.FaseActual != domain.FaseInformeJuridico ||
-		s.EstadoActual != domain.EstadoEnCurso ||
+	}).Validar() != nil ||
+		!((s.FaseActual == domain.FaseInformeJuridico && s.EstadoActual == domain.EstadoEnCurso) ||
+			(s.FaseActual == domain.FaseSubsanacionUnidad && s.EstadoActual == domain.EstadoIncidencia)) ||
 		!domain.ReferenciaOpacaValida(s.UnidadAsignadaRef) ||
 		!domain.ReferenciaOpacaValida(s.ResponsableAsignadoRef) ||
 		!domain.ReferenciaOpacaValida(s.InformeJuridicoRef) ||
@@ -318,7 +342,7 @@ func (r ReciboFiscalizacion) ValidarParaPreparacion(
 	if r.Operacion != OperacionRegistrarResultadoFiscalizacion ||
 		r.OrganizacionRef != p.Material.OrganizacionRef ||
 		r.ExpedienteRef != p.Material.ExpedienteRef ||
-		r.VersionAnterior != 5 || r.VersionResultante != 6 ||
+		r.VersionAnterior != p.Expediente.Version || r.VersionResultante != p.Expediente.Version+1 ||
 		r.Resultado != p.Material.Resultado ||
 		r.ActorRef != p.Material.ActorRef ||
 		r.ReciboRef != p.Referencias.ReciboRef ||
