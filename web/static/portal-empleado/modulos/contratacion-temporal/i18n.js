@@ -374,8 +374,11 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   informe_historial_fecha: "Fecha",
   fiscalizacion_sobrelinea: "Contratación temporal · Fiscalización",
   fiscalizacion_titulo: "Registrar resultado de fiscalización",
+  fiscalizacion_titulo_tras_subsanacion: "Nueva fiscalización tras subsanación",
   fiscalizacion_descripcion:
     "Revise el expediente y registre el resultado comunicado por Intervención.",
+  fiscalizacion_descripcion_tras_subsanacion:
+    "Registre el nuevo resultado comunicado por Intervención después de la subsanación autorizada. El servidor comprueba la elegibilidad y el permiso al confirmar.",
   fiscalizacion_alcance_etiqueta: "Alcance del registro",
   fiscalizacion_alcance:
     "El actor, la unidad, la autorización, la transición y la persistencia proceden del servidor.",
@@ -394,8 +397,11 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   fiscalizacion_contexto_version: "Versión actual",
   fiscalizacion_contexto_fase: "Fase actual",
   fiscalizacion_contexto_informe: "Informe jurídico",
+  fiscalizacion_contexto_subsanacion: "Subsanación autorizada",
   fiscalizacion_fase_informe_juridico: "Informe jurídico registrado",
+  fiscalizacion_fase_subsanacion_unidad: "Subsanación por la unidad",
   fiscalizacion_informe_registrado: "Registrado en la versión {version}",
+  fiscalizacion_subsanacion_registrada: "Registrada en la versión {version}",
   fiscalizacion_resultado_leyenda: "Resultado comunicado por Intervención",
   fiscalizacion_resultado_ayuda:
     "El resultado determina si el expediente continúa o vuelve para subsanación.",
@@ -407,7 +413,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "Obligatorias para favorable con observaciones y desfavorable.",
   fiscalizacion_confirmar: "Registrar resultado",
   fiscalizacion_confirmacion_continuar:
-    "Esta acción registrará la fiscalización y permitirá continuar el expediente.",
+    "Esta acción registrará la fiscalización. Los pasos posteriores solo se habilitan si el servidor los ofrece.",
   fiscalizacion_confirmacion_desfavorable:
     "Esta acción registrará el resultado desfavorable y devolverá el expediente para subsanación sin sustituir su histórico.",
   fiscalizacion_indeterminada_titulo: "Resultado pendiente de recuperación",

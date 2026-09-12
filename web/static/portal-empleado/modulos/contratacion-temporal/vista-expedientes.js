@@ -314,16 +314,23 @@ function contextoFiscalizacionDesdeEstado(estado) {
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === estado.expediente.expediente_ref
   ));
-  if (resumen?.fase_clave !== "informe_juridico"
-    || resumen.version !== estado.expediente.version) return null;
+  if (resumen?.version !== estado.expediente.version) return null;
+  const esInformeInicial = resumen.fase_clave === "informe_juridico";
+  const ultimoHito = estado.expediente.historial?.at?.(-1);
+  const esSubsanacionAutorizada = resumen.fase_clave === "subsanacion_unidad"
+    && resumen.estado_clave === "incidencia"
+    && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
+    && ultimoHito.version_expediente === estado.expediente.version;
+  if (!esInformeInicial && !esSubsanacionAutorizada) return null;
   const informe = estado.expediente.cabecera?.find(
     ({ clave }) => clave === "informe_ref",
   )?.valor;
   return Object.freeze({
     expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version,
-    fase_clave: resumen.fase_clave,
-    informe_ref: typeof informe === "string" && PATRON_REFERENCIA.test(informe)
+    fase_clave: esSubsanacionAutorizada ? "subsanacion_unidad" : resumen.fase_clave,
+    informe_ref: !esSubsanacionAutorizada
+      && typeof informe === "string" && PATRON_REFERENCIA.test(informe)
       ? informe : "",
   });
 }
@@ -857,7 +864,7 @@ export async function montarModuloContratacionTemporal({
         zonaHoraria,
         anunciar,
         alConfirmar: (recibo) => {
-          if (recibo.resultado !== "desfavorable") {
+          if (recibo.resultado !== "desfavorable" && recibo.version_resultante === 6) {
             montarLlamamiento({
               expediente_ref: recibo.expediente_ref,
               version_esperada: recibo.version_resultante,
@@ -1749,7 +1756,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
       <div class="ct-campo">
         <label for="ct-fiscalizacion-version">Versión remitida</label>
         <input id="ct-fiscalizacion-version" name="version_esperada"
-          type="number" min="5" max="5" step="1" value="5" required>
+          type="number" min="1" step="1" required>
       </div>
       <div class="ct-acciones">
         <button class="boton-primario" type="submit">Abrir fiscalización</button>
@@ -1771,7 +1778,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
     const version = Number(
       formulario.elements?.namedItem?.("version_esperada")?.value ?? 0,
     );
-    if (!PATRON_REFERENCIA.test(referencia) || version !== 5) {
+    if (!PATRON_REFERENCIA.test(referencia) || !Number.isSafeInteger(version) || version < 1) {
       formulario.elements?.namedItem?.("expediente_ref")?.setCustomValidity?.(
         "Indique la referencia íntegra del expediente remitido.",
       );
@@ -1798,7 +1805,8 @@ export function montarModuloFiscalizacionContratacionTemporal({
       zonaHoraria,
       anunciar,
       alConfirmar: (recibo) => {
-        if (recibo.resultado === "desfavorable" || desmontarLlamamiento !== null
+        if (recibo.resultado === "desfavorable" || recibo.version_resultante !== 6
+          || desmontarLlamamiento !== null
           || typeof cliente.seleccionarLlamamiento !== "function"
           || typeof cliente.registrarComunicacionLlamamiento !== "function") return;
         desmontarLlamamiento = montarFormularioLlamamiento({

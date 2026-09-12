@@ -161,8 +161,10 @@ function etiquetaAccionHito(clave, t) {
 }
 
 // El detalle RRHH ya llega autorizado y validado por el cliente HTTP. Los
-// hitos son historia, no fases del flujo de presentación: conservarlos en un
-// bloque separado impide deducir estados o completar fases por su orden.
+// hitos son historia, no fases del flujo de presentación. Conservamos sólo la
+// identidad canónica y la versión ya autorizadas por el detalle para enlazar
+// acciones que el servidor volverá a autorizar; nunca observaciones, actores
+// ni referencias de retorno.
 function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
@@ -171,6 +173,8 @@ function historialDesdeHitos(hitos, locale, t) {
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
     estado: etiqueta(hito.estado_destino),
+    accion_clave: hito.accion_clave,
+    version_expediente: hito.version_expediente,
   }));
 }
 

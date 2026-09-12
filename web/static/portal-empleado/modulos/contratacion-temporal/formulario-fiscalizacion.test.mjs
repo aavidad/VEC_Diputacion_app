@@ -136,6 +136,31 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   assert.equal(llamamiento.eventos.size, 0);
 });
 
+test("un resultado favorable posterior a v6 no habilita el llamamiento legado", async () => {
+  const raiz = raizFalsa();
+  const fiscalizacion = raizFalsa();
+  const llamamiento = raizFalsa();
+  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
+    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
+  const modulo = montarModuloFiscalizacionContratacionTemporal({
+    raiz,
+    cliente: {
+      registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 7 }),
+      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
+    },
+    confirmarOperacion: () => true,
+  });
+  const formulario = {
+    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "6" }) },
+    closest() { return this; }, checkValidity() { return true; },
+  };
+  raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
+  await fiscalizacion.enviar("favorable", "");
+
+  assert.equal(llamamiento.innerHTML, "");
+  modulo.desmontar();
+});
+
 test("al elegir favorable elimina y bloquea observaciones previas", () => {
   const raiz = raizFalsa();
   montar(raiz, { registrarResultadoFiscalizacion() {} });
@@ -180,6 +205,58 @@ test("muestra contexto, registra un resultado y publica el recibo auditable", as
     "unidad:retorno:formulario:001",
     "responsable:retorno:formulario:001",
   ]) assert.match(raiz.innerHTML, new RegExp(referencia, "u"));
+});
+
+test("muestra Nueva fiscalización tras subsanación con el contexto corregido", () => {
+  const raiz = raizFalsa();
+  montarFormularioFiscalizacion({
+    raiz,
+    cliente: { registrarResultadoFiscalizacion() {} },
+    contexto: {
+      expediente_ref: EXPEDIENTE,
+      version_esperada: 7,
+      fase_clave: "subsanacion_unidad",
+      informe_ref: "",
+    },
+    generarClaveIdempotencia: () => CLAVE,
+    confirmarOperacion: () => true,
+  });
+
+  assert.match(raiz.innerHTML, /Nueva fiscalización tras subsanación/u);
+  assert.match(raiz.innerHTML, /Subsanación autorizada/u);
+  assert.match(raiz.innerHTML, /Registrada en la versión 7/u);
+});
+
+test("reserva la nueva fiscalización sólo tras la subsanación autorizada de la versión actual", () => {
+  const expediente = {
+    expediente_ref: EXPEDIENTE,
+    numero_visible: "2026/CT-001",
+    version: 7,
+    flujo_ref: "flujo:ct:sintetico",
+    flujo_version: 1,
+    flujo_huella: "b".repeat(64),
+    cabecera: [], fases: [], tareas: [],
+    historial: [{
+      secuencia: 7, fecha: "13 sept 2026", fase: "Subsanación por la unidad",
+      accion: "Subsanación del reparo registrada", estado_clave: "incidencia",
+      estado: "Incidencia", accion_clave: "contratacion_temporal.subsanacion_reparos.registrar",
+      version_expediente: 7,
+    }],
+  };
+  const estado = {
+    vista: "expediente", carga: "listo", cuadro: { demostracion: false, expedientes: [{
+      expediente_ref: EXPEDIENTE, version: 7, fase_clave: "subsanacion_unidad", estado_clave: "incidencia",
+    }] }, expediente, tarea_ref: "", mensaje_clave: "estado_expediente_listo",
+    tipo_mensaje: "informacion",
+  };
+  const html = renderizarModuloContratacionTemporal(estado, { fiscalizacionDisponible: true });
+  assert.match(html, /data-ct-exp-fiscalizacion/u);
+
+  expediente.historial[0].version_expediente = 6;
+  assert.doesNotMatch(
+    renderizarModuloContratacionTemporal(estado, { fiscalizacionDisponible: true }),
+    /data-ct-exp-fiscalizacion/u,
+  );
 });
 
 test("recupera con el mismo cuerpo y la misma clave", async () => {
