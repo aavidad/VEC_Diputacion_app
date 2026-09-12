@@ -268,7 +268,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionDesarrollo(subsanacionReal.servicio != nil)
+	fuenteMotivosRectificacion, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+		subsanacionReal.servicio != nil,
+		fuenteMotivosRectificacion,
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}

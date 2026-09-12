@@ -83,6 +83,8 @@ const (
 	DefaultTrustedHeaderMechanism    = "X-VEC-Auth-Mechanism"
 )
 
+const EnvCTAnalisisMotivosSourcePath = "VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH"
+
 type Config struct {
 	Address                                     string
 	APIBasePath                                 string
@@ -101,6 +103,7 @@ type Config struct {
 	DevelopmentMaterialDir                      string
 	IncorporacionV2File                         string
 	ContratacionTemporalSubsanacionPoliticaFile string
+	CTAnalisisMotivosSourcePath                 string
 	FakeCredentialsPath                         string
 	TrustedHeaderSubject                        string
 	TrustedHeaderRoles                          string
@@ -153,6 +156,7 @@ func Load() Config {
 		DevelopmentMaterialDir: envFirst(EnvDevelopmentMaterialDir),
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
+		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
 		FakeCredentialsPath:                         envFirst(EnvFakeCredentialsPath),
 		TrustedHeaderSubject:                        envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
 		TrustedHeaderRoles:                          envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
@@ -239,6 +243,7 @@ func (c Config) Normalize() Config {
 	c.DevelopmentGuard = strings.TrimSpace(c.DevelopmentGuard)
 	c.DevelopmentMaterialDir = strings.TrimSpace(c.DevelopmentMaterialDir)
 	c.IncorporacionV2File = strings.TrimSpace(c.IncorporacionV2File)
+	c.CTAnalisisMotivosSourcePath = strings.TrimSpace(c.CTAnalisisMotivosSourcePath)
 	if c.ExecutionProfile == ExecutionProfileDevelopment && c.AuthMode == AuthModeDevelopment &&
 		c.DevelopmentGuard == DevelopmentGuardAcknowledgement && c.DevelopmentMaterialDir != "" {
 		rutas := c.DevelopmentPaths()

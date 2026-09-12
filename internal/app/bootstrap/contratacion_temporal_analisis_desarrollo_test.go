@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -256,6 +259,74 @@ func TestRutaConfiguracionAnalisisDesarrolloCargaSoloMotivosPublicadosVigentes(t
 		contenido.Data.MotivosRectificacion[0].Clave != "rectificacion_coste" ||
 		contenido.Data.MotivosRectificacion[0].Etiqueta != "Ajuste de coste" {
 		t.Fatalf("motivos inesperados: %+v", contenido.Data.MotivosRectificacion)
+	}
+}
+
+func TestFuenteMotivosRectificacionAnalisisConfiguradaLeeSoloPaqueteValidado(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	paquete, err := json.Marshal(struct {
+		VersionEsquema int `json:"version_esquema"`
+		Fuente         struct {
+			Revision      string    `json:"revision"`
+			ActualizadaEn time.Time `json:"actualizada_en"`
+			Demostracion  bool      `json:"demostracion"`
+			Aviso         string    `json:"aviso"`
+			OrigenSHA256  string    `json:"origen_sha256"`
+		} `json:"fuente"`
+		Catalogo vecdomain.CatalogoConfigurable `json:"catalogo"`
+	}{
+		VersionEsquema: 1,
+		Fuente: struct {
+			Revision      string    `json:"revision"`
+			ActualizadaEn time.Time `json:"actualizada_en"`
+			Demostracion  bool      `json:"demostracion"`
+			Aviso         string    `json:"aviso"`
+			OrigenSHA256  string    `json:"origen_sha256"`
+		}{
+			Revision: "rectificacion-v1", ActualizadaEn: catalogo.PublicadoEn,
+			Demostracion: true, Aviso: "DEMOSTRACIÓN con datos sintéticos.",
+			OrigenSHA256: strings.Repeat("a", 64),
+		},
+		Catalogo: catalogo,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(t.TempDir(), "motivos-rectificacion.demo.json")
+	if err := os.WriteFile(ruta, paquete, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fuente, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
+		config.Config{CTAnalisisMotivosSourcePath: ruta},
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opciones := fuente.opciones(t.Context()); len(opciones) != 1 || opciones[0].Clave != "rectificacion_coste" {
+		t.Fatalf("la fuente configurada no publicó el catálogo validado: %+v", opciones)
+	}
+	rutaConfiguracion, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(true, fuente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	rutaConfiguracion.Manejador.ServeHTTP(
+		respuesta,
+		httptest.NewRequest(http.MethodGet, rutaConfiguracion.Ruta, nil),
+	)
+	var contenido struct {
+		Data configuracionAnalisisContratacionTemporalDesarrollo `json:"data"`
+	}
+	if respuesta.Code != http.StatusOK || json.Unmarshal(respuesta.Body.Bytes(), &contenido) != nil ||
+		!contenido.Data.SubsanacionDisponible || len(contenido.Data.MotivosRectificacion) != 1 {
+		t.Fatalf("la composición no preservó subsanación y motivos: estado=%d datos=%+v", respuesta.Code, contenido.Data)
+	}
+	if _, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
+		config.Config{CTAnalisisMotivosSourcePath: ruta + ".ausente"},
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	); err == nil {
+		t.Fatal("una fuente configurada pero inexistente se aceptó")
 	}
 }
 
