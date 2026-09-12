@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { renderizarExpediente } from "./componentes-expedientes.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 
 const resumen = Object.freeze({
@@ -97,6 +99,24 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(cuadro.expedientes[0].fase_actual, "Analisis");
   assert.equal(detalle.demostracion, false);
   assert.deepEqual(detalle.fases, []);
+  assert.deepEqual(detalle.historial, [
+    {
+      secuencia: 1,
+      fecha: "3 sept 2026",
+      fase: "Solicitud",
+      accion: "Solicitud registrada",
+      estado_clave: "pendiente",
+      estado: "Pendiente",
+    },
+    {
+      secuencia: 2,
+      fecha: "3 sept 2026",
+      fase: "Analisis",
+      accion: "Iniciar analisis",
+      estado_clave: "en_curso",
+      estado: "En curso",
+    },
+  ]);
   assert.deepEqual(detalle.tareas, []);
   assert.doesNotMatch(
     JSON.stringify(detalle),
@@ -145,6 +165,63 @@ test("delega el detalle real al servidor y solo lo concede después de consultar
   assert.deepEqual(llamadas.map(({ operacion }) => operacion), [
     "cuadro", "cuadro", "detalle",
   ]);
+});
+
+test("muestra el hito de subsanación autorizado sin exponer observaciones", async () => {
+  const llamadas = [];
+  const cliente = clienteFalso(llamadas);
+  cliente.consultarDetalleRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...resumen, version: 2, fase_clave: "subsanacion_unidad", estado_clave: "incidencia" },
+    solicitud: {
+      grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z",
+    },
+    hitos: [
+      {
+        secuencia: 1, version_expediente: 1, accion_clave: "registrar_fiscalizacion",
+        realizada_en: "2026-09-03T08:00:00Z", fase_destino: "subsanacion_unidad",
+        estado_origen: "en_curso", estado_destino: "incidencia",
+      },
+      {
+        secuencia: 2, version_expediente: 2,
+        accion_clave: "contratacion_temporal.subsanacion_reparos.registrar",
+        realizada_en: "2026-09-03T09:00:00Z", fase_origen: "subsanacion_unidad",
+        fase_destino: "subsanacion_unidad", estado_origen: "incidencia",
+        estado_destino: "incidencia",
+      },
+    ],
+    presentacion_flujo: {
+      referencia: "flujo-visual:rrhh:temporal",
+      fase_actual: "fiscalizacion",
+      fases: [
+        ["solicitud", "contratacion_temporal.fase.solicitud"],
+        ["analisis_rrhh", "contratacion_temporal.fase.analisis_rrhh"],
+        ["gestion_bolsa", "contratacion_temporal.fase.gestion_bolsa"],
+        ["fiscalizacion", "contratacion_temporal.fase.fiscalizacion"],
+        ["obtencion_candidato", "contratacion_temporal.fase.obtencion_candidato"],
+        ["nombramiento", "contratacion_temporal.fase.nombramiento"],
+        ["incorporacion", "contratacion_temporal.fase.incorporacion"],
+        ["seguimiento", "contratacion_temporal.fase.seguimiento"],
+      ].map(([clave, clave_i18n], indice) => ({ clave, clave_i18n, orden: indice + 1 })),
+    },
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente,
+    mensajes: { hito_subsanacion_reparo: "Hito de subsanación del reparo" },
+  });
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+  const html = renderizarExpediente({
+    vista: "expediente", carga: "listo", expediente, tarea_ref: "", cuadro: null,
+  }, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
+
+  assert.equal(expediente.fases.length, 8);
+  assert.equal(expediente.fases[3].etiqueta, "Fiscalización");
+  assert.equal(expediente.fases[3].estado_clave, "sin_confirmar");
+  assert.equal(expediente.historial[1].accion, "Hito de subsanación del reparo");
+  assert.match(html, /Hito de subsanación del reparo/u);
+  assert.doesNotMatch(JSON.stringify(expediente), /observaciones|retorno_ref|actor_ref|documentos_ref/u);
 });
 
 
