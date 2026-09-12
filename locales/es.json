@@ -1,4 +1,6 @@
 {
+  "contratacion_temporal.correo_llamamiento.asunto": "Llamamiento de contratación temporal",
+  "contratacion_temporal.correo_llamamiento.cuerpo": "Tiene disponible una comunicación de llamamiento de contratación temporal. Consulte su contenido a través del canal indicado por Recursos Humanos.",
   "api.candidate.created": "Candidato creado correctamente",
   "api.candidate.merit_added": "Merito agregado correctamente",
   "api.candidate.baremo_calculated": "Baremo calculado correctamente",

@@ -148,9 +148,17 @@ El lector DER también permanece desactivado. Su bootstrap completo y vet
 pasaron, pero la activación principal de las 16:00 rechazó el perfil PEM previo
 al bootstrap. Sistemas restauró solo el binario y material propios y recuperó
 salud `200`, sin restaurar la base. El material corregido pasó 11 pruebas y el
-cargador real; el reintento está pausado por material compartido. El correo
-`78c209…` permanece privado por `NO-GO`. Siguen pendientes roles completos,
-auditoría, hexagonalidad e i18n; estos verdes no acreditan conformidad ni E2E.
+cargador real; el reintento está pausado por material compartido.
+
+El nuevo correo está preparado solo en fuente: 18 archivos Go y un catálogo de traducción y ocho SQL, ambos
+grupos con dos `GO`. Reserva antes de SMTP, exige autorización V3 fresca y
+registra auditoría HMAC y outbox; usa diez campos JSON canónicos y cuatro
+literales SQL de estado. El replay no devuelve el secreto de finalización ni repite SMTP.
+CT88, AD3-32 y T13/5 no están instaladas. Faltan el contacto VEC candidato y
+acreditado, la cuenta remitente y configuración SMTP internas, composición y
+ensayo PostgreSQL. No hay runtime ni envío. Go global y vet pasaron; no se
+repitió la suite web: no cambió JavaScript; catálogo y manifiestos verificados. El autorizador de bootstrap sigue
+pendiente.
 
 ## Historia del corte para presentación — 10 de septiembre de 2026
 

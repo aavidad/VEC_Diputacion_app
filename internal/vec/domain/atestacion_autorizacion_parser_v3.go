@@ -32,6 +32,8 @@ const (
 
 type datosProyeccionAtestacionAutorizacionV3 struct {
 	referenciaDecision string
+	versionRolRef      string
+	correlacionRef     string
 	huellaDecision     string
 	huellaMotivo       string
 	referenciaContexto string
@@ -162,6 +164,8 @@ func ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(
 		cabecera: cabecera,
 		datos: &datosProyeccionAtestacionAutorizacionV3{
 			referenciaDecision: decision.DecisionRef,
+			versionRolRef:      decision.VersionRolRef,
+			correlacionRef:     decision.CorrelacionRef,
 			huellaDecision:     huellaDecision, huellaMotivo: huellaMotivo,
 			referenciaContexto: referenciaContexto,
 			huellaContexto:     huellaContexto, huellaManifiesto: huellaManifiesto,
@@ -194,6 +198,30 @@ func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) DecisionRef() (
 		return "", errorParseoAtestacionAutorizacionV3()
 	}
 	return p.datos.referenciaDecision, nil
+}
+
+// VersionRolRef devuelve la referencia canónica ya validada del rol de la
+// decisión. La proyección no verifica su vigencia ni concede autoridad.
+func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) VersionRolRef() (
+	string,
+	error,
+) {
+	if p.validar() != nil {
+		return "", errorParseoAtestacionAutorizacionV3()
+	}
+	return p.datos.versionRolRef, nil
+}
+
+// CorrelacionRef devuelve la correlación canónica ya validada de la decisión.
+// La proyección no verifica su vigencia ni concede autoridad.
+func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) CorrelacionRef() (
+	string,
+	error,
+) {
+	if p.validar() != nil {
+		return "", errorParseoAtestacionAutorizacionV3()
+	}
+	return p.datos.correlacionRef, nil
 }
 
 func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) HuellaDecisionSHA256() (
@@ -239,6 +267,8 @@ func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) HuellaContextoActorSHA
 func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) validar() error {
 	if p.datos == nil || p.cabecera.Validar() != nil ||
 		!textoAutorizacionSinComodinSeguro(p.datos.referenciaDecision, 512, false) ||
+		!textoAutorizacionSinComodinSeguro(p.datos.versionRolRef, 512, false) ||
+		!ReferenciaCorrelacionAutorizacionV2Valida(p.datos.correlacionRef) ||
 		!huellaSHA256AutorizacionValida(p.datos.huellaDecision) ||
 		!huellaSHA256AutorizacionValida(p.datos.huellaMotivo) ||
 		!referenciaRegistroContextoActorV2Valida(p.datos.referenciaContexto) ||

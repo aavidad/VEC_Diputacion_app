@@ -155,8 +155,16 @@ corregido y el cargador con contexto real. Rechaza el perfil PEM calculado antes
 de bootstrap y no crea otra autoridad. El intento principal con binario `7d90…`
 falló a las 16:00; el rollback de binario y material propios recuperó salud
 `200` sin restaurar la base. El reintento está pausado por el material compartido
-con normal87 y el lector no está activado. El correo `78c209…` permanece privado
-por `NO-GO`; roles completos, auditoría, hexagonalidad e i18n siguen pendientes.
+con normal87 y el lector no está activado.
+
+El nuevo corte fuente de correo tiene 18 archivos Go y un catálogo de traducción y ocho SQL, ambos con dos
+`GO`. Reserva antes de SMTP y conserva auditoría HMAC, autorización V3 fresca y
+outbox; usa diez campos JSON canónicos y cuatro literales SQL de estado. El replay no devuelve el secreto de finalización ni envía otro
+SMTP, y los dos accesores del parser existente no conceden autoridad. CT88, AD3-32 y T13/5 no están
+instaladas. Faltan el contacto VEC candidato y acreditado, la cuenta y
+configuración SMTP internas, composición y ensayo PostgreSQL. No intente el
+envío: no hay SQL instalado ni runtime. Go global y vet pasaron; la web no se
+repitió: no cambió JavaScript; catálogo y manifiestos verificados. El autorizador de bootstrap sigue pendiente.
 
 ## Historia: pausa por cuota — 10 de septiembre de 2026
 

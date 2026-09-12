@@ -168,9 +168,17 @@ no crea otra autoridad. Su activación principal falló a las 16:00 por ese
 perfil; se restauraron binario y material propios y la salud volvió a `200`,
 sin restaurar la base. El material DER corregido pasó 11 pruebas y el cargador
 de contexto real, pero el reintento está pausado y el lector no está activado.
-El correo `78c209…` permanece privado y no publicado por `NO-GO` E03/E06/E08.
-Siguen pendientes roles completos, auditoría, hexagonalidad e i18n; las pruebas
-verdes no acreditan conformidad.
+El nuevo corte fuente de correo reúne 18 archivos Go y un catálogo de traducción, manifiesto `cd5642…`, y
+ocho SQL, con dos `GO` por cada grupo. Implementa E03/E06/E08 con reserva antes
+de SMTP, auditoría HMAC común, autorización V3 final fresca y outbox; el JSON
+contiene diez campos canónicos y el estado admite cuatro literales SQL. El replay no devuelve el secreto de finalización ni dispara otro
+SMTP, y los dos accesores del parser existente no añaden autoridad. CT88, AD3-32 y T13/5 no están
+instaladas. Faltan el contacto VEC candidato y acreditado, la cuenta y
+configuración SMTP en la IP interna, la composición real y el ensayo PostgreSQL.
+No hay SQL instalado, runtime ni envío. Go global y vet terminaron en `PASS`;
+no se repitió la suite web: no cambió JavaScript; el catálogo y los manifiestos
+fueron verificados. El nuevo autorizador
+de bootstrap todavía no está incluido.
 
 ## Historia del estado funcional anterior — 12 de septiembre de 2026
 

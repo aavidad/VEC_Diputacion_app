@@ -33,6 +33,8 @@ func TestParsearMensajeAtestacionAutorizacionV3ProyectaCompromisosExactos(
 	}
 	cabeceraObtenida, errCabecera := proyeccion.Cabecera()
 	referencia, errReferencia := proyeccion.DecisionRef()
+	versionRolRef, errVersionRol := proyeccion.VersionRolRef()
+	correlacionRef, errCorrelacion := proyeccion.CorrelacionRef()
 	huellaDecision, errDecision := proyeccion.HuellaDecisionSHA256()
 	huellaMotivo, errMotivo := proyeccion.HuellaMotivoSHA256()
 	referenciaContexto, errReferenciaContexto := proyeccion.ReferenciaContextoActor()
@@ -40,15 +42,81 @@ func TestParsearMensajeAtestacionAutorizacionV3ProyectaCompromisosExactos(
 	decisionCanonica, _ := RepresentacionCanonicaDecisionAutorizacionV3(decision)
 	sumaDecision := sha256SumAtestacionV3Prueba(decisionCanonica)
 	sumaMotivo, _ := HuellaSHA256MotivoAutorizacionV2(motivo)
-	if errCabecera != nil || errReferencia != nil || errDecision != nil ||
+	if errCabecera != nil || errReferencia != nil || errVersionRol != nil ||
+		errCorrelacion != nil || errDecision != nil ||
 		errMotivo != nil || errReferenciaContexto != nil || errContexto != nil ||
 		cabeceraObtenida != cabecera ||
 		referencia != decision.datos.decisionRef ||
+		versionRolRef != decision.datos.versionRolRef ||
+		correlacionRef != decision.datos.correlacionRef ||
 		huellaDecision != sumaDecision ||
 		huellaMotivo != sumaMotivo ||
 		referenciaContexto != contexto.RegistroContextoRef ||
 		huellaContexto != contexto.HuellaSHA256 {
 		t.Fatalf("proyección incompleta o cruzada: %#v", proyeccion)
+	}
+}
+
+func TestProyeccionAtestacionAutorizacionV3ReferenciasPrivadasRechazanCeroEInvalidas(
+	t *testing.T,
+) {
+	var cero ProyeccionAtestacionAutorizacionV3NoAutoritativa
+	if _, err := cero.VersionRolRef(); !errors.Is(
+		err,
+		ErrParseoAtestacionAutorizacionV3Invalido,
+	) {
+		t.Fatalf("proyección cero expuso versión de rol: %v", err)
+	}
+	if _, err := cero.CorrelacionRef(); !errors.Is(
+		err,
+		ErrParseoAtestacionAutorizacionV3Invalido,
+	) {
+		t.Fatalf("proyección cero expuso correlación: %v", err)
+	}
+
+	cabecera, decision, motivo, contexto := escenarioAtestacionAutorizacionV3Prueba(t)
+	mensaje, err := SerializarMensajeAtestacionAutorizacionV3(
+		cabecera,
+		decision,
+		motivo,
+		contexto,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proyeccion, err := ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(mensaje)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*datosProyeccionAtestacionAutorizacionV3)
+		leer   func(ProyeccionAtestacionAutorizacionV3NoAutoritativa) (string, error)
+	}{
+		{
+			nombre: "version de rol vacía",
+			mutar:  func(datos *datosProyeccionAtestacionAutorizacionV3) { datos.versionRolRef = "" },
+			leer:   ProyeccionAtestacionAutorizacionV3NoAutoritativa.VersionRolRef,
+		},
+		{
+			nombre: "correlación vacía",
+			mutar:  func(datos *datosProyeccionAtestacionAutorizacionV3) { datos.correlacionRef = "" },
+			leer:   ProyeccionAtestacionAutorizacionV3NoAutoritativa.CorrelacionRef,
+		},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			invalida := proyeccion
+			datos := *proyeccion.datos
+			caso.mutar(&datos)
+			invalida.datos = &datos
+			if _, err := caso.leer(invalida); !errors.Is(
+				err,
+				ErrParseoAtestacionAutorizacionV3Invalido,
+			) {
+				t.Fatalf("referencia privada inválida expuesta: %v", err)
+			}
+		})
 	}
 }
 
@@ -146,6 +214,9 @@ func TestParsearMensajeAtestacionAutorizacionV3RechazaMutacionesSemanticasRecomp
 		}},
 		{"perfil cruzado", func(d *decisionAutorizacionCanonicaV3) {
 			d.PerfilActivoRef = "prf_otra234567890abcdefghijklmn"
+		}},
+		{"version de rol vacía", func(d *decisionAutorizacionCanonicaV3) {
+			d.VersionRolRef = ""
 		}},
 		{"control rol cruzado", func(d *decisionAutorizacionCanonicaV3) {
 			d.ControlVigenciaVersionRolRef = "rol_otra234567890abcdefghijklmn"

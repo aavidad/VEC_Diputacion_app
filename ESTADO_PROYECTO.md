@@ -204,10 +204,18 @@ la base. El material corregido de stage DER usa un único campo técnico y pasó
 11 pruebas más el cargador con contexto real. El reintento está pausado por
 compartir material con normal87 y el lector sigue sin activar.
 
-El correo `78c209…` permanece privado y no publicado por `NO-GO` E03/E06/E08;
-este corte no incorpora su documentación. Siguen pendientes, según el alcance,
-la gestión completa de roles y permisos, auditoría, hexagonalidad e i18n. Los
-resultados verdes no sustituyen conformidad funcional ni E2E.
+El corte fuente de correo incorpora 18 archivos Go y un catálogo de traducción con manifiesto `cd5642…` y
+ocho SQL; ambos grupos recibieron dos `GO`. Implementa E03/E06/E08: reserva
+antes de SMTP, auditoría HMAC común, autorización V3 final fresca y outbox. El
+JSON contiene diez campos canónicos y el estado admite cuatro literales SQL;
+el replay no devuelve el secreto de finalización ni provoca otro SMTP; los
+dos accesores del parser existente no crean autoridad. CT88, AD3-32 y T13/5 siguen
+sin instalar. Faltan el contacto VEC candidato y acreditado aportado por apoyo,
+la cuenta remitente y configuración SMTP concretas en la IP interna, la
+composición real y el ensayo PostgreSQL. No hay runtime ni envío. La campaña
+global Go y vet terminó en `PASS`; no se repitió la suite web: no cambió JavaScript; catálogo y manifiestos
+verificados. El nuevo autorizador de bootstrap sigue pendiente y estos hechos de
+fuente no acreditan conformidad.
 
 Un clon SQL creado en el mismo clúster compartió dependencias y activó la
 guarda global, por lo que no sirvió como prueba aislada. Tras dos revisiones
