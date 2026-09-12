@@ -74,9 +74,18 @@ un permiso correcto no lo da por terminado ni autoriza posponerlo por defecto.
 
 ## E05. Administración privada y fronteras
 
-ADMIN web solo desde intranet, con DNIe o certificado digital y autorización
-administrativa explícita. SSH es acceso por terminal al servidor: no es segundo
-factor del portal. Mantener la política específica del portal interno ordinario.
+ADMIN en producción solo desde intranet, con DNIe o certificado digital y
+autorización administrativa explícita. Por orden posterior del operador del
+12 de septiembre de 2026, ADMIN de pruebas se publicará en
+`admin.cidonia.cloud` por Internet: exclusivamente DNIe o certificado FNMT válido,
+con comprobación de revocación y permiso únicamente para el DNI autorizado en
+configuración privada externa a Git. Un certificado válido no concede permiso
+por sí solo. No incluir ese DNI en fuentes, pruebas, documentación ni logs.
+La revisión RRHH usará `vec.cidonia.cloud` con acceso autenticado; `app.cidonia.cloud`
+solo es alternativa temporal. Ninguna publicación permite omitir las fronteras
+de identidad o exponer directamente un perfil de desarrollo local.
+SSH es acceso por terminal al servidor: no es segundo factor del portal.
+Mantener la política específica del portal interno ordinario.
 
 La administración de sistema tiene superficie segregada del portal RRHH y del
 público; ocultar un menú o devolver 403 no acredita esa segregación. Identidades,
