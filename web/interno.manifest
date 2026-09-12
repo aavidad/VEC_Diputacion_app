@@ -43,6 +43,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-resolucion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-anotacion-administrativa.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-cierre-administrativo.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-alta.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
@@ -59,9 +60,11 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-resolucion-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-anotacion-administrativa.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-cierre-administrativo.js
+static/portal-empleado/modulos/contratacion-temporal/formulario-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-propuesta-formalizacion.js
