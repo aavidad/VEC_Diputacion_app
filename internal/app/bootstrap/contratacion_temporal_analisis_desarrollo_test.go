@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,57 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type consultaCatalogoRectificacionAnalisisPrueba struct {
+	resultado vecports.ResultadoConsultaCatalogosAcotada
+	err       error
+}
+
+func (c consultaCatalogoRectificacionAnalisisPrueba) ObtenerCatalogoAcotado(
+	context.Context,
+	string,
+	int,
+	vecports.LimitesConsultaCatalogosAcotada,
+) (vecports.ResultadoConsultaCatalogoAcotado, error) {
+	return vecports.ResultadoConsultaCatalogoAcotado{}, vecports.ErrCatalogoNoEncontrado
+}
+
+func (c consultaCatalogoRectificacionAnalisisPrueba) ListarVersionesCatalogoAcotado(
+	context.Context,
+	string,
+	vecports.LimitesConsultaCatalogosAcotada,
+) (vecports.ResultadoConsultaCatalogosAcotada, error) {
+	return c.resultado, c.err
+}
+
+func catalogoMotivosRectificacionAnalisisPrueba(t *testing.T) vecdomain.CatalogoConfigurable {
+	t.Helper()
+	creadoEn := time.Date(2026, 9, 13, 9, 0, 0, 0, time.UTC)
+	borrador := vecdomain.CatalogoConfigurable{
+		ID: "motivos_rectificacion_analisis", Version: 1, Revision: 1,
+		ModuloID: "contratacion_temporal", Nombre: "Motivos de rectificación",
+		FuenteRef: "fuente_rrhh_sintetica_001", MotivoCreacion: "Alta de prueba.",
+		Entradas: []vecdomain.EntradaCatalogoConfigurable{{
+			Clave: "rectificacion_coste", Etiqueta: "Ajuste de coste", Orden: 1,
+			VigenteDesde: creadoEn,
+			Atributos: map[string]string{
+				"clave_i18n": "contratacion_temporal.analisis.rectificacion.ajuste_coste",
+			},
+		}},
+		Estado:    vecdomain.EstadoCatalogoBorrador,
+		CreadoPor: "gestor_catalogo_001", CreadoEn: creadoEn,
+	}
+	publicado, err := borrador.Publicar(
+		"revisor_catalogo_001", "aprobacion_catalogo_001", "Publicación de prueba.", creadoEn,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return publicado
+}
 
 func TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado(t *testing.T) {
 	ruta, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrollo()
@@ -169,6 +220,64 @@ func TestRutaConfiguracionAnalisisDesarrolloFallaCerrada(t *testing.T) {
 			}
 			if _, existe := contenido["data"]; existe {
 				t.Fatal("una solicitud denegada recibio datos")
+			}
+		})
+	}
+}
+
+func TestRutaConfiguracionAnalisisDesarrolloCargaSoloMotivosPublicadosVigentes(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	fuente := nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+		consultaCatalogoRectificacionAnalisisPrueba{
+			resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{catalogo},
+			},
+		},
+		catalogo.ID,
+		catalogo.ModuloID,
+		relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+	)
+	ruta, err := nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(fuente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	ruta.Manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, ruta.Ruta, nil))
+	if respuesta.Code != http.StatusOK {
+		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+	}
+	var contenido struct {
+		Data configuracionAnalisisContratacionTemporalDesarrollo `json:"data"`
+	}
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &contenido); err != nil {
+		t.Fatal(err)
+	}
+	if len(contenido.Data.MotivosRectificacion) != 1 ||
+		contenido.Data.MotivosRectificacion[0].Clave != "rectificacion_coste" ||
+		contenido.Data.MotivosRectificacion[0].Etiqueta != "Ajuste de coste" {
+		t.Fatalf("motivos inesperados: %+v", contenido.Data.MotivosRectificacion)
+	}
+}
+
+func TestFuenteMotivosRectificacionAnalisisFallaCerrada(t *testing.T) {
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	catalogo.Entradas[0].Atributos["clave_i18n"] = "motivo_sin_espacio_i18n"
+	casos := []struct {
+		nombre    string
+		resultado vecports.ResultadoConsultaCatalogosAcotada
+	}{
+		{"truncada", vecports.ResultadoConsultaCatalogosAcotada{Truncado: true}},
+		{"atributo_i18n_ajeno", vecports.ResultadoConsultaCatalogosAcotada{Catalogos: []vecdomain.CatalogoConfigurable{catalogo}}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			fuente := nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+				consultaCatalogoRectificacionAnalisisPrueba{resultado: caso.resultado},
+				"motivos_rectificacion_analisis", "contratacion_temporal",
+				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+			)
+			if opciones := fuente.opciones(t.Context()); len(opciones) != 0 {
+				t.Fatalf("la fuente no confiable expuso motivos: %+v", opciones)
 			}
 		})
 	}
