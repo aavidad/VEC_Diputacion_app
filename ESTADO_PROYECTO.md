@@ -153,10 +153,24 @@ versión, una actuación y un outbox, con toda la historia anterior como
 subconjunto; Personal en cinco tablas, incorporación, raíz y estado de
 seguimiento quedaron exactos. La preparación de cierre respondió `GET 200`.
 Chrome quedó sin errores JS, cookies, almacenamiento ni desbordamiento a
-1440/1024/390, con inspección de dirección a 390 px. No se emitió el `POST` de
-cierre porque una lectura adicional de incorporación devolvió `503` de forma
-repetida; el diagnóstico continúa. El reinicio posterior a la anotación sigue
-pendiente.
+1440/1024/390, con inspección de dirección a 390 px. En el intento ordinario
+posterior, incorporación y preparación devolvieron `GET 200`, se guardó el JSON
+y un único `POST` de cierre devolvió `400`. La solicitud original con clave
+`aed453da…` queda preservada para eventual replay exacto. Una consulta SQL de
+solo lectura cotejó 14 filas de negocio idénticas al estado posterior a la
+anotación y cero cierres. El `400` procede de la allowlist HTTP del cierre, que
+admite solo `Accept` y `Content-Type` y rechaza el `User-Agent` de Chrome; los
+campos y la clave previos son válidos. La corrección aislada aún espera dos
+revisiones. El reinicio posterior sigue pendiente y el `503` previo queda como
+antecedente.
+
+E08 incorpora traducciones comunes de anotación y cierre en siete archivos JS
+y pruebas revisados. Las 21 focales pasaron. El motivo visible para la persona
+no altera el payload; los mensajes configurados se propagan escapados, y se
+conservan las dos fases y el replay. E08 todavía no está desplegado en runtime.
+La campaña global terminó 365/365 pruebas CT más 23/23 del coordinador, 388 en
+total, y manifiestos 11/111/3/1 en `PASS`. E08 no cambió Go ni repitió la
+campaña global Go y vet ya cerrada.
 
 La prueba de CT86 recibió `NO-GO`: su guarda exige 10 s frente a una capacidad
 real de 5 s. El arnés SQL no se ejecutó y el negocio permaneció intacto.

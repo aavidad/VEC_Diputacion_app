@@ -28,7 +28,7 @@ function domMontaje() {
 }
 const esperar = () => new Promise((resolver) => setImmediate(resolver));
 
-async function montarPanel({ cierre, registrar, versionCuadro = 8 } = {}) {
+async function montarPanel({ cierre, registrar, versionCuadro = 8, mensajes = {} } = {}) {
   const dom = domMontaje();
   const clienteLectura = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
     const entrada = JSON.parse(opciones.body);
@@ -38,7 +38,7 @@ async function montarPanel({ cierre, registrar, versionCuadro = 8 } = {}) {
   const fuente = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteLectura }); await fuente.listar();
   const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades: fuente.capacidades });
   const cliente = { async prepararIncorporacionEjercicio() { return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref, version_actual_expediente: 8, preparacion: null, recibo }; }, confirmarIncorporacionEjercicio() { assert.fail("no debe enviar incorporación"); }, anotacionAdministrativa: { registrar, recuperar() { assert.fail("no debe recuperar"); } }, consultarPreparacionCierreSinCese: cierre, cerrar() { assert.fail("no debe cerrar"); } };
-  const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador, llamamiento: { cliente }, confirmarOperacion: () => true });
+  const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador, llamamiento: { cliente }, confirmarOperacion: () => true, mensajes });
   await dom.abrir(); await esperar(); await esperar();
   return { dom, modulo, presentador };
 }
@@ -134,5 +134,16 @@ test("montaje: doble clic de recuperación comparte una única lectura pendiente
   await Promise.all([primera, segunda]); await esperar();
   assert.equal(lecturas, 2);
   assert.match(panel.dom.hijos[1].innerHTML, /data-ct-cierre-administrativo-form/u);
+  panel.modulo.desmontar();
+});
+
+test("montaje: entrega sobrescrituras CT explícitas a anotación y cierre sin combinar catálogos", async () => {
+  const panel = await montarPanel({ cierre: async () => ({ preparacion: null }), registrar: async () => { assert.fail("sin anotación"); }, mensajes: {
+    anotacion_titulo: "Anotación <montada>", cierre_titulo: "Cierre <montado>", cierre_estado_sin_preparacion: "Recuperación <montada>",
+  } });
+  assert.match(panel.dom.hijos[0].innerHTML, /Anotación &lt;montada&gt;/u);
+  assert.match(panel.dom.hijos[1].innerHTML, /Cierre &lt;montado&gt;/u);
+  assert.match(panel.dom.hijos[1].innerHTML, /Recuperación &lt;montada&gt;/u);
+  assert.doesNotMatch(panel.dom.hijos[0].innerHTML + panel.dom.hijos[1].innerHTML, /<montada>|<montado>/u);
   panel.modulo.desmontar();
 });

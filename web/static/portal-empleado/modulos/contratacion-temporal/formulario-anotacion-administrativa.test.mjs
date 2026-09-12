@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const expediente = { expediente_ref: "expediente:anotacion:1", version: 7 };
 const clave = "11111111-1111-4111-8111-111111111111";
@@ -33,4 +34,13 @@ test("GET codifica expediente y clave; desmontaje aborta respuesta tardía", asy
 test("alConfirmar recibe sólo recibo validado tras POST, recuperación y tolera su error", async () => {
   const vistos = []; const raiz = raizFormulario(); montarFormularioAnotacionAdministrativa({ raiz, cliente: { async registrar() { return respuesta; }, recuperar() { assert.fail(); } }, expediente, confirmarOperacion: () => true, generarClaveIdempotencia: () => clave, alConfirmar: (r) => vistos.push(r.recibo_ref) }); await raiz.enviar(); assert.deepEqual(vistos, ["recibo:anotacion:1"]);
   const r2 = raizFormulario(); let llamadas = 0; montarFormularioAnotacionAdministrativa({ raiz: r2, cliente: { async registrar() { throw new Error(); }, async recuperar() { return respuesta; } }, expediente, confirmarOperacion: () => true, generarClaveIdempotencia: () => clave, alConfirmar() { llamadas++; throw new Error("externo"); } }); await r2.enviar(); assert.equal(llamadas, 1); assert.match(r2.innerHTML, /recibo:anotacion:1/);
+});
+
+test("el formulario consume el traductor real y escapa sus sobrescrituras visibles", () => {
+  const raiz = raizFormulario();
+  const t = crearTraductorContratacionTemporal({ anotacion_titulo: "Anotación <revisada>", anotacion_limite: "Ayuda <segura>" });
+  montarFormularioAnotacionAdministrativa({ raiz, cliente: { registrar() { assert.fail("sin POST"); }, recuperar() { assert.fail("sin GET"); } }, expediente, t });
+  assert.match(raiz.innerHTML, /Anotación &lt;revisada&gt;/u);
+  assert.match(raiz.innerHTML, /Ayuda &lt;segura&gt;/u);
+  assert.doesNotMatch(raiz.innerHTML, /<revisada>|<segura>/u);
 });

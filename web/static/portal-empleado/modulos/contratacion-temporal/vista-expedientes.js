@@ -29,6 +29,7 @@ import {
   solicitudInformeDefinitivoDesdeEstado,
 } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_COMPOSICION_ANALISIS = Object.freeze([
   "cliente", "catalogos", "contexto", "analisisInicial",
@@ -782,6 +783,7 @@ export async function montarModuloContratacionTemporal({
         && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
     };
     const t = crearTraductorExpedientesContratacion(mensajes);
+    const tCT = crearTraductorContratacionTemporal(mensajes);
     contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
     try {
       const preparacion = await clienteLlamamiento.prepararIncorporacionEjercicio(expedienteRef, { signal: controlador.signal });
@@ -877,9 +879,9 @@ export async function montarModuloContratacionTemporal({
           desmontarCierre?.();
           desmontarCierre = null;
           bloqueCierre.innerHTML = `<section class="ct-alta" data-ct-cierre-administrativo>
-            <h3>Cierre administrativo sin cese</h3>
+            <h3>${escaparHTML(tCT("cierre_titulo"))}</h3>
             <p class="ct-ayuda" role="status">${escaparHTML(mensaje)}</p>
-            ${recuperable ? '<button type="button" class="boton-secundario" data-ct-exp-reintentar-cierre>Reintentar la lectura de cierre</button>' : ""}
+            ${recuperable ? `<button type="button" class="boton-secundario" data-ct-exp-reintentar-cierre>${escaparHTML(tCT("cierre_reintentar_lectura"))}</button>` : ""}
           </section>`;
           if (recuperable) {
             const boton = bloqueCierre.querySelector?.("[data-ct-exp-reintentar-cierre]");
@@ -908,11 +910,12 @@ export async function montarModuloContratacionTemporal({
                 seguimiento_ref: preparacion.recibo.seguimiento_ref,
               },
               confirmarOperacion,
+              t: tCT,
             });
           } catch {
             if (vigenteMontaje()) {
               mostrarCierreNoDisponible(
-                "No se pudo recuperar la preparación del cierre. El cierre no está habilitado; puede reintentar la lectura.",
+                tCT("cierre_lectura_error"),
                 true,
               );
             }
@@ -925,7 +928,10 @@ export async function montarModuloContratacionTemporal({
             || reciboAnotacion.version_resultante <= version) return;
           versionObsoleta = reciboAnotacion.version_resultante;
           mostrarCierreNoDisponible(
-            `La anotación se registró en la versión ${reciboAnotacion.version_resultante}. El detalle mostrado (v${version}) está obsoleto y el cierre permanece deshabilitado hasta actualizarlo.`,
+            tCT("cierre_detalle_obsoleto", {
+              version: reciboAnotacion.version_resultante,
+              version_anterior: version,
+            }),
           );
           try {
             await presentador.cargar();
@@ -940,7 +946,10 @@ export async function montarModuloContratacionTemporal({
               || actualizado.version < reciboAnotacion.version_resultante) return;
             repintar("[data-ct-exp-mensaje]");
             const mensaje = raiz.querySelector("[data-ct-exp-mensaje]");
-            const confirmacion = `Anotación administrativa registrada. Recibo original: ${reciboAnotacion.recibo_ref}. El detalle se ha actualizado a la versión ${actualizado.version}.`;
+            const confirmacion = tCT("anotacion_detalle_actualizado", {
+              recibo: reciboAnotacion.recibo_ref,
+              version: actualizado.version,
+            });
             if (mensaje) {
               mensaje.textContent = confirmacion;
               mensaje.setAttribute("role", "status");
@@ -958,6 +967,7 @@ export async function montarModuloContratacionTemporal({
           locale,
           zonaHoraria,
           alConfirmar: refrescarDetalleTrasAnotacion,
+          t: tCT,
         });
         const desmontarAntesAnotacion = desmontarIncorporacionEjercicio;
         desmontarIncorporacionEjercicio = () => {

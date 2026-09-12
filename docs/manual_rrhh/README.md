@@ -110,10 +110,22 @@ mostró su recibo y actualizó el expediente de v8 a v9 conservando el seguimien
 original v1. **Recuperar** respondió `GET 200` con el mismo recibo. La lectura
 SQL confirmó una anotación, una versión, una actuación y
 un outbox, sin pérdida de historia ni cambios en Personal o incorporación.
-**Preparar cierre** respondió `GET 200`, pero no se emitió el `POST`: otra
-lectura de incorporación devolvió `503` repetido y está en diagnóstico. El
-reinicio posterior a la anotación sigue pendiente. La pantalla quedó estable a
-1440/1024/390, sin errores JS, cookies ni almacenamiento.
+**Preparar cierre** respondió `GET 200`; se guardó el JSON y un único `POST` de
+cierre devolvió `400`. Conserve la solicitud original y la clave `aed453da…`
+para un eventual replay exacto; no repita el envío mientras continúa el
+diagnóstico. La lectura SQL encontró las 14 filas de negocio iguales al estado
+posterior a la anotación y cero cierres. La allowlist HTTP admite solo `Accept`
+y `Content-Type` y rechazó el `User-Agent` de Chrome; los campos y la clave son
+válidos, pero la corrección espera dos revisiones. El reinicio posterior sigue
+pendiente; el `503` anterior queda solo como antecedente.
+
+E08 aporta traducciones comunes de anotación y cierre. El motivo comprensible
+se muestra sin cambiar el payload, y los mensajes configurados se propagan
+escapados. Las dos fases y el replay se mantienen. Sus siete archivos JS y
+pruebas fueron revisados y 21 focales pasaron, pero esta mejora todavía no está
+desplegada. La campaña global terminó 365/365 pruebas CT más 23/23 del
+coordinador, 388 en total, y manifiestos 11/111/3/1 en `PASS`. No hubo cambios
+Go ni se repitió su campaña global.
 
 La prueba CT86 quedó en `NO-GO`: la guarda exige 10 s y la capacidad real es 5
 s. No se ejecutó el arnés SQL y el negocio permaneció intacto.
