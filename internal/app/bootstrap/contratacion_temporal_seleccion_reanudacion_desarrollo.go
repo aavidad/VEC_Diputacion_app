@@ -22,7 +22,8 @@ func (e *ejecucionesSeleccionReanudablesDesarrollo) ReanudarPreparacionOrden(
 		return ports.EstadoEjecucionSeleccionLlamamiento{}, ports.ErrAutorizacionDenegada
 	}
 	p, presente := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
-	if !presente || p.expediente.VersionActual != 6 || p.clave != solicitud.ClaveIdempotencia ||
+	if !presente || p.expediente.VersionActual != solicitud.VersionExpediente ||
+		p.expediente.Fiscalizado.Version != solicitud.VersionExpediente || p.clave != solicitud.ClaveIdempotencia ||
 		p.expediente.Fiscalizado.Referencia != solicitud.ExpedienteRef ||
 		p.expediente.Fiscalizado.OrganizacionRef != solicitud.OrganizacionRef ||
 		p.necesidad != solicitud.Necesidad.Referencia {
