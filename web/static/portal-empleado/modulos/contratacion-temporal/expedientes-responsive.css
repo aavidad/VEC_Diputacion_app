@@ -61,8 +61,25 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .ct-exp-cabecera-expediente dl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .ct-exp-navegacion {
+    flex-wrap: wrap;
+  }
+
+  .ct-exp-contenido {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-expedientes .ct-alta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-expedientes .ct-alta fieldset {
+    min-width: 0;
+  }
+
+  .ct-expedientes .ct-alta p,
+  .ct-expedientes .ct-alta label {
+    overflow-wrap: anywhere;
   }
 
   .ct-exp-tareas ol {
