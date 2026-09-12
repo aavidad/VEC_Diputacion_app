@@ -1,5 +1,16 @@
 # Estado y plan de ataque del proyecto
 
+Los seis borradores pueden representar una propuesta actual posterior a una
+subsanación, usando el hito y la versión reales del detalle autorizado. Se
+conserva la recuperación de la propuesta original v7 desde resolución v8 o
+anotación v9. No se habilita la lectura histórica de propuestas posteriores
+a través de versiones nuevas sin su circuito autorizado.
+
+La integración mantiene el cliente y el canal de consulta existentes. Pasaron
+27 pruebas web y las pruebas focales del renderer. La lectura desde una nueva
+propuesta persistida sigue pendiente; las descargas reales ya acreditadas de
+la propuesta original permanecen como evidencia del corte anterior.
+
 La selección del llamamiento se prepara ahora con la versión CT fiscalizada
 vigente, conservando la versión independiente de Bolsa y las funciones originales
 para v6. CT94 añade lectores para versiones posteriores; permanece pendiente

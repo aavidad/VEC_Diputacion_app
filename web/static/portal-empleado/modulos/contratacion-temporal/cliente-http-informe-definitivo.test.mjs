@@ -63,7 +63,7 @@ test("rechaza contrato alterado antes de red", async () => {
   let llamadas = 0;
   const http = crearClienteHTTPBorradorRRHH({ fetchImpl: () => { llamadas += 1; } });
   for (const entrada of [
-    { ...solicitud, version_observada: 6 }, { ...solicitud, version_observada: 10 }, { ...solicitud, actor: "rrhh" },
+    { ...solicitud, version_observada: 6 }, { ...solicitud, version_observada: Number.MAX_SAFE_INTEGER + 1 }, { ...solicitud, actor: "rrhh" },
     { ...solicitud, expediente_ref: "no válido" }, { expediente_ref: solicitud.expediente_ref },
   ]) await assert.rejects(http.descargarBorrador(entrada), { codigo: "solicitud_no_valida" });
   for (const tipo of ["", "otro", "constructor", "__proto__", null, {}, new String("resolucion")]) {

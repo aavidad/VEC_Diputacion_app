@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
-import { renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 
@@ -307,5 +307,36 @@ test("no proyecta borradores ante historia hueca, cruzada o anotación distinta"
     await adaptador.listar();
     const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
     assert.equal(Object.hasOwn(expediente, "version_propuesta_documental"), false);
+  }
+});
+
+
+test("ofrece documentos de la propuesta actual tras subsanar y refiscalizar", async () => {
+  const detalle = detalleV9();
+  const accionesPosteriores = ["contratacion_temporal.subsanacion_reparo.registrar",
+    "registrar_fiscalizacion", "registrar_propuesta_formalizacion"];
+  detalle.hitos = detalle.hitos.map((hito, i) => i < 6 ? hito
+    : { ...hito, accion_clave: accionesPosteriores[i - 6] });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+  const cuadro = await adaptador.listar();
+  const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
+  assert.equal(expediente.version_propuesta_documental, 9);
+  const estado = { vista: "expediente", carga: "listo", expediente, cuadro,
+    expediente_ref: expediente.expediente_ref };
+  assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
+    expediente_ref: expediente.expediente_ref, version_observada: 9,
+  });
+  assert.equal(solicitudInformeDefinitivoDesdeEstado({ ...estado, actualizacion_pendiente: true }), null);
+  for (const alterar of [
+    (d) => { d.hitos[3].version_expediente = 3; },
+    (d) => { d.hitos[8] = { ...d.hitos[8], accion_clave: accionesPosteriores[1] }; },
+  ]) {
+    const invalido = structuredClone(detalle); alterar(invalido);
+    const otro = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(invalido) });
+    const cuadroInvalido = await otro.listar();
+    const expedienteInvalido = await otro.obtener(invalido.resumen.expediente_ref);
+    assert.equal(Object.hasOwn(expedienteInvalido, "version_propuesta_documental"), false);
+    assert.equal(solicitudInformeDefinitivoDesdeEstado({ ...estado,
+      expediente: expedienteInvalido, cuadro: cuadroInvalido }), null);
   }
 });

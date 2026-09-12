@@ -232,8 +232,23 @@ function resolucionConPropuestaHistorica(detalle) {
     && anotacion.estado_origen === "en_curso" && anotacion.estado_destino === "en_curso";
 }
 
+// La propuesta actual se deriva de un hito autorizado, nunca de la versión sola.
+function versionPropuestaDocumental(detalle) {
+  if (resolucionConPropuestaHistorica(detalle)) return 7;
+  const { resumen, hitos } = detalle;
+  if (resumen.version <= 7 || resumen.fase_clave !== "nombramiento"
+    || resumen.estado_clave !== "en_curso" || !Array.isArray(hitos)
+    || hitos.length !== resumen.version
+    || !hitos.every((h, i) => h.secuencia === i + 1 && h.version_expediente === i + 1)) return null;
+  const propuesta = hitos.at(-1);
+  return propuesta.accion_clave === "registrar_propuesta_formalizacion"
+    && propuesta.fase_destino === "nombramiento" && propuesta.estado_destino === "en_curso"
+    ? propuesta.version_expediente : null;
+}
+
 function proyectarExpediente(detalle, locale, catalogos, t) {
   const traducir = crearTraductorContratacionTemporal();
+  const versionPropuesta = versionPropuestaDocumental(detalle);
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
     demostracion: false,
@@ -255,7 +270,7 @@ function proyectarExpediente(detalle, locale, catalogos, t) {
     historial: historialDesdeHitos(detalle.hitos, locale, t),
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
-    ...(resolucionConPropuestaHistorica(detalle) ? { version_propuesta_documental: 7 } : {}),
+    ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),
   });
 }
 
