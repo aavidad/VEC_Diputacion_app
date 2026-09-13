@@ -1,5 +1,19 @@
 # Manual funcional del técnico de Recursos Humanos
 
+Tras registrar una propuesta, «Ver expediente actualizado» recupera el detalle
+mediante las consultas autorizadas existentes. Si falla la lectura, conserva el
+recibo y permite reintentar sin repetir la propuesta. La prueba focal reproduce
+el avance del cuadro, el primer fallo del detalle y su recuperación posterior;
+el formulario y esa regresión suman 72 pruebas web satisfactorias.
+
+AD3-38 y CT92 quedaron instaladas una sola vez el 13 de septiembre, con respaldo
+privado y comparación de historia, ACL y roles. El intento previo se detuvo antes
+del respaldo y del DDL por una tabla mal nombrada en el capturador; se conservó y
+se reanudó con dos revisiones del parche. No reaplicar estas migraciones.
+El runtime utiliza el corte de subsanación 6f36d8e5; su formulario sigue pendiente
+de habilitación efectiva: configuración y detalle responden 200, sin nuevo POST.
+CT93–96 continúan pendientes de ensayo e instalación. El contador no aumenta.
+
 La propuesta de formalización admite la versión fiscalizada posterior a una
 subsanación y conserva ese antecedente al recuperar el mismo recibo. El formulario
 usa la versión de la selección confirmada; no sustituye las versiones propias

@@ -618,6 +618,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarFiscalizacion = null;
   let desmontarSubsanacion = null;
   let reciboSubsanacionConfirmado = null;
+  let reciboPropuestaConfirmado = null;
   let sesionAnalisis = null;
   let descargaInforme = null;
   let urlInforme = null;
@@ -960,6 +961,42 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
+  async function refrescarDetalleTrasPropuesta(recibo, solicitud) {
+    if (!montada || recibo?.propuesta_ref === undefined
+      || reciboPropuestaConfirmado?.recibo !== recibo
+      || solicitud?.expediente_ref !== reciboPropuestaConfirmado.solicitud.expediente_ref) return false;
+    const expedienteRef = solicitud.expediente_ref;
+    const panel = reciboPropuestaConfirmado.panel;
+    if (panel === null || raiz.querySelector("[data-ct-exp-llamamiento]") !== panel) return false;
+    const sigueSeleccionado = () => montada && panel !== null
+      && raiz.querySelector("[data-ct-exp-llamamiento]") === panel;
+    // cargar descarta la selección antigua al avanzar la versión. La identidad
+    // del panel conserva la intención y cambia si el usuario navega.
+    const avisarPendiente = () => {
+      if (sigueSeleccionado()) anunciar(
+        crearTraductorContratacionTemporal(mensajes)("llamamiento_propuesta_actualizacion_pendiente"), "aviso",
+      );
+    };
+    try {
+      await presentador.cargar();
+      if (!sigueSeleccionado()) return false;
+      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+        ({ expediente_ref: referencia }) => referencia === expedienteRef,
+      );
+      if (!resumen || resumen.version < recibo.version_resultante) { avisarPendiente(); return false; }
+      await presentador.seleccionarExpediente(expedienteRef, "expediente");
+      if (!sigueSeleccionado()) return false;
+      const actualizado = presentador.obtenerEstado().expediente;
+      if (actualizado?.expediente_ref !== expedienteRef
+        || actualizado.version < recibo.version_resultante) { avisarPendiente(); return false; }
+      repintar("#ct-exp-tarea-titulo");
+      return true;
+    } catch {
+      avisarPendiente();
+      return false;
+    }
+  }
+
   function montarLlamamiento(contexto = null) {
     if (!montada || !llamamientoDisponible) return;
     // Nueva petición conserva el acceso manual publicado para recuperar con
@@ -977,6 +1014,10 @@ export async function montarModuloContratacionTemporal({
     desmontarLlamamiento = montarFormularioLlamamiento({
       raiz: contenedor, cliente: clienteLlamamiento, contexto,
       confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
+      alPropuestaConfirmada: (recibo, solicitud) => {
+        reciboPropuestaConfirmado = Object.freeze({ recibo, solicitud, panel: contenedor });
+      },
+      alActualizarPropuesta: refrescarDetalleTrasPropuesta,
     });
   }
 
