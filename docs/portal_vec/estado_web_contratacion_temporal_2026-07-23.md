@@ -19,10 +19,11 @@ La continuidad después de subsanar está publicada como código: nueva fiscaliz
 (CT93), selección (CT94), aviso/respuesta (CT95) y propuesta (CT96, `539247a6`).
 El formulario admite la versión fiscalizada y los documentos actuales usan la nueva
 propuesta (`8927bf61`). Las cuatro UP se ejecutaron una vez en la principal el 13 de septiembre a las
-06:26 UTC. La comprobación final se detuvo por la grafía `timezone`/`TimeZone`
-del inventario; los siete cuerpos y el catálogo completo coinciden al normalizar
-exclusivamente esa grafía. Dirección reconcilia el intento y la activación;
-no reaplicar CT93–96. Todavía no acredita recorrido funcional principal.
+06:26 UTC. La diferencia `timezone`/`TimeZone` del inventario quedó reconciliada:
+siete cuerpos y catálogo completo coincidentes, historial y permisos conservados.
+La misma aplicación se restableció a las 06:34 UTC y el producto `93e77d1d`
+ya está activado con las cuatro migraciones. No reaplicar CT93–96.
+Está en curso el recorrido real de nueva fiscalización desde la subsanación v7.
 La consulta documental conserva ahora la propuesta posterior a subsanación
 cuando su historia añade resolución y anotación administrativa; comprobada en
 código con propuesta v9 desde v10/v11, pendiente de recorrido principal.
@@ -43,9 +44,12 @@ porcentajes exactos de web terminada. En las dependencias externas se distingue:
 El aplazamiento de una conexión externa no aplaza el trabajo independiente de su pantalla. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
-**Disponibilidad transversal:** el corte actual está en activación coordinada por
-el director remoto; la pausa de aplicación y la reconciliación anterior impiden
-presentar el estado histórico siguiente como disponibilidad actual.
+**Disponibilidad transversal:** activación `93e77d1d` confirmada: binario
+`23d02b6718a49c61dbe76570fa86769c42b12c1b465363d0f4669e2bfce17c04`
+y 21 recursos web. Misma aplicación y mismo arranque PostgreSQL en este corte.
+Las mejoras documentales `9249189f` y de presentación `a73dc93c` están
+publicadas y pendientes de la siguiente actualización; también el diagnóstico
+Go de cobertura `b323d2cd` requiere recompilar. No confundir publicación con activación.
 Históricamente, la aplicación estuvo sana con el binario
 `783c051a6ee1d81fb4925aed99615dbe3cabbc39ee3ed53c316e2620de9ea66f` desde las 22:54 UTC; PostgreSQL no se reinició en este corte. Los
 cortes publicados `9a522d2f`, `e5dcda5f`, `dea52536`, `35bbdd14`, `8d94e7e5`
@@ -68,20 +72,20 @@ cobertura en su preparador; todavía no declara resuelto el `503`.
 | 1 | Inicio y cuadro de mando | Parcial | 25 % | Director remoto: recorrido de entrega integrada | Rail e historial publicados y observados en ambos casos a 1440/390; no acredita cierre funcional del cuadro completo. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
 | 3 | Análisis de RRHH | Parcial | 25 % | Director remoto: activar y recorrer las cinco modalidades | Formulario y catálogo configurable conectados; falta fuente de motivos válida e instalación/recorrido. Catálogo vacío sigue sin permitir POST. |
-| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Local: `cobertura_503_causa` | Caso `b50fa…` v2 RC validada: detalle `200`; la propuesta devuelve `503` en el preparador; concurrencia ensayada sin resolver el 503; candidato preservado fuera del producto. |
+| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Director remoto: activar diagnóstico y reproducir 503 | Caso `b50fa…` v2 RC validada: detalle `200`; la propuesta devuelve `503` en el preparador; concurrencia ensayada sin resolver el 503; candidato preservado fuera del producto. |
 | 5 | Unidad y bandeja de trabajo | Parcial | 25 % | Dirección: continuar desde Unidad existente | Detalle v3 `200`, móvil corregido y referencia exacta. Solo ofrece Asignación; Informe exige asignación proyectada. Pendiente confirmar la asignación del ejercicio. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Dirección: continuidad desde Unidad | Conexión integrada. El caso Unidad debe confirmar asignación y preparar informe antes de fiscalizar; Intervención requiere identidad y resultado explícitos. |
-| 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Director remoto: reconciliación CT93–96, sin reaplicar | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
-| 10 | Llamamiento de candidatura | Parcial | 50 % | Local: `panel_llamamiento_pendientes`; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 aplicadas, reconciliación y recorrido pendientes; SMTP aplazado. |
+| 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Director remoto: nueva fiscalización, sin reaplicar CT93–96 | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
+| 10 | Llamamiento de candidatura | Parcial | 50 % | Director remoto: recorrido; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 aplicadas y reconciliadas, recorrido pendiente; SMTP aplazado. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
 | 13 | Traslado de candidatura | Parcial | 25 % | Director remoto: recorrido de entrega integrada | Resumen publicado; asset real `GET 200`. Falta recorrerlo con aceptación recuperada, sin equipararlo a envío. |
 | 14 | Documentación para formalización | Parcial | 25 % | Remoto: Dirección integra y comprueba runtime | `4fc058f5`: un PDF y un DOCX de la propuesta v7 recuperados desde v9 con HTTP `200`; falta revisión funcional del conjunto. |
 | 15 | Generación de datos GINPIX | Terminada en desarrollo | 0 % | Dirección: conservación | Ficha manual real recuperada; no representa envío externo. |
 | 16 | Resumen final y envío a GINPIX | Parcial | 25 % | Apoyo local: resumen GINPIX | `861b4132`: ficha y seguimiento reales `GET 200`, misma huella y 1440/390 px; el envío externo sigue pendiente. |
-| 17 | Generación documental de formalización | Parcial | 25 % | Local: `panel_generacion_cierre`; remoto: recorrido | Seis pares PDF/DOCX disponibles; un PDF y un DOCX representativos respondieron `200` desde v9, con historia conservada. |
+| 17 | Generación documental de formalización | Parcial | 25 % | Director remoto: activar `9249189f` y recorrer | Seis pares PDF/DOCX disponibles; un PDF y un DOCX representativos respondieron `200` desde v9, con historia conservada. |
 | 18 | Incorporación | Terminada en desarrollo | 0 % | Dirección: conservación | Incorporación y recuperación documentadas con mismo recibo. |
 | 19 | Seguimiento y cierre administrativo | Terminada en desarrollo | 0 % | Dirección: conservación | Anotación/cierre y estado recuperados; no es cese ni cierre jurídico. |
 
