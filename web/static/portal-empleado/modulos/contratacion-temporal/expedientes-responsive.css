@@ -51,6 +51,11 @@
 }
 
 @media (max-width: 620px) {
+  .ct-exp-borradores-cabecera {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .ct-exp-indicadores,
   .ct-exp-filtros,
   .ct-exp-cabecera-expediente dl,

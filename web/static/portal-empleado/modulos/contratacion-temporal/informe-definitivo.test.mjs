@@ -109,6 +109,28 @@ test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
   }
 });
 
+test("la pestaña documental agrupa los seis borradores y solo activa la consulta para su índice actual", () => {
+  const estado = estadoReal();
+  estado.vista = "documentos";
+  estado.documentos = {
+    demostracion: false, expediente_ref: estado.expediente_ref, version: 7,
+    documentos: Array.from({ length: 6 }, (_, indice) => ({
+      documento_ref: `documento:ct:sintetico-00${indice + 1}`,
+      titulo: `Documento sintético ${indice + 1}`, tipo: "PDF", version: 1,
+      estado: "Borrador", firma: "Sin firma", fecha: "13/09/2026", descarga_disponible: true,
+    })),
+  };
+  const html = renderizarModuloContratacionTemporal(estado);
+  assert.match(html, /Borradores de desarrollo disponibles/u);
+  assert.match(html, /Seis piezas preparatorias agrupadas por formalización/u);
+  assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
+  for (const { accion } of perfiles) assert.match(html, new RegExp(`data-ct-exp-accion="${accion}"`, "u"));
+  assert.match(html, /data-ct-exp-accion="descargar-docx-comunicacion-centro"/u);
+  estado.documentos.version = 8;
+  assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
+  assert.doesNotMatch(renderizarModuloContratacionTemporal(estado), /cancelar-descarga/u);
+});
+
 async function estadoResolucionDesdeHTTP(modificar = () => {}, cargaEsperada = "listo") {
   const resumen = {
     expediente_ref: "expediente:ct:pdf-historico", numero_visible: "2026/CT-009", version: 8,

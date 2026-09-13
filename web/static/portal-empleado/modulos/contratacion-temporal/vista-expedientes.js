@@ -724,9 +724,11 @@ export async function montarModuloContratacionTemporal({
   }
 
   function cancelarDescargaInforme() {
+    const activa = descargaInforme !== null;
     descargaInforme?.abort();
     descargaInforme = null;
     liberarURLInforme();
+    return activa;
   }
 
   function informarDescarga(clave, tipo) {
@@ -752,9 +754,13 @@ export async function montarModuloContratacionTemporal({
     const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
       '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"], [data-ct-exp-accion="descargar-notificacion"], [data-ct-exp-accion="descargar-comunicacion-centro"], [data-ct-exp-accion="descargar-docx-informe-definitivo"], [data-ct-exp-accion="descargar-docx-resolucion"], [data-ct-exp-accion="descargar-docx-diligencia"], [data-ct-exp-accion="descargar-docx-toma-posesion"], [data-ct-exp-accion="descargar-docx-notificacion"], [data-ct-exp-accion="descargar-docx-comunicacion-centro"]',
     )] : [boton];
+    const cancelaciones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
+      '[data-ct-exp-accion="cancelar-descarga"]',
+    )].filter((control) => control.dataset?.ctExpAccion === "cancelar-descarga") : [];
     const controlador = new AbortController();
     descargaInforme = controlador;
     botones.forEach((control) => { control.disabled = true; });
+    cancelaciones.forEach((control) => { control.disabled = false; });
     informarDescarga("informe_definitivo_descargando", "informacion");
     try {
       const { document: documento, URL: urls } = entornoDescarga;
@@ -791,6 +797,7 @@ export async function montarModuloContratacionTemporal({
     } finally {
       if (descargaInforme === controlador) descargaInforme = null;
       botones.forEach((control) => { control.disabled = false; });
+      cancelaciones.forEach((control) => { control.disabled = true; });
     }
   }
 
@@ -1824,6 +1831,8 @@ export async function montarModuloContratacionTemporal({
       await montarResolucionFormalizacion();
     } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion") {
       await montarIncorporacionEjercicio();
+    } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
+      if (cancelarDescargaInforme()) informarDescarga("descarga_cancelada", "informacion");
     } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
