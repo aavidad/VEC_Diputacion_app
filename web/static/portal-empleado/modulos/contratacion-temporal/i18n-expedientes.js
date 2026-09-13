@@ -127,6 +127,13 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   hito_reasignacion: "Expediente reasignado",
   hito_informe_juridico: "Informe jurídico generado",
   hito_fiscalizacion: "Fiscalización registrada",
+  fiscalizacion_confirmada_titulo: "Fiscalización confirmada",
+  fiscalizacion_confirmada_descripcion:
+    "El resultado queda registrado en el expediente; continúe sólo con el paso que muestre el servidor.",
+  fiscalizacion_confirmada_resultado: "Resultado registrado",
+  fiscalizacion_confirmada_recibo: "Referencia de recibo",
+  fiscalizacion_confirmada_version: "Versión confirmada",
+  fiscalizacion_confirmada_fecha: "Fecha de registro",
   hito_anotacion: "Anotación administrativa registrada",
   hito_incorporacion: "Incorporación confirmada",
   hito_cierre: "Cierre administrativo registrado",
