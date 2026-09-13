@@ -86,6 +86,10 @@ export function renderizarLlamamiento(estado, t, fecha) {
           ? esResolucion(operacion) ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"
           : "llamamiento_" + nombre))}</dt><dd>${e(valor)}</dd></div>`;
       }).join("")}</dl>
+      ${operacion === "propuesta" && estado.propuesta.actualizacionPendiente ? `<div class="ct-acciones">
+        <button class="boton-secundario" type="button" data-ct-llamamiento-actualizar-propuesta
+          ${estado.propuesta.actualizando ? "disabled" : ""}>${e(t("llamamiento_ver_expediente_actualizado"))}</button>
+      </div>` : ""}
     </section>`;
   }
   function formulario(operacion, campos) {

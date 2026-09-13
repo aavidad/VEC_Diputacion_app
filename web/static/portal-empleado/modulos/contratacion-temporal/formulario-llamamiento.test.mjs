@@ -256,7 +256,7 @@ async function abrirResolucionSucesor(raiz, cliente = {}, extras = {}, opcion = 
 }
 for (const sucesor of [false, true])
 for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fecha_anterior", "conflicto", "tardia"]) test(`propuesta ${sucesor ? "sucesor" : "original"}/${caso}: aceptación y publicaciones reales, misma clave y ningún efecto implícito`, async () => {
-  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let lecturas = 0, confirmar = false, liberar, avisar, señal;
+  const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let lecturas = 0, actualizaciones = 0, confirmar = false, liberar, avisar, señal;
   const inicio = new Promise((resolve) => { avisar = resolve; });
   const operacionId = sucesor ? "123e4567-e89b-42d3-a456-426614174009" : "123e4567-e89b-42d3-a456-426614174005";
   const operacionResolucion = sucesor ? "resolucion_siguiente" : "resolucion";
@@ -287,7 +287,7 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fech
     lecturas += 1; señal = opciones.signal; avisar();
     if (caso === "tardia") return new Promise((resolve) => { liberar = resolve; });
     return respuestaPublica();
-  }, confirmarOperacion: ({ titulo, advertencia }) => {
+  }, alActualizarPropuesta: async () => { actualizaciones += 1; return false; }, confirmarOperacion: ({ titulo, advertencia }) => {
     if (!titulo.startsWith("Propuesta")) return true;
     confirmaciones.push(advertencia);
     assert.ok(advertencia.includes(llamamientoRef)); assert.ok(advertencia.includes(aceptacion.resolucion_ref));
@@ -336,6 +336,15 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fech
     assert.equal(solicitudes[1].version_esperada, 6); assert.match(raiz.innerHTML, /2026-09-06T10:00:00.123456Z/u);
   }
   if (caso !== "conflicto") assert.match(raiz.innerHTML, /Propuesta registrada · ejercicio sintético/u);
+  if (caso === "confirmado") {
+    assert.match(raiz.innerHTML, /data-ct-llamamiento-actualizar-propuesta/u);
+    await raiz.eventos.get("click")({ target: { closest: (selector) => selector === "[data-ct-llamamiento-actualizar-propuesta]"
+      ? { dataset: { ctLlamamientoActualizarPropuesta: "" } } : null }, preventDefault() {} });
+    assert.equal(actualizaciones, 1);
+    assert.match(raiz.innerHTML, /La actualización del expediente sigue pendiente; no repita la propuesta/u);
+    assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="propuesta"/u);
+    assert.equal(solicitudes.length, 1);
+  }
   assert.deepEqual(previos(), anteriores); assert.equal(lecturas, 1); cerrar();
 });
 test("siguiente exige renuncia, clave propia y confirmación; no modifica recibos ni la primera comunicación", async () => {
