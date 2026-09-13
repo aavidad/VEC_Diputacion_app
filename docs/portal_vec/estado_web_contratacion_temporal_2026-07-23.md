@@ -4,10 +4,10 @@
 
 **6 de 19 terminadas en desarrollo; 12 parciales; 1 pendiente de pantalla real.**
 El contador conserva la evidencia de las **15 superficies reales (79 %)** anteriores.
-La subsanación está programada, pendiente de activar; cuenta como parcial, no inexistente.
-La activación ha localizado un motivo con formato incompatible con la publicación
-PostgreSQL. El cargador ahora exige el perfil V2 ya existente; la configuración
-privada corregida y el recorrido desde navegador siguen pendientes de confirmar.
+La subsanación ya está activa y su primer guardado desde navegador devuelve `201`
+(v6 → v7); falta comprobar la recuperación tras reinicio antes de cerrar la pantalla.
+La configuración corregida cumple el formato de publicación PostgreSQL y el
+cargador exige el perfil V2 existente. No se han modificado permisos ni migraciones.
 La línea de fases y el resumen de propuesta ya están publicados; su publicación
 no incrementa por sí sola las pantallas terminadas. Visible no significa terminada.
 El denominador queda fijo: 17 referencias de RRHH y 2 tareas adicionales ya
@@ -55,7 +55,7 @@ cobertura en su preparador; todavía no declara resuelto el `503`.
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Dirección: continuidad desde Unidad | Conexión integrada. El caso Unidad debe confirmar asignación y preparar informe antes de fiscalizar; Intervención requiere identidad y resultado explícitos. |
-| 9 | Subsanación de reparos | Parcial, programada sin activar | Por verificar | Director remoto: instalación y recorrido; apoyo: paquete entregado | AD3-38/CT92 instaladas una vez en principal; historial, ACL y roles conservados. Activación del formulario y operación nominal desde navegador en curso; no reaplicar migraciones. |
+| 9 | Subsanación de reparos | Parcial, guardado real confirmado | Recuperación pendiente | Director remoto: recuperación; apoyo: correctivo integrado | AD3-38/CT92 instaladas una vez. Formulario activo, POST `201` v6 → v7 con siete actuaciones; conserva incidencia. Sin desbordamiento ni errores JS a 1440/390 px. Falta recuperar mismo recibo tras reinicio; no reaplicar migraciones. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Remoto: `ensayo_contacto_aislado`; Dirección: gobierno Usuarios/SMTP | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 publicadas, pendientes de instalación; SMTP pendiente. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
