@@ -251,6 +251,8 @@ test("rectificar exige el motivo gobernado y usa únicamente rectificarAnalisis"
   assert.match(vista.raiz.innerHTML, /Seleccione un motivo gobernado/u);
 
   await vista.enviar();
+  assert.match(vista.raiz.innerHTML, /Rectificación confirmada/u);
+  assert.match(vista.raiz.innerHTML, /recibo:opaco:analisis:001/u);
   assert.equal(registro, 0);
   assert.equal(rectificacion.motivo_rectificacion_clave, "correccion_datos");
   assert.deepEqual(Object.keys(rectificacion), [

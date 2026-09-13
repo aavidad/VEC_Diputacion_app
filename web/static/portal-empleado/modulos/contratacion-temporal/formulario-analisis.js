@@ -292,7 +292,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador) {
     return `<section class="ct-recibo" data-ct-analisis-recibo role="status" aria-live="polite"
       aria-atomic="true" tabindex="-1" aria-labelledby="ct-analisis-recibo-titulo">
       <p class="sobrelinea">${escaparHTML(t("analisis_recibo_sobrelinea"))}</p>
-      <h3 id="ct-analisis-recibo-titulo">${escaparHTML(t("analisis_recibo_titulo"))}</h3>
+      <h3 id="ct-analisis-recibo-titulo">${escaparHTML(t(recibo.operacion === "rectificar" ? "analisis_recibo_rectificacion_titulo" : "analisis_recibo_titulo"))}</h3>
       <p>${escaparHTML(t("analisis_recibo_descripcion"))}</p>
       <dl><div><dt>${escaparHTML(t("analisis_recibo_expediente"))}</dt><dd><code>${escaparHTML(recibo.expediente_ref)}</code></dd></div>
       <div><dt>${escaparHTML(t("analisis_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
