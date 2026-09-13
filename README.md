@@ -1,5 +1,26 @@
 # VEC Diputación de Granada
 
+CT93–96 están instaladas una sola vez en la principal. La comprobación final
+reconcilió únicamente la grafía `TimeZone=UTC` del catálogo PostgreSQL, sin DDL
+adicional; los siete cuerpos SQL, permisos e historia quedaron comprobados.
+El binario de continuidad y las mejoras web hasta `93e77d1d` están activos.
+
+Intervención registró una fiscalización favorable con observaciones sintéticas:
+`201`, v7 → v8, fase `fiscalizacion`, estado `en_curso`, el 13 de septiembre
+de 2026 a las 06:38:42.032945 UTC. Tras respaldar y reiniciar la misma aplicación
+y PostgreSQL, recuperó con la petición y clave originales el mismo recibo de
+12 campos (`201`). La consulta RRHH respondió `200` con ocho actuaciones.
+Los 118 objetos de CT/Personal se conservaron en el reinicio; las consultas
+posteriores solo cambiaron cinco objetos de auditoría de acceso. Sin duplicados.
+
+El navegador se comprobó a 1440/390 px, sin errores JS, cookies, almacenamiento
+web ni desbordamiento. El acceso manual de Intervención no consulta antecedentes:
+su corrección de presentación evita deducir fase o informe de la versión escrita.
+No acredita firma, vencimiento legal, correo ni transmisión externa. El contador
+se conserva hasta cerrar la revisión visual del ajuste y de las páginas restantes.
+
+### Antecedentes de preparación del corte
+
 La fiscalización conserva su recibo confirmado mientras refresca el detalle y
 recompone la continuación ofrecida por el servidor. Si falla la consulta o llega
 una versión distinta, mantiene el recibo y avisa de la actualización pendiente;

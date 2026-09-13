@@ -1994,29 +1994,30 @@ export function montarModuloFiscalizacionContratacionTemporal({
     || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
     throw new TypeError("dependencias de fiscalización no válidas");
   }
+  const t = crearTraductorContratacionTemporal(mensajes);
   let montado = true;
   let desmontarFormulario = null;
   let desmontarLlamamiento = null;
   raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-fiscalizacion-acceso-titulo">
     <header class="ct-exp-cabecera">
-      <p class="sobrelinea">Intervención</p>
-      <h2 id="ct-fiscalizacion-acceso-titulo">Fiscalización de contratación temporal</h2>
-      <p>Abra un expediente remitido por Recursos Humanos para registrar su resultado.</p>
+      <p class="sobrelinea">${escaparHTML(t("fiscalizacion_acceso_area"))}</p>
+      <h2 id="ct-fiscalizacion-acceso-titulo">${escaparHTML(t("fiscalizacion_acceso_titulo"))}</h2>
+      <p>${escaparHTML(t("fiscalizacion_acceso_descripcion"))}</p>
     </header>
     <form class="ct-exp-filtros" data-ct-fiscalizacion-acceso>
       <div class="ct-campo">
-        <label for="ct-fiscalizacion-expediente">Referencia del expediente</label>
+        <label for="ct-fiscalizacion-expediente">${escaparHTML(t("fiscalizacion_contexto_expediente"))}</label>
         <input id="ct-fiscalizacion-expediente" name="expediente_ref"
           type="text" maxlength="160" autocomplete="off" required>
       </div>
       <div class="ct-campo">
-        <label for="ct-fiscalizacion-version">Versión remitida</label>
+        <label for="ct-fiscalizacion-version">${escaparHTML(t("fiscalizacion_version_remitida"))}</label>
         <input id="ct-fiscalizacion-version" name="version_esperada"
           type="number" min="1" step="1" required>
       </div>
       <div class="ct-acciones">
-        <button class="boton-primario" type="submit">Abrir fiscalización</button>
+        <button class="boton-primario" type="submit">${escaparHTML(t("fiscalizacion_acceso_abrir"))}</button>
       </div>
     </form>
   </section>`;
@@ -2037,7 +2038,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
     );
     if (!PATRON_REFERENCIA.test(referencia) || !Number.isSafeInteger(version) || version < 1) {
       formulario.elements?.namedItem?.("expediente_ref")?.setCustomValidity?.(
-        "Indique la referencia íntegra del expediente remitido.",
+        t("fiscalizacion_acceso_referencia_invalida"),
       );
       formulario.reportValidity?.();
       return;
@@ -2053,7 +2054,7 @@ export function montarModuloFiscalizacionContratacionTemporal({
       contexto: Object.freeze({
         expediente_ref: referencia,
         version_esperada: version,
-        fase_clave: "informe_juridico",
+        fase_clave: "",
         informe_ref: "",
       }),
       confirmarOperacion,

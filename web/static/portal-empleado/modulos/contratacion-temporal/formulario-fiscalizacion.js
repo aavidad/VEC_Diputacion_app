@@ -41,8 +41,8 @@ function normalizarContexto(contexto) {
     || !PATRON_REFERENCIA.test(contexto.expediente_ref)
     || !Number.isSafeInteger(contexto.version_esperada)
     || contexto.version_esperada < 1 || contexto.version_esperada >= Number.MAX_SAFE_INTEGER
-    || !["informe_juridico", "subsanacion_unidad"].includes(contexto.fase_clave)
-    || (contexto.fase_clave === "subsanacion_unidad" && contexto.informe_ref !== "")
+    || !["", "informe_juridico", "subsanacion_unidad"].includes(contexto.fase_clave)
+    || (["", "subsanacion_unidad"].includes(contexto.fase_clave) && contexto.informe_ref !== "")
     || (contexto.informe_ref !== "" && !PATRON_REFERENCIA.test(contexto.informe_ref))) {
     throw new TypeError("contexto de fiscalización no válido");
   }
@@ -70,6 +70,11 @@ function etiquetaResultado(resultado, t) {
 }
 
 function renderizarContexto(contexto, t) {
+  if (contexto.fase_clave === "") return `<dl class="ct-resumen" data-ct-fiscalizacion-contexto>
+    <div><dt>${escaparHTML(t("fiscalizacion_contexto_expediente"))}</dt><dd><code>${escaparHTML(contexto.expediente_ref)}</code></dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_version_remitida"))}</dt><dd>${contexto.version_esperada}</dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_contexto_antecedentes"))}</dt><dd>${escaparHTML(t("fiscalizacion_antecedentes_no_consultados"))}</dd></div>
+  </dl>`;
   const esNuevaFiscalizacion = contexto.fase_clave === "subsanacion_unidad";
   const informe = contexto.informe_ref === ""
     ? t("fiscalizacion_informe_registrado", { version: contexto.version_esperada })
