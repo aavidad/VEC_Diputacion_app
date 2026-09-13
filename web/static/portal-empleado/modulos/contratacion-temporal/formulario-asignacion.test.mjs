@@ -115,6 +115,23 @@ test("envía una sola asignación cerrada y muestra el recibo mínimo", async ()
   assert.equal(raiz.eventos.size, 0);
 });
 
+test("espera la recuperación del detalle antes de declarar disponible el siguiente paso", async () => {
+  const raiz = raizFalsa();
+  let recuperaciones = 0;
+  montar(raiz, { asignarUnidad() { return Promise.resolve(recibo()); } }, {
+    alConfirmar: async () => {
+      recuperaciones += 1;
+      await Promise.resolve();
+      return true;
+    },
+  });
+
+  await raiz.enviar();
+  assert.equal(recuperaciones, 1);
+  assert.match(raiz.innerHTML, /data-ct-asignacion-recibo/u);
+  assert.doesNotMatch(raiz.innerHTML, /no pudo abrirse/u);
+});
+
 test("recupera tras interrupción con el mismo cuerpo y la misma clave", async () => {
   const raiz = raizFalsa();
   const cuerpos = [];

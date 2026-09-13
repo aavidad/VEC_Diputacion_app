@@ -68,7 +68,14 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   trabajo_titulo: "Prioridades de contratación temporal",
   trabajo_descripcion:
     "Mis tareas, distribución del trabajo y accesos rápidos, calculados desde la proyección autorizada.",
+  bandeja_titulo: "Bandeja de la página",
+  bandeja_descripcion:
+    "Expedientes no completados y distribución por fase de esta página de la proyección autorizada.",
   mis_tareas: "Mis tareas prioritarias",
+  bandeja_expedientes: "Expedientes no completados",
+  bandeja_sin_expedientes: "No hay expedientes no completados en esta página.",
+  bandeja_distribucion_fases: "Distribución por fase en esta página",
+  bandeja_abrir_primero: "Abrir primer expediente no completado",
   distribucion_fases: "Distribución por fase",
   accesos_rapidos: "Accesos rápidos",
   crear_peticion: "Registrar nueva petición",
@@ -111,6 +118,12 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   hito_cobertura: "Decisión de cobertura registrada",
   hito_rectificacion_cobertura: "Decisión de cobertura rectificada",
   hito_asignacion: "Expediente asignado a la unidad",
+  asignacion_confirmada_titulo: "Asignación confirmada",
+  asignacion_confirmada_descripcion:
+    "La unidad responsable ya consta en el expediente. Puede continuar con la preparación del informe jurídico.",
+  asignacion_confirmada_recibo: "Referencia de recibo",
+  asignacion_confirmada_version: "Versión confirmada",
+  asignacion_confirmada_fecha: "Fecha de confirmación",
   hito_reasignacion: "Expediente reasignado",
   hito_informe_juridico: "Informe jurídico generado",
   hito_fiscalizacion: "Fiscalización registrada",

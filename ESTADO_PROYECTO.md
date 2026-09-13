@@ -1,5 +1,15 @@
 # Estado y plan de ataque del proyecto
 
+La primera tanda de páginas conecta la bandeja a los expedientes de la página
+autorizada, conserva el recibo de asignación mientras recupera el detalle y ofrece
+el informe solo cuando coinciden la unidad y la versión confirmadas. La candidatura
+aceptada agrupa sus antecedentes y enlaza con la propuesta existente. Los textos
+usan el catálogo común; no se registran tareas propias ni efectos adicionales.
+
+La integración supera 32 pruebas web focales, incluida la página sin expedientes
+pendientes y las recuperaciones de asignación y propuesta. Estos cambios de interfaz
+están preparados para activación y recorrido real; mantienen el contador 7/19.
+
 La pantalla de subsanación queda terminada en desarrollo: registro y recuperación
 tras reinicio con el mismo recibo, más reapertura del expediente v7 mostrando
 «Subsanación registrada» sin otro formulario de envío. El recibo recién registrado

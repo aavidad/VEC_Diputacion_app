@@ -143,6 +143,32 @@ test("proyecta controles de página sin exponer el cursor", async () => {
   assert.doesNotMatch(html, new RegExp(CURSOR_C, "u"));
 });
 
+test("la bandeja real usa solo la página autorizada y no se presenta como tarea propia", () => {
+  const html = renderizarCuadro({
+    carga: "listo",
+    filtros: { texto: "", estado: "", fase: "" },
+    cuadro: cuadro({ pagina: 2, cursor: CURSOR_B, siguiente: CURSOR_C, sufijo: "2" }),
+  }, crearTraductorExpedientesContratacion());
+  assert.match(html, /Bandeja de la página/u);
+  assert.match(html, /Expedientes no completados/u);
+  assert.match(html, /Distribución por fase en esta página/u);
+  assert.match(html, /Abrir primer expediente no completado/u);
+  assert.match(html, /data-ct-exp-abrir="expediente:ct:pag-2"/u);
+  assert.doesNotMatch(html, /Mis tareas prioritarias/u);
+});
+
+test("una página completada no ofrece abrir un expediente no completado", () => {
+  const pagina = cuadro({ pagina: 1, cursor: "", sufijo: "1" });
+  const html = renderizarCuadro({
+    carga: "listo", filtros: { texto: "", estado: "", fase: "" },
+    cuadro: { ...pagina, expedientes: pagina.expedientes.map((e) => ({
+      ...e, estado_clave: "completado", estado: "Completado",
+    })) },
+  }, crearTraductorExpedientesContratacion());
+  assert.match(html, /No hay expedientes no completados en esta página/u);
+  assert.doesNotMatch(html, /Abrir primer expediente no completado/u);
+});
+
 test("un cursor fallido conserva la página anterior y reinicia con cursor vacío", async () => {
   let llamadas = 0;
   const cursores = [];

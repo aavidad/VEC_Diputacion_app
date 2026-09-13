@@ -44,7 +44,8 @@ function opcionFiltro(valor, etiqueta, seleccionado) {
 }
 
 function renderizarTrabajoOperativo(cuadro, t) {
-  const tareas = cuadro.expedientes
+  const esDemostracion = cuadro.demostracion === true;
+  const expedientesNoCompletados = cuadro.expedientes
     .filter(({ estado_clave: estado }) => estado !== "completado")
     .slice(0, 3);
   const distribucion = [...new Set(cuadro.expedientes.map(({ fase_actual: fase }) => fase))]
@@ -52,25 +53,31 @@ function renderizarTrabajoOperativo(cuadro, t) {
       fase,
       total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
     }));
-  const primera = tareas[0] ?? cuadro.expedientes[0];
+  const primero = expedientesNoCompletados[0]
+    ?? (esDemostracion ? cuadro.expedientes[0] : undefined);
+  const titulo = esDemostracion ? t("trabajo_titulo") : t("bandeja_titulo");
+  const descripcion = esDemostracion ? t("trabajo_descripcion") : t("bandeja_descripcion");
+  const tituloExpedientes = esDemostracion ? t("mis_tareas") : t("bandeja_expedientes");
+  const tituloDistribucion = esDemostracion
+    ? t("distribucion_fases") : t("bandeja_distribucion_fases");
   return `<section class="ct-exp-operativo" aria-labelledby="ct-exp-operativo-titulo">
     <header>
       <p class="sobrelinea">${escaparHTML(t("trabajo_sobrelinea"))}</p>
-      <h3 id="ct-exp-operativo-titulo">${escaparHTML(t("trabajo_titulo"))}</h3>
-      <p>${escaparHTML(t("trabajo_descripcion"))}</p>
+      <h3 id="ct-exp-operativo-titulo">${escaparHTML(titulo)}</h3>
+      <p>${escaparHTML(descripcion)}</p>
     </header>
     <article class="ct-exp-mis-tareas">
-      <h4>${escaparHTML(t("mis_tareas"))}</h4>
-      <ul>${tareas.map((expediente) => `<li>
+      <h4>${escaparHTML(tituloExpedientes)}</h4>
+      <ul>${expedientesNoCompletados.map((expediente) => `<li>
         <span><strong>${escaparHTML(expediente.numero_visible)}</strong>
-          <small>${escaparHTML(expediente.categoria)} · ${escaparHTML(expediente.fase_actual)}</small>
+          <small>${escaparHTML(expediente.categoria)} · ${escaparHTML(expediente.fase_actual)} · ${escaparHTML(expediente.estado)}</small>
         </span>
         <button type="button" class="boton-terciario"
           data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button>
-      </li>`).join("")}</ul>
+      </li>`).join("") || `<li class="ct-exp-vacio">${escaparHTML(t("bandeja_sin_expedientes"))}</li>`}</ul>
     </article>
     <article class="ct-exp-distribucion">
-      <h4>${escaparHTML(t("distribucion_fases"))}</h4>
+      <h4>${escaparHTML(tituloDistribucion)}</h4>
       <dl>${distribucion.map(({ fase, total }) => `<div>
         <dt>${escaparHTML(fase)}</dt><dd>${total}</dd>
       </div>`).join("")}</dl>
@@ -79,8 +86,8 @@ function renderizarTrabajoOperativo(cuadro, t) {
       <h4>${escaparHTML(t("accesos_rapidos"))}</h4>
       <button type="button" class="boton-primario"
         data-ct-exp-vista="alta">${escaparHTML(t("crear_peticion"))}</button>
-      ${primera ? `<button type="button" class="boton-secundario"
-        data-ct-exp-abrir="${escaparHTML(primera.expediente_ref)}">${escaparHTML(t("continuar_tramitacion"))}</button>` : ""}
+      ${primero ? `<button type="button" class="boton-secundario"
+        data-ct-exp-abrir="${escaparHTML(primero.expediente_ref)}">${escaparHTML(esDemostracion ? t("continuar_tramitacion") : t("bandeja_abrir_primero"))}</button>` : ""}
     </aside>
   </section>`;
 }
@@ -171,7 +178,7 @@ export function renderizarCuadro(estado, t) {
     <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
       ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
   </nav>` : "";
-  const trabajoOperativo = cuadro.demostracion ? renderizarTrabajoOperativo(cuadro, t) : "";
+  const trabajoOperativo = renderizarTrabajoOperativo(cuadro, t);
   const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a></p>`;
   return `${indicadores}${organizacion}${trabajoOperativo}${filtros}${estado.carga === "vacio"
     ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}`;
