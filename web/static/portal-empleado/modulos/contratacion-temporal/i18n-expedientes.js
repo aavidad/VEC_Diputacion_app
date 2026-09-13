@@ -111,6 +111,12 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   hito_cobertura: "Decisión de cobertura registrada",
   hito_rectificacion_cobertura: "Decisión de cobertura rectificada",
   hito_asignacion: "Expediente asignado a la unidad",
+  asignacion_confirmada_titulo: "Asignación confirmada",
+  asignacion_confirmada_descripcion:
+    "La unidad responsable ya consta en el expediente. Puede continuar con la preparación del informe jurídico.",
+  asignacion_confirmada_recibo: "Referencia de recibo",
+  asignacion_confirmada_version: "Versión confirmada",
+  asignacion_confirmada_fecha: "Fecha de confirmación",
   hito_reasignacion: "Expediente reasignado",
   hito_informe_juridico: "Informe jurídico generado",
   hito_fiscalizacion: "Fiscalización registrada",

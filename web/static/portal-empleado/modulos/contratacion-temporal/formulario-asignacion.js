@@ -236,7 +236,7 @@ export function montarFormularioAsignacion(configuracion = {}) {
         };
         solicitudActual = null;
         try {
-          if (alConfirmarActual(recibo) !== true) {
+          if (await Promise.resolve(alConfirmarActual(recibo)) !== true) {
             estado = {
               ...estado,
               mensaje_clave: "asignacion_estado_informe_no_disponible",

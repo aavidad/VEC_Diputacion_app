@@ -22,6 +22,25 @@ test("recupera el contenedor de asignación sólo para la misma fase y versión"
   assert.doesNotMatch(renderizarModuloContratacionTemporal(divergente, opciones), /data-ct-exp-asignacion/);
 });
 
+test("conserva el recibo de asignación y abre el informe jurídico tras recuperar la unidad", () => {
+  const confirmado = estado(8);
+  confirmado.expediente.cabecera = [{ clave: "unidad", valor: "unidad:desarrollo:rrhh" }];
+  const html = renderizarModuloContratacionTemporal(confirmado, {
+    asignacionDisponible: true,
+    informeJuridicoDisponible: true,
+    reciboAsignacionConfirmado: {
+      expediente_ref: "expediente:ct:asignacion",
+      version_resultante: 8,
+      recibo_ref: "recibo:ct:asignacion:001",
+      confirmada_en: "2026-09-13T10:00:00Z",
+    },
+  });
+  assert.match(html, /data-ct-asignacion-confirmada/u);
+  assert.match(html, /recibo:ct:asignacion:001/u);
+  assert.match(html, /data-ct-exp-informe-juridico/u);
+  assert.doesNotMatch(html, /data-ct-exp-asignacion(?:[\s>])/u);
+});
+
 
 test("no ofrece asignación durante carga, fuera de fase o con operación cerrada", () => {
  for (const cambiar of [
