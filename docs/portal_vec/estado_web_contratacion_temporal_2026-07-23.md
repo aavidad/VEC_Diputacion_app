@@ -5,6 +5,9 @@
 **6 de 19 terminadas en desarrollo; 12 parciales; 1 pendiente de pantalla real.**
 El contador conserva la evidencia de las **15 superficies reales (79 %)** anteriores.
 La subsanación está programada, pendiente de activar; cuenta como parcial, no inexistente.
+La activación ha localizado un motivo con formato incompatible con la publicación
+PostgreSQL. El cargador ahora exige el perfil V2 ya existente; la configuración
+privada corregida y el recorrido desde navegador siguen pendientes de confirmar.
 La línea de fases y el resumen de propuesta ya están publicados; su publicación
 no incrementa por sí sola las pantallas terminadas. Visible no significa terminada.
 El denominador queda fijo: 17 referencias de RRHH y 2 tareas adicionales ya

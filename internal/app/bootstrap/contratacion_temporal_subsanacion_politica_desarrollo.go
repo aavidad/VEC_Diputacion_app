@@ -47,7 +47,7 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 }
 
 func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependenciasAltaContratacionTemporalDesarrollo) error {
-	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || f.configuracion.MotivoAutorizacion.Validar() != nil {
+	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(f.configuracion.MotivoAutorizacion) {
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	v, err := f.soporte.contexto.Vinculo.Datos()
@@ -105,7 +105,7 @@ func cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg config.Config) 
 	var politica configuracionPoliticaSubsanacionReparosDesarrollo
 	dec := json.NewDecoder(strings.NewReader(string(contenido)))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&politica) != nil || dec.Decode(&struct{}{}) != io.EOF || !domain.ReferenciaOpacaValida(politica.DefinicionRef) || !ports.VersionOperacionAnalisisValida(politica.DefinicionVersion) || politica.MotivoAutorizacion.Validar() != nil || len(politica.DefinicionHuellaSHA256) != 64 || politica.DefinicionHuellaSHA256 != strings.ToLower(politica.DefinicionHuellaSHA256) || politica.DefinicionHuellaSHA256 == strings.Repeat("0", 64) {
+	if dec.Decode(&politica) != nil || dec.Decode(&struct{}{}) != io.EOF || !domain.ReferenciaOpacaValida(politica.DefinicionRef) || !ports.VersionOperacionAnalisisValida(politica.DefinicionVersion) || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(politica.MotivoAutorizacion) || len(politica.DefinicionHuellaSHA256) != 64 || politica.DefinicionHuellaSHA256 != strings.ToLower(politica.DefinicionHuellaSHA256) || politica.DefinicionHuellaSHA256 == strings.Repeat("0", 64) {
 		return vacia, errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	if _, err := hex.DecodeString(politica.DefinicionHuellaSHA256); err != nil {
