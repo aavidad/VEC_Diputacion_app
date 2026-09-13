@@ -966,9 +966,8 @@ export async function montarModuloContratacionTemporal({
       || reciboPropuestaConfirmado?.recibo !== recibo
       || solicitud?.expediente_ref !== reciboPropuestaConfirmado.solicitud.expediente_ref) return false;
     const expedienteRef = solicitud.expediente_ref;
-    const seleccionado = presentador.obtenerEstado();
-    if (seleccionado.vista !== "expediente" || seleccionado.expediente?.expediente_ref !== expedienteRef) return false;
-    const panel = raiz.querySelector("[data-ct-exp-llamamiento]");
+    const panel = reciboPropuestaConfirmado.panel;
+    if (panel === null || raiz.querySelector("[data-ct-exp-llamamiento]") !== panel) return false;
     const sigueSeleccionado = () => montada && panel !== null
       && raiz.querySelector("[data-ct-exp-llamamiento]") === panel;
     // cargar descarta la selección antigua al avanzar la versión. La identidad
@@ -1016,7 +1015,7 @@ export async function montarModuloContratacionTemporal({
       raiz: contenedor, cliente: clienteLlamamiento, contexto,
       confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
       alPropuestaConfirmada: (recibo, solicitud) => {
-        reciboPropuestaConfirmado = Object.freeze({ recibo, solicitud });
+        reciboPropuestaConfirmado = Object.freeze({ recibo, solicitud, panel: contenedor });
       },
       alActualizarPropuesta: refrescarDetalleTrasPropuesta,
     });
