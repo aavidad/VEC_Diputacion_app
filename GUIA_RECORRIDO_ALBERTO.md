@@ -1,5 +1,12 @@
 # Guía de recorrido y recibos conservados de VEC
 
+La fiscalización conserva su recibo confirmado mientras refresca el detalle y
+recompone la continuación ofrecida por el servidor. Si falla la consulta o llega
+una versión distinta, mantiene el recibo y avisa de la actualización pendiente;
+no repite la fiscalización. Las 16 pruebas focales del montaje y las recuperaciones
+son satisfactorias. El recorrido principal posterior a subsanación sigue pendiente
+de instalar CT93–96 y activar el código; este cambio no aumenta el contador.
+
 El análisis exige las cinco modalidades del contrato RRHH vigente también al
 montar el formulario. La vista Documentos agrupa los seis borradores PDF/DOCX,
 comprueba que su índice autorizado corresponde al expediente y versión actuales

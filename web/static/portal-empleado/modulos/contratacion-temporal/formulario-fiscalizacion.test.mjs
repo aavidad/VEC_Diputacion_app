@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { renderizarModuloContratacionTemporal,
+  montarModuloContratacionTemporal,
   montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
@@ -96,6 +97,76 @@ function montar(raiz, cliente, extras = {}) {
   });
 }
 
+function estadoFiscalizacion(version, fase) {
+  return {
+    vista: "expediente", carga: "listo", ocupado: false,
+    actualizacion_pendiente: false, resultado_indeterminado: false,
+    cuadro: { demostracion: false, expedientes: [{
+      expediente_ref: EXPEDIENTE, version, fase_clave: fase, estado_clave: "en_curso",
+    }] },
+    expediente: {
+      demostracion: false, expediente_ref: EXPEDIENTE, numero_visible: "2026/CT-001",
+      version, flujo_ref: "flujo:ct:sintetico", flujo_version: 1,
+      flujo_huella: "b".repeat(64), cabecera: [{ clave: "informe_ref", valor: "informe:juridico:001" }],
+      fases: [], tareas: [], historial: [],
+    },
+    expediente_ref: EXPEDIENTE, tarea_ref: "", mensaje_clave: "estado_expediente_listo",
+    tipo_mensaje: "informacion",
+  };
+}
+
+async function montarPanelFiscalizacionConRefresco({ fallaGET = false } = {}) {
+  let estado = estadoFiscalizacion(5, "informe_juridico");
+  let fiscalizacion = raizFalsa();
+  let llamamiento = raizFalsa();
+  let envios = 0;
+  const eventos = new Map();
+  const raiz = {
+    _html: "", eventos,
+    get innerHTML() { return this._html; },
+    set innerHTML(valor) {
+      this._html = valor;
+      fiscalizacion = raizFalsa();
+      llamamiento = raizFalsa();
+    },
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
+    removeEventListener(tipo) { eventos.delete(tipo); },
+    contains() { return true; },
+    querySelector(selector) {
+      if (selector === "[data-ct-exp-fiscalizacion]") return this._html.includes(selector.slice(1, -1))
+        ? fiscalizacion : null;
+      if (selector === "[data-ct-exp-llamamiento]") return this._html.includes(selector.slice(1, -1))
+        ? llamamiento : null;
+      return null;
+    },
+  };
+  const avisos = [];
+  const modulo = await montarModuloContratacionTemporal({
+    raiz,
+    presentador: {
+      obtenerEstado: () => estado,
+      async cargar() {
+        if (fallaGET) throw new Error("GET interrumpido");
+        estado = { ...estadoFiscalizacion(6, "fiscalizacion") };
+      },
+      async seleccionarExpediente() {}, desmontar() {},
+    },
+    fiscalizacion: { cliente: { async registrarResultadoFiscalizacion() {
+      envios += 1;
+      return recibo("favorable");
+    } } },
+    llamamiento: { cliente: {
+      async seleccionarLlamamiento() {}, async registrarComunicacionLlamamiento() {},
+      async registrarRespuestaRecibida() {}, async resolverLlamamiento() {},
+      async continuarLlamamiento() {},
+    } },
+    confirmarOperacion: () => true,
+    anunciar: (texto) => avisos.push(texto),
+  });
+  return { raiz, fiscalizacion: () => fiscalizacion, llamamiento: () => llamamiento,
+    envios: () => envios, avisos, desmontar: () => modulo.desmontar() };
+}
+
 test("entrega el recibo validado a la continuación sin ocultarlo si falla el montaje", async () => {
   const raiz = raizFalsa();
   let siguiente;
@@ -106,6 +177,28 @@ test("entrega el recibo validado a la continuación sin ocultarlo si falla el mo
   assert.equal(siguiente.version_resultante, 6);
   assert.equal(siguiente.resultado, "favorable");
   assert.match(raiz.innerHTML, /data-ct-fiscalizacion-recibo/u);
+});
+
+test("el refresco confirmado conserva el recibo y recompone llamamiento sin otro POST", async () => {
+  const panel = await montarPanelFiscalizacionConRefresco();
+  await panel.fiscalizacion().enviar("favorable", "");
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(panel.envios(), 1);
+  assert.match(panel.raiz.innerHTML, /data-ct-fiscalizacion-confirmada/u);
+  assert.match(panel.raiz.innerHTML, /recibo:fiscalizacion:formulario:001/u);
+  assert.match(panel.llamamiento().innerHTML, /data-ct-llamamiento/u);
+  panel.desmontar();
+});
+
+test("un GET fallido conserva el recibo del formulario y no repite fiscalización", async () => {
+  const panel = await montarPanelFiscalizacionConRefresco({ fallaGET: true });
+  await panel.fiscalizacion().enviar("favorable", "");
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(panel.envios(), 1);
+  assert.match(panel.fiscalizacion().innerHTML, /data-ct-fiscalizacion-recibo/u);
+  assert.match(panel.fiscalizacion().innerHTML, /recibo:fiscalizacion:formulario:001/u);
+  assert.match(panel.avisos.at(-1), /conserva su recibo/u);
+  panel.desmontar();
 });
 
 test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo", async () => {
