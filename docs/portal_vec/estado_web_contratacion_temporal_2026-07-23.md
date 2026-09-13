@@ -19,8 +19,10 @@ La continuidad después de subsanar está publicada como código: nueva fiscaliz
 (CT93), selección (CT94), aviso/respuesta (CT95) y propuesta (CT96, `539247a6`).
 El formulario admite la versión fiscalizada y los documentos actuales usan la nueva
 propuesta (`8927bf61`). Esto aún no acredita instalación ni recorrido principal.
-Quedan separados la continuación tras renuncia de ese nuevo recorrido y la consulta
-documental histórica después de su resolución posterior. SMTP sigue pendiente.
+La consulta documental conserva ahora la propuesta posterior a subsanación
+cuando su historia añade resolución y anotación administrativa; comprobada en
+código con propuesta v9 desde v10/v11, pendiente de recorrido principal.
+La continuación tras renuncia de ese nuevo recorrido y SMTP siguen pendientes.
 
 El porcentaje que falta es una **estimación inicial de trabajo por pantalla**,
 no una medición de horas ni una certificación. Se revisará al cerrar cada tarea.

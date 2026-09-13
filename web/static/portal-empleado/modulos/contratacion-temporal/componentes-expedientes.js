@@ -1,6 +1,6 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
-import { CAPACIDADES_CONTRATACION_TEMPORAL } from "./contrato-expedientes.js";
+import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -215,9 +215,7 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
   if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
     || estado.actualizacion_pendiente || estado.resultado_indeterminado
     || expediente?.demostracion !== false || !Number.isSafeInteger(expediente.version) || expediente.version < 7
-    || (expediente.version >= 8
-      && !(([8, 9].includes(expediente.version) && expediente.version_propuesta_documental === 7)
-        || expediente.version_propuesta_documental === expediente.version))
+    || (expediente.version >= 8 && !versionPropuestaDocumentalValida(expediente))
     || estado.expediente_ref !== expediente.expediente_ref
     || estado.cuadro?.demostracion !== false) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref }) => expediente_ref === expediente.expediente_ref);

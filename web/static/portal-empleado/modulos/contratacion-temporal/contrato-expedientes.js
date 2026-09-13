@@ -483,6 +483,22 @@ function validarActuacion(entrada, nombre) {
   };
 }
 
+// Describe sólo la cadena documental proyectada; el servidor autoriza cada descarga.
+export function versionPropuestaDocumentalValida(entrada) {
+  const propuesta = entrada.version_propuesta_documental;
+  if ([8, 9].includes(entrada.version) && propuesta === 7) return true;
+  if (!Number.isSafeInteger(propuesta) || propuesta <= 7
+    || !Number.isSafeInteger(entrada.version) || entrada.version < propuesta
+    || entrada.version - propuesta > 2 || !Array.isArray(entrada.historial)
+    || entrada.historial.length !== entrada.version
+    || !entrada.historial.every((h, i) => h?.secuencia === i + 1 && h?.version_expediente === i + 1)
+    || entrada.historial[propuesta - 1]?.accion_clave !== "registrar_propuesta_formalizacion") return false;
+  if (entrada.version > propuesta
+    && entrada.historial[propuesta]?.accion_clave !== "registrar_resolucion_formalizacion") return false;
+  return entrada.version < propuesta + 2
+    || entrada.historial[propuesta + 1]?.accion_clave === "contratacion_temporal.anotacion_administrativa.registrar";
+}
+
 export function validarExpedienteContratacionTemporal(entrada) {
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneHistorial = esRegistro(entrada) && Object.hasOwn(entrada, "historial");
@@ -497,12 +513,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1
     || !Number.isSafeInteger(entrada.flujo_version) || entrada.flujo_version < 1
     || (propuestaHistorica && (entrada.demostracion !== false
-      || !(([8, 9].includes(entrada.version) && entrada.version_propuesta_documental === 7)
-        || (entrada.version > 7 && entrada.version_propuesta_documental === entrada.version
-          && Array.isArray(entrada.historial) && entrada.historial.length === entrada.version
-          && entrada.historial.every((h, i) => h?.secuencia === i + 1 && h?.version_expediente === i + 1)
-          && entrada.historial.at(-1)?.accion_clave === "registrar_propuesta_formalizacion"
-          && entrada.historial.at(-1)?.version_expediente === entrada.version)) ))
+      || !versionPropuestaDocumentalValida(entrada)))
     || typeof entrada.flujo_huella !== "string" || !PATRON_HUELLA.test(entrada.flujo_huella)) {
     throw new TypeError("expediente de contratación temporal no válido");
   }

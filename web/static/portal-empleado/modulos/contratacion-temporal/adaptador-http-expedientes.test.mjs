@@ -340,3 +340,36 @@ test("ofrece documentos de la propuesta actual tras subsanar y refiscalizar", as
       expediente: expedienteInvalido, cuadro: cuadroInvalido }), null);
   }
 });
+
+test("conserva acceso a propuesta v9 desde resolución v10 y anotación v11", async () => {
+  const detalle = detalleV9();
+  ["contratacion_temporal.subsanacion_reparos.registrar", "registrar_fiscalizacion", "registrar_propuesta_formalizacion"]
+    .forEach((accion_clave, i) => { detalle.hitos[i + 6].accion_clave = accion_clave; });
+  for (const accion_clave of ["registrar_resolucion_formalizacion", "contratacion_temporal.anotacion_administrativa.registrar"]) {
+    const version = detalle.hitos.length + 1;
+    detalle.hitos.push({ ...detalle.hitos.at(-1), accion_clave, secuencia: version, version_expediente: version });
+    detalle.resumen.version = version;
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+    const cuadro = await adaptador.listar();
+    const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
+    const estado = { vista: "expediente", carga: "listo", expediente, cuadro,
+      expediente_ref: expediente.expediente_ref };
+    assert.equal(expediente.version_propuesta_documental, 9);
+    assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
+      expediente_ref: expediente.expediente_ref, version_observada: version,
+    });
+    for (const alterar of [
+      (d) => { d.hitos[9] = { ...d.hitos[9], accion_clave: "resolucion_ajena" }; },
+      (d) => { d.hitos[8].version_expediente = 7; },
+      (d) => { d.hitos[9].estado_destino = "completado"; },
+    ]) {
+      const invalido = structuredClone(detalle); alterar(invalido);
+      const otro = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(invalido) });
+      const cuadroInvalido = await otro.listar();
+      const expedienteInvalido = await otro.obtener(invalido.resumen.expediente_ref);
+      assert.equal(Object.hasOwn(expedienteInvalido, "version_propuesta_documental"), false);
+      assert.equal(solicitudInformeDefinitivoDesdeEstado({ ...estado,
+        expediente: expedienteInvalido, cuadro: cuadroInvalido }), null);
+    }
+  }
+});
