@@ -96,8 +96,12 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
   assert.equal(cuadro.expedientes[0].estado_clave, "espera");
   assert.equal(cuadro.expedientes[0].fase_clave, "analisis");
-  assert.equal(cuadro.expedientes[0].fase_actual, "Analisis");
+  assert.equal(cuadro.expedientes[0].fase_actual, "Análisis");
+  assert.equal(cuadro.expedientes[0].modalidad, "Bolsa");
+  assert.equal(cuadro.expedientes[0].estado, "En espera externa");
   assert.equal(detalle.demostracion, false);
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "motivo").valor, "Sustitución");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Análisis");
   assert.deepEqual(detalle.fases, []);
   assert.deepEqual(detalle.historial, [
     {
@@ -113,10 +117,10 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
     {
       secuencia: 2,
       fecha: "3 sept 2026",
-      fase: "Analisis",
+      fase: "Análisis",
       accion: "Iniciar analisis",
       estado_clave: "en_curso",
-      estado: "En curso",
+      estado: "En tramitación",
       accion_clave: "iniciar_analisis",
       version_expediente: 2,
     },
@@ -139,6 +143,40 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
     expediente_ref: resumen.expediente_ref,
     version_observada: 2,
   });
+});
+
+test("traduce las etiquetas conocidas con mensajes inyectados y conserva el fallback", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarCuadroRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+    generada_en: "2026-09-03T09:05:00Z",
+    expedientes: [{ ...resumen, fase_clave: "fase_futura", modalidad_clave: "sustitucion" }],
+    hay_mas: false,
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente,
+    mensajes: { etiqueta_modalidad_sustitucion: "Sustitución del catálogo" },
+  });
+
+  const cuadro = await adaptador.listar();
+
+  assert.equal(cuadro.expedientes[0].modalidad, "Sustitución del catálogo");
+  assert.equal(cuadro.expedientes[0].fase_actual, "Fase futura");
+});
+
+test("muestra la fase de asignación de unidad en castellano", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarCuadroRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+    generada_en: "2026-09-03T09:05:00Z",
+    expedientes: [{ ...resumen, fase_clave: "asignacion_unidad" }],
+    hay_mas: false,
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+
+  const cuadro = await adaptador.listar();
+
+  assert.equal(cuadro.expedientes[0].fase_actual, "Asignación de unidad");
 });
 test("delega el detalle real al servidor y solo lo concede después de consultarlo", async () => {
   const llamadas = [];
