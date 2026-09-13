@@ -20,8 +20,39 @@ const ESTADOS_VISUAL_A_SERVIDOR = new Map(
 );
 const PATRON_INSTANTE_CIVIL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/u;
 
-function etiqueta(clave, alternativa = "No consta") {
+const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
+  ["pendiente", "fase_pendiente"],
+  ["en_curso", "fase_en_curso"],
+  ["espera_externa", "fase_espera"],
+  ["completado", "fase_completado"],
+  ["incidencia", "fase_incidencia"],
+  ["cancelado", "fase_cancelado"],
+  ["solicitud", "etiqueta_fase_solicitud"],
+  ["solicitud_registrada", "etiqueta_fase_solicitud_registrada"],
+  ["analisis", "etiqueta_fase_analisis"],
+  ["analisis_rrhh", "etiqueta_fase_analisis_rrhh"],
+  ["gestion_bolsa", "etiqueta_fase_gestion_bolsa"],
+  ["asignacion_unidad", "etiqueta_fase_asignacion_unidad"],
+  ["fiscalizacion", "etiqueta_fase_fiscalizacion"],
+  ["subsanacion_unidad", "etiqueta_fase_subsanacion_unidad"],
+  ["obtencion_candidato", "etiqueta_fase_obtencion_candidato"],
+  ["llamamiento", "etiqueta_fase_llamamiento"],
+  ["nombramiento", "etiqueta_fase_nombramiento"],
+  ["incorporacion", "etiqueta_fase_incorporacion"],
+  ["seguimiento", "etiqueta_fase_seguimiento"],
+  ["bolsa", "etiqueta_modalidad_bolsa"],
+  ["sustitucion", "etiqueta_modalidad_sustitucion"],
+  ["vacante", "etiqueta_modalidad_vacante"],
+  ["programa", "etiqueta_modalidad_programa"],
+  ["acumulacion_tareas", "etiqueta_modalidad_acumulacion_tareas"],
+  ["interinidad", "etiqueta_modalidad_interinidad"],
+  ["relevo", "etiqueta_modalidad_relevo"],
+]);
+
+function etiqueta(clave, t, alternativa = "No consta") {
   if (typeof clave !== "string" || clave === "") return alternativa;
+  const mensaje = CLAVES_ETIQUETAS_CONOCIDAS.get(clave);
+  if (mensaje) return t(mensaje);
   const texto = clave.replaceAll("_", " ").replaceAll("-", " ");
   return texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1);
 }
@@ -67,18 +98,18 @@ function referenciaVisible(catalogos, tipo, referencia) {
   return catalogos?.[tipo].get(referencia) ?? referencia;
 }
 
-function resumenVisual(entrada, catalogos) {
+function resumenVisual(entrada, catalogos, t) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
     expediente_ref: entrada.expediente_ref,
     numero_visible: entrada.numero_visible,
     centro: referenciaVisible(catalogos, "centros", entrada.centro_ref),
     categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref),
-    modalidad: etiqueta(entrada.modalidad_clave, "—"),
+    modalidad: etiqueta(entrada.modalidad_clave, t, "—"),
     estado_clave: estadoClave,
-    estado: etiqueta(entrada.estado_clave),
+    estado: etiqueta(entrada.estado_clave, t),
     fase_clave: entrada.fase_clave,
-    fase_actual: etiqueta(entrada.fase_clave),
+    fase_actual: etiqueta(entrada.fase_clave, t),
     fecha_solicitud: entrada.creado_en,
     responsable: "—",
     plazo: "—",
@@ -100,8 +131,8 @@ function indicadores(expedientes) {
   }));
 }
 
-function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos }) {
-  const expedientes = pagina.expedientes.map((entrada) => resumenVisual(entrada, catalogos));
+function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t }) {
+  const expedientes = pagina.expedientes.map((entrada) => resumenVisual(entrada, catalogos, t));
   return validarCuadroContratacionTemporal({
     esquema: "vec.contratacion_temporal.cuadro.v1",
     demostracion: false,
@@ -157,7 +188,7 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
 
 function etiquetaAccionHito(clave, t) {
   const mensaje = MENSAJES_ACCIONES_HISTORIAL.get(clave);
-  return mensaje ? t(mensaje) : etiqueta(clave);
+  return mensaje ? t(mensaje) : etiqueta(clave, t);
 }
 
 // El detalle RRHH ya llega autorizado y validado por el cliente HTTP. Los
@@ -169,39 +200,39 @@ function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
     fecha: fechaCivil(hito.realizada_en, locale),
-    fase: etiqueta(hito.fase_destino),
+    fase: etiqueta(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
-    estado: etiqueta(hito.estado_destino),
+    estado: etiqueta(hito.estado_destino, t),
     accion_clave: hito.accion_clave,
     version_expediente: hito.version_expediente,
   }));
 }
 
-function cabeceraDetalle(detalle, locale, catalogos) {
+function cabeceraDetalle(detalle, locale, catalogos, t) {
   const { resumen, solicitud } = detalle;
   const campos = [
     campo("centro", "Centro", referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", "Categoría", referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
-    campo("modalidad", "Modalidad", etiqueta(resumen.modalidad_clave)),
-    campo("fase", "Fase actual", etiqueta(resumen.fase_clave)),
-    campo("estado", "Estado", etiqueta(resumen.estado_clave)),
+    campo("modalidad", "Modalidad", etiqueta(resumen.modalidad_clave, t)),
+    campo("fase", "Fase actual", etiqueta(resumen.fase_clave, t)),
+    campo("estado", "Estado", etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", "Grupo/Subgrupo", solicitud.grupo_subgrupo),
-    campo("motivo", "Motivo", etiqueta(solicitud.motivo_clave)),
+    campo("motivo", "Motivo", etiqueta(solicitud.motivo_clave, t)),
     campo("periodo", "Periodo previsto", `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
   ];
   if (detalle.analisis) {
     campos.push(
-      campo("causa", "Causa analizada", etiqueta(detalle.analisis.causa_clave)),
+      campo("causa", "Causa analizada", etiqueta(detalle.analisis.causa_clave, t)),
       campo("jornada", "Jornada", new Intl.NumberFormat(locale, {
         style: "percent", maximumFractionDigits: 2,
       }).format(detalle.analisis.porcentaje_jornada / 10_000)),
-      campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc)),
+      campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc, t)),
     );
   }
   if (detalle.cobertura) {
     campos.push(
-      campo("via_cobertura", "Vía de cobertura", etiqueta(detalle.cobertura.via_clave)),
+      campo("via_cobertura", "Vía de cobertura", etiqueta(detalle.cobertura.via_clave, t)),
       campo("decision_gobernada", "Decisión gobernada", detalle.cobertura.decision_gobernada ? "Sí" : "No"),
     );
   }
@@ -263,7 +294,7 @@ function proyectarExpediente(detalle, locale, catalogos, t) {
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
-    cabecera: cabeceraDetalle(detalle, locale, catalogos),
+    cabecera: cabeceraDetalle(detalle, locale, catalogos, t),
     fases: (detalle.presentacion_flujo?.fases ?? []).map((fase) => ({
       fase_ref: `presentacion:${detalle.presentacion_flujo.referencia}:${fase.clave}`,
       orden: fase.orden,
@@ -314,7 +345,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         paginacion: { limite: 100, cursor },
       }, { signal });
       const cuadro = proyectarCuadro(pagina, {
-        cursor, numeroPagina, catalogos: etiquetasCatalogos(obtenerCatalogos),
+        cursor, numeroPagina, catalogos: etiquetasCatalogos(obtenerCatalogos), t,
       });
       if (operacion === secuenciaCuadro && !signal?.aborted) {
         versiones.clear();
