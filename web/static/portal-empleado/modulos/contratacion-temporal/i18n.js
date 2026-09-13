@@ -196,6 +196,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "No repita la operación. Consulte el estado por el canal protegido o solicite asistencia.",
   analisis_recibo_sobrelinea: "Confirmación verificada",
   analisis_recibo_titulo: "Análisis confirmado",
+  analisis_recibo_rectificacion_titulo: "Rectificación confirmada",
   analisis_recibo_descripcion:
     "El recibo corresponde a la operación, el expediente y la versión enviados.",
   analisis_recibo_expediente: "Referencia del expediente",
