@@ -447,6 +447,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   informeJuridicoDisponible = false,
   fiscalizacionDisponible = false,
   subsanacionDisponible = false,
+  reciboSubsanacionConfirmado = null,
   llamamientoDisponible = false,
   resolucionFormalizacionDisponible = false,
   incorporacionEjercicioDisponible = false,
@@ -495,6 +496,14 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoSubsanacion = subsanacionDisponible
       ? contextoSubsanacionDesdeEstado(estado)
       : null;
+    const ultimoHito = estado.expediente?.historial?.at(-1);
+    const conservarReciboSubsanacion = contextoSubsanacion !== null
+      && reciboSubsanacionConfirmado?.recibo?.expediente_ref === contextoSubsanacion.expediente_ref
+      && reciboSubsanacionConfirmado.recibo.version_resultante === contextoSubsanacion.version_esperada;
+    const subsanacionRegistrada = contextoSubsanacion !== null && !conservarReciboSubsanacion
+      && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
+      && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
+      && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
     contenido = `${detalle}${contextoRectificacion
       ? '<div data-ct-exp-rectificacion></div>'
       : ""}${contextoCobertura
@@ -505,7 +514,9 @@ export function renderizarModuloContratacionTemporal(estado, {
       ? '<div data-ct-exp-informe-juridico></div>'
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
-      : ""}${contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
+      : ""}${subsanacionRegistrada
+      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p>`
+      : contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
       ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
   } else if (estado.vista === "documentos") {
     contenido = renderizarDocumentos(estado, t);
@@ -1603,6 +1614,7 @@ export async function montarModuloContratacionTemporal({
       informeJuridicoDisponible,
       fiscalizacionDisponible,
       subsanacionDisponible,
+      reciboSubsanacionConfirmado,
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
       incorporacionEjercicioDisponible,
