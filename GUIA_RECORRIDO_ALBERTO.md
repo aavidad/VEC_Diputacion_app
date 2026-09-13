@@ -1,5 +1,35 @@
 # Guía de recorrido y recibos conservados de VEC
 
+Corte comprobado del 13 de septiembre: **13/19 pantallas terminadas en desarrollo
+(68 %), cinco parciales y una pendiente de pantalla**. Se cierran Inicio, Unidad,
+fiscalización, documentación, resumen GINPIX y generación documental mediante
+sus recorridos de navegador; no se cuentan commits ni conexiones externas.
+
+La bandeja recupera 52 filas autorizadas y los filtros vacío/completados responden
+200 sin acciones de continuación ajenas. El ajuste `253c4d63` permite leer los
+identificadores largos a 390 px y conserva el scroll interno de la tabla.
+Unidad registra `201` v3 → v4 y se reabre por consulta `200` con la unidad confirmada,
+sin otra asignación y con el informe habilitado. La fiscalización v7 → v8 conserva
+el mismo recibo tras reinicio, según la evidencia detallada a continuación.
+Documentos muestra seis pares PDF/DOCX y el estado de cada descarga; un DOCX real
+conserva su huella. Cancelación y reintento pasan en navegador con transporte
+retenido de forma controlada, sin enviar ese PDF al servidor. GINPIX recupera el
+recibo original y el seguimiento, separando ficha manual y envío externo pendiente.
+Todo lo inspeccionado en 1440/390 px queda sin errores JS ni desbordamiento.
+
+Siguen pendientes Análisis, Cobertura, Llamamiento, Resultado y Traslado; Firma
+carece de circuito admitido. El 503 de Cobertura está localizado en la consulta
+de la fuente sintética para el período del caso existente; todavía no está corregido
+en runtime. CT94–96 están instaladas, pero este corte no declara recorrida su
+cadena posterior v8. La fiscalización manual informa que no ha consultado
+antecedentes: no infiere un informe ni una fase de la versión remitida.
+
+Asignación conservada: expediente sintético
+`expediente:ct:57ab5a599e912d0a81bc6d80136c5a4b97bd2cf83e3fb264c4a36bcf9b673f97`,
+recibo `recibo:ct-asignacion:e7a00379deca194c94a32eb479c598a45d2babb198fc08231fd5da1e232640a5`,
+confirmada el `2026-09-13T06:47:28.155818Z`, v4. Se verificó reapertura autorizada;
+no se atribuye a esta asignación otro ensayo de reinicio ni se repitió su POST.
+
 CT93–96 están instaladas una sola vez en la principal. La comprobación final
 reconcilió únicamente la grafía `TimeZone=UTC` del catálogo PostgreSQL, sin DDL
 adicional; los siete cuerpos SQL, permisos e historia quedaron comprobados.
