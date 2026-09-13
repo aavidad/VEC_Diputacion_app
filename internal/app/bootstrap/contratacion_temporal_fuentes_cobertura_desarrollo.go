@@ -576,6 +576,8 @@ func registrosCoberturaSinteticosDesarrollo() []registroCoberturaSinteticaDesarr
 	}{
 		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
 		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
+		// Período del expediente sintético de análisis b50fa, consultado por RRHH.
+		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
 		{"categoria:desarrollo:sin-cobertura", domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
 	}
 	plantillas := []struct{ via, comprobacion, procedencia domain.ClaveCatalogo }{
