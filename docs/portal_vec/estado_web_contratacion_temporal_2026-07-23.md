@@ -64,7 +64,8 @@ respectivamente activas, sin marcar fases completadas. Historial abierto de
 3 y 9 actuaciones; consultas `200`, sin desbordamiento ni errores JS a 1440/390.
 La corrección móvil se publicó en `6ee37c8d`, el historial en `9c2376ce` y
 rectificación en `75054c10`. El diagnóstico `762942e2` identifica el fallo de
-cobertura en su preparador; todavía no declara resuelto el `503`.
+cobertura en su preparador; aquel diagnóstico no resolvía el `503`, cerrado
+para el caso sintético en `148d075e`.
 
 | N.º | Pantalla | Estado | Falta estimada | Responsable / dependencia | Pendiente concreto o evidencia |
 |---:|---|---|---:|---|---|
@@ -129,7 +130,7 @@ recorrido mínimo solicitado.
 |---:|---|---|
 | 1 | Inicio y cuadro de mando | Vista `cuadro` |
 | 2 | Nueva petición de personal | Vista `alta` O2-09B |
-| 3 | Análisis de RRHH | Parcial | 25 % | Dirección: catálogo de motivos para rectificación | Registro normal201 v1→v2, cinco modalidades localizadas y consulta posterior200 con RCvalidada/dos actuaciones. Rectificación continúa sin fuente de motivos admitida, bloqueada por defecto. |
+| 3 | Análisis de RRHH | Formulario de análisis y rectificación del expediente |
 | 4 | Gestión de bolsa y comprobaciones automáticas | `tarea-cobertura` |
 | 5 | Unidad del Departamento y bandeja de trabajo | `tarea-asignacion` |
 | 6 | Informe jurídico automático | `tarea-informe-juridico` |
