@@ -235,6 +235,7 @@ test("muestra Nueva fiscalización tras subsanación con el contexto corregido",
 
 test("reserva la nueva fiscalización sólo tras la subsanación autorizada de la versión actual", () => {
   const expediente = {
+    demostracion: false,
     expediente_ref: EXPEDIENTE,
     numero_visible: "2026/CT-001",
     version: 7,
@@ -257,6 +258,20 @@ test("reserva la nueva fiscalización sólo tras la subsanación autorizada de l
   };
   const html = renderizarModuloContratacionTemporal(estado, { fiscalizacionDisponible: true });
   assert.match(html, /data-ct-exp-fiscalizacion/u);
+  const subsanada = renderizarModuloContratacionTemporal(estado, { subsanacionDisponible: true });
+  assert.match(subsanada, /Subsanación registrada/u);
+  assert.doesNotMatch(subsanada, /data-ct-exp-subsanacion/u);
+  const conRecibo = renderizarModuloContratacionTemporal(estado, {
+    subsanacionDisponible: true,
+    reciboSubsanacionConfirmado: { recibo: { expediente_ref: EXPEDIENTE, version_resultante: 7 } },
+  });
+  assert.match(conRecibo, /data-ct-exp-subsanacion/u);
+  assert.doesNotMatch(conRecibo, /no es necesario volver a enviarla/u);
+
+  const nuevoReparo = structuredClone(estado);
+  nuevoReparo.expediente.historial[0] = { ...nuevoReparo.expediente.historial[0], accion_clave: "registrar_fiscalizacion" };
+  assert.match(renderizarModuloContratacionTemporal(nuevoReparo, { subsanacionDisponible: true }), /data-ct-exp-subsanacion/u);
+
 
   expediente.historial[0].version_expediente = 6;
   assert.doesNotMatch(

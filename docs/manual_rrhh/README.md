@@ -1,5 +1,26 @@
 # Manual funcional del técnico de Recursos Humanos
 
+La pantalla de subsanación queda terminada en desarrollo: registro y recuperación
+tras reinicio con el mismo recibo, más reapertura del expediente v7 mostrando
+«Subsanación registrada» sin otro formulario de envío. El recibo recién registrado
+se conserva al actualizar el detalle; un reparo posterior puede ofrecer de nuevo
+la corrección. El contador de pantallas pasa a 7/19 (37 %), con 16 superficies
+visibles (84 %); no equivale a cerrar la fiscalización posterior ni pasos legales.
+
+La comprobación final usó únicamente consultas: detalle 200, siete actuaciones,
+cero formularios de subsanación y estado registrado visible. En 1440/390 no hubo
+desbordamiento, errores JavaScript, cookies ni almacenamiento web. El runtime
+necesitó además los dos metadatos del historial ya integrados en `f081df9d`;
+se activaron sus assets de adaptador/contrato, sin SQL ni otro registro.
+Once pruebas web del corte, tres casos de renderizado sobre la base runtime y
+ocho pruebas del adaptador fueron satisfactorias. Los assets del estado registrado
+proceden de `770b72ea` y conservan la base compatible con CT92.
+
+El ensayo aislado de CT93→CT96 terminó satisfactoriamente con DDL, ACL, rechazos,
+historia y reinicio del clon; el clon quedó detenido y conservado. La instalación
+principal sigue pendiente de su instalador revisado. No se ha registrado una
+nueva fiscalización ni una propuesta posterior en la base principal.
+
 Los seis borradores conservan una propuesta posterior a la subsanación cuando
 el detalle autorizado añade su resolución y la anotación administrativa siguiente.
 La consulta solicita la versión actual y el renderer identifica la propuesta por

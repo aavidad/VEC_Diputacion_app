@@ -117,6 +117,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   hito_anotacion: "Anotación administrativa registrada",
   hito_incorporacion: "Incorporación confirmada",
   hito_cierre: "Cierre administrativo registrado",
+  subsanacion_registrada_pendiente_fiscalizacion: "Subsanación registrada. Pendiente de nueva fiscalización; no es necesario volver a enviarla.",
   hito_subsanacion_reparo: "Subsanación del reparo registrada",
   historial_hitos_titulo: "Historial de actuaciones",
   historial_hitos_descripcion: "Secuencia registrada del expediente consultado.",

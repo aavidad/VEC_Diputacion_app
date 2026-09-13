@@ -2,7 +2,7 @@
 
 ## Contador vigente de pantallas — 12 de septiembre de 2026
 
-**6 de 19 terminadas en desarrollo; 12 parciales; 1 pendiente de pantalla real.**
+**7 de 19 terminadas en desarrollo (37 %); 11 parciales; 1 pendiente de pantalla real.**
 El contador conserva la evidencia de las **15 superficies reales** anteriores.
 La línea de fases y el resumen de propuesta ya están publicados; su publicación
 no incrementa por sí sola las pantallas terminadas. Visible no significa terminada.
@@ -44,7 +44,7 @@ cobertura en su preparador; todavía no declara resuelto el `503`.
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Dirección: continuidad desde Unidad | Conexión integrada. El caso Unidad debe confirmar asignación y preparar informe antes de fiscalizar; Intervención requiere identidad y resultado explícitos. |
-| 9 | Subsanación de reparos | Parcial | 50 % | Dirección: continuar la fiscalización tras subsanar | AD3-38/CT92 instaladas una vez. Navegador 201 v6→v7, mismo recibo tras reiniciar APP/PG y recuperar petición original; una reserva, historia y Personal conservados. CT93–96 pendientes de ensayo e instalación. |
+| 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Dirección: conservación | Registro 201 v6→v7 y recuperación tras reiniciar APP/PG: mismo recibo de 11 campos, una reserva y siete actuaciones. Reapertura 200 muestra estado registrado sin formulario; 1440/390 sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Remoto: `ensayo_contacto_aislado`; Dirección: gobierno Usuarios/SMTP | Contacto: ensayo DDL/ACL/reinicio aislado terminado, falta operación positiva/gobierno Usuarios. SelecciónN/CT94 integrada como fuente revisada, pendiente ensayo e instalación; SMTP pendiente. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
