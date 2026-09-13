@@ -134,3 +134,30 @@ test("el historial del informe reutiliza etiquetas legibles y traducciones", () 
   assert.equal(etiquetas.faseDestino, "Solicitud");
   assert.equal(etiquetas.estadoDestino, "En tramitación");
 });
+
+test("presenta el historial autorizado tras confirmar y conserva traducciones", async () => {
+  const raiz = raizFalsa();
+  const desmontar = montarFormularioInformeJuridico({
+    raiz,
+    cliente: {
+      async prepararInformeJuridico() { return recibo(); },
+      async consultarDetalleRRHH() {
+        return { resumen: { expediente_ref: EXPEDIENTE, version: 5 }, hitos: [{
+          secuencia: 5, version_expediente: 5,
+          accion_clave: "contratacion_temporal.informe_juridico.generar",
+          fase_origen: "asignacion_unidad", fase_destino: "informe_juridico",
+          estado_origen: "en_curso", estado_destino: "en_curso",
+          realizada_en: recibo().confirmada_en,
+        }] };
+      },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 4 },
+    generarClaveIdempotencia: () => CLAVE, confirmarOperacion: () => true,
+    mensajes: { hito_informe_juridico: "Informe preparado para revisión" },
+  });
+  await raiz.enviar();
+  assert.match(raiz.innerHTML, /Informe preparado para revisión/u);
+  assert.match(raiz.innerHTML, /data-ct-informe-recibo/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-informe-historial-error/u);
+  desmontar();
+});

@@ -197,6 +197,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
   let anunciarActual = anunciar;
   let alConfirmarActual = alConfirmar;
   let t = crearTraductorContratacionTemporal(mensajes);
+  let mensajesHistorial = { ...mensajes };
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
@@ -242,7 +243,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
       ${renderizarFormulario(estado, contexto, t)}
       ${estado.recibo ? renderizarRecibo(estado.recibo, t, formateador) : ""}
       ${estado.recibo ? renderizarDocumento(estado.recibo, t) : ""}
-      ${renderizarHistorial(estado, t, formateador, mensajes)}
+      ${renderizarHistorial(estado, t, formateador, mensajesHistorial)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
     try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
@@ -397,6 +398,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     raizActual.removeEventListener("click", alPulsar);
     raizActual.replaceChildren();
     estado = null;
+    mensajesHistorial = null;
     contexto = null;
     clienteActual = null;
     generarClaveActual = null;
