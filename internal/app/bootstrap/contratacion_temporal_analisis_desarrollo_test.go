@@ -592,3 +592,18 @@ func TestConfiguracionAnalisisAnunciaSubsanacionSoloCompuesta(t *testing.T) {
 		}
 	}
 }
+
+func TestMotivoRectificacionNoReescribeCatalogoRegistroPublicado(t *testing.T) {
+	registro := referenciaMotivoAutorizacionAnalisisDesarrollo("registro")
+	rectificacion := referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion")
+	if registro.CatalogoID != "motivos_autorizacion_analisis" || registro.CatalogoVersion != 1 ||
+		registro.CatalogoHuellaSHA256 != huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-analisis") {
+		t.Fatal("se alteró la referencia del catálogo de registro publicado")
+	}
+	if rectificacion.Validar() != nil || rectificacion.CatalogoVersion != 1 ||
+		rectificacion.CatalogoID == registro.CatalogoID ||
+		rectificacion.CatalogoHuellaSHA256 == registro.CatalogoHuellaSHA256 ||
+		rectificacion.EntradaClave == registro.EntradaClave {
+		t.Fatal("la rectificación debe tener su publicación y entrada propias")
+	}
+}
