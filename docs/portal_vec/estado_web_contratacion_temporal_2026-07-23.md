@@ -1,5 +1,29 @@
 # Estado de la web de contratación temporal para RRHH
 
+### Rectificación recuperada en candidata; integración pendiente
+
+La candidata `trabajo/ct-rectificacion-recuperacion-20260913` conserva la
+identidad funcional desde la reserva inicial y renueva las pruebas sin cambiar
+la petición ni el recibo. En una copia aislada, la petición que fallaba se ha
+confirmado con HTTP `201`; después de reiniciar aplicación y PostgreSQL devuelve
+el mismo cuerpo `201`, recibo, fecha y versión `3`. La consulta de esa versión
+responde `200`. Se conservan dos confirmaciones (registro y rectificación), tres
+versiones y dos actuaciones, auditorías y eventos de salida para el expediente.
+
+Los cambios pendientes de doble revisión son CT97/98 (reserva y recuperación),
+el rol de análisis v2 (`1d3f15d2`) y CT99 (`9f838605`), que alinea la clave del
+motivo con la observación nominal y la reconstrucción de la huella de autorización.
+No están instalados en la base principal. El recibo web distingue ya
+«Rectificación confirmada» (`d6041664`), sin alterar la autorización.
+
+La reserva histórica principal es distinta: nació sin el sello funcional CT97.
+El sello anterior incluye las pruebas temporales completas; la petición HTTP y
+la huella del artefacto no bastan para reconstruirlas. Su recuperación sigue
+pendiente de una vía verificable; no borrar la reserva ni cambiar la clave.
+El contador permanece **15/19** hasta integrar y recorrer la funcionalidad.
+Dirección local continúa sola: última muestra local 1 %, remoto 0 %;
+no hay agentes remotos de producción trabajando en estos pendientes.
+
 ### Continuidad real tras subsanar y fiscalizar de nuevo
 
 El expediente sintético `9511d16d…` continúa desde la fiscalización favorable con
@@ -135,14 +159,14 @@ para el caso sintético en `148d075e`.
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Terminada en desarrollo | 0 % | Dirección: conservación | 52 filas autorizadas y filtros vacío/completados HTTP200; acciones ligadas a la página. CSS253c4d63 probado a1440/390, sin desbordamiento global y tabla con scroll interno. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Director local: recuperación de reserva y formulario | Registro normal201 v1→v2 y consulta200. Rectificación activa con catálogo sintético y actor distinto; motivo de autorización corregido y publicado. El intento previo conserva reserva pendiente: recuperar misma petición/clave devuelve409. Falta cerrar ese recorrido; no se cuenta como terminada. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Director local: integración revisada y reserva histórica | Candidata aislada: rectificación201, mismo recibo tras reinicio y consulta200/v3. Pendiente doble revisión CT97–99/rolv2 e integración; reserva histórica sin identidad funcional conservada continúa pendiente. No se cuenta como terminada. |
 | 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Terminada en desarrollo | 0 % | Dirección: conservación | Intervención201 favorable con observaciones v7→v8; mismo recibo de12campos tras reinicio y replay original201, historia8 por consulta200. Acceso manual sin inferir antecedentes ni firma. |
-| 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Director remoto: nueva fiscalización, sin reaplicar CT93–96 | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
-| 10 | Llamamiento de candidatura | Parcial | 50 % | Director remoto: recorrido; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 recorridas desde v8 hasta propuesta v9; contacto y SMTP pendientes. |
+| 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Dirección local: conservación, sin reaplicar CT93–96 | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
+| 10 | Llamamiento de candidatura | Parcial | 50 % | Dirección local: contacto; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 recorridas desde v8 hasta propuesta v9; contacto y SMTP pendientes. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
 | 13 | Traslado de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Cinco recuperaciones200 con claves originales, misma propuesta/recibo/fecha/v7. CTA conserva navegación tras8bdf550a;1440/390 sin JS ni desbordamiento. No equivale a envío externo. |
