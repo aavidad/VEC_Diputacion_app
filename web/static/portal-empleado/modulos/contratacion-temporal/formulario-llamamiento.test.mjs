@@ -1214,3 +1214,20 @@ test("aceptación tras subsanación ofrece propuesta v8 y conserva recibo v9", a
  assert.match(raiz.innerHTML, /Propuesta registrada · ejercicio sintético/u);
  cerrar();
 });
+
+
+test("revisar propuesta conserva la navegación y enfoca su formulario sin enviar", () => {
+  const raiz = raizPrueba();
+  const desmontar = montar(raiz);
+  const anterior = raiz.innerHTML;
+  let cancelado = false;
+  const enlace = { dataset: { ctPropuestaFormalizacionSiguiente: "" } };
+  raiz.eventos.get("click")({
+    target: { closest: selector => selector === "[data-ct-propuesta-formalizacion-siguiente]" ? enlace : null },
+    preventDefault() { cancelado = true; },
+  });
+  assert.equal(cancelado, true);
+  assert.equal(raiz.foco.at(-1), "#ct-llamamiento-propuesta-titulo");
+  assert.equal(raiz.innerHTML, anterior);
+  desmontar();
+});

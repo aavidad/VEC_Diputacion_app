@@ -418,6 +418,17 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const revisarPropuesta = evento.target?.closest?.("[data-ct-propuesta-formalizacion-siguiente]");
+    if (revisarPropuesta?.dataset?.ctPropuestaFormalizacionSiguiente !== undefined
+      && raiz.contains(revisarPropuesta)) {
+      // El hash pertenece al router del portal; esta acción permanece en el formulario.
+      evento.preventDefault();
+      const titulo = raiz.querySelector("#ct-llamamiento-propuesta-titulo");
+      titulo?.setAttribute?.("tabindex", "-1");
+      titulo?.scrollIntoView?.({ block: "center" });
+      titulo?.focus?.({ preventScroll: true });
+      return;
+    }
     const reintentarPublicaciones = evento.target?.closest?.("[data-ct-llamamiento-reintentar-publicaciones]");
     if (reintentarPublicaciones?.dataset?.ctLlamamientoReintentarPublicaciones !== undefined
       && raiz.contains(reintentarPublicaciones)) {
