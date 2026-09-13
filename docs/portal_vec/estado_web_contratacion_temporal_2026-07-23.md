@@ -38,6 +38,12 @@ el reintento genera otras fechas y huella. Falta recuperación durable de esa
 reserva con pruebas y autorización frescas; no borrar la reserva ni sustituir
 la clave para ocultar el conflicto. El catálogo funcional activo es sintético,
 sin aprobación jurídica de RRHH ni efectos legales acreditados.
+El formulario de rectificación conserva modalidad, categoría, causa, período y
+jornada del análisis consultado (`f77be12a`). Grupo, RC y motivo siguen pendientes
+de selección expresa; no se reconstruyen pruebas RC desde etiquetas. Comprobado
+en navegador real a 1440/390 px, detalle `200`, sin errores JavaScript ni
+peticiones de escritura. El selector de cobertura ya respeta el ancho móvil
+(`06c521e6`). Las 41 pruebas focales pasan; esta mejora no resuelve el `409`.
 CT93–96 siguen instaladas una sola vez; no reaplicar migraciones.
 
 
