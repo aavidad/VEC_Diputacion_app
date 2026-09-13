@@ -2,7 +2,7 @@
 
 ## Contador vigente de pantallas — 13 de septiembre de 2026
 
-**13 de 19 terminadas en desarrollo (68 %); 5 parciales; 1 pendiente de pantalla real.**
+**14 de 19 terminadas en desarrollo (74 %); 4 parciales; 1 pendiente de pantalla real.**
 Hay **16 superficies reales visibles (84 %)**, incluida la subsanación ya recorrida.
 La subsanación está recorrida: guardado `201` (v6 → v7), reinicio de aplicación
 y PostgreSQL y recuperación con el mismo recibo de 11 campos y una sola reserva.
@@ -44,10 +44,11 @@ porcentajes exactos de web terminada. En las dependencias externas se distingue:
 El aplazamiento de una conexión externa no aplaza el trabajo independiente de su pantalla. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
-**Disponibilidad transversal:** `98e68c9f` está activo, incluida Unidad,
-descargas recuperables y diagnóstico de cobertura; `253c4d63` añade el ajuste
-móvil de la bandeja. La fiscalización y su recibo se conservan tras reinicio de
-la misma aplicación y PostgreSQL. El CSS posterior no reinicia servicios.
+**Disponibilidad transversal:** binario de `148d075e` con fuente sintética exacta
+para el caso de cobertura activo; etiquetas `9d5d41eb`, bandeja móvil `253c4d63`
+y distinción de períodos `25722b17` servidas y comprobadas. No hubo nueva migración
+ni reinicio PostgreSQL por estas mejoras; la recuperación de refiscalización
+conserva su evidencia anterior independiente.
 Históricamente, la aplicación estuvo sana con el binario
 `783c051a6ee1d81fb4925aed99615dbe3cabbc39ee3ed53c316e2620de9ea66f` desde las 22:54 UTC; PostgreSQL no se reinició en este corte. Los
 cortes publicados `9a522d2f`, `e5dcda5f`, `dea52536`, `35bbdd14`, `8d94e7e5`
@@ -63,14 +64,15 @@ respectivamente activas, sin marcar fases completadas. Historial abierto de
 3 y 9 actuaciones; consultas `200`, sin desbordamiento ni errores JS a 1440/390.
 La corrección móvil se publicó en `6ee37c8d`, el historial en `9c2376ce` y
 rectificación en `75054c10`. El diagnóstico `762942e2` identifica el fallo de
-cobertura en su preparador; todavía no declara resuelto el `503`.
+cobertura en su preparador; aquel diagnóstico no resolvía el `503`, cerrado
+para el caso sintético en `148d075e`.
 
 | N.º | Pantalla | Estado | Falta estimada | Responsable / dependencia | Pendiente concreto o evidencia |
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Terminada en desarrollo | 0 % | Dirección: conservación | 52 filas autorizadas y filtros vacío/completados HTTP200; acciones ligadas a la página. CSS253c4d63 probado a1440/390, sin desbordamiento global y tabla con scroll interno. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Director remoto: activar y recorrer las cinco modalidades | Formulario y catálogo configurable conectados; falta fuente de motivos válida e instalación/recorrido. Catálogo vacío sigue sin permitir POST. |
-| 4 | Gestión de bolsa y comprobaciones | Parcial | 25 % | Apoyo local: fuente sintética del período exacto | Propuesta503 localizada en cobertura.presentacion.preparador.consulta. Falta el período09-10..12-10 del análisisb50v2 en la fuente de desarrollo; parche pendiente de activar y comprobar. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Dirección: catálogo de motivos para rectificación | Registro normal201 v1→v2, cinco modalidades localizadas y consulta posterior200 con RCvalidada/dos actuaciones. Rectificación continúa sin fuente de motivos admitida, bloqueada por defecto. |
+| 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |

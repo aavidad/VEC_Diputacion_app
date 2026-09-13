@@ -1,5 +1,24 @@
 # Manual funcional del técnico de Recursos Humanos
 
+Cobertura queda recorrida y el contador pasa a **14/19 pantallas terminadas en
+desarrollo (74 %), cuatro parciales y una pendiente de pantalla**. La consulta
+sintética del período exacto del expediente existente responde200; RRHH confirma
+Bolsa vigente mediante una única decisión201 v2→v3. La consulta de resultado200
+recupera los mismos seis campos del recibo y el detalle200 ofrece asignación.
+Sin errores JS, almacenamiento web ni desbordamiento a1440/390. No representa
+una comprobación corporativa: la fuente de desarrollo declara solo ese período,
+sin ampliar rangos ni modificar SQL, permisos o evaluadores.
+
+Análisis normal también registra201 sobre una solicitud existente del centro de
+desarrollo: v1→v2, cinco modalidades disponibles, fechas originales enero-marzo2027,
+RC validada y dos actuaciones consultadas después con200. No se ha creado otra
+solicitud. La fila3 conserva su parte pendiente de rectificación sin catálogo de
+motivos; no se habilita mediante una elección inventada. La cabecera distingue
+«Período solicitado» y «Período analizado por RRHH», con datos autorizados y
+traducciones; el caso de cobertura conserva ambos períodos diferentes.
+
+### Antecedentes del corte de trece pantallas
+
 Corte comprobado del 13 de septiembre: **13/19 pantallas terminadas en desarrollo
 (68 %), cinco parciales y una pendiente de pantalla**. Se cierran Inicio, Unidad,
 fiscalización, documentación, resumen GINPIX y generación documental mediante
