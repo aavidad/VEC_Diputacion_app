@@ -527,14 +527,25 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)
       : null;
-    const reciboAsignacion = contextoInforme === null ? ""
+    const reciboAsignacionPendiente = Boolean(reciboAsignacionConfirmado && estado.expediente)
+      && reciboAsignacionConfirmado.expediente_ref
+      === estado.expediente?.expediente_ref
+      && Number.isSafeInteger(reciboAsignacionConfirmado.version_resultante)
+      && reciboAsignacionConfirmado.version_resultante > estado.expediente?.version;
+    const contextoReciboAsignacion = contextoInforme ?? (reciboAsignacionPendiente
+      ? Object.freeze({
+        expediente_ref: estado.expediente.expediente_ref,
+        version_esperada: reciboAsignacionConfirmado.version_resultante,
+      })
+      : null);
+    const reciboAsignacion = contextoReciboAsignacion === null ? ""
       : renderizarReciboAsignacionConfirmada(
-        reciboAsignacionConfirmado, contextoInforme, t, locale, zonaHoraria,
+        reciboAsignacionConfirmado, contextoReciboAsignacion, t, locale, zonaHoraria,
       );
     const reciboFiscalizacion = renderizarReciboFiscalizacionConfirmada(
       reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria, mensajes,
     );
-    const contextoAsignacion = asignacionDisponible
+    const contextoAsignacion = asignacionDisponible && !reciboAsignacionPendiente
       ? contextoAsignacionDesdeEstado(estado)
       : null;
     const contextoCobertura = coberturaDisponible
@@ -687,6 +698,8 @@ export async function montarModuloContratacionTemporal({
   let reciboPropuestaConfirmado = null;
   let sesionAnalisis = null;
   let descargaInforme = null;
+  let accionDescargaInforme = null;
+  let formatoDescargaInforme = null;
   let urlInforme = null;
   let revocacionInforme = null;
   const desmontarEstadosMontaje = new Set();
@@ -755,9 +768,14 @@ export async function montarModuloContratacionTemporal({
 
   function cancelarDescargaInforme() {
     const activa = descargaInforme !== null;
+    const accion = accionDescargaInforme;
+    const formato = formatoDescargaInforme;
     descargaInforme?.abort();
     descargaInforme = null;
+    accionDescargaInforme = null;
+    formatoDescargaInforme = null;
     liberarURLInforme();
+    if (activa && accion) actualizarResultadoDescarga(accion.replace("descargar-", ""), "descarga_cancelada", true, formato);
     return activa;
   }
 
@@ -771,11 +789,27 @@ export async function montarModuloContratacionTemporal({
     anunciar(texto, tipo);
   }
 
+  function actualizarResultadoDescarga(accion, clave, reintentar = false, formato = null) {
+    const t = crearTraductorExpedientesContratacion(mensajes);
+    const resultado = raiz.querySelector?.(`[data-ct-exp-resultado-descarga="${accion}"]`);
+    if (resultado) resultado.textContent = t(clave);
+    const boton = raiz.querySelector?.(`[data-ct-exp-accion="reintentar-descarga-${accion}"]`);
+    if (boton) {
+      boton.disabled = !reintentar;
+      boton.hidden = !reintentar;
+      if (reintentar && ["pdf", "docx"].includes(formato)) boton.dataset.ctExpFormato = formato;
+      else delete boton.dataset.ctExpFormato;
+    }
+  }
+
   async function descargarBorrador(boton) {
     const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
     if (!montada || descargaInforme || !solicitud) return;
-    const accionDocumento = boton.dataset.ctExpAccion.replace("descargar-docx-", "descargar-");
-    const formato = boton.dataset.ctExpAccion.startsWith("descargar-docx-") ? "docx" : "pdf";
+    const esReintento = boton.dataset.ctExpAccion.startsWith("reintentar-descarga-");
+    const accionSolicitada = boton.dataset.ctExpAccion.replace("reintentar-descarga-", "descargar-");
+    const accionDocumento = accionSolicitada.replace("descargar-docx-", "descargar-");
+    const formato = esReintento && ["pdf", "docx"].includes(boton.dataset.ctExpFormato)
+      ? boton.dataset.ctExpFormato : accionSolicitada.startsWith("descargar-docx-") ? "docx" : "pdf";
     const tipo = accionDocumento === "descargar-resolucion" ? "resolucion"
       : accionDocumento === "descargar-diligencia" ? "diligencia"
         : accionDocumento === "descargar-toma-posesion" ? "toma_posesion"
@@ -787,10 +821,17 @@ export async function montarModuloContratacionTemporal({
     const cancelaciones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
       '[data-ct-exp-accion="cancelar-descarga"]',
     )].filter((control) => control.dataset?.ctExpAccion === "cancelar-descarga") : [];
+    const reintentos = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
+      '[data-ct-exp-accion^="reintentar-descarga-"]',
+    )] : [];
     const controlador = new AbortController();
     descargaInforme = controlador;
+    accionDescargaInforme = accionDocumento;
+    formatoDescargaInforme = formato;
     botones.forEach((control) => { control.disabled = true; });
     cancelaciones.forEach((control) => { control.disabled = false; });
+    reintentos.forEach((control) => { control.disabled = true; });
+    actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), "informe_definitivo_descargando");
     informarDescarga("informe_definitivo_descargando", "informacion");
     try {
       const { document: documento, URL: urls } = entornoDescarga;
@@ -817,6 +858,7 @@ export async function montarModuloContratacionTemporal({
         revocacionInforme = setTimeout(liberarURLInforme, 0);
       }
       informarDescarga("informe_definitivo_listo", "informacion");
+      actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), "informe_definitivo_listo");
     } catch (error) {
       if (!montada || descargaInforme !== controlador || controlador.signal.aborted) return;
       const clave = error?.envelopeValido === true && error.codigo === "documento_no_disponible"
@@ -824,10 +866,16 @@ export async function montarModuloContratacionTemporal({
         : error?.envelopeValido === true && ["acceso_denegado", "autenticacion_requerida"].includes(error.codigo)
           ? "informe_definitivo_denegado" : "informe_definitivo_error";
       informarDescarga(clave, "error");
+      actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), clave, true, formato);
     } finally {
-      if (descargaInforme === controlador) descargaInforme = null;
+      if (descargaInforme === controlador) {
+        descargaInforme = null;
+        accionDescargaInforme = null;
+        formatoDescargaInforme = null;
+      }
       botones.forEach((control) => { control.disabled = false; });
       cancelaciones.forEach((control) => { control.disabled = true; });
+      reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
     }
   }
 
@@ -1469,10 +1517,13 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
-  async function refrescarDetalleTrasAsignacion(recibo) {
+  async function refrescarDetalleTrasAsignacion(recibo, solicitud) {
     const seleccionado = presentador.obtenerEstado();
     if (!montada || recibo?.expediente_ref !== seleccionado.expediente?.expediente_ref
-      || !Number.isSafeInteger(recibo?.version_resultante)) return false;
+      || !Number.isSafeInteger(recibo?.version_resultante)
+      || solicitud?.expediente_ref !== recibo.expediente_ref
+      || solicitud.version_esperada + 1 !== recibo.version_resultante
+      || typeof solicitud.unidad_ref !== "string" || !PATRON_REFERENCIA.test(solicitud.unidad_ref)) return false;
     const panel = raiz.querySelector("[data-ct-exp-asignacion]");
     if (panel === null) return false;
     reciboAsignacionConfirmado = Object.freeze({ ...recibo });
@@ -1495,7 +1546,7 @@ export async function montarModuloContratacionTemporal({
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version !== recibo.version_resultante
-        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== recibo.unidad_ref) { avisarPendiente(); return false; }
+        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== solicitud.unidad_ref) { avisarPendiente(); return false; }
       repintar("[data-ct-asignacion-confirmada]");
       return true;
     } catch {
@@ -1913,7 +1964,7 @@ export async function montarModuloContratacionTemporal({
       await montarIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
       if (cancelarDescargaInforme()) informarDescarga("descarga_cancelada", "informacion");
-    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
+    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro", "reintentar-descarga-informe-definitivo", "reintentar-descarga-resolucion", "reintentar-descarga-diligencia", "reintentar-descarga-toma-posesion", "reintentar-descarga-notificacion", "reintentar-descarga-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
       await descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });

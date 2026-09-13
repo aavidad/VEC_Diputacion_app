@@ -133,6 +133,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
     const idCorreo = operacion === "respuesta" ? "ct-llamamiento-correo" : `ct-llamamiento-${operacion}-correo`;
     return `<section class="ct-llamamiento-paso" aria-labelledby="ct-llamamiento-${operacion}-titulo">
       <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
+      ${paso.recibo ? `<details data-ct-llamamiento-datos-registrados="${operacion}"><summary>${e(t("llamamiento_datos_registrados"))}</summary>` : ""}
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
         <p id="ct-llamamiento-${operacion}-ayuda">${e(t(operacion === "seleccion"
           ? "llamamiento_clave_ayuda" : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_ayuda" : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_ayuda" : operacion === "propuesta" ? "llamamiento_propuesta_ayuda" : operacion === "siguiente" ? "llamamiento_siguiente_ayuda" : esResolucion(operacion) ? "llamamiento_" + operacion + "_ayuda" : esRespuesta(operacion)
@@ -171,6 +172,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
           ? `<button class="boton-secundario" type="button" data-ct-llamamiento-reintentar-publicaciones>${e(t("llamamiento_reintentar_publicaciones"))}</button>` : ""}
         </div>
       </form>
+      ${paso.recibo ? "</details>" : ""}
       <div class="ct-estado ct-estado-${paso.tono}" data-ct-llamamiento-estado="${operacion}"
         role="${paso.tono === "error" ? "alert" : "status"}"
         aria-live="polite" aria-atomic="true" tabindex="-1">${e(t(paso.mensaje))}</div>

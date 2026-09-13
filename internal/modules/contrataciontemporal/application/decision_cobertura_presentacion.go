@@ -54,6 +54,11 @@ const (
 	EtapaDiagnosticoPresentacionGobierno                 EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.gobierno"
 	EtapaDiagnosticoPresentacionVerificacionGobierno     EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.verificacion_gobierno"
 	EtapaDiagnosticoPresentacionPreparador               EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador"
+	EtapaDiagnosticoPresentacionPreparadorValidacion     EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador.validacion"
+	EtapaDiagnosticoPresentacionPreparadorReferencias    EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador.referencias"
+	EtapaDiagnosticoPresentacionPreparadorConsulta       EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador.consulta"
+	EtapaDiagnosticoPresentacionPreparadorPlazo          EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador.plazo"
+	EtapaDiagnosticoPresentacionPreparadorResultado      EtapaDiagnosticoPresentacionPropuestaCobertura = "cobertura.presentacion.preparador.resultado"
 )
 
 type errorEtapaDiagnosticoPresentacionPropuestaCobertura struct {
@@ -79,6 +84,12 @@ func (e errorEtapaDiagnosticoPresentacionPropuestaCobertura) LogValue() slog.Val
 func EtapaDiagnosticoDePresentacionPropuestaCobertura(
 	err error,
 ) (EtapaDiagnosticoPresentacionPropuestaCobertura, bool) {
+	var diagnosticoPreparador interface {
+		etapaDiagnosticoPresentacionPropuestaCobertura() EtapaDiagnosticoPresentacionPropuestaCobertura
+	}
+	if errors.As(err, &diagnosticoPreparador) {
+		return diagnosticoPreparador.etapaDiagnosticoPresentacionPropuestaCobertura(), true
+	}
 	var diagnostico errorEtapaDiagnosticoPresentacionPropuestaCobertura
 	if !errors.As(err, &diagnostico) {
 		return "", false

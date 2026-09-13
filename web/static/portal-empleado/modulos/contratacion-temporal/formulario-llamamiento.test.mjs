@@ -1072,6 +1072,8 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
   assert.equal(solicitudes.length, 1);
   resolver(recibo);
   await primera;
+  assert.match(raiz.innerHTML, /<details data-ct-llamamiento-datos-registrados="seleccion"><summary>Consultar datos de la operación registrada<\/summary>/u);
+  assert.match(raiz.innerHTML, /<\/form>\s*<\/details>[\s\S]*?data-ct-llamamiento-recibo="seleccion"/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.match(raiz.innerHTML, /No expone identidad/u); assert.equal(solicitudes[0].version_esperada, 6);
 });
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
