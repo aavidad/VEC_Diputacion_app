@@ -297,6 +297,9 @@ func TestPreparadorGlobalCoberturaCancelaTodoAlPrimerFallo(t *testing.T) {
 	if !errors.Is(err, ErrPreparacionGlobalCoberturaNoConfiable) {
 		t.Fatalf("fallo parcial no cerrado: %v", err)
 	}
+	if etapa, ok := EtapaDiagnosticoDePresentacionPropuestaCobertura(err); !ok || etapa != EtapaDiagnosticoPresentacionPreparadorConsulta {
+		t.Fatalf("diagnóstico de consulta=%q ok=%t", etapa, ok)
+	}
 	if strings.Contains(err.Error(), "proveedor") {
 		t.Fatalf("se filtró detalle privado: %v", err)
 	}
