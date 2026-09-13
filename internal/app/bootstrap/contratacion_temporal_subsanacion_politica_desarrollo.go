@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -47,21 +48,25 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 }
 
 func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependenciasAltaContratacionTemporalDesarrollo) error {
-	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || f.configuracion.MotivoAutorizacion.Validar() != nil {
+	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(f.configuracion.MotivoAutorizacion) {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.dependencias")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	v, err := f.soporte.contexto.Vinculo.Datos()
 	if err != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.vinculo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	i, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, f.soporte.reloj.Ahora(), "tecnico_rrhh_subsanacion_desarrollo", "Tecnico RRHH de subsanacion de desarrollo", "asignacion-rrhh-subsanacion-desarrollo-no-autoritativa", []vecdomain.ConcesionRol{{Accion: string(domain.AccionRegistrarSubsanacionReparo), ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoSubsanacionReparo, Finalidades: []string{ports.FinalidadRegistrarSubsanacionReparo}, GarantiaMinima: vecdomain.AuthAssuranceHigh}}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 	if err != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.instantanea")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(f.soporte.reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{f.configuracion.MotivoAutorizacion}, desde) != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.catalogo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	f.soporte.mu.Lock()
@@ -105,7 +110,7 @@ func cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg config.Config) 
 	var politica configuracionPoliticaSubsanacionReparosDesarrollo
 	dec := json.NewDecoder(strings.NewReader(string(contenido)))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&politica) != nil || dec.Decode(&struct{}{}) != io.EOF || !domain.ReferenciaOpacaValida(politica.DefinicionRef) || !ports.VersionOperacionAnalisisValida(politica.DefinicionVersion) || politica.MotivoAutorizacion.Validar() != nil || len(politica.DefinicionHuellaSHA256) != 64 || politica.DefinicionHuellaSHA256 != strings.ToLower(politica.DefinicionHuellaSHA256) || politica.DefinicionHuellaSHA256 == strings.Repeat("0", 64) {
+	if dec.Decode(&politica) != nil || dec.Decode(&struct{}{}) != io.EOF || !domain.ReferenciaOpacaValida(politica.DefinicionRef) || !ports.VersionOperacionAnalisisValida(politica.DefinicionVersion) || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(politica.MotivoAutorizacion) || len(politica.DefinicionHuellaSHA256) != 64 || politica.DefinicionHuellaSHA256 != strings.ToLower(politica.DefinicionHuellaSHA256) || politica.DefinicionHuellaSHA256 == strings.Repeat("0", 64) {
 		return vacia, errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	if _, err := hex.DecodeString(politica.DefinicionHuellaSHA256); err != nil {

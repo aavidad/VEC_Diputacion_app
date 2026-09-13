@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -251,10 +252,18 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var subsanacionReal dependenciasSubsanacionReparosContratacionTemporalDesarrollo
 	if strings.TrimSpace(cfg.ContratacionTemporalSubsanacionPoliticaFile) != "" {
 		politica, causa := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg)
-		if causa == nil {
+		if causa != nil {
+			log.Print("contratacion temporal: subsanacion no disponible; etapa=configuracion")
+		} else {
 			fuente := fuentePoliticaSubsanacionReparosDesarrollo{soporte: alta.soporte, configuracion: politica}
-			if fuente.configurar(&alta) == nil {
-				subsanacionReal, _ = nuevasDependenciasSubsanacionReparosContratacionTemporalDesarrollo(derivador, &alta, fuente, reloj)
+			if fuente.configurar(&alta) != nil {
+				log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente")
+			} else {
+				var causaDependencias error
+				subsanacionReal, causaDependencias = nuevasDependenciasSubsanacionReparosContratacionTemporalDesarrollo(derivador, &alta, fuente, reloj)
+				if causaDependencias != nil {
+					log.Print("contratacion temporal: subsanacion no disponible; etapa=dependencias")
+				}
 			}
 		}
 	}
