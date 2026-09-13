@@ -1,5 +1,29 @@
 # Estado de la web de contratación temporal para RRHH
 
+### Continuidad real tras subsanar y fiscalizar de nuevo
+
+El expediente sintético `9511d16d…` continúa desde la fiscalización favorable con
+observaciones `v8`: selección `200`, aviso local `201`, declaración `201`, aceptación
+manual `201` y propuesta `201`, versión `9`. La propuesta es
+`propuesta:a26304cb-8f29-46b8-beaf-82b5cf9a66a9`, recibo
+`recibo:c0d83684-ae43-44a2-baa0-857d1b5cb750`, fecha
+`2026-09-13T07:43:15.57655Z`. Se conservan las claves y peticiones exactas fuera de Git.
+Recuperación tras reinicio pendiente en este corte.
+
+La consulta autorizada recupera el detalle `v9` con nueve actuaciones y ofrece los
+seis pares PDF/DOCX. El informe DOCX de esta nueva propuesta tiene 3379 bytes y
+SHA256 `45fdd2b3543aee4d6b9d58aa7b8b425ea359cf01c488165f744c972202081611`;
+el documento identifica versión y actuación de propuesta `9`. No se han repetido
+los documentos del caso original. Navegador a 1440/390 px sin errores JavaScript
+ni desbordamiento. El aviso es local y la aceptación es manual sintética: sin
+SMTP, entrega externa, plazo legal, firma ni nombramiento eficaz acreditados.
+
+El contador permanece en **15/19**. La rectificación de Análisis requiere componer
+su escritura y autorización propias, además de la fuente de motivos admitida;
+no basta con configurar un catálogo. El apoyo prepara ese ensamblaje con revisión
+independiente. CT93–96 siguen instaladas una sola vez; no reaplicar migraciones.
+
+
 ## Contador vigente de pantallas — 13 de septiembre de 2026
 
 **15 de 19 terminadas en desarrollo (79 %); 3 parciales; 1 pendiente de pantalla real.**
@@ -87,14 +111,14 @@ para el caso sintético en `148d075e`.
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Terminada en desarrollo | 0 % | Dirección: conservación | 52 filas autorizadas y filtros vacío/completados HTTP200; acciones ligadas a la página. CSS253c4d63 probado a1440/390, sin desbordamiento global y tabla con scroll interno. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Dirección: catálogo de motivos para rectificación | Registro normal201 v1→v2, cinco modalidades localizadas y consulta posterior200 con RCvalidada/dos actuaciones. Rectificación continúa sin fuente de motivos admitida, bloqueada por defecto. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Apoyo: composición y autorización de rectificación | Registro normal201 v1→v2, cinco modalidades localizadas y consulta posterior200 con RCvalidada/dos actuaciones. Rectificación requiere composición de escritura/autorización y fuente de motivos admitida; bloqueada por defecto. |
 | 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Terminada en desarrollo | 0 % | Dirección: conservación | Intervención201 favorable con observaciones v7→v8; mismo recibo de12campos tras reinicio y replay original201, historia8 por consulta200. Acceso manual sin inferir antecedentes ni firma. |
 | 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Director remoto: nueva fiscalización, sin reaplicar CT93–96 | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
-| 10 | Llamamiento de candidatura | Parcial | 50 % | Director remoto: recorrido; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 aplicadas y reconciliadas, recorrido pendiente; SMTP aplazado. |
+| 10 | Llamamiento de candidatura | Parcial | 50 % | Director remoto: recorrido; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 recorridas desde v8 hasta propuesta v9; contacto y SMTP pendientes. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
 | 13 | Traslado de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Cinco recuperaciones200 con claves originales, misma propuesta/recibo/fecha/v7. CTA conserva navegación tras8bdf550a;1440/390 sin JS ni desbordamiento. No equivale a envío externo. |
