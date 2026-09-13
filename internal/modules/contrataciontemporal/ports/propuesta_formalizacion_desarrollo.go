@@ -15,7 +15,10 @@ type MaterialPropuestaFormalizacion struct {
 }
 
 func (m MaterialPropuestaFormalizacion) Validar() error {
-	if m.Solicitud.Validar() != nil || m.Solicitud.VersionEsperada != 6 || len(m.Solicitud.Anexos) != 0 {
+	// La versión OCC pertenece al expediente fiscalizado. La resolución de
+	// llamamiento y la apertura de Bolsa conservan sus propias versiones
+	// históricas y no pueden sustituirla.
+	if m.Solicitud.Validar() != nil || m.Solicitud.VersionEsperada < 6 || len(m.Solicitud.Anexos) != 0 {
 		return ErrSolicitudPropuestaFormalizacionInvalida
 	}
 	switch m.Etapa {
@@ -60,6 +63,7 @@ func (a AntecedentePropuestaFormalizacion) ValidarPara(s SolicitudPropuestaForma
 		r.Solicitud.OrganizacionRef != s.OrganizacionRef || r.Solicitud.ExpedienteRef != s.ExpedienteRef ||
 		r.Solicitud.LlamamientoRef != s.LlamamientoRef || r.ResolucionRef != s.ResolucionLlamamientoAceptadaRef ||
 		r.ReciboLocalRef != s.ReciboResolucionAceptadaRef || a.Justificante.ValidarPara(r.Solicitud) != nil ||
+		a.Justificante.Seleccion.VersionExpediente != s.VersionEsperada ||
 		r.ResueltaEn.Before(a.Justificante.Respuesta.RegistradaEn) || !ClaveIdempotenciaValida(a.SeleccionClave) {
 		return ErrResultadoPropuestaFormalizacionNoConfiable
 	}

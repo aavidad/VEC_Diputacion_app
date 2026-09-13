@@ -152,8 +152,12 @@ func TestPropuestaFormalizacionDesarrolloRechazaEtapaYSuperficie(t *testing.T) {
 		}
 	}
 	s.VersionEsperada = 7
+	if (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() != nil {
+		t.Fatal("intención N rechazada")
+	}
+	s.VersionEsperada = 5
 	if (MaterialPropuestaFormalizacion{Etapa: "consulta", Solicitud: s}).Validar() == nil {
-		t.Fatal("intención nueva v7; replay conserva solicitud v6")
+		t.Fatal("versión previa al expediente fiscalizado admitida")
 	}
 	s.VersionEsperada = 6
 	s.Anexos = []AnexoPropuestaFormalizacion{anexoPropuestaFormalizacionPrueba("x", "a", 1)}

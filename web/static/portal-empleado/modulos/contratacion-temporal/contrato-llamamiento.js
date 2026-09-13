@@ -77,7 +77,7 @@ export async function snapshotsFormalizacionDesarrollo(entrada, criptografia) {
 }
 export function validarSolicitudPropuestaFormalizacion(entrada) {
   const valor = solicitud(entrada, CAMPOS_PROPUESTA);
-  exigir(valor.version_esperada === 6 && Array.isArray(valor.anexos) && valor.anexos.length === 0);
+  exigir(valor.version_esperada >= 6 && valor.version_esperada < Number.MAX_SAFE_INTEGER && Array.isArray(valor.anexos) && valor.anexos.length === 0);
   const snapshots = {};
   for (const [campo, referencia] of Object.entries(PUBLICACIONES_FORMALIZACION)) {
     const p = registro(valor[campo], ["referencia", "version", "huella_sha256"]);

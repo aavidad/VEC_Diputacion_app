@@ -783,39 +783,7 @@ func TestPuenteBolsaLlamamientoDesarrolloAceptacionNoFabricaExito(t *testing.T) 
 
 func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
 	p, ctx, legado, _ := puenteBolsaPrueba(t)
-	e := legado.expediente.Fiscalizado.Clonar()
-	anterior := e.Actuaciones[4]
-	e.Actuaciones = e.Actuaciones[:5]
-	e.Version, e.FaseActual, e.EstadoActual, e.Fiscalizacion = 5, domain.FaseInformeJuridico, domain.EstadoEnCurso, nil
-	e.ActualizadoEn = anterior.RealizadaEn
-	instante := anterior.RealizadaEn.Add(time.Minute)
-	actuar := func(accion domain.ClaveCatalogo, fase domain.ClaveFase, estado domain.EstadoOperativo, recibo string) domain.DatosActuacion {
-		return domain.DatosActuacion{AccionClave: accion, ActorRef: "actor:rrhh:sintetico", UnidadRef: e.Asignacion.UnidadRef, ReciboRef: recibo, RealizadaEn: instante, FaseDestino: fase, EstadoDestino: estado}
-	}
-	a := actuar(domain.AccionRegistrarFiscalizacion, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:reparo:version")
-	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
-	a.Observaciones = "Reparo sintético."
-	var err error
-	e, err = e.RegistrarFiscalizacion(5, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:reparo:version", Resultado: domain.FiscalizacionDesfavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante, Observaciones: a.Observaciones, RetornoRef: "retorno:version:uno"}, a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	instante = instante.Add(time.Minute)
-	a = actuar(domain.AccionRegistrarSubsanacionReparo, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:subsanacion:version")
-	a.RetornoRef = "retorno:version:uno"
-	a.Observaciones = "Corrección sintética."
-	e, err = e.RegistrarSubsanacionReparo(6, domain.DatosSubsanacionReparo{RetornoRef: a.RetornoRef, Observaciones: a.Observaciones}, a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	instante = instante.Add(time.Minute)
-	a = actuar(domain.AccionRegistrarFiscalizacion, domain.FaseFiscalizacion, domain.EstadoEnCurso, "recibo:favorable:version")
-	a.RetornoRef = "retorno:version:uno"
-	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
-	e, err = e.RegistrarFiscalizacion(7, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:nueva:version", Resultado: domain.FiscalizacionFavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante}, a)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := expedienteTrasSubsanacionPrueba(t, legado.expediente.Fiscalizado)
 	nuevo, err := prepararReferenciasLlamamientoDesarrollo(ports.ExpedienteParaSeleccion{Fiscalizado: e, VersionActual: 8}, legado.clave)
 	if err != nil {
 		t.Fatal(err)
@@ -868,4 +836,42 @@ func TestPuenteBolsaLlamamientoDesarrolloVersionTrasSubsanacion(t *testing.T) {
 	if p.repositorio.(*repositorioPuenteBolsaFallido).llamadas != 0 {
 		t.Fatal("se tocó Bolsa tras cambiar cabeza")
 	}
+}
+
+func expedienteTrasSubsanacionPrueba(t *testing.T, inicial domain.Expediente) domain.Expediente {
+	t.Helper()
+	e := inicial.Clonar()
+	anterior := e.Actuaciones[4]
+	e.Actuaciones = e.Actuaciones[:5]
+	e.Version, e.FaseActual, e.EstadoActual, e.Fiscalizacion = 5, domain.FaseInformeJuridico, domain.EstadoEnCurso, nil
+	e.ActualizadoEn = anterior.RealizadaEn
+	instante := anterior.RealizadaEn.Add(time.Minute)
+	actuar := func(accion domain.ClaveCatalogo, fase domain.ClaveFase, estado domain.EstadoOperativo, recibo string) domain.DatosActuacion {
+		return domain.DatosActuacion{AccionClave: accion, ActorRef: "actor:rrhh:sintetico", UnidadRef: e.Asignacion.UnidadRef, ReciboRef: recibo, RealizadaEn: instante, FaseDestino: fase, EstadoDestino: estado}
+	}
+	a := actuar(domain.AccionRegistrarFiscalizacion, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:reparo:version")
+	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
+	a.Observaciones = "Reparo sintético."
+	var err error
+	e, err = e.RegistrarFiscalizacion(5, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:reparo:version", Resultado: domain.FiscalizacionDesfavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante, Observaciones: a.Observaciones, RetornoRef: "retorno:version:uno"}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante = instante.Add(time.Minute)
+	a = actuar(domain.AccionRegistrarSubsanacionReparo, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, "recibo:subsanacion:version")
+	a.RetornoRef = "retorno:version:uno"
+	a.Observaciones = "Corrección sintética."
+	e, err = e.RegistrarSubsanacionReparo(6, domain.DatosSubsanacionReparo{RetornoRef: a.RetornoRef, Observaciones: a.Observaciones}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante = instante.Add(time.Minute)
+	a = actuar(domain.AccionRegistrarFiscalizacion, domain.FaseFiscalizacion, domain.EstadoEnCurso, "recibo:favorable:version")
+	a.RetornoRef = "retorno:version:uno"
+	a.DocumentosRef = []string{e.InformeJuridico.DocumentoRef}
+	e, err = e.RegistrarFiscalizacion(7, domain.DatosRegistrarFiscalizacion{FiscalizacionRef: "fiscalizacion:nueva:version", Resultado: domain.FiscalizacionFavorable, UnidadFiscalizadoraRef: a.UnidadRef, FiscalizadaEn: instante}, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return e
 }

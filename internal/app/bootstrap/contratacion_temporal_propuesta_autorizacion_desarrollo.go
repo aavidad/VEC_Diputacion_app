@@ -78,7 +78,8 @@ func motivoPropuestaFormalizacionDesarrollo() dominiovec.ReferenciaEntradaCatalo
 func solicitudAutorizacionPropuestaDesarrolloValida(ctx context.Context, d dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	m, ok := ctx.Value(claveMaterialPropuestaFormalizacionDesarrollo{}).(ports.MaterialPropuestaFormalizacion)
 	if !ok || m.Validar() != nil || m.Solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		m.Solicitud.ExpedienteRef != p.expediente.Fiscalizado.Referencia || m.Solicitud.VersionEsperada != 6 ||
+		m.Solicitud.ExpedienteRef != p.expediente.Fiscalizado.Referencia ||
+		!expedienteFiscalizadoParaPropuestaDesarrollo(p.expediente, m.Solicitud) ||
 		d.Accion != postgresct.AccionPropuestaFormalizacion || d.ReferenciaMotivo != motivoPropuestaFormalizacionDesarrollo() {
 		return false
 	}

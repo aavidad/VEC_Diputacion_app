@@ -154,7 +154,7 @@ async function abrirRespuesta(raiz, cliente = {}, extras = {}) {
     registrarRespuestaRecibida: async (s) => justificante(s), ...cliente,
   }, extras);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
-  await raiz.enviar("seleccion", seleccion());
+  await raiz.enviar("seleccion", { ...seleccion(), version_esperada: extras.contexto?.version_esperada ?? 6 });
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
   await raiz.enviar("comunicacion", { clave_idempotencia: CLAVE });
   raiz.preparar("respuesta", declaracion());
@@ -1143,4 +1143,27 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
     cerrar();
   }
   assert.deepEqual(llamadas.slice(0, 2), llamadas.slice(2));
+});
+
+test("aceptación tras subsanación ofrece propuesta v8 y conserva recibo v9", async () => {
+ const raiz = raizPrueba(), solicitudes = [];
+ const cerrar = await abrirResolucion(raiz, {
+  resolverLlamamiento: async () => resolucionConfirmada,
+  prepararPropuestaFormalizacion: async (s) => {
+   solicitudes.push(s);
+   return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1", estado_local: "confirmado",
+    propuesta_ref: "propuesta:sintetica:posterior", recibo_local_ref: "recibo:propuesta:posterior",
+    version_resultante: 9, confirmada_en: "2026-09-06T10:00:00.123456Z" };
+  },
+ }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 8 },
+  fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA,
+   { status: 200, headers: { "Content-Type": "application/json" } }) });
+ await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+ assert.match(raiz.innerHTML, /id="ct-llamamiento-propuesta-version_esperada"[^>]*value="8"[^>]*readonly/u);
+ assert.equal(solicitudes.length, 0);
+ await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174005", version_esperada: 6 });
+ assert.equal(solicitudes.length, 1);
+ assert.equal(solicitudes[0].version_esperada, 8);
+ assert.match(raiz.innerHTML, /Propuesta registrada · ejercicio sintético/u);
+ cerrar();
 });

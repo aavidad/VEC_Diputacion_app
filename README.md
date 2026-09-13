@@ -1,5 +1,19 @@
 # VEC Diputación de Granada
 
+La propuesta de formalización admite la versión fiscalizada posterior a una
+subsanación y conserva ese antecedente al recuperar el mismo recibo. El formulario
+usa la versión de la selección confirmada; no sustituye las versiones propias
+de la resolución de llamamiento o de Bolsa. Las operaciones originales v6→v7
+conservan su función SQL.
+
+La fuente CT96 y sus 13 archivos Go/web coinciden íntegramente con la entrega
+539247a6 revisada por dos revisores. Pasaron 98 pruebas web de formulario y
+cliente y la campaña conjunta `go test ./...` y `go vet ./...`.
+CT96 permanece sin ensayo PostgreSQL ni instalación; el recorrido
+N8→propuesta9 está probado con repositorios dobles, no acredita una propuesta
+nueva en la base principal. Siguen pendientes la continuación tras renuncia
+con versiones posteriores y la lectura histórica de esas nuevas propuestas.
+
 Aviso, declaración de respuesta y consulta del justificante pueden recuperar
 la versión fiscalizada que originó su selección confirmada. El lector deriva
 ese vínculo del llamamiento persistido y conserva autorización nueva en cada
