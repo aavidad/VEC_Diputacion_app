@@ -166,6 +166,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
               : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : esResolucion(operacion) ? "llamamiento_solicitar_resolucion"
                 : esRespuesta(operacion) ? "llamamiento_registrar_respuesta" : "llamamiento_registrar"))}</button>` : ""}
+        ${operacion === "propuesta" && !paso.disponible && paso.aceptacion && !paso.calculando
+          ? `<button class="boton-secundario" type="button" data-ct-llamamiento-reintentar-publicaciones>${e(t("llamamiento_reintentar_publicaciones"))}</button>` : ""}
         </div>
       </form>
       <div class="ct-estado ct-estado-${paso.tono}" data-ct-llamamiento-estado="${operacion}"

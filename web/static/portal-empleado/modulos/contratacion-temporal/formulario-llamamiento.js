@@ -201,16 +201,19 @@ export function montarFormularioLlamamiento({
     return estado.propuesta.aceptacion?.respuesta === "aceptacion"
       && versionFiscalizadaPermitePropuesta();
   }
-  async function prepararPropuesta(aceptacion) {
+  async function prepararPropuesta(origen) {
     const paso = estado.propuesta;
-    if (paso.aceptacion || paso.solicitud !== null || paso.recibo || paso.calculando) return;
-    const s = aceptacion.solicitud, r = aceptacion.recibo;
-    // Recibo ya validado de la resolución que confirmó la aceptación; no se
-    // sustituye al cargar publicaciones, enviar o recuperar esta propuesta.
-    paso.aceptacion = r;
-    paso.valores = { expediente_ref: s.expediente_ref, llamamiento_ref: s.llamamiento_ref,
-      resolucion_llamamiento_aceptada_ref: r.resolucion_ref, recibo_resolucion_aceptada_ref: r.recibo_local_ref,
-      version_esperada: estado.seleccion.solicitud.version_esperada, anexos: Object.freeze([]) };
+    if (paso.solicitud !== null || paso.recibo || paso.calculando) return;
+    if (!paso.aceptacion) {
+      const s = origen?.solicitud, r = origen?.recibo;
+      if (!s || !r) return;
+      // Recibo ya validado de la resolución que confirmó la aceptación; no se
+      // sustituye al cargar publicaciones, enviar o recuperar esta propuesta.
+      paso.aceptacion = r;
+      paso.valores = { expediente_ref: s.expediente_ref, llamamiento_ref: s.llamamiento_ref,
+        resolucion_llamamiento_aceptada_ref: r.resolucion_ref, recibo_resolucion_aceptada_ref: r.recibo_local_ref,
+        version_esperada: estado.seleccion.solicitud.version_esperada, anexos: Object.freeze([]) };
+    }
     if (typeof cliente.prepararPropuestaFormalizacion !== "function") return;
     paso.calculando = true;
     paso.mensaje = "llamamiento_propuesta_cargando";
@@ -415,6 +418,13 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const reintentarPublicaciones = evento.target?.closest?.("[data-ct-llamamiento-reintentar-publicaciones]");
+    if (reintentarPublicaciones?.dataset?.ctLlamamientoReintentarPublicaciones !== undefined
+      && raiz.contains(reintentarPublicaciones)) {
+      evento.preventDefault();
+      if (!estado.propuesta.aceptacion || estado.propuesta.disponible) return;
+      return prepararPropuesta();
+    }
     const actualizarPropuesta = evento.target?.closest?.("[data-ct-llamamiento-actualizar-propuesta]");
     if (actualizarPropuesta?.dataset?.ctLlamamientoActualizarPropuesta !== undefined
       && raiz.contains(actualizarPropuesta)) {

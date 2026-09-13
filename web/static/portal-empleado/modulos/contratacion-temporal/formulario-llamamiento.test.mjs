@@ -347,6 +347,32 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fech
   }
   assert.deepEqual(previos(), anteriores); assert.equal(lecturas, 1); cerrar();
 });
+test("la carga fallida de publicaciones se puede recuperar sin repetir la aceptación", async () => {
+  const raiz = raizPrueba(); let lecturas = 0;
+  const cerrar = await abrirResolucion(raiz, {
+    resolverLlamamiento: async () => reciboResolucion("aceptacion"),
+    prepararPropuestaFormalizacion: async () => assert.fail("no debe registrar propuesta"),
+  }, {
+    fetchPublicaciones: async () => {
+      lecturas += 1;
+      return new Response(lecturas === 1 ? "{}" : PUBLICACIONES_PROPUESTA,
+        { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  assert.equal(lecturas, 1);
+  assert.match(raiz.innerHTML, /Publicaciones de formalización no disponibles/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-reintentar-publicaciones/u);
+  await raiz.eventos.get("click")({
+    target: { closest: (selector) => selector === "[data-ct-llamamiento-reintentar-publicaciones]"
+      ? { dataset: { ctLlamamientoReintentarPublicaciones: "" } } : null },
+    preventDefault() {},
+  });
+  assert.equal(lecturas, 2);
+  assert.match(raiz.innerHTML, /Publicaciones de desarrollo disponibles/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  cerrar();
+});
 test("siguiente exige renuncia, clave propia y confirmación; no modifica recibos ni la primera comunicación", async () => {
   const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false, claves = 0;
   const renuncia = reciboResolucion("renuncia"), original = JSON.stringify(renuncia);
