@@ -78,6 +78,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .ct-expedientes .ct-alta select {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .ct-expedientes .ct-alta fieldset {
     min-width: 0;
   }
