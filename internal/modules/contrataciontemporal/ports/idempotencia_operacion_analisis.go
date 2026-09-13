@@ -276,6 +276,15 @@ func (s SolicitudConsultarOperacionAnalisisConfirmada) Validar() error {
 	return nil
 }
 
+// SellosIdentidadFuncional conserva la identidad sellada de la petición antes
+// de confirmar. No devuelve datos funcionales ni reconstruye pruebas caducadas.
+func (s SolicitudConsultarOperacionAnalisisConfirmada) SellosIdentidadFuncional() (SellosOperacionAnalisis, error) {
+	if s.Validar() != nil {
+		return SellosOperacionAnalisis{}, ErrPreparacionOperacionAnalisisInvalida
+	}
+	return s.sellos, nil
+}
+
 func (s SolicitudConsultarOperacionAnalisisConfirmada) parActivo() (
 	string,
 	string,
