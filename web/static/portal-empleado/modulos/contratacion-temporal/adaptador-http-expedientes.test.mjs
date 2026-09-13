@@ -411,3 +411,30 @@ test("conserva acceso a propuesta v9 desde resolución v10 y anotación v11", as
     }
   }
 });
+
+
+test("distingue el período solicitado del revisado por RRHH sin sustituir el antecedente", async () => {
+  const cliente = clienteFalso([]);
+  const consultar = cliente.consultarDetalleRRHH;
+  let conAnalisis = true;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const datos = await consultar(...args);
+    datos.solicitud.periodo_inicio = "2027-01-01T00:00:00Z";
+    datos.solicitud.periodo_fin = "2027-03-31T00:00:00Z";
+    if (!conAnalisis) delete datos.analisis;
+    return datos;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar({ filtros: { texto: "", estado: "", fase: "" } });
+  const detalle = await adaptador.obtener(resumen.expediente_ref);
+  const solicitado = detalle.cabecera.find(c => c.clave === "periodo");
+  const analizado = detalle.cabecera.find(c => c.clave === "periodo_analizado");
+  assert.equal(solicitado.etiqueta, "Período solicitado");
+  assert.equal(analizado.etiqueta, "Período analizado por RRHH");
+  assert.match(solicitado.valor, /2027/u);
+  assert.match(analizado.valor, /2026/u);
+  conAnalisis = false;
+  const sinAnalisis = await adaptador.obtener(resumen.expediente_ref);
+  assert.deepEqual(sinAnalisis.cabecera.find(c => c.clave === "periodo"), solicitado);
+  assert.equal(sinAnalisis.cabecera.some(c => c.clave === "periodo_analizado"), false);
+});

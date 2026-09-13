@@ -1,6 +1,8 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+  cabecera_periodo_solicitado: "Período solicitado",
+  cabecera_periodo_analizado: "Período analizado por RRHH",
   incorporacion_preparacion_cargando: "Consultando la preparación de incorporación guardada en el servidor.",
   incorporacion_preparacion_denegada: "No dispone de permiso para consultar la incorporación de este expediente.",
   incorporacion_preparacion_no_disponible: "La incorporación no está preparada o la consulta no está disponible. Esta consulta no registra incorporaciones.",
