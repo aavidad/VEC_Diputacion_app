@@ -1,5 +1,33 @@
 # Guía de recorrido y recibos conservados de VEC
 
+Cobertura queda recorrida y el contador pasa a **14/19 pantallas terminadas en
+desarrollo (74 %), cuatro parciales y una pendiente de pantalla**. La consulta
+sintética del período exacto del expediente existente responde200; RRHH confirma
+Bolsa vigente mediante una única decisión201 v2→v3. La consulta de resultado200
+recupera los mismos seis campos del recibo y el detalle200 ofrece asignación.
+Sin errores JS, almacenamiento web ni desbordamiento a1440/390. No representa
+una comprobación corporativa: la fuente de desarrollo declara solo ese período,
+sin ampliar rangos ni modificar SQL, permisos o evaluadores.
+
+Análisis normal también registra201 sobre una solicitud existente del centro de
+desarrollo: v1→v2, cinco modalidades disponibles, fechas originales enero-marzo2027,
+RC validada y dos actuaciones consultadas después con200. No se ha creado otra
+solicitud. La fila3 conserva su parte pendiente de rectificación sin catálogo de
+motivos; no se habilita mediante una elección inventada. La cabecera distingue
+«Período solicitado» y «Período analizado por RRHH», con datos autorizados y
+traducciones; el caso de cobertura conserva ambos períodos diferentes.
+
+Cobertura conservada: expediente sintético `expediente:ct:b50fa719e3d6f639dca70c7be471a3816207f100cc8c0151144fa08429f7d039`,
+recibo `recibo:ct:cobertura:6d76a11a924edf9c976857d7e72a0784`,
+fecha `2026-09-13T07:08:47.329498Z`, versión3. Se recuperó por consulta de
+resultado; no se repitió la decisión ni se atribuye otro reinicio a este corte.
+Análisis conservado: expediente sintético `expediente:ct:d018ea3b516463427dc4a34d04b494f70db725f49c04b69a3f2f6c326851e997`,
+recibo `rec_ct_an_96ddd8d83019f6051bc5e6c635028e2c`, fecha
+`2026-09-13T07:15:08.729187Z`, versión2. La comprobación posterior fue lectura
+del detalle, no replay del recibo ni ensayo de reinicio.
+
+### Antecedentes del corte de trece pantallas
+
 Corte comprobado del 13 de septiembre: **13/19 pantallas terminadas en desarrollo
 (68 %), cinco parciales y una pendiente de pantalla**. Se cierran Inicio, Unidad,
 fiscalización, documentación, resumen GINPIX y generación documental mediante
