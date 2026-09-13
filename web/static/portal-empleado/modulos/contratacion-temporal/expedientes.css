@@ -394,6 +394,21 @@
   font-size: 0.9rem;
 }
 
+.ct-exp-borradores-cabecera {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ct-exp-borradores-cabecera p,
+.ct-exp-borradores li p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+
 .ct-exp-borradores ul {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
