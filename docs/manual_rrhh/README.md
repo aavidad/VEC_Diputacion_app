@@ -21,6 +21,19 @@ historia y reinicio del clon; el clon quedó detenido y conservado. La instalaci
 principal sigue pendiente de su instalador revisado. No se ha registrado una
 nueva fiscalización ni una propuesta posterior en la base principal.
 
+La fuente publicada `1362affd` compila correctamente. Su binario y once assets
+web están preparados, sin activar: la aplicación conserva el binario compatible
+con CT92. El acceso actual de Intervención todavía limita la versión remitida a
+v5; la fuente integrada permite la versión posterior. La comprobación de lectura
+no envió ninguna fiscalización. Activar la continuidad exige antes instalar
+CT93–96 con el procedimiento revisado y un respaldo privado fresco.
+
+## Antecedentes de los cortes
+
+Los apartados siguientes conservan las entregas y los límites de cada corte
+anterior. Las cifras, instalaciones y comprobaciones vigentes son las indicadas
+al comienzo de este documento; los pendientes antiguos no los sustituyen.
+
 Los seis borradores conservan una propuesta posterior a la subsanación cuando
 el detalle autorizado añade su resolución y la anotación administrativa siguiente.
 La consulta solicita la versión actual y el renderer identifica la propuesta por
