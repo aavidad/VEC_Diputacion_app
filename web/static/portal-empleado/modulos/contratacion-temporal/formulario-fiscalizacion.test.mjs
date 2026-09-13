@@ -458,3 +458,15 @@ test("reserva la continuación cuando el informe se prepara desde un expediente 
   assert.match(html, /data-ct-exp-informe-juridico/u);
   assert.match(html, /data-ct-exp-fiscalizacion/u);
 });
+
+
+test("acceso manual no inventa fase ni informe a partir de la versión remitida", () => {
+  const raiz = raizFalsa();
+  const cerrar = montar(raiz, { registrarResultadoFiscalizacion() {} }, {
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 7, fase_clave: "", informe_ref: "" },
+  });
+  assert.match(raiz.innerHTML, /Versión remitida/u);
+  assert.match(raiz.innerHTML, /No consultados en este acceso manual/u);
+  assert.doesNotMatch(raiz.innerHTML, /Informe jurídico registrado|Registrado en la versión 7|Subsanación autorizada/u);
+  cerrar();
+});
