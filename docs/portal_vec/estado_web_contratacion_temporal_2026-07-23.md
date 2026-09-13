@@ -27,7 +27,16 @@ La continuación tras renuncia de ese nuevo recorrido y SMTP siguen pendientes.
 El porcentaje que falta es una **estimación inicial de trabajo por pantalla**,
 no una medición de horas ni una certificación. Se revisará al cerrar cada tarea.
 Cero significa recorrido funcional de desarrollo documentado, no producción ni
-validación final de RRHH. Firma, correo y conectores conservan sus dependencias;
+validación final de RRHH.
+Estas estimaciones mezclaban pantalla e integración; no deben presentarse como
+porcentajes exactos de web terminada. En las dependencias externas se distingue:
+
+- Firma (7): falta pantalla y conexión; el circuito admitido sigue por concretar.
+- Llamamiento (10): bandeja y gestión web se pueden completar independientemente
+  del SMTP corporativo, cuyo código queda conservado y su conexión pendiente.
+- GINPIX (16): ficha y resumen web ya recorridos; falta el envío externo.
+
+El aplazamiento de una conexión externa no aplaza el trabajo independiente de su pantalla. Firma, correo y conectores conservan sus dependencias;
 el operador permite terminar cualquier pieza de correo necesaria para avanzar.
 
 **Disponibilidad transversal:** la aplicación está sana con el binario
