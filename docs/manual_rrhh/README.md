@@ -1,5 +1,12 @@
 # Manual funcional del técnico de Recursos Humanos
 
+El análisis exige las cinco modalidades del contrato RRHH vigente también al
+montar el formulario. La vista Documentos agrupa los seis borradores PDF/DOCX,
+comprueba que su índice autorizado corresponde al expediente y versión actuales
+y permite cancelar la descarga. Conserva el canal de consulta y los límites de
+borrador de desarrollo. Las 45 pruebas web focales pasan; la activación y el
+recorrido real de estas mejoras están pendientes. El contador continúa en 7/19.
+
 La primera tanda de páginas conecta la bandeja a los expedientes de la página
 autorizada, conserva el recibo de asignación mientras recupera el detalle y ofrece
 el informe solo cuando coinciden la unidad y la versión confirmadas. La candidatura

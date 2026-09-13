@@ -217,9 +217,35 @@ function renderizarHistorialHitos(expediente, t) {
   </details>`;
 }
 
+const BORRADORES_FORMALIZACION = Object.freeze([
+  ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
+  ["diligencia", "diligencia"], ["toma_posesion", "toma-posesion"],
+  ["notificacion", "notificacion"], ["comunicacion_centro", "comunicacion-centro"],
+]);
+
+function renderizarBorradoresFormalizacion(t) {
+  return `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
+    <div class="ct-exp-borradores-cabecera"><div>
+      <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
+      <p>${escaparHTML(t("borradores_descripcion"))}</p>
+    </div><button type="button" class="boton-terciario" data-ct-exp-accion="cancelar-descarga" disabled>${escaparHTML(t("cancelar_descarga"))}</button></div>
+    <ul>${BORRADORES_FORMALIZACION.map(([clave, accion]) => `<li>
+      <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
+      <p>${escaparHTML(t("borrador_sin_firma"))}</p>
+      <div class="ct-exp-borradores-acciones">
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
+      </div>
+    </li>`).join("")}</ul>
+  </section>`;
+}
+
 export function solicitudInformeDefinitivoDesdeEstado(estado) {
   const expediente = estado.expediente;
-  if (estado.vista !== "expediente" || estado.carga !== "listo" || estado.ocupado
+  const indiceActual = estado.vista !== "documentos" || (estado.documentos?.demostracion === false
+    && estado.documentos.expediente_ref === expediente?.expediente_ref
+    && estado.documentos.version === expediente?.version);
+  if (!(["expediente", "documentos"].includes(estado.vista)) || !indiceActual || estado.carga !== "listo" || estado.ocupado
     || estado.actualizacion_pendiente || estado.resultado_indeterminado
     || expediente?.demostracion !== false || !Number.isSafeInteger(expediente.version) || expediente.version < 7
     || (expediente.version >= 8 && !versionPropuestaDocumentalValida(expediente))
@@ -232,11 +258,6 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
 }
 
 function renderizarCabecera(expediente, t, informeDisponible = false) {
-  const borradores = [
-    ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
-    ["diligencia", "diligencia"], ["toma_posesion", "toma-posesion"],
-    ["notificacion", "notificacion"], ["comunicacion_centro", "comunicacion-centro"],
-  ];
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
@@ -255,16 +276,7 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
       <dt>${escaparHTML(campo.etiqueta)}</dt>
       <dd class="ct-tono-${escaparHTML(campo.tono)}">${escaparHTML(campo.valor)}</dd>
     </div>`).join("")}</dl>
-    ${informeDisponible ? `<section class="ct-exp-borradores" aria-labelledby="ct-exp-borradores-titulo">
-      <h4 id="ct-exp-borradores-titulo">${escaparHTML(t("borradores_titulo"))}</h4>
-      <ul>${borradores.map(([clave, accion]) => `<li>
-        <h5>${escaparHTML(t(`${clave}_titulo`))}</h5>
-        <div class="ct-exp-borradores-acciones">
-          <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
-          <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
-        </div>
-      </li>`).join("")}</ul>
-    </section>` : ""}
+    ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
   </section>`;
 }
 
@@ -510,6 +522,7 @@ export function renderizarDocumentos(estado, t) {
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   return `${renderizarCabecera(expediente, t)}
     <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("documentos_titulo"))}</h3><p>${escaparHTML(t("documentos_descripcion"))}</p></header>
+    ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria">
         <caption>${escaparHTML(t("documentos_tabla"))}</caption>

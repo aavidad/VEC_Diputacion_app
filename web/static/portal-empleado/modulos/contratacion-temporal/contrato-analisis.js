@@ -15,6 +15,9 @@ const ESQUEMA_CONFIGURACION =
   "vec.contratacion_temporal.configuracion_analisis.v1";
 const OPERACIONES = new Set(["registrar", "rectificar"]);
 const MAXIMO_OPCIONES_CONFIGURACION = 100;
+const CLAVES_MODALIDADES_RRHH = new Set([
+  "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
+]);
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -123,6 +126,9 @@ export function validarConfiguracionAnalisis(configuracion) {
     nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
     cantidadExacta: 5,
   });
+  if (modalidades.some(({ clave }) => !CLAVES_MODALIDADES_RRHH.has(clave))) {
+    throw new TypeError("modalidades no válida");
+  }
   const causas = normalizarOpciones(configuracion.causas, {
     nombre: "causas", campo: "clave", patron: PATRON_CLAVE,
   });
