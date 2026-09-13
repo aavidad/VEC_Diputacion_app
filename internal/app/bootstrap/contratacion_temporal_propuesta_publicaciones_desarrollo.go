@@ -67,7 +67,7 @@ func leerPublicacionesPropuestaDesarrollo(r io.Reader) (publicacionesPropuestaDe
 }
 
 func (p publicacionesPropuestaDesarrollo) admite(s ports.SolicitudPropuestaFormalizacion) bool {
-	return len(p) == 4 && s.Validar() == nil && s.VersionEsperada == 6 && len(s.Anexos) == 0 &&
+	return len(p) == 4 && s.Validar() == nil && s.VersionEsperada >= 6 && len(s.Anexos) == 0 &&
 		s.TipoFormalizacion == p["tipo_formalizacion"] && s.Plantilla == p["plantilla"] &&
 		s.PoliticaFirma == p["politica_firma"] && s.PlanFirma == p["plan_firma"]
 }

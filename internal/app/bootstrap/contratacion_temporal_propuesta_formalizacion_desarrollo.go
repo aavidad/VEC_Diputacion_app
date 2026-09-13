@@ -13,6 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -102,14 +103,16 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 		dependenciaEsNulaContratacionTemporalDesarrollo(e.bolsa) || dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) {
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
-	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, s.OrganizacionRef, s.ExpedienteRef, 6)
+	// La preimagen que habilita este intento es la versión OCC de la solicitud.
+	// Las versiones de resolución y Bolsa son antecedentes inmutables, nunca el
+	// sustituto de la versión del expediente tras una subsanación.
+	expediente, err := e.lector.LeerExpedienteParaSeleccion(ctx, s.OrganizacionRef, s.ExpedienteRef, s.VersionEsperada)
 	if ctx.Err() != nil {
 		return vacio, ctx.Err()
 	}
-	// Se recupera el antecedente v6, no se bloquea un replay porque la propuesta
-	// ya haya avanzado el expediente. PostgreSQL decide OCC o recuperación.
-	if err != nil || !expedienteComunicacionLlamamientoDesarrolloValido(expediente,
-		ports.SolicitudRegistrarComunicacionLlamamiento{OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef}) {
+	// La recuperación conserva la misma preimagen N aunque la propuesta ya haya
+	// avanzado el expediente. PostgreSQL decide OCC o recuperación.
+	if err != nil || !expedienteFiscalizadoParaPropuestaDesarrollo(expediente, s) {
 		return vacio, application.ErrPropuestaFormalizacionNoDisponible
 	}
 	ctx = context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacionLlamamientoDesarrollo{expediente: expediente})
@@ -143,6 +146,21 @@ func (e *ejecutorPropuestaFormalizacionDesarrollo) PrepararYConfirmar(ctx contex
 	ctx = context.WithValue(ctx, clavePropuestaFormalizacionDesarrollo{}, propuestaFormalizacionLigadaDesarrollo{antecedente: a, material: m})
 	ctx = context.WithValue(ctx, claveMaterialPropuestaFormalizacionDesarrollo{}, m)
 	return e.servicio.PrepararYConfirmar(ctx, s)
+}
+
+func expedienteFiscalizadoParaPropuestaDesarrollo(
+	expediente ports.ExpedienteParaSeleccion,
+	s ports.SolicitudPropuestaFormalizacion,
+) bool {
+	e := expediente.Fiscalizado
+	return e.Validar() == nil && e.Referencia == s.ExpedienteRef &&
+		e.OrganizacionRef == s.OrganizacionRef &&
+		e.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		e.Version == s.VersionEsperada && expediente.VersionActual >= s.VersionEsperada &&
+		expediente.VersionActual <= ports.MaximoEnteroSeguroIntegracionBolsa &&
+		e.FaseActual == domain.FaseFiscalizacion && e.EstadoActual == domain.EstadoEnCurso &&
+		e.Fiscalizacion != nil && (e.Fiscalizacion.Resultado == domain.FiscalizacionFavorable ||
+		e.Fiscalizacion.Resultado == domain.FiscalizacionFavorableConObservaciones)
 }
 
 func acreditarAceptacionBolsaPropuestaDesarrollo(ctx context.Context, repo puertosbolsa.RepositorioLlamamientoDesarrollo,

@@ -71,7 +71,7 @@ func (r *registroPropuestaCoordinadorPrueba) ConfirmarPropuesta(ctx context.Cont
 		return replay, nil
 	}
 	r.resultado = ports.ResultadoPropuestaFormalizacion{Solicitud: s.Clonar(), PropuestaRef: "propuesta:nombramiento-prueba",
-		ReciboLocalRef: "recibo:propuesta-prueba", AuditoriaRef: "auditoria:propuesta-prueba", VersionResultante: 7,
+		ReciboLocalRef: "recibo:propuesta-prueba", AuditoriaRef: "auditoria:propuesta-prueba", VersionResultante: s.VersionEsperada + 1,
 		ConfirmadaEn: m.AceptacionBolsa.ResueltaEn.Add(time.Second), Estado: ports.ResultadoPropuestaFormalizacionConfirmado}
 	return r.resultado.Clonar(), nil
 }
@@ -84,6 +84,18 @@ type escenarioPropuestaPrueba struct {
 	lector    *lectorExpedienteConsultaJustificantePrueba
 	bolsa     *repositorioAceptacionPuentePrueba
 	terminal  string
+}
+
+type lectorVersionPropuestaPrueba struct {
+	expediente ports.ExpedienteParaSeleccion
+	version    uint64
+	llamadas   int
+}
+
+func (l *lectorVersionPropuestaPrueba) LeerExpedienteParaSeleccion(_ context.Context, _, _ string, version uint64) (ports.ExpedienteParaSeleccion, error) {
+	l.llamadas++
+	l.version = version
+	return l.expediente, nil
 }
 
 func nuevaPropuestaCoordinadorPrueba(t *testing.T) escenarioPropuestaPrueba {
@@ -226,6 +238,19 @@ func TestPropuestaFormalizacionDesarrolloRecuperaConVersionAvanzada(t *testing.T
 	}
 }
 
+func TestPropuestaFormalizacionDesarrolloLeePreimagenSolicitadaN(t *testing.T) {
+	f := nuevaPropuestaCoordinadorPrueba(t)
+	lector := &lectorVersionPropuestaPrueba{expediente: f.lector.expediente}
+	f.ejecutor.lector = lector
+	s := f.solicitud.Clonar()
+	s.VersionEsperada = 7
+	r, err := f.ejecutor.PrepararYConfirmar(f.ctx, s)
+	if !errors.Is(err, application.ErrPropuestaFormalizacionNoDisponible) || !r.EsCero() ||
+		lector.llamadas != 1 || lector.version != s.VersionEsperada || f.registro.confirmaciones != 0 {
+		t.Fatal("la preimagen N se confundió con una versión histórica", err)
+	}
+}
+
 func TestPropuestaFormalizacionDesarrolloNoGuardaSinAceptacionBolsa(t *testing.T) {
 	f := nuevaPropuestaCoordinadorPrueba(t)
 	delete(f.bolsa.filas, f.terminal)
@@ -286,5 +311,30 @@ func TestPropuestaFormalizacionDesarrolloModosAutoridadExclusivos(t *testing.T) 
 	a.aceptacionBolsa = true
 	if a.modoResolucionOContinuacionValido(httpinterno.RutaPropuestaFormalizacion) {
 		t.Fatal("dos permisos mezclados")
+	}
+}
+
+func TestPropuestaFormalizacionTrasSubsanacionAutoridadYReplay(t *testing.T) {
+	f := nuevaPropuestaCoordinadorPrueba(t)
+	f.lector.expediente.Fiscalizado = expedienteTrasSubsanacionPrueba(t, f.lector.expediente.Fiscalizado)
+	f.lector.expediente.VersionActual = 8
+	f.solicitud.VersionEsperada = 8
+	f.registro.antecedente.Justificante.Seleccion.VersionExpediente = 8
+	guardados := f.bolsa.guardados
+	primero, err := f.ejecutor.PrepararYConfirmar(f.ctx, f.solicitud)
+	if err != nil || primero.ValidarPara(f.solicitud) != nil || primero.VersionResultante != 9 {
+		t.Fatal("propuesta tras subsanación", err)
+	}
+	f.lector.expediente.VersionActual = 9
+	replay, err := f.ejecutor.PrepararYConfirmar(f.ctx, f.solicitud)
+	if err != nil || !replay.EsReplayConfirmado() || replay.ReciboLocalRef != primero.ReciboLocalRef ||
+		replay.ConfirmadaEn != primero.ConfirmadaEn || f.bolsa.guardados != guardados ||
+		f.registro.consultas != 2 || f.registro.confirmaciones != 2 {
+		t.Fatal("recuperación N o autoridad", err)
+	}
+	cruzada := f.solicitud.Clonar()
+	cruzada.VersionEsperada = 6
+	if f.registro.antecedente.ValidarPara(cruzada) == nil {
+		t.Fatal("antecedente de distinta versión admitido")
 	}
 }

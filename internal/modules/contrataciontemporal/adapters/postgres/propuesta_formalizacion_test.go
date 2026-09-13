@@ -133,6 +133,28 @@ func TestPropuestaFormalizacionPGConsultaConfirmacionYReplay(t *testing.T) {
 	}
 }
 
+func TestPropuestaFormalizacionPGDespachaV2SoloParaVersionPosterior(t *testing.T) {
+	s, _, m, resultado := datosPropuestaPGPrueba(t)
+	s.VersionEsperada = 7
+	m.Solicitud.VersionEsperada = 7
+	resultado.Solicitud.VersionEsperada, resultado.VersionResultante = 7, 8
+	if m.Validar() != nil || resultado.ValidarPara(s) != nil {
+		t.Fatal("fixture N inválido")
+	}
+	jsonResultado, _ := json.Marshal(resultado)
+	tx := &transaccionEjecucionSeleccionO6Prueba{fila: filaEjecucionSeleccionO6Prueba{valores: []any{string(jsonResultado)}}}
+	p := &proveedorPropuestaPGPrueba{material: m, autorizar: func(_ context.Context, material ports.MaterialPropuestaFormalizacion) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+		return materialPropuestaPGPrueba(t, material, AccionPropuestaFormalizacion), nil
+	}}
+	repo := &RegistroPropuestaFormalizacionPostgreSQL{pool: &iniciadorEjecucionSeleccionO6Prueba{tx: tx}, proveedor: p}
+	obtenido, err := repo.ConfirmarPropuesta(context.Background(), s)
+	if err != nil || !reflect.DeepEqual(obtenido, resultado) || len(tx.consultas) != 1 ||
+		!strings.Contains(tx.consultas[0], "registrar_propuesta_formalizacion_v2(") ||
+		strings.Contains(tx.consultas[0], "registrar_propuesta_formalizacion_v1(") {
+		t.Fatal("despacho v2", err)
+	}
+}
+
 func TestPropuestaFormalizacionPGSucesorNormalizaUTCNoTrunca(t *testing.T) {
 	s, a, _, _ := datosPropuestaPGPrueba(t)
 	_, _, c := datosContinuacionPG(t)

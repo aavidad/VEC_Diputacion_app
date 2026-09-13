@@ -189,9 +189,13 @@ export function montarFormularioLlamamiento({
     return estado.resolucion.recibo?.respuesta === "renuncia"
       && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente";
   }
+  function versionFiscalizadaPermitePropuesta() {
+    const version = estado.seleccion.solicitud?.version_esperada;
+    return Number.isSafeInteger(version) && version >= 6 && version < Number.MAX_SAFE_INTEGER;
+  }
   function puedeProponer() {
     return estado.propuesta.aceptacion?.respuesta === "aceptacion"
-      && estado.seleccion.solicitud?.version_esperada === 6;
+      && versionFiscalizadaPermitePropuesta();
   }
   async function prepararPropuesta(aceptacion) {
     const paso = estado.propuesta;
@@ -364,7 +368,7 @@ export function montarFormularioLlamamiento({
           resolucion_ref: recibo.resolucion_ref, intencion_ref: recibo.intencion_siguiente.referencia };
       }
       if (esResolucion(operacion) && recibo.respuesta === "aceptacion"
-        && estado.seleccion.solicitud?.version_esperada === 6) await prepararPropuesta(paso);
+        && versionFiscalizadaPermitePropuesta()) await prepararPropuesta(paso);
       if (operacion === "siguiente" && estado.comunicacion_siguiente.solicitud === null) {
         estado.comunicacion_siguiente.valores = {
           ...estado.comunicacion_siguiente.valores,
