@@ -1,5 +1,44 @@
 # Manual funcional del técnico de Recursos Humanos
 
+Los seis borradores conservan una propuesta posterior a la subsanación cuando
+el detalle autorizado añade su resolución y la anotación administrativa siguiente.
+La consulta solicita la versión actual y el renderer identifica la propuesta por
+la cadena de actuaciones: por ejemplo, propuesta v9 desde detalle v10 o v11.
+El documento indica la versión consultada; no promete bytes idénticos al emitido
+en v9. La recuperación original de propuesta v7 conserva su fachada existente.
+
+Los seis archivos coinciden con la entrega revisada `563c7aa4`; pasaron 18 pruebas
+web y las pruebas focales y vet del renderer. No añade SQL ni permisos. El recorrido
+de una nueva propuesta persistida continúa pendiente de CT93–96; no se atribuye
+otra descarga real a esta integración.
+
+Subsanación demostrada el 13 de septiembre de 2026: formulario real, registro
+HTTP 201 y expediente `9511d16d…` de v6 a v7, con siete actuaciones y recibo visible.
+Se conservan `subsanacion_unidad` e `incidencia`; la corrección no aprueba la
+fiscalización. Tras reiniciar la misma aplicación y PostgreSQL, la petición
+original recuperó los once campos del mismo recibo y fecha, sin duplicados.
+El contrato HTTP actual devuelve 201 también al recuperar esa operación.
+
+Antes y después del reinicio coincidieron 118 tablas/secuencias de Contratación
+y Personal. Tras las nuevas consultas de navegador, permanecieron idénticos los
+113 objetos de negocio y una sola reserva de subsanación; se añadieron tres
+registros de acceso auditados y dos alcances. En 1440/390 no hubo desbordamiento
+ni errores JavaScript. El primer arnés de recuperación falló al leer `status`;
+se conservó su intento y se corrigió sin cambiar la petición ni su clave.
+
+AD3-38 y CT92 están instaladas con historia: no reaplicar UP ni DOWN. La causa
+de indisponibilidad era la clave del motivo: el contrato PostgreSQL exige el
+perfil V2. La configuración corregida obtuvo dos revisiones y validación SQL
+de solo lectura antes de publicarse por el arranque existente. El cargador
+valida ahora ese perfil y registra únicamente etapas y códigos SQLSTATE acotados.
+Código integrado en `cd1861f0`; pruebas focales y vet de bootstrap satisfactorios.
+El binario activo `31c8aa9b…` conserva la base funcional `6f36d8e5` con este parche,
+y su configuración devuelve 200 con subsanación disponible.
+
+CT93–96 están integradas como fuente revisada, pendientes de ensayo e instalación
+para continuar la fiscalización y las operaciones posteriores. El contador
+mantiene 6/19 pantallas terminadas: el circuito completo de reparos sigue parcial.
+
 Tras registrar una propuesta, «Ver expediente actualizado» recupera el detalle
 mediante las consultas autorizadas existentes. Si falla la lectura, conserva el
 recibo y permite reintentar sin repetir la propuesta. La prueba focal reproduce

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -48,20 +49,24 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 
 func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependenciasAltaContratacionTemporalDesarrollo) error {
 	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(f.configuracion.MotivoAutorizacion) {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.dependencias")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	v, err := f.soporte.contexto.Vinculo.Datos()
 	if err != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.vinculo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	i, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, f.soporte.reloj.Ahora(), "tecnico_rrhh_subsanacion_desarrollo", "Tecnico RRHH de subsanacion de desarrollo", "asignacion-rrhh-subsanacion-desarrollo-no-autoritativa", []vecdomain.ConcesionRol{{Accion: string(domain.AccionRegistrarSubsanacionReparo), ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoSubsanacionReparo, Finalidades: []string{ports.FinalidadRegistrarSubsanacionReparo}, GarantiaMinima: vecdomain.AuthAssuranceHigh}}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 	if err != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.instantanea")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(f.soporte.reloj.Ahora())
 	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []vecdomain.ReferenciaEntradaCatalogo{f.configuracion.MotivoAutorizacion}, desde) != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.catalogo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
 	f.soporte.mu.Lock()
