@@ -255,6 +255,26 @@ function instanteUTCValido(valor) {
     && Number(partes[4]) <= 59;
 }
 
+/** Datos previos de presentación: no contienen una prueba RC ni autorizan efectos. */
+export function validarDatosPreviosAnalisis(entrada) {
+  exigirCamposExactos(entrada, [
+    "modalidad_clave", "categoria_ref", "causa_clave", "periodo", "porcentaje_jornada",
+  ], "datos previos del análisis");
+  if (!claveValida(entrada.modalidad_clave) || !referenciaValida(entrada.categoria_ref)
+    || !claveValida(entrada.causa_clave) || !periodoValido(entrada.periodo)
+    || !Number.isSafeInteger(entrada.porcentaje_jornada)
+    || entrada.porcentaje_jornada < 1 || entrada.porcentaje_jornada > 10_000) {
+    throw new TypeError("datos previos del análisis no válidos");
+  }
+  return Object.freeze({
+    modalidad_clave: entrada.modalidad_clave,
+    categoria_ref: entrada.categoria_ref,
+    causa_clave: entrada.causa_clave,
+    periodo: Object.freeze({ inicio: entrada.periodo.inicio, fin: entrada.periodo.fin }),
+    porcentaje_jornada: entrada.porcentaje_jornada,
+  });
+}
+
 function validarAnalisis(analisis) {
   exigirCamposExactos(analisis, [
     "modalidad_clave",

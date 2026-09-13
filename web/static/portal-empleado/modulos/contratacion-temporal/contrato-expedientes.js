@@ -1,3 +1,5 @@
+import { validarDatosPreviosAnalisis } from "./contrato-analisis.js";
+
 /**
  * Proyecciones cerradas del cuadro y el expediente de contratación temporal.
  *
@@ -501,11 +503,13 @@ export function versionPropuestaDocumentalValida(entrada) {
 
 export function validarExpedienteContratacionTemporal(entrada) {
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
+  const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
   const tieneHistorial = esRegistro(entrada) && Object.hasOwn(entrada, "historial");
   exigirCamposExactos(entrada, [
     "esquema", "demostracion", "expediente_ref", "numero_visible", "version",
     "flujo_ref", "flujo_version", "flujo_huella", "cabecera", "fases", "tareas",
     ...(tieneHistorial ? ["historial"] : []),
+    ...(tieneAnalisisPrevio ? ["analisis_previo"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
   ], "expediente de contratación temporal");
   if (entrada.esquema !== ESQUEMA_EXPEDIENTE || typeof entrada.demostracion !== "boolean"
@@ -564,6 +568,7 @@ export function validarExpedienteContratacionTemporal(entrada) {
     ), "clave", "cabecera"),
     fases,
     ...(tieneHistorial ? { historial } : {}),
+    ...(tieneAnalisisPrevio ? { analisis_previo: validarDatosPreviosAnalisis(entrada.analisis_previo) } : {}),
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),
   });

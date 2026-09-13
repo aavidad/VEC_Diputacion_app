@@ -431,6 +431,12 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   const expedienteConAnalisis = validarExpedienteContratacionTemporal({
     ...expediente,
     demostracion: false,
+    analisis_previo: {
+      modalidad_clave: "sustitucion", categoria_ref: "categoria:rrhh:001",
+      causa_clave: "sustitucion",
+      periodo: { inicio: "2027-01-01T00:00:00Z", fin: "2027-03-31T00:00:00Z" },
+      porcentaje_jornada: 7500,
+    },
     cabecera: [...expediente.cabecera, {
       clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
       control: "solo_lectura", obligatorio: false, opciones: [],
@@ -472,6 +478,10 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   const formulario = escenario.raiz.obtenerRectificacion();
   assert.ok(formulario);
   assert.match(formulario.innerHTML, /Rectificar análisis de RRHH/u);
+  assert.match(formulario.innerHTML, /value="2027-01-01"/u);
+  assert.match(formulario.innerHTML, /value="2027-03-31"/u);
+  assert.match(formulario.innerHTML, /value="7500"/u);
+  assert.equal(solicitudes.length, 0);
   cliente.rectificarAnalisis = () => {
     throw new Error("la composición debe usar el método de rectificación capturado");
   };

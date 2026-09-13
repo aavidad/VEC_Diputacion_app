@@ -297,6 +297,13 @@ function proyectarExpediente(detalle, locale, catalogos, t) {
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
     cabecera: cabeceraDetalle(detalle, locale, catalogos, t),
+    ...(detalle.analisis ? { analisis_previo: {
+      modalidad_clave: detalle.analisis.modalidad_clave,
+      categoria_ref: detalle.analisis.categoria_ref,
+      causa_clave: detalle.analisis.causa_clave,
+      periodo: { inicio: detalle.analisis.periodo_inicio, fin: detalle.analisis.periodo_fin },
+      porcentaje_jornada: detalle.analisis.porcentaje_jornada,
+    } } : {}),
     fases: (detalle.presentacion_flujo?.fases ?? []).map((fase) => ({
       fase_ref: `presentacion:${detalle.presentacion_flujo.referencia}:${fase.clave}`,
       orden: fase.orden,

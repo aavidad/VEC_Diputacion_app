@@ -436,3 +436,27 @@ test("el componente no contiene transporte, autoridad de navegador ni persistenc
   assert.match(fuente, /rectificarAnalisis/u);
   assert.match(fuente, /AbortController/u);
 });
+
+
+test("la rectificación prellena datos anteriores sin seleccionar RC, grupo ni motivo", async () => {
+  const solicitudes = [];
+  const escenario = montar({
+    operacion: "rectificar",
+    cliente: { rectificarAnalisis(solicitud) { solicitudes.push(solicitud); } },
+    extras: { datosPrevios: {
+      modalidad_clave: "sustitucion", categoria_ref: "categoria:rrhh:001",
+      causa_clave: "sustitucion",
+      periodo: { inicio: "2027-01-01T00:00:00Z", fin: "2027-03-31T00:00:00Z" },
+      porcentaje_jornada: 7500,
+    } },
+  });
+  assert.match(escenario.raiz.innerHTML, /value="sustitucion" selected/u);
+  assert.match(escenario.raiz.innerHTML, /value="2027-01-01"/u);
+  assert.match(escenario.raiz.innerHTML, /value="7500"/u);
+  assert.doesNotMatch(escenario.raiz.innerHTML, /value="(?:entrada-rc:opaca:001|A1|correccion_datos)" selected/u);
+  await escenario.enviar(crearValores({
+    entrada_rc_referencia: "", grupo_subgrupo: "", motivo_rectificacion_clave: "",
+  }));
+  assert.equal(solicitudes.length, 0);
+  escenario.desmontar();
+});

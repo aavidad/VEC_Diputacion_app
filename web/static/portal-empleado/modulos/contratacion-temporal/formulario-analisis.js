@@ -1,4 +1,5 @@
 import {
+  validarDatosPreviosAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
@@ -15,7 +16,7 @@ const CLAVES_MODALIDADES_RRHH = new Set([
   "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
 ]);
 const CAMPOS_CONFIGURACION = new Set([
-  "raiz", "cliente", "contexto", "catalogos", "analisisInicial",
+  "raiz", "cliente", "contexto", "catalogos", "analisisInicial", "datosPrevios",
   "generarClaveIdempotencia", "mensajes", "locale", "zonaHoraria", "anunciar",
 ]);
 const CLAVES_ETIQUETA = Object.freeze({
@@ -391,7 +392,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   }
   let {
     raiz, cliente, contexto: contextoEntrada, catalogos: catalogosEntrada,
-    analisisInicial = null, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
+    analisisInicial = null, datosPrevios = null, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
   } = configuracion;
   configuracion = null;
@@ -427,6 +428,25 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       throw new TypeError("análisis inicial ajeno a los catálogos");
     }
   }
+  if (datosPrevios !== null) {
+    if (!rectificacion || analisisInicial !== null) throw new TypeError("datos previos incompatibles");
+    const previo = validarDatosPreviosAnalisis(datosPrevios);
+    borrador = {
+      ...borrador,
+      modalidad_clave: previo.modalidad_clave,
+      categoria_ref: previo.categoria_ref,
+      causa_clave: previo.causa_clave,
+      inicio: previo.periodo.inicio.slice(0, 10),
+      fin: previo.periodo.fin.slice(0, 10),
+      porcentaje_jornada: String(previo.porcentaje_jornada),
+    };
+    // Una opción histórica retirada debe seleccionarse de nuevo en el catálogo vigente.
+    const erroresPrevios = validarBorrador(borrador, catalogos, false);
+    for (const campo of ["modalidad_clave", "categoria_ref", "causa_clave"]) {
+      if (erroresPrevios[campo]) borrador[campo] = "";
+    }
+  }
+  datosPrevios = null;
   let raizActual = raiz;
   let clienteActual = cliente;
   let anunciarActual = anunciar;

@@ -1691,7 +1691,7 @@ export async function montarModuloContratacionTemporal({
     });
   }
 
-  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial) {
+  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {
     if (!contenedor) return null;
     if (typeof desmontarAnalisis === "function") return true;
     const sesion = {
@@ -1721,6 +1721,7 @@ export async function montarModuloContratacionTemporal({
         contexto,
         catalogos: composicionAnalisis.catalogos,
         analisisInicial,
+        datosPrevios,
         mensajes,
         locale,
         zonaHoraria,
@@ -1734,7 +1735,7 @@ export async function montarModuloContratacionTemporal({
       mostrarErrorMontaje(
         contenedor,
         "analisis",
-        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial),
+        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios),
       );
       return null;
     }
@@ -1780,6 +1781,7 @@ export async function montarModuloContratacionTemporal({
           artefacto_ref: composicionAnalisis.rectificacion.artefacto_ref,
         }),
         null,
+        estado.expediente.analisis_previo ?? null,
       );
     }
     const contexto = Object.freeze({

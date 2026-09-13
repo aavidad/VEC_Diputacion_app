@@ -433,8 +433,12 @@ test("distingue el período solicitado del revisado por RRHH sin sustituir el an
   assert.equal(analizado.etiqueta, "Período analizado por RRHH");
   assert.match(solicitado.valor, /2027/u);
   assert.match(analizado.valor, /2026/u);
+  assert.equal(detalle.analisis_previo.periodo.inicio, "2026-09-04T00:00:00Z");
+  assert.equal(detalle.analisis_previo.porcentaje_jornada, 10000);
+  assert.equal(Object.hasOwn(detalle.analisis_previo, "entrada_rc"), false);
   conAnalisis = false;
   const sinAnalisis = await adaptador.obtener(resumen.expediente_ref);
   assert.deepEqual(sinAnalisis.cabecera.find(c => c.clave === "periodo"), solicitado);
   assert.equal(sinAnalisis.cabecera.some(c => c.clave === "periodo_analizado"), false);
+  assert.equal(Object.hasOwn(sinAnalisis, "analisis_previo"), false);
 });
