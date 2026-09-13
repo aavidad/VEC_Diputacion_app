@@ -10,8 +10,9 @@ export function renderizarLlamamiento(estado, t, fecha) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function resumenResultado() {
-    const declaracion = estado.respuesta.recibo;
-    const resolucion = estado.resolucion.recibo;
+    const esSucesor = Boolean(estado.siguiente?.recibo);
+    const declaracion = estado[esSucesor ? "respuesta_siguiente" : "respuesta"].recibo;
+    const resolucion = estado[esSucesor ? "resolucion_siguiente" : "resolucion"].recibo;
     if (!declaracion && !resolucion) return "";
     const declaracionTexto = declaracion
       ? t("llamamiento_resultado_declaracion_registrada", {
@@ -25,9 +26,9 @@ export function renderizarLlamamiento(estado, t, fecha) {
       : t("llamamiento_resultado_circuito_pendiente");
     let siguiente = t("llamamiento_resultado_siguiente_resolucion");
     if (resolucion?.respuesta === "renuncia") {
-      siguiente = estado.siguiente.recibo
-        ? t("llamamiento_resultado_siguiente_aviso")
-        : t("llamamiento_resultado_siguiente_continuacion");
+      siguiente = t(esSucesor
+        ? "llamamiento_resultado_sucesor_renuncia_pendiente"
+        : "llamamiento_resultado_siguiente_continuacion");
     } else if (resolucion?.respuesta === "aceptacion") {
       siguiente = estado.propuesta.recibo
         ? t("llamamiento_resultado_siguiente_propuesta_registrada")
@@ -36,7 +37,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
     return `<section class="ct-llamamiento-resultado" role="status" aria-live="polite"
       aria-labelledby="ct-llamamiento-resultado-titulo">
       <div><p class="sobrelinea">${e(t("llamamiento_resultado_sobrelinea"))}</p>
-        <h3 id="ct-llamamiento-resultado-titulo">${e(t("llamamiento_resultado_titulo"))}</h3></div>
+        <h3 id="ct-llamamiento-resultado-titulo">${e(t(esSucesor ? "llamamiento_resultado_titulo_sucesor" : "llamamiento_resultado_titulo"))}</h3></div>
       <dl><div><dt>${e(t("llamamiento_resultado_declaracion"))}</dt><dd>${e(declaracionTexto)}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>

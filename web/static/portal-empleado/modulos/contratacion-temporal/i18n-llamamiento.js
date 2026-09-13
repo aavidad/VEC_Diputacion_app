@@ -70,6 +70,8 @@ export const MENSAJES_LLAMAMIENTO_ES = Object.freeze({
   llamamiento_respuesta_recibo: "Recibo de la declaración de RRHH",
   llamamiento_recibo_respuesta_ayuda: "Constan la respuesta, referencia y huella declaradas. El original sigue en el sistema de correo; VEC no conserva su contenido ni verifica origen, firma o custodia. No acredita envío ni entrega, no resuelve aceptación o renuncia y no cambia la candidatura ni la versión del expediente.",
   llamamiento_resultado_sobrelinea: "Resultado del llamamiento",
+  llamamiento_resultado_titulo_sucesor: "Estado de la respuesta del sucesor",
+  llamamiento_resultado_sucesor_renuncia_pendiente: "La intención de continuación está pendiente. Consulte el recibo; todavía no hay otra apertura disponible en esta pantalla.",
   llamamiento_resultado_titulo: "Estado de la respuesta y del circuito",
   llamamiento_resultado_declaracion: "Declaración de RRHH",
   llamamiento_resultado_declaracion_registrada: "{respuesta}; recibo recuperable registrado.",

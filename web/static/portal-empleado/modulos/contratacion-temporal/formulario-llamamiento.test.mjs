@@ -773,6 +773,11 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
   const resultado = raiz.innerHTML.match(/<section[^>]*data-ct-llamamiento-recibo="resolucion_siguiente"[\s\S]*?<\/section>/u)[0];
   assert.match(resultado, new RegExp(`${respuesta === "aceptacion" ? "Aceptación" : "Renuncia"} del sucesor registrada · ejercicio sintético`, "u"));
   assert.match(resultado, /recibo:resolucion:sucesor:002|2026-09-05T09:10:00.123456Z/u);
+  const resumen = raiz.innerHTML.match(/<section class="ct-llamamiento-resultado"[\s\S]*?<\/section>/u)[0];
+  assert.match(resumen, /Estado de la respuesta del sucesor/u);
+  assert.match(resumen, new RegExp(`Resolución de ${respuesta === "aceptacion" ? "aceptación" : "renuncia"}; circuito confirmado`, "u"));
+  assert.doesNotMatch(resumen, /Registrar el aviso local del sucesor/u);
+  if (respuesta === "renuncia") assert.match(resumen, /todavía no hay otra apertura disponible/u);
   if (respuesta === "renuncia") {
     assert.match(resultado, /intencion:sucesor:003/u); assert.match(resultado, /No se ha seleccionado ni avisado a otra persona/u);
     assert.doesNotMatch(resultado, /Recibo histórico de renuncia/u);
