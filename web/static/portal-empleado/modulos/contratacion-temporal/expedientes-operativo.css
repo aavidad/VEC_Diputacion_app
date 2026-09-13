@@ -31,6 +31,7 @@
 
 .ct-exp-mis-tareas ul {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--portal-espacio-2);
   margin: 0;
   padding: 0;
@@ -48,11 +49,19 @@
 
 .ct-exp-mis-tareas li {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--portal-espacio-2);
   padding-block: var(--portal-espacio-2);
   border-block-end: 1px solid var(--portal-borde);
+}
+
+.ct-exp-mis-tareas li > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ct-exp-mis-tareas span,
