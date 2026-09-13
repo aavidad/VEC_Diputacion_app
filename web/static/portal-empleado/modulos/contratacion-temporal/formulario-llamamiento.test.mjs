@@ -876,6 +876,11 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   const confirmacion = confirmaciones.at(-1);
   assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u")); assert.match(confirmacion.advertencia, /no cambia la candidatura/iu); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   assert.match(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
+  assert.match(raiz.innerHTML, /Estado de la respuesta y del circuito/u);
+  assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
+  assert.match(raiz.innerHTML, /Pendiente de revisión y resolución expresa por RRHH/u);
+  assert.match(raiz.innerHTML, /La declaración no equivale a resolución/u);
+  assert.match(raiz.innerHTML, /no calcula plazos ni caducidades/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
   cerrar();
