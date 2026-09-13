@@ -23,13 +23,21 @@ los documentos del caso original. Navegador a 1440/390 px sin errores JavaScript
 ni desbordamiento. El aviso es local y la aceptación es manual sintética: sin
 SMTP, entrega externa, plazo legal, firma ni nombramiento eficaz acreditados.
 
-El contador permanece en **15/19**. La escritura y autorización de rectificación
-de Análisis están compuestas en `f0a0b7db` (`fad61fa8` en la rama de apoyo), con
-dos revisiones independientes y pruebas focalizadas favorables. El código aún no
-está activado: falta configurar la publicación de motivos admitida y recorrer
-una rectificación con un actor distinto al autor del análisis. El material activo
-solo contiene un técnico de RRHH; añadir otro con el mismo rol sin adaptar la
-composición impide el arranque. No se elimina la separación de actores.
+El contador permanece en **15/19**. La rectificación está compuesta y activa;
+el parche `1720e4fe` (remoto `ee96e6ac`) publica su motivo de autorización en
+un catálogo propio, conservando el catálogo de registro v1. Dos revisiones
+independientes y pruebas focales favorables. Activación comprobada: ambos
+catálogos v1 tienen su entrada y el detalle vuelve a responder `200`, versión 2.
+No se reinició PostgreSQL; expediente, reserva e historial de negocio intactos.
+
+Un caso preexistente con autor de análisis distinto permite mantener la separación
+de actores sin crear identidades. Su primer intento de rectificación devolvió
+`503` antes del parche; la recuperación con la misma petición y clave devuelve
+`409`. La reserva pendiente conserva la huella del artefacto original, mientras
+el reintento genera otras fechas y huella. Falta recuperación durable de esa
+reserva con pruebas y autorización frescas; no borrar la reserva ni sustituir
+la clave para ocultar el conflicto. El catálogo funcional activo es sintético,
+sin aprobación jurídica de RRHH ni efectos legales acreditados.
 CT93–96 siguen instaladas una sola vez; no reaplicar migraciones.
 
 
@@ -50,7 +58,7 @@ La propuesta conserva `propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`, el recib
 No se creó otra propuesta ni se reiniciaron servicios en este corte. No acredita
 traslado externo, envío de correo, firma, plazo legal ni nombramiento eficaz.
 Resultado conserva pendiente el vencimiento con inicio y plazo gobernados; Análisis
-mantiene pendiente el recorrido de rectificación con catálogo y actor distinto,
+mantiene pendiente cerrar la rectificación y recuperar su reserva pendiente,
 y Firma espera su circuito.
 
 Hay **16 superficies reales visibles (84 %)**, incluida la subsanación ya recorrida.
@@ -121,7 +129,7 @@ para el caso sintético en `148d075e`.
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Terminada en desarrollo | 0 % | Dirección: conservación | 52 filas autorizadas y filtros vacío/completados HTTP200; acciones ligadas a la página. CSS253c4d63 probado a1440/390, sin desbordamiento global y tabla con scroll interno. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Apoyo: catálogo, actor distinto y recorrido de rectificación | Registro normal201 v1→v2, cinco modalidades localizadas y consulta posterior200 con RCvalidada/dos actuaciones. Escritura/autorización de rectificación publicadas en f0a0b7db; pendientes fuente de motivos admitida, caso con actor distinto y recorrido web. No activada. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Director local: recuperación de reserva y formulario | Registro normal201 v1→v2 y consulta200. Rectificación activa con catálogo sintético y actor distinto; motivo de autorización corregido y publicado. El intento previo conserva reserva pendiente: recuperar misma petición/clave devuelve409. Falta cerrar ese recorrido; no se cuenta como terminada. |
 | 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
