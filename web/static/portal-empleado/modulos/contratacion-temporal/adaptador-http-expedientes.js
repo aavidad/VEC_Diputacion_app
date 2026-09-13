@@ -220,10 +220,11 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
     campo("estado", "Estado", etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", "Grupo/Subgrupo", solicitud.grupo_subgrupo),
     campo("motivo", "Motivo", etiqueta(solicitud.motivo_clave, t)),
-    campo("periodo", "Periodo previsto", `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
+    campo("periodo", t("cabecera_periodo_solicitado"), `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
   ];
   if (detalle.analisis) {
     campos.push(
+      campo("periodo_analizado", t("cabecera_periodo_analizado"), `${fechaCivil(detalle.analisis.periodo_inicio, locale)} — ${fechaCivil(detalle.analisis.periodo_fin, locale)}`),
       campo("causa", "Causa analizada", etiqueta(detalle.analisis.causa_clave, t)),
       campo("jornada", "Jornada", new Intl.NumberFormat(locale, {
         style: "percent", maximumFractionDigits: 2,
