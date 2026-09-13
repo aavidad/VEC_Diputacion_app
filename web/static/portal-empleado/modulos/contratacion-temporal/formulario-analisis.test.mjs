@@ -23,7 +23,13 @@ test.after(() => { globalThis.FormData = FORM_DATA_ORIGINAL; });
 
 function crearCatalogos() {
   return {
-    modalidades: [{ clave: "interinidad", etiqueta: "Interinidad" }],
+    modalidades: [
+      { clave: "sustitucion", etiqueta: "Sustitución" },
+      { clave: "vacante", etiqueta: "Vacante" },
+      { clave: "acumulacion_tareas", etiqueta: "Acumulación de tareas" },
+      { clave: "programa", etiqueta: "Programa temporal" },
+      { clave: "relevo", etiqueta: "Contrato de relevo" },
+    ],
     categorias: [{
       referencia: "categoria:rrhh:001",
       etiqueta: "Técnica o técnico superior",
@@ -53,7 +59,7 @@ function crearContexto(operacion = "registrar") {
 
 function crearValores(sobrescrituras = {}) {
   return {
-    modalidad_clave: "interinidad",
+    modalidad_clave: "sustitucion",
     categoria_ref: "categoria:rrhh:001",
     grupo_subgrupo: "A1",
     causa_clave: "sustitucion",
@@ -154,6 +160,16 @@ test("la configuración y el contexto son cerrados y no aceptan autoridad del fo
     catalogos: crearCatalogos(),
     perfil: "rrhh",
   }), /configuración del formulario/u);
+  const catalogosIncompletos = crearCatalogos();
+  catalogosIncompletos.modalidades[4] = {
+    clave: "otra_modalidad", etiqueta: "Otra modalidad",
+  };
+  assert.throws(() => montarFormularioAnalisisRRHH({
+    raiz: raiz.raiz,
+    cliente,
+    contexto: crearContexto(),
+    catalogos: catalogosIncompletos,
+  }), /modalidades/u);
 });
 
 test("la vista usa controles gobernados, etiquetas, ayudas y regiones vivas", () => {
@@ -198,7 +214,7 @@ test("registrar envía una sola vez el DTO exacto y presenta el recibo verificad
     clave_idempotencia: UUID,
     artefacto_ref: "artefacto:opaco:001",
     analisis: {
-      modalidad_clave: "interinidad",
+      modalidad_clave: "sustitucion",
       categoria_ref: "categoria:rrhh:001",
       grupo_subgrupo: "A1",
       causa_clave: "sustitucion",

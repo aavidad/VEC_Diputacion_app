@@ -11,6 +11,9 @@ const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/u;
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
 const MAXIMO_OPCIONES = 100;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
+const CLAVES_MODALIDADES_RRHH = new Set([
+  "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
+]);
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "catalogos", "analisisInicial",
   "generarClaveIdempotencia", "mensajes", "locale", "zonaHoraria", "anunciar",
@@ -91,6 +94,10 @@ function normalizarCatalogos(entrada, rectificacion) {
   const modalidades = normalizarOpciones(entrada.modalidades, {
     nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
   });
+  if (modalidades.length !== CLAVES_MODALIDADES_RRHH.size
+    || modalidades.some(({ clave }) => !CLAVES_MODALIDADES_RRHH.has(clave))) {
+    throw new TypeError("modalidades no válida");
+  }
   const causas = normalizarOpciones(entrada.causas, {
     nombre: "causas", campo: "clave", patron: PATRON_CLAVE,
   });
