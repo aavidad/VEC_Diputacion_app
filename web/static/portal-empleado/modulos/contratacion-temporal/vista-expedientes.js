@@ -377,6 +377,30 @@ function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t, locale
   </section>`;
 }
 
+function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, zonaHoraria) {
+  if (recibo?.expediente_ref !== expediente?.expediente_ref
+    || recibo?.version_resultante !== expediente?.version
+    || !["favorable", "favorable_con_observaciones", "desfavorable"].includes(recibo.resultado)
+    || typeof recibo.recibo_ref !== "string" || typeof recibo.registrada_en !== "string") return "";
+  const fecha = new Date(recibo.registrada_en);
+  if (!Number.isFinite(fecha.getTime())) return "";
+  const formateador = new Intl.DateTimeFormat(locale, {
+    dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
+  });
+  const tFiscalizacion = crearTraductorContratacionTemporal();
+  return `<section class="ct-recibo" data-ct-fiscalizacion-confirmada role="status"
+    aria-live="polite" aria-atomic="true" tabindex="-1">
+    <h3>${escaparHTML(t("fiscalizacion_confirmada_titulo"))}</h3>
+    <p>${escaparHTML(t("fiscalizacion_confirmada_descripcion"))}</p>
+    <dl><div><dt>${escaparHTML(t("fiscalizacion_confirmada_resultado"))}</dt><dd>${escaparHTML(
+      tFiscalizacion(`fiscalizacion_resultado_${recibo.resultado}`),
+    )}</dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_recibo"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_fecha"))}</dt><dd><time datetime="${escaparHTML(recibo.registrada_en)}">${escaparHTML(formateador.format(fecha))}</time></dd></div></dl>
+  </section>`;
+}
+
 function contextoInformeJuridicoDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.expediente === null
     || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
@@ -467,6 +491,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   fiscalizacionDisponible = false,
   subsanacionDisponible = false,
   reciboSubsanacionConfirmado = null,
+  reciboFiscalizacionConfirmado = null,
   llamamientoDisponible = false,
   resolucionFormalizacionDisponible = false,
   incorporacionEjercicioDisponible = false,
@@ -505,6 +530,9 @@ export function renderizarModuloContratacionTemporal(estado, {
       : renderizarReciboAsignacionConfirmada(
         reciboAsignacionConfirmado, contextoInforme, t, locale, zonaHoraria,
       );
+    const reciboFiscalizacion = renderizarReciboFiscalizacionConfirmada(
+      reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria,
+    );
     const contextoAsignacion = asignacionDisponible
       ? contextoAsignacionDesdeEstado(estado)
       : null;
@@ -528,7 +556,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
       && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
       && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
-    contenido = `${detalle}${reciboAsignacion}${contextoRectificacion
+    contenido = `${detalle}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
       ? '<div data-ct-exp-rectificacion></div>'
       : ""}${contextoCobertura
       ? '<div data-ct-exp-cobertura></div>'
@@ -653,6 +681,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarFiscalizacion = null;
   let desmontarSubsanacion = null;
   let reciboSubsanacionConfirmado = null;
+  let reciboFiscalizacionConfirmado = null;
   let reciboAsignacionConfirmado = null;
   let reciboPropuestaConfirmado = null;
   let sesionAnalisis = null;
@@ -923,11 +952,16 @@ export async function montarModuloContratacionTemporal({
         zonaHoraria,
         anunciar,
         alConfirmar: (recibo) => {
-          if (recibo.resultado !== "desfavorable" && recibo.version_resultante >= 6) {
-            montarLlamamiento({
-              expediente_ref: recibo.expediente_ref,
-              version_esperada: recibo.version_resultante,
-            });
+          try {
+            if (recibo.resultado !== "desfavorable" && recibo.version_resultante >= 6) {
+              montarLlamamiento({
+                expediente_ref: recibo.expediente_ref,
+                version_esperada: recibo.version_resultante,
+              });
+            }
+          } finally {
+            // El refresco conserva el recibo aunque el paso siguiente no pueda montarse.
+            void refrescarDetalleTrasFiscalizacion(recibo);
           }
         },
       });
@@ -1001,6 +1035,50 @@ export async function montarModuloContratacionTemporal({
       repintar("[data-ct-subsanacion-recibo]");
     } catch {
       avisarPendiente();
+    }
+  }
+
+  async function refrescarDetalleTrasFiscalizacion(recibo) {
+    const seleccionado = presentador.obtenerEstado();
+    if (!montada || recibo?.expediente_ref !== seleccionado.expediente?.expediente_ref
+      || !Number.isSafeInteger(recibo?.version_resultante)
+      || recibo.version_resultante <= seleccionado.expediente.version) return false;
+    const panel = raiz.querySelector("[data-ct-exp-fiscalizacion]");
+    if (panel === null) return false;
+    reciboFiscalizacionConfirmado = Object.freeze({ ...recibo });
+    // La identidad del panel evita reemplazar un recibo confirmado si la
+    // persona usuaria ha cambiado de expediente mientras se actualiza.
+    const sigueSeleccionado = () => montada
+      && raiz.querySelector("[data-ct-exp-fiscalizacion]") === panel;
+    const avisarPendiente = () => {
+      if (sigueSeleccionado()) anunciar(
+        crearTraductorContratacionTemporal(mensajes)("fiscalizacion_actualizacion_pendiente"),
+        "aviso",
+      );
+    };
+    try {
+      await presentador.cargar();
+      if (!sigueSeleccionado()) return false;
+      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
+        ({ expediente_ref: referencia }) => referencia === recibo.expediente_ref,
+      );
+      if (!resumen || resumen.version < recibo.version_resultante) {
+        avisarPendiente();
+        return false;
+      }
+      await presentador.seleccionarExpediente(recibo.expediente_ref, "expediente");
+      if (!sigueSeleccionado()) return false;
+      const actualizado = presentador.obtenerEstado().expediente;
+      if (actualizado?.expediente_ref !== recibo.expediente_ref
+        || actualizado.version < recibo.version_resultante) {
+        avisarPendiente();
+        return false;
+      }
+      repintar("[data-ct-exp-mensaje]");
+      return true;
+    } catch {
+      avisarPendiente();
+      return false;
     }
   }
 
@@ -1682,6 +1760,7 @@ export async function montarModuloContratacionTemporal({
       fiscalizacionDisponible,
       subsanacionDisponible,
       reciboSubsanacionConfirmado,
+      reciboFiscalizacionConfirmado,
       reciboAsignacionConfirmado,
       llamamientoDisponible,
       resolucionFormalizacionDisponible,

@@ -387,6 +387,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   fiscalizacion_estado_recuperando:
     "Recuperando el resultado original con la misma clave de idempotencia.",
   fiscalizacion_estado_confirmada: "El resultado y su recibo han quedado confirmados.",
+  fiscalizacion_actualizacion_pendiente:
+    "El resultado está confirmado y conserva su recibo. Falta actualizar el detalle antes de continuar.",
   fiscalizacion_estado_indeterminado:
     "El resultado no puede determinarse todavía. Recupere la operación original; no cree otra.",
   fiscalizacion_estado_rechazada:
