@@ -66,13 +66,16 @@ export function montarFormularioLlamamiento({
   criptografia = globalThis.crypto,
   fetchPublicaciones = globalThis.fetch,
   mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
+  alPropuestaConfirmada = () => {},
+  alActualizarPropuesta = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.removeEventListener !== "function" || typeof raiz.querySelector !== "function"
     || typeof raiz.contains !== "function" || typeof raiz.replaceChildren !== "function"
     || Object.entries(OPERACIONES).some(([operacion, { metodo }]) => operacion !== "propuesta" && typeof cliente?.[metodo] !== "function")
     || typeof confirmarOperacion !== "function" || typeof generarClaveIdempotencia !== "function"
-    || typeof anunciar !== "function") {
+    || typeof anunciar !== "function" || typeof alPropuestaConfirmada !== "function"
+    || (alActualizarPropuesta !== null && typeof alActualizarPropuesta !== "function")) {
     throw new TypeError("dependencias del formulario de llamamiento no válidas");
   }
   const t = crearTraductorContratacionTemporal(mensajes);
@@ -83,7 +86,8 @@ export function montarFormularioLlamamiento({
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     comunicacion_siguiente: { ...nuevoPaso(), claveConservada: false },
     respuesta_siguiente: { ...nuevoPaso(), claveConservada: false },
-    propuesta: { ...nuevoPaso(), aceptacion: null, disponible: false, claveConservada: false, mensaje: "llamamiento_propuesta_no_disponible" },
+    propuesta: { ...nuevoPaso(), aceptacion: null, disponible: false, claveConservada: false,
+      actualizando: false, actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" },
     siguiente: { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false },
     resolucion: nuevoPasoResolucion(), resolucion_siguiente: nuevoPasoResolucion(),
     enlazado: false, comunicacionAbierta: false };
@@ -322,6 +326,10 @@ export function montarFormularioLlamamiento({
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
+      if (operacion === "propuesta") {
+        paso.actualizacionPendiente = alActualizarPropuesta !== null;
+        try { alPropuestaConfirmada(recibo, solicitud); } catch { /* El recibo ya prevalece. */ }
+      }
       paso.mensaje = operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_recibo"
         : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo"
         : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo"
@@ -407,6 +415,31 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const actualizarPropuesta = evento.target?.closest?.("[data-ct-llamamiento-actualizar-propuesta]");
+    if (actualizarPropuesta?.dataset?.ctLlamamientoActualizarPropuesta !== undefined
+      && raiz.contains(actualizarPropuesta)) {
+      evento.preventDefault();
+      const paso = estado.propuesta;
+      if (!paso.recibo || !paso.actualizacionPendiente || paso.actualizando) return;
+      paso.actualizando = true;
+      paso.mensaje = "llamamiento_propuesta_actualizando";
+      paso.tono = "informacion";
+      repintar("propuesta");
+      return Promise.resolve().then(() => alActualizarPropuesta(paso.recibo, paso.solicitud)).then((actualizado) => {
+        if (!montado) return;
+        paso.actualizando = false;
+        if (actualizado === true) return;
+        paso.mensaje = "llamamiento_propuesta_actualizacion_pendiente";
+        paso.tono = "aviso";
+        repintar("propuesta");
+      }).catch(() => {
+        if (!montado) return;
+        paso.actualizando = false;
+        paso.mensaje = "llamamiento_propuesta_actualizacion_pendiente";
+        paso.tono = "aviso";
+        repintar("propuesta");
+      });
+    }
     const control = evento.target?.closest?.("[data-ct-llamamiento-clave]");
     if (!control || !raiz.contains(control)) return;
     evento.preventDefault();
