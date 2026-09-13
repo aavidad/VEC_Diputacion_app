@@ -23,10 +23,14 @@ los documentos del caso original. Navegador a 1440/390 px sin errores JavaScript
 ni desbordamiento. El aviso es local y la aceptación es manual sintética: sin
 SMTP, entrega externa, plazo legal, firma ni nombramiento eficaz acreditados.
 
-El contador permanece en **15/19**. La rectificación de Análisis requiere componer
-su escritura y autorización propias, además de la fuente de motivos admitida;
-no basta con configurar un catálogo. El apoyo prepara ese ensamblaje con revisión
-independiente. CT93–96 siguen instaladas una sola vez; no reaplicar migraciones.
+El contador permanece en **15/19**. La composición de Rectificación de Análisis
+está publicada en `f0a0b7db`, con dos revisiones independientes y comprobación focal
+de publicación y vigencia del motivo antes del commit. No está activada: falta el
+paquete privado de motivos publicado y acreditar un caso con actor distinto al del
+análisis anterior. La lectura de historia encuentra siete candidatos sintéticos v2
+con autor distinto; todavía no se ha ejecutado su rectificación. No se han creado
+identidades ni relajado la separación de actores. CT93–96 siguen instaladas una
+sola vez; no reaplicar migraciones.
 
 
 Traslado queda recorrido y el contador pasa a **15/19 pantallas terminadas en
