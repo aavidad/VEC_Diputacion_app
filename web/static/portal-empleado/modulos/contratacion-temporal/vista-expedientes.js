@@ -527,14 +527,24 @@ export function renderizarModuloContratacionTemporal(estado, {
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)
       : null;
-    const reciboAsignacion = contextoInforme === null ? ""
+    const reciboAsignacionPendiente = reciboAsignacionConfirmado?.expediente_ref
+      === estado.expediente?.expediente_ref
+      && Number.isSafeInteger(reciboAsignacionConfirmado.version_resultante)
+      && reciboAsignacionConfirmado.version_resultante > estado.expediente?.version;
+    const contextoReciboAsignacion = contextoInforme ?? (reciboAsignacionPendiente
+      ? Object.freeze({
+        expediente_ref: estado.expediente.expediente_ref,
+        version_esperada: reciboAsignacionConfirmado.version_resultante,
+      })
+      : null);
+    const reciboAsignacion = contextoReciboAsignacion === null ? ""
       : renderizarReciboAsignacionConfirmada(
-        reciboAsignacionConfirmado, contextoInforme, t, locale, zonaHoraria,
+        reciboAsignacionConfirmado, contextoReciboAsignacion, t, locale, zonaHoraria,
       );
     const reciboFiscalizacion = renderizarReciboFiscalizacionConfirmada(
       reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria, mensajes,
     );
-    const contextoAsignacion = asignacionDisponible
+    const contextoAsignacion = asignacionDisponible && !reciboAsignacionPendiente
       ? contextoAsignacionDesdeEstado(estado)
       : null;
     const contextoCobertura = coberturaDisponible
@@ -1506,10 +1516,13 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
-  async function refrescarDetalleTrasAsignacion(recibo) {
+  async function refrescarDetalleTrasAsignacion(recibo, solicitud) {
     const seleccionado = presentador.obtenerEstado();
     if (!montada || recibo?.expediente_ref !== seleccionado.expediente?.expediente_ref
-      || !Number.isSafeInteger(recibo?.version_resultante)) return false;
+      || !Number.isSafeInteger(recibo?.version_resultante)
+      || solicitud?.expediente_ref !== recibo.expediente_ref
+      || solicitud.version_esperada + 1 !== recibo.version_resultante
+      || typeof solicitud.unidad_ref !== "string" || !PATRON_REFERENCIA.test(solicitud.unidad_ref)) return false;
     const panel = raiz.querySelector("[data-ct-exp-asignacion]");
     if (panel === null) return false;
     reciboAsignacionConfirmado = Object.freeze({ ...recibo });
@@ -1532,7 +1545,7 @@ export async function montarModuloContratacionTemporal({
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
         || actualizado.version !== recibo.version_resultante
-        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== recibo.unidad_ref) { avisarPendiente(); return false; }
+        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== solicitud.unidad_ref) { avisarPendiente(); return false; }
       repintar("[data-ct-asignacion-confirmada]");
       return true;
     } catch {

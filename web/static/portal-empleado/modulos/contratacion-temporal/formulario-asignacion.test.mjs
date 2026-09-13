@@ -118,9 +118,11 @@ test("envía una sola asignación cerrada y muestra el recibo mínimo", async ()
 test("espera la recuperación del detalle antes de declarar disponible el siguiente paso", async () => {
   const raiz = raizFalsa();
   let recuperaciones = 0;
+  let solicitudConfirmada = null;
   montar(raiz, { asignarUnidad() { return Promise.resolve(recibo()); } }, {
-    alConfirmar: async () => {
+    alConfirmar: async (_recibo, solicitud) => {
       recuperaciones += 1;
+      solicitudConfirmada = solicitud;
       await Promise.resolve();
       return true;
     },
@@ -128,6 +130,14 @@ test("espera la recuperación del detalle antes de declarar disponible el siguie
 
   await raiz.enviar();
   assert.equal(recuperaciones, 1);
+  assert.deepEqual(solicitudConfirmada, {
+    expediente_ref: EXPEDIENTE,
+    version_esperada: 3,
+    clave_idempotencia: CLAVE,
+    unidad_ref: "unidad:desarrollo:rrhh",
+    responsable_ref: "persona:responsable-sintetica-001",
+  });
+  assert.equal(Object.isFrozen(solicitudConfirmada), true);
   assert.match(raiz.innerHTML, /data-ct-asignacion-recibo/u);
   assert.doesNotMatch(raiz.innerHTML, /no pudo abrirse/u);
 });

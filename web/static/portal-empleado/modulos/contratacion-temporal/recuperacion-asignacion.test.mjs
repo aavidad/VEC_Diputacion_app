@@ -41,6 +41,24 @@ test("conserva el recibo de asignación y abre el informe jurídico tras recuper
   assert.doesNotMatch(html, /data-ct-exp-asignacion(?:[\s>])/u);
 });
 
+test("conserva el recibo y no vuelve a ofrecer asignación si falla el GET del detalle", () => {
+  const pendiente = estado(7);
+  const html = renderizarModuloContratacionTemporal(pendiente, {
+    asignacionDisponible: true,
+    informeJuridicoDisponible: true,
+    reciboAsignacionConfirmado: {
+      expediente_ref: "expediente:ct:asignacion",
+      version_resultante: 8,
+      recibo_ref: "recibo:ct:asignacion:pendiente-001",
+      confirmada_en: "2026-09-13T10:00:00Z",
+    },
+  });
+  assert.match(html, /data-ct-asignacion-confirmada/u);
+  assert.match(html, /recibo:ct:asignacion:pendiente-001/u);
+  assert.doesNotMatch(html, /data-ct-exp-asignacion(?:[\s>])/u);
+  assert.doesNotMatch(html, /data-ct-exp-informe-juridico/u);
+});
+
 
 test("no ofrece asignación durante carga, fuera de fase o con operación cerrada", () => {
  for (const cambiar of [
