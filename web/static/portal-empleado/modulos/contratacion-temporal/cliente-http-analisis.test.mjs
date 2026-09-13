@@ -158,6 +158,14 @@ test("la configuración real exige contrato cerrado y cinco modalidades", () => 
   );
   assert.throws(
     () => validarConfiguracionAnalisis(configuracionAnalisis({
+      modalidades: [...configuracionAnalisis().modalidades.slice(0, 4), {
+        clave: "otra_modalidad", etiqueta: "Otra modalidad",
+      }],
+    })),
+    /modalidades/u,
+  );
+  assert.throws(
+    () => validarConfiguracionAnalisis(configuracionAnalisis({
       entradas_rc: [{
         ...configuracionAnalisis().entradas_rc[0],
         huella_sha256: "0".repeat(64),
