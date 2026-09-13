@@ -41,13 +41,18 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const botones = perfiles.map(({ accion }) => ({ disabled: false, dataset: {
     ctExpAccion: accion, expedienteRef: "expediente:ajeno", version: 99,
   } }));
+  const reintentos = perfiles.map(({ accion }) => ({ disabled: true, hidden: true, dataset: {
+    ctExpAccion: accion.replace("descargar-", "reintentar-descarga-"),
+  } }));
   const boton = botones.find((control) => control.dataset.ctExpAccion === perfil.accion);
   const raiz = {
     innerHTML: "", contains: () => true,
     addEventListener: (tipo, fn) => eventos.set(tipo, fn),
     removeEventListener: (tipo) => eventos.delete(tipo),
-    querySelector: (selector) => selector === "[data-ct-exp-mensaje]" ? mensaje : null,
-    querySelectorAll: (selector) => selector.includes("data-ct-exp-accion") ? botones : [],
+    querySelector: (selector) => selector === "[data-ct-exp-mensaje]" ? mensaje
+      : reintentos.find((control) => selector === `[data-ct-exp-accion="${control.dataset.ctExpAccion}"]`) ?? null,
+    querySelectorAll: (selector) => selector.startsWith('[data-ct-exp-accion^="reintentar-descarga-"]')
+      ? reintentos : selector.includes("data-ct-exp-accion") ? botones : [],
   };
   const montaje = await montarModuloContratacionTemporal({
     raiz, presentador: {
@@ -68,7 +73,7 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const click = (selector = "[data-ct-exp-accion]", control = boton) => eventos.get("click")({
     target: { closest: (buscado) => buscado === selector ? control : null }, preventDefault() {},
   });
-  return { estado, raiz, boton, botones, mensaje, montaje, click, descargas, creados, revocados };
+  return { estado, raiz, boton, botones, reintentos, mensaje, montaje, click, descargas, creados, revocados };
 }
 
 test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
@@ -124,6 +129,8 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
   assert.match(html, /Borradores de desarrollo disponibles/u);
   assert.match(html, /Seis piezas preparatorias agrupadas por formalización/u);
   assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
+  assert.match(html, /data-ct-exp-resultado-descarga="informe-definitivo"[^>]*>Aún no se ha solicitado esta descarga/u);
+  assert.match(html, /data-ct-exp-accion="reintentar-descarga-informe-definitivo" disabled hidden/u);
   for (const { accion } of perfiles) assert.match(html, new RegExp(`data-ct-exp-accion="${accion}"`, "u"));
   assert.match(html, /data-ct-exp-accion="descargar-docx-comunicacion-centro"/u);
   estado.documentos.version = 8;
@@ -314,6 +321,75 @@ test("errores conservan detalle y permiten únicamente nueva descarga explícita
     assert.equal(llamadas, 2);
     vista.montaje.desmontar();
   }
+});
+
+test("el reintento documental repite solo la consulta de la pieza que falló", async () => {
+  let llamadas = 0;
+  const vista = await montar(async () => {
+    llamadas += 1;
+    if (llamadas === 1) throw { codigo: "documento_no_disponible", envelopeValido: true };
+    return new Blob(["%PDF-1.7"], { type: "application/pdf" });
+  });
+  const reintentar = { disabled: false, hidden: false, dataset: {
+    ctExpAccion: "reintentar-descarga-informe-definitivo",
+  } };
+  await vista.click();
+  await vista.click("[data-ct-exp-accion]", reintentar);
+  assert.equal(llamadas, 2);
+  assert.deepEqual(vista.descargas, [{ href: "blob:sintetico-009", download: "informe-definitivo-borrador.pdf", hidden: true }]);
+  vista.montaje.desmontar();
+});
+
+test("una descarga posterior restaura los reintentos visibles de otra pieza", async () => {
+  const vista = await montar(async (_, opciones) => {
+    if (opciones.tipo === "informe_definitivo") {
+      throw { codigo: "documento_no_disponible", envelopeValido: true };
+    }
+    return new Blob(["%PDF-1.7"], { type: "application/pdf" });
+  });
+  const reintentoInforme = vista.reintentos[0];
+  await vista.click();
+  assert.equal(reintentoInforme.hidden, false);
+  assert.equal(reintentoInforme.disabled, false);
+  await vista.click("[data-ct-exp-accion]", vista.botones[1]);
+  assert.equal(reintentoInforme.hidden, false);
+  assert.equal(reintentoInforme.disabled, false);
+  vista.montaje.desmontar();
+});
+
+test("el reintento conserva el formato DOCX de la lectura fallida", async () => {
+  const llamadas = [];
+  const vista = await montar(async (_, opciones) => {
+    llamadas.push(opciones);
+    return new Blob(["PK\x03\x04"], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+  });
+  await vista.click("[data-ct-exp-accion]", { dataset: {
+    ctExpAccion: "reintentar-descarga-resolucion", ctExpFormato: "docx",
+  } });
+  assert.equal(llamadas.length, 1);
+  assert.equal(llamadas[0].tipo, "resolucion");
+  assert.equal(llamadas[0].formato, "docx");
+  assert.deepEqual(vista.descargas, [{ href: "blob:sintetico-009", download: "resolucion-borrador.docx", hidden: true }]);
+  vista.montaje.desmontar();
+});
+
+test("cancelar una descarga aborta su lectura sin alterar el detalle", async () => {
+  let completar, signal;
+  const vista = await montar((_, opciones) => {
+    signal = opciones.signal;
+    return new Promise((resolve) => { completar = resolve; });
+  });
+  const detalle = vista.raiz.innerHTML;
+  const pendiente = vista.click();
+  await vista.click("[data-ct-exp-accion]", { dataset: { ctExpAccion: "cancelar-descarga" } });
+  assert.equal(signal.aborted, true);
+  completar(new Blob(["%PDF-1.7"], { type: "application/pdf" }));
+  await pendiente;
+  assert.equal(vista.raiz.innerHTML, detalle);
+  assert.deepEqual(vista.descargas, []);
+  vista.montaje.desmontar();
 });
 
 test("navegar o desmontar cancela, descarta respuesta tardía y evita doble envío", async () => {
