@@ -140,8 +140,17 @@ function renderizarContenido(estado, contexto, t, formateador) {
       <p>${escaparHTML(t("cobertura_sin_via_descripcion"))}</p>
     </section>`;
   }
+  if (estado.error) {
+    return `<section class="ct-alcance" data-ct-cobertura-error role="status"
+      aria-live="assertive" aria-atomic="true" tabindex="-1">
+      <p>${escaparHTML(t("cobertura_error_descripcion"))}</p>
+      <div class="ct-acciones"><button class="boton-secundario" type="button"
+        data-ct-cobertura-accion="reintentar-propuesta"${estado.ocupado ? " disabled" : ""}>${
+  escaparHTML(t("cobertura_reintentar_propuesta"))}</button></div>
+    </section>`;
+  }
   return `<section class="ct-alcance" role="status">
-    <p>${escaparHTML(t(estado.error ? "cobertura_error_descripcion" : "cobertura_cargando_descripcion"))}</p>
+    <p>${escaparHTML(t("cobertura_cargando_descripcion"))}</p>
   </section>`;
 }
 
@@ -291,6 +300,19 @@ export function montarFormularioCobertura(configuracion = {}) {
     })();
     vuelo = tarea;
     return tarea;
+  }
+
+  function reintentarPropuesta() {
+    if (!montado || vuelo !== null || estado.ocupado || estado.recibo
+      || estado.indeterminado) return vuelo ?? Promise.resolve(null);
+    estado = {
+      ...estado,
+      error: false,
+      mensaje_clave: "cobertura_estado_cargando",
+      tipo_mensaje: "informacion",
+    };
+    repintar("[data-ct-cobertura-estado]");
+    return cargarPropuesta();
   }
 
   function confirmarDecision(formulario) {
@@ -479,10 +501,15 @@ export function montarFormularioCobertura(configuracion = {}) {
 
   function alPulsar(evento) {
     const control = evento.target?.closest?.("[data-ct-cobertura-accion]");
-    if (!control || !raizActual.contains(control)
-      || control.dataset.ctCoberturaAccion !== "consultar-resultado") return undefined;
+    if (!control || !raizActual.contains(control)) return undefined;
     evento.preventDefault();
-    return consultarResultado();
+    if (control.dataset.ctCoberturaAccion === "consultar-resultado") {
+      return consultarResultado();
+    }
+    if (control.dataset.ctCoberturaAccion === "reintentar-propuesta") {
+      return reintentarPropuesta();
+    }
+    return undefined;
   }
 
   raizActual.addEventListener("submit", alEnviar);
