@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -124,27 +125,49 @@ func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
 	}
 }
 
-func TestBorradoresRRHHAceptanPropuestaEnVersionRealNueve(t *testing.T) {
-	d := detalleInformeDefinitivoPruebaVersionNueve()
+func TestBorradoresRRHHAceptanPropuestaHistoricaTrasResolucionYAnotacion(t *testing.T) {
+	d9 := detalleInformeDefinitivoPruebaVersionNueve()
+	d10 := d9.Clonar()
+	resolucion := d10.Hitos[8]
+	resolucion.Secuencia, resolucion.VersionExpediente = 10, 10
+	resolucion.AccionClave = "registrar_resolucion_formalizacion"
+	resolucion.RealizadaEn = resolucion.RealizadaEn.Add(time.Minute)
+	resolucion.FaseOrigen = "nombramiento"
+	d10.Hitos = append(d10.Hitos, resolucion)
+	d10.Resumen.Version, d10.Resumen.ActualizadoEn = 10, resolucion.RealizadaEn
+	d11 := d10.Clonar()
+	anotacion := d11.Hitos[9]
+	anotacion.Secuencia, anotacion.VersionExpediente = 11, 11
+	anotacion.AccionClave = domain.AccionRegistrarAnotacionAdministrativa
+	anotacion.RealizadaEn = anotacion.RealizadaEn.Add(time.Minute)
+	d11.Hitos = append(d11.Hitos, anotacion)
+	d11.Resumen.Version, d11.Resumen.ActualizadoEn = 11, anotacion.RealizadaEn
 	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
-	for _, tipo := range []ports.TipoBorradorRRHH{
-		ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
-		ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
-	} {
-		t.Run(string(tipo), func(t *testing.T) {
-			contenido, err := contenidoBorradorDesarrollo(tipo, d)
-			if err != nil {
-				t.Fatal(err)
-			}
-			texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
-			if !strings.Contains(texto, "Versión de origen: 9") || !strings.Contains(texto, "actuación 9") {
-				t.Fatalf("el borrador no usa el hito real: %s", texto)
-			}
-			b, err := r.RenderizarBorrador(context.Background(), tipo, d)
-			if err != nil || !bytes.HasPrefix(b, []byte("%PDF-")) {
-				t.Fatalf("PDF P9 inválido: %v", err)
-			}
-		})
+	for _, detalle := range []ports.DetalleExpedienteRRHH{d9, d10, d11} {
+		for _, tipo := range []ports.TipoBorradorRRHH{
+			ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
+			ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
+		} {
+			t.Run(fmt.Sprintf("v%d/%s", detalle.Resumen.Version, tipo), func(t *testing.T) {
+				contenido, err := contenidoBorradorDesarrollo(tipo, detalle)
+				if err != nil {
+					t.Fatal(err)
+				}
+				texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
+				if !strings.Contains(texto, fmt.Sprintf("Versión de origen: %d", detalle.Resumen.Version)) || !strings.Contains(texto, "actuación 9") {
+					t.Fatalf("el borrador no conserva la propuesta histórica: %s", texto)
+				}
+				b, err := r.RenderizarBorrador(context.Background(), tipo, detalle)
+				if err != nil || !bytes.HasPrefix(b, []byte("%PDF-")) {
+					t.Fatalf("PDF histórico inválido: %v", err)
+				}
+			})
+		}
+	}
+	incoherente := d11.Clonar()
+	incoherente.Hitos[9].AccionClave = "otra_actuacion"
+	if b, err := r.RenderizarBorrador(context.Background(), ports.BorradorInformeDefinitivo, incoherente); !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || len(b) != 0 {
+		t.Fatalf("cadena histórica incoherente produjo borrador: err=%v", err)
 	}
 }
 

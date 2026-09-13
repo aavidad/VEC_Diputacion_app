@@ -1,5 +1,17 @@
 # VEC Diputación de Granada
 
+Los seis borradores conservan una propuesta posterior a la subsanación cuando
+el detalle autorizado añade su resolución y la anotación administrativa siguiente.
+La consulta solicita la versión actual y el renderer identifica la propuesta por
+la cadena de actuaciones: por ejemplo, propuesta v9 desde detalle v10 o v11.
+El documento indica la versión consultada; no promete bytes idénticos al emitido
+en v9. La recuperación original de propuesta v7 conserva su fachada existente.
+
+Los seis archivos coinciden con la entrega revisada `563c7aa4`; pasaron 18 pruebas
+web y las pruebas focales y vet del renderer. No añade SQL ni permisos. El recorrido
+de una nueva propuesta persistida continúa pendiente de CT93–96; no se atribuye
+otra descarga real a esta integración.
+
 Subsanación demostrada el 13 de septiembre de 2026: formulario real, registro
 HTTP 201 y expediente `9511d16d…` de v6 a v7, con siete actuaciones y recibo visible.
 Se conservan `subsanacion_unidad` e `incidencia`; la corrección no aprueba la
