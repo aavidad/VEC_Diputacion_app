@@ -185,6 +185,7 @@ func TestDependenciasAnalisisDesarrolloFallanCerradasSinAlta(t *testing.T) {
 		nil,
 		derivador,
 		relojContratacionTemporalDesarrollo{},
+		fuenteMotivosRectificacionAnalisisDesarrollo{},
 	); err == nil || servicio != nil {
 		t.Fatalf("servicio=%v error=%v", servicio, err)
 	}

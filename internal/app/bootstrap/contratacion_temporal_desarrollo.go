@@ -95,6 +95,7 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigad
 			errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	if datos.Accion == ports.AccionRegistrarAnalisis ||
+		datos.Accion == ports.AccionRectificarAnalisis ||
 		datos.Accion == ports.AccionCrearSolicitud ||
 		datos.Accion == ports.AccionRegistrarAsignacion ||
 		datos.Accion == ports.AccionEmitirInformeJuridico ||
@@ -207,10 +208,15 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	fuenteMotivosRectificacion, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		&alta,
 		derivador,
 		reloj,
+		fuenteMotivosRectificacion,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -274,10 +280,6 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 	}()
 	rutaCatalogosAlta, err := nuevaRutaCatalogosAltaContratacionTemporalDesarrollo(origen)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	fuenteMotivosRectificacion, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(cfg, reloj)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -627,7 +629,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 	if _, noCompuesta := rutasCapacidadNoCompuestaContratacionTemporal[r.URL.Path]; noCompuesta {
 		return true
 	}
-	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaRegistroAnalisisRRHH ||
+	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||

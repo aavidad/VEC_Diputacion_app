@@ -354,8 +354,19 @@ func TestFuenteMotivosRectificacionAnalisisFallaCerrada(t *testing.T) {
 	}
 }
 
-func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
+func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *testing.T) {
 	instante := time.Now().UTC().Truncate(time.Microsecond)
+	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
+	resolutor := resolutorPoliticaOperacionAnalisisDesarrollo{
+		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{catalogo},
+			}},
+			catalogo.ID,
+			catalogo.ModuloID,
+			relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+		),
+	}
 	solicitud := ports.SolicitudResolverPoliticaOperacionAnalisis{
 		Operacion:         ports.OperacionRegistrarAnalisis,
 		OrganizacionRef:   organizacionAltaContratacionTemporalDesarrollo,
@@ -374,8 +385,7 @@ func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
 		ArtefactoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("artefacto"),
 		Instante:              instante,
 	}
-	politica, err := (resolutorPoliticaOperacionAnalisisDesarrollo{}).
-		ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
+	politica, err := resolutor.ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,18 +415,157 @@ func TestPoliticaAnalisisDesarrolloSoloAdmiteRegistroConfigurado(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			alterada := solicitud
 			caso.alterar(&alterada)
-			if _, err := (resolutorPoliticaOperacionAnalisisDesarrollo{}).
-				ResolverPoliticaOperacionAnalisis(t.Context(), alterada); err == nil {
+			if _, err := resolutor.ResolverPoliticaOperacionAnalisis(t.Context(), alterada); err == nil {
 				t.Fatal("la politica acepto coordenadas fuera del paso real")
 			}
 		})
 	}
 	solicitud.Operacion = ports.OperacionRectificarAnalisis
 	solicitud.ActorAnalisisAnteriorRef = "principal:desarrollo:anterior"
-	solicitud.MotivoRectificacionClave = "correccion"
-	if _, err := (resolutorPoliticaOperacionAnalisisDesarrollo{}).
-		ResolverPoliticaOperacionAnalisis(t.Context(), solicitud); err == nil {
-		t.Fatal("la rectificacion sin motivo configurado quedo abierta")
+	solicitud.MotivoRectificacionClave = "rectificacion_coste"
+	politica, err = resolutor.ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
+	if err != nil || politica.ValidarPara(solicitud) != nil ||
+		politica.Accion != domain.ClaveCatalogo(ports.AccionRectificarAnalisis) ||
+		politica.MotivoAutorizacion != referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion") ||
+		!politica.ExigeActorDistinto ||
+		politica.ActorAnalisisAnteriorRef != solicitud.ActorAnalisisAnteriorRef ||
+		politica.MotivoRectificacion.ReferenciaCatalogo.CatalogoID != catalogo.ID ||
+		politica.MotivoRectificacion.ReferenciaCatalogo.CatalogoVersion != catalogo.Version ||
+		politica.MotivoRectificacion.ReferenciaCatalogo.EntradaClave != string(solicitud.MotivoRectificacionClave) ||
+		politica.MotivoRectificacion.ClaveMensajeI18N !=
+			"contratacion_temporal.analisis.rectificacion.ajuste_coste" {
+		t.Fatalf("política de rectificación inesperada: %+v, error=%v", politica, err)
+	}
+	if !politica.MotivoRectificacion.VigenteDesde.Equal(catalogo.PublicadoEn) ||
+		!politica.MotivoRectificacion.VigenteHasta.IsZero() {
+		t.Fatalf("ventana inicial inesperada: %+v", politica.MotivoRectificacion)
+	}
+	siguientePublicacion := catalogo
+	siguientePublicacion.Version = 2
+	siguientePublicacion.VersionAnteriorRef = catalogo.Referencia()
+	siguientePublicacion.CreadoEn = catalogo.PublicadoEn
+	siguientePublicacion.PublicadoEn = catalogo.PublicadoEn.Add(time.Hour)
+	siguientePublicacion.Entradas = append(
+		[]vecdomain.EntradaCatalogoConfigurable(nil), catalogo.Entradas...,
+	)
+	resolutorSustitucionProgramada := resolutorPoliticaOperacionAnalisisDesarrollo{
+		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{catalogo, siguientePublicacion},
+			}},
+			catalogo.ID, catalogo.ModuloID,
+			relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+		),
+	}
+	politicaSustituida, err := resolutorSustitucionProgramada.ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
+	if err != nil || !politicaSustituida.MotivoRectificacion.VigenteHasta.Equal(siguientePublicacion.PublicadoEn) {
+		t.Fatalf("sustitución programada no acotó la ventana: %+v, error=%v", politicaSustituida, err)
+	}
+	retiradaProgramada, err := catalogo.Retirar(
+		"revisor_catalogo_002", "aprobacion_retirada_001", "Retirada de prueba.",
+		catalogo.PublicadoEn.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutorRetiradaProgramada := resolutorPoliticaOperacionAnalisisDesarrollo{
+		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{retiradaProgramada},
+			}},
+			catalogo.ID, catalogo.ModuloID,
+			relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+		),
+	}
+	politicaRetirada, err := resolutorRetiradaProgramada.ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
+	if err != nil || !politicaRetirada.MotivoRectificacion.VigenteHasta.Equal(retiradaProgramada.RetiradoEn) {
+		t.Fatalf("retirada programada no acotó la ventana: %+v, error=%v", politicaRetirada, err)
+	}
+	catalogoOtraPublicacion := catalogo
+	catalogoOtraPublicacion.Entradas = append(
+		[]vecdomain.EntradaCatalogoConfigurable(nil), catalogo.Entradas...,
+	)
+	catalogoOtraPublicacion.Entradas[0].Etiqueta = "Ajuste de coste revisado"
+	resolutorOtraPublicacion := resolutorPoliticaOperacionAnalisisDesarrollo{
+		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+				Catalogos: []vecdomain.CatalogoConfigurable{catalogoOtraPublicacion},
+			}},
+			catalogo.ID, catalogo.ModuloID,
+			relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+		),
+	}
+	politicaOtraPublicacion, err := resolutorOtraPublicacion.ResolverPoliticaOperacionAnalisis(t.Context(), solicitud)
+	if err != nil || politicaOtraPublicacion.HuellaSHA256 == politica.HuellaSHA256 ||
+		politicaOtraPublicacion.MotivoRectificacion.ReferenciaCatalogo.CatalogoHuellaSHA256 ==
+			politica.MotivoRectificacion.ReferenciaCatalogo.CatalogoHuellaSHA256 {
+		t.Fatalf("la huella no evidencia la publicación efectiva: %+v, error=%v", politicaOtraPublicacion, err)
+	}
+	catalogoNoVigente := catalogo
+	catalogoNoVigente.Entradas = append(
+		[]vecdomain.EntradaCatalogoConfigurable(nil), catalogo.Entradas...,
+	)
+	catalogoNoVigente.Entradas[0].VigenteHasta = catalogo.PublicadoEn.Add(time.Minute)
+	catalogoIncongruente := catalogo
+	catalogoIncongruente.Entradas = append(
+		[]vecdomain.EntradaCatalogoConfigurable(nil), catalogo.Entradas...,
+	)
+	catalogoIncongruente.Entradas[0].Atributos = map[string]string{
+		"clave_i18n": "clave_i18n_ajena",
+	}
+	for _, caso := range []struct {
+		nombre    string
+		resolutor resolutorPoliticaOperacionAnalisisDesarrollo
+		clave     domain.ClaveCatalogo
+	}{
+		{
+			nombre: "ausencia de fuente",
+			clave:  solicitud.MotivoRectificacionClave,
+		},
+		{
+			nombre:    "clave no publicada",
+			resolutor: resolutor,
+			clave:     "rectificacion_ajena",
+		},
+		{
+			nombre: "consulta truncada",
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{Truncado: true}},
+				catalogo.ID, catalogo.ModuloID,
+				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+			)},
+			clave: solicitud.MotivoRectificacionClave,
+		},
+		{
+			nombre: "entrada no vigente",
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+					Catalogos: []vecdomain.CatalogoConfigurable{catalogoNoVigente},
+				}},
+				catalogo.ID, catalogo.ModuloID,
+				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn.Add(time.Hour)},
+			)},
+			clave: solicitud.MotivoRectificacionClave,
+		},
+		{
+			nombre: "i18n incongruente",
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
+					Catalogos: []vecdomain.CatalogoConfigurable{catalogoIncongruente},
+				}},
+				catalogo.ID, catalogo.ModuloID,
+				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
+			)},
+			clave: solicitud.MotivoRectificacionClave,
+		},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			alterada := solicitud
+			alterada.MotivoRectificacionClave = caso.clave
+			if _, err := caso.resolutor.ResolverPoliticaOperacionAnalisis(t.Context(), alterada); err == nil {
+				t.Fatal("la rectificación sin publicación vigente se aceptó")
+			}
+		})
 	}
 }
 

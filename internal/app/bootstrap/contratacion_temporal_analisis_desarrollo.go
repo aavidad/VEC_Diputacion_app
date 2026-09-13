@@ -3,12 +3,14 @@ package bootstrap
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -251,6 +253,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
 ) (*application.ServicioOperacionAnalisis, error) {
 	if alta == nil || alta.soporte == nil || alta.autorizador == nil ||
 		alta.postgresql.ejecucion == nil ||
@@ -287,7 +290,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		artefactos,
 		sellador,
 		preparaciones,
-		resolutorPoliticaOperacionAnalisisDesarrollo{},
+		resolutorPoliticaOperacionAnalisisDesarrollo{motivos: motivos},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		reloj,
@@ -299,14 +302,15 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	return servicio, nil
 }
 
-type resolutorPoliticaOperacionAnalisisDesarrollo struct{}
+type resolutorPoliticaOperacionAnalisisDesarrollo struct {
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo
+}
 
-func (resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionAnalisis(
+func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionAnalisis(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverPoliticaOperacionAnalisis,
 ) (ports.PoliticaOperacionAnalisis, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		solicitud.Operacion != ports.OperacionRegistrarAnalisis ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		solicitud.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
 		solicitud.Flujo.DefinicionRef != "flujo:ct:desarrollo" ||
@@ -345,11 +349,99 @@ func (resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionAna
 		MotivoAutorizacion:    referenciaMotivoAutorizacionAnalisisDesarrollo("registro"),
 		EvaluadaEn:            solicitud.Instante,
 	}
+	if solicitud.Operacion == ports.OperacionRectificarAnalisis {
+		motivo, err := r.motivos.resolverMotivo(ctx, solicitud.MotivoRectificacionClave)
+		if err != nil {
+			return ports.PoliticaOperacionAnalisis{}, ports.ErrPoliticaOperacionAnalisisNoDisponible
+		}
+		huella, err := huellaPoliticaRectificacionAnalisisDesarrollo(motivo)
+		if err != nil {
+			return ports.PoliticaOperacionAnalisis{}, ports.ErrPoliticaOperacionAnalisisNoDisponible
+		}
+		politica.Accion = domain.ClaveCatalogo(ports.AccionRectificarAnalisis)
+		politica.MotivoAutorizacion = referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion")
+		politica.ExigeActorDistinto = true
+		politica.ActorAnalisisAnteriorRef = solicitud.ActorAnalisisAnteriorRef
+		politica.MotivoRectificacion = motivo
+		politica.HuellaSHA256 = huella
+	}
 	if politica.ValidarPara(solicitud) != nil {
 		return ports.PoliticaOperacionAnalisis{},
 			ports.ErrPoliticaOperacionAnalisisNoDisponible
 	}
 	return politica, nil
+}
+
+const identificadorCanonPoliticaRectificacionAnalisisDesarrolloV1 = "vec.contratacion-temporal.analisis.politica-rectificacion.v1"
+
+// canonPoliticaRectificacionAnalisisDesarrolloV1 fija el formato de la
+// definición efectiva. Es una estructura cerrada, sin mapas ni fmt, para que
+// la huella sea estable y evidencie el motivo publicado que habilita el acto.
+type canonPoliticaRectificacionAnalisisDesarrolloV1 struct {
+	Canon                        string `json:"canon"`
+	DefinicionRef                string `json:"definicion_ref"`
+	Version                      uint64 `json:"version"`
+	Operacion                    string `json:"operacion"`
+	Accion                       string `json:"accion"`
+	Finalidad                    string `json:"finalidad"`
+	UnidadRef                    string `json:"unidad_ref"`
+	ExigeActorDistinto           bool   `json:"exige_actor_distinto"`
+	MotivoAutorizacionCatalogoID string `json:"motivo_autorizacion_catalogo_id"`
+	MotivoAutorizacionVersion    int    `json:"motivo_autorizacion_version"`
+	MotivoAutorizacionHuella     string `json:"motivo_autorizacion_huella_sha256"`
+	MotivoAutorizacionEntrada    string `json:"motivo_autorizacion_entrada"`
+	CatalogoID                   string `json:"catalogo_id"`
+	CatalogoVersion              int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256         string `json:"catalogo_huella_sha256"`
+	EntradaClave                 string `json:"entrada_clave"`
+	ClaveMensajeI18N             string `json:"clave_mensaje_i18n"`
+	VigenteDesde                 string `json:"vigente_desde"`
+	VigenteHasta                 string `json:"vigente_hasta,omitempty"`
+}
+
+func huellaPoliticaRectificacionAnalisisDesarrollo(
+	motivo ports.MotivoRectificacionGobernado,
+) (string, error) {
+	if motivo.ValidarPara(domain.ClaveCatalogo(motivo.ReferenciaCatalogo.EntradaClave)) != nil {
+		return "", ports.ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	motivoAutorizacion := referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion")
+	if motivoAutorizacion.Validar() != nil {
+		return "", ports.ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	canon := canonPoliticaRectificacionAnalisisDesarrolloV1{
+		Canon:         identificadorCanonPoliticaRectificacionAnalisisDesarrolloV1,
+		DefinicionRef: "politica:ct:desarrollo:analisis:v1", Version: 1,
+		Operacion:                    string(ports.OperacionRectificarAnalisis),
+		Accion:                       string(ports.AccionRectificarAnalisis),
+		Finalidad:                    string(finalidadAnalisisContratacionTemporalDesarrollo),
+		UnidadRef:                    unidadCoberturaContratacionTemporalDesarrollo,
+		ExigeActorDistinto:           true,
+		MotivoAutorizacionCatalogoID: motivoAutorizacion.CatalogoID,
+		MotivoAutorizacionVersion:    motivoAutorizacion.CatalogoVersion,
+		MotivoAutorizacionHuella:     motivoAutorizacion.CatalogoHuellaSHA256,
+		MotivoAutorizacionEntrada:    motivoAutorizacion.EntradaClave,
+		CatalogoID:                   motivo.ReferenciaCatalogo.CatalogoID,
+		CatalogoVersion:              motivo.ReferenciaCatalogo.CatalogoVersion,
+		CatalogoHuellaSHA256:         motivo.ReferenciaCatalogo.CatalogoHuellaSHA256,
+		EntradaClave:                 motivo.ReferenciaCatalogo.EntradaClave,
+		ClaveMensajeI18N:             string(motivo.ClaveMensajeI18N),
+		VigenteDesde:                 motivo.VigenteDesde.Format(time.RFC3339Nano),
+		VigenteHasta:                 fechaCanonicaMotivoRectificacionAnalisis(motivo.VigenteHasta),
+	}
+	serializado, err := json.Marshal(canon)
+	if err != nil {
+		return "", ports.ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	suma := sha256.Sum256(serializado)
+	return hex.EncodeToString(suma[:]), nil
+}
+
+func fechaCanonicaMotivoRectificacionAnalisis(instante time.Time) string {
+	if instante.IsZero() {
+		return ""
+	}
+	return instante.Format(time.RFC3339Nano)
 }
 
 type selladorHMACOperacionAnalisisDesarrollo struct {

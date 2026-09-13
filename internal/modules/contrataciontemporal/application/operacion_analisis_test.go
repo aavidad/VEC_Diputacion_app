@@ -21,6 +21,38 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+func TestRectificacionRevalidaVigenciaDelMotivoAlValidarRecibo(t *testing.T) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(t, ports.OperacionRectificarAnalisis, "-vigencia-recibo-sintetica")
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	var hasta time.Time
+	d.politicas.transformar = func(p *ports.PoliticaOperacionAnalisis) {
+		hasta = p.EvaluadaEn.Add(time.Second)
+		p.MotivoRectificacion.VigenteHasta = hasta
+	}
+	recibo, err := servicio.Rectificar(context.Background(), escenario.rectificar)
+	if err != nil {
+		t.Fatalf("rectificación vigente: %v", err)
+	}
+	for _, caso := range []struct {
+		nombre   string
+		instante time.Time
+		valido   bool
+	}{
+		{"antes_del_limite", hasta.Add(-time.Microsecond), true},
+		{"en_el_limite", hasta, false},
+		{"despues_del_limite", hasta.Add(time.Microsecond), false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			candidato := recibo
+			candidato.ConfirmadaEn = caso.instante
+			err := candidato.ValidarParaOrdenDentroDeTransaccion(d.transaccion.orden)
+			if (err == nil) != caso.valido {
+				t.Fatalf("validación previa al commit: %v, válido esperado %v", err, caso.valido)
+			}
+		})
+	}
+}
+
 func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 	escenario := nuevoEscenarioOperacionAnalisisSaneado(
 		t,

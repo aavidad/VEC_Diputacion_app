@@ -349,6 +349,7 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 	instantaneaSinConcesionAnalisis := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		soporte.instantaneaAnalisis,
 	)
+	instantaneaSinConcesionAnalisis.VersionRol.Concesiones = instantaneaSinConcesionAnalisis.VersionRol.Concesiones[:1]
 	instantaneaSinConcesionAnalisis.VersionRol.Concesiones[0].Accion =
 		ports.AccionRectificarAnalisis
 	if err := instantaneaSinConcesionAnalisis.Validar(); err != nil {
@@ -421,8 +422,8 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 			principal,
 			httpinterno.RutaRectificacionAnalisisRRHH,
 		),
-	); !errors.Is(err, ports.ErrAutorizacionDenegada) {
-		t.Fatalf("rectificacion obtuvo contexto de analisis: %v", err)
+	); err != nil {
+		t.Fatalf("rectificacion no obtuvo contexto de analisis: %v", err)
 	}
 
 	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
@@ -628,6 +629,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		instantanea:                  alta,
 		instantaneaAnalisis:          analisisVEC,
 		motivoRegistroAnalisis:       referenciaMotivoAutorizacionAnalisisDesarrollo("registro"),
+		motivoRectificacionAnalisis:  referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion"),
 		instantaneaCobertura:         coberturaVEC,
 		motivoPropuestaCobertura:     referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta"),
 		motivoDecisionCobertura:      referenciaMotivoAutorizacionCoberturaDesarrollo("decision"),
@@ -677,4 +679,55 @@ func contextoRutaCoberturaDesarrolloPrueba(
 			sello: soporte.sello, ruta: ruta, principal: principal,
 		},
 	)
+}
+
+func TestAutorizacionRectificacionAnalisisExigeAccionYMotivoPropios(t *testing.T) {
+	for _, caso := range []struct {
+		nombre, accion, motivo string
+		concedida              bool
+	}{
+		{"rectificacion", ports.AccionRectificarAnalisis, "rectificacion", true},
+		{"accion_registro", ports.AccionRegistrarAnalisis, "rectificacion", false},
+		{"motivo_registro", ports.AccionRectificarAnalisis, "registro", false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			soporte, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			delegado := base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
+			autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{delegado: delegado}
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRectificacionAnalisisRRHH)
+			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+				VinculoAutenticacionActor: soporte.contexto.Vinculo,
+				ReferenciaMotivo:          referenciaMotivoAutorizacionAnalisisDesarrollo(caso.motivo),
+				Accion:                    caso.accion,
+				Recurso: dominiovec.RecursoAutorizable{
+					Referencia: "expediente:analisis:desarrollo:001", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoAnalisis,
+					Ambitos:   map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:analisis:desarrollo:001", "fase_previa": "solicitud", "estado_previo": "en_curso"},
+					Atributos: map[string]string{ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo},
+				},
+				Finalidad: finalidadAnalisisContratacionTemporalDesarrollo, Correlacion: correlacion,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision, _, err := autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, soporte.contexto.Resultado)
+			if !caso.concedida {
+				if err == nil {
+					t.Fatal("rectificacion acepto accion o motivo de registro")
+				}
+				return
+			}
+			concedida, _, errResultado := decision.Resultado()
+			if err != nil || errResultado != nil || !concedida {
+				t.Fatalf("rectificacion no concedida: %v %v", err, errResultado)
+			}
+			registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+			if registro.concesiones != 1 {
+				t.Fatal("falta registro durable de la autorizacion")
+			}
+		})
+	}
 }
