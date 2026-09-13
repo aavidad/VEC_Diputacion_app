@@ -1408,8 +1408,8 @@ export async function montarModuloContratacionTemporal({
       if (!sigueSeleccionado()) return false;
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
-        || actualizado.version < recibo.version_resultante
-        || !asignacionConfirmadaEnDetalle(actualizado)) { avisarPendiente(); return false; }
+        || actualizado.version !== recibo.version_resultante
+        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== recibo.unidad_ref) { avisarPendiente(); return false; }
       repintar("[data-ct-asignacion-confirmada]");
       return true;
     } catch {
