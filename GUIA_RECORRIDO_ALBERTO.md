@@ -1,5 +1,29 @@
 # Guía de recorrido y recibos conservados de VEC
 
+### Continuidad real tras subsanar y fiscalizar de nuevo
+
+El expediente sintético `9511d16d…` continúa desde la fiscalización favorable con
+observaciones `v8`: selección `200`, aviso local `201`, declaración `201`, aceptación
+manual `201` y propuesta `201`, versión `9`. La propuesta es
+`propuesta:a26304cb-8f29-46b8-beaf-82b5cf9a66a9`, recibo
+`recibo:c0d83684-ae43-44a2-baa0-857d1b5cb750`, fecha
+`2026-09-13T07:43:15.57655Z`. Se conservan las claves y peticiones exactas fuera de Git.
+Recuperación tras reinicio pendiente en este corte.
+
+La consulta autorizada recupera el detalle `v9` con nueve actuaciones y ofrece los
+seis pares PDF/DOCX. El informe DOCX de esta nueva propuesta tiene 3379 bytes y
+SHA256 `45fdd2b3543aee4d6b9d58aa7b8b425ea359cf01c488165f744c972202081611`;
+el documento identifica versión y actuación de propuesta `9`. No se han repetido
+los documentos del caso original. Navegador a 1440/390 px sin errores JavaScript
+ni desbordamiento. El aviso es local y la aceptación es manual sintética: sin
+SMTP, entrega externa, plazo legal, firma ni nombramiento eficaz acreditados.
+
+El contador permanece en **15/19**. La rectificación de Análisis requiere componer
+su escritura y autorización propias, además de la fuente de motivos admitida;
+no basta con configurar un catálogo. El apoyo prepara ese ensamblaje con revisión
+independiente. CT93–96 siguen instaladas una sola vez; no reaplicar migraciones.
+
+
 Traslado queda recorrido y el contador pasa a **15/19 pantallas terminadas en
 desarrollo (79 %), tres parciales y una pendiente de pantalla**. Desde el acceso
 manual existente se recuperan selección, comunicación, declaración, aceptación y
