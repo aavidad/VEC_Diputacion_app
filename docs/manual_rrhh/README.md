@@ -1,5 +1,23 @@
 # Manual funcional del técnico de Recursos Humanos
 
+Traslado queda recorrido y el contador pasa a **15/19 pantallas terminadas en
+desarrollo (79 %), tres parciales y una pendiente de pantalla**. Desde el acceso
+manual existente se recuperan selección, comunicación, declaración, aceptación y
+propuesta con cinco respuestas `200` y las claves originales. El enlace de revisión
+conserva la navegación y enfoca el título de propuesta, también fuera de los datos
+registrados plegados; corrección publicada en `8bdf550a`, con 73 pruebas focales.
+
+La propuesta conserva `propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`, el recibo
+`recibo:3335969d-3bb5-4258-afcc-1af26b7f7207`, versión `7` y fecha
+`2026-09-06T01:28:30.697897Z`, con estado `replay_confirmado`. Cuatro capturas a
+1440/390 px acreditan aceptación y propuesta sin errores JavaScript ni desbordamiento.
+No se creó otra propuesta ni se reiniciaron servicios en este corte. No acredita
+traslado externo, envío de correo, firma, plazo legal ni nombramiento eficaz.
+Resultado conserva pendiente el vencimiento con inicio y plazo gobernados; Análisis
+mantiene la rectificación sin catálogo admitido y Firma espera su circuito.
+
+### Antecedentes del corte de catorce pantallas
+
 Cobertura queda recorrida y el contador pasa a **14/19 pantallas terminadas en
 desarrollo (74 %), cuatro parciales y una pendiente de pantalla**. La consulta
 sintética del período exacto del expediente existente responde200; RRHH confirma

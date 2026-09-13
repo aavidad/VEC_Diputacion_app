@@ -2,7 +2,23 @@
 
 ## Contador vigente de pantallas — 13 de septiembre de 2026
 
-**14 de 19 terminadas en desarrollo (74 %); 4 parciales; 1 pendiente de pantalla real.**
+**15 de 19 terminadas en desarrollo (79 %); 3 parciales; 1 pendiente de pantalla real.**
+Traslado queda recorrido y el contador pasa a **15/19 pantallas terminadas en
+desarrollo (79 %), tres parciales y una pendiente de pantalla**. Desde el acceso
+manual existente se recuperan selección, comunicación, declaración, aceptación y
+propuesta con cinco respuestas `200` y las claves originales. El enlace de revisión
+conserva la navegación y enfoca el título de propuesta, también fuera de los datos
+registrados plegados; corrección publicada en `8bdf550a`, con 73 pruebas focales.
+
+La propuesta conserva `propuesta:2dd1c999-44c3-4fdc-b68e-e0adde592c81`, el recibo
+`recibo:3335969d-3bb5-4258-afcc-1af26b7f7207`, versión `7` y fecha
+`2026-09-06T01:28:30.697897Z`, con estado `replay_confirmado`. Cuatro capturas a
+1440/390 px acreditan aceptación y propuesta sin errores JavaScript ni desbordamiento.
+No se creó otra propuesta ni se reiniciaron servicios en este corte. No acredita
+traslado externo, envío de correo, firma, plazo legal ni nombramiento eficaz.
+Resultado conserva pendiente el vencimiento con inicio y plazo gobernados; Análisis
+mantiene la rectificación sin catálogo admitido y Firma espera su circuito.
+
 Hay **16 superficies reales visibles (84 %)**, incluida la subsanación ya recorrida.
 La subsanación está recorrida: guardado `201` (v6 → v7), reinicio de aplicación
 y PostgreSQL y recuperación con el mismo recibo de 11 campos y una sola reserva.
@@ -81,7 +97,7 @@ para el caso sintético en `148d075e`.
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Director remoto: recorrido; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 aplicadas y reconciliadas, recorrido pendiente; SMTP aplazado. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
-| 13 | Traslado de candidatura | Parcial | 25 % | Director remoto: recorrido de entrega integrada | Resumen publicado; asset real `GET 200`. Falta recorrerlo con aceptación recuperada, sin equipararlo a envío. |
+| 13 | Traslado de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Cinco recuperaciones200 con claves originales, misma propuesta/recibo/fecha/v7. CTA conserva navegación tras8bdf550a;1440/390 sin JS ni desbordamiento. No equivale a envío externo. |
 | 14 | Documentación para formalización | Terminada en desarrollo | 0 % | Dirección: conservación | Seis borradores agrupados con doce acciones PDF/DOCX y estados propios. DOCX representativo200 con SHA7141 conservado; revisión1440/390 sin errores JS. |
 | 15 | Generación de datos GINPIX | Terminada en desarrollo | 0 % | Dirección: conservación | Ficha manual real recuperada; no representa envío externo. |
 | 16 | Resumen final y envío a GINPIX | Terminada en desarrollo | 0 % | Dirección: conservación | Incorporación original y seguimientoGET200; resumen1440/390 distingue exportación manual y transmisión externa pendiente. No se ha enviado a GINPIX. |
