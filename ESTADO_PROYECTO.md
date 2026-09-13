@@ -8,7 +8,12 @@ manual `201` y propuesta `201`, versión `9`. La propuesta es
 `propuesta:a26304cb-8f29-46b8-beaf-82b5cf9a66a9`, recibo
 `recibo:c0d83684-ae43-44a2-baa0-857d1b5cb750`, fecha
 `2026-09-13T07:43:15.57655Z`. Se conservan las claves y peticiones exactas fuera de Git.
-Recuperación tras reinicio pendiente en este corte.
+Recuperación confirmada tras reiniciar los mismos contenedores de aplicación y
+PostgreSQL: cinco respuestas `200`, mismos cinco recibos, referencias, fechas y
+versiones; solo cambian los estados de replay previstos. Los 122 objetos de
+Contratación, Personal y Bolsa permanecen idénticos durante el reinicio. Tras las
+consultas, los 117 objetos de negocio siguen iguales; únicamente cambian las cinco
+auditorías de lectura esperadas. No hay nuevas operaciones ni duplicados.
 
 La consulta autorizada recupera el detalle `v9` con nueve actuaciones y ofrece los
 seis pares PDF/DOCX. El informe DOCX de esta nueva propuesta tiene 3379 bytes y
