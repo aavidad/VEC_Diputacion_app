@@ -136,7 +136,7 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   assert.equal(llamamiento.eventos.size, 0);
 });
 
-test("un resultado favorable posterior a v6 no habilita el llamamiento legado", async () => {
+test("un resultado favorable v8 prepara la selección con su versión sin ejecutar efectos", async () => {
   const raiz = raizFalsa();
   const fiscalizacion = raizFalsa();
   const llamamiento = raizFalsa();
@@ -145,19 +145,25 @@ test("un resultado favorable posterior a v6 no habilita el llamamiento legado", 
   const modulo = montarModuloFiscalizacionContratacionTemporal({
     raiz,
     cliente: {
-      registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 7 }),
-      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
+      registrarResultadoFiscalizacion: async () => ({ ...recibo("favorable"), version_resultante: 8 }),
+      seleccionarLlamamiento: async () => { assert.fail("montar no selecciona"); },
+      registrarComunicacionLlamamiento: async () => { assert.fail("montar no comunica"); },
+      registrarRespuestaRecibida: async () => { assert.fail("montar no declara respuesta"); },
+      resolverLlamamiento: async () => { assert.fail("montar no resuelve"); },
+      continuarLlamamiento: async () => { assert.fail("montar no continúa"); },
     },
     confirmarOperacion: () => true,
   });
   const formulario = {
-    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "6" }) },
+    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "7" }) },
     closest() { return this; }, checkValidity() { return true; },
   };
   raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
   await fiscalizacion.enviar("favorable", "");
 
-  assert.equal(llamamiento.innerHTML, "");
+  assert.match(llamamiento.innerHTML, /data-ct-llamamiento/u);
+  assert.match(llamamiento.innerHTML, /value="8"/u);
+  assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
   modulo.desmontar();
 });
 
@@ -322,7 +328,7 @@ test("reserva la continuación cuando el informe se prepara desde un expediente 
     flujo_ref: "flujo:ct:sintetico",
     flujo_version: 1,
     flujo_huella: "b".repeat(64),
-    cabecera: [],
+    cabecera: [{ clave: "unidad", etiqueta: "Unidad asignada", valor: "unidad:desarrollo:rrhh" }],
     fases: [],
     tareas: [],
   };
@@ -333,6 +339,7 @@ test("reserva la continuación cuando el informe se prepara desde un expediente 
       expediente_ref: EXPEDIENTE,
       version: 4,
       fase_clave: "asignacion_unidad",
+      estado_clave: "en_curso",
     }] },
     expediente,
     tarea_ref: "",

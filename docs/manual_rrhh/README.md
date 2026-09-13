@@ -1,5 +1,86 @@
 # Manual funcional del técnico de Recursos Humanos
 
+La propuesta de formalización admite la versión fiscalizada posterior a una
+subsanación y conserva ese antecedente al recuperar el mismo recibo. El formulario
+usa la versión de la selección confirmada; no sustituye las versiones propias
+de la resolución de llamamiento o de Bolsa. Las operaciones originales v6→v7
+conservan su función SQL.
+
+La fuente CT96 y sus 13 archivos Go/web coinciden íntegramente con la entrega
+539247a6 revisada por dos revisores. Pasaron 98 pruebas web de formulario y
+cliente y la campaña conjunta `go test ./...` y `go vet ./...`.
+CT96 permanece sin ensayo PostgreSQL ni instalación; el recorrido
+N8→propuesta9 está probado con repositorios dobles, no acredita una propuesta
+nueva en la base principal. Siguen pendientes la continuación tras renuncia
+con versiones posteriores y la lectura histórica de esas nuevas propuestas.
+
+Aviso, declaración de respuesta y consulta del justificante pueden recuperar
+la versión fiscalizada que originó su selección confirmada. El lector deriva
+ese vínculo del llamamiento persistido y conserva autorización nueva en cada
+operación; la versión no se toma de la cabecera actual ni de un campo del usuario.
+
+CT95 y su código mantienen la entrega con dos revisiones favorables. Pruebas
+Go focales y vet del ámbito afectados completados. No está instalada CT95;
+el binario que la utiliza no debe desplegarse antes de su ensayo e instalación,
+pues el nuevo lector también atiende operaciones del recorrido original.
+Este corte no acredita envío de correo ni otro registro real de comunicación.
+
+Los seis borradores pueden representar una propuesta actual posterior a una
+subsanación, usando el hito y la versión reales del detalle autorizado. Se
+conserva la recuperación de la propuesta original v7 desde resolución v8 o
+anotación v9. No se habilita la lectura histórica de propuestas posteriores
+a través de versiones nuevas sin su circuito autorizado.
+
+La integración mantiene el cliente y el canal de consulta existentes. Pasaron
+27 pruebas web y las pruebas focales del renderer. La lectura desde una nueva
+propuesta persistida sigue pendiente; las descargas reales ya acreditadas de
+la propuesta original permanecen como evidencia del corte anterior.
+
+La selección del llamamiento se prepara ahora con la versión CT fiscalizada
+vigente, conservando la versión independiente de Bolsa y las funciones originales
+para v6. CT94 añade lectores para versiones posteriores; permanece pendiente
+de ensayo PostgreSQL e instalación, y no se ha abierto otro llamamiento real.
+
+La prueba de montaje confirma que un resultado favorable v8 rellena la selección
+con v8 sin ejecutar selección, comunicación ni respuesta. Pasaron 97 pruebas
+web del recorrido existente y 10 de fiscalización, las pruebas Go focales, vet
+y compilación. La comunicación y la propuesta posteriores a nuevas versiones
+conservan sus dependencias; esta integración no acredita ese circuito completo.
+
+La continuidad de fiscalización tras subsanar reutiliza el mismo formulario,
+API y permiso de Intervención. Exige la corrección ligada al retorno vigente,
+conserva las instantáneas anteriores y permite registrar un nuevo resultado;
+no lo presupone favorable. La fuente CT93 está revisada, pero su ensayo
+PostgreSQL e instalación todavía no se han realizado. La primera fiscalización
+conserva sus funciones v1 y el circuito original.
+
+Go, SQL y formulario coinciden con la entrega revisada del apoyo. En integración
+se mantuvieron las guardas actuales de la vista y se actualizó una prueba que
+omitía la asignación real exigida antes de preparar informe. Los 33 casos web
+focales quedaron verdes tras ese ajuste; pruebas Go, vet del ámbito y compilación
+completados. Esta evidencia no acredita una refiscalización de navegador ni
+la continuación posterior del llamamiento desde nuevas versiones.
+
+Subsanación de reparos queda compuesta como capacidad opcional: formulario,
+cliente y `POST /api/vec/contratacion-temporal/subsanacion-reparos`, sobre el
+retorno existente. El recibo confirmado se conserva mientras se recuperan
+el detalle y su historial; la corrección mantiene la incidencia y no acredita
+una nueva fiscalización favorable. La disponibilidad procede del servidor.
+
+CT92 y AD3-38 conservan las huellas con dos revisiones favorables. Su ensayo
+PostgreSQL e instalación principal siguen pendientes en este corte; no reaplicar
+migraciones históricas. La política privada se configura con
+`VEC_CT_SUBSANACION_POLITICA_FILE`, sin actor ni perfil suministrados por la web.
+El catálogo opcional de rectificación se conecta mediante
+`VEC_CT_ANALISIS_RECTIFICACION_MOTIVOS_SOURCE_PATH`: exige publicación vigente;
+sin fuente mantiene la indisponibilidad. No se han aprobado motivos legales.
+
+Comprobaciones de integración: 31 pruebas web focales, pruebas Go de los
+paquetes afectados, vet del ámbito CT/composición y compilación de aplicación.
+Revisión independiente de montaje favorable. No acredita todavía un registro
+de subsanación desde navegador. Cobertura continúa en `503`; el candidato de
+concurrencia se descartó de producto tras medir el mismo fallo en 626 ms.
+
 El detalle muestra ocho fases del procedimiento y el historial de actuaciones
 ya registrado. Solo destaca la fase actual; las demás permanecen **Sin confirmar**.
 El rail enlaza la fuente RRHH y el flujo declarado mediante sus huellas, sin
