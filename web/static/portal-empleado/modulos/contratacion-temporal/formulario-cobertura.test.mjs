@@ -76,8 +76,11 @@ function raizFalsa() {
       return eventos.get("submit")({ target: formulario, preventDefault() {} });
     },
     recuperar() {
+      return this.pulsarAccion("consultar-resultado");
+    },
+    pulsarAccion(accion) {
       const control = {
-        dataset: { ctCoberturaAccion: "consultar-resultado" },
+        dataset: { ctCoberturaAccion: accion },
         closest(selector) {
           return selector === "[data-ct-cobertura-accion]" ? this : null;
         },
@@ -197,6 +200,34 @@ test("cancelar no decide y el resultado indeterminado solo se consulta", async (
   }]);
   assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/);
   assert.deepEqual(continuaciones, [recibo()]);
+});
+
+test("un fallo al proponer permite repetir solo la consulta de cobertura", async () => {
+  const raiz = raizFalsa();
+  let propuestas = 0;
+  let decisiones = 0;
+  montarFormularioCobertura({
+    raiz,
+    cliente: {
+      async proponerCobertura() {
+        propuestas += 1;
+        if (propuestas === 1) throw new Error("dependencia no disponible");
+        return propuesta();
+      },
+      async decidirCobertura() { decisiones += 1; return recibo(); },
+      async consultarResultadoCobertura() { throw new Error("no procede"); },
+    },
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
+  });
+  await estabilizar();
+  assert.equal(propuestas, 1);
+  assert.equal(decisiones, 0);
+  assert.match(raiz.innerHTML, /data-ct-cobertura-accion="reintentar-propuesta"/u);
+
+  await raiz.pulsarAccion("reintentar-propuesta");
+  assert.equal(propuestas, 2);
+  assert.equal(decisiones, 0);
+  assert.match(raiz.innerHTML, /data-ct-cobertura-evaluacion="bolsa_vigente"/u);
 });
 
 test("conserva el recibo y avisa si la asignación no puede montarse", async () => {

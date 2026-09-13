@@ -157,6 +157,18 @@ test("la bandeja real usa solo la página autorizada y no se presenta como tarea
   assert.doesNotMatch(html, /Mis tareas prioritarias/u);
 });
 
+test("una página completada no ofrece abrir un expediente no completado", () => {
+  const pagina = cuadro({ pagina: 1, cursor: "", sufijo: "1" });
+  const html = renderizarCuadro({
+    carga: "listo", filtros: { texto: "", estado: "", fase: "" },
+    cuadro: { ...pagina, expedientes: pagina.expedientes.map((e) => ({
+      ...e, estado_clave: "completado", estado: "Completado",
+    })) },
+  }, crearTraductorExpedientesContratacion());
+  assert.match(html, /No hay expedientes no completados en esta página/u);
+  assert.doesNotMatch(html, /Abrir primer expediente no completado/u);
+});
+
 test("un cursor fallido conserva la página anterior y reinicia con cursor vacío", async () => {
   let llamadas = 0;
   const cursores = [];

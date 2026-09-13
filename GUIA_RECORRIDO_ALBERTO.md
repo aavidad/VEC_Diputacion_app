@@ -1,5 +1,63 @@
 # Guía de recorrido y recibos conservados de VEC
 
+La fiscalización conserva su recibo confirmado mientras refresca el detalle y
+recompone la continuación ofrecida por el servidor. Si falla la consulta o llega
+una versión distinta, mantiene el recibo y avisa de la actualización pendiente;
+no repite la fiscalización. Las 16 pruebas focales del montaje y las recuperaciones
+son satisfactorias. El recorrido principal posterior a subsanación sigue pendiente
+de instalar CT93–96 y activar el código; este cambio no aumenta el contador.
+
+El análisis exige las cinco modalidades del contrato RRHH vigente también al
+montar el formulario. La vista Documentos agrupa los seis borradores PDF/DOCX,
+comprueba que su índice autorizado corresponde al expediente y versión actuales
+y permite cancelar la descarga. Conserva el canal de consulta y los límites de
+borrador de desarrollo. Las 45 pruebas web focales pasan; la activación y el
+recorrido real de estas mejoras están pendientes. El contador continúa en 7/19.
+
+La primera tanda de páginas conecta la bandeja a los expedientes de la página
+autorizada, conserva el recibo de asignación mientras recupera el detalle y ofrece
+el informe solo cuando coinciden la unidad y la versión confirmadas. La candidatura
+aceptada agrupa sus antecedentes y enlaza con la propuesta existente. Los textos
+usan el catálogo común; no se registran tareas propias ni efectos adicionales.
+
+La integración supera 32 pruebas web focales, incluida la página sin expedientes
+pendientes y las recuperaciones de asignación y propuesta. Estos cambios de interfaz
+están preparados para activación y recorrido real; mantienen el contador 7/19.
+
+La pantalla de subsanación queda terminada en desarrollo: registro y recuperación
+tras reinicio con el mismo recibo, más reapertura del expediente v7 mostrando
+«Subsanación registrada» sin otro formulario de envío. El recibo recién registrado
+se conserva al actualizar el detalle; un reparo posterior puede ofrecer de nuevo
+la corrección. El contador de pantallas pasa a 7/19 (37 %), con 16 superficies
+visibles (84 %); no equivale a cerrar la fiscalización posterior ni pasos legales.
+
+La comprobación final usó únicamente consultas: detalle 200, siete actuaciones,
+cero formularios de subsanación y estado registrado visible. En 1440/390 no hubo
+desbordamiento, errores JavaScript, cookies ni almacenamiento web. El runtime
+necesitó además los dos metadatos del historial ya integrados en `f081df9d`;
+se activaron sus assets de adaptador/contrato, sin SQL ni otro registro.
+Once pruebas web del corte, tres casos de renderizado sobre la base runtime y
+ocho pruebas del adaptador fueron satisfactorias. Los assets del estado registrado
+proceden de `770b72ea` y conservan la base compatible con CT92.
+
+El ensayo aislado de CT93→CT96 terminó satisfactoriamente con DDL, ACL, rechazos,
+historia y reinicio del clon; el clon quedó detenido y conservado. La instalación
+principal sigue pendiente de su instalador revisado. No se ha registrado una
+nueva fiscalización ni una propuesta posterior en la base principal.
+
+La fuente publicada `1362affd` compila correctamente. Su binario y once assets
+web están preparados, sin activar: la aplicación conserva el binario compatible
+con CT92. El acceso actual de Intervención todavía limita la versión remitida a
+v5; la fuente integrada permite la versión posterior. La comprobación de lectura
+no envió ninguna fiscalización. Activar la continuidad exige antes instalar
+CT93–96 con el procedimiento revisado y un respaldo privado fresco.
+
+## Antecedentes de los cortes
+
+Los apartados siguientes conservan las entregas y los límites de cada corte
+anterior. Las cifras, instalaciones y comprobaciones vigentes son las indicadas
+al comienzo de este documento; los pendientes antiguos no los sustituyen.
+
 Los seis borradores conservan una propuesta posterior a la subsanación cuando
 el detalle autorizado añade su resolución y la anotación administrativa siguiente.
 La consulta solicita la versión actual y el renderer identifica la propuesta por

@@ -53,7 +53,8 @@ function renderizarTrabajoOperativo(cuadro, t) {
       fase,
       total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
     }));
-  const primero = expedientesNoCompletados[0] ?? cuadro.expedientes[0];
+  const primero = expedientesNoCompletados[0]
+    ?? (esDemostracion ? cuadro.expedientes[0] : undefined);
   const titulo = esDemostracion ? t("trabajo_titulo") : t("bandeja_titulo");
   const descripcion = esDemostracion ? t("trabajo_descripcion") : t("bandeja_descripcion");
   const tituloExpedientes = esDemostracion ? t("mis_tareas") : t("bandeja_expedientes");

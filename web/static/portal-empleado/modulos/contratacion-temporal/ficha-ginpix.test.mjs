@@ -29,7 +29,8 @@ test("controlador: el resumen final agrupa sólo centro y categoría ya validado
   assert.match(raiz.innerHTML, /<dt>Categoría<\/dt><dd>Categoría sintética<\/dd>/u);
   assert.match(raiz.innerHTML, /Inicio de incorporación/u);
   assert.match(raiz.innerHTML, /recibo:001/u);
-  assert.match(raiz.innerHTML, /Envío externo no conectado; la ficha de carga manual está disponible\./u);
+  assert.match(raiz.innerHTML, /<dt>Exportación manual<\/dt><dd>Ficha estructurada disponible para descargar\.<\/dd>/u);
+  assert.match(raiz.innerHTML, /<dt>Transmisión externa<\/dt><dd>Pendiente de envío: el conector externo no está conectado\.<\/dd>/u);
   assert.doesNotMatch(raiz.innerHTML, /enviado a GINPIX/u);
 });
 test("controlador: rechaza un resumen ajeno o incompleto antes de montar", () => {

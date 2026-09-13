@@ -335,6 +335,13 @@ function contextoFiscalizacionDesdeEstado(estado) {
   });
 }
 
+function asignacionConfirmadaEnDetalle(expediente) {
+  return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
+    ({ clave, valor }) => clave === "unidad"
+      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
+  );
+}
+
 // La fase y el reparo proyectado solo acotan el contenedor. La disponibilidad
 // efectiva llega como dependencia de composición y el servidor la revalida al
 // registrar; la vista nunca la deduce de este estado.
@@ -349,13 +356,6 @@ function contextoSubsanacionDesdeEstado(estado) {
     || resumen.version !== estado.expediente.version) return null;
   return Object.freeze({ expediente_ref: estado.expediente.expediente_ref,
     version_esperada: estado.expediente.version });
-}
-
-function asignacionConfirmadaEnDetalle(expediente) {
-  return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
-    ({ clave, valor }) => clave === "unidad"
-      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
-  );
 }
 
 function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t, locale, zonaHoraria) {
@@ -378,7 +378,8 @@ function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t, locale
 }
 
 function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, zonaHoraria, mensajes) {
-  if (recibo?.expediente_ref !== expediente?.expediente_ref
+  if (!recibo || !expediente) return "";
+  if (recibo.expediente_ref !== expediente?.expediente_ref
     || recibo?.version_resultante !== expediente?.version
     || !["favorable", "favorable_con_observaciones", "desfavorable"].includes(recibo.resultado)
     || typeof recibo.recibo_ref !== "string" || typeof recibo.registrada_en !== "string") return "";

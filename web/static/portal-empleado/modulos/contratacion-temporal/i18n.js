@@ -228,6 +228,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "Se consulta el análisis durable y las fuentes gobernadas de cobertura.",
   cobertura_error_descripcion:
     "La operación permanece cerrada. Revise el estado antes de volver a intentarlo.",
+  cobertura_reintentar_propuesta: "Reintentar consulta de cobertura",
   cobertura_propuesta_titulo: "Propuesta calculada",
   cobertura_via_recomendada: "Vía recomendada",
   cobertura_via_bolsa_vigente: "Bolsa vigente",

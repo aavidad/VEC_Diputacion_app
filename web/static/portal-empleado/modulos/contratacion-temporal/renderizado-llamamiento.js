@@ -9,6 +9,40 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
 export function renderizarLlamamiento(estado, t, fecha) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
+  function resumenResultado() {
+    const declaracion = estado.respuesta.recibo;
+    const resolucion = estado.resolucion.recibo;
+    if (!declaracion && !resolucion) return "";
+    const declaracionTexto = declaracion
+      ? t("llamamiento_resultado_declaracion_registrada", {
+        respuesta: t("llamamiento_respuesta_" + declaracion.respuesta),
+      })
+      : t("llamamiento_resultado_declaracion_no_disponible");
+    const resolucionTexto = resolucion
+      ? t("llamamiento_resultado_circuito_confirmado", {
+        respuesta: t("llamamiento_resolucion_" + resolucion.respuesta),
+      })
+      : t("llamamiento_resultado_circuito_pendiente");
+    let siguiente = t("llamamiento_resultado_siguiente_resolucion");
+    if (resolucion?.respuesta === "renuncia") {
+      siguiente = estado.siguiente.recibo
+        ? t("llamamiento_resultado_siguiente_aviso")
+        : t("llamamiento_resultado_siguiente_continuacion");
+    } else if (resolucion?.respuesta === "aceptacion") {
+      siguiente = estado.propuesta.recibo
+        ? t("llamamiento_resultado_siguiente_propuesta_registrada")
+        : t("llamamiento_resultado_siguiente_propuesta");
+    }
+    return `<section class="ct-llamamiento-resultado" role="status" aria-live="polite"
+      aria-labelledby="ct-llamamiento-resultado-titulo">
+      <div><p class="sobrelinea">${e(t("llamamiento_resultado_sobrelinea"))}</p>
+        <h3 id="ct-llamamiento-resultado-titulo">${e(t("llamamiento_resultado_titulo"))}</h3></div>
+      <dl><div><dt>${e(t("llamamiento_resultado_declaracion"))}</dt><dd>${e(declaracionTexto)}</dd></div>
+        <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
+        <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
+      <p>${e(t("llamamiento_resultado_limite"))}</p>
+    </section>`;
+  }
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
     if (operacion === "propuesta" && nombre === "anexos") return `<p class="ct-ayuda">${e(t("llamamiento_propuesta_sin_anexos"))}</p>`;
@@ -150,6 +184,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
     <p class="ct-exp-mensaje ct-tono-informacion" data-ct-llamamiento-contexto>${e(t(
       estado.enlazado ? "llamamiento_contexto_enlazado" : "llamamiento_contexto_manual",
     ))}</p>
+    ${resumenResultado()}
     ${formulario("seleccion", CAMPOS_SELECCION)}
     <details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary>${e(t("llamamiento_comunicacion"))}</summary>
