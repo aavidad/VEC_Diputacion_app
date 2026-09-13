@@ -98,7 +98,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(cuadro.expedientes[0].fase_clave, "analisis");
   assert.equal(cuadro.expedientes[0].fase_actual, "Análisis");
   assert.equal(cuadro.expedientes[0].modalidad, "Bolsa");
-  assert.equal(cuadro.expedientes[0].estado, "Pendiente de otro departamento");
+  assert.equal(cuadro.expedientes[0].estado, "En espera externa");
   assert.equal(detalle.demostracion, false);
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "motivo").valor, "Sustitución");
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Análisis");
