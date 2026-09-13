@@ -205,6 +205,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   borradores_descripcion: "Seis piezas preparatorias agrupadas por formalización. Cada descarga consulta la versión actual autorizada.",
   borrador_sin_firma: "Borrador de desarrollo. Sin firma, nombramiento eficaz, envío ni incorporación.",
   cancelar_descarga: "Cancelar descarga",
+  descarga_sin_solicitar: "Aún no se ha solicitado esta descarga.",
+  reintentar_descarga: "Reintentar descarga",
   descarga_cancelada: "Se canceló la descarga. El detalle se conserva; puede volver a solicitarla.",
   informe_definitivo_titulo: "Informe",
   resolucion_titulo: "Resolución",

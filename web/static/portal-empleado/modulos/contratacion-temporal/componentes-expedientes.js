@@ -236,6 +236,8 @@ function renderizarBorradoresFormalizacion(t) {
         <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-${accion}">${escaparHTML(t(`${clave}_descargar`))}</button>
         <button type="button" class="boton-secundario" data-ct-exp-accion="descargar-docx-${accion}">${escaparHTML(t(`${clave}_descargar_docx`))}</button>
       </div>
+      <p data-ct-exp-resultado-descarga="${accion}" role="status" aria-live="polite">${escaparHTML(t("descarga_sin_solicitar"))}</p>
+      <button type="button" class="boton-terciario" data-ct-exp-accion="reintentar-descarga-${accion}" disabled hidden>${escaparHTML(t("reintentar_descarga"))}</button>
     </li>`).join("")}</ul>
   </section>`;
 }
