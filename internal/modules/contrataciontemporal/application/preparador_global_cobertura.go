@@ -165,6 +165,33 @@ type PreparadorGlobalCobertura struct {
 	tiempoMaximo time.Duration
 }
 
+// errorDiagnosticoPreparadorGlobalCobertura conserva solo una etapa fija para
+// observabilidad interna. No retiene el error del proveedor ni coordenadas de
+// la petición; la frontera HTTP lo normaliza al mismo 503 público.
+type errorDiagnosticoPreparadorGlobalCobertura struct {
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura
+	base  error
+}
+
+func (e errorDiagnosticoPreparadorGlobalCobertura) Error() string {
+	return e.base.Error()
+}
+
+func (e errorDiagnosticoPreparadorGlobalCobertura) Unwrap() error {
+	return e.base
+}
+
+func (e errorDiagnosticoPreparadorGlobalCobertura) etapaDiagnosticoPresentacionPropuestaCobertura() EtapaDiagnosticoPresentacionPropuestaCobertura {
+	return e.etapa
+}
+
+func errorDiagnosticoPreparadorGlobal(
+	etapa EtapaDiagnosticoPresentacionPropuestaCobertura,
+	base error,
+) error {
+	return errorDiagnosticoPreparadorGlobalCobertura{etapa: etapa, base: base}
+}
+
 func NuevoPreparadorGlobalCobertura(
 	consultas *PreparadorConsultaCobertura,
 	referencias GeneradorReferenciasComprobacionCobertura,
@@ -210,12 +237,19 @@ func (p *PreparadorGlobalCobertura) Preparar(
 	inicio := instanteCanonico(p.reloj.Ahora())
 	if datos.validarEn(inicio) != nil {
 		return cobertura.PreparacionConjuntosViasCobertura{},
-			ErrDatosPreparacionGlobalCoberturaInvalidos
+			errorDiagnosticoPreparadorGlobal(
+				EtapaDiagnosticoPresentacionPreparadorValidacion,
+				ErrDatosPreparacionGlobalCoberturaInvalidos,
+			)
 	}
 	vias := datos.catalogo.Vias()
 	total, err := validarCargaPreparacionGlobal(vias)
 	if err != nil {
-		return cobertura.PreparacionConjuntosViasCobertura{}, err
+		return cobertura.PreparacionConjuntosViasCobertura{},
+			errorDiagnosticoPreparadorGlobal(
+				EtapaDiagnosticoPresentacionPreparadorValidacion,
+				err,
+			)
 	}
 	trabajos, evidencias, err := p.prepararTrabajos(
 		operacion,
@@ -225,7 +259,11 @@ func (p *PreparadorGlobalCobertura) Preparar(
 		inicio,
 	)
 	if err != nil {
-		return cobertura.PreparacionConjuntosViasCobertura{}, err
+		return cobertura.PreparacionConjuntosViasCobertura{},
+			errorDiagnosticoPreparadorGlobal(
+				etapaDiagnosticoPrepararTrabajos(err),
+				err,
+			)
 	}
 	if err := p.ejecutarTrabajos(
 		ctx,
@@ -243,15 +281,33 @@ func (p *PreparadorGlobalCobertura) Preparar(
 	}
 	if final.Before(inicio) || datos.validarEn(final) != nil {
 		return cobertura.PreparacionConjuntosViasCobertura{},
-			ErrPreparacionGlobalCoberturaNoConfiable
+			errorDiagnosticoPreparadorGlobal(
+				EtapaDiagnosticoPresentacionPreparadorValidacion,
+				ErrPreparacionGlobalCoberturaNoConfiable,
+			)
 	}
-	return construirPreparacionGlobal(
+	preparacion, err := construirPreparacionGlobal(
 		operacion,
 		datos,
 		vias,
 		evidencias,
 		final,
 	)
+	if err != nil {
+		return cobertura.PreparacionConjuntosViasCobertura{},
+			errorDiagnosticoPreparadorGlobal(
+				EtapaDiagnosticoPresentacionPreparadorResultado,
+				err,
+			)
+	}
+	return preparacion, nil
+}
+
+func etapaDiagnosticoPrepararTrabajos(err error) EtapaDiagnosticoPresentacionPropuestaCobertura {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return EtapaDiagnosticoPresentacionPreparadorPlazo
+	}
+	return EtapaDiagnosticoPresentacionPreparadorReferencias
 }
 
 type trabajoPreparacionGlobal struct {
@@ -363,10 +419,16 @@ func (p *PreparadorGlobalCobertura) ejecutarTrabajos(
 		return errorPreparacionGlobalContexto(err)
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return errorPreparacionGlobalContexto(context.DeadlineExceeded)
+		return errorDiagnosticoPreparadorGlobal(
+			EtapaDiagnosticoPresentacionPreparadorPlazo,
+			errorPreparacionGlobalContexto(context.DeadlineExceeded),
+		)
 	}
 	if primerFallo != nil {
-		return ErrPreparacionGlobalCoberturaNoConfiable
+		return errorDiagnosticoPreparadorGlobal(
+			EtapaDiagnosticoPresentacionPreparadorConsulta,
+			ErrPreparacionGlobalCoberturaNoConfiable,
+		)
 	}
 	if err := ctx.Err(); err != nil {
 		return errorPreparacionGlobalContexto(err)
