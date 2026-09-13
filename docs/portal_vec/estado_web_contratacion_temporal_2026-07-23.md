@@ -12,6 +12,13 @@ incluidas en el alcance (incorporación y seguimiento). No son 19 URL distintas:
 varias se presentan como paneles del expediente. Los seis documentos no suman
 seis pantallas. No incrementar el contador por commits, pruebas o cambios de CSS.
 
+La continuidad después de subsanar está publicada como código: nueva fiscalización
+(CT93), selección (CT94), aviso/respuesta (CT95) y propuesta (CT96, `539247a6`).
+El formulario admite la versión fiscalizada y los documentos actuales usan la nueva
+propuesta (`8927bf61`). Esto aún no acredita instalación ni recorrido principal.
+Quedan separados la continuación tras renuncia de ese nuevo recorrido y la consulta
+documental histórica después de su resolución posterior. SMTP sigue pendiente.
+
 El porcentaje que falta es una **estimación inicial de trabajo por pantalla**,
 no una medición de horas ni una certificación. Se revisará al cerrar cada tarea.
 Cero significa recorrido funcional de desarrollo documentado, no producción ni
@@ -45,7 +52,7 @@ cobertura en su preparador; todavía no declara resuelto el `503`.
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
 | 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
 | 8 | Fiscalización por Intervención | Parcial | 25 % | Dirección: continuidad desde Unidad | Conexión integrada. El caso Unidad debe confirmar asignación y preparar informe antes de fiscalizar; Intervención requiere identidad y resultado explícitos. |
-| 9 | Subsanación de reparos | Parcial, programada sin activar | Por verificar | Director remoto: instalación de paquetes revisados | Formulario, API, permisos, persistencia y refresco del historial entregados en 4996034d/6257b6f6; nueva fiscalización tras corrección en 60e0c7a1. SQL CT92/AD3-38 y CT93 con doble revisión. Ninguna instalada según ACK remoto 13 septiembre 01:22 CEST; falta recorrido real. |
+| 9 | Subsanación de reparos | Parcial, programada sin activar | Por verificar | Director remoto: instalación y recorrido; apoyo: paquete entregado | AD3-38/CT92 pasan ensayo PostgreSQL aislado con conservación y reinicio; instalación principal con doble revisión final entregada. Pendientes instalación, activación y operación nominal desde navegador. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Remoto: `ensayo_contacto_aislado`; Dirección: gobierno Usuarios/SMTP | Fuente revisada; ensayo aislado en curso, sin instalación principal. Falta composición/gobierno nominal Usuarios y operación positiva; SMTP pendiente. |
 | 11 | Selección de candidatura | Terminada en desarrollo | 0 % | Dirección: conservación | Selección y continuación real de Bolsa con recibos conservados. |
 | 12 | Resultado del llamamiento | Parcial | 25 % | Dirección: inicio y plazo gobernados | Aceptación y renuncia manuales recorribles; falta vencimiento con inicio y plazo acreditados. |
@@ -92,13 +99,13 @@ recorrido mínimo solicitado.
 |---:|---|---|
 | 1 | Inicio y cuadro de mando | Vista `cuadro` |
 | 2 | Nueva petición de personal | Vista `alta` O2-09B |
-| 3 | Análisis de RRHH | Parcial | 25 % | Director remoto: activar entrega local 64aeec4f | Formulario y catálogo configurable conectados; falta fuente de motivos válida e instalación/recorrido. Catálogo vacío sigue sin permitir POST. |
+| 3 | Análisis de RRHH | Formulario de análisis y rectificación del expediente |
 | 4 | Gestión de bolsa y comprobaciones automáticas | `tarea-cobertura` |
 | 5 | Unidad del Departamento y bandeja de trabajo | `tarea-asignacion` |
 | 6 | Informe jurídico automático | `tarea-informe-juridico` |
 | 7 | Firma de Jefatura y envío a Intervención | `tarea-envio-intervencion` |
 | 8 | Fiscalización por Intervención | `tarea-fiscalizacion` |
-| 9 | Subsanación de reparos | Parcial, programada sin activar | Por verificar | Director remoto: instalación de paquetes revisados | Formulario, API, permisos, persistencia y refresco del historial entregados en 4996034d/6257b6f6; nueva fiscalización tras corrección en 60e0c7a1. SQL CT92/AD3-38 y CT93 con doble revisión. Ninguna instalada según ACK remoto 13 septiembre 01:22 CEST; falta recorrido real. |
+| 9 | Subsanación de reparos | `tarea-subsanacion`, formulario del expediente |
 | 10 | Llamamiento de la candidatura | `tarea-iniciar-llamamiento` |
 | 11 | Selección de candidatura de la bolsa | `tarea-seleccion-candidato` |
 | 12 | Resultado del llamamiento | `tarea-resultado-llamamiento` |
