@@ -1275,10 +1275,17 @@ func referenciaMotivoAutorizacionCoberturaDesarrollo(
 func referenciaMotivoAutorizacionAnalisisDesarrollo(
 	operacion string,
 ) dominiovec.ReferenciaEntradaCatalogo {
+	catalogoID := "motivos_autorizacion_analisis"
+	materialHuella := "catalogo-motivos-analisis"
+	if operacion == "rectificacion" {
+		// El catálogo de registro v1 ya está publicado y es inmutable.
+		catalogoID = "motivos_autorizacion_rectificacion_analisis"
+		materialHuella = "catalogo-motivos-rectificacion-analisis"
+	}
 	return dominiovec.ReferenciaEntradaCatalogo{
-		CatalogoID:           "motivos_autorizacion_analisis",
+		CatalogoID:           catalogoID,
 		CatalogoVersion:      1,
-		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-analisis"),
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(materialHuella),
 		EntradaClave: referenciaAltaContratacionTemporalDesarrollo(
 			"motivo_",
 			"analisis-"+operacion,

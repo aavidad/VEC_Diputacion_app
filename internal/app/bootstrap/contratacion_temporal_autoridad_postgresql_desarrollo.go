@@ -666,6 +666,7 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 	motivos := []dominiovec.ReferenciaEntradaCatalogo{
 		soporte.motivo,
 		soporte.motivoRegistroAnalisis,
+		soporte.motivoRectificacionAnalisis,
 		soporte.motivoPropuestaCobertura,
 		soporte.motivoDecisionCobertura,
 		soporte.motivoRectificacionCobertura,
