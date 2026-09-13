@@ -377,7 +377,7 @@ function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t, locale
   </section>`;
 }
 
-function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, zonaHoraria) {
+function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, zonaHoraria, mensajes) {
   if (recibo?.expediente_ref !== expediente?.expediente_ref
     || recibo?.version_resultante !== expediente?.version
     || !["favorable", "favorable_con_observaciones", "desfavorable"].includes(recibo.resultado)
@@ -387,7 +387,7 @@ function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, 
   const formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
-  const tFiscalizacion = crearTraductorContratacionTemporal();
+  const tFiscalizacion = crearTraductorContratacionTemporal(mensajes);
   return `<section class="ct-recibo" data-ct-fiscalizacion-confirmada role="status"
     aria-live="polite" aria-atomic="true" tabindex="-1">
     <h3>${escaparHTML(t("fiscalizacion_confirmada_titulo"))}</h3>
@@ -531,7 +531,7 @@ export function renderizarModuloContratacionTemporal(estado, {
         reciboAsignacionConfirmado, contextoInforme, t, locale, zonaHoraria,
       );
     const reciboFiscalizacion = renderizarReciboFiscalizacionConfirmada(
-      reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria,
+      reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria, mensajes,
     );
     const contextoAsignacion = asignacionDisponible
       ? contextoAsignacionDesdeEstado(estado)
@@ -1070,7 +1070,7 @@ export async function montarModuloContratacionTemporal({
       if (!sigueSeleccionado()) return false;
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== recibo.expediente_ref
-        || actualizado.version < recibo.version_resultante) {
+        || actualizado.version !== recibo.version_resultante) {
         avisarPendiente();
         return false;
       }
