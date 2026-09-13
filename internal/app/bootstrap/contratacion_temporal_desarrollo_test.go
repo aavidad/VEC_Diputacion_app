@@ -243,8 +243,8 @@ func TestPerimetroMTLSContratacionTemporalDesarrolloIncluyeSoloRutasAnalisisComp
 	if !esRutaContratacionTemporalDesarrollo(peticionRectificacion) {
 		t.Fatal("rectificacion no queda protegida por el perimetro mTLS")
 	}
-	if _, denegada := rutasCapacidadNoCompuestaContratacionTemporal[httpinterno.RutaRectificacionAnalisisRRHH]; !denegada {
-		t.Fatal("rectificacion de analisis no conserva la denegacion")
+	if _, denegada := rutasCapacidadNoCompuestaContratacionTemporal[httpinterno.RutaRectificacionAnalisisRRHH]; denegada {
+		t.Fatal("rectificacion de analisis conserva la barrera no compuesta")
 	}
 }
 

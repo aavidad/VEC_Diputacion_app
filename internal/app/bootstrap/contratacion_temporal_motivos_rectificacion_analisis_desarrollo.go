@@ -69,16 +69,69 @@ func nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(
 func (f fuenteMotivosRectificacionAnalisisDesarrollo) opciones(
 	ctx context.Context,
 ) []opcionClaveCatalogosAltaContratacionTemporalDesarrollo {
-	if !f.configuracionValida() || ctx == nil || ctx.Err() != nil {
+	catalogo, instante, _, encontrado := f.catalogoVigente(ctx)
+	if !encontrado {
 		return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
 	}
+	return opcionesMotivosRectificacionAnalisis(catalogo, instante)
+}
+
+// resolverMotivo fija la entrada que se utilizará en la autorización. No usa
+// las opciones de presentación: vuelve a resolver el catálogo publicado para
+// que una clave recibida del cliente nunca equivalga por sí sola a un motivo.
+func (f fuenteMotivosRectificacionAnalisisDesarrollo) resolverMotivo(
+	ctx context.Context,
+	clave domain.ClaveCatalogo,
+) (ports.MotivoRectificacionGobernado, error) {
+	vacio := ports.MotivoRectificacionGobernado{}
+	if !clave.Valida() {
+		return vacio, ports.ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	catalogo, instante, limiteCatalogo, encontrado := f.catalogoVigente(ctx)
+	if !encontrado {
+		return vacio, ports.ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	for _, entrada := range catalogo.Entradas {
+		claveI18n, existe := entrada.Atributos[atributoClaveI18nMotivoRectificacionAnalisisDesarrollo]
+		if entrada.Clave != string(clave) || !entrada.VigenteEn(instante) ||
+			!existe || !domain.ClaveCatalogo(claveI18n).Valida() ||
+			!strings.HasPrefix(claveI18n, prefijoClaveI18nMotivoRectificacionAnalisisDesarrollo) {
+			continue
+		}
+		huella, err := catalogo.HuellaSHA256()
+		if err != nil {
+			return vacio, ports.ErrPoliticaOperacionAnalisisNoDisponible
+		}
+		motivo := ports.MotivoRectificacionGobernado{
+			ReferenciaCatalogo: vecdomain.ReferenciaEntradaCatalogo{
+				CatalogoID: catalogo.ID, CatalogoVersion: catalogo.Version,
+				CatalogoHuellaSHA256: huella, EntradaClave: entrada.Clave,
+			},
+			ClaveMensajeI18N: domain.ClaveCatalogo(claveI18n),
+			VigenteDesde:     maximoInstanteMotivoRectificacionAnalisis(entrada.VigenteDesde, catalogo.PublicadoEn),
+			VigenteHasta: limiteVigenciaMotivoRectificacionAnalisis(
+				entrada.VigenteHasta,
+				limiteCatalogo,
+			),
+		}
+		if motivo.ValidarPara(clave) == nil {
+			return motivo, nil
+		}
+	}
+	return vacio, ports.ErrPoliticaOperacionAnalisisNoDisponible
+}
+
+func (f fuenteMotivosRectificacionAnalisisDesarrollo) catalogoVigente(
+	ctx context.Context,
+) (vecdomain.CatalogoConfigurable, time.Time, time.Time, bool) {
+	if !f.configuracionValida() || ctx == nil || ctx.Err() != nil {
+		return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
+	}
 	limites := limitesMotivosRectificacionAnalisisDesarrollo()
-	resultado, err := f.consulta.ListarVersionesCatalogoAcotado(
-		ctx, f.catalogoID, limites,
-	)
+	resultado, err := f.consulta.ListarVersionesCatalogoAcotado(ctx, f.catalogoID, limites)
 	if err != nil || ctx.Err() != nil || resultado.Truncado ||
 		len(resultado.Catalogos) == 0 || len(resultado.Catalogos) > limites.Versiones {
-		return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+		return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 	}
 	versiones := make([]vecdomain.CatalogoConfigurable, len(resultado.Catalogos))
 	var consumo vecports.ConsumoConsultaCatalogosAcotada
@@ -86,11 +139,11 @@ func (f fuenteMotivosRectificacionAnalisisDesarrollo) opciones(
 		medida, medible := vecports.MedirCatalogoConfigurable(resultado.Catalogos[indice])
 		siguiente, cabe := consumo.Agregar(medida, limites)
 		if !medible || !cabe || ctx.Err() != nil {
-			return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+			return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 		}
 		catalogo, err := resultado.Catalogos[indice].ClonarCanonico()
 		if err != nil || catalogo.ID != f.catalogoID || catalogo.ModuloID != f.moduloID {
-			return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+			return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 		}
 		versiones[indice] = catalogo
 		consumo = siguiente
@@ -99,19 +152,52 @@ func (f fuenteMotivosRectificacionAnalisisDesarrollo) opciones(
 		return versiones[primera].Version < versiones[segunda].Version
 	})
 	if !historialMotivosRectificacionAnalisisValido(versiones) {
-		return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+		return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 	}
 	instante := f.reloj.Ahora()
 	if !domain.InstanteUTCCanonico(instante) {
-		return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+		return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 	}
-	catalogo, encontrado := catalogoMotivosRectificacionAnalisisVigente(
-		versiones, instante,
-	)
+	catalogo, encontrado := catalogoMotivosRectificacionAnalisisVigente(versiones, instante)
 	if !encontrado {
-		return []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{}
+		return vecdomain.CatalogoConfigurable{}, time.Time{}, time.Time{}, false
 	}
-	return opcionesMotivosRectificacionAnalisis(catalogo, instante)
+	return catalogo, instante,
+		limiteCatalogoMotivosRectificacionAnalisis(versiones, catalogo, instante), true
+}
+
+func limiteCatalogoMotivosRectificacionAnalisis(
+	versiones []vecdomain.CatalogoConfigurable,
+	catalogo vecdomain.CatalogoConfigurable,
+	instante time.Time,
+) time.Time {
+	limite := time.Time{}
+	if catalogo.Estado == vecdomain.EstadoCatalogoRetirado {
+		limite = catalogo.RetiradoEn
+	}
+	for _, posterior := range versiones {
+		if posterior.Version <= catalogo.Version ||
+			posterior.Estado == vecdomain.EstadoCatalogoBorrador ||
+			!posterior.PublicadoEn.After(instante) {
+			continue
+		}
+		limite = limiteVigenciaMotivoRectificacionAnalisis(limite, posterior.PublicadoEn)
+	}
+	return limite
+}
+
+func maximoInstanteMotivoRectificacionAnalisis(primero, segundo time.Time) time.Time {
+	if primero.After(segundo) {
+		return primero
+	}
+	return segundo
+}
+
+func limiteVigenciaMotivoRectificacionAnalisis(primero, segundo time.Time) time.Time {
+	if primero.IsZero() || (!segundo.IsZero() && segundo.Before(primero)) {
+		return segundo
+	}
+	return primero
 }
 
 func (f fuenteMotivosRectificacionAnalisisDesarrollo) configuracionValida() bool {

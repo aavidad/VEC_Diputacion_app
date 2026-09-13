@@ -218,6 +218,7 @@ func (d *resolutorPoliticaOperacionAnalisisDobleSaneado) ResolverPoliticaOperaci
 		)
 		politica.MotivoRectificacion =
 			ports.MotivoRectificacionGobernado{
+				VigenteDesde: solicitud.Instante.Add(-time.Hour),
 				ReferenciaCatalogo: dominiovec.ReferenciaEntradaCatalogo{
 					CatalogoID:           "motivos_rectificacion_analisis",
 					CatalogoVersion:      2,

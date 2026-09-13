@@ -92,6 +92,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantanea                        dominiovec.InstantaneaAutorizacion
 	instantaneaAnalisis                dominiovec.InstantaneaAutorizacion
 	motivoRegistroAnalisis             dominiovec.ReferenciaEntradaCatalogo
+	motivoRectificacionAnalisis        dominiovec.ReferenciaEntradaCatalogo
 	instantaneaCobertura               dominiovec.InstantaneaAutorizacion
 	instantaneaAsignacion              dominiovec.InstantaneaAutorizacion
 	instantaneaInformeJuridico         dominiovec.InstantaneaAutorizacion
@@ -237,6 +238,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	motivoRectificacion := referenciaMotivoAutorizacionCoberturaDesarrollo("rectificacion")
 	motivoResultado := referenciaMotivoAutorizacionCoberturaDesarrollo("resultado")
 	motivoRegistroAnalisis := referenciaMotivoAutorizacionAnalisisDesarrollo("registro")
+	motivoRectificacionAnalisis := referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion")
 	motivoAsignacion := referenciaMotivoAutorizacionAsignacionDesarrollo()
 	motivoInformeJuridico := referenciaMotivoAutorizacionInformeJuridicoDesarrollo()
 	if err != nil || errCobertura != nil || errAnalisis != nil ||
@@ -250,6 +252,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		motivoRectificacion,
 		motivoResultado,
 		motivoRegistroAnalisis,
+		motivoRectificacionAnalisis,
 		motivoAsignacion,
 		motivoInformeJuridico,
 	} {
@@ -265,6 +268,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		instantaneaAsignacion:        instantaneaAsignacion,
 		instantaneaInformeJuridico:   instantaneaInformeJuridico,
 		motivoRegistroAnalisis:       motivoRegistroAnalisis,
+		motivoRectificacionAnalisis:  motivoRectificacionAnalisis,
 		instantaneaCobertura:         instantaneaCobertura,
 		motivoPropuestaCobertura:     motivoPropuesta,
 		motivoDecisionCobertura:      motivoDecision,
@@ -396,7 +400,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		ruta == httpinterno.RutaPropuestaCobertura ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura ||
-		ruta == httpinterno.RutaRegistroAnalisisRRHH ||
+		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaSubsanacionReparos ||
@@ -406,7 +410,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 }
 
 func rutaAnalisisContratacionTemporalDesarrollo(ruta string) bool {
-	return ruta == httpinterno.RutaRegistroAnalisisRRHH
+	return ruta == httpinterno.RutaRegistroAnalisisRRHH || ruta == httpinterno.RutaRectificacionAnalisisRRHH
 
 }
 
@@ -718,6 +722,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoRectificacionCobertura, true
 	case httpinterno.RutaRegistroAnalisisRRHH:
 		return s.motivoRegistroAnalisis, true
+	case httpinterno.RutaRectificacionAnalisisRRHH:
+		return s.motivoRectificacionAnalisis, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRectificacionAnalisis)
 	case httpinterno.RutaResultadoCobertura:
 		return s.motivoResultadoCobertura, true
 	case httpinterno.RutaAsignaciones:
@@ -1058,8 +1064,8 @@ func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
-	accionValida := ruta == httpinterno.RutaRegistroAnalisisRRHH &&
-		datos.Accion == ports.AccionRegistrarAnalisis
+	accionValida := (ruta == httpinterno.RutaRegistroAnalisisRRHH && datos.Accion == ports.AccionRegistrarAnalisis) ||
+		(ruta == httpinterno.RutaRectificacionAnalisisRRHH && datos.Accion == ports.AccionRectificarAnalisis)
 	return accionValida && datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == ports.TipoRecursoAnalisis &&
 		datos.Finalidad == finalidadAnalisisContratacionTemporalDesarrollo &&
@@ -1176,6 +1182,7 @@ func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 		"asignacion-rrhh-analisis-desarrollo-no-autoritativa",
 		[]dominiovec.ConcesionRol{
 			concesion(ports.AccionRegistrarAnalisis),
+			concesion(ports.AccionRectificarAnalisis),
 		},
 		[]dominiovec.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},

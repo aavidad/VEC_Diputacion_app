@@ -451,6 +451,10 @@ func (o OrdenConfirmarOperacionAnalisis) ValidarConfirmacionDentroDeTransaccion(
 		) != nil {
 		return ErrOrdenOperacionAnalisisInvalida
 	}
+	if evidencia.Politica.Operacion == OperacionRectificarAnalisis &&
+		evidencia.Politica.MotivoRectificacion.ValidarVigenciaEn(confirmadaEn) != nil {
+		return ErrOrdenOperacionAnalisisInvalida
+	}
 	preparacion, err := evidencia.Preparacion.DatosPara(
 		evidencia.SolicitudPreparacion,
 	)

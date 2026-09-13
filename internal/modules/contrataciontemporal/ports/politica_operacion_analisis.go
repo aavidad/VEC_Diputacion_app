@@ -43,12 +43,16 @@ func (t TipoOperacionAnalisis) Valida() bool {
 type MotivoRectificacionGobernado struct {
 	ReferenciaCatalogo dominiovec.ReferenciaEntradaCatalogo
 	ClaveMensajeI18N   domain.ClaveCatalogo
+	VigenteDesde       time.Time
+	VigenteHasta       time.Time // Cero indica que la publicación no fija fin.
 }
 
 func (m MotivoRectificacionGobernado) ValidarPara(
 	clave domain.ClaveCatalogo,
 ) error {
-	if !clave.Valida() || m.ReferenciaCatalogo.Validar() != nil ||
+	if !instanteSeguroOperacionAnalisis(m.VigenteDesde) ||
+		(!m.VigenteHasta.IsZero() && (!instanteSeguroOperacionAnalisis(m.VigenteHasta) || !m.VigenteHasta.After(m.VigenteDesde))) ||
+		!clave.Valida() || m.ReferenciaCatalogo.Validar() != nil ||
 		uint64(m.ReferenciaCatalogo.CatalogoVersion) >
 			MaximoEnteroSeguroOperacionAnalisis ||
 		m.ReferenciaCatalogo.EntradaClave != string(clave) ||
@@ -60,6 +64,16 @@ func (m MotivoRectificacionGobernado) ValidarPara(
 		return ErrPoliticaOperacionAnalisisNoDisponible
 	}
 	return nil
+}
+
+// ValidarVigenciaEn también se usa con el instante efectivo del recibo SQL,
+// antes del COMMIT, para rechazar una caducidad durante la espera de bloqueos.
+func (m MotivoRectificacionGobernado) ValidarVigenciaEn(instante time.Time) error {
+	if !instanteSeguroOperacionAnalisis(instante) || instante.Before(m.VigenteDesde) ||
+		(!m.VigenteHasta.IsZero() && !instante.Before(m.VigenteHasta)) {
+		return ErrPoliticaOperacionAnalisisNoDisponible
+	}
+	return m.ValidarPara(domain.ClaveCatalogo(m.ReferenciaCatalogo.EntradaClave))
 }
 
 type SolicitudResolverPoliticaOperacionAnalisis struct {
