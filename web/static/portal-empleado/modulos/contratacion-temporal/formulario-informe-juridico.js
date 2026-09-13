@@ -4,6 +4,7 @@ import {
   validarReciboInformeJuridico,
   validarSolicitudInformeJuridico,
 } from "./contrato-informe-juridico.js";
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const CAMPOS_CONFIGURACION = new Set([
@@ -124,7 +125,7 @@ function renderizarDocumento(recibo, t) {
   </section>`;
 }
 
-function renderizarHistorial(estado, t, formateador) {
+function renderizarHistorial(estado, t, formateador, mensajes) {
   if (!estado.recibo) return "";
   let contenido;
   if (estado.historialCargando) {
@@ -146,13 +147,15 @@ function renderizarHistorial(estado, t, formateador) {
           <th scope="col">${escaparHTML(t("informe_historial_estado"))}</th>
           <th scope="col">${escaparHTML(t("informe_historial_fecha"))}</th>
         </tr></thead>
-        <tbody>${estado.historial.map((hito) => `<tr>
+        <tbody>${estado.historial.map((hito) => {
+          const etiquetas = presentarEtiquetasHitoRRHH(hito, mensajes);
+          return `<tr>
           <th scope="row">${hito.secuencia}</th><td>${hito.version_expediente}</td>
-          <td>${escaparHTML(hito.accion_clave)}</td>
-          <td>${escaparHTML(hito.fase_origen ?? "—")} → ${escaparHTML(hito.fase_destino)}</td>
-          <td>${escaparHTML(hito.estado_origen)} → ${escaparHTML(hito.estado_destino)}</td>
+          <td>${escaparHTML(etiquetas.accion)}</td>
+          <td>${escaparHTML(etiquetas.faseOrigen)} → ${escaparHTML(etiquetas.faseDestino)}</td>
+          <td>${escaparHTML(etiquetas.estadoOrigen)} → ${escaparHTML(etiquetas.estadoDestino)}</td>
           <td>${escaparHTML(formateador.format(new Date(hito.realizada_en)))}</td>
-        </tr>`).join("")}</tbody>
+        </tr>`; }).join("")}</tbody>
       </table>
     </div>`;
   }
@@ -239,7 +242,7 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
       ${renderizarFormulario(estado, contexto, t)}
       ${estado.recibo ? renderizarRecibo(estado.recibo, t, formateador) : ""}
       ${estado.recibo ? renderizarDocumento(estado.recibo, t) : ""}
-      ${renderizarHistorial(estado, t, formateador)}
+      ${renderizarHistorial(estado, t, formateador, mensajes)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
     try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {

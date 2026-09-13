@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 
@@ -101,7 +102,7 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
     flujo_ref: "flujo:ct:sintetico",
     flujo_version: 1,
     flujo_huella: "b".repeat(64),
-    cabecera: [],
+    cabecera: [{ clave: "unidad", valor: "unidad:seleccion" }],
     fases: [],
     tareas: [],
   };
@@ -112,6 +113,7 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
       expediente_ref: EXPEDIENTE,
       version: 4,
       fase_clave: "asignacion_unidad",
+      estado_clave: "en_curso",
     }] },
     expediente,
     tarea_ref: "",
@@ -120,4 +122,15 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
   }, { informeJuridicoDisponible: true });
 
   assert.match(html, /data-ct-exp-informe-juridico/u);
+});
+
+test("el historial del informe reutiliza etiquetas legibles y traducciones", () => {
+  const etiquetas = presentarEtiquetasHitoRRHH({
+    accion_clave: "contratacion_temporal.analisis.registrar",
+    fase_origen: null, fase_destino: "solicitud", estado_origen: "pendiente", estado_destino: "en_curso",
+  }, { hito_analisis: "Análisis revisado" });
+  assert.equal(etiquetas.accion, "Análisis revisado");
+  assert.equal(etiquetas.faseOrigen, "—");
+  assert.equal(etiquetas.faseDestino, "Solicitud");
+  assert.equal(etiquetas.estadoDestino, "En tramitación");
 });

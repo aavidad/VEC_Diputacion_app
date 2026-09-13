@@ -192,6 +192,18 @@ function etiquetaAccionHito(clave, t) {
   return mensaje ? t(mensaje) : etiqueta(clave, t);
 }
 
+// Etiquetas compartidas por los historiales de expediente e informe.
+export function presentarEtiquetasHitoRRHH(hito, mensajes = {}) {
+  const t = crearTraductorExpedientesContratacion(mensajes);
+  return {
+    accion: etiquetaAccionHito(hito.accion_clave, t),
+    faseOrigen: etiqueta(hito.fase_origen, t, "—"),
+    faseDestino: etiqueta(hito.fase_destino, t),
+    estadoOrigen: etiqueta(hito.estado_origen, t),
+    estadoDestino: etiqueta(hito.estado_destino, t),
+  };
+}
+
 // El detalle RRHH ya llega autorizado y validado por el cliente HTTP. Los
 // hitos son historia, no fases del flujo de presentación. Conservamos sólo la
 // identidad canónica y la versión ya autorizadas por el detalle para enlazar
