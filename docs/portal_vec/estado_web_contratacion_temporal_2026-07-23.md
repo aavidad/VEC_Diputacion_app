@@ -1,28 +1,39 @@
 # Estado de la web de contratación temporal para RRHH
 
-### Rectificación recuperada en candidata; integración pendiente
+### Rectificación revisada e integrada en código; activación principal pendiente
 
-La candidata `trabajo/ct-rectificacion-recuperacion-20260913` conserva la
-identidad funcional desde la reserva inicial y renueva las pruebas sin cambiar
-la petición ni el recibo. En una copia aislada, la petición que fallaba se ha
-confirmado con HTTP `201`; después de reiniciar aplicación y PostgreSQL devuelve
-el mismo cuerpo `201`, recibo, fecha y versión `3`. La consulta de esa versión
-responde `200`. Se conservan dos confirmaciones (registro y rectificación), tres
-versiones y dos actuaciones, auditorías y eventos de salida para el expediente.
+El conjunto de rectificación `842c298c` tiene dos revisiones sensibles
+independientes favorables y está integrado en la rama de producto. CT97/98
+conservan la identidad funcional desde la reserva inicial y permiten renovar
+las pruebas sin cambiar la intención ni el recibo. El rol de análisis v2 conserva
+el historial de permisos anterior. CT99 alinea el motivo nominal y su huella
+de autorización. CT100 corrige la rotación con generaciones retenidas y limita
+las políticas de lectura/inserción a la raíz y sesión técnica de cada operación.
+No se modifican las reservas ni los recibos originales.
 
-Los cambios pendientes de doble revisión son CT97/98 (reserva y recuperación),
-el rol de análisis v2 (`1d3f15d2`) y CT99 (`9f838605`), que alinea la clave del
-motivo con la observación nominal y la reconstrucción de la huella de autorización.
-No están instalados en la base principal. El recibo web distingue ya
-«Rectificación confirmada» (`d6041664`), sin alterar la autorización.
+En PostgreSQL aislado se han comprobado rotación, recuperación, rechazo de
+intenciones divergentes, permisos y restauración del contexto. La nueva
+rectificación de un expediente sintético existente, con autor previo distinto,
+responde `201`, pasa de versión `2` a `3` y recupera exactamente el mismo cuerpo
+`201`. La rectificación anterior también conserva íntegramente su recibo. El
+bloque de revisión del guardado se ha comprobado con las políticas nuevas,
+sin escrituras de negocio adicionales; su auxiliar de prueba fue retirado al
+revertir la transacción. No se atribuye a CT100 un reinicio que no se ha realizado.
+
+CT97–100 están instaladas en la base aislada: **no reaplicarlas**. Todavía no se
+han instalado en la base principal ni se ha activado allí el nuevo binario.
+El recibo web distingue ya «Rectificación confirmada» (`d6041664`).
 
 La reserva histórica principal es distinta: nació sin el sello funcional CT97.
-El sello anterior incluye las pruebas temporales completas; la petición HTTP y
-la huella del artefacto no bastan para reconstruirlas. Su recuperación sigue
-pendiente de una vía verificable; no borrar la reserva ni cambiar la clave.
-El contador permanece **15/19** hasta integrar y recorrer la funcionalidad.
-Dirección local continúa sola: última muestra local 1 %, remoto 0 %;
-no hay agentes remotos de producción trabajando en estos pendientes.
+El sello anterior incluye pruebas temporales completas; la petición HTTP y la
+huella del artefacto no bastan para reconstruirlas. Su recuperación sigue
+pendiente de una vía verificable; no borrar la reserva ni cambiar su clave.
+También se exige conservar la generación raíz durante la rotación de claves.
+
+El contador permanece **15/19** hasta activar y recorrer la funcionalidad en el
+producto. Dirección local ha programado el parche y dos revisores independientes
+han cerrado la revisión. No hay un director remoto programando; el servidor se
+ha utilizado como infraestructura de pruebas aisladas.
 
 ### Continuidad real tras subsanar y fiscalizar de nuevo
 
