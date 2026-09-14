@@ -197,7 +197,7 @@ BEGIN
     v_version := r.version_expediente::bigint + 1;
     v_motivo_rectificacion := CASE p_operacion
         WHEN 'registrar' THEN 'no_aplica'
-        ELSE 'contratacion_temporal.analisis.rectificacion.ajuste_coste'
+        ELSE 'ajuste_coste'
     END;
     v_actuacion := pg_catalog.jsonb_build_object(
         'secuencia', v_version,
@@ -215,7 +215,7 @@ BEGIN
     );
     IF p_operacion = 'rectificar' THEN
         v_actuacion := v_actuacion || pg_catalog.jsonb_build_object(
-            'observaciones', v_motivo_rectificacion
+            'observaciones', 'contratacion_temporal.analisis.rectificacion.' || v_motivo_rectificacion
         );
     END IF;
     v_sufijo := CASE p_operacion
@@ -668,7 +668,7 @@ BEGIN
             'contratacion_temporal.analisis.rectificacion.ajuste_periodo';
         v_operacion := pg_catalog.jsonb_set(
             v_operacion, '{politica,motivo_rectificacion_clave}',
-            pg_catalog.to_jsonb(v_valor)
+            pg_catalog.to_jsonb('ajuste_periodo'::text)
         );
         v_operacion := pg_catalog.jsonb_set(
             v_operacion, '{actuacion,observaciones}',

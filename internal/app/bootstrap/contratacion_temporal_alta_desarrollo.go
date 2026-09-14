@@ -1194,6 +1194,11 @@ func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return dominiovec.InstantaneaAutorizacion{}, err
 	}
+	// La versión 1 publicada solo permite registrar. La rectificación añade
+	// una concesión y exige otra versión, sin alterar el rol histórico.
+	instantanea.VersionRol.Version = 2
+	instantanea.AsignacionPerfil.VersionRolRef = instantanea.VersionRol.Referencia()
+	instantanea.ControlVigenciaVersionRol.VersionRolRef = instantanea.VersionRol.Referencia()
 	if instantanea.Validar() != nil {
 		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
 	}

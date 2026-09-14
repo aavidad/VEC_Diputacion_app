@@ -253,7 +253,7 @@ func solicitudAnalisisPostgreSQLPrueba(
 		},
 	}
 	sellos := sellosAnalisisPostgreSQLPrueba(t, "a", "b")
-	sellosConsulta := sellosAnalisisPostgreSQLPrueba(t, "c", "d")
+	sellosConsulta := sellosAnalisisPostgreSQLPrueba(t, "a", "d")
 	identidad, err := ports.NuevaSolicitudConsultarOperacionAnalisisConfirmada(
 		ports.DatosPreimagenesConsultaOperacionAnalisis{
 			ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
@@ -465,4 +465,33 @@ func expedienteInicialAnalisisPostgreSQLPrueba(
 		t.Fatal(err)
 	}
 	return expediente
+}
+
+// La huella funcional no debe depender de un nuevo artefacto temporal.
+func TestPreparacionAnalisisConservaIdentidadFuncionalAntesDeConfirmar(t *testing.T) {
+	solicitud := solicitudAnalisisPostgreSQLPrueba(t, expedienteInicialAnalisisPostgreSQLPrueba(t))
+	inicial, err := nuevaOperacionPrepararAnalisis(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud.Sellos = sellosAnalisisPostgreSQLPrueba(t, "a", "e")
+	solicitud.ArtefactoHuellaSHA256 = strings.Repeat("6", 64)
+	reintento, err := nuevaOperacionPrepararAnalisis(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inicial.SellosConsulta.Activo != reintento.SellosConsulta.Activo ||
+		inicial.SellosConsulta.Activo.HuellaPeticionHMAC == inicial.SellosHMAC.Activo.HuellaPeticionHMAC ||
+		inicial.SellosHMAC.Activo.HuellaPeticionHMAC == reintento.SellosHMAC.Activo.HuellaPeticionHMAC {
+		t.Fatal("se confundió la identidad funcional con el artefacto temporal")
+	}
+	contenido, err := json.Marshal(reintento)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contenido), `"sellos_consulta"`) ||
+		strings.Contains(string(contenido), `"datos_funcionales"`) ||
+		strings.Contains(string(contenido), `"clave_idempotencia"`) {
+		t.Fatal("la reserva debe transportar solo identidad funcional sellada")
+	}
 }

@@ -731,3 +731,30 @@ func TestAutorizacionRectificacionAnalisisExigeAccionYMotivoPropios(t *testing.T
 		})
 	}
 }
+
+func TestRolAnalisisRectificacionNoReutilizaVersionHistorica(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	vinculo, err := soporte.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual.VersionRol.Version != 2 || actual.Validar() != nil {
+		t.Fatal("rol nuevo inválido")
+	}
+	if actual.AsignacionPerfil.VersionRolRef != actual.VersionRol.Referencia() || actual.ControlVigenciaVersionRol.VersionRolRef != actual.VersionRol.Referencia() {
+		t.Fatal("referencias de autoridad incoherentes")
+	}
+	historico := actual.VersionRol
+	historico.Version = 1
+	historico.Concesiones = append([]dominiovec.ConcesionRol(nil), actual.VersionRol.Concesiones[:1]...)
+	if historico.Validar() != nil || historico.Referencia() == actual.VersionRol.Referencia() {
+		t.Fatal("se reutiliza la identidad del rol anterior")
+	}
+	if len(actual.VersionRol.Concesiones) != 2 || actual.VersionRol.Concesiones[0].Accion != ports.AccionRegistrarAnalisis || actual.VersionRol.Concesiones[1].Accion != ports.AccionRectificarAnalisis {
+		t.Fatal("concesiones inesperadas")
+	}
+}

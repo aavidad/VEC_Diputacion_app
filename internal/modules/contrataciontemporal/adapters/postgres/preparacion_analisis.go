@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	funcionPrepararAnalisis  = "vec_contratacion_temporal.preparar_operacion_analisis_v1"
+	funcionPrepararAnalisis  = "vec_contratacion_temporal.preparar_operacion_analisis_v2"
 	funcionConsultarAnalisis = "vec_contratacion_temporal.consultar_operacion_analisis_v1"
 	esquemaPrepararAnalisis  = "vec.contratacion-temporal.preparar-operacion-analisis.v1"
 	maximoIntentosAnalisis   = 3

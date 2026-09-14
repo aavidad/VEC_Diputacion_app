@@ -9,6 +9,7 @@ import (
 )
 
 type operacionPrepararAnalisisV1 struct {
+	SellosConsulta        sellosPrepararAltaV2        `json:"sellos_consulta"`
 	Esquema               string                      `json:"esquema"`
 	SellosHMAC            sellosPrepararAltaV2        `json:"sellos_hmac"`
 	Operacion             ports.TipoOperacionAnalisis `json:"operacion"`
@@ -36,7 +37,16 @@ func nuevaOperacionPrepararAnalisis(
 		return operacionPrepararAnalisisV1{},
 			ports.ErrPreparacionOperacionAnalisisInvalida
 	}
+	identidad, err := solicitud.IdentidadConsulta.SellosIdentidadFuncional()
+	if err != nil {
+		return operacionPrepararAnalisisV1{}, ports.ErrPreparacionOperacionAnalisisInvalida
+	}
+	consulta, err := nuevosSellosPrepararAltaV2(identidad.AmbitosIdempotenciaHMAC, identidad.HuellasSemanticasHMAC)
+	if err != nil {
+		return operacionPrepararAnalisisV1{}, ports.ErrPreparacionOperacionAnalisisInvalida
+	}
 	return operacionPrepararAnalisisV1{
+		SellosConsulta:        consulta,
 		Esquema:               esquemaPrepararAnalisis,
 		SellosHMAC:            sellos,
 		Operacion:             solicitud.Operacion,
