@@ -1,6 +1,6 @@
 # Estado de la web de contratación temporal para RRHH
 
-### Rectificación revisada e integrada en código; activación principal pendiente
+### Rectificación activa y recorrida en principal; incidencia histórica pendiente
 
 El conjunto de rectificación `842c298c` tiene dos revisiones sensibles
 independientes favorables y está integrado en la rama de producto. CT97/98
@@ -20,9 +20,19 @@ bloque de revisión del guardado se ha comprobado con las políticas nuevas,
 sin escrituras de negocio adicionales; su auxiliar de prueba fue retirado al
 revertir la transacción. No se atribuye a CT100 un reinicio que no se ha realizado.
 
-CT97–100 están instaladas en la base aislada: **no reaplicarlas**. Todavía no se
-han instalado en la base principal ni se ha activado allí el nuevo binario.
-El recibo web distingue ya «Rectificación confirmada» (`d6041664`).
+CT97–100 están instaladas en la base aislada y en la principal: **no reaplicarlas**.
+El código revisado está activo. En principal, el formulario real confirmó una
+rectificación en un caso preexistente con autor distinto: `201`, versión `3`,
+recibo `rec_ct_an_887c3dd53db846769e118e7fa4cee465`, fecha
+`2026-09-15T14:52:15.049172Z`. Recuperación `201` idéntica y detalle `200`.
+Escritorio y móvil sin errores JavaScript ni desbordamiento. El historial previo
+se conserva; esta operación no recupera la reserva histórica pendiente.
+
+Durante la comprobación apareció un `503` de bandeja; tras comparar binarios y
+reiniciar con el código revisado, la consulta de cien filas y el navegador
+volvieron a funcionar. La causa no está demostrada: no atribuirla al compilador
+ni dar por corregida su posible reaparición. El fallo de paginación con una fila
+(`502`) también permanece identificado por separado.
 
 La reserva histórica principal es distinta: nació sin el sello funcional CT97.
 El sello anterior incluye pruebas temporales completas; la petición HTTP y la
@@ -30,10 +40,48 @@ huella del artefacto no bastan para reconstruirlas. Su recuperación sigue
 pendiente de una vía verificable; no borrar la reserva ni cambiar su clave.
 También se exige conservar la generación raíz durante la rotación de claves.
 
-El contador permanece **15/19** hasta activar y recorrer la funcionalidad en el
-producto. Dirección local ha programado el parche y dos revisores independientes
+El contador permanece **15/19** mientras siga pendiente la incidencia histórica
+de Análisis; su recorrido actual de rectificación ya está acreditado en producto. Dirección local ha programado el parche y dos revisores independientes
 han cerrado la revisión. No hay un director remoto programando; el servidor se
 ha utilizado como infraestructura de pruebas aisladas.
+
+## Encargos pequeños para modelos económicos — 15 de septiembre de 2026
+
+Encargos preparados por petición del operador. No hay un ejecutor Qwen conectado
+ni se afirma que esté trabajando. Dirección asignará cada encargo explícitamente;
+«preparado» no equivale a «en ejecución». El contador de pantallas no cambia por
+cerrar subtareas. Las estimaciones anteriores de porcentaje son orientativas.
+
+Contrato común: leer `ESPECIFICACIONES_AGENTES.md` y la fuente afectada; reutilizar
+contratos, i18n y tema; datos sintéticos y cero almacenamiento web. Un encargo,
+un resultado observable y un parche pequeño. No rehacer piezas existentes.
+Antes de editar, confirmar que el resultado no esté ya implementado; si lo está,
+entregar su ubicación y el hueco real. Cada entrega incluye archivos cambiados,
+comprobación breve y límites. Los workers no revierten cambios ajenos. Si aparece
+SQL, identidad, permisos, criptografía o datos personales, detener ese delta y
+pasarlo a dirección/revisión sensible, sin ampliar el encargo.
+
+Rutas web relativas a `web/static/portal-empleado/modulos/contratacion-temporal/`.
+
+| ID | Resultado acotado | Archivos o responsabilidad exclusiva | Dependencia y aceptación | Ejecutor previsto |
+| --- | --- | --- | --- | --- |
+| P01 | Hacer comprensible la jornada del análisis mostrando su equivalencia porcentual, conservando el valor canónico que envía el formulario. | `formulario-analisis.js`, su prueba focal e i18n de análisis dentro de `i18n.js`. | Preparado. Mostrar 100 % para 10000 y 50 % para 5000; verificar actualización del mensaje y que el DTO no cambia. No cambiar reglas laborales. | Modelo pequeño; revisión de dirección. |
+| P02 | Mostrar juntas las fechas reales de declaración y resolución en el resumen del resultado del llamamiento. | `renderizado-llamamiento.js`, `i18n-llamamiento.js`, prueba focal existente. | Preparado, tras comprobar campos ya disponibles en los recibos. Localizar fechas; ausencia no se convierte en vencimiento. No reconstruir fechas ni estados. | Modelo pequeño; revisión de dirección. |
+| P03 | Verificar el foco y la posición del recibo de rectificación tras guardar; corregir solo el defecto visible que se reproduzca. | `formulario-analisis.js` y su prueba focal. | Después de P01 por compartir archivo. Teclado y móvil: recibo localizable, anuncio único, sin segundo envío. Si ya funciona, cerrar con evidencia sin parche innecesario. | Modelo pequeño; revisión de dirección. |
+| P04 | Localizar el documento exacto que debe firmar Jefatura antes de Intervención y su ruta real de consulta/descarga. | Apartado de esta tarea en este seguimiento; inspección acotada de informe jurídico y cliente HTTP. Sin cambios de producto. | Preparado. Entregar símbolo/ruta/contrato existentes o ausencia concreta. No confundir este informe previo con los seis borradores posteriores al llamamiento. No modificar Word. | Modelo pequeño; validación funcional de dirección. |
+| P05 | Incorporar acceso al documento previo de Jefatura desde su contexto de expediente. | Nuevo componente de Jefatura y punto de montaje que dirección fije tras P04; reutilizar cliente autorizado existente. | Depende de P04 y de una descarga real disponible. Carga/error/denegación y descarga efectiva; no añadir botón simulado ni reutilizar un documento de otra fase. | Modelo pequeño si solo conecta UI; backend pasa a especialista. |
+| P06 | Conectar la presentación del correo del candidato a la operación autorizada de contacto propio de VEC. | UI de contacto de Llamamiento; dirección fijará archivos tras recuperar el contrato existente. | Depende de P07; después de P02 si comparte renderizador. Correo recibido de VEC y ausencia explícita; no edición libre, correo inventado ni lectura directa de Bolsa. | Modelo pequeño solo para UI, con revisión de privacidad. |
+| P07 | Revisar la entrega preservada de contacto propio y aislar la mínima operación positiva que falta. | Entrega existente de contacto/Usuarios; no reconstruirla a ciegas. | Especialista: comprobar propiedad del dato, autorización y persistencia. Cada cambio sensible posterior se separa y obtiene doble revisión. Desbloquea P06. | Dirección/especialista. |
+| P08 | Fijar el contrato técnico mínimo del portafirmas de Diputación para enviar y consultar una solicitud. | Puerto/conector existente y respuestas técnicas de Diputación. | Dependencia externa: producto/API, autenticación, identificador y estados acreditados. No inventar endpoint, firmante, firma o envío. UI de envío se divide después en envío y consulta. | Dirección/especialista. |
+| P09 | Conectar la visualización del vencimiento a inicio y plazo acreditados. | Resumen de Resultado, después de P02; contrato autorizado de fechas. | Depende de reglas RRHH y fuente de inicio; el backend del vencimiento es tarea sensible separada. Ningún contador ni fecha calculada con una regla supuesta. | Modelo pequeño para UI; especialista para efecto. |
+| P10 | Resolver la reserva histórica anterior a CT97 sin alterar su identidad ni ocultar el fallo. | Recuperación de análisis; expediente histórico identificado en bitácora privada. | Especialista. Requiere evidencia verificable de la intención original; no backfill por mera coincidencia, borrado ni clave nueva. No encargar a un modelo pequeño. | Dirección y dos revisores sensibles. |
+
+Paralelismo inicial posible: P01, P02 y P04 tienen responsabilidad separada;
+P07 puede investigarse de forma independiente por dirección. P03 espera a P01;
+P05 espera a P04; P06 a P07; P08/P09 tienen dependencias externas. No arrancar
+agentes para tareas bloqueadas ni multiplicar agentes sobre el mismo archivo.
+La publicación y el ajuste del contador los realiza dirección después de integrar
+cada entrega. No ejecutar tandas masivas de pruebas por una modificación visual.
 
 ### Continuidad real tras subsanar y fiscalizar de nuevo
 
@@ -170,7 +218,7 @@ para el caso sintético en `148d075e`.
 |---:|---|---|---:|---|---|
 | 1 | Inicio y cuadro de mando | Terminada en desarrollo | 0 % | Dirección: conservación | 52 filas autorizadas y filtros vacío/completados HTTP200; acciones ligadas a la página. CSS253c4d63 probado a1440/390, sin desbordamiento global y tabla con scroll interno. |
 | 2 | Nueva petición de personal | Terminada en desarrollo | 0 % | Dirección: conservación | Alta real y recibo persistido; guía de recorrido. |
-| 3 | Análisis de RRHH | Parcial | 25 % | Director local: integración revisada y reserva histórica | Candidata aislada: rectificación201, mismo recibo tras reinicio y consulta200/v3. Pendiente doble revisión CT97–99/rolv2 e integración; reserva histórica sin identidad funcional conservada continúa pendiente. No se cuenta como terminada. |
+| 3 | Análisis de RRHH | Parcial | 25 % | Director local: integración revisada y reserva histórica | Rectificación activa en principal: formulario201, recuperación201 idéntica, detalle200/v3, escritorio y móvil comprobados. Doble revisión CT97–100/rolv2 cerrada. Pendiente reserva histórica sin identidad funcional; vigilar incidencia de bandeja. No se cuenta como terminada. |
 | 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
