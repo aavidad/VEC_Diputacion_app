@@ -3,9 +3,11 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"sync"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -150,7 +152,7 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	}
 	capacidad, valida := a.soporte.capacidadValida(ctx)
 	if !valida || !rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) || capacidad.consultaRRHH == nil {
-		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, nil)
 	}
 	a.mu.Lock()
 	proveedor := a.proveedor
@@ -164,27 +166,30 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 	if peticion.autoridad == nil {
 		peticion.autoridad = a
 		if continuidad, ok := ctx.Value(claveContinuidadCursorRRHHDesarrollo{}).(continuidadCursorRRHHDesarrollo); ok {
-			peticion.contexto, ok = continuidad.dueno.contextoContinuado(ctx)
-			if !ok {
-				peticion.err = ports.ErrAutorizacionDenegada
-			}
+			peticion.contexto, peticion.err = continuidad.dueno.contextoContinuado(ctx)
 		} else {
 			peticion.contexto, peticion.err = proveedor.ResolverContexto(ctx)
 		}
 		if peticion.err != nil || !a.contextoConsultaRRHHConservaActor(peticion.contexto) {
 			peticion.contexto = ports.ContextoAutorizacionAltaV3{}
-			peticion.err = ports.ErrAutorizacionDenegada
+			var fallo *diagnostico.FalloConsultaRRHH
+			if peticion.err == nil || !errors.As(peticion.err, &fallo) {
+				peticion.err = falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, peticion.err)
+			}
 		} else {
 			peticion.contexto.Resultado, peticion.err = peticion.contexto.Resultado.Clonar()
 		}
 	}
 	if peticion.autoridad != a || peticion.err != nil || ctx.Err() != nil {
-		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
+		if peticion.err != nil {
+			return ports.ContextoAutorizacionAltaV3{}, peticion.err
+		}
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, nil)
 	}
 	// Cada consumidor vuelve a comprobar la vigencia; la caché de petición no
 	// prolonga una sesión vencida ni permite registrar otra para el mismo flujo.
 	if _, err := ports.NuevoContextoConsultaRRHHConAmbito(peticion.contexto, organizacionAltaContratacionTemporalDesarrollo, a.clase, a.ambitoRef, a.reloj.Ahora()); err != nil {
-		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, err)
 	}
 	contexto := peticion.contexto
 	var err error

@@ -17,11 +17,20 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type consultorCursorRRHHFallaPrueba struct{ err error }
+
+func comprobarEtapaConsultaRRHHPrueba(t *testing.T, err error, esperada diagnostico.EtapaConsultaRRHH) {
+	t.Helper()
+	var fallo *diagnostico.FalloConsultaRRHH
+	if !errors.As(err, &fallo) || fallo.Etapa != esperada {
+		t.Fatalf("etapa=%v; esperada %q", err, esperada)
+	}
+}
 
 func (c consultorCursorRRHHFallaPrueba) Consultar(context.Context, ports.SolicitudCuadroRRHH) (ports.PaginaCuadroRRHH, error) {
 	return ports.PaginaCuadroRRHH{}, c.err
@@ -187,6 +196,7 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if _, err = a.contextoConsultaRRHHDesarrollo(segunda); !errors.Is(err, ports.ErrAutorizacionDenegada) {
 			t.Fatal("una sesión revocada conservó continuidad")
 		}
+		comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionRevalidada)
 	})
 	t.Run("conexion_TLS_distinta", func(t *testing.T) {
 		e, a, continuador, primera, _ := prepararContinuidadCursorRRHHDesarrolloPrueba(t)
@@ -236,8 +246,10 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := continuador.contextoContinuado(segunda); ok {
+		if _, err := continuador.contextoContinuado(segunda); err == nil {
 			t.Fatal("una revalidación de otra sesión reutilizó el cursor")
+		} else {
+			comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionRevalidada)
 		}
 		if e.revalidador.llamadas != 2 {
 			t.Fatal("la sesión distinta se rechazó antes de la revalidación real")

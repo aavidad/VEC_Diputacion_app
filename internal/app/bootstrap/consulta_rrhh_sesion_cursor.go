@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -38,6 +39,10 @@ type continuadorSesionCursorRRHHDesarrollo struct {
 type consultorCuadroConSesionCursorRRHHDesarrollo struct {
 	delegado    httpinterno.ConsultorCuadroRRHH
 	continuador *continuadorSesionCursorRRHHDesarrollo
+}
+
+func falloContinuidadCursorRRHHDesarrollo(etapa diagnostico.EtapaConsultaRRHH, causa error) error {
+	return &diagnostico.FalloConsultaRRHH{Etapa: etapa, Sentinela: ports.ErrAutorizacionDenegada, Causa: causa}
 }
 
 func nuevoContinuadorSesionCursorRRHHDesarrollo(
@@ -83,18 +88,18 @@ func (c *consultorCuadroConSesionCursorRRHHDesarrollo) Consultar(
 
 func (c *continuadorSesionCursorRRHHDesarrollo) preparar(ctx context.Context, cursor string) (context.Context, error) {
 	if c == nil || ctx == nil || ctx.Err() != nil {
-		return nil, ports.ErrAutorizacionDenegada
+		return nil, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
 	}
 	if cursor == "" {
 		return ctx, nil
 	}
 	clave, ok := huellaCursorSesionRRHHDesarrollo(cursor)
 	if !ok {
-		return nil, ports.ErrAutorizacionDenegada
+		return nil, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
 	}
 	ahora := c.reloj.Ahora()
 	if !domain.InstanteUTCCanonico(ahora) {
-		return nil, ports.ErrAutorizacionDenegada
+		return nil, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
 	}
 	c.mu.Lock()
 	c.limpiarCaducadasBloqueado(ahora)
@@ -107,7 +112,7 @@ func (c *continuadorSesionCursorRRHHDesarrollo) preparar(ctx context.Context, cu
 	}
 	c.mu.Unlock()
 	if !existe || !ahora.Before(entrada.validaHasta) {
-		return nil, ports.ErrAutorizacionDenegada
+		return nil, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
 	}
 	return context.WithValue(ctx, claveContinuidadCursorRRHHDesarrollo{}, entrada), nil
 }
@@ -156,25 +161,31 @@ func (c *continuadorSesionCursorRRHHDesarrollo) recordar(ctx context.Context, pa
 	return nil
 }
 
-func (c *continuadorSesionCursorRRHHDesarrollo) contextoContinuado(ctx context.Context) (ports.ContextoAutorizacionAltaV3, bool) {
+func (c *continuadorSesionCursorRRHHDesarrollo) contextoContinuado(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
 	if c == nil || ctx == nil {
-		return ports.ContextoAutorizacionAltaV3{}, false
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
 	}
 	entrada, ok := ctx.Value(claveContinuidadCursorRRHHDesarrollo{}).(continuidadCursorRRHHDesarrollo)
-	if !ok || entrada.dueno != c || !c.continuidadCanalValida(ctx, entrada) {
-		return ports.ContextoAutorizacionAltaV3{}, false
+	if !ok || entrada.dueno != c {
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaContinuidadCursor, nil)
+	}
+	if !c.continuidadCanalValida(ctx, entrada) {
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaCanalContinuidad, nil)
 	}
 	c.autoridad.mu.Lock()
 	proveedor, ok := c.autoridad.proveedor.(*proveedorSesionConsultaRRHHDesarrollo)
 	c.autoridad.mu.Unlock()
 	if !ok || proveedor == nil {
-		return ports.ContextoAutorizacionAltaV3{}, false
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionRevalidada, nil)
 	}
 	contexto, err := proveedor.revalidarSesionCursorRRHHDesarrollo(ctx, entrada.contexto)
-	if err != nil || !c.autoridad.contextoConsultaRRHHConservaActor(contexto) {
-		return ports.ContextoAutorizacionAltaV3{}, false
+	if err != nil {
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionRevalidada, err)
 	}
-	return contexto, true
+	if !c.autoridad.contextoConsultaRRHHConservaActor(contexto) {
+		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaActorContexto, nil)
+	}
+	return contexto, nil
 }
 
 func (c *continuadorSesionCursorRRHHDesarrollo) continuidadCanalValida(ctx context.Context, entrada continuidadCursorRRHHDesarrollo) bool {
