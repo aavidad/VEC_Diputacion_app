@@ -1,0 +1,10 @@
+EXTRACTO RESUMIDO DEL PLIEGO TÉCNICO SE 15/2020 (PÁGINAS 2-3)
+
+La Diputación declara disponer de la aplicación específica CONVOCA como parte de la implantación de Ginpix 7 adjudicada a SAVIA. Sus funcionalidades principales ya incluían:
+
+- Alta y publicación del proceso selectivo, inscripción telemática, integración con sede electrónica y pasarela de pago, y autobaremación de méritos.
+- Gestión de inscripciones, validación y subsanación documental, trámites electrónicos y acceso mediante certificación electrónica.
+- Carga de resultados y comunicación por SMS y correo electrónico.
+- Gestión de bolsas para vacantes, sustituciones y acumulación de tareas.
+
+La gestión de bolsas partía de plena operatividad y contemplaba: candidatos procedentes de OEP o convocatorias específicas; estado; histórico y anotaciones de contactos; correo y teléfonos; filtros de disponibilidad; búsqueda por nombre, apellidos o DNI; y ordenación conforme al reglamento.

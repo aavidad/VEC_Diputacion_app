@@ -62,3 +62,7 @@ id_ed25519*
 # Credenciales de autenticacion HTTP de despliegue.
 .htpasswd
 *.htpasswd
+
+# Documentos internos de RRHH: no se versionan en el repositorio publico.
+/Pantalla de procedimiento*.docx
+*.docx

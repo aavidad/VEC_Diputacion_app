@@ -1,5 +1,31 @@
 # Estado y plan de ataque del proyecto
 
+## Hoja de ruta vigente — 16 de septiembre de 2026
+
+Alineada con los tres documentos que fijan lo que se pide: el **Word de RRHH**
+(«Pantalla de procedimiento de gestión de contratación y gestión de bolsas», 8
+fases), **Peticion.pdf** (Servicio de selección externa: bolsas, estados,
+llamamientos, portal, cuadro de control, correos, plantillas, trazabilidad) y el
+**pliego SE 15/2020** (`docs/convoca_dipgra/`, lo que CONVOCA hace hoy en la
+Diputación). Sustituye al «Plan de ataque funcional» de julio, que queda abajo
+como histórico. Las reglas y el orden detallado están en
+`INSTRUCCIONES_DESATASCO.md`; el consenso técnico, en `comunicacion.md`.
+
+| Fase | Entregable | Fuente | Estado | Cuándo está terminado |
+| --- | --- | --- | --- | --- |
+| 0 | **Contratación temporal presentable**: bandeja que pagina, log en todo 5xx, raíl de 8 fases con 5 estados, número visible, observaciones, nombres de catálogo, coste con fuente o «sin calcular», correo de llamamiento en buzón de prueba, guion de demo. | Word, pasos 1–8 | En curso (orden de correcciones 1–8) | RRHH recorre los 8 pasos en el navegador con datos sintéticos sin ver errores ni restos de desarrollo. |
+| 1 | **Contratación temporal útil**: composición de producción, identidad y roles reales, portafirmas, SMTP corporativo, RC y coste, GINPIX, instalación en intranet, copias. | Word; `dudas.md` 1–12 y 15 | Pendiente; depende de RRHH, Sistemas e Informática | Un expediente real recorre las 8 fases con efectos administrativos y aceptación formal de RRHH. |
+| 2 | **Bolsa, gestión** (B1–B14 de la ficha): importador de CONVOCA invocable, estados y pantalla, orden según reglamento, histórico de contactos, llamamiento real, pausas y bajas, consulta pública, portal del candidato con DNIe/certificado, cuadro de control, avisos. | Pliego §1 c); Peticion.pdf; `dudas.md` 13–18 | Aparcada hasta cerrar la fase 0 | Las bolsas reales importadas de CONVOCA se gestionan en VEC y Contratación llama desde ellas. |
+| 3 | **Bolsa, proceso selectivo** (S1–S7): alta y publicación, inscripción con Sede y pasarela, autobaremación, validación y subsanación, resultados de pruebas, baremación y listado definitivo. | Pliego §1 a) | Aparcada; código escrito sin componer | Una convocatoria nueva se tramita de principio a fin en VEC y CONVOCA deja de usarse. |
+| 4 | **Cronos** reescrito (sustituye a la aplicación PHP 5). | Aplicación actual + normativa de jornada | Aparcado; requiere ficha de requisitos aprobada | Ficha aprobada y recorrido de fichaje, jornada y permisos en navegador. |
+| 5 | **Dietas** nuevo, con los puntos de vista del empleado, del jefe que autoriza y de RRHH (sustituye a la aplicación PHP 5). | Aplicación actual + cuantías vigentes | Aparcado; requiere ficha de requisitos aprobada | Ficha aprobada y recorrido solicitud → autorización → liquidación en navegador. |
+
+Métrica única que se reporta: «pasos del flujo de RRHH recorribles de extremo a
+extremo por un humano» (fase 0) y, después, la fila de esta tabla que se cierra
+con su criterio comprobado. Cronos, Dietas y Bolsa no se reportan como avance
+mientras estén aparcados. Lo que sigue en este fichero es historial de cortes.
+
+
 ### Continuidad real tras subsanar y fiscalizar de nuevo
 
 El expediente sintético `9511d16d…` continúa desde la fiscalización favorable con
@@ -1486,7 +1512,7 @@ La tabla distingue trabajo reutilizable de funcionalidad utilizable. Por eso
 puede haber `✅` en «Contrato probado» y `❌` en «Integrado» sin que exista una
 contradicción.
 
-## Plan de ataque funcional
+## Plan de ataque funcional (julio de 2026, histórico: sustituido por la hoja de ruta del 16/09/2026)
 
 | Orden | Entregable comprensible | Estado | Cuándo se considera terminado |
 | --- | --- | --- | --- |
