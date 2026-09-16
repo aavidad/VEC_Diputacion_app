@@ -12,6 +12,8 @@ import (
 // autorizado que PDF. No añade tipos documentales, autoridad ni persistencia.
 type RenderizadorBorradorDOCXDesarrollo struct {
 	DOCX vecports.RenderizadorDocumento
+	// Etiquetas: nombres de catálogo para las referencias; puede ser nil.
+	Etiquetas EtiquetadorReferencias
 }
 
 func (r RenderizadorBorradorDOCXDesarrollo) RenderizarBorradorDOCX(
@@ -23,7 +25,7 @@ func (r RenderizadorBorradorDOCXDesarrollo) RenderizarBorradorDOCX(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle)
+	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas)
 	if err != nil {
 		return nil, err
 	}

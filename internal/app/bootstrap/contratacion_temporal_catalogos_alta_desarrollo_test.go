@@ -285,3 +285,24 @@ func cuerpoAltaDesdeCatalogosContratacionTemporalDesarrolloPrueba(
 	}
 	return string(contenido)
 }
+
+func TestEtiquetasReferenciasCatalogosAltaDesarrolloNombranCentroCategoriaYContacto(t *testing.T) {
+	t.Parallel()
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
+	etiquetar := origen.etiquetasReferenciasCatalogosAlta()
+	for referencia, esperado := range map[string]string{
+		centroAltaContratacionTemporalDesarrollo:    "Centro solicitante",
+		categoriaAltaContratacionTemporalDesarrollo: "Categoría C2",
+		contactoAltaContratacionTemporalDesarrollo:  "Contacto del centro",
+		"unidad:desarrollo:rrhh":                    "",
+		"":                                          "",
+	} {
+		if obtenido := etiquetar(referencia); obtenido != esperado {
+			t.Fatalf("%q: esperado %q, obtenido %q", referencia, esperado, obtenido)
+		}
+	}
+	var nulo *origenConsultasContratacionTemporalDesarrollo
+	if nulo.etiquetasReferenciasCatalogosAlta()(centroAltaContratacionTemporalDesarrollo) != "" {
+		t.Fatal("un origen nulo no debe nombrar nada")
+	}
+}

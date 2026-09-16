@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -256,5 +257,34 @@ func responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 	w.WriteHeader(estado)
 	if r == nil || r.Method != http.MethodHead {
 		_, _ = w.Write(contenido)
+	}
+}
+
+// etiquetasReferenciasCatalogosAlta devuelve el nombre con el que RRHH conoce
+// una referencia de centro, categoría o contacto del catálogo de alta; cadena
+// vacía si no la conoce. Solo sirve a la presentación (documentos): no cambia
+// el catálogo ni concede nada.
+func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCatalogosAlta() informejuridico.EtiquetadorReferencias {
+	return func(referencia string) string {
+		catalogos, err := o.catalogosAlta()
+		if err != nil {
+			return ""
+		}
+		for _, centro := range catalogos.Centros {
+			if centro.Referencia == referencia {
+				return centro.Etiqueta
+			}
+			for _, contacto := range centro.Contactos {
+				if contacto.Referencia == referencia {
+					return contacto.Etiqueta
+				}
+			}
+		}
+		for _, categoria := range catalogos.Categorias {
+			if categoria.Referencia == referencia {
+				return categoria.Etiqueta
+			}
+		}
+		return ""
 	}
 }

@@ -326,8 +326,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}}
+		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas}
 	}
 	defer func() {
 		if cerrarAlta {

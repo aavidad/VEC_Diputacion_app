@@ -86,7 +86,7 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("PDF no determinista o inválido: %v", err)
 	}
-	contenido := contenidoInformeDefinitivoDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoInformeDefinitivoDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Pendiente de completar", "no se han inventado"} {
 		if !strings.Contains(texto, esperado) {
@@ -149,7 +149,7 @@ func TestBorradoresRRHHAceptanPropuestaHistoricaTrasResolucionYAnotacion(t *test
 			ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
 		} {
 			t.Run(fmt.Sprintf("v%d/%s", detalle.Resumen.Version, tipo), func(t *testing.T) {
-				contenido, err := contenidoBorradorDesarrollo(tipo, detalle)
+				contenido, err := contenidoBorradorDesarrollo(tipo, detalle, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -196,7 +196,7 @@ func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("resolución PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoResolucionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoResolucionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Resolución — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Órgano competente: pendiente", "Persona propuesta: identificación autorizada pendiente", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -219,7 +219,7 @@ func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("diligencia PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoDiligenciaDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoDiligenciaDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Diligencia — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "Objeto específico de la diligencia: pendiente", "no la fecha de una comparecencia", "No se afirma que ninguna persona haya comparecido", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -242,7 +242,7 @@ func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) 
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("toma de posesión PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoTomaPosesionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoTomaPosesionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Toma de posesión — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "Esa fecha no acredita comparecencia", "No se afirma que estos hechos hayan ocurrido", "confirmación de incorporación: pendientes", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -265,7 +265,7 @@ func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("notificación PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoNotificacionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoNotificacionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Notificación — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "dirección o canal admitido: pendientes", "No se generan plazos", "ni abre un plazo", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -288,7 +288,7 @@ func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testi
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("comunicación al centro PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoComunicacionCentroDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d))
+	contenido := contenidoComunicacionCentroDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Comunicación al centro — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "no es una dirección de envío", "no ordena ni autoriza una incorporación", "No se afirma que el centro haya sido informado", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -297,5 +297,44 @@ func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testi
 	}
 	if strings.Contains(texto, "organizacion:sintetica:001") || strings.Contains(texto, "DEBERÁ INCORPORARSE") {
 		t.Fatal("el borrador expone datos innecesarios o aparenta ordenar incorporación")
+	}
+}
+
+func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	etiquetas := EtiquetadorReferencias(func(referencia string) string {
+		return map[string]string{
+			"centro:sintetico:001":   "Secretaría General",
+			"categoria:sintetica:c2": "Auxiliar administrativo/a",
+			"unidad:sintetica:rrhh":  "Servicio de Personal",
+		}[referencia]
+	})
+	for _, tipo := range []ports.TipoBorradorRRHH{
+		ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
+		ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
+	} {
+		conNombres, err := contenidoBorradorDesarrollo(tipo, d, etiquetas)
+		if err != nil {
+			t.Fatal(err)
+		}
+		texto := strings.Join(conNombres.Parrafos, "\n")
+		for _, esperado := range []string{
+			"Centro: Secretaría General (centro:sintetico:001)",
+			"Categoría: Auxiliar administrativo/a (categoria:sintetica:c2)",
+		} {
+			if !strings.Contains(texto, esperado) && !strings.Contains(texto, strings.Replace(esperado, "Centro:", "Centro solicitante:", 1)) {
+				t.Fatalf("%s: falta %q", tipo, esperado)
+			}
+		}
+		if strings.Contains(texto, "(referencia)") {
+			t.Fatalf("%s: rótulo «(referencia)» obsoleto", tipo)
+		}
+		sinNombres, err := contenidoBorradorDesarrollo(tipo, d, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if texto := strings.Join(sinNombres.Parrafos, "\n"); !strings.Contains(texto, "Centro: centro:sintetico:001") && !strings.Contains(texto, "Centro solicitante: centro:sintetico:001") {
+			t.Fatalf("%s: sin etiquetador debe imprimir la referencia sola", tipo)
+		}
 	}
 }
