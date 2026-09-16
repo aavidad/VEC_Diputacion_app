@@ -143,7 +143,9 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH, hito po
 		fmt.Sprintf("Periodo previsto: del %s al %s. Jornada registrada: %d,%02d %%.\nResultado registrado de retención de crédito: %s.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100, a.ResultadoRC),
 	}
 	if a.CostePrevisto != nil {
-		parrafos = append(parrafos, fmt.Sprintf("Coste previsto registrado: %d,%02d %s. Esta descarga no recalcula ni autoriza gasto.", a.CostePrevisto.Centimos/100, a.CostePrevisto.Centimos%100, a.CostePrevisto.Moneda))
+		parrafos = append(parrafos, fmt.Sprintf("Coste estimado registrado: %d,%02d %s, según la fuente de cálculo registrada en el análisis (%s). Esta descarga no recalcula ni autoriza gasto.", a.CostePrevisto.Centimos/100, a.CostePrevisto.Centimos%100, a.CostePrevisto.Moneda, a.FuenteCosteRef))
+	} else {
+		parrafos = append(parrafos, "Coste estimado: sin calcular en el análisis registrado.")
 	}
 	parrafos = append(parrafos,
 		"2. Tramitación registrada",

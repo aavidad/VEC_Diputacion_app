@@ -222,6 +222,16 @@ function historialDesdeHitos(hitos, locale, t) {
   }));
 }
 
+// El coste estimado se muestra con su origen cuando el análisis lo registró;
+// si la fuente no lo calculó, se dice, en vez de inventar una cifra.
+function costeEstimadoVisible(analisis, locale) {
+  const coste = analisis.coste_previsto;
+  if (!coste || !Number.isSafeInteger(coste.centimos) || coste.centimos <= 0) return "Sin calcular";
+  const importe = new Intl.NumberFormat(locale, { style: "currency", currency: coste.moneda || "EUR" })
+    .format(coste.centimos / 100);
+  return analisis.fuente_coste_ref ? `${importe} · según fuente registrada` : importe;
+}
+
 function cabeceraDetalle(detalle, locale, catalogos, t) {
   const { resumen, solicitud } = detalle;
   const campos = [
@@ -242,6 +252,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
         style: "percent", maximumFractionDigits: 2,
       }).format(detalle.analisis.porcentaje_jornada / 10_000)),
       campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc, t)),
+      campo("coste_estimado", "Coste estimado", costeEstimadoVisible(detalle.analisis, locale)),
     );
   }
   if (detalle.cobertura) {

@@ -443,6 +443,30 @@ test("distingue el período solicitado del revisado por RRHH sin sustituir el an
   assert.equal(Object.hasOwn(sinAnalisis, "analisis_previo"), false);
 });
 
+test("muestra el coste estimado con su origen o dice que no está calculado", async () => {
+  const cliente = clienteFalso([]);
+  const consultar = cliente.consultarDetalleRRHH;
+  let coste = null;
+  cliente.consultarDetalleRRHH = async (...args) => {
+    const datos = await consultar(...args);
+    if (coste) {
+      datos.analisis.coste_previsto = coste;
+      datos.analisis.fuente_coste_ref = "autoridad:ct:desarrollo:calculo-coste";
+    }
+    return datos;
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+  await adaptador.listar({ filtros: { texto: "", estado: "", fase: "" } });
+  const sinCoste = await adaptador.obtener(resumen.expediente_ref);
+  const campoSinCoste = sinCoste.cabecera.find((c) => c.clave === "coste_estimado");
+  assert.equal(campoSinCoste.etiqueta, "Coste estimado");
+  assert.equal(campoSinCoste.valor, "Sin calcular");
+  coste = { centimos: 1_007_967, moneda: "EUR" };
+  const conCoste = await adaptador.obtener(resumen.expediente_ref);
+  const campoConCoste = conCoste.cabecera.find((c) => c.clave === "coste_estimado");
+  assert.match(campoConCoste.valor, /10\.079,67\s?€ · según fuente registrada$/u);
+});
+
 test("raíl deriva los cinco estados y reabre fases tras un retorno real", async () => {
   const claves = ["solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion", "obtencion_candidato", "nombramiento", "incorporacion", "seguimiento"];
   async function proyectar(fase, estado, hitos) {

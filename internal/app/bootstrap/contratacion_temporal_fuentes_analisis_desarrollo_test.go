@@ -42,7 +42,7 @@ func TestFuentesAnalisisDesarrolloPreparanCincoModalidadesAtestadas(t *testing.T
 				datos.ImporteRC == nil ||
 				datos.ImporteRC.Centimos != centimosRCAnalisisDesarrollo ||
 				datos.CostePrevisto == nil ||
-				datos.CostePrevisto.Centimos != centimosCosteAnalisisDesarrollo ||
+				datos.CostePrevisto.Centimos != 1_007_967 || // C2, 118 días, jornada completa
 				datos.DatosFuncionales.ModalidadClave != modalidad ||
 				datos.DatosFuncionales.EntradaRC !=
 					solicitud.DatosFuncionales.EntradaRC {
@@ -225,5 +225,37 @@ func solicitudPrepararArtefactoAnalisisDesarrolloPrueba(
 			},
 		},
 		SolicitadaEn: time.Now().UTC().Truncate(time.Microsecond),
+	}
+}
+
+func TestCosteEstimadoAnalisisDesarrolloProrrateaPorGrupoPeriodoYJornada(t *testing.T) {
+	t.Parallel()
+	inicio := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	fin := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	completa, ok := costeEstimadoAnalisisDesarrollo("C2", domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, domain.JornadaCompletaDiezmilesimas)
+	if !ok || completa.Centimos != 1_007_967 || completa.Moneda != "EUR" {
+		t.Fatalf("C2 118 días jornada completa: %+v %v", completa, ok)
+	}
+	media, ok := costeEstimadoAnalisisDesarrollo("C2", domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, 5_000)
+	if !ok || media.Centimos != 503_984 {
+		t.Fatalf("media jornada debe ser la mitad redondeada: %+v %v", media, ok)
+	}
+	unDia, ok := costeEstimadoAnalisisDesarrollo("A1", domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio}, domain.JornadaCompletaDiezmilesimas)
+	if !ok || unDia.Centimos != 15_113 { // 4.600 € / 30,4375 días
+		t.Fatalf("A1 un día: %+v %v", unDia, ok)
+	}
+	for nombre, caso := range map[string]struct {
+		grupo   string
+		periodo domain.PeriodoPrevisto
+		jornada domain.JornadaDiezmilesimas
+	}{
+		"grupo desconocido":   {"Z9", domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, domain.JornadaCompletaDiezmilesimas},
+		"periodo invertido":   {"C2", domain.PeriodoPrevisto{Inicio: fin, Fin: inicio}, domain.JornadaCompletaDiezmilesimas},
+		"jornada cero":        {"C2", domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, 0},
+		"periodo desmesurado": {"C2", domain.PeriodoPrevisto{Inicio: inicio, Fin: inicio.AddDate(11, 0, 0)}, domain.JornadaCompletaDiezmilesimas},
+	} {
+		if _, ok := costeEstimadoAnalisisDesarrollo(caso.grupo, caso.periodo, caso.jornada); ok {
+			t.Fatalf("%s: debe quedar sin calcular", nombre)
+		}
 	}
 }

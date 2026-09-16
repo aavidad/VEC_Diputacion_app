@@ -29,10 +29,11 @@ const (
 	autoridadPublicadorAnalisisDesarrollo  = "autoridad:ct:desarrollo:publicador"
 	backendPublicadorAnalisisDesarrollo    = "backend:ct:desarrollo:publicador"
 
-	numeroRCAnalisisDesarrollo              = "rc:desarrollo:numero:001"
-	documentoRCAnalisisDesarrollo           = "documento:rc:desarrollo:001"
-	centimosRCAnalisisDesarrollo            = int64(5_000_000)
-	centimosCosteAnalisisDesarrollo         = int64(4_000_000)
+	numeroRCAnalisisDesarrollo    = "rc:desarrollo:numero:001"
+	documentoRCAnalisisDesarrollo = "documento:rc:desarrollo:001"
+	centimosRCAnalisisDesarrollo  = int64(5_000_000)
+	// Días por mes del prorrateo del coste estimado (365,25 / 12), en diezmilésimas.
+	diasMesDiezmilesimasCosteDesarrollo     = int64(304_375)
 	dominioSelloPeticionAnalisisDesarrollo  = "hmac-sha256:fuente-analisis-v1:"
 	dominioSelloRespuestaAnalisisDesarrollo = "hmac-sha256:fuente-analisis-respuesta/v"
 )
@@ -364,9 +365,12 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 		return ports.ResultadoCalculoCoste{},
 			ports.ErrCalculadorCosteNoDisponible
 	}
-	importe := domain.Importe{
-		Centimos: centimosCosteAnalisisDesarrollo,
-		Moneda:   "EUR",
+	importe, ok := costeEstimadoAnalisisDesarrollo(
+		datos.GrupoSubgrupo, datos.Periodo, datos.Jornada,
+	)
+	if !ok {
+		return ports.ResultadoCalculoCoste{},
+			ports.ErrCalculadorCosteNoDisponible
 	}
 	metadatos := ports.MetadatosAtestacionRespuestaFuenteAnalisis{
 		AutoridadRef: c.autoridadRef,
@@ -779,3 +783,45 @@ var (
 	_ ports.VerificadorRespuestaFuenteAnalisis         = (*verificadorRespuestaFuenteAnalisisDesarrollo)(nil)
 	_ ports.VerificadorPublicacionMotivoFuenteAnalisis = (*publicadorMotivoFuenteAnalisisDesarrollo)(nil)
 )
+
+// costeMensualReferenciaDesarrollo es la tabla de referencia de desarrollo:
+// coste empresa mensual aproximado por grupo (céntimos de euro, jornada
+// completa). Sirve para que la estimación varíe con la categoría, el periodo y
+// la jornada en las demostraciones; no es la tabla oficial. La fuente real
+// (GINPIX o la que fije Intervención) se decide con RRHH (dudas, pregunta 8).
+var costeMensualReferenciaDesarrollo = map[string]int64{
+	"A1": 460_000,
+	"A2": 390_000,
+	"B":  330_000,
+	"C1": 300_000,
+	"C2": 260_000,
+	"AP": 230_000,
+}
+
+// costeEstimadoAnalisisDesarrollo prorratea el coste mensual del grupo por los
+// días naturales del periodo (ambos inclusive) y por la jornada, redondeando al
+// céntimo. Devuelve false si el grupo no está en la tabla o el periodo no es
+// posterior o igual a su inicio: entonces el coste queda «sin calcular».
+func costeEstimadoAnalisisDesarrollo(
+	grupo string,
+	periodo domain.PeriodoPrevisto,
+	jornada domain.JornadaDiezmilesimas,
+) (domain.Importe, bool) {
+	mensual, ok := costeMensualReferenciaDesarrollo[grupo]
+	if !ok || jornada == 0 || periodo.Fin.Before(periodo.Inicio) {
+		return domain.Importe{}, false
+	}
+	dias := int64(periodo.Fin.Sub(periodo.Inicio).Hours()/24) + 1
+	if dias <= 0 || dias > 3_660 {
+		return domain.Importe{}, false
+	}
+	// céntimos = mensual × días × jornada / (días por mes × 10 000 diezmilésimas)
+	// con la jornada en diezmilésimas; se agrupa para redondear una sola vez.
+	numerador := mensual * dias * int64(jornada)
+	divisor := diasMesDiezmilesimasCosteDesarrollo
+	centimos := (numerador + divisor/2) / divisor
+	if centimos <= 0 {
+		return domain.Importe{}, false
+	}
+	return domain.Importe{Centimos: centimos, Moneda: "EUR"}, true
+}
