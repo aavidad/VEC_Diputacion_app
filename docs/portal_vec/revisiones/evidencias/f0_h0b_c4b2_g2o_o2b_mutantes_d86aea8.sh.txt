@@ -9,7 +9,7 @@ sha_g4='2befe2a4c16fc7a57aacd421ea6c8419ab49160bb2ae0d0eb6f03786194aa744'
 sha_g5='10ccaf8347bfcaa5f3990b75b4c9becd62cd39b60249b628af6c7a1fc6bc8867'
 sha_g2='01acb818e9abefcbfe4c279bb0dd5e3317bf03f082f1ed3fba4f257c5642866b'
 sha_g3='d608868ecb2cb753876f488b522975e05af06c013c82222959be5d85100c3633'
-sha_ast='cd3e64468e7364f6c28c576280adb6017778a24df50b9abda8f451fff17de61b'
+sha_ast='d8441272a4d08676ef72ef8cfdb46e2c71154a11c1970a5ab3867cc722e9e457'
 
 if (($# != 2)); then
     printf 'uso: %s RAIZ_REPOSITORIO ANALIZADOR_AST_O2B\n' "$0" >&2

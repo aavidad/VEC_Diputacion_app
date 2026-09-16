@@ -47,9 +47,7 @@ type opciones struct {
 	rutas                 [5]string
 }
 
-type unidad struct {
-	archivo *ast.File
-}
+type unidad struct{ archivo *ast.File }
 
 type analisis struct {
 	opciones           opciones
@@ -740,10 +738,16 @@ func comprobarRegresiones(a *analisis) {
 }
 
 func comprobarNoExposicion(a *analisis) {
-	f := a.unidades[1].archivo
-	permitidasTicket := conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38", "tramaControlEstructuralPreinicioM38")
-	permitidasIdentidad := conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38")
-	for _, d := range f.Decls {
+	permitidasTicket, permitidasIdentidad := conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38", "tramaControlEstructuralPreinicioM38"), conjunto("receptorPristinoPreinicioM38", "sobrePresentePreinicioM38")
+	contieneSobre := func(e ast.Expr) (hallado bool) {
+		ast.Inspect(e, func(n ast.Node) bool {
+			expresion, ok := n.(ast.Expr)
+			hallado = hallado || ok && strings.TrimPrefix(types.TypeString(a.info.TypeOf(expresion), nil), "*") == "evidencia/o2b.sobreRetenidoM38"
+			return !hallado
+		})
+		return
+	}
+	for _, d := range a.unidades[1].archivo.Decls {
 		fd, ok := d.(*ast.FuncDecl)
 		if !ok {
 			continue
@@ -753,13 +757,13 @@ func comprobarNoExposicion(a *analisis) {
 			switch x := node.(type) {
 			case *ast.AssignStmt:
 				for _, rhs := range x.Rhs {
-					if t := a.info.TypeOf(rhs); strings.TrimPrefix(types.TypeString(t, nil), "*") == "evidencia/o2b.sobreRetenidoM38" {
+					if contieneSobre(rhs) {
 						fallo("copia o retención del sobre completo: %s", n)
 					}
 				}
 			case *ast.ValueSpec:
 				for _, rhs := range x.Values {
-					if t := a.info.TypeOf(rhs); strings.TrimPrefix(types.TypeString(t, nil), "*") == "evidencia/o2b.sobreRetenidoM38" {
+					if contieneSobre(rhs) {
 						fallo("copia o retención declarativa del sobre completo: %s", n)
 					}
 				}
