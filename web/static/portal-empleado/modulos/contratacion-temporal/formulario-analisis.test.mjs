@@ -462,3 +462,71 @@ test("la rectificación prellena datos anteriores sin seleccionar RC, grupo ni m
   assert.equal(solicitudes.length, 0);
   escenario.desmontar();
 });
+
+test("renderiza el textarea de observaciones con id analisis_observaciones y maxlength 4000", () => {
+  const escenario = montar({ cliente: { registrarAnalisis() {} } });
+  assert.match(
+    escenario.raiz.innerHTML,
+    /<textarea id="analisis_observaciones" name="observaciones" maxlength="4000"/u,
+  );
+  assert.match(escenario.raiz.innerHTML, /<label for="analisis_observaciones">Observaciones<\/label>/u);
+  escenario.desmontar();
+});
+
+test("envío de formulario incluye observaciones cuando se aportan", async () => {
+  const solicitudes = [];
+  const escenario = montar({
+    cliente: {
+      registrarAnalisis(solicitud) {
+        solicitudes.push(solicitud);
+        return Promise.resolve(crearRecibo());
+      },
+    },
+  });
+  await escenario.enviar(crearValores({
+    observaciones: "Nota de análisis importante para RRHH",
+  }));
+  assert.equal(solicitudes.length, 1);
+  assert.equal(
+    solicitudes[0].analisis.observaciones,
+    "Nota de análisis importante para RRHH",
+  );
+  escenario.desmontar();
+});
+
+test("envío de formulario omite la clave observaciones si está vacía", async () => {
+  const solicitudes = [];
+  const escenario = montar({
+    cliente: {
+      registrarAnalisis(solicitud) {
+        solicitudes.push(solicitud);
+        return Promise.resolve(crearRecibo());
+      },
+    },
+  });
+  await escenario.enviar(crearValores({
+    observaciones: "",
+  }));
+  assert.equal(solicitudes.length, 1);
+  assert.equal(Object.hasOwn(solicitudes[0].analisis, "observaciones"), false);
+  escenario.desmontar();
+});
+
+test("rechaza observaciones mayores a 4000 caracteres en formulario y enfoca el campo", async () => {
+  const solicitudes = [];
+  const escenario = montar({
+    cliente: {
+      registrarAnalisis(solicitud) {
+        solicitudes.push(solicitud);
+      },
+    },
+  });
+  await escenario.enviar(crearValores({
+    observaciones: "x".repeat(4001),
+  }));
+  assert.equal(solicitudes.length, 0);
+  assert.match(escenario.raiz.innerHTML, /analisis_observaciones/u);
+  assert.match(escenario.raiz.innerHTML, /ct-analisis-observaciones-error/u);
+  escenario.desmontar();
+});
+

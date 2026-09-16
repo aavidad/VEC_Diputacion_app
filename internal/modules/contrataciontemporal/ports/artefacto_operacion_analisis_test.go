@@ -12,6 +12,7 @@ import (
 	"go/token"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -522,3 +523,88 @@ func prepararArtefactoAnalisisPrueba(
 	}
 	return artefacto
 }
+
+func TestDerivacionAnalisisConObservacionesValidas(t *testing.T) {
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	solicitud.DatosFuncionales.Observaciones = "Observaciones complementarias válidas para RRHH."
+	if err := solicitud.Validar(); err != nil {
+		t.Fatalf("solicitud con observaciones válidas rechazada: %v", err)
+	}
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
+	analisis, err := DerivarAnalisisDesdeArtefacto(solicitud, artefacto)
+	if err != nil {
+		t.Fatalf("error derivando análisis con observaciones: %v", err)
+	}
+	if analisis.Observaciones != solicitud.DatosFuncionales.Observaciones {
+		t.Fatalf("observaciones no rehidratadas: esperadas %q, obtenidas %q",
+			solicitud.DatosFuncionales.Observaciones, analisis.Observaciones)
+	}
+	if err := analisis.Validar(); err != nil {
+		t.Fatalf("analisis derivado no valido: %v", err)
+	}
+}
+
+func TestDatosFuncionalesAnalisisRechazaObservacionesExcesivas(t *testing.T) {
+	solicitud, _ := capacidadArtefactoAnalisisPrueba(t)
+	solicitud.DatosFuncionales.Observaciones = strings.Repeat("x", 4001)
+	if err := solicitud.DatosFuncionales.Validar(); err == nil {
+		t.Fatal("se esperaba error de validación para observaciones > 4000 caracteres")
+	}
+	if err := solicitud.Validar(); err == nil {
+		t.Fatal("se esperaba error en solicitud con observaciones > 4000 caracteres")
+	}
+}
+
+func TestHuellaAnalisisDerivadoO3InvariableConObservaciones(t *testing.T) {
+	solicitudSinObs, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	solicitudSinObs.DatosFuncionales.Observaciones = ""
+	artefactoSinObs := prepararArtefactoAnalisisPrueba(t, capacidad, solicitudSinObs)
+	analisisSinObs, err := DerivarAnalisisDesdeArtefacto(solicitudSinObs, artefactoSinObs)
+	if err != nil {
+		t.Fatalf("error derivando análisis sin observaciones: %v", err)
+	}
+	huellaSinObs, err := huellaAnalisisDerivadoO3(analisisSinObs)
+	if err != nil {
+		t.Fatalf("error calculando huella O3 sin observaciones: %v", err)
+	}
+
+	solicitudConObs, capacidad2 := capacidadArtefactoAnalisisPrueba(t)
+	solicitudConObs.DatosFuncionales.Observaciones = "Observaciones que no deben alterar la huella de evidencia."
+	artefactoConObs := prepararArtefactoAnalisisPrueba(t, capacidad2, solicitudConObs)
+	analisisConObs, err := DerivarAnalisisDesdeArtefacto(solicitudConObs, artefactoConObs)
+	if err != nil {
+		t.Fatalf("error derivando análisis con observaciones: %v", err)
+	}
+	huellaConObs, err := huellaAnalisisDerivadoO3(analisisConObs)
+	if err != nil {
+		t.Fatalf("error calculando huella O3 con observaciones: %v", err)
+	}
+
+	if huellaSinObs != huellaConObs {
+		t.Fatalf("las huellas O3 difieren: sin obs=%s, con obs=%s", huellaSinObs, huellaConObs)
+	}
+}
+
+func TestIdempotenciaAnalisisDistingueObservaciones(t *testing.T) {
+	solicitud, _ := capacidadArtefactoAnalisisPrueba(t)
+	base := solicitud.DatosFuncionales
+	base.Observaciones = "Observación original"
+
+	misma := base
+	if !datosFuncionalesOperacionAnalisisIguales(base, misma) {
+		t.Fatal("se esperaba igualdad de datos funcionales idénticos")
+	}
+
+	distinta := base
+	distinta.Observaciones = "Observación modificada"
+	if datosFuncionalesOperacionAnalisisIguales(base, distinta) {
+		t.Fatal("se esperaba desigualdad de datos funcionales con observaciones distintas")
+	}
+
+	vacia := base
+	vacia.Observaciones = ""
+	if datosFuncionalesOperacionAnalisisIguales(base, vacia) {
+		t.Fatal("se esperaba desigualdad entre observaciones con contenido y observaciones vacías")
+	}
+}
+

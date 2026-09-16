@@ -172,6 +172,9 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_entrada_rc: "Entrada de retención de crédito",
   analisis_entrada_rc_ayuda:
     "Seleccione la referencia opaca preparada para este expediente.",
+  analisis_observaciones: "Observaciones",
+  analisis_observaciones_ayuda:
+    "Observaciones complementarias del análisis de RRHH (máximo 4000 caracteres).",
   analisis_motivo_rectificacion: "Motivo de la rectificación",
   analisis_motivo_rectificacion_ayuda:
     "La rectificación exige un motivo del catálogo gobernado.",
@@ -189,6 +192,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_periodo:
     "El fin no puede preceder al inicio ni superar cien años civiles.",
   analisis_error_jornada: "Introduzca una jornada entera entre 1 y 10.000.",
+  analisis_error_observaciones: "Las observaciones no pueden superar 4000 caracteres ni contener texto no válido.",
   analisis_error_motivo: "Seleccione un motivo gobernado para rectificar.",
   analisis_error_contrato: "Los datos no respetan el contrato cerrado.",
   analisis_indeterminado_titulo: "Resultado indeterminado",

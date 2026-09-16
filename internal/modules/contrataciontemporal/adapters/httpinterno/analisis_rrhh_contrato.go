@@ -40,6 +40,7 @@ type datosAnalisisRRHHJSON struct {
 	Periodo           *periodoPrevistoJSON   `json:"periodo"`
 	PorcentajeJornada *uint16                `json:"porcentaje_jornada"`
 	EntradaRC         *entradaRCAnalisisJSON `json:"entrada_rc"`
+	Observaciones     string                 `json:"observaciones,omitempty"`
 }
 
 type entradaRCAnalisisJSON struct {
@@ -177,6 +178,7 @@ func nuevaEntradaOperacionAnalisisRRHH(
 			Referencia:   analisis.EntradaRC.Referencia,
 			HuellaSHA256: analisis.EntradaRC.HuellaSHA256,
 		},
+		Observaciones: analisis.Observaciones,
 	}
 	if errInicio != nil || errFin != nil ||
 		!operacion.Valida() ||

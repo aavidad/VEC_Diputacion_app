@@ -29,6 +29,7 @@ const CLAVES_ETIQUETA = Object.freeze({
   porcentaje_jornada: "analisis_jornada",
   entrada_rc_referencia: "analisis_entrada_rc",
   motivo_rectificacion_clave: "analisis_motivo_rectificacion",
+  observaciones: "analisis_observaciones",
   general: "analisis_errores_titulo",
 });
 
@@ -169,7 +170,7 @@ function crearBorrador(analisis = null) {
   return analisis === null ? {
     modalidad_clave: "", categoria_ref: "", grupo_subgrupo: "", causa_clave: "",
     inicio: "", fin: "", porcentaje_jornada: "", entrada_rc_referencia: "",
-    motivo_rectificacion_clave: "",
+    motivo_rectificacion_clave: "", observaciones: "",
   } : {
     modalidad_clave: analisis.modalidad_clave,
     categoria_ref: analisis.categoria_ref,
@@ -180,7 +181,29 @@ function crearBorrador(analisis = null) {
     porcentaje_jornada: String(analisis.porcentaje_jornada),
     entrada_rc_referencia: analisis.entrada_rc.referencia,
     motivo_rectificacion_clave: "",
+    observaciones: analisis.observaciones ?? "",
   };
+}
+
+function longitudUnicode(texto) {
+  return [...texto].length;
+}
+
+function textoValido(valor, maximo, permiteVacio) {
+  if (typeof valor !== "string" || valor !== valor.trim()
+    || valor.normalize("NFC") !== valor || longitudUnicode(valor) > maximo
+    || (!permiteVacio && valor === "")) {
+    return false;
+  }
+  for (const caracter of valor) {
+    const codigo = caracter.codePointAt(0);
+    if ((codigo < 32 || (codigo >= 127 && codigo <= 159))
+      && caracter !== "\n" && caracter !== "\t"
+      || (codigo >= 0xD800 && codigo <= 0xDFFF)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function fechaCivilValida(valor) {
@@ -224,6 +247,11 @@ function validarBorrador(borrador, catalogos, rectificacion) {
   if (rectificacion && !catalogos.motivos_rectificacion.some(
     ({ clave }) => clave === borrador.motivo_rectificacion_clave,
   )) errores.motivo_rectificacion_clave = "motivo";
+  if (borrador.observaciones) {
+    if (!textoValido(borrador.observaciones, 4000, true)) {
+      errores.observaciones = "observaciones";
+    }
+  }
   return errores;
 }
 
@@ -266,6 +294,16 @@ function campoEntrada(estado, t, campo, tipo, claveEtiqueta, claveAyuda, atribut
     <label for="ct-analisis-${campo}">${escaparHTML(t(claveEtiqueta))} <b aria-hidden="true">*</b></label>
     <input id="ct-analisis-${campo}" name="${campo}" type="${tipo}" required value="${
       escaparHTML(estado.borrador[campo])}" ${atributosCampo(estado, campo)} ${atributos}>
+    <small id="ct-analisis-${campo}-ayuda">${escaparHTML(t(claveAyuda))}</small>
+    ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
+      escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
+  </div>`;
+}
+
+function campoAreaTexto(estado, t, campo, id, claveEtiqueta, claveAyuda, maxlength = 4000) {
+  return `<div class="ct-campo">
+    <label for="${id}">${escaparHTML(t(claveEtiqueta))}</label>
+    <textarea id="${id}" name="${campo}" maxlength="${maxlength}" ${atributosCampo(estado, campo)}>${escaparHTML(estado.borrador[campo] ?? "")}</textarea>
     <small id="ct-analisis-${campo}-ayuda">${escaparHTML(t(claveAyuda))}</small>
     ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
       escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
@@ -326,6 +364,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador) {
         ${campoEntrada(estado, t, "porcentaje_jornada", "number", "analisis_jornada", "analisis_jornada_ayuda", 'min="1" max="10000" step="1" inputmode="numeric"')}
         ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", "analisis_entrada_rc_ayuda", catalogos.entradas_rc, "referencia")}
         ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", "analisis_motivo_rectificacion_ayuda", catalogos.motivos_rectificacion, "clave") : ""}
+        ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", "analisis_observaciones_ayuda", 4000)}
       </div>
     </fieldset>
     <div class="ct-acciones">${estado.ocupado
@@ -345,6 +384,7 @@ function extraerBorrador(formulario) {
     porcentaje_jornada: String(datos.get("porcentaje_jornada") ?? ""),
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
+    observaciones: String(datos.get("observaciones") ?? "").trim(),
   };
 }
 
@@ -506,6 +546,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       porcentaje_jornada: Number(entrada.porcentaje_jornada),
       entrada_rc: { referencia: rc.referencia, huella_sha256: rc.huella_sha256 },
     };
+    if (typeof entrada.observaciones === "string" && entrada.observaciones.trim() !== "") {
+      analisis.observaciones = entrada.observaciones.trim();
+    }
     const semantica = JSON.stringify([contexto, analisis,
       rectificacion ? entrada.motivo_rectificacion_clave : null]);
     const clave = intento?.semantica === semantica
@@ -630,7 +673,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     const enlaceError = evento.target?.closest?.("[data-ct-analisis-enfocar]");
     if (enlaceError && raizActual.contains(enlaceError)) {
       evento.preventDefault();
-      enfocar(raizActual, `#ct-analisis-${enlaceError.dataset.ctAnalisisEnfocar}`);
+      const campo = enlaceError.dataset.ctAnalisisEnfocar;
+      const selector = campo === "observaciones" ? "#analisis_observaciones" : `#ct-analisis-${campo}`;
+      enfocar(raizActual, selector);
       return;
     }
     const accion = evento.target?.closest?.("[data-ct-analisis-accion]");

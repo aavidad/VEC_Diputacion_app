@@ -163,6 +163,13 @@ type AnalisisRRHH struct {
 	Observaciones     string                    `json:"observaciones,omitempty"`
 }
 
+// ObservacionesAnalisisValidas comprueba que las observaciones del análisis
+// sean opcionales y cumplan los límites de longitud (≤ 4000 runas),
+// normalización NFC y texto válido.
+func ObservacionesAnalisisValidas(valor string) bool {
+	return textoValido(valor, 4000, true)
+}
+
 func (a AnalisisRRHH) Validar() error {
 	if !a.ModalidadClave.Valida() || !referenciaValida(a.CategoriaRef) ||
 		!grupoValido(a.GrupoSubgrupo) || !a.CausaClave.Valida() ||
@@ -171,7 +178,7 @@ func (a AnalisisRRHH) Validar() error {
 		(a.ActuacionRegistro != nil && a.ActuacionRegistro.validar() != nil) ||
 		a.ValidacionRC.Validar() != nil ||
 		!a.EntradaRCEsperada.coincideCon(a.ValidacionRC) ||
-		!textoValido(a.Observaciones, 4000, true) {
+		!ObservacionesAnalisisValidas(a.Observaciones) {
 		return ErrDatoInvalido
 	}
 	if a.CostePrevisto == nil {

@@ -98,6 +98,27 @@ function claveValida(valor) {
   return typeof valor === "string" && PATRON_CLAVE.test(valor);
 }
 
+function longitudUnicode(texto) {
+  return [...texto].length;
+}
+
+function textoValido(valor, maximo, permiteVacio) {
+  if (typeof valor !== "string" || valor !== valor.trim()
+    || valor.normalize("NFC") !== valor || longitudUnicode(valor) > maximo
+    || (!permiteVacio && valor === "")) {
+    return false;
+  }
+  for (const caracter of valor) {
+    const codigo = caracter.codePointAt(0);
+    if ((codigo < 32 || (codigo >= 127 && codigo <= 159))
+      && caracter !== "\n" && caracter !== "\t"
+      || (codigo >= 0xD800 && codigo <= 0xDFFF)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function huellaValida(valor) {
   return typeof valor === "string"
     && PATRON_HUELLA.test(valor)
@@ -276,6 +297,7 @@ export function validarDatosPreviosAnalisis(entrada) {
 }
 
 function validarAnalisis(analisis) {
+  const tieneObservaciones = esRegistro(analisis) && Object.hasOwn(analisis, "observaciones");
   exigirCamposExactos(analisis, [
     "modalidad_clave",
     "categoria_ref",
@@ -284,6 +306,7 @@ function validarAnalisis(analisis) {
     "periodo",
     "porcentaje_jornada",
     "entrada_rc",
+    ...(tieneObservaciones ? ["observaciones"] : []),
   ], "datos funcionales del análisis");
   exigirCamposExactos(
     analisis.entrada_rc,
@@ -303,7 +326,13 @@ function validarAnalisis(analisis) {
     || !huellaValida(analisis.entrada_rc.huella_sha256)) {
     throw new TypeError("datos funcionales del análisis no válidos");
   }
-  return {
+  if (tieneObservaciones) {
+    if (typeof analisis.observaciones !== "string"
+      || !textoValido(analisis.observaciones, 4000, true)) {
+      throw new TypeError("datos funcionales del análisis no válidos");
+    }
+  }
+  const salida = {
     modalidad_clave: analisis.modalidad_clave,
     categoria_ref: analisis.categoria_ref,
     grupo_subgrupo: analisis.grupo_subgrupo,
@@ -318,6 +347,10 @@ function validarAnalisis(analisis) {
       huella_sha256: analisis.entrada_rc.huella_sha256,
     }),
   };
+  if (tieneObservaciones && analisis.observaciones !== "") {
+    salida.observaciones = analisis.observaciones;
+  }
+  return salida;
 }
 
 function validarSolicitud(solicitud, rectificacion) {

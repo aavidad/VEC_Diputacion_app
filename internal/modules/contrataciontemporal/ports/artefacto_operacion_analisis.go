@@ -31,6 +31,7 @@ type DatosFuncionalesOperacionAnalisis struct {
 	Periodo           domain.PeriodoPrevisto
 	PorcentajeJornada domain.JornadaDiezmilesimas
 	EntradaRC         domain.VinculoEntradaRC
+	Observaciones     string
 }
 
 func (d DatosFuncionalesOperacionAnalisis) Validar() error {
@@ -39,7 +40,8 @@ func (d DatosFuncionalesOperacionAnalisis) Validar() error {
 		!domain.GrupoSubgrupoValido(d.GrupoSubgrupo) ||
 		!d.CausaClave.Valida() || d.Periodo.Validar() != nil ||
 		d.PorcentajeJornada.Validar() != nil ||
-		d.EntradaRC.Validar() != nil {
+		d.EntradaRC.Validar() != nil ||
+		!domain.ObservacionesAnalisisValidas(d.Observaciones) {
 		return ErrSolicitudArtefactoAnalisisInvalida
 	}
 	return nil
@@ -252,9 +254,9 @@ func derivarAnalisisDesdeDatosArtefacto(
 		ValidacionRC:      validacion,
 		CostePrevisto:     clonarImporte(datos.CostePrevisto),
 		FuenteCosteRef:    datos.FuenteCosteRef,
+		Observaciones:     datos.DatosFuncionales.Observaciones,
 	}
-	if analisis.Validar() != nil || analisis.ActuacionRegistro != nil ||
-		analisis.Observaciones != "" {
+	if analisis.Validar() != nil || analisis.ActuacionRegistro != nil {
 		return domain.AnalisisRRHH{}, ErrArtefactoAnalisisNoConfiable
 	}
 	return analisis, nil
@@ -432,7 +434,8 @@ func datosFuncionalesOperacionAnalisisIguales(
 		subtle.ConstantTimeCompare(
 			[]byte(primero.EntradaRC.HuellaSHA256),
 			[]byte(segundo.EntradaRC.HuellaSHA256),
-		) == 1
+		) == 1 &&
+		primero.Observaciones == segundo.Observaciones
 }
 
 func huellaSHA256OperacionAnalisisValida(valor string) bool {

@@ -180,6 +180,102 @@ func TestManejadorAnalisisRRHHTraduceRectificacionNominal(t *testing.T) {
 	comprobarRespuestaSeguraAnalisisRRHH(t, respuesta)
 }
 
+func TestManejadorAnalisisRRHHAceptaObservacionesValidas(t *testing.T) {
+	contexto := contextoCanalAnalisisRRHHPrueba()
+	autoridad := &autoridadAnalisisRRHHPrueba{contexto: contexto}
+	ejecutor := &ejecutorAnalisisRRHHPrueba{
+		recibo: reciboAnalisisRRHHPrueba(
+			ports.OperacionRegistrarAnalisis,
+			1,
+		),
+	}
+	manejador, err := NuevoManejadorAnalisisRRHH(autoridad, ejecutor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo := strings.Replace(
+		cuerpoRegistroAnalisisRRHHPrueba(),
+		`"analisis":{`,
+		`"analisis":{"observaciones":"Observaciones de prueba para el analisis de RRHH",`,
+		1,
+	)
+	peticion := nuevaPeticionAnalisisRRHHPrueba(
+		RutaRegistroAnalisisRRHH,
+		cuerpo,
+	)
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+
+	if respuesta.Code != http.StatusCreated || ejecutor.registros != 1 {
+		t.Fatalf("estado inesperado: %d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+	}
+	if ejecutor.solicitudRegistro.DatosFuncionales.Observaciones !=
+		"Observaciones de prueba para el analisis de RRHH" {
+		t.Fatalf(
+			"observaciones no recibidas: %q",
+			ejecutor.solicitudRegistro.DatosFuncionales.Observaciones,
+		)
+	}
+}
+
+func TestManejadorAnalisisRRHHRechazaObservacionesInvalidas(t *testing.T) {
+	contexto := contextoCanalAnalisisRRHHPrueba()
+	autoridad := &autoridadAnalisisRRHHPrueba{contexto: contexto}
+	ejecutor := &ejecutorAnalisisRRHHPrueba{
+		recibo: reciboAnalisisRRHHPrueba(
+			ports.OperacionRegistrarAnalisis,
+			1,
+		),
+	}
+	manejador, err := NuevoManejadorAnalisisRRHH(autoridad, ejecutor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	casos := []struct {
+		nombre        string
+		observaciones string
+		estado        int
+	}{
+		{
+			nombre:        "demasiado largas",
+			observaciones: `"` + strings.Repeat("x", 4001) + `"`,
+			estado:        http.StatusUnprocessableEntity,
+		},
+		{
+			nombre:        "tipo no string",
+			observaciones: `12345`,
+			estado:        http.StatusBadRequest,
+		},
+		{
+			nombre:        "caracter de control no permitido",
+			observaciones: `"texto\u0000invalido"`,
+			estado:        http.StatusUnprocessableEntity,
+		},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			cuerpo := strings.Replace(
+				cuerpoRegistroAnalisisRRHHPrueba(),
+				`"analisis":{`,
+				`"analisis":{"observaciones":`+c.observaciones+`,`,
+				1,
+			)
+			peticion := nuevaPeticionAnalisisRRHHPrueba(
+				RutaRegistroAnalisisRRHH,
+				cuerpo,
+			)
+			respuesta := httptest.NewRecorder()
+			manejador.ServeHTTP(respuesta, peticion)
+
+			if respuesta.Code != c.estado {
+				t.Fatalf("se esperaba estado %d, obtenido %d: %s", c.estado, respuesta.Code, respuesta.Body.String())
+			}
+		})
+	}
+}
+
 func TestNuevoManejadorAnalisisRRHHFallaCerrado(t *testing.T) {
 	var autoridadNula *autoridadAnalisisRRHHPrueba
 	var ejecutorNulo *ejecutorAnalisisRRHHPrueba
