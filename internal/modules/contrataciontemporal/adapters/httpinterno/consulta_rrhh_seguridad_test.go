@@ -508,7 +508,7 @@ func TestManejadorConsultaRRHHRechazaProyeccionCorrupta(t *testing.T) {
 func TestRespuestaConsultaRRHHEstaAcotada(t *testing.T) {
 	respuesta := httptest.NewRecorder()
 	responderJSONConsultaRRHH(
-		respuesta,
+		respuesta, httptest.NewRequest("POST", RutaConsultaCuadroRRHH, nil),
 		http.StatusOK,
 		struct {
 			Dato string `json:"dato"`

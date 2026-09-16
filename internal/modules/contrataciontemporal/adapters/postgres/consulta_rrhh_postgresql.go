@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -121,12 +122,12 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
 			if err != nil {
 				return ports.PaginaCuadroRRHH{},
-					ports.ErrResultadoConsultaRRHHNoConfiable
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
 			_, _, total, err := salida.cierre.enterosSeguros()
 			if err != nil {
 				return ports.PaginaCuadroRRHH{},
-					ports.ErrResultadoConsultaRRHHNoConfiable
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
 			pagina, err := s.analizador.analizarCuadro(
 				salida.contenidoCanonico,
@@ -136,12 +137,12 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 			)
 			if err != nil {
 				return ports.PaginaCuadroRRHH{},
-					ports.ErrResultadoConsultaRRHHNoConfiable
+					err
 			}
 			pagina.Lectura = recibo
-			if pagina.ValidarParaEjecucionInterna(orden) != nil {
+			if err := pagina.ValidarParaEjecucionInterna(orden); err != nil {
 				return ports.PaginaCuadroRRHH{},
-					ports.ErrResultadoConsultaRRHHNoConfiable
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPaginaInterna, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
 			return pagina, nil
 		},
@@ -246,7 +247,7 @@ func ejecutarConsultaRRHHEnTransaccion[T any](
 	}
 	resultado, err := validar()
 	if err != nil {
-		return vacio, ports.ErrResultadoConsultaRRHHNoConfiable
+		return vacio, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return vacio, normalizarErrorConsultaRRHH(ctx, err)
@@ -431,11 +432,11 @@ func normalizarErrorFilaConsultaRRHH(
 	var errorPostgreSQL *pgconn.PgError
 	if errors.As(err, &errorPostgreSQL) {
 		if errorPostgreSQL.Code == "42501" {
-			return ports.ErrConsultaRRHHNoObservable
+			return falloSQLConsultaRRHH(ports.ErrConsultaRRHHNoObservable, err)
 		}
-		return ports.ErrConsultaRRHHNoDisponible
+		return falloSQLConsultaRRHH(ports.ErrConsultaRRHHNoDisponible, err)
 	}
-	return ports.ErrResultadoConsultaRRHHNoConfiable
+	return falloSQLConsultaRRHH(ports.ErrResultadoConsultaRRHHNoConfiable, err)
 }
 
 func normalizarErrorConsultaRRHH(ctx context.Context, err error) error {
@@ -451,7 +452,16 @@ func normalizarErrorConsultaRRHH(ctx context.Context, err error) error {
 	var errorPostgreSQL *pgconn.PgError
 	if errors.As(err, &errorPostgreSQL) &&
 		errorPostgreSQL.Code == "42501" {
-		return ports.ErrConsultaRRHHNoObservable
+		return falloSQLConsultaRRHH(ports.ErrConsultaRRHHNoObservable, err)
 	}
-	return ports.ErrConsultaRRHHNoDisponible
+	return falloSQLConsultaRRHH(ports.ErrConsultaRRHHNoDisponible, err)
+}
+
+func falloSQLConsultaRRHH(sentinela, causa error) error {
+	fallo := &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSQL, Sentinela: sentinela, Causa: causa}
+	var pgErr *pgconn.PgError
+	if errors.As(causa, &pgErr) {
+		fallo.CodigoSQL = pgErr.Code
+	}
+	return fallo
 }

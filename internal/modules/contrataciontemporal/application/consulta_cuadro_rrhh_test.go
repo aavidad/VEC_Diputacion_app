@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -410,4 +411,30 @@ func expedienteConsultaRRHHPrueba(
 		t.Fatalf("expediente: %v", err)
 	}
 	return expediente
+}
+
+func TestConsultaCuadroRRHHDistingueEtapasConMismaClasificacion(t *testing.T) {
+	for _, etapa := range []diagnostico.EtapaConsultaRRHH{diagnostico.EtapaCapacidad, diagnostico.EtapaPagina} {
+		t.Run(string(etapa), func(t *testing.T) {
+			entorno := nuevoEntornoConsultaRRHH(t)
+			if etapa == diagnostico.EtapaCapacidad {
+				entorno.reloj.instante = entorno.ahora.Add(time.Hour)
+			} else {
+				entorno.sesion.pagina.Expedientes[0].NumeroVisible = ""
+			}
+			servicio, err := NuevoServicioConsultaCuadroRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = servicio.Consultar(context.Background(), entorno.cuadro)
+			var fallo *diagnostico.FalloConsultaRRHH
+			if !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) || !errors.As(err, &fallo) || fallo.Etapa != etapa {
+				t.Fatalf("clasificación o etapa incorrectas: %v", err)
+			}
+		})
+	}
+	causa := &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSQL, Causa: context.Canceled}
+	if !errors.Is(normalizarFalloConsultaRRHH(causa), context.Canceled) {
+		t.Fatal("cancelación perdida")
+	}
 }

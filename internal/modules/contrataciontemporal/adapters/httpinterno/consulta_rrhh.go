@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -184,50 +185,50 @@ func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
 	r *http.Request,
 ) {
 	if h == nil || dependenciaConsultaRRHHNula(h.consultor) {
-		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if !rutaConsultaRRHHExacta(r, RutaConsultaCuadroRRHH) {
-		responderErrorConsultaRRHH(w, errorRecursoConsultaRRHHNoEncontrado)
+		responderErrorConsultaRRHH(w, r, nil, errorRecursoConsultaRRHHNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorConsultaRRHH(w, errorMetodoConsultaRRHHNoPermitido)
+		responderErrorConsultaRRHH(w, r, nil, errorMetodoConsultaRRHHNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	if problema := validarMetadatosConsultaRRHH(r, MaximoCuerpoConsultaCuadroRRHHBytes); problema != nil {
-		responderErrorConsultaRRHH(w, *problema)
+		responderErrorConsultaRRHH(w, r, nil, *problema)
 		return
 	}
 	solicitud, err := solicitudCuadroRRHHDesdePeticion(w, r)
 	if err != nil {
-		responderErrorConsultaRRHH(w, errorEntradaConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(err))
 		return
 	}
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	pagina, err := h.consultor.Consultar(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	if err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if pagina.ValidarContenidoPublicablePara(solicitud) != nil {
-		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+	if err := pagina.ValidarContenidoPublicablePara(solicitud); err != nil {
+		responderErrorConsultaRRHH(w, r, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPublicable, Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, Causa: err}, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	responderJSONConsultaRRHH(
-		w,
+		w, r,
 		http.StatusOK,
 		envoltorioCuadroRRHH{Data: proyectarPaginaCuadroRRHH(pagina)},
 	)
@@ -238,46 +239,46 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 	r *http.Request,
 ) {
 	if h == nil || dependenciaConsultaRRHHNula(h.consultor) {
-		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if !rutaConsultaRRHHExacta(r, RutaConsultaDetalleRRHH) {
-		responderErrorConsultaRRHH(w, errorRecursoConsultaRRHHNoEncontrado)
+		responderErrorConsultaRRHH(w, r, nil, errorRecursoConsultaRRHHNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorConsultaRRHH(w, errorMetodoConsultaRRHHNoPermitido)
+		responderErrorConsultaRRHH(w, r, nil, errorMetodoConsultaRRHHNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	if problema := validarMetadatosConsultaRRHHConPDF(r, MaximoCuerpoConsultaDetalleRRHHBytes, true); problema != nil {
-		responderErrorConsultaRRHH(w, *problema)
+		responderErrorConsultaRRHH(w, r, nil, *problema)
 		return
 	}
 	solicitud, err := solicitudDetalleRRHHDesdePeticion(w, r)
 	if err != nil {
-		responderErrorConsultaRRHH(w, errorEntradaConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, nil, errorEntradaConsultaRRHH(err))
 		return
 	}
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	if err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if detalle.ValidarContenidoPublicablePara(solicitud) != nil {
-		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+	if err := detalle.ValidarContenidoPublicablePara(solicitud); err != nil {
+		responderErrorConsultaRRHH(w, r, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPublicable, Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, Causa: err}, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	if borrador, solicitado := borradorRRHHSolicitado(r.Header); solicitado {
@@ -292,7 +293,7 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		}
 	}
 	responderJSONConsultaRRHH(
-		w,
+		w, r,
 		http.StatusOK,
 		envoltorioDetalleRRHH{Data: proyeccion},
 	)
@@ -311,15 +312,15 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 		tipoContenido = "application/pdf"
 	}
 	if tipoContenido == MIMEDOCXBorradorRRHH && dependenciaConsultaRRHHNula(h.renderizadorDOCX) {
-		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if tipoContenido == "application/pdf" && dependenciaConsultaRRHHNula(h.renderizador) {
-		responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+		responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	// Los seis borradores siguen representando el original de propuesta v7.
@@ -329,24 +330,24 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	if requiereOriginalPropuestaRRHH(detalle) {
 		solicitud, err := ports.NuevaSolicitudDetalleRRHH(detalle.Resumen.ExpedienteRef, 7)
 		if err != nil {
-			responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+			responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 			return
 		}
 		consultorOriginal := h.consultor
 		if detalle.Resumen.Version == 9 {
 			if dependenciaConsultaRRHHNula(h.consultorOriginalPropuesta) {
-				responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+				responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 				return
 			}
 			consultorOriginal = h.consultorOriginalPropuesta
 		}
 		original, err := consultorOriginal.Consultar(r.Context(), solicitud)
 		if r.Context().Err() != nil {
-			responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(r.Context().Err()))
+			responderErrorConsultaRRHH(w, r, r.Context().Err(), clasificarErrorConsultaRRHH(r.Context().Err()))
 			return
 		}
 		if err != nil || original.ValidarContenidoPublicablePara(solicitud) != nil {
-			responderErrorConsultaRRHH(w, errorServicioConsultaRRHHNoDisponible)
+			responderErrorConsultaRRHH(w, r, nil, errorServicioConsultaRRHHNoDisponible)
 			return
 		}
 		detalle = original
@@ -359,25 +360,25 @@ func (h *manejadorConsultaDetalleRRHH) responderBorrador(
 	case MIMEDOCXBorradorRRHH:
 		contenido, err = h.renderizadorDOCX.RenderizarBorradorDOCX(r.Context(), borrador.tipo, detalle.Clonar())
 	default:
-		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+		responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		responderErrorConsultaRRHH(w, r, errContexto, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	if errors.Is(err, ports.ErrBorradorRRHHNoDisponible) {
-		responderErrorConsultaRRHH(w, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
+		responderErrorConsultaRRHH(w, r, nil, nuevoErrorConsultaRRHH(http.StatusConflict, "documento_no_disponible"))
 		return
 	}
 	if err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
 	if len(contenido) > MaximoPDFBorradorRRHHBytes ||
 		(tipoContenido == "application/pdf" && !bytes.HasPrefix(contenido, []byte("%PDF-"))) ||
 		(tipoContenido == MIMEDOCXBorradorRRHH && !bytes.HasPrefix(contenido, []byte("PK\x03\x04"))) {
-		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
+		responderErrorConsultaRRHH(w, r, nil, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}
 	aplicarCabecerasCobertura(w)

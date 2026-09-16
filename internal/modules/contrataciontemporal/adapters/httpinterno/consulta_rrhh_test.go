@@ -5,16 +5,79 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestConsultaRRHHCorrelacionaFalloSinRegistrarContenido(t *testing.T) {
+	var registro bytes.Buffer
+	anterior := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+	t.Cleanup(func() { slog.SetDefault(anterior) })
+	for _, caso := range []string{"consulta", "serializacion", "cursor_huella", "pagina", "sql", "publicable"} {
+		t.Run(caso, func(t *testing.T) {
+			registro.Reset()
+			respuesta := httptest.NewRecorder()
+			estado, etapa := 500, "desconocida"
+			if caso == "serializacion" {
+				etapa = "serializacion"
+			}
+			if caso != "consulta" && caso != "serializacion" {
+				estado, etapa = 502, caso
+			}
+			if caso != "serializacion" {
+				var causa error = errors.New("CONTENIDO_PRIVADO_NO_REGISTRABLE")
+				if caso != "consulta" {
+					causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaConsultaRRHH(caso), Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, Causa: causa}
+				}
+				if caso == "sql" {
+					causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSQL, Sentinela: application.ErrResultadoConsultaRRHHNoConfiable, CodigoSQL: "XX000", Causa: &pgconn.PgError{Code: "XX000", Message: "CONTENIDO_PRIVADO_SQL"}}
+				}
+				if caso == "publicable" {
+					causa = nil
+				}
+				manejador, err := NuevoManejadorConsultaCuadroRRHH(&consultorCuadroRRHHPrueba{
+					err: causa,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				manejador.ServeHTTP(respuesta, nuevaPeticionConsultaRRHHPrueba(
+					RutaConsultaCuadroRRHH, cuerpoCuadroRRHHPrueba()))
+			} else {
+				responderJSONConsultaRRHH(respuesta, httptest.NewRequest("POST", RutaConsultaCuadroRRHH, nil), http.StatusOK, map[string]any{
+					"CONTENIDO_PRIVADO_NO_REGISTRABLE": make(chan int),
+				})
+			}
+			var cuerpo envoltorioErrorConsultaRRHH
+			var entrada map[string]any
+			if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil {
+				t.Fatal(err)
+			}
+			if respuesta.Code != estado || entrada["etapa"] != etapa ||
+				entrada["ruta"] != RutaConsultaCuadroRRHH || entrada["operacion"] != "consulta_cuadro_rrhh" ||
+				(caso == "sql" && entrada["sqlstate"] != "XX000") || cuerpo.Error.CorrelacionRef == "" ||
+				entrada["correlacion_ref"] != cuerpo.Error.CorrelacionRef ||
+				entrada["codigo"] != cuerpo.Error.Codigo ||
+				strings.Contains(registro.String()+respuesta.Body.String(), "CONTENIDO_PRIVADO") {
+				t.Fatal("el diagnóstico no conserva correlación o expone contenido")
+			}
+		})
+	}
+}
 
 type consultorCuadroRRHHPrueba struct {
 	pagina      ports.PaginaCuadroRRHH

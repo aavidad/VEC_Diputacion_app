@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 )
@@ -86,29 +89,63 @@ type detalleErrorConsultaRRHH struct {
 
 func responderErrorConsultaRRHH(
 	w http.ResponseWriter,
+	r *http.Request,
+	causa error,
 	problema errorPublicoConsultaRRHH,
 ) {
 	responderJSONConsultaRRHH(
-		w,
+		w, r,
 		problema.estado,
 		envoltorioErrorConsultaRRHH{Error: detalleErrorConsultaRRHH{
 			Codigo: problema.codigo, ClaveI18n: problema.claveI18n,
 			CorrelacionRef: nuevaCorrelacionCobertura(),
-		}},
+		}}, causa,
 	)
 }
 
-func responderJSONConsultaRRHH(w http.ResponseWriter, estado int, valor any) {
+func responderJSONConsultaRRHH(w http.ResponseWriter, r *http.Request, estado int, valor any, causas ...error) {
+	var causa error
+	if len(causas) > 0 {
+		causa = causas[0]
+	}
 	contenido, err := json.Marshal(valor)
 	if err != nil || len(contenido) > MaximoRespuestaConsultaRRHHBytes {
 		estado = http.StatusInternalServerError
-		contenido, _ = json.Marshal(envoltorioErrorConsultaRRHH{
+		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
+		valor = envoltorioErrorConsultaRRHH{
 			Error: detalleErrorConsultaRRHH{
 				Codigo:         errorInternoConsultaRRHH.codigo,
 				ClaveI18n:      errorInternoConsultaRRHH.claveI18n,
 				CorrelacionRef: nuevaCorrelacionCobertura(),
 			},
-		})
+		}
+		contenido, _ = json.Marshal(valor)
+	}
+	if estado >= http.StatusInternalServerError {
+		if fallo, ok := valor.(envoltorioErrorConsultaRRHH); ok {
+			ruta, operacion := "ruta_no_reconocida", "consulta_rrhh"
+			if r != nil && r.URL != nil {
+				switch r.URL.Path {
+				case RutaConsultaCuadroRRHH:
+					ruta, operacion = RutaConsultaCuadroRRHH, "consulta_cuadro_rrhh"
+				case RutaConsultaDetalleRRHH:
+					ruta, operacion = RutaConsultaDetalleRRHH, "consulta_detalle_rrhh"
+				}
+			}
+			etapa, sqlstate := "desconocida", ""
+			var falloInterno *diagnostico.FalloConsultaRRHH
+			if errors.As(causa, &falloInterno) && falloInterno != nil {
+				etapa = falloInterno.EtapaSegura()
+				if len(falloInterno.CodigoSQL) == 5 && strings.IndexFunc(falloInterno.CodigoSQL, func(c rune) bool {
+					return !(c >= '0' && c <= '9' || c >= 'A' && c <= 'Z')
+				}) == -1 {
+					sqlstate = falloInterno.CodigoSQL
+				}
+			}
+			slog.Error("consulta RRHH fallida", "operacion", operacion, "ruta", ruta,
+				"estado_http", estado, "codigo", fallo.Error.Codigo,
+				"etapa", etapa, "sqlstate", sqlstate, "correlacion_ref", fallo.Error.CorrelacionRef)
+		}
 	}
 	aplicarCabecerasCobertura(w)
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -68,6 +69,20 @@ func TestAnalizadorCuadroRRHHPostgreSQLValidaMaterialRealDelCursor(
 	}
 	if analizada.CursorSiguiente != cursor {
 		t.Fatal("el analizador no repuso el cursor validado")
+	}
+
+	// Reproduce el desacuerdo SQL (SHA del texto) frente al lector (SHA raw32).
+	huellaRaw, huellaTexto := sha256.Sum256(material), sha256.Sum256([]byte(cursor))
+	canon := exportacion.BytesCanonicos()
+	if bytes.Count(canon, huellaRaw[:]) != 1 {
+		t.Fatal("vector de cursor ambiguo")
+	}
+	canonASCII := bytes.Replace(canon, huellaRaw[:], huellaTexto[:], 1)
+	_, fallo := (analizadorCanonConsultaRRHHPostgreSQL{}).analizarCuadro(canonASCII, cursor, pagina.GeneradaEn, 1)
+	var diagnosticoCursor *diagnostico.FalloConsultaRRHH
+	if !errors.Is(fallo, ports.ErrResultadoConsultaRRHHNoConfiable) ||
+		!errors.As(fallo, &diagnosticoCursor) || diagnosticoCursor.Etapa != diagnostico.EtapaCursorHuella {
+		t.Fatalf("no identifica el desacuerdo ASCII/raw32: %v", fallo)
 	}
 
 	cursorDeHuellaEquivocada := base64.RawURLEncoding.EncodeToString(

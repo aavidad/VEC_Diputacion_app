@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"time"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -83,14 +84,14 @@ func (analizadorCanonConsultaRRHHPostgreSQL) analizarCuadro(
 		!decodificado.paginaSinRecibo.GeneradaEn.Equal(generadaEn) ||
 		len(decodificado.paginaSinRecibo.Expedientes) != int(total) {
 		return ports.PaginaCuadroRRHH{},
-			ports.ErrResultadoConsultaRRHHNoConfiable
+			&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	pagina := decodificado.paginaSinRecibo
 	if pagina.HayMas {
 		materialCursor, err := base64.RawURLEncoding.Strict().DecodeString(cursor)
 		if err != nil {
 			return ports.PaginaCuadroRRHH{},
-				ports.ErrResultadoConsultaRRHHNoConfiable
+				&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaCursorDecod, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 		}
 		defer clear(materialCursor)
 		huellaCursor := sha256.Sum256(materialCursor)
@@ -98,13 +99,13 @@ func (analizadorCanonConsultaRRHHPostgreSQL) analizarCuadro(
 			base64.RawURLEncoding.EncodeToString(materialCursor) != cursor ||
 			!bytes.Equal(huellaCursor[:], decodificado.cursorHuella[:]) {
 			return ports.PaginaCuadroRRHH{},
-				ports.ErrResultadoConsultaRRHHNoConfiable
+				&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaCursorHuella, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable}
 		}
 		pagina.CursorSiguiente = cursor
 	} else if cursor != "" ||
 		decodificado.cursorHuella != ([sha256.Size]byte{}) {
 		return ports.PaginaCuadroRRHH{},
-			ports.ErrResultadoConsultaRRHHNoConfiable
+			&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaCursorDecod, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable}
 	}
 	return pagina, nil
 }

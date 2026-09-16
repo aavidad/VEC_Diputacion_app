@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -83,7 +84,7 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		return ports.PaginaCuadroRRHH{}, errContexto
 	}
 	if !domain.InstanteUTCCanonico(instanteCapacidad) {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaReloj, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: nil}
 	}
 	capacidad, err := ports.NuevaCapacidadConsultaCuadroRRHH(
 		contexto, material, solicitud, instanteCapacidad,
@@ -92,7 +93,7 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		return ports.PaginaCuadroRRHH{}, errContexto
 	}
 	if err != nil {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaCapacidad, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	instanteOrden := s.reloj.Ahora()
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
@@ -102,13 +103,13 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		instanteOrden.Before(instanteCapacidad) ||
 		instanteOrden.Before(capacidad.ValidaDesde()) ||
 		!instanteOrden.Before(capacidad.ValidaHasta()) {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaReloj, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: nil}
 	}
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad, solicitud, instanteOrden,
 	)
 	if err != nil {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaOrden, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.PaginaCuadroRRHH{}, errContexto
@@ -120,8 +121,8 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
-	if pagina.ValidarPara(orden) != nil {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	if err := pagina.ValidarPara(orden); err != nil {
+		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPagina, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
 	return clonarPaginaCuadroRRHH(pagina), nil
 }
@@ -134,21 +135,29 @@ func errorContextoConsultaRRHH(ctx context.Context) error {
 }
 
 func normalizarFalloConsultaRRHH(err error) error {
+	var sentinela error
 	switch {
 	case errors.Is(err, context.Canceled):
-		return context.Canceled
+		sentinela = context.Canceled
 	case errors.Is(err, context.DeadlineExceeded):
-		return context.DeadlineExceeded
+		sentinela = context.DeadlineExceeded
 	case errors.Is(err, ports.ErrConsultaRRHHNoObservable):
-		return ErrConsultaRRHHNoObservable
+		sentinela = ErrConsultaRRHHNoObservable
 	case errors.Is(err, ports.ErrContextoConsultaRRHHInvalido),
 		errors.Is(err, ports.ErrCapacidadConsultaRRHHInvalida),
 		errors.Is(err, ports.ErrOrdenConsultaRRHHInvalida),
 		errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable):
-		return ErrResultadoConsultaRRHHNoConfiable
+		sentinela = ErrResultadoConsultaRRHHNoConfiable
 	default:
-		return ErrConsultaRRHHNoDisponible
+		sentinela = ErrConsultaRRHHNoDisponible
 	}
+	fallo := &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaAplicacion, Sentinela: sentinela, Causa: err}
+	var previo *diagnostico.FalloConsultaRRHH
+	if errors.As(err, &previo) && previo != nil {
+		// Conserva también el centinela del puerto, usado por consumidores existentes.
+		fallo.Etapa, fallo.CodigoSQL = previo.Etapa, previo.CodigoSQL
+	}
+	return fallo
 }
 
 func clonarPaginaCuadroRRHH(
