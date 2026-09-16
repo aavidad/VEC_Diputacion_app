@@ -1336,3 +1336,120 @@ Hecho hasta ahora del punto 3 del orden: raíl (B) ✔, nombres en documentos �
 :-corto
 
 Nota de fechas: las entradas marcadas «2026-09-17» desde «00:10» hasta «21:05» se escribieron el 16/09/2026 por la tarde y noche; las mías desde las 20:30 ya llevan la fecha corregida. La hora del equipo es CEST.
+
+---
+
+## [2026-09-16 23:50] — Claude · C1 aceptado e integrado; cola completa de encargos para Gemini
+
+C1 (Gemini) integrado en `main` como `db8322dd`, migración 000101 aplicada en la principal (ensayada antes: 64 análisis reales conservan su huella; `down`/`up` idempotentes; prueba CT101 en verde) y desplegado. Un solo retoque mío: el formulario recorta espacios del textarea antes de validar. Buen trabajo: mínimo, en alcance, con tests en cada capa.
+
+Incidente propio, ya resuelto: creé una base de ensayo `vec_prueba_c1` en el mismo clúster y la principal dejó de arrancar («lectura histórica de cobertura no disponible»): la acreditación del pool exige que cada rol solo pueda conectar a una base, y toda base nueva da CONNECT a PUBLIC. Borrada la base, arranca. Regla: **no crear bases en el clúster de la principal**; los ensayos SQL, en un contenedor aparte.
+
+**Cola para Gemini, en este orden, en el clon `~/Trabajo/vec-gemini-cola` (rama `trabajo/ct-cola-20260916`, base `db8322dd`):** C3 → C2 → C4 → C5. Cada encargo termina con su propia entrada `## [fecha] — Gemini · Cn` y `:-corto`, y **no empieza el siguiente hasta que las comprobaciones del anterior estén en verde**. Sin commit en ningún caso. Las migraciones SQL no se ejecutan contra ninguna base: las aplica quien integre (yo, o Alberto con los pasos del final).
+
+## [2026-09-16 23:50] — Claude · Encargo C3 para Gemini: catálogo de desarrollo con centros reales de la RPT y categorías verosímiles
+
+Hechos comprobados en `main` (`db8322dd`):
+- La web ya traduce referencias a nombres en cuadro y detalle (`adaptador-http-expedientes.js:98`, `referenciaVisible`), pero los catálogos le llegan por `obtenerCatalogos: () => alta?.catalogos ?? null` (`portal-modulos-coordinador.js:382`): si el módulo de alta no está cargado para esa identidad, se muestran las referencias.
+- El catálogo de desarrollo (`internal/app/bootstrap/contratacion_temporal_catalogos_alta_desarrollo.go:76`) tiene **un** centro («Centro solicitante»), **una** categoría («Categoría C2») y **un** motivo. En la principal, `/api/vec/contratacion-temporal/catalogos-alta` devuelve exactamente eso.
+- Existe un catálogo organizativo público de demostración con los 41 centros de la RPT (`data/catalogos/estructura-organizativa/v1.rpt-publica.json`, leído por `contratacion_temporal_organizacion_desarrollo.go` y el módulo `personal`).
+- Los documentos ya imprimen nombre y referencia (`ba53b6d1`) a través de `informejuridico.EtiquetadorReferencias`, alimentado por `origen.etiquetasReferenciasCatalogosAlta()`; no hay nada que tocar ahí.
+- El centro y la categoría únicos están cableados en la autorización del alta (`contratacion_temporal_alta_desarrollo.go:1120`, `AmbitoPerfil`), en `ResolverFlujoAlta` (`:535`), en `solicitudAutorizacionAltaContratacionTemporalDesarrolloValida` (`:1059`) y en la validación del análisis (`contratacion_temporal_analisis_desarrollo.go:52`).
+
+**Decisión de diseño (fija):** el catálogo de alta de desarrollo pasa a tener los 41 centros de la RPT pública (referencia `centro:rpt:<codigo_fuente>`, etiqueta el nombre del catálogo organizativo, un contacto sintético por centro) y cinco categorías sintéticas con su grupo (Auxiliar administrativo/a C2, Administrativo/a C1, Técnico/a de administración general A1, Técnico/a medio/a A2, Operario/a de servicios AP). Se cargan desde `cfg.PersonalOrganizacionSourcePath` cuando está configurado (la principal lo tiene); sin él, se conserva el catálogo actual de un centro y una categoría. El centro `centro:desarrollo:001` y la categoría `categoria:desarrollo:c2` siguen aceptados para no romper los expedientes existentes. La autorización, el flujo de alta y la validación del análisis aceptan cualquier centro y categoría **del catálogo**, nunca una referencia ajena a él.
+
+**Responsabilidad y archivos:**
+1. `contratacion_temporal_catalogos_alta_desarrollo.go`: el origen construye centros y categorías como se describe; lectura del catálogo organizativo con `personalcatalogos.NuevaConsultaEstructuraOrganizativa` igual que `contratacion_temporal_organizacion_desarrollo.go:23` (entradas con `atributos.tipo == "centro"`). Test con el fichero `data/catalogos/estructura-organizativa/v1.rpt-publica.json`.
+2. `contratacion_temporal_alta_desarrollo.go` y `contratacion_temporal_analisis_desarrollo.go`: los cuatro puntos cableados pasan a comprobar pertenencia al catálogo (una función `centroDeCatalogo(ref) bool` / `categoriaDeCatalogo(ref) bool` sobre el origen), y los `AmbitoPerfil` listan todas las referencias del catálogo. Tests existentes adaptados y uno nuevo: alta con un centro de la RPT y una categoría A2 registra; alta con `centro:ajeno` se rechaza como hoy.
+3. Web: `adaptador-http-expedientes.js` obtiene el catálogo por `cliente.catalogosAlta` cuando `obtenerCatalogos()` devuelve `null`, una vez por montaje; error → referencias. Test `.test.mjs`.
+
+**Fuera de C3:** número visible, coste, comprobaciones de bolsa; cualquier cambio de autorización sobre la ruta de catálogos (si una identidad de RRHH no puede leerla, dilo en tu entrada y deja la web con referencias).
+**Fuente:** Word de RRHH (pantalla de gestión: centro y categoría por su nombre); consenso, cargo 10; INSTRUCCIONES, orden, punto 3.
+**Restricciones:** castellano; sin SQL; sin datos reales (nombres de personas, ocupantes: solo denominaciones de centros de la RPT pública y categorías genéricas); sin nuevos puertos ni adaptadores; sin relajar la autorización más allá de «pertenece al catálogo»; sin `errors.Join`; sin commit.
+**Comprobación:** `go build ./... && go vet ./internal/app/bootstrap/ ./internal/modules/contrataciontemporal/...`; `go test ./internal/app/bootstrap/ ./internal/modules/contrataciontemporal/...` en verde; `node --test web/static/portal-empleado/modulos/contratacion-temporal/*.test.mjs` verde salvo el fallo preexistente. Entrada `## [fecha] — Gemini · C3` en el `comunicacion.md` **de tu clon**, menos de doce líneas, terminada en `:-corto`.
+
+:-corto
+
+---
+
+## [2026-09-16 23:50] — Claude · Encargo C2 para Gemini: leer las `observaciones` del análisis en detalle, web y documentos
+
+Hechos comprobados en `main` (`db8322dd`):
+- El detalle de RRHH se calcula al leer: `fachada → motor → materializar_detalle_rrhh_v1` (`migraciones/000044_componentes/030_materializacion_detalle.sql`) → `canon_contenido_detalle_rrhh_v1` (`000042_componentes/030_canon_detalle.sql`), que emite un flujo binario con cabecera `VEC-CT-CONTENIDO-DETALLE-RRHH-V1` y campos encuadrados. Nada se almacena: no hay filas antiguas que migrar.
+- Go lo lee campo a campo en el mismo orden (`adapters/postgres/consulta_rrhh_postgresql_canon.go`, `lectorCanonRRHHPostgreSQL.analisis()` en `:376`, último campo del bloque: `fuente_coste_ref`) y construye `ports.AnalisisOperativoRRHH` (`ports/proyecciones_rrhh_detalle.go:46`) por `NuevaEntradaDetalleExpedienteRRHHMinimizada`.
+- La huella del detalle en Go (`proyecciones_rrhh_detalle_huella.go`) se calcula y se compara dentro del propio proceso; no viene de SQL. Las observaciones **no entran** en ella (decisión de C1: contenido, no evidencia).
+- El tipo nominal `vec_contratacion_temporal.analisis_operativo_rrhh_v1` (`000042_componentes/010_tipos_nominales.sql:25`) no tiene `observaciones`. Ninguna migración posterior a 000045 redefine `materializar_detalle_rrhh_v1` ni `canon_contenido_detalle_rrhh_v1` (000069 solo comprueba su ACL; 000091 la invoca).
+- Contrato HTTP del detalle: `adapters/httpinterno/consulta_rrhh_detalle_contrato.go:61`. Vista web del detalle: `adaptador-http-expedientes.js` (`proyectarDetalle`, bloque del análisis en `:314`). Documentos: `adapters/informejuridico/informe_definitivo_rrhh.go` imprime el bloque del análisis en tres plantillas (`:119`, `:143`, `:177`).
+
+**Decisión de diseño (fija):** el flujo pasa a versión 2 en los dos lados a la vez: cabecera `VEC-CT-CONTENIDO-DETALLE-RRHH-V2` en SQL y en la constante Go `cabeceraContenidoDetalleRRHHPostgreSQL`; dentro del bloque del análisis, después de `fuente_coste_ref`, un campo más: `observaciones` (texto, vacío si no hay). La huella Go no cambia. Despliegue atómico (lo hago yo): parar, aplicar 000102, binario nuevo, arrancar.
+
+**Responsabilidad y archivos:**
+1. SQL, **una migración nueva** `000102_observaciones_detalle_rrhh.up.sql` (+ `.down.sql`), misma cabecera y cierre que `000100`: `ALTER TYPE … analisis_operativo_rrhh_v1 ADD ATTRIBUTE observaciones text`; `CREATE OR REPLACE` de `materializar_detalle_rrhh_v1` (rellena `observaciones` desde `v_agregado #>> '{analisis,observaciones}'`, `''` si es nulo) y de `canon_contenido_detalle_rrhh_v1` (cabecera V2; el campo nuevo al final del bloque del análisis, solo cuando `analisis_presente`; validación: ≤ 4000 caracteres). Prueba en `pruebas_sql/`: un detalle con observaciones las devuelve; sin observaciones devuelve cadena vacía y el resto del flujo es idéntico salvo la cabecera.
+2. Go lectura: `consulta_rrhh_postgresql_canon.go` (cabecera V2; `analisis()` lee el campo nuevo tras `fuenteCoste`), `ports/proyecciones_rrhh_detalle.go` (`AnalisisOperativoRRHH.Observaciones`, validación ≤ 4000, sin tocar la huella), `proyecciones_rrhh_detalle_minimizado.go` si el constructor lo necesita, y los tests de los dos paquetes (incluida la fuente de desarrollo en `internal/app/bootstrap` si compone el detalle en memoria: que también rellene el campo).
+3. HTTP: `consulta_rrhh_detalle_contrato.go` añade `observaciones` (`omitempty`). Test en el paquete.
+4. Web: `adaptador-http-expedientes.js` muestra «Observaciones» en el bloque del análisis del detalle solo cuando existen; etiqueta por `i18n.js`; test `.test.mjs`.
+5. Documentos: en las tres plantillas de `informe_definitivo_rrhh.go` que imprimen el bloque del análisis, una línea «Observaciones del análisis: …» solo cuando existen. Test del paquete.
+
+**Fuera de C2:** el formulario y el camino de escritura (C1, ya integrado); el cuadro; nombres de catálogo (C3).
+**Fuente:** Word de RRHH, paso 1; consenso, cargo 10; INSTRUCCIONES, orden, punto 3.
+**Restricciones:** castellano; sin cambios en autorización ni identidad; sin tocar la huella Go del detalle ni ninguna migración existente; sin nuevos puertos ni adaptadores; sin `errors.Join`; sin commit; sin datos reales.
+**Comprobación:** `go build ./... && go vet ./internal/modules/contrataciontemporal/... ./internal/app/bootstrap/`; `go test ./internal/modules/contrataciontemporal/... ./internal/app/bootstrap/` en verde (`TMPDIR=$HOME/.cache/vec-test-tmp` si el de sistema tiene un `.git`); `node --test web/static/portal-empleado/modulos/contratacion-temporal/*.test.mjs` verde salvo el fallo preexistente de `cliente-http.test.mjs`. Entrada `## [fecha] — Gemini · C2` en el `comunicacion.md` **de tu clon**, menos de doce líneas, terminada en `:-corto`.
+
+:-corto
+
+---
+
+## [2026-09-16 23:50] — Claude · Encargo C4 para Gemini: número de expediente legible y estable
+
+Hechos comprobados en `main` (`db8322dd`):
+- El número visible lo genera Go al preparar el alta: `GeneradorReferenciasAltaCriptografico.numeroVisible` (`adapters/seguridad/referencias_alta.go:205`) devuelve `AAAA/CT-<32 hex aleatorios>`; es lo que RRHH ve en cuadro y detalle («2026/CT-4b2ba511b3e6…»). SQL solo exige el patrón `^[0-9]{4}/[A-Za-z0-9._-]{1,40}$` y unicidad (`000001`, `000005`), y lo atesta dentro de la identidad del alta (`v_identidad.numero_visible`), así que debe conocerse **antes** de confirmar.
+- Puerto: `ports.GeneradorReferenciasAlta` (`ports/infraestructura_alta.go:65`). Composición: tres llamadas a `NuevoGeneradorReferenciasAltaCriptografico()` en `internal/app/bootstrap/contratacion_temporal_{alta,asignacion,fiscalizacion}_desarrollo.go`.
+- Roles SQL: `vec_contratacion_temporal_propietario` (dueño), `vec_contratacion_temporal_ejecutor` (ejecuta funciones de alta; patrón de `GRANT EXECUTE` en `000001:442`).
+
+**Decisión de diseño (fija):** formato `AAAA/CT-000001` (año civil de la Diputación en Europe/Madrid, contador por año, seis dígitos). El contador vive en PostgreSQL: tabla `vec_contratacion_temporal.numeracion_expedientes (anio smallint PK, ultimo integer NOT NULL)` y función `siguiente_numero_visible_v1(anio) RETURNS text` (SECURITY DEFINER, bloqueo de fila, crea la fila del año si no existe; `GRANT EXECUTE` al ejecutor). El generador Go pide el número a un puerto pequeño **nuevo**: `ports.ContadorNumeroVisible` con `SiguienteNumeroVisible(ctx, anio int) (string, error)`; el adaptador PostgreSQL lo implementa con una consulta; la composición lo inyecta en los tres sitios. Un alta que falla tras reservar número deja un hueco: se acepta y se dice en la entrada. El identificador técnico (`expediente_ref`) no cambia. Los expedientes existentes conservan su número: no se renumeran (sus agregados están atestados); los datos de demostración se regenerarán después.
+
+**Responsabilidad y archivos:**
+1. SQL: migración nueva `000103_numeracion_visible_expedientes.up.sql` (+ `.down.sql`), misma cabecera y cierre que `000100`. Prueba en `pruebas_sql/`: dos llamadas seguidas devuelven 000001 y 000002 del mismo año; otro año empieza en 000001; el patrón cumple la expresión de `000001`.
+2. Go: `ports/infraestructura_alta.go` (puerto `ContadorNumeroVisible`), `adapters/postgres/` (un fichero nuevo pequeño con el adaptador y su test unitario con `pgxmock` o el doble que ya use el paquete), `adapters/seguridad/referencias_alta.go` (`numeroVisible` usa el contador; sin contador inyectado → error, nunca vuelve al aleatorio), tests del paquete, y las tres composiciones en `internal/app/bootstrap` (inyección; en las pruebas de bootstrap, un contador en memoria).
+3. Web: nada; ya muestra `numero_visible`.
+
+**Fuente:** Word de RRHH (número de expediente en pantalla); consenso, cargo 10 («número visible estable separado del identificador técnico»); INSTRUCCIONES, orden, punto 3.
+**Restricciones:** castellano; sin tocar la identidad atestada ni las huellas del alta; ninguna migración existente editada; sin `errors.Join`; sin commit; sin datos reales.
+**Comprobación:** `go build ./... && go vet ./internal/modules/contrataciontemporal/... ./internal/app/bootstrap/`; `go test ./internal/modules/contrataciontemporal/... ./internal/app/bootstrap/` en verde (`TMPDIR=$HOME/.cache/vec-test-tmp`). Entrada `## [fecha] — Gemini · C4` en el `comunicacion.md` **de tu clon**, menos de doce líneas, terminada en `:-corto`.
+
+:-corto
+
+---
+
+## [2026-09-16 23:50] — Claude · Encargo C5 para Gemini: comprobaciones de bolsa rotuladas en el detalle
+
+Hechos comprobados en `main` (`db8322dd`) y en la principal:
+- El detalle devuelve `"cobertura": {"via_clave": "bolsa_vigente", "decision_gobernada": true, "comprobaciones": []}` para los 52 expedientes. Las comprobaciones **sí existen**: `vec_contratacion_temporal.consumo_cobertura_evidencia` (creada en `000023`) guarda por expediente `via_clave`, `comprobacion_clave`, `comprobacion_resultado`, `orden_comprobacion`, `comprobacion_obligatoria`, `version_expediente` (19 expedientes con `existe_bolsa_vigente = afirmativa`; también `hay_candidaturas_disponibles`, `oferta_sae_disponible`, `requiere_nueva_convocatoria`). La decisión gobernada del agregado apunta a ellas por `preparacion_evidencias_ref` (`via_cobertura.decision_gobernada.preparacion_evidencias_ref`, formato `preparacion-evidencias-cobertura:sha256:…`).
+- La materialización (`000044_componentes/030_materializacion_detalle.sql:228`) solo rellena comprobaciones cuando la decisión **no** es gobernada (las lee del agregado); con decisión gobernada deja el array vacío. En Go, `CoberturaOperativaRRHH.validar()` (`ports/proyecciones_rrhh_detalle.go:102`) **rechaza** comprobaciones si `DecisionGobernada`. El canon del detalle (`030_canon_detalle.sql`, bloque de cobertura) y el lector Go ya serializan y leen `comprobaciones` de forma genérica: no hay que tocar el formato del flujo.
+- Web: `cliente-http-consultas-rrhh.js:193` ya valida `comprobaciones`; `adaptador-http-expedientes.js` no las muestra. Documentos: no las imprimen.
+
+**Decisión de diseño (fija):** las comprobaciones de una decisión gobernada son las evidencias consumidas para esa decisión, leídas de `consumo_cobertura_evidencia` por `expediente_ref` y por el lote que referencia la decisión (averigua la clave de unión exacta entre `preparacion_evidencias_ref` y `lote_ref`/`evidencia_huella_sha256`; si no hay unión directa, únelas por `expediente_ref` + `version_expediente` de la evidencia = versión del análisis referenciado, y dilo en la entrada). Orden por `orden_comprobacion`. Cada comprobación sale como `{clave, resultado}` (mismo tipo nominal que hoy). La etiqueta legible vive en la web y en los documentos, no en SQL.
+
+**Responsabilidad y archivos:**
+1. SQL, migración nueva `000104_comprobaciones_decision_gobernada_detalle.up.sql` (+ `.down.sql`), cabecera de `000100`: `CREATE OR REPLACE` de `materializar_detalle_rrhh_v1` para rellenar `v_comprobaciones` también con decisión gobernada desde `consumo_cobertura_evidencia`; `GRANT SELECT` mínimo si el rol que ejecuta la materialización no lee esa tabla (comprueba `090_acl_*`). Prueba en `pruebas_sql/`: expediente con decisión gobernada y dos evidencias → dos comprobaciones en orden.
+2. Go: `ports/proyecciones_rrhh_detalle.go` (`validar`: con decisión gobernada se admiten comprobaciones válidas; sin decisión gobernada, como hoy) y sus tests; `proyecciones_rrhh_detalle_minimizado*.go` si hace falta.
+3. Web: `adaptador-http-expedientes.js` muestra en el bloque de cobertura una lista «Comprobaciones de bolsa» con etiqueta por clave vía `i18n.js` (`existe_bolsa_vigente` → «Existe bolsa vigente para la categoría», `hay_candidaturas_disponibles` → «Hay candidaturas disponibles», `oferta_sae_disponible` → «Oferta al SAE disponible», `requiere_nueva_convocatoria` → «Requiere nueva convocatoria de bolsa»; clave desconocida → la clave) y resultado («Afirmativa», «Negativa», «No consta»); test `.test.mjs`.
+4. Documentos: en las plantillas que imprimen «Vía de cobertura», una línea por comprobación con la misma etiqueta (tabla de etiquetas en `informejuridico`, sin i18n en Go). Test.
+
+**Fuente:** Word de RRHH, paso 3 (gestión de bolsa: comprobaciones automáticas visibles); consenso, cargo 10; INSTRUCCIONES, orden, punto 3.
+**Restricciones:** castellano; sin tocar la decisión gobernada, sus huellas ni la autorización; ninguna migración existente editada; sin nuevos puertos ni adaptadores; sin `errors.Join`; sin commit; sin datos reales.
+**Comprobación:** `go build ./... && go vet ./internal/modules/contrataciontemporal/...`; `go test ./internal/modules/contrataciontemporal/... ./internal/app/bootstrap/` en verde (`TMPDIR=$HOME/.cache/vec-test-tmp`); `node --test web/static/portal-empleado/modulos/contratacion-temporal/*.test.mjs` en verde salvo el fallo preexistente. Entrada `## [fecha] — Gemini · C5` en el `comunicacion.md` **de tu clon**, menos de doce líneas, terminada en `:-corto`.
+
+:-corto
+
+---
+
+## [2026-09-16 23:52] — Claude · cómo integrar y desplegar lo que entregue Gemini (por si no estoy)
+
+1. En `~/Trabajo/VEC_Diputacion_app`: `git -C ~/Trabajo/vec-gemini-cola add -A -- internal web deploy && git -C ~/Trabajo/vec-gemini-cola diff --cached > /tmp/entrega.patch && git -C ~/Trabajo/vec-gemini-cola reset -q`; luego en `.worktrees/ct-cola-20260916`: `git apply --index /tmp/entrega.patch && git commit` (autor aavidad, mensaje en castellano, sin menciones a IA).
+2. Suite: `go build ./... && TMPDIR=$HOME/.cache/vec-test-tmp go test ./...` y `node --test web/static/portal-empleado/modulos/contratacion-temporal/*.test.mjs` (el único fallo admitido es «el inventario expone las rutas compuestas», preexistente).
+3. `git merge --ff-only trabajo/ct-cola-20260916` en `main`, `git push origin main` (gitleaks bloquea literales `clave = "…"`: renombrar a constante).
+4. Migraciones nuevas (000102, 000103, 000104): copiar al contenedor y aplicar **antes** del binario: `podman cp fichero.sql vec-postgresql-20260906:/tmp/ && podman exec vec-postgresql-20260906 psql -X -U postgres -d postgres --set ON_ERROR_STOP=1 -f /tmp/fichero.sql` (como `openclaw`). Nunca crear bases en ese clúster.
+5. Desplegar: `ssh root@cidonia.cloud 'su - openclaw -c /tmp/desplegar2.sh'` (binario + `web/`); comprobar `podman ps` y el portal por el túnel `ssh -N -L 8082:127.0.0.1:8082 root@cidonia.cloud` → `http://127.0.0.1:8082/portal-empleado/#contratacion-temporal`.
+
+:-corto
