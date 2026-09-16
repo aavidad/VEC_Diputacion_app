@@ -70,7 +70,10 @@ func (r *revalidadorSesionConsultaPrueba) RevalidarAutenticacionActorV1(
 	r.llamadas++
 	c := r.registro.confirmacion
 	a := c.AltaConfirmada
-	if r.err != nil || solicitud.AutenticacionRef != c.AutenticacionRef || solicitud.SesionRef != c.SesionRef {
+	if r.err != nil {
+		return dominiovec.AutenticacionRevalidadaV1{}, r.err
+	}
+	if solicitud.AutenticacionRef != c.AutenticacionRef || solicitud.SesionRef != c.SesionRef {
 		return dominiovec.AutenticacionRevalidadaV1{}, errors.New("revalidación denegada por el doble")
 	}
 	resultado := dominiovec.AutenticacionRevalidadaV1{

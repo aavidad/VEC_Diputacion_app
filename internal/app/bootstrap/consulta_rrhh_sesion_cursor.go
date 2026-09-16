@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"sync"
 	"time"
 
@@ -180,6 +181,10 @@ func (c *continuadorSesionCursorRRHHDesarrollo) contextoContinuado(ctx context.C
 	}
 	contexto, err := proveedor.revalidarSesionCursorRRHHDesarrollo(ctx, entrada.contexto)
 	if err != nil {
+		var fallo *diagnostico.FalloConsultaRRHH
+		if errors.As(err, &fallo) {
+			return ports.ContextoAutorizacionAltaV3{}, err
+		}
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionRevalidada, err)
 	}
 	if !c.autoridad.contextoConsultaRRHHConservaActor(contexto) {
@@ -266,37 +271,48 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) revalidarSesionCursorRRHHDesarro
 	vacio := ports.ContextoAutorizacionAltaV3{}
 	if p == nil || p.soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.revalidador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(p.resolutor) || dependenciaEsNulaContratacionTemporalDesarrollo(p.reloj) {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionPrecondicion, nil)
 	}
 	canal, ok := p.soporte.capacidadValida(ctx)
 	ahora := p.reloj.Ahora()
 	if !ok || !rutaConsultaRRHHContratacionTemporalDesarrollo(canal.ruta) || !domain.InstanteUTCCanonico(ahora) ||
 		!ahora.Before(canal.certificadoValidoHasta) {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionPrecondicion, nil)
 	}
 	datos, err := anterior.Vinculo.Datos()
 	if err != nil || anterior.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef, PerfilRef: p.base.Contexto.PerfilActivoRef,
 	}, ahora) != nil {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionVinculoPrevio, err)
 	}
 	vinculo, resultado, err := dominiovec.CrearVinculoAutenticacionActorV2ConResultado(ctx, p.revalidador,
 		dominiovec.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef},
 		p.resolutor, dominiovec.SolicitudContextoActor{Cuenta: dominiovec.CuentaAutenticadaContextoActor{
 			CuentaRef: p.base.Contexto.Instantanea.CuentaRef, Metodo: dominiovec.AuthMethodCertificate, Garantia: dominiovec.AuthAssuranceHigh,
 		}, PerfilActivoRef: p.base.Contexto.PerfilActivoRef}, p.reloj)
-	if err != nil || !mismaIdentidadVersionadaSesionDesarrollo(p.base, resultado) {
-		return vacio, ports.ErrAutorizacionDenegada
+	if err != nil {
+		var fallo *diagnostico.FalloConsultaRRHH
+		if errors.As(err, &fallo) {
+			return vacio, err
+		}
+		etapa := diagnostico.EtapaSesionContextoActor
+		if errors.Is(err, dominiovec.ErrAutenticacionRevalidadaInvalida) {
+			etapa = diagnostico.EtapaSesionRevalidador
+		}
+		return vacio, falloContinuidadCursorRRHHDesarrollo(etapa, err)
+	}
+	if !mismaIdentidadVersionadaSesionDesarrollo(p.base, resultado) {
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, nil)
 	}
 	nuevosDatos, err := vinculo.Datos()
 	if err != nil || nuevosDatos.AutenticacionRef != datos.AutenticacionRef || nuevosDatos.SesionRef != datos.SesionRef {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, err)
 	}
 	contexto := ports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}
 	if contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef, PerfilRef: p.base.Contexto.PerfilActivoRef,
 	}, ahora) != nil {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, nil)
 	}
 	return contexto, nil
 }

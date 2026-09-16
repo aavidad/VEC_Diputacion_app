@@ -7,10 +7,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"sync/atomic"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -289,7 +291,9 @@ func (r revalidadorSesionConsultaRRHHDesarrollo) RevalidarAutenticacionActorV1(
 	if err != nil || obtenida.Validar() != nil || !domain.InstanteUTCCanonico(ahora) ||
 		obtenida.SesionRevalidadaEn.Before(c.SesionRevalidadaEn) ||
 		ahora.Before(obtenida.SesionRevalidadaEn) || !ahora.Before(obtenida.SesionValidaHasta) {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+		return vacio, falloContinuidadCursorRRHHDesarrollo(
+			diagnostico.EtapaSesionRevalidador, errors.Join(ports.ErrConsultaRRHHNoDisponible, err),
+		)
 	}
 	esperada := dominiovec.AutenticacionRevalidadaV1{
 		AutenticacionRef: c.AutenticacionRef, AutenticacionHuellaSHA256: a.AutenticacionHuellaSHA256,
@@ -303,7 +307,9 @@ func (r revalidadorSesionConsultaRRHHDesarrollo) RevalidarAutenticacionActorV1(
 		SesionValidaHasta: c.SesionValidaHasta, SesionRevalidadaEn: obtenida.SesionRevalidadaEn,
 	}
 	if obtenida != esperada {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+		return vacio, falloContinuidadCursorRRHHDesarrollo(
+			diagnostico.EtapaSesionRevalidador, ports.ErrConsultaRRHHNoDisponible,
+		)
 	}
 	return obtenida, nil
 }

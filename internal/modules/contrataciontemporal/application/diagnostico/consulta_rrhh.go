@@ -3,23 +3,27 @@ package diagnostico
 type EtapaConsultaRRHH string
 
 const (
-	EtapaSerializacion     EtapaConsultaRRHH = "serializacion"
-	EtapaSQL               EtapaConsultaRRHH = "sql"
-	EtapaResultadoSQL      EtapaConsultaRRHH = "resultado_sql"
-	EtapaCursorDecod       EtapaConsultaRRHH = "cursor_decodificacion"
-	EtapaCursorHuella      EtapaConsultaRRHH = "cursor_huella"
-	EtapaPaginaInterna     EtapaConsultaRRHH = "pagina_interna"
-	EtapaCapacidad         EtapaConsultaRRHH = "capacidad"
-	EtapaOrden             EtapaConsultaRRHH = "orden"
-	EtapaReloj             EtapaConsultaRRHH = "reloj"
-	EtapaPagina            EtapaConsultaRRHH = "pagina"
-	EtapaPublicable        EtapaConsultaRRHH = "publicable"
-	EtapaAplicacion        EtapaConsultaRRHH = "aplicacion"
-	EtapaContinuidadCursor EtapaConsultaRRHH = "continuidad_cursor"
-	EtapaCanalContinuidad  EtapaConsultaRRHH = "canal_continuidad"
-	EtapaSesionRevalidada  EtapaConsultaRRHH = "sesion_revalidada"
-	EtapaActorContexto     EtapaConsultaRRHH = "actor_contexto"
-	EtapaAutoridadContexto EtapaConsultaRRHH = "autoridad_contexto"
+	EtapaSerializacion       EtapaConsultaRRHH = "serializacion"
+	EtapaSQL                 EtapaConsultaRRHH = "sql"
+	EtapaResultadoSQL        EtapaConsultaRRHH = "resultado_sql"
+	EtapaCursorDecod         EtapaConsultaRRHH = "cursor_decodificacion"
+	EtapaCursorHuella        EtapaConsultaRRHH = "cursor_huella"
+	EtapaPaginaInterna       EtapaConsultaRRHH = "pagina_interna"
+	EtapaCapacidad           EtapaConsultaRRHH = "capacidad"
+	EtapaOrden               EtapaConsultaRRHH = "orden"
+	EtapaReloj               EtapaConsultaRRHH = "reloj"
+	EtapaPagina              EtapaConsultaRRHH = "pagina"
+	EtapaPublicable          EtapaConsultaRRHH = "publicable"
+	EtapaAplicacion          EtapaConsultaRRHH = "aplicacion"
+	EtapaContinuidadCursor   EtapaConsultaRRHH = "continuidad_cursor"
+	EtapaCanalContinuidad    EtapaConsultaRRHH = "canal_continuidad"
+	EtapaSesionRevalidada    EtapaConsultaRRHH = "sesion_revalidada"
+	EtapaSesionPrecondicion  EtapaConsultaRRHH = "sesion_precondicion"
+	EtapaSesionVinculoPrevio EtapaConsultaRRHH = "sesion_vinculo_previo"
+	EtapaSesionRevalidador   EtapaConsultaRRHH = "sesion_revalidador"
+	EtapaSesionContextoActor EtapaConsultaRRHH = "sesion_contexto_actor"
+	EtapaActorContexto       EtapaConsultaRRHH = "actor_contexto"
+	EtapaAutoridadContexto   EtapaConsultaRRHH = "autoridad_contexto"
 )
 
 // La causa permanece accesible a errors.Is/As, pero nunca forma parte del texto.
@@ -47,6 +51,8 @@ func (e *FalloConsultaRRHH) EtapaSegura() string {
 		EtapaPaginaInterna, EtapaCapacidad, EtapaOrden, EtapaReloj, EtapaPagina,
 		EtapaPublicable, EtapaAplicacion, EtapaContinuidadCursor,
 		EtapaCanalContinuidad, EtapaSesionRevalidada, EtapaActorContexto,
+		EtapaSesionPrecondicion, EtapaSesionVinculoPrevio,
+		EtapaSesionRevalidador, EtapaSesionContextoActor,
 		EtapaAutoridadContexto:
 		return string(e.Etapa)
 	default:

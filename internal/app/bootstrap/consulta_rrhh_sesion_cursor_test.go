@@ -188,7 +188,7 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if err := continuador.recordar(primera, ports.PaginaCuadroRRHH{HayMas: true, CursorSiguiente: cursor}); err != nil {
 			t.Fatal(err)
 		}
-		e.revalidador.err = errors.New("sesión revocada")
+		e.revalidador.err = dominiovec.ErrAutenticacionRevalidadaInvalida
 		segunda, err := continuador.preparar(segundaPeticionCursorRRHHDesarrolloPrueba(e, vinculoCanalCursorRRHHDesarrolloPrueba('1')), cursor)
 		if err != nil {
 			t.Fatal(err)
@@ -196,7 +196,7 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if _, err = a.contextoConsultaRRHHDesarrollo(segunda); !errors.Is(err, ports.ErrAutorizacionDenegada) {
 			t.Fatal("una sesión revocada conservó continuidad")
 		}
-		comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionRevalidada)
+		comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionRevalidador)
 	})
 	t.Run("conexion_TLS_distinta", func(t *testing.T) {
 		e, a, continuador, primera, _ := prepararContinuidadCursorRRHHDesarrolloPrueba(t)
@@ -249,7 +249,7 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if _, err := continuador.contextoContinuado(segunda); err == nil {
 			t.Fatal("una revalidación de otra sesión reutilizó el cursor")
 		} else {
-			comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionRevalidada)
+			comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionContextoActor)
 		}
 		if e.revalidador.llamadas != 2 {
 			t.Fatal("la sesión distinta se rechazó antes de la revalidación real")
