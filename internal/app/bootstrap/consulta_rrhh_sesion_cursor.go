@@ -295,24 +295,24 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) revalidarSesionCursorRRHHDesarro
 		if errors.As(err, &fallo) {
 			return vacio, err
 		}
-		etapa := diagnostico.EtapaSesionContextoActor
+		etapa := diagnostico.EtapaSesionVinculoCreacion
 		if errors.Is(err, dominiovec.ErrAutenticacionRevalidadaInvalida) {
 			etapa = diagnostico.EtapaSesionRevalidador
 		}
 		return vacio, falloContinuidadCursorRRHHDesarrollo(etapa, err)
 	}
 	if !mismaIdentidadVersionadaSesionDesarrollo(p.base, resultado) {
-		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, nil)
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionIdentidadDistinta, nil)
 	}
 	nuevosDatos, err := vinculo.Datos()
 	if err != nil || nuevosDatos.AutenticacionRef != datos.AutenticacionRef || nuevosDatos.SesionRef != datos.SesionRef {
-		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, err)
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionVinculoIncoherente, err)
 	}
 	contexto := ports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}
 	if contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef, PerfilRef: p.base.Contexto.PerfilActivoRef,
 	}, ahora) != nil {
-		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoActor, nil)
+		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoInvalido, nil)
 	}
 	return contexto, nil
 }

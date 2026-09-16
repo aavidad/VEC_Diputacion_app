@@ -22,8 +22,13 @@ const (
 	EtapaSesionVinculoPrevio EtapaConsultaRRHH = "sesion_vinculo_previo"
 	EtapaSesionRevalidador   EtapaConsultaRRHH = "sesion_revalidador"
 	EtapaSesionContextoActor EtapaConsultaRRHH = "sesion_contexto_actor"
-	EtapaActorContexto       EtapaConsultaRRHH = "actor_contexto"
-	EtapaAutoridadContexto   EtapaConsultaRRHH = "autoridad_contexto"
+	// Salidas finas de la revalidación de sesión del cursor.
+	EtapaSesionVinculoCreacion    EtapaConsultaRRHH = "sesion_vinculo_creacion"
+	EtapaSesionIdentidadDistinta  EtapaConsultaRRHH = "sesion_identidad_distinta"
+	EtapaSesionVinculoIncoherente EtapaConsultaRRHH = "sesion_vinculo_incoherente"
+	EtapaSesionContextoInvalido   EtapaConsultaRRHH = "sesion_contexto_invalido"
+	EtapaActorContexto            EtapaConsultaRRHH = "actor_contexto"
+	EtapaAutoridadContexto        EtapaConsultaRRHH = "autoridad_contexto"
 )
 
 // La causa permanece accesible a errors.Is/As, pero nunca forma parte del texto.
@@ -52,7 +57,8 @@ func (e *FalloConsultaRRHH) EtapaSegura() string {
 		EtapaPublicable, EtapaAplicacion, EtapaContinuidadCursor,
 		EtapaCanalContinuidad, EtapaSesionRevalidada, EtapaActorContexto,
 		EtapaSesionPrecondicion, EtapaSesionVinculoPrevio,
-		EtapaSesionRevalidador, EtapaSesionContextoActor,
+		EtapaSesionRevalidador, EtapaSesionContextoActor, EtapaSesionVinculoCreacion,
+		EtapaSesionIdentidadDistinta, EtapaSesionVinculoIncoherente, EtapaSesionContextoInvalido,
 		EtapaAutoridadContexto:
 		return string(e.Etapa)
 	default:

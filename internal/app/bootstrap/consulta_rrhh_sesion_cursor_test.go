@@ -249,7 +249,10 @@ func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) 
 		if _, err := continuador.contextoContinuado(segunda); err == nil {
 			t.Fatal("una revalidación de otra sesión reutilizó el cursor")
 		} else {
-			comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionContextoActor)
+			if !errors.Is(err, ports.ErrAutorizacionDenegada) {
+				t.Fatal("la sesión distinta no devolvió autorización denegada")
+			}
+			comprobarEtapaConsultaRRHHPrueba(t, err, diagnostico.EtapaSesionVinculoCreacion)
 		}
 		if e.revalidador.llamadas != 2 {
 			t.Fatal("la sesión distinta se rechazó antes de la revalidación real")
