@@ -169,6 +169,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_jornada: "Jornada en diezmilésimas",
   analisis_jornada_ayuda:
     "Introduzca un entero entre 1 y 10.000; 10.000 equivale a jornada completa.",
+  analisis_jornada_equivalencia: "Equivalente al {porcentaje} de jornada completa.",
   analisis_entrada_rc: "Entrada de retención de crédito",
   analisis_entrada_rc_ayuda:
     "Seleccione la referencia opaca preparada para este expediente.",
