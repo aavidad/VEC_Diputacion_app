@@ -326,6 +326,11 @@ export function crearCoordinadorModulosPortal({
             capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
             ejecutor: fuente.registrarSolicitud,
           }),
+          // La presentación no compone análisis, fiscalización ni subsanación: el montaje
+          // los distingue de la composición interna por ser nulos, no ausentes.
+          analisis: null,
+          fiscalizacion: null,
+          subsanacion: null,
           montar: recursos.vista.montarModuloContratacionTemporal,
         });
       },
