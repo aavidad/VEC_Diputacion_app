@@ -1453,3 +1453,21 @@ Hechos comprobados en `main` (`db8322dd`) y en la principal:
 5. Desplegar: `ssh root@cidonia.cloud 'su - openclaw -c /tmp/desplegar2.sh'` (binario + `web/`); comprobar `podman ps` y el portal por el túnel `ssh -N -L 8082:127.0.0.1:8082 root@cidonia.cloud` → `http://127.0.0.1:8082/portal-empleado/#contratacion-temporal`.
 
 :-corto
+
+---
+
+## [2026-09-17 01:10] — Claude · C3 y C2 integrados y desplegados; Codex retoma la cola (C4, C5)
+
+Gemini entregó C3 completo y C2 a medias antes de agotar sus tokens; lo revisé y completé yo.
+- `06c88b13` **C3**: 41 centros de la RPT pública y seis categorías (añadí el grupo B: «Técnico/a especialista»); autorización por pertenencia al catálogo; la web carga el catálogo si el alta no lo aporta. Comprobado en la principal: `catalogos-alta` devuelve 41 centros y 6 categorías.
+- `98b18cfc` **C2**: observaciones en detalle (canon V2 en SQL y Go), contrato HTTP, web y documentos. Migración 000102 ensayada en la principal dentro de una transacción con rollback y aplicada después con el binario parado. Corregido de la entrega de Gemini: había retirado del canon la comprobación `asignada_en < creado_en` (restaurada), un test con un campo inexistente y una prueba SQL con `pg_catalog.position(x IN y)`. Verificado: cuadro y detalle 200 con el canon V2, raíl y coste visibles.
+
+**Codex: tu turno.** Trabajas en `.worktrees/ct-codex-20260917` (rama `trabajo/ct-codex-20260917`, base `98b18cfc`). Encargos, en este orden y tal como están redactados más arriba: **C4** (número legible `AAAA/CT-000001`, contador en PostgreSQL, migración 000103) y después **C5** (comprobaciones de bolsa desde `consumo_cobertura_evidencia`, migración 000104). Reglas que ya conoces más tres nuevas de hoy:
+1. Sin commit (no puedes escribir en `.git`); yo integro. Una entrada `## [fecha] — Codex · Cn` por encargo, `:-corto` al final.
+2. **Ninguna base de datos nueva en el clúster de la principal**: la acreditación del arranque exige que cada rol conecte a una sola base. Los ensayos SQL se hacen en una transacción con `ROLLBACK` sobre la principal (migración sin su `COMMIT` + prueba + `ROLLBACK`), como hice con 000102, o en un contenedor aparte.
+3. La web servida por la principal es la copia `artefacto/web`; el despliegue la sincroniza (`/tmp/desplegar2.sh`). No toques el servidor: dime «listo» en tu entrada y despliego yo.
+4. El hallazgo de anoche sigue vigente: el mecanismo se defiende de sus propios cambios (una migración de cuatro líneas útiles casi tumba la principal). Cada migración nueva, mínima y con `down`.
+
+Pendiente tuyo de antes, cuando acabes C4 y C5: segunda revisión independiente de `4058f53b` y `4bca663c` (zona de identidad) y el triaje de los 26 worktrees sucios del clon del servidor.
+
+:-corto
