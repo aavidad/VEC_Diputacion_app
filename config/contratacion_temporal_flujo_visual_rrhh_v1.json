@@ -13,8 +13,6 @@
     "esquema": "vec.contratacion_temporal.presentacion_flujo_rrhh.v1",
     "referencia": "flujo:ct:rrhh:presentacion",
     "version": 1,
-    "huella_sha256": "4c0c91dad747199168610639d0840be5ed3e3df19a831583e32c408ebda23650",
-    "vinculo_huella_sha256": "89161b8482094a7df632371b3559ad999ea48e4fde87f90af954ed16c1b23fb9",
     "clave_i18n": "contratacion_temporal.flujo.rrhh",
     "fases": [
       { "clave": "solicitud", "orden": 1, "clave_i18n": "contratacion_temporal.fase.solicitud" },
@@ -28,9 +26,16 @@
     ]
   },
   "mapeos_fase_origen": [
+    { "fase_origen": "solicitud", "fase_presentacion": "solicitud" },
     { "fase_origen": "analisis", "fase_presentacion": "analisis_rrhh" },
     { "fase_origen": "asignacion", "fase_presentacion": "gestion_bolsa" },
     { "fase_origen": "asignacion_unidad", "fase_presentacion": "gestion_bolsa" },
-    { "fase_origen": "nombramiento", "fase_presentacion": "nombramiento" }
+    { "fase_origen": "informe_juridico", "fase_presentacion": "gestion_bolsa" },
+    { "fase_origen": "fiscalizacion", "fase_presentacion": "fiscalizacion" },
+    { "fase_origen": "subsanacion_unidad", "fase_presentacion": "fiscalizacion" },
+    { "fase_origen": "llamamiento", "fase_presentacion": "obtencion_candidato" },
+    { "fase_origen": "nombramiento", "fase_presentacion": "nombramiento" },
+    { "fase_origen": "incorporacion", "fase_presentacion": "incorporacion" },
+    { "fase_origen": "seguimiento", "fase_presentacion": "seguimiento" }
   ]
 }

@@ -2,13 +2,10 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"regexp"
-	"sort"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -102,9 +99,7 @@ func LeerLectorFlujoVisualRRHH(
 		}
 		mapeos[mapeo.Origen] = mapeo.Presentacion
 	}
-	vinculo, err := calcularHuellaVinculoFlujoVisualRRHH(manifest, mapeos)
-	if err != nil || vinculo != manifest.Presentacion.VinculoHuella ||
-		manifest.Presentacion.Validar() != nil {
+	if manifest.Presentacion.Validar() != nil {
 		return nil, ErrManifestFlujoVisualRRHHInvalido
 	}
 	return &LectorFlujoVisualRRHH{
@@ -139,36 +134,6 @@ func (l *LectorFlujoVisualRRHH) Resolver(
 		return ports.PresentacionFlujoRRHH{}, ErrManifestFlujoVisualRRHHInvalido
 	}
 	return resultado, nil
-}
-
-func calcularHuellaVinculoFlujoVisualRRHH(m manifestFlujoVisualRRHH, mapeos map[domain.ClaveFase]domain.ClaveFase) (string, error) {
-	type fuente struct {
-		Referencia string `json:"referencia"`
-		Huella     string `json:"huella_sha256"`
-	}
-	type origen struct {
-		Referencia string `json:"referencia"`
-		Version    uint64 `json:"version"`
-		Huella     string `json:"huella_sha256"`
-	}
-	ordenados := make([]mapeoFaseOrigenVisualRRHH, 0, len(mapeos))
-	for origen, presentacion := range mapeos {
-		ordenados = append(ordenados, mapeoFaseOrigenVisualRRHH{Origen: origen, Presentacion: presentacion})
-	}
-	sort.Slice(ordenados, func(i, j int) bool { return ordenados[i].Origen < ordenados[j].Origen })
-	payload := struct {
-		Fuente fuente                      `json:"fuente"`
-		Origen origen                      `json:"flujo_origen"`
-		Mapeos []mapeoFaseOrigenVisualRRHH `json:"mapeos_fase_origen"`
-	}{
-		Fuente: fuente{m.Fuente.Referencia, m.Fuente.Huella}, Origen: origen{m.FlujoOrigen.Referencia, m.FlujoOrigen.Version, m.FlujoOrigen.Huella}, Mapeos: ordenados,
-	}
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return "", ErrManifestFlujoVisualRRHHInvalido
-	}
-	suma := sha256.Sum256(append([]byte("VEC-CT-VINCULO-FLUJO-VISUAL-RRHH-V1\x00"), b...))
-	return hex.EncodeToString(suma[:]), nil
 }
 
 func clonarPresentacionFlujoRRHH(

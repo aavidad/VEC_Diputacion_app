@@ -49,6 +49,12 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
         periodo_inicio: "2026-09-04T00:00:00Z",
         periodo_fin: "2026-12-31T00:00:00Z",
       },
+      presentacion_flujo: {
+        esquema: "vec.contratacion_temporal.presentacion_flujo_rrhh.v1",
+        referencia: "flujo:rrhh:presentacion", version: 1,
+        clave_i18n: "contratacion_temporal.flujo.rrhh", fase_actual: "solicitud",
+        fases: [{clave: "solicitud", orden: 1, clave_i18n: "contratacion_temporal.fase.solicitud"}],
+      },
       hitos: [{
         secuencia: 1,
         version_expediente: 1,
@@ -69,6 +75,9 @@ test("consulta cuadro y detalle por las rutas reales sin credenciales del navega
     expediente_ref: resumen.expediente_ref,
     version_observada: 0,
   });
+  assert.equal(detalle.presentacion_flujo.fase_actual, "solicitud");
+  assert.equal(Object.hasOwn(detalle.presentacion_flujo,"huella_sha256"),false);
+
 
   assert.equal(pagina.expedientes[0].expediente_ref, resumen.expediente_ref);
   assert.equal(detalle.resumen.version, 1);

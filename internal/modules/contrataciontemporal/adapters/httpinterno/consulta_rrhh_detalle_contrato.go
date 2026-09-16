@@ -17,14 +17,12 @@ type detalleRRHHJSON struct {
 	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
 }
 type presentacionFlujoRRHHJSON struct {
-	Esquema       string                          `json:"esquema"`
-	Referencia    string                          `json:"referencia"`
-	Version       uint64                          `json:"version"`
-	Huella        string                          `json:"huella_sha256"`
-	VinculoHuella string                          `json:"vinculo_huella_sha256"`
-	ClaveI18n     string                          `json:"clave_i18n"`
-	Fases         []fasePresentacionFlujoRRHHJSON `json:"fases"`
-	FaseActual    string                          `json:"fase_actual,omitempty"`
+	Esquema    string                          `json:"esquema"`
+	Referencia string                          `json:"referencia"`
+	Version    uint64                          `json:"version"`
+	ClaveI18n  string                          `json:"clave_i18n"`
+	Fases      []fasePresentacionFlujoRRHHJSON `json:"fases"`
+	FaseActual string                          `json:"fase_actual,omitempty"`
 }
 type fasePresentacionFlujoRRHHJSON struct {
 	Clave     string `json:"clave"`
@@ -37,7 +35,7 @@ func proyectarPresentacionFlujoRRHH(p ports.PresentacionFlujoRRHH) *presentacion
 	for i, f := range p.Fases {
 		fases[i] = fasePresentacionFlujoRRHHJSON{Clave: string(f.Clave), Orden: f.Orden, ClaveI18n: f.ClaveI18n}
 	}
-	return &presentacionFlujoRRHHJSON{Esquema: p.Esquema, Referencia: p.Referencia, Version: p.Version, Huella: p.Huella, VinculoHuella: p.VinculoHuella, ClaveI18n: p.ClaveI18n, Fases: fases, FaseActual: string(p.FaseActual)}
+	return &presentacionFlujoRRHHJSON{Esquema: p.Esquema, Referencia: p.Referencia, Version: p.Version, ClaveI18n: p.ClaveI18n, Fases: fases, FaseActual: string(p.FaseActual)}
 }
 
 type solicitudRRHHJSON struct {

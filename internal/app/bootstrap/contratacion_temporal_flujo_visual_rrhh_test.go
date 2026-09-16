@@ -27,13 +27,12 @@ func TestLectorFlujoVisualRRHHResuelveSoloMapeosAcreditados(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resultado.Huella != "4c0c91dad747199168610639d0840be5ed3e3df19a831583e32c408ebda23650" ||
-		len(resultado.Fases) != 8 || resultado.FaseActual != "analisis_rrhh" {
+	if len(resultado.Fases) != 8 || resultado.FaseActual != "analisis_rrhh" {
 		t.Fatalf("presentación RRHH inesperada: %#v", resultado)
 	}
 	resultado, err = lector.Resolver(context.Background(), origen, "fiscalizacion")
-	if err != nil || resultado.FaseActual != "" {
-		t.Fatalf("una fase no acreditada quedó resaltada: %#v, %v", resultado, err)
+	if err != nil || resultado.FaseActual != "fiscalizacion" {
+		t.Fatalf("la fiscalización no quedó resaltada: %#v, %v", resultado, err)
 	}
 }
 
@@ -60,7 +59,7 @@ func TestLectorFlujoVisualRRHHRechazaOrigenYManifestAlterados(t *testing.T) {
 		t.Fatalf("campo ajeno aceptado: %#v, %v", lector, err)
 	}
 	for nombre, reemplazo := range map[string]string{
-		"mapeo_alterado":        `"fase_presentacion": "gestion_bolsa"`,
+		"mapeo_alterado":        `"fase_presentacion": "fase_inexistente"`,
 		"fase_actual_publicada": `"fase_actual": "analisis_rrhh", "fases": [`,
 	} {
 		t.Run(nombre, func(t *testing.T) {

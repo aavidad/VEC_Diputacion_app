@@ -260,7 +260,7 @@ test("muestra el hito de subsanación autorizado sin exponer observaciones", asy
 
   assert.equal(expediente.fases.length, 8);
   assert.equal(expediente.fases[3].etiqueta, "Fiscalización");
-  assert.equal(expediente.fases[3].estado_clave, "sin_confirmar");
+  assert.equal(expediente.fases[3].estado_clave, "incidencia");
   assert.equal(expediente.historial[1].accion, "Hito de subsanación del reparo");
   assert.match(html, /Hito de subsanación del reparo/u);
   assert.doesNotMatch(JSON.stringify(expediente), /observaciones|retorno_ref|actor_ref|documentos_ref/u);
@@ -441,4 +441,41 @@ test("distingue el período solicitado del revisado por RRHH sin sustituir el an
   assert.deepEqual(sinAnalisis.cabecera.find(c => c.clave === "periodo"), solicitado);
   assert.equal(sinAnalisis.cabecera.some(c => c.clave === "periodo_analizado"), false);
   assert.equal(Object.hasOwn(sinAnalisis, "analisis_previo"), false);
+});
+
+test("raíl deriva los cinco estados y reabre fases tras un retorno real", async () => {
+  const claves = ["solicitud", "analisis_rrhh", "gestion_bolsa", "fiscalizacion", "obtencion_candidato", "nombramiento", "incorporacion", "seguimiento"];
+  async function proyectar(fase, estado, hitos) {
+    const cliente = clienteFalso([]);
+    const original = cliente.consultarDetalleRRHH;
+    cliente.consultarDetalleRRHH = async (...args) => ({
+      ...await original(...args), resumen: { ...resumen, fase_clave: fase, estado_clave: estado },
+      hitos: hitos.map((h, i) => ({
+        secuencia: i + 1, version_expediente: i + 1, accion_clave: "registrar_analisis",
+        realizada_en: "2026-09-03T08:00:00Z", estado_origen: "en_curso", ...h,
+      })),
+      presentacion_flujo: {
+        referencia: "flujo-visual:rrhh:temporal", fase_actual: "",
+        fases: claves.map((clave, i) => ({clave, orden: i + 1, clave_i18n: `contratacion_temporal.fase.${clave}`})),
+      },
+    });
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({cliente});
+    await adaptador.listar();
+    return (await adaptador.obtener(resumen.expediente_ref)).fases.map((f) => f.estado_clave);
+  }
+  for (const [fase, indice] of [["solicitud",0],["analisis",1],["asignacion",2],["asignacion_unidad",2],["informe_juridico",2],["fiscalizacion",3],["subsanacion_unidad",3],["llamamiento",4],["nombramiento",5],["incorporacion",6],["seguimiento",7]]) {
+    for (const estado of ["pendiente","en_curso","espera_externa","incidencia","completado"]) {
+      const fases = await proyectar(fase,estado,[]);
+      assert.equal(fases[indice],estado === "espera_externa" ? "espera" : estado,`${fase}/${estado}`);
+      assert.ok(fases.every((e,i)=>i===indice||e==="pendiente"),"no inventa fases completadas sin hitos");
+    }
+  }
+  const avance = [
+    {fase_origen:"solicitud",fase_destino:"analisis",estado_destino:"en_curso"},
+    {fase_origen:"analisis",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
+    {fase_origen:"asignacion_unidad",fase_destino:"fiscalizacion",estado_destino:"espera_externa"},
+  ];
+  assert.deepEqual((await proyectar("fiscalizacion","espera_externa",avance)).slice(0,4),["completado","completado","completado","espera"]);
+  const retorno = [...avance,{fase_origen:"fiscalizacion",fase_destino:"asignacion_unidad",estado_destino:"incidencia"}];
+  assert.deepEqual((await proyectar("asignacion_unidad","incidencia",retorno)).slice(0,4),["completado","completado","incidencia","pendiente"]);
 });

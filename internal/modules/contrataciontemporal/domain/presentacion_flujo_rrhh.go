@@ -1,12 +1,6 @@
 package domain
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"sort"
-	"strings"
-)
+import "strings"
 
 const EsquemaPresentacionFlujoRRHH = "vec.contratacion_temporal.presentacion_flujo_rrhh.v1"
 
@@ -21,20 +15,17 @@ type FasePresentacionFlujoRRHH struct {
 }
 
 type PresentacionFlujoRRHH struct {
-	Esquema       string                      `json:"esquema"`
-	Referencia    string                      `json:"referencia"`
-	Version       uint64                      `json:"version"`
-	Huella        string                      `json:"huella_sha256"`
-	VinculoHuella string                      `json:"vinculo_huella_sha256"`
-	ClaveI18n     string                      `json:"clave_i18n"`
-	Fases         []FasePresentacionFlujoRRHH `json:"fases"`
-	FaseActual    ClaveFase                   `json:"fase_actual,omitempty"`
+	Esquema    string                      `json:"esquema"`
+	Referencia string                      `json:"referencia"`
+	Version    uint64                      `json:"version"`
+	ClaveI18n  string                      `json:"clave_i18n"`
+	Fases      []FasePresentacionFlujoRRHH `json:"fases"`
+	FaseActual ClaveFase                   `json:"fase_actual,omitempty"`
 }
 
 func (p PresentacionFlujoRRHH) Validar() error {
 	if p.Esquema != EsquemaPresentacionFlujoRRHH || !referenciaValida(p.Referencia) ||
 		p.Version < 1 || p.Version > maximoVersionPresentacionFlujoRRHHJSON ||
-		!huellaValida(p.Huella) || !huellaValida(p.VinculoHuella) ||
 		!claveI18nPresentacionValida(p.ClaveI18n) || len(p.Fases) < 1 || len(p.Fases) > 32 {
 		return ErrPresentacionFlujoRRHHInvalida
 	}
@@ -56,30 +47,7 @@ func (p PresentacionFlujoRRHH) Validar() error {
 			return ErrPresentacionFlujoRRHHInvalida
 		}
 	}
-	huella, err := CalcularHuellaPresentacionFlujoRRHH(p)
-	if err != nil || huella != p.Huella {
-		return ErrPresentacionFlujoRRHHInvalida
-	}
 	return nil
-}
-
-func CalcularHuellaPresentacionFlujoRRHH(p PresentacionFlujoRRHH) (string, error) {
-	if p.Esquema != EsquemaPresentacionFlujoRRHH || !referenciaValida(p.Referencia) ||
-		p.Version < 1 || p.Version > maximoVersionPresentacionFlujoRRHHJSON ||
-		!huellaValida(p.VinculoHuella) || !claveI18nPresentacionValida(p.ClaveI18n) ||
-		len(p.Fases) < 1 || len(p.Fases) > 32 {
-		return "", ErrPresentacionFlujoRRHHInvalida
-	}
-	copia := p
-	copia.Huella, copia.FaseActual = "", ""
-	copia.Fases = append([]FasePresentacionFlujoRRHH(nil), p.Fases...)
-	sort.Slice(copia.Fases, func(i, j int) bool { return copia.Fases[i].Orden < copia.Fases[j].Orden })
-	b, err := json.Marshal(copia)
-	if err != nil {
-		return "", ErrPresentacionFlujoRRHHInvalida
-	}
-	s := sha256.Sum256(append([]byte("VEC-CT-PRESENTACION-FLUJO-RRHH-V1\x00"), b...))
-	return hex.EncodeToString(s[:]), nil
 }
 
 func claveI18nPresentacionValida(v string) bool {

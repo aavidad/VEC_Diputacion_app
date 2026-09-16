@@ -296,6 +296,48 @@ function versionPropuestaDocumental(detalle) {
     ? propuesta.version_expediente : null;
 }
 
+// Estados visuales de una fase del raíl (claves del catálogo, no valores secretos).
+const ESTADO_FASE_PENDIENTE = "pendiente";
+const ESTADO_FASE_COMPLETADO = "completado";
+
+// Equivalencias visuales del procedimiento RRHH; no cambian el flujo administrativo.
+const FASE_VISUAL = Object.freeze({
+  solicitud: "solicitud", analisis: "analisis_rrhh",
+  asignacion: "gestion_bolsa", asignacion_unidad: "gestion_bolsa",
+  informe_juridico: "gestion_bolsa", fiscalizacion: "fiscalizacion",
+  subsanacion_unidad: "fiscalizacion", llamamiento: "obtencion_candidato",
+  nombramiento: "nombramiento", incorporacion: "incorporacion", seguimiento: "seguimiento",
+});
+
+function fasesDesdeHitos(detalle, traducir) {
+  const presentacion = detalle.presentacion_flujo;
+  if (!presentacion) return [];
+  const fases = presentacion.fases.map((fase) => ({
+    fase_ref: `presentacion:${presentacion.referencia}:${fase.clave}`,
+    orden: fase.orden, etiqueta: traducir(fase.clave_i18n), estado_clave: ESTADO_FASE_PENDIENTE,
+  }));
+  const indice = (clave) => presentacion.fases.findIndex((f) => f.clave === clave);
+  for (const hito of detalle.hitos) {
+    const origen = indice(FASE_VISUAL[hito.fase_origen]);
+    const destino = indice(FASE_VISUAL[hito.fase_destino]);
+    if (destino < 0) continue;
+    if (origen >= 0 && origen !== destino) {
+      if (fases[destino].orden < fases[origen].orden) {
+        // Un retorno reabre el recorrido: las fases posteriores ya no están completadas.
+        for (const fase of fases) {
+          if (fase.orden >= fases[destino].orden) fase.estado_clave = ESTADO_FASE_PENDIENTE;
+        }
+      } else {
+        fases[origen].estado_clave = ESTADO_FASE_COMPLETADO;
+      }
+    }
+    fases[destino].estado_clave = estadoVisual(hito.estado_destino);
+  }
+  const actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
+  if (actual >= 0) fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  return fases;
+}
+
 function proyectarExpediente(detalle, locale, catalogos, t) {
   const traducir = crearTraductorContratacionTemporal();
   const versionPropuesta = versionPropuestaDocumental(detalle);
@@ -316,14 +358,7 @@ function proyectarExpediente(detalle, locale, catalogos, t) {
       periodo: { inicio: detalle.analisis.periodo_inicio, fin: detalle.analisis.periodo_fin },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
     } } : {}),
-    fases: (detalle.presentacion_flujo?.fases ?? []).map((fase) => ({
-      fase_ref: `presentacion:${detalle.presentacion_flujo.referencia}:${fase.clave}`,
-      orden: fase.orden,
-      etiqueta: traducir(fase.clave_i18n),
-      estado_clave: detalle.resumen.estado_clave === "en_curso"
-        && detalle.presentacion_flujo.fase_actual === fase.clave
-        ? "en_curso" : "sin_confirmar",
-    })),
+    fases: fasesDesdeHitos(detalle, traducir),
     historial: historialDesdeHitos(detalle.hitos, locale, t),
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
