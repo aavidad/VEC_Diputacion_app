@@ -829,6 +829,7 @@ func (o *origenConsultasContratacionTemporalDesarrollo) registrarExpediente(
 			ResultadoRC:       expediente.Analisis.ValidacionRC.Resultado,
 			CostePrevisto:     coste,
 			FuenteCosteRef:    expediente.Analisis.FuenteCosteRef,
+			Observaciones:     expediente.Analisis.Observaciones,
 		}
 	}
 	o.mu.Lock()

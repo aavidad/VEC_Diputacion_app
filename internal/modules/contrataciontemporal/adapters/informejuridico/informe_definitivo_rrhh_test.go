@@ -338,3 +338,24 @@ func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
 		}
 	}
 }
+
+func TestBorradoresImprimenObservacionesDelAnalisis(t *testing.T) {
+	d := detalleInformeDefinitivoPrueba()
+	d.Analisis.Observaciones = "Nota operativa de necesidad urgente para cubrir vacante."
+
+	for _, tipo := range []ports.TipoBorradorRRHH{
+		ports.BorradorInformeDefinitivo,
+		ports.BorradorResolucion,
+		ports.BorradorComunicacionCentro,
+	} {
+		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		texto := strings.Join(contenido.Parrafos, "\n")
+		esperado := "Observaciones del análisis: Nota operativa de necesidad urgente para cubrir vacante."
+		if !strings.Contains(texto, esperado) {
+			t.Fatalf("%s: no contiene %q", tipo, esperado)
+		}
+	}
+}

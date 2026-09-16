@@ -196,6 +196,10 @@ func (m *medidorPresupuestoDetalleRRHH) analisis(
 	}
 	m.literal(`,"fuente_coste_ref":`)
 	m.cadena(a.FuenteCosteRef)
+	if a.Observaciones != "" {
+		m.literal(`,"observaciones":`)
+		m.cadena(a.Observaciones)
+	}
 	m.literal(`}`)
 }
 

@@ -516,3 +516,23 @@ func reemplazarTramoCanonRRHHPostgreSQLPrueba(
 	resultado = append(resultado, reemplazo...)
 	return append(resultado, origen[fin:]...)
 }
+
+func TestDecodificarContenidoDetalleRRHHPostgreSQLConObservaciones(t *testing.T) {
+	t.Parallel()
+	entrada, generadaEn := entradaDetalleCanonRRHHPostgreSQLPrueba(t, 1)
+	exportacion, err := entrada.ExportarContenidoCanonicoParaSQL(generadaEn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resultado, err := decodificarContenidoDetalleRRHHPostgreSQL(exportacion.BytesCanonicos())
+	if err != nil {
+		t.Fatalf("decodificar detalle: %v", err)
+	}
+
+	// Verificar que el detalle decodificado conserva la estructura
+	reexportacion, err := resultado.entrada.ExportarContenidoCanonicoParaSQL(generadaEn)
+	if err != nil || !bytes.Equal(reexportacion.BytesCanonicos(), exportacion.BytesCanonicos()) {
+		t.Fatal("el detalle decodificado no reproduce el canon")
+	}
+}

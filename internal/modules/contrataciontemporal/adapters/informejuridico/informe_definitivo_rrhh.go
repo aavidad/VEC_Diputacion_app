@@ -135,12 +135,16 @@ func esAnotacionAdministrativaPosterior(hito ports.HitoExpedienteRRHH) bool {
 
 func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH, etiquetar EtiquetadorReferencias) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
+	lineaAnalisis := fmt.Sprintf("Periodo previsto: del %s al %s. Jornada registrada: %d,%02d %%.\nResultado registrado de retención de crédito: %s.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100, a.ResultadoRC)
+	if a.Observaciones != "" {
+		lineaAnalisis += fmt.Sprintf("\nObservaciones del análisis: %s", a.Observaciones)
+	}
 	parrafos := []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una resolución, un nombramiento efectivo ni una redacción jurídica aprobada por Recursos Humanos.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Necesidad y análisis registrados",
 		fmt.Sprintf("Centro: %s\nCategoría: %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", referenciaConNombre(etiquetar, r.CentroRef), referenciaConNombre(etiquetar, r.CategoriaRef), d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
-		fmt.Sprintf("Periodo previsto: del %s al %s. Jornada registrada: %d,%02d %%.\nResultado registrado de retención de crédito: %s.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100, a.ResultadoRC),
+		lineaAnalisis,
 	}
 	if a.CostePrevisto != nil {
 		parrafos = append(parrafos, fmt.Sprintf("Coste estimado registrado: %d,%02d %s, según la fuente de cálculo registrada en el análisis (%s). Esta descarga no recalcula ni autoriza gasto.", a.CostePrevisto.Centimos/100, a.CostePrevisto.Centimos%100, a.CostePrevisto.Moneda, a.FuenteCosteRef))
@@ -160,13 +164,17 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH, hito po
 
 func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH, etiquetar EtiquetadorReferencias) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
+	lineaPeriodo := fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. Estos datos no fijan la fecha de efectos de un nombramiento.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100)
+	if a.Observaciones != "" {
+		lineaPeriodo += fmt.Sprintf("\nObservaciones del análisis: %s", a.Observaciones)
+	}
 	return vecdomain.ContenidoDocumento{Titulo: "Resolución — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No constituye una resolución aprobada, un nombramiento efectivo ni una orden de incorporación.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Antecedentes disponibles",
 		fmt.Sprintf("La propuesta de formalización figura en el historial del expediente, actuación %d, de %s UTC. Este borrador se prepara desde ese detalle persistido y autorizado; no añade una nueva propuesta.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		fmt.Sprintf("Centro: %s\nCategoría: %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", referenciaConNombre(etiquetar, r.CentroRef), referenciaConNombre(etiquetar, r.CategoriaRef), d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
-		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. Estos datos no fijan la fecha de efectos de un nombramiento.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		lineaPeriodo,
 		"2. Contenido resolutivo pendiente",
 		"Órgano competente: pendiente de determinar y validar. Persona propuesta: identificación autorizada pendiente de incorporar. No se infieren ni se asignan nombres, competencias o firmantes desde esta consulta.",
 		"Acuerdos, fundamento jurídico, fecha de efectos, recursos y destinatarios: pendientes del modelo oficial y de la validación competente. No se inventa redacción jurídica ni se declara aprobado ningún acuerdo.",
@@ -195,12 +203,16 @@ func contenidoDiligenciaDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.Hit
 
 func contenidoTomaPosesionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH, etiquetar EtiquetadorReferencias) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
+	lineaPeriodo := fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No se utiliza este periodo como fecha efectiva de posesión o incorporación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100)
+	if a.Observaciones != "" {
+		lineaPeriodo += fmt.Sprintf("\nObservaciones del análisis: %s", a.Observaciones)
+	}
 	return vecdomain.ContenidoDocumento{Titulo: "Toma de posesión — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No acredita una toma de posesión, un nombramiento eficaz ni una incorporación al puesto.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Datos disponibles del expediente",
 		fmt.Sprintf("Centro: %s\nCategoría: %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", referenciaConNombre(etiquetar, r.CentroRef), referenciaConNombre(etiquetar, r.CategoriaRef), d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
-		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No se utiliza este periodo como fecha efectiva de posesión o incorporación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		lineaPeriodo,
 		fmt.Sprintf("Antecedente: propuesta de formalización registrada en el historial, actuación %d, de %s UTC. Esa fecha no acredita comparecencia ni toma de posesión.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Comparecencia y formalización pendientes",
 		"Identificación autorizada de la persona interesada y de la persona competente que intervenga: pendientes. Resolución de nombramiento válida y su evidencia de firma: pendientes de incorporar y comprobar; una propuesta no las sustituye.",
@@ -231,12 +243,16 @@ func contenidoNotificacionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.H
 
 func contenidoComunicacionCentroDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH, etiquetar EtiquetadorReferencias) vecdomain.ContenidoDocumento {
 	r, a := d.Resumen, d.Analisis
+	lineaPeriodo := fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No fija una fecha efectiva de incorporación ni un horario de prestación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100)
+	if a.Observaciones != "" {
+		lineaPeriodo += fmt.Sprintf("\nObservaciones del análisis: %s", a.Observaciones)
+	}
 	return vecdomain.ContenidoDocumento{Titulo: "Comunicación al centro — borrador de desarrollo", Parrafos: []string{
 		"BORRADOR PREPARATORIO DE DESARROLLO — NO FIRMADO NI VALIDADO. Datos sintéticos. No es una comunicación enviada ni una orden de incorporación o autorización para prestar servicios.",
 		fmt.Sprintf("Expediente: %s\nReferencia: %s\nVersión de origen: %d · Fase: nombramiento en curso", r.NumeroVisible, r.ExpedienteRef, r.Version),
 		"1. Datos disponibles de la necesidad",
 		fmt.Sprintf("Centro solicitante: %s\nCategoría: %s\nGrupo/subgrupo: %s\nModalidad registrada: %s", referenciaConNombre(etiquetar, r.CentroRef), referenciaConNombre(etiquetar, r.CategoriaRef), d.Solicitud.GrupoSubgrupo, modalidadInformeDefinitivo(a.ModalidadClave)),
-		fmt.Sprintf("Periodo previsto de la necesidad: del %s al %s. Jornada registrada: %d,%02d %%. No fija una fecha efectiva de incorporación ni un horario de prestación.", a.PeriodoInicio.Format("02/01/2006"), a.PeriodoFin.Format("02/01/2006"), a.PorcentajeJornada/100, a.PorcentajeJornada%100),
+		lineaPeriodo,
 		fmt.Sprintf("Antecedente disponible: propuesta de formalización registrada en el historial, actuación %d, de %s UTC. No acredita que exista nombramiento eficaz o toma de posesión.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"2. Destino y contenido pendientes de validar",
 		"Unidad o persona destinataria dentro del centro, dirección y canal de comunicación admitido: pendientes de comprobar. La referencia del centro solicitante no es una dirección de envío ni identifica a su responsable.",

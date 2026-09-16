@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	huellaContenidoDetalleMinimo   = "8e63fb2710c43306f709e8236715537526b5831ba3db95470280cb069cbf136a"
-	huellaResultadoDetalleMinimo   = "0b7d78f6d34cd87f3da98fc32a0830ba953c83f36c2a7423fba9810baff78e31"
-	huellaContenidoDetalleCompleto = "97b2d440c764090e452e51fb3623900a2cac78d97f337a42437b599ec6335e9b"
-	huellaResultadoDetalleCompleto = "9126d2df02a909685878ce93681be8364ee0ab50eff2e7d43cf16a89bd84d0dd"
+	huellaContenidoDetalleMinimo   = "50111aa7cd319f01c06dfeb468e864f72f077917f5b3183fb5a842b0d67f22a8"
+	huellaResultadoDetalleMinimo   = "e573087571bf89e480eb6450d4dc6505c54e1446999768d5305cabaa0daf3fc3"
+	huellaContenidoDetalleCompleto = "2e6a727657d603b0caad096639f63b44fdd42b3326fe7df429985e675715071b"
+	huellaResultadoDetalleCompleto = "dd50daceabdc27240d61da0684efb49027d75a596c5ae17dffe9eb63b49dd8c2"
 )
 
 func TestCanonContenidoDetalleConservaVectoresMinimoYCompleto(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCanonContenidoDetalleConservaVectoresMinimoYCompleto(t *testing.T) {
 			huellaResultado: huellaResultadoDetalleMinimo,
 		},
 		{
-			nombre: "completo", bloques: 3, bytesContenido: 1342,
+			nombre: "completo", bloques: 3, bytesContenido: 1345,
 			huellaContenido: huellaContenidoDetalleCompleto,
 			huellaResultado: huellaResultadoDetalleCompleto,
 		},
@@ -85,7 +85,7 @@ func TestCanonContenidoDetalleConservaVectoresMinimoYCompleto(t *testing.T) {
 			canon := contenido.BytesCanonicos()
 			if !bytes.HasPrefix(
 				canon,
-				[]byte("VEC-CT-CONTENIDO-DETALLE-RRHH-V1\n"),
+				[]byte("VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"),
 			) || bytes.Contains(canon, []byte("lectura:rrhh:minimizada")) ||
 				bytes.Contains(canon, []byte("auditoria:rrhh:minimizada")) {
 				t.Fatal("cabecera incorrecta o recibo filtrado en el canon")

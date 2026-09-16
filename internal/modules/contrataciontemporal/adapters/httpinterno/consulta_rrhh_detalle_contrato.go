@@ -60,6 +60,7 @@ type analisisRRHHJSON struct {
 	ResultadoRC       string           `json:"resultado_rc"`
 	CostePrevisto     *importeRRHHJSON `json:"coste_previsto,omitempty"`
 	FuenteCosteRef    string           `json:"fuente_coste_ref,omitempty"`
+	Observaciones     string           `json:"observaciones,omitempty"`
 }
 
 type comprobacionRRHHJSON struct {
@@ -139,6 +140,7 @@ func proyectarAnalisisRRHH(entrada ports.AnalisisOperativoRRHH) *analisisRRHHJSO
 		PorcentajeJornada: uint16(entrada.PorcentajeJornada),
 		ResultadoRC:       string(entrada.ResultadoRC),
 		FuenteCosteRef:    entrada.FuenteCosteRef,
+		Observaciones:     entrada.Observaciones,
 	}
 	if entrada.CostePrevisto != nil {
 		salida.CostePrevisto = &importeRRHHJSON{

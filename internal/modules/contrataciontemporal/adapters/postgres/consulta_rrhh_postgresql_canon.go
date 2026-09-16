@@ -13,7 +13,7 @@ import (
 
 const (
 	cabeceraContenidoCuadroRRHHPostgreSQL  = "VEC-CT-CONTENIDO-CUADRO-RRHH-V1\n"
-	cabeceraContenidoDetalleRRHHPostgreSQL = "VEC-CT-CONTENIDO-DETALLE-RRHH-V1\n"
+	cabeceraContenidoDetalleRRHHPostgreSQL = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
 	formatoInstanteCanonicoRRHHPostgreSQL  = "2006-01-02T15:04:05.000000Z"
 )
 
@@ -426,6 +426,11 @@ func (l *lectorCanonRRHHPostgreSQL) analisis() (
 		return nil, ports.ReferenciaHitoAnalisisRRHH{},
 			errCanonConsultaRRHHPostgreSQL
 	}
+	observaciones, err := l.texto()
+	if err != nil {
+		return nil, ports.ReferenciaHitoAnalisisRRHH{},
+			errCanonConsultaRRHHPostgreSQL
+	}
 	return &ports.AnalisisOperativoRRHH{
 		ModalidadClave: domain.ClaveCatalogo(modalidad),
 		CategoriaRef:   categoria, CausaClave: domain.ClaveCatalogo(causa),
@@ -433,6 +438,7 @@ func (l *lectorCanonRRHHPostgreSQL) analisis() (
 		PorcentajeJornada: domain.JornadaDiezmilesimas(jornada),
 		ResultadoRC:       domain.ResultadoValidacionRC(resultadoRC),
 		CostePrevisto:     coste, FuenteCosteRef: fuenteCoste,
+		Observaciones: observaciones,
 	}, referencia, nil
 }
 

@@ -9,7 +9,7 @@ import (
 
 const (
 	DominioCanonContenidoDetalleRRHH  = "vec.contratacion_temporal.resultado_rrhh.contenido_detalle.v1"
-	cabeceraCanonContenidoDetalleRRHH = "VEC-CT-CONTENIDO-DETALLE-RRHH-V1\n"
+	cabeceraCanonContenidoDetalleRRHH = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
 )
 
 // ExportacionCanonicaContenidoDetalleRRHH conserva el detalle reducido antes
@@ -150,6 +150,7 @@ func (c *constructorCanonResultadoRRHH) bloqueAnalisis(
 		c.texto(a.CostePrevisto.Moneda)
 	}
 	c.texto(a.FuenteCosteRef)
+	c.texto(a.Observaciones)
 }
 
 func (c *constructorCanonResultadoRRHH) bloqueCobertura(

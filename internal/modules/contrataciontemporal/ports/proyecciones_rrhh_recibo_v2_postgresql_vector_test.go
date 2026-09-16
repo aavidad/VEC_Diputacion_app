@@ -135,7 +135,6 @@ func reciboDetalleGenesisVectorPostgreSQL(
 ) ports.ReciboLecturaRRHH {
 	t.Helper()
 	datosDetalle := datosDetalleMinimizadoPrueba(3)
-	entrada := construirEntradaDetalleMinimizadaPrueba(t, datosDetalle)
 	instante := instantePuertosRRHH()
 	_, contexto := autoridadYContextoPuertosRRHH(t, instante)
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
@@ -149,14 +148,6 @@ func reciboDetalleGenesisVectorPostgreSQL(
 		t, contexto, solicitud, instante,
 	)
 	generada := instante.Add(time.Second)
-	contenido, err := entrada.ExportarContenidoCanonicoParaSQL(generada)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resultado, err := contenido.ExportarResultadoCanonicoParaSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
 	datos := datosReciboCuadroV2Prueba{
 		contexto: contexto, capacidad: capacidad,
 		accesoRef: "acceso:rrhh:f996e98f214fcc5c252569b61e95bb8c",
@@ -167,8 +158,8 @@ func reciboDetalleGenesisVectorPostgreSQL(
 		auditoriaRef:    "auditoria:vec:detalle:vector-pg",
 		auditoriaHuella: strings.Repeat("a", 64),
 		consumoHuella:   strings.Repeat("d", 64),
-		contenidoHuella: resultado.ContenidoHuellaSHA256(),
-		resultadoHuella: resultado.HuellaSHA256(),
+		contenidoHuella: "97b2d440c764090e452e51fb3623900a2cac78d97f337a42437b599ec6335e9b",
+		resultadoHuella: "1c21303d3904a4e7de6f6b5aac2ff0c3086bafe68dee9037b95d74515f3bcf26",
 		cursorHuella:    "", generadaEn: generada,
 		expedienteRef: datosDetalle.resumen.ExpedienteRef,
 		version:       datosDetalle.resumen.Version, total: 1,

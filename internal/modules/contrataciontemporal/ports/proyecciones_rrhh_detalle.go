@@ -3,6 +3,7 @@ package ports
 import (
 	"regexp"
 	"time"
+	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
@@ -47,6 +48,7 @@ type AnalisisOperativoRRHH struct {
 	ResultadoRC       domain.ResultadoValidacionRC `json:"resultado_rc"`
 	CostePrevisto     *ImporteOperativoRRHH        `json:"coste_previsto,omitempty"`
 	FuenteCosteRef    string                       `json:"fuente_coste_ref,omitempty"`
+	Observaciones     string                       `json:"observaciones,omitempty"`
 	vinculo           vinculoHitoOperativoRRHH
 }
 
@@ -58,7 +60,8 @@ func (a AnalisisOperativoRRHH) validar() error {
 	if !a.ModalidadClave.Valida() ||
 		!domain.ReferenciaOpacaValida(a.CategoriaRef) ||
 		!a.CausaClave.Valida() || periodo.Validar() != nil ||
-		a.PorcentajeJornada.Validar() != nil || !resultadoValido {
+		a.PorcentajeJornada.Validar() != nil || !resultadoValido ||
+		utf8.RuneCountInString(a.Observaciones) > 4000 {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if a.CostePrevisto == nil {
@@ -250,7 +253,8 @@ func analisisDesdeExpedienteRRHH(e domain.Expediente) *AnalisisOperativoRRHH {
 		CausaClave: a.CausaClave, PeriodoInicio: a.Periodo.Inicio,
 		PeriodoFin: a.Periodo.Fin, PorcentajeJornada: a.PorcentajeJornada,
 		ResultadoRC: a.ValidacionRC.Resultado, FuenteCosteRef: a.FuenteCosteRef,
-		vinculo: vinculoDesdeAnalisisRRHH(e),
+		Observaciones: a.Observaciones,
+		vinculo:       vinculoDesdeAnalisisRRHH(e),
 	}
 	if a.CostePrevisto != nil {
 		proyeccion.CostePrevisto = &ImporteOperativoRRHH{
