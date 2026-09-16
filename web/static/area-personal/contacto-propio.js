@@ -30,12 +30,25 @@ function validarRespuesta(respuesta, versionEsperada) {
   return Object.freeze({ reciboRef: respuesta.recibo_ref, version: respuesta.version });
 }
 
+function nuevaIntencion(correo, version) {
+  if (typeof globalThis.crypto?.randomUUID !== "function") {
+    throw new Error(textoContactoPropio("intencionNoDisponible"));
+  }
+  const referencia = globalThis.crypto.randomUUID();
+  if (typeof referencia !== "string" || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/iu.test(referencia)) {
+    throw new Error(textoContactoPropio("intencionNoDisponible"));
+  }
+  const cuerpo = JSON.stringify({ correo, version_esperada: version, intencion_ref: referencia });
+  return Object.freeze({ correo, version, referencia, cuerpo });
+}
+
 export function crearControladorContactoPropio({ autorizacionServidor = null, fetchImpl = globalThis.fetch, presentacion = false } = {}) {
   let enviando = false;
   let recibo = null;
   let versionEsperada = autorizacionServidor?.version;
   let versionIntentada = null;
   let consultando = false;
+  let intencionPendiente = null;
 
   async function guardar(correo) {
     if (presentacion === true || !esContextoAutorizado(autorizacionServidor)) {
@@ -47,9 +60,17 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
       throw new Error(textoContactoPropio("errorEntrada"));
     }
     if (enviando || consultando) throw new Error(textoContactoPropio("preparando"));
+    const recuperable = autorizacionServidor.guardadoRecuperable === true;
+    if (intencionPendiente && correoNormalizado !== intencionPendiente.correo) {
+      throw new Error(textoContactoPropio("reintentarOriginal"));
+    }
+    if (recuperable && !intencionPendiente) intencionPendiente = nuevaIntencion(correoNormalizado, versionEsperada);
+    const intencion = intencionPendiente;
+    const versionParaEnvio = intencion?.version ?? versionEsperada;
+    const cuerpo = intencion?.cuerpo ?? JSON.stringify({ correo: correoNormalizado, version_esperada: versionParaEnvio });
     enviando = true;
     try {
-      versionIntentada = versionEsperada + 1;
+      versionIntentada = versionParaEnvio + 1;
       const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
         method: "POST",
         credentials: "omit",
@@ -57,13 +78,19 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         redirect: "error",
         referrerPolicy: "no-referrer",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ correo: correoNormalizado, version_esperada: versionEsperada }),
+        body: cuerpo,
       });
-      if (respuesta?.status !== 201) throw new Error(mensajeError(respuesta?.status));
-      const resultado = validarRespuesta(await respuesta.json(), versionEsperada);
+      const estadosCorrectos = recuperable ? [200, 201] : [201];
+      if (!estadosCorrectos.includes(respuesta?.status)) {
+        intencionPendiente = null;
+        versionIntentada = null;
+        throw new Error(mensajeError(respuesta?.status));
+      }
+      const resultado = validarRespuesta(await respuesta.json(), versionParaEnvio);
       recibo = resultado;
       versionEsperada = resultado.version;
       versionIntentada = null;
+      intencionPendiente = null;
       return resultado;
     } catch (error) {
       if (error instanceof Error && Object.values({
@@ -107,6 +134,8 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
     autorizado: presentacion !== true && esContextoAutorizado(autorizacionServidor),
     guardar,
     consultarRecibo,
+    get puedeReintentarOriginal() { return intencionPendiente !== null; },
+    get correoPendiente() { return intencionPendiente?.correo ?? ""; },
     get puedeConsultarRecibo() {
       return presentacion !== true && esContextoAutorizado(autorizacionServidor)
         && autorizacionServidor.consultarRecibo === true && versionIntentada !== null;
@@ -155,7 +184,12 @@ export function montarContactoPropio({
   consultar.className = "boton-secundario";
   consultar.textContent = textoContactoPropio("consultarRecibo");
   consultar.hidden = true;
-  formulario.append(campo, boton, consultar, estado);
+  const reintentar = documento.createElement("button");
+  reintentar.type = "button";
+  reintentar.className = "boton-secundario";
+  reintentar.textContent = textoContactoPropio("botonReintentarOriginal");
+  reintentar.hidden = true;
+  formulario.append(campo, boton, reintentar, consultar, estado);
   const habilitado = controlador.autorizado && presentacion !== true;
   if (!habilitado) {
     entrada.disabled = true;
@@ -182,6 +216,7 @@ export function montarContactoPropio({
     boton.disabled = true;
     entrada.disabled = true;
     consultar.disabled = true;
+    reintentar.disabled = true;
     estado.hidden = false;
     estado.className = "nota";
     estado.textContent = textoContactoPropio("preparando");
@@ -198,7 +233,14 @@ export function montarContactoPropio({
       entrada.disabled = !habilitado;
       consultar.hidden = !controlador.puedeConsultarRecibo;
       consultar.disabled = false;
+      reintentar.hidden = !controlador.puedeReintentarOriginal;
+      reintentar.disabled = false;
     }
+  });
+  reintentar.addEventListener("click", async () => {
+    if (controlador.enviando || controlador.consultando || !controlador.puedeReintentarOriginal) return;
+    entrada.value = controlador.correoPendiente;
+    formulario.requestSubmit();
   });
   consultar.addEventListener("click", async () => {
     if (controlador.enviando || controlador.consultando) return;

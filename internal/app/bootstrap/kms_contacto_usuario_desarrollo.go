@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,6 +17,7 @@ import (
 )
 
 const dominioKMSContactoUsuarioDesarrollo = "vec.kms.desarrollo.contacto-usuario.v1"
+const dominioHuellaPeticionContactoUsuarioDesarrollo = "vec.kms.desarrollo.contacto-usuario.intencion.v1"
 const claveKMSContactoUsuarioDesarrolloRef = "clave:kms:desarrollo:contacto-usuario:v1"
 
 var errKMSContactoUsuarioNoDisponible = errors.New("bootstrap: KMS de contacto de usuario no disponible")
@@ -101,6 +104,32 @@ func aadContactoUsuarioDesarrollo(sujeto string, version uint64) ([]byte, error)
 func sujetoContactoKMSValido(s string) bool {
 	return vecdomain.ReferenciaSujetoContactoUsuarioValida(s)
 }
+
+func (e *emisorKMSDesarrollo) HuellaPeticionContactoUsuario(ctx context.Context, sujeto string, versionEsperada uint64, correo []byte) (string, error) {
+	if e == nil || ctx == nil || ctx.Err() != nil || claveContactoKMSCero(e.claveEnvoltura) || !sujetoContactoKMSValido(sujeto) || len(correo) == 0 || len(correo) > 320 {
+		return "", errKMSContactoUsuarioNoDisponible
+	}
+	payload, err := json.Marshal(struct {
+		Esquema string `json:"esquema"`
+		Sujeto  string `json:"sujeto_ref"`
+		Version uint64 `json:"version_esperada"`
+		Correo  []byte `json:"correo"`
+	}{"vec.contacto_usuario.intencion.v1", sujeto, versionEsperada, correo})
+	if err != nil {
+		return "", errKMSContactoUsuarioNoDisponible
+	}
+	defer borrarBytes(payload)
+	clave := derivarClaveDesarrollo(e.claveEnvoltura, dominioHuellaPeticionContactoUsuarioDesarrollo)
+	defer borrarBytes(clave[:])
+	h := hmac.New(sha256.New, clave[:])
+	_, _ = h.Write(payload)
+	suma := h.Sum(nil)
+	defer borrarBytes(suma)
+	if ctx.Err() != nil {
+		return "", errKMSContactoUsuarioNoDisponible
+	}
+	return hex.EncodeToString(suma), nil
+}
 func claveContactoKMSCero(v [sha256.Size]byte) bool { var cero [sha256.Size]byte; return v == cero }
 func dependenciaContactoKMSNula(v any) bool {
 	if v == nil {
@@ -111,3 +140,4 @@ func dependenciaContactoKMSNula(v any) bool {
 }
 
 var _ vecports.ProtectorContactoUsuario = (*emisorKMSDesarrollo)(nil)
+var _ vecports.SelladorHuellaPeticionContactoUsuario = (*emisorKMSDesarrollo)(nil)

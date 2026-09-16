@@ -110,6 +110,72 @@ test("no duplica un envío mientras el primero sigue pendiente", async () => {
   await primero;
 });
 
+test("reintenta la intención recuperable con los mismos bytes y acepta su recuperación", async () => {
+  const cuerpos = [];
+  let intento = 0;
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, guardadoRecuperable: true, version: 7 },
+    fetchImpl: async (_ruta, opciones) => {
+      cuerpos.push(opciones.body);
+      intento += 1;
+      if (intento === 1) throw new TypeError("respuesta perdida");
+      return respuesta(200, { recibo_ref: "recibo-recuperado", version: 8 });
+    },
+  });
+  await assert.rejects(() => controlador.guardar("original@ejemplo.test"));
+  assert.equal(controlador.puedeReintentarOriginal, true);
+  const resultado = await controlador.guardar("original@ejemplo.test");
+  assert.equal(cuerpos[0], cuerpos[1]);
+  assert.deepEqual(JSON.parse(cuerpos[0]), {
+    correo: "original@ejemplo.test", version_esperada: 7,
+    intencion_ref: JSON.parse(cuerpos[0]).intencion_ref,
+  });
+  assert.match(JSON.parse(cuerpos[0]).intencion_ref, /^[0-9a-f-]{36}$/iu);
+  assert.deepEqual(resultado, { reciboRef: "recibo-recuperado", version: 8 });
+  assert.equal(controlador.puedeReintentarOriginal, false);
+});
+
+test("una dirección distinta no reemplaza una intención recuperable incierta", async () => {
+  let llamadas = 0;
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, guardadoRecuperable: true, version: 7 },
+    fetchImpl: async () => { llamadas += 1; throw new TypeError("respuesta perdida"); },
+  });
+  await assert.rejects(() => controlador.guardar("original@ejemplo.test"));
+  await assert.rejects(() => controlador.guardar("otra@ejemplo.test"), /reintente el correo original/iu);
+  assert.equal(llamadas, 1);
+  assert.equal(controlador.correoPendiente, "original@ejemplo.test");
+});
+
+test("sin guardado recuperable conserva dos campos y rechaza un 200", async () => {
+  let cuerpo;
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, version: 7 },
+    fetchImpl: async (_ruta, opciones) => {
+      cuerpo = JSON.parse(opciones.body);
+      return respuesta(200, { recibo_ref: "no-admitido", version: 8 });
+    },
+  });
+  await assert.rejects(() => controlador.guardar("persona@ejemplo.test"), /No se pudo confirmar/iu);
+  assert.deepEqual(cuerpo, { correo: "persona@ejemplo.test", version_esperada: 7 });
+  assert.equal(controlador.puedeReintentarOriginal, false);
+});
+
+test("un éxito recuperable limpia la intención y la siguiente actualización crea otra", async () => {
+  const cuerpos = [];
+  const controlador = crearControladorContactoPropio({
+    autorizacionServidor: { capacidad: true, guardadoRecuperable: true, version: 7 },
+    fetchImpl: async (_ruta, opciones) => {
+      cuerpos.push(JSON.parse(opciones.body));
+      return respuesta(201, { recibo_ref: `recibo-${cuerpos.length}`, version: 7 + cuerpos.length });
+    },
+  });
+  await controlador.guardar("uno@ejemplo.test");
+  await controlador.guardar("dos@ejemplo.test");
+  assert.notEqual(cuerpos[0].intencion_ref, cuerpos[1].intencion_ref);
+  assert.deepEqual(cuerpos.map((cuerpo) => cuerpo.version_esperada), [7, 8]);
+});
+
 test("recupera recibo tras respuesta perdida sin confirmar el correo ni avanzar su versión", async () => {
   const peticiones = [];
   const controlador = crearControladorContactoPropio({
