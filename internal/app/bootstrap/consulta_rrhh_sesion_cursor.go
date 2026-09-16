@@ -308,10 +308,11 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) revalidarSesionCursorRRHHDesarro
 	if err != nil || nuevosDatos.AutenticacionRef != datos.AutenticacionRef || nuevosDatos.SesionRef != datos.SesionRef {
 		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionVinculoIncoherente, err)
 	}
+	ahoraValidacion := p.reloj.Ahora()
 	contexto := ports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}
 	if contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef, PerfilRef: p.base.Contexto.PerfilActivoRef,
-	}, ahora) != nil {
+	}, ahoraValidacion) != nil {
 		return vacio, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionContextoInvalido, nil)
 	}
 	return contexto, nil

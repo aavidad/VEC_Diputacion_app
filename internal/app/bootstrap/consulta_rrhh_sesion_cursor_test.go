@@ -181,6 +181,33 @@ func TestContinuidadCursorRRHHConservaSesionYRevalidaEnSegundaPeticion(t *testin
 	}
 }
 
+func TestContinuidadCursorRRHHAceptaSegundaPeticionConRelojQueAvanzaTrasPrimeraLectura(t *testing.T) {
+	e, a, continuador, primeraPeticion, primero := prepararContinuidadCursorRRHHDesarrolloPrueba(t)
+	cursor := cursorSesionRRHHDesarrolloPrueba('k')
+	if err := continuador.recordar(primeraPeticion, ports.PaginaCuadroRRHH{HayMas: true, CursorSiguiente: cursor}); err != nil {
+		t.Fatal(err)
+	}
+	e.revalidador.alterar = func(a *dominiovec.AutenticacionRevalidadaV1) {
+		e.reloj.ahora = e.reloj.ahora.Add(50 * time.Millisecond)
+		a.SesionRevalidadaEn = e.reloj.ahora
+	}
+	segundaPeticion := segundaPeticionCursorRRHHDesarrolloPrueba(e, vinculoCanalCursorRRHHDesarrolloPrueba('1'))
+	preparada, err := continuador.preparar(segundaPeticion, cursor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obtenido, err := a.contextoConsultaRRHHDesarrollo(preparada)
+	if err != nil {
+		t.Fatalf("la continuidad del cursor rechazó una sesión con reloj que avanza durante la revalidación: %v", err)
+	}
+	datosPrimero, _ := primero.Vinculo.Datos()
+	datosSegundo, _ := obtenido.Vinculo.Datos()
+	if datosSegundo.SesionRef != datosPrimero.SesionRef || datosSegundo.AutenticacionRef != datosPrimero.AutenticacionRef ||
+		e.revalidador.llamadas != 2 || e.resolutor.llamadas != 2 {
+		t.Fatal("la segunda petición no revalidó la sesión correctamente")
+	}
+}
+
 func TestContinuidadCursorRRHHRechazaRevocacionCanalYCambioSesion(t *testing.T) {
 	t.Run("revocacion", func(t *testing.T) {
 		e, a, continuador, primera, _ := prepararContinuidadCursorRRHHDesarrolloPrueba(t)
