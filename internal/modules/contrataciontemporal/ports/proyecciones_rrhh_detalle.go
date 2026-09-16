@@ -107,15 +107,15 @@ func (c CoberturaOperativaRRHH) validar() error {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if c.DecisionGobernada {
-		if c.ProcedimientoRef != "" || c.BolsaRef != "" ||
-			len(c.Comprobaciones) != 0 {
+		if c.ProcedimientoRef != "" || c.BolsaRef != "" {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
-		return nil
-	}
-	if !domain.ReferenciaOpacaValida(c.ProcedimientoRef) ||
+	} else if !domain.ReferenciaOpacaValida(c.ProcedimientoRef) ||
 		(c.BolsaRef != "" && !domain.ReferenciaOpacaValida(c.BolsaRef)) ||
-		len(c.Comprobaciones) == 0 || len(c.Comprobaciones) > 32 {
+		len(c.Comprobaciones) == 0 {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if len(c.Comprobaciones) > 32 {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	vistas := make(map[domain.ClaveCatalogo]struct{}, len(c.Comprobaciones))

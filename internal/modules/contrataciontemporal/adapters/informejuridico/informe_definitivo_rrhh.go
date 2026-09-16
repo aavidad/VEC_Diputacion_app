@@ -154,12 +154,53 @@ func contenidoInformeDefinitivoDesarrollo(d ports.DetalleExpedienteRRHH, hito po
 	parrafos = append(parrafos,
 		"2. Tramitación registrada",
 		fmt.Sprintf("Vía de cobertura (clave registrada): %s. Unidad asignada: %s. Asignación registrada el %s UTC.", d.Cobertura.ViaClave, referenciaConNombre(etiquetar, d.Asignacion.UnidadRef), d.Asignacion.AsignadaEn.UTC().Format(time.RFC3339Nano)),
+		comprobacionesBolsaDocumento(d.Cobertura.Comprobaciones),
 		fmt.Sprintf("El historial del expediente contiene el registro de la propuesta de formalización, actuación %d, de %s UTC. Esta consulta no incorpora identidad de la candidatura, contenido del correo, recibos internos ni documentos firmados.", hito.Secuencia, hito.RealizadaEn.UTC().Format(time.RFC3339Nano)),
 		"3. Pendiente de completar y validar",
 		"Deben incorporarse el modelo oficial y la redacción jurídica competente, las comprobaciones y referencias documentales que correspondan, la identificación autorizada de la persona propuesta y las firmas requeridas. Los campos ausentes no se han inventado. No se certifica el resultado jurídico o de fiscalización mediante esta descarga.",
 		"Esta copia se regenera desde el detalle persistido y autorizado del expediente. No guarda un documento firmado, no acredita custodia documental, no modifica el expediente y no realiza ningún envío. BORRADOR DE DESARROLLO SIN EFECTOS ADMINISTRATIVOS.",
 	)
 	return vecdomain.ContenidoDocumento{Titulo: "Informe definitivo — borrador de desarrollo", Parrafos: parrafos}
+}
+
+func comprobacionesBolsaDocumento(comprobaciones []ports.ComprobacionOperativaRRHH) string {
+	if len(comprobaciones) == 0 {
+		return "Comprobaciones de bolsa: no constan en el detalle registrado."
+	}
+	lineas := make([]string, 0, len(comprobaciones)+1)
+	lineas = append(lineas, "Comprobaciones de bolsa registradas:")
+	for _, comprobacion := range comprobaciones {
+		lineas = append(lineas, fmt.Sprintf("- %s: %s", etiquetaComprobacionBolsa(comprobacion.Clave), etiquetaResultadoComprobacion(comprobacion.Resultado)))
+	}
+	return strings.Join(lineas, "\n")
+}
+
+func etiquetaComprobacionBolsa(clave domain.ClaveCatalogo) string {
+	switch clave {
+	case "existe_bolsa_vigente":
+		return "Existe bolsa vigente para la categoría"
+	case "hay_candidaturas_disponibles":
+		return "Hay candidaturas disponibles"
+	case "oferta_sae_disponible":
+		return "Oferta al SAE disponible"
+	case "requiere_nueva_convocatoria":
+		return "Requiere nueva convocatoria de bolsa"
+	default:
+		return string(clave)
+	}
+}
+
+func etiquetaResultadoComprobacion(resultado domain.ResultadoComprobacion) string {
+	switch resultado {
+	case domain.ComprobacionAfirmativa:
+		return "Afirmativa"
+	case domain.ComprobacionNegativa:
+		return "Negativa"
+	case domain.ComprobacionNoConsta:
+		return "No consta"
+	default:
+		return string(resultado)
+	}
 }
 
 func contenidoResolucionDesarrollo(d ports.DetalleExpedienteRRHH, hito ports.HitoExpedienteRRHH, etiquetar EtiquetadorReferencias) vecdomain.ContenidoDocumento {

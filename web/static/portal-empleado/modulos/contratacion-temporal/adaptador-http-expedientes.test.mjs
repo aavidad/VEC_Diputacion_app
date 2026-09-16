@@ -54,6 +54,14 @@ function clienteFalso(llamadas) {
           porcentaje_jornada: 10_000,
           resultado_rc: "no_requerida",
         },
+        cobertura: {
+          via_clave: "bolsa_vigente",
+          decision_gobernada: true,
+          comprobaciones: [{
+            clave: "existe_bolsa_vigente",
+            resultado: "afirmativa",
+          }],
+        },
         hitos: [
           {
             secuencia: 1,
@@ -102,6 +110,10 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(detalle.demostracion, false);
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "motivo").valor, "Sustitución");
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Análisis");
+  assert.equal(
+    detalle.cabecera.find(({ clave }) => clave === "comprobacion_existe_bolsa_vigente").valor,
+    "Existe bolsa vigente para la categoría: Afirmativa",
+  );
   assert.deepEqual(detalle.fases, []);
   assert.deepEqual(detalle.historial, [
     {
@@ -565,4 +577,3 @@ test("adaptador ante error de cliente.catalogosAlta muestra referencias crudas",
   assert.equal(cuadro.expedientes[0].centro, "centro:001");
   assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
 });
-

@@ -266,6 +266,13 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   etiqueta_modalidad_acumulacion_tareas: "Acumulación de tareas",
   etiqueta_modalidad_interinidad: "Interinidad",
   etiqueta_modalidad_relevo: "Relevo",
+  comprobacion_bolsa_vigente: "Existe bolsa vigente para la categoría",
+  comprobacion_candidaturas_disponibles: "Hay candidaturas disponibles",
+  comprobacion_oferta_sae: "Oferta al SAE disponible",
+  comprobacion_nueva_convocatoria: "Requiere nueva convocatoria de bolsa",
+  comprobacion_resultado_afirmativa: "Afirmativa",
+  comprobacion_resultado_negativa: "Negativa",
+  comprobacion_resultado_no_consta: "No consta",
 });
 
 export function crearTraductorExpedientesContratacion(sobrescrituras = {}) {

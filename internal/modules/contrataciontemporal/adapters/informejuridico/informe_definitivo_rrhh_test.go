@@ -26,9 +26,11 @@ func detalleInformeDefinitivoPrueba() ports.DetalleExpedienteRRHH {
 			CentroRef: "centro:sintetico:001", CategoriaRef: "categoria:sintetica:c2", ModalidadClave: "sustitucion",
 			UnidadRef: "unidad:sintetica:rrhh", CreadoEn: inicio, ActualizadoEn: inicio.Add(6 * time.Minute),
 		},
-		Solicitud:  ports.SolicitudOperativaRRHH{GrupoSubgrupo: "C2", MotivoClave: "sustitucion", PeriodoInicio: periodo, PeriodoFin: periodo.AddDate(0, 3, 0)},
-		Analisis:   &ports.AnalisisOperativoRRHH{ModalidadClave: "sustitucion", CategoriaRef: "categoria:sintetica:c2", CausaClave: "necesidad_temporal", PeriodoInicio: periodo, PeriodoFin: periodo.AddDate(0, 3, 0), PorcentajeJornada: 10000, ResultadoRC: domain.RCValidada},
-		Cobertura:  &ports.CoberturaOperativaRRHH{ViaClave: "bolsa_vigente", DecisionGobernada: true},
+		Solicitud: ports.SolicitudOperativaRRHH{GrupoSubgrupo: "C2", MotivoClave: "sustitucion", PeriodoInicio: periodo, PeriodoFin: periodo.AddDate(0, 3, 0)},
+		Analisis:  &ports.AnalisisOperativoRRHH{ModalidadClave: "sustitucion", CategoriaRef: "categoria:sintetica:c2", CausaClave: "necesidad_temporal", PeriodoInicio: periodo, PeriodoFin: periodo.AddDate(0, 3, 0), PorcentajeJornada: 10000, ResultadoRC: domain.RCValidada},
+		Cobertura: &ports.CoberturaOperativaRRHH{ViaClave: "bolsa_vigente", DecisionGobernada: true, Comprobaciones: []ports.ComprobacionOperativaRRHH{{
+			Clave: "existe_bolsa_vigente", Resultado: domain.ComprobacionAfirmativa,
+		}}},
 		Asignacion: &ports.AsignacionOperativaRRHH{UnidadRef: "unidad:sintetica:rrhh", AsignadaEn: inicio},
 	}
 	for i := uint64(1); i <= 7; i++ {
@@ -88,7 +90,7 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	}
 	contenido := contenidoInformeDefinitivoDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
-	for _, esperado := range []string{"NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Pendiente de completar", "no se han inventado"} {
+	for _, esperado := range []string{"NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Pendiente de completar", "no se han inventado", "Existe bolsa vigente para la categoría: Afirmativa"} {
 		if !strings.Contains(texto, esperado) {
 			t.Fatalf("falta %q", esperado)
 		}

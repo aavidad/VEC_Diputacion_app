@@ -48,6 +48,13 @@ const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
   ["acumulacion_tareas", "etiqueta_modalidad_acumulacion_tareas"],
   ["interinidad", "etiqueta_modalidad_interinidad"],
   ["relevo", "etiqueta_modalidad_relevo"],
+  ["existe_bolsa_vigente", "comprobacion_bolsa_vigente"],
+  ["hay_candidaturas_disponibles", "comprobacion_candidaturas_disponibles"],
+  ["oferta_sae_disponible", "comprobacion_oferta_sae"],
+  ["requiere_nueva_convocatoria", "comprobacion_nueva_convocatoria"],
+  ["afirmativa", "comprobacion_resultado_afirmativa"],
+  ["negativa", "comprobacion_resultado_negativa"],
+  ["no_consta", "comprobacion_resultado_no_consta"],
 ]);
 
 function etiqueta(clave, t, alternativa = "No consta") {
@@ -263,6 +270,13 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
       campo("via_cobertura", "Vía de cobertura", etiqueta(detalle.cobertura.via_clave, t)),
       campo("decision_gobernada", "Decisión gobernada", detalle.cobertura.decision_gobernada ? "Sí" : "No"),
     );
+    for (const comprobacion of detalle.cobertura.comprobaciones || []) {
+      campos.push(campo(
+        `comprobacion_${comprobacion.clave}`,
+        "Comprobación de bolsa",
+        `${etiqueta(comprobacion.clave, t)}: ${etiqueta(comprobacion.resultado, t)}`,
+      ));
+    }
   }
   if (detalle.asignacion) {
     campos.push(campo("unidad", "Unidad asignada", detalle.asignacion.unidad_ref));
