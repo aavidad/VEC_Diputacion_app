@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -324,5 +323,28 @@ func mismaIdentidadVersionadaSesionDesarrollo(
 		b.PersonaRef == a.PersonaRef && b.PersonaVersion == a.PersonaVersion &&
 		b.PerfilActivoRef == a.PerfilActivoRef && b.PerfilVersion == a.PerfilVersion &&
 		b.VinculoRef == a.VinculoRef && b.VinculoVersion == a.VinculoVersion &&
-		reflect.DeepEqual(b.Vinculos, a.Vinculos)
+		mismosVinculosReferenciaSesionDesarrollo(b.Vinculos, a.Vinculos)
+}
+
+// mismosVinculosReferenciaSesionDesarrollo compara los vínculos por contenido.
+// Una lista nula y una vacía describen la misma identidad: la instantánea de
+// arranque puede llegar sin vínculos (nil) y la resuelta en PostgreSQL con un
+// slice vacío, y reflect.DeepEqual las distinguía, rechazando la continuidad
+// del cursor en la segunda página del cuadro. Cualquier vínculo distinto, de
+// más o de menos sigue rechazándose.
+func mismosVinculosReferenciaSesionDesarrollo(
+	base, actual []dominiovec.VinculoReferenciaContextoActor,
+) bool {
+	if len(base) != len(actual) {
+		return false
+	}
+	for i := range base {
+		b, a := base[i], actual[i]
+		if b.VinculoRef != a.VinculoRef || b.Version != a.Version || b.Tipo != a.Tipo ||
+			b.Referencia != a.Referencia || b.Estado != a.Estado ||
+			!b.VigenteDesde.Equal(a.VigenteDesde) || !b.VigenteHasta.Equal(a.VigenteHasta) {
+			return false
+		}
+	}
+	return true
 }

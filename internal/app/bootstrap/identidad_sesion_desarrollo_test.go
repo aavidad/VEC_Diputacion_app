@@ -355,3 +355,47 @@ func TestSesionConsultaRRHHDesarrolloExigeDependenciasYVersiones(t *testing.T) {
 		t.Fatal("se aceptó otra versión de identidad")
 	}
 }
+
+// La instantánea de arranque puede no llevar vínculos (nil) y la resuelta en
+// PostgreSQL traerlos como slice vacío: son la misma identidad. Un vínculo
+// distinto, de más o de menos sigue rechazándose.
+func TestSesionConsultaRRHHDesarrolloVinculosNulosYVaciosSonLaMismaIdentidad(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	base, err := e.soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.Contexto.Instantanea.Vinculos = nil
+	actual, err := e.soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual.Contexto.Instantanea.Vinculos = []dominiovec.VinculoReferenciaContextoActor{}
+	if !mismaIdentidadVersionadaSesionDesarrollo(base, actual) {
+		t.Fatal("nil y vacío se tratan como identidades distintas")
+	}
+	vinculo := dominiovec.VinculoReferenciaContextoActor{
+		VinculoRef: "vrf_" + strings.Repeat("a", 32), Version: 1,
+		Tipo: dominiovec.TipoReferenciaContextoActorEmpleado, Referencia: "emp_" + strings.Repeat("b", 32),
+		Estado:       dominiovec.EstadoVinculoContextoActorActivo,
+		VigenteDesde: e.reloj.Ahora().Add(-time.Hour), VigenteHasta: e.reloj.Ahora().Add(time.Hour),
+	}
+	conVinculo, err := e.soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	conVinculo.Contexto.Instantanea.Vinculos = []dominiovec.VinculoReferenciaContextoActor{vinculo}
+	if mismaIdentidadVersionadaSesionDesarrollo(base, conVinculo) {
+		t.Fatal("se aceptó un vínculo de más")
+	}
+	otro := vinculo
+	otro.Estado = dominiovec.EstadoVinculoContextoActorRevocado
+	otroResultado, err := e.soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	otroResultado.Contexto.Instantanea.Vinculos = []dominiovec.VinculoReferenciaContextoActor{otro}
+	if mismaIdentidadVersionadaSesionDesarrollo(conVinculo, otroResultado) {
+		t.Fatal("se aceptó un vínculo con otro estado")
+	}
+}
