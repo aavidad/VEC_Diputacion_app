@@ -478,4 +478,12 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
   assert.deepEqual((await proyectar("fiscalizacion","espera_externa",avance)).slice(0,4),["completado","completado","completado","espera"]);
   const retorno = [...avance,{fase_origen:"fiscalizacion",fase_destino:"asignacion_unidad",estado_destino:"incidencia"}];
   assert.deepEqual((await proyectar("asignacion_unidad","incidencia",retorno)).slice(0,4),["completado","completado","incidencia","pendiente"]);
+  // El análisis se registra sin cambiar de fase administrativa: cumple «Solicitud» y «Análisis RRHH».
+  const analisisEnSolicitud = [
+    {accion_clave:"alta",fase_origen:"",fase_destino:"solicitud",estado_destino:"en_curso"},
+    {accion_clave:"contratacion_temporal.analisis.registrar",fase_origen:"solicitud",fase_destino:"solicitud",estado_destino:"en_curso"},
+    {accion_clave:"contratacion_temporal.cobertura.decidir",fase_origen:"solicitud",fase_destino:"asignacion_unidad",estado_destino:"en_curso"},
+  ];
+  assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
+  assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["completado","completado","pendiente"]);
 });

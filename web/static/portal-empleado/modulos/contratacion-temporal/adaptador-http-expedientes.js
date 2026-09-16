@@ -309,6 +309,13 @@ const FASE_VISUAL = Object.freeze({
   nombramiento: "nombramiento", incorporacion: "incorporacion", seguimiento: "seguimiento",
 });
 
+// Acciones que cumplen una fase del procedimiento de RRHH sin que el expediente cambie de fase
+// administrativa: el análisis se registra dentro de la fase de solicitud.
+const ACCIONES_FASES_VISUALES_COMPLETADAS = Object.freeze({
+  "contratacion_temporal.analisis.registrar": ["solicitud", "analisis_rrhh"],
+  "contratacion_temporal.analisis.rectificar": ["solicitud", "analisis_rrhh"],
+});
+
 function fasesDesdeHitos(detalle, traducir) {
   const presentacion = detalle.presentacion_flujo;
   if (!presentacion) return [];
@@ -332,9 +339,16 @@ function fasesDesdeHitos(detalle, traducir) {
       }
     }
     fases[destino].estado_clave = estadoVisual(hito.estado_destino);
+    for (const clave of ACCIONES_FASES_VISUALES_COMPLETADAS[hito.accion_clave] ?? []) {
+      const cumplida = indice(clave);
+      if (cumplida >= 0) fases[cumplida].estado_clave = ESTADO_FASE_COMPLETADO;
+    }
   }
   const actual = indice(presentacion.fase_actual || FASE_VISUAL[detalle.resumen.fase_clave]);
-  if (actual >= 0) fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  // La fase administrativa actual manda, salvo que una acción ya la haya cumplido (análisis registrado).
+  if (actual >= 0 && fases[actual].estado_clave !== ESTADO_FASE_COMPLETADO) {
+    fases[actual].estado_clave = estadoVisual(detalle.resumen.estado_clave);
+  }
   return fases;
 }
 
