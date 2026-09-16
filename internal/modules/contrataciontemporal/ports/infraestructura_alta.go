@@ -66,6 +66,12 @@ type GeneradorReferenciasAlta interface {
 	NuevaReferenciaReservaAlta(context.Context) (string, error)
 }
 
+// ContadorNumeroVisible reserva la secuencia visible anual antes del alta.
+// Un hueco tras un efecto fallido es intencionado: nunca se reutiliza un número.
+type ContadorNumeroVisible interface {
+	SiguienteNumeroVisible(context.Context, int) (string, error)
+}
+
 type MaterialHuellaAsignacion struct {
 	Operacion               TipoOperacionAsignacion
 	OrganizacionRef         string

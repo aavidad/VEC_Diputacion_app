@@ -301,7 +301,6 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		delegado: autorizadorBase,
 		soporte:  soporte,
 	}
-	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
 	postgresql, err :=
 		nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			cfg, derivador, soporte, reloj,
@@ -309,6 +308,12 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	contador, err := postgrescontratacion.NuevoContadorNumeroVisiblePostgreSQL(postgresql.ejecucion)
+	if err != nil {
+		postgresql.cerrar()
+		return vacias, err
+	}
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
 	servicio, err := application.NuevoServicioRegistroSolicitud(
 		soporte, soporte, huellas, ambitos, soporte, generador,
 		referencias, postgresql.candidaturas,

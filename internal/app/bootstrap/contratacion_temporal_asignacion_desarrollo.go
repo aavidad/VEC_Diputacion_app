@@ -165,7 +165,11 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errAsignacionContratacionTemporalDesarrolloNoDisponible
 	}
-	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
+	contador, err := postgrescontratacion.NuevoContadorNumeroVisiblePostgreSQL(alta.postgresql.ejecucion)
+	if err != nil {
+		return nil, errAsignacionContratacionTemporalDesarrolloNoDisponible
+	}
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
 	consultas, err := postgrescontratacion.NuevoConsultorAsignacionPostgreSQL(
 		alta.postgresql.ejecucion,
 	)

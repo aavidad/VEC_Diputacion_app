@@ -81,7 +81,11 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
-	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptografico()
+	contador, err := postgrescontratacion.NuevoContadorNumeroVisiblePostgreSQL(alta.postgresql.ejecucion)
+	if err != nil {
+		return vacias, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
+	}
+	referencias := seguridadcontratacion.NuevoGeneradorReferenciasAltaCriptograficoConContador(contador)
 	preparaciones, err := postgrescontratacion.NuevoPreparadorFiscalizacionPostgreSQL(
 		alta.postgresql.ejecucion,
 		referencias,

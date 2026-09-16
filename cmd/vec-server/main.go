@@ -1,5 +1,7 @@
 package main
 
+import _ "time/tzdata"
+
 import (
 	"errors"
 	"log"

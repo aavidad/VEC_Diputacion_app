@@ -10,6 +10,12 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+type contadorNumeroVisiblePrueba struct{ numero string }
+
+func (c contadorNumeroVisiblePrueba) SiguienteNumeroVisible(context.Context, int) (string, error) {
+	return c.numero, nil
+}
+
 func TestGeneradorReferenciasAltaUsaEntropiaIndependiente(t *testing.T) {
 	entropia := make([]byte, bytesAleatoriosReferenciaAlta*4)
 	for indice := range entropia {
@@ -20,6 +26,7 @@ func TestGeneradorReferenciasAltaUsaEntropiaIndependiente(t *testing.T) {
 		ahora: func() time.Time {
 			return time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
 		},
+		contador: contadorNumeroVisiblePrueba{"2026/CT-000001"},
 	}
 	referencias, err := generador.GenerarReferenciasAlta(context.Background())
 	if err != nil {
@@ -34,6 +41,14 @@ func TestGeneradorReferenciasAltaUsaEntropiaIndependiente(t *testing.T) {
 		referencias.ReciboRef == reserva ||
 		referencias.NumeroVisible[:8] != "2026/CT-" {
 		t.Fatalf("referencias no separadas: %#v %q", referencias, reserva)
+	}
+}
+
+func TestGeneradorReferenciasAltaNumeroVisibleDesdeContadorYMadrid(t *testing.T) {
+	generador := &GeneradorReferenciasAltaCriptografico{lector: bytes.NewReader(bytes.Repeat([]byte{1}, 128)), contador: contadorNumeroVisiblePrueba{"2027/CT-000001"}, ahora: func() time.Time { return time.Date(2026, 12, 31, 23, 30, 0, 0, time.UTC) }}
+	referencias, err := generador.GenerarReferenciasAlta(context.Background())
+	if err != nil || referencias.NumeroVisible != "2027/CT-000001" {
+		t.Fatalf("número=%q error=%v", referencias.NumeroVisible, err)
 	}
 }
 
@@ -60,7 +75,7 @@ func TestGeneradorReferenciasAltaFallaCerrado(t *testing.T) {
 }
 
 func TestGeneradorReferenciasAltaPropagaCancelacion(t *testing.T) {
-	generador := NuevoGeneradorReferenciasAltaCriptografico()
+	generador := NuevoGeneradorReferenciasAltaCriptograficoConContador(contadorNumeroVisiblePrueba{"2026/CT-000001"})
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	if _, err := generador.GenerarReferenciasAlta(ctx); !errors.Is(

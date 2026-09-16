@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -20,8 +19,15 @@ var ErrGeneracionReferenciaAlta = errors.New(
 )
 
 type GeneradorReferenciasAltaCriptografico struct {
-	lector io.Reader
-	ahora  func() time.Time
+	lector   io.Reader
+	ahora    func() time.Time
+	contador ports.ContadorNumeroVisible
+}
+
+func NuevoGeneradorReferenciasAltaCriptograficoConContador(contador ports.ContadorNumeroVisible) *GeneradorReferenciasAltaCriptografico {
+	g := NuevoGeneradorReferenciasAltaCriptografico()
+	g.contador = contador
+	return g
 }
 
 func NuevoGeneradorReferenciasAltaCriptografico() *GeneradorReferenciasAltaCriptografico {
@@ -205,20 +211,18 @@ func (g *GeneradorReferenciasAltaCriptografico) GenerarReferenciasFiscalizacion(
 func (g *GeneradorReferenciasAltaCriptografico) numeroVisible(
 	ctx context.Context,
 ) (string, error) {
-	instante := g.ahora().UTC()
+	if g == nil || g.contador == nil {
+		return "", ErrGeneracionReferenciaAlta
+	}
+	zona, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		return "", ErrGeneracionReferenciaAlta
+	}
+	instante := g.ahora().In(zona)
 	if instante.Year() < 1 || instante.Year() > 9999 {
 		return "", ErrGeneracionReferenciaAlta
 	}
-	aleatorio, err := g.entropia(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer borrar(aleatorio)
-	return fmt.Sprintf(
-		"%04d/CT-%s",
-		instante.Year(),
-		hex.EncodeToString(aleatorio[:16]),
-	), nil
+	return g.contador.SiguienteNumeroVisible(ctx, instante.Year())
 }
 
 func (g *GeneradorReferenciasAltaCriptografico) generar(
