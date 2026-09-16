@@ -254,3 +254,31 @@ estudio se conserva (anexo de `comunicacion.md` y
 https://claude.ai/artifact/5xmJ7snNSiQFpV9L18e5Ng) y las decisiones anteriores
 siguen vigentes para cuando se retomen. Cronos y Dietas necesitarán además su
 ficha de requisitos aprobada. Ninguno de los tres se reporta como avance.
+
+## Una rama de producto, un checkout por máquina — 16 de septiembre de 2026
+
+Alberto ordena unificar ramas y repositorios. Desde hoy:
+
+- **`main` es la única rama de producto.** Nace del producto vigente (`3310bca8`) y
+  es la rama por defecto en GitHub. `vec-orquesta-20260619` queda como etiqueta
+  `historico/vec-orquesta-20260619`.
+- **Ramas de tarea de vida corta**, `trabajo/ct-<tarea>-<fecha>`, creadas desde
+  `main`, integradas en `main` por avance rápido (`--ff-only`) y **borradas al
+  integrar**, en local y en origin. Ninguna rama sobrevive a su tarea.
+- **Worktrees solo en `.worktrees/<tarea>` y solo mientras la tarea está abierta.**
+  Nada en `~/.local/state`. Al integrar, `git worktree remove`. Trabajo no
+  integrado que deba conservarse: etiqueta `archivo/<rama>`, no un worktree.
+- **El servidor no programa.** Su clon sigue `main` con `git pull --ff-only`; no
+  se crean ramas ni worktrees allí. Despliega el artefacto que sale de `main`.
+- **La raíz `~/Trabajo/VEC_Diputacion_app` está en `main`** y es el único
+  checkout principal; `comunicacion.md`, `dudas.md` e `INSTRUCCIONES_DESATASCO.md`
+  viven versionados ahí.
+
+Limpieza del 16/09: 233 worktrees retirados (ramas integradas o etiquetadas;
+diffs sin commit respaldados en `~/.local/state/vec-respaldo-unificacion-20260916`);
+158 ramas no integradas etiquetadas `archivo/`. Se conservan con worktree los
+siete trabajos con cambios sin commit (`vec-apoyo-correo-20260912`,
+`vec-ct-contacto-20260912`, `vec-ct-web-presentacion-20260912`,
+`vec-web-rectificacion-20260912`, `vec-web-subsanacion-20260912`,
+`vec-qwen-jornada-20260915`, `.worktrees/ct-o4-02-rework2`) hasta que su dueño
+los integre o los archive, y los de las tareas en curso.
