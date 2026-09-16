@@ -325,8 +325,8 @@ func huellaBinariaNulaRRHH(valor [sha256.Size]byte) bool {
 	return subtle.ConstantTimeCompare(valor[:], cero[:]) == 1
 }
 
-// huellaMaterialCursorRRHH liga los 32 bytes aleatorios del cursor, no su
-// representación Base64URL. El búfer decodificado se borra antes de volver.
+// huellaMaterialCursorRRHH liga el texto Base64URL canónico, como la evidencia
+// SQL existente. El búfer decodificado se borra antes de volver.
 func huellaMaterialCursorRRHH(
 	cursor string,
 ) ([sha256.Size]byte, error) {
@@ -336,7 +336,7 @@ func huellaMaterialCursorRRHH(
 		base64.RawURLEncoding.EncodeToString(material) != cursor {
 		return [sha256.Size]byte{}, ErrResultadoConsultaRRHHNoConfiable
 	}
-	huella := sha256.Sum256(material)
+	huella := sha256.Sum256([]byte(cursor))
 	if huellaBinariaNulaRRHH(huella) {
 		return [sha256.Size]byte{}, ErrResultadoConsultaRRHHNoConfiable
 	}

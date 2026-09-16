@@ -94,7 +94,7 @@ func (analizadorCanonConsultaRRHHPostgreSQL) analizarCuadro(
 				&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaCursorDecod, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 		}
 		defer clear(materialCursor)
-		huellaCursor := sha256.Sum256(materialCursor)
+		huellaCursor := sha256.Sum256([]byte(cursor))
 		if len(materialCursor) != sha256.Size ||
 			base64.RawURLEncoding.EncodeToString(materialCursor) != cursor ||
 			!bytes.Equal(huellaCursor[:], decodificado.cursorHuella[:]) {

@@ -71,14 +71,14 @@ func TestAnalizadorCuadroRRHHPostgreSQLValidaMaterialRealDelCursor(
 		t.Fatal("el analizador no repuso el cursor validado")
 	}
 
-	// Reproduce el desacuerdo SQL (SHA del texto) frente al lector (SHA raw32).
+	// La evidencia SQL liga el texto canónico; SHA raw32 debe rechazarse.
 	huellaRaw, huellaTexto := sha256.Sum256(material), sha256.Sum256([]byte(cursor))
 	canon := exportacion.BytesCanonicos()
-	if bytes.Count(canon, huellaRaw[:]) != 1 {
+	if bytes.Count(canon, huellaTexto[:]) != 1 {
 		t.Fatal("vector de cursor ambiguo")
 	}
-	canonASCII := bytes.Replace(canon, huellaRaw[:], huellaTexto[:], 1)
-	_, fallo := (analizadorCanonConsultaRRHHPostgreSQL{}).analizarCuadro(canonASCII, cursor, pagina.GeneradaEn, 1)
+	canonRaw := bytes.Replace(canon, huellaTexto[:], huellaRaw[:], 1)
+	_, fallo := (analizadorCanonConsultaRRHHPostgreSQL{}).analizarCuadro(canonRaw, cursor, pagina.GeneradaEn, 1)
 	var diagnosticoCursor *diagnostico.FalloConsultaRRHH
 	if !errors.Is(fallo, ports.ErrResultadoConsultaRRHHNoConfiable) ||
 		!errors.As(fallo, &diagnosticoCursor) || diagnosticoCursor.Etapa != diagnostico.EtapaCursorHuella {

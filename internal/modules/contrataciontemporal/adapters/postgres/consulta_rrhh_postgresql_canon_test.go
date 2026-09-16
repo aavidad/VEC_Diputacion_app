@@ -71,7 +71,7 @@ func TestDecodificarContenidoCuadroRRHHPostgreSQLConservaHuellaCursor(
 	if err != nil {
 		t.Fatalf("decodificar cuadro con cursor: %v", err)
 	}
-	esperada := sha256.Sum256(materialCursor)
+	esperada := sha256.Sum256([]byte(cursor))
 	if !resultado.paginaSinRecibo.HayMas ||
 		resultado.paginaSinRecibo.CursorSiguiente != "" ||
 		resultado.cursorHuella != esperada {
