@@ -76,6 +76,7 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
+	origen                             *origenConsultasContratacionTemporalDesarrollo
 	peticionesCentro                   bool
 	mu                                 sync.Mutex
 	sello                              *selloConsultasContratacionTemporalDesarrollo
@@ -160,8 +161,15 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
 ) (dependenciasAltaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasAltaContratacionTemporalDesarrollo{}
+	var origen *origenConsultasContratacionTemporalDesarrollo
+	if len(origenOpcional) > 0 && origenOpcional[0] != nil {
+		origen = origenOpcional[0]
+	} else if cfg.PersonalOrganizacionSourcePath != "" {
+		origen = nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
+	}
 	if identidad == nil || derivador == nil || !derivador.valido() || sello == nil {
 		return vacias, ErrActivacionDesarrolloInvalida
 	}
@@ -207,7 +215,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		),
 	}
 	instantanea, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
-		datosVinculo.PrincipalID, datosVinculo.PerfilActivoRef, ahora,
+		datosVinculo.PrincipalID, datosVinculo.PerfilActivoRef, ahora, origen,
 	)
 	instantaneaCobertura, errCobertura :=
 		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
@@ -261,7 +269,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		sello: sello, principalID: principal.ID,
+		origen: origen,
+		sello:  sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
 		instantaneaAnalisis:          instantaneaAnalisis,
@@ -325,12 +334,14 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 ) (vechttp.RutaExacta, func(), error) {
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
 	dependencias, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		cfg,
 		identidad,
 		derivador,
 		sello,
 		reloj,
+		origen,
 	)
 	if err != nil {
 		return vechttp.RutaExacta{}, nil, err
@@ -528,18 +539,32 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoAutorizacion
 	}, nil
 }
 
+func (s *soporteAltaContratacionTemporalDesarrollo) centroDeCatalogo(ref string) bool {
+	if s == nil || s.origen == nil {
+		return ref == centroAltaContratacionTemporalDesarrollo
+	}
+	return s.origen.centroDeCatalogo(ref)
+}
+
+func (s *soporteAltaContratacionTemporalDesarrollo) categoriaDeCatalogo(ref string) bool {
+	if s == nil || s.origen == nil {
+		return ref == categoriaAltaContratacionTemporalDesarrollo
+	}
+	return s.origen.categoriaDeCatalogo(ref)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverFlujo,
 ) (ports.ConfiguracionAltaFlujo, error) {
-	centro := centroAltaContratacionTemporalDesarrollo
+	centroValido := s.centroDeCatalogo(solicitud.CentroRef)
 	if e, ok := altaDePeticionConfiable(ctx); ok {
-		centro = e.Peticion.Solicitud.CentroRef
+		centroValido = solicitud.CentroRef == e.Peticion.Solicitud.CentroRef && centroValido
 	}
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.CentroRef != centro ||
-		solicitud.CategoriaRef != categoriaAltaContratacionTemporalDesarrollo ||
+		!centroValido ||
+		!s.categoriaDeCatalogo(solicitud.CategoriaRef) ||
 		solicitud.MotivoClave != motivoAltaContratacionTemporalDesarrollo {
 		return ports.ConfiguracionAltaFlujo{}, ports.ErrFlujoNoDisponible
 	}
@@ -970,7 +995,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
-	} else if !solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
+	} else if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	clave, claveValida := claveInstantaneaContratacionTemporalDesarrolloDesdeDatos(
@@ -1045,7 +1070,7 @@ func claveInstantaneaContratacionTemporalDesarrolloDesdeDatos(
 	return claveInstantaneaContratacionTemporalDesarrollo(solicitud)
 }
 
-func solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(
+func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
 ) bool {
@@ -1056,8 +1081,8 @@ func solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(
 		datos.Finalidad == ports.FinalidadCrearSolicitud &&
 		len(datos.Recurso.Ambitos) == 3 &&
 		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		datos.Recurso.Ambitos["centro_ref"] == centroAltaContratacionTemporalDesarrollo &&
-		datos.Recurso.Ambitos["categoria_ref"] == categoriaAltaContratacionTemporalDesarrollo
+		s.centroDeCatalogo(datos.Recurso.Ambitos["centro_ref"]) &&
+		s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
 }
 
 func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
@@ -1100,7 +1125,18 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
+	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	centros := []string{centroAltaContratacionTemporalDesarrollo}
+	categorias := []string{categoriaAltaContratacionTemporalDesarrollo}
+	var o *origenConsultasContratacionTemporalDesarrollo
+	if len(origenOpcional) > 0 {
+		o = origenOpcional[0]
+	}
+	if o != nil {
+		centros = o.referenciasCentros()
+		categorias = o.referenciasCategorias()
+	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
@@ -1117,8 +1153,8 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		}},
 		[]dominiovec.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "centro_ref", Valores: []string{centroAltaContratacionTemporalDesarrollo}},
-			{Clave: "categoria_ref", Valores: []string{categoriaAltaContratacionTemporalDesarrollo}},
+			{Clave: "centro_ref", Valores: centros},
+			{Clave: "categoria_ref", Valores: categorias},
 		},
 	)
 }

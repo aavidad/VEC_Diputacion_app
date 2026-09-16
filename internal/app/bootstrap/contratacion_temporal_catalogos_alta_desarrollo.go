@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -56,6 +59,124 @@ type respuestaCatalogosAltaContratacionTemporalDesarrollo struct {
 	Data catalogosAltaContratacionTemporalDesarrollo `json:"data"`
 }
 
+var gruposPorCategoriaSinteticaDesarrollo = map[string]string{
+	categoriaAltaContratacionTemporalDesarrollo: grupoSubgrupoAltaContratacionTemporalDesarrollo,
+	"categoria:desarrollo:c1":                   "C1",
+	"categoria:desarrollo:a1":                   "A1",
+	"categoria:desarrollo:a2":                   "A2",
+	"categoria:desarrollo:b":                    "B",
+	"categoria:desarrollo:ap":                   "AP",
+}
+
+var categoriasSinteticasDesarrollo = []categoriaCatalogosAltaContratacionTemporalDesarrollo{
+	{
+		Referencia: "categoria:desarrollo:c2",
+		Etiqueta:   "Auxiliar administrativo/a",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "C2", Etiqueta: "Grupo C2"},
+		},
+	},
+	{
+		Referencia: "categoria:desarrollo:c1",
+		Etiqueta:   "Administrativo/a",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "C1", Etiqueta: "Grupo C1"},
+		},
+	},
+	{
+		Referencia: "categoria:desarrollo:a1",
+		Etiqueta:   "Técnico/a de administración general",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "A1", Etiqueta: "Grupo A1"},
+		},
+	},
+	{
+		Referencia: "categoria:desarrollo:a2",
+		Etiqueta:   "Técnico/a medio/a",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "A2", Etiqueta: "Grupo A2"},
+		},
+	},
+	{
+		Referencia: "categoria:desarrollo:b",
+		Etiqueta:   "Técnico/a especialista",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "B", Etiqueta: "Grupo B"},
+		},
+	},
+	{
+		Referencia: "categoria:desarrollo:ap",
+		Etiqueta:   "Operario/a de servicios",
+		GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			{Clave: "AP", Etiqueta: "Grupo AP"},
+		},
+	},
+}
+
+func categoriaDeCatalogoDesarrollo(ref string) bool {
+	_, ok := gruposPorCategoriaSinteticaDesarrollo[ref]
+	return ok
+}
+
+func grupoSubgrupoDeCatalogoValido(categoriaRef string, grupoSubgrupo string) bool {
+	esperado, ok := gruposPorCategoriaSinteticaDesarrollo[categoriaRef]
+	return ok && esperado == grupoSubgrupo
+}
+
+func construirCatalogosAltaDesarrollo(rutaFuente string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+	if strings.TrimSpace(rutaFuente) == "" {
+		return nil, nil
+	}
+	fuente, err := fichero.NuevaConsultaCatalogos(rutaFuente)
+	if err != nil {
+		return nil, err
+	}
+	consulta, err := personalcatalogos.NuevaConsultaEstructuraOrganizativa(
+		fuente, "estructura-organizativa-dipgra", 1,
+	)
+	if err != nil {
+		return nil, err
+	}
+	datos, err := consulta.Obtener(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
+	for _, u := range datos.Unidades {
+		if u.Tipo == "centro" {
+			cod := u.CodigoFuente
+			if cod == "" {
+				cod = u.Clave
+			}
+			centros = append(centros, centroCatalogosAltaContratacionTemporalDesarrollo{
+				Referencia: "centro:rpt:" + cod,
+				Etiqueta:   u.Etiqueta,
+				Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{
+					{
+						Referencia: "contacto:rpt:" + cod,
+						Etiqueta:   "Contacto del centro",
+					},
+				},
+			})
+		}
+	}
+	categorias := make([]categoriaCatalogosAltaContratacionTemporalDesarrollo, len(categoriasSinteticasDesarrollo))
+	copy(categorias, categoriasSinteticasDesarrollo)
+	motivos := []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+		{
+			Clave:    string(motivoAltaContratacionTemporalDesarrollo),
+			Etiqueta: "Sustitución temporal",
+		},
+	}
+	return &catalogosAltaContratacionTemporalDesarrollo{
+		Esquema:    esquemaCatalogosAltaContratacionTemporal,
+		Centros:    centros,
+		Categorias: categorias,
+		Motivos:    motivos,
+		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+	}, nil
+}
+
 // catalogosAlta devuelve exclusivamente opciones aceptadas por el soporte de
 // alta que comparte este origen. Son datos efimeros, no autoritativos y nunca
 // se registran en la composicion productiva.
@@ -72,6 +193,9 @@ func (o *origenConsultasContratacionTemporalDesarrollo) catalogosAlta() (
 	if o.autoridad != AutoridadNoAutoritativa {
 		return catalogosAltaContratacionTemporalDesarrollo{},
 			errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
+	if o.catalogosCargados != nil {
+		return *o.catalogosCargados, nil
 	}
 	return catalogosAltaContratacionTemporalDesarrollo{
 		Esquema: esquemaCatalogosAltaContratacionTemporal,
@@ -97,6 +221,82 @@ func (o *origenConsultasContratacionTemporalDesarrollo) catalogosAlta() (
 		}},
 		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
 	}, nil
+}
+
+func (o *origenConsultasContratacionTemporalDesarrollo) centroDeCatalogo(ref string) bool {
+	if ref == centroAltaContratacionTemporalDesarrollo {
+		return true
+	}
+	if o == nil {
+		return false
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		return false
+	}
+	for _, c := range catalogos.Centros {
+		if c.Referencia == ref {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *origenConsultasContratacionTemporalDesarrollo) categoriaDeCatalogo(ref string) bool {
+	if ref == categoriaAltaContratacionTemporalDesarrollo {
+		return true
+	}
+	if o == nil {
+		return false
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		return false
+	}
+	for _, cat := range catalogos.Categorias {
+		if cat.Referencia == ref {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCentros() []string {
+	res := []string{centroAltaContratacionTemporalDesarrollo}
+	if o == nil {
+		return res
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		return res
+	}
+	visto := map[string]bool{centroAltaContratacionTemporalDesarrollo: true}
+	for _, c := range catalogos.Centros {
+		if !visto[c.Referencia] {
+			visto[c.Referencia] = true
+			res = append(res, c.Referencia)
+		}
+	}
+	return res
+}
+
+func (o *origenConsultasContratacionTemporalDesarrollo) referenciasCategorias() []string {
+	res := []string{categoriaAltaContratacionTemporalDesarrollo}
+	if o == nil {
+		return res
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		return res
+	}
+	visto := map[string]bool{categoriaAltaContratacionTemporalDesarrollo: true}
+	for _, cat := range catalogos.Categorias {
+		if !visto[cat.Referencia] {
+			visto[cat.Referencia] = true
+			res = append(res, cat.Referencia)
+		}
+	}
+	return res
 }
 
 type manejadorCatalogosAltaContratacionTemporalDesarrollo struct {
@@ -266,8 +466,20 @@ func responderErrorCatalogosAltaContratacionTemporalDesarrollo(
 // el catálogo ni concede nada.
 func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCatalogosAlta() informejuridico.EtiquetadorReferencias {
 	return func(referencia string) string {
+		if o == nil {
+			return ""
+		}
+		if referencia == centroAltaContratacionTemporalDesarrollo {
+			return "Centro solicitante"
+		}
+		if referencia == contactoAltaContratacionTemporalDesarrollo {
+			return "Contacto del centro"
+		}
 		catalogos, err := o.catalogosAlta()
 		if err != nil {
+			if referencia == categoriaAltaContratacionTemporalDesarrollo {
+				return "Categoría C2"
+			}
 			return ""
 		}
 		for _, centro := range catalogos.Centros {
@@ -284,6 +496,9 @@ func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCata
 			if categoria.Referencia == referencia {
 				return categoria.Etiqueta
 			}
+		}
+		if referencia == categoriaAltaContratacionTemporalDesarrollo {
+			return "Categoría C2"
 		}
 		return ""
 	}

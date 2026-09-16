@@ -49,8 +49,8 @@ func solicitudAnalisisContratacionTemporalDesarrolloValida(
 	datos := solicitud.DatosFuncionales
 	if solicitud.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		datos.CategoriaRef != categoriaAltaContratacionTemporalDesarrollo ||
-		datos.GrupoSubgrupo != grupoSubgrupoAltaContratacionTemporalDesarrollo ||
+		!categoriaDeCatalogoDesarrollo(datos.CategoriaRef) ||
+		!grupoSubgrupoDeCatalogoValido(datos.CategoriaRef, datos.GrupoSubgrupo) ||
 		datos.CausaClave != causaAnalisisContratacionTemporalDesarrollo ||
 		datos.EntradaRC.Referencia != entradaRCAnalisisContratacionTemporalDesarrollo ||
 		!hmac.Equal(

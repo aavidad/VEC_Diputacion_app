@@ -193,11 +193,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo()
+	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	reloj := relojContratacionTemporalDesarrollo{}
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
-		cfg, resolvedorDesarrollo, derivador, sello, reloj,
+		cfg, resolvedorDesarrollo, derivador, sello, reloj, origen,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -693,13 +693,20 @@ func principalSinteticoContratacionTemporalDesarrolloValido(
 // sintetica y no autoritativa. Solo satisface los puertos de lectura existentes
 // para que la interfaz pueda demostrar el cuadro y su detalle.
 type origenConsultasContratacionTemporalDesarrollo struct {
-	mu        sync.RWMutex
-	autoridad string
-	pagina    ports.PaginaCuadroRRHH
-	detalles  map[string]ports.DetalleExpedienteRRHH
+	mu                sync.RWMutex
+	autoridad         string
+	pagina            ports.PaginaCuadroRRHH
+	detalles          map[string]ports.DetalleExpedienteRRHH
+	catalogosCargados *catalogosAltaContratacionTemporalDesarrollo
 }
 
-func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContratacionTemporalDesarrollo {
+func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...string) *origenConsultasContratacionTemporalDesarrollo {
+	var catalogos *catalogosAltaContratacionTemporalDesarrollo
+	if len(fuenteOrganizacion) > 0 && strings.TrimSpace(fuenteOrganizacion[0]) != "" {
+		if c, err := construirCatalogosAltaDesarrollo(fuenteOrganizacion[0]); err == nil {
+			catalogos = c
+		}
+	}
 	creadoEn := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
 	actualizadoEn := time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC)
 	resumen := ports.ResumenExpedienteRRHH{
@@ -758,7 +765,8 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo() *origenConsultasContra
 		},
 	}
 	return &origenConsultasContratacionTemporalDesarrollo{
-		autoridad: AutoridadNoAutoritativa,
+		autoridad:         AutoridadNoAutoritativa,
+		catalogosCargados: catalogos,
 		pagina: ports.PaginaCuadroRRHH{
 			GeneradaEn:  actualizadoEn.Add(time.Minute),
 			Expedientes: []ports.ResumenExpedienteRRHH{resumen},
@@ -802,6 +810,26 @@ func (o *origenConsultasContratacionTemporalDesarrollo) registrarExpediente(
 			PeriodoFin:    expediente.Solicitud.Periodo.Fin,
 		},
 		Hitos: hitos,
+	}
+	if expediente.Analisis != nil {
+		var coste *ports.ImporteOperativoRRHH
+		if expediente.Analisis.CostePrevisto != nil {
+			coste = &ports.ImporteOperativoRRHH{
+				Centimos: expediente.Analisis.CostePrevisto.Centimos,
+				Moneda:   expediente.Analisis.CostePrevisto.Moneda,
+			}
+		}
+		detalle.Analisis = &ports.AnalisisOperativoRRHH{
+			ModalidadClave:    expediente.Analisis.ModalidadClave,
+			CategoriaRef:      expediente.Analisis.CategoriaRef,
+			CausaClave:        expediente.Analisis.CausaClave,
+			PeriodoInicio:     expediente.Analisis.Periodo.Inicio,
+			PeriodoFin:        expediente.Analisis.Periodo.Fin,
+			PorcentajeJornada: expediente.Analisis.PorcentajeJornada,
+			ResultadoRC:       expediente.Analisis.ValidacionRC.Resultado,
+			CostePrevisto:     coste,
+			FuenteCosteRef:    expediente.Analisis.FuenteCosteRef,
+		}
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()

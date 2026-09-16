@@ -254,6 +254,9 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
       campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc, t)),
       campo("coste_estimado", "Coste estimado", costeEstimadoVisible(detalle.analisis, locale)),
     );
+    if (detalle.analisis.observaciones) {
+      campos.push(campo("observaciones", t("observaciones", "Observaciones"), detalle.analisis.observaciones));
+    }
   }
   if (detalle.cobertura) {
     campos.push(
@@ -408,6 +411,34 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   const versiones = new Map();
   const capacidadesConsultadas = new Set();
   let secuenciaCuadro = 0;
+  let catalogosCargados = null;
+  let promesaCatalogos = null;
+
+  async function resolverCatalogos() {
+    const directo = obtenerCatalogos();
+    if (directo !== null && directo !== undefined) {
+      return etiquetasCatalogos(() => directo);
+    }
+    if (catalogosCargados !== null) {
+      return catalogosCargados;
+    }
+    if (promesaCatalogos === null) {
+      if (typeof cliente?.catalogosAlta !== "function") {
+        return null;
+      }
+      promesaCatalogos = cliente.catalogosAlta()
+        .then((respuesta) => {
+          catalogosCargados = etiquetasCatalogos(() => respuesta);
+          return catalogosCargados;
+        })
+        .catch(() => {
+          catalogosCargados = null;
+          return null;
+        });
+    }
+    return promesaCatalogos;
+  }
+
   const adaptador = {
     get capacidades() {
       return Object.freeze([...capacidadesConsultadas]);
@@ -417,16 +448,19 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         || !Number.isSafeInteger(numeroPagina) || numeroPagina < 1
         || (numeroPagina === 1) !== (cursor === "")) throw new TypeError("paginación de cuadro no válida");
       const operacion = ++secuenciaCuadro;
-      const pagina = await cliente.consultarCuadroRRHH({
-        filtros: {
-          texto: filtros.texto,
-          estado_clave: estadoServidor(filtros.estado),
-          fase_clave: filtros.fase,
-        },
-        paginacion: { limite: 100, cursor },
-      }, { signal });
+      const [pagina, catalogos] = await Promise.all([
+        cliente.consultarCuadroRRHH({
+          filtros: {
+            texto: filtros.texto,
+            estado_clave: estadoServidor(filtros.estado),
+            fase_clave: filtros.fase,
+          },
+          paginacion: { limite: 100, cursor },
+        }, { signal }),
+        resolverCatalogos(),
+      ]);
       const cuadro = proyectarCuadro(pagina, {
-        cursor, numeroPagina, catalogos: etiquetasCatalogos(obtenerCatalogos), t,
+        cursor, numeroPagina, catalogos, t,
       });
       if (operacion === secuenciaCuadro && !signal?.aborted) {
         versiones.clear();
@@ -440,12 +474,15 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
       if (!Number.isSafeInteger(version) || version < 1) {
         throw new TypeError("expediente fuera del cuadro consultado");
       }
-      const detalle = await cliente.consultarDetalleRRHH({
-        expediente_ref: expedienteRef,
-        version_observada: version,
-      }, { signal });
+      const [detalle, catalogos] = await Promise.all([
+        cliente.consultarDetalleRRHH({
+          expediente_ref: expedienteRef,
+          version_observada: version,
+        }, { signal }),
+        resolverCatalogos(),
+      ]);
       const expediente = proyectarExpediente(
-        detalle, locale, etiquetasCatalogos(obtenerCatalogos), t,
+        detalle, locale, catalogos, t,
       );
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;

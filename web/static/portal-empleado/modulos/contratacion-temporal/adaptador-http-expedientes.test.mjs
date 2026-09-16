@@ -511,3 +511,58 @@ test("raíl deriva los cinco estados y reabre fases tras un retorno real", async
   assert.deepEqual((await proyectar("asignacion_unidad","en_curso",analisisEnSolicitud)).slice(0,4),["completado","completado","en_curso","pendiente"]);
   assert.deepEqual((await proyectar("solicitud","en_curso",analisisEnSolicitud.slice(0,2))).slice(0,3),["completado","completado","pendiente"]);
 });
+
+test("adaptador obtiene catálogo por cliente.catalogosAlta si obtenerCatalogos devuelve null, una sola vez por montaje", async () => {
+  let llamadasCatalogos = 0;
+  const llamadas = [];
+  const baseCliente = clienteFalso(llamadas);
+  const cliente = {
+    ...baseCliente,
+    async catalogosAlta() {
+      llamadasCatalogos += 1;
+      return {
+        esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        centros: [{ referencia: "centro:001", etiqueta: "Centro Municipal Uno", contactos: [] }],
+        categorias: [{ referencia: "categoria:auxiliar", etiqueta: "Auxiliar Administrativo", grupos_subgrupos: [] }],
+        motivos: [],
+        documentos: [],
+      };
+    },
+  };
+
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente,
+    obtenerCatalogos: () => null,
+  });
+
+  const cuadro = await adaptador.listar();
+  assert.equal(llamadasCatalogos, 1);
+  assert.equal(cuadro.expedientes[0].centro, "Centro Municipal Uno");
+  assert.equal(cuadro.expedientes[0].categoria, "Auxiliar Administrativo");
+
+  const detalle = await adaptador.obtener(resumen.expediente_ref);
+  assert.equal(llamadasCatalogos, 1, "no repite la llamada a catalogosAlta en el mismo montaje");
+  const campoCentro = detalle.cabecera.find((c) => c.clave === "centro");
+  assert.equal(campoCentro?.valor, "Centro Municipal Uno");
+});
+
+test("adaptador ante error de cliente.catalogosAlta muestra referencias crudas", async () => {
+  const llamadas = [];
+  const baseCliente = clienteFalso(llamadas);
+  const cliente = {
+    ...baseCliente,
+    async catalogosAlta() {
+      throw new Error("error al consultar catalogos");
+    },
+  };
+
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente,
+    obtenerCatalogos: () => null,
+  });
+
+  const cuadro = await adaptador.listar();
+  assert.equal(cuadro.expedientes[0].centro, "centro:001");
+  assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
+});
+
