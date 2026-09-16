@@ -282,3 +282,45 @@ siete trabajos con cambios sin commit (`vec-apoyo-correo-20260912`,
 `vec-web-rectificacion-20260912`, `vec-web-subsanacion-20260912`,
 `vec-qwen-jornada-20260915`, `.worktrees/ct-o4-02-rework2`) hasta que su dueño
 los integre o los archive, y los de las tareas en curso.
+
+## Parte de estado y reglas de despliegue — 17 de septiembre de 2026
+
+**Puntos 1, 2 y 3 del orden de correcciones: cerrados** con criterio comprobado en la
+principal (`main` = `6900a3cf`):
+
+1. La bandeja de RRHH pagina (p1, p2, p3 → 200 en la misma conexión). Deuda P2-b
+   (cursor ligado al canal TLS) documentada, con doble revisión pendiente.
+2. Todo 5xx deja línea de log en frontera con etapa y `correlacion_ref` (30 rutas).
+3. Lo que RRHH ve: raíl de ocho fases con cinco estados derivados de hitos
+   (`c0ed0dc5`, `094ddf1f`); observaciones del análisis de extremo a extremo
+   (`db8322dd`, `98b18cfc`; migraciones 000101 y 000102); 41 centros de la RPT
+   pública y seis categorías A1/A2/B/C1/C2/AP (`06c88b13`); coste estimado con
+   fuente o «sin calcular» (`f06cb176`); número `AAAA/CT-000001` con contador anual
+   (`400f69f0`; migración 000103); comprobaciones de bolsa con etiqueta
+   (`6900a3cf`; migración 000104). Documentos con nombre de catálogo (`ba53b6d1`).
+
+Sigue el **punto 4** (composición común) y, en paralelo, el bloque de demostración:
+datos que recorran las ocho fases (C6), correo de llamamiento con Mailpit, guion de
+una página. La presentación aislada (`cmd/vec-presentacion`) vuelve a montar
+contratación temporal (`32fc22eb`).
+
+**Reglas aprendidas hoy, de obligado cumplimiento:**
+
+- **Ninguna base de datos nueva en el clúster de la principal.** El arranque acredita
+  que cada rol solo puede conectar a una base; una base nueva da `CONNECT` a `PUBLIC`
+  y la principal deja de arrancar («lectura histórica de cobertura no disponible»).
+  Los ensayos SQL se hacen en una transacción con `ROLLBACK` sobre la principal
+  (migración sin su `COMMIT` final + prueba + `ROLLBACK`) o en un contenedor aparte.
+- **Migraciones mínimas y con `down`**, cabecera y cierre como `000100`; se aplican a
+  mano con `psql` **con el contenedor de la aplicación parado** cuando cambian el
+  formato que Go lee (canon del detalle), y siempre antes del binario nuevo.
+- **El despliegue sincroniza `web/`**: el contenedor monta `artefacto/web` sobre
+  `/app/web`; un despliegue de solo binario deja la web vieja. Usar el script
+  completo (`/tmp/desplegar2.sh` en el servidor: pull, build, parar, binario,
+  `rsync web/`, arrancar) y comprobar en el navegador.
+- **Copias al contenedor con `podman cp <dir>/. contenedor:/destino/`**; copiar el
+  directorio entero sobre uno existente lo anida y se ensaya un fichero viejo.
+- **Los agentes no hacen commit ni tocan el servidor.** Entregan en su worktree o
+  clon aislado con una entrada firmada en `comunicacion.md`; Claude revisa, integra
+  en `main` por avance rápido, ensaya la migración, despliega y comprueba en la
+  principal. Una entrega «para revisión» sin los tests del encargo no se integra.
