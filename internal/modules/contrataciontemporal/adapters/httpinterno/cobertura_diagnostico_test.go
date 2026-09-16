@@ -152,7 +152,7 @@ func TestManejadorPropuestaCoberturaRegistraSoloEtapaDiagnosticaInterna(t *testi
 	if err := json.Unmarshal(salidaRegistro.Bytes(), &registro); err != nil {
 		t.Fatalf("registro interno no es JSON: %v (%s)", err, salidaRegistro.String())
 	}
-	if registro["msg"] != mensajeDiagnosticoPropuestaCoberturaNoDisponible || registro["etapa"] != string(application.EtapaDiagnosticoPresentacionContexto) {
+	if registro["msg"] != "operación de Contratación fallida" || registro["etapa"] != string(application.EtapaDiagnosticoPresentacionContexto) {
 		t.Fatalf("registro no contiene mensaje y etapa fijos: %#v", registro)
 	}
 	for _, clave := range []string{"error", "causa", "expediente_ref", "sesion_ref", "cuerpo"} {
@@ -171,7 +171,7 @@ func TestRegistroDiagnosticoPropuestaCoberturaIgnoraErrorAjeno(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&salidaRegistro, nil)))
 	t.Cleanup(func() { slog.SetDefault(anterior) })
 
-	registrarDiagnosticoPropuestaCoberturaNoDisponible(errors.New(causaPrivadaDiagnosticoCoberturaPrueba))
+	registrarFalloContratacion(nil, http.StatusBadRequest, "peticion_no_valida", "corr_prueba", errors.New(causaPrivadaDiagnosticoCoberturaPrueba))
 	if salidaRegistro.Len() != 0 {
 		t.Fatalf("un error ajeno alcanzó el registro: %s", salidaRegistro.String())
 	}

@@ -42,20 +42,20 @@ func NuevoManejadorSubsanacionReparos(a AutoridadContextoCanalSubsanacionReparos
 
 func (h *manejadorSubsanacionReparos) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r == nil || r.URL == nil || r.URL.Path != RutaSubsanacionReparos || r.URL.RawQuery != "" || r.URL.ForceQuery {
-		responderErrorSubsanacionReparos(w, http.StatusNotFound, "recurso_no_encontrado")
+		responderErrorSubsanacionReparos(w, r, http.StatusNotFound, "recurso_no_encontrado")
 		return
 	}
 	if r.Method != http.MethodPost {
-		responderErrorSubsanacionReparos(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+		responderErrorSubsanacionReparos(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
 	if !tipoContenidoJSON(r.Header) || cabeceraCoberturaProhibida(r.Header) {
-		responderErrorSubsanacionReparos(w, http.StatusBadRequest, "peticion_no_permitida")
+		responderErrorSubsanacionReparos(w, r, http.StatusBadRequest, "peticion_no_permitida")
 		return
 	}
 	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16*1024+1))
 	if err != nil || len(contenido) == 0 || len(contenido) > 16*1024 {
-		responderErrorSubsanacionReparos(w, http.StatusUnprocessableEntity, "contenido_no_valido")
+		responderErrorSubsanacionReparos(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
 	var in struct {
@@ -65,36 +65,36 @@ func (h *manejadorSubsanacionReparos) ServeHTTP(w http.ResponseWriter, r *http.R
 		Observaciones     string `json:"observaciones"`
 	}
 	if !jsonSubsanacionReparosCerrado(contenido) {
-		responderErrorSubsanacionReparos(w, http.StatusUnprocessableEntity, "contenido_no_valido")
+		responderErrorSubsanacionReparos(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
 	dec := json.NewDecoder(bytes.NewReader(contenido))
 	dec.DisallowUnknownFields()
 	if dec.Decode(&in) != nil || dec.Decode(&struct{}{}) != io.EOF || !domain.ReferenciaOpacaValida(in.ExpedienteRef) || !ports.VersionOperacionAnalisisConIncrementoValida(in.VersionEsperada) || !ports.ClaveIdempotenciaValida(in.ClaveIdempotencia) || (domain.DatosSubsanacionReparo{RetornoRef: "retorno:pendiente", Observaciones: in.Observaciones}).Validar() != nil {
-		responderErrorSubsanacionReparos(w, http.StatusUnprocessableEntity, "contenido_no_valido")
+		responderErrorSubsanacionReparos(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
 	c, err := h.autoridad.ResolverContextoCanalSubsanacionReparos(r.Context())
 	if err != nil || !c.valido() {
-		responderErrorSubsanacionReparos(w, http.StatusForbidden, "acceso_denegado")
+		responderErrorSubsanacionReparos(w, r, http.StatusForbidden, "acceso_denegado")
 		return
 	}
 	recibo, err := h.ejecutor.RegistrarSubsanacionReparo(r.Context(), application.SolicitudRegistrarSubsanacionReparo{AutenticacionRef: c.AutenticacionRef, SesionRef: c.SesionRef, PerfilRef: c.PerfilRef, OrganizacionRef: c.OrganizacionRef, ExpedienteRef: in.ExpedienteRef, VersionEsperada: in.VersionEsperada, ClaveIdempotencia: in.ClaveIdempotencia, Observaciones: in.Observaciones})
 	if err != nil {
 		if errors.Is(err, application.ErrSubsanacionReparoDenegada) || errors.Is(err, ports.ErrAutorizacionDenegada) {
-			responderErrorSubsanacionReparos(w, http.StatusForbidden, "acceso_denegado")
+			responderErrorSubsanacionReparos(w, r, http.StatusForbidden, "acceso_denegado")
 		} else if errors.Is(err, domain.ErrVersionEnConflicto) || errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
-			responderErrorSubsanacionReparos(w, http.StatusConflict, "conflicto")
+			responderErrorSubsanacionReparos(w, r, http.StatusConflict, "conflicto")
 		} else {
-			responderErrorSubsanacionReparos(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+			responderErrorSubsanacionReparos(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
 		}
 		return
 	}
 	if recibo.Operacion != ports.OperacionRegistrarSubsanacionReparo || recibo.OrganizacionRef != c.OrganizacionRef || recibo.ExpedienteRef != in.ExpedienteRef || recibo.VersionAnterior != in.VersionEsperada || recibo.VersionResultante != in.VersionEsperada+1 || recibo.FaseResultante != domain.FaseSubsanacionUnidad || recibo.EstadoResultante != domain.EstadoIncidencia || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || !domain.ReferenciaOpacaValida(recibo.AuditoriaRef) || !domain.ReferenciaOpacaValida(recibo.EventoRef) || !domain.ReferenciaOpacaValida(recibo.ActorRef) || !domain.InstanteUTCCanonico(recibo.RegistradaEn) {
-		responderErrorSubsanacionReparos(w, http.StatusBadGateway, "resultado_no_confiable")
+		responderErrorSubsanacionReparos(w, r, http.StatusBadGateway, "resultado_no_confiable")
 		return
 	}
-	responderJSONCobertura(w, http.StatusCreated, envoltorioReciboSubsanacionReparos{Data: reciboSubsanacionReparosJSON{
+	responderJSONCobertura(w, r, http.StatusCreated, envoltorioReciboSubsanacionReparos{Data: reciboSubsanacionReparosJSON{
 		Esquema: "vec.contratacion-temporal.recibo-subsanacion-reparos.v1", Operacion: recibo.Operacion,
 		ExpedienteRef: recibo.ExpedienteRef, VersionResultante: recibo.VersionResultante,
 		FaseResultante: string(recibo.FaseResultante), EstadoResultante: string(recibo.EstadoResultante),
@@ -159,6 +159,6 @@ func jsonSubsanacionReparosCerrado(contenido []byte) bool {
 	return err == io.EOF
 }
 
-func responderErrorSubsanacionReparos(w http.ResponseWriter, estado int, codigo string) {
-	responderJSONCobertura(w, estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: codigo, ClaveI18n: "api.contratacion_temporal.subsanacion_reparos.error." + codigo, CorrelacionRef: nuevaCorrelacionCobertura()}})
+func responderErrorSubsanacionReparos(w http.ResponseWriter, peticion *http.Request, estado int, codigo string, causas ...error) {
+	responderJSONCobertura(w, peticion, estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: codigo, ClaveI18n: "api.contratacion_temporal.subsanacion_reparos.error." + codigo, CorrelacionRef: nuevaCorrelacionCobertura()}}, causas...)
 }

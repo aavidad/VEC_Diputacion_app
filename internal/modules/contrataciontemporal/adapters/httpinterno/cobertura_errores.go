@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
@@ -90,14 +91,24 @@ type detalleErrorCobertura struct {
 	CorrelacionRef string `json:"correlacion_ref"`
 }
 
-func responderErrorCobertura(w http.ResponseWriter, problema errorPublicoCobertura) {
-	responderJSONCobertura(w, problema.estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: problema.codigo, ClaveI18n: problema.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}})
+func responderErrorCobertura(w http.ResponseWriter, peticion *http.Request, problema errorPublicoCobertura, causas ...error) {
+	responderJSONCobertura(w, peticion, problema.estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: problema.codigo, ClaveI18n: problema.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}}, causas...)
 }
-func responderJSONCobertura(w http.ResponseWriter, estado int, valor any) {
+func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estado int, valor any, causas ...error) {
+	var causa error
+	if len(causas) > 0 {
+		causa = causas[0]
+	}
 	contenido, err := json.Marshal(valor)
 	if err != nil || len(contenido) > MaximoRespuestaCoberturaBytes {
 		estado = http.StatusInternalServerError
-		contenido, _ = json.Marshal(envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}})
+		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
+		valor = envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}}
+		contenido, _ = json.Marshal(valor)
+	}
+	if estado >= http.StatusInternalServerError {
+		codigo, correlacion := metadatosErrorContratacion(valor)
+		registrarFalloContratacion(peticion, estado, codigo, correlacion, causa)
 	}
 	aplicarCabecerasCobertura(w)
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))

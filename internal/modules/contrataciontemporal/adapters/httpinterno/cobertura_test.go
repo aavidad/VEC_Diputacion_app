@@ -190,7 +190,7 @@ func TestResponderJSONCoberturaAdmiteProyeccionMaximaGobernada(t *testing.T) {
 		salida.Evaluaciones = append(salida.Evaluaciones, evaluacion)
 	}
 	w := httptest.NewRecorder()
-	responderJSONCobertura(w, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
+	responderJSONCobertura(w, nil, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
 	if w.Code != http.StatusOK || w.Body.Len() > MaximoRespuestaCoberturaBytes {
 		t.Fatalf("estado=%d tamaño=%d", w.Code, w.Body.Len())
 	}

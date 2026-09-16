@@ -60,35 +60,31 @@ func (h *manejadorComunicacionLlamamiento) ServeHTTP(
 ) {
 	if r == nil || h == nil || dependenciaNula(h.ejecutor) {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorServicioComunicacionLlamamientoNoDisponible,
+			w, r, errorServicioComunicacionLlamamientoNoDisponible,
 		)
 		return
 	}
 	if !rutaComunicacionLlamamientoExacta(r) {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorRecursoComunicacionLlamamientoNoEncontrado,
+			w, r, errorRecursoComunicacionLlamamientoNoEncontrado,
 		)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorMetodoComunicacionLlamamientoNoPermitido,
+			w, r, errorMetodoComunicacionLlamamientoNoPermitido,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(err),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(err), err,
 		)
 		return
 	}
 	if problema := validarMetadatosComunicacionLlamamiento(r); problema != nil {
-		responderErrorComunicacionLlamamiento(w, *problema)
+		responderErrorComunicacionLlamamiento(w, r, *problema)
 		return
 	}
 
@@ -101,8 +97,7 @@ func (h *manejadorComunicacionLlamamiento) ServeHTTP(
 		h.continuar(w, r)
 	default:
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorRecursoComunicacionLlamamientoNoEncontrado,
+			w, r, errorRecursoComunicacionLlamamientoNoEncontrado,
 		)
 	}
 }
@@ -114,15 +109,13 @@ func (h *manejadorComunicacionLlamamiento) registrar(
 	solicitud, err := solicitudRegistroComunicacionDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(errContexto),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorEntradaComunicacionLlamamiento(err),
+			w, r, errorEntradaComunicacionLlamamiento(err), err,
 		)
 		return
 	}
@@ -130,15 +123,13 @@ func (h *manejadorComunicacionLlamamiento) registrar(
 	resultado, err := h.ejecutor.Registrar(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(errContexto),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(err),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(err), err,
 		)
 		return
 	}
@@ -148,14 +139,12 @@ func (h *manejadorComunicacionLlamamiento) registrar(
 	)
 	if !valida {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorResultadoComunicacionLlamamientoNoConfiable,
+			w, r, errorResultadoComunicacionLlamamientoNoConfiable,
 		)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		estadoHTTP,
+		w, r, estadoHTTP,
 		envoltorioRegistroComunicacionLlamamiento{Data: salida},
 	)
 }
@@ -167,15 +156,13 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 	solicitud, err := solicitudResolucionLlamamientoDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(errContexto),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorEntradaComunicacionLlamamiento(err),
+			w, r, errorEntradaComunicacionLlamamiento(err), err,
 		)
 		return
 	}
@@ -183,15 +170,13 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 	resultado, err := h.ejecutor.Resolver(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(errContexto),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorComunicacionLlamamiento(
-			w,
-			clasificarErrorComunicacionLlamamientoHTTP(err),
+			w, r, clasificarErrorComunicacionLlamamientoHTTP(err), err,
 		)
 		return
 	}
@@ -201,14 +186,12 @@ func (h *manejadorComunicacionLlamamiento) resolver(
 	)
 	if !valida {
 		responderErrorComunicacionLlamamiento(
-			w,
-			errorResultadoComunicacionLlamamientoNoConfiable,
+			w, r, errorResultadoComunicacionLlamamientoNoConfiable,
 		)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		estadoHTTP,
+		w, r, estadoHTTP,
 		envoltorioResolucionComunicacionLlamamiento{Data: salida},
 	)
 }

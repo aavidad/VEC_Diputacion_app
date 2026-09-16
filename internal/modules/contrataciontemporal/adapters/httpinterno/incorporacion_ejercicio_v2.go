@@ -31,20 +31,20 @@ func NuevoManejadorIncorporacionEjercicioV2(a AutoridadServidorIncorporacionEjer
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !rutaIncorporacionEjercicioV2Exacta(r) {
-			errorHTTPIncorporacionEjercicioV2(w, 400, "peticion_no_valida")
+			errorHTTPIncorporacionEjercicioV2(w, r, 400, "peticion_no_valida")
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodPost {
 			w.Header().Set("Allow", "GET, POST")
-			errorHTTPIncorporacionEjercicioV2(w, 405, "metodo_no_permitido")
+			errorHTTPIncorporacionEjercicioV2(w, r, 405, "metodo_no_permitido")
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		if !cabecerasPropuestaFormalizacionPermitidas(r) || !acceptCompatibleJSON(r.Header) {
-			errorHTTPIncorporacionEjercicioV2(w, 400, "peticion_no_valida")
+			errorHTTPIncorporacionEjercicioV2(w, r, 400, "peticion_no_valida")
 			return
 		}
 		var entrada EntradaIncorporacionEjercicioV2
@@ -57,90 +57,90 @@ func NuevoManejadorIncorporacionEjercicioV2(a AutoridadServidorIncorporacionEjer
 			expediente = entrada.ExpedienteRef
 		}
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		if err != nil {
-			errorHTTPIncorporacionEjercicioV2(w, 400, "peticion_no_valida")
+			errorHTTPIncorporacionEjercicioV2(w, r, 400, "peticion_no_valida")
 			return
 		}
 		if !domain.ReferenciaOpacaValida(expediente) {
 			if r.Method == http.MethodGet {
-				errorHTTPIncorporacionEjercicioV2(w, 400, "peticion_no_valida")
+				errorHTTPIncorporacionEjercicioV2(w, r, 400, "peticion_no_valida")
 			} else {
-				errorHTTPIncorporacionEjercicioV2(w, 422, "contenido_no_valido")
+				errorHTTPIncorporacionEjercicioV2(w, r, 422, "contenido_no_valido")
 			}
 			return
 		}
 		if r.Method == http.MethodPost && entrada.Validar() != nil {
-			errorHTTPIncorporacionEjercicioV2(w, 422, "contenido_no_valido")
+			errorHTTPIncorporacionEjercicioV2(w, r, 422, "contenido_no_valido")
 			return
 		}
 		err = a.ResolverContextoIncorporacionEjercicioV2(r.Context())
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		if err != nil {
-			errorOperacionIncorporacionEjercicioV2(w, err)
+			errorOperacionIncorporacionEjercicioV2(w, r, err)
 			return
 		}
 		if r.Method == http.MethodGet {
 			out, err := e.Consultar(r.Context(), expediente)
 			if r.Context().Err() != nil {
-				errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+				errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 				return
 			}
 			if err != nil {
 				if !reflect.ValueOf(out).IsZero() {
 					err = ErrManejadorIncorporacionEjercicioV2
 				}
-				errorOperacionIncorporacionEjercicioV2(w, err)
+				errorOperacionIncorporacionEjercicioV2(w, r, err)
 				return
 			}
 			if !proyeccionIncorporacionHTTPValida(out, expediente) {
-				errorOperacionIncorporacionEjercicioV2(w, ErrManejadorIncorporacionEjercicioV2)
+				errorOperacionIncorporacionEjercicioV2(w, r, ErrManejadorIncorporacionEjercicioV2)
 				return
 			}
 			out = copiarProyeccionIncorporacionHTTP(out)
 			if r.Context().Err() != nil {
-				errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+				errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 				return
 			}
-			responderJSONCobertura(w, http.StatusOK, struct {
+			responderJSONCobertura(w, r, http.StatusOK, struct {
 				Data ports.ProyeccionIncorporacionAplicacionV2 `json:"data"`
 			}{out})
 			return
 		}
 		out, err := e.Confirmar(r.Context(), entrada.Copia())
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		if err != nil {
 			if !reflect.ValueOf(out).IsZero() {
 				err = ErrManejadorIncorporacionEjercicioV2
 			}
-			errorOperacionIncorporacionEjercicioV2(w, err)
+			errorOperacionIncorporacionEjercicioV2(w, r, err)
 			return
 		}
 		if !reciboIncorporacionHTTPValido(out, expediente) || out.SolicitudPersonalRef != entrada.SolicitudPersonalRef ||
 			out.VersionActualExpediente > entrada.VersionActualExpedienteObservada {
-			errorOperacionIncorporacionEjercicioV2(w, ErrManejadorIncorporacionEjercicioV2)
+			errorOperacionIncorporacionEjercicioV2(w, r, ErrManejadorIncorporacionEjercicioV2)
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		// Recibo PUBLICO minimizado de B; no se serializa Material/Orden/Historia.
-		responderJSONCobertura(w, http.StatusOK, struct {
+		responderJSONCobertura(w, r, http.StatusOK, struct {
 			Data ports.ReciboIncorporacionAplicacionV2 `json:"data"`
 		}{out})
 	}), nil
 }
 
-func errorOperacionIncorporacionEjercicioV2(w http.ResponseWriter, err error) {
+func errorOperacionIncorporacionEjercicioV2(w http.ResponseWriter, peticion *http.Request, err error) {
 	status, codigo := 503, "servicio_no_disponible"
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
@@ -151,7 +151,7 @@ func errorOperacionIncorporacionEjercicioV2(w http.ResponseWriter, err error) {
 	case errors.Is(err, ports.ErrConflictoIncorporacionAplicacion):
 		status, codigo = 409, "conflicto"
 	}
-	errorHTTPIncorporacionEjercicioV2(w, status, codigo)
+	errorHTTPIncorporacionEjercicioV2(w, peticion, status, codigo, err)
 }
 
 func rutaIncorporacionEjercicioV2Exacta(r *http.Request) bool {
@@ -161,10 +161,10 @@ func rutaIncorporacionEjercicioV2Exacta(r *http.Request) bool {
 		(r.Method == http.MethodGet || r.URL.RawQuery == "") && r.URL.EscapedPath() == r.URL.Path
 }
 
-func errorHTTPIncorporacionEjercicioV2(w http.ResponseWriter, status int, codigo string) {
-	responderJSONCobertura(w, status, map[string]any{"error": map[string]string{
+func errorHTTPIncorporacionEjercicioV2(w http.ResponseWriter, peticion *http.Request, status int, codigo string, causas ...error) {
+	responderJSONCobertura(w, peticion, status, map[string]any{"error": map[string]string{
 		"codigo":          codigo,
 		"clave_i18n":      "api.contratacion_temporal.incorporacion_ejercicio.error." + codigo,
-		"correlacion_ref": "corr_no_disponible",
-	}})
+		"correlacion_ref": nuevaCorrelacionCobertura(),
+	}}, causas...)
 }

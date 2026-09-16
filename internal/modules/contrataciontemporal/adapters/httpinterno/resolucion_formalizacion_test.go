@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -310,9 +311,18 @@ func TestResolucionFormalizacionHTTPErroresContratoDelta2(t *testing.T) {
 				}
 				w := httptest.NewRecorder()
 				h.ServeHTTP(w, r)
-				want := `{"error":{"clave_i18n":"api.contratacion_temporal.resolucion_formalizacion.error.` + caso.codigo + `","codigo":"` + caso.codigo + `","correlacion_ref":"corr_no_disponible"}}`
-				if w.Code != caso.status || w.Body.String() != want {
-					t.Fatalf("HTTP %d body=%s; esperado HTTP %d body=%s", w.Code, w.Body.String(), caso.status, want)
+				var recibido struct {
+					Error struct {
+						ClaveI18n      string `json:"clave_i18n"`
+						Codigo         string `json:"codigo"`
+						CorrelacionRef string `json:"correlacion_ref"`
+					} `json:"error"`
+				}
+				if w.Code != caso.status || json.Unmarshal(w.Body.Bytes(), &recibido) != nil ||
+					recibido.Error.ClaveI18n != "api.contratacion_temporal.resolucion_formalizacion.error."+caso.codigo ||
+					recibido.Error.Codigo != caso.codigo ||
+					!correlacionCoberturaValidaPrueba(recibido.Error.CorrelacionRef) {
+					t.Fatalf("HTTP %d body=%s; respuesta de error inválida", w.Code, w.Body.String())
 				}
 				if len(w.Header().Values("Set-Cookie")) != 0 || strings.Contains(w.Body.String(), "privad") ||
 					strings.Contains(w.Body.String(), `"data"`) || !strings.Contains(w.Header().Get("Cache-Control"), "no-store") {
@@ -339,6 +349,14 @@ func TestResolucionFormalizacionHTTPErroresContratoDelta2(t *testing.T) {
 			})
 		}
 	}
+}
+
+func correlacionCoberturaValidaPrueba(v string) bool {
+	if !strings.HasPrefix(v, "corr_") || len(v) != len("corr_")+32 {
+		return false
+	}
+	_, err := hex.DecodeString(v[len("corr_"):])
+	return err == nil
 }
 
 type consultaResolucionPDFPrueba struct {

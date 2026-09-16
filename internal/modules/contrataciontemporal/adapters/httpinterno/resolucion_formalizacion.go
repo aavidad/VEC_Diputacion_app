@@ -56,22 +56,22 @@ func (v EntradaResolucionFormalizacion) solicitud() ports.SolicitudResolucionFor
 		FechaResolucion: v.FechaResolucion, Motivo: v.Motivo, ConfirmaRevisionPropuesta: v.ConfirmaRevisionPropuesta,
 		ConfirmaEjercicioManual: v.ConfirmaEjercicioManual}
 }
-func errorHTTPResolucion(w http.ResponseWriter, status int, codigo string) {
-	responderJSONCobertura(w, status, map[string]any{"error": map[string]string{"codigo": codigo,
-		"clave_i18n": "api.contratacion_temporal.resolucion_formalizacion.error." + codigo, "correlacion_ref": "corr_no_disponible"}})
+func errorHTTPResolucion(w http.ResponseWriter, peticion *http.Request, status int, codigo string, causas ...error) {
+	responderJSONCobertura(w, peticion, status, map[string]any{"error": map[string]string{"codigo": codigo,
+		"clave_i18n": "api.contratacion_temporal.resolucion_formalizacion.error." + codigo, "correlacion_ref": nuevaCorrelacionCobertura()}}, causas...)
 }
-func errorOperacionResolucion(w http.ResponseWriter, e error) {
+func errorOperacionResolucion(w http.ResponseWriter, peticion *http.Request, e error) {
 	switch {
 	case errors.Is(e, ports.ErrSolicitudResolucionFormalizacionInvalida):
-		errorHTTPResolucion(w, 422, "contenido_no_valido")
+		errorHTTPResolucion(w, peticion, 422, "contenido_no_valido")
 	case errors.Is(e, ports.ErrResolucionFormalizacionDenegada), errors.Is(e, ports.ErrAutorizacionDenegada):
-		errorHTTPResolucion(w, 403, "acceso_denegado")
+		errorHTTPResolucion(w, peticion, 403, "acceso_denegado")
 	case errors.Is(e, ports.ErrClaveResolucionFormalizacionUsada):
-		errorHTTPResolucion(w, 409, "conflicto")
+		errorHTTPResolucion(w, peticion, 409, "conflicto")
 	case errors.Is(e, ports.ErrResolucionFormalizacionEnConflicto):
-		errorHTTPResolucion(w, 409, "conflicto")
+		errorHTTPResolucion(w, peticion, 409, "conflicto")
 	default:
-		errorHTTPResolucion(w, 503, "servicio_no_disponible")
+		errorHTTPResolucion(w, peticion, 503, "servicio_no_disponible", e)
 	}
 }
 func NuevoManejadorResolucionFormalizacion(a AutoridadServidorResolucionFormalizacion, e EjecutorResolucionFormalizacion) (http.Handler, error) {
@@ -81,7 +81,7 @@ func NuevoManejadorResolucionFormalizacion(a AutoridadServidorResolucionFormaliz
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r == nil || r.URL == nil || r.URL.Path != RutaResolucionFormalizacion || r.URL.RawPath != "" || (r.Method != http.MethodGet && r.URL.RawQuery != "") ||
 			r.URL.ForceQuery || r.URL.Scheme != "" || r.URL.Host != "" || r.URL.User != nil || r.URL.Opaque != "" || r.URL.Fragment != "" || r.URL.RawFragment != "" {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		if r.Method == http.MethodGet {
@@ -90,70 +90,70 @@ func NuevoManejadorResolucionFormalizacion(a AutoridadServidorResolucionFormaliz
 		}
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", "GET, POST")
-			errorHTTPResolucion(w, 405, "metodo_no_permitido")
+			errorHTTPResolucion(w, r, 405, "metodo_no_permitido")
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionResolucion(w, r.Context().Err())
+			errorOperacionResolucion(w, r, r.Context().Err())
 			return
 		}
 		if r.Body == nil || r.Body == http.NoBody || r.ContentLength > 4096 || len(r.Trailer) != 0 ||
 			!transferenciaAltaPermitida(r.TransferEncoding) || !cabecerasPropuestaFormalizacionPermitidas(r) ||
 			!tipoContenidoJSON(r.Header) || !acceptCompatibleJSON(r.Header) {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4096))
 		if err != nil || validarJSONPropuestaFormalizacionSinDuplicados(raw) != nil {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		var in EntradaResolucionFormalizacion
 		d := json.NewDecoder(bytes.NewReader(raw))
 		d.DisallowUnknownFields()
 		if d.Decode(&in) != nil || d.Decode(&struct{}{}) != io.EOF {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		var campos map[string]json.RawMessage
 		if json.Unmarshal(raw, &campos) != nil || len(campos) != 9 {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		s := in.solicitud()
 		if s.Validar() != nil {
-			errorHTTPResolucion(w, 422, "contenido_no_valido")
+			errorHTTPResolucion(w, r, 422, "contenido_no_valido")
 			return
 		}
 		if err = a.ResolverContextoResolucionFormalizacion(r.Context()); err != nil {
-			errorOperacionResolucion(w, err)
+			errorOperacionResolucion(w, r, err)
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionResolucion(w, r.Context().Err())
+			errorOperacionResolucion(w, r, r.Context().Err())
 			return
 		}
 		out, err := e.RegistrarResolucionFormalizacion(r.Context(), s)
 		if r.Context().Err() != nil {
-			errorOperacionResolucion(w, r.Context().Err())
+			errorOperacionResolucion(w, r, r.Context().Err())
 			return
 		}
 		if err != nil {
 			if out != (ports.ResultadoResolucionFormalizacion{}) {
 				err = ports.ErrResultadoResolucionFormalizacionNoConfiable
 			}
-			errorOperacionResolucion(w, err)
+			errorOperacionResolucion(w, r, err)
 			return
 		}
 		if out.ValidarPara(s) != nil {
-			errorOperacionResolucion(w, ports.ErrResultadoResolucionFormalizacionNoConfiable)
+			errorOperacionResolucion(w, r, ports.ErrResultadoResolucionFormalizacionNoConfiable)
 			return
 		}
 		status := 201
 		if out.Estado == "replay_registrada" {
 			status = 200
 		}
-		responderJSONCobertura(w, status, struct {
+		responderJSONCobertura(w, r, status, struct {
 			Data ResultadoResolucionFormalizacion `json:"data"`
 		}{proyectarResolucionFormalizacion(out)})
 	}), nil
@@ -171,50 +171,50 @@ type preparacionResolucionJSON struct {
 func responderPreparacionResolucion(w http.ResponseWriter, r *http.Request, a AutoridadServidorResolucionFormalizacion, e EjecutorResolucionFormalizacion) {
 	if len(r.URL.RawQuery) > 600 || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 ||
 		!cabecerasPropuestaFormalizacionPermitidas(r) || !acceptCompatibleJSON(r.Header) {
-		errorHTTPResolucion(w, 400, "peticion_no_valida")
+		errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 		return
 	}
 	if r.Body != nil && r.Body != http.NoBody {
 		b, err := io.ReadAll(io.LimitReader(r.Body, 1))
 		if err != nil || len(b) != 0 {
-			errorHTTPResolucion(w, 400, "peticion_no_valida")
+			errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 			return
 		}
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil || len(q) != 1 || len(q["expediente_ref"]) != 1 {
-		errorHTTPResolucion(w, 400, "peticion_no_valida")
+		errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 		return
 	}
 	ref := q.Get("expediente_ref")
 	if _, err = ports.NuevaSolicitudDetalleRRHH(ref, 0); err != nil {
-		errorHTTPResolucion(w, 400, "peticion_no_valida")
+		errorHTTPResolucion(w, r, 400, "peticion_no_valida")
 		return
 	}
 	if r.Context().Err() != nil {
-		errorOperacionResolucion(w, r.Context().Err())
+		errorOperacionResolucion(w, r, r.Context().Err())
 		return
 	}
 	lector, ok := e.(ports.ConsultorPreparacionResolucionFormalizacion)
 	if !ok || dependenciaNula(lector) {
-		errorOperacionResolucion(w, ports.ErrResolucionFormalizacionNoDisponible)
+		errorOperacionResolucion(w, r, ports.ErrResolucionFormalizacionNoDisponible)
 		return
 	}
 	if err = a.ResolverContextoResolucionFormalizacion(r.Context()); err != nil {
-		errorOperacionResolucion(w, err)
+		errorOperacionResolucion(w, r, err)
 		return
 	}
 	p, err := lector.ConsultarPreparacionResolucionFormalizacion(r.Context(), ref)
 	if r.Context().Err() != nil {
-		errorOperacionResolucion(w, r.Context().Err())
+		errorOperacionResolucion(w, r, r.Context().Err())
 		return
 	}
 	if err != nil {
-		errorOperacionResolucion(w, err)
+		errorOperacionResolucion(w, r, err)
 		return
 	}
 	if p.ValidarPara(ref) != nil {
-		errorOperacionResolucion(w, ports.ErrResultadoResolucionFormalizacionNoConfiable)
+		errorOperacionResolucion(w, r, ports.ErrResultadoResolucionFormalizacionNoConfiable)
 		return
 	}
 	out := preparacionResolucionJSON{Esquema: "vec.contratacion-temporal.resolucion-formalizacion.preparacion.v1",
@@ -223,7 +223,7 @@ func responderPreparacionResolucion(w http.ResponseWriter, r *http.Request, a Au
 		recibo := proyectarResolucionFormalizacion(*p.Recibo)
 		out.Recibo = &recibo
 	}
-	responderJSONCobertura(w, 200, struct {
+	responderJSONCobertura(w, r, 200, struct {
 		Data preparacionResolucionJSON `json:"data"`
 	}{out})
 }

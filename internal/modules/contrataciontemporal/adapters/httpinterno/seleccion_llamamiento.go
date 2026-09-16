@@ -51,49 +51,43 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 ) {
 	if h == nil || dependenciaSeleccionLlamamientoNula(h.ejecutor) {
 		responderErrorSeleccionLlamamiento(
-			w,
-			errorServicioSeleccionLlamamientoNoDisponible,
+			w, r, errorServicioSeleccionLlamamientoNoDisponible,
 		)
 		return
 	}
 	if !rutaSeleccionLlamamientoExacta(r) {
 		responderErrorSeleccionLlamamiento(
-			w,
-			errorRecursoSeleccionLlamamientoNoEncontrado,
+			w, r, errorRecursoSeleccionLlamamientoNoEncontrado,
 		)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		responderErrorSeleccionLlamamiento(
-			w,
-			errorMetodoSeleccionLlamamientoNoPermitido,
+			w, r, errorMetodoSeleccionLlamamientoNoPermitido,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorSeleccionLlamamiento(
-			w,
-			clasificarErrorSeleccionLlamamiento(err),
+			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
 		return
 	}
 	if problema := validarMetadatosSeleccionLlamamiento(r); problema != nil {
-		responderErrorSeleccionLlamamiento(w, *problema)
+		responderErrorSeleccionLlamamiento(w, r, *problema)
 		return
 	}
 	entrada, err := seleccionLlamamientoDesdePeticion(w, r)
 	if err != nil {
 		responderErrorSeleccionLlamamiento(
-			w,
-			errorEntradaSeleccionLlamamiento(err),
+			w, r, errorEntradaSeleccionLlamamiento(err), err,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorSeleccionLlamamiento(
-			w,
-			clasificarErrorSeleccionLlamamiento(err),
+			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
 		return
 	}
@@ -107,29 +101,25 @@ func (h *manejadorSeleccionLlamamiento) ServeHTTP(
 	)
 	if err != nil {
 		responderErrorSeleccionLlamamiento(
-			w,
-			clasificarErrorSeleccionLlamamiento(err),
+			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorSeleccionLlamamiento(
-			w,
-			clasificarErrorSeleccionLlamamiento(err),
+			w, r, clasificarErrorSeleccionLlamamiento(err), err,
 		)
 		return
 	}
 	salida, valida := proyectarReciboSeleccionLlamamiento(recibo)
 	if !valida {
 		responderErrorSeleccionLlamamiento(
-			w,
-			errorResultadoSeleccionLlamamientoNoConfiable,
+			w, r, errorResultadoSeleccionLlamamientoNoConfiable,
 		)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		http.StatusOK,
+		w, r, http.StatusOK,
 		envoltorioReciboSeleccionLlamamiento{Data: salida},
 	)
 }

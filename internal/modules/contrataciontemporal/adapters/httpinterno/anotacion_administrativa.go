@@ -41,69 +41,69 @@ func NuevoManejadorAnotacionAdministrativa(a AutoridadContextoCanalAnotacionAdmi
 }
 func (h *manejadorAnotacionAdministrativa) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r == nil || r.URL == nil {
-		errorAnotacion(w, 400, "peticion_no_valida")
+		errorAnotacion(w, r, 400, "peticion_no_valida")
 		return
 	}
 	recuperacion := r.URL.Path == RutaRecuperacionAnotacionesAdministrativas
 	if (!recuperacion && r.URL.Path != RutaAnotacionesAdministrativas) || (recuperacion && r.Method != http.MethodGet) || (!recuperacion && r.Method != http.MethodPost) {
-		errorAnotacion(w, 404, "recurso_no_encontrado")
+		errorAnotacion(w, r, 404, "recurso_no_encontrado")
 		return
 	}
 	if !recuperacion && (r.URL.RawQuery != "" || r.URL.ForceQuery) {
-		errorAnotacion(w, http.StatusBadRequest, "peticion_no_valida")
+		errorAnotacion(w, r, http.StatusBadRequest, "peticion_no_valida")
 		return
 	}
 	c, err := h.autoridad.ResolverContextoCanalAnotacionAdministrativa(r.Context())
 	if err != nil {
-		responderErrorAnotacion(w, clasificarAnotacion(err))
+		responderErrorAnotacion(w, r, clasificarAnotacion(err), err)
 		return
 	}
 	if !c.valido() {
-		responderErrorAnotacion(w, errorAccesoAnotacionDenegado)
+		responderErrorAnotacion(w, r, errorAccesoAnotacionDenegado)
 		return
 	}
 	if recuperacion {
 		exp, key, valida := consultaRecuperacionAnotacion(r)
 		if !valida {
-			errorAnotacion(w, 400, "peticion_no_valida")
+			errorAnotacion(w, r, 400, "peticion_no_valida")
 			return
 		}
 		recibo, err := h.ejecutor.RecuperarAnotacionAdministrativa(r.Context(), exp, key, c)
 		if err != nil {
-			responderErrorAnotacion(w, clasificarAnotacion(err))
+			responderErrorAnotacion(w, r, clasificarAnotacion(err), err)
 			return
 		}
 		if !reciboAnotacionValidoParaContexto(recibo, c, exp, 0) {
-			responderErrorAnotacion(w, errorServicioAnotacionNoDisponible)
+			responderErrorAnotacion(w, r, errorServicioAnotacionNoDisponible)
 			return
 		}
-		responderReciboAnotacion(w, http.StatusOK, recibo)
+		responderReciboAnotacion(w, r, http.StatusOK, recibo)
 		return
 	}
 	if !tipoContenidoJSON(r.Header) {
-		errorAnotacion(w, 422, "contenido_no_valido")
+		errorAnotacion(w, r, 422, "contenido_no_valido")
 		return
 	}
 	contenido, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoAnotacionAdministrativaBytes+1))
 	if err != nil {
-		errorAnotacion(w, http.StatusUnprocessableEntity, "contenido_no_valido")
+		errorAnotacion(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
 	in, err := decodificarEntradaAnotacionAdministrativa(contenido)
 	if err != nil {
-		errorAnotacion(w, 422, "contenido_no_valido")
+		errorAnotacion(w, r, 422, "contenido_no_valido")
 		return
 	}
 	recibo, err := h.ejecutor.RegistrarAnotacionAdministrativa(r.Context(), application.SolicitudRegistrarAnotacionAdministrativa{AutenticacionRef: c.AutenticacionRef, SesionRef: c.SesionRef, PerfilRef: c.PerfilRef, OrganizacionRef: c.OrganizacionRef, ExpedienteRef: in.ExpedienteRef, VersionEsperada: in.VersionEsperada, ClaveIdempotencia: in.ClaveIdempotencia, Observaciones: in.Observaciones})
 	if err != nil {
-		responderErrorAnotacion(w, clasificarAnotacion(err))
+		responderErrorAnotacion(w, r, clasificarAnotacion(err), err)
 		return
 	}
 	if !reciboAnotacionValidoParaContexto(recibo, c, in.ExpedienteRef, in.VersionEsperada) {
-		responderErrorAnotacion(w, errorServicioAnotacionNoDisponible)
+		responderErrorAnotacion(w, r, errorServicioAnotacionNoDisponible)
 		return
 	}
-	responderReciboAnotacion(w, http.StatusCreated, recibo)
+	responderReciboAnotacion(w, r, http.StatusCreated, recibo)
 }
 
 func consultaRecuperacionAnotacion(r *http.Request) (string, string, bool) {
@@ -165,15 +165,15 @@ func clasificarAnotacion(e error) errorPublicoCobertura {
 	}
 }
 
-func errorAnotacion(w http.ResponseWriter, estado int, codigo string) {
-	responderErrorAnotacion(w, nuevoErrorAnotacion(estado, codigo))
+func errorAnotacion(w http.ResponseWriter, peticion *http.Request, estado int, codigo string) {
+	responderErrorAnotacion(w, peticion, nuevoErrorAnotacion(estado, codigo))
 }
 
-func responderErrorAnotacion(w http.ResponseWriter, problema errorPublicoCobertura) {
-	responderJSONCobertura(w, problema.estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{
+func responderErrorAnotacion(w http.ResponseWriter, peticion *http.Request, problema errorPublicoCobertura, causas ...error) {
+	responderJSONCobertura(w, peticion, problema.estado, envoltorioErrorCobertura{Error: detalleErrorCobertura{
 		Codigo: problema.codigo, ClaveI18n: problema.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura(),
-	}})
+	}}, causas...)
 }
-func responderReciboAnotacion(w http.ResponseWriter, s int, r ports.ReciboAnotacionAdministrativa) {
-	responderJSONCobertura(w, s, map[string]any{"data": r})
+func responderReciboAnotacion(w http.ResponseWriter, peticion *http.Request, s int, r ports.ReciboAnotacionAdministrativa) {
+	responderJSONCobertura(w, peticion, s, map[string]any{"data": r})
 }

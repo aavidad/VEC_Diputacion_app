@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -123,28 +121,7 @@ func responderJSONConsultaRRHH(w http.ResponseWriter, r *http.Request, estado in
 	}
 	if estado >= http.StatusInternalServerError {
 		if fallo, ok := valor.(envoltorioErrorConsultaRRHH); ok {
-			ruta, operacion := "ruta_no_reconocida", "consulta_rrhh"
-			if r != nil && r.URL != nil {
-				switch r.URL.Path {
-				case RutaConsultaCuadroRRHH:
-					ruta, operacion = RutaConsultaCuadroRRHH, "consulta_cuadro_rrhh"
-				case RutaConsultaDetalleRRHH:
-					ruta, operacion = RutaConsultaDetalleRRHH, "consulta_detalle_rrhh"
-				}
-			}
-			etapa, sqlstate := "desconocida", ""
-			var falloInterno *diagnostico.FalloConsultaRRHH
-			if errors.As(causa, &falloInterno) && falloInterno != nil {
-				etapa = falloInterno.EtapaSegura()
-				if len(falloInterno.CodigoSQL) == 5 && strings.IndexFunc(falloInterno.CodigoSQL, func(c rune) bool {
-					return !(c >= '0' && c <= '9' || c >= 'A' && c <= 'Z')
-				}) == -1 {
-					sqlstate = falloInterno.CodigoSQL
-				}
-			}
-			slog.Error("consulta RRHH fallida", "operacion", operacion, "ruta", ruta,
-				"estado_http", estado, "codigo", fallo.Error.Codigo,
-				"etapa", etapa, "sqlstate", sqlstate, "correlacion_ref", fallo.Error.CorrelacionRef)
+			registrarFalloContratacion(r, estado, fallo.Error.Codigo, fallo.Error.CorrelacionRef, causa)
 		}
 	}
 	aplicarCabecerasCobertura(w)

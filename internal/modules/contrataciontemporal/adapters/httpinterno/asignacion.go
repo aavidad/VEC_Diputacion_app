@@ -82,38 +82,37 @@ func (h *manejadorAsignacion) ServeHTTP(
 ) {
 	if h == nil || dependenciaNula(h.autoridad) ||
 		dependenciaNula(h.ejecutor) {
-		responderErrorAsignacion(w, errorServicioAsignacionNoDisponible)
+		responderErrorAsignacion(w, r, errorServicioAsignacionNoDisponible)
 		return
 	}
 	operacion, rutaValida := operacionAsignacionHTTP(r)
 	if !rutaValida {
-		responderErrorAsignacion(w, errorRecursoAsignacionNoEncontrado)
+		responderErrorAsignacion(w, r, errorRecursoAsignacionNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorAsignacion(w, errorMetodoAsignacionNoPermitido)
+		responderErrorAsignacion(w, r, errorMetodoAsignacionNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorAsignacion(w, clasificarErrorAsignacionHTTP(err))
+		responderErrorAsignacion(w, r, clasificarErrorAsignacionHTTP(err), err)
 		return
 	}
 	if problema := validarMetadatosAsignacion(r); problema != nil {
-		responderErrorAsignacion(w, *problema)
+		responderErrorAsignacion(w, r, *problema)
 		return
 	}
 
 	entrada, err := asignacionDesdePeticion(w, r, operacion)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorAsignacion(
-			w,
-			clasificarErrorAsignacionHTTP(errContexto),
+			w, r, clasificarErrorAsignacionHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorAsignacion(w, errorEntradaAsignacion(err))
+		responderErrorAsignacion(w, r, errorEntradaAsignacion(err), err)
 		return
 	}
 
@@ -121,21 +120,20 @@ func (h *manejadorAsignacion) ServeHTTP(
 		ResolverContextoCanalAsignacion(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorAsignacion(
-			w,
-			clasificarErrorAsignacionHTTP(errContexto),
+			w, r, clasificarErrorAsignacionHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorAsignacion(w, clasificarErrorAsignacionHTTP(err))
+		responderErrorAsignacion(w, r, clasificarErrorAsignacionHTTP(err), err)
 		return
 	}
 	if !contextoCanal.valido() {
-		responderErrorAsignacion(w, errorServicioAsignacionNoDisponible)
+		responderErrorAsignacion(w, r, errorServicioAsignacionNoDisponible)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorAsignacion(w, clasificarErrorAsignacionHTTP(err))
+		responderErrorAsignacion(w, r, clasificarErrorAsignacionHTTP(err), err)
 		return
 	}
 
@@ -149,26 +147,24 @@ func (h *manejadorAsignacion) ServeHTTP(
 	if err != nil {
 		if recibo != (ports.ReciboAsignacion{}) {
 			responderErrorAsignacion(
-				w,
-				errorResultadoAsignacionNoConfiable,
+				w, r, errorResultadoAsignacionNoConfiable,
 			)
 			return
 		}
 		if errContexto := r.Context().Err(); errContexto != nil {
 			responderErrorAsignacion(
-				w,
-				clasificarErrorAsignacionHTTP(errContexto),
+				w, r, clasificarErrorAsignacionHTTP(errContexto), errContexto,
 			)
 			return
 		}
-		responderErrorAsignacion(w, clasificarErrorAsignacionHTTP(err))
+		responderErrorAsignacion(w, r, clasificarErrorAsignacionHTTP(err), err)
 		return
 	}
 	if !reciboAsignacionSeguro(recibo, contextoCanal, entrada, operacion) {
-		responderErrorAsignacion(w, errorResultadoAsignacionNoConfiable)
+		responderErrorAsignacion(w, r, errorResultadoAsignacionNoConfiable)
 		return
 	}
-	responderExitoAsignacion(w, recibo)
+	responderExitoAsignacion(w, r, recibo)
 }
 
 func operacionAsignacionHTTP(

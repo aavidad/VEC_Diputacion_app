@@ -49,32 +49,31 @@ func (h *manejadorResultadoCobertura) ServeHTTP(
 	r *http.Request,
 ) {
 	if h == nil || dependenciaResultadoCoberturaNula(h.consultor) {
-		responderErrorCobertura(w, errorResultadoConsultaCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorResultadoConsultaCoberturaNoDisponible)
 		return
 	}
 	if !rutaResultadoCoberturaExacta(r) {
-		responderErrorCobertura(w, errorRecursoCoberturaNoEncontrado)
+		responderErrorCobertura(w, r, errorRecursoCoberturaNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorCobertura(w, errorMetodoCoberturaNoPermitido)
+		responderErrorCobertura(w, r, errorMetodoCoberturaNoPermitido)
 		return
 	}
 	if r.Context().Err() != nil {
 		responderErrorCobertura(
-			w,
-			clasificarErrorResultadoCobertura(r.Context().Err()),
+			w, r, clasificarErrorResultadoCobertura(r.Context().Err()), r.Context().Err(),
 		)
 		return
 	}
 	if problema := validarMetadatosCobertura(r); problema != nil {
-		responderErrorCobertura(w, *problema)
+		responderErrorCobertura(w, r, *problema)
 		return
 	}
 	entrada, err := resultadoCoberturaDesdePeticion(w, r)
 	if err != nil {
-		responderErrorCobertura(w, errorEntradaCobertura(err))
+		responderErrorCobertura(w, r, errorEntradaCobertura(err), err)
 		return
 	}
 	resultado, err := h.consultor.ConsultarParaAdaptador(
@@ -86,23 +85,21 @@ func (h *manejadorResultadoCobertura) ServeHTTP(
 	)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCobertura(
-			w,
-			clasificarErrorResultadoCobertura(errContexto),
+			w, r, clasificarErrorResultadoCobertura(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorResultadoCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorResultadoCobertura(err), err)
 		return
 	}
 	salida, estadoHTTP, valida := proyectarResultadoConsultaCobertura(resultado)
 	if !valida {
-		responderErrorCobertura(w, errorResultadoConsultaCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorResultadoConsultaCoberturaNoDisponible)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		estadoHTTP,
+		w, r, estadoHTTP,
 		envoltorioResultadoConsultaCobertura{Data: salida},
 	)
 }

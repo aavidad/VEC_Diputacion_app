@@ -447,16 +447,14 @@ func clasificarErrorPropuestaFormalizacionHTTP(err error) errorPublicoCobertura 
 }
 
 func responderErrorPropuestaFormalizacion(
-	w http.ResponseWriter,
-	problema errorPublicoCobertura,
+	w http.ResponseWriter, peticion *http.Request,
+	problema errorPublicoCobertura, causas ...error,
 ) {
 	responderJSONCobertura(
-		w,
-		problema.estado,
+		w, peticion, problema.estado,
 		envoltorioErrorCobertura{Error: detalleErrorCobertura{
 			Codigo:         problema.codigo,
 			ClaveI18n:      problema.claveI18n,
 			CorrelacionRef: nuevaCorrelacionCobertura(),
-		}},
-	)
+		}}, causas...)
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -146,24 +147,33 @@ type detalleErrorAlta struct {
 	CorrelacionRef string `json:"correlacion_ref"`
 }
 
-func responderErrorAlta(w http.ResponseWriter, problema errorPublicoAlta) {
+func responderErrorAlta(w http.ResponseWriter, r *http.Request, problema errorPublicoAlta, causas ...error) {
 	correlacion := nuevaCorrelacionErrorAlta()
-	responderJSONAlta(w, problema.estado, envoltorioErrorAlta{Error: detalleErrorAlta{
+	responderJSONAlta(w, r, problema.estado, envoltorioErrorAlta{Error: detalleErrorAlta{
 		Codigo:         problema.codigo,
 		ClaveI18n:      problema.claveI18n,
 		CorrelacionRef: correlacion,
-	}})
+	}}, causas...)
 }
 
-func responderJSONAlta(w http.ResponseWriter, estado int, valor any) {
+func responderJSONAlta(w http.ResponseWriter, r *http.Request, estado int, valor any, causas ...error) {
+	var causa error
+	if len(causas) > 0 {
+		causa = causas[0]
+	}
 	contenido, err := json.Marshal(valor)
 	if err != nil || len(contenido) > 16*1024 {
 		estado = http.StatusInternalServerError
-		contenido, _ = json.Marshal(envoltorioErrorAlta{Error: detalleErrorAlta{
+		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
+		valor = envoltorioErrorAlta{Error: detalleErrorAlta{
 			Codigo:         errorInterno.codigo,
 			ClaveI18n:      errorInterno.claveI18n,
 			CorrelacionRef: nuevaCorrelacionErrorAlta(),
-		}})
+		}}
+		contenido, _ = json.Marshal(valor)
+	}
+	if fallo, ok := valor.(envoltorioErrorAlta); ok {
+		registrarFalloContratacion(r, estado, fallo.Error.Codigo, fallo.Error.CorrelacionRef, causa)
 	}
 	aplicarCabecerasAlta(w)
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))

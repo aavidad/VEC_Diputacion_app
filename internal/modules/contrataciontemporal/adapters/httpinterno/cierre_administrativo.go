@@ -83,58 +83,51 @@ func (h *manejadorCierreAdministrativo) ServeHTTP(
 ) {
 	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.ejecutor) {
 		responderErrorCierreAdministrativo(
-			w,
-			errorServicioCierreAdministrativoNoDisponible,
+			w, r, errorServicioCierreAdministrativoNoDisponible,
 		)
 		return
 	}
 	operacion, rutaValida := operacionCierreAdministrativoHTTP(r)
 	if !rutaValida {
 		responderErrorCierreAdministrativo(
-			w,
-			errorRecursoCierreAdministrativoNoEncontrado,
+			w, r, errorRecursoCierreAdministrativoNoEncontrado,
 		)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		responderErrorCierreAdministrativo(
-			w,
-			errorMetodoCierreAdministrativoNoPermitido,
+			w, r, errorMetodoCierreAdministrativoNoPermitido,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(err),
+			w, r, clasificarErrorCierreAdministrativoHTTP(err), err,
 		)
 		return
 	}
 	if problema := validarMetadatosCierreAdministrativo(r); problema != nil {
-		responderErrorCierreAdministrativo(w, *problema)
+		responderErrorCierreAdministrativo(w, r, *problema)
 		return
 	}
 
 	entrada, err := cierreAdministrativoDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(errContexto),
+			w, r, clasificarErrorCierreAdministrativoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			errorEntradaCierreAdministrativo(err),
+			w, r, errorEntradaCierreAdministrativo(err), err,
 		)
 		return
 	}
 	if !entrada.valida() {
 		responderErrorCierreAdministrativo(
-			w,
-			errorContenidoCierreAdministrativoInvalido,
+			w, r, errorContenidoCierreAdministrativoInvalido,
 		)
 		return
 	}
@@ -143,30 +136,26 @@ func (h *manejadorCierreAdministrativo) ServeHTTP(
 		ResolverOrganizacionCierreAdministrativo(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(errContexto),
+			w, r, clasificarErrorCierreAdministrativoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(err),
+			w, r, clasificarErrorCierreAdministrativoHTTP(err), err,
 		)
 		return
 	}
 	solicitudPuerto := entrada.solicitudPuerto(organizacionRef, operacion)
 	if solicitudPuerto.Validar() != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			errorServicioCierreAdministrativoNoDisponible,
+			w, r, errorServicioCierreAdministrativoNoDisponible,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(err),
+			w, r, clasificarErrorCierreAdministrativoHTTP(err), err,
 		)
 		return
 	}
@@ -180,22 +169,19 @@ func (h *manejadorCierreAdministrativo) ServeHTTP(
 	)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(errContexto),
+			w, r, clasificarErrorCierreAdministrativoHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		if resultado != (ports.ResultadoCierreAdministrativo{}) {
 			responderErrorCierreAdministrativo(
-				w,
-				errorResultadoCierreAdministrativoNoConfiable,
+				w, r, errorResultadoCierreAdministrativoNoConfiable, err,
 			)
 			return
 		}
 		responderErrorCierreAdministrativo(
-			w,
-			clasificarErrorCierreAdministrativoHTTP(err),
+			w, r, clasificarErrorCierreAdministrativoHTTP(err), err,
 		)
 		return
 	}
@@ -205,14 +191,12 @@ func (h *manejadorCierreAdministrativo) ServeHTTP(
 	)
 	if !valida {
 		responderErrorCierreAdministrativo(
-			w,
-			errorResultadoCierreAdministrativoNoConfiable,
+			w, r, errorResultadoCierreAdministrativoNoConfiable,
 		)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		estadoHTTP,
+		w, r, estadoHTTP,
 		envoltorioCierreAdministrativo{Data: salida},
 	)
 }

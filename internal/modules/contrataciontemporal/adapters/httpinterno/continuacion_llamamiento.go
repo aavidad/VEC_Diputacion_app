@@ -43,19 +43,19 @@ type continuacionLlamamientoSalidaJSON struct {
 func (h *manejadorComunicacionLlamamiento) continuar(w http.ResponseWriter, r *http.Request) {
 	e, disponible := h.ejecutor.(EjecutorContinuacionLlamamiento)
 	if !disponible || dependenciaNula(e) {
-		responderErrorComunicacionLlamamiento(w, errorServicioComunicacionLlamamientoNoDisponible)
+		responderErrorComunicacionLlamamiento(w, r, errorServicioComunicacionLlamamientoNoDisponible)
 		return
 	}
 	var entrada continuacionLlamamientoJSON
 	if err := decodificarComunicacionLlamamiento(w, r, &entrada); err != nil {
-		responderErrorComunicacionLlamamiento(w, errorEntradaComunicacionLlamamiento(err))
+		responderErrorComunicacionLlamamiento(w, r, errorEntradaComunicacionLlamamiento(err), err)
 		return
 	}
 	s := ports.SolicitudContinuarLlamamiento{ClaveIdempotencia: entrada.ClaveIdempotencia,
 		OrganizacionRef: entrada.OrganizacionRef, ExpedienteRef: entrada.ExpedienteRef,
 		ResolucionRef: entrada.ResolucionRef, IntencionRef: entrada.IntencionRef}
 	if s.Validar() != nil {
-		responderErrorComunicacionLlamamiento(w, errorContenidoComunicacionLlamamientoInvalido)
+		responderErrorComunicacionLlamamiento(w, r, errorContenidoComunicacionLlamamientoInvalido)
 		return
 	}
 	resultado, err := e.Continuar(r.Context(), s)
@@ -72,11 +72,11 @@ func (h *manejadorComunicacionLlamamiento) continuar(w http.ResponseWriter, r *h
 		case errors.Is(err, ports.ErrOperacionContinuacionConflicto):
 			problema = errorClaveComunicacionLlamamientoReutilizada
 		}
-		responderErrorComunicacionLlamamiento(w, problema)
+		responderErrorComunicacionLlamamiento(w, r, problema, err)
 		return
 	}
 	if resultado.ValidarPara(s) != nil {
-		responderErrorComunicacionLlamamiento(w, errorResultadoComunicacionLlamamientoNoConfiable)
+		responderErrorComunicacionLlamamiento(w, r, errorResultadoComunicacionLlamamientoNoConfiable)
 		return
 	}
 	salida := continuacionLlamamientoSalidaJSON{
@@ -93,7 +93,7 @@ func (h *manejadorComunicacionLlamamiento) continuar(w http.ResponseWriter, r *h
 	if resultado.Estado == "replay_confirmado" {
 		estado = http.StatusOK
 	}
-	responderJSONCobertura(w, estado, struct {
+	responderJSONCobertura(w, r, estado, struct {
 		Data continuacionLlamamientoSalidaJSON `json:"data"`
 	}{salida})
 }

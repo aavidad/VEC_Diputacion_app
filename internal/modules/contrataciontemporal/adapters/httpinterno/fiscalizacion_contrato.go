@@ -295,10 +295,9 @@ type reciboFiscalizacionJSON struct {
 	RegistradaEn          string `json:"registrada_en"`
 }
 
-func responderExitoFiscalizacion(w http.ResponseWriter, r ports.ReciboFiscalizacion) {
+func responderExitoFiscalizacion(w http.ResponseWriter, peticion *http.Request, r ports.ReciboFiscalizacion) {
 	responderJSONCobertura(
-		w,
-		http.StatusCreated,
+		w, peticion, http.StatusCreated,
 		envoltorioReciboFiscalizacion{Data: reciboFiscalizacionJSON{
 			Esquema:               esquemaReciboFiscalizacion,
 			Operacion:             operacionFiscalizacion,
@@ -407,14 +406,12 @@ func clasificarErrorFiscalizacionHTTP(err error) errorPublicoCobertura {
 	}
 }
 
-func responderErrorFiscalizacion(w http.ResponseWriter, problema errorPublicoCobertura) {
+func responderErrorFiscalizacion(w http.ResponseWriter, peticion *http.Request, problema errorPublicoCobertura, causas ...error) {
 	responderJSONCobertura(
-		w,
-		problema.estado,
+		w, peticion, problema.estado,
 		envoltorioErrorCobertura{Error: detalleErrorCobertura{
 			Codigo:         problema.codigo,
 			ClaveI18n:      problema.claveI18n,
 			CorrelacionRef: nuevaCorrelacionCobertura(),
-		}},
-	)
+		}}, causas...)
 }

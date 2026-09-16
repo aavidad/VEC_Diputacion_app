@@ -283,12 +283,11 @@ type reciboAnalisisRRHHJSON struct {
 }
 
 func responderExitoAnalisisRRHH(
-	w http.ResponseWriter,
+	w http.ResponseWriter, peticion *http.Request,
 	recibo ports.ReciboOperacionAnalisis,
 ) {
 	responderJSONCobertura(
-		w,
-		http.StatusCreated,
+		w, peticion, http.StatusCreated,
 		envoltorioReciboAnalisisRRHH{Data: reciboAnalisisRRHHJSON{
 			Esquema:           esquemaReciboAnalisisRRHH,
 			Operacion:         string(recibo.Operacion),

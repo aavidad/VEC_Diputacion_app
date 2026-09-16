@@ -64,43 +64,43 @@ func NuevoManejadorAlta(
 func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r == nil || h == nil || dependenciaNula(h.autoridad) ||
 		dependenciaNula(h.ejecutor) || dependenciaNula(h.reloj) {
-		responderErrorAlta(w, errorServicioNoDisponible)
+		responderErrorAlta(w, r, errorServicioNoDisponible)
 		return
 	}
 	if !rutaAltaExacta(r) {
-		responderErrorAlta(w, errorRecursoNoEncontrado)
+		responderErrorAlta(w, r, errorRecursoNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorAlta(w, errorMetodoNoPermitido)
+		responderErrorAlta(w, r, errorMetodoNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorAlta(w, clasificarErrorAlta(err))
+		responderErrorAlta(w, r, clasificarErrorAlta(err), err)
 		return
 	}
 	if problema := validarMetadatosAlta(r); problema != nil {
-		responderErrorAlta(w, *problema)
+		responderErrorAlta(w, r, *problema)
 		return
 	}
 
 	claveIdempotencia, solicitud, err := solicitudAltaDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorAlta(w, clasificarErrorAlta(errContexto))
+		responderErrorAlta(w, r, clasificarErrorAlta(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorAlta(w, errorEntradaAlta(err))
+		responderErrorAlta(w, r, errorEntradaAlta(err))
 		return
 	}
 	contextoCanal, err := h.autoridad.ResolverContextoCanalAlta(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorAlta(w, clasificarErrorAlta(errContexto))
+		responderErrorAlta(w, r, clasificarErrorAlta(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorAlta(w, clasificarErrorAlta(err))
+		responderErrorAlta(w, r, clasificarErrorAlta(err), err)
 		return
 	}
 	comando, correcto := comandoDesdeContextoCanal(
@@ -109,11 +109,11 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		solicitud,
 	)
 	if !correcto {
-		responderErrorAlta(w, errorInterno)
+		responderErrorAlta(w, r, errorInterno)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorAlta(w, clasificarErrorAlta(err))
+		responderErrorAlta(w, r, clasificarErrorAlta(err), err)
 		return
 	}
 
@@ -121,14 +121,14 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
 		// Un recibo válido confirma el COMMIT. Una cancelación observada a la
 		// vez no degrada el éxito a un resultado ambiguo ni induce reintento.
-		responderExitoAlta(w, recibo)
+		responderExitoAlta(w, r, recibo)
 		return
 	}
 	if err != nil {
-		responderErrorAlta(w, clasificarErrorAlta(err))
+		responderErrorAlta(w, r, clasificarErrorAlta(err), err)
 		return
 	}
-	responderErrorAlta(w, errorResultadoNoConfiable)
+	responderErrorAlta(w, r, errorResultadoNoConfiable)
 }
 
 func rutaAltaExacta(r *http.Request) bool {

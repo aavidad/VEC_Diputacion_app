@@ -89,78 +89,75 @@ func (h *manejadorAnalisisRRHH) ServeHTTP(
 ) {
 	if r == nil || h == nil || dependenciaNula(h.autoridad) ||
 		dependenciaNula(h.ejecutor) {
-		responderErrorCobertura(w, errorServicioCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorServicioCoberturaNoDisponible)
 		return
 	}
 	if !rutaAnalisisRRHHExacta(r) {
-		responderErrorCobertura(w, errorRecursoCoberturaNoEncontrado)
+		responderErrorCobertura(w, r, errorRecursoCoberturaNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorCobertura(w, errorMetodoCoberturaNoPermitido)
+		responderErrorCobertura(w, r, errorMetodoCoberturaNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorCobertura(w, clasificarErrorAnalisisRRHH(err))
+		responderErrorCobertura(w, r, clasificarErrorAnalisisRRHH(err), err)
 		return
 	}
 	if problema := validarMetadatosCobertura(r); problema != nil {
-		responderErrorCobertura(w, *problema)
+		responderErrorCobertura(w, r, *problema)
 		return
 	}
 
 	entrada, err := operacionAnalisisRRHHDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCobertura(
-			w,
-			clasificarErrorAnalisisRRHH(errContexto),
+			w, r, clasificarErrorAnalisisRRHH(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorCobertura(w, errorEntradaAnalisisRRHH(err))
+		responderErrorCobertura(w, r, errorEntradaAnalisisRRHH(err), err)
 		return
 	}
 	contextoCanal, err := h.autoridad.
 		ResolverContextoCanalAnalisisRRHH(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCobertura(
-			w,
-			clasificarErrorAnalisisRRHH(errContexto),
+			w, r, clasificarErrorAnalisisRRHH(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorAnalisisRRHH(err))
+		responderErrorCobertura(w, r, clasificarErrorAnalisisRRHH(err), err)
 		return
 	}
 	if !contextoCanal.valido() {
-		responderErrorCobertura(w, errorServicioCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorServicioCoberturaNoDisponible)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorCobertura(w, clasificarErrorAnalisisRRHH(err))
+		responderErrorCobertura(w, r, clasificarErrorAnalisisRRHH(err), err)
 		return
 	}
 
 	recibo, err := h.ejecutar(r.Context(), contextoCanal, entrada)
 	if reciboAnalisisRRHHEsSeguro(recibo, contextoCanal, entrada) {
-		responderExitoAnalisisRRHH(w, recibo)
+		responderExitoAnalisisRRHH(w, r, recibo)
 		return
 	}
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorCobertura(
-			w,
-			clasificarErrorAnalisisRRHH(errContexto),
+			w, r, clasificarErrorAnalisisRRHH(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorAnalisisRRHH(err))
+		responderErrorCobertura(w, r, clasificarErrorAnalisisRRHH(err), err)
 		return
 	}
-	responderErrorCobertura(w, errorResultadoCoberturaNoConfiable)
+	responderErrorCobertura(w, r, errorResultadoCoberturaNoConfiable)
 }
 
 func (h *manejadorAnalisisRRHH) ejecutar(

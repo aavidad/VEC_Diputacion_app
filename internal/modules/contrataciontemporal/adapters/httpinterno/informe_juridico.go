@@ -73,69 +73,69 @@ func (h *manejadorInformeJuridico) ServeHTTP(
 	r *http.Request,
 ) {
 	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.ejecutor) {
-		responderErrorInformeJuridico(w, errorServicioInformeJuridicoNoDisponible)
+		responderErrorInformeJuridico(w, r, errorServicioInformeJuridicoNoDisponible)
 		return
 	}
 	if !rutaInformeJuridicoValida(r) {
-		responderErrorInformeJuridico(w, errorRecursoInformeJuridicoNoEncontrado)
+		responderErrorInformeJuridico(w, r, errorRecursoInformeJuridicoNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorInformeJuridico(w, errorMetodoInformeJuridicoNoPermitido)
+		responderErrorInformeJuridico(w, r, errorMetodoInformeJuridicoNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(err))
+		responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(err), err)
 		return
 	}
 	if problema := validarMetadatosInformeJuridico(r); problema != nil {
-		responderErrorInformeJuridico(w, *problema)
+		responderErrorInformeJuridico(w, r, *problema)
 		return
 	}
 
 	entrada, err := informeJuridicoDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(errContexto))
+		responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorInformeJuridico(w, errorEntradaInformeJuridico(err))
+		responderErrorInformeJuridico(w, r, errorEntradaInformeJuridico(err), err)
 		return
 	}
 
 	contextoCanal, err := h.autoridad.ResolverContextoCanalInformeJuridico(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(errContexto))
+		responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(err))
+		responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(err), err)
 		return
 	}
 	if !contextoCanal.valido() {
-		responderErrorInformeJuridico(w, errorServicioInformeJuridicoNoDisponible)
+		responderErrorInformeJuridico(w, r, errorServicioInformeJuridicoNoDisponible)
 		return
 	}
 
 	recibo, err := h.ejecutor.Emitir(r.Context(), entrada.solicitud(contextoCanal))
 	if err != nil {
 		if recibo != (ports.ReciboInformeJuridico{}) {
-			responderErrorInformeJuridico(w, errorResultadoInformeJuridicoNoConfiable)
+			responderErrorInformeJuridico(w, r, errorResultadoInformeJuridicoNoConfiable)
 			return
 		}
 		if errContexto := r.Context().Err(); errContexto != nil {
-			responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(errContexto))
+			responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(errContexto), errContexto)
 			return
 		}
-		responderErrorInformeJuridico(w, clasificarErrorInformeJuridicoHTTP(err))
+		responderErrorInformeJuridico(w, r, clasificarErrorInformeJuridicoHTTP(err), err)
 		return
 	}
 	if !reciboInformeJuridicoSeguro(recibo, contextoCanal, entrada) {
-		responderErrorInformeJuridico(w, errorResultadoInformeJuridicoNoConfiable)
+		responderErrorInformeJuridico(w, r, errorResultadoInformeJuridicoNoConfiable)
 		return
 	}
-	responderExitoInformeJuridico(w, recibo)
+	responderExitoInformeJuridico(w, r, recibo)
 }
 
 func rutaInformeJuridicoValida(r *http.Request) bool {

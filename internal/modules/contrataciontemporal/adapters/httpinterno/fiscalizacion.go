@@ -66,48 +66,48 @@ func NuevoManejadorFiscalizacion(
 
 func (h *manejadorFiscalizacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || dependenciaNula(h.autoridad) || dependenciaNula(h.ejecutor) {
-		responderErrorFiscalizacion(w, errorServicioFiscalizacionNoDisponible)
+		responderErrorFiscalizacion(w, r, errorServicioFiscalizacionNoDisponible)
 		return
 	}
 	if !rutaFiscalizacionValida(r) {
-		responderErrorFiscalizacion(w, errorRecursoFiscalizacionNoEncontrado)
+		responderErrorFiscalizacion(w, r, errorRecursoFiscalizacionNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorFiscalizacion(w, errorMetodoFiscalizacionNoPermitido)
+		responderErrorFiscalizacion(w, r, errorMetodoFiscalizacionNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(err))
+		responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(err), err)
 		return
 	}
 	if problema := validarMetadatosFiscalizacion(r); problema != nil {
-		responderErrorFiscalizacion(w, *problema)
+		responderErrorFiscalizacion(w, r, *problema)
 		return
 	}
 
 	entrada, err := fiscalizacionDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(errContexto))
+		responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorFiscalizacion(w, errorEntradaFiscalizacion(err))
+		responderErrorFiscalizacion(w, r, errorEntradaFiscalizacion(err), err)
 		return
 	}
 
 	contextoCanal, err := h.autoridad.ResolverContextoCanalFiscalizacion(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
-		responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(errContexto))
+		responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(errContexto), errContexto)
 		return
 	}
 	if err != nil {
-		responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(err))
+		responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(err), err)
 		return
 	}
 	if !contextoCanal.valido() {
-		responderErrorFiscalizacion(w, errorServicioFiscalizacionNoDisponible)
+		responderErrorFiscalizacion(w, r, errorServicioFiscalizacionNoDisponible)
 		return
 	}
 
@@ -117,21 +117,21 @@ func (h *manejadorFiscalizacion) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	)
 	if err != nil {
 		if !reciboFiscalizacionVacio(recibo) {
-			responderErrorFiscalizacion(w, errorResultadoFiscalizacionNoConfiable)
+			responderErrorFiscalizacion(w, r, errorResultadoFiscalizacionNoConfiable)
 			return
 		}
 		if errContexto := r.Context().Err(); errContexto != nil {
-			responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(errContexto))
+			responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(errContexto), errContexto)
 			return
 		}
-		responderErrorFiscalizacion(w, clasificarErrorFiscalizacionHTTP(err))
+		responderErrorFiscalizacion(w, r, clasificarErrorFiscalizacionHTTP(err), err)
 		return
 	}
 	if !reciboFiscalizacionSeguro(recibo, contextoCanal, entrada) {
-		responderErrorFiscalizacion(w, errorResultadoFiscalizacionNoConfiable)
+		responderErrorFiscalizacion(w, r, errorResultadoFiscalizacionNoConfiable)
 		return
 	}
-	responderExitoFiscalizacion(w, recibo)
+	responderExitoFiscalizacion(w, r, recibo)
 }
 
 func rutaFiscalizacionValida(r *http.Request) bool {

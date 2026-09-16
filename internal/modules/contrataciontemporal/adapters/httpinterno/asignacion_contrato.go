@@ -357,10 +357,9 @@ type reciboAsignacionJSON struct {
 	ConfirmadaEn      string `json:"confirmada_en"`
 }
 
-func responderExitoAsignacion(w http.ResponseWriter, r ports.ReciboAsignacion) {
+func responderExitoAsignacion(w http.ResponseWriter, peticion *http.Request, r ports.ReciboAsignacion) {
 	responderJSONCobertura(
-		w,
-		http.StatusCreated,
+		w, peticion, http.StatusCreated,
 		envoltorioReciboAsignacion{Data: reciboAsignacionJSON{
 			Esquema:           esquemaReciboAsignacion,
 			Operacion:         string(r.Operacion),
@@ -474,16 +473,14 @@ func clasificarErrorAsignacionHTTP(err error) errorPublicoCobertura {
 }
 
 func responderErrorAsignacion(
-	w http.ResponseWriter,
-	problema errorPublicoCobertura,
+	w http.ResponseWriter, peticion *http.Request,
+	problema errorPublicoCobertura, causas ...error,
 ) {
 	responderJSONCobertura(
-		w,
-		problema.estado,
+		w, peticion, problema.estado,
 		envoltorioErrorCobertura{Error: detalleErrorCobertura{
 			Codigo:         problema.codigo,
 			ClaveI18n:      problema.claveI18n,
 			CorrelacionRef: nuevaCorrelacionCobertura(),
-		}},
-	)
+		}}, causas...)
 }

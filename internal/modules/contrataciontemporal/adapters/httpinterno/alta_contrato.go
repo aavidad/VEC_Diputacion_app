@@ -486,8 +486,8 @@ type reciboAltaJSON struct {
 	ConfirmadaEn  string `json:"confirmada_en"`
 }
 
-func responderExitoAlta(w http.ResponseWriter, recibo ports.ReciboAlta) {
-	responderJSONAlta(w, http.StatusCreated, envoltorioExitoAlta{Datos: reciboAltaJSON{
+func responderExitoAlta(w http.ResponseWriter, r *http.Request, recibo ports.ReciboAlta) {
+	responderJSONAlta(w, r, http.StatusCreated, envoltorioExitoAlta{Datos: reciboAltaJSON{
 		ExpedienteRef: recibo.ExpedienteRef,
 		NumeroVisible: recibo.NumeroVisible,
 		Version:       recibo.Version,

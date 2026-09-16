@@ -35,51 +35,51 @@ func NuevoManejadorConsultaSeguimientoV2(
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !rutaConsultaSeguimientoV2Exacta(r) {
-			errorHTTPIncorporacionEjercicioV2(w, http.StatusBadRequest, "peticion_no_valida")
+			errorHTTPIncorporacionEjercicioV2(w, r, http.StatusBadRequest, "peticion_no_valida")
 			return
 		}
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
-			errorHTTPIncorporacionEjercicioV2(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+			errorHTTPIncorporacionEjercicioV2(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		expediente, err := leerConsultaIncorporacionEjercicioV2(r)
 		if err != nil || !domain.ReferenciaOpacaValida(expediente) ||
 			!cabecerasPropuestaFormalizacionPermitidas(r) || !acceptCompatibleJSON(r.Header) {
-			errorHTTPIncorporacionEjercicioV2(w, http.StatusBadRequest, "peticion_no_valida")
+			errorHTTPIncorporacionEjercicioV2(w, r, http.StatusBadRequest, "peticion_no_valida")
 			return
 		}
 		if err = a.ResolverContextoIncorporacionEjercicioV2(r.Context()); err != nil {
-			errorOperacionIncorporacionEjercicioV2(w, err)
+			errorOperacionIncorporacionEjercicioV2(w, r, err)
 			return
 		}
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		vista, err := e.ConsultarSeguimientoIncorporacionV2(r.Context(), expediente)
 		if r.Context().Err() != nil {
-			errorOperacionIncorporacionEjercicioV2(w, r.Context().Err())
+			errorOperacionIncorporacionEjercicioV2(w, r, r.Context().Err())
 			return
 		}
 		if err != nil {
 			if !reflect.ValueOf(vista).IsZero() {
 				err = ErrManejadorIncorporacionEjercicioV2
 			}
-			errorOperacionIncorporacionEjercicioV2(w, err)
+			errorOperacionIncorporacionEjercicioV2(w, r, err)
 			return
 		}
 		if !vistaSeguimientoIncorporacionV2HTTPValida(vista, expediente) {
-			errorOperacionIncorporacionEjercicioV2(w, ErrManejadorIncorporacionEjercicioV2)
+			errorOperacionIncorporacionEjercicioV2(w, r, ErrManejadorIncorporacionEjercicioV2)
 			return
 		}
 		vista = copiarVistaSeguimientoIncorporacionV2HTTP(vista)
 		if !responderVistaSeguimientoIncorporacionV2(w, vista) {
-			errorOperacionIncorporacionEjercicioV2(w, ErrManejadorIncorporacionEjercicioV2)
+			errorOperacionIncorporacionEjercicioV2(w, r, ErrManejadorIncorporacionEjercicioV2)
 		}
 	}), nil
 }

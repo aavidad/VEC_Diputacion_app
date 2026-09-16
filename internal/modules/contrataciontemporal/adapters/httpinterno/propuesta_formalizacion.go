@@ -75,50 +75,44 @@ func (h *manejadorPropuestaFormalizacion) ServeHTTP(
 	if r == nil || h == nil || dependenciaNula(h.autoridad) ||
 		dependenciaNula(h.ejecutor) {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorServicioPropuestaFormalizacionNoDisponible,
+			w, r, errorServicioPropuestaFormalizacionNoDisponible,
 		)
 		return
 	}
 	if !rutaPropuestaFormalizacionExacta(r) {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorRecursoPropuestaFormalizacionNoEncontrado,
+			w, r, errorRecursoPropuestaFormalizacionNoEncontrado,
 		)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorMetodoPropuestaFormalizacionNoPermitido,
+			w, r, errorMetodoPropuestaFormalizacionNoPermitido,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(err),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(err), err,
 		)
 		return
 	}
 	if problema := validarMetadatosPropuestaFormalizacion(r); problema != nil {
-		responderErrorPropuestaFormalizacion(w, *problema)
+		responderErrorPropuestaFormalizacion(w, r, *problema)
 		return
 	}
 
 	entrada, err := propuestaFormalizacionDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(errContexto),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorEntradaPropuestaFormalizacion(err),
+			w, r, errorEntradaPropuestaFormalizacion(err), err,
 		)
 		return
 	}
@@ -126,37 +120,32 @@ func (h *manejadorPropuestaFormalizacion) ServeHTTP(
 		ResolverContextoPropuestaFormalizacion(r.Context())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(errContexto),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(err),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(err), err,
 		)
 		return
 	}
 	if !contextoServidor.valido() {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorServicioPropuestaFormalizacionNoDisponible,
+			w, r, errorServicioPropuestaFormalizacionNoDisponible,
 		)
 		return
 	}
 	solicitud, err := entrada.solicitud(contextoServidor)
 	if err != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorContenidoPropuestaFormalizacionInvalido,
+			w, r, errorContenidoPropuestaFormalizacionInvalido,
 		)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(err),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(err), err,
 		)
 		return
 	}
@@ -164,22 +153,19 @@ func (h *manejadorPropuestaFormalizacion) ServeHTTP(
 	resultado, err := h.ejecutor.PrepararYConfirmar(r.Context(), solicitud.Clonar())
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(errContexto),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(errContexto), errContexto,
 		)
 		return
 	}
 	if err != nil {
 		if !resultado.EsCero() {
 			responderErrorPropuestaFormalizacion(
-				w,
-				errorResultadoPropuestaFormalizacionNoConfiable,
+				w, r, errorResultadoPropuestaFormalizacionNoConfiable, err,
 			)
 			return
 		}
 		responderErrorPropuestaFormalizacion(
-			w,
-			clasificarErrorPropuestaFormalizacionHTTP(err),
+			w, r, clasificarErrorPropuestaFormalizacionHTTP(err), err,
 		)
 		return
 	}
@@ -189,14 +175,12 @@ func (h *manejadorPropuestaFormalizacion) ServeHTTP(
 	)
 	if !valida {
 		responderErrorPropuestaFormalizacion(
-			w,
-			errorResultadoPropuestaFormalizacionNoConfiable,
+			w, r, errorResultadoPropuestaFormalizacionNoConfiable,
 		)
 		return
 	}
 	responderJSONCobertura(
-		w,
-		estadoHTTP,
+		w, r, estadoHTTP,
 		envoltorioPropuestaFormalizacion{Data: salida},
 	)
 }

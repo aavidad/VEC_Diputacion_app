@@ -3,7 +3,6 @@ package httpinterno
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -14,10 +13,9 @@ import (
 )
 
 const (
-	RutaPropuestaCobertura                           = "/api/vec/contratacion-temporal/cobertura/propuesta"
-	RutaDecisionCobertura                            = "/api/vec/contratacion-temporal/cobertura/decisiones"
-	RutaRectificacionCobertura                       = "/api/vec/contratacion-temporal/cobertura/rectificaciones"
-	mensajeDiagnosticoPropuestaCoberturaNoDisponible = "indisponibilidad al presentar propuesta de cobertura"
+	RutaPropuestaCobertura     = "/api/vec/contratacion-temporal/cobertura/propuesta"
+	RutaDecisionCobertura      = "/api/vec/contratacion-temporal/cobertura/decisiones"
+	RutaRectificacionCobertura = "/api/vec/contratacion-temporal/cobertura/rectificaciones"
 )
 
 var ErrManejadorCoberturaInvalido = errors.New(
@@ -83,33 +81,33 @@ func NuevoManejadorCobertura(
 
 func (h *manejadorCobertura) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || dependenciaCoberturaNula(h.autoridad) || dependenciaCoberturaNula(h.presentador) || dependenciaCoberturaNula(h.decisor) {
-		responderErrorCobertura(w, errorServicioCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorServicioCoberturaNoDisponible)
 		return
 	}
 	if !rutaCoberturaExacta(r) {
-		responderErrorCobertura(w, errorRecursoCoberturaNoEncontrado)
+		responderErrorCobertura(w, r, errorRecursoCoberturaNoEncontrado)
 		return
 	}
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		responderErrorCobertura(w, errorMetodoCoberturaNoPermitido)
+		responderErrorCobertura(w, r, errorMetodoCoberturaNoPermitido)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
-		responderErrorCobertura(w, clasificarErrorCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorCobertura(err), err)
 		return
 	}
 	if problema := validarMetadatosCobertura(r); problema != nil {
-		responderErrorCobertura(w, *problema)
+		responderErrorCobertura(w, r, *problema)
 		return
 	}
 	contextoCanal, err := h.autoridad.ResolverContextoCanalCobertura(r.Context())
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorCobertura(err), err)
 		return
 	}
 	if !contextoCanal.valido() {
-		responderErrorCobertura(w, errorServicioCoberturaNoDisponible)
+		responderErrorCobertura(w, r, errorServicioCoberturaNoDisponible)
 		return
 	}
 	switch r.URL.Path {
@@ -120,14 +118,14 @@ func (h *manejadorCobertura) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case RutaRectificacionCobertura:
 		h.servirRectificacion(w, r, contextoCanal)
 	default:
-		responderErrorCobertura(w, errorRecursoCoberturaNoEncontrado)
+		responderErrorCobertura(w, r, errorRecursoCoberturaNoEncontrado)
 	}
 }
 
 func (h *manejadorCobertura) servirPropuesta(w http.ResponseWriter, r *http.Request, contexto ContextoCanalCobertura) {
 	entrada, err := propuestaCoberturaDesdePeticion(w, r)
 	if err != nil {
-		responderErrorCobertura(w, errorEntradaCobertura(err))
+		responderErrorCobertura(w, r, errorEntradaCobertura(err), err)
 		return
 	}
 	propuesta, err := h.presentador.ProponerParaAdaptador(r.Context(), application.SolicitudProponerCobertura{
@@ -136,62 +134,53 @@ func (h *manejadorCobertura) servirPropuesta(w http.ResponseWriter, r *http.Requ
 		ExpedienteRef: entrada.ExpedienteRef, VersionEsperada: entrada.VersionEsperada,
 	})
 	if err != nil {
-		registrarDiagnosticoPropuestaCoberturaNoDisponible(err)
-		responderErrorCobertura(w, clasificarErrorCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorCobertura(err), err)
 		return
 	}
 	salida, ok := proyectarPropuestaCobertura(propuesta)
 	if !ok {
-		responderErrorCobertura(w, errorResultadoCoberturaNoConfiable)
+		responderErrorCobertura(w, r, errorResultadoCoberturaNoConfiable)
 		return
 	}
-	responderJSONCobertura(w, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
-}
-
-func registrarDiagnosticoPropuestaCoberturaNoDisponible(err error) {
-	etapa, ok := application.EtapaDiagnosticoDePresentacionPropuestaCobertura(err)
-	if !ok {
-		return
-	}
-	slog.Error(mensajeDiagnosticoPropuestaCoberturaNoDisponible, "etapa", string(etapa))
+	responderJSONCobertura(w, r, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
 }
 
 func (h *manejadorCobertura) servirDecision(w http.ResponseWriter, r *http.Request, contexto ContextoCanalCobertura) {
 	entrada, err := decisionCoberturaDesdePeticion(w, r, false)
 	if err != nil {
-		responderErrorCobertura(w, errorEntradaCobertura(err))
+		responderErrorCobertura(w, r, errorEntradaCobertura(err), err)
 		return
 	}
 	recibo, err := h.decisor.DecidirParaAdaptador(r.Context(), entrada.solicitud(contexto))
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorCobertura(err), err)
 		return
 	}
 	salida, ok := proyectarReciboCobertura(recibo)
 	if !ok {
-		responderErrorCobertura(w, errorResultadoCoberturaNoConfiable)
+		responderErrorCobertura(w, r, errorResultadoCoberturaNoConfiable)
 		return
 	}
-	responderJSONCobertura(w, http.StatusCreated, envoltorioReciboCobertura{Data: salida})
+	responderJSONCobertura(w, r, http.StatusCreated, envoltorioReciboCobertura{Data: salida})
 }
 
 func (h *manejadorCobertura) servirRectificacion(w http.ResponseWriter, r *http.Request, contexto ContextoCanalCobertura) {
 	entrada, err := decisionCoberturaDesdePeticion(w, r, true)
 	if err != nil {
-		responderErrorCobertura(w, errorEntradaCobertura(err))
+		responderErrorCobertura(w, r, errorEntradaCobertura(err), err)
 		return
 	}
 	recibo, err := h.decisor.RectificarParaAdaptador(r.Context(), entrada.rectificacion(contexto))
 	if err != nil {
-		responderErrorCobertura(w, clasificarErrorCobertura(err))
+		responderErrorCobertura(w, r, clasificarErrorCobertura(err), err)
 		return
 	}
 	salida, ok := proyectarReciboCobertura(recibo)
 	if !ok {
-		responderErrorCobertura(w, errorResultadoCoberturaNoConfiable)
+		responderErrorCobertura(w, r, errorResultadoCoberturaNoConfiable)
 		return
 	}
-	responderJSONCobertura(w, http.StatusCreated, envoltorioReciboCobertura{Data: salida})
+	responderJSONCobertura(w, r, http.StatusCreated, envoltorioReciboCobertura{Data: salida})
 }
 
 func rutaCoberturaExacta(r *http.Request) bool {

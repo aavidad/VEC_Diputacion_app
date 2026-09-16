@@ -47,9 +47,9 @@ func NuevoManejadorRespuestaRecibida(e EjecutorRespuestaRecibida) (http.Handler,
 		return nil, errors.New("contratacion temporal http: ejecutor de respuesta recibida no disponible")
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fallo := func(estado int, codigo string) {
-			responderErrorComunicacionLlamamiento(w, errorPublicoCobertura{estado: estado, codigo: codigo,
-				claveI18n: "api.contratacion_temporal.respuesta_recibida.error." + codigo})
+		fallo := func(estado int, codigo string, causas ...error) {
+			responderErrorComunicacionLlamamiento(w, r, errorPublicoCobertura{estado: estado, codigo: codigo,
+				claveI18n: "api.contratacion_temporal.respuesta_recibida.error." + codigo}, causas...)
 		}
 		if r == nil || r.URL == nil || r.URL.Path != RutaRegistroRespuestaRecibida ||
 			r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "" || r.URL.Scheme != "" ||
@@ -90,7 +90,7 @@ func NuevoManejadorRespuestaRecibida(e EjecutorRespuestaRecibida) (http.Handler,
 		}
 		if err != nil {
 			estado, codigo := errorRespuestaRecibidaHTTP(err)
-			fallo(estado, codigo)
+			fallo(estado, codigo, err)
 			return
 		}
 		if resultado.ValidarPara(s) != nil {
@@ -108,7 +108,7 @@ func NuevoManejadorRespuestaRecibida(e EjecutorRespuestaRecibida) (http.Handler,
 		if resultado.Estado == "replay_registrada_por_rrhh" {
 			estado = http.StatusOK
 		}
-		responderJSONCobertura(w, estado, struct {
+		responderJSONCobertura(w, r, estado, struct {
 			Data respuestaRecibidaSalidaJSON `json:"data"`
 		}{salida})
 	}), nil

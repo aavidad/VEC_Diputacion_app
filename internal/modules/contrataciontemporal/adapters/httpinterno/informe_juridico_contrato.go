@@ -265,12 +265,11 @@ type reciboInformeJuridicoJSON struct {
 }
 
 func responderExitoInformeJuridico(
-	w http.ResponseWriter,
+	w http.ResponseWriter, peticion *http.Request,
 	r ports.ReciboInformeJuridico,
 ) {
 	responderJSONCobertura(
-		w,
-		http.StatusCreated,
+		w, peticion, http.StatusCreated,
 		envoltorioReciboInformeJuridico{Data: reciboInformeJuridicoJSON{
 			Esquema:               esquemaReciboInformeJuridico,
 			Operacion:             r.Operacion,
@@ -391,16 +390,14 @@ func clasificarErrorInformeJuridicoHTTP(err error) errorPublicoCobertura {
 }
 
 func responderErrorInformeJuridico(
-	w http.ResponseWriter,
-	problema errorPublicoCobertura,
+	w http.ResponseWriter, peticion *http.Request,
+	problema errorPublicoCobertura, causas ...error,
 ) {
 	responderJSONCobertura(
-		w,
-		problema.estado,
+		w, peticion, problema.estado,
 		envoltorioErrorCobertura{Error: detalleErrorCobertura{
 			Codigo:         problema.codigo,
 			ClaveI18n:      problema.claveI18n,
 			CorrelacionRef: nuevaCorrelacionCobertura(),
-		}},
-	)
+		}}, causas...)
 }
