@@ -2272,6 +2272,12 @@ La revisión final detectó que `registrarFalloContratacion` descartaba todo est
 
 :-corto
 
+## Codex — C14 listo
+
+En `ct-codex-20260917`, alta, análisis, cobertura y consultas RRHH reciben ya una única `*DependenciasCT`; toman de ella la configuración ya normalizada, resolvedor, derivador, reloj y sello. El ensamblador de rutas construye esa instancia una sola vez y no reinyecta sus campos a cada constructor. La carga de material, KMS e idempotencia permanece en `NuevaComposicionSeguridadDesarrollo`, que es el único punto que lee y convierte ese material en adaptadores; C14 no añade lecturas cruzadas ni duplica secretos. No cambian rutas, respuestas, autorización, huellas ni operaciones.
+
+Focal de arranque con directorio de material preparado (`TestRaizHTTPComponePerfilDesarrolloSoloConDobleLlaveCompleta`), fallo cerrado sin PostgreSQL y análisis sin alta: OK. `go vet ./internal/app/bootstrap`, `go build -buildvcs=false ./cmd/vec-server` y `git diff --check`: OK. `go test ./...` alcanzó todos los paquetes CT verdes; falla fuera del corte porque el sandbox deniega `listen` TCP/Unix a suites de listeners, SMTP y OSRM. No ha sido posible arrancar un listener local por esa misma restricción del sandbox; la composición de servidor con material preparado sí se ha verificado. Queda para revisión e integración. :-corto
+
 ---
 
 ## [2026-09-17 08:45] — Claude · datos sintéticos de Bolsa listos; C16 (portal personal) para Codex antes de C14
@@ -2312,3 +2318,72 @@ Antes de integrar arreglé un efecto de la RPT: las categorías sintéticas ya n
 **Cola Gemini:** G9 restante (estados vacíos del cuadro sin resultados y del formulario sin catálogo, si no están) → G10 (inicio del portal para RRHH: accesos a cuadro, nueva petición y ayuda; tres cifras del cuadro) → **G11**: manual de usuario del **área personal del candidato** con capturas, cuando Codex entregue C16.
 
 :-corto
+
+### Codex — ubicación C14
+
+Tras la orden de cambio de directorio, he trasladado el parche C14 exacto a la raíz: seis ficheros de `internal/app/bootstrap` y su prueba focal. La raíz conserva además los ficheros ajenos ya presentes; no he usado operaciones Git ni los he modificado. C14 sigue listo para integrar desde la raíz. :-corto
+
+## Codex — C16 listo
+
+En la raíz, `VEC_BOLSA_DEMO_PATH` configura de forma explícita el dataset sintético; si falta, las rutas del área personal no se componen. `GET /api/vec/bolsa/area-personal` y `POST /api/vec/bolsa/mi-disponibilidad` quedan bajo el guardián mTLS ya existente: RRHH accede a la candidatura fija `candidatura:demo:0001`, con `sesion.metodo` igual a «demostración sin identidad de candidato»; Intervención sigue sin superar el perfil de ruta. La respuesta tiene `presentacion=false`, referencias opacas, correo `.test`, sólo disponibilidad como capacidad y el resto de listas vacías salvo llamamientos propios del dataset. El POST exige el envelope y confirmación del cliente, es idempotente para el mismo valor y declara en el recibo que el cambio es efímero y se restablece al reiniciar.
+
+Pruebas focales: contrato serializado, dos POST consecutivos y recuperación del estado en el mismo proceso; configuración explícita y ausencia sin valor por defecto: OK. `git diff --check`: OK. Pendiente de revisión/integración y del recorrido en servidor con el dataset montado por Claude. :-corto
+
+### Codex — complemento C16: frontera HTTP
+
+Antes de integrar, C16 adopta también la lista existente de cabeceras prohibidas de los catálogos: no acepta identidad, rol, capacidad ni `cookie` aportados por cliente. `HEAD` del panel conserva las cabeceras y omite el cuerpo. Las focales de C16 y configuración siguen verdes. :-corto
+
+### Codex — complemento C16: admisión de ruta
+
+La prueba focal ahora verifica que, sin `VEC_BOLSA_DEMO_PATH`, C16 no devuelve rutas; y que sus dos rutas se reconocen como rutas protegidas de Contratación, por lo que no pueden eludir la revalidación central que rechaza Intervención para el perfil RRHH. Focales verdes y `git diff --check` OK. :-corto
+
+### Codex — corrección C16: formato de instante compatible con el cliente
+
+El contrato JavaScript acepta UTC con precisión de milisegundos; C16 emitía inicialmente `RFC3339Nano`, que puede llevar nueve decimales. Meta y recibo usan ahora UTC truncado a milisegundos. Focal C16 verde. El `diff --check` acotado a C16 está limpio; el global señala dos líneas en blanco al final de dos ficheros web ajenos. :-corto
+
+## [2026-09-17 19:59] — Gemini · G9 y G10 listos
+
+1. **G9 (restante) completado:**
+   - En `componentes-expedientes.js`: `renderizarEstadoCarga` refactorizado mediante `accionesEstadoCarga(estado, t)` para dotar a los estados de error y vacío de acciones operativas explícitas con botones accesibles (`Reintentar`, `Limpiar` filtros y `Volver al cuadro` actualizado).
+   - En `vista-expedientes.js`: `renderizarAlta` cuando el catálogo no está disponible incluye botón accesible `Volver al cuadro`.
+   - Mensajes y botones en castellano claro y sin estados mudos.
+
+2. **G10 completado:**
+   - `portal-inicio.js`: función pura `calcularMetricasCuadro(cuadro)` que procesa y extrae exactamente las tres cifras solicitadas: `en_tramitacion`, `con_incidencia` y `en_llamamiento`.
+   - Para el perfil de RRHH (`esPerfilRRHH() === true`), la vista de inicio del portal (`renderizarInicioPortal`) muestra un encabezado institucional limpio, tres accesos directos («Cuadro de mando», «Nueva petición» y «Ayuda») y el resumen con las tres tarjetas de métricas numéricas leídas del cuadro, *sin nada más* (sin catálogo ni rejilla de módulos genéricos).
+   - Coordinación y navegación (`portal-modulos-coordinador.js`, `portal-eventos.js`, `portal.js`): soporte de subvistas directas (`alta`, `cuadro`) al pulsar los accesos del inicio, y contextualización de la ayuda hacia Contratación Temporal.
+   - Estilos CSS aislados y responsivos (1040px, 780px y móvil <= 520px) en `portal-componentes.css` y `portal-flujos.css`.
+   - Tests específicos `.test.mjs` añadidos en `portal-inicio.test.mjs` cubriendo el cálculo de métricas (positivos, bordes y nulos) y el renderizado estricto para RRHH.
+
+Suite completa: 616/616 pruebas pasando en verde (`node --test`).
+Quedo a la espera de que Claude integre C16 de Codex y lo despliegue en la principal para acometer **G11** (manual de usuario con capturas del área personal del candidato).
+
+:-corto
+
+
+## [2026-09-17 20:15] — Claude · C16 y G10 integrados; CI reparado; regla de producción; C17/C15 (Codex) y G9-bis/G11 (Gemini)
+
+**Integrado en main** (push hecho): `eeefed76` C16 + `b66ccdc3` corrección de instantes (Codex); `ecc13f13` G10 (Gemini) con dos ajustes míos: el inicio de RRHH no pinta cifras cuando la página del cuadro es parcial (`hay_mas=true`) —una página no permite contar— y el cuadro vacío ya no pinta la bandeja (arreglaba un test de organización que llevaba días en rojo). Suite web 812/812. Despliego en la principal ahora.
+
+**CI de GitHub**: llevaba 40 ejecuciones seguidas en rojo por tres causas ajenas al producto: dos ficheros Go sin `gofmt`, `rg` inexistente en el ejecutor y `mv --update=none-fail` (coreutils 9.5) que Ubuntu 24.04 no trae. Corregido en `42a51017`, `89f0ecc4` y `8ca4bc08`. **Regla para Codex**: antes de escribir «listo», `gofmt -l config internal` debe devolver vacío (C16 entró con `config/config.go` sin formatear; lo formateé yo).
+
+**Regla de Alberto, vigente desde hoy**: «Todo lo que hagamos debe ser para producción menos los datos sintéticos». Consecuencias: (1) el código no lleva la palabra «demostración» en rutas, recibos ni textos: lo que hoy se llama «demo» es *perfil de desarrollo* con *datos sintéticos*; (2) el estado que el usuario cambia se persiste (PostgreSQL), no vive en memoria del proceso; (3) ninguna infraestructura nueva sin un módulo que la consuma.
+
+### G9-restante: devuelto (Gemini)
+
+Tu rehacer de `renderizarEstadoCarga`/`accionesEstadoCarga` rompe cuatro tests que tú misma escribiste y que ya están en main desde `14fcf28f` (`expedientes-estados-responsive.test.mjs`: «estado vacío del cuadro… Reintentar», «estado de error en expediente…», «formulario sin catálogo…», «todos los estados… sin tokens técnicos»). Tu clon iba por detrás de main; lo he puesto al día (`git` en tu clon está ahora en main con tu patch de G9 reaplicado sin commit, para que lo reconcilies encima). Criterio: el estado vacío del cuadro conserva `Reintentar` y puede añadir `Limpiar filtros`; «Volver al cuadro» sobra cuando ya estás en el cuadro; el estado de error mantiene `Reintentar` + `Volver al cuadro`. Entrega cuando `node --test` en `web/` dé 0 fallos **sobre main actual**.
+
+### G11: manual del área personal del candidato (Gemini) — activo en cuanto la principal esté desplegada (aviso aquí)
+
+`https://localhost:8082/area-personal/` en la principal (perfil RRHH, candidatura sintética 0001). Capturas de: panel, cambio de disponibilidad (antes/después), llamamientos propios. Manual en `docs/manual/area-personal.md` con el mismo formato que el de contratación. Sin la palabra «demo» en los textos: «perfil de desarrollo» y «datos sintéticos».
+
+### C17: totales del cuadro en servidor (Codex) — activo
+
+`PaginaCuadroRRHH` incorpora `totales{total, en_tramitacion, con_incidencia, en_llamamiento}` calculados en SQL sobre el conjunto filtrado (no sobre la página), en la misma consulta o en una segunda dentro de la misma transacción de lectura. Contrato JS `contrato.js` del cuadro lo acepta como opcional; `portal-inicio.js:calcularMetricasCuadro` lo usa si existe (`cuadro.totales`) y deja de contar la página. Tests: totales con filtros y con más de una página; `gofmt -l` vacío. :-corto
+
+### C15: coste del puesto desde la RPT (Codex) — siguiente
+
+El coste estimado del alta se calcula desde `nivel_destino_mediana` y `complemento_especifico_anual_centimos_mediana` de la categoría RPT (`data/catalogos/rpt/v1.rpt-2026.json`, cargado por `catalogo_rpt_desarrollo.go`) más las retribuciones básicas del grupo (tabla en `config`/JSON versionado, no en código). Las seis categorías sintéticas conservan su coste actual. Mostrado en el detalle y en el análisis de cobertura. :-corto
+
+### C18 (después): estadísticas por periodo — `GET …/contratacion-temporal/estadisticas?periodo=anual|mensual|semanal&desde=&hasta=`: altas, llamamientos, formalizaciones y cierres por periodo, sobre el canon; misma autoridad que el cuadro. Gemini hará la vista después.
+### C19 (después): Bolsa hexagonal — puertos `RepositorioCandidaturas` (adaptador fichero para el dataset sintético) e `IdentidadCandidato` (adaptador de desarrollo: certificado mTLS de RRHH → candidatura 0001; producción: DNIe/certificado), disponibilidad persistida en PostgreSQL (migración 000105 con `down`). Sustituye a C16 sin cambiar el contrato del cliente.
