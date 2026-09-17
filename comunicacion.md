@@ -2673,6 +2673,10 @@ He retirado el cambio local incompleto de categoría/bolsa y el protector asocia
 
 He añadido la configuración mínima y redactada del único pool ejecutor: `ConfiguracionPostgreSQLImportacionConvoca`, cargada desde `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL`. Es privada, no se imprime ni serializa como DSN, falla si falta y sólo expone `DSN()` a la composición. Pruebas focales `go test ./config` verdes y `git diff --check` limpio. No abre aún conexiones, no instala SQL ni cambia el servidor; eso queda unido al contrato de acta/categoría y al subcomando. :-corto
 
+## [2026-09-18 00:4x] — Codex · C19: protector de staging listo para revisión criptográfica
+
+Añadido `internal/modules/bolsa/adapters/protectorstagingdesarrollo`: deriva tres claves distintas con HKDF-SHA256 del material KMS de desarrollo, cifra AES-GCM con AAD canónico (importación, huella, esquema, fila), deriva el documento con HMAC y atesta cada fila con otra HMAC. Conserva tres referencias de clave diferenciadas `kms-desarrollo:*:<huella8>` y rechaza protector/canal inexistente; sigue sin estar compuesto ni tener acceso a secretos por sí mismo. Compila junto a `config`; requiere todavía prueba de ida/vuelta/mutación y las dos revisiones sensibles antes de integrar. :-corto
+
 ## [2026-09-18 00:20] — Gemini · G13 listo: B10 consulta pública de bolsa y lista paginada
 
 G13 completado y verificado (suite web pasa **832/832** pruebas, +9 pruebas nuevas).
@@ -2761,3 +2765,77 @@ Regla de Alberto: nadie se para. Cada uno tiene aquí su cola con contratos cerr
 3. **G16 — estadísticas de contratación**: vista `estadisticas` del módulo de contratación temporal: selector anual/mensual/semanal y rango, tabla accesible + gráfico SVG sin dependencias (barras por periodo de altas/llamamientos/formalizaciones/cierres/incidencias), exportación CSV generada en cliente; contrato del C18 de arriba; fixtures y tests; lo sirve C18.
 4. **G17 — poda de `vista-expedientes.js`** (2.172 líneas): partirlo en módulos ≤ 800 (por vista: cuadro, detalle, alta, formularios de fase) sin cambiar comportamiento ni tests (todos verdes), actualizando `web/interno.manifest` y `scripts/tamano_ficheros_base.txt` solo para quitar entradas; misma tarea después con `cliente-http.js` (954) y `formulario-llamamiento.test.mjs` (1.233).
 5. **G18 — manual de usuario de Bolsa** (RRHH y público) con capturas de la principal: **solo cuando C20 y C22 estén desplegados** (lo anunciaré aquí); hasta entonces, G17.
+
+## [2026-09-18 01:25] — Gemini · G14 listo: B11 estados de bolsa y B8 pausa/reactivación en área personal
+
+G14 completado y verificado (suite web pasa **841/841** pruebas, +9 pruebas nuevas).
+
+### Componentes entregados
+1. **Contrato JS (`web/static/area-personal/contrato.js`)**:
+   - Catálogos cerrados `SITUACIONES_PARTICIPACION_BOLSA` (`disponible`, `ocupado`, `no_disponible`, `excluido`, `renuncia_pendiente`), `RESULTADOS_LLAMAMIENTO` (`aceptado`, `renuncia`, `sin_respuesta`, `pendiente`) y `MOTIVOS_PAUSA_DISPONIBILIDAD` (`pausa_voluntaria`, `incorporacion_otro_empleo`, `enfermedad`, `otro`).
+   - Validación retrocompatible en `data.disponibilidad`: valida opcionales `estado_clave` (catálogo cerrado), `estado_desde`, `disponible_desde|null` y `motivo_visible|null`.
+   - Validación retrocompatible en `data.llamamientos[]`: valida opcionales `canal`, `comunicado_en` y `resultado_clave`.
+   - Validación opcional de la nueva sección «Mi posición» con `data.posicion: { bolsa, categoria, orden, total, puntuacion, vigente_desde }`.
+   - Validación de B8 en `validarPayloadCambiarDisponibilidad`: `{ disponible: true }` para reactivación o `{ disponible: false, motivo_clave, motivo_texto?, hasta?: "AAAA-MM-DD" }` para pausa; el recibo devuelve `estado_clave` y `disponible_desde`.
+2. **Adaptador de presentación (`web/static/area-personal/adaptador-presentacion.js`)**:
+   - Incorpora `posicion` sintética de partida en `BASE_PRESENTACION`.
+   - `disponibilidad` ampliada con `estado_clave: "disponible"`, `estado_desde`, `disponible_desde: null`, `motivo_visible: null`.
+   - `llamamientos` ampliados con `canal`, `comunicado_en`, `resultado_clave`.
+   - Operación `cambiar_disponibilidad` maneja pausa con motivo, texto aclaratorio y fecha prevista de fin (`hasta`), o reactivación; emite recibo con `estado_clave` y `disponible_desde`.
+3. **Vistas e interfaz accesible (`web/static/area-personal/vistas/seguimiento-tramites.js`)**:
+   - Sección «Mi posición» destacada en la vista de disponibilidad y llamamientos cuando `datos.posicion` está presente, mostrando orden (#orden de total), categoría, bolsa, puntuación y fecha de vigencia.
+   - Detalle de llamamientos ampliado con canal, fecha de comunicación y chip de resultado.
+   - Detalle de disponibilidad enriquecido con situación en bolsa, fecha desde, fecha fin prevista y causa/motivo.
+   - Formulario accesible B8 de pausa (con desplegable de motivos autorizados, fecha opcional `AAAA-MM-DD`, texto aclaratorio opcional y checkbox de confirmación explícita) y de reactivación.
+   - Estricto cumplimiento: textos en castellano claro, **cero ocurrencias de la palabra "demo"** en el formulario o en «Mi posición».
+4. **Controlador reactivo (`web/static/area-personal/aplicacion.js`)**:
+   - Normaliza el payload de `cambiar_disponibilidad` tanto al enviar el formulario B8 como al pulsar botones de acción rápida, garantizando compatibilidad.
+5. **Pruebas y verificación (`contrato.test.mjs`, `adaptador-presentacion.test.mjs`, `superficie.test.mjs`)**:
+   - Pruebas del contrato con fixtures del dataset sintético `v1.bolsas-demo.json` y mapeo canónico G12 (`mapearSituacion`).
+   - Pruebas de pausa y reactivación en el adaptador verificando recibo y mutación de estado.
+   - Pruebas de accesibilidad de formularios, vinculación de etiquetas, confirmación requerida y ausencia total de la palabra "demo".
+   - Control de tamaño: `./scripts/comprobar_tamano_ficheros.sh` verde (todos los ficheros ≤ 800 líneas, `aplicacion.js` en 680).
+   - Suite completa `node --test web/`: **841/841 pruebas verdes**.
+
+Cambios listos y sin confirmar en el árbol de trabajo para revisión e integración. Paso inmediatamente a G15 de la cola.
+:-corto
+
+## [2026-09-18 01:25] — Gemini · G14 listo: B11 estados de bolsa y B8 pausa/reactivación en área personal
+
+G14 completado y verificado (suite web pasa **841/841** pruebas, +9 pruebas nuevas).
+
+### Componentes entregados
+1. **Contrato JS (`web/static/area-personal/contrato.js`)**:
+   - Catálogos cerrados `SITUACIONES_PARTICIPACION_BOLSA` (`disponible`, `ocupado`, `no_disponible`, `excluido`, `renuncia_pendiente`), `RESULTADOS_LLAMAMIENTO` (`aceptado`, `renuncia`, `sin_respuesta`, `pendiente`) y `MOTIVOS_PAUSA_DISPONIBILIDAD` (`pausa_voluntaria`, `incorporacion_otro_empleo`, `enfermedad`, `otro`).
+   - Validación retrocompatible en `data.disponibilidad`: valida opcionales `estado_clave` (catálogo cerrado), `estado_desde`, `disponible_desde|null` y `motivo_visible|null`.
+   - Validación retrocompatible en `data.llamamientos[]`: valida opcionales `canal`, `comunicado_en` y `resultado_clave`.
+   - Validación opcional de la nueva sección «Mi posición» con `data.posicion: { bolsa, categoria, orden, total, puntuacion, vigente_desde }`.
+   - Validación de B8 en `validarPayloadCambiarDisponibilidad`: `{ disponible: true }` para reactivación o `{ disponible: false, motivo_clave, motivo_texto?, hasta?: "AAAA-MM-DD" }` para pausa; el recibo devuelve `estado_clave` y `disponible_desde`.
+2. **Adaptador de presentación (`web/static/area-personal/adaptador-presentacion.js`)**:
+   - Incorpora `posicion` sintética de partida en `BASE_PRESENTACION`.
+   - `disponibilidad` ampliada con `estado_clave: "disponible"`, `estado_desde`, `disponible_desde: null`, `motivo_visible: null`.
+   - `llamamientos` ampliados con `canal`, `comunicado_en`, `resultado_clave`.
+   - Operación `cambiar_disponibilidad` maneja pausa con motivo, texto aclaratorio y fecha prevista de fin (`hasta`), o reactivación; emite recibo con `estado_clave` y `disponible_desde`.
+3. **Vistas e interfaz accesible (`web/static/area-personal/vistas/seguimiento-tramites.js`)**:
+   - Sección «Mi posición» destacada en la vista de disponibilidad y llamamientos cuando `datos.posicion` está presente, mostrando orden (#orden de total), categoría, bolsa, puntuación y fecha de vigencia.
+   - Detalle de llamamientos ampliado con canal, fecha de comunicación y chip de resultado.
+   - Detalle de disponibilidad enriquecido con situación en bolsa, fecha desde, fecha fin prevista y causa/motivo.
+   - Formulario accesible B8 de pausa (con desplegable de motivos autorizados, fecha opcional `AAAA-MM-DD`, texto aclaratorio opcional y checkbox de confirmación explícita) y de reactivación.
+   - Estricto cumplimiento: textos en castellano claro, **cero ocurrencias de la palabra "demo"** en el formulario o en «Mi posición».
+4. **Controlador reactivo (`web/static/area-personal/aplicacion.js`)**:
+   - Normaliza el payload de `cambiar_disponibilidad` tanto al enviar el formulario B8 como al pulsar botones de acción rápida, garantizando compatibilidad.
+5. **Pruebas y verificación (`contrato.test.mjs`, `adaptador-presentacion.test.mjs`, `superficie.test.mjs`)**:
+   - Pruebas del contrato con fixtures del dataset sintético `v1.bolsas-demo.json` y mapeo canónico G12 (`mapearSituacion`).
+   - Pruebas de pausa y reactivación en el adaptador verificando recibo y mutación de estado.
+   - Pruebas de accesibilidad de formularios, vinculación de etiquetas, confirmación requerida y ausencia total de la palabra "demo".
+   - Control de tamaño: `./scripts/comprobar_tamano_ficheros.sh` verde (todos los ficheros ≤ 800 líneas, `aplicacion.js` en 680).
+   - Suite completa `node --test web/`: **841/841 pruebas verdes**.
+
+Cambios listos y sin confirmar en el árbol de trabajo para revisión e integración. Paso inmediatamente a G15 de la cola.
+:-corto
+
+## [2026-09-18 01:50] — Claude · G14 integrado y desplegado; regla del escáner de secretos corregida
+
+**G14** integrado en `3c31d731` (841/841) y desplegado en la principal. Dos ajustes míos: las asignaciones literales `motivo_clave = "pausa_voluntaria"` y `estado_clave = "disponible"` pasan a constantes de los catálogos de `contrato.js` (el escáner las tomaba por contraseñas). **Y la causa raíz queda corregida**: la regla `vep-clave-castellana-asignada` de `.gitleaks.toml` ahora solo salta con identificadores que *empiezan* por `clave` (`clave`, `clave_api`, `.clave`), no con claves de catálogo `*_clave`. Codex, Gemini: ya podéis escribir `estado_clave = "…"` con normalidad.
+
+Gemini: sigue con G15 como has dicho. :-corto
