@@ -33,6 +33,7 @@ var (
 	errorAutenticacionCoberturaRequerida    = nuevoErrorCobertura(http.StatusUnauthorized, "autenticacion_requerida")
 	errorAccesoCoberturaDenegado            = nuevoErrorCobertura(http.StatusForbidden, "acceso_denegado")
 	errorConflictoCobertura                 = nuevoErrorCobertura(http.StatusConflict, "conflicto")
+	errorConflictoEstadoCobertura           = nuevoErrorCobertura(http.StatusConflict, "conflicto_estado")
 	errorResultadoCoberturaNoConfiable      = nuevoErrorCobertura(http.StatusBadGateway, "resultado_no_confiable")
 	errorServicioCoberturaNoDisponible      = nuevoErrorCobertura(http.StatusServiceUnavailable, "servicio_no_disponible")
 	errorOperacionCoberturaPendiente        = nuevoErrorCobertura(http.StatusServiceUnavailable, "operacion_pendiente")
@@ -71,6 +72,8 @@ func clasificarErrorCobertura(err error) errorPublicoCobertura {
 		return errorServicioCoberturaNoDisponible
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrPresentacionPropuestaCoberturaDenegada), errors.Is(err, application.ErrConfirmacionDecisionCoberturaDenegada):
 		return errorAccesoCoberturaDenegado
+	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEstadoNoAdmite):
+		return errorConflictoEstadoCobertura
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaOcupada):
 		return errorConflictoCobertura
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaNoConfiable), errors.Is(err, application.ErrConfirmacionDecisionCoberturaNoConfiable), errors.Is(err, cobertura.ErrOperacionDecisionCoberturaIdempotenteInvalida):
@@ -106,7 +109,7 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 		valor = envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}}
 		contenido, _ = json.Marshal(valor)
 	}
-	if estado >= http.StatusInternalServerError {
+	if estado >= http.StatusInternalServerError || (estado == http.StatusConflict && codigoErrorCobertura(valor) == "conflicto_estado") {
 		codigo, correlacion := metadatosErrorContratacion(valor)
 		registrarFalloContratacion(peticion, estado, codigo, correlacion, causa)
 	}
@@ -115,6 +118,13 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 	w.WriteHeader(estado)
 	_, _ = w.Write(contenido)
 }
+func codigoErrorCobertura(valor any) string {
+	if envoltorio, ok := valor.(envoltorioErrorCobertura); ok {
+		return envoltorio.Error.Codigo
+	}
+	return ""
+}
+
 func aplicarCabecerasCobertura(w http.ResponseWriter) {
 	for _, nombre := range []string{"Set-Cookie", "Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Allow-Headers", "Access-Control-Allow-Methods", "Access-Control-Expose-Headers", "Content-Encoding", "Location", "Retry-After"} {
 		w.Header().Del(nombre)

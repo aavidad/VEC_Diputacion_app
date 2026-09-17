@@ -28,6 +28,7 @@ var (
 	ErrPeticionIntegracionBolsaInvalida = errors.New("contratacion temporal: peticion de integracion con bolsa invalida")
 	ErrRespuestaBolsaNoConfiable        = errors.New("contratacion temporal: respuesta de bolsa no confiable")
 	ErrIntegracionBolsaNoDisponible     = errors.New("contratacion temporal: integracion con bolsa no disponible")
+	ErrEstadoExpedienteNoSeleccionable  = errors.New("contratacion temporal: estado de expediente no admite seleccion")
 	ErrLimiteIntegracionBolsaExcedido   = errors.New("contratacion temporal: limite de integracion con bolsa excedido")
 	ErrEvidenciaBolsaNoAutenticada      = errors.New("contratacion temporal: evidencia de bolsa no autenticada")
 	ErrSerializacionCapacidadBolsa      = errors.New("contratacion temporal: serializacion de capacidad de bolsa prohibida")

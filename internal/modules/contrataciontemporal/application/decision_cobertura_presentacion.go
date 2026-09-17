@@ -31,6 +31,9 @@ var (
 	ErrPresentacionPropuestaCoberturaNoDisponible = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura no disponible",
 	)
+	ErrPresentacionPropuestaCoberturaEstadoNoAdmite = errors.New(
+		"contratacion temporal: estado no admite propuesta de cobertura",
+	)
 	ErrPresentacionPropuestaCoberturaEnConflicto = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura en conflicto",
 	)
@@ -597,7 +600,7 @@ func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloDependencia(
 		return err
 	}
 	if errors.Is(causa, cobertura.ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura) {
-		return ErrPresentacionPropuestaCoberturaEnConflicto
+		return ErrPresentacionPropuestaCoberturaEstadoNoAdmite
 	}
 	if etapaReconocida, ok := EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
 		return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapaReconocida)

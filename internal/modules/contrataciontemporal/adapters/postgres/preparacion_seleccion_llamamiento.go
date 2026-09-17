@@ -60,7 +60,7 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaSelec
 		expediente.FaseActual != domain.FaseFiscalizacion ||
 		expediente.EstadoActual != domain.EstadoEnCurso || expediente.Fiscalizacion == nil ||
 		expediente.Fiscalizacion.Resultado == domain.FiscalizacionDesfavorable {
-		return vacio, errorLecturaSeleccion(ctx)
+		return vacio, ports.ErrEstadoExpedienteNoSeleccionable
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return vacio, errorLecturaSeleccion(ctx)

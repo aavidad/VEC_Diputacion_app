@@ -13,7 +13,8 @@ import (
 
 // registrarFalloContratacion solo registra metadatos cerrados, nunca el texto de la causa.
 func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion string, causa error) {
-	if estado < http.StatusInternalServerError {
+	if estado < http.StatusInternalServerError &&
+		(estado != http.StatusConflict || codigo != "conflicto_estado") {
 		return
 	}
 	ruta, operacion := "ruta_no_reconocida", "contratacion"

@@ -130,6 +130,10 @@ var (
 		http.StatusConflict,
 		"conflicto_no_reintentable",
 	)
+	errorConflictoEstadoSeleccionLlamamiento = nuevoErrorSeleccionLlamamiento(
+		http.StatusConflict,
+		"conflicto_estado",
+	)
 	errorSeleccionLlamamientoNoDisponible = nuevoErrorSeleccionLlamamiento(
 		http.StatusConflict,
 		"seleccion_no_disponible",
@@ -197,6 +201,8 @@ func clasificarErrorSeleccionLlamamiento(err error) errorPublicoCobertura {
 		return errorCancelacionSeleccionLlamamiento
 	case errors.Is(err, context.DeadlineExceeded):
 		return errorPlazoSeleccionLlamamiento
+	case errors.Is(err, ports.ErrEstadoExpedienteNoSeleccionable):
+		return errorConflictoEstadoSeleccionLlamamiento
 	case errors.Is(err, application.ErrSolicitudSeleccionLlamamientoInvalida):
 		return errorContenidoSeleccionLlamamientoInvalido
 	case errors.Is(err, application.ErrSeleccionLlamamientoNoDisponible):
