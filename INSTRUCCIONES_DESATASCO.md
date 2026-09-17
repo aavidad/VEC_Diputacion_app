@@ -344,7 +344,9 @@ correcciones → cortes pequeños revisados):
    `docs/estudio_requisitos/ficha_adaptacion_bolsa_convoca_2026-09-16.md`.
 2. **Cronos**, reescrito (la app actual es PHP 5).
 3. **Dietas**, nuevo, con las tres perspectivas: quien la solicita, quien la autoriza
-   y RRHH.
+   y RRHH. **Se conserva el mapa de rutas** (cálculo de kilómetros con OSRM sobre
+   la cartografía de Granada, `deploy/osrm-granada`, `modulos/dietas/mapa-ruta.js`):
+   Alberto lo quiere en el producto; no es sobreprogramación que se retire.
 
 Sigue vigente: datos sintéticos, deny by default, una operación por caso de uso,
 ningún adaptador sin consumidor.
