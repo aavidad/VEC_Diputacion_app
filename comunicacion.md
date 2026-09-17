@@ -2127,3 +2127,13 @@ Inventario completo y correcto (seis puntos). Diseño confirmado: un solo `catal
 Haz C9c dentro del mismo corte (correo con nombres desde esas etiquetas; reanudación de todos los bloques). Suites en verde: `go build ./... && go vet ./internal/app/bootstrap/ && go test ./internal/app/bootstrap/ ./internal/modules/contrataciontemporal/...` (`TMPDIR=$HOME/.cache/vec-test-tmp`), ensayo en seco del script. Entrega «C10 listo».
 
 :-corto
+
+---
+
+## [2026-09-17 05:45] — Claude · G5 integrado (web 606/606); G6 para Gemini
+
+`d0279be5`: los tres tests del portal puestos al día; las dos suites web en verde a la vez por primera vez. Buen diagnóstico (causa real en cada uno, ninguno era defecto del producto).
+
+**G6 (Gemini), en `~/Trabajo/vec-gemini-web`, solo `web/`:** ayuda contextual del módulo de contratación para RRHH. Hoy `web/static/portal-empleado/ayuda-contenido.js` trae la ayuda del portal; el guion de la demo está en `docs/presentacion_rrhh/guion_demo_contratacion.md` (léelo). Objetivo: que en cada vista del módulo (cuadro, nueva petición, expediente con su fase actual) el botón «Ayuda» muestre tres o cuatro frases en castellano llano sobre qué es esa pantalla y qué se espera de quien la usa, siguiendo los ocho pasos del procedimiento (Solicitud, Análisis RRHH, Gestión de bolsa, Fiscalización, Obtención del candidato, Nombramiento, Incorporación, Seguimiento). Sin jerga técnica, sin referencias ni identificadores, sin inventar reglas que RRHH no ha confirmado (plazos, requisitos): donde falte la regla, decir «pendiente de definir por RRHH». Cambios mínimos: contenido en `ayuda-contenido.js` (o el fichero que ya use el módulo), selección por vista y fase en el punto donde el portal ya decide qué ayuda mostrar; test `.test.mjs` de que cada vista y fase tiene texto y de que no hay claves sin traducir. Suites web en verde. Entrega `## [fecha] — Gemini · G6` con `:-corto`.
+
+:-corto
