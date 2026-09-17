@@ -21,7 +21,7 @@ if ! git -C "$target" diff --quiet || ! git -C "$target" diff --cached --quiet; 
 fi
 goroot=$(go env GOROOT)
 go_bin="$goroot/bin/go"
-[[ -x $go_bin && $($go_bin version) == 'go version go1.26.5 linux/amd64' ]] || { printf 'NO-GO toolchain\n' >&2; exit 2; }
+[[ -x $go_bin && $($go_bin version) == 'go version go1.26.6 linux/amd64' ]] || { printf 'NO-GO toolchain\n' >&2; exit 2; }
 
 staging=$(mktemp -d /var/tmp/o3c-p6.XXXXXX)
 trap 'rm -rf -- "$staging"' EXIT

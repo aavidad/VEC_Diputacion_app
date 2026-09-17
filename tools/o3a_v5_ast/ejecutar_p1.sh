@@ -16,7 +16,7 @@ done
 control_home=${HOME:?HOME requerido}
 toolchain_cache=${GOMODCACHE:-}
 [[ "$toolchain_cache" == /* && -d "$toolchain_cache" ]] || { printf 'cache bootstrap de toolchain inválida\n' >&2; exit 64; }
-goroot=$(env -i HOME="$control_home" PATH=/usr/bin:/bin GOENV=off GOFLAGS= GOTOOLCHAIN=go1.26.5 GOMODCACHE="$toolchain_cache" "$go_lanzador" env GOROOT)
+goroot=$(env -i HOME="$control_home" PATH=/usr/bin:/bin GOENV=off GOFLAGS= GOTOOLCHAIN=go1.26.6 GOMODCACHE="$toolchain_cache" "$go_lanzador" env GOROOT)
 [[ -n "$goroot" && "$goroot" == /* && -d "$goroot" ]] || { printf 'GOROOT inválido derivado de VEP_GO_BIN: %s\n' "$goroot" >&2; exit 64; }
 go_bin=${goroot}/bin/go
 [[ -x "$go_bin" ]] || { printf 'Go efectivo no ejecutable: %s\n' "$go_bin" >&2; exit 64; }

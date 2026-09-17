@@ -20,7 +20,7 @@ git -C "$target" cat-file -e "$base^{commit}" 2>/dev/null || { echo 'NO-GO base 
 git -C "$target" merge-base --is-ancestor "$base" HEAD || { echo 'NO-GO ascendencia base' >&2; exit 2; }
 goroot=$(go env GOROOT)
 go_bin="$goroot/bin/go"
-[[ -x $go_bin && $($go_bin version) == 'go version go1.26.5 linux/amd64' ]] || { echo 'NO-GO toolchain' >&2; exit 2; }
+[[ -x $go_bin && $($go_bin version) == 'go version go1.26.6 linux/amd64' ]] || { echo 'NO-GO toolchain' >&2; exit 2; }
 mkdir -m 700 "$evidencia"
 staging=$(mktemp -d "${TMPDIR:-/var/tmp}/o3b-p7.XXXXXX")
 trap 'rm -rf -- "$staging"' EXIT
