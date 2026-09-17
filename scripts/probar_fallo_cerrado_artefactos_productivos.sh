@@ -38,8 +38,8 @@ probar_fallo_cerrado() {
 	if [[ -z "${salida}" ]]; then
 		fallar "${superficie}: el fallo cerrado no produjo un diagnostico saneado."
 	fi
-	if rg -ni \
-		'postgres(?:ql)?://|mysql://|oracle://|password=|contrase[nñ]a=|token=|secret=|dsn=|/home/|/run/secrets/|(?:10|127)\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|172\.(?:1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}' \
+	if grep -niE \
+		'postgres(ql)?://|mysql://|oracle://|password=|contrase[nñ]a=|token=|secret=|dsn=|/home/|/run/secrets/|(10|127)\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}' \
 		<<<"${salida}" >/dev/null; then
 		fallar "${superficie}: el diagnostico de arranque revelo configuracion sensible."
 	fi

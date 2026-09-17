@@ -128,7 +128,7 @@ if docker cp "${contenedor_por_superficie[publico]}:/app/locales/." \
 	fallar "publico: el artefacto incorpora traducciones de la superficie interna."
 fi
 
-if rg -n '/api/vec|/portal-empleado|/area-personal|credentials[[:space:]]*:[[:space:]]*.include|document\.cookie|localStorage|sessionStorage' \
+if grep -rnE '/api/vec|/portal-empleado|/area-personal|credentials[[:space:]]*:[[:space:]]*.include|document\.cookie|localStorage|sessionStorage' \
 	"${temporal}/publico/web" >/dev/null; then
 	fallar "publico: el cliente contiene una ruta interna o estado de sesion prohibido."
 fi
@@ -147,18 +147,19 @@ verificar_locales_internos
 # ejemplo, abrir la consulta publica o verificar un recibo). Lo que no puede
 # hacer el cliente interno es consumir directamente la API anonima ni incluir
 # sus recursos: esto ultimo ya queda cerrado por el manifiesto exacto.
-if rg -ni '/api/publico(?:/|[?"'"'"'])|\bBearer\b|Authorization|document\.cookie|localStorage|sessionStorage|credentials[[:space:]]*:[[:space:]]*["'"'"']include' \
+if grep -rniE '/api/publico(/|[?"'"'"'])|\bBearer\b|Authorization|document\.cookie|localStorage|sessionStorage|credentials[[:space:]]*:[[:space:]]*["'"'"']include' \
 	"${temporal}/interno/web" >/dev/null; then
 	fallar "interno: el cliente incorpora credenciales de navegador, estado local o la API publica."
 fi
 
+# (grep en vez de ripgrep: el ejecutor de CI no trae rg y la puerta fallaba en silencio.)
 # El certificado de cliente TLS requiere credenciales del mismo origen. Se
 # admite una sola aparicion y exclusivamente en el transporte interno revisado;
 # el servidor no emite cookies y las guardas anteriores siguen prohibiendo su
 # lectura, almacenamiento o inclusion entre origenes.
 ruta_transporte_mtls="${temporal}/interno/web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.js:"
 mapfile -t usos_mismo_origen < <(
-	rg -ni 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
+	grep -rniE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
 		"${temporal}/interno/web" || true
 )
 if ((${#usos_mismo_origen[@]} != 1)) || [[ "${usos_mismo_origen[0]}" != "${ruta_transporte_mtls}"* ]]; then
