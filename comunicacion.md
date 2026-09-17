@@ -2271,3 +2271,20 @@ La revisión final detectó que `registrarFalloContratacion` descartaba todo est
 **C14 — corte 2 de la composición (Codex):** sustituir los constructores de `internal/app/bootstrap` que leen `config` por su cuenta por adaptadores explícitos recibidos de `DependenciasCT`, empezando por alta, análisis, cobertura y consultas RRHH; consolidar `material_desarrollo.go`, `kms_desarrollo.go` e `idempotencia_desarrollo.go` en un solo punto de construcción sin lecturas cruzadas. Sin borrar rutas ni cambiar autorización, huellas ni respuestas. Prueba de arranque con directorio de material preparado. Tope 1.500 líneas por entrega; si se pasa, dos entregas. Ensayo: suites completas y arranque local de `vec-server` en perfil desarrollo con el material de prueba. Entrega «C14 listo»; después, **C15**: coste desde la RPT (complemento específico anual y nivel de destino del catálogo, sueldo base por grupo de la tabla pública de retribuciones) en vez de la tabla de referencia, con la fuente rotulada.
 
 :-corto
+
+---
+
+## [2026-09-17 08:45] — Claude · datos sintéticos de Bolsa listos; C16 (portal personal) para Codex antes de C14
+
+Alberto quiere el portal personal funcionando con datos sintéticos, sin esperar a Bolsa. Hecho por mi parte (`main`): `data/demo/bolsa/v1.bolsas-demo.json` (12 bolsas de categorías de la RPT, 367 candidaturas con orden/estado/puntuación, 107 llamamientos; generador `scripts/generar_bolsa_demo.py`, determinista, sin personas). Comprobado en la principal: `/area-personal/` carga la web y muere en `GET /api/vec/bolsa/area-personal` → 404 (no existe en el servidor); en modo presentación el servidor integrado rechaza la query.
+
+**C16 (Codex), antes de C14 —el corte 2 puede esperar un día—: área personal del candidato con datos sintéticos en la principal.**
+1. Ruta `GET /api/vec/bolsa/area-personal` en la composición de desarrollo, con el patrón de `catalogos-alta` (`contratacion_temporal_catalogos_alta_desarrollo.go:325–386`: cabeceras, GET/HEAD, sin query, sin cuerpo) y la admisión en las listas de `contratacion_temporal_desarrollo.go:630–660` (`rutaConsulta…` y `principalContratacionTemporalDesarrolloValidoParaRuta`). Respuesta con el contrato que la web ya valida (`web/static/area-personal/contrato.js:97–160`, `meta.presentacion=false`, referencias opacas sin `DEMO-`): `sesion`, `resumen`, `perfil` sintético, `llamamientos` y `disponibilidad` desde el dataset; el resto de listas vacías; `capacidades` solo con lo que exista.
+2. `POST /api/vec/bolsa/mi-disponibilidad`: pausar/reactivar la candidatura de demostración (estado en memoria del proceso, se pierde al reiniciar: dilo en la respuesta con `meta.origen`).
+3. Identidad: hoy solo hay certificados de RRHH e Intervención. Para este corte, el **principal de RRHH ve una candidatura de demostración fija** (`candidatura:demo:0001`, «Candidatura de demostración 0001»), rotulada como tal en `sesion.metodo` («demostración sin identidad de candidato»). La identidad real del candidato (DNIe/certificado en el servidor público, decisión 4 de Alberto) es otro encargo con doble revisión: no la abras aquí.
+4. Carga del dataset por `VEC_BOLSA_DEMO_PATH` (yo lo pongo en `arrancar_app.sh` como `/app/data/demo/bolsa/v1.bolsas-demo.json`); sin ruta, la ruta HTTP no se compone y la web sigue diciendo que no está disponible.
+5. Tests: contrato de respuesta (un test Go que serializa y comprueba campos obligatorios), admisión de ruta y rechazo con Intervención, disponibilidad idempotente. Suites en verde. Entrega «C16 listo»; lo despliego y lo comprobamos en `/area-personal/`.
+
+Después: C14 (corte 2), C15 (coste desde la RPT).
+
+:-corto
