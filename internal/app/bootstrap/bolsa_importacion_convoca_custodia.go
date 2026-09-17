@@ -17,7 +17,13 @@ func custodiarImportacionConvocaDesarrollo(cfg config.Config, contenido []byte) 
 	}
 	s := sha256.Sum256(contenido)
 	h := hex.EncodeToString(s[:])
-	d := filepath.Join(cfg.DevelopmentMaterialDir, "importaciones")
+	// El material de desarrollo puede montarse en solo lectura (así está en la
+	// principal): la custodia admite un directorio propio; en producción será
+	// el gestor documental.
+	d := cfg.BolsaImportacionConvocaCustodiaDir
+	if d == "" {
+		d = filepath.Join(cfg.DevelopmentMaterialDir, "importaciones")
+	}
 	if err := os.MkdirAll(d, 0700); err != nil {
 		return "", ErrCustodiaImportacionConvocaNoDisponible
 	}

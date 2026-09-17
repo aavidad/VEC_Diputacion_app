@@ -45,6 +45,7 @@ const (
 	EnvBolsaCategoriesSHA256                       = "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"
 	EnvBolsaCategoriesPublicProjectionSHA256       = "VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256"
 	EnvBolsaDemoPath                               = "VEC_BOLSA_DEMO_PATH"
+	EnvBolsaImportacionConvocaCustodiaDir          = "VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR"
 	EnvOSRMBaseURL                                 = "VEC_OSRM_BASE_URL"
 	EnvOSRMScopeName                               = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds                             = "VEC_OSRM_SCOPE_BOUNDS"
@@ -132,6 +133,7 @@ type Config struct {
 	BolsaCategoriesSHA256                       string
 	BolsaCategoriesPublicProjectionSHA256       string
 	BolsaDemoPath                               string
+	BolsaImportacionConvocaCustodiaDir          string
 	BolsaPublicaPostgreSQL                      ConfiguracionPostgreSQLPublica
 	BolsaPublicaManifiestoSHA256                string
 	OSRMBaseURL                                 string
@@ -192,6 +194,7 @@ func Load() Config {
 		BolsaCategoriesSHA256:                       envFirst(EnvBolsaCategoriesSHA256),
 		BolsaCategoriesPublicProjectionSHA256:       envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
 		BolsaDemoPath:                               envFirst(EnvBolsaDemoPath),
+		BolsaImportacionConvocaCustodiaDir:          envFirst(EnvBolsaImportacionConvocaCustodiaDir),
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
 		},
@@ -308,6 +311,7 @@ func (c Config) Normalize() Config {
 	}
 	c.BolsaCategoriesSHA256 = defaultString(c.BolsaCategoriesSHA256, DefaultBolsaCategoriesSHA256)
 	c.BolsaDemoPath = strings.TrimSpace(c.BolsaDemoPath)
+	c.BolsaImportacionConvocaCustodiaDir = strings.TrimSpace(c.BolsaImportacionConvocaCustodiaDir)
 	c.OSRMBaseURL = strings.TrimRight(strings.TrimSpace(c.OSRMBaseURL), "/")
 	c.OSRMScopeName = strings.TrimSpace(c.OSRMScopeName)
 	c.OSRMScopeBounds = strings.TrimSpace(c.OSRMScopeBounds)
