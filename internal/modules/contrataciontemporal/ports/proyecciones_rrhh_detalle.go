@@ -176,15 +176,16 @@ func (h HitoExpedienteRRHH) validar() error {
 // DetalleExpedienteRRHH es una proyección explícita de datos operativos. No
 // expone el agregado ni campos libres o identificadores de personas.
 type DetalleExpedienteRRHH struct {
-	Resumen    ResumenExpedienteRRHH    `json:"resumen"`
-	Solicitud  SolicitudOperativaRRHH   `json:"solicitud"`
-	Analisis   *AnalisisOperativoRRHH   `json:"analisis,omitempty"`
-	Cobertura  *CoberturaOperativaRRHH  `json:"cobertura,omitempty"`
-	Asignacion *AsignacionOperativaRRHH `json:"asignacion,omitempty"`
-	Hitos      []HitoExpedienteRRHH     `json:"hitos"`
-	Lectura    ReciboLecturaRRHH        `json:"-"`
-	huella     [32]byte
-	bloques    uint8
+	Resumen       ResumenExpedienteRRHH       `json:"resumen"`
+	Solicitud     SolicitudOperativaRRHH      `json:"solicitud"`
+	Analisis      *AnalisisOperativoRRHH      `json:"analisis,omitempty"`
+	Cobertura     *CoberturaOperativaRRHH     `json:"cobertura,omitempty"`
+	Asignacion    *AsignacionOperativaRRHH    `json:"asignacion,omitempty"`
+	Fiscalizacion *FiscalizacionOperativaRRHH `json:"fiscalizacion,omitempty"`
+	Hitos         []HitoExpedienteRRHH        `json:"hitos"`
+	Lectura       ReciboLecturaRRHH           `json:"-"`
+	huella        [32]byte
+	bloques       uint8
 }
 
 // NuevoDetalleExpedienteRRHH valida el agregado completo antes de reducirlo a
@@ -216,6 +217,10 @@ func NuevoDetalleExpedienteRRHH(
 	if expediente.ViaCobertura != nil {
 		detalle.Cobertura = coberturaDesdeExpedienteRRHH(expediente)
 		detalle.bloques |= bloqueCoberturaRRHH
+	}
+	if expediente.Fiscalizacion != nil {
+		detalle.Fiscalizacion = fiscalizacionDesdeExpedienteRRHH(expediente)
+		detalle.bloques |= bloqueFiscalizacionRRHH
 	}
 	if expediente.Asignacion != nil {
 		detalle.Asignacion = &AsignacionOperativaRRHH{

@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	DominioCanonContenidoDetalleRRHH  = "vec.contratacion_temporal.resultado_rrhh.contenido_detalle.v1"
-	cabeceraCanonContenidoDetalleRRHH = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
+	DominioCanonContenidoDetalleRRHH    = "vec.contratacion_temporal.resultado_rrhh.contenido_detalle.v1"
+	cabeceraCanonContenidoDetalleRRHHV2 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
+	cabeceraCanonContenidoDetalleRRHHV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
 )
 
 // ExportacionCanonicaContenidoDetalleRRHH conserva el detalle reducido antes
@@ -45,9 +46,11 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 		return ExportacionCanonicaContenidoDetalleRRHH{},
 			ErrResultadoConsultaRRHHNoConfiable
 	}
-	constructor := nuevoConstructorCanonResultadoRRHH(
-		cabeceraCanonContenidoDetalleRRHH,
-	)
+	cabecera := cabeceraCanonContenidoDetalleRRHHV2
+	if detalle.Fiscalizacion != nil {
+		cabecera = cabeceraCanonContenidoDetalleRRHHV3
+	}
+	constructor := nuevoConstructorCanonResultadoRRHH(cabecera)
 	constructor.resumen(detalle.Resumen)
 	constructor.solicitud(detalle.Solicitud)
 	constructor.enteroSinSigno(uint64(detalle.bloques))
@@ -63,6 +66,13 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 		detalle.Asignacion,
 		e.referenciaAsignacion.secuencia,
 	)
+	if detalle.Fiscalizacion != nil {
+		constructor.bloqueFiscalizacion(
+			detalle.Fiscalizacion,
+			e.referenciaFiscalizacion.secuencia,
+			e.referenciaSubsanacion.secuencia,
+		)
+	}
 	constructor.enteroSinSigno(uint64(len(detalle.Hitos)))
 	for _, hito := range detalle.Hitos {
 		constructor.hito(hito)
@@ -200,4 +210,29 @@ func (c *constructorCanonResultadoRRHH) hito(h HitoExpedienteRRHH) {
 
 func (c *constructorCanonResultadoRRHH) enteroConSigno(valor int64) {
 	c.texto(strconv.FormatInt(valor, 10))
+}
+
+func (c *constructorCanonResultadoRRHH) bloqueFiscalizacion(
+	fiscalizacion *FiscalizacionOperativaRRHH,
+	secuenciaFiscalizacion uint64,
+	secuenciaSubsanacion uint64,
+) {
+	c.booleano(fiscalizacion != nil)
+	c.enteroSinSigno(secuenciaFiscalizacion)
+	c.enteroSinSigno(secuenciaSubsanacion)
+	if fiscalizacion == nil {
+		return
+	}
+	c.texto(string(fiscalizacion.ResultadoClave))
+	c.enteroSinSigno(uint64(len(fiscalizacion.Reparos)))
+	for _, reparo := range fiscalizacion.Reparos {
+		c.texto(string(reparo.Clave))
+		c.texto(reparo.Texto)
+	}
+	c.instante(fiscalizacion.RegistradaEn)
+	c.booleano(fiscalizacion.Subsanacion != nil)
+	if fiscalizacion.Subsanacion != nil {
+		c.instante(fiscalizacion.Subsanacion.RegistradaEn)
+		c.texto(fiscalizacion.Subsanacion.Texto)
+	}
 }

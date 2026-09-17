@@ -37,15 +37,18 @@ func (d DetalleExpedienteRRHH) validarIntegridadContenidoEstructura() error {
 		d.bloques != 0 &&
 			d.bloques != bloqueAnalisisRRHH &&
 			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH &&
-			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH {
+			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH &&
+			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH|bloqueFiscalizacionRRHH {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	debeTenerAnalisis := d.bloques&bloqueAnalisisRRHH != 0
 	debeTenerCobertura := d.bloques&bloqueCoberturaRRHH != 0
 	debeTenerAsignacion := d.bloques&bloqueAsignacionRRHH != 0
+	debeTenerFiscalizacion := d.bloques&bloqueFiscalizacionRRHH != 0
 	if (d.Analisis != nil) != debeTenerAnalisis ||
 		(d.Cobertura != nil) != debeTenerCobertura ||
-		(d.Asignacion != nil) != debeTenerAsignacion {
+		(d.Asignacion != nil) != debeTenerAsignacion ||
+		(d.Fiscalizacion != nil) != debeTenerFiscalizacion {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if d.Analisis != nil && !d.Analisis.vinculo.coincide(d.Hitos) {
@@ -61,6 +64,14 @@ func (d DetalleExpedienteRRHH) validarIntegridadContenidoEstructura() error {
 		(!d.Asignacion.vinculo.coincide(d.Hitos) ||
 			!d.Asignacion.AsignadaEn.Equal(d.Asignacion.vinculo.realizadaEn) ||
 			d.Asignacion.vinculo.secuencia <= d.Cobertura.vinculo.secuencia) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.Fiscalizacion != nil &&
+		(!d.Fiscalizacion.vinculo.coincide(d.Hitos) ||
+			d.Fiscalizacion.vinculo.secuencia <= d.Asignacion.vinculo.secuencia ||
+			(d.Fiscalizacion.Subsanacion != nil &&
+				(!d.Fiscalizacion.Subsanacion.vinculo.coincide(d.Hitos) ||
+					d.Fiscalizacion.Subsanacion.vinculo.secuencia <= d.Fiscalizacion.vinculo.secuencia))) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return nil
@@ -94,6 +105,9 @@ func (d DetalleExpedienteRRHH) validarContenidoPublicable() error {
 		d.Resumen.UnidadRef != d.Asignacion.UnidadRef ||
 		d.Asignacion.AsignadaEn.Before(d.Resumen.CreadoEn) ||
 		d.Asignacion.AsignadaEn.After(d.Resumen.ActualizadoEn) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.Fiscalizacion != nil && (d.Asignacion == nil || d.Fiscalizacion.validar() != nil) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return d.validarHitos()
@@ -190,6 +204,15 @@ func (d DetalleExpedienteRRHH) Clonar() DetalleExpedienteRRHH {
 	if d.Asignacion != nil {
 		asignacion := *d.Asignacion
 		d.Asignacion = &asignacion
+	}
+	if d.Fiscalizacion != nil {
+		fiscalizacion := *d.Fiscalizacion
+		fiscalizacion.Reparos = append([]ReparoFiscalizacionOperativaRRHH(nil), d.Fiscalizacion.Reparos...)
+		if d.Fiscalizacion.Subsanacion != nil {
+			subsanacion := *d.Fiscalizacion.Subsanacion
+			fiscalizacion.Subsanacion = &subsanacion
+		}
+		d.Fiscalizacion = &fiscalizacion
 	}
 	return d
 }

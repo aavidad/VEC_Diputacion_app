@@ -10,6 +10,7 @@ const (
 	bloqueAnalisisRRHH uint8 = 1 << iota
 	bloqueCoberturaRRHH
 	bloqueAsignacionRRHH
+	bloqueFiscalizacionRRHH
 )
 
 type vinculoHitoOperativoRRHH struct {
@@ -106,5 +107,19 @@ func vinculoDesdeActuacionRRHH(
 		accionClave:       actuacion.AccionClave,
 		faseDestino:       actuacion.FaseDestino,
 		realizadaEn:       actuacion.RealizadaEn,
+	}
+}
+
+func vinculoDesdeFiscalizacionRRHH(
+	fiscalizacion domain.FiscalizacionRegistrada,
+) vinculoHitoOperativoRRHH {
+	if fiscalizacion.ActuacionRegistro == nil {
+		return vinculoHitoOperativoRRHH{}
+	}
+	v := fiscalizacion.ActuacionRegistro
+	return vinculoHitoOperativoRRHH{
+		secuencia: v.Secuencia, versionExpediente: v.VersionExpediente,
+		accionClave: v.AccionClave, faseDestino: v.FaseDestino,
+		realizadaEn: fiscalizacion.FiscalizadaEn,
 	}
 }

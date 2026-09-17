@@ -26,6 +26,7 @@ func calcularHuellaDetalleRRHH(
 	e.analisis(detalle.Analisis)
 	e.cobertura(detalle.Cobertura)
 	e.asignacion(detalle.Asignacion)
+	e.fiscalizacion(detalle.Fiscalizacion)
 	e.hitos(detalle.Hitos)
 	var resultado [sha256.Size]byte
 	copy(resultado[:], destino.Sum(nil))
@@ -147,4 +148,23 @@ func (e *escritorHuellaDetalleRRHH) i64(valor int64) {
 func (e *escritorHuellaDetalleRRHH) u64(valor uint64) {
 	binary.BigEndian.PutUint64(e.entero[:], valor)
 	_, _ = e.destino.Write(e.entero[:])
+}
+
+func (e *escritorHuellaDetalleRRHH) fiscalizacion(f *FiscalizacionOperativaRRHH) {
+	e.presente(f != nil)
+	if f == nil {
+		return
+	}
+	e.cadena(string(f.ResultadoClave))
+	e.u64(uint64(len(f.Reparos)))
+	for _, reparo := range f.Reparos {
+		e.cadena(string(reparo.Clave))
+		e.cadena(reparo.Texto)
+	}
+	e.instante(f.RegistradaEn)
+	e.presente(f.Subsanacion != nil)
+	if f.Subsanacion != nil {
+		e.instante(f.Subsanacion.RegistradaEn)
+		e.cadena(f.Subsanacion.Texto)
+	}
 }

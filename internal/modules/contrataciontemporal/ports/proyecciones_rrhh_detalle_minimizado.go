@@ -72,15 +72,18 @@ func secuenciaHitoOperativoRRHHValida(secuencia uint64) bool {
 // datos reducidos.
 type EntradaDetalleExpedienteRRHHMinimizada struct {
 	bloqueoSerializacionConsultaRRHH
-	resumen              ResumenExpedienteRRHH
-	solicitud            SolicitudOperativaRRHH
-	analisis             *AnalisisOperativoRRHH
-	referenciaAnalisis   ReferenciaHitoAnalisisRRHH
-	cobertura            *CoberturaOperativaRRHH
-	referenciaCobertura  ReferenciaHitoCoberturaRRHH
-	asignacion           *AsignacionOperativaRRHH
-	referenciaAsignacion ReferenciaHitoAsignacionRRHH
-	hitos                []HitoExpedienteRRHH
+	resumen                 ResumenExpedienteRRHH
+	solicitud               SolicitudOperativaRRHH
+	analisis                *AnalisisOperativoRRHH
+	referenciaAnalisis      ReferenciaHitoAnalisisRRHH
+	cobertura               *CoberturaOperativaRRHH
+	referenciaCobertura     ReferenciaHitoCoberturaRRHH
+	asignacion              *AsignacionOperativaRRHH
+	referenciaAsignacion    ReferenciaHitoAsignacionRRHH
+	fiscalizacion           *FiscalizacionOperativaRRHH
+	referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH
+	referenciaSubsanacion   ReferenciaHitoSubsanacionFiscalizacionRRHH
+	hitos                   []HitoExpedienteRRHH
 }
 
 // NuevaEntradaDetalleExpedienteRRHHMinimizada crea una instantánea defensiva
@@ -177,10 +180,20 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 }
 
 func (e EntradaDetalleExpedienteRRHHMinimizada) validarReferencias() error {
-	if _, cabe := presupuestoEntradaDetalleRRHHMinimizada(
+	if e.fiscalizacion != nil && (!referenciaHitoDetalleRRHHCoherente(true, e.referenciaFiscalizacion.secuencia) ||
+		e.fiscalizacion.validarDatos() != nil ||
+		(e.fiscalizacion.Subsanacion != nil) != (e.referenciaSubsanacion.secuencia != 0) ||
+		e.referenciaFiscalizacion.secuencia > uint64(len(e.hitos)) ||
+		e.referenciaSubsanacion.secuencia > uint64(len(e.hitos))) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if e.fiscalizacion == nil && (e.referenciaFiscalizacion.secuencia != 0 || e.referenciaSubsanacion.secuencia != 0) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if _, cabe := presupuestoEntradaDetalleRRHHMinimizadaV3(
 		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
 		e.cobertura, e.referenciaCobertura,
-		e.asignacion, e.referenciaAsignacion, e.hitos,
+		e.asignacion, e.referenciaAsignacion, e.fiscalizacion, e.hitos,
 	); !cabe {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -228,10 +241,11 @@ func reconstruirDetalleExpedienteRRHHMinimizado(
 	}
 	detalle := DetalleExpedienteRRHH{
 		Resumen: entrada.resumen, Solicitud: entrada.solicitud,
-		Analisis:   clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
-		Cobertura:  clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
-		Asignacion: clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
-		Hitos:      clonarHitosRRHH(entrada.hitos),
+		Analisis:      clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
+		Cobertura:     clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
+		Asignacion:    clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
+		Fiscalizacion: clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
+		Hitos:         clonarHitosRRHH(entrada.hitos),
 	}
 	if detalle.Analisis != nil {
 		detalle.Analisis.vinculo = vinculoDesdeHitoMinimizadoRRHH(
@@ -250,6 +264,17 @@ func reconstruirDetalleExpedienteRRHHMinimizado(
 			detalle.Hitos, entrada.referenciaAsignacion.secuencia,
 		)
 		detalle.bloques |= bloqueAsignacionRRHH
+	}
+	if detalle.Fiscalizacion != nil {
+		detalle.Fiscalizacion.vinculo = vinculoDesdeHitoMinimizadoRRHH(
+			detalle.Hitos, entrada.referenciaFiscalizacion.secuencia,
+		)
+		if detalle.Fiscalizacion.Subsanacion != nil {
+			detalle.Fiscalizacion.Subsanacion.vinculo = vinculoDesdeHitoMinimizadoRRHH(
+				detalle.Hitos, entrada.referenciaSubsanacion.secuencia,
+			)
+		}
+		detalle.bloques |= bloqueFiscalizacionRRHH
 	}
 	detalle.huella = calcularHuellaDetalleRRHH(detalle)
 	if detalle.validarContenidoEstructura() != nil {
@@ -320,5 +345,92 @@ func clonarAsignacionOperativaMinimizadaRRHH(
 	}
 	copia := *origen
 	copia.vinculo = vinculoHitoOperativoRRHH{}
+	return &copia
+}
+
+// ReferenciaHitoFiscalizacionRRHH identifica la actuación durable que registró
+// el bloque de fiscalización del canon V3.
+type ReferenciaHitoFiscalizacionRRHH struct {
+	bloqueoSerializacionConsultaRRHH
+	secuencia uint64
+}
+
+func NuevaReferenciaHitoFiscalizacionRRHH(secuencia uint64) (ReferenciaHitoFiscalizacionRRHH, error) {
+	if !secuenciaHitoOperativoRRHHValida(secuencia) {
+		return ReferenciaHitoFiscalizacionRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return ReferenciaHitoFiscalizacionRRHH{secuencia: secuencia}, nil
+}
+
+// ReferenciaHitoSubsanacionFiscalizacionRRHH identifica la actuación durable
+// que atendió el retorno de la fiscalización vigente.
+type ReferenciaHitoSubsanacionFiscalizacionRRHH struct {
+	bloqueoSerializacionConsultaRRHH
+	secuencia uint64
+}
+
+func NuevaReferenciaHitoSubsanacionFiscalizacionRRHH(secuencia uint64) (ReferenciaHitoSubsanacionFiscalizacionRRHH, error) {
+	if !secuenciaHitoOperativoRRHHValida(secuencia) {
+		return ReferenciaHitoSubsanacionFiscalizacionRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return ReferenciaHitoSubsanacionFiscalizacionRRHH{secuencia: secuencia}, nil
+}
+
+// NuevaEntradaDetalleExpedienteRRHHMinimizadaV3 añade al transporte V2 el
+// bloque fiscalización atestado. El constructor V2 se mantiene para que un
+// contenido V2 siga reconstruyéndose sin ambigüedad.
+func NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
+	resumen ResumenExpedienteRRHH,
+	solicitud SolicitudOperativaRRHH,
+	analisis *AnalisisOperativoRRHH,
+	referenciaAnalisis ReferenciaHitoAnalisisRRHH,
+	cobertura *CoberturaOperativaRRHH,
+	referenciaCobertura ReferenciaHitoCoberturaRRHH,
+	asignacion *AsignacionOperativaRRHH,
+	referenciaAsignacion ReferenciaHitoAsignacionRRHH,
+	fiscalizacion *FiscalizacionOperativaRRHH,
+	referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH,
+	referenciaSubsanacion ReferenciaHitoSubsanacionFiscalizacionRRHH,
+	hitos []HitoExpedienteRRHH,
+) (EntradaDetalleExpedienteRRHHMinimizada, error) {
+	if _, cabe := presupuestoEntradaDetalleRRHHMinimizadaV3(resumen, solicitud, analisis, referenciaAnalisis, cobertura, referenciaCobertura, asignacion, referenciaAsignacion, fiscalizacion, hitos); !cabe {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	entrada, err := NuevaEntradaDetalleExpedienteRRHHMinimizada(
+		resumen, solicitud, analisis, referenciaAnalisis, cobertura,
+		referenciaCobertura, asignacion, referenciaAsignacion, hitos,
+	)
+	if err != nil {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, err
+	}
+	if !referenciaHitoDetalleRRHHCoherente(fiscalizacion != nil, referenciaFiscalizacion.secuencia) ||
+		(fiscalizacion != nil && fiscalizacion.Subsanacion != nil) != (referenciaSubsanacion.secuencia != 0) ||
+		(fiscalizacion == nil && referenciaSubsanacion.secuencia != 0) ||
+		(fiscalizacion != nil && fiscalizacion.validarDatos() != nil) ||
+		referenciaFiscalizacion.secuencia > uint64(len(hitos)) ||
+		referenciaSubsanacion.secuencia > uint64(len(hitos)) {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	entrada.fiscalizacion = clonarFiscalizacionOperativaMinimizadaRRHH(fiscalizacion)
+	entrada.referenciaFiscalizacion = referenciaFiscalizacion
+	entrada.referenciaSubsanacion = referenciaSubsanacion
+	if entrada.validarReferencias() != nil {
+		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return entrada, nil
+}
+
+func clonarFiscalizacionOperativaMinimizadaRRHH(origen *FiscalizacionOperativaRRHH) *FiscalizacionOperativaRRHH {
+	if origen == nil {
+		return nil
+	}
+	copia := *origen
+	copia.vinculo = vinculoHitoOperativoRRHH{}
+	copia.Reparos = append([]ReparoFiscalizacionOperativaRRHH(nil), origen.Reparos...)
+	if origen.Subsanacion != nil {
+		subsanacion := *origen.Subsanacion
+		subsanacion.vinculo = vinculoHitoOperativoRRHH{}
+		copia.Subsanacion = &subsanacion
+	}
 	return &copia
 }

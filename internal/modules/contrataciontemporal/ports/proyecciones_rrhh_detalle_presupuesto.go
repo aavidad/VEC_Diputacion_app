@@ -322,3 +322,56 @@ func presupuestoEntradaDetalleRRHHMinimizada(
 	}
 	return limiteBytesEntradaDetalleRRHHMinimizada - m.restante, true
 }
+
+func (m *medidorPresupuestoDetalleRRHH) fiscalizacion(f *FiscalizacionOperativaRRHH) {
+	if f == nil {
+		m.literal(`null`)
+		return
+	}
+	m.literal(`{"resultado_clave":`)
+	m.cadena(string(f.ResultadoClave))
+	m.literal(`,"reparos":[`)
+	for i, reparo := range f.Reparos {
+		if i > 0 {
+			m.literal(`,`)
+		}
+		m.literal(`{"clave":`)
+		m.cadena(string(reparo.Clave))
+		m.literal(`,"texto":`)
+		m.cadena(reparo.Texto)
+		m.literal(`}`)
+	}
+	m.literal(`],"registrada_en":`)
+	m.instante()
+	if f.Subsanacion != nil {
+		m.literal(`,"subsanacion":{"registrada_en":`)
+		m.instante()
+		m.literal(`,"texto":`)
+		m.cadena(f.Subsanacion.Texto)
+		m.literal(`}`)
+	}
+	m.literal(`}`)
+}
+
+func presupuestoEntradaDetalleRRHHMinimizadaV3(
+	resumen ResumenExpedienteRRHH, solicitud SolicitudOperativaRRHH,
+	analisis *AnalisisOperativoRRHH, referenciaAnalisis ReferenciaHitoAnalisisRRHH,
+	cobertura *CoberturaOperativaRRHH, referenciaCobertura ReferenciaHitoCoberturaRRHH,
+	asignacion *AsignacionOperativaRRHH, referenciaAsignacion ReferenciaHitoAsignacionRRHH,
+	fiscalizacion *FiscalizacionOperativaRRHH, hitos []HitoExpedienteRRHH,
+) (uint64, bool) {
+	base, cabe := presupuestoEntradaDetalleRRHHMinimizada(resumen, solicitud, analisis,
+		referenciaAnalisis, cobertura, referenciaCobertura, asignacion,
+		referenciaAsignacion, hitos)
+	if !cabe {
+		return base, false
+	}
+	m := nuevoMedidorPresupuestoDetalleRRHH()
+	m.literal(`,"fiscalizacion":`)
+	m.fiscalizacion(fiscalizacion)
+	extra := limiteBytesEntradaDetalleRRHHMinimizada - m.restante
+	if m.excedido || extra > limiteBytesEntradaDetalleRRHHMinimizada-base {
+		return limiteBytesEntradaDetalleRRHHMinimizada + 1, false
+	}
+	return base + extra, true
+}
