@@ -61,14 +61,13 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
   }
   return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="Trámites recientes">
       <table class="tabla-datos portal-rrhh-tramites">
-        <thead><tr><th scope="col">Expediente</th><th scope="col">Centro</th><th scope="col">Categoría</th><th scope="col">Fase</th><th scope="col">Estado</th><th scope="col"><span class="visualmente-oculto">Acción</span></th></tr></thead>
+        <thead><tr><th scope="col">Expediente</th><th scope="col">Centro</th><th scope="col">Categoría</th><th scope="col">Fase</th><th scope="col">Estado</th></tr></thead>
         <tbody>${tramites.map((e) => `<tr>
-          <th scope="row">${escaparHTML(e.numero_visible ?? "")}</th>
+          <th scope="row"><button type="button" class="boton-terciario portal-rrhh-abrir" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">${escaparHTML(e.numero_visible ?? "")}</button></th>
           <td>${escaparHTML(e.centro ?? "—")}</td>
           <td>${escaparHTML(e.categoria ?? "—")}</td>
           <td>${escaparHTML(e.fase_actual ?? "—")}</td>
           <td><span class="ct-exp-chip ct-fase-${escaparHTML(e.estado_clave ?? "pendiente")}">${escaparHTML(e.estado ?? "—")}</span></td>
-          <td><button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">Abrir</button></td>
         </tr>`).join("")}</tbody>
       </table>
     </div>`;
@@ -96,18 +95,21 @@ export function crearVistaInicioPortal({
       const metricas = obtenerMetricasCuadro?.() || null;
       const resumen = metricas
         ? `<div class="rejilla-metricas-rrhh">
-              <article class="tarjeta-metrica-rrhh" data-metrica="en_tramitacion">
+              <button type="button" class="tarjeta-metrica-rrhh" data-metrica="en_tramitacion" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-estado="en_curso">
                 <span class="metrica-etiqueta">En tramitación</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.en_tramitacion))}</strong>
-              </article>
-              <article class="tarjeta-metrica-rrhh" data-metrica="con_incidencia">
+                <span class="metrica-enlace">Ver trámites</span>
+              </button>
+              <button type="button" class="tarjeta-metrica-rrhh" data-metrica="con_incidencia" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-estado="incidencia">
                 <span class="metrica-etiqueta">Con incidencia</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.con_incidencia))}</strong>
-              </article>
-              <article class="tarjeta-metrica-rrhh" data-metrica="en_llamamiento">
+                <span class="metrica-enlace">Ver trámites</span>
+              </button>
+              <button type="button" class="tarjeta-metrica-rrhh" data-metrica="en_llamamiento" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-fase="llamamiento">
                 <span class="metrica-etiqueta">En llamamiento</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.en_llamamiento))}</strong>
-              </article>
+                <span class="metrica-enlace">Ver trámites</span>
+              </button>
             </div>`
         : `<p class="portal-rrhh-resumen-vacio">Los totales se consultan en el cuadro de mando.</p>`;
       return `

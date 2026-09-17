@@ -1,6 +1,7 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
 import "./atajos-incidencia.js";
+import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 
 export function escaparHTML(valor) {
@@ -232,9 +233,12 @@ function renderizarFases(expediente, t) {
   return `<nav class="ct-exp-progreso" aria-label="${escaparHTML(t("fases_expediente"))}">
     <ol>${expediente.fases.map((fase) => `<li class="${estadoClave(fase.estado_clave)}"
       ${fase.estado_clave === "en_curso" ? 'aria-current="step"' : ""}>
-      <span class="ct-exp-numero-fase" aria-hidden="true">${fase.orden}</span>
-      <span>${escaparHTML(fase.etiqueta)}</span>
-      <small>${escaparHTML(textoEstado(fase.estado_clave, t))}</small>
+      <button type="button" class="ct-exp-fase-boton" data-ct-exp-fase-ver="${escaparHTML(claveDeFase(fase))}" aria-pressed="false"
+        aria-label="${escaparHTML(t("fase_ver_pantalla", { fase: fase.etiqueta }))}">
+        <span class="ct-exp-numero-fase" aria-hidden="true">${fase.orden}</span>
+        <span>${escaparHTML(fase.etiqueta)}</span>
+        <small>${escaparHTML(textoEstado(fase.estado_clave, t))}</small>
+      </button>
     </li>`).join("")}</ol>
   </nav>`;
 }
@@ -251,7 +255,7 @@ function renderizarHistorialHitos(expediente, t) {
           <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>
-        <tbody>${expediente.historial.map((hito) => `<tr>
+        <tbody>${expediente.historial.map((hito) => `<tr data-ct-exp-hito-fase="${escaparHTML(hito.fase)}">
           <td>${hito.secuencia}</td><td>${escaparHTML(hito.fecha)}</td>
           <td>${escaparHTML(hito.accion)}</td><td>${escaparHTML(hito.fase)}</td>
           <td>${escaparHTML(hito.estado)}</td></tr>`).join("")}</tbody>
@@ -302,6 +306,25 @@ export function solicitudInformeDefinitivoDesdeEstado(estado) {
   return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
+// Cada dato de la cabecera pertenece a una fase del procedimiento de RRHH; el
+// raíl permite ver la pantalla de cada fase con sus datos y sus actuaciones.
+const FASE_DE_CAMPO = Object.freeze({
+  centro: "solicitud", categoria: "solicitud", modalidad: "solicitud", grupo_subgrupo: "solicitud",
+  motivo: "solicitud", periodo: "solicitud",
+  periodo_analizado: "analisis_rrhh", causa: "analisis_rrhh", jornada: "analisis_rrhh",
+  resultado_rc: "analisis_rrhh", coste_estimado: "analisis_rrhh", observaciones: "analisis_rrhh",
+  via_cobertura: "gestion_bolsa", decision_gobernada: "gestion_bolsa", unidad: "gestion_bolsa",
+});
+
+function faseDeCampo(clave) {
+  if (clave.startsWith("comprobacion_")) return "gestion_bolsa";
+  return FASE_DE_CAMPO[clave] ?? "general";
+}
+
+function claveDeFase(fase) {
+  return String(fase.fase_ref ?? "").split(":").at(-1) ?? "";
+}
+
 function renderizarCabecera(expediente, t, informeDisponible = false) {
   return `<section class="ct-exp-cabecera-expediente">
     <div>
@@ -317,7 +340,7 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
         </dl>
       </details>
     </div>
-    <dl>${expediente.cabecera.map((campo) => `<div>
+    <dl>${expediente.cabecera.map((campo) => `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
       <dt>${escaparHTML(campo.etiqueta)}</dt>
       <dd class="ct-tono-${escaparHTML(campo.tono)}">${escaparHTML(campo.valor)}</dd>
     </div>`).join("")}</dl>

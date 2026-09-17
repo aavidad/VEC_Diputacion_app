@@ -639,6 +639,9 @@ export function crearCoordinadorModulosPortal({
         && typeof presentadorCT?.seleccionarExpediente === "function") {
         try { void presentadorCT.seleccionarExpediente(opciones.expedienteRef); } catch {}
       }
+      if (opciones?.filtros && typeof presentadorCT?.cargar === "function") {
+        try { void presentadorCT.cargar({ texto: "", estado: "", fase: "", ...opciones.filtros }); } catch {}
+      }
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,

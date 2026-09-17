@@ -92,3 +92,98 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Raíl pulsable: cada fase abre su pantalla. */
+.ct-exp-fase-boton {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.ct-exp-fase-boton:hover,
+.ct-exp-fase-boton[aria-pressed="true"] {
+  border-color: currentColor;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.ct-exp-fase-panel {
+  margin: 12px 0 0;
+  padding: 16px 18px;
+  border: 1px solid var(--portal-borde);
+  border-left-width: 6px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.ct-exp-fase-panel.ct-fase-completado { border-left-color: var(--portal-exito); }
+.ct-exp-fase-panel.ct-fase-incidencia,
+.ct-exp-fase-panel.ct-fase-espera { border-left-color: var(--portal-aviso); }
+.ct-exp-fase-panel.ct-fase-pendiente { border-left-color: var(--portal-peligro); }
+.ct-exp-fase-panel.ct-fase-en_curso { border-left-color: var(--portal-azul-700); }
+
+.ct-exp-fase-panel-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ct-exp-fase-panel-cabecera h3 {
+  margin: 2px 0;
+  font-size: 1.15rem;
+}
+
+.ct-exp-fase-panel-cabecera p {
+  margin: 0;
+  color: var(--portal-muted);
+}
+
+.ct-exp-fase-panel-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ct-exp-fase-panel h4 {
+  margin: 16px 0 8px;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ct-exp-fase-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 14px;
+  margin: 0;
+}
+
+.ct-exp-fase-datos > div {
+  padding: 10px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-fondo);
+}
+
+.ct-exp-fase-datos dt {
+  margin: 0 0 3px;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.ct-exp-fase-datos dd {
+  margin: 0;
+  font-weight: 700;
+}

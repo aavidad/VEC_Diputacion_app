@@ -624,3 +624,31 @@
   white-space: nowrap;
   font-weight: 780;
 }
+
+button.tarjeta-metrica-rrhh {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+}
+
+button.tarjeta-metrica-rrhh:hover {
+  border-color: var(--portal-azul-700);
+  box-shadow: var(--portal-sombra);
+  transform: translateY(-1px);
+}
+
+.metrica-enlace {
+  display: block;
+  margin-top: 6px;
+  color: var(--portal-azul-700);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.portal-rrhh-abrir {
+  padding: 0 4px;
+  min-height: 0;
+  font-weight: 800;
+  text-decoration: underline;
+}

@@ -255,6 +255,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   incidencia_atajo_historial: "Ver actuaciones",
   incidencia_atajo_documentos: "Documentos",
   incidencia_atajo_auditoria: "Auditoría",
+  fase_ver_pantalla: "Ver la fase {fase}",
   fase_cancelado: "Cancelado",
   etiqueta_fase_solicitud: "Solicitud",
   etiqueta_fase_solicitud_registrada: "Solicitud registrada",

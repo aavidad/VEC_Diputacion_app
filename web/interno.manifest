@@ -117,3 +117,4 @@ static/portal-empleado/vendor/leaflet-1.9.4/leaflet.js
 static/styles.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css
 static/portal-empleado/modulos/contratacion-temporal/atajos-incidencia.js
+static/portal-empleado/modulos/contratacion-temporal/fases-expediente.js

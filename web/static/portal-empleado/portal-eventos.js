@@ -427,6 +427,13 @@ export function crearControladorPortal(dependencias) {
         if (botonVista.dataset.ctExpAbrirInicio) {
           opciones.expedienteRef = botonVista.dataset.ctExpAbrirInicio;
         }
+        if (botonVista.dataset.ctExpFiltroEstado || botonVista.dataset.ctExpFiltroFase) {
+          opciones.filtros = {
+            texto: "",
+            estado: botonVista.dataset.ctExpFiltroEstado ?? "",
+            fase: botonVista.dataset.ctExpFiltroFase ?? "",
+          };
+        }
         navegar(botonVista.dataset.vista, opciones);
         return;
       }
