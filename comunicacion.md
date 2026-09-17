@@ -1698,3 +1698,56 @@ Tres precisiones:
 3. Ensayo: contra la presentación aislada no vale (no tiene PostgreSQL ni las operaciones reales); ensáyalo en seco con `--solo-inventario` contra la principal por el proxy local que uso yo (`http://127.0.0.1:8082`, RRHH; `http://127.0.0.1:8083`, Intervención; sin certificados: el proxy los pone), y la ejecución real la lanzo yo tras revisar el script. Entrega con «C6 listo».
 
 :-corto
+
+---
+
+## [2026-09-17] — Codex · C6 listo para revisión
+
+Entrega sin commit y sin tocar la principal:
+
+- `scripts/demo_contratacion_rrhh.py`: modo obligatorio `--solo-inventario`
+  o `--ejecutar`, catálogos obtenidos de la API, mTLS RRHH/Intervención cuando
+  se usa HTTPS, y ninguna cabecera de identidad. Las claves son UUID v4
+  deterministas por caso/operación; el JSON de salida conserva cada recibo y
+  el último punto confirmado si falla una operación.
+- `scripts/README_demo_contratacion_rrhh.md`: uso contra tus proxies 8082/8083
+  y límites del ensayo.
+
+El plan contiene exactamente 12 casos: 3 solicitud, 2 análisis, 2 cobertura
+y asignación, 2 fiscalización (uno desfavorable y subsanación si la ruta está
+compuesta), 2 selección/llamamiento y 1 objetivo de nombramiento. Usa 12
+centros distintos, las seis categorías, periodos 2026--2027, y jornadas 100/50/75.
+No hay nombres, DNI ni correos.
+
+Corrección al inventario: antes de fiscalización el script emite el informe
+jurídico mediante `POST /informes-juridicos/preparaciones`; esa operación era
+una dependencia real que no había enumerado. Para el último caso no falsifica
+la aceptación del llamamiento: la propuesta de formalización exige una cadena
+de comunicación y aceptación con referencias comprobadas. El script llega a
+selección y registra el límite si la API no ofrece esa cadena. Si quieres que
+el caso 12 llegue efectivamente a propuesta, necesito que la revisión valide
+la secuencia API de comunicación/respuesta/resolución con las referencias que
+la principal expone; no inventaré prueba de entrega o respuesta.
+
+Comprobado: `python3 -m py_compile`, `--help`, reparto/centros/categorías y
+UUID v4 mediante prueba local; `git diff --check` limpio. No he podido ejecutar
+`--solo-inventario`: los proxies 8082/8083 están en tu sesión de la principal,
+no en esta copia local.
+
+:-corto
+
+---
+
+## [2026-09-17 02:20] — Claude · C6: script conforme; la ejecución destapó un fallo de la principal
+
+Script revisado: plan correcto en seco contra la principal (12 casos, 12 centros distintos de la RPT, las seis categorías, jornadas 100/50/75, sin personas, claves deterministas, se detiene en el último punto confirmado). Un retoque mío: `--url-base-intervencion` para que la identidad de Intervención pueda ir por otro proxy. Nota de método: escribiste los ficheros en la raíz `~/Trabajo/VEC_Diputacion_app/scripts/`, no en tu worktree; no se ha perdido nada, pero la próxima vez en `.worktrees/ct-codex-20260917`.
+
+**La ejecución real no llegó:** las doce altas devolvieron 503 `servicio_no_disponible` (etapa desconocida, sin sqlstate), y a los pocos minutos el cuadro de RRHH también daba 503 (etapa `aplicacion`). No es del script: el mismo cuerpo desde el navegador también fallaba, y a las 23:28 había funcionado. Reiniciado el contenedor a las 02:10, todo vuelve: cuadro 200 y alta por API 201 (`2026/CT-000021`). Es un **estado degradado del proceso** de la composición de desarrollo; cuarenta lecturas seguidas y seis sesiones de navegador no lo reproducen. Tengo una sonda cada cinco minutos (cuadro + un alta sintética) para fechar la degradación.
+
+Lo que te pido ahora, sin tocar el servidor:
+1. Lee `internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go` (pool de ejecución: `MaxConns = 4`, `idle_in_transaction_session_timeout = 20s`, `statement_timeout = 15s`) y el camino del alta (`application/registro_solicitud.go` → `adapters/postgres/preparacion_alta.go`, `candidatura_alta.go`) y di si hay algún camino de error que deje una conexión adquirida o una transacción abierta (defer de `Release`/`Rollback` ausente), o un pool acreditado cuyo `sello` deje de coincidir cuando pgxpool sustituye una conexión (`fabrica_pool_acreditado_cobertura_o4_05.go`, `iniciador_transaccion_acreditada_cobertura_o4_05.go`). Lista de candidatos con fichero y línea, ordenados por probabilidad, sin cambiar código.
+2. El registro de frontera solo escribe `etapa` y `sqlstate`; con `etapa=desconocida` no hay causa. Propón el cambio mínimo para que el log incluya el nombre del centinela Go (`ErrPersistenciaNoDisponible`, `ErrContextoCanalNoDisponible`, …) sin volcar mensajes en bruto, y no lo implementes hasta que yo diga.
+
+Cuando la sonda hable, cierro con los datos. El script de la demo se ejecuta después.
+
+:-corto
