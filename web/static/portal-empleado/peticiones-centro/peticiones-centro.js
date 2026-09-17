@@ -174,6 +174,21 @@ function fecha(valor, hora = false) {
   return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", ...(hora ? { timeStyle: "medium" } : {}), timeZone: hora ? "Europe/Madrid" : "UTC" }).format(new Date(valor));
 }
 
+// Campos anchos: texto libre o valores compuestos que necesitan toda la fila.
+const CAMPOS_ANCHOS = new Set(["Detalle", "Observaciones", "Motivo de ratificación", "Retención de crédito", "Documentos aportados"]);
+// Referencias opacas y códigos: se muestran en monoespaciada y pueden partirse.
+const PATRON_REFERENCIA = /^[a-z_]+[:_][A-Za-z0-9:_./-]{12,}$/;
+
+function camposDetalle(filas) {
+  return `<dl class="pc-campos">${filas.map(([k, v]) => {
+    const valor = String(v ?? "—");
+    const clases = ["pc-campo"];
+    if (CAMPOS_ANCHOS.has(k) || valor.length > 90) clases.push("pc-campo-ancho");
+    const valorClase = PATRON_REFERENCIA.test(valor) ? ' class="pc-referencia"' : "";
+    return `<div class="${clases.join(" ")}"><dt>${esc(k)}</dt><dd${valorClase}>${esc(valor)}</dd></div>`;
+  }).join("")}</dl>`;
+}
+
 function detallePeticion(peticion, contexto) {
   if (!peticion) return `<p>${esc(TEXTO.datosNoDisponibles)}</p>`;
   const s = peticion.solicitud || {};
@@ -201,7 +216,7 @@ function detallePeticion(peticion, contexto) {
     filas.push(["Ratificador y cargo", etiquetaRat && rat && etiquetaRat.puesto_ref === rat.puesto_ref ? `${etiquetaRat.nombre} · ${etiquetaRat.cargo}` : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`],
       ["Motivo de ratificación", peticion.motivo_ratificacion], ["Ratificada en", fecha(peticion.ratificada_en, true)]);
   }
-  return `<dl>${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+  return camposDetalle(filas);
 }
 
 function reciboHTML(recibo) {
@@ -229,7 +244,7 @@ function reciboAltaRRHHHTML(recibo) {
   const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], ["Número visible", recibo.numero_visible], [TEXTO.version, recibo.version],
     [TEXTO.reciboRef, recibo.recibo_ref], ["Referencia de auditoría", recibo.auditoria_ref], ["Referencia de evento", recibo.evento_ref],
     ["Confirmada en", fecha(recibo.confirmada_en, true)]];
-  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2><dl>${filas.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v || "—")}</dd>`).join("")}</dl>${recibo.expediente_ref ? `<p><a class="boton-primario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
+  return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(filas.map(([k, v]) => [k, v || "—"]))}${recibo.expediente_ref ? `<p><a class="boton-primario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
 }
 
 function tablaRRHH(peticiones, seleccionada) {

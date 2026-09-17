@@ -10,7 +10,7 @@
 .pc-cabecera p { max-width:78ch; margin:0; color:var(--portal-muted); }
 .pc-etiquetas { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 .pc-etiqueta { display:inline-flex; padding:5px 9px; border:1px solid var(--portal-borde); border-radius:999px; background:var(--portal-cian-suave); color:var(--portal-tinta); font-size:.8rem; font-weight:700; }
-.pc-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:16px; align-items:start; }
+.pc-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; }
 .pc-panel h2 { margin-top:0; }
 .pc-tabla-wrap { overflow:auto; }
 .pc-tabla { width:100%; border-collapse:collapse; min-width:680px; }
@@ -23,9 +23,13 @@
 .pc-estado-preparada { background:var(--portal-cian-suave); color:var(--portal-azul-800); }
 .pc-estado-confirmada { background:var(--portal-exito-suave); color:var(--portal-exito); }
 .pc-estado-ratificada { background:var(--portal-exito-suave); color:var(--portal-exito); }
-.pc-detalle dl { display:grid; grid-template-columns:minmax(110px,.7fr) minmax(0,1.3fr); gap:8px 12px; }
-.pc-detalle dt { color:var(--portal-muted); font-weight:700; }
-.pc-detalle dd { margin:0; overflow-wrap:anywhere; }
+.pc-campos { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px 18px; margin:0; }
+.pc-campo { min-width:0; padding:10px 12px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio-md); background:var(--portal-fondo); }
+.pc-campo-ancho { grid-column:1 / -1; }
+.pc-campo dt { margin:0 0 3px; color:var(--portal-muted); font-size:.74rem; font-weight:750; letter-spacing:.02em; text-transform:uppercase; }
+.pc-campo dd { margin:0; overflow-wrap:anywhere; }
+.pc-referencia { font-family:ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size:.82rem; }
+.pc-recibo .pc-campo { background:#fff; }
 .pc-acciones { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
 .pc-aviso { padding:12px; border-left:4px solid var(--portal-aviso); background:var(--portal-aviso-suave); }
 .pc-error { padding:12px; border-left:4px solid var(--portal-peligro); background:var(--portal-peligro-suave); }
@@ -39,8 +43,8 @@
 .pc-recibo dt { font-weight:700; margin-top:8px; }
 .pc-recibo dd { margin-left:0; }
 .pc-cabecera .pc-etiquetas + p { margin-top:12px; }
-@media (max-width:1180px) { .pc-layout { grid-template-columns:minmax(0,1fr); } }
+
 @media (max-width:720px) { .pc-contenido { padding-top:14px; } .pc-panel, .pc-cabecera { padding:15px; } }
-@media (max-width:420px) { .pc-barra { align-items:flex-start; flex-direction:column; gap:3px; } .pc-detalle dl { grid-template-columns:1fr; gap:2px; } .pc-detalle dt { margin-top:8px; } .pc-acciones button { width:100%; } }
+@media (max-width:420px) { .pc-barra { align-items:flex-start; flex-direction:column; gap:3px; } .pc-campos { grid-template-columns:1fr; } .pc-acciones button { width:100%; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
 @media (forced-colors:active) { .pc-etiqueta, .pc-estado { border:1px solid currentColor; } }
