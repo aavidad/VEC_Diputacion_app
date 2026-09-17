@@ -13,11 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"vec-diputacion-granada/config"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -76,24 +74,9 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if dentroDeRepositorioGit(cfg.DevelopmentMaterialDir) {
 		return materialSeguridadDesarrollo{}, fmt.Errorf("%w: el directorio pertenece al repositorio", ErrMaterialDesarrolloInvalido)
 	}
-	if err := validarArbolMaterialDesarrollo(cfg.DevelopmentMaterialDir); err != nil {
-		return materialSeguridadDesarrollo{}, err
-	}
 	rutas := cfg.DevelopmentPaths()
-	for _, ruta := range []string{
-		rutas.CACertificate, rutas.CAPrivateKey, rutas.ServerCertificate, rutas.ServerPrivateKey,
-		rutas.ClientCertificate, rutas.ClientPrivateKey, rutas.KMSSecret,
-		rutas.IntervencionCertificate, rutas.IntervencionPrivateKey, rutas.IntervencionIdentity,
-		rutas.KMSAttestationKey, rutas.KMSAttestationPublic, rutas.TSASecret, rutas.Identity,
-		rutas.KMSRevalidationKey, rutas.KMSRevalidationPublic,
-		rutas.IdempotencyHMACConfig,
-		filepath.Join(cfg.DevelopmentMaterialDir, "ca", "serie"),
-		filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"),
-		filepath.Join(cfg.DevelopmentMaterialDir, "desarrollo.env"),
-	} {
-		if err := validarFicheroMaterialPresente(ruta); err != nil {
-			return materialSeguridadDesarrollo{}, err
-		}
+	if err := validarMaterialEsperadoDesarrollo(cfg.DevelopmentMaterialDir, materialEsperadoDesarrollo(cfg)); err != nil {
+		return materialSeguridadDesarrollo{}, err
 	}
 	if cfg.TLSCertFile != rutas.ServerCertificate || cfg.TLSKeyFile != rutas.ServerPrivateKey {
 		return materialSeguridadDesarrollo{}, fmt.Errorf("%w: TLS no corresponde al material del perfil", ErrMaterialDesarrolloInvalido)
@@ -289,37 +272,63 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	return resultado, nil
 }
 
-func validarFicheroMaterialPresente(ruta string) error {
-	informacion, err := os.Lstat(ruta)
-	if err != nil || !informacion.Mode().IsRegular() || informacion.Mode()&os.ModeSymlink != 0 ||
-		informacion.Mode().Perm()&0o077 != 0 || informacion.Size() < 1 {
+// MaterialEsperado describe el único inventario de ficheros que el perfil de
+// desarrollo puede consumir. Los ficheros adicionales no intervienen en el
+// arranque: la validación no explora el directorio.
+type MaterialEsperado struct {
+	Ruta        string
+	Finalidad   string
+	Obligatorio bool
+	Lector      string
+}
+
+func materialEsperadoDesarrollo(cfg config.Config) []MaterialEsperado {
+	r := cfg.DevelopmentPaths()
+	datos := []struct{ ruta, finalidad, lector string }{
+		{r.CACertificate, "autoridad certificadora", "TLS"}, {r.CAPrivateKey, "clave de CA", "TLS"},
+		{r.ServerCertificate, "certificado servidor", "TLS"}, {r.ServerPrivateKey, "clave servidor", "TLS"},
+		{r.ClientCertificate, "certificado RRHH", "identidad"}, {r.ClientPrivateKey, "clave RRHH", "identidad"},
+		{r.IntervencionCertificate, "certificado Intervención", "identidad"}, {r.IntervencionPrivateKey, "clave Intervención", "identidad"},
+		{r.Identity, "identidad RRHH", "identidad"}, {r.IntervencionIdentity, "identidad Intervención", "identidad"},
+		{r.KMSSecret, "secreto KMS", "KMS"}, {r.KMSAttestationKey, "firma de atestación", "KMS"}, {r.KMSAttestationPublic, "verificador de atestación", "KMS"},
+		{r.KMSRevalidationKey, "firma de revalidación", "KMS"}, {r.KMSRevalidationPublic, "verificador de revalidación", "KMS"},
+		{r.TSASecret, "secreto TSA", "TSA"}, {r.IdempotencyHMACConfig, "idempotencia", "idempotencia"},
+		{filepath.Join(cfg.DevelopmentMaterialDir, "ca", "serie"), "serie de CA", "TLS"},
+		{filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"), "manifiesto", "material"},
+		{filepath.Join(cfg.DevelopmentMaterialDir, "desarrollo.env"), "configuración declarada", "material"},
+	}
+	resultado := make([]MaterialEsperado, 0, len(datos))
+	for _, dato := range datos {
+		resultado = append(resultado, MaterialEsperado{Ruta: dato.ruta, Finalidad: dato.finalidad, Obligatorio: true, Lector: dato.lector})
+	}
+	return resultado
+}
+
+func validarMaterialEsperadoDesarrollo(raiz string, material []MaterialEsperado) error {
+	info, err := os.Lstat(raiz)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
 		return ErrMaterialDesarrolloInvalido
+	}
+	for _, esperado := range material {
+		if esperado.Obligatorio && validarFicheroMaterialPresente(esperado.Ruta) != nil {
+			return ErrMaterialDesarrolloInvalido
+		}
 	}
 	return nil
 }
 
 func validarArbolMaterialDesarrollo(raiz string) error {
-	informacion, err := os.Lstat(raiz)
-	if err != nil || !informacion.IsDir() || informacion.Mode()&os.ModeSymlink != 0 ||
-		informacion.Mode().Perm()&0o077 != 0 {
+	info, err := os.Lstat(raiz)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
 		return ErrMaterialDesarrolloInvalido
 	}
-	uid := uint32(os.Geteuid())
-	err = filepath.WalkDir(raiz, func(ruta string, entrada fs.DirEntry, err error) error {
-		if err != nil || entrada == nil || entrada.Type()&os.ModeSymlink != 0 {
-			return ErrMaterialDesarrolloInvalido
-		}
-		info, err := entrada.Info()
-		if err != nil || info.Mode().Perm()&0o077 != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
-			return ErrMaterialDesarrolloInvalido
-		}
-		if estado, ok := info.Sys().(*syscall.Stat_t); !ok || estado.Uid != uid {
-			return ErrMaterialDesarrolloInvalido
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Join(ErrMaterialDesarrolloInvalido, err)
+	return nil
+}
+
+func validarFicheroMaterialPresente(ruta string) error {
+	informacion, err := os.Lstat(ruta)
+	if err != nil || !informacion.Mode().IsRegular() || informacion.Mode()&os.ModeSymlink != 0 || informacion.Mode().Perm()&0o077 != 0 || informacion.Size() < 1 {
+		return ErrMaterialDesarrolloInvalido
 	}
 	return nil
 }

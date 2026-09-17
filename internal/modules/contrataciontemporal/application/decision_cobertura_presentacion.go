@@ -596,6 +596,9 @@ func (s *ServicioPresentacionPropuestaCobertura) clasificarFalloDependencia(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if errors.Is(causa, cobertura.ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura) {
+		return ErrPresentacionPropuestaCoberturaEnConflicto
+	}
 	if etapaReconocida, ok := EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
 		return nuevoErrorEtapaDiagnosticoPresentacionPropuestaCobertura(etapaReconocida)
 	}

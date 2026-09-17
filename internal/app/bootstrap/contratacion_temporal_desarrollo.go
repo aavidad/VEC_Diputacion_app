@@ -182,13 +182,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
-	cfg = cfg.Normalize()
-	resolvedorDesarrollo, esDesarrollo := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil ||
-		!esDesarrollo || resolvedorDesarrollo == nil || derivador == nil ||
-		!derivador.valido() {
-		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, registro)
+	if err != nil {
+		return nil, nil, nil, err
 	}
+	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
 	noCompuesta, err := nuevaCapacidadNoCompuestaContratacionTemporalDesarrollo(registro)
 	if err != nil {
 		return nil, nil, nil, err
@@ -198,8 +196,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
-	sello := &selloConsultasContratacionTemporalDesarrollo{}
-	reloj := relojContratacionTemporalDesarrollo{}
+	sello := dependencias.sello
+	reloj := dependencias.reloj
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		cfg, resolvedorDesarrollo, derivador, sello, reloj, origen,
 	)
@@ -482,18 +480,15 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		consultasRRHHCompuestas: consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
 		subsanacionCompuesta:    subsanacionReal.servicio != nil,
 	}
-	var cierre sync.Once
-	cerrar := func() {
-		cierre.Do(func() {
-			cerrarIncorporacion()
-			consultasRRHH.cerrar()
-			coberturaReal.cerrar()
-			alta.cerrar()
-		})
+	dependencias.cerrar = func() {
+		cerrarIncorporacion()
+		consultasRRHH.cerrar()
+		coberturaReal.cerrar()
+		alta.cerrar()
 	}
 	cerrarCobertura = false
 	cerrarAlta = false
-	return rutas, autoridad, cerrar, nil
+	return rutas, autoridad, dependencias.Cerrar, nil
 }
 
 func (a *autoridadConsultasContratacionTemporalDesarrollo) proteger(

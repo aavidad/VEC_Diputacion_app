@@ -112,7 +112,7 @@ func (l *LectorExpedienteAnalisisDurableO3PostgreSQL) leerEnTransaccion(
 			return domain.Expediente{}, err
 		}
 		return domain.Expediente{},
-			cobertura.ErrInstantaneaAnalisisDurableNoDisponible
+			cobertura.ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura
 	}
 	var contenido string
 	var huellaSQL string

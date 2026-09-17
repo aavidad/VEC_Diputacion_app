@@ -16,6 +16,9 @@ var (
 	ErrInstantaneaAnalisisDurableNoDisponible = errors.New(
 		"contratacion temporal: instantanea de analisis durable no disponible",
 	)
+	ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura = errors.New(
+		"contratacion temporal: estado de instantanea no admite cobertura",
+	)
 	ErrInstantaneaAnalisisDurableNoConfiable = errors.New(
 		"contratacion temporal: instantanea de analisis durable no confiable",
 	)
