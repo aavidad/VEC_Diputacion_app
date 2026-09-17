@@ -1,5 +1,6 @@
 /** Componentes HTML puros de la superficie de expedientes. */
 
+import "./atajos-incidencia.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 
 export function escaparHTML(valor) {

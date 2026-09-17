@@ -88,7 +88,7 @@
 954 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 876 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 868 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
-836 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
+843 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 1233 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs
 1066 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 2172 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
