@@ -251,11 +251,69 @@ def fiscalizar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, caso: Caso,
     return resultado_final
 
 
-def ejecutar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, filas: list[dict[str, Any]], configuracion: dict[str, Any]) -> list[dict[str, Any]]:
+ACCIONES_DEMO = frozenset({
+    "contratacion_temporal.analisis.registrar",
+    "contratacion_temporal.cobertura.decidir",
+    "contratacion_temporal.unidad.asignar",
+    "contratacion_temporal.informe_juridico.generar",
+    "contratacion_temporal.fiscalizacion.registrar",
+    "contratacion_temporal.subsanacion_reparos.registrar",
+})
+
+
+def cargar_reanudacion(ruta: Path | None) -> dict[str, dict[str, Any]]:
+    if ruta is None:
+        return {}
+    contenido = json.loads(ruta.read_text(encoding="utf-8"))
+    resultados = contenido.get("resultado") if isinstance(contenido, dict) else None
+    if not isinstance(resultados, list):
+        raise RuntimeError("el fichero de reanudación no contiene resultados de demostración")
+    salida: dict[str, dict[str, Any]] = {}
+    for resultado in resultados:
+        if not isinstance(resultado, dict) or not isinstance(resultado.get("codigo"), str):
+            raise RuntimeError("el fichero de reanudación contiene un caso inválido")
+        salida[resultado["codigo"]] = resultado
+    return salida
+
+
+def acciones_detalle(detalle: dict[str, Any]) -> set[str]:
+    hitos = detalle.get("hitos") if isinstance(detalle, dict) else None
+    if not isinstance(hitos, list):
+        raise RuntimeError("el detalle RRHH no contiene hitos")
+    return {hito.get("accion_clave") for hito in hitos if isinstance(hito, dict) and isinstance(hito.get("accion_clave"), str)}
+
+
+def reanudar_llamamiento(cliente: Cliente, caso: Caso, previo: dict[str, Any]) -> dict[str, Any] | None:
+    operaciones = previo.get("operaciones") if isinstance(previo, dict) else None
+    if not isinstance(operaciones, dict):
+        return None
+    alta_previa = operaciones.get("alta")
+    fiscalizacion = operaciones.get("fiscalizacion")
+    seleccion = operaciones.get("seleccion_llamamiento")
+    if not all(isinstance(valor, dict) for valor in (alta_previa, fiscalizacion, seleccion)):
+        return None
+    detalle = datos(cliente.pedir("POST", RUTAS["detalle"], {
+        "expediente_ref": alta_previa.get("expediente_ref", ""), "version_observada": 0,
+    }))
+    if not ACCIONES_DEMO.issubset(acciones_detalle(detalle) | {"contratacion_temporal.subsanacion_reparos.registrar"}):
+        return None
+    if "comunicacion_llamamiento" in operaciones:
+        return operaciones["comunicacion_llamamiento"]
+    return registrar_comunicacion(cliente, caso, fiscalizacion, seleccion)
+
+
+def ejecutar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, filas: list[dict[str, Any]], configuracion: dict[str, Any], reanudacion: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     resultado = []
     for caso, fila in zip(CASOS, filas, strict=True):
+        previo = reanudacion.get(caso.codigo)
         registro: dict[str, Any] = {"codigo": caso.codigo, "objetivo": caso.punto, "operaciones": {}}
         try:
+            reanudado = reanudar_llamamiento(cliente_rrhh, caso, previo) if caso.punto in {"llamamiento", "nombramiento"} else None
+            if reanudado is not None:
+                registro["operaciones"] = dict(previo["operaciones"])
+                registro["operaciones"]["comunicacion_llamamiento"] = reanudado
+                registro["reanudado"] = True
+                resultado.append(registro); continue
             recibido_alta = alta(cliente_rrhh, caso, fila); registro["operaciones"]["alta"] = recibido_alta
             if ORDEN[caso.punto] >= ORDEN["analisis"]:
                 recibido_analisis = analisis(cliente_rrhh, caso, fila, recibido_alta, configuracion); registro["operaciones"]["analisis"] = recibido_analisis
@@ -302,6 +360,7 @@ def main() -> int:
     parser.add_argument("--salida", type=Path, required=True)
     parser.add_argument("--solo-inventario", action="store_true", help="Lee catálogos y genera el plan; nunca escribe.")
     parser.add_argument("--ejecutar", action="store_true", help="Permite POST; requiere revisión previa de dirección.")
+    parser.add_argument("--reanudar-desde", type=Path, help="Resultado previo de la demo; recupera recibos de selección ya confirmados.")
     args = parser.parse_args()
     if args.solo_inventario and args.ejecutar:
         parser.error("--solo-inventario y --ejecutar son excluyentes")
@@ -315,7 +374,7 @@ def main() -> int:
         salida: dict[str, Any] = {"esquema": "vec.ct.demo-rrhh.c6.v1", "modo": "inventario" if args.solo_inventario else "ejecucion", "expedientes": filas}
         if args.ejecutar:
             configuracion = datos(rrhh.pedir("GET", RUTAS["configuracion_analisis"]))
-            salida["resultado"] = ejecutar(rrhh, intervencion, filas, configuracion)
+            salida["resultado"] = ejecutar(rrhh, intervencion, filas, configuracion, cargar_reanudacion(args.reanudar_desde))
         args.salida.parent.mkdir(parents=True, exist_ok=True)
         args.salida.write_text(json.dumps(salida, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     except (ErrorAPI, RuntimeError, ValueError, KeyError) as error:
