@@ -283,23 +283,66 @@ def acciones_detalle(detalle: dict[str, Any]) -> set[str]:
     return {hito.get("accion_clave") for hito in hitos if isinstance(hito, dict) and isinstance(hito.get("accion_clave"), str)}
 
 
-def reanudar_llamamiento(cliente: Cliente, caso: Caso, previo: dict[str, Any]) -> dict[str, Any] | None:
+ACCION_POR_OPERACION = {
+    "analisis": "contratacion_temporal.analisis.registrar",
+    "cobertura": "contratacion_temporal.cobertura.decidir",
+    "asignacion": "contratacion_temporal.unidad.asignar",
+    "informe": "contratacion_temporal.informe_juridico.generar",
+    "fiscalizacion": "contratacion_temporal.fiscalizacion.registrar",
+    "subsanacion": "contratacion_temporal.subsanacion_reparos.registrar",
+}
+
+
+def operaciones_reanudables(caso: Caso) -> tuple[str, ...]:
+    if ORDEN[caso.punto] == ORDEN["solicitud"]:
+        return ("alta",)
+    operaciones = ["alta", "analisis"]
+    if ORDEN[caso.punto] >= ORDEN["asignacion"]:
+        operaciones.extend(("cobertura", "asignacion"))
+    if ORDEN[caso.punto] >= ORDEN["fiscalizacion"]:
+        operaciones.extend(("informe", "fiscalizacion"))
+    if caso.reparo:
+        operaciones.append("subsanacion")
+    if ORDEN[caso.punto] >= ORDEN["llamamiento"]:
+        operaciones.append("seleccion_llamamiento")
+    return tuple(operaciones)
+
+
+def reanudar_confirmado(cliente: Cliente, caso: Caso, previo: dict[str, Any]) -> dict[str, Any] | None:
+    """Recupera sólo un bloque que ya prueban detalle y recibos del JSON previo.
+
+    El detalle sólo acredita hitos de expediente. Selección y comunicación se
+    recuperan exclusivamente desde los recibos conservados, porque no hay un
+    endpoint de consulta de llamamientos que permita reconstruirlos sin riesgo.
+    """
     operaciones = previo.get("operaciones") if isinstance(previo, dict) else None
-    if not isinstance(operaciones, dict):
+    if not isinstance(operaciones, dict) or not all(isinstance(operaciones.get(nombre), dict) for nombre in operaciones_reanudables(caso)):
         return None
-    alta_previa = operaciones.get("alta")
-    fiscalizacion = operaciones.get("fiscalizacion")
-    seleccion = operaciones.get("seleccion_llamamiento")
-    if not all(isinstance(valor, dict) for valor in (alta_previa, fiscalizacion, seleccion)):
+    if not all(isinstance(operaciones[nombre].get("recibo_ref"), str) and operaciones[nombre]["recibo_ref"] for nombre in operaciones_reanudables(caso)):
+        return None
+    alta_previa = operaciones["alta"]
+    expediente = alta_previa.get("expediente_ref")
+    if not isinstance(expediente, str) or not expediente:
         return None
     detalle = datos(cliente.pedir("POST", RUTAS["detalle"], {
-        "expediente_ref": alta_previa.get("expediente_ref", ""), "version_observada": 0,
+        "expediente_ref": expediente, "version_observada": 0,
     }))
-    if not ACCIONES_DEMO.issubset(acciones_detalle(detalle) | {"contratacion_temporal.subsanacion_reparos.registrar"}):
-        return None
-    if "comunicacion_llamamiento" in operaciones:
-        return operaciones["comunicacion_llamamiento"]
-    return registrar_comunicacion(cliente, caso, fiscalizacion, seleccion)
+    acciones = acciones_detalle(detalle)
+    for operacion in operaciones_reanudables(caso):
+        accion = ACCION_POR_OPERACION.get(operacion)
+        if accion is not None and accion not in acciones:
+            return None
+    if ORDEN[caso.punto] >= ORDEN["llamamiento"]:
+        seleccion = operaciones["seleccion_llamamiento"]
+        if not isinstance(seleccion.get("llamamiento_ref"), str) or not isinstance(seleccion.get("recibo_ref"), str):
+            return None
+        comunicacion = operaciones.get("comunicacion_llamamiento")
+        if isinstance(comunicacion, dict) and isinstance(comunicacion.get("recibo_ref"), str) and comunicacion["recibo_ref"]:
+            return dict(operaciones)
+        recuperadas = dict(operaciones)
+        recuperadas["comunicacion_llamamiento"] = registrar_comunicacion(cliente, caso, operaciones["fiscalizacion"], seleccion)
+        return recuperadas
+    return dict(operaciones)
 
 
 def ejecutar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, filas: list[dict[str, Any]], configuracion: dict[str, Any], reanudacion: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -308,10 +351,9 @@ def ejecutar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, filas: list[d
         previo = reanudacion.get(caso.codigo)
         registro: dict[str, Any] = {"codigo": caso.codigo, "objetivo": caso.punto, "operaciones": {}}
         try:
-            reanudado = reanudar_llamamiento(cliente_rrhh, caso, previo) if caso.punto in {"llamamiento", "nombramiento"} else None
+            reanudado = reanudar_confirmado(cliente_rrhh, caso, previo) if previo is not None else None
             if reanudado is not None:
-                registro["operaciones"] = dict(previo["operaciones"])
-                registro["operaciones"]["comunicacion_llamamiento"] = reanudado
+                registro["operaciones"] = reanudado
                 registro["reanudado"] = True
                 resultado.append(registro); continue
             recibido_alta = alta(cliente_rrhh, caso, fila); registro["operaciones"]["alta"] = recibido_alta

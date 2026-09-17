@@ -57,7 +57,7 @@ type materialAutorizacionPeticionCentroDesarrollo struct {
 	escritura *ports.MaterialPeticionCentro
 }
 
-func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolvedorIdentidadDesarrollo, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
+func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolvedorIdentidadDesarrollo, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, catalogosAlta ...*catalogosAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
 	var principales []vecdomain.Principal
 	for _, p := range resolvedor.porHuella {
 		if principalPeticionCentroDesarrolloValido(p) {
@@ -147,7 +147,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 	if err != nil {
 		return nil, err
 	}
-	return rutasHTTPPeticionCentroDesarrollo(p, repo)
+	return rutasHTTPPeticionCentroDesarrollo(p, repo, catalogosAlta...)
 }
 
 func (p *proveedorPeticionCentroDesarrollo) identidad(ctx context.Context) (*identidadPeticionCentroDesarrollo, error) {

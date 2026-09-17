@@ -193,7 +193,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
+	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	reloj := relojContratacionTemporalDesarrollo{}
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
@@ -217,6 +221,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		derivador,
 		reloj,
 		fuenteMotivosRectificacion,
+		catalogoDesarrollo,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -225,6 +230,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		derivador,
 		&alta,
 		reloj,
+		catalogoDesarrollo,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -286,6 +292,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 		subsanacionReal.servicio != nil,
 		fuenteMotivosRectificacion,
+		catalogoDesarrollo,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -300,7 +307,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
 	if alta.postgresql.bolsa != nil {
-		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj)
+		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -445,7 +452,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
 	}
 	rutas = append(rutas, rutasOrganizacion...)
-	rutasPeticionesCentro, err := nuevasRutasPeticionCentroDesarrollo(cfg, resolvedorDesarrollo, &alta, reloj)
+	rutasPeticionesCentro, err := nuevasRutasPeticionCentroDesarrollo(cfg, resolvedorDesarrollo, &alta, reloj, catalogoDesarrollo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -693,20 +700,26 @@ func principalSinteticoContratacionTemporalDesarrolloValido(
 // sintetica y no autoritativa. Solo satisface los puertos de lectura existentes
 // para que la interfaz pueda demostrar el cuadro y su detalle.
 type origenConsultasContratacionTemporalDesarrollo struct {
-	mu                sync.RWMutex
-	autoridad         string
-	pagina            ports.PaginaCuadroRRHH
-	detalles          map[string]ports.DetalleExpedienteRRHH
-	catalogosCargados *catalogosAltaContratacionTemporalDesarrollo
+	mu                 sync.RWMutex
+	autoridad          string
+	pagina             ports.PaginaCuadroRRHH
+	detalles           map[string]ports.DetalleExpedienteRRHH
+	catalogoDesarrollo *catalogosAltaContratacionTemporalDesarrollo
 }
 
 func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...string) *origenConsultasContratacionTemporalDesarrollo {
-	var catalogos *catalogosAltaContratacionTemporalDesarrollo
-	if len(fuenteOrganizacion) > 0 && strings.TrimSpace(fuenteOrganizacion[0]) != "" {
-		if c, err := construirCatalogosAltaDesarrollo(fuenteOrganizacion[0]); err == nil {
-			catalogos = c
-		}
+	rutaFuente := ""
+	if len(fuenteOrganizacion) > 0 {
+		rutaFuente = fuenteOrganizacion[0]
 	}
+	catalogos, err := nuevoCatalogoDesarrollo(rutaFuente)
+	if err != nil {
+		catalogos, _ = nuevoCatalogoDesarrollo("")
+	}
+	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)
+}
+
+func nuevoOrigenConsultasConCatalogoDesarrollo(catalogos *catalogosAltaContratacionTemporalDesarrollo) *origenConsultasContratacionTemporalDesarrollo {
 	creadoEn := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
 	actualizadoEn := time.Date(2026, 9, 2, 9, 30, 0, 0, time.UTC)
 	resumen := ports.ResumenExpedienteRRHH{
@@ -765,8 +778,8 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...st
 		},
 	}
 	return &origenConsultasContratacionTemporalDesarrollo{
-		autoridad:         AutoridadNoAutoritativa,
-		catalogosCargados: catalogos,
+		autoridad:          AutoridadNoAutoritativa,
+		catalogoDesarrollo: catalogos,
 		pagina: ports.PaginaCuadroRRHH{
 			GeneradaEn:  actualizadoEn.Add(time.Minute),
 			Expedientes: []ports.ResumenExpedienteRRHH{resumen},

@@ -123,6 +123,44 @@ func grupoSubgrupoDeCatalogoValido(categoriaRef string, grupoSubgrupo string) bo
 	return ok && esperado == grupoSubgrupo
 }
 
+func categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo *catalogosAltaContratacionTemporalDesarrollo, referencia, grupo string) bool {
+	if catalogo == nil {
+		return grupoSubgrupoDeCatalogoValido(referencia, grupo)
+	}
+	for _, categoria := range catalogo.Categorias {
+		if categoria.Referencia != referencia {
+			continue
+		}
+		for _, candidato := range categoria.GruposSubgrupos {
+			if candidato.Clave == grupo {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func nuevoCatalogoDesarrollo(rutaFuente string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+	if strings.TrimSpace(rutaFuente) != "" {
+		return construirCatalogosAltaDesarrollo(rutaFuente)
+	}
+	return &catalogosAltaContratacionTemporalDesarrollo{
+		Esquema: esquemaCatalogosAltaContratacionTemporal,
+		Centros: []centroCatalogosAltaContratacionTemporalDesarrollo{{
+			Referencia: centroAltaContratacionTemporalDesarrollo,
+			Etiqueta:   "Centro solicitante",
+			Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{
+				Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: "Contacto del centro",
+			}},
+		}},
+		Categorias: append([]categoriaCatalogosAltaContratacionTemporalDesarrollo(nil), categoriasSinteticasDesarrollo...),
+		Motivos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
+			Clave: string(motivoAltaContratacionTemporalDesarrollo), Etiqueta: "Sustitución temporal",
+		}},
+		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+	}, nil
+}
+
 func construirCatalogosAltaDesarrollo(rutaFuente string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
 	if strings.TrimSpace(rutaFuente) == "" {
 		return nil, nil
@@ -194,33 +232,14 @@ func (o *origenConsultasContratacionTemporalDesarrollo) catalogosAlta() (
 		return catalogosAltaContratacionTemporalDesarrollo{},
 			errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}
-	if o.catalogosCargados != nil {
-		return *o.catalogosCargados, nil
+	if o.catalogoDesarrollo != nil {
+		return *o.catalogoDesarrollo, nil
 	}
-	return catalogosAltaContratacionTemporalDesarrollo{
-		Esquema: esquemaCatalogosAltaContratacionTemporal,
-		Centros: []centroCatalogosAltaContratacionTemporalDesarrollo{{
-			Referencia: centroAltaContratacionTemporalDesarrollo,
-			Etiqueta:   "Centro solicitante",
-			Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{
-				Referencia: contactoAltaContratacionTemporalDesarrollo,
-				Etiqueta:   "Contacto del centro",
-			}},
-		}},
-		Categorias: []categoriaCatalogosAltaContratacionTemporalDesarrollo{{
-			Referencia: categoriaAltaContratacionTemporalDesarrollo,
-			Etiqueta:   "Categoría C2",
-			GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
-				Clave:    grupoSubgrupoAltaContratacionTemporalDesarrollo,
-				Etiqueta: "Grupo C2",
-			}},
-		}},
-		Motivos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
-			Clave:    string(motivoAltaContratacionTemporalDesarrollo),
-			Etiqueta: "Sustitución temporal",
-		}},
-		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
-	}, nil
+	catalogos, err := nuevoCatalogoDesarrollo("")
+	if err != nil {
+		return catalogosAltaContratacionTemporalDesarrollo{}, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
+	return *catalogos, nil
 }
 
 func (o *origenConsultasContratacionTemporalDesarrollo) centroDeCatalogo(ref string) bool {

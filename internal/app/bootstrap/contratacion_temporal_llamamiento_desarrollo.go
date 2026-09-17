@@ -7,6 +7,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -25,6 +26,7 @@ var _ httpinterno.EjecutorSeleccionLlamamiento = (*ejecutorSeleccionLlamamientoD
 
 func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
+	etiquetas informejuridico.EtiquetadorReferencias,
 ) (httpinterno.EjecutorSeleccionLlamamiento, http.Handler, error) {
 	if alta == nil || alta.postgresql.bolsa == nil || derivador == nil || !derivador.valido() ||
 		!cfg.DevelopmentEnabledByDoubleKey() || !filepath.IsAbs(cfg.DevelopmentMaterialDir) {
@@ -64,7 +66,7 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterialBolsa},
 	}
 	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(cfg, alta.postgresql.ejecucion, alta,
-		alta.postgresql.proveedorMaterial, reloj, lector, filepath.Join(cfg.DevelopmentMaterialDir, "comunicaciones"))
+		alta.postgresql.proveedorMaterial, reloj, lector, filepath.Join(cfg.DevelopmentMaterialDir, "comunicaciones"), etiquetas)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -46,11 +46,17 @@ var modalidadesAnalisisContratacionTemporalDesarrollo = [...]domain.ClaveCatalog
 func solicitudAnalisisContratacionTemporalDesarrolloValida(
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 ) bool {
+	return solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, nil)
+}
+
+func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
+	solicitud ports.SolicitudPrepararArtefactoAnalisis,
+	catalogo *catalogosAltaContratacionTemporalDesarrollo,
+) bool {
 	datos := solicitud.DatosFuncionales
 	if solicitud.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		!categoriaDeCatalogoDesarrollo(datos.CategoriaRef) ||
-		!grupoSubgrupoDeCatalogoValido(datos.CategoriaRef, datos.GrupoSubgrupo) ||
+		!categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) ||
 		datos.CausaClave != causaAnalisisContratacionTemporalDesarrollo ||
 		datos.EntradaRC.Referencia != entradaRCAnalisisContratacionTemporalDesarrollo ||
 		!hmac.Equal(
@@ -114,12 +120,18 @@ func nuevaRutaConfiguracionAnalisisContratacionTemporalDesarrolloConMotivos(
 func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 	subsanacionDisponible bool,
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (vechttp.RutaExacta, error) {
+	catalogo, err := catalogoAnalisisDesarrollo(catalogos...)
+	if err != nil {
+		return vechttp.RutaExacta{}, err
+	}
 	return vechttp.RutaExacta{
 		Ruta: rutaConfiguracionAnalisisContratacionTemporalDesarrollo,
 		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{
 			subsanacionDisponible: subsanacionDisponible,
 			motivos:               motivos,
+			catalogo:              catalogo,
 		},
 	}, nil
 }
@@ -127,6 +139,7 @@ func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct {
 	subsanacionDisponible bool
 	motivos               fuenteMotivosRectificacionAnalisisDesarrollo
+	catalogo              *catalogosAltaContratacionTemporalDesarrollo
 }
 
 func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
@@ -157,7 +170,7 @@ func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		return
 	}
 	configuracion := nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
-		m.motivos.opciones(r.Context()),
+		m.motivos.opciones(r.Context()), m.catalogo,
 	)
 	configuracion.SubsanacionDisponible = m.subsanacionDisponible
 	contenido, err := json.Marshal(
@@ -178,9 +191,24 @@ func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 	}
 }
 
+func catalogoAnalisisDesarrollo(catalogos ...*catalogosAltaContratacionTemporalDesarrollo) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+	if len(catalogos) > 1 {
+		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+	}
+	if len(catalogos) == 1 && catalogos[0] != nil {
+		return catalogos[0], nil
+	}
+	return nuevoCatalogoDesarrollo("")
+}
+
 func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 	motivos []opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) configuracionAnalisisContratacionTemporalDesarrollo {
+	catalogo, err := catalogoAnalisisDesarrollo(catalogos...)
+	if err != nil {
+		return configuracionAnalisisContratacionTemporalDesarrollo{}
+	}
 	modalidades := make(
 		[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
 		0,
@@ -205,7 +233,7 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 		Esquema:      esquemaConfiguracionAnalisisContratacionTemporal,
 		ArtefactoRef: artefactoAnalisisContratacionTemporalDesarrollo,
 		Modalidades:  modalidades,
-		Categorias:   categoriasSinteticasDesarrollo,
+		Categorias:   catalogo.Categorias,
 		Causas: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 			Clave:    string(causaAnalisisContratacionTemporalDesarrollo),
 			Etiqueta: "Necesidad temporal",
@@ -248,6 +276,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (*application.ServicioOperacionAnalisis, error) {
 	if alta == nil || alta.soporte == nil || alta.autorizador == nil ||
 		alta.postgresql.ejecucion == nil ||
@@ -257,6 +286,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	artefactos, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		derivador,
 		reloj,
+		catalogos...,
 	)
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible

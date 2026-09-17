@@ -296,7 +296,7 @@ func TestEtiquetasReferenciasCatalogosAltaDesarrolloNombranCentroCategoriaYConta
 	etiquetar := origen.etiquetasReferenciasCatalogosAlta()
 	for referencia, esperado := range map[string]string{
 		centroAltaContratacionTemporalDesarrollo:    "Centro solicitante",
-		categoriaAltaContratacionTemporalDesarrollo: "Categoría C2",
+		categoriaAltaContratacionTemporalDesarrollo: "Auxiliar administrativo/a",
 		contactoAltaContratacionTemporalDesarrollo:  "Contacto del centro",
 		"unidad:desarrollo:rrhh":                    "",
 		"":                                          "",

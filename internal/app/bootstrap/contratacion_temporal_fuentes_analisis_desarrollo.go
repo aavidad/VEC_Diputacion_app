@@ -113,6 +113,7 @@ type preparadorSolicitudesFuentesAnalisisDesarrollo struct {
 	generador ports.GeneradorPeticionFuenteAnalisis
 	sellador  ports.SelladorPeticionFuenteAnalisis
 	reloj     relojContratacionTemporalDesarrollo
+	catalogo  *catalogosAltaContratacionTemporalDesarrollo
 }
 
 func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuentesAnalisisO3(
@@ -123,7 +124,7 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 	if p == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.generador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(p.sellador) ||
 		contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
-		!solicitudAnalisisContratacionTemporalDesarrolloValida(solicitud) {
+		!solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, p.catalogo) {
 		return vacias, ports.ErrPeticionFuenteAnalisisInvalida
 	}
 	if err := ctx.Err(); err != nil {
@@ -515,7 +516,12 @@ func (*publicadorMotivoFuenteAnalisisDesarrollo) VerificarPublicacionMotivoFuent
 func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (*application.CapacidadPrepararArtefactoAnalisisO3, error) {
+	catalogo, errCatalogo := catalogoAnalisisDesarrollo(catalogos...)
+	if errCatalogo != nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
 	if derivador == nil || !derivador.valido() {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
@@ -643,6 +649,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		generador: generadorPeticionFuenteAnalisisDesarrollo{},
 		sellador:  &selladorPeticionFuenteAnalisisDesarrollo{derivador: derivador},
 		reloj:     reloj,
+		catalogo:  catalogo,
 	}
 	capacidad, err :=
 		application.NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(

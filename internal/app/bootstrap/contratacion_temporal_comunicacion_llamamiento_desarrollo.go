@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -63,6 +64,7 @@ type ejecutorComunicacionLlamamientoDesarrollo struct {
 	continuaciones           ports.RegistroContinuacionLlamamiento
 	continuador              continuadorBolsaDesarrollo
 	correo                   enviadorCorreoLlamamientoDesarrollo
+	etiquetas                informejuridico.EtiquetadorReferencias
 }
 
 type enviadorCorreoLlamamientoDesarrollo interface {
@@ -82,7 +84,15 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	reloj ports.Reloj,
 	lector ports.LectorExpedienteLlamamiento,
 	directorioComunicaciones string,
+	etiquetas ...informejuridico.EtiquetadorReferencias,
 ) (*ejecutorComunicacionLlamamientoDesarrollo, error) {
+	var etiquetador informejuridico.EtiquetadorReferencias
+	if len(etiquetas) > 1 {
+		return nil, application.ErrServicioComunicacionLlamamientoInvalido
+	}
+	if len(etiquetas) == 1 {
+		etiquetador = etiquetas[0]
+	}
 	if poolCT == nil || alta == nil || alta.soporte == nil || material == nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(alta.autorizador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) ||
@@ -122,7 +132,7 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	return &ejecutorComunicacionLlamamientoDesarrollo{
 		directorioComunicaciones: directorioComunicaciones,
 		soporte:                  alta.soporte, lector: lector, lectorJustificante: lectorJustificante, servicio: servicio,
-		continuaciones: continuaciones, correo: correo,
+		continuaciones: continuaciones, correo: correo, etiquetas: etiquetador,
 	}, nil
 }
 
@@ -328,6 +338,13 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) registrarConAviso(ctx contex
 		e.despacharCorreoDemostracion(ctx, solicitud, recibo)
 	}
 	return recibo, nil
+}
+
+func etiquetaReferenciaCorreoDemostracion(etiquetas informejuridico.EtiquetadorReferencias, referencia string) string {
+	if etiquetas == nil || etiquetas(referencia) == "" || etiquetas(referencia) == referencia {
+		return referencia
+	}
+	return etiquetas(referencia) + " (" + referencia + ")"
 }
 
 func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoDemostracion(ctx context.Context, solicitud ports.SolicitudRegistrarComunicacionLlamamiento, recibo ports.ComunicacionProbatoria) {

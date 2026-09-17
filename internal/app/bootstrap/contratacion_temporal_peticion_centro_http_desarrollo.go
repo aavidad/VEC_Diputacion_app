@@ -20,14 +20,19 @@ type manejadorPeticionCentroDesarrollo struct {
 	proveedor *proveedorPeticionCentroDesarrollo
 	servicio  *application.ServicioPeticionCentro
 	bandeja   ports.ConsultaBandejaPeticionesCentro
+	catalogo  *catalogosAltaContratacionTemporalDesarrollo
 }
 
-func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *postgresct.RepositorioPeticionesCentroPostgreSQL) ([]vechttp.RutaExacta, error) {
+func rutasHTTPPeticionCentroDesarrollo(p *proveedorPeticionCentroDesarrollo, r *postgresct.RepositorioPeticionesCentroPostgreSQL, catalogos ...*catalogosAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
+	catalogo, err := catalogoAnalisisDesarrollo(catalogos...)
+	if err != nil {
+		return nil, err
+	}
 	s, err := application.NuevoServicioPeticionCentro(p, r, p.reloj)
 	if err != nil {
 		return nil, err
 	}
-	m := &manejadorPeticionCentroDesarrollo{proveedor: p, servicio: s, bandeja: r}
+	m := &manejadorPeticionCentroDesarrollo{proveedor: p, servicio: s, bandeja: r, catalogo: catalogo}
 	return []vechttp.RutaExacta{{Ruta: rutaOperacionesPeticionCentro, Manejador: m}, {Ruta: rutaBandejaPeticionCentro, Manejador: m}, {Ruta: rutaContextoPeticionCentro, Manejador: m}}, nil
 }
 
@@ -133,10 +138,10 @@ func (m *manejadorPeticionCentroDesarrollo) contexto(r *http.Request, a *identid
 	for _, e := range c.Entradas {
 		etiquetas[e.Clave] = e.Etiqueta
 	}
-	catalogos, err := nuevoOrigenConsultasContratacionTemporalDesarrollo().catalogosAlta()
-	if err != nil {
-		return nil, err
+	if m.catalogo == nil {
+		return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}
+	catalogos := *m.catalogo
 	catalogos.Centros = []centroCatalogosAltaContratacionTemporalDesarrollo{{Referencia: a.actor.CentroRef, Etiqueta: etiquetas[a.actor.CentroRef], Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: "Contacto sintético del centro"}}}}
 	actor := map[string]any{"referencia": a.actor.ActorRef, "nombre": a.principal.DisplayName, "cargo": etiquetas[a.actor.PuestoRef], "centro": etiquetas[a.actor.CentroRef], "puede_presentar": a.principal.Roles[0] == "solicitante_centro", "puede_ratificar": a.principal.Roles[0] == "ratificador_centro"}
 	if rat, ok := m.proveedor.actores[a.adscripcion.RatificadorSubject]; ok && actorPeticionCentroPerteneceCatalogo(c, rat.actor) {

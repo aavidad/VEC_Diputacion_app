@@ -27,6 +27,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (dependenciasCoberturaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasCoberturaContratacionTemporalDesarrollo{}
 	if derivador == nil || !derivador.valido() || alta == nil ||
@@ -130,6 +131,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		derivador,
 		reloj,
 		gobierno,
+		catalogos...,
 	)
 	if err != nil {
 		return vacias, err

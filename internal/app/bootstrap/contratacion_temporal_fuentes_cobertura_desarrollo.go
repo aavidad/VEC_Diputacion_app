@@ -90,6 +90,7 @@ type fuenteComprobacionCoberturaDesarrollo struct {
 	claveRecibo    [sha256.Size]byte
 	reloj          ports.Reloj
 	registros      []registroCoberturaSinteticaDesarrollo
+	catalogo       *catalogosAltaContratacionTemporalDesarrollo
 }
 
 func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
@@ -241,7 +242,7 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 			return registro.resultado, true
 		}
 	}
-	return resultadoGenericoCoberturaDesarrollo(categoriaRef, viaClave, comprobacion, procedencia)
+	return resultadoGenericoCoberturaDesarrolloConCatalogo(f.catalogo, categoriaRef, viaClave, comprobacion, procedencia)
 }
 
 // resultadoGenericoCoberturaDesarrollo responde por cualquier categoría del
@@ -257,7 +258,17 @@ func resultadoGenericoCoberturaDesarrollo(
 	comprobacion domain.ClaveCatalogo,
 	procedencia domain.ClaveCatalogo,
 ) (domain.ResultadoComprobacion, bool) {
-	if _, enCatalogo := gruposPorCategoriaSinteticaDesarrollo[categoriaRef]; !enCatalogo &&
+	return resultadoGenericoCoberturaDesarrolloConCatalogo(nil, categoriaRef, viaClave, comprobacion, procedencia)
+}
+
+func resultadoGenericoCoberturaDesarrolloConCatalogo(
+	catalogo *catalogosAltaContratacionTemporalDesarrollo,
+	categoriaRef string,
+	viaClave domain.ClaveCatalogo,
+	comprobacion domain.ClaveCatalogo,
+	procedencia domain.ClaveCatalogo,
+) (domain.ResultadoComprobacion, bool) {
+	if !categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, categoriaRef, grupoDeCategoriaCoberturaDesarrollo(catalogo, categoriaRef)) &&
 		categoriaRef != categoriaSinCoberturaDesarrollo {
 		return "", false
 	}
@@ -276,6 +287,17 @@ func resultadoGenericoCoberturaDesarrollo(
 		return domain.ComprobacionNegativa, true
 	}
 	return domain.ComprobacionAfirmativa, true
+}
+
+func grupoDeCategoriaCoberturaDesarrollo(catalogo *catalogosAltaContratacionTemporalDesarrollo, referencia string) string {
+	if catalogo != nil {
+		for _, categoria := range catalogo.Categorias {
+			if categoria.Referencia == referencia && len(categoria.GruposSubgrupos) > 0 {
+				return categoria.GruposSubgrupos[0].Clave
+			}
+		}
+	}
+	return gruposPorCategoriaSinteticaDesarrollo[referencia]
 }
 
 const categoriaSinCoberturaDesarrollo = "categoria:desarrollo:sin-cobertura"
@@ -445,7 +467,12 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
 	gobierno cobertura.ResolutorGobiernoOperacionCobertura,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (dependenciasFuentesCoberturaDesarrollo, error) {
+	catalogo, errCatalogo := catalogoAnalisisDesarrollo(catalogos...)
+	if errCatalogo != nil {
+		return dependenciasFuentesCoberturaDesarrollo{}, errFuentesCoberturaDesarrolloNoDisponibles
+	}
 	var vacias dependenciasFuentesCoberturaDesarrollo
 	if derivador == nil || !derivador.valido() ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(gobierno) {
@@ -579,6 +606,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 			claveRecibo:    material.recibo,
 			reloj:          reloj,
 			registros:      registrosCoberturaSinteticosDesarrollo(),
+			catalogo:       catalogo,
 		},
 		verificador: &verificadorRespuestaCoberturaDesarrollo{
 			presentadorAutoridadFuenteAnalisisDesarrollo: presentadorVerificador,
