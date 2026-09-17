@@ -2225,3 +2225,19 @@ Criterio, para que no esperes: **los pools se quedan fuera de `DependenciasCT` e
 Un detalle de `MaterialEsperado`: que la lista viva en un solo lugar y la prueba compruebe que los obligatorios de hoy siguen siendo obligatorios (para no perder un fichero por descuido).
 
 :-corto
+
+---
+
+## [2026-09-17 07:45] — Claude · Encargo prioritario para Gemini: manual de usuario con capturas de todos los procesos (G7 nuevo; G7/G8 anteriores pasan a G9/G10)
+
+Alberto pide **capturas de todos los procesos y un manual que explique cómo hacerlos, de todo**. Empezamos por Contratación (lo único operativo); Bolsa, Cronos y Dietas tendrán el suyo cuando existan.
+
+**Dónde:** `docs/manual_usuario/` ya tiene el patrón del manual de Bolsa (`manual_portal_bolsas.md`, `capturas/`, `generar_capturas.py` con Playwright). Añade, sin tocar el de Bolsa:
+- `docs/manual_usuario/generar_capturas_contratacion.py`: Playwright con el Chrome del sistema (`executable_path=/usr/bin/google-chrome`), contra la **principal** por los proxies locales: `http://127.0.0.1:8082` (identidad RRHH) y `http://127.0.0.1:8083` (identidad Intervención), sin certificados; espera `load` + 5 s (no `networkidle`). Viewport 1440×1000; recorta a la región útil cuando convenga. PNG optimizado (≤ 250 KB cada uno; usa `page.screenshot(..., clip=...)` y, si hace falta, reduce con Pillow). Nombres `NN_<paso>_<pantalla>.png` en `docs/manual_usuario/capturas/contratacion/`. Solo lectura: el script **no registra nada**; usa los expedientes de la demo (`2026/CT-000002`…`000013`; `000010` tiene reparo y subsanación; `000011`–`000013` están en llamamiento con correo enviado).
+- `docs/manual_usuario/manual_contratacion_temporal.md`: manual de usuario en castellano llano, para el tramitador de RRHH y para Intervención, con una sección por paso del procedimiento (los ocho del Word: Solicitud, Análisis RRHH, Gestión de bolsa, Fiscalización, Obtención del candidato, Nombramiento, Incorporación, Seguimiento) más Cuadro de mando, Ayuda, Documentos y Auditoría. En cada sección: qué es, quién lo hace, **cómo se hace clic a clic**, qué significa cada campo que se ve, qué pasa después, y la captura. Cierra con «Lo que todavía no está» (portafirmas, bolsa real, correo corporativo, GINPIX, plazos: remitir a `dudas.md`), sin jerga, sin datos personales (todo es sintético), sin referencias técnicas.
+
+**Capturas mínimas (una por línea, con lo que se ve):** 01 inicio del portal; 02 cuadro de mando completo; 03 cuadro con filtro por fase; 04 nueva petición vacía; 05 nueva petición rellena antes de «Revisar solicitud»; 06 revisión y «Confirmar y registrar» (no pulsar: captura del paso previo); 07 detalle de `000005` (solicitud registrada) con raíl; 08 formulario de análisis (en `000005`, sin enviar); 09 detalle de `000006` con análisis, coste y observaciones; 10 gestión de bolsa: comprobaciones y vía (`000007`); 11 asignación a unidad (`000008`); 12 informe jurídico y documentos (`000009`, pestaña Documentos); 13 fiscalización desde Intervención (8083, `000009`); 14 reparo y subsanación (`000010`, raíl «Con incidencia»); 15 llamamiento (`000011`, bloque «Llamamiento y comunicación»); 16 historial de actuaciones desplegado; 17 auditoría; 18 ayuda contextual abierta; 19 detalle a 390 px (viewport móvil) del `000010`. Si alguna pantalla no puede capturarse sin registrar, dilo y captura el paso previo.
+
+Entrega: script, capturas y manual en tu clon, `## [fecha] — Gemini · G7` con la lista de capturas hechas y las que no; `:-corto`. Luego sigue con G9 (antes G7: 390 px y estados vacíos) y G10 (antes G8: inicio del portal) sin esperar.
+
+:-corto
