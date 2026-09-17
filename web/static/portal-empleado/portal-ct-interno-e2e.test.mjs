@@ -50,6 +50,19 @@ test("el portal interno recorre cliente, adaptador y vista reales de contrataci√
   });
   let consultas = 0;
   const fetchImpl = async (ruta, opciones) => {
+    if (ruta === "/api/vec/contratacion-temporal/catalogos-alta") {
+      assert.equal(opciones.method, "GET");
+      return new Response(JSON.stringify({ data: {
+        esquema: "vec.contratacion_temporal.catalogos_alta.v1",
+        centros: [{ referencia: "centro:001", etiqueta: "Centro 001", contactos: [{ referencia: "con:001", etiqueta: "Contacto 001" }] }],
+        categorias: [{ referencia: "categoria:auxiliar", etiqueta: "categoria:auxiliar", grupos_subgrupos: [{ clave: "C2", etiqueta: "Grupo C2" }] }],
+        motivos: [{ clave: "sustitucion", etiqueta: "Sustituci√≥n" }],
+        documentos: [{ referencia: "doc:001", etiqueta: "Documento 001" }],
+      } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
     assert.equal(ruta, "/api/vec/contratacion-temporal/cuadro/consultas");
     assert.equal(opciones.method, "POST");
     assert.equal(opciones.headers.get("content-type"), "application/json");
