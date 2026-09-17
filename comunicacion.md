@@ -2863,3 +2863,99 @@ Codex se quedó sin cuota tras escribir «C19 listo» (dos entradas intercaladas
 **Resultado**: las doce listas sintéticas importadas con `podman exec … /vec-arrancar.sh importar-convoca --fichero … --categoria <clave>`: 41/41 aceptadas en `administrativo` (acta `fc6a18e7…`), y así las otras once; la reimportación devuelve la misma acta (idempotente). Custodia en `/var/tmp/importaciones` del contenedor (tmpfs: **volátil** hasta recrear el contenedor con un volumen escribible; se hará junto con la publicación de la interfaz de Mailpit cuando Alberto lo autorice).
 
 Cola de Codex cuando vuelva: C20 (constituir bolsa desde el acta + lecturas RRHH), C21, C22, C23, C15/C18, C24 (01:15). Cola de Gemini cuando vuelva: G15–G18.
+
+## [2026-09-18 03:20] — Gemini · G15 listo: llamamientos y contactos en la vista de candidatos (B7/B3)
+
+G15 completado y verificado (suite web pasa **846/846** pruebas, +5 pruebas nuevas, tamaño de ficheros dentro del límite).
+
+### Componentes entregados
+1. **Contrato JS (`web/static/portal-empleado/portal-bolsas-contrato.js`)**:
+   - Esquemas `vec.bolsa.rrhh.contactos.v1` (`ESQUEMA_CONTACTOS`) y `vec.bolsa.rrhh.accion.v1` (`ESQUEMA_ACCION_BOLSA`).
+   - Catálogos cerrados `CANALES_LLAMAMIENTO` (`correo`, `telefono`, `sede`), `RESULTADOS_LLAMAMIENTO_BOLSA` (`aceptado`, `renuncia`, `sin_respuesta`, `pendiente`) y `RESULTADOS_REGISTRO_LLAMAMIENTO` (`aceptado`, `renuncia`, `sin_respuesta`).
+   - Validador `validarContacto` (campos cerrados `contacto_ref`, `canal`, `realizado_en`, `resultado_clave`, `anotacion` sin datos sensibles).
+   - Validador `validarRespuestaContactos` sobre envelope canónico `{ data: { esquema, contactos } }`.
+   - Validadores de acción `validarPayloadCrearLlamamiento` (B7: canal, comunicado_en, plazo_respuesta_hasta, anotacion) y `validarPayloadResultadoLlamamiento` (B3: resultado_clave, anotacion).
+   - Constructor de envelope de acción `construirEnvelopeAccionBolsa` con `confirmacion: true` obligatoria.
+
+2. **Cliente API y controlador (`web/static/portal-empleado/portal-bolsas-api.js`)**:
+   - `consultarContactosCandidato(participacionRef)`: `GET /api/vec/bolsa/candidatos/{participacion_ref}/contactos` con `credentials: "omit"` y validación de contrato.
+   - `crearLlamamientoCandidato(participacionRef, payload)`: `POST /api/vec/bolsa/candidatos/{participacion_ref}/llamamientos` con envelope de acción validado.
+   - `registrarResultadoLlamamiento(llamamientoRef, payload)`: `POST /api/vec/bolsa/llamamientos/{llamamiento_ref}/resultado` con envelope de acción validado.
+   - `crearControladorBolsas`: gestión de modales (`modalContactos`, `modalLlamar`, `modalResultado`), controladores de apertura/cierre y manejadores de envío con validación de confirmación explícita y recarga reactiva de aspirantes tras éxito.
+
+3. **Presentador y vistas (`web/static/portal-empleado/portal-panel-interno.js` y `portal.js`)**:
+   - Columna «Acciones» en la tabla de aspirantes de la Vista B5.
+   - Botón «Contactos» para inspeccionar comunicaciones previas.
+   - Botón «Llamar» habilitado cuando el aspirante está `disponible` (B7).
+   - Botón «Resultado» habilitado cuando el aspirante cuenta con un llamamiento registrado (B3).
+   - Modales/diálogos accesibles:
+     - Histórico de contactos con tabla o mensaje controlado de vacío.
+     - Formulario B7 con canal, fecha/hora comunicación, plazo límite, anotación opcional y checkbox de confirmación explícita.
+     - Formulario B3 con desplegable de resultado (`aceptado`, `renuncia`, `sin_respuesta`), anotación opcional y checkbox de confirmación obligatoria.
+   - Estricto cumplimiento: castellano claro, semántica accesible (`aria-labelledby`, `role="dialog"`), **cero ocurrencias de la palabra "demo"**.
+
+4. **Pruebas y verificación (`web/static/portal-empleado/portal-bolsas.test.mjs`)**:
+   - Pruebas unitarias de contrato (contactos, llamamientos, resultados, validación estricta y rechazo de fugas).
+   - Pruebas de cliente API simulando respuestas HTTP (200, 403, etc.) y formato de envelopes.
+   - Pruebas de superficie de presentación para la tabla con acciones y los tres modales.
+   - Verificación de límites: `./scripts/comprobar_tamano_ficheros.sh` verde (`portal-bolsas-api.js`: 584, `portal-panel-interno.js`: 599, `portal.js`: 792, `portal-bolsas-contrato.js`: 393, `portal-bolsas.test.mjs`: 754).
+   - Suite completa `node --test web/`: **846/846 pruebas verdes**.
+
+Árbol de trabajo listo y sin confirmar. Paso inmediatamente a G16 (estadísticas de contratación temporal, C18).
+:-corto
+
+## [2026-09-18 03:45] — Gemini · G16 listo: estadísticas de contratación temporal (C18)
+
+G16 completado y verificado (suite web pasa **851/851** pruebas, +5 pruebas nuevas, tamaño de ficheros dentro del límite).
+
+### Componentes entregados
+1. **Contrato JS (`web/static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js`)**:
+   - Esquema canónico `vec.ct.estadisticas.v1` (`ESQUEMA_ESTADISTICAS`).
+   - Vocabulario cerrado de periodos (`PERIODOS_ESTADISTICAS`): `anual`, `mensual`, `semanal`.
+   - Campos cerrados de series: `inicio`, `altas`, `llamamientos`, `formalizaciones`, `cierres`, `incidencias`.
+   - Validación estricta de formato de fechas (`AAAA-MM-DD`), enteros no negativos, coherencia cronológica de rango (`desde <= hasta`) y coincidencia exacta entre la suma de series y los totales agregados.
+   - Protección activa contra fugas de datos personales (DNI, correos, teléfonos).
+   - Generador de CSV en cliente con delimitador punto y coma (`;`), cabeceras en castellano y fila de totales acumulados.
+
+2. **Cliente HTTP (`web/static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js`)**:
+   - Endpoint: `GET /api/vec/contratacion-temporal/estadisticas?periodo=anual|mensual|semanal&desde=AAAA-MM-DD&hasta=AAAA-MM-DD`.
+   - Sigue la política DEC-053: `credentials: "omit"`, cabecera `Accept: "application/json"`.
+   - Manejo de códigos HTTP estructurados: 400, 401, 403, 404, 422, 500 y validación de contrato de respuesta sobre envelope canónico `{ data: { ... } }`.
+
+3. **Superficie de presentación y SVG (`web/static/portal-empleado/modulos/contratacion-temporal/vista-estadisticas.js`)**:
+   - Selector de periodo (`anual`, `mensual`, `semanal`) y rango de fechas (`desde`, `hasta`).
+   - Gráfico SVG puro sin dependencias externas: barras agrupadas y proporcionales para las cinco métricas por periodo (`altas`, `llamamientos`, `formalizaciones`, `cierres`, `incidencias`), con colores accesibles, leyendas, líneas guía y textos accesibles (`<title>`, `<desc>`).
+   - Tabla de datos accesible: `<caption>`, `<th>` con `scope`, alineación numérica y pie de tabla `<tfoot>` con totales acumulados.
+   - Exportación de CSV en el cliente disparando descarga de Blob `text/csv;charset=utf-8;`.
+   - Manejo de estados de carga, error y denegación de acceso.
+
+4. **Integración en vista de expedientes (`vista-expedientes.js`, `presentador-expedientes.js`, `i18n-expedientes.js`)**:
+   - Vista `"estadisticas"` añadida a `VISTAS` y navegación principal del módulo de contratación temporal.
+   - Contenedor `<div data-ct-exp-estadisticas></div>` montado reactivamente al cambiar de vista.
+   - Respetado el límite congelado de líneas de `vista-expedientes.js` (`scripts/tamano_ficheros_base.txt`: 2172 líneas).
+
+5. **Pruebas y límites (`estadisticas.test.mjs`)**:
+   - Pruebas unitarias de contrato (validación, envelope, rechazo de anomalías y datos personales, coherencia de totales).
+   - Pruebas de cliente HTTP y construcción de URL de consulta.
+   - Pruebas de exportación CSV con formato delimitado por punto y coma.
+   - Pruebas de renderizado y accesibilidad de componentes HTML y gráfico SVG.
+   - Pruebas de ausencia total de la palabra "demo".
+   - Control de tamaño: `./scripts/comprobar_tamano_ficheros.sh` verde (ficheros nuevos ≤ 800 líneas, `vista-expedientes.js` en 2168 ≤ 2172).
+   - Suite completa `node --test web/`: **851/851 pruebas verdes** (+5 pruebas).
+
+Árbol de trabajo listo y sin confirmar para revisión e integración. Paso inmediatamente a G17 (poda de `vista-expedientes.js`).
+:-corto
+
+## [2026-09-18 10:40] — Claude · Codex y Gemini de vuelta: tareas
+
+Estado desde vuestra última entrada: C19 integrado y en marcha en la principal (doce listas Convoca importadas; principal con `bolsa_importacion_convoca` aplicado). Además he integrado esta madrugada: cuadro de mando reparado (el contrato JS no admitía `totales`), botones con color y sombra, «Peticiones de los centros» apilado con detalle en rejilla, aviso de incidencia con atajos al abrir un expediente, raíl de fases en verde/amarillo/rojo claro, inicio de RRHH con trámites recientes y cifras que llevan al cuadro filtrado, y pantallas por fase al pulsar el raíl (`fases-expediente.js`). Vuestros clones están en main. **Recordad**: ficheros web nuevos → `web/interno.manifest` **y** `web/produccion.manifest` (lista positiva HTTP del servidor); ficheros congelados en `scripts/tamano_ficheros_base.txt` no pueden crecer (trocead en módulos nuevos); la regla de autonomía de las 02:45 sigue vigente (sin confirmaciones intermedias; «listo» o «bloqueado» y al siguiente).
+
+### Codex — cola (contratos en la entrada de las 01:15)
+1. **C20** (activo): constituir `BolsaConstituida` + `ParticipacionBolsa` en `vec_bolsa_llamamientos` desde las actas importadas (subcomando `constituir-bolsa --acta <ref>` o `importar-convoca --constituir`; orden por Total desc, estado inicial `disponible`) y las dos lecturas RRHH `GET /api/vec/bolsa/bolsas` y `GET /api/vec/bolsa/bolsas/{bolsa_ref}/candidatos` (el portal de G12 ya las consume). Prueba de aceptación: en la principal, el cuadro de bolsas muestra las doce bolsas y sus candidatos.
+2. **C25** (nuevo, pequeño): el detalle RRHH (`expedientes/consultas`) incluye `fiscalizacion: {resultado_clave, reparos: [{clave, texto}], registrada_en, subsanacion: {registrada_en, texto}|null}` cuando existe, para que el aviso de incidencia muestre el texto literal de los reparos. Contrato JS cerrado: dímelo cuando esté y lo conecto (o hazlo tú en `cliente-http-consultas-rrhh.js` + `componentes-expedientes.js` ≤ 800 líneas).
+3. C21 → C22 → C23 → C15/C18 → C24, como estaban.
+
+### Gemini — cola
+1. **G15** (activo): llamamientos y contactos en la vista de candidatos (contrato C23, 01:15).
+2. **G19** (nuevo): **pasada de diseño página por página** (petición de Alberto: «mejorar el aspecto en todas las páginas»). Criterio de hoy: botones con color y sombra (ya en `portal.css`), cabeceras de tarjeta con jerarquía, chips de estado con color, rejillas de campos (`.pc-campos` en peticiones-centro como referencia), tablas con cabecera tintada y filas alternas, espaciado consistente, formularios con etiquetas claras y ayuda contextual. Orden: portal RRHH (inicio, cuadro, expediente, alta, documentos, auditoría) → peticiones de los centros y organización → área personal → público. Sin cambiar comportamiento ni contratos; tests verdes; captura antes/después de cada página en `docs/manual/capturas/diseno/` (Playwright contra la principal por `http://127.0.0.1:8082`, lo tienes documentado en `scripts/`). Entrega por páginas («G19 portal listo», «G19 área personal listo»…) para integrar por partes.
+3. G16 → G17 → G18, como estaban.
