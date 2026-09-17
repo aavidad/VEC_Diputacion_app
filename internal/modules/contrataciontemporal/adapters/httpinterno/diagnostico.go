@@ -1,12 +1,14 @@
 package httpinterno
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 // registrarFalloContratacion solo registra metadatos cerrados, nunca el texto de la causa.
@@ -94,7 +96,34 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 	}
 	slog.Error("operación de Contratación fallida", "operacion", operacion, "ruta", ruta,
 		"estado_http", estado, "codigo", codigo,
-		"etapa", etapa, "sqlstate", sqlstate, "correlacion_ref", correlacion)
+		"etapa", etapa, "sqlstate", sqlstate,
+		"centinela", centinelaSeguroContratacion(causa), "correlacion_ref", correlacion)
+}
+
+// centinelaSeguroContratacion devuelve solo una clase fija de causas que la
+// frontera ya trata como indisponibilidad. Nunca deriva texto ni tipo dinámico
+// del error: los errores pueden envolver detalles de infraestructura privados.
+func centinelaSeguroContratacion(causa error) string {
+	switch {
+	case errors.Is(causa, ErrContextoCanalNoDisponible):
+		return "contexto_canal_no_disponible"
+	case errors.Is(causa, ports.ErrPersistenciaNoDisponible):
+		return "persistencia_no_disponible"
+	case errors.Is(causa, ports.ErrFlujoNoDisponible):
+		return "flujo_no_disponible"
+	case errors.Is(causa, ports.ErrMotivoAutorizacionNoDisponible):
+		return "motivo_autorizacion_no_disponible"
+	case errors.Is(causa, application.ErrServicioRegistroInvalido):
+		return "servicio_registro_invalido"
+	case errors.Is(causa, application.ErrConsultaRRHHNoDisponible):
+		return "consulta_rrhh_no_disponible"
+	case errors.Is(causa, context.Canceled):
+		return "context_canceled"
+	case errors.Is(causa, context.DeadlineExceeded):
+		return "deadline_exceeded"
+	default:
+		return "no_clasificado"
+	}
 }
 
 // Los formatos proceden de los respondedores del adaptador, nunca del cuerpo entrante.

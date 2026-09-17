@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,41 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestRegistroDiagnosticoClasificaCentinelaSinExponerCausa(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	for _, caso := range []struct {
+		nombre, esperado string
+		causa            error
+	}{
+		{"persistencia", "persistencia_no_disponible", ports.ErrPersistenciaNoDisponible},
+		{"canal", "contexto_canal_no_disponible", ErrContextoCanalNoDisponible},
+		{"desconocido", "no_clasificado", errors.New("otra causa")},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var registro bytes.Buffer
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+			causa := fmt.Errorf("CONTENIDO_PRIVADO: %w", caso.causa)
+			registrarFalloContratacion(
+				httptest.NewRequest(http.MethodPost, RutaAltaSolicitudes, nil),
+				http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba", causa,
+			)
+			var entrada map[string]any
+			if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil {
+				t.Fatal(err)
+			}
+			if entrada["centinela"] != caso.esperado {
+				t.Fatalf("centinela=%#v, esperado %q", entrada["centinela"], caso.esperado)
+			}
+			if strings.Contains(registro.String(), "CONTENIDO_PRIVADO") {
+				t.Fatalf("el log filtró causa privada: %s", registro.String())
+			}
+		})
+	}
+}
 
 func TestFronterasContratacionCorrelacionanFalloSinContenidoPrivado(t *testing.T) {
 	anterior := slog.Default()
