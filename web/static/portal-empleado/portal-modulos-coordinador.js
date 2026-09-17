@@ -639,6 +639,12 @@ export function crearCoordinadorModulosPortal({
         && typeof presentadorCT?.seleccionarExpediente === "function") {
         try { void presentadorCT.seleccionarExpediente(opciones.expedienteRef); } catch {}
       }
+      if (!esFiscalizacion && opciones?.filtros && typeof presentadorCT?.cargar === "function") {
+        // Filtros pedidos desde el inicio (cifras del resumen): se cargan antes de
+        // montar la vista, que así pinta directamente el cuadro filtrado.
+        try { await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...opciones.filtros }); } catch {}
+        if (montaje !== secuenciaMontaje) return false;
+      }
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
@@ -659,12 +665,6 @@ export function crearCoordinadorModulosPortal({
           confirmarOperacion,
           anunciar,
         });
-      if (montaje === secuenciaMontaje && !esFiscalizacion && opciones?.filtros
-        && typeof presentadorCT?.cargar === "function") {
-        // Filtros pedidos desde el inicio (cifras del resumen): tras montar, para
-        // no competir con la carga inicial del cuadro.
-        try { void presentadorCT.cargar({ texto: "", estado: "", fase: "", ...opciones.filtros }); } catch {}
-      }
       if (montaje !== secuenciaMontaje) {
         moduloContratacion.desmontar();
         return false;
