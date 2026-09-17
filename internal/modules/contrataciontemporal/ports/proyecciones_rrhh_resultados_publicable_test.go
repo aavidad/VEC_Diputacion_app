@@ -26,6 +26,29 @@ func TestPaginaCuadroRRHHValidaContenidoPublicableContraSolicitud(t *testing.T) 
 	}
 }
 
+func TestPaginaCuadroRRHHTotalesDebenCubrirLaPaginaYSerSeguros(t *testing.T) {
+	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := paginaContenidoCuadroRRHHPrueba("")
+	base.Totales = &ports.TotalesCuadroRRHH{Total: 2, EnTramitacion: 2}
+	if err := base.ValidarContenidoPublicablePara(solicitud); err != nil {
+		t.Fatalf("totales válidos rechazados: %v", err)
+	}
+	for _, totales := range []*ports.TotalesCuadroRRHH{
+		{Total: 0},
+		{Total: 1, ConIncidencia: 2},
+		{Total: 9_007_199_254_740_992},
+	} {
+		pagina := clonarPaginaContenidoCuadroRRHH(base)
+		pagina.Totales = totales
+		if err := pagina.ValidarContenidoPublicablePara(solicitud); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+			t.Fatalf("totales inválidos aceptados: %#v, %v", totales, err)
+		}
+	}
+}
+
 func TestPaginaCuadroRRHHRechazaContenidoPublicableDivergente(t *testing.T) {
 	base := paginaContenidoCuadroRRHHPrueba("")
 	segundo := base.Expedientes[0]

@@ -174,7 +174,9 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 		destinosCuadroConsultaRRHH(&cuadro),
 		append(
 			[]any{&cuadro.contenidoCanonico, &cuadro.cursorSiguiente},
-			destinosCierreEsperadosConsultaRRHH(&cuadro.cierre)...,
+			append(destinosCierreEsperadosConsultaRRHH(&cuadro.cierre),
+				&cuadro.totalFiltrado, &cuadro.enTramitacion,
+				&cuadro.conIncidencia, &cuadro.enLlamamiento)...,
 		),
 	)
 	comprobarIdentidadDestinosConsultaRRHH(
@@ -185,6 +187,29 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 			destinosCierreEsperadosConsultaRRHH(&detalle.cierre)...,
 		),
 	)
+}
+
+func TestSalidaCuadroConsultaRRHHConstruyeTotalesSeguros(t *testing.T) {
+	t.Parallel()
+	totales, err := (salidaCuadroConsultaRRHH{
+		totalFiltrado: 52, enTramitacion: 33,
+		conIncidencia: 4, enLlamamiento: 9,
+	}).construirTotales()
+	if err != nil || totales == nil || totales.Total != 52 ||
+		totales.EnTramitacion != 33 || totales.ConIncidencia != 4 ||
+		totales.EnLlamamiento != 9 {
+		t.Fatalf("totales nominales = %#v, %v", totales, err)
+	}
+	for _, salida := range []salidaCuadroConsultaRRHH{
+		{totalFiltrado: -1},
+		{totalFiltrado: 1, enTramitacion: 2},
+		{totalFiltrado: 1, conIncidencia: 2},
+		{totalFiltrado: 1, enLlamamiento: 2},
+	} {
+		if _, err := salida.construirTotales(); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+			t.Fatalf("totales no confiables aceptados: %#v, %v", salida, err)
+		}
+	}
 }
 
 func destinosCierreEsperadosConsultaRRHH(

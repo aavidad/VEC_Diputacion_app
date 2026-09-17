@@ -240,6 +240,14 @@ type TotalesCuadroRRHH struct {
 	EnLlamamiento uint64 `json:"en_llamamiento"`
 }
 
+func (t TotalesCuadroRRHH) validar() bool {
+	const maximoEnteroJSONSeguro = uint64(9_007_199_254_740_991)
+	return t.Total <= maximoEnteroJSONSeguro &&
+		t.EnTramitacion <= t.Total &&
+		t.ConIncidencia <= t.Total &&
+		t.EnLlamamiento <= t.Total
+}
+
 // ValidarContenidoPublicablePara comprueba exclusivamente la proyección
 // neutral solicitada. No valida ni expone autoridad, ámbito o recibo de
 // lectura; esas garantías pertenecen a ValidarPara.
@@ -249,6 +257,8 @@ func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
 	if solicitud.validar() != nil ||
 		!domain.InstanteUTCCanonico(p.GeneradaEn) ||
 		len(p.Expedientes) > int(solicitud.limite) ||
+		(p.Totales != nil && (!p.Totales.validar() ||
+			p.Totales.Total < uint64(len(p.Expedientes)))) ||
 		(p.HayMas && !cursorRRHHValido(p.CursorSiguiente)) ||
 		(!p.HayMas && p.CursorSiguiente != "") {
 		return ErrResultadoConsultaRRHHNoConfiable

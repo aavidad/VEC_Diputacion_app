@@ -119,6 +119,11 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 		destinosCuadroConsultaRRHH(&salida),
 		func() (ports.PaginaCuadroRRHH, error) {
 			salida.cierre.normalizarInstantesSQL()
+			totales, err := salida.construirTotales()
+			if err != nil {
+				return ports.PaginaCuadroRRHH{},
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
 			if err != nil {
 				return ports.PaginaCuadroRRHH{},
@@ -140,6 +145,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 					err
 			}
 			pagina.Lectura = recibo
+			pagina.Totales = totales
 			if err := pagina.ValidarParaEjecucionInterna(orden); err != nil {
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPaginaInterna, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
@@ -381,7 +387,9 @@ func (a *argumentosMaterialConsultaRRHH) limpiar() {
 func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 	return append(
 		[]any{&s.contenidoCanonico, &s.cursorSiguiente},
-		destinosCierreConsultaRRHH(&s.cierre)...,
+		append(destinosCierreConsultaRRHH(&s.cierre),
+			&s.totalFiltrado, &s.enTramitacion,
+			&s.conIncidencia, &s.enLlamamiento)...,
 	)
 }
 

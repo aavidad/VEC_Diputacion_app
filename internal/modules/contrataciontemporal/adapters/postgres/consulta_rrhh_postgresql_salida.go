@@ -39,6 +39,28 @@ type salidaCuadroConsultaRRHH struct {
 	contenidoCanonico []byte
 	cursorSiguiente   string
 	cierre            salidaCierreConsultaRRHH
+	totalFiltrado     int64
+	enTramitacion     int64
+	conIncidencia     int64
+	enLlamamiento     int64
+}
+
+func (s salidaCuadroConsultaRRHH) construirTotales() (*ports.TotalesCuadroRRHH, error) {
+	const maximoEnteroJSONSeguro = int64(9_007_199_254_740_991)
+	if s.totalFiltrado < 0 || s.enTramitacion < 0 ||
+		s.conIncidencia < 0 || s.enLlamamiento < 0 ||
+		s.totalFiltrado > maximoEnteroJSONSeguro ||
+		s.enTramitacion > s.totalFiltrado ||
+		s.conIncidencia > s.totalFiltrado ||
+		s.enLlamamiento > s.totalFiltrado {
+		return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	return &ports.TotalesCuadroRRHH{
+		Total:         uint64(s.totalFiltrado),
+		EnTramitacion: uint64(s.enTramitacion),
+		ConIncidencia: uint64(s.conIncidencia),
+		EnLlamamiento: uint64(s.enLlamamiento),
+	}, nil
 }
 
 // timestamptz conserva un instante absoluto, pero pgx puede entregarlo con
