@@ -2839,3 +2839,27 @@ Alberto: «está parando cada minuto incluso con un objetivo». Desde ahora, Cod
 7. **Decisiones ya tomadas para C19** (no las vuelvas a preguntar): protector = adaptador de desarrollo integrado; pool ejecutor = `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL`; custodia = `fichero:sha256:<huella>` en `VEC_DEVELOPMENT_MATERIAL_DIR/importaciones/`; acta con `categoria_ref` obligatoria validada contra la RPT y `bolsa_ref` opcional derivable; idempotencia por `(huella, categoria_ref)`; migraciones corregidas en origen (`000001…000004`); subcomando `vec-server importar-convoca` que usa `config.Load()`; salida 0 solo sin rechazos salvo `--admitir-rechazos`.
 
 Objetivo de la sesión: **C19, C20 y C21 listos** sin intervención mía entre ellos. :-corto
+
+## C19 listo — importador Convoca durable
+
+Decisión: contexto y su idempotencia se corrigen en `000001…000004`, pues no hay migraciones instaladas; no se crea una 000005. El acta incorpora `categoria_ref` obligatorio y `bolsa_ref` opcional, y las referencias opacas se derivan de `SHA256(huella ∥ US ∥ categoria_ref)`. Las consultas y recuperación PostgreSQL requieren ahora ambos valores, evitando ambigüedad con un XLS reutilizado en otra categoría.
+
+El comando `vec-server importar-convoca --fichero X.xls --categoria clave [--bolsa-ref ref] [--admitir-rechazos]` valida la categoría contra la RPT existente, custodia el XLS como `fichero:sha256:<huella>` bajo material de desarrollo con `0400`, compone el protector HKDF/AES-GCM/HMAC y abre exclusivamente `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL` tras comprobar el rol ejecutor. Imprime acta/huella/contadores y retorna 2 si hay rechazos sin el indicador explícito.
+
+Focales verdes: `go test` de config, cmd, dominio/aplicación/adaptadores Convoca y protector; `go vet` de cmd, aplicación, adaptador PostgreSQL y bootstrap; `go build ./cmd/vec-server`; `gofmt -l config internal cmd` y `git diff --check` limpios. Falta únicamente el ensayo PostgreSQL real de roles + `000001…000004` en ROLLBACK/aplicación, imposible en local porque el socket Docker está denegado. :-corto
+
+## C19 listo — ajuste final de composición
+
+La composición deriva `bolsa:<clave-rpt>:<AAAA-MM-DD UTC>` cuando no se entrega `--bolsa-ref`, y conserva una referencia indicada. Al descargar el material de desarrollo borra KMS, ambas firmas privadas, TSA e idempotencia. La custodia escribe con creación exclusiva, sincroniza y sólo reutiliza un fichero regular `0400` cuya huella coincida; así no sigue enlaces ni acepta contenido distinto ante concurrencia.
+
+Verificado: focal de bootstrap, paquete C19, `go vet`, `go build`, formato y `git diff --check` verdes. Se mantiene pendiente exclusivamente el ensayo PostgreSQL real de migraciones/roles que hará Claude. :-corto
+
+## [2026-09-18 03:10] — Claude · C19 integrado y EN MARCHA en la principal: B1 cumplido; Codex sin cuota
+
+Codex se quedó sin cuota tras escribir «C19 listo» (dos entradas intercaladas). He integrado el corte (`57847764`), con una corrección (`69f1ec8b`: directorio de custodia configurable, `VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR`, porque `/vec-material` va montado en solo lectura) y `go mod tidy` (`ef8a06f8`).
+
+**Principal**: `roles_up.sql` + `000001…000004` de `bolsa_importacion_convoca` ensayadas en `ROLLBACK` y aplicadas; LOGIN `vec_bolsa_importacion_convoca_desarrollo` ∈ `…_ejecutor` (**con `WITH INHERIT TRUE`**: en PostgreSQL 16+ la opción de herencia se fija al conceder la pertenencia, y un rol `NOINHERIT` creado antes no hereda CONNECT aunque luego se altere); duodécima conexión en el fichero de referencia y contador a 12; `arrancar_app.sh` pasa `"$@"`; política de retención del staging publicada (`politica:retencion:convoca:staging-90-dias`, v1, 90 días, actor `actor:rrhh:gobernanza-importacion`) porque el motor la exige antes de guardar un lote.
+
+**Resultado**: las doce listas sintéticas importadas con `podman exec … /vec-arrancar.sh importar-convoca --fichero … --categoria <clave>`: 41/41 aceptadas en `administrativo` (acta `fc6a18e7…`), y así las otras once; la reimportación devuelve la misma acta (idempotente). Custodia en `/var/tmp/importaciones` del contenedor (tmpfs: **volátil** hasta recrear el contenedor con un volumen escribible; se hará junto con la publicación de la interfaz de Mailpit cuando Alberto lo autorice).
+
+Cola de Codex cuando vuelva: C20 (constituir bolsa desde el acta + lecturas RRHH), C21, C22, C23, C15/C18, C24 (01:15). Cola de Gemini cuando vuelva: G15–G18.
