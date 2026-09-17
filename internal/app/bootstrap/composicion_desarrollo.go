@@ -225,8 +225,13 @@ func NewHTTPServerDesarrolloWithConfig(
 			cerrarContratacion()
 		}
 	}()
+	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
+		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err

@@ -25,6 +25,7 @@ type Handler struct {
 	roadRoute               http.Handler
 	identityPolicy          identityPolicy
 	rutasExactas            map[string]http.Handler
+	rutasColeccion          []RutaColeccion
 	autoridadRutasExactas   AutoridadRutasExactas
 }
 
@@ -41,6 +42,7 @@ type HandlerOptions struct {
 	IdentityRolesHeader     string
 	IdentityMechanismHeader string
 	RutasExactas            []RutaExacta
+	RutasColeccion          []RutaColeccion
 	AutoridadRutasExactas   AutoridadRutasExactas
 }
 
@@ -60,6 +62,10 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if service == nil {
 		return nil, errors.New("vec http handler: service required")
 	}
+	if (len(options.RutasExactas) == 0 && len(options.RutasColeccion) == 0 && !dependenciaRutaExactaNula(options.AutoridadRutasExactas)) ||
+		((len(options.RutasExactas) != 0 || len(options.RutasColeccion) != 0) && dependenciaRutaExactaNula(options.AutoridadRutasExactas)) {
+		return nil, ErrRutaExactaInvalida
+	}
 	if options.InternalOperations != nil && !options.InternalOperations.Matches(service) {
 		return nil, application.ErrInternalOperationsMismatch
 	}
@@ -67,6 +73,10 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		options.RutasExactas,
 		options.AutoridadRutasExactas,
 	)
+	if err != nil {
+		return nil, err
+	}
+	rutasColeccion, err := prepararRutasColeccion(options.RutasColeccion, options.AutoridadRutasExactas)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +92,7 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		roadRoute:               options.ManejadorRutaDietas,
 		identityPolicy:          identityPolicy,
 		rutasExactas:            rutasExactas,
+		rutasColeccion:          rutasColeccion,
 		autoridadRutasExactas:   options.AutoridadRutasExactas,
 	}, nil
 }
@@ -106,6 +117,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			r.URL.Path,
 		)
 		if err != nil {
+			responderAutorizacionRutaExacta(w, err)
+			return
+		}
+		manejador.ServeHTTP(w, r)
+		return
+	}
+	if manejador, encontrada := h.manejadorColeccion(r.URL.Path); encontrada {
+		if !peticionRutaExactaCanonica(r) {
+			responderAutorizacionRutaExacta(w, errRutaExactaNoEncontrada)
+			return
+		}
+		if err := h.autoridadRutasExactas.AutorizarRutaExacta(r.Context(), r.URL.Path); err != nil {
 			responderAutorizacionRutaExacta(w, err)
 			return
 		}
@@ -544,4 +567,34 @@ func permisosCarcasaInternaDemo() []string {
 		"vec.modules.read",
 		"vec.menu.read",
 	}
+}
+
+func prepararRutasColeccion(declaradas []RutaColeccion, autoridad AutoridadRutasExactas) ([]RutaColeccion, error) {
+	if len(declaradas) == 0 {
+		return nil, nil
+	}
+	if dependenciaRutaExactaNula(autoridad) {
+		return nil, ErrRutaExactaInvalida
+	}
+	rutas := append([]RutaColeccion(nil), declaradas...)
+	for indice, ruta := range rutas {
+		if !rutaColeccionValida(ruta.Prefijo) || manejadorRutaExactaInvalido(ruta.Manejador) {
+			return nil, ErrRutaExactaInvalida
+		}
+		for previo := 0; previo < indice; previo++ {
+			if rutas[previo].Prefijo == ruta.Prefijo {
+				return nil, ErrRutaExactaInvalida
+			}
+		}
+	}
+	return rutas, nil
+}
+
+func (h *Handler) manejadorColeccion(ruta string) (http.Handler, bool) {
+	for _, declarada := range h.rutasColeccion {
+		if strings.HasPrefix(ruta, declarada.Prefijo+"/") {
+			return declarada.Manejador, true
+		}
+	}
+	return nil, false
 }

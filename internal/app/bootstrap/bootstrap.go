@@ -236,6 +236,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 	rutasExactas []vechttp.RutaExacta,
 	autoridadRutasExactas vechttp.AutoridadRutasExactas,
+	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
 	if err != nil {
@@ -271,6 +272,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		AllowDemoIdentity:       resolvedorIdentidad != nil,
 		DemoIdentityResolver:    resolvedorIdentidad,
 		RutasExactas:            rutasExactas,
+		RutasColeccion:          rutasColeccion,
 		AutoridadRutasExactas:   autoridadRutasExactas,
 	})
 }

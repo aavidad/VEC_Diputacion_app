@@ -50,14 +50,19 @@ type RutaExacta struct {
 	Manejador http.Handler
 }
 
+// RutaColeccion declara un único prefijo de recurso para rutas cuyo identificador
+// opaco forma parte del path. La autorización recibe siempre la ruta completa;
+// el adaptador debe validar el resto del path antes de interpretar ese identificador.
+type RutaColeccion struct {
+	Prefijo   string
+	Manejador http.Handler
+}
+
 func prepararRutasExactas(
 	declaradas []RutaExacta,
 	autoridad AutoridadRutasExactas,
 ) (map[string]http.Handler, error) {
 	if len(declaradas) == 0 {
-		if !dependenciaRutaExactaNula(autoridad) {
-			return nil, ErrRutaExactaInvalida
-		}
 		return nil, nil
 	}
 	if dependenciaRutaExactaNula(autoridad) {
@@ -75,6 +80,10 @@ func prepararRutasExactas(
 		rutas[declarada.Ruta] = declarada.Manejador
 	}
 	return rutas, nil
+}
+
+func rutaColeccionValida(prefijo string) bool {
+	return rutaExactaAdicionalValida(prefijo)
 }
 
 func rutaExactaAdicionalValida(ruta string) bool {

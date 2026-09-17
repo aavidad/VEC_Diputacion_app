@@ -572,7 +572,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaEntregaPeticionCentro ||
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
-			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
+			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.
 			certificado := r.TLS.VerifiedChains[0][0]
@@ -654,6 +655,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaPreparacionesInformeJuridico ||
 		r.URL.Path == rutaAreaPersonalBolsaDesarrollo ||
 		r.URL.Path == rutaDisponibilidadBolsaDesarrollo ||
+		r.URL.Path == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(r.URL.Path) ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
