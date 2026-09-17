@@ -6,7 +6,16 @@ name: ci
 
 on:
   push:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
+
+# Un push nuevo en la misma rama cancela la ejecucion anterior: el canal de
+# direccion produce varios commits seguidos y solo interesa el ultimo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

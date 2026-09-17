@@ -123,6 +123,14 @@ test("G10: una página parcial del cuadro no produce cifras", () => {
   assert.match(html, /Los totales se consultan en el cuadro de mando/);
 });
 
+test("C17: los totales del servidor prevalecen sobre una página parcial", () => {
+  assert.deepEqual(calcularMetricasCuadro({
+    hay_mas: true,
+    expedientes: [{ estado_clave: "en_curso" }],
+    totales: { total: 52, en_tramitacion: 33, con_incidencia: 4, en_llamamiento: 9 },
+  }), { total: 52, en_tramitacion: 33, con_incidencia: 4, en_llamamiento: 9 });
+});
+
 test("G10: la vista de inicio para RRHH solo renderiza accesos directos y 3 cifras del cuadro sin nada más", () => {
   const renderizarRRHH = crearVistaInicioPortal({
     encabezadoVista: (sup, tit, desc) => `<header><h1>${tit}</h1><p>${sup}</p></header>`,
@@ -160,4 +168,3 @@ test("G10: la vista de inicio para RRHH solo renderiza accesos directos y 3 cifr
   assert.doesNotMatch(html, /tarjeta-modulo/);
   assert.doesNotMatch(html, /data-modulo-catalogo/);
 });
-
