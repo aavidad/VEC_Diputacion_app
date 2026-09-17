@@ -152,18 +152,31 @@ if grep -rniE '/api/publico(/|[?"'"'"'])|\bBearer\b|Authorization|document\.cook
 	fallar "interno: el cliente incorpora credenciales de navegador, estado local o la API publica."
 fi
 
-# (grep en vez de ripgrep: el ejecutor de CI no trae rg y la puerta fallaba en silencio.)
-# El certificado de cliente TLS requiere credenciales del mismo origen. Se
-# admite una sola aparicion y exclusivamente en el transporte interno revisado;
-# el servidor no emite cookies y las guardas anteriores siguen prohibiendo su
-# lectura, almacenamiento o inclusion entre origenes.
-ruta_transporte_mtls="${temporal}/interno/web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.js:"
-mapfile -t usos_mismo_origen < <(
-	grep -rniE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
-		"${temporal}/interno/web" || true
+# El certificado de cliente TLS requiere credenciales del mismo origen. Solo se
+# admite en los transportes internos revisados de esta lista positiva; el
+# servidor no emite cookies y las guardas anteriores siguen prohibiendo su
+# lectura, almacenamiento o inclusion entre origenes. (grep en vez de ripgrep:
+# el ejecutor de CI no trae rg.)
+transportes_mtls_revisados=(
+	static/portal-empleado/portal-catalogo-modulos.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
+	static/portal-empleado/peticiones-centro/peticiones-centro.js
+	static/portal-empleado/organizacion/organizacion.js
 )
-if ((${#usos_mismo_origen[@]} != 1)) || [[ "${usos_mismo_origen[0]}" != "${ruta_transporte_mtls}"* ]]; then
-	fallar "interno: el transporte mTLS del mismo origen no coincide con la lista positiva."
-fi
+mapfile -t usos_mismo_origen < <(
+	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
+		"${temporal}/interno/web" | sed "s#^${temporal}/interno/web/##" | LC_ALL=C sort || true
+)
+((${#usos_mismo_origen[@]} > 0)) ||
+	fallar "interno: no se encontro el transporte mTLS del mismo origen."
+for uso in "${usos_mismo_origen[@]}"; do
+	revisado=0
+	for transporte in "${transportes_mtls_revisados[@]}"; do
+		[[ "${uso}" == "${transporte}" ]] && revisado=1 && break
+	done
+	((revisado == 1)) ||
+		fallar "interno: ${uso} usa credenciales del mismo origen fuera de la lista positiva de transportes mTLS."
+done
 
 printf 'Artefactos productivos publico e interno aislados y conformes con sus manifiestos.\n'

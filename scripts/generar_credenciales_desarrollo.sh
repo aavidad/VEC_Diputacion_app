@@ -397,7 +397,15 @@ JSON
 find "$TEMPORAL" -type d -exec chmod 700 {} +
 find "$TEMPORAL" -type f -exec chmod 600 {} +
 verificar_directorio "$TEMPORAL"
-if mv --no-target-directory --update=none-fail -- "$TEMPORAL" "$DESTINO"; then
+# rename(2) rechaza un destino existente no vacio (ENOTEMPTY); con coreutils
+# >= 9.5, --update=none-fail lo rechaza incluso vacio. El ejecutor de CI
+# (Ubuntu 24.04) trae 9.4, asi que se usa la opcion solo cuando existe.
+if mv --help 2>/dev/null | grep -q 'none-fail'; then
+  opciones_publicacion=(--no-target-directory --update=none-fail)
+else
+  opciones_publicacion=(--no-target-directory)
+fi
+if mv "${opciones_publicacion[@]}" -- "$TEMPORAL" "$DESTINO"; then
   [[ ! -e "$TEMPORAL" && ! -L "$TEMPORAL" ]] ||
     fallar "la publicacion no consumio el directorio temporal"
   TEMPORAL=''
