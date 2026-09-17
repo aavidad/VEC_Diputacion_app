@@ -607,4 +607,3 @@ func TestIdempotenciaAnalisisDistingueObservaciones(t *testing.T) {
 		t.Fatal("se esperaba desigualdad entre observaciones con contenido y observaciones vacías")
 	}
 }
-
