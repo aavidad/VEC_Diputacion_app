@@ -2007,6 +2007,13 @@ export async function montarModuloContratacionTemporal({
       repintar("[data-ct-exp-mensaje]");
       await promesa;
       repintar(".ct-exp-contenido");
+    } else if (accion.dataset.ctExpAccion === "abrir-historial") {
+      const historial = raiz.querySelector(".ct-exp-historial");
+      if (historial) {
+        historial.open = true;
+        historial.scrollIntoView({ block: "start" });
+        historial.querySelector("summary")?.focus();
+      }
     } else if (accion.dataset.ctExpAccion === "cancelar") {
       presentador.cancelar();
       repintar("[data-ct-exp-mensaje]");

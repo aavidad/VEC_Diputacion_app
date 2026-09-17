@@ -196,6 +196,36 @@ export function renderizarCuadro(estado, t) {
     ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}`;
 }
 
+// La incidencia se explica con lo que el detalle ya trae: la fase marcada, el
+// hito que la originó y lo ocurrido después. Los atajos llevan a donde se
+// resuelve o se consulta; ninguno ejecuta una acción por sí mismo.
+const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";
+
+function renderizarIncidencia(expediente, t) {
+  const fase = (expediente.fases || []).find((f) => f.estado_clave === "incidencia");
+  if (!fase) return "";
+  const historial = expediente.historial || [];
+  const origen = historial.find((hito, i) => hito.estado_clave === "incidencia"
+    && (i === 0 || historial[i - 1].estado_clave !== "incidencia"));
+  const posteriores = origen ? historial.filter((hito) => hito.secuencia > origen.secuencia) : [];
+  const subsanacion = posteriores.find((hito) => hito.accion_clave === ACCION_SUBSANACION);
+  const situacion = subsanacion
+    ? t("incidencia_subsanada", { fecha: subsanacion.fecha })
+    : t("incidencia_pendiente_subsanacion");
+  return `<section class="ct-exp-incidencia" role="alert" aria-labelledby="ct-exp-incidencia-titulo">
+    <div class="ct-exp-incidencia-texto">
+      <h3 id="ct-exp-incidencia-titulo">${escaparHTML(t("incidencia_titulo", { fase: fase.etiqueta }))}</h3>
+      ${origen ? `<p>${escaparHTML(t("incidencia_origen", { accion: origen.accion, fecha: origen.fecha, secuencia: origen.secuencia }))}</p>` : ""}
+      <p>${escaparHTML(situacion)}</p>
+    </div>
+    <div class="ct-exp-incidencia-atajos">
+      <button type="button" class="boton-primario" data-ct-exp-accion="abrir-historial">${escaparHTML(t("incidencia_atajo_historial"))}</button>
+      <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escaparHTML(t("incidencia_atajo_documentos"))}</button>
+      <button type="button" class="boton-secundario" data-ct-exp-vista="auditoria">${escaparHTML(t("incidencia_atajo_auditoria"))}</button>
+    </div>
+  </section>`;
+}
+
 function renderizarFases(expediente, t) {
   if (expediente.fases.length === 0) return "";
   return `<nav class="ct-exp-progreso" aria-label="${escaparHTML(t("fases_expediente"))}">
@@ -535,6 +565,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   )}
     </div>`;
   return `${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
+    ${renderizarIncidencia(expediente, t)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}`;

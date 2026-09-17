@@ -238,3 +238,33 @@ test("todos los estados de error y vacío carecen de tokens técnicos y claves s
     assert.match(html, /class="boton-secundario"/u);
   }
 });
+
+test("un expediente con incidencia explica su origen y ofrece atajos", () => {
+  const expediente = {
+    esquema: "vec.contratacion_temporal.expediente.v1", demostracion: false,
+    expediente_ref: "expediente:ct:incidencia", numero_visible: "2026/CT-000010", version: 7,
+    flujo_ref: "flujo:ct", flujo_version: 1, flujo_huella: "a".repeat(64),
+    cabecera: [], tareas: [],
+    fases: [
+      { orden: 1, clave: "solicitud", etiqueta: "Solicitud", estado_clave: "completado" },
+      { orden: 4, clave: "fiscalizacion", etiqueta: "Fiscalización", estado_clave: "incidencia" },
+      { orden: 5, clave: "obtencion_candidato", etiqueta: "Obtención del candidato", estado_clave: "pendiente" },
+    ],
+    historial: [
+      { secuencia: 5, fecha: "16 sept 2026", fase: "Informe jurídico", accion: "Informe jurídico generado", estado_clave: "en_curso", estado: "En tramitación", accion_clave: "contratacion_temporal.informe_juridico.generar", version_expediente: 5 },
+      { secuencia: 6, fecha: "17 sept 2026", fase: "Subsanación por la unidad", accion: "Fiscalización registrada", estado_clave: "incidencia", estado: "Con incidencia", accion_clave: "contratacion_temporal.fiscalizacion.registrar", version_expediente: 6 },
+      { secuencia: 7, fecha: "17 sept 2026", fase: "Subsanación por la unidad", accion: "Subsanación de reparos registrada", estado_clave: "incidencia", estado: "Con incidencia", accion_clave: "contratacion_temporal.subsanacion_reparos.registrar", version_expediente: 7 },
+    ],
+  };
+  const html = renderizarExpediente({ vista: "expediente", carga: "listo", expediente }, t, "es-ES", "Europe/Madrid");
+  assert.match(html, /class="ct-exp-incidencia" role="alert"/u);
+  assert.match(html, /Incidencia en «Fiscalización»/u);
+  assert.match(html, /Origen: Fiscalización registrada, 17 sept 2026 \(actuación 6\)/u);
+  assert.match(html, /registró la subsanación \(17 sept 2026\)/u);
+  assert.match(html, /data-ct-exp-accion="abrir-historial"/u);
+  assert.match(html, /data-ct-exp-vista="documentos"/u);
+  assert.match(html, /data-ct-exp-vista="auditoria"/u);
+  assert.match(html, /<li class="ct-fase-completado"/u);
+  assert.match(html, /<li class="ct-fase-incidencia"/u);
+  assert.match(html, /<li class="ct-fase-pendiente"/u);
+});
