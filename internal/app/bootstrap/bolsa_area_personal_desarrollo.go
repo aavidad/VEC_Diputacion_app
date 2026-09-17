@@ -143,7 +143,7 @@ func (a *areaPersonalBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.R
 		a.disponible = *entrada.Data.Payload.Disponible
 		disponible := a.disponible
 		a.mu.Unlock()
-		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": map[string]any{"recibo": map[string]any{"esquema": "vec.bolsa.area-personal.recibo.v1", "presentacion": false, "referencia": "recibo:bolsa:demo:disponibilidad", "accion": "cambiar_disponibilidad", "objetivo": candidaturaAreaPersonalDesarrollo, "resultado": "confirmado", "actor": "RRHH demostración", "fecha": time.Now().UTC().Format(time.RFC3339Nano), "advertencia": "Estado efímero de demostración; se restablece al reiniciar."}, "resultado": map[string]bool{"disponible": disponible}}})
+		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": map[string]any{"recibo": map[string]any{"esquema": "vec.bolsa.area-personal.recibo.v1", "presentacion": false, "referencia": "recibo:bolsa:demo:disponibilidad", "accion": "cambiar_disponibilidad", "objetivo": candidaturaAreaPersonalDesarrollo, "resultado": "confirmado", "actor": "RRHH demostración", "fecha": instanteAreaPersonalBolsaDesarrollo(), "advertencia": "Estado efímero de demostración; se restablece al reiniciar."}, "resultado": map[string]bool{"disponible": disponible}}})
 	default:
 		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 	}
@@ -157,7 +157,7 @@ func (a *areaPersonalBolsaDesarrollo) panel() map[string]any {
 	llamamientos := make([]map[string]string, len(a.llamamientos))
 	copy(llamamientos, a.llamamientos)
 	vacio := []map[string]string{}
-	return map[string]any{"meta": map[string]any{"esquema": "vec.bolsa.area-personal.v1", "presentacion": false, "origen": "Dataset sintético de Bolsa; disponibilidad efímera del proceso", "generado_en": time.Now().UTC().Format(time.RFC3339Nano)}, "sesion": map[string]string{"persona_ref": candidaturaAreaPersonalDesarrollo, "nombre_visible": a.candidatura.Nombre, "iniciales": "CD", "metodo": "demostración sin identidad de candidato"}, "resumen": map[string]any{"acciones_pendientes": 0, "convocatorias_abiertas": 0, "solicitudes_activas": 0, "mensajes_no_leidos": 0, "puntuacion_provisional": a.candidatura.Puntuacion}, "perfil": map[string]string{"referencia": "perfil:demo:0001", "nombre_visible": a.candidatura.Nombre, "identificador_visible": "Candidatura sintética 0001", "correo": "candidatura.0001@ejemplo.test", "telefono": "No disponible en demostración", "domicilio": "No disponible en demostración", "estado_verificacion": "Demostración sin identidad de candidato"}, "plazos": vacio, "convocatorias": vacio, "meritos": vacio, "solicitudes": vacio, "baremo": vacio, "llamamientos": llamamientos, "subsanaciones": vacio, "alegaciones": vacio, "mensajes": vacio, "certificados": vacio, "documentos": vacio, "actividad": vacio, "ayuda": vacio, "disponibilidad": map[string]any{"disponible": a.disponible, "estado": estado}, "capacidades": map[string]bool{"cambiar_disponibilidad": true}}
+	return map[string]any{"meta": map[string]any{"esquema": "vec.bolsa.area-personal.v1", "presentacion": false, "origen": "Dataset sintético de Bolsa; disponibilidad efímera del proceso", "generado_en": instanteAreaPersonalBolsaDesarrollo()}, "sesion": map[string]string{"persona_ref": candidaturaAreaPersonalDesarrollo, "nombre_visible": a.candidatura.Nombre, "iniciales": "CD", "metodo": "demostración sin identidad de candidato"}, "resumen": map[string]any{"acciones_pendientes": 0, "convocatorias_abiertas": 0, "solicitudes_activas": 0, "mensajes_no_leidos": 0, "puntuacion_provisional": a.candidatura.Puntuacion}, "perfil": map[string]string{"referencia": "perfil:demo:0001", "nombre_visible": a.candidatura.Nombre, "identificador_visible": "Candidatura sintética 0001", "correo": "candidatura.0001@ejemplo.test", "telefono": "No disponible en demostración", "domicilio": "No disponible en demostración", "estado_verificacion": "Demostración sin identidad de candidato"}, "plazos": vacio, "convocatorias": vacio, "meritos": vacio, "solicitudes": vacio, "baremo": vacio, "llamamientos": llamamientos, "subsanaciones": vacio, "alegaciones": vacio, "mensajes": vacio, "certificados": vacio, "documentos": vacio, "actividad": vacio, "ayuda": vacio, "disponibilidad": map[string]any{"disponible": a.disponible, "estado": estado}, "capacidades": map[string]bool{"cambiar_disponibilidad": true}}
 }
 func responderAreaPersonalDesarrollo(w http.ResponseWriter, estado int, valor any, soloCabecera ...bool) {
 	b, _ := json.Marshal(valor)
@@ -166,4 +166,8 @@ func responderAreaPersonalDesarrollo(w http.ResponseWriter, estado int, valor an
 	if estado != http.StatusNoContent && (len(soloCabecera) == 0 || !soloCabecera[0]) {
 		_, _ = w.Write(b)
 	}
+}
+
+func instanteAreaPersonalBolsaDesarrollo() string {
+	return time.Now().UTC().Truncate(time.Millisecond).Format("2006-01-02T15:04:05.000Z07:00")
 }
