@@ -209,7 +209,9 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		if err != nil {
 			return nil, err
 		}
-		categorias = categoriasRPT
+		// Las sintéticas se publican al final para que los expedientes que ya las
+		// usan sigan mostrando su nombre en cuadro, detalle y documentos.
+		categorias = append(categoriasRPT, categoriasSinteticasDesarrollo...)
 	}
 	motivos := []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
 		{
