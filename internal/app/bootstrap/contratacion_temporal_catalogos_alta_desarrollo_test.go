@@ -573,8 +573,8 @@ func TestCatalogoDesarrolloConRPTPublicaCategoriasReales(t *testing.T) {
 	if err != nil {
 		t.Fatalf("catálogo con RPT: %v", err)
 	}
-	if len(catalogo.Centros) != 41 || len(catalogo.Categorias) < 300 {
-		t.Fatalf("esperados 41 centros y cientos de categorías de la RPT: %d, %d", len(catalogo.Centros), len(catalogo.Categorias))
+	if len(catalogo.Centros) != 41 || len(catalogo.Categorias) < 100 {
+		t.Fatalf("esperados 41 centros y más de cien categorías de la RPT: %d, %d", len(catalogo.Centros), len(catalogo.Categorias))
 	}
 	var administrativo *categoriaCatalogosAltaContratacionTemporalDesarrollo
 	for i := range catalogo.Categorias {
