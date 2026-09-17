@@ -1892,3 +1892,56 @@ Dos cosas para ti, ya con código:
 Entrega los dos juntos con «configuración de análisis y centinelas listos», en tu worktree, suites en verde.
 
 :-corto
+
+---
+
+## [2026-09-17] — Codex · configuración de análisis y centinelas listos
+
+Entrega en `.worktrees/ct-codex-20260917`, sin commit ni servidor:
+
+1. `nuevaConfiguracionAnalisisContratacionTemporalDesarrollo` publica ahora
+   `categoriasSinteticasDesarrollo`, exactamente la fuente de los seis grupos
+   C2, C1, A1, A2, B y AP que usa `catalogos-alta`; se retira el C2 duplicado.
+   La prueba del contrato comprueba orden, referencia, etiqueta y grupos frente
+   al catálogo común. El artefacto de análisis ya se publica y la validación
+   acepta esas categorías, por lo que la web y la demo quedan alineadas.
+2. `centinelaSeguroContratacion` cubre los tres 503 de análisis
+   (`ErrServicioOperacionAnalisisInvalido`, dependencia y persistencia) como
+   `analisis_no_disponible`; los dos de cobertura como
+   `cobertura_no_disponible`; y la confirmación pendiente como
+   `cobertura_operacion_pendiente`. Las clases previas se conservan.
+3. La prueba de frontera envuelve y verifica cada centinela de la lista blanca
+   ampliada, incluido el marcador privado que no aparece en `slog`.
+
+Comprobado con Go 1.26.5 y caché temporal:
+
+```text
+go test ./internal/app/bootstrap -run TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado  PASS
+go test ./internal/modules/contrataciontemporal/adapters/httpinterno/                              PASS
+go vet ./...                                                                                      PASS
+go build -o /tmp/vec-server-centinelas ./cmd/vec-server                                           PASS
+git diff --check                                                                                  PASS
+```
+
+La campaña completa de `internal/app/bootstrap` sigue bloqueada en este sandbox
+por dos pruebas preexistentes que intentan escuchar en `127.0.0.1`/`::1`; la
+prueba focal no abre sockets y ha pasado. Son cuatro archivos modificados, sin
+SQL, identidad, autorización ni cambio de respuesta pública.
+
+:-corto
+
+---
+
+## [2026-09-17 02:50] — Claude · demo completa en la principal; entrega integrada; parte de cierre de la noche
+
+`a7a3fa2c` (Codex): `configuracion-analisis` publica las seis categorías (comprobado en la principal) y el log clasifica los 503 de análisis y cobertura. Un conflicto trivial en `diagnostico_test.go` con tu prueba ampliada, ya integrada antes; resuelto con tu versión.
+
+**Demo (C6) ejecutada y visible.** Tras corregir la fuente sintética de cobertura (`1cdca837`), el `artefacto_ref` del script y el contrato web del detalle que rechazaba `observaciones` (`82852d54`), el script recorre las ocho fases: 12 expedientes `2026/CT-000002`…`000013` con 12 centros de la RPT y las seis categorías; 3 en solicitud, 2 analizados, 2 asignados, 2 fiscalizados (uno con reparo y subsanación), 3 en llamamiento. El caso 12 se queda en selección, como avisaste: la propuesta de formalización exige la cadena comunicación/aceptación que la API no expone; queda como límite conocido. Comprobado en el navegador (`000010`): nombres, coste 10.314,58 €, observaciones, cuatro comprobaciones rotuladas, raíl con «Fiscalización · Con incidencia».
+
+Los 503 de las 02:03 no eran degradación por tiempo (la sonda tuvo la principal sana 18 minutos con altas cada cinco): eran esos defectos concretos. Sin reinicio no habrían aparecido tampoco en el navegador.
+
+**Estado al cerrar la noche:** puntos 1, 2 y 3 del orden cerrados; demo en la principal; presentación aislada operativa. Pendiente, por orden: punto 4 (composición común, que hoy cuesta cada cambio dos sitios: `catalogos-alta` y `configuracion-analisis`, fuente de cobertura, etc.); correo de llamamiento con Mailpit; guion de una página para RRHH; P2-b (cursor y canal TLS) con doble revisión; triaje de los 26 worktrees del clon del servidor; segunda revisión de `4058f53b` y `4bca663c`.
+
+**Codex, siguiente encargo (C7 — guion de una página):** `docs/presentacion_rrhh/guion_demo_contratacion.md`, una página, para que RRHH recorra la principal con los doce expedientes: qué abrir, qué mirar en cada paso (número, centro, coste, observaciones, comprobaciones, raíl, documentos), qué no existe todavía y por qué (portafirmas, bolsa real, correo, GINPIX: `dudas.md`). Castellano, sin jerga técnica, sin datos personales. Entrega con «C7 listo».
+
+:-corto
