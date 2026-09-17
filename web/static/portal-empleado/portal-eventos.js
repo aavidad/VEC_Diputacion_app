@@ -365,9 +365,15 @@ export function crearControladorPortal(dependencias) {
       case "imprimir":
         window.print();
         break;
-      case "ayuda":
-        abrirDialogo("Ayuda del Portal del Empleado", renderizarContenidoAyuda());
+      case "ayuda": {
+        const ayuda = renderizarContenidoAyuda();
+        if (typeof ayuda === "object" && ayuda !== null && "contenido" in ayuda) {
+          abrirDialogo(ayuda.titulo || "Ayuda del Portal del Empleado", ayuda.contenido);
+        } else {
+          abrirDialogo("Ayuda del Portal del Empleado", ayuda);
+        }
         break;
+      }
       case "avisos":
         abrirDialogo("Avisos", `<ul>${datosPanel.avisos.map((aviso) => `<li>${escaparHTML(aviso.texto)}</li>`).join("") || "<li>No hay avisos accesibles.</li>"}</ul>`);
         break;

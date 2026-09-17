@@ -4,7 +4,12 @@ import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contra
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
-import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
+import {
+  AYUDA_PORTAL_BOLSA,
+  detectarContextoContratacionTemporal,
+  obtenerAyudaContratacionTemporal,
+  renderizarAyudaContratacionTemporal,
+} from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
@@ -147,7 +152,12 @@ const renderizarPortal = crearVistaInicioPortal({
   obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
   resolverAcceso: resolverAccesoPerfil,
 });
-function renderizarContenidoAyuda() {
+function renderizarContenidoAyuda(contexto = null) {
+  if (estado.vista === "contratacion-temporal") {
+    const ctx = contexto || detectarContextoContratacionTemporal();
+    const ayuda = obtenerAyudaContratacionTemporal(ctx.vista, ctx.fase);
+    return renderizarAyudaContratacionTemporal(ayuda, escaparHTML);
+  }
   const ayuda = AYUDA_PORTAL_BOLSA;
   return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
 }

@@ -368,6 +368,8 @@
 .transcripcion-ayuda summary { cursor: pointer; font-weight: 700; }
 .faq-ayuda p,
 .transcripcion-ayuda p { line-height: 1.55; }
+.ayuda-contratacion-temporal .ayuda-descripcion { display: grid; gap: 12px; }
+.ayuda-contratacion-temporal p { margin: 0; line-height: 1.6; }
 
 .tabla-necesidades th,
 .tabla-necesidades td { padding: 9px 8px; white-space: normal; }
