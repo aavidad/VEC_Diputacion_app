@@ -170,8 +170,11 @@ function validarAnalisis(entrada) {
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo_inicio",
     "periodo_fin", "porcentaje_jornada", "resultado_rc",
   ];
-  if (!camposCerrados(entrada, obligatorios, ["coste_previsto", "fuente_coste_ref"])
+  if (!camposCerrados(entrada, obligatorios, ["coste_previsto", "fuente_coste_ref", "observaciones"])
     || !clave(entrada.modalidad_clave) || !referencia(entrada.categoria_ref)
+    || (Object.hasOwn(entrada, "observaciones")
+      && (typeof entrada.observaciones !== "string" || entrada.observaciones === ""
+        || [...entrada.observaciones].length > 4000))
     || !clave(entrada.causa_clave) || !instante(entrada.periodo_inicio)
     || !instante(entrada.periodo_fin)
     || !entero(entrada.porcentaje_jornada, 1) || entrada.porcentaje_jornada > 10_000

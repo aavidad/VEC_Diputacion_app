@@ -231,3 +231,29 @@ test("acepta el error cerrado propio de consulta RRHH", async () => {
   }), (error) => error?.codigo === "servicio_no_disponible"
     && error.envelopeValido === true);
 });
+
+test("el detalle admite observaciones del análisis y rechaza las vacías o desmesuradas", async () => {
+  const base = {
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen,
+    solicitud: { grupo_subgrupo: "A2", motivo_clave: "sustitucion", periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z" },
+    analisis: {
+      modalidad_clave: "sustitucion", categoria_ref: "categoria:desarrollo:a1", causa_clave: "necesidad_temporal",
+      periodo_inicio: "2027-01-21T00:00:00Z", periodo_fin: "2027-04-21T00:00:00Z", porcentaje_jornada: 7500,
+      resultado_rc: "validada", observaciones: "Necesidad temporal verificada.",
+    },
+    hitos: [],
+  };
+  async function consultar(analisis) {
+    const fetchImpl = async () => respuesta({ data: { ...base, analisis } });
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl });
+    return cliente.consultarDetalleRRHH({ expediente_ref: resumen.expediente_ref, version_observada: 1 });
+  }
+  const detalle = await consultar(base.analisis);
+  assert.equal(detalle.analisis.observaciones, "Necesidad temporal verificada.");
+  const { observaciones, ...sinObservaciones } = base.analisis;
+  assert.equal(Object.hasOwn((await consultar(sinObservaciones)).analisis, "observaciones"), false);
+  for (const invalidas of ["", "x".repeat(4001), 7]) {
+    await assert.rejects(consultar({ ...base.analisis, observaciones: invalidas }));
+  }
+});
