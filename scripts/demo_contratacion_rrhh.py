@@ -34,6 +34,8 @@ RUTAS = {
     "fiscalizacion": f"{API}/fiscalizaciones/resultados",
     "subsanacion": f"{API}/subsanacion-reparos",
     "seleccion": f"{API}/llamamientos/seleccion",
+    "detalle": f"{API}/expedientes/consultas",
+    "comunicacion": f"{API}/llamamientos/comunicaciones",
 }
 ESPACIO_CLAVES = uuid.UUID("f7ce9ce2-6057-45bc-a08a-922d7e24fa4a")
 
@@ -196,6 +198,38 @@ def cobertura_y_asignacion(cliente: Cliente, caso: Caso, analisis_recibo: dict[s
     return {"cobertura": cobertura, "asignacion": asignacion}
 
 
+def solicitud_comunicacion(caso: Caso, fiscalizacion: dict[str, Any], seleccion: dict[str, Any], detalle: dict[str, Any]) -> dict[str, Any]:
+    """Forma el único POST de comunicación a partir de sus antecedentes reales."""
+    resumen = detalle.get("resumen") if isinstance(detalle, dict) else None
+    if not isinstance(resumen, dict) or resumen.get("expediente_ref") != fiscalizacion.get("expediente_ref") \
+            or resumen.get("version") != fiscalizacion.get("version_resultante"):
+        raise RuntimeError("el detalle RRHH no acredita la versión fiscalizada seleccionada")
+    version_llamamiento = seleccion.get("version_llamamiento")
+    if not isinstance(version_llamamiento, int) or version_llamamiento < 1:
+        raise RuntimeError("la selección no devolvió versión de llamamiento")
+    campos = {
+        "clave_idempotencia": clave(caso, "comunicacion"),
+        "organizacion_ref": seleccion.get("organizacion_ref"),
+        "expediente_ref": fiscalizacion.get("expediente_ref"),
+        "llamamiento_ref": seleccion.get("llamamiento_ref"),
+        # Es versión del llamamiento, no la del expediente que publica el detalle.
+        "version_esperada": version_llamamiento,
+        "prueba_entrega_ref": seleccion.get("recibo_ref"),
+    }
+    if not all(isinstance(valor, str) and valor for nombre, valor in campos.items() if nombre != "version_esperada"):
+        raise RuntimeError("la selección no devolvió los antecedentes de comunicación completos")
+    return campos
+
+
+def registrar_comunicacion(cliente: Cliente, caso: Caso, fiscalizacion: dict[str, Any], seleccion: dict[str, Any]) -> dict[str, Any]:
+    detalle = datos(cliente.pedir("POST", RUTAS["detalle"], {
+        "expediente_ref": fiscalizacion["expediente_ref"],
+        "version_observada": fiscalizacion["version_resultante"],
+    }))
+    solicitud = solicitud_comunicacion(caso, fiscalizacion, seleccion, detalle)
+    return datos(cliente.pedir("POST", RUTAS["comunicacion"], solicitud))
+
+
 def fiscalizar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, caso: Caso, asignacion: dict[str, Any]) -> dict[str, Any]:
     expediente, version = asignacion["expediente_ref"], asignacion["version_resultante"]
     informe = datos(cliente_rrhh.pedir("POST", RUTAS["informe"], {
@@ -239,9 +273,13 @@ def ejecutar(cliente_rrhh: Cliente, cliente_intervencion: Cliente, filas: list[d
                 registro["detenido_en"] = "subsanacion_unidad"; resultado.append(registro); continue
             if ORDEN[caso.punto] >= ORDEN["llamamiento"]:
                 fiscal = cadena["fiscalizacion"]
-                registro["operaciones"]["seleccion_llamamiento"] = datos(cliente_rrhh.pedir("POST", RUTAS["seleccion"], {
+                seleccion = datos(cliente_rrhh.pedir("POST", RUTAS["seleccion"], {
                     "expediente_ref": fiscal["expediente_ref"], "version_esperada": fiscal["version_resultante"], "clave_idempotencia": clave(caso, "seleccion"),
                 }))
+                registro["operaciones"]["seleccion_llamamiento"] = seleccion
+                registro["operaciones"]["comunicacion_llamamiento"] = registrar_comunicacion(
+                    cliente_rrhh, caso, fiscal, seleccion,
+                )
             # La propuesta formal requiere una aceptación vinculada, cuya cadena de
             # comunicación se valida por recibos previos; no se inventa esa evidencia.
             if caso.punto == "nombramiento":
