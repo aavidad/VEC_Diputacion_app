@@ -255,7 +255,7 @@ function renderizarHistorialHitos(expediente, t) {
           <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>
-        <tbody>${expediente.historial.map((hito) => `<tr data-ct-exp-hito-fase="${escaparHTML(hito.fase)}">
+        <tbody>${expediente.historial.map((hito) => `<tr data-ct-exp-hito-fase="${escaparHTML(hito.fase)}" data-ct-exp-hito-accion="${escaparHTML(hito.accion_clave ?? "")}">
           <td>${hito.secuencia}</td><td>${escaparHTML(hito.fecha)}</td>
           <td>${escaparHTML(hito.accion)}</td><td>${escaparHTML(hito.fase)}</td>
           <td>${escaparHTML(hito.estado)}</td></tr>`).join("")}</tbody>

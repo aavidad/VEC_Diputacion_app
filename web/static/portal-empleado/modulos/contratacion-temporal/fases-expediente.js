@@ -14,6 +14,31 @@ const TEXTO = Object.freeze({
   documentos: "Documentos",
 });
 
+// Acciones del historial que pertenecen a cada fase del procedimiento de RRHH,
+// aunque administrativamente se registren en otra fase (el análisis se anota
+// dentro de la solicitud).
+const FASE_DE_ACCION = Object.freeze({
+  alta: "solicitud",
+  "contratacion_temporal.analisis.registrar": "analisis_rrhh",
+  "contratacion_temporal.analisis.rectificar": "analisis_rrhh",
+  "contratacion_temporal.cobertura.decidir": "gestion_bolsa",
+  "contratacion_temporal.unidad.asignar": "gestion_bolsa",
+  "contratacion_temporal.informe_juridico.generar": "gestion_bolsa",
+  "contratacion_temporal.fiscalizacion.registrar": "fiscalizacion",
+  "contratacion_temporal.subsanacion_reparos.registrar": "fiscalizacion",
+});
+
+function hitoPerteneceAFase(fila, clave, etiqueta) {
+  const accion = fila.dataset.ctExpHitoAccion ?? "";
+  const porAccion = FASE_DE_ACCION[accion];
+  if (porAccion) return porAccion === clave;
+  if (accion.includes("llamamiento") || accion.includes("candidat")) return clave === "obtencion_candidato";
+  if (accion.includes("nombramiento") || accion.includes("resolucion") || accion.includes("formalizacion")) return clave === "nombramiento";
+  if (accion.includes("incorporacion")) return clave === "incorporacion";
+  if (accion.includes("seguimiento") || accion.includes("cierre")) return clave === "seguimiento";
+  return fila.dataset.ctExpHitoFase === etiqueta;
+}
+
 function escapar(valor) {
   return String(valor ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 }
@@ -26,7 +51,7 @@ export function construirPanelFase(contenido, boton) {
   const orden = item?.querySelector(".ct-exp-numero-fase")?.textContent?.trim() ?? "";
   const campos = [...contenido.querySelectorAll(`[data-ct-exp-campo-fase="${clave}"]`)];
   const hitos = [...contenido.querySelectorAll("[data-ct-exp-hito-fase]")]
-    .filter((fila) => fila.dataset.ctExpHitoFase === etiqueta);
+    .filter((fila) => hitoPerteneceAFase(fila, clave, etiqueta));
   const panel = document.createElement("section");
   panel.className = `ct-exp-fase-panel ${item?.className ?? ""}`.trim();
   panel.setAttribute("aria-live", "polite");
