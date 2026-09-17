@@ -2825,3 +2825,17 @@ Gemini: sigue con G15 como has dicho. :-corto
 Gemini se ha quedado sin cuota (Alberto, 02:2x) con el clon limpio: G14 fue su última entrega, integrada; G15–G18 quedan en pausa hasta que vuelva (no se reasignan a Codex: su cola es la del servidor).
 
 **Codex**: sigues con C19 y la cola de las 01:15. Para cuando escribas «C19 listo», la principal se prepara así (lo hago yo): `roles_up.sql` → `000001…000004` corregidas (ensayo en `ROLLBACK` antes) → LOGIN `vec_bolsa_importacion_convoca_desarrollo` miembro de `vec_bolsa_importacion_convoca_ejecutor` → duodécima conexión `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL` en el fichero de referencia (patrón `postgresql://…@localhost:5432/postgres?sslmode=verify-full&sslrootcert=…`) y el contador de conexiones del arranque a 12 → `arrancar_app.sh` termina en `exec /usr/local/bin/vec-server "$@"` para poder ejecutar `podman exec … /vec-arrancar.sh importar-convoca --fichero /app/data/demo/bolsa/convoca/administrativo/resumen.xls --categoria administrativo`. Por tanto el subcomando debe leer la misma configuración de entorno que el servidor (mismo `config.Load()`), sin flags de DSN. :-corto
+
+## [2026-09-18 02:45] — Claude · REGLA DE AUTONOMÍA para Codex (orden de Alberto): no pares
+
+Alberto: «está parando cada minuto incluso con un objetivo». Desde ahora, Codex:
+
+1. **No pidas confirmación ni revisión intermedia.** Las revisiones (SQL, criptográfica, de contrato) las hago yo **sobre el corte entregado**, no antes. Ninguna entrada tuya debe terminar en una pregunta salvo que sea un bloqueo real (ver 4).
+2. **Decide tú y sigue**: cuando haya dos opciones razonables, elige la de menor diff coherente con el módulo, anótalo en una línea en la entrada de «listo» («decisión: …») y continúa. Si me parece mal, lo cambio yo al integrar.
+3. **Solo dos tipos de entrada**: «Cn listo» (con resumen, decisiones tomadas y cómo probarlo) o «Cn bloqueado por X» (X = algo que no puedes hacer tú: un dato de Alberto, un acceso, un secreto). Nada de «avance», «candidato», «solicito revisión», «confirma».
+4. **Si te bloqueas de verdad**, escribe el bloqueo y **pasa inmediatamente al siguiente encargo de la cola** (C20, C21, C22, C23, C15, C18, C24); no esperes.
+5. **Verificación local antes de «listo»**: compila, `gofmt -l config internal cmd` vacío, `go vet`, tests del paquete y `git diff --check`. Sin PostgreSQL local, los tests SQL los ejecuto yo en la principal en `ROLLBACK`: dilo en la entrada y sigue con lo siguiente.
+6. **No toques git** (ni commit, ni checkout, ni stash, ni clean): deja los ficheros en la raíz y escribe «listo». Yo integro de forma asíncrona; puede que integre mientras ya estás en el encargo siguiente: es lo esperado.
+7. **Decisiones ya tomadas para C19** (no las vuelvas a preguntar): protector = adaptador de desarrollo integrado; pool ejecutor = `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL`; custodia = `fichero:sha256:<huella>` en `VEC_DEVELOPMENT_MATERIAL_DIR/importaciones/`; acta con `categoria_ref` obligatoria validada contra la RPT y `bolsa_ref` opcional derivable; idempotencia por `(huella, categoria_ref)`; migraciones corregidas en origen (`000001…000004`); subcomando `vec-server importar-convoca` que usa `config.Load()`; salida 0 solo sin rechazos salvo `--admitir-rechazos`.
+
+Objetivo de la sesión: **C19, C20 y C21 listos** sin intervención mía entre ellos. :-corto
