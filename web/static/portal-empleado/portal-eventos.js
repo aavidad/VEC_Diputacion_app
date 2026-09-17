@@ -424,6 +424,9 @@ export function crearControladorPortal(dependencias) {
         if (botonVista.dataset.ctExpVista) {
           opciones.subvista = botonVista.dataset.ctExpVista;
         }
+        if (botonVista.dataset.ctExpAbrirInicio) {
+          opciones.expedienteRef = botonVista.dataset.ctExpAbrirInicio;
+        }
         navegar(botonVista.dataset.vista, opciones);
         return;
       }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calcularMetricasCuadro, crearVistaInicioPortal } from "./portal-inicio.js";
+import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -167,4 +167,27 @@ test("G10: la vista de inicio para RRHH solo renderiza accesos directos y 3 cifr
   assert.doesNotMatch(html, /rejilla-modulos/);
   assert.doesNotMatch(html, /tarjeta-modulo/);
   assert.doesNotMatch(html, /data-modulo-catalogo/);
+});
+
+test("el inicio de RRHH lista los trámites recientes con incidencias primero y abre cada expediente", () => {
+  const cuadro = { expedientes: [
+    { expediente_ref: "expediente:ct:a", numero_visible: "2026/CT-000001", centro: "DEPORTES", categoria: "Operario/a", fase_actual: "Solicitud", estado_clave: "en_curso", estado: "En tramitación" },
+    { expediente_ref: "expediente:ct:b", numero_visible: "2026/CT-000002", centro: "CULTURA", categoria: "Técnico/a", fase_actual: "Fiscalización", estado_clave: "incidencia", estado: "Con incidencia" },
+  ] };
+  const tramites = tramitesParaInicio(cuadro);
+  assert.equal(tramites[0].expediente_ref, "expediente:ct:b");
+  assert.equal(tramitesParaInicio({ expedientes: Array.from({ length: 20 }, (_, i) => ({ expediente_ref: `e${i}` })) }).length, 8);
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "bolsa" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => null,
+    obtenerTramitesInicio: () => tramites,
+  })();
+  assert.match(html, /Trámites recientes/);
+  assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
+  assert.match(html, /class="ct-fase-incidencia">Con incidencia</);
+  assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
 });

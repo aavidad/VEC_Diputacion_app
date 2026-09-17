@@ -608,3 +608,19 @@
   margin: 0;
   color: var(--color-texto-secundario, #4b5563);
 }
+
+.portal-rrhh-tramites-seccion {
+  margin-top: 18px;
+}
+
+.portal-rrhh-tramites-seccion .cabecera-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portal-rrhh-tramites th[scope="row"] {
+  white-space: nowrap;
+  font-weight: 780;
+}

@@ -45,6 +45,35 @@ export function calcularMetricasCuadro(cuadro) {
   };
 }
 
+// Trámites que RRHH debe ver nada más entrar: primero los que tienen
+// incidencia, después los más recientes; cada fila abre su expediente.
+const MAXIMO_TRAMITES_INICIO = 8;
+
+export function tramitesParaInicio(cuadro, maximo = MAXIMO_TRAMITES_INICIO) {
+  const expedientes = Array.isArray(cuadro?.expedientes) ? cuadro.expedientes : [];
+  const orden = (e) => (String(e.estado_clave || "") === "incidencia" ? 0 : 1);
+  return [...expedientes].sort((a, b) => orden(a) - orden(b)).slice(0, maximo);
+}
+
+function renderizarTramitesInicio(tramites, escaparHTML) {
+  if (!Array.isArray(tramites) || tramites.length === 0) {
+    return `<p class="portal-rrhh-resumen-vacio">No hay trámites que mostrar.</p>`;
+  }
+  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="Trámites recientes">
+      <table class="tabla-datos portal-rrhh-tramites">
+        <thead><tr><th scope="col">Expediente</th><th scope="col">Centro</th><th scope="col">Categoría</th><th scope="col">Fase</th><th scope="col">Estado</th><th scope="col"><span class="visualmente-oculto">Acción</span></th></tr></thead>
+        <tbody>${tramites.map((e) => `<tr>
+          <th scope="row">${escaparHTML(e.numero_visible ?? "")}</th>
+          <td>${escaparHTML(e.centro ?? "—")}</td>
+          <td>${escaparHTML(e.categoria ?? "—")}</td>
+          <td>${escaparHTML(e.fase_actual ?? "—")}</td>
+          <td><span class="ct-fase-${escaparHTML(e.estado_clave ?? "pendiente")}">${escaparHTML(e.estado ?? "—")}</span></td>
+          <td><button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">Abrir</button></td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
 export function crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
@@ -54,6 +83,7 @@ export function crearVistaInicioPortal({
   esPerfilRRHH = () => false,
   obtenerMetricasCuadro = () => null,
   numero = (v) => String(v ?? 0),
+  obtenerTramitesInicio = () => null,
 }) {
   if (typeof encabezadoVista !== "function" || typeof escaparHTML !== "function"
     || typeof obtenerCatalogo !== "function" || typeof resolverAcceso !== "function"
@@ -97,6 +127,13 @@ export function crearVistaInicioPortal({
               <h3>Resumen del cuadro de mando</h3>
             </div>
             ${resumen}
+          </section>
+          <section class="portal-rrhh-tramites-seccion" aria-label="Trámites recientes">
+            <div class="cabecera-panel">
+              <h3>Trámites recientes</h3>
+              <button type="button" class="boton-terciario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Ver todos</button>
+            </div>
+            ${renderizarTramitesInicio(obtenerTramitesInicio?.(), escaparHTML)}
           </section>
         </section>`;
     }

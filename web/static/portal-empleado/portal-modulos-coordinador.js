@@ -15,7 +15,7 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
-import { calcularMetricasCuadro } from "./portal-inicio.js";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVES_CARGA_MODULAR = Object.freeze([
@@ -507,6 +507,7 @@ export function crearCoordinadorModulosPortal({
           fiscalizacion,
           subsanacion,
           obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
+          obtenerTramitesInicio: () => (listadoCuadro ? tramitesParaInicio(listadoCuadro) : null),
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
@@ -623,6 +624,10 @@ export function crearCoordinadorModulosPortal({
         && ["alta", "cuadro"].includes(opciones.subvista)) {
         try { presentadorCT.cambiarVista(opciones.subvista); } catch {}
       }
+      if (typeof opciones?.expedienteRef === "string" && opciones.expedienteRef !== ""
+        && typeof presentadorCT?.seleccionarExpediente === "function") {
+        try { void presentadorCT.seleccionarExpediente(opciones.expedienteRef); } catch {}
+      }
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
@@ -692,12 +697,18 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.obtenerMetricas?.() || null;
   }
 
+  function obtenerTramitesInicio() {
+    if (!esPerfilRRHH()) return null;
+    return composicion?.contratacionTemporal?.obtenerTramitesInicio?.() || null;
+  }
+
   return Object.freeze({
     cargarInterno,
     cargarPresentacion,
     desmontarVistaActual,
     esPerfilRRHH,
     montarVista,
+    obtenerTramitesInicio,
     obtenerCatalogo,
     obtenerContextoBolsa,
     obtenerMetricasCuadro,

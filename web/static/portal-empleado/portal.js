@@ -176,6 +176,7 @@ const renderizarPortal = crearVistaInicioPortal({
   resolverAcceso: resolverAccesoPerfil,
   esPerfilRRHH,
   obtenerMetricasCuadro: () => coordinadorModulos.obtenerMetricasCuadro?.() || null,
+  obtenerTramitesInicio: () => coordinadorModulos.obtenerTramitesInicio?.() || null,
 });
 function renderizarContenidoAyuda(contexto = null) {
   if (estado.vista === "contratacion-temporal" || (estado.vista === "portal" && esPerfilRRHH())) {
