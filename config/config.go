@@ -148,6 +148,7 @@ type Config struct {
 	SMTPCAFile                                  string
 	SMTPModoTLS                                 string
 	BolsaBorradoresPostgreSQL                   ConfiguracionPostgreSQLBorradores
+	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 }
 
@@ -194,20 +195,21 @@ func Load() Config {
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
 		},
-		BolsaPublicaManifiestoSHA256: envFirst(EnvBolsaPublicaManifiestoSHA256),
-		OSRMBaseURL:                  envFirst(EnvOSRMBaseURL),
-		OSRMScopeName:                envFirst(EnvOSRMScopeName),
-		OSRMScopeBounds:              envFirst(EnvOSRMScopeBounds),
-		OSRMAllowedCIDRs:             splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
-		OSRMGraphVersion:             envFirst(EnvOSRMGraphVersion),
-		RRHHPresentationEnabled:      envBool(EnvRRHHPresentationEnabled),
-		RRHHPresentationGuardOne:     envFirst(EnvRRHHPresentationGuardOne),
-		RRHHPresentationGuardTwo:     envFirst(EnvRRHHPresentationGuardTwo),
-		SMTPHost:                     envFirst(EnvSMTPHost),
-		SMTPPort:                     envPositiveInt(EnvSMTPPort),
-		SMTPFrom:                     envFirst(EnvSMTPFrom),
-		SMTPCAFile:                   envFirst(EnvSMTPCAFile),
-		SMTPModoTLS:                  envFirst(EnvSMTPModoTLS),
+		BolsaPublicaManifiestoSHA256:      envFirst(EnvBolsaPublicaManifiestoSHA256),
+		OSRMBaseURL:                       envFirst(EnvOSRMBaseURL),
+		OSRMScopeName:                     envFirst(EnvOSRMScopeName),
+		OSRMScopeBounds:                   envFirst(EnvOSRMScopeBounds),
+		OSRMAllowedCIDRs:                  splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
+		OSRMGraphVersion:                  envFirst(EnvOSRMGraphVersion),
+		RRHHPresentationEnabled:           envBool(EnvRRHHPresentationEnabled),
+		RRHHPresentationGuardOne:          envFirst(EnvRRHHPresentationGuardOne),
+		RRHHPresentationGuardTwo:          envFirst(EnvRRHHPresentationGuardTwo),
+		SMTPHost:                          envFirst(EnvSMTPHost),
+		SMTPPort:                          envPositiveInt(EnvSMTPPort),
+		SMTPFrom:                          envFirst(EnvSMTPFrom),
+		SMTPCAFile:                        envFirst(EnvSMTPCAFile),
+		SMTPModoTLS:                       envFirst(EnvSMTPModoTLS),
+		BolsaImportacionConvocaPostgreSQL: ConfiguracionPostgreSQLImportacionConvoca{dsn: envFirst(EnvBolsaImportacionConvocaDatabaseURL)},
 		BolsaBorradoresPostgreSQL: ConfiguracionPostgreSQLBorradores{
 			dsnEjecutorConsulta:  envFirst(EnvBolsaBorradoresEjecutorConsultaDatabaseURL),
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
