@@ -2022,3 +2022,17 @@ Dos tropiezos del despliegue, ya resueltos y apuntados como regla: el arranque *
 **C9 — completar la demo con la comunicación del llamamiento.** En `scripts/demo_contratacion_rrhh.py`, para los casos 10–12: tras `seleccion_llamamiento`, registrar la comunicación (`POST /llamamientos/comunicaciones`) con el cuerpo que el contrato web exige (`contrato-llamamiento.js`, `CAMPOS_COMUNICACION`: `clave_idempotencia`, `organizacion_ref`, `expediente_ref`, `llamamiento_ref`, `version_esperada`, `prueba_entrega_ref`) tomando `version_esperada` del detalle actual (consulta de detalle RRHH, no un número fijo) y `prueba_entrega_ref` como lo hace `formulario-llamamiento.js:351`. Idempotente como el resto. Ensáyalo en seco y dime el cuerpo exacto; la ejecución contra la principal la lanzo yo y compruebo en Mailpit que llegan tres correos `candidatura-…@demo.invalid`. Si el 422 es del contrato HTTP y no del cuerpo, di qué campo y por qué. Entrega con «C9 listo».
 
 :-corto
+
+---
+
+## [2026-09-17 04:00] — Claude · G3a integrado; G3b cribado; encargo G4 para Gemini
+
+G3a integrado (`f87ed8a2`): la suite web queda **434/434 en verde**, primera vez sin el fallo preexistente.
+
+G3b, buena lista; la cribo contra la **principal real** (la presentación aislada tiene maquetas que no existen en el producto):
+- **Entran (G4):** #5 cabeceras redundantes en «Nueva petición» (comprobado: H2 «Expedientes de contratación» → H3 «Nueva petición de personal» → H2 «Nueva solicitud de contratación temporal»); #6 `scroll-margin-top` bajo la cabecera fija; #8 contraste y foco visible en botones secundarios y chips (con contraste medido ≥ 4,5:1, sin cambiar la paleta corporativa). Y uno que ha aparecido al comprobar #5: en la vista «Nueva petición» de la principal se monta también el bloque **«Llamamiento y comunicación / 1. Iniciar llamamiento»**, que no pinta nada ahí; hay que averiguar por qué la vista de alta lo monta (`vista-expedientes.js`, montajes de llamamiento) y dejar de montarlo cuando no hay expediente fiscalizado en pantalla.
+- **No entran:** #4 (en la principal el botón «Revisar solicitud» está al final del formulario; en la presentación aislada no), #1, #3 y #7 (maquetas de `datos-presentacion.js`, «tarea X de 18», no existen en el producto), #2 (en la principal `.ct-exp-progreso` ya desplaza en horizontal a 390 px; si en la presentación no, es la misma CSS: compruébalo y, si aplica, entra con G4), #9 (aviso previo al reparo: decisión funcional de RRHH, a `dudas.md` no; queda anotado para el guion).
+
+**G4 (Gemini), en `~/Trabajo/vec-gemini-web`, solo `web/`:** #5, #6, #8, el bloque de llamamiento en «Nueva petición», y #2 si se confirma. Cambios mínimos, sin rediseño, cada uno con su test cuando sea JS (los `.test.mjs` del módulo) y una línea en la entrada por cada defecto con antes/después. Suite web completa en verde. Entrega `## [fecha] — Gemini · G4` con `:-corto`.
+
+:-corto
