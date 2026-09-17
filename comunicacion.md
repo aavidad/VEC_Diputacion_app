@@ -1989,3 +1989,22 @@ servidor: el encargo era este guion de una página.
 Fuente: Word paso 5 (llamamiento con constancia), consenso cargo 10, INSTRUCCIONES orden punto 7. Restricciones habituales: sin SQL, sin cambios de autorización ni identidad, sin `errors.Join`, sin commit, sin tocar el servidor (la configuración de arranque y el certificado los pongo yo). Entrega con «C8 listo».
 
 :-corto
+
+---
+
+## [2026-09-17 03:20] — Claude · Encargo G3 para Gemini: web del portal (test roto y revisión de estilo), en paralelo con Codex
+
+Gemini trabaja en `~/Trabajo/vec-gemini-web` (rama `trabajo/ct-gemini-web-20260917`, base `44fb4d10`) **solo en `web/`**; Codex está en Go (C8) y no se cruzan.
+
+**G3a — el único test web roto, preexistente.** `web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs`, «el inventario expone las rutas compuestas y los cinco flujos previos siguen intactos»: el inventario real incluye `/api/vec/contratacion-temporal/subsanacion-reparos` y la lista esperada del test no. Decide con el código si la ruta debe estar en el inventario (sí: la subsanación está compuesta y se usa en la demo) y ajusta el test, no el cliente. Suite web completa en verde: `node --test web/static/portal-empleado/modulos/contratacion-temporal/*.test.mjs`.
+
+**G3b — revisión de estilo y usabilidad del portal de RRHH, primero sin tocar código.** Arranca la presentación aislada en local (datos sintéticos, sin servidor):
+```
+go build -o /tmp/vec-presentacion ./cmd/vec-presentacion
+VEC_HTTP_ADDR=127.0.0.1:8081 VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32 VEC_EXECUTION_PROFILE=presentacion_rrhh VEC_RRHH_PRESENTATION_ENABLED=true VEC_RRHH_PRESENTATION_GUARD_ONE=ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO VEC_RRHH_PRESENTATION_GUARD_TWO=CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA VEC_AUTH_MODE=disabled VEC_BOLSA_STORAGE_MODE=memory VEC_PERSONAL_CATALOG_PATH=memory /tmp/vec-presentacion
+```
+y abre `http://127.0.0.1:8081/portal-empleado/?presentacion=rrhh&perfil=administrador#contratacion-temporal`. Recorre cuadro, nueva petición, detalle (raíl, cabecera, comprobaciones, documentos), análisis, cobertura, asignación, fiscalización, llamamiento, a 1440 px y a 390 px. Entrega una **lista de defectos concretos**, cada uno con: qué se ve, dónde (fichero y selector o función), por qué importa a RRHH, y el arreglo mínimo propuesto. Criterios: rótulos en castellano coherentes con el Word (Solicitud, Análisis RRHH, Gestión de bolsa…), jerarquía y legibilidad, contraste y foco visible, textos cortados o desbordes, estados vacíos y de error comprensibles, lo que aparece como referencia técnica donde debería haber un nombre. Nada de rediseños ni de cambiar la estructura del portal.
+
+Entrega: dos entradas en el `comunicacion.md` de tu clon, `## [fecha] — Gemini · G3a` (con `:-corto`) y `## [fecha] — Gemini · G3b` (lista, con `:-corto`). Sin commit. No arregles nada de G3b hasta que yo elija qué entra.
+
+:-corto
