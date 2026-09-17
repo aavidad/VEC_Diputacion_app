@@ -15,9 +15,14 @@ static/area-personal/vistas/seguimiento-tramites.js
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
+static/bolsa/contrato-publico-bolsas.js
 static/bolsa/contrato-v2.js
 static/bolsa/favicon.svg
 static/bolsa/index.html
+static/bolsa/lista-bolsas-api.js
+static/bolsa/lista-bolsas.js
+static/bolsa/listas.css
+static/bolsa/listas.html
 static/favicon.svg
 static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
 static/assets/logo-diputacion-granada.svg

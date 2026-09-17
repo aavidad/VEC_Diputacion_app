@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Consulta pública del orden, situación y documento enmascarado en las bolsas de trabajo.">
+  <title>Listas de contratación y bolsas de trabajo | Portal VEC</title>
+  <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/bolsa/bolsa.css">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css">
+  <link rel="stylesheet" href="/bolsa/listas.css">
+  <script type="module" src="/bolsa/contrato-publico-bolsas.js"></script>
+  <script type="module" src="/bolsa/lista-bolsas-api.js"></script>
+  <script type="module" src="/bolsa/lista-bolsas.js"></script>
+</head>
+<body class="portal-bolsa-publico">
+  <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+
+  <div class="portal-publico-shell">
+    <aside class="menu-lateral-publico" aria-label="Navegación del portal público">
+      <a class="marca-publica" id="enlace-inicio-institucional" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
+        <img class="marca-publica__logo" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+        <span><strong>Portal público de empleo</strong><small>Bolsas y procesos selectivos</small></span>
+      </a>
+
+      <div class="alcance-zona-publica" role="note">
+        <strong>Consulta anónima</strong>
+        <span>Sin inicio de sesión ni acceso a datos personales de contacto.</span>
+      </div>
+
+      <nav class="navegacion-publica" aria-label="Secciones públicas disponibles">
+        <p>Bolsa de trabajo</p>
+        <a href="/bolsa/#contenido-principal">Convocatorias</a>
+        <a href="/bolsa/#directorio-categorias">Categorías profesionales</a>
+        <a href="/bolsa/listas.html" aria-current="page">Listas de aspirantes</a>
+        <a href="/bolsa/#ayuda-publica">Ayuda pública</a>
+      </nav>
+    </aside>
+
+    <div class="portal-publico-superficie">
+      <header class="cabecera-publica">
+        <div class="contexto-publico">
+          <span>Portal de Recursos Humanos</span>
+          <strong>Listas de contratación y bolsas</strong>
+        </div>
+        <nav class="acciones-accesibilidad" aria-label="Preferencias de visualización">
+          <button id="alternar-texto" type="button" aria-pressed="false">Texto grande</button>
+          <button id="alternar-contraste" type="button" aria-pressed="false">Alto contraste</button>
+        </nav>
+      </header>
+
+      <main id="contenido-principal" class="contenido-publico contenedor-listas" tabindex="-1">
+        <header class="cabecera-seccion-publica">
+          <p class="eyebrow">Consulta pública de aspirantes (B10)</p>
+          <h1>Listas de aspirantes en bolsas de trabajo</h1>
+          <p>Consulte el orden, situación administrativa y documento enmascarado en cada bolsa de trabajo en vigor. Esta consulta es de acceso libre y no requiere certificado ni identificación.</p>
+        </header>
+
+        <div class="aviso-privacidad-publica" role="note">
+          <strong>Garantía de privacidad:</strong> Esta consulta pública no muestra nombres, apellidos, teléfonos ni correos electrónicos. La búsqueda de aspirantes se realiza exclusivamente mediante los 4 dígitos centrales del documento enmascarado (<code>***1234**</code>).
+        </div>
+
+        <!-- SECCIÓN 1: RELACIÓN DE BOLSAS DISPONIBLES -->
+        <section id="seccion-bolsas" aria-labelledby="titulo-seccion-bolsas">
+          <h2 id="titulo-seccion-bolsas">Bolsas de trabajo activas</h2>
+          <p>Seleccione una bolsa para consultar su relación ordenada de aspirantes.</p>
+
+          <div id="bolsas-cargando" class="panel-estado" role="status">
+            <span class="indicador-carga-spinner" aria-hidden="true"></span>
+            Cargando relación de bolsas de trabajo…
+          </div>
+
+          <div id="bolsas-error" class="panel-estado panel-estado--error" role="alert" hidden>
+            <h3>No se ha podido cargar la información de bolsas</h3>
+            <p id="mensaje-error-bolsas">Ha ocurrido un error al conectar con el servicio público.</p>
+            <button type="button" id="reintentar-bolsas" class="boton-secundario">Reintentar</button>
+          </div>
+
+          <div id="bolsas-vacio" class="panel-estado panel-estado--vacio" hidden>
+            <h3>No hay bolsas de trabajo publicadas</h3>
+            <p>En este momento no constan bolsas constituidas o en vigor para consulta pública.</p>
+          </div>
+
+          <div class="tabla-contenedor-accesible" tabindex="0">
+            <table class="tabla-listas-publica" aria-label="Bolsas de trabajo disponibles">
+              <caption>Relación de bolsas de trabajo en vigor</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Grupos</th>
+                  <th scope="col">Tipo de lista</th>
+                  <th scope="col">Vigente desde</th>
+                  <th scope="col">Aspirantes</th>
+                  <th scope="col">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-bolsas"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SECCIÓN 2: LISTA DE ASPIRANTES DE LA BOLSA SELECCIONADA -->
+        <section id="seccion-lista" aria-labelledby="titulo-seccion-lista" hidden>
+          <p>
+            <button type="button" id="boton-volver-bolsas" class="boton-secundario">
+              ← Volver a la relación de bolsas
+            </button>
+          </p>
+
+          <div id="info-bolsa-activa" class="tarjeta-bolsa-activa"></div>
+
+          <form id="formulario-busqueda-lista" class="formulario-busqueda-lista" role="search" aria-label="Buscar en la lista por documento enmascarado">
+            <fieldset>
+              <legend>Buscar aspirante en esta bolsa</legend>
+              <div class="fila-busqueda">
+                <div class="campo-documento">
+                  <label for="filtro-documento">Documento enmascarado (formato ***1234**):</label>
+                  <input
+                    type="text"
+                    id="filtro-documento"
+                    name="documento"
+                    placeholder="***1234**"
+                    maxlength="9"
+                    autocomplete="off"
+                    spellcheck="false"
+                  >
+                  <p id="error-formato-documento" class="ayuda-busqueda-doc" style="color: var(--danger);" hidden></p>
+                  <p class="ayuda-busqueda-doc">Introduzca únicamente los 4 dígitos centrales rodeados de asteriscos. No introduzca nombres ni letras del DNI.</p>
+                </div>
+                <div class="acciones-busqueda">
+                  <button type="submit" class="boton-primario">Consultar</button>
+                  <button type="button" id="boton-limpiar-documento" class="boton-secundario">Limpiar</button>
+                </div>
+              </div>
+            </fieldset>
+          </form>
+
+          <div id="lista-cargando" class="panel-estado" role="status" hidden>
+            <span class="indicador-carga-spinner" aria-hidden="true"></span>
+            Consultando lista ordenada de aspirantes…
+          </div>
+
+          <div id="lista-error" class="panel-estado panel-estado--error" role="alert" hidden>
+            <h3>No se ha podido consultar la lista de aspirantes</h3>
+            <p id="mensaje-error-lista">Ha ocurrido un error al cargar los datos.</p>
+            <button type="button" id="reintentar-lista" class="boton-secundario">Reintentar</button>
+          </div>
+
+          <div id="lista-vacio" class="panel-estado panel-estado--vacio" hidden>
+            <h3>No se encontraron aspirantes</h3>
+            <p>No constan aspirantes con los criterios seleccionados en esta bolsa.</p>
+          </div>
+
+          <div class="tabla-contenedor-accesible" tabindex="0">
+            <table class="tabla-listas-publica" aria-label="Posiciones ordenadas de aspirantes">
+              <caption>Relación ordenada de aspirantes en la bolsa</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Orden</th>
+                  <th scope="col">Documento enmascarado</th>
+                  <th scope="col">Situación en bolsa</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-lista"></tbody>
+            </table>
+          </div>
+
+          <div id="paginacion-lista" class="paginacion-lista-publica" hidden>
+            <button type="button" id="boton-pagina-siguiente" class="boton-secundario">
+              Cargar siguientes aspirantes
+            </button>
+          </div>
+        </section>
+
+        <noscript>
+          <div class="panel-estado panel-estado--error">
+            <p>Para consultar interactivamente las listas de aspirantes es necesario habilitar JavaScript. Las rutas de API pública permanecen disponibles en el servidor.</p>
+          </div>
+        </noscript>
+      </main>
+
+      <footer class="pie-publico">
+        <p>Portal público VEC · Consulta anónima de listas de bolsas de trabajo · Diputación de Granada</p>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

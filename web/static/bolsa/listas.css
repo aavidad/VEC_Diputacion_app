@@ -1,0 +1,307 @@
+/**
+ * Estilos específicos para la consulta pública de listas de bolsas de trabajo (B10).
+ * Accesible en dispositivos móviles (390 px) y escritorios.
+ */
+
+.contenedor-listas {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px 48px;
+}
+
+.cabecera-seccion-publica {
+  margin-bottom: 24px;
+}
+
+.cabecera-seccion-publica h1 {
+  font-size: 1.6rem;
+  margin: 8px 0 6px;
+  color: var(--text);
+}
+
+.cabecera-seccion-publica p {
+  color: var(--muted-strong);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.aviso-privacidad-publica {
+  padding: 12px 16px;
+  background: var(--brand-soft);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  font-size: 0.92rem;
+  color: var(--muted-strong);
+}
+
+.aviso-privacidad-publica strong {
+  color: var(--text);
+}
+
+/* Paneles de estado */
+.panel-estado {
+  padding: 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 16px 0;
+}
+
+.panel-estado--error {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.panel-estado--vacio {
+  color: var(--muted);
+}
+
+.indicador-carga-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Ficha de bolsa seleccionada */
+.tarjeta-bolsa-activa {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--procedure);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.tarjeta-bolsa-activa__info h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.tarjeta-bolsa-activa__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+/* Formulario de búsqueda de documento enmascarado */
+.formulario-busqueda-lista {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.formulario-busqueda-lista fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.formulario-busqueda-lista legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.fila-busqueda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.campo-documento {
+  flex: 1 1 240px;
+}
+
+.campo-documento label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.campo-documento input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  font-family: monospace;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.campo-documento input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.ayuda-busqueda-doc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.acciones-busqueda {
+  display: flex;
+  gap: 8px;
+}
+
+/* Tablas accesibles con scroll interno para pantallas estrechas */
+.tabla-contenedor-accesible {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+.tabla-listas-publica {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.94rem;
+  min-width: 320px;
+}
+
+.tabla-listas-publica caption {
+  padding: 12px 16px;
+  font-weight: 700;
+  text-align: left;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+
+.tabla-listas-publica th {
+  padding: 10px 14px;
+  font-weight: 700;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tabla-listas-publica td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.tabla-listas-publica tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabla-listas-publica tbody tr:hover {
+  background: var(--surface-raised);
+}
+
+/* Chips de estado */
+.estado-chip-publico {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+}
+
+.estado-chip-publico--disponible {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: #0f5f2b;
+}
+
+.estado-chip-publico--ocupado {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: #193f7b;
+}
+
+.estado-chip-publico--no_disponible {
+  background: var(--notice-soft);
+  border-color: var(--notice);
+  color: #6b4200;
+}
+
+.estado-chip-publico--excluido {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: #7a1610;
+}
+
+.estado-chip-publico--renuncia_pendiente {
+  background: var(--deadline-soft);
+  border-color: var(--deadline);
+  color: #7c2d12;
+}
+
+/* Paginación */
+.paginacion-lista-publica {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0 32px;
+}
+
+/* Adaptación para pantallas estrechas (390 px) */
+@media (max-width: 480px) {
+  .contenedor-listas {
+    padding: 12px 14px 32px;
+  }
+
+  .tarjeta-bolsa-activa {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fila-busqueda {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .campo-documento {
+    flex: 1 1 100%;
+  }
+
+  .acciones-busqueda {
+    width: 100%;
+  }
+
+  .acciones-busqueda button {
+    flex: 1;
+  }
+
+  .tabla-listas-publica th,
+  .tabla-listas-publica td {
+    padding: 8px 10px;
+    font-size: 0.88rem;
+  }
+}
