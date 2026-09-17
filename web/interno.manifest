@@ -45,6 +45,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-anotacion-admi
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-cierre-administrativo.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-transporte.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-alta.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-consultas-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.js
