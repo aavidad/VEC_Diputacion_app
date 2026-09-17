@@ -51,6 +51,11 @@ const (
 	EnvRRHHPresentationEnabled                     = "VEC_RRHH_PRESENTATION_ENABLED"
 	EnvRRHHPresentationGuardOne                    = "VEC_RRHH_PRESENTATION_GUARD_ONE"
 	EnvRRHHPresentationGuardTwo                    = "VEC_RRHH_PRESENTATION_GUARD_TWO"
+	EnvSMTPHost                                    = "VEC_SMTP_HOST"
+	EnvSMTPPort                                    = "VEC_SMTP_PORT"
+	EnvSMTPFrom                                    = "VEC_SMTP_FROM"
+	EnvSMTPCAFile                                  = "VEC_SMTP_CA_FILE"
+	EnvSMTPModoTLS                                 = "VEC_SMTP_MODO_TLS"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -133,6 +138,11 @@ type Config struct {
 	RRHHPresentationEnabled                     bool
 	RRHHPresentationGuardOne                    string
 	RRHHPresentationGuardTwo                    string
+	SMTPHost                                    string
+	SMTPPort                                    int
+	SMTPFrom                                    string
+	SMTPCAFile                                  string
+	SMTPModoTLS                                 string
 	BolsaBorradoresPostgreSQL                   ConfiguracionPostgreSQLBorradores
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 }
@@ -187,6 +197,11 @@ func Load() Config {
 		RRHHPresentationEnabled:      envBool(EnvRRHHPresentationEnabled),
 		RRHHPresentationGuardOne:     envFirst(EnvRRHHPresentationGuardOne),
 		RRHHPresentationGuardTwo:     envFirst(EnvRRHHPresentationGuardTwo),
+		SMTPHost:                     envFirst(EnvSMTPHost),
+		SMTPPort:                     envPositiveInt(EnvSMTPPort),
+		SMTPFrom:                     envFirst(EnvSMTPFrom),
+		SMTPCAFile:                   envFirst(EnvSMTPCAFile),
+		SMTPModoTLS:                  envFirst(EnvSMTPModoTLS),
 		BolsaBorradoresPostgreSQL: ConfiguracionPostgreSQLBorradores{
 			dsnEjecutorConsulta:  envFirst(EnvBolsaBorradoresEjecutorConsultaDatabaseURL),
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),

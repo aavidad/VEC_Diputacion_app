@@ -13,8 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/smtp"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -238,7 +240,7 @@ func TestComunicacionLlamamientoDesarrolloEjecutorFallaCerrado(t *testing.T) {
 	if _, err := e.Registrar(ctxCancelado, s); !errors.Is(err, context.Canceled) || lector.llamadas != 1 {
 		t.Fatal("lectura tras cancelación")
 	}
-	if ejecutor, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(nil, nil, nil, nil, nil, ""); err == nil || ejecutor != nil {
+	if ejecutor, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(config.Config{}, nil, nil, nil, nil, nil, ""); err == nil || ejecutor != nil {
 		t.Fatal("constructor incompleto admitido")
 	}
 }
@@ -470,5 +472,72 @@ func comprobarAvisoFalloYReintentoDesarrollo(t *testing.T, tipo string) {
 		resultado != (ports.ComunicacionProbatoria{}) || servicio.llamadas != 3 ||
 		!bytes.Equal(restante, ajeno) || len(entradas) != 1 {
 		t.Fatal("fichero divergente sobrescrito o falso éxito", err)
+	}
+}
+
+type enviadorCorreoLlamamientoDesarrolloPrueba struct {
+	mensajes  []smtp.Mensaje
+	resultado smtp.Resultado
+}
+
+func (e *enviadorCorreoLlamamientoDesarrolloPrueba) Enviar(_ context.Context, mensaje smtp.Mensaje) smtp.Resultado {
+	e.mensajes = append(e.mensajes, mensaje)
+	return e.resultado
+}
+
+func TestComunicacionLlamamientoDesarrolloCorreoDemostracionNoAfectaRegistro(t *testing.T) {
+	ctx, p, _ := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
+	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, "")
+	expediente := preparacionLlamamientoDesarrollo{expediente: ports.ExpedienteParaSeleccion{Fiscalizado: domain.Expediente{
+		NumeroVisible: "2026/CT-000010",
+		Solicitud:     domain.SolicitudCentro{CentroRef: "centro:sintetico:granada", CategoriaRef: "categoria:sintetica:auxiliar"},
+	}}}
+	ctxCorreo := context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, expediente)
+	correo := &enviadorCorreoLlamamientoDesarrolloPrueba{resultado: smtp.Resultado{Estado: smtp.AceptadoPorRelay}}
+	servicio := &ejecutorComunicacionDesarrolloPrueba{recibo: &r}
+	base := t.TempDir()
+	if err := os.Chmod(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	e := &ejecutorComunicacionLlamamientoDesarrollo{servicio: servicio, correo: correo, directorioComunicaciones: filepath.Join(base, "comunicaciones")}
+	resultado, err := e.registrarConAviso(ctxCorreo, r.Solicitud)
+	if err != nil || resultado != r || len(correo.mensajes) != 1 {
+		t.Fatalf("registro=%+v err=%v mensajes=%d", resultado, err, len(correo.mensajes))
+	}
+	mensaje := correo.mensajes[0]
+	if mensaje.Destino == "" || !strings.HasSuffix(mensaje.Destino, "@demo.invalid") ||
+		!strings.Contains(mensaje.Asunto, "2026/CT-000010") ||
+		!strings.Contains(mensaje.Cuerpo, "categoria:sintetica:auxiliar") ||
+		!strings.Contains(mensaje.Cuerpo, "centro:sintetico:granada") ||
+		!strings.Contains(mensaje.Cuerpo, "pendiente de definición por RRHH") ||
+		!strings.Contains(mensaje.Cuerpo, "no abre plazo") ||
+		strings.Contains(mensaje.MessageID, r.ComunicacionRef) {
+		t.Fatalf("mensaje de demostracion invalido: %#v", mensaje)
+	}
+
+	correo.resultado = smtp.Resultado{Estado: smtp.NoAceptadoTransitorio}
+	r.Estado = ports.ResultadoComunicacionLlamamientoReplayLocal
+	resultado, err = e.registrarConAviso(ctxCorreo, r.Solicitud)
+	if err != nil || resultado != r || len(correo.mensajes) != 1 {
+		t.Fatalf("replay envio un segundo correo: %+v err=%v mensajes=%d", resultado, err, len(correo.mensajes))
+	}
+
+	// El relay no disponible nunca deshace el recibo ni el aviso local ya escrito.
+	rFallo := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, "")
+	correoFallo := &enviadorCorreoLlamamientoDesarrolloPrueba{resultado: smtp.Resultado{Estado: smtp.NoAceptadoTransitorio}}
+	eFallo := &ejecutorComunicacionLlamamientoDesarrollo{servicio: &ejecutorComunicacionDesarrolloPrueba{recibo: &rFallo}, correo: correoFallo, directorioComunicaciones: filepath.Join(t.TempDir(), "comunicaciones")}
+	if err := os.Chmod(filepath.Dir(eFallo.directorioComunicaciones), 0700); err != nil {
+		t.Fatal(err)
+	}
+	resultado, err = eFallo.registrarConAviso(ctxCorreo, rFallo.Solicitud)
+	if err != nil || resultado != rFallo || len(correoFallo.mensajes) != 1 {
+		t.Fatalf("fallo smtp altero el registro: %+v err=%v mensajes=%d", resultado, err, len(correoFallo.mensajes))
+	}
+}
+
+func TestNuevoEnviadorCorreoLlamamientoDesarrolloSinHostNoComponeSMTP(t *testing.T) {
+	enviador, err := nuevoEnviadorCorreoLlamamientoDesarrollo(config.Config{})
+	if err != nil || enviador != nil {
+		t.Fatalf("smtp sin host: enviador=%v err=%v", enviador, err)
 	}
 }

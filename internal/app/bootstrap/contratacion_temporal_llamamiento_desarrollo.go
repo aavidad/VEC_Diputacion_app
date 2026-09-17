@@ -63,7 +63,7 @@ func nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg config.Conf
 		soporte: alta.soporte, lector: lector, preparar: prepararReferenciasLlamamientoDesarrollo, servicio: servicio,
 		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterialBolsa},
 	}
-	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(alta.postgresql.ejecucion, alta,
+	comunicacion, err := nuevoEjecutorComunicacionLlamamientoDesarrollo(cfg, alta.postgresql.ejecucion, alta,
 		alta.postgresql.proveedorMaterial, reloj, lector, filepath.Join(cfg.DevelopmentMaterialDir, "comunicaciones"))
 	if err != nil {
 		return nil, nil, err

@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -16,8 +18,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
+
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/smtp"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -57,6 +62,11 @@ type ejecutorComunicacionLlamamientoDesarrollo struct {
 	aceptador                aceptadorRespuestaRRHHDesarrollo
 	continuaciones           ports.RegistroContinuacionLlamamiento
 	continuador              continuadorBolsaDesarrollo
+	correo                   enviadorCorreoLlamamientoDesarrollo
+}
+
+type enviadorCorreoLlamamientoDesarrollo interface {
+	Enviar(context.Context, smtp.Mensaje) smtp.Resultado
 }
 
 var _ httpinterno.EjecutorComunicacionLlamamiento = (*ejecutorComunicacionLlamamientoDesarrollo)(nil)
@@ -65,6 +75,7 @@ var _ httpinterno.EjecutorComunicacionLlamamiento = (*ejecutorComunicacionLlamam
 // La raíz conserva propiedad y cierre de los pools. El antecedente de Bolsa
 // se acredita exclusivamente con el recibo confirmado que ya conserva CT.
 func nuevoEjecutorComunicacionLlamamientoDesarrollo(
+	cfg config.Config,
 	poolCT *pgxpool.Pool,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo,
@@ -104,10 +115,14 @@ func nuevoEjecutorComunicacionLlamamientoDesarrollo(
 	if err != nil {
 		return nil, err
 	}
+	correo, err := nuevoEnviadorCorreoLlamamientoDesarrollo(cfg)
+	if err != nil {
+		return nil, application.ErrServicioComunicacionLlamamientoInvalido
+	}
 	return &ejecutorComunicacionLlamamientoDesarrollo{
 		directorioComunicaciones: directorioComunicaciones,
 		soporte:                  alta.soporte, lector: lector, lectorJustificante: lectorJustificante, servicio: servicio,
-		continuaciones: continuaciones,
+		continuaciones: continuaciones, correo: correo,
 	}, nil
 }
 
@@ -307,7 +322,36 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) registrarConAviso(ctx contex
 		}
 		return ports.ComunicacionProbatoria{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
+	// Un replay recupera el recibo y el aviso ya persistidos: no envía un
+	// segundo correo de demostración para la misma comunicación.
+	if recibo.Estado == ports.ResultadoComunicacionLlamamientoLocal {
+		e.despacharCorreoDemostracion(ctx, solicitud, recibo)
+	}
 	return recibo, nil
+}
+
+func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoDemostracion(ctx context.Context, solicitud ports.SolicitudRegistrarComunicacionLlamamiento, recibo ports.ComunicacionProbatoria) {
+	if e == nil || e.correo == nil || contextoInterfazNulo(ctx) {
+		return
+	}
+	preparacion, ok := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
+	if !ok {
+		slog.Error("correo de llamamiento no disponible", "centinela", "correo_no_disponible", "motivo", "sin_expediente")
+		return
+	}
+	expediente := preparacion.expediente.Fiscalizado
+	sumaDestinatario := sha256.Sum256([]byte(solicitud.LlamamientoRef))
+	sumaMensaje := sha256.Sum256([]byte(recibo.IntencionEnvioRef))
+	mensaje := smtp.Mensaje{
+		Destino:     fmt.Sprintf("candidatura-%x@demo.invalid", sumaDestinatario[:6]),
+		Asunto:      fmt.Sprintf("Demostración VEC: llamamiento %s", expediente.NumeroVisible),
+		Cuerpo:      fmt.Sprintf("DEMO VEC — llamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nEste correo es sintético, no acredita entrega ni produce efectos administrativos.", expediente.NumeroVisible, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
+		MessageID:   fmt.Sprintf("<llamamiento-%x@demo.invalid>", sumaMensaje[:12]),
+		FechaOrigen: recibo.RegistradaEn,
+	}
+	if resultado := e.correo.Enviar(ctx, mensaje); resultado.Estado != smtp.AceptadoPorRelay {
+		slog.Error("correo de llamamiento no disponible", "centinela", "correo_no_disponible", "motivo", "relay_no_acepta")
+	}
 }
 
 type avisoComunicacionDesarrollo struct {
