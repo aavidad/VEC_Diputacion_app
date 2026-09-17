@@ -233,3 +233,59 @@ test("la composición conserva el modo en enlaces y bloquea capacidades antes de
   assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*Operación no disponible/u);
   assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);
 });
+
+test("la sección Mi posición se renderiza en disponibilidad cuando está presente (B11)", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  const datos = await adaptador.cargar();
+  const html = renderizarLlamamientos(datos);
+
+  assert.match(html, /<h3>Mi posición<\/h3>/u);
+  assert.match(html, /#18/u);
+  assert.match(html, /Operario\/a/u);
+  assert.match(html, /146/u);
+
+  // Cuando no hay posición en los datos, no se muestra la sección
+  const datosSinPosicion = structuredClone(datos);
+  delete datosSinPosicion.posicion;
+  const htmlSin = renderizarLlamamientos(datosSinPosicion);
+  assert.doesNotMatch(htmlSin, /<h3>Mi posición<\/h3>/u);
+});
+
+test("el formulario de disponibilidad B8 es accesible, incluye confirmación y no usa la palabra demo", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  const datos = await adaptador.cargar();
+
+  // 1. Estado disponible -> formulario de pausa
+  const htmlDisponible = renderizarLlamamientos(datos);
+  assert.match(htmlDisponible, /<form\b[^>]*data-operacion="cambiar_disponibilidad"/u);
+  assert.match(htmlDisponible, /name="motivo_clave"/u);
+  assert.match(htmlDisponible, /value="pausa_voluntaria"/u);
+  assert.match(htmlDisponible, /value="incorporacion_otro_empleo"/u);
+  assert.match(htmlDisponible, /value="enfermedad"/u);
+  assert.match(htmlDisponible, /value="otro"/u);
+  assert.match(htmlDisponible, /name="hasta" type="date"/u);
+  assert.match(htmlDisponible, /name="motivo_texto"/u);
+  assert.match(htmlDisponible, /<input type="checkbox" name="confirmacion" required>/u);
+  assert.match(htmlDisponible, /<button type="submit" class="boton-peligro">/u);
+
+  // Accesibilidad: etiquetas vinculadas a campos
+  assert.match(htmlDisponible, /<label for="motivo-pausa">/u);
+  assert.match(htmlDisponible, /id="motivo-pausa"/u);
+  assert.match(htmlDisponible, /<label for="hasta-pausa">/u);
+  assert.match(htmlDisponible, /id="hasta-pausa"/u);
+
+  // 2. Estado no disponible -> formulario de reactivación
+  const datosNoDisponible = structuredClone(datos);
+  datosNoDisponible.disponibilidad.disponible = false;
+  datosNoDisponible.disponibilidad.estado_clave = "no_disponible";
+  datosNoDisponible.disponibilidad.estado = "No disponible (pausa voluntaria)";
+  const htmlNoDisponible = renderizarLlamamientos(datosNoDisponible);
+  assert.match(htmlNoDisponible, /<input type="hidden" name="disponible" value="true">/u);
+  assert.match(htmlNoDisponible, /<input type="checkbox" name="confirmacion" required>/u);
+  assert.match(htmlNoDisponible, /<button type="submit" class="boton-primario">Declarar disponibilidad<\/button>/u);
+
+  // Estricto: el formulario B8 no contiene la palabra "demo"
+  const formDisponibilidad = htmlDisponible.match(/<form[^>]*id="form-disponibilidad"[\s\S]*?<\/form>/u)?.[0] || "";
+  assert.ok(formDisponibilidad.length > 0);
+  assert.doesNotMatch(formDisponibilidad, /\bdemo\b/iu, "el formulario B8 no debe incluir la palabra demo");
+});

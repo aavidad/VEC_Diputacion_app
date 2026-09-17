@@ -13,13 +13,16 @@ export function renderizarSeguimiento(datos, estado) {
     `<div class="acciones-tabla"><button type="button" class="boton-secundario" data-accion="abrir-expediente" data-id="${escaparAtributo(item.id)}">Seleccionar</button></div>`,
   ]);
   const timeline = datos.actividad.map((item) => `<li><strong>${escaparHTML(item.titulo)}</strong><span>${escaparHTML(item.detalle)}</span><small>${escaparHTML(item.fecha)} · ${escaparHTML(item.actor)} · ${escaparHTML(item.recibo)}</small></li>`).join("");
+  const panelPosicion = datos.posicion
+    ? panel("Mi posición", "Situación y orden de prelación en la bolsa adscrita", `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([["Bolsa", escaparHTML(datos.posicion.bolsa)], ["Categoría", escaparHTML(datos.posicion.categoria)], ["Orden", `#${escaparHTML(String(datos.posicion.orden))} de ${escaparHTML(String(datos.posicion.total))}`], ["Puntuación", `${formatoPuntos(datos.posicion.puntuacion)} puntos`], ["Vigente desde", escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
+    : panel("Posición provisional", "La posición puede cambiar tras revisión y alegaciones", `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>Orden provisional y sujeto a las bases.</small></span></div>`, { estado: "Provisional" });
   return `${encabezadoVista("Mis expedientes y seguimiento", "Estado, puntuación, posición, documentos y próximos pasos.", enlaceRuta("certificados", "Certificados y descargas", "boton-secundario"))}
     ${panel("Solicitudes en curso", "Seleccione un expediente para consultar el detalle", tabla({ descripcion: "Solicitudes de la persona autenticada", columnas: ["Proceso", "Estado", "Puntuación y posición", "Actualización", "Acción"], filas }))}
     <div class="rejilla-principal"><div>
       ${panel(solicitud.titulo, solicitud.referencia, `${listaDatos([["Estado", chip(solicitud.estado)], ["Puntuación provisional", `${formatoPuntos(solicitud.puntuacion)} puntos`], ["Posición", escaparHTML(solicitud.posicion)], ["Tasa", escaparHTML(solicitud.pago)], ["Firma", escaparHTML(solicitud.firma)], ["Última actualización", escaparHTML(solicitud.actualizado)]])}<p class="nota aviso"><strong>Siguiente actuación:</strong> ${escaparHTML(solicitud.siguiente)}</p>`, { estado: solicitud.estado })}
       ${panel("Historial del expediente", "Cada cambio muestra fecha, actor y referencia", `<ol class="linea-tiempo">${timeline}</ol>`)}
     </div><aside>
-      ${panel("Posición provisional", "La posición puede cambiar tras revisión y alegaciones", `<div class="posicion-destacada"><output>${escaparHTML((solicitud.posicion.match(/^\d+/) || ["—"])[0])}</output><span><strong>${escaparHTML(solicitud.posicion)}</strong><small>Orden provisional y sujeto a las bases.</small></span></div>`, { estado: "Provisional" })}
+      ${panelPosicion}
       ${panel("Acciones disponibles", "Solo para el expediente seleccionado", `<div class="fila-acciones">${enlaceRuta("subsanaciones", "Subsanar", "enlace-boton")}${enlaceRuta("alegaciones", "Alegar", "enlace-boton")}${botonOperacion("solicitar_descarga", "Descargar expediente", { id: solicitud.id, clase: "boton-secundario", descripcion: "Preparar una copia descargable del expediente" })}</div>`)}
     </aside></div>`;
 }
@@ -27,13 +30,78 @@ export function renderizarSeguimiento(datos, estado) {
 export function renderizarLlamamientos(datos) {
   const disponibles = datos.disponibilidad;
   const sufijoDemo = datos.meta.presentacion ? " DEMO" : "";
-  const tarjetas = datos.llamamientos.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos([["Puesto y destino", escaparHTML(item.puesto)], ["Jornada", escaparHTML(item.jornada)], ["Duración", escaparHTML(item.duracion)], ["Plazo", escaparHTML(item.plazo)], ["Prelación", escaparHTML(item.posicion)]])}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Revise cuidadosamente destino, jornada, duración y plazo antes de responder.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Aceptar el llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Rechazar el llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta ya consta como ${escaparHTML(item.estado)}.</p>`}</div></article>`).join("");
-  const accionDisponibilidad = disponibles.disponible
-    ? botonOperacion("cambiar_disponibilidad", `Declarar no disponibilidad${sufijoDemo}`, { id: "false", clase: "boton-peligro", descripcion: "Declarar una situación temporal de no disponibilidad" })
-    : botonOperacion("cambiar_disponibilidad", `Declarar disponibilidad${sufijoDemo}`, { id: "true", descripcion: "Volver a estar disponible para llamamientos" });
+  const tarjetas = datos.llamamientos.map((item) => {
+    const camposLlamamiento = [
+      ["Puesto y destino", escaparHTML(item.puesto)],
+      item.jornada ? ["Jornada", escaparHTML(item.jornada)] : null,
+      item.duracion ? ["Duración", escaparHTML(item.duracion)] : null,
+      ["Plazo", escaparHTML(item.plazo)],
+      item.posicion ? ["Prelación", escaparHTML(item.posicion)] : null,
+      item.canal ? ["Canal", escaparHTML(item.canal)] : null,
+      item.comunicado_en ? ["Comunicado el", escaparHTML(item.comunicado_en)] : null,
+      item.resultado_clave ? ["Resultado", chip(item.resultado_clave)] : null,
+    ].filter(Boolean);
+    return `<article class="panel"><header><div><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos(camposLlamamiento)}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Revise cuidadosamente destino, jornada, duración y plazo antes de responder.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Aceptar el llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Rechazar el llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta ya consta como ${escaparHTML(item.estado)}.</p>`}</div></article>`;
+  }).join("");
+
+  const seccionPosicion = datos.posicion
+    ? panel("Mi posición", "Situación y orden de prelación en la bolsa adscrita", `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([["Bolsa", escaparHTML(datos.posicion.bolsa)], ["Categoría", escaparHTML(datos.posicion.categoria)], ["Orden", `#${escaparHTML(String(datos.posicion.orden))} de ${escaparHTML(String(datos.posicion.total))}`], ["Puntuación", `${formatoPuntos(datos.posicion.puntuacion)} puntos`], ["Vigente desde", escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
+    : "";
+
+  const camposDisponibilidad = [
+    ["Estado", chip(disponibles.estado_clave ? (disponibles.estado || disponibles.estado_clave) : disponibles.estado)],
+    disponibles.estado_clave ? ["Situación en bolsa", `<code>${escaparHTML(disponibles.estado_clave)}</code>`] : null,
+    disponibles.estado_desde ? ["Situación desde", escaparHTML(disponibles.estado_desde)] : (disponibles.desde ? ["Desde", escaparHTML(disponibles.desde)] : null),
+    disponibles.disponible_desde ? ["Disponible a partir de", escaparHTML(disponibles.disponible_desde)] : null,
+    disponibles.motivo_visible ? ["Causa / Motivo", escaparHTML(disponibles.motivo_visible)] : null,
+    disponibles.proxima_revision ? ["Próxima revisión", escaparHTML(disponibles.proxima_revision)] : null,
+    disponibles.bolsas ? ["Bolsas", disponibles.bolsas.map(escaparHTML).join("<br>")] : null,
+  ].filter(Boolean);
+
+  const formularioDisponibilidad = disponibles.disponible
+    ? `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
+        <input type="hidden" name="disponible" value="false">
+        <div class="campo">
+          <label for="motivo-pausa">Motivo de la pausa de disponibilidad</label>
+          <select id="motivo-pausa" name="motivo_clave" required>
+            <option value="pausa_voluntaria">Pausa voluntaria</option>
+            <option value="incorporacion_otro_empleo">Incorporación a otro empleo</option>
+            <option value="enfermedad">Enfermedad o incapacidad temporal</option>
+            <option value="otro">Otras causas justificadas</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="hasta-pausa">Disponible a partir de (fecha prevista, opcional)</label>
+          <input id="hasta-pausa" name="hasta" type="date" pattern="\\d{4}-\\d{2}-\\d{2}" placeholder="AAAA-MM-DD">
+        </div>
+        <div class="campo">
+          <label for="texto-pausa">Detalle o justificación adicional (opcional)</label>
+          <input id="texto-pausa" name="motivo_texto" type="text" maxlength="500" placeholder="Motivo o aclaración">
+        </div>
+        <label class="opcion-check">
+          <input type="checkbox" name="confirmacion" required>
+          <span><strong>Confirmo la declaración de no disponibilidad</strong><small>Durante este periodo no se emitirán llamamientos en las bolsas adscritas.</small></span>
+        </label>
+        <div class="fila-acciones">
+          <button type="submit" class="boton-peligro">Declarar no disponibilidad</button>
+        </div>
+      </form>`
+    : `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
+        <input type="hidden" name="disponible" value="true">
+        <label class="opcion-check">
+          <input type="checkbox" name="confirmacion" required>
+          <span><strong>Confirmo que vuelvo a estar disponible para llamamientos</strong><small>Volverá a ser convocado según el orden de prelación vigente.</small></span>
+        </label>
+        <div class="fila-acciones">
+          <button type="submit" class="boton-primario">Declarar disponibilidad</button>
+        </div>
+      </form>`;
+
   return `${encabezadoVista("Disponibilidad y llamamientos", "Controle su situación y responda únicamente a sus propios llamamientos.")}
+    ${seccionPosicion}
     <div class="rejilla-principal"><div>${tarjetas}</div><aside>
-      ${panel("Situación actual", "Aplicada a las bolsas en las que figura", `${listaDatos([["Estado", chip(disponibles.estado)], ["Desde", escaparHTML(disponibles.desde)], ["Próxima revisión", escaparHTML(disponibles.proxima_revision)], ["Bolsas", disponibles.bolsas.map(escaparHTML).join("<br>")]])}<div class="fila-acciones">${accionDisponibilidad}</div>`, { estado: disponibles.estado })}
+      ${panel("Situación actual", "Aplicada a las bolsas en las que figura", `${listaDatos(camposDisponibilidad)}`, { estado: disponibles.estado })}
+      ${panel("Gestión de disponibilidad", "Pausar o reactivar su llamamiento", formularioDisponibilidad)}
       ${panel("Garantías del llamamiento", "Reglas que el servidor debe comprobar", `<ul><li>Orden vigente y causas de exclusión.</li><li>Disponibilidad en la fecha de corte.</li><li>Intentos, canales y plazo de respuesta.</li><li>Versión de bolsa y reglas aplicadas.</li><li>Recibo de cada actuación.</li></ul>`)}
     </aside></div>`;
 }

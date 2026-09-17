@@ -5,6 +5,28 @@ const PATRON_DNI_NIE = /\b(?:[XYZ]\d{7}[A-Z]|\d{8}[A-Z])\b/i;
 const PATRON_CORREO = /\b[A-Z0-9._%+-]+@([A-Z0-9.-]+)\b/gi;
 const MAXIMO_ELEMENTOS = 200;
 
+export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
+  "disponible",
+  "ocupado",
+  "no_disponible",
+  "excluido",
+  "renuncia_pendiente",
+]);
+
+export const RESULTADOS_LLAMAMIENTO = Object.freeze([
+  "aceptado",
+  "renuncia",
+  "sin_respuesta",
+  "pendiente",
+]);
+
+export const MOTIVOS_PAUSA_DISPONIBILIDAD = Object.freeze([
+  "pausa_voluntaria",
+  "incorporacion_otro_empleo",
+  "enfermedad",
+  "otro",
+]);
+
 function exigirObjeto(valor, nombre) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
     throw new TypeError(`${nombre} debe ser un objeto.`);
@@ -51,6 +73,18 @@ function exigirInstante(valor, nombre) {
     throw new TypeError(`${nombre} debe ser un instante UTC ISO 8601.`);
   }
   return instante;
+}
+
+function exigirFechaOInstante(valor, nombre) {
+  if (typeof valor !== "string" || valor.trim() === "" || valor.length > 50) {
+    throw new TypeError(`${nombre} debe ser una fecha o instante válido.`);
+  }
+  const esFecha = /^\d{4}-\d{2}-\d{2}$/.test(valor);
+  const esInstante = Number.isFinite(Date.parse(valor));
+  if (!esFecha && !esInstante) {
+    throw new TypeError(`${nombre} no tiene formato de fecha (AAAA-MM-DD) o instante ISO 8601 válido.`);
+  }
+  return valor;
 }
 
 function recorrerCadenas(valor, visita) {
@@ -127,6 +161,19 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   validarListaObjetos(datos, "solicitudes", ["id", "convocatoria_id", "referencia", "titulo", "estado", "actualizado"]);
   validarListaObjetos(datos, "baremo", ["id", "nombre", "detalle", "estado"]);
   validarListaObjetos(datos, "llamamientos", ["id", "bolsa", "puesto", "plazo", "estado"]);
+  datos.llamamientos.forEach((item, indice) => {
+    if (item.canal !== undefined && item.canal !== null) {
+      exigirCadena(item.canal, `llamamientos[${indice}].canal`, 100);
+    }
+    if (item.comunicado_en !== undefined && item.comunicado_en !== null) {
+      exigirFechaOInstante(item.comunicado_en, `llamamientos[${indice}].comunicado_en`);
+    }
+    if (item.resultado_clave !== undefined && item.resultado_clave !== null) {
+      if (!RESULTADOS_LLAMAMIENTO.includes(item.resultado_clave)) {
+        throw new TypeError(`llamamientos[${indice}].resultado_clave no reconocido en el catálogo: ${item.resultado_clave}`);
+      }
+    }
+  });
   validarListaObjetos(datos, "subsanaciones", ["id", "solicitud_ref", "motivo", "plazo", "estado"]);
   validarListaObjetos(datos, "alegaciones", ["id", "solicitud_ref", "asunto", "estado", "fecha"]);
   validarListaObjetos(datos, "mensajes", ["id", "asunto", "resumen", "fecha", "estado"]);
@@ -136,6 +183,29 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   exigirObjeto(datos.disponibilidad, "disponibilidad");
   exigirBooleano(datos.disponibilidad.disponible, "disponibilidad.disponible");
   exigirCadena(datos.disponibilidad.estado, "disponibilidad.estado");
+  if (datos.disponibilidad.estado_clave !== undefined && datos.disponibilidad.estado_clave !== null) {
+    if (!SITUACIONES_PARTICIPACION_BOLSA.includes(datos.disponibilidad.estado_clave)) {
+      throw new TypeError(`disponibilidad.estado_clave no reconocido en el catálogo: ${datos.disponibilidad.estado_clave}`);
+    }
+  }
+  if (datos.disponibilidad.estado_desde !== undefined && datos.disponibilidad.estado_desde !== null) {
+    exigirFechaOInstante(datos.disponibilidad.estado_desde, "disponibilidad.estado_desde");
+  }
+  if (datos.disponibilidad.disponible_desde !== undefined && datos.disponibilidad.disponible_desde !== null) {
+    exigirFechaOInstante(datos.disponibilidad.disponible_desde, "disponibilidad.disponible_desde");
+  }
+  if (datos.disponibilidad.motivo_visible !== undefined && datos.disponibilidad.motivo_visible !== null) {
+    exigirCadena(datos.disponibilidad.motivo_visible, "disponibilidad.motivo_visible", 500);
+  }
+  if (datos.posicion !== undefined && datos.posicion !== null) {
+    const pos = exigirObjeto(datos.posicion, "posicion");
+    exigirCadena(pos.bolsa, "posicion.bolsa", 200);
+    exigirCadena(pos.categoria, "posicion.categoria", 200);
+    exigirNumero(pos.orden, "posicion.orden", { minimo: 1, maximo: 1_000_000 });
+    exigirNumero(pos.total, "posicion.total", { minimo: 0, maximo: 1_000_000 });
+    exigirNumero(pos.puntuacion, "posicion.puntuacion", { minimo: 0, maximo: 10_000 });
+    exigirFechaOInstante(pos.vigente_desde, "posicion.vigente_desde");
+  }
   exigirLista(datos.ayuda, "ayuda").forEach((item, indice) => {
     exigirCadena(exigirObjeto(item, `ayuda[${indice}]`).pregunta, `ayuda[${indice}].pregunta`);
     exigirCadena(item.respuesta, `ayuda[${indice}].respuesta`, 2_000);
@@ -175,7 +245,38 @@ export function validarRecibo(entrada, { presentacionEsperada = false } = {}) {
   exigirCadena(recibo.actor, "recibo.actor", 100);
   exigirInstante(recibo.fecha, "recibo.fecha");
   exigirCadena(recibo.advertencia, "recibo.advertencia", 300);
+  if (recibo.estado_clave !== undefined && recibo.estado_clave !== null) {
+    if (!SITUACIONES_PARTICIPACION_BOLSA.includes(recibo.estado_clave)) {
+      throw new TypeError(`recibo.estado_clave no reconocido en el catálogo: ${recibo.estado_clave}`);
+    }
+  }
+  if (recibo.disponible_desde !== undefined && recibo.disponible_desde !== null) {
+    exigirFechaOInstante(recibo.disponible_desde, "recibo.disponible_desde");
+  }
   return congelarProfundo(recibo);
+}
+
+export function validarPayloadCambiarDisponibilidad(payload) {
+  const obj = exigirObjeto(payload, "payload de cambio de disponibilidad");
+  const disponible = exigirBooleano(obj.disponible, "disponible");
+  if (!disponible) {
+    if (obj.motivo_clave !== undefined && obj.motivo_clave !== null) {
+      if (!MOTIVOS_PAUSA_DISPONIBILIDAD.includes(obj.motivo_clave)) {
+        throw new TypeError(`motivo_clave no reconocido en el catálogo: ${obj.motivo_clave}`);
+      }
+    }
+    if (obj.motivo_texto !== undefined && obj.motivo_texto !== null) {
+      if (typeof obj.motivo_texto !== "string" || obj.motivo_texto.length > 500) {
+        throw new TypeError("motivo_texto debe ser una cadena de hasta 500 caracteres.");
+      }
+    }
+    if (obj.hasta !== undefined && obj.hasta !== null && obj.hasta !== "") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(obj.hasta)) {
+        throw new TypeError("hasta debe tener formato AAAA-MM-DD.");
+      }
+    }
+  }
+  return obj;
 }
 
 export function esModoPresentacion(parametros = new URLSearchParams()) {
@@ -188,4 +289,7 @@ export const CONTRATO_AREA_PERSONAL = Object.freeze({
   esquemaPanel: ESQUEMA_PANEL,
   esquemaRecibo: ESQUEMA_RECIBO,
   esquemaReciboPresentacion: ESQUEMA_RECIBO_PRESENTACION,
+  situacionesParticipacion: SITUACIONES_PARTICIPACION_BOLSA,
+  resultadosLlamamiento: RESULTADOS_LLAMAMIENTO,
+  motivosPausaDisponibilidad: MOTIVOS_PAUSA_DISPONIBILIDAD,
 });

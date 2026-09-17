@@ -1,4 +1,6 @@
-import { validarDatosAreaPersonal, validarRecibo } from "./contrato.js";
+import { SITUACIONES_PARTICIPACION_BOLSA, validarDatosAreaPersonal, validarRecibo } from "./contrato.js";
+
+const SITUACION_DISPONIBLE = SITUACIONES_PARTICIPACION_BOLSA[0];
 import { calcularAutobaremo } from "./calculo-autobaremo.js";
 
 /**
@@ -129,16 +131,28 @@ const BASE_PRESENTACION = {
     { id: "DEMO-BAR-004", merito_id: "DEMO-MER-003", nombre: "Formación relacionada", detalle: "60 horas computables × 0,01 puntos", estado: "Pendiente de validación", puntos: 0.6, maximo: 2 },
     { id: "DEMO-BAR-005", nombre: "Ejercicio superado", detalle: "Resultado sintético importado del proceso", estado: "De oficio", puntos: 4.95, maximo: 5, de_oficio: true },
   ],
+  posicion: {
+    bolsa: "Bolsa de empleo de Operario de la Diputación de Granada",
+    categoria: "Operario/a",
+    orden: 18,
+    total: 146,
+    puntuacion: 14.75,
+    vigente_desde: "2026-07-01T08:00:00Z",
+  },
   disponibilidad: {
     disponible: true,
+    estado_clave: "disponible",
     estado: "Disponible para llamamientos",
+    estado_desde: "2026-07-01T08:00:00Z",
+    disponible_desde: null,
+    motivo_visible: null,
     desde: "01/07/2026",
     bolsas: ["Bolsa de empleo de Operario de la Diputación de Granada (adscripción DEMO)", "Ingreso en la Subescala de Gestión de Administración General (adscripción DEMO)"],
     proxima_revision: "31/12/2026",
   },
   llamamientos: [
-    { id: "DEMO-LLA-0045", bolsa: "Bolsa de empleo de Operario de la Diputación de Granada · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Responder antes del 19/07/2026 14:00 · plazo DEMO", estado: "Pendiente de respuesta", jornada: "Completa (dato sintético)", duracion: "3 meses (dato sintético)", posicion: "Primera persona elegible de demostración" },
-    { id: "DEMO-LLA-0031", bolsa: "Ingreso en la Subescala de Gestión de Administración General · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Respondido el 02/07/2026 · DEMO", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 % (dato sintético)", duracion: "1 mes (dato sintético)", posicion: "Respuesta registrada en demostración" },
+    { id: "DEMO-LLA-0045", bolsa: "Bolsa de empleo de Operario de la Diputación de Granada · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Responder antes del 19/07/2026 14:00 · plazo DEMO", estado: "Pendiente de respuesta", jornada: "Completa (dato sintético)", duracion: "3 meses (dato sintético)", posicion: "Primera persona elegible de demostración", canal: "Sede electrónica", comunicado_en: "2026-07-17T10:30:00Z", resultado_clave: "pendiente" },
+    { id: "DEMO-LLA-0031", bolsa: "Ingreso en la Subescala de Gestión de Administración General · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Respondido el 02/07/2026 · DEMO", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 % (dato sintético)", duracion: "1 mes (dato sintético)", posicion: "Respuesta registrada en demostración", canal: "Correo y sede", comunicado_en: "2026-07-01T09:00:00Z", resultado_clave: "aceptado" },
   ],
   subsanaciones: [
     { id: "DEMO-SUB-0008", solicitud_ref: "DEMO-SOL-0027", motivo: "Acreditar la jornada de la experiencia externa", plazo: "23/07/2026 14:00", estado: "Pendiente", documento_solicitado: "Certificado con porcentaje de jornada y periodos exactos" },
@@ -211,7 +225,7 @@ export function crearAdaptadorPresentacion() {
       payload.id || payload.convocatoria_id || estado.sesion.persona_ref,
       estado.sesion.persona_ref,
     );
-    return validarRecibo({
+    const datosRecibo = {
       esquema: "vec.bolsa.area-personal.recibo-demo.v1",
       presentacion: true,
       referencia: `DEMO-REC-${String(secuencia).padStart(4, "0")}`,
@@ -221,7 +235,12 @@ export function crearAdaptadorPresentacion() {
       actor: "Persona Aspirante de Demostración",
       fecha: new Date().toISOString(),
       advertencia: "RECIBO DEMO · No acredita presentación, firma, pago, registro ni comunicación real.",
-    }, { presentacionEsperada: true });
+    };
+    if (accion === "cambiar_disponibilidad") {
+      datosRecibo.estado_clave = estado.disponibilidad.estado_clave;
+      datosRecibo.disponible_desde = estado.disponibilidad.disponible_desde;
+    }
+    return validarRecibo(datosRecibo, { presentacionEsperada: true });
   }
 
   function exigirBorrador(payload) {
@@ -368,8 +387,29 @@ export function crearAdaptadorPresentacion() {
       solicitud.referencia = `DEMO-REG-NUEVO-${solicitud.id.slice(-4)}`;
       solicitud.siguiente = "Consultar el recibo DEMO sin validez administrativa";
     } else if (accion === "cambiar_disponibilidad") {
-      estado.disponibilidad.disponible = payload.disponible === true;
-      estado.disponibilidad.estado = payload.disponible === true ? "Disponible para llamamientos" : "No disponible (demostración)";
+      const disponible = payload.disponible === true || payload.disponible === "true";
+      if (disponible) {
+        estado.disponibilidad.disponible = true;
+        estado.disponibilidad.estado_clave = SITUACION_DISPONIBLE;
+        estado.disponibilidad.estado = "Disponible para llamamientos";
+        estado.disponibilidad.estado_desde = new Date().toISOString();
+        estado.disponibilidad.disponible_desde = null;
+        estado.disponibilidad.motivo_visible = null;
+      } else {
+        const motivoClave = payload.motivo_clave || "pausa_voluntaria";
+        estado.disponibilidad.disponible = false;
+        estado.disponibilidad.estado_clave = "no_disponible";
+        const mapaTexto = {
+          pausa_voluntaria: "No disponible (pausa voluntaria)",
+          incorporacion_otro_empleo: "No disponible (incorporación a otro empleo)",
+          enfermedad: "No disponible (enfermedad o incapacidad temporal)",
+          otro: "No disponible (otras causas justificadas)",
+        };
+        estado.disponibilidad.estado = mapaTexto[motivoClave] || "No disponible";
+        estado.disponibilidad.estado_desde = new Date().toISOString();
+        estado.disponibilidad.disponible_desde = payload.hasta || null;
+        estado.disponibilidad.motivo_visible = payload.motivo_texto || mapaTexto[motivoClave] || motivoClave;
+      }
     } else if (accion === "responder_llamamiento") {
       const item = exigirElemento(estado.llamamientos, payload.id, "llamamiento", ["Pendiente de respuesta"]);
       if (!new Set(["aceptar", "rechazar"]).has(payload.respuesta)) throw new Error("La respuesta al llamamiento no es válida.");

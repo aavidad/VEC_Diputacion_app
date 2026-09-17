@@ -164,3 +164,44 @@ test("pago, firma y registro actúan sobre el borrador indicado y respetan la se
   assert.match(registrada.pago, /confirmado/u);
   assert.match(registrada.firma, /confirmada/u);
 });
+
+test("cambiar_disponibilidad admite pausa con motivo y fecha, y reactivación devolviendo estado_clave y disponible_desde (B8)", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+
+  // 1. Pausa con motivo y fecha
+  const resPausa = await adaptador.ejecutar({
+    accion: "cambiar_disponibilidad",
+    payload: {
+      disponible: false,
+      motivo_clave: "incorporacion_otro_empleo",
+      motivo_texto: "Contrato temporal en otra administración",
+      hasta: "2026-12-31",
+    },
+    confirmacion: true,
+    capacidad: true,
+  });
+
+  assert.equal(resPausa.recibo.accion, "cambiar_disponibilidad");
+  assert.equal(resPausa.recibo.estado_clave, "no_disponible");
+  assert.equal(resPausa.recibo.disponible_desde, "2026-12-31");
+  assert.equal(resPausa.datos.disponibilidad.disponible, false);
+  assert.equal(resPausa.datos.disponibilidad.estado_clave, "no_disponible");
+  assert.equal(resPausa.datos.disponibilidad.disponible_desde, "2026-12-31");
+  assert.equal(resPausa.datos.disponibilidad.motivo_visible, "Contrato temporal en otra administración");
+
+  // 2. Reactivación
+  const resReactivar = await adaptador.ejecutar({
+    accion: "cambiar_disponibilidad",
+    payload: { disponible: true },
+    confirmacion: true,
+    capacidad: true,
+  });
+
+  assert.equal(resReactivar.recibo.accion, "cambiar_disponibilidad");
+  assert.equal(resReactivar.recibo.estado_clave, "disponible");
+  assert.equal(resReactivar.recibo.disponible_desde, null);
+  assert.equal(resReactivar.datos.disponibilidad.disponible, true);
+  assert.equal(resReactivar.datos.disponibilidad.estado_clave, "disponible");
+  assert.equal(resReactivar.datos.disponibilidad.disponible_desde, null);
+  assert.equal(resReactivar.datos.disponibilidad.motivo_visible, null);
+});

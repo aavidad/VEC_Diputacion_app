@@ -43,7 +43,9 @@ regexes = [
 [[rules]]
 id = "vep-clave-castellana-asignada"
 description = "Clave castellana escrita en claro"
-regex = '''(?:clave(?:_[a-z0-9]+)*)[ \t]*=[ \t]*["']([A-Za-z0-9._@+!#$%&*?/:-]{8,128})["']'''
+# Solo identificadores que EMPIEZAN por «clave» (clave, clave_api, .clave):
+# «estado_clave = "no_disponible"» es una clave de catálogo, no una contraseña.
+regex = '''(?:^|[^A-Za-z0-9_])clave(?:_[a-z0-9]+)*[ \t]*=[ \t]*["']([A-Za-z0-9._@+!#$%&*?/:-]{8,128})["']'''
 secretGroup = 1
 keywords = [
   "clave",

@@ -1,4 +1,5 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
+import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -13,6 +14,8 @@ import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
 } from "./flujo-solicitud.js";
+
+const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
   inicio: ["Inicio y plazos", renderizarInicio],
@@ -471,7 +474,14 @@ function atenderAccion(estado, boton) {
       id = llamamiento;
       payload.respuesta = respuesta;
     }
-    if (boton.dataset.operacion === "cambiar_disponibilidad") payload.disponible = id === "true";
+    if (boton.dataset.operacion === "cambiar_disponibilidad") {
+      payload.disponible = id === "true";
+      if (!payload.disponible) {
+        payload.motivo_clave = boton.dataset.motivoClave || "pausa_voluntaria";
+        if (boton.dataset.hasta) payload.hasta = boton.dataset.hasta;
+        if (boton.dataset.motivoTexto) payload.motivo_texto = boton.dataset.motivoTexto;
+      }
+    }
     if (boton.dataset.operacion === "calcular_autobaremo") {
       const borrador = localizarSolicitudEdicion(estado.datos, {
         solicitudId: estado.solicitudEdicionId,
@@ -562,6 +572,29 @@ function conectarEventos(estado) {
         return;
       }
       const payload = formularioAObjeto(formulario);
+      if (formulario.dataset.operacion === "cambiar_disponibilidad") {
+        const disponible = payload.disponible === "true" || payload.disponible === true;
+        if (disponible) {
+          payload.disponible = true;
+          delete payload.motivo_clave;
+          delete payload.motivo_texto;
+          delete payload.hasta;
+        } else {
+          payload.disponible = false;
+          payload.motivo_clave ||= MOTIVO_PAUSA_PREDETERMINADO;
+          if (payload.hasta && typeof payload.hasta === "string" && payload.hasta.trim()) {
+            payload.hasta = payload.hasta.trim();
+          } else {
+            delete payload.hasta;
+          }
+          if (payload.motivo_texto && typeof payload.motivo_texto === "string" && payload.motivo_texto.trim()) {
+            payload.motivo_texto = payload.motivo_texto.trim();
+          } else {
+            delete payload.motivo_texto;
+          }
+        }
+        delete payload.confirmacion;
+      }
       if (formulario.dataset.operacion === "registrar_solicitud") {
         if (!declaracionFinalConfirmada(payload.declaracion_final)) {
           estado.errorPasoSolicitud = "Debe confirmar la declaración final antes de registrar la solicitud.";
