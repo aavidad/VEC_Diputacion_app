@@ -188,6 +188,6 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
   })();
   assert.match(html, /Trámites recientes/);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
-  assert.match(html, /class="ct-fase-incidencia">Con incidencia</);
+  assert.match(html, /class="ct-exp-chip ct-fase-incidencia">Con incidencia</);
   assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
 });

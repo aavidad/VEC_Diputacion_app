@@ -507,7 +507,13 @@ export function crearCoordinadorModulosPortal({
           fiscalizacion,
           subsanacion,
           obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
-          obtenerTramitesInicio: () => (listadoCuadro ? tramitesParaInicio(listadoCuadro) : null),
+          // El listado inicial se carga antes que los catálogos: los nombres de
+          // centro y categoría se resuelven al pedirlo, con lo que haya llegado.
+          obtenerTramitesInicio: () => (listadoCuadro ? tramitesParaInicio(listadoCuadro).map((e) => ({
+            ...e,
+            centro: alta?.catalogos?.centros?.get(e.centro) ?? e.centro,
+            categoria: alta?.catalogos?.categorias?.get(e.categoria) ?? e.categoria,
+          })) : null),
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });

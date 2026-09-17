@@ -67,7 +67,7 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
           <td>${escaparHTML(e.centro ?? "—")}</td>
           <td>${escaparHTML(e.categoria ?? "—")}</td>
           <td>${escaparHTML(e.fase_actual ?? "—")}</td>
-          <td><span class="ct-fase-${escaparHTML(e.estado_clave ?? "pendiente")}">${escaparHTML(e.estado ?? "—")}</span></td>
+          <td><span class="ct-exp-chip ct-fase-${escaparHTML(e.estado_clave ?? "pendiente")}">${escaparHTML(e.estado ?? "—")}</span></td>
           <td><button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">Abrir</button></td>
         </tr>`).join("")}</tbody>
       </table>
