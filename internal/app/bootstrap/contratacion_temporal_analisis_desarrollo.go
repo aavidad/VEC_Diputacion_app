@@ -205,13 +205,7 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 		Esquema:      esquemaConfiguracionAnalisisContratacionTemporal,
 		ArtefactoRef: artefactoAnalisisContratacionTemporalDesarrollo,
 		Modalidades:  modalidades,
-		Categorias: []categoriaCatalogosAltaContratacionTemporalDesarrollo{{
-			Referencia: categoriaAltaContratacionTemporalDesarrollo,
-			Etiqueta:   "Categoría C2",
-			GruposSubgrupos: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
-				Clave: grupoSubgrupoAltaContratacionTemporalDesarrollo, Etiqueta: "Grupo C2",
-			}},
-		}},
+		Categorias:   categoriasSinteticasDesarrollo,
 		Causas: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
 			Clave:    string(causaAnalisisContratacionTemporalDesarrollo),
 			Etiqueta: "Necesidad temporal",

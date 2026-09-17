@@ -117,8 +117,7 @@ func TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado(t *testing.T)
 	if configuracion.Esquema != esquemaConfiguracionAnalisisContratacionTemporal ||
 		configuracion.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
 		len(configuracion.Modalidades) != 5 ||
-		len(configuracion.Categorias) != 1 ||
-		len(configuracion.Categorias[0].GruposSubgrupos) != 1 ||
+		len(configuracion.Categorias) != len(categoriasSinteticasDesarrollo) ||
 		len(configuracion.Causas) != 1 ||
 		len(configuracion.EntradasRC) != 1 ||
 		len(configuracion.MotivosRectificacion) != 0 {
@@ -134,6 +133,19 @@ func TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado(t *testing.T)
 	for indice, esperada := range esperadas {
 		if configuracion.Modalidades[indice].Clave != esperada {
 			t.Fatalf("modalidad[%d]=%q", indice, configuracion.Modalidades[indice].Clave)
+		}
+	}
+	for indice, esperada := range categoriasSinteticasDesarrollo {
+		obtenida := configuracion.Categorias[indice]
+		if obtenida.Referencia != esperada.Referencia ||
+			obtenida.Etiqueta != esperada.Etiqueta ||
+			len(obtenida.GruposSubgrupos) != len(esperada.GruposSubgrupos) {
+			t.Fatalf("categoria[%d] no coincide con catalogos-alta: obtenida=%+v esperada=%+v", indice, obtenida, esperada)
+		}
+		for grupo, esperadoGrupo := range esperada.GruposSubgrupos {
+			if obtenida.GruposSubgrupos[grupo] != esperadoGrupo {
+				t.Fatalf("categoria[%d] grupo[%d] no coincide con catalogos-alta: obtenida=%+v esperada=%+v", indice, grupo, obtenida, esperada)
+			}
 		}
 	}
 	entrada := configuracion.EntradasRC[0]

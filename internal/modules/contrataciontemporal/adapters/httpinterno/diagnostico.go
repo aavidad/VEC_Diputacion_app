@@ -117,6 +117,15 @@ func centinelaSeguroContratacion(causa error) string {
 		return "servicio_registro_invalido"
 	case errors.Is(causa, application.ErrConsultaRRHHNoDisponible):
 		return "consulta_rrhh_no_disponible"
+	case errors.Is(causa, application.ErrServicioOperacionAnalisisInvalido),
+		errors.Is(causa, application.ErrDependenciaOperacionAnalisisNoDisponible),
+		errors.Is(causa, ports.ErrPersistenciaOperacionAnalisisNoDisponible):
+		return "analisis_no_disponible"
+	case errors.Is(causa, application.ErrPresentacionPropuestaCoberturaNoDisponible),
+		errors.Is(causa, application.ErrConfirmacionDecisionCoberturaNoDisponible):
+		return "cobertura_no_disponible"
+	case errors.Is(causa, application.ErrConfirmacionDecisionCoberturaPendiente):
+		return "cobertura_operacion_pendiente"
 	case errors.Is(causa, context.Canceled):
 		return "context_canceled"
 	case errors.Is(causa, context.DeadlineExceeded):
