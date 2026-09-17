@@ -124,3 +124,6 @@ static/styles.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css
 static/portal-empleado/modulos/contratacion-temporal/atajos-incidencia.js
 static/portal-empleado/modulos/contratacion-temporal/fases-expediente.js
+static/portal-empleado/modulos/contratacion-temporal/vista-estadisticas.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
