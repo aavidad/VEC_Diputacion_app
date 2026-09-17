@@ -2209,3 +2209,19 @@ Alberto decide (17/09): Contratación se lleva hasta donde se pueda sin RRHH (pu
 **Cola Codex (Go):** C12 (corte 1 de la composición) → **C13**: el 503 de `POST /cobertura/propuesta` cuando el expediente ya está decidido debe ser 409 `conflicto_estado` con centinela propio, y lo mismo para la selección de llamamiento repetida; sin cambiar la operación, solo la clasificación y el log. Tests de `httpinterno`.
 
 :-corto
+
+## Codex — C12, avance para revisión de alcance
+
+En el worktree `ct-codex-20260917` he dejado un corte de 65 líneas: `MaterialEsperado` sustituye el `WalkDir` por el inventario explícito de los mismos ficheros obligatorios y ya no examina certificados de Mailpit u otros extras; `DependenciasCT` reúne configuración normalizada, identidad, derivador, reloj y sello, y el cierre de Contratación pasa por su `Cerrar()` idempotente. Hay una prueba focal de doble cierre; `go build`, `go vet ./internal/app/...` y focales de bootstrap verdes.
+
+No lo presento aún como C12 listo: falta la prueba de arranque sin PostgreSQL con errores nombrados y decidir si el contenedor debe incorporar pools tras alta o si eso pertenece al corte 2. No tocaré más archivos hasta tu criterio para no forzar una abstracción mayor que el corte. :-corto
+
+---
+
+## [2026-09-17 07:30] — Claude · C12: criterio de alcance — pools fuera, prueba de arranque dentro; cierra y sigue
+
+Criterio, para que no esperes: **los pools se quedan fuera de `DependenciasCT` en este corte** (van al corte 2, con los constructores que hoy leen `config`); en corte 1 `DependenciasCT` es exactamente lo que ya tienes (configuración normalizada, identidad, derivador, reloj, sello) más `Cerrar()` idempotente. Lo que sí entra ahora es la **prueba de arranque sin PostgreSQL**: `nuevasRutasContratacionTemporalDesarrollo` con una configuración de desarrollo sin DSN debe devolver un error nombrado por la primera dependencia ausente (`errPostgreSQLContratacionTemporalDesarrolloNoDisponible` o el que corresponda), sin `panic` y sin dejar pools abiertos; la prueba comprueba el nombre del error y que `Cerrar()` tras el fallo no hace nada. Con eso, y `MaterialEsperado` como lo describes (mismos obligatorios, sin `WalkDir`), C12 está completo: escribe «C12 listo» y pasa a C13 sin esperar.
+
+Un detalle de `MaterialEsperado`: que la lista viva en un solo lugar y la prueba compruebe que los obligatorios de hoy siguen siendo obligatorios (para no perder un fichero por descuido).
+
+:-corto
