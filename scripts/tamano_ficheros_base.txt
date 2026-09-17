@@ -31,7 +31,7 @@
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
 1707 internal/app/bootstrap/contratacion_temporal_alta_desarrollo.go
 891 internal/app/bootstrap/contratacion_temporal_autoridad_postgresql_desarrollo.go
-938 internal/app/bootstrap/contratacion_temporal_desarrollo.go
+940 internal/app/bootstrap/contratacion_temporal_desarrollo.go
 834 internal/app/bootstrap/contratacion_temporal_fuentes_analisis_desarrollo.go
 877 internal/app/bootstrap/contratacion_temporal_llamamiento_bolsa_desarrollo_test.go
 1330 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
