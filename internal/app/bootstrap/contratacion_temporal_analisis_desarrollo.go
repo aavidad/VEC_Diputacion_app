@@ -198,7 +198,7 @@ func catalogoAnalisisDesarrollo(catalogos ...*catalogosAltaContratacionTemporalD
 	if len(catalogos) == 1 && catalogos[0] != nil {
 		return catalogos[0], nil
 	}
-	return nuevoCatalogoDesarrollo("")
+	return nuevoCatalogoDesarrollo("", "")
 }
 
 func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(

@@ -35,6 +35,7 @@ const (
 	EnvIncorporacionV2File                         = "VEC_CT_INCORPORACION_V2_FILE"
 	EnvContratacionTemporalSubsanacionPoliticaFile = "VEC_CT_SUBSANACION_POLITICA_FILE"
 	EnvPersonalOrganizacionSourcePath              = "VEC_PERSONAL_ORGANIZACION_SOURCE_PATH"
+	EnvRPTCatalogoPath                             = "VEC_RPT_CATALOGO_PATH"
 	EnvPersonalOrganizacionVersion                 = "VEC_PERSONAL_ORGANIZACION_VERSION"
 	EnvPersonalOrganizacionPostgreSQL              = "VEC_PERSONAL_ORGANIZACION_POSTGRESQL"
 	EnvBolsaPublicSourcePath                       = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
@@ -120,6 +121,7 @@ type Config struct {
 	PersonalCatalogPath                         string
 	PersonalCatalogInMemory                     bool
 	PersonalOrganizacionSourcePath              string
+	RPTCatalogoPath                             string
 	PersonalOrganizacionVersion                 int
 	PersonalOrganizacionPostgreSQL              bool
 	BolsaPublicSourcePath                       string
@@ -177,6 +179,7 @@ func Load() Config {
 		TLSKeyFile:                                  envFirst(EnvTLSKeyFile),
 		PersonalCatalogPath:                         envFirst(EnvPersonalCatalogPath),
 		PersonalOrganizacionSourcePath:              envFirst(EnvPersonalOrganizacionSourcePath),
+		RPTCatalogoPath:                             envFirst(EnvRPTCatalogoPath),
 		PersonalOrganizacionVersion:                 envPositiveInt(EnvPersonalOrganizacionVersion),
 		PersonalOrganizacionPostgreSQL:              envBool(EnvPersonalOrganizacionPostgreSQL),
 		BolsaPublicSourcePath:                       envFirst(EnvBolsaPublicSourcePath),

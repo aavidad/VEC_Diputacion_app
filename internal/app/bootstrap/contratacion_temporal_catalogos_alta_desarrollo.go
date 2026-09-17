@@ -137,12 +137,14 @@ func categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo *catalogosAltaContratac
 			}
 		}
 	}
-	return false
+	// Las categorías sintéticas siguen valiendo para los expedientes que ya las usan
+	// aunque el catálogo publicado sea el de la RPT.
+	return grupoSubgrupoDeCatalogoValido(referencia, grupo)
 }
 
-func nuevoCatalogoDesarrollo(rutaFuente string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+func nuevoCatalogoDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
 	if strings.TrimSpace(rutaFuente) != "" {
-		return construirCatalogosAltaDesarrollo(rutaFuente)
+		return construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT)
 	}
 	return &catalogosAltaContratacionTemporalDesarrollo{
 		Esquema: esquemaCatalogosAltaContratacionTemporal,
@@ -161,7 +163,7 @@ func nuevoCatalogoDesarrollo(rutaFuente string) (*catalogosAltaContratacionTempo
 	}, nil
 }
 
-func construirCatalogosAltaDesarrollo(rutaFuente string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
+func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAltaContratacionTemporalDesarrollo, error) {
 	if strings.TrimSpace(rutaFuente) == "" {
 		return nil, nil
 	}
@@ -200,6 +202,15 @@ func construirCatalogosAltaDesarrollo(rutaFuente string) (*catalogosAltaContrata
 	}
 	categorias := make([]categoriaCatalogosAltaContratacionTemporalDesarrollo, len(categoriasSinteticasDesarrollo))
 	copy(categorias, categoriasSinteticasDesarrollo)
+	if strings.TrimSpace(rutaRPT) != "" {
+		// Con la RPT pública configurada, las categorías son las reales de la
+		// Diputación; las sintéticas quedan solo para los expedientes que ya las usan.
+		categoriasRPT, err := cargarCategoriasRPTDesarrollo(rutaRPT)
+		if err != nil {
+			return nil, err
+		}
+		categorias = categoriasRPT
+	}
 	motivos := []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
 		{
 			Clave:    string(motivoAltaContratacionTemporalDesarrollo),
@@ -235,7 +246,7 @@ func (o *origenConsultasContratacionTemporalDesarrollo) catalogosAlta() (
 	if o.catalogoDesarrollo != nil {
 		return *o.catalogoDesarrollo, nil
 	}
-	catalogos, err := nuevoCatalogoDesarrollo("")
+	catalogos, err := nuevoCatalogoDesarrollo("", "")
 	if err != nil {
 		return catalogosAltaContratacionTemporalDesarrollo{}, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
 	}

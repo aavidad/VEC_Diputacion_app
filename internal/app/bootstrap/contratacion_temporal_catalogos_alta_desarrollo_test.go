@@ -564,3 +564,38 @@ func TestSoporteAltaResolverFlujoYAutorizacionConCatalogoRPT(t *testing.T) {
 		}
 	})
 }
+
+func TestCatalogoDesarrolloConRPTPublicaCategoriasReales(t *testing.T) {
+	t.Parallel()
+	organizacion := "../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json"
+	rpt := "../../../data/catalogos/rpt/v1.rpt-2026.json"
+	catalogo, err := nuevoCatalogoDesarrollo(organizacion, rpt)
+	if err != nil {
+		t.Fatalf("catálogo con RPT: %v", err)
+	}
+	if len(catalogo.Centros) != 41 || len(catalogo.Categorias) < 300 {
+		t.Fatalf("esperados 41 centros y cientos de categorías de la RPT: %d, %d", len(catalogo.Centros), len(catalogo.Categorias))
+	}
+	var administrativo *categoriaCatalogosAltaContratacionTemporalDesarrollo
+	for i := range catalogo.Categorias {
+		if catalogo.Categorias[i].Referencia == "categoria:rpt:administrativo" {
+			administrativo = &catalogo.Categorias[i]
+		}
+		if len(catalogo.Categorias[i].GruposSubgrupos) == 0 || catalogo.Categorias[i].Etiqueta == "" {
+			t.Fatalf("categoría sin grupo o sin etiqueta: %+v", catalogo.Categorias[i])
+		}
+	}
+	if administrativo == nil || administrativo.Etiqueta != "ADMINISTRATIVO" || administrativo.GruposSubgrupos[0].Clave != "C1" {
+		t.Fatalf("la categoría ADMINISTRATIVO (C1) debe venir de la RPT: %+v", administrativo)
+	}
+	if !categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, "categoria:rpt:administrativo", "C1") ||
+		categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, "categoria:rpt:administrativo", "A1") {
+		t.Fatal("la validación debe aceptar el grupo de la RPT y rechazar otro")
+	}
+	if !categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, categoriaAltaContratacionTemporalDesarrollo, grupoSubgrupoAltaContratacionTemporalDesarrollo) {
+		t.Fatal("las categorías sintéticas siguen valiendo para los expedientes existentes")
+	}
+	if _, err := nuevoCatalogoDesarrollo(organizacion, "../../../data/catalogos/rpt/no-existe.json"); err == nil {
+		t.Fatal("una ruta de RPT inválida debe fallar cerrado")
+	}
+}

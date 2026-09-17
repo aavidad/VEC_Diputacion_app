@@ -191,7 +191,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath)
+	catalogoDesarrollo, err := nuevoCatalogoDesarrollo(cfg.PersonalOrganizacionSourcePath, cfg.RPTCatalogoPath)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -707,9 +707,9 @@ func nuevoOrigenConsultasContratacionTemporalDesarrollo(fuenteOrganizacion ...st
 	if len(fuenteOrganizacion) > 0 {
 		rutaFuente = fuenteOrganizacion[0]
 	}
-	catalogos, err := nuevoCatalogoDesarrollo(rutaFuente)
+	catalogos, err := nuevoCatalogoDesarrollo(rutaFuente, "")
 	if err != nil {
-		catalogos, _ = nuevoCatalogoDesarrollo("")
+		catalogos, _ = nuevoCatalogoDesarrollo("", "")
 	}
 	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogos)
 }
