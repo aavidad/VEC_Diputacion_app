@@ -230,6 +230,14 @@ type PaginaCuadroRRHH struct {
 	HayMas          bool                    `json:"hay_mas"`
 	CursorSiguiente string                  `json:"cursor_siguiente,omitempty"`
 	Lectura         ReciboLecturaRRHH       `json:"-"`
+	Totales         *TotalesCuadroRRHH      `json:"totales,omitempty"`
+}
+
+type TotalesCuadroRRHH struct {
+	Total         uint64 `json:"total"`
+	EnTramitacion uint64 `json:"en_tramitacion"`
+	ConIncidencia uint64 `json:"con_incidencia"`
+	EnLlamamiento uint64 `json:"en_llamamiento"`
 }
 
 // ValidarContenidoPublicablePara comprueba exclusivamente la proyección

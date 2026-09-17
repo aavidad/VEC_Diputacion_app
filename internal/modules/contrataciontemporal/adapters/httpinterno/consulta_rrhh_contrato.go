@@ -256,11 +256,12 @@ type envoltorioCuadroRRHH struct {
 }
 
 type paginaCuadroRRHHJSON struct {
-	Esquema         string            `json:"esquema"`
-	GeneradaEn      string            `json:"generada_en"`
-	Expedientes     []resumenRRHHJSON `json:"expedientes"`
-	HayMas          bool              `json:"hay_mas"`
-	CursorSiguiente string            `json:"cursor_siguiente,omitempty"`
+	Esquema         string                   `json:"esquema"`
+	GeneradaEn      string                   `json:"generada_en"`
+	Expedientes     []resumenRRHHJSON        `json:"expedientes"`
+	HayMas          bool                     `json:"hay_mas"`
+	CursorSiguiente string                   `json:"cursor_siguiente,omitempty"`
+	Totales         *ports.TotalesCuadroRRHH `json:"totales,omitempty"`
 }
 
 type resumenRRHHJSON struct {
@@ -289,6 +290,7 @@ func proyectarPaginaCuadroRRHH(
 		Expedientes:     make([]resumenRRHHJSON, len(entrada.Expedientes)),
 		HayMas:          entrada.HayMas,
 		CursorSiguiente: entrada.CursorSiguiente,
+		Totales:         entrada.Totales,
 	}
 	for indice, resumen := range entrada.Expedientes {
 		salida.Expedientes[indice] = proyectarResumenRRHH(resumen)

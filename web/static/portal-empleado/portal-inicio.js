@@ -8,6 +8,11 @@
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
 
 export function calcularMetricasCuadro(cuadro) {
+	const totales = cuadro?.totales;
+	if (totales && Number.isSafeInteger(totales.en_tramitacion) &&
+		Number.isSafeInteger(totales.con_incidencia) && Number.isSafeInteger(totales.en_llamamiento)) {
+		return totales;
+	}
   // Una página parcial no permite contar: hasta que el cuadro traiga totales
   // del servidor, el inicio no muestra cifras que serían falsas.
   if (cuadro?.hay_mas === true) return null;
