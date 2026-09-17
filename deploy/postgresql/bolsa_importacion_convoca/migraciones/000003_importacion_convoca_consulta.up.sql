@@ -339,14 +339,15 @@ BEGIN
             'disponible', false, registrada
         );
     INSERT INTO vec_bolsa_importacion_convoca.lote (
-        importacion_ref, acta_ref, huella_fichero_sha256, acta_canonica,
-        huella_acta_sha256, huella_staging_sha256,
+        importacion_ref, acta_ref, huella_fichero_sha256, categoria_ref,
+        bolsa_ref, acta_canonica, huella_acta_sha256, huella_staging_sha256,
         huella_staging_semantica_sha256, registrada_en,
         politica_retencion_ref, politica_retencion_version,
         conservar_staging_hasta, secuencia_historia, cabeza_historia_sha256
     ) VALUES (
         importacion, p_acta->>'acta_ref', p_acta->>'huella_fichero_sha256',
-        p_acta, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        p_acta->>'categoria_ref', p_acta->>'bolsa_ref', p_acta,
+        pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
             p_acta::text, 'UTF8'
         )), 'hex'), huella_staging, huella_staging_semantica, registrada,
         politica.politica_retencion_ref,
@@ -390,7 +391,7 @@ END
 $funcion$;
 
 CREATE FUNCTION vec_bolsa_importacion_convoca.consultar_estado_v1(
-    p_huella text
+    p_huella text, p_categoria_ref text
 )
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog
@@ -398,12 +399,16 @@ SET row_security = on AS $funcion$
 DECLARE actual vec_bolsa_importacion_convoca.lote%ROWTYPE;
 BEGIN
     IF vec_bolsa_importacion_convoca.huella_valida(p_huella)
-       IS NOT TRUE THEN
+       IS NOT TRUE
+       OR vec_bolsa_importacion_convoca.texto_opaco_valido(
+           p_categoria_ref, 512
+       ) IS NOT TRUE THEN
         RAISE EXCEPTION USING ERRCODE = 'B1701',
             MESSAGE = 'huella Convoca no valida';
     END IF;
     SELECT * INTO actual FROM vec_bolsa_importacion_convoca.lote
-     WHERE huella_fichero_sha256 = p_huella;
+     WHERE huella_fichero_sha256 = p_huella
+       AND categoria_ref = p_categoria_ref;
     IF NOT FOUND THEN RETURN NULL; END IF;
     IF vec_bolsa_importacion_convoca.lote_integro(
         actual.importacion_ref
@@ -429,7 +434,7 @@ END
 $funcion$;
 
 CREATE FUNCTION vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(
-    p_huella text, p_desde integer, p_limite integer
+    p_huella text, p_categoria_ref text, p_desde integer, p_limite integer
 )
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog
@@ -441,14 +446,19 @@ DECLARE
     ultimo integer;
     siguiente integer;
 BEGIN
-    IF p_desde IS NULL OR p_desde < 2
+    IF vec_bolsa_importacion_convoca.huella_valida(p_huella)
+       IS NOT TRUE
+       OR vec_bolsa_importacion_convoca.texto_opaco_valido(
+           p_categoria_ref, 512
+       ) IS NOT TRUE
+       OR p_desde IS NULL OR p_desde < 2
        OR p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 512 THEN
         RAISE EXCEPTION USING ERRCODE = 'B1701',
             MESSAGE = 'pagina de staging Convoca no valida';
     END IF;
     IF p_desde = 2 THEN
         estado := vec_bolsa_importacion_convoca.consultar_estado_v1(
-            p_huella
+            p_huella, p_categoria_ref
         );
     ELSE
         SELECT pg_catalog.jsonb_build_object(
@@ -467,6 +477,7 @@ BEGIN
         ) INTO estado
         FROM vec_bolsa_importacion_convoca.lote
         WHERE huella_fichero_sha256 = p_huella
+          AND categoria_ref = p_categoria_ref
           AND vec_bolsa_importacion_convoca.historia_integra(
               importacion_ref
           );
@@ -544,9 +555,9 @@ GRANT EXECUTE ON FUNCTION
     vec_bolsa_importacion_convoca.guardar_lote_v1(jsonb,jsonb)
     TO vec_bolsa_importacion_convoca_ejecutor;
 GRANT EXECUTE ON FUNCTION
-    vec_bolsa_importacion_convoca.consultar_estado_v1(text),
+    vec_bolsa_importacion_convoca.consultar_estado_v1(text,text),
     vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(
-        text,integer,integer
+        text,text,integer,integer
     )
     TO vec_bolsa_importacion_convoca_recuperador;
 GRANT EXECUTE ON FUNCTION

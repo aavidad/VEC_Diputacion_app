@@ -1,6 +1,8 @@
 package importacionconvoca
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -60,8 +62,9 @@ func TestEstadoImportacionAdmiteActaTrasExpurgoSinStaging(t *testing.T) {
 func actaGestionPrueba() dominio.ActaImportacion {
 	huella := repetirHex("a")
 	return dominio.ActaImportacion{
-		ActaRef:             "acta:importacion-convoca:" + huella,
-		ImportacionRef:      "importacion:convoca:" + huella,
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+		ActaRef:             "acta:importacion-convoca:" + refGestion(huella),
+		ImportacionRef:      "importacion:convoca:" + refGestion(huella),
 		HuellaFicheroSHA256: huella, NombreFichero: "sintetico.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
 		ActorRef:             "actor:rrhh:prueba",
@@ -78,4 +81,9 @@ func repetirHex(valor string) string {
 		resultado += valor
 	}
 	return resultado
+}
+
+func refGestion(h string) string {
+	s := sha256.Sum256([]byte(h + "\x1f" + "categoria:rpt:administrativo"))
+	return hex.EncodeToString(s[:])
 }

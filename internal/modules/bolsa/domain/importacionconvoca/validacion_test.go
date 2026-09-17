@@ -103,8 +103,9 @@ func TestLoteFijaProcedenciaNoAutoritativaYClonaEnProfundidad(t *testing.T) {
 	huella := repetir("a", 64)
 	lote := LoteValidado{
 		Acta: ActaImportacion{
-			ActaRef:             "acta:importacion-convoca:" + huella,
-			ImportacionRef:      "importacion:convoca:" + huella,
+			CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+			ActaRef:             "acta:importacion-convoca:" + ReferenciaContexto(huella, "categoria:rpt:administrativo"),
+			ImportacionRef:      "importacion:convoca:" + ReferenciaContexto(huella, "categoria:rpt:administrativo"),
 			HuellaFicheroSHA256: huella, NombreFichero: "sintetico.xls",
 			FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
 			ActorRef:             "actor:rrhh:prueba", RegistradaEn: time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC),

@@ -46,6 +46,8 @@ type RepositorioImportaciones interface {
 type Reloj func() time.Time
 
 type SolicitudImportacion struct {
+	CategoriaRef         string
+	BolsaRef             string
 	NombreFichero        string
 	FicheroCustodiadoRef string
 	ActorRef             string
@@ -106,8 +108,8 @@ func (s *Servicio) Importar(
 	}
 	lote := dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
-			ActaRef:              "acta:importacion-convoca:" + huella,
-			ImportacionRef:       "importacion:convoca:" + huella,
+			CategoriaRef: solicitud.CategoriaRef, BolsaRef: solicitud.BolsaRef,
+			ActaRef: "acta:importacion-convoca:" + referenciaContexto(huella, solicitud.CategoriaRef), ImportacionRef: "importacion:convoca:" + referenciaContexto(huella, solicitud.CategoriaRef),
 			HuellaFicheroSHA256:  huella,
 			FicheroCustodiadoRef: solicitud.FicheroCustodiadoRef,
 			NombreFichero:        solicitud.NombreFichero,
@@ -136,7 +138,7 @@ func (s *Servicio) Importar(
 }
 
 func solicitudValida(s SolicitudImportacion) bool {
-	if len(s.Contenido) == 0 || len(s.Contenido) > MaximoBytesExportacion ||
+	if !referenciaOpacaDurable.MatchString(s.CategoriaRef) || (s.BolsaRef != "" && !referenciaOpacaDurable.MatchString(s.BolsaRef)) || len(s.Contenido) == 0 || len(s.Contenido) > MaximoBytesExportacion ||
 		!referenciaOpacaDurable.MatchString(s.FicheroCustodiadoRef) ||
 		strings.TrimSpace(s.NombreFichero) != s.NombreFichero ||
 		strings.TrimSpace(s.ActorRef) != s.ActorRef ||
@@ -152,4 +154,9 @@ func solicitudValida(s SolicitudImportacion) bool {
 		}
 	}
 	return true
+}
+
+func referenciaContexto(huella, categoria string) string {
+	s := sha256.Sum256([]byte(huella + "\x1f" + categoria))
+	return hex.EncodeToString(s[:])
 }

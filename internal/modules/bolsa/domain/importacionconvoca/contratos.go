@@ -6,6 +6,8 @@
 package importacionconvoca
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"regexp"
 	"strings"
@@ -219,6 +221,8 @@ func (p Procedencia) Validar() error {
 }
 
 type ActaImportacion struct {
+	CategoriaRef         string
+	BolsaRef             string
 	ActaRef              string
 	ImportacionRef       string
 	HuellaFicheroSHA256  string
@@ -244,8 +248,9 @@ type LoteValidado struct {
 // después del expurgo gobernado de sus filas personales.
 func (a ActaImportacion) Validar() error {
 	if !huellaSHA256.MatchString(a.HuellaFicheroSHA256) ||
-		a.ActaRef != "acta:importacion-convoca:"+a.HuellaFicheroSHA256 ||
-		a.ImportacionRef != "importacion:convoca:"+a.HuellaFicheroSHA256 ||
+		!referenciaCustodia.MatchString(a.CategoriaRef) || (a.BolsaRef != "" && !referenciaCustodia.MatchString(a.BolsaRef)) ||
+		a.ActaRef != "acta:importacion-convoca:"+ReferenciaContexto(a.HuellaFicheroSHA256, a.CategoriaRef) ||
+		a.ImportacionRef != "importacion:convoca:"+ReferenciaContexto(a.HuellaFicheroSHA256, a.CategoriaRef) ||
 		!referenciaCustodia.MatchString(a.FicheroCustodiadoRef) ||
 		a.Esquema.Validar() != nil || a.Procedencia.Validar() != nil ||
 		a.FilasLeidas < 0 || a.FilasAceptadas < 0 || a.FilasRechazadas < 0 ||
@@ -299,7 +304,7 @@ func textoIncidenciaValido(valor string, maximo int) bool {
 // CoincideExactamente impide que la idempotencia por contenido reutilice un
 // acta perteneciente a otro actor, nombre de fichero o resultado de validación.
 func (a ActaImportacion) CoincideExactamente(otra ActaImportacion) bool {
-	if a.ActaRef != otra.ActaRef ||
+	if a.CategoriaRef != otra.CategoriaRef || a.BolsaRef != otra.BolsaRef || a.ActaRef != otra.ActaRef ||
 		a.ImportacionRef != otra.ImportacionRef ||
 		a.HuellaFicheroSHA256 != otra.HuellaFicheroSHA256 ||
 		a.FicheroCustodiadoRef != otra.FicheroCustodiadoRef ||
@@ -335,4 +340,9 @@ func (l LoteValidado) Validar() error {
 		numeroAnterior = fila.Numero
 	}
 	return nil
+}
+
+func ReferenciaContexto(huella, categoria string) string {
+	s := sha256.Sum256([]byte(huella + "\x1f" + categoria))
+	return hex.EncodeToString(s[:])
 }

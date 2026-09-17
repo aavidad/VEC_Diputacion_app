@@ -93,6 +93,16 @@ EXCEPTION WHEN OTHERS THEN RETURN false;
 END
 $funcion$;
 
+CREATE FUNCTION vec_bolsa_importacion_convoca.referencia_contexto(
+    p_huella text, p_categoria_ref text
+)
+RETURNS text LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog AS $funcion$
+    SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+        p_huella || pg_catalog.chr(31) || p_categoria_ref, 'UTF8'
+    )), 'hex')
+$funcion$;
+
 CREATE FUNCTION vec_bolsa_importacion_convoca.acta_valida(p_acta jsonb)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE
 SET search_path = pg_catalog AS $funcion$
@@ -108,15 +118,19 @@ BEGIN
              FROM pg_catalog.jsonb_object_keys(p_acta) AS clave)
           IS DISTINCT FROM
           ARRAY[
-              'acta_ref','actor_ref','esquema','fichero_custodiado_ref',
-              'filas_aceptadas','filas_leidas','filas_rechazadas',
-              'huella_fichero_sha256','importacion_ref','incidencias',
-              'nombre_fichero','procedencia','registrada_en'
+              'acta_ref','actor_ref','bolsa_ref','categoria_ref','esquema',
+              'fichero_custodiado_ref','filas_aceptadas','filas_leidas',
+              'filas_rechazadas','huella_fichero_sha256','importacion_ref',
+              'incidencias','nombre_fichero','procedencia','registrada_en'
           ]::text[]
        OR pg_catalog.octet_length(p_acta::text) > 25165824
        OR pg_catalog.jsonb_typeof(p_acta->'acta_ref')
           IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_acta->'actor_ref')
+          IS DISTINCT FROM 'string'
+       OR pg_catalog.jsonb_typeof(p_acta->'bolsa_ref')
+          IS DISTINCT FROM 'string'
+       OR pg_catalog.jsonb_typeof(p_acta->'categoria_ref')
           IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_acta->'esquema')
           IS DISTINCT FROM 'string'
@@ -131,12 +145,23 @@ BEGIN
        OR vec_bolsa_importacion_convoca.huella_valida(
            p_acta->>'huella_fichero_sha256'
        ) IS NOT TRUE
+       OR vec_bolsa_importacion_convoca.texto_opaco_valido(
+           p_acta->>'categoria_ref', 512
+       ) IS NOT TRUE
+       OR ((p_acta->>'bolsa_ref') <> '' AND
+           vec_bolsa_importacion_convoca.texto_opaco_valido(
+               p_acta->>'bolsa_ref', 512
+           ) IS NOT TRUE)
        OR p_acta->>'acta_ref' IS DISTINCT FROM
           ('acta:importacion-convoca:'::text ||
-           (p_acta->>'huella_fichero_sha256'))
+           vec_bolsa_importacion_convoca.referencia_contexto(
+               p_acta->>'huella_fichero_sha256', p_acta->>'categoria_ref'
+           ))
        OR p_acta->>'importacion_ref' IS DISTINCT FROM
           ('importacion:convoca:'::text ||
-           (p_acta->>'huella_fichero_sha256'))
+           vec_bolsa_importacion_convoca.referencia_contexto(
+               p_acta->>'huella_fichero_sha256', p_acta->>'categoria_ref'
+           ))
        OR vec_bolsa_importacion_convoca.texto_opaco_valido(
            p_acta->>'fichero_custodiado_ref', 512
        ) IS NOT TRUE
@@ -355,7 +380,9 @@ $funcion$;
 CREATE TABLE vec_bolsa_importacion_convoca.lote (
     importacion_ref text PRIMARY KEY,
     acta_ref text NOT NULL UNIQUE,
-    huella_fichero_sha256 text NOT NULL UNIQUE,
+    huella_fichero_sha256 text NOT NULL,
+    categoria_ref text NOT NULL,
+    bolsa_ref text NOT NULL DEFAULT '',
     acta_canonica jsonb NOT NULL,
     huella_acta_sha256 text NOT NULL,
     huella_staging_sha256 text NOT NULL,
@@ -371,10 +398,17 @@ CREATE TABLE vec_bolsa_importacion_convoca.lote (
     secuencia_historia bigint NOT NULL,
     cabeza_historia_sha256 text NOT NULL,
     CHECK (vec_bolsa_importacion_convoca.acta_valida(acta_canonica) IS TRUE),
+    CHECK (acta_canonica->>'categoria_ref' IS NOT DISTINCT FROM categoria_ref),
+    CHECK (acta_canonica->>'bolsa_ref' IS NOT DISTINCT FROM bolsa_ref),
     CHECK (acta_canonica->>'importacion_ref' IS NOT DISTINCT FROM importacion_ref),
     CHECK (acta_canonica->>'acta_ref' IS NOT DISTINCT FROM acta_ref),
     CHECK (acta_canonica->>'huella_fichero_sha256'
            IS NOT DISTINCT FROM huella_fichero_sha256),
+    CHECK (vec_bolsa_importacion_convoca.texto_opaco_valido(categoria_ref, 512)),
+    CHECK (bolsa_ref = '' OR vec_bolsa_importacion_convoca.texto_opaco_valido(
+        bolsa_ref, 512
+    )),
+    UNIQUE (huella_fichero_sha256, categoria_ref),
     CHECK (vec_bolsa_importacion_convoca.huella_valida(huella_acta_sha256)),
     CHECK (vec_bolsa_importacion_convoca.huella_valida(huella_staging_sha256)),
     CHECK (vec_bolsa_importacion_convoca.huella_valida(
@@ -587,6 +621,8 @@ BEGIN
     IF TG_OP = 'DELETE' OR NEW.importacion_ref <> OLD.importacion_ref
        OR NEW.acta_ref <> OLD.acta_ref
        OR NEW.huella_fichero_sha256 <> OLD.huella_fichero_sha256
+       OR NEW.categoria_ref <> OLD.categoria_ref
+       OR NEW.bolsa_ref <> OLD.bolsa_ref
        OR NEW.acta_canonica <> OLD.acta_canonica
        OR NEW.huella_acta_sha256 <> OLD.huella_acta_sha256
        OR NEW.huella_staging_sha256 <> OLD.huella_staging_sha256

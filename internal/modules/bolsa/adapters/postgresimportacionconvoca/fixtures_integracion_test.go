@@ -148,8 +148,9 @@ func loteIntegracion(huella string, registrada time.Time, filas int) dominio.Lot
 	}
 	return dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
-			ActaRef:              "acta:importacion-convoca:" + huella,
-			ImportacionRef:       "importacion:convoca:" + huella,
+			CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+			ActaRef:              "acta:importacion-convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
+			ImportacionRef:       "importacion:convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
 			HuellaFicheroSHA256:  huella,
 			FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
 			NombreFichero:        "exportacion-sintetica-" + huella[:8] + ".xls",

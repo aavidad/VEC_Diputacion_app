@@ -102,6 +102,7 @@ func TestVerticalRealXLSStagingActaEIdempotencia(t *testing.T) {
 		t.Fatalf("componer vertical: %v", err)
 	}
 	solicitud := aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 		NombreFichero:        "resumen-sintetico.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:fixture-t17",
 		ActorRef:             "actor:rrhh:fixture-t17", Contenido: contenido,

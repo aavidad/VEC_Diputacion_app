@@ -315,7 +315,7 @@ func TestRecuperacionPostgreSQLTrasReinicio(t *testing.T) {
 	defer cancelar()
 	recuperador := recuperadorIntegracion(t, entorno)
 	huella := huellaIntegracion("f")
-	lote, estado, existe, err := recuperador.RecuperarLote(ctx, huella)
+	lote, estado, existe, err := recuperador.RecuperarLote(ctx, huella, "categoria:rpt:administrativo")
 	if err != nil || !existe || estado.Acta.HuellaFicheroSHA256 != huella ||
 		len(lote.Aceptadas) != 1 {
 		t.Fatalf("recuperacion tras reinicio: existe=%v estado=%+v lote=%+v error=%v",

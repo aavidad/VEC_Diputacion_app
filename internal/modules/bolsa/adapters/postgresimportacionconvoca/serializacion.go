@@ -29,6 +29,8 @@ type procedenciaPostgreSQL struct {
 }
 
 type actaPostgreSQL struct {
+	CategoriaRef         string                 `json:"categoria_ref"`
+	BolsaRef             string                 `json:"bolsa_ref"`
 	ActaRef              string                 `json:"acta_ref"`
 	ImportacionRef       string                 `json:"importacion_ref"`
 	HuellaFicheroSHA256  string                 `json:"huella_fichero_sha256"`
@@ -84,7 +86,7 @@ func serializarActa(acta dominio.ActaImportacion) ([]byte, error) {
 	}
 	p := acta.Procedencia
 	contenido, err := json.Marshal(actaPostgreSQL{
-		ActaRef: acta.ActaRef, ImportacionRef: acta.ImportacionRef,
+		CategoriaRef: acta.CategoriaRef, BolsaRef: acta.BolsaRef, ActaRef: acta.ActaRef, ImportacionRef: acta.ImportacionRef,
 		HuellaFicheroSHA256:  acta.HuellaFicheroSHA256,
 		FicheroCustodiadoRef: acta.FicheroCustodiadoRef,
 		NombreFichero:        acta.NombreFichero, ActorRef: acta.ActorRef,
@@ -114,7 +116,7 @@ func restaurarActa(datos actaPostgreSQL) (dominio.ActaImportacion, error) {
 		incidencias[i] = dominio.Incidencia(datos.Incidencias[i])
 	}
 	acta := dominio.ActaImportacion{
-		ActaRef: datos.ActaRef, ImportacionRef: datos.ImportacionRef,
+		CategoriaRef: datos.CategoriaRef, BolsaRef: datos.BolsaRef, ActaRef: datos.ActaRef, ImportacionRef: datos.ImportacionRef,
 		HuellaFicheroSHA256:  datos.HuellaFicheroSHA256,
 		FicheroCustodiadoRef: datos.FicheroCustodiadoRef,
 		NombreFichero:        datos.NombreFichero, ActorRef: datos.ActorRef,

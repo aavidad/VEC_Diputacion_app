@@ -63,8 +63,8 @@ func (e EstadoImportacion) Validar() error {
 }
 
 type ConsultaImportacionesDurables interface {
-	ConsultarEstado(context.Context, string) (EstadoImportacion, bool, error)
-	RecuperarLote(context.Context, string) (dominio.LoteValidado, EstadoImportacion, bool, error)
+	ConsultarEstado(context.Context, string, string) (EstadoImportacion, bool, error)
+	RecuperarLote(context.Context, string, string) (dominio.LoteValidado, EstadoImportacion, bool, error)
 }
 
 type SolicitudConciliacion struct {

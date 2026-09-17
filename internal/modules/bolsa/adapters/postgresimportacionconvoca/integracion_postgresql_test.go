@@ -57,7 +57,7 @@ func TestIntegracionPostgreSQLIdempotenciaConcurrenciaYRecuperacion(t *testing.T
 		t.Fatalf("CAS PostgreSQL tuvo %d ganadores", nuevos.Load())
 	}
 	recuperado, estado, existe, err := recuperador.RecuperarLote(
-		ctx, lote.Acta.HuellaFicheroSHA256,
+		ctx, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef,
 	)
 	if err != nil || !existe || estado.EstadoStaging != aplicacion.EstadoStagingDisponible ||
 		len(recuperado.Aceptadas) != len(lote.Aceptadas) ||
@@ -354,7 +354,7 @@ func TestIntegracionPostgreSQLMismaHuellaActoresConcurrentesEnConflicto(t *testi
 		t.Fatalf("CAS por actor: ganador=%q conflictos=%d", ganador, conflictos)
 	}
 	recuperador := recuperadorIntegracion(t, entorno)
-	estado, existe, err := recuperador.ConsultarEstado(ctx, loteA.Acta.HuellaFicheroSHA256)
+	estado, existe, err := recuperador.ConsultarEstado(ctx, loteA.Acta.HuellaFicheroSHA256, loteA.Acta.CategoriaRef)
 	if err != nil || !existe || estado.Acta.ActorRef != ganador {
 		t.Fatalf("actor durable no coincide con ganador: existe=%v actor=%q error=%v",
 			existe, estado.Acta.ActorRef, err)
@@ -399,7 +399,7 @@ func assertMutacionProtegidaRechazada(
 	_, err = tx.Exec(ctx, `
 		SELECT vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(
 		    $1, 2, 512
-		)`, lote.Acta.HuellaFicheroSHA256)
+		)`, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef)
 	if err == nil {
 		t.Fatal("recuperacion acepto material protegido mutado")
 	}
@@ -585,7 +585,7 @@ func TestIntegracionPostgreSQLConciliacionIdempotenteYConflicto(t *testing.T) {
 	) {
 		t.Fatalf("segunda conciliacion incompatible aceptada: %v", err)
 	}
-	estado, existe, err := recuperador.ConsultarEstado(ctx, lote.Acta.HuellaFicheroSHA256)
+	estado, existe, err := recuperador.ConsultarEstado(ctx, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef)
 	if err != nil || !existe ||
 		estado.EstadoConciliacion != aplicacion.EstadoConciliacionConfirmada ||
 		estado.Version != 2 {
@@ -713,12 +713,12 @@ func TestIntegracionPostgreSQLBloqueoExpurgoYReimportacion(t *testing.T) {
 	if err != nil || !replay.Reutilizada || replay.Lotes != 1 || replay.Filas != 2 {
 		t.Fatalf("replay expurgo: %+v, %v", replay, err)
 	}
-	estado, existe, err := recuperador.ConsultarEstado(ctx, lote.Acta.HuellaFicheroSHA256)
+	estado, existe, err := recuperador.ConsultarEstado(ctx, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef)
 	if err != nil || !existe || estado.EstadoStaging != aplicacion.EstadoStagingExpurgado {
 		t.Fatalf("acta tras expurgo: %+v existe=%v error=%v", estado, existe, err)
 	}
 	if _, _, existe, err := recuperador.RecuperarLote(
-		ctx, lote.Acta.HuellaFicheroSHA256,
+		ctx, lote.Acta.HuellaFicheroSHA256, lote.Acta.CategoriaRef,
 	); !existe || !errors.Is(err, aplicacion.ErrStagingExpurgado) {
 		t.Fatalf("staging expurgado recuperable: existe=%v error=%v", existe, err)
 	}

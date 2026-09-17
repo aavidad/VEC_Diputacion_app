@@ -63,8 +63,9 @@ func loteConvocaMemoriaPrueba() dominio.LoteValidado {
 	huella := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	return dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
-			ActaRef:             "acta:importacion-convoca:" + huella,
-			ImportacionRef:      "importacion:convoca:" + huella,
+			CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+			ActaRef:             "acta:importacion-convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
+			ImportacionRef:      "importacion:convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
 			HuellaFicheroSHA256: huella, NombreFichero: "sintetico.xls",
 			FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
 			ActorRef:             "actor:rrhh:memoria", RegistradaEn: time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC),

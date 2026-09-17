@@ -177,8 +177,9 @@ func (r *RepositorioPostgreSQL) guardarUnaVez(
 func (r *RepositorioRecuperacionPostgreSQL) ConsultarEstado(
 	ctx context.Context,
 	huella string,
+	categoriaRef string,
 ) (aplicacion.EstadoImportacion, bool, error) {
-	contenido, existe, err := r.consultarJSON(ctx, funcionConsultarEstadoV1, huella)
+	contenido, existe, err := r.consultarJSON(ctx, funcionConsultarEstadoV1, huella, categoriaRef)
 	if err != nil || !existe {
 		return aplicacion.EstadoImportacion{}, existe, err
 	}
@@ -188,7 +189,7 @@ func (r *RepositorioRecuperacionPostgreSQL) ConsultarEstado(
 		return aplicacion.EstadoImportacion{}, false, ErrResultadoNoConfiable
 	}
 	estado, err := restaurarEstado(datos)
-	if err != nil || estado.Acta.HuellaFicheroSHA256 != huella {
+	if err != nil || estado.Acta.HuellaFicheroSHA256 != huella || estado.Acta.CategoriaRef != categoriaRef {
 		return aplicacion.EstadoImportacion{}, false, ErrResultadoNoConfiable
 	}
 	return estado, true, nil
@@ -197,6 +198,7 @@ func (r *RepositorioRecuperacionPostgreSQL) ConsultarEstado(
 func (r *RepositorioRecuperacionPostgreSQL) RecuperarLote(
 	ctx context.Context,
 	huella string,
+	categoriaRef string,
 ) (dominio.LoteValidado, aplicacion.EstadoImportacion, bool, error) {
 	if ctx == nil || r == nil || valorNulo(r.pool) || valorNulo(r.protector) {
 		return dominio.LoteValidado{}, aplicacion.EstadoImportacion{}, false,
@@ -212,7 +214,7 @@ func (r *RepositorioRecuperacionPostgreSQL) RecuperarLote(
 	defer revertir(tx)
 	var estadoJSON []byte
 	if err := tx.QueryRow(
-		ctx, `SELECT `+funcionConsultarEstadoV1+`($1::text)`, huella,
+		ctx, `SELECT `+funcionConsultarEstadoV1+`($1::text,$2::text)`, huella, categoriaRef,
 	).Scan(&estadoJSON); err != nil {
 		return dominio.LoteValidado{}, aplicacion.EstadoImportacion{}, false,
 			errorPostgreSQL(ctx, err)
@@ -227,7 +229,7 @@ func (r *RepositorioRecuperacionPostgreSQL) RecuperarLote(
 			ErrResultadoNoConfiable
 	}
 	estado, err := restaurarEstado(estadoDatos)
-	if err != nil || estado.Acta.HuellaFicheroSHA256 != huella {
+	if err != nil || estado.Acta.HuellaFicheroSHA256 != huella || estado.Acta.CategoriaRef != categoriaRef {
 		return dominio.LoteValidado{}, aplicacion.EstadoImportacion{}, false, ErrResultadoNoConfiable
 	}
 	if estado.EstadoStaging == aplicacion.EstadoStagingExpurgado {
@@ -244,8 +246,8 @@ func (r *RepositorioRecuperacionPostgreSQL) RecuperarLote(
 		var paginaJSON []byte
 		err := tx.QueryRow(ctx, `
 			SELECT `+funcionRecuperarPaginaV1+`(
-			    $1::text, $2::integer, $3::integer
-			)`, huella, desde, maximoFilasPagina,
+			    $1::text, $2::text, $3::integer, $4::integer
+			)`, huella, categoriaRef, desde, maximoFilasPagina,
 		).Scan(&paginaJSON)
 		if err != nil {
 			return dominio.LoteValidado{}, aplicacion.EstadoImportacion{}, true,
@@ -336,6 +338,7 @@ func (r *RepositorioRecuperacionPostgreSQL) consultarJSON(
 	ctx context.Context,
 	funcion string,
 	huella string,
+	categoriaRef string,
 ) ([]byte, bool, error) {
 	if ctx == nil || r == nil || valorNulo(r.pool) || valorNulo(r.protector) {
 		return nil, false, ErrRepositorioNoDisponible
@@ -349,7 +352,7 @@ func (r *RepositorioRecuperacionPostgreSQL) consultarJSON(
 	}
 	defer revertir(tx)
 	var contenido []byte
-	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text)`, huella).Scan(&contenido)
+	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text,$2::text)`, huella, categoriaRef).Scan(&contenido)
 	if err != nil {
 		return nil, false, errorPostgreSQL(ctx, err)
 	}

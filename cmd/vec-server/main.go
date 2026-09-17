@@ -3,15 +3,33 @@ package main
 import _ "time/tzdata"
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
+	"os"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "importar-convoca" {
+		a, err := leerArgumentosImportarConvoca(os.Args[2:], os.Stderr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cfg := config.Load()
+		r, err := bootstrap.EjecutarImportacionConvoca(context.Background(), cfg, bootstrap.SolicitudImportacionConvoca{Fichero: a.fichero, Categoria: a.categoria, BolsaRef: a.bolsaRef})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("acta=%s huella=%s leidas=%d aceptadas=%d rechazadas=%d", r.Acta.ActaRef, r.Acta.HuellaFicheroSHA256, r.Acta.FilasLeidas, r.Acta.FilasAceptadas, r.Acta.FilasRechazadas)
+		if r.Acta.FilasRechazadas > 0 && !a.admitirRechazos {
+			os.Exit(2)
+		}
+		return
+	}
 	cfg := config.Load()
 	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
 	if err != nil {

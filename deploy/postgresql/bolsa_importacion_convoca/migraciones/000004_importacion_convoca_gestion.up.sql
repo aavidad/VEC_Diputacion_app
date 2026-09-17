@@ -15,7 +15,7 @@ SELECT pg_catalog.pg_advisory_xact_lock(
 DO $barrera$
 BEGIN
     IF pg_catalog.to_regprocedure(
-        'vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(text,integer,integer)'
+        'vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(text,text,integer,integer)'
     ) IS NULL OR pg_catalog.to_regprocedure(
         'vec_bolsa_importacion_convoca.conciliar_v1(text,text,text,text,text,text)'
     ) IS NOT NULL THEN

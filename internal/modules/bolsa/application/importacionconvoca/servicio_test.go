@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -27,6 +28,7 @@ func TestServicioImportaConSHA256ActaEIdempotenciaPorContenido(t *testing.T) {
 	}
 	contenido := []byte("libro-xls-sintetico-opaco")
 	primero, err := servicio.Importar(context.Background(), aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 		NombreFichero:        "convoca-sintetico.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:tecnico-001",
 		ActorRef:             "actor:rrhh:tecnico-001", Contenido: contenido,
@@ -35,6 +37,7 @@ func TestServicioImportaConSHA256ActaEIdempotenciaPorContenido(t *testing.T) {
 		t.Fatalf("primera importacion: %v", err)
 	}
 	segundo, err := servicio.Importar(context.Background(), aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 		NombreFichero:        "convoca-sintetico.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:tecnico-001",
 		ActorRef:             "actor:rrhh:tecnico-001", Contenido: contenido,
@@ -49,8 +52,9 @@ func TestServicioImportaConSHA256ActaEIdempotenciaPorContenido(t *testing.T) {
 			primero.Reutilizada, segundo.Reutilizada, repositorio.NumeroLotes())
 	}
 	if primero.Acta.HuellaFicheroSHA256 != huella ||
-		primero.Acta.ActaRef != "acta:importacion-convoca:"+huella ||
-		primero.Acta.ImportacionRef != "importacion:convoca:"+huella ||
+		primero.Acta.CategoriaRef != "categoria:rpt:administrativo" || primero.Acta.BolsaRef == "" ||
+		!strings.HasPrefix(primero.Acta.ActaRef, "acta:importacion-convoca:") ||
+		!strings.HasPrefix(primero.Acta.ImportacionRef, "importacion:convoca:") ||
 		primero.Acta.ActorRef != "actor:rrhh:tecnico-001" ||
 		!segundo.Acta.CoincideExactamente(primero.Acta) ||
 		primero.Acta.RegistradaEn.Location() != time.UTC ||
@@ -61,6 +65,7 @@ func TestServicioImportaConSHA256ActaEIdempotenciaPorContenido(t *testing.T) {
 		t.Fatalf("acta inesperada: %#v", primero.Acta)
 	}
 	_, err = servicio.Importar(context.Background(), aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 		NombreFichero:        "mismo-contenido.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:tecnico-002",
 		ActorRef:             "actor:rrhh:tecnico-002",
@@ -91,6 +96,7 @@ func TestServicioIdempotenciaConcurrenteTieneUnSoloGanador(t *testing.T) {
 			defer grupo.Done()
 			<-inicio
 			resultado, err := servicio.Importar(context.Background(), aplicacion.SolicitudImportacion{
+				CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 				NombreFichero: "concurrente.xls", ActorRef: "actor:rrhh:concurrente",
 				FicheroCustodiadoRef: "almacen:objeto:convoca:concurrente",
 				Contenido:            []byte("contenido-xls-concurrente-sintetico"),
@@ -203,6 +209,7 @@ func hojaResumenValida() dominio.HojaStaging {
 
 func solicitudValida() aplicacion.SolicitudImportacion {
 	return aplicacion.SolicitudImportacion{
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
 		NombreFichero: "sintetico.xls", ActorRef: "actor:rrhh:prueba",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:sintetico",
 		Contenido:            []byte("contenido-sintetico"),

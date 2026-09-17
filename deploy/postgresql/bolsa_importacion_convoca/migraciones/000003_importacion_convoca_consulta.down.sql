@@ -10,9 +10,9 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     )
 );
 DROP FUNCTION vec_bolsa_importacion_convoca.recuperar_lote_pagina_v1(
-    text,integer,integer
+    text,text,integer,integer
 );
-DROP FUNCTION vec_bolsa_importacion_convoca.consultar_estado_v1(text);
+DROP FUNCTION vec_bolsa_importacion_convoca.consultar_estado_v1(text,text);
 DROP FUNCTION vec_bolsa_importacion_convoca.guardar_lote_v1(
     jsonb,jsonb
 );

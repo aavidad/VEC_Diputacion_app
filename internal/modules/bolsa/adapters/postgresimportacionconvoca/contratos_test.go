@@ -166,8 +166,9 @@ func filaProtegidaPrueba(numero int) FilaStagingProtegida {
 
 func actaPostgreSQLPrueba(huella string, filas int) dominio.ActaImportacion {
 	return dominio.ActaImportacion{
-		ActaRef:             "acta:importacion-convoca:" + huella,
-		ImportacionRef:      "importacion:convoca:" + huella,
+		CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
+		ActaRef:             "acta:importacion-convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
+		ImportacionRef:      "importacion:convoca:" + dominio.ReferenciaContexto(huella, "categoria:rpt:administrativo"),
 		HuellaFicheroSHA256: huella, NombreFichero: "sintetico.xls",
 		FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
 		ActorRef:             "actor:rrhh:prueba",
