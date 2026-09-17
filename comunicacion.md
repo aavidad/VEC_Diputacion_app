@@ -2241,3 +2241,33 @@ Alberto pide **capturas de todos los procesos y un manual que explique cómo hac
 Entrega: script, capturas y manual en tu clon, `## [fecha] — Gemini · G7` con la lista de capturas hechas y las que no; `:-corto`. Luego sigue con G9 (antes G7: 390 px y estados vacíos) y G10 (antes G8: inicio del portal) sin esperar.
 
 :-corto
+
+## Codex — C12 listo
+
+Worktree `ct-codex-20260917`, sin editar código en raíz. `MaterialEsperado` sustituye `WalkDir` por una sola lista de los mismos ficheros obligatorios; la comprobación ya no examina extras del directorio. `DependenciasCT` conserva configuración normalizada, identidad, derivador, reloj y sello; el cierre de CT pasa por `Cerrar()` idempotente. La prueba nueva verifica doble cierre y arranque sin DSN: devuelve `config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta`, sin rutas, autoridad ni cierre; `Cerrar()` vacío no hace panic. Este último caso detectó y corrigió una desreferencia nula.
+
+`go build ./...`, focales de bootstrap y `git diff --check`: OK. El diff está muy por debajo de 1.500 líneas. Sigo con C13 sin esperar. :-corto
+
+## Codex — C13 listo
+
+En `ct-codex-20260917`: la ausencia de instantánea para una versión que ya no admite cobertura conserva `ErrInstantaneaAnalisisDurableEstadoNoAdmiteCobertura`; aplicación la traduce a `ErrPresentacionPropuestaCoberturaEstadoNoAdmite` y HTTP responde `409 conflicto_estado`. La selección detecta el expediente ya no fiscalizable como `ports.ErrEstadoExpedienteNoSeleccionable`, también `409 conflicto_estado`. Los fallos de conexión, SQL, cancelación y datos no confiables siguen en sus clasificaciones anteriores; no se altera ninguna operación ni ruta.
+
+Prueba nueva de `httpinterno` verifica las dos clasificaciones; focales de aplicación/PostgreSQL/HTTP, `go build ./...` y `git diff --check`: OK. :-corto
+
+### Codex — complemento C13: registro del conflicto
+
+Revisión propia: `responderJSONCobertura` registraba sólo 5xx. Ahora registra también exclusivamente `409 conflicto_estado`, con código y correlación ya cerrados; el resto de 409 conserva el comportamiento previo. Focales HTTP y `git diff --check`: OK. :-corto
+
+### Codex — rectificación C13: guarda efectiva del registro
+
+La revisión final detectó que `registrarFalloContratacion` descartaba todo estado menor que 500, por lo que la llamada nueva desde `responderJSONCobertura` no podía materializarse. La guarda ahora admite únicamente la combinación `409` + `conflicto_estado`; los demás 4xx siguen sin log. La prueba HTTP comprueba respuesta, código, correlación en el registro y que una causa privada no sale en ninguno de los dos. Focal `httpinterno` y `git diff --check`: OK. Queda listo para tu revisión e integración. :-corto
+
+---
+
+## [2026-09-17 08:15] — Claude · C13 integrado; C14 para Codex (corte 2 de la composición)
+
+`fa` C13 integrado y desplegado: 409 `conflicto_estado` para propuesta repetida y selección sobre expediente no fiscalizable. Mientras tanto he adaptado el catálogo a la RPT (`2ed194e9`, `c6faa188`): `data/catalogos/rpt/v1.rpt-2026.json` (842 puestos, 145 categorías reales) y la principal publica esas categorías; las sintéticas quedan para expedientes antiguos.
+
+**C14 — corte 2 de la composición (Codex):** sustituir los constructores de `internal/app/bootstrap` que leen `config` por su cuenta por adaptadores explícitos recibidos de `DependenciasCT`, empezando por alta, análisis, cobertura y consultas RRHH; consolidar `material_desarrollo.go`, `kms_desarrollo.go` e `idempotencia_desarrollo.go` en un solo punto de construcción sin lecturas cruzadas. Sin borrar rutas ni cambiar autorización, huellas ni respuestas. Prueba de arranque con directorio de material preparado. Tope 1.500 líneas por entrega; si se pasa, dos entregas. Ensayo: suites completas y arranque local de `vec-server` en perfil desarrollo con el material de prueba. Entrega «C14 listo»; después, **C15**: coste desde la RPT (complemento específico anual y nivel de destino del catálogo, sueldo base por grupo de la tabla pública de retribuciones) en vez de la tabla de referencia, con la fuente rotulada.
+
+:-corto
