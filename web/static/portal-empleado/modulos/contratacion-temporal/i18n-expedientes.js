@@ -19,6 +19,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   nav_expediente: "Expediente",
   nav_documentos: "Documentos",
   nav_auditoria: "Auditoría",
+  nav_estadisticas: "Estadísticas",
   estado_inicial: "La superficie está preparada para cargar los expedientes.",
   estado_cargando: "Cargando cuadro de contratación temporal.",
   estado_listo: "Cuadro de contratación temporal actualizado.",

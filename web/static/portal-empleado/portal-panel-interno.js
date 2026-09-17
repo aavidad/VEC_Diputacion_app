@@ -20,6 +20,9 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerDatosBolsas,
     obtenerDatosCandidatosBolsa,
     obtenerEstadoCandidatos,
+    obtenerModalContactos,
+    obtenerModalLlamar,
+    obtenerModalResultado,
   } = dependencias;
   if ([claseEstado, encabezadoVista, escaparHTML, numero, obtenerDatosPanel, tituloVista]
     .some((dependencia) => typeof dependencia !== "function")) {
@@ -342,7 +345,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     let cuerpoTabla = "";
     if (candidatos.length === 0) {
-      cuerpoTabla = `<tr><td colspan="7" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
+      cuerpoTabla = `<tr><td colspan="8" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
     } else {
       cuerpoTabla = candidatos.map((c) => {
         let detalleLlamamiento = '<small class="texto-atenuado">Sin llamamientos</small>';
@@ -350,6 +353,16 @@ export function crearPresentadorPanelInterno(dependencias) {
           const l = c.ultimo_llamamiento;
           detalleLlamamiento = `<span>${escaparHTML(etiquetaClave(l.canal))} · ${escaparHTML(etiquetaClave(l.resultado))}<br><small><time datetime="${escaparHTML(l.comunicado_en)}">${escaparHTML(instanteVisible(l.comunicado_en))}</time></small></span>`;
         }
+
+        const acciones = [];
+        acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-contactos" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}">Contactos</button>`);
+        if (c.estado_clave === "disponible") {
+          acciones.push(`<button type="button" class="boton-primario" data-bolsa-accion="abrir-llamar" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Llamar</button>`);
+        }
+        if (c.ultimo_llamamiento?.llamamiento_ref) {
+          acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-resultado" data-llamamiento-ref="${escaparHTML(c.ultimo_llamamiento.llamamiento_ref)}" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Resultado</button>`);
+        }
+
         return `
           <tr data-participacion-ref="${escaparHTML(c.participacion_ref)}">
             <td><strong>#${numero(c.orden)}</strong></td>
@@ -359,6 +372,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
+            <td class="acciones-candidato">${acciones.join(" ")}</td>
           </tr>`;
       }).join("");
     }
@@ -396,6 +410,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">Desde</th>
                 <th scope="col">Disponible desde</th>
                 <th scope="col">Último llamamiento</th>
+                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -404,7 +419,165 @@ export function crearPresentadorPanelInterno(dependencias) {
           </table>
         </div>
         ${paginacion}
-      </section>`;
+      </section>
+      ${renderizarModalContactos(typeof obtenerModalContactos === "function" ? obtenerModalContactos() : null)}
+      ${renderizarModalLlamar(typeof obtenerModalLlamar === "function" ? obtenerModalLlamar() : null)}
+      ${renderizarModalResultado(typeof obtenerModalResultado === "function" ? obtenerModalResultado() : null)}`;
+  }
+
+  function renderizarModalContactos(modal) {
+    if (!modal || !modal.abierto) return "";
+    let contenido = "";
+    if (modal.carga === "cargando") {
+      contenido = '<p class="vacio-controlado" role="status" aria-busy="true">Cargando historial de contactos…</p>';
+    } else if (modal.carga === "error") {
+      contenido = `<p class="mensaje-error" role="alert">${escaparHTML(modal.error || "No se pudieron consultar los contactos.")}</p>`;
+    } else if (!modal.contactos || modal.contactos.length === 0) {
+      contenido = '<p class="vacio-controlado" role="status">No hay contactos previos registrados para este aspirante.</p>';
+    } else {
+      const filas = modal.contactos.map((ct) => `
+        <tr data-contacto-ref="${escaparHTML(ct.contacto_ref)}">
+          <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(ct.canal))}</span></td>
+          <td><time datetime="${escaparHTML(ct.realizado_en)}">${escaparHTML(instanteVisible(ct.realizado_en))}</time></td>
+          <td><span class="estado-chip ${claseEstado(ct.resultado_clave)}">${escaparHTML(etiquetaClave(ct.resultado_clave))}</span></td>
+          <td><small>${escaparHTML(ct.anotacion || "—")}</small></td>
+        </tr>
+      `).join("");
+      contenido = `
+        <div class="tabla-contenedor">
+          <table class="tabla-datos">
+            <caption>Historial de comunicaciones y respuestas del aspirante</caption>
+            <thead>
+              <tr>
+                <th scope="col">Canal</th>
+                <th scope="col">Fecha y hora</th>
+                <th scope="col">Resultado</th>
+                <th scope="col">Anotación</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filas}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    return `
+      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-contactos">
+        <div class="modal-contenido">
+          <div class="cabecera-panel">
+            <h3 id="titulo-modal-contactos">Historial de contactos: ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-contactos" aria-label="Cerrar">×</button>
+          </div>
+          <div class="cuerpo-panel">
+            ${contenido}
+          </div>
+          <div class="acciones-vista">
+            <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-contactos">Cerrar</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderizarModalLlamar(modal) {
+    if (!modal || !modal.abierto) return "";
+    const errorHtml = modal.error
+      ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
+      : "";
+    const enviando = modal.carga === "enviando";
+
+    return `
+      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-llamar">
+        <div class="modal-contenido">
+          <div class="cabecera-panel">
+            <h3 id="titulo-modal-llamar">Nuevo llamamiento (B7): ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-llamar" aria-label="Cerrar">×</button>
+          </div>
+          <div class="cuerpo-panel">
+            ${errorHtml}
+            <p>Aspirante en orden <strong>#${numero(modal.orden)}</strong> de la bolsa. Se registrará la comunicación y el plazo de respuesta.</p>
+            <form data-bolsa-form="llamar" data-participacion-ref="${escaparHTML(modal.participacionRef)}">
+              <div class="campo-formulario">
+                <label for="llamar-canal">Canal de comunicación *</label>
+                <select id="llamar-canal" name="canal" required>
+                  <option value="correo">Correo electrónico</option>
+                  <option value="telefono">Teléfono</option>
+                  <option value="sede">Sede electrónica</option>
+                </select>
+              </div>
+              <div class="campo-formulario">
+                <label for="llamar-comunicado-en">Fecha y hora de comunicación *</label>
+                <input type="datetime-local" id="llamar-comunicado-en" name="comunicado_en" required>
+              </div>
+              <div class="campo-formulario">
+                <label for="llamar-plazo-hasta">Plazo límite de respuesta *</label>
+                <input type="datetime-local" id="llamar-plazo-hasta" name="plazo_respuesta_hasta" required>
+              </div>
+              <div class="campo-formulario">
+                <label for="llamar-anotacion">Anotación u observaciones (opcional)</label>
+                <textarea id="llamar-anotacion" name="anotacion" rows="3" maxlength="1024" placeholder="Detalle del intento de localización o notas del llamamiento…"></textarea>
+              </div>
+              <div class="campo-confirmacion">
+                <label for="llamar-confirmacion">
+                  <input type="checkbox" id="llamar-confirmacion" name="confirmacion" value="true" required>
+                  Confirmo el llamamiento formal al aspirante conforme a las normas de gestión de bolsa.
+                </label>
+              </div>
+              <div class="acciones-formulario">
+                <button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${enviando ? "Registrando…" : "Registrar llamamiento"}</button>
+                <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-llamar">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderizarModalResultado(modal) {
+    if (!modal || !modal.abierto) return "";
+    const errorHtml = modal.error
+      ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
+      : "";
+    const enviando = modal.carga === "enviando";
+
+    return `
+      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-resultado">
+        <div class="modal-contenido">
+          <div class="cabecera-panel">
+            <h3 id="titulo-modal-resultado">Registrar resultado de llamamiento (B3)</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-resultado" aria-label="Cerrar">×</button>
+          </div>
+          <div class="cuerpo-panel">
+            ${errorHtml}
+            <p>Aspirante: <strong>${escaparHTML(modal.nombreVisible || modal.participacionRef)}</strong></p>
+            <form data-bolsa-form="resultado" data-llamamiento-ref="${escaparHTML(modal.llamamientoRef)}">
+              <div class="campo-formulario">
+                <label for="resultado-clave">Resultado del llamamiento *</label>
+                <select id="resultado-clave" name="resultado_clave" required>
+                  <option value="">Seleccione un resultado…</option>
+                  <option value="aceptado">Aceptado (pasa a situación Ocupado)</option>
+                  <option value="renuncia">Renuncia (pasa a Renuncia pendiente)</option>
+                  <option value="sin_respuesta">Sin respuesta (continúa Disponible tras salto)</option>
+                </select>
+              </div>
+              <div class="campo-formulario">
+                <label for="resultado-anotacion">Anotación administrativa (opcional)</label>
+                <textarea id="resultado-anotacion" name="anotacion" rows="3" maxlength="1024" placeholder="Observaciones sobre la respuesta o justificante aportado…"></textarea>
+              </div>
+              <div class="campo-confirmacion">
+                <label for="resultado-confirmacion">
+                  <input type="checkbox" id="resultado-confirmacion" name="confirmacion" value="true" required>
+                  Confirmo el resultado del llamamiento y los efectos sobre la posición en bolsa.
+                </label>
+              </div>
+              <div class="acciones-formulario">
+                <button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${enviando ? "Guardando…" : "Guardar resultado"}</button>
+                <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-resultado">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>`;
   }
 
   function renderizarNoConectada(vista) {

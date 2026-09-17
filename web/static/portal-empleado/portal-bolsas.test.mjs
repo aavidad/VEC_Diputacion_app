@@ -5,18 +5,31 @@ import { readFile } from "node:fs/promises";
 import {
   ESQUEMA_BOLSAS,
   ESQUEMA_CANDIDATOS,
+  ESQUEMA_CONTACTOS,
+  ESQUEMA_ACCION_BOLSA,
   SITUACIONES_PARTICIPACION_BOLSA,
+  CANALES_LLAMAMIENTO,
+  RESULTADOS_LLAMAMIENTO_BOLSA,
+  RESULTADOS_REGISTRO_LLAMAMIENTO,
   validarDocumentoEnmascarado,
   extraerDatosEnvelopeCanonico,
   validarBolsa,
   validarRespuestaBolsas,
   validarCandidato,
   validarRespuestaCandidatosBolsa,
+  validarContacto,
+  validarRespuestaContactos,
+  validarPayloadCrearLlamamiento,
+  validarPayloadResultadoLlamamiento,
+  construirEnvelopeAccionBolsa,
 } from "./portal-bolsas-contrato.js";
 
 import {
   consultarBolsas,
   consultarCandidatosBolsa,
+  consultarContactosCandidato,
+  crearLlamamientoCandidato,
+  registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
@@ -462,4 +475,280 @@ test("las vistas de bolsa no contienen la palabra demo en sus textos visibles", 
   // Textos visibles no deben incluir "demo"
   assert.doesNotMatch(resumenHtml, /\bdemo\b/i);
   assert.doesNotMatch(candidatosHtml, /\bdemo\b/i);
+});
+
+test("contrato de contactos y acciones: validación estricta de contacto y respuesta", () => {
+  const contactoValido = {
+    contacto_ref: "contacto:sintetico:001",
+    canal: "telefono",
+    realizado_en: "2026-09-17T10:30:00Z",
+    resultado_clave: "aceptado",
+    anotacion: "Acepta incorporación inmediata",
+  };
+
+  const validado = validarContacto(contactoValido);
+  assert.equal(validado.contacto_ref, "contacto:sintetico:001");
+  assert.equal(validado.canal, "telefono");
+  assert.equal(validado.resultado_clave, "aceptado");
+
+  // Falla si canal no es válido
+  assert.throws(() => validarContacto({ ...contactoValido, canal: "paloma_mensajera" }), /canal de contacto no reconocido/);
+
+  // Falla si resultado_clave no es válido
+  assert.throws(() => validarContacto({ ...contactoValido, resultado_clave: "indeciso" }), /resultado_clave de contacto no reconocido/);
+
+  // Falla ante datos personales en anotación
+  assert.throws(() => validarContacto({ ...contactoValido, anotacion: "Llamar a test@diputacion.es" }), /contiene datos personales/);
+
+  // Falla si faltan campos o hay campos extra
+  assert.throws(() => validarContacto({ ...contactoValido, extra: "no_permitido" }), /no respeta el contrato cerrado/);
+
+  // Envelope canónico de contactos
+  const envelope = {
+    data: {
+      esquema: ESQUEMA_CONTACTOS,
+      generado_en: "2026-09-17T12:00:00Z",
+      participacion_ref: "part:001",
+      contactos: [contactoValido],
+    },
+  };
+  const respuestaValidada = validarRespuestaContactos(envelope);
+  assert.equal(respuestaValidada.esquema, ESQUEMA_CONTACTOS);
+  assert.equal(respuestaValidada.contactos.length, 1);
+  assert.equal(respuestaValidada.contactos[0].contacto_ref, "contacto:sintetico:001");
+});
+
+test("contrato de acciones: validación de payload de crear llamamiento y resultado", () => {
+  const payloadLlamar = {
+    canal: "correo",
+    comunicado_en: "2026-09-17T09:00:00Z",
+    plazo_respuesta_hasta: "2026-09-19T23:59:59Z",
+    anotacion: "Primer llamamiento para plaza vacante",
+  };
+  const llamamientoValidado = validarPayloadCrearLlamamiento(payloadLlamar);
+  assert.equal(llamamientoValidado.canal, "correo");
+
+  assert.throws(() => validarPayloadCrearLlamamiento({ ...payloadLlamar, canal: "fax" }), /canal de llamamiento no válido/);
+  assert.throws(() => validarPayloadCrearLlamamiento({ ...payloadLlamar, comunicado_en: "fecha_invalida" }), /no es una fecha válida|debe ser un instante válido/);
+
+  const payloadResultado = {
+    resultado_clave: "renuncia",
+    anotacion: "Renuncia por incompatibilidad horaria",
+  };
+  const resultadoValidado = validarPayloadResultadoLlamamiento(payloadResultado);
+  assert.equal(resultadoValidado.resultado_clave, "renuncia");
+
+  assert.throws(() => validarPayloadResultadoLlamamiento({ resultado_clave: "otra_cosa" }), /resultado_clave no válido/);
+
+  // Construcción de envelope de acción
+  const accion = construirEnvelopeAccionBolsa("crear_llamamiento", llamamientoValidado, { confirmacion: true });
+  assert.equal(accion.esquema, ESQUEMA_ACCION_BOLSA);
+  assert.equal(accion.accion, "crear_llamamiento");
+  assert.equal(accion.confirmacion, true);
+  assert.deepEqual(accion.payload, llamamientoValidado);
+
+  // Falla sin confirmación explícita
+  assert.throws(() => construirEnvelopeAccionBolsa("crear_llamamiento", llamamientoValidado, { confirmacion: false }), /confirmación explícita/);
+});
+
+test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async () => {
+  const mockFetchOk = async (url, opciones) => {
+    assert.match(url, /\/api\/vec\/bolsa\/candidatos\/part_123\/contactos/);
+    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.headers.Accept, "application/json");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          esquema: ESQUEMA_CONTACTOS,
+          generado_en: "2026-09-17T12:00:00Z",
+          participacion_ref: "part_123",
+          contactos: [
+            {
+              contacto_ref: "c_1",
+              canal: "sede",
+              realizado_en: "2026-09-17T10:00:00Z",
+              resultado_clave: "pendiente",
+              anotacion: "Notificación telemática enviada",
+            },
+          ],
+        },
+      }),
+    };
+  };
+
+  const resOk = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchOk });
+  assert.equal(resOk.ok, true);
+  assert.equal(resOk.datos.contactos.length, 1);
+  assert.equal(resOk.datos.contactos[0].canal, "sede");
+
+  const mockFetchDenegado = async () => ({
+    ok: false,
+    status: 403,
+  });
+  const resDenegado = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchDenegado });
+  assert.equal(resDenegado.ok, false);
+  assert.equal(resDenegado.status, 403);
+  assert.equal(resDenegado.codigo, "acceso_denegado");
+});
+
+test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emiten envelope correcto", async () => {
+  let llamadaLlamar = null;
+  const mockFetchLlamar = async (url, opciones) => {
+    llamadaLlamar = { url, opciones };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          recibo_ref: "recibo:llamamiento:001",
+          estado_clave: "ocupado",
+        },
+      }),
+    };
+  };
+
+  const resLlamar = await crearLlamamientoCandidato("part_456", {
+    canal: "telefono",
+    comunicado_en: "2026-09-17T10:00:00Z",
+    plazo_respuesta_hasta: "2026-09-19T10:00:00Z",
+    anotacion: "Llamada telefónica realizada",
+  }, { fetchImpl: mockFetchLlamar });
+
+  assert.equal(resLlamar.ok, true);
+  assert.match(llamadaLlamar.url, /\/api\/vec\/bolsa\/candidatos\/part_456\/llamamientos/);
+  assert.equal(llamadaLlamar.opciones.method, "POST");
+  assert.equal(llamadaLlamar.opciones.credentials, "omit");
+  const bodyLlamar = JSON.parse(llamadaLlamar.opciones.body);
+  assert.equal(bodyLlamar.esquema, ESQUEMA_ACCION_BOLSA);
+  assert.equal(bodyLlamar.accion, "crear_llamamiento");
+  assert.equal(bodyLlamar.confirmacion, true);
+
+  // Registrar resultado
+  let llamadaResultado = null;
+  const mockFetchResultado = async (url, opciones) => {
+    llamadaResultado = { url, opciones };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          recibo_ref: "recibo:resultado:001",
+          resultado_clave: "aceptado",
+        },
+      }),
+    };
+  };
+
+  const resResultado = await registrarResultadoLlamamiento("llam_789", {
+    resultado_clave: "aceptado",
+    anotacion: "Acepta la vacante ofrecida",
+  }, { fetchImpl: mockFetchResultado });
+
+  assert.equal(resResultado.ok, true);
+  assert.match(llamadaResultado.url, /\/api\/vec\/bolsa\/llamamientos\/llam_789\/resultado/);
+  const bodyResultado = JSON.parse(llamadaResultado.opciones.body);
+  assert.equal(bodyResultado.esquema, ESQUEMA_ACCION_BOLSA);
+  assert.equal(bodyResultado.accion, "registrar_resultado");
+  assert.equal(bodyResultado.confirmacion, true);
+  assert.equal(bodyResultado.payload.resultado_clave, "aceptado");
+});
+
+test("interfaz y presentador: renderizado de acciones por candidato y modales de contactos, llamar y resultado", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+
+  let modalContactos = null;
+  let modalLlamar = null;
+  let modalResultado = null;
+
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (c) => `chip-${c}`,
+    encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
+    escaparHTML: (v) => String(v ?? ""),
+    numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (v) => v,
+    obtenerDatosBolsas: () => ({ carga: "listo", datos: { bolsas: [] }, error: "" }),
+    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: datosCandidatosValidados, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
+    obtenerModalContactos: () => modalContactos,
+    obtenerModalLlamar: () => modalLlamar,
+    obtenerModalResultado: () => modalResultado,
+  });
+
+  const html = presentador.renderizarVista("bolsa-candidatos");
+
+  // Columna Acciones en cabecera
+  assert.match(html, /<th scope="col">Acciones<\/th>/);
+  // Botones de acción
+  assert.match(html, /data-bolsa-accion="abrir-contactos"/);
+  assert.match(html, /data-bolsa-accion="abrir-llamar"/);
+  assert.match(html, /data-bolsa-accion="abrir-resultado"/);
+
+  // Modal de contactos abierto con datos
+  modalContactos = {
+    abierto: true,
+    participacionRef: "part_demo_1",
+    nombreVisible: "Aspirante de Prueba",
+    carga: "listo",
+    contactos: [
+      {
+        contacto_ref: "ct_1",
+        canal: "telefono",
+        realizado_en: "2026-09-17T11:00:00Z",
+        resultado_clave: "aceptado",
+        anotacion: "Llamada satisfactoria",
+      },
+    ],
+  };
+  const htmlConContactos = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(htmlConContactos, /Historial de contactos: Aspirante de Prueba/);
+  assert.match(htmlConContactos, /Llamada satisfactoria/);
+  assert.match(htmlConContactos, /data-bolsa-accion="cerrar-contactos"/);
+
+  // Modal de llamar (B7)
+  modalContactos = null;
+  modalLlamar = {
+    abierto: true,
+    participacionRef: "part_demo_1",
+    nombreVisible: "Aspirante de Prueba",
+    orden: 3,
+    carga: "ocioso",
+    error: "",
+  };
+  const htmlConLlamar = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(htmlConLlamar, /Nuevo llamamiento \(B7\)/);
+  assert.match(htmlConLlamar, /data-bolsa-form="llamar"/);
+  assert.match(htmlConLlamar, /id="llamar-canal"/);
+  assert.match(htmlConLlamar, /id="llamar-comunicado-en"/);
+  assert.match(htmlConLlamar, /id="llamar-plazo-hasta"/);
+  assert.match(htmlConLlamar, /id="llamar-confirmacion"/);
+  assert.match(htmlConLlamar, /Confirmo el llamamiento formal/);
+
+  // Modal de resultado (B3)
+  modalLlamar = null;
+  modalResultado = {
+    abierto: true,
+    llamamientoRef: "llam_1",
+    participacionRef: "part_demo_1",
+    nombreVisible: "Aspirante de Prueba",
+    orden: 3,
+    carga: "ocioso",
+    error: "",
+  };
+  const htmlConResultado = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(htmlConResultado, /Registrar resultado de llamamiento \(B3\)/);
+  assert.match(htmlConResultado, /data-bolsa-form="resultado"/);
+  assert.match(htmlConResultado, /id="resultado-clave"/);
+  assert.match(htmlConResultado, /id="resultado-confirmacion"/);
+  assert.match(htmlConResultado, /Aceptado \(pasa a situación Ocupado\)/);
+  assert.match(htmlConResultado, /Renuncia \(pasa a Renuncia pendiente\)/);
+  assert.match(htmlConResultado, /Sin respuesta \(continúa Disponible tras salto\)/);
+
+  // Ausencia de palabra demo en modales
+  assert.doesNotMatch(htmlConContactos, /\bdemo\b/i);
+  assert.doesNotMatch(htmlConLlamar, /\bdemo\b/i);
+  assert.doesNotMatch(htmlConResultado, /\bdemo\b/i);
 });

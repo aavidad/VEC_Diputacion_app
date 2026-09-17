@@ -1,247 +1,36 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
-import {
-  crearPresentadorAltaContratacionTemporal,
-} from "./presentador.js";
 import { validarReciboAlta } from "./contrato.js";
-import { validarReciboAnalisis } from "./contrato-analisis.js";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
-import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
-import { montarFichaGINPIX } from "./ficha-ginpix.js";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
-import { crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH } from "./cliente-http-informe-definitivo.js";
-import { montarAltaContratacionTemporal } from "./vista.js";
-import {
-  escaparHTML,
-  renderizarAuditoria,
-  renderizarCuadro,
-  renderizarDocumentos,
-  renderizarEstadoCarga,
-  renderizarExpediente,
-  solicitudInformeDefinitivoDesdeEstado,
-} from "./componentes-expedientes.js";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
+import {
+  contextoLlamamientoDesdeEstado,
+  renderizarModuloContratacionTemporal,
+} from "./vista-expedientes-render.js";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
+import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 
-const CAMPOS_COMPOSICION_ANALISIS = Object.freeze([
-  "cliente", "catalogos", "contexto", "analisisInicial", "rectificacion",
-]);
-const CAMPOS_COMPOSICION_ANALISIS_OBLIGATORIOS = Object.freeze([
-  "cliente", "catalogos", "contexto", "analisisInicial",
-]);
-const CAMPOS_CONTEXTO_ANALISIS = Object.freeze(["operacion", "artefacto_ref"]);
-const CAMPOS_RECTIFICACION_ANALISIS = Object.freeze([
-  "operacion", "artefacto_ref", "analisisInicial",
-]);
-const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 
-function descriptoresCerrados(entrada, campos, nombre, obligatorios = campos) {
-  if (entrada === null || typeof entrada !== "object" || Array.isArray(entrada)
-    || Object.getPrototypeOf(entrada) !== Object.prototype) {
-    throw new TypeError(`${nombre} no válida`);
-  }
-  const descriptores = Object.getOwnPropertyDescriptors(entrada);
-  const claves = Object.keys(descriptores);
-  if (Object.getOwnPropertySymbols(entrada).length !== 0
-    || claves.some((clave) => !campos.includes(clave))
-    || claves.some((clave) => !Object.hasOwn(descriptores[clave], "value")
-      || descriptores[clave].enumerable !== true)) {
-    throw new TypeError(`${nombre} no válida`);
-  }
-  if (obligatorios.some((campo) => !Object.hasOwn(descriptores, campo))) return null;
-  return descriptores;
-}
+// Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
+export {
+  montarFormularioCobertura,
+  montarFormularioResolucionFormalizacion,
+  montarFormularioAnotacionAdministrativa,
+  montarFormularioCierreAdministrativo,
+};
 
-function prepararComposicionAnalisis(entrada) {
-  if (entrada === null || entrada === undefined) return null;
-  const descriptores = descriptoresCerrados(
-    entrada,
-    CAMPOS_COMPOSICION_ANALISIS,
-    "composición del análisis",
-    CAMPOS_COMPOSICION_ANALISIS_OBLIGATORIOS,
-  );
-  if (descriptores === null) return null;
-  const contextoEntrada = descriptores.contexto.value;
-  if (contextoEntrada === null || typeof contextoEntrada !== "object"
-    || Array.isArray(contextoEntrada)) return null;
-  const contextoDescriptores = descriptoresCerrados(
-    contextoEntrada,
-    CAMPOS_CONTEXTO_ANALISIS,
-    "contexto de composición del análisis",
-  );
-  if (contextoDescriptores === null) return null;
-  const operacion = contextoDescriptores.operacion.value;
-  const artefactoRef = contextoDescriptores.artefacto_ref.value;
-  const cliente = descriptores.cliente.value;
-  const catalogos = descriptores.catalogos.value;
-  let rectificacion = null;
-  if (Object.hasOwn(descriptores, "rectificacion")) {
-    const entradaRectificacion = descriptores.rectificacion.value;
-    const descriptoresRectificacion = descriptoresCerrados(
-      entradaRectificacion,
-      CAMPOS_RECTIFICACION_ANALISIS,
-      "composición de rectificación del análisis",
-    );
-    if (descriptoresRectificacion === null
-      || descriptoresRectificacion.operacion.value !== "rectificar"
-      || descriptoresRectificacion.artefacto_ref.value !== artefactoRef
-      || descriptoresRectificacion.analisisInicial.value !== null) return null;
-    let metodoRectificacion;
-    try { metodoRectificacion = cliente?.rectificarAnalisis; } catch { return null; }
-    if (typeof metodoRectificacion !== "function") return null;
-    rectificacion = Object.freeze({
-      operacion: "rectificar",
-      artefacto_ref: artefactoRef,
-      analisisInicial: null,
-      metodoCliente: metodoRectificacion,
-    });
-  }
-  const metodo = operacion === "rectificar" ? "rectificarAnalisis" : "registrarAnalisis";
-  let metodoCliente;
-  try { metodoCliente = cliente?.[metodo]; } catch { return null; }
-  if (!(["registrar", "rectificar"].includes(operacion))
-    || typeof artefactoRef !== "string" || !PATRON_REFERENCIA.test(artefactoRef)
-    || cliente === null || typeof cliente !== "object" || typeof metodoCliente !== "function"
-    || catalogos === null || typeof catalogos !== "object" || Array.isArray(catalogos)) {
-    return null;
-  }
-  return Object.freeze({
-    cliente,
-    metodoCliente,
-    nombreMetodo: metodo,
-    catalogos,
-    contexto: Object.freeze({ operacion, artefacto_ref: artefactoRef }),
-    analisisInicial: descriptores.analisisInicial.value,
-    rectificacion,
-  });
-}
-
-function errorIndeterminadoAnalisis() {
-  const error = new Error("resultado de análisis indeterminado");
-  Object.defineProperties(error, {
-    codigo: { value: "resultado_indeterminado", enumerable: true },
-    resultadoIndeterminado: { value: true, enumerable: true },
-  });
-  return error;
-}
-
-function clasificarErrorAnalisis(error, signal) {
-  let indeterminado;
-  let abortado = false;
-  try {
-    indeterminado = error?.resultadoIndeterminado;
-    abortado = signal?.aborted === true;
-  } catch {
-    return Object.freeze({ error: errorIndeterminadoAnalisis(), etapa: "indeterminado" });
-  }
-  if (indeterminado === false && !abortado) {
-    return Object.freeze({ error, etapa: "reintentable" });
-  }
-  return Object.freeze({
-    error: indeterminado === true && !abortado ? error : errorIndeterminadoAnalisis(),
-    etapa: "indeterminado",
-  });
-}
-
-function crearClienteAnalisisCercado(
-  composicion,
-  contexto,
-  cambiarEtapa,
-  alConfirmar,
-  alErrorConfirmado = () => {},
-) {
-  const nombreMetodo = contexto.operacion === "rectificar"
-    ? "rectificarAnalisis" : "registrarAnalisis";
-  const metodoCliente = contexto.operacion === composicion.contexto.operacion
-    ? composicion.metodoCliente
-    : composicion.rectificacion?.metodoCliente;
-  if (typeof metodoCliente !== "function") {
-    throw new TypeError("método de análisis no disponible");
-  }
-  const invocar = function invocarAnalisis(solicitud, opciones) {
-    const vuelo = Object.freeze({});
-    cambiarEtapa("transmitiendo", vuelo);
-    let resultado;
-    try {
-      resultado = Reflect.apply(
-        metodoCliente,
-        composicion.cliente,
-        [solicitud, opciones],
-      );
-    } catch (error) {
-      const clasificado = clasificarErrorAnalisis(error, opciones?.signal);
-      cambiarEtapa(clasificado.etapa, vuelo);
-      throw clasificado.error;
-    }
-    return Promise.resolve(resultado).then((respuesta) => {
-      let recibo;
-      try {
-        recibo = validarReciboAnalisis(respuesta);
-        if (recibo.operacion !== contexto.operacion
-          || recibo.expediente_ref !== contexto.expediente_ref
-          || recibo.version_resultante !== contexto.version_esperada + 1) {
-          throw new TypeError("recibo no ligado");
-        }
-      } catch {
-        cambiarEtapa("indeterminado", vuelo);
-        throw errorIndeterminadoAnalisis();
-      }
-      cambiarEtapa("confirmado", vuelo);
-      try { alConfirmar(recibo); } catch {
-        // El recibo de Análisis prevalece si el siguiente paso no puede montarse.
-        alErrorConfirmado(recibo);
-      }
-      return recibo;
-    }, (error) => {
-      const clasificado = clasificarErrorAnalisis(error, opciones?.signal);
-      cambiarEtapa(clasificado.etapa, vuelo);
-      throw clasificado.error;
-    });
-  };
-  return Object.freeze({ [nombreMetodo]: invocar });
-}
-
-function renderizarNavegacion(estado, t) {
-  const opciones = [
-    ["cuadro", "nav_cuadro"],
-    ["alta", "nav_alta"],
-    ["expediente", "nav_expediente"],
-    ["documentos", "nav_documentos"],
-    ["auditoria", "nav_auditoria"],
-  ];
-  return `<nav class="ct-exp-navegacion" aria-label="${escaparHTML(t("navegacion"))}">
-    ${opciones.map(([vista, clave]) => {
-    const requiereExpediente = ["expediente", "documentos", "auditoria"].includes(vista);
-    return `<button type="button" data-ct-exp-vista="${vista}"
-      ${estado.vista === vista ? 'aria-current="page"' : ""}
-      ${requiereExpediente && !estado.expediente && !estado.cuadro?.expedientes.length ? "disabled" : ""}>
-      ${escaparHTML(t(clave))}
-    </button>`;
-  }).join("")}
-  </nav>`;
-}
-
-function renderizarCabeceraModulo(estado, t) {
-  const demostracion = estado.cuadro?.demostracion === true
-    || estado.expediente?.demostracion === true;
-  return `<header class="ct-exp-cabecera-modulo">
-    <div>
-      <p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p>
-      <h2>${escaparHTML(t("titulo"))}</h2>
-      <p>${escaparHTML(t("descripcion"))}</p>
-    </div>
-    ${demostracion ? `<p class="ct-exp-aviso-presentacion" role="note">${escaparHTML(t("presentacion"))}</p>` : ""}
-  </header>`;
-}
+// Contenedores gestionados por el módulo: data-ct-exp-cobertura
 
 export function crearEjecutorAltaConRefresco(
   ejecutor,
@@ -261,354 +50,6 @@ export function crearEjecutorAltaConRefresco(
     }
     return recibo;
   };
-}
-
-function renderizarAlta(
-  t,
-  disponible,
-  analisisDisponible,
-  coberturaDisponible,
-  asignacionDisponible,
-  informeJuridicoDisponible,
-  fiscalizacionDisponible,
-  catalogoDisponible = true,
-) {
-  if (!disponible || !catalogoDisponible) {
-    const esErrorCatalogo = !catalogoDisponible;
-    const titulo = esErrorCatalogo ? t("catalogo_no_disponible_titulo") : t("denegado_titulo");
-    const detalle = esErrorCatalogo ? t("catalogo_no_disponible_detalle") : t("estado_denegado");
-    return `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
-      <h3>${escaparHTML(titulo)}</h3>
-      <p>${escaparHTML(detalle)}</p>
-      <div class="ct-exp-acciones-estado">
-        <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(t("reintentar"))}</button>
-        <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button>
-      </div>
-    </section>`;
-  }
-  return `<div data-ct-exp-alta></div>
-    ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
-    ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
-    ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
-    ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}
-    ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`;
-}
-
-function contextoLlamamientoDesdeEstado(estado) {
-  const expediente = estado?.expediente;
-  if (estado?.vista !== "expediente" || estado.carga !== "listo"
-    || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
-    || estado.expediente_ref !== expediente.expediente_ref
-    || !Array.isArray(estado.cuadro.expedientes)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === expediente.expediente_ref
-  ));
-  if (resumen?.fase_clave !== "fiscalizacion"
-    || resumen.version !== expediente.version) return null;
-  // Es contexto del formulario; el servidor decide vigencia y permisos al enviar.
-  return Object.freeze({
-    expediente_ref: expediente.expediente_ref,
-    version_esperada: expediente.version,
-  });
-}
-
-function contextoFiscalizacionDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.expediente === null
-    || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  if (resumen?.version !== estado.expediente.version) return null;
-  const esInformeInicial = resumen.fase_clave === "informe_juridico";
-  const ultimoHito = estado.expediente.historial?.at?.(-1);
-  const esSubsanacionAutorizada = resumen.fase_clave === "subsanacion_unidad"
-    && resumen.estado_clave === "incidencia"
-    && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
-    && ultimoHito.version_expediente === estado.expediente.version;
-  if (!esInformeInicial && !esSubsanacionAutorizada) return null;
-  const informe = estado.expediente.cabecera?.find(
-    ({ clave }) => clave === "informe_ref",
-  )?.valor;
-  return Object.freeze({
-    expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version,
-    fase_clave: esSubsanacionAutorizada ? "subsanacion_unidad" : resumen.fase_clave,
-    informe_ref: !esSubsanacionAutorizada
-      && typeof informe === "string" && PATRON_REFERENCIA.test(informe)
-      ? informe : "",
-  });
-}
-
-function asignacionConfirmadaEnDetalle(expediente) {
-  return Array.isArray(expediente?.cabecera) && expediente.cabecera.some(
-    ({ clave, valor }) => clave === "unidad"
-      && typeof valor === "string" && PATRON_REFERENCIA.test(valor),
-  );
-}
-
-// La fase y el reparo proyectado solo acotan el contenedor. La disponibilidad
-// efectiva llega como dependencia de composición y el servidor la revalida al
-// registrar; la vista nunca la deduce de este estado.
-function contextoSubsanacionDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.carga !== "listo"
-    || estado.expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
-    || !Array.isArray(estado.cuadro?.expedientes)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  if (resumen?.fase_clave !== "subsanacion_unidad" || resumen.estado_clave !== "incidencia"
-    || resumen.version !== estado.expediente.version) return null;
-  return Object.freeze({ expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version });
-}
-
-function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t, locale, zonaHoraria) {
-  if (recibo?.expediente_ref !== contextoInforme?.expediente_ref
-    || recibo?.version_resultante !== contextoInforme?.version_esperada
-    || typeof recibo.recibo_ref !== "string" || typeof recibo.confirmada_en !== "string") return "";
-  const fecha = new Date(recibo.confirmada_en);
-  if (!Number.isFinite(fecha.getTime())) return "";
-  const formateador = new Intl.DateTimeFormat(locale, {
-    dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
-  });
-  return `<section class="ct-recibo" data-ct-asignacion-confirmada role="status"
-    aria-live="polite" aria-atomic="true" tabindex="-1">
-    <h3>${escaparHTML(t("asignacion_confirmada_titulo"))}</h3>
-    <p>${escaparHTML(t("asignacion_confirmada_descripcion"))}</p>
-    <dl><div><dt>${escaparHTML(t("asignacion_confirmada_recibo"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
-    <div><dt>${escaparHTML(t("asignacion_confirmada_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-    <div><dt>${escaparHTML(t("asignacion_confirmada_fecha"))}</dt><dd><time datetime="${escaparHTML(recibo.confirmada_en)}">${escaparHTML(formateador.format(fecha))}</time></dd></div></dl>
-  </section>`;
-}
-
-function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, locale, zonaHoraria, mensajes) {
-  if (!recibo || !expediente) return "";
-  if (recibo.expediente_ref !== expediente?.expediente_ref
-    || recibo?.version_resultante !== expediente?.version
-    || !["favorable", "favorable_con_observaciones", "desfavorable"].includes(recibo.resultado)
-    || typeof recibo.recibo_ref !== "string" || typeof recibo.registrada_en !== "string") return "";
-  const fecha = new Date(recibo.registrada_en);
-  if (!Number.isFinite(fecha.getTime())) return "";
-  const formateador = new Intl.DateTimeFormat(locale, {
-    dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
-  });
-  const tFiscalizacion = crearTraductorContratacionTemporal(mensajes);
-  return `<section class="ct-recibo" data-ct-fiscalizacion-confirmada role="status"
-    aria-live="polite" aria-atomic="true" tabindex="-1">
-    <h3>${escaparHTML(t("fiscalizacion_confirmada_titulo"))}</h3>
-    <p>${escaparHTML(t("fiscalizacion_confirmada_descripcion"))}</p>
-    <dl><div><dt>${escaparHTML(t("fiscalizacion_confirmada_resultado"))}</dt><dd>${escaparHTML(
-      tFiscalizacion(`fiscalizacion_resultado_${recibo.resultado}`),
-    )}</dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_recibo"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_fecha"))}</dt><dd><time datetime="${escaparHTML(recibo.registrada_en)}">${escaparHTML(formateador.format(fecha))}</time></dd></div></dl>
-  </section>`;
-}
-
-function contextoInformeJuridicoDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.expediente === null
-    || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  if (resumen?.fase_clave !== "asignacion_unidad"
-    || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version
-    || !asignacionConfirmadaEnDetalle(estado.expediente)) return null;
-  return Object.freeze({
-    expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version,
-  });
-}
-
-function contextoAsignacionDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
-    || estado.cuadro == null || !Array.isArray(estado.cuadro.expedientes)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  if (resumen?.fase_clave !== "asignacion_unidad" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version
-    || asignacionConfirmadaEnDetalle(estado.expediente)) return null;
-  return Object.freeze({
-    expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version,
-  });
-}
-
-function contextoCoberturaDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
-    || estado.cuadro?.demostracion !== false || estado.expediente.demostracion !== false
-    || !Array.isArray(estado.cuadro.expedientes) || !Array.isArray(estado.expediente.cabecera)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  const analisisConfirmado = estado.expediente.cabecera.some(({ clave, valor }) => (
-    clave === "resultado_rc" && typeof valor === "string" && valor !== ""
-  ));
-  const coberturaOAsignacionExistente = estado.expediente.cabecera.some(({ clave }) => (
-    clave === "via_cobertura" || clave === "decision_gobernada" || clave === "unidad"
-  ));
-  if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version || resumen.version < 2
-    || !analisisConfirmado || coberturaOAsignacionExistente) return null;
-  return Object.freeze({
-    expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version,
-  });
-}
-
-function contextoRectificacionAnalisisDesdeEstado(estado) {
-  if (estado?.vista !== "expediente" || estado.carga !== "listo" || estado.expediente == null
-    || estado.cuadro?.demostracion !== false || !Array.isArray(estado.cuadro.expedientes)
-    || estado.expediente.demostracion !== false || estado.expediente.version < 2
-    || !Array.isArray(estado.expediente.cabecera)) return null;
-  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
-    referencia === estado.expediente.expediente_ref
-  ));
-  const analisisConfirmado = estado.expediente.cabecera.some(({ clave, valor }) => (
-    clave === "resultado_rc" && typeof valor === "string" && valor !== ""
-  ));
-  if (resumen?.fase_clave !== "solicitud" || resumen.estado_clave !== "en_curso"
-    || resumen.version !== estado.expediente.version || !analisisConfirmado) {
-    return null;
-  }
-  const claves = new Set(estado.expediente.cabecera.map(({ clave }) => clave));
-  if (!claves.has("resultado_rc") || claves.has("via_cobertura")
-    || claves.has("decision_gobernada") || claves.has("unidad")) return null;
-  return Object.freeze({
-    operacion: "rectificar",
-    expediente_ref: estado.expediente.expediente_ref,
-    version_esperada: estado.expediente.version,
-  });
-}
-
-export function renderizarModuloContratacionTemporal(estado, {
-  mensajes = {},
-  locale = "es-ES",
-  zonaHoraria = "Europe/Madrid",
-  altaDisponible = false,
-  analisisDisponible = false,
-  coberturaDisponible = false,
-  asignacionDisponible = false,
-  informeJuridicoDisponible = false,
-  fiscalizacionDisponible = false,
-  subsanacionDisponible = false,
-  reciboSubsanacionConfirmado = null,
-  reciboFiscalizacionConfirmado = null,
-  llamamientoDisponible = false,
-  resolucionFormalizacionDisponible = false,
-  incorporacionEjercicioDisponible = false,
-  reciboAsignacionConfirmado = null,
-  catalogoDisponible = true,
-} = {}) {
-  const t = crearTraductorExpedientesContratacion(mensajes);
-  let contenido;
-  const errorPaginadoRecuperable = estado.vista === "cuadro" && estado.carga === "error"
-    && estado.cuadro?.paginacion && estado.paginacion_requiere_reinicio === true;
-  if (["cargando", "error", "denegado"].includes(estado.carga)
-    && !errorPaginadoRecuperable
-    && estado.vista !== "alta") {
-    contenido = renderizarEstadoCarga(estado, t);
-  } else if (estado.vista === "alta") {
-    contenido = renderizarAlta(
-      t,
-      altaDisponible,
-      analisisDisponible,
-      coberturaDisponible,
-      asignacionDisponible,
-      informeJuridicoDisponible,
-      fiscalizacionDisponible,
-      catalogoDisponible,
-    );
-  } else if (estado.vista === "expediente") {
-    const detalle = renderizarExpediente(
-      estado,
-      t,
-      locale,
-      zonaHoraria,
-      analisisDisponible,
-    );
-    const contextoInforme = informeJuridicoDisponible
-      ? contextoInformeJuridicoDesdeEstado(estado)
-      : null;
-    const reciboAsignacionPendiente = Boolean(reciboAsignacionConfirmado && estado.expediente)
-      && reciboAsignacionConfirmado.expediente_ref
-      === estado.expediente?.expediente_ref
-      && Number.isSafeInteger(reciboAsignacionConfirmado.version_resultante)
-      && reciboAsignacionConfirmado.version_resultante > estado.expediente?.version;
-    const contextoReciboAsignacion = contextoInforme ?? (reciboAsignacionPendiente
-      ? Object.freeze({
-        expediente_ref: estado.expediente.expediente_ref,
-        version_esperada: reciboAsignacionConfirmado.version_resultante,
-      })
-      : null);
-    const reciboAsignacion = contextoReciboAsignacion === null ? ""
-      : renderizarReciboAsignacionConfirmada(
-        reciboAsignacionConfirmado, contextoReciboAsignacion, t, locale, zonaHoraria,
-      );
-    const reciboFiscalizacion = renderizarReciboFiscalizacionConfirmada(
-      reciboFiscalizacionConfirmado, estado.expediente, t, locale, zonaHoraria, mensajes,
-    );
-    const contextoAsignacion = asignacionDisponible && !reciboAsignacionPendiente
-      ? contextoAsignacionDesdeEstado(estado)
-      : null;
-    const contextoCobertura = coberturaDisponible
-      ? contextoCoberturaDesdeEstado(estado)
-      : null;
-    const contextoRectificacion = analisisDisponible
-      ? contextoRectificacionAnalisisDesdeEstado(estado)
-      : null;
-    const contextoFiscalizacion = fiscalizacionDisponible
-      ? contextoFiscalizacionDesdeEstado(estado)
-      : null;
-    const contextoSubsanacion = subsanacionDisponible
-      ? contextoSubsanacionDesdeEstado(estado)
-      : null;
-    const ultimoHito = estado.expediente?.historial?.at(-1);
-    const conservarReciboSubsanacion = contextoSubsanacion !== null
-      && reciboSubsanacionConfirmado?.recibo?.expediente_ref === contextoSubsanacion.expediente_ref
-      && reciboSubsanacionConfirmado.recibo.version_resultante === contextoSubsanacion.version_esperada;
-    const subsanacionRegistrada = contextoSubsanacion !== null && !conservarReciboSubsanacion
-      && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
-      && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
-      && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
-    contenido = `${detalle}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
-      ? '<div data-ct-exp-rectificacion></div>'
-      : ""}${contextoCobertura
-      ? '<div data-ct-exp-cobertura></div>'
-      : ""}${contextoAsignacion
-      ? '<div data-ct-exp-asignacion></div>'
-      : ""}${contextoInforme
-      ? '<div data-ct-exp-informe-juridico></div>'
-      : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
-      ? '<div data-ct-exp-fiscalizacion></div>'
-      : ""}${subsanacionRegistrada
-      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p>`
-      : contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
-      ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
-  } else if (estado.vista === "documentos") {
-    contenido = renderizarDocumentos(estado, t);
-  } else if (estado.vista === "auditoria") {
-    contenido = renderizarAuditoria(estado, t);
-  } else {
-    contenido = renderizarCuadro(estado, t);
-  }
-  return `<section class="ct-expedientes" data-modulo="contratacion-temporal"
-    aria-labelledby="ct-exp-titulo">
-    ${renderizarCabeceraModulo(estado, t)
-    .replace("<h2>", '<h2 id="ct-exp-titulo">')}
-    ${renderizarNavegacion(estado, t)}
-    <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje || "info")}"
-      data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
-      aria-live="polite">${escaparHTML(estado.mensaje_clave ? t(estado.mensaje_clave) : "")}</div>
-    <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
-      && estado.vista === "expediente" && estado.carga === "listo"
-      && estado.expediente !== null
-      ? '<div data-ct-exp-llamamiento></div>' : ""}</div>
-  </section>`;
 }
 
 function extraerDatosTarea(formulario) {
@@ -635,7 +76,7 @@ export async function montarModuloContratacionTemporal({
   fiscalizacion = null,
   subsanacion = null,
   llamamiento = null,
-  clienteBorradorRRHH = crearClienteHTTPBorradorRRHH(),
+  clienteBorradorRRHH,
   entornoDescarga = globalThis,
   mensajes = {},
   anunciar = () => {},
@@ -650,6 +91,7 @@ export async function montarModuloContratacionTemporal({
     || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
+
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
   const composicionAnalisis = prepararComposicionAnalisis(analisis);
@@ -684,458 +126,69 @@ export async function montarModuloContratacionTemporal({
     && typeof clienteLlamamiento?.prepararResolucionFormalizacion === "function";
   const incorporacionEjercicioDisponible = typeof clienteLlamamiento?.prepararIncorporacionEjercicio === "function"
     && typeof clienteLlamamiento?.confirmarIncorporacionEjercicio === "function";
-  const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
-  let desmontarIncorporacionEjercicio = null;
-  let consultaIncorporacionEjercicio = null;
-  let desmontarLlamamiento = null;
-  let desmontarResolucionFormalizacion = null;
-  let consultaResolucionFormalizacion = null;
+
   let montada = true;
-  let desmontarAlta = null;
-  let desmontarAnalisis = null;
-  let desmontarCobertura = null;
-  let desmontarAsignacion = null;
-  let desmontarInformeJuridico = null;
-  let desmontarFiscalizacion = null;
-  let desmontarSubsanacion = null;
-  let reciboSubsanacionConfirmado = null;
-  let reciboFiscalizacionConfirmado = null;
-  let reciboAsignacionConfirmado = null;
+  let desmontarLlamamiento = null;
   let reciboPropuestaConfirmado = null;
-  let sesionAnalisis = null;
-  let descargaInforme = null;
-  let accionDescargaInforme = null;
-  let formatoDescargaInforme = null;
-  let urlInforme = null;
-  let revocacionInforme = null;
-  const desmontarEstadosMontaje = new Set();
-  const estadosMontajePorContenedor = new Map();
+  let desmontarEstadisticas = null;
 
-  function mostrarErrorMontaje(contenedor, etapa, reintentar) {
-    if (!montada || !contenedor || typeof reintentar !== "function") return;
-    const existentes = estadosMontajePorContenedor.get(contenedor);
-    if (existentes?.has(etapa)) return;
-    const documento = contenedor.ownerDocument ?? raiz.ownerDocument;
-    if (!documento?.createElement || typeof contenedor.append !== "function") {
-      anunciar(tExpedientes("montaje_siguiente_pendiente"), "error");
-      return;
-    }
-    const bloque = documento.createElement("section");
-    const boton = documento.createElement("button");
-    const limpiar = () => {
-      boton.removeEventListener?.("click", manejarReintento);
-      bloque.remove?.();
-      desmontarEstadosMontaje.delete(limpiar);
-      const restantes = estadosMontajePorContenedor.get(contenedor);
-      restantes?.delete(etapa);
-      if (restantes?.size === 0) estadosMontajePorContenedor.delete(contenedor);
-    };
-    const manejarReintento = () => {
-      if (!montada) return;
-      limpiar();
-      try {
-        if (!reintentar()) mostrarErrorMontaje(contenedor, etapa, reintentar);
-      } catch {
-        mostrarErrorMontaje(contenedor, etapa, reintentar);
-      }
-    };
-    bloque.setAttribute?.("class", "ct-estado ct-estado-aviso");
-    bloque.setAttribute?.("role", "alert");
-    bloque.setAttribute?.("aria-live", "assertive");
-    bloque.setAttribute?.("data-ct-exp-montaje-pendiente", etapa);
-    const titulo = documento.createElement("p");
-    titulo.textContent = tExpedientes("montaje_siguiente_pendiente");
-    const detalle = documento.createElement("p");
-    detalle.textContent = tExpedientes("montaje_siguiente_pendiente_detalle");
-    boton.type = "button";
-    boton.className = "boton-secundario";
-    boton.textContent = tExpedientes("montaje_siguiente_reintentar");
-    boton.setAttribute?.("data-ct-exp-reintentar-montaje", etapa);
-    boton.addEventListener?.("click", manejarReintento);
-    bloque.append(titulo, detalle, boton);
-    contenedor.append(bloque);
-    desmontarEstadosMontaje.add(limpiar);
-    const porEtapa = estadosMontajePorContenedor.get(contenedor) ?? new Map();
-    porEtapa.set(etapa, limpiar);
-    estadosMontajePorContenedor.set(contenedor, porEtapa);
-    anunciar(titulo.textContent, "error");
-  }
+  const esMontada = () => montada;
 
-  function limpiarEstadosMontaje() {
-    for (const desmontar of [...desmontarEstadosMontaje]) desmontar();
-  }
+  const gestorBorrador = crearGestorDescargaBorradorRRHH({
+    raiz,
+    presentador,
+    clienteBorradorRRHH,
+    entornoDescarga,
+    mensajes,
+    anunciar,
+    esMontada,
+  });
 
-  function liberarURLInforme() {
-    clearTimeout(revocacionInforme);
-    revocacionInforme = null;
-    if (urlInforme !== null) entornoDescarga.URL.revokeObjectURL(urlInforme);
-    urlInforme = null;
-  }
+  const gestorIncorporacion = crearGestorIncorporacion({
+    raiz,
+    presentador,
+    clienteLlamamiento,
+    resolucionFormalizacionDisponible,
+    incorporacionEjercicioDisponible,
+    confirmarOperacion,
+    mensajes,
+    locale,
+    zonaHoraria,
+    anunciar,
+    repintar: (foco) => repintar(foco),
+    entornoDescarga,
+    esMontada,
+  });
 
-  function cancelarDescargaInforme() {
-    const activa = descargaInforme !== null;
-    const accion = accionDescargaInforme;
-    const formato = formatoDescargaInforme;
-    descargaInforme?.abort();
-    descargaInforme = null;
-    accionDescargaInforme = null;
-    formatoDescargaInforme = null;
-    liberarURLInforme();
-    if (activa && accion) actualizarResultadoDescarga(accion.replace("descargar-", ""), "descarga_cancelada", true, formato);
-    return activa;
-  }
-
-  function informarDescarga(clave, tipo) {
-    const texto = crearTraductorExpedientesContratacion(mensajes)(clave);
-    const mensaje = raiz.querySelector("[data-ct-exp-mensaje]");
-    if (mensaje) {
-      mensaje.textContent = texto;
-      mensaje.setAttribute("role", tipo === "error" ? "alert" : "status");
-    }
-    anunciar(texto, tipo);
-  }
-
-  function actualizarResultadoDescarga(accion, clave, reintentar = false, formato = null) {
-    const t = crearTraductorExpedientesContratacion(mensajes);
-    const resultado = raiz.querySelector?.(`[data-ct-exp-resultado-descarga="${accion}"]`);
-    if (resultado) resultado.textContent = t(clave);
-    const boton = raiz.querySelector?.(`[data-ct-exp-accion="reintentar-descarga-${accion}"]`);
-    if (boton) {
-      boton.disabled = !reintentar;
-      boton.hidden = !reintentar;
-      if (reintentar && ["pdf", "docx"].includes(formato)) boton.dataset.ctExpFormato = formato;
-      else delete boton.dataset.ctExpFormato;
-    }
-  }
-
-  async function descargarBorrador(boton) {
-    const solicitud = solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado());
-    if (!montada || descargaInforme || !solicitud) return;
-    const esReintento = boton.dataset.ctExpAccion.startsWith("reintentar-descarga-");
-    const accionSolicitada = boton.dataset.ctExpAccion.replace("reintentar-descarga-", "descargar-");
-    const accionDocumento = accionSolicitada.replace("descargar-docx-", "descargar-");
-    const formato = esReintento && ["pdf", "docx"].includes(boton.dataset.ctExpFormato)
-      ? boton.dataset.ctExpFormato : accionSolicitada.startsWith("descargar-docx-") ? "docx" : "pdf";
-    const tipo = accionDocumento === "descargar-resolucion" ? "resolucion"
-      : accionDocumento === "descargar-diligencia" ? "diligencia"
-        : accionDocumento === "descargar-toma-posesion" ? "toma_posesion"
-          : accionDocumento === "descargar-notificacion" ? "notificacion"
-            : accionDocumento === "descargar-comunicacion-centro" ? "comunicacion_centro" : "informe_definitivo";
-    const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"], [data-ct-exp-accion="descargar-notificacion"], [data-ct-exp-accion="descargar-comunicacion-centro"], [data-ct-exp-accion="descargar-docx-informe-definitivo"], [data-ct-exp-accion="descargar-docx-resolucion"], [data-ct-exp-accion="descargar-docx-diligencia"], [data-ct-exp-accion="descargar-docx-toma-posesion"], [data-ct-exp-accion="descargar-docx-notificacion"], [data-ct-exp-accion="descargar-docx-comunicacion-centro"]',
-    )] : [boton];
-    const cancelaciones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion="cancelar-descarga"]',
-    )].filter((control) => control.dataset?.ctExpAccion === "cancelar-descarga") : [];
-    const reintentos = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion^="reintentar-descarga-"]',
-    )] : [];
-    const controlador = new AbortController();
-    descargaInforme = controlador;
-    accionDescargaInforme = accionDocumento;
-    formatoDescargaInforme = formato;
-    botones.forEach((control) => { control.disabled = true; });
-    cancelaciones.forEach((control) => { control.disabled = false; });
-    reintentos.forEach((control) => { control.disabled = true; });
-    actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), "informe_definitivo_descargando");
-    informarDescarga("informe_definitivo_descargando", "informacion");
-    try {
-      const { document: documento, URL: urls } = entornoDescarga;
-      if (!documento?.body || typeof urls?.createObjectURL !== "function"
-        || typeof urls?.revokeObjectURL !== "function") throw new TypeError();
-      const blob = await clienteBorradorRRHH.descargarBorrador(solicitud, {
-      tipo, formato, signal: controlador.signal,
+  const gestorTramitacion = crearGestorTramitacion({
+    raiz,
+    presentador,
+    alta,
+    altaDisponible,
+    composicionAnalisis,
+    rectificacionDisponible,
+    coberturaDisponible,
+    asignacionDisponible,
+    informeJuridicoDisponible,
+    clienteFiscalizacion,
+    fiscalizacionDisponible,
+    clienteSubsanacion,
+    subsanacionDisponible,
+    crearEjecutorAltaConRefresco,
+    alFiscalizacionConfirmadaLlamamiento: (recibo) => {
+      montarLlamamiento({
+        expediente_ref: recibo.expediente_ref,
+        version_esperada: recibo.version_resultante,
       });
-      if (!montada || descargaInforme !== controlador || controlador.signal.aborted
-        || JSON.stringify(solicitudInformeDefinitivoDesdeEstado(presentador.obtenerEstado()))
-          !== JSON.stringify(solicitud)) return;
-      liberarURLInforme();
-      urlInforme = urls.createObjectURL(blob);
-      const enlace = documento.createElement("a");
-      try {
-        enlace.href = urlInforme;
-        enlace.download = formato === "pdf" ? PERFILES_BORRADOR_RRHH[tipo].nombre
-          : PERFILES_BORRADOR_RRHH[tipo].nombre.replace(/\.pdf$/u, ".docx");
-        enlace.hidden = true;
-        documento.body.append(enlace);
-        enlace.click();
-      } finally {
-        enlace.remove();
-        revocacionInforme = setTimeout(liberarURLInforme, 0);
-      }
-      informarDescarga("informe_definitivo_listo", "informacion");
-      actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), "informe_definitivo_listo");
-    } catch (error) {
-      if (!montada || descargaInforme !== controlador || controlador.signal.aborted) return;
-      const clave = error?.envelopeValido === true && error.codigo === "documento_no_disponible"
-        ? "informe_definitivo_no_disponible"
-        : error?.envelopeValido === true && ["acceso_denegado", "autenticacion_requerida"].includes(error.codigo)
-          ? "informe_definitivo_denegado" : "informe_definitivo_error";
-      informarDescarga(clave, "error");
-      actualizarResultadoDescarga(accionDocumento.replace("descargar-", ""), clave, true, formato);
-    } finally {
-      if (descargaInforme === controlador) {
-        descargaInforme = null;
-        accionDescargaInforme = null;
-        formatoDescargaInforme = null;
-      }
-      botones.forEach((control) => { control.disabled = false; });
-      cancelaciones.forEach((control) => { control.disabled = true; });
-      reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
-    }
-  }
-
-  function bloquearControlesAnalisis(sesion) {
-    if (sesion.controles === null) {
-      const controles = typeof raiz.querySelectorAll === "function"
-        ? [...raiz.querySelectorAll(
-          "[data-ct-exp-vista], [data-ct-exp-abrir], [data-ct-exp-tarea], [data-ct-exp-efecto], [data-ct-exp-accion]",
-        )] : [];
-      sesion.controles = controles.map((control) => ({
-        control,
-        deshabilitado: control.disabled === true,
-        aria: control.getAttribute?.("aria-disabled") ?? null,
-      }));
-      for (const registro of sesion.controles) {
-        registro.control.disabled = true;
-        registro.control.setAttribute?.("aria-disabled", "true");
-      }
-      sesion.ariaBusy = raiz.getAttribute?.("aria-busy") ?? null;
-    }
-    raiz.setAttribute?.("aria-busy", "true");
-  }
-
-  function restaurarOcupacionAnalisis(sesion) {
-    if (!sesion || sesion.controles === null) return;
-    if (sesion.ariaBusy === null) raiz.removeAttribute?.("aria-busy");
-    else raiz.setAttribute?.("aria-busy", sesion.ariaBusy);
-  }
-
-  function restaurarControlesAnalisis(sesion) {
-    if (!sesion || sesion.controles === null) return;
-    for (const registro of sesion.controles) {
-      registro.control.disabled = registro.deshabilitado;
-      if (registro.aria === null) registro.control.removeAttribute?.("aria-disabled");
-      else registro.control.setAttribute?.("aria-disabled", registro.aria);
-    }
-    restaurarOcupacionAnalisis(sesion);
-    sesion.controles = null;
-  }
-
-  function cambiarEtapaAnalisis(sesion, etapa, vuelo) {
-    if (!montada || sesionAnalisis !== sesion) return;
-    if (etapa === "transmitiendo") {
-      sesion.intentoIniciado = true;
-      sesion.vuelo = vuelo;
-      bloquearControlesAnalisis(sesion);
-    } else if (sesion.vuelo !== vuelo) {
-      return;
-    }
-    sesion.etapa = etapa;
-    if (etapa !== "transmitiendo") restaurarOcupacionAnalisis(sesion);
-  }
-
-  function analisisEstableActivo() {
-    return sesionAnalisis?.intentoIniciado === true;
-  }
-
-  function anunciarBloqueoAnalisis() {
-    const clave = {
-      transmitiendo: "estado_registrando_actuacion",
-      reintentable: "estado_error_actuacion",
-      indeterminado: "estado_resultado_indeterminado",
-      confirmado: "estado_confirmada_actualizacion_pendiente",
-    }[sesionAnalisis?.etapa] ?? "estado_resultado_indeterminado";
-    anunciar(crearTraductorExpedientesContratacion(mensajes)(clave), "aviso");
-    enfocar(raiz, "[data-ct-analisis-estado]");
-  }
-
-  function impedirCambioPorAnalisis() {
-    if (!analisisEstableActivo()) return false;
-    anunciarBloqueoAnalisis();
-    return true;
-  }
-
-  function retirarAlta() {
-    if (typeof desmontarAlta === "function") desmontarAlta();
-    desmontarAlta = null;
-  }
-
-  function retirarAnalisis() {
-    if (typeof desmontarAnalisis === "function") desmontarAnalisis();
-    desmontarAnalisis = null;
-    restaurarControlesAnalisis(sesionAnalisis);
-    sesionAnalisis = null;
-  }
-
-  function retirarCobertura() {
-    if (typeof desmontarCobertura === "function") desmontarCobertura();
-    desmontarCobertura = null;
-  }
-
-  function retirarAsignacion() {
-    consultaResolucionFormalizacion?.abort();
-    consultaResolucionFormalizacion = null;
-    desmontarLlamamiento?.();
-    desmontarLlamamiento = null;
-    desmontarResolucionFormalizacion?.();
-    desmontarResolucionFormalizacion = null;
-    if (typeof desmontarFiscalizacion === "function") desmontarFiscalizacion();
-    desmontarFiscalizacion = null;
-    desmontarSubsanacion?.();
-    desmontarSubsanacion = null;
-    if (typeof desmontarInformeJuridico === "function") desmontarInformeJuridico();
-    desmontarInformeJuridico = null;
-    if (typeof desmontarAsignacion === "function") desmontarAsignacion();
-    desmontarAsignacion = null;
-  }
-
-  function montarFiscalizacion(contexto) {
-    if (!montada || !fiscalizacionDisponible || desmontarFiscalizacion !== null) {
-      return desmontarFiscalizacion !== null;
-    }
-    const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
-    if (!contenedor) return false;
-    try {
-      desmontarFiscalizacion = montarFormularioFiscalizacion({
-        raiz: contenedor,
-        cliente: clienteFiscalizacion,
-        contexto,
-        confirmarOperacion,
-        mensajes,
-        locale,
-        zonaHoraria,
-        anunciar,
-        alConfirmar: (recibo) => {
-          try {
-            if (recibo.resultado !== "desfavorable" && recibo.version_resultante >= 6) {
-              montarLlamamiento({
-                expediente_ref: recibo.expediente_ref,
-                version_esperada: recibo.version_resultante,
-              });
-            }
-          } finally {
-            // El refresco conserva el recibo aunque el paso siguiente no pueda montarse.
-            void refrescarDetalleTrasFiscalizacion(recibo);
-          }
-        },
-      });
-      return true;
-    } catch {
-      desmontarFiscalizacion = null;
-      return false;
-    }
-  }
-
-  function montarFiscalizacionDesdeInforme(recibo) {
-    return montarFiscalizacion(Object.freeze({
-      expediente_ref: recibo.expediente_ref,
-      version_esperada: recibo.version_resultante,
-      fase_clave: "informe_juridico",
-      informe_ref: recibo.informe_ref,
-    }));
-  }
-
-  function montarSubsanacionDesdeExpedienteActual() {
-    if (!montada || !subsanacionDisponible || desmontarSubsanacion !== null) return;
-    const contexto = contextoSubsanacionDesdeEstado(presentador.obtenerEstado());
-    const contenedor = raiz.querySelector("[data-ct-exp-subsanacion]");
-    if (!contexto || !contenedor) return;
-    const reciboConfirmado = reciboSubsanacionConfirmado?.recibo?.expediente_ref === contexto.expediente_ref
-      && [reciboSubsanacionConfirmado.contexto.version_esperada, reciboSubsanacionConfirmado.recibo.version_resultante].includes(contexto.version_esperada)
-      ? reciboSubsanacionConfirmado : null;
-    try {
-      desmontarSubsanacion = montarFormularioSubsanacionReparos({
-        raiz: contenedor, cliente: clienteSubsanacion, contexto,
-        traducir: crearTraductorContratacionTemporal(mensajes), confirmarOperacion,
-        anunciar, reciboConfirmado,
-        alConfirmar: refrescarDetalleTrasSubsanacion,
-      });
-    } catch {
-      desmontarSubsanacion = null;
-      const t = crearTraductorContratacionTemporal(mensajes);
-      contenedor.innerHTML = `<p role="alert">${escaparHTML(t("subsanacion_montaje_error"))}</p>`;
-    }
-  }
-
-  async function refrescarDetalleTrasSubsanacion(recibo, contextoOriginal) {
-    if (!montada || recibo?.expediente_ref !== contextoOriginal?.expediente_ref
-      || recibo.version_resultante <= contextoOriginal.version_esperada) return;
-    reciboSubsanacionConfirmado = Object.freeze({ recibo, contexto: contextoOriginal });
-    const seleccionado = presentador.obtenerEstado();
-    if (seleccionado.vista !== "expediente"
-      || seleccionado.expediente?.expediente_ref !== contextoOriginal.expediente_ref) return;
-    const panel = raiz.querySelector("[data-ct-exp-subsanacion]");
-    // cargar descarta la selección antigua cuando cambia la versión; el panel
-    // identifica la navegación del usuario mientras se recupera la nueva.
-    const sigueSeleccionado = () => montada && panel !== null
-      && raiz.querySelector("[data-ct-exp-subsanacion]") === panel;
-    const avisarPendiente = () => {
-      if (sigueSeleccionado()) anunciar(
-        crearTraductorContratacionTemporal(mensajes)("subsanacion_actualizacion_pendiente"), "aviso",
-      );
-    };
-    try {
-      await presentador.cargar();
-      if (!sigueSeleccionado()) return;
-      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
-        ({ expediente_ref: referencia }) => referencia === contextoOriginal.expediente_ref,
-      );
-      if (!resumen || resumen.version < recibo.version_resultante) { avisarPendiente(); return; }
-      await presentador.seleccionarExpediente(contextoOriginal.expediente_ref, "expediente");
-      if (!sigueSeleccionado()) return;
-      const actualizado = presentador.obtenerEstado().expediente;
-      if (actualizado?.expediente_ref !== contextoOriginal.expediente_ref
-        || actualizado.version < recibo.version_resultante) { avisarPendiente(); return; }
-      repintar("[data-ct-subsanacion-recibo]");
-    } catch {
-      avisarPendiente();
-    }
-  }
-
-  async function refrescarDetalleTrasFiscalizacion(recibo) {
-    const seleccionado = presentador.obtenerEstado();
-    if (!montada || recibo?.expediente_ref !== seleccionado.expediente?.expediente_ref
-      || !Number.isSafeInteger(recibo?.version_resultante)
-      || recibo.version_resultante <= seleccionado.expediente.version) return false;
-    const panel = raiz.querySelector("[data-ct-exp-fiscalizacion]");
-    if (panel === null) return false;
-    reciboFiscalizacionConfirmado = Object.freeze({ ...recibo });
-    // La identidad del panel evita reemplazar un recibo confirmado si la
-    // persona usuaria ha cambiado de expediente mientras se actualiza.
-    const sigueSeleccionado = () => montada
-      && raiz.querySelector("[data-ct-exp-fiscalizacion]") === panel;
-    const avisarPendiente = () => {
-      if (sigueSeleccionado()) anunciar(
-        crearTraductorContratacionTemporal(mensajes)("fiscalizacion_actualizacion_pendiente"),
-        "aviso",
-      );
-    };
-    try {
-      await presentador.cargar();
-      if (!sigueSeleccionado()) return false;
-      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
-        ({ expediente_ref: referencia }) => referencia === recibo.expediente_ref,
-      );
-      if (!resumen || resumen.version < recibo.version_resultante) {
-        avisarPendiente();
-        return false;
-      }
-      await presentador.seleccionarExpediente(recibo.expediente_ref, "expediente");
-      if (!sigueSeleccionado()) return false;
-      const actualizado = presentador.obtenerEstado().expediente;
-      if (actualizado?.expediente_ref !== recibo.expediente_ref
-        || actualizado.version !== recibo.version_resultante) {
-        avisarPendiente();
-        return false;
-      }
-      repintar("[data-ct-exp-mensaje]");
-      return true;
-    } catch {
-      avisarPendiente();
-      return false;
-    }
-  }
+    },
+    confirmarOperacion,
+    mensajes,
+    locale,
+    zonaHoraria,
+    anunciar,
+    repintar: (foco) => repintar(foco),
+    esMontada,
+  });
 
   async function refrescarDetalleTrasPropuesta(recibo, solicitud) {
     if (!montada || recibo?.propuesta_ref === undefined
@@ -1196,638 +249,29 @@ export async function montarModuloContratacionTemporal({
     });
   }
 
-  async function montarResolucionFormalizacion() {
+  function retirarEstadisticas() {
+    desmontarEstadisticas?.();
+    desmontarEstadisticas = null;
+  }
+
+  function montarEstadisticasSiProcede() {
     const estado = presentador.obtenerEstado();
-    if (!montada || !resolucionFormalizacionDisponible || desmontarResolucionFormalizacion || consultaResolucionFormalizacion
-      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
-      || estado?.vista !== "expediente" || ![7, 8].includes(estado?.expediente?.version)) return;
-    const contenedor = raiz.querySelector("[data-ct-exp-resolucion-formalizacion]");
+    if (!montada || estado.vista !== "estadisticas") return;
+    const contenedor = raiz.querySelector("[data-ct-exp-estadisticas]");
     if (!contenedor) return;
-    const expedienteRef = estado.expediente.expediente_ref;
-    const version = estado.expediente.version;
-    const controlador = new AbortController();
-    consultaResolucionFormalizacion = controlador;
-    const vigente = () => {
-      const actual = presentador.obtenerEstado();
-      return montada && consultaResolucionFormalizacion === controlador
-        && !controlador.signal.aborted && raiz.contains?.(contenedor)
-        && raiz.querySelector("[data-ct-exp-resolucion-formalizacion]") === contenedor
-        && actual?.vista === "expediente" && actual.carga === "listo"
-        && actual.expediente?.expediente_ref === expedienteRef
-        && actual.expediente?.version === version;
-    };
-    const t = crearTraductorExpedientesContratacion(mensajes);
-    contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("resolucion_preparacion_cargando"))}</p>`;
-    try {
-      const preparacion = await clienteLlamamiento.prepararResolucionFormalizacion(
-        expedienteRef, { signal: controlador.signal },
-      );
-      if (!vigente()) return;
-      const promocionAutorizada = version === 7 && preparacion.version_actual === 8
-        && preparacion.recibo !== null;
-      if (preparacion.expediente_ref !== expedienteRef
-        || (preparacion.version_actual !== version && !promocionAutorizada)) throw new TypeError("preparación no ligada");
-      desmontarResolucionFormalizacion = montarFormularioResolucionFormalizacion({
-        raiz: contenedor, cliente: clienteLlamamiento, confirmarOperacion, mensajes, locale, zonaHoraria,
-        preparacion,
-      });
-    } catch (error) {
-      if (!vigente()) return;
-      const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);
-      contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t(denegada
-        ? "resolucion_preparacion_denegada" : "resolucion_preparacion_no_disponible"))}</p>
-        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-resolucion">${escaparHTML(t("resolucion_preparacion_reintentar"))}</button>`}`;
-      desmontarResolucionFormalizacion = null;
-    } finally {
-      if (consultaResolucionFormalizacion === controlador) consultaResolucionFormalizacion = null;
-    }
-  }
-
-  async function montarIncorporacionEjercicio() {
-    const estado = presentador.obtenerEstado();
-    if (!montada || !incorporacionEjercicioDisponible || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio
-      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
-      || estado.vista !== "expediente" || !Number.isSafeInteger(estado.expediente?.version)
-      || estado.expediente.version < 8) return;
-    const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
-    if (!contenedor) return;
-    const expedienteRef = estado.expediente.expediente_ref;
-    const version = estado.expediente.version;
-    const controlador = new AbortController();
-    consultaIncorporacionEjercicio = controlador;
-    const vigente = () => {
-      const actual = presentador.obtenerEstado();
-      return montada && consultaIncorporacionEjercicio === controlador && !controlador.signal.aborted
-        && raiz.contains?.(contenedor) && raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]") === contenedor
-        && actual?.vista === "expediente" && actual.carga === "listo"
-        && actual.expediente?.expediente_ref === expedienteRef && actual.expediente?.version === version;
-    };
-    const t = crearTraductorExpedientesContratacion(mensajes);
-    const tCT = crearTraductorContratacionTemporal(mensajes);
-    contenedor.innerHTML = `<p class="ct-ayuda" role="status">${escaparHTML(t("incorporacion_preparacion_cargando"))}</p>`;
-    try {
-      const preparacion = await clienteLlamamiento.prepararIncorporacionEjercicio(expedienteRef, { signal: controlador.signal });
-      if (!vigente()) return;
-      if (preparacion.expediente_ref !== expedienteRef) {
-        throw new TypeError("preparación de incorporación no ligada al detalle actual");
-      }
-      if (preparacion.version_actual_expediente !== version) {
-        if (preparacion.recibo !== null && preparacion.recibo.expediente_ref === expedienteRef
-          && preparacion.version_actual_expediente > version) {
-          // El recibo acredita una versión posterior; no se presenta el detalle
-          // v8 como vigente ni se monta una acción sobre esa proyección.
-          await presentador.cargar();
-          if (!montada || controlador.signal.aborted) return;
-          const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
-            ({ expediente_ref: referencia }) => referencia === expedienteRef,
-          );
-          if (!resumen || resumen.version < preparacion.version_actual_expediente) {
-            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
-            return;
-          }
-          await presentador.seleccionarExpediente(expedienteRef, "expediente");
-          if (!montada || controlador.signal.aborted) return;
-          const actualizado = presentador.obtenerEstado().expediente;
-          if (actualizado?.version < preparacion.version_actual_expediente) {
-            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
-            return;
-          }
-          repintar("[data-ct-exp-mensaje]");
-          return;
-        }
-        throw new TypeError("preparación de incorporación no ligada al detalle actual");
-      }
-      desmontarIncorporacionEjercicio = montarFormularioIncorporacionEjercicio({
-        raiz: contenedor, cliente: clienteLlamamiento, preparacion,
-        confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-      });
-      // Sólo una incorporación recuperada y validada habilita la ficha. La
-      // descarga vuelve a consultar al servidor; el recibo del DOM no autoriza.
-      if (preparacion.recibo !== null && typeof clienteLlamamiento.descargarFichaGINPIX === "function") {
-        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
-        const bloque = documento.createElement("div");
-        contenedor.append(bloque);
-        const desmontarFormulario = desmontarIncorporacionEjercicio;
-        let urlFicha = null;
-        const liberarFicha = () => {
-          if (urlFicha !== null) entornoDescarga.URL.revokeObjectURL(urlFicha);
-          urlFicha = null;
-        };
-        const resumenFicha = presentador.obtenerEstado().cuadro?.expedientes?.find(
-          (fila) => fila.expediente_ref === expedienteRef && fila.version === version,
-        );
-        const desmontarFicha = montarFichaGINPIX({
-          raiz: bloque, cliente: clienteLlamamiento, recibo: preparacion.recibo, mensajes,
-          locale,
-          resumen: resumenFicha ? { centro: resumenFicha.centro, categoria: resumenFicha.categoria } : undefined,
-          descargarArchivo: (archivo, nombre) => {
-            if (!montada || !raiz.contains(contenedor)) return;
-            const BlobImpl = entornoDescarga.Blob ?? globalThis.Blob;
-            const enlace = documento.createElement("a");
-            liberarFicha();
-            urlFicha = entornoDescarga.URL.createObjectURL(new BlobImpl([archivo.contenido], { type: "application/json" }));
-            try {
-              enlace.href = urlFicha; enlace.download = nombre; enlace.hidden = true;
-              documento.body.append(enlace); enlace.click();
-            } finally {
-              enlace.remove(); setTimeout(liberarFicha, 0);
-            }
-          },
-        });
-        desmontarIncorporacionEjercicio = () => {
-          desmontarFicha(); liberarFicha(); desmontarFormulario();
-        };
-      }
-      if (preparacion.recibo !== null && preparacion.recibo.expediente_ref === expedienteRef
-        && typeof clienteLlamamiento.anotacionAdministrativa?.registrar === "function"
-        && typeof clienteLlamamiento.anotacionAdministrativa?.recuperar === "function") {
-        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
-        const bloque = documento.createElement("div");
-        const bloqueCierre = documento.createElement("div");
-        contenedor.append(bloque);
-        contenedor.append(bloqueCierre);
-        let panelActivo = true;
-        let versionObsoleta = null;
-        let desmontarCierre = null;
-        let lecturaCierreEnCurso = false;
-        const panelSigueMontado = () => panelActivo && montada && !controlador.signal.aborted
-          && raiz.contains?.(contenedor);
-        const vigenteMontaje = () => {
-          const actual = presentador.obtenerEstado();
-          return versionObsoleta === null && panelSigueMontado()
-            && actual?.vista === "expediente" && actual.carga === "listo"
-            && actual.expediente?.expediente_ref === expedienteRef
-            && actual.expediente?.version === version;
-        };
-        const mostrarCierreNoDisponible = (mensaje, recuperable = false) => {
-          if (!panelSigueMontado()) return;
-          desmontarCierre?.();
-          desmontarCierre = null;
-          bloqueCierre.innerHTML = `<section class="ct-alta" data-ct-cierre-administrativo>
-            <h3>${escaparHTML(tCT("cierre_titulo"))}</h3>
-            <p class="ct-ayuda" role="status">${escaparHTML(mensaje)}</p>
-            ${recuperable ? `<button type="button" class="boton-secundario" data-ct-exp-reintentar-cierre>${escaparHTML(tCT("cierre_reintentar_lectura"))}</button>` : ""}
-          </section>`;
-          if (recuperable) {
-            const boton = bloqueCierre.querySelector?.("[data-ct-exp-reintentar-cierre]");
-            boton?.addEventListener?.("click", () => refrescarCierre());
-          }
-        };
-        async function refrescarCierre(trasConfirmacion = false) {
-          if (!vigenteMontaje() || typeof clienteLlamamiento.consultarPreparacionCierreSinCese !== "function"
-            || typeof clienteLlamamiento.cerrar !== "function" || lecturaCierreEnCurso) return;
-          lecturaCierreEnCurso = true;
-          try {
-            const cierre = await clienteLlamamiento.consultarPreparacionCierreSinCese({
-              expediente_ref: expedienteRef,
-              seguimiento_ref: preparacion.recibo.seguimiento_ref,
-            }, { signal: controlador.signal });
-            if (!vigenteMontaje()) return;
-            if (trasConfirmacion) return { estadoActual: cierre.estado_actual };
-            desmontarCierre?.();
-            desmontarCierre = null;
-            bloqueCierre.replaceChildren();
-            desmontarCierre = montarFormularioCierreAdministrativo({
-              raiz: bloqueCierre,
-              cliente: clienteLlamamiento,
-              preparacion: cierre.preparacion,
-              estadoActual: cierre.estado_actual,
-              contextoRecuperacion: {
-                expediente_ref: expedienteRef,
-                seguimiento_ref: preparacion.recibo.seguimiento_ref,
-              },
-              confirmarOperacion,
-              alConfirmar: () => refrescarCierre(true),
-              t: tCT,
-            });
-            return true;
-          } catch {
-            if (vigenteMontaje() && !trasConfirmacion) {
-              mostrarCierreNoDisponible(
-                tCT("cierre_lectura_error"),
-                true,
-              );
-            }
-            return false;
-          } finally {
-            lecturaCierreEnCurso = false;
-          }
-        }
-        async function refrescarDetalleTrasAnotacion(reciboAnotacion) {
-          if (!panelSigueMontado() || reciboAnotacion.expediente_ref !== expedienteRef
-            || reciboAnotacion.version_resultante <= version) return;
-          versionObsoleta = reciboAnotacion.version_resultante;
-          mostrarCierreNoDisponible(
-            tCT("cierre_detalle_obsoleto", {
-              version: reciboAnotacion.version_resultante,
-              version_anterior: version,
-            }),
-          );
-          try {
-            await presentador.cargar();
-            if (!panelSigueMontado()) return;
-            const cuadro = presentador.obtenerEstado().cuadro;
-            const resumen = cuadro?.expedientes?.find(({ expediente_ref: referencia }) => referencia === expedienteRef);
-            if (!resumen || resumen.version < reciboAnotacion.version_resultante) return;
-            await presentador.seleccionarExpediente(expedienteRef, "expediente");
-            if (!panelSigueMontado()) return;
-            const actualizado = presentador.obtenerEstado().expediente;
-            if (actualizado?.expediente_ref !== expedienteRef
-              || actualizado.version < reciboAnotacion.version_resultante) return;
-            repintar("[data-ct-exp-mensaje]");
-            const mensaje = raiz.querySelector("[data-ct-exp-mensaje]");
-            const confirmacion = tCT("anotacion_detalle_actualizado", {
-              recibo: reciboAnotacion.recibo_ref,
-              version: actualizado.version,
-            });
-            if (mensaje) {
-              mensaje.textContent = confirmacion;
-              mensaje.setAttribute("role", "status");
-            }
-            anunciar(confirmacion, "exito");
-          } catch {
-            // El aviso de obsolescencia conserva el recibo; una lectura posterior puede recuperarlo.
-          }
-        }
-        const desmontarAnotacion = montarFormularioAnotacionAdministrativa({
-          raiz: bloque,
-          cliente: clienteLlamamiento.anotacionAdministrativa,
-          expediente: { expediente_ref: expedienteRef, version },
-          confirmarOperacion,
-          locale,
-          zonaHoraria,
-          alConfirmar: refrescarDetalleTrasAnotacion,
-          t: tCT,
-        });
-        const desmontarAntesAnotacion = desmontarIncorporacionEjercicio;
-        desmontarIncorporacionEjercicio = () => {
-          panelActivo = false;
-          desmontarCierre?.();
-          desmontarAnotacion();
-          bloqueCierre.replaceChildren();
-          desmontarAntesAnotacion();
-        };
-        await refrescarCierre();
-        if (!vigente()) return;
-      }
-      if (preparacion.recibo !== null && typeof clienteLlamamiento.seguimientoIncorporacion?.consultar === "function") {
-        const documento = contenedor.ownerDocument ?? entornoDescarga.document;
-        const bloque = documento.createElement("div");
-        contenedor.append(bloque);
-        const desmontarAnterior = desmontarIncorporacionEjercicio;
-        const desmontarSeguimiento = montarSeguimientoIncorporacion({
-          raiz: bloque, cliente: clienteLlamamiento.seguimientoIncorporacion,
-          recibo: preparacion.recibo, mensajes,
-        });
-        desmontarIncorporacionEjercicio = () => {
-          desmontarSeguimiento(); desmontarAnterior();
-        };
-      }
-    } catch (error) {
-      if (!vigente()) return;
-      const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);
-      contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t(denegada
-        ? "incorporacion_preparacion_denegada" : "incorporacion_preparacion_no_disponible"))}</p>
-        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-incorporacion">${escaparHTML(t("incorporacion_preparacion_reintentar"))}</button>`}`;
-    } finally {
-      if (consultaIncorporacionEjercicio === controlador) consultaIncorporacionEjercicio = null;
-    }
-  }
-
-  function montarInformeDesdeAsignacion(recibo) {
-    if (!montada || !informeJuridicoDisponible || desmontarInformeJuridico !== null) {
-      return desmontarInformeJuridico !== null;
-    }
-    const contenedor = raiz.querySelector("[data-ct-exp-informe-juridico]");
-    if (!contenedor) return false;
-    try {
-      desmontarInformeJuridico = montarFormularioInformeJuridico({
-        raiz: contenedor, cliente: composicionAnalisis.cliente,
-        contexto: Object.freeze({
-          expediente_ref: recibo.expediente_ref,
-          version_esperada: recibo.version_resultante,
-        }),
-        confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        alConfirmar: montarFiscalizacionDesdeInforme,
-      });
-      return true;
-    } catch {
-      desmontarInformeJuridico = null;
-      mostrarErrorMontaje(
-        raiz.querySelector("[data-ct-exp-asignacion]"),
-        "informe-juridico",
-        () => montarInformeDesdeAsignacion(recibo),
-      );
-      return false;
-    }
-  }
-
-  async function refrescarDetalleTrasAsignacion(recibo, solicitud) {
-    const seleccionado = presentador.obtenerEstado();
-    if (!montada || recibo?.expediente_ref !== seleccionado.expediente?.expediente_ref
-      || !Number.isSafeInteger(recibo?.version_resultante)
-      || solicitud?.expediente_ref !== recibo.expediente_ref
-      || solicitud.version_esperada + 1 !== recibo.version_resultante
-      || typeof solicitud.unidad_ref !== "string" || !PATRON_REFERENCIA.test(solicitud.unidad_ref)) return false;
-    const panel = raiz.querySelector("[data-ct-exp-asignacion]");
-    if (panel === null) return false;
-    reciboAsignacionConfirmado = Object.freeze({ ...recibo });
-    const sigueSeleccionado = () => montada
-      && raiz.querySelector("[data-ct-exp-asignacion]") === panel;
-    const avisarPendiente = () => {
-      if (sigueSeleccionado()) anunciar(
-        crearTraductorExpedientesContratacion(mensajes)("estado_actualizacion_pendiente"), "aviso",
-      );
-    };
-    try {
-      await presentador.cargar();
-      if (!sigueSeleccionado()) return false;
-      const resumen = presentador.obtenerEstado().cuadro?.expedientes?.find(
-        ({ expediente_ref: referencia }) => referencia === recibo.expediente_ref,
-      );
-      if (!resumen || resumen.version < recibo.version_resultante) { avisarPendiente(); return false; }
-      await presentador.seleccionarExpediente(recibo.expediente_ref, "expediente");
-      if (!sigueSeleccionado()) return false;
-      const actualizado = presentador.obtenerEstado().expediente;
-      if (actualizado?.expediente_ref !== recibo.expediente_ref
-        || actualizado.version !== recibo.version_resultante
-        || actualizado.cabecera?.find(({ clave }) => clave === "unidad")?.valor !== solicitud.unidad_ref) { avisarPendiente(); return false; }
-      repintar("[data-ct-asignacion-confirmada]");
-      return true;
-    } catch {
-      avisarPendiente();
-      return false;
-    }
-  }
-
-  function montarFiscalizacionDesdeExpedienteActual() {
-    const contexto = contextoFiscalizacionDesdeEstado(presentador.obtenerEstado());
-    if (contexto === null) return null;
-    return montarFiscalizacion(contexto);
-  }
-
-  function montarInformeDesdeExpedienteActual() {
-    const contextoInforme = contextoInformeJuridicoDesdeEstado(
-      presentador.obtenerEstado(),
-    );
-    if (contextoInforme === null) return null;
-    return montarInformeDesdeAsignacion({
-      expediente_ref: contextoInforme.expediente_ref,
-      version_resultante: contextoInforme.version_esperada,
-    });
-  }
-
-  function retirarComponentes() {
-    limpiarEstadosMontaje();
-    consultaIncorporacionEjercicio?.abort();
-    consultaIncorporacionEjercicio = null;
-    desmontarIncorporacionEjercicio?.();
-    desmontarIncorporacionEjercicio = null;
-    retirarAsignacion();
-    retirarCobertura();
-    retirarAlta();
-    retirarAnalisis();
-  }
-
-  function montarAsignacionDesdeCobertura(expedienteRef, recibo) {
-    if (!montada || !asignacionDisponible) return false;
-    if (desmontarAsignacion !== null) return true;
-    const contenedor = raiz.querySelector("[data-ct-exp-asignacion]");
-    if (!contenedor) return false;
-    try {
-      desmontarAsignacion = montarFormularioAsignacion({
-        raiz: contenedor,
-        cliente: composicionAnalisis.cliente,
-        contexto: Object.freeze({
-          expediente_ref: expedienteRef,
-          version_esperada: recibo.version_resultante,
-        }),
-        confirmarOperacion,
-        mensajes,
-        locale,
-        zonaHoraria,
-        anunciar,
-        alConfirmar: refrescarDetalleTrasAsignacion,
-      });
-      return true;
-    } catch {
-      desmontarAsignacion = null;
-      mostrarErrorMontaje(
-        raiz.querySelector("[data-ct-exp-cobertura]"),
-        "asignacion",
-        () => montarAsignacionDesdeCobertura(expedienteRef, recibo),
-      );
-      return false;
-    }
-  }
-
-  function montarAsignacionDesdeEstado() {
-    const contexto = contextoAsignacionDesdeEstado(presentador.obtenerEstado());
-    if (contexto === null) return false;
-    return montarAsignacionDesdeCobertura(contexto.expediente_ref, {
-      version_resultante: contexto.version_esperada,
-    });
-  }
-
-  function montarCoberturaDesdeEstado() {
-    const contexto = contextoCoberturaDesdeEstado(presentador.obtenerEstado());
-    if (contexto === null) return false;
-    return montarCoberturaDesdeAnalisis({
-      expediente_ref: contexto.expediente_ref,
-      version_resultante: contexto.version_esperada,
-    });
-  }
-
-  function montarCoberturaDesdeAnalisis(recibo) {
-    if (!montada || !coberturaDisponible || desmontarCobertura !== null) return null;
-    const contenedor = raiz.querySelector("[data-ct-exp-cobertura]");
-    if (!contenedor) return null;
-    try {
-      desmontarCobertura = montarFormularioCobertura({
-        raiz: contenedor,
-        cliente: composicionAnalisis.cliente,
-        contexto: Object.freeze({
-          expediente_ref: recibo.expediente_ref,
-          version_esperada: recibo.version_resultante,
-        }),
-        confirmarOperacion,
-        mensajes,
-        locale,
-        zonaHoraria,
-        anunciar,
-        alConfirmar: (reciboCobertura) => montarAsignacionDesdeCobertura(
-          recibo.expediente_ref,
-          reciboCobertura,
-        ),
-      });
-      return true;
-    } catch {
-      desmontarCobertura = null;
-      mostrarErrorMontaje(
-        raiz.querySelector("[data-ct-exp-analisis]"),
-        "cobertura",
-        () => montarCoberturaDesdeAnalisis(recibo),
-      );
-      return false;
-    }
-  }
-
-  function montarAltaSiProcede() {
-    const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "alta") return;
-    const contenedor = raiz.querySelector("[data-ct-exp-alta]");
-    if (!contenedor) return;
-    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
-      contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
-        <h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3>
-        <p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p>
-        <div class="ct-exp-acciones-estado">
-          <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button>
-          <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button>
-        </div>
-      </section>`;
-      return;
-    }
-    try {
-      const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-        catalogos: alta.catalogos,
-        capacidad: alta.capacidad,
-        ejecutor: crearEjecutorAltaConRefresco(
-          alta.ejecutor,
-          presentador,
-          montarAnalisisDesdeAlta,
-        ),
-        generarClaveIdempotencia: alta.generarClaveIdempotencia,
-      });
-      desmontarAlta = montarAltaContratacionTemporal({
-        raiz: contenedor,
-        presentador: presentadorAlta,
-        anunciar,
-        locale,
-        zonaHoraria,
-      });
-    } catch {
-      contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
-        <h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3>
-        <p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p>
-        <div class="ct-exp-acciones-estado">
-          <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button>
-          <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button>
-        </div>
-      </section>`;
-    }
-  }
-
-  function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {
-    if (!contenedor) return null;
-    if (typeof desmontarAnalisis === "function") return true;
-    const sesion = {
-      expedienteRef: contexto.expediente_ref,
-      intentoIniciado: false,
-      etapa: "preparado",
-      vuelo: null,
-      controles: null,
-      ariaBusy: null,
-    };
-    const clienteCercado = crearClienteAnalisisCercado(
-      composicionAnalisis,
-      contexto,
-      (etapa, vuelo) => cambiarEtapaAnalisis(sesion, etapa, vuelo),
-      montarCoberturaDesdeAnalisis,
-      (recibo) => mostrarErrorMontaje(
-        contenedor,
-        "cobertura",
-        () => montarCoberturaDesdeAnalisis(recibo),
-      ),
-    );
-    sesionAnalisis = sesion;
-    try {
-      desmontarAnalisis = montarFormularioAnalisisRRHH({
-        raiz: contenedor,
-        cliente: clienteCercado,
-        contexto,
-        catalogos: composicionAnalisis.catalogos,
-        analisisInicial,
-        datosPrevios,
-        mensajes,
-        locale,
-        zonaHoraria,
-        anunciar,
-      });
-      return true;
-    } catch {
-      desmontarAnalisis = null;
-      restaurarControlesAnalisis(sesion);
-      if (sesionAnalisis === sesion) sesionAnalisis = null;
-      mostrarErrorMontaje(
-        contenedor,
-        "analisis",
-        () => montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios),
-      );
-      return null;
-    }
-  }
-
-  function montarAnalisisDesdeAlta(recibo) {
-    const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "alta" || composicionAnalisis === null
-      || composicionAnalisis.contexto.operacion !== "registrar") return null;
-    const contexto = Object.freeze({
-      operacion: "registrar",
-      expediente_ref: recibo.expediente_ref,
-      version_esperada: recibo.version,
-      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
-    });
-    return montarAnalisisEnContenedor(
-      raiz.querySelector("[data-ct-exp-analisis]"),
-      contexto,
-      null,
-    );
-  }
-
-  function montarAnalisisSiProcede() {
-    const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "expediente" || composicionAnalisis === null
-      || estado.carga !== "listo" || estado.expediente === null) return null;
-    const rectificacion = contextoRectificacionAnalisisDesdeEstado(estado);
-    if (rectificacion !== null) {
-      const contenedor = raiz.querySelector("[data-ct-exp-rectificacion]");
-      if (!contenedor) return null;
-      if (!rectificacionDisponible) {
-        const t = crearTraductorContratacionTemporal(mensajes);
-        contenedor.innerHTML = `<section class="ct-alcance" role="status" aria-live="polite">
-          <h3>${escaparHTML(t("analisis_rectificacion_configuracion_pendiente_titulo"))}</h3>
-          <p>${escaparHTML(t("analisis_rectificacion_configuracion_pendiente_descripcion"))}</p>
-        </section>`;
-        return true;
-      }
-      return montarAnalisisEnContenedor(
-        contenedor,
-        Object.freeze({
-          ...rectificacion,
-          artefacto_ref: composicionAnalisis.rectificacion.artefacto_ref,
-        }),
-        null,
-        estado.expediente.analisis_previo ?? null,
-      );
-    }
-    const contexto = Object.freeze({
-      operacion: composicionAnalisis.contexto.operacion,
-      expediente_ref: estado.expediente.expediente_ref,
-      version_esperada: estado.expediente.version,
-      artefacto_ref: composicionAnalisis.contexto.artefacto_ref,
-    });
-    return montarAnalisisEnContenedor(
-      raiz.querySelector("[data-ct-exp-analisis]"),
-      contexto,
-      composicionAnalisis.analisisInicial,
-    );
+    retirarEstadisticas();
+    const inst = montarVistaEstadisticas({ raiz: contenedor, anunciar });
+    desmontarEstadisticas = inst.desmontar;
   }
 
   function repintar(selectorFoco = "") {
-    if (!montada || analisisEstableActivo()) return;
-    cancelarDescargaInforme();
-    retirarComponentes();
+    if (!montada || gestorTramitacion.analisisEstableActivo()) return;
+    gestorBorrador.cancelarDescargaInforme();
+    retirarEstadisticas();
+    desmontarLlamamiento?.();
+    desmontarLlamamiento = null;
+    gestorIncorporacion.retirar();
+    gestorTramitacion.retirarComponentes();
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
       mensajes,
@@ -1840,19 +284,19 @@ export async function montarModuloContratacionTemporal({
       informeJuridicoDisponible,
       fiscalizacionDisponible,
       subsanacionDisponible,
-      reciboSubsanacionConfirmado,
-      reciboFiscalizacionConfirmado,
-      reciboAsignacionConfirmado,
+      reciboSubsanacionConfirmado: gestorTramitacion.obtenerReciboSubsanacionConfirmado(),
+      reciboFiscalizacionConfirmado: gestorTramitacion.obtenerReciboFiscalizacionConfirmado(),
+      reciboAsignacionConfirmado: gestorTramitacion.obtenerReciboAsignacionConfirmado(),
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
       incorporacionEjercicioDisponible,
     });
-    montarAltaSiProcede();
+    gestorTramitacion.montarAltaSiProcede();
+    montarEstadisticasSiProcede();
     montarLlamamiento(contextoLlamamientoDesdeEstado(estado));
-    // Las dos lecturas comparten la identidad nominal; se encadenan.
-    montarResolucionFormalizacion().then(montarIncorporacionEjercicio);
-    if (montarAnalisisSiProcede() === false) {
-      retirarComponentes();
+    gestorIncorporacion.montarResolucionFormalizacion().then(gestorIncorporacion.montarIncorporacionEjercicio);
+    if (gestorTramitacion.montarAnalisisSiProcede() === false) {
+      gestorTramitacion.retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
         mensajes,
         locale,
@@ -1865,11 +309,11 @@ export async function montarModuloContratacionTemporal({
         fiscalizacionDisponible: false,
       });
     } else {
-      montarCoberturaDesdeEstado();
-      montarAsignacionDesdeEstado();
-      montarInformeDesdeExpedienteActual();
-      montarFiscalizacionDesdeExpedienteActual();
-      montarSubsanacionDesdeExpedienteActual();
+      gestorTramitacion.montarCoberturaDesdeEstado();
+      gestorTramitacion.montarAsignacionDesdeEstado();
+      gestorTramitacion.montarInformeDesdeExpedienteActual();
+      gestorTramitacion.montarFiscalizacionDesdeExpedienteActual();
+      gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (estado.mensaje_clave) {
@@ -1881,7 +325,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function cambiarVista(vista) {
-    if (impedirCambioPorAnalisis()) return;
+    if (gestorTramitacion.impedirCambioPorAnalisis()) return;
     const estado = presentador.obtenerEstado();
     if (estado.ocupado) {
       anunciar(crearTraductorExpedientesContratacion(mensajes)("estado_registrando_actuacion"), "aviso");
@@ -1906,7 +350,7 @@ export async function montarModuloContratacionTemporal({
       return;
     }
     presentador.cambiarVista(vista);
-    repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : ".ct-exp-contenido"));
+    repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : (vista === "estadisticas" ? '[data-ct-form="filtros-estadisticas"]' : ".ct-exp-contenido")));
   }
 
   async function manejarClick(evento) {
@@ -1919,7 +363,7 @@ export async function montarModuloContratacionTemporal({
     const abrir = evento.target?.closest?.("[data-ct-exp-abrir]");
     if (abrir && raiz.contains(abrir)) {
       evento.preventDefault();
-      if (impedirCambioPorAnalisis()) return;
+      if (gestorTramitacion.impedirCambioPorAnalisis()) return;
       try {
         const tarea = presentador.seleccionarExpediente(abrir.dataset.ctExpAbrir);
         repintar("[data-ct-exp-mensaje]");
@@ -1937,7 +381,7 @@ export async function montarModuloContratacionTemporal({
     const pagina = evento.target?.closest?.("[data-ct-exp-pagina]");
     if (pagina && raiz.contains(pagina)) {
       evento.preventDefault();
-      if (pagina.disabled || impedirCambioPorAnalisis()) return;
+      if (pagina.disabled || gestorTramitacion.impedirCambioPorAnalisis()) return;
       const promesa = presentador.navegarPagina(pagina.dataset.ctExpPagina);
       repintar("[data-ct-exp-mensaje]");
       await promesa;
@@ -1947,7 +391,7 @@ export async function montarModuloContratacionTemporal({
     const tareaControl = evento.target?.closest?.("[data-ct-exp-tarea]");
     if (tareaControl && raiz.contains(tareaControl)) {
       evento.preventDefault();
-      if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
+      if (gestorTramitacion.impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
       presentador.seleccionarTarea(tareaControl.dataset.ctExpTarea);
       repintar("#ct-exp-tarea-titulo");
       return;
@@ -1955,7 +399,7 @@ export async function montarModuloContratacionTemporal({
     const efecto = evento.target?.closest?.("[data-ct-exp-efecto]");
     if (efecto && raiz.contains(efecto)) {
       evento.preventDefault();
-      if (impedirCambioPorAnalisis()) return;
+      if (gestorTramitacion.impedirCambioPorAnalisis()) return;
       const confirmacion = efecto.dataset.ctExpConfirmacion;
       const formulario = efecto.closest("[data-ct-exp-tarea-form]");
       if (typeof formulario?.checkValidity === "function" && !formulario.checkValidity()) {
@@ -1980,7 +424,7 @@ export async function montarModuloContratacionTemporal({
     const accion = evento.target?.closest?.("[data-ct-exp-accion]");
     if (!accion || !raiz.contains(accion)) return;
     evento.preventDefault();
-    if (impedirCambioPorAnalisis()) return;
+    if (gestorTramitacion.impedirCambioPorAnalisis()) return;
     if (presentador.obtenerEstado().ocupado
       && accion.dataset.ctExpAccion !== "cancelar") return;
     if (accion.dataset.ctExpAccion === "volver-cuadro-actualizado") {
@@ -1990,13 +434,13 @@ export async function montarModuloContratacionTemporal({
       await promesa;
       repintar(["[data-ct-exp-filtros]", ".ct-exp-estado-global"]);
     } else if (accion.dataset.ctExpAccion === "reintentar-resolucion") {
-      await montarResolucionFormalizacion();
+      await gestorIncorporacion.montarResolucionFormalizacion();
     } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion") {
-      await montarIncorporacionEjercicio();
+      await gestorIncorporacion.montarIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
-      if (cancelarDescargaInforme()) informarDescarga("descarga_cancelada", "informacion");
+      if (gestorBorrador.cancelarDescargaInforme()) gestorBorrador.informarDescarga("descarga_cancelada", "informacion");
     } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro", "reintentar-descarga-informe-definitivo", "reintentar-descarga-resolucion", "reintentar-descarga-diligencia", "reintentar-descarga-toma-posesion", "reintentar-descarga-notificacion", "reintentar-descarga-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
-      await descargarBorrador(accion);
+      await gestorBorrador.descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });
       repintar("[data-ct-exp-mensaje]");
@@ -2017,7 +461,7 @@ export async function montarModuloContratacionTemporal({
     const formulario = evento.target?.closest?.("[data-ct-exp-filtros]");
     if (!formulario || !raiz.contains(formulario)) return;
     evento.preventDefault();
-    if (impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
+    if (gestorTramitacion.impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
     const datos = new FormData(formulario);
     try {
       const promesa = presentador.cargar({
@@ -2052,121 +496,15 @@ export async function montarModuloContratacionTemporal({
     desmontar() {
       if (!montada) return;
       montada = false;
-      cancelarDescargaInforme();
-      retirarComponentes();
+      gestorBorrador.cancelarDescargaInforme();
+      retirarEstadisticas();
+      desmontarLlamamiento?.();
+      desmontarLlamamiento = null;
+      gestorIncorporacion.retirar();
+      gestorTramitacion.retirarComponentes();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();
-    },
-  });
-}
-
-export function montarModuloFiscalizacionContratacionTemporal({
-  raiz,
-  cliente,
-  mensajes = {},
-  anunciar = () => {},
-  confirmarOperacion = () => false,
-  locale = "es-ES",
-  zonaHoraria = "Europe/Madrid",
-} = {}) {
-  if (!raiz || typeof raiz.addEventListener !== "function"
-    || typeof raiz.querySelector !== "function"
-    || typeof cliente?.registrarResultadoFiscalizacion !== "function"
-    || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
-    throw new TypeError("dependencias de fiscalización no válidas");
-  }
-  const t = crearTraductorContratacionTemporal(mensajes);
-  let montado = true;
-  let desmontarFormulario = null;
-  let desmontarLlamamiento = null;
-  raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal"
-    aria-labelledby="ct-fiscalizacion-acceso-titulo">
-    <header class="ct-exp-cabecera">
-      <p class="sobrelinea">${escaparHTML(t("fiscalizacion_acceso_area"))}</p>
-      <h2 id="ct-fiscalizacion-acceso-titulo">${escaparHTML(t("fiscalizacion_acceso_titulo"))}</h2>
-      <p>${escaparHTML(t("fiscalizacion_acceso_descripcion"))}</p>
-    </header>
-    <form class="ct-exp-filtros" data-ct-fiscalizacion-acceso>
-      <div class="ct-campo">
-        <label for="ct-fiscalizacion-expediente">${escaparHTML(t("fiscalizacion_contexto_expediente"))}</label>
-        <input id="ct-fiscalizacion-expediente" name="expediente_ref"
-          type="text" maxlength="160" autocomplete="off" required>
-      </div>
-      <div class="ct-campo">
-        <label for="ct-fiscalizacion-version">${escaparHTML(t("fiscalizacion_version_remitida"))}</label>
-        <input id="ct-fiscalizacion-version" name="version_esperada"
-          type="number" min="1" step="1" required>
-      </div>
-      <div class="ct-acciones">
-        <button class="boton-primario" type="submit">${escaparHTML(t("fiscalizacion_acceso_abrir"))}</button>
-      </div>
-    </form>
-  </section>`;
-
-  function manejarEnvio(evento) {
-    const formulario = evento.target?.closest?.("[data-ct-fiscalizacion-acceso]");
-    if (!formulario || !raiz.contains(formulario) || !montado) return;
-    evento.preventDefault();
-    if (typeof formulario.checkValidity === "function" && !formulario.checkValidity()) {
-      formulario.reportValidity?.();
-      return;
-    }
-    const referencia = String(
-      formulario.elements?.namedItem?.("expediente_ref")?.value ?? "",
-    ).trim();
-    const version = Number(
-      formulario.elements?.namedItem?.("version_esperada")?.value ?? 0,
-    );
-    if (!PATRON_REFERENCIA.test(referencia) || !Number.isSafeInteger(version) || version < 1) {
-      formulario.elements?.namedItem?.("expediente_ref")?.setCustomValidity?.(
-        t("fiscalizacion_acceso_referencia_invalida"),
-      );
-      formulario.reportValidity?.();
-      return;
-    }
-    raiz.innerHTML = `<section class="ct-expedientes" data-modulo="contratacion-temporal">
-      <div data-ct-exp-fiscalizacion></div>
-      <div data-ct-exp-llamamiento></div>
-    </section>`;
-    const contenedor = raiz.querySelector("[data-ct-exp-fiscalizacion]");
-    desmontarFormulario = montarFormularioFiscalizacion({
-      raiz: contenedor,
-      cliente,
-      contexto: Object.freeze({
-        expediente_ref: referencia,
-        version_esperada: version,
-        fase_clave: "",
-        informe_ref: "",
-      }),
-      confirmarOperacion,
-      mensajes,
-      locale,
-      zonaHoraria,
-      anunciar,
-      alConfirmar: (recibo) => {
-        if (recibo.resultado === "desfavorable" || recibo.version_resultante < 6
-          || desmontarLlamamiento !== null
-          || typeof cliente.seleccionarLlamamiento !== "function"
-          || typeof cliente.registrarComunicacionLlamamiento !== "function") return;
-        desmontarLlamamiento = montarFormularioLlamamiento({
-          raiz: raiz.querySelector("[data-ct-exp-llamamiento]"), cliente,
-          contexto: { expediente_ref: recibo.expediente_ref,
-            version_esperada: recibo.version_resultante },
-          confirmarOperacion, mensajes, locale, zonaHoraria, anunciar,
-        });
-      },
-    });
-  }
-
-  raiz.addEventListener("submit", manejarEnvio);
-  return Object.freeze({
-    desmontar() {
-      if (!montado) return;
-      montado = false;
-      if (typeof desmontarFormulario === "function") desmontarFormulario();
-      desmontarLlamamiento?.();
-      raiz.removeEventListener("submit", manejarEnvio);
     },
   });
 }

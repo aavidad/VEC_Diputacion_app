@@ -70,6 +70,12 @@ static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-propuesta-formalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-analisis.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-incorporacion.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-render.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitacion.js
 static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-contrato.js

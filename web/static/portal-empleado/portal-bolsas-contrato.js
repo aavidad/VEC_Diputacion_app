@@ -15,6 +15,8 @@
 
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
+export const ESQUEMA_CONTACTOS = "vec.bolsa.rrhh.contactos.v1";
+export const ESQUEMA_ACCION_BOLSA = "vec.bolsa.rrhh.accion.v1";
 
 export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
   "disponible",
@@ -22,6 +24,25 @@ export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
   "no_disponible",
   "excluido",
   "renuncia_pendiente",
+]);
+
+export const CANALES_LLAMAMIENTO = Object.freeze([
+  "correo",
+  "telefono",
+  "sede",
+]);
+
+export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
+  "aceptado",
+  "renuncia",
+  "sin_respuesta",
+  "pendiente",
+]);
+
+export const RESULTADOS_REGISTRO_LLAMAMIENTO = Object.freeze([
+  "aceptado",
+  "renuncia",
+  "sin_respuesta",
 ]);
 
 const CAMPOS_BOLSA = Object.freeze([
@@ -51,6 +72,14 @@ const CAMPOS_ULTIMO_LLAMAMIENTO = Object.freeze([
   "comunicado_en",
   "canal",
   "resultado",
+]);
+
+const CAMPOS_CONTACTO = Object.freeze([
+  "contacto_ref",
+  "canal",
+  "realizado_en",
+  "resultado_clave",
+  "anotacion",
 ]);
 
 const PATRON_ENMASCARADO = /^\*{3}\d{4}\*{2}$/;
@@ -256,5 +285,109 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     candidatos,
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
+  });
+}
+
+export function validarContacto(contacto) {
+  exigirCamposExactos(contacto, CAMPOS_CONTACTO, "contacto");
+
+  const contactoRef = exigirCadenaSegura(contacto.contacto_ref, "contacto_ref");
+  if (!CANALES_LLAMAMIENTO.includes(contacto.canal)) {
+    throw new Error(`canal de contacto no reconocido: ${contacto.canal}`);
+  }
+  const canal = contacto.canal;
+  const realizadoEn = exigirInstanteUTC(contacto.realizado_en, "realizado_en");
+  if (!RESULTADOS_LLAMAMIENTO_BOLSA.includes(contacto.resultado_clave)) {
+    throw new Error(`resultado_clave de contacto no reconocido: ${contacto.resultado_clave}`);
+  }
+  const resultadoClave = contacto.resultado_clave;
+  let anotacion = "";
+  if (contacto.anotacion !== null && contacto.anotacion !== undefined) {
+    anotacion = exigirCadenaSegura(contacto.anotacion, "anotacion", { maximo: 1024, admiteVacia: true });
+  }
+
+  return Object.freeze({
+    contacto_ref: contactoRef,
+    canal,
+    realizado_en: realizadoEn,
+    resultado_clave: resultadoClave,
+    anotacion,
+  });
+}
+
+export function validarRespuestaContactos(envelope) {
+  const datos = extraerDatosEnvelopeCanonico(envelope);
+  if (datos.esquema && datos.esquema !== ESQUEMA_CONTACTOS) {
+    throw new Error(`esquema no compatible: ${datos.esquema}`);
+  }
+  if (!Array.isArray(datos.contactos)) {
+    throw new Error("el campo contactos debe ser un array");
+  }
+  const contactos = Object.freeze(datos.contactos.map(validarContacto));
+  const generadoEn = datos.generado_en ? exigirInstanteUTC(datos.generado_en, "generado_en") : null;
+  const participacionRef = datos.participacion_ref ? exigirCadenaSegura(datos.participacion_ref, "participacion_ref") : null;
+
+  return Object.freeze({
+    esquema: datos.esquema || ESQUEMA_CONTACTOS,
+    generado_en: generadoEn,
+    participacion_ref: participacionRef,
+    contactos,
+  });
+}
+
+export function validarPayloadCrearLlamamiento(payload) {
+  if (!esObjeto(payload)) throw new Error("el payload de crear llamamiento debe ser un objeto");
+
+  if (!CANALES_LLAMAMIENTO.includes(payload.canal)) {
+    throw new Error(`canal de llamamiento no válido: ${payload.canal}`);
+  }
+  const canal = payload.canal;
+  const comunicadoEn = exigirInstanteUTC(payload.comunicado_en, "comunicado_en");
+  const plazoRespuestaHasta = exigirInstanteUTC(payload.plazo_respuesta_hasta, "plazo_respuesta_hasta");
+
+  let anotacion = "";
+  if (payload.anotacion !== null && payload.anotacion !== undefined) {
+    anotacion = exigirCadenaSegura(payload.anotacion, "anotacion", { maximo: 1024, admiteVacia: true });
+  }
+
+  return Object.freeze({
+    canal,
+    comunicado_en: comunicadoEn,
+    plazo_respuesta_hasta: plazoRespuestaHasta,
+    anotacion,
+  });
+}
+
+export function validarPayloadResultadoLlamamiento(payload) {
+  if (!esObjeto(payload)) throw new Error("el payload de resultado de llamamiento debe ser un objeto");
+
+  if (!RESULTADOS_REGISTRO_LLAMAMIENTO.includes(payload.resultado_clave)) {
+    throw new Error(`resultado_clave no válido: ${payload.resultado_clave}`);
+  }
+  const resultadoClave = payload.resultado_clave;
+
+  let anotacion = "";
+  if (payload.anotacion !== null && payload.anotacion !== undefined) {
+    anotacion = exigirCadenaSegura(payload.anotacion, "anotacion", { maximo: 1024, admiteVacia: true });
+  }
+
+  return Object.freeze({
+    resultado_clave: resultadoClave,
+    anotacion,
+  });
+}
+
+export function construirEnvelopeAccionBolsa(accion, payload, { confirmacion = true } = {}) {
+  if (typeof accion !== "string" || accion.trim() === "") {
+    throw new Error("accion debe ser una cadena no vacía");
+  }
+  if (confirmacion !== true) {
+    throw new Error("la acción requiere confirmación explícita (confirmacion: true)");
+  }
+  return Object.freeze({
+    esquema: ESQUEMA_ACCION_BOLSA,
+    accion: accion.trim(),
+    confirmacion: true,
+    payload: Object.freeze({ ...payload }),
   });
 }
