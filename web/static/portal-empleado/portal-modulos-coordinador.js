@@ -509,11 +509,16 @@ export function crearCoordinadorModulosPortal({
           obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
           // El listado inicial se carga antes que los catálogos: los nombres de
           // centro y categoría se resuelven al pedirlo, con lo que haya llegado.
-          obtenerTramitesInicio: () => (listadoCuadro ? tramitesParaInicio(listadoCuadro).map((e) => ({
-            ...e,
-            centro: alta?.catalogos?.centros?.get(e.centro) ?? e.centro,
-            categoria: alta?.catalogos?.categorias?.get(e.categoria) ?? e.categoria,
-          })) : null),
+          obtenerTramitesInicio: () => {
+            if (!listadoCuadro) return null;
+            const etiqueta = (lista, referencia) => (Array.isArray(lista)
+              ? lista.find((opcion) => opcion.referencia === referencia)?.etiqueta : undefined) ?? referencia;
+            return tramitesParaInicio(listadoCuadro).map((e) => ({
+              ...e,
+              centro: etiqueta(alta?.catalogos?.centros, e.centro),
+              categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
+            }));
+          },
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
