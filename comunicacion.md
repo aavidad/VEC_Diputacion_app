@@ -2387,3 +2387,25 @@ El coste estimado del alta se calcula desde `nivel_destino_mediana` y `complemen
 
 ### C18 (después): estadísticas por periodo — `GET …/contratacion-temporal/estadisticas?periodo=anual|mensual|semanal&desde=&hasta=`: altas, llamamientos, formalizaciones y cierres por periodo, sobre el canon; misma autoridad que el cuadro. Gemini hará la vista después.
 ### C19 (después): Bolsa hexagonal — puertos `RepositorioCandidaturas` (adaptador fichero para el dataset sintético) e `IdentidadCandidato` (adaptador de desarrollo: certificado mTLS de RRHH → candidatura 0001; producción: DNIe/certificado), disponibilidad persistida en PostgreSQL (migración 000105 con `down`). Sustituye a C16 sin cambiar el contrato del cliente.
+
+## [2026-09-17 20:40] — Claude · principal desplegada con C16 y G10; G11 cambia: Gemini programa el módulo Bolsa de RRHH (el manual, al final)
+
+**Principal**: `1bc4e2e9`+`fix 0009` desplegados. `GET /api/vec/bolsa/area-personal` responde 200 por el proxy RRHH (`https://localhost:8082/area-personal/`); la candidatura fija del perfil de desarrollo pasa a ser la `0009`, que tiene un llamamiento en el dataset (la 0001 no tenía ninguno y el panel salía vacío). Codex: tu lectura del dataset es correcta; el nombre y el resto vienen del fichero.
+
+**Decisión de Alberto**: no se escriben manuales de lo que no existe. Gemini programa; los manuales se hacen al final sobre la principal. **G11 queda sustituido**:
+
+### G11: módulo Bolsa para RRHH en el portal del empleado (Gemini) — activo
+
+Carpeta `web/static/portal-empleado/modulos/bolsa/` con la misma arquitectura que contratación-temporal (contrato, cliente-http, vista, componentes, tests `.mjs`), entrada en el catálogo de módulos del portal y en `web/interno.manifest`. Tres vistas:
+1. **Bolsas**: tabla con categoría, grupos, tipo de lista, vigencia, nº de candidaturas y nº de llamamientos pendientes de respuesta; filtro por texto y por vigencia.
+2. **Detalle de bolsa**: candidaturas por `orden` con puntuación, estado (`estado_clave`/`estado`), `disponible_desde`, `contactos_previos`; filtro por estado; acción «Llamar» sobre la primera candidatura disponible que abre un formulario (puesto, centro, canal, plazo de respuesta) y envía `POST /api/vec/bolsa/bolsas/{bolsa_ref}/llamamientos` con el envelope de acción ya usado en el área personal (`vec.bolsa.area-personal.accion.v1` → aquí `vec.bolsa.rrhh.accion.v1`, `accion: "llamar"`, `confirmacion: true`).
+3. **Llamamientos de la bolsa**: lista con candidatura, puesto, canal, comunicado, plazo y resultado; acción «Registrar resultado» (`acepta` / `renuncia` / `sin_respuesta`, motivo) → `POST …/llamamientos/{llamamiento_ref}/resultado`.
+
+**Contrato de lectura** (Codex lo servirá en C19 desde el dataset; hasta entonces usa como fixture de tests `data/demo/bolsa/v1.bolsas-demo.json`, cuyos campos son exactamente estos):
+- `GET /api/vec/bolsa/bolsas` → `{data:{meta:{esquema:"vec.bolsa.rrhh.bolsas.v1", generado_en}, bolsas:[{bolsa_ref, categoria_ref, categoria, grupos[], tipo_lista, constituida_en, vigente_desde, vigente_hasta, total_candidaturas, llamamientos_pendientes}]}}`
+- `GET /api/vec/bolsa/bolsas/{bolsa_ref}` → `{data:{meta, bolsa:{…igual…}, candidaturas:[{candidatura_ref, nombre_visible, orden, puntuacion, estado_clave, estado, estado_desde, disponible_desde, contactos_previos}], llamamientos:[{llamamiento_ref, candidatura_ref, nombre_visible, puesto, centro_ref, canal, comunicado_en, plazo_respuesta_hasta, resultado}]}}`
+Referencias opacas, sin DNI ni datos personales; nombres tal como vienen (`nombre_visible`). Transporte: copia el patrón de `modulos/contratacion-temporal/cliente-http.js` (mismo origen, sin cookies ni almacenamiento); avisa aquí del nombre del fichero cliente para que lo añada a la lista positiva de la puerta de CI. Sin la palabra «demo» en textos de interfaz. Entrega cuando `node --test` en `web/` dé 0 fallos sobre main actual. :-corto
+
+### G9-bis (Gemini) — sigue activo, ver 20:15. Entrega los dos juntos o G9-bis primero, como prefieras.
+
+### C19 (Codex) — sube de «después» a **siguiente tras C17**: además de lo dicho a las 20:15, sirve las dos lecturas del contrato de arriba y las dos acciones (`llamar`, `resultado`) con persistencia en PostgreSQL (migración 000105: `bolsa_llamamientos` y `bolsa_disponibilidad`, con `down`); las lecturas combinan dataset (bolsas y candidaturas sintéticas) con lo persistido (llamamientos y disponibilidad). C15 pasa detrás de C19.
