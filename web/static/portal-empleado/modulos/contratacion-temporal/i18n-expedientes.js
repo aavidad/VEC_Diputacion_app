@@ -61,6 +61,11 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   vacio_titulo: "Sin resultados",
   vacio_detalle: "Cambie o quite algún filtro para ampliar la búsqueda.",
   denegado_titulo: "Acceso denegado",
+  catalogo_no_disponible_titulo: "Catálogo no disponible",
+  catalogo_no_disponible_detalle:
+    "No se ha podido cargar el catálogo de centros y categorías para el formulario. Puede volver a intentarlo o regresar al cuadro de mando.",
+  expediente_error_carga:
+    "No se pudo cargar el expediente solicitado. Puede volver a intentarlo o regresar al cuadro de mando.",
   reintentar: "Reintentar",
   volver_cuadro: "Volver al cuadro",
   indicadores: "Resumen de expedientes",

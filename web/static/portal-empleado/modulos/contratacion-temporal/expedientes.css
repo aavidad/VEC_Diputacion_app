@@ -163,6 +163,13 @@
   color: var(--portal-muted);
 }
 
+.ct-exp-acciones-estado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .ct-exp-indicadores {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

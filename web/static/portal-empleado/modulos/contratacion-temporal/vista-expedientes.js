@@ -271,18 +271,27 @@ function renderizarAlta(
   asignacionDisponible,
   informeJuridicoDisponible,
   fiscalizacionDisponible,
+  catalogoDisponible = true,
 ) {
-  return disponible
-    ? `<div data-ct-exp-alta></div>
-      ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
-      ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
-      ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
-      ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}
-      ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`
-    : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
-      <h3>${escaparHTML(t("denegado_titulo"))}</h3>
-      <p>${escaparHTML(t("estado_denegado"))}</p>
+  if (!disponible || !catalogoDisponible) {
+    const esErrorCatalogo = !catalogoDisponible;
+    const titulo = esErrorCatalogo ? t("catalogo_no_disponible_titulo") : t("denegado_titulo");
+    const detalle = esErrorCatalogo ? t("catalogo_no_disponible_detalle") : t("estado_denegado");
+    return `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
+      <h3>${escaparHTML(titulo)}</h3>
+      <p>${escaparHTML(detalle)}</p>
+      <div class="ct-exp-acciones-estado">
+        <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(t("reintentar"))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button>
+      </div>
     </section>`;
+  }
+  return `<div data-ct-exp-alta></div>
+    ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
+    ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
+    ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}
+    ${informeJuridicoDisponible ? '<div data-ct-exp-informe-juridico></div>' : ""}
+    ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`;
 }
 
 function contextoLlamamientoDesdeEstado(estado) {
@@ -493,6 +502,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   resolucionFormalizacionDisponible = false,
   incorporacionEjercicioDisponible = false,
   reciboAsignacionConfirmado = null,
+  catalogoDisponible = true,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -511,6 +521,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       asignacionDisponible,
       informeJuridicoDisponible,
       fiscalizacionDisponible,
+      catalogoDisponible,
     );
   } else if (estado.vista === "expediente") {
     const detalle = renderizarExpediente(
@@ -590,9 +601,9 @@ export function renderizarModuloContratacionTemporal(estado, {
     ${renderizarCabeceraModulo(estado, t)
     .replace("<h2>", '<h2 id="ct-exp-titulo">')}
     ${renderizarNavegacion(estado, t)}
-    <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje)}"
+    <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje || "info")}"
       data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
-      aria-live="polite">${escaparHTML(t(estado.mensaje_clave))}</div>
+      aria-live="polite">${escaparHTML(estado.mensaje_clave ? t(estado.mensaje_clave) : "")}</div>
     <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
       && estado.vista === "expediente" && estado.carga === "listo"
       && estado.expediente !== null
@@ -1663,26 +1674,48 @@ export async function montarModuloContratacionTemporal({
 
   function montarAltaSiProcede() {
     const estado = presentador.obtenerEstado();
-    if (!montada || estado.vista !== "alta" || !altaDisponible) return;
+    if (!montada || estado.vista !== "alta") return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
     if (!contenedor) return;
-    const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-      catalogos: alta.catalogos,
-      capacidad: alta.capacidad,
-      ejecutor: crearEjecutorAltaConRefresco(
-        alta.ejecutor,
-        presentador,
-        montarAnalisisDesdeAlta,
-      ),
-      generarClaveIdempotencia: alta.generarClaveIdempotencia,
-    });
-    desmontarAlta = montarAltaContratacionTemporal({
-      raiz: contenedor,
-      presentador: presentadorAlta,
-      anunciar,
-      locale,
-      zonaHoraria,
-    });
+    if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
+      contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
+        <h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3>
+        <p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p>
+        <div class="ct-exp-acciones-estado">
+          <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button>
+          <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button>
+        </div>
+      </section>`;
+      return;
+    }
+    try {
+      const presentadorAlta = crearPresentadorAltaContratacionTemporal({
+        catalogos: alta.catalogos,
+        capacidad: alta.capacidad,
+        ejecutor: crearEjecutorAltaConRefresco(
+          alta.ejecutor,
+          presentador,
+          montarAnalisisDesdeAlta,
+        ),
+        generarClaveIdempotencia: alta.generarClaveIdempotencia,
+      });
+      desmontarAlta = montarAltaContratacionTemporal({
+        raiz: contenedor,
+        presentador: presentadorAlta,
+        anunciar,
+        locale,
+        zonaHoraria,
+      });
+    } catch {
+      contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1">
+        <h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3>
+        <p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p>
+        <div class="ct-exp-acciones-estado">
+          <button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button>
+          <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button>
+        </div>
+      </section>`;
+    }
   }
 
   function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {
@@ -1839,10 +1872,12 @@ export async function montarModuloContratacionTemporal({
       montarSubsanacionDesdeExpedienteActual();
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
-    anunciar(
-      crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
-      estado.tipo_mensaje,
-    );
+    if (estado.mensaje_clave) {
+      anunciar(
+        crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
+        estado.tipo_mensaje,
+      );
+    }
   }
 
   async function cambiarVista(vista) {

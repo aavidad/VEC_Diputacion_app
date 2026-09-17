@@ -29,13 +29,20 @@ export function renderizarEstadoCarga(estado, t) {
   if (!configuracion) return "";
   const [titulo, detallePredeterminado, tono] = configuracion;
   const detalle = estado.mensaje_clave || detallePredeterminado;
+  const esExpediente = estado.vista === "expediente" || Boolean(estado.expediente_ref);
+  const tieneAcciones = estado.carga === "error" || estado.carga === "vacio" || esExpediente;
   return `<section class="ct-exp-estado-global ct-tono-${tono}" role="${tono === "peligro" ? "alert" : "status"}"
     ${estado.carga === "cargando" ? 'aria-busy="true"' : ""} tabindex="-1">
     <h3>${escaparHTML(t(titulo))}</h3>
     <p>${escaparHTML(t(detalle))}</p>
-    ${estado.carga === "error"
+    ${tieneAcciones ? `<div class="ct-exp-acciones-estado">
+      ${(estado.carga === "error" || estado.carga === "vacio")
     ? `<button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(t("reintentar"))}</button>`
     : ""}
+      ${esExpediente
+    ? `<button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button>`
+    : ""}
+    </div>` : ""}
   </section>`;
 }
 
@@ -496,8 +503,18 @@ function renderizarTarea(
 
 export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false) {
   const expediente = estado.expediente;
-  if (!expediente) return `<section class="ct-exp-estado-global"><p>${escaparHTML(t("expediente_sin_seleccionar"))}</p>
-    <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button></section>`;
+  if (!expediente) {
+    const esError = estado.carga === "error";
+    const tono = esError ? "peligro" : "neutro";
+    return `<section class="ct-exp-estado-global ct-tono-${tono}" role="${esError ? "alert" : "status"}" tabindex="-1">
+      ${esError ? `<h3>${escaparHTML(t("error_titulo"))}</h3>` : ""}
+      <p>${escaparHTML(t(esError ? "expediente_error_carga" : "expediente_sin_seleccionar"))}</p>
+      <div class="ct-exp-acciones-estado">
+        ${esError ? `<button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(t("reintentar"))}</button>` : ""}
+        <button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button>
+      </div>
+    </section>`;
+  }
   const tramitacion = expediente.tareas.length === 0
     ? renderizarTarea(expediente, estado.tarea_ref, estado, t, locale, zonaHoraria, analisisDisponible)
     : `<div class="ct-exp-tramitacion">

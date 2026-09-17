@@ -56,6 +56,32 @@
     flex-direction: column;
   }
 
+  .ct-exp-borradores ul {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .ct-exp-borradores li {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ct-exp-borradores-acciones {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    gap: 6px;
+  }
+
+  .ct-exp-borradores-acciones .boton-secundario {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
   .ct-exp-indicadores,
   .ct-exp-filtros,
   .ct-exp-cabecera-expediente dl,
@@ -64,6 +90,137 @@
   .ct-exp-campos,
   .ct-exp-recibo dl {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-cabecera-expediente {
+    padding: 10px 12px;
+  }
+
+  .ct-exp-cabecera-expediente dl div {
+    min-width: 0;
+    padding: 6px 8px;
+  }
+
+  .ct-exp-cabecera-expediente dt,
+  .ct-exp-cabecera-expediente dd {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .ct-exp-flujo code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  .ct-exp-detalle-tecnico {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .ct-exp-progreso {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px;
+    overflow-x: visible;
+  }
+
+  .ct-exp-progreso ol {
+    display: grid;
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .ct-exp-progreso li {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: center;
+    justify-items: start;
+    padding: 4px 0;
+    text-align: left;
+  }
+
+  .ct-exp-progreso .ct-exp-numero-fase {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+    width: 26px;
+    height: 26px;
+    align-self: center;
+  }
+
+  .ct-exp-progreso li > span:not(.ct-exp-numero-fase) {
+    grid-row: 1;
+    grid-column: 2;
+    font-size: 0.82rem;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+
+  .ct-exp-progreso li > small {
+    grid-row: 2;
+    grid-column: 2;
+    font-size: 0.76rem;
+    color: var(--portal-muted);
+  }
+
+  .ct-exp-progreso li::before {
+    top: -12px;
+    left: 12px;
+    right: auto;
+    width: 2px;
+    height: 14px;
+  }
+
+  .ct-exp-progreso li:first-child::before {
+    display: none;
+  }
+
+  .ct-exp-historial {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--portal-borde);
+    border-radius: var(--portal-radio);
+    background: var(--portal-superficie);
+  }
+
+  .ct-exp-historial summary {
+    cursor: pointer;
+    font-weight: 750;
+    color: var(--portal-azul-700);
+  }
+
+  .ct-exp-historial p {
+    margin: 6px 0 10px;
+    color: var(--portal-muted);
+    font-size: 0.78rem;
+  }
+
+  .ct-exp-historial .tabla-contenedor {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .ct-exp-acciones-estado {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ct-exp-acciones-estado button {
+    width: 100%;
   }
 
   .ct-exp-navegacion {
@@ -111,6 +268,34 @@
   .ct-exp-filtros-acciones button,
   .ct-exp-acciones button {
     flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .ct-exp-cabecera-modulo {
+    padding: 10px 12px;
+  }
+
+  .ct-exp-tarea-cabecera,
+  .ct-exp-subcabecera {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .ct-exp-panel {
+    padding: 10px;
+  }
+
+  .ct-exp-estado-global {
+    padding: 14px 12px;
+  }
+
+  .ct-exp-cabecera-modulo h2,
+  .ct-exp-cabecera-expediente h3 {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
 
