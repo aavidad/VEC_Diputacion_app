@@ -199,7 +199,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	sello := dependencias.sello
 	reloj := dependencias.reloj
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
-		cfg, resolvedorDesarrollo, derivador, sello, reloj, origen,
+		dependencias, origen,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -215,9 +215,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
+		dependencias,
 		&alta,
-		derivador,
-		reloj,
 		fuenteMotivosRectificacion,
 		catalogoDesarrollo,
 	)
@@ -225,9 +224,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, err
 	}
 	coberturaReal, err := nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
-		derivador,
+		dependencias,
 		&alta,
-		reloj,
 		catalogoDesarrollo,
 	)
 	if err != nil {
@@ -326,7 +324,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var borradorRRHH ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
-		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(cfg, &alta, resolvedorDesarrollo, derivador, reloj)
+		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta)
 		if err != nil {
 			return nil, nil, nil, err
 		}

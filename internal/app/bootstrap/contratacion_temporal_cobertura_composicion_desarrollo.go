@@ -24,12 +24,16 @@ type dependenciasCoberturaContratacionTemporalDesarrollo struct {
 }
 
 func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
-	derivador *derivadorIdentidadOperacionDesarrollo,
+	dependenciasCT *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (dependenciasCoberturaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasCoberturaContratacionTemporalDesarrollo{}
+	if dependenciasCT == nil {
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	derivador := dependenciasCT.derivador
+	reloj := dependenciasCT.reloj
 	if derivador == nil || !derivador.valido() || alta == nil ||
 		alta.soporte == nil || alta.autorizador == nil ||
 		alta.postgresql.ejecucion == nil ||

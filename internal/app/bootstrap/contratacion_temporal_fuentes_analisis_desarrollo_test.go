@@ -182,9 +182,8 @@ func TestMaterialFuentesAnalisisDesarrolloEsEstableYSeparado(t *testing.T) {
 func TestDependenciasAnalisisDesarrolloFallanCerradasSinAlta(t *testing.T) {
 	derivador := nuevoDerivadorIdempotenciaPrueba(t, 2, 1)
 	if servicio, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
+		&DependenciasCT{derivador: derivador, reloj: relojContratacionTemporalDesarrollo{}},
 		nil,
-		derivador,
-		relojContratacionTemporalDesarrollo{},
 		fuenteMotivosRectificacionAnalisisDesarrollo{},
 	); err == nil || servicio != nil {
 		t.Fatalf("servicio=%v error=%v", servicio, err)

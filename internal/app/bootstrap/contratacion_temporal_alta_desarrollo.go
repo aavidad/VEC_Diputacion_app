@@ -156,14 +156,18 @@ func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
 }
 
 func nuevasDependenciasAltaContratacionTemporalDesarrollo(
-	cfg config.Config,
-	identidad *resolvedorIdentidadDesarrollo,
-	derivador *derivadorIdentidadOperacionDesarrollo,
-	sello *selloConsultasContratacionTemporalDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
+	dependenciasCT *DependenciasCT,
 	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
 ) (dependenciasAltaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasAltaContratacionTemporalDesarrollo{}
+	if dependenciasCT == nil {
+		return vacias, ErrActivacionDesarrolloInvalida
+	}
+	cfg := dependenciasCT.cfg
+	identidad := dependenciasCT.resolvedor
+	derivador := dependenciasCT.derivador
+	sello := dependenciasCT.sello
+	reloj := dependenciasCT.reloj
 	var origen *origenConsultasContratacionTemporalDesarrollo
 	if len(origenOpcional) > 0 && origenOpcional[0] != nil {
 		origen = origenOpcional[0]
@@ -340,14 +344,11 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 ) (vechttp.RutaExacta, func(), error) {
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
-	dependencias, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
-		cfg,
-		identidad,
-		derivador,
-		sello,
-		reloj,
-		origen,
-	)
+	dependenciasCT, err := nuevasDependenciasCT(cfg, identidad, derivador, nil)
+	if err != nil {
+		return vechttp.RutaExacta{}, nil, err
+	}
+	dependencias, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(dependenciasCT, origen)
 	if err != nil {
 		return vechttp.RutaExacta{}, nil, err
 	}

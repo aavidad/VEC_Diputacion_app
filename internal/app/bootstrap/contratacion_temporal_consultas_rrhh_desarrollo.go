@@ -256,10 +256,17 @@ func nuevoSoporteLectorRRHHDesarrollo(
 // Compone las rutas, el guardián y los dos adaptadores existentes. No aplica
 // migraciones ni construye otra publicación o una bandeja en memoria.
 func nuevasDependenciasConsultasRRHHDesarrollo(
-	cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
-	resolvedor *resolvedorIdentidadDesarrollo, derivador *derivadorIdentidadOperacionDesarrollo, reloj relojContratacionTemporalDesarrollo,
+	dependenciasCT *DependenciasCT,
+	alta *dependenciasAltaContratacionTemporalDesarrollo,
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
+	if dependenciasCT == nil {
+		return vacio, ports.ErrConsultaRRHHNoDisponible
+	}
+	cfg := dependenciasCT.cfg
+	resolvedor := dependenciasCT.resolvedor
+	derivador := dependenciasCT.derivador
+	reloj := dependenciasCT.reloj
 	c := cfg.ContratacionTemporalPostgreSQL
 	consultaDSN, motivosDSN, err := c.DSNConsultasRRHHSeparados()
 	if err != nil || alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || resolvedor == nil {

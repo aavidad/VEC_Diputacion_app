@@ -272,12 +272,16 @@ func responderErrorConfiguracionAnalisisContratacionTemporalDesarrollo(
 }
 
 func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
+	dependenciasCT *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
-	derivador *derivadorIdentidadOperacionDesarrollo,
-	reloj relojContratacionTemporalDesarrollo,
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (*application.ServicioOperacionAnalisis, error) {
+	if dependenciasCT == nil {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
+	derivador := dependenciasCT.derivador
+	reloj := dependenciasCT.reloj
 	if alta == nil || alta.soporte == nil || alta.autorizador == nil ||
 		alta.postgresql.ejecucion == nil ||
 		derivador == nil || !derivador.valido() {
