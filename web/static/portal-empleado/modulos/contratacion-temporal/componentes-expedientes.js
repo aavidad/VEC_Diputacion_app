@@ -39,6 +39,9 @@ export function renderizarEstadoCarga(estado, t) {
       ${(estado.carga === "error" || estado.carga === "vacio")
     ? `<button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(t("reintentar"))}</button>`
     : ""}
+      ${estado.carga === "vacio" && !esExpediente
+    ? `<button type="button" class="boton-secundario" data-ct-exp-accion="limpiar-filtros">${escaparHTML(t("limpiar_filtros"))}</button>`
+    : ""}
       ${esExpediente
     ? `<button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(t("volver_cuadro"))}</button>`
     : ""}
