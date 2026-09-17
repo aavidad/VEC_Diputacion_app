@@ -441,7 +441,7 @@
 .estado-chip.exito { border-color: #b9dfc4; background: var(--portal-exito-suave); color: var(--portal-exito); }
 .estado-chip.info { border-color: #bdd6f4; background: var(--portal-azul-100); color: #0753a9; }
 .estado-chip.peligro { border-color: #efc0c5; background: var(--portal-peligro-suave); color: var(--portal-peligro); }
-.estado-chip.neutro { border-color: #d8e1ea; background: #f2f5f8; color: #526174; }
+.estado-chip.neutro { border-color: #7b8fa7; background: #f2f5f8; color: #26303d; }
 .estado-chip.violeta { border-color: #d7c9f7; background: #f3effd; color: #6040b1; }
 
 .elemento-actividad {

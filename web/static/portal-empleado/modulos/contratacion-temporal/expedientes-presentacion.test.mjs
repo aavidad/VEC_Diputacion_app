@@ -846,3 +846,23 @@ test("la presentación no transmite GINPIX ni altera el expediente al llegar al 
   assert.equal(despues.version, versionAntes);
   assert.deepEqual(await fuente.obtenerAuditoria(referencia), auditoriaAntes);
 });
+
+test("la vista de alta no renderiza subcabecera redundante ni bloque de llamamiento", () => {
+  const estado = {
+    vista: "alta",
+    carga: "listo",
+    tipo_mensaje: "informacion",
+    mensaje_clave: "estado_inicial",
+    cuadro: null,
+    expediente: null,
+  };
+  const html = renderizarModuloContratacionTemporal(estado, {
+    altaDisponible: true,
+    llamamientoDisponible: true,
+  });
+  assert.doesNotMatch(html, /ct-exp-subcabecera/u);
+  assert.doesNotMatch(html, /Nueva petición de personal/u);
+  assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
+  assert.match(html, /data-ct-exp-alta/u);
+});
+

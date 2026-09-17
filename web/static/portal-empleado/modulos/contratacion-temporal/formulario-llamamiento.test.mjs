@@ -111,7 +111,7 @@ async function montarExpedienteSeleccionado(inicial, alta = null) {
     }),
   };
 }
-test("Nueva petición conserva recuperación manual tras remontar incluso si falla el cuadro", async () => {
+test("la vista de alta no monta el bloque de llamamiento sin expediente fiscalizado", async () => {
   const alta = { catalogos: {}, ejecutor: () => { throw new Error("no debe registrar otra petición"); } };
   for (const carga of ["listo", "error"]) {
     for (let reinicio = 0; reinicio < 2; reinicio += 1) {
@@ -120,8 +120,8 @@ test("Nueva petición conserva recuperación manual tras remontar incluso si fal
         expediente: null, expediente_ref: "",
         mensaje_clave: carga === "error" ? "estado_error_carga" : "estado_inicial",
       }, alta);
-      const html = montaje.formulario().innerHTML;
-      assert.match(html, /Llamamiento y comunicación/u); assert.match(html, /id="ct-llamamiento-seleccion-expediente_ref"[^>]*value=""/u); assert.match(html, /id="ct-llamamiento-seleccion-clave_idempotencia"[^>]*value=""/u); assert.equal(montaje.peticiones(), 0);
+      assert.equal(montaje.formulario().innerHTML, "");
+      assert.equal(montaje.peticiones(), 0);
       montaje.desmontar();
     }
   }

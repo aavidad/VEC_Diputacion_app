@@ -89,8 +89,12 @@ select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #ffbf47;
+  outline: 3px solid var(--portal-azul-700);
   outline-offset: 2px;
+}
+
+:target {
+  scroll-margin-top: 84px;
 }
 
 .salto-contenido {
@@ -533,8 +537,14 @@ a:focus-visible,
 }
 
 .boton-secundario {
-  border-color: var(--portal-borde);
+  border-color: #7b8fa7;
   background: #fff;
+  color: var(--portal-tinta);
+}
+
+.boton-secundario:hover {
+  border-color: var(--portal-tinta);
+  background: var(--portal-fondo);
   color: var(--portal-tinta);
 }
 

@@ -272,11 +272,7 @@ function renderizarAlta(
   informeJuridicoDisponible,
   fiscalizacionDisponible,
 ) {
-  return `<header class="ct-exp-subcabecera">
-    <h3>${escaparHTML(t("nueva_peticion_titulo"))}</h3>
-    <p>${escaparHTML(t("nueva_peticion_descripcion"))}</p>
-  </header>
-  ${disponible
+  return disponible
     ? `<div data-ct-exp-alta></div>
       ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
       ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
@@ -286,7 +282,7 @@ function renderizarAlta(
     : `<section class="ct-exp-estado-global ct-tono-peligro" role="alert">
       <h3>${escaparHTML(t("denegado_titulo"))}</h3>
       <p>${escaparHTML(t("estado_denegado"))}</p>
-    </section>`}`;
+    </section>`;
 }
 
 function contextoLlamamientoDesdeEstado(estado) {
@@ -598,9 +594,8 @@ export function renderizarModuloContratacionTemporal(estado, {
       data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
       aria-live="polite">${escaparHTML(t(estado.mensaje_clave))}</div>
     <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
-      && ((estado.vista === "alta" && altaDisponible)
-        || (estado.vista === "expediente" && estado.carga === "listo"
-          && estado.expediente !== null))
+      && estado.vista === "expediente" && estado.carga === "listo"
+      && estado.expediente !== null
       ? '<div data-ct-exp-llamamiento></div>' : ""}</div>
   </section>`;
 }
@@ -1169,14 +1164,13 @@ export async function montarModuloContratacionTemporal({
 
   function montarLlamamiento(contexto = null) {
     if (!montada || !llamamientoDisponible) return;
-    // Nueva petición conserva el acceso manual publicado para recuperar con
-    // las mismas referencias tras reinicio, sin repetir alta ni fiscalización.
-    // La bandeja y los detalles siguen necesitando contexto válido.
-    const recuperacionManual = altaDisponible
-      && presentador.obtenerEstado().vista === "alta";
-    if (contexto === null && !recuperacionManual) return;
+    if (contexto === null) {
+      desmontarLlamamiento?.();
+      desmontarLlamamiento = null;
+      return;
+    }
     if (desmontarLlamamiento !== null) {
-      if (contexto !== null) desmontarLlamamiento.actualizarContexto(contexto);
+      desmontarLlamamiento.actualizarContexto(contexto);
       return;
     }
     const contenedor = raiz.querySelector("[data-ct-exp-llamamiento]");
@@ -1877,7 +1871,7 @@ export async function montarModuloContratacionTemporal({
       return;
     }
     presentador.cambiarVista(vista);
-    repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : ".ct-exp-contenido");
+    repintar(vista === "cuadro" ? "[data-ct-exp-filtros]" : (vista === "alta" ? "#ct-alta-titulo" : ".ct-exp-contenido"));
   }
 
   async function manejarClick(evento) {

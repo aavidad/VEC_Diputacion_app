@@ -16,7 +16,12 @@
 .ct-expedientes input,
 .ct-expedientes select,
 .ct-expedientes textarea,
-.ct-expedientes [tabindex="-1"] {
+.ct-expedientes [tabindex="-1"],
+.ct-expedientes :target,
+.ct-expedientes [id],
+.ct-exp-tarea-actual,
+.ct-exp-detalle {
+  scroll-margin-top: 84px;
   scroll-margin-block: 84px;
 }
 
@@ -276,9 +281,9 @@
 }
 
 .ct-fase-pendiente {
-  border-color: var(--portal-borde);
+  border-color: var(--portal-muted);
   background: var(--portal-fondo);
-  color: var(--portal-muted);
+  color: var(--portal-tinta);
 }
 
 .ct-fase-en_curso {
@@ -308,7 +313,7 @@
 .ct-fase-cancelado {
   border-color: var(--portal-muted);
   background: var(--portal-fondo);
-  color: var(--portal-muted);
+  color: var(--portal-tinta);
   text-decoration: line-through;
 }
 
@@ -465,6 +470,8 @@
 .ct-exp-progreso {
   padding: 10px 12px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
   border: 1px solid var(--portal-borde);
   border-radius: 7px;
   background: var(--portal-superficie);
