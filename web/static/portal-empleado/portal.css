@@ -530,22 +530,42 @@ a:focus-visible,
   border-color: #064ca7;
   background: var(--portal-azul-700);
   color: #fff;
+  box-shadow: 0 2px 6px rgba(7, 95, 202, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .boton-primario:hover {
   background: #064fae;
+  box-shadow: 0 4px 12px rgba(7, 95, 202, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.boton-primario:active {
+  background: var(--portal-azul-800);
+  box-shadow: 0 1px 3px rgba(7, 95, 202, 0.3);
+  transform: translateY(0);
 }
 
 .boton-secundario {
-  border-color: #7b8fa7;
-  background: #fff;
-  color: var(--portal-tinta);
+  border-color: #a9c4e6;
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-800);
+  box-shadow: 0 1px 3px rgba(27, 51, 82, 0.12);
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .boton-secundario:hover {
-  border-color: var(--portal-tinta);
-  background: var(--portal-fondo);
-  color: var(--portal-tinta);
+  border-color: var(--portal-azul-700);
+  background: #dbe9fb;
+  color: var(--portal-azul-900);
+  box-shadow: 0 3px 9px rgba(27, 51, 82, 0.16);
+  transform: translateY(-1px);
+}
+
+.boton-secundario:active {
+  background: #c9ddf7;
+  box-shadow: 0 1px 2px rgba(27, 51, 82, 0.14);
+  transform: translateY(0);
 }
 
 .boton-terciario {
@@ -554,14 +574,39 @@ a:focus-visible,
   color: var(--portal-azul-700);
 }
 
+.boton-terciario:hover {
+  background: var(--portal-azul-100);
+  text-decoration: underline;
+}
+
 .boton-peligro {
   border-color: #efb7bd;
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
+  box-shadow: 0 1px 3px rgba(186, 39, 55, 0.16);
+}
+
+.boton-peligro:hover {
+  background: #ffe3e6;
+  border-color: var(--portal-peligro);
 }
 
 .boton-primario:disabled,
 .boton-secundario:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+  box-shadow: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boton-primario,
+  .boton-secundario {
+    transition: none;
+  }
+
+  .boton-primario:hover,
+  .boton-secundario:hover {
+    transform: none;
+  }
 }

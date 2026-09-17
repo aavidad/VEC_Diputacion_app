@@ -78,23 +78,30 @@
 
 .ct-exp-navegacion button {
   min-height: 44px;
-  padding: 7px 12px;
+  padding: 7px 14px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--portal-muted);
+  color: var(--ct-acento);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 760;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
-.ct-exp-navegacion button:hover:not(:disabled),
-.ct-exp-navegacion button[aria-current="page"] {
-  border-color: var(--portal-borde);
+.ct-exp-navegacion button:hover:not(:disabled) {
+  border-color: #a9c4e6;
   background: var(--ct-suave);
-  color: var(--ct-acento);
+  color: var(--portal-azul-900);
+}
+
+.ct-exp-navegacion button[aria-current="page"] {
+  border-color: #064ca7;
+  background: var(--ct-acento);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(7, 95, 202, 0.32);
 }
 
 .ct-exp-navegacion button:disabled {

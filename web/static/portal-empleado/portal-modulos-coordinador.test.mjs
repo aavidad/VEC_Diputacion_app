@@ -810,7 +810,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionCoordinador = "20260906-acceso-certificado-v1";
   const versionPortal = "20260906-acceso-certificado-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
-  const versionTema = "20260725-aislamiento-modular-v1";
+  const versionTema = "20260918-botones-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
