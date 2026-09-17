@@ -129,17 +129,27 @@ function validarResumen(entrada) {
   return structuredClone(entrada);
 }
 
+// Totales del conjunto filtrado al mismo corte (migración 000105): cada
+// categoría es un entero entre 0 y total; pueden solaparse.
+function totalesValidos(totales) {
+  if (!camposCerrados(totales, ["total", "en_tramitacion", "con_incidencia", "en_llamamiento"])) return false;
+  const valores = Object.values(totales);
+  return valores.every((v) => Number.isSafeInteger(v) && v >= 0)
+    && valores.every((v) => v <= totales.total);
+}
+
 function validarPagina(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "generada_en", "expedientes", "hay_mas"],
-    ["cursor_siguiente"],
+    ["cursor_siguiente", "totales"],
   ) || entrada.esquema !== ESQUEMA_CUADRO || !instante(entrada.generada_en)
     || !Array.isArray(entrada.expedientes)
     || entrada.expedientes.length > MAXIMO_EXPEDIENTES
     || typeof entrada.hay_mas !== "boolean"
     || (Object.hasOwn(entrada, "cursor_siguiente")
-      && !cursor(entrada.cursor_siguiente))) {
+      && !cursor(entrada.cursor_siguiente))
+    || (Object.hasOwn(entrada, "totales") && !totalesValidos(entrada.totales))) {
     throw new TypeError("página de cuadro RRHH no válida");
   }
   const expedientes = entrada.expedientes.map(validarResumen);

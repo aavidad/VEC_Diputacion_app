@@ -257,3 +257,31 @@ test("el detalle admite observaciones del análisis y rechaza las vacías o desm
     await assert.rejects(consultar({ ...base.analisis, observaciones: invalidas }));
   }
 });
+
+test("acepta los totales del conjunto filtrado y rechaza totales incoherentes", async () => {
+  const paginaCon = (totales) => async () => respuesta({ data: {
+    esquema: "vec.contratacion-temporal.cuadro-rrhh.v1",
+    generada_en: "2026-09-03T08:05:00Z",
+    expedientes: [resumen],
+    hay_mas: false,
+    totales,
+  } });
+  const solicitud = {
+    filtros: { texto: "", estado_clave: "", fase_clave: "" },
+    paginacion: { limite: 50, cursor: "" },
+  };
+  const validos = { total: 71, en_tramitacion: 70, con_incidencia: 1, en_llamamiento: 0 };
+  const pagina = await crearClienteHTTPContratacionTemporal({ fetchImpl: paginaCon(validos) })
+    .consultarCuadroRRHH(solicitud);
+  assert.deepEqual(pagina.totales, validos);
+  for (const invalidos of [
+    { total: 1, en_tramitacion: 2, con_incidencia: 0, en_llamamiento: 0 },
+    { total: -1, en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 },
+    { total: 1, en_tramitacion: 0, con_incidencia: 0 },
+    { total: 1, en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0, extra: 1 },
+  ]) {
+    await assert.rejects(
+      crearClienteHTTPContratacionTemporal({ fetchImpl: paginaCon(invalidos) }).consultarCuadroRRHH(solicitud),
+    );
+  }
+});
