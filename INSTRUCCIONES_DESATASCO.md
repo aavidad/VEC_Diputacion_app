@@ -347,6 +347,11 @@ correcciones → cortes pequeños revisados):
    y RRHH. **Se conserva el mapa de rutas** (cálculo de kilómetros con OSRM sobre
    la cartografía de Granada, `deploy/osrm-granada`, `modulos/dietas/mapa-ruta.js`):
    Alberto lo quiere en el producto; no es sobreprogramación que se retire.
+   **Con estadísticas**: resúmenes anuales y mensuales, y datos por semana, mes y
+   año (dietas solicitadas, autorizadas, importes, kilómetros; por persona, centro
+   y periodo), exportables. El mismo criterio de estadísticas periódicas se aplica
+   a Cronos (fichajes, ausencias) y, cuando toque, al cuadro de RRHH de
+   Contratación (expedientes por fase, tiempos por paso).
 
 Sigue vigente: datos sintéticos, deny by default, una operación por caso de uso,
 ningún adaptador sin consumidor.
