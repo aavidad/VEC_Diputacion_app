@@ -144,28 +144,43 @@ function escaparHTML(valor) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
-  confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
-const renderizarPortal = crearVistaInicioPortal({
-  encabezadoVista,
-  escaparHTML,
-  obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
-  resolverAcceso: resolverAccesoPerfil,
-});
-function renderizarContenidoAyuda(contexto = null) {
-  if (estado.vista === "contratacion-temporal") {
-    const ctx = contexto || detectarContextoContratacionTemporal();
-    const ayuda = obtenerAyudaContratacionTemporal(ctx.vista, ctx.fase);
-    return renderizarAyudaContratacionTemporal(ayuda, escaparHTML);
-  }
-  const ayuda = AYUDA_PORTAL_BOLSA;
-  return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
-}
 function numero(valor, decimales = 0) {
   return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   }).format(Number(valor || 0));
+}
+
+function esPerfilRRHH() {
+  if (estado.modoPresentacion) {
+    const perfil = perfilPresentacionSolicitado();
+    return perfil === "administrador" || perfil === "tecnico";
+  }
+  return typeof coordinadorModulos.esPerfilRRHH === "function"
+    ? coordinadorModulos.esPerfilRRHH()
+    : false;
+}
+const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
+  confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
+const renderizarPortal = crearVistaInicioPortal({
+  encabezadoVista,
+  escaparHTML,
+  numero,
+  obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
+  resolverAcceso: resolverAccesoPerfil,
+  esPerfilRRHH,
+  obtenerMetricasCuadro: () => coordinadorModulos.obtenerMetricasCuadro?.() || null,
+});
+function renderizarContenidoAyuda(contexto = null) {
+  if (estado.vista === "contratacion-temporal" || (estado.vista === "portal" && esPerfilRRHH())) {
+    const ctx = contexto || (estado.vista === "contratacion-temporal"
+      ? detectarContextoContratacionTemporal()
+      : { vista: "cuadro", fase: null });
+    const ayuda = obtenerAyudaContratacionTemporal(ctx.vista, ctx.fase);
+    return renderizarAyudaContratacionTemporal(ayuda, escaparHTML);
+  }
+  const ayuda = AYUDA_PORTAL_BOLSA;
+  return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
 }
 
 function porcentajeSeguro(valor) {
@@ -473,6 +488,7 @@ function navegar(vista, opciones = {}) {
   const hash = rutaDeVista(vista);
   if (window.location.hash !== hash) history.pushState(null, "", hash);
   estado.vista = vista;
+  estado.opcionesVista = opciones;
   renderizar();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
@@ -510,7 +526,9 @@ function renderizar() {
         : renderizarFuenteNoDisponible();
       return;
     }
-    void coordinadorModulos.montarVista(estado.vista, contenedor).catch((error) => {
+    const opcionesMontaje = estado.opcionesVista || {};
+    estado.opcionesVista = null;
+    void coordinadorModulos.montarVista(estado.vista, contenedor, opcionesMontaje).catch((error) => {
       contenedor.innerHTML = `${encabezadoVista(
         traducirPortal("estado_modulo_no_disponible_titulo"),
         titulo,

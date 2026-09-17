@@ -15,6 +15,7 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { calcularMetricasCuadro } from "./portal-inicio.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVES_CARGA_MODULAR = Object.freeze([
@@ -316,6 +317,7 @@ export function crearCoordinadorModulosPortal({
         const fuente = recursos.adaptador.crearAdaptadorContratacionTemporalPresentacion({
           contextoActor: contextos.contratacion_temporal,
         });
+        let metricasCache = null;
         return Object.freeze({
           crearPresentador: () => recursos.presentador
             .crearPresentadorExpedientesContratacionTemporal({
@@ -331,10 +333,24 @@ export function crearCoordinadorModulosPortal({
           analisis: null,
           fiscalizacion: null,
           subsanacion: null,
+          cargarMetricas: async () => {
+            try {
+              const listado = await fuente.listar({
+                filtros: { texto: "", estado: "", fase: "" },
+                cursor: "",
+                numeroPagina: 1,
+              });
+              metricasCache = calcularMetricasCuadro(listado);
+            } catch {}
+          },
+          obtenerMetricas: () => metricasCache,
           montar: recursos.vista.montarModuloContratacionTemporal,
         });
       },
     );
+    if (contratacionTemporal && typeof contratacionTemporal.cargarMetricas === "function") {
+      await contratacionTemporal.cargarMetricas();
+    }
     if (carga !== secuenciaCarga) throw new Error("carga de presentación sustituida");
     catalogo = base.catalogo.obtenerCatalogoModulosPresentacion();
     composicion = Object.freeze({
@@ -389,8 +405,9 @@ export function crearCoordinadorModulosPortal({
         const controladorConsulta = new AbortController();
         controladorCargaInterna = controladorConsulta;
         let cuadroDisponible = false;
+        let listadoCuadro = null;
         try {
-          await consultarConLimite(
+          listadoCuadro = await consultarConLimite(
             (opciones) => fuente.listar(opciones),
             controladorConsulta,
             limiteCargaModularMs,
@@ -489,6 +506,7 @@ export function crearCoordinadorModulosPortal({
           analisis,
           fiscalizacion,
           subsanacion,
+          obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
           montar: recursos.vista.montarModuloContratacionTemporal,
           montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
         });
@@ -589,7 +607,7 @@ export function crearCoordinadorModulosPortal({
     });
   }
 
-  async function montarVista(vista, raiz) {
+  async function montarVista(vista, raiz, opciones = {}) {
     if (!VISTAS_MODULOS_CONECTADOS.has(vista) || !vistaDisponible(vista)) return false;
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
@@ -600,6 +618,11 @@ export function crearCoordinadorModulosPortal({
 
     if (vista === "contratacion-temporal") {
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
+      const presentadorCT = composicion.contratacionTemporal.crearPresentador();
+      if (opciones?.subvista && typeof presentadorCT?.cambiarVista === "function"
+        && ["alta", "cuadro"].includes(opciones.subvista)) {
+        try { presentadorCT.cambiarVista(opciones.subvista); } catch {}
+      }
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
@@ -609,7 +632,7 @@ export function crearCoordinadorModulosPortal({
         })
         : await composicion.contratacionTemporal.montar({
           raiz,
-          presentador: composicion.contratacionTemporal.crearPresentador(),
+          presentador: presentadorCT,
           alta: composicion.contratacionTemporal.alta,
           analisis: composicion.contratacionTemporal.analisis,
           fiscalizacion: typeof composicion.contratacionTemporal.analisis?.cliente
@@ -659,13 +682,25 @@ export function crearCoordinadorModulosPortal({
     return true;
   }
 
+  function esPerfilRRHH() {
+    if (!vistaDisponible("contratacion-temporal")) return false;
+    return composicion?.contratacionTemporal?.fiscalizacion === null;
+  }
+
+  function obtenerMetricasCuadro() {
+    if (!esPerfilRRHH()) return null;
+    return composicion?.contratacionTemporal?.obtenerMetricas?.() || null;
+  }
+
   return Object.freeze({
     cargarInterno,
     cargarPresentacion,
     desmontarVistaActual,
+    esPerfilRRHH,
     montarVista,
     obtenerCatalogo,
     obtenerContextoBolsa,
+    obtenerMetricasCuadro,
     renderizarNavegacion,
     resolverAcceso,
     vistaDisponible,

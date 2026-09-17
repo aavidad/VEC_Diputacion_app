@@ -52,6 +52,8 @@ function opcionFiltro(valor, etiqueta, seleccionado) {
 
 function renderizarTrabajoOperativo(cuadro, t) {
   const esDemostracion = cuadro.demostracion === true;
+  // Sin expedientes no hay bandeja ni distribución que mostrar.
+  if (!esDemostracion && cuadro.expedientes.length === 0) return "";
   const expedientesNoCompletados = cuadro.expedientes
     .filter(({ estado_clave: estado }) => estado !== "completado")
     .slice(0, 3);

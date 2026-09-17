@@ -420,7 +420,11 @@ export function crearControladorPortal(dependencias) {
       const botonVista = evento.target.closest("[data-vista]");
       if (botonVista && !botonVista.disabled) {
         evento.preventDefault();
-        navegar(botonVista.dataset.vista);
+        const opciones = {};
+        if (botonVista.dataset.ctExpVista) {
+          opciones.subvista = botonVista.dataset.ctExpVista;
+        }
+        navegar(botonVista.dataset.vista, opciones);
         return;
       }
       const botonAccion = evento.target.closest("[data-accion]");
