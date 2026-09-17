@@ -324,3 +324,27 @@ contratación temporal (`32fc22eb`).
   clon aislado con una entrada firmada en `comunicacion.md`; Claude revisa, integra
   en `main` por avance rápido, ensaya la migración, despliega y comprueba en la
   principal. Una entrega «para revisión» sin los tests del encargo no se integra.
+
+## Decisión de Alberto — 17 de septiembre de 2026: después de Contratación, Bolsa, Cronos y Dietas
+
+Contratación se lleva hasta donde se pueda **sin depender de RRHH** (puntos 4–6 del
+orden: composición común, cursor y canal, identidades y pools, cliente web y
+documentación; demo, ayuda contextual y buzón de correo visibles). Lo que exige
+respuestas de RRHH o accesos de Informática (`dudas.md`: portafirmas, bolsa real de
+Convoca, correo corporativo, GINPIX, tabla de costes, plazos) queda simulado con
+claridad y se retoma cuando lleguen.
+
+A continuación, en este orden y con el mismo método (estudio → consenso → orden de
+correcciones → cortes pequeños revisados):
+
+1. **Bolsa**, porque sustituye a Convoca y alimenta el llamamiento de Contratación:
+   importador de los XLS de Convoca invocable (B1), estados y pantalla (B2, B5),
+   orden calculado (B6), contactos, llamamiento real y pausas (B3, B7, B8), público y
+   portal del candidato con DNIe o certificado (B10, B11). Ficha:
+   `docs/estudio_requisitos/ficha_adaptacion_bolsa_convoca_2026-09-16.md`.
+2. **Cronos**, reescrito (la app actual es PHP 5).
+3. **Dietas**, nuevo, con las tres perspectivas: quien la solicita, quien la autoriza
+   y RRHH.
+
+Sigue vigente: datos sintéticos, deny by default, una operación por caso de uso,
+ningún adaptador sin consumidor.
