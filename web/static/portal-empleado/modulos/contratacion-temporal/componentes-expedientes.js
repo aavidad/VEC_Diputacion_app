@@ -565,8 +565,8 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     analisisDisponible,
   )}
     </div>`;
-  return `${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
-    ${renderizarIncidencia(expediente, t)}
+  return `${renderizarIncidencia(expediente, t)}
+    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}`;
