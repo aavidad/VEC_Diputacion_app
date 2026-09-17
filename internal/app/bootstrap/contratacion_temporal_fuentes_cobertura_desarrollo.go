@@ -241,7 +241,52 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 			return registro.resultado, true
 		}
 	}
-	return "", false
+	return resultadoGenericoCoberturaDesarrollo(categoriaRef, viaClave, comprobacion, procedencia)
+}
+
+// resultadoGenericoCoberturaDesarrollo responde por cualquier categoría del
+// catálogo de desarrollo y cualquier periodo cuando no hay registro explícito:
+// afirmativa, salvo la categoría sintética «sin cobertura», que es negativa; una
+// categoría fuera del catálogo no tiene respuesta. La
+// tupla vía/comprobación/procedencia sigue teniendo que ser una de las cuatro
+// plantillas; un cruce no existe. Es la fuente sintética de las demostraciones,
+// no la bolsa real.
+func resultadoGenericoCoberturaDesarrollo(
+	categoriaRef string,
+	viaClave domain.ClaveCatalogo,
+	comprobacion domain.ClaveCatalogo,
+	procedencia domain.ClaveCatalogo,
+) (domain.ResultadoComprobacion, bool) {
+	if _, enCatalogo := gruposPorCategoriaSinteticaDesarrollo[categoriaRef]; !enCatalogo &&
+		categoriaRef != categoriaSinCoberturaDesarrollo {
+		return "", false
+	}
+	valida := false
+	for _, plantilla := range plantillasCoberturaSinteticasDesarrollo() {
+		if plantilla.via == viaClave && plantilla.comprobacion == comprobacion &&
+			plantilla.procedencia == procedencia {
+			valida = true
+			break
+		}
+	}
+	if !valida {
+		return "", false
+	}
+	if categoriaRef == categoriaSinCoberturaDesarrollo {
+		return domain.ComprobacionNegativa, true
+	}
+	return domain.ComprobacionAfirmativa, true
+}
+
+const categoriaSinCoberturaDesarrollo = "categoria:desarrollo:sin-cobertura"
+
+func plantillasCoberturaSinteticasDesarrollo() []struct{ via, comprobacion, procedencia domain.ClaveCatalogo } {
+	return []struct{ via, comprobacion, procedencia domain.ClaveCatalogo }{
+		{"bolsa_vigente", "existe_bolsa_vigente", "bolsa"},
+		{"bolsa_vigente", "hay_candidaturas_disponibles", "bolsa"},
+		{"oferta_sae", "oferta_sae_disponible", "sae"},
+		{"nueva_convocatoria_bolsa", "requiere_nueva_convocatoria", "bolsa"},
+	}
 }
 
 type verificadorRespuestaCoberturaDesarrollo struct {
@@ -578,14 +623,9 @@ func registrosCoberturaSinteticosDesarrollo() []registroCoberturaSinteticaDesarr
 		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), Fin: time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
 		// Período del expediente sintético de análisis b50fa, consultado por RRHH.
 		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
-		{"categoria:desarrollo:sin-cobertura", domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
+		{categoriaSinCoberturaDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
 	}
-	plantillas := []struct{ via, comprobacion, procedencia domain.ClaveCatalogo }{
-		{"bolsa_vigente", "existe_bolsa_vigente", "bolsa"},
-		{"bolsa_vigente", "hay_candidaturas_disponibles", "bolsa"},
-		{"oferta_sae", "oferta_sae_disponible", "sae"},
-		{"nueva_convocatoria_bolsa", "requiere_nueva_convocatoria", "bolsa"},
-	}
+	plantillas := plantillasCoberturaSinteticasDesarrollo()
 	registros := make([]registroCoberturaSinteticaDesarrollo, 0, len(periodos)*len(plantillas))
 	for _, periodo := range periodos {
 		for _, plantilla := range plantillas {

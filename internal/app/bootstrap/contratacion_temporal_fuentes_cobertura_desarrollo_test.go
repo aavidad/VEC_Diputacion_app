@@ -182,10 +182,8 @@ func TestFuenteCoberturaDesarrolloDeniegaCoordenadasNoDeclaradas(t *testing.T) {
 	dependencias := nuevasDependenciasFuentesCoberturaPrueba(t)
 	t.Cleanup(dependencias.cerrar)
 	casos := map[string]func(*ports.SolicitudConsultarCobertura){
-		"período no declarado": func(s *ports.SolicitudConsultarCobertura) {
-			s.Periodo.Inicio = time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
-			s.Periodo.Fin = time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)
-		},
+		// El periodo ya no es coordenada: la fuente sintética responde para cualquier
+		// periodo de una categoría del catálogo (demostraciones con fechas libres).
 		"categoría": func(s *ports.SolicitudConsultarCobertura) {
 			s.CategoriaRef = "categoria:desarrollo:desconocida"
 		},
@@ -365,5 +363,26 @@ func assertSecretosFuentesCoberturaBorrados(
 		if !bytes.Equal(secreto, make([]byte, len(secreto))) {
 			t.Fatalf("el secreto %d no fue borrado", indice)
 		}
+	}
+}
+
+func TestFuenteCoberturaDesarrolloRespondePorCualquierCategoriaDelCatalogo(t *testing.T) {
+	t.Parallel()
+	fuente := &fuenteComprobacionCoberturaDesarrollo{registros: registrosCoberturaSinteticosDesarrollo()}
+	periodo := domain.PeriodoPrevisto{
+		Inicio: time.Date(2027, 2, 4, 0, 0, 0, 0, time.UTC),
+		Fin:    time.Date(2027, 5, 5, 0, 0, 0, 0, time.UTC),
+	}
+	if resultado, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionAfirmativa {
+		t.Fatalf("una categoría del catálogo con periodo nuevo debe tener bolsa vigente: %q %t", resultado, existe)
+	}
+	if resultado, existe := fuente.resultadoPara(categoriaSinCoberturaDesarrollo, periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); !existe || resultado != domain.ComprobacionNegativa {
+		t.Fatalf("la categoría sin cobertura debe ser negativa: %q %t", resultado, existe)
+	}
+	if _, existe := fuente.resultadoPara("categoria:desarrollo:a2", periodo, "oferta_sae", "existe_bolsa_vigente", "bolsa"); existe {
+		t.Fatal("un cruce de vía y comprobación no debe existir")
+	}
+	if _, existe := fuente.resultadoPara("categoria:ajena:x", periodo, "bolsa_vigente", "existe_bolsa_vigente", "bolsa"); existe {
+		t.Fatal("una categoría ajena al catálogo no debe tener respuesta")
 	}
 }

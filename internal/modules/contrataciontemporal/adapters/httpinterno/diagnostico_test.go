@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -22,8 +24,14 @@ func TestRegistroDiagnosticoClasificaCentinelaSinExponerCausa(t *testing.T) {
 		nombre, esperado string
 		causa            error
 	}{
-		{"persistencia", "persistencia_no_disponible", ports.ErrPersistenciaNoDisponible},
 		{"canal", "contexto_canal_no_disponible", ErrContextoCanalNoDisponible},
+		{"persistencia", "persistencia_no_disponible", ports.ErrPersistenciaNoDisponible},
+		{"flujo", "flujo_no_disponible", ports.ErrFlujoNoDisponible},
+		{"motivo", "motivo_autorizacion_no_disponible", ports.ErrMotivoAutorizacionNoDisponible},
+		{"registro", "servicio_registro_invalido", application.ErrServicioRegistroInvalido},
+		{"consulta", "consulta_rrhh_no_disponible", application.ErrConsultaRRHHNoDisponible},
+		{"cancelacion", "context_canceled", context.Canceled},
+		{"plazo", "deadline_exceeded", context.DeadlineExceeded},
 		{"desconocido", "no_clasificado", errors.New("otra causa")},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {

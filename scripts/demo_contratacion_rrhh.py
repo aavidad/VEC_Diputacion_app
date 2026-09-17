@@ -169,7 +169,7 @@ def analisis(cliente: Cliente, caso: Caso, fila: dict[str, Any], recibo_alta: di
     rc = primera(configuracion.get("entradas_rc"), "entrada RC")
     return datos(cliente.pedir("POST", RUTAS["analisis"], {
         "expediente_ref": recibo_alta["expediente_ref"], "version_esperada": recibo_alta["version"],
-        "clave_idempotencia": clave(caso, "analisis"), "artefacto_ref": f"artefacto:ct:demo-c6:{caso.codigo}",
+        "clave_idempotencia": clave(caso, "analisis"), "artefacto_ref": configuracion["artefacto_ref"],
         "analisis": {"modalidad_clave": modalidad, "categoria_ref": fila["categoria"]["referencia"],
             "grupo_subgrupo": fila["categoria"]["grupo_subgrupo"], "causa_clave": causa,
             "periodo": fila["periodo"], "porcentaje_jornada": fila["jornada_porcentaje"] * 100,
