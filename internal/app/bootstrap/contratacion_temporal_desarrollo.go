@@ -470,6 +470,13 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
 	}
+	if cfg.BolsaDemoPath != "" {
+		rutasAreaPersonal, err := nuevasRutasAreaPersonalBolsaDesarrollo(cfg)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutasAreaPersonal...)
+	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                   sello,
 		resolvedor:              resolvedorDesarrollo,
@@ -645,6 +652,8 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == httpinterno.RutaAsignaciones ||
 		r.URL.Path == httpinterno.RutaReasignaciones ||
 		r.URL.Path == httpinterno.RutaPreparacionesInformeJuridico ||
+		r.URL.Path == rutaAreaPersonalBolsaDesarrollo ||
+		r.URL.Path == rutaDisponibilidadBolsaDesarrollo ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
