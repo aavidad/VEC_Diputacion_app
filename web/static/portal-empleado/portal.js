@@ -132,6 +132,9 @@ const estado = {
   datosBolsas: null,
   datosCandidatos: null,
   filtrosBolsa: { estado: "", texto: "" },
+  modalContactos: null,
+  modalLlamar: null,
+  modalResultado: null,
 };
 
 const porId = (id) => document.getElementById(id);
@@ -751,15 +754,15 @@ function instalarEventosBorradores() {
 }
 
 const presentadorPanelInterno = crearPresentadorPanelInterno({
-  claseEstado,
-  encabezadoVista,
-  escaparHTML,
-  numero,
+  claseEstado, encabezadoVista, escaparHTML, numero,
   obtenerDatosPanel: () => DATOS_PANEL,
   tituloVista: (vista) => TITULOS[vista]?.[1] || "Sección de Bolsa",
   obtenerDatosBolsas: () => estado.datosBolsas,
   obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
   obtenerEstadoCandidatos: () => estado.filtrosBolsa,
+  obtenerModalContactos: () => estado.modalContactos,
+  obtenerModalLlamar: () => estado.modalLlamar,
+  obtenerModalResultado: () => estado.modalResultado,
 });
 
 const controladorBolsas = crearControladorBolsas({ estado, renderizar, navegar });

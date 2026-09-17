@@ -91,7 +91,6 @@
 843 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 1233 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs
 1066 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
-2172 web/static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 873 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
 829 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 3053 web/static/styles.css

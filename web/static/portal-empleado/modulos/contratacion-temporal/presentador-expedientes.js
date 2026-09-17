@@ -10,7 +10,7 @@ import {
   validarReciboActuacion,
 } from "./contrato-expedientes.js";
 
-const VISTAS = new Set(["cuadro", "alta", "expediente", "documentos", "auditoria"]);
+const VISTAS = new Set(["cuadro", "alta", "expediente", "documentos", "auditoria", "estadisticas"]);
 const ESTADOS_CARGA = new Set([
   "inicial", "cargando", "listo", "vacio", "error", "denegado",
 ]);
