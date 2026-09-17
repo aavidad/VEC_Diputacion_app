@@ -25,6 +25,7 @@ const CATEGORIAS_EXPANDIBLES = Object.freeze([
 
 export function categoriaDeVistaBolsa(vista) {
   if (typeof vista !== "string") return "";
+  if (vista === "bolsa-candidatos") return "bolsas-candidatos";
   return Object.entries(VISTAS_POR_CATEGORIA)
     .find(([, vistas]) => vistas.includes(vista))?.[0] || "";
 }

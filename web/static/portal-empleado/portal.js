@@ -27,6 +27,7 @@ import {
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -100,6 +101,7 @@ const TITULOS = Object.freeze({
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
   cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
+  "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
     traducirPortal("contratacion_temporal_titulo"),
@@ -126,6 +128,10 @@ const estado = {
     solicitudes: Object.freeze({ referencia: "", convocatoria: "Todas", estado: "Todos" }),
     meritos: Object.freeze({ referencia: "", tipo: "Todos", estado: "Todos" }),
   },
+  bolsaSeleccionada: "",
+  datosBolsas: null,
+  datosCandidatos: null,
+  filtrosBolsa: { estado: "", texto: "" },
 };
 
 const porId = (id) => document.getElementById(id);
@@ -396,6 +402,7 @@ async function cargarFuenteDatos() {
     actualizarSesionVisible();
   }
   await Promise.all([cargaCatalogo, cargaDisponibilidad]);
+  if (!estado.modoPresentacion && estado.fuenteLista) void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
 
@@ -561,7 +568,7 @@ function renderizar() {
     return;
   }
 
-  if (estado.vista === "resumen" && presentadorPanelInterno.esActivo()) {
+  if ((estado.vista === "resumen" || estado.vista === "bolsa-candidatos") && presentadorPanelInterno.esActivo()) {
     contenedor.innerHTML = presentadorPanelInterno.renderizarVista(estado.vista);
     return;
   }
@@ -749,7 +756,12 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   numero,
   obtenerDatosPanel: () => DATOS_PANEL,
   tituloVista: (vista) => TITULOS[vista]?.[1] || "Sección de Bolsa",
+  obtenerDatosBolsas: () => estado.datosBolsas,
+  obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
+  obtenerEstadoCandidatos: () => estado.filtrosBolsa,
 });
+
+const controladorBolsas = crearControladorBolsas({ estado, renderizar, navegar });
 
 const controlador = crearControladorPortal({
   anunciar, asistenteLlamamientos, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
@@ -767,6 +779,7 @@ async function inicializar() {
   estado.vista = vistaDesdeHash();
   renderizar();
   controlador.instalar();
+  controladorBolsas.instalar();
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarEventosBorradores();
   await cargarFuenteDatos();
