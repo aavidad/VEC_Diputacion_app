@@ -155,3 +155,5 @@ static/styles.css
 static/verificar/index.html
 static/verificar/verificar.css
 static/verificar/verificar.js
+static/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css
+static/portal-empleado/modulos/contratacion-temporal/atajos-incidencia.js
