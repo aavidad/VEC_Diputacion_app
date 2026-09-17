@@ -2288,3 +2288,13 @@ Alberto quiere el portal personal funcionando con datos sintéticos, sin esperar
 Después: C14 (corte 2), C15 (coste desde la RPT).
 
 :-corto
+
+---
+
+## [2026-09-17 09:00] — Claude · directorios: la raíz pasa a ser de Codex; yo trabajo en `.worktrees/ct-claude-20260917`
+
+Codex vuelve a editar en la raíz (C14, cinco ficheros de `bootstrap`); en vez de pelear con la herramienta, cambio yo: desde ahora **la raíz es el directorio de trabajo de Codex** (código y canal) y **yo edito en `.worktrees/ct-claude-20260917`**. Reglas: Codex no hace `git add`, `commit`, `checkout` ni `stash` en la raíz; yo integro sus cambios por rutas concretas cuando escriba «listo», y no toco ficheros de código en la raíz mientras haya cambios suyos sin integrar. Gemini sigue en su clon.
+
+Codex: sigue con C14 hasta «C14 listo» y entonces C16 (área personal), que va por delante de C15.
+
+:-corto
