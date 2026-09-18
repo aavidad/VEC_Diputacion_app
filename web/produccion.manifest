@@ -168,3 +168,4 @@ static/portal-empleado/modulos/contratacion-temporal/fases-expediente.js
 static/portal-empleado/modulos/contratacion-temporal/vista-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
+static/portal-empleado/modulos/contratacion-temporal/estadisticas.css

@@ -4,6 +4,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   ESQUEMA_ESTADISTICAS,
@@ -69,6 +70,18 @@ test("validarRespuestaEstadisticas: valida respuesta correcta y rechaza anomalí
   assert.equal(v.esquema, ESQUEMA_ESTADISTICAS);
   assert.equal(v.series.length, 2);
   assert.equal(v.totales.altas, 27);
+
+  // Admite zona_horaria y corte_global del C18 real
+  const datosC18 = {
+    data: {
+      ...DATOS_MUESTRA,
+      zona_horaria: "Europe/Madrid",
+      corte_global: 169,
+    },
+  };
+  const vC18 = validarRespuestaEstadisticas(datosC18);
+  assert.equal(vC18.zona_horaria, "Europe/Madrid");
+  assert.equal(vC18.corte_global, 169);
 
   // Envelope ausente
   assert.throws(() => validarRespuestaEstadisticas(DATOS_MUESTRA));
@@ -224,3 +237,19 @@ test("montarVistaEstadisticas: ciclo de vida y montaje con cliente simulado", as
   assert.equal(contenido, "");
   assert.equal(eventos.size, 0);
 });
+
+test("estadisticas.css: la hoja de estilos existe, es válida y cumple con los estándares de diseño", async () => {
+  const rutaCSS = new URL("./estadisticas.css", import.meta.url);
+  const css = await readFile(rutaCSS, "utf8");
+  const lineas = css.split("\n").length;
+
+  assert.ok(lineas > 50, "La hoja debe tener contenido relevante");
+  assert.ok(lineas <= 800, `La hoja no debe superar 800 líneas (actual: ${lineas})`);
+  assert.ok(css.includes(".barra-filtros-estadisticas"), "Debe definir la clase de filtros");
+  assert.ok(css.includes(".grafico-svg-contenedor"), "Debe definir la clase del contenedor SVG");
+  assert.ok(css.includes(".tabla-datos"), "Debe definir los estilos de tabla de datos");
+  assert.ok(css.includes("#edf2f7"), "Debe usar el tintado institucional en cabeceras de tabla");
+  assert.ok(css.includes("@media"), "Debe incluir reglas de adaptación responsive");
+  assert.ok(!css.toLowerCase().includes("demo"), "No debe contener referencias a entornos 'demo'");
+});
+

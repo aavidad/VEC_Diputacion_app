@@ -114,11 +114,21 @@ export function validarTotalesEstadisticas(totales) {
 }
 
 export function validarRespuestaEstadisticas(envelope) {
-  if (!esObjeto(envelope) || !Object.hasOwn(envelope, "data") || !esObjeto(envelope.data)) {
-    throw new TypeError("la respuesta de estadísticas debe incluir el envelope {data:{...}}");
-  }
+  if (!esObjeto(envelope)) throw new TypeError("el envelope de respuesta no es un objeto válido");
+  if (!Object.hasOwn(envelope, "data")) throw new TypeError("la respuesta debe contener el campo 'data'");
+
   const datos = envelope.data;
-  exigirCamposExactos(datos, CAMPOS_ESTADISTICAS, "data de estadísticas");
+  if (!esObjeto(datos)) throw new TypeError("data de estadísticas no es un objeto válido");
+
+  const camposObligatorios = ["esquema", "periodo", "desde", "hasta", "series", "totales"];
+  const camposPermitidos = new Set([...camposObligatorios, "zona_horaria", "corte_global"]);
+
+  for (const c of camposObligatorios) {
+    if (!Object.hasOwn(datos, c)) throw new TypeError(`campo obligatorio ausente en estadísticas: ${c}`);
+  }
+  for (const k of Object.keys(datos)) {
+    if (!camposPermitidos.has(k)) throw new TypeError(`campo no permitido en estadísticas: ${k}`);
+  }
 
   if (datos.esquema !== ESQUEMA_ESTADISTICAS) {
     throw new TypeError(`esquema no compatible: ${datos.esquema}`);
@@ -132,6 +142,16 @@ export function validarRespuestaEstadisticas(envelope) {
 
   if (desde > hasta) {
     throw new TypeError("el rango temporal no es válido: 'desde' es posterior a 'hasta'");
+  }
+
+  if (datos.zona_horaria !== undefined) {
+    if (typeof datos.zona_horaria !== "string" || datos.zona_horaria.trim() === "" || contieneDatosPersonales(datos.zona_horaria)) {
+      throw new TypeError("zona_horaria no es válida");
+    }
+  }
+
+  if (datos.corte_global !== undefined) {
+    exigirEnteroNoNegativo(datos.corte_global, "corte_global");
   }
 
   if (!Array.isArray(datos.series)) {
@@ -152,14 +172,18 @@ export function validarRespuestaEstadisticas(envelope) {
     throw new TypeError("los totales acumulados no coinciden con la suma de las series");
   }
 
-  return Object.freeze({
+  const resultado = {
     esquema: datos.esquema,
     periodo,
     desde,
     hasta,
     series,
     totales,
-  });
+  };
+  if (datos.zona_horaria !== undefined) resultado.zona_horaria = datos.zona_horaria;
+  if (datos.corte_global !== undefined) resultado.corte_global = datos.corte_global;
+
+  return Object.freeze(resultado);
 }
 
 export function generarCSVEstadisticas(estadisticas) {
