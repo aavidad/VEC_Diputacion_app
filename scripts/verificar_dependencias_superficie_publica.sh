@@ -4,7 +4,9 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-artefacto_local="$(find . -type f \( -name '*.test' -o -name '*.prof' -o -name '*.pprof' \) -print -quit)"
+# Los worktrees y .git no forman parte de la superficie: se podan para que un
+# directorio ajeno (o sin permisos) no tumbe la puerta en local.
+artefacto_local="$(find . \( -path ./.git -o -path ./.worktrees \) -prune -o -type f \( -name '*.test' -o -name '*.prof' -o -name '*.pprof' \) -print -quit)"
 if [[ -n "${artefacto_local}" ]]; then
 	printf 'La superficie pública contiene un artefacto local no versionable: %s\n' "${artefacto_local}" >&2
 	exit 1
