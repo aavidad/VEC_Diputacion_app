@@ -24,11 +24,18 @@ func (r *resolutorAlcanceEstadisticasRRHHDesarrollo) AlcanceEstadisticasRRHH(ctx
 	if !existe || capacidad.sello != r.sello || capacidad.ruta != httpinterno.RutaEstadisticasRRHH {
 		return ports.AlcanceEstadisticasRRHH{}, ports.ErrEstadisticasRRHHNoDisponible
 	}
-	lector, ok := r.resolvedor.lectorConsultaRRHH(capacidad.principal)
-	if !ok {
+	// Con lectores RRHH configurados, el ámbito es el del lector acreditado;
+	// sin ellos, el de la organización de desarrollo, como hace el cuadro.
+	alcance := ports.AlcanceEstadisticasRRHH{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ClaseAmbito: ports.AmbitoOrganizacionRRHH, AmbitoRef: organizacionAltaContratacionTemporalDesarrollo}
+	if len(r.resolvedor.lectoresRRHH) != 0 {
+		lector, ok := r.resolvedor.lectorConsultaRRHH(capacidad.principal)
+		if !ok {
+			return ports.AlcanceEstadisticasRRHH{}, ports.ErrEstadisticasRRHHNoDisponible
+		}
+		alcance = ports.AlcanceEstadisticasRRHH{OrganizacionRef: lector.organizacionRef, ClaseAmbito: lector.clase, AmbitoRef: lector.ambitoRef}
+	} else if !principalContratacionTemporalDesarrolloValido(capacidad.principal) {
 		return ports.AlcanceEstadisticasRRHH{}, ports.ErrEstadisticasRRHHNoDisponible
 	}
-	alcance := ports.AlcanceEstadisticasRRHH{OrganizacionRef: lector.organizacionRef, ClaseAmbito: lector.clase, AmbitoRef: lector.ambitoRef}
 	if err := alcance.Validar(); err != nil {
 		return ports.AlcanceEstadisticasRRHH{}, err
 	}
