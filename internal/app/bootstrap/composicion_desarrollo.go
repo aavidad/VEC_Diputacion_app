@@ -1,12 +1,14 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
@@ -225,7 +227,10 @@ func NewHTTPServerDesarrolloWithConfig(
 			cerrarContratacion()
 		}
 	}()
-	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrollo(cfg)
+	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
+	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
+	cancelarBolsas()
+	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida)
 	if err != nil {
 		return nil, nil, err
 	}

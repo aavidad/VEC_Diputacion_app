@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -48,7 +49,18 @@ type datasetBolsasRRHHDesarrollo struct {
 	} `json:"llamamientos"`
 }
 
-type bolsasRRHHDesarrollo struct{ datos datasetBolsasRRHHDesarrollo }
+type bolsasRRHHDesarrollo struct {
+	datos  datasetBolsasRRHHDesarrollo
+	fuente *fuenteConstituidaRRHHDesarrollo
+}
+
+// vista devuelve el dataset con las bolsas constituidas fusionadas (si las hay).
+func (h *bolsasRRHHDesarrollo) vista(ctx context.Context) *bolsasRRHHDesarrollo {
+	if h.fuente == nil {
+		return h
+	}
+	return &bolsasRRHHDesarrollo{datos: h.fuente.fusionar(ctx, h.datos)}
+}
 
 func leerDatasetBolsasRRHHDesarrollo(ruta string) ([]byte, error) {
 	info, err := os.Lstat(ruta)
@@ -64,6 +76,10 @@ func leerDatasetBolsasRRHHDesarrollo(ruta string) ([]byte, error) {
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
+	return nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, nil)
+}
+
+func nuevasRutasBolsasRRHHDesarrolloConFuente(cfg config.Config, fuente *fuenteConstituidaRRHHDesarrollo) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	if strings.TrimSpace(cfg.BolsaDemoPath) == "" {
 		return nil, nil, nil
 	}
@@ -76,7 +92,7 @@ func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, [
 	if json.Unmarshal(contenido, &datos) != nil || len(datos.Bolsas) == 0 {
 		return nil, nil, ErrComposicionDesarrolloIncompleta
 	}
-	manejador := &bolsasRRHHDesarrollo{datos: datos}
+	manejador := &bolsasRRHHDesarrollo{datos: datos, fuente: fuente}
 	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -99,7 +115,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": h.respuestaBolsas()}, r.Method == http.MethodHead)
+		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": h.vista(r.Context()).respuestaBolsas()}, r.Method == http.MethodHead)
 		return
 	}
 	bolsaRef, ok := referenciaBolsaCandidatos(r.URL.Path)
@@ -112,7 +128,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	respuesta, encontrada := h.respuestaCandidatos(bolsaRef, consulta)
+	respuesta, encontrada := h.vista(r.Context()).respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
 		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
