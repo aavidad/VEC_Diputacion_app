@@ -84,6 +84,9 @@ type EntradaDetalleExpedienteRRHHMinimizada struct {
 	referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH
 	referenciaSubsanacion   ReferenciaHitoSubsanacionFiscalizacionRRHH
 	hitos                   []HitoExpedienteRRHH
+	// canonV3 marca que la entrada procede del canon V3 (migración 000106):
+	// el bloque de fiscalización se codifica siempre, presente o no.
+	canonV3 bool
 }
 
 // NuevaEntradaDetalleExpedienteRRHHMinimizada crea una instantánea defensiva
@@ -246,6 +249,7 @@ func reconstruirDetalleExpedienteRRHHMinimizado(
 		Asignacion:    clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
 		Fiscalizacion: clonarFiscalizacionOperativaMinimizadaRRHH(entrada.fiscalizacion),
 		Hitos:         clonarHitosRRHH(entrada.hitos),
+		canonV3:       entrada.canonV3,
 	}
 	if detalle.Analisis != nil {
 		detalle.Analisis.vinculo = vinculoDesdeHitoMinimizadoRRHH(
@@ -414,6 +418,7 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 	entrada.fiscalizacion = clonarFiscalizacionOperativaMinimizadaRRHH(fiscalizacion)
 	entrada.referenciaFiscalizacion = referenciaFiscalizacion
 	entrada.referenciaSubsanacion = referenciaSubsanacion
+	entrada.canonV3 = true
 	if entrada.validarReferencias() != nil {
 		return EntradaDetalleExpedienteRRHHMinimizada{}, ErrResultadoConsultaRRHHNoConfiable
 	}

@@ -127,3 +127,31 @@ func TestDetalleRRHHMinimizadoV3RechazaSubsanacionSinResultadoDesfavorable(t *te
 		t.Fatal("aceptó subsanación de resultado no desfavorable")
 	}
 }
+
+func TestDetalleRRHHMinimizadoV3SinFiscalizacionCodificaElBloqueAusente(t *testing.T) {
+	datos := datosDetalleMinimizadoPrueba(3)
+	entrada, err := ports.NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
+		datos.resumen, datos.solicitud, datos.analisis,
+		referenciaAnalisisMinimizadaPrueba(t, 2), datos.cobertura,
+		referenciaCoberturaMinimizadaPrueba(t, 3), datos.asignacion,
+		referenciaAsignacionMinimizadaPrueba(t, 4),
+		nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, datos.hitos,
+	)
+	if err != nil {
+		t.Fatalf("crear V3 sin fiscalización: %v", err)
+	}
+	generadaEn := datos.resumen.ActualizadoEn.Add(time.Minute)
+	canon, err := entrada.ExportarContenidoCanonicoParaSQL(generadaEn)
+	if err != nil || !strings.HasPrefix(string(canon.BytesCanonicos()), "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n") {
+		t.Fatalf("una entrada V3 sin fiscalización debe exportar canon V3: %v", err)
+	}
+	lectura := reciboDetalleMinimizadoPrueba(t, datos.resumen.ExpedienteRef, uint64(len(datos.hitos)), datos.resumen.ActualizadoEn)
+	detalle, err := ports.NuevoDetalleExpedienteRRHHMinimizado(entrada, lectura)
+	if err != nil {
+		t.Fatalf("reconstruir: %v", err)
+	}
+	desdeDetalle, err := detalle.ExportarContenidoCanonicoParaSQL(generadaEn)
+	if err != nil || desdeDetalle.HuellaSHA256() != canon.HuellaSHA256() {
+		t.Fatalf("la reconstrucción no reproduce el canon V3 sin fiscalización: %v", err)
+	}
+}

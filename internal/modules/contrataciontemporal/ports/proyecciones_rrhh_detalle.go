@@ -186,6 +186,7 @@ type DetalleExpedienteRRHH struct {
 	Lectura       ReciboLecturaRRHH           `json:"-"`
 	huella        [32]byte
 	bloques       uint8
+	canonV3       bool
 }
 
 // NuevoDetalleExpedienteRRHH valida el agregado completo antes de reducirlo a

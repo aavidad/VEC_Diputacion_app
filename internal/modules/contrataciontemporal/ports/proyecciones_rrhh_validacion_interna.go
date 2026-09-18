@@ -125,7 +125,7 @@ func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
 	if d.Asignacion != nil {
 		referenciaAsignacion.secuencia = d.Asignacion.vinculo.secuencia
 	}
-	if d.Fiscalizacion == nil {
+	if !d.canonV3 {
 		return NuevaEntradaDetalleExpedienteRRHHMinimizada(
 			d.Resumen, d.Solicitud,
 			d.Analisis, referenciaAnalisis,
@@ -137,10 +137,12 @@ func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
 	// Con fiscalización el canon es V3: la reconstrucción debe llevar el bloque
 	// y sus referencias, o la huella recalculada no coincidirá con el recibo.
 	var referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH
-	referenciaFiscalizacion.secuencia = d.Fiscalizacion.vinculo.secuencia
 	var referenciaSubsanacion ReferenciaHitoSubsanacionFiscalizacionRRHH
-	if d.Fiscalizacion.Subsanacion != nil {
-		referenciaSubsanacion.secuencia = d.Fiscalizacion.Subsanacion.vinculo.secuencia
+	if d.Fiscalizacion != nil {
+		referenciaFiscalizacion.secuencia = d.Fiscalizacion.vinculo.secuencia
+		if d.Fiscalizacion.Subsanacion != nil {
+			referenciaSubsanacion.secuencia = d.Fiscalizacion.Subsanacion.vinculo.secuencia
+		}
 	}
 	return NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 		d.Resumen, d.Solicitud,

@@ -47,7 +47,7 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 			ErrResultadoConsultaRRHHNoConfiable
 	}
 	cabecera := cabeceraCanonContenidoDetalleRRHHV2
-	if detalle.Fiscalizacion != nil {
+	if e.canonV3 {
 		cabecera = cabeceraCanonContenidoDetalleRRHHV3
 	}
 	constructor := nuevoConstructorCanonResultadoRRHH(cabecera)
@@ -66,7 +66,8 @@ func (e EntradaDetalleExpedienteRRHHMinimizada) ExportarContenidoCanonicoParaSQL
 		detalle.Asignacion,
 		e.referenciaAsignacion.secuencia,
 	)
-	if detalle.Fiscalizacion != nil {
+	if e.canonV3 {
+		// V3 codifica siempre el bloque (ausente = '0','0','0'), como el SQL.
 		constructor.bloqueFiscalizacion(
 			detalle.Fiscalizacion,
 			e.referenciaFiscalizacion.secuencia,
