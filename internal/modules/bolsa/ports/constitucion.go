@@ -18,6 +18,7 @@ var (
 	ErrConstitucionBolsaInvalida     = errors.New("bolsa constitucion: solicitud invalida")
 	ErrConstitucionBolsaNoDisponible = errors.New("bolsa constitucion: repositorio no disponible")
 	ErrConstitucionBolsaEnConflicto  = errors.New("bolsa constitucion: acta ya constituida en otra bolsa")
+	ErrVinculoCandidatoEnConflicto   = errors.New("bolsa constitucion: participacion vinculada a otro candidato")
 )
 
 // EntradaConstitucion vincula una posición de la instantánea con la fila del
@@ -44,6 +45,7 @@ type Constitucion struct {
 // para la misma acta: la operación es idempotente por acta).
 type ReciboConstitucion struct {
 	Reutilizada        bool
+	Vinculos           ReciboVinculosCandidato
 	ActaRef            string
 	BolsaRef           string
 	VersionBolsa       uint64
@@ -63,8 +65,40 @@ type ConstitucionVigente struct {
 	ConfirmadaEn         time.Time
 }
 
+// VinculoCandidato une la referencia opaca de la persona candidata (`can_*`,
+// derivada con clave de su identidad enmascarada) con su participación.
+type VinculoCandidato struct {
+	CandidatoRef     string
+	ParticipacionRef string
+}
+
+type ReciboVinculosCandidato struct {
+	Nuevos     uint64
+	Existentes uint64
+}
+
+// ParticipacionCandidato es una participación de la persona en una bolsa
+// constituida, tal como la sirve el módulo al área personal.
+type ParticipacionCandidato struct {
+	ParticipacionRef     string
+	ActaRef              string
+	BolsaRef             string
+	VersionBolsa         uint64
+	CategoriaRef         string
+	VigenteDesde         time.Time
+	VigenteHasta         *time.Time
+	EstadoBolsa          string
+	InstantaneaRef       string
+	VersionInstantanea   uint64
+	Orden                uint64
+	TotalParticipaciones uint64
+	ConfirmadaEn         time.Time
+}
+
 type RepositorioConstitucion interface {
 	Constituir(context.Context, Constitucion) (ReciboConstitucion, error)
 	ListarVigentes(context.Context) ([]ConstitucionVigente, error)
 	Entradas(context.Context, string, uint64) ([]EntradaConstitucion, error)
+	RegistrarVinculos(context.Context, string, []VinculoCandidato, time.Time) (ReciboVinculosCandidato, error)
+	ParticipacionesCandidato(context.Context, string) ([]ParticipacionCandidato, error)
 }

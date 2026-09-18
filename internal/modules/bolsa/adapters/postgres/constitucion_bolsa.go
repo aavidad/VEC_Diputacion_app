@@ -188,3 +188,95 @@ func errorConstitucion(ctx context.Context, err error) error {
 	}
 	return ports.ErrConstitucionBolsaNoDisponible
 }
+
+type vinculoCandidatoJSON struct {
+	CandidatoRef     string `json:"candidato_ref"`
+	ParticipacionRef string `json:"participacion_ref"`
+}
+
+// RegistrarVinculos registra los vínculos `can_* → participación` de un acta
+// constituida (migración 000008). Idempotente: los ya registrados con el mismo
+// candidato cuentan como existentes; con otro candidato, conflicto.
+func (r *RepositorioConstitucionPostgreSQL) RegistrarVinculos(ctx context.Context, actaRef string, vinculos []ports.VinculoCandidato, registradaEn time.Time) (ports.ReciboVinculosCandidato, error) {
+	if ctx == nil || r == nil || r.pool == nil {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboVinculosCandidato{}, err
+	}
+	if actaRef == "" || len(vinculos) == 0 || registradaEn.IsZero() {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaInvalida
+	}
+	entradas := make([]vinculoCandidatoJSON, len(vinculos))
+	for i, v := range vinculos {
+		if v.CandidatoRef == "" || v.ParticipacionRef == "" {
+			return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaInvalida
+		}
+		entradas[i] = vinculoCandidatoJSON{CandidatoRef: v.CandidatoRef, ParticipacionRef: v.ParticipacionRef}
+	}
+	contenidoVinculos, err := json.Marshal(entradas)
+	if err != nil {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaInvalida
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	var contenido []byte
+	err = tx.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.registrar_vinculos_candidato_v1($1::text, $2::jsonb, $3::timestamptz)`,
+		actaRef, contenidoVinculos, registradaEn.UTC()).Scan(&contenido)
+	if err != nil {
+		if errors.Is(errorConstitucion(ctx, err), ports.ErrConstitucionBolsaEnConflicto) {
+			return ports.ReciboVinculosCandidato{}, ports.ErrVinculoCandidatoEnConflicto
+		}
+		return ports.ReciboVinculosCandidato{}, errorConstitucion(ctx, err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaNoDisponible
+	}
+	var recibo struct {
+		Nuevos     uint64 `json:"nuevos"`
+		Existentes uint64 `json:"existentes"`
+	}
+	if json.Unmarshal(contenido, &recibo) != nil {
+		return ports.ReciboVinculosCandidato{}, ports.ErrConstitucionBolsaNoDisponible
+	}
+	return ports.ReciboVinculosCandidato{Nuevos: recibo.Nuevos, Existentes: recibo.Existentes}, nil
+}
+
+// ParticipacionesCandidato devuelve las participaciones de una persona
+// candidata (la constitución más reciente primero).
+func (r *RepositorioConstitucionPostgreSQL) ParticipacionesCandidato(ctx context.Context, candidatoRef string) ([]ports.ParticipacionCandidato, error) {
+	if ctx == nil || r == nil || r.pool == nil || candidatoRef == "" {
+		return nil, ports.ErrConstitucionBolsaNoDisponible
+	}
+	filas, err := r.pool.Query(ctx, `SELECT participacion_ref, acta_ref, bolsa_ref, version_bolsa, categoria_ref, vigente_desde, vigente_hasta, estado,
+		instantanea_ref, version_instantanea, orden, total_participaciones, confirmada_en
+		FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1($1::text)`, candidatoRef)
+	if err != nil {
+		return nil, errorConstitucion(ctx, err)
+	}
+	defer filas.Close()
+	resultado := []ports.ParticipacionCandidato{}
+	for filas.Next() {
+		var p ports.ParticipacionCandidato
+		var versionBolsa, versionInstantanea, orden, total int64
+		var hasta *time.Time
+		if err := filas.Scan(&p.ParticipacionRef, &p.ActaRef, &p.BolsaRef, &versionBolsa, &p.CategoriaRef, &p.VigenteDesde, &hasta, &p.EstadoBolsa,
+			&p.InstantaneaRef, &versionInstantanea, &orden, &total, &p.ConfirmadaEn); err != nil || versionBolsa <= 0 || versionInstantanea <= 0 || orden <= 0 || total < 0 {
+			return nil, ports.ErrConstitucionBolsaNoDisponible
+		}
+		p.VersionBolsa, p.VersionInstantanea, p.Orden, p.TotalParticipaciones = uint64(versionBolsa), uint64(versionInstantanea), uint64(orden), uint64(total)
+		if hasta != nil {
+			h := hasta.UTC()
+			p.VigenteHasta = &h
+		}
+		p.VigenteDesde, p.ConfirmadaEn = p.VigenteDesde.UTC(), p.ConfirmadaEn.UTC()
+		resultado = append(resultado, p)
+	}
+	if filas.Err() != nil {
+		return nil, ports.ErrConstitucionBolsaNoDisponible
+	}
+	return resultado, nil
+}

@@ -46,14 +46,15 @@ type Reloj func() time.Time
 type Servicio struct {
 	recuperador Recuperador
 	repositorio ports.RepositorioConstitucion
+	derivador   DerivadorCandidato
 	reloj       Reloj
 }
 
-func NuevoServicio(recuperador Recuperador, repositorio ports.RepositorioConstitucion, reloj Reloj) (*Servicio, error) {
-	if recuperador == nil || repositorio == nil || reloj == nil {
+func NuevoServicio(recuperador Recuperador, repositorio ports.RepositorioConstitucion, derivador DerivadorCandidato, reloj Reloj) (*Servicio, error) {
+	if recuperador == nil || repositorio == nil || derivador == nil || reloj == nil {
 		return nil, ErrDependenciasRequeridas
 	}
-	return &Servicio{recuperador: recuperador, repositorio: repositorio, reloj: reloj}, nil
+	return &Servicio{recuperador: recuperador, repositorio: repositorio, derivador: derivador, reloj: reloj}, nil
 }
 
 type Solicitud struct {
@@ -63,7 +64,11 @@ type Solicitud struct {
 }
 
 // Constituir construye la bolsa y su instantánea desde las filas aceptadas del
-// acta (orden: Total descendente, empate por apellidos y nombre) y la persiste.
+// acta (orden: Total descendente, empate por apellidos y nombre), la persiste
+// y registra el vínculo `can_* → participación` de cada fila. Como la
+// constitución es idempotente por acta y las referencias de participación son
+// deterministas, una nueva llamada sobre un acta ya constituida completa los
+// vínculos que falten.
 func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.ReciboConstitucion, error) {
 	if ctx == nil || s == nil {
 		return ports.ReciboConstitucion{}, ErrDependenciasRequeridas
@@ -78,17 +83,26 @@ func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.R
 	if !existe {
 		return ports.ReciboConstitucion{}, ErrActaNoEncontrada
 	}
-	constitucion, err := construirConstitucion(lote, solicitud.ActorRef, s.reloj().UTC().Truncate(time.Microsecond))
+	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	constitucion, vinculos, err := construirConstitucion(lote, solicitud.ActorRef, ahora, s.derivador)
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
-	return s.repositorio.Constituir(ctx, constitucion)
+	recibo, err := s.repositorio.Constituir(ctx, constitucion)
+	if err != nil {
+		return ports.ReciboConstitucion{}, err
+	}
+	recibo.Vinculos, err = s.repositorio.RegistrarVinculos(ctx, recibo.ActaRef, vinculos, ahora)
+	if err != nil {
+		return ports.ReciboConstitucion{}, err
+	}
+	return recibo, nil
 }
 
-func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora time.Time) (ports.Constitucion, error) {
+func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora time.Time, derivador DerivadorCandidato) (ports.Constitucion, []ports.VinculoCandidato, error) {
 	acta := lote.Acta
 	if acta.Esquema != importacion.EsquemaResumenPersona {
-		return ports.Constitucion{}, ErrActaNoEsResumen
+		return ports.Constitucion{}, nil, ErrActaNoEsResumen
 	}
 	filas := make([]importacion.FilaAceptada, 0, len(lote.Aceptadas))
 	for _, fila := range lote.Aceptadas {
@@ -97,7 +111,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		}
 	}
 	if len(filas) == 0 {
-		return ports.Constitucion{}, ErrActaSinFilasAceptadas
+		return ports.Constitucion{}, nil, ErrActaSinFilasAceptadas
 	}
 	sort.SliceStable(filas, func(i, j int) bool {
 		a, b := filas[i], filas[j]
@@ -137,10 +151,11 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		VigenteDesde:              ahora,
 	}
 	if err := bolsa.Validar(); err != nil {
-		return ports.Constitucion{}, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
 	}
 	entradas := make([]dominio.EntradaOrdenBolsa, 0, len(filas))
 	vinculos := make([]ports.EntradaConstitucion, 0, len(filas))
+	candidatos := make([]ports.VinculoCandidato, 0, len(filas))
 	huellaEstado := huellaHex(EstadoInicial, "1")
 	huellaCausa := huellaHex(CausaInicial, "1")
 	for indice, fila := range filas {
@@ -167,8 +182,13 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 				Desde:                ahora,
 			}},
 		}
+		candidatoRef, err := derivador.CandidatoRef(fila.Identidad)
+		if err != nil {
+			return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		}
 		entradas = append(entradas, dominio.EntradaOrdenBolsa{Orden: orden, Participacion: participacion})
 		vinculos = append(vinculos, ports.EntradaConstitucion{Orden: orden, ParticipacionRef: participacionRef, FilaNumero: fila.Numero})
+		candidatos = append(candidatos, ports.VinculoCandidato{CandidatoRef: candidatoRef, ParticipacionRef: participacionRef})
 	}
 	instantanea, err := dominio.NuevaInstantaneaOrdenBolsa(dominio.AltaInstantaneaOrdenBolsa{
 		InstantaneaRef: "instantanea:constitucion:" + sufijoActa,
@@ -179,7 +199,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		Entradas:       entradas,
 	})
 	if err != nil {
-		return ports.Constitucion{}, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
 	}
 	return ports.Constitucion{
 		ActaRef:      acta.ActaRef,
@@ -189,7 +209,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		Instantanea:  instantanea,
 		Entradas:     vinculos,
 		ConfirmadaEn: ahora,
-	}, nil
+	}, candidatos, nil
 }
 
 // puntuacion interpreta el Total del resumen (decimal con punto) para ordenar;

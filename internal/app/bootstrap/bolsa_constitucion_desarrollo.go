@@ -57,6 +57,10 @@ func EjecutarConstitucionBolsa(ctx context.Context, cfg config.Config, s Solicit
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
+	derivador, err := protector.NuevoDerivadorCandidato(material.claveKMS)
+	if err != nil {
+		return ports.ReciboConstitucion{}, err
+	}
 	poolImportacion, err := abrirPoolImportacionConvoca(ctx, cfg)
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
@@ -75,7 +79,7 @@ func EjecutarConstitucionBolsa(ctx context.Context, cfg config.Config, s Solicit
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
-	servicio, err := constitucion.NuevoServicio(recuperador, repositorio, time.Now)
+	servicio, err := constitucion.NuevoServicio(recuperador, repositorio, derivador, time.Now)
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}

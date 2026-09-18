@@ -15,6 +15,8 @@ import (
 	"io"
 	postgres "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	dominio "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
+
+	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 )
 
 const cifradoInfo = "vec/bolsa/importacion-convoca/cifrado/v1"
@@ -129,3 +131,18 @@ func aad(i, h string, e dominio.EsquemaExportacion, n int) []byte {
 }
 
 var _ postgres.ProtectorStagingConvoca = (*Protector)(nil)
+
+const vinculoCandidatoInfo = "vec/bolsa/vinculo-candidato/v1"
+
+// NuevoDerivadorCandidato deriva del mismo material maestro la clave HMAC con
+// la que Bolsa deriva las referencias opacas `can_*` de las personas
+// candidatas (etiqueta HKDF propia: no comparte clave con el cifrado del
+// staging ni con la atestación).
+func NuevoDerivadorCandidato(maestra [32]byte) (*constitucion.DerivadorCandidatoHMAC, error) {
+	k, err := clave(maestra, vinculoCandidatoInfo)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(k[:])
+	return constitucion.NuevoDerivadorCandidatoHMAC(k)
+}
