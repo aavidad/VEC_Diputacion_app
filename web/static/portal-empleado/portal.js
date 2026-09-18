@@ -406,7 +406,8 @@ async function cargarFuenteDatos() {
     actualizarSesionVisible();
   }
   await Promise.all([cargaCatalogo, cargaDisponibilidad]);
-  if (!estado.modoPresentacion && estado.fuenteLista) void controladorBolsas.cargarBolsas();
+  // Las bolsas (B12/B5) tienen su propia API; se cargan aunque el panel agregado no esté compuesto.
+  if (!estado.modoPresentacion && typeof controladorBolsas !== "undefined") void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
 
@@ -567,12 +568,17 @@ function renderizar() {
     return;
   }
 
+  const vistaBolsas = estado.vista === "resumen" || estado.vista === "bolsa-candidatos";
+  if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas && !estado.modoPresentacion) {
+    contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(estado.vista);
+    return;
+  }
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
   }
 
-  if ((estado.vista === "resumen" || estado.vista === "bolsa-candidatos") && presentadorPanelInterno.esActivo()) {
+  if (vistaBolsas && presentadorPanelInterno.esActivo()) {
     contenedor.innerHTML = presentadorPanelInterno.renderizarVista(estado.vista);
     return;
   }

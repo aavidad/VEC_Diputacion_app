@@ -595,5 +595,14 @@ export function crearPresentadorPanelInterno(dependencias) {
     return renderizarNoConectada(vista);
   }
 
-  return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarVista });
+  // Sin panel agregado compuesto, las bolsas constituidas (B12/B5) se muestran
+  // igualmente: tienen su propia API y no dependen de los indicadores.
+  function renderizarSoloBolsas(vista) {
+    if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
+    return `
+      ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Bolsas constituidas y su desglose por situación. Los indicadores agregados del panel interno no están compuestos todavía.")}
+      ${renderizarCuadroB12()}`;
+  }
+
+  return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarSoloBolsas, renderizarVista });
 }
