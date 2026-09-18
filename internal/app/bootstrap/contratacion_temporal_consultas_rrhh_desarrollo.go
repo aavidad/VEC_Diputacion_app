@@ -32,6 +32,7 @@ type dependenciasConsultasRRHHDesarrollo struct {
 	detalleHTTP           httpinterno.ConsultorDetalleRRHH
 	originalPropuestaHTTP httpinterno.ConsultorDetalleRRHH
 	preparacionResolucion ports.ConsultorPreparacionResolucionFormalizacion
+	estadisticas          ports.ConsultorEstadisticasRRHH
 	cerrar                func()
 }
 
@@ -403,7 +404,13 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, cerrar: cerrar}
+	// Estadísticas por periodo (C18): mismo pool acreditado y mismo rol
+	// consultor que el cuadro; agregados sin datos personales.
+	estadisticas, err := postgresct.NuevoConsultorEstadisticasRRHHPostgreSQL(poolConsultas)
+	if err != nil {
+		return vacio, err
+	}
+	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base)
 		if err != nil {
