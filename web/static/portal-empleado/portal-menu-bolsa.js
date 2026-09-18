@@ -23,6 +23,16 @@ const CATEGORIAS_EXPANDIBLES = Object.freeze([
   "bolsas-candidatos", "reglas", "auditoria",
 ]);
 
+// El módulo Bolsa está disponible si lo está la elaboración de borradores o,
+// en su defecto, si el cuadro de bolsas ha cargado bolsas reales: entonces la
+// entrada del menú abre el cuadro (B12) en vez de marcarse «no disponible».
+export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
+  if (accesoBorradores && accesoBorradores.disponible === true) return accesoBorradores;
+  const bolsas = datosBolsas?.carga === "listo" ? datosBolsas.datos?.bolsas : null;
+  if (!Array.isArray(bolsas) || bolsas.length === 0) return accesoBorradores;
+  return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
+}
+
 export function categoriaDeVistaBolsa(vista) {
   if (typeof vista !== "string") return "";
   if (vista === "bolsa-candidatos") return "bolsas-candidatos";

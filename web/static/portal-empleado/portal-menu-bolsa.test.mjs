@@ -151,3 +151,15 @@ test("el menú conserva mínimo privilegio, adaptación y ausencia de estado amb
   assert.match(estilos, /@media \(forced-colors: active\)/);
   assert.match(estilos, /prefers-reduced-motion/);
 });
+
+test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los borradores no estén disponibles", async () => {
+  const { accesoBolsaEfectivo } = await import("./portal-menu-bolsa.js");
+  const denegado = Object.freeze({ disponible: false, vista: "", estado: "error", etiqueta: "x" });
+  const conBolsas = { carga: "listo", datos: { bolsas: [{ bolsa_ref: "bolsa:administrativo:2026-09-17" }] }, error: "" };
+  assert.deepEqual(accesoBolsaEfectivo(denegado, conBolsas), { disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "listo", datos: { bolsas: [] }, error: "" }), denegado);
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "cargando", datos: null, error: "" }), denegado);
+  assert.equal(accesoBolsaEfectivo(denegado, undefined), denegado);
+  const borradores = Object.freeze({ disponible: true, vista: "elaboracion", estado: "disponible", etiqueta: "Borradores disponibles" });
+  assert.equal(accesoBolsaEfectivo(borradores, conBolsas), borradores);
+});

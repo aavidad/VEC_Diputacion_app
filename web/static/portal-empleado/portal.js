@@ -25,7 +25,7 @@ import {
   VISTAS_MODULOS_PERSONALES,
 } from "./portal-modulos-coordinador.js?v=20260906-acceso-certificado-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
-import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
+import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js";
 /**
@@ -211,7 +211,7 @@ function perfilPresentacionSolicitado() {
 }
 
 function resolverAccesoPerfil(clave) {
-  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : superficieBorradores.obtenerAcceso();
+  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
   const acceso = coordinadorModulos.resolverAcceso(clave, disponibilidad);
   if (acceso.disponible !== true || vistaPermitida(acceso.vista)) return acceso;
   return { ...acceso, disponible: false, vista: "", estado: "denegado",
@@ -465,7 +465,7 @@ function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
   if (!contenedor) return;
   const moduloActivo = moduloDeVistaPortal(estado.vista);
-  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : superficieBorradores.obtenerAcceso();
+  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
