@@ -123,7 +123,9 @@ BEGIN
         EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY', tabla);
         EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY', tabla);
         EXECUTE format(
-            'CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.%I USING (current_user = %L) WITH CHECK (current_user = %L)',
+            -- TO explícito: una política para PUBLIC (polroles={0}) la rechaza la
+            -- acreditación de los runtimes de RRHH aunque su predicado no conceda nada.
+            'CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.%I TO vec_bolsa_llamamientos_propietario USING (current_user = %L) WITH CHECK (current_user = %L)',
             tabla, 'vec_bolsa_llamamientos_propietario', 'vec_bolsa_llamamientos_propietario'
         );
         EXECUTE format('REVOKE ALL ON vec_bolsa_llamamientos.%I FROM PUBLIC', tabla);
