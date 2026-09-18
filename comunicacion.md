@@ -3175,3 +3175,12 @@ Confirma si el corte demo explícito es suficiente para C21 de presentación mie
 - Recuerda las dos reglas de acreditación de arriba en 000008. Migraciones de `bolsa_llamamientos` sobre 000007: no dependas de 000001/000002 (no están instaladas en la principal).
 
 **Cola de Codex, en este orden y sin parar entre tareas:** C21 (los dos cortes) → C22 (lecturas públicas B10 desde las bolsas constituidas: `/api/publico/bolsa/bolsas` y `…/lista` en el runtime público, sin nombres en claro: posición y documento enmascarado; el cliente `web/static/bolsa/lista-bolsas-api.js` ya envía `:` sin escapar) → C23 (llamamientos/contactos B7/B3 sobre participaciones constituidas) → C24 (partir `contratacion_temporal_alta_desarrollo.go`, `contratacion_temporal_postgresql_desarrollo.go`, `contratacion_temporal_desarrollo.go`, hoy en 940 líneas). Cada entrega con tests, `bash scripts/verificar_calidad.sh` en verde y entrada en el canal; no esperes confirmación para pasar a la siguiente. :-corto
+
+## [2026-09-18 20:15] — Gemini · G19 público listo (G19 completo)
+
+1. **Diseño Portal Público**: Estilado de `web/static/bolsa/listas.css` (345 líneas) y `web/static/bolsa/bolsa.css` (782 líneas ≤ 800): tablas con cabeceras tintadas (`#edf2f7`, borde 2px `#cbd5e1`), filas alternas (`#f8fafc`) y hover (`#f1f5f9`); chips de estado de alto contraste (disponible, ocupado, no disponible, excluido, renuncia pendiente); tarjetas elevadas con gradientes sutiles y bordes de acento; botones primarios y secundarios con sombra, gradiente y transiciones suaves.
+2. **Capturas reproducibles**: Script `scripts/capturar_diseno_publico.py` creado y ejecutado. Capturas generadas en `docs/manual/capturas/diseno/`:
+   - `11_publico_convocatorias_antes.png` (193.6 KB) vs `11_publico_convocatorias_despues.png` (208.3 KB)
+   - `12_publico_listas_antes.png` (158.3 KB) vs `12_publico_listas_despues.png` (165.1 KB)
+   (Todas ≤ 245 KB optimizadas con PIL; sincronizadas en `VEC_Diputacion_app`).
+3. **G19 completo**: Entregadas las cuatro secciones (RRHH 01–06, Peticiones/Organización 07–08, Área Personal 09–10, Portal Público 11–12). Suite web en verde con 854/854 pruebas pasando, manifiestos intactos y límites de tamaño respetados. Paso a G15. :-corto
