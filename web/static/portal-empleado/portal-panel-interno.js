@@ -399,7 +399,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <h3>Relación ordenada de candidatos</h3>
         </div>
         <div class="tabla-contenedor">
-          <table class="tabla-datos">
+          <table class="tabla-datos tabla-datos--candidatos">
             <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
             <thead>
               <tr>

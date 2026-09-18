@@ -675,3 +675,29 @@ button.tarjeta-metrica-rrhh:hover {
   font-weight: 800;
   text-decoration: underline;
 }
+
+/* Lista de candidatos (B5): las columnas de texto parten línea y las acciones
+   van compactas para que la tabla quepa a 1280 px sin desplazamiento. */
+.tabla-datos--candidatos th,
+.tabla-datos--candidatos td {
+  padding: 8px 10px;
+}
+
+.tabla-datos--candidatos td:nth-child(2),
+.tabla-datos--candidatos td:nth-child(7) {
+  white-space: normal;
+  min-width: 8rem;
+}
+
+.tabla-datos--candidatos .acciones-candidato {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.tabla-datos--candidatos .acciones-candidato .boton-primario,
+.tabla-datos--candidatos .acciones-candidato .boton-secundario {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+}
