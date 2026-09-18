@@ -244,7 +244,7 @@ test("cliente HTTP público: invoca endpoints canónicos y propaga parámetros s
   });
   assert.ok(respLista.posiciones.length > 0);
   const urlLista = peticionesRealizadas[1].url;
-  assert.ok(urlLista.includes("/api/publico/bolsa/bolsas/bolsa%3Asintetico%3Aadministrativo/lista"));
+  assert.ok(urlLista.includes("/api/publico/bolsa/bolsas/bolsa:sintetico:administrativo/lista"));
   assert.ok(urlLista.includes("documento=***1234**") || urlLista.includes("documento=%2A%2A%2A1234%2A%2A"));
 
   // Consulta con documento inválido (no enmascarado): no se propaga el parámetro

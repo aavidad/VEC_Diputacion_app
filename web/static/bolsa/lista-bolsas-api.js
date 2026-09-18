@@ -9,6 +9,13 @@ import {
   PATRON_DOCUMENTO_ENMASCARADO,
 } from "./contrato-publico-bolsas.js";
 
+// El enrutador del servidor solo acepta rutas canónicas (sin secuencias
+// porcentuales): las referencias llevan ":" y "-", legales en un segmento de
+// ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
+function segmentoRuta(referencia) {
+  return encodeURIComponent(String(referencia ?? "").trim()).replace(/%3A/gi, ":");
+}
+
 const RUTA_BOLSAS_PUBLICAS = "/api/publico/bolsa/bolsas";
 
 /**
@@ -73,7 +80,7 @@ export async function consultarListaBolsaPublica({
     }
   }
 
-  const ruta = `${RUTA_BOLSAS_PUBLICAS}/${encodeURIComponent(bolsa_ref)}/lista?${parametros.toString()}`;
+  const ruta = `${RUTA_BOLSAS_PUBLICAS}/${segmentoRuta(bolsa_ref)}/lista?${parametros.toString()}`;
 
   const respuesta = await fetchImpl(ruta, {
     method: "GET",

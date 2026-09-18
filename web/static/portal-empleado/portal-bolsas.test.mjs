@@ -318,7 +318,7 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
   }, { fetchImpl: fetchMock });
 
   assert.equal(res.ok, true);
-  assert.match(urlLlamada, /\/api\/vec\/bolsa\/bolsas\/bolsa%3Ademo%3Aadministrativo\/candidatos/);
+  assert.match(urlLlamada, /\/api\/vec\/bolsa\/bolsas\/bolsa:demo:administrativo\/candidatos/);
   assert.match(urlLlamada, /estado=disponible/);
   assert.match(urlLlamada, /texto=Adri%C3%A1n/);
   assert.match(urlLlamada, /cursor=cur_abc123/);

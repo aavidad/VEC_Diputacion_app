@@ -18,6 +18,13 @@ import {
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 
+// El enrutador del servidor solo acepta rutas canónicas (sin secuencias
+// porcentuales): las referencias llevan ":" y "-", legales en un segmento de
+// ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
+function segmentoRuta(referencia) {
+  return encodeURIComponent(String(referencia ?? "").trim()).replace(/%3A/gi, ":");
+}
+
 export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor = "", limite = 50 } = {}) {
   const parametros = new URLSearchParams();
   if (estado && estado.trim() !== "") parametros.set("estado", estado.trim());
@@ -26,7 +33,7 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
   if (limite && Number.isSafeInteger(Number(limite))) parametros.set("limite", String(limite));
 
   const query = parametros.toString();
-  const rutaBase = `${RUTA_BOLSAS}/${encodeURIComponent(bolsaRef)}/candidatos`;
+  const rutaBase = `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos`;
   return query ? `${rutaBase}?${query}` : rutaBase;
 }
 
@@ -125,7 +132,7 @@ export async function consultarContactosCandidato(participacionRef, { fetchImpl 
     return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
   }
 
-  const url = `/api/vec/bolsa/candidatos/${encodeURIComponent(participacionRef.trim())}/contactos`;
+  const url = `/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/contactos`;
 
   try {
     const respuesta = await fetchImpl(url, {
@@ -184,7 +191,7 @@ export async function crearLlamamientoCandidato(participacionRef, payload, { fet
     };
   }
 
-  const url = `/api/vec/bolsa/candidatos/${encodeURIComponent(participacionRef.trim())}/llamamientos`;
+  const url = `/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/llamamientos`;
 
   try {
     const respuesta = await fetchImpl(url, {
@@ -255,7 +262,7 @@ export async function registrarResultadoLlamamiento(llamamientoRef, payload, { f
     };
   }
 
-  const url = `/api/vec/bolsa/llamamientos/${encodeURIComponent(llamamientoRef.trim())}/resultado`;
+  const url = `/api/vec/bolsa/llamamientos/${segmentoRuta(llamamientoRef)}/resultado`;
 
   try {
     const respuesta = await fetchImpl(url, {
