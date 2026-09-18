@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"errors"
+	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -200,11 +202,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 			salida.cierre.normalizarInstantesSQL()
 			recibo, err := salida.cierre.construirRecibo(contexto, capacidad)
 			if err != nil {
+				log.Printf("C25 depuracion: construirRecibo: %v", err)
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
 			_, version, _, err := salida.cierre.enterosSeguros()
 			if err != nil {
+				log.Printf("C25 depuracion: enterosSeguros: %v", err)
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
@@ -215,6 +219,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 				version,
 			)
 			if err != nil {
+				log.Printf("C25 depuracion: analizarDetalle: %v; generadaEn=%s cabecera=%q", err, salida.cierre.generadaEn.Format(time.RFC3339Nano), string(salida.contenidoCanonico[:40]))
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
@@ -222,7 +227,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 				entrada,
 				recibo,
 			)
-			if err != nil || detalle.ValidarParaEjecucionInterna(orden) != nil {
+			if err != nil {
+				log.Printf("C25 depuracion: NuevoDetalle: %v", err)
+				return ports.DetalleExpedienteRRHH{},
+					ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			if e := detalle.ValidarParaEjecucionInterna(orden); e != nil {
+				log.Printf("C25 depuracion: ValidarParaEjecucionInterna: %v", e)
 				return ports.DetalleExpedienteRRHH{},
 					ports.ErrResultadoConsultaRRHHNoConfiable
 			}
