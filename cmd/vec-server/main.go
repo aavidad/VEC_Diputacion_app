@@ -14,6 +14,19 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "constituir-bolsa" {
+		a, err := leerArgumentosConstituirBolsa(os.Args[2:], os.Stderr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cfg := config.Load()
+		r, err := bootstrap.EjecutarConstitucionBolsa(context.Background(), cfg, bootstrap.SolicitudConstitucionBolsa{Fichero: a.fichero, Categoria: a.categoria})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("bolsa=%s version=%d instantanea=%s acta=%s reutilizada=%t confirmada_en=%s", r.BolsaRef, r.VersionBolsa, r.InstantaneaRef, r.ActaRef, r.Reutilizada, r.ConfirmadaEn.Format("2006-01-02T15:04:05Z07:00"))
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "importar-convoca" {
 		a, err := leerArgumentosImportarConvoca(os.Args[2:], os.Stderr)
 		if err != nil {
