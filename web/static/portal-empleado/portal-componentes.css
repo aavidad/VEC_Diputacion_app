@@ -701,3 +701,8 @@ button.tarjeta-metrica-rrhh:hover {
   padding: 4px 10px;
   font-size: 0.72rem;
 }
+
+.tabla-datos--candidatos td code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
