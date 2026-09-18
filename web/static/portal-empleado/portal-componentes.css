@@ -18,13 +18,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   border-bottom: 1px solid var(--portal-borde);
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
 }
 
 .cabecera-panel h3 {
   margin: 0;
-  font-size: 0.94rem;
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--portal-azul-950);
 }
 
 .cabecera-panel p {
@@ -225,10 +228,16 @@
 }
 
 .tabla-datos th {
-  background: #f7f9fc;
-  color: #33445c;
-  font-size: 0.68rem;
+  background: #edf2f7;
+  color: var(--portal-azul-950);
+  font-size: 0.7rem;
   font-weight: 850;
+  border-bottom: 2px solid var(--portal-borde);
+  letter-spacing: 0.02em;
+}
+
+.tabla-datos tbody tr:nth-child(even) {
+  background: #f8fafc;
 }
 
 .tabla-datos tbody tr:last-child td {
@@ -237,7 +246,7 @@
 
 .tabla-datos tbody tr:hover,
 .tabla-datos tbody tr[aria-selected="true"] {
-  background: #f1f7ff;
+  background: #edf5ff;
 }
 
 /*
@@ -428,21 +437,22 @@
   display: inline-flex;
   min-height: 24px;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border: 1px solid #f0dca1;
   border-radius: 999px;
   background: var(--portal-aviso-suave);
   color: #785000;
-  font-size: 0.66rem;
-  font-weight: 750;
+  font-size: 0.68rem;
+  font-weight: 780;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
-.estado-chip.exito { border-color: #b9dfc4; background: var(--portal-exito-suave); color: var(--portal-exito); }
-.estado-chip.info { border-color: #bdd6f4; background: var(--portal-azul-100); color: #0753a9; }
-.estado-chip.peligro { border-color: #efc0c5; background: var(--portal-peligro-suave); color: var(--portal-peligro); }
-.estado-chip.neutro { border-color: #7b8fa7; background: #f2f5f8; color: #26303d; }
-.estado-chip.violeta { border-color: #d7c9f7; background: #f3effd; color: #6040b1; }
+.estado-chip.exito { border-color: #a3d9b1; background: #ebfbee; color: #147432; }
+.estado-chip.info { border-color: #b1d2f7; background: #eef6ff; color: #0759be; }
+.estado-chip.peligro { border-color: #f8b4bb; background: #fef1f2; color: #b91c1c; }
+.estado-chip.neutro { border-color: #cbd5e1; background: #f1f5f9; color: #334155; }
+.estado-chip.violeta { border-color: #d1c1f8; background: #f5f0ff; color: #5b21b6; }
 
 .elemento-actividad {
   grid-template-columns: 10px minmax(0, 1fr);
@@ -588,6 +598,19 @@
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio);
   box-shadow: var(--portal-sombra);
+  border-top: 4px solid var(--portal-azul-700);
+}
+
+.tarjeta-metrica-rrhh[data-metrica="en_tramitacion"] {
+  border-top-color: var(--portal-azul-700);
+}
+
+.tarjeta-metrica-rrhh[data-metrica="con_incidencia"] {
+  border-top-color: var(--portal-peligro);
+}
+
+.tarjeta-metrica-rrhh[data-metrica="en_llamamiento"] {
+  border-top-color: var(--portal-aviso);
 }
 
 .tarjeta-metrica-rrhh .metrica-etiqueta {

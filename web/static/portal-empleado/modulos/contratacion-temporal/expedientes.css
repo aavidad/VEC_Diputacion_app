@@ -309,13 +309,13 @@
 .ct-fase-espera {
   border-color: var(--portal-aviso);
   background: var(--portal-aviso-suave);
-  color: var(--portal-tinta);
+  color: var(--portal-aviso);
 }
 
 .ct-fase-completado {
   border-color: var(--portal-exito);
   background: var(--portal-exito-suave);
-  color: var(--portal-tinta);
+  color: var(--portal-exito);
 }
 
 .ct-fase-incidencia {
@@ -711,20 +711,19 @@
 .ct-exp-datos,
 .ct-exp-campos {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px 18px;
   margin: 0;
 }
 
 .ct-exp-dato {
   min-width: 0;
-  padding: 6px 8px;
-  border-left: 3px solid var(--portal-borde);
+  padding: 10px 12px;
+  border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md);
   background: var(--portal-fondo);
 }
 
-.ct-exp-campo-ancho,
-.ct-exp-radios {
+.ct-exp-campo-ancho, .ct-exp-radios {
   grid-column: 1 / -1;
 }
 
