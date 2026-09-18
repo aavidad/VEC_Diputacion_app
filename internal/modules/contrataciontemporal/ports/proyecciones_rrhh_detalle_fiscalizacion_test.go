@@ -71,6 +71,13 @@ func TestDetalleRRHHMinimizadoV3FiscalizacionEnlazaHitosYConservaV2(t *testing.T
 	if err != nil || !strings.HasPrefix(string(canon.BytesCanonicos()), "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n") {
 		t.Fatalf("canon V3 ausente: %v %q", err, canon.BytesCanonicos())
 	}
+	// La reconstrucción desde el detalle debe reproducir el canon V3 (y su
+	// huella) que produjo la fachada; con V2 la huella no coincidiría con el recibo.
+	desdeDetalle, err := detalle.ExportarContenidoCanonicoParaSQL(datos.resumen.ActualizadoEn.Add(time.Minute))
+	if err != nil || desdeDetalle.HuellaSHA256() != canon.HuellaSHA256() ||
+		!strings.HasPrefix(string(desdeDetalle.BytesCanonicos()), "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n") {
+		t.Fatalf("la reconstrucción desde el detalle no reproduce el canon V3: %v %s vs %s", err, desdeDetalle.HuellaSHA256(), canon.HuellaSHA256())
+	}
 	if detalle.Fiscalizacion == nil || detalle.Fiscalizacion.Subsanacion == nil ||
 		detalle.Fiscalizacion.RegistradaEn != fiscalizadaEn ||
 		detalle.Fiscalizacion.Subsanacion.RegistradaEn != fiscalizadaEn.Add(time.Minute) {

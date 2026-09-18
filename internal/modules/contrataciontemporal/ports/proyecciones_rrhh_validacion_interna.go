@@ -2,6 +2,7 @@ package ports
 
 import (
 	"crypto/subtle"
+	"time"
 )
 
 // ValidarParaEjecucionInterna es la frontera productiva del cuadro RRHH. A la
@@ -81,11 +82,7 @@ func (d DetalleExpedienteRRHH) ValidarParaEjecucionInterna(
 		d.Lectura.evidenciaV2.generadaEn.Before(orden.instante) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
-	entrada, err := d.entradaCanonicaMinimizada()
-	if err != nil {
-		return ErrResultadoConsultaRRHHNoConfiable
-	}
-	contenido, err := entrada.ExportarContenidoCanonicoParaSQL(
+	contenido, err := d.ExportarContenidoCanonicoParaSQL(
 		d.Lectura.evidenciaV2.generadaEn,
 	)
 	if err != nil {
@@ -97,6 +94,19 @@ func (d DetalleExpedienteRRHH) ValidarParaEjecucionInterna(
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return nil
+}
+
+// ExportarContenidoCanonicoParaSQL reconstruye la entrada minimizada del
+// detalle (V2, o V3 cuando lleva fiscalización) y la exporta con el mismo
+// canon que produjo la fachada SQL; su huella debe coincidir con el recibo.
+func (d DetalleExpedienteRRHH) ExportarContenidoCanonicoParaSQL(
+	generadaEn time.Time,
+) (ExportacionCanonicaContenidoDetalleRRHH, error) {
+	entrada, err := d.entradaCanonicaMinimizada()
+	if err != nil {
+		return ExportacionCanonicaContenidoDetalleRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return entrada.ExportarContenidoCanonicoParaSQL(generadaEn)
 }
 
 func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
@@ -115,11 +125,29 @@ func (d DetalleExpedienteRRHH) entradaCanonicaMinimizada() (
 	if d.Asignacion != nil {
 		referenciaAsignacion.secuencia = d.Asignacion.vinculo.secuencia
 	}
-	return NuevaEntradaDetalleExpedienteRRHHMinimizada(
+	if d.Fiscalizacion == nil {
+		return NuevaEntradaDetalleExpedienteRRHHMinimizada(
+			d.Resumen, d.Solicitud,
+			d.Analisis, referenciaAnalisis,
+			d.Cobertura, referenciaCobertura,
+			d.Asignacion, referenciaAsignacion,
+			d.Hitos,
+		)
+	}
+	// Con fiscalización el canon es V3: la reconstrucción debe llevar el bloque
+	// y sus referencias, o la huella recalculada no coincidirá con el recibo.
+	var referenciaFiscalizacion ReferenciaHitoFiscalizacionRRHH
+	referenciaFiscalizacion.secuencia = d.Fiscalizacion.vinculo.secuencia
+	var referenciaSubsanacion ReferenciaHitoSubsanacionFiscalizacionRRHH
+	if d.Fiscalizacion.Subsanacion != nil {
+		referenciaSubsanacion.secuencia = d.Fiscalizacion.Subsanacion.vinculo.secuencia
+	}
+	return NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
 		d.Resumen, d.Solicitud,
 		d.Analisis, referenciaAnalisis,
 		d.Cobertura, referenciaCobertura,
 		d.Asignacion, referenciaAsignacion,
+		d.Fiscalizacion, referenciaFiscalizacion, referenciaSubsanacion,
 		d.Hitos,
 	)
 }
