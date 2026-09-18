@@ -79,22 +79,22 @@
   margin: 0 auto;
 }
 
-/* Tabla de estadísticas */
-.tabla-contenedor {
+/* Tabla de estadísticas (reglas acotadas a esta vista: la hoja es global) */
+.tabla-contenedor--estadisticas {
   overflow-x: auto;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background-color: #ffffff;
 }
 
-.tabla-datos {
+.tabla-datos--estadisticas {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
   text-align: left;
 }
 
-.tabla-datos caption {
+.tabla-datos--estadisticas caption {
   padding: 10px 14px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -104,7 +104,7 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-.tabla-datos thead th {
+.tabla-datos--estadisticas thead th {
   padding: 10px 14px;
   font-size: 0.8rem;
   font-weight: 700;
@@ -116,27 +116,27 @@
   white-space: nowrap;
 }
 
-.tabla-datos th.numero,
-.tabla-datos td.numero {
+.tabla-datos--estadisticas th.numero,
+.tabla-datos--estadisticas td.numero {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.tabla-datos tbody td {
+.tabla-datos--estadisticas tbody td {
   padding: 10px 14px;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
 }
 
-.tabla-datos tbody tr:nth-child(even) {
+.tabla-datos--estadisticas tbody tr:nth-child(even) {
   background-color: #f8fafc;
 }
 
-.tabla-datos tbody tr:hover {
+.tabla-datos--estadisticas tbody tr:hover {
   background-color: #f1f5f9;
 }
 
-.tabla-datos tfoot th {
+.tabla-datos--estadisticas tfoot th {
   padding: 12px 14px;
   font-size: 0.85rem;
   font-weight: 800;

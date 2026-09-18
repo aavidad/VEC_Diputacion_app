@@ -157,8 +157,8 @@ export function renderizarTablaEstadisticas(estadisticas) {
   `;
 
   return `
-    <div class="tabla-contenedor">
-      <table class="tabla-datos">
+    <div class="tabla-contenedor tabla-contenedor--estadisticas">
+      <table class="tabla-datos tabla-datos--estadisticas">
         <caption>Estadísticas agregadas de contratación temporal por periodo (${escaparHTML(estadisticas.periodo)})</caption>
         <thead>
           <tr>
