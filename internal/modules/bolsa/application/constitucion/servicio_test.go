@@ -43,7 +43,8 @@ func TestConstituirOrdenaPorTotalYPersisteCanonicos(t *testing.T) {
 	lote := importacion.LoteValidado{
 		Acta: importacion.ActaImportacion{
 			CategoriaRef: "categoria:rpt:administrativo", BolsaRef: "bolsa:administrativo:2026-09-18",
-			ActaRef: "acta:importacion-convoca:" + strings.Repeat("ab", 32), ImportacionRef: "importacion:convoca:" + strings.Repeat("cd", 32),
+			// huellas con ocho dígitos seguidos y una letra, como las reales
+			ActaRef: "acta:importacion-convoca:12345678abcdef" + strings.Repeat("ab", 25), ImportacionRef: "importacion:convoca:87654321fedcba" + strings.Repeat("cd", 25),
 			HuellaFicheroSHA256: strings.Repeat("ef", 32), Esquema: importacion.EsquemaResumenPersona,
 		},
 		Aceptadas: []importacion.FilaAceptada{

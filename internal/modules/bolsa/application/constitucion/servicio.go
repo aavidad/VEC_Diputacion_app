@@ -119,12 +119,16 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 	}
 	resolucionRef := "resolucion:constitucion:" + sufijoActa
 	huellaResolucion := huellaHex(acta.ActaRef, actorRef, ahora.Format(time.RFC3339Nano))
+	// Las referencias del acta llevan huellas hexadecimales; el dominio rechaza
+	// referencias que parezcan un documento de identidad (ocho dígitos y una
+	// letra), así que se derivan formas opacas sin dígitos. El acta real queda
+	// enlazada en la propia constitución.
 	bolsa := dominio.BolsaConstituida{
 		BolsaRef:                  bolsaRef,
 		Version:                   1,
-		ProcesoRef:                acta.ImportacionRef,
+		ProcesoRef:                "importacion:convoca:" + sufijoOpaco(acta.ImportacionRef),
 		CategoriaRef:              acta.CategoriaRef,
-		ListadoDefinitivoRef:      acta.ActaRef,
+		ListadoDefinitivoRef:      "acta:importacion-convoca:" + sufijoActa,
 		VersionListado:            1,
 		HuellaListadoSHA256:       acta.HuellaFicheroSHA256,
 		ResolucionConstitucionRef: resolucionRef,
