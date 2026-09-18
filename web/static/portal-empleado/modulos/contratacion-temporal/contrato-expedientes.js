@@ -505,10 +505,12 @@ export function validarExpedienteContratacionTemporal(entrada) {
   const propuestaHistorica = esRegistro(entrada) && Object.hasOwn(entrada, "version_propuesta_documental");
   const tieneAnalisisPrevio = esRegistro(entrada) && Object.hasOwn(entrada, "analisis_previo");
   const tieneHistorial = esRegistro(entrada) && Object.hasOwn(entrada, "historial");
+  const tieneFiscalizacion = esRegistro(entrada) && Object.hasOwn(entrada, "fiscalizacion");
   exigirCamposExactos(entrada, [
     "esquema", "demostracion", "expediente_ref", "numero_visible", "version",
     "flujo_ref", "flujo_version", "flujo_huella", "cabecera", "fases", "tareas",
     ...(tieneHistorial ? ["historial"] : []),
+    ...(tieneFiscalizacion ? ["fiscalizacion"] : []),
     ...(tieneAnalisisPrevio ? ["analisis_previo"] : []),
     ...(propuestaHistorica ? ["version_propuesta_documental"] : []),
   ], "expediente de contratación temporal");
@@ -569,8 +571,33 @@ export function validarExpedienteContratacionTemporal(entrada) {
     fases,
     ...(tieneHistorial ? { historial } : {}),
     ...(tieneAnalisisPrevio ? { analisis_previo: validarDatosPreviosAnalisis(entrada.analisis_previo) } : {}),
+    ...(tieneFiscalizacion ? { fiscalizacion: validarFiscalizacionExpediente(entrada.fiscalizacion) } : {}),
     tareas,
     ...(propuestaHistorica ? { version_propuesta_documental: entrada.version_propuesta_documental } : {}),
+  });
+}
+
+// Fiscalización proyectada para la presentación: resultado y reparo literal
+// (texto de Intervención) y, si existe, la subsanación de la unidad.
+function validarFiscalizacionExpediente(entrada) {
+  const tieneSubsanacion = esRegistro(entrada) && Object.hasOwn(entrada, "subsanacion");
+  exigirCamposExactos(entrada, [
+    "resultado_clave", "resultado", "reparos", "registrada_en",
+    ...(tieneSubsanacion ? ["subsanacion"] : []),
+  ], "fiscalización del expediente");
+  const reparos = lista(entrada.reparos, "fiscalización.reparos", 1, (reparo, nombre) => {
+    exigirCamposExactos(reparo, ["clave", "texto"], nombre);
+    return congelar({ clave: clave(reparo.clave, `${nombre}.clave`), texto: cadenaNoVacia(reparo.texto, `${nombre}.texto`, 2000) });
+  });
+  return congelar({
+    resultado_clave: clave(entrada.resultado_clave, "fiscalización.resultado_clave"),
+    resultado: cadenaNoVacia(entrada.resultado, "fiscalización.resultado", 160),
+    reparos,
+    registrada_en: cadenaNoVacia(entrada.registrada_en, "fiscalización.registrada_en", 80),
+    ...(tieneSubsanacion ? { subsanacion: congelar({
+      registrada_en: cadenaNoVacia(entrada.subsanacion.registrada_en, "fiscalización.subsanacion.registrada_en", 80),
+      texto: cadenaNoVacia(entrada.subsanacion.texto, "fiscalización.subsanacion.texto", 2000),
+    }) } : {}),
   });
 }
 

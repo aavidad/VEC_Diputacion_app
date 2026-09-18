@@ -214,11 +214,18 @@ function renderizarIncidencia(expediente, t) {
   const situacion = subsanacion
     ? t("incidencia_subsanada", { fecha: subsanacion.fecha })
     : t("incidencia_pendiente_subsanacion");
+  const fiscalizacion = expediente.fiscalizacion;
+  const reparos = (fiscalizacion?.reparos ?? []).map((r) => `<blockquote class="ct-exp-incidencia-reparo">${escaparHTML(r.texto)}</blockquote>`).join("");
+  const subsanacionTexto = fiscalizacion?.subsanacion
+    ? `<p class="ct-exp-incidencia-subsanacion"><strong>${escaparHTML(t("incidencia_subsanacion_texto"))}</strong> ${escaparHTML(fiscalizacion.subsanacion.texto)}</p>`
+    : "";
   return `<section class="ct-exp-incidencia" role="alert" aria-labelledby="ct-exp-incidencia-titulo">
     <div class="ct-exp-incidencia-texto">
       <h3 id="ct-exp-incidencia-titulo">${escaparHTML(t("incidencia_titulo", { fase: fase.etiqueta }))}</h3>
       ${origen ? `<p>${escaparHTML(t("incidencia_origen", { accion: origen.accion, fecha: origen.fecha, secuencia: origen.secuencia }))}</p>` : ""}
+      ${reparos ? `<p><strong>${escaparHTML(t("incidencia_reparos"))}</strong></p>${reparos}` : ""}
       <p>${escaparHTML(situacion)}</p>
+      ${subsanacionTexto}
     </div>
     <div class="ct-exp-incidencia-atajos">
       <button type="button" class="boton-primario" data-ct-exp-accion="abrir-historial">${escaparHTML(t("incidencia_atajo_historial"))}</button>

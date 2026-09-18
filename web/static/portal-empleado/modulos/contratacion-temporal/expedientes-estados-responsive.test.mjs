@@ -256,8 +256,16 @@ test("un expediente con incidencia explica su origen y ofrece atajos", () => {
       { secuencia: 7, fecha: "17 sept 2026", fase: "Subsanación por la unidad", accion: "Subsanación de reparos registrada", estado_clave: "incidencia", estado: "Con incidencia", accion_clave: "contratacion_temporal.subsanacion_reparos.registrar", version_expediente: 7 },
     ],
   };
+  expediente.fiscalizacion = {
+    resultado_clave: "desfavorable", resultado: "Desfavorable", registrada_en: "17 sept 2026",
+    reparos: [{ clave: "observaciones_fiscalizacion", texto: "Falta justificar el coste." }],
+    subsanacion: { registrada_en: "17 sept 2026", texto: "Justificación aportada." },
+  };
   const html = renderizarExpediente({ vista: "expediente", carga: "listo", expediente }, t, "es-ES", "Europe/Madrid");
   assert.match(html, /class="ct-exp-incidencia" role="alert"/u);
+  assert.match(html, /Reparos de Intervención:/u);
+  assert.match(html, /<blockquote class="ct-exp-incidencia-reparo">Falta justificar el coste\.<\/blockquote>/u);
+  assert.match(html, /Subsanación de la unidad:<\/strong> Justificación aportada\./u);
   assert.match(html, /Incidencia en «Fiscalización»/u);
   assert.match(html, /Origen: Fiscalización registrada, 17 sept 2026 \(actuación 6\)/u);
   assert.match(html, /registró la subsanación \(17 sept 2026\)/u);

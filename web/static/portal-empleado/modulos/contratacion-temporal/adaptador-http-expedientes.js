@@ -402,6 +402,16 @@ function proyectarExpediente(detalle, locale, catalogos, t) {
     } } : {}),
     fases: fasesDesdeHitos(detalle, traducir),
     historial: historialDesdeHitos(detalle.hitos, locale, t),
+    ...(detalle.fiscalizacion ? { fiscalizacion: {
+      resultado_clave: detalle.fiscalizacion.resultado_clave,
+      resultado: etiqueta(detalle.fiscalizacion.resultado_clave, t),
+      reparos: detalle.fiscalizacion.reparos.map((r) => ({ clave: r.clave, texto: r.texto })),
+      registrada_en: fechaCivil(detalle.fiscalizacion.registrada_en, locale),
+      ...(detalle.fiscalizacion.subsanacion ? { subsanacion: {
+        registrada_en: fechaCivil(detalle.fiscalizacion.subsanacion.registrada_en, locale),
+        texto: detalle.fiscalizacion.subsanacion.texto,
+      } } : {}),
+    } } : {}),
     tareas: [],
     // Sólo selección documental histórica; cada descarga exige autorización vigente.
     ...(versionPropuesta !== null ? { version_propuesta_documental: versionPropuesta } : {}),

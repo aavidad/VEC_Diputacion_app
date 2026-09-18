@@ -253,6 +253,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   incidencia_origen: "Origen: {accion}, {fecha} (actuación {secuencia}).",
   incidencia_subsanada: "La unidad registró la subsanación ({fecha}). Pendiente de nueva fiscalización por Intervención.",
   incidencia_pendiente_subsanacion: "Pendiente de subsanación por la unidad asignada.",
+  incidencia_reparos: "Reparos de Intervención:",
+  incidencia_subsanacion_texto: "Subsanación de la unidad:",
   incidencia_atajo_historial: "Ver actuaciones",
   incidencia_atajo_documentos: "Documentos",
   incidencia_atajo_auditoria: "Auditoría",

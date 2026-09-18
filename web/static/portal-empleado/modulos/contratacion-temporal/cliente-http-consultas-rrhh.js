@@ -250,7 +250,7 @@ function validarDetalle(entrada) {
   if (!camposCerrados(
     entrada,
     ["esquema", "resumen", "solicitud", "hitos"],
-    ["analisis", "cobertura", "asignacion", "presentacion_flujo"],
+    ["analisis", "cobertura", "asignacion", "presentacion_flujo", "fiscalizacion"],
   ) || entrada.esquema !== ESQUEMA_DETALLE || !Array.isArray(entrada.hitos)
     || entrada.hitos.length > MAXIMO_HITOS) {
     throw new TypeError("detalle RRHH no válido");
@@ -265,7 +265,29 @@ function validarDetalle(entrada) {
   if (Object.hasOwn(entrada, "cobertura")) salida.cobertura = validarCobertura(entrada.cobertura);
   if (Object.hasOwn(entrada, "asignacion")) salida.asignacion = validarAsignacion(entrada.asignacion);
   if (Object.hasOwn(entrada, "presentacion_flujo")) salida.presentacion_flujo = validarPresentacionFlujo(entrada.presentacion_flujo);
+  if (Object.hasOwn(entrada, "fiscalizacion")) salida.fiscalizacion = validarFiscalizacionDetalle(entrada.fiscalizacion);
   return Object.freeze(salida);
+}
+
+// Bloque opcional del canon V3 (migración 000106): resultado, reparo literal y
+// subsanación enlazada. Nunca trae actores, unidades ni documentos.
+function validarFiscalizacionDetalle(v) {
+  if (!camposCerrados(v, ["resultado_clave", "reparos", "registrada_en"], ["subsanacion"])
+    || !clave(v.resultado_clave) || !instante(v.registrada_en)
+    || !Array.isArray(v.reparos) || v.reparos.length > 1) {
+    throw new TypeError("fiscalización del detalle RRHH no válida");
+  }
+  const reparos = v.reparos.map((r) => {
+    if (!camposCerrados(r, ["clave", "texto"]) || !clave(r.clave) || !cadena(r.texto, { maximo: 2_000 })) {
+      throw new TypeError("reparo de fiscalización no válido");
+    }
+    return structuredClone(r);
+  });
+  if (Object.hasOwn(v, "subsanacion") && (!camposCerrados(v.subsanacion, ["registrada_en", "texto"])
+    || !instante(v.subsanacion.registrada_en) || !cadena(v.subsanacion.texto, { maximo: 2_000 }))) {
+    throw new TypeError("subsanación de fiscalización no válida");
+  }
+  return Object.freeze({ ...structuredClone(v), reparos });
 }
 function validarPresentacionFlujo(v) { if (!camposCerrados(v,["esquema","referencia","version","clave_i18n","fases"],["fase_actual"]) || v.esquema !== ESQUEMA_PRESENTACION_FLUJO || !referencia(v.referencia) || !entero(v.version,1) || !clave(v.clave_i18n) || !Array.isArray(v.fases) || v.fases.length < 1 || v.fases.length > 32 || (Object.hasOwn(v,"fase_actual") && !clave(v.fase_actual,true))) throw new TypeError("presentación de flujo RRHH no válida"); const fases=v.fases.map((f)=>{if(!camposCerrados(f,["clave","orden","clave_i18n"])||!clave(f.clave)||!entero(f.orden,1)||!clave(f.clave_i18n))throw new TypeError("fase de presentación RRHH no válida");return structuredClone(f)}); if(new Set(fases.map(f=>f.clave)).size!==fases.length||new Set(fases.map(f=>f.orden)).size!==fases.length||v.fase_actual&&!fases.some(f=>f.clave===v.fase_actual))throw new TypeError("presentación de flujo RRHH incoherente"); return Object.freeze({...structuredClone(v),fases}); }
 
