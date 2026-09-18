@@ -38,6 +38,9 @@ CREATE TYPE vec_contratacion_temporal.fiscalizacion_operativa_rrhh_v1 AS (
     subsanacion_registrada_en timestamptz(6),
     subsanacion_texto text
 );
+-- Sin USAGE para PUBLIC: la acreditación del runtime de contexto actor exige
+-- que ningún LOGIN tenga privilegios efectivos sobre tipos de la base.
+REVOKE ALL ON TYPE vec_contratacion_temporal.fiscalizacion_operativa_rrhh_v1 FROM PUBLIC;
 
 ALTER TYPE vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1
     ADD ATTRIBUTE fiscalizacion_presente boolean;

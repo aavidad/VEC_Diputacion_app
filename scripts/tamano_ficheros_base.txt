@@ -27,7 +27,7 @@
 876 deploy/postgresql/contratacion_temporal/migraciones/000104_comprobaciones_decision_gobernada_detalle.down.sql
 902 deploy/postgresql/contratacion_temporal/migraciones/000104_comprobaciones_decision_gobernada_detalle.up.sql
 886 deploy/postgresql/contratacion_temporal/migraciones/000106_detalle_rrhh_v3_fiscalizacion.down.sql
-1207 deploy/postgresql/contratacion_temporal/migraciones/000106_detalle_rrhh_v3_fiscalizacion.up.sql
+1210 deploy/postgresql/contratacion_temporal/migraciones/000106_detalle_rrhh_v3_fiscalizacion.up.sql
 1525 deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
 1059 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
