@@ -3111,6 +3111,32 @@ Completada la pasada de diseño en **Peticiones de los centros y organización**
   - `08_organizacion_antes.png` vs `08_organizacion_despues.png`
 - Script reproducible creado en `scripts/capturar_diseno_peticiones_org.py`.
 - `./scripts/comprobar_tamano_ficheros.sh` y `./scripts/verificar_manifiestos_superficies_web.sh` en verde.
-- Suite web completa: **854/854 pruebas verdes**.
 - Cambios preparados sin commit en el árbol de trabajo. Continúo de inmediato con la siguiente sección de G19: **Área personal**.
 :-corto
+
+## [2026-09-18] — Gemini · G19 área personal listo
+
+Completada la pasada de diseño en **Área personal**:
+- `web/static/area-personal/contrato.js`: ampliada la expresión regular en `exigirReferencia` a `/^[A-Z0-9][A-Z0-9._/:-]*$/i` para admitir referencias opacas de VEC Bolsa con dos puntos (`candidatura:demo:0009`, `perfil:demo:0009`), permitiendo que el endpoint real `/api/vec/bolsa/area-personal` se valide y cargue limpiamente.
+- `web/static/area-personal/area-personal.css` (464 líneas < límite de 500 líneas de `superficie.test.mjs`):
+  - Botones (`.boton-primario`, `.boton-secundario`, `.enlace-boton`) con color, borde definido y sombra interactiva.
+  - Paneles (`.panel`) con cabecera de degradado sutil (`linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%)`) y tipografía destacada (`#052b52`).
+  - Cifras de resumen (`.cifra-resumen`) con fondo degradado, números tabulares claros y bordes de acento según estado (aviso, éxito, mérito).
+  - Chips de estado (`.estado-chip`) con contraste y paleta funcional unificada (`exito`, `aviso`, `error`, `info`, `merito`).
+  - Tablas administrativas (`.tabla-administrativa`) con cabecera tintada (`#edf2f7`, borde 2px `#cbd5e1`), tipografía mayúscula destacada, filas alternas (`tbody tr:nth-child(even)` en `#f8fafc`), hover interactivo y botones de acción en tabla estilizados.
+  - Campos de formulario con focus ring accesible (`#0284c7`).
+- Capturas antes/después en `docs/manual/capturas/diseno/` (optimizadas ≤ 124 KB):
+  - `09_area_personal_inicio_antes.png` vs `09_area_personal_inicio_despues.png`
+  - `10_area_personal_perfil_antes.png` vs `10_area_personal_perfil_despues.png`
+- Script reproducible creado en `scripts/capturar_diseno_area_personal.py`.
+- `./scripts/comprobar_tamano_ficheros.sh` y `./scripts/verificar_manifiestos_superficies_web.sh` en verde.
+- Suite web completa: **854/854 pruebas verdes** (incluidas las 51 pruebas de `area-personal`).
+- Cambios preparados sin commit en el árbol de trabajo. Continúo de inmediato con la última sección de G19: **Portal público** (`/bolsa/`).
+:-corto
+
+
+## [2026-09-18 15:20] — Claude · C25: integrado en main pero REVERTIDO en la principal (000106 `down`); hallazgo para Codex
+
+Codex se quedó sin cuota con C25 escrito pero sin probar contra la base. Lo terminé yo: integrado en main (`74623184`), migración ensayada y aplicada, binario desplegado. Resultado:
+1. **La migración tumbó el arranque**: el `CREATE TYPE fiscalizacion_operativa_rrhh_v1` dejaba USAGE a PUBLIC y la acreditación del runtime de contexto actor (`privilegios_efectivos_runtime_minimos`) rechaza cualquier LOGIN con privilegios efectivos sobre tipos. Corregido en la migración (`REVOKE ALL ON TYPE … FROM PUBLIC`). **Regla para toda migración**: cada `CREATE TYPE`/`CREATE FUNCTION` nuevo lleva su `REVOKE … FROM PUBLIC` explícito.
+2. Con el servidor arriba, el detalle del expediente con incidencia devolvía 502 `resultado_no_confiable etapa=aplicacion`. Comprobado con los datos reales de la principal: el canon SQL V3 (`materializar_detalle_rrhh_v1` + `canon_contenido_detalle_rrhh_v1`) se decodifica en Go, se re-exporta **byte a byte igual**, y `validarContenidoPublicable`/`huellaCoincide`/`validarIntegridadContenidoEstructura` pasan. El rechazo está más adelante: en `application.ConsultarDetalle` (capacidad/orden/`ValidarPara`) o en la evidencia del recibo (`validarEvidenciaEstructura`, `ValidarParaEjecucionInterna`), es decir, en lo que depende de la fachada `consultar_detalle_rrhh_atestado_v1` con el nuevo contenido. Para no dejar el detalle roto he aplicado el `down` de 000106 en la principal: el servidor vuelve a V2 y el detalle funciona. **C25 sigue abierto** para Codex: reproducir con el arnés PostgreSQL 18 de `deploy/postgresql/contratacion_temporal/` el recorrido completo (fachada v1 → Go) con un expediente con fiscalización desfavorable y subsanación, y encontrar la comprobación que falla. El código Go y la migración quedan en main; en la principal, no aplicada.
