@@ -333,21 +333,21 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) registrarConAviso(ctx contex
 		return ports.ComunicacionProbatoria{}, application.ErrComunicacionLlamamientoNoDisponible
 	}
 	// Un replay recupera el recibo y el aviso ya persistidos: no envía un
-	// segundo correo de demostración para la misma comunicación.
+	// segundo correo sintético para la misma comunicación.
 	if recibo.Estado == ports.ResultadoComunicacionLlamamientoLocal {
-		e.despacharCorreoDemostracion(ctx, solicitud, recibo)
+		e.despacharCorreoSintetico(ctx, solicitud, recibo)
 	}
 	return recibo, nil
 }
 
-func etiquetaReferenciaCorreoDemostracion(etiquetas informejuridico.EtiquetadorReferencias, referencia string) string {
+func etiquetaReferenciaCorreoSintetico(etiquetas informejuridico.EtiquetadorReferencias, referencia string) string {
 	if etiquetas == nil || etiquetas(referencia) == "" || etiquetas(referencia) == referencia {
 		return referencia
 	}
 	return etiquetas(referencia) + " (" + referencia + ")"
 }
 
-func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoDemostracion(ctx context.Context, solicitud ports.SolicitudRegistrarComunicacionLlamamiento, recibo ports.ComunicacionProbatoria) {
+func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoSintetico(ctx context.Context, solicitud ports.SolicitudRegistrarComunicacionLlamamiento, recibo ports.ComunicacionProbatoria) {
 	if e == nil || e.correo == nil || contextoInterfazNulo(ctx) {
 		return
 	}
@@ -360,10 +360,10 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoDemostracion(
 	sumaDestinatario := sha256.Sum256([]byte(solicitud.LlamamientoRef))
 	sumaMensaje := sha256.Sum256([]byte(recibo.IntencionEnvioRef))
 	mensaje := smtp.Mensaje{
-		Destino:     fmt.Sprintf("candidatura-%x@demo.invalid", sumaDestinatario[:6]),
-		Asunto:      fmt.Sprintf("Demostración VEC: llamamiento %s", expediente.NumeroVisible),
-		Cuerpo:      fmt.Sprintf("DEMO VEC — llamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nEste correo es sintético, no acredita entrega ni produce efectos administrativos.", expediente.NumeroVisible, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
-		MessageID:   fmt.Sprintf("<llamamiento-%x@demo.invalid>", sumaMensaje[:12]),
+		Destino:     fmt.Sprintf("candidatura-%x@sintetico.invalid", sumaDestinatario[:6]),
+		Asunto:      fmt.Sprintf("Llamamiento de contratación temporal: expediente %s", expediente.NumeroVisible),
+		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPerfil de desarrollo con datos sintéticos: este correo no acredita entrega ni produce efectos administrativos.", expediente.NumeroVisible, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
+		MessageID:   fmt.Sprintf("<llamamiento-%x@sintetico.invalid>", sumaMensaje[:12]),
 		FechaOrigen: recibo.RegistradaEn,
 	}
 	if resultado := e.correo.Enviar(ctx, mensaje); resultado.Estado != smtp.AceptadoPorRelay {

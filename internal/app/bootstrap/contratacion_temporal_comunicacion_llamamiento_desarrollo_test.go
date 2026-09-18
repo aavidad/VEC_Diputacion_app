@@ -485,7 +485,7 @@ func (e *enviadorCorreoLlamamientoDesarrolloPrueba) Enviar(_ context.Context, me
 	return e.resultado
 }
 
-func TestComunicacionLlamamientoDesarrolloCorreoDemostracionNoAfectaRegistro(t *testing.T) {
+func TestComunicacionLlamamientoDesarrolloCorreoSinteticoNoAfectaRegistro(t *testing.T) {
 	ctx, p, _ := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
 	r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, "")
 	expediente := preparacionLlamamientoDesarrollo{expediente: ports.ExpedienteParaSeleccion{Fiscalizado: domain.Expediente{
@@ -505,7 +505,7 @@ func TestComunicacionLlamamientoDesarrolloCorreoDemostracionNoAfectaRegistro(t *
 		t.Fatalf("registro=%+v err=%v mensajes=%d", resultado, err, len(correo.mensajes))
 	}
 	mensaje := correo.mensajes[0]
-	if mensaje.Destino == "" || !strings.HasSuffix(mensaje.Destino, "@demo.invalid") ||
+	if mensaje.Destino == "" || !strings.HasSuffix(mensaje.Destino, "@sintetico.invalid") ||
 		!strings.Contains(mensaje.Asunto, "2026/CT-000010") ||
 		!strings.Contains(mensaje.Cuerpo, "categoria:sintetica:auxiliar") ||
 		!strings.Contains(mensaje.Cuerpo, "centro:sintetico:granada") ||

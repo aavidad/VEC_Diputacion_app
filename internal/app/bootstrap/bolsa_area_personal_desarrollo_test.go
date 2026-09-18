@@ -36,7 +36,7 @@ func TestAreaPersonalBolsaDemostracionContratoYDisponibilidadIdempotente(t *test
 	if err := json.Unmarshal(panel.Body.Bytes(), &salida); err != nil {
 		t.Fatal(err)
 	}
-	if salida.Data.Meta.Presentacion || salida.Data.Sesion.Metodo != "demostración sin identidad de candidato" || !salida.Data.Disponibilidad.Disponible {
+	if salida.Data.Meta.Presentacion || salida.Data.Sesion.Metodo != "perfil de desarrollo sin identidad de candidato" || !salida.Data.Disponibilidad.Disponible {
 		t.Fatalf("contrato=%s", panel.Body.String())
 	}
 	cuerpo := []byte(`{"data":{"esquema":"vec.bolsa.area-personal.accion.v1","accion":"cambiar_disponibilidad","confirmacion":true,"payload":{"disponible":false}}}`)
