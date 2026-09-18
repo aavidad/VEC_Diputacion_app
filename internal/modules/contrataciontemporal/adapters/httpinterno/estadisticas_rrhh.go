@@ -46,6 +46,14 @@ func NuevoManejadorEstadisticasRRHH(consultor ports.ConsultorEstadisticasRRHH, a
 	return &manejadorEstadisticasRRHH{consultor: consultor, alcance: alcance, reloj: reloj}, nil
 }
 
+type totalesEstadisticasRRHHJSON struct {
+	Altas           uint64 `json:"altas"`
+	Llamamientos    uint64 `json:"llamamientos"`
+	Formalizaciones uint64 `json:"formalizaciones"`
+	Cierres         uint64 `json:"cierres"`
+	Incidencias     uint64 `json:"incidencias"`
+}
+
 type serieEstadisticasRRHHJSON struct {
 	Inicio          string `json:"inicio"`
 	Altas           uint64 `json:"altas"`
@@ -63,7 +71,7 @@ type estadisticasRRHHJSON struct {
 	ZonaHoraria string                      `json:"zona_horaria"`
 	CorteGlobal uint64                      `json:"corte_global"`
 	Series      []serieEstadisticasRRHHJSON `json:"series"`
-	Totales     serieEstadisticasRRHHJSON   `json:"totales"`
+	Totales     totalesEstadisticasRRHHJSON `json:"totales"`
 }
 
 type envoltorioEstadisticasRRHH struct {
@@ -136,7 +144,7 @@ func proyectarEstadisticasRRHH(consulta ports.ConsultaEstadisticasRRHH, resultad
 		Esquema: EsquemaEstadisticasRRHH, Periodo: consulta.Periodo,
 		Desde: consulta.Desde.Format(fechaEstadisticasRRHH), Hasta: consulta.Hasta.Format(fechaEstadisticasRRHH),
 		ZonaHoraria: zonaEstadisticasRRHH, CorteGlobal: resultado.CorteGlobal, Series: series,
-		Totales: serieEstadisticasRRHHJSON{
+		Totales: totalesEstadisticasRRHHJSON{
 			Altas: totales.Altas, Llamamientos: totales.Llamamientos, Formalizaciones: totales.Formalizaciones,
 			Cierres: totales.Cierres, Incidencias: totales.Incidencias,
 		},
