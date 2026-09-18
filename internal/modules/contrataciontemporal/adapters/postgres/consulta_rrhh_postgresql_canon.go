@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	cabeceraContenidoCuadroRRHHPostgreSQL  = "VEC-CT-CONTENIDO-CUADRO-RRHH-V1\n"
-	cabeceraContenidoDetalleRRHHPostgreSQL = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
-	formatoInstanteCanonicoRRHHPostgreSQL  = "2006-01-02T15:04:05.000000Z"
+	cabeceraContenidoCuadroRRHHPostgreSQL    = "VEC-CT-CONTENIDO-CUADRO-RRHH-V1\n"
+	cabeceraContenidoDetalleRRHHPostgreSQLV2 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V2\n"
+	cabeceraContenidoDetalleRRHHPostgreSQL   = cabeceraContenidoDetalleRRHHPostgreSQLV2
+	cabeceraContenidoDetalleRRHHPostgreSQLV3 = "VEC-CT-CONTENIDO-DETALLE-RRHH-V3\n"
+	formatoInstanteCanonicoRRHHPostgreSQL    = "2006-01-02T15:04:05.000000Z"
 )
 
 var errCanonConsultaRRHHPostgreSQL = errors.New(
@@ -108,10 +110,12 @@ func decodificarContenidoCuadroRRHHPostgreSQL(
 func decodificarContenidoDetalleRRHHPostgreSQL(
 	canon []byte,
 ) (contenidoDetalleRRHHDecodificado, error) {
-	lector, err := nuevoLectorCanonRRHHPostgreSQL(
-		canon,
-		cabeceraContenidoDetalleRRHHPostgreSQL,
-	)
+	cabecera := cabeceraContenidoDetalleRRHHPostgreSQLV2
+	esV3 := bytes.HasPrefix(canon, []byte(cabeceraContenidoDetalleRRHHPostgreSQLV3))
+	if esV3 {
+		cabecera = cabeceraContenidoDetalleRRHHPostgreSQLV3
+	}
+	lector, err := nuevoLectorCanonRRHHPostgreSQL(canon, cabecera)
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{}, err
 	}
@@ -125,7 +129,7 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	}
 	mascara, err := lector.enteroSinSigno()
 	if err != nil || mascara != 0 && mascara != 1 &&
-		mascara != 3 && mascara != 7 {
+		mascara != 3 && mascara != 7 && (!esV3 || mascara != 15) {
 		return contenidoDetalleRRHHDecodificado{},
 			errCanonConsultaRRHHPostgreSQL
 	}
@@ -142,6 +146,10 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{}, err
 	}
+	fiscalizacion, referenciaFiscalizacion, referenciaSubsanacion, err := lector.fiscalizacion(esV3)
+	if err != nil {
+		return contenidoDetalleRRHHDecodificado{}, err
+	}
 	mascaraReal := uint64(0)
 	if analisis != nil {
 		mascaraReal |= 1
@@ -151,6 +159,9 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 	}
 	if asignacion != nil {
 		mascaraReal |= 4
+	}
+	if fiscalizacion != nil {
+		mascaraReal |= 8
 	}
 	if mascara != mascaraReal {
 		return contenidoDetalleRRHHDecodificado{},
@@ -174,13 +185,19 @@ func decodificarContenidoDetalleRRHHPostgreSQL(
 		return contenidoDetalleRRHHDecodificado{},
 			errCanonConsultaRRHHPostgreSQL
 	}
-	entrada, err := ports.NuevaEntradaDetalleExpedienteRRHHMinimizada(
-		resumen, solicitud,
-		analisis, referenciaAnalisis,
-		cobertura, referenciaCobertura,
-		asignacion, referenciaAsignacion,
-		hitos,
-	)
+	var entrada ports.EntradaDetalleExpedienteRRHHMinimizada
+	if esV3 {
+		entrada, err = ports.NuevaEntradaDetalleExpedienteRRHHMinimizadaV3(
+			resumen, solicitud, analisis, referenciaAnalisis, cobertura,
+			referenciaCobertura, asignacion, referenciaAsignacion, fiscalizacion,
+			referenciaFiscalizacion, referenciaSubsanacion, hitos,
+		)
+	} else {
+		entrada, err = ports.NuevaEntradaDetalleExpedienteRRHHMinimizada(
+			resumen, solicitud, analisis, referenciaAnalisis, cobertura,
+			referenciaCobertura, asignacion, referenciaAsignacion, hitos,
+		)
+	}
 	if err != nil {
 		return contenidoDetalleRRHHDecodificado{},
 			errCanonConsultaRRHHPostgreSQL
@@ -527,6 +544,66 @@ func (l *lectorCanonRRHHPostgreSQL) asignacion() (
 		UnidadRef: unidad, AsignadaEn: asignadaEn,
 		MotivoClave: domain.ClaveCatalogo(motivo),
 	}, referencia, nil
+}
+
+func (l *lectorCanonRRHHPostgreSQL) fiscalizacion(esV3 bool) (
+	*ports.FiscalizacionOperativaRRHH, ports.ReferenciaHitoFiscalizacionRRHH, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH, error,
+) {
+	if !esV3 {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, nil
+	}
+	presente, err := l.booleano()
+	if err != nil {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, err
+	}
+	secuencia, e1 := l.enteroSinSigno()
+	secuenciaSubsanacion, e2 := l.enteroSinSigno()
+	if e1 != nil || e2 != nil || (!presente && (secuencia != 0 || secuenciaSubsanacion != 0)) {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	if !presente {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, nil
+	}
+	referencia, err := ports.NuevaReferenciaHitoFiscalizacionRRHH(secuencia)
+	if err != nil {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	resultado, e1 := l.texto()
+	total, e2 := l.enteroSinSigno()
+	if e1 != nil || e2 != nil || total > 1 || !l.cabenMarcos(total, 2) {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	reparos := make([]ports.ReparoFiscalizacionOperativaRRHH, int(total))
+	for i := range reparos {
+		clave, a := l.texto()
+		texto, b := l.texto()
+		if a != nil || b != nil {
+			return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+		}
+		reparos[i] = ports.ReparoFiscalizacionOperativaRRHH{Clave: domain.ClaveCatalogo(clave), Texto: texto}
+	}
+	registradaEn, e3 := l.instante()
+	tieneSubsanacion, e4 := l.booleano()
+	if e3 != nil || e4 != nil {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	f := &ports.FiscalizacionOperativaRRHH{ResultadoClave: domain.ResultadoFiscalizacion(resultado), Reparos: reparos, RegistradaEn: registradaEn}
+	var refSub ports.ReferenciaHitoSubsanacionFiscalizacionRRHH
+	if tieneSubsanacion {
+		registrada, a := l.instante()
+		texto, b := l.texto()
+		if a != nil || b != nil {
+			return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+		}
+		refSub, err = ports.NuevaReferenciaHitoSubsanacionFiscalizacionRRHH(secuenciaSubsanacion)
+		if err != nil {
+			return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+		}
+		f.Subsanacion = &ports.SubsanacionFiscalizacionOperativaRRHH{RegistradaEn: registrada, Texto: texto}
+	} else if secuenciaSubsanacion != 0 {
+		return nil, ports.ReferenciaHitoFiscalizacionRRHH{}, ports.ReferenciaHitoSubsanacionFiscalizacionRRHH{}, errCanonConsultaRRHHPostgreSQL
+	}
+	return f, referencia, refSub, nil
 }
 
 func (l *lectorCanonRRHHPostgreSQL) hito() (

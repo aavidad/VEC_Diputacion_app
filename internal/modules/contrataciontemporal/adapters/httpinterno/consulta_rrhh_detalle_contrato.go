@@ -13,6 +13,7 @@ type detalleRRHHJSON struct {
 	Analisis          *analisisRRHHJSON          `json:"analisis,omitempty"`
 	Cobertura         *coberturaRRHHJSON         `json:"cobertura,omitempty"`
 	Asignacion        *asignacionRRHHJSON        `json:"asignacion,omitempty"`
+	Fiscalizacion     *fiscalizacionRRHHJSON     `json:"fiscalizacion,omitempty"`
 	Hitos             []hitoExpedienteRRHHJSON   `json:"hitos"`
 	PresentacionFlujo *presentacionFlujoRRHHJSON `json:"presentacion_flujo,omitempty"`
 }
@@ -82,6 +83,23 @@ type asignacionRRHHJSON struct {
 	MotivoClave string `json:"motivo_clave,omitempty"`
 }
 
+type reparoFiscalizacionRRHHJSON struct {
+	Clave string `json:"clave"`
+	Texto string `json:"texto"`
+}
+
+type subsanacionFiscalizacionRRHHJSON struct {
+	RegistradaEn string `json:"registrada_en"`
+	Texto        string `json:"texto"`
+}
+
+type fiscalizacionRRHHJSON struct {
+	ResultadoClave string                            `json:"resultado_clave"`
+	Reparos        []reparoFiscalizacionRRHHJSON     `json:"reparos"`
+	RegistradaEn   string                            `json:"registrada_en"`
+	Subsanacion    *subsanacionFiscalizacionRRHHJSON `json:"subsanacion,omitempty"`
+}
+
 type hitoExpedienteRRHHJSON struct {
 	Secuencia         uint64 `json:"secuencia"`
 	VersionExpediente uint64 `json:"version_expediente"`
@@ -116,6 +134,23 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 			UnidadRef:   entrada.Asignacion.UnidadRef,
 			AsignadaEn:  instanteConsultaRRHH(entrada.Asignacion.AsignadaEn),
 			MotivoClave: string(entrada.Asignacion.MotivoClave),
+		}
+	}
+	if entrada.Fiscalizacion != nil {
+		fiscalizacion := entrada.Fiscalizacion
+		salida.Fiscalizacion = &fiscalizacionRRHHJSON{
+			ResultadoClave: string(fiscalizacion.ResultadoClave),
+			RegistradaEn:   instanteConsultaRRHH(fiscalizacion.RegistradaEn),
+			Reparos:        make([]reparoFiscalizacionRRHHJSON, len(fiscalizacion.Reparos)),
+		}
+		for indice, reparo := range fiscalizacion.Reparos {
+			salida.Fiscalizacion.Reparos[indice] = reparoFiscalizacionRRHHJSON{Clave: string(reparo.Clave), Texto: reparo.Texto}
+		}
+		if fiscalizacion.Subsanacion != nil {
+			salida.Fiscalizacion.Subsanacion = &subsanacionFiscalizacionRRHHJSON{
+				RegistradaEn: instanteConsultaRRHH(fiscalizacion.Subsanacion.RegistradaEn),
+				Texto:        fiscalizacion.Subsanacion.Texto,
+			}
 		}
 	}
 	for indice, hito := range entrada.Hitos {

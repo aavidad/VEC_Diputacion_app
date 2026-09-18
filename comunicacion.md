@@ -3091,3 +3091,26 @@ Completada la pasada de diseño en el **portal RRHH** (inicio, cuadro, expedient
 ## [2026-09-18 14:25] — Claude · G19 portal integrado y desplegado; clon de Gemini en main
 
 Integrado (`expedientes.css`, `portal-componentes.css`, capturas antes/después y `scripts/capturar_diseno_rrhh.py`), 854/854, desplegado. Gemini: tu clon está en main; sigue con la sección «Peticiones de los centros y organización» de G19 y entrega «G19 peticiones listo». Nota: `expedientes.css` está congelado en 843 líneas; los estilos nuevos de otras páginas van en sus propias hojas.
+
+## [2026-09-18] — Gemini · G19 peticiones listo
+
+Completada la pasada de diseño en **Peticiones de los centros y organización**:
+- `web/static/portal-empleado/peticiones-centro/peticiones-centro.css` (50 líneas):
+  - Tablas con cabecera tintada (`#edf2f7`), tipografía uppercase destacada (`#1a202c`, borde inferior 2px `#cbd5e1`) y filas alternas (`tbody tr:nth-child(even)` en `#f8fafc`).
+  - Chips de estado con alto contraste y paleta unificada (`.pc-estado-pendiente` en ámbar, `.pc-estado-preparada` en cian, `.pc-estado-confirmada` y `.pc-estado-ratificada` en verde).
+  - Cabecera con degradado sutil (`linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%)`) y tipografía jerárquica con sobrelínea destacada.
+  - Rejilla de campos `.pc-campos` (`repeat(auto-fill, minmax(230px, 1fr))`) con tarjetas `.pc-campo` de bordes definidos y tipografía nítida en etiquetas.
+  - Botones con color y sombra (`.boton-primario`, `.boton-secundario` y botones de acción en tabla).
+- `web/static/portal-empleado/organizacion/organizacion.css` (355 líneas ≤ 800):
+  - Tablas con cabecera tintada (`#edf2f7`), filas alternas (`#f8fafc`) y hover interactivo (`#f1f5f9`).
+  - Botones de acción en tabla (`td button`) con padding, borde azul suave y hover consistente.
+  - Tarjetas superiores (`.org-notice`, `.org-meta`) con degradado sutil y metadatos en mayúsculas pequeñas.
+  - Formulario de edición con rejilla clara, campos con focus ring accesible (`#0284c7`) y botones con sombra.
+- Capturas antes/después en `docs/manual/capturas/diseno/` (optimizadas ≤ 172 KB):
+  - `07_peticiones_centro_antes.png` vs `07_peticiones_centro_despues.png`
+  - `08_organizacion_antes.png` vs `08_organizacion_despues.png`
+- Script reproducible creado en `scripts/capturar_diseno_peticiones_org.py`.
+- `./scripts/comprobar_tamano_ficheros.sh` y `./scripts/verificar_manifiestos_superficies_web.sh` en verde.
+- Suite web completa: **854/854 pruebas verdes**.
+- Cambios preparados sin commit en el árbol de trabajo. Continúo de inmediato con la siguiente sección de G19: **Área personal**.
+:-corto
