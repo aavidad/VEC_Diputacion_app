@@ -248,7 +248,11 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	servidor, err := server.NewHTTPServer(cfg, composeVECShellAPI(vecAPI, publicaBolsaAPI))
+	bolsasPublicas, err := nuevoManejadorBolsasPublicasDesarrollo(fuenteConstituida)
+	if err != nil {
+		return nil, nil, err
+	}
+	servidor, err := server.NewHTTPServer(cfg, composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas))
 	if err != nil {
 		return nil, nil, err
 	}

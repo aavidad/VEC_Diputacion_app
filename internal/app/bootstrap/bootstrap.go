@@ -22,6 +22,7 @@ import (
 	"vec-diputacion-granada/internal/candidate/usecases"
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
+	bolsapublicohttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
 	contrataciontemporal "vec-diputacion-granada/internal/modules/contrataciontemporal"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
@@ -354,6 +355,17 @@ func composeAPI(vecAPI http.Handler, fallback http.Handler, publicaBolsaAPI http
 func composeVECShellAPI(vecAPI http.Handler, publicaBolsaAPI http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	registrarBolsaPublica(mux, publicaBolsaAPI)
+	mux.Handle("/api/vec", vecAPI)
+	mux.Handle("/api/vec/", vecAPI)
+	return mux
+}
+
+// composeVECShellAPIConBolsasPublicas añade la consulta pública de bolsas
+// (B10) cuando hay bolsas constituidas de las que servirla.
+func composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas http.Handler) http.Handler {
+	mux := http.NewServeMux()
+	registrarBolsaPublica(mux, publicaBolsaAPI)
+	bolsapublicohttp.RegistrarRutasBolsasPublicas(mux, bolsasPublicas)
 	mux.Handle("/api/vec", vecAPI)
 	mux.Handle("/api/vec/", vecAPI)
 	return mux

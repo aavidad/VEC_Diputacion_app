@@ -24,6 +24,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
+	grupos      map[string][]string
 	ahora       func() time.Time
 
 	mu       sync.Mutex
@@ -72,13 +73,16 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolImportacion.Close()
 		return nil
 	}
-	categorias := map[string]string{}
+	categorias, grupos := map[string]string{}, map[string][]string{}
 	if lista, err := cargarCategoriasRPTDesarrollo(cfg.RPTCatalogoPath); err == nil {
 		for _, categoria := range lista {
 			categorias[categoria.Referencia] = categoria.Etiqueta
+			for _, grupo := range categoria.GruposSubgrupos {
+				grupos[categoria.Referencia] = append(grupos[categoria.Referencia], grupo.Clave)
+			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, recuperador: recuperador, categorias: categorias, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 // fusionar devuelve el dataset base con las categorías constituidas
