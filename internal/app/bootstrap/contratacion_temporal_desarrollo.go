@@ -562,7 +562,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
-	if rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
+	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
 		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
 	}
 	if err == nil && validoRuta {
