@@ -62,7 +62,7 @@ function exigirLista(valor, nombre) {
 
 function exigirReferencia(valor, nombre, { demostracion = false } = {}) {
   const referencia = exigirCadena(valor, nombre, 100);
-  if (!/^[A-Z0-9][A-Z0-9._/-]*$/i.test(referencia)) throw new TypeError(`${nombre} no es una referencia opaca válida.`);
+  if (!/^[A-Z0-9][A-Z0-9._/:-]*$/i.test(referencia)) throw new TypeError(`${nombre} no es una referencia opaca válida.`);
   if (demostracion && !referencia.startsWith("DEMO-")) throw new TypeError(`${nombre} debe comenzar por DEMO-.`);
   return referencia;
 }

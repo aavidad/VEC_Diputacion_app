@@ -41,39 +41,47 @@ h1 {
   box-shadow: var(--portal-sombra-sm);
 }
 .org-notice {
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-left: 4px solid var(--portal-naranja);
+  background: #fffdfa;
   margin-bottom: 14px;
 }
 .org-notice strong {
   display: block;
   margin-bottom: 4px;
+  color: var(--portal-azul-950);
 }
 .org-notice p {
   margin: 0;
   color: var(--portal-muted);
+  line-height: 1.5;
 }
 .org-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 24px;
-  padding: 14px 18px;
+  gap: 14px 28px;
+  padding: 16px 20px;
   margin: 0 0 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
 }
 .org-meta div {
   min-width: 150px;
 }
 .org-meta dt {
-  color: var(--portal-muted);
-  font-size: 0.78rem;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .org-meta dd {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   font-weight: 750;
+  color: #0f172a;
   overflow-wrap: anywhere;
 }
 .org-panel {
-  padding: 18px;
+  padding: 22px;
 }
 .org-panel-heading {
   display: flex;
@@ -83,19 +91,23 @@ h1 {
 }
 .org-panel-heading h2 {
   margin-block: 0;
+  color: var(--portal-azul-950);
+  font-size: 1.25rem;
+  font-weight: 750;
 }
 .org-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: 12px;
-  margin: 14px 0;
+  margin: 16px 0;
 }
 label {
   display: block;
-  color: var(--portal-muted);
-  font-size: 0.85rem;
-  font-weight: 700;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
 }
 input,
 select,
@@ -107,31 +119,46 @@ input,
 select,
 textarea {
   display: block;
-  min-height: 40px;
+  min-height: 38px;
   margin-top: 5px;
-  padding: 7px 10px;
-  border: 1px solid var(--portal-borde);
+  padding: 7px 11px;
+  border: 1px solid #cbd5e1;
   border-radius: var(--portal-radio-md);
   background: var(--portal-superficie);
   color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  outline: none;
 }
 input {
   width: min(420px, 100%);
 }
 button {
-  min-height: 40px;
-  padding: 7px 14px;
-  border: 1px solid var(--portal-azul-700);
+  min-height: 38px;
+  padding: 7px 16px;
+  border: 1px solid var(--portal-azul-800);
   border-radius: var(--portal-radio-md);
   background: var(--portal-azul-700);
   color: #fff;
   font-weight: 750;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled) {
+  background: var(--portal-azul-800);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 .org-count {
   margin-left: auto;
-  color: var(--portal-muted);
-  font-size: 0.9rem;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 .org-state {
   padding: 16px;
@@ -141,11 +168,13 @@ button {
 .org-state.error {
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
+  border: 1px solid #fecaca;
 }
 .org-state.success {
-  border-left: 4px solid #287d4f;
-  background: #eaf7ef;
-  color: #175f3a;
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+  color: #14532d;
+  border: 1px solid #bbf7d0;
 }
 .org-receipt {
   margin: 6px 0 0;
@@ -162,6 +191,7 @@ textarea:disabled {
   overflow: auto;
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio-md);
+  background: #fff;
 }
 table {
   width: 100%;
@@ -177,35 +207,60 @@ caption {
 }
 th,
 td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--portal-borde);
+  padding: 11px 12px;
+  border-bottom: 1px solid #e2e8f0;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 th {
-  background: var(--portal-azul-100);
-  color: var(--portal-azul-950);
-  font-size: 0.78rem;
+  background: #edf2f7;
+  color: #1a202c;
+  font-size: 0.76rem;
+  font-weight: 750;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  border-bottom: 2px solid #cbd5e1;
+}
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+tbody tr:hover {
+  background: #f1f5f9;
 }
 tbody tr:last-child td {
   border-bottom: 0;
 }
+td button {
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid #0284c7;
+  border-radius: 6px;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+td button:hover {
+  background: #0284c7;
+  color: #fff;
+}
 .org-local-change {
   display: inline-block;
   margin-top: 4px;
-  padding: 2px 7px;
-  border: 1px solid #287d4f;
+  padding: 2px 8px;
+  border: 1px solid #86efac;
   border-radius: 999px;
-  background: #eaf7ef;
-  color: #175f3a;
-  font-size: 0.76rem;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.75rem;
   font-weight: 750;
 }
 .org-source,
 .org-note {
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   color: var(--portal-muted);
   font-size: 0.85rem;
 }
@@ -213,7 +268,7 @@ tbody tr:last-child td {
   color: var(--portal-azul-700);
 }
 .org-editor {
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .org-helper {
   color: var(--portal-muted);
@@ -221,7 +276,7 @@ tbody tr:last-child td {
 .org-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 .org-form-grid textarea {
   width: 100%;
@@ -238,7 +293,7 @@ tbody tr:last-child td {
 }
 .org-review {
   margin-top: 16px;
-  padding: 14px;
+  padding: 16px;
   border: 2px solid var(--portal-naranja);
   border-radius: var(--portal-radio-md);
   background: #fff8ed;
@@ -247,11 +302,17 @@ tbody tr:last-child td {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 .org-secondary {
-  background: transparent;
-  color: var(--portal-azul-700);
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: var(--portal-azul-800);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.org-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 button:focus-visible,
 input:focus-visible,
