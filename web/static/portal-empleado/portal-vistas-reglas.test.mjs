@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearVistaReglas } from "./portal-vistas-reglas.js";
 
-function utilidades() {
+function utilidades(presentacion = false) {
   const escaparHTML = (valor) => String(valor ?? "").replace(/[&<>"]/g, (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[caracter]);
   return {
     escaparHTML, numero: (valor) => String(valor), fecha: (valor) => String(valor ?? ""),
@@ -12,6 +12,9 @@ function utilidades() {
     encabezadoVista: (_miga, titulo, descripcion) => `<h1>${titulo}</h1><p>${descripcion}</p>`,
     avisoPresentacion: (texto) => `<aside>${escaparHTML(texto)}</aside>`,
     fuentePresentacion: () => "<span>Datos sintéticos · Memoria volátil</span>",
+    esPresentacion: () => presentacion,
+    botonOperacion: (_etiqueta, operacion, objetivo) => `<button data-operacion="${operacion}" data-objetivo="${objetivo}"></button>`,
+    campo: (_etiqueta, control) => control,
   };
 }
 test("reglas conserva versión y procedencia sin habilitar edición", () => {
@@ -29,4 +32,12 @@ test("reglas representa carga, error, denegación y vacío sin revelar datos", (
   assert.match(vista.renderizarReglas({}, { fase: "error", detalle: "Error de red" }), /Error de red/);
   assert.match(vista.renderizarReglas({}, { fase: "denegado" }), /Acceso a reglas denegado/);
   assert.match(vista.renderizarReglas({ reglas: [], criterios_baremo: [] }), /No hay versiones autorizadas que mostrar/);
+});
+
+test("el borrador DEMO solo aparece en presentación", () => {
+  const html = crearVistaReglas(utilidades(true)).renderizarReglas({ reglas: [], criterios_baremo: [] });
+  assert.match(html, /Modo presentación/);
+  assert.match(html, /desaparece al recargar/);
+  assert.match(html, /data-operacion="guardar-reglas-baremo"/);
+  for (const nombre of ["unidad_tiempo", "puntos_unidad", "fraccion_jornada", "tope_bloque", "ambito_experiencia", "redondeo", "desempate_1", "desempate_2", "desempate_3", "ultimo_recurso"]) assert.match(html, new RegExp(`name="${nombre}"`));
 });

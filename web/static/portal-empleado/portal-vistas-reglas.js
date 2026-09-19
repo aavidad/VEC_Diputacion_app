@@ -2,7 +2,7 @@
 
 export function crearVistaReglas(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
-    avisoPresentacion, fuentePresentacion } = u;
+    avisoPresentacion, fuentePresentacion, esPresentacion, botonOperacion, campo } = u;
   function normalizarEstado(estado = {}) {
     const fase = estado.fase || estado.carga || "listo";
     return ["cargando", "error", "denegado", "listo"].includes(fase) ? fase : "error";
@@ -23,6 +23,12 @@ export function crearVistaReglas(u) {
       <p><strong>Edición de versiones no conectada.</strong></p>
       <p>La creación, validación, aprobación, publicación y activación requieren el circuito autorizado de reglas. Esta pantalla no genera borradores ni modifica versiones.</p>
       <button type="button" class="boton-primario" data-accion="operacion-presentacion" data-comando="guardar-reglas-baremo" data-operacion="guardar-reglas-baremo" data-objetivo="${e(objetivo)}" disabled aria-disabled="true" title="Capacidad de servidor no conectada">Guardar borrador de versión</button>
+    </form>`;
+  }
+  function renderizarEdicionPresentacion(objetivo) {
+    return `<form class="cuerpo-panel formulario-gobernado" aria-label="Borrador DEMO de reglas" data-comando="guardar-reglas-baremo">
+      <p class="nota-seguridad"><strong>Modo presentación.</strong> Guarda un borrador DEMO en memoria y desaparece al recargar. No valida, aprueba, publica ni activa reglas.</p>
+      <fieldset><legend>Parámetros del borrador DEMO</legend><div class="rejilla-formulario">${campo("Unidad de tiempo", '<select name="unidad_tiempo"><option value="mes">Mes</option></select>')}${campo("Puntos por unidad", '<input name="puntos_unidad" value="0">')}${campo("Fracción de jornada", '<select name="fraccion_jornada"><option value="proporcional">Proporcional</option></select>')}${campo("Tope del bloque", '<input name="tope_bloque" value="0">')}${campo("Ámbito de experiencia", '<select name="ambito_experiencia"><option value="bolsa_demo">Bolsa DEMO</option></select>')}${campo("Redondeo", '<select name="redondeo"><option value="dos_decimales">Dos decimales</option></select>')}${campo("Primer desempate", '<select name="desempate_1"><option value="experiencia">Experiencia</option></select>')}${campo("Segundo desempate", '<select name="desempate_2"><option value="formacion">Formación</option></select>')}${campo("Tercer desempate", '<select name="desempate_3"><option value="solicitud">Solicitud</option></select>')}${campo("Último recurso", '<select name="ultimo_recurso"><option value="revision_manual">Revisión manual</option></select>')}</div></fieldset>${botonOperacion("Guardar borrador DEMO", "guardar-reglas-baremo", objetivo, "boton-primario")}
     </form>`;
   }
   function renderizarReglas(datos = {}, estado = {}) {
@@ -75,7 +81,7 @@ export function crearVistaReglas(u) {
       </section>
       <section class="panel panel-separado" aria-label="Edición de reglas no disponible">
         <div class="cabecera-panel"><div><h3>Preparar la siguiente versión</h3><p>Disponible cuando exista el circuito HTTP autorizado y compuesto.</p></div>${fuentePresentacion()}</div>
-        ${renderizarEdicionNoConectada(criterioActivo.id || reglaActiva.version || "reglas-no-conectadas")}
+        ${typeof esPresentacion === "function" && esPresentacion() ? renderizarEdicionPresentacion(criterioActivo.id || reglaActiva.version || "reglas-no-conectadas") : renderizarEdicionNoConectada(criterioActivo.id || reglaActiva.version || "reglas-no-conectadas")}
       </section>`;
   }
   return Object.freeze({ renderizarReglas });
