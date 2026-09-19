@@ -159,7 +159,7 @@ export function renderizarAreaCronos({
         <p>${escaparHTML(t("descripcion"))}</p>
       </div>
       <div class="cronos-encabezado-estado">
-        ${vista.demostracion ? `<span class="cronos-distintivo-demo">${escaparHTML(t("entorno_demo"))}</span>` : `<span class="cronos-estado cronos-estado-exito">${escaparHTML(t("servicio_interno"))}</span>`}
+        ${vista.demostracion ? `<div class="cronos-distintivo-demo" role="status"><span>${escaparHTML(t("entorno_demo"))}</span><span> ${escaparHTML(t("solicitud_demo"))}</span></div>` : `<span class="cronos-estado cronos-estado-exito">${escaparHTML(t("servicio_interno"))}</span>`}
         <span>${escaparHTML(t("actualizado", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</span>
       </div>
     </header>

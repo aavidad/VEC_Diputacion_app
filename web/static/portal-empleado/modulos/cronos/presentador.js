@@ -162,7 +162,9 @@ export function crearPresentadorCronos({
     if (typeof descargarReciboInyectado !== "function") throw new Error("puerto de descarga PDF no conectado");
     const descriptor = prepararDescriptorRecibo(referencia);
     const resultado = await descargarReciboInyectado(descriptor);
-    mensaje = `Recibo ${descriptor.referencia} preparado como PDF institucional verificable.`;
+    mensaje = estadoDatos.demostracion
+      ? `Recibo DEMO ${descriptor.referencia} preparado para esta sesión efímera; no acredita registro ni efectos administrativos.`
+      : `Recibo ${descriptor.referencia} preparado como PDF institucional verificable.`;
     return resultado ?? descriptor;
   }
 

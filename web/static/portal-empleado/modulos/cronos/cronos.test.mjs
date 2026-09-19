@@ -116,6 +116,7 @@ test("la primera pantalla es un espacio de trabajo denso, semántico y trazable"
   assert.match(html, /Ámbito personal propio/);
   assert.match(html, /misma identidad interna que Bolsa/);
   assert.match(html, /Entorno DEMO · datos sintéticos/);
+  assert.match(html, /En DEMO no se registra, notifica ni aprueba nada fuera de esta pantalla/);
   assert.doesNotMatch(html, /<div[^>]+onclick=|javascript:|document\.cookie|localStorage|sessionStorage/i);
 });
 
@@ -261,6 +262,7 @@ test("la descarga visible entrega un descriptor PDF común sin identidad en el Q
   assert.doesNotMatch(recibido.comprobacion.qr_contenido, /Administrador|persona|cuenta/i);
   assert.ok(recibido.filas.some((item) => item.etiqueta === "Actuación" && /Entrada/.test(item.valor)));
   assert.match(recibido.nombre_archivo, /\.pdf$/);
+  assert.match(presentador.obtenerEstado().mensaje, /sesión efímera; no acredita registro ni efectos administrativos/);
 });
 
 test("la navegación interna no altera el hash gestionado por el portal", () => {
