@@ -13,6 +13,14 @@ const ESTADOS_FILTRO = Object.freeze([
 ]);
 
 const CLAVES_ESTADO = Object.freeze(Object.fromEntries(ESTADOS_FILTRO.slice(1)));
+const CLAVES_ESTADO_SINTETICO = Object.freeze({
+  borrador: "estado_borrador_sintetico",
+  pendiente_jefatura: "estado_pendiente_jefatura_sintetico",
+  aprobada: "estado_aprobada_sintetico",
+  enviada_rrhh: "estado_enviada_rrhh_sintetico",
+  enviada_nomina: "estado_enviada_nomina_sintetico",
+  pagada: "estado_pagada_sintetico",
+});
 const CLAVES_ETAPA = Object.freeze({
   borrador: "etapa_borrador", jefatura: "etapa_jefatura", aprobada: "etapa_aprobada",
   rrhh: "etapa_rrhh", nomina: "etapa_nomina", pagada: "etapa_pagada",
@@ -74,6 +82,10 @@ function traducirCodigo(t, mapa, codigo, respaldo = "sin_capacidad") {
   return t(mapa[codigo] || respaldo);
 }
 
+function traducirEstado(modelo, t, estado) {
+  return traducirCodigo(t, modelo.demostracion ? CLAVES_ESTADO_SINTETICO : CLAVES_ESTADO, estado);
+}
+
 function opcionesEstado(seleccionado, t) {
   return ESTADOS_FILTRO
     .map(([estado, clave]) => `<option value="${escaparHTML(estado)}" ${estado === seleccionado ? "selected" : ""}>${escaparHTML(t(clave))}</option>`)
@@ -113,10 +125,10 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
   if (!item) return `<section class="panel dietas-detalle"><div class="cuerpo-panel vacio-controlado"><p><strong>${escaparHTML(t("sin_expediente"))}</strong></p><p>${escaparHTML(t("sin_expediente_ayuda"))}</p></div></section>`;
   const historial = item.historial.map((evento) => `<li>
     <span class="dietas-marca-historial" aria-hidden="true"></span>
-    <div><strong>${escaparHTML(traducirCodigo(t, CLAVES_ESTADO, evento.estado))}</strong><span>${escaparHTML(fechaHora(evento.instante))} · ${escaparHTML(evento.actor_ref)}</span><small>${escaparHTML(t("recibo_referencia", { referencia: evento.recibo }))}</small></div>
+    <div><strong>${escaparHTML(traducirEstado(modelo, t, evento.estado))}</strong><span>${escaparHTML(fechaHora(evento.instante))} · ${escaparHTML(evento.actor_ref)}</span><small>${escaparHTML(t(modelo.demostracion ? "recibo_referencia_sintetico" : "recibo_referencia", { referencia: evento.recibo }))}</small></div>
   </li>`).join("");
   return `<section class="panel dietas-detalle" aria-labelledby="dietas-titulo-detalle">
-    <div class="cabecera-panel"><div><p class="sobrelinea">${escaparHTML(t("expediente_seleccionado"))}</p><h3 id="dietas-titulo-detalle" tabindex="-1">${escaparHTML(item.referencia)}</h3></div><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirCodigo(t, CLAVES_ESTADO, item.estado))}</span></div>
+    <div class="cabecera-panel"><div><p class="sobrelinea">${escaparHTML(t("expediente_seleccionado"))}</p><h3 id="dietas-titulo-detalle" tabindex="-1">${escaparHTML(item.referencia)}</h3></div><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirEstado(modelo, t, item.estado))}</span></div>
     <div class="cuerpo-panel dietas-detalle-cuerpo">
       <dl class="dietas-datos-clave">
         <div><dt>${escaparHTML(t("fecha"))}</dt><dd>${escaparHTML(fechaCorta(item.fecha))}</dd></div>
@@ -136,7 +148,7 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
           <div class="total"><dt>${escaparHTML(t("total"))}</dt><dd>${euros(item.total_euros)}</dd></div>
         </dl>
       </section>
-      ${item.nomina ? `<p class="dietas-pago"><strong>${escaparHTML(t("pago_asociado", { demo: modelo.demostracion ? " DEMO" : "" }))}</strong> ${escaparHTML(item.nomina)} · ${escaparHTML(item.referencia_pago)}</p>` : ""}
+      ${item.nomina ? `<p class="dietas-pago"><strong>${escaparHTML(t(modelo.demostracion ? "pago_asociado_sintetico" : "pago_asociado", { demo: modelo.demostracion ? " DEMO" : "" }))}</strong> ${escaparHTML(item.nomina)} · ${escaparHTML(item.referencia_pago)}</p>` : ""}
       ${modelo.capacidades.consultarHistorialPropio
     ? `<section aria-labelledby="dietas-titulo-historial"><h4 id="dietas-titulo-historial">${escaparHTML(t("historial_trazabilidad"))}</h4><ol class="dietas-historial">${historial}</ol></section>`
     : `<p role="status">${escaparHTML(t("auditoria_denegada"))}</p>`}
@@ -155,7 +167,7 @@ function renderizarTabla(modelo, t) {
     <td data-columna="ruta">${modelo.capacidades.consultarRutas ? escaparHTML(item.ruta.join(" → ")) : escaparHTML(t("sin_capacidad"))}</td>
     <td class="numero" data-columna="kilometros">${modelo.capacidades.consultarRutas ? `${numero(item.kilometros, 1)} ${escaparHTML(t("unidad_km"))}` : escaparHTML(t("sin_capacidad"))}</td>
     <td class="numero" data-columna="total">${euros(item.total_euros)}</td>
-    <td data-columna="estado"><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirCodigo(t, CLAVES_ESTADO, item.estado))}</span></td>
+    <td data-columna="estado"><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirEstado(modelo, t, item.estado))}</span></td>
   </tr>`).join("");
   return `<section class="panel dietas-listado" aria-labelledby="dietas-titulo-listado">
     <div class="cabecera-panel"><h3 id="dietas-titulo-listado">${escaparHTML(t("mis_comisiones"))}</h3><span class="estado-chip info">${escaparHTML(t("contador_resultados", { visibles: numero(modelo.comisiones.length), total: numero(modelo.totalSinFiltrar) }))}</span></div>
@@ -262,11 +274,12 @@ export function renderizarDietas(modelo, {
   const recibo = modelo.ultimoRecibo;
   const cabecera = `<header class="encabezado-vista"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2>${escaparHTML(t("titulo"))}</h2><p>${escaparHTML(t("descripcion"))}</p></div><span class="estado-chip ${modelo.demostracion ? "aviso" : "exito"}">${escaparHTML(t(modelo.demostracion ? "presentacion_sintetica" : "sesion_autorizada"))}</span></header>`;
   const identidad = `<section class="nota-seguridad dietas-identidad" aria-label="${escaparHTML(t("identidad_alcance"))}"><div><strong>${escaparHTML(modelo.identidad.actor.nombre_visible)}</strong><span>${escaparHTML(modelo.identidad.rol.etiqueta)}</span><small>${escaparHTML(t("contexto_compartido", { actor: modelo.identidad.actor.actor_ref }))}</small></div><p>${escaparHTML(modelo.politica.advertencia)}</p></section>`;
+  const alcanceDemo = modelo.demostracion ? `<section class="nota-seguridad dietas-alcance-demo" role="status"><strong>${escaparHTML(t("alcance_demo_titulo"))}</strong><p>${escaparHTML(t("alcance_demo_texto"))}</p></section>` : "";
   if (!modelo.capacidades.consultarGastos) {
-    return `<div class="modulo-dietas" data-modulo="dietas">${cabecera}${identidad}<section class="panel vacio-controlado" role="status"><h3>${escaparHTML(t("acceso_denegado_titulo"))}</h3><p>${escaparHTML(t("acceso_denegado_texto"))}</p></section></div>`;
+    return `<div class="modulo-dietas" data-modulo="dietas">${cabecera}${identidad}${alcanceDemo}<section class="panel vacio-controlado" role="status"><h3>${escaparHTML(t("acceso_denegado_titulo"))}</h3><p>${escaparHTML(t("acceso_denegado_texto"))}</p></section></div>`;
   }
   return `<div class="modulo-dietas" data-modulo="dietas">
-    ${cabecera}${identidad}
+    ${cabecera}${identidad}${alcanceDemo}
     <div class="rejilla-kpi dietas-kpi" aria-label="${escaparHTML(t("resumen_dietas"))}">
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">EXP</span><div><strong class="valor-kpi">${numero(modelo.resumen.expedientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_expedientes"))}</span></div></article>
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PEN</span><div><strong class="valor-kpi">${numero(modelo.resumen.pendientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pendientes"))}</span></div></article>

@@ -784,6 +784,9 @@ test("renderiza un espacio administrativo accesible, denso y traducido", () => {
   });
   assert.match(html, /Portal del Empleado → Dietas/);
   assert.match(html, /Agente interno DEMO/);
+  assert.match(html, /Los datos y cambios se mantienen solo durante esta sesión/);
+  assert.match(html, /Ejemplo · pago no acreditado/);
+  assert.match(html, /sin registro administrativo/);
   assert.match(html, /Circuito de aprobación/);
   assert.match(html, /Desglose de gastos/);
   assert.match(html, /Historial y trazabilidad/);
