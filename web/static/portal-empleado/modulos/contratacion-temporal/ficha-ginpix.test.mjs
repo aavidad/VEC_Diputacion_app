@@ -38,6 +38,19 @@ test("controlador: el resumen final agrupa sólo centro y categoría ya validado
   assert.match(raiz.innerHTML, /<dt>Transmisión externa<\/dt><dd>Pendiente de envío: el conector externo no está conectado\.<\/dd>/u);
   assert.doesNotMatch(raiz.innerHTML, /enviado a GINPIX/u);
 });
+test("controlador: conserva el período civil UTC y localiza el instante registrado en Madrid", () => {
+  const eventos = new Map(); const raiz = { innerHTML: "", addEventListener: (k, v) => eventos.set(k, v), removeEventListener() {}, replaceChildren() {} };
+  const reciboConCambioDeDia = {
+    ...recibo,
+    registrada_en: "2026-01-10T23:00:00Z",
+    periodo_incorporacion: { desde: "2026-01-10T00:00:00Z", hasta: "2026-01-11T00:00:00Z" },
+  };
+  montarFichaGINPIX({ raiz, recibo: reciboConCambioDeDia, resumen: { centro: "Centro sintético", categoria: "Categoría sintética" },
+    cliente: { descargarFichaGINPIX: async () => ({ json: ficha(), contenido: new Uint8Array([123, 125]) }) }, descargarArchivo: async () => {}, locale: "es-ES", zonaHoraria: "Europe/Madrid" });
+  assert.match(raiz.innerHTML, /datetime="2026-01-10T00:00:00Z">10 ene 2026<\/time>/u);
+  assert.match(raiz.innerHTML, /datetime="2026-01-11T00:00:00Z">11 ene 2026<\/time>/u);
+  assert.match(raiz.innerHTML, /datetime="2026-01-10T23:00:00Z">11 ene 2026, 0:00<\/time>/u);
+});
 test("controlador: rechaza un resumen ajeno o incompleto antes de montar", () => {
   const raiz = { addEventListener() {}, removeEventListener() {}, replaceChildren() {} };
   for (const resumen of [null, { centro: "Centro" }, { centro: "Centro", categoria: "Categoría", extra: true }]) {
