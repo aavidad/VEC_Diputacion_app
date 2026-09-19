@@ -130,6 +130,7 @@ const estado = {
   datosCandidatos: null,
   filtrosBolsa: { estado: "", texto: "" },
   modalContactos: null,
+  modalFicha: null,
   modalLlamar: null,
   modalResultado: null,
 };
@@ -737,6 +738,7 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
   obtenerEstadoCandidatos: () => estado.filtrosBolsa,
   obtenerModalContactos: () => estado.modalContactos,
+  obtenerModalFicha: () => estado.modalFicha,
   obtenerModalLlamar: () => estado.modalLlamar,
   obtenerModalResultado: () => estado.modalResultado,
   esLecturaPresentacion: () => estado.modoPresentacion,

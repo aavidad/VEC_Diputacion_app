@@ -21,6 +21,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerDatosCandidatosBolsa,
     obtenerEstadoCandidatos,
     obtenerModalContactos,
+    obtenerModalFicha,
     obtenerModalLlamar,
     obtenerModalResultado,
     esLecturaPresentacion = () => false,
@@ -357,6 +358,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         }
 
         const acciones = [];
+        acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-participacion-ref="${escaparHTML(c.participacion_ref)}">Ver ficha</button>`);
         acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-contactos" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}">Contactos</button>`);
         if (c.estado_clave === "disponible" && !lecturaPresentacion) {
           acciones.push(`<button type="button" class="boton-primario" data-bolsa-accion="abrir-llamar" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Llamar</button>`);
@@ -423,9 +425,51 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
         ${paginacion}
       </section>
+      ${renderizarModalFicha(typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null)}
       ${renderizarModalContactos(typeof obtenerModalContactos === "function" ? obtenerModalContactos() : null)}
       ${renderizarModalLlamar(typeof obtenerModalLlamar === "function" ? obtenerModalLlamar() : null)}
       ${renderizarModalResultado(typeof obtenerModalResultado === "function" ? obtenerModalResultado() : null)}`;
+  }
+
+  function renderizarModalFicha(modal) {
+    if (!modal || !modal.abierto) return "";
+    const candidato = modal.candidato;
+    const bolsa = modal.bolsa;
+    if (!candidato || !bolsa) return "";
+    const vigencia = bolsa.vigente_hasta
+      ? `${instanteVisible(bolsa.vigente_desde)} — ${instanteVisible(bolsa.vigente_hasta)}`
+      : `${instanteVisible(bolsa.vigente_desde)} — vigente`;
+    const disponibilidad = candidato.disponible_desde
+      ? `<div class="fila-resumen"><dt>Disponible desde</dt><dd>${escaparHTML(instanteVisible(candidato.disponible_desde))}</dd></div>`
+      : "";
+    const ultimoLlamamiento = candidato.ultimo_llamamiento
+      ? `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time> · <code>${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}</code></small></dd></div>`
+      : `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>Sin llamamientos registrados</dd></div>`;
+
+    return `
+      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-ficha">
+        <div class="modal-contenido" tabindex="-1">
+          <div class="cabecera-panel">
+            <h3 id="titulo-modal-ficha">Ficha de participación</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="Cerrar ficha de participación">×</button>
+          </div>
+          <div class="cuerpo-panel">
+            <p><strong>${escaparHTML(candidato.nombre_visible)}</strong> · <code>${escaparHTML(candidato.documento_enmascarado)}</code></p>
+            <dl class="resumen-expediente">
+              <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
+              <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
+              <div class="fila-resumen"><dt>Orden</dt><dd>#${numero(candidato.orden)}</dd></div>
+              <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
+              ${disponibilidad}
+              <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
+              ${ultimoLlamamiento}
+            </dl>
+          </div>
+          <div class="acciones-vista">
+            <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">Cerrar</button>
+          </div>
+        </div>
+      </div>`;
   }
 
   function renderizarModalContactos(modal) {

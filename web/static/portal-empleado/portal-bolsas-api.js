@@ -386,6 +386,19 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
+  function abrirFicha(participacionRef) {
+    const datos = estado.datosCandidatos?.datos;
+    const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+    if (!candidato || !datos?.bolsa) return;
+    estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
+    renderizar();
+  }
+
+  function cerrarFicha() {
+    estado.modalFicha = null;
+    renderizar();
+  }
+
   function cerrarContactos() {
     estado.modalContactos = null;
     renderizar();
@@ -464,6 +477,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const ref = botonAccion.dataset.participacionRef;
         const nom = botonAccion.dataset.nombreVisible || "";
         void abrirContactos(ref, nom);
+      } else if (accion === "abrir-ficha") {
+        evento.preventDefault();
+        abrirFicha(botonAccion.dataset.participacionRef);
+      } else if (accion === "cerrar-ficha") {
+        evento.preventDefault();
+        cerrarFicha();
       } else if (accion === "cerrar-contactos") {
         evento.preventDefault();
         cerrarContactos();
@@ -590,11 +609,20 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         return;
       }
     });
+
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape" && estado.modalFicha?.abierto) {
+        evento.preventDefault();
+        cerrarFicha();
+      }
+    });
   }
 
   return Object.freeze({
     cargarBolsas,
     cargarCandidatosBolsa,
+    abrirFicha,
+    cerrarFicha,
     abrirContactos,
     cerrarContactos,
     abrirLlamar,

@@ -429,6 +429,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Volver al cuadro/);
   assert.match(htmlB5, /Claudio/);
   assert.match(htmlB5, /\*\*\*0034\*\*/);
+  assert.match(htmlB5, /data-bolsa-accion="abrir-ficha"/);
 
   // Con paginación
   const candidatosConPaginacion = {
@@ -447,6 +448,31 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlErr, /Error al consultar candidatos/);
   assert.match(htmlErr, /reintentar-candidatos/);
   assert.match(htmlErr, /Volver al cuadro/);
+});
+
+test("presentadorPanelInterno muestra ficha B5 solo con los campos del contrato de candidatos", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (c) => `chip-${c}`,
+    encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
+    escaparHTML: (v) => String(v ?? ""),
+    numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (v) => v,
+    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
+    obtenerModalFicha: () => ({ abierto: true, candidato, bolsa: datos.bolsa }),
+  });
+
+  const html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Ficha de participación/);
+  assert.match(html, /Referencia de participación/);
+  assert.match(html, new RegExp(candidato.participacion_ref));
+  assert.match(html, /data-bolsa-accion="cerrar-ficha"/);
+  const ficha = html.slice(html.indexOf('id="titulo-modal-ficha"'));
+  assert.doesNotMatch(ficha, /correo|teléfono|puntuación|relación laboral/i);
 });
 
 test("las vistas de bolsa no contienen la palabra demo en sus textos visibles", () => {
