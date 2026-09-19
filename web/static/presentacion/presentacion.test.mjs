@@ -33,6 +33,12 @@ test("el lanzador conserva la visión completa del Portal de Recursos Humanos", 
   }
 });
 
+test("el catálogo no atribuye una integración común inexistente", () => {
+  assert.match(catalogo, /superficies separadas/);
+  assert.match(catalogo, /no acredita identidad, datos, documentos ni trazabilidad compartidos/);
+  assert.doesNotMatch(catalogo, /Todos comparten identidad, datos, documentos y trazabilidad/);
+});
+
 test("Bolsa Cronos y Dietas ofrecen acceso y el resto queda inequívocamente pendiente", () => {
   assert.equal((catalogo.match(/presentacion-modulo-activo/g) || []).length, 3);
   assert.equal((catalogo.match(/presentacion-modulo-pendiente/g) || []).length, modulos.length - 3);
