@@ -1,8 +1,8 @@
 "use strict";
 
 (() => {
-  const contratoPublicoV2 = globalThis.VECBolsaContratoV2;
-  if (!contratoPublicoV2) throw new Error("validador del contrato público V2 no disponible");
+  const contratoPublicoV1 = globalThis.VECBolsaContratoV1;
+  if (!contratoPublicoV1) throw new Error("validador del contrato público V1 no disponible");
   const API = "/api/publico/bolsa/convocatorias";
   const API_CATEGORIAS = "/api/publico/bolsa/categorias";
   const TAMANO = 12;
@@ -267,7 +267,7 @@
   }
 
   function renderizarListado(datos) {
-    const categoriasPorConvocatoria = contratoPublicoV2.validarListado(datos);
+    const categoriasPorConvocatoria = contratoPublicoV1.validarListado(datos);
     renderizarFacetas(datos.facetas);
     actualizarAvisoDemostracion("convocatorias", datos.fuente);
     elementos.revision.textContent = `Fuente ${datos.fuente.revision} · actualizada ${formatoFecha.format(new Date(datos.fuente.actualizada_en))}`;
@@ -389,7 +389,7 @@
   }
 
   function renderizarDetalle(datos) {
-    const categoriasResueltas = contratoPublicoV2.validarDetalle(datos);
+    const categoriasResueltas = contratoPublicoV1.validarDetalle(datos);
     const convocatoria = datos.convocatoria;
     elementos.tituloDetalle.textContent = convocatoria.titulo;
     vaciar(elementos.detalleEtiquetas);
