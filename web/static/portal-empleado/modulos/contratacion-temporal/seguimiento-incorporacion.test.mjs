@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { CLAVES_I18N_SEGUIMIENTO_INCORPORACION, montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js";
 
 const recibo = Object.freeze({
   esquema: "vec.contratacion-temporal.incorporacion-ejercicio.recibo.v2",
@@ -40,6 +41,19 @@ function crearRaiz() {
     },
   };
 }
+
+test("i18n: el seguimiento usa las claves del catálogo común", () => {
+  for (const clave of CLAVES_I18N_SEGUIMIENTO_INCORPORACION) assert.equal(typeof MENSAJES_CONTRATACION_TEMPORAL_ES[clave], "string");
+});
+
+test("i18n: el seguimiento conserva sus sobrescrituras escapadas", () => {
+  const raiz = crearRaiz();
+  const destruir = montarSeguimientoIncorporacion({
+    raiz, recibo, mensajes: { seguimiento_incorporacion_titulo: "<seguimiento>" }, cliente: { async consultar() {} },
+  });
+  assert.match(raiz.innerHTML, /&lt;seguimiento&gt;/u);
+  destruir();
+});
 
 test("seguimiento: consulta y muestra solo el vínculo original del recibo confirmado", async () => {
   const raiz = crearRaiz(), llamadas = [];
