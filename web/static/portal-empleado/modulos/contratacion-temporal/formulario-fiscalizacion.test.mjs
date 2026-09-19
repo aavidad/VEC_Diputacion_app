@@ -5,6 +5,7 @@ import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { renderizarModuloContratacionTemporal,
   montarModuloContratacionTemporal,
   montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes.js";
+import { contextoFiscalizacionDesdeEstado } from "./vista-expedientes-render.js";
 
 const EXPEDIENTE = "expediente:ct:fiscalizacion:formulario-001";
 const CLAVE = "123e4567-e89b-42d3-a456-426614174000";
@@ -229,6 +230,40 @@ test("Intervención enlaza el llamamiento al recibo favorable dentro del módulo
   assert.equal(llamamiento.eventos.size, 0);
 });
 
+test("Intervención conserva el recibo favorable sin montar un llamamiento con APIs incompletas", async () => {
+  const raiz = raizFalsa();
+  const fiscalizacion = raizFalsa();
+  const llamamiento = raizFalsa();
+  raiz.querySelector = (selector) => selector === "[data-ct-exp-fiscalizacion]"
+    ? fiscalizacion : selector === "[data-ct-exp-llamamiento]" ? llamamiento : null;
+  const modulo = montarModuloFiscalizacionContratacionTemporal({
+    raiz, cliente: {
+      registrarResultadoFiscalizacion: async () => recibo("favorable"),
+      seleccionarLlamamiento: async () => {}, registrarComunicacionLlamamiento: async () => {},
+    },
+    confirmarOperacion: () => true,
+  });
+  const formulario = {
+    elements: { namedItem: (nombre) => ({ value: nombre === "expediente_ref" ? EXPEDIENTE : "5" }) },
+    closest() { return this; }, checkValidity() { return true; },
+  };
+  raiz.eventos.get("submit")({ target: formulario, preventDefault() {} });
+  await fiscalizacion.enviar("favorable", "");
+  assert.match(fiscalizacion.innerHTML, /data-ct-fiscalizacion-recibo/u);
+  assert.equal(llamamiento.innerHTML, "");
+  modulo.desmontar();
+});
+
+test("la fiscalización rechaza contexto de demostración", () => {
+  const estado = estadoFiscalizacion(5, "informe_juridico");
+  assert.ok(contextoFiscalizacionDesdeEstado(estado));
+  for (const componente of ["cuadro", "expediente"]) {
+    const alterado = structuredClone(estado);
+    alterado[componente].demostracion = true;
+    assert.equal(contextoFiscalizacionDesdeEstado(alterado), null);
+  }
+});
+
 test("un resultado favorable v8 prepara la selección con su versión sin ejecutar efectos", async () => {
   const raiz = raizFalsa();
   const fiscalizacion = raizFalsa();
@@ -400,6 +435,7 @@ test("recupera con el mismo cuerpo y la misma clave", async () => {
 
 test("monta la continuación al reabrir fase informe_juridico sin fijar versión", () => {
   const expediente = {
+    demostracion: false,
     expediente_ref: EXPEDIENTE,
     numero_visible: "2026/CT-001",
     version: 9,
@@ -413,7 +449,7 @@ test("monta la continuación al reabrir fase informe_juridico sin fijar versión
   const html = renderizarModuloContratacionTemporal({
     vista: "expediente",
     carga: "listo",
-    cuadro: { expedientes: [{
+    cuadro: { demostracion: false, expedientes: [{
       expediente_ref: EXPEDIENTE,
       version: 9,
       fase_clave: "informe_juridico",

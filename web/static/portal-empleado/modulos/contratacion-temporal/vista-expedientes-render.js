@@ -108,7 +108,9 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
 
 export function contextoFiscalizacionDesdeEstado(estado) {
   if (estado?.vista !== "expediente" || estado.expediente === null
-    || estado.cuadro === null || !Array.isArray(estado.cuadro.expedientes)) return null;
+    || estado.cuadro === null || estado.cuadro.demostracion !== false
+    || estado.expediente.demostracion !== false
+    || !Array.isArray(estado.cuadro.expedientes)) return null;
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === estado.expediente.expediente_ref
   ));

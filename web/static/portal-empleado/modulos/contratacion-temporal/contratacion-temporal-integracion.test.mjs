@@ -74,6 +74,14 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.doesNotMatch(coberturaFuente, /datos-presentacion|document\.cookie|localStorage|sessionStorage|indexedDB|console\./i);
   assert.match(vistaExpedientesFuente, /montarFormularioCobertura/);
   assert.match(vistaExpedientesFuente, /data-ct-exp-cobertura/);
+  assert.match(vistaExpedientesFuente, /const llamamientoDisponible = \[/);
+  for (const metodo of [
+    "seleccionarLlamamiento",
+    "registrarComunicacionLlamamiento",
+    "registrarRespuestaRecibida",
+    "resolverLlamamiento",
+    "continuarLlamamiento",
+  ]) assert.match(vistaExpedientesFuente, new RegExp(`"${metodo}"`));
 });
 
 test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Dietas", async () => {

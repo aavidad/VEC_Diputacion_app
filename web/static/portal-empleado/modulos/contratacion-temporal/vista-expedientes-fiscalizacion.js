@@ -91,9 +91,13 @@ export function montarModuloFiscalizacionContratacionTemporal({
       anunciar,
       alConfirmar: (recibo) => {
         if (recibo.resultado === "desfavorable" || recibo.version_resultante < 6
-          || desmontarLlamamiento !== null
-          || typeof cliente.seleccionarLlamamiento !== "function"
-          || typeof cliente.registrarComunicacionLlamamiento !== "function") return;
+          || desmontarLlamamiento !== null || ![
+            "seleccionarLlamamiento",
+            "registrarComunicacionLlamamiento",
+            "registrarRespuestaRecibida",
+            "resolverLlamamiento",
+            "continuarLlamamiento",
+          ].every((metodo) => typeof cliente[metodo] === "function")) return;
         desmontarLlamamiento = montarFormularioLlamamiento({
           raiz: raiz.querySelector("[data-ct-exp-llamamiento]"), cliente,
           contexto: { expediente_ref: recibo.expediente_ref,

@@ -131,8 +131,13 @@ export async function montarModuloContratacionTemporal({
   const subsanacionDisponible = clienteSubsanacion !== null;
   const clienteLlamamiento = continuidad?.cliente ?? llamamiento?.cliente ?? clienteFiscalizacion
     ?? composicionAnalisis?.cliente;
-  const llamamientoDisponible = typeof clienteLlamamiento?.seleccionarLlamamiento === "function"
-    && typeof clienteLlamamiento?.registrarComunicacionLlamamiento === "function";
+  const llamamientoDisponible = [
+    "seleccionarLlamamiento",
+    "registrarComunicacionLlamamiento",
+    "registrarRespuestaRecibida",
+    "resolverLlamamiento",
+    "continuarLlamamiento",
+  ].every((metodo) => typeof clienteLlamamiento?.[metodo] === "function");
   const resolucionFormalizacionDisponible = typeof clienteLlamamiento?.registrarResolucionFormalizacion === "function"
     && typeof clienteLlamamiento?.prepararResolucionFormalizacion === "function";
   const incorporacionEjercicioDisponible = typeof clienteLlamamiento?.prepararIncorporacionEjercicio === "function"
