@@ -201,7 +201,7 @@ func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
 		{ruta: "/portal-empleado/portal.css?v=1", tipo: "text/css", contenido: ".portal-empleado-shell"},
 		{ruta: "/portal-empleado/portal-componentes.css?v=1", tipo: "text/css", contenido: ".tarjeta-modulo"},
 		{ruta: "/portal-empleado/portal-flujos.css?v=1", tipo: "text/css", contenido: ".barra-filtros"},
-		{ruta: "/portal-empleado/portal.js?v=1", tipo: "text/javascript", contenido: `const API_PANEL_BOLSA = "/api/vec/bolsa/panel"`},
+		{ruta: "/portal-empleado/portal.js?v=1", tipo: "text/javascript", contenido: `const controladorBolsas = crearControladorBolsas({`},
 		{ruta: "/portal-empleado/portal-eventos.js?v=1", tipo: "text/javascript", contenido: "crearControladorPortal"},
 		{ruta: "/portal-empleado/datos-presentacion.js?v=1", tipo: "text/javascript", contenido: "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
 		{ruta: "/verificar/", tipo: "text/html", contenido: "Comprobación de documentos"},
