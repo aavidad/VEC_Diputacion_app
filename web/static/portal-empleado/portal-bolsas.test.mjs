@@ -683,7 +683,7 @@ test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emi
   assert.equal(bodyResultado.payload.resultado_clave, "aceptado");
 });
 
-test("interfaz y presentador: renderizado de acciones por candidato y modales de contactos, llamar y resultado", () => {
+test("interfaz B5: deja solo la ficha mientras contactos y efectos no están compuestos", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
 
@@ -710,10 +710,9 @@ test("interfaz y presentador: renderizado de acciones por candidato y modales de
 
   // Columna Acciones en cabecera
   assert.match(html, /<th scope="col">Acciones<\/th>/);
-  // Botones de acción
-  assert.match(html, /data-bolsa-accion="abrir-contactos"/);
-  assert.match(html, /data-bolsa-accion="abrir-llamar"/);
-  assert.match(html, /data-bolsa-accion="abrir-resultado"/);
+  assert.match(html, /data-bolsa-accion="abrir-ficha"/);
+  assert.match(html, /Acciones pendientes de composición/);
+  assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 
   // Modal de contactos abierto con datos
   modalContactos = {
@@ -732,9 +731,7 @@ test("interfaz y presentador: renderizado de acciones por candidato y modales de
     ],
   };
   const htmlConContactos = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(htmlConContactos, /Historial de contactos: Aspirante de Prueba/);
-  assert.match(htmlConContactos, /Llamada satisfactoria/);
-  assert.match(htmlConContactos, /data-bolsa-accion="cerrar-contactos"/);
+  assert.doesNotMatch(htmlConContactos, /Historial de contactos|Llamada satisfactoria|cerrar-contactos/);
 
   // Modal de llamar (B7)
   modalContactos = null;
@@ -747,13 +744,7 @@ test("interfaz y presentador: renderizado de acciones por candidato y modales de
     error: "",
   };
   const htmlConLlamar = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(htmlConLlamar, /Nuevo llamamiento \(B7\)/);
-  assert.match(htmlConLlamar, /data-bolsa-form="llamar"/);
-  assert.match(htmlConLlamar, /id="llamar-canal"/);
-  assert.match(htmlConLlamar, /id="llamar-comunicado-en"/);
-  assert.match(htmlConLlamar, /id="llamar-plazo-hasta"/);
-  assert.match(htmlConLlamar, /id="llamar-confirmacion"/);
-  assert.match(htmlConLlamar, /Confirmo el llamamiento formal/);
+  assert.doesNotMatch(htmlConLlamar, /Nuevo llamamiento \(B7\)|data-bolsa-form="llamar"|llamar-canal/);
 
   // Modal de resultado (B3)
   modalLlamar = null;
@@ -767,18 +758,7 @@ test("interfaz y presentador: renderizado de acciones por candidato y modales de
     error: "",
   };
   const htmlConResultado = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(htmlConResultado, /Registrar resultado de llamamiento \(B3\)/);
-  assert.match(htmlConResultado, /data-bolsa-form="resultado"/);
-  assert.match(htmlConResultado, /id="resultado-clave"/);
-  assert.match(htmlConResultado, /id="resultado-confirmacion"/);
-  assert.match(htmlConResultado, /Aceptado \(pasa a situación Ocupado\)/);
-  assert.match(htmlConResultado, /Renuncia \(pasa a Renuncia pendiente\)/);
-  assert.match(htmlConResultado, /Sin respuesta \(continúa Disponible tras salto\)/);
-
-  // Ausencia de palabra demo en modales
-  assert.doesNotMatch(htmlConContactos, /\bdemo\b/i);
-  assert.doesNotMatch(htmlConLlamar, /\bdemo\b/i);
-  assert.doesNotMatch(htmlConResultado, /\bdemo\b/i);
+  assert.doesNotMatch(htmlConResultado, /Registrar resultado de llamamiento \(B3\)|data-bolsa-form="resultado"|resultado-clave/);
 });
 
 test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memoria y contactos sintéticos", () => {
@@ -814,6 +794,7 @@ test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memor
   });
   const html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /Presentación sintética de solo lectura/);
-  assert.match(html, /abrir-contactos/);
-  assert.doesNotMatch(html, /abrir-llamar|abrir-resultado/);
+  assert.match(html, /Acciones pendientes de composición/);
+  assert.match(html, /abrir-ficha/);
+  assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 });

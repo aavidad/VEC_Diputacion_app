@@ -357,15 +357,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           detalleLlamamiento = `<span>${escaparHTML(etiquetaClave(l.canal))} · ${escaparHTML(etiquetaClave(l.resultado))}<br><small><time datetime="${escaparHTML(l.comunicado_en)}">${escaparHTML(instanteVisible(l.comunicado_en))}</time></small></span>`;
         }
 
-        const acciones = [];
-        acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-participacion-ref="${escaparHTML(c.participacion_ref)}">Ver ficha</button>`);
-        acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-contactos" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}">Contactos</button>`);
-        if (c.estado_clave === "disponible" && !lecturaPresentacion) {
-          acciones.push(`<button type="button" class="boton-primario" data-bolsa-accion="abrir-llamar" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Llamar</button>`);
-        }
-        if (c.ultimo_llamamiento?.llamamiento_ref && !lecturaPresentacion) {
-          acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-resultado" data-llamamiento-ref="${escaparHTML(c.ultimo_llamamiento.llamamiento_ref)}" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Resultado</button>`);
-        }
+        const acciones = `<button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-participacion-ref="${escaparHTML(c.participacion_ref)}">Ver ficha</button>`;
 
         return `
           <tr data-participacion-ref="${escaparHTML(c.participacion_ref)}">
@@ -376,7 +368,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
-            <td class="acciones-candidato">${acciones.join(" ")}</td>
+            <td class="acciones-candidato">${acciones}</td>
           </tr>`;
       }).join("");
     }
@@ -389,7 +381,8 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
-      ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> El historial no acredita contacto, envío ni entrega. Llamar y Resultado permanecen deshabilitados hasta disponer de reglas, canal y plazo aprobados.</section>' : ""}
+      ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
+      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados se habilitarán cuando su circuito esté conectado.</section>
       <section class="panel">
         <div class="cabecera-panel">
           <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
@@ -425,10 +418,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
         ${paginacion}
       </section>
-      ${renderizarModalFicha(typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null)}
-      ${renderizarModalContactos(typeof obtenerModalContactos === "function" ? obtenerModalContactos() : null)}
-      ${renderizarModalLlamar(typeof obtenerModalLlamar === "function" ? obtenerModalLlamar() : null)}
-      ${renderizarModalResultado(typeof obtenerModalResultado === "function" ? obtenerModalResultado() : null)}`;
+      ${renderizarModalFicha(typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null)}`;
   }
 
   function renderizarModalFicha(modal) {
