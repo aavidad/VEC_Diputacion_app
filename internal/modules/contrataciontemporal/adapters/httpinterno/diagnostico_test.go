@@ -62,6 +62,29 @@ func TestRegistroDiagnosticoClasificaCentinelaSinExponerCausa(t *testing.T) {
 	}
 }
 
+func TestRegistroDiagnosticoClasificaComposicionIncorporacionSinExponerCausa(t *testing.T) {
+	anterior := slog.Default()
+	defer slog.SetDefault(anterior)
+	var registro bytes.Buffer
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&registro, nil)))
+	privada := errors.New("postgres://privado:secreto@dependencia")
+	registrarFalloContratacion(
+		httptest.NewRequest(http.MethodGet, RutaIncorporacionEjercicioV2, nil),
+		http.StatusServiceUnavailable, "servicio_no_disponible", "corr_prueba",
+		errors.Join(ports.ErrComposicionIncorporacionAplicacion, privada),
+	)
+	var entrada map[string]any
+	if err := json.Unmarshal(registro.Bytes(), &entrada); err != nil {
+		t.Fatal(err)
+	}
+	if entrada["etapa"] != "incorporacion_ejercicio.composicion" || entrada["centinela"] != "incorporacion_no_disponible" {
+		t.Fatalf("clasificación incompleta: %s", registro.String())
+	}
+	if strings.Contains(registro.String(), privada.Error()) {
+		t.Fatalf("el registro filtró la causa privada: %s", registro.String())
+	}
+}
+
 func TestFronterasContratacionCorrelacionanFalloSinContenidoPrivado(t *testing.T) {
 	anterior := slog.Default()
 	defer slog.SetDefault(anterior)

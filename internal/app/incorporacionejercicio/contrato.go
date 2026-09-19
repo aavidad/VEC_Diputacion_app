@@ -40,6 +40,18 @@ func nulo(v any) bool {
 	}
 	return false
 }
+
+// falloComposicion conserva la causa solo para clasificación interna. Su texto
+// es el centinela estable: ningún adaptador debe publicar detalles de la
+// dependencia que falló.
+type falloComposicion struct{ causa error }
+
+func (f falloComposicion) Error() string { return ct.ErrComposicionIncorporacionAplicacion.Error() }
+
+func (f falloComposicion) Unwrap() []error {
+	return []error{ct.ErrComposicionIncorporacionAplicacion, f.causa}
+}
+
 func fallo(ctx context.Context, e error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
@@ -62,7 +74,7 @@ func fallo(ctx context.Context, e error) error {
 	if errors.Is(e, personal.ErrConflicto) || errors.Is(e, ct.ErrConflictoIncorporacionAplicacion) {
 		return ct.ErrConflictoIncorporacionAplicacion
 	}
-	return ct.ErrComposicionIncorporacionAplicacion
+	return falloComposicion{causa: e}
 }
 
 type relojOperacion struct {

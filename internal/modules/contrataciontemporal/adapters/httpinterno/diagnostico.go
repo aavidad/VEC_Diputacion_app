@@ -95,6 +95,9 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 	if etapaCobertura, ok := application.EtapaDiagnosticoDePresentacionPropuestaCobertura(causa); ok {
 		etapa = string(etapaCobertura)
 	}
+	if etapa == "desconocida" && errors.Is(causa, ports.ErrComposicionIncorporacionAplicacion) {
+		etapa = "incorporacion_ejercicio.composicion"
+	}
 	slog.Error("operación de Contratación fallida", "operacion", operacion, "ruta", ruta,
 		"estado_http", estado, "codigo", codigo,
 		"etapa", etapa, "sqlstate", sqlstate,
@@ -127,6 +130,8 @@ func centinelaSeguroContratacion(causa error) string {
 		return "cobertura_no_disponible"
 	case errors.Is(causa, application.ErrConfirmacionDecisionCoberturaPendiente):
 		return "cobertura_operacion_pendiente"
+	case errors.Is(causa, ports.ErrComposicionIncorporacionAplicacion):
+		return "incorporacion_no_disponible"
 	case errors.Is(causa, context.Canceled):
 		return "context_canceled"
 	case errors.Is(causa, context.DeadlineExceeded):
