@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +21,7 @@ func TestSuperficiePublicaSirveLandingAccesoSinIdentidad(t *testing.T) {
 		{http.MethodHead, "/", ""},
 		{http.MethodGet, "/acceso/", "Acceso a VEC"},
 		{http.MethodGet, "/acceso/acceso.css?v=1", ".acceso-principal"},
+		{http.MethodGet, "/acceso/acceso-i18n.js?v=1", "CATALOGOS_EMPAQUETADOS"},
 	} {
 		t.Run(prueba.metodo+" "+prueba.ruta, func(t *testing.T) {
 			rec := httptest.NewRecorder()
@@ -94,6 +96,43 @@ func TestSuperficiePublicaLandingMantieneFronteraYSoloLectura(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s en landing = %d; se esperaba 400", cabecera, rec.Code)
+		}
+	}
+}
+
+func TestSuperficiePublicaExponeCatalogoEspanolLandingAcceso(t *testing.T) {
+	handler := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/acceso/locales/es.json", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("catalogo acceso = %d; se esperaba 200", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("tipo catalogo = %q; se esperaba JSON", rec.Header().Get("Content-Type"))
+	}
+	var catalogo map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &catalogo); err != nil {
+		t.Fatalf("catalogo acceso no es JSON: %v", err)
+	}
+	for _, clave := range []string{
+		"acceso.titulo_pagina", "acceso.estado.titulo", "acceso.metodo.clave.titulo",
+		"acceso.metodo.certificado.titulo", "acceso.metodo.dnie.titulo", "acceso.metodo.pendiente",
+		"acceso.enlaces.bolsa",
+	} {
+		if strings.TrimSpace(catalogo[clave]) == "" {
+			t.Errorf("catalogo sin traduccion por defecto para %q", clave)
+		}
+	}
+	landing := httptest.NewRecorder()
+	handler.ServeHTTP(landing, peticionServidorPrueba(http.MethodGet, "/", nil))
+	for _, marca := range []string{
+		"lang=\"es\"", "data-i18n-catalogo=\"/acceso/locales/es.json\"",
+		"data-i18n=\"acceso.titulo\"", "data-i18n=\"acceso.metodo.pendiente\"",
+		"data-i18n-atributo=\"aria-label:acceso.enlaces.etiqueta\"",
+		"src=\"/acceso/acceso-i18n.js\"",
+	} {
+		if !strings.Contains(landing.Body.String(), marca) {
+			t.Errorf("landing no declara extension i18n %q", marca)
 		}
 	}
 }

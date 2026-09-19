@@ -1,6 +1,8 @@
 produccion.manifest
 static/acceso/index.html
 static/acceso/acceso.css
+static/acceso/acceso-i18n.js
+static/acceso/locales/es.json
 static/area-personal/aplicacion.js
 static/area-personal/area-personal.css
 static/area-personal/arranque.js

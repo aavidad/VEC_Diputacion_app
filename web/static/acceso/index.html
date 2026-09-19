@@ -1,53 +1,54 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-i18n-catalogo="/acceso/locales/es.json">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Punto público de acceso a VEC y consulta de bolsas de empleo.">
-  <title>Acceso a VEC | Diputación de Granada</title>
+  <meta name="description" content="Punto público de acceso a VEC y consulta de bolsas de empleo." data-i18n-atributo="content:acceso.descripcion">
+  <title data-i18n="acceso.titulo_pagina">Acceso a VEC | Diputación de Granada</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
   <link rel="stylesheet" href="/acceso/acceso.css?v=20260919-acceso-publico">
+  <script type="module" src="/acceso/acceso-i18n.js"></script>
 </head>
 <body class="acceso-publico">
-  <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+  <a class="salto-contenido" href="#contenido-principal" data-i18n="acceso.saltar_contenido">Saltar al contenido principal</a>
   <main id="contenido-principal" class="acceso-principal" tabindex="-1">
     <header class="acceso-cabecera">
       <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
-      <p class="acceso-etiqueta">Portal de Recursos Humanos</p>
-      <h1>Acceso a VEC</h1>
-      <p>Seleccione una forma de identificación cuando el acceso autenticado esté habilitado.</p>
+      <p class="acceso-etiqueta" data-i18n="acceso.etiqueta">Portal de Recursos Humanos</p>
+      <h1 data-i18n="acceso.titulo">Acceso a VEC</h1>
+      <p data-i18n="acceso.introduccion">Seleccione una forma de identificación cuando el acceso autenticado esté habilitado.</p>
     </header>
 
     <section class="acceso-estado" aria-labelledby="estado-acceso">
-      <h2 id="estado-acceso">Acceso autenticado pendiente de configuración</h2>
-      <p>No introduzca credenciales ni certificados en este portal. Las opciones se activarán cuando Sistemas publique la pasarela de identidad correspondiente.</p>
+      <h2 id="estado-acceso" data-i18n="acceso.estado.titulo">Acceso autenticado pendiente de configuración</h2>
+      <p data-i18n="acceso.estado.descripcion">No introduzca credenciales ni certificados en este portal. Las opciones se activarán cuando Sistemas publique la pasarela de identidad correspondiente.</p>
     </section>
 
     <section aria-labelledby="metodos-acceso">
-      <h2 id="metodos-acceso">Métodos previstos</h2>
+      <h2 id="metodos-acceso" data-i18n="acceso.metodos.titulo">Métodos previstos</h2>
       <div class="acceso-tarjetas">
         <article class="acceso-tarjeta">
-          <h3>Cl@ve</h3>
-          <p>Acceso para personas usuarias cuando esté disponible la pasarela aprobada.</p>
-          <button type="button" disabled aria-describedby="estado-acceso">Acceso pendiente de configuración</button>
+          <h3 data-i18n="acceso.metodo.clave.titulo">Cl@ve</h3>
+          <p data-i18n="acceso.metodo.clave.descripcion">Acceso para personas usuarias cuando esté disponible la pasarela aprobada.</p>
+          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
         </article>
         <article class="acceso-tarjeta">
-          <h3>Certificado digital</h3>
-          <p>Certificado FNMT o corporativo admitido, cuando el canal se configure y valide.</p>
-          <button type="button" disabled aria-describedby="estado-acceso">Acceso pendiente de configuración</button>
+          <h3 data-i18n="acceso.metodo.certificado.titulo">Certificado digital</h3>
+          <p data-i18n="acceso.metodo.certificado.descripcion">Certificado FNMT o corporativo admitido, cuando el canal se configure y valide.</p>
+          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
         </article>
         <article class="acceso-tarjeta">
-          <h3>DNIe</h3>
-          <p>Identificación con DNI electrónico cuando el lector y la pasarela estén configurados.</p>
-          <button type="button" disabled aria-describedby="estado-acceso">Acceso pendiente de configuración</button>
+          <h3 data-i18n="acceso.metodo.dnie.titulo">DNIe</h3>
+          <p data-i18n="acceso.metodo.dnie.descripcion">Identificación con DNI electrónico cuando el lector y la pasarela estén configurados.</p>
+          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
         </article>
       </div>
     </section>
 
-    <section class="acceso-enlaces" aria-label="Consultas y ayuda públicas">
-      <a class="acceso-boton-principal" href="/bolsa/">Consultar bolsas y procesos selectivos</a>
-      <a href="/bolsa/#ayuda-publica">Ayuda sobre la consulta pública de bolsas</a>
+    <section class="acceso-enlaces" aria-label="Consultas y ayuda públicas" data-i18n-atributo="aria-label:acceso.enlaces.etiqueta">
+      <a class="acceso-boton-principal" href="/bolsa/" data-i18n="acceso.enlaces.bolsa">Consultar bolsas y procesos selectivos</a>
+      <a href="/bolsa/#ayuda-publica" data-i18n="acceso.enlaces.ayuda">Ayuda sobre la consulta pública de bolsas</a>
     </section>
   </main>
 </body>

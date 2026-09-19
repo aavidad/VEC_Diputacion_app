@@ -1,0 +1,21 @@
+{
+  "acceso.descripcion": "Punto público de acceso a VEC y consulta de bolsas de empleo.",
+  "acceso.titulo_pagina": "Acceso a VEC | Diputación de Granada",
+  "acceso.saltar_contenido": "Saltar al contenido principal",
+  "acceso.etiqueta": "Portal de Recursos Humanos",
+  "acceso.titulo": "Acceso a VEC",
+  "acceso.introduccion": "Seleccione una forma de identificación cuando el acceso autenticado esté habilitado.",
+  "acceso.estado.titulo": "Acceso autenticado pendiente de configuración",
+  "acceso.estado.descripcion": "No introduzca credenciales ni certificados en este portal. Las opciones se activarán cuando Sistemas publique la pasarela de identidad correspondiente.",
+  "acceso.metodos.titulo": "Métodos previstos",
+  "acceso.metodo.clave.titulo": "Cl@ve",
+  "acceso.metodo.clave.descripcion": "Acceso para personas usuarias cuando esté disponible la pasarela aprobada.",
+  "acceso.metodo.certificado.titulo": "Certificado digital",
+  "acceso.metodo.certificado.descripcion": "Certificado FNMT o corporativo admitido, cuando el canal se configure y valide.",
+  "acceso.metodo.dnie.titulo": "DNIe",
+  "acceso.metodo.dnie.descripcion": "Identificación con DNI electrónico cuando el lector y la pasarela estén configurados.",
+  "acceso.metodo.pendiente": "Acceso pendiente de configuración",
+  "acceso.enlaces.etiqueta": "Consultas y ayuda públicas",
+  "acceso.enlaces.bolsa": "Consultar bolsas y procesos selectivos",
+  "acceso.enlaces.ayuda": "Ayuda sobre la consulta pública de bolsas"
+}
