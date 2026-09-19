@@ -1,3 +1,4 @@
+import { traducirBolsaInterna } from "./portal-i18n.js";
 /** Vistas compartidas de gobierno de convocatorias y admisión. */
 
 export function crearVistasConvocatorias(u) {
@@ -74,7 +75,7 @@ export function crearVistasConvocatorias(u) {
             ${campo("Unidad responsable", `<select name="unidad">${opcion("Todas", unidad)}${opcion("Unidad DEMO de Selección", unidad)}</select>`)}
             <button type="submit" class="boton-secundario">Aplicar filtros</button>
           </form>
-          <p class="resultado-filtro" role="status" data-total-filtro="convocatorias" data-total="${elaboraciones.length}">${numero(elaboraciones.length)} convocatorias encontradas.</p>
+          <p class="resultado-filtro" role="status" data-total-filtro="convocatorias" data-total="${elaboraciones.length}">${traducirBolsaInterna("numero_convocatorias", { numero: numero(elaboraciones.length) })}</p>
           ${tabla({
             titulo: "Convocatorias de Bolsa",
             cabeceras: ["Referencia DEMO", "Convocatoria pública / expediente DEMO", "BOP / publicación", "Fase DEMO", "Baremo DEMO", "Estado DEMO"],
@@ -140,7 +141,7 @@ export function crearVistasConvocatorias(u) {
       <div class="rejilla-kpi">${kpi("REG", numero(datos.solicitudes.length), "Registradas")}${kpi("PEN", numero(pendientes), "Pendientes")}${kpi("SUB", numero(datos.solicitudes.filter((x) => /subsan/i.test(x.estado)).length), "En subsanación")}${kpi("ADM", numero(datos.solicitudes.filter((x) => /admitida/i.test(x.estado)).length), "Admitidas")}</div>
       <section class="panel"><div class="cabecera-panel"><div><h3>Bandeja de solicitudes</h3><p>No se muestran nombres, documentos de identidad ni datos de contacto en el listado.</p></div>${fuentePresentacion()}</div>
         <form class="barra-filtros" aria-label="Filtros de solicitudes" data-filtro="solicitudes">${campo("Buscar referencia", `<input type="search" name="referencia" value="${e(referencia)}" placeholder="DEMO-SOL-…">`)}${campo("Convocatoria", `<select name="convocatoria">${["Todas", "DEMO-BOL-014", "DEMO-BOL-021"].map((valor) => opcion(valor, convocatoria)).join("")}</select>`)}${campo("Estado", `<select name="estado">${["Todos", "Pendiente de revisión", "Pendiente de subsanación", "Admitida provisional"].map((valor) => opcion(valor, estadoSeleccionado)).join("")}</select>`)}<button type="submit" class="boton-secundario">Aplicar filtros</button></form>
-        <p class="resultado-filtro" role="status" data-total-filtro="solicitudes" data-total="${solicitudes.length}">${numero(solicitudes.length)} solicitudes encontradas.</p>
+        <p class="resultado-filtro" role="status" data-total-filtro="solicitudes" data-total="${solicitudes.length}">${traducirBolsaInterna("numero_solicitudes", { numero: numero(solicitudes.length) })}</p>
         ${tabla({
           titulo: "Solicitudes presentadas",
           cabeceras: ["Solicitud", "Persona", "Convocatoria", "Registro", "Requisitos", "Subsanación", "Estado", "Acciones"],

@@ -92,6 +92,8 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     chip,
     encabezadoVista,
     escaparHTML,
+    esPresentacion,
+    esPresentacion,
     fuentePresentacion,
     kpi,
     numero,

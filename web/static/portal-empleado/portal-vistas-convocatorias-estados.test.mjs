@@ -25,6 +25,8 @@ test("convocatorias y admisión expresan carga, denegación, error y vacío sin 
   const carga = vistas.renderizarConvocatorias(datos, { fuenteLista: false });
   assert.match(carga, /Cargando convocatorias/);
   assert.match(carga, /role="status"/);
+  const convocatoriasVacias = vistas.renderizarConvocatorias(datos, { fuenteLista: true });
+  assert.match(convocatoriasVacias, /0 convocatorias encontradas/);
 
   const denegado = vistas.renderizarSolicitudes(datos, { fuenteLista: true, datosBolsas: { carga: "denegado" } });
   assert.match(denegado, /Acceso denegado/);

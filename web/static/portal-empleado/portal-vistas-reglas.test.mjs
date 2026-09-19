@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
 import { crearVistaReglas } from "./portal-vistas-reglas.js";
 
 function utilidades(presentacion = false) {
@@ -40,4 +41,25 @@ test("el borrador DEMO solo aparece en presentación", () => {
   assert.match(html, /desaparece al recargar/);
   assert.match(html, /data-operacion="guardar-reglas-baremo"/);
   for (const nombre of ["unidad_tiempo", "puntos_unidad", "fraccion_jornada", "tope_bloque", "ambito_experiencia", "redondeo", "desempate_1", "desempate_2", "desempate_3", "ultimo_recurso"]) assert.match(html, new RegExp(`name="${nombre}"`));
+});
+
+test("las utilidades reales exponen el modo DEMO y no habilitan edición fuera de él", () => {
+  const modo = { demo: true };
+  const reales = crearUtilidadesVista({
+    escaparHTML: (valor) => String(valor ?? "").replace(/[&<>\"]/g, (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[caracter]),
+    numero: (valor) => String(valor ?? 0),
+    claseEstado: () => "neutro",
+    encabezadoVista: (_miga, titulo, descripcion) => `<h1>${titulo}</h1><p>${descripcion}</p>`,
+    esPresentacion: () => modo.demo,
+    operacionPermitida: () => true,
+  });
+  const vista = crearVistaReglas(reales);
+  const demo = vista.renderizarReglas({ reglas: [], criterios_baremo: [] });
+  assert.match(demo, /Borrador DEMO de reglas/);
+  assert.match(demo, /Guardar borrador DEMO/);
+  modo.demo = false;
+  const interna = vista.renderizarReglas({ reglas: [], criterios_baremo: [] });
+  assert.match(interna, /Edición de versiones no conectada/);
+  assert.match(interna, /disabled aria-disabled="true"/);
+  assert.doesNotMatch(interna, /Borrador DEMO de reglas/);
 });
