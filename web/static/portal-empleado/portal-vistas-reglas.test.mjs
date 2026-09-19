@@ -5,7 +5,7 @@ import { crearVistaReglas } from "./portal-vistas-reglas.js";
 function utilidades() {
   const escaparHTML = (valor) => String(valor ?? "").replace(/[&<>"]/g, (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[caracter]);
   return {
-    escaparHTML, numero: (valor) => String(valor),
+    escaparHTML, numero: (valor) => String(valor), fecha: (valor) => String(valor ?? ""),
     chip: (estado) => `<span>${escaparHTML(estado)}</span>`,
     tabla: ({ filas, vacio }) => filas.length ? `<table>${filas.flat().join("|")}</table>` : `<p>${escaparHTML(vacio)}</p>`,
     kpi: (_sigla, valor, etiqueta) => `${etiqueta}:${valor}`,
