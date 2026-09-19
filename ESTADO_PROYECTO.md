@@ -26,6 +26,37 @@ sustituye Portafirmas, SMTP, la política de inicio/plazo ni la identidad de la
 reserva histórica pendiente. Las pantallas, contratos e i18n se conservan para
 conectar esas autoridades sin rehacer la interfaz.
 
+## Bolsa: inventario y consulta pública — 19 de septiembre de 2026
+
+El inventario actual de Bolsa reúne **34 pantallas**: 18 de gestión interna,
+14 del área personal y 2 públicas. Las 14 del área personal son recorribles
+visualmente solo en modo **DEMO**; ninguna está conectada de extremo a extremo
+como capacidad productiva y tres muestran información parcial del entorno de
+desarrollo. Esta medida separa cobertura visual de integración real.
+
+El corte `2e3b0cca`, integrado y publicado, elimina dos consultas anticipadas a
+endpoints de Bolsa que todavía no están compuestos. No suprime ni maquilla los
+fallos de una operación solicitada por la persona usuaria: esos errores siguen
+mostrándose en su contexto.
+
+El corte `fbb573b0`, también integrado y publicado, conecta las convocatorias
+públicas B13 al contrato vivo `v1`. La API servida respondió con esquema `v1`
+y 12 registros. `ad520906` incorpora ese contrato `v1` a los manifiestos web
+público y de producción para que el activo forme parte de ambos empaquetados.
+
+El corte `94223751`, integrado y publicado, añade desde B5 una ficha de
+participación de solo lectura. Reutiliza los datos ya disponibles del candidato
+y no introduce edición, efectos administrativos ni otro origen de verdad.
+
+Tras reiniciar la aplicación, las comprobaciones HTTP devolvieron `200` para
+`/bolsa/`, `contrato-v1.js` y `portal.js`; el activo servido incluye la ficha y
+ya no inicia la consulta anticipada a `/api/vec/bolsa/panel`. La API pública
+mantiene el esquema `v1` con 12 registros. El `HEAD` canónico y la rama remota
+coinciden en `94223751ae38124d52e767d6fcca2548237a5d2f`. Estas observaciones
+acreditan publicación de activos y respuestas HTTP tras reinicio; no acreditan
+todavía un recorrido E2E en navegador, identidad real, persistencia del área
+personal ni producción.
+
 ## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
 
 El corte `18bd0ebb` renueva bajo demanda la configuración diaria de confianza
