@@ -1,5 +1,28 @@
 # Estado y plan de ataque del proyecto
 
+## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
+
+El corte `18bd0ebb` renueva bajo demanda la configuración diaria de confianza
+de Contratación sin exigir reiniciar la aplicación a medianoche. Reutiliza el
+gobierno, la raíz y las claves existentes; conserva las audiencias de escritura,
+Bolsa, cuadro, detalle, incorporación y continuidad, y falla cerrado ante una
+revocación, una raíz distinta o un error de publicación. No añade migraciones.
+
+Dos revisiones independientes del mismo parche resultaron favorables: SQL y
+concurrencia, e identidad/criptografía. Pruebas focales de concurrencia y una
+base PostgreSQL 18.4 desechable comprobaron publicación única, adopción,
+rollback y revocaciones. La campaña Go final dejó `go vet ./...` y compilación
+verdes; el único fallo global fue un test de inventario ejecutado inicialmente
+sin metadatos Git, y su paquete pasó después con el entorno correcto.
+
+Binario instalado con SHA-256
+`edff82d89425a0c6e914ece5618e664cc3decfa175009073f42a6517f3324f15`.
+Tras reiniciar solo la aplicación, el portal mTLS y dos consultas de cuadro
+respondieron `200`, con 71 expedientes, sin errores JavaScript ni desbordamiento
+en 1440/390. Las 130 tablas comparadas son idénticas antes y después. Falta la
+observación natural del primer cruce de medianoche; las pruebas con reloj
+controlado cubren ese límite sin alterar el reloj ni la base conservada.
+
 ## Apertura y lectura de expedientes — 19 de septiembre de 2026
 
 Abrir un expediente sitúa el foco en su cabecera; conserva error/denegación

@@ -1,5 +1,18 @@
 # Guía de recorrido y recibos conservados de VEC
 
+### Disponibilidad diaria del cuadro — 19 de septiembre
+
+El binario `18bd0ebb` está instalado en la instancia privada. El cuadro se abre
+por el recorrido habitual del portal y respondió `200` antes y después de su
+consulta inicial; mostró 71 expedientes. No hace falta reiniciar manualmente la
+aplicación para publicar la confianza del día siguiente. La renovación conserva
+raíz, claves, audiencias y revocaciones, y no toca las tablas de negocio.
+
+Después del reinicio controlado se compararon 130 tablas sin diferencias. La
+evidencia exacta y la copia del binario anterior permanecen privadas. Esta
+comprobación no simula el cambio de fecha del servidor ni acredita producción;
+el cruce de medianoche está cubierto por reloj controlado y PostgreSQL desechable.
+
 Nota de uso — 19 de septiembre: al abrir un expediente se presenta su cabecera
 sin salto posterior a Cobertura. El raíl mantiene ocho fases; una propuesta
 registrada tras aceptación marca candidato obtenido, sin acreditar firma ni
