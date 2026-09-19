@@ -22,10 +22,13 @@ import (
 
 // Sólo dobles de frontera para comprobar delegación y ausencia de efectos en
 // negativas. No se conectan al runtime ni acreditan publicación PostgreSQL.
-type planesPermisoIncorporacionPrueba struct{ plan inc.PlanPreparacionDurableV2 }
+type planesPermisoIncorporacionPrueba struct {
+	plan    inc.PlanPreparacionDurableV2
+	ausente bool
+}
 
 func (p planesPermisoIncorporacionPrueba) ResolverPlan(_ context.Context, org, exp string) (inc.PlanPreparacionDurableV2, error) {
-	if org != p.plan.OrganizacionRef || exp != p.plan.SolicitudPersonal.ExpedienteRef {
+	if p.ausente || org != p.plan.OrganizacionRef || exp != p.plan.SolicitudPersonal.ExpedienteRef {
 		return inc.PlanPreparacionDurableV2{}, ct.ErrComposicionIncorporacionAplicacion
 	}
 	return p.plan, nil
@@ -88,7 +91,7 @@ func escenarioPermisoIncorporacionPrueba(t *testing.T) (*autoridadOperacionesInc
 	publicador := &publicadorPermisoIncorporacionPrueba{}
 	s.autoridadAsignaciones = publicador
 	delegado := &pdpPermisoIncorporacionPrueba{publicador: publicador}
-	a, err := nuevaAutoridadOperacionesIncorporacionV2(s, consultas, delegado, cfg, planesPermisoIncorporacionPrueba{plan}, contenido, datos.ReferenciaMotivo, s.reloj)
+	a, err := nuevaAutoridadOperacionesIncorporacionV2(s, consultas, delegado, cfg, planesPermisoIncorporacionPrueba{plan: plan}, contenido, datos.ReferenciaMotivo, s.reloj)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,9 +165,46 @@ func TestIncorporacionV2PermisosNominalesPublicanAntesDelPDP(t *testing.T) {
 	}
 }
 
+func TestIncorporacionV2PermisosNominalesDetalleNoExigePlanPeroEfectosSi(t *testing.T) {
+	t.Run("detalle sin plan", func(t *testing.T) {
+		a, ctx, d, publicador := escenarioPermisoIncorporacionPrueba(t)
+		a.planes = planesPermisoIncorporacionPrueba{ausente: true}
+		solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, a.soporte.contexto.Resultado)
+		if !errors.Is(err, errPDPIncorporacionPrueba) || !reflect.DeepEqual(publicador.orden, []string{"preparar", "publicar", "pdp"}) {
+			t.Fatalf("el detalle nominal quedó ligado al plan: %v %v", publicador.orden, err)
+		}
+		if publicador.ultima.Validar() != nil || !publicador.ultima.AsignacionPerfil.Cubre(d.Recurso) || len(publicador.ultima.VersionRol.Concesiones) != 1 || publicador.ultima.VersionRol.Concesiones[0].Accion != ct.AccionConsultarDetalleRRHH {
+			t.Fatal("el detalle sin plan no publicó su contrato exacto")
+		}
+	})
+
+	t.Run("confirmación sin plan", func(t *testing.T) {
+		a, ctx, d, publicador := escenarioPermisoIncorporacionPrueba(t)
+		d = datosOperacionPermisoIncorporacionPrueba(t, a, d, "ct")
+		a.planes = planesPermisoIncorporacionPrueba{ausente: true}
+		solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = a.ExigirSolicitudLigadaV3(ctx, solicitud, a.soporte.contexto.Resultado)
+		if !errors.Is(err, ct.ErrAutorizacionDenegada) || len(publicador.orden) != 0 {
+			t.Fatalf("una acción con efecto alcanzó publicación/PDP: %v %v", publicador.orden, err)
+		}
+	})
+}
+
 func TestIncorporacionV2PermisosNominalesRechazanCrucesSinPublicar(t *testing.T) {
 	for _, operacion := range []string{"detalle", "alta", "lectura", "ct"} {
 		for _, caso := range []string{"sello", "actor", "perfil", "organizacion", "ambito_extra", "accion", "finalidad", "tipo", "motivo", "expediente"} {
+			if operacion == "detalle" && caso == "expediente" {
+				// El detalle se autoriza por su solicitud/ruta y ámbito de
+				// organización, no por su presencia en planes de incorporación.
+				continue
+			}
 			t.Run(operacion+"/"+caso, func(t *testing.T) {
 				a, ctx, d, p := escenarioPermisoIncorporacionPrueba(t)
 				d = datosOperacionPermisoIncorporacionPrueba(t, a, d, operacion)

@@ -107,13 +107,17 @@ func (a *autoridadOperacionesIncorporacionV2) instantanea(ctx context.Context, d
 	if d.Accion == alta.AccionAltaEjercicio || d.Accion == lectura.Accion {
 		exp = r.Atributos["expediente_ref"]
 	}
-	p, err := a.planes.ResolverPlan(ctx, a.referencias.OrganizacionRef, exp)
-	if err != nil || p.OrganizacionRef != a.referencias.OrganizacionRef || p.UnidadRef != a.referencias.UnidadRef || p.SolicitudPersonal.ExpedienteRef != exp {
-		return cero, fallo
-	}
 	var rol, modulo, tipo, finalidad string
 	var motivo core.ReferenciaEntradaCatalogo
 	ambitos := map[string]string{"organizacion_ref": a.referencias.OrganizacionRef}
+	var p inc.PlanPreparacionDurableV2
+	if d.Accion != ct.AccionConsultarDetalleRRHH {
+		var err error
+		p, err = a.planes.ResolverPlan(ctx, a.referencias.OrganizacionRef, exp)
+		if err != nil || p.OrganizacionRef != a.referencias.OrganizacionRef || p.UnidadRef != a.referencias.UnidadRef || p.SolicitudPersonal.ExpedienteRef != exp {
+			return cero, fallo
+		}
+	}
 	switch d.Accion {
 	case ct.AccionConsultarDetalleRRHH:
 		rol, modulo, tipo, finalidad = "incorporacion_detalle_desarrollo_v2", ct.ModuloContratacion, ct.TipoRecursoExpediente, ct.FinalidadConsultarDetalleRRHH
