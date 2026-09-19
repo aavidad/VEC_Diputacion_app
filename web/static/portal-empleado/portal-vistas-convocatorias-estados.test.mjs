@@ -6,6 +6,7 @@ function utilidades() {
   return {
     escaparHTML: (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;"),
     numero: (valor) => String(valor ?? 0),
+    fecha: (valor) => String(valor ?? ""),
     chip: (valor) => `<span>${String(valor)}</span>`,
     tabla: ({ filas, vacio = "No hay registros para los filtros aplicados." }) => filas.length ? `<table>${filas.flat().join("")}</table>` : `<p>${vacio}</p>`,
     kpi: (_sigla, valor, etiqueta) => `<span>${valor} ${etiqueta}</span>`,
