@@ -1,3 +1,5 @@
+import { traducir } from "../i18n.js";
+
 export function escaparHTML(valor) {
   return String(valor ?? "")
     .replaceAll("&", "&amp;")
@@ -44,8 +46,8 @@ export function listaDatos(pares) {
   return `<dl class="dato-lista">${pares.map(([termino, descripcion]) => `<dt>${escaparHTML(termino)}</dt><dd>${descripcion}</dd>`).join("")}</dl>`;
 }
 
-export function tabla({ descripcion, columnas, filas, vacio = "No hay registros para mostrar." }) {
-  if (!filas.length) return `<div class="estado-vacio"><strong>Sin resultados</strong>${escaparHTML(vacio)}</div>`;
+export function tabla({ descripcion, columnas, filas, vacio = traducir("areaPersonal.tabla.sinRegistros") }) {
+  if (!filas.length) return `<div class="estado-vacio"><strong>${escaparHTML(traducir("areaPersonal.tabla.sinResultados"))}</strong>${escaparHTML(vacio)}</div>`;
   return `<div class="tabla-contenedor"><table class="tabla-administrativa"><caption>${escaparHTML(descripcion)}</caption><thead><tr>${columnas.map((columna) => `<th scope="col">${escaparHTML(columna)}</th>`).join("")}</tr></thead><tbody>${filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td data-etiqueta="${escaparAtributo(columnas[indice])}">${celda}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -63,5 +65,5 @@ export function estadoVacio(titulo, detalle, accion = "") {
 }
 
 export function notaDemostracion() {
-  return `<p class="nota demo"><strong>Recorrido de demostración.</strong> Los títulos, CVE y fechas de publicación BOP son referencias públicas reales. La identidad, los expedientes, los plazos operativos, las puntuaciones y todas las acciones son sintéticos; solo viven en memoria y generan recibos DEMO sin validez administrativa.</p>`;
+  return `<p class="nota demo">${escaparHTML(traducir("areaPersonal.demo.nota"))}</p>`;
 }

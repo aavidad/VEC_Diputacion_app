@@ -1,5 +1,6 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
+import { traducir } from "./i18n.js";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -18,20 +19,20 @@ import {
 const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
-  inicio: ["Inicio y plazos", renderizarInicio],
-  convocatorias: ["Convocatorias", renderizarConvocatorias],
-  convocatoria: ["Detalle de convocatoria", renderizarDetalleConvocatoria],
-  perfil: ["Perfil y contacto", renderizarPerfil],
-  meritos: ["Méritos y documentos", renderizarMeritos],
-  solicitud: ["Nueva solicitud", renderizarSolicitud],
-  autobaremacion: ["Autobaremación", renderizarAutobaremacion],
-  seguimiento: ["Mis expedientes", renderizarSeguimiento],
-  llamamientos: ["Disponibilidad y llamamientos", renderizarLlamamientos],
-  subsanaciones: ["Subsanaciones", renderizarSubsanaciones],
-  alegaciones: ["Alegaciones", renderizarAlegaciones],
-  mensajes: ["Mensajes y noticias", renderizarMensajes],
-  certificados: ["Certificados y descargas", renderizarCertificados],
-  ayuda: ["Ayuda y accesibilidad", renderizarAyuda],
+  inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
+  convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
+  convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
+  perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
+  meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
+  solicitud: ["areaPersonal.rutas.solicitud", renderizarSolicitud],
+  autobaremacion: ["areaPersonal.rutas.autobaremacion", renderizarAutobaremacion],
+  seguimiento: ["areaPersonal.rutas.seguimiento", renderizarSeguimiento],
+  llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
+  subsanaciones: ["areaPersonal.rutas.subsanaciones", renderizarSubsanaciones],
+  alegaciones: ["areaPersonal.rutas.alegaciones", renderizarAlegaciones],
+  mensajes: ["areaPersonal.rutas.mensajes", renderizarMensajes],
+  certificados: ["areaPersonal.rutas.certificados", renderizarCertificados],
+  ayuda: ["areaPersonal.rutas.ayuda", renderizarAyuda],
 });
 
 const TITULOS_OPERACION = Object.freeze({
@@ -160,7 +161,7 @@ function mostrarError(estado, error) {
 
 function actualizarShell(estado) {
   const { datos, vista } = estado;
-  const titulo = RUTAS[vista][0];
+  const titulo = traducir(RUTAS[vista][0]);
   document.title = `${titulo} · Mi área personal`;
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? "Mi área personal" : `Mi área personal → ${titulo}`;

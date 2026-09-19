@@ -1,5 +1,8 @@
 import { esModoPresentacion } from "./contrato.js";
 import { iniciarAreaPersonal } from "./aplicacion.js";
+import { iniciarI18nAreaPersonal } from "./i18n.js";
+
+await iniciarI18nAreaPersonal();
 
 async function resolverCliente() {
   const presentacion = esModoPresentacion(new URLSearchParams(window.location.search));
