@@ -1,5 +1,36 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa completa su superficie de presentación — 20 de septiembre de 2026
+
+El corte canónico `a899983bf766ceba46ac7f04416dca8985fb1dd2` permite
+renderizar las **34/34 superficies inventariadas de Bolsa**: 14 del área
+personal, 18 de gestión interna y 2 públicas. Esta cifra mide cobertura de
+interfaz. Las 14 superficies personales y las operaciones administrativas sin
+composición siguen rotuladas como **DEMO** y no producen efectos.
+
+Las lecturas ya conectadas conservan su alcance: B12 presenta el cuadro interno
+de bolsas, B5 la lista y ficha interna de aspirantes, y B10 la consulta pública
+de bolsas y posiciones mediante su contrato público `v1`. Son consultas de
+solo lectura con los campos minimizados previstos; no convierten el resto de
+las pantallas en capacidades reales ni acreditan identidad, persistencia o
+tramitación completa.
+
+El catálogo i18n común ya gobierna parte de la navegación y los formatos de
+Bolsa en el portal, el área personal y la consulta pública. La integración es
+parcial: los códigos de negocio permanecen separados de los textos, pero aún no
+se declara localizada toda la superficie. Las pruebas focales Node sobre los
+archivos afectados terminaron con **151/151 casos correctos**. No se ejecutó
+recorrido de navegador porque este entorno no dispone de Chrome ni Playwright;
+por tanto no se afirma validación visual, E2E ni publicación productiva.
+
+Personal incorpora una vista informativa **DEMO**, con datos sintéticos y
+efímeros, sin cálculos de derechos, importes, bases, pagos ni operaciones. Los
+módulos existentes de Cronos y Dietas se conservan y muestran sus límites DEMO
+o pendientes sin atribuirles integración institucional. `dudas.md` reúne ahora
+las preguntas **1–36** para Contratación, Bolsa, Cronos, Dietas, Personal,
+Administración y Usuarios/Contacto. Este corte no cambia los porcentajes
+históricos de Contratación ni permite declarar VEC productiva.
+
 ## Runtime principal alineado y auditoría de frontera instalada — 19 de septiembre de 2026
 
 La instancia principal sintética ejecuta el corte canónico
