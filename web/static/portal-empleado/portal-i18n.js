@@ -50,3 +50,50 @@ export function crearTraductorPortal(catalogo = MENSAJES_PORTAL_ES) {
 }
 
 export const traducirPortal = crearTraductorPortal();
+
+/** Textos comunes de las vistas internas de Bolsa. */
+export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
+  boton_perfil_sin_permiso: "El perfil de presentación no permite esta operación",
+  boton_capacidad_no_conectada: "Capacidad de servidor no conectada",
+  tabla_sin_registros: "No hay registros para los filtros aplicados.",
+  tabla_region_operativa: "Tabla operativa: {titulo}",
+  fuente_datos_sinteticos: "Datos sintéticos · Memoria volátil",
+  fuente_real_no_conectada: "Fuente real no conectada",
+  alcance_presentacion: "Alcance de la presentación",
+  modo_presentacion: "Modo presentación.",
+  aviso_presentacion: "Este recorrido simula la actuación sin efectos administrativos ni comunicaciones externas.",
+  capacidad_real_no_disponible: "Capacidad real no disponible",
+  funcionalidad_no_conectada: "Funcionalidad no conectada.",
+  detalle_funcionalidad_no_conectada: "La misma pantalla queda visible, pero sus acciones permanecen deshabilitadas hasta que el servidor conceda capacidad explícita y aporte datos autorizados.",
+  numero_convocatorias: "{numero} convocatorias encontradas.",
+  numero_solicitudes: "{numero} solicitudes encontradas.",
+  numero_meritos: "{numero} méritos encontrados.",
+  fecha_sin_valor: "Sin fecha",
+});
+
+const CLAVES_BOLSA_INTERNA = Object.freeze(Object.keys(MENSAJES_BOLSA_INTERNA_ES));
+export function crearTraductorBolsaInterna(catalogo = MENSAJES_BOLSA_INTERNA_ES) {
+  if (!catalogo || typeof catalogo !== "object" || CLAVES_BOLSA_INTERNA.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
+    throw new Error("catálogo i18n de Bolsa interna incompleto");
+  }
+  return (clave, variables = {}) => {
+    if (!CLAVES_BOLSA_INTERNA.includes(clave)) throw new Error(`clave i18n de Bolsa interna desconocida: ${clave}`);
+    return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? ""));
+  };
+}
+export const traducirBolsaInterna = crearTraductorBolsaInterna();
+export function formatearNumeroPortal(valor, opciones = {}) {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? new Intl.NumberFormat("es-ES", opciones).format(numero) : String(valor ?? "");
+}
+export function formatearFechaPortal(valor) {
+  if (valor === undefined || valor === null || valor === "") return traducirBolsaInterna("fecha_sin_valor");
+  const texto = String(valor).trim();
+  const local = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/) || texto.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/);
+  if (!local) return texto;
+  const iso = texto.includes("-");
+  const [dia, mes, ano, hora, minuto] = iso ? [local[3], local[2], local[1], local[4], local[5]] : [local[1], local[2], local[3], local[4], local[5]];
+  const fecha = new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora || 0), Number(minuto || 0));
+  if (!Number.isFinite(fecha.getTime())) return texto;
+  return new Intl.DateTimeFormat("es-ES", hora ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }).format(fecha);
+}

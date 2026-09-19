@@ -1,3 +1,5 @@
+import { formatearFechaPortal, formatearNumeroPortal, traducirBolsaInterna } from "./portal-i18n.js";
+
 /**
  * Componentes HTML puros compartidos por las vistas reales y de presentación.
  * No acceden al DOM, a red ni a almacenamiento del navegador.
@@ -17,8 +19,8 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     const esDemo = esPresentacion();
     const permitido = esDemo && operacionPermitida(operacion);
     const titulo = esDemo
-      ? "El perfil de presentación no permite esta operación"
-      : "Capacidad de servidor no conectada";
+      ? traducirBolsaInterna("boton_perfil_sin_permiso")
+      : traducirBolsaInterna("boton_capacidad_no_conectada");
     const bloqueado = permitido ? "" : ` disabled aria-disabled="true" title="${escaparHTML(titulo)}"`;
     return `<button type="button" class="${clase}" data-accion="operacion-presentacion" data-comando="${escaparHTML(operacion)}" data-operacion="${escaparHTML(operacion)}" data-objetivo="${escaparHTML(objetivo)}"${bloqueado}>${escaparHTML(etiqueta)}</button>`;
   }
@@ -31,7 +33,7 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     titulo,
     cabeceras,
     filas,
-    vacio = "No hay registros para los filtros aplicados.",
+    vacio = traducirBolsaInterna("tabla_sin_registros"),
     clavesColumnas = [],
     prioridadColumnas = "",
   }) {
@@ -93,6 +95,8 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     fuentePresentacion,
     kpi,
     numero,
+    fecha: formatearFechaPortal,
+    numeroLocalizado: formatearNumeroPortal,
     operacionPermitida,
     tabla,
   });

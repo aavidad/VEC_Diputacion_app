@@ -1,7 +1,7 @@
 /** Vistas compartidas de revisión de méritos, baremación y alegaciones. */
 
 export function crearVistasBaremacion(u) {
-  const { escaparHTML: e, numero, chip, tabla, kpi, encabezadoVista,
+  const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
     avisoPresentacion, botonOperacion, campo, fuentePresentacion } = u;
 
   function valorFiltro(estado, nombre, porDefecto = "") {
@@ -103,7 +103,7 @@ export function crearVistasBaremacion(u) {
     const bloqueado = estadoNoDisponible("Alegaciones y rectificaciones", lectura, alegaciones.length === 0);
     if (bloqueado) return bloqueado;
     const filas = alegaciones.map((item) => [
-      `<strong>${e(item.id)}</strong>`, e(item.persona_ref), e(item.objeto), e(item.registrada), e(item.plazo), e(item.evidencia), chip(item.estado),
+      `<strong>${e(item.id)}</strong>`, e(item.persona_ref), e(item.objeto), e(fecha(item.registrada)), e(fecha(item.plazo)), e(item.evidencia), chip(item.estado),
       `<div class="acciones-fila">${accionPresentacion(datos, "Estimar", "resolver-alegacion", item.id, "boton-terciario")}${accionPresentacion(datos, "Desestimar", "desestimar-alegacion", item.id, "boton-terciario")}</div>`,
     ]);
     return `

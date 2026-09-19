@@ -1,7 +1,7 @@
 /** Vistas compartidas de importación, llamamientos, relaciones, documentos y comunicaciones. */
 
 export function crearVistasOperaciones(u) {
-  const { escaparHTML: e, numero, chip, tabla, kpi, encabezadoVista,
+  const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
     avisoPresentacion, botonOperacion, botonBloqueado, campo, fuentePresentacion } = u;
 
   function renderizarImportacion(datos) {
@@ -47,7 +47,7 @@ export function crearVistasOperaciones(u) {
   }
 
   function renderizarContratos(datos) {
-    const filas = datos.contratos.map((item) => [e(item.expediente), e(item.bolsa), e(item.acto), e(item.inicio), e(item.fin), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Contrato", "registrar-contrato", item.expediente, "boton-terciario")}${botonOperacion("Cese", "registrar-cese", item.expediente, "boton-terciario")}${botonOperacion("Reincorporar", "reincorporar-bolsa", item.expediente, "boton-terciario")}</div>`]);
+    const filas = datos.contratos.map((item) => [e(item.expediente), e(item.bolsa), e(item.acto), e(fecha(item.inicio)), e(fecha(item.fin)), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Contrato", "registrar-contrato", item.expediente, "boton-terciario")}${botonOperacion("Cese", "registrar-cese", item.expediente, "boton-terciario")}${botonOperacion("Reincorporar", "reincorporar-bolsa", item.expediente, "boton-terciario")}</div>`]);
     return `
       ${encabezadoVista("Continuidad del expediente", "Contratos, ceses y reincorporaciones DEMO", "Simulación volátil de causa, vigencia y disponibilidad; no acredita relación jurídica, cese ni incorporación.", botonOperacion("Nueva relación DEMO", "registrar-contrato", "DEMO-CON-NUEVO", "boton-primario"))}
       ${avisoPresentacion("No se crea una relación jurídica ni se cambia la disponibilidad de Bolsa. Personal conserva la confirmación efectiva.")}

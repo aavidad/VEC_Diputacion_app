@@ -1,7 +1,7 @@
 /** Vistas compartidas de gobierno de convocatorias y admisión. */
 
 export function crearVistasConvocatorias(u) {
-  const { escaparHTML: e, numero, chip, tabla, kpi, encabezadoVista,
+  const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
     avisoPresentacion, botonOperacion, campo, fuentePresentacion } = u;
 
   function valorFiltro(estado, grupo, nombre, porDefecto = "") {
@@ -130,8 +130,8 @@ export function crearVistasConvocatorias(u) {
       return coincideReferencia && coincideConvocatoria && coincideEstado;
     });
     const filas = solicitudes.map((item) => [
-      `<strong>${e(item.id)}</strong>`, e(item.persona_ref), e(item.convocatoria), e(item.registrada),
-      e(item.requisitos), e(item.subsanacion), chip(item.estado),
+      `<strong>${e(item.id)}</strong>`, e(item.persona_ref), e(item.convocatoria), e(fecha(item.registrada)),
+      e(item.requisitos), e(fecha(item.subsanacion)), chip(item.estado),
       `<div class="acciones-fila">${botonOperacion("Admitir", "admitir-solicitud", item.id, "boton-terciario")}${botonOperacion("Excluir", "excluir-solicitud", item.id, "boton-terciario")}${botonOperacion("Subsanar", "registrar-subsanacion", item.id, "boton-terciario")}</div>`,
     ]);
     return `

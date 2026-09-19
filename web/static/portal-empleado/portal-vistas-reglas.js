@@ -1,7 +1,7 @@
 /** Vista de consulta de gobierno y versionado del motor de reglas. */
 
 export function crearVistaReglas(u) {
-  const { escaparHTML: e, numero, chip, tabla, kpi, encabezadoVista,
+  const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
     avisoPresentacion, fuentePresentacion } = u;
   function normalizarEstado(estado = {}) {
     const fase = estado.fase || estado.carga || "listo";
@@ -36,7 +36,7 @@ export function crearVistaReglas(u) {
     const criterioActivo = criterios.find((item) => item.version === reglaActiva.version) || criterios[0] || {};
     const contextoCriterios = [reglaActiva.ambito, criterioActivo.version || reglaActiva.version].filter(Boolean).join(" · ") || "Sin versión seleccionada";
     const versiones = reglas.map((item) => [
-      `<strong>${e(item.nombre)}</strong>`, e(item.ambito), e(item.version), e(item.vigencia),
+      `<strong>${e(item.nombre)}</strong>`, e(item.ambito), e(item.version), e(fecha(item.vigencia)),
       chip(item.estado), e(item.procedencia || "Procedencia no aportada"),
     ]);
     const configuracion = criterios.map((item) => [
