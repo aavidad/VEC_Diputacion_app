@@ -23,6 +23,16 @@ const CATEGORIAS_EXPANDIBLES = Object.freeze([
   "bolsas-candidatos", "reglas", "auditoria",
 ]);
 
+// Se mantienen las rutas para la composición futura, pero estos puntos no
+// tienen todavía un servicio autorizado que pueda ejecutar su operación.
+export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
+  "llamamientos", "contratos", "documentos", "comunicaciones",
+]);
+
+export function vistaBolsaPendienteNoCompuesta(vista) {
+  return VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS.includes(vista);
+}
+
 // El módulo Bolsa está disponible si lo está la elaboración de borradores o,
 // en su defecto, si el cuadro de bolsas ha cargado bolsas reales: entonces la
 // entrada del menú abre el cuadro (B12) en vez de marcarse «no disponible».

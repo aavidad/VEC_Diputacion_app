@@ -7,14 +7,16 @@ import {
   categoriaDeVistaBolsa,
   instalarMenuBolsa,
   sincronizarMenuBolsa,
+  vistaBolsaPendienteNoCompuesta,
 } from "./portal-menu-bolsa.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, estilos, codigoMenu, codigoPortal] = await Promise.all([
+const [html, estilos, codigoMenu, codigoPortal, codigoEventos] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("portal-menu-bolsa.css", directorio), "utf8"),
   readFile(new URL("portal-menu-bolsa.js", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
+  readFile(new URL("portal-eventos.js", directorio), "utf8"),
 ]);
 
 function crearControl({ categoria, grupo = false, submenu = "" }) {
@@ -102,6 +104,24 @@ test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => 
   assert.equal(categoriaDeVistaBolsa("baremacion"), "reglas");
   assert.equal(categoriaDeVistaBolsa("configuracion"), "auditoria");
   assert.equal(categoriaDeVistaBolsa("cronos"), "");
+});
+
+test("las operaciones sin composición permanecen visibles, pendientes y sin activación", () => {
+  const pendientes = ["llamamientos", "contratos", "documentos", "comunicaciones"];
+  const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
+  for (const vista of pendientes) {
+    const boton = fragmentoMenu.match(new RegExp(`<button[^>]*data-vista="${vista}"[^>]*>[\\s\\S]*?<\\/button>`))?.[0] || "";
+    assert.equal(vistaBolsaPendienteNoCompuesta(vista), true);
+    assert.match(boton, /categoria-menu-pendiente/);
+    assert.match(boton, /\sdisabled(?:\s|=|>)/);
+    assert.match(boton, /aria-disabled="true"/);
+    assert.match(boton, /aria-describedby="estado-menu-[a-z]+"/);
+    assert.match(boton, /Pendiente: sin servicio autorizado/);
+  }
+  assert.equal(vistaBolsaPendienteNoCompuesta("resumen"), false);
+  assert.equal(vistaBolsaPendienteNoCompuesta("desconocida"), false);
+  assert.match(codigoEventos, /if \(botonVista && !botonVista\.disabled\)/);
+  assert.match(codigoEventos, /button:not\(:disabled\)/);
 });
 
 test("el grupo de la vista activa se abre y los demás quedan compactos", () => {

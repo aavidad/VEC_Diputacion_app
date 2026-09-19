@@ -25,6 +25,21 @@
   color: #fff;
 }
 
+.categoria-menu-bolsa.categoria-menu-pendiente:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.categoria-menu-bolsa .etiqueta-pendiente {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: -2px;
+  border-color: rgba(255, 217, 126, 0.52);
+  background: rgba(125, 82, 0, 0.32);
+  color: #ffe5a7;
+  text-transform: none;
+}
+
 .marca-expansion {
   display: inline-grid;
   width: 22px;
@@ -84,10 +99,20 @@ body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"] 
   outline-offset: -3px;
 }
 
+body[data-contraste="true"] .categoria-menu-bolsa .etiqueta-pendiente {
+  border-color: currentColor;
+  background: transparent;
+  color: currentColor;
+}
+
 @media (max-width: 1040px) {
   .categoria-menu-bolsa {
     min-height: 44px;
     font-size: 0.74rem;
+  }
+
+  .categoria-menu-bolsa .etiqueta-pendiente {
+    font-size: 0.67rem;
   }
 
   .enlace-submenu {
@@ -100,6 +125,10 @@ body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"] 
   .categoria-menu-bolsa {
     min-height: 48px;
     font-size: 0.8rem;
+  }
+
+  .categoria-menu-bolsa .etiqueta-pendiente {
+    font-size: 0.7rem;
   }
 
   .enlace-submenu {
@@ -121,5 +150,11 @@ body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"] 
     background: Canvas;
     color: CanvasText;
     forced-color-adjust: auto;
+  }
+
+  .categoria-menu-bolsa .etiqueta-pendiente {
+    border-color: GrayText;
+    background: Canvas;
+    color: GrayText;
   }
 }
