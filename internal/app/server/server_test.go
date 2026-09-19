@@ -223,7 +223,6 @@ func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
 		NewHandler(http.NotFoundHandler()),
 		NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler()),
 		NewHandlerWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
-		NewHandlerPublicoWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
 		NewHandlerInternoWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
 	} {
 		for _, ruta := range []string{
@@ -545,16 +544,34 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		}
 	}
 
-	for _, ruta := range []string{
-		"/app.js", "/locales/es.json",
-		"/portal-empleado", "/portal-empleado/", "/portal-empleado/portal.js",
-		"/assets/", "/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
-		"/api", "/api/vec", "/api/vec/session", "/api/publicox", "/bolsax",
+	for _, prueba := range []struct {
+		ruta   string
+		estado int
+	}{
+		{ruta: "/app.js", estado: http.StatusNotFound},
+		{ruta: "/locales/es.json", estado: http.StatusNotFound},
+		{ruta: "/portal-empleado", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/portal.js", estado: http.StatusSeeOther},
+		{ruta: "/assets/", estado: http.StatusNotFound},
+		{ruta: "/portal-empleado/assets/", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3", estado: http.StatusSeeOther},
+		{ruta: "/api", estado: http.StatusNotFound},
+		{ruta: "/api/vec", estado: http.StatusUnauthorized},
+		{ruta: "/api/vec/session", estado: http.StatusUnauthorized},
+		{ruta: "/api/publicox", estado: http.StatusNotFound},
+		{ruta: "/bolsax", estado: http.StatusNotFound},
 	} {
 		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("la superficie publica expuso %s con estado %d", ruta, rec.Code)
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
+		if rec.Code != prueba.estado {
+			t.Errorf("la superficie publica respondio %s con estado %d; se esperaba %d", prueba.ruta, rec.Code, prueba.estado)
+		}
+		if prueba.estado == http.StatusSeeOther && rec.Header().Get("Location") != "/" {
+			t.Errorf("redireccion privada %s Location=%q; se esperaba /", prueba.ruta, rec.Header().Get("Location"))
+		}
+		if prueba.estado == http.StatusUnauthorized && rec.Header().Get("Location") != "" {
+			t.Errorf("API privada %s redirige a %q", prueba.ruta, rec.Header().Get("Location"))
 		}
 	}
 	if llamadasAPI != 1 {

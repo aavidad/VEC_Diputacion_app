@@ -75,7 +75,7 @@ func TestSuperficiePublicaReservaIniciosAccesoSinSesion(t *testing.T) {
 
 func TestSuperficiePublicaLandingMantieneFronteraYSoloLectura(t *testing.T) {
 	handler := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
-	for _, ruta := range []string{"/portal-empleado/", "/api/vec/consulta", "/area-personal/"} {
+	for _, ruta := range []string{"/desconocida/", "/api/otra/"} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
 		if rec.Code != http.StatusNotFound {
@@ -97,6 +97,78 @@ func TestSuperficiePublicaLandingMantieneFronteraYSoloLectura(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s en landing = %d; se esperaba 400", cabecera, rec.Code)
 		}
+	}
+}
+
+func TestSuperficiePublicaRedirigeSoloNavegacionPrivadaALanding(t *testing.T) {
+	handler := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
+	for _, prueba := range []struct {
+		metodo string
+		ruta   string
+	}{
+		{http.MethodGet, "/portal-empleado?return_to=https://ajeno.example/"},
+		{http.MethodHead, "/portal-empleado/modulos/contratacion-temporal/?siguiente=/api/vec"},
+		{http.MethodGet, "/area-personal?Host=ajeno.example"},
+		{http.MethodHead, "/area-personal/dietas/?continuar=si"},
+	} {
+		t.Run(prueba.metodo+" "+prueba.ruta, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := peticionServidorPrueba(prueba.metodo, prueba.ruta, nil)
+			req.Host = "ajeno.example"
+			handler.ServeHTTP(rec, req)
+			if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+				t.Fatalf("%s = %d Location=%q; se esperaba 303 a /", prueba.ruta, rec.Code, rec.Header().Get("Location"))
+			}
+			if rec.Header().Get("Set-Cookie") != "" {
+				t.Fatal("la redireccion emitio una cookie")
+			}
+			if prueba.metodo == http.MethodHead && rec.Body.Len() != 0 {
+				t.Fatalf("HEAD privado incluye cuerpo: %q", rec.Body.String())
+			}
+		})
+	}
+	for _, ruta := range []string{"/portal-empleado", "/portal-empleado/", "/area-personal", "/area-personal/"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodPost, ruta, strings.NewReader("x")))
+		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {
+			t.Errorf("POST %s = %d Allow=%q; se esperaba 405 y GET, HEAD", ruta, rec.Code, rec.Header().Get("Allow"))
+		}
+	}
+}
+
+func TestSuperficiePublicaRechazaAPIPrivadaSinRedirigirONavegarAlAdaptador(t *testing.T) {
+	llamadas := 0
+	handler := NewHandlerPublicoWithConfig(config.Config{}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		llamadas++
+	}))
+	for _, prueba := range []struct {
+		metodo string
+		ruta   string
+	}{
+		{http.MethodGet, "/api/vec?return_to=/"},
+		{http.MethodHead, "/api/vec/session"},
+		{http.MethodPost, "/api/vec/contratacion-temporal/cuadro/consultas"},
+	} {
+		t.Run(prueba.metodo+" "+prueba.ruta, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, peticionServidorPrueba(prueba.metodo, prueba.ruta, nil))
+			if rec.Code != http.StatusUnauthorized || rec.Header().Get("Location") != "" {
+				t.Fatalf("%s = %d Location=%q; se esperaba 401 sin redireccion", prueba.ruta, rec.Code, rec.Header().Get("Location"))
+			}
+			if prueba.metodo == http.MethodHead {
+				if rec.Body.Len() != 0 {
+					t.Fatal("HEAD API privada incluye cuerpo")
+				}
+				return
+			}
+			var respuesta map[string]string
+			if err := json.Unmarshal(rec.Body.Bytes(), &respuesta); err != nil || respuesta["error"] != "autenticacion_requerida" {
+				t.Fatalf("respuesta API = %q, error=%v", rec.Body.String(), err)
+			}
+		})
+	}
+	if llamadas != 0 {
+		t.Fatalf("el adaptador recibio %d llamadas privadas", llamadas)
 	}
 }
 
