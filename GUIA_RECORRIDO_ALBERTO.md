@@ -19,6 +19,35 @@ registrada tras aceptación marca candidato obtenido, sin acreditar firma ni
 incorporación. En móvil el raíl se distribuye en dos columnas; PC conserva
 su disposición. Manual definitivo pendiente de validación de RRHH.
 
+### Consultar incorporación antes de que exista un plan
+
+En el portal privado, abra el detalle de un expediente sintético y entre en
+**Incorporación**. La consulta usa
+`GET /api/vec/contratacion-temporal/incorporaciones-ejercicio` con la referencia
+del expediente. Si todavía no existe plan durable, el resultado esperado es
+`409 preparacion_pendiente` y la pantalla indica que la consulta no registra una
+incorporación. Para un expediente que ya conserva su plan, la misma consulta
+responde `200` y muestra la preparación guardada.
+
+El `409` no es una pérdida de permiso: el actor conserva la concesión exacta para
+consultar el detalle dentro de su organización. Las operaciones con efecto,
+incluida la confirmación, continúan condicionadas al plan y se deniegan antes de
+publicar o alcanzar el PDP si este falta. El corte remoto exacto es
+`dcf89da1549ab7173c9a8cbf23da82c4b040fb9b`; obtuvo dos revisiones independientes
+de identidad con `GO` y `P0=P1=P2=P3=0`. La prueba focal de permisos nominales
+del paquete `internal/app/bootstrap` terminó en `ok`; el centinela previo pasó
+en dos paquetes Go y `6/6` casos Node. La comprobación reinició solo el runtime,
+sin `POST`, migraciones, SQL ni escrituras en la base. Use únicamente datos
+sintéticos: este recorrido de desarrollo no acredita producción ni eficacia
+administrativa o legal.
+
+Comprobación de navegador posterior: sobre un expediente sintético `v9` sin plan,
+portal, cuadro y detalle devolvieron `200`, y el `GET` de incorporación devolvió
+`409`. La pantalla presentó la preparación no disponible, un único botón
+**Actualizar** y ningún formulario. Viewport/contenido coincidieron en
+`1440/1440` y `390/390`; no hubo errores JavaScript, cookies, `localStorage` ni
+`sessionStorage`. La evidencia permanece en artefactos privados.
+
 ### Rectificación de análisis recuperada — 19 de septiembre
 
 El expediente sintético 2026/CT-8c17ba0b2be0fa7d84131e1dc93db150 pasa de v2

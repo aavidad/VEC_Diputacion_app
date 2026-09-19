@@ -26,6 +26,32 @@ sustituye Portafirmas, SMTP, la política de inicio/plazo ni la identidad de la
 reserva histórica pendiente. Las pantallas, contratos e i18n se conservan para
 conectar esas autoridades sin rehacer la interfaz.
 
+## Consulta de incorporación sin preparación — 19 de septiembre de 2026
+
+El corte `dcf89da1549ab7173c9a8cbf23da82c4b040fb9b`, integrado en la línea
+remota, separa la autorización para consultar el detalle organizativo de la
+existencia del plan durable de incorporación. Un expediente sintético sin plan
+responde `409 preparacion_pendiente`; uno que ya tiene plan responde `200`. El
+actor conserva el permiso nominal de detalle en su organización, pero confirmar
+la incorporación y los demás efectos siguen exigiendo un plan válido y fallan
+cerrados cuando falta.
+
+Dos revisiones independientes de identidad dieron `GO`, con `P0=P1=P2=P3=0`.
+El centinela previo pasó en dos paquetes Go y `6/6` casos Node; la prueba focal
+`go test -count=1 ./internal/app/bootstrap -run
+'^TestIncorporacionV2PermisosNominales'` terminó en `ok` con Go 1.26.6. Cubre
+tanto el detalle sin plan como el rechazo previo a publicación/PDP de la
+confirmación sin plan. El runtime privado se reinició para observar ambos casos,
+sin `POST`, SQL ni escritura en la base. Es código de desarrollo con datos
+sintéticos: no acredita producción, incorporación efectiva ni validez legal.
+
+La comprobación posterior en navegador abrió un expediente sintético `v9` sin
+plan: portal, cuadro y detalle respondieron `200`, y la consulta de incorporación
+`409`. La pantalla mostró la preparación no disponible, un botón **Actualizar**
+y cero formularios. Ancho de viewport/contenido: `1440/1440` y `390/390`; cero
+errores JavaScript, cookies, `localStorage` y `sessionStorage`. Los artefactos se
+conservan en custodia privada.
+
 ## Bolsa: inventario y consulta pública — 19 de septiembre de 2026
 
 El inventario actual de Bolsa reúne **34 pantallas**: 18 de gestión interna,
