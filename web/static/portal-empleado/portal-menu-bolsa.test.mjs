@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   CATEGORIAS_MENU_BOLSA,
+  VISTA_CANDIDATOS_BOLSA,
+  VISTAS_INTERNAS_BOLSA,
   alternarGrupoBolsa,
   categoriaDeVistaBolsa,
   instalarMenuBolsa,
@@ -106,6 +108,29 @@ test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => 
   assert.equal(categoriaDeVistaBolsa("cronos"), "");
 });
 
+test("B5 completa las dieciocho vistas internas sin duplicar su enlace", () => {
+  const vistasMenu = Object.values(CATEGORIAS_MENU_BOLSA).flat();
+  assert.equal(vistasMenu.length, 17);
+  assert.equal(VISTAS_INTERNAS_BOLSA.length, 18);
+  assert.equal(VISTAS_INTERNAS_BOLSA.filter((vista) => vista === VISTA_CANDIDATOS_BOLSA).length, 1);
+  assert.equal(categoriaDeVistaBolsa(VISTA_CANDIDATOS_BOLSA), "bolsas-candidatos");
+  assert.doesNotMatch(html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "", /data-vista="bolsa-candidatos"/);
+});
+
+test("la subvista activa se anuncia y B5 conserva abierto su grupo", () => {
+  const atributos = new Map([["data-vista", "baremacion"]]);
+  const enlace = {
+    setAttribute(nombre, valor) { atributos.set(nombre, String(valor)); },
+    removeAttribute(nombre) { atributos.delete(nombre); },
+    getAttribute(nombre) { return atributos.get(nombre) || null; },
+  };
+  const raiz = { querySelectorAll(selector) { return selector === "[data-vista]" ? [enlace] : []; } };
+  sincronizarMenuBolsa(raiz, "baremacion");
+  assert.equal(enlace.getAttribute("aria-current"), "page");
+  sincronizarMenuBolsa(raiz, VISTA_CANDIDATOS_BOLSA);
+  assert.equal(enlace.getAttribute("aria-current"), null);
+});
+
 test("las operaciones sin composición permanecen visibles, pendientes y sin activación", () => {
   const pendientes = ["llamamientos", "contratos", "documentos", "comunicaciones"];
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
@@ -170,6 +195,8 @@ test("el menú conserva mínimo privilegio, adaptación y ausencia de estado amb
   assert.match(estilos, /\.categoria-menu-bolsa \.numero-menu\s*\{[^}]*border-radius:\s*50%/);
   assert.match(estilos, /@media \(forced-colors: active\)/);
   assert.match(estilos, /prefers-reduced-motion/);
+  assert.match(estilos, /\.enlace-submenu:focus-visible/);
+  assert.match(estilos, /overflow-wrap:\s*anywhere/);
 });
 
 test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los borradores no estén disponibles", async () => {

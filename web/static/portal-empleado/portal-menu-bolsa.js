@@ -23,6 +23,15 @@ const CATEGORIAS_EXPANDIBLES = Object.freeze([
   "bolsas-candidatos", "reglas", "auditoria",
 ]);
 
+// La ficha B5 no es un segundo enlace del menú: se alcanza desde el cuadro de
+// bolsas al elegir una bolsa concreta. Sí forma parte de la navegación interna
+// y debe conservar categoría activa cuando el usuario llega por ese recorrido.
+export const VISTA_CANDIDATOS_BOLSA = "bolsa-candidatos";
+export const VISTAS_INTERNAS_BOLSA = Object.freeze([
+  ...Object.values(VISTAS_POR_CATEGORIA).flat(),
+  VISTA_CANDIDATOS_BOLSA,
+]);
+
 // Se mantienen las rutas para la composición futura, pero estos puntos no
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
@@ -45,7 +54,7 @@ export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
 
 export function categoriaDeVistaBolsa(vista) {
   if (typeof vista !== "string") return "";
-  if (vista === "bolsa-candidatos") return "bolsas-candidatos";
+  if (vista === VISTA_CANDIDATOS_BOLSA) return "bolsas-candidatos";
   return Object.entries(VISTAS_POR_CATEGORIA)
     .find(([, vistas]) => vistas.includes(vista))?.[0] || "";
 }
@@ -89,6 +98,13 @@ export function sincronizarMenuBolsa(raiz, vista) {
       boton,
       CATEGORIAS_EXPANDIBLES.includes(categoria) && categoria === categoriaActiva,
     );
+  });
+
+  // Solo las entradas navegables reciben aria-current. B5 no se repite en el
+  // menú porque necesita antes una bolsa elegida; su grupo ya queda abierto.
+  raiz.querySelectorAll("[data-vista]").forEach((control) => {
+    if (control.getAttribute?.("data-vista") === vista) control.setAttribute("aria-current", "page");
+    else control.removeAttribute?.("aria-current");
   });
 }
 

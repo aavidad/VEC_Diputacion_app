@@ -9,6 +9,7 @@
 }
 
 .categoria-menu-bolsa {
+  min-width: 0;
   min-height: 46px;
   padding-block: 6px;
   font-size: 0.79rem;
@@ -66,6 +67,7 @@
 }
 
 .enlace-submenu {
+  min-width: 0;
   min-height: 36px;
   grid-template-columns: 8px minmax(0, 1fr);
   gap: 8px;
@@ -87,6 +89,14 @@
 .enlace-submenu:hover:not(:disabled),
 .enlace-submenu[aria-current="page"] {
   background: rgba(4, 104, 223, 0.58);
+}
+
+.categoria-menu-bolsa:focus-visible,
+.enlace-submenu:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid #fff;
+  outline-offset: -3px;
 }
 
 .enlace-submenu[aria-current="page"]::before {
@@ -134,6 +144,7 @@ body[data-contraste="true"] .categoria-menu-bolsa .etiqueta-pendiente {
   .enlace-submenu {
     min-height: 40px;
     font-size: 0.76rem;
+    overflow-wrap: anywhere;
   }
 }
 
