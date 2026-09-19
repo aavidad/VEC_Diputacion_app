@@ -1,5 +1,23 @@
 # Estado y plan de ataque del proyecto
 
+## Conservación del trabajo Go revisado — 19 de septiembre de 2026
+
+Integradas las extracciones previas de bootstrap y seguimiento y sus pruebas:
+27 archivos conservados, sin cambios de comportamiento según comparación de
+funciones y dos revisiones sensibles independientes del conjunto de autoridad.
+Se mantienen SQL, contratos, claves, serialización y recibos; C23 queda excluido.
+Pruebas focales y compilación correctas. La campaña global sólo falló inicialmente
+en el inventario Git de nueve casos de cobertura porque la candidata era un
+archivo sin .git; ese paquete pasa con metadatos Git de solo lectura. Vet global
+sin diagnósticos. No se ejecutó integración PostgreSQL ni se instaló otro binario.
+Este mantenimiento no añade pantallas ni capacidades de producto.
+
+Bandeja actual comprobada en navegador autenticado: 71 filas, consultas 200,
+sin errores JavaScript ni desbordamiento a 1440/390. Análisis tiene un defecto
+detectado en vivo: su catálogo devuelve 151 categorías y la web limita a 100;
+corrección acotada en curso. No se da por comprobada la nueva ayuda de jornada
+en el formulario real hasta resolver ese montaje.
+
 ## Jornada comprensible en Análisis — 19 de septiembre de 2026
 
 El campo conserva su entero canónico, pero muestra al escribir la equivalencia
