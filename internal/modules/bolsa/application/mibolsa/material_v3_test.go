@@ -5,10 +5,11 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	cose "github.com/veraison/go-cose"
 	"strings"
 	"testing"
 	"time"
+
+	cose "github.com/veraison/go-cose"
 	bolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	app "vec-diputacion-granada/internal/vec/application"
@@ -58,7 +59,6 @@ type entornoMiBolsa struct {
 	servicio    *Servicio
 	repositorio *repositorioPrueba
 	emisor      *emisorObservado
-	autorizador *autorizadorObservado
 	orden       Orden
 	firmas      int
 }
@@ -79,65 +79,33 @@ func (r *repositorioPrueba) ConsultarMiBolsa(_ context.Context, s bolsa.Solicitu
 	return i, r.err
 }
 
-type autorizadorObservado struct {
-	ports.AutorizadorSolicitudLigadaV3
-	cambiar func(domain.SolicitudAutorizacionLigadaV3) domain.SolicitudAutorizacionLigadaV3
-	despues func()
-}
-
-func (a *autorizadorObservado) ExigirSolicitudLigadaV3(ctx context.Context, s domain.SolicitudAutorizacionLigadaV3, r domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
-	if a.cambiar != nil {
-		s = a.cambiar(s)
-	}
-	d, c, e := a.AutorizadorSolicitudLigadaV3.ExigirSolicitudLigadaV3(ctx, s, r)
-	if a.despues != nil {
-		a.despues()
-	}
-	return d, c, e
-}
-
-// Solo prueba: permite reutilizar el emisor nominal sobre la decisión ya
-// obtenida sin invocar de nuevo el PDP ni registrar otra concesión.
-type decisionYaExigida struct {
-	d domain.DecisionAutorizacionLigadaV3
-	c ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3
-}
-
-func (a decisionYaExigida) ExigirSolicitudLigadaV3(_ context.Context, s domain.SolicitudAutorizacionLigadaV3, _ domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
-	return a.d, a.c, a.d.ValidarPara(s)
-}
+var _ bolsa.AutorizadorMiBolsa = (*confianza.EmisorMaterialAutorizacionAtestadaV3)(nil)
 
 type emisorObservado struct {
-	at                      *app.ServicioAtestacionesAutorizacionV3
-	confianza               *confianza.ServicioConfianzaAtestacionAutorizacionV3
-	capacidades             *confianza.EmisorCapacidadesAtestacionAutorizacionV3
+	real                    *confianza.EmisorMaterialAutorizacionAtestadaV3
 	llamadas, exportaciones int
 	err                     error
-	exportador              ports.ExportadorMaterialConsumoAutorizacionAtestadaV3
+	cambiar                 func(domain.SolicitudAutorizacionLigadaV3) domain.SolicitudAutorizacionLigadaV3
 	mutarMaterial           func(ports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 	despues                 func()
 }
 
-func (e *emisorObservado) EmitirMaterialMiBolsa(ctx context.Context, s domain.SolicitudAutorizacionLigadaV3, r domain.ResultadoContextoActorRegistradoV2, d domain.DecisionAutorizacionLigadaV3, c ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3) (ports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+func (e *emisorObservado) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, s domain.SolicitudAutorizacionLigadaV3, r domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, ports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	e.llamadas++
 	if e.err != nil {
-		return nil, e.err
+		return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
 	}
-	real, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(decisionYaExigida{d, c}, e.at, e.confianza, e.capacidades)
-	if err != nil {
-		return nil, err
+	if e.cambiar != nil {
+		s = e.cambiar(s)
 	}
-	_, _, x, err := real.EmitirMaterialAutorizacionAtestadaV3(ctx, s, r)
+	d, c, x, err := e.real.EmitirMaterialAutorizacionAtestadaV3(ctx, s, r)
 	if e.despues != nil {
 		e.despues()
 	}
 	if err != nil {
-		return nil, err
+		return d, c, nil, err
 	}
-	if e.exportador != nil {
-		x = e.exportador
-	}
-	return exportadorObservado{x, &e.exportaciones, e.mutarMaterial}, nil
+	return d, c, exportadorObservado{x, &e.exportaciones, e.mutarMaterial}, nil
 }
 
 type exportadorObservado struct {
@@ -189,9 +157,10 @@ func nuevoEntorno(t *testing.T, opciones ...opcionContexto) *entornoMiBolsa {
 	exigir(t, err)
 	em, err := confianza.NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, reloj)
 	exigir(t, err)
-	e.emisor = &emisorObservado{at: at, confianza: ver, capacidades: em}
-	e.autorizador = &autorizadorObservado{AutorizadorSolicitudLigadaV3: e.entornoAutorizacionSolicitudV3Prueba.servicio}
-	e.servicio, err = Nuevo(e.repositorio, e.autorizador, e.emisor, reloj)
+	real, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(e.entornoAutorizacionSolicitudV3Prueba.servicio, at, ver, em)
+	exigir(t, err)
+	e.emisor = &emisorObservado{real: real}
+	e.servicio, err = Nuevo(e.repositorio, e.emisor, reloj)
 	exigir(t, err)
 	return e
 }

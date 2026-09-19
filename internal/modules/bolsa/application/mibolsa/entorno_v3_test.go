@@ -81,23 +81,6 @@ func confirmacionRegistroContextoActorV2Prueba(
 	}
 }
 
-func contextoActorServicioPrueba(
-	t *testing.T,
-	instante time.Time,
-	solicitud domain.SolicitudContextoActor,
-) domain.ContextoActor {
-	t.Helper()
-	actor, err := domain.NuevoContextoActor(
-		solicitud.Cuenta,
-		instantaneaServicioContextoActorPrueba(instante, solicitud),
-		instante,
-	)
-	if err != nil {
-		t.Fatalf("crear contexto actor: %v", err)
-	}
-	return actor
-}
-
 func solicitudServicioContextoActorPrueba() domain.SolicitudContextoActor {
 	return domain.SolicitudContextoActor{
 		Cuenta: domain.CuentaAutenticadaContextoActor{
@@ -156,7 +139,6 @@ type fuenteAutorizacionServicioPrueba struct {
 	instantanea  domain.InstantaneaAutorizacion
 	err          error
 	invocaciones int
-	despues      func()
 }
 
 func (f *fuenteAutorizacionServicioPrueba) ObtenerInstantaneaAutorizacion(
@@ -164,9 +146,6 @@ func (f *fuenteAutorizacionServicioPrueba) ObtenerInstantaneaAutorizacion(
 	_, _ string,
 ) (domain.InstantaneaAutorizacion, error) {
 	f.invocaciones++
-	if f.despues != nil {
-		f.despues()
-	}
 	return f.instantanea, f.err
 }
 
@@ -174,13 +153,9 @@ type relojAutorizacionServicioPrueba struct{ ahora time.Time }
 
 func (r *relojAutorizacionServicioPrueba) Ahora() time.Time { return r.ahora }
 
-type generadorAutorizacionServicioPrueba struct {
-	referencia   string
-	invocaciones int
-}
+type generadorAutorizacionServicioPrueba struct{ referencia string }
 
 func (g *generadorAutorizacionServicioPrueba) NuevaReferenciaDecisionAutorizacion() (string, error) {
-	g.invocaciones++
 	return g.referencia, nil
 }
 
@@ -253,12 +228,6 @@ func (v *validadorMotivoAutorizacionV2Prueba) ValidarReferenciaMotivoAutorizacio
 	return nil
 }
 
-func nuevoValidadorMotivoAutorizacionV2Prueba() *validadorMotivoAutorizacionV2Prueba {
-	return &validadorMotivoAutorizacionV2Prueba{
-		referencia: referenciaMotivoAutorizacionV2Prueba(claveMotivoAutorizacionV2Prueba),
-	}
-}
-
 func referenciaMotivoAutorizacionV2Prueba(clave string) domain.ReferenciaEntradaCatalogo {
 	return domain.ReferenciaEntradaCatalogo{
 		CatalogoID: "motivos_autorizacion", CatalogoVersion: 2,
@@ -268,21 +237,14 @@ func referenciaMotivoAutorizacionV2Prueba(clave string) domain.ReferenciaEntrada
 }
 
 type revalidadorVinculoAplicacionAdversarial struct {
-	resultado    domain.AutenticacionRevalidadaV1
-	err          error
-	invocaciones int
-	despues      func()
+	resultado domain.AutenticacionRevalidadaV1
 }
 
 func (r *revalidadorVinculoAplicacionAdversarial) RevalidarAutenticacionActorV1(
 	context.Context,
 	domain.SolicitudRevalidacionAutenticacionActorV1,
 ) (domain.AutenticacionRevalidadaV1, error) {
-	r.invocaciones++
-	if r.despues != nil {
-		r.despues()
-	}
-	return r.resultado, r.err
+	return r.resultado, nil
 }
 
 type resolutorContextoAutorizacionV3Prueba struct {
@@ -297,13 +259,9 @@ func (r resolutorContextoAutorizacionV3Prueba) ResolverContextoActorRegistradoV2
 }
 
 type registroConcesionesAutorizacionV3Prueba struct {
-	err            error
-	invocaciones   int
-	orden          ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3
-	cancelar       context.CancelFunc
-	decisionNoVive bool
-	registradaEn   *time.Time
-	devolverCero   bool
+	err          error
+	invocaciones int
+	orden        ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3
 }
 
 func (r *registroConcesionesAutorizacionV3Prueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
@@ -320,18 +278,8 @@ func (r *registroConcesionesAutorizacionV3Prueba) RegistrarConcesionCandidataAut
 	if err != nil {
 		return time.Time{}, err
 	}
-	r.decisionNoVive = !datos.Decision.VigenteEn(desde)
 	if r.err != nil {
 		return time.Time{}, r.err
-	}
-	if r.devolverCero {
-		return time.Time{}, nil
-	}
-	if r.registradaEn != nil {
-		return *r.registradaEn, nil
-	}
-	if r.cancelar != nil {
-		r.cancelar()
 	}
 	return desde, nil
 }
@@ -359,11 +307,8 @@ type entornoAutorizacionSolicitudV3Prueba struct {
 	ahora         time.Time
 	solicitud     domain.SolicitudAutorizacionLigadaV3
 	resultado     domain.ResultadoContextoActorRegistradoV2
-	instantanea   domain.InstantaneaAutorizacion
 	fuente        *fuenteAutorizacionServicioPrueba
 	concesiones   *registroConcesionesAutorizacionV3Prueba
-	denegaciones  *registroDenegacionesAutorizacionV3Prueba
-	motivos       *validadorMotivoAutorizacionV2Prueba
 	servicio      *app.ServicioAutorizacionSolicitudLigadaV3
 }
 
@@ -460,9 +405,9 @@ func nuevoEntornoAutorizacionSolicitudV3Prueba(t *testing.T, opciones ...opcionC
 		t.Fatalf("crear servicio V3: %v", err)
 	}
 	return &entornoAutorizacionSolicitudV3Prueba{
-		ahora: ahora, solicitud: solicitud, resultado: resultado, instantanea: instantanea, autenticacion: autenticacion,
-		fuente: fuente, concesiones: concesiones, denegaciones: denegaciones,
-		motivos: motivos, servicio: servicio,
+		ahora: ahora, solicitud: solicitud, resultado: resultado, autenticacion: autenticacion,
+		fuente: fuente, concesiones: concesiones,
+		servicio: servicio,
 	}
 }
 

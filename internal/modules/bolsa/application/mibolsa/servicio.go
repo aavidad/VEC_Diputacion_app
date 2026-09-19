@@ -28,20 +28,19 @@ type Orden struct {
 
 type Servicio struct {
 	consulta    puertosbolsa.ConsultaMiBolsa
-	autorizador puertosvec.AutorizadorSolicitudLigadaV3
-	proveedor   puertosbolsa.ProveedorMaterialMiBolsa
+	autorizador puertosbolsa.AutorizadorMiBolsa
 	reloj       puertosvec.Reloj
 }
 
-func Nuevo(consulta puertosbolsa.ConsultaMiBolsa, autorizador puertosvec.AutorizadorSolicitudLigadaV3, proveedor puertosbolsa.ProveedorMaterialMiBolsa, reloj puertosvec.Reloj) (*Servicio, error) {
-	if nula(consulta) || nula(autorizador) || nula(proveedor) || nula(reloj) {
+func Nuevo(consulta puertosbolsa.ConsultaMiBolsa, autorizador puertosbolsa.AutorizadorMiBolsa, reloj puertosvec.Reloj) (*Servicio, error) {
+	if nula(consulta) || nula(autorizador) || nula(reloj) {
 		return nil, ErrServicioMiBolsaInvalido
 	}
-	return &Servicio{consulta: consulta, autorizador: autorizador, proveedor: proveedor, reloj: reloj}, nil
+	return &Servicio{consulta: consulta, autorizador: autorizador, reloj: reloj}, nil
 }
 
 func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.InstantaneaMiBolsa, error) {
-	if ctx == nil || s == nil || nula(s.consulta) || nula(s.autorizador) || nula(s.proveedor) || nula(s.reloj) {
+	if ctx == nil || s == nil || nula(s.consulta) || nula(s.autorizador) || nula(s.reloj) {
 		return puertosbolsa.InstantaneaMiBolsa{}, ErrServicioMiBolsaInvalido
 	}
 	if err := ctx.Err(); err != nil {
@@ -64,9 +63,11 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
 	}
-	decision, confirmacion, err := s.autorizador.ExigirSolicitudLigadaV3(ctx, nominal, resultadoActor)
-	if err != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, nominal, resultadoActor)
+	if err != nil || nula(exportador) {
+		// El emisor central sanea los errores de su cadena. Sin una causa nominal
+		// distinguible, informar indisponibilidad y no inferir permiso ni éxito.
+		return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 	}
 	ahora = s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if ctx.Err() != nil {
@@ -74,13 +75,6 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	}
 	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(nil)
-	}
-	exportador, err := s.proveedor.EmitirMaterialMiBolsa(ctx, nominal, resultadoActor, decision, confirmacion)
-	if err != nil || nula(exportador) {
-		return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
-	}
-	if ctx.Err() != nil {
-		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil {
@@ -90,7 +84,10 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if ctx.Err() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
-	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora) {
+	if !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora) {
+		return puertosbolsa.InstantaneaMiBolsa{}, denegar(nil)
+	}
+	if _, _, err = validarOrden(orden, ahora); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
 	}
 	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora}

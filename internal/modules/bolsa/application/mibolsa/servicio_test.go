@@ -15,7 +15,7 @@ func TestConsultaPropiaConPDPYMaterialNominalV3(t *testing.T) {
 	r, err := e.servicio.Consultar(context.Background(), e.orden)
 	exigir(t, err)
 	s := e.repositorio.solicitud
-	if e.emisor.llamadas != 1 || e.emisor.exportaciones != 1 || e.firmas != 1 || e.repositorio.llamadas != 1 || len(r.Participaciones) != 1 {
+	if e.fuente.invocaciones != 1 || e.concesiones.invocaciones != 1 || e.emisor.llamadas != 1 || e.emisor.exportaciones != 1 || e.firmas != 1 || e.repositorio.llamadas != 1 || len(r.Participaciones) != 1 {
 		t.Fatal("no recorrió una cadena completa")
 	}
 	if s.CandidatoRef != referenciaServicioContextoActorPrueba("can_", "c") || s.Material.ValidarEstructura() != nil {
@@ -83,22 +83,21 @@ func TestDenegacionOIndisponibilidadSinMaterialNiConsulta(t *testing.T) {
 	for _, caso := range []struct {
 		nombre  string
 		cambiar func(*entornoMiBolsa)
-		causa   error
 	}{
 		{"sin concesion", func(e *entornoMiBolsa) {
 			e.fuente.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.otra.consultar"
-		}, domain.ErrAutorizacionDenegada},
+		}},
 		{"ambito ajeno", func(e *entornoMiBolsa) {
 			e.fuente.instantanea.AsignacionPerfil.Ambitos[0].Valores = []string{referenciaServicioContextoActorPrueba("can_", "x")}
-		}, domain.ErrAutorizacionDenegada},
-		{"fuente no disponible", func(e *entornoMiBolsa) { e.fuente.err = ports.ErrFuenteAutorizacionNoDisponible }, ports.ErrFuenteAutorizacionNoDisponible},
-		{"registro no disponible", func(e *entornoMiBolsa) { e.concesiones.err = ports.ErrRegistroDecisionNoDisponible }, ports.ErrRegistroDecisionNoDisponible},
+		}},
+		{"fuente no disponible", func(e *entornoMiBolsa) { e.fuente.err = ports.ErrFuenteAutorizacionNoDisponible }},
+		{"registro no disponible", func(e *entornoMiBolsa) { e.concesiones.err = ports.ErrRegistroDecisionNoDisponible }},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e := nuevoEntorno(t)
 			caso.cambiar(e)
 			_, err := e.servicio.Consultar(context.Background(), e.orden)
-			if !errors.Is(err, caso.causa) || e.firmas != 0 || e.emisor.exportaciones != 0 || e.repositorio.llamadas != 0 {
+			if !errors.Is(err, bolsa.ErrMaterialMiBolsaNoDisponible) || e.firmas != 0 || e.emisor.exportaciones != 0 || e.repositorio.llamadas != 0 {
 				t.Fatalf("rechazo incorrecto: %v firmas=%d exportaciones=%d repo=%d", err, e.firmas, e.emisor.exportaciones, e.repositorio.llamadas)
 			}
 		})
@@ -118,7 +117,7 @@ func TestDecisionRestringidaNoExportaNiConsulta(t *testing.T) {
 			e.fuente.instantanea.VersionRol.Concesiones[0].Obligaciones = []string{"firma"}
 		}},
 		{"recurso cambiado", func(e *entornoMiBolsa) {
-			e.autorizador.cambiar = func(s domain.SolicitudAutorizacionLigadaV3) domain.SolicitudAutorizacionLigadaV3 {
+			e.emisor.cambiar = func(s domain.SolicitudAutorizacionLigadaV3) domain.SolicitudAutorizacionLigadaV3 {
 				d, err := s.Datos()
 				exigir(t, err)
 				d.Recurso.Referencia = "mi-bolsa:otro"
@@ -128,14 +127,14 @@ func TestDecisionRestringidaNoExportaNiConsulta(t *testing.T) {
 			}
 		}},
 		{"vence durante emision", func(e *entornoMiBolsa) {
-			e.autorizador.despues = func() { e.servicio.reloj = &relojAutorizacionServicioPrueba{ahora: e.ahora.Add(2 * time.Minute)} }
+			e.emisor.despues = func() { e.servicio.reloj = &relojAutorizacionServicioPrueba{ahora: e.ahora.Add(2 * time.Minute)} }
 		}},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e := nuevoEntorno(t)
 			caso.cambiar(e)
 			_, err := e.servicio.Consultar(context.Background(), e.orden)
-			if !errors.Is(err, domain.ErrAutorizacionDenegada) || e.emisor.llamadas != 0 || e.emisor.exportaciones != 0 || e.repositorio.llamadas != 0 {
+			if !errors.Is(err, domain.ErrAutorizacionDenegada) || e.emisor.llamadas != 1 || e.emisor.exportaciones != 0 || e.repositorio.llamadas != 0 {
 				t.Fatalf("aceptó decisión no apta: %v", err)
 			}
 		})

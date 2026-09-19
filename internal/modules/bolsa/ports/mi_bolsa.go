@@ -58,9 +58,9 @@ type ConsultaMiBolsa interface {
 	ConsultarMiBolsa(context.Context, SolicitudConsultaMiBolsa) (InstantaneaMiBolsa, error)
 }
 
-// ProveedorMaterialMiBolsa recibe solo una decisión V3 ya exigida y cotejada.
-// La composición debe usar la cadena nominal de atestación y confianza central,
-// sin repetir el PDP ni reconstruir materiales a partir de bytes del cliente.
-type ProveedorMaterialMiBolsa interface {
-	EmitirMaterialMiBolsa(context.Context, dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.ResultadoContextoActorRegistradoV2, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3) (puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
+// AutorizadorMiBolsa lo implementa directamente el emisor central V3.
+// La cadena emite material solo tras decisión y confirmación durables. El
+// consumidor debe cotejar ambas antes de exportar y consultar sus datos.
+type AutorizadorMiBolsa interface {
+	EmitirMaterialAutorizacionAtestadaV3(context.Context, dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
 }
