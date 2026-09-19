@@ -227,6 +227,15 @@ func NewHTTPServerDesarrolloWithConfig(
 			cerrarContratacion()
 		}
 	}()
+	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if !completa {
+			cerrarDietas()
+		}
+	}()
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	cancelarBolsas()
@@ -235,8 +244,8 @@ func NewHTTPServerDesarrolloWithConfig(
 		return nil, nil, err
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
-	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion, coleccionesBolsasRRHH...,
+	vecAPI, err := newVECShellAPICompuestaConDietas(
+		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -261,6 +270,7 @@ func NewHTTPServerDesarrolloWithConfig(
 		return nil, nil, err
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
+	servidor.RegisterOnShutdown(cerrarDietas)
 	completa = true
 	return servidor, composicion, nil
 }

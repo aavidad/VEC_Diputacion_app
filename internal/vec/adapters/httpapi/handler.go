@@ -18,11 +18,13 @@ import (
 )
 
 type Handler struct {
+	autoridadRutasDietas    AutoridadPeticionRutasDietas
 	service                 *application.Service
 	internal                *application.InternalOperations
 	personalCatalog         CatalogoPersonal
 	categoriasProfesionales ConsultaCategoriasProfesionales
 	roadRoute               http.Handler
+	catalogoRutaDietas      http.Handler
 	identityPolicy          identityPolicy
 	rutasExactas            map[string]http.Handler
 	rutasColeccion          []RutaColeccion
@@ -30,20 +32,22 @@ type Handler struct {
 }
 
 type HandlerOptions struct {
-	InternalOperations      *application.InternalOperations
-	PersonalCatalog         CatalogoPersonal
-	CategoriasProfesionales ConsultaCategoriasProfesionales
-	ManejadorRutaDietas     http.Handler
-	AllowDemoIdentity       bool
-	DemoIdentityResolver    DemoIdentityResolver
-	TrustIdentityHeaders    bool
-	TrustedProxyCIDRs       []string
-	IdentitySubjectHeader   string
-	IdentityRolesHeader     string
-	IdentityMechanismHeader string
-	RutasExactas            []RutaExacta
-	RutasColeccion          []RutaColeccion
-	AutoridadRutasExactas   AutoridadRutasExactas
+	AutoridadRutasDietas        AutoridadPeticionRutasDietas
+	InternalOperations          *application.InternalOperations
+	PersonalCatalog             CatalogoPersonal
+	CategoriasProfesionales     ConsultaCategoriasProfesionales
+	ManejadorRutaDietas         http.Handler
+	ManejadorCatalogoRutaDietas http.Handler
+	AllowDemoIdentity           bool
+	DemoIdentityResolver        DemoIdentityResolver
+	TrustIdentityHeaders        bool
+	TrustedProxyCIDRs           []string
+	IdentitySubjectHeader       string
+	IdentityRolesHeader         string
+	IdentityMechanismHeader     string
+	RutasExactas                []RutaExacta
+	RutasColeccion              []RutaColeccion
+	AutoridadRutasExactas       AutoridadRutasExactas
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -85,11 +89,13 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		return nil, err
 	}
 	return &Handler{
+		autoridadRutasDietas:    options.AutoridadRutasDietas,
 		service:                 service,
 		internal:                options.InternalOperations,
 		personalCatalog:         options.PersonalCatalog,
 		categoriasProfesionales: options.CategoriasProfesionales,
 		roadRoute:               options.ManejadorRutaDietas,
+		catalogoRutaDietas:      options.ManejadorCatalogoRutaDietas,
 		identityPolicy:          identityPolicy,
 		rutasExactas:            rutasExactas,
 		rutasColeccion:          rutasColeccion,
@@ -102,6 +108,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if h.atenderRutaDietas(w, r) {
 		return
 	}
 	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {
@@ -186,6 +195,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handlePersonalCatalogs(w, r, principal)
 	case path == "/dietas/road-route":
 		h.handleDietasRoadRoute(w, r, principal)
+	case path == "/dietas/route-catalog":
+		h.handleDietasRouteCatalog(w, r, principal)
 	case path == "/menu":
 		h.handleMenu(w, r, principal)
 	case path == "/audit":
@@ -597,4 +608,17 @@ func (h *Handler) manejadorColeccion(ruta string) (http.Handler, bool) {
 		}
 	}
 	return nil, false
+}
+
+// handleDietasRouteCatalog mantiene la autorización exacta de la consulta.
+func (h *Handler) handleDietasRouteCatalog(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
+	if !principal.HasPermission(dietasmodule.PermissionRouteRead) {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	if h.catalogoRutaDietas == nil {
+		h.writeError(w, http.StatusServiceUnavailable, "Catalogo de rutas de Dietas no configurado de forma completa y explicita.")
+		return
+	}
+	h.catalogoRutaDietas.ServeHTTP(w, r)
 }

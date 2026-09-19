@@ -366,6 +366,11 @@
   font-size: 0.75rem;
 }
 
+.cronos-presentacion { margin: 0; padding: 10px 13px; border: 1px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-aviso-suave); color: var(--portal-aviso); font-size: .74rem; font-weight: 800; overflow-wrap: anywhere; }
+.cronos-incidencias { min-width: 0; padding-bottom: 12px; }
+.cronos-incidencia { min-width: 0; margin: 0 14px; padding: 10px 0; border-top: 1px solid var(--portal-borde); }
+.cronos-incidencia p, .cronos-incidencia span, .cronos-incidencia small { display: block; margin: 4px 0; color: var(--portal-muted); font-size: .72rem; overflow-wrap: anywhere; }
+.cronos-incidencia button { max-width: 100%; margin-top: 6px; white-space: normal; }
 .cronos-mensaje,
 .cronos-acceso-denegado,
 .cronos-vacio {

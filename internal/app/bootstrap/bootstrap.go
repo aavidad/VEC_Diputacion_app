@@ -239,6 +239,15 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	autoridadRutasExactas vechttp.AutoridadRutasExactas,
 	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
+	return newVECShellAPICompuestaConDietas(cfg, resolvedorIdentidad, categoriasPersonal, rutasExactas, autoridadRutasExactas, nil, rutasColeccion...)
+}
+
+func newVECShellAPICompuestaConDietas(
+	cfg config.Config, resolvedorIdentidad vechttp.DemoIdentityResolver,
+	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+	rutasExactas []vechttp.RutaExacta, autoridadRutasExactas vechttp.AutoridadRutasExactas,
+	autoridadDietas vechttp.AutoridadPeticionRutasDietas, rutasColeccion ...vechttp.RutaColeccion,
+) (http.Handler, error) {
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
 	if err != nil {
 		return nil, err
@@ -247,6 +256,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	if err != nil {
 		return nil, err
 	}
+	manejadorCatalogoRutaDietas := nuevoManejadorCatalogoRutasDietas()
 	store := vecmemory.NewStore()
 	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -266,15 +276,17 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		}
 	}
 	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
-		InternalOperations:      internalOperations,
-		PersonalCatalog:         personalCatalog,
-		CategoriasProfesionales: categoriasPersonal,
-		ManejadorRutaDietas:     manejadorRutaDietas,
-		AllowDemoIdentity:       resolvedorIdentidad != nil,
-		DemoIdentityResolver:    resolvedorIdentidad,
-		RutasExactas:            rutasExactas,
-		RutasColeccion:          rutasColeccion,
-		AutoridadRutasExactas:   autoridadRutasExactas,
+		InternalOperations:          internalOperations,
+		PersonalCatalog:             personalCatalog,
+		CategoriasProfesionales:     categoriasPersonal,
+		ManejadorRutaDietas:         manejadorRutaDietas,
+		ManejadorCatalogoRutaDietas: manejadorCatalogoRutaDietas,
+		AutoridadRutasDietas:        autoridadDietas,
+		AllowDemoIdentity:           resolvedorIdentidad != nil,
+		DemoIdentityResolver:        resolvedorIdentidad,
+		RutasExactas:                rutasExactas,
+		RutasColeccion:              rutasColeccion,
+		AutoridadRutasExactas:       autoridadRutasExactas,
 	})
 }
 

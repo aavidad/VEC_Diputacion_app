@@ -8,6 +8,7 @@ import {
 } from "../../identidad/contexto-actor.js";
 import { crearAdaptadorDietasPresentacion } from "./adaptador-presentacion.js";
 import { crearCalculadorRutasDietasPresentacion } from "./calculador-rutas-presentacion.js";
+import { crearCalculadorRutasDietasPresentacionOSRM } from "./calculador-rutas-presentacion-osrm.js";
 import {
   ATRIBUCION_OSM_INTERNA,
   CAPACIDAD_CONSULTAR_AUDITORIA,
@@ -152,6 +153,7 @@ function crearRaizDietasMinima() {
 function crearRaizDietasInteractiva() {
   const escuchas = new Map();
   const ownerDocument = { activeElement: null };
+  const atributos = new Map();
   let contenido = "";
   let controles = [];
   const convertirDataset = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_coincidencia, letra) => letra.toUpperCase());
@@ -193,8 +195,9 @@ function crearRaizDietasInteractiva() {
       return controles.find((control) => control.hasAttribute(atributo)
         && (valor === null || control.getAttribute(atributo) === String(valor)));
     },
-    setAttribute() {},
-    removeAttribute() {},
+    setAttribute(nombre, valor) { atributos.set(nombre, String(valor)); },
+    removeAttribute(nombre) { atributos.delete(nombre); },
+    getAttribute(nombre) { return atributos.get(nombre) || null; },
     addEventListener(tipo, escucha) { escuchas.set(tipo, escucha); },
     removeEventListener(tipo) { escuchas.delete(tipo); },
     replaceChildren() { this.innerHTML = ""; },
@@ -244,22 +247,62 @@ test("deniega por defecto y no proyecta referencias, importes ni rutas", () => {
   assert.doesNotMatch(html, /data-dietas-formulario|data-dietas-enviar/);
 });
 
-test("separa capacidad de gastos y rutas sin filtrar localizaciones", () => {
-  const modelo = presentador([CAPACIDAD_CONSULTAR_GASTO]).obtenerModelo();
-  assert.equal(modelo.comisiones.length, 5);
-  assert.deepEqual(modelo.comisiones[0].ruta, []);
-  assert.equal(modelo.comisiones[0].kilometros, null);
-  assert.equal(modelo.resumen.kilometros, null);
-  assert.equal(modelo.resumenAnual.kilometros, undefined);
-  assert.equal(modelo.resumenAnual.kilometraje_euros, undefined);
-  assert.equal(modelo.resumenAnual.dietas_gastos_euros, undefined);
-  const serializado = JSON.stringify(modelo);
-  assert.doesNotMatch(serializado, /latitud|longitud|geometria|mapa_ruta/);
+test("cierra las filas completas sin lectura de rutas para impedir inferencia de kilometraje", () => {
+  const puerto = adaptador([CAPACIDAD_CONSULTAR_GASTO]);
+  const inicial = puerto.obtenerDatos();
+  assert.deepEqual(inicial.comisiones, []);
+  assert.deepEqual(inicial.borrador_inicial, {});
+  assert.deepEqual(inicial.politica, {});
+  assert.equal(inicial.ultimo_recibo, null);
+  const modulo = crearPresentadorDietas({
+    datos: inicial, contextoActor: CONTEXTO_COMPARTIDO, capacidades: [CAPACIDAD_CONSULTAR_GASTO],
+  });
+  const modelo = modulo.obtenerModelo();
+  assert.deepEqual(modelo.comisiones, []);
+  assert.equal(modelo.seleccionada, null);
+  assert.equal(modelo.capacidades.consultarGastos, false);
+  assert.ok(Object.values(modelo.resumen).every((valor) => valor === null));
+  assert.equal(modelo.resumenAnual, null);
+  assert.deepEqual(modelo.historialMensual, []);
+  assert.equal(modelo.totalSinFiltrar, null);
+  assert.deepEqual(modelo.borradorInicial, {});
+  assert.deepEqual(modelo.politica, {});
+  const serializado = JSON.stringify({ inicial, modelo });
+  assert.doesNotMatch(serializado, /latitud|longitud|geometria|mapa_ruta|trazabilidad_ruta|Motril|140\.8|0\.26|59\.36/);
+  assert.throws(() => modulo.seleccionar("DEMO-DIE-BORR-001"), /no tiene capacidad/);
+  assert.throws(() => modulo.prepararDescriptorRecibo("DEMO-REC-DIE-BORR-001", t), /no tiene capacidad/);
+  assert.throws(() => modulo.prepararDescriptorResumenAnual(2026, t), /no tiene capacidad/);
   const html = renderizarDietas(modelo);
-  assert.match(html, /Sin capacidad/);
+  assert.match(html, /Acceso a Dietas no autorizado/);
+  assert.doesNotMatch(html, /tarjeta-kpi/);
   assert.doesNotMatch(html, /Albolote|Motril|Guadix|Loja|Baza/);
   assert.doesNotMatch(html, /data-dietas-mapa|OpenStreetMap|croquis SVG/i);
   assert.doesNotMatch(html, /data-dietas-formulario/);
+});
+
+test("el presentador también cierra una proyección parcial heredada sin convertir ausencia en cero", () => {
+  const datos = crearDatosDietasPresentacion(CONTEXTO_COMPARTIDO);
+  for (const comision of datos.comisiones) {
+    comision.ruta = [];
+    comision.geometria_ruta = null;
+    comision.kilometros = null;
+    comision.kilometraje_euros = null;
+  }
+  // La preimagen dejaba plantilla, tarifa, total y gastos inferibles.
+  const modulo = crearPresentadorDietas({
+    datos, contextoActor: CONTEXTO_COMPARTIDO, capacidades: [CAPACIDAD_CONSULTAR_GASTO],
+  });
+  for (const modelo of [modulo.obtenerModelo(), modulo.actualizarDatos(datos)]) {
+    assert.deepEqual(modelo.comisiones, []);
+    assert.equal(modelo.seleccionada, null);
+    assert.deepEqual(modelo.borradorInicial, {});
+    assert.deepEqual(modelo.politica, {});
+    assert.equal(modelo.resumen.total_euros, null);
+    assert.equal(modelo.resumen.kilometros, null);
+    assert.equal(modelo.resumenAnual, null);
+    assert.deepEqual(modelo.historialMensual, []);
+    assert.doesNotMatch(JSON.stringify(modelo), /Motril|140\.8|0\.26|59\.36|18\.5|4\.25/);
+  }
 });
 
 test("conserva la geometría histórica sin duplicar el mapa del planificador", () => {
@@ -456,6 +499,22 @@ test("exige motivo para alternativa y ajuste y conecta la ruta elegida al borrad
   const { calculador, modulo } = presentadorConRutas();
   const solicitud = modulo.rutas.prepararSolicitudCalculo();
   modulo.rutas.registrarCalculo(await calculador.calcular(solicitud));
+  const recomendada = modulo.rutas.prepararRutaBorrador();
+  const rutaRecomendada = recomendada.trazabilidad_ruta.ruta;
+  assert.deepEqual(Object.keys(rutaRecomendada).sort(), [
+    "alternativa", "calculo", "catalogo_version", "esquema", "kilometros", "liquidable", "paradas", "tramos", "trazado",
+  ]);
+  assert.equal(rutaRecomendada.alternativa.recomendada, true);
+  assert.equal(rutaRecomendada.alternativa.motivo, "");
+  assert.equal(rutaRecomendada.liquidable, false);
+  assert.equal(rutaRecomendada.catalogo_version, modulo.rutas.obtenerModelo().catalogo.version);
+  assert.equal(rutaRecomendada.paradas[0].codigo, "18087");
+  assert.equal(rutaRecomendada.paradas[0].nombre, "Granada");
+  assert.equal(typeof rutaRecomendada.paradas[0].latitud, "number");
+  assert.equal(rutaRecomendada.tramos[0].origen.codigo, rutaRecomendada.paradas[0].codigo);
+  assert.equal(rutaRecomendada.tramos[0].destino.codigo, rutaRecomendada.paradas[1].codigo);
+  assert.equal(rutaRecomendada.tramos[0].kilometros_finales, rutaRecomendada.tramos[0].kilometros);
+
   const alternativa = modulo.rutas.obtenerModelo().alternativas.find((item) => !item.recomendada);
   assert.throws(() => modulo.rutas.seleccionarAlternativa(alternativa.referencia), /motivo/);
   modulo.rutas.seleccionarAlternativa(alternativa.referencia, "Corte de carretera comunicado por el servicio");
@@ -466,6 +525,27 @@ test("exige motivo para alternativa y ajuste y conecta la ruta elegida al borrad
   assert.equal(rutaBorrador.destino, "Motril");
   assert.equal(rutaBorrador.trazabilidad_ruta.motivo_alternativa, "Corte de carretera comunicado por el servicio");
   assert.equal(rutaBorrador.trazabilidad_ruta.ajustes[0].kilometros, 2.5);
+  const rutaAlternativa = rutaBorrador.trazabilidad_ruta.ruta;
+  assert.equal(rutaAlternativa.alternativa.recomendada, false);
+  assert.equal(rutaAlternativa.alternativa.motivo, "Corte de carretera comunicado por el servicio");
+  assert.equal(rutaAlternativa.tramos[0].ajuste_kilometros, 2.5);
+  assert.equal(rutaAlternativa.tramos[0].motivo_ajuste, "Recorrido adicional acreditado dentro del municipio");
+  assert.equal(rutaAlternativa.tramos[0].kilometros_finales,
+    Math.round((rutaAlternativa.tramos[0].kilometros + 2.5) * 10) / 10);
+  assert.equal(rutaAlternativa.kilometros.final,
+    Math.round((rutaAlternativa.kilometros.base + rutaAlternativa.kilometros.ajuste) * 10) / 10);
+  assert.equal(rutaAlternativa.liquidable, false);
+  assert.equal(rutaBorrador.trazabilidad_ruta.liquidable, false);
+  assert.equal(Object.isFrozen(rutaAlternativa), true);
+  assert.equal(Object.isFrozen(rutaAlternativa.paradas[0]), true);
+  assert.equal(Object.isFrozen(rutaAlternativa.trazado[0]), true);
+  const copiaRuta = structuredClone(rutaAlternativa);
+  copiaRuta.paradas[0].nombre = "Cambio local";
+  copiaRuta.tramos[0].origen.codigo = "OTRO";
+  copiaRuta.trazado[0][0] = 0;
+  assert.equal(rutaAlternativa.paradas[0].nombre, "Granada");
+  assert.equal(rutaAlternativa.tramos[0].origen.codigo, rutaAlternativa.paradas[0].codigo);
+  assert.notEqual(rutaAlternativa.trazado[0][0], 0);
 
   const puerto = adaptador();
   const datos = puerto.ejecutar({ tipo: "crear_borrador", campos: {
@@ -479,6 +559,7 @@ test("exige motivo para alternativa y ajuste y conecta la ruta elegida al borrad
   assert.equal(creada.trazabilidad_ruta.calculo_ref, rutaBorrador.trazabilidad_ruta.calculo_ref);
   assert.equal(creada.destino, undefined);
   assert.equal(creada.vehiculo_propio, true);
+  assert.equal(creada.kilometros, rutaBorrador.kilometros);
   assert.equal(creada.hora_inicio, "08:00");
 });
 
@@ -501,6 +582,16 @@ test("reinicia por completo la ruta calculada después de cerrar un borrador", a
   assert.deepEqual(reiniciada.tramos, []);
   assert.equal(reiniciada.kilometros_ajuste, 0);
   assert.equal(reiniciada.lista_para_borrador, false);
+});
+
+test("rechaza cálculo de ruta incompleto antes de crear su snapshot", async () => {
+  const { calculador, modulo } = presentadorConRutas();
+  const solicitud = modulo.rutas.prepararSolicitudCalculo();
+  const incompleto = structuredClone(await calculador.calcular(solicitud));
+  delete incompleto.alternativas[0].geometria.trazado;
+  assert.throws(() => modulo.rutas.registrarCalculo(incompleto), /geometria de ruta de Dietas no valid[oa]/u);
+  assert.equal(modulo.rutas.obtenerModelo().calculado, false);
+  assert.throws(() => modulo.rutas.prepararRutaBorrador(), /calcule y justifique/u);
 });
 
 test("rechaza un cálculo válido que pertenezca a otro entorno", async () => {
@@ -534,8 +625,8 @@ test("aísla el fallo del catálogo de rutas y mantiene operativos listado y det
     anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
   });
 
-  assert.equal(modulo.obtenerModelo().comisiones.length, 5);
-  assert.match(raiz.innerHTML, /DEMO-DIE-2026-0091/);
+  assert.equal(modulo.obtenerModelo().comisiones.length, 1);
+  assert.match(raiz.innerHTML, /DEMO-DIE-BORR-001/);
   assert.match(raiz.innerHTML, /Expediente seleccionado/);
   assert.match(raiz.innerHTML, /La herramienta de rutas no está conectada para esta sesión/);
   assert.doesNotMatch(raiz.innerHTML, /detalle interno que no debe mostrarse/);
@@ -544,6 +635,124 @@ test("aísla el fallo del catálogo de rutas y mantiene operativos listado y det
   }]);
   modulo.desmontar();
 });
+
+for (const etapa of ["catalogo", "datos"]) {
+  for (const desenlace of ["resuelve", "rechaza"]) {
+    test("un montaje pendiente en " + etapa + " no altera Cronos cuando " + desenlace, async () => {
+      const raiz = crearRaizDietasInteractiva();
+      let resolverInicial;
+      let rechazarInicial;
+      const pendiente = new Promise((resolver, rechazar) => {
+        resolverInicial = resolver;
+        rechazarInicial = rechazar;
+      });
+      const primeroPendiente = montarModuloDietas({
+        raiz,
+        contextoActor: CONTEXTO_COMPARTIDO,
+        capacidades: CAPACIDADES_EMPLEADO,
+        adaptador: etapa === "datos"
+          ? { obtenerDatos: () => pendiente, ejecutar: adaptador().ejecutar }
+          : adaptador(),
+        calculadorRuta: etapa === "catalogo"
+          ? { obtenerCatalogo: () => pendiente, calcular: calculadorRutas().calcular }
+          : undefined,
+      });
+
+      // El coordinador compartido sustituye Dietas por Cronos sin invocar
+      // desmontar de Dietas mientras la carga inicial sigue pendiente.
+      const htmlCronos = '<section data-modulo="cronos">Cronos activo</section>';
+      const escuchaCronos = () => "cronos";
+      raiz.innerHTML = htmlCronos;
+      raiz.escuchas.set("click", escuchaCronos);
+
+      if (desenlace === "rechaza") rechazarInicial(new Error("fallo tardio de Dietas"));
+      else resolverInicial({ respuesta_tardia: true });
+      const montajeObsoleto = await primeroPendiente;
+      montajeObsoleto.desmontar();
+
+      assert.equal(montajeObsoleto.obtenerModelo(), null);
+      assert.equal(raiz.innerHTML, htmlCronos);
+      assert.strictEqual(raiz.escuchas.get("click"), escuchaCronos);
+      assert.equal(raiz.escuchas.size, 1);
+      assert.equal(raiz.getAttribute("aria-busy"), null);
+    });
+  }
+
+  for (const desenlace of ["resuelve", "rechaza"]) {
+    test(`el montaje inicial pendiente en ${etapa} que ${desenlace} no retira ni altera su reemplazo`, async () => {
+      const raiz = crearRaizDietasInteractiva();
+      const anuncios = [];
+      let resolverInicial;
+      let rechazarInicial;
+      let lecturasDatos = 0;
+      const inicialPendiente = new Promise((resolver, rechazar) => {
+        resolverInicial = resolver;
+        rechazarInicial = rechazar;
+      });
+      const calculador = calculadorRutas();
+      const datos = adaptador();
+      const primeroPendiente = montarModuloDietas({
+        raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+        adaptador: {
+          obtenerDatos() {
+            lecturasDatos += 1;
+            return etapa === "datos" ? inicialPendiente : datos.obtenerDatos();
+          },
+          ejecutar: datos.ejecutar,
+        },
+        calculadorRuta: etapa === "catalogo" ? {
+          obtenerCatalogo: () => inicialPendiente,
+          calcular: calculador.calcular,
+        } : undefined,
+        anunciar: (...mensaje) => anuncios.push(mensaje),
+      });
+      assert.equal(raiz.escuchas.size, 0);
+      let resolverCalculo;
+      let solicitudActual;
+      const segundo = await montarModuloDietas({
+        raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+        adaptador: adaptador(),
+        calculadorRuta: {
+          obtenerCatalogo: calculador.obtenerCatalogo,
+          calcular(solicitud) {
+            solicitudActual = solicitud;
+            return new Promise((resolver) => { resolverCalculo = resolver; });
+          },
+        },
+        anunciar: (...mensaje) => anuncios.push(mensaje),
+      });
+      const escuchasActuales = [...raiz.escuchas];
+      const calcular = raiz.buscar("data-dietas-ruta-calcular");
+      const operacionActual = raiz.escuchas.get("click")({ target: calcular, preventDefault() {} });
+      const htmlActual = raiz.innerHTML;
+      assert.equal(raiz.getAttribute("aria-busy"), "true");
+      assert.equal(calcular.disabled, true);
+      if (desenlace === "rechaza") rechazarInicial(new Error("fallo inicial obsoleto"));
+      else resolverInicial({ respuesta_obsoleta: true });
+      const primero = await primeroPendiente;
+      // El coordinador puede retirar A después de recibir su controlador tardío.
+      primero.desmontar();
+      primero.desmontar();
+      assert.equal(primero.obtenerModelo(), null);
+      assert.equal(raiz.innerHTML, htmlActual);
+      assert.deepEqual([...raiz.escuchas], escuchasActuales);
+      assert.equal(raiz.getAttribute("aria-busy"), "true");
+      assert.equal(calcular.disabled, true);
+      assert.deepEqual(anuncios, []);
+      assert.equal(lecturasDatos, etapa === "datos" ? 1 : 0);
+      // B mantiene sus escuchadores y completa su propia operación normalmente.
+      resolverCalculo(await calculador.calcular(solicitudActual));
+      await operacionActual;
+      assert.equal(segundo.obtenerModelo().herramientaRutas.calculado, true);
+      assert.equal(raiz.getAttribute("aria-busy"), null);
+      assert.equal(anuncios.length, 1);
+      segundo.desmontar();
+      assert.equal(raiz.innerHTML, "");
+      assert.equal(raiz.escuchas.size, 0);
+      assert.equal(raiz.getAttribute("aria-busy"), null);
+    });
+  }
+}
 
 test("un fallo OSRM queda visible dentro de la herramienta con texto i18n gobernado", async () => {
   const raiz = crearRaizDietasInteractiva();
@@ -576,6 +785,88 @@ test("un fallo OSRM queda visible dentro de la herramienta con texto i18n gobern
     tipo: "error",
   });
   modulo.desmontar();
+});
+
+test("una respuesta tardía no altera una raíz Dietas reutilizada ni desbloquea su operación", async () => {
+  const raiz = crearRaizDietasInteractiva();
+  const anuncios = [];
+  const pendientes = [];
+  const calculadorPendiente = {
+    obtenerCatalogo() { return calculadorRutas().obtenerCatalogo(); },
+    calcular(_solicitud, opciones = {}) {
+      return new Promise((resolver, rechazar) => pendientes.push({ resolver, rechazar, signal: opciones.signal }));
+    },
+  };
+  const primero = await montarModuloDietas({
+    raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+    adaptador: adaptador(), calculadorRuta: calculadorPendiente,
+    anunciar: (...mensaje) => anuncios.push(mensaje),
+  });
+  const iniciar = (montaje) => raiz.escuchas.get("click")({
+    target: raiz.buscar("data-dietas-ruta-calcular"), preventDefault() {},
+  });
+  const viejo = iniciar(primero);
+  assert.equal(pendientes.length, 1);
+  assert.equal(pendientes[0].signal instanceof AbortSignal, true);
+  primero.desmontar();
+  // El desmontaje limpia su indicador antes de abortar la promesa antigua.
+  assert.equal(raiz.getAttribute("aria-busy"), null);
+  assert.equal(pendientes[0].signal.aborted, true);
+
+  const segundo = await montarModuloDietas({
+    raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+    adaptador: adaptador(), calculadorRuta: calculadorPendiente,
+    anunciar: (...mensaje) => anuncios.push(mensaje),
+  });
+  // Un remonte sin operación propia sigue estando inactivo.
+  assert.equal(raiz.getAttribute("aria-busy"), null);
+  const actual = iniciar(segundo);
+  assert.equal(pendientes.length, 2);
+  assert.equal(raiz.getAttribute("aria-busy"), "true");
+  const htmlActivo = raiz.innerHTML;
+
+  // El valor no necesita ser válido: la instancia desmontada no debe ni leerlo.
+  pendientes[0].resolver({ respuesta_tardia: true });
+  await viejo;
+  assert.equal(raiz.getAttribute("aria-busy"), "true");
+  assert.equal(raiz.innerHTML, htmlActivo);
+  assert.deepEqual(anuncios, []);
+
+  pendientes[1].rechazar(new Error("fallo tardío actual"));
+  await actual;
+  assert.equal(raiz.getAttribute("aria-busy"), null);
+  assert.equal(anuncios.length, 1);
+  segundo.desmontar();
+});
+
+test("un rechazo tardío de una instancia desmontada no pinta ni anuncia en su reemplazo", async () => {
+  const raiz = crearRaizDietasInteractiva();
+  const anuncios = [];
+  let rechazar;
+  const calculadorPendiente = {
+    obtenerCatalogo() { return calculadorRutas().obtenerCatalogo(); },
+    calcular() { return new Promise((_resolver, rechazo) => { rechazar = rechazo; }); },
+  };
+  const primero = await montarModuloDietas({
+    raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+    adaptador: adaptador(), calculadorRuta: calculadorPendiente,
+    anunciar: (...mensaje) => anuncios.push(mensaje),
+  });
+  const pendiente = raiz.escuchas.get("click")({
+    target: raiz.buscar("data-dietas-ruta-calcular"), preventDefault() {},
+  });
+  primero.desmontar();
+  const reemplazo = await montarModuloDietas({
+    raiz, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
+    adaptador: adaptador(), calculadorRuta: calculadorRutas(),
+    anunciar: (...mensaje) => anuncios.push(mensaje),
+  });
+  const htmlReemplazo = raiz.innerHTML;
+  rechazar(new Error("fallo de una instancia retirada"));
+  await pendiente;
+  assert.equal(raiz.innerHTML, htmlReemplazo);
+  assert.deepEqual(anuncios, []);
+  reemplazo.desmontar();
 });
 
 test("conserva el foco de trabajo al repintar las acciones principales de ruta", async () => {
@@ -647,64 +938,142 @@ test("renderiza abierta la herramienta operativa completa de nueva comisión", a
 test("resume comisiones, kilometraje, importes y pagos con capacidades explícitas", () => {
   const modelo = presentador().obtenerModelo();
   assert.deepEqual(modelo.resumen, {
-    expedientes: 5, pendientes: 3, kilometros: 599, total_euros: 267.79, pagado_euros: 154.24,
+    expedientes: 1, pendientes: 1, kilometros: 140.8, total_euros: 59.36, pagado_euros: 0,
   });
-  assert.equal(modelo.historialMensual.length, 4);
-  assert.equal(modelo.comisiones[0].ruta.join(" → "), "Granada → Albolote → Granada");
-  assert.equal(modelo.seleccionada.historial.length, 3);
+  assert.equal(modelo.historialMensual.length, 1);
+  assert.equal(modelo.comisiones[0].ruta.join(" → "), "Granada → Motril → Granada");
+  assert.equal(modelo.seleccionada.historial.length, 1);
 });
 
 test("filtra mediante códigos canónicos independientes del idioma", () => {
   const modulo = presentador();
-  assert.equal(modulo.filtrar({ estado: "pagada", texto: "Baza" }).comisiones.length, 1);
+  assert.equal(modulo.filtrar({ estado: "borrador", texto: "Motril" }).comisiones.length, 1);
   assert.equal(modulo.filtrar({ estado: "todos", texto: "sin coincidencia" }).comisiones.length, 0);
   assert.throws(() => modulo.filtrar({ estado: "Pagada" }), /no permitido/);
 });
 
-test("el adaptador DEMO crea un borrador volátil con recibo del actor común", () => {
+test("el adaptador DEMO crea un borrador volátil con ruta calculada y recibo del actor común", async () => {
+  const { calculador, modulo } = presentadorConRutas();
+  modulo.rutas.registrarCalculo(await calculador.calcular(modulo.rutas.prepararSolicitudCalculo()));
+  const ruta = modulo.rutas.prepararRutaBorrador();
   const puerto = adaptador();
-  const datos = puerto.ejecutar({
-    tipo: "crear_borrador",
-    campos: {
-      fecha: "2026-07-20", motivo: "Visita técnica", origen: "Granada", destino: "Motril",
-      kilometros: "140.8", manutencion_euros: "20", alojamiento_euros: "0", otros_gastos_euros: "5",
-    },
-  });
-  const modelo = crearPresentadorDietas({
-    datos, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO,
-  }).obtenerModelo();
-  assert.equal(modelo.resumen.expedientes, 6);
+  assert.throws(() => puerto.ejecutar({ tipo: "crear_borrador", campos: {
+    fecha: "2026-07-20", motivo: "Visita técnica", manutencion_euros: "20", alojamiento_euros: "0", otros_gastos_euros: "5",
+  } }), (error) => error.codigo === "DIETAS_RUTA_PENDIENTE");
+  assert.throws(() => puerto.ejecutar({ tipo: "crear_borrador", campos: {
+    fecha: "2026-07-20", motivo: "Visita técnica", vehiculo_propio: false, manutencion_euros: "", alojamiento_euros: "0", otros_gastos_euros: "5", ...ruta,
+  } }), (error) => error.codigo === "DIETAS_GASTO_REQUERIDO");
+  const antesVehiculoInvalido = puerto.obtenerDatos();
+  for (const vehiculo_propio of [undefined, null, "true", 1]) {
+    assert.throws(() => puerto.ejecutar({ tipo: "crear_borrador", campos: {
+      fecha: "2026-07-20", motivo: "Visita técnica", vehiculo_propio,
+      manutencion_euros: "20", alojamiento_euros: "0", otros_gastos_euros: "5", ...ruta,
+    } }), (error) => error.codigo === "DIETAS_VEHICULO_PROPIO_INVALIDO");
+  }
+  assert.deepEqual(puerto.obtenerDatos(), antesVehiculoInvalido);
+  const datos = puerto.ejecutar({ tipo: "crear_borrador", campos: {
+    fecha: "2026-07-20", motivo: "Visita técnica", vehiculo_propio: false,
+    manutencion_euros: "20", alojamiento_euros: "0", otros_gastos_euros: "5", ...ruta,
+  } });
+  const modelo = crearPresentadorDietas({ datos, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO }).obtenerModelo();
+  assert.equal(modelo.resumen.expedientes, 2);
   assert.equal(modelo.comisiones[0].referencia, "DEMO-DIE-NUEVA-999");
-  assert.equal(modelo.comisiones[0].kilometraje_euros, 36.61);
-  assert.equal(modelo.comisiones[0].total_euros, 61.61);
-  assert.deepEqual(modelo.ultimoRecibo, {
-    referencia: "DEMO-REC-DIE-VOL-0001",
-    operacion: "crear_borrador",
-    objetivo: "DEMO-DIE-NUEVA-999",
-    resultado: "borrador_creado_demo",
-    actor_ref: CONTEXTO_COMPARTIDO.actor.actor_ref,
-    instante: "2026-07-19T10:15:00.000Z",
-    efectos_reales: false,
-    persistencia: "memoria_volatil",
-  });
-  assert.throws(() => adaptador([]).ejecutar({ tipo: "enviar_validacion", referencia: "DEMO-DIE-2026-0091" }), /no tiene capacidad/);
+  assert.equal(modelo.comisiones[0].total_euros, Math.round((modelo.comisiones[0].kilometraje_euros + 25) * 100) / 100);
+  assert.equal(modelo.comisiones[0].kilometros, ruta.kilometros);
+  assert.equal(modelo.comisiones[0].trazabilidad_ruta.ruta.kilometros.final, ruta.kilometros);
+  assert.equal(modelo.ultimoRecibo.efectos_reales, false);
+  const sinConsultaRuta = adaptador([CAPACIDAD_CONSULTAR_GASTO, CAPACIDAD_GESTIONAR_GASTO, CAPACIDAD_GESTIONAR_RUTA]);
+  assert.deepEqual(sinConsultaRuta.obtenerDatos().comisiones, []);
+  const creadaSinConsultaRuta = sinConsultaRuta.ejecutar({ tipo: "crear_borrador", campos: {
+    fecha: "2026-07-20", motivo: "Visita técnica", vehiculo_propio: false,
+    manutencion_euros: "20", alojamiento_euros: "0", otros_gastos_euros: "5", ...ruta,
+  } });
+  assert.deepEqual(creadaSinConsultaRuta.comisiones, []);
+  assert.deepEqual(creadaSinConsultaRuta.borrador_inicial, {});
+  assert.deepEqual(creadaSinConsultaRuta.politica, {});
+  assert.equal(creadaSinConsultaRuta.ultimo_recibo, null);
+  assert.deepEqual(sinConsultaRuta.obtenerDatos(), creadaSinConsultaRuta);
+  const modeloSinRuta = crearPresentadorDietas({
+    datos: creadaSinConsultaRuta, contextoActor: CONTEXTO_COMPARTIDO,
+    capacidades: [CAPACIDAD_CONSULTAR_GASTO, CAPACIDAD_GESTIONAR_GASTO, CAPACIDAD_GESTIONAR_RUTA],
+  }).obtenerModelo();
+  assert.deepEqual(modeloSinRuta.comisiones, []);
+  assert.equal(modeloSinRuta.seleccionada, null);
+  assert.equal(modeloSinRuta.ultimoRecibo, null);
+  assert.equal(modeloSinRuta.resumen.total_euros, null);
+  assert.equal(modeloSinRuta.resumen.kilometros, null);
+  assert.deepEqual(modeloSinRuta.borradorInicial, {});
+  assert.deepEqual(modeloSinRuta.politica, {});
+  assert.doesNotMatch(JSON.stringify({ creadaSinConsultaRuta, modeloSinRuta }), /Motril|140\.8|0\.26|trazabilidad_ruta|kilometraje_euros/);
+  assert.throws(() => adaptador([]).ejecutar({ tipo: "enviar_validacion", referencia: "DEMO-DIE-BORR-001" }), /no tiene capacidad/);
 });
 
-test("el envío cambia códigos canónicos y conserva la trazabilidad", () => {
+test("crear sin lectura de ruta no revela distancias ni importes con o sin vehículo propio", async () => {
+  const { calculador, modulo } = presentadorConRutas();
+  modulo.rutas.registrarCalculo(await calculador.calcular(modulo.rutas.prepararSolicitudCalculo()));
+  const ruta = modulo.rutas.prepararRutaBorrador();
+  const capacidades = [CAPACIDAD_CONSULTAR_GASTO, CAPACIDAD_GESTIONAR_GASTO, CAPACIDAD_GESTIONAR_RUTA];
+  for (const vehiculo_propio of [true, false]) {
+    const puerto = adaptador(capacidades);
+    const inicial = puerto.obtenerDatos();
+    const proyeccion = crearPresentadorDietas({ datos: inicial, contextoActor: CONTEXTO_COMPARTIDO, capacidades });
+    const creado = puerto.ejecutar({ tipo: "crear_borrador", campos: {
+      fecha: "2026-07-20", motivo: "Visita sintética Motril", vehiculo_propio,
+      manutencion_euros: "17", alojamiento_euros: "11", otros_gastos_euros: "7", ...ruta,
+    } });
+    // La respuesta tampoco revela que se añadió una fila oculta o su recibo.
+    assert.deepEqual(creado, inicial);
+    const modelo = proyeccion.actualizarDatos(creado);
+    assert.deepEqual(modelo.comisiones, []);
+    assert.deepEqual(modelo.borradorInicial, {});
+    assert.deepEqual(modelo.politica, {});
+    assert.equal(modelo.seleccionada, null);
+    assert.equal(modelo.ultimoRecibo, null);
+    assert.equal(modelo.resumenAnual, null);
+    assert.deepEqual(modelo.historialMensual, []);
+    assert.ok(Object.values(modelo.resumen).every((valor) => valor === null));
+    assert.doesNotMatch(JSON.stringify({ creado, modelo }), /Motril|140\.8|0\.26|36\.61|71\.61|trazabilidad_ruta|kilometraje_euros/);
+    assert.match(renderizarDietas(modelo), /Acceso a Dietas no autorizado/);
+  }
+});
+
+test("conecta OSRM interno al presentador, borrador, lista, detalle y recibo sin efectos", async () => {
+  const respuesta = { code: "Ok", engine: "osrm_on_premise", route_scope: "Granada provincia + 15 km", graph_version: "granada-buffer-osrm-v1-53aba0ad43c4", routes: [{ distance: 140800, duration: 6600, legs: [{ distance: 70400, duration: 3300 }, { distance: 70400, duration: 3300 }], geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-3.52045559, 36.74535308], [-3.59869101, 37.17428891]] } }] };
+  const calculador = crearCalculadorRutasDietasPresentacionOSRM({ contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO, fetchImpl: async () => new Response(JSON.stringify(respuesta), { headers: { "Content-Type": "application/json" } }) });
+  const modulo = crearPresentadorDietas({ datos: adaptador().obtenerDatos(), contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO, catalogoRutas: calculador.obtenerCatalogo() });
+  modulo.rutas.registrarCalculo(await calculador.calcular(modulo.rutas.prepararSolicitudCalculo()));
+  const ruta = modulo.rutas.prepararRutaBorrador();
+  const datos = adaptador().ejecutar({ tipo: "crear_borrador", campos: { fecha: "2026-07-20", motivo: "Visita técnica", vehiculo_propio: false, manutencion_euros: 0, alojamiento_euros: 0, otros_gastos_euros: 0, ...ruta } });
+  const final = crearPresentadorDietas({ datos, contextoActor: CONTEXTO_COMPARTIDO, capacidades: CAPACIDADES_EMPLEADO }).obtenerModelo();
+  assert.equal(final.comisiones[0].trazabilidad_ruta.motor, "osrm_interno");
+  assert.equal(final.seleccionada.referencia, "DEMO-DIE-NUEVA-999");
+  assert.equal(final.ultimoRecibo.efectos_reales, false);
+  assert.equal(final.comisiones[0].vehiculo_propio, false);
+  assert.equal(final.comisiones[0].kilometros, ruta.kilometros);
+  assert.equal(final.comisiones[0].trazabilidad_ruta.ruta.kilometros.final, ruta.kilometros);
+  assert.equal(final.comisiones[0].kilometraje_euros, 0);
+  assert.equal(final.comisiones[0].total_euros, 0);
+  const html = renderizarDietas(final, { descargaDisponible: true });
+  assert.match(html, /0,00 €/);
+  assert.match(html, /DEMO-REC-DIE-VOL-/);
+});
+
+test("la presentación rechaza enviar_validacion sin cambiar el borrador", () => {
   const puerto = adaptador();
-  const datos = puerto.ejecutar({ tipo: "enviar_validacion", referencia: "DEMO-DIE-2026-0091" });
-  const item = datos.comisiones.find((comision) => comision.referencia === "DEMO-DIE-2026-0091");
-  assert.equal(item.estado, "pendiente_jefatura");
-  assert.equal(item.etapa_actual, 1);
-  assert.equal(item.historial.at(-1).recibo, datos.ultimo_recibo.referencia);
-  assert.equal(datos.ultimo_recibo.efectos_reales, false);
+  assert.throws(
+    () => puerto.ejecutar({ tipo: "enviar_validacion", referencia: "DEMO-DIE-BORR-001" }),
+    /no envía borradores ni simula validaciones/,
+  );
+  const item = puerto.obtenerDatos().comisiones[0];
+  assert.equal(item.estado, "borrador");
+  assert.equal(item.historial.length, 1);
 });
 
 test("prepara PDF DEMO con logo y QR resoluble sin datos personales", () => {
-  const descriptor = presentador().prepararDescriptorRecibo("DEMO-REC-DIE-0084-03", t);
+  const descriptor = presentador().prepararDescriptorRecibo("DEMO-REC-DIE-BORR-001", t);
   assert.equal(descriptor.formato, "pdf");
   assert.equal(descriptor.identidad_visual.logo_src, "/assets/logo-diputacion-granada.svg");
-  assert.equal(descriptor.comprobacion.qr_contenido, "https://vec.demo.dipgra.es/verificar/?ref=DEMO-REC-DIE-0084-03&presentacion=rrhh");
+  assert.equal(descriptor.comprobacion.qr_contenido, "https://vec.demo.dipgra.es/verificar/?ref=DEMO-REC-DIE-BORR-001&presentacion=rrhh");
   assert.equal(descriptor.comprobacion.metodo, "consulta_estatica_demo");
   assert.equal(descriptor.comprobacion.contiene_datos_personales, false);
   assert.doesNotMatch(descriptor.comprobacion.qr_contenido, /Agente|DNI|nombre/i);
@@ -750,9 +1119,8 @@ test("genera el resumen anual PDF real por el puerto documental común", async (
   assert.match(pdf, /DEMO-DIE-REC-ANUAL-2026-01/);
   assert.ok(blob.size > 10_000);
 
-  const sinRuta = presentador([CAPACIDAD_CONSULTAR_GASTO]).prepararDescriptorResumenAnual(2026, t);
-  assert.equal(sinRuta.filas.length, 6);
-  assert.doesNotMatch(JSON.stringify(sinRuta), /kilómetros|kilometraje|km/i);
+  assert.throws(() => presentador([CAPACIDAD_CONSULTAR_GASTO])
+    .prepararDescriptorResumenAnual(2026, t), /no tiene capacidad/);
   assert.throws(() => crearPresentadorDietas({
     datos: datosProductivos(), contextoActor: CONTEXTO_PRODUCTIVO,
     capacidades: CAPACIDADES_EMPLEADO,
@@ -764,11 +1132,11 @@ test("acepta referencias opacas productivas, rechaza DEMO y prepara cotejo POST"
     datos: datosProductivos(), contextoActor: CONTEXTO_PRODUCTIVO,
     capacidades: CAPACIDADES_EMPLEADO, origenComprobacion: "https://vec.dipgra.es",
   });
-  const referencia = "recibo:dietas:0:2:2026";
+  const referencia = "recibo:dietas:0:0:2026";
   const descriptor = modulo.prepararDescriptorRecibo(referencia, t);
   assert.equal(descriptor.marca, "");
   assert.equal(descriptor.comprobacion.metodo, "post_servicio_cotejo");
-  assert.equal(descriptor.comprobacion.qr_contenido, "https://vec.dipgra.es/verificar/?ref=recibo%3Adietas%3A0%3A2%3A2026");
+  assert.equal(descriptor.comprobacion.qr_contenido, "https://vec.dipgra.es/verificar/?ref=recibo%3Adietas%3A0%3A0%3A2026");
 
   const datosConDemo = datosProductivos();
   datosConDemo.comisiones[0].historial[0].recibo = "DEMO-REC-DIE-PROHIBIDO-01";
@@ -784,12 +1152,12 @@ test("renderiza un espacio administrativo accesible, denso y traducido", () => {
   });
   assert.match(html, /Portal del Empleado → Dietas/);
   assert.match(html, /Agente interno DEMO/);
-  assert.match(html, /Circuito de aprobación/);
+  assert.match(html, /Presentación · datos sintéticos · no liquidable · no enviado/);
   assert.match(html, /Desglose de gastos/);
   assert.match(html, /Historial y trazabilidad/);
   assert.match(html, /<caption>/);
-  assert.match(html, /<th scope="col">/);
-  assert.match(html, /data-dietas-descargar-recibo="DEMO-REC-DIE-0084-03"/);
+  assert.match(html, /<th scope="col"/);
+  assert.match(html, /data-dietas-descargar-recibo="DEMO-REC-DIE-BORR-001"/);
   assert.match(html, /aria-current="true"/);
   assert.doesNotMatch(html, /aria-selected=/);
   assert.doesNotMatch(html, /onclick=|javascript:/i);
@@ -800,7 +1168,7 @@ test("permite sustituir todo el catálogo de interfaz sin cambiar estados", () =
   const html = renderizarDietas(presentador().obtenerModelo(), { mensajes: alternativo });
   assert.match(html, /Expense workspace/);
   assert.match(html, />Search<input/);
-  assert.match(html, /value="pagada"/);
+  assert.match(html, /value="borrador"/);
   assert.doesNotMatch(html, />Mis dietas y comisiones de servicio</);
   assert.throws(() => crearTraductorDietas({ titulo: "incompleto" }), /incompleto/);
 });
@@ -856,6 +1224,17 @@ test("la hoja de estilos conserva densidad, foco visible y adaptación móvil", 
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(css, /@media \(max-width: 420px\)/);
   assert.match(css, /overflow-x|tabla-contenedor/);
+  // Las columnas de escritorio se reparten el ancho real del shell, incluso
+  // entre el breakpoint y 1440 px o al aumentar el texto al 125 %.
+  const rejillaTrabajo = css.match(/\.modulo-dietas \.dietas-espacio-trabajo\s*\{([^}]+)\}/)[1];
+  assert.match(rejillaTrabajo, /grid-template-columns: minmax\(0, 1\.45fr\) minmax\(0, 0\.85fr\)/);
+  assert.doesNotMatch(rejillaTrabajo, /minmax\(\d+(?:\.\d+)?(?:rem|px)/);
+  // A 390 px la tabla conserva su desplazamiento local y las cabeceras,
+  // chips y selects no pueden ensanchar el documento.
+  assert.match(css, /\.modulo-dietas > \*/);
+  assert.match(css, /\.estado-chip[\s\S]*?overflow-wrap: anywhere/);
+  assert.match(css, /\.modulo-dietas select[\s\S]*?inline-size: 100%/);
+  assert.match(css, /\.tabla-contenedor[\s\S]*?overflow-x: auto/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /font-family\s*:/);
 });

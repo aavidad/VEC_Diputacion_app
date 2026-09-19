@@ -32,12 +32,12 @@ export function crearDatosCronosPresentacion(contextoActor) {
       solicitudes_pendientes: 1,
     },
     fichajes: [
-      { id: "DEMO-FIC-20260719-03", actor_ref: actorRef, instante: "2026-07-19T13:08:00Z", tipo_clave: "salida", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "registrado", recibo_ref: "DEMO-REC-FIC-1903" },
-      { id: "DEMO-FIC-20260719-02", actor_ref: actorRef, instante: "2026-07-19T08:36:00Z", tipo_clave: "fin_pausa", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "registrado", recibo_ref: "DEMO-REC-FIC-1902" },
-      { id: "DEMO-FIC-20260719-01", actor_ref: actorRef, instante: "2026-07-19T08:16:00Z", tipo_clave: "inicio_pausa", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "registrado", recibo_ref: "DEMO-REC-FIC-1901" },
-      { id: "DEMO-FIC-20260719-00", actor_ref: actorRef, instante: "2026-07-19T05:12:00Z", tipo_clave: "entrada", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "registrado", recibo_ref: "DEMO-REC-FIC-1900" },
-      { id: "DEMO-FIC-20260718-01", actor_ref: actorRef, instante: "2026-07-18T12:56:00Z", tipo_clave: "salida", canal: "Web interna DEMO", modalidad: "Teletrabajo", estado_clave: "revisado", recibo_ref: "DEMO-REC-FIC-1801" },
-      { id: "DEMO-FIC-20260718-00", actor_ref: actorRef, instante: "2026-07-18T05:20:00Z", tipo_clave: "entrada", canal: "Web interna DEMO", modalidad: "Teletrabajo", estado_clave: "revisado", recibo_ref: "DEMO-REC-FIC-1800" },
+      { id: "DEMO-FIC-20260719-03", actor_ref: actorRef, instante: "2026-07-19T13:08:00Z", tipo_clave: "salida", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1903" },
+      { id: "DEMO-FIC-20260719-02", actor_ref: actorRef, instante: "2026-07-19T08:36:00Z", tipo_clave: "fin_pausa", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1902" },
+      { id: "DEMO-FIC-20260719-01", actor_ref: actorRef, instante: "2026-07-19T08:16:00Z", tipo_clave: "inicio_pausa", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1901" },
+      { id: "DEMO-FIC-20260719-00", actor_ref: actorRef, instante: "2026-07-19T05:12:00Z", tipo_clave: "entrada", canal: "Terminal DEMO", modalidad: "Presencial", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1900" },
+      { id: "DEMO-FIC-20260718-01", actor_ref: actorRef, instante: "2026-07-18T12:56:00Z", tipo_clave: "salida", canal: "Web interna DEMO", modalidad: "Teletrabajo", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1801" },
+      { id: "DEMO-FIC-20260718-00", actor_ref: actorRef, instante: "2026-07-18T05:20:00Z", tipo_clave: "entrada", canal: "Web interna DEMO", modalidad: "Teletrabajo", estado_clave: "simulado", recibo_ref: "DEMO-REC-FIC-1800" },
     ],
     saldos: [
       { id: "asuntos_propios", nombre: "Asuntos propios", unidad_clave: "dia", concedido: 6, solicitado: 1, aprobado: 1, disfrutado: 1, restante: 3, estado_clave: "saldo_demo" },
@@ -47,14 +47,17 @@ export function crearDatosCronosPresentacion(contextoActor) {
     ],
     solicitudes: [
       { id: "DEMO-VAC-2026-0031", actor_ref: actorRef, tipo: "Vacaciones", desde: "2026-08-05", hasta: "2026-08-09", cantidad_valor: 5, unidad_clave: "dia", estado_clave: "pendiente_responsable", recibo_ref: "DEMO-REC-VAC-0031" },
-      { id: "DEMO-PER-2026-0018", actor_ref: actorRef, tipo: "Asuntos propios", desde: "2026-06-02", hasta: "2026-06-02", cantidad_valor: 1, unidad_clave: "dia", estado_clave: "aprobado", recibo_ref: "DEMO-REC-PER-0018" },
-      { id: "DEMO-CON-2026-0007", actor_ref: actorRef, tipo: "Conciliación", desde: "2026-05-14", hasta: "2026-05-14", cantidad_valor: 120, unidad_clave: "minuto", estado_clave: "disfrutado", recibo_ref: "DEMO-REC-CON-0007" },
+      { id: "DEMO-PER-2026-0018", actor_ref: actorRef, tipo: "Asuntos propios", desde: "2026-06-02", hasta: "2026-06-02", cantidad_valor: 1, unidad_clave: "dia", estado_clave: "preparado_no_registrado", recibo_ref: "DEMO-REC-PER-0018" },
+      { id: "DEMO-CON-2026-0007", actor_ref: actorRef, tipo: "Conciliación", desde: "2026-05-14", hasta: "2026-05-14", cantidad_valor: 120, unidad_clave: "minuto", estado_clave: "simulado", recibo_ref: "DEMO-REC-CON-0007" },
+    ],
+    incidencias: [
+      { id: "DEMO-INC-20260719-01", actor_ref: actorRef, instante: "2026-07-19T09:00:00Z", categoria_clave: "pausa", resumen: "Pausa de ejemplo sin cierre", detalle: "Incidencia sintética propia. No se ha consultado ni modificado ningún fichaje real.", estado_clave: "simulado" },
     ],
     historial: [
-      { id: "DEMO-HIS-006", actor_ref: actorRef, instante: "2026-07-19T13:08:00Z", evento: "Jornada evaluada", detalle: "Saldo diario calculado: +00:06", estado_clave: "calculado", recibo_ref: "DEMO-REC-JOR-0719" },
-      { id: "DEMO-HIS-005", actor_ref: actorRef, instante: "2026-07-17T07:42:00Z", evento: "Solicitud registrada", detalle: "Vacaciones DEMO del 05/08 al 09/08", estado_clave: "pendiente_responsable", recibo_ref: "DEMO-REC-VAC-0031" },
-      { id: "DEMO-HIS-004", actor_ref: actorRef, instante: "2026-06-03T10:10:00Z", evento: "Permiso resuelto", detalle: "Asuntos propios DEMO", estado_clave: "aprobado", recibo_ref: "DEMO-REC-PER-0018" },
-      { id: "DEMO-HIS-003", actor_ref: actorRef, instante: "2026-05-14T12:05:00Z", evento: "Permiso consumido", detalle: "Conciliación DEMO: 2 horas", estado_clave: "disfrutado", recibo_ref: "DEMO-REC-CON-0007" },
+      { id: "DEMO-HIS-006", actor_ref: actorRef, instante: "2026-07-19T13:08:00Z", ambito_clave: "fichaje", requiere_horario: true, evento: "Jornada evaluada", detalle: "Saldo diario calculado: +00:06", estado_clave: "simulado", recibo_ref: "DEMO-REC-JOR-0719" },
+      { id: "DEMO-HIS-005", actor_ref: actorRef, instante: "2026-07-17T07:42:00Z", ambito_clave: "permiso", requiere_horario: false, evento: "Solicitud de muestra preparada", detalle: "Vacaciones DEMO del 05/08 al 09/08 · no enviada", estado_clave: "pendiente_responsable", recibo_ref: "DEMO-REC-VAC-0031" },
+      { id: "DEMO-HIS-004", actor_ref: actorRef, instante: "2026-06-03T10:10:00Z", ambito_clave: "permiso", requiere_horario: false, evento: "Permiso de muestra preparado", detalle: "Asuntos propios DEMO · sin trámite real", estado_clave: "preparado_no_registrado", recibo_ref: "DEMO-REC-PER-0018" },
+      { id: "DEMO-HIS-003", actor_ref: actorRef, instante: "2026-05-14T12:05:00Z", ambito_clave: "permiso", requiere_horario: false, evento: "Permiso de muestra", detalle: "Conciliación DEMO: 2 horas · no enviado", estado_clave: "simulado", recibo_ref: "DEMO-REC-CON-0007" },
     ],
   }, contexto);
 }

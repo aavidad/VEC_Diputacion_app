@@ -116,8 +116,28 @@ export function renderizarAreaCronos({
   const puedeConsultarHorario = tieneCapacidadCronos(capacidadesValidadas, CAPACIDAD_CONSULTAR_HORARIO);
   const puedeConsultarPermisos = tieneCapacidadCronos(capacidadesValidadas, CAPACIDAD_CONSULTAR_PERMISOS);
   const puedeFichar = tieneCapacidadCronos(capacidadesValidadas, CAPACIDAD_REGISTRAR_FICHAJE);
-  const puedeSolicitar = tieneCapacidadCronos(capacidadesValidadas, CAPACIDAD_SOLICITAR_PERMISO);
+  const puedeSolicitar = tieneCapacidadCronos(capacidadesValidadas, CAPACIDAD_SOLICITAR_PERMISO) && puedeConsultarPermisos;
   const puedeConsultarHistorial = puedeConsultarFichajes || puedeConsultarPermisos;
+  const puedeConsultarSaldoHorario = puedeConsultarFichajes && puedeConsultarHorario;
+  const ambitoPermitido = (item) => (item.ambito_clave === "fichaje" && puedeConsultarFichajes)
+    || (item.ambito_clave === "permiso" && puedeConsultarPermisos);
+  // Un recibo que llega directamente a la vista no es autoridad por sí mismo.
+  // Sólo se muestra cuando su referencia está anclada a un registro ya validado
+  // del mismo ámbito. Los recibos normalizados no conservan actor_ref; si el
+  // transporte lo aporta, debe ser necesariamente el actor de esta sesión.
+  const reciboProcedente = (recibo) => {
+    if (!recibo || typeof recibo !== "object" || Array.isArray(recibo)
+      || typeof recibo.referencia !== "string" || !ambitoPermitido(recibo)
+      || (Object.hasOwn(recibo, "actor_ref") && recibo.actor_ref !== contexto.actor.actor_ref)) return false;
+    const asociaciones = [
+      ...vista.fichajes.filter((item) => item.recibo_ref === recibo.referencia).map(() => ({ ambito: "fichaje", requiereHorario: false })),
+      ...vista.solicitudes.filter((item) => item.recibo_ref === recibo.referencia).map(() => ({ ambito: "permiso", requiereHorario: false })),
+      ...vista.historial.filter((item) => item.recibo_ref === recibo.referencia).map((item) => ({ ambito: item.ambito_clave, requiereHorario: item.requiere_horario })),
+    ];
+    return asociaciones.length > 0
+      && asociaciones.every((asociacion) => asociacion.ambito === recibo.ambito_clave)
+      && (puedeConsultarHorario || !asociaciones.some((asociacion) => asociacion.requiereHorario));
+  };
   const perfil = vista.perfil_jornada;
   const resumen = vista.resumen;
 
@@ -142,11 +162,12 @@ export function renderizarAreaCronos({
     escaparHTML(cantidadVisible(item.cantidad_valor, item.unidad_clave, t)),
     chip(item.estado_clave, t), `<code>${escaparHTML(item.recibo_ref)}</code>`, botonDescargaRecibo(item.recibo_ref, descargaRecibosDisponible, t),
   ]) : [];
-  const filasHistorial = puedeConsultarHistorial ? vista.historial.map((item) => [
-    escaparHTML(instanteVisible(item.instante, locale, zonaHoraria).completo), escaparHTML(item.evento), escaparHTML(item.detalle),
+  const filasHistorial = vista.historial.filter((item) => ambitoPermitido(item)
+    && (item.requiere_horario === false || puedeConsultarHorario)).map((item) => [
+    escaparHTML(instanteVisible(item.instante, locale, zonaHoraria).completo), escaparHTML(item.evento), escaparHTML(item.detalle).replaceAll("\n", "<br>"),
     chip(item.estado_clave, t), `<code>${escaparHTML(item.recibo_ref)}</code>`,
-  ]) : [];
-  const filasRecibos = recibos.map((item) => [
+  ]);
+  const filasRecibos = recibos.filter(reciboProcedente).map((item) => [
     `<code>${escaparHTML(item.referencia)}</code>`, escaparHTML(instanteVisible(item.instante, locale, zonaHoraria).completo),
     escaparHTML(item.operacion), chip(item.estado_clave, t), botonDescargaRecibo(item.referencia, descargaRecibosDisponible, t),
   ]);
@@ -170,6 +191,11 @@ export function renderizarAreaCronos({
       <p><strong>${escaparHTML(t("privacidad_texto"))}</strong> ${escaparHTML(t("privacidad_descripcion"))}</p>
     </section>
 
+    <p class="cronos-presentacion" role="status">${escaparHTML(t("presentacion_estado"))}</p>
+    <section class="panel cronos-panel cronos-incidencias" aria-labelledby="cronos-incidencias">
+      <div class="cabecera-panel"><div><h3 id="cronos-incidencias">${escaparHTML(t("incidencias_titulo"))}</h3><p>${escaparHTML(t("incidencias_descripcion"))}</p></div></div>
+      ${puedeConsultarFichajes ? vista.incidencias.map((item) => `<article class="cronos-incidencia"><strong>${escaparHTML(item.resumen)}</strong><p>${escaparHTML(item.detalle)}</p><span>${escaparHTML(instanteVisible(item.instante, locale, zonaHoraria).completo)}</span>${puedeFichar ? `<label class="cronos-observacion"><span>${escaparHTML(t("observacion"))}</span><textarea data-cronos-observacion="${escaparHTML(item.id)}" minlength="8" maxlength="500" required rows="3"></textarea><small>${escaparHTML(t("observacion_ayuda"))}</small></label><button type="button" class="boton-secundario" data-cronos-accion="preparar-observacion" data-cronos-incidencia-ref="${escaparHTML(item.id)}">${escaparHTML(t("preparar_observacion"))}</button>` : `<button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("accion_incidencia_sin_capacidad"))}">${escaparHTML(t("preparar_observacion"))}</button>`}</article>`).join("") : `<p class="cronos-acceso-denegado">${escaparHTML(t("incidencia_sin_capacidad"))}</p>`}
+    </section>
     <nav class="cronos-navegacion" aria-label="${escaparHTML(t("navegacion_etiqueta"))}">
       <button type="button" data-cronos-destino="cronos-resumen">${escaparHTML(t("navegacion_resumen"))}</button><button type="button" data-cronos-destino="cronos-fichajes">${escaparHTML(t("navegacion_fichajes"))}</button>
       <button type="button" data-cronos-destino="cronos-permisos">${escaparHTML(t("navegacion_permisos"))}</button><button type="button" data-cronos-destino="cronos-historial">${escaparHTML(t("navegacion_historial"))}</button>
@@ -178,8 +204,8 @@ export function renderizarAreaCronos({
     <div class="cronos-indicadores" aria-label="${escaparHTML(t("resumen_etiqueta"))}">
       ${indicador(t("indicador_jornada"), puedeConsultarHorario ? resumen.teoricas_hoy : "—", puedeConsultarHorario ? vista.periodo : t("sin_permiso"))}
       ${indicador(t("indicador_trabajado"), puedeConsultarFichajes ? resumen.trabajadas_hoy : "—", puedeConsultarFichajes ? t("nota_movimientos") : t("sin_permiso"), puedeConsultarFichajes ? "exito" : "informacion")}
-      ${indicador(t("indicador_saldo_dia"), puedeConsultarFichajes ? resumen.saldo_hoy : "—", puedeConsultarFichajes ? t("nota_calculo") : t("sin_permiso"), puedeConsultarFichajes ? "exito" : "informacion")}
-      ${indicador(t("indicador_saldo_periodo"), puedeConsultarFichajes ? resumen.saldo_periodo : "—", puedeConsultarFichajes ? t("nota_acumulado") : t("sin_permiso"), "informacion")}
+      ${indicador(t("indicador_saldo_dia"), puedeConsultarSaldoHorario ? resumen.saldo_hoy : "—", puedeConsultarSaldoHorario ? t("nota_calculo") : t("sin_permiso"), puedeConsultarSaldoHorario ? "exito" : "informacion")}
+      ${indicador(t("indicador_saldo_periodo"), puedeConsultarSaldoHorario ? resumen.saldo_periodo : "—", puedeConsultarSaldoHorario ? t("nota_acumulado") : t("sin_permiso"), "informacion")}
       ${indicador(t("indicador_incidencias"), puedeConsultarFichajes ? resumen.incidencias_abiertas : "—", puedeConsultarFichajes ? t("nota_revision") : t("sin_permiso"), puedeConsultarFichajes && resumen.incidencias_abiertas ? "aviso" : "informacion")}
       ${indicador(t("indicador_solicitudes"), puedeConsultarPermisos ? resumen.solicitudes_pendientes : "—", puedeConsultarPermisos ? t("nota_circuito") : t("sin_permiso"), puedeConsultarPermisos && resumen.solicitudes_pendientes ? "aviso" : "informacion")}
     </div>

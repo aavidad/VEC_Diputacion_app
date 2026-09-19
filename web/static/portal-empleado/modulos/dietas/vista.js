@@ -5,34 +5,22 @@ import { CODIGO_ERROR_SERVICIO_RUTAS_DIETAS } from "./contrato.js";
 const ESTADOS_FILTRO = Object.freeze([
   ["todos", "estado_todos"],
   ["borrador", "estado_borrador"],
-  ["pendiente_jefatura", "estado_pendiente_jefatura"],
-  ["aprobada", "estado_aprobada"],
-  ["enviada_rrhh", "estado_enviada_rrhh"],
-  ["enviada_nomina", "estado_enviada_nomina"],
-  ["pagada", "estado_pagada"],
 ]);
 
-const CLAVES_ESTADO = Object.freeze(Object.fromEntries(ESTADOS_FILTRO.slice(1)));
-const CLAVES_ETAPA = Object.freeze({
-  borrador: "etapa_borrador", jefatura: "etapa_jefatura", aprobada: "etapa_aprobada",
-  rrhh: "etapa_rrhh", nomina: "etapa_nomina", pagada: "etapa_pagada",
-});
-const CLAVES_SIGUIENTE = Object.freeze({
-  remision_rrhh: "siguiente_remision_rrhh",
-  completar_enviar_validacion: "siguiente_completar_enviar_validacion",
-  expediente_finalizado: "siguiente_expediente_finalizado",
-  inclusion_nomina: "siguiente_inclusion_nomina",
-  revision_jefatura: "siguiente_revision_jefatura",
-});
-const CLAVES_RESULTADO = Object.freeze({
-  borrador_creado_demo: "resultado_borrador_creado_demo",
-  envio_jefatura_demo: "resultado_envio_jefatura_demo",
-});
+const CLAVES_ESTADO = Object.freeze({ borrador: "estado_borrador" });
+const CLAVES_SIGUIENTE = Object.freeze({ completar_enviar_validacion: "siguiente_completar_enviar_validacion" });
+const CLAVES_RESULTADO = Object.freeze({ borrador_creado_demo: "resultado_borrador_creado_demo" });
 const CLAVES_ETIQUETA_ALTERNATIVA = Object.freeze({
   ruta_alternativa_osrm_1: "ruta_etiqueta_osrm_1",
   ruta_alternativa_osrm_2: "ruta_etiqueta_osrm_2",
   ruta_alternativa_osrm_3: "ruta_etiqueta_osrm_3",
 });
+
+// Una misma raíz puede ser reutilizada por el shell. La marca no se renderiza
+// ni se expone: únicamente evita que una operación de un montaje retirado
+// modifique atributos o controles del montaje que lo ha sustituido.
+const PROPIETARIOS_RAIZ_DIETAS = new WeakMap();
+let siguienteMarcaRaizDietas = 0;
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -64,14 +52,18 @@ function fechaHora(valor) {
 }
 
 function claseEstado(estado) {
-  if (estado === "pagada" || estado === "aprobada") return "exito";
-  if (estado === "borrador") return "neutro";
-  if (estado === "pendiente_jefatura") return "aviso";
-  return "info";
+  return estado === "borrador" ? "neutro" : "info";
 }
 
 function traducirCodigo(t, mapa, codigo, respaldo = "sin_capacidad") {
   return t(mapa[codigo] || respaldo);
+}
+
+function mensajeErrorSeguro(error, t, contexto = "guardar") {
+  if (error?.codigo === "DIETAS_FECHAS_INVERTIDAS") return t("error_fechas_invertidas");
+  if (contexto === "alternativa") return t("error_ruta_alternativa");
+  if (contexto === "calculo") return t("error_calculo_ruta");
+  return t("error_guardar_borrador");
 }
 
 function opcionesEstado(seleccionado, t) {
@@ -80,20 +72,9 @@ function opcionesEstado(seleccionado, t) {
     .join("");
 }
 
-function renderizarEtapas(modelo, comision, t) {
-  return `<ol class="dietas-etapas" aria-label="${escaparHTML(t("circuito_aprobacion"))}">
-    ${modelo.etapas.map((etapa, indice) => {
-      const clase = indice < comision.etapa_actual ? "completada" : (indice === comision.etapa_actual ? "actual" : "pendiente");
-      const claveEstado = indice < comision.etapa_actual ? "etapa_completada" : (indice === comision.etapa_actual ? "etapa_actual" : "etapa_pendiente");
-      return `<li class="${clase}"><span aria-hidden="true">${indice + 1}</span><strong>${escaparHTML(traducirCodigo(t, CLAVES_ETAPA, etapa))}</strong><small>${escaparHTML(t(claveEstado))}</small></li>`;
-    }).join("")}
-  </ol>`;
-}
-
 function identificadorHTML(valor) {
   return String(valor ?? "mapa").replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 90) || "mapa";
 }
-
 function renderizarMapaRuta(item, t) {
   if (!item.mapa_ruta) return "";
   const referenciaMapa = item.mapa_ruta.vista_ref || "mapa-dietas";
@@ -126,7 +107,6 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
         <div><dt>${escaparHTML(t("justificantes"))}</dt><dd>${numero(item.justificantes)}</dd></div>
         <div><dt>${escaparHTML(t("siguiente_actuacion"))}</dt><dd>${escaparHTML(traducirCodigo(t, CLAVES_SIGUIENTE, item.siguiente_actuacion))}</dd></div>
       </dl>
-      ${renderizarEtapas(modelo, item, t)}
       <section aria-labelledby="dietas-titulo-desglose"><h4 id="dietas-titulo-desglose">${escaparHTML(t("desglose_gastos"))}</h4>
         <dl class="dietas-desglose">
           <div><dt>${escaparHTML(t("kilometraje"))}</dt><dd>${modelo.capacidades.consultarRutas ? euros(item.kilometraje_euros) : escaparHTML(t("sin_capacidad"))}</dd></div>
@@ -136,13 +116,11 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
           <div class="total"><dt>${escaparHTML(t("total"))}</dt><dd>${euros(item.total_euros)}</dd></div>
         </dl>
       </section>
-      ${item.nomina ? `<p class="dietas-pago"><strong>${escaparHTML(t("pago_asociado", { demo: modelo.demostracion ? " DEMO" : "" }))}</strong> ${escaparHTML(item.nomina)} · ${escaparHTML(item.referencia_pago)}</p>` : ""}
       ${modelo.capacidades.consultarHistorialPropio
     ? `<section aria-labelledby="dietas-titulo-historial"><h4 id="dietas-titulo-historial">${escaparHTML(t("historial_trazabilidad"))}</h4><ol class="dietas-historial">${historial}</ol></section>`
     : `<p role="status">${escaparHTML(t("auditoria_denegada"))}</p>`}
       <div class="acciones-vista">
         ${modelo.capacidades.consultarHistorialPropio ? `<button type="button" class="boton-secundario" data-dietas-descargar-recibo="${escaparHTML(item.historial.at(-1)?.recibo || "")}" ${descargaDisponible ? "" : "disabled"}>${escaparHTML(t(descargaDisponible ? "descargar_recibo" : "descarga_no_conectada"))}</button>` : ""}
-        ${item.estado === "borrador" && modelo.capacidades.gestionarGastos ? `<button type="button" class="boton-primario" data-dietas-enviar="${escaparHTML(item.referencia)}" ${confirmacionDisponible ? "" : "disabled"}>${escaparHTML(confirmacionDisponible ? t("enviar_validacion", { demo: modelo.demostracion ? " DEMO" : "" }) : t("confirmacion_no_conectada"))}</button>` : ""}
       </div>
     </div>
   </section>`;
@@ -166,18 +144,6 @@ function renderizarTabla(modelo, t) {
   </section>`;
 }
 
-function renderizarHistorialMensual(modelo, descargaDisponible, t) {
-  const anual = modelo.resumenAnual;
-  return `<section class="panel dietas-resumen-anual" aria-labelledby="dietas-titulo-resumen-anual">
-    <div class="cabecera-panel"><div><h3 id="dietas-titulo-resumen-anual">${escaparHTML(t("resumen_mes"))}</h3><span>${escaparHTML(t(modelo.demostracion ? "escenario_demo" : "datos_sesion"))}</span></div>
-      ${anual ? `<button type="button" class="boton-secundario dietas-exportar-anual" data-dietas-descargar-anual="${anual.anio}" ${descargaDisponible && modelo.demostracion ? "" : "disabled"}>${escaparHTML(t(descargaDisponible && modelo.demostracion ? "descargar_resumen_anual" : "resumen_anual_no_conectado", { anio: anual.anio }))}</button>` : ""}
-    </div>
-    <div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(t("caption_historico"))}</caption>
-      <thead><tr><th scope="col">${escaparHTML(t("cab_mes"))}</th><th scope="col">${escaparHTML(t("cab_expedientes"))}</th><th scope="col">${escaparHTML(t("cab_kilometros"))}</th><th scope="col">${escaparHTML(t("cab_devengado"))}</th><th scope="col">${escaparHTML(t("cab_pagado"))}</th></tr></thead>
-      <tbody>${modelo.historialMensual.map((item) => `<tr><th scope="row">${escaparHTML(item.mes)}</th><td class="numero">${numero(item.expedientes)}</td><td class="numero">${modelo.capacidades.consultarRutas ? `${numero(item.kilometros, 1)} ${escaparHTML(t("unidad_km"))}` : escaparHTML(t("sin_capacidad"))}</td><td class="numero">${euros(item.total_euros)}</td><td class="numero">${euros(item.pagado_euros)}</td></tr>`).join("")}</tbody>
-    </table></div>
-  </section>`;
-}
 
 function opcionesCatalogoRuta(puntos, seleccionado, t) {
   return `<option value="">${escaparHTML(t("ruta_seleccionar_localidad"))}</option>${puntos.map((punto) => {
@@ -244,11 +210,11 @@ function renderizarFormulario(modelo, t, errorRuta = "") {
       ${renderizarHerramientaRutas(modelo.herramientaRutas, t, errorRuta)}
       <label class="dietas-vehiculo-propio"><span>${escaparHTML(t("vehiculo"))}</span><span><input name="vehiculo_propio" type="checkbox" checked> ${escaparHTML(t("vehiculo_propio"))}</span></label>
       <label>${escaparHTML(t("tarifa_kilometro"))}<input name="tarifa_kilometro_euros" type="number" value="${escaparHTML(modelo.politica.tarifa_kilometro_euros)}" step="0.01" readonly></label>
-      <label>${escaparHTML(t("manutencion"))}<input name="manutencion_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.manutencion_euros)}"></label>
-      <label>${escaparHTML(t("alojamiento"))}<input name="alojamiento_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.alojamiento_euros)}"></label>
-      <label>${escaparHTML(t("otros_gastos"))}<input name="otros_gastos_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.otros_gastos_euros)}"></label>
+      <label>${escaparHTML(t("manutencion"))}<input name="manutencion_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.manutencion_euros)}" required></label>
+      <label>${escaparHTML(t("alojamiento"))}<input name="alojamiento_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.alojamiento_euros)}" required></label>
+      <label>${escaparHTML(t("otros_gastos"))}<input name="otros_gastos_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.otros_gastos_euros)}" required></label>
       <p class="campo-ancho dietas-politica"><strong>${escaparHTML(t(modelo.demostracion ? "tarifa_escenario" : "tarifa_aplicable"))}:</strong> ${euros(modelo.politica.tarifa_kilometro_euros)}/${escaparHTML(t("unidad_km"))} · ${escaparHTML(modelo.politica.version)}</p>
-      <dl class="campo-ancho dietas-borrador-resumen" aria-live="polite"><div><dt>${escaparHTML(t("ruta_km_total"))}</dt><dd data-dietas-resumen-borrador="kilometros">0,0 km</dd></div><div><dt>${escaparHTML(t("kilometraje"))}</dt><dd data-dietas-resumen-borrador="kilometraje">0,00 €</dd></div><div><dt>${escaparHTML(t("dietas_gastos"))}</dt><dd data-dietas-resumen-borrador="gastos">0,00 €</dd></div><div><dt>${escaparHTML(t("total"))}</dt><dd data-dietas-resumen-borrador="total">0,00 €</dd></div></dl>
+      <dl class="campo-ancho dietas-borrador-resumen" aria-live="polite"><div><dt>${escaparHTML(t("ruta_km_total"))}</dt><dd data-dietas-resumen-borrador="kilometros">${escaparHTML(t("pendiente_calculo"))}</dd></div><div><dt>${escaparHTML(t("kilometraje"))}</dt><dd data-dietas-resumen-borrador="kilometraje">${escaparHTML(t("pendiente_calculo"))}</dd></div><div><dt>${escaparHTML(t("dietas_gastos"))}</dt><dd data-dietas-resumen-borrador="gastos">${escaparHTML(t("gastos_requeridos"))}</dd></div><div><dt>${escaparHTML(t("total"))}</dt><dd data-dietas-resumen-borrador="total">${escaparHTML(t("pendiente_calculo"))}</dd></div></dl>
       <div class="campo-ancho acciones-vista"><button type="submit" class="boton-primario" ${modelo.herramientaRutas?.lista_para_borrador ? "" : "disabled"}>${escaparHTML(t(modelo.herramientaRutas?.lista_para_borrador ? "guardar_borrador" : "ruta_calcular_antes_guardar", { demo: modelo.demostracion ? " DEMO" : "" }))}</button></div>
     </form>
   </details>`;
@@ -272,19 +238,17 @@ export function renderizarDietas(modelo, {
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PEN</span><div><strong class="valor-kpi">${numero(modelo.resumen.pendientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pendientes"))}</span></div></article>
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">KM</span><div><strong class="valor-kpi">${modelo.capacidades.consultarRutas ? numero(modelo.resumen.kilometros, 1) : escaparHTML(t("sin_capacidad"))}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_kilometros"))}</span></div></article>
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">DEV</span><div><strong class="valor-kpi">${euros(modelo.resumen.total_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_devengado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PAG</span><div><strong class="valor-kpi">${euros(modelo.resumen.pagado_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pagado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
     </div>
     ${recibo ? `<section class="dietas-recibo" role="status" tabindex="-1" data-dietas-recibo><strong>${escaparHTML(traducirCodigo(t, CLAVES_RESULTADO, recibo.resultado))}</strong><span>${escaparHTML(t("recibo_estado", { referencia: recibo.referencia, actor: recibo.actor_ref, efectos: recibo.efectos_reales === false ? t("sin_efectos") : "" }))}</span></section>` : '<div class="dietas-anuncio" role="status" aria-live="polite" data-dietas-anuncio></div>'}
-    ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t, errorRuta) : ""}
     <form class="dietas-filtros" data-dietas-filtros aria-label="${escaparHTML(t("filtros_etiqueta"))}"><label>${escaparHTML(t("buscar"))}<input name="texto" type="search" value="${escaparHTML(modelo.filtros.texto)}" placeholder="${escaparHTML(t("buscar_placeholder"))}"></label><label>${escaparHTML(t("cab_estado"))}<select name="estado">${opcionesEstado(modelo.filtros.estado, t)}</select></label><button type="submit" class="boton-secundario">${escaparHTML(t("aplicar_filtros"))}</button></form>
+    <section class="dietas-limite-presentacion" role="note"><strong>${escaparHTML(t("presentacion_sintetica"))}</strong><span>${escaparHTML(t("presentacion_aviso_completo"))}</span></section>
+    ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t, errorRuta) : ""}
     <div class="dietas-espacio-trabajo">${renderizarTabla(modelo, t)}${renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t)}</div>
-    ${renderizarHistorialMensual(modelo, descargaDisponible, t)}
   </div>`;
 }
 
 /**
  * Punto de montaje para el shell del portal.
- *
  * Ejemplo de composicion desde portal.js:
  *   await montarModuloDietas({ raiz, contextoActor, capacidades, adaptador,
  *     descargarRecibo, confirmarOperacion })
@@ -323,19 +287,67 @@ export async function montarModuloDietas({
     throw new Error("puerto de mapa de Dietas no válido");
   }
   const t = crearTraductorDietas(mensajes);
+  // Reclamar antes del primer await: el orden de llegada, no el de respuesta,
+  // decide qué montaje puede usar esta raíz reutilizada por el coordinador.
+  const propietarioRaiz = Object.freeze({});
+  const marcaRaiz = `dietas-montaje-${++siguienteMarcaRaizDietas}`;
+  let centinelaRaiz = null;
+
+  // El WeakMap protege Dietas contra otro Dietas, pero no puede saber que el
+  // coordinador montó Cronos (u otra vista) sin volver a llamar a Dietas. Un
+  // centinela físico en la raíz hace observable esa sustitución: replaceChildren
+  // o innerHTML de la otra vista lo retira y el montaje pendiente queda inerte.
+  function instalarCentinelaRaiz() {
+    if (centinelaRaiz && typeof raiz.contains === "function" && raiz.contains(centinelaRaiz)) return;
+    const documento = raiz.ownerDocument;
+    if (typeof documento?.createElement === "function" && typeof raiz.appendChild === "function") {
+      centinelaRaiz = documento.createElement("span");
+      centinelaRaiz.hidden = true;
+      centinelaRaiz.setAttribute("aria-hidden", "true");
+      centinelaRaiz.setAttribute("data-dietas-montaje", marcaRaiz);
+      raiz.appendChild(centinelaRaiz);
+      return;
+    }
+    // Los dobles mínimos de pruebas no implementan nodos; conservan una marca
+    // HTML equivalente para acreditar el mismo contrato de propiedad.
+    const comentario = `<!--${marcaRaiz}-->`;
+    if (!String(raiz.innerHTML || "").includes(comentario)) raiz.innerHTML = `${comentario}${raiz.innerHTML || ""}`;
+  }
+
+  function conservaCentinelaRaiz() {
+    if (centinelaRaiz) return typeof raiz.contains === "function" && raiz.contains(centinelaRaiz);
+    return String(raiz.innerHTML || "").includes(`<!--${marcaRaiz}-->`);
+  }
+
+  PROPIETARIOS_RAIZ_DIETAS.set(raiz, propietarioRaiz);
+  instalarCentinelaRaiz();
+  const montajeSustituido = Object.freeze({ obtenerModelo: () => null, desmontar() {} });
   let catalogoRutas = null;
   if (calculadorRuta) {
     try {
       catalogoRutas = await calculadorRuta.obtenerCatalogo();
+      if (!poseeRaiz()) return montajeSustituido;
     } catch {
+      if (!poseeRaiz()) return montajeSustituido;
       anunciar(t("ruta_puerto_no_disponible"), "error");
     }
   }
+  let datos;
+  try {
+    datos = await adaptador.obtenerDatos();
+    if (!poseeRaiz()) return montajeSustituido;
+  } catch (error) {
+    if (!poseeRaiz()) return montajeSustituido;
+    PROPIETARIOS_RAIZ_DIETAS.delete(raiz);
+    throw error;
+  }
   const presentador = crearPresentadorDietas({
-    datos: await adaptador.obtenerDatos(), contextoActor, capacidades, origenComprobacion, catalogoRutas,
+    datos, contextoActor, capacidades, origenComprobacion, catalogoRutas,
   });
   let activa = true;
   let ocupado = false;
+  let generacionVida = 0;
+  const abortadores = new Set();
   let visoresMontados = [];
   let borradorEdicion = null;
   let focoPendiente = null;
@@ -377,7 +389,7 @@ export async function montarModuloDietas({
     }
     if (!control?.focus) return;
     const enfocar = () => {
-      if (typeof raiz.contains !== "function" || raiz.contains(control)) {
+      if (activa && poseeRaiz() && (typeof raiz.contains !== "function" || raiz.contains(control))) {
         control.focus({ preventScroll: true });
       }
     };
@@ -418,7 +430,7 @@ export async function montarModuloDietas({
   }
 
   function pintar() {
-    if (!activa) return;
+    if (!activa || !poseeRaiz()) return;
     const foco = capturarFoco() || focoPendiente;
     desmontarVisor();
     const modelo = presentador.obtenerModelo();
@@ -428,6 +440,7 @@ export async function montarModuloDietas({
       mensajes,
       errorRuta,
     });
+    instalarCentinelaRaiz();
     restaurarBorradorEdicion();
     if (visorRuta) {
       // La geometría histórica del expediente permanece en el modelo para
@@ -450,15 +463,27 @@ export async function montarModuloDietas({
     const formulario = raiz.querySelector("[data-dietas-formulario]");
     if (!formulario) return;
     const modelo = presentador.obtenerModelo();
-    const kilometrosRuta = Number(modelo.herramientaRutas?.kilometros_total || 0);
+    const rutaLista = modelo.herramientaRutas?.lista_para_borrador === true;
     const vehiculoPropio = formulario.querySelector("[name='vehiculo_propio']")?.checked === true;
-    const kilometros = vehiculoPropio ? kilometrosRuta : 0;
-    const valor = (nombre) => Number(formulario.querySelector(`[name='${nombre}']`)?.value || 0);
-    const kilometraje = kilometros * Number(modelo.politica.tarifa_kilometro_euros || 0);
-    const gastos = valor("manutencion_euros") + valor("alojamiento_euros") + valor("otros_gastos_euros");
+    const kilometrosRuta = Number(modelo.herramientaRutas?.kilometros_total);
+    const valor = (nombre) => {
+      const texto = formulario.querySelector(`[name='${nombre}']`)?.value;
+      return texto === undefined || texto.trim() === "" ? null : Number(texto);
+    };
+    const gastosEntrada = [valor("manutencion_euros"), valor("alojamiento_euros"), valor("otros_gastos_euros")];
+    const gastosCompletos = gastosEntrada.every((importe) => Number.isFinite(importe) && importe >= 0);
+    const gastos = gastosCompletos ? gastosEntrada.reduce((total, importe) => total + importe, 0) : null;
+    // La distancia siempre es la física de la ruta calculada. El selector de
+    // vehículo sólo afecta al importe indemnizable, no al snapshot de ruta.
+    const kilometros = rutaLista && Number.isFinite(kilometrosRuta) ? kilometrosRuta : null;
+    const kilometraje = rutaLista
+      ? (vehiculoPropio ? kilometros * Number(modelo.politica.tarifa_kilometro_euros) : 0)
+      : null;
     const valores = {
-      kilometros: `${numero(kilometros, 1)} km`, kilometraje: euros(kilometraje),
-      gastos: euros(gastos), total: euros(kilometraje + gastos),
+      kilometros: rutaLista ? `${numero(kilometros, 1)} km` : t("pendiente_calculo"),
+      kilometraje: rutaLista ? euros(kilometraje) : t("pendiente_calculo"),
+      gastos: gastosCompletos ? euros(gastos) : t("gastos_requeridos"),
+      total: rutaLista && gastosCompletos ? euros(kilometraje + gastos) : t("pendiente_calculo"),
     };
     Object.entries(valores).forEach(([clave, contenido]) => {
       const salida = formulario.querySelector(`[data-dietas-resumen-borrador='${clave}']`);
@@ -471,12 +496,38 @@ export async function montarModuloDietas({
     return Object.fromEntries(datos.entries());
   }
 
+  function poseeRaiz() {
+    return PROPIETARIOS_RAIZ_DIETAS.get(raiz) === propietarioRaiz && conservaCentinelaRaiz();
+  }
+
+  function vigente(generacion) {
+    return activa && generacion === generacionVida && poseeRaiz();
+  }
+
+  function abortarOperacionesPendientes() {
+    abortadores.forEach((controlador) => controlador.abort());
+    abortadores.clear();
+  }
+
+  function nuevaOperacion() {
+    const controlador = typeof AbortController === "function" ? new AbortController() : null;
+    if (controlador) abortadores.add(controlador);
+    return Object.freeze({
+      generacion: generacionVida,
+      signal: controlador?.signal,
+      cerrar() { if (controlador) abortadores.delete(controlador); },
+    });
+  }
+
   function marcarOcupado(valor) {
     ocupado = valor;
-    if (valor) raiz.setAttribute("aria-busy", "true");
-    else raiz.removeAttribute("aria-busy");
+    // No tocar una raíz que ya pertenece a otro montaje. Esto cubre también
+    // el finally de promesas que ignoran AbortSignal.
+    if (!poseeRaiz()) return;
+    if (valor) raiz.setAttribute?.("aria-busy", "true");
+    else raiz.removeAttribute?.("aria-busy");
     raiz.querySelectorAll([
-      "[data-dietas-enviar]", "[data-dietas-descargar-recibo]",
+      "[data-dietas-descargar-recibo]",
       "[data-dietas-descargar-anual]",
       "[data-dietas-ruta-calcular]", "[data-dietas-ruta-alternativa]", "[data-dietas-ruta-aplicar-ajuste]",
       "[data-dietas-formulario] button[type='submit']",
@@ -492,23 +543,30 @@ export async function montarModuloDietas({
   }
 
   async function conBloqueo(tarea) {
-    if (ocupado) throw new Error(t("operacion_en_curso"));
+    if (!activa || !poseeRaiz() || ocupado) throw new Error(t("operacion_en_curso"));
+    const operacion = nuevaOperacion();
     focoPendiente = capturarFoco();
     marcarOcupado(true);
     try {
-      return await tarea();
+      return await tarea(operacion);
     } finally {
-      marcarOcupado(false);
-      if (focoPendiente) {
-        restaurarFoco(focoPendiente);
-        focoPendiente = null;
+      operacion.cerrar();
+      // Una respuesta de una instancia ya desmontada no puede desbloquear ni
+      // enfocar una raíz reutilizada por el montaje siguiente.
+      if (vigente(operacion.generacion)) {
+        marcarOcupado(false);
+        if (focoPendiente) {
+          restaurarFoco(focoPendiente);
+          focoPendiente = null;
+        }
       }
     }
   }
 
   async function ejecutarComando(comando, mensaje, { reiniciarBorrador = false } = {}) {
-    await conBloqueo(async () => {
+    await conBloqueo(async (operacion) => {
       const siguientesDatos = await adaptador.ejecutar(comando);
+      if (!vigente(operacion.generacion)) return;
       presentador.actualizarDatos(siguientesDatos);
       if (reiniciarBorrador) {
         borradorEdicion = null;
@@ -521,6 +579,7 @@ export async function montarModuloDietas({
   }
 
   async function alClic(evento) {
+    if (!activa || !poseeRaiz()) return;
     if (ocupado) {
       evento.preventDefault();
       anunciar(t("espere_operacion"));
@@ -541,7 +600,7 @@ export async function montarModuloDietas({
         presentador.rutas.agregarParada();
         pintar();
         anunciar(t("ruta_parada_anadida"));
-      } catch (error) { anunciar(error.message, "error"); }
+      } catch (error) { anunciar(mensajeErrorSeguro(error, t), "error"); }
       return;
     }
     const quitarParada = evento.target.closest?.("[data-dietas-ruta-quitar]");
@@ -552,25 +611,28 @@ export async function montarModuloDietas({
         presentador.rutas.eliminarParada(Number(quitarParada.dataset.dietasRutaQuitar));
         pintar();
         anunciar(t("ruta_parada_eliminada"));
-      } catch (error) { anunciar(error.message, "error"); }
+      } catch (error) { anunciar(mensajeErrorSeguro(error, t), "error"); }
       return;
     }
     const calcularRuta = evento.target.closest?.("[data-dietas-ruta-calcular]");
     if (calcularRuta && presentador.rutas) {
+      const generacionEvento = generacionVida;
       try {
         if (!calculadorRuta) throw new Error(t("ruta_puerto_no_disponible"));
         errorRuta = "";
         capturarBorradorEdicion();
-        await conBloqueo(async () => {
+        await conBloqueo(async (operacion) => {
           const solicitud = presentador.rutas.prepararSolicitudCalculo();
-          const calculo = await calculadorRuta.calcular(solicitud);
+          const calculo = await calculadorRuta.calcular(solicitud, { signal: operacion.signal });
+          if (!vigente(operacion.generacion)) return;
           presentador.rutas.registrarCalculo(calculo);
           pintar();
           anunciar(t("ruta_calculo_completado"));
         });
       } catch (error) {
+        if (!vigente(generacionEvento)) return;
         errorRuta = t(error?.codigo === CODIGO_ERROR_SERVICIO_RUTAS_DIETAS
-          ? "ruta_error_servicio" : "ruta_error_operacion");
+          ? "ruta_error_servicio" : "error_calculo_ruta");
         pintar();
         anunciar(errorRuta, "error");
       }
@@ -585,7 +647,7 @@ export async function montarModuloDietas({
         presentador.rutas.seleccionarAlternativa(alternativa.dataset.dietasRutaAlternativa, motivo);
         pintar();
         anunciar(t("ruta_alternativa_aplicada"));
-      } catch (error) { anunciar(error.message, "error"); }
+      } catch (error) { anunciar(mensajeErrorSeguro(error, t, "alternativa"), "error"); }
       return;
     }
     const aplicarAjuste = evento.target.closest?.("[data-dietas-ruta-aplicar-ajuste]");
@@ -601,67 +663,46 @@ export async function montarModuloDietas({
         );
         pintar();
         anunciar(t("ruta_ajuste_aplicado"));
-      } catch (error) { anunciar(error.message, "error"); }
-      return;
-    }
-    const enviar = evento.target.closest?.("[data-dietas-enviar]");
-    if (enviar) {
-      try {
-        if (typeof confirmarOperacion !== "function") throw new Error(t("confirmacion_no_conectada"));
-        const modelo = presentador.obtenerModelo();
-        const item = modelo.comisiones.find((comision) => comision.referencia === enviar.dataset.dietasEnviar);
-        const confirmado = await conBloqueo(() => confirmarOperacion(Object.freeze({
-          tipo: "enviar_validacion",
-          referencia: item?.referencia || enviar.dataset.dietasEnviar,
-          titulo: t("confirmacion_titulo"),
-          advertencia: t("confirmacion_advertencia"),
-          estado: item?.estado || "",
-          importe_euros: item?.total_euros ?? null,
-          demostracion: modelo.demostracion,
-        })));
-        if (confirmado !== true) {
-          anunciar(t("confirmacion_cancelada"));
-          return;
-        }
-        await ejecutarComando(
-          { tipo: "enviar_validacion", referencia: enviar.dataset.dietasEnviar },
-          t("envio_demo_registrado"),
-        );
-      } catch (error) {
-        anunciar(error.message, "error");
-      }
+      } catch (error) { anunciar(mensajeErrorSeguro(error, t), "error"); }
       return;
     }
     const descargar = evento.target.closest?.("[data-dietas-descargar-recibo]");
     if (descargar && typeof descargarRecibo === "function") {
+      const generacionEvento = generacionVida;
       try {
-        await conBloqueo(async () => {
+        await conBloqueo(async (operacion) => {
           const descriptor = presentador.prepararDescriptorRecibo(descargar.dataset.dietasDescargarRecibo, t);
           await descargarRecibo(descriptor);
+          if (!vigente(operacion.generacion)) return;
           anunciar(t("recibo_generado", { referencia: descriptor.referencia }));
         });
       } catch (error) {
-        anunciar(error.message, "error");
+        if (!vigente(generacionEvento)) return;
+        anunciar(mensajeErrorSeguro(error, t), "error");
       }
       return;
     }
     const descargarAnual = evento.target.closest?.("[data-dietas-descargar-anual]");
     if (descargarAnual && typeof descargarRecibo === "function") {
+      const generacionEvento = generacionVida;
       try {
-        await conBloqueo(async () => {
+        await conBloqueo(async (operacion) => {
           const descriptor = presentador.prepararDescriptorResumenAnual(
             Number(descargarAnual.dataset.dietasDescargarAnual), t,
           );
           await descargarRecibo(descriptor);
+          if (!vigente(operacion.generacion)) return;
           anunciar(t("resumen_anual_generado", { anio: descriptor.periodo }));
         });
       } catch (error) {
-        anunciar(error.message, "error");
+        if (!vigente(generacionEvento)) return;
+        anunciar(mensajeErrorSeguro(error, t), "error");
       }
     }
   }
 
   async function alEnviar(evento) {
+    if (!activa || !poseeRaiz()) return;
     if (ocupado) {
       evento.preventDefault();
       anunciar(t("espere_operacion"));
@@ -678,6 +719,7 @@ export async function montarModuloDietas({
     const formulario = evento.target.closest?.("[data-dietas-formulario]");
     if (formulario) {
       evento.preventDefault();
+      const generacionEvento = generacionVida;
       try {
         const rutaBorrador = presentador.rutas.prepararRutaBorrador();
         const vehiculoPropio = formulario.querySelector("[name='vehiculo_propio']")?.checked === true;
@@ -685,19 +727,23 @@ export async function montarModuloDietas({
               { tipo: "crear_borrador", campos: {
                 ...datosFormulario(formulario),
                 ...rutaBorrador,
-                kilometros: vehiculoPropio ? rutaBorrador.kilometros : 0,
+                // El adaptador recibe siempre la distancia física para validar la trazabilidad.
+                // Sólo vehiculo_propio gobierna el kilometraje indemnizable.
+                kilometros: rutaBorrador.kilometros,
                 vehiculo_propio: vehiculoPropio,
               } },
               t("borrador_demo_creado"),
               { reiniciarBorrador: true },
         );
       } catch (error) {
-        anunciar(error.message, "error");
+        if (!vigente(generacionEvento)) return;
+        anunciar(mensajeErrorSeguro(error, t), "error");
       }
     }
   }
 
   function alCambiar(evento) {
+    if (!activa || !poseeRaiz()) return;
     const parada = evento.target.closest?.("[data-dietas-ruta-parada]");
     if (!parada || !presentador.rutas) {
       capturarBorradorEdicion();
@@ -709,10 +755,11 @@ export async function montarModuloDietas({
       capturarBorradorEdicion();
       presentador.rutas.establecerParada(Number(parada.dataset.dietasRutaParada), parada.value);
       pintar();
-    } catch (error) { anunciar(error.message, "error"); }
+    } catch (error) { anunciar(mensajeErrorSeguro(error, t), "error"); }
   }
 
   function alEntrada(evento) {
+    if (!activa || !poseeRaiz()) return;
     if (evento.target.closest?.("[data-dietas-formulario]")) {
       capturarBorradorEdicion();
       actualizarResumenBorrador();
@@ -729,13 +776,21 @@ export async function montarModuloDietas({
     obtenerModelo: presentador.obtenerModelo,
     desmontar() {
       if (!activa) return;
+      // El indicador pertenece a esta instancia y debe desaparecer antes de
+      // invalidarla. Si el shell ya reutilizó la raíz, no se modifica nada.
+      if (poseeRaiz()) {
+        marcarOcupado(false);
+        raiz.replaceChildren();
+        PROPIETARIOS_RAIZ_DIETAS.delete(raiz);
+      }
       activa = false;
+      generacionVida += 1;
+      abortarOperacionesPendientes();
       desmontarVisor();
       raiz.removeEventListener("click", alClic);
       raiz.removeEventListener("submit", alEnviar);
       raiz.removeEventListener("change", alCambiar);
       raiz.removeEventListener("input", alEntrada);
-      raiz.replaceChildren();
     },
   });
 }

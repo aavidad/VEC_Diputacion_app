@@ -31,7 +31,7 @@ import {
   validarSolicitudRutaDietas,
 } from "./contrato.js";
 
-const RUTA_CATALOGO = "/api/vec/workspace";
+const RUTA_CATALOGO = "/api/vec/dietas/route-catalog";
 const RUTA_CALCULO = "/api/vec/dietas/road-route";
 const TIEMPO_ESPERA_MS = 12_000;
 const MAXIMO_RESPUESTA_CATALOGO = 2 * 1024 * 1024;
@@ -47,6 +47,9 @@ const CAMPOS_OPCIONES_PETICION = new Set(["signal"]);
 const CAMPOS_PUNTO_BACKEND = new Set([
   "code", "name", "kind", "municipality_code", "municipality_name",
   "lat", "lon", "source", "state",
+]);
+const CAMPOS_RESPUESTA_RUTA = new Set([
+  "code", "engine", "route_scope", "data_version", "routes",
 ]);
 
 function esObjetoPlano(valor) {
@@ -401,9 +404,20 @@ async function referenciaCalculo(version, solicitud, rutas, cripto) {
   return `RUTA-OSRM-${hexadecimal}`;
 }
 
-async function proyectarCalculo(respuesta, solicitud, puntosPorCodigo, cripto) {
-  if (!esObjetoPlano(respuesta) || respuesta.code !== "Ok"
-    || respuesta.engine !== "osrm_on_premise") {
+function extraerRespuestaCanonicaRuta(respuesta) {
+  if (!esObjetoPlano(respuesta) || Object.keys(respuesta).length !== 1
+    || !Object.hasOwn(respuesta, "data") || !esObjetoPlano(respuesta.data)
+    || Object.hasOwn(respuesta.data, "data")
+    || Object.keys(respuesta.data).length !== CAMPOS_RESPUESTA_RUTA.size
+    || Object.keys(respuesta.data).some((campo) => !CAMPOS_RESPUESTA_RUTA.has(campo))) {
+    throw new TypeError("envoltura canonica de ruta no valida");
+  }
+  return respuesta.data;
+}
+
+async function proyectarCalculo(respuestaEnvuelta, solicitud, puntosPorCodigo, cripto) {
+  const respuesta = extraerRespuestaCanonicaRuta(respuestaEnvuelta);
+  if (respuesta.code !== "Ok" || respuesta.engine !== "osrm_on_premise") {
     throw new TypeError("respuesta del mediador OSRM no valida");
   }
   textoCanonico(respuesta.route_scope, "ambito de ruta", 160);
@@ -438,12 +452,15 @@ async function proyectarCalculo(respuesta, solicitud, puntosPorCodigo, cripto) {
 /** Compone el adaptador productivo; no acepta ContextoActor de demostracion. */
 export function crearCalculadorRutasDietasHTTP(opciones = {}) {
   exigirOpciones(opciones, CAMPOS_OPCIONES, "opciones del calculador HTTP");
-  const contexto = exigirContextoActorDietas(opciones.contextoActor);
-  const capacidades = validarCapacidadesDietas(opciones.capacidades);
-  if (contexto.demostracion !== false) {
+  const contexto = opciones.contextoActor === undefined ? null : exigirContextoActorDietas(opciones.contextoActor);
+  const capacidades = opciones.capacidades === undefined ? null : validarCapacidadesDietas(opciones.capacidades);
+  if ((contexto === null) !== (capacidades === null)) {
+    throw new TypeError("contexto y capacidades de Dietas deben llegar juntos");
+  }
+  if (contexto !== null && contexto.demostracion !== false) {
     throw new Error("el calculador HTTP exige un ContextoActor productivo");
   }
-  if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
+  if (capacidades !== null && !tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
     throw new Error("falta capacidad para consultar rutas de Dietas");
   }
   const fetchImpl = opciones.fetchImpl;

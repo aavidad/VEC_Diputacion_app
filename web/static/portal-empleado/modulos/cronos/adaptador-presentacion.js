@@ -5,6 +5,8 @@
  * No realiza HTTP, no persiste y no produce efectos administrativos.
  */
 
+import { normalizarTextoCronosMultilinea } from "./contrato.js";
+
 function copiar(valor) {
   return JSON.parse(JSON.stringify(valor));
 }
@@ -49,10 +51,19 @@ export function crearEjecutorCronosPresentacion({ reloj = () => new Date() } = {
         id: `DEMO-HIS-VOLATIL-${sufijo}`,
         actor_ref: actorRef,
         instante: ahora.toISOString().replace(/\.\d{3}Z$/, "Z"),
-        evento: "Fichaje de presentación",
+        ambito_clave: "fichaje", requiere_horario: false, evento: "Fichaje de presentación",
         detalle: movimiento,
         estado_clave: "simulado",
         recibo_ref: referencia,
+      });
+    } else if (comando.tipo === "preparar_observacion") {
+      const incidencia = datos.incidencias.find((item) => item.id === comando.incidencia_id);
+      if (!incidencia) throw new Error("incidencia no disponible");
+      const observacion = normalizarTextoCronosMultilinea(comando.observacion, "observación de presentación", 8);
+      operacion = "Observación de muestra preparada en memoria";
+      datos.historial.unshift({
+        id: `DEMO-HIS-VOLATIL-${sufijo}`, actor_ref: actorRef, instante: ahora.toISOString().replace(/\.\d{3}Z$/, "Z"),
+        ambito_clave: "fichaje", requiere_horario: false, evento: "Observación de muestra", detalle: observacion, estado_clave: "sin_registrar", recibo_ref: referencia,
       });
     } else if (comando.tipo === "solicitar_permiso") {
       const saldo = datos.saldos.find((item) => item.id === comando.permiso_id);
@@ -77,7 +88,7 @@ export function crearEjecutorCronosPresentacion({ reloj = () => new Date() } = {
         id: `DEMO-HIS-VOLATIL-${sufijo}`,
         actor_ref: actorRef,
         instante: ahora.toISOString().replace(/\.\d{3}Z$/, "Z"),
-        evento: "Solicitud preparada",
+        ambito_clave: "permiso", requiere_horario: false, evento: "Solicitud preparada",
         detalle: `${saldo.nombre}: ${comando.desde}–${comando.hasta}`,
         estado_clave: "sin_registrar",
         recibo_ref: referencia,
@@ -94,8 +105,10 @@ export function crearEjecutorCronosPresentacion({ reloj = () => new Date() } = {
         referencia,
         instante: ahora.toISOString().replace(/\.\d{3}Z$/, "Z"),
         operacion,
-        estado: "Simulado · sin persistencia ni efectos",
+        estado: "Presentación · no enviado · no registrado · sin efectos · memoria temporal",
+        efectos_reales: false,
         estado_clave: "simulado",
+        ambito_clave: comando.tipo === "solicitar_permiso" ? "permiso" : "fichaje",
         actor_ref: actorRef,
         demostracion: true,
       },

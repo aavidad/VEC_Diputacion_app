@@ -17,13 +17,19 @@ import {
   validarGeometriaRutaDietas,
   validarPanelDietas,
 } from "./contrato.js";
-import {
-  crearDatosDietasPresentacion,
-  crearGeometriaRutaDietasPresentacion,
-} from "./datos-presentacion.js";
+import { crearDatosDietasPresentacion } from "./datos-presentacion.js";
+
+function errorDietas(codigo) {
+  const error = new Error(codigo);
+  error.codigo = codigo;
+  return error;
+}
 
 function numeroNoNegativo(valor, nombre) {
-  const numero = Number(valor ?? 0);
+  if (valor === undefined || valor === null || String(valor).trim() === "") {
+    throw errorDietas("DIETAS_GASTO_REQUERIDO");
+  }
+  const numero = Number(valor);
   if (!Number.isFinite(numero) || numero < 0 || numero > 1_000_000) throw new Error(`${nombre} no valido`);
   return Math.round(numero * 100) / 100;
 }
@@ -51,17 +57,26 @@ function horaValida(valor, nombre) {
 }
 
 function rutaCalculada(campos) {
-  if (!Array.isArray(campos.ruta)) return null;
+  if (!Array.isArray(campos.ruta)) throw errorDietas("DIETAS_RUTA_PENDIENTE");
   if (campos.ruta.length < 2 || campos.ruta.length > 12) throw new Error("ruta calculada no valida");
   const ruta = campos.ruta.map((parada) => textoAcotado(parada, "parada", 100));
   const geometria = validarGeometriaRutaDietas(campos.geometria_ruta, ruta);
   const traza = campos.trazabilidad_ruta;
-  if (!traza || typeof traza !== "object" || Array.isArray(traza)
-    || traza.motor !== "simulacion_osrm_demo" || traza.liquidable !== false
-    || typeof traza.calculo_ref !== "string" || !/^DEMO-RUTA-[A-Z0-9-]{6,80}$/.test(traza.calculo_ref)
-    || !Array.isArray(traza.ajustes)) {
-    throw new Error("trazabilidad de ruta DEMO no valida");
+  if (!traza || typeof traza !== "object" || Array.isArray(traza) || traza.liquidable !== false
+    || !Array.isArray(traza.ajustes) || !traza.ruta || typeof traza.ruta !== "object"
+    || traza.ruta.liquidable !== false || !traza.ruta.calculo || typeof traza.ruta.calculo !== "object"
+    || traza.ruta.calculo.referencia !== traza.calculo_ref
+    || traza.ruta.calculo.motor !== traza.motor || !Array.isArray(traza.ruta.trazado)
+    || traza.ruta.trazado.length < 2 || traza.ruta.trazado.length > 2_000
+    || !traza.ruta.kilometros || !Number.isFinite(traza.ruta.kilometros.final)
+    || traza.ruta.kilometros.final !== Number(campos.kilometros)) {
+    throw errorDietas("DIETAS_RUTA_INVALIDA");
   }
+  const contratoDemo = traza.motor === "simulacion_osrm_demo"
+    && /^DEMO-RUTA-[A-Z0-9-]{6,80}$/.test(traza.calculo_ref);
+  const contratoOSRM = traza.motor === "osrm_interno"
+    && /^OSRM-[A-Z2-7]{52}$/.test(traza.calculo_ref);
+  if (!contratoDemo && !contratoOSRM) throw errorDietas("DIETAS_RUTA_INVALIDA");
   return { ruta, geometria, traza: copiarDietas(traza) };
 }
 
@@ -108,16 +123,21 @@ export function crearAdaptadorDietasPresentacion({
     const fechaFin = fechaValida(campos.fecha_fin || campos.fecha);
     const horaInicio = horaValida(campos.hora_inicio || "08:00", "hora de inicio");
     const horaFin = horaValida(campos.hora_fin || "15:00", "hora de fin");
-    if (`${fechaFin}T${horaFin}` < `${fecha}T${horaInicio}`) throw new Error("el fin de la comision no puede ser anterior al inicio");
+    if (`${fechaFin}T${horaFin}` < `${fecha}T${horaInicio}`) throw errorDietas("DIETAS_FECHAS_INVERTIDAS");
     const motivo = textoAcotado(campos.motivo, "motivo");
     const calculada = rutaCalculada(campos);
-    const origen = calculada?.ruta[0] || textoAcotado(campos.origen, "origen", 80);
-    const destino = calculada ? textoAcotado(campos.destino, "destino", 100) : textoAcotado(campos.destino, "destino", 80);
+    if (typeof campos.vehiculo_propio !== "boolean") {
+      throw errorDietas("DIETAS_VEHICULO_PROPIO_INVALIDO");
+    }
     const kilometros = numeroNoNegativo(campos.kilometros, "kilometros");
     const manutencion = numeroNoNegativo(campos.manutencion_euros, "manutencion");
     const alojamiento = numeroNoNegativo(campos.alojamiento_euros, "alojamiento");
     const otros = numeroNoNegativo(campos.otros_gastos_euros, "otros gastos");
-    const kilometraje = Math.round(kilometros * Number(datos.politica.tarifa_kilometro_euros) * 100) / 100;
+    // La ruta describe el desplazamiento físico y nunca depende del medio.
+    // El vehículo propio sólo decide si ese desplazamiento genera kilometraje.
+    const kilometraje = campos.vehiculo_propio
+      ? Math.round(kilometros * Number(datos.politica.tarifa_kilometro_euros) * 100) / 100
+      : 0;
     const total = Math.round((kilometraje + manutencion + alojamiento + otros) * 100) / 100;
     const recibo = emitirRecibo("crear_borrador", referencia, "borrador_creado_demo");
     datos.comisiones.unshift({
@@ -127,13 +147,11 @@ export function crearAdaptadorDietasPresentacion({
       fecha_fin: fechaFin,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
-      vehiculo_propio: campos.vehiculo_propio === true,
+      vehiculo_propio: campos.vehiculo_propio,
       motivo,
-      ruta: calculada?.ruta || (origen === destino ? [origen, origen] : [origen, destino, origen]),
-      geometria_ruta: calculada?.geometria || crearGeometriaRutaDietasPresentacion(
-        origen === destino ? [origen, destino] : [origen, destino, origen],
-      ),
-      ...(calculada ? { trazabilidad_ruta: calculada.traza } : {}),
+      ruta: calculada.ruta,
+      geometria_ruta: calculada.geometria,
+      trazabilidad_ruta: calculada.traza,
       kilometros,
       kilometraje_euros: kilometraje,
       manutencion_euros: manutencion,
@@ -149,30 +167,22 @@ export function crearAdaptadorDietasPresentacion({
   }
 
   function enviarValidacion(referencia) {
-    const comision = datos.comisiones.find((item) => item.referencia === referencia);
-    if (!comision) throw new Error("comision no encontrada");
-    if (comision.estado !== "borrador") throw new Error("solo se puede enviar un borrador");
-    const recibo = emitirRecibo("enviar_validacion", referencia, "envio_jefatura_demo");
-    comision.estado = "pendiente_jefatura";
-    comision.etapa_actual = 1;
-    comision.siguiente_actuacion = "revision_jefatura";
-    comision.historial.push({ estado: "pendiente_jefatura", instante: recibo.instante, actor_ref: recibo.actor_ref, recibo: recibo.referencia });
+    void referencia;
+    throw new Error("la presentación no envía borradores ni simula validaciones");
   }
 
   function proyectarDatosAutorizados() {
     const salida = copiarDietas(datos);
-    if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO)) {
+    // El panel actual contiene totales y gastos que permiten reconstruir el
+    // kilometraje por diferencia. Sin ambas lecturas se cierra la fila completa,
+    // incluida la plantilla, en lugar de emitir una proyección parcial inferible.
+    if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO)
+      || !tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
       salida.comisiones = [];
       salida.ultimo_recibo = null;
+      salida.borrador_inicial = {};
+      salida.politica = {};
       return salida;
-    }
-    if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
-      salida.comisiones.forEach((comision) => {
-        comision.ruta = [];
-        comision.geometria_ruta = null;
-        comision.kilometros = null;
-        comision.kilometraje_euros = null;
-      });
     }
     return salida;
   }

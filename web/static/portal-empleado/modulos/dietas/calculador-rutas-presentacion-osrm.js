@@ -19,6 +19,7 @@ import {
   validarCapacidadesDietas,
   validarSolicitudRutaDietas,
 } from "./contrato.js";
+import { crearCalculadorRutasDietasPresentacion } from "./calculador-rutas-presentacion.js";
 import {
   obtenerCatalogoRutasProvincial,
   resolverPuntosRutasProvincial,
@@ -35,6 +36,12 @@ const CAMPOS_OPCIONES = new Set([
   "contextoActor", "capacidades", "fetchImpl", "tiempoEsperaMs",
 ]);
 const CAMPOS_OPCIONES_PETICION = new Set(["signal"]);
+
+function errorFallbackPresentacion(causa) {
+  const error = new Error("cartografia interna no disponible", { cause: causa });
+  error.fallbackPresentacion = true;
+  return error;
+}
 
 function esObjetoPlano(valor) {
   if (!valor || typeof valor !== "object" || Array.isArray(valor)) return false;
@@ -196,7 +203,8 @@ async function solicitarOSRM(fetchImpl, cuerpo, signalExterno, tiempoEsperaMs) {
   let respuesta;
   try {
     const operacion = (async () => {
-      respuesta = await fetchImpl(RUTA_MEDIADOR, {
+      try {
+        respuesta = await fetchImpl(RUTA_MEDIADOR, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -210,10 +218,16 @@ async function solicitarOSRM(fetchImpl, cuerpo, signalExterno, tiempoEsperaMs) {
         referrer: "",
         referrerPolicy: "no-referrer",
         signal: controlador.signal,
-      });
-      if (!respuesta || respuesta.ok !== true || respuesta.redirected === true) {
-        const estado = Number.isInteger(respuesta?.status) ? ` (HTTP ${respuesta.status})` : "";
-        throw new Error(`No se pudo consultar el motor cartografico interno${estado}.`);
+        });
+      } catch (error) {
+        throw errorFallbackPresentacion(error);
+      }
+      if (!respuesta || respuesta.redirected === true) {
+        throw new Error("respuesta cartografica interna no valida");
+      }
+      if (respuesta.ok !== true) {
+        if (respuesta.status === 501) throw errorFallbackPresentacion(new Error("HTTP 501"));
+        throw new Error("respuesta cartografica interna no disponible");
       }
       return leerJSONAcotado(respuesta);
     })();
@@ -412,6 +426,10 @@ export function crearCalculadorRutasDietasPresentacionOSRM(opciones = {}) {
   enteroAcotado(tiempoEsperaMs, 10, 30_000, "tiempo de espera HTTP");
   const catalogo = obtenerCatalogoRutasProvincial();
   const cripto = globalThis.crypto;
+  const fallbackDemo = crearCalculadorRutasDietasPresentacion({
+    contextoActor: contexto,
+    capacidades,
+  });
 
   return Object.freeze({
     obtenerCatalogo() {
@@ -428,7 +446,10 @@ export function crearCalculadorRutasDietasPresentacionOSRM(opciones = {}) {
           opciones.fetchImpl, cuerpo, signal, tiempoEsperaMs,
         );
         return await proyectarCalculo(respuesta, solicitud, puntos, cripto);
-      } catch {
+      } catch (error) {
+        // La indisponibilidad declarada del mediador no convierte el dato en
+        // OSRM: el fallback conserva el contrato DEMO, su motor y no liquidable.
+        if (error?.fallbackPresentacion === true) return fallbackDemo.calcular(solicitudEntrada);
         // La vista recibe únicamente un código cerrado y traducible. Nunca se
         // propaga texto del mediador, de Fetch ni de validadores internos.
         throw new ErrorServicioRutasDietas();

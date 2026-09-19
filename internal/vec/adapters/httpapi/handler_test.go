@@ -490,7 +490,7 @@ func TestCabecerasDeIdentidadSoloSeAceptanDesdeProxyConfiable(t *testing.T) {
 	}
 }
 
-func TestDietasRoadRouteExigePermisoExpreso(t *testing.T) {
+func TestDietasRoadRouteExigeProveedorNominal(t *testing.T) {
 	handler := newTestHandlerWithOptions(t, testOSRMOptions("http://127.0.0.1:5000"))
 	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
 	req.Header.Set("X-Auth-Subject", "candidate")
@@ -498,8 +498,8 @@ func TestDietasRoadRouteExigePermisoExpreso(t *testing.T) {
 	req.Header.Set("X-Auth-Roles", "ciudadano")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("ruta sin permiso expreso status = %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("ruta sin proveedor nominal status = %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

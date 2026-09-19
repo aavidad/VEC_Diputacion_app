@@ -842,6 +842,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
   assert.match(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
+  assert.doesNotMatch(fuente, /vista-itinerario\.js/);
+  assert.doesNotMatch(fuente, /montarVistaItinerarioDietas/);
+  assert.doesNotMatch(fuente, /crearCalculadorRutasDietasHTTP/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
   assert.match(fuente, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);

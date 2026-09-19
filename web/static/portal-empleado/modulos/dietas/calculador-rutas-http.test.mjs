@@ -102,7 +102,7 @@ function catalogoBackend({ requeridoAntesLiquidar = true } = {}) {
 }
 
 function respuestaOSRM() {
-  return {
+  return { data: {
     code: "Ok",
     engine: "osrm_on_premise",
     route_scope: "Granada provincia + 15 km",
@@ -139,8 +139,7 @@ function respuestaOSRM() {
         },
       },
     ],
-    waypoints: [{ location: [-3.5986, 37.1773] }],
-  };
+  } };
 }
 
 function respuestaJSON(datos, estado = 200) {
@@ -162,7 +161,7 @@ test("proyecta catalogo sin coordenadas y mapea OSRM interno al contrato no liqu
   const llamadas = [];
   const fetchImpl = async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
-    if (ruta === "/api/vec/workspace") return respuestaJSON(catalogoBackend());
+    if (ruta === "/api/vec/dietas/route-catalog") return respuestaJSON(catalogoBackend());
     if (ruta === "/api/vec/dietas/road-route") return respuestaJSON(respuestaOSRM());
     throw new Error("ruta inesperada");
   };
@@ -225,7 +224,7 @@ test("impone en todo fetch productivo la política same-origin sin cookies ni re
   const fetchImpl = async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
     return respuestaJSON(
-      ruta === "/api/vec/workspace" ? catalogoBackend() : respuestaOSRM(),
+      ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaOSRM(),
     );
   };
   const adaptador = crearCalculadorRutasDietasHTTP({
@@ -326,7 +325,7 @@ test("rechaza solicitudes fuera de 12 paradas y no alcanza el endpoint OSRM", as
     contextoActor: contextoProductivo(),
     capacidades: [CAPACIDAD_CONSULTAR_RUTA],
     fetchImpl: async (ruta) => {
-      if (ruta === "/api/vec/workspace") return respuestaJSON(catalogoBackend());
+      if (ruta === "/api/vec/dietas/route-catalog") return respuestaJSON(catalogoBackend());
       llamadasRuta += 1;
       return respuestaJSON(respuestaOSRM());
     },
@@ -342,20 +341,20 @@ test("rechaza solicitudes fuera de 12 paradas y no alcanza el endpoint OSRM", as
 
 test("no devuelve resultados parciales si OSRM omite version o tramos", async () => {
   const sinVersion = respuestaOSRM();
-  delete sinVersion.data_version;
+  delete sinVersion.data.data_version;
   let respuestaRuta = sinVersion;
   const adaptador = crearCalculadorRutasDietasHTTP({
     contextoActor: contextoProductivo(),
     capacidades: [CAPACIDAD_CONSULTAR_RUTA],
     fetchImpl: async (ruta) => respuestaJSON(
-      ruta === "/api/vec/workspace" ? catalogoBackend() : respuestaRuta,
+      ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaRuta,
     ),
   });
   await adaptador.obtenerCatalogo();
-  await assert.rejects(adaptador.calcular(solicitud()), /version del grafo/u);
+  await assert.rejects(adaptador.calcular(solicitud()), /envoltura canonica/u);
 
   respuestaRuta = respuestaOSRM();
-  delete respuestaRuta.routes[0].legs;
+  delete respuestaRuta.data.routes[0].legs;
   await assert.rejects(adaptador.calcular(solicitud()), /tramos OSRM/u);
 });
 
@@ -413,4 +412,34 @@ test("propaga cancelacion externa y aplica un timeout propio", async () => {
     tiempoEsperaMs: 10,
   });
   await assert.rejects(conTimeout.obtenerCatalogo(), /agoto su tiempo/u);
+});
+
+
+test("acepta solo la envoltura canonica productiva de road-route", async () => {
+  const adaptador = crearCalculadorRutasDietasHTTP({
+    contextoActor: contextoProductivo(),
+    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
+    fetchImpl: async (ruta) => respuestaJSON(
+      ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaOSRM(),
+    ),
+  });
+  await adaptador.obtenerCatalogo();
+  assert.equal((await adaptador.calcular(solicitud())).motor, "osrm_interno");
+
+  for (const respuestaRuta of [
+    respuestaOSRM().data,
+    { data: respuestaOSRM().data, meta: "no admitido" },
+    { data: { data: respuestaOSRM().data } },
+    { data: { ...respuestaOSRM().data, extra: "no admitido" } },
+  ]) {
+    const cerrado = crearCalculadorRutasDietasHTTP({
+      contextoActor: contextoProductivo(),
+      capacidades: [CAPACIDAD_CONSULTAR_RUTA],
+      fetchImpl: async (ruta) => respuestaJSON(
+        ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaRuta,
+      ),
+    });
+    await cerrado.obtenerCatalogo();
+    await assert.rejects(cerrado.calcular(solicitud()), /envoltura canonica/u);
+  }
 });

@@ -209,6 +209,45 @@ export function crearPresentadorRutasDietas({ catalogo: catalogoEntrada, permiso
     const modelo = obtenerModelo();
     const alternativa = obtenerAlternativa();
     if (!modelo.lista_para_borrador || !alternativa) throw new Error("calcule y justifique la ruta antes de guardar el borrador");
+    const paradas = estado.paradas.map((codigo, indice) => {
+      const puntoCatalogo = puntoPorCodigo.get(codigo);
+      const puntoGeometria = alternativa.geometria?.paradas?.[indice];
+      if (!puntoCatalogo || !puntoGeometria || puntoGeometria.etiqueta !== puntoCatalogo.nombre
+        || !Number.isFinite(puntoGeometria.latitud) || !Number.isFinite(puntoGeometria.longitud)) {
+        throw new Error("no se puede conservar una ruta con paradas incompletas");
+      }
+      return {
+        codigo: puntoCatalogo.codigo,
+        nombre: puntoCatalogo.nombre,
+        latitud: puntoGeometria.latitud,
+        longitud: puntoGeometria.longitud,
+      };
+    });
+    if (!modelo.catalogo?.version || !modelo.calculo_ref || !modelo.motor || !modelo.version_grafo
+      || !Array.isArray(alternativa.tramos) || alternativa.tramos.length !== paradas.length - 1
+      || !Array.isArray(alternativa.geometria?.trazado) || alternativa.geometria.trazado.length < 2) {
+      throw new Error("no se puede conservar un calculo de ruta incompleto");
+    }
+    const tramos = modelo.tramos.map((tramo, indice) => {
+      const tramoBase = alternativa.tramos[indice];
+      if (!tramoBase || tramoBase.indice !== indice || tramo.indice !== indice
+        || tramoBase.origen_codigo !== paradas[indice]?.codigo
+        || tramoBase.destino_codigo !== paradas[indice + 1]?.codigo
+        || tramoBase.origen_nombre !== paradas[indice]?.nombre
+        || tramoBase.destino_nombre !== paradas[indice + 1]?.nombre) {
+        throw new Error("no se puede conservar una ruta con tramos incompletos");
+      }
+      return {
+        indice,
+        origen: { codigo: tramoBase.origen_codigo, nombre: tramoBase.origen_nombre },
+        destino: { codigo: tramoBase.destino_codigo, nombre: tramoBase.destino_nombre },
+        kilometros: tramoBase.kilometros,
+        duracion_minutos: tramoBase.duracion_minutos,
+        ajuste_kilometros: tramo.ajuste_kilometros,
+        motivo_ajuste: tramo.motivo_ajuste,
+        kilometros_finales: Math.round((tramoBase.kilometros + tramo.ajuste_kilometros) * 10) / 10,
+      };
+    });
     return congelarModelo({
       ruta: [...modelo.ruta],
       origen: modelo.ruta[0],
@@ -230,6 +269,29 @@ export function crearPresentadorRutasDietas({ catalogo: catalogoEntrada, permiso
           kilometros: tramo.ajuste_kilometros,
           motivo: tramo.motivo_ajuste,
         })),
+        ruta: {
+          esquema: "vec.dietas.ruta-borrador.v1",
+          catalogo_version: modelo.catalogo.version,
+          calculo: {
+            referencia: modelo.calculo_ref,
+            motor: modelo.motor,
+            version_grafo: modelo.version_grafo,
+          },
+          alternativa: {
+            referencia: modelo.alternativa_ref,
+            recomendada: modelo.alternativa_recomendada,
+            motivo: modelo.motivo_alternativa,
+          },
+          paradas,
+          tramos,
+          trazado: alternativa.geometria.trazado.map(([latitud, longitud]) => [latitud, longitud]),
+          kilometros: {
+            base: modelo.kilometros_base,
+            ajuste: modelo.kilometros_ajuste,
+            final: modelo.kilometros_total,
+          },
+          liquidable: false,
+        },
       },
     });
   }

@@ -19,6 +19,7 @@ const CAPACIDADES_RECONOCIDAS = new Set([
 const CLAVES_DATOS = Object.freeze([
   "esquema", "demostracion", "actor_ref", "periodo", "actualizado_en",
   "perfil_jornada", "resumen", "fichajes", "saldos", "solicitudes", "historial",
+  "incidencias",
 ]);
 const ESTADOS_REGISTRO = new Set([
   "registrado", "revisado", "simulado", "saldo_demo", "pendiente_responsable",
@@ -26,6 +27,7 @@ const ESTADOS_REGISTRO = new Set([
 ]);
 const TIPOS_FICHAJE = new Set(["entrada", "salida", "inicio_pausa", "fin_pausa"]);
 const UNIDADES_PERMISO = new Set(["dia", "minuto"]);
+const AMBITOS_HISTORIAL = new Set(["fichaje", "permiso"]);
 const CAMPOS_FICHAJE = Object.freeze([
   "id", "actor_ref", "instante", "tipo_clave", "canal", "modalidad", "estado_clave", "recibo_ref",
 ]);
@@ -36,7 +38,7 @@ const CAMPOS_SOLICITUD = Object.freeze([
   "id", "actor_ref", "tipo", "desde", "hasta", "cantidad_valor", "unidad_clave", "estado_clave", "recibo_ref",
 ]);
 const CAMPOS_HISTORIAL = Object.freeze([
-  "id", "actor_ref", "instante", "evento", "detalle", "estado_clave", "recibo_ref",
+  "id", "actor_ref", "instante", "ambito_clave", "requiere_horario", "evento", "detalle", "estado_clave", "recibo_ref",
 ]);
 
 function esObjeto(valor) {
@@ -44,7 +46,8 @@ function esObjeto(valor) {
 }
 
 function cadena(valor, nombre, maximo = 180) {
-  if (typeof valor !== "string" || valor.trim() === "" || valor.length > maximo) {
+  if (typeof valor !== "string" || valor.trim() === "" || valor.length > maximo
+    || /[\u0000-\u001f\u007f-\u009f]/u.test(valor)) {
     throw new Error(`${nombre} no válido`);
   }
   return valor;
@@ -56,6 +59,16 @@ function referenciaOpaca(valor, nombre) {
     throw new Error(`${nombre} no válida`);
   }
   return ref;
+}
+
+export function normalizarTextoCronosMultilinea(valor, nombre, minimo = 1) {
+  if (typeof valor !== "string") throw new Error(`${nombre} no válido`);
+  const texto = valor.replace(/\r\n?/g, "\n");
+  if (texto.trim().length < minimo || texto.length > 500
+    || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u.test(texto)) {
+    throw new Error(`${nombre} no válido`);
+  }
+  return texto;
 }
 
 function instanteUTC(valor, nombre) {
@@ -111,6 +124,21 @@ export function exigirContextoActorCronos(contextoActor) {
   return exigirContextoParaModulo(contextoActor, "cronos");
 }
 
+function validarAmbitosRecibos(datos) {
+  const ambitos = new Map();
+  const registrar = (referencia, ambito) => {
+    if (ambitos.has(referencia) && ambitos.get(referencia) !== ambito) {
+      throw new Error("recibo de Cronos compartido entre ámbitos incompatibles");
+    }
+    ambitos.set(referencia, ambito);
+  };
+  for (const ficha of datos.fichajes) registrar(ficha.recibo_ref, "fichaje");
+  for (const solicitud of datos.solicitudes) registrar(solicitud.recibo_ref, "permiso");
+  // Un evento sin registro (p. ej. observación) mantiene su ámbito explícito.
+  // Nunca se deduce de su texto, de su referencia ni del permiso del lector.
+  for (const evento of datos.historial) registrar(evento.recibo_ref, evento.ambito_clave);
+}
+
 export function validarCapacidadesCronos(capacidades) {
   if (!Array.isArray(capacidades) || capacidades.length > CAPACIDADES_RECONOCIDAS.size) {
     throw new Error("capacidades de Cronos no válidas");
@@ -145,6 +173,12 @@ export function validarDatosCronos(datos, contextoActor) {
   if (!esObjeto(datos.perfil_jornada) || !esObjeto(datos.resumen)) {
     throw new Error("resumen de Cronos incompleto");
   }
+  camposExactos(datos.perfil_jornada, ["referencia", "nombre", "jornada_diaria", "jornada_semanal", "ventana_entrada", "tramo_obligatorio", "teletrabajo"], "perfil de jornada");
+  camposExactos(datos.resumen, ["teoricas_hoy", "trabajadas_hoy", "saldo_hoy", "saldo_periodo", "incidencias_abiertas", "solicitudes_pendientes"], "resumen");
+  for (const [clave, valor] of Object.entries(datos.perfil_jornada)) cadena(valor, "perfil_jornada." + clave, 180);
+  for (const clave of ["teoricas_hoy", "trabajadas_hoy", "saldo_hoy", "saldo_periodo"]) cadena(datos.resumen[clave], "resumen." + clave, 24);
+  enteroNoNegativo(datos.resumen.incidencias_abiertas, "resumen.incidencias_abiertas");
+  enteroNoNegativo(datos.resumen.solicitudes_pendientes, "resumen.solicitudes_pendientes");
   const validado = {
     esquema: datos.esquema,
     demostracion: datos.demostracion,
@@ -157,16 +191,19 @@ export function validarDatosCronos(datos, contextoActor) {
     saldos: listaAcotada(datos.saldos, "saldos", 30),
     solicitudes: listaAcotada(datos.solicitudes, "solicitudes", 50),
     historial: listaAcotada(datos.historial, "historial", 80),
+    incidencias: listaAcotada(datos.incidencias, "incidencias", 20),
   };
   validado.fichajes.forEach((registro) => camposExactos(registro, CAMPOS_FICHAJE, "fichaje"));
   validado.saldos.forEach((registro) => camposExactos(registro, CAMPOS_SALDO, "saldo"));
   validado.solicitudes.forEach((registro) => camposExactos(registro, CAMPOS_SOLICITUD, "solicitud"));
   validado.historial.forEach((registro) => camposExactos(registro, CAMPOS_HISTORIAL, "evento de historial"));
+  validado.incidencias.forEach((registro) => camposExactos(registro, ["id", "actor_ref", "instante", "categoria_clave", "resumen", "detalle", "estado_clave"], "incidencia"));
   for (const [nombre, lista] of Object.entries({
     saldos: validado.saldos,
     fichajes: validado.fichajes,
     solicitudes: validado.solicitudes,
     historial: validado.historial,
+    incidencias: validado.incidencias,
   })) {
     if (nombre !== "saldos" && lista.some((registro) => registro.actor_ref !== contexto.actor.actor_ref)) {
       throw new Error(`${nombre} contiene registros ajenos al actor de la sesión`);
@@ -175,6 +212,12 @@ export function validarDatosCronos(datos, contextoActor) {
       throw new Error(`${nombre} contiene un estado no reconocido`);
     }
   }
+  for (const ficha of validado.fichajes) {
+    cadena(ficha.canal, "fichaje.canal", 180);
+    cadena(ficha.modalidad, "fichaje.modalidad", 180);
+  }
+  for (const saldo of validado.saldos) cadena(saldo.nombre, "saldo.nombre", 180);
+  for (const solicitud of validado.solicitudes) cadena(solicitud.tipo, "solicitud.tipo", 180);
   if (validado.fichajes.some((registro) => !TIPOS_FICHAJE.has(registro.tipo_clave))) {
     throw new Error("fichajes contiene un movimiento no reconocido");
   }
@@ -203,18 +246,30 @@ export function validarDatosCronos(datos, contextoActor) {
   }
   if (validado.historial.some((registro) => {
     instanteUTC(registro.instante, "instante de historial");
+    if (!AMBITOS_HISTORIAL.has(registro.ambito_clave)) throw new Error("historial contiene un ámbito no reconocido");
+    if (typeof registro.requiere_horario !== "boolean") throw new Error("historial requiere clasificación de horario booleana");
+    cadena(registro.evento, "evento de historial", 180);
+    registro.detalle = normalizarTextoCronosMultilinea(registro.detalle, "detalle de historial");
     return Object.hasOwn(registro, "fecha");
   })) {
     throw new Error("el historial debe usar un instante UTC canónico");
+  }
+  for (const incidencia of validado.incidencias) {
+    instanteUTC(incidencia.instante, "instante de incidencia");
+    cadena(incidencia.categoria_clave, "categoría de incidencia", 80);
+    cadena(incidencia.resumen, "resumen de incidencia", 180);
+    cadena(incidencia.detalle, "detalle de incidencia", 500);
   }
   for (const [nombre, lista] of Object.entries({
     fichajes: validado.fichajes,
     saldos: validado.saldos,
     solicitudes: validado.solicitudes,
     historial: validado.historial,
+    incidencias: validado.incidencias,
   })) exigirReferenciasUnicas(lista, "id", nombre);
   exigirReferenciasUnicas(validado.fichajes, "recibo_ref", "fichajes");
   exigirReferenciasUnicas(validado.solicitudes, "recibo_ref", "solicitudes");
   exigirReferenciasUnicas(validado.historial, "recibo_ref", "historial");
+  validarAmbitosRecibos(validado);
   return validado;
 }

@@ -102,12 +102,16 @@ export function crearPresentadorDietas({
   const contextoActor = exigirContextoActorDietas(contextoInyectado);
   const capacidades = validarCapacidadesDietas(capacidadesInyectadas);
   const permisos = Object.freeze({
-    consultarGastos: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO),
+    // La vista ofrece filas completas: total y gastos revelan el kilometraje
+    // por resta. Su consulta exige ambas lecturas, también en las descargas.
+    consultarGastos: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO)
+      && tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA),
     gestionarGastos: tieneCapacidadDietas(capacidades, CAPACIDAD_GESTIONAR_GASTO),
     consultarRutas: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA),
     gestionarRutas: tieneCapacidadDietas(capacidades, CAPACIDAD_GESTIONAR_RUTA),
     consultarAuditoria: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_AUDITORIA),
-    consultarHistorialPropio: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO),
+    consultarHistorialPropio: tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO)
+      && tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA),
   });
   let datos = validarPanelDietas(datosIniciales, contextoActor.actor.actor_ref, capacidades);
   if (datos.origen.demostracion !== contextoActor.demostracion) {
@@ -167,9 +171,12 @@ export function crearPresentadorDietas({
     const seleccionadaSinProyectar = permisos.consultarGastos
       ? datos.comisiones.find((item) => item.referencia === estado.seleccionada) || visiblesSinProyectar[0] || null
       : null;
-    const resumen = { ...(permisos.consultarGastos ? resumenDe(datos.comisiones) : resumenDe([])) };
+    const resumen = permisos.consultarGastos ? { ...resumenDe(datos.comisiones) } : {
+      expedientes: null, pendientes: null, kilometros: null, total_euros: null, pagado_euros: null,
+    };
     if (!permisos.consultarRutas) resumen.kilometros = null;
-    const resumenAnual = permisos.consultarGastos ? { ...resumenAnualDe(datos.comisiones) } : null;
+    const resumenAnual = permisos.consultarGastos && datos.comisiones.length
+      ? { ...resumenAnualDe(datos.comisiones) } : null;
     if (resumenAnual && !permisos.consultarRutas) {
       delete resumenAnual.kilometros;
       delete resumenAnual.kilometraje_euros;
@@ -182,11 +189,11 @@ export function crearPresentadorDietas({
       efectos_reales: datos.origen.efectos_reales === true,
       identidad: contextoActor,
       capacidades: permisos,
-      politica: copiarDietas(datos.politica),
-      borradorInicial: copiarDietas(datos.borrador_inicial || {
+      politica: permisos.consultarGastos ? copiarDietas(datos.politica) : {},
+      borradorInicial: permisos.consultarGastos ? copiarDietas(datos.borrador_inicial || {
         fecha: "", motivo: "", origen: "", destino: "", kilometros: 0,
         manutencion_euros: 0, alojamiento_euros: 0, otros_gastos_euros: 0,
-      }),
+      }) : {},
       etapas: [...datos.etapas],
       filtros: Object.freeze({ estado: estado.filtroEstado, texto: estado.filtroTexto }),
       resumen: Object.freeze(resumen),
@@ -196,9 +203,10 @@ export function crearPresentadorDietas({
         ...item, kilometros: permisos.consultarRutas ? item.kilometros : null,
       })) : [],
       comisiones: visiblesSinProyectar.map(proyectar),
-      totalSinFiltrar: permisos.consultarGastos ? datos.comisiones.length : 0,
+      totalSinFiltrar: permisos.consultarGastos ? datos.comisiones.length : null,
       seleccionada: proyectar(seleccionadaSinProyectar),
-      ultimoRecibo: datos.ultimo_recibo ? Object.freeze(copiarDietas(datos.ultimo_recibo)) : null,
+      ultimoRecibo: permisos.consultarGastos && datos.ultimo_recibo
+        ? Object.freeze(copiarDietas(datos.ultimo_recibo)) : null,
     });
   }
 

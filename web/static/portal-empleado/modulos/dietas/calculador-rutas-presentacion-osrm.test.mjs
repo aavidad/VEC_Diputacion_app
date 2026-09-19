@@ -253,12 +253,22 @@ test("valida identidad y version del mediador, code, rutas, legs y GeoJSON", asy
   }
 });
 
-test("no aplica fallback silencioso y limita tipo, tamano y UTF-8 de la respuesta", async () => {
-  await exigirErrorCerrado(
-    crearAdaptador(async () => { throw new Error("servicio caido"); }).calcular(solicitud()),
-  );
+test("usa fallback DEMO declarado solo ante red o 501 y rechaza 2xx malformado", async () => {
+  const porRed = await crearAdaptador(async () => { throw new Error("servicio caido"); }).calcular(solicitud());
+  assert.equal(porRed.motor, "simulacion_osrm_demo");
+  assert.equal(porRed.liquidable, false);
+  assert.match(porRed.referencia, /^DEMO-RUTA-/u);
+  const por501 = await crearAdaptador(async () => new Response("no implementado", { status: 501 })).calcular(solicitud());
+  assert.equal(por501.motor, "simulacion_osrm_demo");
+  assert.equal(por501.liquidable, false);
   await exigirErrorCerrado(
     crearAdaptador(async () => respuestaJSON(respuestaOSRM(), { tipo: "text/html" })).calcular(solicitud()),
+  );
+  await exigirErrorCerrado(
+    crearAdaptador(async () => respuestaJSON({ code: "Ok" })).calcular(solicitud()),
+  );
+  await exigirErrorCerrado(
+    crearAdaptador(async () => new Response("no disponible", { status: 503 })).calcular(solicitud()),
   );
   const declaracionExcesiva = new Response("{}", {
     status: 200,
@@ -276,15 +286,15 @@ test("no aplica fallback silencioso y limita tipo, tamano y UTF-8 de la respuest
   );
 });
 
-test("el adaptador OSRM depende del catálogo neutral y no importa el simulador", async () => {
+test("el adaptador OSRM depende del catálogo neutral y declara su único fallback DEMO", async () => {
   const [fuenteOSRM, fuenteSimulador] = await Promise.all([
     readFile(new URL("calculador-rutas-presentacion-osrm.js", import.meta.url), "utf8"),
     readFile(new URL("calculador-rutas-presentacion.js", import.meta.url), "utf8"),
   ]);
   assert.match(fuenteOSRM, /catalogo-rutas-provincial\.js/u);
   assert.match(fuenteSimulador, /catalogo-rutas-provincial\.js/u);
-  assert.doesNotMatch(fuenteOSRM, /from "\.\/calculador-rutas-presentacion\.js"/u);
-  assert.doesNotMatch(fuenteOSRM, /simulacion_osrm_demo|SEMILLAS_TRAMOS/u);
+  assert.match(fuenteOSRM, /from "\.\/calculador-rutas-presentacion\.js"/u);
+  assert.doesNotMatch(fuenteOSRM, /SEMILLAS_TRAMOS/u);
 
   const catalogo = obtenerCatalogoRutasProvincial();
   assert.equal(catalogo.puntos.length, 175);

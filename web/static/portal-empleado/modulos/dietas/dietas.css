@@ -62,6 +62,39 @@
   cursor: wait;
 }
 
+/* Las rejillas y cabeceras de Dietas nunca amplían el viewport: los datos
+ * anchos se desplazan dentro de su tabla, no se recortan ni se ocultan. */
+.modulo-dietas,
+.modulo-dietas > *,
+.modulo-dietas .encabezado-vista > *,
+.modulo-dietas .cabecera-panel > *,
+.modulo-dietas .dietas-ruta-catalogo > *,
+.modulo-dietas .dietas-ruta-parada > *,
+.modulo-dietas .dietas-ruta-alternativa > * {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.modulo-dietas .estado-chip {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+  white-space: normal;
+}
+
+.modulo-dietas select {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.modulo-dietas .tabla-contenedor {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
 .modulo-dietas .dietas-filtros {
   display: grid;
   grid-template-columns: minmax(15rem, 2fr) minmax(12rem, 1fr) auto;
@@ -96,7 +129,7 @@
 
 .modulo-dietas .dietas-espacio-trabajo {
   display: grid;
-  grid-template-columns: minmax(36rem, 1.45fr) minmax(22rem, 0.85fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.85fr);
   gap: 1rem;
   align-items: start;
 }
@@ -622,6 +655,17 @@
 }
 
 @media (max-width: 420px) {
+  .modulo-dietas .encabezado-vista {
+    min-inline-size: 0;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .modulo-dietas .encabezado-vista > * {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
   .modulo-dietas .dietas-kpi,
   .modulo-dietas .dietas-datos-clave,
   .modulo-dietas .dietas-desglose,
@@ -641,4 +685,21 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Límite persistente del recorrido de presentación: no se confunde con estado administrativo. */
+.modulo-dietas .dietas-limite-presentacion {
+  display: flex;
+  gap: .65rem;
+  align-items: baseline;
+  margin: .9rem 0;
+  padding: .7rem .9rem;
+  border-inline-start: .25rem solid var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+}
+
+.modulo-dietas .dietas-limite-presentacion span { max-inline-size: 72ch; }
+
+@media (max-width: 640px) {
+  .modulo-dietas .dietas-limite-presentacion { align-items: flex-start; flex-direction: column; gap: .25rem; }
 }
