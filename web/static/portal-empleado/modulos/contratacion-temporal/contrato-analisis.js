@@ -15,6 +15,7 @@ const ESQUEMA_CONFIGURACION =
   "vec.contratacion_temporal.configuracion_analisis.v1";
 const OPERACIONES = new Set(["registrar", "rectificar"]);
 const MAXIMO_OPCIONES_CONFIGURACION = 100;
+const MAXIMO_CATEGORIAS_CONFIGURACION = 1000;
 const CLAVES_MODALIDADES_RRHH = new Set([
   "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
 ]);
@@ -47,10 +48,10 @@ function exigirCamposExactos(valor, campos, nombre) {
   }
 }
 
-function valoresListaCerrada(lista, nombre, minimo = 1) {
+function valoresListaCerrada(lista, nombre, minimo = 1, maximo = MAXIMO_OPCIONES_CONFIGURACION) {
   if (!Array.isArray(lista) || Object.getPrototypeOf(lista) !== Array.prototype
     || Object.getOwnPropertySymbols(lista).length !== 0
-    || lista.length < minimo || lista.length > MAXIMO_OPCIONES_CONFIGURACION) {
+    || lista.length < minimo || lista.length > maximo) {
     throw new TypeError(`${nombre} no válida`);
   }
   const valores = [];
@@ -161,6 +162,8 @@ export function validarConfiguracionAnalisis(configuracion) {
   const categorias = Object.freeze(valoresListaCerrada(
     configuracion.categorias,
     "categorías",
+    1,
+    MAXIMO_CATEGORIAS_CONFIGURACION,
   ).map((categoria) => {
     exigirCamposExactos(
       categoria,

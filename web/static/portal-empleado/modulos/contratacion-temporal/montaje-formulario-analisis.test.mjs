@@ -827,7 +827,7 @@ test("un vuelo bloquea navegación y repintado, conserva el formulario y reinten
   await esperarTransmision();
   const otraTarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia !== tareaRef);
 
-  assert.equal(primerFormulario.eventos.size, 3);
+  assert.equal(primerFormulario.eventos.size, 4);
   await escenario.raiz.seleccionarTarea(otraTarea.tarea_ref);
   await escenario.raiz.cambiarVista("cuadro");
   const mismoEnvio = primerFormulario.enviar();
@@ -996,7 +996,7 @@ test("el desmontaje explícito aborta y limpia exactamente una vez sin presentar
   assert.equal(signal.aborted, true);
   assert.equal(abortos, 1);
   assert.deepEqual([...formulario.eventos.keys()], []);
-  assert.deepEqual(formulario.retirados.sort(), ["change", "click", "submit"]);
+  assert.deepEqual(formulario.retirados.sort(), ["change", "click", "input", "submit"]);
   assert.equal(formulario.obtenerLimpiezas(), 1);
   assert.equal(escenario.raiz.obtenerMontajesAnalisis(), 1);
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => !disabled));

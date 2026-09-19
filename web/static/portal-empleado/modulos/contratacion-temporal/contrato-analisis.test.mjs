@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  validarConfiguracionAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js";
@@ -86,4 +87,39 @@ test("contrato-analisis: rectificación admite observaciones válidas", () => {
   };
   const validada = validarSolicitudRectificacionAnalisis(solicitud);
   assert.equal(validada.analisis.observaciones, "Observación de rectificación");
+});
+
+function categorias(cantidad) {
+  return Array.from({ length: cantidad }, (_valor, indice) => ({
+    referencia: "categoria:rrhh:" + String(indice + 1).padStart(4, "0"),
+    etiqueta: "Categoría RRHH " + String(indice + 1),
+    grupos_subgrupos: [{ clave: "A1", etiqueta: "A1" }],
+  }));
+}
+
+function configuracionBase(cantidadCategorias) {
+  return {
+    esquema: "vec.contratacion_temporal.configuracion_analisis.v1",
+    artefacto_ref: "artefacto:analisis:http:001",
+    modalidades: [
+      { clave: "sustitucion", etiqueta: "Sustitución" },
+      { clave: "vacante", etiqueta: "Vacante" },
+      { clave: "acumulacion_tareas", etiqueta: "Acumulación de tareas" },
+      { clave: "programa", etiqueta: "Programa" },
+      { clave: "relevo", etiqueta: "Relevo" },
+    ],
+    categorias: categorias(cantidadCategorias),
+    causas: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
+    entradas_rc: [{
+      referencia: "entrada:rc:http:001",
+      huella_sha256: HUELLA,
+      etiqueta: "Retención preparada",
+    }],
+    motivos_rectificacion: [{ clave: "correccion_datos", etiqueta: "Corrección de datos" }],
+  };
+}
+
+test("contrato-analisis: admite las 151 categorías del catálogo y conserva el límite", () => {
+  assert.equal(validarConfiguracionAnalisis(configuracionBase(151)).categorias.length, 151);
+  assert.throws(() => validarConfiguracionAnalisis(configuracionBase(1001)), TypeError);
 });

@@ -108,7 +108,7 @@ Personal técnico asignado del Servicio de Recursos Humanos.
 ### Cómo se hace clic a clic
 1. Abra el expediente desde el cuadro de mando.
 2. Compruebe en la cabecera los datos de la solicitud y en el raíl superior que la fase actual marca `Solicitud`.
-3. Revise la causa de contratación temporal analizada conforme a la normativa vigente.
+3. Seleccione la categoría y el grupo o subgrupo del catálogo disponible y revise la causa de contratación temporal analizada conforme a la normativa vigente.
 4. Introduzca las fechas definitivas validadas por RRHH y la jornada en diezmilésimas. El formulario muestra su equivalencia al escribir: 5000 corresponde al 50,00 % y 10000 al 100,00 %. El coste estimado procede de la fuente configurada; este campo de jornada no permite introducirlo manualmente.
 5. Indique si existe retención de crédito suficiente y añada las observaciones técnicas de la valoración.
 6. Guarde el análisis para cerrar la propuesta técnica de cobertura.

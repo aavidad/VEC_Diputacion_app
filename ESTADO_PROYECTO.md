@@ -1,5 +1,14 @@
 # Estado y plan de ataque del proyecto
 
+## Recuperación del catálogo de Análisis — 19 de septiembre de 2026
+
+La configuración real contiene 151 categorías. Contrato y formulario admiten
+hasta 1000 categorías, conservando los límites de las demás listas y la
+validación de cada entrada. Corrige el rechazo completo del formulario por
+el antiguo máximo de 100. Revisión independiente favorable y 41 pruebas
+focales correctas, incluido montaje y limpieza del listener de jornada.
+Comprobación en navegador tras desplegar pendiente; no cierra rectificación.
+
 ## Conservación del trabajo Go revisado — 19 de septiembre de 2026
 
 Integradas las extracciones previas de bootstrap y seguimiento y sus pruebas:

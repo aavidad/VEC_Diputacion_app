@@ -21,7 +21,7 @@ class FormDataFalso {
 globalThis.FormData = FormDataFalso;
 test.after(() => { globalThis.FormData = FORM_DATA_ORIGINAL; });
 
-function crearCatalogos() {
+function crearCatalogos(cantidadCategorias = 1) {
   return {
     modalidades: [
       { clave: "sustitucion", etiqueta: "Sustitución" },
@@ -30,11 +30,11 @@ function crearCatalogos() {
       { clave: "programa", etiqueta: "Programa temporal" },
       { clave: "relevo", etiqueta: "Contrato de relevo" },
     ],
-    categorias: [{
-      referencia: "categoria:rrhh:001",
-      etiqueta: "Técnica o técnico superior",
+    categorias: Array.from({ length: cantidadCategorias }, (_valor, indice) => ({
+      referencia: "categoria:rrhh:" + String(indice + 1).padStart(3, "0"),
+      etiqueta: "Categoría RRHH " + String(indice + 1),
       grupos_subgrupos: [{ clave: "A1", etiqueta: "A1" }],
-    }],
+    })),
     causas: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
     entradas_rc: [{
       referencia: "entrada-rc:opaca:001",
@@ -553,3 +553,21 @@ test("rechaza observaciones mayores a 4000 caracteres en formulario y enfoca el 
   escenario.desmontar();
 });
 
+
+test("el formulario monta las 151 categorías del catálogo y mantiene el límite", () => {
+  const raiz = crearRaiz();
+  const desmontar = montarFormularioAnalisisRRHH({
+    raiz: raiz.raiz,
+    cliente: { registrarAnalisis() {} },
+    contexto: crearContexto(),
+    catalogos: crearCatalogos(151),
+  });
+  assert.match(raiz.raiz.innerHTML, /Categoría RRHH 151/u);
+  desmontar();
+  assert.throws(() => montarFormularioAnalisisRRHH({
+    raiz: crearRaiz().raiz,
+    cliente: { registrarAnalisis() {} },
+    contexto: crearContexto(),
+    catalogos: crearCatalogos(1001),
+  }), /categorías/u);
+});

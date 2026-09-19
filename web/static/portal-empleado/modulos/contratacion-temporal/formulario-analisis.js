@@ -12,6 +12,7 @@ const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/u;
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
 const PATRON_JORNADA = /^(?:[1-9][0-9]{0,3}|10000)$/u;
 const MAXIMO_OPCIONES = 100;
+const MAXIMO_CATEGORIAS = 1000;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
 const CLAVES_MODALIDADES_RRHH = new Set([
   "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
@@ -50,10 +51,10 @@ function exigirRegistroExacto(valor, campos, nombre) {
   }
 }
 
-function valoresListaSimple(lista, nombre, permitirVacia = false) {
+function valoresListaSimple(lista, nombre, permitirVacia = false, maximo = MAXIMO_OPCIONES) {
   if (!Array.isArray(lista) || Object.getPrototypeOf(lista) !== Array.prototype
     || Object.getOwnPropertySymbols(lista).length !== 0
-    || lista.length > MAXIMO_OPCIONES || (!permitirVacia && lista.length === 0)) {
+    || lista.length > maximo || (!permitirVacia && lista.length === 0)) {
     throw new TypeError(`${nombre} no válida`);
   }
   const valores = [];
@@ -109,7 +110,12 @@ function normalizarCatalogos(entrada, rectificacion) {
     permitirVacia: !rectificacion,
   });
   const categoriasVistas = new Set();
-  const categorias = Object.freeze(valoresListaSimple(entrada.categorias, "categorías")
+  const categorias = Object.freeze(valoresListaSimple(
+    entrada.categorias,
+    "categorías",
+    false,
+    MAXIMO_CATEGORIAS,
+  )
     .map((categoria) => {
       exigirRegistroExacto(
         categoria,
