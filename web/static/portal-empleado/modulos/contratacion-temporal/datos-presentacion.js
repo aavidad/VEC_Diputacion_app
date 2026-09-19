@@ -319,7 +319,7 @@ const TAREAS = enriquecerTareasPresentacion([
       panel("panel-subsanacion", "aviso", "Subsanación", "El expediente de presentación fue fiscalizado favorablemente.", {
         campos: [
           campo("situacion", "Situación", "No se recibió reparo", { tono: "exito" }),
-          campo("alternativa", "Si existiera reparo", "Volvería a la unidad con plazo, observaciones y documentos."),
+          campo("alternativa", "Si existiera reparo", "Volvería a la unidad con plazo por definir, observaciones y documentos."),
           campo("historia", "Histórico", "La fiscalización original permanecería inmutable."),
         ],
       }),
@@ -333,32 +333,33 @@ const TAREAS = enriquecerTareasPresentacion([
   tarea({
     referencia: "tarea-iniciar-llamamiento", orden: 9, fase: "fase-candidato",
     etiqueta: "Inicio del llamamiento",
-    descripcion: "Preparación según bolsa, bases y Reglamento de Bolsas aplicables.",
-    estadoClave: "completado", estado: "Iniciado", responsable: "Unidad de llamamientos",
+    descripcion: "Preparación ilustrativa; el canal, la comunicación y la evidencia externa siguen pendientes de confirmar.",
+    estadoClave: "completado", estado: "Canal pendiente", responsable: "Unidad de llamamientos",
     entrada: "12/07/2026 10:00", salida: "12/07/2026 10:05", tiempo: "5 min",
     paneles: [
-      panel("panel-llamamiento-config", "datos", "Configuración del llamamiento", "Parámetros gobernados por la bolsa y sus bases.", {
+      panel("panel-llamamiento-config", "datos", "Inicio del llamamiento", "Escenario sintético de presentación: la regla, el canal y la evidencia externa están pendientes de confirmación por RRHH.", {
         campos: [
-          campo("bolsa", "Bolsa utilizada", "Bolsa DEMO de Trabajo Social"),
-          campo("regla", "Norma de aplicación", "Reglamento y bases · versión DEMO"),
-          campo("orden", "Orden", "Puntuación y disponibilidad"),
-          campo("candidaturas", "Candidaturas disponibles", "18"),
+          campo("bolsa", "Bolsa utilizada", "Bolsa de Trabajo Social"),
+          campo("regla", "Regla de aplicación", "Pendiente de validar con el Reglamento y las bases", { tono: "aviso" }),
+          campo("orden", "Orden de propuesta", "Puntuación y disponibilidad", { tono: "aviso" }),
+          campo("canal", "Canal de comunicación", "Pendiente de definición por RRHH; no se ha enviado ninguna comunicación", { tono: "aviso" }),
+          campo("evidencia", "Evidencia externa", "No existe en esta demostración", { tono: "aviso" }),
         ],
       }),
     ],
-    acciones: [accion("iniciar_llamamiento", "Iniciar llamamiento", {
+    acciones: [accion("iniciar_llamamiento", "Preparar llamamiento", {
       capacidad: CAP.prepararLlamamiento,
-      confirmacion: "Se solicitará a Bolsa una propuesta de candidaturas según la regla vigente.",
+      confirmacion: "Se prepara una presentación sin enviar comunicaciones ni registrar evidencia externa.",
     })],
   }),
   tarea({
     referencia: "tarea-seleccion-candidato", orden: 10, fase: "fase-candidato",
     etiqueta: "Selección de candidatura",
-    descripcion: "Orden, disponibilidad, exclusiones y evidencia de la regla aplicada.",
-    estadoClave: "completado", estado: "Candidatura seleccionada", responsable: "Unidad de llamamientos",
+    descripcion: "Propuesta ilustrativa basada en una regla pendiente de validar por RRHH; no adjudica ni llama automáticamente.",
+    estadoClave: "completado", estado: "Propuesta", responsable: "Unidad de llamamientos",
     entrada: "12/07/2026 10:05", salida: "12/07/2026 10:20", tiempo: "15 min",
     paneles: [
-      panel("panel-candidaturas", "tabla", "Candidaturas propuestas", "Identificadores sintéticos minimizados; sin datos personales reales.", {
+      panel("panel-candidaturas", "tabla", "Candidatura propuesta", "Presentación sintética: la regla de orden está pendiente de validación y no produce adjudicación ni llamada.", {
         columnas: [
           columna("orden", "Orden"), columna("referencia", "Referencia"),
           columna("estado", "Estado"), columna("situacion", "Situación"),
@@ -373,58 +374,55 @@ const TAREAS = enriquecerTareasPresentacion([
         ],
       }),
     ],
-    acciones: [accion("seleccionar_candidato", "Llamar a la primera candidatura elegible", {
+    acciones: [accion("seleccionar_candidato", "Preparar propuesta de candidatura", {
       capacidad: CAP.seleccionarCandidatura,
-      confirmacion: "Se preparará la comunicación a la candidatura que corresponda según el orden acreditado.",
+      confirmacion: "La propuesta requiere validación de RRHH y no adjudica ni inicia una llamada.",
     })],
   }),
   tarea({
     referencia: "tarea-resultado-llamamiento", orden: 11, fase: "fase-candidato",
     etiqueta: "Resultado del llamamiento",
-    descripcion: "Aceptación, renuncia, falta de respuesta o incumplimiento de requisitos.",
-    estadoClave: "completado", estado: "Aceptado", responsable: "Unidad de llamamientos",
+    descripcion: "Respuesta manual sintética de presentación; el plazo no se ha evaluado y no acredita entrega externa.",
+    estadoClave: "completado", estado: "Plazo no evaluado", responsable: "Unidad de llamamientos",
     entrada: "12/07/2026 10:20", salida: "13/07/2026 09:00", tiempo: "22 h 40 min",
     paneles: [
-      panel("panel-resultado-llamamiento", "formulario", "Resultado", "La respuesta y su evidencia quedan ligadas al llamamiento.", {
+      panel("panel-resultado-llamamiento", "formulario", "Resultado del llamamiento", "Presentación sintética: respuesta manual sin entrega acreditada; el canal y la regla de plazo siguen pendientes de confirmar.", {
         campos: [
           campo("candidatura", "Candidatura", "CAND-DEMO-001"),
           campo("resultado", "Resultado", "acepta", {
             control: "radio", obligatorio: true,
             opciones: [opcion("acepta", "Acepta"), opcion("renuncia", "Renuncia voluntaria"), opcion("no_localizada", "No localizada"), opcion("rechaza", "Rechaza la oferta"), opcion("no_cumple", "No cumple requisitos")],
           }),
-          campo("observaciones", "Observaciones", "Aceptación recibida dentro de plazo.", { control: "area" }),
-          campo("acta", "Acta", "Acta de llamamiento DEMO.pdf", { tono: "exito" }),
+          campo("observaciones", "Observaciones", "Respuesta manual sintética; plazo no evaluado.", { control: "area" }),
+          campo("acta", "Evidencia", "Acta de presentación; sin entrega acreditada.", { tono: "aviso" }),
         ],
       }),
     ],
-    acciones: [accion("registrar_resultado_llamamiento", "Guardar resultado", {
+    acciones: [accion("registrar_resultado_llamamiento", "Registrar respuesta manual", {
       capacidad: CAP.registrarResultadoLlamamiento,
-      confirmacion: "Se registrará el resultado y continuará el flujo que corresponda.",
+      confirmacion: "Se registra una respuesta de presentación; no evalúa plazos ni produce efectos externos.",
     })],
   }),
   tarea({
     referencia: "tarea-traslado-intervencion", orden: 12, fase: "fase-nombramiento",
-    etiqueta: "Traslado de candidatura",
-    descripcion: "Preparación de documentación económica y de selección para Intervención.",
-    estadoClave: "completado", estado: "Trasladado", responsable: "Unidad gestora",
+    etiqueta: "Preparación para formalización",
+    descripcion: "Preparación interna pendiente de formalización; no envía documentación a Intervención ni a otro destinatario externo.",
+    estadoClave: "completado", estado: "Pendiente de formalización", responsable: "Unidad gestora",
     entrada: "13/07/2026 09:15", salida: "13/07/2026 09:40", tiempo: "25 min",
     paneles: [
-      panel("panel-traslado-docs", "tabla", "Documentación a remitir", "Índice previo a formalización.", {
+      panel("panel-traslado-docs", "tabla", "Preparación para formalización", "Presentación sintética de borradores previos a formalización; no existe envío externo.", {
         columnas: [columna("documento", "Documento"), columna("descripcion", "Descripción"), columna("estado", "Estado")],
         filas: [
-          fila("fila-doc-001", ["Acta de llamamiento", "Resultado del llamamiento", "Generado"]),
-          fila("fila-doc-002", ["Aceptación", "Evidencia de aceptación", "Generado"]),
-          fila("fila-doc-003", ["Informe de necesidad", "Justificación de modalidad", "Generado"]),
-          fila("fila-doc-004", ["Informe de fiscalización", "Resultado favorable", "Firmado"]),
-          fila("fila-doc-005", ["Certificado de bolsa", "Orden y pertenencia", "Generado"]),
-          fila("fila-doc-006", ["Resumen económico", "Coste estimado", "Generado"]),
+          fila("fila-doc-001", ["Acta", "Respuesta manual sintética", "Borrador"]),
+          fila("fila-doc-002", ["Propuesta", "Pendiente de validación RRHH", "Pendiente"]),
+          fila("fila-doc-003", ["Informe de necesidad", "Justificación de modalidad", "Borrador"]),
+          fila("fila-doc-004", ["Fiscalización", "Referencia previa", "Borrador"]),
+          fila("fila-doc-005", ["Bolsa", "Regla pendiente de validar", "Pendiente"]),
+          fila("fila-doc-006", ["Resumen económico", "Coste estimado", "Borrador"]),
         ],
       }),
     ],
-    acciones: [accion("trasladar_candidato", "Enviar a Intervención", {
-      capacidad: CAP.prepararFormalizacion,
-      confirmacion: "Se remitirá el índice documental para la formalización.",
-    })],
+    acciones: [],
   }),
   tarea({
     referencia: "tarea-informe-definitivo", orden: 13, fase: "fase-nombramiento",
@@ -687,10 +685,10 @@ const CUADRO = {
     { clave: "finalizados", etiqueta: "Finalizados", valor: "112", tono: "exito" },
   ],
   expedientes: [
-    ["exp-demo-contratacion-005487", "2026/CT-05487", "Centro DEMO de Servicios Sociales", "Trabajador/a social", "Sustitución", "en_curso", "En tramitación", "Generación documental", "10/07/2026", "Servicio de Personal", "2 días", 12],
-    ["exp-demo-contratacion-005486", "2026/CT-05486", "Secretaría DEMO", "Auxiliar administrativo/a", "Vacante", "espera", "Pendiente externo", "Fiscalización", "09/07/2026", "Intervención", "Hoy", 8],
-    ["exp-demo-contratacion-005485", "2026/CT-05485", "Centro DEMO de Servicios Sociales", "Educador/a social", "Programa", "incidencia", "Con incidencia", "Subsanación", "08/07/2026", "Unidad gestora", "Vencido", 9],
-    ["exp-demo-contratacion-005484", "2026/CT-05484", "Infraestructuras DEMO", "Operario/a de servicios", "Acumulación", "en_curso", "En tramitación", "Llamamiento", "07/07/2026", "Unidad de llamamientos", "3 días", 11],
+    ["exp-demo-contratacion-005487", "2026/CT-05487", "Centro DEMO de Servicios Sociales", "Trabajador/a social", "Sustitución", "en_curso", "En tramitación", "Generación documental", "10/07/2026", "Servicio de Personal", "Regla pendiente", 12],
+    ["exp-demo-contratacion-005486", "2026/CT-05486", "Secretaría DEMO", "Auxiliar administrativo/a", "Vacante", "espera", "Pendiente externo", "Fiscalización", "09/07/2026", "Intervención", "Plazo por definir", 8],
+    ["exp-demo-contratacion-005485", "2026/CT-05485", "Centro DEMO de Servicios Sociales", "Educador/a social", "Programa", "incidencia", "Con incidencia", "Subsanación", "08/07/2026", "Unidad gestora", "Regla pendiente", 9],
+    ["exp-demo-contratacion-005484", "2026/CT-05484", "Infraestructuras DEMO", "Operario/a de servicios", "Acumulación", "en_curso", "En tramitación", "Llamamiento", "07/07/2026", "Unidad de llamamientos", "Plazo por definir", 11],
     ["exp-demo-contratacion-005483", "2026/CT-05483", "Tesorería DEMO", "Administrativo/a", "Vacante", "completado", "Finalizado", "Seguimiento", "06/07/2026", "Servicio de Personal", "Cerrado", 18],
   ].map(([
     expediente_ref, numero_visible, centro, categoria, modalidad, estado_clave,

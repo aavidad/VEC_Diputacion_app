@@ -738,9 +738,9 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
     ["tarea-fiscalizacion", "Modalidad y remisión"],
     ["tarea-subsanacion", "Observaciones, correcciones y evidencias"],
     ["tarea-iniciar-llamamiento", "Historial de llamamientos"],
-    ["tarea-seleccion-candidato", "Candidatura seleccionada"],
+    ["tarea-seleccion-candidato", "Candidatura propuesta"],
     ["tarea-resultado-llamamiento", "Resumen e historial de la candidatura"],
-    ["tarea-traslado-intervencion", "Tarjeta minimizada de candidatura"],
+    ["tarea-traslado-intervencion", "Preparación para formalización"],
     ["tarea-informe-definitivo", "Candidatura, observaciones e historial"],
     ["tarea-formalizacion", "Circuito Portafirmas P4 pendiente"],
     ["tarea-incorporacion", "Proyección autorizada para incorporación"],
@@ -768,6 +768,37 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
   assert.match(html, /Mis tareas prioritarias/);
   assert.match(html, /Distribución por fase/);
   assert.match(html, /Registrar nueva petición/);
+});
+
+test("la presentación delimita plazos, llamamientos y preparación previa sin inventar efectos", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const porReferencia = (referencia) => expediente.tareas.find(
+    ({ tarea_ref }) => tarea_ref === referencia,
+  );
+  const texto = (referencia) => JSON.stringify(porReferencia(referencia));
+
+  assert.match(texto("tarea-subsanacion"), /plazo por definir/u);
+  assert.match(texto("tarea-iniciar-llamamiento"), /Escenario sintético/u);
+  assert.match(texto("tarea-iniciar-llamamiento"), /Canal de comunicación/u);
+  assert.doesNotMatch(texto("tarea-iniciar-llamamiento"), /Correo y teléfono|Renuncia acreditada/u);
+  assert.match(texto("tarea-seleccion-candidato"), /Candidatura propuesta/u);
+  assert.match(texto("tarea-seleccion-candidato"), /pendiente de validar/u);
+  assert.match(texto("tarea-seleccion-candidato"), /no adjudica ni llama automáticamente/u);
+  assert.doesNotMatch(texto("tarea-seleccion-candidato"), /Llamar a la primera candidatura/u);
+  assert.match(texto("tarea-resultado-llamamiento"), /Respuesta manual sintética/u);
+  assert.match(texto("tarea-resultado-llamamiento"), /plazo no evaluado/u);
+  assert.doesNotMatch(texto("tarea-resultado-llamamiento"), /dentro de plazo|Entregado/u);
+
+  const traslado = porReferencia("tarea-traslado-intervencion");
+  assert.equal(traslado.etiqueta, "Preparación para formalización");
+  assert.match(JSON.stringify(traslado), /no existe envío externo/u);
+  assert.doesNotMatch(JSON.stringify(traslado), /Trasladado|Enviar a Intervención/u);
+  assert.deepEqual(traslado.acciones, []);
+
+  const cuadro = crearCuadroContratacionTemporalPresentacion();
+  assert.ok(cuadro.expedientes.every(({ plazo }) => (
+    ["Regla pendiente", "Plazo por definir", "Cerrado"].includes(plazo)
+  )));
 });
 
 test("la formalización mantiene P4 pendiente sin inventar circuito ni efectos administrativos", () => {

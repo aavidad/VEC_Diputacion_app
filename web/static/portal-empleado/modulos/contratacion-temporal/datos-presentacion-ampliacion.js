@@ -57,9 +57,9 @@ const PANELES_POR_TAREA = Object.freeze({
           columna("estado", "Estado"),
         ],
         filas: [
-          fila("fila-bandeja-001", ["2026/CT-05487", "Trabajador/a social", "10/07/2026", "2 días", "Asignado"]),
-          fila("fila-bandeja-002", ["2026/CT-05484", "Operario/a de servicios", "07/07/2026", "3 días", "En llamamiento"]),
-          fila("fila-bandeja-003", ["2026/CT-05485", "Educador/a social", "08/07/2026", "Vencido", "Con incidencia"]),
+          fila("fila-bandeja-001", ["2026/CT-05487", "Trabajador/a social", "10/07/2026", "Regla pendiente", "Asignado"]),
+          fila("fila-bandeja-002", ["2026/CT-05484", "Operario/a de servicios", "07/07/2026", "Plazo por definir", "En llamamiento"]),
+          fila("fila-bandeja-003", ["2026/CT-05485", "Educador/a social", "08/07/2026", "Regla pendiente", "Con incidencia"]),
         ],
       },
     ),
@@ -130,7 +130,7 @@ const PANELES_POR_TAREA = Object.freeze({
       "panel-detalle-subsanacion",
       "tabla",
       "Observaciones, correcciones y evidencias",
-      "Un reparo abriría una iteración nueva sin sustituir la fiscalización original.",
+      "Un reparo abriría una iteración nueva sin sustituir la fiscalización original; el plazo queda por definir.",
       {
         columnas: [
           columna("observacion", "Observación"),
@@ -141,7 +141,7 @@ const PANELES_POR_TAREA = Object.freeze({
         ],
         filas: [
           fila("fila-subsanacion-001", ["Sin reparos en este expediente", "No procede", "Unidad gestora", "Informe favorable", "Cerrado"]),
-          fila("fila-subsanacion-002", ["Ejemplo de circuito", "Aportar nueva RC", "Centro solicitante", "Pendiente de documento", "No iniciado"]),
+          fila("fila-subsanacion-002", ["Ejemplo de circuito", "Aportar nueva RC", "Centro solicitante", "Pendiente de documento", "Plazo por definir"]),
         ],
       },
     ),
@@ -151,7 +151,7 @@ const PANELES_POR_TAREA = Object.freeze({
       "panel-historial-llamamientos",
       "tabla",
       "Historial de llamamientos",
-      "Intentos anteriores y resultado, conservados en orden cronológico.",
+      "Escenario sintético de presentación sin comunicaciones emitidas ni evidencia externa; el canal y las reglas siguen pendientes de confirmar.",
       {
         columnas: [
           columna("intento", "Intento"),
@@ -161,8 +161,8 @@ const PANELES_POR_TAREA = Object.freeze({
           columna("resultado", "Resultado"),
         ],
         filas: [
-          fila("fila-llamada-001", ["1", "CAND-DEMO-000", "Correo y teléfono", "12/07/2026 09:10", "Renuncia acreditada"]),
-          fila("fila-llamada-002", ["2", "CAND-DEMO-001", "Correo y teléfono", "12/07/2026 10:20", "Aceptación"]),
+          fila("fila-llamada-001", ["1", "CAND-DEMO-000", "Canal pendiente", "Sin fecha", "Sin entrega acreditada"]),
+          fila("fila-llamada-002", ["2", "CAND-DEMO-001", "Canal pendiente", "Sin fecha", "Pendiente de validar"]),
         ],
       },
     ),
@@ -171,15 +171,15 @@ const PANELES_POR_TAREA = Object.freeze({
     panel(
       "panel-candidatura-seleccionada",
       "comprobaciones",
-      "Candidatura seleccionada",
-      "La selección concreta explica orden, elegibilidad y regla aplicada.",
+      "Candidatura propuesta",
+      "Presentación sintética: la propuesta ilustra orden y elegibilidad; la regla debe validarse por RRHH y no adjudica ni llama automáticamente.",
       {
         campos: [
-          campo("candidatura_elegida", "Referencia", "CAND-DEMO-001"),
+          campo("candidatura_elegida", "Referencia propuesta", "CAND-DEMO-001"),
           campo("posicion_elegida", "Posición en bolsa", "1"),
-          campo("elegibilidad", "Elegibilidad", "Disponible y sin exclusiones activas", "exito"),
-          campo("regla_aplicada", "Regla aplicada", "Puntuación y disponibilidad · versión DEMO"),
-          campo("decision_seleccion", "Decisión", "dec-demo-tarea-010"),
+          campo("elegibilidad", "Elegibilidad", "Pendiente de validar", "aviso"),
+          campo("regla_aplicada", "Regla de orden", "Puntuación y disponibilidad; pendiente de validar"),
+          campo("decision_seleccion", "Validación RRHH", "Pendiente; no existe adjudicación"),
         ],
       },
     ),
@@ -189,7 +189,7 @@ const PANELES_POR_TAREA = Object.freeze({
       "panel-historial-candidatura",
       "tabla",
       "Resumen e historial de la candidatura",
-      "Vista minimizada para tramitar el resultado sin exponer datos personales innecesarios.",
+      "Presentación sintética de una respuesta manual; no acredita entrega ni evalúa plazos.",
       {
         columnas: [
           columna("momento", "Momento"),
@@ -198,8 +198,8 @@ const PANELES_POR_TAREA = Object.freeze({
           columna("evidencia", "Evidencia"),
         ],
         filas: [
-          fila("fila-candidatura-hist-001", ["12/07/2026 10:20", "Emisión de llamamiento", "Entregado", "rec-demo-llamamiento-001"]),
-          fila("fila-candidatura-hist-002", ["13/07/2026 09:00", "Respuesta", "Acepta", "Acta DEMO"]),
+          fila("fila-candidatura-hist-001", ["Sin fecha", "Preparación de llamamiento", "Sin entrega acreditada", "Sin recibo externo"]),
+          fila("fila-candidatura-hist-002", ["Sin fecha", "Respuesta manual", "Acepta", "Plazo no evaluado"]),
         ],
       },
     ),
@@ -208,15 +208,15 @@ const PANELES_POR_TAREA = Object.freeze({
     panel(
       "panel-tarjeta-candidatura",
       "datos",
-      "Tarjeta minimizada de candidatura",
-      "Solo datos imprescindibles para la propuesta y el acta.",
+      "Preparación para formalización",
+      "Presentación sintética de borradores previos a formalización; no hay traslado ni envío externo.",
       {
         campos: [
           campo("referencia_candidatura", "Referencia", "CAND-DEMO-001"),
           campo("categoria_candidatura", "Categoría", "Trabajador/a social"),
-          campo("orden_candidatura", "Orden acreditado", "1"),
-          campo("resultado_candidatura", "Resultado del llamamiento", "Aceptación en plazo", "exito"),
-          campo("acta_candidatura", "Acta", "doc-demo-acta-llamamiento"),
+          campo("orden_candidatura", "Orden", "Pendiente de validar", "aviso"),
+          campo("resultado_candidatura", "Resultado", "Respuesta manual; plazo no evaluado", "aviso"),
+          campo("acta_candidatura", "Referencia", "Borrador sin entrega acreditada", "aviso"),
         ],
       },
     ),
