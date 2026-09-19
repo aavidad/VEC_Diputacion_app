@@ -26,6 +26,33 @@ representante acreditado. Una persona empleada no obtiene capacidades internas
 desde esa superficie. La linea base de perfiles y alcances esta en
 [`../portal_vec/matriz_roles_y_ambitos.md`](../portal_vec/matriz_roles_y_ambitos.md).
 
+### Primer corte de acceso externo
+
+`vec.dipgra.cloud` sera una entrada publica sin sesion ni datos personales. La
+regla general sigue siendo no emitir ni aceptar cookies en VEC, sus API, su
+JavaScript o el portal interno. La unica excepcion prevista queda confinada al
+futuro gateway autenticador `auth.vec.dipgra.cloud`: podra custodiar una cookie
+opaca `host-only`, `Secure`, `HttpOnly` y `SameSite=Strict`, rotada y nunca
+accesible desde JavaScript ni reenviada a VEC. El contrato para la futura
+integracion fija el callback en
+`https://auth.vec.dipgra.cloud/acceso/retorno/{proveedor}` para que ese mismo
+host consuma la cookie; la ruta no se considera disponible mientras falte la
+integracion real. Solo una decision posterior que aporte un correlador durable
+separado con garantias equivalentes podra cambiar esta frontera.
+
+El salto gateway a VEC exigira mTLS y una asercion firmada por peticion. La
+asercion ligara como minimo audiencia, superficie, metodo HTTP, ruta, huella
+canonica del cuerpo, nonce, caducidad y vinculo al canal. VEC rechazara
+cabeceras de identidad aportadas por el cliente y revalidara la autorizacion
+para cada efecto. Los metadatos y credenciales reales de Cl@ve, y las CA,
+politicas de admision y servicios de revocacion para DNIe y certificados FNMT
+o corporativos, son dependencias externas pendientes; esta decision no afirma
+que esos accesos esten disponibles.
+
+La superficie administrativa solo admitira DNIe o certificado incluido en la
+politica aprobada y requerira ademas una concesion administrativa explicita,
+exacta y vigente. Superar la autenticacion no concede acceso administrativo.
+
 ## Kerberos y certificado
 
 Kerberos aporta identidad corporativa, ciclo de alta/baja, pertenencia al

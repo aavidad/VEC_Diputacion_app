@@ -140,6 +140,10 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
+	mux.Handle("/", soloLecturaHTTP(landingAccesoPublico(estaticos)))
+	mux.Handle("/acceso", soloLecturaHTTP(redireccionDirectorio("acceso/")))
+	mux.Handle("/acceso/inicio/", soloLecturaHTTP(inicioAccesoNoConfigurado()))
+	mux.Handle("/acceso/", soloLecturaHTTP(estaticos))
 	mux.Handle("/bolsa", soloLecturaHTTP(redireccionDirectorio("bolsa/")))
 	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
 	mux.Handle("/verificar", soloLecturaHTTP(redireccionDirectorio("verificar/")))
@@ -153,6 +157,40 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
+}
+
+// landingAccesoPublico sirve la portada anónima desde la raíz sin ampliar la
+// lista positiva: el único recurso reutilizado es /acceso/index.html.
+func landingAccesoPublico(estaticos http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		copia := r.Clone(r.Context())
+		copia.URL.Path = "/acceso/"
+		copia.URL.RawPath = ""
+		estaticos.ServeHTTP(w, copia)
+	})
+}
+
+// inicioAccesoNoConfigurado reserva las rutas estables de los tres métodos
+// admitidos sin iniciar sesión, redirigir a un proveedor ni aceptar identidad.
+func inicioAccesoNoConfigurado() http.Handler {
+	metodos := map[string]struct{}{
+		"clave":       {},
+		"certificado": {},
+		"dnie":        {},
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const prefijo = "/acceso/inicio/"
+		metodo := strings.TrimPrefix(r.URL.Path, prefijo)
+		if _, admitido := metodos[metodo]; !admitido || r.URL.Path != prefijo+metodo {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "acceso no configurado", http.StatusServiceUnavailable)
+	})
 }
 
 // NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la

@@ -1,0 +1,121 @@
+.acceso-publico {
+  background: var(--bg);
+}
+
+.acceso-publico::before {
+  display: none;
+}
+
+.acceso-principal {
+  width: min(100% - 2rem, 1100px);
+  margin: 0 auto;
+  padding: 3rem 0 4rem;
+}
+
+.acceso-cabecera {
+  max-width: 760px;
+  margin-bottom: 2rem;
+}
+
+.acceso-cabecera img {
+  display: block;
+  width: min(250px, 100%);
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+.acceso-etiqueta {
+  margin-bottom: .4rem;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.acceso-cabecera h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.acceso-estado {
+  margin-bottom: 2rem;
+  padding: 1.25rem;
+  border-left: 4px solid var(--notice);
+  background: var(--notice-soft);
+}
+
+.acceso-estado h2,
+.acceso-tarjeta h3 {
+  margin-bottom: .5rem;
+}
+
+.acceso-tarjetas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.acceso-tarjeta {
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.acceso-tarjeta p {
+  color: var(--muted-strong);
+}
+
+.acceso-tarjeta button {
+	margin-top: auto;
+	padding: .65rem .75rem;
+	border: 1px solid var(--line-strong);
+	border-radius: 5px;
+	background: var(--surface-muted);
+	color: var(--muted);
+	text-align: left;
+	font-weight: 700;
+}
+
+.acceso-tarjeta button:disabled {
+	cursor: not-allowed;
+	opacity: 1;
+}
+
+.acceso-enlaces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.acceso-boton-principal {
+  display: inline-block;
+  padding: .75rem 1rem;
+  border-radius: 5px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.acceso-boton-principal:hover {
+  background: #1c4586;
+}
+
+@media (max-width: 760px) {
+  .acceso-principal {
+    width: min(100% - 1.25rem, 680px);
+    padding-top: 1.5rem;
+  }
+
+  .acceso-tarjetas {
+    grid-template-columns: 1fr;
+  }
+
+  .acceso-tarjeta {
+    min-height: 0;
+  }
+}

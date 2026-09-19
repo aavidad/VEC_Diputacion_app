@@ -112,6 +112,7 @@ func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := NewHandler(http.NotFoundHandler())
+	handlerPublico := NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler())
 	for _, rutaFuente := range strings.Fields(string(contenido)) {
 		if rutaFuente == "produccion.manifest" {
 			continue
@@ -123,8 +124,12 @@ func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
 		if strings.HasSuffix(rutaHTTP, "/index.html") {
 			rutaHTTP = strings.TrimSuffix(rutaHTTP, "index.html")
 		}
+		manejador := handler
+		if strings.HasPrefix(rutaHTTP, "/acceso/") {
+			manejador = handlerPublico
+		}
 		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, rutaHTTP, nil))
+		manejador.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, rutaHTTP, nil))
 		if rec.Code != http.StatusOK {
 			t.Errorf("recurso enumerado %s = %d", rutaHTTP, rec.Code)
 		}
@@ -541,7 +546,7 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/locales/es.json",
+		"/app.js", "/locales/es.json",
 		"/portal-empleado", "/portal-empleado/", "/portal-empleado/portal.js",
 		"/assets/", "/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
 		"/api", "/api/vec", "/api/vec/session", "/api/publicox", "/bolsax",
