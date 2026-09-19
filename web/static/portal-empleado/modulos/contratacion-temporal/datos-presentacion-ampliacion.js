@@ -239,36 +239,28 @@ const PANELES_POR_TAREA = Object.freeze({
   ],
   "tarea-formalizacion": [
     panel(
-      "panel-subpasos-formalizacion",
-      "tabla",
-      "Subpasos de formalización",
-      "Cada documento avanza de forma independiente y conserva su recibo.",
+      "panel-p4-pendiente",
+      "comprobaciones",
+      "Circuito Portafirmas P4 pendiente",
+      "RRHH debe definir documentos, firmantes, orden y tratamiento de incidencias antes de configurar el circuito.",
       {
-        columnas: [
-          columna("paso", "Paso"),
-          columna("pieza", "Pieza"),
-          columna("responsable", "Responsable"),
-          columna("estado", "Estado"),
-        ],
-        filas: [
-          fila("fila-subpaso-001", ["1", "Informe definitivo", "Jefatura de Servicio", "Firmado"]),
-          fila("fila-subpaso-002", ["2", "Resolución", "Órgano competente", "Pendiente de firma"]),
-          fila("fila-subpaso-003", ["3", "Notificación", "Servicio de Personal", "Preparada"]),
-          fila("fila-subpaso-004", ["4", "Toma de posesión", "Centro de trabajo", "Pendiente"]),
+        campos: [
+          campo("documentos_p4_ampliacion", "Documentos que deben firmarse", "Pendientes de definición por RRHH", "aviso"),
+          campo("firmantes_p4_ampliacion", "Firmantes y sustituciones", "Pendientes de definición por RRHH", "aviso"),
+          campo("orden_p4_ampliacion", "Orden y condiciones de avance", "Pendientes de definición por RRHH", "aviso"),
+          campo("incidencias_p4_ampliacion", "Rechazo, devolución e incidencias", "Pendientes de definición por RRHH", "aviso"),
         ],
       },
     ),
     panel(
-      "panel-vista-previa-resolucion",
+      "panel-borrador-firma-demo",
       "documentos",
-      "Vista previa de resolución",
-      "Resumen previo a firma; los documentos reales se obtendrán por el puerto documental.",
+      "Borrador demostrativo sin firma",
+      "La preparación solo existe en memoria durante la demostración; no envía, firma, registra ni genera un recibo administrativo.",
       {
         campos: [
-          campo("resolucion_version", "Versión", "1"),
-          campo("resolucion_paginas", "Páginas", "3"),
-          campo("resolucion_firmas", "Firmas pendientes", "Órgano competente y fe pública", "aviso"),
-          campo("resolucion_estado", "Estado", "Preparada para portafirmas", "aviso"),
+          campo("borrador_p4", "Borrador para firma", "No generado: depende de la definición P4", "aviso"),
+          campo("resultado_p4", "Resultado administrativo", "No existe en la demostración", "informacion"),
         ],
       },
     ),

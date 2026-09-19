@@ -450,44 +450,25 @@ const TAREAS = enriquecerTareasPresentacion([
   tarea({
     referencia: "tarea-formalizacion", orden: 14, fase: "fase-nombramiento",
     etiqueta: "Formalización y firmas",
-    descripcion: "Informe, resolución, notificación, toma de posesión y comunicación al centro.",
-    estadoClave: "en_curso", estado: "Firmas pendientes", responsable: "Servicio de Personal",
+    descripcion: "Preparación demostrativa pendiente de que RRHH defina el circuito Portafirmas P4.",
+    estadoClave: "en_curso", estado: "Pendiente de definición por RRHH", responsable: "Pendiente de definición por RRHH",
     entrada: "13/07/2026 10:15", tiempo: "En curso",
     paneles: [
-      panel("panel-documentos-formalizacion", "tabla", "Documentos para formalización", "Cada pieza conserva plantilla, versión y estado de firma.", {
-        columnas: [
-          columna("orden", "Orden"), columna("documento", "Documento"),
-          columna("estado", "Estado"), columna("firma", "Firma"),
-        ],
-        filas: [
-          fila("fila-form-001", ["1", "Informe definitivo", "Generado", "Firmado"]),
-          fila("fila-form-002", ["2", "Resolución de nombramiento", "Generada", "Pendiente de firma"]),
-          fila("fila-form-003", ["3", "Notificación a la persona interesada", "Generada", "Pendiente de firma"]),
-          fila("fila-form-004", ["4", "Toma de posesión", "Pendiente", "No iniciada"]),
-          fila("fila-form-005", ["5", "Comunicación al centro", "Pendiente", "No iniciada"]),
-          fila("fila-form-006", ["6", "Ficha de alta GINPIX", "Generada", "No requiere firma"]),
-          fila("fila-form-007", ["7", "Índice del expediente", "Pendiente", "Pendiente"]),
-        ],
-      }),
-      panel("panel-firmas", "comprobaciones", "Circuito de firmas", "Los firmantes y el orden proceden de configuración gobernada.", {
+      panel("panel-preparacion-firma-demo", "comprobaciones", "Preparación demostrativa para firma", "El circuito Portafirmas P4 todavía no está definido por RRHH. Esta presentación no acredita ningún acto administrativo.", {
         campos: [
-          campo("jefatura", "Jefatura de Servicio", "Firmado", { tono: "exito" }),
-          campo("organo", "Órgano competente", "Pendiente de firma", { tono: "aviso" }),
-          campo("intervencion", "Intervención", "Fiscalización favorable", { tono: "exito" }),
+          campo("documentos_p4", "Documentos y plantillas de firma", "Pendientes de definición por RRHH", { tono: "aviso" }),
+          campo("firmantes_p4", "Firmantes", "Pendientes de definición por RRHH", { tono: "aviso" }),
+          campo("orden_p4", "Orden y condiciones del circuito", "Pendientes de definición por RRHH", { tono: "aviso" }),
+          campo("alcance_demo_p4", "Alcance de la demostración", "Solo prepara una vista en memoria: no envía, firma, registra ni genera un recibo administrativo.", { tono: "informacion" }),
         ],
       }),
     ],
     acciones: [
-      accion("generar_documentos_formalizacion", "Generar documentos pendientes", {
+      accion("preparar_borrador_firma_demo", "Preparar borrador para firma (DEMO)", {
         capacidad: CAP.prepararFormalizacion,
-        disponible: true,
-        confirmacion: "Se crearán únicamente las piezas pendientes con su versión de plantilla.",
-      }),
-      accion("enviar_firma_formalizacion", "Enviar a firma electrónica", {
-        variante: "secundaria",
-        capacidad: CAP.firmarFormalizacion,
-        disponible: true,
-        confirmacion: "Se enviarán las piezas seleccionadas al portafirmas configurado.",
+        disponible: false,
+        motivoNoDisponible: "El circuito Portafirmas P4, sus documentos, firmantes y orden siguen pendientes de definición por RRHH.",
+        confirmacion: "En esta demostración solo prepararía una vista en memoria; no envía, firma, registra ni genera un recibo administrativo.",
       }),
     ],
   }),

@@ -188,6 +188,17 @@ function comandoDe(expediente, tarea, accion) {
   });
 }
 
+function expedienteConAccionSinteticaDisponible() {
+  const entrada = crearExpedienteContratacionTemporalPresentacion();
+  const tarea = entrada.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-solicitud");
+  tarea.acciones[0] = {
+    ...tarea.acciones[0],
+    disponible: true,
+    motivo_no_disponible: "",
+  };
+  return validarExpedienteContratacionTemporal(entrada);
+}
+
 test("el espacio operativo separa tareas y distribución en paneles legibles", async () => {
   const [estilos, tema] = await Promise.all([
     readFile(new URL("./expedientes-operativo.css", import.meta.url), "utf8"),
@@ -327,30 +338,33 @@ test("RBAC se proyecta en HTML y vuelve a imponerse dentro del adaptador", async
   const htmlTecnica = renderizarExpediente(
     presentadorTecnica.obtenerEstado(), t, "es-ES", "Europe/Madrid",
   );
-  assert.match(htmlAdmin, /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]*?>Enviar a firma electrónica/);
-  assert.doesNotMatch(
-    htmlAdmin,
-    /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]{0,300}?disabled/,
-  );
+  assert.match(htmlAdmin, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]*?>Preparar borrador para firma \(DEMO\)/);
   assert.match(
-    htmlTecnica,
-    /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]{0,300}?disabled/,
+    htmlAdmin,
+    /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/,
   );
-  assert.match(htmlTecnica, /perfil activo no tiene concedida esta actuación/);
-  const detalle = await fuenteTecnica.obtener(referencia);
+  assert.match(htmlAdmin, /circuito Portafirmas P4, sus documentos, firmantes y orden siguen pendientes de definición por RRHH/u);
+  assert.match(htmlTecnica, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/);
+  const detalle = await fuenteAdmin.obtener(referencia);
   const tarea = detalle.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
-  const accion = tarea.acciones.find(({ accion_ref }) => accion_ref === "enviar_firma_formalizacion");
-  await assert.rejects(fuenteTecnica.ejecutar(comandoDe(detalle, tarea, accion)), /Acceso denegado/);
+  const accion = tarea.acciones.find(({ accion_ref }) => accion_ref === "preparar_borrador_firma_demo");
+  const version = detalle.version;
+  const auditoriaAntes = await fuenteAdmin.obtenerAuditoria(referencia);
+  await assert.rejects(fuenteAdmin.ejecutar(comandoDe(detalle, tarea, accion)), /Portafirmas P4/u);
+  assert.equal((await fuenteAdmin.obtener(referencia)).version, version);
+  assert.deepEqual(await fuenteAdmin.obtenerAuditoria(referencia), auditoriaAntes);
 });
 
 test("una transición emite recibo, añade auditoría y no puede repetirse", async () => {
   const fuente = adaptador();
-  const resumen = (await fuente.listar()).expedientes[0];
+  const resumen = (await fuente.listar()).expedientes.find(
+    ({ expediente_ref }) => expediente_ref === "exp-demo-contratacion-005484",
+  );
   const antes = await fuente.obtener(resumen.expediente_ref);
   const auditoriaAntes = await fuente.obtenerAuditoria(resumen.expediente_ref);
-  const tarea = antes.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
+  const tarea = antes.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-seleccion-candidato");
   const accion = tarea.acciones.find(
-    ({ accion_ref }) => accion_ref === "generar_documentos_formalizacion",
+    ({ accion_ref }) => accion_ref === "seleccionar_candidato",
   );
   const comando = comandoDe(antes, tarea, accion);
   const recibo = await fuente.ejecutar(comando);
@@ -373,11 +387,9 @@ test("una transición emite recibo, añade auditoría y no puede repetirse", asy
 });
 
 test("el presentador rechaza recibos cruzados y conserva el éxito si falla la recarga", async () => {
-  const expediente = validarExpedienteContratacionTemporal(
-    crearExpedienteContratacionTemporalPresentacion(),
-  );
+  const expediente = expedienteConAccionSinteticaDisponible();
   const cuadro = validarCuadroContratacionTemporal(crearCuadroContratacionTemporalPresentacion());
-  const tarea = expediente.tareas[13];
+  const tarea = expediente.tareas[0];
   const accion = tarea.acciones[0];
   let lecturas = 0;
   const fuenteCruzada = {
@@ -395,7 +407,7 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
     }),
   };
   const cruzado = presentadorDe(fuenteCruzada, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
   ]);
   await cruzado.cargar();
   await cruzado.seleccionarExpediente(expediente.expediente_ref);
@@ -423,7 +435,7 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
     }),
   };
   const sinRefresco = presentadorDe(fuenteSinRefresco, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
   ]);
   await sinRefresco.cargar();
   await sinRefresco.seleccionarExpediente(expediente.expediente_ref);
@@ -438,9 +450,7 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
 });
 
 test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado visible", async () => {
-  const expediente = validarExpedienteContratacionTemporal(
-    crearExpedienteContratacionTemporalPresentacion(),
-  );
+  const expediente = expedienteConAccionSinteticaDisponible();
   const cuadro = validarCuadroContratacionTemporal(crearCuadroContratacionTemporalPresentacion());
   let ejecuciones = 0;
   const fuente = {
@@ -456,16 +466,16 @@ test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado 
     },
   };
   const presentador = presentadorDe(fuente, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
   ]);
   await presentador.cargar();
   await presentador.seleccionarExpediente(expediente.expediente_ref);
-  presentador.seleccionarTarea("tarea-formalizacion");
+  presentador.seleccionarTarea("tarea-solicitud");
   const primera = presentador.ejecutarActuacion({
-    accionRef: "generar_documentos_formalizacion",
+    accionRef: "reenviar_analisis",
   });
   const segunda = presentador.ejecutarActuacion({
-    accionRef: "generar_documentos_formalizacion",
+    accionRef: "reenviar_analisis",
   });
   presentador.cancelar();
   await Promise.all([primera, segunda]);
@@ -475,9 +485,7 @@ test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado 
 });
 
 test("cancelar una lectura no fabrica un efecto indeterminado", async () => {
-  const expediente = validarExpedienteContratacionTemporal(
-    crearExpedienteContratacionTemporalPresentacion(),
-  );
+  const expediente = expedienteConAccionSinteticaDisponible();
   const fuente = {
     listar: async ({ signal }) => new Promise((_resolve, reject) => {
       signal.addEventListener("abort", () => reject(
@@ -502,9 +510,7 @@ test("cancelar una lectura no fabrica un efecto indeterminado", async () => {
 });
 
 test("un efecto indeterminado bloquea cualquier repetición hasta recuperar estado", async () => {
-  const expediente = validarExpedienteContratacionTemporal(
-    crearExpedienteContratacionTemporalPresentacion(),
-  );
+  const expediente = expedienteConAccionSinteticaDisponible();
   const cuadro = validarCuadroContratacionTemporal(
     crearCuadroContratacionTemporalPresentacion(),
   );
@@ -521,13 +527,13 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
     },
   };
   const presentador = presentadorDe(fuente, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
   ]);
   await presentador.cargar();
   await presentador.seleccionarExpediente(expediente.expediente_ref);
-  presentador.seleccionarTarea("tarea-formalizacion");
+  presentador.seleccionarTarea("tarea-solicitud");
   await presentador.ejecutarActuacion({
-    accionRef: "generar_documentos_formalizacion",
+    accionRef: "reenviar_analisis",
   });
   assert.equal(presentador.obtenerEstado().actualizacion_pendiente, true);
   assert.equal(
@@ -535,7 +541,7 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
     "estado_resultado_indeterminado",
   );
   await presentador.ejecutarActuacion({
-    accionRef: "generar_documentos_formalizacion",
+    accionRef: "reenviar_analisis",
   });
   assert.equal(ejecuciones, 1);
   assert.equal(
@@ -736,7 +742,7 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
     ["tarea-resultado-llamamiento", "Resumen e historial de la candidatura"],
     ["tarea-traslado-intervencion", "Tarjeta minimizada de candidatura"],
     ["tarea-informe-definitivo", "Candidatura, observaciones e historial"],
-    ["tarea-formalizacion", "Subpasos de formalización"],
+    ["tarea-formalizacion", "Circuito Portafirmas P4 pendiente"],
     ["tarea-incorporacion", "Proyección autorizada para incorporación"],
     ["tarea-ginpix", "Historial GINPIX"],
     ["tarea-envio-ginpix", "Envío a GINPIX"],
@@ -764,20 +770,22 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
   assert.match(html, /Registrar nueva petición/);
 });
 
-test("la presentación de firma conserva el circuito previsto sin simular su efecto", () => {
+test("la formalización mantiene P4 pendiente sin inventar circuito ni efectos administrativos", () => {
   const expediente = crearExpedienteContratacionTemporalPresentacion();
-  const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-envio-intervencion");
+  const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
   assert.ok(tarea);
-  assert.equal(tarea.estado_clave, "pendiente");
+  assert.equal(tarea.estado_clave, "en_curso");
   assert.equal(tarea.salida, "");
   assert.equal(tarea.recibo_ref, "");
   assert.equal(tarea.decision_ref, "");
-  assert.deepEqual(tarea.acciones, []);
+  assert.equal(tarea.acciones.length, 1);
+  assert.equal(tarea.acciones[0].accion_ref, "preparar_borrador_firma_demo");
+  assert.equal(tarea.acciones[0].disponible, false);
   const texto = JSON.stringify(tarea);
-  assert.match(texto, /Portafirmas corporativo de Diputación → Intervención/u);
-  assert.match(texto, /Pendiente de configuración/u);
-  assert.match(texto, /Datos sintéticos de presentación/u);
-  assert.doesNotMatch(texto, /Firma electrónica DEMO completada|rec-demo-envio-intervencion-001|Intervención · 11\/07\/2026 12:15/u);
+  assert.match(texto, /Pendiente de definición por RRHH/u);
+  assert.match(texto, /solo prepara una vista en memoria/i);
+  assert.match(texto, /no envía, firma, registra ni genera un recibo administrativo/i);
+  assert.doesNotMatch(texto, /Jefatura de Servicio|Órgano competente|fe pública|Enviada al portafirmas|Firmado|orden proceden/i);
 });
 
 test("montaje y desmontaje son simétricos y no dejan efectos tras retirar la vista", async () => {
@@ -832,19 +840,7 @@ test("presentación queda aislada de red, cookies, storage y manifiestos product
 test("la presentación no transmite GINPIX ni altera el expediente al llegar al envío", async () => {
   const fuente = adaptador();
   const referencia = "exp-demo-contratacion-005487";
-  let expediente = await fuente.obtener(referencia);
-
-  async function completar(tareaRef, accionRef) {
-    const tarea = expediente.tareas.find(({ tarea_ref: actual }) => actual === tareaRef);
-    const accion = tarea.acciones.find(({ accion_ref: actual }) => actual === accionRef);
-    await fuente.ejecutar(comandoDe(expediente, tarea, accion));
-    expediente = await fuente.obtener(referencia);
-  }
-
-  await completar("tarea-formalizacion", "generar_documentos_formalizacion");
-  await completar("tarea-formalizacion", "enviar_firma_formalizacion");
-  await completar("tarea-incorporacion", "confirmar_incorporacion");
-  await completar("tarea-ginpix", "generar_fichero_ginpix");
+  const expediente = await fuente.obtener(referencia);
 
   const tareaEnvio = expediente.tareas.find(({ tarea_ref: actual }) => actual === "tarea-envio-ginpix");
   const accionEnvio = tareaEnvio.acciones.find(({ accion_ref: actual }) => actual === "enviar_ginpix");

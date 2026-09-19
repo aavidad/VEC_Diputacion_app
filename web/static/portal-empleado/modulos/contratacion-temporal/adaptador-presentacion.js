@@ -241,14 +241,13 @@ function documentosTrasEfecto(indice, accionRef, version) {
     documentos: indice.documentos.map((documento) => {
       if (aplicado) return copiar(documento);
       const generar = accionRef.includes("generar") && documento.estado === "Pendiente";
-      const firmar = accionRef.includes("firma") && documento.estado.includes("Pendiente de firma");
-      if (!generar && !firmar) return copiar(documento);
+      if (!generar) return copiar(documento);
       aplicado = true;
       return {
         ...copiar(documento),
         version: documento.version + 1,
-        estado: generar ? "Generado" : "En firma",
-        firma: generar ? "Pendiente de firma" : "Enviada al portafirmas DEMO",
+        estado: "Generado",
+        firma: "Pendiente de firma",
         fecha: "23/07/2026",
         descarga_disponible: generar,
       };
@@ -350,6 +349,9 @@ export function crearAdaptadorContratacionTemporalPresentacion({ contextoActor }
     const detalle = expedientes.get(resumen.expediente_ref);
     const tarea = detalle.tareas.find(({ tarea_ref: referencia }) => referencia === comando.tarea_ref);
     const actuacion = tarea?.acciones.find(({ accion_ref: referencia }) => referencia === comando.accion_ref);
+    if (comando.accion_ref === "preparar_borrador_firma_demo") {
+      throw new Error("El circuito Portafirmas P4 sigue pendiente de definición por RRHH.");
+    }
     if (!actuacion || actuacion.tipo !== "efecto" || actuacion.disponible !== true) {
       throw new Error("La actuación no está disponible en esta tarea.");
     }
