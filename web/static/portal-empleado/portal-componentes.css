@@ -706,3 +706,90 @@ button.tarjeta-metrica-rrhh:hover {
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+/* Bolsas de trabajo en inicio RRHH (G21) */
+.portal-rrhh-bolsas {
+  margin-top: 18px;
+}
+
+.portal-rrhh-bolsas .cabecera-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tarjeta-metrica-rrhh[data-metrica="bolsas_vigentes"] {
+  border-top-color: #0284c7;
+}
+
+.tarjeta-metrica-rrhh[data-metrica="total_aspirantes"] {
+  border-top-color: #059669;
+}
+
+.tarjeta-metrica-rrhh[data-metrica="total_disponibles"] {
+  border-top-color: #10b981;
+}
+
+.portal-rrhh-bolsas-destacadas {
+  margin-top: 14px;
+  background: var(--portal-superficie);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  padding: 14px 18px;
+  box-shadow: var(--portal-sombra);
+}
+
+.portal-rrhh-bolsas-destacadas h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--portal-tinta-secundaria, #4a5568);
+}
+
+.lista-bolsas-inicio {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-bolsa-inicio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid var(--portal-borde, #e2e8f0);
+  border-radius: 4px;
+}
+
+.item-bolsa-inicio:hover {
+  background: #f1f5f9;
+}
+
+.info-bolsa-inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.categoria-bolsa-inicio {
+  font-size: 0.92rem;
+  color: var(--portal-tinta, #1e293b);
+}
+
+.meta-bolsa-inicio {
+  font-size: 0.8rem;
+  color: var(--portal-tinta-secundaria, #64748b);
+}
+
+@media (max-width: 640px) {
+  .item-bolsa-inicio {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

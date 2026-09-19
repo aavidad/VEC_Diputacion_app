@@ -6,6 +6,7 @@
  * permanecen visibles para conservar la navegación estable y fallan cerrados.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { consultarBolsas } from "./portal-bolsas-api.js";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -73,6 +74,153 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
     </div>`;
 }
 
+export function calcularResumenBolsas(bolsas) {
+  if (!Array.isArray(bolsas) || bolsas.length === 0) return null;
+
+  let totalAspirantes = 0;
+  let totalDisponibles = 0;
+  let bolsasVigentes = 0;
+
+  for (const b of bolsas) {
+    const noVigente = b.estado_clave === "cerrada"
+      || b.estado_clave === "extinguida"
+      || (b.vigente_hasta && new Date(b.vigente_hasta) <= new Date());
+    if (!noVigente) bolsasVigentes++;
+    totalAspirantes += Number(b.total) || 0;
+    totalDisponibles += Number(b.por_estado?.disponible) || 0;
+  }
+
+  const ordenadas = [...bolsas].sort((a, b) => {
+    const totalA = Number(a.total) || 0;
+    const totalB = Number(b.total) || 0;
+    if (totalB !== totalA) return totalB - totalA;
+    return String(a.categoria || a.categoria_clave || "").localeCompare(
+      String(b.categoria || b.categoria_clave || ""),
+      "es"
+    );
+  });
+
+  const topBolsas = ordenadas.slice(0, 3).map((b) => ({
+    bolsa_ref: String(b.bolsa_ref || ""),
+    categoria: String(b.categoria || b.categoria_clave || "Bolsa"),
+    categoria_clave: String(b.categoria_clave || ""),
+    total: Number(b.total) || 0,
+    disponibles: Number(b.por_estado?.disponible) || 0,
+  }));
+
+  return {
+    total_bolsas: bolsasVigentes > 0 ? bolsasVigentes : bolsas.length,
+    total_aspirantes: totalAspirantes,
+    total_disponibles: totalDisponibles,
+    top_bolsas: topBolsas,
+  };
+}
+
+let cacheResumenBolsas = typeof globalThis !== "undefined" ? globalThis.__vec_resumen_bolsas_cache : undefined;
+let cargandoBolsas = false;
+
+export function fijarResumenBolsasInicio(resumen) {
+  cacheResumenBolsas = resumen;
+  if (typeof globalThis !== "undefined") {
+    globalThis.__vec_resumen_bolsas_cache = resumen;
+  }
+}
+
+export function obtenerResumenBolsasInicio() {
+  if (cacheResumenBolsas !== undefined) return cacheResumenBolsas;
+  if (typeof globalThis !== "undefined" && globalThis.__vec_resumen_bolsas_cache !== undefined) {
+    return globalThis.__vec_resumen_bolsas_cache;
+  }
+  return undefined;
+}
+
+export async function refrescarResumenBolsasInicio({
+  fetchImpl,
+  alActualizar,
+} = {}) {
+  if (cargandoBolsas) return obtenerResumenBolsasInicio();
+  cargandoBolsas = true;
+  try {
+    const res = await consultarBolsas(fetchImpl ? { fetchImpl } : {});
+    if (res.ok && Array.isArray(res.datos?.bolsas)) {
+      fijarResumenBolsasInicio(calcularResumenBolsas(res.datos.bolsas));
+    } else {
+      fijarResumenBolsasInicio(null);
+    }
+  } catch {
+    fijarResumenBolsasInicio(null);
+  } finally {
+    cargandoBolsas = false;
+    const actual = obtenerResumenBolsasInicio();
+    if (typeof alActualizar === "function") {
+      try {
+        alActualizar(actual);
+      } catch {
+        // Ignorar fallos de notificación
+      }
+    }
+  }
+  return obtenerResumenBolsasInicio();
+}
+
+export function renderizarSeccionBolsasInicio(resumenBolsas, escaparHTML, numero) {
+  if (!resumenBolsas || !Array.isArray(resumenBolsas.top_bolsas)) {
+    return `
+      <section class="portal-rrhh-bolsas" aria-label="Bolsas de trabajo">
+        <div class="cabecera-panel">
+          <h3>Bolsas de trabajo</h3>
+        </div>
+        <p class="portal-rrhh-resumen-vacio">Bolsas de trabajo: no disponible</p>
+      </section>`;
+  }
+
+  const kpisHtml = `
+    <div class="rejilla-metricas-rrhh">
+      <button type="button" class="tarjeta-metrica-rrhh" data-metrica="bolsas_vigentes" data-vista="resumen">
+        <span class="metrica-etiqueta">Bolsas vigentes</span>
+        <strong class="metrica-valor">${escaparHTML(numero(resumenBolsas.total_bolsas))}</strong>
+        <span class="metrica-enlace">Ver cuadro B12</span>
+      </button>
+      <button type="button" class="tarjeta-metrica-rrhh" data-metrica="total_aspirantes" data-vista="resumen">
+        <span class="metrica-etiqueta">Total aspirantes</span>
+        <strong class="metrica-valor">${escaparHTML(numero(resumenBolsas.total_aspirantes))}</strong>
+        <span class="metrica-enlace">Ver aspirantes</span>
+      </button>
+      <button type="button" class="tarjeta-metrica-rrhh" data-metrica="total_disponibles" data-vista="resumen">
+        <span class="metrica-etiqueta">Disponibles</span>
+        <strong class="metrica-valor">${escaparHTML(numero(resumenBolsas.total_disponibles))}</strong>
+        <span class="metrica-enlace">Ver disponibles</span>
+      </button>
+    </div>`;
+
+  const topBolsasHtml = resumenBolsas.top_bolsas.length > 0
+    ? `<div class="portal-rrhh-bolsas-destacadas">
+        <h4>Bolsas con más aspirantes</h4>
+        <ul class="lista-bolsas-inicio">
+          ${resumenBolsas.top_bolsas.map((b) => `
+            <li class="item-bolsa-inicio">
+              <div class="info-bolsa-inicio">
+                <strong class="categoria-bolsa-inicio">${escaparHTML(b.categoria)}</strong>
+                <span class="meta-bolsa-inicio">${escaparHTML(numero(b.total))} aspirantes · ${escaparHTML(numero(b.disponibles))} disponibles</span>
+              </div>
+              <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">Ver candidatos</button>
+            </li>
+          `).join("")}
+        </ul>
+      </div>`
+    : "";
+
+  return `
+    <section class="portal-rrhh-bolsas" aria-label="Bolsas de trabajo">
+      <div class="cabecera-panel">
+        <h3>Bolsas de trabajo</h3>
+        <button type="button" class="boton-terciario" data-vista="resumen">Ver cuadro B12</button>
+      </div>
+      ${kpisHtml}
+      ${topBolsasHtml}
+    </section>`;
+}
+
 export function crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
@@ -83,6 +231,7 @@ export function crearVistaInicioPortal({
   obtenerMetricasCuadro = () => null,
   numero = (v) => String(v ?? 0),
   obtenerTramitesInicio = () => null,
+  obtenerResumenBolsas = () => null,
 }) {
   if (typeof encabezadoVista !== "function" || typeof escaparHTML !== "function"
     || typeof obtenerCatalogo !== "function" || typeof resolverAcceso !== "function"
@@ -93,6 +242,26 @@ export function crearVistaInicioPortal({
   return function renderizarInicioPortal() {
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
       const metricas = obtenerMetricasCuadro?.() || null;
+      let resumenBolsas = typeof obtenerResumenBolsas === "function"
+        ? obtenerResumenBolsas()
+        : null;
+
+      if (resumenBolsas === null && cacheResumenBolsas !== undefined) {
+        resumenBolsas = cacheResumenBolsas;
+      }
+
+      if (resumenBolsas === null && cacheResumenBolsas === undefined && typeof window !== "undefined" && !cargandoBolsas) {
+        void refrescarResumenBolsasInicio({
+          alActualizar: () => {
+            const seccion = document.querySelector(".portal-rrhh-bolsas");
+            if (seccion) {
+              seccion.outerHTML = renderizarSeccionBolsasInicio(cacheResumenBolsas, escaparHTML, numero);
+            }
+          },
+        });
+      }
+
+      const seccionBolsasHtml = renderizarSeccionBolsasInicio(resumenBolsas, escaparHTML, numero);
       const resumen = metricas
         ? `<div class="rejilla-metricas-rrhh">
               <button type="button" class="tarjeta-metrica-rrhh" data-metrica="en_tramitacion" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-estado="en_curso">
@@ -130,6 +299,7 @@ export function crearVistaInicioPortal({
             </div>
             ${resumen}
           </section>
+          ${seccionBolsasHtml}
           <section class="portal-rrhh-tramites-seccion" aria-label="Trámites recientes">
             <div class="cabecera-panel">
               <h3>Trámites recientes</h3>

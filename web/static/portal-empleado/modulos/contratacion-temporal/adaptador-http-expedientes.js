@@ -155,7 +155,7 @@ function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t }) {
   });
 }
 
-function fechaCivil(instante, locale, incluirHora = false) {
+function fechaCivil(instante, locale) {
   const coincidencia = typeof instante === "string" && PATRON_INSTANTE_CIVIL.exec(instante);
   if (!coincidencia) return instante;
   const [ano, mes, dia, hora, minuto, segundo] = coincidencia.slice(1, 7).map(Number);
@@ -168,8 +168,7 @@ function fechaCivil(instante, locale, incluirHora = false) {
     || fecha.getUTCDate() !== dia || fecha.getUTCHours() !== hora
     || fecha.getUTCMinutes() !== minuto || fecha.getUTCSeconds() !== segundo) return instante;
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    ...(incluirHora ? { timeStyle: "medium", timeZone: "Europe/Madrid" } : { timeZone: "UTC" }),
+    dateStyle: "medium", timeZone: "UTC",
   }).format(fecha);
 }
 
@@ -220,7 +219,7 @@ export function presentarEtiquetasHitoRRHH(hito, mensajes = {}) {
 function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
-    fecha: fechaCivil(hito.realizada_en, locale, true),
+    fecha: fechaCivil(hito.realizada_en, locale),
     fase: etiqueta(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
@@ -335,6 +334,7 @@ const FASE_VISUAL = Object.freeze({
   asignacion: "gestion_bolsa", asignacion_unidad: "gestion_bolsa",
   informe_juridico: "gestion_bolsa", fiscalizacion: "fiscalizacion",
   subsanacion_unidad: "fiscalizacion", llamamiento: "obtencion_candidato",
+  obtencion_candidato: "obtencion_candidato",
   nombramiento: "nombramiento", incorporacion: "incorporacion", seguimiento: "seguimiento",
 });
 
@@ -343,10 +343,6 @@ const FASE_VISUAL = Object.freeze({
 const ACCIONES_FASES_VISUALES_COMPLETADAS = Object.freeze({
   "contratacion_temporal.analisis.registrar": ["solicitud", "analisis_rrhh"],
   "contratacion_temporal.analisis.rectificar": ["solicitud", "analisis_rrhh"],
-  // La propuesta sólo se registra tras la aceptación que el caso de uso ya
-  // revalida. Es evidencia de que se obtuvo candidato; no acredita firma,
-  // envío, incorporación ni el cumplimiento de las demás fases.
-  "registrar_propuesta_formalizacion": ["obtencion_candidato"],
 });
 
 function fasesDesdeHitos(detalle, traducir) {
@@ -404,7 +400,6 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
       causa_clave: detalle.analisis.causa_clave,
       periodo: { inicio: detalle.analisis.periodo_inicio, fin: detalle.analisis.periodo_fin },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
-      ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
     } } : {}),
     fases: fasesDesdeHitos(detalle, traducir),
     historial: historialDesdeHitos(detalle.hitos, locale, t),

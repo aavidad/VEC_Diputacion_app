@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
+import {
+  calcularMetricasCuadro,
+  calcularResumenBolsas,
+  crearVistaInicioPortal,
+  renderizarSeccionBolsasInicio,
+  tramitesParaInicio,
+} from "./portal-inicio.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -190,4 +196,106 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
   assert.match(html, /class="ct-exp-chip ct-fase-incidencia">Con incidencia</);
   assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
+});
+
+test("G21: calcularResumenBolsas calcula totales y extrae top 3 bolsas ordenadas por total", () => {
+  // Manejo de valores vacíos o nulos
+  assert.equal(calcularResumenBolsas(null), null);
+  assert.equal(calcularResumenBolsas([]), null);
+  assert.equal(calcularResumenBolsas("invalido"), null);
+
+  const bolsas = [
+    { bolsa_ref: "bolsa:ct:1", categoria: "Auxiliar Administrativo", total: 120, por_estado: { disponible: 80 }, estado_clave: "vigente" },
+    { bolsa_ref: "bolsa:ct:2", categoria: "Técnico Medio", total: 45, por_estado: { disponible: 30 }, estado_clave: "vigente" },
+    { bolsa_ref: "bolsa:ct:3", categoria: "Operario de Servicios", total: 210, por_estado: { disponible: 150 }, estado_clave: "vigente" },
+    { bolsa_ref: "bolsa:ct:4", categoria: "Arquitecto/a", total: 15, por_estado: { disponible: 10 }, estado_clave: "vigente" },
+    { bolsa_ref: "bolsa:ct:5", categoria: "Conserje", total: 95, por_estado: { disponible: 60 }, estado_clave: "cerrada" },
+  ];
+
+  const resumen = calcularResumenBolsas(bolsas);
+  assert.ok(resumen);
+  assert.equal(resumen.total_bolsas, 4); // 4 vigentes
+  assert.equal(resumen.total_aspirantes, 485); // suma total
+  assert.equal(resumen.total_disponibles, 330); // suma disponibles
+
+  // Top 3 bolsas ordenadas por total descendente
+  assert.equal(resumen.top_bolsas.length, 3);
+  assert.equal(resumen.top_bolsas[0].bolsa_ref, "bolsa:ct:3");
+  assert.equal(resumen.top_bolsas[0].total, 210);
+  assert.equal(resumen.top_bolsas[1].bolsa_ref, "bolsa:ct:1");
+  assert.equal(resumen.top_bolsas[1].total, 120);
+  assert.equal(resumen.top_bolsas[2].bolsa_ref, "bolsa:ct:5");
+  assert.equal(resumen.top_bolsas[2].total, 95);
+});
+
+test("G21: renderizarSeccionBolsasInicio muestra fallback exacto cuando no hay datos", () => {
+  const htmlNull = renderizarSeccionBolsasInicio(null, escaparHTML, (v) => String(v));
+  assert.match(htmlNull, /Bolsas de trabajo: no disponible/);
+  assert.match(htmlNull, /class="portal-rrhh-bolsas"/);
+
+  const htmlVacio = renderizarSeccionBolsasInicio({ top_bolsas: null }, escaparHTML, (v) => String(v));
+  assert.match(htmlVacio, /Bolsas de trabajo: no disponible/);
+});
+
+test("G21: renderizarSeccionBolsasInicio muestra tarjetas métricas, navegación a B12 y acciones ver-bolsa sin datos personales", () => {
+  const resumen = {
+    total_bolsas: 12,
+    total_aspirantes: 840,
+    total_disponibles: 520,
+    top_bolsas: [
+      { bolsa_ref: "bolsa:ct:operario", categoria: "Operario/a", total: 300, disponibles: 200 },
+      { bolsa_ref: "bolsa:ct:admin", categoria: "Administrativo/a C1", total: 250, disponibles: 150 },
+      { bolsa_ref: "bolsa:ct:tecnico", categoria: "Técnico/a A2", total: 120, disponibles: 80 },
+    ],
+  };
+
+  const html = renderizarSeccionBolsasInicio(resumen, escaparHTML, (v) => String(v));
+
+  // Cabecera y botón B12
+  assert.match(html, /<h3>Bolsas de trabajo<\/h3>/);
+  assert.match(html, /data-vista="resumen">Ver cuadro B12<\/button>/);
+
+  // Tarjetas métricas
+  assert.match(html, /data-metrica="bolsas_vigentes" data-vista="resumen"[\s\S]*?<strong class="metrica-valor">12<\/strong>/);
+  assert.match(html, /data-metrica="total_aspirantes" data-vista="resumen"[\s\S]*?<strong class="metrica-valor">840<\/strong>/);
+  assert.match(html, /data-metrica="total_disponibles" data-vista="resumen"[\s\S]*?<strong class="metrica-valor">520<\/strong>/);
+
+  // Top 3 bolsas con botón Ver candidatos
+  assert.match(html, /Operario\/a/);
+  assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:ct:operario">Ver candidatos<\/button>/);
+  assert.match(html, /Administrativo\/a C1/);
+  assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:ct:admin">Ver candidatos<\/button>/);
+  assert.match(html, /Técnico\/a A2/);
+  assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:ct:tecnico">Ver candidatos<\/button>/);
+
+  // Cero datos personales (sin DNI ni nombres de personas)
+  assert.doesNotMatch(html, /\d{8}[A-Z]/);
+  assert.doesNotMatch(html, /\*{3}\d{4}\*{2}/);
+  assert.doesNotMatch(html, /candidato_ref/);
+});
+
+test("G21: crearVistaInicioPortal integra la sección de bolsas en la portada de RRHH", () => {
+  const resumenBolsas = {
+    total_bolsas: 12,
+    total_aspirantes: 500,
+    total_disponibles: 300,
+    top_bolsas: [
+      { bolsa_ref: "bolsa:ct:aux", categoria: "Auxiliar", total: 200, disponibles: 120 },
+    ],
+  };
+
+  const renderizar = crearVistaInicioPortal({
+    encabezadoVista: () => "<header>Inicio</header>",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "bolsa" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 10, con_incidencia: 1, en_llamamiento: 2 }),
+    obtenerResumenBolsas: () => resumenBolsas,
+  });
+
+  const html = renderizar();
+  assert.match(html, /class="portal-rrhh-bolsas"/);
+  assert.match(html, /data-metrica="bolsas_vigentes"/);
+  assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:ct:aux"/);
 });

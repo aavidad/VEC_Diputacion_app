@@ -54,28 +54,25 @@ export function construirPanelFase(
   panel.innerHTML = `<header class="ct-exp-fase-panel-cabecera">
       <div><p class="sobrelinea">${escapar(t("fase_panel_sobrelinea", { orden }))}</p><h3>${escapar(etiqueta)}</h3><p>${escapar(estado)}</p></div>
       <div class="ct-exp-fase-panel-acciones">
-        <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("nav_documentos"))}</button>
+        <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("documentos"))}</button>
         <button type="button" class="boton-secundario" data-ct-exp-fase-cerrar>${escapar(t("fase_panel_mostrar_todo"))}</button>
       </div>
     </header>
     <h4>${escapar(t("fase_panel_datos"))}</h4>
     ${campos.length === 0 ? `<p>${escapar(t("fase_panel_sin_datos"))}</p>` : `<dl class="ct-exp-fase-datos">${campos.map((c) => c.outerHTML).join("")}</dl>`}
     <h4>${escapar(t("fase_panel_actuaciones"))}</h4>
-    ${hitos.length === 0 ? `<p>${escapar(t("fase_panel_sin_actuaciones"))}</p>` : `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escapar(t("historial_hitos_titulo"))}"><table class="tabla-datos"><caption>${escapar(t("historial_hitos_titulo"))}</caption><thead><tr><th scope="col">${escapar(t("historial_hito_secuencia"))}</th><th scope="col">${escapar(t("historial_hito_fecha"))}</th><th scope="col">${escapar(t("historial_hito_accion"))}</th><th scope="col">${escapar(t("historial_hito_fase"))}</th><th scope="col">${escapar(t("historial_hito_estado"))}</th></tr></thead><tbody>${hitos.map((h) => h.outerHTML).join("")}</tbody></table></div>`}`;
+    ${hitos.length === 0 ? `<p>${escapar(t("fase_panel_sin_actuaciones"))}</p>` : `<div class="tabla-contenedor"><table class="tabla-datos"><tbody>${hitos.map((h) => h.outerHTML).join("")}</tbody></table></div>`}`;
   return panel;
 }
 
-export function mostrarFase(
-  boton,
-  t = crearTraductorExpedientesContratacion(),
-) {
+export function mostrarFase(boton) {
   const contenido = boton.closest(".ct-exp-contenido") ?? boton.ownerDocument;
   const rail = boton.closest(".ct-exp-progreso");
   if (!rail) return false;
   contenido.querySelector(".ct-exp-fase-panel")?.remove();
   for (const otro of rail.querySelectorAll("[data-ct-exp-fase-ver]")) otro.setAttribute("aria-pressed", "false");
   boton.setAttribute("aria-pressed", "true");
-  const panel = construirPanelFase(contenido, boton, t);
+  const panel = construirPanelFase(contenido, boton);
   rail.insertAdjacentElement("afterend", panel);
   panel.querySelector("h3")?.setAttribute("tabindex", "-1");
   panel.querySelector("h3")?.focus();
@@ -84,24 +81,18 @@ export function mostrarFase(
 
 export function cerrarFase(boton) {
   const contenido = boton.closest(".ct-exp-contenido") ?? boton.ownerDocument;
-  const faseAbierta = contenido.querySelector('[data-ct-exp-fase-ver][aria-pressed="true"]');
   contenido.querySelector(".ct-exp-fase-panel")?.remove();
   for (const otro of contenido.querySelectorAll("[data-ct-exp-fase-ver]")) otro.setAttribute("aria-pressed", "false");
-  if (faseAbierta && contenido.contains(faseAbierta)) faseAbierta.focus();
   return true;
 }
 
 let instalado = false;
-export function instalarPantallasFase(
-  documento = globalThis.document,
-  t = crearTraductorExpedientesContratacion(),
-) {
+export function instalarPantallasFase(documento = globalThis.document) {
   if (instalado || !documento?.addEventListener) return;
   instalado = true;
   documento.addEventListener("click", (evento) => {
-    if (evento.defaultPrevented) return;
     const ver = evento.target?.closest?.("[data-ct-exp-fase-ver]");
-    if (ver) { evento.preventDefault(); mostrarFase(ver, t); return; }
+    if (ver) { evento.preventDefault(); mostrarFase(ver); return; }
     const cerrar = evento.target?.closest?.("[data-ct-exp-fase-cerrar]");
     if (cerrar) { evento.preventDefault(); cerrarFase(cerrar); }
   });

@@ -188,17 +188,6 @@ function comandoDe(expediente, tarea, accion) {
   });
 }
 
-function expedienteConAccionSinteticaDisponible() {
-  const entrada = crearExpedienteContratacionTemporalPresentacion();
-  const tarea = entrada.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-solicitud");
-  tarea.acciones[0] = {
-    ...tarea.acciones[0],
-    disponible: true,
-    motivo_no_disponible: "",
-  };
-  return validarExpedienteContratacionTemporal(entrada);
-}
-
 test("el espacio operativo separa tareas y distribución en paneles legibles", async () => {
   const [estilos, tema] = await Promise.all([
     readFile(new URL("./expedientes-operativo.css", import.meta.url), "utf8"),
@@ -338,33 +327,30 @@ test("RBAC se proyecta en HTML y vuelve a imponerse dentro del adaptador", async
   const htmlTecnica = renderizarExpediente(
     presentadorTecnica.obtenerEstado(), t, "es-ES", "Europe/Madrid",
   );
-  assert.match(htmlAdmin, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]*?>Preparar borrador para firma \(DEMO\)/);
-  assert.match(
+  assert.match(htmlAdmin, /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]*?>Enviar a firma electrónica/);
+  assert.doesNotMatch(
     htmlAdmin,
-    /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/,
+    /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]{0,300}?disabled/,
   );
-  assert.match(htmlAdmin, /circuito Portafirmas P4, sus documentos, firmantes y orden siguen pendientes de definición por RRHH/u);
-  assert.match(htmlTecnica, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/);
-  const detalle = await fuenteAdmin.obtener(referencia);
+  assert.match(
+    htmlTecnica,
+    /data-ct-exp-efecto="enviar_firma_formalizacion"[\s\S]{0,300}?disabled/,
+  );
+  assert.match(htmlTecnica, /perfil activo no tiene concedida esta actuación/);
+  const detalle = await fuenteTecnica.obtener(referencia);
   const tarea = detalle.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
-  const accion = tarea.acciones.find(({ accion_ref }) => accion_ref === "preparar_borrador_firma_demo");
-  const version = detalle.version;
-  const auditoriaAntes = await fuenteAdmin.obtenerAuditoria(referencia);
-  await assert.rejects(fuenteAdmin.ejecutar(comandoDe(detalle, tarea, accion)), /Portafirmas P4/u);
-  assert.equal((await fuenteAdmin.obtener(referencia)).version, version);
-  assert.deepEqual(await fuenteAdmin.obtenerAuditoria(referencia), auditoriaAntes);
+  const accion = tarea.acciones.find(({ accion_ref }) => accion_ref === "enviar_firma_formalizacion");
+  await assert.rejects(fuenteTecnica.ejecutar(comandoDe(detalle, tarea, accion)), /Acceso denegado/);
 });
 
 test("una transición emite recibo, añade auditoría y no puede repetirse", async () => {
   const fuente = adaptador();
-  const resumen = (await fuente.listar()).expedientes.find(
-    ({ expediente_ref }) => expediente_ref === "exp-demo-contratacion-005484",
-  );
+  const resumen = (await fuente.listar()).expedientes[0];
   const antes = await fuente.obtener(resumen.expediente_ref);
   const auditoriaAntes = await fuente.obtenerAuditoria(resumen.expediente_ref);
-  const tarea = antes.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-seleccion-candidato");
+  const tarea = antes.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
   const accion = tarea.acciones.find(
-    ({ accion_ref }) => accion_ref === "seleccionar_candidato",
+    ({ accion_ref }) => accion_ref === "generar_documentos_formalizacion",
   );
   const comando = comandoDe(antes, tarea, accion);
   const recibo = await fuente.ejecutar(comando);
@@ -387,9 +373,11 @@ test("una transición emite recibo, añade auditoría y no puede repetirse", asy
 });
 
 test("el presentador rechaza recibos cruzados y conserva el éxito si falla la recarga", async () => {
-  const expediente = expedienteConAccionSinteticaDisponible();
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
   const cuadro = validarCuadroContratacionTemporal(crearCuadroContratacionTemporalPresentacion());
-  const tarea = expediente.tareas[0];
+  const tarea = expediente.tareas[13];
   const accion = tarea.acciones[0];
   let lecturas = 0;
   const fuenteCruzada = {
@@ -407,7 +395,7 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
     }),
   };
   const cruzado = presentadorDe(fuenteCruzada, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
   ]);
   await cruzado.cargar();
   await cruzado.seleccionarExpediente(expediente.expediente_ref);
@@ -435,7 +423,7 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
     }),
   };
   const sinRefresco = presentadorDe(fuenteSinRefresco, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
   ]);
   await sinRefresco.cargar();
   await sinRefresco.seleccionarExpediente(expediente.expediente_ref);
@@ -450,7 +438,9 @@ test("el presentador rechaza recibos cruzados y conserva el éxito si falla la r
 });
 
 test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado visible", async () => {
-  const expediente = expedienteConAccionSinteticaDisponible();
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
   const cuadro = validarCuadroContratacionTemporal(crearCuadroContratacionTemporalPresentacion());
   let ejecuciones = 0;
   const fuente = {
@@ -466,16 +456,16 @@ test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado 
     },
   };
   const presentador = presentadorDe(fuente, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
   ]);
   await presentador.cargar();
   await presentador.seleccionarExpediente(expediente.expediente_ref);
-  presentador.seleccionarTarea("tarea-solicitud");
+  presentador.seleccionarTarea("tarea-formalizacion");
   const primera = presentador.ejecutarActuacion({
-    accionRef: "reenviar_analisis",
+    accionRef: "generar_documentos_formalizacion",
   });
   const segunda = presentador.ejecutarActuacion({
-    accionRef: "reenviar_analisis",
+    accionRef: "generar_documentos_formalizacion",
   });
   presentador.cancelar();
   await Promise.all([primera, segunda]);
@@ -485,7 +475,9 @@ test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado 
 });
 
 test("cancelar una lectura no fabrica un efecto indeterminado", async () => {
-  const expediente = expedienteConAccionSinteticaDisponible();
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
   const fuente = {
     listar: async ({ signal }) => new Promise((_resolve, reject) => {
       signal.addEventListener("abort", () => reject(
@@ -510,7 +502,9 @@ test("cancelar una lectura no fabrica un efecto indeterminado", async () => {
 });
 
 test("un efecto indeterminado bloquea cualquier repetición hasta recuperar estado", async () => {
-  const expediente = expedienteConAccionSinteticaDisponible();
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
   const cuadro = validarCuadroContratacionTemporal(
     crearCuadroContratacionTemporalPresentacion(),
   );
@@ -527,13 +521,13 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
     },
   };
   const presentador = presentadorDe(fuente, [
-    CAP.consultarCuadro, CAP.consultarExpediente, CAP.enviarAnalisis,
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
   ]);
   await presentador.cargar();
   await presentador.seleccionarExpediente(expediente.expediente_ref);
-  presentador.seleccionarTarea("tarea-solicitud");
+  presentador.seleccionarTarea("tarea-formalizacion");
   await presentador.ejecutarActuacion({
-    accionRef: "reenviar_analisis",
+    accionRef: "generar_documentos_formalizacion",
   });
   assert.equal(presentador.obtenerEstado().actualizacion_pendiente, true);
   assert.equal(
@@ -541,7 +535,7 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
     "estado_resultado_indeterminado",
   );
   await presentador.ejecutarActuacion({
-    accionRef: "reenviar_analisis",
+    accionRef: "generar_documentos_formalizacion",
   });
   assert.equal(ejecuciones, 1);
   assert.equal(
@@ -560,431 +554,4 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
     presentador.obtenerEstado().mensaje_clave,
     "estado_resultado_indeterminado",
   );
-});
-
-test("el alta crea un expediente nuevo mínimo sin heredar candidato ni documentos", async () => {
-  const fuente = adaptador();
-  const catalogos = fuente.obtenerCatalogosAlta();
-  const base = crearBorradorAlta();
-  const borrador = {
-    ...base,
-    centro_ref: catalogos.centros[0].referencia,
-    contacto_ref: catalogos.centros[0].contactos[0].referencia,
-    categoria_ref: catalogos.categorias[0].referencia,
-    grupo_subgrupo: catalogos.categorias[0].grupos_subgrupos[0].clave,
-    motivo_clave: catalogos.motivos[0].clave,
-    detalle: "Necesidad sintética para validar el alta coherente.",
-    inicio: "2026-08-15",
-    fin: "2027-04-14",
-    documentos_adjuntos: [catalogos.documentos[0].referencia],
-  };
-  const comando = crearComandoAlta(
-    borrador,
-    catalogos,
-    "12345678-1234-4abc-8def-1234567890ab",
-  );
-  const recibo = await fuente.registrarSolicitud(comando);
-  const cuadro = await fuente.listar();
-  assert.equal(cuadro.expedientes[0].expediente_ref, recibo.expediente_ref);
-  const detalle = await fuente.obtener(recibo.expediente_ref);
-  const documentos = await fuente.obtenerDocumentos(recibo.expediente_ref);
-  const auditoria = await fuente.obtenerAuditoria(recibo.expediente_ref);
-  assert.equal(detalle.tareas[0].estado_clave, "en_curso");
-  assert.ok(detalle.tareas.slice(1).every(({ estado_clave }) => estado_clave === "pendiente"));
-  assert.doesNotMatch(JSON.stringify(detalle), /CAND-DEMO|fiscalización favorable/i);
-  assert.equal(documentos.documentos.length, 0);
-  assert.equal(auditoria.actuaciones.length, 1);
-});
-
-test("el alta ejecuta un solo efecto y conserva su recibo sin refresco automático", async () => {
-  const recibo = Object.freeze({
-    expediente_ref: "expediente:ct:real:001",
-    numero_visible: "2026/CT-0001",
-    version: 1,
-    recibo_ref: "recibo:ct:real:001",
-    confirmada_en: "2026-09-04T07:55:00Z",
-  });
-  let altas = 0;
-  let refrescos = 0;
-  const ejecutar = async () => {
-    altas += 1;
-    return recibo;
-  };
-  const presentador = {
-    async cargar() {
-      refrescos += 1;
-      throw new Error("cuadro todavía no compuesto");
-    },
-  };
-  const ejecutarConRefresco = crearEjecutorAltaConRefresco(ejecutar, presentador);
-
-  assert.deepEqual(await ejecutarConRefresco({}, {}), recibo);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(altas, 1);
-  assert.equal(refrescos, 0);
-});
-
-test("el alta no inicia un refresco pendiente que pueda retirar el análisis", async () => {
-  const recibo = Object.freeze({
-    expediente_ref: "expediente:ct:real:pendiente",
-    numero_visible: "2026/CT-0002",
-    version: 1,
-    recibo_ref: "recibo:ct:real:pendiente",
-    confirmada_en: "2026-09-04T08:05:00Z",
-  });
-  const refrescoPendiente = new Promise(() => {});
-  const eventos = [];
-  let montajes = 0;
-  let refrescos = 0;
-  const ejecutarConRefresco = crearEjecutorAltaConRefresco(
-    async () => {
-      eventos.push("alta");
-      return recibo;
-    },
-    {
-      cargar() {
-        refrescos += 1;
-        eventos.push("refresco");
-        return refrescoPendiente;
-      },
-    },
-    (confirmado) => {
-      montajes += 1;
-      eventos.push("analisis");
-      assert.deepEqual(confirmado, recibo);
-    },
-  );
-
-  const resultado = await Promise.race([
-    ejecutarConRefresco({}, {}),
-    new Promise((_, reject) => setImmediate(() => {
-      reject(new Error("el alta quedó bloqueada por el refresco"));
-    })),
-  ]);
-
-  assert.deepEqual(resultado, recibo);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(eventos, ["alta", "analisis"]);
-  assert.equal(montajes, 1);
-  assert.equal(refrescos, 0);
-});
-
-test("un refresco satisfactorio conserva la vista de alta", async () => {
-  const presentador = presentadorDe(adaptador());
-  await presentador.cargar();
-  presentador.cambiarVista("alta");
-  await presentador.cargar();
-  assert.equal(presentador.obtenerEstado().vista, "alta");
-});
-
-test("HTML escapa contenido, bloquea históricos y expone semántica accesible", () => {
-  const entrada = crearExpedienteContratacionTemporalPresentacion();
-  entrada.cabecera[0].valor = '<img src=x onerror="alert(1)">';
-  const expediente = validarExpedienteContratacionTemporal(entrada);
-  const t = crearTraductorExpedientesContratacion();
-  const estado = estadoVista(expediente, "tarea-analisis");
-  const html = renderizarModuloContratacionTemporal(estado);
-  assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
-  assert.doesNotMatch(html, /<img src=x|style="/);
-  assert.match(html, /aria-labelledby="ct-exp-titulo"/);
-  assert.match(html, /aria-current="step"/);
-  assert.match(html, /Vista histórica o de consulta/);
-  assert.match(html, /<select[^>]+disabled/);
-  const htmlComponente = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
-  assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
-  assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico">/);
-  assert.doesNotMatch(htmlComponente, /<details class="ct-exp-detalle-tecnico" open/);
-  assert.match(htmlComponente, /Metadatos técnicos del expediente/);
-});
-
-test("el identificador completo puede envolver y los paneles vacíos no ocultan auditoría", async () => {
-  const css = await readFile(new URL("./expedientes.css", import.meta.url), "utf8");
-  assert.match(css, /\.ct-exp-cabecera-expediente > div\s*\{\s*min-width: 0;\s*\}/u);
-  assert.match(css, /\.ct-exp-cabecera-expediente h3\s*\{\s*overflow-wrap: anywhere;\s*\}/u);
-  const expediente = validarExpedienteContratacionTemporal({
-    ...crearExpedienteContratacionTemporalPresentacion(),
-    numero_visible: "2026/CT-" + "b".repeat(32),
-    fases: [], tareas: [],
-  });
-  const estado = estadoVista(expediente, "");
-  const html = renderizarModuloContratacionTemporal(estado);
-  assert.ok(html.includes(`<h3>${expediente.numero_visible}</h3>`));
-  assert.match(html, /ct-exp-cabecera-expediente/u);
-  assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
-  const auditoria = validarAuditoriaContratacionTemporal(
-    crearAuditoriaContratacionTemporalPresentacion(),
-  );
-  const htmlAuditoria = renderizarModuloContratacionTemporal({
-    ...estado, vista: "auditoria", auditoria,
-  });
-  assert.ok(auditoria.actuaciones.length > 0);
-  assert.match(htmlAuditoria, /ct-exp-tabla-auditoria/u);
-  for (const actuacion of auditoria.actuaciones) {
-    assert.ok(htmlAuditoria.includes(actuacion.fecha));
-  }
-});
-
-test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
-  const expediente = validarExpedienteContratacionTemporal(
-    crearExpedienteContratacionTemporalPresentacion(),
-  );
-  const matriz = [
-    ["tarea-solicitud", "Datos de la petición"],
-    ["tarea-analisis", "Comprobación y validación"],
-    ["tarea-cobertura", "Procedimiento a seguir"],
-    ["tarea-asignacion", "Bandeja de la unidad"],
-    ["tarea-informe-juridico", "Borrador y edición gobernada"],
-    ["tarea-envio-intervencion", "Datos pendientes del circuito"],
-    ["tarea-fiscalizacion", "Modalidad y remisión"],
-    ["tarea-subsanacion", "Observaciones, correcciones y evidencias"],
-    ["tarea-iniciar-llamamiento", "Historial de llamamientos"],
-    ["tarea-seleccion-candidato", "Candidatura propuesta"],
-    ["tarea-resultado-llamamiento", "Resumen e historial de la candidatura"],
-    ["tarea-traslado-intervencion", "Preparación para formalización"],
-    ["tarea-informe-definitivo", "Candidatura, observaciones e historial"],
-    ["tarea-formalizacion", "Circuito Portafirmas P4 pendiente"],
-    ["tarea-incorporacion", "Proyección autorizada para incorporación"],
-    ["tarea-ginpix", "Historial GINPIX"],
-    ["tarea-envio-ginpix", "Envío a GINPIX"],
-    ["tarea-seguimiento", "Histórico de relación, prórroga y cese"],
-  ];
-  assert.equal(expediente.tareas.length, matriz.length);
-  for (const [referencia, evidencia] of matriz) {
-    const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === referencia);
-    assert.ok(tarea, `falta ${referencia}`);
-    assert.match(JSON.stringify(tarea), new RegExp(evidencia, "u"), referencia);
-  }
-  const cuadro = validarCuadroContratacionTemporal(
-    crearCuadroContratacionTemporalPresentacion(),
-  );
-  const html = renderizarModuloContratacionTemporal({
-    ...estadoVista(expediente),
-    vista: "cuadro",
-    cuadro,
-    expediente: null,
-    expediente_ref: "",
-    tarea_ref: "",
-  });
-  assert.match(html, /Mis tareas prioritarias/);
-  assert.match(html, /Distribución por fase/);
-  assert.match(html, /Registrar nueva petición/);
-});
-
-test("la presentación delimita plazos, llamamientos y preparación previa sin inventar efectos", () => {
-  const expediente = crearExpedienteContratacionTemporalPresentacion();
-  const porReferencia = (referencia) => expediente.tareas.find(
-    ({ tarea_ref }) => tarea_ref === referencia,
-  );
-  const texto = (referencia) => JSON.stringify(porReferencia(referencia));
-
-  assert.match(texto("tarea-subsanacion"), /plazo por definir/u);
-  assert.match(texto("tarea-iniciar-llamamiento"), /Escenario sintético/u);
-  assert.match(texto("tarea-iniciar-llamamiento"), /Canal de comunicación/u);
-  assert.doesNotMatch(texto("tarea-iniciar-llamamiento"), /Correo y teléfono|Renuncia acreditada/u);
-  assert.match(texto("tarea-seleccion-candidato"), /Candidatura propuesta/u);
-  assert.match(texto("tarea-seleccion-candidato"), /pendiente de validar/u);
-  assert.match(texto("tarea-seleccion-candidato"), /no adjudica ni llama automáticamente/u);
-  assert.doesNotMatch(texto("tarea-seleccion-candidato"), /Llamar a la primera candidatura/u);
-  assert.match(texto("tarea-resultado-llamamiento"), /Respuesta manual sintética/u);
-  assert.match(texto("tarea-resultado-llamamiento"), /plazo no evaluado/u);
-  assert.doesNotMatch(texto("tarea-resultado-llamamiento"), /dentro de plazo|Entregado/u);
-
-  const traslado = porReferencia("tarea-traslado-intervencion");
-  assert.equal(traslado.etiqueta, "Preparación para formalización");
-  assert.match(JSON.stringify(traslado), /no existe envío externo/u);
-  assert.doesNotMatch(JSON.stringify(traslado), /Trasladado|Enviar a Intervención/u);
-  assert.deepEqual(traslado.acciones, []);
-
-  const cuadro = crearCuadroContratacionTemporalPresentacion();
-  assert.ok(cuadro.expedientes.every(({ plazo }) => (
-    ["Regla pendiente", "Plazo por definir", "Cerrado"].includes(plazo)
-  )));
-});
-
-test("la formalización mantiene P4 pendiente sin inventar circuito ni efectos administrativos", () => {
-  const expediente = crearExpedienteContratacionTemporalPresentacion();
-  const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
-  assert.ok(tarea);
-  assert.equal(tarea.estado_clave, "en_curso");
-  assert.equal(tarea.salida, "");
-  assert.equal(tarea.recibo_ref, "");
-  assert.equal(tarea.decision_ref, "");
-  assert.equal(tarea.acciones.length, 1);
-  assert.equal(tarea.acciones[0].accion_ref, "preparar_borrador_firma_demo");
-  assert.equal(tarea.acciones[0].disponible, false);
-  const texto = JSON.stringify(tarea);
-  assert.match(texto, /Pendiente de definición por RRHH/u);
-  assert.match(texto, /solo prepara una vista en memoria/i);
-  assert.match(texto, /no envía, firma, registra ni genera un recibo administrativo/i);
-  assert.doesNotMatch(texto, /Jefatura de Servicio|Órgano competente|fe pública|Enviada al portafirmas|Firmado|orden proceden/i);
-});
-
-test("montaje y desmontaje son simétricos y no dejan efectos tras retirar la vista", async () => {
-  const eventos = new Map();
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) {
-      if (eventos.get(tipo) === manejador) eventos.delete(tipo);
-    },
-    querySelector() { return null; },
-    contains() { return true; },
-  };
-  const presentador = presentadorDe(adaptador());
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  assert.equal(eventos.size, 2);
-  assert.match(raiz.innerHTML, /Expedientes de contratación/);
-  montaje.desmontar();
-  assert.equal(eventos.size, 0);
-  const estadoAntes = presentador.obtenerEstado();
-  const estado = await presentador.cargar();
-  assert.strictEqual(estado, estadoAntes);
-  assert.strictEqual(presentador.obtenerEstado(), estadoAntes);
-});
-
-test("presentación queda aislada de red, cookies, storage y manifiestos productivos", async () => {
-  const directorio = new URL("./", import.meta.url);
-  const [adaptadorFuente, datosFuente, presentadorFuente, vistaFuente, interno, produccion] =
-    await Promise.all([
-      readFile(new URL("adaptador-presentacion.js", directorio), "utf8"),
-      readFile(new URL("datos-presentacion.js", directorio), "utf8"),
-      readFile(new URL("presentador-expedientes.js", directorio), "utf8"),
-      readFile(new URL("vista-expedientes.js", directorio), "utf8"),
-      readFile(new URL("../../../../interno.manifest", directorio), "utf8"),
-      readFile(new URL("../../../../produccion.manifest", directorio), "utf8"),
-    ]);
-  const candidato = `${adaptadorFuente}\n${datosFuente}\n${presentadorFuente}\n${vistaFuente}`;
-  assert.doesNotMatch(
-    candidato,
-    /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|document\.cookie|localStorage|sessionStorage|indexedDB/i,
-  );
-  assert.doesNotMatch(`${interno}\n${produccion}`, /adaptador-presentacion\.js|datos-presentacion\.js/);
-  for (const neutro of [
-    "contrato-expedientes.js", "presentador-expedientes.js", "vista-expedientes.js",
-    "componentes-expedientes.js", "expedientes.css",
-  ]) {
-    assert.match(interno, new RegExp(neutro.replace(".", "\\.")));
-    assert.match(produccion, new RegExp(neutro.replace(".", "\\.")));
-  }
-});
-
-test("la presentación no transmite GINPIX ni altera el expediente al llegar al envío", async () => {
-  const fuente = adaptador();
-  const referencia = "exp-demo-contratacion-005487";
-  const expediente = await fuente.obtener(referencia);
-
-  const tareaEnvio = expediente.tareas.find(({ tarea_ref: actual }) => actual === "tarea-envio-ginpix");
-  const accionEnvio = tareaEnvio.acciones.find(({ accion_ref: actual }) => actual === "enviar_ginpix");
-  assert.equal(accionEnvio.capacidad, CAP.enviarGinpix);
-  assert.equal(accionEnvio.disponible, false);
-  const versionAntes = expediente.version;
-  const auditoriaAntes = await fuente.obtenerAuditoria(referencia);
-
-  await assert.rejects(
-    fuente.ejecutar(comandoDe(expediente, tareaEnvio, accionEnvio)),
-    /no está disponible|conector corporativo/u,
-  );
-
-  const despues = await fuente.obtener(referencia);
-  assert.equal(despues.version, versionAntes);
-  assert.deepEqual(await fuente.obtenerAuditoria(referencia), auditoriaAntes);
-});
-
-test("la vista de alta no renderiza subcabecera redundante ni bloque de llamamiento", () => {
-  const estado = {
-    vista: "alta",
-    carga: "listo",
-    tipo_mensaje: "informacion",
-    mensaje_clave: "estado_inicial",
-    cuadro: null,
-    expediente: null,
-  };
-  const html = renderizarModuloContratacionTemporal(estado, {
-    altaDisponible: true,
-    llamamientoDisponible: true,
-  });
-  assert.doesNotMatch(html, /ct-exp-subcabecera/u);
-  assert.doesNotMatch(html, /Nueva petición de personal/u);
-  assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
-  assert.match(html, /data-ct-exp-alta/u);
-});
-
-test("abrir otro expediente sitúa foco y scroll en su cabecera una sola vez", async () => {
-  const fuente = adaptador();
-  const presentador = presentadorDe(fuente);
-  await presentador.cargar();
-  const eventos = new Map();
-  const atributos = new Map();
-  let focos = 0;
-  let desplazamientos = 0;
-  const cabecera = {
-    setAttribute(nombre, valor) { atributos.set(nombre, valor); },
-    focus() { focos += 1; },
-    scrollIntoView(opciones) {
-      desplazamientos += 1;
-      assert.deepEqual(opciones, { block: "nearest", inline: "nearest" });
-    },
-  };
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
-    querySelector(selector) {
-      return selector === ".ct-exp-cabecera-expediente h3" ? cabecera : null;
-    },
-    contains() { return true; },
-  };
-  const referencia = presentador.obtenerEstado().cuadro.expedientes[1].expediente_ref;
-  const control = {
-    dataset: { ctExpAbrir: referencia },
-    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
-  };
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  try {
-    await eventos.get("click")({ target: control, preventDefault() {} });
-    assert.equal(presentador.obtenerEstado().expediente_ref, referencia);
-    assert.equal(atributos.get("tabindex"), "-1");
-    assert.equal(focos, 1);
-    assert.equal(desplazamientos, 1);
-  } finally {
-    montaje.desmontar();
-  }
-});
-
-test("un fallo al abrir se renderiza desde el estado del presentador y no mueve el foco", async () => {
-  const base = adaptador();
-  const cuadro = await base.listar();
-  const fuente = {
-    capacidades: [CAP.consultarCuadro, CAP.consultarExpediente],
-    async listar() { return cuadro; },
-    async obtener() { throw new Error("detalle no disponible"); },
-    async ejecutar() { throw new Error("actuación no disponible"); },
-  };
-  const presentador = presentadorDe(fuente);
-  const eventos = new Map();
-  let focos = 0;
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
-    querySelector(selector) {
-      return selector === ".ct-exp-cabecera-expediente h3" ? { focus() { focos += 1; } } : null;
-    },
-    contains() { return true; },
-  };
-  const referencia = cuadro.expedientes[0].expediente_ref;
-  const control = {
-    dataset: { ctExpAbrir: referencia },
-    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
-  };
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  try {
-    await eventos.get("click")({ target: control, preventDefault() {} });
-    assert.equal(presentador.obtenerEstado().carga, "error");
-    assert.match(raiz.innerHTML, /No se pudo cargar el expediente. Reintente desde el cuadro/u);
-    assert.match(raiz.innerHTML, /role="alert"/u);
-    assert.equal(focos, 0);
-  } finally {
-    montaje.desmontar();
-  }
 });

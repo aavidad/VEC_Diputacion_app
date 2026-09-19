@@ -73,7 +73,7 @@ export function renderizarAlta(
     ${fiscalizacionDisponible ? '<div data-ct-exp-fiscalizacion></div>' : ""}`;
 }
 
-export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = null) {
+export function contextoLlamamientoDesdeEstado(estado) {
   const expediente = estado?.expediente;
   if (estado?.vista !== "expediente" || estado.carga !== "listo"
     || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
@@ -83,20 +83,8 @@ export function contextoLlamamientoDesdeEstado(estado, reciboFiscalizacion = nul
   const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => (
     referencia === expediente.expediente_ref
   ));
-  if (resumen?.version !== expediente.version) return null;
-  const resultadoFavorable = ["favorable", "favorable_con_observaciones"];
-  const ultimoHito = expediente.historial?.at?.(-1);
-  const fiscalizacionConfirmadaEnDetalle = resumen?.fase_clave === "fiscalizacion"
-    && resultadoFavorable.includes(expediente.fiscalizacion?.resultado_clave)
-    && ultimoHito?.accion_clave === "registrar_fiscalizacion"
-    && ultimoHito.version_expediente === expediente.version;
-  const fiscalizacionConfirmadaPorRecibo = resumen?.fase_clave === "fiscalizacion"
-    && reciboFiscalizacion?.expediente_ref === expediente.expediente_ref
-    && reciboFiscalizacion?.version_resultante === expediente.version
-    && resultadoFavorable.includes(reciboFiscalizacion?.resultado);
-  if (resumen?.fase_clave !== "llamamiento"
-    && !fiscalizacionConfirmadaEnDetalle
-    && !fiscalizacionConfirmadaPorRecibo) return null;
+  if (resumen?.fase_clave !== "fiscalizacion"
+    || resumen.version !== expediente.version) return null;
   // Es contexto del formulario; el servidor decide vigencia y permisos al enviar.
   return Object.freeze({
     expediente_ref: expediente.expediente_ref,
@@ -146,15 +134,8 @@ function renderizarFirmaPendiente(expediente, t) {
     <p class="sobrelinea">${escaparHTML(t("firma_pendiente_sobrelinea"))}</p>
     <h3 id="ct-exp-firma-pendiente-titulo">${escaparHTML(t("firma_pendiente_titulo"))}</h3>
     <p>${escaparHTML(t("firma_pendiente_estado"))}</p>
-    <dl>
-      <div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(t("firma_pendiente_documento_valor"))}</dd></div>
-      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div>
-    </dl>
-    <h4>${escaparHTML(t("firma_pendiente_pasos"))}</h4>
-    <ul>
-      <li>${escaparHTML(t("firma_pendiente_paso_configuracion"))}</li>
-      <li>${escaparHTML(t("firma_pendiente_paso_remision"))}</li>
-    </ul>
+    <dl><div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(informe.accion)}</dd></div>
+      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div></dl>
     <p>${escaparHTML(t("firma_pendiente_limite"))}</p>
   </section>`;
 }

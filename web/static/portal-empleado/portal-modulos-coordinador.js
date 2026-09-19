@@ -15,7 +15,12 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
+import {
+  calcularMetricasCuadro,
+  tramitesParaInicio,
+  refrescarResumenBolsasInicio,
+  obtenerResumenBolsasInicio,
+} from "./portal-inicio.js?v=20260721-acceso-real-v2";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVES_CARGA_MODULAR = Object.freeze([
@@ -382,6 +387,9 @@ export function crearCoordinadorModulosPortal({
     const catalogoInterno = await cargarCatalogoInterno();
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     catalogo = catalogoInterno;
+    void refrescarResumenBolsasInicio({
+      fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
+    });
     let contratacionTemporal;
     if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
       try {
@@ -506,7 +514,6 @@ export function crearCoordinadorModulosPortal({
           analisis,
           fiscalizacion,
           subsanacion,
-          continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
           obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
           // El listado inicial se carga antes que los catálogos: los nombres de
           // centro y categoría se resuelven al pedirlo, con lo que haya llegado.
@@ -662,7 +669,6 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
-          continuidad: composicion.contratacionTemporal.continuidad,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           confirmarOperacion,
           anunciar,
@@ -731,6 +737,7 @@ export function crearCoordinadorModulosPortal({
     obtenerCatalogo,
     obtenerContextoBolsa,
     obtenerMetricasCuadro,
+    obtenerResumenBolsas: obtenerResumenBolsasInicio,
     renderizarNavegacion,
     resolverAcceso,
     vistaDisponible,
