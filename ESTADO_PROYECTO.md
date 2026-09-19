@@ -74,6 +74,21 @@ tiene aún el vhost ni el passthrough mTLS; el listener privado
 `127.0.0.1:8443` sí respondió `200`. Este corte no acredita Mi Bolsa ni
 producción y no cambia las métricas de Contratación temporal.
 
+## Cartografía de Dietas conectada al runtime privado — 19 de septiembre de 2026
+
+OSRM usa en el mismo pod privado de VEC el grafo local de Granada, fijado por
+imagen y huella, sin publicar otro puerto ni usar servicios externos. La
+aplicación y el sidecar se reiniciaron sin tocar PostgreSQL; desde el contenedor
+VEC una ruta sintética devolvió `200` y `code: Ok`. El portal mTLS y `livez`
+respondieron `200` después del cambio. `readyz` conserva el `503` previsto por
+la composición de desarrollo incompleta.
+
+La identidad sintética disponible no posee `dietas.ruta.read`: el endpoint
+`POST /api/vec/dietas/road-route` respondió `403`, por lo que no se amplió su
+permiso ni se presenta el recorrido web de Dietas como cerrado. El contenedor
+Docker usado para la preparación quedó detenido y conservado como rollback;
+el sidecar rootless es el único OSRM activo de este runtime.
+
 ## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
 
 El corte `18bd0ebb` renueva bajo demanda la configuración diaria de confianza
