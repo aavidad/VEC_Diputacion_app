@@ -32,7 +32,17 @@ export function crearVistasConvocatorias(u) {
       : '<p class="nota-pendiente">No hay una reproducción documental asociada a este escenario.</p>';
   }
 
-  function renderizarConvocatorias(datos, estado) {
+  function estadoFuente(estado, titulo) {
+    const error = String(estado?.errorFuente || "").trim();
+    if (error) return `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>Error al cargar ${e(titulo)}</strong></p><p>${e(error)}</p></div></section>`;
+    if (estado?.datosBolsas?.carga === "denegado") return `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>Acceso denegado</strong></p><p>La sesión no dispone de permiso para consultar ${e(titulo)}.</p></div></section>`;
+    if (estado?.fuenteLista === false || estado?.datosBolsas?.carga === "cargando") return `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-live="polite"><p><strong>Cargando ${e(titulo)}…</strong></p><p>Se está comprobando la sesión y el ámbito de acceso con la API interna.</p></div></section>`;
+    return "";
+  }
+
+  function renderizarConvocatorias(datos, estado = {}) {
+    const bloqueoFuente = estadoFuente(estado, "convocatorias");
+    if (bloqueoFuente) return `${encabezadoVista("Expediente electrónico de selección", "Convocatorias, bases y calendario", "La consulta interna permanece cerrada hasta recibir una fuente autorizada.")}${bloqueoFuente}`;
     const seleccionada = datos.elaboraciones.find((item) => item.id === estado.elaboracionSeleccionada)
       || datos.elaboraciones[0];
     const texto = valorFiltro(estado, "convocatorias", "texto");
@@ -107,6 +117,8 @@ export function crearVistasConvocatorias(u) {
   }
 
   function renderizarSolicitudes(datos, estado = {}) {
+    const bloqueoFuente = estadoFuente(estado, "solicitudes");
+    if (bloqueoFuente) return `${encabezadoVista("Bandeja de tramitación", "Solicitudes, admisión y subsanación", "La consulta interna permanece cerrada hasta recibir una fuente autorizada.")}${bloqueoFuente}`;
     const pendientes = datos.solicitudes.filter((item) => /pendiente/i.test(item.estado)).length;
     const referencia = valorFiltro(estado, "solicitudes", "referencia");
     const convocatoria = valorFiltro(estado, "solicitudes", "convocatoria", "Todas");
