@@ -39,6 +39,7 @@ function formatoFecha(iso) {
 export function crearControladorListaBolsas({
   elementos,
   api = { consultarBolsasPublicas, consultarListaBolsaPublica },
+  ventana = typeof window === "undefined" ? null : window,
 }) {
   const estado = {
     bolsas: [],
@@ -48,6 +49,7 @@ export function crearControladorListaBolsas({
     cursorSiguiente: null,
     filtroDocumento: "",
     cargando: false,
+    secuenciaConsulta: 0,
   };
 
   function mostrarPanel(panelAMostrar) {
@@ -72,6 +74,7 @@ export function crearControladorListaBolsas({
   }
 
   async function cargarBolsas() {
+    const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
     elementos.seccionBolsas.hidden = false;
     elementos.seccionLista.hidden = true;
@@ -82,6 +85,7 @@ export function crearControladorListaBolsas({
 
     try {
       const respuesta = await api.consultarBolsasPublicas();
+      if (secuencia !== estado.secuenciaConsulta) return;
       estado.bolsas = respuesta.bolsas;
       elementos.bolsasCargando.hidden = true;
 
@@ -92,6 +96,7 @@ export function crearControladorListaBolsas({
 
       renderizarTablaBolsas(estado.bolsas);
     } catch (err) {
+      if (secuencia !== estado.secuenciaConsulta) return;
       elementos.bolsasCargando.hidden = true;
       elementos.bolsasError.hidden = false;
       if (elementos.mensajeErrorBolsas) {
@@ -120,7 +125,8 @@ export function crearControladorListaBolsas({
     `).join("");
   }
 
-  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "") {
+  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push" } = {}) {
+    const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
     estado.filtroDocumento = documento;
     elementos.seccionBolsas.hidden = true;
@@ -140,6 +146,7 @@ export function crearControladorListaBolsas({
         documento,
         cursor,
       });
+      if (secuencia !== estado.secuenciaConsulta) return;
 
       estado.bolsaSeleccionada = respuesta.bolsa;
       estado.hayMas = respuesta.hay_mas;
@@ -160,8 +167,9 @@ export function crearControladorListaBolsas({
       }
 
       actualizarPaginacion();
-      actualizarURL(bolsaRef, documento);
+      actualizarURL(bolsaRef, documento, historial);
     } catch (err) {
+      if (secuencia !== estado.secuenciaConsulta) return;
       elementos.listaCargando.hidden = true;
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
@@ -219,9 +227,11 @@ export function crearControladorListaBolsas({
     }
   }
 
-  function actualizarURL(bolsaRef, documento) {
-    if (typeof window === "undefined" || !window.history || !window.history.replaceState) return;
-    const url = new URL(window.location.href);
+  function actualizarURL(bolsaRef, documento, modo = "push") {
+    if (!ventana?.history || !ventana?.location) return;
+    const actualizarHistoria = modo === "push" ? ventana.history.pushState : ventana.history.replaceState;
+    if (typeof actualizarHistoria !== "function") return;
+    const url = new URL(ventana.location.href);
     if (bolsaRef) {
       url.searchParams.set("bolsa", bolsaRef);
     } else {
@@ -232,7 +242,7 @@ export function crearControladorListaBolsas({
     } else {
       url.searchParams.delete("documento");
     }
-    window.history.replaceState({}, "", url.toString());
+    actualizarHistoria.call(ventana.history, {}, "", url.toString());
   }
 
   function volverABolsas() {
@@ -241,8 +251,31 @@ export function crearControladorListaBolsas({
     estado.filtroDocumento = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
-    actualizarURL("", "");
+    ++estado.secuenciaConsulta;
+    actualizarURL("", "", "push");
     cargarBolsas();
+  }
+
+  function restaurarDesdeURL() {
+    if (!ventana?.location) return cargarBolsas();
+    const parametros = new URLSearchParams(ventana.location.search);
+    const bolsaRef = parametros.get("bolsa");
+    const documento = parametros.get("documento") || "";
+    if (!bolsaRef) return volverAListadoDesdeHistorial();
+    if (elementos.inputDocumento) {
+      elementos.inputDocumento.value = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
+    }
+    return seleccionarBolsa(bolsaRef, documento, "", { historial: "replace" });
+  }
+
+  function volverAListadoDesdeHistorial() {
+    ++estado.secuenciaConsulta;
+    estado.bolsaSeleccionada = null;
+    estado.posiciones = [];
+    estado.filtroDocumento = "";
+    if (elementos.inputDocumento) elementos.inputDocumento.value = "";
+    if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
+    return cargarBolsas();
   }
 
   function instalar() {
@@ -294,7 +327,7 @@ export function crearControladorListaBolsas({
     if (elementos.botonReintentarLista) {
       elementos.botonReintentarLista.addEventListener("click", () => {
         if (estado.bolsaSeleccionada) {
-          seleccionarBolsa(estado.bolsaSeleccionada.bolsa_ref, estado.filtroDocumento);
+          seleccionarBolsa(estado.bolsaSeleccionada.bolsa_ref, estado.filtroDocumento, "", { historial: "replace" });
         }
       });
     }
@@ -305,28 +338,15 @@ export function crearControladorListaBolsas({
           seleccionarBolsa(
             estado.bolsaSeleccionada.bolsa_ref,
             estado.filtroDocumento,
-            estado.cursorSiguiente
+            estado.cursorSiguiente,
+            { historial: "replace" },
           );
         }
       });
     }
 
-    // Comprobar parámetros iniciales en la URL
-    if (typeof window !== "undefined" && window.location) {
-      const parametros = new URLSearchParams(window.location.search);
-      const bolsaRef = parametros.get("bolsa");
-      const documento = parametros.get("documento") || "";
-      if (bolsaRef) {
-        if (documento && PATRON_DOCUMENTO_ENMASCARADO.test(documento)) {
-          if (elementos.inputDocumento) elementos.inputDocumento.value = documento;
-        }
-        seleccionarBolsa(bolsaRef, documento);
-      } else {
-        cargarBolsas();
-      }
-    } else {
-      cargarBolsas();
-    }
+    if (ventana?.addEventListener) ventana.addEventListener("popstate", restaurarDesdeURL);
+    restaurarDesdeURL();
   }
 
   return Object.freeze({
@@ -334,6 +354,7 @@ export function crearControladorListaBolsas({
     cargarBolsas,
     seleccionarBolsa,
     volverABolsas,
+    restaurarDesdeURL,
     instalar,
   });
 }

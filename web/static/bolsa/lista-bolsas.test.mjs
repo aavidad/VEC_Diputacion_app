@@ -385,3 +385,71 @@ test("interfaz pública: listas.html es accesible, semántica y sin textos demo 
   const textoSinEtiquetas = html.replace(/<[^>]+>/g, " ");
   assert.doesNotMatch(textoSinEtiquetas, /\bdemo\b/i);
 });
+
+test("controlador público: restaura lista y filtro con Atrás/Adelante", async () => {
+  const fixtureBolsas = generarFixtureBolsasPublicas();
+  const consultas = [];
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {} },
+    seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true },
+    bolsasError: { hidden: true },
+    bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    infoBolsaActiva: { innerHTML: "" },
+    cuerpoTablaLista: { innerHTML: "" },
+    listaCargando: { hidden: true },
+    listaError: { hidden: true },
+    listaVacio: { hidden: true },
+    contenedorPaginacion: { hidden: true },
+    botonSiguiente: { dataset: {}, addEventListener() {} },
+    errorDocumento: { hidden: true, textContent: "" },
+    inputDocumento: { value: "" },
+  };
+  const listeners = new Map();
+  let href = "https://vec.test/bolsa/listas.html";
+  const location = {
+    get href() { return href; },
+    set href(url) { href = new URL(url, href).toString(); },
+    get search() { return new URL(href).search; },
+  };
+  const ventana = {
+    location,
+    history: {
+      pushState(_estado, _titulo, url) { location.href = url; },
+      replaceState(_estado, _titulo, url) { location.href = url; },
+    },
+    addEventListener(tipo, receptor) { listeners.set(tipo, receptor); },
+  };
+  const api = {
+    consultarBolsasPublicas: async () => fixtureBolsas.data,
+    consultarListaBolsaPublica: async (consulta) => {
+      consultas.push(consulta);
+      return generarFixtureListaPublica(consulta.bolsa_ref).data;
+    },
+  };
+  const ctrl = crearControladorListaBolsas({ elementos, api, ventana });
+  ctrl.instalar();
+  await new Promise((resolver) => setImmediate(resolver));
+
+  await ctrl.seleccionarBolsa("bolsa:sintetico:administrativo", "***1234**");
+  assert.match(ventana.location.href, /bolsa=bolsa%3Asintetico%3Aadministrativo/);
+
+  ventana.location.href = "https://vec.test/bolsa/listas.html?bolsa=bolsa%3Asintetico%3Aadministrativo&documento=***1234**";
+  listeners.get("popstate")();
+  await new Promise((resolver) => setImmediate(resolver));
+
+  assert.equal(elementos.inputDocumento.value, "***1234**");
+  assert.deepEqual(consultas.at(-1), {
+    bolsa_ref: "bolsa:sintetico:administrativo",
+    documento: "***1234**",
+    cursor: "",
+  });
+
+  ventana.location.href = "https://vec.test/bolsa/listas.html";
+  listeners.get("popstate")();
+  await new Promise((resolver) => setImmediate(resolver));
+
+  assert.equal(elementos.seccionBolsas.hidden, false);
+  assert.equal(elementos.seccionLista.hidden, true);
+});
