@@ -57,6 +57,23 @@ acreditan publicación de activos y respuestas HTTP tras reinicio; no acreditan
 todavía un recorrido E2E en navegador, identidad real, persistencia del área
 personal ni producción.
 
+### Corte visible desplegado — 19-09-2026
+
+Los commits canónicos `d6ccd629` y `05458427`, integrados y publicados en la
+rama remota de GitHub en `05458427`, mantienen visibles y deshabilitados cuatro
+accesos de menú a capacidades aún no compuestas y presentan las vigencias B12 como
+fecha civil o como instante localizado, según el dato recibido. El runtime
+privado recibió únicamente los cuatro archivos web afectados, con copia de
+respaldo fuera de Git.
+
+El recorrido en navegador a 1440 y 390 px mostró 12 vigencias B12 y los cuatro
+controles deshabilitados, sin desbordamiento, errores JavaScript, respuestas
+no-2xx, cookies ni almacenamiento web; el POST automático fue solo de lectura.
+La URL pública `vec.cidonia.cloud` continúa inaccesible porque Caddy en 443 no
+tiene aún el vhost ni el passthrough mTLS; el listener privado
+`127.0.0.1:8443` sí respondió `200`. Este corte no acredita Mi Bolsa ni
+producción y no cambia las métricas de Contratación temporal.
+
 ## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
 
 El corte `18bd0ebb` renueva bajo demanda la configuración diaria de confianza
