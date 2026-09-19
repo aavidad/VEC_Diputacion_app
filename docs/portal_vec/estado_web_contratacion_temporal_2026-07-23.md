@@ -1,5 +1,25 @@
 # Estado de la web de contratación temporal para RRHH
 
+## Presentación web completa; cierre funcional pendiente — 19 de septiembre de 2026
+
+La superficie de presentación cubre **19/19 pantallas**: cuadro de mando y
+dieciocho tareas recorribles. Usa los contratos, renderizadores, i18n y tema de
+la aplicación; únicamente los datos y efectos de presentación permanecen en el
+adaptador volátil sustituible. No es una segunda web.
+
+El recorrido final respondió `200` en 1440 × 1000, 1024 × 900 y 390 × 844.
+En las tres resoluciones aparecieron las dieciocho tareas, sin errores
+JavaScript ni desbordamiento global. Firma y formalización no inventan
+firmantes, orden, firma, remisión o recibo. Llamamiento y resultado señalan
+canal, regla y plazo pendientes; la preparación previa no simula otro envío a
+Intervención.
+
+El contador funcional continúa en **15/19 (79 %)**: Análisis conserva una
+reserva histórica sin identidad funcional; Llamamiento necesita contacto
+gobernado y SMTP; Resultado necesita inicio y plazo aprobados; Firma necesita
+el circuito real de Portafirmas. Estas dependencias podrán conectarse sin
+rehacer las pantallas.
+
 ### Rectificación activa y recorrida en principal; incidencia histórica pendiente
 
 El conjunto de rectificación `842c298c` tiene dos revisiones sensibles
@@ -222,7 +242,7 @@ para el caso sintético en `148d075e`.
 | 4 | Gestión de bolsa y comprobaciones | Terminada en desarrollo | 0 % | Dirección: conservación | Fuente sintética del período exacto: propuesta200, decisión única201 v2→v3, resultado200 con recibo idéntico y detalle200 con asignación ofrecida.1440/390 sin JS ni desbordamiento; no fuente corporativa. |
 | 5 | Unidad y bandeja de trabajo | Terminada en desarrollo | 0 % | Dirección: conservación | Asignación sintética201 v3→v4, recibo conservado tras refresco. Reapertura200 confirma unidad y ofrece informe, sin otra asignación;1440/390 sin errores JS. |
 | 6 | Informe jurídico automático | Terminada en desarrollo | 0 % | Dirección: conservación | Preparación real y recibo; documento de desarrollo sin firma. |
-| 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | No hay pantalla real equivalente; no sustituir firma o envío por simulación. |
+| 7 | Firma de Jefatura y envío a Intervención | Pendiente | 100 % | Dirección: circuito de firma admitido | Existe panel real de solo lectura y pantalla de presentación recorrible; ambos identifican documento previo, circuito previsto y datos pendientes sin botón, firma, envío ni recibo. Falta integrar el Portafirmas real y la decisión de RRHH. |
 | 8 | Fiscalización por Intervención | Terminada en desarrollo | 0 % | Dirección: conservación | Intervención201 favorable con observaciones v7→v8; mismo recibo de12campos tras reinicio y replay original201, historia8 por consulta200. Acceso manual sin inferir antecedentes ni firma. |
 | 9 | Subsanación de reparos | Terminada en desarrollo | 0 % | Dirección local: conservación, sin reaplicar CT93–96 | Guardado `201` v6 → v7 y recuperación tras reiniciar aplicación/PostgreSQL: mismo recibo de 11 campos, una reserva y siete actuaciones. Conserva incidencia; 1440/390 px sin desbordamiento ni errores JS. AD3-38/CT92 instaladas una vez, no reaplicar. |
 | 10 | Llamamiento de candidatura | Parcial | 50 % | Dirección local: contacto; conexión SMTP aplazada | Contacto: ensayo aislado de DDL, ACL y reinicio terminado; faltan operación positiva y gobierno de Usuarios. CT94/95 recorridas desde v8 hasta propuesta v9. `2e5810b7` evita mostrar el panel fuera de su fase y `01f2bb68` identifica el registro manual sintético; contacto y SMTP pendientes. |

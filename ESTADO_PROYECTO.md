@@ -10,14 +10,21 @@ presentación por HTTP sin rehacer las vistas.
 Los cortes `5fc0d429`, `2e5810b7` y `01f2bb68` dejan la rectificación en consulta
 cuando no hay motivos publicados, muestran Llamamiento y Formalización solo en
 su fase acreditada y separan el resultado manual sintético del vencimiento no
-evaluable. No calculan plazos ni declaran correo, firma o envío externo.
-Pasaron 35, 26 y 73 pruebas focales respectivamente. Los siete activos servidos
-se copiaron al artefacto activo y las dos sondas de módulos respondieron `200`
-con las mismas huellas. Falta la comprobación visual final en navegador.
+evaluable. Los cortes `0b9d0a7e`, `6efd48b3`, `4a5a4a9e` y `daab1278`
+presentan firma y formalización sin inventar firmantes, orden, envío o recibo,
+y dejan plazos, canal y reglas pendientes donde RRHH todavía debe decidir.
 
-El contador funcional se mantiene en **15/19 (79 %)**: estas mejoras hacen
-honestos y presentables los estados parciales, pero no sustituyen portafirmas,
-SMTP ni la política de inicio/plazo pendiente de RRHH.
+La web de presentación tiene **19/19 superficies recorribles**: cuadro y
+dieciocho tareas. El servidor aislado de presentación respondió `200` y el
+recorrido Playwright pasó en 1440 × 1000, 1024 × 900 y 390 × 844, con las
+dieciocho tareas presentes, cero errores JavaScript y cero desbordamiento
+global. Firma, formalización, llamamiento, resultado y preparación previa
+mantienen sus límites visibles. Los activos servidos coinciden con el corte.
+
+El contador funcional se mantiene en **15/19 (79 %)**: la cobertura visual no
+sustituye Portafirmas, SMTP, la política de inicio/plazo ni la identidad de la
+reserva histórica pendiente. Las pantallas, contratos e i18n se conservan para
+conectar esas autoridades sin rehacer la interfaz.
 
 ## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
 
