@@ -35,15 +35,16 @@
       <div class="acceso-panel">
         <header class="acceso-panel-cabecera">
           <p class="acceso-paso" data-i18n="acceso.paso">Identificación electrónica</p>
-          <h2 id="metodos-acceso" data-i18n="acceso.metodos.titulo">Seleccione un método de identificación</h2>
-          <p data-i18n="acceso.metodos.descripcion">Use uno de los sistemas admitidos por la Diputación de Granada.</p>
+          <h2 id="metodos-acceso" data-i18n="acceso.metodos.titulo">Métodos de identificación no disponibles</h2>
+          <p data-i18n="acceso.metodos.descripcion">La identidad electrónica no está configurada para este acceso.</p>
         </header>
 
-        <div class="acceso-estado" id="estado-acceso" role="status">
+        <div class="acceso-estado" id="estado-acceso" role="status" aria-live="polite" aria-atomic="true">
           <span class="acceso-estado-marca" aria-hidden="true">i</span>
           <div>
-            <strong data-i18n="acceso.estado.titulo">Acceso pendiente de configuración</strong>
-            <p data-i18n="acceso.estado.descripcion">Los métodos se habilitarán cuando Sistemas publique la pasarela de identidad.</p>
+            <p><span data-i18n="acceso.estado.categoria.etiqueta">Estado del servicio:</span> <strong data-i18n="acceso.estado.categoria.valor">No disponible</strong></p>
+            <strong data-i18n="acceso.estado.titulo">La identificación electrónica todavía no está configurada</strong>
+            <p data-i18n="acceso.estado.descripcion">No se puede iniciar sesión con Cl@ve, certificado digital ni DNIe desde esta página.</p>
           </div>
         </div>
 
@@ -51,29 +52,29 @@
           <article class="acceso-metodo acceso-metodo-clave">
             <div class="acceso-metodo-texto">
               <h3 data-i18n="acceso.metodo.clave.titulo">Cl@ve</h3>
-              <p data-i18n="acceso.metodo.clave.descripcion">Identificación mediante la plataforma Cl@ve.</p>
+              <p data-i18n="acceso.metodo.clave.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
 
           <article class="acceso-metodo acceso-metodo-certificado">
             <div class="acceso-metodo-texto">
               <h3 data-i18n="acceso.metodo.certificado.titulo">Certificado digital</h3>
-              <p data-i18n="acceso.metodo.certificado.descripcion">Certificado FNMT o corporativo admitido.</p>
+              <p data-i18n="acceso.metodo.certificado.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
 
           <article class="acceso-metodo acceso-metodo-dnie">
             <div class="acceso-metodo-texto">
               <h3 data-i18n="acceso.metodo.dnie.titulo">DNIe</h3>
-              <p data-i18n="acceso.metodo.dnie.descripcion">Identificación mediante DNI electrónico.</p>
+              <p data-i18n="acceso.metodo.dnie.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
         </section>
 
-        <p class="acceso-ayuda" data-i18n="acceso.ayuda">No introduzca credenciales mientras los métodos figuren como no disponibles.</p>
+        <p class="acceso-ayuda" id="acceso-autorizacion" data-i18n="acceso.ayuda">No introduzca credenciales ni identificadores. Un certificado o DNIe válidos no conceden acceso por sí solos; cuando el servicio esté configurado, VEC comprobará la autorización aplicable.</p>
       </div>
     </section>
   </main>
