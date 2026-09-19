@@ -319,6 +319,61 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
   assert.equal(cargasContratacion, 1);
 });
 
+
+test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la composición interna", async () => {
+  const datosDemo = Object.freeze({ origen: "sintetico" });
+  const presentacionRecibida = [];
+  const internoRecibido = [];
+  const cargadoresPresentacion = {
+    base: async () => {
+      const [identidad, catalogo] = await Promise.all([
+        import("./identidad/presentacion.js"),
+        import("./portal-catalogo-presentacion.js"),
+      ]);
+      return Object.freeze({ identidad, catalogo });
+    },
+    personal: async () => Object.freeze({
+      vista: Object.freeze({
+        crearPresentacionPersonalDemo: () => datosDemo,
+        montarModuloPersonal: async (dependencias) => {
+          presentacionRecibida.push(dependencias);
+          return Object.freeze({ desmontar() {} });
+        },
+      }),
+    }),
+  };
+  const coordinadorPresentacion = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargadoresPresentacion,
+  });
+  await coordinadorPresentacion.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  assert.equal(await coordinadorPresentacion.montarVista("personal", raizFalsa()), true);
+  assert.deepEqual(presentacionRecibida, [{ raiz: presentacionRecibida[0].raiz, presentacion: datosDemo }]);
+  assert.equal(Object.hasOwn(presentacionRecibida[0], "contextoActor"), false);
+  assert.equal(Object.hasOwn(presentacionRecibida[0], "token"), false);
+
+  const coordinadorInterno = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("no debe cargarse"); },
+      personal: async () => Object.freeze({
+        vista: Object.freeze({
+          montarModuloPersonal: async (dependencias) => {
+            internoRecibido.push(dependencias);
+            return Object.freeze({ desmontar() {} });
+          },
+        }),
+      }),
+    },
+  });
+  await coordinadorInterno.cargarInterno();
+  assert.equal(await coordinadorInterno.montarVista("personal", raizFalsa()), true);
+  assert.deepEqual(internoRecibido, [{ raiz: internoRecibido[0].raiz }]);
+  assert.equal(Object.hasOwn(internoRecibido[0], "presentacion"), false);
+  assert.equal(Object.hasOwn(internoRecibido[0], "token"), false);
+});
+
 test("CT interno se activa solo después de una consulta autorizada", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,

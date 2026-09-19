@@ -28,6 +28,13 @@
   --modulo-borde: #82c996;
 }
 
+.tarjeta-modulo-habilitada[data-modulo-catalogo="personal"] {
+  --modulo-acento: #6d3d91;
+  --modulo-secundario: #26736d;
+  --modulo-suave: #f3edf8;
+  --modulo-borde: #c9acd9;
+}
+
 .tarjeta-modulo-habilitada[data-modulo-catalogo] {
   border-color: var(--modulo-borde);
   background: linear-gradient(155deg, var(--modulo-suave) 0, #fff 42%);
@@ -56,6 +63,9 @@
 .enlace-lateral[data-modulo-portal="contratacion_temporal"] .indicador-menu { background: #0c5ea8; }
 .enlace-lateral[data-modulo-portal="cronos"] .indicador-menu { background: #07758d; }
 .enlace-lateral[data-modulo-portal="dietas"] .indicador-menu { background: #238248; }
+.enlace-lateral[data-modulo-portal="personal"] .indicador-menu { background: #6d3d91; }
+
+.modulo-personal-resumen code { overflow-wrap: anywhere; }
 
 body[data-contraste="true"] .tarjeta-modulo-habilitada[data-modulo-catalogo] {
   border-width: 2px;

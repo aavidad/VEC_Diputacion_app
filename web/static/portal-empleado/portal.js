@@ -99,6 +99,7 @@ const TITULOS = Object.freeze({
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
   cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
+  personal: ["Portal del Empleado → Personal", "Personal · consulta informativa"],
   "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
