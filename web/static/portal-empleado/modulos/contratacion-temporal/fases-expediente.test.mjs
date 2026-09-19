@@ -46,7 +46,7 @@ test("construirPanelFase conserva la cabecera accesible del historial", () => {
 
     assert.match(panel.innerHTML, /tabindex="0" role="region" aria-label="Historial de actuaciones"/u);
     assert.match(panel.innerHTML, /<caption>Historial de actuaciones<\/caption>/u);
-    assert.match(panel.innerHTML, /<thead><tr><th scope="col">Secuencia<\/th><th scope="col">Fecha<\/th><th scope="col">Actuación<\/th><th scope="col">Fase registrada<\/th><th scope="col">Estado registrado<\/th><\/tr><\/thead>/u);
+    assert.match(panel.innerHTML, /<thead><tr><th scope="col">Secuencia<\/th><th scope="col">Fecha y hora<\/th><th scope="col">Actuación<\/th><th scope="col">Fase registrada<\/th><th scope="col">Estado registrado<\/th><\/tr><\/thead>/u);
     assert.match(panel.innerHTML, /<tbody><tr><td>1<\/td>/u);
   } finally {
     globalThis.document = originalDocument;

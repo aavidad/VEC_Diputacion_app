@@ -123,7 +123,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.deepEqual(detalle.historial, [
     {
       secuencia: 1,
-      fecha: "3 sept 2026",
+      fecha: "3 sept 2026, 10:00:00",
       fase: "Solicitud",
       accion: "Solicitud registrada",
       estado_clave: "pendiente",
@@ -133,7 +133,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
     },
     {
       secuencia: 2,
-      fecha: "3 sept 2026",
+      fecha: "3 sept 2026, 11:00:00",
       fase: "Análisis",
       accion: "Iniciar analisis",
       estado_clave: "en_curso",

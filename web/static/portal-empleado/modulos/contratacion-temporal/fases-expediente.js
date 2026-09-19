@@ -61,7 +61,7 @@ export function construirPanelFase(
     <h4>${escapar(t("fase_panel_datos"))}</h4>
     ${campos.length === 0 ? `<p>${escapar(t("fase_panel_sin_datos"))}</p>` : `<dl class="ct-exp-fase-datos">${campos.map((c) => c.outerHTML).join("")}</dl>`}
     <h4>${escapar(t("fase_panel_actuaciones"))}</h4>
-    ${hitos.length === 0 ? `<p>${escapar(t("fase_panel_sin_actuaciones"))}</p>` : `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escapar(t("historial_hitos_titulo"))}"><table class="tabla-datos"><caption>${escapar(t("historial_hitos_titulo"))}</caption><thead><tr><th scope="col">${escapar(t("historial_hito_secuencia"))}</th><th scope="col">${escapar(t("fecha"))}</th><th scope="col">${escapar(t("historial_hito_accion"))}</th><th scope="col">${escapar(t("historial_hito_fase"))}</th><th scope="col">${escapar(t("historial_hito_estado"))}</th></tr></thead><tbody>${hitos.map((h) => h.outerHTML).join("")}</tbody></table></div>`}`;
+    ${hitos.length === 0 ? `<p>${escapar(t("fase_panel_sin_actuaciones"))}</p>` : `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escapar(t("historial_hitos_titulo"))}"><table class="tabla-datos"><caption>${escapar(t("historial_hitos_titulo"))}</caption><thead><tr><th scope="col">${escapar(t("historial_hito_secuencia"))}</th><th scope="col">${escapar(t("historial_hito_fecha"))}</th><th scope="col">${escapar(t("historial_hito_accion"))}</th><th scope="col">${escapar(t("historial_hito_fase"))}</th><th scope="col">${escapar(t("historial_hito_estado"))}</th></tr></thead><tbody>${hitos.map((h) => h.outerHTML).join("")}</tbody></table></div>`}`;
   return panel;
 }
 

@@ -155,7 +155,7 @@ function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t }) {
   });
 }
 
-function fechaCivil(instante, locale) {
+function fechaCivil(instante, locale, incluirHora = false) {
   const coincidencia = typeof instante === "string" && PATRON_INSTANTE_CIVIL.exec(instante);
   if (!coincidencia) return instante;
   const [ano, mes, dia, hora, minuto, segundo] = coincidencia.slice(1, 7).map(Number);
@@ -168,7 +168,8 @@ function fechaCivil(instante, locale) {
     || fecha.getUTCDate() !== dia || fecha.getUTCHours() !== hora
     || fecha.getUTCMinutes() !== minuto || fecha.getUTCSeconds() !== segundo) return instante;
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium", timeZone: "UTC",
+    dateStyle: "medium",
+    ...(incluirHora ? { timeStyle: "medium", timeZone: "Europe/Madrid" } : { timeZone: "UTC" }),
   }).format(fecha);
 }
 
@@ -219,7 +220,7 @@ export function presentarEtiquetasHitoRRHH(hito, mensajes = {}) {
 function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
-    fecha: fechaCivil(hito.realizada_en, locale),
+    fecha: fechaCivil(hito.realizada_en, locale, true),
     fase: etiqueta(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),

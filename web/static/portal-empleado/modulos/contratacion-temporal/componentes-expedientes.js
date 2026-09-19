@@ -258,7 +258,7 @@ function renderizarHistorialHitos(expediente, t) {
     <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(t("historial_hitos_titulo"))}">
       <table class="tabla-datos ct-exp-tabla-panel">
         <thead><tr><th scope="col">${escaparHTML(t("historial_hito_secuencia"))}</th>
-          <th scope="col">${escaparHTML(t("fecha"))}</th>
+          <th scope="col">${escaparHTML(t("historial_hito_fecha"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
           <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>

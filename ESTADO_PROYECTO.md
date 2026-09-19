@@ -1,5 +1,10 @@
 # Estado y plan de ataque del proyecto
 
+El historial general y el panel de cada fase muestran fecha y hora reales de
+las actuaciones en horario peninsular, conservando las fechas civiles de los
+períodos. Comprobados dos hitos reales en navegador a1440/390, sin erroresJS
+ni desbordamiento; 22 pruebas focales correctas. No se calculan plazos legales.
+
 ## Análisis y rectificación recorridos — 19 de septiembre de 2026
 
 El contador de pantallas de desarrollo pasa a **16/19 (84 %)**: Análisis

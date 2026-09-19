@@ -112,7 +112,7 @@ Personal técnico asignado del Servicio de Recursos Humanos.
 4. Introduzca las fechas definitivas validadas por RRHH y la jornada en diezmilésimas. El formulario muestra su equivalencia al escribir: 5000 corresponde al 50,00 % y 10000 al 100,00 %. El coste estimado procede de la fuente configurada; este campo de jornada no permite introducirlo manualmente.
 5. Indique si existe retención de crédito suficiente y añada las observaciones técnicas de la valoración.
 6. Guarde el análisis para cerrar la propuesta técnica de cobertura.
-7. Para corregir un análisis registrado, abra **Rectificar análisis**. Los datos y las observaciones anteriores se precargan; revise grupo y RC, seleccione el motivo disponible y confirme. Se exige una identidad distinta de la autora del análisis anterior. Espere el recibo antes de continuar.
+7. Para corregir un análisis registrado, abra **Rectificar análisis**. Los datos y las observaciones anteriores se precargan; revise grupo y RC, seleccione el motivo disponible y confirme. Se exige una identidad distinta de la autora del análisis anterior. Espere el recibo antes de continuar. En el historial del expediente o de cada fase puede consultar la fecha y hora de cada actuación en horario peninsular.
 
 ![Detalle del expediente 000006 con análisis, coste y observaciones](capturas/contratacion/09_detalle_000006_analisis_coste.png)
 
