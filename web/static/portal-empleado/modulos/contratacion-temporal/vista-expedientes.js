@@ -372,7 +372,7 @@ export async function montarModuloContratacionTemporal({
     const verFase = evento.target?.closest?.("[data-ct-exp-fase-ver]");
     if (verFase && raiz.contains(verFase)) {
       evento.preventDefault();
-      mostrarFase(verFase, traducirExpedientes);
+      mostrarFase(verFase, traducirExpedientes, presentador.obtenerEstado().navegacion);
       return;
     }
     const cerrarFaseControl = evento.target?.closest?.("[data-ct-exp-fase-cerrar]");

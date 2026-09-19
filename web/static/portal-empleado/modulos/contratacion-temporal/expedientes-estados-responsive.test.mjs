@@ -272,6 +272,12 @@ test("un expediente con incidencia explica su origen y ofrece atajos", () => {
   assert.match(html, /data-ct-exp-accion="abrir-historial"/u);
   assert.match(html, /data-ct-exp-vista="documentos"/u);
   assert.match(html, /data-ct-exp-vista="auditoria"/u);
+  const htmlSinConsultas = renderizarExpediente({
+    vista: "expediente", carga: "listo", expediente,
+    navegacion: { documentos: false, auditoria: false },
+  }, t, "es-ES", "Europe/Madrid");
+  assert.doesNotMatch(htmlSinConsultas, /data-ct-exp-vista="documentos"/u);
+  assert.doesNotMatch(htmlSinConsultas, /data-ct-exp-vista="auditoria"/u);
   assert.match(html, /<li class="ct-fase-completado"/u);
   assert.match(html, /<li class="ct-fase-incidencia"/u);
   assert.match(html, /<li class="ct-fase-pendiente"/u);

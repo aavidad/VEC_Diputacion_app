@@ -272,6 +272,13 @@ test("los cuatro contratos rechazan extras, duplicados, cruces y valores no can�
 test("filtro, selección y proyecciones segregadas conservan referencia y versión", async () => {
   const fuente = adaptador();
   const presentador = presentadorDe(fuente);
+  assert.deepEqual(presentador.obtenerEstado().navegacion, {
+    documentos: true,
+    auditoria: true,
+  });
+  const navegacion = renderizarModuloContratacionTemporal(presentador.obtenerEstado());
+  assert.match(navegacion, /data-ct-exp-vista="documentos"/u);
+  assert.match(navegacion, /data-ct-exp-vista="auditoria"/u);
   await presentador.cargar({ texto: "Secretaría", estado: "", fase: "" });
   let estado = presentador.obtenerEstado();
   assert.equal(estado.cuadro.expedientes.length, 1);

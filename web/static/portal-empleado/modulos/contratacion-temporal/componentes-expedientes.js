@@ -203,7 +203,7 @@ export function renderizarCuadro(estado, t) {
 // resuelve o se consulta; ninguno ejecuta una acción por sí mismo.
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";
 
-function renderizarIncidencia(expediente, t) {
+function renderizarIncidencia(expediente, t, navegacion) {
   const fase = (expediente.fases || []).find((f) => f.estado_clave === "incidencia");
   if (!fase) return "";
   const historial = expediente.historial || [];
@@ -229,8 +229,8 @@ function renderizarIncidencia(expediente, t) {
     </div>
     <div class="ct-exp-incidencia-atajos">
       <button type="button" class="boton-primario" data-ct-exp-accion="abrir-historial">${escaparHTML(t("incidencia_atajo_historial"))}</button>
-      <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escaparHTML(t("incidencia_atajo_documentos"))}</button>
-      <button type="button" class="boton-secundario" data-ct-exp-vista="auditoria">${escaparHTML(t("incidencia_atajo_auditoria"))}</button>
+      ${navegacion?.documentos === false ? "" : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escaparHTML(t("incidencia_atajo_documentos"))}</button>`}
+      ${navegacion?.auditoria === false ? "" : `<button type="button" class="boton-secundario" data-ct-exp-vista="auditoria">${escaparHTML(t("incidencia_atajo_auditoria"))}</button>`}
     </div>
   </section>`;
 }
@@ -595,7 +595,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     analisisDisponible,
   )}
     </div>`;
-  return `${renderizarIncidencia(expediente, t)}
+  return `${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}

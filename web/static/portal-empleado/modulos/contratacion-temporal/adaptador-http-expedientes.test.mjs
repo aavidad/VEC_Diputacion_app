@@ -5,6 +5,7 @@ import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-h
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 
 const resumen = Object.freeze({
   expediente_ref: "expediente:ct:001",
@@ -227,6 +228,30 @@ test("delega el detalle real al servidor y solo lo concede después de consultar
     capacidades: adaptador.capacidades,
   });
   assert.deepEqual(adaptador.capacidades, ["contratacion_temporal.cuadro.consultar"]);
+  assert.deepEqual(presentador.obtenerEstado().navegacion, {
+    documentos: false,
+    auditoria: false,
+  });
+  const navegacion = renderizarModuloContratacionTemporal(presentador.obtenerEstado());
+  assert.doesNotMatch(navegacion, /data-ct-exp-vista="documentos"/u);
+  assert.doesNotMatch(navegacion, /data-ct-exp-vista="auditoria"/u);
+  const fuenteSinConsultas = {
+    listar: adaptador.listar,
+    obtener: adaptador.obtener,
+    ejecutar: adaptador.ejecutar,
+  };
+  const presentadorSinMetodos = crearPresentadorExpedientesContratacionTemporal({
+    fuente: fuenteSinConsultas,
+    capacidades: [
+      "contratacion_temporal.cuadro.consultar",
+      "contratacion_temporal.documentos.consultar",
+      "contratacion_temporal.auditoria.consultar",
+    ],
+  });
+  assert.deepEqual(presentadorSinMetodos.obtenerEstado().navegacion, {
+    documentos: false,
+    auditoria: false,
+  });
   await assert.rejects(
     presentador.cargar({ texto: "A".repeat(81), estado: "", fase: "" }),
     /filtros no válidos/,

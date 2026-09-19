@@ -19,6 +19,8 @@ export function renderizarNavegacion(estado, t) {
   ];
   return `<nav class="ct-exp-navegacion" aria-label="${escaparHTML(t("navegacion"))}">
     ${opciones.map(([vista, clave]) => {
+    if ((vista === "documentos" && estado.navegacion?.documentos === false)
+      || (vista === "auditoria" && estado.navegacion?.auditoria === false)) return "";
     const requiereExpediente = ["expediente", "documentos", "auditoria"].includes(vista);
     return `<button type="button" data-ct-exp-vista="${vista}"
       ${estado.vista === vista ? 'aria-current="page"' : ""}

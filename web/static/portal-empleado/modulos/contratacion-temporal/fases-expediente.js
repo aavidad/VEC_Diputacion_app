@@ -39,6 +39,7 @@ export function construirPanelFase(
   contenido,
   boton,
   t = crearTraductorExpedientesContratacion(),
+  navegacion,
 ) {
   const clave = boton.dataset.ctExpFaseVer;
   const item = boton.closest("li");
@@ -54,7 +55,7 @@ export function construirPanelFase(
   panel.innerHTML = `<header class="ct-exp-fase-panel-cabecera">
       <div><p class="sobrelinea">${escapar(t("fase_panel_sobrelinea", { orden }))}</p><h3>${escapar(etiqueta)}</h3><p>${escapar(estado)}</p></div>
       <div class="ct-exp-fase-panel-acciones">
-        <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("nav_documentos"))}</button>
+        ${navegacion?.documentos === false ? "" : `<button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escapar(t("nav_documentos"))}</button>`}
         <button type="button" class="boton-secundario" data-ct-exp-fase-cerrar>${escapar(t("fase_panel_mostrar_todo"))}</button>
       </div>
     </header>
@@ -68,6 +69,7 @@ export function construirPanelFase(
 export function mostrarFase(
   boton,
   t = crearTraductorExpedientesContratacion(),
+  navegacion,
 ) {
   const contenido = boton.closest(".ct-exp-contenido") ?? boton.ownerDocument;
   const rail = boton.closest(".ct-exp-progreso");
@@ -75,7 +77,7 @@ export function mostrarFase(
   contenido.querySelector(".ct-exp-fase-panel")?.remove();
   for (const otro of rail.querySelectorAll("[data-ct-exp-fase-ver]")) otro.setAttribute("aria-pressed", "false");
   boton.setAttribute("aria-pressed", "true");
-  const panel = construirPanelFase(contenido, boton, t);
+  const panel = construirPanelFase(contenido, boton, t, navegacion);
   rail.insertAdjacentElement("afterend", panel);
   panel.querySelector("h3")?.setAttribute("tabindex", "-1");
   panel.querySelector("h3")?.focus();

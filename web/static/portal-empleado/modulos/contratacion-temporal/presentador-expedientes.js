@@ -69,7 +69,7 @@ function filtrosIniciales() {
 }
 function paginaInicial() { return { cursor: "", numero: 1 }; }
 
-function estadoInicial(disponible) {
+function estadoInicial(disponible, navegacion) {
   return {
     vista: "cuadro",
     carga: disponible ? "inicial" : "denegado",
@@ -86,6 +86,7 @@ function estadoInicial(disponible) {
     actualizacion_pendiente: false,
     resultado_indeterminado: false,
     recibo: null,
+    navegacion,
     mensaje_clave: disponible ? "estado_inicial" : "estado_denegado",
     tipo_mensaje: disponible ? "informacion" : "error",
   };
@@ -151,9 +152,15 @@ export function crearPresentadorExpedientesContratacionTemporal({
   const puedeConsultarAuditoria = concesionesVisuales.has(
     CAPACIDADES_CONTRATACION_TEMPORAL.consultarAuditoria,
   );
+  // La concesión no basta para anunciar una consulta: la fuente debe poder
+  // atenderla. La autorización efectiva seguirá revalidándose al consultar.
+  const navegacion = Object.freeze({
+    documentos: puedeConsultarDocumentos && typeof fuente?.obtenerDocumentos === "function",
+    auditoria: puedeConsultarAuditoria && typeof fuente?.obtenerAuditoria === "function",
+  });
   const disponible = fuenteValida(fuente)
     && (puedeConsultarCuadro || altaDisponible);
-  let estado = congelar(estadoInicial(disponible));
+  let estado = congelar(estadoInicial(disponible, navegacion));
   let controlador = null;
   let secuencia = 0;
   let desmontado = false;
