@@ -334,6 +334,9 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
 
 test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columnas y estados", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
+  envelopeBolsas.data.bolsas[1].vigente_hasta = "2025-12-31";
+  envelopeBolsas.data.bolsas[2].vigente_desde = "2025-03-07T11:30:00Z";
+  envelopeBolsas.data.bolsas[2].vigente_hasta = "2025-12-31T09:30:00Z";
   const datosBolsasValidadas = validarRespuestaBolsas(envelopeBolsas);
 
   const panelMock = {
@@ -373,6 +376,17 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /12 bolsas/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
   assert.match(htmlListo, /Ver candidatos/);
+  assert.match(htmlListo, /<time datetime="2025-02-04">4\/2\/25<\/time> \(vigente\)/);
+  assert.match(htmlListo, /<time datetime="2025-03-07">7\/3\/25<\/time> — <time datetime="2025-12-31">31\/12\/25<\/time>/);
+  assert.match(htmlListo, /<time datetime="2025-03-07T11:30:00Z">7\/3\/25, 12:30<\/time> — <time datetime="2025-12-31T09:30:00Z">31\/12\/25, 10:30<\/time>/);
+  assert.doesNotMatch(htmlListo, /<time datetime="2025-02-04">[^<]*:<\/time>/);
+  assert.doesNotMatch(htmlListo, />2025-02-04</);
+  assert.match(htmlListo, /<time datetime="2026-09-17T00:00:00Z">17\/9\/26, 2:00<\/time>/);
+
+  estadoBolsas = { carga: "listo", datos: { bolsas: [{ ...datosBolsasValidadas.bolsas[0], vigente_desde: "fecha-invalida" }] }, error: "" };
+  const htmlFechaInvalida = presentador.renderizarVista("resumen");
+  assert.match(htmlFechaInvalida, /<small>Fecha no disponible \(vigente\)<\/small>/);
+  assert.doesNotMatch(htmlFechaInvalida, /datetime="fecha-invalida"/);
 
   // Estado cargando
   estadoBolsas = { carga: "cargando", datos: null, error: "" };

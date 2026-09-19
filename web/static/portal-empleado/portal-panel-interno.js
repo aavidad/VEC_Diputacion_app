@@ -80,6 +80,36 @@ export function crearPresentadorPanelInterno(dependencias) {
     }).format(fecha);
   }
 
+  function fechaCivilVisible(valor) {
+    const partes = typeof valor === "string" && /^(\d{4})-(\d{2})-(\d{2})$/u.exec(valor);
+    if (!partes) return "Fecha no disponible";
+    const [, anioTexto, mesTexto, diaTexto] = partes;
+    const anio = Number(anioTexto);
+    const mes = Number(mesTexto);
+    const dia = Number(diaTexto);
+    if (anio < 1) return "Fecha no disponible";
+    const fecha = new Date(0);
+    fecha.setUTCFullYear(anio, mes - 1, dia);
+    fecha.setUTCHours(0, 0, 0, 0);
+    if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
+      return "Fecha no disponible";
+    }
+    return new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeZone: "UTC" }).format(fecha);
+  }
+
+  function fechaVisible(valor) {
+    return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
+      ? fechaCivilVisible(valor)
+      : instanteVisible(valor);
+  }
+
+  function fechaMarcada(valor) {
+    const texto = fechaVisible(valor);
+    return texto === "Fecha no disponible"
+      ? escaparHTML(texto)
+      : `<time datetime="${escaparHTML(valor)}">${escaparHTML(texto)}</time>`;
+  }
+
   function filasConvocatorias(datos) {
     if (datos.convocatorias.length === 0) {
       return '<tr><td colspan="6" class="vacio-controlado">La fuente autorizada no ha devuelto convocatorias para este ámbito.</td></tr>';
@@ -180,7 +210,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
         <td><strong>${escaparHTML(b.categoria)}</strong><br><small>${escaparHTML(b.categoria_clave)}</small></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
-        <td><small>${escaparHTML(b.vigente_desde)} ${b.vigente_hasta ? `— ${escaparHTML(b.vigente_hasta)}` : "(vigente)"}</small></td>
+        <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><strong>${numero(b.total)}</strong></td>
         <td><span class="estado-chip exito">${numero(b.por_estado?.disponible)}</span></td>
         <td><span class="estado-chip neutro">${numero(b.por_estado?.ocupado)}</span></td>
