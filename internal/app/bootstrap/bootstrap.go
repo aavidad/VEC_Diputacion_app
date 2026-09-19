@@ -39,6 +39,7 @@ import (
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
@@ -227,7 +228,7 @@ func newVECShellAPICompuestaConIdentidad(
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 ) (http.Handler, error) {
 	return newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedorIdentidad, categoriasPersonal, nil, nil,
+		cfg, resolvedorIdentidad, categoriasPersonal, nil, nil, nil,
 	)
 }
 
@@ -237,6 +238,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 	rutasExactas []vechttp.RutaExacta,
 	autoridadRutasExactas vechttp.AutoridadRutasExactas,
+	registradorAuditoriaFronteraRutasExactas vecports.RegistradorAuditoriaFronteraRutaExacta,
 	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
@@ -266,15 +268,16 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		}
 	}
 	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
-		InternalOperations:      internalOperations,
-		PersonalCatalog:         personalCatalog,
-		CategoriasProfesionales: categoriasPersonal,
-		ManejadorRutaDietas:     manejadorRutaDietas,
-		AllowDemoIdentity:       resolvedorIdentidad != nil,
-		DemoIdentityResolver:    resolvedorIdentidad,
-		RutasExactas:            rutasExactas,
-		RutasColeccion:          rutasColeccion,
-		AutoridadRutasExactas:   autoridadRutasExactas,
+		InternalOperations:                       internalOperations,
+		PersonalCatalog:                          personalCatalog,
+		CategoriasProfesionales:                  categoriasPersonal,
+		ManejadorRutaDietas:                      manejadorRutaDietas,
+		AllowDemoIdentity:                        resolvedorIdentidad != nil,
+		DemoIdentityResolver:                     resolvedorIdentidad,
+		RutasExactas:                             rutasExactas,
+		RutasColeccion:                           rutasColeccion,
+		AutoridadRutasExactas:                    autoridadRutasExactas,
+		RegistradorAuditoriaFronteraRutasExactas: registradorAuditoriaFronteraRutasExactas,
 	})
 }
 

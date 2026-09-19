@@ -100,8 +100,12 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolRevalidacionIdentidadConsultasDesarrollo &&
 			rolEsperado != rolContextoActorConsultasDesarrollo &&
 			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo &&
 			!rolPoolIncorporacionV2(rolEsperado)) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if rolEsperado == rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo {
+		return comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo(ctx, consultador)
 	}
 	var usuario string
 	var valido bool
@@ -124,6 +128,59 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 	return usuario, nil
 }
 
+// comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo
+// admite exclusivamente el grupo registrador. La CTE recorre las membresías
+// directas y transitivas del LOGIN; cualquier segundo rol es incompatible,
+// incluso si no hereda privilegios automáticamente.
+func comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo(
+	ctx context.Context,
+	consultador interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	},
+) (string, error) {
+	if ctx == nil || consultador == nil {
+		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	var usuario string
+	var valido bool
+	err := consultador.QueryRow(ctx, `
+		WITH RECURSIVE membresias_efectivas(rol_id) AS (
+			SELECT directa.roleid
+			  FROM pg_catalog.pg_auth_members AS directa
+			 WHERE directa.member = session_user::regrole
+			UNION
+			SELECT siguiente.roleid
+			  FROM pg_catalog.pg_auth_members AS siguiente
+			  JOIN membresias_efectivas AS previa ON previa.rol_id = siguiente.member
+		)
+		SELECT session_user::text,
+		       session_user = current_user
+		       AND identidad.rolcanlogin
+		       AND identidad.rolinherit
+		       AND NOT identidad.rolsuper
+		       AND NOT identidad.rolcreatedb
+		       AND NOT identidad.rolcreaterole
+		       AND NOT identidad.rolreplication
+		       AND NOT identidad.rolbypassrls
+		       AND pg_catalog.pg_has_role(
+		           session_user,
+		           $1::regrole,
+		           'MEMBER'
+		       )
+		       AND NOT EXISTS (
+		           SELECT 1
+		             FROM membresias_efectivas
+		            WHERE rol_id <> $1::regrole
+		       )
+		  FROM pg_catalog.pg_roles AS identidad
+		 WHERE identidad.rolname = session_user`,
+		rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo,
+	).Scan(&usuario, &valido)
+	if err != nil || !valido || usuario == "" {
+		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return usuario, nil
+}
 func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	ahora time.Time,

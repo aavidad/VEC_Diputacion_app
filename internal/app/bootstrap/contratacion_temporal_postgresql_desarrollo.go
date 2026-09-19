@@ -20,6 +20,7 @@ const (
 	rolRegistroAutorizacionPostgreSQLContratacionTemporalDesarrollo = "vec_autorizacion_registro"
 	rolConfirmadorPostgreSQLContratacionTemporalDesarrollo          = "vec_contratacion_temporal_confirmador_cobertura"
 	rolLectorPostgreSQLContratacionTemporalDesarrollo               = "vec_contratacion_temporal_lector_resultado_cobertura"
+	rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo    = "vec_contratacion_temporal_registrador_frontera"
 	audienciaAtestacionContratacionTemporalDesarrollo               = "vec:desarrollo:contratacion-temporal:atestacion:v3"
 	audienciaConsumoAltaContratacionTemporal                        = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
 )
@@ -74,6 +75,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	registroAutorizacion             *pgxpool.Pool
 	confirmador                      *pgxpool.Pool
 	lectorResultado                  *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera     *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera                *pgxpool.Pool
 	candidaturas                     ports.ResolutorCandidaturaAlta
 	transaccionAlta                  ports.TransaccionAltasCandidata
 	proveedorMaterial                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -114,6 +117,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	dsnRegistroAutorizacion, err := configuracion.DSNRegistroAutorizacionSeparado()
+	if err != nil {
+		return vacias, err
+	}
+	dsnAuditoriaFrontera, err := configuracion.DSNAuditoriaFronteraSeparado()
 	if err != nil {
 		return vacias, err
 	}
@@ -195,6 +202,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			if dependencias.lectorResultado != nil {
 				dependencias.lectorResultado.Cerrar()
 			}
+			if dependencias.auditoriaFrontera != nil {
+				dependencias.auditoriaFrontera.Close()
+			}
 			if dependencias.confirmador != nil {
 				dependencias.confirmador.Close()
 			}
@@ -235,6 +245,32 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias.registroAutorizacion = registroAutorizacion
+	auditoriaFrontera, usuarioAuditoriaFrontera, err :=
+		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
+			ctx,
+			dsnAuditoriaFrontera,
+			"vec-ct-desarrollo-auditoria-frontera",
+			rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo,
+		)
+	if err != nil || usuarioAuditoriaFrontera == usuarioEjecucion ||
+		usuarioAuditoriaFrontera == usuarioGobierno ||
+		usuarioAuditoriaFrontera == usuarioRegistroAutorizacion {
+		if auditoriaFrontera != nil {
+			auditoriaFrontera.Close()
+		}
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	registradorAuditoriaFrontera, err := postgresvec.NuevoRegistradorAuditoriaFronteraRutaExactaPostgreSQL(auditoriaFrontera)
+	if err != nil {
+		auditoriaFrontera.Close()
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := registradorAuditoriaFrontera.PreflightAuditoriaFronteraRutaExacta(ctx); err != nil {
+		auditoriaFrontera.Close()
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	dependencias.auditoriaFrontera = auditoriaFrontera
+	dependencias.registradorAuditoriaFrontera = registradorAuditoriaFrontera
 	soporte.mu.Lock()
 	soporte.registroDecisionesAnalisis = registroDecisiones
 	soporte.mu.Unlock()

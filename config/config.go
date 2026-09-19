@@ -232,6 +232,7 @@ func Load() Config {
 			dsnRegistroIdentidad:     envFirst(EnvContratacionTemporalRegistroIdentidadDatabaseURL),
 			dsnRevalidacionIdentidad: envFirst(EnvContratacionTemporalRevalidacionIdentidadDatabaseURL),
 			dsnContextoActor:         envFirst(EnvContratacionTemporalContextoActorDatabaseURL),
+			dsnAuditoriaFrontera:     envFirst(EnvContratacionTemporalAuditoriaFronteraDatabaseURL),
 		},
 	}.Normalize()
 }

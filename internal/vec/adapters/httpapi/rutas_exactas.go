@@ -6,14 +6,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
+
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
 	prefijoRutaExactaVEC = "/api/vec/"
 	maximoRutaExactaVEC  = 512
+
+	plazoMaximoAuditoriaFronteraRutaExacta = 250 * time.Millisecond
 )
 
 var ErrRutaExactaInvalida = errors.New(
@@ -170,6 +176,14 @@ func responderAutorizacionRutaExacta(
 	respuesta http.ResponseWriter,
 	err error,
 ) {
+	responderAutorizacionRutaExactaConCorrelacion(respuesta, err, nuevaCorrelacionRutaExacta())
+}
+
+func responderAutorizacionRutaExactaConCorrelacion(
+	respuesta http.ResponseWriter,
+	err error,
+	correlacion string,
+) {
 	estado, codigo := http.StatusServiceUnavailable, "servicio_no_disponible"
 	switch {
 	case errors.Is(err, errRutaExactaNoEncontrada):
@@ -183,7 +197,7 @@ func responderAutorizacionRutaExacta(
 		"error": map[string]string{
 			"codigo":          codigo,
 			"clave_i18n":      "api.vec.ruta_exacta.error." + codigo,
-			"correlacion_ref": nuevaCorrelacionRutaExacta(),
+			"correlacion_ref": correlacion,
 		},
 	})
 	for _, cabecera := range []string{
@@ -208,6 +222,55 @@ func responderAutorizacionRutaExacta(
 	)
 	respuesta.WriteHeader(estado)
 	_, _ = respuesta.Write(contenido)
+}
+
+func (h *Handler) registrarDenegacionRutaExacta(
+	ctx context.Context,
+	ruta string,
+	err error,
+	correlacion string,
+) {
+	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
+		return
+	}
+	motivo, registrar := motivoAuditoriaDenegacionRutaExacta(err)
+	if !registrar {
+		return
+	}
+	orden := ports.OrdenAuditoriaFronteraRutaExacta{
+		CorrelacionRef: correlacion,
+		Motivo:         motivo,
+		Superficie:     ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal,
+		Ruta:           ruta,
+	}
+	if orden.Validar() != nil {
+		return
+	}
+	ctxAuditoria, cancelar := context.WithTimeout(
+		ctx,
+		plazoMaximoAuditoriaFronteraRutaExacta,
+	)
+	defer cancelar()
+	if err := h.registradorAuditoriaFronteraRutasExactas.RegistrarAuditoriaFronteraRutaExacta(
+		ctxAuditoria,
+		orden,
+	); err != nil {
+		log.Printf(
+			"vec http: auditoria_frontera_no_registrada correlacion=%s",
+			correlacion,
+		)
+	}
+}
+
+func motivoAuditoriaDenegacionRutaExacta(err error) (ports.MotivoAuditoriaFronteraRutaExacta, bool) {
+	switch {
+	case errors.Is(err, ErrAutenticacionRutaExactaRequerida):
+		return ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, true
+	case errors.Is(err, ErrAccesoRutaExactaDenegado):
+		return ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, true
+	default:
+		return "", false
+	}
 }
 
 func nuevaCorrelacionRutaExacta() string {

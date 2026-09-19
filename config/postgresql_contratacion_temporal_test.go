@@ -240,3 +240,31 @@ func TestBolsaLlamamientosSeConfiguraSeparadaSinExponerConexion(t *testing.T) {
 		t.Fatal("conexión expuesta")
 	}
 }
+
+func TestAuditoriaFronteraExigeDSNNominalSeparadoYRedactado(t *testing.T) {
+	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.DSNAuditoriaFronteraSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+		t.Fatalf("auditoría sin DSN: %v", err)
+	}
+	c.dsnBolsaLlamamientos, c.dsnConsultasRRHH, c.dsnMotivosRRHH = "bolsa", "consultas", "motivos"
+	c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad, c.dsnContextoActor = "identidad", "revalidacion", "contexto"
+	for _, repetida := range []string{"ejecutor", "gobierno", "registro", "confirmador", "lector", "bolsa", "consultas", "motivos", "identidad", "revalidacion", "contexto"} {
+		c.dsnAuditoriaFrontera = " " + repetida + " "
+		if _, err := c.DSNAuditoriaFronteraSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada) {
+			t.Fatalf("DSN de auditoría compartido %q: %v", repetida, err)
+		}
+	}
+	const dsn = "postgres://auditoria:secreto-auditoria@localhost/vec"
+	t.Setenv(EnvContratacionTemporalAuditoriaFronteraDatabaseURL, " "+dsn+" ")
+	c.dsnAuditoriaFrontera = Load().ContratacionTemporalPostgreSQL.dsnAuditoriaFrontera
+	if obtenido, err := c.DSNAuditoriaFronteraSeparado(); err != nil || obtenido != dsn {
+		t.Fatalf("DSN auditoría = (%q, %v)", obtenido, err)
+	}
+	serializado, err := json.Marshal(c)
+	if err != nil || strings.Contains(fmt.Sprintf("%+v %#v %s", c, c, serializado), "secreto-auditoria") {
+		t.Fatal("DSN de auditoría expuesto")
+	}
+}

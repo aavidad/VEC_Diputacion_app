@@ -45,12 +45,13 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
-	sello                   *selloConsultasContratacionTemporalDesarrollo
-	resolvedor              *resolvedorIdentidadDesarrollo
-	noCompuesta             *capacidadNoCompuestaContratacionTemporalDesarrollo
-	llamamientoCompuesto    bool
-	consultasRRHHCompuestas bool
-	subsanacionCompuesta    bool
+	sello                                    *selloConsultasContratacionTemporalDesarrollo
+	resolvedor                               *resolvedorIdentidadDesarrollo
+	noCompuesta                              *capacidadNoCompuestaContratacionTemporalDesarrollo
+	llamamientoCompuesto                     bool
+	consultasRRHHCompuestas                  bool
+	subsanacionCompuesta                     bool
+	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -481,12 +482,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutas = append(rutas, rutasAreaPersonal...)
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:                   sello,
-		resolvedor:              resolvedorDesarrollo,
-		noCompuesta:             noCompuesta,
-		llamamientoCompuesto:    comunicacionReal != nil,
-		consultasRRHHCompuestas: consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
-		subsanacionCompuesta:    subsanacionReal.servicio != nil,
+		sello:                                    sello,
+		resolvedor:                               resolvedorDesarrollo,
+		noCompuesta:                              noCompuesta,
+		llamamientoCompuesto:                     comunicacionReal != nil,
+		consultasRRHHCompuestas:                  consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
+		subsanacionCompuesta:                     subsanacionReal.servicio != nil,
+		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
+	}
+	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
+		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias.cerrar = func() {
 		cerrarIncorporacion()

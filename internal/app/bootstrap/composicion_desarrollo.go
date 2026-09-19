@@ -236,7 +236,8 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion, coleccionesBolsasRRHH...,
+		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
+		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err

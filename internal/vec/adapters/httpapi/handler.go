@@ -15,35 +15,38 @@ import (
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 type Handler struct {
-	service                 *application.Service
-	internal                *application.InternalOperations
-	personalCatalog         CatalogoPersonal
-	categoriasProfesionales ConsultaCategoriasProfesionales
-	roadRoute               http.Handler
-	identityPolicy          identityPolicy
-	rutasExactas            map[string]http.Handler
-	rutasColeccion          []RutaColeccion
-	autoridadRutasExactas   AutoridadRutasExactas
+	service                                  *application.Service
+	internal                                 *application.InternalOperations
+	personalCatalog                          CatalogoPersonal
+	categoriasProfesionales                  ConsultaCategoriasProfesionales
+	roadRoute                                http.Handler
+	identityPolicy                           identityPolicy
+	rutasExactas                             map[string]http.Handler
+	rutasColeccion                           []RutaColeccion
+	autoridadRutasExactas                    AutoridadRutasExactas
+	registradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
 }
 
 type HandlerOptions struct {
-	InternalOperations      *application.InternalOperations
-	PersonalCatalog         CatalogoPersonal
-	CategoriasProfesionales ConsultaCategoriasProfesionales
-	ManejadorRutaDietas     http.Handler
-	AllowDemoIdentity       bool
-	DemoIdentityResolver    DemoIdentityResolver
-	TrustIdentityHeaders    bool
-	TrustedProxyCIDRs       []string
-	IdentitySubjectHeader   string
-	IdentityRolesHeader     string
-	IdentityMechanismHeader string
-	RutasExactas            []RutaExacta
-	RutasColeccion          []RutaColeccion
-	AutoridadRutasExactas   AutoridadRutasExactas
+	InternalOperations                       *application.InternalOperations
+	PersonalCatalog                          CatalogoPersonal
+	CategoriasProfesionales                  ConsultaCategoriasProfesionales
+	ManejadorRutaDietas                      http.Handler
+	AllowDemoIdentity                        bool
+	DemoIdentityResolver                     DemoIdentityResolver
+	TrustIdentityHeaders                     bool
+	TrustedProxyCIDRs                        []string
+	IdentitySubjectHeader                    string
+	IdentityRolesHeader                      string
+	IdentityMechanismHeader                  string
+	RutasExactas                             []RutaExacta
+	RutasColeccion                           []RutaColeccion
+	AutoridadRutasExactas                    AutoridadRutasExactas
+	RegistradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -85,15 +88,16 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		return nil, err
 	}
 	return &Handler{
-		service:                 service,
-		internal:                options.InternalOperations,
-		personalCatalog:         options.PersonalCatalog,
-		categoriasProfesionales: options.CategoriasProfesionales,
-		roadRoute:               options.ManejadorRutaDietas,
-		identityPolicy:          identityPolicy,
-		rutasExactas:            rutasExactas,
-		rutasColeccion:          rutasColeccion,
-		autoridadRutasExactas:   options.AutoridadRutasExactas,
+		service:                                  service,
+		internal:                                 options.InternalOperations,
+		personalCatalog:                          options.PersonalCatalog,
+		categoriasProfesionales:                  options.CategoriasProfesionales,
+		roadRoute:                                options.ManejadorRutaDietas,
+		identityPolicy:                           identityPolicy,
+		rutasExactas:                             rutasExactas,
+		rutasColeccion:                           rutasColeccion,
+		autoridadRutasExactas:                    options.AutoridadRutasExactas,
+		registradorAuditoriaFronteraRutasExactas: options.RegistradorAuditoriaFronteraRutasExactas,
 	}, nil
 }
 
@@ -117,7 +121,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			r.URL.Path,
 		)
 		if err != nil {
-			responderAutorizacionRutaExacta(w, err)
+			correlacion := nuevaCorrelacionRutaExacta()
+			h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion)
+			responderAutorizacionRutaExactaConCorrelacion(w, err, correlacion)
 			return
 		}
 		manejador.ServeHTTP(w, r)
@@ -129,7 +135,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.autoridadRutasExactas.AutorizarRutaExacta(r.Context(), r.URL.Path); err != nil {
-			responderAutorizacionRutaExacta(w, err)
+			correlacion := nuevaCorrelacionRutaExacta()
+			h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion)
+			responderAutorizacionRutaExactaConCorrelacion(w, err, correlacion)
 			return
 		}
 		manejador.ServeHTTP(w, r)

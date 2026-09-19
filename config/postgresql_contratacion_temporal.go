@@ -20,6 +20,7 @@ const (
 	EnvContratacionTemporalRegistroIdentidadDatabaseURL     = "VEC_CT_REGISTRO_IDENTIDAD_DATABASE_URL"
 	EnvContratacionTemporalRevalidacionIdentidadDatabaseURL = "VEC_CT_REVALIDACION_IDENTIDAD_DATABASE_URL"
 	EnvContratacionTemporalContextoActorDatabaseURL         = "VEC_CT_CONTEXTO_ACTOR_DATABASE_URL"
+	EnvContratacionTemporalAuditoriaFronteraDatabaseURL     = "VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL"
 	configuracionPostgreSQLContratacionTemporalRedactada    = "configuracion_postgresql_contratacion_temporal_redactada"
 )
 
@@ -48,6 +49,7 @@ type ConfiguracionPostgreSQLContratacionTemporal struct {
 	dsnRegistroIdentidad     string
 	dsnRevalidacionIdentidad string
 	dsnContextoActor         string
+	dsnAuditoriaFrontera     string
 }
 
 func NuevaConfiguracionPostgreSQLContratacionTemporal(
@@ -140,7 +142,32 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) normalizar() ConfiguracionP
 	c.dsnRegistroIdentidad = strings.TrimSpace(c.dsnRegistroIdentidad)
 	c.dsnRevalidacionIdentidad = strings.TrimSpace(c.dsnRevalidacionIdentidad)
 	c.dsnContextoActor = strings.TrimSpace(c.dsnContextoActor)
+	c.dsnAuditoriaFrontera = strings.TrimSpace(c.dsnAuditoriaFrontera)
 	return c
+}
+
+// DSNAuditoriaFronteraSeparado devuelve solamente el DSN del LOGIN nominal
+// miembro de vec_contratacion_temporal_registrador_frontera. Nunca reutiliza
+// las identidades de negocio, consulta, contexto o autorización.
+func (c ConfiguracionPostgreSQLContratacionTemporal) DSNAuditoriaFronteraSeparado() (string, error) {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return "", err
+	}
+	if c.dsnAuditoriaFrontera == "" {
+		return "", ErrConfiguracionPostgreSQLContratacionTemporalIncompleta
+	}
+	for _, previa := range []string{
+		c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion,
+		c.dsnConfirmador, c.dsnLectorResultado, c.dsnBolsaLlamamientos,
+		c.dsnConsultasRRHH, c.dsnMotivosRRHH, c.dsnRegistroIdentidad,
+		c.dsnRevalidacionIdentidad, c.dsnContextoActor,
+	} {
+		if previa != "" && c.dsnAuditoriaFrontera == previa {
+			return "", ErrConfiguracionPostgreSQLContratacionTemporalNoSeparada
+		}
+	}
+	return c.dsnAuditoriaFrontera, nil
 }
 
 // ConsultasRRHHConfiguradas no habilita permisos: indica que la raíz debe
