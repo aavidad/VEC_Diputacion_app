@@ -176,6 +176,27 @@ test("traduce las etiquetas conocidas con mensajes inyectados y conserva el fall
   assert.equal(cuadro.expedientes[0].fase_actual, "Fase futura");
 });
 
+test("traduce los indicadores y las etiquetas del detalle desde el catálogo inyectado", async () => {
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: clienteFalso([]),
+    mensajes: {
+      indicador_total: "Total de casos",
+      cabecera_centro: "Unidad solicitante",
+      cabecera_coste_estimado: "Coste previsto",
+      coste_sin_calcular: "Pendiente de fuente",
+      respuesta_si: "Confirmada",
+    },
+  });
+  const cuadro = await adaptador.listar();
+  const detalle = await adaptador.obtener(resumen.expediente_ref);
+
+  assert.equal(cuadro.indicadores[0].etiqueta, "Total de casos");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "centro").etiqueta, "Unidad solicitante");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "coste_estimado").etiqueta, "Coste previsto");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "coste_estimado").valor, "Pendiente de fuente");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "decision_gobernada").valor, "Confirmada");
+});
+
 test("muestra la fase de asignación de unidad en castellano", async () => {
   const cliente = clienteFalso([]);
   cliente.consultarCuadroRRHH = async () => ({
@@ -276,6 +297,44 @@ test("muestra el hito de subsanación autorizado sin exponer observaciones", asy
   assert.equal(expediente.historial[1].accion, "Hito de subsanación del reparo");
   assert.match(html, /Hito de subsanación del reparo/u);
   assert.doesNotMatch(JSON.stringify(expediente), /observaciones|retorno_ref|actor_ref|documentos_ref/u);
+});
+
+test("no marca la obtención de candidato sin mapeo acreditado del servidor", async () => {
+  const cliente = clienteFalso([]);
+  cliente.consultarDetalleRRHH = async () => ({
+    esquema: "vec.contratacion-temporal.detalle-rrhh.v1",
+    resumen: { ...resumen, fase_clave: "obtencion_candidato", estado_clave: "en_curso" },
+    solicitud: {
+      grupo_subgrupo: "A2", motivo_clave: "sustitucion",
+      periodo_inicio: "2026-09-04T00:00:00Z", periodo_fin: "2026-12-31T00:00:00Z",
+    },
+    hitos: [{
+      secuencia: 1, version_expediente: 1, accion_clave: "registrar_llamamiento",
+      realizada_en: "2026-09-03T09:00:00Z", fase_origen: "fiscalizacion",
+      fase_destino: "obtencion_candidato", estado_origen: "completado", estado_destino: "en_curso",
+    }],
+    presentacion_flujo: {
+      referencia: "flujo-visual:rrhh:temporal", fase_actual: "",
+      fases: [
+        ["solicitud", "contratacion_temporal.fase.solicitud"],
+        ["analisis_rrhh", "contratacion_temporal.fase.analisis_rrhh"],
+        ["gestion_bolsa", "contratacion_temporal.fase.gestion_bolsa"],
+        ["fiscalizacion", "contratacion_temporal.fase.fiscalizacion"],
+        ["obtencion_candidato", "contratacion_temporal.fase.obtencion_candidato"],
+        ["nombramiento", "contratacion_temporal.fase.nombramiento"],
+        ["incorporacion", "contratacion_temporal.fase.incorporacion"],
+        ["seguimiento", "contratacion_temporal.fase.seguimiento"],
+      ].map(([clave, clave_i18n], indice) => ({ clave, clave_i18n, orden: indice + 1 })),
+    },
+  });
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente });
+
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(resumen.expediente_ref);
+
+  assert.equal(expediente.fases.length, 8);
+  assert.equal(expediente.fases[4].etiqueta, "Obtención del candidato");
+  assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
 });
 
 

@@ -228,35 +228,35 @@ Gestión del llamamiento ejecutada por el Servicio de Personal de RRHH. El siste
 
 ---
 
-## 10. Paso 6 — Nombramiento y formalización
+## 10. Paso 6 — Propuesta de nombramiento y borradores
 
-Con la aceptación firme de la persona candidata, se redacta la resolución de nombramiento (para personal funcionario interino) o contrato laboral de duración determinada.
+Con la aceptación registrada en el ejercicio sintético, la aplicación permite consultar la propuesta de nombramiento y descargar los borradores documentales asociados. Esta etapa no acredita una resolución firmada ni un nombramiento eficaz.
 
 ### Qué es y cómo se tramita
-1. Se genera la propuesta formal de resolución de Presidencia o Delegación de Recursos Humanos.
-2. El borrador recopila los antecedentes íntegros del expediente (solicitud, fiscalización favorable, aceptación de bolsa).
-3. El documento se remite al circuito del portafirmas oficial para la rúbrica de la autoridad competente.
+1. Se consulta la propuesta de nombramiento vinculada a la aceptación registrada en el ejercicio.
+2. Se descargan, cuando corresponda, los seis borradores disponibles: informe definitivo, resolución, diligencia, toma de posesión, notificación y comunicación al centro.
+3. Los documentos permanecen sin firma o validación. La aplicación no los remite al portafirmas corporativo porque ese circuito no está compuesto.
 
 ---
 
-## 11. Paso 7 — Incorporación y alta en GINPIX
+## 11. Paso 7 — Incorporación y ficha manual para GINPIX
 
-Una vez firmada la resolución, la persona nombrada comparece para tomar posesión del puesto o suscribir su contrato.
+El recorrido de desarrollo conserva una incorporación sintética y su recibo, sin acreditar firma, toma de posesión ni nombramiento eficaz.
 
 ### Qué es y cómo se tramita
-1. Recursos Humanos comprueba la aportación de la documentación de alta (declaración jurada de incompatibilidades, certificado médico, datos bancarios).
-2. Se registra la fecha efectiva de toma de posesión / inicio del servicio.
-3. Se genera la **Ficha de personal y alta en GINPIX** con todos los datos preceptivos para la confección de la nómina y el alta en el régimen correspondiente de la Seguridad Social.
+1. Recursos Humanos consulta los datos y el periodo de la incorporación registrada en el ejercicio.
+2. Se recupera el recibo de incorporación sin repetir el alta.
+3. Se descarga una ficha estructurada para su grabación manual en GINPIX. La descarga no transmite datos a GINPIX ni confirma un alta externa.
 
 ---
 
 ## 12. Paso 8 — Seguimiento y control de la contratación
 
-Durante toda la vigencia del contrato, el sistema permite realizar el seguimiento de incidencias, prórrogas legales autorizadas, sustituciones sobrevenidas y el cese final.
+El recorrido acreditado permite registrar una anotación administrativa y cerrar administrativamente el seguimiento, conservando recibos e historia. Este recorrido no acredita la gestión de prórrogas, plazos legales ni el cese final.
 
 ### Qué es y cómo se tramita
-1. Se monitoriza la fecha límite del contrato para evitar que se superen los plazos legales máximos previstos por la normativa básica estatal.
-2. Si concurre causa legal de fin de contrato (reincorporación del titular sustituido, amortización, fin del programa), se tramita la notificación de cese con la antelación debida y se registra el cierre administrativo del expediente.
+1. Se registra una anotación administrativa y se puede recuperar con el mismo recibo.
+2. Después se prepara, confirma y recupera el cierre administrativo sin cese. El estado **Cerrado** no supone cese, cierre jurídico del expediente, efecto legal ni cómputo de plazos.
 
 ---
 
@@ -306,21 +306,21 @@ El raíl de seguimiento se adapta verticalmente mostrando cada fase conectada po
 
 ## 16. Lo que todavía no está y dependencias de integración
 
-Para garantizar la máxima claridad con los servicios gestores, este manual refleja el estado operativo actual de la aplicación. Existen determinados trámites que actualmente se simulan de forma sintética en el entorno de pruebas y cuya integración definitiva está condicionada a las respuestas de la corporación recogidas en el documento institucional `dudas.md`:
+Para garantizar la máxima claridad con los servicios gestores, este manual refleja el estado operativo actual de la aplicación. Existen trámites pendientes y otros acreditados únicamente dentro del ejercicio sintético; su integración definitiva está condicionada a las respuestas de la corporación recogidas en el documento institucional `dudas.md`:
 
 1. **Circuito de portafirmas oficial:**
-   La aplicación genera los borradores documentales de resoluciones e informes, pero la firma digital efectiva con certificado de cargo se conectará con el portafirmas corporativo de la Diputación en cuanto se definan los circuitos de firma de cada servicio.
+   La aplicación permite descargar seis borradores de desarrollo. No están firmados ni validados y el portafirmas corporativo no está compuesto con la aplicación.
 
 2. **Conexión en tiempo real con la Bolsa de Trabajo:**
-   Actualmente el sistema utiliza las bolsas precargadas del entorno demo. La sustitución de CONVOCA y la sincronización en vivo con el motor de baremación se activará tras la importación masiva de aspirantes.
+   El código incorpora importación y constitución de bolsas procedentes de CONVOCA. Esto no acredita todavía que el llamamiento de Contratación utilice las participaciones constituidas; esa conexión debe verificarse en el recorrido correspondiente.
 
 3. **Envío de correos y notificaciones reales:**
-   Los llamamientos actuales registran el envío y generan la traza en base de datos sin despachar correos electrónicos reales hacia candidatos. El servidor SMTP corporativo entrará en funcionamiento en la fase de despliegue productivo.
+   El aviso local conserva su recibo. La composición opcional de SMTP permite usar un buzón de pruebas; no acredita entrega a candidatos. El contacto del destinatario debe proceder del alta propia de VEC y la configuración corporativa sigue pendiente.
 
-4. **Sincronización bidireccional con GINPIX:**
-   La ficha de personal recopila todos los códigos y campos exigidos por GINPIX, pero la transferencia automática mediante servicio web entre bases de datos se encuentra pendiente del protocolo técnico de nóminas.
+4. **Ficha manual para GINPIX:**
+   La aplicación genera una ficha estructurada para descarga y grabación manual. No existe transmisión automática ni confirmación de alta en GINPIX.
 
-5. **Reglas de cómputo de plazos de llamamiento y penalizaciones:**
-   El plazo exacto de respuesta (horas/días hábiles), las causas tasadas de renuncia justificada y las sanciones por falta de respuesta están a la espera de confirmación por la Jefatura de Recursos Humanos (ver apartados 1 a 5 de `dudas.md`).
+5. **Plazos, penalizaciones y cese:**
+   La aplicación no calcula plazos legales ni aplica penalizaciones gobernadas. La anotación y el cierre administrativo sin cese conservan la historia del ejercicio, pero no constituyen cese ni cierre jurídico del expediente. Las reglas aplicables siguen a la espera de confirmación por la Jefatura de Recursos Humanos (ver apartados 1 a 5 de `dudas.md`).
 
 *Para cualquier consulta técnica o propuesta de mejora sobre este manual, contacte con el equipo de implantación de la VEC.*

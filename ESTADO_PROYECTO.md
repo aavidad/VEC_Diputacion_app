@@ -1,5 +1,26 @@
 # Estado y plan de ataque del proyecto
 
+## Corte funcional de interfaz — 19 de septiembre de 2026
+
+Integración preparada y comprobada en el servidor sobre la base d7982bb4:
+el resumen de llamamiento muestra las fechas confirmadas; el raíl respeta las
+fases acreditadas y los colores RRHH; la consulta de una fase conserva foco,
+encabezados de tabla y las traducciones del montaje. El detalle distingue la
+firma pendiente de los documentos preparatorios disponibles, sin atribuir envío
+al portafirmas. Se mantienen las seis descargas y sus contratos.
+
+Comprobaciones focales del candidato: 96 casos de llamamiento/documentos/fases,
+19 del adaptador, 3 de fases tras la conexión i18n y 24 de presentación. Son
+grupos parcialmente solapados, no una cifra de pantallas ni pruebas de producción.
+Revisión de código cerrada; comprobación visual sobre assets desplegados pendiente.
+El contador histórico 15/19 no aumenta por esta mejora de pantallas existentes.
+
+Se conservan separados el WIP Go, la portada y C23. La ficha manual GINPIX,
+anotaciones y cierre disponen de conexiones existentes: no se reimplementan.
+El manual distingue esos recorridos del portafirmas, entrega de correo, plazos
+legales y transmisión GINPIX pendientes. No se han aplicado migraciones.
+
+
 ## Hoja de ruta vigente — 16 de septiembre de 2026
 
 Alineada con los tres documentos que fijan lo que se pide: el **Word de RRHH**

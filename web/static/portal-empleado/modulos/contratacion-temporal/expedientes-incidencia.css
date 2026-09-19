@@ -1,8 +1,7 @@
 /* Incidencias del expediente y colores del raíl de fases (módulo de contratación temporal). */
 
-/* Colores del raíl (criterio de RRHH): verde = fase superada, amarillo = falta
-   algo (incidencia, espera de otro departamento), rojo claro = pendiente,
-   azul = fase en curso. Los chips de estado de las tablas conservan su paleta. */
+/* Colores del raíl según RRHH: gris pendiente, azul en curso, verde completado,
+   rojo incidencia y amarillo espera de otro departamento. */
 .ct-exp-progreso li.ct-fase-completado {
   background: var(--portal-exito-suave);
   color: #135f2d;
@@ -18,28 +17,37 @@
   background: var(--portal-exito);
 }
 
-.ct-exp-progreso li.ct-fase-incidencia,
 .ct-exp-progreso li.ct-fase-espera {
   background: var(--portal-aviso-suave);
   color: #7a4a00;
 }
 
-.ct-exp-progreso li.ct-fase-incidencia .ct-exp-numero-fase,
 .ct-exp-progreso li.ct-fase-espera .ct-exp-numero-fase {
   border-color: #d99a1a;
   background: #ffe8ad;
   color: #7a4a00;
 }
 
-.ct-exp-progreso li.ct-fase-pendiente {
+.ct-exp-progreso li.ct-fase-incidencia {
   background: var(--portal-peligro-suave);
   color: #8c3640;
 }
 
-.ct-exp-progreso li.ct-fase-pendiente .ct-exp-numero-fase {
+.ct-exp-progreso li.ct-fase-incidencia .ct-exp-numero-fase {
   border-color: #e0a3ab;
   background: #fff;
   color: #a8323f;
+}
+
+.ct-exp-progreso li.ct-fase-pendiente {
+  background: var(--portal-fondo);
+  color: var(--portal-muted);
+}
+
+.ct-exp-progreso li.ct-fase-pendiente .ct-exp-numero-fase {
+  border-color: var(--portal-borde);
+  background: #fff;
+  color: var(--portal-muted);
 }
 
 .ct-exp-progreso li.ct-fase-en_curso {
@@ -125,9 +133,9 @@
 }
 
 .ct-exp-fase-panel.ct-fase-completado { border-left-color: var(--portal-exito); }
-.ct-exp-fase-panel.ct-fase-incidencia,
 .ct-exp-fase-panel.ct-fase-espera { border-left-color: var(--portal-aviso); }
-.ct-exp-fase-panel.ct-fase-pendiente { border-left-color: var(--portal-peligro); }
+.ct-exp-fase-panel.ct-fase-incidencia { border-left-color: var(--portal-peligro); }
+.ct-exp-fase-panel.ct-fase-pendiente { border-left-color: var(--portal-borde); }
 .ct-exp-fase-panel.ct-fase-en_curso { border-left-color: var(--portal-azul-700); }
 
 .ct-exp-fase-panel-cabecera {
@@ -201,3 +209,17 @@
 .ct-exp-incidencia-subsanacion {
   margin-top: 6px;
 }
+
+.ct-exp-firma-pendiente {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--portal-borde);
+  border-left: 6px solid var(--portal-aviso);
+  border-radius: var(--portal-radio);
+  background: var(--portal-aviso-suave);
+}
+
+.ct-exp-firma-pendiente h3,
+.ct-exp-firma-pendiente p { margin: 0; }
+.ct-exp-firma-pendiente p + dl,
+.ct-exp-firma-pendiente dl + p { margin-top: 8px; }

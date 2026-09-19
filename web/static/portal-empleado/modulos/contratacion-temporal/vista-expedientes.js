@@ -9,6 +9,7 @@ import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
 import {
   contextoLlamamientoDesdeEstado,
@@ -91,6 +92,7 @@ export async function montarModuloContratacionTemporal({
     || typeof anunciar !== "function" || typeof confirmarOperacion !== "function") {
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
+  const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
 
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
@@ -354,6 +356,18 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function manejarClick(evento) {
+    const verFase = evento.target?.closest?.("[data-ct-exp-fase-ver]");
+    if (verFase && raiz.contains(verFase)) {
+      evento.preventDefault();
+      mostrarFase(verFase, traducirExpedientes);
+      return;
+    }
+    const cerrarFaseControl = evento.target?.closest?.("[data-ct-exp-fase-cerrar]");
+    if (cerrarFaseControl && raiz.contains(cerrarFaseControl)) {
+      evento.preventDefault();
+      cerrarFase(cerrarFaseControl);
+      return;
+    }
     const controlVista = evento.target?.closest?.("[data-ct-exp-vista]");
     if (controlVista && raiz.contains(controlVista)) {
       evento.preventDefault();

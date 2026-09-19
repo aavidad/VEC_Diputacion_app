@@ -461,6 +461,8 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
   const resumen = raiz.innerHTML.match(/<section class="ct-llamamiento-resultado"[\s\S]*?<\/section>/u)[0];
   assert.match(resumen, /Estado de la respuesta del sucesor/u);
   assert.match(resumen, new RegExp(`Resolución de ${respuesta === "aceptacion" ? "aceptación" : "renuncia"}; circuito confirmado`, "u"));
+  assert.match(resumen, /Declarada el/u);
+  assert.match(resumen, /Resuelta el/u);
   assert.doesNotMatch(resumen, /Registrar el aviso local del sucesor/u);
   if (respuesta === "renuncia") assert.match(resumen, /todavía no hay otra apertura disponible/u);
   if (respuesta === "renuncia") {

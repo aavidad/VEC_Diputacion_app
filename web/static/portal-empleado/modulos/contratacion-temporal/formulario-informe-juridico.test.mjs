@@ -124,6 +124,40 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
   assert.match(html, /data-ct-exp-informe-juridico/u);
 });
 
+test("explica el portafirmas pendiente sin simular una firma o envío", () => {
+  const expediente = {
+    expediente_ref: EXPEDIENTE, numero_visible: "2026/CT-001", version: 5,
+    flujo_ref: "flujo:ct:sintetico", flujo_version: 1, flujo_huella: "b".repeat(64),
+    cabecera: [], fases: [], tareas: [], historial: [{
+      accion_clave: "contratacion_temporal.informe_juridico.generar", accion: "Informe jurídico generado",
+    }],
+  };
+  const html = renderizarModuloContratacionTemporal({
+    vista: "expediente", carga: "listo", cuadro: { expedientes: [] }, expediente,
+    tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
+  });
+  assert.match(html, /Firma de Jefatura y remisión a Intervención/u);
+  assert.match(html, /Pendiente de integración con el portafirmas corporativo/u);
+  assert.match(html, /VEC no ha enviado el documento ni acredita firma o remisión/u);
+  assert.doesNotMatch(html, /<form|Firmado|Enviar a firma/u);
+});
+
+test("no mantiene la firma pendiente cuando la historia ya avanzó", () => {
+  const expediente = {
+    expediente_ref: EXPEDIENTE, numero_visible: "2026/CT-001", version: 6,
+    flujo_ref: "flujo:ct:sintetico", flujo_version: 1, flujo_huella: "b".repeat(64),
+    cabecera: [], fases: [], tareas: [], historial: [
+      { accion_clave: "contratacion_temporal.informe_juridico.generar", accion: "Informe jurídico generado" },
+      { accion_clave: "contratacion_temporal.fiscalizacion.registrar", accion: "Fiscalización registrada" },
+    ],
+  };
+  const html = renderizarModuloContratacionTemporal({
+    vista: "expediente", carga: "listo", cuadro: { expedientes: [] }, expediente,
+    tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
+  });
+  assert.doesNotMatch(html, /Firma de Jefatura y remisión a Intervención/u);
+});
+
 test("el historial del informe reutiliza etiquetas legibles y traducciones", () => {
   const etiquetas = presentarEtiquetasHitoRRHH({
     accion_clave: "contratacion_temporal.analisis.registrar",

@@ -24,6 +24,13 @@ export function renderizarLlamamiento(estado, t, fecha) {
         respuesta: t("llamamiento_resolucion_" + resolucion.respuesta),
       })
       : t("llamamiento_resultado_circuito_pendiente");
+    const fechaConfirmada = (valor) => {
+      if (typeof valor !== "string") return "";
+      const instante = new Date(valor);
+      return Number.isNaN(instante.getTime()) ? "" : fecha.format(instante);
+    };
+    const declaradaEn = fechaConfirmada(declaracion?.registrada_en);
+    const resueltaEn = fechaConfirmada(resolucion?.resuelta_en);
     let siguiente = t("llamamiento_resultado_siguiente_resolucion");
     if (resolucion?.respuesta === "renuncia") {
       siguiente = t(esSucesor
@@ -39,7 +46,9 @@ export function renderizarLlamamiento(estado, t, fecha) {
       <div><p class="sobrelinea">${e(t("llamamiento_resultado_sobrelinea"))}</p>
         <h3 id="ct-llamamiento-resultado-titulo">${e(t(esSucesor ? "llamamiento_resultado_titulo_sucesor" : "llamamiento_resultado_titulo"))}</h3></div>
       <dl><div><dt>${e(t("llamamiento_resultado_declaracion"))}</dt><dd>${e(declaracionTexto)}</dd></div>
+        ${declaradaEn ? `<div><dt>${e(t("llamamiento_resultado_declarada_en"))}</dt><dd>${e(declaradaEn)}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
+        ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${e(resueltaEn)}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
       <p>${e(t("llamamiento_resultado_limite"))}</p>
     </section>`;

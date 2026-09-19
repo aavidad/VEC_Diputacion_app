@@ -80,17 +80,17 @@ test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta 
   const estado = estadoReal();
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-informe-definitivo"[^]*<\/section>/u);
-  assert.match(html, /Descargar informe · borrador de desarrollo/u);
+  assert.match(html, /Descargar informe · documento preparatorio/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-resolucion"[^]*<\/section>/u);
-  assert.match(html, /Descargar resolución · borrador de desarrollo/u);
+  assert.match(html, /Descargar resolución · documento preparatorio/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-diligencia"[^]*<\/section>/u);
-  assert.match(html, /Descargar diligencia · borrador de desarrollo/u);
+  assert.match(html, /Descargar diligencia · documento preparatorio/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-toma-posesion"[^]*<\/section>/u);
-  assert.match(html, /Descargar toma de posesión · borrador de desarrollo/u);
+  assert.match(html, /Descargar toma de posesión · documento preparatorio/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-notificacion"[^]*<\/section>/u);
-  assert.match(html, /Descargar notificación · borrador de desarrollo/u);
+  assert.match(html, /Descargar notificación · documento preparatorio/u);
   assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-comunicacion-centro"[^]*<\/section>/u);
-  assert.match(html, /Descargar comunicación al centro · borrador de desarrollo/u);
+  assert.match(html, /Descargar comunicación al centro · documento preparatorio/u);
   assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
     expediente_ref: estado.expediente_ref, version_observada: 7,
   });
@@ -126,7 +126,7 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
     })),
   };
   const html = renderizarModuloContratacionTemporal(estado);
-  assert.match(html, /Borradores de desarrollo disponibles/u);
+  assert.match(html, /Documentos preparatorios disponibles/u);
   assert.match(html, /Seis piezas preparatorias agrupadas por formalización/u);
   assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
   assert.match(html, /data-ct-exp-resultado-descarga="informe-definitivo"[^>]*>Aún no se ha solicitado esta descarga/u);

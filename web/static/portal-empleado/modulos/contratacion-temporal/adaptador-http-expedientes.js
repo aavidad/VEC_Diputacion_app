@@ -57,7 +57,7 @@ const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
   ["no_consta", "comprobacion_resultado_no_consta"],
 ]);
 
-function etiqueta(clave, t, alternativa = "No consta") {
+function etiqueta(clave, t, alternativa = t("etiqueta_no_consta")) {
   if (typeof clave !== "string" || clave === "") return alternativa;
   const mensaje = CLAVES_ETIQUETAS_CONOCIDAS.get(clave);
   if (mensaje) return t(mensaje);
@@ -125,17 +125,17 @@ function resumenVisual(entrada, catalogos, t) {
   };
 }
 
-function indicadores(expedientes) {
+function indicadores(expedientes, t) {
   const contar = (clave) => expedientes.filter(
     ({ estado_clave: actual }) => actual === clave,
   ).length;
   return [
-    ["total", "Expedientes", expedientes.length, "informacion"],
-    ["pendientes", "Pendientes", contar("pendiente"), "aviso"],
-    ["en_curso", "En curso", contar("en_curso"), "informacion"],
-    ["incidencias", "Incidencias", contar("incidencia"), "peligro"],
-  ].map(([clave, titulo, valor, tono]) => ({
-    clave, etiqueta: titulo, valor: String(valor), tono,
+    ["total", "indicador_total", expedientes.length, "informacion"],
+    ["pendientes", "indicador_pendientes", contar("pendiente"), "aviso"],
+    ["en_curso", "indicador_en_curso", contar("en_curso"), "informacion"],
+    ["incidencias", "indicador_incidencias", contar("incidencia"), "peligro"],
+  ].map(([clave, etiquetaClave, valor, tono]) => ({
+    clave, etiqueta: t(etiquetaClave), valor: String(valor), tono,
   }));
 }
 
@@ -145,7 +145,7 @@ function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t }) {
     esquema: "vec.contratacion_temporal.cuadro.v1",
     demostracion: false,
     generado_en: pagina.generada_en,
-    indicadores: indicadores(expedientes),
+    indicadores: indicadores(expedientes, t),
     expedientes,
     paginacion: {
       pagina: numeroPagina,
@@ -231,35 +231,35 @@ function historialDesdeHitos(hitos, locale, t) {
 
 // El coste estimado se muestra con su origen cuando el análisis lo registró;
 // si la fuente no lo calculó, se dice, en vez de inventar una cifra.
-function costeEstimadoVisible(analisis, locale) {
+function costeEstimadoVisible(analisis, locale, t) {
   const coste = analisis.coste_previsto;
-  if (!coste || !Number.isSafeInteger(coste.centimos) || coste.centimos <= 0) return "Sin calcular";
+  if (!coste || !Number.isSafeInteger(coste.centimos) || coste.centimos <= 0) return t("coste_sin_calcular");
   const importe = new Intl.NumberFormat(locale, { style: "currency", currency: coste.moneda || "EUR" })
     .format(coste.centimos / 100);
-  return analisis.fuente_coste_ref ? `${importe} · según fuente registrada` : importe;
+  return analisis.fuente_coste_ref ? t("coste_con_fuente", { importe }) : importe;
 }
 
 function cabeceraDetalle(detalle, locale, catalogos, t) {
   const { resumen, solicitud } = detalle;
   const campos = [
-    campo("centro", "Centro", referenciaVisible(catalogos, "centros", resumen.centro_ref)),
-    campo("categoria", "Categoría", referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
-    campo("modalidad", "Modalidad", etiqueta(resumen.modalidad_clave, t)),
-    campo("fase", "Fase actual", etiqueta(resumen.fase_clave, t)),
-    campo("estado", "Estado", etiqueta(resumen.estado_clave, t)),
-    campo("grupo_subgrupo", "Grupo/Subgrupo", solicitud.grupo_subgrupo),
-    campo("motivo", "Motivo", etiqueta(solicitud.motivo_clave, t)),
+    campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
+    campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
+    campo("modalidad", t("cabecera_modalidad"), etiqueta(resumen.modalidad_clave, t)),
+    campo("fase", t("cabecera_fase_actual"), etiqueta(resumen.fase_clave, t)),
+    campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
+    campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
+    campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),
     campo("periodo", t("cabecera_periodo_solicitado"), `${fechaCivil(solicitud.periodo_inicio, locale)} — ${fechaCivil(solicitud.periodo_fin, locale)}`),
   ];
   if (detalle.analisis) {
     campos.push(
       campo("periodo_analizado", t("cabecera_periodo_analizado"), `${fechaCivil(detalle.analisis.periodo_inicio, locale)} — ${fechaCivil(detalle.analisis.periodo_fin, locale)}`),
-      campo("causa", "Causa analizada", etiqueta(detalle.analisis.causa_clave, t)),
-      campo("jornada", "Jornada", new Intl.NumberFormat(locale, {
+      campo("causa", t("cabecera_causa_analizada"), etiqueta(detalle.analisis.causa_clave, t)),
+      campo("jornada", t("cabecera_jornada"), new Intl.NumberFormat(locale, {
         style: "percent", maximumFractionDigits: 2,
       }).format(detalle.analisis.porcentaje_jornada / 10_000)),
-      campo("resultado_rc", "Resultado RC", etiqueta(detalle.analisis.resultado_rc, t)),
-      campo("coste_estimado", "Coste estimado", costeEstimadoVisible(detalle.analisis, locale)),
+      campo("resultado_rc", t("cabecera_resultado_rc"), etiqueta(detalle.analisis.resultado_rc, t)),
+      campo("coste_estimado", t("cabecera_coste_estimado"), costeEstimadoVisible(detalle.analisis, locale, t)),
     );
     if (detalle.analisis.observaciones) {
       campos.push(campo("observaciones", t("observaciones", "Observaciones"), detalle.analisis.observaciones));
@@ -267,19 +267,19 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
   }
   if (detalle.cobertura) {
     campos.push(
-      campo("via_cobertura", "Vía de cobertura", etiqueta(detalle.cobertura.via_clave, t)),
-      campo("decision_gobernada", "Decisión gobernada", detalle.cobertura.decision_gobernada ? "Sí" : "No"),
+      campo("via_cobertura", t("cabecera_via_cobertura"), etiqueta(detalle.cobertura.via_clave, t)),
+      campo("decision_gobernada", t("cabecera_decision_gobernada"), detalle.cobertura.decision_gobernada ? t("respuesta_si") : t("respuesta_no")),
     );
     for (const comprobacion of detalle.cobertura.comprobaciones || []) {
       campos.push(campo(
         `comprobacion_${comprobacion.clave}`,
-        "Comprobación de bolsa",
+        t("cabecera_comprobacion_bolsa"),
         `${etiqueta(comprobacion.clave, t)}: ${etiqueta(comprobacion.resultado, t)}`,
       ));
     }
   }
   if (detalle.asignacion) {
-    campos.push(campo("unidad", "Unidad asignada", detalle.asignacion.unidad_ref));
+    campos.push(campo("unidad", t("cabecera_unidad_asignada"), detalle.asignacion.unidad_ref));
   }
   return campos;
 }
@@ -380,8 +380,8 @@ function fasesDesdeHitos(detalle, traducir) {
   return fases;
 }
 
-function proyectarExpediente(detalle, locale, catalogos, t) {
-  const traducir = crearTraductorContratacionTemporal();
+function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
+  const traducir = crearTraductorContratacionTemporal(mensajes);
   const versionPropuesta = versionPropuestaDocumental(detalle);
   return validarExpedienteContratacionTemporal({
     esquema: "vec.contratacion_temporal.expediente.v1",
@@ -506,7 +506,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         resolverCatalogos(),
       ]);
       const expediente = proyectarExpediente(
-        detalle, locale, catalogos, t,
+        detalle, locale, catalogos, t, mensajes,
       );
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;
