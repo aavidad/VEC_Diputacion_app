@@ -1,13 +1,15 @@
 # Guía de recorrido y recibos conservados de VEC
 
-### Comprobar el runtime principal del corte `e89f0609`
+### Comprobar el runtime principal del corte `d1307f61`
 
 La instancia principal sintética sirve el binario SHA256
-`1948aa78b67fd239e7c200755bd21127836526cda90237eb806757d07cdcb225` y el
+`f17b164b49dd9a31513da8582c0f5ba641230ce3129ccdfbc94cdcd38135eba8` y el
 inventario web SHA256
-`0ffa54c0accaea60df53edfb0b7def0c94943090286af85667d9535fdd26ec4b`.
+`ad4c439bd1c9c97a75ee82f51c43a5391dcbba8f4b6a8c3eecb547d951cf12e0`.
+El corte incorpora la conservación de la auditoría cuando el cliente cancela, un diagnóstico interno clasificable sin filtrar causas y etiquetas funcionales traducidas en seguimiento.
+
 Para comprobar el corte sin crear efectos, recorra en este orden las consultas de
-incorporación, ficha GINPIX, anotación administrativa, preparación/cierre y
+incorporación, ficha GINPIX, anotación administrativa, preparación de cierre y
 seguimiento. Las cinco respondieron `200` sobre la línea base, tras sustituir el
 runtime y tras reiniciarlo. No se enviaron `POST`, no se emitieron cookies y no
 se observaron duplicados.

@@ -3,14 +3,16 @@
 ## Runtime principal alineado y auditoría de frontera instalada — 19 de septiembre de 2026
 
 La instancia principal sintética ejecuta el corte canónico
-`e89f06092006872bdf8d42e213059223696bfff2`. El binario servido tiene SHA256
-`1948aa78b67fd239e7c200755bd21127836526cda90237eb806757d07cdcb225` y el
+`d1307f61283933530c935c5e1e1f5fd9fa15ed09`. El binario servido tiene SHA256
+`f17b164b49dd9a31513da8582c0f5ba641230ce3129ccdfbc94cdcd38135eba8` y el
 inventario de contenido web SHA256
-`0ffa54c0accaea60df53edfb0b7def0c94943090286af85667d9535fdd26ec4b`.
+`ad4c439bd1c9c97a75ee82f51c43a5391dcbba8f4b6a8c3eecb547d951cf12e0`.
 El runtime anterior permanece conservado para recuperación. El primer reinicio
 tropezó con la gestión `cgroupfs`; se corrigió el arranque con
 `cgroup-manager=systemd`, sin volver al binario anterior. Las instancias aisladas
 de prueba no se modificaron.
+
+El corte incorpora la conservación de la auditoría cuando el cliente cancela, un diagnóstico interno clasificable sin filtrar causas y etiquetas funcionales traducidas en seguimiento.
 
 Las mismas cinco consultas de solo lectura —incorporación, ficha GINPIX,
 anotación administrativa, preparación de cierre y seguimiento— respondieron `200`
