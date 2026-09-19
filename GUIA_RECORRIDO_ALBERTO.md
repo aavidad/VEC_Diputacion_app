@@ -1,5 +1,11 @@
 # Guía de recorrido y recibos conservados de VEC
 
+Nota de uso — 19 de septiembre: al abrir un expediente se presenta su cabecera
+sin salto posterior a Cobertura. El raíl mantiene ocho fases; una propuesta
+registrada tras aceptación marca candidato obtenido, sin acreditar firma ni
+incorporación. En móvil el raíl se distribuye en dos columnas; PC conserva
+su disposición. Manual definitivo pendiente de validación de RRHH.
+
 ### Rectificación de análisis recuperada — 19 de septiembre
 
 El expediente sintético 2026/CT-8c17ba0b2be0fa7d84131e1dc93db150 pasa de v2

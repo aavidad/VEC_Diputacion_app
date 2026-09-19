@@ -50,6 +50,11 @@ Un borrador no es documento firmado; autenticación no es firma; aviso no es
 entrega acreditada; declaración no es resolución; referencia de correo no es
 custodia. No inventar plazos, nombramiento eficaz ni incorporación.
 
+Persona es la entidad común: todo empleado es persona, pero un aspirante externo
+no necesita ser empleado. Bolsa permite candidaturas de externos y empleados;
+no exigir referencia de empleado ni relación de servicio para inscribirse.
+Una misma persona puede tener candidaturas y relaciones de servicio sin duplicarse.
+
 ## E03. Arquitectura hexagonal
 
 `domain` no importa aplicación, puertos, adaptadores, HTTP, SQL ni proveedores.
@@ -149,6 +154,10 @@ Castellano coherente. Todo texto visible, validación, estado, ayuda, documento 
 notificación usa el catálogo i18n común. Localizar fechas, moneda, números y
 plurales; probar con el traductor real y escapar datos al renderizar.
 
+PC es la vista prioritaria por orden del operador del 19 de septiembre:
+optimizar tablas, formularios y espacio de escritorio; conservar móvil usable
+sin perjudicar PC. Tras cerrar funcionalidad, posponer retoques estéticos menores
+hasta la valoración de usuarios/RRHH; atender fallos o problemas visuales claros.
 Aspecto limpio y profesional, datos agrupados por tarea y jerarquía clara.
 Respetar las referencias visuales de RRHH y el tema común: no inventar otra
 paleta ni duplicar CSS estructural. No dispersar datos ni hacer de identificadores

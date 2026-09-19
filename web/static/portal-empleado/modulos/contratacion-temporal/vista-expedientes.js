@@ -69,6 +69,14 @@ function enfocar(raiz, selector) {
   elemento?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
 }
 
+function enfocarCabeceraExpediente(raiz) {
+  const cabecera = raiz.querySelector(".ct-exp-cabecera-expediente h3");
+  if (!cabecera) return;
+  cabecera.setAttribute?.("tabindex", "-1");
+  cabecera.focus?.();
+  cabecera.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
 export async function montarModuloContratacionTemporal({
   raiz,
   presentador,
@@ -134,6 +142,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarLlamamiento = null;
   let reciboPropuestaConfirmado = null;
   let desmontarEstadisticas = null;
+  let secuenciaInterfaz = 0;
 
   const esMontada = () => montada;
 
@@ -328,6 +337,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function cambiarVista(vista) {
+    secuenciaInterfaz += 1;
     if (gestorTramitacion.impedirCambioPorAnalisis()) return;
     const estado = presentador.obtenerEstado();
     if (estado.ocupado) {
@@ -379,12 +389,23 @@ export async function montarModuloContratacionTemporal({
     if (abrir && raiz.contains(abrir)) {
       evento.preventDefault();
       if (gestorTramitacion.impedirCambioPorAnalisis()) return;
+      const seleccion = ++secuenciaInterfaz;
       try {
         const tarea = presentador.seleccionarExpediente(abrir.dataset.ctExpAbrir);
         repintar("[data-ct-exp-mensaje]");
         await tarea;
-        repintar("#ct-exp-tarea-titulo");
+        if (!montada || seleccion !== secuenciaInterfaz) return;
+        const estado = presentador.obtenerEstado();
+        if (estado.carga === "listo" && estado.vista === "expediente"
+          && estado.expediente_ref === abrir.dataset.ctExpAbrir
+          && estado.expediente?.expediente_ref === abrir.dataset.ctExpAbrir) {
+          repintar();
+          enfocarCabeceraExpediente(raiz);
+        } else {
+          repintar();
+        }
       } catch {
+        if (!montada || seleccion !== secuenciaInterfaz) return;
         anunciar(
           crearTraductorExpedientesContratacion(mensajes)("estado_error_expediente"),
           "error",

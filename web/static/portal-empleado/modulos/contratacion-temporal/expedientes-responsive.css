@@ -129,20 +129,27 @@
     display: grid;
     min-width: 0;
     width: 100%;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .ct-exp-progreso li {
-    display: grid;
+    display: block;
     min-width: 0;
-    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 0;
+    text-align: left;
+  }
+
+  .ct-exp-progreso .ct-exp-fase-boton {
+    height: 100%;
+    min-height: 64px;
+    grid-template-columns: 26px minmax(0, 1fr);
     grid-template-rows: auto auto;
-    column-gap: 10px;
+    column-gap: 6px;
     row-gap: 2px;
     align-items: center;
     justify-items: start;
-    padding: 4px 0;
+    padding: 8px 6px;
     text-align: left;
   }
 
@@ -154,7 +161,7 @@
     align-self: center;
   }
 
-  .ct-exp-progreso li > span:not(.ct-exp-numero-fase) {
+  .ct-exp-progreso .ct-exp-fase-boton > span:not(.ct-exp-numero-fase) {
     grid-row: 1;
     grid-column: 2;
     font-size: 0.82rem;
@@ -162,22 +169,14 @@
     overflow-wrap: anywhere;
   }
 
-  .ct-exp-progreso li > small {
+  .ct-exp-progreso .ct-exp-fase-boton > small {
     grid-row: 2;
     grid-column: 2;
     font-size: 0.76rem;
-    color: var(--portal-muted);
+    overflow-wrap: anywhere;
   }
 
   .ct-exp-progreso li::before {
-    top: -12px;
-    left: 12px;
-    right: auto;
-    width: 2px;
-    height: 14px;
-  }
-
-  .ct-exp-progreso li:first-child::before {
     display: none;
   }
 

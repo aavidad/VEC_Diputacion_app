@@ -342,6 +342,38 @@ test("no marca la obtención de candidato sin mapeo acreditado del servidor", as
   assert.ok(expediente.fases.every(({ estado_clave }) => estado_clave === "pendiente"));
 });
 
+test("completa sólo la obtención de candidato desde la propuesta formalizada", async () => {
+  const detalle = detalleV9();
+  detalle.presentacion_flujo = {
+    referencia: "flujo-visual:rrhh:temporal", fase_actual: "nombramiento",
+    fases: [
+      ["solicitud", "contratacion_temporal.fase.solicitud"],
+      ["analisis_rrhh", "contratacion_temporal.fase.analisis_rrhh"],
+      ["gestion_bolsa", "contratacion_temporal.fase.gestion_bolsa"],
+      ["fiscalizacion", "contratacion_temporal.fase.fiscalizacion"],
+      ["obtencion_candidato", "contratacion_temporal.fase.obtencion_candidato"],
+      ["nombramiento", "contratacion_temporal.fase.nombramiento"],
+      ["incorporacion", "contratacion_temporal.fase.incorporacion"],
+      ["seguimiento", "contratacion_temporal.fase.seguimiento"],
+    ].map(([clave, clave_i18n], indice) => ({ clave, clave_i18n, orden: indice + 1 })),
+  };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+
+  await adaptador.listar();
+  const expediente = await adaptador.obtener(detalle.resumen.expediente_ref);
+
+  assert.equal(expediente.fases[4].estado_clave, "completado");
+  assert.equal(expediente.fases[5].estado_clave, "en_curso");
+  assert.ok(expediente.fases.filter(({ estado_clave }) => estado_clave === "completado")
+    .every(({ fase_ref }) => fase_ref.endsWith(":obtencion_candidato")));
+
+  detalle.hitos[6].accion_clave = "actuacion_sin_evidencia_de_propuesta";
+  const sinEvidencia = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente: clienteHistoria(detalle) });
+  await sinEvidencia.listar();
+  const expedienteSinEvidencia = await sinEvidencia.obtener(detalle.resumen.expediente_ref);
+  assert.equal(expedienteSinEvidencia.fases[4].estado_clave, "pendiente");
+});
+
 
 test("no permite pedir detalle fuera del último cuadro ni ejecutar efectos", async () => {
   const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({

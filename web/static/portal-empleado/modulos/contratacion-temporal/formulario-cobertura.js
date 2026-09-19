@@ -269,7 +269,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     };
   }
 
-  function cargarPropuesta() {
+  function cargarPropuesta(enfocarResultado = false) {
     if (vuelo !== null || !montado) return vuelo ?? Promise.resolve(null);
     controlador = new AbortController();
     const solicitud = validarSolicitudPropuestaCobertura(contexto);
@@ -295,7 +295,7 @@ export function montarFormularioCobertura(configuracion = {}) {
       } finally {
         controlador = null;
         vuelo = null;
-        if (montado) repintar("[data-ct-cobertura-estado]");
+        if (montado) repintar(enfocarResultado ? "[data-ct-cobertura-estado]" : "");
       }
     })();
     vuelo = tarea;
@@ -312,7 +312,7 @@ export function montarFormularioCobertura(configuracion = {}) {
       tipo_mensaje: "informacion",
     };
     repintar("[data-ct-cobertura-estado]");
-    return cargarPropuesta();
+    return cargarPropuesta(true);
   }
 
   function confirmarDecision(formulario) {

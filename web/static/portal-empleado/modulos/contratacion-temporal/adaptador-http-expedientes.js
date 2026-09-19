@@ -343,6 +343,10 @@ const FASE_VISUAL = Object.freeze({
 const ACCIONES_FASES_VISUALES_COMPLETADAS = Object.freeze({
   "contratacion_temporal.analisis.registrar": ["solicitud", "analisis_rrhh"],
   "contratacion_temporal.analisis.rectificar": ["solicitud", "analisis_rrhh"],
+  // La propuesta sólo se registra tras la aceptación que el caso de uso ya
+  // revalida. Es evidencia de que se obtuvo candidato; no acredita firma,
+  // envío, incorporación ni el cumplimiento de las demás fases.
+  "registrar_propuesta_formalizacion": ["obtencion_candidato"],
 });
 
 function fasesDesdeHitos(detalle, traducir) {

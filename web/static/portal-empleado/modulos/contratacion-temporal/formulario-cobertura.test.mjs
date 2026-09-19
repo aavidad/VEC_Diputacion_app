@@ -52,6 +52,7 @@ function raizFalsa() {
   return {
     innerHTML: "",
     viaElegida: "bolsa_vigente",
+    focos: 0,
     motivoClave: "",
     eventos,
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
@@ -59,7 +60,7 @@ function raizFalsa() {
       if (eventos.get(tipo) === manejador) eventos.delete(tipo);
     },
     contains() { return true; },
-    querySelector() { return { focus() {}, scrollIntoView() {} }; },
+    querySelector() { return { focus: () => { this.focos += 1; }, scrollIntoView() {} }; },
     replaceChildren() { this.innerHTML = ""; },
     enviar() {
       const raiz = this;
@@ -221,11 +222,13 @@ test("un fallo al proponer permite repetir solo la consulta de cobertura", async
   });
   await estabilizar();
   assert.equal(propuestas, 1);
+  assert.equal(raiz.focos, 0, "la carga automática no debe mover el foco");
   assert.equal(decisiones, 0);
   assert.match(raiz.innerHTML, /data-ct-cobertura-accion="reintentar-propuesta"/u);
 
   await raiz.pulsarAccion("reintentar-propuesta");
   assert.equal(propuestas, 2);
+  assert.equal(raiz.focos, 2, "el reintento explícito enfoca carga y resultado");
   assert.equal(decisiones, 0);
   assert.match(raiz.innerHTML, /data-ct-cobertura-evaluacion="bolsa_vigente"/u);
 });

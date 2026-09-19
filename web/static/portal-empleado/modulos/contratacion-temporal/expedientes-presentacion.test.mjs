@@ -866,3 +866,82 @@ test("la vista de alta no renderiza subcabecera redundante ni bloque de llamamie
   assert.match(html, /data-ct-exp-alta/u);
 });
 
+test("abrir otro expediente sitúa foco y scroll en su cabecera una sola vez", async () => {
+  const fuente = adaptador();
+  const presentador = presentadorDe(fuente);
+  await presentador.cargar();
+  const eventos = new Map();
+  const atributos = new Map();
+  let focos = 0;
+  let desplazamientos = 0;
+  const cabecera = {
+    setAttribute(nombre, valor) { atributos.set(nombre, valor); },
+    focus() { focos += 1; },
+    scrollIntoView(opciones) {
+      desplazamientos += 1;
+      assert.deepEqual(opciones, { block: "nearest", inline: "nearest" });
+    },
+  };
+  const raiz = {
+    innerHTML: "",
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
+    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
+    querySelector(selector) {
+      return selector === ".ct-exp-cabecera-expediente h3" ? cabecera : null;
+    },
+    contains() { return true; },
+  };
+  const referencia = presentador.obtenerEstado().cuadro.expedientes[1].expediente_ref;
+  const control = {
+    dataset: { ctExpAbrir: referencia },
+    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
+  };
+  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
+  try {
+    await eventos.get("click")({ target: control, preventDefault() {} });
+    assert.equal(presentador.obtenerEstado().expediente_ref, referencia);
+    assert.equal(atributos.get("tabindex"), "-1");
+    assert.equal(focos, 1);
+    assert.equal(desplazamientos, 1);
+  } finally {
+    montaje.desmontar();
+  }
+});
+
+test("un fallo al abrir se renderiza desde el estado del presentador y no mueve el foco", async () => {
+  const base = adaptador();
+  const cuadro = await base.listar();
+  const fuente = {
+    capacidades: [CAP.consultarCuadro, CAP.consultarExpediente],
+    async listar() { return cuadro; },
+    async obtener() { throw new Error("detalle no disponible"); },
+    async ejecutar() { throw new Error("actuación no disponible"); },
+  };
+  const presentador = presentadorDe(fuente);
+  const eventos = new Map();
+  let focos = 0;
+  const raiz = {
+    innerHTML: "",
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
+    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
+    querySelector(selector) {
+      return selector === ".ct-exp-cabecera-expediente h3" ? { focus() { focos += 1; } } : null;
+    },
+    contains() { return true; },
+  };
+  const referencia = cuadro.expedientes[0].expediente_ref;
+  const control = {
+    dataset: { ctExpAbrir: referencia },
+    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
+  };
+  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
+  try {
+    await eventos.get("click")({ target: control, preventDefault() {} });
+    assert.equal(presentador.obtenerEstado().carga, "error");
+    assert.match(raiz.innerHTML, /No se pudo cargar el expediente. Reintente desde el cuadro/u);
+    assert.match(raiz.innerHTML, /role="alert"/u);
+    assert.equal(focos, 0);
+  } finally {
+    montaje.desmontar();
+  }
+});

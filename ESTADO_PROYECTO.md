@@ -1,5 +1,20 @@
 # Estado y plan de ataque del proyecto
 
+## Apertura y lectura de expedientes — 19 de septiembre de 2026
+
+Abrir un expediente sitúa el foco en su cabecera; conserva error/denegación
+si la consulta falla y descarta respuestas de selecciones anteriores.
+La carga automática de Cobertura ya no roba ese foco; el reintento explícito
+conserva su aviso. Comprobado en PC 1440 y móvil 390 con consultas reales.
+El raíl completa Obtención del candidato cuando el historial acredita propuesta
+posterior a aceptación; no adelanta firma, incorporación ni seguimiento.
+Datos de fase con texto neutro y raíl móvil de ocho pasos compacto (312,5 px);
+sin cambio de disposición de escritorio ni desbordamiento a 320/390.
+53 pruebas focales correctas y comprobación navegador sin errores JavaScript.
+No se registraron efectos de negocio ni se cambiaron APIs, SQL o recibos.
+El contador sigue 16/19; retoques menores posteriores a la presentación.
+PC tiene prioridad. Bolsa incluye externos: persona no implica empleado.
+
 ## Estudio integral y extensibilidad — 19 de septiembre de 2026
 
 Actualizados el [estudio integral](docs/estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes)
