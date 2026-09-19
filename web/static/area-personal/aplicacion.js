@@ -54,6 +54,12 @@ const TITULOS_OPERACION = Object.freeze({
 
 const porId = (id) => document.getElementById(id);
 
+export function esOrigenSinteticoODesarrollo(meta = {}) {
+  if (meta === null || typeof meta !== "object") return false;
+  return [meta.origen, meta.entorno].filter((declaracion) => typeof declaracion === "string")
+    .some((declaracion) => /\bsint(?:e|é)tic(?:o|a|os|as)?\b|\bdesarrollo\b/iu.test(declaracion));
+}
+
 function rutaDesdeURL() {
   const parametros = new URLSearchParams(window.location.search);
   const vista = parametros.get("vista") || "inicio";
@@ -158,7 +164,12 @@ function actualizarShell(estado) {
   document.title = `${titulo} · Mi área personal`;
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? "Mi área personal" : `Mi área personal → ${titulo}`;
-  porId("aviso-presentacion").hidden = datos.meta.presentacion !== true;
+  const avisoPresentacion = porId("aviso-presentacion");
+  const datosSinteticos = datos.meta.presentacion === true || esOrigenSinteticoODesarrollo(datos.meta);
+  avisoPresentacion.hidden = !datosSinteticos;
+  if (datosSinteticos && datos.meta.presentacion !== true) {
+    avisoPresentacion.querySelector("strong").textContent = "PERFIL DE DESARROLLO · DATOS SINTÉTICOS";
+  }
   porId("avatar-sesion").textContent = datos.sesion.iniciales;
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
   porId("perfil-sesion").textContent = datos.sesion.metodo;

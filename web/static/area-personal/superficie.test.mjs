@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
+import { esOrigenSinteticoODesarrollo } from "./aplicacion.js";
 import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
 import { renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud } from "./vistas/perfil-meritos-solicitud.js";
 import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
@@ -69,6 +70,14 @@ test("la demo está aislada y el arranque normal solo compone HTTP", async () =>
   assert.match(arranque, /if \(dependencias\.presentacionSolicitada\)[\s\S]*import\("\.\.\/presentacion\/selector-perfiles\.js/u);
   assert.match(arranque, /perfilActivo: "usuario_externo"/u);
   assert.doesNotMatch(await readFile(join(RAIZ, "index.html"), "utf8"), /selector-perfiles\.css/u);
+});
+
+test("el aviso identifica datos sintéticos o de desarrollo aunque no sea presentación", () => {
+  assert.equal(esOrigenSinteticoODesarrollo({ origen: "Dataset sintético" }), true);
+  assert.equal(esOrigenSinteticoODesarrollo({ origen: "Perfil de desarrollo sin identidad de candidato" }), true);
+  assert.equal(esOrigenSinteticoODesarrollo({ origen: "API interna", entorno: "desarrollo" }), true);
+  assert.equal(esOrigenSinteticoODesarrollo({ origen: "API interna autenticada" }), false);
+  assert.equal(esOrigenSinteticoODesarrollo(null), false);
 });
 
 test("las convocatorias del candidato reproducen el inventario público y aíslan la tramitación sintética", async () => {
