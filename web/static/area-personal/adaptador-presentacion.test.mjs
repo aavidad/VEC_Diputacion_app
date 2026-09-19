@@ -165,17 +165,15 @@ test("pago, firma y registro actúan sobre el borrador indicado y respetan la se
   assert.match(registrada.firma, /confirmada/u);
 });
 
-test("cambiar_disponibilidad admite pausa con motivo y fecha, y reactivación devolviendo estado_clave y disponible_desde (B8)", async () => {
+test("cambiar_disponibilidad solo ensaya una pausa efímera y permite reactivarla (B8)", async () => {
   const adaptador = crearAdaptadorPresentacion();
 
-  // 1. Pausa con motivo y fecha
+  // 1. Pausa sin causa ni fecha: ambas siguen pendientes de RRHH.
   const resPausa = await adaptador.ejecutar({
     accion: "cambiar_disponibilidad",
     payload: {
       disponible: false,
-      motivo_clave: "incorporacion_otro_empleo",
       motivo_texto: "Contrato temporal en otra administración",
-      hasta: "2026-12-31",
     },
     confirmacion: true,
     capacidad: true,
@@ -183,11 +181,14 @@ test("cambiar_disponibilidad admite pausa con motivo y fecha, y reactivación de
 
   assert.equal(resPausa.recibo.accion, "cambiar_disponibilidad");
   assert.equal(resPausa.recibo.estado_clave, "no_disponible");
-  assert.equal(resPausa.recibo.disponible_desde, "2026-12-31");
+  assert.equal(resPausa.recibo.disponible_desde, null);
   assert.equal(resPausa.datos.disponibilidad.disponible, false);
   assert.equal(resPausa.datos.disponibilidad.estado_clave, "no_disponible");
-  assert.equal(resPausa.datos.disponibilidad.disponible_desde, "2026-12-31");
+  assert.equal(resPausa.datos.disponibilidad.disponible_desde, null);
   assert.equal(resPausa.datos.disponibilidad.motivo_visible, "Contrato temporal en otra administración");
+  await assert.rejects(() => adaptador.ejecutar({
+    accion: "cambiar_disponibilidad", payload: { disponible: false, hasta: "2026-12-31" }, confirmacion: true, capacidad: true,
+  }), /pendientes de confirmación por RRHH/u);
 
   // 2. Reactivación
   const resReactivar = await adaptador.ejecutar({

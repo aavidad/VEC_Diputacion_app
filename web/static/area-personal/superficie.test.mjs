@@ -251,28 +251,22 @@ test("la sección Mi posición se renderiza en disponibilidad cuando está prese
   assert.doesNotMatch(htmlSin, /<h3>Mi posición<\/h3>/u);
 });
 
-test("el formulario de disponibilidad B8 es accesible, incluye confirmación y no usa la palabra demo", async () => {
+test("el formulario de disponibilidad B8 es accesible y marca su efecto efímero", async () => {
   const adaptador = crearAdaptadorPresentacion();
   const datos = await adaptador.cargar();
 
   // 1. Estado disponible -> formulario de pausa
   const htmlDisponible = renderizarLlamamientos(datos);
   assert.match(htmlDisponible, /<form\b[^>]*data-operacion="cambiar_disponibilidad"/u);
-  assert.match(htmlDisponible, /name="motivo_clave"/u);
-  assert.match(htmlDisponible, /value="pausa_voluntaria"/u);
-  assert.match(htmlDisponible, /value="incorporacion_otro_empleo"/u);
-  assert.match(htmlDisponible, /value="enfermedad"/u);
-  assert.match(htmlDisponible, /value="otro"/u);
-  assert.match(htmlDisponible, /name="hasta" type="date"/u);
   assert.match(htmlDisponible, /name="motivo_texto"/u);
+  assert.match(htmlDisponible, /pendientes de confirmación por RRHH/u);
+  assert.match(htmlDisponible, /no modifica la bolsa/u);
   assert.match(htmlDisponible, /<input type="checkbox" name="confirmacion" required>/u);
   assert.match(htmlDisponible, /<button type="submit" class="boton-peligro">/u);
 
   // Accesibilidad: etiquetas vinculadas a campos
-  assert.match(htmlDisponible, /<label for="motivo-pausa">/u);
-  assert.match(htmlDisponible, /id="motivo-pausa"/u);
-  assert.match(htmlDisponible, /<label for="hasta-pausa">/u);
-  assert.match(htmlDisponible, /id="hasta-pausa"/u);
+  assert.match(htmlDisponible, /<label for="texto-pausa">/u);
+  assert.match(htmlDisponible, /id="texto-pausa"/u);
 
   // 2. Estado no disponible -> formulario de reactivación
   const datosNoDisponible = structuredClone(datos);
@@ -282,10 +276,21 @@ test("el formulario de disponibilidad B8 es accesible, incluye confirmación y n
   const htmlNoDisponible = renderizarLlamamientos(datosNoDisponible);
   assert.match(htmlNoDisponible, /<input type="hidden" name="disponible" value="true">/u);
   assert.match(htmlNoDisponible, /<input type="checkbox" name="confirmacion" required>/u);
-  assert.match(htmlNoDisponible, /<button type="submit" class="boton-primario">Declarar disponibilidad<\/button>/u);
+  assert.match(htmlNoDisponible, /<button type="submit" class="boton-primario">Ensayar reactivación<\/button>/u);
 
-  // Estricto: el formulario B8 no contiene la palabra "demo"
+  // Estricto: el formulario B8 declara que no produce un efecto durable.
   const formDisponibilidad = htmlDisponible.match(/<form[^>]*id="form-disponibilidad"[\s\S]*?<\/form>/u)?.[0] || "";
   assert.ok(formDisponibilidad.length > 0);
-  assert.doesNotMatch(formDisponibilidad, /\bdemo\b/iu, "el formulario B8 no debe incluir la palabra demo");
+  assert.match(formDisponibilidad, /solo cambia esta vista en memoria/iu);
+});
+
+test("llamamientos y contratos vacíos son explícitos sin inventar fecha de comunicación", async () => {
+  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
+  datos.llamamientos = [];
+  datos.contratos = [];
+  const html = renderizarLlamamientos(datos);
+  assert.match(html, /Sin llamamientos/u);
+  assert.match(html, /No consta ningún contrato propio/u);
+  const conLlamamientos = renderizarLlamamientos(await crearAdaptadorPresentacion().cargar());
+  assert.doesNotMatch(conLlamamientos, /Comunicado el/u);
 });

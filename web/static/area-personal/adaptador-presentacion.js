@@ -148,12 +148,12 @@ const BASE_PRESENTACION = {
     motivo_visible: null,
     desde: "01/07/2026",
     bolsas: ["Bolsa de empleo de Operario de la Diputación de Granada (adscripción DEMO)", "Ingreso en la Subescala de Gestión de Administración General (adscripción DEMO)"],
-    proxima_revision: "31/12/2026",
   },
   llamamientos: [
-    { id: "DEMO-LLA-0045", bolsa: "Bolsa de empleo de Operario de la Diputación de Granada · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Responder antes del 19/07/2026 14:00 · plazo DEMO", estado: "Pendiente de respuesta", jornada: "Completa (dato sintético)", duracion: "3 meses (dato sintético)", posicion: "Primera persona elegible de demostración", canal: "Sede electrónica", comunicado_en: "2026-07-17T10:30:00Z", resultado_clave: "pendiente" },
-    { id: "DEMO-LLA-0031", bolsa: "Ingreso en la Subescala de Gestión de Administración General · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Respondido el 02/07/2026 · DEMO", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 % (dato sintético)", duracion: "1 mes (dato sintético)", posicion: "Respuesta registrada en demostración", canal: "Correo y sede", comunicado_en: "2026-07-01T09:00:00Z", resultado_clave: "aceptado" },
+    { id: "DEMO-LLA-0045", bolsa: "Bolsa de empleo de Operario de la Diputación de Granada · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Pendiente de confirmación por RRHH", estado: "Pendiente de respuesta", jornada: "Dato no comunicado", duracion: "Dato no comunicado", posicion: "Primera persona elegible de demostración", canal: "Canal pendiente de confirmar", comunicado_en: null, resultado_clave: "pendiente" },
+    { id: "DEMO-LLA-0031", bolsa: "Ingreso en la Subescala de Gestión de Administración General · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Plazo no acreditado en presentación", estado: "Respuesta sintética registrada", jornada: "Dato no comunicado", duracion: "Dato no comunicado", posicion: "Respuesta registrada en demostración", canal: "Canal pendiente de confirmar", comunicado_en: null, resultado_clave: "aceptado" },
   ],
+  contratos: [],
   subsanaciones: [
     { id: "DEMO-SUB-0008", solicitud_ref: "DEMO-SOL-0027", motivo: "Acreditar la jornada de la experiencia externa", plazo: "23/07/2026 14:00", estado: "Pendiente", documento_solicitado: "Certificado con porcentaje de jornada y periodos exactos" },
   ],
@@ -179,7 +179,7 @@ const BASE_PRESENTACION = {
     { pregunta: "¿Cómo me inscribo en una convocatoria?", respuesta: "Abra Convocatorias, revise bases y requisitos, y seleccione Iniciar solicitud. El recorrido separa borrador, pago, firma y registro." },
     { pregunta: "¿Puedo reutilizar mis méritos?", respuesta: "Sí. El inventario personal permite reutilizar documentación, pero cada convocatoria aplica sus propias bases y puede exigir acreditación adicional." },
     { pregunta: "¿La autobaremación es definitiva?", respuesta: "No. Es una estimación trazable aplicada a las bases de la convocatoria. El personal técnico revisa cada mérito y puede aceptar o rechazar su cómputo con constancia." },
-    { pregunta: "¿Cómo respondo a un llamamiento?", respuesta: "Abra Disponibilidad y llamamientos, revise puesto, jornada, duración y plazo, y confirme su respuesta. La respuesta administrativa real requerirá el servicio conectado." },
+    { pregunta: "¿Cómo respondo a un llamamiento?", respuesta: "La posición, el canal, el plazo y los efectos de una respuesta siguen pendientes de confirmación por RRHH. Esta presentación solo permite comprobar la interfaz." },
     { pregunta: "¿Qué ocurre en esta demostración?", respuesta: "Nada sale del navegador ni afecta a expedientes. Cada acción genera un recibo inequívoco DEMO y el estado se pierde al recargar." },
   ],
 };
@@ -396,19 +396,15 @@ export function crearAdaptadorPresentacion() {
         estado.disponibilidad.disponible_desde = null;
         estado.disponibilidad.motivo_visible = null;
       } else {
-        const motivoClave = payload.motivo_clave || "pausa_voluntaria";
+        if (payload.motivo_clave !== undefined || payload.hasta !== undefined) {
+          throw new Error("Las causas y fechas de disponibilidad están pendientes de confirmación por RRHH.");
+        }
         estado.disponibilidad.disponible = false;
         estado.disponibilidad.estado_clave = "no_disponible";
-        const mapaTexto = {
-          pausa_voluntaria: "No disponible (pausa voluntaria)",
-          incorporacion_otro_empleo: "No disponible (incorporación a otro empleo)",
-          enfermedad: "No disponible (enfermedad o incapacidad temporal)",
-          otro: "No disponible (otras causas justificadas)",
-        };
-        estado.disponibilidad.estado = mapaTexto[motivoClave] || "No disponible";
+        estado.disponibilidad.estado = "No disponible · efecto efímero de presentación";
         estado.disponibilidad.estado_desde = new Date().toISOString();
-        estado.disponibilidad.disponible_desde = payload.hasta || null;
-        estado.disponibilidad.motivo_visible = payload.motivo_texto || mapaTexto[motivoClave] || motivoClave;
+        estado.disponibilidad.disponible_desde = null;
+        estado.disponibilidad.motivo_visible = payload.motivo_texto || "Motivo pendiente de validar por RRHH";
       }
     } else if (accion === "responder_llamamiento") {
       const item = exigirElemento(estado.llamamientos, payload.id, "llamamiento", ["Pendiente de respuesta"]);

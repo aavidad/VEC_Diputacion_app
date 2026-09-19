@@ -30,7 +30,7 @@ export function renderizarSeguimiento(datos, estado) {
 export function renderizarLlamamientos(datos) {
   const disponibles = datos.disponibilidad;
   const sufijoDemo = datos.meta.presentacion ? " DEMO" : "";
-  const tarjetas = datos.llamamientos.map((item) => {
+  const tarjetas = datos.llamamientos.map((item, indice) => {
     const camposLlamamiento = [
       ["Puesto y destino", escaparHTML(item.puesto)],
       item.jornada ? ["Jornada", escaparHTML(item.jornada)] : null,
@@ -41,8 +41,13 @@ export function renderizarLlamamientos(datos) {
       item.comunicado_en ? ["Comunicado el", escaparHTML(item.comunicado_en)] : null,
       item.resultado_clave ? ["Resultado", chip(item.resultado_clave)] : null,
     ].filter(Boolean);
-    return `<article class="panel"><header><div><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos(camposLlamamiento)}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Revise cuidadosamente destino, jornada, duración y plazo antes de responder.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Aceptar el llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Rechazar el llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta ya consta como ${escaparHTML(item.estado)}.</p>`}</div></article>`;
+    const titulo = indice === 0 ? "Último llamamiento" : "Llamamiento anterior";
+    return `<article class="panel"><header><div><p>${titulo}</p><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos(camposLlamamiento)}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Canal, plazo y efectos pendientes de confirmación por RRHH. Esta acción solo cambia la memoria de presentación.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta mostrada es sintética y no acredita un efecto administrativo.</p>`}</div></article>`;
   }).join("");
+  const llamamientos = tarjetas || panel("Sin llamamientos", "No consta ningún llamamiento propio", `<p>No se muestra un plazo, una causa ni un efecto por ausencia de datos.</p>`);
+  const contratos = Array.isArray(datos.contratos) && datos.contratos.length > 0
+    ? listaDatos(datos.contratos.map((item) => [escaparHTML(item.id), escaparHTML(item.estado)]))
+    : `<p>No consta ningún contrato propio en los datos disponibles.</p>`;
 
   const seccionPosicion = datos.posicion
     ? panel("Mi posición", "Situación y orden de prelación en la bolsa adscrita", `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([["Bolsa", escaparHTML(datos.posicion.bolsa)], ["Categoría", escaparHTML(datos.posicion.categoria)], ["Orden", `#${escaparHTML(String(datos.posicion.orden))} de ${escaparHTML(String(datos.posicion.total))}`], ["Puntuación", `${formatoPuntos(datos.posicion.puntuacion)} puntos`], ["Vigente desde", escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
@@ -54,7 +59,6 @@ export function renderizarLlamamientos(datos) {
     disponibles.estado_desde ? ["Situación desde", escaparHTML(disponibles.estado_desde)] : (disponibles.desde ? ["Desde", escaparHTML(disponibles.desde)] : null),
     disponibles.disponible_desde ? ["Disponible a partir de", escaparHTML(disponibles.disponible_desde)] : null,
     disponibles.motivo_visible ? ["Causa / Motivo", escaparHTML(disponibles.motivo_visible)] : null,
-    disponibles.proxima_revision ? ["Próxima revisión", escaparHTML(disponibles.proxima_revision)] : null,
     disponibles.bolsas ? ["Bolsas", disponibles.bolsas.map(escaparHTML).join("<br>")] : null,
   ].filter(Boolean);
 
@@ -62,47 +66,36 @@ export function renderizarLlamamientos(datos) {
     ? `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
         <input type="hidden" name="disponible" value="false">
         <div class="campo">
-          <label for="motivo-pausa">Motivo de la pausa de disponibilidad</label>
-          <select id="motivo-pausa" name="motivo_clave" required>
-            <option value="pausa_voluntaria">Pausa voluntaria</option>
-            <option value="incorporacion_otro_empleo">Incorporación a otro empleo</option>
-            <option value="enfermedad">Enfermedad o incapacidad temporal</option>
-            <option value="otro">Otras causas justificadas</option>
-          </select>
-        </div>
-        <div class="campo">
-          <label for="hasta-pausa">Disponible a partir de (fecha prevista, opcional)</label>
-          <input id="hasta-pausa" name="hasta" type="date" pattern="\\d{4}-\\d{2}-\\d{2}" placeholder="AAAA-MM-DD">
-        </div>
-        <div class="campo">
-          <label for="texto-pausa">Detalle o justificación adicional (opcional)</label>
+          <label for="texto-pausa">Aclaración de la pausa (opcional)</label>
           <input id="texto-pausa" name="motivo_texto" type="text" maxlength="500" placeholder="Motivo o aclaración">
+          <small>Las causas, la documentación y sus efectos están pendientes de confirmación por RRHH.</small>
         </div>
         <label class="opcion-check">
           <input type="checkbox" name="confirmacion" required>
-          <span><strong>Confirmo la declaración de no disponibilidad</strong><small>Durante este periodo no se emitirán llamamientos en las bolsas adscritas.</small></span>
+          <span><strong>Ensayar pausa de disponibilidad</strong><small>Solo cambia esta vista en memoria y se pierde al recargar; no modifica la bolsa.</small></span>
         </label>
         <div class="fila-acciones">
-          <button type="submit" class="boton-peligro">Declarar no disponibilidad</button>
+          <button type="submit" class="boton-peligro">Ensayar pausa</button>
         </div>
       </form>`
     : `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
         <input type="hidden" name="disponible" value="true">
         <label class="opcion-check">
           <input type="checkbox" name="confirmacion" required>
-          <span><strong>Confirmo que vuelvo a estar disponible para llamamientos</strong><small>Volverá a ser convocado según el orden de prelación vigente.</small></span>
+          <span><strong>Ensayar reactivación de disponibilidad</strong><small>Solo cambia esta vista en memoria y se pierde al recargar; no modifica la bolsa.</small></span>
         </label>
         <div class="fila-acciones">
-          <button type="submit" class="boton-primario">Declarar disponibilidad</button>
+          <button type="submit" class="boton-primario">Ensayar reactivación</button>
         </div>
       </form>`;
 
   return `${encabezadoVista("Disponibilidad y llamamientos", "Controle su situación y responda únicamente a sus propios llamamientos.")}
     ${seccionPosicion}
-    <div class="rejilla-principal"><div>${tarjetas}</div><aside>
+    <div class="rejilla-principal"><div>${llamamientos}</div><aside>
       ${panel("Situación actual", "Aplicada a las bolsas en las que figura", `${listaDatos(camposDisponibilidad)}`, { estado: disponibles.estado })}
       ${panel("Gestión de disponibilidad", "Pausar o reactivar su llamamiento", formularioDisponibilidad)}
-      ${panel("Garantías del llamamiento", "Reglas que el servidor debe comprobar", `<ul><li>Orden vigente y causas de exclusión.</li><li>Disponibilidad en la fecha de corte.</li><li>Intentos, canales y plazo de respuesta.</li><li>Versión de bolsa y reglas aplicadas.</li><li>Recibo de cada actuación.</li></ul>`)}
+      ${panel("Contratos", "Información propia disponible", contratos)}
+      ${panel("Reglas pendientes de confirmar", "La presentación no las sustituye", `<ul><li>Orden y reposición aplicables.</li><li>Causas, justificantes y efectos de la pausa.</li><li>Canales, intentos y plazo de respuesta.</li><li>Documentación y plazo tras aceptar.</li></ul>`)}
     </aside></div>`;
 }
 
