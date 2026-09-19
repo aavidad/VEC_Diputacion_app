@@ -372,7 +372,7 @@ func (a *autoridadContinuidadNominal) exportar(ctx context.Context, c ct.Context
 	if e != nil {
 		return cero, e
 	}
-	prueba, e := a.material.confianza.Verificar(ctx, s, d, a.configuracion.Motivo, c.Resultado, at)
+	prueba, e := a.material.Verificar(ctx, s, d, a.configuracion.Motivo, c.Resultado, at)
 	if e != nil {
 		return cero, e
 	}

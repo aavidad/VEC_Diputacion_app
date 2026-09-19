@@ -20,7 +20,6 @@ import (
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
 	pgvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seg "vec-diputacion-granada/internal/vec/adapters/seguridad"
-	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	app "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
@@ -232,7 +231,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	cadena, err := inc.NuevaCadenaAutorizacionAplicacion(autoridadOperacion, material.atestador, material.confianza, emisiones)
+	cadena, err := inc.NuevaCadenaAutorizacionAplicacion(autoridadOperacion, material.atestador, material, emisiones)
 	if err != nil {
 		return vacia, nil, f
 	}
@@ -244,7 +243,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	emisorDetalle, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(autoridadDetalle, material.atestador, material.confianza, material.emisor)
+	emisorDetalle, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridadDetalle, material)
 	if err != nil {
 		return vacia, nil, f
 	}

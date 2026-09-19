@@ -74,12 +74,13 @@ func (f *firmanteAtestacionAltaContratacionTemporalDesarrollo) FirmarAtestacionA
 }
 
 type proveedorMaterialAltaContratacionTemporalDesarrollo struct {
-	atestador *aplicacionvec.ServicioAtestacionesAutorizacionV3
-	confianza *confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV3
-	emisor    *confianzaatestacion.EmisorCapacidadesAtestacionAutorizacionV3
-	raiz      confianzaatestacion.RaizPublicaAtestacionAutorizacionV3
-	contexto  dominiovec.ResultadoContextoActorRegistradoV2
-	motivo    dominiovec.ReferenciaEntradaCatalogo
+	fuenteConfianza *fuenteConfianzaRenovableCTDesarrollo
+	atestador       *aplicacionvec.ServicioAtestacionesAutorizacionV3
+	confianza       *confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV3
+	emisor          *confianzaatestacion.EmisorCapacidadesAtestacionAutorizacionV3
+	raiz            confianzaatestacion.RaizPublicaAtestacionAutorizacionV3
+	contexto        dominiovec.ResultadoContextoActorRegistradoV2
+	motivo          dominiovec.ReferenciaEntradaCatalogo
 }
 
 func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
@@ -124,7 +125,7 @@ func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	return &proveedorMaterialAltaContratacionTemporalDesarrollo{
-		atestador: atestador, confianza: confianza, emisor: emisor,
+		atestador: atestador, confianza: confianza, emisor: emisor, fuenteConfianza: material.fuenteConfianza,
 		raiz: material.raiz, contexto: contexto, motivo: soporte.motivo,
 	}, nil
 }
@@ -264,7 +265,7 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) proveerMaterialCon
 	if err != nil {
 		return vacio, ports.ErrPersistenciaNoDisponible
 	}
-	prueba, err := p.confianza.Verificar(
+	prueba, err := p.Verificar(
 		ctx, solicitud, decision, motivo, contexto, atestacion,
 	)
 	if err != nil {

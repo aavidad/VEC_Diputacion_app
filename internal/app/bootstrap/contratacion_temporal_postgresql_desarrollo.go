@@ -40,6 +40,7 @@ var (
 )
 
 type materialAtestacionContratacionTemporalDesarrollo struct {
+	fuenteConfianza     *fuenteConfianzaRenovableCTDesarrollo
 	claveID             string
 	claveVersion        uint64
 	privada             ed25519.PrivateKey
@@ -238,6 +239,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	soporte.registroDecisionesAnalisis = registroDecisiones
 	soporte.mu.Unlock()
 	resolver, err := postgrescontratacion.NuevoResolutorCandidaturaAltaPostgreSQL(ejecucion)
+	if err != nil {
+		return vacias, err
+	}
+	material.fuenteConfianza, err = nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, material, reloj)
 	if err != nil {
 		return vacias, err
 	}

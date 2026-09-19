@@ -20,14 +20,18 @@ type EmisionAutoridad struct {
 	Raiz   confianza.RaizPublicaAtestacionAutorizacionV3
 }
 type EmisionesAutoridad struct{ Alta, Lectura, CT EmisionAutoridad }
+type verificadorConfianzaAutorizacionV3 interface {
+	Verificar(context.Context, core.SolicitudAutorizacionLigadaV3, core.DecisionAutorizacionLigadaV3, core.ReferenciaEntradaCatalogo, core.ResultadoContextoActorRegistradoV2, vp.AtestacionAutorizacionV3) (confianza.PruebaConfianzaAtestacionAutorizacionV3, error)
+}
+
 type CadenaAutorizacionAplicacion struct {
 	servicio  vp.AutorizadorSolicitudLigadaV3
 	atestador *app.ServicioAtestacionesAutorizacionV3
-	confianza *confianza.ServicioConfianzaAtestacionAutorizacionV3
+	confianza verificadorConfianzaAutorizacionV3
 	emisiones EmisionesAutoridad
 }
 
-func NuevaCadenaAutorizacionAplicacion(servicio vp.AutorizadorSolicitudLigadaV3, atestador *app.ServicioAtestacionesAutorizacionV3, verificador *confianza.ServicioConfianzaAtestacionAutorizacionV3, emisiones EmisionesAutoridad) (*CadenaAutorizacionAplicacion, error) {
+func NuevaCadenaAutorizacionAplicacion(servicio vp.AutorizadorSolicitudLigadaV3, atestador *app.ServicioAtestacionesAutorizacionV3, verificador verificadorConfianzaAutorizacionV3, emisiones EmisionesAutoridad) (*CadenaAutorizacionAplicacion, error) {
 	c := &CadenaAutorizacionAplicacion{servicio, atestador, verificador, emisiones}
 	if !c.valida() {
 		return nil, ErrAutoridadAplicacion
@@ -35,7 +39,7 @@ func NuevaCadenaAutorizacionAplicacion(servicio vp.AutorizadorSolicitudLigadaV3,
 	return c, nil
 }
 func (c *CadenaAutorizacionAplicacion) valida() bool {
-	return c != nil && !nulo(c.servicio) && c.atestador != nil && c.confianza != nil && c.emisiones.Alta.Emisor != nil && c.emisiones.Lectura.Emisor != nil && c.emisiones.CT.Emisor != nil
+	return c != nil && !nulo(c.servicio) && c.atestador != nil && !nulo(c.confianza) && c.emisiones.Alta.Emisor != nil && c.emisiones.Lectura.Emisor != nil && c.emisiones.CT.Emisor != nil
 }
 
 type autoridadOperacion uint8

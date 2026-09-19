@@ -364,38 +364,13 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	conexion, err := pool.Acquire(ctx)
-	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	if _, err = conexion.Exec(ctx, `
-		SELECT pg_catalog.pg_advisory_lock(
-		 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`); err != nil {
-		conexion.Release()
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	defer func() {
-		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancelar()
-		var liberado bool
-		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
-			SELECT pg_catalog.pg_advisory_unlock(
-			 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`,
-		).Scan(&liberado)
-		if errDesbloqueo != nil || !liberado {
-			_ = conexion.Conn().Close(ctxDesbloqueo)
-		}
-		conexion.Release()
-	}()
-	tx, err := conexion.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	defer tx.Rollback(context.Background())
-	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	if err = prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
+	return ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+		return publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, material)
+	})
+}
+
+func publicarGobiernoAtestacionCTEnTxDesarrollo(ctx context.Context, tx pgx.Tx, material *materialAtestacionContratacionTemporalDesarrollo) error {
+	if err := prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
 		ctx, tx, material,
 	); err != nil {
 		return err
@@ -476,7 +451,7 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		}
 	}
 	var coincide bool
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT EXISTS (
 		 SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version
 		 WHERE clave_id=$1 AND version=$2 AND revision_gobierno=$3
@@ -514,6 +489,45 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 	).Scan(&coincide)
 	if err != nil || !coincide {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return nil
+}
+
+// Serializa con el publicador existente antes de tomar el snapshot SERIALIZABLE.
+func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
+	conexion, err := pool.Acquire(ctx)
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if _, err = conexion.Exec(ctx, `
+		SELECT pg_catalog.pg_advisory_lock(
+		 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`); err != nil {
+		conexion.Release()
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer func() {
+		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelar()
+		var liberado bool
+		errDesbloqueo := conexion.QueryRow(ctxDesbloqueo, `
+			SELECT pg_catalog.pg_advisory_unlock(
+			 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`,
+		).Scan(&liberado)
+		if errDesbloqueo != nil || !liberado {
+			_ = conexion.Conn().Close(ctxDesbloqueo)
+		}
+		conexion.Release()
+	}()
+	tx, err := conexion.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := operar(tx); err != nil {
+		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible

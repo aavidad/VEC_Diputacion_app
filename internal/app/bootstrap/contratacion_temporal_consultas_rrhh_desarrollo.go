@@ -13,13 +13,12 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type dependenciasConsultasRRHHDesarrollo struct {
-	emisorCuadro          *confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3
+	emisorCuadro          *emisorMaterialRenovableCTDesarrollo
 	materialDetalle       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	sesion                ports.SesionConsultaRRHH
 	motivos               ports.ResolutorMotivoConsultaRRHH
@@ -85,6 +84,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
+		material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 		proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, soporte, reloj, ports.AudienciaConsumoConsultaCuadroRRHHV3)
 		if err != nil {
 			material.borrarCopiasEfimeras()
@@ -95,11 +95,11 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
-		emisorCuadro, err := confianzaatestacion.NuevoEmisorMaterialAutorizacionAtestadaV3(autoridad, proveedorCuadro.atestador, proveedorCuadro.confianza, proveedorCuadro.emisor)
+		emisorCuadro, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridad, proveedorCuadro)
 		if err != nil {
 			return vacio, err
 		}
-		emisorDetalle, err := confianzaatestacion.NuevoEmisorMaterialAutorizacionAtestadaV3(autoridad, proveedorDetalle.atestador, proveedorDetalle.confianza, proveedorDetalle.emisor)
+		emisorDetalle, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridad, proveedorDetalle)
 		if err != nil {
 			return vacio, err
 		}
@@ -350,6 +350,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 		return vacio, err
 	}
 	defer material.borrarCopiasEfimeras()
+	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, ports.AudienciaConsumoConsultaCuadroRRHHV3)
 	if err != nil {
 		return vacio, err
@@ -358,13 +359,11 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	emisorCuadro, err := confianzaatestacion.NuevoEmisorMaterialAutorizacionAtestadaV3(
-		autoridad, proveedorCuadro.atestador, proveedorCuadro.confianza, proveedorCuadro.emisor)
+	emisorCuadro, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridad, proveedorCuadro)
 	if err != nil {
 		return vacio, err
 	}
-	emisorDetalle, err := confianzaatestacion.NuevoEmisorMaterialAutorizacionAtestadaV3(
-		autoridad, proveedorDetalle.atestador, proveedorDetalle.confianza, proveedorDetalle.emisor)
+	emisorDetalle, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridad, proveedorDetalle)
 	if err != nil {
 		return vacio, err
 	}
