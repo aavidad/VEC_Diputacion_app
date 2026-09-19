@@ -515,6 +515,18 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   seguimiento_incorporacion_efectiva: "Efectiva", seguimiento_incorporacion_expediente: "Expediente",
   seguimiento_incorporacion_version_expediente: "Versión de expediente", seguimiento_incorporacion_seguimiento: "Seguimiento",
   seguimiento_incorporacion_version_seguimiento: "Versión de seguimiento",
+  seguimiento_incorporacion_referencia_tecnica: "Referencia técnica",
+  seguimiento_incorporacion_clave_tecnica: "Valor técnico sin etiqueta publicada: {clave}",
+  seguimiento_incorporacion_estado_pendiente: "Pendiente",
+  seguimiento_incorporacion_estado_pendiente_incorporacion: "Pendiente de incorporación",
+  seguimiento_incorporacion_estado_incorporada: "Incorporada",
+  seguimiento_incorporacion_estado_vigente: "Vigente",
+  seguimiento_incorporacion_estado_cerrado_administrativamente: "Cerrado administrativamente",
+  seguimiento_incorporacion_transicion_confirmar_incorporacion: "Confirmar incorporación",
+  seguimiento_incorporacion_transicion_cerrar_administrativamente_sin_cese: "Cerrar administrativamente sin cese",
+  seguimiento_incorporacion_documento_justificante: "Justificante",
+  seguimiento_incorporacion_documento_resolucion_ejercicio: "Resolución del ejercicio",
+  seguimiento_incorporacion_documento_anexo_ejercicio: "Anexo del ejercicio",
 });
 
 export function crearTraductorContratacionTemporal(sobrescrituras = {}) {

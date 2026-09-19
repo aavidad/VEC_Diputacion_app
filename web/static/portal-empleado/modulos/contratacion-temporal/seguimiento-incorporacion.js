@@ -15,10 +15,46 @@ export const CLAVES_I18N_SEGUIMIENTO_INCORPORACION = Object.freeze([
   "seguimiento_incorporacion_efectiva", "seguimiento_incorporacion_expediente",
   "seguimiento_incorporacion_version_expediente", "seguimiento_incorporacion_seguimiento",
   "seguimiento_incorporacion_version_seguimiento",
+  "seguimiento_incorporacion_referencia_tecnica", "seguimiento_incorporacion_clave_tecnica",
+  "seguimiento_incorporacion_estado_pendiente", "seguimiento_incorporacion_estado_pendiente_incorporacion",
+  "seguimiento_incorporacion_estado_incorporada", "seguimiento_incorporacion_estado_vigente",
+  "seguimiento_incorporacion_estado_cerrado_administrativamente",
+  "seguimiento_incorporacion_transicion_confirmar_incorporacion",
+  "seguimiento_incorporacion_transicion_cerrar_administrativamente_sin_cese",
+  "seguimiento_incorporacion_documento_justificante",
+  "seguimiento_incorporacion_documento_resolucion_ejercicio",
+  "seguimiento_incorporacion_documento_anexo_ejercicio",
 ]);
 
 function fila(etiqueta, valor) {
   return `<div><dt>${escapar(etiqueta)}</dt><dd><code>${escapar(String(valor))}</code></dd></div>`;
+}
+
+const CLAVES_ETIQUETADAS = Object.freeze({
+  estado_pendiente: true, estado_pendiente_incorporacion: true, estado_incorporada: true,
+  estado_vigente: true, estado_cerrado_administrativamente: true,
+  transicion_confirmar_incorporacion: true,
+  transicion_cerrar_administrativamente_sin_cese: true,
+  documento_justificante: true, documento_resolucion_ejercicio: true, documento_anexo_ejercicio: true,
+});
+
+function etiquetaClave(valor, categoria, t) {
+  const clave = `${categoria}_${valor}`;
+  return Object.hasOwn(CLAVES_ETIQUETADAS, clave)
+    ? t(`seguimiento_incorporacion_${clave}`)
+    : t("seguimiento_incorporacion_clave_tecnica", { clave: valor });
+}
+
+function filaReferencia(etiqueta, valor, t) {
+  return `<div><dt>${escapar(etiqueta)}</dt><dd><small>${escapar(t("seguimiento_incorporacion_referencia_tecnica"))}: </small><code>${escapar(String(valor))}</code></dd></div>`;
+}
+
+function filaClave(etiqueta, valor, categoria, t) {
+  return `<div><dt>${escapar(etiqueta)}</dt><dd>${escapar(etiquetaClave(valor, categoria, t))} <small><code>${escapar(String(valor))}</code></small></dd></div>`;
+}
+
+function filaEstados(etiqueta, origen, destino, t) {
+  return `<div><dt>${escapar(etiqueta)}</dt><dd>${escapar(etiquetaClave(origen, "estado", t))} → ${escapar(etiquetaClave(destino, "estado", t))} <small><code>${escapar(origen)} → ${escapar(destino)}</code></small></dd></div>`;
 }
 
 function filaFecha(etiqueta, valor, formatear) {
@@ -49,18 +85,18 @@ function renderizarSeguimiento(datos, t, fechas) {
       const documentos = actuacion.documentos.length === 0
         ? escapar(t("seguimiento_incorporacion_sin_documentos"))
         : actuacion.documentos.map(({ tipo_clave: tipo, referencia }) =>
-          `<li><code>${escapar(tipo)}</code>: <code>${escapar(referencia)}</code></li>`).join("");
-      return `<li><dl>${fila(t("seguimiento_incorporacion_referencia"), actuacion.actuacion_ref)}
-        ${fila(t("seguimiento_incorporacion_transicion"), actuacion.transicion_clave)}
-        ${fila(t("seguimiento_incorporacion_estado"), `${actuacion.estado_origen} → ${actuacion.estado_destino}`)}
+          `<li>${escapar(etiquetaClave(tipo, "documento", t))} <small><code>${escapar(tipo)}</code> · ${escapar(t("seguimiento_incorporacion_referencia_tecnica"))}: <code>${escapar(referencia)}</code></small></li>`).join("");
+      return `<li><dl>${filaReferencia(t("seguimiento_incorporacion_referencia"), actuacion.actuacion_ref, t)}
+        ${filaClave(t("seguimiento_incorporacion_transicion"), actuacion.transicion_clave, "transicion", t)}
+        ${filaEstados(t("seguimiento_incorporacion_estado"), actuacion.estado_origen, actuacion.estado_destino, t)}
         ${filaFecha(t("seguimiento_incorporacion_efectiva"), actuacion.efectivo_en, fechas.instante)}${filaFecha(t("seguimiento_incorporacion_registrado"), actuacion.registrada_en, fechas.instante)}
         </dl><h5>${escapar(t("seguimiento_incorporacion_documentos"))}</h5><ul>${documentos}</ul></li>`;
     }).join("")}</ol>`;
-  return `<dl class="ct-resumen">${fila(t("seguimiento_incorporacion_expediente"), datos.expediente_ref)}
+  return `<dl class="ct-resumen">${filaReferencia(t("seguimiento_incorporacion_expediente"), datos.expediente_ref, t)}
     ${fila(t("seguimiento_incorporacion_version_expediente"), datos.version_expediente)}
-    ${fila(t("seguimiento_incorporacion_seguimiento"), datos.seguimiento_ref)}
+    ${filaReferencia(t("seguimiento_incorporacion_seguimiento"), datos.seguimiento_ref, t)}
     ${fila(t("seguimiento_incorporacion_version_seguimiento"), datos.version_seguimiento)}
-    ${fila(t("seguimiento_incorporacion_estado"), datos.estado_clave)}
+    ${filaClave(t("seguimiento_incorporacion_estado"), datos.estado_clave, "estado", t)}
     ${filaPeriodo(t("seguimiento_incorporacion_periodo"), datos.periodo, fechas.fechaCivil)}
     ${filaFecha(t("seguimiento_incorporacion_registrado"), datos.registrado_en, fechas.instante)}</dl>
     <h4>${escapar(t("seguimiento_incorporacion_hitos"))}</h4>${hitos}`;

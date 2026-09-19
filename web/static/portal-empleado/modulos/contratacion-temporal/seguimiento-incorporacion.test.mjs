@@ -64,8 +64,11 @@ test("seguimiento: consulta y muestra solo el vínculo original del recibo confi
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0][0], recibo.expediente_ref);
   assert.ok(llamadas[0][1].signal instanceof AbortSignal);
-  assert.match(raiz.innerHTML, /documento:ct:001/u);
-  assert.match(raiz.innerHTML, /pendiente → incorporada/u);
+  assert.match(raiz.innerHTML, /Justificante/u);
+  assert.match(raiz.innerHTML, /Pendiente → Incorporada/u);
+  assert.match(raiz.innerHTML, /Confirmar incorporación/u);
+  assert.match(raiz.innerHTML, /Referencia técnica: <code>documento:ct:001<\/code>/u);
+  assert.match(raiz.innerHTML, /<small><code>pendiente → incorporada<\/code><\/small>/u);
   assert.match(raiz.innerHTML, /<time datetime="2026-09-10T10:00:00Z">10 sept 2026, 12:00:00<\/time>/u);
   assert.doesNotMatch(raiz.innerHTML, /No se ha podido consultar el seguimiento original/u);
   destruir();
@@ -88,6 +91,25 @@ test("seguimiento: el período conserva sus fechas civiles UTC y los instantes u
   assert.match(raiz.innerHTML, /10\/01\/2026<\/time> — <time datetime="2026-01-11T23:00:00Z">11\/01\/2026/u);
   assert.match(raiz.innerHTML, /<time datetime="2026-01-10T23:00:00Z">10\/01\/2026<\/time>/u);
   assert.match(raiz.innerHTML, /<time datetime="2026-01-10T23:00:00Z">11 ene 2026, 0:00:00<\/time>/u);
+  destruir();
+});
+
+test("seguimiento: una clave sin etiqueta publicada se presenta como dato técnico secundario", async () => {
+  const datos = seguimiento();
+  datos.estado_clave = "estado_no_publicado";
+  datos.actuaciones[0].estado_destino = datos.estado_clave;
+  datos.actuaciones.unshift({
+    actuacion_ref: "actuacion:ct:anterior", transicion_clave: "transicion_no_publicada",
+    estado_origen: "estado_origen_no_publicado", estado_destino: "estado_destino_no_publicado",
+    efectivo_en: recibo.periodo_incorporacion.desde, registrada_en: recibo.registrada_en,
+    documentos: [{ tipo_clave: "documento_no_publicado", referencia: "documento:ct:anterior" }],
+  });
+  const raiz = crearRaiz();
+  const destruir = montarSeguimientoIncorporacion({ raiz, recibo, mensajes: {}, cliente: { async consultar() { return datos; } } });
+  await raiz.pulsarConsulta();
+  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: estado_no_publicado <small><code>estado_no_publicado<\/code>/u);
+  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: transicion_no_publicada/u);
+  assert.match(raiz.innerHTML, /Valor técnico sin etiqueta publicada: documento_no_publicado/u);
   destruir();
 });
 
