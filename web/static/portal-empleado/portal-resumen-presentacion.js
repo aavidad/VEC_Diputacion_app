@@ -44,12 +44,12 @@ export function crearVistaResumenPresentacion({
       : [];
     const bolsasTabla = datosPanel.bolsas.slice(0, 5).map((bolsa) => `
       <tr>
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-id="${escaparHTML(bolsa.id)}">${escaparHTML(bolsa.nombre)}</button></td>
+        <td><button type="button" class="enlace-tabla" data-bolsa-abrir="true" data-bolsa-ref="${escaparHTML(bolsa.id)}">${escaparHTML(bolsa.nombre)}</button></td>
         <td>${escaparHTML(bolsa.categoria)}</td>
         <td>${numero(bolsa.integrantes)}</td>
         <td>${numero(bolsa.llamamiento)}</td>
         <td><span class="barra-cobertura" role="meter" aria-label="Cobertura ${porcentajeSeguro(bolsa.cobertura)}%" aria-valuenow="${porcentajeSeguro(bolsa.cobertura)}" aria-valuemin="0" aria-valuemax="100"><span data-ancho="${porcentajeSeguro(bolsa.cobertura)}"></span></span>${porcentajeSeguro(bolsa.cobertura)}%</td>
-        <td><button type="button" class="boton-terciario" data-accion="ver-bolsa" data-id="${escaparHTML(bolsa.id)}">Abrir</button></td>
+        <td><button type="button" class="boton-terciario" data-bolsa-abrir="true" data-bolsa-ref="${escaparHTML(bolsa.id)}">Abrir</button></td>
       </tr>`).join("");
     return `
       ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Situación operativa, próximos llamamientos, cobertura y actividad trazada.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button><button type="button" class="boton-primario" data-accion="nuevo-llamamiento" data-requiere-vista="llamamientos">Nuevo llamamiento</button>')}

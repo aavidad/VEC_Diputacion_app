@@ -18,7 +18,7 @@ const DATOS = {
     nombre: "Administrador DEMO 01",
     perfil: "Administrador funcional de Bolsa · ámbito DEMO completo",
     vistas_permitidas: [
-      "portal", "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
+      "portal", "resumen", "bolsa-candidatos", "elaboracion", "convocatorias", "solicitudes", "meritos",
       "baremacion", "alegaciones", "importacion", "llamamientos", "contratos", "reglas",
       "consulta", "estadisticas", "documentos", "comunicaciones", "auditoria", "configuracion",
       "contratacion-temporal",
@@ -258,7 +258,7 @@ const PERFIL_TECNICO = Object.freeze({
   iniciales: "TR",
   nombre: "Técnico DEMO 01",
   perfil: "Técnico revisor de RRHH · ámbito DEMO restringido",
-  vistas_permitidas: ["portal", "resumen", "solicitudes", "meritos", "baremacion", "alegaciones", "documentos", "auditoria", "contratacion-temporal"],
+  vistas_permitidas: ["portal", "resumen", "bolsa-candidatos", "solicitudes", "meritos", "baremacion", "alegaciones", "documentos", "auditoria", "contratacion-temporal"],
   operaciones_permitidas: [
     "admitir-solicitud", "excluir-solicitud", "registrar-subsanacion",
     "aceptar-merito", "rechazar-merito", "revocar-merito", "rehabilitar-merito",

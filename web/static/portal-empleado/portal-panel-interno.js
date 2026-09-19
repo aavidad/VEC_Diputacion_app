@@ -23,6 +23,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerModalContactos,
     obtenerModalLlamar,
     obtenerModalResultado,
+    esLecturaPresentacion = () => false,
   } = dependencias;
   if ([claseEstado, encabezadoVista, escaparHTML, numero, obtenerDatosPanel, tituloVista]
     .some((dependencia) => typeof dependencia !== "function")) {
@@ -257,6 +258,7 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
 
   function renderizarCandidatosBolsa() {
+    const lecturaPresentacion = esLecturaPresentacion() === true;
     const estadoCandidatos = typeof obtenerDatosCandidatosBolsa === "function"
       ? obtenerDatosCandidatosBolsa()
       : null;
@@ -356,10 +358,10 @@ export function crearPresentadorPanelInterno(dependencias) {
 
         const acciones = [];
         acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-contactos" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}">Contactos</button>`);
-        if (c.estado_clave === "disponible") {
+        if (c.estado_clave === "disponible" && !lecturaPresentacion) {
           acciones.push(`<button type="button" class="boton-primario" data-bolsa-accion="abrir-llamar" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Llamar</button>`);
         }
-        if (c.ultimo_llamamiento?.llamamiento_ref) {
+        if (c.ultimo_llamamiento?.llamamiento_ref && !lecturaPresentacion) {
           acciones.push(`<button type="button" class="boton-secundario" data-bolsa-accion="abrir-resultado" data-llamamiento-ref="${escaparHTML(c.ultimo_llamamiento.llamamiento_ref)}" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-nombre-visible="${escaparHTML(c.nombre_visible)}" data-orden="${numero(c.orden)}">Resultado</button>`);
         }
 
@@ -385,6 +387,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
+      ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> El historial no acredita contacto, envío ni entrega. Llamar y Resultado permanecen deshabilitados hasta disponer de reglas, canal y plazo aprobados.</section>' : ""}
       <section class="panel">
         <div class="cabecera-panel">
           <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
@@ -470,6 +473,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-contactos" aria-label="Cerrar">×</button>
           </div>
           <div class="cuerpo-panel">
+            ${esLecturaPresentacion() === true ? '<p class="nota-pendiente">Historial sintético de solo lectura; no acredita contacto, envío ni entrega.</p>' : ""}
             ${contenido}
           </div>
           <div class="acciones-vista">

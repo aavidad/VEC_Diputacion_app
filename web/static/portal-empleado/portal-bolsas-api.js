@@ -314,11 +314,19 @@ export async function registrarResultadoLlamamiento(llamamientoRef, payload, { f
   }
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null }) {
+  function fuenteLectura() {
+    const fuente = obtenerFuenteLectura();
+    return fuente && typeof fuente === "object" ? fuente : null;
+  }
+
   async function cargarBolsas() {
     estado.datosBolsas = { carga: "cargando", datos: null, error: "" };
     renderizar();
-    const res = await consultarBolsas();
+    const fuente = fuenteLectura();
+    const res = fuente?.consultarBolsas
+      ? await fuente.consultarBolsas()
+      : await consultarBolsas();
     if (res.ok) {
       estado.datosBolsas = { carga: "listo", datos: res.datos, error: "" };
     } else if (res.status === 403) {
@@ -334,11 +342,15 @@ export function crearControladorBolsas({ estado, renderizar, navegar }) {
     estado.bolsaSeleccionada = bolsaRef;
     estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
     renderizar();
-    const res = await consultarCandidatosBolsa(bolsaRef, {
+    const fuente = fuenteLectura();
+    const opciones = {
       estado: estado.filtrosBolsa?.estado || "",
       texto: estado.filtrosBolsa?.texto || "",
       cursor,
-    });
+    };
+    const res = fuente?.consultarCandidatosBolsa
+      ? await fuente.consultarCandidatosBolsa(bolsaRef, opciones)
+      : await consultarCandidatosBolsa(bolsaRef, opciones);
     if (res.ok) {
       estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "" };
     } else if (res.status === 403) {
@@ -360,7 +372,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar }) {
       error: "",
     };
     renderizar();
-    const res = await consultarContactosCandidato(participacionRef);
+    const fuente = fuenteLectura();
+    const res = fuente?.consultarContactosCandidato
+      ? await fuente.consultarContactosCandidato(participacionRef)
+      : await consultarContactosCandidato(participacionRef);
     if (res.ok) {
       estado.modalContactos.carga = "listo";
       estado.modalContactos.contactos = res.datos.contactos;
@@ -415,7 +430,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar }) {
 
   function instalar() {
     document.addEventListener("click", (evento) => {
-      const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"]');
+      const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
         const ref = botonVer.dataset.bolsaRef;

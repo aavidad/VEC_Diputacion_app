@@ -35,6 +35,8 @@ import {
 } from "./portal-bolsas-api.js";
 
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
+import { crearFuenteLecturaBolsasPresentacion } from "./portal-presentacion-adaptador.js";
+import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
@@ -751,4 +753,41 @@ test("interfaz y presentador: renderizado de acciones por candidato y modales de
   assert.doesNotMatch(htmlConContactos, /\bdemo\b/i);
   assert.doesNotMatch(htmlConLlamar, /\bdemo\b/i);
   assert.doesNotMatch(htmlConResultado, /\bdemo\b/i);
+});
+
+test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memoria y contactos sintéticos", () => {
+  const fuente = crearFuenteLecturaBolsasPresentacion({
+    datosIniciales: obtenerDatosPresentacion("tecnico"),
+  });
+  const bolsas = fuente.consultarBolsas();
+  assert.equal(bolsas.ok, true);
+  assert.equal(bolsas.datos.bolsas.length, 6);
+
+  const bolsaRef = bolsas.datos.bolsas[0].bolsa_ref;
+  assert.equal(bolsaRef, "DEMO-BOL-AUXILIAR-ADMIN");
+  assert.equal(bolsas.datos.bolsas[0].tipo_lista, "Pendiente de confirmar");
+  const disponibles = fuente.consultarCandidatosBolsa(bolsaRef, { estado: "disponible" });
+  assert.equal(disponibles.ok, true);
+  assert.equal(disponibles.datos.candidatos.length, 1);
+  assert.match(disponibles.datos.candidatos[0].documento_enmascarado, /^\*{3}\d{4}\*{2}$/);
+  assert.equal(disponibles.datos.candidatos[0].ultimo_llamamiento, null);
+
+  const vacio = fuente.consultarCandidatosBolsa(bolsaRef, { texto: "sin coincidencia" });
+  assert.equal(vacio.ok, true);
+  assert.equal(vacio.datos.candidatos.length, 0);
+
+  const historial = fuente.consultarContactosCandidato(disponibles.datos.candidatos[0].participacion_ref);
+  assert.equal(historial.ok, true);
+  assert.deepEqual(historial.datos.contactos, []);
+
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "", encabezadoVista: (_s, t) => `<h2>${t}</h2>`, escaparHTML: (v) => String(v ?? ""),
+    numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (v) => v, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: disponibles.datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }), esLecturaPresentacion: () => true,
+  });
+  const html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Presentación sintética de solo lectura/);
+  assert.match(html, /abrir-contactos/);
+  assert.doesNotMatch(html, /abrir-llamar|abrir-resultado/);
 });

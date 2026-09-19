@@ -7,6 +7,14 @@
  */
 
 import { exigirContextoParaModulo } from "./identidad/contexto-actor.js";
+import {
+  ESQUEMA_BOLSAS,
+  ESQUEMA_CANDIDATOS,
+  ESQUEMA_CONTACTOS,
+  validarRespuestaBolsas,
+  validarRespuestaCandidatosBolsa,
+  validarRespuestaContactos,
+} from "./portal-bolsas-contrato.js";
 
 const CAMPOS_BASES = ["denominacion", "categoria", "expediente", "tipo_proceso", "apertura", "cierre",
   "subsanacion_desde", "subsanacion_hasta", "version_bases", "medio_publicacion", "plantilla", "circuito_firma"];
@@ -229,3 +237,89 @@ export function crearAdaptadorPresentacion({
 }
 
 export const OPERACIONES_PRESENTACION = Object.freeze(Object.keys(OPERACIONES));
+
+/**
+ * Fuente de solo lectura para recorrer B12/B5 durante la presentación. Usa los
+ * envelopes cerrados del portal y no conoce ni puede invocar C23.
+ */
+export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
+  if (!datosIniciales || !Array.isArray(datosIniciales.bolsas)) {
+    throw new TypeError("datos de presentación de bolsas no válidos");
+  }
+
+  const generadoEn = "2026-09-19T10:00:00Z";
+  const bolsasBase = datosIniciales.bolsas.map((bolsa, indice) => {
+    const bolsaRef = String(bolsa.id);
+    const candidatos = [
+      ["Aspirante sintético A", "***0001**", "disponible"],
+      ["Aspirante sintético B", "***0002**", "ocupado"],
+      ["Aspirante sintético C", "***0003**", "no_disponible"],
+      ["Aspirante sintético D", "***0004**", "excluido"],
+    ].map(([nombre_visible, documento_enmascarado, estado_clave], posicion) => ({
+      participacion_ref: `participacion:presentacion:${bolsaRef}:${posicion + 1}`,
+      orden: posicion + 1,
+      nombre_visible,
+      documento_enmascarado,
+      estado_clave,
+      estado_desde: "2026-09-01T09:00:00Z",
+      disponible_desde: estado_clave === "no_disponible" ? "2026-10-01T09:00:00Z" : null,
+      ultimo_llamamiento: null,
+    }));
+    const por_estado = {
+      disponible: 1, ocupado: 1, no_disponible: 1, excluido: 1, renuncia_pendiente: 0,
+    };
+    return {
+      bolsa: {
+        bolsa_ref: bolsaRef,
+        categoria_clave: `presentacion_${indice + 1}`,
+        categoria: String(bolsa.nombre),
+        tipo_lista: "Pendiente de confirmar",
+        vigente_desde: "2026-09-01T00:00:00Z",
+        vigente_hasta: null,
+        total: candidatos.length,
+        por_estado,
+      },
+      candidatos,
+    };
+  });
+
+  const bolsas = validarRespuestaBolsas({
+    data: { esquema: ESQUEMA_BOLSAS, generado_en: generadoEn, bolsas: bolsasBase.map((item) => item.bolsa) },
+  });
+  const porReferencia = new Map(bolsasBase.map((item) => [item.bolsa.bolsa_ref, item]));
+  const participaciones = new Set(bolsasBase.flatMap((item) => item.candidatos
+    .map((candidato) => candidato.participacion_ref)));
+
+  function consultarBolsas() {
+    return { ok: true, datos: bolsas };
+  }
+
+  function consultarCandidatosBolsa(bolsaRef, { estado = "", texto = "" } = {}) {
+    const item = porReferencia.get(String(bolsaRef || ""));
+    if (!item) return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Bolsa de presentación no encontrada." };
+    const termino = String(texto || "").trim().toLocaleLowerCase("es-ES");
+    const candidatos = item.candidatos.filter((candidato) => (
+      (!estado || candidato.estado_clave === estado)
+      && (!termino || `${candidato.nombre_visible} ${candidato.documento_enmascarado}`.toLocaleLowerCase("es-ES").includes(termino))
+    ));
+    return {
+      ok: true,
+      datos: validarRespuestaCandidatosBolsa({
+        data: { esquema: ESQUEMA_CANDIDATOS, generado_en: generadoEn, bolsa: item.bolsa, candidatos, hay_mas: false, cursor_siguiente: null },
+      }),
+    };
+  }
+
+  function consultarContactosCandidato(participacionRef) {
+    const referencia = String(participacionRef || "");
+    if (!participaciones.has(referencia)) return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Candidato de presentación no encontrado." };
+    return {
+      ok: true,
+      datos: validarRespuestaContactos({
+        data: { esquema: ESQUEMA_CONTACTOS, generado_en: generadoEn, participacion_ref: referencia, contactos: [] },
+      }),
+    };
+  }
+
+  return Object.freeze({ consultarBolsas, consultarCandidatosBolsa, consultarContactosCandidato });
+}

@@ -72,14 +72,13 @@ const DATOS_VACIOS = Object.freeze({
   configuraciones_demo: [],
   auditoria: {},
 });
-
 let DATOS_PANEL = DATOS_VACIOS;
 let obtenerPropuestaPresentacion = null;
 let adaptadorPresentacion = null;
+let fuenteLecturaBolsasPresentacion = null;
 let superficieBorradoresPresentacion = null;
 let renderizarResumenPresentacion = null;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
-
 const TITULOS = Object.freeze({
   portal: ["Portal del Empleado", "Portal del Empleado"],
   resumen: ["Portal del Empleado → Bolsas de trabajo", "Cuadro de mando"],
@@ -107,7 +106,6 @@ const TITULOS = Object.freeze({
     traducirPortal("contratacion_temporal_titulo"),
   ],
 });
-
 const estado = {
   vista: "portal",
   fuenteLista: false,
@@ -136,7 +134,6 @@ const estado = {
   modalLlamar: null,
   modalResultado: null,
 };
-
 const porId = (id) => document.getElementById(id);
 function cerrarMenuMovil({ restaurarFoco = false } = {}) {
   delete document.body.dataset.menuAbierto;
@@ -159,7 +156,6 @@ function numero(valor, decimales = 0) {
     maximumFractionDigits: decimales,
   }).format(Number(valor || 0));
 }
-
 function esPerfilRRHH() {
   if (estado.modoPresentacion) {
     const perfil = perfilPresentacionSolicitado();
@@ -192,24 +188,20 @@ function renderizarContenidoAyuda(contexto = null) {
   const ayuda = AYUDA_PORTAL_BOLSA;
   return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
 }
-
 function porcentajeSeguro(valor) {
   const numeroValor = Number(valor);
   if (!Number.isFinite(numeroValor)) return 0;
   return Math.max(0, Math.min(100, Math.round(numeroValor * 10) / 10));
 }
-
 function modoPresentacionSolicitado() {
   const valores = new URLSearchParams(window.location.search).getAll("presentacion");
   return valores.length === 1 && valores[0] === "rrhh";
 }
-
 function perfilPresentacionSolicitado() {
   const valores = new URLSearchParams(window.location.search).getAll("perfil");
   if (valores.length !== 1 || !["administrador", "tecnico", "funcionario"].includes(valores[0])) return null;
   return valores[0];
 }
-
 function resolverAccesoPerfil(clave) {
   const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
   const acceso = coordinadorModulos.resolverAcceso(clave, disponibilidad);
@@ -329,7 +321,6 @@ function actualizarSesionVisible() {
     avisos.setAttribute("aria-label", "Avisos pendientes sin resolver");
   }
 }
-
 async function cargarFuenteDatos() {
   estado.modoPresentacion = modoPresentacionSolicitado();
   const aviso = document.querySelector(".aviso-presentacion");
@@ -350,6 +341,7 @@ async function cargarFuenteDatos() {
         datosIniciales,
         contextoActor: contextoActorBolsa,
       });
+      fuenteLecturaBolsasPresentacion = moduloEfectos.crearFuenteLecturaBolsasPresentacion({ datosIniciales });
       superficieBorradoresPresentacion = crearSuperficieBorradoresPortal({
         escaparHTML,
         anunciar,
@@ -367,6 +359,7 @@ async function cargarFuenteDatos() {
       estado.fuenteLista = true;
       estado.necesidadSeleccionada = DATOS_PANEL.necesidades_llamamiento[0]?.id || "";
       estado.elaboracionSeleccionada = DATOS_PANEL.elaboraciones[0]?.id || "";
+      void controladorBolsas.cargarBolsas();
       moduloSelector.instalarSelectorPerfilesPresentacion({ disparador: porId("sesion-visible"), perfilActivo: perfil });
     } catch {
       aviso.hidden = true;
@@ -379,6 +372,7 @@ async function cargarFuenteDatos() {
   }
 
   adaptadorPresentacion = null;
+  fuenteLecturaBolsasPresentacion = null;
   superficieBorradoresPresentacion = null;
   renderizarResumenPresentacion = null;
   aviso.hidden = true;
@@ -569,7 +563,7 @@ function renderizar() {
   }
 
   const vistaBolsas = estado.vista === "resumen" || estado.vista === "bolsa-candidatos";
-  if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas && !estado.modoPresentacion) {
+  if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas && (!estado.modoPresentacion || estado.vista === "bolsa-candidatos")) {
     contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(estado.vista);
     return;
   }
@@ -769,9 +763,15 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalLlamar: () => estado.modalLlamar,
   obtenerModalResultado: () => estado.modalResultado,
+  esLecturaPresentacion: () => estado.modoPresentacion,
 });
 
-const controladorBolsas = crearControladorBolsas({ estado, renderizar, navegar });
+const controladorBolsas = crearControladorBolsas({
+  estado,
+  renderizar,
+  navegar,
+  obtenerFuenteLectura: () => estado.modoPresentacion ? fuenteLecturaBolsasPresentacion : null,
+});
 
 const controlador = crearControladorPortal({
   anunciar, asistenteLlamamientos, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
