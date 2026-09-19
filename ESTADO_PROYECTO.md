@@ -1,5 +1,24 @@
 # Estado y plan de ataque del proyecto
 
+## Corte web primero de Contratación — 19 de septiembre de 2026
+
+La preparación para la presentación prioriza pantallas completas y recorribles,
+con datos sintéticos identificados, antes de conectar los efectos institucionales
+pendientes. Los contratos actuales se conservan para sustituir el adaptador de
+presentación por HTTP sin rehacer las vistas.
+
+Los cortes `5fc0d429`, `2e5810b7` y `01f2bb68` dejan la rectificación en consulta
+cuando no hay motivos publicados, muestran Llamamiento y Formalización solo en
+su fase acreditada y separan el resultado manual sintético del vencimiento no
+evaluable. No calculan plazos ni declaran correo, firma o envío externo.
+Pasaron 35, 26 y 73 pruebas focales respectivamente. Los siete activos servidos
+se copiaron al artefacto activo y las dos sondas de módulos respondieron `200`
+con las mismas huellas. Falta la comprobación visual final en navegador.
+
+El contador funcional se mantiene en **15/19 (79 %)**: estas mejoras hacen
+honestos y presentables los estados parciales, pero no sustituyen portafirmas,
+SMTP ni la política de inicio/plazo pendiente de RRHH.
+
 ## Renovación diaria de confianza de Contratación — 19 de septiembre de 2026
 
 El corte `18bd0ebb` renueva bajo demanda la configuración diaria de confianza
@@ -57,9 +76,10 @@ ni desbordamiento; 22 pruebas focales correctas. No se calculan plazos legales.
 
 ## Análisis y rectificación recorridos — 19 de septiembre de 2026
 
-El contador de pantallas de desarrollo pasa a **16/19 (84 %)**: Análisis
-incluye ahora la rectificación existente. Siguen parciales Llamamiento y
-Resultado, y pendiente el circuito de Firma; no equivale a producción.
+El contador funcional se mantiene en **15/19 (79 %)**. Análisis incluye la
+rectificación existente, pero conserva una reserva histórica sin identidad
+funcional separada. Siguen parciales Llamamiento y Resultado, y pendiente el
+circuito de Firma; no equivale a producción.
 
 La corrección 2be6b461, publicada y servida, permite cargar las 151 categorías.
 En navegador se verifica la equivalencia de jornada a 1440/390 px.
