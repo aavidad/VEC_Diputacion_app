@@ -49,6 +49,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
         ${declaradaEn ? `<div><dt>${e(t("llamamiento_resultado_declarada_en"))}</dt><dd>${e(declaradaEn)}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
         ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${e(resueltaEn)}</dd></div>` : ""}
+        <div><dt>${e(t("llamamiento_resultado_vencimiento"))}</dt><dd>${e(t("llamamiento_resultado_vencimiento_no_evaluable"))}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
       <p>${e(t("llamamiento_resultado_limite"))}</p>
     </section>`;
@@ -95,16 +96,15 @@ export function renderizarLlamamiento(estado, t, fecha) {
     const campos = operacion === "propuesta" ? CAMPOS_RECIBO_PROPUESTA.filter((campo) => campo !== "esquema")
       : operacion === "siguiente" ? CAMPOS_RECIBO_SIGUIENTE.filter((campo) => campo !== "esquema")
       : esResolucion(operacion)
-      ? ["respuesta", "estado_plazo", "estado_local", "resolucion_ref", "recibo_local_ref",
+      ? ["respuesta", "estado_local", "resolucion_ref", "recibo_local_ref",
         "auditoria_ref", "version_resultante", "resuelta_en", ...(datos.intencion_siguiente
           ? ["intencion_siguiente_referencia", "intencion_siguiente_estado_local", "intencion_siguiente_actualizada_en"] : [])]
       : esRespuesta(operacion)
       ? [...CAMPOS_RESPUESTA_RECIBIDA, "justificante_ref", "recibo_ref", "auditoria_ref", "registrada_en", "estado"]
       : operacion === "seleccion"
       ? ["recibo_ref", "confirmada_en", "organizacion_ref", "llamamiento_ref", "version_llamamiento"]
-      : ["comunicacion_ref", "recibo_ref", "auditoria_ref",
-        "version_resultante", "estado_local", ...(Object.hasOwn(datos, "registrada_en")
-          ? ["registrada_en", "intencion_envio_ref"] : ["respuesta_hasta"])];
+      : ["comunicacion_ref", "recibo_ref", "auditoria_ref", "version_resultante", "estado_local",
+        ...(Object.hasOwn(datos, "registrada_en") ? ["registrada_en", "intencion_envio_ref"] : [])];
     return `<section class="ct-recibo" data-ct-llamamiento-recibo="${operacion}"
       aria-labelledby="ct-llamamiento-recibo-${operacion}" tabindex="-1">
       <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo" : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo" : esResolucion(operacion)
@@ -117,7 +117,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
       <dl>${campos.map((nombre) => {
         const intencion = nombre.startsWith("intencion_siguiente_");
         let valor = intencion ? datos.intencion_siguiente[nombre.slice("intencion_siguiente_".length)] : datos[nombre];
-        if (["confirmada_en", "respuesta_hasta", "registrada_en", "recibida_en", "resuelta_en", "intencion_siguiente_actualizada_en"].includes(nombre)) {
+        if (["confirmada_en", "registrada_en", "recibida_en", "resuelta_en", "intencion_siguiente_actualizada_en"].includes(nombre)) {
           valor = esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "propuesta"].includes(operacion) ? valor : fecha.format(new Date(valor));
         } else if (nombre === "intencion_siguiente_estado_local") valor = t("llamamiento_intencion_siguiente_" + valor);
         else if (nombre === "estado_intencion") valor = t("llamamiento_intencion_" + valor);

@@ -66,7 +66,7 @@ export function montar(raiz, cliente = {}, extras = {}) {
 export function estadoSeleccionado(expedienteRef = EXPEDIENTE) {
   return {
     vista: "expediente", carga: "listo", expediente_ref: expedienteRef,
-    cuadro: { demostracion: false, expedientes: [{ expediente_ref: expedienteRef, version: 6, fase_clave: "fiscalizacion" }] },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: expedienteRef, version: 6, fase_clave: "llamamiento" }] },
     expediente: { demostracion: false, expediente_ref: expedienteRef, version: 6,
       numero_visible: "CT-SINTETICO-001", cabecera: [], fases: [], tareas: [],
     },

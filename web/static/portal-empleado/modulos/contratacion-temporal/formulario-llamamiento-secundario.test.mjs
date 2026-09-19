@@ -453,14 +453,14 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
     ...revisionManual, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" };
   assert.equal(JSON.stringify(solicitudes[0]), JSON.stringify(esperada)); assert.ok(Object.isFrozen(solicitudes[0]));
   assert.match(confirmaciones.at(-1).advertencia, /justificante:sucesor:002/u);
-  assert.match(confirmaciones.at(-1).advertencia, /no acredita entrega de correo ni plazo legal real/u);
+  assert.match(confirmaciones.at(-1).advertencia, /El vencimiento no se evalúa porque faltan inicio y política gobernados/u);
   assert.deepEqual(previos(), anteriores);
   const resultado = raiz.innerHTML.match(/<section[^>]*data-ct-llamamiento-recibo="resolucion_siguiente"[\s\S]*?<\/section>/u)[0];
   assert.match(resultado, new RegExp(`${respuesta === "aceptacion" ? "Aceptación" : "Renuncia"} del sucesor registrada · ejercicio sintético`, "u"));
   assert.match(resultado, /recibo:resolucion:sucesor:002|2026-09-05T09:10:00.123456Z/u);
   const resumen = raiz.innerHTML.match(/<section class="ct-llamamiento-resultado"[\s\S]*?<\/section>/u)[0];
   assert.match(resumen, /Estado de la respuesta del sucesor/u);
-  assert.match(resumen, new RegExp(`Resolución de ${respuesta === "aceptacion" ? "aceptación" : "renuncia"}; circuito confirmado`, "u"));
+  assert.match(resumen, new RegExp(`Resolución de ${respuesta === "aceptacion" ? "aceptación" : "renuncia"}; resultado manual sintético registrado`, "u"));
   assert.match(resumen, /Declarada el/u);
   assert.match(resumen, /Resuelta el/u);
   assert.doesNotMatch(resumen, /Registrar el aviso local del sucesor/u);
@@ -499,7 +499,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`HTTP 409 pendiente ${oper
   assert.equal(solicitudes.length, 0);
   for (let intento = 0; intento < 2; intento += 1) {
     await raiz.enviar(operacion, { clave_idempotencia: intento === 0 ? operacionId : CLAVE, ...revisionManual });
-    assert.equal(solicitudes.length, intento + 1); assert.match(raiz.innerHTML, /Pendiente de validar respuesta y plazo por RRHH\. No se ha confirmado la resolución\./u); assert.match(formulario(), /Revisar y solicitar resolución/u); assert.match(formulario(), new RegExp(`name="clave_idempotencia" value="${operacionId}"[^>]*readonly`, "u"));
+    assert.equal(solicitudes.length, intento + 1); assert.match(raiz.innerHTML, /Pendiente de revisión manual sintética por RRHH\. El vencimiento no es evaluable y la resolución no se ha confirmado\./u); assert.match(formulario(), /Revisar y solicitar resolución/u); assert.match(formulario(), new RegExp(`name="clave_idempotencia" value="${operacionId}"[^>]*readonly`, "u"));
     const control = formulario().match(/<input[^>]*name="revision_plazo_rrhh"[^>]*>/u)[0];
     assert.match(control, /\schecked/u); assert.doesNotMatch(control, /\sdisabled/u); assert.doesNotMatch(raiz.innerHTML, new RegExp(`data-ct-llamamiento-recibo="${operacion}"|No se ha podido confirmar el resultado`, "u"));
     assert.doesNotMatch(formulario(), /data-ct-llamamiento-clave/u);

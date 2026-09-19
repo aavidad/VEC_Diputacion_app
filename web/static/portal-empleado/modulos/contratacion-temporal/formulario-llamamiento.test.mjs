@@ -48,8 +48,8 @@ test("cuarta operación exige justificante confirmado de aceptación o renuncia 
         const control = formulario.match(new RegExp(`<input[^>]*name="${nombre}"[^>]*>`, "u"))[0];
         assert.match(control, /type="checkbox"/u); assert.doesNotMatch(control, /\schecked|\sdisabled/u); assert.match(formulario, new RegExp(`label for="ct-llamamiento-resolucion-${nombre}"`, "u"));
       }
-      assert.match(formulario, /name="criterio_validacion_ref" value="politica:ct:revision-manual-sintetica:20260906"[^>]*readonly/u); assert.match(formulario, /Validación manual de desarrollo: no acredita entrega de correo ni plazo legal real/u); assert.match(formulario, /He comprobado la respuesta y su justificante/u);
-      assert.match(formulario, /Para este ejercicio sintético, he comprobado que la respuesta llegó dentro del plazo del ejercicio/u);
+      assert.match(formulario, /name="criterio_validacion_ref" value="politica:ct:revision-manual-sintetica:20260906"[^>]*readonly/u); assert.match(formulario, /Validación manual sintética: no acredita entrega de correo ni evalúa un plazo legal real/u); assert.match(formulario, /He comprobado la respuesta y su justificante/u);
+      assert.match(formulario, /Dejo constancia de la revisión manual sintética exigida; no evalúa inicio, plazo ni vencimiento/u);
       for (const campo of ["organizacion_ref", "expediente_ref", "llamamiento_ref",
         "comunicacion_ref", "version_esperada", "prueba_respuesta_ref"]) {
         assert.match(formulario, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
@@ -73,7 +73,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
   } }, opcion);
   for (const [revision_respuesta_rrhh, revision_plazo_rrhh] of [[false, false], [true, false], [false, true], ["true", "true"]]) {
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
-    assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque ambas comprobaciones expresas del ejercicio sintético/u);
+    assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque ambas comprobaciones manuales sintéticas/u);
   }
   for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia]) {
     await raiz.enviar("resolucion", { clave_idempotencia, ...revisionManual });
@@ -93,12 +93,12 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_esperada: 2, respuesta: opcion, prueba_respuesta_ref: justificante({}).justificante_ref,
     ...revisionManual, criterio_validacion_ref: "politica:ct:revision-manual-sintetica:20260906" }]);
-  assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /no acredita entrega de correo ni plazo legal real/u); assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u); assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
+  assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /El vencimiento no se evalúa porque faltan inicio y política gobernados/u); assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u); assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
   assert.match(confirmaciones.at(-1).advertencia, new RegExp(`Resolución de ${opcion === "renuncia" ? "renuncia" : "aceptación"}`, "u")); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u); assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} registrada · ejercicio sintético`, "u"));
   if (opcion === "renuncia") {
     assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.match(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u); assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
   } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada|data-ct-llamamiento-form="siguiente"/u);
-  assert.match(raiz.innerHTML, /El servidor confirma el registro en Contratación temporal y Bolsa/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
+  assert.match(raiz.innerHTML, /El servidor confirma el registro manual sintético en Contratación temporal y Bolsa/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
   assert.equal(solicitudes.length, 1);
   cerrar();
@@ -134,7 +134,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
   assert.match(raiz.innerHTML, /Pendiente de revisión y resolución expresa por RRHH/u);
   assert.match(raiz.innerHTML, /La declaración no equivale a resolución/u);
-  assert.match(raiz.innerHTML, /no calcula plazos ni caducidades/u);
+  assert.match(raiz.innerHTML, /Vencimiento/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
   cerrar();
