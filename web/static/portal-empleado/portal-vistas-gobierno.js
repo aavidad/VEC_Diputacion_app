@@ -8,7 +8,7 @@ export function crearVistasGobierno(u) {
     const indicadores = datos.indicadores;
     const filas = datos.bolsas.map((item) => [e(item.nombre), e(item.categoria), numero(item.integrantes), numero(item.disponibles), numero(item.llamamiento), `${numero(item.cobertura, 1)} %`, chip(item.estado)]);
     return `
-      ${encabezadoVista("Información agregada", "Estadísticas y exportación", "Indicadores operativos sin datos personales y exportaciones sujetas a permiso y finalidad.", botonOperacion("Preparar informe", "exportar-informe", "DEMO-INF-ESTADISTICAS", "boton-primario"))}
+      ${encabezadoVista("Información agregada de demostración", "Estadísticas y exportación", "Indicadores operativos sin datos personales y exportaciones sujetas a permiso y finalidad.", botonOperacion("Preparar informe", "exportar-informe", "DEMO-INF-ESTADISTICAS", "boton-primario"))}
       ${avisoPresentacion("La acción genera un recibo, no un archivo. Los renderizadores de formato se conectarán sin modificar esta pantalla.")}
       <div class="rejilla-kpi">${kpi("COB", `${numero(indicadores.cobertura_media, 1)} %`, "Cobertura media")}${kpi("TME", indicadores.tiempo_medio_cobertura, "Tiempo de cobertura")}${kpi("REN", `${numero(indicadores.renuncias_porcentaje, 1)} %`, "Renuncias")}${kpi("RES", `${numero(indicadores.respuesta_mediana_horas)} h`, "Respuesta mediana")}${kpi("BOL", numero(indicadores.bolsas_activas), "Bolsas activas")}</div>
       <section class="panel"><div class="cabecera-panel"><div><h3>Cobertura por Bolsa</h3><p>Tabla accesible equivalente a cualquier visualización gráfica.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Cobertura por Bolsa", cabeceras: ["Bolsa", "Categoría", "Integrantes", "Disponibles", "En llamamiento", "Cobertura", "Estado"], filas })}</section>
@@ -18,10 +18,10 @@ export function crearVistasGobierno(u) {
   function renderizarAuditoria(datos) {
     const filas = datos.auditoria_eventos.map((item) => [e(item.referencia), e(item.instante), e(item.actor), e(item.operacion), e(item.objetivo), chip(item.resultado), item.efectos_reales === false ? '<span class="estado-chip info">Sin efectos reales</span>' : '<span class="estado-chip peligro">No permitido</span>']);
     return `
-      ${encabezadoVista("Hechos reconstruibles", "Auditoría y trazabilidad", "Actor, instante, expediente, operación, decisión, regla, evidencia y resultado de cada actuación.", botonOperacion("Preparar paquete de auditoría", "exportar-informe", "DEMO-AUD-PAQUETE", "boton-primario"))}
+      ${encabezadoVista("Muestra sintética de trazabilidad", "Auditoría y trazabilidad", "Actor, instante, expediente, operación, decisión, regla, evidencia y resultado de cada actuación.", botonOperacion("Preparar paquete de auditoría", "exportar-informe", "DEMO-AUD-PAQUETE", "boton-primario"))}
       ${avisoPresentacion("Los recibos nuevos aparecen al ejecutar cualquier operación. Se pierden íntegramente al recargar la página.")}
       <div class="rejilla-kpi">${kpi("EVT", numero(datos.auditoria_eventos.length), "Eventos visibles")}${kpi("ACT", numero(new Set(datos.auditoria_eventos.map((x) => x.actor)).size), "Actores sintéticos")}${kpi("REA", "0", "Efectos reales")}${kpi("ERR", "0", "Eventos sin recibo")}</div>
-      <section class="panel"><div class="cabecera-panel"><div><h3>Registro de actuaciones DEMO</h3><p>Orden inverso de incorporación; referencias inequívocamente sintéticas.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Eventos de auditoría", cabeceras: ["Recibo", "Instante UTC", "Actor", "Operación", "Objetivo", "Resultado", "Alcance"], filas })}</section>
+      <section class="panel"><div class="cabecera-panel"><div><h3>Muestra de actuaciones DEMO</h3><p>Orden inverso de incorporación; referencias inequívocamente sintéticas.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Eventos de auditoría", cabeceras: ["Recibo", "Instante UTC", "Actor", "Operación", "Objetivo", "Resultado", "Alcance"], filas })}</section>
       <section class="nota-seguridad"><strong>Producción.</strong> El navegador no será la fuente de verdad de auditoría. La API devolverá recibos firmados o protegidos contra alteración y registrará también lecturas y exportaciones.</section>`;
   }
 
