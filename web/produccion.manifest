@@ -16,6 +16,7 @@ static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
 static/bolsa/contrato-publico-bolsas.js
+static/bolsa/contrato-v1.js
 static/bolsa/contrato-v2.js
 static/bolsa/favicon.svg
 static/bolsa/index.html
