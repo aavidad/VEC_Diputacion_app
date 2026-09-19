@@ -127,6 +127,19 @@ No se registraron efectos de negocio ni se cambiaron APIs, SQL o recibos.
 El contador sigue 16/19; retoques menores posteriores a la presentación.
 PC tiene prioridad. Bolsa incluye externos: persona no implica empleado.
 
+## Navegación contextual de Contratación — 19 de septiembre de 2026
+
+El corte `53f108d6` deja de anunciar Documentos y Auditoría cuando el adaptador
+HTTP no compone esas consultas. La barra, los atajos de incidencia y el panel
+de fase usan la misma disponibilidad, derivada de capacidad concedida y método
+real; la presentación que sí aporta ambos conserva sus accesos. No se añadieron
+rutas, permisos, SQL ni efectos.
+
+La revisión independiente quedó en `GO`: 51 pruebas focales correctas. En el
+runtime privado, bandeja, detalle y estadísticas respondieron `200` a 1440 y
+390 px, sin denegación engañosa, errores JavaScript ni desbordamiento global.
+La validación fue solo de lectura y no ejecutó descargas ni mutaciones.
+
 ## Estudio integral y extensibilidad — 19 de septiembre de 2026
 
 Actualizados el [estudio integral](docs/estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes)
