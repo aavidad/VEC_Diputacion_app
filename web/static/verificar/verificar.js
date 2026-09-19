@@ -2,6 +2,7 @@ const RUTA_COTEJO_PUBLICO = "/api/publico/documentos/cotejo";
 const formulario = document.getElementById("formulario-cotejo");
 const entrada = document.getElementById("referencia");
 const resultado = document.getElementById("resultado-cotejo");
+const avisoPresentacion = document.getElementById("aviso-presentacion");
 
 function parametrosCerrados() {
   const parametros = new URLSearchParams(window.location.search);
@@ -24,12 +25,15 @@ function escaparHTML(valor) {
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-function pintar(respuesta) {
+function pintar(respuesta, presentacion) {
   const valido = respuesta?.valido === true;
   resultado.hidden = false;
   resultado.dataset.estado = valido ? "valido" : "error";
+  const avisoDemo = presentacion
+    ? "<p><strong>Resultado DEMO.</strong> No acredita autenticidad, registro ni firma.</p>"
+    : "";
   resultado.innerHTML = valido
-    ? `<strong>${escaparHTML(respuesta.titulo)}</strong><p>${escaparHTML(respuesta.mensaje)}</p><dl><dt>Referencia</dt><dd><code>${escaparHTML(respuesta.referencia)}</code></dd><dt>Estado</dt><dd>${escaparHTML(respuesta.estado)}</dd><dt>Alcance</dt><dd>${escaparHTML(respuesta.alcance)}</dd></dl>`
+    ? `<strong>${escaparHTML(respuesta.titulo)}</strong><p>${escaparHTML(respuesta.mensaje)}</p>${avisoDemo}<dl><dt>Referencia</dt><dd><code>${escaparHTML(respuesta.referencia)}</code></dd><dt>Estado</dt><dd>${escaparHTML(respuesta.estado)}</dd><dt>Alcance</dt><dd>${escaparHTML(respuesta.alcance)}</dd></dl>`
     : `<strong>No se ha podido acreditar el documento</strong><p>${escaparHTML(respuesta?.mensaje || "La referencia no consta como vigente o el servicio no está disponible.")}</p>`;
 }
 
@@ -61,7 +65,7 @@ async function comprobar(evento) {
   resultado.removeAttribute("data-estado");
   resultado.textContent = "Comprobando la referencia…";
   try {
-    pintar(await cotejar(referencia, parametrosCerrados().presentacion));
+    pintar(await cotejar(referencia, parametrosCerrados().presentacion), parametrosCerrados().presentacion);
   } catch (error) {
     pintar({ valido: false, mensaje: error instanceof Error ? error.message : "No se pudo completar la comprobación." });
   } finally {
@@ -71,6 +75,7 @@ async function comprobar(evento) {
 
 formulario.addEventListener("submit", comprobar);
 const parametros = parametrosCerrados();
+if (parametros.presentacion) avisoPresentacion.hidden = false;
 if (referenciaValida(parametros.referencia)) {
   entrada.value = parametros.referencia;
   void comprobar();
