@@ -5,6 +5,24 @@ import {
 
 export function renderizarSeguimiento(datos, estado) {
   const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
+  if (!solicitud) {
+    const cabecera = encabezadoVista(
+      "Mis expedientes y seguimiento",
+      "Estado, puntuación, posición, documentos y próximos pasos.",
+      enlaceRuta("certificados", "Certificados y descargas", "boton-secundario"),
+    );
+    const vacio = panel(
+      "Sin expedientes en el ámbito autorizado",
+      "No se ha seleccionado ningún expediente",
+      "<p>No hay datos de expediente para consultar o descargar.</p>",
+    );
+    const acciones = panel(
+      "Acciones disponibles",
+      "Solo para el expediente seleccionado",
+      "<p>No hay acciones disponibles hasta que el servicio facilite un expediente autorizado.</p>",
+    );
+    return `${cabecera}${vacio}${acciones}`;
+  }
   const filas = datos.solicitudes.map((item) => [
     `<strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)}</small>`,
     chip(item.estado),
