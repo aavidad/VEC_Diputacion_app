@@ -14,6 +14,7 @@ const PERSONAL_RPT_STATS_API = "/api/vec/personal/rpt/stats";
 const PERSONAL_CATEGORIES_API = "/api/vec/personal/categories";
 const PERSONAL_CATALOGS_API = "/api/vec/personal/catalogs";
 const DIETAS_ROAD_ROUTE_API = "/api/vec/dietas/road-route";
+const PRESENTATION_CARTOGRAPHY_ROUTE_API = "/api/presentacion/cartografia/rutas";
 const DIETAS_SHEETS_STORAGE_KEY = "vec_demo_dietas_sheets_v2";
 const BOLSA_PORTAL_API = "/api/portal";
 const ADMIN_STATUS_API = "/api/admin/status";
@@ -24,6 +25,11 @@ const STAFF_HEADERS = {
 
 function staffHeaders() {
   return { ...STAFF_HEADERS };
+}
+
+function isRRHHPresentationMode() {
+  return typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("presentacion") === "rrhh";
 }
 
 function activeDemoUser() {
@@ -5766,13 +5772,16 @@ function routeLegColor(index) {
 }
 
 function routeMapPanel() {
+  const presentation = isRRHHPresentationMode();
   const panel = document.createElement("section");
   panel.className = "route-map-card";
   panel.innerHTML = `
     <div class="route-map-head">
       <div>
         <h3>Mapa del recorrido</h3>
-        <span class="small-text">Vista interna con geometria de carretera OSRM; si el motor propio no responde se muestra un croquis no liquidable.</span>
+        <span class="small-text">${presentation
+    ? "Cartografía interna para presentación RRHH. Resultado no autoritativo y no liquidable."
+    : "Vista interna con geometria de carretera OSRM; si el motor propio no responde se muestra un croquis no liquidable."}</span>
       </div>
       <div class="route-map-actions"></div>
     </div>
@@ -6061,9 +6070,11 @@ function applyRoadRouteToCalculation(calculation, route) {
 }
 
 async function fetchRoadRouteGeometry(coords, segmentMeta = []) {
-  const payload = await getData(DIETAS_ROAD_ROUTE_API, {
+  const presentation = isRRHHPresentationMode();
+  const payload = await getData(presentation ? PRESENTATION_CARTOGRAPHY_ROUTE_API : DIETAS_ROAD_ROUTE_API, {
     method: "POST",
-    headers: staffHeaders(),
+    // La vista RRHH usa el mediador de cartografía: no propaga cabeceras de Personal.
+    headers: presentation ? { "Content-Type": "application/json" } : staffHeaders(),
     body: JSON.stringify({
       coordinates: coords.map((coord) => ({
         lat: coord.lat,
@@ -6073,7 +6084,7 @@ async function fetchRoadRouteGeometry(coords, segmentMeta = []) {
       alternatives: 3,
     }),
   });
-  return routeGeometryFromOSRM(payload, segmentMeta, coords);
+  return { ...routeGeometryFromOSRM(payload, segmentMeta, coords), presentation };
 }
 
 function destroyRouteMap(panel) {
@@ -6315,6 +6326,7 @@ async function renderRouteMap(panel, calculation, view) {
   const fallback = $(".route-map-fallback", panel);
   const actions = $(".route-map-actions", panel);
   const { coords, missing, segmentMeta } = routeCoordinatesForCalculation(calculation, view);
+  const presentation = isRRHHPresentationMode();
   const requestID = (panel._routeRequestID || 0) + 1;
   panel._routeRequestID = requestID;
   actions.replaceChildren();
@@ -6336,7 +6348,9 @@ async function renderRouteMap(panel, calculation, view) {
   }
 
   fallback.hidden = false;
-  fallback.textContent = "Calculando ruta por carretera con el OSRM interno...";
+  fallback.textContent = presentation
+    ? "Calculando ruta con la cartografía interna de presentación..."
+    : "Calculando ruta por carretera con el OSRM interno...";
 
   try {
     const roadRoute = await fetchRoadRouteGeometry(coords, segmentMeta);
@@ -6358,7 +6372,7 @@ async function renderRouteMap(panel, calculation, view) {
         calculation,
         coords,
         roadRoute.routes,
-        `Ruta por carretera calculada con OSRM interno${roadRoute.dataVersion ? ` - grafo ${roadRoute.dataVersion}` : ""}. Visor local activo porque Leaflet no esta disponible.`,
+        `${presentation ? "Cartografía interna de presentación" : "Ruta por carretera calculada con OSRM interno"}${roadRoute.dataVersion ? ` - grafo ${roadRoute.dataVersion}` : ""}. ${presentation ? "Resultado no autoritativo y no liquidable." : "Visor local activo porque Leaflet no esta disponible."}`,
       );
       return;
     }
@@ -6405,7 +6419,12 @@ async function renderRouteMap(panel, calculation, view) {
       }
       panel._activeRouteBounds = window.L.latLngBounds(route.latLngs);
       panel._leafletMap.fitBounds(panel._activeRouteBounds.pad(0.12));
-      fallback.textContent = `${route.label}: ${formatPoints(route.distanceKM)} km - ${formatCount(route.durationMin)} min${source}. ${route.index > 0 ? "Uso de alternativa: exige motivo por corte, obra, seguridad o instruccion del servicio." : "Distancia calculada con OSRM interno y pendiente de validacion/homologacion para liquidacion."}`;
+      const resultado = presentation
+        ? "Vista de presentación no autoritativa y no liquidable."
+        : route.index > 0
+          ? "Uso de alternativa: exige motivo por corte, obra, seguridad o instruccion del servicio."
+          : "Distancia calculada con OSRM interno y pendiente de validacion/homologacion para liquidacion.";
+      fallback.textContent = `${route.label}: ${formatPoints(route.distanceKM)} km - ${formatCount(route.durationMin)} min${source}. ${resultado}`;
       renderRouteLegLegend(legend, calculation.legs, route.legs, (legIndex) => highlightRouteLeg(panel, legIndex), () => resetRouteLegHighlight(panel));
       setupRouteResultLegSelection(panel);
     };
@@ -6424,7 +6443,9 @@ async function renderRouteMap(panel, calculation, view) {
     alternatives.replaceChildren();
     actions.replaceChildren();
     fallback.hidden = false;
-    fallback.textContent = `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. No se muestra mapa externo ni linea recta liquidable.`;
+    fallback.textContent = presentation
+      ? `Cartografía interna no disponible en esta presentación: ${error.message}. No se muestra mapa externo ni un resultado liquidable.`
+      : `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. No se muestra mapa externo ni linea recta liquidable.`;
   }
 
   if (missing.length) {
