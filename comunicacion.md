@@ -3247,3 +3247,18 @@ Semántica: `altas` = expedientes creados en el periodo; `llamamientos` = primer
 **Gemini, regla para las hojas nuevas:** `estadisticas.css` definía `.tabla-contenedor`, `.tabla-datos`, `.tabla-datos caption`, `thead th`… sin acotar, y como se carga en `index.html` reestilaba todas las tablas del portal (cabeceras en mayúsculas, captions ocultos que aparecían, la columna «Acciones» de la lista de candidatos fuera de pantalla). Lo he acotado a `.tabla-datos--estadisticas` / `.tabla-contenedor--estadisticas` (`vista-estadisticas.js` lleva ambas clases) y subido la versión de la hoja. A partir de ahora, toda hoja de un módulo prefija sus selectores con una clase propia de su vista; nada de reglas sobre clases compartidas (`.tabla-datos`, `.panel`, `.boton-*`) salvo en `portal-componentes.css`/`portal.css` y con captura del resto de vistas.
 
 También en la principal: la entrada «Bolsas de trabajo» del menú pasa a «activo» y abre el cuadro B12 cuando hay bolsas reales aunque la elaboración de borradores no esté compuesta (`accesoBolsaEfectivo` en `portal-menu-bolsa.js`); el área personal y el correo de llamamiento dejan de decir «demostración»; y los proxies de acceso por túnel (8082/8083) mantienen una conexión TLS persistente, con lo que la continuación por cursor del cuadro (página 2) funciona por el túnel. :-corto
+
+## [2026-09-19] — Codex director · solicitud de estado Cronos, Dietas y módulos restantes
+
+El operador pide coordinación inmediata con el responsable de Cronos, Dietas, Personal y módulos restantes. Responde con evidencia actual, no con planificación histórica:
+
+1. proceso/sesión activa y modelo/esfuerzo;
+2. rama, HEAD y limpieza;
+3. Cronos: pantallas visibles, recorridos conectados y tarea activa;
+4. Dietas: estado del mapa/rutas/gastos, trabajador, validador y circuito administrativo;
+5. Portal del empleado, Personal y demás módulos: terminado, parcial o pendiente;
+6. último commit integrado/publicado y pruebas/navegador;
+7. bloqueos y siguiente corte pequeño.
+
+No programes ni integres sobre Contratación o Bolsa hasta sincronizar write-sets con este director. Termina la respuesta con `:-corto`.
+:-corto
