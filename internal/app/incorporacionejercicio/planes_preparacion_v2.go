@@ -91,7 +91,7 @@ func (f *fuentePlanesPreparacionV2) ResolverPlan(ctx context.Context, org, exp s
 	}
 	p, existe := f.planes[[2]string{org, exp}]
 	if !existe {
-		return cero, ports.ErrComposicionIncorporacionAplicacion
+		return cero, ports.ErrPreparacionIncorporacionPendiente
 	}
 	return p.Copia(), nil
 }

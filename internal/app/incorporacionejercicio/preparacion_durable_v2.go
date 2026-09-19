@@ -75,6 +75,9 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		return z, ctx.Err()
 	}
 	if err != nil {
+		if errors.Is(err, ct.ErrPreparacionIncorporacionPendiente) {
+			return z, ct.ErrPreparacionIncorporacionPendiente
+		}
 		return z, fallo(ctx, err)
 	}
 	if plan.Validar() != nil || plan.OrganizacionRef != a.OrganizacionRef || plan.UnidadRef != a.UnidadRef || plan.SolicitudPersonal.ExpedienteRef != exp {

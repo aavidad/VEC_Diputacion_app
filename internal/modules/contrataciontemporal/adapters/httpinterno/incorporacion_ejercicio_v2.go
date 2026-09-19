@@ -148,6 +148,8 @@ func errorOperacionIncorporacionEjercicioV2(w http.ResponseWriter, peticion *htt
 		status, codigo = 422, "contenido_no_valido"
 	case errors.Is(err, ports.ErrDenegadaIncorporacionAplicacion), errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrConfirmacionIncorporacionDenegada):
 		status, codigo = 403, "acceso_denegado"
+	case errors.Is(err, ports.ErrPreparacionIncorporacionPendiente):
+		status, codigo = 409, "preparacion_pendiente"
 	case errors.Is(err, ports.ErrConflictoIncorporacionAplicacion):
 		status, codigo = 409, "conflicto"
 	}

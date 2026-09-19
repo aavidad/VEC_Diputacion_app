@@ -325,9 +325,13 @@ export function crearGestorIncorporacion({
     } catch (error) {
       if (!vigente()) return;
       const denegada = error?.envelopeValido === true && [401, 403].includes(error.estado);
+      const pendiente = error?.envelopeValido === true && error.estado === 409
+        && error.codigo === "preparacion_pendiente";
       contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t(denegada
-        ? "incorporacion_preparacion_denegada" : "incorporacion_preparacion_no_disponible"))}</p>
-        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-incorporacion">${escaparHTML(t("incorporacion_preparacion_reintentar"))}</button>`}`;
+        ? "incorporacion_preparacion_denegada" : pendiente
+          ? "incorporacion_preparacion_pendiente" : "incorporacion_preparacion_no_disponible"))}</p>
+        ${denegada ? "" : `<button class="boton-secundario" type="button" data-ct-exp-accion="reintentar-incorporacion">${escaparHTML(t(pendiente
+          ? "incorporacion_preparacion_actualizar" : "incorporacion_preparacion_reintentar"))}</button>`}`;
     } finally {
       if (consultaIncorporacionEjercicio === controlador) consultaIncorporacionEjercicio = null;
     }

@@ -146,8 +146,8 @@ func TestFuentePlanesPreparacionV2ConsultaCerrada(t *testing.T) {
 		{f, ctx, p.OrganizacionRef, p.SolicitudPersonal.ExpedienteRef, context.Canceled},
 		{f, nil, p.OrganizacionRef, p.SolicitudPersonal.ExpedienteRef, ports.ErrComposicionIncorporacionAplicacion},
 		{nula, context.Background(), p.OrganizacionRef, p.SolicitudPersonal.ExpedienteRef, ports.ErrComposicionIncorporacionAplicacion},
-		{f, context.Background(), "organizacion:ajena", p.SolicitudPersonal.ExpedienteRef, ports.ErrComposicionIncorporacionAplicacion},
-		{f, context.Background(), p.OrganizacionRef, "expediente:ajeno", ports.ErrComposicionIncorporacionAplicacion},
+		{f, context.Background(), "organizacion:ajena", p.SolicitudPersonal.ExpedienteRef, ports.ErrPreparacionIncorporacionPendiente},
+		{f, context.Background(), p.OrganizacionRef, "expediente:ajeno", ports.ErrPreparacionIncorporacionPendiente},
 		{f, context.Background(), "", p.SolicitudPersonal.ExpedienteRef, ports.ErrComposicionIncorporacionAplicacion},
 	} {
 		obtenido, err := caso.f.ResolverPlan(caso.ctx, caso.org, caso.exp)

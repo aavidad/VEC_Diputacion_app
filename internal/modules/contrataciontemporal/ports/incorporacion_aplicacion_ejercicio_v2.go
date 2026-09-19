@@ -12,7 +12,13 @@ var (
 	ErrDenegadaIncorporacionAplicacion    = errors.New("incorporacion: operacion denegada")
 	ErrIntencionIncorporacionAplicacion   = errors.New("incorporacion: intencion invalida")
 	ErrComposicionIncorporacionAplicacion = errors.New("incorporacion: servicio no disponible")
-	ErrConflictoIncorporacionAplicacion   = errors.New("incorporacion: conflicto")
+	// ErrPreparacionIncorporacionPendiente sólo representa la ausencia del par
+	// organización/expediente en la preparación sellada.
+	ErrPreparacionIncorporacionPendiente = errors.New("incorporacion: preparacion pendiente")
+	ErrConflictoIncorporacionAplicacion  = errors.New("incorporacion: conflicto")
+	ErrFichaGINPIXV2Denegada             = errors.New("incorporacion: ficha ginpix v2 denegada")
+	ErrFichaGINPIXV2Conflicto            = errors.New("incorporacion: ficha ginpix v2 sin recibo confirmado")
+	ErrFichaGINPIXV2NoDisponible         = errors.New("incorporacion: ficha ginpix v2 no disponible")
 )
 
 // Intencion es exclusivamente selección/confirmación del usuario. No transporta autoridad.

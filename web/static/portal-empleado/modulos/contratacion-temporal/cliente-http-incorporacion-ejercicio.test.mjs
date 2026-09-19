@@ -78,6 +78,7 @@ test("GET consulta sin efecto y POST200 usan el transporte compartido, sin clave
   assert.deepEqual(llamadas[1].entrada, solicitud);
   assert.equal(llamadas[1].rechazoDeterminado({ envelopeValido: true, estado: 403 }), true);
   assert.equal(llamadas[1].rechazoDeterminado({ envelopeValido: true, estado: 409 }), false);
+  assert.equal(llamadas[1].rechazoDeterminado({ envelopeValido: true, estado: 409, codigo: "preparacion_pendiente" }), true);
   assert.equal(llamadas[1].rechazoDeterminado({ envelopeValido: true, estado: 503 }), false);
   assert.throws(() => cliente.prepararIncorporacionEjercicio("ref con espacios"), TypeError);
   assert.throws(() => cliente.confirmarIncorporacionEjercicio({ ...solicitud, actor: "rrhh" }), TypeError);
@@ -96,7 +97,7 @@ test("cliente compartido: contrato HTTP real de incorporación y errores nominal
   assert.equal(llamadas[0].opciones.cache, "no-store");
   assert.equal(llamadas[1].opciones.method, "POST");
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), solicitud);
-  for (const [estado, codigo] of [[403, "acceso_denegado"], [409, "conflicto"], [503, "servicio_no_disponible"]]) {
+  for (const [estado, codigo] of [[403, "acceso_denegado"], [409, "conflicto"], [409, "preparacion_pendiente"], [503, "servicio_no_disponible"]]) {
     const fallido = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => Response.json({ error: {
       codigo, clave_i18n: `api.contratacion_temporal.incorporacion_ejercicio.error.${codigo}`,
       correlacion_ref: "corr_no_disponible",
@@ -105,7 +106,7 @@ test("cliente compartido: contrato HTTP real de incorporación y errores nominal
       estado, codigo, envelopeValido: true, resultadoIndeterminado: false,
     });
     await assert.rejects(fallido.confirmarIncorporacionEjercicio(solicitud), {
-      estado, codigo, envelopeValido: true, resultadoIndeterminado: estado !== 403,
+      estado, codigo, envelopeValido: true, resultadoIndeterminado: estado !== 403 && codigo !== "preparacion_pendiente",
     });
   }
 });

@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strconv"
 
-	"vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/ginpixfichero"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 const RutaFichaGINPIXV2 = "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix"
@@ -22,7 +22,7 @@ type PreparadorFichaGINPIXV2 interface {
 
 func NuevoManejadorFichaGINPIXV2(a AutoridadFichaGINPIXV2, p PreparadorFichaGINPIXV2) (http.Handler, error) {
 	if dependenciaNula(a) || dependenciaNula(p) {
-		return nil, incorporacionejercicio.ErrFichaGINPIXV2NoDisponible
+		return nil, ports.ErrFichaGINPIXV2NoDisponible
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !rutaFichaGINPIXV2Exacta(r) {
@@ -90,10 +90,10 @@ func rutaFichaGINPIXV2Exacta(r *http.Request) bool {
 }
 func errorOperacionFichaGINPIXV2(w http.ResponseWriter, peticion *http.Request, err error) {
 	status, codigo := 503, "servicio_no_disponible"
-	if errors.Is(err, incorporacionejercicio.ErrFichaGINPIXV2Denegada) {
+	if errors.Is(err, ports.ErrFichaGINPIXV2Denegada) {
 		status, codigo = 403, "acceso_denegado"
 	}
-	if errors.Is(err, incorporacionejercicio.ErrFichaGINPIXV2Conflicto) {
+	if errors.Is(err, ports.ErrFichaGINPIXV2Conflicto) {
 		status, codigo = 409, "recibo_no_confirmado"
 	}
 	errorFichaGINPIXV2(w, peticion, status, codigo, err)

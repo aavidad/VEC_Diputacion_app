@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/ginpixfichero"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 type autoridadFichaPrueba struct{ err error }
@@ -28,7 +28,7 @@ func TestManejadorFichaGINPIXV2RechazaMetodoYDenegacion(t *testing.T) {
 		metodo string
 		err    error
 		want   int
-	}{{http.MethodPost, incorporacionejercicio.ErrFichaGINPIXV2Denegada, 405}, {http.MethodGet, incorporacionejercicio.ErrFichaGINPIXV2Denegada, 403}, {http.MethodGet, incorporacionejercicio.ErrFichaGINPIXV2Conflicto, 409}, {http.MethodGet, incorporacionejercicio.ErrFichaGINPIXV2NoDisponible, 503}} {
+	}{{http.MethodPost, ports.ErrFichaGINPIXV2Denegada, 405}, {http.MethodGet, ports.ErrFichaGINPIXV2Denegada, 403}, {http.MethodGet, ports.ErrFichaGINPIXV2Conflicto, 409}, {http.MethodGet, ports.ErrFichaGINPIXV2NoDisponible, 503}} {
 		h, e := NuevoManejadorFichaGINPIXV2(autoridadFichaPrueba{}, preparadorFichaPrueba{err: tc.err})
 		if e != nil {
 			t.Fatal(e)

@@ -27,6 +27,7 @@ export const CODIGOS_POR_ESTADO = new Map([
   [409, new Set([
     "conflicto",
     "clave_idempotencia_reutilizada",
+    "preparacion_pendiente",
   ])],
   [413, new Set(["peticion_demasiado_grande"])],
   [415, new Set(["tipo_contenido_no_admitido"])],
@@ -360,9 +361,11 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
     return false;
   }
   if (estado !== 409) return true;
-  return ruta === rutas.alta
-    ? codigo === "clave_idempotencia_reutilizada"
-    : codigo === "conflicto";
+  if (ruta === rutas.alta) return codigo === "clave_idempotencia_reutilizada";
+  if (ruta.split("?")[0] === rutas.incorporacionEjercicio) {
+    return codigo === "conflicto" || codigo === "preparacion_pendiente";
+  }
+  return codigo === "conflicto";
 }
 
 export async function construirErrorRespuesta(respuesta, signal, ruta, errorCliente, ErrorClienteClass, exigirCamposExactos, rutas) {

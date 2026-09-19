@@ -25,7 +25,9 @@ export function crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpcion
       return ejecutar({ ruta: RUTA_INCORPORACION_EJERCICIO, entrada, signal, estadoEsperado: 200,
         maximoSolicitud: 8192, maximoRespuesta: 4096, efecto: true,
         validarRespuesta: (respuesta) => validarReciboIncorporacionEjercicio(respuesta, entrada),
-        rechazoDeterminado: (error) => error?.envelopeValido === true && [400, 403, 422].includes(error.estado) });
+        rechazoDeterminado: (error) => error?.envelopeValido === true
+          && ([400, 403, 422].includes(error.estado)
+            || (error.estado === 409 && error.codigo === "preparacion_pendiente")) });
     },
   });
 }

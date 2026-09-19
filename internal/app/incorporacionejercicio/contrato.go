@@ -53,6 +53,9 @@ func fallo(ctx context.Context, e error) error {
 	if errors.Is(e, ct.ErrIntencionIncorporacionAplicacion) {
 		return ct.ErrIntencionIncorporacionAplicacion
 	}
+	if errors.Is(e, ct.ErrPreparacionIncorporacionPendiente) {
+		return ct.ErrPreparacionIncorporacionPendiente
+	}
 	if errors.Is(e, ct.ErrDenegadaIncorporacionAplicacion) || errors.Is(e, personal.ErrDenegado) || errors.Is(e, lector.ErrDenegada) || errors.Is(e, appct.ErrConfirmacionIncorporacionDenegada) {
 		return ct.ErrDenegadaIncorporacionAplicacion
 	}

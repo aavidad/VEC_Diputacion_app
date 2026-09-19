@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	ErrFichaGINPIXV2Denegada     = errors.New("incorporacion: ficha ginpix v2 denegada")
-	ErrFichaGINPIXV2Conflicto    = errors.New("incorporacion: ficha ginpix v2 sin recibo confirmado")
-	ErrFichaGINPIXV2NoDisponible = errors.New("incorporacion: ficha ginpix v2 no disponible")
+	ErrFichaGINPIXV2Denegada     = ports.ErrFichaGINPIXV2Denegada
+	ErrFichaGINPIXV2Conflicto    = ports.ErrFichaGINPIXV2Conflicto
+	ErrFichaGINPIXV2NoDisponible = ports.ErrFichaGINPIXV2NoDisponible
 )
 
 // MaterialFichaGINPIXV2 conserva el mapeo y las coordenadas originales

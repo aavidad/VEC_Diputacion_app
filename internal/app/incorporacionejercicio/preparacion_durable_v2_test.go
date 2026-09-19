@@ -314,6 +314,21 @@ func TestPreparadorDurableV2Fronteras(t *testing.T) {
 	}
 }
 
+func TestPreparadorDurableV2PreparacionPendienteNoCreaEfectos(t *testing.T) {
+	c := nuevoCasoPreparacionV2(t)
+	c.p.c.Planes = planPreparacionDoble(func(context.Context, string, string) (PlanPreparacionDurableV2, error) {
+		return PlanPreparacionDurableV2{}, ct.ErrPreparacionIncorporacionPendiente
+	})
+
+	proyeccion, err := c.p.Consultar(context.Background(), c.plan.SolicitudPersonal.ExpedienteRef)
+	if !errors.Is(err, ct.ErrPreparacionIncorporacionPendiente) || !reflect.DeepEqual(proyeccion, ct.ProyeccionIncorporacionAplicacionV2{}) {
+		t.Fatalf("consulta pendiente: %v", err)
+	}
+	if c.app.alta.n != 0 || c.app.ctTX.llamadas != 0 || c.a.store.registros != 0 {
+		t.Fatal("la preparación pendiente creó un efecto")
+	}
+}
+
 func TestPreparadorDurableV2Cancelacion(t *testing.T) {
 	for _, paso := range []string{"detalle", "plan", "ct81", "personal6", "inicial", "ultimo_reloj"} {
 		t.Run(paso, func(t *testing.T) {
