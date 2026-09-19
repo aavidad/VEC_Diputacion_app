@@ -97,15 +97,14 @@ const PANELES_POR_TAREA = Object.freeze({
     panel(
       "panel-vista-previa-firma",
       "documentos",
-      "Vista previa y circuito de firma",
-      "Resumen legible antes de firmar; la firma se delega en el conector institucional.",
+      "Datos pendientes del circuito",
+      "RRHH e Informática deben concretar estos datos antes de conectar el Portafirmas de Diputación.",
       {
         campos: [
-          campo("paginas", "Páginas", "7"),
-          campo("formato_salida", "Formato", "PDF accesible"),
-          campo("huella_documento", "Huella de la versión", "sha256-demo-informe-juridico-v3"),
-          campo("firma_jefatura", "Firma de jefatura", "Completada", "exito"),
-          campo("recibo_envio", "Recibo de envío", "rec-demo-envio-intervencion-001"),
+          campo("documento_firma", "Documento exacto a firmar", "Pendiente de acordar", "aviso"),
+          campo("firmantes_orden", "Firmantes y orden", "Pendiente de acordar", "aviso"),
+          campo("estados_devolucion", "Rechazo, devolución y sustitución", "Pendiente de acordar", "aviso"),
+          campo("habilitacion_intervencion", "Firma que habilita la remisión", "Pendiente de acordar", "aviso"),
         ],
       },
     ),

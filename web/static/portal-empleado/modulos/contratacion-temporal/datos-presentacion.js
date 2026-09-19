@@ -271,23 +271,20 @@ const TAREAS = enriquecerTareasPresentacion([
   tarea({
     referencia: "tarea-envio-intervencion", orden: 6, fase: "fase-fiscalizacion",
     etiqueta: "Firma y envío a Intervención",
-    descripcion: "Revisión, firma de jefatura y traslado a la bandeja de fiscalización.",
-    estadoClave: "completado", estado: "Enviado", responsable: "Jefatura de Servicio",
-    entrada: "10/07/2026 11:08", salida: "11/07/2026 12:15", tiempo: "1 d 1 h",
+    descripcion: "Presentación sintética del documento previo y del circuito previsto; no acredita firma ni remisión.",
+    estadoClave: "pendiente", estado: "Pendiente de configuración del circuito", responsable: "Pendiente de designación en el circuito",
+    entrada: "Pendiente", tiempo: "Sin iniciar",
     paneles: [
-      panel("panel-envio-firma", "documentos", "Documento a firmar", "La firma y el envío generan recibos distintos.", {
+      panel("panel-envio-firma", "documentos", "Documento previo y circuito previsto", "Datos sintéticos de presentación. El Portafirmas de Diputación es el circuito previsto y todavía no está configurado.", {
         campos: [
-          campo("documento", "Informe jurídico", "Firmado", { tono: "exito" }),
-          campo("firmante", "Firmante", "Jefatura de Servicio DEMO"),
-          campo("firma", "Estado de firma", "Firma electrónica DEMO completada", { tono: "exito" }),
-          campo("envio", "Traslado", "Intervención · 11/07/2026 12:15", { tono: "exito" }),
+          campo("documento", "Documento previo", "Informe jurídico DEMO.pdf · versión 3"),
+          campo("destino", "Circuito previsto", "Portafirmas corporativo de Diputación → Intervención", { tono: "informacion" }),
+          campo("estado_circuito", "Estado del circuito", "Pendiente de configuración", { tono: "aviso" }),
+          campo("limite", "Alcance de la presentación", "Sin firma, envío, recibo ni fecha efectiva"),
         ],
       }),
     ],
-    acciones: [accion("enviar_intervencion", "Enviar a Intervención", {
-      capacidad: CAP.solicitarFiscalizacion,
-      confirmacion: "Se enviará el expediente y su índice documental a Intervención.",
-    })],
+    acciones: [],
   }),
   tarea({
     referencia: "tarea-fiscalizacion", orden: 7, fase: "fase-fiscalizacion",

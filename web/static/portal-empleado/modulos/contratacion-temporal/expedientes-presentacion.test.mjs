@@ -728,7 +728,7 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
     ["tarea-cobertura", "Procedimiento a seguir"],
     ["tarea-asignacion", "Bandeja de la unidad"],
     ["tarea-informe-juridico", "Borrador y edición gobernada"],
-    ["tarea-envio-intervencion", "Vista previa y circuito de firma"],
+    ["tarea-envio-intervencion", "Datos pendientes del circuito"],
     ["tarea-fiscalizacion", "Modalidad y remisión"],
     ["tarea-subsanacion", "Observaciones, correcciones y evidencias"],
     ["tarea-iniciar-llamamiento", "Historial de llamamientos"],
@@ -762,6 +762,22 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
   assert.match(html, /Mis tareas prioritarias/);
   assert.match(html, /Distribución por fase/);
   assert.match(html, /Registrar nueva petición/);
+});
+
+test("la presentación de firma conserva el circuito previsto sin simular su efecto", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-envio-intervencion");
+  assert.ok(tarea);
+  assert.equal(tarea.estado_clave, "pendiente");
+  assert.equal(tarea.salida, "");
+  assert.equal(tarea.recibo_ref, "");
+  assert.equal(tarea.decision_ref, "");
+  assert.deepEqual(tarea.acciones, []);
+  const texto = JSON.stringify(tarea);
+  assert.match(texto, /Portafirmas corporativo de Diputación → Intervención/u);
+  assert.match(texto, /Pendiente de configuración/u);
+  assert.match(texto, /Datos sintéticos de presentación/u);
+  assert.doesNotMatch(texto, /Firma electrónica DEMO completada|rec-demo-envio-intervencion-001|Intervención · 11\/07\/2026 12:15/u);
 });
 
 test("montaje y desmontaje son simétricos y no dejan efectos tras retirar la vista", async () => {
