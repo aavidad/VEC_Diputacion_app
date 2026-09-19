@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   validarConfiguracionAnalisis,
+  validarDatosPreviosAnalisis,
   validarSolicitudRectificacionAnalisis,
   validarSolicitudRegistroAnalisis,
 } from "./contrato-analisis.js";
@@ -87,6 +88,22 @@ test("contrato-analisis: rectificación admite observaciones válidas", () => {
   };
   const validada = validarSolicitudRectificacionAnalisis(solicitud);
   assert.equal(validada.analisis.observaciones, "Observación de rectificación");
+});
+
+test("contrato-analisis: datos previos conservan observaciones opcionales válidas", () => {
+  const base = {
+    modalidad_clave: "sustitucion",
+    categoria_ref: "categoria:tecnico:001",
+    causa_clave: "sustitucion",
+    periodo: { inicio: "2026-09-01T00:00:00Z", fin: "2027-02-28T00:00:00Z" },
+    porcentaje_jornada: 7_500,
+  };
+  assert.equal(Object.hasOwn(validarDatosPreviosAnalisis(base), "observaciones"), false);
+  assert.equal(
+    validarDatosPreviosAnalisis({ ...base, observaciones: "Texto conservado." }).observaciones,
+    "Texto conservado.",
+  );
+  assert.throws(() => validarDatosPreviosAnalisis({ ...base, observaciones: "" }), TypeError);
 });
 
 function categorias(cantidad) {

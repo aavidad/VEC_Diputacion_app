@@ -436,6 +436,7 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
       causa_clave: "sustitucion",
       periodo: { inicio: "2027-01-01T00:00:00Z", fin: "2027-03-31T00:00:00Z" },
       porcentaje_jornada: 7500,
+      observaciones: "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
     },
     cabecera: [...expediente.cabecera, {
       clave: "resultado_rc", etiqueta: "Resultado RC", valor: "validada", tono: "neutro",
@@ -481,16 +482,23 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   assert.match(formulario.innerHTML, /value="2027-01-01"/u);
   assert.match(formulario.innerHTML, /value="2027-03-31"/u);
   assert.match(formulario.innerHTML, /value="7500"/u);
+  assert.match(formulario.innerHTML, /Análisis de demostración RRHH C6-05; necesidad temporal verificada\./u);
   assert.equal(solicitudes.length, 0);
   cliente.rectificarAnalisis = () => {
     throw new Error("la composición debe usar el método de rectificación capturado");
   };
   await formulario.enviar({
-    ...crearValoresFormulario(), motivo_rectificacion_clave: "correccion_datos",
+    ...crearValoresFormulario(),
+    motivo_rectificacion_clave: "correccion_datos",
+    observaciones: "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
   });
   assert.equal(solicitudes.length, 1);
   assert.equal(solicitudes[0].version_esperada, expedienteConAnalisis.version);
   assert.equal(solicitudes[0].motivo_rectificacion_clave, "correccion_datos");
+  assert.equal(
+    solicitudes[0].analisis.observaciones,
+    "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
+  );
   escenario.modulo.desmontar();
 
   const casosSinRectificacion = [
@@ -569,7 +577,7 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   });
   const bloqueado = ausente.raiz.obtenerRectificacion();
   assert.ok(bloqueado);
-  assert.match(bloqueado.innerHTML, /No hay un motivo de rectificación vigente publicado/u);
+  assert.match(bloqueado.innerHTML, /No hay motivos de rectificación disponibles/u);
   assert.equal(bloqueado.eventos.has("submit"), false);
   ausente.modulo.desmontar();
 

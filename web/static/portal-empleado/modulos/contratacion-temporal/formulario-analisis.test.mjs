@@ -271,7 +271,7 @@ test("rectificar exige el motivo gobernado y usa únicamente rectificarAnalisis"
   await vista.enviar(crearValores({ motivo_rectificacion_clave: "" }));
   assert.equal(rectificacion, undefined);
   assert.match(vista.raiz.innerHTML, /aria-invalid="true"/u);
-  assert.match(vista.raiz.innerHTML, /Seleccione un motivo gobernado/u);
+  assert.match(vista.raiz.innerHTML, /Seleccione un motivo disponible/u);
 
   await vista.enviar();
   assert.match(vista.raiz.innerHTML, /Rectificación confirmada/u);

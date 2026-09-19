@@ -1,5 +1,34 @@
 # Estado y plan de ataque del proyecto
 
+## Análisis y rectificación recorridos — 19 de septiembre de 2026
+
+El contador de pantallas de desarrollo pasa a **16/19 (84 %)**: Análisis
+incluye ahora la rectificación existente. Siguen parciales Llamamiento y
+Resultado, y pendiente el circuito de Firma; no equivale a producción.
+
+La corrección 2be6b461, publicada y servida, permite cargar las 151 categorías.
+En navegador se verifica la equivalencia de jornada a 1440/390 px.
+La rectificación precarga también las observaciones autorizadas del detalle y
+las conserva si RRHH cambia otro campo; ausencia sigue siendo válida. Textos
+de análisis simplificados, sin alterar contratos HTTP ni autorización.
+Dirección revisó el diff; 61 pruebas focales de contrato, adaptación y montaje
+correctas, incluida conservación de observaciones hasta el POST.
+
+Caso sintético 2026/CT-8c17ba0b2be0fa7d84131e1dc93db150: otra identidad RRHH
+rectifica v2→v3 desde navegador, HTTP201, recibo
+rec_ct_an_f4dc768baead35e3e98902cde64646d9, confirmado
+2026-09-19T13:41:39.987015Z. Tras reiniciar los mismos app/PostgreSQL, las
+130 tablas comprobadas permanecen idénticas. El detalle devuelve200, tres
+hitos con los dos anteriores idénticos y las observaciones nuevas; existe
+una sola actuación v3 con ese recibo. No se volvió a ejecutar la operación.
+Formulario recuperado comprobado a 1440/390, sin errores JS ni desbordamiento.
+
+También recuperadas incorporación, seguimiento original y cierre existente;
+ficha GINPIX de 1969 bytes idéntica a la huella previamente conservada.
+No hay transmisión GINPIX, envío corporativo ni firma acreditados. El motivo
+de rectificación está publicado para el ejercicio sintético; el catálogo
+corporativo y la renovación diaria duradera de confianza siguen pendientes.
+
 ## Recuperación del catálogo de Análisis — 19 de septiembre de 2026
 
 La configuración real contiene 151 categorías. Contrato y formulario admiten

@@ -1,5 +1,19 @@
 # Guía de recorrido y recibos conservados de VEC
 
+### Rectificación de análisis recuperada — 19 de septiembre
+
+El expediente sintético 2026/CT-8c17ba0b2be0fa7d84131e1dc93db150 pasa de v2
+a v3 con motivo de ejercicio publicado y autor distinto al del análisis.
+Navegador201, recibo rec_ct_an_f4dc768baead35e3e98902cde64646d9,
+confirmado 2026-09-19T13:41:39.987015Z. Después de reiniciar app y PostgreSQL:
+130 tablas idénticas, detalle200, tres hitos (dos anteriores conservados),
+observaciones recuperadas y una única actuación v3. No se repite el POST.
+El formulario conserva las observaciones al abrirse y las pruebas focales
+verifican su envío sin cambios. Recorrido observado a1440/390 sin erroresJS
+ni desbordamiento. Datos/peticiones exactos privados, fuera de Git.
+Pantallas de desarrollo16/19; no acredita motivo legal ni producción.
+
+
 ### Continuidad real tras subsanar y fiscalizar de nuevo
 
 El expediente sintético `9511d16d…` continúa desde la fiscalización favorable con

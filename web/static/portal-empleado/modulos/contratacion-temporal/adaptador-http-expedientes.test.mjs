@@ -53,6 +53,7 @@ function clienteFalso(llamadas) {
           periodo_fin: "2026-12-31T00:00:00Z",
           porcentaje_jornada: 10_000,
           resultado_rc: "no_requerida",
+          observaciones: "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
         },
         cobertura: {
           via_clave: "bolsa_vigente",
@@ -110,6 +111,10 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(detalle.demostracion, false);
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "motivo").valor, "Sustitución");
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Análisis");
+  assert.equal(
+    detalle.analisis_previo.observaciones,
+    "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
+  );
   assert.equal(
     detalle.cabecera.find(({ clave }) => clave === "comprobacion_existe_bolsa_vigente").valor,
     "Existe bolsa vigente para la categoría: Afirmativa",

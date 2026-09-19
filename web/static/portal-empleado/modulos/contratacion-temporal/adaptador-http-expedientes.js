@@ -399,6 +399,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
       causa_clave: detalle.analisis.causa_clave,
       periodo: { inicio: detalle.analisis.periodo_inicio, fin: detalle.analisis.periodo_fin },
       porcentaje_jornada: detalle.analisis.porcentaje_jornada,
+      ...(detalle.analisis.observaciones ? { observaciones: detalle.analisis.observaciones } : {}),
     } } : {}),
     fases: fasesDesdeHitos(detalle, traducir),
     historial: historialDesdeHitos(detalle.hitos, locale, t),

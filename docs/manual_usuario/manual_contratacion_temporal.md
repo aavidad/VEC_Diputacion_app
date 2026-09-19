@@ -112,6 +112,7 @@ Personal técnico asignado del Servicio de Recursos Humanos.
 4. Introduzca las fechas definitivas validadas por RRHH y la jornada en diezmilésimas. El formulario muestra su equivalencia al escribir: 5000 corresponde al 50,00 % y 10000 al 100,00 %. El coste estimado procede de la fuente configurada; este campo de jornada no permite introducirlo manualmente.
 5. Indique si existe retención de crédito suficiente y añada las observaciones técnicas de la valoración.
 6. Guarde el análisis para cerrar la propuesta técnica de cobertura.
+7. Para corregir un análisis registrado, abra **Rectificar análisis**. Los datos y las observaciones anteriores se precargan; revise grupo y RC, seleccione el motivo disponible y confirme. Se exige una identidad distinta de la autora del análisis anterior. Espere el recibo antes de continuar.
 
 ![Detalle del expediente 000006 con análisis, coste y observaciones](capturas/contratacion/09_detalle_000006_analisis_coste.png)
 
@@ -209,22 +210,23 @@ Cuando Intervención formula un reparo, el raíl de seguimiento del expediente p
 
 ## 9. Paso 5 — Obtención del candidato y llamamiento
 
-Superada favorablemente la fiscalización, se inicia el llamamiento de la persona candidata según el orden riguroso de prelación de la bolsa de trabajo vigente.
+Superada favorablemente la fiscalización, RRHH puede iniciar desde el expediente el recorrido sintético de llamamiento. El servidor aplica el orden de la fuente de Bolsa y comprueba los permisos. El recibo confirma la selección mediante referencias opacas; no muestra la identidad, la posición ni datos de contacto de la persona candidata.
 
 ![Bloque de llamamiento y comunicación al candidato en 000011](capturas/contratacion/15_llamamiento_comunicacion_000011.png)
 
 ### Qué es y quién lo hace
-Gestión del llamamiento ejecutada por el Servicio de Personal de RRHH. El sistema presenta la candidatura que ocupa el primer puesto disponible según baremo.
+El Servicio de Personal de RRHH registra y recupera las operaciones del llamamiento de desarrollo. Cada operación exige confirmación y conserva un recibo. La comunicación que aparece en esta pantalla es un registro local y no acredita un envío o una entrega.
 
 ### Cómo se hace clic a clic
-1. El tramitador accede al bloque **Llamamiento y comunicación**.
-2. El sistema muestra los datos de la persona candidata en turno (nombre, orden en bolsa, teléfono y correo electrónico de contacto).
-3. Se pulsa **Emitir llamamiento**: el sistema prepara la notificación oficial con las condiciones de la plaza (categoría, centro de trabajo, duración estimada y jornada).
-4. Se registra el plazo legal de contestación.
-5. Al recibir la respuesta del candidato se selecciona la opción correspondiente:
-   - **Aceptación:** habilita de inmediato el paso siguiente de nombramiento.
-   - **Renuncia justificada:** el candidato mantiene su situación en bolsa y se convoca automáticamente a la siguiente persona candidata.
-   - **Renuncia no justificada / Falta de respuesta:** se aplica la penalización que fijen las bases y corre el turno al siguiente aspirante.
+1. Abra el expediente fiscalizado y entre en **Llamamiento y comunicación**.
+2. En **1. Iniciar llamamiento**, pulse **Revisar e iniciar llamamiento**, compruebe los datos y confirme. Espere a que aparezca el recibo verificado.
+3. Abra **2. Registrar comunicación** y pulse **Revisar y registrar comunicación**. Confirme el aviso local vinculado al recibo de selección.
+4. Si RRHH ha recibido una respuesta por el canal externo, en **3. Registrar respuesta recibida por correo** seleccione aceptación o renuncia, indique una referencia opaca y la fecha UTC y elija un `.eml` sintético para calcular su huella SHA-256. Pulse **Revisar y registrar respuesta declarada** y confirme. VEC no sube ni conserva el contenido del correo.
+5. En **4. Solicitar resolución de respuesta**, revise la declaración y su justificante, marque las dos comprobaciones expresas del ejercicio y pulse **Revisar y solicitar resolución**. La declaración anterior no resuelve por sí sola la aceptación o la renuncia.
+6. Si se confirma una aceptación, queda disponible la preparación de la propuesta del paso siguiente. Si se confirma una renuncia, queda una intención pendiente: pulse **Revisar y abrir el siguiente llamamiento** y, después, registre de forma expresa el aviso local al sucesor. El servidor vuelve a aplicar el orden; no selecciona ni avisa automáticamente a otra persona.
+7. Conserve la clave y los campos de cada operación. Ante una interrupción, use exactamente los mismos datos para recuperar el recibo sin duplicar el efecto.
+
+Este recorrido usa datos sintéticos y una validación manual de desarrollo. No acredita datos de contacto de la candidatura, notificación oficial, envío o entrega de correo, plazo legal o caducidad, penalización, firma, custodia del correo ni convocatoria automática de la siguiente persona.
 
 ---
 

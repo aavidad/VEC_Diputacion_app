@@ -503,6 +503,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       inicio: previo.periodo.inicio.slice(0, 10),
       fin: previo.periodo.fin.slice(0, 10),
       porcentaje_jornada: String(previo.porcentaje_jornada),
+      observaciones: previo.observaciones ?? "",
     };
     // Una opción histórica retirada debe seleccionarse de nuevo en el catálogo vigente.
     const erroresPrevios = validarBorrador(borrador, catalogos, false);

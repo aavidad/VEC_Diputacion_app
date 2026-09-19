@@ -281,22 +281,27 @@ function instanteUTCValido(valor) {
 
 /** Datos previos de presentación: no contienen una prueba RC ni autorizan efectos. */
 export function validarDatosPreviosAnalisis(entrada) {
+  const tieneObservaciones = esRegistro(entrada) && Object.hasOwn(entrada, "observaciones");
   exigirCamposExactos(entrada, [
     "modalidad_clave", "categoria_ref", "causa_clave", "periodo", "porcentaje_jornada",
+    ...(tieneObservaciones ? ["observaciones"] : []),
   ], "datos previos del análisis");
   if (!claveValida(entrada.modalidad_clave) || !referenciaValida(entrada.categoria_ref)
     || !claveValida(entrada.causa_clave) || !periodoValido(entrada.periodo)
     || !Number.isSafeInteger(entrada.porcentaje_jornada)
-    || entrada.porcentaje_jornada < 1 || entrada.porcentaje_jornada > 10_000) {
+    || entrada.porcentaje_jornada < 1 || entrada.porcentaje_jornada > 10_000
+    || (tieneObservaciones && !textoValido(entrada.observaciones, 4000, false))) {
     throw new TypeError("datos previos del análisis no válidos");
   }
-  return Object.freeze({
+  const salida = {
     modalidad_clave: entrada.modalidad_clave,
     categoria_ref: entrada.categoria_ref,
     causa_clave: entrada.causa_clave,
     periodo: Object.freeze({ inicio: entrada.periodo.inicio, fin: entrada.periodo.fin }),
     porcentaje_jornada: entrada.porcentaje_jornada,
-  });
+  };
+  if (tieneObservaciones) salida.observaciones = entrada.observaciones;
+  return Object.freeze(salida);
 }
 
 function validarAnalisis(analisis) {
