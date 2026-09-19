@@ -7,6 +7,8 @@ static/area-personal/cliente-http.js
 static/area-personal/contrato.js
 static/area-personal/flujo-solicitud.js
 static/area-personal/index.html
+static/area-personal/mi-bolsa-i18n.js
+static/area-personal/mi-bolsa.js
 static/area-personal/vistas/comunes.js
 static/area-personal/vistas/comunicaciones-ayuda.js
 static/area-personal/vistas/inicio-convocatorias.js
