@@ -1,5 +1,20 @@
 # Estado y plan de ataque del proyecto
 
+## Portada pública cerrada — 19 de septiembre de 2026
+
+La secuencia `15e437bb`, `d86fe653` y `cd3df5ab` publica en
+`https://vec.cidonia.cloud/` una portada de acceso cerrada. Cl@ve, certificado
+digital y DNIe aparecen como opciones previstas, visibles y deshabilitadas. No
+existe todavía login operativo, sesión web ni acceso privado desde Internet:
+faltan integrar los proveedores, el verificador y el gateway que establecerán
+esas autoridades. `admin.cidonia.cloud` continúa cerrado.
+
+La prueba de runtime confirmó navegación privada con `303` hacia `/`, API con
+`401`, ausencia de cookies, ruta lateral inexistente con `404`, CSP estricta y
+los demás vhosts atendidos con `200`. No se expusieron rutas privadas ni datos
+personales. Esta portada informa del acceso futuro; no acredita autenticación,
+autorización, publicación del portal privado ni producción.
+
 ## Corte web primero de Contratación — 19 de septiembre de 2026
 
 La preparación para la presentación prioriza pantallas completas y recorribles,
