@@ -9,6 +9,8 @@ import {
 } from "./lista-bolsas-api.js";
 import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
+const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
+
 const ETIQUETAS_ESTADO = Object.freeze({
   disponible: "Disponible",
   ocupado: "Ocupado / Nombrado",
@@ -100,7 +102,7 @@ export function crearControladorListaBolsas({
       elementos.bolsasCargando.hidden = true;
       elementos.bolsasError.hidden = false;
       if (elementos.mensajeErrorBolsas) {
-        elementos.mensajeErrorBolsas.textContent = err.message || "Error al consultar bolsas";
+        elementos.mensajeErrorBolsas.textContent = err.message || t("error_bolsas");
       }
     } finally {
       estado.cargando = false;
@@ -173,7 +175,7 @@ export function crearControladorListaBolsas({
       elementos.listaCargando.hidden = true;
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
-        elementos.mensajeErrorLista.textContent = err.message || "Error al consultar la lista";
+        elementos.mensajeErrorLista.textContent = err.message || t("error_lista");
       }
     } finally {
       estado.cargando = false;
@@ -298,7 +300,7 @@ export function crearControladorListaBolsas({
         if (val && !PATRON_DOCUMENTO_ENMASCARADO.test(val)) {
           if (elementos.errorDocumento) {
             elementos.errorDocumento.hidden = false;
-            elementos.errorDocumento.textContent = "El documento debe tener formato ***1234** (3 asteriscos, 4 dígitos y 2 asteriscos).";
+            elementos.errorDocumento.textContent = t("documento_formato");
           }
           return;
         }

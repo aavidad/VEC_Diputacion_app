@@ -3,6 +3,7 @@
 (() => {
   const contratoPublicoV1 = globalThis.VECBolsaContratoV1;
   if (!contratoPublicoV1) throw new Error("validador del contrato público V1 no disponible");
+  const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
   const API = "/api/publico/bolsa/convocatorias";
   const API_CATEGORIAS = "/api/publico/bolsa/categorias";
   const TAMANO = 12;
@@ -206,9 +207,9 @@
 
   function renderizarFacetas(facetas) {
     estado.facetas = facetas;
-    completarSelect(elementos.tipo, facetas.tipos, "Todos los tipos");
-    completarSelect(elementos.categoria, facetas.categorias, "Todas con procesos");
-    completarSelect(elementos.estado, facetas.estados, "Todos los estados");
+    completarSelect(elementos.tipo, facetas.tipos, t("todos_tipos"));
+    completarSelect(elementos.categoria, facetas.categorias, t("todas_categorias"));
+    completarSelect(elementos.estado, facetas.estados, t("todos_estados"));
   }
 
   function cantidad(total, singular, plural) {
@@ -293,7 +294,7 @@
     if (estado.controladorListado) estado.controladorListado.abort();
     estado.controladorListado = new AbortController();
     estadoListado("cargando");
-    elementos.estadoConsulta.textContent = "Cargando convocatorias…";
+    elementos.estadoConsulta.textContent = t("cargando_convocatorias");
     actualizarURL(modoHistoria, conservarAncla);
     try {
       let datos = await obtenerJSON(`${API}?${parametrosConsulta().toString()}`, estado.controladorListado.signal);
@@ -309,7 +310,7 @@
     } catch (error) {
       if (error.name === "AbortError") return;
       estadoListado("error");
-      elementos.estadoConsulta.textContent = "La consulta no está disponible.";
+      elementos.estadoConsulta.textContent = t("consulta_no_disponible");
     }
   }
 
@@ -325,7 +326,7 @@
   function renderizarPlazos(plazos) {
     vaciar(elementos.detallePlazos);
     if (plazos.length === 0) {
-      elementos.detallePlazos.appendChild(texto("p", "No hay plazos públicos asociados.", "detalle-vacio"));
+      elementos.detallePlazos.appendChild(texto("p", t("sin_plazos"), "detalle-vacio"));
       return;
     }
     plazos.forEach((plazo) => {
@@ -345,7 +346,7 @@
   function renderizarRequisitos(requisitos) {
     vaciar(elementos.detalleRequisitos);
     if (requisitos.length === 0) {
-      elementos.detalleRequisitos.appendChild(texto("li", "No hay requisitos públicos asociados.", "detalle-vacio"));
+      elementos.detalleRequisitos.appendChild(texto("li", t("sin_requisitos"), "detalle-vacio"));
       return;
     }
     requisitos.forEach((requisito) => {
@@ -360,7 +361,7 @@
   function renderizarDocumentos(documentos) {
     vaciar(elementos.detalleDocumentos);
     if (documentos.length === 0) {
-      elementos.detalleDocumentos.appendChild(texto("li", "No hay documentos públicos asociados.", "detalle-vacio"));
+      elementos.detalleDocumentos.appendChild(texto("li", t("sin_documentos"), "detalle-vacio"));
       return;
     }
     documentos.forEach((documento) => {
@@ -376,7 +377,7 @@
   function renderizarAyuda(ayudas) {
     vaciar(elementos.detalleAyuda);
     if (ayudas.length === 0) {
-      elementos.detalleAyuda.appendChild(texto("p", "No hay respuestas de ayuda asociadas.", "detalle-vacio"));
+      elementos.detalleAyuda.appendChild(texto("p", t("sin_ayuda"), "detalle-vacio"));
       return;
     }
     ayudas.forEach((ayuda) => {
@@ -424,14 +425,14 @@
       if (moverFoco) elementos.tituloDetalle.focus?.();
     } catch (error) {
       if (error.name === "AbortError") return;
-      elementos.tituloDetalle.textContent = "Ficha no disponible";
+      elementos.tituloDetalle.textContent = t("ficha_no_disponible");
       estadoDetalle("error");
     }
   }
 
   function reiniciarDetalleVisual() {
     if (estado.controladorDetalle) estado.controladorDetalle.abort();
-    elementos.tituloDetalle.textContent = "Seleccione una convocatoria";
+    elementos.tituloDetalle.textContent = t("seleccione_convocatoria");
     estadoDetalle("espera");
     document.querySelectorAll(".tarjeta-convocatoria").forEach((tarjeta) => tarjeta.setAttribute("aria-current", "false"));
   }
@@ -462,7 +463,7 @@
     vaciar(elementos.areaCategoria);
     const todas = document.createElement("option");
     todas.value = "";
-    todas.textContent = "Todas las áreas";
+    todas.textContent = t("todas_areas");
     elementos.areaCategoria.appendChild(todas);
     areas.forEach((area) => {
       const opcion = document.createElement("option");
