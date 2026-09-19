@@ -142,6 +142,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_alcance:
     "Este paso registra el análisis de RRHH; no formaliza la contratación.",
   analisis_estado_listo: "El análisis está preparado para su revisión.",
+  analisis_estado_solo_lectura: "La rectificación está disponible solo para consulta.",
   analisis_estado_validacion: "Revise los campos indicados antes de continuar.",
   analisis_estado_enviando: "Enviando una única petición. Espere la confirmación.",
   analisis_estado_cancelando: "Cancelando la espera de respuesta.",
@@ -183,7 +184,10 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_rectificar: "Rectificar análisis",
   analisis_rectificacion_configuracion_pendiente_titulo: "Rectificación no disponible",
   analisis_rectificacion_configuracion_pendiente_descripcion:
-    "No hay motivos de rectificación disponibles. Esta operación permanece bloqueada hasta que se publiquen.",
+    "No hay motivos de rectificación publicados. Puede consultar el análisis, pero no rectificarlo hasta que estén disponibles.",
+  analisis_rectificacion_solo_lectura_titulo: "Rectificación solo para consulta",
+  analisis_rectificacion_solo_lectura_descripcion:
+    "No hay motivos de rectificación publicados. Puede consultar el análisis, pero no rectificarlo hasta que estén disponibles.",
   analisis_cancelar: "Cancelar espera",
   analisis_errores_titulo: "Revise los errores del análisis",
   analisis_errores_descripcion:

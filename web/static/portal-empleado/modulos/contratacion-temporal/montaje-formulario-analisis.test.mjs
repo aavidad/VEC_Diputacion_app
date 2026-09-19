@@ -577,7 +577,8 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   });
   const bloqueado = ausente.raiz.obtenerRectificacion();
   assert.ok(bloqueado);
-  assert.match(bloqueado.innerHTML, /No hay motivos de rectificación disponibles/u);
+  assert.match(bloqueado.innerHTML, /No hay motivos de rectificación publicados/u);
+  assert.match(bloqueado.innerHTML, /Puede consultar el análisis, pero no rectificarlo/u);
   assert.equal(bloqueado.eventos.has("submit"), false);
   ausente.modulo.desmontar();
 

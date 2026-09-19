@@ -180,6 +180,25 @@ test("la configuración y el contexto son cerrados y no aceptan autoridad del fo
   }), /modalidades/u);
 });
 
+test("sin motivos publicados ni ejecutor autorizado la rectificación queda solo para consulta", async () => {
+  const raiz = crearRaiz();
+  const catalogos = crearCatalogos();
+  catalogos.motivos_rectificacion = [];
+  const desmontar = montarFormularioAnalisisRRHH({
+    raiz: raiz.raiz,
+    cliente: null,
+    contexto: crearContexto("rectificar"),
+    catalogos,
+    generarClaveIdempotencia: () => UUID,
+  });
+
+  assert.match(raiz.raiz.innerHTML, /data-ct-analisis-solo-lectura/u);
+  assert.match(raiz.raiz.innerHTML, /Puede consultar el análisis, pero no rectificarlo/u);
+  assert.doesNotMatch(raiz.raiz.innerHTML, /data-ct-analisis-form|<button/u);
+  await raiz.enviar();
+  desmontar();
+});
+
 test("la vista usa controles gobernados, etiquetas, ayudas y regiones vivas", () => {
   const catalogos = crearCatalogos();
   catalogos.modalidades[0].etiqueta = "<img src=x onerror=privado>";

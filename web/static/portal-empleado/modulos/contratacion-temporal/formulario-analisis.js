@@ -107,7 +107,9 @@ function normalizarCatalogos(entrada, rectificacion) {
   });
   const motivos = normalizarOpciones(entrada.motivos_rectificacion, {
     nombre: "motivos de rectificación", campo: "clave", patron: PATRON_CLAVE,
-    permitirVacia: !rectificacion,
+    // Un catálogo vacío no se sustituye por una opción local: deja la rectificación
+    // en solo lectura hasta que el servidor publique motivos válidos.
+    permitirVacia: true,
   });
   const categoriasVistas = new Set();
   const categorias = Object.freeze(valoresListaSimple(
@@ -366,6 +368,13 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
       <p>${escaparHTML(t("analisis_indeterminado_descripcion"))}</p>
     </section>`;
   }
+  if (estado.solo_lectura) {
+    return `<section class="ct-alcance" data-ct-analisis-solo-lectura role="status"
+      aria-live="polite" aria-atomic="true" tabindex="-1">
+      <h3>${escaparHTML(t("analisis_rectificacion_solo_lectura_titulo"))}</h3>
+      <p>${escaparHTML(t("analisis_rectificacion_solo_lectura_descripcion"))}</p>
+    </section>`;
+  }
   const categoria = catalogos.categorias.find(
     ({ referencia }) => referencia === estado.borrador.categoria_ref,
   );
@@ -465,8 +474,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   let contexto = normalizarContexto(contextoEntrada);
   const rectificacion = contexto.operacion === "rectificar";
   let catalogos = normalizarCatalogos(catalogosEntrada, rectificacion);
+  const soloLectura = rectificacion && catalogos.motivos_rectificacion.length === 0;
   let metodo = rectificacion ? cliente?.rectificarAnalisis : cliente?.registrarAnalisis;
-  if (typeof metodo !== "function") throw new TypeError("cliente de análisis no válido");
+  if (!soloLectura && typeof metodo !== "function") throw new TypeError("cliente de análisis no válido");
   let t = crearTraductorContratacionTemporal(mensajes);
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
@@ -522,8 +532,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   let cancelacionSolicitada = false;
   let intento = null;
   let estado = {
-    borrador, errores: {}, ocupado: false, bloqueado: false, recibo: null,
-    mensaje_clave: "analisis_estado_listo", tipo_mensaje: "informacion",
+    borrador, errores: {}, ocupado: false, bloqueado: false, solo_lectura: soloLectura, recibo: null,
+    mensaje_clave: soloLectura ? "analisis_estado_solo_lectura" : "analisis_estado_listo",
+    tipo_mensaje: "informacion",
   };
   raiz = null;
   cliente = null;
@@ -608,7 +619,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
 
   function enviar(entrada) {
     if (envioActual !== null) return envioActual;
-    if (!montado || estado.bloqueado || estado.recibo) return Promise.resolve(null);
+    if (!montado || estado.bloqueado || estado.solo_lectura || estado.recibo) return Promise.resolve(null);
     estado = { ...estado, borrador: entrada, errores: {} };
     let preparada;
     try { preparada = construirSolicitud(entrada); } catch { preparada = { errores: { general: "contrato" } }; }
