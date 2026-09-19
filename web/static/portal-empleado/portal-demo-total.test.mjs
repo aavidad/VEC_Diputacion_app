@@ -399,6 +399,19 @@ test("todas las capacidades producen una pantalla completa con datos sintéticos
   }
 });
 
+test("la importación Convoca muestra incidencias y controles sintéticos por lote", () => {
+  const modo = { valor: true };
+  const salida = crearVistasOperaciones(utilidades(modo)).renderizarImportacion(obtenerDatosPresentacion());
+  assert.match(salida, /Incidencias detectadas/);
+  assert.match(salida, /Fila/);
+  assert.match(salida, /Categoría/);
+  assert.match(salida, /Valor sintético fuera del catálogo del lote/);
+  assert.match(salida, /Controles de formato/);
+  assert.match(salida, /sin leer archivos del equipo/i);
+  assert.match(salida, /Lote DEMO de 8 filas/);
+  assert.match(salida, /La importación no crea personas, contratos ni posiciones de Bolsa/);
+});
+
 test("las bandejas densas identifican y fijan sus columnas operativas", async () => {
   const modo = { valor: true };
   const u = utilidades(modo);

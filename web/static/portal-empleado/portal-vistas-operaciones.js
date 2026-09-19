@@ -6,6 +6,8 @@ export function crearVistasOperaciones(u) {
 
   function renderizarImportacion(datos) {
     const filas = datos.importaciones.map((item) => [e(item.id), e(item.origen), e(item.lote), `<code>${e(item.huella)}</code>`, numero(item.validas), numero(item.incidencias), e(item.autoridad), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Validar lote", "validar-importacion", item.id, "boton-terciario")}${botonOperacion("Descartar", "descartar-importacion", item.id, "boton-terciario")}</div>`]);
+    const detalles = datos.importaciones.flatMap((item) => (item.incidencias_detalle || []).map((incidencia) => [e(item.id), e(incidencia.fila), e(incidencia.campo), e(incidencia.motivo)]));
+    const controles = datos.importaciones.flatMap((item) => (item.controles_formato || []).map((control) => [e(item.id), e(control.control), e(control.resultado)]));
     return `
       ${encabezadoVista("Carga gobernada", "Importación desde Convoca", "Recorrido visual de staging, validación y conciliación. La fuente nunca se considera autoritativa por sí sola.", botonOperacion("Simular nueva lectura", "validar-importacion", "DEMO-IMP-NUEVA", "boton-primario"))}
       ${avisoPresentacion("No se selecciona ni procesa ningún archivo del equipo. Los lotes son fixtures sintéticos ya incluidos en la demostración.")}
@@ -17,7 +19,21 @@ export function crearVistasOperaciones(u) {
         prioridadColumnas: "estado-acciones",
         filas,
       })}</section>
-      <div class="rejilla-dos-columnas panel-separado"><section class="panel"><div class="cabecera-panel"><h3>Controles antes de conciliar</h3><span class="estado-chip violeta">Contrato cerrado</span></div><ul class="lista-comprobacion"><li>Formato y cabeceras exactos</li><li>Límites de tamaño, filas, columnas y celdas</li><li>Fórmulas y contenido activo rechazados</li><li>Normalización sin ocultar valores originales</li><li>Duplicados e incoherencias señalados</li><li>Acta con huella, actor y resultado</li><li class="pendiente">Conciliación corporativa pendiente de conector</li></ul></section><aside class="nota-pendiente"><strong>Bloqueo explícito.</strong> La importación no crea personas, contratos ni posiciones de Bolsa. ${botonBloqueado("Conciliar con datos corporativos", "Falta el conector corporativo autorizado, cifrado de identificadores y política de retención aprobada.")}</aside></div>`;
+      <div class="rejilla-dos-columnas panel-separado">
+        <section class="panel"><div class="cabecera-panel"><div><h3>Incidencias detectadas</h3><p>Se revisan antes de cualquier validación DEMO; no se corrige ni se da de alta ninguna persona.</p></div><span class="estado-chip aviso">${numero(detalles.length)} pendientes</span></div>${tabla({
+          titulo: "Incidencias por lote Convoca",
+          cabeceras: ["Lote", "Fila", "Campo", "Motivo"],
+          clavesColumnas: ["referencia", "fila", "campo", "motivo"],
+          filas: detalles.length > 0 ? detalles : [["—", "—", "—", "Sin incidencias sintéticas registradas"]],
+        })}</section>
+        <section class="panel"><div class="cabecera-panel"><div><h3>Controles de formato</h3><p>Resultado visible por lote, sin leer archivos del equipo.</p></div><span class="estado-chip info">Solo DEMO</span></div>${tabla({
+          titulo: "Controles de los lotes Convoca",
+          cabeceras: ["Lote", "Control", "Resultado"],
+          clavesColumnas: ["referencia", "control", "resultado"],
+          filas: controles,
+        })}</section>
+      </div>
+      <div class="rejilla-dos-columnas panel-separado"><section class="panel"><div class="cabecera-panel"><h3>Controles antes de conciliar</h3><span class="estado-chip violeta">Controles del formato</span></div><ul class="lista-comprobacion"><li>Formato y cabeceras exactos</li><li>Límites de tamaño, filas, columnas y celdas</li><li>Fórmulas y contenido activo rechazados</li><li>Normalización sin ocultar valores originales</li><li>Duplicados e incoherencias señalados</li><li>Acta con huella, actor y resultado</li><li class="pendiente">Conciliación corporativa pendiente de conector</li></ul></section><aside class="nota-pendiente"><strong>Bloqueo explícito.</strong> La importación no crea personas, contratos ni posiciones de Bolsa. ${botonBloqueado("Conciliar con datos corporativos", "Falta el conector corporativo autorizado, cifrado de identificadores y política de retención aprobada.")}</aside></div>`;
   }
 
   function renderizarLlamamientos(datos) {

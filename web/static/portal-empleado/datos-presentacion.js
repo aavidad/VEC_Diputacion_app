@@ -225,8 +225,27 @@ const DATOS = {
     { id: "DEMO-ALE-002", persona_ref: "DEMO-PER-002", objeto: "DEMO-RAN-003 · desempate", registrada: "16/07/2026 09:05", plazo: "Dentro de plazo", evidencia: "DEMO-DOC-ALE-002", estado: "En estudio" },
   ],
   importaciones: [
-    { id: "DEMO-IMP-001", origen: "Convoca · XLS sintético", lote: "Lote DEMO de 12 filas", huella: "SHA-256 DEMO…A19F", validas: 10, incidencias: 2, autoridad: "No autoritativa", estado: "Pendiente de validación" },
-    { id: "DEMO-IMP-002", origen: "Convoca · XLS sintético", lote: "Lote DEMO de 8 filas", huella: "SHA-256 DEMO…72C4", validas: 8, incidencias: 0, autoridad: "No autoritativa", estado: "Validada" },
+    {
+      id: "DEMO-IMP-001", origen: "Convoca · XLS sintético", lote: "Lote DEMO de 12 filas", huella: "SHA-256 DEMO…A19F", validas: 10, incidencias: 2, autoridad: "No autoritativa", estado: "Pendiente de validación",
+      controles_formato: [
+        { control: "Libro y hoja esperados", resultado: "Reconocidos en el fixture DEMO" },
+        { control: "Cabeceras requeridas", resultado: "Revisadas; sin sustitución automática" },
+        { control: "Celdas, fórmulas y contenido activo", resultado: "Sin contenido activo en el fixture DEMO" },
+      ],
+      incidencias_detalle: [
+        { fila: "4", campo: "Categoría", motivo: "Valor sintético fuera del catálogo del lote" },
+        { fila: "9", campo: "Puntuación", motivo: "La celda sintética no contiene un valor numérico" },
+      ],
+    },
+    {
+      id: "DEMO-IMP-002", origen: "Convoca · XLS sintético", lote: "Lote DEMO de 8 filas", huella: "SHA-256 DEMO…72C4", validas: 8, incidencias: 0, autoridad: "No autoritativa", estado: "Validada",
+      controles_formato: [
+        { control: "Libro y hoja esperados", resultado: "Reconocidos en el fixture DEMO" },
+        { control: "Cabeceras requeridas", resultado: "Revisadas; sin sustitución automática" },
+        { control: "Celdas, fórmulas y contenido activo", resultado: "Sin contenido activo en el fixture DEMO" },
+      ],
+      incidencias_detalle: [],
+    },
   ],
   llamamientos_demo: [
     { id: "DEMO-LLA-045", necesidad: "DEMO-NEC-0045", bolsa: "Auxiliar Administrativo", orden: "Prelación v3", incluidos: 1, plazo: "20/07/2026 09:00", canal: "Sin envío real", estado: "Pendiente de propuesta" },
