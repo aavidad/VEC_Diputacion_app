@@ -89,95 +89,31 @@ function panelInternoReal() {
   };
 }
 
-test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos", () => {
-  assert.match(javascript, /const API_PANEL_BOLSA = "\/api\/vec\/bolsa\/panel"/);
-  assert.equal(`${javascript}\n${apiLlamamientos}`.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
+test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => {
+  assert.doesNotMatch(javascript, /\/api\/vec\/bolsa\/panel/);
+  assert.doesNotMatch(javascript, /const cargaDisponibilidad = superficieBorradores/);
+  assert.match(javascript, /await coordinadorModulos\.cargarInterno\(\)\.catch/);
+  assert.match(javascript, /controladorBolsas\.cargarBolsas\(\)/);
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "(?:same-origin|include)"/);
   assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
   assert.doesNotMatch(javascript, /PROVEEDOR_BEARER_BORRADORES|globalThis\[[^\]]*BEARER/i);
   assert.doesNotMatch(javascript, /Bearer|Authorization|resolverProveedorBearer|obtenerBearer/i);
-  assert.match(javascript, /extraerDatosEnvelopeCanonico\(envelope\)/);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
-  assert.match(javascript, /if \(respuesta\.status === 401\)/);
-  assert.match(javascript, /if \(respuesta\.status === 403\)/);
   assert.match(javascript, /let DATOS_PANEL = DATOS_VACIOS/);
-  assert.match(javascript, /superficieBorradores\.comprobarDisponibilidad\(\)/);
   assert.match(javascript, /superficieBorradores\.obtenerAcceso\(\)/);
   assert.doesNotMatch(javascript, /resolverAcceso\(clave, estado\.fuenteLista\)/);
   assert.doesNotMatch(codigo, /María Pérez|García López|Auxiliar Administrativo|BOL-2026|CON-2026|DOC-[A-Z]{2}|20\/07\/2026/);
 });
 
-test("el 404 de Bolsa conserva su error y reintento sin atribuirlo a la identidad del portal", async () => {
-  const elemento = () => ({
-    textContent: "", atributos: {},
-    setAttribute(nombre, valor) { this.atributos[nombre] = valor; },
-  });
-  const avatar = elemento(), nombre = elemento(), perfil = elemento(), avisos = elemento();
-  const sesion = {
-    ...elemento(), dataset: { actorRef: "actor:anterior" },
-    querySelector: (selector) => ({ ".avatar": avatar, strong: nombre, small: perfil })[selector],
-  };
-  const estado = { fuenteLista: false, modoPresentacion: false, errorFuente: "" };
-  let cargasModulos = 0;
-  const fragmento = (inicio, fin) => javascript.slice(
-    javascript.indexOf(inicio), javascript.indexOf(fin, javascript.indexOf(inicio)),
-  );
-  const contexto = {
-    estado, DATOS_PANEL: { sesion: null }, API_PANEL_BOLSA: "/api/vec/bolsa/panel",
-    porId: () => sesion, traducirPortal,
-    document: { querySelector: (selector) => selector === ".aviso-presentacion" ? {} : avisos },
-    modoPresentacionSolicitado: () => false,
-    coordinadorModulos: { async cargarInterno() { cargasModulos += 1; } },
-    superficieBorradores: { comprobarDisponibilidad: async () => {} },
-    actualizarNavegacionModulos() {},
-    async fetch(ruta, opciones) {
-      assert.equal(ruta, "/api/vec/bolsa/panel");
-      assert.equal(opciones.credentials, "omit");
-      return { ok: false, status: 404 };
-    },
-    escaparHTML: (valor) => String(valor),
-    encabezadoVista: (...textos) => textos.join(" "),
-  };
-  const funciones = [
-    fragmento("function actualizarSesionVisible()", "async function cargarFuenteDatos()"),
-    fragmento("async function cargarFuenteDatos()", "function necesidadLlamamientoSeleccionada()"),
-    fragmento("function renderizarFuenteNoDisponible()", "function renderizarContratacionTemporalNoDisponible()"),
-  ].join("\n");
-  const bolsa = await runInNewContext(
-    funciones + "\ncargarFuenteDatos().then(() => renderizarFuenteNoDisponible());",
-    contexto,
-  );
-  assert.equal(cargasModulos, 1, "la carga modular sigue independiente del panel");
-  assert.equal(estado.fuenteLista, false);
-  assert.match(estado.errorFuente, /panel de Bolsa aún no está compuesta/u);
-  assert.match(bolsa, /Gestión de Bolsas no disponible/u);
-  assert.ok(bolsa.includes(estado.errorFuente));
-  assert.match(bolsa, /data-accion="recargar-fuente"/u);
-  assert.equal(nombre.textContent, MENSAJES_PORTAL_ES.contexto_portal_titulo);
-  assert.equal(perfil.textContent, MENSAJES_PORTAL_ES.contexto_portal_descripcion);
-  assert.equal(sesion.atributos["aria-label"], MENSAJES_PORTAL_ES.contexto_portal_accesible);
-  assert.equal(Object.hasOwn(sesion.dataset, "actorRef"), false);
-  assert.equal(avatar.textContent, "—");
-  assert.doesNotMatch(html, /Sesión no resuelta|La API interna debe identificar al usuario/u);
-  for (const texto of [nombre.textContent, perfil.textContent, sesion.atributos["aria-label"]]) {
-    assert.ok(html.includes(texto), "la cabecera inicial coincide con el catálogo i18n");
-  }
-  // Un panel válido conserva su contexto real y el tratamiento de avisos.
-  contexto.DATOS_PANEL = validarPanelBolsa(panelInternoReal());
-  contexto.presentadorPanelInterno = crearPresentadorPanelInterno({
-    claseEstado: () => "neutro", encabezadoVista: () => "",
-    escaparHTML: String, numero: String, tituloVista: String,
-    obtenerDatosPanel: () => contexto.DATOS_PANEL,
-  });
-  estado.fuenteLista = true;
-  runInNewContext("actualizarSesionVisible();", contexto);
-  assert.equal(avatar.textContent, "INT");
-  assert.equal(nombre.textContent, "Contexto interno autorizado");
-  assert.equal(perfil.textContent, "Ámbito: organización");
-  assert.equal(avisos.atributos["aria-label"], "Avisos no incluidos en el contrato del panel interno");
-  contexto.DATOS_PANEL = { sesion: null };
-  runInNewContext("actualizarSesionVisible();", contexto);
-  assert.equal(perfil.textContent, MENSAJES_PORTAL_ES.contexto_portal_descripcion);
+test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
+  const inicio = javascript.indexOf("async function cargarFuenteDatos()");
+  const fin = javascript.indexOf("function necesidadLlamamientoSeleccionada()", inicio);
+  const cargaInicial = javascript.slice(inicio, fin);
+  assert.ok(inicio > 0 && fin > inicio);
+  assert.doesNotMatch(cargaInicial, /fetch\(/);
+  assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
+  assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
+  assert.match(cargaInicial, /controladorBolsas\.cargarBolsas\(\)/);
 });
 
 test("el contrato real exige envelope canónico y rechaza una raíz raw", () => {

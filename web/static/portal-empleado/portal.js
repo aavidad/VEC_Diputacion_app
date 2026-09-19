@@ -38,7 +38,6 @@ import { crearControladorBolsas } from "./portal-bolsas-api.js";
  * cliente autenticado, CAS e idempotencia. Mapa de sustitución y límites:
  * docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
  */
-const API_PANEL_BOLSA = "/api/vec/bolsa/panel";
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
   demostracion: false,
@@ -376,32 +375,9 @@ async function cargarFuenteDatos() {
   superficieBorradoresPresentacion = null;
   renderizarResumenPresentacion = null;
   aviso.hidden = true;
-  const cargaCatalogo = coordinadorModulos.cargarInterno().catch(() => null);
-  const cargaDisponibilidad = superficieBorradores.comprobarDisponibilidad();
-  try {
-    const respuesta = await fetch(API_PANEL_BOLSA, {
-      method: "GET",
-      credentials: "omit",
-      headers: { Accept: "application/json" },
-    });
-    if (!respuesta.ok) {
-      if (respuesta.status === 401) throw new Error("Se requiere una sesión interna autenticada.");
-      if (respuesta.status === 403) throw new Error("La sesión no dispone de ámbito para gestionar Bolsas.");
-      if (respuesta.status === 404 || respuesta.status === 501) throw new Error("La API interna del panel de Bolsa aún no está compuesta.");
-      throw new Error(`No se pudo cargar el panel (HTTP ${respuesta.status}).`);
-    }
-    const envelope = await respuesta.json();
-    DATOS_PANEL = validarPanelBolsa(extraerDatosEnvelopeCanonico(envelope), false);
-    estado.fuenteLista = true;
-    actualizarSesionVisible();
-  } catch (error) {
-    estado.errorFuente = error instanceof Error ? error.message : "No se pudo cargar la fuente interna.";
-    estado.fuenteLista = false;
-    actualizarSesionVisible();
-  }
-  await Promise.all([cargaCatalogo, cargaDisponibilidad]);
-  // Las bolsas (B12/B5) tienen su propia API; se cargan aunque el panel agregado no esté compuesto.
-  if (!estado.modoPresentacion && typeof controladorBolsas !== "undefined") void controladorBolsas.cargarBolsas();
+  await coordinadorModulos.cargarInterno().catch(() => null);
+  // Borradores comprueba su API al abrir la vista. B12/B5 usa su propia API compuesta.
+  if (typeof controladorBolsas !== "undefined") void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
 
