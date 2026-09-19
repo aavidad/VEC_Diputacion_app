@@ -34,9 +34,11 @@ func TestSuperficiePublicaSirveLandingAccesoSinIdentidad(t *testing.T) {
 			}
 			if prueba.metodo == http.MethodGet && prueba.ruta == "/" {
 				landing := rec.Body.String()
+				if strings.Contains(landing, "/bolsa/") || strings.Contains(strings.ToLower(landing), "consultar bolsas") {
+					t.Error("landing ofrece navegacion publica a bolsas")
+				}
 				for _, contenido := range []string{
 					"Cl@ve", "Certificado digital", "DNIe", "Acceso pendiente de configuración",
-					"/bolsa/#ayuda-publica",
 				} {
 					if !strings.Contains(landing, contenido) {
 						t.Errorf("landing no contiene %q", contenido)
@@ -45,7 +47,7 @@ func TestSuperficiePublicaSirveLandingAccesoSinIdentidad(t *testing.T) {
 				if strings.Contains(landing, "auth.vec.dipgra.cloud") ||
 					strings.Contains(landing, "href=\"/acceso/inicio/") ||
 					strings.Count(landing, "disabled aria-describedby=\"estado-acceso\"") != 3 {
-					t.Error("landing ofrece un acceso autenticado activo o no deshabilita los tres métodos")
+					t.Error("landing ofrece navegación pública a bolsas, un acceso autenticado activo o no deshabilita los tres métodos")
 				}
 			}
 		})
@@ -189,7 +191,6 @@ func TestSuperficiePublicaExponeCatalogoEspanolLandingAcceso(t *testing.T) {
 	for _, clave := range []string{
 		"acceso.titulo_pagina", "acceso.estado.titulo", "acceso.metodo.clave.titulo",
 		"acceso.metodo.certificado.titulo", "acceso.metodo.dnie.titulo", "acceso.metodo.pendiente",
-		"acceso.enlaces.bolsa",
 	} {
 		if strings.TrimSpace(catalogo[clave]) == "" {
 			t.Errorf("catalogo sin traduccion por defecto para %q", clave)
@@ -200,7 +201,6 @@ func TestSuperficiePublicaExponeCatalogoEspanolLandingAcceso(t *testing.T) {
 	for _, marca := range []string{
 		"lang=\"es\"", "data-i18n-catalogo=\"/acceso/locales/es.json\"",
 		"data-i18n=\"acceso.titulo\"", "data-i18n=\"acceso.metodo.pendiente\"",
-		"data-i18n-atributo=\"aria-label:acceso.enlaces.etiqueta\"",
 		"src=\"/acceso/acceso-i18n.js\"",
 	} {
 		if !strings.Contains(landing.Body.String(), marca) {
