@@ -1,6 +1,14 @@
 # Análisis integral del portal de Recursos Humanos
 
-Fecha de corte del estudio: **16 de julio de 2026**.
+Base del estudio: **16 de julio de 2026**. Revisión de relaciones y ampliabilidad:
+**19 de septiembre de 2026**, sobre código canónico `da708d6385201231548943b87e187e3320aac575`.
+
+Lectura de continuidad para agentes: [síntesis vigente](#15-síntesis-vigente-para-los-agentes),
+[ficha personal integral](#17-ficha-personal-integral-del-empleado) y
+[contrato modular vigente](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
+Esta revisión es un **estudio**, no implementación ni nueva validación normativa.
+Las observaciones legales fechadas en julio se conservan como antecedentes pendientes
+de contraste institucional, no como afirmaciones revalidadas en septiembre.
 
 Estado: **especificación de referencia en elaboración y NO-GO productivo** hasta
 que RRHH, Secretaría/Asesoría Jurídica, Intervención, Archivo, DPD, Seguridad y
@@ -20,8 +28,10 @@ Esta separación permite cumplir simultáneamente cuatro necesidades:
 2. que Bolsa, Personal, RPT, Cronos, Nómina o Prevención no reinterpreten el
    mismo hecho de formas contradictorias;
 3. que un permiso sobre una finalidad no abra datos de otra;
-4. que una nueva norma, convenio, base o módulo se incorpore sin recompilar el
-   núcleo ni alterar expedientes cerrados.
+4. que una nueva norma, convenio, base o módulo se incorpore sin reescribir las
+   reglas del núcleo ni alterar expedientes cerrados. Añadir código Go puede
+   requerir compilar y desplegar el ensamblaje; cambiar una política declarativa
+   admitida no requiere introducir código ejecutable.
 
 La aplicación no decidirá derechos por semejanza, por una constante de código
 o por una práctica observada en otra Administración. Toda decisión funcional
@@ -325,6 +335,11 @@ interpreta como cero, ausencia, vacante, permiso o cumplimiento.
 
 ## 9. Superficies de acceso
 
+El despliegue concreto de esta sección es el diseño histórico. La orden del
+operador de septiembre exige poder elegir exposición por módulo; prevalece
+la matriz del apartado 19 para el estudio futuro. No cambia hoy ninguna red
+ni habilita acceso externo a datos internos.
+
 Se mantienen físicamente y lógicamente separadas:
 
 1. portal público sin identidad para información publicada;
@@ -364,7 +379,10 @@ objetivo de diseño sigue siendo soportar ENS categoría ALTA; no se declarará
 conformidad hasta disponer de categorización, análisis de riesgos, implantación,
 auditoría y evidencias.
 
-## 11. Hallazgos sobre el código actual
+## 11. Hallazgos históricos sobre el código — julio de 2026
+
+Esta tabla no describe el runtime de septiembre. La revisión actual del
+apartado 16 separa código canónico, demostración y ampliación pendiente.
 
 Los paquetes actuales de Personal, Cronos y Dietas son demostraciones útiles
 para descubrir necesidades, pero no son autoridad funcional ni están listos
@@ -456,3 +474,257 @@ La matriz normativa detallada y la comparación ampliada de aplicaciones forman
 parte de esta memoria. Las especificaciones por módulo seguirán completándola
 sin convertirla en una norma jurídica. La aprobación final corresponde a los
 órganos y unidades competentes.
+
+## 15. Síntesis vigente para los agentes
+
+El fin de VEC es un portal integral de personas y procedimientos de Diputación.
+El empleado consultará desde su apartado personal la información que Diputación
+mantiene sobre él y los trámites relacionados; RRHH trabajará sobre los mismos
+hechos, con vistas y competencias diferentes. El alcance funcional completo
+continúa en el catálogo del apartado 14: no se reduce a Contratación.
+
+Decisiones del operador que guían esta ampliación:
+
+- Terminar primero Contratación en sus partes independientes de RRHH; después
+  Bolsa y apoyo a Dietas/Cronos. Mantener las integraciones útiles ya construidas.
+- Estudiar ahora la ficha integral y Formación, sin empezar a programarlas.
+- Añadir módulos como extensiones registradas, con datos y lógica propios, sin
+  rehacer el portal ni introducir otra identidad o autoridad de permisos.
+- Mantener hexagonalidad, i18n, diseño común, auditoría y separación de red.
+- Entregar funciones completas y pequeñas: pantalla, caso de uso y resultado
+  recuperable cuando corresponda; no contratos sin consumidor ni pruebas masivas.
+- Elaborar manuales definitivos cuando RRHH valide los recorridos.
+
+Este estudio define fronteras y dependencias; no ordena construir todos los
+módulos a la vez. La lista de contextos del apartado 6 sigue siendo el catálogo
+funcional general; un contexto no exige un contenedor ni un paquete nuevo hoy.
+
+## 16. Qué existe y qué no debe darse por conectado
+
+La inspección de septiembre encuentra siete directorios en `internal/modules`:
+`administracion`, `bolsa`, `contrataciontemporal`, `cronos`, `dietas`, `personal`
+y `usuarios`. El resto de capacidades puede estar en el núcleo, prototipos o
+especificaciones: no debe deducirse su terminación de una carpeta o un menú.
+
+| Área | Base aprovechable | Límite y siguiente conexión útil |
+| --- | --- | --- |
+| Contratación temporal | Expedientes, análisis/rectificación, formularios, incorporación, descarga GINPIX, seguimiento e historia recuperados en desarrollo | 16/19 pantallas de desarrollo según seguimiento; Llamamiento/Resultado parciales y Firma pendiente de circuito. No es producción |
+| Bolsa y selección | Dominio, servicios, convocatorias, candidaturas, baremación y enlace con CT existentes | Auditar cada recorrido y el trabajo rescatado antes de ampliar; no afirmar Bolsa completa por su manifiesto |
+| Personal | Dominio y aplicación existentes; incorporación de ejercicio y lectura acotada para CT | Una incorporación sintética no acredita empleo eficaz ni proporciona por sí sola el vínculo del empleado autenticado para todos los módulos |
+| Dietas | `vista.js`, `presentador.js`, `contrato.js`, mapa y cálculo de ruta; gastos de manutención, alojamiento, otros y total | `adaptador-presentacion.js` conserva datos en memoria. Conectar la vista completa a persistencia/autorización; el mapa aislado no la sustituye |
+| Cronos | Dominio, aplicación, vistas y prototipos de tiempo | Persistencia, vínculo empleado y composición nominal deben acreditarse en la entrega; un constructor aislado no es un fichaje operativo |
+| Usuarios, identidad y administración | Contratos centrales de identidad/contexto, autorización y módulos existentes | El perfil o certificado no acredita vínculo laboral ni concede permisos; no declarar terminada la administración de toda VEC |
+| Formación, nómina integral y demás materias | Catálogo y estudios funcionales existentes; algunas piezas o demostraciones repartidas | Formación no tiene módulo propio en la canónica inspeccionada. El estudio de estas áreas no acredita interfaces corporativas ni funciones disponibles |
+
+La ficha/directorio histórico de `web/static/app.js` genera personas, servicios,
+trienios, nóminas y dietas sintéticos. Incluye almacenamiento web de demostración:
+no satisface E07 ni se reutiliza como maestro o persistencia del portal real.
+`personal/domain/payroll.go` es un cálculo preliminar, no un libro completo de
+nómina/cotización. Que un importe o curso se vea en esa demo no lo hace oficial.
+
+Referencias de implementación para retomar sin reconstruir:
+
+- `internal/modules/personal/manifest.go` y `personal/domain/{catalog,organizacion}.go`:
+  navegación y piezas de catálogo/organización, no ficha integral productiva.
+- `internal/modules/contrataciontemporal/ports/integracion_personal.go` y
+  `personal/adapters/{contrataciontemporal,postgres,lecturaincorporacion}`:
+  incorporación y lector con finalidad CT; no prestar su permiso a autoservicio.
+- `internal/vec/domain/contexto_actor.go` y `internal/vec/ports/contexto_actor.go`:
+  vínculo tipado y resolución central; la relación de empleo exige su autoridad.
+- `internal/vec/adapters/httpapi/cronos.go`: rutas canónicas cerradas mientras
+  falta composición. La candidata del segundo equipo se valora por separado.
+- `web/static/portal-empleado/modulos/dietas/{vista,presentador,contrato,adaptador-presentacion}.js`:
+  preservar ruta, gastos y desglose al reemplazar el adaptador volátil.
+
+El WIP del segundo equipo sobre Dietas/Cronos está separado de esta base;
+se integra solo después de revisión y comprobación. No se copia su estado
+"candidato" como capacidad de la rama canónica. Las cifras vivas y evidencia
+permanecen en `ESTADO_PROYECTO.md`; este estudio no crea otro contador.
+
+## 17. Ficha personal integral del empleado
+
+### Identidad y relaciones
+
+Una persona canónica puede tener varias cuentas, candidaturas y relaciones de
+servicio a lo largo del tiempo. La referencia de empleado enlaza con esa persona;
+no se crea un empleado distinto para Dietas, Cronos o Formación. Una relación
+puede tener diferentes adscripciones y ocupaciones con fechas de efectos.
+
+```mermaid
+flowchart LR
+  I[Identidad y cuentas] --> C[Contexto del actor autorizado]
+  C --> P[Persona canónica]
+  P --> E[Empleado en Personal]
+  E --> R[Relaciones de servicio e historia]
+  R --> O[Adscripciones y ocupaciones]
+  ORG[Organización y RPT] --> O
+  P --> B[Candidaturas en Bolsa]
+  E --> A[Mi información personal]
+  T[Cronos] --> A
+  D[Dietas] --> A
+  F[Formación] --> A
+  N[Nómina y cotización] --> A
+  R --> A
+  H[RRHH según competencia] --> R
+  H --> T
+  H --> D
+  H --> F
+```
+
+Las flechas representan relaciones o consultas autorizadas, nunca acceso directo
+al SQL ajeno. El contexto central vincula actor con referencias acreditadas;
+Personal acredita la relación de servicio. Organización aporta unidad, jerarquía y
+asignaciones competentes; un nombre de cargo no otorga facultad para aprobar.
+RRHH es un espacio de gestión por competencias, no otra ficha maestra duplicada.
+
+### Bloques que debe poder consultar la persona
+
+La siguiente matriz es alcance futuro, no una lista de pantallas terminadas.
+En todos los bloques, la consulta depende de autorización, procedencia y
+clasificación; "toda mi información" no abre datos de terceros ni compartimentos
+reservados mediante una consulta general. Debe existir un cauce para consultar
+información restringida o solicitar corrección, según el procedimiento aplicable.
+
+| Bloque personal | Autoridad del dato | Información y actuación prevista |
+| --- | --- | --- |
+| Identificación y contacto | Personas y representación; fuente maestra corporativa pendiente | Identificadores protegidos, contacto y correo obligatorio del alta VEC; proponer corrección, verificar cambios que lo requieran |
+| Vínculos de acceso y representación | Identidad/representación central | Cuentas y representación admitidas; no mostrar claves ni convertir el titular en administrador |
+| Situación y relación de servicio | Personal | Contratos, nombramientos, régimen, altas, ceses y situaciones; lectura de actos, solicitud de rectificación |
+| Unidad, centro, plaza y puesto | Organización/RPT y ocupaciones de Personal | Adscripción actual e histórica con fechas; no confundir puesto vacío con vacante cubrible |
+| Servicios prestados | Personal y fuentes externas acreditadas | Periodos, jornada, interrupciones, procedencia y certificados; separar declarado, comprobado y reconocido |
+| Antigüedad y trienios | Personal para reconocimiento; Nómina para efecto económico | Periodos computables, resolución y fecha de efectos; previsión etiquetada si existe política validada |
+| Grado, carrera y evaluación | Carrera/Desempeño; Personal registra actos eficaces | Reconocimientos y expedientes, no ascensos automáticos por antigüedad |
+| Jornada y tiempo trabajado | Cronos | Cuadrantes, fichajes, incidencias, saldos aprobados y su periodo; pedir corrección con evidencia |
+| Permisos, vacaciones y teletrabajo | Cronos/capacidad competente de tiempo | Solicitudes, autorización, consumo y saldos; causas reservadas separadas |
+| Titulaciones y méritos | Registro Único de Méritos y fuente acreditante | Hechos, documentos y validaciones; la puntuación pertenece a cada baremo/convocatoria |
+| Cursos y formación | Formación | Inscripciones, asistencia, superación, horas y certificados; cursos externos sujetos a comprobación |
+| Nóminas y retribuciones | Nómina o sistema corporativo que se confirme | Recibos por periodo, conceptos, deducciones, atrasos y versiones; datos económicos de acceso específico |
+| Bases de cotización | Nómina/Seguridad Social mediante fuente acordada | Base y tipo por periodo, rectificaciones, fuente y fecha de actualización; no derivar del salario visible |
+| Fiscalidad y certificados económicos | Nómina/fuente fiscal competente | Retenciones y certificados permitidos; no reconstruir declaraciones oficiales con sumas orientativas |
+| Dietas y desplazamientos | Dietas; contabilidad/Tesorería acredita pago | Rutas, kilómetros, gastos, justificantes, anticipos, liquidaciones y pagos conciliados |
+| Ayudas, anticipos y pensiones | Acción Social/Nómina según materia | Solicitud, concesión, abono y saldo según fuente, con datos familiares compartimentados |
+| Selección, bolsa y movilidad | Bolsa/Selección/Provisión | Solicitudes propias, posición, resoluciones y méritos aplicados; acceder con perfil y finalidad correspondientes |
+| Prevención y adaptación | PRL; datos clínicos en su autoridad propia | Documentación accesible al titular y conclusiones funcionales admitidas; sin copia de historia clínica al expediente ordinario |
+| Incompatibilidades y relaciones laborales | Unidad competente y expediente específico | Declaraciones, solicitudes y actos autorizados; disciplina, afiliación y denuncias con acceso segregado |
+| Documentos y certificados | Módulo productor + archivo documental común | Original, versión, estado de firma y expediente de origen; misma referencia documental sin duplicar ficheros |
+| Solicitudes, avisos y notificaciones | Módulo del trámite + comunicaciones | Estado, responsable competente, recibo y siguiente acción; un aviso no acredita notificación oficial |
+| Correcciones y trazabilidad consultable | Autoridad del dato + auditoría común | Solicitudes de corrección, resultado y procedencia accesibles; los logs técnicos completos no son una ficha personal |
+
+### Presentación y consulta federada
+
+- Una cabecera común identifica persona y relación seleccionada; pestañas
+  agrupan Empleo, Tiempo, Formación, Economía, Trámites y Documentos. Las vistas
+  de jefatura y RRHH muestran solo las tareas y campos de su competencia.
+- Cada bloque consulta una proyección mínima del módulo dueño, por puerto/API
+  versionado. No se envía toda la ficha al navegador para ocultar campos con CSS.
+- No cargar todos los módulos al abrir Personal. Cargar el bloque necesario;
+  consultas paginadas y periodos acotados, con cancelación al salir de la vista.
+- Mostrar fuente, fecha de efectos, fecha de actualización y carácter declarado,
+  provisional o confirmado. Un dato ausente o servicio caído no significa cero.
+- Fallar un bloque de Nómina no oculta contratos o cursos disponibles. Respetar
+  denegación sin revelar existencia de datos; diferenciar indisponibilidad.
+- Un dato oficial se corrige en su módulo mediante solicitud/acto y versión
+  nueva. Una corrección de contacto no reescribe recibos ni documentos históricos.
+- Las proyecciones o cachés de servidor, si se necesitan, conservan procedencia,
+  vigencia, autorización y reconciliación. No son otra fuente maestra ni abren
+  paso de datos desde intranet a Internet. Se mantiene la prohibición vigente
+  de almacenamiento persistente del navegador.
+
+## 18. Relaciones que deben conservarse al ampliar
+
+| Origen → destino | Hecho mínimo intercambiado | Separación obligatoria |
+| --- | --- | --- |
+| Contratación → Personal | Acto/incorporación admitida, persona, relación, fechas y evidencia | Propuesta o ejercicio sintético no equivale a nombramiento eficaz |
+| Personal → Bolsa | Servicios, relación/cese, jornada y fecha de efectos acreditados | Bolsa decide disponibilidad con su regla; CT no cambia el orden por su cuenta |
+| Personal/Organización → Cronos y Dietas | Empleado, relación/adscripción vigente y autoridad competente acreditada | No derivar empleado del DNI o crear un aprobador por etiqueta de jefatura |
+| Cronos → Personal/Nómina | Incidencia de tiempo aprobada y periodo, cuando el caso lo requiera | Horas fichadas no son servicios reconocidos ni devengo económico por sí solas |
+| Personal → antigüedad/Nómina | Servicios reconocidos, regla/resolución y efectos | No calcular trienios sumando contratos o dividiendo días por una constante; solapes y servicios previos requieren política |
+| Formación → méritos/Carrera | Curso acreditado, horas, resultado y certificado | Inscrito ≠ asistente ≠ superado; curso acreditado ≠ puntuación o grado concedido |
+| Dietas → circuito económico → Dietas/Personal | Liquidación aprobada, identificador externo y confirmación del pago | Solicitado ≠ aprobado ≠ liquidado ≠ pagado; soportar abonos parciales, anticipos y rectificaciones sin doble suma |
+| PRL → Personal/Cronos | Conclusión o medida funcional estrictamente necesaria | No transportar diagnóstico ni expediente clínico |
+| Todos → archivo/auditoría | Referencias, metadatos y actuación según contrato | El almacenamiento común no concede acceso a documentos de otra finalidad |
+| Módulos → analítica | Proyección autorizada con definición y periodo | Un indicador no consulta libremente tablas ni filtra datos personales en exportaciones |
+
+Una consulta actual utiliza puerto síncrono cuando necesita respuesta inmediata.
+Un cambio ya confirmado puede notificarse mediante la bandeja de salida existente
+si hay un consumidor real. No crear un bus nuevo para cada módulo. Toda entrega
+con efecto se identifica y puede reconciliarse; duplicados y mensajes fuera de
+orden no sobrescriben una versión posterior. La transacción local conserva sus
+garantías; un intercambio entre módulos no se finge atómico con un JOIN ajeno.
+
+La fuente maestra por atributo debe acordarse con RRHH/Sistemas: por ejemplo,
+Personal en VEC puede consultar servicios de un registro corporativo sin
+reemplazarlo. GINPIX, WCRONOS, nómina, contabilidad, directorio, portafirmas y
+sistema formativo son conectores que deben inventariarse. No se presupone que
+sus APIs existan o estén habilitadas. Evitar sincronización bidireccional libre:
+definir quién escribe, quién confirma, conflicto, versión y estado pendiente.
+
+## 19. Módulos instalables y exposición por red
+
+El [contrato modular](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026)
+fija el diseño tipo plugin. Se registra cada módulo y se inyectan puertos;
+no hace falta conocer su lógica dentro del shell. Un despliegue puede agrupar
+módulos compatibles, sin convertirlos en dependencias obligatorias entre sí.
+
+| Superficie | Configuración objetivo solicitada | Efecto sobre datos y módulos relacionados |
+| --- | --- | --- |
+| Público y aspirante | Internet; publicación pública separada del área autenticada | Proyecciones públicas aprobadas, sin recursos privados del empleado |
+| Cronos | Poder habilitar acceso autenticado por Internet, además de la variante interna | Capacidad exterior delimitada; no publicar por arrastre Personal, GPS u otros datos internos |
+| Dietas y Personal | Poder mantenerlos exclusivamente en Mulhacén | Rutas, estáticos privados, API, trabajos, cartografía, credenciales y datos respetan esa frontera |
+| RRHH y jefaturas | Zona y ámbito admitidos para cada procedimiento | Una sesión de empleado no acumula facultades de su puesto de RRHH |
+| Administración | Intranet en producción; pruebas conforme a E05 | Certificado y concesión nominal; configuración privada fuera de Git |
+
+Esto modifica el objetivo histórico de Cronos exclusivamente interno: documenta
+la solicitud de configurabilidad, **no un cambio de despliegue realizado**.
+Antes de habilitarlo debe resolverse su política de canal y los proveedores
+admitidos. Un menú externo no consulta desde el navegador endpoints internos
+ni usa el agregador como túnel para eludir la política de red.
+
+## 20. Secuencia de ampliación sin rehacer la aplicación
+
+Estos cortes son un plan de reutilización, no encargos de programación abiertos:
+
+| Corte futuro | Resultado visible y acotado | Dependencia / ámbito exclusivo |
+| --- | --- | --- |
+| Concluir CT independiente | Formularios, historial y recuperación claros; límites de firma y comunicación fieles | CT y su composición; conservar todas las operaciones persistidas |
+| Revisar y completar Bolsa | Recorrido de convocatoria/candidatura y gestión real usando piezas existentes | Bolsa; consultar hechos Personal por contrato admitido |
+| Vínculo Personal para autoservicio | La sesión consulta su empleado y relación acreditados | Autoridad central/contexto y proyección Personal; revisión sensible antes de integrar |
+| Dietas completa existente | Ruta + gastos + total + guardar/recuperar sin perder desglose | Vista/presentador existentes, adaptador HTTP y autoridad Dietas; no sustituir por mapa aislado |
+| Cronos propio | Consultar/registrar tiempo propio con recibo recuperable | Fuente empleado y jornada, canal/configuración y persistencia de Cronos |
+| Mi información laboral | Consulta de relaciones, periodos y documentos existentes | Personal; sin incorporar a la vez nómina y formación completas |
+| Formación inicial | Curso, inscripción y consulta propia; después asistencia/certificado | Módulo Formación, autoridad empleado y documentos; sin motor de baremación nuevo |
+| Servicios reconocidos | Periodos y acto de reconocimiento consultables | Personal; cómputo orientativo solo con política aceptada y explicación |
+| Información económica | Primera consulta de recibo/base por periodo de fuente confirmada | Adaptador de lectura Nómina; no construir nómina integral para mostrar un documento |
+| Dietas cobradas | Consulta del pago confirmado y conciliación por liquidación | Fuente económica admitida; no etiquetar aprobación como pago |
+| Extensión modular repetible | Registrar una segunda capacidad sin añadir condicionales de negocio al shell | Evolucionar registro existente al añadir un consumidor real, sin framework anticipado |
+
+Para cada corte, dirección asigna productor de código Terra/medium, revisión
+proporcionada y comprobación focal. Documentación Sol/medium, mecánica Luna/low;
+SQL/identidad/criptografía y fronteras de datos personales requieren dos revisiones independientes y el
+modelo adecuado. Compartir interfaces antes de repartir archivos. El contrato
+nuevo debe llegar junto a su primer consumidor útil; no abrir ramas por cada
+puerto o crear capas que solo renombren la misma llamada.
+
+## 21. Decisiones pendientes que este estudio deja preparadas
+
+Se tramitan en el seguimiento de dudas existente al abordar su capacidad;
+no bloquean la finalización de las partes independientes de Contratación:
+
+1. Fuente maestra y diccionario por dato: persona, empleado, servicio, nómina,
+   cotización, pago, formación y responsable de unidad; correspondencias y API.
+2. Quién reconoce servicios y qué reglas/versiones deben usarse para antigüedad;
+   servicios de otras administraciones, solapes, jornadas y rectificaciones.
+3. Catálogo de formación, validez de cursos externos, aprobadores y relación con
+   méritos; no convertir automáticamente un curso en puntos o derecho económico.
+4. Circuitos Dietas y Cronos: solicitante, jefatura competente, suplencia,
+   RRHH/gestión, control económico, aprobaciones y devolución según trámite.
+5. Qué información puede consultar, descargar o corregir cada perfil, por campo;
+   procedimiento de acceso a reservados y derechos de terceros.
+6. Exposición concreta por módulo/capacidad y garantías del acceso exterior de
+   Cronos; sin ampliar la exposición de la ficha integral por defecto.
+7. Actualización/conciliación de fuentes, históricos migrables, conservación y
+   formato de documentos; importaciones y correcciones con revisión previa.
+
+El estudio queda cerrado como base de diseño para agentes; estas decisiones
+funcionales y las integraciones pendientes permanecen abiertas. No acredita
+que toda VEC esté implementada ni que RRHH haya dado conformidad.

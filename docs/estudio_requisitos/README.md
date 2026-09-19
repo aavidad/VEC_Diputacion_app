@@ -1,5 +1,16 @@
 # Estudio de requisitos del portal transversal de RRHH
 
+**Continuidad — 19 de septiembre de 2026:** [estudio integral actualizado](analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes)
+y [contrato de ampliación como plugin](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
+Son la lectura común para Personal, RRHH, Dietas, Cronos, Bolsa y Formación.
+Conservan el catálogo completo y distinguen lo implementado de lo diseñado.
+Las fases de julio inferiores son históricas: la prioridad vigente es terminar
+Contratación independiente de decisiones de RRHH, después Bolsa y apoyo a los
+otros módulos autorizados. Formación/ficha integral se estudian, no se programan
+ahora. La exposición por módulo es configurable como objetivo; Cronos exterior
+autenticado no habilita Personal o Dietas exteriores. Los manuales definitivos
+se elaborarán tras validación de RRHH.
+
 ## Orientación documental — 10 de septiembre de 2026
 
 Este índice reúne el estudio histórico de julio y sus fuentes. No es la guía

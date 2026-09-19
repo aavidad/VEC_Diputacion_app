@@ -18,6 +18,8 @@ Consultar los apartados afectados de estas fuentes, sin sustituirlos por este re
 
 - [Flujo de RRHH](docs/portal_vec/expediente_contratacion_temporal_rrhh.md).
 - [Arquitectura](docs/portal_vec/arquitectura_tecnica.md).
+- [Estudio integral de VEC y relaciones](docs/estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes), revisión de septiembre.
+- [Ampliación como módulos registrados](docs/portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
 - [Roles y ámbitos](docs/portal_vec/matriz_roles_y_ambitos.md).
 - [Cumplimiento, seguridad y auditoría](docs/portal_vec/cumplimiento_y_seguridad.md).
 - [Acceso interno y administración](docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md).
@@ -59,6 +61,28 @@ Las reglas son comunes a web, CLI, escritorio y otros canales.
 Reutilizar las autoridades existentes de identidad, autorización, auditoría,
 i18n y tema. No crear autoridades paralelas. Configuración canónica y adaptadores
 intercambiables; no conectar dobles de prueba como infraestructura real.
+
+### Ampliabilidad y misma persona — orden del operador, 19 de septiembre
+
+Añadir módulos mediante el registro y la composición existentes, con interfaces
+versionadas, rutas propias, i18n y dependencias por capacidad. No duplicar login,
+permisos, auditoría o ficha del empleado. El núcleo y el shell no incorporan las
+reglas de cada módulo. "Plugin" no obliga a carga dinámica ni a microservicios;
+compilar/desplegar un ensamblaje nuevo es compatible con este objetivo.
+
+Personal reúne una consulta autorizada de la información del mismo empleado:
+relaciones, servicios reconocidos, cursos/Formación, tiempo, cotización, dietas
+y documentos. Cada módulo conserva su dato; contacto/identidad canónica usa su
+autoridad común. No inferir relación de servicio de una cuenta, certificado o DNI.
+RRHH, empleado y jefatura consultan o actúan por competencias y campos exactos.
+No confundir fichajes con antigüedad, cursos con puntos, ni aprobación con pago.
+
+La exposición se configura por módulo/capacidad: estudiar Cronos autenticado
+exterior y Dietas/Personal internos sin abrirlos por el agregador. El estudio
+no modifica hoy redes ni proveedores autorizados. Formación y la ficha integral
+se estudian ahora; no iniciar su implementación por esta cláusula. Continúa la
+prioridad Contratación y la cola autorizada. Transmitir relaciones y propietarios
+concretos a cada agente según su tarea, no toda la memoria indiscriminadamente.
 
 ## E04. Roles, ámbitos y autorización
 

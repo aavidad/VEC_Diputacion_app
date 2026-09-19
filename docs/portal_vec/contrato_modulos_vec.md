@@ -1,5 +1,117 @@
 # Contrato de modulos VEC
 
+## Criterio vigente de ampliación — 19 de septiembre de 2026
+
+Orden del operador: VEC debe ampliarse **como un plugin**, conservando la
+hexagonalidad y los servicios comunes. Esta sección concreta el objetivo y
+prevalece sobre propuestas o clasificaciones históricas inferiores. Es estudio;
+no se ha implementado un instalador ni se autoriza aquí desplegar módulos nuevos.
+Relaciones funcionales: [estudio integral](../estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes).
+Base de código inspeccionada: `da708d6385201231548943b87e187e3320aac575`.
+
+### Qué significa «pegar el módulo»
+
+Incorporar un paquete revisado que aporte funcionalidad, registrarlo en la
+composición y desplegarlo con sus dependencias admitidas. El shell conoce su
+contrato, no sus reglas de negocio. Añadir Formación no exige modificar el
+funcionamiento de Contratación, Cronos o Dietas, ni duplicar la ficha del empleado.
+
+Puede requerir compilar Go, instalar migraciones nuevas de forma controlada y
+activar configuración. No promete carga de binarios en caliente, instalación de
+código de terceros, marketplace ni cero cambios de composición. Tampoco exige
+microservicios: separar despliegues cuando lo justifique red, fallo o ciclo de vida.
+
+### Soporte comprobado y límites
+
+| Mecanismo | Existe en la base inspeccionada | Pendiente para ampliación uniforme |
+| --- | --- | --- |
+| Manifiesto | `internal/vec/domain/types.go`: `ModuleManifest`, permisos y menú; validación de identificadores/rutas | Versión de contrato compatible y dependencias por capacidad; semver como texto no valida compatibilidad |
+| Registro servidor | `application/service.go`: `InternalOperations.RegisterModule`, `Service.Modules`, `BuildMenu`; `ports/ports.go`: `ModuleRegistryStore`; adaptador de memoria | No es instalación durable ni descubrimiento de plugins |
+| Composición | `bootstrap.go:newVECShellAPICompuestaConIdentidadYRutas` registra siete manifiestos explícitos | Reunir las entradas de montaje en descriptores de composición, sin duplicar registro |
+| Catálogo web | `portal-catalogo-modulos.js` consume `/api/vec/modules`, valida y construye navegación | El catálogo no instala clientes ni concede permisos |
+| Montaje web | `portal-modulos-coordinador.js`: `CLAVES_CARGA_MODULAR`, `CARGADORES_*`, `VISTAS_MODULOS_*`; imports locales y aislamiento de carga | Reducir mapas paralelos a una tabla local de montaje cuando se añada un consumidor |
+| Rutas y efectos | `httpapi/handler.go`, `HandlerOptions` y composición específica | Manifiesto y menú no conectan automáticamente handlers, autoridad ni almacenamiento |
+| Idiomas y tema | Claves traducidas, catálogos estáticos y estilos comunes | Declarar aportación del módulo y comprobar colisiones/faltantes; no otro sistema i18n |
+| Datos y despliegue | Migraciones por propietario y perfiles específicos existentes | No hay instalador genérico ni ejecución automática de migraciones desde manifiesto |
+
+Los ejemplos `VECModuleProvider` y `VECFrontendModule` de abajo son propuestas
+históricas, no interfaces acreditadas en uso. No programar otro framework para
+hacer coincidir ejemplos antiguos: evolucionar el registro real cuando un corte
+funcional necesite esa extensión.
+
+### Contenido mínimo de una extensión
+
+| Parte | Responsabilidad y condición |
+| --- | --- |
+| Identidad y compatibilidad | ID estable, versión del paquete y versión del contrato separadas; rango compatible; nombres únicos de rutas y traducciones |
+| Dominio y aplicación | Casos de uso del propietario; reglas sin HTTP/SQL/UI y puertos pequeños; no importar adaptadores o tablas de otro módulo |
+| Montaje backend | Constructor en composición con dependencias explícitas; rutas registradas en la autoridad existente; nada de autorregistro global con efectos ocultos |
+| Montaje frontend | Entrada local `mount/unmount` o equivalentes existentes; rutas/vistas, cancelación, limpieza de listeners y foco; cliente HTTP inyectado |
+| Personal y relaciones | Consumir referencias de persona/empleado y hechos de su dueño; proyección autorizada para Mi información cuando el módulo la necesite |
+| Autorización | Acciones, ámbitos, finalidad y campos concretos; concesión central por operación. El manifiesto describe necesidades, no otorga capacidades |
+| Persistencia | Tablas, roles y migraciones propias, versiones compatibles; recibos/historia/replay; aplicación no migra al arrancar |
+| Dependencias | Obligatorias u opcionales por capacidad, contrato consumido y comportamiento ante fallo; detectar ciclos de arranque |
+| Intercambio | API/puerto y, solo con consumidor, evento versionado. DTO mínimo, referencia, procedencia, efecto y reconciliación |
+| UX e i18n | Catálogos comunes, tema, estados accesibles, escritorio/móvil y teclado; no segundo menú global ni cadenas visibles sueltas |
+| Operación | Configuración privada, salud mínima por capacidad, correlación/logs sin datos sensibles; zona de red y activos necesarios |
+| Retirada | Desactivar rutas y trabajos con control; preservar datos, documentos, referencias y recibos. Desinstalar no ejecuta DOWN destructivo |
+
+El descriptor pertenece a composición; el dominio no conoce handlers, despliegues
+ni rutas web. Los imports web siguen enumerados en artefactos locales revisados:
+no ejecutar JavaScript ni SQL recibido del catálogo o de un formulario ADMIN.
+
+### Compatibilidad, activación y fallos
+
+1. Revisar paquete y sus rutas/versiones sin activar escrituras. Un conflicto de
+   ID, contrato o ruta impide activar la extensión afectada, no se resuelve
+   sobreescribiendo el registro de otro módulo.
+2. Confirmar precondiciones de datos, configuración y red. Preparar migraciones
+   aditivas y restauración; conservar migraciones instaladas e historia.
+3. Componer puertos existentes, activar capacidades autorizadas y ofrecer menú
+   solo donde proceda. Un módulo instalado puede tener una capacidad pendiente;
+   esto se muestra con su estado real.
+4. Comprobar la nueva función desde web hasta resultado, y recuperación cuando
+   escriba; revisión sensible doble para SQL/identidad/criptografía y fronteras de datos personales.
+5. Ante fallo, desactivar capacidad o volver a artefacto compatible. No borrar
+   tablas ni restaurar un backup sobre operaciones posteriores como rollback.
+
+El esquema evoluciona de forma aditiva: mantener consumidores anteriores mientras
+se actualizan; una ruptura exige versión y migración explícitas. No afirmar que
+versionar permite cualquier combinación de paquetes. Detectar dependencias
+obligatorias ausentes; no exigir módulos opcionales para arrancar el portal.
+
+Activación y publicación por red son diferentes: registrar Cronos no expone
+Dietas/Personal. Un módulo ausente no se sondea repetidamente ni deja botones
+operativos sin backend. Una caída de Formación no impide consultar un contrato;
+la caída de identidad o autorización bloquea las operaciones que las necesitan.
+
+### Ejemplo de incorporación futura: Formación
+
+Primer corte posible, pendiente de encargo: catálogo de cursos y consulta propia
+de inscripciones. Formación aporta dominio, API, vistas y catálogo i18n; consume
+identidad y vínculo empleado acreditado, sin crear su directorio de personas.
+Personal monta su proyección de lectura como sección, sin copiar cursos.
+
+Asistencia y certificados llegarán con sus casos de uso. RUM/Carrera consumirán
+solo evidencia acreditada cuando tengan una función concreta; no crear ahora
+un bus, baremador o nómina para anticipar todas las relaciones. Los permisos de
+Formación no abren nóminas ni alteran trienios. Prueba de ampliabilidad: añadir
+esa sección mediante registro y contratos sin editar las reglas de CT/Dietas.
+
+### Regla de aceptación para agentes
+
+Una capacidad se describe separando **código, composición, instalación,
+recorrido verificado y aprobación funcional**. Tener cuatro capas, pruebas,
+manifiesto o un porcentaje no acredita disponibilidad. Solo se habilitan
+acciones realmente conectadas con permisos y dependencias presentes.
+
+No se exige test por cada interfaz o DTO ni un número mínimo de capas/archivos.
+Cada capa añadida debe separar una responsabilidad real. Si un cambio obliga
+a editar varios condicionales del shell por el nombre del módulo, identificar
+esa dependencia y reducirla con el próximo consumidor; no reescribir todo el
+portal como requisito previo a terminar Contratación.
+
+
 ## Objetivo
 
 Definir una forma unica de enganchar modulos al portal VEC principal. La meta es
@@ -652,58 +764,40 @@ convertir una dependencia opcional en condicion de arranque global.
 
 ---
 
-# Niveles de madurez de modulo (H-05)
+# Clasificación histórica de estructura de módulo (H-05)
 
-Esta seccion cierra el hallazgo H-05 de
-`docs/portal_vec/auditoria_diseno_y_seguridad_2026-07-16.md`: Bolsa tiene las
-cuatro capas hexagonales, Cronos y Personal son parciales, Dietas y
-Administracion son solo manifiesto. El contrato debe declarar el nivel de
-cada modulo para que el shell VEC no asuma capacidades que el modulo todavia
-no implementa.
+**Inventario de julio de 2026, sustituido como criterio de disponibilidad.**
+La revisión H-05 de `auditoria_diseno_y_seguridad_2026-07-16.md` comparó las
+capas y pruebas de los paquetes de aquel corte. Propuso declarar niveles
+estructurales para evitar asumir capacidades inexistentes. Ese criterio no
+acreditaba persistencia, composición, autorización ni funcionamiento web.
 
-## Definicion de niveles
+## Niveles utilizados en el inventario histórico
 
-- **completo**: existen las cuatro capas (`domain`, `ports`, `application`,
-  `adapters`) y cada capa tiene tests propios. El modulo puede ejecutar casos
-  de uso reales, persistir estado y exponer efectos auditables.
-- **parcial**: existen las cuatro capas, pero al menos una esta debil (sin
-  test propio, un unico fichero) o cubre solo un subconjunto de lo que el
-  manifiesto anuncia.
-- **solo-manifiesto**: unicamente publica `ModuleID`, `Manifest()` con menu y
-  permisos. No hay `domain`, `ports`, `application` ni `adapters`; cualquier
-  dato adicional que exponga (catalogos, referencias) es estatico, sin caso
-  de uso que lo transforme ni puerto que lo persista.
+- **completo**: se observaron las cuatro capas y pruebas en cada una.
+- **parcial**: se observaron las cuatro capas con cobertura desigual.
+- **solo-manifiesto**: se observó únicamente declaración de módulo y datos
+  estáticos, sin el conjunto de capas del inventario.
 
-## Que puede asumir el shell segun el nivel declarado
+Ninguno de esos niveles permite al shell mostrar, invocar o autorizar una
+capacidad. Se aplica exclusivamente el criterio vigente de capacidad compuesta,
+autorizada y acreditada del inicio del documento. Tampoco se exige añadir
+pruebas a una interfaz para subir un nivel estructural.
 
-| Nivel | El shell puede | El shell NO puede |
-| --- | --- | --- |
-| completo | Montar rutas de `api_prefix`, invocar acciones con efectos (crear, aprobar, firmar), suscribir `events_published` y auditarlas, confiar en `health_route`. | — |
-| parcial | Mostrar menu y datos de solo lectura de las capas ya implementadas. | Asumir que toda accion listada en el manifiesto tiene caso de uso detras; debe verificarse capacidad por capacidad, no por modulo completo. |
-| solo-manifiesto | Mostrar menu, icono, grupo y permisos declarados; reservar hueco en el dashboard. | Enrutar acciones con efectos, invocar `api_prefix`, esperar `events_published` reales, ni dar por buena `health_route`: no hay handler, dominio ni persistencia detras. |
+## Clasificación observada en el corte histórico de julio
 
-## Clasificacion actual (evidencia de arbol de paquetes)
+La tabla conserva la observación de aquel corte de `internal/modules/*`;
+**no describe el código de septiembre ni el runtime actual**.
 
-Evidencia tomada de `internal/modules/*` en este commit: capas presentes y
-numero de ficheros `_test.go` por capa.
+| Módulo observado | Clasificación entonces | Capas observadas entonces | Tests contabilizados entonces |
+| --- | --- | --- | --- |
+| `bolsa` | completo | domain, ports, application, adapters y transacción interna | 39 |
+| `personal` | parcial | domain, ports, application, adapters | 6 |
+| `cronos` | parcial | domain, ports, application, adapters | 5 |
+| `dietas` | solo-manifiesto | manifiesto y datos estáticos de rutas | 2 |
+| `administracion` | solo-manifiesto | manifiesto | 1 |
 
-| Modulo | Nivel | Capas presentes | Tests por capa | Tests totales |
-| --- | --- | --- | --- | --- |
-| `bolsa` | completo | domain, ports, application, adapters (+ `internal/transaccion`) | domain 3, ports 9, application 15, adapters 9, internal 1 | 39 |
-| `personal` | parcial | domain, ports, application, adapters | domain 2, ports 0, application 1, adapters 2 | 6 |
-| `cronos` | parcial | domain, ports, application, adapters | domain 2, ports 0, application 1, adapters 1 | 5 |
-| `dietas` | solo-manifiesto | ninguna (`manifest.go` + `routes.go` con dataset estatico de municipios/rutas) | — | 2 (`manifest_test.go`, `routes_test.go`) |
-| `administracion` | solo-manifiesto | ninguna (solo `manifest.go`) | — | 1 (`manifest_test.go`) |
-
-Notas sobre la evidencia:
-
-- En `personal` y `cronos` la capa `ports` tiene un unico fichero de
-  interfaces y ningun test propio: es la capa mas debil de ambos y el motivo
-  de clasificarlos como parciales, no completos.
-- `dietas/routes.go`, pese al nombre, no es un enrutador HTTP: es un dataset
-  de municipios, puntos y distancias de la provincia de Granada pensado para
-  una futura funcion de kilometraje. No hay caso de uso que lo consuma
-  todavia, asi que no cuenta como capa `application`.
-- `administracion` no tiene ni dataset propio: es manifiesto puro.
-- Un modulo solo sube de nivel cuando su arbol de paquetes lo respalda; esta
-  tabla se actualiza en el mismo commit que anada o complete una capa.
+Dietas ya tiene puertos, aplicación, adaptadores y vistas en la base de
+septiembre inspeccionada; mantener su clasificación de julio como "actual"
+sería incorrecto. El registro de código existente del inicio y el seguimiento
+funcional sustituyen cualquier deducción de disponibilidad basada en esta tabla.

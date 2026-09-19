@@ -1,5 +1,17 @@
 # Estado y plan de ataque del proyecto
 
+## Estudio integral y extensibilidad — 19 de septiembre de 2026
+
+Actualizados el [estudio integral](docs/estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes)
+y el [contrato modular](docs/portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026),
+enlazados desde las especificaciones obligatorias. Incluyen ficha personal de
+22 bloques, autoridades y relaciones, Formación futura, servicios/trienios,
+cotización, pagos de Dietas y exposición por módulo. Registro tipo plugin sobre
+lo existente; no nueva implementación ni otra ficha maestra. Revisión de fuentes
+y código en da708d63, sin nueva validación normativa ni pruebas de runtime.
+No aumenta el contador de pantallas. Contratación mantiene prioridad y los
+manuales definitivos esperan conformidad de RRHH.
+
 El historial general y el panel de cada fase muestran fecha y hora reales de
 las actuaciones en horario peninsular, conservando las fechas civiles de los
 períodos. Comprobados dos hitos reales en navegador a1440/390, sin erroresJS

@@ -1,5 +1,15 @@
 # Arquitectura tecnica modular del portal
 
+**Revisión de continuidad — 19 de septiembre de 2026.** Las descripciones de
+prototipo y estructuras "propuestas" inferiores conservan su fecha histórica;
+no son inventario del runtime actual. Para ampliar VEC, leer el
+[contrato modular vigente](contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026)
+y el [estudio de relaciones y ficha personal](../estudio_requisitos/analisis_integral_rrhh.md#15-síntesis-vigente-para-los-agentes).
+Se reutiliza el registro existente; módulo compilado y compuesto no exige
+reescribir el núcleo. El estado funcional se acredita por capacidad, no por
+número de capas, archivos o pruebas. No iniciar una reestructuración global
+para adaptar el código a los ejemplos antiguos de este documento.
+
 ## Objetivo
 
 Definir la estructura tecnica para evolucionar el prototipo de bolsa de empleo
