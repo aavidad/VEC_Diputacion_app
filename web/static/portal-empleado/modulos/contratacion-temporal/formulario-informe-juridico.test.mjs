@@ -124,7 +124,7 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
   assert.match(html, /data-ct-exp-informe-juridico/u);
 });
 
-test("explica el portafirmas pendiente sin simular una firma o envío", () => {
+test("presenta la firma pendiente con sus límites sin simular una firma o envío", () => {
   const expediente = {
     expediente_ref: EXPEDIENTE, numero_visible: "2026/CT-001", version: 5,
     flujo_ref: "flujo:ct:sintetico", flujo_version: 1, flujo_huella: "b".repeat(64),
@@ -136,10 +136,15 @@ test("explica el portafirmas pendiente sin simular una firma o envío", () => {
     vista: "expediente", carga: "listo", cuadro: { expedientes: [] }, expediente,
     tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
   });
-  assert.match(html, /Firma de Jefatura y remisión a Intervención/u);
-  assert.match(html, /Pendiente de integración con el portafirmas corporativo/u);
-  assert.match(html, /VEC no ha enviado el documento ni acredita firma o remisión/u);
-  assert.doesNotMatch(html, /<form|Firmado|Enviar a firma/u);
+  const panelFirma = html.match(/<section class="ct-exp-firma-pendiente"[\s\S]*?<\/section>/u)?.[0] ?? "";
+  assert.match(panelFirma, /Firma y remisión a Intervención/u);
+  assert.match(panelFirma, /Pendiente de integración con el portafirmas corporativo/u);
+  assert.match(panelFirma, /Informe jurídico preparado; no consta firmado/u);
+  assert.match(panelFirma, /Portafirmas corporativo de Diputación → Intervención/u);
+  assert.match(panelFirma, /Pendientes para continuar/u);
+  assert.match(panelFirma, /RRHH debe confirmar los documentos, cargos y orden del circuito de firma/u);
+  assert.match(panelFirma, /VEC no ha enviado el documento ni acredita firma o remisión/u);
+  assert.doesNotMatch(panelFirma, /<form|<button|Firma confirmada|Documento firmado|Enviar a firma|recibo.*confirmado|descargar/iu);
 });
 
 test("no mantiene la firma pendiente cuando la historia ya avanzó", () => {
@@ -155,7 +160,7 @@ test("no mantiene la firma pendiente cuando la historia ya avanzó", () => {
     vista: "expediente", carga: "listo", cuadro: { expedientes: [] }, expediente,
     tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
   });
-  assert.doesNotMatch(html, /Firma de Jefatura y remisión a Intervención/u);
+  assert.doesNotMatch(html, /Firma y remisión a Intervención/u);
 });
 
 test("el historial del informe reutiliza etiquetas legibles y traducciones", () => {

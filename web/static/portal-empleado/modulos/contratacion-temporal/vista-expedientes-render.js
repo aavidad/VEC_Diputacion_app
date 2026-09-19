@@ -146,8 +146,15 @@ function renderizarFirmaPendiente(expediente, t) {
     <p class="sobrelinea">${escaparHTML(t("firma_pendiente_sobrelinea"))}</p>
     <h3 id="ct-exp-firma-pendiente-titulo">${escaparHTML(t("firma_pendiente_titulo"))}</h3>
     <p>${escaparHTML(t("firma_pendiente_estado"))}</p>
-    <dl><div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(informe.accion)}</dd></div>
-      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div></dl>
+    <dl>
+      <div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(t("firma_pendiente_documento_valor"))}</dd></div>
+      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div>
+    </dl>
+    <h4>${escaparHTML(t("firma_pendiente_pasos"))}</h4>
+    <ul>
+      <li>${escaparHTML(t("firma_pendiente_paso_configuracion"))}</li>
+      <li>${escaparHTML(t("firma_pendiente_paso_remision"))}</li>
+    </ul>
     <p>${escaparHTML(t("firma_pendiente_limite"))}</p>
   </section>`;
 }
