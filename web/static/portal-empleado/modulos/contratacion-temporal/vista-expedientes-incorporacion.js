@@ -35,6 +35,11 @@ export function crearGestorIncorporacion({
     if (!esMontada() || !resolucionFormalizacionDisponible || desmontarResolucionFormalizacion || consultaResolucionFormalizacion
       || estado.carga !== "listo" || estado.expediente?.demostracion !== false
       || estado?.vista !== "expediente" || ![7, 8].includes(estado?.expediente?.version)) return;
+    const resumen = estado.cuadro?.expedientes?.find(
+      ({ expediente_ref: referencia }) => referencia === estado.expediente.expediente_ref,
+    );
+    if (resumen?.fase_clave !== "nombramiento"
+      || resumen.version !== estado.expediente.version) return;
     const contenedor = raiz.querySelector("[data-ct-exp-resolucion-formalizacion]");
     if (!contenedor) return;
     const expedienteRef = estado.expediente.expediente_ref;

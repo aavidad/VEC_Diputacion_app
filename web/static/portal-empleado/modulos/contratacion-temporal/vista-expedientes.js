@@ -305,7 +305,9 @@ export async function montarModuloContratacionTemporal({
     });
     gestorTramitacion.montarAltaSiProcede();
     montarEstadisticasSiProcede();
-    montarLlamamiento(contextoLlamamientoDesdeEstado(estado));
+    montarLlamamiento(contextoLlamamientoDesdeEstado(
+      estado, gestorTramitacion.obtenerReciboFiscalizacionConfirmado(),
+    ));
     gestorIncorporacion.montarResolucionFormalizacion().then(gestorIncorporacion.montarIncorporacionEjercicio);
     if (gestorTramitacion.montarAnalisisSiProcede() === false) {
       gestorTramitacion.retirarComponentes();

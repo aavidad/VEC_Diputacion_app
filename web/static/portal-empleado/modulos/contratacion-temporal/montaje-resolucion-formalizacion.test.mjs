@@ -4,6 +4,7 @@ import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
+import { contextoLlamamientoDesdeEstado } from "./vista-expedientes-render.js";
 
 // Dobles de transporte y DOM; adapter, contratos, presentador y vista son los reales.
 const A = "expediente:ct:001", B = "expediente:ct:002";
@@ -50,10 +51,10 @@ test("resolución: preparación de otro expediente y degradación v8→v7 fallan
   }
 });
 
-function resumen(ref) {
+function resumen(ref, fase = "nombramiento") {
   return { expediente_ref: ref, numero_visible: ref === A ? "2026/CT-0001" : "2026/CT-0002",
     version: 7, flujo_ref: "flujo:ct:general", flujo_version: 1, flujo_huella_sha256: "a".repeat(64),
-    fase_clave: "nombramiento", estado_clave: "en_curso", centro_ref: "centro:001",
+    fase_clave: fase, estado_clave: "en_curso", centro_ref: "centro:001",
     categoria_ref: "categoria:auxiliar", creado_en: "2026-09-03T08:00:00Z", actualizado_en: "2026-09-03T09:00:00Z" };
 }
 function detalle(ref) {
@@ -119,7 +120,7 @@ function crearRaiz() {
   return { raiz, nodos, click, actual: () => contenedor };
 }
 
-async function escenario(version = 7) {
+async function escenario(version = 7, fase = "nombramiento") {
   const dom = crearRaiz(), pendientes = [], posts = [], lecturas = [];
   // Pasar por el cliente público valida los fixtures de lectura antes del adapter.
   const clienteLectura = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
@@ -127,8 +128,8 @@ async function escenario(version = 7) {
     const entrada = JSON.parse(opciones.body);
     const data = ruta.endsWith("/cuadro/consultas")
       ? { esquema: "vec.contratacion-temporal.cuadro-rrhh.v1", generada_en: "2026-09-03T09:05:00Z",
-        expedientes: [resumen(A), resumen(B)], hay_mas: false }
-      : detalle(entrada.expediente_ref);
+        expedientes: [resumen(A, fase), resumen(B, fase)], hay_mas: false }
+      : { ...detalle(entrada.expediente_ref), resumen: resumen(entrada.expediente_ref, fase) };
     if (data.expedientes) data.expedientes.forEach((r) => { r.version = version; });
     else {
       data.resumen.version = version;
@@ -220,3 +221,35 @@ for (const estado of [403, 503]) {
     } finally { x.modulo.desmontar(); }
   });
 }
+test("la selección de llamamiento exige la fase de llamamiento", () => {
+  const estado = {
+    vista: "expediente", carga: "listo", ocupado: false,
+    actualizacion_pendiente: false, resultado_indeterminado: false,
+    expediente_ref: A, cuadro: { demostracion: false, expedientes: [resumen(A, "fiscalizacion")] },
+    expediente: { expediente_ref: A, demostracion: false, version: 7 },
+  };
+  assert.equal(contextoLlamamientoDesdeEstado(estado), null);
+  estado.expediente.fiscalizacion = { resultado_clave: "favorable" };
+  estado.expediente.historial = [{ accion_clave: "registrar_fiscalizacion", version_expediente: 7 }];
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7,
+  });
+  estado.expediente.historial = [];
+  delete estado.expediente.fiscalizacion;
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado, {
+    expediente_ref: A, version_resultante: 7, resultado: "favorable",
+  }), { expediente_ref: A, version_esperada: 7 });
+  estado.cuadro.expedientes[0].fase_clave = "llamamiento";
+  assert.deepEqual(contextoLlamamientoDesdeEstado(estado), {
+    expediente_ref: A, version_esperada: 7,
+  });
+});
+
+test("subsanación no consulta la preparación de resolución", async () => {
+  const x = await escenario(7, "subsanacion_unidad");
+  try {
+    await x.dom.click("abrir", A);
+    assert.equal(x.pendientes.length, 0);
+    assert.deepEqual(x.posts, []);
+  } finally { x.modulo.desmontar(); }
+});
