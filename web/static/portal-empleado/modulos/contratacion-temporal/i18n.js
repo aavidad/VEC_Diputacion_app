@@ -168,7 +168,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "Use fechas civiles; el periodo técnico no puede superar cien años.",
   analisis_jornada: "Jornada en diezmilésimas",
   analisis_jornada_ayuda:
-    "Introduzca un entero entre 1 y 10.000; 10.000 equivale a jornada completa.",
+    "Introduzca un entero entre 1 y 10.000; la equivalencia porcentual se actualizará al escribir.",
+  analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada.",
   analisis_entrada_rc: "Entrada de retención de crédito",
   analisis_entrada_rc_ayuda:
     "Seleccione la referencia opaca preparada para este expediente.",

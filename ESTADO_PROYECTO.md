@@ -1,5 +1,13 @@
 # Estado y plan de ataque del proyecto
 
+## Jornada comprensible en Análisis — 19 de septiembre de 2026
+
+El campo conserva su entero canónico, pero muestra al escribir la equivalencia
+porcentual localizada: 5000 → 50,00 % y 10000 → 100,00 %. Los valores inválidos
+limpian esa ayuda; el DTO y la validación no cambian. Usa i18n y anuncio accesible,
+sin perder el foco. Revisión de dirección y 18 pruebas focales correctas.
+No cierra la recuperación histórica pendiente de Análisis.
+
 ## Recuperación de incorporación y disponibilidad — 19 de septiembre de 2026
 
 La vista RRHH recibe explícitamente el cliente de continuidad: puede recuperar

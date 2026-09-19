@@ -87,6 +87,7 @@ function crearRaiz() {
   const eventos = new Map();
   const retirados = [];
   const focos = [];
+  const ayudas = new Map();
   const raiz = {
     innerHTML: "",
     addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
@@ -96,6 +97,7 @@ function crearRaiz() {
     },
     contains() { return true; },
     querySelector(selector) {
+      if (selector === "#ct-analisis-porcentaje_jornada-equivalencia") return { set textContent(valor) { ayudas.set(selector, valor); } };
       return {
         focus() { focos.push(selector); },
         scrollIntoView() {},
@@ -108,6 +110,7 @@ function crearRaiz() {
     eventos,
     focos,
     retirados,
+    ayudas,
     enviar(valores = crearValores()) {
       const formulario = {
         valores,
@@ -128,6 +131,11 @@ function crearRaiz() {
         },
       };
       return eventos.get("click")({ target: control, preventDefault() {} });
+    },
+    escribirJornada(valor) {
+      const formulario = { closest(selector) { return selector === "[data-ct-analisis-form]" ? this : null; } };
+      const control = { name: "porcentaje_jornada", value: valor, closest(selector) { return selector === "[data-ct-analisis-form]" ? formulario : null; } };
+      return eventos.get("input")({ target: control });
     },
   };
 }
@@ -192,6 +200,21 @@ test("la vista usa controles gobernados, etiquetas, ayudas y regiones vivas", ()
   assert.doesNotMatch(raiz.raiz.innerHTML, /<img|name="(?:identidad|organizacion|perfil|autorizacion)"/u);
   assert.doesNotMatch(raiz.raiz.innerHTML, /tabindex="[1-9]|onkey(?:down|press|up)=/u);
   desmontar();
+});
+
+test("la jornada muestra su porcentaje legible al escribir y conserva el DTO canónico", async () => {
+  const solicitudes = [];
+  const vista = montar({ cliente: { registrarAnalisis(solicitud) { solicitudes.push(solicitud); return Promise.resolve(crearRecibo()); } } });
+  assert.match(vista.raiz.innerHTML, /Jornada en diezmilésimas/u);
+  vista.escribirJornada("5000");
+  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 50,00 % de la jornada.");
+  vista.escribirJornada("10000");
+  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 100,00 % de la jornada.");
+  vista.escribirJornada("10001");
+  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "");
+  await vista.enviar(crearValores({ porcentaje_jornada: "5000" }));
+  assert.equal(solicitudes[0].analisis.porcentaje_jornada, 5000);
+  vista.desmontar();
 });
 
 test("registrar envía una sola vez el DTO exacto y presenta el recibo verificado", async () => {
@@ -421,7 +444,7 @@ test("desmontar aborta el vuelo, retira escuchas, vacía la vista y descarta res
   assert.equal(signal.aborted, true);
   assert.equal(vista.raiz.innerHTML, "");
   assert.deepEqual([...vista.eventos.keys()], []);
-  assert.deepEqual(vista.retirados.sort(), ["change", "click", "submit"]);
+  assert.deepEqual(vista.retirados.sort(), ["change", "click", "input", "submit"]);
   resolver(crearRecibo());
   await envio;
   assert.equal(vista.raiz.innerHTML, "");

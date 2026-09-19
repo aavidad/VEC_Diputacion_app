@@ -10,6 +10,7 @@ const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/u;
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
+const PATRON_JORNADA = /^(?:[1-9][0-9]{0,3}|10000)$/u;
 const MAXIMO_OPCIONES = 100;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
 const CLAVES_MODALIDADES_RRHH = new Set([
@@ -238,7 +239,7 @@ function validarBorrador(borrador, catalogos, rectificacion) {
   if (!fechaCivilValida(borrador.fin)) errores.fin = "fecha";
   if (!errores.inicio && !errores.fin
     && !periodoDentroDelMaximo(borrador.inicio, borrador.fin)) errores.fin = "periodo";
-  if (!/^(?:[1-9][0-9]{0,3}|10000)$/u.test(borrador.porcentaje_jornada)) {
+  if (!PATRON_JORNADA.test(borrador.porcentaje_jornada)) {
     errores.porcentaje_jornada = "jornada";
   }
   if (!catalogos.entradas_rc.some(
@@ -300,6 +301,20 @@ function campoEntrada(estado, t, campo, tipo, claveEtiqueta, claveAyuda, atribut
   </div>`;
 }
 
+function campoJornada(estado, t, formateadorJornada) {
+  const valor = estado.borrador.porcentaje_jornada;
+  const equivalencia = PATRON_JORNADA.test(valor) ? t("analisis_jornada_equivalencia", {
+    porcentaje: formateadorJornada.format(Number(valor) / 10000),
+  }) : "";
+  return `<div class="ct-campo">
+    <label for="ct-analisis-porcentaje_jornada">${escaparHTML(t("analisis_jornada"))} <b aria-hidden="true">*</b></label>
+    <input id="ct-analisis-porcentaje_jornada" name="porcentaje_jornada" type="number" required value="${escaparHTML(valor)}" ${atributosCampo(estado, "porcentaje_jornada")} min="1" max="10000" step="1" inputmode="numeric">
+    <small id="ct-analisis-porcentaje_jornada-ayuda">${escaparHTML(t("analisis_jornada_ayuda"))}</small>
+    <small id="ct-analisis-porcentaje_jornada-equivalencia" aria-live="polite" aria-atomic="true">${escaparHTML(equivalencia)}</small>
+    ${estado.errores.porcentaje_jornada ? `<span class="ct-error-campo" id="ct-analisis-porcentaje_jornada-error">${escaparHTML(mensajeCampo(t, estado.errores.porcentaje_jornada))}</span>` : ""}
+  </div>`;
+}
+
 function campoAreaTexto(estado, t, campo, id, claveEtiqueta, claveAyuda, maxlength = 4000) {
   return `<div class="ct-campo">
     <label for="${id}">${escaparHTML(t(claveEtiqueta))}</label>
@@ -324,7 +339,7 @@ function resumenErrores(estado, t) {
   </section>`;
 }
 
-function renderizarContenido(estado, contexto, catalogos, t, formateador) {
+function renderizarContenido(estado, contexto, catalogos, t, formateador, formateadorJornada) {
   if (estado.recibo) {
     const recibo = estado.recibo;
     return `<section class="ct-recibo" data-ct-analisis-recibo role="status" aria-live="polite"
@@ -361,7 +376,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador) {
         ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", "analisis_causa_ayuda", catalogos.causas, "clave")}
         ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio", "analisis_periodo_ayuda")}
         ${campoEntrada(estado, t, "fin", "date", "analisis_fin", "analisis_periodo_ayuda")}
-        ${campoEntrada(estado, t, "porcentaje_jornada", "number", "analisis_jornada", "analisis_jornada_ayuda", 'min="1" max="10000" step="1" inputmode="numeric"')}
+        ${campoJornada(estado, t, formateadorJornada)}
         ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", "analisis_entrada_rc_ayuda", catalogos.entradas_rc, "referencia")}
         ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", "analisis_motivo_rectificacion_ayuda", catalogos.motivos_rectificacion, "clave") : ""}
         ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", "analisis_observaciones_ayuda", 4000)}
@@ -450,6 +465,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
+  let formateadorJornada = new Intl.NumberFormat(locale, {
+    style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
   let analisisValidado = null;
   if (analisisInicial !== null) {
     try {
@@ -523,7 +541,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}" data-ct-analisis-estado
         role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
         <strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>
-      ${renderizarContenido(estado, contexto, catalogos, t, formateador)}
+      ${renderizarContenido(estado, contexto, catalogos, t, formateador, formateadorJornada)}
     </section>`;
     if (selectorFoco) enfocar(raizActual, selectorFoco);
     try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
@@ -669,6 +687,18 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     repintar("#ct-analisis-categoria_ref");
   }
 
+  function alEscribir(evento) {
+    const entrada = evento.target;
+    if (entrada?.name !== "porcentaje_jornada" || estado.ocupado) return;
+    const formulario = entrada.closest?.("[data-ct-analisis-form]");
+    if (!formulario || !raizActual.contains(formulario)) return;
+    const ayuda = raizActual.querySelector("#ct-analisis-porcentaje_jornada-equivalencia");
+    if (!ayuda) return;
+    ayuda.textContent = PATRON_JORNADA.test(entrada.value)
+      ? t("analisis_jornada_equivalencia", { porcentaje: formateadorJornada.format(Number(entrada.value) / 10000) })
+      : "";
+  }
+
   function alPulsar(evento) {
     const enlaceError = evento.target?.closest?.("[data-ct-analisis-enfocar]");
     if (enlaceError && raizActual.contains(enlaceError)) {
@@ -694,6 +724,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
 
   raizActual.addEventListener("submit", alEnviar);
   raizActual.addEventListener("change", alCambiar);
+  raizActual.addEventListener("input", alEscribir);
   raizActual.addEventListener("click", alPulsar);
   repintar();
 
@@ -703,6 +734,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     controlador?.abort();
     raizActual.removeEventListener("submit", alEnviar);
     raizActual.removeEventListener("change", alCambiar);
+    raizActual.removeEventListener("input", alEscribir);
     raizActual.removeEventListener("click", alPulsar);
     if (typeof raizActual.replaceChildren === "function") raizActual.replaceChildren();
     else raizActual.innerHTML = "";
@@ -715,6 +747,7 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     anunciarActual = null;
     generarClaveActual = null;
     formateador = null;
+    formateadorJornada = null;
     contexto = null;
     metodo = null;
     analisisValidado = null;
