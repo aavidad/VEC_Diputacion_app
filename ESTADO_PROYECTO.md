@@ -1,5 +1,35 @@
 # Estado y plan de ataque del proyecto
 
+## Runtime principal alineado y auditoría de frontera instalada — 19 de septiembre de 2026
+
+La instancia principal sintética ejecuta el corte canónico
+`e89f06092006872bdf8d42e213059223696bfff2`. El binario servido tiene SHA256
+`1948aa78b67fd239e7c200755bd21127836526cda90237eb806757d07cdcb225` y el
+inventario de contenido web SHA256
+`0ffa54c0accaea60df53edfb0b7def0c94943090286af85667d9535fdd26ec4b`.
+El runtime anterior permanece conservado para recuperación. El primer reinicio
+tropezó con la gestión `cgroupfs`; se corrigió el arranque con
+`cgroup-manager=systemd`, sin volver al binario anterior. Las instancias aisladas
+de prueba no se modificaron.
+
+Las mismas cinco consultas de solo lectura —incorporación, ficha GINPIX,
+anotación administrativa, preparación de cierre y seguimiento— respondieron `200`
+en la línea base, después de sustituir el runtime y después de reiniciarlo. No se
+ejecutaron `POST`, no se emitieron cookies y no aparecieron duplicados. Esta
+comprobación acredita continuidad del recorrido sintético de consulta; no
+acredita efectos institucionales, producción ni validez legal.
+
+La migración de auditoría de frontera `000108` está instalada únicamente en la
+base sintética principal. Las revisiones independientes de SQL e identidad dieron
+`GO`. Las cinco operaciones SQL directas sobre su tabla —`SELECT`, `INSERT`,
+`UPDATE`, `DELETE` y `TRUNCATE`— quedaron denegadas con `42501`; la tabla conserva
+cero filas. No se instaló la migración en bases aisladas ni se ejecutó `DOWN`.
+
+Contratación temporal conserva **19/19 superficies visibles**, pero su estado
+funcional es **15/19 completas, tres parciales y una bloqueada por la integración
+real con Portafirmas**. La cobertura de pantallas no equivale a producción ni
+cierra SMTP, plazos, firma, identidad u otros efectos aún pendientes.
+
 ## Portada pública cerrada — 19 de septiembre de 2026
 
 La secuencia `15e437bb`, `d86fe653` y `cd3df5ab` publica en

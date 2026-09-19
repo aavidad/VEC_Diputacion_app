@@ -1,5 +1,34 @@
 # Guía de recorrido y recibos conservados de VEC
 
+### Comprobar el runtime principal del corte `e89f0609`
+
+La instancia principal sintética sirve el binario SHA256
+`1948aa78b67fd239e7c200755bd21127836526cda90237eb806757d07cdcb225` y el
+inventario web SHA256
+`0ffa54c0accaea60df53edfb0b7def0c94943090286af85667d9535fdd26ec4b`.
+Para comprobar el corte sin crear efectos, recorra en este orden las consultas de
+incorporación, ficha GINPIX, anotación administrativa, preparación/cierre y
+seguimiento. Las cinco respondieron `200` sobre la línea base, tras sustituir el
+runtime y tras reiniciarlo. No se enviaron `POST`, no se emitieron cookies y no
+se observaron duplicados.
+
+El runtime anterior permanece disponible como recuperación. Durante el cambio,
+el primer reinicio falló por la gestión `cgroupfs`; el servicio se recuperó con
+`cgroup-manager=systemd`, sin rollback. Las instancias aisladas no se tocaron.
+Los artefactos, comandos exactos y salidas operativas permanecen en custodia
+privada para no publicar rutas, configuración ni secretos.
+
+La base sintética principal tiene instalada la migración de auditoría de frontera
+`000108`, con revisiones independientes de SQL e identidad en `GO`. La prueba de
+ACL intentó directamente `SELECT`, `INSERT`, `UPDATE`, `DELETE` y `TRUNCATE`:
+las cinco operaciones devolvieron `42501` y la tabla siguió con cero filas. La
+migración no se aplicó a las bases aisladas ni se revirtió.
+
+El resultado funcional sigue siendo **15/19 pantallas completas, tres parciales
+y una bloqueada por Portafirmas**, aunque las **19/19 superficies** estén
+disponibles para presentación. El recorrido descrito es de consulta con datos
+sintéticos; no acredita firma, envío, eficacia administrativa ni producción.
+
 ### Disponibilidad diaria del cuadro — 19 de septiembre
 
 El binario `18bd0ebb` está instalado en la instancia privada. El cuadro se abre
