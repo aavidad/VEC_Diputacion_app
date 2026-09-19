@@ -245,7 +245,7 @@ El recorrido de desarrollo conserva una incorporación sintética y su recibo, s
 
 ### Qué es y cómo se tramita
 1. Recursos Humanos consulta los datos y el periodo de la incorporación registrada en el ejercicio.
-2. Se recupera el recibo de incorporación sin repetir el alta.
+2. Se recupera el recibo de incorporación sin repetir el alta. Si no está disponible la configuración de análisis, esta recuperación mantiene su acceso desde el expediente RRHH mientras el portal disponga del acceso y los datos necesarios.
 3. Se descarga una ficha estructurada para su grabación manual en GINPIX. La descarga no transmite datos a GINPIX ni confirma un alta externa.
 
 ---

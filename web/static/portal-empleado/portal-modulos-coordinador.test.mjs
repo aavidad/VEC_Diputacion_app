@@ -422,6 +422,53 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
   assert.strictEqual(montaje.cliente, cliente);
 });
 
+test("CT recupera incorporación con continuidad si falla análisis y el alta sigue disponible", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() { return { centros: [], categorias: [], documentos: [] }; },
+    async registrarSolicitud() {},
+    async registrarResultadoFiscalizacion() {},
+    async obtenerConfiguracionAnalisis() { throw new Error("análisis no disponible"); },
+    async prepararIncorporacionEjercicio() {},
+    async confirmarIncorporacionEjercicio() {},
+  });
+  const fuente = Object.freeze({
+    capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar"]),
+    async listar() { return { expedientes: [] }; },
+    async obtener() { return {}; },
+    async ejecutar() { throw new Error("solo lectura"); },
+  });
+  let montaje;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+        contrato: { validarCatalogosAlta: (valor) => valor },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        vista: { montarModuloFiscalizacionContratacionTemporal: async () => {
+          assert.fail("RRHH conserva su vista cuando el alta está disponible");
+        }, montarModuloContratacionTemporal: async (dependencias) => {
+          montaje = dependencias;
+          return { desmontar() {} };
+        } },
+      }),
+    },
+  });
+
+  await coordinador.cargarInterno();
+  assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
+  assert.ok(montaje.alta);
+  assert.equal(montaje.analisis, null);
+  assert.strictEqual(montaje.continuidad.cliente, cliente);
+  assert.equal(typeof montaje.continuidad.cliente.prepararIncorporacionEjercicio, "function");
+  assert.equal(typeof montaje.continuidad.cliente.confirmarIncorporacionEjercicio, "function");
+});
+
 test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () => {
   const catalogo = crearCatalogoModulosDesdeManifiestos(
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,

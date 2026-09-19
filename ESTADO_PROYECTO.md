@@ -1,8 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+## Recuperación de incorporación y disponibilidad — 19 de septiembre de 2026
+
+La vista RRHH recibe explícitamente el cliente de continuidad: puede recuperar
+la incorporación existente cuando el catálogo de alta responde pero falla la
+configuración de análisis. Intervención conserva su entrada de fiscalización.
+Sin API nueva, POST adicional ni cambio de autorización. Revisión independiente
+favorable; 28 pruebas focales correctas, incluida la combinación real de clientes.
+
+La bandeja devolvía 503 porque la confianza de desarrollo del proceso anterior
+caducó a medianoche UTC. Tras copia privada y reinicio de la misma aplicación:
+consultas autorizadas de límites 1/5/100 responden 200, con 1/5/71 expedientes.
+De 130 tablas CT/Personal/Bolsa, 122 conservan exactamente su contenido; las ocho
+variaciones corresponden a auditoría y cursores de las tres consultas. No se
+reaplicaron migraciones ni se reconstruyeron operaciones o recibos. La confianza
+renovada caduca de nuevo a medianoche: pendiente renovación duradera con revisión
+sensible. Esto recupera disponibilidad, no cierra pantallas ni producción.
+
 ## Corte funcional de interfaz — 19 de septiembre de 2026
 
-Integración preparada y comprobada en el servidor sobre la base d7982bb4:
+Corte 259c75cc integrado, publicado en main y servido en el servidor sobre d7982bb4:
 el resumen de llamamiento muestra las fechas confirmadas; el raíl respeta las
 fases acreditadas y los colores RRHH; la consulta de una fase conserva foco,
 encabezados de tabla y las traducciones del montaje. El detalle distingue la

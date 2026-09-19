@@ -136,7 +136,7 @@ test("seguimiento: el montaje principal recupera el recibo, presenta solo el pan
   const presentador = crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades: fuente.capacidades });
   const llamadas = [];
   const modulo = await montarModuloContratacionTemporal({
-    raiz: dom.raiz, presentador, llamamiento: { cliente: {
+    raiz: dom.raiz, presentador, continuidad: { cliente: {
       async prepararIncorporacionEjercicio(expedienteRef, opciones) {
         llamadas.push([expedienteRef, opciones.signal]);
         return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref: expedienteRef,

@@ -76,6 +76,7 @@ export async function montarModuloContratacionTemporal({
   analisis = null,
   fiscalizacion = null,
   subsanacion = null,
+  continuidad = null,
   llamamiento = null,
   clienteBorradorRRHH,
   entornoDescarga = globalThis,
@@ -120,7 +121,7 @@ export async function montarModuloContratacionTemporal({
     && typeof subsanacion.cliente?.registrarSubsanacionReparos === "function"
     ? subsanacion.cliente : null;
   const subsanacionDisponible = clienteSubsanacion !== null;
-  const clienteLlamamiento = llamamiento?.cliente ?? clienteFiscalizacion
+  const clienteLlamamiento = continuidad?.cliente ?? llamamiento?.cliente ?? clienteFiscalizacion
     ?? composicionAnalisis?.cliente;
   const llamamientoDisponible = typeof clienteLlamamiento?.seleccionarLlamamiento === "function"
     && typeof clienteLlamamiento?.registrarComunicacionLlamamiento === "function";

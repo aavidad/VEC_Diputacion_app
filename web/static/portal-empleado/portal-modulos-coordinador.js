@@ -506,6 +506,7 @@ export function crearCoordinadorModulosPortal({
           analisis,
           fiscalizacion,
           subsanacion,
+          continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
           obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
           // El listado inicial se carga antes que los catálogos: los nombres de
           // centro y categoría se resuelven al pedirlo, con lo que haya llegado.
@@ -661,6 +662,7 @@ export function crearCoordinadorModulosPortal({
             ?.registrarResultadoFiscalizacion === "function"
             ? { cliente: composicion.contratacionTemporal.analisis.cliente }
             : null,
+          continuidad: composicion.contratacionTemporal.continuidad,
           subsanacion: composicion.contratacionTemporal.subsanacion,
           confirmarOperacion,
           anunciar,
