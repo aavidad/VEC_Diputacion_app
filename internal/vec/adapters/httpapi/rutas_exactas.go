@@ -247,7 +247,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		return
 	}
 	ctxAuditoria, cancelar := context.WithTimeout(
-		ctx,
+		context.WithoutCancel(ctx),
 		plazoMaximoAuditoriaFronteraRutaExacta,
 	)
 	defer cancelar()

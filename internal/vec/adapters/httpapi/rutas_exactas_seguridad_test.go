@@ -28,6 +28,9 @@ type registradorAuditoriaFronteraRutaExactaEspia struct {
 	err                      error
 	bloquearHastaCancelacion bool
 	plazo                    time.Duration
+	contexto                 context.Context
+	contextoCancelado        bool
+	contextoConPlazo         bool
 }
 
 func (r *registradorAuditoriaFronteraRutaExactaEspia) RegistrarAuditoriaFronteraRutaExacta(
@@ -39,6 +42,9 @@ func (r *registradorAuditoriaFronteraRutaExactaEspia) RegistrarAuditoriaFrontera
 	if limite, existe := ctx.Deadline(); existe {
 		r.plazo = time.Until(limite)
 	}
+	r.contexto = ctx
+	r.contextoCancelado = ctx.Err() != nil
+	_, r.contextoConPlazo = ctx.Deadline()
 	bloquearHastaCancelacion := r.bloquearHastaCancelacion
 	err := r.err
 	r.mu.Unlock()
@@ -59,6 +65,12 @@ func (r *registradorAuditoriaFronteraRutaExactaEspia) plazoRegistrado() time.Dur
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.plazo
+}
+
+func (r *registradorAuditoriaFronteraRutaExactaEspia) contextoRegistrado() (context.Context, bool, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.contexto, r.contextoCancelado, r.contextoConPlazo
 }
 
 func (a *autoridadRutasExactasEspia) AutorizarRutaExacta(
@@ -297,6 +309,47 @@ func TestRutasExactasAcotanElRegistroDeDenegacion(t *testing.T) {
 	plazo := registrador.plazoRegistrado()
 	if plazo <= 0 || plazo > plazoMaximoAuditoriaFronteraRutaExacta {
 		t.Fatalf("plazo del registrador=%s", plazo)
+	}
+}
+
+func TestRutasExactasAuditanUnaDenegacionConPeticionCancelada(t *testing.T) {
+	type claveContexto struct{}
+	registrador := &registradorAuditoriaFronteraRutaExactaEspia{}
+	handler := newTestHandlerWithOptions(t, HandlerOptions{
+		RutasExactas: []RutaExacta{{
+			Ruta:      rutaAltaContratacionPrueba,
+			Manejador: &manejadorExactoPrueba{},
+		}},
+		AutoridadRutasExactas: autoridadRutasExactasPrueba{
+			err: ErrAutenticacionRutaExactaRequerida,
+		},
+		RegistradorAuditoriaFronteraRutasExactas: registrador,
+	})
+	ctx, cancelar := context.WithCancel(context.WithValue(
+		context.Background(),
+		claveContexto{},
+		"conservar",
+	))
+	cancelar()
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		rutaAltaContratacionPrueba,
+		nil,
+	).WithContext(ctx)
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusUnauthorized {
+		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+	}
+	if len(registrador.ordenesRegistradas()) != 1 {
+		t.Fatalf("llamadas al registrador=%d", len(registrador.ordenesRegistradas()))
+	}
+	contexto, cancelado, conPlazo := registrador.contextoRegistrado()
+	if cancelado || !conPlazo {
+		t.Fatalf("contexto de auditoria cancelado=%t con_plazo=%t", cancelado, conPlazo)
+	}
+	if valor := contexto.Value(claveContexto{}); valor != "conservar" {
+		t.Fatalf("valor del contexto=%#v", valor)
 	}
 }
 
