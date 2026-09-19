@@ -4,13 +4,13 @@ Las preguntas 1–5 son prioritarias para cerrar el recorrido de Contratación. 
 
 Decisiones ya acordadas: se utilizará el portafirmas de Diputación; el correo saliente utilizará SMTP corporativo, configurable desde administración; el correo del candidato procederá del dato obligatorio de su alta en VEC; VEC sustituirá a CONVOCA en la gestión de bolsas y, más adelante, en los procesos selectivos, importando primero las bolsas existentes; el candidato se identificará con DNIe o certificado digital. No se solicita volver a elegir estas soluciones.
 
-Las preguntas 1–12 y 15 se refieren a Contratación temporal; las 13, 14 y 16–18, a las bolsas y a la sustitución de CONVOCA.
+Las preguntas 1–12 y 15 se refieren a Contratación temporal; las 13, 14 y 16–18, a las bolsas y a la sustitución de CONVOCA; las 19–21, a Cronos; las 22–26, a Dietas; las 27–29, a Personal; y las 30–36, a Administración y a Usuarios/Contacto.
 
 ## Texto para enviar
 
 Buenos días:
 
-Estamos completando el módulo de Contratación de VEC. Necesitamos concretar estas cuestiones para que la aplicación reproduzca vuestro procedimiento:
+Estamos completando los recorridos funcionales de VEC. Necesitamos concretar estas cuestiones para que la aplicación reproduzca vuestros procedimientos:
 
 1. **Plazo de respuesta a los llamamientos.** ¿Cuánto tiempo tiene el candidato para responder? ¿Desde qué hecho empieza a contar: envío, entrega, acceso a la notificación u otro? ¿Se computan horas, días naturales o hábiles? ¿Qué calendario se aplica?
 
@@ -48,4 +48,40 @@ Estamos completando el módulo de Contratación de VEC. Necesitamos concretar es
 
 18. **Pausas, reactivaciones y bajas.** ¿Cómo solicita hoy un candidato la suspensión temporal en la bolsa y su reactivación, quién la valida y con qué justificante? ¿Mantiene su posición durante la pausa? ¿Cuáles son las causas de baja de la bolsa y cuáles de baja definitiva? ¿Qué documentación debe aportar el candidato tras aceptar una oferta y en qué plazo?
 
-Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes y GINPIX**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.
+19. **Fuente de requisitos para reescribir Cronos.** Mantendremos la decisión de sustituir la aplicación PHP 5 actual. Para inventariarla sin trasladar sus defectos, ¿podéis facilitarnos acceso de solo lectura a su código, pantallas, manuales, modelo de datos, reglas y configuraciones, sin credenciales ni datos personales reales? ¿Quién conoce su funcionamiento y quién aprobará la ficha de requisitos resultante antes de programar?
+
+20. **Fuentes y canales de fichaje.** ¿Qué terminales, aplicaciones o sistemas originan hoy cada entrada, salida y pausa, y cuál es la fuente autorizada cuando discrepan? Necesitamos los tipos de movimiento, identificadores técnicos, marcas de tiempo y zona horaria, interfaz de integración y tratamiento de fichajes sin conexión, duplicados, olvidos y correcciones, junto con un entorno o conjunto sintético de prueba.
+
+21. **Reglas y responsabilidades de Cronos.** ¿Qué reglas vigentes gobiernan perfiles de jornada, turnos, flexibilidad, cobertura obligatoria, calendario, permisos, vacaciones, reducciones, saldos e incidencias, y en qué documento están aprobadas? ¿Qué puede hacer la persona empleada, su responsable, una suplencia y RRHH; quién valida justificantes y rectificaciones; y qué cambios deben llegar a nómina u otro sistema corporativo?
+
+22. **Fuente de requisitos para Dietas.** Conservaremos la creación de un módulo nuevo y sus tres perspectivas acordadas: persona solicitante, jefatura que autoriza y RRHH que liquida y controla. ¿Qué aplicación, formularios, instrucciones y procedimiento actuales debemos inventariar, quién es responsable de cada parte y quién aprobará la ficha de requisitos antes de conectar efectos reales?
+
+23. **Tarifas y reglas de cálculo de Dietas.** ¿Cuál es la fuente oficial y versionada de las cuantías provinciales vigentes para kilometraje, manutención, alojamiento y otros gastos, con sus grupos, límites, fechas de efecto, incompatibilidades y excepciones? ¿Quién aprueba y publica cada versión y qué regla se aplica cuando una comisión atraviesa un cambio de tarifa?
+
+24. **Justificantes, rutas y excepciones de Dietas.** ¿Qué documentos se exigen en cada tipo de gasto y comisión, qué formatos y datos mínimos deben conservarse y quién valida una ausencia o sustitución? Para el kilometraje, ¿cuándo se usa la ruta calculada con la cartografía interna ya acordada, cuándo se admite una distancia o desvío distinto y qué motivación y evidencia debe quedar?
+
+25. **Autorización, fiscalización y liquidación de Dietas.** ¿Qué estados y responsables forman el circuito desde borrador y envío hasta autorización de jefatura, revisión de justificantes, fiscalización, liquidación, devolución, subsanación, anulación y cierre? ¿Qué pasos exigen personas distintas, qué unidad puede rectificar una decisión ya eficaz y qué recibo o documento acredita cada transición?
+
+26. **Integración de Dietas con nómina y sistemas económicos.** ¿A qué sistema se remite una liquidación aprobada, en qué momento y mediante qué interfaz y contrato de datos? Necesitamos saber qué respuesta acredita aceptación o rechazo, cómo se recuperan reintentos sin duplicar el pago, cómo se concilia el resultado y qué responsables proporcionarán documentación y pruebas sintéticas. Esta integración no debe confundirse con el cálculo de coste de Contratación de la pregunta 8.
+
+27. **Registro de Personal y sistemas maestros.** ¿Qué Registro de Personal y qué sistemas corporativos son la fuente autorizada para personas empleadas, puestos, relaciones, situaciones, antigüedad y servicios prestados, y mediante qué interfaces versionadas podrá consultarlos VEC? Necesitamos responsables, identificadores estables, fechas de efecto, historia y tratamiento de altas, cambios y bajas, sin exportar datos personales reales para las pruebas. Esta fuente laboral es distinta del directorio de cuentas tratado en la pregunta 30.
+
+28. **Datos y rectificaciones de Personal.** ¿Qué campos de la ficha puede consultar o solicitar corregir la persona titular y cuáles solo puede mantener RRHH desde su sistema de origen? Para cada bloque —puesto, relación, situación, antigüedad, servicios, certificados y referencias de nómina— necesitamos fuente, fecha de vigencia, procedencia, responsable y circuito de discrepancia, sin usar como oficiales los datos de demostración existentes.
+
+29. **Roles y ámbitos de Personal.** ¿Qué operaciones corresponden a la persona empleada, jefatura, RRHH, nómina, auditoría y soporte sobre cada bloque de datos, y con qué límites de unidad, relación, periodo, finalidad y campos? ¿Quién publica las asignaciones, qué acciones requieren doble control o firma y cómo funcionan delegaciones y suplencias? Esta matriz funcional complementa el gobierno global de roles de la pregunta 31.
+
+30. **Fuente de identidades y ciclo de vida de usuarios.** ¿Qué directorio o sistema corporativo es la fuente autorizada para altas, cambios de unidad, suspensiones y bajas de empleados y cuentas administrativas? ¿Qué identificador corporativo estable enlaza esas identidades sin depender del nombre o del correo, por qué interfaz se comunicará a VEC y qué plazo de propagación debe cumplir una revocación? Necesitamos el responsable técnico y documentación de prueba sin datos personales reales.
+
+31. **Gobierno de roles y asignaciones.** Para la administración global de VEC, ¿qué órganos o responsables pueden proponer, aprobar, publicar y revocar roles, asignaciones y ámbitos? ¿Qué cambios requieren dos personas distintas, cómo se autorizan las suplencias y quién aprueba y revisa un acceso excepcional de emergencia? Esta cuestión no sustituye el reparto funcional de Contratación solicitado en la pregunta 6.
+
+32. **Frontera de acceso a Administración.** Sistemas y Seguridad deben confirmar la entrada técnica de `admin.cidonia.cloud` en pruebas y la frontera privada de producción: proveedor o terminación de identidad, emisores y audiencias admitidos, autoridades de certificación, servicio de revocación, orígenes permitidos y responsable de cada configuración. ¿Qué interfaz o entorno de pruebas permite comprobar certificado válido, revocado y no autorizado sin facilitar identidades reales, claves ni certificados privados?
+
+33. **Configuración funcional compartida.** Además de los catálogos de Contratación de la pregunta 7, ¿qué calendarios, unidades, centros, plantillas, reglas, parámetros y conectores se administrarán en VEC y cuál es la fuente autorizada de cada uno? ¿Quién propone, revisa, publica, retira y recupera una versión anterior, y qué elementos deben permanecer gestionados en su sistema corporativo de origen?
+
+34. **Perfil del usuario y campos editables.** ¿Qué sistema es la fuente autorizada del perfil de empleado o aspirante y qué campos puede modificar cada titular desde VEC? Además del correo tratado en la pregunta 10, necesitamos definir teléfono, domicilio, preferencias de contacto y cualquier otro dato mostrado: obligatoriedad, validación, historial, interfaz de sincronización y unidad responsable de resolver discrepancias.
+
+35. **Preferencias y canales de contacto.** ¿Qué avisos puede activar o desactivar el titular y cuáles deben enviarse obligatoriamente por su naturaleza administrativa? ¿Qué canales corporativos están admitidos, cómo se acredita el alta o retirada de una preferencia y qué sistema conserva la fuente y la versión aplicadas a cada comunicación? No necesitamos direcciones ni teléfonos reales para definir este contrato.
+
+36. **Auditoría y soporte de Administración y Usuarios.** ¿Qué responsables pueden consultar o exportar trazas de acceso, cambios de roles, configuración y contacto, con qué finalidad, periodo y conservación? ¿Qué circuito debe seguir soporte ante bloqueo de acceso, error de sincronización o dato discutido, y qué información técnica minimizada puede consultar sin suplantar al usuario ni acceder a expedientes o contactos en claro?
+
+Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes, GINPIX, identidad corporativa, certificados y revocación**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.
