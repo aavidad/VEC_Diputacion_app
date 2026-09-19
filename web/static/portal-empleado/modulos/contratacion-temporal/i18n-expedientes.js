@@ -30,6 +30,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   incorporacion_preparacion_cargando: "Consultando la preparación de incorporación guardada en el servidor.",
   incorporacion_preparacion_denegada: "No dispone de permiso para consultar la incorporación de este expediente.",
   incorporacion_preparacion_pendiente: "La preparación de incorporación no está disponible para este expediente. Esta consulta no registra una incorporación.",
+  incorporacion_preparacion_detalle_obsoleto: "El detalle mostrado (v{version_anterior}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión {version_actual}.",
   incorporacion_preparacion_actualizar: "Actualizar la lectura de incorporación",
   incorporacion_preparacion_no_disponible: "La incorporación no está preparada o la consulta no está disponible. Esta consulta no registra incorporaciones.",
   incorporacion_preparacion_reintentar: "Consultar de nuevo la incorporación",

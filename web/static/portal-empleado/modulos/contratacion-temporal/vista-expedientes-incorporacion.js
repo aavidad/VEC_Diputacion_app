@@ -121,14 +121,18 @@ export function crearGestorIncorporacion({
             ({ expediente_ref: referencia }) => referencia === expedienteRef,
           );
           if (!resumen || resumen.version < preparacion.version_actual_expediente) {
-            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
+            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t("incorporacion_preparacion_detalle_obsoleto", {
+              version_anterior: version, version_actual: preparacion.version_actual_expediente,
+            }))}</p>`;
             return;
           }
           await presentador.seleccionarExpediente(expedienteRef, "expediente");
           if (!esMontada() || controlador.signal.aborted) return;
           const actualizado = presentador.obtenerEstado().expediente;
           if (actualizado?.version < preparacion.version_actual_expediente) {
-            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">El detalle mostrado (v${version}) está obsoleto. No se habilita ninguna acción hasta que se recupere la versión ${preparacion.version_actual_expediente}.</p>`;
+            contenedor.innerHTML = `<p class="ct-estado ct-estado-aviso" role="status">${escaparHTML(t("incorporacion_preparacion_detalle_obsoleto", {
+              version_anterior: version, version_actual: preparacion.version_actual_expediente,
+            }))}</p>`;
             return;
           }
           repintar("[data-ct-exp-mensaje]");

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import { montarModuloContratacionTemporal } from "./vista-expedientes.js";
 
@@ -60,6 +61,23 @@ test("montaje: los seis assets nuevos están declarados e importados sin perder 
   const [cliente, vista] = await Promise.all(["cliente-http.js", "vista-expedientes.js"].map((asset) => readFile(new URL(asset, modulo), "utf8")));
   for (const asset of esperados.slice(2, 4)) assert.match(cliente, new RegExp(`from "\\./${asset}"`, "u"));
   for (const asset of esperados.slice(4)) assert.match(vista, new RegExp(`from "\\./${asset}"`, "u"));
+});
+
+test("montaje: el aviso de detalle obsoleto de incorporación usa el catálogo", async () => {
+  const t = crearTraductorExpedientesContratacion({
+    incorporacion_preparacion_detalle_obsoleto: "Detalle <obsoleto> {version_anterior}/{version_actual}",
+  });
+  assert.equal(
+    t("incorporacion_preparacion_detalle_obsoleto", { version_anterior: 8, version_actual: 9 }),
+    "Detalle <obsoleto> 8/9",
+  );
+  const modulo = new URL("./vista-expedientes-incorporacion.js", import.meta.url);
+  const vista = await readFile(modulo, "utf8");
+  assert.doesNotMatch(vista, /El detalle mostrado \(v\$\{version\}\) está obsoleto/u);
+  assert.equal(
+    vista.match(/incorporacion_preparacion_detalle_obsoleto/g)?.length,
+    2,
+  );
 });
 
 test("montaje: un GET de cierre tardío no recrea el panel tras desmontar", async () => {
