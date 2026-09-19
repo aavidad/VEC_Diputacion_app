@@ -47,3 +47,13 @@ test("la presentación no habilita efectos y comunica que el ranking es sintéti
   assert.doesNotMatch(html, /data-accion=/);
   assert.match(vistas.renderizarMeritos({}), /Sin registros/);
 });
+
+test("la motivación solo se habilita en la demostración sin producir efectos", () => {
+  const presentacion = vistas.renderizarMeritos({ ...datos, demostracion: true });
+  assert.match(presentacion, /<fieldset>/);
+  assert.doesNotMatch(presentacion, /<fieldset disabled/);
+  assert.match(presentacion, /no registra valoraciones administrativas ni produce efectos/);
+
+  const real = vistas.renderizarMeritos(datos);
+  assert.match(real, /<fieldset disabled aria-disabled="true">/);
+});

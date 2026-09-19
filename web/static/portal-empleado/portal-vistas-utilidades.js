@@ -55,7 +55,7 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
       : `<tr><td colspan="${cabeceras.length}" class="vacio-controlado">${escaparHTML(vacio)}</td></tr>`;
     const clasePrioridad = prioridadColumnas ? ` tabla-contenedor--prioritaria tabla-contenedor--${prioridadColumnas}` : "";
     const atributosRegion = prioridadColumnas
-      ? ` tabindex="0" role="region" aria-label="Tabla operativa: ${escaparHTML(titulo)}" data-tabla-prioritaria="${prioridadColumnas}"`
+      ? ` tabindex="0" role="region" aria-label="${escaparHTML(traducirBolsaInterna("tabla_region_operativa", { titulo }))}" data-tabla-prioritaria="${prioridadColumnas}"`
       : "";
     const claseTabla = prioridadColumnas ? ` tabla-datos--prioritaria tabla-datos--${prioridadColumnas}` : "";
     return `<div class="tabla-contenedor${clasePrioridad}"${atributosRegion}><table class="tabla-datos${claseTabla}"><caption>${escaparHTML(titulo)}</caption><thead><tr>${cabeceras.map((cabecera, indice) => `<th scope="col"${atributoColumna(indice)}>${escaparHTML(cabecera)}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
@@ -67,14 +67,14 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
 
   function fuentePresentacion() {
     return esPresentacion()
-      ? '<span class="estado-chip info">Datos sintéticos · Memoria volátil</span>'
-      : '<span class="estado-chip neutro">Fuente real no conectada</span>';
+      ? `<span class="estado-chip info">${escaparHTML(traducirBolsaInterna("fuente_datos_sinteticos"))}</span>`
+      : `<span class="estado-chip neutro">${escaparHTML(traducirBolsaInterna("fuente_real_no_conectada"))}</span>`;
   }
 
-  function avisoPresentacion(texto = "Este recorrido simula la actuación sin efectos administrativos ni comunicaciones externas.") {
+  function avisoPresentacion(texto = traducirBolsaInterna("aviso_presentacion")) {
     return esPresentacion()
-      ? `<section class="nota-seguridad" aria-label="Alcance de la presentación"><strong>Modo presentación.</strong> ${escaparHTML(texto)}</section>`
-      : '<section class="nota-pendiente" aria-label="Capacidad real no disponible"><strong>Funcionalidad no conectada.</strong> La misma pantalla queda visible, pero sus acciones permanecen deshabilitadas hasta que el servidor conceda capacidad explícita y aporte datos autorizados.</section>';
+      ? `<section class="nota-seguridad" aria-label="${escaparHTML(traducirBolsaInterna("alcance_presentacion"))}"><strong>${escaparHTML(traducirBolsaInterna("modo_presentacion"))}</strong> ${escaparHTML(texto)}</section>`
+      : `<section class="nota-pendiente" aria-label="${escaparHTML(traducirBolsaInterna("capacidad_real_no_disponible"))}"><strong>${escaparHTML(traducirBolsaInterna("funcionalidad_no_conectada"))}</strong> ${escaparHTML(traducirBolsaInterna("detalle_funcionalidad_no_conectada"))}</section>`;
   }
 
   function campo(label, control, ayuda = "") {
