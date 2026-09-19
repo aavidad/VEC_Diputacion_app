@@ -7,45 +7,79 @@
   <title data-i18n="acceso.titulo_pagina">Acceso a VEC | Diputación de Granada</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/acceso/acceso.css?v=20260919-acceso-publico">
+  <link rel="stylesheet" href="/acceso/acceso.css?v=20260919-institucional">
   <script type="module" src="/acceso/acceso-i18n.js"></script>
 </head>
 <body class="acceso-publico">
   <a class="salto-contenido" href="#contenido-principal" data-i18n="acceso.saltar_contenido">Saltar al contenido principal</a>
-  <main id="contenido-principal" class="acceso-principal" tabindex="-1">
-    <header class="acceso-cabecera">
+
+  <header class="cabecera-institucional">
+    <div class="cabecera-contenido">
       <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
-      <p class="acceso-etiqueta" data-i18n="acceso.etiqueta">Portal de Recursos Humanos</p>
-      <h1 data-i18n="acceso.titulo">Acceso a VEC</h1>
-      <p data-i18n="acceso.introduccion">Seleccione una forma de identificación cuando el acceso autenticado esté habilitado.</p>
-    </header>
+      <div class="cabecera-servicio">
+        <span data-i18n="acceso.cabecera.servicio">Ventanilla electrónica</span>
+        <strong data-i18n="acceso.cabecera.area">Recursos Humanos</strong>
+      </div>
+    </div>
+  </header>
 
-    <section class="acceso-estado" aria-labelledby="estado-acceso">
-      <h2 id="estado-acceso" data-i18n="acceso.estado.titulo">Acceso autenticado pendiente de configuración</h2>
-      <p data-i18n="acceso.estado.descripcion">No introduzca credenciales ni certificados en este portal. Las opciones se activarán cuando Sistemas publique la pasarela de identidad correspondiente.</p>
-    </section>
+  <main id="contenido-principal" class="acceso-principal" tabindex="-1">
+    <section class="acceso-marco" aria-labelledby="titulo-acceso">
+      <div class="acceso-presentacion">
+        <p class="acceso-sigla" data-i18n="acceso.sigla">VEC</p>
+        <p class="acceso-etiqueta" data-i18n="acceso.etiqueta">Ventanilla electrónica corporativa</p>
+        <h1 id="titulo-acceso" data-i18n="acceso.titulo">Portal de Recursos Humanos</h1>
+        <p class="acceso-introduccion" data-i18n="acceso.introduccion">Identifíquese para acceder a sus trámites y servicios de personal.</p>
+      </div>
 
-    <section aria-labelledby="metodos-acceso">
-      <h2 id="metodos-acceso" data-i18n="acceso.metodos.titulo">Métodos previstos</h2>
-      <div class="acceso-tarjetas">
-        <article class="acceso-tarjeta">
-          <h3 data-i18n="acceso.metodo.clave.titulo">Cl@ve</h3>
-          <p data-i18n="acceso.metodo.clave.descripcion">Acceso para personas usuarias cuando esté disponible la pasarela aprobada.</p>
-          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
-        </article>
-        <article class="acceso-tarjeta">
-          <h3 data-i18n="acceso.metodo.certificado.titulo">Certificado digital</h3>
-          <p data-i18n="acceso.metodo.certificado.descripcion">Certificado FNMT o corporativo admitido, cuando el canal se configure y valide.</p>
-          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
-        </article>
-        <article class="acceso-tarjeta">
-          <h3 data-i18n="acceso.metodo.dnie.titulo">DNIe</h3>
-          <p data-i18n="acceso.metodo.dnie.descripcion">Identificación con DNI electrónico cuando el lector y la pasarela estén configurados.</p>
-          <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">Acceso pendiente de configuración</button>
-        </article>
+      <div class="acceso-panel">
+        <header class="acceso-panel-cabecera">
+          <p class="acceso-paso" data-i18n="acceso.paso">Identificación electrónica</p>
+          <h2 id="metodos-acceso" data-i18n="acceso.metodos.titulo">Seleccione un método de identificación</h2>
+          <p data-i18n="acceso.metodos.descripcion">Use uno de los sistemas admitidos por la Diputación de Granada.</p>
+        </header>
+
+        <div class="acceso-estado" id="estado-acceso" role="status">
+          <span class="acceso-estado-marca" aria-hidden="true">i</span>
+          <div>
+            <strong data-i18n="acceso.estado.titulo">Acceso pendiente de configuración</strong>
+            <p data-i18n="acceso.estado.descripcion">Los métodos se habilitarán cuando Sistemas publique la pasarela de identidad.</p>
+          </div>
+        </div>
+
+        <section class="acceso-metodos" aria-labelledby="metodos-acceso">
+          <article class="acceso-metodo acceso-metodo-clave">
+            <div class="acceso-metodo-texto">
+              <h3 data-i18n="acceso.metodo.clave.titulo">Cl@ve</h3>
+              <p data-i18n="acceso.metodo.clave.descripcion">Identificación mediante la plataforma Cl@ve.</p>
+            </div>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+          </article>
+
+          <article class="acceso-metodo acceso-metodo-certificado">
+            <div class="acceso-metodo-texto">
+              <h3 data-i18n="acceso.metodo.certificado.titulo">Certificado digital</h3>
+              <p data-i18n="acceso.metodo.certificado.descripcion">Certificado FNMT o corporativo admitido.</p>
+            </div>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+          </article>
+
+          <article class="acceso-metodo acceso-metodo-dnie">
+            <div class="acceso-metodo-texto">
+              <h3 data-i18n="acceso.metodo.dnie.titulo">DNIe</h3>
+              <p data-i18n="acceso.metodo.dnie.descripcion">Identificación mediante DNI electrónico.</p>
+            </div>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
+          </article>
+        </section>
+
+        <p class="acceso-ayuda" data-i18n="acceso.ayuda">No introduzca credenciales mientras los métodos figuren como no disponibles.</p>
       </div>
     </section>
-
   </main>
+
+  <footer class="pie-institucional">
+    <p data-i18n="acceso.pie">Diputación de Granada · Ventanilla electrónica corporativa</p>
+  </footer>
 </body>
 </html>
