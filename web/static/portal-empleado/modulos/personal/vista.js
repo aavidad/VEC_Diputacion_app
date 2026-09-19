@@ -36,4 +36,3 @@ export async function montarModuloPersonal({ raiz, estado = "no_habilitada", pre
   raiz.innerHTML = renderizarModuloPersonal({ estado, presentacion });
   return Object.freeze({ desmontar() { raiz.replaceChildren(); } });
 }
-
