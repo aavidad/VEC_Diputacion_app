@@ -69,6 +69,24 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   rpt_cabecera_escalas: "Escalas",
   rpt_cabecera_puestos: "Puestos",
   rpt_cabecera_dotacion: "Dotación",
+  estructura_sobrelinea: "Portal del Empleado → Personal",
+  estructura_titulo: "Estructura organizativa de referencia",
+  estructura_ayuda: "Consulta pública de solo lectura con 66 unidades; no contiene personas, ocupación ni permisos.",
+  estructura_cargando: "Cargando estructura organizativa…",
+  estructura_error: "No se pudo consultar la estructura organizativa. No se muestran datos anteriores.",
+  estructura_aviso: "Fuente DEMO en preparación: no acredita vigencia administrativa, ocupación, cadena de mando, gestión efectiva ni autorización. Los títulos de jefatura son puestos de referencia.",
+  estructura_fuente: "Fuente: revisión {revision}; actualizada {actualizada_en}. {aviso}",
+  estructura_huella: "Huella SHA-256 del paquete: {huella}",
+  estructura_tabla: "Tabla de estructura organizativa de referencia",
+  estructura_recuento: "14 delegaciones · 41 centros · 11 puestos de responsabilidad",
+  estructura_cabecera_clave: "Clave",
+  estructura_cabecera_etiqueta: "Unidad",
+  estructura_cabecera_tipo: "Tipo",
+  estructura_cabecera_adscripcion: "Adscripción de referencia",
+  estructura_tipo_delegacion: "Delegación",
+  estructura_tipo_centro: "Centro",
+  estructura_tipo_puesto_responsabilidad: "Puesto de responsabilidad",
+  estructura_sin_adscripcion: "No consignada",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PERSONAL_ES));
@@ -98,4 +116,14 @@ export function formatearRecuentoRPT(total, locale = "es-ES", catalogo = MENSAJE
   const t = crearTraductorPersonal(catalogo);
   const numero = new Intl.NumberFormat(locale).format(total);
   return t(total === 1 ? "rpt_recuento_uno" : "rpt_recuento_otro", { total: numero });
+}
+export function formatearRecuentoEstructura(total, catalogo = MENSAJES_PERSONAL_ES) { if (total !== 66) throw new TypeError("recuento de estructura organizativa no válido"); return crearTraductorPersonal(catalogo)("estructura_recuento"); }
+
+// Conserva el ISO en el contrato y lo traduce únicamente al pintar una fecha
+// inequívoca para la zona operativa de la presentación.
+export function formatearFechaEstructuraOrganizativa(iso) {
+  if (typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u.test(iso)) throw new TypeError("fecha de estructura organizativa no válida");
+  const fecha = new Date(iso);
+  if (!Number.isFinite(fecha.getTime()) || fecha.toISOString() !== `${iso.slice(0, -1)}.000Z`) throw new TypeError("fecha de estructura organizativa no válida");
+  return `${new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(fecha)} (Europe/Madrid)`;
 }

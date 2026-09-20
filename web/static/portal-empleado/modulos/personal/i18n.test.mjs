@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MENSAJES_PERSONAL_ES, crearTraductorPersonal, formatearRecuentoCategorias, formatearRecuentoRPT } from "./i18n.js";
+import { MENSAJES_PERSONAL_ES, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT } from "./i18n.js";
 
 test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites", () => {
   const t = crearTraductorPersonal();
@@ -34,4 +34,12 @@ test("la RPT pública tiene catálogo completo y recuento localizado", () => {
   assert.equal(formatearRecuentoRPT(1), "1 categoría RPT");
   assert.equal(formatearRecuentoRPT(1_000), "1000 categorías RPT");
   assert.throws(() => formatearRecuentoRPT(-1), /no válido/);
+});
+
+test("la fecha de estructura se presenta en castellano y Europe/Madrid", () => {
+  const fecha = formatearFechaEstructuraOrganizativa("2026-09-06T00:00:00Z");
+  assert.match(fecha, /6 sept 2026|6\/9\/2026|06\/09\/2026/);
+  assert.match(fecha, /Europe\/Madrid/);
+  assert.doesNotMatch(fecha, /2026-09-06T00:00:00Z/);
+  assert.throws(() => formatearFechaEstructuraOrganizativa("2026-09-06"), /no válida/);
 });

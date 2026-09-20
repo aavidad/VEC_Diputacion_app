@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server"
+	personalorganizacion "vec-diputacion-granada/internal/modules/personal/adapters/organizacionpublica"
 	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -96,7 +97,22 @@ func NewHTTPServerPresentacionPersonalRPTWithConfig(cfg config.Config) (*http.Se
 	if err != nil {
 		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
 	}
-	return server.NewHTTPServerPresentacionPersonalRPT(cfg, apiPublica, concesionCategorias, concesionRPT)
+	if strings.TrimSpace(cfg.PersonalOrganizacionSourcePath) == "" {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, errors.New("bootstrap: fuente de estructura publica requerida"))
+	}
+	fuenteOrganizacion, err := personalorganizacion.NuevaFuente(cfg.PersonalOrganizacionSourcePath)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	consultaOrganizacion, err := personalapp.NuevoServicioConsultaEstructuraOrganizativaPublica(fuenteOrganizacion)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	concesionOrganizacion, err := vechttp.NewHandlerEstructuraOrganizativaPublicaPresentacion(cfg, consultaOrganizacion)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	return server.NewHTTPServerPresentacionPersonalRPT(cfg, apiPublica, concesionCategorias, concesionRPT, concesionOrganizacion)
 }
 
 func configuracionPresentacionSinteticaValida(cfg config.Config) bool {

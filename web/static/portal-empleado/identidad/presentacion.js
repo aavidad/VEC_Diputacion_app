@@ -10,7 +10,7 @@ import {
 } from "./contexto-actor.js";
 
 const MODULOS_GESTION = Object.freeze(["bolsa", "contratacion_temporal"]);
-const MODULOS_AUTOSERVICIO = Object.freeze(["cronos", "dietas"]);
+const MODULOS_AUTOSERVICIO = Object.freeze(["cronos", "dietas", "personal"]);
 
 const PERFILES_PRESENTACION = Object.freeze({
   "DEMO-PERFIL-ADMIN-FUNCIONAL-BOLSA-01": Object.freeze({

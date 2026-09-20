@@ -64,14 +64,16 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, vista, mapa, calculador });
   },
   personal: async () => {
-    const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT] = await Promise.all([
+    const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
+      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
     ]);
-    return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT });
+    return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
 });
 
@@ -288,15 +290,14 @@ export function crearCoordinadorModulosPortal({
     const contextos = compartirContextoActor(
       crearProveedorContextoActorFijo(contexto), contexto.ambito.modulos,
     );
-    // Personal solo se presenta en el recorrido sintético de autoservicio; no
-    // deriva acceso ni datos del ContextoActor ni del manifiesto real.
-    const personalPresentacionPermitido = contexto.rol.clave === "funcionario_autoservicio";
+    // Personal usa la misma concesión positiva de ámbito que los demás
+    // módulos: nunca se deduce de la etiqueta de rol ni de un menú.
+    const personalPresentacionPermitido = contextos.personal !== undefined;
     const cargas = await resolverCargasModularesPresentacion(
       cargadoresPresentacion,
       {
         claves: CLAVES_CARGA_MODULAR.filter(
-          (clave) => (clave === CLAVE_PERSONAL && personalPresentacionPermitido)
-            || contextos[clave] !== undefined,
+          (clave) => contextos[clave] !== undefined,
         ),
         limiteMs: limiteCargaModularMs,
         temporizadores,
@@ -327,12 +328,13 @@ export function crearCoordinadorModulosPortal({
         montar: recursos.vista.montarVistaItinerarioDietas,
       });
     });
-    const personal = cargas.personal?.disponible === true ? (() => {
-      const recursos = cargas.personal.recursos;
+    const personal = componerModuloAislado(contextos.personal, cargas.personal, (recursos) => {
       if (typeof recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal !== "function"
         || typeof recursos.vistaCategorias?.montarModuloPersonal !== "function"
         || typeof recursos.clienteRPT?.crearClienteHTTPRPTPublica !== "function"
-        || typeof recursos.vistaRPT?.montarModuloRPTPublica !== "function") {
+        || typeof recursos.vistaRPT?.montarModuloRPTPublica !== "function"
+        || typeof recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica !== "function"
+        || typeof recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica !== "function") {
         return undefined;
       }
       // La concesión del perfil presentacion_rrhh está limitada por el listener
@@ -352,13 +354,14 @@ export function crearCoordinadorModulosPortal({
             [categorias] = await Promise.all([
               recursos.vistaCategorias.montarModuloPersonal({ raiz, anunciar, registrarDesmontar: registrar, cliente: recursos.clienteCategorias.crearClienteHTTPCategoriasPersonal({ fetchImpl }) }),
               recursos.vistaRPT.montarModuloRPTPublica({ raiz, anunciar, registrarDesmontar: registrar, cliente: recursos.clienteRPT.crearClienteHTTPRPTPublica({ fetchImpl }) }),
+              recursos.vistaEstructura.montarModuloEstructuraOrganizativaPublica({ raiz, anunciar, registrarDesmontar: registrar, cliente: recursos.clienteEstructura.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl }) }),
             ]);
           } catch (causa) { desmontar(); throw causa; }
           if (!activa) { categorias?.desmontar(); return Object.freeze({ desmontar }); }
           return Object.freeze({ desmontar });
         },
       });
-    })() : undefined;
+    });
     const contratacionTemporal = componerModuloAislado(
       contextos.contratacion_temporal,
       cargas.contratacion_temporal,
@@ -418,7 +421,7 @@ export function crearCoordinadorModulosPortal({
         dietas: contextos.dietas === undefined
           ? "denegado"
           : (dietas === undefined ? "no_disponible" : "disponible"),
-        personal: personalPresentacionPermitido !== true
+        personal: contextos.personal === undefined
           ? "denegado"
           : (personal === undefined ? "no_disponible" : "disponible"),
       }),

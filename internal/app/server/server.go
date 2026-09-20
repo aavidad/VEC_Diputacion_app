@@ -90,18 +90,18 @@ func NewHTTPServerPresentacionCategorias(cfg config.Config, apiPublica, categori
 
 // NewHTTPServerPresentacionPersonalRPT suma a la concesion de categorias la
 // unica lectura RPT publica aprobada. Ninguna otra ruta /api/vec se monta.
-func NewHTTPServerPresentacionPersonalRPT(cfg config.Config, apiPublica, categorias, rpt http.Handler) (*http.Server, error) {
-	if categorias == nil || rpt == nil {
+func NewHTTPServerPresentacionPersonalRPT(cfg config.Config, apiPublica, categorias, rpt, estructura http.Handler) (*http.Server, error) {
+	if categorias == nil || rpt == nil || estructura == nil {
 		return nil, errors.New("server: concesion de Personal ausente")
 	}
-	return newHTTPServerPresentacionConPersonal(cfg, apiPublica, categorias, rpt, nil)
+	return newHTTPServerPresentacionConPersonal(cfg, apiPublica, categorias, rpt, estructura, nil)
 }
 
 func newHTTPServerPresentacion(cfg config.Config, apiPublica, categorias http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
-	return newHTTPServerPresentacionConPersonal(cfg, apiPublica, categorias, nil, comprobador)
+	return newHTTPServerPresentacionConPersonal(cfg, apiPublica, categorias, nil, nil, comprobador)
 }
 
-func newHTTPServerPresentacionConPersonal(cfg config.Config, apiPublica, categorias, rpt http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
+func newHTTPServerPresentacionConPersonal(cfg config.Config, apiPublica, categorias, rpt, estructura http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() {
 		return nil, errors.New("server: activacion de presentacion RRHH incompleta")
@@ -114,7 +114,7 @@ func newHTTPServerPresentacionConPersonal(cfg config.Config, apiPublica, categor
 		return nil, errors.New("server: la presentacion RRHH exige redes locales enumeradas")
 	}
 	return newHTTPServer(cfg, apiPublica, func(cfg config.Config, api http.Handler) http.Handler {
-		return newHandlerPresentacionConPersonal(cfg, api, categorias, rpt, comprobador)
+		return newHandlerPresentacionConPersonal(cfg, api, categorias, rpt, estructura, comprobador)
 	})
 }
 
@@ -330,10 +330,10 @@ func NewHandlerPresentacionCategoriasWithConfig(cfg config.Config, apiPublica, c
 }
 
 func newHandlerPresentacionWithConfig(cfg config.Config, apiPublica, categorias http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
-	return newHandlerPresentacionConPersonal(cfg, apiPublica, categorias, nil, comprobador)
+	return newHandlerPresentacionConPersonal(cfg, apiPublica, categorias, nil, nil, comprobador)
 }
 
-func newHandlerPresentacionConPersonal(cfg config.Config, apiPublica, categorias, rpt http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
+func newHandlerPresentacionConPersonal(cfg config.Config, apiPublica, categorias, rpt, estructura http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
 	cfg = cfg.Normalize()
 	redes, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
@@ -369,6 +369,9 @@ func newHandlerPresentacionConPersonal(cfg config.Config, apiPublica, categorias
 	}
 	if rpt != nil {
 		mux.Handle("/api/vec/personal/rpt-publica", soloLecturaHTTP(rpt))
+	}
+	if estructura != nil {
+		mux.Handle("/api/vec/personal/estructura-organizativa-publica", soloLecturaHTTP(estructura))
 	}
 
 	handler := rechazarRutasNoCanonicas(mux)

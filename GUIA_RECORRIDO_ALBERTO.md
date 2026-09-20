@@ -1,5 +1,42 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Estructura organizativa pública de Personal — presentación local
+
+Este recorrido consulta una proyección DEMO y preparatoria sin ocupantes ni
+datos personales. No representa el organigrama vigente, una cadena de mando,
+una adscripción efectiva o una concesión de permisos.
+
+1. Arranque únicamente `vec-presentacion` y su proxy local con el perfil
+   aislado y abra
+   `/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal`.
+2. Compruebe que **Personal** está habilitado para el funcionario. En los
+   perfiles `tecnico` y `administrador` debe permanecer deshabilitado y mostrar
+   **Sin permiso para este perfil**.
+3. Abra **Personal**. Deben montarse juntas las secciones de catálogo
+   profesional, RPT pública y **Estructura organizativa de referencia**.
+4. La tercera sección debe mostrar 66 unidades y el resumen
+   **14 delegaciones · 41 centros · 11 puestos de responsabilidad**, además de
+   la revisión, la fecha localizada en `Europe/Madrid`, el aviso DEMO y la
+   huella SHA-256
+   `0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c`.
+5. Compruebe que el aviso niega vigencia administrativa, ocupación, cadena de
+   mando, gestión efectiva y autorización, y que explica que los títulos de
+   jefatura son puestos de referencia. En móvil, desplace horizontalmente la
+   región de la tabla sin desplazar toda la página.
+
+El navegador necesita exclusivamente estos tres `GET` de Personal:
+
+- `/api/vec/personal/categories?q=&area=&limit=25&offset=0`;
+- `/api/vec/personal/rpt-publica?q=&limit=25&offset=0`;
+- `/api/vec/personal/estructura-organizativa-publica`.
+
+La última ruta admite también `HEAD` sin cuerpo. Una ruta hija o una query
+adicional deben responder `404`. No deben aparecer cookies, almacenamiento web
+ni llamadas a API de Contratación, Bolsa, Dietas, OSRM o al resto de Personal.
+Este recorrido es una lectura sin operación: no genera recibo, historia ni
+replay. Para trasladarlo a uso interno real faltan identidad y autorización
+corporativas, auditoría durable y validación administrativa de la fuente.
+
 ## Consulta pública de categorías RPT de Personal — presentación local
 
 Este recorrido es de solo lectura y usa la fuente pública RPT versionada que

@@ -1,5 +1,54 @@
 # Estado y plan de ataque del proyecto
 
+## Personal: estructura organizativa pública de referencia — 20 de septiembre de 2026
+
+El corte E26 añade al Portal del Empleado una tercera consulta visible de
+Personal sobre el paquete versionado
+`data/catalogos/estructura-organizativa/v1.rpt-publica.json`. El recorrido
+muestra 66 unidades: 14 delegaciones, 41 centros y 11 puestos de
+responsabilidad. La fuente queda inmovilizada al arrancar por su SHA-256
+`0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c` y
+se proyectan únicamente clave, etiqueta, tipo y adscripción de referencia.
+No se publican ocupantes, datos personales, códigos o páginas de extracción,
+estados locales, motivos ni descripciones extensas.
+
+La ruta exacta `GET/HEAD
+/api/vec/personal/estructura-organizativa-publica` solo se compone en el
+listener aislado `presentacion_rrhh`, con sus dos guardas y redes enumeradas.
+La identidad sintética `funcionario_autoservicio` declara de forma positiva
+el ámbito `cronos`, `dietas` y `personal`; técnico y administrador conservan
+Personal denegado. El coordinador exige el mismo `ContextoActor` compartido y
+ya no deduce la concesión del nombre del rol. Esta atribución es exclusiva de
+la presentación: no amplía roles, permisos ni rutas del servidor ordinario y
+no representa identidad o autorización corporativa.
+
+Dos revisiones independientes de identidad/autorización y
+privacidad/minimización dieron `GO`, con `P0=P1=P2=P3=0`, sobre la candidata
+de código y configuración
+`c476dcfe2b9d5e205f60c2c18fbc1ddfff512c9ec5e618ca8975c3b1bf71ad02`.
+Las pruebas focales Go, compilación y 48 casos Node de identidad, Personal y
+coordinación terminaron correctamente. La campaña completa del servidor
+conserva un fallo anterior de la portada pública y `portal.test.mjs` conserva
+otro fixture anterior de Bolsa; ninguno pertenece a este corte.
+
+Chromium reconstruyó y recorrió Portal → Personal en 1440×1000 y 390×844.
+Las tres consultas concedidas —catálogo profesional, RPT pública y estructura—
+respondieron `200`; se mostraron 25, 25 y 66 filas respectivamente. La página
+no tuvo desbordamiento global y la tabla móvil usó desplazamiento interno. No
+hubo errores de consola, página o red, cookies, `localStorage`,
+`sessionStorage`, IndexedDB ni Cache Storage, ni llamadas a API de
+Contratación, Bolsa, Dietas, OSRM u otras rutas de Personal. `HEAD` respondió
+sin cuerpo y una query no canónica devolvió `404`. La composición descartable
+se retiró al terminar.
+
+La pantalla rotula la fuente como DEMO y preparatoria. No acredita vigencia
+administrativa, ocupación, cadena de mando, gestión efectiva, permisos ni
+autoridad; una jefatura es solo un puesto de referencia. No hay SQL,
+operaciones, auditoría durable, recibos ni efectos externos. Cronos permanece
+bloqueado por la ausencia de una fuente WCRONOS aprobada y del vínculo
+Persona→Empleado. Dietas conserva el bloqueo de navegador por falta del grafo
+provincial OSRM; no se ha sustituido ninguna fuente.
+
 ## Personal: consulta pública de categorías RPT en el Portal — 20 de septiembre de 2026
 
 El corte E25 añade al módulo Personal una consulta web de solo lectura sobre la

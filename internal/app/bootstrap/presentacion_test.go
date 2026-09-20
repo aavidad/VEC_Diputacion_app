@@ -157,6 +157,7 @@ func TestComposicionPresentacionPersonalRPTExigeFuenteYSoloConcedeRutaExacta(t *
 		t.Fatalf("arranque sin fuente RPT = %v", err)
 	}
 	cfg.RPTCatalogoPath = "../../../data/catalogos/rpt/v1.rpt-2026.json"
+	cfg.PersonalOrganizacionSourcePath = "../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json"
 	servidor, err := NewHTTPServerPresentacionPersonalRPTWithConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +170,7 @@ func TestComposicionPresentacionPersonalRPTExigeFuenteYSoloConcedeRutaExacta(t *
 	for _, caso := range []struct {
 		metodo, ruta string
 		want         int
-	}{{http.MethodGet, "/api/vec/personal/rpt-publica?q=administrativo&limit=1&offset=0", http.StatusOK}, {http.MethodHead, "/api/vec/personal/rpt-publica?q=&limit=1&offset=0", http.StatusOK}, {http.MethodGet, "/api/vec/personal/rpt-publica/administrativo", http.StatusNotFound}, {http.MethodPost, "/api/vec/personal/rpt-publica", http.StatusMethodNotAllowed}, {http.MethodGet, "/api/vec/session", http.StatusNotFound}} {
+	}{{http.MethodGet, "/api/vec/personal/rpt-publica?q=administrativo&limit=1&offset=0", http.StatusOK}, {http.MethodHead, "/api/vec/personal/rpt-publica?q=&limit=1&offset=0", http.StatusOK}, {http.MethodGet, "/api/vec/personal/estructura-organizativa-publica", http.StatusOK}, {http.MethodHead, "/api/vec/personal/estructura-organizativa-publica", http.StatusOK}, {http.MethodGet, "/api/vec/personal/estructura-organizativa-publica/extra", http.StatusNotFound}, {http.MethodGet, "/api/vec/personal/rpt-publica/administrativo", http.StatusNotFound}, {http.MethodPost, "/api/vec/personal/rpt-publica", http.StatusMethodNotAllowed}, {http.MethodGet, "/api/vec/session", http.StatusNotFound}} {
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticion(caso.metodo, caso.ruta))
 		if rec.Code != caso.want {
