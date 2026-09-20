@@ -139,6 +139,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   columna_plazo: "Plazo",
   columna_acciones: "Acciones",
   abrir: "Abrir expediente",
+  resumen_fila: "Resumen del expediente {expediente}",
+  resumen_abrir_expediente: "Abrir expediente completo",
   flujo_expediente: "Progreso del expediente",
   expediente_etiqueta: "Expediente",
   metadatos_tecnicos: "Metadatos técnicos del expediente",
