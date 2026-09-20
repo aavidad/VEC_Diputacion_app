@@ -98,11 +98,26 @@ convocatoria antigua contra su snapshot exacto aunque la categoría haya
 caducado. Se admiten de 1 a 64 snapshots, de 1 a 1.024 entradas por snapshot y
 4.096 entradas en total. El conjunto vigente actual puede estar vacío.
 
-`publicar_proyeccion_v2` es la única frontera de escritura operativa. Valida el
-JSON completo, toma el candado exclusivo y reemplaza datos y testigo en una
-sola transacción. Todo DML fuera de esa función pone el testigo a 64 ceros; ese
-valor está reservado y se rechaza como configuración o ancla. Los lectores
-fallan cerrados desde la siguiente consulta.
+`publicar_proyeccion_v3` es la única frontera de escritura operativa desde la
+migración `000002`. Recibe la proyección V2 y el bloque `bolsas_v1` en la misma
+llamada, valida ambos, toma el candado exclusivo y reemplaza datos y testigo en
+una sola transacción. La V2 se conserva para la historia, pero el LOGIN
+publicador pierde su `EXECUTE` directo sobre ella. Todo DML fuera de V3 pone el
+testigo a 64 ceros; ese valor está reservado y se rechaza como configuración o
+ancla. Los lectores fallan cerrados desde la siguiente consulta.
+
+El bloque B10 es `{"generado_en": <exactamente fuente.actualizada_en>,
+"bolsas": [...]}`. Cada bolsa se ordena estrictamente por `bolsa_ref` y tiene
+las claves exactas `bolsa_ref`, `categoria`, `categoria_clave`, `grupos`,
+`tipo_lista`, `vigente_desde`, `vigente_hasta`, `total` y `posiciones`; cada
+posición se ordena por `orden` y tiene solo `orden`, `documento_enmascarado` y
+`estado_clave`. El manifiesto canónico V3 incorpora este bloque como
+`bolsas_v1` después de la proyección V2, con las bolsas y posiciones en ese
+orden. Su SHA-256 se entrega como la misma `ancla_manifiesto_sha256` de la
+fuente: no se admite una ancla independiente para B10. Las vistas públicas son
+`vec_bolsa_publica_lectura.bolsas_v1` y
+`vec_bolsa_publica_lectura.posiciones_bolsa_v1`; no contienen nombres,
+contactos ni referencias internas.
 
 `manifiesto_consumido` es append-only para la función y su clave es única. Una
 ancla aceptada no puede volver a usarse, ni en A→B→A ni después de invalidar A a
@@ -177,8 +192,9 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 Orden de instalación:
 
 1. `roles_up.sql` como DBA;
-2. `migraciones/000001_proyeccion_publica.up.sql` con `current_user` igual a
-   `vec_bolsa_publica_migrador`;
+2. `migraciones/000001_proyeccion_publica.up.sql` y, si se instala B10,
+   `migraciones/000002_proyeccion_bolsas_v1.up.sql`, con `current_user` igual
+   a `vec_bolsa_publica_migrador`;
 3. aprovisionamiento externo del LOGIN lector y asignación del secreto al
    `vec_bolsa_publica_publicador_login` ya creado, sin cambiar sus GUC, nombre
    ni ACL;

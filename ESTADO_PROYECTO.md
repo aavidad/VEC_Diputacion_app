@@ -1,5 +1,25 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa B10 conectada a la composición pública — 20 de septiembre de 2026
+
+El corte B10 incorpora una proyección PostgreSQL separada para bolsas vigentes
+y posiciones con documento enmascarado, un manifiesto V3 común con las
+convocatorias y el lector que monta las rutas existentes de consulta pública
+en `cmd/vec-publico`. La publicación es atómica, el lector enumera doce vistas
+y cualquier escritura lateral invalida el mismo testigo. No se publican
+nombres, contactos ni referencias internas de persona o candidatura.
+
+La prueba focal instaló las migraciones `000001` y `000002` en PostgreSQL 18.4
+efímero, publicó una bolsa con dos posiciones, ejecutó el lector Go y comprobó
+ACL, redacción de errores, invalidación y el ciclo UP→DOWN→UP. Las pruebas Go
+de canónico, adaptador, HTTP y composición también terminaron correctamente.
+Dos revisiones independientes dieron `GO`, con `P0=P1=P2=0` pendientes.
+
+El corte todavía no está desplegado: `vec.cidonia.cloud` conserva la portada
+cerrada y el servidor no dispone aún de la PostgreSQL pública dedicada, los
+LOGIN segregados, TLS ni el proceso `vec-publico`. La prueba efímera del lector
+no sustituye el recorrido conjunto TLS/ACL/manifiesto/HTTP previo a publicarlo.
+
 ## Bolsa RRHH consulta datos constituidos — 20 de septiembre de 2026
 
 El corte canónico `081cc0bc9abfc8ba138d50f28bee5198565d5c6b` retira de

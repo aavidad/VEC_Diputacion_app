@@ -84,10 +84,16 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		fuente.Cerrar()
 		return nil, err
 	}
+	manejadorBolsas, err := bolsahttp.NuevoManejadorBolsasPublicas(fuente)
+	if err != nil {
+		fuente.Cerrar()
+		return nil, err
+	}
 	api := http.NewServeMux()
 	api.Handle(bolsahttp.RutaConvocatorias, manejador)
 	api.Handle(bolsahttp.RutaConvocatorias+"/", manejador)
 	api.Handle(bolsahttp.RutaCategorias, manejador)
+	bolsahttp.RegistrarRutasBolsasPublicas(api, manejadorBolsas)
 	servidor, err := server.NewHTTPServerPublicoConComprobadorDisponibilidad(configuracionHTTP(cfg), api, fuente)
 	if err != nil {
 		fuente.Cerrar()

@@ -60,4 +60,18 @@ func TestIntegracionRaizPublicaSoloArrancaConPostgreSQLAutoritativo(t *testing.T
 			}
 		}
 	}
+
+	peticion := httptest.NewRequest(http.MethodGet, "/api/publico/bolsa/bolsas", nil)
+	peticion.RemoteAddr = "192.0.2.10:43210"
+	respuesta := httptest.NewRecorder()
+	servidor.Handler.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusOK ||
+		!strings.Contains(respuesta.Body.String(), `"esquema":"vec.bolsa.publico.bolsas.v1"`) {
+		t.Fatalf("raiz productiva B10 = %d %s", respuesta.Code, respuesta.Body.String())
+	}
+	for _, prohibido := range []string{`"nombre":`, `"participacion_ref":`, `"documento_completo":`} {
+		if strings.Contains(respuesta.Body.String(), prohibido) {
+			t.Fatalf("B10 expuso campo no publico %q: %s", prohibido, respuesta.Body.String())
+		}
+	}
 }

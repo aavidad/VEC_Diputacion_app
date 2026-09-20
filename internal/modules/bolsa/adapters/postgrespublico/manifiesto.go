@@ -131,35 +131,90 @@ func (f *Fuente) construirCacheManifiesto(
 func (f *Fuente) leerManifiestoPublico(
 	ctx context.Context,
 	tx pgx.Tx,
-) (canonicopublico.ManifiestoPublicoV2, puertosbolsa.MetadatosFuenteConvocatorias, error) {
+) (canonicopublico.ManifiestoPublicoV3, puertosbolsa.MetadatosFuenteConvocatorias, error) {
 	metadatos, err := leerMetadatosFuente(ctx, tx)
 	if err != nil {
-		return canonicopublico.ManifiestoPublicoV2{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
 	}
 	catalogos, err := leerCatalogos(ctx, tx)
 	if err != nil {
-		return canonicopublico.ManifiestoPublicoV2{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
 	}
 	categorias, err := f.leerCategoriasManifiesto(ctx, tx)
 	if err != nil {
-		return canonicopublico.ManifiestoPublicoV2{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
 	}
 	entradas, err := leerEntradasManifiestoEnFlujo(ctx, tx)
 	if err != nil {
-		return canonicopublico.ManifiestoPublicoV2{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
 	}
 	materialCatalogos, err := proyectarCatalogosManifiesto(catalogos)
 	if err != nil {
-		return canonicopublico.ManifiestoPublicoV2{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
 	}
-	manifiesto := canonicopublico.ManifiestoPublicoV2{
-		Esquema: canonicopublico.EsquemaManifiestoPublicoV2,
+	bolsas, err := leerBolsasManifiestoB10(ctx, tx)
+	if err != nil {
+		return canonicopublico.ManifiestoPublicoV3{}, puertosbolsa.MetadatosFuenteConvocatorias{}, err
+	}
+	manifiesto := canonicopublico.ManifiestoPublicoV3{
+		Esquema: canonicopublico.EsquemaManifiestoPublicoV3,
 		Fuente: canonicopublico.FuenteManifiestoPublicoV2{
 			Revision: metadatos.Revision, ActualizadaEn: metadatos.ActualizadaEn,
 		},
 		Catalogos: materialCatalogos, Categorias: categorias, Convocatorias: entradas,
+		BolsasV1: canonicopublico.BolsasManifiestoV1{GeneradoEn: metadatos.ActualizadaEn, Bolsas: bolsas},
 	}
 	return manifiesto, metadatos, nil
+}
+
+func leerBolsasManifiestoB10(ctx context.Context, tx pgx.Tx) ([]canonicopublico.BolsaManifiestoV1, error) {
+	filas, err := tx.Query(ctx, `
+		SELECT bolsa_ref, categoria, categoria_clave, grupos, tipo_lista, vigente_desde, vigente_hasta, total
+		  FROM vec_bolsa_publica_lectura.bolsas_v1
+		 ORDER BY bolsa_ref`)
+	if err != nil {
+		return nil, errorPostgreSQLPublico(ctx, err)
+	}
+	resultado := make([]canonicopublico.BolsaManifiestoV1, 0)
+	for filas.Next() {
+		var bolsa canonicopublico.BolsaManifiestoV1
+		var total int64
+		if err := filas.Scan(
+			&bolsa.BolsaRef, &bolsa.Categoria, &bolsa.CategoriaClave, &bolsa.Grupos,
+			&bolsa.TipoLista, &bolsa.VigenteDesde, &bolsa.VigenteHasta, &total,
+		); err != nil || total < 0 || total > maximoPosicionesB10 || total > int64(^uint(0)>>1) {
+			filas.Close()
+			return nil, ErrDatosPostgreSQLPublicosNoConfiables
+		}
+		bolsa.Total = int(total)
+		bolsa.VigenteDesde = instanteUTC(bolsa.VigenteDesde)
+		if bolsa.VigenteHasta != nil {
+			hasta := instanteUTC(*bolsa.VigenteHasta)
+			bolsa.VigenteHasta = &hasta
+		}
+		resultado = append(resultado, bolsa)
+	}
+	if err := filas.Err(); err != nil {
+		filas.Close()
+		return nil, errorPostgreSQLPublico(ctx, err)
+	}
+	// pgx mantiene una conexión ocupada hasta cerrar Rows. Las posiciones se
+	// consultan después de materializar todas las cabeceras para no abrir una
+	// segunda consulta sobre esa misma conexión aún ocupada.
+	filas.Close()
+	for indice := range resultado {
+		posiciones, err := leerPosicionesB10(ctx, tx, resultado[indice].BolsaRef, resultado[indice].Total)
+		if err != nil {
+			return nil, err
+		}
+		resultado[indice].Posiciones = make([]canonicopublico.PosicionBolsaManifiestoV1, len(posiciones))
+		for posicion, valor := range posiciones {
+			resultado[indice].Posiciones[posicion] = canonicopublico.PosicionBolsaManifiestoV1{
+				Orden: valor.Orden, DocumentoEnmascarado: valor.DocumentoEnmascarado, EstadoClave: valor.EstadoClave,
+			}
+		}
+	}
+	return resultado, nil
 }
 
 func proyectarCatalogosManifiesto(
