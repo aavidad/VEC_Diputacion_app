@@ -1,5 +1,41 @@
 # Estado y plan de ataque del proyecto
 
+## Portal RRHH visible y RPT completa de consulta — 20 de septiembre de 2026
+
+El corte `d0601a460a4737dd0234b8e71b042ff9810f7bf2` completa en la superficie de
+presentación recorridos navegables de Cronos, Dietas, Personal, Nóminas,
+Solicitudes, Méritos y formación, Comunicaciones, Documentos, Aprobaciones,
+Auditoría y Administración. Todos distinguen de forma visible qué está
+conectado y qué sigue pendiente de backend; las acciones sin caso de uso real
+permanecen deshabilitadas y no producen firma, envío, pago ni efecto
+administrativo. Los ocho recorridos nuevos usan rutas `*-empleado` separadas
+de las subrutas históricas de Bolsa.
+
+Personal expone además la proyección pública completa de la RPT: 842 filas de
+puestos tipo, 1.714 dotaciones agregadas, 145 categorías derivadas y 41
+centros, con búsqueda, paginación, fuente y huella SHA-256
+`b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8`.
+No crea 1.714 identificadores individuales, no publica ocupantes y conserva
+como «No consignada» la categoría ausente en 308 filas. Los 11 puestos de
+responsabilidad disponibles siguen rotulados como cobertura parcial; no se
+deducen jefaturas, cadenas de mando, competencias ni permisos.
+
+La candidata recibió revisión independiente `GO`, con `P0=P1=P2=0`. Pasaron
+106 pruebas Node del corte ya aislado del WIP, 25 pruebas del arnés, las
+pruebas y `go vet` focales de Personal/RPT/HTTP y el verificador de
+manifiestos. Chromium recorrió once módulos en 1440×1000 y 390×844: 22/22
+combinaciones correctas, incluida la RPT paginada y los filtros de
+Administración/Aprobaciones, sin errores JavaScript ni desbordamiento global.
+
+Este corte acredita interfaz y la lectura pública RPT, no backends completos.
+Cronos sigue pendiente de WCRONOS y del vínculo Persona→Empleado; Dietas
+conserva mapa/OSRM conectado pero expediente, justificantes, competencia,
+liquidación y pago continúan pendientes. Nóminas, solicitudes, méritos,
+comunicaciones, documentos, aprobaciones, auditoría y administración son
+recorridos visuales rotulados. El WIP SQL/identidad de Dietas y Personal quedó
+conservado en stash tras dos dictámenes NO-GO y no forma parte del commit; no
+se instaló SQL ni se publicó despliegue.
+
 ## Dietas: itinerario provincial visible sobre OSRM real — 20 de septiembre de 2026
 
 El corte E27 completa el recorrido de consulta Portal del Empleado → Dietas →
