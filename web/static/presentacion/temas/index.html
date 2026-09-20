@@ -3,67 +3,103 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <title>15 temas visuales · VEC Diputación</title>
+    <meta name="color-scheme" content="light">
+    <title>15 diseños para Dietas · VEC Diputación</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/presentacion/temas/temas.css?v=20260920-temas-v1">
-    <script type="module" src="/presentacion/temas/temas.js?v=20260920-temas-v1"></script>
+    <link rel="stylesheet" href="/presentacion/temas/temas.css?v=20260920-disenos-dietas-v2">
+    <script type="module" src="/presentacion/temas/temas.js?v=20260920-disenos-dietas-v2"></script>
   </head>
   <body>
-    <a class="salto" href="#galeria-temas">Saltar a los temas</a>
+    <a class="salto" href="#galeria-disenos">Saltar a los diseños</a>
     <header class="cabecera-pagina">
       <a href="/presentacion/" aria-label="Volver a la presentación de VEC">
         <img src="/assets/logo-diputacion-granada.svg" width="210" height="71" alt="Diputación de Granada">
       </a>
       <div>
-        <p class="sobrelinea">VEC · Sistema visual común</p>
-        <h1>15 temas, una sola interfaz</h1>
-        <p>Compara colores y carácter. La estructura, los componentes y el comportamiento son idénticos.</p>
+        <p class="sobrelinea">VEC · Revisión de la página de Dietas</p>
+        <h1>15 formas de organizar la misma información</h1>
+        <p>No son cambios de color. Cada propuesta modifica la jerarquía, la densidad y el recorrido visible de la pantalla.</p>
       </div>
     </header>
     <main>
       <section class="criterio" aria-labelledby="criterio-titulo">
         <div>
-          <h2 id="criterio-titulo">Elige por número o nombre</h2>
-          <p>Cada muestra contiene navegación, KPI, estado, formulario, acción y mapa. La selección es temporal y no cambia todavía el portal.</p>
+          <h2 id="criterio-titulo">Compara la estructura, no la paleta</h2>
+          <p>Se han quitado títulos repetidos, avisos técnicos y datos que no ayudan a completar la comisión. Todas las propuestas usan la misma información.</p>
         </div>
-        <output id="tema-elegido" aria-live="polite">Ningún tema seleccionado</output>
+        <output id="diseno-elegido" aria-live="polite">Ningún diseño seleccionado</output>
       </section>
-      <section id="galeria-temas" class="galeria-temas" aria-label="Quince alternativas de tema"></section>
+      <section id="galeria-disenos" class="galeria-disenos" aria-label="Quince diseños alternativos para la página de Dietas"></section>
     </main>
-    <template id="plantilla-tema">
-      <article class="tema">
-        <header class="tema-titulo">
-          <div><span class="tema-numero"></span><h2></h2></div>
-          <p class="tema-caracter"></p>
+
+    <template id="plantilla-diseno">
+      <article class="propuesta">
+        <header class="propuesta-titulo">
+          <div><span class="propuesta-numero"></span><h2></h2></div>
+          <p class="propuesta-criterio"></p>
         </header>
-        <div class="mini-app">
-          <aside class="mini-lateral">
+        <div class="pantalla-dietas">
+          <aside class="app-lateral">
             <strong>VEC</strong><span>Portal del Empleado</span>
-            <nav aria-label="Módulos de muestra"><b>Inicio</b><b aria-current="page">Dietas</b><b>Personal</b></nav>
+            <nav aria-label="Módulos de muestra"><b>Inicio</b><b aria-current="page">Dietas</b><b>Cronos</b><b>Personal</b></nav>
           </aside>
-          <div class="mini-contenido">
-            <header class="mini-cabecera"><span>Portal → Dietas</span><i aria-label="Tres avisos">3</i></header>
-            <div class="mini-cuerpo">
-              <div class="mini-estado"><strong>Comisión en preparación</strong><span>Recorrido visible · sin efectos administrativos</span></div>
-              <div class="mini-kpis">
-                <div><span>COM</span><strong>3</strong><small>Comisiones</small></div>
-                <div><span>REV</span><strong>1</strong><small>Pendiente</small></div>
-                <div><span>EUR</span><strong>126,89 €</strong><small>Declarado</small></div>
-              </div>
-              <section class="mini-panel">
-                <header><strong>Ruta del día</strong><em>En edición</em></header>
-                <div class="mini-trabajo">
-                  <label>Salida<select><option>Granada</option></select></label>
-                  <label>Destino<select><option>Baza</option></select></label>
-                  <button type="button">Calcular ruta</button>
-                  <div class="mini-mapa" role="img" aria-label="Mapa vacío centrado en Granada"><span>Granada</span></div>
-                </div>
+          <div class="app-principal">
+            <header class="app-cabecera">
+              <div><small>Portal del Empleado</small><strong>Mis comisiones de servicio</strong></div>
+              <div class="app-usuario"><button type="button" aria-label="Ayuda">?</button><span>AL</span></div>
+            </header>
+            <nav class="pasos" aria-label="Estado de la comisión">
+              <span aria-current="step"><i>1</i>Itinerario</span><span><i>2</i>Gastos</span><span><i>3</i>Revisar</span><span><i>4</i>Enviar</span>
+            </nav>
+            <main class="lienzo">
+              <section class="bloque cabecera-tarea">
+                <div><small>Buenos días, Antonio</small><h3>Prepara tu próxima comisión</h3><p>24 de septiembre · Granada, Baza y Purchil</p></div>
+                <button type="button">Nueva comisión</button>
               </section>
-            </div>
+              <section class="bloque indicadores" aria-label="Resumen de comisiones">
+                <article><span>Borradores</span><strong>1</strong><small>Continúa donde lo dejaste</small></article>
+                <article><span>Pendientes</span><strong>1</strong><small>En revisión por jefatura</small></article>
+                <article><span>Por justificar</span><strong>1</strong><small>Añade los gastos</small></article>
+                <article><span>Gastos</span><strong>126,89 €</strong><small>Comisión actual</small></article>
+              </section>
+              <section class="bloque ruta">
+                <header><div><small>Paso actual</small><h3>Itinerario</h3></div><span class="estado">Borrador</span></header>
+                <div class="campos-ruta">
+                  <label>Centro de salida<select><option>Transformación Digital · Granada (asociado)</option><option>Granada</option></select></label><label>Primera parada<select><option>Baza</option></select></label>
+                  <label>Segunda parada<select><option>Purchil</option></select></label><label>Regreso<select><option>Granada</option></select></label>
+                </div>
+                <div class="acciones-ruta"><button type="button" class="secundario">+ Añadir parada</button><button type="button">Calcular ruta</button></div>
+              </section>
+              <section class="bloque mapa">
+                <header><h3>Recorrido</h3><span>3 tramos</span></header>
+                <div class="mapa-lienzo" role="img" aria-label="Zona de mapa centrada en Granada"><span class="punto punto-a">Granada</span><span class="punto punto-b">Baza</span><span class="punto punto-c">Purchil</span><i class="trazo trazo-a"></i><i class="trazo trazo-b"></i><i class="trazo trazo-c"></i></div>
+                <footer><strong>281,2 km</strong><span>Cálculo orientativo por carretera</span></footer>
+              </section>
+              <section class="bloque comisiones">
+                <header><h3>Mis comisiones</h3><button type="button" class="enlace">Ver todas</button></header>
+                <div class="tabla-contenedor"><table><thead><tr><th>Fecha</th><th>Recorrido</th><th>Estado</th><th></th></tr></thead><tbody>
+                  <tr><td>24 sep</td><td>Granada · Baza · Purchil</td><td><span class="chip chip-borrador">Borrador</span></td><td>›</td></tr>
+                  <tr><td>18 sep</td><td>Granada · Loja</td><td><span class="chip chip-revision">En revisión</span></td><td>›</td></tr>
+                  <tr><td>03 sep</td><td>Granada · Guadix</td><td><span class="chip chip-gastos">Por justificar</span></td><td>›</td></tr>
+                </tbody></table></div>
+              </section>
+              <section class="bloque gastos">
+                <header><h3>Gastos declarados</h3><button type="button" class="enlace">Añadir gasto</button></header>
+                <dl><div><dt>Alojamiento</dt><dd>78,50 €</dd></div><div><dt>Manutención</dt><dd>30,39 €</dd></div><div><dt>Aparcamiento</dt><dd>18,00 €</dd></div><div class="total"><dt>Total</dt><dd>126,89 €</dd></div></dl>
+              </section>
+              <section class="bloque resumen">
+                <header><h3>Resumen</h3><span class="estado">Borrador</span></header>
+                <dl><div><dt>Fecha</dt><dd>24 sep 2026</dd></div><div><dt>Motivo</dt><dd>Reunión técnica</dd></div><div><dt>Tramos</dt><dd>3</dd></div><div><dt>Distancia</dt><dd>281,2 km</dd></div></dl>
+                <button type="button">Continuar con los gastos</button>
+              </section>
+              <section class="bloque actividad">
+                <header><h3>Actividad reciente</h3></header>
+                <ol><li><strong>Borrador actualizado</strong><span>Hoy, 09:42</span></li><li><strong>Comisión enviada a jefatura</strong><span>18 sep, 12:10</span></li><li><strong>Justificante solicitado</strong><span>03 sep, 08:55</span></li></ol>
+              </section>
+            </main>
           </div>
         </div>
-        <footer><button class="elegir-tema" type="button"></button></footer>
+        <footer><button class="elegir-diseno" type="button"></button></footer>
       </article>
     </template>
   </body>

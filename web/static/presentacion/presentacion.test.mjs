@@ -73,6 +73,6 @@ test("el lanzador ofrece cuatro puntos de vista separados por mínimo privilegio
   assert.match(estilos, /\.presentacion-opciones\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s);
 });
 
-test("el lanzador enlaza la comparación aislada de quince temas", () => {
-  assert.match(html, /href="\/presentacion\/temas\/">Comparar 15 temas visuales<\/a>/);
+test("el lanzador enlaza la comparación aislada de quince diseños de Dietas", () => {
+  assert.match(html, /href="\/presentacion\/temas\/">Comparar 15 diseños de la página de Dietas<\/a>/);
 });
