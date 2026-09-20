@@ -55,15 +55,13 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, presentador, datos, adaptador, documentos });
   },
   dietas: async () => {
-    const [contrato, vista, mapa, adaptador, calculador, documentos] = await Promise.all([
+    const [contrato, vista, mapa, calculador] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista.js"),
+      import("./modulos/dietas/vista-itinerario.js"),
       import("./modulos/dietas/mapa-ruta.js"),
-      import("./modulos/dietas/adaptador-presentacion.js"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./documentos/descarga-recibos-presentacion.js"),
     ]);
-    return Object.freeze({ contrato, vista, mapa, adaptador, calculador, documentos });
+    return Object.freeze({ contrato, vista, mapa, calculador });
   },
   personal: async () => {
     const vista = await import("./modulos/personal/vista.js");
@@ -310,21 +308,13 @@ export function crearCoordinadorModulosPortal({
     const dietas = componerModuloAislado(contextos.dietas, cargas.dietas, (recursos) => {
       const capacidades = capacidadesDietas(recursos.contrato);
       return Object.freeze({
-        contextoActor: contextos.dietas,
-        capacidades,
-        adaptador: recursos.adaptador.crearAdaptadorDietasPresentacion({
-          contextoActor: contextos.dietas,
-          capacidades,
-        }),
-        calculadorRuta: recursos.calculador.crearCalculadorRutasDietasPresentacionOSRM({
+        calculador: recursos.calculador.crearCalculadorRutasDietasPresentacionOSRM({
           contextoActor: contextos.dietas,
           capacidades,
           fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
         }),
-        descargarRecibo: recursos.documentos.crearDescargadorRecibosPresentacion(entorno),
         visorRuta: recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true }),
-        montar: recursos.vista.montarModuloDietas,
-        origenComprobacion,
+        montar: recursos.vista.montarVistaItinerarioDietas,
       });
     });
     const personal = cargas.personal?.disponible === true ? (() => {
@@ -761,15 +751,17 @@ export function crearCoordinadorModulosPortal({
 
     const moduloDietas = await composicion.dietas.montar({
       raiz,
-      contextoActor: composicion.dietas.contextoActor,
-      capacidades: composicion.dietas.capacidades,
-      adaptador: composicion.dietas.adaptador,
-      calculadorRuta: composicion.dietas.calculadorRuta,
-      descargarRecibo: composicion.dietas.descargarRecibo,
+      calculador: composicion.dietas.calculador,
       visorRuta: composicion.dietas.visorRuta,
-      confirmarOperacion,
-      origenComprobacion: composicion.dietas.origenComprobacion,
       anunciar,
+      registrarDesmontar: (limpiar) => {
+        if (typeof limpiar !== "function") throw new TypeError("limpieza de Dietas no válida");
+        if (montaje !== secuenciaMontaje) {
+          limpiar();
+          return;
+        }
+        desmontarVista = limpiar;
+      },
     });
     if (montaje !== secuenciaMontaje) {
       moduloDietas.desmontar();

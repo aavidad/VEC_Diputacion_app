@@ -33,6 +33,38 @@ function raizFalsa() {
   };
 }
 
+function raizDietasFalsa() {
+  const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
+  class Nodo {
+    constructor(documento, etiqueta = "div") {
+      this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {};
+      this.listeners = {}; this.parent = null; this.textContent = "";
+    }
+    append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
+    replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+    removeChild(nodo) { this.children = this.children.filter((hijo) => hijo !== nodo); nodo.parent = null; }
+    remove() { this.parent?.removeChild(this); }
+    addEventListener(tipo, manejador) { this.listeners[tipo] = manejador; }
+    removeEventListener(tipo) { delete this.listeners[tipo]; }
+    setAttribute() {}
+    matches(selector) {
+      const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
+      if (!coincidencia) return this.tagName === selector;
+      const actual = this.dataset[clave(coincidencia[1])];
+      return actual !== undefined && (coincidencia[2] === undefined || actual === coincidencia[2]);
+    }
+    closest(selector) { for (let nodo = this; nodo; nodo = nodo.parent) if (nodo.matches(selector)) return nodo; return null; }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    querySelectorAll(selector) {
+      const salida = [];
+      const visitar = (nodo) => { if (nodo.matches(selector)) salida.push(nodo); nodo.children.forEach(visitar); };
+      visitar(this); return salida;
+    }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) };
+  return new Nodo(documento, "root");
+}
+
 const VERSION_GRAFO = "granada-buffer-osrm-v1-53aba0ad43c4";
 
 function respuestaOSRM() {
@@ -737,9 +769,10 @@ test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en 
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
   assert.match(raiz.innerHTML, /class="cronos-area"/);
   assert.match(raiz.innerHTML, /Descargar recibo/);
-  assert.equal(await coordinador.montarVista("dietas", raiz), true);
-  assert.match(raiz.innerHTML, /data-modulo="dietas"/);
-  assert.match(raiz.innerHTML, /comisiones de servicio/i);
+  const raizDietas = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
+  assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
+  assert.ok(raizDietas.querySelector("[data-itinerario-catalogo]"));
   coordinador.desmontarVistaActual();
 });
 
@@ -754,13 +787,13 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
     anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
   });
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizFalsa();
+  const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("dietas", raiz), true);
 
-  const botonCalcular = {
-    closest(selector) { return selector === "[data-dietas-ruta-calcular]" ? this : null; },
-  };
-  await raiz.eventos.get("click")({ target: botonCalcular, preventDefault() {} });
+  const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
+  await contenedorDietas.listeners.click({
+    target: contenedorDietas.querySelector("[data-itinerario-calcular]"),
+  });
 
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
@@ -775,13 +808,55 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
     ],
     alternatives: 3,
   });
-  assert.match(raiz.innerHTML, /osrm_interno/);
-  assert.match(raiz.innerHTML, new RegExp(VERSION_GRAFO));
-  assert.match(raiz.innerHTML, /Ruta OSRM interna · primera alternativa/);
-  assert.match(raiz.innerHTML, /data-dietas-mapa-ref="borrador-ruta-calculada"/);
-  assert.doesNotMatch(raiz.innerHTML, /simulacion_osrm_demo|Croquis SVG sintético DEMO/);
+  assert.ok(raiz.querySelector("[data-dietas-mapa-ref]"));
   assert.ok(anuncios.some(({ mensaje }) => /calculada por el puerto interno/i.test(mensaje)));
   coordinador.desmontarVistaActual();
+});
+
+test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
+  let resolverCatalogo; let senalCatalogo;
+  const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
+  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
+    dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
+    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
+    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
+    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
+    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
+    import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
+    import("./modulos/dietas/catalogo-rutas-provincial.js"),
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
+    cargadoresPresentacion: {
+      base: async () => Object.freeze({ identidad, catalogo }),
+      cronos: async () => Object.freeze({
+        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
+        adaptador: cronosAdaptador, documentos,
+      }),
+      dietas: async () => Object.freeze({
+        contrato: dietasContrato,
+        vista: dietaVista,
+        mapa: { crearVisorRutaDietas: () => ({ montar() { throw new Error("no debe montar mapa"); } }) },
+        calculador: { crearCalculadorRutasDietasPresentacionOSRM: () => ({
+          obtenerCatalogo({ signal }) { senalCatalogo = signal; return catalogoPendiente; },
+          calcular: async () => null,
+        }) },
+      }),
+      personal: async () => Object.freeze({ vista: personalVista }),
+    },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  const raiz = raizDietasFalsa();
+  const montajeAnterior = coordinador.montarVista("dietas", raiz);
+  assert.ok(raiz.querySelector("[data-dietas-itinerario]"));
+  coordinador.desmontarVistaActual();
+  const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
+  resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
+  assert.equal(await montajeAnterior, false);
+  assert.equal(senalCatalogo.aborted, true);
+  assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
+  assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
 });
 
 test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
@@ -895,7 +970,8 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(fuente, /function capacidadesDietas/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
   assert.match(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
