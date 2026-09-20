@@ -447,3 +447,32 @@
     min-width: 600px;
   }
 }
+
+/* Recorrido sin datos: la estructura es visible antes de conectar Cronos. */
+.cronos-recorridos { gap: 16px; }
+.cronos-recorrido-pendiente { align-self: start; padding: 6px 10px; border: 1px solid var(--portal-aviso); border-radius: 999px; background: var(--portal-aviso-suave); color: var(--portal-aviso); font-size: .72rem; font-weight: 800; }
+.cronos-recorrido-conexion, .cronos-recorrido-privacidad { padding: 12px 14px; border: 1px solid var(--portal-borde); border-left: 4px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-muted); font-size: .76rem; }
+.cronos-recorrido-conexion p, .cronos-recorrido-privacidad { margin: 5px 0 0; }
+.cronos-recorrido-etapas, .cronos-recorrido-rejilla { display: grid; gap: 10px; }
+.cronos-recorrido-etapas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cronos-recorrido-etapas a { min-width: 0; min-height: 88px; padding: 11px; border: 1px solid var(--portal-borde); border-top: 3px solid var(--portal-cian); border-radius: var(--portal-radio); background: var(--portal-superficie); color: inherit; text-decoration: none; }
+.cronos-recorrido-etapas strong, .cronos-recorrido-etapas span { display: block; }
+.cronos-recorrido-etapas span { margin-top: 5px; color: var(--portal-muted); font-size: .69rem; }
+.cronos-recorrido-etapa { scroll-margin-top: 14px; padding-top: 4px; }
+.cronos-recorrido-etapa > header h3 { margin: 1px 0 10px; font-size: 1.06rem; }
+.cronos-recorrido-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cronos-recorrido-panel { min-width: 0; padding: 13px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); }
+.cronos-recorrido-panel h4, .cronos-recorrido-panel p { margin: 0; }
+.cronos-recorrido-panel h4 { font-size: .84rem; }
+.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .72rem; }
+.cronos-recorrido-vacio, .cronos-recorrido-aviso { margin-top: 11px !important; padding: 9px; border-radius: 5px; background: var(--portal-fondo); }
+.cronos-recorrido-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0; }
+.cronos-recorrido-filtros button { min-height: 34px; padding: 5px 9px; border: 1px solid var(--portal-borde); border-radius: 5px; background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 700; }
+.cronos-recorrido-filtros button[aria-pressed="true"] { border-color: var(--portal-cian); background: var(--portal-azul-100); }
+.cronos-recorrido-formulario { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
+.cronos-recorrido-formulario label { display: grid; gap: 4px; color: var(--portal-muted); font-size: .7rem; font-weight: 720; }
+.cronos-recorrido-formulario textarea { min-height: 54px; resize: vertical; }
+.cronos-recorrido-formulario textarea, .cronos-recorrido-formulario label:has(textarea), .cronos-recorrido-aviso, .cronos-recorrido-formulario button { grid-column: 1 / -1; }
+.cronos-recorrido-formulario input, .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario select { min-height: 34px; box-sizing: border-box; border: 1px solid var(--portal-borde); border-radius: 5px; background: var(--portal-fondo); color: var(--portal-muted); }
+.cronos-recorrido-formulario button { justify-self: start; opacity: .72; cursor: not-allowed; }
+@media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla, .cronos-recorrido-formulario { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }

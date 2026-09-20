@@ -16,6 +16,7 @@ static/portal-empleado/modulos/cronos/documentos.js
 static/portal-empleado/modulos/cronos/i18n.js
 static/portal-empleado/modulos/cronos/presentador.js
 static/portal-empleado/modulos/cronos/vista.js
+static/portal-empleado/modulos/cronos/vista-recorridos.js
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/contrato.js
 static/portal-empleado/modulos/dietas/dietas.css
@@ -24,9 +25,13 @@ static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/presentador-rutas.js
 static/portal-empleado/modulos/dietas/presentador.js
 static/portal-empleado/modulos/dietas/vista.js
+static/portal-empleado/modulos/dietas/vista-borradores-propios.js
+static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
 static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
+static/portal-empleado/modulos/personal/ficha-integral.css
+static/portal-empleado/modulos/personal/vista-ficha-integral.js
 static/portal-empleado/modulos/personal/vista.js
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
@@ -107,6 +112,7 @@ static/portal-empleado/portal-llamamientos.css
 static/portal-empleado/portal-menu-bolsa.css
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
+static/portal-empleado/portal-composicion-empleado.js
 static/portal-empleado/portal-modulos.css
 static/portal-empleado/portal-panel-interno.js
 static/portal-empleado/portal-vistas-baremacion.js

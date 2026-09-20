@@ -4,7 +4,7 @@
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio);
   background: var(--portal-superficie);
-  box-shadow: 0 1px 1px rgba(20, 45, 75, 0.025);
+  box-shadow: 0 1px 2px rgba(20, 45, 75, 0.035);
 }
 
 .panel {
@@ -14,19 +14,19 @@
 
 .cabecera-panel {
   display: flex;
-  min-height: 49px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 10px 15px;
   border-bottom: 1px solid var(--portal-borde);
-  background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+  background: #ffffff;
 }
 
 .cabecera-panel h3 {
   margin: 0;
   font-size: 0.96rem;
-  font-weight: 800;
+  font-weight: 720;
   color: var(--portal-azul-950);
 }
 
@@ -37,26 +37,26 @@
 }
 
 .cuerpo-panel {
-  padding: 14px;
+  padding: 13px 14px;
 }
 
 .rejilla-modulos {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .tarjeta-modulo {
   position: relative;
   display: flex;
-  min-height: 172px;
+  min-height: 164px;
   flex-direction: column;
-  padding: 18px;
+  padding: 16px;
 }
 
 .tarjeta-modulo-habilitada {
   border-color: #9fc7f5;
-  box-shadow: var(--portal-sombra);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .tarjeta-modulo-habilitada::before {
@@ -83,7 +83,7 @@
 
 .tarjeta-modulo h3 {
   margin: 0 0 5px;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .tarjeta-modulo p {
@@ -121,17 +121,17 @@
 .rejilla-kpi {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .tarjeta-kpi {
   display: grid;
-  min-height: 112px;
+  min-height: 106px;
   grid-template-columns: 46px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 11px;
+  padding: 13px;
 }
 
 .icono-kpi {
@@ -156,7 +156,7 @@
   margin-bottom: 2px;
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 850;
+  font-weight: 760;
 }
 
 .etiqueta-kpi {
@@ -179,13 +179,13 @@
 .rejilla-cuadro-mando {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .columna-cuadro {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
 }
 
 .tabla-contenedor {
@@ -207,7 +207,7 @@
 .tabla-datos {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
 }
 
 .tabla-datos caption {
@@ -220,7 +220,7 @@
 
 .tabla-datos th,
 .tabla-datos td {
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--portal-borde);
   text-align: left;
   vertical-align: middle;
@@ -228,16 +228,16 @@
 }
 
 .tabla-datos th {
-  background: #edf2f7;
+  background: #f3f6fa;
   color: var(--portal-azul-950);
   font-size: 0.7rem;
-  font-weight: 850;
-  border-bottom: 2px solid var(--portal-borde);
+  font-weight: 760;
+  border-bottom: 1px solid var(--portal-borde);
   letter-spacing: 0.02em;
 }
 
 .tabla-datos tbody tr:nth-child(even) {
-  background: #f8fafc;
+  background: #fafbfd;
 }
 
 .tabla-datos tbody tr:last-child td {
@@ -246,7 +246,7 @@
 
 .tabla-datos tbody tr:hover,
 .tabla-datos tbody tr[aria-selected="true"] {
-  background: #edf5ff;
+  background: #f0f6ff;
 }
 
 /*
@@ -298,7 +298,7 @@
 .tabla-datos--prioritaria thead [data-columna="estado"],
 .tabla-datos--prioritaria thead [data-columna="acciones"] {
   z-index: 3;
-  background: #f7f9fc;
+  background: #f3f6fa;
 }
 
 .tabla-datos--prioritaria [data-columna="acciones"] {
@@ -435,7 +435,7 @@
 .insignia,
 .estado-chip {
   display: inline-flex;
-  min-height: 24px;
+  min-height: 23px;
   align-items: center;
   padding: 2px 10px;
   border: 1px solid #f0dca1;
@@ -443,7 +443,7 @@
   background: var(--portal-aviso-suave);
   color: #785000;
   font-size: 0.68rem;
-  font-weight: 780;
+  font-weight: 720;
   white-space: nowrap;
   letter-spacing: 0.01em;
 }
@@ -592,12 +592,12 @@
 .tarjeta-metrica-rrhh {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 18px 20px;
+  gap: 7px;
+  padding: 16px 18px;
   background: var(--portal-superficie);
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio);
-  box-shadow: var(--portal-sombra);
+  box-shadow: var(--portal-sombra-sm);
   border-top: 4px solid var(--portal-azul-700);
 }
 
@@ -621,7 +621,7 @@
 
 .tarjeta-metrica-rrhh .metrica-valor {
   font-size: 2.2rem;
-  font-weight: 700;
+  font-weight: 760;
   line-height: 1;
   color: var(--portal-azul-700);
 }

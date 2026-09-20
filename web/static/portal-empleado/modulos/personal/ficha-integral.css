@@ -1,0 +1,16 @@
+/* Ficha compacta: panel principal y resumen lateral con el tema común. */
+.modulo-personal[data-personal-ficha-integral] { display: grid; gap: var(--portal-espacio-3); }
+.personal-ficha-pestanas { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--portal-borde); }
+.personal-ficha-pestanas button { min-height: 40px; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--portal-muted); font-size: .82rem; font-weight: 750; white-space: nowrap; }
+.personal-ficha-pestanas button[aria-selected="true"] { border-bottom-color: var(--portal-azul-700); color: var(--portal-azul-950); }
+.personal-ficha-principal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .32fr); gap: var(--portal-espacio-3); align-items: start; }
+.personal-ficha-principal .cabecera-panel { min-height: 0; padding-block: 9px; }
+.personal-ficha-principal .cuerpo-panel > p { margin: 0 0 var(--portal-espacio-2); color: var(--portal-muted); font-size: .8rem; }
+.personal-ficha-resumen { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px 12px; margin: 0 0 12px; }
+.personal-ficha-resumen dt { color: var(--portal-muted); font-size: .72rem; }
+.personal-ficha-resumen dd { margin: 0; color: var(--portal-tinta); font-size: .8rem; font-weight: 700; }
+.personal-ficha-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-bottom: 12px; }
+.personal-ficha-filtros label { display: grid; gap: 3px; color: var(--portal-muted); font-size: .75rem; }
+.personal-ficha-filtros input, .personal-ficha-filtros select { min-height: 36px; min-width: 160px; }
+.personal-ficha-filtros span { flex-basis: 100%; color: var(--portal-muted); font-size: .72rem; }
+@media (max-width: 780px) { .personal-ficha-principal { grid-template-columns: minmax(0, 1fr); } }

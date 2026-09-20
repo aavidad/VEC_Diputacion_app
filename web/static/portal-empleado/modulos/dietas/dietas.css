@@ -19,6 +19,29 @@
   align-items: center;
 }
 
+.modulo-dietas .dietas-recorridos-pasos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem;
+  margin: 0;
+  padding: .75rem 0;
+  border-block: 1px solid var(--portal-borde);
+  list-style: none;
+}
+
+.modulo-dietas .dietas-recorridos-pasos button { min-width: 0; padding: .5rem .65rem; border: 1px solid transparent; border-radius: var(--portal-radio); background: transparent; color: var(--portal-azul-800); font: inherit; font-weight: 700; text-align: start; }
+.modulo-dietas .dietas-recorridos-pasos button[aria-current="step"] { background: var(--portal-azul-100); border-color: var(--portal-azul-700); color: var(--portal-azul-800); }
+.modulo-dietas .dietas-recorridos-cuerpo { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(17rem, .7fr); gap: 1rem; align-items: start; }
+.modulo-dietas .dietas-recorridos-lateral { display: grid; gap: .75rem; }
+.modulo-dietas [data-dietas-borrador-form] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: .85rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); }
+.modulo-dietas [data-dietas-borrador-form] label { display: grid; gap: .3rem; color: var(--portal-muted); font-size: .82rem; font-weight: 700; }
+.modulo-dietas [data-dietas-borrador-form] label:nth-of-type(3), .modulo-dietas [data-dietas-borrador-form] label:nth-of-type(4), .modulo-dietas [data-dietas-borrador-form] small, .modulo-dietas [data-dietas-borrador-form] button { grid-column: 1 / -1; }
+.modulo-dietas .dietas-recorridos-formulario form, .modulo-dietas .dietas-recorridos-filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.modulo-dietas .dietas-recorridos-formulario label, .modulo-dietas .dietas-recorridos-filtros label { display: grid; gap: .3rem; color: var(--portal-muted); font-size: .82rem; font-weight: 700; }
+.modulo-dietas .dietas-recorridos-acciones { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; padding-top: .8rem; border-top: 1px solid var(--portal-borde); }
+.modulo-dietas .dietas-recorridos-acciones h3, .modulo-dietas .dietas-recorridos-acciones p { width: 100%; margin: 0; }
+@media (max-width: 760px) { .modulo-dietas .dietas-recorridos-cuerpo { grid-template-columns: 1fr; } .modulo-dietas .dietas-recorridos-pasos { grid-template-columns: 1fr; } .modulo-dietas [data-dietas-borrador-form] { grid-template-columns: 1fr; } }
+
 .modulo-dietas .dietas-identidad div,
 .modulo-dietas .dietas-identidad span,
 .modulo-dietas .dietas-identidad small {

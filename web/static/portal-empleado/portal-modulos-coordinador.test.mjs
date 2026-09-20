@@ -829,10 +829,13 @@ test("las rutas estables no mezclan el submenú de Bolsa con los módulos person
 test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizFalsa();
+  const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
-  assert.match(raiz.innerHTML, /class="cronos-area"/);
-  assert.match(raiz.innerHTML, /Descargar recibo/);
+  const cronos = raiz.querySelector("[data-cronos-recorridos]");
+  assert.ok(cronos);
+  assert.match(cronos.innerHTML, /class="cronos-area/);
+  assert.match(cronos.innerHTML, /Movimientos/);
+  assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
   const raizDietas = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
   assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
@@ -1021,25 +1024,28 @@ test("una carga válida obsoleta no puede republicar permisos tras otra inválid
 });
 
 test("el coordinador no autentica ni conserva estado en el navegador", async () => {
-  const [fuente, estilos] = await Promise.all([
+  const [fuente, estilos, empleado] = await Promise.all([
     readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
     readFile(new URL("portal-modulos.css", import.meta.url), "utf8"),
+    readFile(new URL("portal-composicion-empleado.js", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(fuente, /document\.cookie|localStorage|sessionStorage/);
+  assert.doesNotMatch(empleado, /document\.cookie|localStorage|sessionStorage/);
   assert.match(fuente, /Promise\.allSettled/);
   assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
   assert.match(fuente, /composicion = null/);
   assert.match(fuente, /secuenciaCarga/);
-  assert.match(fuente, /function capacidadesCronos/);
+  assert.match(empleado, /function componerCronosVisible/);
   assert.match(fuente, /function capacidadesDietas/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
-  assert.match(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
   assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.match(fuente, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
+  assert.match(empleado, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
   assert.match(estilos, /data-modulo-catalogo="bolsa"/);
   assert.match(estilos, /data-modulo-catalogo="cronos"/);
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
@@ -1050,12 +1056,13 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-personal-contexto-v4";
-  const versionPortal = "20260920-personal-contexto-v4";
+  const versionCoordinador = "20260920-recorridos-visibles-v1";
+  const versionPortal = "20260920-recorridos-visibles-v1";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
-  const versionTema = "20260918-botones-v1";
-  const versionPulido = "20260920-itinerario-visible-v1";
+  const versionTema = "20260920-referencia-rrhh-v1";
+  const versionTemaCT = "20260918-botones-v1";
+  const versionPulido = "20260920-recorridos-visibles-v1";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([
@@ -1076,6 +1083,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
+  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionPulido}`));
   assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
 });
