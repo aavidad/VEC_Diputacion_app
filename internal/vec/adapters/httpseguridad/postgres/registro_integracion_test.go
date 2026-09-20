@@ -35,14 +35,16 @@ func TestIntegracionRegistroSesionesPostgreSQL18(t *testing.T) {
 	dsnRevalidacion := os.Getenv(variableDSNRevalidacion)
 	dsnProvisionador := os.Getenv(variableDSNProvisionador)
 	dsnMixto := os.Getenv(variableDSNMixto)
+	dsnRevocador := os.Getenv(variableDSNRevocador)
 	if dsnRegistro == "" || dsnRevalidacion == "" ||
-		dsnProvisionador == "" || dsnMixto == "" {
+		dsnProvisionador == "" || dsnMixto == "" || dsnRevocador == "" {
 		t.Skipf(
-			"defina %s, %s, %s y %s o ejecute deploy/postgresql/identidad_sesiones_v1/probar_integracion.sh",
+			"defina %s, %s, %s, %s y %s o ejecute deploy/postgresql/identidad_sesiones_v1/probar_integracion.sh",
 			variableDSNRegistro,
 			variableDSNRevalidacion,
 			variableDSNProvisionador,
 			variableDSNMixto,
+			variableDSNRevocador,
 		)
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
@@ -55,6 +57,8 @@ func TestIntegracionRegistroSesionesPostgreSQL18(t *testing.T) {
 	defer poolProvisionador.Close()
 	poolMixto := abrirPoolIntegracion(t, ctx, dsnMixto)
 	defer poolMixto.Close()
+	poolRevocador := abrirPoolIntegracion(t, ctx, dsnRevocador)
+	defer poolRevocador.Close()
 	comprobarIdentidadesIntegracion(
 		t,
 		ctx,
@@ -62,6 +66,7 @@ func TestIntegracionRegistroSesionesPostgreSQL18(t *testing.T) {
 		poolRevalidacion,
 		poolProvisionador,
 		poolMixto,
+		poolRevocador,
 	)
 
 	seudonimos := SeudonimosAlta{
@@ -142,6 +147,57 @@ func TestIntegracionRegistroSesionesPostgreSQL18(t *testing.T) {
 		confirmacion.SesionRevalidadaEn.Nanosecond()%1_000 != 0 ||
 		confirmacion.SesionValidaHasta.Nanosecond()%1_000 != 0 {
 		t.Fatal("pgx no se normalizo al contrato UTC de microsegundos")
+	}
+
+	registroPeticiones, err := NuevoRegistroPeticionesSesionPostgreSQL(
+		ctx, poolRevalidacion, poolRevocador,
+	)
+	if err != nil {
+		t.Fatal("componer consumidor PostgreSQL de peticiones")
+	}
+	ahoraPeticion := time.Now().UTC().Truncate(time.Microsecond)
+	solicitudPeticion := httpseguridad.SolicitudConsumoPeticionSesion{
+		EsquemaHMAC: seudonimos.Esquema, DominioHMACRef: seudonimos.DominioRef,
+		ClaveHMACID: seudonimos.ClaveID, ClaveHMACVersion: seudonimos.ClaveVersion,
+		SesionIDHMAC: seudonimos.SesionIDHMAC, NonceSHA256: strings.Repeat("f", 64),
+		CanalVinculadoRef: "canal-integracion-peticion", Superficie: alta.Superficie,
+		Metodo: "GET", Destino: "/api/vec/bolsa/mi-bolsa", CuerpoSHA256: strings.Repeat("e", 64),
+		EmitidaEn: ahoraPeticion, ExpiraEn: ahoraPeticion.Add(time.Minute),
+	}
+	confirmacionPeticion, err := registroPeticiones.ConsumirYRevalidar(ctx, solicitudPeticion)
+	if err != nil || confirmacionPeticion.SesionRef != confirmacion.SesionRef ||
+		confirmacionPeticion.CuentaRef != confirmacion.CuentaRef ||
+		confirmacionPeticion.ControlSesionRevision != confirmacion.ControlSesionRevision {
+		t.Fatalf("consumir peticion real por pgx: %+v %v", confirmacionPeticion, err)
+	}
+	if _, err = registroPeticiones.ConsumirYRevalidar(ctx, solicitudPeticion); !errors.Is(err, httpseguridad.ErrRegistroPeticionesAusente) {
+		t.Fatalf("replay de nonce admitido por pgx: %v", err)
+	}
+	solicitudConcurrente := solicitudPeticion
+	solicitudConcurrente.NonceSHA256 = strings.Repeat("c", 64)
+	inicioPeticion := make(chan struct{})
+	resultadosPeticion := make(chan error, 2)
+	for indice := 0; indice < 2; indice++ {
+		go func() {
+			<-inicioPeticion
+			_, errConsumo := registroPeticiones.ConsumirYRevalidar(ctx, solicitudConcurrente)
+			resultadosPeticion <- errConsumo
+		}()
+	}
+	close(inicioPeticion)
+	exitosPeticion, rechazosPeticion := 0, 0
+	for indice := 0; indice < 2; indice++ {
+		switch errConsumo := <-resultadosPeticion; {
+		case errConsumo == nil:
+			exitosPeticion++
+		case errors.Is(errConsumo, httpseguridad.ErrRegistroPeticionesAusente):
+			rechazosPeticion++
+		default:
+			t.Fatalf("carrera de nonce devolvio error no saneado: %v", errConsumo)
+		}
+	}
+	if exitosPeticion != 1 || rechazosPeticion != 1 {
+		t.Fatalf("nonce concurrente: exitos=%d rechazos=%d", exitosPeticion, rechazosPeticion)
 	}
 
 	consulta := httpseguridad.ConsultaSesionActiva{

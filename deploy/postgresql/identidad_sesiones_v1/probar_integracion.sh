@@ -124,6 +124,8 @@ psql_archivo deploy/postgresql/identidad_sesiones_v1/roles_down.sql
 
 psql_archivo deploy/postgresql/identidad_sesiones_v1/roles_up.sql
 instalar_identidad
+psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000006_asercion_peticion_sesion.up.sql
+psql_archivo deploy/postgresql/identidad_sesiones_v1/pruebas/000006_asercion_peticion_sesion.sql
 
 docker exec --interactive \
     --env CLAVE_PROVISIONADOR="$clave_provisionador" \
@@ -259,6 +261,55 @@ export VEC_POSTGRES_TEST_IDENTIDAD_ADMIN_DSN="postgres://postgres:${clave_admin}
     go test -count=1 -run '^TestIntegracion.*PostgreSQL18$' \
         ./internal/vec/adapters/httpseguridad/postgres
 )
+
+# La caducidad se comprueba despues de esperar el bloqueo de nonce. Una
+# asercion que vence durante la espera nunca puede dejar evidencia durable.
+nonce_caducidad=$(printf '5%.0s' $(seq 1 64))
+docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" --command "
+        BEGIN;
+        SELECT pg_advisory_xact_lock(hashtextextended(
+            'vec_identidad_sesiones_v1:nonce-peticion:$nonce_caducidad', 0
+        ));
+        SELECT pg_sleep(1.2);
+        COMMIT;
+    " >/dev/null &
+retenedor_nonce=$!
+bloqueo_nonce=false
+for _ in $(seq 1 100); do
+    resultado=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
+        --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+        --command "SELECT pg_try_advisory_lock(hashtextextended(
+            'vec_identidad_sesiones_v1:nonce-peticion:$nonce_caducidad', 0
+        ))")
+    if [[ $resultado == f ]]; then
+        bloqueo_nonce=true
+        break
+    fi
+    docker exec "$contenedor" psql -X --quiet --username postgres \
+        --dbname "$base" --command "SELECT pg_advisory_unlock(hashtextextended(
+            'vec_identidad_sesiones_v1:nonce-peticion:$nonce_caducidad', 0
+        ))" >/dev/null 2>&1 || true
+done
+if [[ $bloqueo_nonce != true ]]; then
+    wait "$retenedor_nonce" || true
+    echo 'no se detecto el bloqueo de nonce para la prueba de caducidad' >&2
+    exit 1
+fi
+resultado_caducidad=$(psql_runtime vec_identidad_revalidador_prueba "$clave_revalidador" "
+    SELECT count(*) FROM vec_identidad_sesiones_v1.consumir_asercion_peticion_sesion_v1(
+        'vec.identidad.hmac-sha256.v1', 'idh_aaaaaaaaaaaaaaaaaaaaaaaa',
+        'clave-hsm-integracion', 7,
+        decode('a2' || repeat('00', 31), 'hex'), '$nonce_caducidad',
+        'canal-caducidad-pg18', 'interna_corporativa', 'GET',
+        '/api/vec/bolsa/mi-bolsa', repeat('6', 64),
+        clock_timestamp(), clock_timestamp() + interval '500 milliseconds'
+    )")
+wait "$retenedor_nonce"
+if [[ $resultado_caducidad != 0 ]]; then
+    echo 'una asercion caducada durante el bloqueo fue consumida' >&2
+    exit 1
+fi
 unset VEC_POSTGRES_TEST_IDENTIDAD_REGISTRO_DSN
 unset VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_DSN
 unset VEC_POSTGRES_TEST_IDENTIDAD_PROVISIONADOR_DSN
@@ -297,6 +348,12 @@ psql_archivo deploy/postgresql/identidad_sesiones_v1/pruebas_sql/integracion_mec
 # Tras crear historia, ningun down puede retirar las APIs que la revalidan o
 # revocan ni borrar cuentas, aserciones y sesiones auditables.
 if psql_archivo \
+    deploy/postgresql/identidad_sesiones_v1/migraciones/000006_asercion_peticion_sesion.down.sql \
+    >/dev/null 2>&1; then
+    echo 'el down borro historia de peticiones de identidad' >&2
+    exit 1
+fi
+if psql_archivo \
     deploy/postgresql/identidad_sesiones_v1/migraciones/000003_revalidacion_autenticacion_actor_v1.down.sql \
     >/dev/null 2>&1; then
     echo 'el down retiro la revalidacion rica con historia de identidad' >&2
@@ -316,7 +373,7 @@ if psql_archivo \
 fi
 if ! docker exec "$contenedor" psql -X --quiet --tuples-only \
     --username postgres --dbname "$base" --command "
-        SELECT count(*) = 4
+        SELECT count(*) = 5
           FROM pg_catalog.pg_proc AS funcion
           JOIN pg_catalog.pg_namespace AS espacio
             ON espacio.oid = funcion.pronamespace
@@ -325,6 +382,7 @@ if ! docker exec "$contenedor" psql -X --quiet --tuples-only \
                'registrar_sesion_v1',
                'revalidar_sesion_y_cuentas_v1',
                'revalidar_autenticacion_actor_v1',
+               'consumir_asercion_peticion_sesion_v1',
                'revocar_sesion_v1'
            )" | tr -d '[:space:]' | grep -qx t; then
     echo 'un down fallido dejo las operaciones de identidad incompletas' >&2

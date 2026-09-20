@@ -18,7 +18,7 @@ const (
 
 type manifiestoCapacidadIdentidad struct {
 	grupo     string
-	funciones [2]string
+	funciones []string
 }
 
 // manifiestoParaCapacidad es deliberadamente cerrado e inmutable. Un nuevo
@@ -31,7 +31,7 @@ func manifiestoParaCapacidad(
 	case capacidadProvisionar:
 		return manifiestoCapacidadIdentidad{
 			grupo: capacidadProvisionar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)",
 				"vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(text,text,text,text,text,bigint,bytea,bytea)",
 			},
@@ -39,7 +39,7 @@ func manifiestoParaCapacidad(
 	case capacidadRegistrar:
 		return manifiestoCapacidadIdentidad{
 			grupo: capacidadRegistrar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)",
 				"vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)",
 			},
@@ -47,15 +47,16 @@ func manifiestoParaCapacidad(
 	case capacidadRevalidar:
 		return manifiestoCapacidadIdentidad{
 			grupo: capacidadRevalidar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)",
 				"vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)",
+				"vec_identidad_sesiones_v1.consumir_asercion_peticion_sesion_v1(text,text,text,bigint,bytea,text,text,text,text,text,text,timestamptz,timestamptz)",
 			},
 		}, true
 	case capacidadRevocar:
 		return manifiestoCapacidadIdentidad{
 			grupo: capacidadRevocar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.cambiar_estado_cuenta_v1(text,text,text,text)",
 				"vec_identidad_sesiones_v1.revocar_sesion_v1(text,text,text,text)",
 			},
@@ -66,12 +67,24 @@ func manifiestoParaCapacidad(
 }
 
 func (m manifiestoCapacidadIdentidad) valido() bool {
-	return m.grupo != "" && m.funciones[0] != "" &&
-		m.funciones[1] != "" && m.funciones[0] != m.funciones[1]
+	if m.grupo == "" || len(m.funciones) < 2 {
+		return false
+	}
+	for i, funcion := range m.funciones {
+		if funcion == "" {
+			return false
+		}
+		for _, otra := range m.funciones[:i] {
+			if funcion == otra {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (m manifiestoCapacidadIdentidad) firmasFunciones() []string {
-	return []string{m.funciones[0], m.funciones[1]}
+	return append([]string(nil), m.funciones...)
 }
 
 // MEMBER incluye membresias directas e indirectas con independencia de que
@@ -135,9 +148,9 @@ const consultaAcreditarCapacidad = `
 	                  )
 	       ), false),
 	       COALESCE((
-	           SELECT count(*) = 2
-	                  AND count(DISTINCT funcion.firma) = 2
-	                  AND count(DISTINCT funcion.oid) = 2
+	           SELECT count(*) = cardinality($2::text[])
+	                  AND count(DISTINCT funcion.firma) = cardinality($2::text[])
+	                  AND count(DISTINCT funcion.oid) = cardinality($2::text[])
 	                  AND bool_and(funcion.oid IS NOT NULL)
 	                  AND bool_and(procedimiento.pronamespace = esquema.oid)
 	             FROM funciones_manifestadas AS funcion
@@ -199,7 +212,7 @@ const consultaAcreditarCapacidad = `
 	                WHERE grupo.oid = ANY(politica.polroles)
 	           )
 	           AND (
-	               SELECT count(*) = 4
+	               SELECT count(*) = cardinality($2::text[]) + 2
 	                      AND bool_and(
 	                          dependencia.deptype = 'a'
 	                          AND dependencia.objsubid = 0
@@ -256,8 +269,8 @@ const consultaAcreditarCapacidad = `
 	                WHERE acl.grantee = grupo.oid
 	           )
 	           AND (
-	               SELECT count(*) = 2
-	                      AND count(DISTINCT procedimiento.oid) = 2
+	               SELECT count(*) = cardinality($2::text[])
+	                      AND count(DISTINCT procedimiento.oid) = cardinality($2::text[])
 	                      AND bool_and(acl.privilege_type = 'EXECUTE')
 	                      AND bool_and(NOT acl.is_grantable)
 	                 FROM pg_catalog.pg_proc AS procedimiento
