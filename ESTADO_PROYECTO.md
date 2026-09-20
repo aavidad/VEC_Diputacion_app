@@ -1,5 +1,23 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa B12/B5 completa su lectura visual real — 20 de septiembre de 2026
+
+El cuadro interno B12 resume exclusivamente el contrato real conectado: doce
+bolsas, 390 aspirantes, disponibles y renuncias pendientes. Desde cada fila se
+abre B5 con el recorrido de gestión, filtros, relación ordenada, ficha de cada
+participación y un resumen lateral de la bolsa seleccionada. Contactos, nuevo
+llamamiento y registro de resultado permanecen visibles pero deshabilitados y
+señalan su dependencia exacta de C23; la pantalla no simula esos efectos.
+
+Los commits `6bdd5342` y `4743aebb` están publicados. La prueba focal terminó
+`17/17` y la revisión independiente dio `GO`, sin hallazgos P0–P3. En el runtime
+privado de servidor, Chromium recorrió B12 con sus doce bolsas y B5 con las 41
+participaciones de la primera bolsa. A 1440 px no hubo desbordamiento global;
+la comprobación inicial a 390 px detectó que la tabla ampliaba el grid y el
+segundo commit lo corrigió: la página queda en 390 px y la tabla conserva su
+desplazamiento interno. No se modificaron PostgreSQL, Caddy, identidad ni las
+operaciones de Contratación temporal.
+
 ## Bolsa B10 operativa en runtime aislado de servidor — 20 de septiembre de 2026
 
 La publicación y la consulta pública B10 están recorridas en un entorno nuevo
