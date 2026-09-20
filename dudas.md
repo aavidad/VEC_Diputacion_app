@@ -4,7 +4,7 @@ Las preguntas 1–5 son prioritarias para cerrar el recorrido de Contratación. 
 
 Decisiones ya acordadas: se utilizará el portafirmas de Diputación; el correo saliente utilizará SMTP corporativo, configurable desde administración; el correo del candidato procederá del dato obligatorio de su alta en VEC; VEC sustituirá a CONVOCA en la gestión de bolsas y, más adelante, en los procesos selectivos, importando primero las bolsas existentes; el candidato se identificará con DNIe o certificado digital. No se solicita volver a elegir estas soluciones.
 
-Las preguntas 1–12 y 15 se refieren a Contratación temporal; las 13, 14 y 16–18, a las bolsas y a la sustitución de CONVOCA; las 19–21, a Cronos; las 22–26, a Dietas; las 27–29, a Personal; y las 30–36, a Administración y a Usuarios/Contacto.
+Las preguntas 1–12 y 15 se refieren a Contratación temporal; las 13, 14, 16–18 y 37, a las bolsas y a la sustitución de CONVOCA; las 19–21, a Cronos; las 22–26, a Dietas; las 27–29, a Personal; y las 30–36, a Administración y a Usuarios/Contacto.
 
 ## Texto para enviar
 
@@ -83,5 +83,7 @@ Estamos completando los recorridos funcionales de VEC. Necesitamos concretar est
 35. **Preferencias y canales de contacto.** ¿Qué avisos puede activar o desactivar el titular y cuáles deben enviarse obligatoriamente por su naturaleza administrativa? ¿Qué canales corporativos están admitidos, cómo se acredita el alta o retirada de una preferencia y qué sistema conserva la fuente y la versión aplicadas a cada comunicación? No necesitamos direcciones ni teléfonos reales para definir este contrato.
 
 36. **Auditoría y soporte de Administración y Usuarios.** ¿Qué responsables pueden consultar o exportar trazas de acceso, cambios de roles, configuración y contacto, con qué finalidad, periodo y conservación? ¿Qué circuito debe seguir soporte ante bloqueo de acceso, error de sincronización o dato discutido, y qué información técnica minimizada puede consultar sin suplantar al usuario ni acceder a expedientes o contactos en claro?
+
+37. **Avisos personales de oportunidades.** Al entrar en su área personal, empleados y aspirantes externos podrán ver convocatorias abiertas aparentemente compatibles con sus datos y abrir la ficha completa de la oferta. ¿Qué requisitos puede contrastar VEC automáticamente, qué fuentes acreditan cada dato —en especial titulaciones— y qué texto o advertencia debe mostrar cuando un requisito no pueda comprobarse? Necesitamos confirmar si este aviso será solo informativo y que la admisión seguirá dependiendo de las bases y de la revisión administrativa.
 
 Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes, GINPIX, identidad corporativa, certificados y revocación**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.

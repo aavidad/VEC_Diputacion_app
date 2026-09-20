@@ -39,6 +39,7 @@ trabajo: Bolsa está aparcada hasta cerrar el orden de correcciones de Contratac
 | B12 | Cuadro de control: bolsas activas, candidatos por bolsa y por estado. | R p.3 | No. | Contadores sobre B2, sin más mecanismo. |
 | B13 | Envío de correo por estado y avisos automáticos (candidato saltado; tres años trabajando). | R p.3; fabricante: «aviso cuando llega el turno» | No. | Después de B7; parámetros: RRHH (dudas 13). |
 | B14 | Documentación y plazo para formalizar tras aceptar (M: 24 horas). | M §9; W paso 6 | Enlaza con Contratación (nombramiento). | Plazo y lista de documentos: RRHH (dudas 9 y 18). |
+| B15 | Evaluación personal de oportunidades y acceso directo a la solicitud. | Decisión del operador, 20/09/2026 | El área personal enumera convocatorias DEMO y la web pública muestra su detalle y requisitos, pero los requisitos son texto libre y no hay cotejo con el expediente de méritos ni enlace personalizado real. | Estructurar y versionar requisitos de acceso; contrastarlos con datos declarados o acreditados de la persona y mostrar `cumple`, `no_cumple` o `pendiente` con explicación. Si cumple lo comprobable, permitir abrir el detalle público por `identificador_publico` e iniciar la solicitud precompletada; si falta un dato, dirigir a completarlo. No confundir acceso con puntuación ni evaluación automática con admisión definitiva. |
 
 ## Requisitos del proceso selectivo (fase 2, para dejar de usar CONVOCA)
 
@@ -55,7 +56,7 @@ trabajo: Bolsa está aparcada hasta cerrar el orden de correcciones de Contratac
 ## Orden propuesto cuando Bolsa se retome
 
 1. B1 importador invocable con los XLS reales (es la condición de Alberto y lo que alimenta a Contratación).
-2. B2 + B5: estados y pantalla de bolsa. 3. B6 orden calculado con los parámetros de RRHH. 4. B3 + B7 + B8: contactos, llamamiento real, pausas. 5. B10 + B11: público y portal. 6. B12 + B13. 7. Fase 2 (S1–S7) solo cuando haya una convocatoria nueva que tramitar.
+2. B2 + B5: estados y pantalla de bolsa. 3. B6 orden calculado con los parámetros de RRHH. 4. B3 + B7 + B8: contactos, llamamiento real, pausas. 5. B10 + B11: público y portal. 6. B15 sobre el portal y detalle público ya conectados. 7. B12 + B13. 8. Fase 2 (S1–S7) solo cuando haya una convocatoria nueva que tramitar.
 
 ## Lo que no se decide aquí
 

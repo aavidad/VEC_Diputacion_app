@@ -55,6 +55,35 @@ no necesita ser empleado. Bolsa permite candidaturas de externos y empleados;
 no exigir referencia de empleado ni relación de servicio para inscribirse.
 Una misma persona puede tener candidaturas y relaciones de servicio sin duplicarse.
 
+Los datos que una persona aporta a su expediente de méritos se registran una
+sola vez, con fuente, evidencia, vigencia y estado declarado, pendiente,
+acreditado o rechazado. Comprobar un requisito de acceso y puntuar un mérito son
+decisiones distintas aunque consuman el mismo dato: una titulación puede
+habilitar para presentarse y además puntuar, solo habilitar o no ser aplicable.
+No deducir requisitos de los puntos obtenidos ni convertir una valoración de
+una convocatoria anterior en un hecho universal.
+
+El inicio del área personal debe evaluar las convocatorias o puestos con plazo
+abierto frente a los requisitos de acceso estructurados y versionados de sus
+bases. Por cada requisito devuelve `cumple`, `no_cumple` o `pendiente`, con
+motivo y procedencia. Un requisito expresado solo como texto, una equivalencia
+no aprobada o un dato ausente queda pendiente; no se interpreta mediante IA ni
+se da por cumplido o incumplido. El resultado global permite distinguir:
+
+- puede iniciar directamente la solicitud con los datos ya disponibles;
+- puede prepararla, pero debe completar o acreditar datos indicados;
+- existe un incumplimiento comprobado que debe mostrarse y explicarse; o
+- el plazo está cerrado o ya existe una solicitud.
+
+La evaluación no sustituye la admisión administrativa. Un resultado pendiente
+no bloquea por sí solo el derecho a presentar la solicitud si las bases permiten
+declarar o aportar ese requisito durante el trámite. Al pulsar el aviso se abre
+el detalle público canónico mediante `identificador_publico`, con puesto o
+categoría, bases, requisitos, plazo, documentos y vía de solicitud; desde allí
+se inicia la solicitud precompletada, previa confirmación de la persona. Se
+aplica a aspirantes externos y empleados. Bolsa consulta el expediente por un
+puerto autorizado y no duplica titulaciones, méritos ni datos personales.
+
 ## E03. Arquitectura hexagonal
 
 `domain` no importa aplicación, puertos, adaptadores, HTTP, SQL ni proveedores.
