@@ -93,7 +93,9 @@ export function validarGeometriaRutaDietas(geometria, rutaEsperada = []) {
   if (!geometria || typeof geometria !== "object" || Array.isArray(geometria)) {
     throw new Error("geometria de ruta de Dietas no valida");
   }
-  clavesExactas(geometria, ["esquema", "origen", "liquidable", "paradas", "trazado"], "geometria de ruta de Dietas");
+  clavesExactas(geometria, geometria?.tramos === undefined
+    ? ["esquema", "origen", "liquidable", "paradas", "trazado"]
+    : ["esquema", "origen", "liquidable", "paradas", "trazado", "tramos"], "geometria de ruta de Dietas");
   if (geometria.esquema !== ESQUEMA_GEOMETRIA_RUTA_DIETAS
     || !["sintetica_demo", "osrm_interno"].includes(geometria.origen)
     || geometria.liquidable !== false || !Array.isArray(geometria.paradas)
@@ -117,6 +119,28 @@ export function validarGeometriaRutaDietas(geometria, rutaEsperada = []) {
     if (!Array.isArray(punto) || punto.length !== 2) throw new Error("punto de trazado no valido");
     numeroAcotado(punto[0], -90, 90, "latitud de trazado");
     numeroAcotado(punto[1], -180, 180, "longitud de trazado");
+  });
+  // Las rutas históricas ya conservadas no llevaban segmentos. Se admiten
+  // solo como lectura compatible; los proyectores OSRM actuales siempre los
+  // incluyen y el visor nuevo los usa para el trazado multicolor.
+  if (geometria.tramos === undefined) {
+    return congelarProfundo(copiarDietas(geometria));
+  }
+  if (!Array.isArray(geometria.tramos) || geometria.tramos.length !== geometria.paradas.length - 1) {
+    throw new Error("tramos geométricos de Dietas no válidos");
+  }
+  geometria.tramos.forEach((tramo, indice) => {
+    if (!tramo || typeof tramo !== "object" || Array.isArray(tramo)) throw new Error("tramo geométrico de Dietas no válido");
+    clavesExactas(tramo, ["indice", "trazado"], "tramo geométrico de Dietas");
+    if (tramo.indice !== indice || !Array.isArray(tramo.trazado) || tramo.trazado.length < 2 || tramo.trazado.length > 2_000) {
+      throw new Error("tramo geométrico de Dietas no válido");
+    }
+    tramo.trazado.forEach((punto) => {
+      if (!Array.isArray(punto) || punto.length !== 2 || !Number.isFinite(punto[0]) || !Number.isFinite(punto[1])
+        || punto[0] < -90 || punto[0] > 90 || punto[1] < -180 || punto[1] > 180) {
+        throw new Error("coordenada de tramo de Dietas no válida");
+      }
+    });
   });
   return congelarProfundo(copiarDietas(geometria));
 }
@@ -210,9 +234,9 @@ export function validarCalculoRutaDietas(calculo, solicitudEsperada = null) {
     }
     alternativa.tramos.forEach((tramo, indice) => {
       if (!tramo || typeof tramo !== "object" || Array.isArray(tramo)) throw new Error("tramo de ruta no valido");
-      clavesExactas(tramo, [
-        "indice", "origen_codigo", "origen_nombre", "destino_codigo", "destino_nombre", "kilometros", "duracion_minutos",
-      ], "tramo de ruta");
+      clavesExactas(tramo, tramo.trazado === undefined
+        ? ["indice", "origen_codigo", "origen_nombre", "destino_codigo", "destino_nombre", "kilometros", "duracion_minutos"]
+        : ["indice", "origen_codigo", "origen_nombre", "destino_codigo", "destino_nombre", "kilometros", "duracion_minutos", "trazado"], "tramo de ruta");
       enteroAcotado(tramo.indice, 0, 10, "indice de tramo");
       if (tramo.indice !== indice) throw new Error("indices de tramo no consecutivos");
       codigoRuta(tramo.origen_codigo, "origen del tramo");
@@ -221,6 +245,9 @@ export function validarCalculoRutaDietas(calculo, solicitudEsperada = null) {
       texto(tramo.destino_nombre, "nombre de destino", 100);
       numeroAcotado(tramo.kilometros, 0.01, 10_000, "kilometros del tramo");
       enteroAcotado(tramo.duracion_minutos, 1, 20_000, "duracion del tramo");
+      if (tramo.trazado !== undefined && (!Array.isArray(tramo.trazado) || tramo.trazado.length < 2 || tramo.trazado.length > 2_000)) {
+        throw new Error("trazado de tramo no válido");
+      }
       if (solicitud && (tramo.origen_codigo !== solicitud.paradas[indice]
         || tramo.destino_codigo !== solicitud.paradas[indice + 1])) {
         throw new Error("el tramo no corresponde a la solicitud");

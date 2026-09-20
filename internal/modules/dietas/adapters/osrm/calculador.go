@@ -91,8 +91,16 @@ type geometriaOSRM struct {
 }
 
 type tramoOSRM struct {
-	Distancia float64 `json:"distance"`
-	Duracion  float64 `json:"duration"`
+	Distancia float64    `json:"distance"`
+	Duracion  float64    `json:"duration"`
+	Pasos     []pasoOSRM `json:"steps"`
+}
+
+// OSRM entrega la geometria vial por tramo dentro de sus steps; un leg no
+// contiene una LineString propia. Se conservan esos pasos para ensamblar solo
+// sus segmentos contiguos, sin partir la geometria global por proximidad.
+type pasoOSRM struct {
+	Geometria geometriaOSRM `json:"geometry"`
 }
 
 // Nuevo construye el conector. Una configuracion totalmente ausente devuelve
@@ -247,17 +255,63 @@ func proyectarRuta(ruta rutaOSRM, tramosEsperados int) (dietasports.AlternativaR
 			Latitud:  punto[1],
 		})
 	}
+	puntosTramos := 0
 	for _, tramo := range ruta.Tramos {
 		if !numeroPositivoAcotado(tramo.Distancia, maximoDistanciaMetros) ||
 			!numeroPositivoAcotado(tramo.Duracion, maximoDuracionSegundos) {
 			return dietasports.AlternativaRuta{}, fmt.Errorf("%w: tramo no valido", dietasports.ErrRespuestaMotorRutasInvalida)
 		}
+		geometriaTramo, puntos, err := proyectarGeometriaTramo(tramo.Pasos)
+		if err != nil {
+			return dietasports.AlternativaRuta{}, err
+		}
+		puntosTramos += puntos
+		if puntosTramos > maximoPuntosGeometria {
+			return dietasports.AlternativaRuta{}, fmt.Errorf("%w: demasiados puntos en tramos", dietasports.ErrRespuestaMotorRutasInvalida)
+		}
 		alternativa.Tramos = append(alternativa.Tramos, dietasports.TramoRuta{
 			DistanciaMetros:  tramo.Distancia,
 			DuracionSegundos: tramo.Duracion,
+			Geometria:        geometriaTramo,
 		})
 	}
 	return alternativa, nil
+}
+
+// proyectarGeometriaTramo conserva el orden que entrega OSRM. Solo elimina el
+// punto de union exactamente igual entre dos steps consecutivos: no aproxima,
+// no ajusta y no recorta ninguna LineString por distancia.
+func proyectarGeometriaTramo(pasos []pasoOSRM) (dietasports.GeometriaRuta, int, error) {
+	if len(pasos) == 0 {
+		return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: tramo sin geometria vial", dietasports.ErrRespuestaMotorRutasInvalida)
+	}
+	resultado := dietasports.GeometriaRuta{Tipo: "LineString"}
+	for _, paso := range pasos {
+		if paso.Geometria.Tipo != "LineString" || len(paso.Geometria.Coordenadas) < 2 ||
+			len(paso.Geometria.Coordenadas) > maximoPuntosGeometria {
+			return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: geometria de step no valida", dietasports.ErrRespuestaMotorRutasInvalida)
+		}
+		for indice, punto := range paso.Geometria.Coordenadas {
+			if len(punto) != 2 || !longitudValida(punto[0]) || !latitudValida(punto[1]) {
+				return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: geometria de step no valida", dietasports.ErrRespuestaMotorRutasInvalida)
+			}
+			actual := dietasports.PuntoGeometriaRuta{Longitud: punto[0], Latitud: punto[1]}
+			if len(resultado.Coordenadas) != 0 && indice == 0 {
+				if resultado.Coordenadas[len(resultado.Coordenadas)-1] != actual {
+					return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: steps no contiguos", dietasports.ErrRespuestaMotorRutasInvalida)
+				}
+				continue
+			}
+			resultado.Coordenadas = append(resultado.Coordenadas, actual)
+			if len(resultado.Coordenadas) > maximoPuntosGeometria {
+				return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: demasiados puntos en tramo", dietasports.ErrRespuestaMotorRutasInvalida)
+			}
+		}
+	}
+	if len(resultado.Coordenadas) < 2 {
+		return dietasports.GeometriaRuta{}, 0, fmt.Errorf("%w: tramo sin linea vial", dietasports.ErrRespuestaMotorRutasInvalida)
+	}
+	return resultado, len(resultado.Coordenadas), nil
 }
 
 func validarSolicitud(solicitud dietasports.SolicitudCalculoRuta, ambito ambito) error {
@@ -604,7 +658,7 @@ func construirEndpoint(urlBase string, solicitud dietasports.SolicitudCalculoRut
 		alternativas = 1
 	}
 	return urlCanonica + "/route/v1/driving/" + strings.Join(partes, ";") +
-		"?overview=full&geometries=geojson&steps=false&alternatives=" + strconv.Itoa(alternativas), nil
+		"?overview=full&geometries=geojson&steps=true&alternatives=" + strconv.Itoa(alternativas), nil
 }
 
 var _ dietasports.CalculadorRutas = (*Calculador)(nil)

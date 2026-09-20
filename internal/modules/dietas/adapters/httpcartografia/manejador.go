@@ -60,8 +60,9 @@ type rutaHTTP struct {
 }
 
 type tramoHTTP struct {
-	Distancia float64 `json:"distance"`
-	Duracion  float64 `json:"duration"`
+	Distancia float64       `json:"distance"`
+	Duracion  float64       `json:"duration"`
+	Geometria geometriaHTTP `json:"geometry"`
 }
 
 type geometriaHTTP struct {
@@ -179,7 +180,14 @@ func proyectarRespuesta(resultado dietasports.ResultadoCalculoRuta) respuestaHTT
 		}
 		tramos := make([]tramoHTTP, 0, len(alternativa.Tramos))
 		for _, tramo := range alternativa.Tramos {
-			tramos = append(tramos, tramoHTTP{Distancia: tramo.DistanciaMetros, Duracion: tramo.DuracionSegundos})
+			geometriaTramo := make([][]float64, 0, len(tramo.Geometria.Coordenadas))
+			for _, punto := range tramo.Geometria.Coordenadas {
+				geometriaTramo = append(geometriaTramo, []float64{punto.Longitud, punto.Latitud})
+			}
+			tramos = append(tramos, tramoHTTP{
+				Distancia: tramo.DistanciaMetros, Duracion: tramo.DuracionSegundos,
+				Geometria: geometriaHTTP{Tipo: tramo.Geometria.Tipo, Coordenadas: geometriaTramo},
+			})
 		}
 		rutas = append(rutas, rutaHTTP{
 			Distancia: alternativa.DistanciaMetros,

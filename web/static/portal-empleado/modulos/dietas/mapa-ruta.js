@@ -39,6 +39,19 @@ function resultadoNoDisponible() {
 
 const MAXIMO_ERRORES_TESELA = 3;
 const TIEMPO_ESPERA_TESELAS_MS = 7_000;
+export const ESTILOS_TRAMO_RUTA_DIETAS = Object.freeze([
+  Object.freeze({ color: "#155e75", patron: "Línea continua", dashArray: undefined }),
+  Object.freeze({ color: "#9a3412", patron: "Línea discontinua", dashArray: "10 7" }),
+  Object.freeze({ color: "#4d7c0f", patron: "Línea punto-raya", dashArray: "12 5 2 5" }),
+  Object.freeze({ color: "#6d28d9", patron: "Línea de puntos", dashArray: "2 6" }),
+  Object.freeze({ color: "#0369a1", patron: "Trazo largo", dashArray: "16 6" }),
+  Object.freeze({ color: "#b45309", patron: "Trazo corto", dashArray: "6 4" }),
+  Object.freeze({ color: "#be123c", patron: "Punto y trazo largo", dashArray: "2 5 14 5" }),
+  Object.freeze({ color: "#047857", patron: "Doble punto", dashArray: "2 4 2 7" }),
+  Object.freeze({ color: "#7c2d12", patron: "Trazo medio", dashArray: "11 5" }),
+  Object.freeze({ color: "#4338ca", patron: "Punto y trazo corto", dashArray: "2 4 7 4" }),
+  Object.freeze({ color: "#0f766e", patron: "Trazo separado", dashArray: "8 8" }),
+]);
 
 function mostrarMapaNoDisponible(lienzo, estado, atribucion, t) {
   if (lienzo) {
@@ -172,11 +185,16 @@ export function crearVisorRutaDietas({
         capaTeselas.on("load", alCargarTeselas);
         capaTeselas.on("tileerror", alFallarTesela);
         capaTeselas.addTo(mapa);
-        const linea = entorno.L.polyline(datos.geometria.trazado, {
-          color: "#155e75",
-          weight: 5,
-          opacity: 0.9,
-        }).addTo(mapa);
+        const tramosGeometricos = datos.geometria.tramos || [{ trazado: datos.geometria.trazado }];
+        const lineas = tramosGeometricos.map((tramo, indice) => {
+          const estilo = ESTILOS_TRAMO_RUTA_DIETAS[indice % ESTILOS_TRAMO_RUTA_DIETAS.length];
+          return entorno.L.polyline(tramo.trazado, {
+            color: estilo.color,
+            weight: 5,
+            opacity: 0.9,
+            dashArray: estilo.dashArray,
+          }).addTo(mapa);
+        });
         const marcadores = new Set();
         datos.geometria.paradas.forEach((parada, indice) => {
           const clave = `${parada.latitud}:${parada.longitud}:${parada.etiqueta}`;
@@ -200,7 +218,8 @@ export function crearVisorRutaDietas({
             marcador.bindTooltip?.(textoTooltip);
           }
         });
-        const limites = linea.getBounds?.();
+        const limites = lineas[0]?.getBounds?.();
+        lineas.slice(1).forEach((linea) => limites?.extend?.(linea.getBounds?.()));
         if (limites?.isValid?.()) mapa.fitBounds(limites, { padding: [24, 24] });
         if (atribucion) {
           // La atribución interactiva y enlazada ya la aporta Leaflet dentro

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { crearCalculadorRutasDietasPresentacionOSRM } from "./calculador-rutas-presentacion-osrm.js";
 import { CAPACIDAD_CONSULTAR_RUTA } from "./contrato.js";
-import { montarVistaItinerarioDietas } from "./vista-itinerario.js";
+import { montarVistaItinerarioDietas, montarVistaItinerarioPendienteDietas } from "./vista-itinerario.js";
 import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
 import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
 
@@ -41,7 +41,10 @@ function respuestaJSON(datos) {
 function respuestaOSRM() {
   return { code: "Ok", engine: "osrm_on_premise", route_scope: "Granada provincia + 15 km", graph_version: "granada-buffer-osrm-v1-53aba0ad43c4", routes: [{
     distance: 140_800, duration: 6_600,
-    legs: [{ distance: 70_400, duration: 3_300 }, { distance: 70_400, duration: 3_300 }],
+    legs: [
+      { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-3.52045559, 36.74535308]] } },
+      { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [[-3.52045559, 36.74535308], [-3.59869101, 37.17428891]] } },
+    ],
     geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-3.52045559, 36.74535308], [-3.59869101, 37.17428891]] },
   }], waypoints: [] };
 }
@@ -56,6 +59,20 @@ async function clicar(contenedor, selector) {
   await contenedor.listeners.click({ target: contenedor.querySelector(selector) });
 }
 
+test("mantiene visible un mapa corporativo pendiente sin inventar catálogo ni geometría", () => {
+  const r = raiz();
+  const vista = montarVistaItinerarioPendienteDietas({ raiz: r });
+  const contenedor = r.querySelector("[data-dietas-itinerario]");
+  const mapa = contenedor.querySelector("[data-dietas-mapa-pendiente]");
+  assert.ok(mapa);
+  assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").dataset.modoMapa, "pendiente_calculo_autorizado");
+  assert.match(mapa.querySelector("[data-dietas-mapa-estado]").textContent, /Pendiente de cálculo autorizado/u);
+  assert.doesNotMatch(mapa.children.map((nodo) => nodo.textContent).join(" "), /sesión corporativa autorizada/u);
+  assert.equal(mapa.querySelector("[data-dietas-mapa-ref]"), null);
+  vista.desmontar();
+  assert.equal(r.querySelector("[data-dietas-itinerario]"), null);
+});
+
 test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", async () => {
   const llamadas = []; const mapas = []; const avisos = []; const r = raiz(); let mapaDesmontado = false;
   const vista = await montarVistaItinerarioDietas({
@@ -63,7 +80,7 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
     visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() { mapaDesmontado = true; } }; } },
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
-  assert.match(contenedor.querySelector("[data-itinerario-catalogo]").textContent, /175 puntos disponibles/u);
+  assert.match(contenedor.querySelector("[data-itinerario-catalogo]").textContent, /176 puntos disponibles/u);
   await clicar(contenedor, "[data-itinerario-calcular]");
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
@@ -78,7 +95,7 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   assert.equal(mapaDesmontado, true);
 });
 
-test("expone avisos, alternativas y tramos del cálculo orientativo sin coordenadas ni acciones", async () => {
+test("expone avisos, alternativas y tramos del cálculo orientativo sin exponer coordenadas", async () => {
   const llamadas = []; const r = raiz();
   const base = respuestaOSRM().routes[0];
   const respuesta = { ...respuestaOSRM(), routes: [

@@ -1,7 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
-import { obtenerAtlasSinteticoRRHH, TEXTO_DATOS_FICTICIOS_RRHH } from "../../datos-sinteticos-rrhh.js";
-import { renderizarEstadoEntrega } from "../../estado-entrega.js";
+import { obtenerAtlasSinteticoRRHH } from "../../datos-sinteticos-rrhh.js";
 
 const ETAPAS = Object.freeze([
   ["solicitante", "recorridos_solicitante"],
@@ -193,7 +192,6 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
   panel.dataset.dietasPanelEtapa = "solicitante";
   panel.append(
     elemento(documento, "h3", t("recorridos_solicitante")),
-    elemento(documento, "p", t("recorridos_solicitante_ayuda")),
     resumenPresentacion(documento, t),
     areaBorradores,
   );
@@ -328,7 +326,6 @@ export function montarVistaRecorridosDietas(
     montarItinerario,
     anunciar = () => {},
     registrarDesmontar,
-    estadoEntrega = "visual_pendiente_backend",
   } = {},
 ) {
   if (
@@ -399,28 +396,9 @@ export function montarVistaRecorridosDietas(
     }
   }
   const titulo = elemento(documento, "h2", traducir("recorridos_titulo_presentacion"));
-  const subtitulo = elemento(documento, "p", traducir("recorridos_subtitulo_presentacion"));
-  subtitulo.className = "dietas-presentacion-subtitulo";
-  const avisoConexion = elemento(
-    documento,
-    "p",
-    traducir("recorridos_pendiente_conexion"),
-  );
-  avisoConexion.id = "dietas-recorridos-conexion-pendiente";
-  avisoConexion.className = "dietas-recorridos-aviso";
-  avisoConexion.innerHTML = renderizarEstadoEntrega({
-    estado: estadoEntrega,
-    resumen: traducir("recorridos_resumen_entrega"),
-    pendientes: [
-      traducir("recorridos_pendiente_catalogos"),
-      traducir("recorridos_pendiente_autoridad"),
-      traducir("recorridos_pendiente_persistencia"),
-      traducir("recorridos_pendiente_adjuntos"),
-      traducir("recorridos_pendiente_liquidacion"),
-    ],
-    fuente: { etiqueta: TEXTO_DATOS_FICTICIOS_RRHH },
-    conexion: traducir("recorridos_conexion_backend"),
-  });
+  const limiteOperativo = elemento(documento, "p", traducir("recorridos_limite_operativo"));
+  limiteOperativo.id = "dietas-recorridos-conexion-pendiente";
+  limiteOperativo.className = "dietas-recorridos-aviso";
   const pasos = elemento(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_titulo"));
@@ -454,7 +432,7 @@ export function montarVistaRecorridosDietas(
   const cuerpo = elemento(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   cuerpo.append(solicitante, jefatura, gestion, lateral);
-  raiz.append(titulo, subtitulo, avisoConexion, pasos, cuerpo);
+  raiz.append(titulo, limiteOperativo, pasos, cuerpo);
 
   function pintar() {
     if (!activa || !sigueMontada(contenedor, raiz)) return;

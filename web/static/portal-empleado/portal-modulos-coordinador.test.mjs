@@ -77,8 +77,12 @@ function respuestaOSRM() {
       distance: 140_800,
       duration: 6_600,
       legs: [
-        { distance: 70_400, duration: 3_300 },
-        { distance: 70_400, duration: 3_300 },
+        { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [
+          [-3.59869101, 37.17428891], [-3.56, 36.95], [-3.52045559, 36.74535308],
+        ] } },
+        { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [
+          [-3.52045559, 36.74535308], [-3.56, 36.95], [-3.59869101, 37.17428891],
+        ] } },
       ],
       geometry: {
         type: "LineString",
@@ -461,6 +465,70 @@ test("el cargador interno predeterminado de Personal compone contrato, cliente y
   });
   await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
+});
+
+test("Dietas interna monta borradores HTTP y una zona cartográfica cerrada sin usar el catálogo como identidad", async () => {
+  const montajes = [];
+  const cliente = Object.freeze({
+    listar: async () => Object.freeze({ items: Object.freeze([]) }),
+    crear: async () => { throw new Error("no invocado en el montaje"); },
+  });
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch() { throw new Error("el cliente de prueba no consulta al montar"); } },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "dietas", permisos: ["inventario-no-autorizador"] }]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+      dietas: async () => Object.freeze({
+        contrato: Object.freeze({}),
+        vista: Object.freeze({
+          montarVistaItinerarioPendienteDietas({ raiz }) {
+            return Object.freeze({ desmontar() {} });
+          },
+        }),
+        mapa: Object.freeze({}),
+        calculador: Object.freeze({ crearCalculadorRutasDietasHTTP() { assert.fail("no debe crear rutas sin contexto explícito"); } }),
+        clienteBorradores: Object.freeze({
+          crearClienteBorradoresDietasHTTP({ fetchImpl }) {
+            assert.equal(typeof fetchImpl, "function");
+            return cliente;
+          },
+        }),
+        recorridos: Object.freeze({
+          montarVistaRecorridosDietas(raiz, dependencias) {
+            montajes.push({ raiz, dependencias });
+            return Object.freeze({ desmontar() { montajes.push("desmontado"); } });
+          },
+        }),
+      }),
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("dietas").disponible, true);
+  assert.equal(await coordinador.montarVista("dietas", raizFalsa()), true);
+  assert.strictEqual(montajes[0].dependencias.clienteBorradores, cliente);
+  assert.equal(typeof montajes[0].dependencias.montarItinerario, "function");
+  coordinador.desmontarVistaActual();
+  assert.equal(montajes.at(-1), "desmontado");
+});
+
+test("el fallo de Dietas interna queda aislado de los demás módulos inventariados", async () => {
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "dietas" }, { clave: "personal" }]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+      dietas: async () => { throw new Error("cliente de Dietas no disponible"); },
+      personal: async () => Object.freeze({
+        contrato: Object.freeze({ CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" }),
+        cliente: Object.freeze({ crearClienteHTTPCategoriasPersonal: () => Object.freeze({}) }),
+        vista: Object.freeze({ montarModuloPersonal: async () => Object.freeze({ desmontar() {} }) }),
+      }),
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("dietas").estado, "no_disponible");
+  assert.equal(coordinador.resolverAcceso("personal").disponible, true);
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {

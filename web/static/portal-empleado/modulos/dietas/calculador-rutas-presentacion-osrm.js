@@ -293,6 +293,7 @@ function proyectarTramos(ruta, solicitud, puntos) {
       duracion_minutos: Math.max(1, Math.ceil(numeroAcotado(
         tramo.duration, 1, 1_200_000, "duracion de tramo OSRM",
       ) / 60)),
+      trazado: proyectarTrazado(tramo.geometry),
     });
   });
 }
@@ -319,6 +320,7 @@ function proyectarRuta(ruta, solicitud, puntos, indice) {
         longitud: punto.longitud,
       })),
       trazado,
+      tramos: tramos.map((tramo) => ({ indice: tramo.indice, trazado: tramo.trazado })),
     },
   });
 }

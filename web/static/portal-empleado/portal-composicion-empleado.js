@@ -23,6 +23,50 @@ export function componerDietasVisible(recursos, contextoActor, capacidades, ento
   });
 }
 
+/**
+ * El portal interno puede ofrecer los borradores propios sin fabricar un
+ * ContextoActor en el navegador. El cálculo de ruta HTTP conserva su contrato
+ * más estricto: se añadirá sólo desde un proveedor explícito de identidad y
+ * capacidades, nunca desde el catálogo o una entrada de menú.
+ */
+export function componerDietasInternas(recursos, entorno) {
+  if (!recursos?.contrato || typeof recursos.contrato !== "object"
+    || typeof recursos?.clienteBorradores?.crearClienteBorradoresDietasHTTP !== "function"
+    || typeof recursos?.recorridos?.montarVistaRecorridosDietas !== "function"
+    || typeof recursos?.vista?.montarVistaItinerarioPendienteDietas !== "function") return undefined;
+  const fetchImpl = typeof entorno?.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
+  const clienteBorradores = recursos.clienteBorradores.crearClienteBorradoresDietasHTTP({ fetchImpl });
+  // Solo la raíz de identidad puede inyectar este par ya autorizado. El
+  // navegador, el catálogo y el menú no construyen ContextoActor, capacidad ni
+  // cliente HTTP para rutas. En su ausencia se conserva el área visible pero
+  // no hay cálculo ni geometría.
+  const itinerarioAutorizado = entorno?.dietasItinerarioAutorizado;
+  const puedeCalcular = itinerarioAutorizado
+    && typeof itinerarioAutorizado === "object"
+    && typeof itinerarioAutorizado.calculador?.obtenerCatalogo === "function"
+    && typeof itinerarioAutorizado.calculador?.calcular === "function"
+    && typeof itinerarioAutorizado.visorRuta?.montar === "function";
+  return Object.freeze({
+    clienteBorradores,
+    montar: ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
+      clienteBorradores,
+      anunciar,
+      registrarDesmontar,
+      // El área cartográfica sí queda visible, pero no recibe catálogo,
+      // identidad ni calculador. Solo una composición autorizada puede
+      // sustituir este estado cerrado por el visor y la ruta reales.
+      montarItinerario: (hueco) => (puedeCalcular
+        ? recursos.vista.montarVistaItinerarioDietas({
+          raiz: hueco,
+          calculador: itinerarioAutorizado.calculador,
+          visorRuta: itinerarioAutorizado.visorRuta,
+          anunciar,
+        })
+        : recursos.vista.montarVistaItinerarioPendienteDietas({ raiz: hueco })),
+    }),
+  });
+}
+
 export function componerPersonalVisible(recursos, entorno) {
   const catalogos = [
     [recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal, recursos.vistaCategorias?.montarModuloPersonal],

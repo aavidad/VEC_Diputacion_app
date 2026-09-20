@@ -47,6 +47,10 @@ type GeometriaRuta struct {
 type TramoRuta struct {
 	DistanciaMetros  float64
 	DuracionSegundos float64
+	// Geometria procede exclusivamente de los steps que OSRM devuelve para
+	// este tramo. No se infiere a partir de la geometria total ni se usa para
+	// determinar kilometraje liquidable.
+	Geometria GeometriaRuta
 }
 
 type AlternativaRuta struct {

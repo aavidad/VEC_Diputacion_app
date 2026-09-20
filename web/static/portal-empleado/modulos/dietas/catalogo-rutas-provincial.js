@@ -188,6 +188,9 @@ const PUNTOS_PROVINCIALES = Object.freeze([
   Object.freeze({ codigo: "18193", nombre: "Zubia, La", tipo: "municipio", municipio_codigo: "18193", municipio_nombre: "Zubia, La", latitud: 37.12061942, longitud: -3.58498469 }),
   Object.freeze({ codigo: "18194", nombre: "Zújar", tipo: "municipio", municipio_codigo: "18194", municipio_nombre: "Zújar", latitud: 37.54136176, longitud: -2.84176313 }),
   Object.freeze({ codigo: "NGMEP-MECINA-BOMBARON", nombre: "Mecina Bombarón", tipo: "nucleo", municipio_codigo: "18904", municipio_nombre: "Alpujarra de la Sierra", latitud: 36.946, longitud: -3.1547 }),
+  // Núcleo gobernado IGN NGMEP (consulta 2026-09-20; actualización fuente
+  // 2025-07-06). No procede de entrada libre ni de geocodificación cliente.
+  Object.freeze({ codigo: "NGMEP-18911000400", nombre: "Purchil", tipo: "nucleo", municipio_codigo: "18911", municipio_nombre: "Vegas del Genil", latitud: 37.17165065, longitud: -3.667451845 }),
 ]);
 
 const PUNTOS_POR_CODIGO = new Map(PUNTOS_PROVINCIALES.map((punto) => [punto.codigo, punto]));

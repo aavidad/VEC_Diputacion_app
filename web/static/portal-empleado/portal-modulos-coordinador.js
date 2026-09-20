@@ -16,7 +16,12 @@ import {
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
-import { componerCronosVisible, componerDietasVisible, componerPersonalVisible } from "./portal-composicion-empleado.js";
+import {
+  componerCronosVisible,
+  componerDietasInternas,
+  componerDietasVisible,
+  componerPersonalVisible,
+} from "./portal-composicion-empleado.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
@@ -143,6 +148,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista });
+  },
+  dietas: async () => {
+    const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
+      import("./modulos/dietas/contrato.js"),
+      import("./modulos/dietas/vista-itinerario.js"),
+      import("./modulos/dietas/mapa-ruta.js"),
+      import("./modulos/dietas/calculador-rutas-http.js"),
+      import("./modulos/dietas/vista-recorridos.js"),
+      import("./modulos/dietas/cliente-borradores-http.js"),
+    ]);
+    return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });
   },
 });
 
@@ -452,6 +468,7 @@ export function crearCoordinadorModulosPortal({
     catalogo = catalogoInterno;
     let contratacionTemporal;
     let personal;
+    let dietas;
     if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
       try {
         const recursos = await cargarModuloConLimite(
@@ -619,17 +636,35 @@ export function crearCoordinadorModulosPortal({
         personal = undefined;
       }
     }
+    if (catalogo.some(({ clave }) => clave === "dietas")) {
+      try {
+        const cargarDietas = cargadoresInternos.dietas
+          || CARGADORES_INTERNOS_PREDETERMINADOS.dietas;
+        const recursos = await cargarModuloConLimite(
+          cargarDietas, "dietas", limiteCargaModularMs, temporizadores,
+        );
+        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        // La composición interna sólo consume el cliente de borradores. Los
+        // demás recursos se cargan como contrato del módulo, pero el cálculo
+        // necesita una identidad explícita que este coordinador no posee.
+        dietas = componerDietasInternas(recursos, entorno);
+        if (dietas === undefined) throw new TypeError("vista de Dietas no disponible");
+      } catch {
+        dietas = undefined;
+      }
+    }
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     composicion = Object.freeze({
       contextos: Object.freeze({}),
       contratacionTemporal,
+      dietas,
       personal,
       vistasPresentacion: Object.freeze({}),
       estadosModulos: Object.freeze({
         contratacion_temporal: contratacionTemporal === undefined
           ? "no_disponible" : "disponible",
         cronos: "no_disponible",
-        dietas: "no_disponible",
+        dietas: dietas === undefined ? "no_disponible" : "disponible",
         personal: personal === undefined ? "no_disponible" : "disponible",
       }),
     });

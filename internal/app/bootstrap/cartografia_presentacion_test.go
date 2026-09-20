@@ -35,7 +35,7 @@ func configuracionCartografiaBootstrap(urlOSRM string) config.Config {
 func TestComposicionCartograficaSirveRutaRealSinComponerVEC(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080}]}]}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080,"steps":[{"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]}}]}]}]}`))
 	}))
 	defer osrm.Close()
 	servidor, err := NewHTTPServerCartografiaPresentacionWithConfig(configuracionCartografiaBootstrap(osrm.URL))

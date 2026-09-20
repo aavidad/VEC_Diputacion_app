@@ -346,6 +346,7 @@ function proyectarTramos(rutaOSRM, solicitud, puntosPorCodigo) {
       destino_nombre: destino.nombre,
       kilometros: redondear(distanciaMetros / 1_000),
       duracion_minutos: Math.max(1, Math.ceil(duracionSegundos / 60)),
+      trazado: coordenadasTrazado(tramo.geometry),
     });
   });
 }
@@ -377,6 +378,7 @@ function proyectarRutaOSRM(rutaOSRM, solicitud, puntosPorCodigo, indice) {
       liquidable: false,
       paradas,
       trazado: coordenadasTrazado(rutaOSRM.geometry),
+      tramos: tramos.map((tramo) => ({ indice: tramo.indice, trazado: tramo.trazado })),
     },
   });
 }

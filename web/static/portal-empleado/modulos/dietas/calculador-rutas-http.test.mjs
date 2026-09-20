@@ -112,8 +112,8 @@ function respuestaOSRM() {
         distance: 83_800,
         duration: 4_380,
         legs: [
-          { distance: 13_400, duration: 1_080 },
-          { distance: 70_400, duration: 3_300 },
+          { distance: 13_400, duration: 1_080, geometry: { type: "LineString", coordinates: [[-3.5986, 37.1773], [-3.62, 37.205], [-3.6554, 37.2306]] } },
+          { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [[-3.6554, 37.2306], [-3.59, 36.98], [-3.518, 36.7447]] } },
         ],
         geometry: {
           type: "LineString",
@@ -127,8 +127,8 @@ function respuestaOSRM() {
         distance: 90_000,
         duration: 4_100,
         legs: [
-          { distance: 15_000, duration: 900 },
-          { distance: 75_000, duration: 3_200 },
+          { distance: 15_000, duration: 900, geometry: { type: "LineString", coordinates: [[-3.5986, 37.1773], [-3.7, 37.05], [-3.6554, 37.2306]] } },
+          { distance: 75_000, duration: 3_200, geometry: { type: "LineString", coordinates: [[-3.6554, 37.2306], [-3.64, 36.91], [-3.518, 36.7447]] } },
         ],
         geometry: {
           type: "LineString",

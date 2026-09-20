@@ -323,6 +323,20 @@
   font-size: 0.78rem;
 }
 
+.modulo-dietas .dietas-mapa-leyenda {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  list-style: none;
+}
+
+.modulo-dietas .dietas-mapa-leyenda li {
+  border-inline-start: 0.35rem solid var(--dietas-tramo-color, var(--portal-cian));
+  padding-inline-start: 0.5rem;
+  font-size: 0.875rem;
+}
+
 .modulo-dietas .dietas-mapa-nota {
   border-top: 1px solid var(--portal-borde);
   border-inline-start: 0.3rem solid var(--portal-aviso);

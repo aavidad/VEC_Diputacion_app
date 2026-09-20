@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { componerCronosVisible, componerDietasVisible, componerPersonalVisible } from "./portal-composicion-empleado.js";
+import {
+  componerCronosVisible,
+  componerDietasInternas,
+  componerDietasVisible,
+  componerPersonalVisible,
+} from "./portal-composicion-empleado.js";
 
 test("Cronos solo compone el recorrido visible y falla cerrado sin él", () => {
   const montar = () => {};
@@ -32,6 +37,60 @@ test("Dietas visible compone exclusivamente cálculo, mapa y recorrido sin clien
   assert.equal("clienteBorradores" in llamadas[2][2], false);
   llamadas[2][2].montarItinerario("hueco");
   assert.deepEqual(llamadas[3][1], { raiz: "hueco", calculador, visorRuta, anunciar: "anunciar" });
+});
+
+test("Dietas interna muestra la zona cartográfica cerrada sin derivar identidad ni rutas del catálogo", () => {
+  const llamadas = [];
+  const cliente = Object.freeze({ listar() {}, crear() {} });
+  const dietas = componerDietasInternas({
+    contrato: Object.freeze({}),
+    clienteBorradores: {
+      crearClienteBorradoresDietasHTTP(entrada) {
+        llamadas.push(["cliente", entrada]);
+        return cliente;
+      },
+    },
+    recorridos: {
+      montarVistaRecorridosDietas(raiz, entrada) {
+        llamadas.push(["recorridos", raiz, entrada]);
+        return Object.freeze({ desmontar() {} });
+      },
+    },
+    vista: {
+      montarVistaItinerarioPendienteDietas(entrada) {
+        llamadas.push(["itinerario-pendiente", entrada]);
+        return Object.freeze({ desmontar() {} });
+      },
+    },
+    calculador: { crearCalculadorRutasDietasHTTP() { assert.fail("no debe derivar ContextoActor"); } },
+  }, { fetch() {} });
+
+  assert.strictEqual(dietas.clienteBorradores, cliente);
+  assert.equal(typeof llamadas[0][1].fetchImpl, "function");
+  const resultado = dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
+  assert.equal(typeof resultado.desmontar, "function");
+  assert.strictEqual(llamadas[1][2].clienteBorradores, cliente);
+  assert.equal(typeof llamadas[1][2].montarItinerario, "function");
+  llamadas[1][2].montarItinerario("hueco");
+  assert.deepEqual(llamadas[2][1], { raiz: "hueco" });
+});
+
+test("Dietas interna usa el calculador ya autorizado cuando la raíz lo inyecta", () => {
+  const llamadas = [];
+  const calculador = Object.freeze({ obtenerCatalogo() {}, calcular() {} });
+  const visorRuta = Object.freeze({ montar() {} });
+  const dietas = componerDietasInternas({
+    contrato: Object.freeze({}),
+    clienteBorradores: { crearClienteBorradoresDietasHTTP() { return Object.freeze({}); } },
+    recorridos: { montarVistaRecorridosDietas(_raiz, entrada) { llamadas.push(["recorridos", entrada]); return Object.freeze({ desmontar() {} }); } },
+    vista: {
+      montarVistaItinerarioDietas(entrada) { llamadas.push(["itinerario", entrada]); return Object.freeze({ desmontar() {} }); },
+      montarVistaItinerarioPendienteDietas() { assert.fail("no debe mostrar el estado pendiente"); },
+    },
+  }, { fetch() {}, dietasItinerarioAutorizado: { calculador, visorRuta } });
+  dietas.montar({ raiz: "raiz", anunciar: "anunciar" });
+  llamadas[0][1].montarItinerario("hueco");
+  assert.deepEqual(llamadas[1][1], { raiz: "hueco", calculador, visorRuta, anunciar: "anunciar" });
 });
 
 test("Personal monta ficha antes de crear catálogos y limpia registros tempranos y tardíos una sola vez", async () => {

@@ -9,6 +9,7 @@ import {
   ESQUEMA_SOLICITUD_RUTA_DIETAS,
 } from "./contrato.js";
 import { crearCalculadorRutasDietasPresentacionOSRM } from "./calculador-rutas-presentacion-osrm.js";
+import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js";
 import {
   obtenerCatalogoRutasProvincial,
   resolverPuntosRutasProvincial,
@@ -71,7 +72,7 @@ function respuestaOSRM({
     routes: [{
       distance: 70_400,
       duration: 3_300,
-      legs: [{ distance: 70_400, duration: 3_300 }],
+      legs: [{ distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: geometria } }],
       geometry: { type: "LineString", coordinates: geometria },
     }],
     waypoints: [],
@@ -116,7 +117,7 @@ test("consulta el mediador POST fijo y proyecta OSRM real como DEMO sin efectos"
 
   const catalogo = adaptador.obtenerCatalogo();
   assert.equal(catalogo.demostracion, true);
-  assert.equal(catalogo.puntos.length, 175);
+  assert.equal(catalogo.puntos.length, 176);
   assert.doesNotMatch(JSON.stringify(catalogo), /latitud|longitud|coordinates/iu);
 
   const calculo = await adaptador.calcular(solicitud());
@@ -144,6 +145,31 @@ test("consulta el mediador POST fijo y proyecta OSRM real como DEMO sin efectos"
     ],
     alternatives: 1,
   });
+});
+
+test("proyecta Granada→Baza→Purchil→Granada en tres tramos OSRM y conserva su suma", async () => {
+  const ruta = {
+    code: "Ok", engine: "osrm_on_premise", route_scope: "Granada provincia + 15 km", graph_version: VERSION_GRAFO,
+    routes: [{ distance: 301_000, duration: 15_000,
+      legs: [
+        { distance: 145_000, duration: 7_200, geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-2.77431128, 37.49061681]] } },
+        { distance: 153_000, duration: 7_400, geometry: { type: "LineString", coordinates: [[-2.77431128, 37.49061681], [-3.667451845, 37.17165065]] } },
+        { distance: 3_000, duration: 400, geometry: { type: "LineString", coordinates: [[-3.667451845, 37.17165065], [-3.59869101, 37.17428891]] } },
+      ], geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-2.77431128, 37.49061681], [-3.667451845, 37.17165065], [-3.59869101, 37.17428891]] },
+    }], waypoints: [],
+  };
+  const calculo = await crearAdaptador(async () => respuestaJSON(ruta)).calcular(
+    solicitud(["18087", "18023", "NGMEP-18911000400", "18087"]),
+  );
+  const alternativa = calculo.alternativas[0];
+  assert.equal(alternativa.tramos.length, 3);
+  assert.deepEqual(alternativa.tramos.map((tramo) => tramo.destino_nombre), ["Baza", "Purchil", "Granada"]);
+  assert.equal(alternativa.geometria.tramos.length, 3);
+  assert.equal(alternativa.geometria.tramos.reduce((total, tramo) => total + tramo.trazado.length, 0), 6);
+  assert.equal(alternativa.kilometros, 301);
+  assert.equal(ESTILOS_TRAMO_RUTA_DIETAS.length, 11);
+  assert.equal(new Set(ESTILOS_TRAMO_RUTA_DIETAS.map((estilo) => estilo.color)).size, 11);
+  assert.equal(new Set(ESTILOS_TRAMO_RUTA_DIETAS.map((estilo) => estilo.patron)).size, 11);
 });
 
 test("genera una huella SHA-256 estable y conserva como maximo 2000 puntos", async () => {
@@ -287,7 +313,7 @@ test("el adaptador OSRM depende del catálogo neutral y no importa el simulador"
   assert.doesNotMatch(fuenteOSRM, /simulacion_osrm_demo|SEMILLAS_TRAMOS/u);
 
   const catalogo = obtenerCatalogoRutasProvincial();
-  assert.equal(catalogo.puntos.length, 175);
+  assert.equal(catalogo.puntos.length, 176);
   assert.doesNotMatch(JSON.stringify(catalogo), /latitud|longitud/iu);
   const puntos = resolverPuntosRutasProvincial(["18087", "18140"]);
   assert.deepEqual(puntos.map(({ nombre }) => nombre), ["Granada", "Motril"]);

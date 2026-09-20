@@ -428,7 +428,7 @@ test("compone catálogo provincial y cálculo multiparada sin exponer coordenada
   const { calculador, modulo } = presentadorConRutas();
   const inicial = modulo.obtenerModelo().herramientaRutas;
   assert.equal(inicial.catalogo.completo, true);
-  assert.equal(inicial.catalogo.puntos.length, 175);
+  assert.equal(inicial.catalogo.puntos.length, 176);
   assert.deepEqual(inicial.ruta, ["Granada", "Motril", "Granada"]);
   assert.doesNotMatch(JSON.stringify(inicial.catalogo), /latitud|longitud|coordinates/i);
 

@@ -6,6 +6,7 @@
  */
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { crearPresentadorRutasDietas } from "./presentador-rutas.js";
+import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js";
 
 function elemento(documento, etiqueta, texto = "") {
   const nodo = documento.createElement(etiqueta);
@@ -40,8 +41,100 @@ function crearMapa(documento, modelo, traducir) {
   const atribucion = elemento(documento, "small", modelo.mapa_ruta.atribucion);
   atribucion.dataset.dietasMapaAtribucion = "";
   atribucion.hidden = true;
-  figura.append(elemento(documento, "figcaption", traducir("mapa_titulo")), lienzo, estado, atribucion);
+  const leyenda = elemento(documento, "ol");
+  leyenda.className = "dietas-mapa-leyenda";
+  leyenda.dataset.dietasMapaLeyenda = "";
+  modelo.tramos.forEach((tramo, indice) => {
+    const estilo = ESTILOS_TRAMO_RUTA_DIETAS[indice % ESTILOS_TRAMO_RUTA_DIETAS.length];
+    const item = elemento(documento, "li", `${tramo.origen_nombre} → ${tramo.destino_nombre} · ${formatoKilometros(tramo.kilometros)} · ${estilo.patron}`);
+    item.dataset.dietasMapaTramo = String(indice);
+    item.setAttribute("style", `--dietas-tramo-color:${estilo.color}`);
+    leyenda.append(item);
+  });
+  figura.append(elemento(documento, "figcaption", traducir("mapa_titulo")), lienzo, leyenda, estado, atribucion);
   return figura;
+}
+
+/**
+ * Mantiene visible la zona cartográfica en el portal interno antes de que la
+ * composición entregue identidad, capacidad y catálogo gobernados. No recibe
+ * descriptor ni crea una geometría: es deliberadamente un estado cerrado.
+ */
+function crearMapaPendiente(documento, traducir) {
+  const figura = elemento(documento, "figure");
+  figura.className = "dietas-mapa dietas-mapa-pendiente";
+  figura.dataset.dietasMapaPendiente = "";
+  const lienzo = elemento(documento, "div");
+  lienzo.className = "dietas-mapa-canvas";
+  lienzo.dataset.dietasMapaCanvas = "";
+  lienzo.dataset.modoMapa = "pendiente_calculo_autorizado";
+  lienzo.setAttribute("role", "region");
+  lienzo.setAttribute("aria-label", traducir("mapa_region_accesible"));
+  const estado = elemento(documento, "p", traducir("mapa_pendiente_estado"));
+  estado.className = "dietas-mapa-espera";
+  estado.dataset.dietasMapaEstado = "";
+  estado.setAttribute("role", "status");
+  estado.setAttribute("aria-live", "polite");
+  lienzo.append(estado);
+  figura.append(
+    elemento(documento, "figcaption", traducir("mapa_pendiente_titulo")),
+    lienzo,
+  );
+  return figura;
+}
+
+function crearCabeceraItinerario(documento, traducir) {
+  const cabecera = elemento(documento, "div");
+  cabecera.className = "cabecera-panel";
+  const titulo = elemento(documento, "h2", traducir("ruta_del_dia"));
+  const ayuda = elemento(documento, "button", traducir("recorridos_abrir_ayuda"));
+  ayuda.type = "button";
+  ayuda.className = "boton-terciario";
+  // El shell ya abre el ayudante de trámites y contiene los pasos de Dietas.
+  ayuda.dataset.accion = "ayuda";
+  cabecera.append(titulo, ayuda);
+  return cabecera;
+}
+
+function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
+  const grupo = elemento(documento, "div");
+  grupo.className = "dietas-itinerario-parada";
+  const esSalida = indice === 0;
+  const esDestino = indice === modelo.paradas.length - 1;
+  const etiquetaTexto = esSalida ? traducir("ruta_salida")
+    : esDestino ? traducir("ruta_destino_final")
+      : traducir("ruta_etapa", { numero: indice });
+  const etiqueta = elemento(documento, "label", etiquetaTexto);
+  const selector = elemento(documento, "select");
+  selector.dataset.itinerarioParada = String(indice);
+  selector.setAttribute("aria-label", etiquetaTexto);
+  modelo.catalogo.puntos.forEach((punto) => {
+    const opcion = elemento(documento, "option", punto.nombre);
+    opcion.value = punto.codigo;
+    opcion.selected = punto.codigo === codigo;
+    selector.append(opcion);
+  });
+  etiqueta.append(selector);
+  grupo.append(etiqueta);
+  if (!esSalida && !esDestino) {
+    const acciones = elemento(documento, "div");
+    acciones.className = "acciones-vista";
+    const boton = (clave, atributo, valor, bloqueado = false) => {
+      const control = elemento(documento, "button", traducir(clave));
+      control.type = "button";
+      control.className = "boton-terciario";
+      control.dataset[atributo] = valor;
+      control.disabled = bloqueado;
+      return control;
+    };
+    const subir = boton("ruta_subir_parada", "itinerarioMoverParada", String(indice), indice === 1);
+    subir.dataset.itinerarioDireccion = "arriba";
+    const bajar = boton("ruta_bajar_parada", "itinerarioMoverParada", String(indice), indice === modelo.paradas.length - 2);
+    bajar.dataset.itinerarioDireccion = "abajo";
+    acciones.append(subir, bajar, boton("ruta_quitar_parada", "itinerarioQuitarParada", String(indice)));
+    grupo.append(acciones);
+  }
+  return grupo;
 }
 
 const CLAVES_ETIQUETA_ALTERNATIVA = Object.freeze({
@@ -203,11 +296,7 @@ export async function montarVistaItinerarioDietas({
     contenedor.replaceChildren();
     const panel = elemento(documento, "section");
     panel.className = "panel dietas-itinerario";
-    panel.append(
-      elemento(documento, "h2", traducir("ruta_del_dia")),
-      elemento(documento, "p", traducir("ruta_no_liquidable")),
-      elemento(documento, "p", traducir("ruta_ayuda")),
-    );
+    panel.append(crearCabeceraItinerario(documento, traducir));
     if (!presentador) {
       const alerta = elemento(documento, "p", errorVisible || traducir("ruta_error_servicio"));
       alerta.dataset.itinerarioError = "";
@@ -224,28 +313,18 @@ export async function montarVistaItinerarioDietas({
     panel.append(resumenCatalogo);
     const paradas = elemento(documento, "div");
     paradas.className = "dietas-ruta-paradas";
-    modelo.paradas.forEach((codigo, indice) => {
-      const etiquetaTexto = indice === 0 ? traducir("ruta_salida")
-        : indice === modelo.paradas.length - 1 ? traducir("ruta_destino_final")
-          : traducir("ruta_parada_intermedia", { numero: indice });
-      const etiqueta = elemento(documento, "label", etiquetaTexto);
-      const selector = elemento(documento, "select");
-      selector.dataset.itinerarioParada = String(indice);
-      selector.setAttribute("aria-label", etiquetaTexto);
-      modelo.catalogo.puntos.forEach((punto) => {
-        const opcion = elemento(documento, "option", punto.nombre);
-        opcion.value = punto.codigo;
-        opcion.selected = punto.codigo === codigo;
-        selector.append(opcion);
-      });
-      etiqueta.append(selector);
-      paradas.append(etiqueta);
-    });
+    modelo.paradas.forEach((codigo, indice) => paradas.append(
+      crearSelectorParada(documento, modelo, codigo, indice, traducir),
+    ));
+    const anadir = elemento(documento, "button", traducir("ruta_anadir_parada"));
+    anadir.type = "button";
+    anadir.className = "boton-secundario";
+    anadir.dataset.itinerarioAnadirParada = "";
     const calcular = elemento(documento, "button", traducir("ruta_calcular_osrm"));
     calcular.type = "button";
     calcular.dataset.itinerarioCalcular = "";
     calcular.disabled = controlador !== null;
-    panel.append(paradas, calcular);
+    panel.append(paradas, anadir, calcular);
     if (errorVisible) {
       const alerta = elemento(documento, "p", errorVisible);
       alerta.dataset.itinerarioError = "";
@@ -298,7 +377,32 @@ export async function montarVistaItinerarioDietas({
     if (!selector || !presentador) return;
     aplicar(() => presentador.establecerParada(Number(selector.dataset.itinerarioParada), selector.value));
   }
+  function moverParada(indice, direccion) {
+    const modelo = presentador.obtenerModelo();
+    const destino = direccion === "arriba" ? indice - 1 : indice + 1;
+    if (indice <= 0 || destino <= 0 || indice >= modelo.paradas.length - 1 || destino >= modelo.paradas.length - 1) {
+      throw new Error("posición de etapa no válida");
+    }
+    const actual = modelo.paradas[indice];
+    presentador.establecerParada(indice, modelo.paradas[destino]);
+    presentador.establecerParada(destino, actual);
+  }
   async function clic(evento) {
+    const anadir = evento.target.closest?.("[data-itinerario-anadir-parada]");
+    if (anadir && presentador && !controlador) {
+      aplicar(() => presentador.agregarParada());
+      return;
+    }
+    const quitar = evento.target.closest?.("[data-itinerario-quitar-parada]");
+    if (quitar && presentador && !controlador) {
+      aplicar(() => presentador.eliminarParada(Number(quitar.dataset.itinerarioQuitarParada)));
+      return;
+    }
+    const mover = evento.target.closest?.("[data-itinerario-mover-parada]");
+    if (mover && presentador && !controlador) {
+      aplicar(() => moverParada(Number(mover.dataset.itinerarioMoverParada), mover.dataset.itinerarioDireccion));
+      return;
+    }
     if (!evento.target.closest?.("[data-itinerario-calcular]") || !presentador || controlador) return;
     controlador = new AbortController();
     pintar();
@@ -323,5 +427,43 @@ export async function montarVistaItinerarioDietas({
   contenedor.addEventListener("change", cambio);
   contenedor.addEventListener("click", clic);
   pintar();
+  return Object.freeze({ desmontar });
+}
+
+/**
+ * Placeholder corporativo del mismo visor. Permite orientar el trámite sin
+ * fingir que el catálogo, la identidad o la ruta ya han sido autorizados.
+ */
+export function montarVistaItinerarioPendienteDietas({
+  raiz,
+  mensajes = MENSAJES_DIETAS_ES,
+  registrarDesmontar,
+} = {}) {
+  if (!raiz?.append || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
+    throw new TypeError("zona cartográfica de Dietas no disponible");
+  }
+  const documento = raiz.ownerDocument;
+  if (!documento?.createElement) throw new TypeError("documento de itinerario no disponible");
+  const traducir = crearTraductorDietas(mensajes);
+  const contenedor = elemento(documento, "div");
+  contenedor.className = "modulo-dietas";
+  contenedor.dataset.dietasItinerario = "";
+  const panel = elemento(documento, "section");
+  panel.className = "panel dietas-itinerario";
+  panel.dataset.dietasItinerarioPendiente = "";
+  panel.append(
+    crearCabeceraItinerario(documento, traducir),
+    crearMapaPendiente(documento, traducir),
+    elemento(documento, "p", traducir("recorridos_limite_operativo")),
+  );
+  contenedor.append(panel);
+  raiz.append(contenedor);
+  let activa = true;
+  const desmontar = () => {
+    if (!activa) return;
+    activa = false;
+    retirar(raiz, contenedor);
+  };
+  registrarDesmontar?.(desmontar);
   return Object.freeze({ desmontar });
 }

@@ -33,7 +33,12 @@ func resultadoRutaPrueba() dietasports.ResultadoCalculoRuta {
 			Geometria: dietasports.GeometriaRuta{Tipo: "LineString", Coordenadas: []dietasports.PuntoGeometriaRuta{
 				{Longitud: -3.5986, Latitud: 37.1773}, {Longitud: -3.6554, Latitud: 37.2306},
 			}},
-			Tramos: []dietasports.TramoRuta{{DistanciaMetros: 13400, DuracionSegundos: 1080}},
+			Tramos: []dietasports.TramoRuta{{
+				DistanciaMetros: 13400, DuracionSegundos: 1080,
+				Geometria: dietasports.GeometriaRuta{Tipo: "LineString", Coordenadas: []dietasports.PuntoGeometriaRuta{
+					{Longitud: -3.5986, Latitud: 37.1773}, {Longitud: -3.6554, Latitud: 37.2306},
+				}},
+			}},
 		}},
 	}
 }
@@ -60,6 +65,9 @@ func TestManejadorEntregaDTOCartograficoDirectoSinEstadoHTTP(t *testing.T) {
 		if !strings.Contains(contenido, esperado) {
 			t.Fatalf("falta %s en %s", esperado, contenido)
 		}
+	}
+	if !strings.Contains(contenido, `"legs":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]}}]`) {
+		t.Fatalf("falta geometria vial por tramo: %s", contenido)
 	}
 	if strings.Contains(contenido, `"data":`) {
 		t.Fatalf("la superficie aislada no debe añadir la envolvente productiva: %s", contenido)
