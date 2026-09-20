@@ -352,7 +352,7 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
 });
 
 
-test("Personal solo monta el catálogo RRHH interno y nunca recibe datos DEMO", async () => {
+test("Personal falla cerrado en presentación sin el cliente HTTP de la concesión", async () => {
   const internoRecibido = [];
   const cargadoresPresentacion = {
     base: async () => {
@@ -400,6 +400,55 @@ test("Personal solo monta el catálogo RRHH interno y nunca recibe datos DEMO", 
   assert.equal(Object.hasOwn(internoRecibido[0], "anunciar"), true);
   assert.equal(Object.hasOwn(internoRecibido[0], "presentacion"), false);
   assert.equal(Object.hasOwn(internoRecibido[0], "token"), false);
+});
+
+test("Personal de presentación consulta por HTTP la colección sintética concedida", async () => {
+  const llamadas = [];
+  const categorias = {
+    data: {
+      categories: {
+        items: [{
+          catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo",
+          etiqueta: "Administrativo", name: "Administrativo", orden: 1,
+          area: "administracion_general", area_etiqueta: "Administración general",
+          source: "catalogo_gobernado_vec", module_key: "vec.module.personal",
+          state: "Demostración pendiente de validación RRHH", usage: "Bolsa, RPT, certificados y demás módulos autorizados.",
+        }],
+        total: 1, limit: 25, offset: 0,
+        catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) },
+        fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." },
+      },
+    },
+  };
+  const [identidad, catalogo, contrato, cliente, vista] = await Promise.all([
+    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
+    import("./modulos/personal/contrato.js"), import("./modulos/personal/cliente-http-categorias.js"),
+    import("./modulos/personal/vista.js"),
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: {
+      fetch: async (ruta, opciones) => {
+        llamadas.push({ ruta, opciones });
+        return respuestaJSON(categorias);
+      },
+    },
+    cargadoresPresentacion: {
+      base: async () => Object.freeze({ identidad, catalogo }),
+      personal: async () => Object.freeze({ contrato, cliente, vista }),
+    },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  assert.equal(coordinador.vistaDisponible("personal"), true);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  assert.equal(llamadas.length, 1);
+  assert.equal(llamadas[0].ruta, "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
+  assert.equal(llamadas[0].opciones.method, "GET");
+  assert.equal(llamadas[0].opciones.credentials, "same-origin");
+  assert.equal(llamadas[0].opciones.redirect, "error");
+  assert.equal(Object.hasOwn(llamadas[0].opciones, "headers"), false);
 });
 
 test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
@@ -993,8 +1042,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-personal-catalogo-v1";
-  const versionPortal = "20260920-personal-catalogo-v1";
+  const versionCoordinador = "20260920-personal-presentacion-http-v1";
+  const versionPortal = "20260920-personal-presentacion-http-v1";
+  const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260918-botones-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
@@ -1007,10 +1057,10 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionPortal}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
-  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionPortal}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionPortal}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));

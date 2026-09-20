@@ -75,6 +75,20 @@ func NewHTTPServerPresentacion(cfg config.Config, apiPublica http.Handler) (*htt
 }
 
 func NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
+	return newHTTPServerPresentacion(cfg, apiPublica, nil, comprobador)
+}
+
+// NewHTTPServerPresentacionCategorias compone la unica concesion sintetica
+// adicional de presentacion: la coleccion exacta de categorias profesionales.
+// No acepta un API VEC general y conserva cerradas las demas rutas privadas.
+func NewHTTPServerPresentacionCategorias(cfg config.Config, apiPublica, categorias http.Handler) (*http.Server, error) {
+	if categorias == nil {
+		return nil, errors.New("server: concesion sintetica de categorias ausente")
+	}
+	return newHTTPServerPresentacion(cfg, apiPublica, categorias, nil)
+}
+
+func newHTTPServerPresentacion(cfg config.Config, apiPublica, categorias http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() {
 		return nil, errors.New("server: activacion de presentacion RRHH incompleta")
@@ -87,7 +101,7 @@ func NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg config.Config, ap
 		return nil, errors.New("server: la presentacion RRHH exige redes locales enumeradas")
 	}
 	return newHTTPServer(cfg, apiPublica, func(cfg config.Config, api http.Handler) http.Handler {
-		return NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg, api, comprobador)
+		return newHandlerPresentacionWithConfig(cfg, api, categorias, comprobador)
 	})
 }
 
@@ -286,6 +300,23 @@ func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler
 }
 
 func NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
+	return newHandlerPresentacionWithConfig(cfg, apiPublica, nil, comprobador)
+}
+
+// NewHandlerPresentacionCategoriasWithConfig conserva la lista positiva de la
+// presentacion y anade solo /api/vec/personal/categories. Es un constructor
+// separado para que los constructores ordinarios nunca puedan publicar la
+// ruta privada por accidente.
+func NewHandlerPresentacionCategoriasWithConfig(cfg config.Config, apiPublica, categorias http.Handler) http.Handler {
+	if categorias == nil {
+		return suprimirCuerpoHEAD(securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		})))
+	}
+	return newHandlerPresentacionWithConfig(cfg, apiPublica, categorias, nil)
+}
+
+func newHandlerPresentacionWithConfig(cfg config.Config, apiPublica, categorias http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
 	cfg = cfg.Normalize()
 	redes, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
@@ -316,6 +347,9 @@ func NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg config.Con
 	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/api/publico", soloLecturaHTTP(apiPublica))
 	mux.Handle("/api/publico/", soloLecturaHTTP(apiPublica))
+	if categorias != nil {
+		mux.Handle("/api/vec/personal/categories", soloLecturaHTTP(categorias))
+	}
 
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)

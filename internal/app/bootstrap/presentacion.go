@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server"
+	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
 var (
@@ -21,13 +22,7 @@ var (
 // PostgreSQL, S3, firma, registro, pagos, comunicaciones ni clientes de red.
 func NewHTTPServerPresentacionWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
-	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
-		cfg.AuthMode != config.AuthModeDisabled || cfg.StorageMode != config.StorageModeMemory ||
-		cfg.FakeCredentialsPath != "" || cfg.PersonalCatalogPath != "" || !cfg.PersonalCatalogInMemory ||
-		cfg.OSRMBaseURL != "" || cfg.OSRMScopeName != "" || cfg.OSRMScopeBounds != "" ||
-		len(cfg.OSRMAllowedCIDRs) != 0 || cfg.OSRMGraphVersion != "" ||
-		!rutaSinteticaPresentacion(cfg.BolsaPublicSourcePath) ||
-		!rutaSinteticaPresentacion(cfg.BolsaCategoriesSourcePath) {
+	if !configuracionPresentacionSinteticaValida(cfg) {
 		return nil, ErrComposicionPresentacionRRHHInvalida
 	}
 	apiPublica, err := NewAPIPublicaBolsaWithConfig(cfg)
@@ -35,6 +30,44 @@ func NewHTTPServerPresentacionWithConfig(cfg config.Config) (*http.Server, error
 		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
 	}
 	return server.NewHTTPServerPresentacion(cfg, apiPublica)
+}
+
+// NewHTTPServerPresentacionPersonalWithConfig concede, solo en el perfil
+// presentacion_rrhh doblemente protegido, la lectura sintética de la colección
+// de categorías profesionales. No representa una identidad corporativa ni
+// compone sesiones, autorización general, auditoría durable o efectos.
+func NewHTTPServerPresentacionPersonalWithConfig(cfg config.Config) (*http.Server, error) {
+	cfg = cfg.Normalize()
+	if !configuracionPresentacionSinteticaValida(cfg) {
+		return nil, ErrComposicionPresentacionRRHHInvalida
+	}
+	apiPublica, err := NewAPIPublicaBolsaWithConfig(cfg)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	_, categorias, err := nuevasDependenciasCategoriasProfesionales(cfg)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	concesionCategorias, err := vechttp.NewHandlerCategoriasProfesionalesPresentacion(cfg, categorias)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	return server.NewHTTPServerPresentacionCategorias(
+		cfg,
+		apiPublica,
+		concesionCategorias,
+	)
+}
+
+func configuracionPresentacionSinteticaValida(cfg config.Config) bool {
+	return cfg.RRHHPresentationEnabledByDoubleGuard() &&
+		cfg.AuthMode == config.AuthModeDisabled && cfg.StorageMode == config.StorageModeMemory &&
+		cfg.FakeCredentialsPath == "" && cfg.PersonalCatalogPath == "" && cfg.PersonalCatalogInMemory &&
+		cfg.OSRMBaseURL == "" && cfg.OSRMScopeName == "" && cfg.OSRMScopeBounds == "" &&
+		len(cfg.OSRMAllowedCIDRs) == 0 && cfg.OSRMGraphVersion == "" &&
+		rutaSinteticaPresentacion(cfg.BolsaPublicSourcePath) &&
+		rutaSinteticaPresentacion(cfg.BolsaCategoriesSourcePath)
 }
 
 func rechazarSelectoresPresentacionEnComposicionNormal(cfg config.Config) error {

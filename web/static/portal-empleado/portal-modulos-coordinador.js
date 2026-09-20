@@ -327,15 +327,18 @@ export function crearCoordinadorModulosPortal({
     });
     const personal = cargas.personal?.disponible === true ? (() => {
       const recursos = cargas.personal.recursos;
-      if (typeof recursos.vista?.crearPresentacionPersonalDemo !== "function"
+      if (typeof recursos.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
         || typeof recursos.vista?.montarModuloPersonal !== "function") {
         return undefined;
       }
-      // No recibe ContextoActor: el escenario es local, sintético y no autoriza
-      // una consulta de Personal ni representa la identidad de la sesión.
+      // La concesión del perfil presentacion_rrhh está limitada por el listener
+      // a esta colección sintética. No usa ni representa una identidad
+      // corporativa, y el cliente no adjunta credenciales persistentes.
       return Object.freeze({
         montar: recursos.vista.montarModuloPersonal,
-        presentacion: recursos.vista.crearPresentacionPersonalDemo(),
+        cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
+          fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
+        }),
       });
     })() : undefined;
     const contratacionTemporal = componerModuloAislado(
