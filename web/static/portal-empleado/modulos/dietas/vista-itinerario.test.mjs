@@ -45,11 +45,11 @@ function respuestaOSRM() {
     geometry: { type: "LineString", coordinates: [[-3.59869101, 37.17428891], [-3.52045559, 36.74535308], [-3.59869101, 37.17428891]] },
   }], waypoints: [] };
 }
-function crearCalculador(llamadas) {
+function crearCalculador(llamadas, respuesta = respuestaOSRM()) {
   return crearCalculadorRutasDietasPresentacionOSRM({
     contextoActor: crearContextoActorPresentacionDesdeSesion(obtenerDatosPresentacion("funcionario").sesion),
     capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuestaJSON(respuestaOSRM()); },
+    fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuestaJSON(respuesta); },
   });
 }
 async function clicar(contenedor, selector) {
@@ -76,6 +76,41 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   vista.desmontar();
   assert.equal(r.querySelector("[data-dietas-itinerario]"), null);
   assert.equal(mapaDesmontado, true);
+});
+
+test("expone avisos, alternativas y tramos del cálculo orientativo sin coordenadas ni acciones", async () => {
+  const llamadas = []; const r = raiz();
+  const base = respuestaOSRM().routes[0];
+  const respuesta = { ...respuestaOSRM(), routes: [
+    base,
+    { ...base, distance: 142_000, duration: 6_720 },
+    { ...base, distance: 145_100, duration: 6_930 },
+  ] };
+  await montarVistaItinerarioDietas({
+    raiz: r, calculador: crearCalculador(llamadas, respuesta), visorRuta: { montar() { return { desmontar() {} }; } },
+  });
+  const contenedor = r.querySelector("[data-dietas-itinerario]");
+  await clicar(contenedor, "[data-itinerario-calcular]");
+  assert.equal(contenedor.querySelector("[data-itinerario-aviso-no-liquidable]").textContent,
+    "DEMO · Ruta orientativa no liquidable.");
+  assert.equal(contenedor.querySelector("[data-itinerario-aviso-sin-efectos]").textContent,
+    "Sin efectos administrativos/reales.");
+  const alternativas = contenedor.querySelectorAll("[data-itinerario-alternativa]");
+  assert.equal(alternativas.length, 3);
+  assert.match(alternativas[0].children[0].textContent, /Ruta OSRM interna · primera alternativa/u);
+  assert.match(alternativas[0].children.map((nodo) => nodo.textContent).join(" "), /Recomendada/u);
+  assert.match(alternativas[0].children.map((nodo) => nodo.textContent).join(" "), /Seleccionada/u);
+  assert.match(alternativas[0].children.map((nodo) => nodo.textContent).join(" "), /140,8 km/u);
+  const tramos = contenedor.querySelectorAll("[data-itinerario-tramo]");
+  assert.equal(tramos.length, 2);
+  assert.equal(tramos[0].children[0].textContent, "Granada → Motril");
+  assert.equal(tramos[0].children[1].textContent, "70,4 km");
+  assert.equal(tramos[0].children[2].textContent, "55 min");
+  const region = contenedor.querySelector("[data-itinerario-tramo]").parent.parent.parent;
+  assert.equal(region.attrs.role, "region");
+  assert.equal(region.attrs.tabindex, "0");
+  const fuente = await (await import("node:fs/promises")).readFile(new URL("vista-itinerario.js", import.meta.url), "utf8");
+  assert.doesNotMatch(fuente, /latitud|longitud|coordinates|seleccionarAlternativa|ajustarTramo/u);
 });
 
 test("cancela el cálculo al desmontar y no sustituye una vista posterior", async () => {
@@ -139,7 +174,7 @@ test("muestra un error cerrado si el puerto de rutas falla", async () => {
 test("la vista no importa ni expone comandos económicos", async () => {
   const { readFile } = await import("node:fs/promises");
   const fuente = await readFile(new URL("vista-itinerario.js", import.meta.url), "utf8");
-  assert.doesNotMatch(fuente, /adaptador-presentacion|crear_borrador|enviar_validacion|descargarRecibo/u);
+  assert.doesNotMatch(fuente, /adaptador-presentacion|crear_borrador|enviar_validacion|descargarRecibo|prepararRutaBorrador/u);
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|document\.cookie/u);
   assert.doesNotMatch(fuente, /\} km`|\} min`/u);
 });

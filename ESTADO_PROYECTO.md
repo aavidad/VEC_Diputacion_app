@@ -1,5 +1,50 @@
 # Estado y plan de ataque del proyecto
 
+## Dietas: itinerario provincial visible sobre OSRM real — 20 de septiembre de 2026
+
+El corte E27 completa el recorrido de consulta Portal del Empleado → Dietas →
+itinerario → caso de uso cartográfico → OSRM local. La pantalla presenta la
+ruta orientativa calculada, la alternativa recibida y sus tramos, con origen y
+destino, distancia y duración. Mantiene visibles los avisos **«DEMO · Ruta
+orientativa no liquidable.»** y **«Sin efectos administrativos/reales.»**. No
+permite escoger o ajustar alternativas ni iniciar solicitudes, validaciones,
+liquidaciones o pagos.
+
+La fuente es el grafo privado de Granada versionado como
+`granada-buffer-osrm-v1-53aba0ad43c4`, derivado del PBF con SHA-256
+`53aba0ad43c45c62a44ee54fa9fb68308427957c5b5504cbd19a74fc49672724`.
+El mapa usa exclusivamente teselas OSM internas. El navegador no alcanza OSRM
+directamente: envía el cálculo al mediador same-origin, que respondió `200` y
+proyectó `engine=osrm_on_premise`, una alternativa y dos tramos. La nueva hoja
+de estilos se publica con la versión inmutable
+`20260920-itinerario-visible-v1` para no conservar el diseño anterior en caché.
+
+La candidata de código y configuración
+`270993b82e46723f9c282c2d49271fbda34094c392d77824e2ac8d94d918ab12`
+recibió revisión independiente `GO`, con `P0=P1=P2=P3=0`. Pasaron 92 pruebas
+Node de Dietas y coordinación, además de las pruebas focales del servidor para
+caché versionada y recursos estáticos de solo lectura. La campaña amplia del
+servidor conserva el fallo previo de la portada pública: su prueba espera una
+única referencia ARIA y el `HEAD` ya contiene dos; E27 no modifica esa
+superficie.
+
+Chromium recorrió el flujo en 1440×1000 y 390×844. En escritorio mostró una
+alternativa de 132,9 km y 105 min, dos tramos, un mapa Leaflet y 18 teselas;
+en móvil conservó los mismos datos, cargó 6 teselas, no produjo desbordamiento
+global y la tabla usó desplazamiento horizontal interno. No hubo errores de
+consola, página o red, cookies, `localStorage` o `sessionStorage`, llamadas a
+API de Contratación, Bolsa, Personal o Cronos, ni acceso directo a OSRM. La
+sonda adicional de Cache Storage e IndexedDB quedó colgada en el arnés y no se
+afirma como comprobada. La composición descartable fue retirada.
+
+Este recorrido acredita cálculo y visualización cartográfica, no un expediente
+de Dietas. Al ser una consulta sin efecto administrativo no emite recibo ni
+historia. Para completar solicitante, jefatura y gestión/liquidación siguen
+faltando la fuente gobernada de expedientes y justificantes, la política oficial
+de cuantías, el vínculo Persona→Empleado y competencia, persistencia segregada
+y el contrato económico autorizado. No se han inventado esas autoridades ni
+se ha reutilizado el WIP SQL no revisado.
+
 ## Personal: estructura organizativa pública de referencia — 20 de septiembre de 2026
 
 El corte E26 añade al Portal del Empleado una tercera consulta visible de
@@ -46,8 +91,8 @@ administrativa, ocupación, cadena de mando, gestión efectiva, permisos ni
 autoridad; una jefatura es solo un puesto de referencia. No hay SQL,
 operaciones, auditoría durable, recibos ni efectos externos. Cronos permanece
 bloqueado por la ausencia de una fuente WCRONOS aprobada y del vínculo
-Persona→Empleado. Dietas conserva el bloqueo de navegador por falta del grafo
-provincial OSRM; no se ha sustituido ninguna fuente.
+Persona→Empleado. El bloqueo cartográfico de Dietas quedó resuelto después por
+E27; sus recorridos administrativos y económicos siguen pendientes.
 
 ## Personal: consulta pública de categorías RPT en el Portal — 20 de septiembre de 2026
 

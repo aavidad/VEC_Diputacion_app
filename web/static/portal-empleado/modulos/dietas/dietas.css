@@ -493,6 +493,56 @@
   min-width: 8rem;
 }
 
+.modulo-dietas .dietas-itinerario-aviso {
+  margin: 0.5rem 0;
+  padding: 0.55rem 0.65rem;
+  border-inline-start: 0.3rem solid var(--portal-aviso, #a15c00);
+  background: var(--portal-aviso-suave, #fff5df);
+  color: var(--portal-tinta);
+}
+
+.modulo-dietas .dietas-itinerario-alternativas,
+.modulo-dietas .dietas-itinerario-tramos {
+  margin-top: 1rem;
+}
+
+.modulo-dietas .dietas-itinerario-alternativas-lista {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.modulo-dietas .dietas-itinerario-alternativas-lista li {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) minmax(12rem, 1fr) auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  overflow-wrap: anywhere;
+}
+
+.modulo-dietas .dietas-itinerario-alternativas-lista [data-itinerario-seleccionada] {
+  border-inline-start: 0.3rem solid var(--portal-exito);
+  background: var(--portal-exito-suave);
+}
+
+.modulo-dietas .dietas-itinerario-alternativa-referencia {
+  color: var(--portal-muted);
+  font-size: 0.875rem;
+}
+
+.modulo-dietas .dietas-itinerario-tramos-desplazamiento {
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.modulo-dietas .dietas-itinerario-tabla-tramos {
+  min-inline-size: 38rem;
+}
+
 .modulo-dietas .dietas-tramo-color {
   display: inline-block;
   width: 0.65rem;
@@ -605,6 +655,11 @@
   .modulo-dietas .dietas-ruta-alternativa {
     align-items: stretch;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modulo-dietas .dietas-itinerario-alternativas-lista li {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 
   .modulo-dietas .dietas-ruta-catalogo {

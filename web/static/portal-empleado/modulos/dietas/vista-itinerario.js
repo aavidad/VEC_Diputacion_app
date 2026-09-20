@@ -44,6 +44,99 @@ function crearMapa(documento, modelo, traducir) {
   return figura;
 }
 
+const CLAVES_ETIQUETA_ALTERNATIVA = Object.freeze({
+  ruta_alternativa_osrm_1: "ruta_etiqueta_osrm_1",
+  ruta_alternativa_osrm_2: "ruta_etiqueta_osrm_2",
+  ruta_alternativa_osrm_3: "ruta_etiqueta_osrm_3",
+});
+
+function textoAlternativa(alternativa, traducir) {
+  return traducir(CLAVES_ETIQUETA_ALTERNATIVA[alternativa.etiqueta] || "ruta_no_liquidable");
+}
+
+function formatoKilometros(valor) {
+  return new Intl.NumberFormat("es-ES", {
+    style: "unit", unit: "kilometer", unitDisplay: "short", maximumFractionDigits: 1,
+  }).format(valor);
+}
+
+function formatoMinutos(valor) {
+  return new Intl.NumberFormat("es-ES", { style: "unit", unit: "minute", unitDisplay: "short" }).format(valor);
+}
+
+function crearResumenAlternativas(documento, modelo, traducir) {
+  const seccion = elemento(documento, "section");
+  seccion.className = "dietas-itinerario-alternativas";
+  seccion.setAttribute("aria-labelledby", "dietas-itinerario-alternativas-titulo");
+  const titulo = elemento(documento, "h4", traducir("ruta_alternativas_recibidas"));
+  titulo.id = "dietas-itinerario-alternativas-titulo";
+  const lista = elemento(documento, "ul");
+  lista.className = "dietas-itinerario-alternativas-lista";
+  modelo.alternativas.forEach((alternativa) => {
+    const fila = elemento(documento, "li");
+    fila.dataset.itinerarioAlternativa = alternativa.referencia;
+    if (alternativa.seleccionada) fila.dataset.itinerarioSeleccionada = "";
+    const nombre = elemento(documento, "strong", textoAlternativa(alternativa, traducir));
+    const referencia = elemento(documento, "span", `${traducir("ruta_referencia")}: ${alternativa.referencia}`);
+    referencia.className = "dietas-itinerario-alternativa-referencia";
+    const estado = elemento(documento, "span", alternativa.seleccionada
+      ? traducir("ruta_seleccionada") : traducir("ruta_no_seleccionada"));
+    estado.className = "estado-chip";
+    if (alternativa.recomendada) {
+      const recomendada = elemento(documento, "span", traducir("ruta_recomendada"));
+      recomendada.className = "estado-chip info";
+      fila.append(nombre, referencia, recomendada, estado);
+    } else fila.append(nombre, referencia, estado);
+    fila.append(elemento(documento, "span", formatoKilometros(alternativa.kilometros)),
+      elemento(documento, "span", formatoMinutos(alternativa.duracion_minutos)));
+    lista.append(fila);
+  });
+  seccion.append(titulo, lista);
+  return seccion;
+}
+
+function crearTablaTramos(documento, modelo, traducir) {
+  const seccion = elemento(documento, "section");
+  seccion.className = "dietas-itinerario-tramos";
+  seccion.setAttribute("aria-labelledby", "dietas-itinerario-tramos-titulo");
+  const titulo = elemento(documento, "h4", traducir("ruta_tramos_seleccionados"));
+  titulo.id = "dietas-itinerario-tramos-titulo";
+  const desplazamiento = elemento(documento, "div");
+  desplazamiento.className = "tabla-contenedor dietas-itinerario-tramos-desplazamiento";
+  desplazamiento.setAttribute("tabindex", "0");
+  desplazamiento.setAttribute("role", "region");
+  desplazamiento.setAttribute("aria-label", traducir("ruta_tramos_seleccionados"));
+  const tabla = elemento(documento, "table");
+  tabla.className = "tabla-datos dietas-itinerario-tabla-tramos";
+  const caption = elemento(documento, "caption", traducir("ruta_tramos_seleccionados"));
+  const cabecera = elemento(documento, "thead");
+  const filaCabecera = elemento(documento, "tr");
+  [["ruta_origen_destino", ""], ["ruta_distancia", "numero"], ["ruta_tiempo", "numero"]].forEach(([clave, clase]) => {
+    const celda = elemento(documento, "th", traducir(clave));
+    celda.setAttribute("scope", "col");
+    if (clase) celda.className = clase;
+    filaCabecera.append(celda);
+  });
+  cabecera.append(filaCabecera);
+  const cuerpo = elemento(documento, "tbody");
+  modelo.tramos.forEach((tramo) => {
+    const fila = elemento(documento, "tr");
+    fila.dataset.itinerarioTramo = String(tramo.indice);
+    const recorrido = elemento(documento, "th", `${tramo.origen_nombre} → ${tramo.destino_nombre}`);
+    recorrido.setAttribute("scope", "row");
+    const kilometros = elemento(documento, "td", formatoKilometros(tramo.kilometros));
+    kilometros.className = "numero";
+    const minutos = elemento(documento, "td", formatoMinutos(tramo.duracion_minutos));
+    minutos.className = "numero";
+    fila.append(recorrido, kilometros, minutos);
+    cuerpo.append(fila);
+  });
+  tabla.append(caption, cabecera, cuerpo);
+  desplazamiento.append(tabla);
+  seccion.append(titulo, desplazamiento);
+  return seccion;
+}
+
 /** Monta una consulta no liquidable de rutas internas de Dietas. */
 export async function montarVistaItinerarioDietas({
   raiz,
@@ -162,18 +255,24 @@ export async function montarVistaItinerarioDietas({
     if (modelo.calculado) {
       const resultado = elemento(documento, "section");
       resultado.className = "dietas-ruta-resultado";
+      const avisoOrientativo = elemento(documento, "p", traducir("ruta_aviso_orientativa"));
+      avisoOrientativo.className = "dietas-itinerario-aviso";
+      avisoOrientativo.dataset.itinerarioAvisoNoLiquidable = "";
+      const avisoEfectos = elemento(documento, "p", traducir("ruta_aviso_sin_efectos"));
+      avisoEfectos.className = "dietas-itinerario-aviso";
+      avisoEfectos.dataset.itinerarioAvisoSinEfectos = "";
       resultado.append(
         elemento(documento, "h3", traducir("ruta_resultado")),
+        avisoOrientativo,
+        avisoEfectos,
         elemento(documento, "p", traducir("ruta_motor_version", {
           motor: modelo.motor, version: modelo.version_grafo,
         })),
-        elemento(documento, "p", `${traducir("ruta_km_base")}: ${new Intl.NumberFormat("es-ES", {
-          style: "unit", unit: "kilometer", unitDisplay: "short", maximumFractionDigits: 1,
-        }).format(modelo.kilometros_base)}`),
-        elemento(documento, "p", `${traducir("ruta_duracion")}: ${new Intl.NumberFormat("es-ES", {
-          style: "unit", unit: "minute", unitDisplay: "short",
-        }).format(modelo.duracion_minutos)}`),
+        elemento(documento, "p", `${traducir("ruta_km_base")}: ${formatoKilometros(modelo.kilometros_base)}`),
+        elemento(documento, "p", `${traducir("ruta_duracion")}: ${formatoMinutos(modelo.duracion_minutos)}`),
       );
+      resultado.append(crearResumenAlternativas(documento, modelo, traducir));
+      resultado.append(crearTablaTramos(documento, modelo, traducir));
       const mapa = crearMapa(documento, modelo, traducir);
       if (mapa) resultado.append(mapa);
       panel.append(resultado);

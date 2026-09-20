@@ -1,5 +1,39 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Itinerario provincial de Dietas — presentación local
+
+Este recorrido consulta cartografía real interna, pero la ruta es orientativa,
+no liquidable y no produce efectos administrativos.
+
+1. Arranque el perfil aislado con presentación, proxy, mediador cartográfico,
+   OSRM y teselas internas. Monte el grafo de Granada y el estado de teselas en
+   solo lectura.
+2. Abra `/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal`, abra
+   **Dietas**, elija las paradas y pulse **Calcular itinerario con OSRM interno**.
+3. Compruebe que aparecen exactamente **DEMO · Ruta orientativa no
+   liquidable.** y **Sin efectos administrativos/reales.**, además del motor
+   `osrm_interno` y el grafo `granada-buffer-osrm-v1-53aba0ad43c4`.
+4. La sección de alternativas debe mostrar referencia, recomendación,
+   selección, kilómetros y duración. La tabla siguiente debe detallar cada
+   tramo como origen → destino, kilómetros y minutos.
+5. Compruebe el mapa Leaflet con teselas internas. En 390 px, la tabla debe
+   desplazarse dentro de su región enfocable sin ensanchar la página.
+
+El navegador necesita un único `POST
+/api/presentacion/cartografia/rutas` y peticiones a `/tiles/osm/`; nunca debe
+alcanzar directamente `/route/v1` ni las API de Contratación, Bolsa, Personal o
+Cronos. La hoja de estilos esperada es
+`/portal-empleado/modulos/dietas/dietas.css?v=20260920-itinerario-visible-v1`.
+No deben aparecer coordenadas ni acciones para seleccionar, ajustar, liquidar,
+enviar, validar o pagar.
+
+La respuesta acreditada contenía una alternativa, dos tramos y la versión de
+grafo indicada. La prueba no usa fallback. No hay recibo, replay o historia
+porque este corte es una consulta cartográfica sin operación administrativa.
+Para tramitar una dieta real faltan expediente y justificantes gobernados,
+cuantías oficiales, identidad Persona→Empleado, competencia de jefatura,
+persistencia y circuito de gestión/liquidación autorizados.
+
 ## Estructura organizativa pública de Personal — presentación local
 
 Este recorrido consulta una proyección DEMO y preparatoria sin ocupantes ni
