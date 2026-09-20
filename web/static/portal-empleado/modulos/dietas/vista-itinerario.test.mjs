@@ -106,6 +106,33 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   assert.equal(mapaDesmontado, true);
 });
 
+test("preselecciona el centro sintético asociado y no cae al primer punto si no está en el catálogo", async () => {
+  const r = raiz();
+  await montarVistaItinerarioDietas({
+    raiz: r,
+    calculador: crearCalculador([]),
+    visorRuta: { montar() { return { desmontar() {} }; } },
+    centroSalidaAsociado: { etiqueta: "Sede provincial · Granada", localidad: "Granada" },
+  });
+  const salida = r.querySelector('[data-itinerario-parada="0"]');
+  assert.equal(salida.value, undefined);
+  assert.equal(salida.children.find((opcion) => opcion.selected).textContent,
+    "Sede provincial · Granada (centro asociado)");
+
+  const sinCoincidencia = raiz();
+  await montarVistaItinerarioDietas({
+    raiz: sinCoincidencia,
+    calculador: crearCalculador([]),
+    visorRuta: { montar() { return { desmontar() {} }; } },
+    centroSalidaAsociado: { etiqueta: "Centro no resuelto · Fuera de catálogo", localidad: "Fuera de catálogo" },
+  });
+  const salidaPendiente = sinCoincidencia.querySelector('[data-itinerario-parada="0"]');
+  assert.equal(salidaPendiente.children[0].value, "");
+  assert.equal(salidaPendiente.children[0].selected, true);
+  assert.match(salidaPendiente.children[0].textContent, /Centro no resuelto/u);
+  assert.equal(sinCoincidencia.querySelector("[data-itinerario-calcular]").disabled, true);
+});
+
 test("expone avisos, alternativas y tramos del cálculo orientativo sin exponer coordenadas", async () => {
   const llamadas = []; const r = raiz();
   const base = respuestaOSRM().routes[0];

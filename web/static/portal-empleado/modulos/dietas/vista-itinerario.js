@@ -115,8 +115,19 @@ function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
   const selector = elemento(documento, "select");
   selector.dataset.itinerarioParada = String(indice);
   selector.setAttribute("aria-label", etiquetaTexto);
+  const centroAsociado = esSalida ? modelo.centro_salida_asociado : null;
+  if (esSalida && !codigo) {
+    const opcionVacia = elemento(documento, "option", centroAsociado?.etiqueta
+      ? `${centroAsociado.etiqueta} · seleccione una localidad`
+      : traducir("ruta_seleccionar_localidad"));
+    opcionVacia.value = "";
+    opcionVacia.selected = true;
+    selector.append(opcionVacia);
+  }
   modelo.catalogo.puntos.forEach((punto) => {
-    const opcion = elemento(documento, "option", punto.nombre);
+    const esCentroAsociado = esSalida && centroAsociado?.codigo === punto.codigo;
+    const opcion = elemento(documento, "option", esCentroAsociado
+      ? `${centroAsociado.etiqueta} (centro asociado)` : punto.nombre);
     opcion.value = punto.codigo;
     opcion.selected = punto.codigo === codigo;
     selector.append(opcion);
@@ -245,6 +256,7 @@ export async function montarVistaItinerarioDietas({
   anunciar = () => {},
   mensajes = MENSAJES_DIETAS_ES,
   registrarDesmontar,
+  centroSalidaAsociado,
 } = {}) {
   if (!raiz?.append || !calculador?.obtenerCatalogo || !calculador?.calcular
     || !visorRuta?.montar || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
@@ -286,6 +298,7 @@ export async function montarVistaItinerarioDietas({
         catalogo,
         permisos: { consultarRutas: true, gestionarRutas: true },
         demostracion: true,
+        centroSalidaAsociado,
       });
     }
   } catch {
@@ -326,7 +339,7 @@ export async function montarVistaItinerarioDietas({
     calcular.type = "button";
     calcular.className = "boton-primario";
     calcular.dataset.itinerarioCalcular = "";
-    calcular.disabled = controlador !== null;
+    calcular.disabled = controlador !== null || modelo.paradas.some((parada) => !parada);
     panel.append(paradas, anadir, calcular);
     if (errorVisible) {
       const alerta = elemento(documento, "p", errorVisible);

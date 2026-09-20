@@ -36,7 +36,10 @@ test("Dietas visible compone exclusivamente cálculo, mapa y recorrido sin clien
   assert.equal(llamadas[2][0], "recorridos");
   assert.equal("clienteBorradores" in llamadas[2][2], false);
   llamadas[2][2].montarItinerario("hueco");
-  assert.deepEqual(llamadas[3][1], { raiz: "hueco", calculador, visorRuta, anunciar: "anunciar" });
+  assert.deepEqual(llamadas[3][1], {
+    raiz: "hueco", calculador, visorRuta, anunciar: "anunciar",
+    centroSalidaAsociado: { etiqueta: "Sede provincial · Granada", localidad: "Granada" },
+  });
 });
 
 test("Dietas interna muestra la zona cartográfica cerrada sin derivar identidad ni rutas del catálogo", () => {

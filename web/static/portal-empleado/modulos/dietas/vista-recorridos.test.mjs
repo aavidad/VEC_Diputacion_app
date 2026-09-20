@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
 import { montarVistaRecorridosDietas } from "./vista-recorridos.js";
+import { MENSAJES_DIETAS_ES } from "./i18n.js";
 
 const claveDatos = (atributo) =>
   atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
@@ -207,6 +208,9 @@ test("distingue visualmente borrador, pendiente y liquidada", () => {
   assert.ok(clases.some((clase) => clase.includes("aviso")));
   assert.ok(clases.some((clase) => clase.includes("info")));
   assert.ok(clases.some((clase) => clase.includes("exito")));
+  assert.equal(MENSAJES_DIETAS_ES.recorridos_kpi_declarado, "Importe declarado");
+  assert.equal(MENSAJES_DIETAS_ES.recorridos_kpi_pago, "Liquidadas");
+  assert.equal(MENSAJES_DIETAS_ES.recorridos_total_ejemplo, "Total declarado");
   vista.desmontar();
 });
 

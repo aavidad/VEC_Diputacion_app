@@ -37,17 +37,32 @@ function congelarModelo(valor) {
   return Object.freeze(valor);
 }
 
-export function crearPresentadorRutasDietas({ catalogo: catalogoEntrada, permisos, demostracion } = {}) {
+export function crearPresentadorRutasDietas({
+  catalogo: catalogoEntrada, permisos, demostracion, centroSalidaAsociado: centroEntrada,
+} = {}) {
   if (!permisos || typeof permisos !== "object") throw new Error("permisos de rutas no validos");
   if (!permisos.consultarRutas || !permisos.gestionarRutas || !catalogoEntrada) return null;
   const catalogo = validarCatalogoRutasDietas(catalogoEntrada);
   if (catalogo.demostracion !== (demostracion === true)) throw new Error("el catalogo de rutas no coincide con el entorno");
   const puntoPorCodigo = new Map(catalogo.puntos.map((punto) => [punto.codigo, punto]));
   const codigoPorNombre = new Map(catalogo.puntos.map((punto) => [normalizarNombre(punto.nombre), punto.codigo]));
-  const codigoGranada = codigoPorNombre.get("granada") || catalogo.puntos[0].codigo;
-  const codigoDestino = codigoPorNombre.get("motril") || catalogo.puntos.find((punto) => punto.codigo !== codigoGranada)?.codigo;
+  const nombreCentro = String(centroEntrada?.etiqueta || "").trim();
+  const nombreLocalidadCentro = String(centroEntrada?.localidad || "").trim();
+  const tieneCentroAsociado = centroEntrada && typeof centroEntrada === "object";
+  const codigoCentro = tieneCentroAsociado
+    ? (nombreCentro && nombreLocalidadCentro
+      ? (codigoPorNombre.get(normalizarNombre(nombreLocalidadCentro)) || "") : "")
+    : (codigoPorNombre.get("granada") || "");
+  const centroSalidaAsociado = Object.freeze({
+    etiqueta: nombreCentro,
+    localidad: nombreLocalidadCentro,
+    codigo: codigoCentro,
+  });
+  // Nunca se usa el primer punto del catálogo como sustituto de un centro no
+  // resuelto: una ruta debe esperar a que la persona elija su salida.
+  const codigoDestino = codigoPorNombre.get("motril") || "";
   const estado = {
-    paradas: [codigoGranada, codigoDestino, codigoGranada],
+    paradas: [codigoCentro, codigoDestino, codigoCentro],
     ultimaSolicitud: null,
     calculo: null,
     alternativa: "",
@@ -56,7 +71,7 @@ export function crearPresentadorRutasDietas({ catalogo: catalogoEntrada, permiso
   };
 
   function reiniciar() {
-    estado.paradas = [codigoGranada, codigoDestino, codigoGranada];
+    estado.paradas = [codigoCentro, codigoDestino, codigoCentro];
     invalidarCalculo();
     return obtenerModelo();
   }
@@ -99,6 +114,7 @@ export function crearPresentadorRutasDietas({ catalogo: catalogoEntrada, permiso
     }) : null;
     return congelarModelo({
       catalogo: copiarDietas(catalogo),
+      centro_salida_asociado: centroSalidaAsociado,
       paradas: [...estado.paradas],
       calculado: Boolean(alternativa),
       calculo_ref: estado.calculo?.referencia || "",

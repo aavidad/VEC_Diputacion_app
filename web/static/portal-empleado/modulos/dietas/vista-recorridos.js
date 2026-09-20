@@ -11,7 +11,7 @@ const ETAPAS = Object.freeze([
 const COMISIONES_PRESENTACION = Object.freeze([
   Object.freeze({ referencia: "DIE-2026-0084", fecha: "19/06/2026 · 08:00–14:30", motivo: "Reunión técnica de coordinación", localidades: "Granada · Albolote · Granada", kilometros: "21,6 km", dietas: "Manutención · 22,78 €", gastos: "Kilometraje · 5,62 €", justificantes: "1 justificante declarado", total: "28,40 €", estado: "Pendiente de jefatura", incidencia: "Sin incidencias declaradas" }),
   Object.freeze({ referencia: "DIE-2026-0091", fecha: "21/06/2026 · 07:30–15:15", motivo: "Visita técnica de obra", localidades: "Granada · Motril · Granada", kilometros: "140,8 km", dietas: "Sin dieta declarada", gastos: "Kilometraje · 36,61 €", justificantes: "Pendiente de adjuntar", total: "36,61 €", estado: "Borrador", incidencia: "Falta justificante de comisión" }),
-  Object.freeze({ referencia: "DIE-2026-0073", fecha: "27/05/2026 · 08:15–17:00", motivo: "Inspección de obra provincial", localidades: "Granada · Guadix · Granada", kilometros: "107,2 km", dietas: "Manutención · 34,01 €", gastos: "Kilometraje · 27,87 €", justificantes: "2 justificantes declarados", total: "61,88 €", estado: "Ejemplo liquidado", incidencia: "Seguimiento del pago pendiente de conexión" }),
+  Object.freeze({ referencia: "DIE-2026-0073", fecha: "27/05/2026 · 08:15–17:00", motivo: "Inspección de obra provincial", localidades: "Granada · Guadix · Granada", kilometros: "107,2 km", dietas: "Manutención · 34,01 €", gastos: "Kilometraje · 27,87 €", justificantes: "2 justificantes declarados", total: "61,88 €", estado: "Liquidada", incidencia: "Sin incidencias" }),
 ]);
 
 function elemento(documento, etiqueta, texto = "") {
@@ -85,7 +85,7 @@ function tablaPresentacion(documento, t, columnas, seleccionada, incluirUnidad =
     const estado = elemento(documento, "td");
     const chip = elemento(documento, "span", comision.estado);
     const claseEstado = comision.estado === "Borrador" ? "info"
-      : comision.estado === "Ejemplo liquidado" ? "exito" : "aviso";
+      : comision.estado === "Liquidada" ? "exito" : "aviso";
     chip.className = `estado-chip ${claseEstado}`;
     estado.append(chip); fila.append(estado);
     if (incluirUnidad) fila.append(elemento(documento, "td", obtenerAtlasSinteticoRRHH().unidad.nombre_visible));
@@ -112,7 +112,12 @@ function detallePresentacion(documento, t, comision, rol) {
   const conceptos = elemento(documento, "section"); conceptos.className = "dietas-presentacion-conceptos"; conceptos.append(elemento(documento, "h4", t("recorridos_conceptos_declarados")), elemento(documento, "p", `${comision.dietas} · ${comision.gastos}`), elemento(documento, "p", `${t("recorridos_total_ejemplo")}: ${comision.total}`));
   seccion.append(datos, conceptos);
   if (rol === "jefatura") ["recorridos_validar", "recorridos_devolver", "recorridos_rechazar"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
-  if (rol === "gestion") ["recorridos_revisar_conceptos", "recorridos_liquidar", "recorridos_seguir_pago"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
+  if (rol === "gestion") {
+    const incidencia = elemento(documento, "p", `${t("recorridos_incidencia")}: ${comision.incidencia}`);
+    incidencia.className = "dietas-presentacion-incidencia";
+    seccion.append(incidencia);
+    ["recorridos_revisar_conceptos", "recorridos_liquidar", "recorridos_seguir_pago"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
+  }
   return seccion;
 }
 
@@ -124,7 +129,7 @@ function resumenPresentacion(documento, t) {
     ["COM", "recorridos_kpi_comisiones", "3"],
     ["REV", "recorridos_kpi_revision", "1"],
     ["EUR", "recorridos_kpi_declarado", "126,89 €"],
-    ["PAG", "recorridos_kpi_pago", t("recorridos_no_acreditado")],
+    ["LIQ", "recorridos_kpi_pago", "1"],
   ].forEach(([sigla, clave, valor]) => {
     const tarjeta = elemento(documento, "article");
     tarjeta.className = "tarjeta-kpi";
@@ -216,25 +221,17 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
   const panel = elemento(documento, "section");
   panel.className = "panel dietas-recorridos-principal";
   panel.dataset.dietasPanelEtapa = "solicitante";
-  panel.append(
-    elemento(documento, "h3", t("recorridos_solicitante")),
-    resumenPresentacion(documento, t),
-  );
-  const accionesNueva = elemento(documento, "div");
-  accionesNueva.className = "dietas-nueva-comision-acciones";
+  const bandeja = elemento(documento, "section");
+  bandeja.className = "panel dietas-presentacion-bandeja";
+  const cabeceraBandeja = elemento(documento, "div");
+  cabeceraBandeja.className = "cabecera-panel";
   const abrirNueva = elemento(documento, "button", t("nueva_comision", { demo: "" }));
   abrirNueva.type = "button";
   abrirNueva.className = "boton-primario";
   abrirNueva.dataset.dietasAbrirNuevaComision = "";
   abrirNueva.setAttribute("aria-expanded", "false");
-  accionesNueva.append(abrirNueva);
-  panel.append(accionesNueva);
-  const bandeja = elemento(documento, "section");
-  bandeja.className = "panel dietas-presentacion-bandeja";
-  bandeja.append(
-    elemento(documento, "h3", t("recorridos_mis_solicitudes")),
-    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
-  );
+  cabeceraBandeja.append(elemento(documento, "h3", t("recorridos_mis_solicitudes")), abrirNueva);
+  bandeja.append(cabeceraBandeja);
   const nuevaComision = elemento(documento, "section");
   nuevaComision.className = "dietas-nueva-comision";
   nuevaComision.dataset.dietasNuevaComision = "";
@@ -286,7 +283,11 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
     botonPendiente(documento, t, "recorridos_enviar_revision"),
   );
   nuevaComision.append(envio);
-  panel.append(nuevaComision, bandeja);
+  bandeja.append(
+    nuevaComision,
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
+  );
+  panel.append(bandeja, resumenPresentacion(documento, t));
   return panel;
 }
 
@@ -294,10 +295,7 @@ function panelJefatura(documento, t, seleccionada) {
   const panel = elemento(documento, "section");
   panel.className = "panel dietas-recorridos-principal";
   panel.dataset.dietasPanelEtapa = "jefatura";
-  panel.append(
-    elemento(documento, "h3", t("recorridos_jefatura")),
-    elemento(documento, "p", t("recorridos_jefatura_ayuda")),
-  );
+  panel.append(elemento(documento, "h3", t("recorridos_jefatura")));
   const filtros = elemento(documento, "form");
   filtros.className = "dietas-recorridos-filtros";
   ["recorridos_filtrar_estado", "recorridos_filtrar_periodo"].forEach(
@@ -314,16 +312,6 @@ function panelJefatura(documento, t, seleccionada) {
     filtros,
     tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado", "recorridos_unidad"], seleccionada, true, "jefatura"),
   );
-  const detalle = elemento(documento, "section");
-  detalle.className = "dietas-recorridos-acciones";
-  detalle.append(
-    elemento(documento, "h3", t("recorridos_detalle_solicitud")),
-    elemento(documento, "p", t("recorridos_detalle_pendiente")),
-    botonPendiente(documento, t, "recorridos_validar"),
-    botonPendiente(documento, t, "recorridos_devolver"),
-    botonPendiente(documento, t, "recorridos_rechazar"),
-  );
-  panel.append(detalle);
   return panel;
 }
 
@@ -333,21 +321,8 @@ function panelGestion(documento, t, seleccionada) {
   panel.dataset.dietasPanelEtapa = "gestion";
   panel.append(
     elemento(documento, "h3", t("recorridos_gestion")),
-    elemento(documento, "p", t("recorridos_gestion_ayuda")),
     tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada, false, "gestion"),
   );
-  const acciones = elemento(documento, "section");
-  acciones.className = "dietas-recorridos-acciones";
-  acciones.append(
-    elemento(documento, "h3", t("recorridos_liquidacion_seguimiento")),
-    elemento(documento, "p", t("recorridos_pendiente_conexion")),
-    botonPendiente(documento, t, "recorridos_revisar_conceptos"),
-    botonPendiente(documento, t, "recorridos_liquidar"),
-    botonPendiente(documento, t, "recorridos_seguir_pago"),
-  );
-  panel.append(acciones);
-  const comision = COMISIONES_PRESENTACION.find((item) => item.referencia === seleccionada) || COMISIONES_PRESENTACION[0];
-  const incidencia = elemento(documento, "p", `${t("recorridos_incidencia")}: ${comision.incidencia}`); incidencia.className = "dietas-presentacion-incidencia"; panel.append(incidencia);
   return panel;
 }
 

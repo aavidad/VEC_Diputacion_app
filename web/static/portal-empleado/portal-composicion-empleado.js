@@ -1,4 +1,21 @@
 /** Montaje de vistas del empleado, sin inferir permisos ni componer escrituras. */
+import { obtenerAtlasSinteticoRRHH } from "./datos-sinteticos-rrhh.js";
+
+function centroSalidaSinteticoDietas() {
+  const atlas = obtenerAtlasSinteticoRRHH();
+  const centro = atlas?.centro;
+  const localidad = atlas?.localidades?.find((item) => item.referencia === centro?.localidad_ref);
+  const nombreCentro = String(centro?.nombre_visible || "").trim();
+  const nombreLocalidad = String(localidad?.nombre_visible || "").trim();
+  if (!nombreCentro || !nombreLocalidad) return undefined;
+  // La presentación solo proyecta etiquetas; nunca propaga referencias de
+  // empleado, centro o localidad al selector ni convierte este dato sintético
+  // en una consulta de Personal.
+  return Object.freeze({
+    etiqueta: `${nombreCentro} · ${nombreLocalidad}`,
+    localidad: nombreLocalidad,
+  });
+}
 export function componerCronosVisible(recursos, contextoActor, entorno) {
   if (typeof recursos.recorridos?.montarVistaRecorridosCronos !== "function") return undefined;
   return Object.freeze({ montar: recursos.recorridos.montarVistaRecorridosCronos });
@@ -10,13 +27,16 @@ export function componerDietasVisible(recursos, contextoActor, capacidades, ento
     fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
   });
   const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
+  // El objeto vacío conserva el fallo cerrado: si el atlas deja de resolver
+  // el centro no se transforma silenciosamente en Granada.
+  const centroSalidaAsociado = centroSalidaSinteticoDietas() || Object.freeze({});
   return Object.freeze({
     calculador, visorRuta,
     montar: recursos.recorridos?.montarVistaRecorridosDietas
       ? ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
         anunciar, registrarDesmontar,
         montarItinerario: (hueco) => recursos.vista.montarVistaItinerarioDietas({
-          raiz: hueco, calculador, visorRuta, anunciar,
+          raiz: hueco, calculador, visorRuta, anunciar, centroSalidaAsociado,
         }),
       })
       : recursos.vista.montarVistaItinerarioDietas,
