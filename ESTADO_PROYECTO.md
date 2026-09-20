@@ -1,5 +1,40 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa B10 operativa en runtime aislado de servidor — 20 de septiembre de 2026
+
+La publicación y la consulta pública B10 están recorridas en un entorno nuevo
+y segregado del servidor. PostgreSQL 18.4 usa volumen, roles y TLS propios; el
+proceso `vec-publico` escucha únicamente en `127.0.0.1:18082`. No se modificó
+Caddy, no se publicó la ruta en Internet y no se tocó ninguna base conservada
+de Contratación temporal.
+
+La primera ejecución falló cerrada por dos precondiciones reales. La cuenta
+lectora detectó un privilegio `TEMPORARY` residual de `PUBLIC` en la base
+`postgres`; la reparación privada revocó todos los privilegios de `PUBLIC` en
+`postgres` y `template1`. Después, el lector rechazó una proyección sintética
+que solo contenía un catálogo genérico. La segunda publicación incorporó los
+cinco catálogos exigidos por el contrato y generó una nueva ancla V3:
+`249c28a2cae6f83658fc3172d80551e41b7a54a4a79f5f10557e0a9f6eaf051e`.
+Los dos cambios recibieron revisión independiente de SQL e identidad con
+`GO`, `P0=P1=P2=0`. Los scripts, credenciales, certificados y material
+sintético permanecen fuera de Git.
+
+`/livez`, `/readyz`, la relación de bolsas y el detalle de lista respondieron
+`200`. La API devuelve **12 bolsas y 390 posiciones**, y PostgreSQL conserva
+los mismos recuentos, cinco catálogos y la misma ancla. El primer listado
+recorrido devolvió sus 41 posiciones completas. El reinicio de la aplicación
+y el reinicio conjunto de PostgreSQL y aplicación conservaron ancla, instante
+y recuentos. Una segunda ejecución del despliegue terminó correctamente sin
+republicar ni duplicar datos.
+
+Si PostgreSQL se reinicia mientras la aplicación permanece viva, la consulta
+puede responder temporalmente `503` aunque `/readyz` ya devuelva `200`; el
+reinicio posterior de la aplicación recuperó inmediatamente el recorrido.
+Este desacoplamiento entre disponibilidad de la fuente y `readyz` queda como
+deuda operativa antes de exponer B10 mediante el acceso autenticado previsto.
+El runtime aislado acredita publicación y lectura sintéticas recuperables; no
+acredita identidad institucional, datos reales, Internet ni producción.
+
 ## Bolsa B10 dispone de publicación operativa validada — 20 de septiembre de 2026
 
 El subcomando `vec-server publicar-proyeccion-publica` recibe por fichero la
