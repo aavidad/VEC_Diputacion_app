@@ -882,6 +882,16 @@
   background: var(--portal-azul-100);
 }
 
+.modulo-dietas .dietas-presentacion-fila-detalle > td {
+  padding: 0;
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas .dietas-presentacion-fila-detalle .dietas-presentacion-detalle {
+  margin: .55rem;
+  box-shadow: inset .25rem 0 0 var(--portal-azul-600);
+}
+
 .modulo-dietas .dietas-listado .enlace-tabla {
   min-height: 2rem;
   color: var(--portal-azul-700);

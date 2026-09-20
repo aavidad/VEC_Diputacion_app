@@ -66,7 +66,7 @@ function tablaPendiente(documento, t, columnas, etiqueta) {
   return region;
 }
 
-function tablaPresentacion(documento, t, columnas, seleccionada, incluirUnidad = false) {
+function tablaPresentacion(documento, t, columnas, seleccionada, incluirUnidad = false, rol = "solicitante") {
   const region = elemento(documento, "div");
   region.className = "tabla-contenedor dietas-presentacion-tabla";
   region.setAttribute("role", "region");
@@ -78,13 +78,27 @@ function tablaPresentacion(documento, t, columnas, seleccionada, incluirUnidad =
   const thead = elemento(documento, "thead"); thead.append(cabecera);
   const cuerpo = elemento(documento, "tbody");
   COMISIONES_PRESENTACION.forEach((comision) => {
-    const fila = elemento(documento, "tr"); fila.dataset.dietasSeleccionada = String(comision.referencia === seleccionada); fila.dataset.dietasComisionRef = comision.referencia;
+    const fila = elemento(documento, "tr"); fila.dataset.dietasSeleccionada = "false"; fila.dataset.dietasComisionRef = comision.referencia;
     const referencia = elemento(documento, "th"); referencia.scope = "row";
-    const elegir = elemento(documento, "button", comision.referencia); elegir.type = "button"; elegir.className = "enlace-tabla"; elegir.dataset.dietasSeleccionarComision = comision.referencia; elegir.setAttribute("aria-current", String(comision.referencia === seleccionada)); referencia.append(elegir); fila.append(referencia);
+    const elegir = elemento(documento, "button", comision.referencia); elegir.type = "button"; elegir.className = "enlace-tabla"; elegir.dataset.dietasSeleccionarComision = comision.referencia; elegir.setAttribute("aria-expanded", "false"); referencia.append(elegir); fila.append(referencia);
     [comision.fecha, comision.motivo, comision.total].forEach((valor) => fila.append(elemento(documento, "td", valor)));
-    const estado = elemento(documento, "td"); const chip = elemento(documento, "span", comision.estado); chip.className = "estado-chip aviso"; estado.append(chip); fila.append(estado);
+    const estado = elemento(documento, "td");
+    const chip = elemento(documento, "span", comision.estado);
+    const claseEstado = comision.estado === "Borrador" ? "info"
+      : comision.estado === "Ejemplo liquidado" ? "exito" : "aviso";
+    chip.className = `estado-chip ${claseEstado}`;
+    estado.append(chip); fila.append(estado);
     if (incluirUnidad) fila.append(elemento(documento, "td", obtenerAtlasSinteticoRRHH().unidad.nombre_visible));
     cuerpo.append(fila);
+    const filaDetalle = elemento(documento, "tr");
+    filaDetalle.className = "dietas-presentacion-fila-detalle";
+    filaDetalle.dataset.dietasDetalleFila = comision.referencia;
+    filaDetalle.hidden = true;
+    const celdaDetalle = elemento(documento, "td");
+    celdaDetalle.colSpan = columnas.length;
+    celdaDetalle.append(detallePresentacion(documento, t, comision, rol));
+    filaDetalle.append(celdaDetalle);
+    cuerpo.append(filaDetalle);
   });
   tabla.append(thead, cuerpo); region.append(tabla); return region;
 }
@@ -100,12 +114,6 @@ function detallePresentacion(documento, t, comision, rol) {
   if (rol === "jefatura") ["recorridos_validar", "recorridos_devolver", "recorridos_rechazar"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
   if (rol === "gestion") ["recorridos_revisar_conceptos", "recorridos_liquidar", "recorridos_seguir_pago"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
   return seccion;
-}
-
-function detallesPresentacion(documento, t, seleccionada, rol) {
-  const grupo = elemento(documento, "div"); grupo.className = "dietas-presentacion-detalles";
-  COMISIONES_PRESENTACION.forEach((comision) => { const detalle = detallePresentacion(documento, t, comision, rol); detalle.hidden = comision.referencia !== seleccionada; grupo.append(detalle); });
-  return grupo;
 }
 
 function resumenPresentacion(documento, t) {
@@ -226,7 +234,6 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
   bandeja.append(
     elemento(documento, "h3", t("recorridos_mis_solicitudes")),
     tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
-    detallesPresentacion(documento, t, seleccionada, "solicitante"),
   );
   const nuevaComision = elemento(documento, "section");
   nuevaComision.className = "dietas-nueva-comision";
@@ -305,7 +312,7 @@ function panelJefatura(documento, t, seleccionada) {
   );
   panel.append(
     filtros,
-    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado", "recorridos_unidad"], seleccionada, true),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado", "recorridos_unidad"], seleccionada, true, "jefatura"),
   );
   const detalle = elemento(documento, "section");
   detalle.className = "dietas-recorridos-acciones";
@@ -317,7 +324,6 @@ function panelJefatura(documento, t, seleccionada) {
     botonPendiente(documento, t, "recorridos_rechazar"),
   );
   panel.append(detalle);
-  panel.append(detallesPresentacion(documento, t, seleccionada, "jefatura"));
   return panel;
 }
 
@@ -328,7 +334,7 @@ function panelGestion(documento, t, seleccionada) {
   panel.append(
     elemento(documento, "h3", t("recorridos_gestion")),
     elemento(documento, "p", t("recorridos_gestion_ayuda")),
-    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada, false, "gestion"),
   );
   const acciones = elemento(documento, "section");
   acciones.className = "dietas-recorridos-acciones";
@@ -341,7 +347,6 @@ function panelGestion(documento, t, seleccionada) {
   );
   panel.append(acciones);
   const comision = COMISIONES_PRESENTACION.find((item) => item.referencia === seleccionada) || COMISIONES_PRESENTACION[0];
-  panel.append(detallesPresentacion(documento, t, seleccionada, "gestion"));
   const incidencia = elemento(documento, "p", `${t("recorridos_incidencia")}: ${comision.incidencia}`); incidencia.className = "dietas-presentacion-incidencia"; panel.append(incidencia);
   return panel;
 }
@@ -498,16 +503,19 @@ export function montarVistaRecorridosDietas(
     const seleccion = evento.target?.closest?.("[data-dietas-seleccionar-comision]");
     if (seleccion && activa) {
       seleccionada = seleccion.dataset.dietasSeleccionarComision;
-      raiz.querySelectorAll?.("[data-dietas-comision-ref]").forEach((fila) => {
+      const tablaActiva = seleccion.closest?.("table") || raiz;
+      const filaPulsada = tablaActiva.querySelector?.(`[data-dietas-detalle-fila="${seleccionada}"]`);
+      const abrirDetalle = filaPulsada?.hidden === true;
+      tablaActiva.querySelectorAll?.("[data-dietas-comision-ref]").forEach((fila) => {
         const esActual = fila.dataset.dietasComisionRef === seleccionada;
-        fila.dataset.dietasSeleccionada = String(esActual);
-        fila.querySelector?.("[data-dietas-seleccionar-comision]")?.setAttribute("aria-current", String(esActual));
+        fila.dataset.dietasSeleccionada = String(esActual && abrirDetalle);
+        fila.querySelector?.("[data-dietas-seleccionar-comision]")?.setAttribute("aria-expanded", String(esActual && abrirDetalle));
       });
-      raiz.querySelectorAll?.("[data-dietas-detalle-presentacion]").forEach((detalle) => {
-        detalle.hidden = detalle.dataset.dietasDetallePresentacion !== seleccionada;
+      tablaActiva.querySelectorAll?.("[data-dietas-detalle-fila]").forEach((detalle) => {
+        detalle.hidden = detalle.dataset.dietasDetalleFila !== seleccionada || !abrirDetalle;
       });
       pintar();
-      Array.from(raiz.querySelectorAll?.("[data-dietas-detalle-presentacion]") || []).find((detalle) => detalle.dataset.dietasDetallePresentacion === seleccionada)?.focus?.();
+      if (abrirDetalle) filaPulsada?.querySelector?.("[data-dietas-detalle-presentacion]")?.focus?.();
       return;
     }
     if (

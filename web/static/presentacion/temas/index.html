@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="light">
     <title>15 diseños para Dietas · VEC Diputación</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/presentacion/temas/temas.css?v=20260920-disenos-dietas-v2">
-    <script type="module" src="/presentacion/temas/temas.js?v=20260920-disenos-dietas-v2"></script>
+    <link rel="stylesheet" href="/presentacion/temas/temas.css?v=20260920-dietas-bandeja-v3">
+    <script type="module" src="/presentacion/temas/temas.js?v=20260920-dietas-bandeja-v3"></script>
   </head>
   <body>
     <a class="salto" href="#galeria-disenos">Saltar a los diseños</a>
@@ -53,8 +53,8 @@
             </nav>
             <main class="lienzo">
               <section class="bloque cabecera-tarea">
-                <div><small>Buenos días, Antonio</small><h3>Prepara tu próxima comisión</h3><p>24 de septiembre · Granada, Baza y Purchil</p></div>
-                <button type="button">Nueva comisión</button>
+                <div><small>Buenos días, Antonio</small><h3>Consulta tus comisiones del periodo</h3><p>Selecciona una comisión para ver su detalle o inicia una nueva.</p></div>
+                <button type="button" class="abrir-alta" aria-expanded="false">Nueva comisión</button>
               </section>
               <section class="bloque indicadores" aria-label="Resumen de comisiones">
                 <article><span>Borradores</span><strong>1</strong><small>Continúa donde lo dejaste</small></article>
@@ -62,25 +62,30 @@
                 <article><span>Por justificar</span><strong>1</strong><small>Añade los gastos</small></article>
                 <article><span>Gastos</span><strong>126,89 €</strong><small>Comisión actual</small></article>
               </section>
+              <div class="alta-rutas" hidden>
               <section class="bloque ruta">
                 <header><div><small>Paso actual</small><h3>Itinerario</h3></div><span class="estado">Borrador</span></header>
                 <div class="campos-ruta">
-                  <label>Centro de salida<select><option>Transformación Digital · Granada (asociado)</option><option>Granada</option></select></label><label>Primera parada<select><option>Baza</option></select></label>
-                  <label>Segunda parada<select><option>Purchil</option></select></label><label>Regreso<select><option>Granada</option></select></label>
+                  <label>Centro de salida<select><option>Sede provincial · Granada (asociado)</option><option>Granada</option></select></label><label>Ruta 1 · destino<select><option>Baza</option></select></label>
+                  <label>Ruta 2 · destino<select><option>Purchil</option></select></label><label>Ruta 3 · regreso o destino final<select><option>Granada</option></select></label>
                 </div>
-                <div class="acciones-ruta"><button type="button" class="secundario">+ Añadir parada</button><button type="button">Calcular ruta</button></div>
+                <div class="acciones-ruta"><button type="button" class="secundario">+ Añadir ruta</button><button type="button">Calcular ruta</button></div>
               </section>
               <section class="bloque mapa">
-                <header><h3>Recorrido</h3><span>3 tramos</span></header>
-                <div class="mapa-lienzo" role="img" aria-label="Zona de mapa centrada en Granada"><span class="punto punto-a">Granada</span><span class="punto punto-b">Baza</span><span class="punto punto-c">Purchil</span><i class="trazo trazo-a"></i><i class="trazo trazo-b"></i><i class="trazo trazo-c"></i></div>
-                <footer><strong>281,2 km</strong><span>Cálculo orientativo por carretera</span></footer>
+                <header><h3>Mapa del itinerario</h3><span>Sin calcular</span></header>
+                <div class="mapa-lienzo mapa-inicial" role="img" aria-label="Zona de mapa centrada en Granada"><span class="punto punto-inicial">Granada</span></div>
+                <footer><strong>Granada</strong><span>Centro inicial del mapa</span></footer>
               </section>
+              </div>
               <section class="bloque comisiones">
                 <header><h3>Mis comisiones</h3><button type="button" class="enlace">Ver todas</button></header>
                 <div class="tabla-contenedor"><table><thead><tr><th>Fecha</th><th>Recorrido</th><th>Estado</th><th></th></tr></thead><tbody>
-                  <tr><td>24 sep</td><td>Granada · Baza · Purchil</td><td><span class="chip chip-borrador">Borrador</span></td><td>›</td></tr>
-                  <tr><td>18 sep</td><td>Granada · Loja</td><td><span class="chip chip-revision">En revisión</span></td><td>›</td></tr>
-                  <tr><td>03 sep</td><td>Granada · Guadix</td><td><span class="chip chip-gastos">Por justificar</span></td><td>›</td></tr>
+                  <tr><td><button class="comision-toggle" type="button" aria-expanded="false">24 sep</button></td><td>Granada · Baza · Purchil</td><td><span class="chip chip-borrador">Borrador</span></td><td>›</td></tr>
+                  <tr class="comision-detalle" hidden><td colspan="4"><strong>Reunión técnica de coordinación</strong><span>Salida 08:00 · 3 rutas · borrador pendiente de completar</span></td></tr>
+                  <tr><td><button class="comision-toggle" type="button" aria-expanded="false">18 sep</button></td><td>Granada · Loja</td><td><span class="chip chip-revision">Pendiente de jefatura</span></td><td>›</td></tr>
+                  <tr class="comision-detalle" hidden><td colspan="4"><strong>Visita técnica de obra</strong><span>Salida 07:30 · 2 rutas · enviada a jefatura</span></td></tr>
+                  <tr><td><button class="comision-toggle" type="button" aria-expanded="false">03 sep</button></td><td>Granada · Guadix</td><td><span class="chip chip-gastos">Liquidada</span></td><td>›</td></tr>
+                  <tr class="comision-detalle" hidden><td colspan="4"><strong>Inspección de obra provincial</strong><span>107,2 km · justificantes revisados</span></td></tr>
                 </tbody></table></div>
               </section>
               <section class="bloque gastos">

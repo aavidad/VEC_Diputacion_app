@@ -180,10 +180,33 @@ test("selecciona localmente otra comisión sin habilitar efectos", () => {
   const contenedor = crearRaiz();
   const vista = montarVistaRecorridosDietas(contenedor);
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  assert.equal(
+    raiz.querySelectorAll("[data-dietas-detalle-fila]").every((fila) => fila.hidden),
+    true,
+  );
   raiz.listeners.click({ target: raiz.querySelector('[data-dietas-seleccionar-comision="DIE-2026-0091"]') });
-  const detalle = raiz.querySelector('[data-dietas-detalle-presentacion="DIE-2026-0091"]');
-  assert.equal(detalle.hidden, false);
+  const filaDetalle = raiz.querySelector('[data-dietas-detalle-fila="DIE-2026-0091"]');
+  assert.equal(filaDetalle.hidden, false);
+  assert.equal(
+    raiz.querySelectorAll("[data-dietas-detalle-fila]").filter((fila) => !fila.hidden).length,
+    1,
+  );
+  assert.equal(filaDetalle.parent.children.indexOf(filaDetalle) > 0, true);
+  raiz.listeners.click({ target: raiz.querySelector('[data-dietas-seleccionar-comision="DIE-2026-0091"]') });
+  assert.equal(filaDetalle.hidden, true);
   assert.equal(raiz.querySelectorAll("button").some((boton) => boton.disabled), true);
+  vista.desmontar();
+});
+
+test("distingue visualmente borrador, pendiente y liquidada", () => {
+  const contenedor = crearRaiz();
+  const vista = montarVistaRecorridosDietas(contenedor);
+  const clases = contenedor.querySelectorAll("span")
+    .filter((nodo) => nodo.className?.includes("estado-chip"))
+    .map((nodo) => nodo.className);
+  assert.ok(clases.some((clase) => clase.includes("aviso")));
+  assert.ok(clases.some((clase) => clase.includes("info")));
+  assert.ok(clases.some((clase) => clase.includes("exito")));
   vista.desmontar();
 });
 

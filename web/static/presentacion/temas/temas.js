@@ -29,6 +29,29 @@ export function montarGaleriaDisenos(documento = globalThis.document) {
     fragmento.querySelector(".propuesta-numero").textContent = diseno.id;
     fragmento.querySelector(".propuesta-titulo h2").textContent = diseno.nombre;
     fragmento.querySelector(".propuesta-criterio").textContent = diseno.criterio;
+    const botonAlta = fragmento.querySelector(".abrir-alta");
+    const altaRutas = fragmento.querySelector(".alta-rutas");
+    const alAlternarAlta = () => {
+      const abierta = altaRutas.hidden;
+      altaRutas.hidden = !abierta;
+      propuesta.toggleAttribute("data-alta-abierta", abierta);
+      botonAlta.setAttribute("aria-expanded", String(abierta));
+      botonAlta.textContent = abierta ? "Cerrar nueva comisión" : "Nueva comisión";
+    };
+    botonAlta.addEventListener("click", alAlternarAlta);
+    escuchas.push([botonAlta, alAlternarAlta]);
+    propuesta.querySelectorAll(".comision-toggle").forEach((control) => {
+      const detalle = control.closest("tr")?.nextElementSibling;
+      const alAlternarDetalle = () => {
+        const abrir = detalle.hidden;
+        propuesta.querySelectorAll(".comision-detalle").forEach((fila) => { fila.hidden = true; });
+        propuesta.querySelectorAll(".comision-toggle").forEach((otro) => otro.setAttribute("aria-expanded", "false"));
+        detalle.hidden = !abrir;
+        control.setAttribute("aria-expanded", String(abrir));
+      };
+      control.addEventListener("click", alAlternarDetalle);
+      escuchas.push([control, alAlternarDetalle]);
+    });
     const boton = fragmento.querySelector(".elegir-diseno");
     boton.textContent = `Elegir ${diseno.id} · ${diseno.nombre}`;
     const alElegir = () => {
