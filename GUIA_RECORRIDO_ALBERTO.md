@@ -1,5 +1,32 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Itinerario multirruta de Dietas — comprobación visible
+
+1. Abra
+   `/portal-empleado/?presentacion=rrhh&perfil=funcionario#dietas`. El parámetro
+   `perfil=funcionario` es necesario; sin un perfil admitido el portal vuelve a
+   `#portal`.
+2. Seleccione **Granada** como salida, añada **Baza** y **Purchil** como paradas
+   y seleccione **Granada** como destino final. Las etapas pueden añadirse,
+   retirarse y reordenarse antes del cálculo.
+3. Pulse **Calcular itinerario con OSRM interno**. Deben aparecer tres filas y
+   tres entradas de leyenda: Granada → Baza, Baza → Purchil y Purchil → Granada.
+4. Compruebe que cada geometría sigue la carretera y usa un estilo distinto.
+   Los primeros tres estilos son azul petróleo `#155e75` continuo, naranja
+   `#9a3412` discontinuo y verde `#4d7c0f` punto-raya. El color no sustituye al
+   texto ni al patrón.
+5. La suma mostrada debe coincidir con los kilómetros de los tres tramos. En
+   móvil no debe aparecer desbordamiento global; las tablas anchas conservan su
+   desplazamiento interno.
+
+La evidencia de navegador del corte `5b847553` usó una respuesta HTTP doble con
+281,2 km para verificar composición, contrato, mapa y accesibilidad. Para
+acreditar kilómetros reales hay que repetir los mismos pasos con el grafo OSRM
+privado autorizado y conservar la versión del grafo. La aplicación rechaza
+`steps` discontinuos y nunca completa una geometría mediante una línea recta.
+Este cálculo sigue siendo orientativo y no abre expediente, liquida, paga,
+firma ni envía nada.
+
 ## Itinerario provincial de Dietas — presentación local
 
 Este recorrido consulta cartografía real interna, pero la ruta es orientativa,

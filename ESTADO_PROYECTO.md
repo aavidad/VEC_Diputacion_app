@@ -1,5 +1,41 @@
 # Estado y plan de ataque del proyecto
 
+## Dietas multirruta y accesos directos del portal — 20 de septiembre de 2026
+
+Los cortes `5b8475538bbbaa918e3914ca6b3bb5e36dd2e298` y
+`8ad5356c71c35d7b3308c1b0e304054ea77dc267` amplían la superficie visible sin
+atribuirle efectos administrativos. Dietas permite ordenar origen, paradas y
+destino, añadir o retirar etapas y calcular un itinerario de hasta once tramos.
+Cada tramo conserva la geometría vial que OSRM entrega en sus `steps`, se dibuja
+con color y patrón propios y aparece en una leyenda origen → destino con sus
+kilómetros. Una discontinuidad entre pasos se rechaza: no se inventan enlaces
+rectos ni se usa el dibujo para calcular una cuantía liquidable.
+
+Chromium comprobó en 1440×1000 y 390×844 el recorrido
+Granada → Baza → Purchil → Granada mediante el contrato HTTP del mediador: tres
+tramos, tres estilos (`#155e75`, `#9a3412`, `#4d7c0f`) y 281,2 km de suma, sin
+errores JavaScript ni desbordamiento global. El ensayo interceptó únicamente la
+respuesta OSRM y las teselas para probar navegador y contrato; no acredita el
+grafo vial real de este nuevo recorrido. El motor real sigue cubierto por E27 y
+debe repetirse con el grafo autorizado antes de afirmar este itinerario exacto.
+
+Los avisos de presentación admiten ahora destinos internos enumerados y abren
+directamente su procedimiento; no aceptan URL ni HTML arbitrarios. Cronos,
+Dietas, Personal, Solicitudes, Aprobaciones y Comunicaciones trasladan las
+explicaciones ordinarias al botón de ayuda, manteniendo visibles los límites de
+seguridad, privacidad y ausencia de efectos. Pasaron 186 pruebas Node, las
+pruebas Go focales de Dietas/Personal/composición, la comprobación de diferencias
+y el verificador de manifiestos.
+
+La preparación durable de borradores Dietas/relaciones de Personal no forma
+parte de estos commits. Está conservada localmente en el stash
+`WIP Dietas-Personal durable R4 revisado; NO-GO instalacion y exposicion
+2026-09-20`: sus dos revisiones permiten conservar el código desconectado, pero
+no instalar SQL ni exponer rutas hasta cerrar RLS por persona, identidad y
+autorización comunes y las pruebas PostgreSQL de ACL, atomicidad, concurrencia
+y recuperación. No se instaló SQL, no se publicó despliegue y no se efectuó
+liquidación, pago, firma o envío.
+
 ## Portal RRHH visible y RPT completa de consulta — 20 de septiembre de 2026
 
 El corte `d0601a460a4737dd0234b8e71b042ff9810f7bf2` completa en la superficie de
