@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es" data-i18n-catalogo="/acceso/gateway/locales/es.json">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Acceso seguro al área personal de VEC." data-i18n-atributo="content:gateway.descripcion_pagina">
+  <title data-i18n="gateway.titulo_pagina">Acceso al área personal | VEC</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/acceso/gateway/gateway.css?v=20260920-c1">
+  <script type="module" src="/acceso/gateway/acceso.js"></script>
+</head>
+<body class="gateway-acceso">
+  <a class="gateway-salto" href="#contenido-principal" data-i18n="gateway.saltar_contenido">Saltar al contenido principal</a>
+  <header class="gateway-cabecera">
+    <div class="gateway-contenedor gateway-cabecera-contenido">
+      <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      <p><span data-i18n="gateway.cabecera.servicio">Ventanilla electrónica</span><strong data-i18n="gateway.cabecera.area">Área personal</strong></p>
+    </div>
+  </header>
+  <main id="contenido-principal" class="gateway-principal" tabindex="-1">
+    <section class="gateway-marco" aria-labelledby="gateway-titulo">
+      <div class="gateway-introduccion">
+        <p class="gateway-sigla">VEC</p>
+        <p class="gateway-sobrelinea" data-i18n="gateway.sobrelinea">Acceso de personal</p>
+        <h1 id="gateway-titulo" data-i18n="gateway.titulo">Área personal</h1>
+        <p data-i18n="gateway.introduccion">Acceda mediante certificado digital o DNIe para continuar en la ventanilla electrónica.</p>
+      </div>
+      <div class="gateway-panel">
+        <p class="gateway-sobrelinea gateway-sobrelinea-clara" data-i18n="gateway.panel.sobrelinea">Identificación electrónica</p>
+        <h2 data-i18n="gateway.panel.titulo">Acceso seguro</h2>
+        <div id="estado-acceso" class="gateway-estado" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" data-estado="comprobando">
+          <span class="gateway-estado-marca" aria-hidden="true">i</span>
+          <div>
+            <strong id="estado-titulo" data-i18n="gateway.estado.comprobando.titulo">Comprobando la sesión segura</strong>
+            <p id="estado-descripcion" data-i18n="gateway.estado.comprobando.descripcion">Espere mientras se verifica el acceso.</p>
+          </div>
+        </div>
+        <div class="gateway-metodos" aria-label="Métodos de acceso" data-i18n-atributo="aria-label:gateway.metodos.etiqueta">
+          <section class="gateway-metodo" aria-labelledby="metodo-certificado">
+            <div>
+              <h3 id="metodo-certificado" data-i18n="gateway.certificado.titulo">Certificado digital o DNIe</h3>
+              <p data-i18n="gateway.certificado.descripcion">El navegador solicitará el certificado disponible para esta sede.</p>
+            </div>
+            <button id="boton-certificado" type="button" data-i18n="gateway.certificado.accion">Acceder con certificado o DNIe</button>
+          </section>
+          <section class="gateway-metodo gateway-metodo-pendiente" aria-labelledby="metodo-clave">
+            <div>
+              <h3 id="metodo-clave" data-i18n="gateway.clave.titulo">Cl@ve</h3>
+              <p data-i18n="gateway.clave.descripcion">Pendiente de configuración institucional.</p>
+            </div>
+            <button type="button" disabled aria-describedby="clave-ayuda" data-i18n="gateway.clave.accion">Pendiente de configuración institucional</button>
+          </section>
+        </div>
+        <p id="clave-ayuda" class="gateway-ayuda" data-i18n="gateway.ayuda">No introduzca DNI, claves ni ficheros de certificado en esta página. La autorización se comprueba en el servicio.</p>
+        <button id="boton-cerrar" class="gateway-cerrar" type="button" hidden data-i18n="gateway.cerrar.accion">Cerrar sesión</button>
+      </div>
+    </section>
+  </main>
+  <footer class="gateway-pie"><p class="gateway-contenedor" data-i18n="gateway.pie">Diputación de Granada · Ventanilla electrónica corporativa</p></footer>
+</body>
+</html>
