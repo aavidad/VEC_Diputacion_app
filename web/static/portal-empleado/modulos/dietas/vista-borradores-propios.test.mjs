@@ -76,6 +76,9 @@ function raiz() {
   };
   return new Nodo(documento, "root");
 }
+function textoVisible(nodo) {
+  return [nodo.textContent, ...nodo.children.map(textoVisible)].join(" ");
+}
 const item = Object.freeze({
   comision: {
     referencia: "dco_1234567890123456789012",
@@ -172,5 +175,15 @@ test("ante resultado incierto conserva una salida comprensible sin fabricar reci
   );
   assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
   assert.equal(avisos.at(-1)[1], "error");
+  vista.desmontar();
+});
+
+test("reserva la explicación administrativa para la ayuda contextual", () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor);
+  assert.doesNotMatch(
+    textoVisible(contenedor),
+    /Cree un borrador propio|No acredita autorización, liquidación ni pago/u,
+  );
   vista.desmontar();
 });

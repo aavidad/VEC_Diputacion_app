@@ -1263,14 +1263,14 @@ test("los activos de los recorridos visuales están declarados en HTML y ambos m
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-dietas-mapa-visible-v2";
-  const versionPortal = "20260920-dietas-mapa-visible-v2";
+  const versionCoordinador = "20260920-dietas-ayuda-contextual-v3";
+  const versionPortal = "20260920-dietas-ayuda-contextual-v3";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260920-referencia-rrhh-v1";
   const versionTemaCT = "20260918-botones-v1";
   const versionPulido = "20260920-recorridos-visibles-v1";
-  const versionDietas = "20260920-dietas-mapa-visible-v2";
+  const versionDietas = "20260920-dietas-ayuda-contextual-v3";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([

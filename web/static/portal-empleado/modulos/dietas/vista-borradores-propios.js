@@ -355,7 +355,6 @@ export function montarVistaBorradoresPropios(
     if (!activaAhora()) return;
     raiz.replaceChildren(
       nodo(documento, "h2", traducir("borradores_propios_titulo")),
-      nodo(documento, "p", traducir("borradores_propios_ayuda")),
     );
     const aviso = nodo(documento, "p", traducir(estado.mensaje));
     aviso.dataset.dietasBorradoresEstado = "";

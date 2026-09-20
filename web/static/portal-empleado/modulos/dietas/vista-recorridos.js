@@ -32,10 +32,6 @@ function botonPendiente(documento, t, clave) {
   boton.type = "button";
   boton.className = "boton-secundario";
   boton.disabled = true;
-  boton.setAttribute(
-    "aria-describedby",
-    "dietas-recorridos-conexion-pendiente",
-  );
   return boton;
 }
 
@@ -420,9 +416,6 @@ export function montarVistaRecorridosDietas(
     }
   }
   const titulo = elemento(documento, "h2", traducir("recorridos_titulo_presentacion"));
-  const limiteOperativo = elemento(documento, "p", traducir("recorridos_limite_operativo"));
-  limiteOperativo.id = "dietas-recorridos-conexion-pendiente";
-  limiteOperativo.className = "dietas-recorridos-aviso";
   const pasos = elemento(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_titulo"));
@@ -456,7 +449,7 @@ export function montarVistaRecorridosDietas(
   const cuerpo = elemento(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   cuerpo.append(solicitante, jefatura, gestion, lateral);
-  raiz.append(titulo, limiteOperativo, pasos, cuerpo);
+  raiz.append(titulo, pasos, cuerpo);
 
   function pintar() {
     if (!activa || !sigueMontada(contenedor, raiz)) return;

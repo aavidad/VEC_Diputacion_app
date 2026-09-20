@@ -466,7 +466,6 @@ export function montarVistaItinerarioPendienteDietas({
   panel.append(
     crearCabeceraItinerario(documento, traducir),
     crearMapaPendiente(documento, traducir),
-    elemento(documento, "p", traducir("recorridos_limite_operativo")),
   );
   contenedor.append(panel);
   raiz.append(contenedor);
