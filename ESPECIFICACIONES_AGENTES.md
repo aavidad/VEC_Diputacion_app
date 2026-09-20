@@ -87,6 +87,16 @@ solicitud de forma condicional si la previsión no supera el hito y revalida el
 cumplimiento al alcanzarlo. Una previsión nunca se convierte en acreditación ni
 se reutiliza como excepción en una bolsa o convocatoria distinta.
 
+En la edición RRHH de cada requisito de titulación de una OPE habrá un control
+«Permitir inscripción con titulación pendiente», desactivado por defecto. Al
+activarlo son obligatorios el hito o fecha límite de obtención y la evidencia
+admitida para justificar la previsión. En bolsas de incorporación inmediata el
+control permanece deshabilitado. Este valor forma parte de la versión de las
+bases: RRHH no puede alternarlo libremente después de publicar; cualquier cambio
+posterior exige el circuito de nueva versión o rectificación que corresponda y
+deja historia. La autorización configura lo que dicen las bases, no concede a
+RRHH capacidad para crear una excepción individual.
+
 La evaluación no sustituye la admisión administrativa. Un resultado pendiente
 no bloquea por sí solo el derecho a presentar la solicitud si las bases permiten
 declarar o aportar ese requisito durante el trámite. Al pulsar el aviso se abre
