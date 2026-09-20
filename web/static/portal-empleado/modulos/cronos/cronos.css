@@ -179,6 +179,44 @@
   flex-wrap: wrap;
 }
 
+.cronos-cabecera-compacta {
+  align-items: center;
+}
+
+.cronos-boton-ayuda {
+  display: inline-flex;
+  min-width: 25px;
+  min-height: 25px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 999px;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.cronos-boton-ayuda:hover,
+.cronos-boton-ayuda:focus-visible {
+  border-color: var(--portal-azul-600);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-azul-600) 18%, transparent);
+}
+
+.cronos-formulario label > span .cronos-boton-ayuda {
+  vertical-align: middle;
+}
+
+.cronos-limite-compacto {
+  margin: 3px 0 0;
+  color: var(--portal-muted);
+  font-size: 0.7rem;
+}
+
 .cronos-acciones,
 .cronos-formulario-acciones {
   display: flex;

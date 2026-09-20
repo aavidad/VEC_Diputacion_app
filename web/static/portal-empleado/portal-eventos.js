@@ -6,6 +6,7 @@
  * informativas y nunca producen efectos administrativos en el navegador.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { validarAvisosPortal } from "./portal-contrato.js";
 
 const NOMBRES_CAMPOS_OPERACION = new Set([
   "denominacion", "categoria", "expediente", "tipo_proceso", "apertura", "cierre",
@@ -114,6 +115,37 @@ export function restaurarFocoTrasReintentoBorradores(raiz = globalThis.document)
   (control && typeof control.focus === "function" ? control : tarjeta)
     .focus({ preventScroll: true });
   return true;
+}
+
+export function renderizarAvisosNavegables(avisos, escaparHTML) {
+  const avisosValidados = validarAvisosPortal(avisos);
+  if (avisosValidados.length === 0) return "<p>No hay avisos accesibles.</p>";
+  return `<ul class="lista-avisos-navegables">${avisosValidados.map((aviso, indice) => {
+    const destino = aviso.destino;
+    const contexto = `Ir a ${destino.etiqueta}`;
+    if (destino.estado === "pendiente") {
+      return `<li><p>${escaparHTML(aviso.texto)}</p><button type="button" class="boton-secundario" disabled aria-disabled="true" title="Destino pendiente de conexión">${escaparHTML(contexto)} · Pendiente de conexión</button></li>`;
+    }
+    return `<li><p>${escaparHTML(aviso.texto)}</p><button type="button" class="boton-secundario" data-aviso-destino="${indice}" aria-label="${escaparHTML(contexto)}">${escaparHTML(contexto)}</button></li>`;
+  }).join("")}</ul>`;
+}
+
+export function instalarDestinosAvisos(contenedor, avisos, { cerrar, navegar, anunciar }) {
+  const avisosValidados = validarAvisosPortal(avisos);
+  const manejarClick = (evento) => {
+    const boton = evento.target?.closest?.("[data-aviso-destino]");
+    if (!boton || !contenedor?.contains?.(boton)) return;
+    const indice = Number(boton.dataset.avisoDestino);
+    if (!Number.isSafeInteger(indice) || indice < 0 || indice >= avisosValidados.length) return;
+    const destino = avisosValidados[indice].destino;
+    if (destino.estado !== "disponible") return;
+    evento.preventDefault?.();
+    cerrar();
+    navegar(destino.vista, destino.referencia ? { referencia: destino.referencia } : {});
+    anunciar(`Aviso: ${destino.etiqueta}`);
+  };
+  contenedor?.addEventListener?.("click", manejarClick);
+  return () => contenedor?.removeEventListener?.("click", manejarClick);
 }
 
 export function crearControladorPortal(dependencias) {
@@ -398,7 +430,15 @@ export function crearControladorPortal(dependencias) {
         break;
       }
       case "avisos":
-        abrirDialogo("Avisos", `<ul>${datosPanel.avisos.map((aviso) => `<li>${escaparHTML(aviso.texto)}</li>`).join("") || "<li>No hay avisos accesibles.</li>"}</ul>`);
+        try {
+          abrirDialogo("Avisos", renderizarAvisosNavegables(datosPanel.avisos, escaparHTML),
+            ({ contenedor, cerrar, navegar: navegarAviso, anunciar: anunciarAviso }) => instalarDestinosAvisos(
+              contenedor, datosPanel.avisos, { cerrar, navegar: navegarAviso, anunciar: anunciarAviso },
+            ));
+        } catch {
+          abrirDialogo("Avisos", '<p class="nota-pendiente">Los avisos no cumplen el contrato de navegación segura.</p>');
+          anunciar("Los avisos se han rechazado de forma segura");
+        }
         break;
       case "exportar":
       case "aplicar-filtros":

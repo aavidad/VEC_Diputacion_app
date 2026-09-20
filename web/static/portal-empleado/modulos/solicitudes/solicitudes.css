@@ -25,6 +25,10 @@
 .solicitudes-chip--aviso { background: #fff1d7; color: #835000; }.solicitudes-chip--exito { background: #e4f4e8; color: #176332; }
 .solicitudes-rejilla { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr); gap: 1rem; }
 .solicitudes-tarjetas, .solicitudes-pasos { display: grid; gap: .65rem; }
+.solicitudes-ayuda { position: relative; flex: 0 0 auto; }
+.solicitudes-ayuda summary { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border: 1px solid var(--portal-borde, #c7d2dc); border-radius: 50%; color: var(--portal-azul-700, #005b9f); cursor: pointer; font-weight: 800; list-style: none; }
+.solicitudes-ayuda summary::-webkit-details-marker { display: none; }
+.solicitudes-ayuda p { position: absolute; z-index: 2; right: 0; width: min(20rem, 75vw); margin: .35rem 0 0; padding: .65rem; border: 1px solid var(--portal-borde, #c7d2dc); border-radius: var(--portal-radio, .35rem); background: var(--portal-superficie, #fff); box-shadow: 0 .35rem .8rem #001b3326; color: var(--portal-texto, #17212b); font-size: .82rem; }
 .solicitudes-tarjeta, .solicitudes-paso { padding: .85rem; border: 1px solid var(--portal-borde, #c7d2dc); border-radius: var(--portal-radio, .35rem); background: var(--portal-superficie, #fff); }
 .solicitudes-tarjeta h4, .solicitudes-paso h4 { margin: 0 0 .3rem; }.solicitudes-tarjeta p, .solicitudes-paso p { color: var(--portal-muted, #4e5b66); font-size: .84rem; }
 .solicitudes-detalle { display: grid; gap: .8rem; }.solicitudes-detalle dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin: 0; }.solicitudes-detalle dt { color: var(--portal-muted, #4e5b66); font-size: .76rem; }.solicitudes-detalle dd { margin: .1rem 0 0; font-weight: 700; }

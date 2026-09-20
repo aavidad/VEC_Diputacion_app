@@ -90,6 +90,8 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   ficha_sobrelinea: "Portal del Empleado → Personal",
   ficha_titulo: "Mi ficha integral",
   ficha_ayuda: "Consulta estructurada por titular. La identidad, la relación y cada fuente se resolverán en el servidor cuando exista el contrato autorizado.",
+  ficha_abrir_ayuda: "? Ayuda sobre esta ficha",
+  ficha_aviso_compacto: "Estado: conexión pendiente (visual_pendiente_backend) · Datos ficticios de presentación · fuente pendiente · sin identidad privada, sin inferir relación laboral y sin efectos administrativos.",
   ficha_fuente_pendiente: "Pendiente de conexión · No hay una proyección autorizada de la persona ni de su relación de servicio.",
   ficha_sin_datos: "No se muestran nombre, empleado, puesto, saldo, antigüedad, nómina ni documentos: su ausencia de fuente no equivale a cero.",
   ficha_empleo: "Empleo y relaciones",

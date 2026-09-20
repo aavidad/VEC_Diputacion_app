@@ -39,6 +39,17 @@ const CAMPOS_ACTUACION = Object.freeze([
   "prioridad_clave", "fecha_limite", "numero_elementos",
 ]);
 
+// Un aviso solo puede abrir una vista que ya conoce el router del Portal. No
+// se aceptan URL, hashes ni nombres de módulos construidos desde el dato.
+export const VISTAS_DESTINO_AVISO = Object.freeze(new Set([
+  "portal", "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
+  "baremacion", "alegaciones", "importacion", "llamamientos", "contratos", "reglas",
+  "consulta", "estadisticas", "documentos", "comunicaciones", "auditoria", "configuracion",
+  "bolsa-candidatos", "contratacion-temporal", "cronos", "dietas", "personal",
+  "nominas-empleado", "solicitudes-empleado", "meritos-empleado", "comunicaciones-empleado",
+  "documentos-empleado", "aprobaciones-empleado", "auditoria-empleado", "administracion-empleado",
+]));
+
 function esObjeto(valor) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
 }
@@ -95,6 +106,33 @@ export function extraerDatosEnvelopeCanonico(envelope) {
   return envelope.data;
 }
 
+/**
+ * Contrato reutilizable de avisos navegables. La referencia es opaca y solo
+ * acompaña a la navegación interna; nunca se convierte en URL ni HTML.
+ */
+export function validarAvisosPortal(avisos) {
+  if (!Array.isArray(avisos) || avisos.length > 20) throw new Error("lista de avisos no válida");
+  return avisos.map((aviso) => {
+    exigirCamposExactos(aviso, ["texto", "destino"], "aviso");
+    const texto = exigirCadena(aviso.texto, "texto del aviso");
+    if (texto.length > 240) throw new Error("texto del aviso no válido");
+    exigirCamposExactos(aviso.destino, ["vista", "etiqueta", "estado", "referencia"], "destino del aviso", ["referencia"]);
+    const vista = exigirCadena(aviso.destino.vista, "vista de destino");
+    if (!VISTAS_DESTINO_AVISO.has(vista)) throw new Error("vista de destino no registrada");
+    const etiqueta = exigirCadena(aviso.destino.etiqueta, "etiqueta de destino");
+    if (etiqueta.length > 120) throw new Error("etiqueta de destino no válida");
+    const estado = exigirCadena(aviso.destino.estado, "estado de destino");
+    if (estado !== "disponible" && estado !== "pendiente") throw new Error("estado de destino no válido");
+    const destino = { vista, etiqueta, estado };
+    if (Object.hasOwn(aviso.destino, "referencia")) {
+      const referencia = exigirCadena(aviso.destino.referencia, "referencia del aviso");
+      if (!/^(?:[a-z][a-z0-9_-]{2,127}|DEMO-[A-Z0-9-]{3,127})$/.test(referencia)) throw new Error("referencia del aviso no válida");
+      destino.referencia = referencia;
+    }
+    return Object.freeze({ texto, destino: Object.freeze(destino) });
+  });
+}
+
 export function validarPanelBolsa(datos, admiteDemostracion = false) {
   if (!esObjeto(datos)) throw new Error("respuesta del panel no válida");
   if (!admiteDemostracion) return validarPanelInterno(datos);
@@ -113,7 +151,7 @@ export function validarPanelBolsa(datos, admiteDemostracion = false) {
     indicadores: esObjeto(datos.indicadores) ? { ...datos.indicadores } : {},
     distribucion_global: esObjeto(datos.distribucion_global) ? { ...datos.distribucion_global } : {},
     series: esObjeto(datos.series) ? { ...datos.series } : {},
-    avisos: [...datos.avisos],
+    avisos: validarAvisosPortal(datos.avisos),
     capacidades: esObjeto(datos.capacidades) ? { ...datos.capacidades } : {},
     configuracion_llamamiento: esObjeto(datos.configuracion_llamamiento) ? { ...datos.configuracion_llamamiento } : {},
     catalogos_llamamiento: esObjeto(datos.catalogos_llamamiento) ? { ...datos.catalogos_llamamiento } : {},

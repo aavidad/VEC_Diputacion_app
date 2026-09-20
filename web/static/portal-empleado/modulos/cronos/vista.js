@@ -103,6 +103,13 @@ function botonDescargaRecibo(referencia, disponible, t) {
     ${disponible ? "" : `disabled aria-disabled="true" title="${escaparHTML(t("descarga_sin_puerto"))}"`}>${escaparHTML(t("descargar_recibo"))}</button>`;
 }
 
+// La ayuda se resuelve por el ayudante contextual ya instalado en el Portal.
+// Cronos no conserva instrucciones duplicadas ni introduce otra autoridad.
+function botonAyuda(t, asunto) {
+  const etiqueta = t("abrir_ayuda", { asunto });
+  return `<button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(etiqueta)}" title="${escaparHTML(etiqueta)}"><span aria-hidden="true">?</span><span class="cronos-boton-ayuda-texto">${escaparHTML(t("ayuda"))}</span></button>`;
+}
+
 export function renderizarAreaCronos({
   contextoActor, capacidades = [], datos, recibos = [], mensaje = "",
   mensajes = MENSAJES_CRONOS_ES, descargaRecibosDisponible = false,
@@ -156,7 +163,6 @@ export function renderizarAreaCronos({
       <div>
         <p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p>
         <h2 id="cronos-titulo">${escaparHTML(t("titulo"))}</h2>
-        <p>${escaparHTML(t("descripcion"))}</p>
       </div>
       <div class="cronos-encabezado-estado">
         ${vista.demostracion ? `<div class="cronos-distintivo-demo" role="status"><span>${escaparHTML(t("entorno_demo"))}</span><span> ${escaparHTML(t("solicitud_demo"))}</span></div>` : `<span class="cronos-estado cronos-estado-exito">${escaparHTML(t("servicio_interno"))}</span>`}
@@ -166,8 +172,8 @@ export function renderizarAreaCronos({
 
     <section class="cronos-frontera" aria-label="${escaparHTML(t("ambito_etiqueta"))}">
       <div><strong>${escaparHTML(contexto.actor.nombre_visible)}</strong><span>${escaparHTML(contexto.rol.etiqueta)}</span></div>
-      <p><strong>${escaparHTML(t("ambito_texto"))}</strong> ${escaparHTML(t("ambito_descripcion"))}</p>
-      <p><strong>${escaparHTML(t("privacidad_texto"))}</strong> ${escaparHTML(t("privacidad_descripcion"))}</p>
+      <p><strong>${escaparHTML(t("ambito_texto"))}</strong> ${botonAyuda(t, t("ambito_etiqueta"))}</p>
+      <p><strong>${escaparHTML(t("privacidad_texto"))}</strong> ${escaparHTML(t("privacidad_resumen"))} ${botonAyuda(t, t("privacidad_texto"))}</p>
     </section>
 
     <nav class="cronos-navegacion" aria-label="${escaparHTML(t("navegacion_etiqueta"))}">
@@ -186,7 +192,7 @@ export function renderizarAreaCronos({
 
     <div class="cronos-rejilla-principal">
       <section class="panel cronos-panel" aria-labelledby="cronos-fichajes">
-        <div class="cabecera-panel cronos-cabecera-panel"><div><h3 id="cronos-fichajes">${escaparHTML(t("fichajes_titulo"))}</h3><p>${escaparHTML(t("fichajes_descripcion"))}</p></div>
+        <div class="cabecera-panel cronos-cabecera-panel"><div><h3 id="cronos-fichajes">${escaparHTML(t("fichajes_titulo"))}</h3></div>${botonAyuda(t, t("fichajes_titulo"))}
           <div class="cronos-acciones">${accionFichaje("entrada", puedeFichar, vista.demostracion, t)}${accionFichaje("inicio_pausa", puedeFichar, vista.demostracion, t)}${accionFichaje("fin_pausa", puedeFichar, vista.demostracion, t)}${accionFichaje("salida", puedeFichar, vista.demostracion, t)}</div>
         </div>
         ${puedeConsultarFichajes
@@ -195,7 +201,7 @@ export function renderizarAreaCronos({
       </section>
 
       <aside class="panel cronos-panel" aria-labelledby="cronos-horario-titulo">
-        <div class="cabecera-panel"><div><h3 id="cronos-horario-titulo">${escaparHTML(t("horario_titulo"))}</h3><p>${escaparHTML(t("horario_descripcion"))}</p></div></div>
+        <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-horario-titulo">${escaparHTML(t("horario_titulo"))}</h3></div>${botonAyuda(t, t("horario_titulo"))}</div>
         ${puedeConsultarHorario ? `<dl class="cronos-resumen-datos">
           <div><dt>${escaparHTML(t("perfil"))}</dt><dd>${escaparHTML(perfil.nombre)}</dd></div>
           <div><dt>${escaparHTML(t("jornada_diaria"))}</dt><dd>${escaparHTML(perfil.jornada_diaria)}</dd></div>
@@ -208,7 +214,7 @@ export function renderizarAreaCronos({
     </div>
 
     <section class="panel cronos-panel" id="cronos-permisos" aria-labelledby="cronos-saldos-titulo">
-      <div class="cabecera-panel"><div><h3 id="cronos-saldos-titulo">${escaparHTML(t("permisos_titulo"))}</h3><p>${escaparHTML(t("permisos_descripcion"))}</p></div></div>
+      <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-saldos-titulo">${escaparHTML(t("permisos_titulo"))}</h3></div>${botonAyuda(t, t("permisos_titulo"))}</div>
       ${puedeConsultarPermisos
     ? tabla({ id: "tabla-cronos-saldos", titulo: t("saldos_caption"), cabeceras: [t("cab_concepto"), t("cab_concedido"), t("cab_solicitado"), t("cab_aprobado"), t("cab_disfrutado"), t("cab_restante"), t("cab_estado")], filas: filasSaldos, vacio: t("saldos_vacio") })
     : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("permisos_denegado"))}</p>`}
@@ -216,28 +222,28 @@ export function renderizarAreaCronos({
 
     <div class="cronos-rejilla-secundaria">
       <section class="panel cronos-panel" aria-labelledby="cronos-solicitud-titulo">
-        <div class="cabecera-panel"><div><h3 id="cronos-solicitud-titulo">${escaparHTML(t("solicitud_titulo"))}</h3><p>${escaparHTML(t(vista.demostracion ? "solicitud_demo" : "solicitud_real"))}</p></div></div>
+        <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-solicitud-titulo">${escaparHTML(t("solicitud_titulo"))}</h3><p class="cronos-limite-compacto">${escaparHTML(t(vista.demostracion ? "solicitud_demo" : "solicitud_real"))}</p></div>${botonAyuda(t, t("solicitud_titulo"))}</div>
         <form class="cronos-formulario" data-cronos-formulario="solicitud-permiso">
           <label><span>${escaparHTML(t("tipo_permiso"))}</span><select name="tipo" required ${puedeSolicitar ? "" : "disabled"}>
             ${puedeSolicitar ? vista.saldos.map((item) => `<option value="${escaparHTML(item.id)}" data-unidad-clave="${escaparHTML(item.unidad_clave)}">${escaparHTML(t("saldo_opcion", { nombre: item.nombre, restante: cantidadVisible(item.restante, item.unidad_clave, t) }))}</option>`).join("") : `<option value="">${escaparHTML(t("no_disponible"))}</option>`}
           </select></label>
           <label><span>${escaparHTML(t("desde"))}</span><input name="desde" type="date" required ${puedeSolicitar ? "" : "disabled"}></label>
           <label><span>${escaparHTML(t("hasta"))}</span><input name="hasta" type="date" required ${puedeSolicitar ? "" : "disabled"}></label>
-          <label><span>${escaparHTML(t("cantidad"))}</span><input name="cantidad" type="number" min="1" max="100000" step="1" value="1" required ${puedeSolicitar ? "" : "disabled"}><small>${escaparHTML(t("cantidad_ayuda"))}</small></label>
-          <label class="cronos-campo-ancho"><span>${escaparHTML(t("motivo"))}</span><textarea name="motivo" maxlength="500" rows="2" ${puedeSolicitar ? "" : "disabled"}></textarea><small>${escaparHTML(t("motivo_ayuda"))}</small></label>
+          <label><span>${escaparHTML(t("cantidad"))} ${botonAyuda(t, t("cantidad"))}</span><input name="cantidad" type="number" min="1" max="100000" step="1" value="1" required ${puedeSolicitar ? "" : "disabled"}></label>
+          <label class="cronos-campo-ancho"><span>${escaparHTML(t("motivo"))} ${botonAyuda(t, t("motivo"))}</span><textarea name="motivo" maxlength="500" rows="2" ${puedeSolicitar ? "" : "disabled"}></textarea></label>
           <label class="cronos-campo-ancho"><span>${escaparHTML(t("justificante"))}</span><input name="documento_ref" maxlength="120" placeholder="${escaparHTML(t("justificante_placeholder"))}" ${puedeSolicitar ? "" : "disabled"}></label>
           <div class="cronos-formulario-acciones"><button type="submit" class="boton-primario" ${puedeSolicitar ? "" : 'disabled aria-disabled="true"'}>${escaparHTML(t("preparar_solicitud"))}${vista.demostracion ? " DEMO" : ""}</button></div>
         </form>
       </section>
 
       <section class="panel cronos-panel" aria-labelledby="cronos-solicitudes-titulo">
-        <div class="cabecera-panel"><div><h3 id="cronos-solicitudes-titulo">${escaparHTML(t("solicitudes_titulo"))}</h3><p>${escaparHTML(t("solicitudes_descripcion"))}</p></div></div>
+        <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-solicitudes-titulo">${escaparHTML(t("solicitudes_titulo"))}</h3></div>${botonAyuda(t, t("solicitudes_titulo"))}</div>
         ${tabla({ id: "tabla-cronos-solicitudes", titulo: t("solicitudes_caption"), cabeceras: [t("cab_referencia"), t("cab_tipo"), t("cab_periodo"), t("cab_cantidad"), t("cab_estado"), t("cab_recibo"), t("cab_accion")], filas: filasSolicitudes, vacio: t("solicitudes_vacio") })}
       </section>
     </div>
 
     <section class="panel cronos-panel" id="cronos-historial" aria-labelledby="cronos-historial-titulo">
-      <div class="cabecera-panel"><div><h3 id="cronos-historial-titulo">${escaparHTML(t("historial_titulo"))}</h3><p>${escaparHTML(t("historial_descripcion"))}</p></div></div>
+      <div class="cabecera-panel cronos-cabecera-compacta"><div><h3 id="cronos-historial-titulo">${escaparHTML(t("historial_titulo"))}</h3></div>${botonAyuda(t, t("historial_titulo"))}</div>
       ${puedeConsultarHistorial ? tabla({ id: "tabla-cronos-historial", titulo: t("historial_caption"), cabeceras: [t("cab_fecha"), t("cab_evento"), t("cab_detalle"), t("cab_estado"), t("cab_recibo")], filas: filasHistorial, vacio: t("historial_vacio") }) : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("historial_denegado"))}</p>`}
       ${filasRecibos.length ? `<div class="cronos-recibos"><h4>${escaparHTML(t("recibos_titulo"))}</h4>${tabla({ id: "tabla-cronos-recibos", titulo: t(vista.demostracion ? "recibos_demo_caption" : "recibos_caption"), cabeceras: [t("cab_referencia"), t("cab_fecha"), t("cab_operacion"), t("cab_estado"), t("cab_accion")], filas: filasRecibos, vacio: t("recibos_vacio") })}</div>` : ""}
       <p class="cronos-mensaje" role="status" aria-live="polite">${escaparHTML(mensaje)}</p>

@@ -114,9 +114,9 @@ test("la primera pantalla es un espacio de trabajo denso, semántico y trazable"
   assert.match(html, /<label><span>Tipo de permiso<\/span>/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /Ámbito personal propio/);
-  assert.match(html, /misma identidad interna que Bolsa/);
+  assert.match(html, /data-accion="ayuda"/);
   assert.match(html, /Entorno DEMO · datos sintéticos/);
-  assert.match(html, /En DEMO no se registra, notifica ni aprueba nada fuera de esta pantalla/);
+  assert.match(html, /DEMO · sin registro, notificación ni aprobación/);
   assert.doesNotMatch(html, /<div[^>]+onclick=|javascript:|document\.cookie|localStorage|sessionStorage/i);
 });
 
@@ -362,6 +362,20 @@ test("i18n cubre la interfaz completa y la lógica visual usa códigos canónico
   assert.match(datosFuente, /estado_clave: "registrado"/);
   assert.match(datosFuente, /tipo_clave: "inicio_pausa"/);
   assert.doesNotMatch(adaptadorFuente, /getUTC(?:Hours|Date|Month)/);
+});
+
+test("Cronos deja la orientación detallada al ayudante contextual sin ocultar límites", () => {
+  const html = crearPresentadorCronos({
+    contextoActor: contextoPresentacion(),
+    capacidades: TODAS_LAS_CAPACIDADES,
+    datos: crearDatosCronosPresentacion(contextoPresentacion()),
+  }).renderizar();
+  assert.ok((html.match(/data-accion="ayuda"/g) || []).length >= 8);
+  assert.match(html, /DEMO · sin registro, notificación ni aprobación\./);
+  assert.match(html, /Sin geolocalización ni datos de terceros\./);
+  assert.doesNotMatch(html, /Introduzca días completos o minutos/);
+  assert.doesNotMatch(html, /No incluya datos de salud u otros datos innecesarios/);
+  assert.doesNotMatch(html, /Solo movimientos asociados al actor de esta sesión interna/);
 });
 
 test("CSS hereda el tema central y conserva el modelo en portátil y móvil", () => {
