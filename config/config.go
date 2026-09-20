@@ -302,6 +302,7 @@ func (c Config) Normalize() Config {
 	}
 	c.BolsaPublicSourcePath = defaultString(c.BolsaPublicSourcePath, DefaultBolsaPublicSourcePath)
 	c.PersonalOrganizacionSourcePath = strings.TrimSpace(c.PersonalOrganizacionSourcePath)
+	c.RPTCatalogoPath = strings.TrimSpace(c.RPTCatalogoPath)
 	if c.PersonalOrganizacionVersion == 0 {
 		c.PersonalOrganizacionVersion = 1
 	}

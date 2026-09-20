@@ -14,8 +14,9 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
+import { componerCronosVisible, componerDietasVisible, componerPersonalVisible } from "./portal-composicion-empleado.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
@@ -45,29 +46,34 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, presentador, vista, adaptador });
   },
   cronos: async () => {
-    const [contrato, presentador, datos, adaptador, documentos] = await Promise.all([
+    const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/presentador.js"),
-      import("./modulos/cronos/datos-presentacion.js"),
-      import("./modulos/cronos/adaptador-presentacion.js"),
-      import("./documentos/descarga-recibos-presentacion.js"),
+      import("./modulos/cronos/vista-recorridos.js"),
     ]);
-    return Object.freeze({ contrato, presentador, datos, adaptador, documentos });
+    return Object.freeze({ contrato, recorridos });
   },
   dietas: async () => {
-    const [contrato, vista, mapa, adaptador, calculador, documentos] = await Promise.all([
+    const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista.js"),
+      import("./modulos/dietas/vista-itinerario.js"),
       import("./modulos/dietas/mapa-ruta.js"),
-      import("./modulos/dietas/adaptador-presentacion.js"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./documentos/descarga-recibos-presentacion.js"),
+      import("./modulos/dietas/vista-recorridos.js"),
     ]);
-    return Object.freeze({ contrato, vista, mapa, adaptador, calculador, documentos });
+    return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
   personal: async () => {
-    const vista = await import("./modulos/personal/vista.js");
-    return Object.freeze({ vista });
+    const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
+      import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
+      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
+      import("./modulos/personal/vista-ficha-integral.js"),
+    ]);
+    return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
   },
 });
 
@@ -83,8 +89,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
   },
   personal: async () => {
-    const vista = await import("./modulos/personal/vista.js");
-    return Object.freeze({ vista });
+    const [contrato, cliente, vista] = await Promise.all([
+      import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+    ]);
+    return Object.freeze({ contrato, cliente, vista });
   },
 });
 
@@ -174,16 +184,6 @@ export async function resolverCargasModularesPresentacion(cargadores, {
       })
       : Object.freeze({ disponible: false, estado: "no_disponible" })];
   })));
-}
-
-function capacidadesCronos(contrato) {
-  return Object.freeze([
-    contrato.CAPACIDAD_CONSULTAR_FICHAJES,
-    contrato.CAPACIDAD_REGISTRAR_FICHAJE,
-    contrato.CAPACIDAD_CONSULTAR_HORARIO,
-    contrato.CAPACIDAD_CONSULTAR_PERMISOS,
-    contrato.CAPACIDAD_SOLICITAR_PERMISO,
-  ]);
 }
 
 function capacidadesDietas(contrato) {
@@ -280,66 +280,26 @@ export function crearCoordinadorModulosPortal({
     const contextos = compartirContextoActor(
       crearProveedorContextoActorFijo(contexto), contexto.ambito.modulos,
     );
-    // Personal solo se presenta en el recorrido sintético de autoservicio; no
-    // deriva acceso ni datos del ContextoActor ni del manifiesto real.
-    const personalPresentacionPermitido = contexto.rol.clave === "funcionario_autoservicio";
+    // Personal usa la misma concesión positiva de ámbito que los demás
+    // módulos: nunca se deduce de la etiqueta de rol ni de un menú.
+    const personalPresentacionPermitido = contextos.personal !== undefined;
     const cargas = await resolverCargasModularesPresentacion(
       cargadoresPresentacion,
       {
         claves: CLAVES_CARGA_MODULAR.filter(
-          (clave) => (clave === CLAVE_PERSONAL && personalPresentacionPermitido)
-            || contextos[clave] !== undefined,
+          (clave) => contextos[clave] !== undefined,
         ),
         limiteMs: limiteCargaModularMs,
         temporizadores,
       },
     );
     if (carga !== secuenciaCarga) throw new Error("carga de presentación sustituida");
-    const origenComprobacion = entorno.location?.origin || "";
-    const cronos = componerModuloAislado(contextos.cronos, cargas.cronos, (recursos) => {
-      const capacidades = capacidadesCronos(recursos.contrato);
-      return recursos.presentador.crearPresentadorCronos({
-        contextoActor: contextos.cronos,
-        capacidades,
-        datos: recursos.datos.crearDatosCronosPresentacion(contextos.cronos),
-        ejecutor: recursos.adaptador.crearEjecutorCronosPresentacion(),
-        descargarRecibo: recursos.documentos.crearDescargadorRecibosPresentacion(entorno),
-        origenComprobacion,
-      });
-    });
-    const dietas = componerModuloAislado(contextos.dietas, cargas.dietas, (recursos) => {
-      const capacidades = capacidadesDietas(recursos.contrato);
-      return Object.freeze({
-        contextoActor: contextos.dietas,
-        capacidades,
-        adaptador: recursos.adaptador.crearAdaptadorDietasPresentacion({
-          contextoActor: contextos.dietas,
-          capacidades,
-        }),
-        calculadorRuta: recursos.calculador.crearCalculadorRutasDietasPresentacionOSRM({
-          contextoActor: contextos.dietas,
-          capacidades,
-          fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
-        }),
-        descargarRecibo: recursos.documentos.crearDescargadorRecibosPresentacion(entorno),
-        visorRuta: recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true }),
-        montar: recursos.vista.montarModuloDietas,
-        origenComprobacion,
-      });
-    });
-    const personal = cargas.personal?.disponible === true ? (() => {
-      const recursos = cargas.personal.recursos;
-      if (typeof recursos.vista?.crearPresentacionPersonalDemo !== "function"
-        || typeof recursos.vista?.montarModuloPersonal !== "function") {
-        return undefined;
-      }
-      // No recibe ContextoActor: el escenario es local, sintético y no autoriza
-      // una consulta de Personal ni representa la identidad de la sesión.
-      return Object.freeze({
-        montar: recursos.vista.montarModuloPersonal,
-        presentacion: recursos.vista.crearPresentacionPersonalDemo(),
-      });
-    })() : undefined;
+    const cronos = componerModuloAislado(contextos.cronos, cargas.cronos,
+      (recursos) => componerCronosVisible(recursos, contextos.cronos, entorno));
+    const dietas = componerModuloAislado(contextos.dietas, cargas.dietas,
+      (recursos) => componerDietasVisible(recursos, contextos.dietas, capacidadesDietas(recursos.contrato), entorno));
+    const personal = componerModuloAislado(contextos.personal, cargas.personal,
+      (recursos) => componerPersonalVisible(recursos, entorno));
     const contratacionTemporal = componerModuloAislado(
       contextos.contratacion_temporal,
       cargas.contratacion_temporal,
@@ -399,7 +359,7 @@ export function crearCoordinadorModulosPortal({
         dietas: contextos.dietas === undefined
           ? "denegado"
           : (dietas === undefined ? "no_disponible" : "disponible"),
-        personal: personalPresentacionPermitido !== true
+        personal: contextos.personal === undefined
           ? "denegado"
           : (personal === undefined ? "no_disponible" : "disponible"),
       }),
@@ -570,11 +530,17 @@ export function crearCoordinadorModulosPortal({
           cargarPersonal, CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
         );
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        if (typeof recursos?.vista?.montarModuloPersonal !== "function") {
+        if (typeof recursos?.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
+          || typeof recursos?.vista?.montarModuloPersonal !== "function"
+          || recursos?.contrato?.CAPACIDAD_CONSULTAR_PUESTO !== "personal.puesto.read") {
           throw new TypeError("vista de Personal no disponible");
         }
-        // El manifiesto no concede la consulta: no se entrega identidad ni datos.
-        personal = Object.freeze({ montar: recursos.vista.montarModuloPersonal });
+        personal = Object.freeze({
+          cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
+            fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
+          }),
+          montar: recursos.vista.montarModuloPersonal,
+        });
       } catch {
         personal = undefined;
       }
@@ -634,7 +600,7 @@ export function crearCoordinadorModulosPortal({
       return Object.freeze({ disponible: true, vista: "dietas" });
     }
     if (clave === CLAVE_PERSONAL && vistaDisponible("personal")) {
-      return Object.freeze({ disponible: true, vista: "personal", etiqueta: "Consulta de Personal aún no habilitada" });
+      return Object.freeze({ disponible: true, vista: "personal", etiqueta: traducir("personal_catalogo_profesional") });
     }
     if (clave === CLAVE_CONTRATACION_TEMPORAL && !presentacionActiva
       && catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)) {
@@ -734,6 +700,18 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "cronos") {
+      if (typeof composicion.cronos.montar === "function") {
+        raiz.replaceChildren();
+        const modulo = await composicion.cronos.montar({ raiz, anunciar,
+          registrarDesmontar: (limpiar) => {
+            if (montaje !== secuenciaMontaje) { limpiar(); return; }
+            desmontarVista = limpiar;
+          },
+        });
+        if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
+        desmontarVista = modulo.desmontar;
+        return true;
+      }
       raiz.innerHTML = composicion.cronos.renderizar();
       const retirarEventos = composicion.cronos.instalarEventos({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) {
@@ -745,11 +723,16 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "personal") {
+      raiz.replaceChildren();
       const moduloPersonal = await composicion.personal.montar({
         raiz,
-        ...(presentacionActiva === true
-          ? { presentacion: composicion.personal.presentacion }
-          : {}),
+        cliente: composicion.personal.cliente,
+        anunciar,
+        registrarDesmontar: (limpiar) => {
+          if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida");
+          if (montaje !== secuenciaMontaje) { limpiar(); return; }
+          desmontarVista = limpiar;
+        },
       });
       if (montaje !== secuenciaMontaje) {
         moduloPersonal.desmontar();
@@ -759,17 +742,20 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    raiz.replaceChildren();
     const moduloDietas = await composicion.dietas.montar({
       raiz,
-      contextoActor: composicion.dietas.contextoActor,
-      capacidades: composicion.dietas.capacidades,
-      adaptador: composicion.dietas.adaptador,
-      calculadorRuta: composicion.dietas.calculadorRuta,
-      descargarRecibo: composicion.dietas.descargarRecibo,
+      calculador: composicion.dietas.calculador,
       visorRuta: composicion.dietas.visorRuta,
-      confirmarOperacion,
-      origenComprobacion: composicion.dietas.origenComprobacion,
       anunciar,
+      registrarDesmontar: (limpiar) => {
+        if (typeof limpiar !== "function") throw new TypeError("limpieza de Dietas no válida");
+        if (montaje !== secuenciaMontaje) {
+          limpiar();
+          return;
+        }
+        desmontarVista = limpiar;
+      },
     });
     if (montaje !== secuenciaMontaje) {
       moduloDietas.desmontar();

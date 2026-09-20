@@ -15,6 +15,8 @@ services:
       VEC_AUTH_MODE: "disabled"
       VEC_BOLSA_STORAGE_MODE: "memory"
       VEC_PERSONAL_CATALOG_PATH: "memory"
+      VEC_RPT_CATALOGO_PATH: "/app/data/catalogos/rpt/v1.rpt-2026.json"
+      VEC_PERSONAL_ORGANIZACION_SOURCE_PATH: "/app/data/catalogos/estructura-organizativa/v1.rpt-publica.json"
     expose:
       - "8080"
     networks:

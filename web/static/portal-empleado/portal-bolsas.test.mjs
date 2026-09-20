@@ -454,6 +454,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Nuevo llamamiento/);
   assert.match(htmlB5, /Registrar resultado/);
   assert.match(htmlB5, /dependen de C23/);
+  assert.match(htmlB5, /data-bolsa-c23-pendiente/);
   assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
 
   // Con paginación

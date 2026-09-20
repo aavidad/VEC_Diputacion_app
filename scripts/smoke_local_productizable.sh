@@ -6,6 +6,8 @@ set -euo pipefail
 # cabeceras ambientales como identidad.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELECTOR_TOOLCHAIN="$ROOT_DIR/scripts/seleccionar_toolchain_go_local.sh"
+GO_LOCAL=''
 BASE_URL="${VEC_SMOKE_BASE_URL:-${BOLSA_SMOKE_BASE_URL:-http://127.0.0.1:18082}}"
 ARTIFACT_DIR="${VEC_SMOKE_ARTIFACT_DIR:-${BOLSA_SMOKE_ARTIFACT_DIR:-"$ROOT_DIR/var/smoke"}}"
 MANAGED="${VEC_SMOKE_MANAGED:-${BOLSA_SMOKE_MANAGED:-0}}"
@@ -111,7 +113,7 @@ PY
 start_managed_server() {
   local addr="${BASE_URL#http://}"
   local bin="$ARTIFACT_DIR/vec-server-smoke"
-  (cd "$ROOT_DIR" && go build -buildvcs=false -o "$bin" ./cmd/vec-server)
+  (cd "$ROOT_DIR" && "$GO_LOCAL" build -buildvcs=false -o "$bin" ./cmd/vec-server)
   VEC_HTTP_ADDR="$addr" \
     VEC_BOLSA_STORAGE_MODE=local_durable \
     VEC_BOLSA_DATA_DIR="$DATA_DIR" \
@@ -137,9 +139,18 @@ require_cmd jq
 require_cmd go
 require_cmd node
 require_cmd python3
+[[ -x "$SELECTOR_TOOLCHAIN" ]] || {
+  echo "selector de toolchain no ejecutable: $SELECTOR_TOOLCHAIN" >&2
+  exit 1
+}
+export GOENV=off
+export GOTOOLCHAIN=local
+export GOPROXY=off
+export GOSUMDB=off
+GO_LOCAL=$("$SELECTOR_TOOLCHAIN")
 
 if [[ "${VEC_SMOKE_SKIP_TESTS:-${BOLSA_SMOKE_SKIP_TESTS:-0}}" != "1" ]]; then
-  (cd "$ROOT_DIR" && go test -count=1 ./...)
+  (cd "$ROOT_DIR" && "$GO_LOCAL" test -count=1 ./...)
   (cd "$ROOT_DIR" && node --input-type=module --check < web/static/app.js)
   (cd "$ROOT_DIR" && node --test web/static/modulos/cronos/resumen.test.mjs)
   (cd "$ROOT_DIR" && python3 -m json.tool locales/es.json >/dev/null)

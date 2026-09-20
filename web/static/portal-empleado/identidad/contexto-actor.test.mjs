@@ -72,15 +72,16 @@ test("la sesion existente de Bolsa produce una unica identidad interna inmutable
   assert.ok(Object.isFrozen(contexto.ambito.modulos));
 });
 
-test("Cronos y Dietas reciben exactamente el mismo ContextoActor del funcionario", () => {
+test("Cronos, Dietas y Personal reciben exactamente el mismo ContextoActor del funcionario", () => {
   const contexto = crearContextoActorPresentacionDesdeSesion(
     obtenerDatosPresentacion("funcionario").sesion,
   );
   const proveedor = crearProveedorContextoActorFijo(contexto);
-  const identidades = compartirContextoActor(proveedor, ["cronos", "dietas"]);
+  const identidades = compartirContextoActor(proveedor, ["cronos", "dietas", "personal"]);
 
   assert.strictEqual(proveedor.obtenerContexto(), contexto);
   assert.strictEqual(identidades.cronos, identidades.dietas);
+  assert.strictEqual(identidades.dietas, identidades.personal);
   assert.strictEqual(proveedor.obtenerContexto(), identidades.cronos);
   assert.throws(() => exigirContextoParaModulo(contexto, "bolsa"), /fuera del ambito/);
   assert.ok(Object.isFrozen(identidades));
@@ -116,9 +117,11 @@ test("los perfiles internos conservan actores distintos y el funcionario queda e
   assert.equal(administrador.rol.clave, "administrador_funcional_bolsa");
   assert.equal(tecnico.rol.clave, "tecnico_revisor_rrhh");
   assert.equal(funcionario.rol.clave, "funcionario_autoservicio");
-  assert.deepEqual(funcionario.ambito.modulos, ["cronos", "dietas"]);
+  assert.deepEqual(funcionario.ambito.modulos, ["cronos", "dietas", "personal"]);
   assert.throws(() => exigirContextoParaModulo(funcionario, "bolsa"), /fuera del ambito/);
   assert.deepEqual(tecnico.ambito.modulos, ["bolsa", "contratacion_temporal"]);
+  assert.ok(!tecnico.ambito.modulos.includes("personal"));
+  assert.ok(!administrador.ambito.modulos.includes("personal"));
 });
 
 test("la identidad no incorpora permisos globales ni datos identificativos civiles", () => {

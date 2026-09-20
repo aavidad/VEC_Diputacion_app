@@ -1,38 +1,61 @@
-import { CAPACIDAD_CONSULTAR_EMPLEADO, validarEstadoConsultaPersonal } from "./contrato.js";
-import { crearDatosPersonalPresentacion } from "./datos-presentacion.js";
-import { crearTraductorPersonal } from "./i18n.js";
+import { CAPACIDAD_CONSULTAR_PUESTO, validarConsultaCategorias } from "./contrato.js?v=20260920-personal-catalogo-v1";
+import { crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js?v=20260920-personal-catalogo-v1";
 
-const ESTADOS = Object.freeze({ cargando: ["Comprobando la consulta de Personal", "No se muestra ningún dato hasta recibir una capacidad positiva y una respuesta del servidor."], denegado: ["Consulta de Personal denegada", "El menú y el manifiesto no conceden acceso a datos de empleado."], error: ["Consulta de Personal no disponible", "Un error de composición no habilita datos ni operaciones."], no_habilitada: ["Consulta de Personal aún no habilitada", "El manifiesto declara la capacidad, pero el servidor no compone todavía una ruta de consulta para Personal."] });
-const PRESENTACIONES_VALIDAS = new WeakSet();
+function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
+function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-categorias]") === contenedor; }
+function retirar(raiz, contenedor) { if (!sigueMontada(raiz, contenedor)) return; if (typeof contenedor.remove === "function") contenedor.remove(); else raiz.removeChild?.(contenedor); }
 
-function escaparHTML(valor) { return String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
-function resumen(filas) { return '<dl class="resumen-expediente modulo-personal-resumen">' + filas.map((fila) => '<div><dt>' + escaparHTML(fila[0]) + '</dt><dd>' + escaparHTML(fila[1]) + '</dd></div>').join("") + '</dl>'; }
-function tabla(titulo, cabeceras, filas) { return '<section class="panel" aria-labelledby="' + titulo.id + '"><div class="cabecera-panel"><h3 id="' + titulo.id + '">' + escaparHTML(titulo.texto) + '</h3><p>' + escaparHTML(titulo.ayuda) + '</p></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="' + escaparHTML(titulo.texto) + '"><table class="tabla-datos"><caption>' + escaparHTML(titulo.texto) + '</caption><thead><tr>' + cabeceras.map((x) => '<th scope="col">' + escaparHTML(x) + '</th>').join("") + '</tr></thead><tbody>' + filas.map((fila) => '<tr><th scope="row">' + escaparHTML(fila[0]) + '</th>' + fila.slice(1).map((x) => '<td>' + escaparHTML(x) + '</td>').join("") + '</tr>').join("") + '</tbody></table></div></section>'; }
-
-export function crearPresentacionPersonalDemo() {
-  const presentacion = Object.freeze({ esquema: "vec.personal.presentacion.v1", demostracion: true, datos: crearDatosPersonalPresentacion(), traducir: crearTraductorPersonal() });
-  PRESENTACIONES_VALIDAS.add(presentacion);
-  return presentacion;
+function formularioFiltros(documento, consulta, recargar, t) {
+  const formulario = nodo(documento, "form"); formulario.dataset.personalCategoriasFiltros = "";
+  const etiquetaQ = nodo(documento, "label", t("catalogo_buscar")); const entradaQ = nodo(documento, "input"); entradaQ.name = "q"; entradaQ.value = consulta.q; entradaQ.maxLength = 100; etiquetaQ.append(entradaQ);
+  const etiquetaArea = nodo(documento, "label", t("catalogo_area")); const entradaArea = nodo(documento, "input"); entradaArea.name = "area"; entradaArea.value = consulta.area; entradaArea.maxLength = 80; etiquetaArea.append(entradaArea);
+  const buscar = nodo(documento, "button", t("catalogo_accion_buscar")); buscar.type = "submit"; formulario.append(etiquetaQ, etiquetaArea, buscar);
+  formulario.addEventListener("submit", (evento) => { evento.preventDefault(); recargar({ q: entradaQ.value.trim(), area: entradaArea.value.trim(), offset: 0 }); });
+  return formulario;
 }
 
-function vistaDemostracion(presentacion) {
-  const datos = presentacion.datos;
-  const t = presentacion.traducir;
-  const relacion = datos.relacion_actual;
-  return '<section class="modulo-personal" aria-labelledby="titulo-personal"><header class="cabecera-vista"><p class="sobrelinea">' + escaparHTML(t("sobrelinea")) + '</p><h2 id="titulo-personal">' + escaparHTML(t("titulo")) + '</h2><p>' + escaparHTML(t("presentacion_demo")) + '</p></header><section class="nota-pendiente" role="note"><strong>' + escaparHTML(t("aviso_demo")) + '</strong> ' + escaparHTML(datos.origen.aviso) + '</section><div class="rejilla-dos-columnas"><section class="panel" aria-labelledby="personal-relacion"><div class="cabecera-panel"><h3 id="personal-relacion">' + escaparHTML(t("relacion_titulo")) + '</h3><p>' + escaparHTML(t("relacion_ayuda")) + '</p></div>' + resumen([[t("cab_referencia"), relacion.referencia], ["Situación", relacion.situacion], ["Puesto", relacion.puesto], ["Unidad", relacion.unidad], ["Grupo", relacion.grupo], [t("cab_observacion"), relacion.observacion]]) + '</section><section class="panel" aria-labelledby="personal-economico"><div class="cabecera-panel"><h3 id="personal-economico">' + escaparHTML(t("nominas_titulo")) + '</h3><p>' + escaparHTML(t("nominas_ayuda")) + '</p></div>' + resumen([["Nómina", t("sin_importes")], ["Bases", t("sin_importes")], ["Dietas", t("sin_pago")], ["Operaciones", "No disponibles en presentación"]]) + '</section></div>' + tabla({ id: "personal-servicios", texto: t("servicios_titulo"), ayuda: t("servicios_ayuda") }, [t("cab_referencia"), t("cab_desde"), t("cab_hasta"), t("cab_descripcion"), t("cab_observacion")], datos.servicios.map((x) => [x.referencia, x.desde, x.hasta, x.descripcion, x.observacion])) + tabla({ id: "personal-formacion", texto: t("formacion_titulo"), ayuda: t("formacion_ayuda") }, [t("cab_referencia"), "Actividad", t("cab_periodo"), t("cab_estado"), "Acreditación"], datos.formacion.map((x) => [x.referencia, x.actividad, x.periodo, x.estado, x.acreditacion])) + tabla({ id: "personal-nominas", texto: t("nominas_titulo"), ayuda: t("nominas_ayuda") }, [t("cab_referencia"), t("cab_periodo"), t("cab_estado"), t("cab_observacion")], datos.nominas.map((x) => [x.referencia, x.periodo, x.estado, x.observacion])) + tabla({ id: "personal-dietas", texto: t("dietas_titulo"), ayuda: t("dietas_ayuda") }, [t("cab_referencia"), t("cab_periodo"), t("cab_estado"), t("cab_observacion")], datos.dietas_cobradas.map((x) => [x.referencia, x.periodo, x.estado, x.observacion])) + '<section class="nota-seguridad" aria-label="Límites de la presentación"><strong>Sin cálculo de trienios.</strong> Los periodos son referencias sintéticas y no se suman, verifican ni producen derechos. La consulta efectiva requiere una decisión positiva del servidor para cada dato y finalidad.</section></section>';
+function pintar(raiz, contenedor, estado, recargar, t) {
+  if (!sigueMontada(raiz, contenedor)) return;
+  const documento = contenedor.ownerDocument; contenedor.replaceChildren();
+  const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-vista";
+  cabecera.append(nodo(documento, "p", t("catalogo_sobrelinea")), nodo(documento, "h2", t("catalogo_titulo")), nodo(documento, "p", t("catalogo_ayuda"))); contenedor.append(cabecera);
+  if (estado.tipo === "cargando") { const carga = nodo(documento, "p", t("catalogo_cargando")); carga.setAttribute("role", "status"); carga.setAttribute("aria-live", "polite"); contenedor.append(carga); return; }
+  if (estado.tipo === "error") { const error = nodo(documento, "p", estado.mensaje); error.setAttribute("role", "alert"); contenedor.append(error, formularioFiltros(documento, estado.consulta, recargar, t)); return; }
+  const pagina = estado.pagina;
+  const nota = nodo(documento, "p", pagina.fuente.demostracion === true ? t("catalogo_demo") : t("catalogo_publicado")); nota.className = "nota-pendiente"; contenedor.append(nota);
+  contenedor.append(nodo(documento, "p", t("catalogo_fuente", { revision: pagina.fuente.revision, catalogo: pagina.catalogo.catalogo_id, version: pagina.catalogo.catalogo_version, aviso: pagina.fuente.aviso })));
+  contenedor.append(formularioFiltros(documento, estado.consulta, recargar, t));
+  if (pagina.items.length === 0) { const vacio = nodo(documento, "p", t("catalogo_vacio")); vacio.setAttribute("role", "status"); contenedor.append(vacio); } else {
+    const tabla = nodo(documento, "table"); tabla.className = "tabla-datos"; tabla.append(nodo(documento, "caption", t("catalogo_titulo")));
+    const cabeceras = nodo(documento, "thead"); const filaCabecera = nodo(documento, "tr"); ["catalogo_cabecera_nombre", "catalogo_cabecera_area", "catalogo_cabecera_estado"].forEach((clave) => { const celda = nodo(documento, "th", t(clave)); celda.setAttribute("scope", "col"); filaCabecera.append(celda); }); cabeceras.append(filaCabecera); tabla.append(cabeceras);
+    const cuerpo = nodo(documento, "tbody"); pagina.items.forEach((item) => { const fila = nodo(documento, "tr"); const nombre = nodo(documento, "th", item.name); nombre.setAttribute("scope", "row"); fila.append(nombre, nodo(documento, "td", item.area_etiqueta), nodo(documento, "td", item.state)); cuerpo.append(fila); }); tabla.append(cuerpo); contenedor.append(tabla);
+  }
+  const paginacion = nodo(documento, "nav"); paginacion.setAttribute("aria-label", t("catalogo_paginacion"));
+  const anterior = nodo(documento, "button", t("catalogo_anterior")); anterior.type = "button"; anterior.dataset.personalCategoriasAnterior = ""; anterior.disabled = pagina.offset === 0;
+  const siguiente = nodo(documento, "button", t("catalogo_siguiente")); siguiente.type = "button"; siguiente.dataset.personalCategoriasSiguiente = ""; siguiente.disabled = pagina.offset + pagina.items.length >= pagina.total;
+  paginacion.append(nodo(documento, "span", formatearRecuentoCategorias(pagina.total)), anterior, siguiente); contenedor.append(paginacion);
+  anterior.addEventListener("click", () => recargar({ offset: Math.max(0, pagina.offset - pagina.limit) })); siguiente.addEventListener("click", () => recargar({ offset: pagina.offset + pagina.limit }));
 }
 
-function vistaCerrada(estado) {
-  const [titulo, detalle] = ESTADOS[estado];
-  return '<section class="modulo-personal" aria-labelledby="titulo-personal"><header class="cabecera-vista"><p class="sobrelinea">Módulo Personal</p><h2 id="titulo-personal">' + escaparHTML(titulo) + '</h2><p>' + escaparHTML(detalle) + '</p></header><section class="panel" aria-label="Estado de la capacidad de consulta"><div class="cuerpo-panel"><p class="nota-pendiente" role="status" aria-live="polite"><strong>Sin datos de empleado.</strong> Esta pantalla no solicita, conserva ni presenta identidades, puestos, situaciones, nóminas o servicios prestados.</p><dl class="resumen-expediente modulo-personal-resumen"><div><dt>Capacidad declarada</dt><dd><code>' + CAPACIDAD_CONSULTAR_EMPLEADO + '</code></dd></div><div><dt>Autorización efectiva</dt><dd>No comprobada</dd></div><div><dt>Ruta de consulta</dt><dd>No compuesta</dd></div><div><dt>Operaciones</dt><dd>No disponibles</dd></div></dl><p>Cuando exista una ruta compuesta, el servidor deberá decidir cada consulta. Esta entrada no deduce permisos de la navegación, del manifiesto ni del navegador.</p></div></section></section>';
-}
-
-export function renderizarModuloPersonal({ estado = "no_habilitada", presentacion } = {}) {
-  validarEstadoConsultaPersonal(estado);
-  return PRESENTACIONES_VALIDAS.has(presentacion) && presentacion.demostracion === true ? vistaDemostracion(presentacion) : vistaCerrada(estado);
-}
-export async function montarModuloPersonal({ raiz, estado = "no_habilitada", presentacion } = {}) {
-  if (!raiz || typeof raiz.replaceChildren !== "function") throw new TypeError("raíz de Personal no válida");
-  raiz.innerHTML = renderizarModuloPersonal({ estado, presentacion });
-  return Object.freeze({ desmontar() { raiz.replaceChildren(); } });
+/** Monta el catálogo profesional real de Personal con cancelación de navegación. */
+export async function montarModuloPersonal({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
+  if (!raiz?.append || !cliente?.listarCategorias || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("módulo de categorías de Personal no disponible");
+  const documento = raiz.ownerDocument; if (!documento?.createElement) throw new TypeError("documento de Personal no disponible");
+  const t = crearTraductorPersonal(); const contenedor = nodo(documento, "section"); contenedor.className = "modulo-personal"; contenedor.dataset.personalCategorias = ""; raiz.append(contenedor);
+  let activa = true; let controlador = null; let consulta = Object.freeze({ q: "", area: "", limit: 25, offset: 0 });
+  const desmontar = () => { if (!activa) return; activa = false; controlador?.abort(); retirar(raiz, contenedor); };
+  registrarDesmontar?.(desmontar);
+  const recargar = async (cambios = {}) => {
+    if (!activa || !sigueMontada(raiz, contenedor)) return;
+    let siguienteConsulta;
+    try { siguienteConsulta = validarConsultaCategorias({ ...consulta, ...cambios }); } catch { pintar(raiz, contenedor, { tipo: "error", mensaje: t("catalogo_filtro_invalido"), consulta }, recargar, t); return; }
+    controlador?.abort(); const vuelo = new AbortController(); controlador = vuelo; consulta = siguienteConsulta; pintar(raiz, contenedor, { tipo: "cargando" }, recargar, t);
+    try {
+      const pagina = await cliente.listarCategorias(consulta, { signal: vuelo.signal });
+      if (activa && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) pintar(raiz, contenedor, { tipo: "disponible", pagina, consulta }, recargar, t);
+    } catch {
+      if (activa && sigueMontada(raiz, contenedor) && !vuelo.signal.aborted) { const mensaje = t("catalogo_error"); anunciar(mensaje, "error"); pintar(raiz, contenedor, { tipo: "error", mensaje, consulta }, recargar, t); }
+    } finally { if (controlador === vuelo) controlador = null; }
+  };
+  await recargar(); return Object.freeze({ desmontar, capacidad: CAPACIDAD_CONSULTAR_PUESTO });
 }

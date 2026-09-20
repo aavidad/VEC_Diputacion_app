@@ -7,6 +7,8 @@ Lectura de continuidad para agentes: [síntesis vigente](#15-síntesis-vigente-p
 [ficha personal integral](#17-ficha-personal-integral-del-empleado) y
 [contrato modular vigente](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
 Esta revisión es un **estudio**, no implementación ni nueva validación normativa.
+La [preparación del 20 de septiembre](#22-app-nueva-modelo-relacionado-y-primer-recorrido-durable)
+recoge la orden posterior de construir datos propios de VEC, sin exigir bases heredadas.
 Las observaciones legales fechadas en julio se conservan como antecedentes pendientes
 de contraste institucional, no como afirmaciones revalidadas en septiembre.
 
@@ -729,3 +731,129 @@ no bloquean la finalización de las partes independientes de Contratación:
 El estudio queda cerrado como base de diseño para agentes; estas decisiones
 funcionales y las integraciones pendientes permanecen abiertas. No acredita
 que toda VEC esté implementada ni que RRHH haya dado conformidad.
+
+## 22. App nueva: modelo relacionado y primer recorrido durable
+
+Preparación del 20 de septiembre de 2026, sobre `8a6f1165`. El operador autoriza
+crear la estructura necesaria: la ausencia de bases antiguas de Personal,
+Dietas o WCRONOS **no bloquea las altas nuevas en VEC**. Una importación o
+conexión externa futura es una capacidad distinta. Esta sección fija diseño;
+no acredita SQL instalado, recorridos comprobados ni reglas aprobadas.
+
+### Relaciones y autoridades
+
+```text
+Cuenta autenticada → Persona canónica
+                       ├─ Candidatura(s) → Bolsa
+                       └─ Empleado → Relación(es) de servicio
+                                      └─ Adscripción/ocupación con vigencia
+                                           ├─ Comisión → Dietas
+                                           └─ Marcaje/solicitud → Cronos
+```
+
+Las flechas representan contratos, no consultas ni claves foráneas entre bases.
+Una persona puede ser candidata y empleada, o solo candidata; cambiar de contrato
+no crea otra persona ni otro empleado. Personal conserva varias relaciones
+simultáneas o sucesivas. El contexto servidor resuelve el empleado; cuando un
+trámite necesita escoger relación, el selector se valida contra Personal y
+nunca se toma arbitrariamente la primera fila.
+
+| Dato | Autoridad única | Uso de los demás módulos |
+| --- | --- | --- |
+| Cuenta, autenticación y sesión | Identidad existente | Vínculo servidor revalidado, no campos libres del navegador |
+| Persona y vínculo cuenta-persona | Núcleo existente | `persona_ref` opaca; no otro maestro en Personal |
+| Empleado, relación y sus versiones | Personal | Referencias, vigencia, estado y procedencia mínimos |
+| Unidad, puesto y adscripción | Propietario organizativo/RPT existente | Referencias versionadas; no deducir competencia del cargo |
+| Competencia y concesión de acceso | Autorización existente | Acción, recurso, ámbito, perfil, finalidad y vigencia exactos |
+| Comisión, itinerario, gasto y liquidación | Dietas | Consulta autorizada; Personal no replica sus tablas |
+| Marcaje, corrección, solicitud y aplicación de tiempo | Cronos | Hechos/proyecciones admitidos, no nómina ni antigüedad inferidas |
+| Justificante y documento | Custodia documental existente | Referencia y versión; adjuntar no concede acceso |
+| Confirmación de pago | Fuente económica admitida | Liquidación aprobada no se transforma en pago por un cambio de estado |
+
+Se usan FK entre tablas del mismo propietario. Las referencias a otro módulo
+se validan por su contrato, se registra qué versión se utilizó y se revalidan
+las condiciones exigidas antes del efecto. Un cambio de adscripción no modifica
+el contexto histórico de una comisión. Un cese no elimina sus recibos. No se
+propagan borrados en cascada entre módulos ni se replica toda la ficha personal.
+El Portal reúne consultas autorizadas; no es otro dueño de esos datos.
+
+### Datos mínimos y evolución
+
+Primer consumidor: guardar, listar y consultar un borrador propio de Dietas.
+Personal aporta empleado y relación acreditada mediante contrato propio:
+referencias, versión, estado, vigencia, unidad y procedencia del alta. No se
+copian DNI, correo, salud ni nómina. La preparación sintética para pruebas se
+hace expresamente con autoridad de gobierno; el runtime no crea ni repara
+identidades o permisos al arrancar. Esa preparación no es una pantalla de alta
+RRHH terminada.
+
+Dietas conserva cabecera y revisiones, fechas civiles, motivo, relación
+utilizada, itinerario declarado opcional, versión, clave de operación y recibo.
+El itinerario/mapa existente se mantiene. Una ruta declarada no es un cálculo
+verificado y un cálculo OSRM no es kilometraje liquidable. Los gastos,
+justificantes, decisiones por línea y liquidaciones entran con sus respectivos
+consumidores, sin inventar tarifas para poder guardar un borrador.
+
+El diseño posterior conserva separados: solicitado, validado, liquidado,
+entregado a contabilidad y pago confirmado. Anticipos, pagos parciales y
+rectificaciones deben enlazar sus hechos originales; no sobrescribirlos.
+Las competencias de solicitante, jefatura y gestión se asignan expresamente,
+con ámbito y vigencia; no son permisos implícitos del puesto.
+
+Cronos conserva el marcaje original inmutable y las correcciones relacionadas.
+Turnos/asignaciones y políticas de cómputo tienen versiones. La solicitud, la
+decisión del responsable, la resolución RRHH y su aplicación a jornada/saldo
+son hechos distintos. Cuando exista consumidor de saldos, su autoridad será
+un libro de movimientos trazables, no un número mutable sin explicación.
+Los calendarios comunes no se duplican como otra autoridad en Cronos.
+
+Instantes: UTC con precisión de microsegundo. Fechas civiles: `date`, sin
+convertirlas implícitamente en medianoche UTC. Cada contrato declara si su fin
+es inclusivo o exclusivo. Dinero/distancias: valores exactos con moneda/unidad,
+no coma flotante. Reglas, fuentes y vigencias se versionan; no se recalcula
+historia antigua silenciosamente con una política nueva.
+
+### Composición y aceptación del primer corte
+
+Se reutilizan sesión durable, ContextoActor registrado V2, autorización V3,
+auditoría y componentes de web existentes. El consumidor SQL nominal de Dietas
+no puede prestar el rol ni ampliar las funciones exclusivas de Contratación.
+El servidor deriva persona y empleado; creación, consulta y recuperación
+requieren concesiones vigentes propias. El mismo material con la misma clave
+recupera el recibo; otra huella bajo esa clave produce conflicto.
+
+La transacción une autorización consumida, estado/versión, historia, recibo,
+auditoría y outbox. Cronos mantiene la base separada exigida: su activación de
+escrituras requiere resolver explícitamente la consistencia entre autorización
+central y ejecución local. Una comprobación HTTP previa o un TTL no constituyen
+una transacción distribuida ni garantizan revocación atómica.
+
+Aceptación: navegador → identidad sintética gobernada → autorización real →
+caso de uso → PostgreSQL → recibo → lista/detalle tras reiniciar aplicación y
+base. Comprobar repetición sin duplicados, conflicto de material, persona ajena,
+vínculo ausente/ambiguo/revocado y permisos insuficientes. La lista propia permite
+recuperar los borradores al recargar sin cookies ni almacenamiento web. Dos
+revisiones independientes deben cubrir la versión sensible final antes de
+instalarla. Ninguna prueba sintética acredita un proveedor institucional.
+
+### Procedencia y límites del estudio
+
+Los originales `Peticion.pdf` y el DOCX de procedimiento remitidos por RRHH
+describen Bolsa/Contratación, documentos, trazabilidad e incorporación; no
+contienen una especificación detallada de Dietas o Cronos. No atribuir a RRHH
+los campos propuestos aquí. Los originales se conservan sin modificación.
+
+La comparación de documentación primaria de
+[Frappe: marcajes](https://docs.frappe.io/hr/employee-checkin),
+[solicitudes de viaje](https://docs.frappe.io/hr/travel-request),
+[gastos](https://docs.frappe.io/hr/expense-claim) y
+[Odoo: reembolso de gastos](https://www.odoo.com/documentation/19.0/applications/finance/expenses/reimburse.html)
+apoya separar hechos, solicitudes, decisiones y pago. Es una referencia de
+producto, no una norma provincial ni autorización para copiar sus permisos.
+
+El [índice oficial de normativa de RRHH](https://www.dipgra.es/contenidos/normativa-recursos-humanos/)
+es punto de contraste junto con sus modificaciones; una publicación antigua
+aislada no basta para configurar reglas vigentes. Cuantías aplicables,
+competencias, jornadas, conservación, firma y efectos económicos se habilitan
+solo con fuente y circuito acreditados. Esas decisiones limitan su efecto
+concreto; no impiden construir ni probar el registro propio de VEC.

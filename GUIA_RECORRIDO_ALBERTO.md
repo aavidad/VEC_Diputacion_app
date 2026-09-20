@@ -1,5 +1,109 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Itinerario provincial de Dietas — presentación local
+
+Este recorrido consulta cartografía real interna, pero la ruta es orientativa,
+no liquidable y no produce efectos administrativos.
+
+1. Arranque el perfil aislado con presentación, proxy, mediador cartográfico,
+   OSRM y teselas internas. Monte el grafo de Granada y el estado de teselas en
+   solo lectura.
+2. Abra `/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal`, abra
+   **Dietas**, elija las paradas y pulse **Calcular itinerario con OSRM interno**.
+3. Compruebe que aparecen exactamente **DEMO · Ruta orientativa no
+   liquidable.** y **Sin efectos administrativos/reales.**, además del motor
+   `osrm_interno` y el grafo `granada-buffer-osrm-v1-53aba0ad43c4`.
+4. La sección de alternativas debe mostrar referencia, recomendación,
+   selección, kilómetros y duración. La tabla siguiente debe detallar cada
+   tramo como origen → destino, kilómetros y minutos.
+5. Compruebe el mapa Leaflet con teselas internas. En 390 px, la tabla debe
+   desplazarse dentro de su región enfocable sin ensanchar la página.
+
+El navegador necesita un único `POST
+/api/presentacion/cartografia/rutas` y peticiones a `/tiles/osm/`; nunca debe
+alcanzar directamente `/route/v1` ni las API de Contratación, Bolsa, Personal o
+Cronos. La hoja de estilos esperada es
+`/portal-empleado/modulos/dietas/dietas.css?v=20260920-itinerario-visible-v1`.
+No deben aparecer coordenadas ni acciones para seleccionar, ajustar, liquidar,
+enviar, validar o pagar.
+
+La respuesta acreditada contenía una alternativa, dos tramos y la versión de
+grafo indicada. La prueba no usa fallback. No hay recibo, replay o historia
+porque este corte es una consulta cartográfica sin operación administrativa.
+Para tramitar una dieta real faltan expediente y justificantes gobernados,
+cuantías oficiales, identidad Persona→Empleado, competencia de jefatura,
+persistencia y circuito de gestión/liquidación autorizados.
+
+## Estructura organizativa pública de Personal — presentación local
+
+Este recorrido consulta una proyección DEMO y preparatoria sin ocupantes ni
+datos personales. No representa el organigrama vigente, una cadena de mando,
+una adscripción efectiva o una concesión de permisos.
+
+1. Arranque únicamente `vec-presentacion` y su proxy local con el perfil
+   aislado y abra
+   `/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal`.
+2. Compruebe que **Personal** está habilitado para el funcionario. En los
+   perfiles `tecnico` y `administrador` debe permanecer deshabilitado y mostrar
+   **Sin permiso para este perfil**.
+3. Abra **Personal**. Deben montarse juntas las secciones de catálogo
+   profesional, RPT pública y **Estructura organizativa de referencia**.
+4. La tercera sección debe mostrar 66 unidades y el resumen
+   **14 delegaciones · 41 centros · 11 puestos de responsabilidad**, además de
+   la revisión, la fecha localizada en `Europe/Madrid`, el aviso DEMO y la
+   huella SHA-256
+   `0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c`.
+5. Compruebe que el aviso niega vigencia administrativa, ocupación, cadena de
+   mando, gestión efectiva y autorización, y que explica que los títulos de
+   jefatura son puestos de referencia. En móvil, desplace horizontalmente la
+   región de la tabla sin desplazar toda la página.
+
+El navegador necesita exclusivamente estos tres `GET` de Personal:
+
+- `/api/vec/personal/categories?q=&area=&limit=25&offset=0`;
+- `/api/vec/personal/rpt-publica?q=&limit=25&offset=0`;
+- `/api/vec/personal/estructura-organizativa-publica`.
+
+La última ruta admite también `HEAD` sin cuerpo. Una ruta hija o una query
+adicional deben responder `404`. No deben aparecer cookies, almacenamiento web
+ni llamadas a API de Contratación, Bolsa, Dietas, OSRM o al resto de Personal.
+Este recorrido es una lectura sin operación: no genera recibo, historia ni
+replay. Para trasladarlo a uso interno real faltan identidad y autorización
+corporativas, auditoría durable y validación administrativa de la fuente.
+
+## Consulta pública de categorías RPT de Personal — presentación local
+
+Este recorrido es de solo lectura y usa la fuente pública RPT versionada que
+incluye el artefacto de presentación. No representa identidad corporativa, no
+acredita vigencia administrativa y no permite modificar puestos ni consultar
+ocupantes.
+
+1. Arranque el perfil aislado de presentación y abra
+   `/portal-empleado/?presentacion=rrhh&perfil=funcionario#personal` desde su
+   proxy local autorizado.
+2. Compruebe que aparecen dos secciones: **Catálogo profesional vigente** y
+   **Puestos y categorías RPT**. La primera conserva su aviso DEMO; la segunda
+   muestra documento de origen, aviso de no vigencia y huella SHA-256.
+3. En **Buscar puesto o categoría**, escriba `administrativo` y pulse
+   **Buscar**. Deben aparecer `ADMINISTRATIVO` y
+   `AUXILIAR ADMINISTRATIVO`, con grupos, escalas, puestos y dotación.
+4. Borre el filtro para recuperar la primera página. La consulta vuelve a
+   empezar; al ser una lectura no existe operación, recibo ni estado que
+   recuperar. En móvil, desplace horizontalmente la región etiquetada de la
+   tabla sin desplazar la página completa.
+
+El navegador no debe recibir cookies ni usar `localStorage`, `sessionStorage`,
+IndexedDB o Cache Storage. Las únicas API de Personal necesarias son el
+catálogo profesional y `GET /api/vec/personal/rpt-publica`; detalle, RPT
+ordinaria, estadísticas y catálogos administrativos permanecen cerrados. La
+fuente RPT esperada tiene SHA-256
+`b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8`.
+
+Para un uso interno real faltan identidad y autorización corporativas,
+auditoría durable y la confirmación administrativa de la fuente. No utilice
+esta pantalla para deducir ocupación, retribuciones, dependencia funcional o
+competencias de aprobación.
+
 ### Comprobar el runtime principal del corte `d1307f61`
 
 La instancia principal sintética sirve el binario SHA256

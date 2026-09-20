@@ -33,6 +33,38 @@ function raizFalsa() {
   };
 }
 
+function raizDietasFalsa() {
+  const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
+  class Nodo {
+    constructor(documento, etiqueta = "div") {
+      this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {};
+      this.listeners = {}; this.parent = null; this.textContent = "";
+    }
+    append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
+    replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+    removeChild(nodo) { this.children = this.children.filter((hijo) => hijo !== nodo); nodo.parent = null; }
+    remove() { this.parent?.removeChild(this); }
+    addEventListener(tipo, manejador) { this.listeners[tipo] = manejador; }
+    removeEventListener(tipo) { delete this.listeners[tipo]; }
+    setAttribute() {}
+    matches(selector) {
+      const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
+      if (!coincidencia) return this.tagName === selector;
+      const actual = this.dataset[clave(coincidencia[1])];
+      return actual !== undefined && (coincidencia[2] === undefined || actual === coincidencia[2]);
+    }
+    closest(selector) { for (let nodo = this; nodo; nodo = nodo.parent) if (nodo.matches(selector)) return nodo; return null; }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    querySelectorAll(selector) {
+      const salida = [];
+      const visitar = (nodo) => { if (nodo.matches(selector)) salida.push(nodo); nodo.children.forEach(visitar); };
+      visitar(this); return salida;
+    }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) };
+  return new Nodo(documento, "root");
+}
+
 const VERSION_GRAFO = "granada-buffer-osrm-v1-53aba0ad43c4";
 
 function respuestaOSRM() {
@@ -320,9 +352,7 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
 });
 
 
-test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la composición interna", async () => {
-  const datosDemo = Object.freeze({ origen: "sintetico" });
-  const presentacionRecibida = [];
+test("Personal falla cerrado en presentación sin el cliente HTTP de la concesión", async () => {
   const internoRecibido = [];
   const cargadoresPresentacion = {
     base: async () => {
@@ -334,11 +364,7 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     },
     personal: async () => Object.freeze({
       vista: Object.freeze({
-        crearPresentacionPersonalDemo: () => datosDemo,
-        montarModuloPersonal: async (dependencias) => {
-          presentacionRecibida.push(dependencias);
-          return Object.freeze({ desmontar() {} });
-        },
+        montarModuloPersonal: async () => Object.freeze({ desmontar() {} }),
       }),
     }),
   };
@@ -347,10 +373,8 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     cargadoresPresentacion,
   });
   await coordinadorPresentacion.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  assert.equal(await coordinadorPresentacion.montarVista("personal", raizFalsa()), true);
-  assert.deepEqual(presentacionRecibida, [{ raiz: presentacionRecibida[0].raiz, presentacion: datosDemo }]);
-  assert.equal(Object.hasOwn(presentacionRecibida[0], "contextoActor"), false);
-  assert.equal(Object.hasOwn(presentacionRecibida[0], "token"), false);
+  assert.equal(coordinadorPresentacion.vistaDisponible("personal"), false);
+  assert.equal(await coordinadorPresentacion.montarVista("personal", raizFalsa()), false);
 
   const coordinadorInterno = crearCoordinadorModulosPortal({
     escaparHTML: String,
@@ -358,6 +382,8 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("no debe cargarse"); },
       personal: async () => Object.freeze({
+        contrato: Object.freeze({ CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" }),
+        cliente: Object.freeze({ crearClienteHTTPCategoriasPersonal: () => Object.freeze({ listarCategorias() {} }) }),
         vista: Object.freeze({
           montarModuloPersonal: async (dependencias) => {
             internoRecibido.push(dependencias);
@@ -369,9 +395,70 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
   });
   await coordinadorInterno.cargarInterno();
   assert.equal(await coordinadorInterno.montarVista("personal", raizFalsa()), true);
-  assert.deepEqual(internoRecibido, [{ raiz: internoRecibido[0].raiz }]);
+  assert.equal(internoRecibido.length, 1);
+  assert.equal(Object.hasOwn(internoRecibido[0], "cliente"), true);
+  assert.equal(Object.hasOwn(internoRecibido[0], "anunciar"), true);
   assert.equal(Object.hasOwn(internoRecibido[0], "presentacion"), false);
   assert.equal(Object.hasOwn(internoRecibido[0], "token"), false);
+});
+
+test("Personal de presentación conserva categorías E24, RPT y estructura pública", async () => {
+  const llamadas = [];
+  const rpt = {
+    data: {
+      rpt: {
+        items: [{
+          clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158,
+        }],
+        total: 1, limit: 25, offset: 0, esquema: "vec.catalogo.rpt.v1",
+        fuente: { documento: "RPT publicada", importacion: "rpt-publica-v1", generado_en: "2026-09-17", aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) },
+      },
+    },
+  };
+  const categorias = { data: { categories: { items: [{ catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo", etiqueta: "Administrativo", name: "Administrativo", orden: 1, area: "administracion_general", area_etiqueta: "Administración general", source: "catalogo_gobernado_vec", module_key: "vec.module.personal", state: "Demostración pendiente de validación RRHH", usage: "Bolsa, RPT, certificados y demás módulos autorizados." }], total: 1, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+  const unidades = []; for (let i = 0; i < 14; i += 1) unidades.push({ clave: `delegacion-${i}`, etiqueta: "Delegación", tipo: "delegacion" }); for (let i = 0; i < 41; i += 1) unidades.push({ clave: `centro-${i}`, etiqueta: "Centro", tipo: "centro", adscripcion_clave: "delegacion-0" }); for (let i = 0; i < 11; i += 1) unidades.push({ clave: `puesto-${i}`, etiqueta: "Jefatura", tipo: "puesto_responsabilidad", adscripcion_clave: "centro-0" });
+  const estructura = { data: { estructura_organizativa: { esquema: "vec.personal.estructura-organizativa-publica.v1", catalogo_id: "estructura-organizativa-dipgra", catalogo_version: 1, catalogo_revision: 1, fuente_ref: "https://example.test/rpt", fuente: { revision: "demo-v1", actualizada_en: "2026-09-06T00:00:00Z", demostracion: true, aviso: "Demo sin vigencia", huella_sha256: "0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c" }, unidades } } };
+  const [identidad, catalogo, contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
+    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
+    import("./modulos/personal/contrato.js"), import("./modulos/personal/cliente-http-categorias.js"),
+    import("./modulos/personal/vista.js"), import("./modulos/personal/cliente-http-rpt-publica.js"),
+    import("./modulos/personal/vista-rpt-publica.js"), import("./modulos/personal/cliente-http-estructura-organizativa-publica.js"), import("./modulos/personal/vista-estructura-organizativa-publica.js"),
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: {
+      fetch: async (ruta, opciones) => {
+        llamadas.push({ ruta, opciones });
+        return respuestaJSON(ruta.startsWith("/api/vec/personal/categories") ? categorias : ruta.startsWith("/api/vec/personal/estructura") ? estructura : rpt);
+      },
+    },
+    cargadoresPresentacion: {
+      base: async () => Object.freeze({ identidad, catalogo }),
+      personal: async () => Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura }),
+    },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  assert.equal(coordinador.vistaDisponible("personal"), true);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  assert.ok(raiz.querySelector("[data-personal-rpt-publica]"));
+  assert.ok(raiz.querySelector("[data-personal-estructura-organizativa-publica]"));
+  assert.equal(llamadas.length, 3);
+  assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
+  llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
+});
+
+test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
+  const categorias = { data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async () => respuestaJSON(categorias) },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
+  });
+  await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
+  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {
@@ -706,7 +793,7 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
 });
 
-test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas", async () => {
+test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Personal", async () => {
   const coordinador = crearCoordinador();
   const contextoBolsa = await coordinador.cargarPresentacion(
     obtenerDatosPresentacion("funcionario").sesion,
@@ -716,9 +803,18 @@ test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas"
   assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
   assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
   assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
-  const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas"].includes(vista));
-  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 2);
+  assert.equal(coordinador.resolverAcceso("personal", true).disponible, true);
+  const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas", "personal"].includes(vista));
+  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 3);
   assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
+});
+
+test("técnico y administrador mantienen Personal denegado por falta de contexto", async () => {
+  for (const perfil of ["tecnico", "administrador"]) {
+    const coordinador = crearCoordinador();
+    await coordinador.cargarPresentacion(obtenerDatosPresentacion(perfil).sesion);
+    assert.equal(coordinador.resolverAcceso("personal", true).disponible, false, perfil);
+  }
 });
 
 test("las rutas estables no mezclan el submenú de Bolsa con los módulos personales", () => {
@@ -733,13 +829,17 @@ test("las rutas estables no mezclan el submenú de Bolsa con los módulos person
 test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizFalsa();
+  const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
-  assert.match(raiz.innerHTML, /class="cronos-area"/);
-  assert.match(raiz.innerHTML, /Descargar recibo/);
-  assert.equal(await coordinador.montarVista("dietas", raiz), true);
-  assert.match(raiz.innerHTML, /data-modulo="dietas"/);
-  assert.match(raiz.innerHTML, /comisiones de servicio/i);
+  const cronos = raiz.querySelector("[data-cronos-recorridos]");
+  assert.ok(cronos);
+  assert.match(cronos.innerHTML, /class="cronos-area/);
+  assert.match(cronos.innerHTML, /Movimientos/);
+  assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
+  const raizDietas = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
+  assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
+  assert.ok(raizDietas.querySelector("[data-itinerario-catalogo]"));
   coordinador.desmontarVistaActual();
 });
 
@@ -754,13 +854,13 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
     anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
   });
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizFalsa();
+  const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("dietas", raiz), true);
 
-  const botonCalcular = {
-    closest(selector) { return selector === "[data-dietas-ruta-calcular]" ? this : null; },
-  };
-  await raiz.eventos.get("click")({ target: botonCalcular, preventDefault() {} });
+  const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
+  await contenedorDietas.listeners.click({
+    target: contenedorDietas.querySelector("[data-itinerario-calcular]"),
+  });
 
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
@@ -775,13 +875,55 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
     ],
     alternatives: 3,
   });
-  assert.match(raiz.innerHTML, /osrm_interno/);
-  assert.match(raiz.innerHTML, new RegExp(VERSION_GRAFO));
-  assert.match(raiz.innerHTML, /Ruta OSRM interna · primera alternativa/);
-  assert.match(raiz.innerHTML, /data-dietas-mapa-ref="borrador-ruta-calculada"/);
-  assert.doesNotMatch(raiz.innerHTML, /simulacion_osrm_demo|Croquis SVG sintético DEMO/);
+  assert.ok(raiz.querySelector("[data-dietas-mapa-ref]"));
   assert.ok(anuncios.some(({ mensaje }) => /calculada por el puerto interno/i.test(mensaje)));
   coordinador.desmontarVistaActual();
+});
+
+test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
+  let resolverCatalogo; let senalCatalogo;
+  const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
+  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
+    dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
+    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
+    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
+    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
+    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
+    import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
+    import("./modulos/dietas/catalogo-rutas-provincial.js"),
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
+    cargadoresPresentacion: {
+      base: async () => Object.freeze({ identidad, catalogo }),
+      cronos: async () => Object.freeze({
+        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
+        adaptador: cronosAdaptador, documentos,
+      }),
+      dietas: async () => Object.freeze({
+        contrato: dietasContrato,
+        vista: dietaVista,
+        mapa: { crearVisorRutaDietas: () => ({ montar() { throw new Error("no debe montar mapa"); } }) },
+        calculador: { crearCalculadorRutasDietasPresentacionOSRM: () => ({
+          obtenerCatalogo({ signal }) { senalCatalogo = signal; return catalogoPendiente; },
+          calcular: async () => null,
+        }) },
+      }),
+      personal: async () => Object.freeze({ vista: personalVista }),
+    },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  const raiz = raizDietasFalsa();
+  const montajeAnterior = coordinador.montarVista("dietas", raiz);
+  assert.ok(raiz.querySelector("[data-dietas-itinerario]"));
+  coordinador.desmontarVistaActual();
+  const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
+  resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
+  assert.equal(await montajeAnterior, false);
+  assert.equal(senalCatalogo.aborted, true);
+  assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
+  assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
 });
 
 test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
@@ -882,38 +1024,47 @@ test("una carga válida obsoleta no puede republicar permisos tras otra inválid
 });
 
 test("el coordinador no autentica ni conserva estado en el navegador", async () => {
-  const [fuente, estilos] = await Promise.all([
+  const [fuente, estilos, empleado] = await Promise.all([
     readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
     readFile(new URL("portal-modulos.css", import.meta.url), "utf8"),
+    readFile(new URL("portal-composicion-empleado.js", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(fuente, /document\.cookie|localStorage|sessionStorage/);
+  assert.doesNotMatch(empleado, /document\.cookie|localStorage|sessionStorage/);
   assert.match(fuente, /Promise\.allSettled/);
   assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
   assert.match(fuente, /composicion = null/);
   assert.match(fuente, /secuenciaCarga/);
-  assert.match(fuente, /function capacidadesCronos/);
+  assert.match(empleado, /function componerCronosVisible/);
   assert.match(fuente, /function capacidadesDietas/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
-  assert.match(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.match(fuente, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
+  assert.match(empleado, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
   assert.match(estilos, /data-modulo-catalogo="bolsa"/);
   assert.match(estilos, /data-modulo-catalogo="cronos"/);
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
   assert.match(estilos, /data-modulo-portal="cronos"/);
   assert.match(estilos, /forced-colors: active/);
+  assert.match(estilos, /\.modulo-personal\s+\.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere;/);
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260906-acceso-certificado-v1";
-  const versionPortal = "20260906-acceso-certificado-v1";
+  const versionCoordinador = "20260920-recorridos-visibles-v1";
+  const versionPortal = "20260920-recorridos-visibles-v1";
+  const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
-  const versionTema = "20260918-botones-v1";
-  const versionPulido = "20260720-pulido-escritorio-v2";
+  const versionTema = "20260920-referencia-rrhh-v1";
+  const versionTemaCT = "20260918-botones-v1";
+  const versionPulido = "20260920-recorridos-visibles-v1";
+  const versionRPT = "20260920-personal-rpt-publica-v3";
+  const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
@@ -923,9 +1074,16 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
+  assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
+  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionPulido}`));
   assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
 });

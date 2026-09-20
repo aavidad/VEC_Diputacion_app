@@ -438,7 +438,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         </section>
         <section class="panel">
           <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
-          <div class="cuerpo-panel acciones-vista">
+          <div class="cuerpo-panel acciones-vista" data-bolsa-c23-pendiente>
             <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Consultar historial de contactos</button>
             <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Nuevo llamamiento</button>
             <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Registrar resultado</button>

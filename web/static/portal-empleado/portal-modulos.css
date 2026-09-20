@@ -78,3 +78,6 @@ body[data-contraste="true"] .tarjeta-modulo-habilitada[data-modulo-catalogo] {
     forced-color-adjust: auto;
   }
 }
+.modulo-personal .rpt-huella {
+  overflow-wrap: anywhere;
+}

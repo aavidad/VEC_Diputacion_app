@@ -199,8 +199,8 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260906-acceso-certificado-v1/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260906-acceso-certificado-v1/);
+  assert.match(html, /portal\.js\?v=20260920-recorridos-visibles-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260920-recorridos-visibles-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -380,7 +380,7 @@ test("la ayuda configurable incluye audio local, FAQ y transcripción accesible"
 test("la cabecera usa el logo institucional local, dimensionado y sin hotlink", async () => {
   assert.match(html, /data-identidad-institucional="diputacion-granada"/);
   assert.match(html, /src="\/assets\/logo-diputacion-granada\.svg" width="250" height="84" alt="Diputación de Granada"/);
-  assert.match(estilosBase, /\.logo-institucional[\s\S]{0,260}width: min\(100%, 218px\)[\s\S]{0,160}height: auto/);
+  assert.match(estilosBase, /\.logo-institucional[\s\S]{0,260}width: min\(100%, 214px\)[\s\S]{0,160}height: auto/);
   assert.doesNotMatch(html, /<img[^>]+src="https?:/i);
   const rutaLogo = new URL("../assets/logo-diputacion-granada.svg", directorio);
   assert.ok((await stat(rutaLogo)).size > 10_000);

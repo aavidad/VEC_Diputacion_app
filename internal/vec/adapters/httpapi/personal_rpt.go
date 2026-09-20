@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
+	"vec-diputacion-granada/config"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
@@ -38,6 +39,41 @@ type CatalogoPersonal interface {
 
 type ConsultaCategoriasProfesionales interface {
 	ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error)
+}
+
+var ErrConcesionCategoriasPresentacionInvalida = errors.New("httpapi: concesion de categorias de presentacion invalida")
+
+const rutaCategoriasProfesionalesPresentacion = "/api/vec/personal/categories"
+
+// NewHandlerCategoriasProfesionalesPresentacion construye la consulta de
+// lectura que la composicion aislada de presentacion concede de forma expresa.
+// No resuelve identidad ni roles: esa concesion no equivale a una identidad
+// corporativa y solo la raiz de presentacion, con sus dos guardas, puede montar
+// este handler en la ruta exacta permitida. El constructor vuelve a comprobar
+// el perfil presentacion_rrhh y sus dos guardas, para que no sea reutilizable
+// desde otra composición.
+func NewHandlerCategoriasProfesionalesPresentacion(cfg config.Config, consulta ConsultaCategoriasProfesionales) (http.Handler, error) {
+	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
+		return nil, ErrConcesionCategoriasPresentacionInvalida
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r == nil || r.URL == nil {
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if r.URL.Path != rutaCategoriasProfesionalesPresentacion || r.URL.RawPath != "" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Allow", "GET, HEAD")
+			writeErrorCategoriasProfesionales(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		servirCategoriasProfesionales(w, r, consulta, true)
+	}), nil
 }
 
 func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -227,19 +263,7 @@ func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Reques
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
 			return
 		}
-		filtro, err := filtroCategoriasProfesionalesDesdePeticion(r)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, "filtro_categorias_profesionales_invalido")
-			return
-		}
-		catalogo, err := h.listarCategoriasProfesionales(r.Context())
-		if err != nil {
-			h.writeError(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
-			return
-		}
-		page := paginarCategoriasProfesionales(catalogo, filtro)
-		w.Header().Set("Cache-Control", "no-store")
-		h.writeJSON(w, http.StatusOK, map[string]any{"categories": page})
+		servirCategoriasProfesionales(w, r, h.categoriasProfesionales, false)
 	case http.MethodPost:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
@@ -249,6 +273,48 @@ func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Reques
 		w.Header().Set("Allow", "GET, POST")
 		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func servirCategoriasProfesionales(w http.ResponseWriter, r *http.Request, consulta ConsultaCategoriasProfesionales, exigirDemostracion bool) {
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		writeErrorCategoriasProfesionales(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	filtro, err := filtroCategoriasProfesionalesDesdePeticion(r)
+	if err != nil {
+		writeErrorCategoriasProfesionales(w, http.StatusBadRequest, "filtro_categorias_profesionales_invalido")
+		return
+	}
+	if dependenciaHTTPNula(consulta) {
+		writeErrorCategoriasProfesionales(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
+		return
+	}
+	catalogo, err := consulta.ListarVigentes(r.Context())
+	if err != nil {
+		writeErrorCategoriasProfesionales(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
+		return
+	}
+	if exigirDemostracion && !catalogo.Fuente.Demostracion {
+		writeErrorCategoriasProfesionales(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
+		return
+	}
+	writeCategoriasProfesionalesJSON(w, http.StatusOK, map[string]any{
+		"categories": paginarCategoriasProfesionales(catalogo, filtro),
+	})
+}
+
+func writeCategoriasProfesionalesJSON(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+}
+
+func writeErrorCategoriasProfesionales(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": message})
 }
 
 func (h *Handler) handlePersonalCategory(w http.ResponseWriter, r *http.Request, principal domain.Principal, path string) {

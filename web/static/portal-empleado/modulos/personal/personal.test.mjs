@@ -1,11 +1,50 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CAPACIDAD_CONSULTAR_EMPLEADO, validarEstadoConsultaPersonal } from "./contrato.js";
-import { crearDatosPersonalPresentacion } from "./datos-presentacion.js";
-import { crearPresentacionPersonalDemo, montarModuloPersonal, renderizarModuloPersonal } from "./vista.js";
-import { crearCoordinadorModulosPortal } from "../../portal-modulos-coordinador.js";
-test("Personal expresa la capacidad declarada sin datos ni operaciones", () => { const html = renderizarModuloPersonal(); assert.match(html, /Consulta de Personal aún no habilitada/); assert.match(html, new RegExp(CAPACIDAD_CONSULTAR_EMPLEADO)); assert.match(html, /Sin datos de empleado/); assert.doesNotMatch(html, /<button|<form|fetch\(/); });
-test("Personal distingue carga, denegación y error", () => { for (const [estado, titulo] of [["cargando", "Comprobando la consulta de Personal"], ["denegado", "Consulta de Personal denegada"], ["error", "Consulta de Personal no disponible"]]) { assert.equal(validarEstadoConsultaPersonal(estado), estado); assert.match(renderizarModuloPersonal({ estado }), new RegExp(titulo)); } assert.throws(() => validarEstadoConsultaPersonal("disponible"), /estado de consulta/); });
-test("el montaje solo escribe y retira la vista informativa", async () => { const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } }; const modulo = await montarModuloPersonal({ raiz }); assert.match(raiz.innerHTML, /Módulo Personal/); modulo.desmontar(); assert.equal(raiz.innerHTML, ""); });
-test("Personal deriva DEMO del fixture y rechaza clon u objeto ajeno", async () => { const presentacion = crearPresentacionPersonalDemo(); const datos = crearDatosPersonalPresentacion(); const html = renderizarModuloPersonal({ presentacion }); for (const texto of [datos.relacion_actual.referencia, datos.servicios[0].referencia, datos.formacion[0].actividad, datos.nominas[0].observacion, datos.dietas_cobradas[0].observacion, "Sin cálculo de trienios"]) assert.match(html, new RegExp(texto)); assert.doesNotMatch(html, /<button|<form|fetch\(|localStorage|sessionStorage|indexedDB/i); assert.doesNotMatch(renderizarModuloPersonal({ presentacion: { ...presentacion } }), /DEMO-REL-2026-01/); const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } }; const modulo = await montarModuloPersonal({ raiz, presentacion }); assert.match(raiz.innerHTML, /Puesto de ejemplo/); modulo.desmontar(); });
-test("el manifiesto de Personal habilita solo la explicación, sin cliente ni datos", async () => { let cargador = 0; const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String, cargarCatalogoInterno: async () => [{ clave: "personal" }], cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); }, personal: async () => ({ vista: { montarModuloPersonal: async ({ raiz }) => { cargador += 1; raiz.innerHTML = "vista Personal sin datos"; return { desmontar() { raiz.replaceChildren(); } }; } } }) } }); await coordinador.cargarInterno(); assert.deepEqual(coordinador.resolverAcceso("personal"), { disponible: true, vista: "personal", etiqueta: "Consulta de Personal aún no habilitada" }); const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } }; assert.equal(await coordinador.montarVista("personal", raiz), true); assert.equal(cargador, 1); });
+import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";
+import { montarModuloPersonal } from "./vista.js";
+
+function raizFalsa() {
+  class Nodo {
+    constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); }
+    append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
+    replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+    removeChild(nodo) { this.children = this.children.filter((hijo) => hijo !== nodo); nodo.parent = null; }
+    remove() { this.parent?.removeChild(this); }
+    addEventListener(tipo, manejador) { this.listeners.set(tipo, manejador); }
+    setAttribute(clave, valor) { this.atributos.set(clave, valor); }
+    matches(selector) { const clave = selector.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return clave ? this.dataset[clave] !== undefined : false; }
+    querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) }; return new Nodo(documento, "root");
+}
+function pagina(items = []) { return Object.freeze({ items: Object.freeze(items), total: items.length, limit: 25, offset: 0, catalogo: Object.freeze({ catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }), fuente: Object.freeze({ revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." }) }); }
+const categoria = Object.freeze({ name: "Administrativo", area_etiqueta: "Administración general", state: "Demostración pendiente de validación RRHH" });
+
+test("Personal muestra solo el catálogo RRHH autorizado, su demostración y su límite RPT", async () => {
+  const raiz = raizFalsa(); const llamadas = [];
+  const modulo = await montarModuloPersonal({ raiz, cliente: { async listarCategorias(consulta, { signal }) { llamadas.push({ consulta, signal }); return pagina([categoria]); } } });
+  assert.equal(modulo.capacidad, CAPACIDAD_CONSULTAR_PUESTO); assert.equal(llamadas.length, 1); assert.deepEqual(llamadas[0].consulta, { q: "", area: "", limit: 25, offset: 0 });
+  const texto = raiz.querySelector("[data-personal-categorias]").children.map((n) => n.textContent).join(" ");
+  assert.match(texto, /demostracion:true/); assert.match(texto, /no es una RPT aprobada/); assert.doesNotMatch(texto, /nómina|servicios/i); modulo.desmontar(); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+});
+
+test("el catálogo usa tabla semántica y rótulos localizados", async () => {
+  const raiz = raizFalsa(); await montarModuloPersonal({ raiz, cliente: { async listarCategorias() { return pagina([categoria]); } } });
+  const tabla = raiz.querySelector("[data-personal-categorias]").children.find((n) => n.tagName === "table");
+  assert.equal(tabla.children[0].tagName, "caption"); assert.equal(tabla.children[1].tagName, "thead"); assert.equal(tabla.children[1].children[0].children[0].tagName, "th"); assert.equal(tabla.children[1].children[0].children[0].atributos.get("scope"), "col");
+});
+
+test("Personal cierra la pantalla sin conservar filas tras un error", async () => {
+  const raiz = raizFalsa(); const avisos = [];
+  await montarModuloPersonal({ raiz, anunciar: (...argumentos) => avisos.push(argumentos), cliente: { async listarCategorias() { throw new Error("503"); } } });
+  const texto = raiz.querySelector("[data-personal-categorias]").children.map((n) => n.textContent).join(" ");
+  assert.match(texto, /No se pudo consultar/); assert.equal(avisos.length, 1); assert.doesNotMatch(texto, /Administrativo/); assert.ok(raiz.querySelector("[data-personal-categorias]").children.some((n) => n.tagName === "form"));
+});
+
+test("desmontar aborta la consulta y no deja DOM tardío", async () => {
+  const raiz = raizFalsa(); let resolver; let signal; let desmontar; const pendiente = new Promise((resolve) => { resolver = resolve; });
+  const montaje = montarModuloPersonal({ raiz, registrarDesmontar: (limpiar) => { desmontar = limpiar; }, cliente: { listarCategorias(_consulta, opciones) { signal = opciones.signal; return pendiente; } } });
+  await Promise.resolve(); const contenedor = raiz.querySelector("[data-personal-categorias]");
+  // La limpieza se registra antes de esperar la respuesta y puede cancelar la navegación.
+  assert.ok(contenedor); desmontar(); resolver(pagina([categoria])); const modulo = await montaje; modulo.desmontar(); assert.equal(signal.aborted, true); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+});

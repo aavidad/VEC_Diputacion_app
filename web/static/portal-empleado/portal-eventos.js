@@ -145,12 +145,35 @@ export function crearControladorPortal(dependencias) {
     ? dependencias.traducir
     : traducirPortal;
 
-  function abrirDialogo(titulo, contenido) {
+  let limpiarDialogo = null;
+
+  function limpiarContenidoDialogo() {
+    limpiarDialogo?.();
+    limpiarDialogo = null;
+  }
+
+  const dialogoDetalle = porId("dialogo-detalle");
+  dialogoDetalle?.addEventListener?.("close", limpiarContenidoDialogo);
+  dialogoDetalle?.addEventListener?.("cancel", limpiarContenidoDialogo);
+
+  function cerrarDialogo() {
     const dialogo = porId("dialogo-detalle");
+    limpiarContenidoDialogo();
+    if (typeof dialogo.close === "function" && dialogo.open) dialogo.close();
+    else dialogo.removeAttribute?.("open");
+  }
+
+  function abrirDialogo(titulo, contenido, instalar = null) {
+    const dialogo = porId("dialogo-detalle");
+    limpiarContenidoDialogo();
     porId("titulo-dialogo").textContent = titulo;
-    porId("contenido-dialogo").innerHTML = contenido;
+    const contenedor = porId("contenido-dialogo");
+    contenedor.innerHTML = contenido;
     if (typeof dialogo.showModal === "function") dialogo.showModal();
     else dialogo.setAttribute("open", "");
+    if (typeof instalar === "function") {
+      limpiarDialogo = instalar({ contenedor, documento: document, navegar, anunciar, cerrar: cerrarDialogo }) || null;
+    }
   }
 
   function detalleLimitacion(titulo) {
@@ -368,7 +391,7 @@ export function crearControladorPortal(dependencias) {
       case "ayuda": {
         const ayuda = renderizarContenidoAyuda();
         if (typeof ayuda === "object" && ayuda !== null && "contenido" in ayuda) {
-          abrirDialogo(ayuda.titulo || "Ayuda del Portal del Empleado", ayuda.contenido);
+          abrirDialogo(ayuda.titulo || "Ayuda del Portal del Empleado", ayuda.contenido, ayuda.instalar);
         } else {
           abrirDialogo("Ayuda del Portal del Empleado", ayuda);
         }

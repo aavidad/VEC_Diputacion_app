@@ -117,6 +117,133 @@ Esta evidencia acredita las dos lecturas internas en el entorno de desarrollo
 con mTLS y datos sintéticos. No acredita identidad corporativa, producción ni
 la consulta pública B10: esa ruta sigue requiriendo una proyección pública
 separada de los datos protegidos.
+## Dietas: itinerario provincial visible sobre OSRM real — 20 de septiembre de 2026
+
+El corte E27 completa el recorrido de consulta Portal del Empleado → Dietas →
+itinerario → caso de uso cartográfico → OSRM local. La pantalla presenta la
+ruta orientativa calculada, la alternativa recibida y sus tramos, con origen y
+destino, distancia y duración. Mantiene visibles los avisos **«DEMO · Ruta
+orientativa no liquidable.»** y **«Sin efectos administrativos/reales.»**. No
+permite escoger o ajustar alternativas ni iniciar solicitudes, validaciones,
+liquidaciones o pagos.
+
+La fuente es el grafo privado de Granada versionado como
+`granada-buffer-osrm-v1-53aba0ad43c4`, derivado del PBF con SHA-256
+`53aba0ad43c45c62a44ee54fa9fb68308427957c5b5504cbd19a74fc49672724`.
+El mapa usa exclusivamente teselas OSM internas. El navegador no alcanza OSRM
+directamente: envía el cálculo al mediador same-origin, que respondió `200` y
+proyectó `engine=osrm_on_premise`, una alternativa y dos tramos. La nueva hoja
+de estilos se publica con la versión inmutable
+`20260920-itinerario-visible-v1` para no conservar el diseño anterior en caché.
+
+La candidata de código y configuración
+`270993b82e46723f9c282c2d49271fbda34094c392d77824e2ac8d94d918ab12`
+recibió revisión independiente `GO`, con `P0=P1=P2=P3=0`. Pasaron 92 pruebas
+Node de Dietas y coordinación, además de las pruebas focales del servidor para
+caché versionada y recursos estáticos de solo lectura. La campaña amplia del
+servidor conserva el fallo previo de la portada pública: su prueba espera una
+única referencia ARIA y el `HEAD` ya contiene dos; E27 no modifica esa
+superficie.
+
+Chromium recorrió el flujo en 1440×1000 y 390×844. En escritorio mostró una
+alternativa de 132,9 km y 105 min, dos tramos, un mapa Leaflet y 18 teselas;
+en móvil conservó los mismos datos, cargó 6 teselas, no produjo desbordamiento
+global y la tabla usó desplazamiento horizontal interno. No hubo errores de
+consola, página o red, cookies, `localStorage` o `sessionStorage`, llamadas a
+API de Contratación, Bolsa, Personal o Cronos, ni acceso directo a OSRM. La
+sonda adicional de Cache Storage e IndexedDB quedó colgada en el arnés y no se
+afirma como comprobada. La composición descartable fue retirada.
+
+Este recorrido acredita cálculo y visualización cartográfica, no un expediente
+de Dietas. Al ser una consulta sin efecto administrativo no emite recibo ni
+historia. Para completar solicitante, jefatura y gestión/liquidación siguen
+faltando la fuente gobernada de expedientes y justificantes, la política oficial
+de cuantías, el vínculo Persona→Empleado y competencia, persistencia segregada
+y el contrato económico autorizado. No se han inventado esas autoridades ni
+se ha reutilizado el WIP SQL no revisado.
+
+## Personal: estructura organizativa pública de referencia — 20 de septiembre de 2026
+
+El corte E26 añade al Portal del Empleado una tercera consulta visible de
+Personal sobre el paquete versionado
+`data/catalogos/estructura-organizativa/v1.rpt-publica.json`. El recorrido
+muestra 66 unidades: 14 delegaciones, 41 centros y 11 puestos de
+responsabilidad. La fuente queda inmovilizada al arrancar por su SHA-256
+`0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c` y
+se proyectan únicamente clave, etiqueta, tipo y adscripción de referencia.
+No se publican ocupantes, datos personales, códigos o páginas de extracción,
+estados locales, motivos ni descripciones extensas.
+
+La ruta exacta `GET/HEAD
+/api/vec/personal/estructura-organizativa-publica` solo se compone en el
+listener aislado `presentacion_rrhh`, con sus dos guardas y redes enumeradas.
+La identidad sintética `funcionario_autoservicio` declara de forma positiva
+el ámbito `cronos`, `dietas` y `personal`; técnico y administrador conservan
+Personal denegado. El coordinador exige el mismo `ContextoActor` compartido y
+ya no deduce la concesión del nombre del rol. Esta atribución es exclusiva de
+la presentación: no amplía roles, permisos ni rutas del servidor ordinario y
+no representa identidad o autorización corporativa.
+
+Dos revisiones independientes de identidad/autorización y
+privacidad/minimización dieron `GO`, con `P0=P1=P2=P3=0`, sobre la candidata
+de código y configuración
+`c476dcfe2b9d5e205f60c2c18fbc1ddfff512c9ec5e618ca8975c3b1bf71ad02`.
+Las pruebas focales Go, compilación y 48 casos Node de identidad, Personal y
+coordinación terminaron correctamente. La campaña completa del servidor
+conserva un fallo anterior de la portada pública y `portal.test.mjs` conserva
+otro fixture anterior de Bolsa; ninguno pertenece a este corte.
+
+Chromium reconstruyó y recorrió Portal → Personal en 1440×1000 y 390×844.
+Las tres consultas concedidas —catálogo profesional, RPT pública y estructura—
+respondieron `200`; se mostraron 25, 25 y 66 filas respectivamente. La página
+no tuvo desbordamiento global y la tabla móvil usó desplazamiento interno. No
+hubo errores de consola, página o red, cookies, `localStorage`,
+`sessionStorage`, IndexedDB ni Cache Storage, ni llamadas a API de
+Contratación, Bolsa, Dietas, OSRM u otras rutas de Personal. `HEAD` respondió
+sin cuerpo y una query no canónica devolvió `404`. La composición descartable
+se retiró al terminar.
+
+La pantalla rotula la fuente como DEMO y preparatoria. No acredita vigencia
+administrativa, ocupación, cadena de mando, gestión efectiva, permisos ni
+autoridad; una jefatura es solo un puesto de referencia. No hay SQL,
+operaciones, auditoría durable, recibos ni efectos externos. Cronos permanece
+bloqueado por la ausencia de una fuente WCRONOS aprobada y del vínculo
+Persona→Empleado. El bloqueo cartográfico de Dietas quedó resuelto después por
+E27; sus recorridos administrativos y económicos siguen pendientes.
+
+## Personal: consulta pública de categorías RPT en el Portal — 20 de septiembre de 2026
+
+El corte E25 añade al módulo Personal una consulta web de solo lectura sobre la
+RPT pública versionada de 2026. El Portal conserva el catálogo profesional ya
+conectado y muestra además 145 categorías RPT con búsqueda y paginación. La
+fuente queda inmovilizada por SHA-256
+`b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8`;
+la respuesta proyecta únicamente clave, denominación, grupos, escalas, número
+de puestos y dotación. No expone ocupantes, puestos individuales, niveles ni
+complementos y mantiene visible que la fuente no acredita vigencia
+administrativa.
+
+La capacidad solo está compuesta en el perfil aislado `presentacion_rrhh`, con
+doble guarda y la ruta exacta `GET/HEAD /api/vec/personal/rpt-publica`. No
+amplía roles ni permisos del servidor ordinario. Las demás rutas de Personal,
+la sesión y las rutas hijas continúan cerradas; no se han añadido SQL,
+auditoría durable, recibos, operaciones ni efectos externos.
+
+Dos revisiones independientes de identidad/autorización y
+privacidad/minimización dieron `GO`, sin hallazgos P0–P3, sobre el manifiesto
+exacto `05a5c50a5f04fe6ab609a646b88735145b4bf3450e46f20e7b30ebd872f024c2`.
+Chromium recorrió Portal → Personal en 1440×1000 y 390×844: primera página
+25/145, búsqueda `administrativo`, ambos catálogos visibles, fuente, aviso y
+huella presentes, cero errores de consola o red, cero almacenamiento web y sin
+desbordamiento global; la tabla usa desplazamiento interno en móvil. La
+composición descartable se retiró después de la prueba.
+
+Este cierre acredita una lectura pública de presentación, no identidad
+corporativa ni una RPT administrativamente vigente. Cronos sigue pendiente del
+vínculo gobernado Persona→Empleado y de persistencia autorizada. Dietas sigue
+pendiente del grafo provincial OSRM ausente en este worktree; no se sustituyó
+la fuente ni se inventaron rutas. No cambia métricas ni capacidades de
+Contratación temporal o Bolsa.
 
 ## Bolsa completa su superficie de presentación — 20 de septiembre de 2026
 
