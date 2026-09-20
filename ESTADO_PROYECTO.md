@@ -1,5 +1,28 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa RRHH consulta datos constituidos — 20 de septiembre de 2026
+
+El corte canónico `081cc0bc9abfc8ba138d50f28bee5198565d5c6b` retira de
+B12 y B5 la lectura y mezcla del fichero DEMO. Las dos rutas internas consultan
+ahora exclusivamente la constitución durable y el lote protegido asociado; si
+falta la fuente, el lote o una fila exacta, responden `503` sin fabricar una
+identidad ni devolver una lista parcial. Dos revisiones independientes dieron
+`GO`, sin hallazgos P0, P1 o P2 nuevos, y la prueba focal del montaje terminó
+correctamente.
+
+La instancia sintética principal ejecuta el binario SHA256
+`4619f0d02309de97db55e15bb3c7306b63f390e227a0ddb5e2daa8e316177fc8`.
+Después de sustituir el artefacto y reiniciar la aplicación, B12 respondió
+`200` con esquema `vec.bolsa.rrhh.bolsas.v1` y **12 bolsas**; B5 respondió
+`200` con cinco candidatos en la página solicitada, documento enmascarado y
+cursor de continuación. No se aplicó ni revirtió SQL y se conserva el binario
+anterior para recuperación.
+
+Esta evidencia acredita las dos lecturas internas en el entorno de desarrollo
+con mTLS y datos sintéticos. No acredita identidad corporativa, producción ni
+la consulta pública B10: esa ruta sigue requiriendo una proyección pública
+separada de los datos protegidos.
+
 ## Bolsa completa su superficie de presentación — 20 de septiembre de 2026
 
 El corte canónico `a899983bf766ceba46ac7f04416dca8985fb1dd2` permite
