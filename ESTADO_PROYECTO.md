@@ -1,5 +1,27 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa B10 dispone de publicación operativa validada — 20 de septiembre de 2026
+
+El subcomando `vec-server publicar-proyeccion-publica` recibe por fichero la
+proyección SQL V2 completa, su manifiesto canónico V2 y la lista pública B10.
+Antes de escribir deriva el manifiesto desde la proyección, recalcula las
+huellas de convocatoria, exige la misma ancla y prepara una única publicación
+V3 mediante el adaptador PostgreSQL existente. El DSN procede exclusivamente
+de configuración y los errores no revelan rutas, material ni credenciales.
+
+La validación rechaza claves duplicadas, aliases, campos ausentes, `null`
+incompatible, fuentes divergentes y límites excedidos. El transporte conserva
+`bolsas:[]` y `posiciones:[]`, y usa exactamente el literal temporal que la
+frontera SQL compara. Pruebas focales, `go vet`, compilación y `git diff --check`
+terminaron correctamente. Dos revisiones independientes dieron `GO`, con
+`P0=P1=P2=0` pendientes sobre los cinco archivos del corte.
+
+Este corte incorpora la herramienta de publicación; todavía no acredita una
+publicación real. La siguiente comprobación se hará en una PostgreSQL pública
+nueva y aislada, con sus LOGIN, TLS y proceso `vec-publico`, sin instalar ni
+revertir migraciones en las bases conservadas ni exponer rutas en Internet
+antes de disponer del acceso autenticado.
+
 ## Bolsa B10 conectada a la composición pública — 20 de septiembre de 2026
 
 El corte B10 incorpora una proyección PostgreSQL separada para bolsas vigentes

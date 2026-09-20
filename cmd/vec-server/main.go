@@ -14,6 +14,12 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "publicar-proyeccion-publica" {
+		if err := ejecutarPublicacionProyeccionPublica(context.Background(), os.Args[2:], os.Stdout, config.Load(), publicarProyeccionPublicaPostgreSQL); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "constituir-bolsa" {
 		a, err := leerArgumentosConstituirBolsa(os.Args[2:], os.Stderr)
 		if err != nil {
