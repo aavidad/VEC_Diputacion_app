@@ -81,6 +81,10 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
   assert.match(contenedor.querySelector("[data-itinerario-catalogo]").textContent, /176 puntos disponibles/u);
+  assert.equal(
+    contenedor.querySelector("[data-itinerario-calcular]").className,
+    "boton-primario",
+  );
   await clicar(contenedor, "[data-itinerario-calcular]");
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");

@@ -322,6 +322,7 @@ export async function montarVistaItinerarioDietas({
     anadir.dataset.itinerarioAnadirParada = "";
     const calcular = elemento(documento, "button", traducir("ruta_calcular_osrm"));
     calcular.type = "button";
+    calcular.className = "boton-primario";
     calcular.dataset.itinerarioCalcular = "";
     calcular.disabled = controlador !== null;
     panel.append(paradas, anadir, calcular);
