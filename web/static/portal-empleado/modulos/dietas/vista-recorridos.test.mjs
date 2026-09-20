@@ -194,6 +194,16 @@ test("sustituye el indicador inicial y conserva el área del mapa al cambiar de 
     },
   });
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const panelSolicitante = raiz.querySelector(
+    '[data-dietas-panel-etapa="solicitante"]',
+  );
+  assert.ok(
+    panelSolicitante.children.indexOf(areaMapa) <
+      panelSolicitante.children.indexOf(
+        panelSolicitante.querySelector("[data-dietas-area-borradores]"),
+      ),
+    "el itinerario debe aparecer antes que los borradores",
+  );
   assert.equal(contenedor.querySelector("[data-cargando]"), null);
   raiz.listeners.click({
     target: raiz.querySelector('[data-dietas-cambiar-etapa="jefatura"]'),

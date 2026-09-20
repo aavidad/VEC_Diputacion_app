@@ -193,8 +193,11 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
   panel.append(
     elemento(documento, "h3", t("recorridos_solicitante")),
     resumenPresentacion(documento, t),
-    areaBorradores,
   );
+  // El itinerario es la tarea principal de la comisión: debe aparecer antes
+  // que los formularios administrativos todavía pendientes de conexión.
+  if (areaItinerario) panel.append(areaItinerario);
+  panel.append(areaBorradores);
   const documentos = elemento(documento, "section");
   documentos.className = "dietas-recorridos-documentos";
   documentos.append(
@@ -228,7 +231,6 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
     detallesPresentacion(documento, t, seleccionada, "solicitante"),
   );
   panel.append(bandeja);
-  if (areaItinerario) panel.append(areaItinerario);
   panel.append(formularioGastos(documento, t));
   const envio = elemento(documento, "section");
   envio.className = "dietas-recorridos-acciones";
