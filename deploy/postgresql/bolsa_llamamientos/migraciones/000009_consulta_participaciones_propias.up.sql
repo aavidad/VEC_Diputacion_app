@@ -131,6 +131,13 @@ BEGIN
                p_contexto_actor_canonico, p_persona_version, p_perfil_version,
                p_payload_vec_ad_3, p_sobre_cose_sign1, p_evidencia_verificacion,
                p_raiz_publica_spki);
+    -- Una lectura no se recupera con un consumo y auditoría históricos: el
+    -- siguiente intento requiere una concesión V3 nueva, antes de cualquier
+    -- revalidación o acceso a la proyección propia.
+    IF v_consumo.consumo_nuevo IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0663',
+            MESSAGE = 'consulta propia B11 requiere consumo nuevo';
+    END IF;
     SELECT * INTO STRICT v_revalidacion
       FROM vec_autorizacion_atestada_v3
            .revalidar_consumo_participaciones_propias_b11_v3(
