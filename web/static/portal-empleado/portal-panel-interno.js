@@ -265,27 +265,30 @@ export function crearPresentadorPanelInterno(dependencias) {
 
   function renderizarResumen(datos) {
     const i = datos.indicadores;
+    const indicadoresConectados = [
+      ["BOL", i.bolsas_activas, "Bolsas activas"],
+      ["LLA", i.llamamientos_pendientes, "Llamamientos pendientes"],
+      ["CUR", i.llamamientos_en_curso, "Llamamientos en curso"],
+      ["DOC", i.documentos_pendientes_firma, "Documentos pendientes de firma"],
+      ["INC", i.incidencias_abiertas, "Incidencias abiertas"],
+    ];
+
     return `
-      ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Información agregada y autorizada del ámbito interno. El contrato no contiene datos personales ni habilita acciones administrativas.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
-      <section class="nota-seguridad" aria-label="Alcance del panel real">Vista de solo lectura. Los contadores, convocatorias y actuaciones proceden del contrato <code>${ESQUEMA_PANEL_INTERNO}</code>; no se completan con datos del modo de presentación.</section>
+      ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Datos conectados, agregados y autorizados del ámbito interno. El contrato no contiene datos personales ni habilita acciones administrativas.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
+      <section class="nota-seguridad" aria-label="Alcance de los datos conectados">Datos conectados en modo de solo lectura. Los indicadores, convocatorias y actuaciones proceden del contrato <code>${ESQUEMA_PANEL_INTERNO}</code>; esta vista no es una presentación ni completa datos ausentes.</section>
       <div class="rejilla-kpi" aria-label="Indicadores operativos de Bolsa">
-        ${tarjetaKPI("BOR", numero(i.convocatorias_borrador), "Convocatorias en borrador")}
-        ${tarjetaKPI("REV", numero(i.convocatorias_revision), "Convocatorias en revisión")}
-        ${tarjetaKPI("FIR", numero(i.convocatorias_pendientes_firma), "Convocatorias pendientes de firma")}
-        ${tarjetaKPI("PUB", numero(i.convocatorias_publicadas), "Convocatorias publicadas")}
-        ${tarjetaKPI("BOL", numero(i.bolsas_activas), "Bolsas activas")}
-        ${tarjetaKPI("SUS", numero(i.bolsas_suspendidas), "Bolsas suspendidas")}
-        ${tarjetaKPI("AGO", numero(i.bolsas_agotadas), "Bolsas agotadas")}
-        ${tarjetaKPI("LLA", numero(i.llamamientos_pendientes), "Llamamientos pendientes")}
-        ${tarjetaKPI("CUR", numero(i.llamamientos_en_curso), "Llamamientos en curso")}
-        ${tarjetaKPI("HOY", numero(i.llamamientos_vencen_hoy), "Llamamientos que vencen hoy")}
-        ${tarjetaKPI("DOC", numero(i.documentos_pendientes_firma), "Documentos pendientes de firma")}
-        ${tarjetaKPI("INC", numero(i.incidencias_abiertas), "Incidencias abiertas")}
+        ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>
-      ${renderizarCuadroB12()}
-      <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas devueltas por el panel interno</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>
-      <section class="panel"><div class="cabecera-panel"><h3>Actuaciones pendientes</h3><span class="estado-chip info">${numero(datos.actuaciones_pendientes.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Trabajo administrativo pendiente sin identidad de personas interesadas</caption><thead><tr><th scope="col">Actuación</th><th scope="col">Recurso</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Prioridad</th><th scope="col">Fecha límite</th><th scope="col">Elementos</th></tr></thead><tbody>${filasActuaciones(datos)}</tbody></table></div></section>
-      <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${escaparHTML(datos.origen.revision)}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Lectura</dt><dd>${escaparHTML(datos.prueba_lectura.lectura_ref)}</dd></div><div class="fila-resumen"><dt>Auditoría</dt><dd>${escaparHTML(datos.prueba_lectura.auditoria_ref)} · secuencia ${numero(datos.prueba_lectura.auditoria_secuencia)}</dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>`;
+      <div class="rejilla-cuadro-mando" aria-label="Resumen operativo conectado">
+        <div class="columna-cuadro">
+          ${renderizarCuadroB12()}
+          <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas devueltas por el panel interno</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>
+        </div>
+        <aside class="columna-cuadro" aria-label="Actuaciones y prueba de lectura">
+          <section class="panel"><div class="cabecera-panel"><h3>Actuaciones pendientes</h3><span class="estado-chip info">${numero(datos.actuaciones_pendientes.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Trabajo administrativo pendiente sin identidad de personas interesadas</caption><thead><tr><th scope="col">Actuación</th><th scope="col">Recurso</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Prioridad</th><th scope="col">Fecha límite</th><th scope="col">Elementos</th></tr></thead><tbody>${filasActuaciones(datos)}</tbody></table></div></section>
+          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${escaparHTML(datos.origen.revision)}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Lectura</dt><dd>${escaparHTML(datos.prueba_lectura.lectura_ref)}</dd></div><div class="fila-resumen"><dt>Auditoría</dt><dd>${escaparHTML(datos.prueba_lectura.auditoria_ref)} · secuencia ${numero(datos.prueba_lectura.auditoria_secuencia)}</dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
+        </aside>
+      </div>`;
   }
 
   function renderizarConvocatorias(datos) {
