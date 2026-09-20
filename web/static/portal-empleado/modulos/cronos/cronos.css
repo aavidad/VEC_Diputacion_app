@@ -494,7 +494,7 @@
 .cronos-recorrido-etapas, .cronos-recorrido-rejilla { display: grid; gap: 10px; }
 .cronos-recorrido-etapas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cronos-recorrido-etapas button { min-width: 0; min-height: 88px; padding: 11px; border: 1px solid var(--portal-borde); border-top: 3px solid var(--portal-cian); border-radius: var(--portal-radio); background: var(--portal-superficie); color: inherit; text-align: left; cursor: pointer; }
-.cronos-recorrido-etapas button[aria-current="step"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
+.cronos-recorrido-etapas button[aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
 .cronos-recorrido-etapas strong, .cronos-recorrido-etapas span { display: block; }
 .cronos-recorrido-etapas span { margin-top: 5px; color: var(--portal-muted); font-size: .69rem; }
 .cronos-recorrido-etapa { scroll-margin-top: 14px; padding-top: 4px; }
@@ -503,6 +503,15 @@
 .cronos-recorrido-panel { min-width: 0; padding: 13px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); }
 .cronos-recorrido-panel h4, .cronos-recorrido-panel p { margin: 0; }
 .cronos-recorrido-panel h4 { font-size: .84rem; }
+.cronos-panel-principal { padding: 0; overflow: hidden; }
+.cronos-panel-principal > h4 { padding: 14px 14px 0; }
+.cronos-cabecera-bandeja { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 0 14px 12px; }
+.cronos-alta { padding: 0 14px 14px; border-top: 1px solid var(--portal-borde); background: var(--portal-fondo); }
+.cronos-alta[hidden], .cronos-fila-detalle[hidden], .cronos-recorrido-etapa[hidden] { display: none; }
+.cronos-referencia { padding: 0; border: 0; background: transparent; color: var(--portal-azul-700); font: inherit; font-weight: 800; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.cronos-referencia[aria-expanded="true"] { color: var(--portal-tinta); text-decoration-thickness: 2px; }
+.cronos-fila-detalle > td { padding: 0 14px 14px; background: var(--portal-fondo); white-space: normal; }
+.cronos-presentacion-ficha-inline { max-width: 760px; margin: 0; }
 .cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .72rem; }
 .cronos-recorrido-vacio, .cronos-recorrido-aviso { margin-top: 11px !important; padding: 9px; border-radius: 5px; background: var(--portal-fondo); }
 .cronos-recorrido-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0; }

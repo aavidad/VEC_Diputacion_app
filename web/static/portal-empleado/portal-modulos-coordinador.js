@@ -77,7 +77,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260920-cronos-bandeja-v2"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },

@@ -24,7 +24,7 @@ import {
   rutaDeVistaPortal,
   VISTAS_MODULOS_PERSONALES,
   VISTAS_PRESENTACION_VISUALES,
-} from "./portal-modulos-coordinador.js?v=20260920-dietas-centro-v8";
+} from "./portal-modulos-coordinador.js?v=20260920-cronos-bandeja-v2";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
