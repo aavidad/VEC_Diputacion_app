@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+
 	"vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/modules/personal/ports"
 )
@@ -45,45 +46,27 @@ func (f *Fuente) ObtenerRPTPublica(ctx context.Context) (domain.CatalogoRPTPubli
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > maximoBytesRPTPublica {
 		return domain.CatalogoRPTPublica{}, domain.ErrRPTPublicaNoDisponible
 	}
-	if err := ctx.Err(); err != nil {
-		return domain.CatalogoRPTPublica{}, err
-	}
 	contenido, err := io.ReadAll(io.LimitReader(archivo, maximoBytesRPTPublica+1))
 	if err != nil || len(contenido) < 1 || len(contenido) > maximoBytesRPTPublica || int64(len(contenido)) != info.Size() {
 		return domain.CatalogoRPTPublica{}, domain.ErrRPTPublicaNoDisponible
-	}
-	if err := ctx.Err(); err != nil {
-		return domain.CatalogoRPTPublica{}, err
 	}
 	suma := sha256.Sum256(contenido)
 	if !constanteIgual(hex.EncodeToString(suma[:]), HuellaRPT2026) {
 		return domain.CatalogoRPTPublica{}, domain.ErrRPTPublicaNoDisponible
 	}
-	var bruto struct {
-		Esquema string `json:"esquema"`
-		Fuente  struct {
-			Documento   string `json:"documento"`
-			Importacion string `json:"importacion"`
-			GeneradoEn  string `json:"generado_en"`
-			Aviso       string `json:"aviso"`
-		} `json:"fuente"`
-		Categorias []struct {
-			Clave        string   `json:"clave"`
-			Denominacion string   `json:"denominacion"`
-			Grupos       []string `json:"grupos"`
-			Escalas      []string `json:"escalas"`
-			Puestos      int      `json:"puestos"`
-			Dotacion     int      `json:"dotacion"`
-		} `json:"categorias"`
-	}
-	if json.Unmarshal(contenido, &bruto) != nil {
+	var catalogo domain.CatalogoRPTPublica
+	if json.Unmarshal(contenido, &catalogo) != nil {
 		return domain.CatalogoRPTPublica{}, domain.ErrRPTPublicaNoDisponible
 	}
-	catalogo := domain.CatalogoRPTPublica{Esquema: bruto.Esquema, Fuente: domain.FuenteRPTPublica{Documento: bruto.Fuente.Documento, Importacion: bruto.Fuente.Importacion, GeneradoEn: bruto.Fuente.GeneradoEn, Aviso: bruto.Fuente.Aviso, HuellaSHA256: HuellaRPT2026}, Categorias: make([]domain.CategoriaRPTPublica, len(bruto.Categorias))}
-	for i, categoria := range bruto.Categorias {
-		catalogo.Categorias[i] = domain.CategoriaRPTPublica{Clave: categoria.Clave, Denominacion: categoria.Denominacion, Grupos: copiarListaRPTPublica(categoria.Grupos), Escalas: copiarListaRPTPublica(categoria.Escalas), Puestos: categoria.Puestos, Dotacion: categoria.Dotacion}
+	catalogo.Fuente.HuellaSHA256 = HuellaRPT2026
+	for i := range catalogo.Categorias {
+		catalogo.Categorias[i] = catalogo.Categorias[i].Clonar()
+	}
+	for i := range catalogo.Puestos {
+		catalogo.Puestos[i] = catalogo.Puestos[i].Clonar()
 	}
 	domain.OrdenarCategoriasRPTPublica(catalogo.Categorias)
+	domain.OrdenarPuestosRPTPublica(catalogo.Puestos)
 	if catalogo.Validar() != nil {
 		return domain.CatalogoRPTPublica{}, domain.ErrRPTPublicaNoDisponible
 	}
@@ -94,12 +77,6 @@ func (f *Fuente) ObtenerRPTPublica(ctx context.Context) (domain.CatalogoRPTPubli
 }
 func constanteIgual(a, b string) bool {
 	return len(a) == len(b) && subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
-}
-
-func copiarListaRPTPublica(valores []string) []string {
-	copia := make([]string, len(valores))
-	copy(copia, valores)
-	return copia
 }
 
 var _ ports.ConsultaRPTPublica = (*Fuente)(nil)

@@ -32,6 +32,7 @@ static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
 static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
+static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
 static/portal-empleado/modulos/personal/vista.js

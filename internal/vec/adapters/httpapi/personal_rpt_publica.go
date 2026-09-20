@@ -24,8 +24,8 @@ type ConsultaRPTPublica interface {
 	Listar(context.Context) (personaldomain.CatalogoRPTPublica, error)
 }
 
-// NewHandlerRPTPublicaPresentacion es una concesion de lectura exacta. La
-// raiz aislada decide montarla; el handler no acepta identidad ni rutas hijas.
+// NewHandlerRPTPublicaPresentacion es una concesion de lectura exacta: catálogo
+// publicado sin personas, ocupantes ni inferencias de jefatura.
 func NewHandlerRPTPublicaPresentacion(cfg config.Config, consulta ConsultaRPTPublica) (http.Handler, error) {
 	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
 		return nil, ErrConcesionRPTPublicaPresentacionInvalida
@@ -48,7 +48,15 @@ func NewHandlerRPTPublicaPresentacion(cfg config.Config, consulta ConsultaRPTPub
 	}), nil
 }
 
+type vistaRPTPublica string
+
+const (
+	vistaRPTCategorias vistaRPTPublica = "categorias"
+	vistaRPTPuestos    vistaRPTPublica = "puestos"
+)
+
 type filtroRPTPublica struct {
+	vista         vistaRPTPublica
 	q             string
 	limit, offset int
 }
@@ -59,32 +67,33 @@ func filtroRPTPublicaDesdePeticion(r *http.Request) (filtroRPTPublica, error) {
 		return filtroRPTPublica{}, err
 	}
 	for clave, valoresClave := range valores {
-		if (clave != "q" && clave != "limit" && clave != "offset") || len(valoresClave) != 1 {
+		if (clave != "vista" && clave != "q" && clave != "limit" && clave != "offset") || len(valoresClave) != 1 {
 			return filtroRPTPublica{}, errors.New("filtro")
 		}
+	}
+	vista := vistaRPTCategorias
+	if recibida := valores.Get("vista"); recibida != "" {
+		vista = vistaRPTPublica(recibida)
+	}
+	if vista != vistaRPTCategorias && vista != vistaRPTPuestos {
+		return filtroRPTPublica{}, errors.New("filtro")
 	}
 	q := strings.TrimSpace(valores.Get("q"))
 	if !utf8.ValidString(q) || utf8.RuneCountInString(q) > 100 {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
 	limit, err := enteroRPTPublica(valores.Get("limit"))
-	if err != nil {
-		return filtroRPTPublica{}, err
-	}
-	if limit < 1 || limit > 100 {
+	if err != nil || limit < 1 || limit > 100 {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
 	offset, err := enteroRPTPublica(valores.Get("offset"))
 	if err != nil || offset < 0 {
 		return filtroRPTPublica{}, errors.New("filtro")
 	}
-	return filtroRPTPublica{q: q, limit: limit, offset: offset}, nil
+	return filtroRPTPublica{vista: vista, q: q, limit: limit, offset: offset}, nil
 }
 func enteroRPTPublica(valor string) (int, error) {
-	if valor == "" {
-		return 0, errors.New("filtro")
-	}
-	if strings.TrimSpace(valor) != valor || (len(valor) > 1 && valor[0] == '0') {
+	if valor == "" || strings.TrimSpace(valor) != valor || (len(valor) > 1 && valor[0] == '0') {
 		return 0, errors.New("filtro")
 	}
 	return strconv.Atoi(valor)
@@ -101,22 +110,40 @@ func servirRPTPublica(w http.ResponseWriter, r *http.Request, consulta ConsultaR
 		escribirRPTPublicaError(w, http.StatusServiceUnavailable, "rpt_publica_no_disponible")
 		return
 	}
-	coinciden := make([]personaldomain.CategoriaRPTPublica, 0, len(catalogo.Categorias))
-	consultaNormalizada := textoRPTPublica(filtro.q)
-	for _, categoria := range catalogo.Categorias {
-		if consultaNormalizada == "" || strings.Contains(textoRPTPublica(categoria.Clave+" "+categoria.Denominacion+" "+strings.Join(categoria.Grupos, " ")+" "+strings.Join(categoria.Escalas, " ")), consultaNormalizada) {
-			coinciden = append(coinciden, categoria.Clonar())
+	q := textoRPTPublica(filtro.q)
+	var coinciden any
+	total := 0
+	if filtro.vista == vistaRPTPuestos {
+		filtrados := make([]personaldomain.PuestoRPTPublico, 0, len(catalogo.Puestos))
+		for _, puesto := range catalogo.Puestos {
+			if q == "" || strings.Contains(textoRPTPublica(strings.Join([]string{puesto.Codigo, puesto.Denominacion, puesto.CentroCodigo, puesto.Centro, puesto.Delegacion, strings.Join(puesto.Grupos, " "), puesto.Escala, puesto.CategoriaClave, puesto.Tipo, puesto.Provision}, " ")), q) {
+				filtrados = append(filtrados, puesto.Clonar())
+			}
 		}
+		total = len(filtrados)
+		coinciden = paginaRPT(filtrados, filtro.offset, filtro.limit)
+	} else {
+		filtradas := make([]personaldomain.CategoriaRPTPublica, 0, len(catalogo.Categorias))
+		for _, categoria := range catalogo.Categorias {
+			if q == "" || strings.Contains(textoRPTPublica(categoria.Clave+" "+categoria.Denominacion+" "+strings.Join(categoria.Grupos, " ")+" "+strings.Join(categoria.Escalas, " ")), q) {
+				filtradas = append(filtradas, categoria.Clonar())
+			}
+		}
+		total = len(filtradas)
+		coinciden = paginaRPT(filtradas, filtro.offset, filtro.limit)
 	}
-	inicio := filtro.offset
-	if inicio > len(coinciden) {
-		inicio = len(coinciden)
+	escribirRPTPublicaJSON(w, http.StatusOK, map[string]any{"rpt": map[string]any{"items": coinciden, "total": total, "limit": filtro.limit, "offset": filtro.offset, "vista": filtro.vista, "esquema": catalogo.Esquema, "fuente": catalogo.Fuente, "resumen": catalogo.Resumen}})
+}
+func paginaRPT[T any](filas []T, offset, limit int) []T {
+	inicio := offset
+	if inicio > len(filas) {
+		inicio = len(filas)
 	}
-	fin := inicio + filtro.limit
-	if fin > len(coinciden) {
-		fin = len(coinciden)
+	fin := inicio + limit
+	if fin > len(filas) {
+		fin = len(filas)
 	}
-	escribirRPTPublicaJSON(w, http.StatusOK, map[string]any{"rpt": map[string]any{"items": coinciden[inicio:fin], "total": len(coinciden), "limit": filtro.limit, "offset": filtro.offset, "esquema": catalogo.Esquema, "fuente": catalogo.Fuente}})
+	return filas[inicio:fin]
 }
 func textoRPTPublica(valor string) string {
 	valor = norm.NFD.String(strings.ToLower(strings.TrimSpace(valor)))
