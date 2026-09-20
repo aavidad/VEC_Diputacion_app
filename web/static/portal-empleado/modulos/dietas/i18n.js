@@ -326,7 +326,6 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   recorridos_centro_unidad: "Centro y unidad",
   recorridos_destinatarios: "Destinatarios de la revisión",
   recorridos_sin_asignacion_verificada: "Sin centro, unidad ni destinatarios verificados.",
-  recorridos_titulo_presentacion: "Dietas y comisiones de servicio",
   recorridos_subtitulo_presentacion: "Recorrido visual para revisión de RRHH: solicitud, validación y liquidación.",
   recorridos_roles: "Recorridos por perfil",
   recorridos_datos_ficticios: "Datos ficticios de presentación",

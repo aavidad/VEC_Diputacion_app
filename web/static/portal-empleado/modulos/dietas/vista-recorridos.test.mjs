@@ -90,6 +90,8 @@ test("la superficie visible conserva las tres etapas y deja las acciones no cone
   assert.match(fuente, /boton\.disabled = true/u);
   assert.match(fuente, /montarItinerario/u);
   assert.match(fuente, /obtenerAtlasSinteticoRRHH/u);
+  assert.doesNotMatch(fuente, /recorridos_titulo_presentacion/u);
+  assert.doesNotMatch(fuente, /dietasResumenEtapa|dietas-recorridos-lateral/u);
   assert.doesNotMatch(fuente, /recorridos_limite_operativo/u);
   assert.doesNotMatch(fuente, /dietas-recorridos-conexion-pendiente/u);
   assert.doesNotMatch(fuente, /renderizarEstadoEntrega/u);

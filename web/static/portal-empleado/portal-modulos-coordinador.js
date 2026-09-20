@@ -84,10 +84,10 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260920-dietas-ayuda-contextual-v3"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260920-dietas-tarea-limpia-v5"),
       import("./modulos/dietas/mapa-ruta.js"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260920-dietas-ayuda-contextual-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260920-dietas-tarea-limpia-v5"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -152,10 +152,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260920-dietas-ayuda-contextual-v3"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260920-dietas-tarea-limpia-v5"),
       import("./modulos/dietas/mapa-ruta.js"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260920-dietas-ayuda-contextual-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260920-dietas-tarea-limpia-v5"),
       import("./modulos/dietas/cliente-borradores-http.js"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });

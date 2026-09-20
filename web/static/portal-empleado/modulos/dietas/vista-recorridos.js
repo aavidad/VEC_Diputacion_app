@@ -324,19 +324,6 @@ function panelGestion(documento, t, seleccionada) {
   return panel;
 }
 
-function resumen(documento, t, etapa) {
-  const lateral = elemento(documento, "aside");
-  lateral.className = "dietas-recorridos-lateral panel";
-  lateral.dataset.dietasResumenEtapa = "";
-  lateral.append(
-    elemento(documento, "h3", t("recorridos_resumen")),
-    elemento(documento, "p", t(ETAPAS.find(([valor]) => valor === etapa)[1])),
-    elemento(documento, "p", t("recorridos_sin_datos")),
-    elemento(documento, "small", t("recorridos_pendiente_conexion")),
-  );
-  return lateral;
-}
-
 /** Presenta un recorrido navegable; cada efecto continúa cerrado hasta su puerto autorizado. */
 export function montarVistaRecorridosDietas(
   contenedor,
@@ -415,7 +402,6 @@ export function montarVistaRecorridosDietas(
       );
     }
   }
-  const titulo = elemento(documento, "h2", traducir("recorridos_titulo_presentacion"));
   const pasos = elemento(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_titulo"));
@@ -445,11 +431,10 @@ export function montarVistaRecorridosDietas(
     ["jefatura", jefatura],
     ["gestion", gestion],
   ]);
-  const lateral = resumen(documento, traducir, etapa);
   const cuerpo = elemento(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
-  cuerpo.append(solicitante, jefatura, gestion, lateral);
-  raiz.append(titulo, pasos, cuerpo);
+  cuerpo.append(solicitante, jefatura, gestion);
+  raiz.append(pasos, cuerpo);
 
   function pintar() {
     if (!activa || !sigueMontada(contenedor, raiz)) return;
@@ -458,16 +443,6 @@ export function montarVistaRecorridosDietas(
       if (valor === etapa) boton.setAttribute("aria-current", "step");
       else boton.removeAttribute?.("aria-current");
     });
-    lateral.replaceChildren(
-      elemento(documento, "h3", traducir("recorridos_resumen")),
-      elemento(
-        documento,
-        "p",
-        traducir(ETAPAS.find(([valor]) => valor === etapa)[1]),
-      ),
-      elemento(documento, "p", traducir("recorridos_sin_datos")),
-      elemento(documento, "small", traducir("recorridos_pendiente_conexion")),
-    );
     if (etapa === "solicitante" && areaItinerario) {
       // Leaflet escucha resize: al volver desde una etapa oculta recalcula el
       // lienzo sin desmontar el visor ni perder el cálculo ya mostrado.
