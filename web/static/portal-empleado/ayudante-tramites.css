@@ -1,0 +1,16 @@
+.ayudante-tramites { display: grid; gap: 14px; }
+.ayudante-tramites h3, .ayudante-tramites p { margin: 0; }
+.ayudante-tramites-introduccion, .ayudante-tramites-instruccion { line-height: 1.55; }
+.ayudante-tramites-lista { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.ayudante-tramite { display: grid; width: 100%; gap: 4px; padding: 13px; border: 1px solid var(--portal-borde); border-radius: 8px; background: var(--portal-superficie-suave); color: var(--portal-tinta); text-align: left; cursor: pointer; }
+.ayudante-tramite:hover, .ayudante-tramite:focus-visible { border-color: var(--portal-primario); box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-primario) 22%, transparent); }
+.ayudante-tramite small { color: var(--portal-texto-secundario); line-height: 1.4; }
+.ayudante-tramites-aviso, .ayudante-tramites-pendiente { padding: 10px 12px; border-left: 4px solid var(--portal-aviso, #9b6400); background: var(--portal-superficie-suave); line-height: 1.5; }
+.ayudante-tramites-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.ayudante-tramites-detalle { justify-self: start; border: 0; padding: 5px 0; background: transparent; color: var(--portal-primario); font-weight: 700; text-decoration: underline; cursor: pointer; }
+.ayudante-tramites-detalle span { display: inline-grid; width: 1.3rem; height: 1.3rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; text-decoration: none; }
+.ayudante-tramites-explicacion { display: grid; gap: 8px; margin: 0; }
+.ayudante-tramites-explicacion div { padding: 9px 11px; border: 1px solid var(--portal-borde); border-radius: 6px; }
+.ayudante-tramites-explicacion dt { font-weight: 700; }
+.ayudante-tramites-explicacion dd { margin: 3px 0 0; line-height: 1.45; }
+@media (max-width: 520px) { .ayudante-tramites-acciones > * { flex: 1 1 100%; } }

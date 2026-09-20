@@ -10,6 +10,7 @@ import {
   obtenerAyudaContratacionTemporal,
   renderizarAyudaContratacionTemporal,
 } from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260920-ayudante-tramites-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
@@ -179,15 +180,18 @@ const renderizarPortal = crearVistaInicioPortal({
   obtenerTramitesInicio: () => coordinadorModulos.obtenerTramitesInicio?.() || null,
 });
 function renderizarContenidoAyuda(contexto = null) {
-  if (estado.vista === "contratacion-temporal" || (estado.vista === "portal" && esPerfilRRHH())) {
+  if (estado.vista === "contratacion-temporal") {
     const ctx = contexto || (estado.vista === "contratacion-temporal"
       ? detectarContextoContratacionTemporal()
       : { vista: "cuadro", fase: null });
     const ayuda = obtenerAyudaContratacionTemporal(ctx.vista, ctx.fase);
     return renderizarAyudaContratacionTemporal(ayuda, escaparHTML);
   }
-  const ayuda = AYUDA_PORTAL_BOLSA;
-  return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
+  if (estado.vista === "portal" && esPerfilRRHH()) {
+    const ayuda = AYUDA_PORTAL_BOLSA;
+    return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
+  }
+  return crearAyudanteTramites({ escapar: escaparHTML });
 }
 function porcentajeSeguro(valor) {
   const numeroValor = Number(valor);

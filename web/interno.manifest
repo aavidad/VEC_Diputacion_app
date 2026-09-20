@@ -2,6 +2,8 @@ static/assets/logo-diputacion-granada.svg
 static/favicon.svg
 static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
 static/portal-empleado/ayuda-contenido.js
+static/portal-empleado/ayudante-tramites.js
+static/portal-empleado/ayudante-tramites.css
 static/portal-empleado/identidad/contexto-actor.js
 static/portal-empleado/index.html
 static/portal-empleado/organizacion/index.html
