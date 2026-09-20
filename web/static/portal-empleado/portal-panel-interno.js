@@ -208,7 +208,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-        <td><strong>${escaparHTML(b.categoria)}</strong><br><small>${escaparHTML(b.categoria_clave)}</small></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button><br><small>${escaparHTML(b.categoria_clave)}</small></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><strong>${numero(b.total)}</strong></td>
@@ -217,9 +217,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip peligro">${numero(b.por_estado?.no_disponible)}</span></td>
         <td><span class="estado-chip peligro">${numero(b.por_estado?.excluido)}</span></td>
         <td><span class="estado-chip">${numero(b.por_estado?.renuncia_pendiente)}</span></td>
-        <td>
-          <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">Ver candidatos</button>
-        </td>
       </tr>
     `).join("");
 
@@ -243,7 +240,6 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">No disp.</th>
                 <th scope="col">Excluidos</th>
                 <th scope="col">Renuncia pend.</th>
-                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -302,7 +298,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!estadoCandidatos || estadoCandidatos.carga === "cargando") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
             <p><strong>Cargando lista de candidatos…</strong></p>
             <p>Obteniendo las candidaturas y llamamientos de la bolsa seleccionada.</p>
@@ -313,7 +309,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoCandidatos.carga === "error") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Error al consultar candidatos</strong></p>
             <p>${escaparHTML(estadoCandidatos.error || "No se pudo cargar la relación de aspirantes.")}</p>
@@ -328,7 +324,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoCandidatos.carga === "denegado") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Acceso denegado</strong></p>
             <p>La sesión no dispone de permisos para consultar los candidatos de esta bolsa.</p>
@@ -415,7 +411,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
       <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados se habilitarán cuando su circuito esté conectado.</section>
-      <section class="panel">
+      <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
         <div class="cabecera-panel">
           <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
           <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>

@@ -337,7 +337,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  async function cargarCandidatosBolsa(bolsaRef, { cursor = "" } = {}) {
+  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false } = {}) {
     if (!bolsaRef) return;
     estado.bolsaSeleccionada = bolsaRef;
     estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
@@ -359,6 +359,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje };
     }
     renderizar();
+    if (enfocarDestino) {
+      documento.querySelector("[data-bolsa-b5-destino='true']")?.focus?.();
+    }
   }
 
   async function abrirContactos(participacionRef, nombreVisible = "") {
@@ -461,7 +464,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           estado.bolsaSeleccionada = ref;
           estado.filtrosBolsa = { estado: "", texto: "" };
           navegar("bolsa-candidatos");
-          void cargarCandidatosBolsa(ref);
+          void cargarCandidatosBolsa(ref, { enfocarDestino: true });
         }
         return;
       }
