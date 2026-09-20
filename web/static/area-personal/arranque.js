@@ -1,6 +1,7 @@
 import { esModoPresentacion } from "./contrato.js";
 import { iniciarAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { iniciarMiBolsa } from "./mi-bolsa.js";
 
 await iniciarI18nAreaPersonal();
 
@@ -21,7 +22,8 @@ async function resolverCliente() {
 
 try {
   const dependencias = await resolverCliente();
-  await iniciarAreaPersonal(dependencias);
+  if (dependencias.presentacionSolicitada) await iniciarAreaPersonal(dependencias);
+  else await iniciarMiBolsa();
   if (dependencias.presentacionSolicitada) {
     const selector = await import("../presentacion/selector-perfiles.js?v=20260720-selector-perfiles-v1");
     selector.instalarSelectorPerfilesPresentacion({
