@@ -1263,13 +1263,14 @@ test("los activos de los recorridos visuales están declarados en HTML y ambos m
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-recorridos-visibles-v1";
-  const versionPortal = "20260920-recorridos-visibles-v1";
+  const versionCoordinador = "20260920-dietas-mapa-visible-v2";
+  const versionPortal = "20260920-dietas-mapa-visible-v2";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260920-referencia-rrhh-v1";
   const versionTemaCT = "20260918-botones-v1";
   const versionPulido = "20260920-recorridos-visibles-v1";
+  const versionDietas = "20260920-dietas-mapa-visible-v2";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([
@@ -1287,10 +1288,12 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
+  assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
+  assert.match(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietas}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
   assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionPulido}`));
-  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
+  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionDietas}`));
 });

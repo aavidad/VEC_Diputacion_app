@@ -66,6 +66,8 @@ test("mantiene visible un mapa corporativo pendiente sin inventar catálogo ni g
   const mapa = contenedor.querySelector("[data-dietas-mapa-pendiente]");
   assert.ok(mapa);
   assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").dataset.modoMapa, "pendiente_calculo_autorizado");
+  assert.equal(mapa.querySelector("[data-dietas-mapa-centro]").textContent, "");
+  assert.equal(mapa.querySelector("[data-dietas-mapa-centro]").children[0].textContent, "Granada");
   assert.match(mapa.querySelector("[data-dietas-mapa-estado]").textContent, /Pendiente de cálculo autorizado/u);
   assert.doesNotMatch(mapa.children.map((nodo) => nodo.textContent).join(" "), /sesión corporativa autorizada/u);
   assert.equal(mapa.querySelector("[data-dietas-mapa-ref]"), null);
@@ -81,6 +83,10 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
   assert.match(contenedor.querySelector("[data-itinerario-catalogo]").textContent, /176 puntos disponibles/u);
+  assert.equal(
+    contenedor.querySelector("[data-dietas-mapa-centro]").children[0].textContent,
+    "Granada",
+  );
   assert.equal(
     contenedor.querySelector("[data-itinerario-calcular]").className,
     "boton-primario",
@@ -188,6 +194,10 @@ test("muestra un error cerrado si el puerto de rutas falla", async () => {
   await clicar(contenedor, "[data-itinerario-calcular]");
   assert.match(contenedor.querySelector("[data-itinerario-error]").textContent, /servicio cartográfico interno/u);
   assert.doesNotMatch(contenedor.querySelector("[data-itinerario-error]").textContent, /detalle interno/u);
+  assert.equal(
+    contenedor.querySelector("[data-dietas-mapa-centro]").children[0].textContent,
+    "Granada",
+  );
   assert.ok(avisos.some(([, nivel]) => nivel === "error"));
   vista.desmontar();
 });

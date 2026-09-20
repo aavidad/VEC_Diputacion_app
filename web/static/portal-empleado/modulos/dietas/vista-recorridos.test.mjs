@@ -95,11 +95,14 @@ test("la superficie visible conserva las tres etapas y deja las acciones no cone
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
 });
 
-test("los indicadores separan etiqueta y valor también en móvil", async () => {
-  const estilos = await readFile(new URL("dietas.css", import.meta.url), "utf8");
-  assert.match(estilos, /\.dietas-presentacion-kpis\s*>\s*div\s*\{[\s\S]*?display:\s*grid/u);
-  assert.match(estilos, /\.dietas-presentacion-kpis span,[\s\S]*?\.dietas-presentacion-kpis strong\s*\{[\s\S]*?display:\s*block/u);
-  assert.match(estilos, /max-width:\s*760px[\s\S]*?\.dietas-presentacion-kpis\s*\{\s*grid-template-columns:\s*1fr/u);
+test("los indicadores reutilizan las tarjetas KPI corporativas", async () => {
+  const fuente = await readFile(new URL("vista-recorridos.js", import.meta.url), "utf8");
+  assert.match(fuente, /rejilla-kpi dietas-kpi/u);
+  assert.match(fuente, /tarjeta-kpi/u);
+  assert.match(fuente, /icono-kpi/u);
+  assert.match(fuente, /valor-kpi/u);
+  assert.match(fuente, /etiqueta-kpi/u);
+  assert.doesNotMatch(fuente, /dietas-presentacion-kpis/u);
 });
 
 test("el formulario propio no recurre a memoria web ni presenta éxito sin respuesta", async () => {

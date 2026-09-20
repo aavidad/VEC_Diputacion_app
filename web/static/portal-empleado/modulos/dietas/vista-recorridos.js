@@ -113,8 +113,30 @@ function detallesPresentacion(documento, t, seleccionada, rol) {
 }
 
 function resumenPresentacion(documento, t) {
-  const seccion = elemento(documento, "section"); seccion.className = "dietas-presentacion-kpis";
-  [["recorridos_kpi_comisiones", "3"], ["recorridos_kpi_revision", "1"], ["recorridos_kpi_declarado", "126,89 €"], ["recorridos_kpi_pago", t("recorridos_no_acreditado")]].forEach(([clave, valor]) => { const tarjeta = elemento(documento, "div"); tarjeta.append(elemento(documento, "span", t(clave)), elemento(documento, "strong", valor)); seccion.append(tarjeta); }); return seccion;
+  const seccion = elemento(documento, "section");
+  seccion.className = "rejilla-kpi dietas-kpi";
+  seccion.setAttribute("aria-label", t("recorridos_resumen"));
+  [
+    ["COM", "recorridos_kpi_comisiones", "3"],
+    ["REV", "recorridos_kpi_revision", "1"],
+    ["EUR", "recorridos_kpi_declarado", "126,89 €"],
+    ["PAG", "recorridos_kpi_pago", t("recorridos_no_acreditado")],
+  ].forEach(([sigla, clave, valor]) => {
+    const tarjeta = elemento(documento, "article");
+    tarjeta.className = "tarjeta-kpi";
+    const icono = elemento(documento, "span", sigla);
+    icono.className = "icono-kpi";
+    icono.setAttribute("aria-hidden", "true");
+    const contenido = elemento(documento, "div");
+    const cifra = elemento(documento, "strong", valor);
+    cifra.className = "valor-kpi";
+    const etiqueta = elemento(documento, "span", t(clave));
+    etiqueta.className = "etiqueta-kpi";
+    contenido.append(cifra, etiqueta);
+    tarjeta.append(icono, contenido);
+    seccion.append(tarjeta);
+  });
+  return seccion;
 }
 
 function formularioGastos(documento, t) {

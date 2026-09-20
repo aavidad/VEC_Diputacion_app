@@ -70,12 +70,19 @@ function crearMapaPendiente(documento, traducir) {
   lienzo.dataset.modoMapa = "pendiente_calculo_autorizado";
   lienzo.setAttribute("role", "region");
   lienzo.setAttribute("aria-label", traducir("mapa_region_accesible"));
+  const centro = elemento(documento, "div");
+  centro.className = "dietas-mapa-centro-inicial";
+  centro.dataset.dietasMapaCentro = "granada";
+  centro.append(
+    elemento(documento, "strong", traducir("mapa_centro_granada")),
+    elemento(documento, "small", traducir("mapa_centro_inicial")),
+  );
   const estado = elemento(documento, "p", traducir("mapa_pendiente_estado"));
   estado.className = "dietas-mapa-espera";
   estado.dataset.dietasMapaEstado = "";
   estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite");
-  lienzo.append(estado);
+  lienzo.append(centro, estado);
   figura.append(
     elemento(documento, "figcaption", traducir("mapa_pendiente_titulo")),
     lienzo,
@@ -360,6 +367,10 @@ export async function montarVistaItinerarioDietas({
       if (mapa && activaAhora()) visorActivo = visorRuta.montar({ raiz: mapa, descriptor: modelo.mapa_ruta });
       return;
     }
+    // La zona cartográfica permanece visible antes del primer cálculo y ante
+    // un fallo del motor. Solo muestra el centro nominal de Granada; ninguna
+    // carretera o distancia se crea sin una respuesta OSRM válida.
+    panel.append(crearMapaPendiente(documento, traducir));
     contenedor.append(panel);
   }
 
