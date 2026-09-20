@@ -32,6 +32,7 @@ AYUDA
 DIRECTORIO_SCRIPT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 RAIZ_REPOSITORIO=$(cd -- "$DIRECTORIO_SCRIPT/.." && pwd -P)
 GENERADOR="$DIRECTORIO_SCRIPT/generar_credenciales_desarrollo.sh"
+SELECTOR_TOOLCHAIN="$DIRECTORIO_SCRIPT/seleccionar_toolchain_go_local.sh"
 PUERTO=8443
 DIRECTORIO_MATERIAL=''
 PUERTO_INDICADO=false
@@ -103,6 +104,7 @@ for ORDEN in go curl python3 realpath mktemp rm; do
   command -v "$ORDEN" >/dev/null 2>&1 || fallar "falta la herramienta obligatoria: $ORDEN"
 done
 [[ -x "$GENERADOR" ]] || fallar "generador no ejecutable: $GENERADOR"
+[[ -x "$SELECTOR_TOOLCHAIN" ]] || fallar "selector de toolchain no ejecutable: $SELECTOR_TOOLCHAIN"
 DIRECTORIO_MATERIAL=$(realpath -m -- "$DIRECTORIO_MATERIAL")
 
 comprobar_puerto_libre() {
@@ -141,9 +143,14 @@ export VEC_HTTP_ADDR="127.0.0.1:$PUERTO"
 
 TEMPORAL_BUILD=$(mktemp -d /tmp/vec-arranque-desarrollo.XXXXXX)
 BINARIO="$TEMPORAL_BUILD/vec-server"
+export GOENV=off
+export GOTOOLCHAIN=local
+export GOPROXY=off
+export GOSUMDB=off
+GO_LOCAL=$("$SELECTOR_TOOLCHAIN")
 (
   cd "$RAIZ_REPOSITORIO"
-  go build -buildvcs=false -o "$BINARIO" ./cmd/vec-server
+  "$GO_LOCAL" build -buildvcs=false -o "$BINARIO" ./cmd/vec-server
 )
 comprobar_puerto_libre
 

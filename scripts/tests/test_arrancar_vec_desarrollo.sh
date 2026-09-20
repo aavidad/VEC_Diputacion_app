@@ -5,10 +5,12 @@ IFS=$'\n\t'
 DIRECTORIO_TEST=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 RAIZ_REPOSITORIO=$(cd -- "$DIRECTORIO_TEST/../.." && pwd -P)
 LANZADOR="$RAIZ_REPOSITORIO/scripts/arrancar_vec_desarrollo.sh"
+SMOKE="$RAIZ_REPOSITORIO/scripts/smoke_local_productizable.sh"
 TEMPORAL=$(mktemp -d)
 LANZADOR_PID=''
 BLOQUEADOR_PID=''
 SERVIDOR_PRUEBA_PID=''
+PATH_BASE=$PATH
 
 # Invocada indirectamente por trap.
 # shellcheck disable=SC2329
@@ -82,10 +84,25 @@ BLOQUEADOR_PID=''
 
 FAKES="$TEMPORAL/fakes"
 ESTADO="$TEMPORAL/estado"
-mkdir -p "$FAKES" "$ESTADO"
+MODCACHE="$TEMPORAL/modcache"
+mkdir -p "$FAKES" "$ESTADO" "$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin"
 cat >"$FAKES/go" <<'FAKE_GO'
 #!/usr/bin/env bash
 set -Eeuo pipefail
+if [[ "$1" == env ]]; then
+  printf '%s\n' "$VEC_ARRANQUE_TEST_MODCACHE" linux amd64
+  exit 0
+fi
+printf 'Go base invocado fuera de env: %s\n' "$*" >&2
+exit 97
+FAKE_GO
+cat >"$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go" <<'FAKE_GO_LOCAL'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "$1" == version ]]; then
+  printf '%s\n' 'go version go1.26.6 linux/amd64'
+  exit 0
+fi
 SALIDA=''
 while (( $# > 0 )); do
   if [[ "$1" == -o ]]; then
@@ -112,6 +129,10 @@ printf '%s\n' "$DIRECTORIO_TRABAJO" >"$VEC_ARRANQUE_TEST_ESTADO/cwd"
   printf 'VEC_HTTP_ADDR=%s\n' "$VEC_HTTP_ADDR"
   printf 'VEC_TLS_CERT_FILE=%s\n' "$VEC_TLS_CERT_FILE"
   printf 'VEC_TLS_KEY_FILE=%s\n' "$VEC_TLS_KEY_FILE"
+  printf 'GOENV=%s\n' "$GOENV"
+  printf 'GOTOOLCHAIN=%s\n' "$GOTOOLCHAIN"
+  printf 'GOPROXY=%s\n' "$GOPROXY"
+  printf 'GOSUMDB=%s\n' "$GOSUMDB"
 } >"$VEC_ARRANQUE_TEST_ESTADO/entorno"
 touch "$VEC_ARRANQUE_TEST_ESTADO/listo"
 trap 'exit 0' HUP INT TERM
@@ -120,12 +141,26 @@ while :; do
 done
 BINARIO
 chmod 700 "$SALIDA"
-FAKE_GO
+FAKE_GO_LOCAL
 cat >"$FAKES/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
+set -Eeuo pipefail
+for argumento in "$@"; do
+  case "$argumento" in
+    *workspace*) printf '403\n'; exit 0 ;;
+    *documents*|*claims*|*notification_send*|*/send*|*/read*) printf '503\n'; exit 0 ;;
+  esac
+done
+for argumento in "$@"; do
+  [[ "$argumento" == '%{http_code}' ]] && { printf '200\n'; exit 0; }
+done
 exit 0
 FAKE_CURL
-chmod 700 "$FAKES/go" "$FAKES/curl"
+cat >"$FAKES/jq" <<'FAKE_JQ'
+#!/usr/bin/env bash
+exit 0
+FAKE_JQ
+chmod 700 "$FAKES/go" "$FAKES/curl" "$FAKES/jq" "$MODCACHE/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go"
 
 PUERTO_LIBRE=$(python3 - <<'PY'
 import socket
@@ -141,9 +176,10 @@ CWD_EXTERNO="$TEMPORAL/cwd-externo"
 mkdir -p -- "$CWD_EXTERNO"
 (
   cd "$CWD_EXTERNO"
-  export PATH="$FAKES:$PATH"
+  export PATH="$FAKES:$PATH_BASE"
   export VEC_ARRANQUE_TEST_ESTADO="$ESTADO"
   export VEC_ARRANQUE_TEST_RAIZ="$RAIZ_REPOSITORIO"
+  export VEC_ARRANQUE_TEST_MODCACHE="$MODCACHE"
   exec "$LANZADOR" --puerto "$PUERTO_LIBRE" --directorio-material "$MATERIAL"
 ) >"$TEMPORAL/salida" 2>&1 &
 LANZADOR_PID=$!
@@ -170,6 +206,10 @@ grep -Fxq "VEC_DEVELOPMENT_MATERIAL_DIR=$MATERIAL" "$ESTADO/entorno"
 grep -Fxq "VEC_HTTP_ADDR=127.0.0.1:$PUERTO_LIBRE" "$ESTADO/entorno"
 grep -Fxq "VEC_TLS_CERT_FILE=$MATERIAL/tls/servidor.crt" "$ESTADO/entorno"
 grep -Fxq "VEC_TLS_KEY_FILE=$MATERIAL/tls/servidor.key" "$ESTADO/entorno"
+grep -Fxq 'GOENV=off' "$ESTADO/entorno"
+grep -Fxq 'GOTOOLCHAIN=local' "$ESTADO/entorno"
+grep -Fxq 'GOPROXY=off' "$ESTADO/entorno"
+grep -Fxq 'GOSUMDB=off' "$ESTADO/entorno"
 for (( INTENTO = 0; INTENTO < 100; INTENTO++ )); do
   if grep -Fq "Portal: https://localhost:$PUERTO_LIBRE/portal-empleado/" "$TEMPORAL/salida"; then
     break
@@ -202,5 +242,14 @@ done
 SERVIDOR_PRUEBA_PID=''
 [[ ! -e "$BINARIO" ]]
 [[ ! -d "$DIRECTORIO_BUILD" ]]
+
+VEC_SMOKE_SKIP_TESTS=1 \
+  VEC_SMOKE_MANAGED=0 \
+  VEC_SMOKE_BASE_URL='http://127.0.0.1:9' \
+  VEC_SMOKE_ARTIFACT_DIR="$TEMPORAL/smoke" \
+  PATH="$FAKES:$PATH_BASE" \
+  VEC_ARRANQUE_TEST_MODCACHE="$MODCACHE" \
+  "$SMOKE" >"$TEMPORAL/smoke-salida" 2>&1
+grep -Fq 'vec_bolsa_smoke_local_ok base=http://127.0.0.1:9' "$TEMPORAL/smoke-salida"
 
 printf 'arranque VEC desarrollo: OK\n'
