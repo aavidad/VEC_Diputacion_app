@@ -187,37 +187,38 @@ test("selecciona localmente otra comisión sin habilitar efectos", () => {
   vista.desmontar();
 });
 
-test("sustituye el indicador inicial y conserva el área del mapa al cambiar de etapa", () => {
+test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", async () => {
   const contenedor = crearRaiz();
   const indicador = contenedor.ownerDocument.createElement("p");
   indicador.dataset.cargando = "";
   contenedor.append(indicador);
   let areaMapa;
+  let montajes = 0;
   const vista = montarVistaRecorridosDietas(contenedor, {
     montarItinerario: (area) => {
+      montajes += 1;
       areaMapa = area;
       return { desmontar() {} };
     },
   });
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const panelSolicitante = raiz.querySelector(
-    '[data-dietas-panel-etapa="solicitante"]',
-  );
+  const nueva = raiz.querySelector("[data-dietas-nueva-comision]");
+  assert.equal(nueva.hidden, true);
+  assert.equal(montajes, 0);
+  raiz.listeners.click({
+    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
+  });
+  await Promise.resolve();
+  assert.equal(nueva.hidden, false);
+  assert.equal(montajes, 1);
   assert.ok(
-    panelSolicitante.children.indexOf(areaMapa) <
-      panelSolicitante.children.indexOf(
-        panelSolicitante.querySelector("[data-dietas-area-borradores]"),
-      ),
+    nueva.children.indexOf(areaMapa) <
+      nueva.children.indexOf(nueva.querySelector("[data-dietas-area-borradores]")),
     "el itinerario debe aparecer antes que los borradores",
   );
   assert.equal(contenedor.querySelector("[data-cargando]"), null);
-  raiz.listeners.click({
-    target: raiz.querySelector('[data-dietas-cambiar-etapa="jefatura"]'),
-  });
-  raiz.listeners.click({
-    target: raiz.querySelector('[data-dietas-cambiar-etapa="solicitante"]'),
-  });
-  assert.equal(raiz.querySelector("[data-dietas-area-itinerario]"), areaMapa);
+  raiz.listeners.click({ target: raiz.querySelector("[data-dietas-cerrar-nueva-comision]") });
+  assert.equal(nueva.hidden, true);
   vista.desmontar();
 });
 
@@ -230,6 +231,10 @@ test("desmonta un itinerario asíncrono que resuelve después de abandonar la vi
   });
   const vista = montarVistaRecorridosDietas(contenedor, {
     montarItinerario: () => pendiente,
+  });
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  raiz.listeners.click({
+    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
   });
   vista.desmontar();
   resolver({

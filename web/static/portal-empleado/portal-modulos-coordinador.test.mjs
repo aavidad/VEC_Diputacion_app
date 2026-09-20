@@ -920,8 +920,14 @@ test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en 
   assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
   const raizDietas = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
+  const recorridosDietas = raizDietas.querySelector("[data-dietas-recorridos]");
+  assert.equal(raizDietas.querySelector("[data-dietas-itinerario]"), null);
+  recorridosDietas.listeners.click({
+    target: recorridosDietas.querySelector("[data-dietas-abrir-nueva-comision]"),
+  });
+  await new Promise((resolver) => setImmediate(resolver));
   assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
-  assert.ok(raizDietas.querySelector("[data-itinerario-catalogo]"));
+  assert.equal(raizDietas.querySelector("[data-itinerario-catalogo]"), null);
   coordinador.desmontarVistaActual();
 });
 
@@ -938,6 +944,12 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
   const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("dietas", raiz), true);
+
+  const recorridos = raiz.querySelector("[data-dietas-recorridos]");
+  recorridos.listeners.click({
+    target: recorridos.querySelector("[data-dietas-abrir-nueva-comision]"),
+  });
+  await new Promise((resolver) => setImmediate(resolver));
 
   const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
   await contenedorDietas.listeners.click({
@@ -1002,8 +1014,8 @@ test("una navegación aborta el catálogo Dietas pendiente sin publicar su monta
   coordinador.desmontarVistaActual();
   const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
   resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
-  assert.equal(await montajeAnterior, false);
   assert.equal(senalCatalogo.aborted, true);
+  assert.equal(await montajeAnterior, false);
   assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
   assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
 });
@@ -1263,14 +1275,14 @@ test("los activos de los recorridos visuales están declarados en HTML y ambos m
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-dietas-tarea-limpia-v5";
-  const versionPortal = "20260920-dietas-tarea-limpia-v5";
+  const versionCoordinador = "20260920-dietas-alta-plegable-v6";
+  const versionPortal = "20260920-dietas-alta-plegable-v6";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260920-referencia-rrhh-v1";
   const versionTemaCT = "20260918-botones-v1";
   const versionPulido = "20260920-recorridos-visibles-v1";
-  const versionDietas = "20260920-dietas-tarea-limpia-v5";
+  const versionDietas = "20260920-dietas-alta-plegable-v6";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([

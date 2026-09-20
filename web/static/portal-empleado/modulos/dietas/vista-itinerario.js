@@ -109,7 +109,7 @@ function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
   const esSalida = indice === 0;
   const esDestino = indice === modelo.paradas.length - 1;
   const etiquetaTexto = esSalida ? traducir("ruta_salida")
-    : esDestino ? traducir("ruta_destino_final")
+    : esDestino ? traducir("ruta_destino_final", { numero: indice })
       : traducir("ruta_etapa", { numero: indice });
   const etiqueta = elemento(documento, "label", etiquetaTexto);
   const selector = elemento(documento, "select");
@@ -313,11 +313,6 @@ export async function montarVistaItinerarioDietas({
       return;
     }
     const modelo = presentador.obtenerModelo();
-    const resumenCatalogo = elemento(documento, "p", traducir("ruta_catalogo_resumen", {
-      total: modelo.catalogo.puntos.length, version: modelo.catalogo.version,
-    }));
-    resumenCatalogo.dataset.itinerarioCatalogo = "";
-    panel.append(resumenCatalogo);
     const paradas = elemento(documento, "div");
     paradas.className = "dietas-ruta-paradas";
     modelo.paradas.forEach((codigo, indice) => paradas.append(

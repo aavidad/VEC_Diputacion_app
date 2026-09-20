@@ -212,10 +212,39 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
     elemento(documento, "h3", t("recorridos_solicitante")),
     resumenPresentacion(documento, t),
   );
-  // El itinerario es la tarea principal de la comisión: debe aparecer antes
-  // que los formularios administrativos todavía pendientes de conexión.
-  if (areaItinerario) panel.append(areaItinerario);
-  panel.append(areaBorradores);
+  const accionesNueva = elemento(documento, "div");
+  accionesNueva.className = "dietas-nueva-comision-acciones";
+  const abrirNueva = elemento(documento, "button", t("nueva_comision", { demo: "" }));
+  abrirNueva.type = "button";
+  abrirNueva.className = "boton-primario";
+  abrirNueva.dataset.dietasAbrirNuevaComision = "";
+  abrirNueva.setAttribute("aria-expanded", "false");
+  accionesNueva.append(abrirNueva);
+  panel.append(accionesNueva);
+  const bandeja = elemento(documento, "section");
+  bandeja.className = "panel dietas-presentacion-bandeja";
+  bandeja.append(
+    elemento(documento, "h3", t("recorridos_mis_solicitudes")),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
+    detallesPresentacion(documento, t, seleccionada, "solicitante"),
+  );
+  const nuevaComision = elemento(documento, "section");
+  nuevaComision.className = "dietas-nueva-comision";
+  nuevaComision.dataset.dietasNuevaComision = "";
+  nuevaComision.setAttribute("tabindex", "-1");
+  nuevaComision.hidden = true;
+  const cabeceraNueva = elemento(documento, "div");
+  cabeceraNueva.className = "cabecera-panel";
+  const cerrarNueva = elemento(documento, "button", t("cerrar_nueva_comision"));
+  cerrarNueva.type = "button";
+  cerrarNueva.className = "boton-secundario";
+  cerrarNueva.dataset.dietasCerrarNuevaComision = "";
+  cabeceraNueva.append(elemento(documento, "h3", t("nueva_comision", { demo: "" })), cerrarNueva);
+  nuevaComision.append(cabeceraNueva);
+  // El itinerario y sus rutas pertenecen exclusivamente al alta de una
+  // comisión; la consulta de las dietas del periodo no debe mostrarlos.
+  if (areaItinerario) nuevaComision.append(areaItinerario);
+  nuevaComision.append(areaBorradores);
   const documentos = elemento(documento, "section");
   documentos.className = "dietas-recorridos-documentos";
   documentos.append(
@@ -240,16 +269,8 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
     botonPendiente(documento, t, "recorridos_desde"),
     botonPendiente(documento, t, "recorridos_hasta"),
   );
-  panel.append(documentos);
-  const bandeja = elemento(documento, "section");
-  bandeja.className = "panel dietas-presentacion-bandeja";
-  bandeja.append(
-    elemento(documento, "h3", t("recorridos_mis_solicitudes")),
-    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
-    detallesPresentacion(documento, t, seleccionada, "solicitante"),
-  );
-  panel.append(bandeja);
-  panel.append(formularioGastos(documento, t));
+  nuevaComision.append(documentos);
+  nuevaComision.append(formularioGastos(documento, t));
   const envio = elemento(documento, "section");
   envio.className = "dietas-recorridos-acciones";
   envio.append(
@@ -257,7 +278,8 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccio
     elemento(documento, "p", t("recorridos_pendiente_conexion")),
     botonPendiente(documento, t, "recorridos_enviar_revision"),
   );
-  panel.append(envio);
+  nuevaComision.append(envio);
+  panel.append(nuevaComision, bandeja);
   return panel;
 }
 
@@ -359,6 +381,7 @@ export function montarVistaRecorridosDietas(
   let seleccionada = COMISIONES_PRESENTACION[0].referencia;
   let desmontarBorradores = () => {};
   let desmontarItinerario = () => {};
+  let itinerarioIniciado = false;
   const areaBorradores = elemento(documento, "div");
   areaBorradores.dataset.dietasAreaBorradores = "";
   try {
@@ -379,6 +402,10 @@ export function montarVistaRecorridosDietas(
   const areaItinerario = montarItinerario ? elemento(documento, "div") : null;
   if (areaItinerario) {
     areaItinerario.dataset.dietasAreaItinerario = "";
+  }
+  function iniciarItinerario() {
+    if (!areaItinerario || itinerarioIniciado || !activa) return;
+    itinerarioIniciado = true;
     try {
       Promise.resolve(montarItinerario(areaItinerario)).then(
         (vista) => {
@@ -450,6 +477,23 @@ export function montarVistaRecorridosDietas(
     }
   }
   function cambiarEtapa(evento) {
+    const abrirNueva = evento.target?.closest?.("[data-dietas-abrir-nueva-comision]");
+    const cerrarNueva = evento.target?.closest?.("[data-dietas-cerrar-nueva-comision]");
+    if ((abrirNueva || cerrarNueva) && activa) {
+      const abierta = Boolean(abrirNueva);
+      const zonaNueva = raiz.querySelector?.("[data-dietas-nueva-comision]");
+      if (zonaNueva) zonaNueva.hidden = !abierta;
+      const botonAbrir = raiz.querySelector?.("[data-dietas-abrir-nueva-comision]");
+      if (botonAbrir) {
+        botonAbrir.hidden = abierta;
+        botonAbrir.setAttribute("aria-expanded", String(abierta));
+      }
+      if (abierta) {
+        iniciarItinerario();
+        zonaNueva?.focus?.();
+      } else botonAbrir?.focus?.();
+      return;
+    }
     const boton = evento.target?.closest?.("[data-dietas-cambiar-etapa]");
     const seleccion = evento.target?.closest?.("[data-dietas-seleccionar-comision]");
     if (seleccion && activa) {

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { crearCalculadorRutasDietasPresentacionOSRM } from "./calculador-rutas-presentacion-osrm.js";
 import { CAPACIDAD_CONSULTAR_RUTA } from "./contrato.js";
+import { MENSAJES_DIETAS_ES } from "./i18n.js";
 import { montarVistaItinerarioDietas, montarVistaItinerarioPendienteDietas } from "./vista-itinerario.js";
 import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
 import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
@@ -82,7 +83,7 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
     visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() { mapaDesmontado = true; } }; } },
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
-  assert.match(contenedor.querySelector("[data-itinerario-catalogo]").textContent, /176 puntos disponibles/u);
+  assert.equal(contenedor.querySelector("[data-itinerario-catalogo]"), null);
   assert.equal(
     contenedor.querySelector("[data-dietas-mapa-centro]").children[0].textContent,
     "Granada",
@@ -208,4 +209,5 @@ test("la vista no importa ni expone comandos económicos", async () => {
   assert.doesNotMatch(fuente, /adaptador-presentacion|crear_borrador|enviar_validacion|descargarRecibo|prepararRutaBorrador/u);
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|document\.cookie/u);
   assert.doesNotMatch(fuente, /\} km`|\} min`/u);
+  assert.equal(MENSAJES_DIETAS_ES.ruta_anadir_parada, "Añadir ruta");
 });

@@ -826,6 +826,48 @@
 .modulo-dietas .dietas-kpi .tarjeta-kpi:nth-child(4) { border-top-color: var(--portal-violeta); }
 .modulo-dietas .dietas-kpi .tarjeta-kpi:nth-child(5) { border-top-color: var(--portal-cian); }
 
+.modulo-dietas .dietas-nueva-comision-acciones {
+  display: flex;
+  justify-content: flex-end;
+  padding-block: .15rem;
+}
+
+.modulo-dietas .dietas-nueva-comision {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-fondo);
+  scroll-margin-top: 5rem;
+}
+
+.modulo-dietas .dietas-itinerario-parada {
+  display: grid;
+  grid-template-columns: minmax(22rem, 34rem) auto;
+  gap: .75rem;
+  align-items: end;
+}
+
+.modulo-dietas .dietas-itinerario-parada > label {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) minmax(14rem, 1fr);
+  gap: .65rem;
+  align-items: center;
+}
+
+.modulo-dietas .dietas-nueva-comision[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .modulo-dietas .dietas-itinerario-parada,
+  .modulo-dietas .dietas-itinerario-parada > label {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .modulo-dietas .dietas-listado .cabecera-panel,
 .modulo-dietas .dietas-detalle .cabecera-panel,
 .modulo-dietas .dietas-resumen-anual .cabecera-panel {

@@ -204,7 +204,7 @@ function renderizarHerramientaRutas(rutas, t, errorRuta = "") {
   const puntos = rutas.catalogo.puntos;
   const puntosPorCodigo = new Map(puntos.map((punto) => [punto.codigo, punto]));
   const paradas = rutas.paradas.map((codigo, indice) => {
-    const clave = indice === 0 ? "ruta_salida" : (indice === rutas.paradas.length - 1 ? "ruta_destino_final" : "ruta_parada_intermedia");
+    const clave = indice === 0 ? "ruta_salida" : (indice === rutas.paradas.length - 1 ? "ruta_destino_final" : "ruta_etapa");
     const etiqueta = t(clave, { numero: indice });
     const nombreParada = puntosPorCodigo.get(codigo)?.nombre || etiqueta;
     return `<div class="dietas-ruta-parada">
