@@ -1,0 +1,57 @@
+/* Fragmento común para indicar con precisión el nivel de entrega de una vista. */
+.estado-entrega {
+  --estado-entrega-acento: var(--portal-azul-700, #165b94);
+  display: grid;
+  gap: .55rem;
+  min-width: 0;
+  margin: 1rem 0;
+  padding: .85rem 1rem;
+  border: 1px solid var(--portal-borde, #c7d2dc);
+  border-inline-start: .35rem solid var(--estado-entrega-acento);
+  border-radius: var(--portal-radio, .35rem);
+  background: var(--portal-superficie, #fff);
+  color: var(--portal-tinta, #17212b);
+}
+
+.estado-entrega--conectado { --estado-entrega-acento: var(--portal-exito, #237a3b); }
+.estado-entrega--pendiente { --estado-entrega-acento: var(--portal-aviso, #9b5d00); }
+.estado-entrega--bloqueado { --estado-entrega-acento: var(--portal-error, #aa2435); }
+
+.estado-entrega__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55rem .75rem;
+}
+.estado-entrega__cabecera h3,
+.estado-entrega h4,
+.estado-entrega p { margin: 0; }
+.estado-entrega__cabecera h3 { font-size: 1rem; }
+.estado-entrega h4 { font-size: .82rem; letter-spacing: .02em; }
+.estado-entrega__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: .05rem .5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--estado-entrega-acento);
+  font-size: .75rem;
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.estado-entrega__resumen { max-width: 78ch; color: var(--portal-muted, #4e5b66); }
+.estado-entrega__pendientes { display: grid; gap: .3rem; margin: 0; padding-inline-start: 1.25rem; }
+.estado-entrega__pendientes li { overflow-wrap: anywhere; }
+.estado-entrega__origen { color: var(--portal-muted, #4e5b66); font-size: .84rem; overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  .estado-entrega { padding: .75rem; }
+  .estado-entrega__cabecera { align-items: flex-start; flex-direction: column; gap: .4rem; }
+}
+
+@media (forced-colors: active) {
+  .estado-entrega { border-color: CanvasText; border-inline-start-color: Highlight; background: Canvas; color: CanvasText; }
+  .estado-entrega__chip { color: CanvasText; border-color: CanvasText; }
+}

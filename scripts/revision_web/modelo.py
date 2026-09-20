@@ -205,6 +205,59 @@ def _vistas_rrhh() -> tuple[Vista, ...]:
     return tuple(vistas)
 
 
+def _vistas_modulos_presentacion_rrhh() -> tuple[Vista, ...]:
+    """Recorridos aislados que sólo existen bajo la concesión de presentación.
+
+    No se mezclan con las vistas de Bolsa que comparten varias claves: el
+    router las distingue por modo presentación y cada superficie debe exponer
+    explícitamente el límite de conexión pendiente.
+    """
+    definiciones = (
+        ("nominas", "Nóminas y retribuciones", ".modulo-nominas[data-nominas]"),
+        ("solicitudes", "Solicitudes y certificados", ".solicitudes-modulo[data-solicitudes-modulo]"),
+        ("meritos", "Méritos y formación", ".modulo-meritos[data-modulo-meritos]"),
+        ("comunicaciones", "Comunicaciones", ".modulo-comunicaciones[data-comunicaciones-vista]"),
+        ("documentos", "Documentos y firma", ".modulo-documentos[data-documentos]"),
+        ("aprobaciones", "Aprobaciones y portafirmas", ".modulo-aprobaciones[data-aprobaciones]"),
+        ("auditoria", "Auditoría", ".modulo-auditoria[data-auditoria-vista]"),
+        ("administracion", "Administración y configuración", ".modulo-administracion[data-administracion-vista]"),
+    )
+    return tuple(Vista(
+        clave=f"rrhh-presentacion-{clave}", nombre=nombre, superficie="gestion-rrhh",
+        ruta=f"/portal-empleado/?presentacion=rrhh&perfil=administrador#{clave}-empleado",
+        selector_titulo="#titulo-vista", titulo_esperado=nombre,
+        selectores_listos=(
+            ".aviso-presentacion:not([hidden])",
+            f"#espacio-trabajo > {selector}",
+            ".estado-entrega--pendiente",
+        ),
+        selector_menu_actual=f'[data-modulo-portal="{clave}"][data-vista="{clave}-empleado"]',
+        selectores_menu=(
+            '[data-vista="portal"]',
+            f'[data-modulo-portal="{clave}"][data-vista="{clave}-empleado"]',
+        ),
+    ) for clave, nombre, selector in definiciones)
+
+
+def _vista_personal_presentacion_rrhh() -> Vista:
+    """Ficha de Personal y su acceso posterior a la proyección pública RPT."""
+    return Vista(
+        clave="rrhh-personal-presentacion", nombre="Personal", superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=funcionario#personal",
+        selector_titulo="#titulo-vista", titulo_esperado="Personal · consulta informativa",
+        selectores_listos=(
+            ".aviso-presentacion:not([hidden])",
+            "#espacio-trabajo > .modulo-personal[data-personal-ficha-integral]",
+            ".estado-entrega--pendiente",
+        ),
+        selector_menu_actual='[data-modulo-portal="personal"][data-vista="personal"]',
+        selectores_menu=(
+            '[data-vista="portal"]',
+            '[data-modulo-portal="personal"][data-vista="personal"]',
+        ),
+    )
+
+
 MANIFIESTO_VISTAS: tuple[Vista, ...] = (
     Vista(
         clave="lanzador-recorrido", nombre="Recorrido de presentación", superficie="lanzador",
@@ -220,6 +273,8 @@ MANIFIESTO_VISTAS: tuple[Vista, ...] = (
     ),
     *_vistas_aspirante(),
     *_vistas_rrhh(),
+    _vista_personal_presentacion_rrhh(),
+    *_vistas_modulos_presentacion_rrhh(),
     Vista(
         clave="rrhh-cronos", nombre="Cronos", superficie="gestion-rrhh",
         ruta="/portal-empleado/?presentacion=rrhh&perfil=funcionario#cronos",
@@ -317,6 +372,30 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
         ),
         selector_menu_actual='[data-vista="dietas"]',
         selectores_menu=('[data-vista="portal"]', '[data-vista="dietas"]'),
+        requiere_demo=True,
+    ),
+    Flujo(
+        clave="rrhh-personal-rpt-publica", nombre="Catálogo RPT público desde Personal",
+        superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=funcionario#personal",
+        selector_titulo="#titulo-vista", titulo_esperado="Personal · consulta informativa",
+        selectores_listos=(
+            ".aviso-presentacion:not([hidden])",
+            "#espacio-trabajo > .modulo-personal[data-personal-ficha-integral]",
+            ".estado-entrega--pendiente",
+        ),
+        pasos=(
+            PasoInteraccion("clic", '[data-personal-ficha-tab="catalogos"]'),
+            PasoInteraccion("esperar", "[data-personal-rpt-publica]", "Relación de Puestos"),
+            PasoInteraccion("clic", '[data-personal-rpt-publica-vista="puestos"]'),
+            PasoInteraccion("esperar", "[data-personal-rpt-publica] caption", "Tabla de puestos RPT"),
+            PasoInteraccion("esperar", "[data-personal-rpt-publica]", "842 puestos · 1.714 dotaciones"),
+        ),
+        selector_menu_actual='[data-modulo-portal="personal"][data-vista="personal"]',
+        selectores_menu=(
+            '[data-vista="portal"]',
+            '[data-modulo-portal="personal"][data-vista="personal"]',
+        ),
         requiere_demo=True,
     ),
     Flujo(

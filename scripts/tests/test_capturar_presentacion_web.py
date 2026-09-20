@@ -105,7 +105,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
                 "lanzador": 1,
                 "portal-publico": 1,
                 "area-aspirante": 14,
-                "gestion-rrhh": 20,
+                "gestion-rrhh": 29,
             },
         )
         self.assertEqual(
@@ -137,7 +137,8 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             vista.clave.removeprefix("rrhh-")
             for vista in capturador.MANIFIESTO_VISTAS
             if vista.superficie == "gestion-rrhh"
-            and vista.clave not in {"rrhh-cronos", "rrhh-dietas"}
+            and vista.clave not in {"rrhh-cronos", "rrhh-dietas", "rrhh-personal-presentacion"}
+            and not vista.clave.startswith("rrhh-presentacion-")
         }
         self.assertEqual(rutas, set(capturador.RUTAS_MENU_RRHH))
         self.assertIn("reglas", rutas)
@@ -160,6 +161,69 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
                 self.assertIn("perfil=funcionario", vista.ruta)
                 self.assertEqual(len(vista.selectores_menu), 2)
 
+    def test_modulos_nuevos_y_personal_declaran_limite_visual_pendiente(self) -> None:
+        vistas = {
+            vista.clave: vista
+            for vista in capturador.MANIFIESTO_VISTAS
+            if vista.clave.startswith("rrhh-presentacion-") or vista.clave == "rrhh-personal-presentacion"
+        }
+        esperadas = {
+            "rrhh-personal-presentacion": ("personal", "Personal · consulta informativa"),
+            "rrhh-presentacion-nominas": ("nominas-empleado", "Nóminas y retribuciones"),
+            "rrhh-presentacion-solicitudes": ("solicitudes-empleado", "Solicitudes y certificados"),
+            "rrhh-presentacion-meritos": ("meritos-empleado", "Méritos y formación"),
+            "rrhh-presentacion-comunicaciones": ("comunicaciones-empleado", "Comunicaciones"),
+            "rrhh-presentacion-documentos": ("documentos-empleado", "Documentos y firma"),
+            "rrhh-presentacion-aprobaciones": ("aprobaciones-empleado", "Aprobaciones y portafirmas"),
+            "rrhh-presentacion-auditoria": ("auditoria-empleado", "Auditoría"),
+            "rrhh-presentacion-administracion": ("administracion-empleado", "Administración y configuración"),
+        }
+        self.assertEqual(set(vistas), set(esperadas))
+        for clave, (hash_esperado, titulo) in esperadas.items():
+            with self.subTest(vista=clave):
+                vista = vistas[clave]
+                perfil = "funcionario" if clave == "rrhh-personal-presentacion" else "administrador"
+                self.assertIn(f"perfil={perfil}", vista.ruta)
+                self.assertEqual(vista.ruta.rsplit("#", 1)[-1], hash_esperado)
+                self.assertEqual(vista.titulo_esperado, titulo)
+                self.assertIn(".estado-entrega--pendiente", vista.selectores_listos)
+                self.assertEqual(len(vista.selectores_menu), 2)
+                if clave != "rrhh-personal-presentacion":
+                    self.assertIn(f'data-vista="{hash_esperado}"', vista.selector_menu_actual)
+
+    def test_vistas_bolsa_y_laminas_empleado_no_comparten_hash(self) -> None:
+        vistas = {vista.clave: vista for vista in capturador.MANIFIESTO_VISTAS}
+        for clave in ("solicitudes", "meritos", "documentos", "comunicaciones", "auditoria"):
+            with self.subTest(vista=clave):
+                bolsa = vistas[f"rrhh-{clave}"]
+                empleado = vistas[f"rrhh-presentacion-{clave}"]
+                self.assertEqual(bolsa.ruta.rsplit("#", 1)[-1], f"bolsa/{clave}")
+                self.assertEqual(empleado.ruta.rsplit("#", 1)[-1], f"{clave}-empleado")
+                self.assertNotEqual(bolsa.ruta, empleado.ruta)
+
+    def test_personal_abre_la_proyeccion_rpt_sin_afirmar_una_escritura(self) -> None:
+        flujo = next(
+            flujo for flujo in capturador.MANIFIESTO_FLUJOS
+            if flujo.clave == "rrhh-personal-rpt-publica"
+        )
+        self.assertTrue(flujo.requiere_demo)
+        self.assertIn("perfil=funcionario", flujo.ruta)
+        self.assertEqual(
+            [(paso.accion, paso.selector) for paso in flujo.pasos],
+            [
+                ("clic", '[data-personal-ficha-tab="catalogos"]'),
+                ("esperar", "[data-personal-rpt-publica]"),
+                ("clic", '[data-personal-rpt-publica-vista="puestos"]'),
+                ("esperar", "[data-personal-rpt-publica] caption"),
+                ("esperar", "[data-personal-rpt-publica]"),
+            ],
+        )
+        self.assertTrue(all(paso.accion != "clic-confirmando" for paso in flujo.pasos))
+        self.assertEqual(
+            [paso.texto_esperado for paso in flujo.pasos],
+            ["", "Relación de Puestos", "", "Tabla de puestos RPT", "842 puestos · 1.714 dotaciones"],
+        )
+
     def test_toda_ruta_privada_usa_presentacion_rrhh(self) -> None:
         for escenario in capturador.MANIFIESTO:
             superficie = capturador.SUPERFICIES[escenario.superficie]
@@ -169,7 +233,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
 
     def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 25)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 26)
         claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
         self.assertTrue({
             "publico-ficha-convocatoria",
@@ -179,6 +243,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             "rrhh-borrador-abierto",
             "rrhh-recibo-demo",
             "rrhh-dietas-ruta-real",
+            "rrhh-personal-rpt-publica",
             "rrhh-perfil-tecnico-restringido",
             "funcionario-autoservicio-restringido",
             "administrador-selector-perfiles-abierto",

@@ -20,8 +20,15 @@ func TestFuenteProyectaSoloCamposPublicosYExigeHuella(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalogo.Fuente.HuellaSHA256 != HuellaRPT2026 || len(catalogo.Categorias) != 145 {
+	if catalogo.Fuente.HuellaSHA256 != HuellaRPT2026 || len(catalogo.Categorias) != 145 || len(catalogo.Puestos) != 842 || catalogo.Resumen != (domain.ResumenRPTPublica{Puestos: 842, Dotacion: 1714, Categorias: 145, Centros: 41}) {
 		t.Fatalf("proyeccion inesperada: %+v", catalogo.Fuente)
+	}
+	var secretaria domain.PuestoRPTPublico
+	for _, puesto := range catalogo.Puestos {
+		if puesto.Codigo == "430-101-001" { secretaria = puesto; break }
+	}
+	if secretaria.Denominacion != "SECRETARIA DE GRUPO" || secretaria.Centro != "GABINETE DE PRESIDENCIA" || secretaria.Dotacion != 3 || secretaria.Grupos == nil {
+		t.Fatalf("puesto publico incompleto: %+v", secretaria)
 	}
 	primera := catalogo.Categorias[0]
 	if primera.Clave == "" || primera.Denominacion == "" || len(primera.Grupos) == 0 || len(primera.Escalas) == 0 {

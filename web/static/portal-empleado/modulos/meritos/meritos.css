@@ -1,0 +1,37 @@
+.modulo-meritos { display: grid; gap: var(--portal-espacio-3, 18px); color: var(--portal-tinta, #17212b); }
+.meritos-cabecera, .meritos-resumen, .meritos-grid { display: grid; gap: 12px; }
+.meritos-cabecera { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.meritos-cabecera h2, .meritos-cabecera p, .meritos-panel h3, .meritos-panel p { margin: 0; }
+.meritos-cabecera h2 { margin-top: 3px; font-size: clamp(1.35rem, 2vw, 1.8rem); }
+.meritos-sobrelinea { color: var(--portal-azul-700, #165b94); font-size: .74rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.meritos-demo { border: 1px solid var(--portal-aviso, #9b5d00); border-radius: 999px; color: var(--portal-aviso, #9b5d00); font-size: .75rem; font-weight: 750; padding: .35rem .65rem; white-space: nowrap; }
+.meritos-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--portal-borde, #c7d2dc); }
+.meritos-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--portal-muted, #4e5b66); font: inherit; font-size: .82rem; font-weight: 750; min-height: 42px; padding: 8px 12px; white-space: nowrap; }
+.meritos-tabs button[aria-selected="true"] { border-bottom-color: var(--portal-azul-700, #165b94); color: var(--portal-azul-950, #0a355d); }
+.meritos-resumen { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.meritos-kpi { border: 1px solid var(--portal-borde, #c7d2dc); border-radius: var(--portal-radio, .35rem); padding: 12px; background: var(--portal-superficie, #fff); }
+.meritos-kpi strong { display: block; color: var(--portal-azul-950, #0a355d); font-size: 1.35rem; }
+.meritos-kpi span { color: var(--portal-muted, #4e5b66); font-size: .77rem; }
+.meritos-grid { grid-template-columns: minmax(0, 1fr) minmax(250px, .34fr); align-items: start; }
+.meritos-panel { border: 1px solid var(--portal-borde, #c7d2dc); border-radius: var(--portal-radio, .35rem); background: var(--portal-superficie, #fff); min-width: 0; }
+.meritos-panel > header, .meritos-panel > div, .meritos-panel > p { padding: 12px 14px; }
+.meritos-panel > header { border-bottom: 1px solid var(--portal-borde, #c7d2dc); }
+.meritos-panel header p, .meritos-ayuda { color: var(--portal-muted, #4e5b66); font-size: .8rem; margin-top: 4px !important; }
+.meritos-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 12px 14px; }
+.meritos-filtros label { display: grid; gap: 4px; color: var(--portal-muted, #4e5b66); font-size: .78rem; font-weight: 700; }
+.meritos-filtros select { min-height: 36px; min-width: 180px; }
+.meritos-tabla-contenedor { overflow-x: auto; padding: 0 !important; }
+.meritos-tabla { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .84rem; }
+.meritos-tabla caption { padding: 10px 14px; text-align: left; color: var(--portal-muted, #4e5b66); font-size: .78rem; }
+.meritos-tabla th, .meritos-tabla td { border-top: 1px solid var(--portal-borde, #c7d2dc); padding: 10px 14px; text-align: left; vertical-align: top; }
+.meritos-tabla th { color: var(--portal-muted, #4e5b66); font-size: .73rem; text-transform: uppercase; }
+.meritos-chip { display: inline-block; border-radius: 999px; background: #eef3f7; color: var(--portal-azul-950, #0a355d); font-size: .72rem; font-weight: 750; padding: .22rem .5rem; }
+.meritos-lista { display: grid; gap: 8px; list-style: none; margin: 0; padding: 12px 14px; }
+.meritos-lista li { border-inline-start: 3px solid var(--portal-azul-700, #165b94); padding-inline-start: 9px; }
+.meritos-lista strong, .meritos-lista span { display: block; }
+.meritos-lista span { color: var(--portal-muted, #4e5b66); font-size: .8rem; }
+.meritos-accion { display: grid; gap: 7px; margin: 12px 14px; padding: 10px; border-radius: var(--portal-radio, .35rem); background: #f6f8fa; }
+.meritos-accion button { justify-self: start; min-height: 36px; }
+.meritos-accion small { color: var(--portal-muted, #4e5b66); }
+@media (max-width: 780px) { .meritos-cabecera, .meritos-grid { grid-template-columns: minmax(0, 1fr); } .meritos-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 430px) { .meritos-resumen { grid-template-columns: 1fr; } .meritos-demo { white-space: normal; } }

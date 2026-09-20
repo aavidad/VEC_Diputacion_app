@@ -92,6 +92,8 @@ export function crearVistaInicioPortal({
 
   return function renderizarInicioPortal() {
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
+      const catalogo = obtenerCatalogo();
+      if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
       const metricas = obtenerMetricasCuadro?.() || null;
       const resumen = metricas
         ? `<div class="rejilla-metricas-rrhh">
@@ -137,6 +139,20 @@ export function crearVistaInicioPortal({
             </div>
             ${renderizarTramitesInicio(obtenerTramitesInicio?.(), escaparHTML)}
           </section>
+        </section>
+        <section class="portal-rrhh-todos-modulos" aria-labelledby="portal-rrhh-todos-modulos-titulo">
+          <div class="cabecera-panel">
+            <div>
+              <p class="sobrelinea">Accesos por módulo</p>
+              <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
+              <p>El estado de cada acceso indica si el recorrido está conectado o pendiente de su adaptador de backend.</p>
+            </div>
+          </div>
+          <div class="rejilla-modulos" aria-label="Todos los módulos de Recursos Humanos">
+            ${catalogo.map((modulo) => renderizarModulo(
+              modulo, resolverAcceso(modulo.clave), escaparHTML, traducir,
+            )).join("")}
+          </div>
         </section>`;
     }
 
@@ -158,25 +174,35 @@ export function crearVistaInicioPortal({
 function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
   const fase = habilitado ? "disponible" : acceso?.estado;
-  const estado = habilitado
+  const etiquetaAcceso = typeof acceso?.etiqueta === "string" && acceso.etiqueta.trim() !== ""
+    ? acceso.etiqueta
+    : "";
+  // La composición es la única que conoce si una ruta corresponde a un
+  // recorrido visual o a un adaptador compuesto. La tarjeta lo deja visible,
+  // sin deducirlo de un menú ni convertir una pantalla en una conexión real.
+  const presentacion = habilitado && acceso?.presentacion === true;
+  const estado = etiquetaAcceso || (habilitado
     ? traducir("estado_modulo_disponible_perfil")
-    : (acceso?.etiqueta || traducir("estado_modulo_no_habilitado"));
+    : traducir("estado_modulo_no_habilitado"));
   const comprobando = fase === "cargando";
   const reintentar = fase === "error" && acceso?.reintentar === true;
+  const etiquetaAccion = typeof acceso?.accion_etiqueta === "string" && acceso.accion_etiqueta.trim() !== ""
+    ? acceso.accion_etiqueta
+    : traducir("accion_entrar");
   const etiquetaBoton = comprobando
     ? traducir("estado_modulo_comprobando")
     : (fase === "denegado"
       ? traducir("estado_modulo_sin_permiso")
       : traducir("estado_modulo_no_disponible"));
   return `
-    <article class="tarjeta-modulo ${habilitado ? "tarjeta-modulo-habilitada" : "tarjeta-modulo-bloqueada"}" data-modulo-catalogo="${escaparHTML(modulo.clave)}" tabindex="-1"${comprobando ? ' aria-busy="true"' : ""}>
+    <article class="tarjeta-modulo ${habilitado ? "tarjeta-modulo-habilitada" : "tarjeta-modulo-bloqueada"}${presentacion ? " tarjeta-modulo-presentacion" : ""}" data-modulo-catalogo="${escaparHTML(modulo.clave)}" tabindex="-1"${comprobando ? ' aria-busy="true"' : ""} data-estado-conexion="${presentacion ? "recorrido-visual" : (habilitado ? "conectado" : "no-conectado")}">
       <span class="icono-modulo" aria-hidden="true">${escaparHTML(modulo.sigla)}</span>
       <h3>${escaparHTML(modulo.titulo)}</h3>
       <p>${escaparHTML(modulo.texto)}</p>
       <div class="pie-tarjeta">
-        <span class="${habilitado ? "estado-disponible" : "estado-proximamente"}" role="status" aria-live="polite">${escaparHTML(estado)}</span>
+        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}" role="status" aria-live="polite">${escaparHTML(estado)}</span>
         ${habilitado
-          ? `<button type="button" class="boton-primario" data-vista="${escaparHTML(acceso.vista)}">${escaparHTML(traducir("accion_entrar"))}</button>`
+          ? `<button type="button" class="${presentacion ? "boton-secundario" : "boton-primario"}" data-vista="${escaparHTML(acceso.vista)}">${escaparHTML(etiquetaAccion)}</button>`
           : (reintentar
             ? `<button type="button" class="boton-secundario" data-accion="reintentar-borradores">${escaparHTML(traducir("accion_reintentar"))}</button>`
             : `<button type="button" class="boton-secundario" disabled>${escaparHTML(etiquetaBoton)}</button>`)}

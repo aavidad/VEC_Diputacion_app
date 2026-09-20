@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
 
 const moduloBolsa = Object.freeze({
@@ -68,9 +69,57 @@ test("la capacidad propia abre Elaboración aunque el panel agregado no particip
     estado: "disponible",
     etiqueta: "Borradores disponibles",
   });
-  assert.match(html, /Disponible para el perfil activo/);
+  assert.match(html, /Borradores disponibles/);
   assert.match(html, /data-vista="elaboracion">Entrar<\/button>/);
   assert.doesNotMatch(html, /panel|resumen/u);
+});
+
+test("una ruta de presentación conserva su etiqueta escapada y no se anuncia como backend conectado", () => {
+  const html = renderizar({
+    disponible: true,
+    vista: "dietas",
+    estado: "presentacion",
+    presentacion: true,
+    etiqueta: "Recorrido visual <pendiente> de backend",
+    accion_etiqueta: "Ver recorrido",
+  });
+  assert.match(html, /tarjeta-modulo-presentacion/);
+  assert.match(html, /data-estado-conexion="recorrido-visual"/);
+  assert.match(html, /estado-presentacion[^>]*>Recorrido visual &lt;pendiente&gt; de backend/);
+  assert.match(html, /class="boton-secundario" data-vista="dietas">Ver recorrido<\/button>/);
+  assert.doesNotMatch(html, /Disponible para el perfil activo/);
+  assert.doesNotMatch(html, /<pendiente>/);
+});
+
+test("el acceso conectado mantiene el texto productivo si la composición no aporta etiqueta", () => {
+  const html = renderizar({ disponible: true, vista: "elaboracion", estado: "disponible" });
+  assert.match(html, /data-estado-conexion="conectado"/);
+  assert.match(html, /estado-disponible[^>]*>Disponible para el perfil activo/);
+  assert.match(html, /class="boton-primario" data-vista="elaboracion">Entrar<\/button>/);
+  assert.doesNotMatch(html, /tarjeta-modulo-presentacion/);
+});
+
+test("la identidad visual cubre los trece módulos del catálogo y conserva salida móvil y contraste forzado", async () => {
+  const catalogo = [
+    "bolsa", "contratacion_temporal", "personal", "nominas", "cronos", "dietas", "solicitudes",
+    "meritos", "comunicaciones", "documentos", "aprobaciones", "auditoria", "administracion",
+  ].map((clave) => ({ clave, sigla: clave.slice(0, 3).toUpperCase(), titulo: clave, texto: "Datos sintéticos" }));
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => catalogo,
+    resolverAcceso: (clave) => ({ disponible: true, vista: clave, presentacion: true, etiqueta: "Recorrido visual · pendiente de backend", accion_etiqueta: "Ver recorrido" }),
+  })();
+  for (const { clave } of catalogo) {
+    assert.match(html, new RegExp(`data-modulo-catalogo="${clave}"`));
+  }
+  const css = await readFile(new URL("./portal-modulos.css", import.meta.url), "utf8");
+  for (const { clave } of catalogo) {
+    assert.match(css, new RegExp(`data-modulo-catalogo="${clave}"`));
+  }
+  assert.match(css, /@media \(max-width: 720px\)/);
+  assert.match(css, /@media \(forced-colors: active\)/);
+  assert.match(css, /\.estado-presentacion/);
 });
 
 test("G10: calcularMetricasCuadro extrae correctamente en_tramitacion, con_incidencia y en_llamamiento", async () => {
@@ -131,7 +180,7 @@ test("C17: los totales del servidor prevalecen sobre una página parcial", () =>
   }), { total: 52, en_tramitacion: 33, con_incidencia: 4, en_llamamiento: 9 });
 });
 
-test("G10: la vista de inicio para RRHH solo renderiza accesos directos y 3 cifras del cuadro sin nada más", () => {
+test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el catálogo completo", () => {
   const renderizarRRHH = crearVistaInicioPortal({
     encabezadoVista: (sup, tit, desc) => `<header><h1>${tit}</h1><p>${sup}</p></header>`,
     escaparHTML,
@@ -163,10 +212,29 @@ test("G10: la vista de inicio para RRHH solo renderiza accesos directos y 3 cifr
   assert.match(html, /data-metrica="con_incidencia"[^>]*>[\s\S]*?<strong class="metrica-valor">2<\/strong>/);
   assert.match(html, /data-metrica="en_llamamiento"[^>]*>[\s\S]*?<strong class="metrica-valor">3<\/strong>/);
 
-  // "sin nada más" (sin catálogo de módulos ni rejilla-modulos)
-  assert.doesNotMatch(html, /rejilla-modulos/);
-  assert.doesNotMatch(html, /tarjeta-modulo/);
-  assert.doesNotMatch(html, /data-modulo-catalogo/);
+  assert.match(html, /Todos los módulos de Recursos Humanos/);
+  assert.match(html, /class="rejilla-modulos" aria-label="Todos los módulos de Recursos Humanos"/);
+  assert.match(html, /data-modulo-catalogo="bolsa"/);
+});
+
+test("el inicio de RRHH muestra los trece módulos y conserva la advertencia ámbar de presentación", () => {
+  const claves = [
+    "bolsa", "contratacion_temporal", "personal", "nominas", "cronos", "dietas", "solicitudes",
+    "meritos", "comunicaciones", "documentos", "aprobaciones", "auditoria", "administracion",
+  ];
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => claves.map((clave) => ({ clave, sigla: clave.slice(0, 3), titulo: clave, texto: "Datos sintéticos" })),
+    resolverAcceso: (clave) => ({ disponible: true, vista: clave, estado: "presentacion", presentacion: true, etiqueta: "Recorrido visual · pendiente de backend", accion_etiqueta: "Ver recorrido" }),
+    esPerfilRRHH: () => true,
+  })();
+  assert.match(html, /Todos los módulos de Recursos Humanos/);
+  for (const clave of claves) {
+    assert.match(html, new RegExp(`data-modulo-catalogo="${clave}"`));
+  }
+  assert.equal((html.match(/tarjeta-modulo-presentacion/g) || []).length, claves.length);
+  assert.equal((html.match(/>Ver recorrido<\/button>/g) || []).length, claves.length);
 });
 
 test("el inicio de RRHH lista los trámites recientes con incidencias primero y abre cada expediente", () => {

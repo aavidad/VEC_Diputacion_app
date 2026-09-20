@@ -22,8 +22,8 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-  VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
+  VISTAS_PRESENTACION_VISUALES,
 } from "./portal-modulos-coordinador.js?v=20260920-recorridos-visibles-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
@@ -107,6 +107,7 @@ const TITULOS = Object.freeze({
     traducirPortal("contratacion_temporal_titulo"),
   ],
 });
+const TITULOS_PRESENTACION = Object.freeze({ "nominas-empleado": ["Portal del Empleado → Presentación RRHH", "Nóminas y retribuciones"], "solicitudes-empleado": ["Portal del Empleado → Presentación RRHH", "Solicitudes y certificados"], "meritos-empleado": ["Portal del Empleado → Presentación RRHH", "Méritos y formación"], "comunicaciones-empleado": ["Portal del Empleado → Presentación RRHH", "Comunicaciones"], "documentos-empleado": ["Portal del Empleado → Presentación RRHH", "Documentos y firma"], "aprobaciones-empleado": ["Portal del Empleado → Presentación RRHH", "Aprobaciones y portafirmas"], "auditoria-empleado": ["Portal del Empleado → Presentación RRHH", "Auditoría"], "administracion-empleado": ["Portal del Empleado → Presentación RRHH", "Administración y configuración"] });
 const estado = {
   vista: "portal",
   fuenteLista: false,
@@ -231,6 +232,12 @@ function configurarInicioInstitucional() {
 
 function vistaPermitida(vista) {
   if (estado.modoPresentacion && perfilPresentacionSolicitado() === null) return vista === "portal";
+  if (estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(vista)) {
+    // El deep-link debe sobrevivir a la carga del catálogo de presentación.
+    // Tras recibirlo se exige el montaje aislado; no se concede ninguna
+    // capacidad, ni se aplica esta excepción a Personal/RPT.
+    return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
+  }
   if (VISTAS_MODULOS_PERSONALES.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
   }
@@ -432,15 +439,21 @@ function vistaDesdeHash() {
   if (!valor || valor === "portal") return "portal";
   const segmentos = valor.split("/").filter(Boolean);
   const candidata = segmentos.at(-1);
-  return Object.hasOwn(TITULOS, candidata) ? candidata : "portal";
+  return Object.hasOwn(TITULOS, candidata)
+    || (estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(candidata))
+    ? candidata : "portal";
 }
 
-function rutaDeVista(vista) { return rutaDeVistaPortal(vista); }
+function rutaDeVista(vista) { return estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(vista) ? `#${vista}` : rutaDeVistaPortal(vista); }
+
+function tituloDeVista(vista) { return estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(vista) ? TITULOS_PRESENTACION[vista] || TITULOS.portal : TITULOS[vista] || TITULOS.portal; }
+
+function moduloActivoDeVista(vista) { return estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(vista) ? vista.replace(/-empleado$/u, "") : moduloDeVistaPortal(vista); }
 
 function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
   if (!contenedor) return;
-  const moduloActivo = moduloDeVistaPortal(estado.vista);
+  const moduloActivo = moduloActivoDeVista(estado.vista);
   const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
@@ -461,7 +474,8 @@ function anunciar(mensaje) {
 }
 
 function navegar(vista, opciones = {}) {
-  if (!Object.hasOwn(TITULOS, vista)) return;
+  if (!Object.hasOwn(TITULOS, vista)
+    && !(estado.modoPresentacion && VISTAS_PRESENTACION_VISUALES.has(vista))) return;
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
@@ -480,7 +494,7 @@ function navegar(vista, opciones = {}) {
   renderizar();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
-  anunciar(`Vista ${TITULOS[vista][1]} abierta`);
+  anunciar(`Vista ${tituloDeVista(vista)[1]} abierta`);
 }
 
 function renderizar() {
@@ -491,8 +505,8 @@ function renderizar() {
     history.replaceState(null, "", rutaDeVista("portal"));
   }
   queueMicrotask(aplicarRestriccionesVistas);
-  const [migas, titulo] = TITULOS[estado.vista] || TITULOS.portal;
-  const moduloActivo = moduloDeVistaPortal(estado.vista);
+  const [migas, titulo] = tituloDeVista(estado.vista);
+  const moduloActivo = moduloActivoDeVista(estado.vista);
   porId("migas-pan").textContent = migas;
   porId("titulo-vista").textContent = titulo;
   porId("navegacion-bolsa").hidden = moduloActivo !== "bolsa";
@@ -506,7 +520,7 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
-  if (VISTAS_MODULOS_CONECTADOS.has(estado.vista)) {
+  if (coordinadorModulos.vistaGestionada(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
       coordinadorModulos.desmontarVistaActual();
       contenedor.innerHTML = estado.vista === "contratacion-temporal"

@@ -26,6 +26,30 @@ const CLAVES_CARGA_MODULAR = Object.freeze([
   "cronos",
   "dietas",
 ]);
+// Estos recorridos son exclusivamente visuales. Se cargan sólo desde el
+// arranque de presentación y no son una concesión, un manifiesto productivo ni
+// una sustitución de sus casos de uso.
+const CLAVES_PRESENTACION_VISUAL = Object.freeze([
+  "nominas",
+  "solicitudes",
+  "meritos",
+  "comunicaciones",
+  "documentos",
+  "aprobaciones",
+  "auditoria",
+  "administracion",
+]);
+const VISTA_POR_CLAVE_PRESENTACION = Object.freeze(Object.fromEntries(
+  CLAVES_PRESENTACION_VISUAL.map((clave) => [clave, `${clave}-empleado`]),
+));
+const CLAVE_POR_VISTA_PRESENTACION = Object.freeze(Object.fromEntries(
+  Object.entries(VISTA_POR_CLAVE_PRESENTACION).map(([clave, vista]) => [vista, clave]),
+));
+export const VISTAS_PRESENTACION_VISUALES = Object.freeze(new Set(Object.keys(CLAVE_POR_VISTA_PRESENTACION)));
+const CLAVES_CARGA_PRESENTACION = Object.freeze([
+  ...CLAVES_CARGA_MODULAR,
+  ...CLAVES_PRESENTACION_VISUAL,
+]);
 const LIMITE_CARGA_MODULAR_MS = 2_000;
 
 const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
@@ -75,6 +99,30 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     ]);
     return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
   },
+  nominas: async () => Object.freeze({
+    vista: await import("./modulos/nominas/vista.js"),
+  }),
+  solicitudes: async () => Object.freeze({
+    vista: await import("./modulos/solicitudes/vista.js"),
+  }),
+  meritos: async () => Object.freeze({
+    vista: await import("./modulos/meritos/vista.js"),
+  }),
+  comunicaciones: async () => Object.freeze({
+    vista: await import("./modulos/comunicaciones/vista.js"),
+  }),
+  documentos: async () => Object.freeze({
+    vista: await import("./modulos/documentos/vista.js"),
+  }),
+  aprobaciones: async () => Object.freeze({
+    vista: await import("./modulos/aprobaciones/vista.js"),
+  }),
+  auditoria: async () => Object.freeze({
+    vista: await import("./modulos/auditoria/vista.js"),
+  }),
+  administracion: async () => Object.freeze({
+    vista: await import("./modulos/administracion/vista.js"),
+  }),
 });
 
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
@@ -152,18 +200,18 @@ function consultarConLimite(consultar, controlador, limiteMs, temporizadores) {
 }
 
 export async function resolverCargasModularesPresentacion(cargadores, {
-  claves = CLAVES_CARGA_MODULAR,
+  claves = CLAVES_CARGA_PRESENTACION,
   limiteMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
 } = {}) {
   if (!Array.isArray(claves)
-    || claves.some((clave) => !CLAVES_CARGA_MODULAR.includes(clave))
+    || claves.some((clave) => !CLAVES_CARGA_PRESENTACION.includes(clave))
     || new Set(claves).size !== claves.length
     || !Number.isSafeInteger(limiteMs) || limiteMs < 1 || limiteMs > 10_000) {
     throw new TypeError("configuración de carga modular no válida");
   }
   const clavesSolicitadas = new Set(claves);
-  const resultados = await Promise.allSettled(CLAVES_CARGA_MODULAR.map((clave) => {
+  const resultados = await Promise.allSettled(CLAVES_CARGA_PRESENTACION.map((clave) => {
     if (!clavesSolicitadas.has(clave)) return Promise.resolve(undefined);
     const cargar = cargadores?.[clave];
     if (typeof cargar !== "function") {
@@ -171,7 +219,7 @@ export async function resolverCargasModularesPresentacion(cargadores, {
     }
     return cargarModuloConLimite(cargar, clave, limiteMs, temporizadores);
   }));
-  return Object.freeze(Object.fromEntries(CLAVES_CARGA_MODULAR.map((clave, indice) => {
+  return Object.freeze(Object.fromEntries(CLAVES_CARGA_PRESENTACION.map((clave, indice) => {
     if (!clavesSolicitadas.has(clave)) {
       return [clave, Object.freeze({ disponible: false, estado: "denegado" })];
     }
@@ -202,6 +250,13 @@ function componerModuloAislado(contexto, carga, componer) {
   } catch {
     return undefined;
   }
+}
+
+function componerVistaPresentacionAislada(carga, exportacion) {
+  if (carga?.disponible !== true || typeof carga.recursos?.vista?.[exportacion] !== "function") {
+    return undefined;
+  }
+  return Object.freeze({ montar: carga.recursos.vista[exportacion] });
 }
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "dietas", "personal"]));
@@ -286,9 +341,13 @@ export function crearCoordinadorModulosPortal({
     const cargas = await resolverCargasModularesPresentacion(
       cargadoresPresentacion,
       {
-        claves: CLAVES_CARGA_MODULAR.filter(
-          (clave) => contextos[clave] !== undefined,
-        ),
+        // Las cuatro composiciones existentes siguen sometidas al contexto
+        // sintético. Los recorridos nuevos son una lámina de presentación:
+        // no reciben ni derivan ContextoActor ni permisos del menú.
+        claves: [
+          ...CLAVES_CARGA_MODULAR.filter((clave) => contextos[clave] !== undefined),
+          ...CLAVES_PRESENTACION_VISUAL,
+        ],
         limiteMs: limiteCargaModularMs,
         temporizadores,
       },
@@ -341,6 +400,16 @@ export function crearCoordinadorModulosPortal({
     if (contratacionTemporal && typeof contratacionTemporal.cargarMetricas === "function") {
       await contratacionTemporal.cargarMetricas();
     }
+    const vistasPresentacion = Object.freeze({
+      nominas: componerVistaPresentacionAislada(cargas.nominas, "montarVistaNominas"),
+      solicitudes: componerVistaPresentacionAislada(cargas.solicitudes, "montarVistaSolicitudes"),
+      meritos: componerVistaPresentacionAislada(cargas.meritos, "montarVistaMeritos"),
+      comunicaciones: componerVistaPresentacionAislada(cargas.comunicaciones, "montarVistaComunicaciones"),
+      documentos: componerVistaPresentacionAislada(cargas.documentos, "montarVistaDocumentos"),
+      aprobaciones: componerVistaPresentacionAislada(cargas.aprobaciones, "montarVistaAprobaciones"),
+      auditoria: componerVistaPresentacionAislada(cargas.auditoria, "montarVistaAuditoria"),
+      administracion: componerVistaPresentacionAislada(cargas.administracion, "montarVistaAdministracion"),
+    });
     if (carga !== secuenciaCarga) throw new Error("carga de presentación sustituida");
     catalogo = base.catalogo.obtenerCatalogoModulosPresentacion();
     composicion = Object.freeze({
@@ -349,6 +418,7 @@ export function crearCoordinadorModulosPortal({
       cronos,
       dietas,
       personal,
+      vistasPresentacion,
       estadosModulos: Object.freeze({
         contratacion_temporal: contextos.contratacion_temporal === undefined
           ? "denegado"
@@ -362,6 +432,10 @@ export function crearCoordinadorModulosPortal({
         personal: contextos.personal === undefined
           ? "denegado"
           : (personal === undefined ? "no_disponible" : "disponible"),
+        ...Object.fromEntries(CLAVES_PRESENTACION_VISUAL.map((clave) => [
+          clave,
+          vistasPresentacion[clave] === undefined ? "no_disponible" : "presentacion",
+        ])),
       }),
     });
     return contextos.bolsa || null;
@@ -550,6 +624,7 @@ export function crearCoordinadorModulosPortal({
       contextos: Object.freeze({}),
       contratacionTemporal,
       personal,
+      vistasPresentacion: Object.freeze({}),
       estadosModulos: Object.freeze({
         contratacion_temporal: contratacionTemporal === undefined
           ? "no_disponible" : "disponible",
@@ -575,7 +650,19 @@ export function crearCoordinadorModulosPortal({
     if (vista === "cronos") return composicion?.cronos !== undefined;
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
+    const clavePresentacion = CLAVE_POR_VISTA_PRESENTACION[vista];
+    if (clavePresentacion !== undefined) {
+      return presentacionActiva && composicion?.vistasPresentacion?.[clavePresentacion] !== undefined;
+    }
     return false;
+  }
+
+  // Portal.js usa este predicado en vez del inventario estático: las claves
+  // visuales que coinciden con sub-vistas de Bolsa sólo se interceptan durante
+  // la presentación, nunca en el portal interno.
+  function vistaGestionada(vista) {
+    return VISTAS_MODULOS_CONECTADOS.has(vista)
+      || (presentacionActiva && VISTAS_PRESENTACION_VISUALES.has(vista));
   }
 
   function resolverAcceso(clave, bolsaDisponible = true) {
@@ -594,13 +681,33 @@ export function crearCoordinadorModulosPortal({
       return Object.freeze({ disponible: true, vista: "contratacion-temporal" });
     }
     if (clave === "cronos" && vistaDisponible("cronos")) {
-      return Object.freeze({ disponible: true, vista: "cronos" });
+      return Object.freeze({ disponible: true, vista: "cronos", ...(presentacionActiva ? {
+        estado: "presentacion", etiqueta: "Recorrido visual · pendiente de backend",
+        presentacion: true, accion_etiqueta: "Ver recorrido",
+      } : {}) });
     }
     if (clave === "dietas" && vistaDisponible("dietas")) {
-      return Object.freeze({ disponible: true, vista: "dietas" });
+      return Object.freeze({ disponible: true, vista: "dietas", ...(presentacionActiva ? {
+        estado: "presentacion", etiqueta: "Mapa conectado · expediente pendiente de backend",
+        presentacion: true, accion_etiqueta: "Ver recorrido",
+      } : {}) });
     }
     if (clave === CLAVE_PERSONAL && vistaDisponible("personal")) {
-      return Object.freeze({ disponible: true, vista: "personal", etiqueta: traducir("personal_catalogo_profesional") });
+      return Object.freeze({ disponible: true, vista: "personal", ...(presentacionActiva ? {
+        estado: "presentacion", etiqueta: "Catálogos conectados · ficha pendiente de backend",
+        presentacion: true, accion_etiqueta: "Ver recorrido",
+      } : { etiqueta: traducir("personal_catalogo_profesional") }) });
+    }
+    if (CLAVES_PRESENTACION_VISUAL.includes(clave)
+      && vistaDisponible(VISTA_POR_CLAVE_PRESENTACION[clave])) {
+      return Object.freeze({
+        disponible: true,
+        vista: VISTA_POR_CLAVE_PRESENTACION[clave],
+        estado: "presentacion",
+        etiqueta: "Recorrido visual · pendiente de backend",
+        presentacion: true,
+        accion_etiqueta: "Ver recorrido",
+      });
     }
     if (clave === CLAVE_CONTRATACION_TEMPORAL && !presentacionActiva
       && catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)) {
@@ -616,6 +723,13 @@ export function crearCoordinadorModulosPortal({
         disponible: false,
         vista: "",
         estado: composicion?.estadosModulos?.[clave] || "denegado",
+      });
+    }
+    if (CLAVES_PRESENTACION_VISUAL.includes(clave)) {
+      return Object.freeze({
+        disponible: false,
+        vista: "",
+        estado: composicion?.estadosModulos?.[clave] || "no_disponible",
       });
     }
     return Object.freeze({ disponible: false, vista: "" });
@@ -645,7 +759,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function montarVista(vista, raiz, opciones = {}) {
-    if (!VISTAS_MODULOS_CONECTADOS.has(vista) || !vistaDisponible(vista)) return false;
+    if (!vistaGestionada(vista) || !vistaDisponible(vista)) return false;
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
     }
@@ -742,6 +856,29 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    const clavePresentacion = CLAVE_POR_VISTA_PRESENTACION[vista];
+    if (clavePresentacion !== undefined) {
+      raiz.replaceChildren();
+      const moduloPresentacion = await composicion.vistasPresentacion[clavePresentacion].montar({
+        raiz,
+        anunciar,
+        registrarDesmontar: (limpiar) => {
+          if (typeof limpiar !== "function") throw new TypeError("limpieza de presentación no válida");
+          if (montaje !== secuenciaMontaje) { limpiar(); return; }
+          desmontarVista = limpiar;
+        },
+      });
+      if (!moduloPresentacion || typeof moduloPresentacion.desmontar !== "function") {
+        throw new TypeError("montaje de presentación no válido");
+      }
+      if (montaje !== secuenciaMontaje) {
+        moduloPresentacion.desmontar();
+        return false;
+      }
+      desmontarVista = moduloPresentacion.desmontar;
+      return true;
+    }
+
     raiz.replaceChildren();
     const moduloDietas = await composicion.dietas.montar({
       raiz,
@@ -792,6 +929,7 @@ export function crearCoordinadorModulosPortal({
     obtenerMetricasCuadro,
     renderizarNavegacion,
     resolverAcceso,
+    vistaGestionada,
     vistaDisponible,
   });
 }

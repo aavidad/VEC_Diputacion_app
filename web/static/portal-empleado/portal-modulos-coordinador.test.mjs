@@ -161,7 +161,9 @@ test("el portal muestra el catálogo completo y dentro de cada módulo solo el a
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
   const portal = coordinador.renderizarNavegacion(true, "portal");
   assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 13);
-  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 2);
+  // Dos módulos propios del perfil y ocho recorridos visuales separados de
+  // cualquier contrato de backend.
+  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 10);
 
   const bolsa = coordinador.renderizarNavegacion(true, "bolsa");
   assert.equal((bolsa.match(/data-modulo-portal=/g) || []).length, 1);
@@ -445,7 +447,7 @@ test("Personal de presentación conserva categorías E24, RPT y estructura públ
   assert.ok(raiz.querySelector("[data-personal-rpt-publica]"));
   assert.ok(raiz.querySelector("[data-personal-estructura-organizativa-publica]"));
   assert.equal(llamadas.length, 3);
-  assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
+  assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?vista=categorias&q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
   llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
 });
 
@@ -804,6 +806,18 @@ test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Pers
   assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
   assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
   assert.equal(coordinador.resolverAcceso("personal", true).disponible, true);
+  assert.deepEqual(coordinador.resolverAcceso("cronos", true), {
+    disponible: true, vista: "cronos", estado: "presentacion", presentacion: true,
+    etiqueta: "Recorrido visual · pendiente de backend", accion_etiqueta: "Ver recorrido",
+  });
+  assert.deepEqual(coordinador.resolverAcceso("dietas", true), {
+    disponible: true, vista: "dietas", estado: "presentacion", presentacion: true,
+    etiqueta: "Mapa conectado · expediente pendiente de backend", accion_etiqueta: "Ver recorrido",
+  });
+  assert.deepEqual(coordinador.resolverAcceso("personal", true), {
+    disponible: true, vista: "personal", estado: "presentacion", presentacion: true,
+    etiqueta: "Catálogos conectados · ficha pendiente de backend", accion_etiqueta: "Ver recorrido",
+  });
   const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas", "personal"].includes(vista));
   assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 3);
   assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
@@ -1053,6 +1067,131 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(estilos, /forced-colors: active/);
   assert.match(estilos, /\.modulo-personal\s+\.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere;/);
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
+});
+
+const MODULOS_VISUALES_PRESENTACION = Object.freeze([
+  ["nominas", "montarVistaNominas"],
+  ["solicitudes", "montarVistaSolicitudes"],
+  ["meritos", "montarVistaMeritos"],
+  ["comunicaciones", "montarVistaComunicaciones"],
+  ["documentos", "montarVistaDocumentos"],
+  ["aprobaciones", "montarVistaAprobaciones"],
+  ["auditoria", "montarVistaAuditoria"],
+  ["administracion", "montarVistaAdministracion"],
+]);
+
+async function crearCoordinadorRecorridosVisuales({ fallar = new Set(), montajes = [] } = {}) {
+  const [identidad, catalogo] = await Promise.all([
+    import("./identidad/presentacion.js"),
+    import("./portal-catalogo-presentacion.js"),
+  ]);
+  const cargadoresPresentacion = {
+    base: async () => Object.freeze({ identidad, catalogo }),
+    contratacion_temporal: async () => { throw new Error("CT no interviene en esta prueba"); },
+  };
+  for (const [clave, exportacion] of MODULOS_VISUALES_PRESENTACION) {
+    cargadoresPresentacion[clave] = async () => {
+      if (fallar.has(clave)) throw new Error(`fallo aislado: ${clave}`);
+      return Object.freeze({
+        vista: Object.freeze({
+          async [exportacion]({ raiz, registrarDesmontar }) {
+            raiz.innerHTML = `<section data-recorrido-visual="${clave}"></section>`;
+            const desmontar = () => { montajes.push(`desmontar:${clave}`); raiz.replaceChildren(); };
+            registrarDesmontar?.(desmontar);
+            montajes.push(`montar:${clave}`);
+            return Object.freeze({ desmontar });
+          },
+        }),
+      });
+    };
+  }
+  return crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargadoresPresentacion,
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no procede"); } },
+  });
+}
+
+test("la presentación monta los ocho recorridos visuales con estado explícito y limpieza", async () => {
+  const montajes = [];
+  const coordinador = await crearCoordinadorRecorridosVisuales({ montajes });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
+  assert.equal(coordinador.vistaGestionada("solicitudes-empleado"), true);
+  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
+    const vista = `${clave}-empleado`;
+    assert.deepEqual(coordinador.resolverAcceso(clave), {
+      disponible: true,
+      vista,
+      estado: "presentacion",
+      etiqueta: "Recorrido visual · pendiente de backend",
+      presentacion: true,
+      accion_etiqueta: "Ver recorrido",
+    });
+    const raiz = raizFalsa();
+    assert.equal(await coordinador.montarVista(vista, raiz), true);
+    assert.match(raiz.innerHTML, new RegExp(`data-recorrido-visual="${clave}"`));
+  }
+  assert.equal(montajes.filter((evento) => evento.startsWith("montar:")).length, 8);
+  assert.equal(montajes.filter((evento) => evento.startsWith("desmontar:")).length, 7);
+  coordinador.desmontarVistaActual();
+  assert.equal(montajes.filter((evento) => evento.startsWith("desmontar:")).length, 8);
+});
+
+test("un cargador visual fallido no bloquea los recorridos vecinos ni se publica en interno", async () => {
+  const coordinador = await crearCoordinadorRecorridosVisuales({ fallar: new Set(["auditoria"]) });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
+  assert.equal(coordinador.resolverAcceso("auditoria").disponible, false);
+  assert.equal(coordinador.resolverAcceso("auditoria").estado, "no_disponible");
+  assert.equal(coordinador.resolverAcceso("documentos").disponible, true);
+  assert.equal(await coordinador.montarVista("auditoria-empleado", raizFalsa()), false);
+
+  const interno = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "nominas" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no procede"); } },
+  });
+  await interno.cargarInterno();
+  assert.equal(interno.vistaGestionada("solicitudes-empleado"), false);
+  assert.deepEqual(interno.resolverAcceso("nominas"), {
+    disponible: false, vista: "", estado: "no_disponible",
+  });
+  assert.equal(await interno.montarVista("nominas", raizFalsa()), false);
+});
+
+test("las sub-vistas históricas de Bolsa no se gestionan como recorridos visuales", async () => {
+  const coordinador = await crearCoordinadorRecorridosVisuales();
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
+  assert.equal(coordinador.vistaGestionada("solicitudes"), false);
+  assert.equal(coordinador.vistaGestionada("solicitudes-empleado"), true);
+  assert.equal(await coordinador.montarVista("solicitudes", raizFalsa()), false);
+});
+
+test("los activos de los recorridos visuales están declarados en HTML y ambos manifiestos", async () => {
+  const [html, interno, produccion] = await Promise.all([
+    readFile(new URL("index.html", import.meta.url), "utf8"),
+    readFile(new URL("../../interno.manifest", import.meta.url), "utf8"),
+    readFile(new URL("../../produccion.manifest", import.meta.url), "utf8"),
+  ]);
+  const activos = [
+    "datos-sinteticos-rrhh.js", "estado-entrega.css", "estado-entrega-i18n.js", "estado-entrega.js",
+    ...MODULOS_VISUALES_PRESENTACION.flatMap(([clave]) => [
+      `modulos/${clave}/${clave}.css`,
+      `modulos/${clave}/i18n.js`,
+      `modulos/${clave}/vista.js`,
+    ]),
+  ];
+  for (const activo of activos) {
+    assert.match(interno, new RegExp(`^static/portal-empleado/${activo.replaceAll(".", "\\.")}$`, "m"), activo);
+    assert.match(produccion, new RegExp(`^static/portal-empleado/${activo.replaceAll(".", "\\.")}$`, "m"), activo);
+  }
+  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
+    const datoPresentacion = `static/portal-empleado/modulos/${clave}/datos-presentacion.js`;
+    assert.doesNotMatch(interno, new RegExp(`^${datoPresentacion.replaceAll(".", "\\.")}$`, "m"), datoPresentacion);
+    assert.doesNotMatch(produccion, new RegExp(`^${datoPresentacion.replaceAll(".", "\\.")}$`, "m"), datoPresentacion);
+  }
+  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
+    assert.match(html, new RegExp(`/portal-empleado/modulos/${clave}/${clave}\\.css`));
+  }
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {

@@ -13,4 +13,8 @@
 .personal-ficha-filtros label { display: grid; gap: 3px; color: var(--portal-muted); font-size: .75rem; }
 .personal-ficha-filtros input, .personal-ficha-filtros select { min-height: 36px; min-width: 160px; }
 .personal-ficha-filtros span { flex-basis: 100%; color: var(--portal-muted); font-size: .72rem; }
+.personal-ficha-principal > .estado-entrega { grid-column: 1 / -1; }
+.personal-aviso-sintetico { display: inline-flex; margin: 0 0 10px; padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, var(--portal-azul-700) 10%, white); color: var(--portal-azul-950); font-size: .76rem; font-weight: 750; }
+.modulo-personal [data-estado-entrega] { margin-top: 0; }
+.modulo-personal .acciones-fila button[disabled] { opacity: .7; cursor: not-allowed; }
 @media (max-width: 780px) { .personal-ficha-principal { grid-template-columns: minmax(0, 1fr); } }

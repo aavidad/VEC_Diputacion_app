@@ -214,7 +214,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
 
 test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {
   assert.match(javascript, /"contratacion-temporal": \[/);
-  assert.match(javascript, /return Object\.hasOwn\(TITULOS, candidata\) \? candidata : "portal"/);
+  assert.match(javascript, /VISTAS_PRESENTACION_VISUALES\.has\(candidata\)/);
   const decision = javascript.indexOf('contenedor.innerHTML = estado.vista === "contratacion-temporal"');
   const montaje = javascript.indexOf("void coordinadorModulos.montarVista", decision);
   assert.ok(decision > 0 && montaje > decision, "la indisponibilidad debe resolverse antes del montaje");
@@ -250,6 +250,31 @@ test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de B
     assert.equal(catalogoI18n.includes(literal), true);
   }
   assert.doesNotMatch(vistaCerrada, /Gestión de Bolsas|No se han cargado datos de Bolsa|recargar-fuente/);
+});
+
+test("los recorridos visuales sólo interceptan sus hashes en presentación y no desplazan Bolsa interna", () => {
+  assert.match(javascript, /coordinadorModulos\.vistaGestionada\(estado\.vista\)/);
+  assert.match(javascript, /estado\.modoPresentacion && VISTAS_PRESENTACION_VISUALES\.has\(vista\)/);
+  assert.match(javascript, /\? `#\$\{vista\}` : rutaDeVistaPortal\(vista\)/);
+  assert.match(javascript, /solicitudes: \["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"\]/);
+  assert.match(javascript, /TITULOS_PRESENTACION/);
+  for (const vista of ["nominas-empleado", "aprobaciones-empleado", "administracion-empleado"]) {
+    assert.match(javascript, new RegExp(`"${vista}": \\["Portal del Empleado`));
+  }
+});
+
+test("un deep-link visual se conserva mientras carga la presentación y sólo se monta después", () => {
+  assert.match(javascript, /return !estado\.fuenteLista \|\| coordinadorModulos\.vistaDisponible\(vista\)/);
+  assert.match(javascript, /estado\.vista = vistaDesdeHash\(\)/);
+  assert.match(javascript, /await cargarFuenteDatos\(\)/);
+  assert.match(javascript, /coordinadorModulos\.vistaGestionada\(estado\.vista\)/);
+});
+
+test("las rutas de presentación usan namespace y conservan las sub-vistas Bolsa", () => {
+  assert.match(javascript, /"solicitudes-empleado"/);
+  assert.match(javascript, /vista\.replace\(\/-empleado\$\/u, ""\)/);
+  assert.match(javascript, /rutaDeVistaPortal\(vista\)/);
+  assert.match(javascript, /solicitudes: \["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"\]/);
 });
 
 test("la propuesta real usa el cliente cerrado y no habilita un detalle inexistente", () => {

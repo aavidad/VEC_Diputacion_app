@@ -89,6 +89,11 @@ test("la superficie visible conserva las tres etapas y deja las acciones no cone
   assert.match(fuente, /recorridos_gestion/u);
   assert.match(fuente, /boton\.disabled = true/u);
   assert.match(fuente, /montarItinerario/u);
+  assert.match(fuente, /obtenerAtlasSinteticoRRHH/u);
+  assert.match(fuente, /renderizarEstadoEntrega/u);
+  assert.match(fuente, /visual_pendiente_backend/u);
+  assert.match(fuente, /TEXTO_DATOS_FICTICIOS_RRHH/u);
+  assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
 });
 
 test("el formulario propio no recurre a memoria web ni presenta éxito sin respuesta", async () => {
@@ -156,6 +161,17 @@ test("navega por las tres etapas sin convertir el selector en autorización", ()
     raiz.querySelectorAll("button").some((boton) => boton.disabled),
     true,
   );
+  vista.desmontar();
+});
+
+test("selecciona localmente otra comisión sin habilitar efectos", () => {
+  const contenedor = crearRaiz();
+  const vista = montarVistaRecorridosDietas(contenedor);
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  raiz.listeners.click({ target: raiz.querySelector('[data-dietas-seleccionar-comision="DIE-2026-0091"]') });
+  const detalle = raiz.querySelector('[data-dietas-detalle-presentacion="DIE-2026-0091"]');
+  assert.equal(detalle.hidden, false);
+  assert.equal(raiz.querySelectorAll("button").some((boton) => boton.disabled), true);
   vista.desmontar();
 });
 

@@ -1,10 +1,18 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
+import { obtenerAtlasSinteticoRRHH, TEXTO_DATOS_FICTICIOS_RRHH } from "../../datos-sinteticos-rrhh.js";
+import { renderizarEstadoEntrega } from "../../estado-entrega.js";
 
 const ETAPAS = Object.freeze([
   ["solicitante", "recorridos_solicitante"],
   ["jefatura", "recorridos_jefatura"],
   ["gestion", "recorridos_gestion"],
+]);
+
+const COMISIONES_PRESENTACION = Object.freeze([
+  Object.freeze({ referencia: "DIE-2026-0084", fecha: "19/06/2026 · 08:00–14:30", motivo: "Reunión técnica de coordinación", localidades: "Granada · Albolote · Granada", kilometros: "21,6 km", dietas: "Manutención · 22,78 €", gastos: "Kilometraje · 5,62 €", justificantes: "1 justificante declarado", total: "28,40 €", estado: "Pendiente de jefatura", incidencia: "Sin incidencias declaradas" }),
+  Object.freeze({ referencia: "DIE-2026-0091", fecha: "21/06/2026 · 07:30–15:15", motivo: "Visita técnica de obra", localidades: "Granada · Motril · Granada", kilometros: "140,8 km", dietas: "Sin dieta declarada", gastos: "Kilometraje · 36,61 €", justificantes: "Pendiente de adjuntar", total: "36,61 €", estado: "Borrador", incidencia: "Falta justificante de comisión" }),
+  Object.freeze({ referencia: "DIE-2026-0073", fecha: "27/05/2026 · 08:15–17:00", motivo: "Inspección de obra provincial", localidades: "Granada · Guadix · Granada", kilometros: "107,2 km", dietas: "Manutención · 34,01 €", gastos: "Kilometraje · 27,87 €", justificantes: "2 justificantes declarados", total: "61,88 €", estado: "Ejemplo liquidado", incidencia: "Seguimiento del pago pendiente de conexión" }),
 ]);
 
 function elemento(documento, etiqueta, texto = "") {
@@ -61,6 +69,53 @@ function tablaPendiente(documento, t, columnas, etiqueta) {
   tabla.append(thead, tbody);
   region.append(tabla);
   return region;
+}
+
+function tablaPresentacion(documento, t, columnas, seleccionada, incluirUnidad = false) {
+  const region = elemento(documento, "div");
+  region.className = "tabla-contenedor dietas-presentacion-tabla";
+  region.setAttribute("role", "region");
+  region.setAttribute("tabindex", "0");
+  region.setAttribute("aria-label", t("recorridos_datos_ficticios"));
+  const tabla = elemento(documento, "table"); tabla.className = "tabla-datos";
+  const cabecera = elemento(documento, "tr");
+  columnas.forEach((clave) => { const celda = elemento(documento, "th", t(clave)); celda.scope = "col"; cabecera.append(celda); });
+  const thead = elemento(documento, "thead"); thead.append(cabecera);
+  const cuerpo = elemento(documento, "tbody");
+  COMISIONES_PRESENTACION.forEach((comision) => {
+    const fila = elemento(documento, "tr"); fila.dataset.dietasSeleccionada = String(comision.referencia === seleccionada); fila.dataset.dietasComisionRef = comision.referencia;
+    const referencia = elemento(documento, "th"); referencia.scope = "row";
+    const elegir = elemento(documento, "button", comision.referencia); elegir.type = "button"; elegir.className = "enlace-tabla"; elegir.dataset.dietasSeleccionarComision = comision.referencia; elegir.setAttribute("aria-current", String(comision.referencia === seleccionada)); referencia.append(elegir); fila.append(referencia);
+    [comision.fecha, comision.motivo, comision.total].forEach((valor) => fila.append(elemento(documento, "td", valor)));
+    const estado = elemento(documento, "td"); const chip = elemento(documento, "span", comision.estado); chip.className = "estado-chip aviso"; estado.append(chip); fila.append(estado);
+    if (incluirUnidad) fila.append(elemento(documento, "td", obtenerAtlasSinteticoRRHH().unidad.nombre_visible));
+    cuerpo.append(fila);
+  });
+  tabla.append(thead, cuerpo); region.append(tabla); return region;
+}
+
+function detallePresentacion(documento, t, comision, rol) {
+  const seccion = elemento(documento, "section"); seccion.className = "panel dietas-presentacion-detalle"; seccion.dataset.dietasDetallePresentacion = comision.referencia; seccion.setAttribute("tabindex", "-1");
+  const atlas = obtenerAtlasSinteticoRRHH();
+  seccion.append(elemento(documento, "h3", `${t("recorridos_detalle_solicitud")} · ${comision.referencia}`));
+  const datos = elemento(documento, "dl"); datos.className = "dietas-datos-clave";
+  [["recorridos_persona", atlas.persona_principal.nombre_visible], ["recorridos_fechas", comision.fecha], ["motivo", comision.motivo], ["recorridos_localidades", comision.localidades], ["recorridos_kilometros", comision.kilometros], ["recorridos_justificantes_declarados", comision.justificantes]].forEach(([clave, valor]) => { const grupo = elemento(documento, "div"); grupo.append(elemento(documento, "dt", t(clave)), elemento(documento, "dd", valor)); datos.append(grupo); });
+  const conceptos = elemento(documento, "section"); conceptos.className = "dietas-presentacion-conceptos"; conceptos.append(elemento(documento, "h4", t("recorridos_conceptos_declarados")), elemento(documento, "p", `${comision.dietas} · ${comision.gastos}`), elemento(documento, "p", `${t("recorridos_total_ejemplo")}: ${comision.total}`));
+  seccion.append(datos, conceptos);
+  if (rol === "jefatura") ["recorridos_validar", "recorridos_devolver", "recorridos_rechazar"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
+  if (rol === "gestion") ["recorridos_revisar_conceptos", "recorridos_liquidar", "recorridos_seguir_pago"].forEach((clave) => seccion.append(botonPendiente(documento, t, clave)));
+  return seccion;
+}
+
+function detallesPresentacion(documento, t, seleccionada, rol) {
+  const grupo = elemento(documento, "div"); grupo.className = "dietas-presentacion-detalles";
+  COMISIONES_PRESENTACION.forEach((comision) => { const detalle = detallePresentacion(documento, t, comision, rol); detalle.hidden = comision.referencia !== seleccionada; grupo.append(detalle); });
+  return grupo;
+}
+
+function resumenPresentacion(documento, t) {
+  const seccion = elemento(documento, "section"); seccion.className = "dietas-presentacion-kpis";
+  [["recorridos_kpi_comisiones", "3"], ["recorridos_kpi_revision", "1"], ["recorridos_kpi_declarado", "126,89 €"], ["recorridos_kpi_pago", t("recorridos_no_acreditado")]].forEach(([clave, valor]) => { const tarjeta = elemento(documento, "div"); tarjeta.append(elemento(documento, "span", t(clave)), elemento(documento, "strong", valor)); seccion.append(tarjeta); }); return seccion;
 }
 
 function formularioGastos(documento, t) {
@@ -132,13 +187,14 @@ function formularioGastos(documento, t) {
   return seccion;
 }
 
-function panelSolicitante(documento, t, areaBorradores, areaItinerario) {
+function panelSolicitante(documento, t, areaBorradores, areaItinerario, seleccionada) {
   const panel = elemento(documento, "section");
   panel.className = "panel dietas-recorridos-principal";
   panel.dataset.dietasPanelEtapa = "solicitante";
   panel.append(
     elemento(documento, "h3", t("recorridos_solicitante")),
     elemento(documento, "p", t("recorridos_solicitante_ayuda")),
+    resumenPresentacion(documento, t),
     areaBorradores,
   );
   const documentos = elemento(documento, "section");
@@ -166,6 +222,14 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario) {
     botonPendiente(documento, t, "recorridos_hasta"),
   );
   panel.append(documentos);
+  const bandeja = elemento(documento, "section");
+  bandeja.className = "panel dietas-presentacion-bandeja";
+  bandeja.append(
+    elemento(documento, "h3", t("recorridos_mis_solicitudes")),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
+    detallesPresentacion(documento, t, seleccionada, "solicitante"),
+  );
+  panel.append(bandeja);
   if (areaItinerario) panel.append(areaItinerario);
   panel.append(formularioGastos(documento, t));
   const envio = elemento(documento, "section");
@@ -179,7 +243,7 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario) {
   return panel;
 }
 
-function panelJefatura(documento, t) {
+function panelJefatura(documento, t, seleccionada) {
   const panel = elemento(documento, "section");
   panel.className = "panel dietas-recorridos-principal";
   panel.dataset.dietasPanelEtapa = "jefatura";
@@ -193,24 +257,15 @@ function panelJefatura(documento, t) {
     (clave) => {
       const label = elemento(documento, "label", t(clave));
       const input = elemento(documento, "input");
-      input.disabled = true;
+      input.type = "search";
+      input.placeholder = t("recorridos_filtro_ayuda");
       label.append(input);
       filtros.append(label);
     },
   );
   panel.append(
     filtros,
-    tablaPendiente(
-      documento,
-      t,
-      [
-        "recorridos_solicitud",
-        "recorridos_persona",
-        "recorridos_fechas",
-        "cab_estado",
-      ],
-      "recorridos_bandeja",
-    ),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado", "recorridos_unidad"], seleccionada, true),
   );
   const detalle = elemento(documento, "section");
   detalle.className = "dietas-recorridos-acciones";
@@ -222,26 +277,18 @@ function panelJefatura(documento, t) {
     botonPendiente(documento, t, "recorridos_rechazar"),
   );
   panel.append(detalle);
+  panel.append(detallesPresentacion(documento, t, seleccionada, "jefatura"));
   return panel;
 }
 
-function panelGestion(documento, t) {
+function panelGestion(documento, t, seleccionada) {
   const panel = elemento(documento, "section");
   panel.className = "panel dietas-recorridos-principal";
   panel.dataset.dietasPanelEtapa = "gestion";
   panel.append(
     elemento(documento, "h3", t("recorridos_gestion")),
     elemento(documento, "p", t("recorridos_gestion_ayuda")),
-    tablaPendiente(
-      documento,
-      t,
-      [
-        "recorridos_concepto",
-        "recorridos_importe_declarado",
-        "recorridos_total_no_calculado",
-      ],
-      "recorridos_revision_conceptos",
-    ),
+    tablaPresentacion(documento, t, ["recorridos_solicitud", "recorridos_fechas", "motivo", "recorridos_total_ejemplo", "cab_estado"], seleccionada),
   );
   const acciones = elemento(documento, "section");
   acciones.className = "dietas-recorridos-acciones";
@@ -253,6 +300,9 @@ function panelGestion(documento, t) {
     botonPendiente(documento, t, "recorridos_seguir_pago"),
   );
   panel.append(acciones);
+  const comision = COMISIONES_PRESENTACION.find((item) => item.referencia === seleccionada) || COMISIONES_PRESENTACION[0];
+  panel.append(detallesPresentacion(documento, t, seleccionada, "gestion"));
+  const incidencia = elemento(documento, "p", `${t("recorridos_incidencia")}: ${comision.incidencia}`); incidencia.className = "dietas-presentacion-incidencia"; panel.append(incidencia);
   return panel;
 }
 
@@ -278,6 +328,7 @@ export function montarVistaRecorridosDietas(
     montarItinerario,
     anunciar = () => {},
     registrarDesmontar,
+    estadoEntrega = "visual_pendiente_backend",
   } = {},
 ) {
   if (
@@ -301,6 +352,7 @@ export function montarVistaRecorridosDietas(
   contenedor.replaceChildren(raiz);
   let activa = true;
   let etapa = "solicitante";
+  let seleccionada = COMISIONES_PRESENTACION[0].referencia;
   let desmontarBorradores = () => {};
   let desmontarItinerario = () => {};
   const areaBorradores = elemento(documento, "div");
@@ -346,7 +398,9 @@ export function montarVistaRecorridosDietas(
       );
     }
   }
-  const titulo = elemento(documento, "h2", traducir("recorridos_titulo"));
+  const titulo = elemento(documento, "h2", traducir("recorridos_titulo_presentacion"));
+  const subtitulo = elemento(documento, "p", traducir("recorridos_subtitulo_presentacion"));
+  subtitulo.className = "dietas-presentacion-subtitulo";
   const avisoConexion = elemento(
     documento,
     "p",
@@ -354,6 +408,19 @@ export function montarVistaRecorridosDietas(
   );
   avisoConexion.id = "dietas-recorridos-conexion-pendiente";
   avisoConexion.className = "dietas-recorridos-aviso";
+  avisoConexion.innerHTML = renderizarEstadoEntrega({
+    estado: estadoEntrega,
+    resumen: traducir("recorridos_resumen_entrega"),
+    pendientes: [
+      traducir("recorridos_pendiente_catalogos"),
+      traducir("recorridos_pendiente_autoridad"),
+      traducir("recorridos_pendiente_persistencia"),
+      traducir("recorridos_pendiente_adjuntos"),
+      traducir("recorridos_pendiente_liquidacion"),
+    ],
+    fuente: { etiqueta: TEXTO_DATOS_FICTICIOS_RRHH },
+    conexion: traducir("recorridos_conexion_backend"),
+  });
   const pasos = elemento(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_titulo"));
@@ -374,9 +441,10 @@ export function montarVistaRecorridosDietas(
     traducir,
     areaBorradores,
     areaItinerario,
+    seleccionada,
   );
-  const jefatura = panelJefatura(documento, traducir);
-  const gestion = panelGestion(documento, traducir);
+  const jefatura = panelJefatura(documento, traducir, seleccionada);
+  const gestion = panelGestion(documento, traducir, seleccionada);
   const paneles = new Map([
     ["solicitante", solicitante],
     ["jefatura", jefatura],
@@ -386,13 +454,11 @@ export function montarVistaRecorridosDietas(
   const cuerpo = elemento(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   cuerpo.append(solicitante, jefatura, gestion, lateral);
-  raiz.append(titulo, avisoConexion, pasos, cuerpo);
+  raiz.append(titulo, subtitulo, avisoConexion, pasos, cuerpo);
 
   function pintar() {
     if (!activa || !sigueMontada(contenedor, raiz)) return;
-    paneles.forEach((panel, valor) => {
-      panel.hidden = valor !== etapa;
-    });
+    paneles.forEach((panel, valor) => { panel.hidden = valor !== etapa; });
     botonesEtapa.forEach((boton, valor) => {
       if (valor === etapa) boton.setAttribute("aria-current", "step");
       else boton.removeAttribute?.("aria-current");
@@ -415,6 +481,21 @@ export function montarVistaRecorridosDietas(
   }
   function cambiarEtapa(evento) {
     const boton = evento.target?.closest?.("[data-dietas-cambiar-etapa]");
+    const seleccion = evento.target?.closest?.("[data-dietas-seleccionar-comision]");
+    if (seleccion && activa) {
+      seleccionada = seleccion.dataset.dietasSeleccionarComision;
+      raiz.querySelectorAll?.("[data-dietas-comision-ref]").forEach((fila) => {
+        const esActual = fila.dataset.dietasComisionRef === seleccionada;
+        fila.dataset.dietasSeleccionada = String(esActual);
+        fila.querySelector?.("[data-dietas-seleccionar-comision]")?.setAttribute("aria-current", String(esActual));
+      });
+      raiz.querySelectorAll?.("[data-dietas-detalle-presentacion]").forEach((detalle) => {
+        detalle.hidden = detalle.dataset.dietasDetallePresentacion !== seleccionada;
+      });
+      pintar();
+      Array.from(raiz.querySelectorAll?.("[data-dietas-detalle-presentacion]") || []).find((detalle) => detalle.dataset.dietasDetallePresentacion === seleccionada)?.focus?.();
+      return;
+    }
     if (
       !boton ||
       !activa ||
