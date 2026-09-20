@@ -352,9 +352,7 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
 });
 
 
-test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la composición interna", async () => {
-  const datosDemo = Object.freeze({ origen: "sintetico" });
-  const presentacionRecibida = [];
+test("Personal solo monta el catálogo RRHH interno y nunca recibe datos DEMO", async () => {
   const internoRecibido = [];
   const cargadoresPresentacion = {
     base: async () => {
@@ -366,11 +364,7 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     },
     personal: async () => Object.freeze({
       vista: Object.freeze({
-        crearPresentacionPersonalDemo: () => datosDemo,
-        montarModuloPersonal: async (dependencias) => {
-          presentacionRecibida.push(dependencias);
-          return Object.freeze({ desmontar() {} });
-        },
+        montarModuloPersonal: async () => Object.freeze({ desmontar() {} }),
       }),
     }),
   };
@@ -379,10 +373,8 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     cargadoresPresentacion,
   });
   await coordinadorPresentacion.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  assert.equal(await coordinadorPresentacion.montarVista("personal", raizFalsa()), true);
-  assert.deepEqual(presentacionRecibida, [{ raiz: presentacionRecibida[0].raiz, presentacion: datosDemo }]);
-  assert.equal(Object.hasOwn(presentacionRecibida[0], "contextoActor"), false);
-  assert.equal(Object.hasOwn(presentacionRecibida[0], "token"), false);
+  assert.equal(coordinadorPresentacion.vistaDisponible("personal"), false);
+  assert.equal(await coordinadorPresentacion.montarVista("personal", raizFalsa()), false);
 
   const coordinadorInterno = crearCoordinadorModulosPortal({
     escaparHTML: String,
@@ -390,6 +382,8 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
     cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("no debe cargarse"); },
       personal: async () => Object.freeze({
+        contrato: Object.freeze({ CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" }),
+        cliente: Object.freeze({ crearClienteHTTPCategoriasPersonal: () => Object.freeze({ listarCategorias() {} }) }),
         vista: Object.freeze({
           montarModuloPersonal: async (dependencias) => {
             internoRecibido.push(dependencias);
@@ -401,9 +395,23 @@ test("Personal recibe datos DEMO explícitos solo en presentación y nunca en la
   });
   await coordinadorInterno.cargarInterno();
   assert.equal(await coordinadorInterno.montarVista("personal", raizFalsa()), true);
-  assert.deepEqual(internoRecibido, [{ raiz: internoRecibido[0].raiz }]);
+  assert.equal(internoRecibido.length, 1);
+  assert.equal(Object.hasOwn(internoRecibido[0], "cliente"), true);
+  assert.equal(Object.hasOwn(internoRecibido[0], "anunciar"), true);
   assert.equal(Object.hasOwn(internoRecibido[0], "presentacion"), false);
   assert.equal(Object.hasOwn(internoRecibido[0], "token"), false);
+});
+
+test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
+  const categorias = { data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async () => respuestaJSON(categorias) },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
+  });
+  await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
+  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {
@@ -985,8 +993,8 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260906-acceso-certificado-v1";
-  const versionPortal = "20260906-acceso-certificado-v1";
+  const versionCoordinador = "20260920-personal-catalogo-v1";
+  const versionPortal = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260918-botones-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
@@ -999,7 +1007,10 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionPortal}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionPortal}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));

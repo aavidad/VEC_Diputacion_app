@@ -24,6 +24,10 @@ static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/presentador-rutas.js
 static/portal-empleado/modulos/dietas/presentador.js
 static/portal-empleado/modulos/dietas/vista.js
+static/portal-empleado/modulos/personal/cliente-http-categorias.js
+static/portal-empleado/modulos/personal/contrato.js
+static/portal-empleado/modulos/personal/i18n.js
+static/portal-empleado/modulos/personal/vista.js
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js

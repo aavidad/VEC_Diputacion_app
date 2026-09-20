@@ -23,10 +23,10 @@ import {
   rutaDeVistaPortal,
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
-} from "./portal-modulos-coordinador.js?v=20260906-acceso-certificado-v1";
+} from "./portal-modulos-coordinador.js?v=20260920-personal-catalogo-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.

@@ -136,6 +136,30 @@ func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
 	}
 }
 
+func TestHandlerInternoSirveCatalogoPersonalYNiegaAssetsDePruebaOPresentacion(t *testing.T) {
+	handler := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
+	for _, asset := range []string{
+		"contrato.js", "cliente-http-categorias.js", "vista.js", "i18n.js",
+	} {
+		rec := httptest.NewRecorder()
+		ruta := "/portal-empleado/modulos/personal/" + asset + "?v=20260920-personal-catalogo-v1"
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), "javascript") {
+			t.Fatalf("GET %s = %d %q; se esperaba JavaScript servido", ruta, rec.Code, rec.Header().Get("Content-Type"))
+		}
+	}
+	for _, ruta := range []string{
+		"/portal-empleado/modulos/personal/datos-presentacion.js",
+		"/portal-empleado/modulos/personal/cliente-http-categorias.test.mjs",
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("GET %s = %d; se esperaba 404", ruta, rec.Code)
+		}
+	}
+}
+
 func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{

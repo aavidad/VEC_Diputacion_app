@@ -25,6 +25,27 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   sin_importes: "Sin importes reales",
   sin_pago: "Sin pago real",
   sin_datos: "No hay datos para mostrar en este escenario DEMO.",
+  catalogo_sobrelinea: "Portal del Empleado → Personal",
+  catalogo_titulo: "Catálogo profesional vigente",
+  catalogo_ayuda: "Consulta RRHH de solo lectura; no contiene datos de empleado, nómina ni servicios.",
+  catalogo_cargando: "Cargando categorías profesionales…",
+  catalogo_error: "No se pudo consultar el catálogo profesional. No se muestran datos anteriores.",
+  catalogo_demo: "demostracion:true · El catálogo mostrado es una demostración pendiente de validación RRHH; no es una RPT aprobada.",
+  catalogo_publicado: "Procedencia publicada por Personal: el catálogo no acredita por sí solo una RPT aprobada.",
+  catalogo_fuente: "Fuente: revisión {revision}; catálogo {catalogo} v{version}. {aviso}",
+  catalogo_buscar: "Buscar categoría",
+  catalogo_area: "Área",
+  catalogo_accion_buscar: "Buscar",
+  catalogo_vacio: "No hay categorías profesionales para estos filtros.",
+  catalogo_paginacion: "Paginación de categorías profesionales",
+  catalogo_anterior: "Anterior",
+  catalogo_siguiente: "Siguiente",
+  catalogo_recuento_uno: "{total} categoría",
+  catalogo_recuento_otro: "{total} categorías",
+  catalogo_cabecera_nombre: "Categoría",
+  catalogo_cabecera_area: "Área",
+  catalogo_cabecera_estado: "Estado",
+  catalogo_filtro_invalido: "El filtro local no es válido. Revise la búsqueda o el área.",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PERSONAL_ES));
@@ -38,4 +59,13 @@ export function crearTraductorPersonal(catalogo = MENSAJES_PERSONAL_ES) {
     if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Personal desconocida: ${clave}`);
     return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? ""));
   };
+}
+
+export function formatearRecuentoCategorias(total, locale = "es-ES", catalogo = MENSAJES_PERSONAL_ES) {
+  if (!Number.isSafeInteger(total) || total < 0 || typeof locale !== "string" || locale === "") {
+    throw new TypeError("recuento de categorías no válido");
+  }
+  const t = crearTraductorPersonal(catalogo);
+  const numero = new Intl.NumberFormat(locale).format(total);
+  return t(total === 1 ? "catalogo_recuento_uno" : "catalogo_recuento_otro", { total: numero });
 }

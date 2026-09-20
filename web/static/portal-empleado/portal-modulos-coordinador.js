@@ -14,7 +14,7 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260831-ct-catalogo-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
@@ -64,8 +64,12 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, vista, mapa, calculador });
   },
   personal: async () => {
-    const vista = await import("./modulos/personal/vista.js");
-    return Object.freeze({ vista });
+    const [contrato, cliente, vista] = await Promise.all([
+      import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+    ]);
+    return Object.freeze({ contrato, cliente, vista });
   },
 });
 
@@ -81,8 +85,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
   },
   personal: async () => {
-    const vista = await import("./modulos/personal/vista.js");
-    return Object.freeze({ vista });
+    const [contrato, cliente, vista] = await Promise.all([
+      import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+    ]);
+    return Object.freeze({ contrato, cliente, vista });
   },
 });
 
@@ -560,11 +568,17 @@ export function crearCoordinadorModulosPortal({
           cargarPersonal, CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
         );
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        if (typeof recursos?.vista?.montarModuloPersonal !== "function") {
+        if (typeof recursos?.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
+          || typeof recursos?.vista?.montarModuloPersonal !== "function"
+          || recursos?.contrato?.CAPACIDAD_CONSULTAR_PUESTO !== "personal.puesto.read") {
           throw new TypeError("vista de Personal no disponible");
         }
-        // El manifiesto no concede la consulta: no se entrega identidad ni datos.
-        personal = Object.freeze({ montar: recursos.vista.montarModuloPersonal });
+        personal = Object.freeze({
+          cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
+            fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
+          }),
+          montar: recursos.vista.montarModuloPersonal,
+        });
       } catch {
         personal = undefined;
       }
@@ -624,7 +638,7 @@ export function crearCoordinadorModulosPortal({
       return Object.freeze({ disponible: true, vista: "dietas" });
     }
     if (clave === CLAVE_PERSONAL && vistaDisponible("personal")) {
-      return Object.freeze({ disponible: true, vista: "personal", etiqueta: "Consulta de Personal aún no habilitada" });
+      return Object.freeze({ disponible: true, vista: "personal", etiqueta: traducir("personal_catalogo_profesional") });
     }
     if (clave === CLAVE_CONTRATACION_TEMPORAL && !presentacionActiva
       && catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)) {
@@ -737,9 +751,13 @@ export function crearCoordinadorModulosPortal({
     if (vista === "personal") {
       const moduloPersonal = await composicion.personal.montar({
         raiz,
-        ...(presentacionActiva === true
-          ? { presentacion: composicion.personal.presentacion }
-          : {}),
+        cliente: composicion.personal.cliente,
+        anunciar,
+        registrarDesmontar: (limpiar) => {
+          if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida");
+          if (montaje !== secuenciaMontaje) { limpiar(); return; }
+          desmontarVista = limpiar;
+        },
       });
       if (montaje !== secuenciaMontaje) {
         moduloPersonal.desmontar();

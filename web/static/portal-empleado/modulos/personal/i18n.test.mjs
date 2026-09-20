@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MENSAJES_PERSONAL_ES, crearTraductorPersonal } from "./i18n.js";
+import { MENSAJES_PERSONAL_ES, crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js";
 
 test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites", () => {
   const t = crearTraductorPersonal();
@@ -16,4 +16,13 @@ test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites"
 test("el traductor rechaza catálogos y claves incompletos", () => {
   assert.throws(() => crearTraductorPersonal({ titulo: "incompleto" }), /incompleto/);
   assert.throws(() => crearTraductorPersonal()("desconocida"), /desconocida/);
+});
+
+test("el catálogo conectado conserva textos y plural localizados", () => {
+  const t = crearTraductorPersonal();
+  assert.match(t("catalogo_error"), /No se muestran datos anteriores/);
+  assert.match(t("catalogo_demo"), /demostracion:true/);
+  assert.equal(formatearRecuentoCategorias(1), "1 categoría");
+  assert.equal(formatearRecuentoCategorias(1_000), "1000 categorías");
+  assert.throws(() => formatearRecuentoCategorias(-1), /no válido/);
 });
