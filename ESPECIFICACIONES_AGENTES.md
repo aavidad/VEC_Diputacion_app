@@ -75,6 +75,16 @@ se da por cumplido o incumplido. El resultado global permite distinguir:
 - existe un incumplimiento comprobado que debe mostrarse y explicarse; o
 - el plazo está cerrado o ya existe una solicitud.
 
+Cada requisito temporal fija además cuándo debe cumplirse según las bases:
+fecha de solicitud, fin del plazo, inicio del proceso selectivo, prueba,
+incorporación u otra fecha explícita. El expediente puede conservar una
+titulación o condición prevista, su fecha estimada y la evidencia admitida.
+Cuando las bases permitan obtenerla después de solicitar, el resultado será
+`cumplimiento_previsto` y permitirá iniciar la solicitud de forma condicional
+si la fecha estimada no supera el hito exigido. VEC debe revalidarlo en ese hito;
+no convierte una previsión en acreditación ni aplica esta excepción a otras
+convocatorias cuyas bases exijan el requisito al presentar la solicitud.
+
 La evaluación no sustituye la admisión administrativa. Un resultado pendiente
 no bloquea por sí solo el derecho a presentar la solicitud si las bases permiten
 declarar o aportar ese requisito durante el trámite. Al pulsar el aviso se abre
