@@ -84,7 +84,7 @@ func RecursoAutorizableParticipacionesPropias(c ConsultaParticipacionesPropias) 
 // persistencia vuelve a verificarlo y lo consume junto a la auditoría de la
 // lectura; la aplicación no transforma ni reduce sus piezas.
 type AutorizadorParticipacionesPropias interface {
-	AutorizarOperacion(context.Context, string, dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	AutorizarOperacion(context.Context, dominiovec.VinculoAutenticacionActorV2, dominiovec.ResultadoContextoActorRegistradoV2, string, dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
 type ConsultaParticipacionesPropiasPersistente interface {

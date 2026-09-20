@@ -13,7 +13,10 @@ import (
 
 var ErrServicioParticipacionesPropiasInvalido = errors.New("bolsa: servicio de participaciones propias invalido")
 
-type OrdenConsultaParticipacionesPropias struct{ ContextoActor dominiovec.ContextoActor }
+type OrdenConsultaParticipacionesPropias struct {
+	Vinculo   dominiovec.VinculoAutenticacionActorV2
+	Resultado dominiovec.ResultadoContextoActorRegistradoV2
+}
 
 type ServicioParticipacionesPropias struct {
 	autorizador  puertosbolsa.AutorizadorParticipacionesPropias
@@ -37,7 +40,11 @@ func (s *ServicioParticipacionesPropias) Consultar(ctx context.Context, orden Or
 		return vacio, err
 	}
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	candidato, err := candidatoVigenteUnico(orden.ContextoActor, ahora)
+	resultadoContexto, err := orden.Resultado.Clonar()
+	if err != nil || orden.Vinculo.ValidarPara(resultadoContexto) != nil || !orden.Vinculo.VigenteEn(ahora, resultadoContexto) {
+		return vacio, dominiovec.ErrAutorizacionDenegada
+	}
+	candidato, err := candidatoVigenteUnico(resultadoContexto.Contexto, ahora)
 	if err != nil {
 		return vacio, errors.Join(dominiovec.ErrAutorizacionDenegada, err)
 	}
@@ -49,7 +56,7 @@ func (s *ServicioParticipacionesPropias) Consultar(ctx context.Context, orden Or
 	if err != nil {
 		return vacio, errors.Join(dominiovec.ErrAutorizacionDenegada, err)
 	}
-	material, err := s.autorizador.AutorizarOperacion(ctx, puertosbolsa.AccionConsultarParticipacionesPropias, recurso)
+	material, err := s.autorizador.AutorizarOperacion(ctx, orden.Vinculo, resultadoContexto, puertosbolsa.AccionConsultarParticipacionesPropias, recurso)
 	if err != nil {
 		return vacio, errors.Join(dominiovec.ErrAutorizacionDenegada, err)
 	}

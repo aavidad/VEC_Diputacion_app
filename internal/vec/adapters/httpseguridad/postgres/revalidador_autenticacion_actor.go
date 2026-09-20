@@ -72,21 +72,27 @@ func (r *RevalidadorAutenticacionActorPostgreSQL) RevalidarAutenticacionActorV1(
 
 	tx, err := r.pool.BeginTx(ctx, opcionesTransaccion())
 	if err != nil {
-		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorNoDisponibleSaneado(ctx)
 	}
 	defer revertir(tx)
 	if err = prepararTransaccion(ctx, tx); err != nil {
-		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorNoDisponibleSaneado(ctx)
 	}
 
 	resultado, err := consultarAutenticacionActorV1(ctx, tx, solicitud)
-	if err != nil || resultado.Validar() != nil ||
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorRechazadaSaneado(ctx)
+		}
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorNoDisponibleSaneado(ctx)
+	}
+	if resultado.Validar() != nil ||
 		resultado.AutenticacionRef != solicitud.AutenticacionRef ||
 		resultado.SesionRef != solicitud.SesionRef {
-		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorRechazadaSaneado(ctx)
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorNoDisponibleSaneado(ctx)
 	}
 	return resultado, nil
 }
@@ -149,13 +155,25 @@ func instanteUTCPostgreSQL(instante time.Time) time.Time {
 	return instante.UTC().Truncate(time.Microsecond)
 }
 
-func errorRevalidacionActorSaneado(ctx context.Context) error {
+func errorRevalidacionActorRechazadaSaneado(ctx context.Context) error {
 	if !valorNulo(ctx) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 	}
 	return domain.ErrAutenticacionRevalidadaInvalida
+}
+
+func errorRevalidacionActorNoDisponibleSaneado(ctx context.Context) error {
+	if !valorNulo(ctx) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	return errors.Join(
+		domain.ErrAutenticacionRevalidadaInvalida,
+		ports.ErrRevalidacionAutenticacionActorNoDisponible,
+	)
 }
 
 var _ ports.RevalidadorAutenticacionActorV1 = (*RevalidadorAutenticacionActorPostgreSQL)(nil)

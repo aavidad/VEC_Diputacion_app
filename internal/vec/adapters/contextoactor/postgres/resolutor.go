@@ -139,6 +139,7 @@ const (
 	estadoContextoActorCommitIncierto
 	estadoContextoActorAusente
 	estadoContextoActorReintentable
+	estadoContextoActorRechazado
 )
 
 type respuestaContextoActorPostgreSQL struct {
@@ -188,6 +189,11 @@ func errorContextoActorPostgreSQLReintentable(err error) bool {
 	default:
 		return false
 	}
+}
+
+func errorContextoActorPostgreSQLRechazado(err error) bool {
+	var postgres *pgconn.PgError
+	return errors.As(err, &postgres) && postgres.Code == "P0002"
 }
 
 func (r *ResolutorRegistroContextoActorPostgreSQLV2) reconciliar(

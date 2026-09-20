@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestRevalidadorAutenticacionActorProyectaSoloReferenciasOpacas(t *testing.T) {
@@ -152,6 +153,7 @@ func TestRevalidadorAutenticacionActorSaneaFallosTransaccionales(t *testing.T) {
 				context.Background(), solicitud,
 			)
 			if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+				!errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) ||
 				strings.Contains(err.Error(), "secreto") ||
 				strings.Contains(err.Error(), "detalle") {
 				t.Fatal("un error de infraestructura no fue saneado")
