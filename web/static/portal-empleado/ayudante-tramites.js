@@ -29,12 +29,40 @@ function tramitePorId(tramites, id) {
   return tramites.find((tramite) => tramite.id === id) || null;
 }
 
+function validarVista(vista, etiqueta) {
+  if (typeof vista !== "string" || !/^[a-z][a-z0-9-]{0,63}$/u.test(vista)) {
+    throw new TypeError(`${etiqueta} no válida`);
+  }
+  return vista;
+}
+
+function validarTramites(tramites) {
+  if (!Array.isArray(tramites) || tramites.length === 0 || tramites.length > 32) {
+    throw new TypeError("catálogo del ayudante no disponible");
+  }
+  const ids = new Set();
+  for (const tramite of tramites) {
+    if (!tramite || typeof tramite !== "object" || !/^[a-z][a-z0-9-]{0,63}$/u.test(tramite.id || "")
+      || ids.has(tramite.id) || !Array.isArray(tramite.pasos) || tramite.pasos.length === 0) {
+      throw new TypeError("trámite del ayudante no válido");
+    }
+    ids.add(tramite.id);
+    validarVista(tramite.vista, "vista del trámite");
+    for (const paso of tramite.pasos) {
+      if (!paso || typeof paso !== "object") throw new TypeError("paso del ayudante no válido");
+      if (paso.vista !== undefined) validarVista(paso.vista, "vista del paso");
+    }
+  }
+  return tramites;
+}
+
 function resolverPaso(tramite, indice) {
   const paso = tramite.pasos[indice];
   return Object.freeze({
     ...paso,
     selector: paso.selector || tramite.selector,
     activar: paso.activar || tramite.activar,
+    vista: paso.vista || tramite.vista,
     bloqueado: paso.bloqueado ?? true,
   });
 }
@@ -98,24 +126,24 @@ function enfocarDestino(documento, selector, activar) {
  */
 export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMITES_AYUDANTE_PORTAL } = {}) {
   if (typeof escapar !== "function") throw new TypeError("escapador del ayudante no disponible");
-  if (!Array.isArray(tramites) || tramites.length === 0) throw new TypeError("catálogo del ayudante no disponible");
+  const catalogo = validarTramites(tramites);
   return {
     titulo: TEXTO.titulo,
-    contenido: renderizarLista(tramites, escapar),
+    contenido: renderizarLista(catalogo, escapar),
     instalar({ contenedor, documento = globalThis.document, navegar = () => {}, anunciar = () => {}, cerrar = () => {} } = {}) {
       if (!contenedor?.addEventListener || !documento?.querySelector || typeof navegar !== "function") return () => {};
       let tramite = null;
       let paso = 0;
       let detalle = false;
       const pintar = () => {
-        contenedor.innerHTML = tramite ? renderizarPaso(tramite, paso, escapar, detalle) : renderizarLista(tramites, escapar);
+        contenedor.innerHTML = tramite ? renderizarPaso(tramite, paso, escapar, detalle) : renderizarLista(catalogo, escapar);
         contenedor.querySelector("[data-ayudante-tramite], [data-ayudante-ir]")?.focus?.({ preventScroll: true });
       };
       const alPulsar = (evento) => {
         const boton = evento.target?.closest?.("[data-ayudante-tramite], [data-ayudante-anterior], [data-ayudante-siguiente], [data-ayudante-detalle], [data-ayudante-volver], [data-ayudante-ir]");
         if (!boton || boton.disabled) return;
         if (boton.dataset.ayudanteTramite) {
-          tramite = tramitePorId(tramites, boton.dataset.ayudanteTramite); paso = 0; detalle = false; pintar(); return;
+          tramite = tramitePorId(catalogo, boton.dataset.ayudanteTramite); paso = 0; detalle = false; pintar(); return;
         }
         if (!tramite) return;
         if (boton.hasAttribute("data-ayudante-anterior")) { paso -= 1; detalle = false; pintar(); return; }
@@ -125,7 +153,7 @@ export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMIT
         if (boton.hasAttribute("data-ayudante-ir")) {
           const pasoActual = resolverPaso(tramite, paso);
           cerrar();
-          navegar(tramite.vista, { enfocar: false });
+          navegar(pasoActual.vista, { enfocar: false });
           globalThis.setTimeout?.(() => enfocarDestino(documento, pasoActual.selector, pasoActual.activar), 0);
           anunciar(`Guía abierta: ${pasoActual.titulo}. ${pasoActual.limite}`);
         }

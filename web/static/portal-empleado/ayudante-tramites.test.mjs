@@ -66,6 +66,34 @@ test("acepta guías externas sin modificar el motor", () => {
   assert.doesNotMatch(ayudante.contenido, /Crear un borrador de dieta/u);
 });
 
+test("un paso puede navegar a otra vista válida antes de enfocar", () => {
+  const tramite = {
+    id: "guia-compuesta", titulo: "Guía compuesta", modulo: "Módulo", vista: "inicio",
+    selector: "#inicio", resumen: "Dos vistas de un mismo recorrido.",
+    pasos: [
+      { titulo: "Primer paso", instruccion: "Abra la primera vista.", objetivo: "Consultar.", preparacion: "Acceso.", resultado: "Vista abierta.", actor: "Persona.", limite: "Sin efectos.", vista: "primera", selector: "#primera" },
+      { titulo: "Segundo paso", instruccion: "Abra la segunda vista.", objetivo: "Consultar.", preparacion: "Acceso.", resultado: "Vista abierta.", actor: "Persona.", limite: "Sin efectos.", vista: "segunda", selector: "#segunda" },
+    ],
+  };
+  let pulsador;
+  const navegaciones = [];
+  const contenedor = { innerHTML: "", addEventListener(_tipo, fn) { pulsador = fn; }, removeEventListener() {}, querySelector() { return null; } };
+  const ayudante = crearAyudanteTramites({ tramites: [tramite] });
+  ayudante.instalar({ contenedor, documento: { querySelector() { return null; } }, navegar: (vista) => navegaciones.push(vista) });
+  const boton = (dataset = {}, atributos = []) => ({ dataset, disabled: false, hasAttribute: (nombre) => atributos.includes(nombre) });
+  pulsador({ target: { closest: () => boton({ ayudanteTramite: "guia-compuesta" }) } });
+  pulsador({ target: { closest: () => boton({}, ["data-ayudante-ir"]) } });
+  pulsador({ target: { closest: () => boton({}, ["data-ayudante-siguiente"]) } });
+  pulsador({ target: { closest: () => boton({}, ["data-ayudante-ir"]) } });
+  assert.deepEqual(navegaciones, ["primera", "segunda"]);
+});
+
+test("las vistas inválidas del trámite o del paso se rechazan antes de montar", () => {
+  const base = { id: "seguro", titulo: "Seguro", modulo: "Módulo", vista: "inicio", resumen: "Resumen", pasos: [{ titulo: "Paso", instruccion: "Instrucción", objetivo: "Objetivo", preparacion: "Preparación", resultado: "Resultado", actor: "Actor", limite: "Límite" }] };
+  assert.throws(() => crearAyudanteTramites({ tramites: [{ ...base, vista: "#invalida" }] }), /vista del trámite/u);
+  assert.throws(() => crearAyudanteTramites({ tramites: [{ ...base, pasos: [{ ...base.pasos[0], vista: "no válida" }] }] }), /vista del paso/u);
+});
+
 async function renderizarPrimerPaso() {
   let pulsador;
   const contenedor = {
