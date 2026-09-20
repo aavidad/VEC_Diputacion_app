@@ -1,5 +1,38 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Consulta pública de categorías RPT de Personal — presentación local
+
+Este recorrido es de solo lectura y usa la fuente pública RPT versionada que
+incluye el artefacto de presentación. No representa identidad corporativa, no
+acredita vigencia administrativa y no permite modificar puestos ni consultar
+ocupantes.
+
+1. Arranque el perfil aislado de presentación y abra
+   `/portal-empleado/?presentacion=rrhh&perfil=funcionario#personal` desde su
+   proxy local autorizado.
+2. Compruebe que aparecen dos secciones: **Catálogo profesional vigente** y
+   **Puestos y categorías RPT**. La primera conserva su aviso DEMO; la segunda
+   muestra documento de origen, aviso de no vigencia y huella SHA-256.
+3. En **Buscar puesto o categoría**, escriba `administrativo` y pulse
+   **Buscar**. Deben aparecer `ADMINISTRATIVO` y
+   `AUXILIAR ADMINISTRATIVO`, con grupos, escalas, puestos y dotación.
+4. Borre el filtro para recuperar la primera página. La consulta vuelve a
+   empezar; al ser una lectura no existe operación, recibo ni estado que
+   recuperar. En móvil, desplace horizontalmente la región etiquetada de la
+   tabla sin desplazar la página completa.
+
+El navegador no debe recibir cookies ni usar `localStorage`, `sessionStorage`,
+IndexedDB o Cache Storage. Las únicas API de Personal necesarias son el
+catálogo profesional y `GET /api/vec/personal/rpt-publica`; detalle, RPT
+ordinaria, estadísticas y catálogos administrativos permanecen cerrados. La
+fuente RPT esperada tiene SHA-256
+`b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8`.
+
+Para un uso interno real faltan identidad y autorización corporativas,
+auditoría durable y la confirmación administrativa de la fuente. No utilice
+esta pantalla para deducir ocupación, retribuciones, dependencia funcional o
+competencias de aprobación.
+
 ### Comprobar el runtime principal del corte `d1307f61`
 
 La instancia principal sintética sirve el binario SHA256

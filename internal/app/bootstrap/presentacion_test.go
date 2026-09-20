@@ -151,6 +151,33 @@ func TestComposicionPresentacionPersonalConcedeSoloCategoriasSinteticas(t *testi
 	}
 }
 
+func TestComposicionPresentacionPersonalRPTExigeFuenteYSoloConcedeRutaExacta(t *testing.T) {
+	cfg := configuracionPresentacionBootstrap(t)
+	if _, err := NewHTTPServerPresentacionPersonalRPTWithConfig(cfg); !errors.Is(err, ErrComposicionPresentacionRRHHInvalida) {
+		t.Fatalf("arranque sin fuente RPT = %v", err)
+	}
+	cfg.RPTCatalogoPath = "../../../data/catalogos/rpt/v1.rpt-2026.json"
+	servidor, err := NewHTTPServerPresentacionPersonalRPTWithConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peticion := func(metodo, ruta string) *http.Request {
+		r := httptest.NewRequest(metodo, ruta, nil)
+		r.RemoteAddr = "127.0.0.1:50100"
+		return r
+	}
+	for _, caso := range []struct {
+		metodo, ruta string
+		want         int
+	}{{http.MethodGet, "/api/vec/personal/rpt-publica?q=administrativo&limit=1&offset=0", http.StatusOK}, {http.MethodHead, "/api/vec/personal/rpt-publica?q=&limit=1&offset=0", http.StatusOK}, {http.MethodGet, "/api/vec/personal/rpt-publica/administrativo", http.StatusNotFound}, {http.MethodPost, "/api/vec/personal/rpt-publica", http.StatusMethodNotAllowed}, {http.MethodGet, "/api/vec/session", http.StatusNotFound}} {
+		rec := httptest.NewRecorder()
+		servidor.Handler.ServeHTTP(rec, peticion(caso.metodo, caso.ruta))
+		if rec.Code != caso.want {
+			t.Errorf("%s %s = %d: %s", caso.metodo, caso.ruta, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestCargaAmbientalPresentacionComponeTrasNormalizacionesRepetidas(t *testing.T) {
 	t.Setenv(config.EnvAddress, "127.0.0.1:0")
 	t.Setenv(config.EnvHTTPAllowedCIDRs, "127.0.0.1/32,::1/128")

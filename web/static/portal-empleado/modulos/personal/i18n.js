@@ -46,6 +46,29 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   catalogo_cabecera_area: "Área",
   catalogo_cabecera_estado: "Estado",
   catalogo_filtro_invalido: "El filtro local no es válido. Revise la búsqueda o el área.",
+  rpt_sobrelinea: "Portal del Empleado → Personal",
+  rpt_titulo: "Puestos y categorías RPT",
+  rpt_ayuda: "Consulta pública de solo lectura. No muestra ocupantes, datos personales, nivel ni complementos.",
+  rpt_buscar: "Buscar puesto o categoría",
+  rpt_accion_buscar: "Buscar",
+  rpt_cargando: "Cargando RPT pública…",
+  rpt_error: "No se pudo consultar la RPT pública. No se muestran datos anteriores.",
+  rpt_fuente: "Fuente: {documento}. {aviso}",
+  rpt_huella: "Importación: {importacion} · Huella SHA-256: {huella}",
+  rpt_sin_escalas: "No consignada",
+  rpt_vacio: "No hay puestos o categorías para estos filtros.",
+  rpt_tabla: "Tabla de puestos y categorías RPT",
+  rpt_paginacion: "Paginación RPT",
+  rpt_anterior: "Anterior",
+  rpt_siguiente: "Siguiente",
+  rpt_recuento_uno: "{total} categoría RPT",
+  rpt_recuento_otro: "{total} categorías RPT",
+  rpt_cabecera_clave: "Clave",
+  rpt_cabecera_denominacion: "Denominación",
+  rpt_cabecera_grupos: "Grupos",
+  rpt_cabecera_escalas: "Escalas",
+  rpt_cabecera_puestos: "Puestos",
+  rpt_cabecera_dotacion: "Dotación",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PERSONAL_ES));
@@ -68,4 +91,11 @@ export function formatearRecuentoCategorias(total, locale = "es-ES", catalogo = 
   const t = crearTraductorPersonal(catalogo);
   const numero = new Intl.NumberFormat(locale).format(total);
   return t(total === 1 ? "catalogo_recuento_uno" : "catalogo_recuento_otro", { total: numero });
+}
+
+export function formatearRecuentoRPT(total, locale = "es-ES", catalogo = MENSAJES_PERSONAL_ES) {
+  if (!Number.isSafeInteger(total) || total < 0 || typeof locale !== "string" || locale === "") throw new TypeError("recuento RPT no válido");
+  const t = crearTraductorPersonal(catalogo);
+  const numero = new Intl.NumberFormat(locale).format(total);
+  return t(total === 1 ? "rpt_recuento_uno" : "rpt_recuento_otro", { total: numero });
 }

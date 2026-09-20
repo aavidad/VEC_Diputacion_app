@@ -11,7 +11,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	servidor, err := bootstrap.NewHTTPServerPresentacionPersonalWithConfig(cfg)
+	servidor, err := bootstrap.NewHTTPServerPresentacionPersonalRPTWithConfig(cfg)
 	if err != nil {
 		log.Fatalf("componer presentacion RRHH: %v", err)
 	}

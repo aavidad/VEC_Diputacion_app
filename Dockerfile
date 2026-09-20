@@ -117,6 +117,7 @@ COPY --from=build /src/locales /app/locales
 COPY --from=build /src/web-presentacion /app/web
 COPY --chown=app:app data/demo/convocatorias_publicas.demo.json /app/data/demo/convocatorias_publicas.demo.json
 COPY --chown=app:app data/catalogos/categorias-profesionales/v1.demo.json /app/data/catalogos/categorias-profesionales/v1.demo.json
+COPY --chown=app:app data/catalogos/rpt/v1.rpt-2026.json /app/data/catalogos/rpt/v1.rpt-2026.json
 
 USER app
 WORKDIR /app
@@ -132,6 +133,7 @@ ENV VEC_BOLSA_PUBLIC_SOURCE_PATH=/app/data/demo/convocatorias_publicas.demo.json
 ENV VEC_BOLSA_CATEGORIES_SOURCE_PATH=/app/data/catalogos/categorias-profesionales/v1.demo.json
 ENV VEC_BOLSA_CATEGORIES_CATALOG_ID=categorias-profesionales
 ENV VEC_BOLSA_CATEGORIES_CATALOG_VERSION=1
+ENV VEC_RPT_CATALOGO_PATH=/app/data/catalogos/rpt/v1.rpt-2026.json
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-presentacion"]

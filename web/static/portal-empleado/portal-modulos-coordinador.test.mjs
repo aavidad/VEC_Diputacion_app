@@ -402,40 +402,37 @@ test("Personal falla cerrado en presentación sin el cliente HTTP de la concesi�
   assert.equal(Object.hasOwn(internoRecibido[0], "token"), false);
 });
 
-test("Personal de presentación consulta por HTTP la colección sintética concedida", async () => {
+test("Personal de presentación conserva categorías E24 y añade la proyección RPT", async () => {
   const llamadas = [];
-  const categorias = {
+  const rpt = {
     data: {
-      categories: {
+      rpt: {
         items: [{
-          catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo",
-          etiqueta: "Administrativo", name: "Administrativo", orden: 1,
-          area: "administracion_general", area_etiqueta: "Administración general",
-          source: "catalogo_gobernado_vec", module_key: "vec.module.personal",
-          state: "Demostración pendiente de validación RRHH", usage: "Bolsa, RPT, certificados y demás módulos autorizados.",
+          clave: "administrativo", denominacion: "ADMINISTRATIVO", grupos: ["C1"], escalas: ["AG"], puestos: 57, dotacion: 158,
         }],
-        total: 1, limit: 25, offset: 0,
-        catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) },
-        fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." },
+        total: 1, limit: 25, offset: 0, esquema: "vec.catalogo.rpt.v1",
+        fuente: { documento: "RPT publicada", importacion: "rpt-publica-v1", generado_en: "2026-09-17", aviso: "Datos públicos sin ocupantes.", huella_sha256: "a".repeat(64) },
       },
     },
   };
-  const [identidad, catalogo, contrato, cliente, vista] = await Promise.all([
+  const categorias = { data: { categories: { items: [{ catalog: "categoria_profesional", clave: "administrativo", slug: "administrativo", etiqueta: "Administrativo", name: "Administrativo", orden: 1, area: "administracion_general", area_etiqueta: "Administración general", source: "catalogo_gobernado_vec", module_key: "vec.module.personal", state: "Demostración pendiente de validación RRHH", usage: "Bolsa, RPT, certificados y demás módulos autorizados." }], total: 1, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+  const [identidad, catalogo, contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT] = await Promise.all([
     import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
     import("./modulos/personal/contrato.js"), import("./modulos/personal/cliente-http-categorias.js"),
-    import("./modulos/personal/vista.js"),
+    import("./modulos/personal/vista.js"), import("./modulos/personal/cliente-http-rpt-publica.js"),
+    import("./modulos/personal/vista-rpt-publica.js"),
   ]);
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     entorno: {
       fetch: async (ruta, opciones) => {
         llamadas.push({ ruta, opciones });
-        return respuestaJSON(categorias);
+        return respuestaJSON(ruta.startsWith("/api/vec/personal/categories") ? categorias : rpt);
       },
     },
     cargadoresPresentacion: {
       base: async () => Object.freeze({ identidad, catalogo }),
-      personal: async () => Object.freeze({ contrato, cliente, vista }),
+      personal: async () => Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT }),
     },
   });
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
@@ -443,12 +440,11 @@ test("Personal de presentación consulta por HTTP la colección sintética conce
   const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-categorias]"));
-  assert.equal(llamadas.length, 1);
+  assert.ok(raiz.querySelector("[data-personal-rpt-publica]"));
+  assert.equal(llamadas.length, 2);
   assert.equal(llamadas[0].ruta, "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
-  assert.equal(llamadas[0].opciones.method, "GET");
-  assert.equal(llamadas[0].opciones.credentials, "same-origin");
-  assert.equal(llamadas[0].opciones.redirect, "error");
-  assert.equal(Object.hasOwn(llamadas[0].opciones, "headers"), false);
+  assert.equal(llamadas[1].ruta, "/api/vec/personal/rpt-publica?q=&limit=25&offset=0");
+  llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
 });
 
 test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
@@ -1038,16 +1034,19 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
   assert.match(estilos, /data-modulo-portal="cronos"/);
   assert.match(estilos, /forced-colors: active/);
+  assert.match(estilos, /\.modulo-personal\s+\.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere;/);
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-personal-presentacion-http-v1";
-  const versionPortal = "20260920-personal-presentacion-http-v1";
+  const versionCoordinador = "20260920-personal-presentacion-http-v3";
+  const versionPortal = "20260920-personal-presentacion-http-v3";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260918-botones-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
+  const versionRPT = "20260920-personal-rpt-publica-v3";
+  const versionEstilos = "20260920-personal-rpt-publica-v3";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
@@ -1061,7 +1060,10 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
   assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
+  assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));

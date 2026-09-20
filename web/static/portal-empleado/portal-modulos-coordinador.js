@@ -64,12 +64,14 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, vista, mapa, calculador });
   },
   personal: async () => {
-    const [contrato, cliente, vista] = await Promise.all([
+    const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
     ]);
-    return Object.freeze({ contrato, cliente, vista });
+    return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT });
   },
 });
 
@@ -327,18 +329,34 @@ export function crearCoordinadorModulosPortal({
     });
     const personal = cargas.personal?.disponible === true ? (() => {
       const recursos = cargas.personal.recursos;
-      if (typeof recursos.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
-        || typeof recursos.vista?.montarModuloPersonal !== "function") {
+      if (typeof recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal !== "function"
+        || typeof recursos.vistaCategorias?.montarModuloPersonal !== "function"
+        || typeof recursos.clienteRPT?.crearClienteHTTPRPTPublica !== "function"
+        || typeof recursos.vistaRPT?.montarModuloRPTPublica !== "function") {
         return undefined;
       }
       // La concesión del perfil presentacion_rrhh está limitada por el listener
-      // a esta colección sintética. No usa ni representa una identidad
+      // a esta proyección pública de RPT. No usa ni representa una identidad
       // corporativa, y el cliente no adjunta credenciales persistentes.
       return Object.freeze({
-        montar: recursos.vista.montarModuloPersonal,
-        cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
-          fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
-        }),
+        montar: async ({ raiz, anunciar, registrarDesmontar }) => {
+          const fetchImpl = typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
+          const limpiezas = []; let activa = true;
+          const desmontar = () => { if (!activa) return; activa = false; limpiezas.splice(0).reverse().forEach((limpiar) => limpiar()); };
+          // Registrar antes de cualquier espera permite cancelar ambas cargas
+          // aunque la navegación sustituya esta vista durante el montaje.
+          registrarDesmontar?.(desmontar);
+          const registrar = (limpiar) => { if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida"); if (!activa) { limpiar(); return; } limpiezas.push(limpiar); };
+          let categorias;
+          try {
+            [categorias] = await Promise.all([
+              recursos.vistaCategorias.montarModuloPersonal({ raiz, anunciar, registrarDesmontar: registrar, cliente: recursos.clienteCategorias.crearClienteHTTPCategoriasPersonal({ fetchImpl }) }),
+              recursos.vistaRPT.montarModuloRPTPublica({ raiz, anunciar, registrarDesmontar: registrar, cliente: recursos.clienteRPT.crearClienteHTTPRPTPublica({ fetchImpl }) }),
+            ]);
+          } catch (causa) { desmontar(); throw causa; }
+          if (!activa) { categorias?.desmontar(); return Object.freeze({ desmontar }); }
+          return Object.freeze({ desmontar });
+        },
       });
     })() : undefined;
     const contratacionTemporal = componerModuloAislado(

@@ -1,5 +1,39 @@
 # Estado y plan de ataque del proyecto
 
+## Personal: consulta pública de categorías RPT en el Portal — 20 de septiembre de 2026
+
+El corte E25 añade al módulo Personal una consulta web de solo lectura sobre la
+RPT pública versionada de 2026. El Portal conserva el catálogo profesional ya
+conectado y muestra además 145 categorías RPT con búsqueda y paginación. La
+fuente queda inmovilizada por SHA-256
+`b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8`;
+la respuesta proyecta únicamente clave, denominación, grupos, escalas, número
+de puestos y dotación. No expone ocupantes, puestos individuales, niveles ni
+complementos y mantiene visible que la fuente no acredita vigencia
+administrativa.
+
+La capacidad solo está compuesta en el perfil aislado `presentacion_rrhh`, con
+doble guarda y la ruta exacta `GET/HEAD /api/vec/personal/rpt-publica`. No
+amplía roles ni permisos del servidor ordinario. Las demás rutas de Personal,
+la sesión y las rutas hijas continúan cerradas; no se han añadido SQL,
+auditoría durable, recibos, operaciones ni efectos externos.
+
+Dos revisiones independientes de identidad/autorización y
+privacidad/minimización dieron `GO`, sin hallazgos P0–P3, sobre el manifiesto
+exacto `05a5c50a5f04fe6ab609a646b88735145b4bf3450e46f20e7b30ebd872f024c2`.
+Chromium recorrió Portal → Personal en 1440×1000 y 390×844: primera página
+25/145, búsqueda `administrativo`, ambos catálogos visibles, fuente, aviso y
+huella presentes, cero errores de consola o red, cero almacenamiento web y sin
+desbordamiento global; la tabla usa desplazamiento interno en móvil. La
+composición descartable se retiró después de la prueba.
+
+Este cierre acredita una lectura pública de presentación, no identidad
+corporativa ni una RPT administrativamente vigente. Cronos sigue pendiente del
+vínculo gobernado Persona→Empleado y de persistencia autorizada. Dietas sigue
+pendiente del grafo provincial OSRM ausente en este worktree; no se sustituyó
+la fuente ni se inventaron rutas. No cambia métricas ni capacidades de
+Contratación temporal o Bolsa.
+
 ## Bolsa completa su superficie de presentación — 20 de septiembre de 2026
 
 El corte canónico `a899983bf766ceba46ac7f04416dca8985fb1dd2` permite

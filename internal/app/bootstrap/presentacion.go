@@ -8,6 +8,8 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server"
+	personalrpt "vec-diputacion-granada/internal/modules/personal/adapters/rptpublica"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -58,6 +60,43 @@ func NewHTTPServerPresentacionPersonalWithConfig(cfg config.Config) (*http.Serve
 		apiPublica,
 		concesionCategorias,
 	)
+}
+
+// NewHTTPServerPresentacionPersonalRPTWithConfig compone la fuente publica RPT
+// inmovilizada por huella y su proyeccion minima, junto a la vista Personal.
+func NewHTTPServerPresentacionPersonalRPTWithConfig(cfg config.Config) (*http.Server, error) {
+	cfg = cfg.Normalize()
+	if !configuracionPresentacionSinteticaValida(cfg) {
+		return nil, ErrComposicionPresentacionRRHHInvalida
+	}
+	apiPublica, err := NewAPIPublicaBolsaWithConfig(cfg)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	_, categorias, err := nuevasDependenciasCategoriasProfesionales(cfg)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	concesionCategorias, err := vechttp.NewHandlerCategoriasProfesionalesPresentacion(cfg, categorias)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	if strings.TrimSpace(cfg.RPTCatalogoPath) == "" {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, errors.New("bootstrap: fuente RPT publica requerida"))
+	}
+	fuente, err := personalrpt.NuevaFuente(cfg.RPTCatalogoPath)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	consultaRPT, err := personalapp.NuevoServicioConsultaRPTPublica(fuente)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	concesionRPT, err := vechttp.NewHandlerRPTPublicaPresentacion(cfg, consultaRPT)
+	if err != nil {
+		return nil, errors.Join(ErrComposicionPresentacionRRHHInvalida, err)
+	}
+	return server.NewHTTPServerPresentacionPersonalRPT(cfg, apiPublica, concesionCategorias, concesionRPT)
 }
 
 func configuracionPresentacionSinteticaValida(cfg config.Config) bool {
