@@ -374,6 +374,10 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Cuadro B12/);
   assert.match(htmlListo, /Bolsas de trabajo activas \(Cuadro B12\)/);
   assert.match(htmlListo, /12 bolsas/);
+  assert.match(htmlListo, /Resumen del Cuadro B12/);
+  assert.match(htmlListo, /Bolsas visibles/);
+  assert.match(htmlListo, /Aspirantes/);
+  assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
   assert.match(htmlListo, /Ver candidatos/);
   assert.match(htmlListo, /<time datetime="2025-02-04">4\/2\/25<\/time> \(vigente\)/);
@@ -444,6 +448,13 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Claudio/);
   assert.match(htmlB5, /\*\*\*0034\*\*/);
   assert.match(htmlB5, /data-bolsa-accion="abrir-ficha"/);
+  assert.match(htmlB5, /Recorrido de gestión de candidatos/);
+  assert.match(htmlB5, /Resumen de la bolsa/);
+  assert.match(htmlB5, /Consultar historial de contactos/);
+  assert.match(htmlB5, /Nuevo llamamiento/);
+  assert.match(htmlB5, /Registrar resultado/);
+  assert.match(htmlB5, /dependen de C23/);
+  assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
 
   // Con paginación
   const candidatosConPaginacion = {
@@ -726,6 +737,11 @@ test("interfaz B5: deja solo la ficha mientras contactos y efectos no están com
   assert.match(html, /<th scope="col">Acciones<\/th>/);
   assert.match(html, /data-bolsa-accion="abrir-ficha"/);
   assert.match(html, /Acciones pendientes de composición/);
+  assert.match(html, /dependen de C23/);
+  assert.match(html, /Consultar historial de contactos/);
+  assert.match(html, /Nuevo llamamiento/);
+  assert.match(html, /Registrar resultado/);
+  assert.match(html, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
   assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 
   // Modal de contactos abierto con datos

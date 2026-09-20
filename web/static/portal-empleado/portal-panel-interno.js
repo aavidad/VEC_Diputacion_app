@@ -206,6 +206,9 @@ export function crearPresentadorPanelInterno(dependencias) {
         </section>`;
     }
 
+    const totalAspirantes = bolsas.reduce((total, bolsa) => total + Number(bolsa.total || 0), 0);
+    const totalDisponibles = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.disponible || 0), 0);
+    const totalLlamamientosPendientes = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia_pendiente || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
         <td><strong>${escaparHTML(b.categoria)}</strong><br><small>${escaparHTML(b.categoria_clave)}</small></td>
@@ -228,6 +231,12 @@ export function crearPresentadorPanelInterno(dependencias) {
         <div class="cabecera-panel">
           <h3 id="titulo-cuadro-b12">Bolsas de trabajo activas (Cuadro B12)</h3>
           <span class="estado-chip info">${numero(bolsas.length)} bolsas</span>
+        </div>
+        <div class="tarjetas-estado" aria-label="Resumen del Cuadro B12">
+          <article class="tarjeta-estado"><span>Bolsas visibles</span><strong>${numero(bolsas.length)}</strong></article>
+          <article class="tarjeta-estado"><span>Aspirantes</span><strong>${numero(totalAspirantes)}</strong></article>
+          <article class="tarjeta-estado"><span>Disponibles</span><strong>${numero(totalDisponibles)}</strong></article>
+          <article class="tarjeta-estado"><span>Renuncias pendientes</span><strong>${numero(totalLlamamientosPendientes)}</strong></article>
         </div>
         <div class="tabla-contenedor">
           <table class="tabla-datos">
@@ -409,45 +418,67 @@ export function crearPresentadorPanelInterno(dependencias) {
          </div>`
       : "";
 
+    const vigenciaBolsa = bolsa
+      ? (bolsa.vigente_hasta
+        ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
+        : `${fechaVisible(bolsa.vigente_desde)} — vigente`)
+      : "No disponible";
+    const resumenBolsa = bolsa ? `
+      <aside class="resumen-lateral" aria-label="Resumen de la bolsa seleccionada">
+        <section class="panel">
+          <div class="cabecera-panel"><h3>Resumen de la bolsa</h3></div>
+          <div class="cuerpo-panel">
+            <dl class="resumen-expediente">
+              <div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div>
+              <div class="fila-resumen"><dt>Tipo de lista</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div>
+              <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigenciaBolsa)}</dd></div>
+              <div class="fila-resumen"><dt>Personas en bolsa</dt><dd>${numero(bolsa.total)}</dd></div>
+            </dl>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
+          <div class="cuerpo-panel acciones-vista">
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Consultar historial de contactos</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Nuevo llamamiento</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Registrar resultado</button>
+            <p><small>Contacto, llamamiento y resultado dependen de la composición C23. Esta vista no inicia operaciones.</small></p>
+          </div>
+        </section>
+      </aside>` : "";
+
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
-      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados se habilitarán cuando su circuito esté conectado.</section>
-      <section class="panel">
-        <div class="cabecera-panel">
-          <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
-          <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
+      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23.</section>
+      <div class="distribucion-llamamiento">
+        <div>
+          <section class="panel" aria-label="Recorrido de gestión de candidatos">
+            <div class="cuerpo-panel">
+              <ol class="pasos"><li class="paso completado"><span class="paso-numero">1</span><span>Consultar bolsa</span></li><li class="paso" aria-current="step"><span class="paso-numero">2</span><span>Revisar candidaturas</span></li><li class="paso"><span class="paso-numero">3</span><span>Consultar contactos</span></li><li class="paso"><span class="paso-numero">4</span><span>Registrar llamamiento</span></li></ol>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="cabecera-panel">
+              <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
+              <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
+            </div>
+            <div class="cuerpo-panel">${formularioFiltros}</div>
+          </section>
+          <section class="panel">
+            <div class="cabecera-panel"><h3>Relación ordenada de candidatos</h3></div>
+            <div class="tabla-contenedor">
+              <table class="tabla-datos tabla-datos--candidatos">
+                <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
+                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">Documento</th><th scope="col">Situación</th><th scope="col">Desde</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th><th scope="col">Acciones</th></tr></thead>
+                <tbody>${cuerpoTabla}</tbody>
+              </table>
+            </div>
+            ${paginacion}
+          </section>
         </div>
-        <div class="cuerpo-panel">
-          ${formularioFiltros}
-        </div>
-      </section>
-      <section class="panel">
-        <div class="cabecera-panel">
-          <h3>Relación ordenada de candidatos</h3>
-        </div>
-        <div class="tabla-contenedor">
-          <table class="tabla-datos tabla-datos--candidatos">
-            <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
-            <thead>
-              <tr>
-                <th scope="col">Orden</th>
-                <th scope="col">Aspirante</th>
-                <th scope="col">Documento</th>
-                <th scope="col">Situación</th>
-                <th scope="col">Desde</th>
-                <th scope="col">Disponible desde</th>
-                <th scope="col">Último llamamiento</th>
-                <th scope="col">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${cuerpoTabla}
-            </tbody>
-          </table>
-        </div>
-        ${paginacion}
-      </section>
+        ${resumenBolsa}
+      </div>
       ${renderizarModalFicha(typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null)}`;
   }
 
