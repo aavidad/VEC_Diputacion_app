@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>15 temas visuales · VEC Diputación</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/presentacion/temas/temas.css?v=20260920-temas-v1">
+    <script type="module" src="/presentacion/temas/temas.js?v=20260920-temas-v1"></script>
+  </head>
+  <body>
+    <a class="salto" href="#galeria-temas">Saltar a los temas</a>
+    <header class="cabecera-pagina">
+      <a href="/presentacion/" aria-label="Volver a la presentación de VEC">
+        <img src="/assets/logo-diputacion-granada.svg" width="210" height="71" alt="Diputación de Granada">
+      </a>
+      <div>
+        <p class="sobrelinea">VEC · Sistema visual común</p>
+        <h1>15 temas, una sola interfaz</h1>
+        <p>Compara colores y carácter. La estructura, los componentes y el comportamiento son idénticos.</p>
+      </div>
+    </header>
+    <main>
+      <section class="criterio" aria-labelledby="criterio-titulo">
+        <div>
+          <h2 id="criterio-titulo">Elige por número o nombre</h2>
+          <p>Cada muestra contiene navegación, KPI, estado, formulario, acción y mapa. La selección es temporal y no cambia todavía el portal.</p>
+        </div>
+        <output id="tema-elegido" aria-live="polite">Ningún tema seleccionado</output>
+      </section>
+      <section id="galeria-temas" class="galeria-temas" aria-label="Quince alternativas de tema"></section>
+    </main>
+    <template id="plantilla-tema">
+      <article class="tema">
+        <header class="tema-titulo">
+          <div><span class="tema-numero"></span><h2></h2></div>
+          <p class="tema-caracter"></p>
+        </header>
+        <div class="mini-app">
+          <aside class="mini-lateral">
+            <strong>VEC</strong><span>Portal del Empleado</span>
+            <nav aria-label="Módulos de muestra"><b>Inicio</b><b aria-current="page">Dietas</b><b>Personal</b></nav>
+          </aside>
+          <div class="mini-contenido">
+            <header class="mini-cabecera"><span>Portal → Dietas</span><i aria-label="Tres avisos">3</i></header>
+            <div class="mini-cuerpo">
+              <div class="mini-estado"><strong>Comisión en preparación</strong><span>Recorrido visible · sin efectos administrativos</span></div>
+              <div class="mini-kpis">
+                <div><span>COM</span><strong>3</strong><small>Comisiones</small></div>
+                <div><span>REV</span><strong>1</strong><small>Pendiente</small></div>
+                <div><span>EUR</span><strong>126,89 €</strong><small>Declarado</small></div>
+              </div>
+              <section class="mini-panel">
+                <header><strong>Ruta del día</strong><em>En edición</em></header>
+                <div class="mini-trabajo">
+                  <label>Salida<select><option>Granada</option></select></label>
+                  <label>Destino<select><option>Baza</option></select></label>
+                  <button type="button">Calcular ruta</button>
+                  <div class="mini-mapa" role="img" aria-label="Mapa vacío centrado en Granada"><span>Granada</span></div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <footer><button class="elegir-tema" type="button"></button></footer>
+      </article>
+    </template>
+  </body>
+</html>
