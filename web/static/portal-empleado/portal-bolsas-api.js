@@ -314,7 +314,7 @@ export async function registrarResultadoLlamamiento(llamamientoRef, payload, { f
   }
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   function fuenteLectura() {
     const fuente = obtenerFuenteLectura();
     return fuente && typeof fuente === "object" ? fuente : null;
@@ -392,11 +392,21 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
     renderizar();
+    documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
   function cerrarFicha() {
+    const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     estado.modalFicha = null;
     renderizar();
+    if (!participacionRef) return;
+    const controles = documento.querySelectorAll('[data-bolsa-accion="abrir-ficha"][data-bolsa-control-principal="true"]');
+    for (const control of controles) {
+      if (control.dataset.participacionRef === participacionRef) {
+        control.focus?.();
+        return;
+      }
+    }
   }
 
   function cerrarContactos() {
@@ -442,7 +452,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function instalar() {
-    document.addEventListener("click", (evento) => {
+    documento.addEventListener("click", (evento) => {
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
@@ -508,7 +518,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
 
-    document.addEventListener("submit", (evento) => {
+    documento.addEventListener("submit", (evento) => {
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {
         evento.preventDefault();
@@ -610,7 +620,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
 
-    document.addEventListener("keydown", (evento) => {
+    documento.addEventListener("keydown", (evento) => {
       if (evento.key === "Escape" && estado.modalFicha?.abierto) {
         evento.preventDefault();
         cerrarFicha();
