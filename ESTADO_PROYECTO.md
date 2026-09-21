@@ -490,6 +490,46 @@ tiene aún el vhost ni el passthrough mTLS; el listener privado
 `127.0.0.1:8443` sí respondió `200`. Este corte no acredita Mi Bolsa ni
 producción y no cambia las métricas de Contratación temporal.
 
+### Integración canónica de Avisos y bloqueo verificable de Mi Bolsa — 21-09-2026
+
+El commit canónico `96c2a90a` enlaza el aviso sintético
+`DEMO-BORRADOR-001` con ese borrador exacto después de obtener la lista
+autorizada. Conserva un único montaje durante los repintados y cancela la
+comprobación o carga pendiente al sustituir la referencia, salir o desmontar.
+Los perfiles sin permiso positivo de Elaboración conservan los avisos planos,
+pero no reciben la referencia ni el control de acceso al borrador.
+
+La candidata exacta obtuvo revisión independiente final `GO`, con
+`P0=P1=P2=P3=0`, después de corregir esa frontera de autorización. Las cinco
+suites focales terminaron `98/98`; Chromium a 1440×900 y 390×844 comprobó
+teclado, foco, referencia exacta y denegación del perfil técnico, sin carga
+perpetua, desbordamiento, errores de consola, cookies ni almacenamiento web.
+La suite ampliada conserva dos aserciones históricas fuera del corte: una
+espera la versión de caché anterior y otra el atributo `data-id` sustituido por
+`data-bolsa-ref` en el corte B ya integrado. No se publicó ni desplegó.
+
+El siguiente candidato independiente, B-BACK-04/Mi Bolsa paginada v2, se
+revalidó en su worktree preservado: cuatro paquetes Go y `16/16` pruebas Node
+verdes, además de `git diff --check`. No es integrable todavía como recorrido
+funcional canónico por tres hechos comprobados:
+
+- depende del corte base B11 `11ff2643`, que no es ancestro de esta rama y
+  aporta 21 rutas ausentes, incluidas AD3-41, Bolsa-9, montaje web y
+  manifiestos;
+- no existe consumidor de la ruta v2 en `internal/app` ni `cmd`; la única
+  referencia fuera del módulo está en un arranque candidato que sustituye toda
+  el área personal real por Mi Bolsa; y
+- la prueba positiva requiere el fixture institucional de las diez piezas AD3
+  firmadas y la composición del gateway/identidad del área personal. Ese
+  material no está en el repositorio y no debe inventarse.
+
+B-BACK-01 conserva además sus fuentes AD3-44/Bolsa-11 sin instalar: la puerta
+positiva exige el snapshot integral canónico y el LOGIN auditor privado. La
+composición compartida necesaria para B5/B12 continúa reservada al corte activo
+de Módulos. Por tanto no queda otro incremento funcional de Bolsa que pueda
+cerrarse sin una de esas dependencias externas o sin invadir un escritor
+activo; no se integra código aislado ni se presenta una interfaz sin fuente.
+
 ## Cartografía de Dietas conectada al runtime privado — 19 de septiembre de 2026
 
 OSRM usa en el mismo pod privado de VEC el grafo local de Granada, fijado por
