@@ -1,5 +1,37 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa conecta el frontend de borradores y unifica su montaje — 21 de septiembre de 2026
+
+El commit `8aacd789` adapta el portable frontend B sobre la canónica y conecta
+la superficie acotada de B-BACK-01 en **Llamamientos**. RRHH puede preparar un
+resumen sin datos personales o recuperar un borrador por referencia opaca; la
+pantalla no selecciona candidatos, no consulta contactos y no afirma envío,
+plazo, firma ni efecto administrativo. La misma integración monta las vistas
+de Bolsa por el coordinador común, conserva B12/B5, normaliza rutas desconocidas
+a `#portal` y cancela lecturas o guardados pendientes al desmontar.
+
+Se preservan el ayudante de trámites, el modo presentación, Personal/RPT, i18n
+y los módulos de Personal y Dietas sin cambios. El catálogo representa los
+siete módulos registrados sin inventar vistas para Administración o Usuarios.
+El cache busting avanza a `portal.js?v=20260921-bback01-b2`, necesario porque
+los activos versionados son `immutable`.
+
+La puerta focal terminó **122/122** pruebas Node y `git diff --check` limpio.
+Chromium headless recorrió el fallback desconocido, B12 y Llamamientos en la
+presentación estática; montó el formulario de borrador sin errores JavaScript.
+El diff candidato SHA256
+`31b7c3880d2865685649bdcf1bd72450ae9de6a6b754f4ff8860954fcaf60576`
+recibió revisión independiente `GO`, `P0=P1=P2=P3=0`, después de corregir un
+primer `NO-GO` de caché inmutable. La suite ampliada del portal conserva un
+único fallo anterior en `portal-resumen-presentacion.test.mjs`: espera
+`data-id`, mientras la vista canónica ya emite `data-bolsa-ref`; no pertenece
+al write-set de este corte.
+
+No se activó `VEC_BOLSA_BORRADORES_ENABLED`, no se instaló SQL ni se arrancó
+el runtime canónico. Tampoco hubo publicación o despliegue. El recorrido con
+recibo real sigue condicionado a las puertas pendientes del backend A y a una
+identidad/autorización interna válida.
+
 ## Bolsa integra el backend interno de borradores de llamamiento — 21 de septiembre de 2026
 
 El corte canónico `cd17d97a6981f36fc378c11ba0c559470622ed80` adapta e

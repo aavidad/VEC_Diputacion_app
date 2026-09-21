@@ -1,5 +1,29 @@
 # Manual de usuario · Portal VEC y Bolsas de trabajo
 
+## Preparar o recuperar un borrador interno de llamamiento — 21 de septiembre de 2026
+
+Este recorrido está integrado en código, pero todavía no está habilitado en el
+servidor conservado. Cuando Sistemas complete las puertas del backend y active
+la capacidad interna, RRHH podrá:
+
+1. entrar en **Bolsa → Llamamientos**;
+2. escribir únicamente un resumen operativo, sin nombres, DNI, teléfonos,
+   correos ni datos de candidatos, y pulsar **Guardar borrador**;
+3. conservar la referencia y el recibo mostrados por la pantalla; y
+4. recuperar la misma operación introduciendo su referencia opaca, sin crear
+   otro borrador para comprobarla.
+
+Salir de Llamamientos cancela las operaciones pendientes. Salir de
+**Elaboración y borradores** desmonta además su editor, para que una respuesta
+tardía no sustituya la vista actual. Una ruta desconocida vuelve a la portada
+del portal. El borrador no selecciona personas, no inicia contactos, no envía
+correo y no acredita plazo, firma, nombramiento ni efecto administrativo.
+
+La presentación local permite comprobar la composición visual en
+`/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/llamamientos`,
+pero sus datos son sintéticos y la falta de conexión del formulario es
+deliberada mientras el backend no esté activado. No use datos reales.
+
 ## Disponible para enseñar — 10 de septiembre de 2026
 
 Cinco pasos completos y partes del sexto y séptimo, con datos inventados

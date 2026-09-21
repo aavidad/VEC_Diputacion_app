@@ -1,5 +1,41 @@
 # Guía de recorrido y recibos conservados de VEC
 
+## Bolsa · montaje frontend de borradores de llamamiento B-BACK-01
+
+El corte `8aacd789` puede comprobarse sin activar servicios ni SQL:
+
+1. sirva `web/static` en un listener local desechable;
+2. abra
+   `/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/resumen` y
+   compruebe el cuadro B12;
+3. abra
+   `/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/llamamientos`;
+4. compruebe que el asistente existente y **Preparar borrador interno** aparecen
+   juntos, con alta por resumen y recuperación por referencia; y
+5. abra un hash desconocido y verifique que se normaliza a `#portal`.
+
+La comprobación cerrada usó Chromium headless y no produjo errores JavaScript.
+Es solo una prueba del activo estático y del adaptador de presentación: no
+acredita API, identidad, autorización, PostgreSQL, recibo durable, replay tras
+reinicio ni despliegue. El recorrido real requiere activar expresamente
+`VEC_BOLSA_BORRADORES_ENABLED` después de validar e instalar las dependencias
+del backend A. No reaplicar migraciones ya instaladas ni usar datos personales.
+
+Puerta reproducible del corte:
+
+```bash
+node --test web/static/portal-empleado/portal-borrador-llamamiento-api.test.mjs \
+  web/static/portal-empleado/portal-borrador-llamamiento-ui.test.mjs \
+  web/static/portal-empleado/portal-borradores-ui.test.mjs \
+  web/static/portal-empleado/portal-bolsas.test.mjs \
+  web/static/portal-empleado/portal-modulos-coordinador.test.mjs \
+  web/static/portal-empleado/portal.test.mjs \
+  web/static/portal-empleado/portal-llamamientos-vista.test.mjs
+```
+
+Resultado acreditado: `122/122` y revisión independiente `GO` sobre el diff
+SHA256 `31b7c3880d2865685649bdcf1bd72450ae9de6a6b754f4ff8860954fcaf60576`.
+
 ## Itinerario provincial de Dietas — presentación local
 
 Este recorrido consulta cartografía real interna, pero la ruta es orientativa,
