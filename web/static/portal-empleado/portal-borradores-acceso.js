@@ -139,7 +139,18 @@ export function crearControlAccesoBorradores({
     return true;
   }
 
+  function cancelar() {
+    if (fase !== FASE_COMPROBANDO) return false;
+    controlador?.abort();
+    controlador = null;
+    revision += 1;
+    promesa = null;
+    cambiarFase(FASE_INICIAL);
+    return true;
+  }
+
   return Object.freeze({
+    cancelar,
     comprobar,
     invalidar,
     obtenerAcceso: () => accesoVisible(fase, traducir),

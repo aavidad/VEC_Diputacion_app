@@ -4,26 +4,16 @@ import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contra
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
-import {
-  AYUDA_PORTAL_BOLSA,
-  detectarContextoContratacionTemporal,
-  obtenerAyudaContratacionTemporal,
-  renderizarAyudaContratacionTemporal,
-} from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260920-ayudante-tramites-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260921-ciclo-borradores-b2";
+import { crearSuperficieBorradoresPortal, instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20260921-avisos-r5-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-pulido-escritorio-v2";
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import {
-  crearCoordinadorModulosPortal,
-  moduloDeVistaPortal,
-  rutaDeVistaPortal,
-  VISTAS_MODULOS_PERSONALES,
-} from "./portal-modulos-coordinador.js?v=20260921-montaje-modulos-b1";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260921-avisos-r5-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
@@ -170,8 +160,8 @@ function esPerfilRRHH() {
 const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
   montajeBolsa: Object.freeze({
     disponible: (vista) => VISTAS_INTERNAS_BOLSA.includes(vista),
-    montar: ({ vista, raiz }) => {
-      montarVistaBolsa(vista, raiz);
+    montar: ({ vista, raiz, opciones }) => {
+      montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
         controladorBolsas.cancelarPeticiones(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
     },
@@ -493,7 +483,7 @@ function navegar(vista, opciones = {}) {
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
   anunciar(`Vista ${TITULOS[vista][1]} abierta`);
 }
-function montarVistaBolsa(vista, contenedor) {
+function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
   if (vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
   }
@@ -501,7 +491,8 @@ function montarVistaBolsa(vista, contenedor) {
     const superficie = estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
     if (superficie === null) { contenedor.innerHTML = renderizarFuenteNoDisponible(); return; }
     contenedor.innerHTML = superficie.renderizar();
-    void superficie.activar(); return;
+    if (activar) void superficie.activar({ referencia: opciones.referencia });
+    return;
   }
   const vistaBolsas = vista === "resumen" || vista === "bolsa-candidatos";
   if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas
@@ -530,9 +521,12 @@ function montarVistaBolsa(vista, contenedor) {
   contenedor.innerHTML = (renderizadores[vista] || renderizarFuenteNoDisponible)();
   aplicarBarrasDinamicas(contenedor);
 }
-function actualizarVistaBolsa() {
+function actualizarVistaBolsa({ activar = false } = {}) {
   const contenedor = porId("espacio-trabajo");
-  if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) { montarVistaBolsa(estado.vista, contenedor); return; }
+  if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
+    montarVistaBolsa(estado.vista, contenedor, {}, { activar });
+    return;
+  }
   renderizar();
 }
 function renderizar() {
@@ -791,6 +785,10 @@ async function inicializar() {
   controlador.instalar();
   controladorBolsas.instalar();
   instalarMenuBolsa(porId("navegacion-bolsa"));
+  instalarDeeplinkAvisosBorradores({ documento: document, escaparHTML, porId,
+    obtenerAvisos: () => DATOS_PANEL.avisos,
+    disponible: () => estado.modoPresentacion && estado.fuenteLista && vistaPermitida("elaboracion"),
+    navegar, anunciar });
   instalarEventosBorradores();
   await cargarFuenteDatos();
   renderizar();

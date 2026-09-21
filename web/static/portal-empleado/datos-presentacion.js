@@ -62,7 +62,10 @@ const DATOS = {
     periodo_contratos: "Enero a julio de 2026",
   },
   avisos: [
-    { texto: "Informe jurídico pendiente en DEMO-BOL-014." },
+    {
+      texto: "Informe jurídico pendiente en DEMO-BORRADOR-001.",
+      destino: { vista: "elaboracion", etiqueta: "Borradores de convocatorias", estado: "disponible", referencia: "DEMO-BORRADOR-001" },
+    },
     { texto: "Tres llamamientos previstos en siete días." },
     { texto: "Dos circuitos de firma por configurar." },
   ],

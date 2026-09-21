@@ -98,6 +98,55 @@ function asignarRutaEditor(editor, ruta, valor) {
   actual[ultimo] = valor;
 }
 
+export function instalarDeeplinkAvisosBorradores({
+  documento, escaparHTML, porId, obtenerAvisos, disponible, navegar, anunciar,
+} = {}) {
+  if (!documento?.addEventListener || !documento?.removeEventListener
+    || [escaparHTML, porId, obtenerAvisos, disponible, navegar, anunciar]
+      .some((dependencia) => typeof dependencia !== "function")) {
+    throw new TypeError("dependencias del deeplink de avisos no válidas");
+  }
+  const manejarClick = (evento) => {
+    const destino = evento.target?.closest?.("[data-aviso-borrador-ref]");
+    if (destino) {
+      const referencia = destino.dataset.avisoBorradorRef;
+      if (referencia !== "DEMO-BORRADOR-001") return;
+      evento.preventDefault?.();
+      evento.stopImmediatePropagation?.();
+      const dialogo = porId("dialogo-detalle");
+      if (dialogo?.open && typeof dialogo.close === "function") dialogo.close();
+      navegar("elaboracion", { referencia });
+      anunciar("Aviso: Borradores de convocatorias");
+      return;
+    }
+    const botonAvisos = evento.target?.closest?.('.boton-avisos[data-accion="avisos"]');
+    if (!botonAvisos) return;
+    const avisos = obtenerAvisos();
+    const aviso = avisos.find((item) => item?.destino?.vista === "elaboracion"
+      && item.destino.estado === "disponible" && item.destino.referencia === "DEMO-BORRADOR-001");
+    if (!aviso) return;
+    evento.preventDefault?.();
+    evento.stopImmediatePropagation?.();
+    const dialogo = porId("dialogo-detalle");
+    const titulo = porId("titulo-dialogo");
+    const contenido = porId("contenido-dialogo");
+    if (!dialogo || !titulo || !contenido) return;
+    titulo.textContent = "Avisos";
+    const permitido = disponible();
+    const elementos = avisos.filter((item) => permitido || !item?.destino).map((item) => {
+      const textoAviso = `<p>${escaparHTML(item.texto)}</p>`;
+      if (item !== aviso) return `<li>${textoAviso}</li>`;
+      return `<li>${textoAviso}<button type="button" class="boton-secundario" data-aviso-borrador-ref="${escaparHTML(aviso.destino.referencia)}" aria-label="Ir a ${escaparHTML(aviso.destino.etiqueta)}">Ir a ${escaparHTML(aviso.destino.etiqueta)}</button></li>`;
+    }).join("");
+    contenido.innerHTML = `<ul class="lista-avisos-navegables">${elementos || "<li>No hay avisos accesibles.</li>"}</ul>`;
+    if (typeof dialogo.showModal === "function") dialogo.showModal();
+    else dialogo.setAttribute("open", "");
+    queueMicrotask(() => contenido.querySelector("[data-aviso-borrador-ref]")?.focus());
+  };
+  documento.addEventListener("click", manejarClick, { capture: true });
+  return () => documento.removeEventListener("click", manejarClick, { capture: true });
+}
+
 export function crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
@@ -258,7 +307,31 @@ export function crearSuperficieBorradoresPortal({
     }
   }
 
-  async function cargarSuperficie({ forzarAcceso = false } = {}) {
+  function referenciaEnLista(referencia, lista) {
+    return typeof referencia === "string" && referencia !== ""
+      && lista?.elementos?.some((elemento) => elemento?.referencia_estado?.referencia === referencia) === true;
+  }
+
+  function informarReferenciaNoDisponible() {
+    estado.modoEditor = "ninguno";
+    estado.faseEditor = "vacio";
+    estado.referenciaSeleccionada = "";
+    estado.detalle = null;
+    estado.editor = null;
+    estado.sucio = false;
+    estado.errorEditor = {
+      mensaje: "El borrador solicitado no está disponible en la bandeja autorizada.",
+      codigo: "referencia_borrador_no_disponible",
+      correlacion: null,
+      estadoHTTP: 404,
+      tipoConflicto: null,
+      conservarCambiosLocales: false,
+    };
+    notificar();
+    avisar("El borrador solicitado no está disponible");
+  }
+
+  async function cargarSuperficie({ forzarAcceso = false, referencia = "" } = {}) {
     const operacion = operaciones.iniciar("carga");
     estado.faseLista = FASE_CARGANDO;
     estado.errorLista = null;
@@ -290,6 +363,13 @@ export function crearSuperficieBorradoresPortal({
       estado.cursores = [undefined];
       estado.pagina = 0;
       notificar();
+      if (referencia !== "" && !referenciaEnLista(referencia, lista)) {
+        informarReferenciaNoDisponible();
+        return false;
+      }
+      if (referencia !== "") {
+        return cargarDetalle(referencia, { descartarSucio: true });
+      }
       if (estado.modoEditor === "ninguno" && lista.elementos[0]) {
         await cargarDetalle(lista.elementos[0].referencia_estado.referencia, { descartarSucio: true });
       }
@@ -307,12 +387,13 @@ export function crearSuperficieBorradoresPortal({
     }
   }
 
-  function activar() {
+  function activar({ referencia = "" } = {}) {
     desmontada = false;
     if (requiereRevalidar) {
       requiereRevalidar = false;
-      return cargarSuperficie({ forzarAcceso: true });
+      return cargarSuperficie({ forzarAcceso: true, referencia });
     }
+    if (referencia !== "") return cargarSuperficie({ referencia });
     if (estado.faseLista === FASE_INICIAL || estado.faseLista === FASE_ERROR) return cargarSuperficie();
     return Promise.resolve(true);
   }
@@ -322,6 +403,7 @@ export function crearSuperficieBorradoresPortal({
     desmontada = true;
     requiereRevalidar = true;
     operaciones.invalidar();
+    controlAcceso.cancelar();
     for (const controlador of controladoresOpciones) controlador.abort();
     controladoresOpciones.clear();
     if (estado.faseLista === FASE_CARGANDO) estado.faseLista = estado.lista ? FASE_LISTA : FASE_INICIAL;

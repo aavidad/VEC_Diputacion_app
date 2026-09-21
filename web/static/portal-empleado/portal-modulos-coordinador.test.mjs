@@ -885,6 +885,66 @@ test("Bolsa usa el montaje común para B12 y B5 sin sondear vistas desconocidas"
   assert.deepEqual(montajes, ["resumen", "bolsa-candidatos"]);
 });
 
+test("Elaboración se reutiliza al repintar y sustituye solo la referencia o la vista", async () => {
+  const montajes = [];
+  const abortadas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => ["elaboracion", "resumen"].includes(vista),
+      montar: ({ vista, opciones }) => {
+        const controlador = new AbortController();
+        montajes.push({ vista, referencia: opciones.referencia || "", signal: controlador.signal });
+        return { desmontar: () => { controlador.abort(); abortadas.push(vista); } };
+      },
+    },
+  });
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-001" }), true);
+  const inicial = montajes[0];
+  assert.equal(await coordinador.montarVista("elaboracion", raiz), true);
+  assert.equal(montajes.length, 1);
+  assert.equal(inicial.signal.aborted, false);
+  assert.equal(await coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-002" }), true);
+  assert.equal(inicial.signal.aborted, true);
+  assert.deepEqual(montajes.map(({ referencia }) => referencia), ["DEMO-BORRADOR-001", "DEMO-BORRADOR-002"]);
+  const nueva = montajes[1];
+  assert.equal(await coordinador.montarVista("resumen", raiz), true);
+  assert.equal(nueva.signal.aborted, true);
+  assert.deepEqual(abortadas, ["elaboracion", "elaboracion"]);
+});
+
+test("Elaboración reserva el montaje pendiente antes de una reentrada y descarta el resultado sustituido", async () => {
+  const pendientes = [];
+  const abortadas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => vista === "elaboracion",
+      montar: ({ opciones }) => new Promise((resolver) => {
+        const controlador = new AbortController();
+        pendientes.push({ referencia: opciones.referencia || "", controlador, resolver });
+      }),
+    },
+  });
+  const raiz = raizFalsa();
+  const primera = coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-001" });
+  const htmlPendiente = raiz.innerHTML;
+  assert.equal(await coordinador.montarVista("elaboracion", raiz), true);
+  assert.equal(pendientes.length, 1);
+  assert.equal(raiz.innerHTML, htmlPendiente);
+  const segunda = coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-002" });
+  assert.equal(pendientes.length, 2);
+  pendientes[0].resolver({ desmontar: () => { pendientes[0].controlador.abort(); abortadas.push("primera"); } });
+  assert.equal(await primera, false);
+  assert.equal(pendientes[0].controlador.signal.aborted, true);
+  pendientes[1].resolver({ desmontar: () => { pendientes[1].controlador.abort(); abortadas.push("segunda"); } });
+  assert.equal(await segunda, true);
+  coordinador.desmontarVistaActual();
+  assert.equal(pendientes[1].controlador.signal.aborted, true);
+  assert.deepEqual(abortadas, ["primera", "segunda"]);
+});
+
 test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
@@ -1115,8 +1175,8 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260921-montaje-modulos-b1";
-  const versionPortal = "20260921-bback01-b2";
+  const versionCoordinador = "20260921-avisos-r5-v1";
+  const versionPortal = "20260921-avisos-r5-v1";
   const versionBolsaAPI = "20260921-montaje-modulos-b1";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
@@ -1125,6 +1185,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionPulido = "20260920-recorridos-visibles-v1";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
+  const versionFlujos = "20260921-avisos-movil-v1";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
@@ -1143,6 +1204,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
+  assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
   assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionPulido}`));

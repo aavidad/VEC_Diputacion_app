@@ -224,10 +224,10 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260921-bback01-b2/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-montaje-modulos-b1/);
+  assert.match(html, /portal\.js\?v=20260921-avisos-r5-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260921-montaje-modulos-b1/);
-  assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-ciclo-borradores-b2/);
+  assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -237,6 +237,16 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.match(eventos, /case "reintentar-borradores"/);
   assert.match(eventos, /comprobarDisponibilidadBorradores\(\{ forzar: true \}\)/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
+});
+
+test("el montaje de Elaboración conserva la referencia de navegación hasta la superficie", () => {
+  assert.match(javascript, /montar: \(\{ vista, raiz, opciones \}\)/);
+  assert.match(javascript, /function montarVistaBolsa\(vista, contenedor, opciones = \{\}, \{ activar = true \} = \{\}\)/);
+  assert.match(javascript, /superficie\.activar\(\{ referencia: opciones\.referencia \}\)/);
+  assert.match(javascript, /if \(activar\) void superficie\.activar/);
+  assert.match(javascript, /alCambiar: \(\) => \{ if \(estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\); \}/);
+  assert.match(javascript, /function actualizarVistaBolsa\(\{ activar = false \} = \{\}\)/);
+  assert.match(javascript, /superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
 });
 
 test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {

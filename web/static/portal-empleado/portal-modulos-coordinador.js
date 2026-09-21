@@ -266,6 +266,9 @@ export function crearCoordinadorModulosPortal({
   let composicion = null;
   let presentacionActiva = false;
   let desmontarVista = null;
+  let vistaMontada = "";
+  let raizMontada = null;
+  let referenciaElaboracionMontada = "";
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
   let controladorCargaInterna = null;
@@ -281,7 +284,16 @@ export function crearCoordinadorModulosPortal({
     secuenciaMontaje += 1;
     if (typeof desmontarVista === "function") desmontarVista();
     desmontarVista = null;
+    vistaMontada = "";
+    raizMontada = null;
+    referenciaElaboracionMontada = "";
     cancelarCargaInterna();
+  }
+
+  function reutilizarElaboracion(vista, raiz, opciones) {
+    if (vista !== "elaboracion" || vistaMontada !== vista || raizMontada !== raiz) return false;
+    if (opciones === null || typeof opciones !== "object" || !Object.hasOwn(opciones, "referencia")) return true;
+    return opciones.referencia === referenciaElaboracionMontada;
   }
 
   async function cargarPresentacion(sesionBolsa) {
@@ -684,18 +696,39 @@ export function crearCoordinadorModulosPortal({
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
     }
+    if (reutilizarElaboracion(vista, raiz, opciones)) return true;
     desmontarVistaActual();
     const montaje = ++secuenciaMontaje;
+    if (vista === "elaboracion") {
+      vistaMontada = vista;
+      raizMontada = raiz;
+      referenciaElaboracionMontada = opciones?.referencia || "";
+    }
     raiz.innerHTML = `<section class="panel"><div class="cuerpo-panel" role="status">${escaparHTML(traducir("estado_modulo_comprobando"))}</div></section>`;
 
     if (VISTAS_MODULO_BOLSA.has(vista)) {
-      const resultado = await montajeBolsa.montar({ vista, raiz, opciones, anunciar });
+      let resultado;
+      try {
+        resultado = await montajeBolsa.montar({ vista, raiz, opciones, anunciar });
+      } catch (error) {
+        if (montaje === secuenciaMontaje && vista === "elaboracion") {
+          vistaMontada = "";
+          raizMontada = null;
+          referenciaElaboracionMontada = "";
+        }
+        throw error;
+      }
       const limpiar = typeof resultado === "function" ? resultado : resultado?.desmontar;
       if (montaje !== secuenciaMontaje) {
         if (typeof limpiar === "function") limpiar();
         return false;
       }
       desmontarVista = typeof limpiar === "function" ? limpiar : null;
+      if (vista !== "elaboracion") {
+        vistaMontada = vista;
+        raizMontada = raiz;
+        referenciaElaboracionMontada = "";
+      }
       return true;
     }
 

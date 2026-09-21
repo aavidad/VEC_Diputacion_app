@@ -118,6 +118,29 @@ test("un 401 o 403 de otra operación invalida opciones y comprobaciones en curs
   assert.equal(control.obtenerAcceso().estado, "denegado");
 });
 
+test("cancelar aborta una comprobación pendiente, vuelve al inicio y permite otra", async () => {
+  let intentos = 0;
+  let signal;
+  const { cambios, control } = crearControl(({ signal: signalConsulta }) => {
+    intentos += 1;
+    if (intentos === 2) return Promise.resolve(structuredClone(opciones()));
+    signal = signalConsulta;
+    return new Promise((_resolver, rechazar) => {
+      signal.addEventListener("abort", () => rechazar(new DOMException("Cancelada", "AbortError")), { once: true });
+    });
+  });
+  const pendiente = control.comprobar();
+  assert.equal(control.cancelar(), true);
+  assert.equal(signal.aborted, true);
+  assert.equal(await pendiente, false);
+  assert.equal(control.obtenerAcceso().estado, "cargando");
+  assert.equal(control.obtenerOpciones(), null);
+  assert.equal(control.cancelar(), false, "cancelar de nuevo no fabrica otro cambio");
+  assert.equal(await control.comprobar(), true);
+  assert.equal(intentos, 2);
+  assert.deepEqual(cambios.map(({ estado }) => estado), ["cargando", "cargando", "cargando", "disponible"]);
+});
+
 test("el control no contiene fallback DEMO, cookies ni almacenamiento local", async () => {
   const fuente = await readFile(new URL("portal-borradores-acceso.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /datos-presentacion|portal-borradores-demo|presentacion=rrhh/);
