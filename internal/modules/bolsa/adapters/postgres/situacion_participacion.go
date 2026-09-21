@@ -23,6 +23,23 @@ func NuevoRepositorioSituacionParticipacionPostgreSQL(pool *pgxpool.Pool) (*Repo
 	}
 	return &RepositorioSituacionParticipacionPostgreSQL{pool}, nil
 }
+func (r *RepositorioSituacionParticipacionPostgreSQL) ParticipacionPerteneceABolsa(ctx context.Context, bolsaRef, participacionRef string) (bool, error) {
+	if r == nil || r.pool == nil || ctx == nil || bolsaRef == "" || participacionRef == "" {
+		return false, ports.ErrSituacionParticipacionNoDisponible
+	}
+	var pertenece bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1
+		  FROM vec_bolsa_llamamientos.constitucion_entrada AS entrada
+		  JOIN vec_bolsa_llamamientos.constitucion AS constitucion
+		    USING (instantanea_ref,version_instantanea)
+		 WHERE entrada.participacion_ref=$1 AND constitucion.bolsa_ref=$2
+	)`, participacionRef, bolsaRef).Scan(&pertenece)
+	if err != nil {
+		return false, errorSituacionParticipacion(err)
+	}
+	return pertenece, nil
+}
 func (r *RepositorioSituacionParticipacionPostgreSQL) SituacionVigente(ctx context.Context, ref string) (ports.SituacionParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || ref == "" {
 		return ports.SituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible

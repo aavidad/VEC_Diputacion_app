@@ -21,19 +21,30 @@ func (c contextoSituacionPrueba) ResolverContextoSituacionParticipacion(context.
 }
 
 type repositorioSituacionPrueba struct {
-	vigente     puertosbolsa.SituacionParticipacion
-	consultas   int
-	llamadas    int
-	reutilizado *puertosbolsa.RegistroSituacionParticipacion
-	ultimo      puertosbolsa.ComandoCambiarSituacionParticipacion
+	vigente      puertosbolsa.SituacionParticipacion
+	pertenece    bool
+	consultas    int
+	pertenencias int
+	lecturas     int
+	llamadas     int
+	reutilizado  *puertosbolsa.RegistroSituacionParticipacion
+	ultimo       puertosbolsa.ComandoCambiarSituacionParticipacion
+}
+
+func (r *repositorioSituacionPrueba) ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error) {
+	r.consultas++
+	r.pertenencias++
+	return r.pertenece, nil
 }
 
 func (r *repositorioSituacionPrueba) SituacionVigente(context.Context, string) (puertosbolsa.SituacionParticipacion, error) {
 	r.consultas++
+	r.lecturas++
 	return r.vigente, nil
 }
 func (r *repositorioSituacionPrueba) BuscarRegistroSituacion(context.Context, string, string) (puertosbolsa.RegistroSituacionParticipacion, error) {
 	r.consultas++
+	r.lecturas++
 	if r.reutilizado == nil {
 		return puertosbolsa.RegistroSituacionParticipacion{}, puertosbolsa.ErrSituacionParticipacionNoEncontrada
 	}
@@ -60,7 +71,7 @@ func solicitudSituacionPrueba(t *testing.T, ahora time.Time) puertosbolsa.Solici
 func TestServicioSituacionRecuperaElMismoReciboSinNuevaFila(t *testing.T) {
 	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
 	recibo := puertosbolsa.RegistroSituacionParticipacion{Reutilizada: true, ReciboRef: "recibo:situacion:existente", Motivo: "Pausa comunicada", SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "no_disponible", Desde: ahora}}
-	repo := &repositorioSituacionPrueba{reutilizado: &recibo}
+	repo := &repositorioSituacionPrueba{pertenece: true, reutilizado: &recibo}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
 	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
 	resultado, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
@@ -71,7 +82,7 @@ func TestServicioSituacionRecuperaElMismoReciboSinNuevaFila(t *testing.T) {
 
 func TestServicioSituacionCambiaConMotivoYReciboDeterminista(t *testing.T) {
 	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
-	repo := &repositorioSituacionPrueba{vigente: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "disponible", Desde: ahora}}
+	repo := &repositorioSituacionPrueba{pertenece: true, vigente: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "disponible", Desde: ahora}}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
 	servicio, err := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
 	if err != nil {
@@ -86,7 +97,7 @@ func TestServicioSituacionCambiaConMotivoYReciboDeterminista(t *testing.T) {
 
 func TestServicioSituacionRechazaTransicionNoAdmitida(t *testing.T) {
 	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
-	repo := &repositorioSituacionPrueba{vigente: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "disponible", Desde: ahora}}
+	repo := &repositorioSituacionPrueba{pertenece: true, vigente: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "disponible", Desde: ahora}}
 	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repo, func() time.Time { return ahora.Add(-time.Microsecond) })
 	s := solicitudSituacionPrueba(t, ahora)
 	s.Destino = "trabajando"
@@ -99,12 +110,12 @@ func TestServicioSituacionRechazaTransicionNoAdmitida(t *testing.T) {
 
 func TestServicioSituacionDeniegaAntesDeConsultarLaParticipacion(t *testing.T) {
 	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
-	repo := &repositorioSituacionPrueba{}
+	repo := &repositorioSituacionPrueba{pertenece: true}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora, err: dominiovec.ErrAutorizacionDenegada}
 	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
 	_, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
-	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.consultas != 0 || repo.llamadas != 0 {
-		t.Fatalf("err=%v consultas=%d escrituras=%d", err, repo.consultas, repo.llamadas)
+	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.pertenencias != 1 || repo.lecturas != 0 || repo.llamadas != 0 {
+		t.Fatalf("err=%v pertenencias=%d lecturas=%d escrituras=%d", err, repo.pertenencias, repo.lecturas, repo.llamadas)
 	}
 }
 
@@ -116,5 +127,16 @@ func TestServicioSituacionConservaDenegacionDeAmbitoSinConsultarDatos(t *testing
 	_, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
 	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.consultas != 0 || autorizador.llamadas != 0 {
 		t.Fatalf("err=%v consultas=%d autorizaciones=%d", err, repo.consultas, autorizador.llamadas)
+	}
+}
+
+func TestServicioSituacionDeniegaParticipacionAjenaAntesDeAutorizarOLeerEstado(t *testing.T) {
+	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
+	repo := &repositorioSituacionPrueba{}
+	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
+	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
+	_, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
+	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.pertenencias != 1 || repo.lecturas != 0 || autorizador.llamadas != 0 {
+		t.Fatalf("err=%v pertenencias=%d lecturas=%d autorizaciones=%d", err, repo.pertenencias, repo.lecturas, autorizador.llamadas)
 	}
 }

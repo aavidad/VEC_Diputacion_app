@@ -39,6 +39,9 @@ type recuperadorBolsasRRHHPrueba struct {
 
 type situacionesBolsasRRHHPrueba struct{ situacion ports.SituacionParticipacion }
 
+func (situacionesBolsasRRHHPrueba) ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error) {
+	return true, nil
+}
 func (r situacionesBolsasRRHHPrueba) SituacionVigente(context.Context, string) (ports.SituacionParticipacion, error) {
 	return r.situacion, nil
 }

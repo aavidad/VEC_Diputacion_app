@@ -191,6 +191,27 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 		preimagen.AsignacionPerfil.AsignacionID != instantanea.AsignacionPerfil.AsignacionID) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	var huellaRolPreimagen, huellaControlPreimagen string
+	var documentoRolPreimagen, documentoControlPreimagen []byte
+	var err error
+	if preimagen != nil {
+		huellaRolPreimagen, err = preimagen.VersionRol.HuellaSHA256()
+		if err != nil {
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		huellaControlPreimagen, err = preimagen.ControlVigenciaVersionRol.HuellaSHA256()
+		if err != nil {
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		documentoRolPreimagen, err = json.Marshal(preimagen.VersionRol)
+		if err != nil {
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		documentoControlPreimagen, err = json.Marshal(preimagen.ControlVigenciaVersionRol)
+		if err != nil {
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+	}
 	pool := a.pool
 	datosVinculo, err := a.vinculo.Datos()
 	if err != nil {
@@ -261,7 +282,27 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 				actual.identificador == preimagen.AsignacionPerfil.AsignacionID && actual.version == int64(preimagen.AsignacionPerfil.Version) &&
 				actual.perfilRef == preimagen.AsignacionPerfil.PerfilActivoRef && actual.principalID == preimagen.AsignacionPerfil.PrincipalID &&
 				actual.versionRolRef == preimagen.VersionRol.Referencia() && actual.huella == huellaPreimagen
-			if !preimagenExacta || !siguienteExacta {
+			var rolYControlPreimagenExactos bool
+			errPreimagen := tx.QueryRow(ctx, `
+				SELECT true
+				  FROM vec_autorizacion.version_rol AS rol
+				  JOIN vec_autorizacion.control_vigencia_version_rol_actual AS actual
+				    ON actual.version_rol_ref=rol.version_rol_ref
+				  JOIN vec_autorizacion.control_vigencia_version_rol AS control
+				    ON control.version_rol_ref=actual.version_rol_ref AND control.revision=actual.revision
+				 WHERE rol.version_rol_ref=$1 AND rol.rol_id=$2 AND rol.version=$3
+				   AND rol.huella_sha256=$4 AND rol.publicada_en=$5 AND rol.documento=$6::jsonb
+				   AND control.revision=$7 AND control.estado=$8
+				   AND control.huella_sha256=$9 AND control.actualizado_en=$10 AND control.documento=$11::jsonb
+				   AND actual.actualizada_en=$10 AND actual.actualizada_por=$12 AND actual.acto_ref=$13
+				 FOR SHARE OF rol, control, actual`,
+				preimagen.VersionRol.Referencia(), preimagen.VersionRol.RolID, preimagen.VersionRol.Version,
+				huellaRolPreimagen, preimagen.VersionRol.PublicadaEn, documentoRolPreimagen,
+				preimagen.ControlVigenciaVersionRol.Revision, string(preimagen.ControlVigenciaVersionRol.Estado),
+				huellaControlPreimagen, preimagen.ControlVigenciaVersionRol.ActualizadoEn, documentoControlPreimagen,
+				preimagen.ControlVigenciaVersionRol.ActualizadoPor, a.actoControlRol,
+			).Scan(&rolYControlPreimagenExactos)
+			if !preimagenExacta || !siguienteExacta || errPreimagen != nil || !rolYControlPreimagenExactos {
 				return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 			}
 		} else if !yaPublicada && !siguienteExacta {

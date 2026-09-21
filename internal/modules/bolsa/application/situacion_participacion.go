@@ -40,6 +40,13 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 		}
 		return puertosbolsa.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
+	pertenece, err := s.repositorio.ParticipacionPerteneceABolsa(ctx, solicitud.BolsaRef, solicitud.ParticipacionRef)
+	if err != nil {
+		return puertosbolsa.RegistroSituacionParticipacion{}, err
+	}
+	if !pertenece {
+		return puertosbolsa.RegistroSituacionParticipacion{}, dominiovec.ErrAutorizacionDenegada
+	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionCambiarSituacionParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadCambiarSituacionParticipacion, Correlacion: solicitud.Correlacion})
 	if err != nil {

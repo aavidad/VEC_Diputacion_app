@@ -87,6 +87,7 @@ type AutorizadorSituacionParticipacionV3 interface {
 }
 
 type RepositorioSituacionParticipacion interface {
+	ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error)
 	SituacionVigente(context.Context, string) (SituacionParticipacion, error)
 	BuscarRegistroSituacion(context.Context, string, string) (RegistroSituacionParticipacion, error)
 	RegistrarSituacion(context.Context, ComandoCambiarSituacionParticipacion) (RegistroSituacionParticipacion, error)
