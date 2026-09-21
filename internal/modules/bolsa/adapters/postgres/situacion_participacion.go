@@ -30,9 +30,10 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ParticipacionPerteneceABol
 	var pertenece bool
 	err := r.pool.QueryRow(ctx, `SELECT EXISTS (
 		SELECT 1
-		  FROM vec_bolsa_llamamientos.constitucion_entrada AS entrada
-		  JOIN vec_bolsa_llamamientos.constitucion AS constitucion
-		    USING (instantanea_ref,version_instantanea)
+		  FROM vec_bolsa_llamamientos.listar_constituciones_v1() AS constitucion
+		 CROSS JOIN LATERAL vec_bolsa_llamamientos.listar_entradas_constitucion_v1(
+			constitucion.instantanea_ref, constitucion.version_instantanea
+		 ) AS entrada
 		 WHERE entrada.participacion_ref=$1 AND constitucion.bolsa_ref=$2
 	)`, participacionRef, bolsaRef).Scan(&pertenece)
 	if err != nil {
