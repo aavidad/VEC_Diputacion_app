@@ -175,15 +175,8 @@ BEGIN
         p_bolsa_ref, p_version_bolsa, v_huella_bolsa, v_total,
         p_referida_en, p_generada_en, v_ahora
     );
-    FOR v_entrada IN SELECT value FROM jsonb_array_elements(p_entradas) LOOP
-        INSERT INTO vec_bolsa_llamamientos.constitucion_entrada (
-            instantanea_ref, version_instantanea, orden, participacion_ref, fila_numero
-        ) VALUES (
-            p_instantanea_ref, p_version_instantanea,
-            (v_entrada ->> 'orden')::bigint, v_entrada ->> 'participacion_ref',
-            (v_entrada ->> 'fila_numero')::integer
-        );
-    END LOOP;
+    -- La constitución se registra antes que sus entradas: el disparador de
+    -- 000012 que inicia la situación de cada participación la necesita.
     INSERT INTO vec_bolsa_llamamientos.constitucion (
         acta_ref, bolsa_ref, version_bolsa, huella_bolsa_sha256,
         instantanea_ref, version_instantanea, huella_instantanea_sha256,
@@ -193,6 +186,15 @@ BEGIN
         p_instantanea_ref, p_version_instantanea, v_huella_instantanea,
         p_categoria_ref, p_actor_ref, date_trunc('microseconds', p_confirmada_en), v_ahora
     );
+    FOR v_entrada IN SELECT value FROM jsonb_array_elements(p_entradas) LOOP
+        INSERT INTO vec_bolsa_llamamientos.constitucion_entrada (
+            instantanea_ref, version_instantanea, orden, participacion_ref, fila_numero
+        ) VALUES (
+            p_instantanea_ref, p_version_instantanea,
+            (v_entrada ->> 'orden')::bigint, v_entrada ->> 'participacion_ref',
+            (v_entrada ->> 'fila_numero')::integer
+        );
+    END LOOP;
     v_sustituidas := vec_bolsa_llamamientos.sustituir_bolsas_anteriores_v1(p_acta_ref);
     RETURN jsonb_build_object(
         'reutilizada', false, 'acta_ref', p_acta_ref,
