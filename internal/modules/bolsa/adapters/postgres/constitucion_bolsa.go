@@ -44,6 +44,10 @@ type reciboConstitucionJSON struct {
 	InstantaneaRef     string `json:"instantanea_ref"`
 	VersionInstantanea uint64 `json:"version_instantanea"`
 	ConfirmadaEn       string `json:"confirmada_en"`
+	SustituyeA         []struct {
+		BolsaRef     string `json:"bolsa_ref"`
+		VersionBolsa uint64 `json:"version_bolsa"`
+	} `json:"sustituye_a"`
 }
 
 func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c ports.Constitucion) (ports.ReciboConstitucion, error) {
@@ -101,10 +105,14 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 	if err != nil {
 		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaNoDisponible
 	}
+	sustituidas := make([]ports.BolsaSustituida, 0, len(recibo.SustituyeA))
+	for _, s := range recibo.SustituyeA {
+		sustituidas = append(sustituidas, ports.BolsaSustituida{BolsaRef: s.BolsaRef, VersionBolsa: s.VersionBolsa})
+	}
 	return ports.ReciboConstitucion{
 		Reutilizada: recibo.Reutilizada, ActaRef: recibo.ActaRef, BolsaRef: recibo.BolsaRef,
 		VersionBolsa: recibo.VersionBolsa, InstantaneaRef: recibo.InstantaneaRef,
-		VersionInstantanea: recibo.VersionInstantanea, ConfirmadaEn: confirmada,
+		VersionInstantanea: recibo.VersionInstantanea, ConfirmadaEn: confirmada, SustituyeA: sustituidas,
 	}, nil
 }
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
 type argumentosConstituirBolsa struct {
@@ -26,4 +28,16 @@ func leerArgumentosConstituirBolsa(args []string, salida io.Writer) (argumentosC
 		return a, fmt.Errorf("uso: vec-server constituir-bolsa --fichero X.xls --categoria <clave-rpt>")
 	}
 	return a, nil
+}
+
+// describirSustituidas resume las bolsas que la constitución deja extinguidas (B9).
+func describirSustituidas(sustituidas []ports.BolsaSustituida) string {
+	if len(sustituidas) == 0 {
+		return "ninguna"
+	}
+	partes := make([]string, 0, len(sustituidas))
+	for _, s := range sustituidas {
+		partes = append(partes, fmt.Sprintf("%s@%d", s.BolsaRef, s.VersionBolsa))
+	}
+	return strings.Join(partes, ",")
 }

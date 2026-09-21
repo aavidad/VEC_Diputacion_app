@@ -52,6 +52,15 @@ type ReciboConstitucion struct {
 	InstantaneaRef     string
 	VersionInstantanea uint64
 	ConfirmadaEn       time.Time
+	// SustituyeA son las bolsas de la misma categoría que esta constitución
+	// deja extinguidas (B9); vacío si es la primera de su categoría.
+	SustituyeA []BolsaSustituida
+}
+
+// BolsaSustituida identifica una bolsa extinguida por una constitución posterior.
+type BolsaSustituida struct {
+	BolsaRef     string
+	VersionBolsa uint64
 }
 
 // ConstitucionVigente es la última constitución de cada categoría.
