@@ -32,6 +32,7 @@
 1059 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
 987 internal/app/incorporacionejercicio/servicio_test.go
+911 internal/app/server/server.go
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
 1525 internal/modules/bolsa/domain/baremacion.go
@@ -75,11 +76,14 @@
 964 internal/vec/ports/recibo_escritura_objeto_material_v2_test.go
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
-13086 web/static/app.js
+13107 web/static/app.js
 876 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 843 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
-868 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
-1066 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
-873 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
-829 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1115 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
+1075 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+876 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
+1053 web/static/portal-empleado/portal-bolsas.test.mjs
+869 web/static/portal-empleado/portal-borradores-ui.js
+877 web/static/portal-empleado/portal-modulos-coordinador.js
+1212 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 3053 web/static/styles.css

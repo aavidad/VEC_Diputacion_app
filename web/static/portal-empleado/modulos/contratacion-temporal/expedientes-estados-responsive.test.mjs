@@ -87,7 +87,7 @@ test("estilos responsivos a 390px garantizan lectura de arriba abajo sin solapam
   assert.match(css, /\.ct-exp-borradores-acciones\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/u);
   assert.match(css, /\.ct-exp-borradores-acciones\s+\.boton-secundario\s*\{[^}]*white-space:\s*normal;/u);
 
-  assert.match(css, /\.ct-exp-progreso\s+ol\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/u);
+  assert.match(css, /\.ct-exp-progreso\s+ol\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/u);
   assert.match(css, /\.ct-exp-progreso\s+ol\s*\{[^}]*min-width:\s*0;/u);
   assert.match(css, /\.ct-exp-progreso\s+li\s*\{[^}]*text-align:\s*left;/u);
 

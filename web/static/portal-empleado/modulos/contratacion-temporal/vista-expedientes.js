@@ -392,6 +392,24 @@ export async function montarModuloContratacionTemporal({
       await cambiarVista(controlVista.dataset.ctExpVista);
       return;
     }
+    const resumen = evento.target?.closest?.("[data-ct-exp-resumen]");
+    if (resumen && raiz.contains(resumen)) {
+      evento.preventDefault();
+      const resumenId = resumen.getAttribute?.("aria-controls") || "";
+      const filaResumen = raiz.ownerDocument?.getElementById?.(resumenId);
+      if (!filaResumen || !raiz.contains(filaResumen)) return;
+      const abrirResumen = resumen.getAttribute?.("aria-expanded") !== "true";
+      const controles = raiz.querySelectorAll?.("[data-ct-exp-resumen]") || [];
+      controles.forEach((control) => {
+        const id = control.getAttribute?.("aria-controls") || "";
+        const fila = raiz.ownerDocument?.getElementById?.(id);
+        if (!fila || !raiz.contains(fila)) return;
+        const abierto = control === resumen && abrirResumen;
+        control.setAttribute?.("aria-expanded", String(abierto));
+        fila.hidden = !abierto;
+      });
+      return;
+    }
     const abrir = evento.target?.closest?.("[data-ct-exp-abrir]");
     if (abrir && raiz.contains(abrir)) {
       evento.preventDefault();

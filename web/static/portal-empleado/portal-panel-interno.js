@@ -211,7 +211,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const totalLlamamientosPendientes = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia_pendiente || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-        <td><strong>${escaparHTML(b.categoria)}</strong><br><small>${escaparHTML(b.categoria_clave)}</small></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button><br><small>${escaparHTML(b.categoria_clave)}</small></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><strong>${numero(b.total)}</strong></td>
@@ -220,9 +220,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip peligro">${numero(b.por_estado?.no_disponible)}</span></td>
         <td><span class="estado-chip peligro">${numero(b.por_estado?.excluido)}</span></td>
         <td><span class="estado-chip">${numero(b.por_estado?.renuncia_pendiente)}</span></td>
-        <td>
-          <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">Ver candidatos</button>
-        </td>
       </tr>
     `).join("");
 
@@ -252,7 +249,6 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">No disp.</th>
                 <th scope="col">Excluidos</th>
                 <th scope="col">Renuncia pend.</th>
-                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -314,7 +310,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!estadoCandidatos || estadoCandidatos.carga === "cargando") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
             <p><strong>Cargando lista de candidatos…</strong></p>
             <p>Obteniendo las candidaturas y llamamientos de la bolsa seleccionada.</p>
@@ -325,7 +321,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoCandidatos.carga === "error") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Error al consultar candidatos</strong></p>
             <p>${escaparHTML(estadoCandidatos.error || "No se pudo cargar la relación de aspirantes.")}</p>
@@ -340,7 +336,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (estadoCandidatos.carga === "denegado") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
-        <section class="panel">
+        <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Acceso denegado</strong></p>
             <p>La sesión no dispone de permisos para consultar los candidatos de esta bolsa.</p>
@@ -353,6 +349,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     const bolsa = estadoCandidatos.datos?.bolsa;
     const candidatos = estadoCandidatos.datos?.candidatos || [];
+    const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
 
@@ -390,7 +387,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     let cuerpoTabla = "";
     if (candidatos.length === 0) {
-      cuerpoTabla = `<tr><td colspan="8" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
+      cuerpoTabla = `<tr><td colspan="7" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
     } else {
       cuerpoTabla = candidatos.map((c) => {
         let detalleLlamamiento = '<small class="texto-atenuado">Sin llamamientos</small>';
@@ -399,19 +396,20 @@ export function crearPresentadorPanelInterno(dependencias) {
           detalleLlamamiento = `<span>${escaparHTML(etiquetaClave(l.canal))} · ${escaparHTML(etiquetaClave(l.resultado))}<br><small><time datetime="${escaparHTML(l.comunicado_en)}">${escaparHTML(instanteVisible(l.comunicado_en))}</time></small></span>`;
         }
 
-        const acciones = `<button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-participacion-ref="${escaparHTML(c.participacion_ref)}">Ver ficha</button>`;
-
+        const fichaAbierta = modalFicha?.abierto === true
+          && modalFicha.candidato?.participacion_ref === c.participacion_ref;
+        const fichaId = `ficha-participacion-${c.participacion_ref}`;
         return `
           <tr data-participacion-ref="${escaparHTML(c.participacion_ref)}">
             <td><strong>#${numero(c.orden)}</strong></td>
-            <td><strong>${escaparHTML(c.nombre_visible)}</strong></td>
+            <td><button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
             <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
-            <td class="acciones-candidato">${acciones}</td>
-          </tr>`;
+          </tr>
+          ${fichaAbierta ? renderizarModalFicha(modalFicha, fichaId) : ""}`;
       }).join("");
     }
 
@@ -453,7 +451,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
-      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23.</section>
+      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23 y se habilitarán cuando su circuito esté conectado.</section>
       <div class="distribucion-llamamiento">
         <div>
           <section class="panel" aria-label="Recorrido de gestión de candidatos">
@@ -461,7 +459,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               <ol class="pasos"><li class="paso completado"><span class="paso-numero">1</span><span>Consultar bolsa</span></li><li class="paso" aria-current="step"><span class="paso-numero">2</span><span>Revisar candidaturas</span></li><li class="paso"><span class="paso-numero">3</span><span>Consultar contactos</span></li><li class="paso"><span class="paso-numero">4</span><span>Registrar llamamiento</span></li></ol>
             </div>
           </section>
-          <section class="panel">
+          <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
             <div class="cabecera-panel">
               <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
               <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
@@ -473,7 +471,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="tabla-contenedor">
               <table class="tabla-datos tabla-datos--candidatos">
                 <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
-                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">Documento</th><th scope="col">Situación</th><th scope="col">Desde</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th><th scope="col">Acciones</th></tr></thead>
+                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">Documento</th><th scope="col">Situación</th><th scope="col">Desde</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th></tr></thead>
                 <tbody>${cuerpoTabla}</tbody>
               </table>
             </div>
@@ -481,11 +479,10 @@ export function crearPresentadorPanelInterno(dependencias) {
           </section>
         </div>
         ${resumenBolsa}
-      </div>
-      ${renderizarModalFicha(typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null)}`;
+      </div>`;
   }
 
-  function renderizarModalFicha(modal) {
+  function renderizarModalFicha(modal, fichaId) {
     if (!modal || !modal.abierto) return "";
     const candidato = modal.candidato;
     const bolsa = modal.bolsa;
@@ -501,29 +498,31 @@ export function crearPresentadorPanelInterno(dependencias) {
       : `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>Sin llamamientos registrados</dd></div>`;
 
     return `
-      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-ficha">
-        <div class="modal-contenido" tabindex="-1">
-          <div class="cabecera-panel">
-            <h3 id="titulo-modal-ficha">Ficha de participación</h3>
-            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="Cerrar ficha de participación">×</button>
-          </div>
-          <div class="cuerpo-panel">
-            <p><strong>${escaparHTML(candidato.nombre_visible)}</strong> · <code>${escaparHTML(candidato.documento_enmascarado)}</code></p>
-            <dl class="resumen-expediente">
-              <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
-              <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
-              <div class="fila-resumen"><dt>Orden</dt><dd>#${numero(candidato.orden)}</dd></div>
-              <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
-              ${disponibilidad}
-              <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
-              ${ultimoLlamamiento}
-            </dl>
-          </div>
-          <div class="acciones-vista">
-            <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">Cerrar</button>
-          </div>
-        </div>
-      </div>`;
+      <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
+        <td colspan="7">
+          <section id="${escaparHTML(fichaId)}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1" aria-labelledby="titulo-${escaparHTML(fichaId)}">
+            <div class="cabecera-panel">
+              <h3 id="titulo-${escaparHTML(fichaId)}">Ficha de participación</h3>
+              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="Cerrar ficha de participación">×</button>
+            </div>
+            <div class="cuerpo-panel">
+              <p><strong>${escaparHTML(candidato.nombre_visible)}</strong> · <code>${escaparHTML(candidato.documento_enmascarado)}</code></p>
+              <dl class="resumen-expediente">
+                <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
+                <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
+                <div class="fila-resumen"><dt>Orden</dt><dd>#${numero(candidato.orden)}</dd></div>
+                <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
+                ${disponibilidad}
+                <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
+                ${ultimoLlamamiento}
+              </dl>
+            </div>
+            <div class="acciones-vista">
+              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">Cerrar</button>
+            </div>
+          </section>
+        </td>
+      </tr>`;
   }
 
   function renderizarModalContactos(modal) {

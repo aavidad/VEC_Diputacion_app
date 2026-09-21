@@ -62,6 +62,6 @@ test("el resumen conserva semántica accesible y escapa los datos sintéticos", 
   assert.match(html, /role="img" aria-label="20 disponibles/);
   assert.match(html, /Auxiliares &lt;prueba&gt;/);
   assert.doesNotMatch(html, /<script>/);
-  assert.match(html, /data-id="DEMO-1&quot;&gt;&lt;script&gt;"/);
+  assert.match(html, /data-bolsa-ref="DEMO-1&quot;&gt;&lt;script&gt;"/);
   assert.match(html, /Presentación RRHH/);
 });

@@ -85,7 +85,7 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
 });
 
 test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Dietas", async () => {
-  assert.deepEqual([...VISTAS_MODULOS_PERSONALES], ["cronos", "dietas"]);
+  assert.deepEqual([...VISTAS_MODULOS_PERSONALES], ["cronos", "dietas", "personal"]);
   assert.ok(VISTAS_MODULOS_CONECTADOS.has("contratacion-temporal"));
   assert.equal(moduloDeVistaPortal("resumen"), "bolsa");
   assert.equal(moduloDeVistaPortal("contratacion-temporal"), "contratacion_temporal");
@@ -94,8 +94,8 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Di
   assert.equal(rutaDeVistaPortal("resumen"), "#bolsa/resumen");
   assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
-  assert.match(coordinadorFuente, /crearPresentadorCronos/);
-  assert.match(coordinadorFuente, /montarModuloDietas/);
+  assert.match(coordinadorFuente, /componerCronosVisible/);
+  assert.match(coordinadorFuente, /componerDietasVisible/);
   assert.match(coordinadorPruebas, /Cronos y Dietas montan contenido administrativo/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);

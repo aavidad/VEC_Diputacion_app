@@ -478,7 +478,9 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Aspirantes/);
   assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
-  assert.match(htmlListo, /Ver candidatos/);
+  const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
+  assert.match(htmlListo, new RegExp(`<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
+  assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   assert.match(htmlListo, /<time datetime="2025-02-04">4\/2\/25<\/time> \(vigente\)/);
   assert.match(htmlListo, /<time datetime="2025-03-07">7\/3\/25<\/time> — <time datetime="2025-12-31">31\/12\/25<\/time>/);
   assert.match(htmlListo, /<time datetime="2025-03-07T11:30:00Z">7\/3\/25, 12:30<\/time> — <time datetime="2025-12-31T09:30:00Z">31\/12\/25, 10:30<\/time>/);
@@ -575,10 +577,12 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlErr, /Volver al cuadro/);
 });
 
-test("presentadorPanelInterno muestra ficha B5 solo con los campos del contrato de candidatos", () => {
+test("presentadorPanelInterno muestra la ficha B5 en línea junto al único candidato seleccionado", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
   const candidato = datos.candidatos[0];
+  const segundoCandidato = datos.candidatos[1];
+  let modalFicha = null;
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
     encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
@@ -588,16 +592,135 @@ test("presentadorPanelInterno muestra ficha B5 solo con los campos del contrato 
     tituloVista: (v) => v,
     obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
     obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
-    obtenerModalFicha: () => ({ abierto: true, candidato, bolsa: datos.bolsa }),
+    obtenerModalFicha: () => modalFicha,
   });
 
-  const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /Ficha de participación/);
-  assert.match(html, /Referencia de participación/);
-  assert.match(html, new RegExp(candidato.participacion_ref));
-  assert.match(html, /data-bolsa-accion="cerrar-ficha"/);
-  const ficha = html.slice(html.indexOf('id="titulo-modal-ficha"'));
+  const htmlInicial = presentador.renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(htmlInicial, /Ficha de participación/);
+  assert.match(htmlInicial, /data-bolsa-control-principal="true"/);
+  assert.match(htmlInicial, /aria-expanded="false"/);
+  assert.doesNotMatch(htmlInicial, /Ficha en aspirante|<th scope="col">Acciones<\/th>/);
+
+  modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
+  const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
+  const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
+  assert.match(htmlAbierto, /Ficha de participación/);
+  assert.match(htmlAbierto, /Referencia de participación/);
+  assert.match(htmlAbierto, new RegExp(candidato.participacion_ref));
+  assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
+  assert.match(htmlAbierto, new RegExp(`aria-expanded="true" aria-controls="${fichaId}"`));
+  assert.match(htmlAbierto, new RegExp(`</tr>\\s*<tr class="fila-ficha-participacion" data-ficha-participacion-ref="${candidato.participacion_ref}"`));
+  assert.doesNotMatch(htmlAbierto, /role="dialog"|aria-modal="true"|modal-fondo/);
+  assert.match(htmlAbierto, new RegExp(`id="${fichaId}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1"`));
+  const ficha = htmlAbierto.match(new RegExp(`<section id="${fichaId}"[\\s\\S]*?</section>`))[0];
   assert.doesNotMatch(ficha, /correo|teléfono|puntuación|relación laboral/i);
+
+  modalFicha = { abierto: true, candidato: segundoCandidato, bolsa: datos.bolsa };
+  const htmlSegundo = presentador.renderizarVista("bolsa-candidatos");
+  assert.equal((htmlSegundo.match(/fila-ficha-participacion/g) || []).length, 1);
+  assert.match(htmlSegundo, new RegExp(`data-ficha-participacion-ref="${segundoCandidato.participacion_ref}"`));
+  assert.match(htmlSegundo, new RegExp(`data-participacion-ref="${candidato.participacion_ref}"[^>]*>[\\s\\S]*?aria-expanded="false"`));
+
+  modalFicha = null;
+  const htmlCerrado = presentador.renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
+});
+
+test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const focos = [];
+  const documento = {
+    querySelector(selector) {
+      assert.equal(selector, "[data-bolsa-ficha-inline='true']");
+      return { focus: () => focos.push("ficha") };
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, '[data-bolsa-accion="abrir-ficha"][data-bolsa-control-principal="true"]');
+      return [
+        { dataset: { participacionRef: "otra-participacion" }, focus: () => focos.push("otro") },
+        { dataset: { participacionRef: candidato.participacion_ref }, focus: () => focos.push("control-principal") },
+      ];
+    },
+  };
+  let renderizados = 0;
+  const estado = {
+    datosCandidatos: { carga: "listo", datos, error: "" },
+    modalFicha: null,
+  };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renderizados += 1; },
+    navegar: () => {},
+    documento,
+  });
+
+  controlador.abrirFicha(candidato.participacion_ref);
+  assert.equal(estado.modalFicha.candidato.participacion_ref, candidato.participacion_ref);
+  assert.deepEqual(focos, ["ficha"]);
+
+  controlador.cerrarFicha();
+  assert.equal(estado.modalFicha, null);
+  assert.deepEqual(focos, ["ficha", "control-principal"]);
+  assert.equal(renderizados, 2);
+});
+
+test("el acceso B12 abre la lectura B5 de su propia bolsa sin ejecutar mutaciones", async () => {
+  const { envelopeBolsas, envelopeCandidatos } = construirFixturesDesdeDemo();
+  const bolsas = validarRespuestaBolsas(envelopeBolsas);
+  const candidatos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const bolsaRef = bolsas.bolsas[0].bolsa_ref;
+  const oyentes = new Map();
+  const navegaciones = [];
+  const consultas = [];
+  const focos = [];
+  let prevenido = false;
+  const documento = {
+    addEventListener(tipo, oyente) { oyentes.set(tipo, oyente); },
+    querySelector(selector) {
+      assert.equal(selector, "[data-bolsa-b5-destino='true']");
+      return { focus: () => focos.push("b5") };
+    },
+    querySelectorAll() { return []; },
+  };
+  const estado = {
+    bolsaSeleccionada: "",
+    filtrosBolsa: { estado: "", texto: "" },
+    datosCandidatos: null,
+  };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => {},
+    navegar: (vista) => navegaciones.push(vista),
+    obtenerFuenteLectura: () => ({
+      consultarCandidatosBolsa: async (referencia, opciones) => {
+        consultas.push({ referencia, opciones });
+        return { ok: true, datos: candidatos };
+      },
+    }),
+    documento,
+  });
+
+  controlador.instalar();
+  oyentes.get("click")({
+    target: {
+      closest(selector) {
+        return selector === '[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]'
+          ? { dataset: { bolsaRef } }
+          : null;
+      },
+    },
+    preventDefault() { prevenido = true; },
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+
+  assert.equal(prevenido, true);
+  assert.equal(estado.bolsaSeleccionada, bolsaRef);
+  assert.deepEqual(navegaciones, ["bolsa-candidatos"]);
+  assert.deepEqual(consultas, [{ referencia: bolsaRef, opciones: { estado: "", texto: "", cursor: "" } }]);
+  assert.equal(estado.datosCandidatos.datos.bolsa.bolsa_ref, bolsaRef);
+  assert.deepEqual(focos, ["b5"]);
 });
 
 test("las vistas de bolsa no contienen la palabra demo en sus textos visibles", () => {
@@ -833,8 +956,8 @@ test("interfaz B5: deja solo la ficha mientras contactos y efectos no están com
 
   const html = presentador.renderizarVista("bolsa-candidatos");
 
-  // Columna Acciones en cabecera
-  assert.match(html, /<th scope="col">Acciones<\/th>/);
+  // El aspirante es el único control principal para abrir la ficha.
+  assert.doesNotMatch(html, /<th scope="col">Acciones<\/th>/);
   assert.match(html, /data-bolsa-accion="abrir-ficha"/);
   assert.match(html, /Acciones pendientes de composición/);
   assert.match(html, /dependen de C23/);

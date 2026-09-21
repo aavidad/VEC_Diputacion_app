@@ -7,7 +7,7 @@ import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/prese
 import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -47,6 +47,124 @@ function adaptador(perfil = "administrador") {
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
 }
+
+test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen inicial cerrado", async () => {
+  const fuente = adaptador();
+  const cuadro = await fuente.listar();
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarCuadro({
+    vista: "cuadro",
+    carga: "listo",
+    cuadro,
+    filtros: { texto: "", estado: "", fase: "" },
+  }, t);
+  const primerExpediente = cuadro.expedientes[0];
+
+  assert.ok(html.indexOf("ct-exp-listado") < html.indexOf("ct-exp-operativo"));
+  const resumenId = `ct-exp-resumen-${primerExpediente.expediente_ref}`;
+  assert.match(html, new RegExp(
+    `data-ct-exp-resumen aria-controls="${resumenId}" aria-expanded="false"`,
+    "u",
+  ));
+  assert.match(html, new RegExp(
+    `<tr class="ct-exp-fila-resumen" id="${resumenId}" data-ct-exp-resumen-fila[\\s\\S]*?hidden>`,
+    "u",
+  ));
+  assert.match(html, new RegExp(
+    `<tr>[\\s\\S]*?${primerExpediente.numero_visible}[\\s\\S]*?</tr>\\s*<tr class="ct-exp-fila-resumen"`,
+    "u",
+  ));
+  assert.match(html, new RegExp(`aria-label="Resumen del expediente ${primerExpediente.numero_visible}"`, "u"));
+  assert.match(html, new RegExp(
+    `data-ct-exp-abrir="${primerExpediente.expediente_ref}"[\\s\\S]*?Abrir expediente completo`,
+    "u",
+  ));
+});
+
+test("el resumen inicial escapa datos de la fila y conserva texto y clase de estado", () => {
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarCuadro({
+    vista: "cuadro",
+    carga: "listo",
+    cuadro: {
+      demostracion: false,
+      indicadores: [],
+      expedientes: [{
+        expediente_ref: 'expediente:ct:resumen:&lt;script&gt;',
+        numero_visible: "CT-<1>",
+        centro: "Centro <seguro>",
+        categoria: "Categoría <segura>",
+        modalidad: "Modalidad <segura>",
+        estado_clave: "en_curso",
+        estado: "En curso <seguro>",
+        fase_actual: "Análisis <seguro>",
+        plazo: "Hoy <seguro>",
+      }],
+    },
+    filtros: { texto: "", estado: "", fase: "" },
+  }, t);
+
+  assert.match(html, /aria-label="Resumen del expediente CT-&lt;1&gt;"/u);
+  assert.match(html, /Centro &lt;seguro&gt;/u);
+  assert.match(html, /class="ct-exp-chip ct-fase-en_curso">En curso &lt;seguro&gt;<\/span>/u);
+  assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"/u);
+  assert.doesNotMatch(html, /<script>/u);
+});
+
+test("el control de resumen abre una fila, cierra las demás y no selecciona expediente", async () => {
+  const fuente = adaptador();
+  const presentador = presentadorDe(fuente);
+  await presentador.cargar();
+  const eventos = new Map();
+  const crearControl = (id) => {
+    const atributos = new Map([["aria-controls", id], ["aria-expanded", "false"]]);
+    const control = {
+      getAttribute: (nombre) => atributos.get(nombre) || null,
+      setAttribute: (nombre, valor) => atributos.set(nombre, valor),
+      closest: (selector) => selector === "[data-ct-exp-resumen]" ? control : null,
+    };
+    return { control, atributos };
+  };
+  const primero = crearControl("ct-exp-resumen-uno");
+  const segundo = crearControl("ct-exp-resumen-dos");
+  const filas = new Map([
+    ["ct-exp-resumen-uno", { hidden: true }],
+    ["ct-exp-resumen-dos", { hidden: true }],
+  ]);
+  const raiz = {
+    innerHTML: "",
+    ownerDocument: { getElementById: (id) => filas.get(id) || null },
+    addEventListener: (tipo, manejador) => eventos.set(tipo, manejador),
+    removeEventListener: (tipo) => eventos.delete(tipo),
+    querySelector: () => null,
+    querySelectorAll: (selector) => selector === "[data-ct-exp-resumen]"
+      ? [primero.control, segundo.control] : [],
+    contains: () => true,
+  };
+  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
+  try {
+    const click = eventos.get("click");
+    await click({ target: primero.control, preventDefault() {} });
+    assert.equal(primero.atributos.get("aria-expanded"), "true");
+    assert.equal(filas.get("ct-exp-resumen-uno").hidden, false);
+    assert.equal(segundo.atributos.get("aria-expanded"), "false");
+    assert.equal(filas.get("ct-exp-resumen-dos").hidden, true);
+
+    await click({ target: segundo.control, preventDefault() {} });
+    assert.equal(primero.atributos.get("aria-expanded"), "false");
+    assert.equal(filas.get("ct-exp-resumen-uno").hidden, true);
+    assert.equal(segundo.atributos.get("aria-expanded"), "true");
+    assert.equal(filas.get("ct-exp-resumen-dos").hidden, false);
+
+    await click({ target: segundo.control, preventDefault() {} });
+    assert.equal(segundo.atributos.get("aria-expanded"), "false");
+    assert.equal(filas.get("ct-exp-resumen-dos").hidden, true);
+    assert.equal(presentador.obtenerEstado().vista, "cuadro");
+    assert.equal(presentador.obtenerEstado().expediente_ref, "");
+  } finally {
+    montaje.desmontar();
+  }
+});
 
 test("el alta disponible no concede capacidades de consulta", async () => {
   let consultas = 0;

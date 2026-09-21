@@ -18,6 +18,9 @@ go test ./... -count=1 -timeout 20m
 go test -race ./... -count=1 -timeout 30m
 go vet ./...
 go build ./cmd/...
+# Pruebas web (Node >= 20, sin dependencias): el portal y los clientes HTTP
+# tienen su propia suite y hasta hoy no formaba parte de la puerta.
+node --test $(git ls-files 'web/**/*.test.mjs')
 scripts/verificar_dependencias_superficie_publica.sh
 scripts/probar_verificador_dependencias_superficie_publica.sh
 scripts/verificar_dependencias_superficie_interna.sh

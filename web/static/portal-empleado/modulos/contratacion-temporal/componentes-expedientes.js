@@ -153,8 +153,13 @@ export function renderizarCuadro(estado, t) {
       <button type="button" class="boton-secundario" data-ct-exp-accion="limpiar-filtros">${escaparHTML(t("limpiar_filtros"))}</button>
     </div>
   </form>`;
-  const filas = cuadro.expedientes.map((expediente) => `<tr>
-    <th scope="row">${escaparHTML(expediente.numero_visible)}</th>
+  const filas = cuadro.expedientes.map((expediente) => {
+    const resumenId = `ct-exp-resumen-${expediente.expediente_ref}`;
+    const controlId = `ct-exp-resumen-control-${expediente.expediente_ref}`;
+    return `<tr>
+    <th scope="row"><button type="button" class="enlace-tabla" id="${escaparHTML(controlId)}"
+      data-ct-exp-resumen aria-controls="${escaparHTML(resumenId)}" aria-expanded="false"
+      aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">${escaparHTML(expediente.numero_visible)}</button></th>
     <td>${escaparHTML(expediente.centro)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
     <td>${escaparHTML(expediente.modalidad)}</td>
@@ -162,7 +167,24 @@ export function renderizarCuadro(estado, t) {
     <td>${escaparHTML(expediente.fase_actual)}</td>
     <td>${escaparHTML(expediente.plazo)}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
-  </tr>`).join("");
+  </tr>
+  <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-exp-resumen-fila
+    aria-labelledby="${escaparHTML(controlId)}" hidden>
+    <td colspan="8">
+      <section aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">
+        <dl>
+          <div><dt>${escaparHTML(t("columna_centro"))}</dt><dd>${escaparHTML(expediente.centro)}</dd></div>
+          <div><dt>${escaparHTML(t("columna_categoria"))}</dt><dd>${escaparHTML(expediente.categoria)}</dd></div>
+          <div><dt>${escaparHTML(t("columna_modalidad"))}</dt><dd>${escaparHTML(expediente.modalidad)}</dd></div>
+          <div><dt>${escaparHTML(t("columna_estado"))}</dt><dd><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></dd></div>
+          <div><dt>${escaparHTML(t("columna_fase"))}</dt><dd>${escaparHTML(expediente.fase_actual)}</dd></div>
+          <div><dt>${escaparHTML(t("columna_plazo"))}</dt><dd>${escaparHTML(expediente.plazo)}</dd></div>
+        </dl>
+        <button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("resumen_abrir_expediente"))}</button>
+      </section>
+    </td>
+  </tr>`;
+  }).join("");
   const tabla = `<section class="panel ct-exp-listado">
     <div class="cabecera-panel">
       <h3>${escaparHTML(t("tabla_expedientes"))}</h3>
@@ -194,8 +216,8 @@ export function renderizarCuadro(estado, t) {
   </nav>` : "";
   const trabajoOperativo = renderizarTrabajoOperativo(cuadro, t);
   const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a></p>`;
-  return `${indicadores}${organizacion}${trabajoOperativo}${filtros}${estado.carga === "vacio"
-    ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}`;
+  return `${indicadores}${organizacion}${filtros}${estado.carga === "vacio"
+    ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}${trabajoOperativo}`;
 }
 
 // La incidencia se explica con lo que el detalle ya trae: la fase marcada, el

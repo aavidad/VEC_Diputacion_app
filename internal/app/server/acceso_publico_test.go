@@ -38,7 +38,7 @@ func TestSuperficiePublicaSirveLandingAccesoSinIdentidad(t *testing.T) {
 					t.Error("landing ofrece navegacion publica a bolsas")
 				}
 				for _, contenido := range []string{
-					"Cl@ve", "Certificado digital", "DNIe", "Acceso pendiente de configuración",
+					"Cl@ve", "Certificado digital", "DNIe", "Métodos de identificación no disponibles",
 				} {
 					if !strings.Contains(landing, contenido) {
 						t.Errorf("landing no contiene %q", contenido)
@@ -46,7 +46,7 @@ func TestSuperficiePublicaSirveLandingAccesoSinIdentidad(t *testing.T) {
 				}
 				if strings.Contains(landing, "auth.vec.dipgra.cloud") ||
 					strings.Contains(landing, "href=\"/acceso/inicio/") ||
-					strings.Count(landing, "disabled aria-describedby=\"estado-acceso\"") != 3 {
+					strings.Count(landing, "disabled aria-describedby=\"estado-acceso") != 3 {
 					t.Error("landing ofrece navegación pública a bolsas, un acceso autenticado activo o no deshabilita los tres métodos")
 				}
 			}

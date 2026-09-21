@@ -300,8 +300,9 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
   assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
-  const evaluacionesPresentacion = datos.slice(datos.indexOf("const EVALUACIONES_PRESENTACION"));
-  assert.doesNotMatch(evaluacionesPresentacion, /puntuacion|Puntuación/);
+  // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna
+  // «Puntuación» en las incidencias de importación es un texto, no una puntuación.
+  assert.doesNotMatch(datos, /puntuaci[oó]n[a-z_]*\s*:/i);
   assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 
